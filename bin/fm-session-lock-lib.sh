@@ -17,6 +17,10 @@ FM_HARNESS_RE='claude|codex|opencode|grok|kimi|^pi$'
 # between a hook or tool call and the session, and Claude Code 2.1.220 grew that
 # tree, so the walk carries headroom rather than truncating before it reaches
 # the session that owns the home.
+# This budget covers the bash implementations only. The Pi extensions and the
+# OpenCode plugin ask the same membership question against the same state/.lock
+# inside their own runtimes and keep their own budgets, so changing this value
+# does not reach them.
 FM_ANCESTRY_HOPS=12
 
 # True when pid $1 names a verified harness process. Liveness is not checked:
