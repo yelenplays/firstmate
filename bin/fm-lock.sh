@@ -2,7 +2,10 @@
 # Acquire or inspect the per-home firstmate session lock.
 # Writes the harness (agent) process PID found by walking the shell's ancestry,
 # which lives as long as the firstmate session - unlike the transient subshell
-# PID of any one tool call, which is dead moments after it is written.
+# PID of any one tool call, which is dead moments after it is written, and
+# unlike the harness's own helper processes, which rotate mid-session.
+# An existing lock is refused only when it was recorded OUTSIDE this session's
+# ancestry, so a session is never refused a home it already holds.
 # Usage: fm-lock.sh           acquire; exit 1 unless ownership is verified
 #        fm-lock.sh status    print holder and liveness; always exits 0
 set -u
@@ -66,7 +69,11 @@ if [ -e "$LOCK" ] || [ -L "$LOCK" ]; then
     echo "error: session lock is unreadable; operate read-only until resolved" >&2
     exit 1
   }
-  if [ "$old" != "$me" ] && fm_harness_pid_alive "$old"; then
+  # Ask the ownership question, not a pid equality: a recorded pid that differs
+  # from $me but still sits in this session's ancestry is this session's own
+  # earlier claim - a helper generation, or a pid minted by another adapter or
+  # an older firstmate on this same session - and must never refuse itself.
+  if ! fm_session_lock_owned_by_self "$STATE" && fm_harness_pid_alive "$old"; then
     echo "error: another live firstmate session holds the lock (pid $old); operate read-only until resolved" >&2
     exit 1
   fi

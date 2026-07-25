@@ -109,11 +109,37 @@ test_owned_lock_is_silent() {
   pass "fm-sessionstart-nudge: a lock holder in process ancestry is already run"
 }
 
+# A resume or clear fires SessionStart from inside the harness's own helper
+# tree, so the lock holder is an ancestor of an ancestor. Ownership is chain
+# membership, not nearest-harness-ancestor, or the wrapper re-nudges a session
+# that already ran session start.
+test_owned_lock_behind_harness_helper_is_silent() {
+  local root="$TMP_ROOT/already-ran-nested" fake="$TMP_ROOT/fakebin-nudge/claude"
+  make_primary "$root"
+  mkdir -p "$(dirname "$fake")"
+  ln -s /bin/bash "$fake"
+  cat > "$root/helper.sh" <<'SH'
+printf '%s\n' "$$" > "$FM_HOME/state/helper-pid"
+FM_GATE_REFUSE_BYPASS=0 FM_ROOT_OVERRIDE="$FM_HOME" "$FM_NUDGE"
+SH
+  cat > "$root/session.sh" <<'SH'
+printf '%s\n' "$$" > "$FM_HOME/state/session-pid"
+printf '%s\n' "$$" > "$FM_HOME/state/.lock"
+"$FM_TEST_HELPER_HARNESS" "$FM_HOME/helper.sh"
+SH
+  expect_silent_zero "owned lock behind helper" env FM_HOME="$root" FM_NUDGE="$NUDGE" \
+    FM_TEST_HELPER_HARNESS="$fake" "$fake" "$root/session.sh"
+  [ "$(cat "$root/state/session-pid")" != "$(cat "$root/state/helper-pid")" ] \
+    || fail "nested nudge fixture collapsed: the helper level must be its own process"
+  pass "fm-sessionstart-nudge: an owned lock stays silent from behind the harness's own helper"
+}
+
 test_opencode_plugin_delivers_exact_nudge_once() {
   local root="$TMP_ROOT/opencode-primary" out status=0
   make_primary "$root"
   cp "$ROOT/bin/fm-sessionstart-nudge.sh" "$ROOT/bin/fm-primary-scope-lib.sh" \
-    "$ROOT/bin/fm-gate-refuse-lib.sh" "$ROOT/bin/fm-operational-input.sh" "$root/bin/"
+    "$ROOT/bin/fm-gate-refuse-lib.sh" "$ROOT/bin/fm-operational-input.sh" \
+    "$ROOT/bin/fm-session-lock-lib.sh" "$root/bin/"
   chmod +x "$root/bin/fm-sessionstart-nudge.sh"
   out=$(PLUGIN="$ROOT/.opencode/plugins/fm-primary-sessionstart-nudge.js" \
     WORKTREE="$root" EXPECTED="$NUDGE_LINE" node --input-type=module 2>&1 <<'EOF'
@@ -193,5 +219,6 @@ test_unmarked_linked_worktree_is_silent
 test_linked_secondmate_primary_nudges
 test_missing_state_is_silent
 test_owned_lock_is_silent
+test_owned_lock_behind_harness_helper_is_silent
 test_opencode_plugin_delivers_exact_nudge_once
 test_tracked_harness_registration

@@ -76,6 +76,43 @@ run_autoarm() {
   return "$rc"
 }
 
+# Run <command> inside a session -> helper -> command process tree where BOTH
+# the session and the helper carry a harness command name, the shape Claude Code
+# 2.1.220 creates by interposing its daemon, pty host, and bg-spare helper
+# between the session that owns the home and every hook or tool call it fires.
+# The session records its own pid in state/.lock, and both pids are published so
+# a caller can prove the helper level really exists instead of trusting that
+# bash did not collapse it away.
+# $1 = fixture dir, remaining args = command line to run at the innermost level.
+run_behind_harness_helper() {
+  local dir=$1 rc=0
+  shift
+  cat > "$dir/helper.sh" <<'SH'
+printf '%s\n' "$$" > "$FM_HOME/state/helper-pid"
+"$@"
+SH
+  cat > "$dir/session.sh" <<'SH'
+printf '%s\n' "$$" > "$FM_HOME/state/session-pid"
+printf '%s\n' "$$" > "$FM_HOME/state/.lock"
+"$FM_TEST_HELPER_HARNESS" "$FM_HOME/helper.sh" "$@"
+SH
+  printf '%s\n' '{"session_id":"sess-nested","stop_hook_active":false}' \
+    | FM_HOME="$dir" FM_TEST_HELPER_HARNESS="$FAKE_CLAUDE" \
+      "$FAKE_CLAUDE" "$dir/session.sh" "$@" 2>&1 || rc=$?
+  return "$rc"
+}
+
+# Fail unless run_behind_harness_helper really produced a distinct helper level.
+assert_helper_level_exists() {
+  local dir=$1 session helper
+  session=$(cat "$dir/state/session-pid" 2>/dev/null || true)
+  helper=$(cat "$dir/state/helper-pid" 2>/dev/null || true)
+  { [ -n "$session" ] && [ -n "$helper" ]; } \
+    || fail "nested fixture did not publish both pids (session=$session helper=$helper)"
+  [ "$session" != "$helper" ] \
+    || fail "nested fixture collapsed: the helper level must be its own process, got $helper for both"
+}
+
 # Arm fixture variants, installed per test as <dir>/bin/fm-watch-arm.sh.
 write_arm_fixture() {
   local dir=$1 kind=$2
@@ -238,6 +275,99 @@ test_inert_when_lock_held_by_other_harness() {
   [ ! -e "$dir/state/arm-ran" ] || fail "hook armed while another session owned the lock"
   [ ! -e "$dir/state/.claude-autoarm-epoch" ] || fail "hook wrote an epoch while another session owned the lock"
   pass "auto-arm: inert without arm, rewake, or lock replacement when another live harness owns the home"
+}
+
+# --- session identity across the harness's own helper processes ---------------
+#
+# The lock records an identity ("this session owns this home"), so the question
+# is whether the recorded pid is in this process's ancestry - not whether it is
+# the NEAREST harness-named ancestor. Asking the nearest-ancestor question makes
+# the hook go inert for its own session the moment the harness interposes a
+# same-named helper, which is how Claude Code 2.1.220 runs every hook.
+
+test_claims_own_home_behind_nested_same_harness_helper() {
+  local dir status=0
+  dir=$(make_primary_dir "$TMP_ROOT/nested-owned")
+  : > "$dir/state/task.meta"
+  write_arm_fixture "$dir" actionable
+  run_behind_harness_helper "$dir" "$dir/bin/fm-claude-stop-autoarm.sh" >/dev/null 2>&1 || status=$?
+  assert_helper_level_exists "$dir"
+  expect_code 2 "$status" "the hook must claim its own home from behind a same-harness helper"
+  [ -e "$dir/state/arm-ran" ] || fail "hook did not arm from behind a same-harness helper"
+  [ "$(epoch_outcome "$dir")" = rewake ] \
+    || fail "nested-helper claim must record outcome=rewake, got: $(epoch_outcome "$dir")"
+  pass "auto-arm: claims its own home when the session sits above the harness's own helper process"
+}
+
+test_inert_behind_nested_helper_when_another_harness_owns_lock() {
+  local dir other status=0 owner_after
+  dir=$(make_primary_dir "$TMP_ROOT/nested-other")
+  : > "$dir/state/task.meta"
+  write_arm_fixture "$dir" actionable
+  "$FAKE_CLAUDE" -c 'sleep 60; :' &
+  other=$!
+  # session.sh writes its own pid to .lock first; overwrite it from the arm
+  # fixture's vantage point instead by pointing the lock at the unrelated owner
+  # after the tree is built but before the hook reads it.
+  cat > "$dir/bin/pre-hook.sh" <<SH
+#!/usr/bin/env bash
+printf '%s\n' "$other" > "\$FM_HOME/state/.lock"
+exec "\$FM_HOME/bin/fm-claude-stop-autoarm.sh"
+SH
+  chmod +x "$dir/bin/pre-hook.sh"
+  run_behind_harness_helper "$dir" "$dir/bin/pre-hook.sh" >/dev/null 2>&1 || status=$?
+  owner_after=$(cat "$dir/state/.lock")
+  kill "$other" 2>/dev/null || true
+  wait "$other" 2>/dev/null || true
+  assert_helper_level_exists "$dir"
+  expect_code 0 "$status" "a nested helper must not widen ownership to another live session's home"
+  [ "$owner_after" = "$other" ] || fail "nested hook replaced an unrelated live owner: expected $other, got $owner_after"
+  [ ! -e "$dir/state/arm-ran" ] || fail "nested hook armed a home owned by an unrelated live session"
+  [ ! -e "$dir/state/.claude-autoarm-epoch" ] || fail "nested hook wrote an epoch for an unrelated live session's home"
+  pass "auto-arm: a same-harness helper never extends ownership to an unrelated live session's home"
+}
+
+test_fm_lock_never_refuses_its_own_session_behind_helper() {
+  local dir session_pid out status=0
+  dir=$(make_primary_dir "$TMP_ROOT/nested-relock")
+  # session.sh acquires the lock as a direct child, exactly as an early-session
+  # tool call does; the helper level then re-acquires it later in the session.
+  cat > "$dir/bin/relock.sh" <<'SH'
+#!/usr/bin/env bash
+"$FM_HOME/bin/fm-lock.sh"
+SH
+  chmod +x "$dir/bin/relock.sh"
+  out=$(run_behind_harness_helper "$dir" "$dir/bin/relock.sh" 2>&1) || status=$?
+  assert_helper_level_exists "$dir"
+  session_pid=$(cat "$dir/state/session-pid")
+  expect_code 0 "$status" "a session must never be refused a home it already holds: $out"
+  assert_contains "$out" "lock acquired" "re-acquisition from behind a helper must succeed"
+  [ "$(cat "$dir/state/.lock")" = "$session_pid" ] \
+    || fail "re-acquisition must keep the session as owner: expected $session_pid, got $(cat "$dir/state/.lock")"
+  pass "fm-lock: a session behind its harness's own helper is never refused its own home"
+}
+
+test_fm_lock_mints_the_session_not_the_helper() {
+  local dir session_pid helper_pid status=0
+  dir=$(make_primary_dir "$TMP_ROOT/nested-mint")
+  # No pre-existing lock: the FIRST acquisition happens from behind the helper,
+  # so a nearest-ancestor mint would record the short-lived helper instead.
+  cat > "$dir/bin/mint.sh" <<'SH'
+#!/usr/bin/env bash
+rm -f "$FM_HOME/state/.lock"
+"$FM_HOME/bin/fm-lock.sh"
+SH
+  chmod +x "$dir/bin/mint.sh"
+  run_behind_harness_helper "$dir" "$dir/bin/mint.sh" >/dev/null 2>&1 || status=$?
+  assert_helper_level_exists "$dir"
+  session_pid=$(cat "$dir/state/session-pid")
+  helper_pid=$(cat "$dir/state/helper-pid")
+  expect_code 0 "$status" "acquiring from behind a helper must succeed"
+  [ "$(cat "$dir/state/.lock")" != "$helper_pid" ] \
+    || fail "lock recorded the transient helper pid $helper_pid; it dies with the next helper generation"
+  [ "$(cat "$dir/state/.lock")" = "$session_pid" ] \
+    || fail "lock must record the session pid $session_pid, got $(cat "$dir/state/.lock")"
+  pass "fm-lock: acquisition from behind a helper mints the session pid, not the helper's"
 }
 
 test_inert_when_afk() {
@@ -411,6 +541,10 @@ test_inert_in_child_worktree
 test_inert_without_session_lock
 test_reclaims_stale_session_lock_before_arming
 test_inert_when_lock_held_by_other_harness
+test_claims_own_home_behind_nested_same_harness_helper
+test_inert_behind_nested_helper_when_another_harness_owns_lock
+test_fm_lock_never_refuses_its_own_session_behind_helper
+test_fm_lock_mints_the_session_not_the_helper
 test_inert_when_afk
 test_stale_lock_recovery_preserves_afk_and_need_gates
 test_inert_when_fleet_idle
