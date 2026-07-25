@@ -56,7 +56,8 @@ Only the watcher process touches `state/.last-watcher-beat`; no helper process c
 `tests/fm-watcher-lock.test.sh` covers verified-successor attach, the typed self-eviction failure, bounded and successor-linked lifecycle rows, and a SIGSTOP counterfactual that distinguishes a live PID from a stale beacon before classifying termination.
 `tests/fm-subagent-pretool-check.test.sh` proves Claude retains only the non-status Bash seatbelts.
 `tests/fm-claude-stop-autoarm.test.sh` covers the auto-arm's scope, stale and live session owners, unchanged AFK and need boundaries, single-flight, and exit-2 translation.
-It also covers a session reached from behind a same-harness helper process: the hook claims its own home, an unrelated live owner is still refused, and `bin/fm-lock.sh` neither refuses a home this session already holds nor mints the transient helper pid.
+It also covers a session reached from behind a same-harness helper process: the hook claims its own home, an unrelated live owner is still refused, and `bin/fm-lock.sh` never refuses a home this session already holds.
+A separate case builds the shared-daemon shape Claude Code 2.1.220 creates, where harness-named processes sit above the session, and proves acquisition mints the session pid rather than a shared ancestor that every session on the machine would then own.
 `FM_CLAUDE_LIVE_E2E=1 tests/fm-claude-stop-autoarm-live-e2e.test.sh` starts with the reproduced stale-lock state, runs session start first, completes two tokenless cycles, and checks the competing-live-owner negative control.
 `tests/fm-turnend-guard.test.sh` covers the cooperative `--claude` guard.
 

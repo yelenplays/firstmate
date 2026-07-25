@@ -77,9 +77,9 @@ run_autoarm() {
 }
 
 # Run <command> inside a session -> helper -> command process tree where BOTH
-# the session and the helper carry a harness command name, the shape Claude Code
-# 2.1.220 creates by interposing its daemon, pty host, and bg-spare helper
-# between the session that owns the home and every hook or tool call it fires.
+# the session and the helper carry a harness command name, the shape a harness
+# creates whenever it interposes one of its own processes between the session
+# that owns the home and a hook or tool call that session fires.
 # The session records its own pid in state/.lock, and both pids are published so
 # a caller can prove the helper level really exists instead of trusting that
 # bash did not collapse it away.
@@ -100,6 +100,53 @@ SH
     | FM_HOME="$dir" FM_TEST_HELPER_HARNESS="$FAKE_CLAUDE" \
       "$FAKE_CLAUDE" "$dir/session.sh" "$@" 2>&1 || rc=$?
   return "$rc"
+}
+
+# Run <command> below a shared-daemon -> pty-host -> session process tree where
+# ALL THREE levels carry a harness command name, the shape Claude Code 2.1.220
+# actually creates: a `claude daemon run` at ppid 1 and a `claude bg-pty-host`
+# below it, both SHARED by every Claude session on the machine, and a
+# `claude bg-spare` that IS the session holding the home. No lock is written, so
+# a caller can observe which pid a first acquisition mints. Every level publishes
+# its pid so a caller can prove the tree really has three distinct processes.
+# $1 = fixture dir, remaining args = command line to run below the session.
+run_below_shared_harness_ancestors() {
+  local dir=$1 rc=0
+  shift
+  cat > "$dir/spare.sh" <<'SH'
+printf '%s\n' "$$" > "$FM_HOME/state/spare-pid"
+"$@"
+inner=$?
+exit "$inner"
+SH
+  cat > "$dir/pty-host.sh" <<'SH'
+printf '%s\n' "$$" > "$FM_HOME/state/pty-host-pid"
+"$FM_TEST_HELPER_HARNESS" "$FM_HOME/spare.sh" "$@"
+inner=$?
+exit "$inner"
+SH
+  cat > "$dir/daemon.sh" <<'SH'
+printf '%s\n' "$$" > "$FM_HOME/state/daemon-pid"
+"$FM_TEST_HELPER_HARNESS" "$FM_HOME/pty-host.sh" "$@"
+inner=$?
+exit "$inner"
+SH
+  FM_HOME="$dir" FM_TEST_HELPER_HARNESS="$FAKE_CLAUDE" \
+    "$FAKE_CLAUDE" "$dir/daemon.sh" "$@" 2>&1 || rc=$?
+  return "$rc"
+}
+
+# Fail unless run_below_shared_harness_ancestors really produced three distinct
+# harness levels; without that the fixture cannot see the minting boundary.
+assert_shared_ancestor_levels_exist() {
+  local dir=$1 daemon pty spare
+  daemon=$(cat "$dir/state/daemon-pid" 2>/dev/null || true)
+  pty=$(cat "$dir/state/pty-host-pid" 2>/dev/null || true)
+  spare=$(cat "$dir/state/spare-pid" 2>/dev/null || true)
+  { [ -n "$daemon" ] && [ -n "$pty" ] && [ -n "$spare" ]; } \
+    || fail "shared-ancestor fixture did not publish all three pids (daemon=$daemon pty-host=$pty spare=$spare)"
+  { [ "$daemon" != "$pty" ] && [ "$pty" != "$spare" ] && [ "$daemon" != "$spare" ]; } \
+    || fail "shared-ancestor fixture collapsed: expected three distinct processes, got daemon=$daemon pty-host=$pty spare=$spare"
 }
 
 # Fail unless run_behind_harness_helper really produced a distinct helper level.
@@ -283,7 +330,11 @@ test_inert_when_lock_held_by_other_harness() {
 # is whether the recorded pid is in this process's ancestry - not whether it is
 # the NEAREST harness-named ancestor. Asking the nearest-ancestor question makes
 # the hook go inert for its own session the moment the harness interposes a
-# same-named helper, which is how Claude Code 2.1.220 runs every hook.
+# same-named helper below the session.
+#
+# Minting is the mirror question and stays narrow: the pid written into the lock
+# is the nearest harness ancestor, because the harness-named processes ABOVE a
+# session are shared by every session on the machine.
 
 test_claims_own_home_behind_nested_same_harness_helper() {
   local dir status=0
@@ -328,10 +379,14 @@ SH
 }
 
 test_fm_lock_never_refuses_its_own_session_behind_helper() {
-  local dir session_pid out status=0
+  local dir out status=0
   dir=$(make_primary_dir "$TMP_ROOT/nested-relock")
   # session.sh acquires the lock as a direct child, exactly as an early-session
   # tool call does; the helper level then re-acquires it later in the session.
+  # Which harness pid the re-acquisition records is not asserted: a deeper
+  # acquisition legitimately mints the nearer harness ancestor, and stale-owner
+  # recovery covers that pid dying. The contract under test is only that the
+  # session is never refused a home it already holds.
   cat > "$dir/bin/relock.sh" <<'SH'
 #!/usr/bin/env bash
 "$FM_HOME/bin/fm-lock.sh"
@@ -339,35 +394,38 @@ SH
   chmod +x "$dir/bin/relock.sh"
   out=$(run_behind_harness_helper "$dir" "$dir/bin/relock.sh" 2>&1) || status=$?
   assert_helper_level_exists "$dir"
-  session_pid=$(cat "$dir/state/session-pid")
   expect_code 0 "$status" "a session must never be refused a home it already holds: $out"
   assert_contains "$out" "lock acquired" "re-acquisition from behind a helper must succeed"
-  [ "$(cat "$dir/state/.lock")" = "$session_pid" ] \
-    || fail "re-acquisition must keep the session as owner: expected $session_pid, got $(cat "$dir/state/.lock")"
   pass "fm-lock: a session behind its harness's own helper is never refused its own home"
 }
 
-test_fm_lock_mints_the_session_not_the_helper() {
-  local dir session_pid helper_pid status=0
-  dir=$(make_primary_dir "$TMP_ROOT/nested-mint")
-  # No pre-existing lock: the FIRST acquisition happens from behind the helper,
-  # so a nearest-ancestor mint would record the short-lived helper instead.
+# Minting must stop at the session. Claude Code 2.1.220 puts a `bg-pty-host` and
+# a `daemon run` ABOVE the session, both harness-named and both SHARED by every
+# Claude session on the machine, and the daemon's ppid is 1. A walk that widened
+# past the nearest harness ancestor would run to that shared daemon and record
+# one pid for every session at once, so each of them would satisfy the ownership
+# predicate for the others' homes and no session could ever be refused.
+test_fm_lock_mints_the_session_not_a_shared_harness_ancestor() {
+  local dir daemon_pid spare_pid minted status=0
+  dir=$(make_primary_dir "$TMP_ROOT/shared-ancestors")
   cat > "$dir/bin/mint.sh" <<'SH'
 #!/usr/bin/env bash
-rm -f "$FM_HOME/state/.lock"
 "$FM_HOME/bin/fm-lock.sh"
 SH
   chmod +x "$dir/bin/mint.sh"
-  run_behind_harness_helper "$dir" "$dir/bin/mint.sh" >/dev/null 2>&1 || status=$?
-  assert_helper_level_exists "$dir"
-  session_pid=$(cat "$dir/state/session-pid")
-  helper_pid=$(cat "$dir/state/helper-pid")
-  expect_code 0 "$status" "acquiring from behind a helper must succeed"
-  [ "$(cat "$dir/state/.lock")" != "$helper_pid" ] \
-    || fail "lock recorded the transient helper pid $helper_pid; it dies with the next helper generation"
-  [ "$(cat "$dir/state/.lock")" = "$session_pid" ] \
-    || fail "lock must record the session pid $session_pid, got $(cat "$dir/state/.lock")"
-  pass "fm-lock: acquisition from behind a helper mints the session pid, not the helper's"
+  run_below_shared_harness_ancestors "$dir" "$dir/bin/mint.sh" >/dev/null 2>&1 || status=$?
+  assert_shared_ancestor_levels_exist "$dir"
+  daemon_pid=$(cat "$dir/state/daemon-pid")
+  spare_pid=$(cat "$dir/state/spare-pid")
+  expect_code 0 "$status" "a first acquisition below the session must succeed"
+  minted=$(cat "$dir/state/.lock")
+  [ "$minted" != "$daemon_pid" ] \
+    || fail "lock recorded the shared harness daemon pid $daemon_pid; every session under it would own this home"
+  [ "$minted" != "$(cat "$dir/state/pty-host-pid")" ] \
+    || fail "lock recorded the shared pty-host pid; every session under it would own this home"
+  [ "$minted" = "$spare_pid" ] \
+    || fail "lock must record the session pid $spare_pid, got $minted"
+  pass "fm-lock: minting stops at the session and never widens to a shared harness ancestor above it"
 }
 
 test_inert_when_afk() {
@@ -544,7 +602,7 @@ test_inert_when_lock_held_by_other_harness
 test_claims_own_home_behind_nested_same_harness_helper
 test_inert_behind_nested_helper_when_another_harness_owns_lock
 test_fm_lock_never_refuses_its_own_session_behind_helper
-test_fm_lock_mints_the_session_not_the_helper
+test_fm_lock_mints_the_session_not_a_shared_harness_ancestor
 test_inert_when_afk
 test_stale_lock_recovery_preserves_afk_and_need_gates
 test_inert_when_fleet_idle
