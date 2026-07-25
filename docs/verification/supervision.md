@@ -88,6 +88,31 @@ Observed output:
 ok - Claude 2.1.219 (Claude Code) live E2E reclaimed a stale session lock through session start, completed two tokenless Stop-owned rewake cycles, and preserved the competing-live-owner boundary
 ```
 
+### Session identity under an interposed harness helper
+
+Claude Code 2.1.220 runs every hook under its own `claude bg-spare` helper, which sits below a pty host and a daemon, so the lock-owning session is six or more parents above a Stop hook rather than its direct parent.
+Session ownership is therefore verified as ancestry membership, and the harness pid minted into `state/.lock` is the outermost pid of the uninterrupted harness-named run.
+The 2.1.219 evidence above was collected before that helper tree existed and does not cover this depth.
+
+Measured with Claude Code 2.1.220 on 2026-07-25:
+
+```sh
+claude --version
+bash tests/fm-claude-stop-autoarm.test.sh
+```
+
+Observed output:
+
+```text
+2.1.220 (Claude Code)
+ok - auto-arm: claims its own home when the session sits above the harness's own helper process
+ok - auto-arm: a same-harness helper never extends ownership to an unrelated live session's home
+ok - fm-lock: a session behind its harness's own helper is never refused its own home
+ok - fm-lock: acquisition from behind a helper mints the session pid, not the helper's
+```
+
+The second case is the fail-closed control and passes both before and after the identity change; the other three fail against the nearest-harness-ancestor predicate.
+
 Current entry points:
 
 ```sh
