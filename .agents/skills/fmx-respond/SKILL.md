@@ -119,7 +119,7 @@ Images are only for actual visual artifacts - a generated illustration, a screen
 ## Procedure
 
 This is a drain over the inbox, not a single reply.
-The watcher coalesces same-key `check:` wakes, so one `x-mention` wake can stand in for several pending mentions.
+Distinct mention wakes each survive the drain, but one wake can still stand in for several pending mentions - a restart, a recovered offer marker, or an identical repeat all coalesce.
 Treat `state/x-inbox/` as the source of truth and process **every** file you find there, not just the `request_id` named in the wake.
 
 1. **Gather live fleet state once.** Compose answers from what this instance genuinely knows right now:

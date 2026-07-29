@@ -408,6 +408,19 @@ fm_wake_restore_queue() {
   fi
 }
 
+# Collapse genuine repeats in first-seen order, keeping the freshest row of each
+# group. What forms a group is deliberately not uniform across kinds:
+#   heartbeat - one group for the whole drain; the payload is a constant.
+#   signal, stale - grouped by kind and key. Their payload is a pointer (the
+#     status files that changed, the window that went quiet), and the agent
+#     re-reads the live source, so the newest pointer is the whole story.
+#   check - grouped by kind, key AND payload, because a check's payload IS the
+#     deliverable and its key is only the channel that produced it. Two mentions
+#     arriving on one relay poll share a key while carrying different request
+#     ids, so grouping those by key alone silently dropped the earlier event in
+#     favour of the later one - a suppression vector reachable with no attacker.
+#     Identical repeats of one check result still collapse, so this cannot grow
+#     the queue on a check that keeps reporting the same thing.
 fm_wake_print_deduped() {
   local file=$1
   awk -F '\t' '
@@ -415,6 +428,12 @@ fm_wake_print_deduped() {
       dedupe = $3 SUBSEP $4
       if ($3 == "heartbeat") {
         dedupe = "heartbeat"
+      } else if ($3 == "check") {
+        payload = $5
+        for (i = 6; i <= NF; i++) {
+          payload = payload FS $i
+        }
+        dedupe = dedupe SUBSEP payload
       }
       if (!(dedupe in seen)) {
         order[++count] = dedupe
