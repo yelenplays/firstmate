@@ -230,6 +230,36 @@ test_drain_dedupes_obvious_duplicates() {
   pass "drain collapses obvious duplicate heartbeat and signal records"
 }
 
+# Named regression: same-key collapse used to keep only the LAST row, so an
+# earlier urgent check result was silently dropped in favour of a later routine
+# one sharing its key - a suppression vector reachable with no attacker at all.
+# A check's key is only the channel that produced it; its payload is the
+# deliverable, so two distinct results on one channel must both survive.
+test_drain_keeps_distinct_check_results_on_one_key() {
+  local dir state out check_file count
+  dir=$(make_case distinct-checks)
+  state="$dir/state"
+  out="$dir/drain.out"
+  check_file="$state/x-watch.check.sh"
+  append_wake "$state" check "$check_file" "check: $check_file: x-mention req-urgent" \
+    || fail "first mention wake append failed"
+  append_wake "$state" check "$check_file" "check: $check_file: x-mention req-routine" \
+    || fail "second mention wake append failed"
+  append_wake "$state" check "$check_file" "check: $check_file: x-mention req-routine" \
+    || fail "repeat mention wake append failed"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "distinct-check drain failed"
+
+  count=$(awk -F '\t' 'NF == 5 && $3 == "check" { count++ } END { print count + 0 }' "$out")
+  [ "$count" -eq 2 ] || fail "expected 2 distinct check records, got $count"$'\n'"$(cat "$out")"
+  grep -F 'x-mention req-urgent' "$out" >/dev/null \
+    || fail "the earlier check result was dropped in favour of a later one sharing its key"
+  grep -F 'x-mention req-routine' "$out" >/dev/null \
+    || fail "the later check result was lost"
+  [ "$(awk -F '\t' '$3 == "check" { print $5 }' "$out" | head -1)" = "check: $check_file: x-mention req-urgent" ] \
+    || fail "distinct check results lost their first-seen ordering"
+  pass "drain keeps every distinct check result on one key and still collapses repeats"
+}
+
 # The drain runs at the top of every wake-handling turn, so it also asserts
 # watcher liveness via fm-guard.sh: a lapsed re-arm chain then surfaces even on a
 # plain drain-and-handle turn that runs no other supervision script. It must warn
@@ -802,6 +832,7 @@ test_not_working_stale_enqueue_before_suppressor
 test_check_output_is_queued
 test_atomic_double_drain
 test_drain_dedupes_obvious_duplicates
+test_drain_keeps_distinct_check_results_on_one_key
 test_drain_asserts_watcher_liveness
 test_structural_signal_enrichment_preserves_raw_rows
 test_enrichment_preserves_all_unread_lines_and_status_file_failures
