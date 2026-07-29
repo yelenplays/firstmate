@@ -664,6 +664,33 @@ teardown_treehouse_return() {
   return 1
 }
 
+# Take the per-task turn-end hooks back out of a worktree. Every file here but
+# one is firstmate-created under a name no project uses, so plain removal is
+# right. .claude/settings.local.json may be the project's own - permissions the
+# captain approved, hooks the project already had, sometimes tracked in git - so
+# it goes through the script that owns that file's contract, which puts it back
+# the way the spawn found it. A refusal there is reported on stderr and never
+# worked around with rm; the uncommitted-work check stays the authority on
+# whether a worktree carrying a file firstmate could not restore may be returned.
+remove_worktree_turnend_hooks() {
+  local wt=$1 state=$2 id=$3
+  rm -f "$wt/.opencode/plugins/fm-turn-end.js" "$wt/.fm-grok-turnend" "$wt/.fm-kimi-turnend"
+  "$SCRIPT_DIR/fm-claude-worktree-hook.sh" remove \
+    "$wt" "$state/$id.turn-ended" "$state/$id.claude-settings-backup" || {
+    echo "teardown: could not restore $wt/.claude/settings.local.json; inspect it before reusing the worktree" >&2
+    return 1
+  }
+}
+
+# Put the hook back when a refused teardown leaves the crewmate running, so it
+# keeps signalling turn ends while firstmate deals with the unlanded work.
+restore_worktree_turnend_hook() {
+  local wt=$1 state=$2 id=$3
+  [ -d "$wt" ] || return 0
+  "$SCRIPT_DIR/fm-claude-worktree-hook.sh" install \
+    "$wt" "$state/$id.turn-ended" "$state/$id.claude-settings-backup" >/dev/null 2>&1 || true
+}
+
 validate_worktree_teardown_safety() {
   local dirty_raw dirty unpushed_raw unpushed DEFAULT unmerged_raw unmerged branch
   [ -d "$WT" ] || return 0
@@ -1010,14 +1037,12 @@ cleanup_firstmate_home_children() {
     elif [ "$child_backend" = orca ]; then
       if [ -n "$child_wt" ] && [ -d "$child_wt" ]; then
         validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
-        rm -f "$child_wt/.claude/settings.local.json" "$child_wt/.opencode/plugins/fm-turn-end.js" \
-          "$child_wt/.fm-grok-turnend" "$child_wt/.fm-kimi-turnend"
+        remove_worktree_turnend_hooks "$child_wt" "$sub_state" "$child_id" || true
       fi
       fm_backend_remove_worktree "$child_backend" "$child_orca_worktree_id" || return 1
     elif [ -n "$child_wt" ] && [ -d "$child_wt" ]; then
       validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
-      rm -f "$child_wt/.claude/settings.local.json" "$child_wt/.opencode/plugins/fm-turn-end.js" \
-        "$child_wt/.fm-grok-turnend" "$child_wt/.fm-kimi-turnend"
+      remove_worktree_turnend_hooks "$child_wt" "$sub_state" "$child_id" || true
       if [ -n "$child_proj" ] && [ -d "$child_proj" ] && command -v treehouse >/dev/null 2>&1; then
         if teardown_treehouse_return "$child_wt" "$child_proj" "child worktree"; then
           :
@@ -1037,7 +1062,8 @@ cleanup_firstmate_home_children() {
     remove_pr_poll_artifacts "$sub_state" "$child_id" || return 1
     rm -f "$sub_state/$child_id.status" "$sub_state/$child_id.turn-ended" \
       "$sub_state/$child_id.meta" "$sub_state/$child_id.pi-ext.ts" \
-      "$sub_state/$child_id.grok-turnend-token" "$sub_state/$child_id.kimi-turnend-token"
+      "$sub_state/$child_id.grok-turnend-token" "$sub_state/$child_id.kimi-turnend-token" \
+      "$sub_state/$child_id.claude-settings-backup"
   done
 }
 
@@ -1100,6 +1126,14 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != scout ] && [ "$KIND" != secondmate ] &&
   ORCA_PATH_MATCH_VERIFIED=1
 fi
 
+# Take our own turn-end hook back out BEFORE the uncommitted-work inspection.
+# Merged into a project's own tracked .claude/settings.local.json, it would
+# otherwise read as the crewmate's uncommitted work and refuse a teardown of a
+# worktree that is in fact clean.
+if [ -d "$WT" ] && [ "$KIND" != secondmate ]; then
+  remove_worktree_turnend_hooks "$WT" "$STATE" "$ID" || true
+fi
+
 if [ -d "$WT" ] && [ "$FORCE" != "--force" ]; then
   if validate_worktree_teardown_safety; then
     :
@@ -1107,8 +1141,12 @@ if [ -d "$WT" ] && [ "$FORCE" != "--force" ]; then
     safety_rc=$?
     if [ "$safety_rc" -eq "$TEARDOWN_WORKTREE_SAFETY_LOCK_BLOCKED" ]; then
       cleanup_stale_lock_for_safety_check "$WT" || exit 1
-      validate_worktree_teardown_safety || exit 1
+      validate_worktree_teardown_safety || {
+        restore_worktree_turnend_hook "$WT" "$STATE" "$ID"
+        exit 1
+      }
     else
+      restore_worktree_turnend_hook "$WT" "$STATE" "$ID"
       exit 1
     fi
   fi
@@ -1127,8 +1165,7 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ]; then
         git -C "$WT" branch -D "$branch" >/dev/null 2>&1 || true
       fi
     fi
-    rm -f "$WT/.claude/settings.local.json" "$WT/.opencode/plugins/fm-turn-end.js" \
-      "$WT/.fm-grok-turnend" "$WT/.fm-kimi-turnend"
+    remove_worktree_turnend_hooks "$WT" "$STATE" "$ID" || true
   fi
   [ -z "$T_ORCA" ] || fm_backend_kill "$BACKEND" "$T" "$(meta_value "$META" zellij_tab_id)" "fm-$ID" 2>/dev/null || true
   fm_backend_remove_worktree "$BACKEND" "$ORCA_WORKTREE_ID"
@@ -1140,8 +1177,7 @@ elif [ -d "$WT" ] && [ "$KIND" != secondmate ]; then
     fi
   fi
   # Remove our hook file so a reused pool worktree cannot fire signals for a dead task.
-  rm -f "$WT/.claude/settings.local.json" "$WT/.opencode/plugins/fm-turn-end.js" \
-    "$WT/.fm-grok-turnend" "$WT/.fm-kimi-turnend"
+  remove_worktree_turnend_hooks "$WT" "$STATE" "$ID" || true
   # Kills remaining processes in the worktree (including the agent), resets, returns
   # to pool. treehouse resolves the pool from the working directory, so run it from
   # the project. teardown_treehouse_return tolerates transient and stale git locks
@@ -1228,7 +1264,7 @@ fm_backend_clear_transition "$BACKEND" "$STATE" "$T" || true
 remove_pr_poll_artifacts "$STATE" "$ID" || exit 1
 rm -f "$STATE/$ID.status" "$STATE/$ID.turn-ended" "$STATE/$ID.meta" \
   "$STATE/$ID.pi-ext.ts" "$STATE/$ID.grok-turnend-token" \
-  "$STATE/$ID.kimi-turnend-token"
+  "$STATE/$ID.kimi-turnend-token" "$STATE/$ID.claude-settings-backup"
 if [ "$KIND" != scout ] && [ "$KIND" != secondmate ] && [ "$MODE" != local-only ]; then
   "$FM_ROOT/bin/fm-fleet-sync.sh" "$PROJ" || true
 fi

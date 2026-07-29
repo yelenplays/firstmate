@@ -1300,11 +1300,16 @@ exclude_path() {
 if [ "$KIND" != secondmate ]; then
   case "$HARNESS" in
     claude*)
-      mkdir -p "$WT/.claude"
-      cat > "$WT/.claude/settings.local.json" <<EOF
-{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"touch '$TURNEND'"}]}]}}
-EOF
-      exclude_path '.claude/settings.local.json'
+      # A project may keep its own .claude/settings.local.json, sometimes tracked
+      # in git, so the hook is merged in by the script that owns that file's
+      # contract; it refuses rather than discarding settings it cannot parse.
+      # Only a file firstmate itself created is hidden from git's view.
+      if ! claude_settings_state=$("$FM_ROOT/bin/fm-claude-worktree-hook.sh" install \
+          "$WT" "$TURNEND" "$STATE/$ID.claude-settings-backup"); then
+        echo "error: refusing the Claude spawn because the turn-end hook could not be added to $WT/.claude/settings.local.json without discarding it; repair that file, then respawn. Inspect target $T" >&2
+        exit 1
+      fi
+      [ "$claude_settings_state" != owned ] || exclude_path '.claude/settings.local.json'
       ;;
     opencode*)
       mkdir -p "$WT/.opencode/plugins"
