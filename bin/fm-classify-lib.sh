@@ -166,11 +166,20 @@ status_line_verb() {  # <status-line> -> leading verb word
   v=${v%"${v##*[![:space:]]}"}
   printf '%s' "$v"
 }
-status_line_note() {  # <status-line> -> text after the first colon, trimmed
+status_line_note() {  # <status-line> -> prose note after the first colon, trimmed
+  local n
   case "$1" in
-    *:*) local n=${1#*:}; printf '%s' "${n#"${n%%[![:space:]]*}"}" ;;
-    *) printf '%s' "$1" ;;
+    *:*) n=${1#*:} ;;
+    *) n=$1 ;;
   esac
+  n=${n#"${n%%[![:space:]]*}"}
+  # A structured decision record (below) sits in front of the prose why. Strip it
+  # so every existing consumer keeps displaying the same human-readable summary.
+  if _fm_record_note_has_block "$n"; then
+    n=${n#*\}}
+    n=${n#"${n%%[![:space:]]*}"}
+  fi
+  printf '%s' "$n"
 }
 _fm_decision_key() {  # <status-line> -> key slug, or "default" when no token
   local prefix=${1%%:*} k
@@ -186,6 +195,288 @@ _fm_decision_key() {  # <status-line> -> key slug, or "default" when no token
     *) printf 'default' ;;
   esac
 }
+
+# --- structured decision record (v1) ----------------------------------------
+#
+# This library is the single owner of the record's WIRE FORM, its field names,
+# and its length ceilings. bin/fm-decision-hold.sh owns authoring, storage, and
+# rendering; it validates through decision_record_validate below rather than
+# restating any limit.
+#
+# A needs-decision or blocked status line MAY carry an authored, machine-readable
+# record in front of its prose why, as one brace-delimited block of field=value
+# pairs joined by "|":
+#
+#   needs-decision [key=one-send]: {question=...|consequence=...|recommend=hold
+#   |option=hold/Hold|option=send/Send it/destructive|sensitivity=private
+#   |safe_preview=...} the existing prose, unchanged, as the why disclosure
+#
+# (always one physical line; wrapped here only for legibility.)
+#
+# The block sits AFTER the first colon, so every pre-record parser - the verb
+# parser, the key parser, the decision fold, the watcher and the daemon - reads a
+# record-carrying line exactly as it reads a prose-only line. A line with no block
+# is today's line and stays valid forever; that is what keeps every already
+# recorded decision working untouched.
+#
+# The ceilings are the measured phone budget, not taste: a collapsed notification
+# body holds about 80 characters, a decision card question about 52, a
+# notification title about 42, and two 44pt action buttons side by side at 320 CSS
+# px hold about 16 characters each. A field that overflows its ceiling cannot be
+# rendered at all, so the ceilings are enforced at authoring time.
+FM_DECISION_MAX_QUESTION=52
+FM_DECISION_MAX_CONSEQUENCE=100
+FM_DECISION_MAX_OPTION_LABEL=16
+FM_DECISION_MAX_SAFE_PREVIEW=42
+FM_DECISION_MIN_OPTIONS=2
+FM_DECISION_MAX_OPTIONS=4
+# sensitivity CLASSIFIES a decision so a renderer can pick which authored text may
+# leave the trusted session. It NEVER grants authority: who may answer which
+# decision is owned by AGENTS.md section 7 and the ask-user-authority skill, and
+# nothing in this library or its callers may read sensitivity to widen that.
+FM_DECISION_SENSITIVITIES='normal private secret'
+
+decision_record_field_known() {  # <field-name>
+  case "$1" in
+    question|consequence|recommend|option|expires_at|sensitivity|safe_preview) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# 0 when a status note OPENS with a syntactically well-formed record block.
+# Pure, fork-free, and deliberately strict: an unknown field name, a missing "=",
+# or a missing question means "this is prose that happens to start with a brace",
+# and the note is left exactly as written.
+_fm_record_note_has_block() {  # <status-note>
+  local rest pair name seen_question=0
+  case "$1" in '{'*) ;; *) return 1 ;; esac
+  case "$1" in *'}'*) ;; *) return 1 ;; esac
+  rest=${1#\{}
+  rest=${rest%%\}*}
+  [ -n "$rest" ] || return 1
+  while [ -n "$rest" ]; do
+    case "$rest" in
+      *'|'*) pair=${rest%%|*}; rest=${rest#*|} ;;
+      *) pair=$rest; rest='' ;;
+    esac
+    case "$pair" in *'='*) ;; *) return 1 ;; esac
+    name=${pair%%=*}
+    decision_record_field_known "$name" || return 1
+    [ "$name" != question ] || seen_question=1
+  done
+  [ "$seen_question" = 1 ]
+}
+
+# Print the record block carried by a status line, or nothing when it carries none.
+status_line_record() {  # <status-line>
+  local n
+  case "$1" in
+    *:*) n=${1#*:} ;;
+    *) n=$1 ;;
+  esac
+  n=${n#"${n%%[![:space:]]*}"}
+  _fm_record_note_has_block "$n" || return 0
+  n=${n#\{}
+  printf '%s' "${n%%\}*}"
+}
+
+# Print the value of <field> in a record block, one line per occurrence. Repeated
+# only for `option`; every other field appears at most once.
+decision_record_get() {  # <record-block> <field>
+  local rest=$1 field=$2 pair name out=''
+  while [ -n "$rest" ]; do
+    case "$rest" in
+      *'|'*) pair=${rest%%|*}; rest=${rest#*|} ;;
+      *) pair=$rest; rest='' ;;
+    esac
+    case "$pair" in *'='*) ;; *) continue ;; esac
+    name=${pair%%=*}
+    [ "$name" = "$field" ] || continue
+    out="${out}${pair#*=}"$'\n'
+  done
+  printf '%s' "$out"
+}
+
+# 0 when a record field value is safe to carry through every surface the record
+# reaches. The block separators and the body quoting/escaping of the backlog are
+# structural, so a value may not contain them; the invisible separators are
+# rejected because a record field is re-displayed elsewhere and U+2063 is the
+# operational-input marker (bin/fm-operational-input.sh).
+_fm_record_value_ok() {  # <value>
+  [ -n "$1" ] || return 1
+  case "$1" in
+    *'|'*|*'{'*|*'}'*|*'"'*|*\\*) return 1 ;;
+  esac
+  case "$1" in
+    *$'\xE2\x81\xA3'*|*$'\xE2\x80\x8B'*|*$'\xE2\x80\x8C'*|*$'\xE2\x80\x8D'*|*$'\xEF\xBB\xBF'*) return 1 ;;
+  esac
+  case "$1" in
+    *[$'\x01'-$'\x1f']*|*$'\x7f'*) return 1 ;;
+  esac
+  return 0
+}
+
+_fm_record_slug_ok() {  # <slug>
+  case "$1" in
+    ''|*[!A-Za-z0-9._-]*) return 1 ;;
+  esac
+  return 0
+}
+
+_fm_record_lower() {  # <text>
+  printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]'
+}
+
+_fm_record_err() {  # <message>
+  printf 'decision record: %s\n' "$1" >&2
+  return 1
+}
+
+# safe_preview is the ONLY field that may be rendered outside the trusted session
+# - a lock screen, a redacted notification twin, a screen share. So it is checked
+# for the shapes that carry evidence by accident rather than by intent: a link, an
+# address or handle, a path, an identifier or amount, an opaque token, and a
+# phrase lifted straight out of the evidence prose. An authored line survives all
+# of these; a truncated copy of the why does not.
+_fm_record_preview_ok() {  # <safe-preview> <why>
+  local preview=$1 why=$2 rest word slashes=0 tail
+  case "$preview" in
+    *'://'*) _fm_record_err "safe_preview must not contain a link" || return 1 ;;
+    *'@'*) _fm_record_err "safe_preview must not contain an address or handle" || return 1 ;;
+    *'~/'*) _fm_record_err "safe_preview must not contain a path" || return 1 ;;
+  esac
+  case "$preview" in
+    *[0-9][0-9][0-9][0-9][0-9][0-9]*)
+      _fm_record_err "safe_preview must not contain an identifier or amount" || return 1 ;;
+  esac
+  tail=$preview
+  while [ -n "$tail" ]; do
+    case "$tail" in
+      */*) slashes=$((slashes + 1)); tail=${tail#*/} ;;
+      *) tail='' ;;
+    esac
+  done
+  [ "$slashes" -le 1 ] || _fm_record_err "safe_preview must not contain a path" || return 1
+  rest=$preview
+  while [ -n "$rest" ]; do
+    case "$rest" in
+      *' '*) word=${rest%% *}; rest=${rest#* } ;;
+      *) word=$rest; rest='' ;;
+    esac
+    [ "${#word}" -le 19 ] \
+      || _fm_record_err "safe_preview must not contain an opaque token" || return 1
+  done
+  if [ -n "$why" ]; then
+    case "$(_fm_record_lower "$why")" in
+      *"$(_fm_record_lower "$preview")"*)
+        _fm_record_err "safe_preview must be authored, not copied out of the why prose" || return 1 ;;
+    esac
+  fi
+  return 0
+}
+
+# Validate a complete record block. Prints the first violation to stderr and
+# returns 1. <why> is optional; pass the hold reason so the safe_preview leak
+# checks can see the evidence the preview must not repeat.
+decision_record_validate() {  # <record-block> [why]
+  local block=$1 why=${2:-} rest pair name val
+  local question='' consequence='' recommend='' expires='' sensitivity='' preview=''
+  local opt_ids='' opt_count=0 first_safe='' id label flag
+
+  [ -n "$block" ] || _fm_record_err "record is empty" || return 1
+  rest=$block
+  while [ -n "$rest" ]; do
+    case "$rest" in
+      *'|'*) pair=${rest%%|*}; rest=${rest#*|} ;;
+      *) pair=$rest; rest='' ;;
+    esac
+    case "$pair" in *'='*) ;; *) _fm_record_err "field is not name=value: $pair" || return 1 ;; esac
+    name=${pair%%=*}
+    val=${pair#*=}
+    decision_record_field_known "$name" || _fm_record_err "unknown field: $name" || return 1
+    _fm_record_value_ok "$val" \
+      || _fm_record_err "$name must be non-empty single-line text without | { } \" \\ or invisible characters" \
+      || return 1
+    case "$name" in
+      option)
+        opt_count=$((opt_count + 1))
+        case "$val" in
+          */*) ;;
+          *) _fm_record_err "option must be <id>/<label>[/destructive]: $val" || return 1 ;;
+        esac
+        id=${val%%/*}
+        label=${val#*/}
+        flag=''
+        case "$label" in
+          */*) flag=${label#*/}; label=${label%%/*} ;;
+        esac
+        _fm_record_slug_ok "$id" || _fm_record_err "option id must be a slug: $id" || return 1
+        case ",$opt_ids," in
+          *",$id,"*) _fm_record_err "duplicate option id: $id" || return 1 ;;
+        esac
+        opt_ids="${opt_ids}${opt_ids:+,}$id"
+        [ -n "$label" ] || _fm_record_err "option $id has no label" || return 1
+        [ "${#label}" -le "$FM_DECISION_MAX_OPTION_LABEL" ] \
+          || _fm_record_err "option $id label is ${#label} characters, ceiling is $FM_DECISION_MAX_OPTION_LABEL" \
+          || return 1
+        case "$flag" in
+          ''|destructive) ;;
+          *) _fm_record_err "option $id has an unknown flag: $flag" || return 1 ;;
+        esac
+        if [ "$opt_count" = 1 ]; then
+          [ "$flag" != destructive ] || first_safe=no
+        fi
+        ;;
+      question) [ -z "$question" ] || _fm_record_err "question is repeated" || return 1; question=$val ;;
+      consequence) [ -z "$consequence" ] || _fm_record_err "consequence is repeated" || return 1; consequence=$val ;;
+      recommend) [ -z "$recommend" ] || _fm_record_err "recommend is repeated" || return 1; recommend=$val ;;
+      expires_at) [ -z "$expires" ] || _fm_record_err "expires_at is repeated" || return 1; expires=$val ;;
+      sensitivity) [ -z "$sensitivity" ] || _fm_record_err "sensitivity is repeated" || return 1; sensitivity=$val ;;
+      safe_preview) [ -z "$preview" ] || _fm_record_err "safe_preview is repeated" || return 1; preview=$val ;;
+    esac
+  done
+
+  [ -n "$question" ] || _fm_record_err "question is required" || return 1
+  [ "${#question}" -le "$FM_DECISION_MAX_QUESTION" ] \
+    || _fm_record_err "question is ${#question} characters, ceiling is $FM_DECISION_MAX_QUESTION" || return 1
+  [ -n "$consequence" ] || _fm_record_err "consequence is required" || return 1
+  [ "${#consequence}" -le "$FM_DECISION_MAX_CONSEQUENCE" ] \
+    || _fm_record_err "consequence is ${#consequence} characters, ceiling is $FM_DECISION_MAX_CONSEQUENCE" || return 1
+  [ -n "$preview" ] || _fm_record_err "safe_preview is required" || return 1
+  [ "${#preview}" -le "$FM_DECISION_MAX_SAFE_PREVIEW" ] \
+    || _fm_record_err "safe_preview is ${#preview} characters, ceiling is $FM_DECISION_MAX_SAFE_PREVIEW" || return 1
+  [ "$opt_count" -ge "$FM_DECISION_MIN_OPTIONS" ] \
+    || _fm_record_err "a decision needs at least $FM_DECISION_MIN_OPTIONS options" || return 1
+  [ "$opt_count" -le "$FM_DECISION_MAX_OPTIONS" ] \
+    || _fm_record_err "a decision carries at most $FM_DECISION_MAX_OPTIONS options" || return 1
+  # The first action is the one an Apple Watch double tap fires with no
+  # confirmation, so it must never be the destructive answer.
+  [ "$first_safe" != no ] || _fm_record_err "the first option must not be destructive" || return 1
+  [ -n "$recommend" ] || _fm_record_err "recommend is required" || return 1
+  case ",$opt_ids," in
+    *",$recommend,"*) ;;
+    *) _fm_record_err "recommend must name one of the options: $recommend" || return 1 ;;
+  esac
+  [ -n "$sensitivity" ] || _fm_record_err "sensitivity is required" || return 1
+  case " $FM_DECISION_SENSITIVITIES " in
+    *" $sensitivity "*) ;;
+    *) _fm_record_err "sensitivity must be one of $FM_DECISION_SENSITIVITIES" || return 1 ;;
+  esac
+  if [ -n "$expires" ]; then
+    case "$expires" in
+      [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z) ;;
+      *) _fm_record_err "expires_at must be absolute UTC, YYYY-MM-DDTHH:MM:SSZ: $expires" || return 1 ;;
+    esac
+  fi
+  _fm_record_preview_ok "$preview" "$why" || return 1
+  # A private or secret decision renders its preview INSTEAD of its question, so
+  # the preview has to be a deliberate redaction rather than the question again.
+  if [ "$sensitivity" != normal ] && [ "$preview" = "$question" ]; then
+    _fm_record_err "a $sensitivity decision needs a safe_preview distinct from its question" || return 1
+  fi
+  return 0
+}
+
 # Drop the record for <key> from a newline-terminated "<key>\t<verb>\t<note>" set.
 # Portable (no associative arrays) so the fold runs on bash 3.2 as well as 4+.
 _fm_decision_drop() {  # <open-set> <key>
