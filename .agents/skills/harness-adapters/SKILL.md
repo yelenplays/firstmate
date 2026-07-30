@@ -161,6 +161,17 @@ Natural language is acceptable if uncertain.
 - grok: `/<skill>`, for example `/no-mistakes` (same form as claude). Verified end to end: grok discovers the user-level `no-mistakes` skill, `/no-mistakes` invokes it, and grok drives a real `no-mistakes axi run`. Like codex's `$`/`/` popups, typing `/<skill>` opens grok's slash-autocomplete, so a too-fast Enter selects the popup entry instead of sending, and for an argument-taking command (like `/no-mistakes`'s optional task-first argument) that first Enter only expands the popup selection into an argument-hint placeholder rather than submitting - a genuine second Enter is required (see the grok section below for the 2026-07-03 incident and fix). `fm_tmux_submit_core`'s retried Enter (used by `fm-send` on the tmux backend) handles this through the structural composer reader; the herdr backend needed a dedicated fix (`fm_backend_herdr_composer_state`, docs/herdr-backend.md) because its prior delta-based verification false-positived on that same popup-close content change.
 - kimi: `/<skill>`, for example `/no-mistakes`.
 
+## Plugin-skill discovery
+
+Invocation form and discovery source are different questions, and a correct form on a harness that cannot see the skill still fails.
+Skills installed as a Claude plugin live under the Claude configuration root and are discovered by `claude` only.
+`codex`, `pi`, `pi-signed`, `grok`, and `kimi` read `~/.agents/skills` instead, so a Claude plugin's skills are invisible to them under any invocation form; `opencode` is unobserved and stays unknown until probed.
+Copies that happen to share a name in `~/.agents/skills` are a separate, older surface that drifts from the plugin, so a matching name there is not the same skill and never a substitute.
+
+Resolve a plugin skill with [`bin/fm-skill-path.sh`](../../../bin/fm-skill-path.sh) rather than a remembered path: it verifies the install and prints nothing when it cannot, which is the honest unavailable answer.
+Route work that depends on such a skill to a harness that discovers it, and when none can, say so instead of proceeding without the skill or reaching for a same-named local copy.
+Within `claude`, a skill marked user-invoked-only is outside the model's reach entirely and loads only when its slash command is typed into the composer, which `bin/fm-send.sh` can do for a supervised worker; model-invocable skills need no send.
+
 ## Submission acknowledgement hazards
 
 A send or key action reporting success is not proof that the intended action happened.

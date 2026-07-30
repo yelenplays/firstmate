@@ -176,6 +176,7 @@ The generic effort fallback and its precedence are owned by `harness-adapters`: 
 Do not add model-specific versions of that policy.
 
 `secondmate-provisioning` owns secondmate harness pins and inherited local material, while `harness-adapters` owns the harness consequences.
+Work whose brief depends on a runtime-discovered skill must dispatch to a harness that can actually load that skill and must fail honestly when none can, never silently proceeding without it or falling back to a stale local copy; `harness-adapters` owns which harness discovers what.
 Dispatch only on a backend that `fm-spawn` validates as spawn-capable.
 A missing dependency, authentication failure, unsupported backend, or version refusal is a blocker; never silently retry on another backend.
 
@@ -253,6 +254,7 @@ Load `diagnostic-reasoning` before scoping a reported bug and before acting on a
 
 Treat file or subsystem overlap as a risk signal rather than an automatic reason to wait, and dispatch isolated work immediately with no concurrency cap when each change can be independently implemented and validated and the selected delivery path can reconcile ordinary rebases or conflicts.
 Serialize only for a true semantic dependency, shared mutable external state, incompatible concurrent migration, or another concrete condition that makes independent progress or reconciliation unsafe; same-file editing alone is insufficient, and genuine blockers remain durable.
+Load `grill-intake` when the captain asks to be grilled or to stress-test a plan, and immediately before writing a brief when the acceptance criteria are materially too unsharp to dispatch; ordinary ambiguity stays with the single concise intake question above.
 Write the task-specific brief under section 11 before spawning.
 
 ### Dispatch and supervision handoff

@@ -598,6 +598,51 @@ test_scout_and_secondmate_load_decision_hold_policy() {
   pass "fm-brief.sh: investigation and visual-review completions load the shared decision policy"
 }
 
+# A globally installed third-party skill suite is discoverable inside every
+# worker, and some of its skills assume a live human, their own review flow, or
+# their own background agent. Those assumptions are all wrong in a crewmate, so
+# the generated brief carries the rules that close them. Each rule must land in
+# the task shapes where its hazard exists and stay out of the ones where it does
+# not, so the scaffolds do not accumulate advice that never applies.
+test_defensive_skill_rules() {
+  local home id brief
+  home="$TMP_ROOT/defensive-home"
+  write_registry "$home"
+
+  # Every ship mode: no interview, and no skill displacing the delivery path.
+  for id_proj in "brief-def-nm:no-registry-proj" "brief-def-dpr:direct-proj" "brief-def-lo:local-proj"; do
+    id=${id_proj%%:*}
+    FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" "${id_proj##*:}" >/dev/null 2>&1
+    brief="$home/data/$id/brief.md"
+    assert_grep "never start a grilling or interview skill to settle it" "$brief" \
+      "$id: ship brief lost the no-interview rule beside the decision escalation"
+    assert_grep "Unresolved questions go back through firstmate." "$brief" \
+      "$id: ship brief lost where an unresolved question returns"
+    assert_grep "never displaces this project's delivery path" "$brief" \
+      "$id: ship brief lost the delivery-path ownership rule"
+    assert_grep "that pipeline alone owns review" "$brief" \
+      "$id: ship brief lost no-mistakes' sole review ownership"
+    assert_no_grep "Delegated research lands in this report" "$brief" \
+      "$id: ship brief carries the scout-only research rule"
+  done
+
+  # Scout: no interview, and delegated research cannot escape the report.
+  id="brief-def-scout"
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" alpha --scout >/dev/null 2>&1
+  brief="$home/data/$id/brief.md"
+  assert_grep "never start a grilling or interview skill to settle it" "$brief" \
+    "scout brief lost the no-interview rule beside the decision escalation"
+  assert_grep "Delegated research lands in this report and nowhere else." "$brief" \
+    "scout brief lost the research-lands-in-the-report rule"
+  assert_grep "Never spawn an unsupervised background or nested agent" "$brief" \
+    "scout brief lost the no-unsupervised-nested-agent rule"
+  assert_grep "worktree is discarded at teardown" "$brief" \
+    "scout brief lost why an in-repo research file does not survive"
+  assert_no_grep "never displaces this project's delivery path" "$brief" \
+    "scout brief carries a delivery-path rule for a task that has no delivery path"
+  pass "fm-brief.sh: generated briefs carry the third-party skill safety rules per task shape"
+}
+
 # Scout and secondmate paths still scaffold well-formed briefs.
 test_scout_and_secondmate_scaffold() {
   local brief
@@ -634,4 +679,5 @@ test_secondmate_marked_request_reporting_contract
 test_secondmate_directory_paths_are_absolute_and_output_is_stable
 test_pause_verb_override_renders_all_brief_scaffolds
 test_scout_and_secondmate_load_decision_hold_policy
+test_defensive_skill_rules
 test_scout_and_secondmate_scaffold

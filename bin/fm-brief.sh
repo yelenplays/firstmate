@@ -39,6 +39,11 @@
 # declared-external-wait verb (FM_CLASSIFY_PAUSED_VERB, default "paused") from
 # "blocked:": pause for a known external wait expected to clear on its own,
 # blocked when firstmate must act.
+# Every scaffold also carries three defensive rules against globally discoverable
+# third-party skills that assume a human, their own review flow, or their own
+# background agent: no worker starts an interview skill (decisions return through
+# firstmate), no skill displaces the selected delivery path or no-mistakes' sole
+# review ownership, and a scout's delegated research lands only in its report.
 # Ship tasks include a project-memory section so durable project-intrinsic
 # learnings can be committed to AGENTS.md through the project's delivery path;
 # it carries the AGENTS.md authoring bar (widely useful knowledge only, pointers
@@ -279,10 +284,16 @@ The report is the only thing that survives, so anything worth keeping must be in
 5. If you hit the same obstacle twice, append \`blocked: {why}\` and stop; firstmate will help.
 6. If a decision belongs to a human (product choices, destructive actions),
    append \`needs-decision: {summary of options}\` and stop. Firstmate will reply with the decision.
+   No human is available in this pane, so never start a grilling or interview skill to settle it -
+   that would stall the task interviewing nobody. Unresolved questions go back through firstmate.
    When firstmate replies or a blocker clears and you resume, append \`resolved: {how it was decided or unblocked}\` (add the same \`[key=<slug>]\` if you opened it with one) so the decision or blocker is durably closed and does not keep resurfacing.
 7. Never stop, restart, or update the shared \`no-mistakes\` daemon - it is one instance serving
    every lane/home, so restarting it kills other lanes' in-flight pipeline runs. On ANY no-mistakes
    daemon error, append \`blocked: {the daemon error}\` and stop; only firstmate manages the daemon.
+8. Delegated research lands in this report and nowhere else. A research skill that writes its findings
+   to a file in the repo (\`mattpocock-skills:research\` is the common case) loses them here, because this
+   worktree is discarded at teardown. Never spawn an unsupervised background or nested agent for it either;
+   firstmate supervises every worker, and one it cannot see has no status, no record, and no cleanup.
 
 # Definition of done
 Write your findings to \`$DATA/$ID/report.md\`.
@@ -393,10 +404,16 @@ $RULE1
 5. If you hit the same obstacle twice, append \`blocked: {why}\` and stop; firstmate will help.
 6. If a decision belongs above the implementation worker (product choices, destructive actions, ask-user findings),
    append \`needs-decision: {summary of options}\` and stop. Firstmate will apply the configured authority and reply with the decision.
+   No human is available in this pane, so never start a grilling or interview skill to settle it -
+   that would stall the task interviewing nobody. Unresolved questions go back through firstmate.
    When firstmate replies or a blocker clears and you resume, append \`resolved: {how it was decided or unblocked}\` (add the same \`[key=<slug>]\` if you opened it with one) so the decision or blocker is durably closed and does not keep resurfacing.
 7. Never stop, restart, or update the shared \`no-mistakes\` daemon - it is one instance serving
    every lane/home, so restarting it kills other lanes' in-flight pipeline runs. On ANY no-mistakes
    daemon error, append \`blocked: {the daemon error}\` and stop; only firstmate manages the daemon.
+8. A skill that runs its own review or commit flow never displaces this project's delivery path above
+   (\`mattpocock-skills:code-review\` and \`mattpocock-skills:implement\` are the common case). While a
+   no-mistakes run is active, that pipeline alone owns review: do not run a separate review skill against
+   it, and do not let any skill commit or push outside the path this brief already defines.
 
 # Project memory
 If \`AGENTS.md\` or \`CLAUDE.md\` already exists, or if this task produced durable project-intrinsic knowledge, run \`$FM_ROOT/bin/fm-ensure-agents-md.sh .\` in the worktree.
