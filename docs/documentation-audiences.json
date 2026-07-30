@@ -308,6 +308,10 @@
       "audience": "operator-current"
     },
     {
+      "path": "docs/verification/matt-pocock-runtime-reach.md",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": "docs/verification/matt-pocock-skills.md",
       "audience": "maintainer-verification"
     },
