@@ -74,7 +74,9 @@ Section headings loaded:
 Those headings are the pinned 1.2.0 headings, and the announced directory is the pinned install path, so the bytes came from the plugin.
 The send submitted on the first attempt with no swallowed Enter.
 
-The same probe also settles a name-collision question, because a same-named skill exists in the older user-level copy at `~/.agents/skills/tdd`:
+The same probe also settled a name-collision question.
+At the time of the probe an older user-level copy of the same skill was present at `~/.agents/skills/tdd`; those Matt-derived copies were removed later the same day, so re-running these two commands now finds no stale copy.
+The comparison is recorded because the collision is the durable hazard, not the particular copy:
 
 ```sh
 grep -c '^## ' ~/.claude/plugins/cache/claude-plugins-official/mattpocock-skills/1.2.0/skills/engineering/tdd/SKILL.md
@@ -90,8 +92,9 @@ stale copy headings     Philosophy, Anti-Pattern: Horizontal Slices, Workflow, C
 stale copy sha256       af059705061156fd4845ddbb736fe92b564118ac5f03551e09ef9e8f6d970638
 ```
 
-The worker loaded the pinned headings, so on `claude` the plugin copy wins and the stale copy did not participate.
-This holds for `claude` only: the other harnesses read `~/.agents/skills` and would see the stale copy instead, which is why skill-dependent work is routed by discovery source.
+The worker loaded the pinned headings, so on `claude` the plugin copy won and the stale copy did not participate.
+That holds for `claude` only: the other harnesses read `~/.agents/skills`, so whatever sits there is what they would load, which is why skill-dependent work is routed by discovery source rather than by name.
+The guarantee does not depend on that directory being empty today - `bin/fm-skill-path.sh` resolves only through the plugin registry, and `tests/fm-skill-path.test.sh` proves it refuses even when a same-named copy is present.
 
 ## Resolver output
 
