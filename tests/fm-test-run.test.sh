@@ -540,19 +540,28 @@ if [ "$1" = "-f" ] && [ "$2" = "%Lp" ]; then
 fi
 exit 1
 SH
+  # Slot refill is proven by ordering, not by elapsed time: the long worker stays
+  # running until the replacement worker signals that it started. A scheduler that
+  # waited for the oldest worker would leave that signal absent, so the long worker
+  # gives up after a bounded wait and the replacement reports the real failure. A
+  # sleep-based version of this fixture false-failed under concurrent test load.
   cat >"$repo/$a" <<'SH'
 #!/usr/bin/env bash
-sleep 0.5
+waited=0
+while [ ! -e "$SCHED_EVIDENCE/replacement-started" ] && [ "$waited" -lt 100 ]; do
+  sleep 0.1
+  waited=$((waited + 1))
+done
 touch "$SCHED_EVIDENCE/slow-done"
 echo "ok - slow fixture"
 SH
   cat >"$repo/$b" <<'SH'
 #!/usr/bin/env bash
-sleep 0.05
 echo "ok - fast fixture"
 SH
   cat >"$repo/$c" <<'SH'
 #!/usr/bin/env bash
+touch "$SCHED_EVIDENCE/replacement-started"
 if [ -e "$SCHED_EVIDENCE/slow-done" ]; then
   echo "not ok - scheduler waited for oldest worker"
   exit 1
@@ -581,6 +590,14 @@ assert doc["summary"]["failed"]==0
 assert "jobs=2" in doc["selection"]
 ' "$tmp/timing.json" || { rm -rf "$tmp"; fail "jobs JSON artifact wrong"; }
 
+  # The refill ordering is proven; the runs below only need a proven-set worker that
+  # succeeds, so drop the coordination fixture rather than making them wait for it.
+  cat >"$repo/$a" <<'SH'
+#!/usr/bin/env bash
+echo "ok - proven fixture"
+SH
+  chmod +x "$repo/$a"
+
   # Non-proven path is refused before any worker starts (no race masking).
   cat >"$tmp/fail.test.sh" <<'SH'
 #!/usr/bin/env bash
@@ -601,7 +618,6 @@ echo "not ok - deliberate proven-set fail"
 exit 1
 SH
   chmod +x "$repo/$b"
-  rm -f "$evidence/slow-done"
   set +e
   SCHED_EVIDENCE="$evidence" "$runner" --jobs 2 "$a" "$b" >"$tmp/out4" 2>"$tmp/err4"
   rc=$?
