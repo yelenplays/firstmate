@@ -88,6 +88,28 @@ Observed output:
 ok - Claude 2.1.219 (Claude Code) live E2E reclaimed a stale session lock through session start, completed two tokenless Stop-owned rewake cycles, and preserved the competing-live-owner boundary
 ```
 
+Kimi's global crew hook surface was re-verified on 2026-07-30 with Kimi Code CLI 0.31.0, after a model-configuration refresh reserialized the live config and left the hook table without Firstmate's markers.
+The installed binary bundles smol-toml 1.6.1, whose writer emits `key = value` with `JSON.stringify` strings and carries no comments, which is why the markers are lost while the hook table survives byte for byte.
+The refresh was reproduced against an isolated fixture home, never the captain's own configuration:
+
+```sh
+kimi --version
+HOME="$fixture_home" bin/fm-kimi-turnend-hook.sh install
+# then rewrite the fixture config as Kimi's writer does: same hook table, no comments
+HOME="$fixture_home" bin/fm-kimi-turnend-hook.sh install
+```
+
+Observed version, and the observed pre-fix refusal on that rewritten config:
+
+```text
+0.31.0
+fm-kimi-turnend-hook: refused: config.toml references fm-turn-end.sh outside the Firstmate-owned region.
+```
+
+The same input now installs silently.
+The reclaimed config differed from the rewritten one by exactly the two marker lines, the foreign hook table and every blank line survived, a second install changed no byte, and removal restored the surrounding config byte-identically.
+`tests/fm-kimi-harness.test.sh` owns the adversarial matrix that must keep refusing without a config write: altered or extra fields, a missing field, wrong field values, duplicate canonical tables, comments inside the table or on its header, an ambiguous table boundary, an inline hook array, and a second reference outside the table.
+
 ### Session identity under Claude Code's helper tree
 
 Claude Code 2.1.220 launches a session as a `claude bg-spare` process whose ancestors are a `claude bg-pty-host` and a `claude daemon run` at ppid 1.

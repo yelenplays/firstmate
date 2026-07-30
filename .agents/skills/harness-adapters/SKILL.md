@@ -122,7 +122,7 @@ The supported launch-profile flags below are verified locally; each row records 
 | grok | `--model <model>` | `--reasoning-effort <low\|medium\|high>` | Verified on grok 0.2.99 (2026-07-13). `--effort` is an alias, but firstmate's profile axis is reasoning effort. As of 0.2.99 the ceiling is `high`; both `xhigh` and `max` are rejected with `use one of: high, medium, low`, so firstmate omits them. |
 | pi | `--model <model>` | `--thinking <low\|medium\|high\|xhigh\|max>` | Verified 2026-07-13 on Pi 0.80.6. `pi --help` advertises `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`; `pi --print --model openai-codex/gpt-5.6-sol --thinking max 'Reply with exactly OK.'` completed successfully. |
 | opencode | `--model <provider/model>` | none for firstmate's interactive launch | Verified on opencode 1.17.6. `opencode run` has `--variant`, but firstmate launches the interactive `opencode --prompt` path, which has no verified effort flag. |
-| kimi | `--model <model>` | none | Verified 2026-07-25 on Kimi Code CLI 0.29.1. |
+| kimi | `--model <model>` | `KIMI_MODEL_THINKING_EFFORT=<low\|high\|max>` env prefix | Verified 2026-07-30 on Kimi Code CLI 0.31.0. Kimi has no reasoning-effort flag; the operational environment override is its only effort axis and it deliberately bypasses Kimi's own `supportEfforts` check, so an unadvertised value reaches the API and returns 400. Only the levels K3 advertises are passed; `medium` and `xhigh` are omitted. |
 
 ### Model support discovery
 
@@ -136,7 +136,7 @@ Use the discovery surface in the current authenticated environment because suppo
 | opencode | Run `opencode models [provider]`, which lists available provider/model identifiers. |
 | pi | Run `pi --list-models [search]`; Pi's installed `docs/models.md` owns how built-in, extension-registered, and custom provider/model entries reach that list. |
 | grok | Run `grok models`, which lists the models available to the current Grok installation and account. |
-| kimi | Run `kimi provider list --json`, which lists the current provider and model configuration. |
+| kimi | Run `kimi provider list --json`, which lists the current provider and model configuration, including each model's `supportEfforts` and `defaultEffort` when it declares them. |
 
 For an unfamiliar harness or model namespace, establish support and provider identity from that harness's authoritative CLI help, model listing, or current documentation rather than guessing from a name or prefix.
 If those sources do not establish the relationship needed for dispatch, fail loudly and report the unresolved candidate.
@@ -344,7 +344,7 @@ It does not pass `--permission-mode`, so the passive hook cannot escalate the pr
 Project-local Grok hooks require folder trust, verified with launch-time `--trust`; if the primary firstmate checkout is not trusted for Grok hooks, this primary guard fails open and `fm-guard.sh` remains the next-command alarm.
 Grok's primary watcher protocol is Claude-shaped background-notify around `bin/fm-watch-arm.sh`; the passive Stop hook is only a backstop for blind turn ends.
 
-## kimi (VERIFIED 2026-07-25, kimi 0.29.1)
+## kimi (VERIFIED 2026-07-25, kimi 0.29.1; effort axis and global hook surface re-verified 2026-07-30 on kimi 0.31.0)
 
 Kimi Code CLI launches from the absolute path resolved from `PATH`, falling back to the executable `$HOME/.kimi-code/bin/kimi`.
 
@@ -352,7 +352,7 @@ Kimi Code CLI launches from the absolute path resolved from `PATH`, falling back
 |---|---|
 | Binary | Executable `kimi` from `PATH`, then executable `$HOME/.kimi-code/bin/kimi`; spawning refuses if neither exists. |
 | Launch | Bare interactive TUI with `--auto`, followed by readiness-gated pointer delivery; positional prompts are rejected. |
-| Models | `kimi-code/kimi-for-coding` (default), `kimi-code/kimi-for-coding-highspeed`, `kimi-code/k3`, and `kimi-code/k3-256k`. |
+| Models | `kimi-code/kimi-for-coding` (default), `kimi-code/kimi-for-coding-highspeed`, `kimi-code/k3`, and `kimi-code/k3-256k`. As of 0.31.0 the two K3 aliases are the ones that declare thinking efforts, `low`/`high`/`max` with `high` as their default; treat the discovery command above as current truth rather than this list. |
 | Busy-pane signature | A transient line with optional leading whitespace, a rotating moon-phase glyph, required whitespace on both sides of `·`, and optional trailing content; the line is absent when idle. |
 | Exit command | `/exit` |
 | Interrupt | Single Escape, which prints `Interrupted by user`. |
@@ -362,7 +362,7 @@ Kimi Code CLI launches from the absolute path resolved from `PATH`, falling back
 | Slash submission | One Enter submits, with no popup swallow or settle hazard. |
 | Environment marker | None; detection relies on process ancestry command name `kimi`. |
 | Composer | Bordered box with a bare `>` prompt glyph and no observed ghost or placeholder text. |
-| Effort | No reasoning-effort flag exists, so requested effort is recorded in task metadata but omitted from launch. |
+| Effort | No reasoning-effort flag exists; `fm-spawn` delivers effort as a `KIMI_MODEL_THINKING_EFFORT` env prefix on the launch command, scoped to that one Kimi process. A level the selected model does not advertise stays in task metadata and is omitted from launch. |
 
 `fm-spawn.sh` launches Kimi bare, waits for the composer box or `Welcome to Kimi Code!`, sends only `Read the brief at <absolute-path> and follow it exactly.`, and requires a cleared composer plus either the echoed `✨` submission or nonzero context before accepting delivery.
 This launch-then-send shape is mandatory because Kimi rejects a positional brief as an unknown command.
@@ -382,5 +382,6 @@ The spinner match covers the full moon-phase glyph set rather than one frame, bu
 [`docs/turnend-guard.md`](../../../docs/turnend-guard.md) owns Kimi's verified global hook surface and captain-approved crew wake integration.
 `fm-spawn.sh` installs one marker-delimited Firstmate entry in `$HOME/.kimi-code/config.toml`, one silent always-zero hook script, and one private token registry under `$HOME/.kimi-code/fm-turn-end.d/`.
 Each Kimi crew worktree receives a gitignored `.fm-kimi-turnend` token pointer, and the global hook touches that task's `state/<id>.turn-ended` only when the Stop payload's `cwd`, pointer, and registry entry all agree.
+Refreshing Kimi's model configuration reserializes that whole config and drops every comment, so Firstmate's region markers can disappear while the hook table survives; `bin/fm-kimi-turnend-hook.sh` owns the narrow install-only reclaim that restores them, and its refusal is a real blocker rather than something to work around by hand.
 A guarded silent hook cannot be verified from absence of effect, so prove invocation with an unguarded probe before concluding that the hook did not fire.
 The guarded turn-end signal supplements the pane busy signature, whose locale- and emoji-font-sensitive limits still apply while a turn is running.

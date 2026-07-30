@@ -453,7 +453,11 @@ launch_template() {
     # only an absolute brief pointer after the TUI readiness gate below.
     # Its turn-end signal is a globally configured Stop hook plus a guarded
     # per-task worktree token, so no launch placeholder belongs here.
-    kimi) printf '%s' '__KIMIBIN__ __MODELFLAG__--auto' ;;
+    # Kimi has no reasoning-effort flag; its effort axis is the operational
+    # KIMI_MODEL_THINKING_EFFORT environment override, so __EFFORTFLAG__ leads the
+    # command as a per-launch env assignment scoped to this one Kimi process. It
+    # never touches the captain's own Kimi configuration.
+    kimi) printf '%s' '__EFFORTFLAG____KIMIBIN__ __MODELFLAG__--auto' ;;
     *) return 1 ;;
   esac
 }
@@ -604,11 +608,20 @@ effort_flag_for_harness() {
         low|medium|high|xhigh|max) printf -- '--thinking %s ' "$(shell_quote "$effort")" ;;
       esac
       ;;
+    kimi)
+      # Kimi Code 0.31 has no reasoning-effort CLI flag. Its effort axis is the
+      # operational KIMI_MODEL_THINKING_EFFORT override, emitted as a leading env
+      # assignment (see the kimi launch template above). The override deliberately
+      # bypasses the client-side support_efforts check, so an unadvertised value
+      # reaches the API and returns 400; only the values K3 advertises
+      # (low|high|max) are passed, and medium/xhigh stay in task metadata only.
+      case "$effort" in
+        low|high|max) printf -- 'KIMI_MODEL_THINKING_EFFORT=%s ' "$(shell_quote "$effort")" ;;
+      esac
+      ;;
     # opencode's interactive `opencode --prompt` launch has a verified --model
     # flag but no verified effort flag. Its `opencode run --variant` flag belongs
     # to a different, non-interactive launch mode, so fm-spawn does not pass it.
-    # kimi likewise has no reasoning-effort flag; the requested axis stays in
-    # task metadata but never reaches the launch command.
   esac
 }
 

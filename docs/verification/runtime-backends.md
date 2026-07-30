@@ -316,6 +316,45 @@ tests/fm-backend-cmux-smoke.test.sh
 
 The real smoke proves socket access, fresh readiness, current-path probing, send and keys, bounded capture, title identity, and guarded exact cleanup.
 
+## Kimi Code effort axis
+
+Kimi Code CLI 0.31.0's effort axis was verified on 2026-07-30 against the current authenticated K3 worker.
+`kimi --help` lists `-m, --model` and no reasoning-effort option, so the operational `KIMI_MODEL_THINKING_EFFORT` environment override is the only effort surface.
+The override intentionally bypasses Kimi's own `supportEfforts` check, so an unadvertised level reaches the API instead of being rejected locally.
+
+Advertised levels:
+
+```sh
+kimi provider list --json
+```
+
+Observed bounded output for `kimi-code/k3`:
+
+```text
+"supportEfforts": [ "low", "high", "max" ],
+"defaultEffort": "high"
+```
+
+Per-level acceptance was probed non-interactively with one short prompt each:
+
+```sh
+KIMI_MODEL_THINKING_EFFORT="$level" kimi -m kimi-code/k3 -p "Reply with the single word ok."
+```
+
+Observed results:
+
+```text
+low    -> exit 0, model replied
+high   -> exit 0, model replied
+max    -> exit 0, model replied
+medium -> error: failed to run prompt: provider.api_error: 400 Invalid request Error
+xhigh  -> error: failed to run prompt: provider.api_error: 400 Invalid request Error
+```
+
+An arbitrary non-effort string produced the same 400, confirming the override reaches the wire unvalidated.
+`fm-spawn` therefore emits the override only for `low`, `high`, and `max`, and records an undeliverable level in task metadata without passing it.
+`tests/fm-kimi-harness.test.sh` pins the single leading env assignment, the omitted levels, and the refusal of any effort value outside the shared vocabulary.
+
 ## Codex App host tools
 
 A reusable Desktop host-tool smoke ran on 2026-07-06 against Codex Desktop bundle version 26.623.101652, build 4674, bundle id `com.openai.codex`.
