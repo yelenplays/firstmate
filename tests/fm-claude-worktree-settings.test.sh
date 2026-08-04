@@ -78,7 +78,7 @@ run_spawn() {
     FM_PROJECTS_OVERRIDE="$HOME_DIR/projects" FM_CONFIG_OVERRIDE="$HOME_DIR/config" \
     FM_SPAWN_NO_GUARD=1 TMUX="fake,1,0" FM_FAKE_PANE_PATH="$WT_DIR" \
     PATH="$FAKEBIN_DIR:$PATH" \
-    "$SPAWN" "$id" "$PROJ_DIR" 2>&1
+    "$SPAWN" "$id" "$PROJ_DIR" --mode no-mistakes --yolo off 2>&1
 }
 
 settings_of() { printf '%s/.claude/settings.local.json' "$1"; }
@@ -148,6 +148,69 @@ JSON
     || fail "firstmate hid the project's own settings file from git"
 
   pass "spawn merges the turn-end hook and preserves existing permissions and hooks"
+}
+
+# All four Claude lifecycle hooks (bin/fm-busy-lib.sh) arrive through the merging
+# installer, so a project's own hook on one of those same events survives and the
+# original bytes still come back when they are removed.
+test_spawn_installs_every_lifecycle_hook_without_displacing_the_project() {
+  local rec id out status file before
+  id=claude-settings-lifecycle-z12
+  rec=$(make_case lifecycle "$id")
+  read_case "$rec"
+
+  file=$(settings_of "$WT_DIR")
+  mkdir -p "$(dirname "$file")"
+  cat > "$file" <<'JSON'
+{
+  "permissions": {
+    "allow": ["Bash(npm run build:*)"]
+  },
+  "hooks": {
+    "SessionEnd": [
+      {"hooks": [{"type": "command", "command": "echo project-sessionend"}]}
+    ]
+  }
+}
+JSON
+  before=$(cat "$file")
+
+  out=$(run_spawn "$id")
+  status=$?
+  expect_code 0 "$status" "spawn should succeed:"$'\n'"$out"
+
+  assert_contains "$(json_query "$file" '["hooks"]["UserPromptSubmit"]')" \
+    '--event user-prompt-submit' "the UserPromptSubmit lifecycle hook was not installed"
+  assert_contains "$(json_query "$file" '["hooks"]["Stop"]')" \
+    "$id.turn-ended" "the Stop hook lost the turn-end notification"
+  assert_contains "$(json_query "$file" '["hooks"]["Stop"]')" \
+    '--event stop' "the Stop lifecycle hook was not installed"
+  assert_contains "$(json_query "$file" '["hooks"]["StopFailure"]')" \
+    '--event stop-failure' "the StopFailure lifecycle hook was not installed"
+  assert_contains "$(json_query "$file" '["hooks"]["SessionEnd"]')" \
+    '--event session-end' "the SessionEnd lifecycle hook was not installed"
+  assert_contains "$(json_query "$file" '["hooks"]["SessionEnd"]')" \
+    'echo project-sessionend' "the project's own hook on a firstmate event was displaced"
+  assert_grep 'npm run build' "$file" "the project's pre-approved permissions were dropped"
+
+  # A refused teardown reinstalls without naming a hook set, so the install
+  # record - not the legacy default - decides what a still-running crewmate keeps.
+  "$ROOT/bin/fm-claude-worktree-hook.sh" remove "$WT_DIR" \
+    "$HOME_DIR/state/$id.turn-ended" "$HOME_DIR/state/$id.claude-settings-backup" \
+    >/dev/null || fail "removal was refused after a lifecycle install"
+  "$ROOT/bin/fm-claude-worktree-hook.sh" install "$WT_DIR" \
+    "$HOME_DIR/state/$id.turn-ended" "$HOME_DIR/state/$id.claude-settings-backup" \
+    >/dev/null || fail "the refused-teardown restore was refused"
+  assert_contains "$(json_query "$file" '["hooks"]["StopFailure"]')" \
+    '--event stop-failure' "the restore downgraded the crewmate to the legacy turn-end hook"
+
+  "$ROOT/bin/fm-claude-worktree-hook.sh" remove "$WT_DIR" \
+    "$HOME_DIR/state/$id.turn-ended" "$HOME_DIR/state/$id.claude-settings-backup" \
+    >/dev/null || fail "removal was refused after a restore"
+  [ "$(cat "$file")" = "$before" ] \
+    || fail "removing the lifecycle hooks did not restore the original bytes:"$'\n'"$(cat "$file")"
+
+  pass "spawn installs every lifecycle hook and removal restores the project's file"
 }
 
 test_spawn_creates_file_when_absent() {
@@ -399,6 +462,7 @@ JSON
 }
 
 test_spawn_preserves_existing_keys_and_hooks
+test_spawn_installs_every_lifecycle_hook_without_displacing_the_project
 test_spawn_creates_file_when_absent
 test_spawn_handles_empty_file
 test_spawn_refuses_malformed_file_without_clobbering

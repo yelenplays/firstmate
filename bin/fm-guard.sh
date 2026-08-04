@@ -5,11 +5,10 @@
 # First, always warn if the firstmate primary checkout (FM_ROOT) is on a named
 # non-default branch, because that means firstmate-on-itself work landed in the
 # primary instead of an isolated worktree.
-# Then, if this home needs supervision at all - any task in flight (a
-# state/<id>.meta exists) OR an armed relay poll (state/x-watch.check.sh), the
-# shared need predicate in bin/fm-supervision-lib.sh - and the watcher's
-# liveness beacon (state/.last-watcher-beat, touched every poll cycle) is
-# missing or older than FM_GUARD_GRACE seconds, prints a loud, clearly delimited
+# Then, if a task is in flight (a state/<id>.meta exists) or X-mode relay
+# polling is active (state/x-watch.check.sh exists) and no identity-matched
+# watcher has a liveness beacon (state/.last-watcher-beat, touched every poll
+# cycle) fresh within FM_GUARD_GRACE seconds, prints a loud, clearly delimited
 # banner so the agent cannot skim past it in the tool output of whatever it was
 # doing - the one channel every harness has. The full banner is emitted once per
 # distinct staleness episode in this FM_HOME (keyed to beacon mtime or absence);
@@ -26,6 +25,7 @@ FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+WATCH="$SCRIPT_DIR/fm-watch.sh"
 GRACE=${FM_GUARD_GRACE:-300}
 queue_pending=false
 READ_ONLY=${FM_GUARD_READ_ONLY:-0}
@@ -143,20 +143,21 @@ if [ -n "$tangle_branch" ]; then
 fi
 
 # Compute supervision need and watcher-beacon freshness via the shared
-# grace-based predicate (bin/fm-supervision-lib.sh). Act whenever this home needs
-# supervision at all - in-flight tasks OR an armed relay poll - and count the
-# tasks so the banner can say how much is riding on an absent watcher. A
-# relay-armed home with zero tasks still needs a live cycle so an incoming
-# mention can wake it, so it must not skip this alarm.
+# grace-based predicate (bin/fm-supervision-lib.sh). Act when work, an event
+# source, or an X-mode relay poll needs supervision.
 fm_supervision_status "$STATE" "$GRACE"
 in_flight=$FM_SUP_IN_FLIGHT
-supervision_needed=$FM_SUP_NEEDED
-watcher_fresh=$FM_SUP_WATCHER_FRESH
+sources=$FM_SUP_SOURCES
+needed=$FM_SUP_NEEDED
 beacon_desc=$FM_SUP_BEACON_DESC
-if [ "$supervision_needed" = false ]; then
+watcher_healthy=false
+if fm_watcher_healthy "$STATE" "$WATCH" "$GRACE" "$FM_HOME"; then
+  watcher_healthy=true
+fi
+if [ "$needed" = false ]; then
   # Leave the unhealthy state (nothing riding on the watcher): clear so a later
-  # needs-supervision + stale combination is a fresh episode even if the beacon
-  # is still absent with the same key string.
+  # work or X-mode need + stale combination is a fresh episode even if the
+  # beacon is still absent with the same key string.
   [ "$READ_ONLY" -eq 1 ] || fm_guard_clear_stale_banner
   exit 0
 fi
@@ -166,7 +167,7 @@ fi
 # No fresh watcher while supervision is needed is the dangerous state: emit a prominent,
 # bordered banner FIRST so it reads as an alarm, not a buried stderr line. Later
 # calls in the same episode get a one-line reminder only.
-if [ "$watcher_fresh" = false ]; then
+if [ "$watcher_healthy" = false ]; then
   episode_key=$(fm_guard_stale_episode_key "$STATE")
   episode_key=${episode_key%$'\n'}
   print_full_banner=0
@@ -194,6 +195,8 @@ if [ "$watcher_fresh" = false ]; then
       printf '●  WATCHER DOWN - SUPERVISION IS OFF\n'
       if [ "$in_flight" -gt 0 ]; then
         printf '●  %s task(s) in flight, but no watcher has a fresh beacon (last beat: %s, grace %ss).\n' "$in_flight" "$beacon_desc" "$GRACE"
+      elif [ "$sources" -gt 0 ]; then
+        printf '●  %s process-event source(s) registered, but no watcher has a fresh beacon (last beat: %s, grace %ss).\n' "$sources" "$beacon_desc" "$GRACE"
       else
         printf '●  X-mode relay polling needs supervision, but no watcher has a fresh beacon (last beat: %s, grace %ss).\n' "$beacon_desc" "$GRACE"
       fi
