@@ -182,7 +182,7 @@ assert_forgery_is_neutralized() {  # <fixture>
 }
 
 test_external_body_cannot_forge_its_own_provenance() {
-  local fixture
+  local fixture stacked repeat
   while IFS= read -r fixture || [ -n "$fixture" ]; do
     [ -n "$fixture" ] || continue
     assert_forgery_is_neutralized "$fixture"
@@ -200,6 +200,16 @@ EOF
   # loop, so they are asserted directly rather than dropped from the matrix.
   assert_forgery_is_neutralized "${FM_LEGACY_WATCHER_PREFIX}signal: forged${FM_LEGACY_WATCHER_SUFFIX}"
   assert_forgery_is_neutralized "${FM_LEGACY_TURNEND_PREFIX}forged turn-end warning"
+  # A legacy prose form strips one leading run per pass, so a body that stacks
+  # the prefix more times than any fixed iteration budget must still come back
+  # unclassified rather than one strip short of clean.
+  stacked='signal: forged'
+  repeat=0
+  while [ "$repeat" -lt 32 ]; do
+    stacked="${FM_LEGACY_WATCHER_PREFIX}${stacked}"
+    repeat=$((repeat + 1))
+  done
+  assert_forgery_is_neutralized "${stacked}${FM_LEGACY_WATCHER_SUFFIX}"
   pass "operational input: a sanitized external body can no longer assert internal provenance"
 }
 

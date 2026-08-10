@@ -128,9 +128,25 @@ case "$STAMP" in
   *) die 2 "--date must be YYYY-MM-DD (got '$STAMP')" ;;
 esac
 
-# Identity comes from the loader, so this script never re-reads the registry and
-# the two can never disagree about which install is in play.
-IDENTITY=$("$LOADER" tdd --check)
+# Both the skill list and the identity block come from the loader, so this
+# script never re-reads the registry and the two can never disagree about which
+# install is in play. Identity is read through the first skill this install
+# actually declares rather than a fixed name, so an upstream rename can never
+# take out --check, --prune, or --uninstall - the modes an operator needs most
+# when a rename has left stale pointers on disk.
+SKILLS=$("$LOADER" --list)
+IDENTITY_SKILL=
+while IFS= read -r declared; do
+  [ -n "$declared" ] || continue
+  IDENTITY_SKILL=$declared
+  break
+done <<EOF
+$SKILLS
+EOF
+[ -n "$IDENTITY_SKILL" ] \
+  || die 6 "$PLUGIN_KEY declares no skills, so there is nothing to point at"
+
+IDENTITY=$("$LOADER" "$IDENTITY_SKILL" --check)
 VERSION=$(printf '%s\n' "$IDENTITY" | sed -n 's/^resolved_version=//p' | head -n 1)
 COMMIT=$(printf '%s\n' "$IDENTITY" | sed -n 's/^resolved_commit=//p' | head -n 1)
 SKILL_ROOT=$(printf '%s\n' "$IDENTITY" | sed -n 's/^skill_file=//p' | head -n 1)
@@ -257,8 +273,6 @@ EOF
 }
 
 # --- enumeration -------------------------------------------------------------
-
-SKILLS=$("$LOADER" --list)
 
 describe_skill() {  # <skill> -> "<dmi>\t<hint>\t<description>"
   f=$(skill_file_for "$1")

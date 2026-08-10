@@ -214,6 +214,23 @@ EOF
   pass "the loader delegates to the shared resolver and inherits its refusals"
 }
 
+# There is no second resolver. Without bin/fm-skill-path.sh beside it the loader
+# must refuse loudly and print nothing, never resolve a path of its own.
+test_loader_refuses_without_the_shared_resolver() {
+  local lone root out
+  lone="$TMP_ROOT/lone/bin"
+  mkdir -p "$lone"
+  cp "$LOADER" "$lone/"
+
+  root="$TMP_ROOT/lone"
+  build_plugin "$root"
+
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$lone/fm-matt-skill.sh" tdd 2>/dev/null)
+  expect_code 127 $? "loader resolved a skill with no shared resolver installed"
+  [ -z "$out" ] || fail "loader printed skill bytes without the shared resolver: $out"
+  pass "the loader refuses when the shared resolver is not installed beside it"
+}
+
 # --- pointers ----------------------------------------------------------------
 
 run_pointers() {  # <config-root> <args...>
@@ -375,6 +392,7 @@ test_loader_prints_original_bytes_and_identity
 test_loader_refuses_without_printing_anything
 test_loader_reports_drift_without_hiding_the_original
 test_loader_delegates_to_the_shared_resolver_when_present
+test_loader_refuses_without_the_shared_resolver
 test_pointers_carry_attribution_and_no_procedure
 test_pointers_mirror_upstream_invocation_flags
 test_pointer_instructs_a_hard_stop_on_failure

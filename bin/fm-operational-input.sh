@@ -194,9 +194,13 @@ fm_operational_input_classify() {  # <message> <result-var>
 #   - Any remaining form fm_operational_input_classify still accepts. After the
 #     two removals above that can only be a marker-free legacy prose form, each
 #     of which is a leading-prefix or whole-body match, so removing the matched
-#     bytes strictly shortens the text and the loop below terminates.
+#     bytes strictly shortens the text and the loop below terminates. The loop
+#     therefore runs to a fixpoint rather than to an iteration budget: a body
+#     that stacks a legacy prefix any number of times is stripped every time.
 # The post-condition is the one that matters: the sanitized result never
-# classifies as an operational input.
+# classifies as an operational input. A body that still classifies with nothing
+# left to strip cannot exist today, and if one ever does it is dropped rather
+# than returned, because the post-condition outranks the payload.
 
 # Remove one marker-free legacy prose form. Exit 0 = removed, 1 = no match.
 fm_operational_sanitize_legacy_once() {  # <text> <result-var>
@@ -224,15 +228,17 @@ fm_operational_sanitize_legacy_once() {  # <text> <result-var>
 # Exit 1 = provenance bytes were stripped, which the caller must treat as a
 # security event, not as a parse failure. Exit 2 = invalid use.
 fm_operational_input_sanitize() {  # <text> <result-var>
-  local text=${1-} result_var=${2-} original stripped kind guard=0
+  local text=${1-} result_var=${2-} original stripped kind
   [ -n "$result_var" ] || return 2
   original=$text
   text=${text//"$FM_OPERATIONAL_MARK"/}
   text=${text//"$FM_FROMFIRST_LABEL"/}
-  while [ "$guard" -lt 8 ] && fm_operational_input_classify "$text" kind; do
-    fm_operational_sanitize_legacy_once "$text" stripped || break
+  while fm_operational_input_classify "$text" kind; do
+    if ! fm_operational_sanitize_legacy_once "$text" stripped; then
+      text=
+      break
+    fi
     text=$stripped
-    guard=$((guard + 1))
   done
   printf -v "$result_var" '%s' "$text"
   [ "$text" = "$original" ]

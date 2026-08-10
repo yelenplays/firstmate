@@ -50,11 +50,10 @@
 # --require-validated-pin turns drift back into a refusal for a caller that
 # wants the strict reading.
 #
-# Resolution is delegated to bin/fm-skill-path.sh when that script is present,
-# which is the repo's single owner of plugin-skill resolution. The inline
-# fallback below exists only because that owner has not landed yet; it verifies
-# the same properties for this one plugin and is meant to be deleted, without
-# touching any generated pointer, once the owner is available.
+# Resolution is delegated to bin/fm-skill-path.sh, the repo's single owner of
+# plugin-skill resolution. There is deliberately no second resolver: a loader
+# that guesses a path when the owner is absent is exactly the drift the pointer
+# pattern exists to prevent, so a missing owner is a refusal (127).
 set -eu
 
 HERE=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
@@ -114,8 +113,8 @@ KEY="$PLUGIN@$MARKETPLACE"
 
 # --- install location and enablement ----------------------------------------
 #
-# Needed for --list and for the fallback resolver, and cheap enough that the
-# delegating path reuses it for the manifest read rather than re-deriving it.
+# Needed for --list, and cheap enough that the delegating path reuses it for the
+# manifest read and the pin comparison rather than re-deriving them.
 
 [ -f "$REGISTRY" ] \
   || die 3 "no Claude plugin registry at $REGISTRY; $PLUGIN is not installed for this configuration"
@@ -204,100 +203,24 @@ esac
 
 # --- resolve the skill directory --------------------------------------------
 
-if [ -x "$RESOLVER" ]; then
-  # The repo's single owner of plugin-skill resolution. It re-derives the
-  # registry entry itself, so this branch passes only the identity constants and
-  # trusts its refusals verbatim.
-  set +e
-  RESOLVED=$("$RESOLVER" "$KEY" "$SKILL" 2>&1)
-  RC=$?
-  set -e
-  if [ "$RC" -ne 0 ]; then
-    printf '%s\n' "$RESOLVED" >&2
-    exit "$RC"
-  fi
-  SKILL_DIR=$(printf '%s\n' "$RESOLVED" | sed -n 's/^skill_dir=//p' | head -n 1)
-  SKILL_FILE=$(printf '%s\n' "$RESOLVED" | sed -n 's/^skill_file=//p' | head -n 1)
-  RESOLVED_BY="bin/fm-skill-path.sh"
-  [ -n "$SKILL_FILE" ] || die 6 "bin/fm-skill-path.sh resolved $SKILL without a skill_file"
-else
-  # --- inline fallback, delete once bin/fm-skill-path.sh lands ---------------
-  RESOLVED_BY="fm-matt-skill.sh built-in fallback (bin/fm-skill-path.sh not installed)"
+[ -x "$RESOLVER" ] \
+  || die 127 "bin/fm-skill-path.sh is required to resolve a skill and is missing or not executable at $RESOLVER"
 
-  DECLARED=$(jq -r --arg s "$SKILL" '
-    (if (.skills | type) == "array" then .skills else [] end)
-    | map(select(type == "string"))
-    | map(select((sub("/+$"; "") | split("/") | last) == $s))
-    | .[]
-  ' "$MANIFEST")
-  DECLARED_COUNT=0
-  while IFS= read -r line; do
-    [ -n "$line" ] || continue
-    DECLARED_COUNT=$((DECLARED_COUNT + 1))
-  done <<EOF
-$DECLARED
-EOF
-  case "$DECLARED_COUNT" in
-    0) die 5 "skill '$SKILL' is not declared by $PLUGIN $VERSION" ;;
-    1) : ;;
-    *) die 6 "skill '$SKILL' is declared more than once by $PLUGIN $VERSION" ;;
-  esac
-
-  REL=$(printf '%s' "$DECLARED" | head -n 1)
-  REL=${REL#./}
-  REL=${REL%/}
-  case "$REL" in
-    ''|/*) die 6 "skill '$SKILL' is declared with an unusable path: '$REL'" ;;
-    ..|../*|*/..|*/../*) die 6 "skill '$SKILL' is declared with a traversing path: $REL" ;;
-  esac
-
-  SKILL_DIR="$INSTALL_PATH/$REL"
-  [ -d "$SKILL_DIR" ] || die 6 "skill '$SKILL' directory is missing: $SKILL_DIR"
-
-  # Ancestors of the install root belong to the operating system (macOS resolves
-  # /tmp through a symlink), so only the plugin's own tree is checked.
-  cur=$INSTALL_PATH
-  remainder=$REL
-  while [ -n "$remainder" ]; do
-    part=${remainder%%/*}
-    if [ "$part" = "$remainder" ]; then remainder=; else remainder=${remainder#*/}; fi
-    [ -n "$part" ] || continue
-    cur="$cur/$part"
-    [ ! -L "$cur" ] || die 6 "skill '$SKILL' resolves through a symlink at $cur"
-  done
-  if [ -n "$(find "$SKILL_DIR" -type l -print 2>/dev/null | head -n 1)" ]; then
-    die 6 "skill '$SKILL' support tree contains a symlink under $SKILL_DIR"
-  fi
-
-  INSTALL_REAL=$(CDPATH='' cd -- "$INSTALL_PATH" 2>/dev/null && pwd -P) \
-    || die 6 "$KEY install directory cannot be resolved: $INSTALL_PATH"
-  SKILL_REAL=$(CDPATH='' cd -- "$SKILL_DIR" 2>/dev/null && pwd -P) \
-    || die 6 "skill '$SKILL' directory cannot be resolved: $SKILL_DIR"
-  case "$SKILL_REAL" in
-    "$INSTALL_REAL"/*) : ;;
-    *) die 6 "skill '$SKILL' resolves outside the plugin install: $SKILL_REAL" ;;
-  esac
-
-  SKILL_FILE="$SKILL_DIR/SKILL.md"
-  [ -f "$SKILL_FILE" ] || die 6 "skill '$SKILL' has no SKILL.md at $SKILL_FILE"
-
-  DECLARED_NAME=$(awk '
-    NR == 1 { if ($0 !~ /^---[[:space:]]*$/) exit 0; next }
-    /^---[[:space:]]*$/ { exit 0 }
-    /^name:[[:space:]]*/ {
-      line = $0
-      sub(/^name:[[:space:]]*/, "", line)
-      sub(/[[:space:]]+$/, "", line)
-      print line
-      exit 0
-    }
-  ' "$SKILL_FILE")
-  DECLARED_NAME=${DECLARED_NAME%\"}; DECLARED_NAME=${DECLARED_NAME#\"}
-  DECLARED_NAME=${DECLARED_NAME%\'}; DECLARED_NAME=${DECLARED_NAME#\'}
-  [ "$DECLARED_NAME" = "$SKILL" ] \
-    || die 6 "skill file at $SKILL_FILE declares name '${DECLARED_NAME:-none}', not '$SKILL'"
-  # --- end inline fallback ---------------------------------------------------
+# The repo's single owner of plugin-skill resolution. It re-derives the registry
+# entry itself, so this call passes only the identity constants and trusts its
+# refusals verbatim.
+set +e
+RESOLVED=$("$RESOLVER" "$KEY" "$SKILL" 2>&1)
+RC=$?
+set -e
+if [ "$RC" -ne 0 ]; then
+  printf '%s\n' "$RESOLVED" >&2
+  exit "$RC"
 fi
+SKILL_DIR=$(printf '%s\n' "$RESOLVED" | sed -n 's/^skill_dir=//p' | head -n 1)
+SKILL_FILE=$(printf '%s\n' "$RESOLVED" | sed -n 's/^skill_file=//p' | head -n 1)
+RESOLVED_BY="bin/fm-skill-path.sh"
+[ -n "$SKILL_FILE" ] || die 6 "bin/fm-skill-path.sh resolved $SKILL without a skill_file"
 
 # --- pin comparison ----------------------------------------------------------
 
