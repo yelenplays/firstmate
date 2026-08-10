@@ -14,11 +14,15 @@
 #   plan, dispatch, or investigation relies on model knowledge. `classify` is the
 #   deterministic conservative screen: it prints bypass ONLY for traffic that is
 #   never substantive (empty input, a bare single-token harness slash command,
-#   the pure control and routine monitoring operational-input kinds recognized
-#   by their protocol owner bin/fm-operational-input.sh, exact single
-#   acknowledgments) and substantive for everything else. Slash-leading or
-#   path-leading prose, and any operational input that carries a task brief,
-#   stay substantive, so an unrecognized message always takes the mandatory path.
+#   the four explicitly named control and monitoring kinds that the protocol
+#   owner bin/fm-operational-input.sh resolves for a message - session-start,
+#   watcher, turn-end-guard, away-supervisor, each including its landed legacy
+#   prefix - and exact single acknowledgments) and substantive for everything
+#   else. Slash-leading or path-leading prose, any operational input carrying a
+#   task brief, and every shape the owner can only place in its untyped
+#   `legacy-operational` catch-all - an unrecognized kind, a future version
+#   token, a bare untyped prefix - stay substantive, so an unrecognized message
+#   always takes the mandatory path.
 # - `run` resolves the Megamind executable from the first line of local gitignored
 #   config/megamind-executable (absent: plain `megamind-axi` on PATH) and the
 #   pilot wiki estate from the first line of config/megamind-estate (absent:
@@ -73,10 +77,14 @@ LOG_FILE="$STATE/megamind-preflight.jsonl"
 READ_POLICY="Read only the allows paths listed under each matched wiki root, within that wiki's context budget; use the follow_up ladder for page content; never read, infer, or widen to any other wiki path."
 RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" [--model-class local|cloud]'
 
-# Operational-input kinds that are pure control or routine monitoring. The kinds
-# that carry a real task brief - from-firstmate and launch-brief - are deliberately
-# absent, because dispatched work is substantive.
-BYPASS_OPERATIONAL_KINDS='session-start watcher turn-end-guard away-supervisor legacy-operational'
+# Operational-input kinds that are pure control or routine monitoring. Every
+# entry is a kind the protocol owner recognizes explicitly, so each landed legacy
+# monitoring prefix still resolves here through its own kind. The kinds that
+# carry a real task brief - from-firstmate and launch-brief - and the owner's
+# untyped `legacy-operational` catch-all are deliberately absent: dispatched work
+# is substantive, and a shape the owner could not subtype is unrecognized traffic
+# that belongs on the mandatory path.
+BYPASS_OPERATIONAL_KINDS='session-start watcher turn-end-guard away-supervisor'
 
 trim_ws() {  # <text> - print it without leading or trailing whitespace
   local text="$1"

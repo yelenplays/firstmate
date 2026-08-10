@@ -104,17 +104,31 @@ test_classify_bypass_vs_substantive() {
   # ordinary text a captain can type and must stay substantive.
   c=$("$SCRIPT" classify "FM_INJECT_MARK stale: worker quiet")
   [ "$c" = substantive ] || fail "literal marker text classified as $c"
-  c=$("$SCRIPT" classify "${FM_OPERATIONAL_PREFIX}heartbeat review")
-  [ "$c" = bypass ] || fail "legacy untyped operational prefix classified as $c"
+  # Each explicitly recognized monitoring kind bypasses, through its current
+  # typed form and through its landed legacy prefix alike.
   c=$("$SCRIPT" classify "${FM_OPERATIONAL_HEADER_PREFIX}away-supervisor: worker quiet for 40m")
   [ "$c" = bypass ] || fail "typed away-supervisor input classified as $c"
   c=$("$SCRIPT" classify "${FM_LEGACY_AWAY_PREFIX}worker quiet for 40m)")
   [ "$c" = bypass ] || fail "legacy bare-marker escalation classified as $c"
+  c=$("$SCRIPT" classify "${FM_LEGACY_WATCHER_PREFIX}queued wake${FM_LEGACY_WATCHER_SUFFIX}")
+  [ "$c" = bypass ] || fail "legacy watcher wake classified as $c"
+  c=$("$SCRIPT" classify "$FM_LEGACY_SESSIONSTART")
+  [ "$c" = bypass ] || fail "legacy session-start classified as $c"
+  c=$("$SCRIPT" classify "${FM_LEGACY_TURNEND_PREFIX}recover before ending the turn")
+  [ "$c" = bypass ] || fail "legacy turn-end guard classified as $c"
   # Operational inputs that carry a real task brief stay on the mandatory path.
   c=$("$SCRIPT" classify "${FM_FROMFIRST_MARK}Investigate the pricing regression and report back")
   [ "$c" = substantive ] || fail "from-firstmate dispatch classified as $c"
   c=$("$SCRIPT" classify "${FM_OPERATIONAL_HEADER_PREFIX}launch-brief: build the pricing report")
   [ "$c" = substantive ] || fail "launch brief classified as $c"
+  # Anything the protocol owner can only place in its untyped catch-all is
+  # unrecognized traffic and must run preflight, brief-shaped or not.
+  c=$("$SCRIPT" classify "${FM_OPERATIONAL_PREFIX}heartbeat review")
+  [ "$c" = substantive ] || fail "untyped operational prefix classified as $c"
+  c=$("$SCRIPT" classify "${FM_OPERATIONAL_HEADER_PREFIX}dispatch-v2: build the pricing report")
+  [ "$c" = substantive ] || fail "unrecognized typed kind classified as $c"
+  c=$("$SCRIPT" classify "${FM_OPERATIONAL_PREFIX}v2 launch-brief: build the pricing report")
+  [ "$c" = substantive ] || fail "future version token classified as $c"
   c=$("$SCRIPT" classify "   ")
   [ "$c" = bypass ] || fail "whitespace classified as $c"
   c=$("$SCRIPT" classify "yes, merge it now")
