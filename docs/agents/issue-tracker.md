@@ -1,8 +1,9 @@
-# Issue tracker for Matt engineering skills
+# Issue tracker for installed skills
 
-Matt engineering skills use GitHub Issues on `yelenplays/firstmate`, the captain's fork, when the captain explicitly authorizes issue-tracker work for this repository.
-They do not publish Matt-skill issues to upstream `kunchenguid/firstmate` unless the captain explicitly redirects that concrete operation.
-Pull requests are not a request or triage surface for these skills.
+An installed skill that will create or update issues for this repository uses GitHub Issues on `yelenplays/firstmate`, the captain's fork, and only when the captain explicitly authorizes issue-tracker work.
+That target is an intentional bounded convention tracked for the captain's fork rather than a portable upstream default, because the local `origin` remote may point at upstream `kunchenguid/firstmate`.
+Do not publish these issues to upstream `kunchenguid/firstmate` unless the captain explicitly redirects that concrete operation.
+Pull requests are not a request or triage surface for this work.
 
 ## Tracker prerequisite
 

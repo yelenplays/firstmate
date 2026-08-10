@@ -1,6 +1,6 @@
-# Triage labels for Matt engineering skills
+# Triage labels for installed skills
 
-Matt engineering skills use five canonical triage roles on `yelenplays/firstmate`.
+An installed skill that will create or update triage labels for this repository uses the five canonical roles below on `yelenplays/firstmate`, under the fork convention stated in [`issue-tracker.md`](issue-tracker.md).
 The tracker label string is identical to each role name.
 
 | Role | Tracker label | Meaning |

@@ -1,6 +1,6 @@
-# Domain documentation for engineering skills
+# Domain documentation for installed skills
 
-Matt engineering skills use this repository's domain documentation when they explore the codebase.
+An installed skill that will read or update root `CONTEXT.md` or `docs/adr/` uses this repository's domain documentation when it explores the codebase.
 
 ## Sources
 
