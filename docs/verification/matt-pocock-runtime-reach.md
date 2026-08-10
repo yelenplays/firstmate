@@ -70,6 +70,10 @@ $ grok -p "/matt-tdd Do not start any TDD work. Follow the pointer's Step 1 exac
 - **Horizontal slicing**
 ```
 
+That `resolved_by` value dates the run: the loader still carried an inline fallback resolver for hosts where `bin/fm-skill-path.sh` had not landed yet.
+That fallback is gone, so the loader delegates unconditionally and `resolved_by` now always reads `bin/fm-skill-path.sh`; a loader without that owner beside it refuses with exit 127 and no stdout rather than resolving a path of its own.
+The digest this section rests on is unaffected, because it is produced from the resolved file either way.
+
 The same holds for a user-invoked skill through its pointer, where the reported digest again equals `shasum -a 256` of the installed `wayfinder/SKILL.md`:
 
 ```
@@ -126,4 +130,4 @@ The install directory was restored immediately, and `bin/fm-matt-skill.sh tdd --
 
 ## Regression coverage
 
-`tests/fm-matt-pointers.test.sh` builds a fake plugin under a private `CLAUDE_CONFIG_DIR` and covers the guarantees above without touching the real install: original bytes plus attribution on success; silent-stdout refusal for a moved, absent, disabled, swapped, undeclared, symlinked, or misnamed install; loud but non-fatal version drift, and outright refusal under `--require-validated-pin`; delegation to `bin/fm-skill-path.sh` including its exit statuses; pointers that carry attribution and no procedure; mirrored invocation flags; the hard-stop instruction; `--check` catching edited, missing, and inert pointers; and unmarked directories surviving both install and uninstall.
+`tests/fm-matt-pointers.test.sh` builds a fake plugin under a private `CLAUDE_CONFIG_DIR` and covers the guarantees above without touching the real install: original bytes plus attribution on success; silent-stdout refusal for a moved, absent, disabled, swapped, undeclared, symlinked, or misnamed install; loud but non-fatal version drift, and outright refusal under `--require-validated-pin`; delegation to `bin/fm-skill-path.sh` including its exit statuses, and the loader's own silent-stdout 127 refusal when that resolver is not installed beside it; pointers that carry attribution and no procedure; mirrored invocation flags; the hard-stop instruction; `--check` catching edited, missing, and inert pointers; and unmarked directories surviving both install and uninstall.
