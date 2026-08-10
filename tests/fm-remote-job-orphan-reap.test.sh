@@ -61,6 +61,23 @@ wait_child() { # <pid> <seconds>
   return 1
 }
 
+# Wait up to <seconds> for a just-launched supervisor under <remote-root> to
+# become findable, and echo its pid; 1 when it never appeared. The start path
+# launches through nohup and env, so the process only takes on the worker's own
+# command line once that chain has exec'd all the way to the interpreter. A
+# single lookup right after the launch can therefore run while the worker is
+# still wearing a launcher's command line, which is a scheduling race, not a
+# failed start. Only the supervisor matches: its serving child carries --serve.
+wait_worker_pid() { # <remote-root> <seconds>
+  local root=$1 deadline=$(( $(date +%s) + $2 )) pid
+  while :; do
+    pid=$(pgrep -f "^/bin/bash $root/bin/fm-remote-job-worker.sh\$" | head -n 1)
+    case "$pid" in ''|*[!0-9]*) ;; *) printf '%s\n' "$pid"; return 0 ;; esac
+    [ "$(date +%s)" -lt "$deadline" ] || return 1
+    sleep 0.1
+  done
+}
+
 # --- a real worker fixture, launched exactly the way fm-on's Linux start does -
 
 # build_remote_root <dir>: a minimal but genuine Firstmate code root carrying
@@ -81,18 +98,16 @@ build_remote_root() {
 # start_worker <remote-root> <account-home> <state-root>: start the worker
 # through the shared library start path and echo the supervisor pid.
 start_worker() {
-  local root=$1 account_home=$2 state_root=$3 pid
-  pid=$(
+  local remote_root=$1 account_home=$2 state_root=$3
+  (
     export FM_REMOTE_JOB_STATE_ROOT="$state_root"
     export FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux
     export FM_REMOTE_JOB_ORPHAN_GRACE_SECONDS=1
     # shellcheck source=bin/fm-remote-job-lib.sh
     . "$ROOT/bin/fm-remote-job-lib.sh"
-    fm_remote_job_start_linux_worker "$root" "$account_home" >&2 || exit 1
-    pgrep -f "^/bin/bash $root/bin/fm-remote-job-worker.sh\$" | head -n 1
+    fm_remote_job_start_linux_worker "$remote_root" "$account_home" >&2
   ) || return 1
-  case "$pid" in ''|*[!0-9]*) return 1 ;; esac
-  printf '%s\n' "$pid"
+  wait_worker_pid "$remote_root" 10
 }
 
 CASE1="$TMP_ROOT/case1"
