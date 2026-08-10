@@ -196,6 +196,18 @@
       "audience": "public-product"
     },
     {
+      "path": "docs/agents/domain.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": "docs/agents/issue-tracker.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": "docs/agents/triage-labels.md",
+      "audience": "agent-runtime"
+    },
+    {
       "path": "docs/architecture.md",
       "audience": "maintainer-architecture"
     },

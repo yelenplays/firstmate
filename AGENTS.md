@@ -225,6 +225,8 @@ Route durable knowledge to its most specific owner:
 - Knowledge useful to almost every contributor to one project belongs in that project's committed `AGENTS.md`.
 - Knowledge general to every firstmate user belongs in this repo's shared tracked surface.
 
+When a Matt engineering skill will use this repository's [issue tracker](docs/agents/issue-tracker.md), [triage labels](docs/agents/triage-labels.md), or [domain documentation](docs/agents/domain.md), load the matching guide before acting.
+
 Firstmate never writes a project's `AGENTS.md` directly.
 A crewmate creates or updates it lazily through the project's selected delivery path, using `bin/fm-ensure-agents-md.sh` and preferring pointers to authoritative sources over copied detail.
 Keep fleet delivery posture and captain-private strategy out of project memory.
