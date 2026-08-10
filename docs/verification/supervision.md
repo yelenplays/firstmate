@@ -127,7 +127,10 @@ The same run proved the Claude-compatible Stop entries stay inert under `GROK_AG
 
 The secondmate-home scope and manual-repair wake path were measured with Claude Code 2.1.207 on 2026-07-12, when a native background completion re-invoked the idle model with no human input.
 The current Stop-owned main/secondmate inclusion and child-worktree exclusion are covered deterministically by `tests/fm-claude-stop-autoarm.test.sh`.
-On 2026-07-28 with Claude Code 2.1.205, `fm_harness_ancestry_pid()` in `bin/fm-session-lock-lib.sh` was fixed to resolve the outermost pid of a contiguous nested-harness run instead of the first match, so the Stop auto-arm correctly reaches the session's true lock owner through Claude Code's multi-level `bg-spare` hook worker chain.
+Session-lock ownership in `bin/fm-session-lock-lib.sh` is decided against a session's whole contiguous harness ancestry rather than one chosen pid, so the Stop auto-arm reaches its lock owner wherever that owner sits: the outermost pid of Claude Code's multi-level `bg-spare` hook worker chain, or an inner pid when a harness-named daemon parents the session.
+Harness identity is read from the executable path and `argv[0]` as well as the command basename, because Claude Code's native installer names the per-session executable by its version (`.../share/claude/versions/2.1.220`): `ps -o comm=` reports that path on macOS and the bare version string on Linux, and neither basename names a harness.
+`tests/fm-session-lock-ancestry.test.sh` pins both platforms' reporting semantics behind a deterministic process table and runs the real Stop auto-arm in version-named, daemon-parented, and combined real process trees.
+`tests/fm-watch-arm.test.sh` runs a real watcher and attached arm to verify that a delivered reason survives queue draining, while an unrelated queue append cannot make a watcher cycle that delivered nothing look successful.
 
 The Claude product live path ran with Claude Code 2.1.219 on 2026-07-24:
 
@@ -143,6 +146,62 @@ Observed output:
 ok - Claude 2.1.219 (Claude Code) live E2E reclaimed a stale session lock through session start, completed two tokenless Stop-owned rewake cycles, and preserved the competing-live-owner boundary
 ```
 
+Kimi's global crew hook surface was re-verified on 2026-07-30 with Kimi Code CLI 0.31.0, after a model-configuration refresh reserialized the live config and left the hook table without Firstmate's markers.
+The installed binary bundles smol-toml 1.6.1, whose writer emits `key = value` with `JSON.stringify` strings and carries no comments, which is why the markers are lost while the hook table survives byte for byte.
+The refresh was reproduced against an isolated fixture home, never the captain's own configuration:
+
+```sh
+kimi --version
+HOME="$fixture_home" bin/fm-kimi-turnend-hook.sh install
+# then rewrite the fixture config as Kimi's writer does: same hook table, no comments
+HOME="$fixture_home" bin/fm-kimi-turnend-hook.sh install
+```
+
+Observed version, and the observed pre-fix refusal on that rewritten config:
+
+```text
+0.31.0
+fm-kimi-turnend-hook: refused: config.toml references fm-turn-end.sh outside the Firstmate-owned region.
+```
+
+The same input now installs silently.
+The reclaimed config differed from the rewritten one by exactly the two marker lines, the foreign hook table and every blank line survived, a second install changed no byte, and removal restored the surrounding config byte-identically.
+`tests/fm-kimi-harness.test.sh` owns the adversarial matrix that must keep refusing without a config write: altered or extra fields, a missing field, wrong field values, duplicate canonical tables, comments inside the table or on its header, an ambiguous table boundary, an inline hook array, and a second reference outside the table.
+
+### Session identity under Claude Code's helper tree
+
+Claude Code 2.1.220 launches a session as a `claude bg-spare` process whose ancestors are a `claude bg-pty-host` and a `claude daemon run` at ppid 1.
+All three carry the harness command name, but only the `bg-spare` is the session: it holds the home checkout as its working directory, while the pty host and the daemon are shared by every Claude session on the machine.
+The session is therefore normally the NEAREST harness-named ancestor of a hook or tool call it fires, so the pid minted into `state/.lock` is that nearest match.
+Widening the mint to an outer harness-named ancestor would reach the shared daemon and record one pid for every Claude session at once, which is why `fm_harness_ancestry_pid` stops at the first match.
+Session ownership itself is verified as ancestry membership, so a helper or nested shell interposed below the session cannot disown it.
+The 2.1.219 evidence above was collected before this helper tree existed and does not cover it.
+
+Measured with Claude Code 2.1.220 on 2026-07-25:
+
+```sh
+claude --version
+ps -axo pid,ppid,comm
+bash tests/fm-claude-stop-autoarm.test.sh
+```
+
+Observed output:
+
+```text
+2.1.220 (Claude Code)
+89494     1 /opt/homebrew/Caskroom/claude-code@latest/2.1.220/claude
+89502 89494 claude bg-pty-host
+89533 89502 claude bg-spare
+ok - auto-arm: claims its own home when the session sits above the harness's own helper process
+ok - auto-arm: a same-harness helper never extends ownership to an unrelated live session's home
+ok - fm-lock: a session behind its harness's own helper is never refused its own home
+ok - fm-lock: minting stops at the session and never widens to a shared harness ancestor above it
+```
+
+The first and third cases fail against the nearest-harness-ancestor equality predicate the ownership change replaced.
+The second is the fail-closed control and passes both before and after it.
+The fourth is the minting regression guard for the shared-ancestor shape above: it passes here and fails whenever the ancestry walk is widened past the session, recording the shared daemon pid instead.
+
 Current entry points:
 
 ```sh
@@ -150,6 +209,46 @@ tests/fm-turnend-guard.test.sh
 tests/fm-supervision-instructions.test.sh
 FM_PI_LIVE_E2E=1 tests/fm-pi-primary-live-e2e.test.sh
 FM_GROK_STOP_LIVE_E2E=1 FM_GROK_NATIVE_BIN="$native_grok" FM_GROK_LEGACY_BIN="$pre_native_grok" tests/fm-grok-stop-live-e2e.test.sh
+```
+
+The Claude auto-arm false-failure, guard-predicate, and monotonic bounded fail-open correction was verified on 2026-08-02 with the installed ShellCheck 0.11.0 and isolated behavior suites.
+
+```sh
+bin/fm-lint.sh
+bin/fm-doc-audience-check.sh
+bin/fm-test-run.sh tests/fm-claude-stop-autoarm.test.sh tests/fm-guard-stale-banner.test.sh tests/fm-turnend-guard.test.sh tests/fm-supervision-instructions.test.sh
+```
+
+Observed output:
+
+```text
+fm-lint.sh: ShellCheck 0.11.0 (pinned 0.11.0)
+fm-doc-audience-check: ok surfaces=61 local_links=174
+FM_TEST_SUMMARY total=4 failed=0 skipped_gate=0 duration_ms=102585
+```
+
+The broader relevant regression pass was rerun on 2026-08-02 without live-home or daemon mutation.
+
+```sh
+bin/fm-test-run.sh tests/fm-watch-triage.test.sh tests/fm-watcher-lock.test.sh tests/fm-afk-inject-e2e.test.sh tests/fm-afk-return.test.sh tests/fm-x-mode.test.sh tests/fm-backend.test.sh tests/fm-backend-tmux-smoke.test.sh tests/fm-secondmate-safety.test.sh
+```
+
+Observed output:
+
+```text
+FM_TEST_SUMMARY total=8 failed=0 skipped_gate=0 duration_ms=617507
+```
+
+The actionable-close ordering correction was reverified on 2026-08-02 against an identity-matched live successor.
+
+```sh
+tests/fm-claude-stop-autoarm.test.sh >/dev/null && echo "fm-claude-stop-autoarm: ok"
+```
+
+Observed output:
+
+```text
+fm-claude-stop-autoarm: ok
 ```
 
 ## Watcher continuity

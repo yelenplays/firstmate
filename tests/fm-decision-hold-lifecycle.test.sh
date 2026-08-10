@@ -550,6 +550,338 @@ test_resolve_matches_quoted_blocked_by_edges() {
   pass "resolve matches first/middle/last in quoted blocked_by and rejects a genuinely absent id"
 }
 
+# --- structured decision record ---------------------------------------------
+
+classify() {  # <function> <args...>
+  bash -c '. "$1"; shift; "$@"' _ "$ROOT/bin/fm-classify-lib.sh" "$@"
+}
+
+record_origin() {  # <home> <origin-id>
+  local home=$1 id=$2
+  mkdir -p "$home/data/$id"
+  tasks_in "$home" add "$id" "Investigate the sample canary" --kind scout --repo sample --start >/dev/null \
+    || fail "could not create record-test origin"
+  write_origin_meta "$home" "$id"
+  printf '# Sample canary\n\nOne captain choice remains.\n' > "$home/data/$id/report.md"
+}
+
+# The authored fields for the canary decision, reused across the record tests.
+canary_record_flags=(
+  --question "Send one real application to Fielmann?"
+  --consequence "One submission to a real employer. It cannot be recalled."
+  --recommend hold
+  --option "hold/Hold"
+  --option "send/Send it/destructive"
+  --expires-at 2026-08-01T09:00:00Z
+  --sensitivity private
+  --safe-preview "Bewerbungsbot: one decision"
+)
+canary_reason="The canary would post one real application to one real employer and the employer list is still unverified"
+
+test_structured_record_is_authored_stored_and_read_back() {
+  local home id hold json line note block
+  home=$(make_home structured-record)
+  id=sample-canary-review
+  record_origin "$home" "$id"
+
+  hold=$(run_decisions "$home" hold "$id" one-send --title "Canary send" --repo sample \
+    --reason "$canary_reason" "${canary_record_flags[@]}") \
+    || fail "could not register a structured captain hold"
+  [ "$hold" = "$id-decision-one-send" ] || fail "structured hold changed the identity contract: $hold"
+
+  run_decisions "$home" record "$id" one-send > "$home/record.out" \
+    || fail "could not read the structured record back"
+  assert_grep "question: Send one real application to Fielmann?" "$home/record.out" "question was not stored"
+  assert_grep "consequence: One submission to a real employer" "$home/record.out" "consequence was not stored"
+  assert_grep "recommend: hold" "$home/record.out" "recommendation was not stored"
+  assert_grep "option: hold/Hold" "$home/record.out" "first option was not stored"
+  assert_grep "option: send/Send it/destructive" "$home/record.out" "destructive option was not stored"
+  assert_grep "expires_at: 2026-08-01T09:00:00Z" "$home/record.out" "expiry was not stored"
+  assert_grep "sensitivity: private" "$home/record.out" "sensitivity was not stored"
+  assert_grep "safe_preview: Bewerbungsbot: one decision" "$home/record.out" "safe preview was not stored"
+  assert_grep "why: $canary_reason" "$home/record.out" "the existing prose did not survive as the why disclosure"
+
+  json=$(run_decisions "$home" record "$id" one-send --json) || fail "could not read the record as JSON"
+  printf '%s' "$json" | jq -e '
+    .question == "Send one real application to Fielmann?"
+      and .recommend == "hold"
+      and (.options | length) == 2
+      and .options[0] == {id: "hold", label: "Hold", destructive: false}
+      and .options[1] == {id: "send", label: "Send it", destructive: true}
+      and .expires_at == "2026-08-01T09:00:00Z"
+      and .sensitivity == "private"
+      and .safe_preview == "Bewerbungsbot: one decision"
+      and (.why | length) > 80
+  ' >/dev/null || fail "the record did not render as a structured decision: $json"
+
+  # A retry with no record options preserves the record instead of erasing it.
+  run_decisions "$home" hold "$id" one-send --title "Canary send" --repo sample \
+    --reason "$canary_reason" >/dev/null || fail "record-preserving retry failed"
+  assert_contains "$(run_decisions "$home" record "$id" one-send)" "safe_preview: Bewerbungsbot" \
+    "a retry without record options erased the authored record"
+
+  # The same record travels on a status line, and every pre-record parser reads
+  # that line exactly as it reads a prose-only one.
+  line=$(run_decisions "$home" status-line needs-decision one-send "${canary_record_flags[@]}" \
+    --why "$canary_reason") || fail "could not compose a structured status line"
+  [ "$(classify status_line_verb "$line")" = needs-decision ] || fail "record line broke the verb parser"
+  [ "$(classify _fm_decision_key "$line")" = one-send ] || fail "record line broke the key parser"
+  note=$(classify status_line_note "$line")
+  [ "$note" = "$canary_reason" ] || fail "the record leaked into the human-readable summary: $note"
+  block=$(classify status_line_record "$line")
+  [ "$(classify decision_record_get "$block" question)" = "Send one real application to Fielmann?" ] \
+    || fail "the status line did not carry the question"
+  [ "$(classify decision_record_get "$block" option)" = "hold/Hold
+send/Send it/destructive" ] || fail "the status line did not carry both options"
+  classify status_is_captain_relevant "$line" || fail "a structured needs-decision line stopped being captain-relevant"
+
+  printf '%s\n' "$line" > "$home/state/$id.status"
+  assert_contains "$(classify status_open_decisions "$home/state/$id.status")" \
+    "one-send	needs-decision	$canary_reason" "the decision fold did not summarise the record line as prose"
+  pass "an authored decision record is stored, read back as fields and JSON, and travels on a status line"
+}
+
+test_record_ceilings_are_enforced() {
+  local home id base
+  home=$(make_home record-ceilings)
+  id=sample-ceiling-review
+  record_origin "$home" "$id"
+  base=(--why "the sample evidence lives in the report")
+
+  refuse_line() {  # <expected-error> <flags...>
+    local expect=$1
+    shift
+    if run_decisions "$home" status-line needs-decision c "$@" > "$home/line.out" 2> "$home/line.err"; then
+      fail "an unrenderable record was accepted: $*"
+    fi
+    assert_grep "$expect" "$home/line.err" "wrong refusal for: $*"
+  }
+
+  # A 52-character question is renderable; a 53-character one is not.
+  run_decisions "$home" status-line needs-decision c \
+    --question "Send one real application to one real employer now?" \
+    --consequence "One real submission" --recommend hold \
+    --option "hold/Hold everything!" --option "send/Send it/destructive" \
+    --sensitivity normal --safe-preview "one canary decision waits" "${base[@]}" >/dev/null \
+    || fail "a question or label exactly at the ceiling was refused"
+  refuse_line "question is 53 characters, ceiling is 52" \
+    --question "Send one real application to one real employer today?" \
+    --consequence "One real submission" --recommend hold \
+    --option "hold/Hold" --option "send/Send it/destructive" \
+    --sensitivity normal --safe-preview "one canary decision waits" "${base[@]}"
+  refuse_line "consequence is 101 characters, ceiling is 100" \
+    --question "Send it?" --consequence "$(printf 'c%.0s' $(seq 101))" --recommend hold \
+    --option "hold/Hold" --option "send/Send it/destructive" \
+    --sensitivity normal --safe-preview "one canary decision waits" "${base[@]}"
+  refuse_line "safe_preview is 43 characters, ceiling is 42" \
+    --question "Send it?" --consequence "One real submission" --recommend hold \
+    --option "hold/Hold" --option "send/Send it/destructive" \
+    --sensitivity normal --safe-preview "$(printf 'p%.0s' $(seq 43))" "${base[@]}"
+  refuse_line "option hold label is 17 characters, ceiling is 16" \
+    --question "Send it?" --consequence "One real submission" --recommend hold \
+    --option "hold/Hold everything!!" --option "send/Send it/destructive" \
+    --sensitivity normal --safe-preview "one canary decision waits" "${base[@]}"
+  refuse_line "at least 2 options" \
+    --question "Send it?" --consequence "One real submission" --recommend hold \
+    --option "hold/Hold" --sensitivity normal --safe-preview "one canary decision waits" "${base[@]}"
+  refuse_line "at most 4 options" \
+    --question "Send it?" --consequence "One real submission" --recommend hold \
+    --option "hold/Hold" --option "a/A" --option "b/B" --option "c/C" --option "d/D" \
+    --sensitivity normal --safe-preview "one canary decision waits" "${base[@]}"
+  # The first action is what an Apple Watch double tap fires without confirmation.
+  refuse_line "first option must not be destructive" \
+    --question "Send it?" --consequence "One real submission" --recommend send \
+    --option "send/Send it/destructive" --option "hold/Hold" \
+    --sensitivity normal --safe-preview "one canary decision waits" "${base[@]}"
+  refuse_line "recommend must name one of the options" \
+    --question "Send it?" --consequence "One real submission" --recommend later \
+    --option "hold/Hold" --option "send/Send it/destructive" \
+    --sensitivity normal --safe-preview "one canary decision waits" "${base[@]}"
+  refuse_line "duplicate option id" \
+    --question "Send it?" --consequence "One real submission" --recommend hold \
+    --option "hold/Hold" --option "hold/Wait" \
+    --sensitivity normal --safe-preview "one canary decision waits" "${base[@]}"
+  refuse_line "expires_at must be absolute UTC" \
+    --question "Send it?" --consequence "One real submission" --recommend hold \
+    --option "hold/Hold" --option "send/Send it/destructive" --expires-at tomorrow \
+    --sensitivity normal --safe-preview "one canary decision waits" "${base[@]}"
+  refuse_line "sensitivity must be one of" \
+    --question "Send it?" --consequence "One real submission" --recommend hold \
+    --option "hold/Hold" --option "send/Send it/destructive" \
+    --sensitivity urgent --safe-preview "one canary decision waits" "${base[@]}"
+  refuse_line "consequence is required" \
+    --question "Send it?" --recommend hold \
+    --option "hold/Hold" --option "send/Send it/destructive" \
+    --sensitivity normal --safe-preview "one canary decision waits" "${base[@]}"
+
+  # The ceilings hold on the registration path, not only on the status line.
+  if run_decisions "$home" hold "$id" over-budget --title "Over budget" --repo sample \
+    --reason "$canary_reason" \
+    --question "Send one real application to one real employer today?" \
+    --consequence "One real submission" --recommend hold \
+    --option "hold/Hold" --option "send/Send it/destructive" \
+    --sensitivity normal --safe-preview "one canary decision waits" \
+    > "$home/over.out" 2> "$home/over.err"; then
+    fail "an over-budget question was registered as a captain decision"
+  fi
+  assert_grep "ceiling is 52" "$home/over.err" "the registration path did not enforce the ceiling"
+  assert_no_grep "over-budget" "$home/data/backlog.md" "a refused record still created a backlog identity"
+  pass "every record ceiling and option rule is enforced, not merely documented"
+}
+
+test_safe_preview_cannot_carry_evidence() {
+  local home why
+  home=$(make_home safe-preview)
+  why="the vault says the employer list is unverified and the token expires soon"
+
+  refuse_preview() {  # <expected-error> <preview> [sensitivity]
+    local expect=$1 preview=$2 sensitivity=${3:-normal}
+    if run_decisions "$home" status-line needs-decision p \
+      --question "Send it?" --consequence "One real submission" --recommend hold \
+      --option "hold/Hold" --option "send/Send it/destructive" \
+      --sensitivity "$sensitivity" --safe-preview "$preview" --why "$why" \
+      > "$home/p.out" 2> "$home/p.err"; then
+      fail "a leaking safe_preview was accepted: $preview"
+    fi
+    assert_grep "$expect" "$home/p.err" "wrong refusal for preview: $preview"
+  }
+
+  refuse_preview "must not contain a link" "see https://sample.example/x"
+  refuse_preview "must not contain an address or handle" "ask sample@example.com"
+  refuse_preview "must not contain a path" "see ~/data/report.md"
+  refuse_preview "must not contain a path" "see data/sample/report.md"
+  refuse_preview "must not contain an identifier or amount" "invoice 4711299 waits"
+  refuse_preview "must not contain an opaque token" "key aB3xQ9zL7mP2rT5vW8yC"
+  refuse_preview "not copied out of the why prose" "the employer list is unverified"
+  refuse_preview "without | { } \" \\ or invisible characters" "$(printf 'one \xE2\x81\xA3decision')"
+  refuse_preview "needs a safe_preview distinct from its question" "Send it?" private
+
+  # An authored line survives every one of those checks.
+  run_decisions "$home" status-line needs-decision p \
+    --question "Send it?" --consequence "One real submission" --recommend hold \
+    --option "hold/Hold" --option "send/Send it/destructive" \
+    --sensitivity private --safe-preview "Bewerbungsbot: one decision" --why "$why" >/dev/null \
+    || fail "an authored safe preview was refused"
+  pass "safe_preview refuses links, handles, paths, identifiers, tokens, and copied evidence"
+}
+
+test_sensitivity_classifies_but_grants_nothing() {
+  local home id level hold show consumers
+  home=$(make_home sensitivity-authority)
+  id=sample-sensitivity-review
+  record_origin "$home" "$id"
+
+  for level in normal private secret; do
+    hold=$(run_decisions "$home" hold "$id" "$level" --title "Sensitivity $level" --repo sample \
+      --reason "$canary_reason" \
+      --question "Send one real application to Fielmann?" \
+      --consequence "One submission to a real employer. It cannot be recalled." \
+      --recommend hold --option "hold/Hold" --option "send/Send it/destructive" \
+      --sensitivity "$level" --safe-preview "Bewerbungsbot: $level call") \
+      || fail "could not register a $level decision"
+    show=$(tasks_in "$home" show "$hold" --full)
+    # Identical gate state at every classification: nothing about the captain's
+    # authority, the hold, or its closing conditions moves with sensitivity.
+    assert_contains "$show" "state: queued" "$level changed the decision state"
+    assert_contains "$show" "held: yes" "$level changed whether the decision is held"
+    assert_contains "$show" "kind: captain" "$level changed the decision owner"
+    assert_contains "$show" "hold_kind: captain" "$level changed who the decision is held for"
+  done
+
+  # A secret decision still closes only through the same evidence and routing.
+  printf 'Hold the canary.\n' > "$home/secret-decision.txt"
+  tasks_in "$home" add sample-secret-followup "Apply the canary decision" --kind ship --repo sample >/dev/null
+  if run_decisions "$home" resolve "$id" secret --decision-file "$home/secret-decision.txt" \
+    --routed-to sample-secret-followup > "$home/secret.out" 2> "$home/secret.err"; then
+    fail "a secret classification let a decision close without a durable routing edge"
+  fi
+
+  # Nothing outside the record's owner and its grammar may read sensitivity, so a
+  # future authority path cannot start branching on it unnoticed.
+  consumers=$(cd "$ROOT" && grep -rl 'sensitivity' bin/ | LC_ALL=C sort | paste -sd' ' -)
+  [ "$consumers" = "bin/fm-classify-lib.sh bin/fm-decision-hold.sh" ] \
+    || fail "sensitivity reached a script outside the record owner and its grammar: $consumers"
+  pass "sensitivity classifies a decision and grants no authority anywhere"
+}
+
+# The live fleet carried 118 open captain decisions on 2026-07-29, recorded as one
+# prose hold reason each, measured at min 60, median 310 and max 1457 characters.
+# Every one of them must keep working untouched, so this fixture reproduces that
+# distribution and drives the whole lifecycle over it.
+test_existing_prose_decisions_keep_working_untouched() {
+  local home id length key hold json before after reason
+  home=$(make_home prose-compatibility)
+  id=sample-legacy-review
+  record_origin "$home" "$id"
+  printf 'needs-decision [key=legacy-60]: choose route north or route south\n' > "$home/state/$id.status"
+
+  for length in 60 100 310 406 1271 1457; do
+    key="legacy-$length"
+    reason="captain decision pending; $(printf 'e%.0s' $(seq $((length - 26))))"
+    [ "${#reason}" = "$length" ] || fail "fixture reason length drifted: ${#reason} != $length"
+    hold=$(run_decisions "$home" hold "$id" "$key" --title "Legacy decision $length" \
+      --repo sample --reason "$reason") \
+      || fail "a $length-character prose decision could no longer be registered"
+    [ "$hold" = "$id-decision-$key" ] || fail "prose decision identity drifted: $hold"
+    assert_grep "hold: $reason" "$home/data/backlog.md" \
+      "the $length-character prose reason was not preserved byte for byte"
+    if run_decisions "$home" record "$id" "$key" > "$home/legacy.out" 2> "$home/legacy.err"; then
+      fail "a prose-only decision reported a structured record it never had"
+    fi
+    assert_grep "carries no structured decision record" "$home/legacy.err" \
+      "a prose-only decision failed for the wrong reason"
+  done
+
+  before=$(shasum -a 256 "$home/data/backlog.md" | awk '{print $1}')
+  json=$(run_bearings "$home") || fail "Bearings failed on prose-only decisions"
+  after=$(shasum -a 256 "$home/data/backlog.md" | awk '{print $1}')
+  [ "$before" = "$after" ] || fail "reading prose-only decisions rewrote the backlog"
+  printf '%s' "$json" | jq -e --arg id "$id" '
+    [.decisions_open[] | select(.id | startswith($id + "-decision-legacy-"))] | length == 6
+  ' >/dev/null || fail "prose-only decisions stopped surfacing as captain decisions: $json"
+
+  # The prose-only status line still folds exactly as it always has.
+  assert_contains "$(classify status_open_decisions "$home/state/$id.status")" \
+    "legacy-60	needs-decision	choose route north or route south" \
+    "a prose-only status decision changed shape"
+
+  run_decisions "$home" complete "$id" legacy-60 legacy-100 legacy-310 legacy-406 legacy-1271 legacy-1457 >/dev/null \
+    || fail "the completion gate rejected prose-only decisions"
+  run_decisions "$home" verify "$id" >/dev/null || fail "verification rejected prose-only decisions"
+
+  tasks_in "$home" add sample-legacy-followup "Apply the legacy decision" --kind ship --repo sample \
+    --blocked-by "$id-decision-legacy-1457" >/dev/null || fail "could not route legacy dependent work"
+  printf 'Take route north.\n' > "$home/legacy-decision.txt"
+  run_decisions "$home" resolve "$id" legacy-1457 --decision-file "$home/legacy-decision.txt" \
+    --routed-to sample-legacy-followup >/dev/null \
+    || fail "a prose-only decision could no longer be resolved"
+  assert_contains "$(tasks_in "$home" show "$id-decision-legacy-1457" --full)" "state: done" \
+    "a prose-only decision did not close"
+  pass "prose-only captain decisions at the live length distribution keep working untouched"
+}
+
+test_record_survives_resolution() {
+  local home id hold
+  home=$(make_home record-resolution)
+  id=sample-resolved-record
+  record_origin "$home" "$id"
+  hold=$(run_decisions "$home" hold "$id" one-send --title "Canary send" --repo sample \
+    --reason "$canary_reason" "${canary_record_flags[@]}") \
+    || fail "could not register the structured hold"
+  tasks_in "$home" add sample-record-followup "Apply the canary decision" --kind ship --repo sample \
+    --blocked-by "$hold" >/dev/null || fail "could not route dependent work"
+  printf 'Hold the canary.\n' > "$home/record-decision.txt"
+  run_decisions "$home" resolve "$id" one-send --decision-file "$home/record-decision.txt" \
+    --routed-to sample-record-followup >/dev/null || fail "could not resolve the structured decision"
+  assert_contains "$(tasks_in "$home" show "$hold" --full)" "Decision record v1:" \
+    "resolution erased the authored record"
+  assert_contains "$(run_decisions "$home" record "$id" one-send)" "question: Send one real application" \
+    "a resolved decision could no longer be rendered"
+  run_decisions "$home" resolve "$id" one-send --decision-file "$home/record-decision.txt" \
+    --routed-to sample-record-followup >/dev/null || fail "resolution stopped being idempotent"
+  pass "an authored record survives resolution and stays renderable"
+}
+
 test_uninventoried_report_decision_refuses_completion
 
 test_scout_teardown_always_requires_inventory_verification
@@ -560,3 +892,9 @@ test_none_inventory_and_resolved_prose_do_not_create_holds
 test_terminal_single_owner_status_decision_does_not_block_empty_inventory
 test_secondmate_hold_stays_in_authoritative_home
 test_resolve_matches_quoted_blocked_by_edges
+test_structured_record_is_authored_stored_and_read_back
+test_record_ceilings_are_enforced
+test_safe_preview_cannot_carry_evidence
+test_sensitivity_classifies_but_grants_nothing
+test_existing_prose_decisions_keep_working_untouched
+test_record_survives_resolution

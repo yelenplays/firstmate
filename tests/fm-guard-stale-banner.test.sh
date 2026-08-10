@@ -30,6 +30,17 @@ case_root() {
   printf '%s/root\n' "$1"
 }
 
+record_live_watcher() {
+  local dir=$1 pid=$2 home identity
+  home=$(case_home "$dir")
+  identity=$(FM_STATE_OVERRIDE="$home/state" bash -c '. "$1"; fm_pid_identity "$2"' _ "$ROOT/bin/fm-wake-lib.sh" "$pid") || return 1
+  mkdir -p "$home/state/.watch.lock"
+  printf '%s\n' "$pid" > "$home/state/.watch.lock/pid"
+  printf '%s\n' "$home" > "$home/state/.watch.lock/fm-home"
+  printf '%s\n' "$ROOT/bin/fm-watch.sh" > "$home/state/.watch.lock/watcher-path"
+  printf '%s\n' "$identity" > "$home/state/.watch.lock/pid-identity"
+}
+
 run_guard_case() {
   local dir=$1
   FM_ROOT_OVERRIDE="$(case_root "$dir")" \
@@ -85,21 +96,48 @@ test_repeated_same_episode_prints_reminder_only() {
   pass "fm-guard stale banner: repeated same-episode calls print a concise reminder only"
 }
 
+test_fresh_beacon_without_live_watcher_stays_alarm() {
+  local dir out
+  dir=$(make_guard_case fresh-no-live)
+  touch "$(case_home "$dir")/state/.last-watcher-beat"
+  out=$(run_guard_case "$dir")
+  [ "$(count_text "$out" "WATCHER DOWN - SUPERVISION IS OFF")" -eq 1 ] \
+    || fail "a fresh leftover beacon without a live watcher must still alarm: $out"
+  pass "fm-guard stale banner: a fresh beacon without a live watcher remains unhealthy"
+}
+
+test_x_mode_without_live_watcher_stays_alarm() {
+  local dir home out
+  dir=$(make_guard_case x-mode-no-live)
+  home=$(case_home "$dir")
+  rm -f "$home/state/task.meta"
+  : > "$home/state/x-watch.check.sh"
+  out=$(run_guard_case "$dir")
+  assert_contains "$out" "X-mode relay polling needs supervision" "X-mode-only need must remain guarded"
+  pass "fm-guard stale banner: X-mode polling without a live watcher remains unhealthy"
+}
+
 test_healthy_recovery_rearms_next_stale_episode() {
-  local dir home out1 healthy out2
+  local dir home out1 healthy out2 pid
   dir=$(make_guard_case healthy-recovery)
   home=$(case_home "$dir")
   out1=$(run_guard_case "$dir")
   [ "$(count_text "$out1" "WATCHER DOWN - SUPERVISION IS OFF")" -eq 1 ] \
     || fail "first stale episode did not print the full banner: $out1"
 
+  sleep 60 &
+  pid=$!
+  record_live_watcher "$dir" "$pid" || fail "could not record the live watcher for recovery"
   touch "$home/state/.last-watcher-beat"
   healthy=$(run_guard_case "$dir")
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
   [ -z "$healthy" ] || fail "guard should be silent after watcher recovery, got: $healthy"
   assert_absent "$home/state/.guard-watcher-stale-banner" \
     "healthy recovery must clear the stale-banner marker"
 
   rm -f "$home/state/.last-watcher-beat"
+  rm -rf "$home/state/.watch.lock"
   out2=$(run_guard_case "$dir")
   [ "$(count_text "$out2" "WATCHER DOWN - SUPERVISION IS OFF")" -eq 1 ] \
     || fail "second stale episode did not re-print the full banner: $out2"
@@ -200,15 +238,20 @@ test_read_only_during_episode_observes_without_mutating_marker() {
 }
 
 test_healthy_read_only_does_not_clear_marker() {
-  local dir home marker before after healthy
+  local dir home marker before after healthy pid
   dir=$(make_guard_case healthy-read-only)
   home=$(case_home "$dir")
   marker="$home/state/.guard-watcher-stale-banner"
 
   run_guard_case "$dir" >/dev/null
   before=$(cat "$marker")
+  sleep 60 &
+  pid=$!
+  record_live_watcher "$dir" "$pid" || fail "could not record the live watcher for read-only recovery"
   touch "$home/state/.last-watcher-beat"
   healthy=$(run_guard_case_read_only "$dir")
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
   [ -z "$healthy" ] || fail "healthy read-only guard should stay silent, got: $healthy"
   assert_present "$marker" "healthy read-only guard must not clear the stale-banner marker"
   after=$(cat "$marker")
@@ -240,8 +283,39 @@ test_read_only_never_mutates_stale_banner_state_files() {
   pass "fm-guard stale banner: read-only never mutates stale-banner state files"
 }
 
+fm_guard_clear_episode() {
+  rm -f "$1/state/.guard-watcher-stale-banner"
+}
+
+# A home with an armed relay poll and no task in flight still needs a live
+# supervision cycle (AGENTS.md section 14), so the pull guard must not exit
+# before the watcher-down banner on the task count alone.
+test_channel_armed_idle_home_still_gets_the_banner() {
+  local dir home out
+  dir=$(make_guard_case channel-armed-idle)
+  home=$(case_home "$dir")
+  rm -f "$home/state/task.meta"
+  : > "$home/state/x-watch.check.sh"
+  out=$(run_guard_case "$dir")
+  [ "$(count_text "$out" "WATCHER DOWN - SUPERVISION IS OFF")" -eq 1 ] \
+    || fail "channel-armed idle home did not get the watcher-down banner: $out"
+  assert_contains "$out" "X-mode relay polling needs supervision" \
+    "channel-armed banner must name the channel need rather than a task count"
+  assert_not_contains "$out" "task(s) in flight" \
+    "channel-armed banner must not claim in-flight tasks"
+
+  rm -f "$home/state/x-watch.check.sh"
+  fm_guard_clear_episode "$home"
+  out=$(run_guard_case "$dir")
+  [ -z "$out" ] || fail "an unarmed idle home must stay silent, got: $out"
+  pass "fm-guard: a channel-armed idle home is guarded, an unarmed idle home stays silent"
+}
+
 test_first_stale_call_prints_full_banner
+test_channel_armed_idle_home_still_gets_the_banner
 test_repeated_same_episode_prints_reminder_only
+test_fresh_beacon_without_live_watcher_stays_alarm
+test_x_mode_without_live_watcher_stays_alarm
 test_healthy_recovery_rearms_next_stale_episode
 test_concurrent_same_episode_prints_one_full_banner
 test_home_isolation

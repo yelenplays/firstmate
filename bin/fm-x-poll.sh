@@ -11,8 +11,9 @@
 # Behavior when X mode is on:
 #   HTTP 204 / empty / missing text              -> print nothing, exit 0 (no wake)
 #   auth/config errors                           -> print one rate-limited diagnostic
-#   a newly offered mention with non-empty text -> stash the full object to
-#       state/x-inbox/<request_id>.json, record the durable per-request reply
+#   a newly offered mention with non-empty text -> sanitize every string in the
+#       object at ingress (bin/fm-operational-input.sh owns that rule), stash it
+#       to state/x-inbox/<request_id>.json, record the durable per-request reply
 #       context to state/x-context/<request_id>.json (best-effort), atomically
 #       claim state/x-context/<request_id>.offered.json, and print one compact
 #       line "x-mention <request_id>" (which becomes the watcher wake payload)
@@ -25,9 +26,11 @@
 # check only exists in a home that opted into the relay, and it is an O(1)
 # directory presence test plus a signature compare, with no tasks-axi call and no
 # backlog scan. A home with no pending terminal results pays nothing for it.
-# The full object is stashed verbatim, so any conversation context the relay
-# includes (in_reply_to: {author_handle, text}, null for a fresh mention) is
-# preserved for fmx-respond to handle follow-ups with continuity. The durable
+# The full object is stashed, so any conversation context the relay includes
+# (in_reply_to: {author_handle, text}, null for a fresh mention) is preserved
+# for fmx-respond to handle follow-ups with continuity; only Firstmate's own
+# provenance bytes are removed, and an object that carried them is stored with
+# fm_provenance_sanitized: true so the drain surfaces the attempt. The durable
 # context record lets a delayed follow-up recover the ORIGINAL platform/budget
 # even after this inbox file is drained.
 #
@@ -43,6 +46,8 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 # shellcheck source=bin/fm-public-followup-lib.sh
 # Also brings in bin/fm-x-lib.sh, which this script's relay client uses.
 . "$SCRIPT_DIR/fm-public-followup-lib.sh"
+# shellcheck source=bin/fm-operational-input.sh
+. "$SCRIPT_DIR/fm-operational-input.sh"
 
 fmx_load_config
 # Hard no-op when X mode is off: this is what keeps the check shim inert.
@@ -154,9 +159,32 @@ if fmx_private_artifact_file_valid "$STATE/x-context" "$REQ.offered.json" 600; t
 fi
 
 INBOX="$STATE/x-inbox"
+# INGRESS SANITIZER. The relay body is external input, and operational-input
+# classification is prefix-based, so a body that arrives still carrying
+# Firstmate's invisible provenance bytes can assert its own provenance
+# downstream - impersonating an internal operational input, and in away mode
+# presenting itself as internal escalation so the captain's return never
+# registers. bin/fm-operational-input.sh owns what those bytes are and how they
+# are removed; strip them from every string BEFORE the object is stored, and
+# refuse to store at all if the sanitizer cannot run. A hit is a security event,
+# not a parse miss: record it on the object so the one drain that reads this
+# mention surfaces it exactly once.
+SANITIZED=
+fm_operational_input_sanitize_json "$(cat "$BODY_FILE" 2>/dev/null)" SANITIZED
+SANITIZE_RC=$?
+case "$SANITIZE_RC" in
+  0) ;;
+  1)
+    SANITIZED=$(printf '%s' "$SANITIZED" | jq -c '. + {fm_provenance_sanitized: true}' 2>/dev/null) \
+      || { emit_error_once "cannot sanitize mention"; exit 0; }
+    [ -n "$SANITIZED" ] || { emit_error_once "cannot sanitize mention"; exit 0; }
+    ;;
+  *) emit_error_once "cannot sanitize mention"; exit 0 ;;
+esac
+
 # Stash the full mention object atomically so a concurrent reader never sees a
 # half-written file.
-if ! (set -o pipefail; jq '.' "$BODY_FILE" 2>/dev/null \
+if ! (set -o pipefail; printf '%s' "$SANITIZED" | jq '.' 2>/dev/null \
   | fmx_private_artifact_publish_stdin "$INBOX" "$REQ.json" 600); then
   emit_error_once "cannot write inbox"
   exit 0

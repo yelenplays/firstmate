@@ -129,7 +129,7 @@ The supported launch-profile flags below are verified locally; each row records 
 | grok | `--model <model>` | `--reasoning-effort <low\|medium\|high>` | Verified on grok 0.2.99 (2026-07-13). `--effort` is an alias, but firstmate's profile axis is reasoning effort. As of 0.2.99 the ceiling is `high`; both `xhigh` and `max` are rejected with `use one of: high, medium, low`, so firstmate omits them. |
 | pi / pi-signed | `--model <model>` | `--thinking <low\|medium\|high\|xhigh\|max>` | Verified 2026-07-27 on Pi and pi-signed 0.82.0. Both expose the same accepted thinking levels and completed the same model-qualified max-thinking smoke. |
 | opencode | `--model <provider/model>` | none for firstmate's interactive launch | Verified on opencode 1.17.6. `opencode run` has `--variant`, but firstmate launches the interactive `opencode --prompt` path, which has no verified effort flag. |
-| kimi | `--model <model>` | none | Verified 2026-07-25 on Kimi Code CLI 0.29.1. |
+| kimi | `--model <model>` | `KIMI_MODEL_THINKING_EFFORT=<low\|high\|max>` env prefix | Verified 2026-07-30 on Kimi Code CLI 0.31.0. Kimi has no reasoning-effort flag; the operational environment override is its only effort axis and it deliberately bypasses Kimi's own `supportEfforts` check, so an unadvertised value reaches the API and returns 400. Only the levels K3 advertises are passed; `medium` and `xhigh` are omitted. |
 
 The concrete `harness` field owns adapter identity independently of the model provider: `harness=pi` with `model=xai/grok-*` is Pi using xAI, not `harness=grok`, and does not require Grok CLI login; `harness=grok` remains the standalone Grok Build CLI adapter.
 No script resolves that split for you: establish which credential store a tuple reads from the discovery surfaces below plus `quota-axi auth --json`'s per-provider sources, and show that reasoning rather than inferring it from a harness, model, or source name.
@@ -146,7 +146,7 @@ Use the discovery surface in the current authenticated environment because suppo
 | opencode | Run `opencode models [provider]`, which lists available provider/model identifiers. |
 | pi / pi-signed | Run the selected executable as `<executable> --list-models [search]`; Pi's installed `docs/models.md` owns how built-in, extension-registered, and custom provider/model entries reach that list. |
 | grok | Run `grok models`, which lists the models available to the current Grok installation and account. |
-| kimi | Run `kimi provider list --json`, which lists the current provider and model configuration. |
+| kimi | Run `kimi provider list --json`, which lists the current provider and model configuration, including each model's `supportEfforts` and `defaultEffort` when it declares them. |
 
 For an unfamiliar harness or model namespace, establish support and provider identity from that harness's authoritative CLI help, model listing, or current documentation rather than guessing from a name or prefix.
 A listing that reaches the account and does not contain the model is concrete evidence the model is unsupported: block that candidate and quote the result.
@@ -166,6 +166,17 @@ Natural language is acceptable if uncertain.
 - pi and pi-signed: no separate verified skill invocation beyond normal command behavior; use natural language if the exact skill command is uncertain.
 - grok: `/<skill>`, for example `/no-mistakes` (same form as claude). Verified end to end: grok discovers the user-level `no-mistakes` skill, `/no-mistakes` invokes it, and grok drives a real `no-mistakes axi run`. Like codex's `$`/`/` popups, typing `/<skill>` opens grok's slash-autocomplete, so a too-fast Enter selects the popup entry instead of sending, and for an argument-taking command (like `/no-mistakes`'s optional task-first argument) that first Enter only expands the popup selection into an argument-hint placeholder rather than submitting - a genuine second Enter is required (see the grok section below for the 2026-07-03 incident and fix). `fm_tmux_submit_core`'s retried Enter (used by `fm-send` on the tmux backend) handles this through the structural composer reader; the herdr backend needed a dedicated fix (`fm_backend_herdr_composer_state`, docs/herdr-backend.md) because its prior delta-based verification false-positived on that same popup-close content change.
 - kimi: `/<skill>`, for example `/no-mistakes`.
+
+## Plugin-skill discovery
+
+Invocation form and discovery source are different questions, and a correct form on a harness that cannot see the skill still fails.
+Skills installed as a Claude plugin live under the Claude configuration root and are discovered by `claude` only.
+`codex`, `pi`, `pi-signed`, `grok`, and `kimi` read `~/.agents/skills` instead, so a Claude plugin's skills are invisible to them under any invocation form; `opencode` is unobserved and stays unknown until probed.
+Copies that happen to share a name in `~/.agents/skills` are a separate, older surface that drifts from the plugin, so a matching name there is not the same skill and never a substitute.
+
+Resolve a plugin skill with [`bin/fm-skill-path.sh`](../../../bin/fm-skill-path.sh) rather than a remembered path: it verifies the install and prints nothing when it cannot, which is the honest unavailable answer.
+Route work that depends on such a skill to a harness that discovers it, and when none can, say so instead of proceeding without the skill or reaching for a same-named local copy.
+Within `claude`, a skill marked user-invoked-only is outside the model's reach entirely and loads only when its slash command is typed into the composer, which `bin/fm-send.sh` can do for a supervised worker; model-invocable skills need no send.
 
 ## Submission acknowledgement hazards
 
@@ -196,7 +207,7 @@ That styled capture is internal to the boolean detector only.
 `fm-peek` and every other human or LLM-facing capture path stays plain `tmux capture-pane` with no escape codes.
 
 **Primary-session guard fact (verified 2026-07-04, Claude Code 2.1.201; preserved 2026-07-08, Claude Code 2.1.204; Stop-owned auto-arm revalidated 2026-07-24, Claude Code 2.1.219).**
-This is separate from the per-task crewmate turn-end hook above (that one just `touch`es a marker file in a task's own `.claude/settings.local.json`).
+This is separate from the per-task crewmate turn-end hook above (that one just `touch`es a marker file, and `bin/fm-claude-worktree-hook.sh` merges it into the worktree's `.claude/settings.local.json` beside whatever the project already keeps there).
 The firstmate PRIMARY's own `.claude/settings.json` registers two Stop hooks: `bin/fm-turnend-guard.sh --claude` and the Stop-owned auto-arm `bin/fm-claude-stop-autoarm.sh` (`asyncRewake: true`, `timeout: 28800`), and exiting the guard with status 2 plus stderr reliably forces the model to continue.
 Claude Code's stdin payload to a Stop hook carries a `stop_hook_active` boolean that is `true` when the current stop attempt follows ANY stop-hook-driven continuation, including `asyncRewake` rewakes; the primary guard therefore ignores it in `--claude` mode and uses the cooperative claim/epoch check plus a bounded re-block budget instead, while the codex-mode default still treats it as a one-block loop guard.
 A project-level `.claude/settings.json` only takes effect when Claude Code's project root is that exact directory - it does not walk up from a subdirectory looking for one, so firstmate launches the primary from the repo root.
@@ -360,7 +371,7 @@ The tracked Claude Stop hooks skip themselves under `GROK_AGENT`, because Grok a
 Project-local Grok hooks require folder trust, verified with launch-time `--trust`; if the primary firstmate checkout is not trusted for Grok hooks, this primary guard fails open and `fm-guard.sh` remains the next-command alarm.
 Grok's primary watcher protocol remains background-notify around `bin/fm-watch-arm.sh`; native Stop continuation does not provide Pi-like extension ownership.
 
-## kimi (VERIFIED 2026-07-25, kimi 0.29.1)
+## kimi (VERIFIED 2026-07-25, kimi 0.29.1; effort axis and global hook surface re-verified 2026-07-30 on kimi 0.31.0)
 
 Kimi Code CLI launches from the absolute path resolved from `PATH`, falling back to the executable `$HOME/.kimi-code/bin/kimi`.
 
@@ -368,7 +379,7 @@ Kimi Code CLI launches from the absolute path resolved from `PATH`, falling back
 |---|---|
 | Binary | Executable `kimi` from `PATH`, then executable `$HOME/.kimi-code/bin/kimi`; spawning refuses if neither exists. |
 | Launch | Bare interactive TUI with `--auto`, followed by readiness-gated pointer delivery; positional prompts are rejected. |
-| Models | `kimi-code/kimi-for-coding` (default), `kimi-code/kimi-for-coding-highspeed`, `kimi-code/k3`, and `kimi-code/k3-256k`. |
+| Models | `kimi-code/kimi-for-coding` (default), `kimi-code/kimi-for-coding-highspeed`, `kimi-code/k3`, and `kimi-code/k3-256k`. As of 0.31.0 the two K3 aliases are the ones that declare thinking efforts, `low`/`high`/`max` with `high` as their default; treat the discovery command above as current truth rather than this list. |
 | Busy state | Standalone Kimi is unknown until a semantic source is live-verified; prefer Wire's `prompt` request lifetime, then documented hooks including `Interrupt`. Kimi behind Pi uses Pi's lifecycle. Its moon-phase spinner is not a state source. |
 | Exit command | `/exit` |
 | Interrupt | Single Escape, which prints `Interrupted by user`. |
@@ -378,7 +389,7 @@ Kimi Code CLI launches from the absolute path resolved from `PATH`, falling back
 | Slash submission | One Enter submits, with no popup swallow or settle hazard. |
 | Environment marker | None; detection relies on process ancestry command name `kimi`. |
 | Composer | Bordered box with a bare `>` prompt glyph and no observed ghost or placeholder text. |
-| Effort | No reasoning-effort flag exists, so requested effort is recorded in task metadata but omitted from launch. |
+| Effort | No reasoning-effort flag exists; `fm-spawn` delivers effort as a `KIMI_MODEL_THINKING_EFFORT` env prefix on the launch command, scoped to that one Kimi process. A level the selected model does not advertise stays in task metadata and is omitted from launch. |
 
 `fm-spawn.sh` launches Kimi bare, waits for the composer box or `Welcome to Kimi Code!`, sends only `Read the brief at <absolute-path> and follow it exactly.`, and requires a cleared composer plus either the echoed `✨` submission or nonzero context before accepting delivery.
 This launch-then-send shape is mandatory because Kimi rejects a positional brief as an unknown command.
@@ -398,5 +409,6 @@ The delivery-only spinner match covers the full moon-phase glyph set rather than
 [`docs/turnend-guard.md`](../../../docs/turnend-guard.md) owns Kimi's verified global hook surface and captain-approved crew wake integration.
 `fm-spawn.sh` installs one marker-delimited Firstmate entry in `$HOME/.kimi-code/config.toml`, one silent always-zero hook script, and one private token registry under `$HOME/.kimi-code/fm-turn-end.d/`.
 Each Kimi crew worktree receives a gitignored `.fm-kimi-turnend` token pointer, and the global hook touches that task's `state/<id>.turn-ended` only when the Stop payload's `cwd`, pointer, and registry entry all agree.
+Refreshing Kimi's model configuration reserializes that whole config and drops every comment, so Firstmate's region markers can disappear while the hook table survives; `bin/fm-kimi-turnend-hook.sh` owns the narrow install-only reclaim that restores them, and its refusal is a real blocker rather than something to work around by hand.
 A guarded silent hook cannot be verified from absence of effect, so prove invocation with an unguarded probe before concluding that the hook did not fire.
 The guarded turn-end signal remains a wake notification; standalone Kimi has no busy-state source until one is live-verified.

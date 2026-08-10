@@ -110,6 +110,8 @@ SUB_HOME_MARKER=".fm-secondmate-home"
 . "$SCRIPT_DIR/fm-public-followup-lib.sh"
 # shellcheck source=bin/fm-secondmate-registry-lib.sh
 . "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
+# shellcheck source=bin/fm-wake-lib.sh
+. "$SCRIPT_DIR/fm-wake-lib.sh"
 if [ "$#" -lt 1 ] || ! fm_task_id_path_safe "$1"; then
   echo "error: invalid teardown request" >&2
   exit 2
@@ -123,6 +125,211 @@ FM_LOCK_LOG_PREFIX=teardown
 
 META="$STATE/$ID.meta"
 [ -f "$META" ] || { echo "error: no meta for task $ID at $META" >&2; exit 1; }
+
+REMOTE_HANDOFF_DIR_PRESENT=0
+REMOTE_HANDOFF_DIR_REAL=
+REMOTE_OUTBOX_PRESENT=0
+REMOTE_PENDING_DIR_PRESENT=0
+REMOTE_PENDING_DIR_REAL=
+REMOTE_HANDOFF_LOCK=
+REMOTE_REGISTRY_LOCK=
+REMOTE_REPLY_LIFECYCLE_LOCK=
+
+remote_teardown_locks_release() {
+  if [ -n "$REMOTE_REPLY_LIFECYCLE_LOCK" ]; then
+    fm_lock_release "$REMOTE_REPLY_LIFECYCLE_LOCK"
+    REMOTE_REPLY_LIFECYCLE_LOCK=
+  fi
+  if [ -n "$REMOTE_HANDOFF_LOCK" ]; then
+    fm_lock_release "$REMOTE_HANDOFF_LOCK"
+    REMOTE_HANDOFF_LOCK=
+  fi
+  if [ -n "$REMOTE_REGISTRY_LOCK" ]; then
+    fm_lock_release "$REMOTE_REGISTRY_LOCK"
+    REMOTE_REGISTRY_LOCK=
+  fi
+}
+
+remote_recovery_paths_validate() {
+  local mode=${1:-initial} handoff_dir outbox pending_dir real rec
+  handoff_dir="$DATA/handoff"
+  outbox="$handoff_dir/$ID.outbox.md"
+  pending_dir="$STATE/pending-replies"
+  if [ -e "$handoff_dir" ] || [ -L "$handoff_dir" ]; then
+    [ -d "$handoff_dir" ] && [ ! -L "$handoff_dir" ] \
+      || { echo "REFUSED: remote handoff recovery directory is unsafe" >&2; return 1; }
+    real=$(CDPATH='' cd -- "$handoff_dir" 2>/dev/null && pwd -P) || return 1
+    if [ "$mode" = initial ]; then
+      REMOTE_HANDOFF_DIR_PRESENT=1
+      REMOTE_HANDOFF_DIR_REAL=$real
+    elif [ "$REMOTE_HANDOFF_DIR_PRESENT" -ne 1 ] || [ "$REMOTE_HANDOFF_DIR_REAL" != "$real" ]; then
+      echo "REFUSED: remote handoff recovery directory changed during retirement" >&2
+      return 1
+    fi
+  elif [ "$mode" != initial ] && [ "$REMOTE_HANDOFF_DIR_PRESENT" -ne 0 ]; then
+    echo "REFUSED: remote handoff recovery directory changed during retirement" >&2
+    return 1
+  fi
+  if [ -e "$outbox" ] || [ -L "$outbox" ]; then
+    [ -f "$outbox" ] && [ ! -L "$outbox" ] \
+      || { echo "REFUSED: remote backlog outbox is unsafe" >&2; return 1; }
+    if [ "$mode" = initial ]; then
+      REMOTE_OUTBOX_PRESENT=1
+    elif [ "$REMOTE_OUTBOX_PRESENT" -ne 1 ]; then
+      echo "REFUSED: remote backlog outbox changed during retirement" >&2
+      return 1
+    fi
+  elif [ "$mode" != initial ] && [ "$REMOTE_OUTBOX_PRESENT" -ne 0 ]; then
+    echo "REFUSED: remote backlog outbox changed during retirement" >&2
+    return 1
+  fi
+  if [ -e "$pending_dir" ] || [ -L "$pending_dir" ]; then
+    [ -d "$pending_dir" ] && [ ! -L "$pending_dir" ] \
+      || { echo "REFUSED: pending-replies recovery directory is unsafe" >&2; return 1; }
+    real=$(CDPATH='' cd -- "$pending_dir" 2>/dev/null && pwd -P) || return 1
+    if [ "$mode" = initial ]; then
+      REMOTE_PENDING_DIR_PRESENT=1
+      REMOTE_PENDING_DIR_REAL=$real
+    elif [ "$REMOTE_PENDING_DIR_PRESENT" -ne 1 ] || [ "$REMOTE_PENDING_DIR_REAL" != "$real" ]; then
+      echo "REFUSED: pending-replies recovery directory changed during retirement" >&2
+      return 1
+    fi
+    for rec in "$pending_dir"/*; do
+      [ -e "$rec" ] || [ -L "$rec" ] || continue
+      [ -f "$rec" ] && [ ! -L "$rec" ] \
+        || { echo "REFUSED: pending-replies contains an unsafe recovery entry" >&2; return 1; }
+    done
+  elif [ "$mode" != initial ] && [ "$REMOTE_PENDING_DIR_PRESENT" -ne 0 ]; then
+    echo "REFUSED: pending-replies recovery directory changed during retirement" >&2
+    return 1
+  fi
+}
+
+remote_pending_replies_cleanup() {
+  local rec
+  [ "$REMOTE_PENDING_DIR_PRESENT" -eq 1 ] || return 0
+  (
+    CDPATH='' cd -- "$STATE/pending-replies" 2>/dev/null || exit 1
+    [ "$(pwd -P)" = "$REMOTE_PENDING_DIR_REAL" ] || exit 1
+    for rec in ./*; do
+      [ -e "$rec" ] || [ -L "$rec" ] || continue
+      [ -f "$rec" ] && [ ! -L "$rec" ] || exit 1
+      [ "$(fm_meta_get "$rec" task_id)" = "$ID" ] && rm -f -- "$rec"
+    done
+  )
+}
+
+remote_outbox_cleanup() {
+  [ "$REMOTE_OUTBOX_PRESENT" -eq 1 ] || return 0
+  (
+    CDPATH='' cd -- "$DATA/handoff" 2>/dev/null || exit 1
+    [ "$(pwd -P)" = "$REMOTE_HANDOFF_DIR_REAL" ] || exit 1
+    [ -f "$ID.outbox.md" ] && [ ! -L "$ID.outbox.md" ] || exit 1
+    rm -f -- "$ID.outbox.md"
+  )
+}
+
+remote_secondmate_teardown() {
+  local remote_host remote_root remote_home kind route_host route_root route_home out rc tmp rec phase task_id
+  remote_host=$(fm_meta_get "$META" remote_host)
+  [ -n "$remote_host" ] || return 3
+  kind=$(fm_meta_get "$META" kind)
+  [ "$kind" = secondmate ] || { echo "REFUSED: remote placement metadata is valid only for a secondmate" >&2; return 1; }
+  remote_root=$(fm_meta_get "$META" remote_root)
+  remote_home=$(fm_meta_get "$META" home)
+  [ -n "$remote_root" ] && [ -n "$remote_home" ] || { echo "REFUSED: remote secondmate metadata is incomplete" >&2; return 1; }
+  secondmate_registry_line_for_id "$SECONDMATE_REG" "$ID" || { echo "REFUSED: remote secondmate route is missing or ambiguous" >&2; return 1; }
+  [ "$SECONDMATE_REGISTRY_REMOTE" -eq 1 ] || { echo "REFUSED: secondmate registry route is not remote" >&2; return 1; }
+  route_host=$SECONDMATE_REGISTRY_HOST
+  route_root=$SECONDMATE_REGISTRY_ROOT
+  route_home=$SECONDMATE_REGISTRY_HOME
+  [ "$route_host" = "$remote_host" ] && [ "$route_root" = "$remote_root" ] && [ "$route_home" = "$remote_home" ] \
+    || { echo "REFUSED: remote secondmate metadata does not match its registry route" >&2; return 1; }
+  [ -z "$FORCE" ] || [ "$FORCE" = --force ] || { echo "error: invalid teardown option: $FORCE" >&2; return 2; }
+  remote_recovery_paths_validate initial || return 1
+  if [ "$FORCE" != --force ] && [ "$REMOTE_OUTBOX_PRESENT" -eq 1 ]; then
+    echo "REFUSED: remote secondmate $ID still has a pending backlog outbox; deliver it or explicitly discard with --force" >&2
+    return 1
+  fi
+  if [ "$FORCE" != --force ] && [ -d "$STATE/pending-replies" ]; then
+    for rec in "$STATE/pending-replies"/*; do
+      [ -f "$rec" ] || continue
+      task_id=$(fm_meta_get "$rec" task_id)
+      [ "$task_id" = "$ID" ] || continue
+      phase=$(fm_meta_get "$rec" phase)
+      [ "$phase" = resolved ] || {
+        echo "REFUSED: remote secondmate $ID still has an unresolved routed reply" >&2
+        return 1
+      }
+    done
+  fi
+  "$SCRIPT_DIR/fm-procevent-remote-reply.sh" retire-quiesce-locked "$ID" "$FORCE" >/dev/null 2>&1 || {
+    echo "REFUSED: remote secondmate $ID still has an unhandled captured reply" >&2
+    return 1
+  }
+  "$FM_ROOT/bin/fm-guard.sh" || true
+  if [ "$FORCE" = --force ]; then
+    if out=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-secondmate-control.sh retire "$ID" --force < /dev/null 2>&1); then rc=0; else rc=$?; fi
+  else
+    if out=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-secondmate-control.sh retire "$ID" < /dev/null 2>&1); then rc=0; else rc=$?; fi
+  fi
+  if [ "$rc" -ne 0 ]; then
+    [ -z "$out" ] || printf '%s\n' "$out" >&2
+    if [ "$rc" -eq 255 ]; then
+      echo "error: remote retirement completion is unknown; preserving the route and local records for same-host reconciliation" >&2
+    elif ! "$SCRIPT_DIR/fm-procevent-remote-reply.sh" arm-locked "$ID" >/dev/null 2>&1; then
+      echo "error: remote retirement failed and the reply source could not be re-armed" >&2
+    fi
+    return "$rc"
+  fi
+  remote_recovery_paths_validate recheck || {
+    echo "error: remote home retired but local recovery paths changed; preserving the local route for retry" >&2
+    return 1
+  }
+  "$SCRIPT_DIR/fm-procevent-remote-reply.sh" retire-finalize-locked "$ID" "$FORCE" >/dev/null 2>&1 || {
+    echo "error: remote home retired but reply-source cleanup is incomplete; preserving the local route for retry" >&2
+    return 1
+  }
+  if [ "$FORCE" = --force ]; then
+    remote_outbox_cleanup || { echo "error: remote outbox cleanup failed; preserving the local route for retry" >&2; return 1; }
+  fi
+  remote_pending_replies_cleanup \
+    || { echo "error: remote pending-reply cleanup failed; preserving the local route for retry" >&2; return 1; }
+  tmp="$SECONDMATE_REG.tmp.$$"
+  grep -vE "^- $ID( |$)" "$SECONDMATE_REG" > "$tmp" || true
+  mv -f -- "$tmp" "$SECONDMATE_REG"
+  rm -f -- "$STATE/$ID.status" "$STATE/$ID.meta" "$STATE/$ID.turn-ended"
+  printf 'teardown %s complete (remote %s:%s)\n' "$ID" "$remote_host" "$remote_home"
+  return 0
+}
+
+remote_secondmate_teardown_locked() {
+  local rc
+  [ -n "$(fm_meta_get "$META" remote_host)" ] || return 3
+  REMOTE_REGISTRY_LOCK=$(secondmate_registry_lock_path "$STATE")
+  fm_lock_acquire_wait "$REMOTE_REGISTRY_LOCK" || return 1
+  REMOTE_HANDOFF_LOCK="$STATE/.backlog-handoff-$ID.lock"
+  fm_lock_acquire_wait "$REMOTE_HANDOFF_LOCK" || {
+    remote_teardown_locks_release
+    return 1
+  }
+  REMOTE_REPLY_LIFECYCLE_LOCK=$(secondmate_reply_lifecycle_lock_path "$STATE" "$ID")
+  fm_lock_acquire_wait "$REMOTE_REPLY_LIFECYCLE_LOCK" || {
+    remote_teardown_locks_release
+    return 1
+  }
+  if remote_secondmate_teardown; then rc=0; else rc=$?; fi
+  remote_teardown_locks_release
+  return "$rc"
+}
+
+if remote_secondmate_teardown_locked; then
+  exit 0
+else
+  remote_teardown_rc=$?
+fi
+[ "$remote_teardown_rc" -eq 3 ] || exit "$remote_teardown_rc"
+
 # This is the first cleanup authorization check. It is metadata-only and must
 # complete before fm-guard, a backend command, file removal, branch deletion,
 # worktree return, registry change, or process termination can run.
@@ -133,7 +340,9 @@ WT=$(fm_meta_get "$META" worktree)
 PROJ=$(fm_meta_get "$META" project)
 T_ORCA=
 [ "$BACKEND" != orca ] || T_ORCA=$T
-"$FM_ROOT/bin/fm-guard.sh" || true
+if [ "${FM_TEARDOWN_GUARD_DONE:-0}" != 1 ]; then
+  "$FM_ROOT/bin/fm-guard.sh" || true
+fi
 HOME_PATH=$(grep '^home=' "$META" | cut -d= -f2- || true)
 PR_URL=$(grep '^pr=' "$META" | tail -1 | cut -d= -f2- || true)
 # tasktmp is recorded by fm-spawn for tasks that set up a per-task temp root
@@ -742,6 +951,34 @@ teardown_treehouse_return() {
 
   echo "teardown: $label return failed: git index.lock signature persisted across ${max_retries} retries (waiting ${TREEHOUSE_RETURN_LOCK_RETRY_WAIT_SECS}s each) even after the lock file disappeared" >&2
   return 1
+}
+
+# Take the per-task turn-end hooks back out of a worktree. Every file here but
+# one is firstmate-created under a name no project uses, so plain removal is
+# right. .claude/settings.local.json may be the project's own - permissions the
+# captain approved, hooks the project already had, sometimes tracked in git - so
+# it goes through the script that owns that file's contract, which puts it back
+# the way the spawn found it. A refusal there is reported on stderr and never
+# worked around with rm; the uncommitted-work check stays the authority on
+# whether a worktree carrying a file firstmate could not restore may be returned.
+remove_worktree_turnend_hooks() {
+  local wt=$1 state=$2 id=$3
+  rm -f "$wt/.opencode/plugins/fm-turn-end.js" "$wt/.opencode/plugins/fm-busy-state.js" \
+    "$wt/.fm-grok-turnend" "$wt/.fm-kimi-turnend"
+  "$SCRIPT_DIR/fm-claude-worktree-hook.sh" remove \
+    "$wt" "$state/$id.turn-ended" "$state/$id.claude-settings-backup" || {
+    echo "teardown: could not restore $wt/.claude/settings.local.json; inspect it before reusing the worktree" >&2
+    return 1
+  }
+}
+
+# Put the hook back when a refused teardown leaves the crewmate running, so it
+# keeps signalling turn ends while firstmate deals with the unlanded work.
+restore_worktree_turnend_hook() {
+  local wt=$1 state=$2 id=$3
+  [ -d "$wt" ] || return 0
+  "$SCRIPT_DIR/fm-claude-worktree-hook.sh" install \
+    "$wt" "$state/$id.turn-ended" "$state/$id.claude-settings-backup" >/dev/null 2>&1 || true
 }
 
 validate_worktree_teardown_safety() {
@@ -1407,15 +1644,12 @@ cleanup_firstmate_home_children() {
     elif [ "$child_backend" = orca ]; then
       if [ -n "$child_wt" ] && [ -d "$child_wt" ]; then
         validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
-        rm -f "$child_wt/.claude/settings.local.json" "$child_wt/.opencode/plugins/fm-turn-end.js" \
-          "$child_wt/.fm-grok-turnend" "$child_wt/.fm-kimi-turnend"
+        remove_worktree_turnend_hooks "$child_wt" "$sub_state" "$child_id" || true
       fi
       fm_backend_remove_worktree "$child_backend" "$child_orca_worktree_id" || return 1
     elif [ -n "$child_wt" ] && [ -d "$child_wt" ]; then
       validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
-      rm -f "$child_wt/.claude/settings.local.json" "$child_wt/.opencode/plugins/fm-turn-end.js" \
-        "$child_wt/.opencode/plugins/fm-busy-state.js" \
-        "$child_wt/.fm-grok-turnend" "$child_wt/.fm-kimi-turnend"
+      remove_worktree_turnend_hooks "$child_wt" "$sub_state" "$child_id" || true
       if [ -n "$child_proj" ] && [ -d "$child_proj" ] && command -v treehouse >/dev/null 2>&1; then
         if teardown_treehouse_return "$child_wt" "$child_proj" "child worktree"; then
           :
@@ -1440,16 +1674,21 @@ cleanup_firstmate_home_children() {
     retire_busy_state "$sub_state" "$child_id" "$child_busy_gen" || return 1
     rm -f "$sub_state/$child_id.status" "$sub_state/$child_id.turn-ended" \
       "$sub_state/$child_id.meta" "$sub_state/$child_id.pi-ext.ts" \
-      "$sub_state/$child_id.grok-turnend-token" "$sub_state/$child_id.kimi-turnend-token"
+      "$sub_state/$child_id.grok-turnend-token" "$sub_state/$child_id.kimi-turnend-token" \
+      "$sub_state/$child_id.claude-settings-backup"
   done
 }
 
 remove_secondmate_registry_entry() {
-  local id=$1 tmp
+  local id=$1 tmp lock rc=0
   [ -f "$SECONDMATE_REG" ] || return 0
+  lock=$(secondmate_registry_lock_path "$STATE")
+  fm_lock_acquire_wait "$lock" || return 1
   tmp="$SECONDMATE_REG.tmp.$$"
   grep -vE "^- $id( |$)" "$SECONDMATE_REG" > "$tmp" || true
-  mv "$tmp" "$SECONDMATE_REG"
+  mv "$tmp" "$SECONDMATE_REG" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
 }
 
 validate_pr_poll_cleanup "$STATE" "$ID" || exit 1
@@ -1533,6 +1772,14 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != scout ] && [ "$KIND" != secondmate ] &&
   ORCA_PATH_MATCH_VERIFIED=1
 fi
 
+# Take our own turn-end hook back out BEFORE the uncommitted-work inspection.
+# Merged into a project's own tracked .claude/settings.local.json, it would
+# otherwise read as the crewmate's uncommitted work and refuse a teardown of a
+# worktree that is in fact clean.
+if [ -d "$WT" ] && [ "$KIND" != secondmate ]; then
+  remove_worktree_turnend_hooks "$WT" "$STATE" "$ID" || true
+fi
+
 if [ -d "$WT" ] && [ "$FORCE" != "--force" ]; then
   if validate_worktree_teardown_safety; then
     :
@@ -1540,8 +1787,12 @@ if [ -d "$WT" ] && [ "$FORCE" != "--force" ]; then
     safety_rc=$?
     if [ "$safety_rc" -eq "$TEARDOWN_WORKTREE_SAFETY_LOCK_BLOCKED" ]; then
       cleanup_stale_lock_for_safety_check "$WT" || exit 1
-      validate_worktree_teardown_safety || exit 1
+      validate_worktree_teardown_safety || {
+        restore_worktree_turnend_hook "$WT" "$STATE" "$ID"
+        exit 1
+      }
     else
+      restore_worktree_turnend_hook "$WT" "$STATE" "$ID"
       exit 1
     fi
   fi
@@ -1576,9 +1827,7 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ]; then
         git -C "$WT" branch -D "$branch" >/dev/null 2>&1 || true
       fi
     fi
-    rm -f "$WT/.claude/settings.local.json" "$WT/.opencode/plugins/fm-turn-end.js" \
-      "$WT/.opencode/plugins/fm-busy-state.js" \
-      "$WT/.fm-grok-turnend" "$WT/.fm-kimi-turnend"
+    remove_worktree_turnend_hooks "$WT" "$STATE" "$ID" || true
   fi
   [ -z "$T_ORCA" ] || fm_backend_kill "$BACKEND" "$T" "$(meta_value "$META" zellij_tab_id)" "fm-$ID" 2>/dev/null || true
   fm_backend_remove_worktree "$BACKEND" "$ORCA_WORKTREE_ID"
@@ -1590,8 +1839,7 @@ elif [ -d "$WT" ] && [ "$KIND" != secondmate ]; then
     fi
   fi
   # Remove our hook file so a reused pool worktree cannot fire signals for a dead task.
-  rm -f "$WT/.claude/settings.local.json" "$WT/.opencode/plugins/fm-turn-end.js" \
-    "$WT/.fm-grok-turnend" "$WT/.fm-kimi-turnend"
+  remove_worktree_turnend_hooks "$WT" "$STATE" "$ID" || true
   # Kills remaining processes in the worktree (including the agent), resets, returns
   # to pool. treehouse resolves the pool from the working directory, so run it from
   # the project. teardown_treehouse_return tolerates transient and stale git locks
@@ -1687,7 +1935,7 @@ remove_pr_poll_artifacts "$STATE" "$ID" || exit 1
 retire_busy_state "$STATE" "$ID" "$BUSY_GEN" || exit 1
 rm -f "$STATE/$ID.status" "$STATE/$ID.turn-ended" "$STATE/$ID.meta" \
   "$STATE/$ID.pi-ext.ts" "$STATE/$ID.grok-turnend-token" \
-  "$STATE/$ID.kimi-turnend-token"
+  "$STATE/$ID.kimi-turnend-token" "$STATE/$ID.claude-settings-backup"
 if [ "$KIND" != scout ] && [ "$KIND" != secondmate ] && [ "$MODE" != local-only ]; then
   "$FM_ROOT/bin/fm-fleet-sync.sh" "$PROJ" || true
 fi

@@ -167,7 +167,7 @@ run_spawn() {
     FM_FAKE_BRIEF_REAL="$(cd "$home/data/$id" && pwd -P)/brief.md" \
     FM_KIMI_READY_POLLS=2 FM_KIMI_DELIVERY_POLLS=2 FM_KIMI_POLL_INTERVAL=0 \
     PATH="$fakebin:$BASE_PATH" \
-    "$SPAWN" "$id" "$proj" --harness kimi "$@" 2>&1
+    "$SPAWN" "$id" "$proj" --harness kimi --mode no-mistakes --yolo off "$@" 2>&1
 }
 
 read_spawn_record() {
@@ -192,11 +192,12 @@ test_kimi_launch_then_send_is_verified() {
   assert_contains "$out" "spawned $id harness=kimi" "kimi spawn did not report success"
 
   launch=$(cat "$CASE_DIR/launch.log")
-  [ "$launch" = "'$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto" ] \
-    || fail "kimi launch did not use the absolute binary, model, and --auto only: $launch"
+  [ "$launch" = "KIMI_MODEL_THINKING_EFFORT='high' '$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto" ] \
+    || fail "kimi launch did not use the effort override, absolute binary, model, and --auto only: $launch"
   assert_not_contains "$launch" "--effort" "kimi launch emitted a nonexistent effort flag"
   assert_not_contains "$launch" "turn-ended" "kimi launch embedded a turn-end path"
   assert_not_contains "$launch" "__TURNEND__" "kimi launch retained a turn-end placeholder"
+  assert_not_contains "$launch" "__EFFORTFLAG__" "kimi launch retained an effort placeholder"
 
   brief_real="$(cd "$HOME_DIR/data/$id" && pwd -P)/brief.md"
   pointer=$(cat "$CASE_DIR/pointer.log")
@@ -204,7 +205,7 @@ test_kimi_launch_then_send_is_verified() {
     || fail "kimi pointer was not the exact absolute-path-only instruction: $pointer"
   meta="$HOME_DIR/state/$id.meta"
   assert_grep 'model=kimi-code/k3' "$meta" "kimi meta lost the requested model"
-  assert_grep 'effort=high' "$meta" "kimi meta did not retain the unsupported effort axis"
+  assert_grep 'effort=high' "$meta" "kimi meta lost the requested effort axis"
   assert_grep "tasktmp=$task_tmp" "$meta" "kimi meta did not record its task temp root"
   assert_present "$task_tmp/gotmp" "kimi spawn did not create its Go temp directory"
   assert_grep "export GOTMPDIR=$task_tmp/gotmp" "$CASE_DIR/tmux-calls.log" \
@@ -214,6 +215,81 @@ test_kimi_launch_then_send_is_verified() {
   assert_grep 'token=' "$WT_DIR/.fm-kimi-turnend" "kimi spawn did not write its token pointer"
   assert_present "$HOME_DIR/state/$id.kimi-turnend-token" "kimi spawn did not record its token"
   pass "fm-spawn: kimi launches, delivers its brief, and registers a guarded turn-end token"
+}
+
+test_kimi_max_effort_reaches_kimi_exactly_once() {
+  local id rec out rc launch occurrences
+  id=kimi-effort-max-z9
+  rec=$(make_spawn_case effort-max "$id")
+  read_spawn_record "$rec"
+  out=$(run_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" \
+    --model kimi-code/k3 --effort max)
+  rc=$?
+  expect_code 0 "$rc" "kimi spawn at max effort should succeed"
+
+  launch=$(cat "$CASE_DIR/launch.log")
+  [ "$launch" = "KIMI_MODEL_THINKING_EFFORT='max' '$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto" ] \
+    || fail "kimi max effort was not delivered as a single leading env assignment: $launch"
+  occurrences=$(printf '%s\n' "$launch" | grep -c 'KIMI_MODEL_THINKING_EFFORT')
+  [ "$occurrences" -eq 1 ] \
+    || fail "kimi max effort reached the launch $occurrences times instead of once"
+  assert_not_contains "$launch" "--effort" "kimi max effort must not emit a nonexistent CLI flag"
+  assert_not_contains "$launch" "--thinking" "kimi max effort must not borrow pi's thinking flag"
+  assert_not_contains "$launch" "--reasoning-effort" "kimi max effort must not borrow grok's effort flag"
+  assert_grep 'effort=max' "$HOME_DIR/state/$id.meta" "kimi meta lost the requested max effort"
+  pass "fm-spawn: kimi receives max effort exactly once through its environment override"
+}
+
+test_kimi_supported_efforts_deliver_and_unsupported_levels_are_omitted() {
+  local id rec out rc launch level
+  for level in low high; do
+    id="kimi-effort-$level-z9"
+    rec=$(make_spawn_case "effort-$level" "$id")
+    read_spawn_record "$rec"
+    out=$(run_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" \
+      --model kimi-code/k3 --effort "$level")
+    rc=$?
+    expect_code 0 "$rc" "kimi spawn at $level effort should succeed"
+    launch=$(cat "$CASE_DIR/launch.log")
+    [ "$launch" = "KIMI_MODEL_THINKING_EFFORT='$level' '$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto" ] \
+      || fail "kimi $level effort was not delivered through its environment override: $launch"
+  done
+
+  # K3 advertises low/high/max only, and the override bypasses Kimi's own
+  # support check, so an unadvertised level would reach the API and be rejected.
+  for level in medium xhigh; do
+    id="kimi-effort-$level-z9"
+    rec=$(make_spawn_case "effort-$level" "$id")
+    read_spawn_record "$rec"
+    out=$(run_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" \
+      --model kimi-code/k3 --effort "$level")
+    rc=$?
+    expect_code 0 "$rc" "kimi spawn at unsupported $level effort should still succeed"
+    launch=$(cat "$CASE_DIR/launch.log")
+    [ "$launch" = "'$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto" ] \
+      || fail "kimi $level effort was not omitted from the launch: $launch"
+    assert_not_contains "$launch" "KIMI_MODEL_THINKING_EFFORT" \
+      "kimi launch passed unadvertised $level effort to the model"
+    assert_grep "effort=$level" "$HOME_DIR/state/$id.meta" \
+      "kimi meta dropped the requested $level effort it could not deliver"
+  done
+  pass "fm-spawn: kimi delivers low/high and records but omits medium/xhigh"
+}
+
+test_kimi_effort_cannot_become_shell_code() {
+  local id rec out rc marker
+  id=kimi-effort-inject-z9
+  rec=$(make_spawn_case effort-inject "$id")
+  read_spawn_record "$rec"
+  marker="$CASE_DIR/injected"
+  rc=0
+  out=$(run_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" \
+    --model kimi-code/k3 --effort "max; touch $marker") || rc=$?
+  [ "$rc" -ne 0 ] || fail "kimi spawn accepted a shell fragment as an effort level"
+  assert_contains "$out" "--effort must be one of" "effort injection refusal lacked its concrete reason"
+  assert_absent "$marker" "an effort level ran as shell code"
+  [ ! -s "$CASE_DIR/launch.log" ] || fail "a refused effort level still produced a launch"
+  pass "fm-spawn: a kimi effort level can never become shell code"
 }
 
 test_kimi_hook_install_is_surgical_idempotent_and_removable() {
@@ -296,6 +372,122 @@ with open(sys.argv[1], "rb") as stream:
     tomllib.load(stream)
 PY
   pass "Kimi hook removal preserves owned newline boundaries and pristine bytes"
+}
+
+# The exact command line Kimi's own TOML serializer round-trips Firstmate's hook
+# table to (smol-toml basic string, one space around '='). Every fixture below
+# builds its hook table from this so a canonical near-match cannot drift.
+# shellcheck disable=SC2016  # $HOME is literal config text Kimi expands at hook time, not here.
+KIMI_CANONICAL_COMMAND='command = "bash \"$HOME/.kimi-code/fm-turn-end.sh\" >/dev/null 2>&1 || true"'
+
+# The observed Kimi Code 0.31.0 rewrite: the whole config is reserialized, so every
+# comment (including Firstmate's markers) is gone while the hook table survives verbatim.
+# The optional second path receives the same config without the Firstmate hook table,
+# which is exactly what a later removal must restore.
+write_kimi_031_rewritten_config() {
+  local path=$1 without=${2:-}
+  {
+    printf 'default_model = "kimi-code/k3"\n\n'
+    printf '[ui]\ntheme = "night"\n\n'
+    printf '[providers.example]\nmodel = "some/model"\n\n'
+    printf '[[hooks]]\ntimeout=17\ncommand = "printf foreign"\nmatcher=""\nevent = "Stop"\n\n'
+  } > "$path"
+  [ -z "$without" ] || cp "$path" "$without"
+  printf '[[hooks]]\nevent = "Stop"\nmatcher = "^$"\n%s\ntimeout = 1\n' \
+    "$KIMI_CANONICAL_COMMAND" >> "$path"
+}
+
+test_kimi_hook_install_reclaims_marker_stripped_region_after_a_kimi_rewrite() {
+  local home config rewritten without once stripped count
+  home="$TMP_ROOT/config-marker-loss"
+  config="$home/.kimi-code/config.toml"
+  rewritten="$home/rewritten.toml"
+  without="$home/without-hook.toml"
+  once="$home/once.toml"
+  stripped="$home/markers-stripped.toml"
+  mkdir -p "$home/.kimi-code"
+  write_kimi_031_rewritten_config "$config" "$without"
+  cp "$config" "$rewritten"
+
+  HOME="$home" "$KIMI_HOOK" install \
+    || fail "install did not reclaim its own canonical hook table after a Kimi config rewrite"
+  count=$(grep -c '^# BEGIN FIRSTMATE KIMI TURN-END HOOK' "$config")
+  [ "$count" -eq 1 ] || fail "reclaim left $count Firstmate regions"
+  assert_grep '# END FIRSTMATE KIMI TURN-END HOOK' "$config" "reclaim left no end marker"
+  count=$(grep -c '^\[\[hooks\]\]' "$config")
+  [ "$count" -eq 2 ] || fail "reclaim changed the hook table count to $count"
+  assert_grep 'command = "printf foreign"' "$config" "reclaim disturbed the foreign hook table"
+  assert_present "$home/.kimi-code/fm-turn-end.sh" "reclaim did not install the hook script"
+
+  # The only change is the pair of marker lines: strip them and the rewritten config
+  # comes back byte for byte, foreign hook table and every blank line included.
+  grep -vFx -e '# BEGIN FIRSTMATE KIMI TURN-END HOOK' \
+    -e '# END FIRSTMATE KIMI TURN-END HOOK' "$config" > "$stripped"
+  cmp -s "$rewritten" "$stripped" \
+    || fail "reclaim changed config bytes outside the region it re-marked"
+
+  cp "$config" "$once"
+  HOME="$home" "$KIMI_HOOK" install || fail "reinstall after a reclaim failed"
+  cmp -s "$once" "$config" || fail "reinstall after a reclaim changed config bytes"
+
+  HOME="$home" "$KIMI_HOOK" remove || fail "removal after a reclaim failed"
+  cmp -s "$without" "$config" \
+    || fail "removal after a reclaim did not restore the surrounding config byte-identically"
+  pass "Kimi hook install reclaims a marker-stripped canonical region and leaves the rest untouched"
+}
+
+test_kimi_hook_install_refuses_every_uncertain_unmarked_hook_table() {
+  local name body home config rc out
+  # Each fixture is one unmarked config that references fm-turn-end.sh but is not
+  # provably Firstmate's own hook table, so reclaim must not claim it.
+  while IFS='|' read -r name body; do
+    [ -n "$name" ] || continue
+    home="$TMP_ROOT/reclaim-refuse/$name"
+    config="$home/.kimi-code/config.toml"
+    mkdir -p "$home/.kimi-code"
+    printf '%b' "$body" > "$config"
+    cp "$config" "$home/before"
+    rc=0
+    out=$(HOME="$home" "$KIMI_HOOK" install 2>&1) || rc=$?
+    [ "$rc" -ne 0 ] || fail "reclaim claimed an uncertain hook table: $name"
+    assert_contains "$out" "refused" "$name refusal lacked a refusal diagnostic"
+    cmp -s "$home/before" "$config" || fail "$name refusal changed config bytes"
+    assert_no_grep 'FIRSTMATE KIMI TURN-END HOOK' "$config" "$name refusal wrote Firstmate markers"
+    assert_absent "$home/.kimi-code/fm-turn-end.sh" "$name refusal wrote the hook script"
+  done <<EOF
+altered-command|[[hooks]]\nevent = "Stop"\nmatcher = "^\$"\ncommand = "bash \\\\"\$HOME/.kimi-code/fm-turn-end.sh\\\\" ; curl http://example.invalid"\ntimeout = 1\n
+extra-field|[[hooks]]\nevent = "Stop"\nmatcher = "^\$"\n$KIMI_CANONICAL_COMMAND\ntimeout = 1\ndescription = "captain's own"\n
+extra-field-past-a-blank-line|[[hooks]]\nevent = "Stop"\nmatcher = "^\$"\n$KIMI_CANONICAL_COMMAND\ntimeout = 1\n\ndescription = "captain's own"\n
+missing-field|[[hooks]]\nevent = "Stop"\n$KIMI_CANONICAL_COMMAND\ntimeout = 1\n
+wrong-event|[[hooks]]\nevent = "PreToolUse"\nmatcher = "^\$"\n$KIMI_CANONICAL_COMMAND\ntimeout = 1\n
+wrong-matcher|[[hooks]]\nevent = "Stop"\nmatcher = ".*"\n$KIMI_CANONICAL_COMMAND\ntimeout = 1\n
+wrong-timeout|[[hooks]]\nevent = "Stop"\nmatcher = "^\$"\n$KIMI_CANONICAL_COMMAND\ntimeout = 30\n
+non-integer-timeout|[[hooks]]\nevent = "Stop"\nmatcher = "^\$"\n$KIMI_CANONICAL_COMMAND\ntimeout = true\n
+duplicate-tables|[[hooks]]\nevent = "Stop"\nmatcher = "^\$"\n$KIMI_CANONICAL_COMMAND\ntimeout = 1\n\n[[hooks]]\nevent = "Stop"\nmatcher = "^\$"\n$KIMI_CANONICAL_COMMAND\ntimeout = 1\n
+trailing-comment|[[hooks]]\nevent = "Stop" # captain's note\nmatcher = "^\$"\n$KIMI_CANONICAL_COMMAND\ntimeout = 1\n
+comment-inside-table|[[hooks]]\nevent = "Stop"\n# captain's note\nmatcher = "^\$"\n$KIMI_CANONICAL_COMMAND\ntimeout = 1\n
+header-trailing-comment|[[hooks]] # kimi\nevent = "Stop"\nmatcher = "^\$"\n$KIMI_CANONICAL_COMMAND\ntimeout = 1\n
+blank-line-before-fields|[[hooks]]\n\nevent = "Stop"\nmatcher = "^\$"\n$KIMI_CANONICAL_COMMAND\ntimeout = 1\n
+inline-hook-array|hooks = [ { event = "Stop", matcher = "^\$", command = "bash \\\\"\$HOME/.kimi-code/fm-turn-end.sh\\\\" >/dev/null 2>&1 || true", timeout = 1 } ]\n
+second-reference-outside|# remember to keep fm-turn-end.sh installed\n[[hooks]]\nevent = "Stop"\nmatcher = "^\$"\n$KIMI_CANONICAL_COMMAND\ntimeout = 1\n
+EOF
+  pass "Kimi hook install refuses every unmarked hook table it cannot prove is its own"
+}
+
+test_kimi_hook_remove_never_reclaims_an_unmarked_region() {
+  local home config rc out
+  home="$TMP_ROOT/config-remove-no-reclaim"
+  config="$home/.kimi-code/config.toml"
+  mkdir -p "$home/.kimi-code"
+  write_kimi_031_rewritten_config "$config"
+  cp "$config" "$home/before"
+  rc=0
+  out=$(HOME="$home" "$KIMI_HOOK" remove 2>&1) || rc=$?
+  [ "$rc" -ne 0 ] || fail "removal claimed an unmarked hook table"
+  assert_contains "$out" "outside the Firstmate-owned region" \
+    "removal refusal lacked its concrete reason"
+  cmp -s "$home/before" "$config" || fail "removal refusal changed config bytes"
+  pass "Kimi hook removal still requires real markers and never reclaims"
 }
 
 test_kimi_hook_fails_closed_on_missing_malformed_or_partial_config() {
@@ -659,9 +851,15 @@ test_kimi_bordered_prompt_needs_no_override() {
 
 test_kimi_hook_install_is_surgical_idempotent_and_removable
 test_kimi_hook_remove_preserves_owned_newline_boundary
+test_kimi_hook_install_reclaims_marker_stripped_region_after_a_kimi_rewrite
+test_kimi_hook_install_refuses_every_uncertain_unmarked_hook_table
+test_kimi_hook_remove_never_reclaims_an_unmarked_region
 test_kimi_hook_fails_closed_on_missing_malformed_or_partial_config
 test_kimi_hook_install_refuses_without_jq
 test_kimi_launch_then_send_is_verified
+test_kimi_max_effort_reaches_kimi_exactly_once
+test_kimi_supported_efforts_deliver_and_unsupported_levels_are_omitted
+test_kimi_effort_cannot_become_shell_code
 test_kimi_hook_is_silent_and_requires_registered_workspace_token
 test_kimi_spawn_refuses_unsafe_global_config_before_pane_creation
 test_kimi_teardown_removes_pointer_and_registry_token
