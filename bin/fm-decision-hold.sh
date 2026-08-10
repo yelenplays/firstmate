@@ -19,11 +19,64 @@
 # Usage:
 #   fm-decision-hold.sh id <origin-id> <decision-key>
 #   fm-decision-hold.sh hold <origin-id> <decision-key> \
-#     --title <title> --reason <reason> [--repo <repo>]
+#     --title <title> --reason <reason> [--repo <repo>] [<record option>...]
 #   fm-decision-hold.sh complete <origin-id> (--none | <decision-key>...)
 #   fm-decision-hold.sh verify <origin-id>
 #   fm-decision-hold.sh resolve <origin-id> <decision-key> \
 #     --decision-file <path> --routed-to <task-id> [--routed-to <task-id>...]
+#   fm-decision-hold.sh record <origin-id> <decision-key> [--json]
+#   fm-decision-hold.sh status-line <verb> <decision-key> <record option>... \
+#     --why <prose>
+#
+# STRUCTURED DECISION RECORD
+#
+# A captain decision recorded only as prose cannot be rendered anywhere: one
+# field carries the question, the options, the recommendation and the evidence at
+# once, so a morning brief, a decision card and a notification would each have to
+# parse prose to find the answer buttons. The record fixes that by adding
+# separately authored fields alongside the prose, which keeps its exact meaning as
+# the why disclosure.
+#
+# The record is OPTIONAL and strictly additive. A hold created without any record
+# option behaves exactly as it always has, so every decision already recorded
+# keeps working untouched and is never rewritten or migrated.
+#
+# Record options - supplying any one of them requires the whole authored set,
+# except --expires-at which is genuinely optional:
+#   --question <text>       the one outcome-terms sentence a card shows first
+#   --consequence <text>    what the recommended answer causes, in the captain's
+#                           own units, stated BEFORE any recommendation
+#   --recommend <option-id> which option is recommended
+#   --option <id>/<label>[/destructive]
+#                           repeatable; 2 to 4 options; the FIRST option must not
+#                           be destructive, because it is the action an Apple
+#                           Watch double tap fires with no confirmation
+#   --expires-at <YYYY-MM-DDTHH:MM:SSZ>
+#                           absolute UTC instant after which the question is dead
+#   --sensitivity normal|private|secret
+#   --safe-preview <text>   the authored line that may be shown outside the
+#                           trusted session
+#
+# The length ceilings are enforced, not documented: a field that overflows is
+# refused. bin/fm-classify-lib.sh owns the wire form, the field names and every
+# ceiling; this script never restates a limit.
+#
+# sensitivity CLASSIFIES a decision. It never grants authority. Who may answer
+# which decision is owned by AGENTS.md section 7 and the ask-user-authority
+# skill, and this script reads sensitivity for nothing except deciding which
+# authored text a renderer may show outside the trusted session.
+#
+# safe_preview is the one field that may leave the trusted session, so it is the
+# one field checked for accidental evidence: no link, address, handle, path,
+# identifier, amount or opaque token, and it may not be a phrase lifted out of
+# the reason prose. It must be authored, never truncated from the evidence.
+#
+# The same record travels on a status line, so a worker can author it where it
+# discovers the decision:
+#   needs-decision [key=<slug>]: {<record>} <the prose why, unchanged>
+# The block sits after the colon, so every existing status parser reads such a
+# line exactly as it reads a prose-only one. `status-line` composes and validates
+# that line; `record` reads a registered decision back as fields or JSON.
 #
 # `complete` is the shared investigation and visual-review completion gate.
 # `--none` is an explicit semantic attestation that the just-reviewed surface has
@@ -51,6 +104,19 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 # shellcheck source=bin/fm-tasks-axi-lib.sh
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
+# shellcheck source=bin/fm-wake-lib.sh
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/fm-wake-lib.sh"
+
+DECISION_META_LOCK=
+DECISION_META_LOCK_HELD=0
+decision_hold_cleanup() {
+  if [ "$DECISION_META_LOCK_HELD" = 1 ]; then
+    fm_lock_release "$DECISION_META_LOCK" || true
+    DECISION_META_LOCK_HELD=0
+  fi
+}
+trap decision_hold_cleanup EXIT
 
 usage() {
   awk '
@@ -88,6 +154,64 @@ sha256_text() {  # <text>
   else
     fail "shasum or sha256sum is required"
   fi
+}
+
+strip_quotes() {  # <field-value>
+  local v=$1
+  v=${v#\"}
+  v=${v%\"}
+  printf '%s' "$v"
+}
+
+# Assemble the canonical record block from authored values, in canonical field
+# order and skipping anything not supplied, so a missing required field is
+# reported by name instead of as an empty value.
+compose_record() {  # <question> <consequence> <recommend> <expires> <sensitivity> <safe-preview> <options>
+  local question=$1 consequence=$2 recommend=$3 expires=$4 sensitivity=$5 preview=$6 options=$7
+  local block='' opt
+  [ -z "$question" ] || block="${block}${block:+|}question=$question"
+  [ -z "$consequence" ] || block="${block}${block:+|}consequence=$consequence"
+  [ -z "$recommend" ] || block="${block}${block:+|}recommend=$recommend"
+  while IFS= read -r opt; do
+    [ -n "$opt" ] || continue
+    block="${block}${block:+|}option=$opt"
+  done <<EOF
+$options
+EOF
+  [ -z "$expires" ] || block="${block}${block:+|}expires_at=$expires"
+  [ -z "$sensitivity" ] || block="${block}${block:+|}sensitivity=$sensitivity"
+  [ -z "$preview" ] || block="${block}${block:+|}safe_preview=$preview"
+  printf '%s' "$block"
+}
+
+# The awaiting-decision hold body, with the record appended when one is authored.
+hold_body() {  # <origin-id> <decision-key> [record]
+  local body
+  body=$(printf 'Origin: %s\nDecision key: %s\nState: awaiting captain decision.' "$1" "$2")
+  [ -z "${3:-}" ] || body="${body}"$'\n\n'"Decision record v1: $3"
+  printf '%s' "$body"
+}
+
+# Extract the record from a tasks-axi body field. The field arrives as one line
+# with literal \n escapes and optional surrounding quotes, and record values may
+# not contain a backslash or a quote, so the record survives that encoding
+# unchanged and is read back without decoding the rest of the body.
+body_record() {  # <raw-body-field>
+  local tail
+  case "$1" in
+    *'Decision record v1: '*) tail=${1##*'Decision record v1: '} ;;
+    *) return 0 ;;
+  esac
+  tail=${tail%%\\n*}
+  tail=${tail%\"}
+  printf '%s' "$tail"
+}
+
+json_escape() {  # <text>
+  local v=$1
+  v=${v//\\/\\\\}
+  v=${v//\"/\\\"}
+  printf '%s' "$v"
 }
 
 hold_id() {  # <origin-id> <decision-key>
@@ -230,6 +354,8 @@ command_id() {
 
 command_hold() {
   local origin=${1:-} key=${2:-} title='' reason='' repo='' id show state kind existing_title body
+  local question='' consequence='' recommend='' expires='' sensitivity='' preview='' options=''
+  local record='' record_given=0 existing_body
   [ "$#" -ge 2 ] || { usage >&2; exit 2; }
   shift 2
   while [ "$#" -gt 0 ]; do
@@ -237,6 +363,13 @@ command_hold() {
       --title) shift; title=${1:-} ;;
       --reason) shift; reason=${1:-} ;;
       --repo) shift; repo=${1:-} ;;
+      --question) shift; question=${1:-}; record_given=1 ;;
+      --consequence) shift; consequence=${1:-}; record_given=1 ;;
+      --recommend) shift; recommend=${1:-}; record_given=1 ;;
+      --option) shift; options="${options}${options:+$'\n'}${1:-}"; record_given=1 ;;
+      --expires-at) shift; expires=${1:-}; record_given=1 ;;
+      --sensitivity) shift; sensitivity=${1:-}; record_given=1 ;;
+      --safe-preview) shift; preview=${1:-}; record_given=1 ;;
       *) usage >&2; exit 2 ;;
     esac
     shift
@@ -246,6 +379,11 @@ command_hold() {
   validate_one_line title "$title"
   validate_one_line reason "$reason"
   case "$reason" in *'('*|*')'*) fail "reason must not contain parentheses (tasks-axi hold contract)" ;; esac
+  if [ "$record_given" = 1 ]; then
+    record=$(compose_record "$question" "$consequence" "$recommend" "$expires" \
+      "$sensitivity" "$preview" "$options")
+    decision_record_validate "$record" "$reason" || fail "the authored decision record is not renderable"
+  fi
   require_tasks_axi
   origin_exists_here "$origin" || fail "origin $origin is not owned by the active home $FM_HOME"
   id=$(hold_id "$origin" "$key")
@@ -256,6 +394,17 @@ command_hold() {
     [ "$state" != "done" ] || fail "captain decision $id is already durably resolved; use a new decision key for a new decision"
     [ "$kind" = captain ] || fail "existing backlog identity $id is not kind captain"
     [ "$existing_title" = "$title" ] || fail "existing captain hold $id has a different title"
+    # A retry without record options preserves whatever record is already there;
+    # a retry with them replaces it, exactly as --reason replaces the why prose.
+    if [ -n "$record" ]; then
+      existing_body=$(show_field "$show" body)
+      case "$existing_body" in
+        *'State: awaiting captain decision.'*) ;;
+        *) fail "captain decision $id no longer carries an awaiting-decision body; use a new decision key" ;;
+      esac
+      tasks_axi update "$id" --body "$(hold_body "$origin" "$key" "$record")" >/dev/null \
+        || fail "could not record the structured decision record on $id"
+    fi
   else
     if [ -z "$repo" ] && [ -f "$STATE/$origin.meta" ]; then
       repo=$(meta_value "$STATE/$origin.meta" project)
@@ -264,7 +413,7 @@ command_hold() {
     fi
     [ -n "$repo" ] || repo=firstmate
     validate_one_line repo "$repo"
-    body=$(printf 'Origin: %s\nDecision key: %s\nState: awaiting captain decision.' "$origin" "$key")
+    body=$(hold_body "$origin" "$key" "$record")
     tasks_axi add "$id" "$title" --kind captain --repo "$repo" --body "$body" >/dev/null \
       || fail "could not create captain decision item $id"
   fi
@@ -281,6 +430,12 @@ command_complete() {
   shift
   meta="$STATE/$origin.meta"
   [ -f "$meta" ] && has_meta=1
+  if [ "$has_meta" = 1 ]; then
+    DECISION_META_LOCK=$(fm_meta_lock_path "$meta") || fail "could not resolve task metadata lock"
+    fm_lock_acquire_wait "$DECISION_META_LOCK"
+    DECISION_META_LOCK_HELD=1
+    [ -f "$meta" ] || fail "task metadata disappeared while recording completion"
+  fi
   require_tasks_axi
   origin_exists_here "$origin" || fail "origin $origin is not owned by the active home $FM_HOME"
   if [ "$#" -eq 1 ] && [ "$1" = --none ]; then
@@ -321,6 +476,8 @@ EOF
     if [ "$(meta_value "$meta" decisions_reviewed)" != 1 ] || [ "$previous" != "$keys" ]; then
       printf 'decisions_reviewed=1\ndecision_keys=%s\n' "$keys" >> "$meta"
     fi
+    fm_lock_release "$DECISION_META_LOCK"
+    DECISION_META_LOCK_HELD=0
 
     # Transfer any still-open status decision to its durable backlog owner so the
     # live status fold does not duplicate the same Captain's Call item.
@@ -368,7 +525,7 @@ EOF
 }
 
 command_resolve() {
-  local origin=${1:-} key=${2:-} decision_file='' id='' decision='' decision_digest='' body='' routed='' routed_csv='' dep show blocked state hold_show hold_body resolution_recorded=0
+  local origin=${1:-} key=${2:-} decision_file='' id='' decision='' decision_digest='' body='' routed='' routed_csv='' dep show blocked state hold_show hold_body record='' resolution_recorded=0
   [ "$#" -ge 2 ] || { usage >&2; exit 2; }
   shift 2
   while [ "$#" -gt 0 ]; do
@@ -434,6 +591,10 @@ command_resolve() {
   for dep in $routed; do
     body="${body}- ${dep}"$'\n'
   done
+  # The authored record is what made the decision renderable; a resolved decision
+  # keeps it so the closed record stays as readable as the open one was.
+  record=$(body_record "$hold_body")
+  [ -z "$record" ] || body="${body}"$'\n'"Decision record v1: $record"
   tasks_axi update "$id" --body "$body" >/dev/null \
     || fail "could not record the captain decision on $id"
   for dep in $routed; do
@@ -453,12 +614,116 @@ command_resolve() {
   printf 'resolved: %s -> %s\n' "$id" "$routed"
 }
 
+command_record() {
+  local origin=${1:-} key=${2:-} json=0 id show record why title repo state opt label first=1
+  [ "$#" -ge 2 ] || { usage >&2; exit 2; }
+  shift 2
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --json) json=1 ;;
+      *) usage >&2; exit 2 ;;
+    esac
+    shift
+  done
+  validate_slug origin-id "$origin"
+  validate_slug decision-key "$key"
+  require_tasks_axi
+  id=$(hold_id "$origin" "$key")
+  show=$(task_show "$id") || fail "captain decision $id is absent from $FM_HOME/data/backlog.md"
+  record=$(body_record "$(show_field "$show" body)")
+  [ -n "$record" ] || fail "captain decision $id carries no structured decision record"
+  why=$(strip_quotes "$(show_field "$show" hold_reason)")
+  title=$(strip_quotes "$(show_field "$show" title)")
+  repo=$(strip_quotes "$(show_field "$show" repo)")
+  state=$(show_field "$show" state)
+  if [ "$json" = 0 ]; then
+    printf 'id: %s\ntitle: %s\nproject: %s\nstate: %s\n' "$id" "$title" "$repo" "$state"
+    printf 'question: %s\n' "$(decision_record_get "$record" question)"
+    printf 'consequence: %s\n' "$(decision_record_get "$record" consequence)"
+    printf 'recommend: %s\n' "$(decision_record_get "$record" recommend)"
+    while IFS= read -r opt; do
+      [ -n "$opt" ] || continue
+      printf 'option: %s\n' "$opt"
+    done <<EOF
+$(decision_record_get "$record" option)
+EOF
+    opt=$(decision_record_get "$record" expires_at)
+    printf 'expires_at: %s\n' "${opt:-none}"
+    printf 'sensitivity: %s\n' "$(decision_record_get "$record" sensitivity)"
+    printf 'safe_preview: %s\n' "$(decision_record_get "$record" safe_preview)"
+    printf 'why: %s\n' "$why"
+    return 0
+  fi
+  printf '{"id":"%s","title":"%s","project":"%s","state":"%s"' \
+    "$(json_escape "$id")" "$(json_escape "$title")" "$(json_escape "$repo")" "$(json_escape "$state")"
+  printf ',"question":"%s","consequence":"%s","recommend":"%s"' \
+    "$(decision_record_get "$record" question)" \
+    "$(decision_record_get "$record" consequence)" \
+    "$(decision_record_get "$record" recommend)"
+  printf ',"options":['
+  while IFS= read -r opt; do
+    [ -n "$opt" ] || continue
+    [ "$first" = 1 ] || printf ','
+    first=0
+    label=${opt#*/}
+    case "$label" in
+      */destructive) printf '{"id":"%s","label":"%s","destructive":true}' "${opt%%/*}" "${label%/destructive}" ;;
+      *) printf '{"id":"%s","label":"%s","destructive":false}' "${opt%%/*}" "$label" ;;
+    esac
+  done <<EOF
+$(decision_record_get "$record" option)
+EOF
+  printf ']'
+  opt=$(decision_record_get "$record" expires_at)
+  if [ -n "$opt" ]; then printf ',"expires_at":"%s"' "$opt"; else printf ',"expires_at":null'; fi
+  printf ',"sensitivity":"%s","safe_preview":"%s","why":"%s"}\n' \
+    "$(decision_record_get "$record" sensitivity)" \
+    "$(decision_record_get "$record" safe_preview)" \
+    "$(json_escape "$why")"
+}
+
+command_status_line() {
+  local verb=${1:-} key=${2:-} why='' record
+  local question='' consequence='' recommend='' expires='' sensitivity='' preview='' options=''
+  [ "$#" -ge 2 ] || { usage >&2; exit 2; }
+  shift 2
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --question) shift; question=${1:-} ;;
+      --consequence) shift; consequence=${1:-} ;;
+      --recommend) shift; recommend=${1:-} ;;
+      --option) shift; options="${options}${options:+$'\n'}${1:-}" ;;
+      --expires-at) shift; expires=${1:-} ;;
+      --sensitivity) shift; sensitivity=${1:-} ;;
+      --safe-preview) shift; preview=${1:-} ;;
+      --why) shift; why=${1:-} ;;
+      *) usage >&2; exit 2 ;;
+    esac
+    shift
+  done
+  case "$verb" in
+    needs-decision|blocked) ;;
+    *) fail "status-line verb must be needs-decision or blocked: $verb" ;;
+  esac
+  validate_slug decision-key "$key"
+  validate_one_line why "$why"
+  case "$why" in
+    *'{'*|*'}'*) fail "why must not contain braces; they delimit the decision record" ;;
+  esac
+  record=$(compose_record "$question" "$consequence" "$recommend" "$expires" \
+    "$sensitivity" "$preview" "$options")
+  decision_record_validate "$record" "$why" || fail "the authored decision record is not renderable"
+  printf '%s [key=%s]: {%s} %s\n' "$verb" "$key" "$record" "$why"
+}
+
 case "${1:-}" in
   id) shift; command_id "$@" ;;
   hold) shift; command_hold "$@" ;;
   complete) shift; command_complete "$@" ;;
   verify) shift; command_verify "$@" ;;
   resolve) shift; command_resolve "$@" ;;
+  record) shift; command_record "$@" ;;
+  status-line) shift; command_status_line "$@" ;;
   -h|--help) usage ;;
   *) usage >&2; exit 2 ;;
 esac

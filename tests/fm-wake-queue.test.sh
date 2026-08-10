@@ -212,13 +212,43 @@ test_drain_dedupes_obvious_duplicates() {
   pass "drain collapses obvious duplicate heartbeat and signal records"
 }
 
+# Named regression: same-key collapse used to keep only the LAST row, so an
+# earlier urgent check result was silently dropped in favour of a later routine
+# one sharing its key - a suppression vector reachable with no attacker at all.
+# A check's key is only the channel that produced it; its payload is the
+# deliverable, so two distinct results on one channel must both survive.
+test_drain_keeps_distinct_check_results_on_one_key() {
+  local dir state out check_file count
+  dir=$(make_case distinct-checks)
+  state="$dir/state"
+  out="$dir/drain.out"
+  check_file="$state/x-watch.check.sh"
+  append_wake "$state" check "$check_file" "check: $check_file: x-mention req-urgent" \
+    || fail "first mention wake append failed"
+  append_wake "$state" check "$check_file" "check: $check_file: x-mention req-routine" \
+    || fail "second mention wake append failed"
+  append_wake "$state" check "$check_file" "check: $check_file: x-mention req-routine" \
+    || fail "repeat mention wake append failed"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "distinct-check drain failed"
+
+  count=$(awk -F '\t' 'NF == 5 && $3 == "check" { count++ } END { print count + 0 }' "$out")
+  [ "$count" -eq 2 ] || fail "expected 2 distinct check records, got $count"$'\n'"$(cat "$out")"
+  grep -F 'x-mention req-urgent' "$out" >/dev/null \
+    || fail "the earlier check result was dropped in favour of a later one sharing its key"
+  grep -F 'x-mention req-routine' "$out" >/dev/null \
+    || fail "the later check result was lost"
+  [ "$(awk -F '\t' '$3 == "check" { print $5 }' "$out" | head -1)" = "check: $check_file: x-mention req-urgent" ] \
+    || fail "distinct check results lost their first-seen ordering"
+  pass "drain keeps every distinct check result on one key and still collapses repeats"
+}
+
 # The drain runs at the top of every wake-handling turn, so it also asserts
 # watcher liveness via fm-guard.sh: a lapsed re-arm chain then surfaces even on a
 # plain drain-and-handle turn that runs no other supervision script. It must warn
 # when work is in flight with no live watcher, and stay silent right after a
-# normal fire (a fresh beacon within grace), so it never false-alarms every wake.
+# normal fire from a live watcher with a fresh beacon, so it never false-alarms.
 test_drain_asserts_watcher_liveness() {
-  local dir state err
+  local dir state err identity
   dir=$(make_case drain-liveness)
   state="$dir/state"
   err="$dir/drain.err"
@@ -226,12 +256,20 @@ test_drain_asserts_watcher_liveness() {
   FM_STATE_OVERRIDE="$state" "$DRAIN" >/dev/null 2> "$err" || fail "drain failed while asserting liveness"
   grep -F 'WATCHER DOWN' "$err" >/dev/null || fail "drain did not surface the watcher-down banner with work in flight and no live watcher"
   : > "$err"
+  identity=$(FM_STATE_OVERRIDE="$state" bash -c '. "$1"; fm_pid_identity "$2"' _ "$ROOT/bin/fm-wake-lib.sh" "$$") \
+    || fail "could not identify the live watcher fixture"
+  mkdir "$state/.watch.lock"
+  printf '%s\n' "$$" > "$state/.watch.lock/pid"
+  printf '%s\n' "$dir" > "$state/.watch.lock/fm-home"
+  printf '%s\n' "$WATCH" > "$state/.watch.lock/watcher-path"
+  printf '%s\n' "$identity" > "$state/.watch.lock/pid-identity"
   touch "$state/.last-watcher-beat"
-  FM_STATE_OVERRIDE="$state" FM_GUARD_GRACE=300 "$DRAIN" >/dev/null 2> "$err" || fail "drain failed with a fresh beacon"
+  FM_HOME="$dir" FM_STATE_OVERRIDE="$state" FM_GUARD_GRACE=300 "$DRAIN" >/dev/null 2> "$err" \
+    || fail "drain failed with a live watcher and fresh beacon"
   if grep -F 'WATCHER DOWN' "$err" >/dev/null; then
-    fail "drain false-alarmed right after a normal fire (fresh beacon within grace)"
+    fail "drain false-alarmed with a live watcher and fresh beacon"
   fi
-  pass "drain asserts watcher liveness: warns on a lapse, stays silent right after a fire"
+  pass "drain asserts watcher liveness: warns on a lapse, stays silent for a live watcher with a fresh beacon"
 }
 
 test_structural_signal_enrichment_preserves_raw_rows() {
@@ -436,6 +474,7 @@ test_not_working_stale_enqueue_before_suppressor
 test_check_output_is_queued
 test_atomic_double_drain
 test_drain_dedupes_obvious_duplicates
+test_drain_keeps_distinct_check_results_on_one_key
 test_drain_asserts_watcher_liveness
 test_structural_signal_enrichment_preserves_raw_rows
 test_enrichment_caps_and_status_file_failures

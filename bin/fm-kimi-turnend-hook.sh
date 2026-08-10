@@ -7,6 +7,16 @@
 # and remove excises only that region. Missing, malformed, symlinked, partially
 # marked, or otherwise surprising config is refused without a config write.
 #
+# Kimi Code rewrites the whole config through its own TOML serializer when it
+# refreshes model configuration, which preserves the Firstmate hook table verbatim
+# but drops every comment, including Firstmate's region markers. When no marker is
+# present, install alone may reclaim exactly one standalone [[hooks]] table whose
+# every line assigns exactly one canonical Firstmate field and whose parsed table
+# carries no other key, and re-wrap it in markers without touching another byte.
+# Anything less certain - an altered command, an extra field, a comment inside the
+# table, a duplicate or second reference, an inline hook array, or an ambiguous
+# table boundary - is refused. Remove never reclaims: it requires real markers.
+#
 # The installed Stop hook always exits 0 and stays silent. It reads cwd from the
 # hook payload, checks for a .fm-kimi-turnend pointer before registry work, and
 # touches a task turn-end marker only when the pointer names a Firstmate-created
@@ -20,7 +30,7 @@ set -u
 case "${1:-}" in
   install|remove) ACTION=$1 ;;
   -h|--help)
-    sed -n '2,18{s/^# \{0,1\}//;p;}' "$0"
+    sed -n '2,27{s/^# \{0,1\}//;p;}' "$0"
     exit 0
     ;;
   *)
@@ -43,6 +53,7 @@ if [ "$ACTION" = install ] && ! command -v jq >/dev/null 2>&1; then
 fi
 
 python3 - "$ACTION" "$HOME/.kimi-code" <<'PY'
+import json
 import os
 import re
 import shutil
@@ -70,6 +81,17 @@ END = b"# END FIRSTMATE KIMI TURN-END HOOK"
 IDENTIFIER = b"FIRSTMATE KIMI TURN-END HOOK"
 HOOK_NAME = b"fm-turn-end.sh"
 TOKEN_NAME = re.compile(r"fm\.[A-Za-z0-9]{12}\Z")
+
+# The one owner of Firstmate's Stop hook table. Both the emitted region and the
+# marker-loss reclaim gate below are derived from it, so they cannot drift apart.
+CANONICAL_FIELDS = {
+    "event": "Stop",
+    "matcher": "^$",
+    "command": 'bash "$HOME/.kimi-code/fm-turn-end.sh" >/dev/null 2>&1 || true',
+    "timeout": 1,
+}
+CANONICAL_COMMAND_LITERAL = json.dumps(CANONICAL_FIELDS["command"]).encode("utf-8")
+ASSIGNMENT = re.compile(rb"([A-Za-z_][A-Za-z0-9_-]*)[ \t]*=[ \t]*(\S.*)")
 
 HOOK_BYTES = b'''#!/usr/bin/env bash
 # Firstmate Kimi turn-end hook. Managed by fm-kimi-turnend-hook.sh.
@@ -162,12 +184,109 @@ def block(marker: bytes) -> bytes:
             b"[[hooks]]",
             b'event = "Stop"',
             b'matcher = "^$"',
-            b'command = "bash \\"$HOME/.kimi-code/fm-turn-end.sh\\" >/dev/null 2>&1 || true"',
+            b"command = " + CANONICAL_COMMAND_LITERAL,
             b"timeout = 1",
             END,
             b"",
         )
     )
+
+
+def line_spans(data: bytes):
+    """Every line as (start, after, text-without-newline), so a span can be replaced in place."""
+    spans = []
+    start = 0
+    while start < len(data):
+        newline = data.find(b"\n", start)
+        if newline < 0:
+            spans.append((start, len(data), data[start:]))
+            break
+        spans.append((start, newline + 1, data[start:newline]))
+        start = newline + 1
+    return spans
+
+
+def same_value(value, expected) -> bool:
+    # Type-strict so TOML's true never satisfies the integer timeout through Python's 1 == True.
+    return type(value) is type(expected) and value == expected
+
+
+def canonical_field(line: bytes):
+    """The canonical key this line assigns, or None unless the line assigns exactly that value.
+
+    A trailing comment is rejected outright: no canonical value contains '#', so a
+    '#' anywhere in the value text means the line carries content Firstmate does not own.
+    """
+    match = ASSIGNMENT.fullmatch(line.strip())
+    if match is None:
+        return None
+    key = match.group(1).decode("utf-8", "replace")
+    raw = match.group(2)
+    if key not in CANONICAL_FIELDS or b"#" in raw:
+        return None
+    try:
+        parsed = tomllib.loads("value = " + raw.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return None
+    if "value" not in parsed or not same_value(parsed["value"], CANONICAL_FIELDS[key]):
+        return None
+    return key
+
+
+def table_is_canonical(table) -> bool:
+    if not isinstance(table, dict) or set(table) != set(CANONICAL_FIELDS):
+        return False
+    return all(same_value(table[key], expected) for key, expected in CANONICAL_FIELDS.items())
+
+
+def reclaimable_region(data: bytes, parsed):
+    """Span of one unmarked standalone hook table proven to be Firstmate's canonical Stop hook.
+
+    Returns None whenever anything is less than certain, which keeps every existing
+    refusal intact: the caller then sees an unowned fm-turn-end.sh reference and refuses.
+    """
+    hooks = parsed.get("hooks")
+    if not isinstance(hooks, list):
+        return None
+    referencing = [
+        entry
+        for entry in hooks
+        if isinstance(entry, dict)
+        and any(isinstance(value, str) and HOOK_NAME.decode("utf-8") in value for value in entry.values())
+    ]
+    if len(referencing) != 1 or not table_is_canonical(referencing[0]):
+        return None
+
+    spans = line_spans(data)
+    headers = [index for index, span in enumerate(spans) if span[2].strip().startswith(b"[")]
+    owners = []
+    for position, header in enumerate(headers):
+        limit = headers[position + 1] if position + 1 < len(headers) else len(spans)
+        body = spans[header + 1 : limit]
+        if HOOK_NAME in spans[header][2] or any(HOOK_NAME in span[2] for span in body):
+            owners.append((header, body))
+    if len(owners) != 1:
+        return None
+    header, body = owners[0]
+    if spans[header][2].strip() != b"[[hooks]]":
+        return None
+
+    # Every canonical field must sit on its own line directly under the header. A blank
+    # line ends the region so trailing separators stay outside it; anything unexpected
+    # before the full field set is complete refuses.
+    seen = []
+    end = spans[header][1]
+    for span in body:
+        if not span[2].strip():
+            break
+        key = canonical_field(span[2])
+        if key is None or key in seen:
+            return None
+        seen.append(key)
+        end = span[1]
+    if set(seen) != set(CANONICAL_FIELDS):
+        return None
+    return spans[header][0], end, BEGIN
 
 
 def without_region(data: bytes, region) -> bytes:
@@ -223,8 +342,12 @@ try:
     config_info = regular_not_symlink(CONFIG, "Kimi config")
     with open(CONFIG, "rb") as stream:
         original = stream.read()
-    parse_toml(original, "config.toml")
+    parsed = parse_toml(original, "config.toml")
     region = locate_region(original)
+    if region is None and ACTION == "install":
+        # Marker loss after a Kimi config rewrite. Remove is deliberately excluded so it
+        # never claims an unmarked table, and a proven reclaim is replaced in place below.
+        region = reclaimable_region(original, parsed)
     outside = original if region is None else without_region(original, region)
     if HOOK_NAME in outside:
         refuse("config.toml references fm-turn-end.sh outside the Firstmate-owned region.")

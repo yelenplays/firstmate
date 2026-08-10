@@ -20,6 +20,21 @@ It verifies every listed identity against tasks-axi before recording completion.
 For an open keyed status decision, it appends a `captain-held [key=<key>]: ...` transfer event only after the matching backlog hold is durable.
 `bin/fm-classify-lib.sh` recognizes that transfer as closing the live status copy without claiming that the captain has answered it.
 
+## Structured decision record
+
+A captain decision was recorded as one prose field carrying the question, the options, the recommendation and the evidence at once, so no surface could render it without parsing prose.
+The `hold` subcommand now also accepts an authored record - question, consequence, recommend, options, expires_at, sensitivity, and safe_preview - stored as one `Decision record v1:` line in the hold body alongside the unchanged prose reason, which keeps its meaning as the why disclosure.
+`bin/fm-classify-lib.sh` is the single owner of the record's wire form, field names, and length ceilings; the script validates through `decision_record_validate` and restates no limit.
+The `record` subcommand reads a registered decision back as fields or as JSON, and `status-line` composes the same record onto a `needs-decision` or `blocked` status line.
+
+The record is optional and strictly additive.
+It sits after the first colon of a status line, so the verb parser, the key parser, the decision fold, the watcher, and the away-mode daemon read a record-carrying line exactly as they read a prose-only one, and `status_line_note` strips the block so every existing consumer keeps displaying the same human-readable summary.
+A decision registered without record options behaves exactly as before and is never rewritten or migrated; a `hold` retry without record options preserves an existing record rather than erasing it, and `resolve` carries the record into the closed hold.
+
+The ceilings are enforced rather than documented, because an overflowing field cannot be rendered at all.
+Sensitivity classifies a decision and grants no authority; a regression asserts that no script outside the record owner and its grammar reads it.
+`safe_preview` is the only field that may leave the trusted session, so it is refused when it carries a link, an address or handle, a path, an identifier or amount, an opaque token, an invisible separator, or a phrase lifted out of the reason prose.
+
 Scout teardown calls the script's read-only `verify` subcommand after checking for the report and before removing any source state.
 The `--force` path remains the explicit captain-approved discard escape hatch.
 

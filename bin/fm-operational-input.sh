@@ -14,15 +14,27 @@
 # marker remains a current compatibility carrier because already-running
 # secondmates have its leading label in their charter context.
 #
+# Classification is prefix-based, so provenance is carried entirely by bytes in
+# the message. Any body that arrives from outside the trusted session must
+# therefore be sanitized at ingress, before storage or embedding, or it can
+# assert its own provenance and be read as an internal operational input.
+# The sanitizer is the owner of that ingress rule for every caller.
+#
 # CLI:
 #   fm-operational-input.sh encode <kind>  # body on stdin, encoded input stdout
 #   fm-operational-input.sh kind           # current input on stdin, kind stdout
 #   fm-operational-input.sh classify       # current or legacy input on stdin
 #   fm-operational-input.sh body           # current generic input on stdin
+#   fm-operational-input.sh sanitize       # external body on stdin, safe body out
+#   fm-operational-input.sh sanitize-json  # external JSON object on stdin (needs jq)
 #   fm-operational-input.sh --help
 #
 # All successful data commands print exactly one value and no diagnostics.
 # A non-match exits 1 silently. Invalid use exits 2. Bash 3.2 compatible.
+# The two sanitize commands deliberately deviate from the non-match convention:
+# they ALWAYS print their sanitized result, and exit 1 to report that
+# provenance bytes were actually stripped, which is a security event for the
+# caller to surface rather than a lookup miss.
 
 FM_OPERATIONAL_MARK=$'\xE2\x81\xA3'
 FM_OPERATIONAL_PREFIX="${FM_OPERATIONAL_MARK}FIRSTMATE_OP: "
@@ -170,6 +182,93 @@ fm_operational_input_classify() {  # <message> <result-var>
   return 1
 }
 
+# --- ingress sanitizer ------------------------------------------------------
+# The single owner of "make an externally-sourced body unable to assert its own
+# provenance". Everything it removes is a Firstmate transport byte with no
+# legitimate place in an external body, so removal is always the safe direction:
+#   - FM_OPERATIONAL_MARK, the invisible U+2063 carrier that leads the current
+#     operational prefix, the from-firstmate separator, and the legacy away
+#     envelope. Removed wherever it appears, not only at position 0, so no
+#     downstream re-slicing of the body can resurrect a leading marker.
+#   - FM_FROMFIRST_LABEL, the from-firstmate routing label.
+#   - Any remaining form fm_operational_input_classify still accepts. After the
+#     two removals above that can only be a marker-free legacy prose form, each
+#     of which is a leading-prefix or whole-body match, so removing the matched
+#     bytes strictly shortens the text and the loop below terminates. The loop
+#     therefore runs to a fixpoint rather than to an iteration budget: a body
+#     that stacks a legacy prefix any number of times is stripped every time.
+# The post-condition is the one that matters: the sanitized result never
+# classifies as an operational input. A body that still classifies with nothing
+# left to strip cannot exist today, and if one ever does it is dropped rather
+# than returned, because the post-condition outranks the payload.
+
+# Remove one marker-free legacy prose form. Exit 0 = removed, 1 = no match.
+fm_operational_sanitize_legacy_once() {  # <text> <result-var>
+  local text=${1-} result_var=${2-}
+  [ -n "$result_var" ] || return 2
+  if [ "$text" = "$FM_LEGACY_SESSIONSTART" ]; then
+    printf -v "$result_var" '%s' ''
+    return 0
+  fi
+  case "$text" in
+    "$FM_LEGACY_WATCHER_PREFIX"*)
+      printf -v "$result_var" '%s' "${text#"$FM_LEGACY_WATCHER_PREFIX"}"
+      return 0
+      ;;
+    "$FM_LEGACY_TURNEND_PREFIX"*)
+      printf -v "$result_var" '%s' "${text#"$FM_LEGACY_TURNEND_PREFIX"}"
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+# fm_operational_input_sanitize <text> <result-var>
+# Always sets the result var. Exit 0 = the body was already clean.
+# Exit 1 = provenance bytes were stripped, which the caller must treat as a
+# security event, not as a parse failure. Exit 2 = invalid use.
+fm_operational_input_sanitize() {  # <text> <result-var>
+  local text=${1-} result_var=${2-} original stripped kind
+  [ -n "$result_var" ] || return 2
+  original=$text
+  text=${text//"$FM_OPERATIONAL_MARK"/}
+  text=${text//"$FM_FROMFIRST_LABEL"/}
+  while fm_operational_input_classify "$text" kind; do
+    if ! fm_operational_sanitize_legacy_once "$text" stripped; then
+      text=
+      break
+    fi
+    text=$stripped
+  done
+  printf -v "$result_var" '%s' "$text"
+  [ "$text" = "$original" ]
+}
+
+# JSON ingress: sanitize EVERY string in an externally-sourced object, so a
+# relay payload cannot smuggle provenance bytes through a field this repo does
+# not enumerate today. jq restates only the removal of the two literals defined
+# above - it is given them as arguments rather than repeating their bytes - and
+# the classifier-level guarantee stays with the shell function, which is what
+# any body actually fed to a classifier goes through.
+# Same exit contract as fm_operational_input_sanitize; exit 2 without jq.
+fm_operational_input_sanitize_json() {  # <json-text> <result-var>
+  local json=${1-} result_var=${2-} out
+  [ -n "$result_var" ] || return 2
+  command -v jq >/dev/null 2>&1 || return 2
+  # $fromfirst, never $label: `label` is a jq reserved keyword and naming an
+  # --arg after one is a compile error on jq <= 1.6.
+  out=$(printf '%s' "$json" | jq -c \
+    --arg mark "$FM_OPERATIONAL_MARK" \
+    --arg fromfirst "$FM_FROMFIRST_LABEL" '
+      def scrub:
+        if type == "string" then (split($mark) | join("")) | (split($fromfirst) | join(""))
+        else . end;
+      walk(scrub)
+    ' 2>/dev/null) || return 2
+  printf -v "$result_var" '%s' "$out"
+  [ "$out" = "$(printf '%s' "$json" | jq -c '.' 2>/dev/null)" ]
+}
+
 fm_message_from_firstmate() {  # <message>
   local kind
   fm_operational_input_kind "${1-}" kind && [ "$kind" = from-firstmate ]
@@ -201,6 +300,11 @@ Usage:
   bin/fm-operational-input.sh kind           # current input on stdin
   bin/fm-operational-input.sh classify       # current or legacy input on stdin
   bin/fm-operational-input.sh body           # current input on stdin
+  bin/fm-operational-input.sh sanitize       # external body on stdin
+  bin/fm-operational-input.sh sanitize-json  # external JSON object on stdin
+
+Both sanitize commands always print their sanitized result and exit 1 when
+provenance bytes were actually stripped, which is a security event.
 
 Current construction kinds:
   session-start watcher turn-end-guard away-supervisor from-firstmate launch-brief
@@ -210,7 +314,7 @@ EOF
 }
 
 fm_operational_main() {
-  local command=${1-} argument=${2-} input output
+  local command=${1-} argument=${2-} input output clean
   case "$command" in
     -h|--help|help)
       fm_operational_usage
@@ -238,6 +342,24 @@ fm_operational_main() {
       fm_operational_read_stdin input || return 2
       fm_operational_input_body "$input" output || return 1
       printf '%s' "$output"
+      ;;
+    sanitize)
+      [ "$#" -eq 1 ] || return 2
+      fm_operational_read_stdin input || return 2
+      fm_operational_input_sanitize "$input" output
+      clean=$?
+      [ "$clean" -ne 2 ] || return 2
+      printf '%s' "$output"
+      return "$clean"
+      ;;
+    sanitize-json)
+      [ "$#" -eq 1 ] || return 2
+      fm_operational_read_stdin input || return 2
+      fm_operational_input_sanitize_json "$input" output
+      clean=$?
+      [ "$clean" -ne 2 ] || return 2
+      printf '%s' "$output"
+      return "$clean"
       ;;
     *)
       fm_operational_usage >&2
