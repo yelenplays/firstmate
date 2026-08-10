@@ -126,7 +126,10 @@ test_missing_state_is_silent() {
 test_owned_lock_is_silent() {
   local root="$TMP_ROOT/already-ran"
   make_primary "$root"
-  printf '%s\n' "$$" > "$root/state/.lock"
+  # bin/fm-lock.sh records the harness pid it resolves from its own ancestry,
+  # never a plain shell pid, and under this suite's fixture harness that pid is
+  # this script's parent.
+  printf '%s\n' "$PPID" > "$root/state/.lock"
   expect_silent_zero "owned lock nudge" run_nudge "$root"
   pass "fm-sessionstart-nudge: a lock holder in process ancestry is already run"
 }

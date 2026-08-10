@@ -64,7 +64,10 @@ if [ -f "$LOCK" ] && [ ! -L "$LOCK" ]; then
     echo "lock acquired: harness pid $me"
     exit 0
   fi
-  if fm_harness_pid_alive "$old"; then
+  # Refusing before the claim lock must ask the same ownership question the
+  # claimed path below asks, or this fast path refuses a session the home it
+  # already holds under a pid of its own contiguous harness run.
+  if ! fm_session_lock_owned_by_self "$STATE" && fm_harness_pid_alive "$old"; then
     echo "error: another live firstmate session holds the lock (pid $old); operate read-only until resolved" >&2
     exit 1
   fi
