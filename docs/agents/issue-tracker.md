@@ -4,6 +4,12 @@ Matt engineering skills use GitHub Issues on `yelenplays/firstmate`, the captain
 They do not publish Matt-skill issues to upstream `kunchenguid/firstmate` unless the captain explicitly redirects that concrete operation.
 Pull requests are not a request or triage surface for these skills.
 
+## Tracker prerequisite
+
+GitHub Issues must be enabled on `yelenplays/firstmate` before any operation in this guide can run.
+Confirm the surface is live with `gh-axi api repos/yelenplays/firstmate` and read `has_issues`, because a `false` value makes every read and write fail with `error: the 'yelenplays/firstmate' repository has disabled issues`.
+Enabling issues is a repository-settings change the captain owns, so report that blocker instead of changing the setting or retargeting the work to another repository.
+
 ## GitHub workflow
 
 Use `gh-axi` for every GitHub read or write, and pass `-R yelenplays/firstmate` so the operation never depends on the local `origin` remote.
