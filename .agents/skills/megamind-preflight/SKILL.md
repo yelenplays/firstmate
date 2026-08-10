@@ -19,9 +19,9 @@ This pilot integrates Megamind 0.3.x preflight as a mandatory, read-only consult
 ## Mandatory vs bypass
 
 Run preflight for every substantive request.
-Bypass only pure control messages (a bare single-token harness slash command, an operational input from the away-mode daemon or the wake machinery), single acknowledgments, credential or secret submissions (which never go to any tool), and routine monitoring traffic.
-A slash command carrying prose arguments, a request that merely opens with a path, and any dispatched task brief are substantive.
-When classification is genuinely uncertain, the request is substantive: `bin/fm-megamind-preflight.sh classify "<text>"` is the deterministic screen and defaults to `substantive` for anything it does not recognize.
+Bypass only pure control messages (a bare single-token harness slash command, an operational input the protocol owner types as one of its pure control or routine monitoring kinds), single acknowledgments, credential or secret submissions (which never go to any tool), and routine monitoring traffic.
+A slash command carrying prose arguments, a request that merely opens with a path, any dispatched task brief, and any operational input the protocol owner cannot type as one of those kinds are substantive.
+When classification is genuinely uncertain, the request is substantive: `bin/fm-megamind-preflight.sh classify "<text>"` is the deterministic screen and defaults to `substantive` for anything it does not recognize; its header owns the exact bypass kinds.
 Never classify a request as bypass to save time, and never skip a failed preflight and answer from model priors anyway.
 
 ## Procedure

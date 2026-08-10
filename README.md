@@ -61,6 +61,7 @@ Full detail on every feature lives in [docs/architecture.md](docs/architecture.m
 - A verified primary agent harness: Claude Code, Grok, Pi, `pi-signed`, Codex, or OpenCode.
 - Git and the GitHub CLI, authenticated through `gh auth login`.
 - The CLI and dependencies for your selected runtime backend; tmux is the reference default.
+- `megamind-axi` 0.3.x and a local `config/megamind-estate` binding: every substantive request runs a mandatory read-only Megamind preflight first, and a home without that binding discloses the missing preflight as a blocker rather than answering from model knowledge. Setup lives in the "Megamind preflight" section of [docs/configuration.md](docs/configuration.md).
 
 The first mate detects and offers to install supported missing tools after you approve.
 Backend-specific setup is linked in [Documentation](#documentation).
