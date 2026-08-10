@@ -11,7 +11,7 @@ Consult `gh-axi issue --help` and, when labels are involved, `gh-axi label --hel
 A read-only request does not authorize creating, editing, commenting on, labelling, assigning, closing, or otherwise mutating an issue.
 Do not interpret a skill's generic suggestion to publish as captain authorization for a GitHub write.
 
-## Wayfinding
+## Wayfinding operations
 
 A wayfinding map is one issue labelled `wayfinder:map`, with sections for notes, decisions so far, and fog.
 Each ticket is a child issue when native subissues are available, or is linked from a task list on the map and names `Part of #<map>` otherwise.

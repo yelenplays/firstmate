@@ -42,6 +42,18 @@
       "target": "docs/documentation-audiences.md"
     },
     {
+      "source": "AGENTS.md",
+      "target": "docs/agents/issue-tracker.md"
+    },
+    {
+      "source": "AGENTS.md",
+      "target": "docs/agents/triage-labels.md"
+    },
+    {
+      "source": "AGENTS.md",
+      "target": "docs/agents/domain.md"
+    },
+    {
       "source": "CONTRIBUTING.md",
       "target": "docs/documentation-audiences.md"
     },
