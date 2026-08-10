@@ -6,20 +6,34 @@
 # --version, records its argv for model-class/estate propagation assertions,
 # and prints a canned megamind/preflight-result/v2 JSON fixture (or a controlled
 # failure). All fixtures are fully synthetic; no real wiki, path, or request
-# content appears. The suite proves mandatory-vs-bypass classification,
-# model-class propagation, restrictive config defaults and version gating,
-# allowed-path enforcement, ambiguity/no-match/privacy-filtered behavior,
-# malformed/failed disclosure, minimal non-verbatim proof logging, and
-# harness/backend neutrality.
+# content appears. The suite proves mandatory-vs-bypass classification against
+# the real operational-input marker bytes, model-class propagation, restrictive
+# config defaults with trimming and tilde expansion, version gating, safe
+# option-value and dash-leading-request handling, allowed-path enforcement,
+# host-owned notes, ambiguity/no-match/privacy-filtered behavior,
+# malformed/failed/jq-missing disclosure, minimal non-verbatim proof logging,
+# and harness/backend neutrality.
 set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# The classifier defers marker bytes to their protocol owner, so the suite
+# asserts against that owner's constants rather than restating them.
+# shellcheck source=bin/fm-operational-input.sh
+. "$ROOT/bin/fm-operational-input.sh"
 
 command -v jq >/dev/null 2>&1 || { echo "skip: jq not found"; exit 0; }
 
 SCRIPT="$ROOT/bin/fm-megamind-preflight.sh"
 TMP_ROOT=$(fm_test_tmproot fm-megamind-preflight)
+
+# bounded <seconds> <cmd...>: hard alarm so a hang fails the suite loudly
+# instead of stalling it. perl is already a Firstmate tooling dependency.
+bounded() {
+  local secs="$1"
+  shift
+  perl -e 'alarm shift; exec @ARGV' "$secs" "$@"
+}
 
 # --- fixture builders --------------------------------------------------------
 
@@ -78,10 +92,29 @@ test_classify_bypass_vs_substantive() {
   [ "$c" = bypass ] || fail "case-insensitive ack classified as $c"
   c=$("$SCRIPT" classify "/afk")
   [ "$c" = bypass ] || fail "slash command classified as $c"
+  c=$("$SCRIPT" classify "/telegram:access")
+  [ "$c" = bypass ] || fail "namespaced slash command classified as $c"
+  # Only a bare single command token bypasses: slash-leading and path-leading
+  # prose is a request, not a control message.
+  c=$("$SCRIPT" classify "/Users/captain/firstmate/data/backlog.md shows three stalled tasks - what should we do about the pricing work?")
+  [ "$c" = substantive ] || fail "path-leading request classified as $c"
+  c=$("$SCRIPT" classify "/afk until tomorrow, and summarize the pricing risks before you go")
+  [ "$c" = substantive ] || fail "slash-leading prose classified as $c"
+  # Marker bytes come from the protocol owner; the literal variable name is
+  # ordinary text a captain can type and must stay substantive.
   c=$("$SCRIPT" classify "FM_INJECT_MARK stale: worker quiet")
-  [ "$c" = bypass ] || fail "injection mark classified as $c"
-  c=$("$SCRIPT" classify "$(printf '\xe2\x81\xa3')FIRSTMATE_OP: heartbeat review")
-  [ "$c" = bypass ] || fail "operational prefix classified as $c"
+  [ "$c" = substantive ] || fail "literal marker text classified as $c"
+  c=$("$SCRIPT" classify "${FM_OPERATIONAL_PREFIX}heartbeat review")
+  [ "$c" = bypass ] || fail "legacy untyped operational prefix classified as $c"
+  c=$("$SCRIPT" classify "${FM_OPERATIONAL_HEADER_PREFIX}away-supervisor: worker quiet for 40m")
+  [ "$c" = bypass ] || fail "typed away-supervisor input classified as $c"
+  c=$("$SCRIPT" classify "${FM_LEGACY_AWAY_PREFIX}worker quiet for 40m)")
+  [ "$c" = bypass ] || fail "legacy bare-marker escalation classified as $c"
+  # Operational inputs that carry a real task brief stay on the mandatory path.
+  c=$("$SCRIPT" classify "${FM_FROMFIRST_MARK}Investigate the pricing regression and report back")
+  [ "$c" = substantive ] || fail "from-firstmate dispatch classified as $c"
+  c=$("$SCRIPT" classify "${FM_OPERATIONAL_HEADER_PREFIX}launch-brief: build the pricing report")
+  [ "$c" = substantive ] || fail "launch brief classified as $c"
   c=$("$SCRIPT" classify "   ")
   [ "$c" = bypass ] || fail "whitespace classified as $c"
   c=$("$SCRIPT" classify "yes, merge it now")
@@ -148,6 +181,8 @@ test_matched_run_and_model_class_propagation() {
   assert_not_contains "$out" "HiddenWiki" "filtered wiki name must never be echoed"
   assert_not_contains "$out" "RAW-REQUEST-CANARY" "raw request must never be echoed"
   assert_contains "$out" "read_policy" "read policy missing"
+  [ "$(printf '%s' "$out" | jq -r '.notes | length')" = 1 ] || fail "notes must be exactly one host-owned line: $out"
+  assert_not_contains "$out" "reliance floor" "Megamind's own note text must never pass through"
   # Offer entries must carry no loadable paths.
   [ "$(printf '%s' "$out" | jq '[.offers[] | has("allows")] | any')" = false ] || fail "offers must not carry allows"
   # Megamind saw the declared class, the configured estate, and the request.
@@ -228,6 +263,64 @@ test_restrictive_defaults() {
   pass "run: restrictive defaults, version gate, and invalid config fail closed"
 }
 
+test_missing_option_values_fail_closed() {
+  local out rc
+  # `shift 2` with one positional left shifts nothing, so an unguarded loop
+  # spins forever here. The alarm turns any regression into a failure.
+  out=$(bounded 5 "$SCRIPT" run --request 2>&1); rc=$?
+  expect_code 2 "$rc" "run --request with no value"
+  assert_contains "$out" "usage:" "missing --request value must print usage"
+  out=$(bounded 5 "$SCRIPT" run --request "pricing" --model-class 2>&1); rc=$?
+  expect_code 2 "$rc" "run --model-class with no value"
+  out=$(bounded 5 "$SCRIPT" run --model-class 2>&1); rc=$?
+  expect_code 2 "$rc" "trailing --model-class with no value"
+  out=$(bounded 5 "$SCRIPT" run --bogus value 2>&1); rc=$?
+  expect_code 2 "$rc" "unknown run option"
+  out=$(bounded 5 "$SCRIPT" run 2>&1); rc=$?
+  expect_code 2 "$rc" "run with no request"
+  pass "run: a missing or unknown option value fails closed instead of hanging"
+}
+
+test_config_values_are_trimmed_and_tilde_expanded() {
+  local home out rc tilde='~'
+  home=$(new_home padded)
+  printf '  %s  \n' "$home/estate" > "$home/config/megamind-estate"
+  printf '  %s  \n' "$STUB" > "$home/config/megamind-executable"
+  printf '  cloud  \n' > "$home/config/megamind-model-class"
+  out=$(FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 0 "$rc" "padded-config run"
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "padded config values not trimmed: $out"
+  [ "$(printf '%s' "$out" | jq -r '.model_class')" = cloud ] || fail "padded model class not trimmed: $out"
+  # A leading ~ resolves against HOME.
+  home=$(new_home tilde)
+  mkdir -p "$home/fakehome/estate"
+  printf '%s/estate\n' "$tilde" > "$home/config/megamind-estate"
+  : > "$FM_TEST_STUB_ARGS"
+  out=$(HOME="$home/fakehome" FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 0 "$rc" "tilde-estate run"
+  assert_grep "$home/fakehome/estate" "$FM_TEST_STUB_ARGS" "leading ~ not expanded to HOME"
+  # Nothing beyond the leading tilde expands: a glob stays a literal path.
+  printf '%s/est*\n' "$home" > "$home/config/megamind-estate"
+  out=$(FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 1 "$rc" "glob-estate run"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = estate_missing ] || fail "glob estate must not expand: $out"
+  pass "run: config values are trimmed and leading-tilde expanded, nothing more"
+}
+
+test_dash_leading_request_is_passed_safely() {
+  local home out args
+  home=$(new_home dash-request)
+  : > "$FM_TEST_STUB_ARGS"
+  out=$(FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "--model-class how do we price cleanup")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "dash-leading request did not route: $out"
+  args="$FM_TEST_STUB_ARGS"
+  # The request is the final argv entry and follows the option terminator, so
+  # Megamind's argparse can never read it as an option.
+  [ "$(tail -n 1 "$args")" = "--model-class how do we price cleanup" ] || fail "dash-leading request not delivered intact: $(cat "$args")"
+  [ "$(tail -n 2 "$args" | head -n 1)" = "--" ] || fail "request is not passed after --: $(cat "$args")"
+  pass "run: a dash-leading request is passed after -- and stays a request"
+}
+
 test_check_probe() {
   local home out rc
   home=$(new_home probe)
@@ -292,6 +385,34 @@ test_no_match_stays_quiet() {
   pass "run: no-match stays quiet about wikis"
 }
 
+test_notes_are_host_owned() {
+  local home out fixture="$TMP_ROOT/leaky-notes.json"
+  # Real 0.3.0 notes can name below-floor wikis, out-of-band candidates, and
+  # absolute roots on exactly the outcomes that must stay quiet.
+  jq '.status = "no-match"
+      | .confidence = null
+      | .matches = []
+      | .offers = []
+      | .filtered = []
+      | .preflight_id = "pf-leaky-1"
+      | .notes = [
+          "wikis below the no-match floor (0.75): omitted ProductWiki, OfferWiki",
+          "wikis outside the ambiguity band (0.05): omitted HiddenWiki",
+          "broken root: /synthetic/estate/ProductWiki is unreadable"
+        ]' "$MATCHED_FIXTURE" > "$fixture"
+  home=$(new_home leaky-notes)
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "quantum llama farming")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = no-match ] || fail "outcome not no-match: $out"
+  [ "$(printf '%s' "$out" | jq -r '.notes | length')" = 1 ] || fail "notes must be exactly one host-owned line: $out"
+  assert_not_contains "$out" "ProductWiki" "notes must not name below-floor wikis"
+  assert_not_contains "$out" "OfferWiki" "notes must not name out-of-band candidates"
+  assert_not_contains "$out" "HiddenWiki" "notes must not name withheld wikis"
+  assert_not_contains "$out" "/synthetic/estate" "notes must not carry absolute roots"
+  assert_not_contains "$out" "no-match floor" "upstream note text must never pass through"
+  assert_not_contains "$out" "broken root" "upstream note text must never pass through"
+  pass "run: notes are host-owned and never echo Megamind's own"
+}
+
 test_privacy_filtered_never_names_wikis() {
   local home out fixture="$TMP_ROOT/filtered.json"
   jq '.status = "privacy-filtered"
@@ -347,7 +468,38 @@ test_malformed_and_failed_disclosure() {
   # Errors are logged with their failure code, never the request.
   assert_grep '"failure":"megamind_error"' "$home/state/megamind-preflight.jsonl" "error run not logged"
   assert_no_grep "pricing" "$home/state/megamind-preflight.jsonl" "error log must not contain the request"
+  # A well-formed v2 document carrying a status outside the known set is not a
+  # definitive outcome; it fails closed rather than passing an unknown through.
+  jq '.status = "definitely-fine"' "$MATCHED_FIXTURE" > "$fixture"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 1 "$rc" "unknown-status run"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_output ] || fail "unknown status gave: $out"
   pass "run: malformed and failed preflights are disclosed, never faked"
+}
+
+test_jq_missing_is_disclosed() {
+  local home out rc nojq log
+  nojq="$TMP_ROOT/nojq"
+  mkdir -p "$nojq"
+  local tool
+  for tool in bash dirname date mkdir; do
+    ln -sf "$(command -v "$tool")" "$nojq/$tool"
+  done
+  [ ! -e "$nojq/jq" ] || fail "jq-missing fixture PATH must not contain jq"
+  home=$(new_home nojq)
+  out=$(PATH="$nojq" FM_HOME="$home" bash "$SCRIPT" run --request "pricing" 2>/dev/null); rc=$?
+  expect_code 1 "$rc" "run without jq"
+  [ "$(printf '%s' "$out" | jq -r '.schema_version')" = "fm/megamind-preflight/v1" ] || fail "jq-missing document lost its schema: $out"
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = error ] || fail "jq-missing outcome not error: $out"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = jq_missing ] || fail "jq-missing code not emitted: $out"
+  [ "$(printf '%s' "$out" | jq -r '.matches | length')" = 0 ] || fail "jq-missing document must carry no evidence: $out"
+  log="$home/state/megamind-preflight.jsonl"
+  assert_present "$log" "jq-missing proof line was not written"
+  assert_grep '"failure":"jq_missing"' "$log" "jq-missing proof line lost its failure code"
+  assert_no_grep "pricing" "$log" "jq-missing proof line must not contain the request"
+  [ "$(jq -r 'keys | sort | join(",")' "$log")" = "catalog_hash,failure,model_class,outcome,preflight_id,request_hash,ts,wikis" ] \
+    || fail "jq-missing proof line field set drifted: $(jq -c 'keys' "$log")"
+  pass "run: the typed jq_missing document and proof line are emitted without jq"
 }
 
 # --- harness and backend neutrality -------------------------------------------
@@ -375,11 +527,16 @@ test_classify_bypass_vs_substantive
 test_matched_run_and_model_class_propagation
 test_proof_log_is_minimal_and_non_verbatim
 test_restrictive_defaults
+test_missing_option_values_fail_closed
+test_config_values_are_trimmed_and_tilde_expanded
+test_dash_leading_request_is_passed_safely
 test_check_probe
 test_allowed_path_enforcement
 test_ambiguous_offers_without_loading
 test_no_match_stays_quiet
+test_notes_are_host_owned
 test_privacy_filtered_never_names_wikis
 test_unavailable_is_definitive
 test_malformed_and_failed_disclosure
+test_jq_missing_is_disclosed
 test_harness_backend_neutrality
