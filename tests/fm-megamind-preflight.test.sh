@@ -2,7 +2,8 @@
 # Behavior tests for bin/fm-megamind-preflight.sh, Firstmate's harness-neutral
 # read-only Megamind preflight surface.
 #
-# A synthetic megamind-axi stub stands in for Megamind 0.3.x: it answers
+# A synthetic megamind-axi stub stands in for proven Megamind 0.3.x and 0.4.x
+# releases: it answers
 # --version, records its argv for model-class/estate propagation assertions,
 # and prints a canned megamind/preflight-result/v2 JSON fixture (or a controlled
 # failure). All fixtures are fully synthetic; no real wiki, path, or request
@@ -376,15 +377,23 @@ test_restrictive_defaults() {
   out=$(run_in "$home" run --request "pricing"); rc=$?
   expect_code 1 "$rc" "missing-executable run"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = executable_missing ] || fail "missing executable gave: $out"
-  # Version gate: only 0.3.x is accepted.
+  # The established 0.3.x line remains accepted.
   home=$(new_home old-version)
-  out=$(FM_TEST_STUB_VERSION=0.2.9 FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
-  expect_code 1 "$rc" "old-version run"
-  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = version_incompatible ] || fail "old version gave: $out"
-  [ "$(printf '%s' "$out" | jq -r '.failure.detected')" = 0.2.9 ] || fail "detected version not reported: $out"
+  out=$(FM_TEST_STUB_VERSION=0.3.9 FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 0 "$rc" "proven-0.3-version run"
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "0.3.x result was not authorized: $out"
+  # Phase 3's 0.4.0 preserves the v2 fields consumed by Firstmate, including
+  # additive fields that normalization does not expose.
   out=$(FM_TEST_STUB_VERSION=0.4.0 FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
-  expect_code 1 "$rc" "new-version run"
-  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = version_incompatible ] || fail "newer major gave: $out"
+  expect_code 0 "$rc" "proven-0.4-version run"
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "0.4.x result was not authorized: $out"
+  # Old, malformed, and unproven future releases stay incompatible.
+  for version in 0.2.9 0.4 v0.4.0 0.4.0.1 0.5.0; do
+    out=$(FM_TEST_STUB_VERSION="$version" FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
+    expect_code 1 "$rc" "unsupported version $version"
+    [ "$(printf '%s' "$out" | jq -r '.failure.code')" = version_incompatible ] || fail "unsupported version $version gave: $out"
+    [ "$(printf '%s' "$out" | jq -r '.failure.detected')" = "$version" ] || fail "detected version $version not reported: $out"
+  done
   # Invalid model class configuration fails closed.
   home=$(new_home bad-class)
   printf 'turbo\n' > "$home/config/megamind-model-class"
@@ -602,6 +611,16 @@ test_malformed_and_failed_disclosure() {
   expect_code 1 "$rc" "malformed-thresholds run"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_output ] || fail "malformed thresholds gave: $out"
   assert_not_contains "$out" "RAW-THRESHOLD-CANARY" "malformed threshold content must not pass through"
+  # Missing or incompatible fields are not accepted merely because the outer
+  # document has the v2 schema marker.
+  jq 'del(.matches)' "$MATCHED_FIXTURE" > "$fixture"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 1 "$rc" "missing-matches run"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_output ] || fail "missing matches gave: $out"
+  jq '.matches[0].allows = "not-an-array"' "$MATCHED_FIXTURE" > "$fixture"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 1 "$rc" "incompatible-match-field run"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_output ] || fail "incompatible match field gave: $out"
   # A Megamind error document surfaces its upstream code.
   printf '{"schema_version":"megamind/error/v1","code":"registry_invalid","message":"synthetic"}' > "$fixture"
   out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_STUB_EXIT=1 run_in "$home" run --request "pricing"); rc=$?
