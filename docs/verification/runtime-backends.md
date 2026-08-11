@@ -207,6 +207,52 @@ The backend suites therefore cover endpoint creation and command delivery rather
 No supported worker-tool or spawn-backend axis is inapplicable to ordinary ship or scout preflight.
 Secondmate launch itself is intentionally inapplicable because it starts a firstmate home rather than an ordinary worker; `tests/fm-worker-preflight.test.sh` pins that omission at the launch boundary, and a secondmate's own worker launch applies the same matrix from that home's own binding, as covered by `tests/fm-trace-context-spawn.test.sh` and `tests/fm-backend-herdr-workspace-per-home-e2e.test.sh`.
 
+### Megamind version compatibility
+
+`bin/fm-megamind-preflight.sh`'s header owns which `megamind-axi` versions are accepted and why; this record holds the dated evidence and the regression pointers only.
+
+The 0.4.x line was measured against a real Megamind build on 2026-08-11.
+The evidence run pinned the upstream Megamind Phase 3 `megamind-axi` 0.4.0 entry point through a throwaway home's `config/megamind-executable` and pointed that home's `config/megamind-estate` at a copy of Megamind's own published example estate, so no private wiki, request, or credential material entered the run:
+
+```sh
+megamind-axi --version
+megamind-axi preflight --model-class cloud --estate <estate> --format json --no-help-hints -- "pricing"
+bin/fm-megamind-preflight.sh check
+bin/fm-megamind-preflight.sh run --request "pricing"
+bin/fm-worker-preflight.sh <home> <task-id> --config <home>/config --state <home>/state --data <home>/data
+```
+
+Observed bounded results:
+
+| Step | Result |
+| --- | --- |
+| `--version` | Exactly one `megamind-axi` identity line, reporting `0.4.0`. |
+| Direct preflight call | `schema_version` `megamind/preflight-result/v2`, status `matched`, a `thresholds` object, one match, no offers, and both optional privacy fields present. |
+| `check` | Outcome `available` at version `0.4.0`, exit 0. |
+| `run` | One typed `fm/megamind-preflight/v1` document, outcome `matched`, exit 0. |
+| Owner-bound `fm-worker-preflight.sh` | Exit 0 with empty stdout, the task's private `state/<task-id>.megamind-preflight.json` filed at mode 0600 with outcome `matched`, and one non-verbatim owner proof line appended to `state/megamind-preflight.jsonl`. |
+
+The launch was therefore authorized from the real 0.4.0 contract before any endpoint, worktree, or task record existed.
+A second home pinned to an installed `megamind-axi` 0.1.0 over that same estate reported outcome `error` with `failure.code` `version_incompatible`, `failure.detected` `0.1.0`, and exit 1, so the old-release refusal is measured on a real build rather than assumed from the synthetic stub.
+
+The full accept-and-refuse matrix stays portable and runs with no Megamind installed:
+
+```sh
+bin/fm-test-run.sh tests/fm-megamind-preflight.test.sh tests/fm-worker-preflight.test.sh
+```
+
+Observed bounded output:
+
+```text
+ok - run: restrictive defaults, version gate, and invalid config fail closed
+ok - run: the version probe is identity-anchored, single-line, and never verbatim
+ok - check: availability probe reports configuration honestly
+ok - the 0.4.0 owner-bound preflight authorizes a worker before launch
+FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0
+```
+
+Those cases authorize 0.3.x and 0.4.x, refuse the older `0.2.9`, the malformed `0.4`, `v0.4.0`, `0.4.0.1`, and `0.4.0-rc.1`, and the unproven future `0.5.0` and `1.0.0`, and hold the probe to exactly one `megamind-axi` identity line.
+
 ## Herdr
 
 The compatibility floor is protocol 14.
