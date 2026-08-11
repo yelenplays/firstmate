@@ -1210,6 +1210,17 @@ shell_quote() {
   printf "'"
 }
 
+worker_preflight_prefix() {
+  case "$KIND" in
+    ship|scout)
+      printf '%s %s %s && ' \
+        "$(shell_quote "$FM_ROOT/bin/fm-worker-preflight.sh")" \
+        "$(shell_quote "$FM_HOME")" \
+        "$(shell_quote "$BRIEF_REAL")"
+      ;;
+  esac
+}
+
 resolve_kimi_binary() {
   local candidate dir fallback
   candidate=$(command -v kimi 2>/dev/null || true)
@@ -2588,6 +2599,12 @@ LAUNCH=${LAUNCH//__PIEXT__/$sq_piext}
 LAUNCH=${LAUNCH//__PITURNEND__/$sq_piturnend}
 LAUNCH=${LAUNCH//__PIWATCH__/$sq_piwatch}
 LAUNCH=${LAUNCH//__OPINPUT__/$sq_opinput}
+# Ordinary workers must complete the owner-home preflight before their harness
+# receives the substantive brief. The helper's binding-home argument is scoped
+# to that command only, so the worker keeps its ordinary FM_HOME semantics and
+# a secondmate's own spawn uses its own home rather than the primary's.
+LAUNCH_PREFLIGHT_PREFIX=$(worker_preflight_prefix)
+LAUNCH="${LAUNCH_PREFLIGHT_PREFIX}${LAUNCH}"
 # Crewmate panes are created by a long-lived tmux/herdr daemon that does not
 # inherit firstmate's current environment, so a bare `claude` in the pane falls
 # back to the default ~/.claude store even when firstmate itself runs under a
@@ -2596,7 +2613,10 @@ LAUNCH=${LAUNCH//__OPINPUT__/$sq_opinput}
 # uses the same credential/config firstmate is authenticated with. Only when set;
 # an unset value is the single-store default and needs no prefix.
 if [ "$HARNESS" = claude ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
-  LAUNCH="CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_CONFIG_DIR") $LAUNCH"
+  # Keep this vendor credential/config prefix on the worker command only; the
+  # owner-home preflight must receive no unrelated worker configuration.
+  worker_launch=${LAUNCH#"$LAUNCH_PREFLIGHT_PREFIX"}
+  LAUNCH="${LAUNCH_PREFLIGHT_PREFIX}CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_CONFIG_DIR") $worker_launch"
 fi
 if [ "$KIND" = secondmate ]; then
   sq_home=$(shell_quote "$PROJ_ABS")

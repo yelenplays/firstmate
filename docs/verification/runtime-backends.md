@@ -180,6 +180,31 @@ Valid cleanup removed only the exact task-bound target and left the control wind
 The metadata-only validation covers tmux, Herdr, Zellij, Orca, and cmux before backend dispatch.
 Claude, Codex, OpenCode, Pi, pi-signed, Grok, Kimi, and Muse share that backend cleanup boundary; their harness-specific hook files, tokens, and session-log sidecars are cleaned only after it, so no harness needs a separate endpoint parser.
 
+## Ordinary worker Megamind preflight routing
+
+The launch-time binding matrix was verified on 2026-08-11 with the repository's current test fixtures and ShellCheck 0.11.0.
+
+```sh
+bin/fm-test-run.sh tests/fm-worker-preflight.test.sh
+bin/fm-test-run.sh tests/fm-spawn-dispatch-profile.test.sh
+bin/fm-test-run.sh tests/fm-kimi-harness.test.sh
+bin/fm-test-run.sh tests/fm-muse-harness.test.sh
+```
+
+Observed bounded output:
+
+```text
+# all fm-worker-preflight tests passed
+# all fm-spawn-dispatch-profile tests passed
+FM_TEST_SUMMARY total=1 failed=0
+FM_TEST_SUMMARY total=1 failed=0
+```
+
+The common `fm-spawn.sh` launch prefix applies to claude, codex, opencode, pi, pi-signed, grok, kimi, and muse for both ship and scout tasks before any backend sends the command to the worker endpoint.
+Tmux, Herdr, Zellij, Orca, and cmux therefore share the same ordinary-worker preflight path, with the backend-specific tests covering endpoint creation and command delivery rather than reimplementing the prefix.
+No supported worker-tool or spawn-backend axis is inapplicable to ordinary ship or scout preflight.
+Secondmate launch itself is intentionally inapplicable because it starts a firstmate home rather than an ordinary worker; a secondmate's own worker launch applies the same matrix from that home's binding, as covered by `tests/fm-secondmate-harness.test.sh`.
+
 ## Herdr
 
 The compatibility floor is protocol 14.

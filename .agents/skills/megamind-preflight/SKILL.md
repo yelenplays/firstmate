@@ -43,6 +43,14 @@ Never classify a request as bypass to save time, and never skip a failed preflig
 - `error`: the typed `failure.code` (missing configuration, missing or incompatible Megamind, malformed or failed output) is a concrete blocker for substantive work.
   Disclose it plainly to the captain instead of pretending preflight ran; routine bypass traffic may still proceed.
 
+## Ordinary worker launch guidance
+
+`bin/fm-spawn.sh` runs `bin/fm-worker-preflight.sh` before every ordinary ship or scout harness starts.
+That helper reads the worker brief, routes it through the owning Firstmate home's binding, prints the typed result, and blocks unresolved or failed outcomes before the worker receives substantive instructions.
+Do not rerun preflight from the isolated project copy or set that copy's `FM_HOME` to another home; the launch-time result is the authoritative consultation for the worker.
+A secondmate's own `fm-spawn.sh` performs the same step with that secondmate home's binding, so primary bindings never cross the secondmate boundary.
+The helper header and `docs/configuration.md` own the launch mechanics and binding boundary; this section only gives the conditional worker guidance.
+
 ## Boundaries
 
 This pilot is read-only.

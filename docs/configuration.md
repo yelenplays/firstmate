@@ -129,12 +129,16 @@ See [`trace-context.md`](trace-context.md) for carrier semantics, supported rout
 ## Megamind preflight (config/megamind-*)
 
 The read-only Megamind pilot makes catalog preflight mandatory before firstmate acts on any substantive request; `AGENTS.md` section 1 owns the always-loaded rule and the internal [`megamind-preflight`](../.agents/skills/megamind-preflight/SKILL.md) skill owns outcome handling and disclosure.
-Three local, gitignored files under the effective config directory configure a home's binding, and none of them is inherited into secondmate homes in this pilot.
+Three local, gitignored files under the effective config directory configure a home's binding.
 `config/megamind-estate` holds the directory of pilot wiki roots on its first non-empty, non-comment line; when it is absent, preflight is unavailable and substantive work discloses that concrete blocker rather than guessing captain-private roots.
 `config/megamind-executable` optionally pins the `megamind-axi` path; absent resolves plain `megamind-axi` from `PATH`, and only Megamind 0.3.x is accepted - any other version is a disclosed incompatibility.
 `config/megamind-model-class` optionally overrides the declared model class with `local` or `cloud`; absent defaults to `cloud`, the restrictive class for every verified primary harness.
 Each value is the first non-empty, non-comment line with surrounding whitespace trimmed, and a leading `~` in the two path values expands to `$HOME`; nothing else expands, so a glob, a variable, or a command substitution stays a literal path and fails closed as a disclosed blocker.
 `bin/fm-megamind-preflight.sh` owns the exact resolution order, typed outcome schema, failure codes, allowed-path validation, and the minimal non-verbatim proof log at `state/megamind-preflight.jsonl`; run `bin/fm-megamind-preflight.sh check` to probe a home's binding without routing a request.
+`bin/fm-spawn.sh` prepends [`fm-worker-preflight.sh`](../bin/fm-worker-preflight.sh) to every ordinary ship and scout launch, passing the owning Firstmate home's binding only to that short-lived command before the worker process starts.
+The worker's isolated project copy keeps its own operational-home semantics, and no primary config or credential is copied into it.
+Secondmate launches do not use the primary binding; a secondmate's own `fm-spawn.sh` supplies its own home's binding to its own workers, while the Megamind config files remain outside the inherited-local-material allowlist.
+A matched, no-match, or privacy-filtered result permits the worker to start, while an error, ambiguous, unavailable, malformed, or incompatible result blocks it; the helper prints the typed result and the binding-owning home receives the proof record.
 Final local validation binds the adopted pilot wiki roots through `config/megamind-estate` alone, with no further tracked change.
 
 ## Gate defaults (.no-mistakes.yaml)
