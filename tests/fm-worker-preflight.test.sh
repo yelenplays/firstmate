@@ -56,9 +56,14 @@ sleep 600
 SH
 chmod +x "$HANG_STUB"
 
-file_mode() {  # <path>
-  stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1"
-}
+# Permission bits, platform-detected. Never the `stat -f || stat -c` fallback:
+# on Linux `stat -f` is *filesystem* stat, so it writes its own output before the
+# fallback ever runs and the mode comparison reads that instead (see fm-watch.sh).
+if [ "$(uname)" = Darwin ]; then
+  file_mode() { stat -f %Lp "$1"; }
+else
+  file_mode() { stat -c %a "$1"; }
+fi
 
 make_home() {
   local home=$1 name=$2
