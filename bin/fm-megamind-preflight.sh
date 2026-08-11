@@ -54,10 +54,14 @@
 #   through and are required: output without reliance_floor, offer_floor, and
 #   ambiguity_band all present as numbers in 0..1 is malformed_output. Matches
 #   carry validated freshness, a non-verbatim provenance summary (fixed lexical
-#   classes, per-class counts, total signal count, and optional semantic score),
-#   and optional positive numeric context-budget fields. Raw evidence strings,
-#   request-derived tokens, content, identities, roots, and paths never enter
-#   those evidence fields.
+#   classes in canonical trigger/name/scope order, per-class counts, total signal
+#   count, and optional semantic score; upstream class order is not load-bearing,
+#   but a class set inconsistent with the counts is not validated), and optional
+#   positive numeric context-budget fields. An evidence packet that fails that
+#   validation is withheld rather than guessed: lexical_classes is [] and both
+#   signal_counts and lexical_signal_count are null on an otherwise normal
+#   outcome. Raw evidence strings, request-derived tokens, content, identities,
+#   roots, and paths never enter those evidence fields.
 #   `notes` is host-owned: one fixed per-outcome line chosen here, never
 #   Megamind's own notes, which can name below-floor wikis, out-of-band
 #   candidates, and absolute roots.
@@ -440,18 +444,16 @@ cmd_run() {
        then {trigger: .trigger, name: .name, scope: .scope}
        else null end;
      def safe_lexical_classes($counts):
-       if type == "array"
-          and all(.[]; type == "string"
-            and (. == "trigger" or . == "name" or . == "scope"))
-          and length == (unique | length)
-          and . == (["trigger", "name", "scope"] | map(select($counts[.] > 0)))
-       then .
+       (["trigger", "name", "scope"] | map(select($counts[.] > 0))) as $derived |
+       if type == "array" and (sort == ($derived | sort))
+       then $derived
        else null end;
      def safe_provenance:
        . as $match |
-       ($match.evidence.signal_counts | safe_signal_counts) as $counts |
-       ($match.evidence.lexical_classes | safe_lexical_classes($counts)) as $classes |
-       ({semantic_score: ($match.evidence.semantic
+       ($match.evidence | if type == "object" then . else null end) as $evidence |
+       ($evidence.signal_counts | safe_signal_counts) as $counts |
+       ($evidence.lexical_classes | safe_lexical_classes($counts)) as $classes |
+       ({semantic_score: ($evidence.semantic
           | if type == "number" then . else null end)}
         + if $counts != null and $classes != null then {
             lexical_classes: $classes,

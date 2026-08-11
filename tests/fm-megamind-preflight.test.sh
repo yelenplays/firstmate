@@ -183,7 +183,14 @@ cat > "$MATCHED_FIXTURE" <<'JSON'
     "score": 4,
     "confidence": {"score": 0.4, "meets_floor": false},
     "freshness": null,
-    "evidence": {"lexical": [], "semantic": null},
+    "evidence": {
+      "routing_class": "lexical-card",
+      "coverage": {"matched_terms": 1, "request_terms": 2, "ratio": 0.5},
+      "signal_counts": {"trigger": 0, "name": 1, "scope": 0},
+      "provenance": {"source": "canonical-card", "scope": "declared card metadata only", "page_content": false},
+      "lexical_classes": ["name"],
+      "semantic": null
+    },
     "reasons": []
   }],
   "filtered": [{"name": "HiddenWiki", "root": "/synthetic/estate/HiddenWiki", "access": "none", "reason": "cloud access is none for this wiki"}],
@@ -215,7 +222,7 @@ test_credential_provenance_bypasses_without_payload() {
 }
 
 test_matched_run_and_model_class_propagation() {
-  local home out safe_evidence
+  local home out safe_evidence reordered="$TMP_ROOT/reordered-classes.json"
   home=$(new_home matched)
   : > "$FM_TEST_STUB_ARGS"
   out=$(FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "how do we price cleanup offers")
@@ -232,6 +239,10 @@ test_matched_run_and_model_class_propagation() {
     || fail "safe v2 provenance summary not carried: $out"
   [ "$(printf '%s' "$out" | jq -c '.matches[0].context_budget')" = '{"max_candidates":3,"max_context_chars":4000}' ] \
     || fail "safe context budget not carried: $out"
+  jq '.matches[0].evidence.lexical_classes = ["scope", "trigger"]' "$MATCHED_FIXTURE" > "$reordered"
+  [ "$(FM_TEST_STUB_FIXTURE="$reordered" run_in "$home" run --request "pricing" | jq -c '.matches[0].provenance')" \
+    = '{"semantic_score":null,"lexical_classes":["trigger","scope"],"signal_counts":{"trigger":1,"name":0,"scope":1},"lexical_signal_count":2}' ] \
+    || fail "count-consistent classes in another order were not carried canonically"
   safe_evidence=$(printf '%s' "$out" | jq -c '{thresholds, evidence: [.matches[] | {freshness, provenance, context_budget}]}')
   assert_not_contains "$safe_evidence" "RAW-EVIDENCE-CANARY" "raw evidence tokens must not pass through"
   assert_not_contains "$safe_evidence" "/private/root" "roots and paths must not enter safe evidence"
@@ -267,7 +278,7 @@ test_unsafe_evidence_values_are_minimized() {
   home=$(new_home unsafe-evidence)
   for case_name in missing-counts missing-classes unknown-count-key boolean-count \
       negative-count fractional-count unknown-class duplicate-class \
-      mismatched-class-order request-derived-class; do
+      class-count-mismatch request-derived-class string-evidence array-evidence; do
     case "$case_name" in
       missing-counts)
         mutation='del(.matches[0].evidence.signal_counts)' ;;
@@ -285,13 +296,16 @@ test_unsafe_evidence_values_are_minimized() {
         mutation='.matches[0].evidence.lexical_classes = ["trigger", "RAW-CLASS-CANARY"]' ;;
       duplicate-class)
         mutation='.matches[0].evidence.lexical_classes = ["trigger", "trigger", "scope"]' ;;
-      mismatched-class-order)
-        mutation='.matches[0].evidence.lexical_classes = ["scope", "trigger"]' ;;
+      class-count-mismatch)
+        mutation='.matches[0].evidence.lexical_classes = ["trigger"]' ;;
       request-derived-class)
         mutation='.matches[0].evidence.lexical_classes = ["pricing"]' ;;
+      string-evidence)
+        mutation='.matches[0].evidence = "RAW-EVIDENCE-STRING-CANARY"' ;;
+      array-evidence)
+        mutation='.matches[0].evidence = ["RAW-EVIDENCE-ARRAY-CANARY"]' ;;
     esac
-    jq "$mutation
-        | .matches[0].freshness = {
+    jq ".matches[0].freshness = {
             \"half_life_days\": \"RAW-FRESHNESS-CANARY\",
             \"last_confirmed\": \"/private/freshness/path\",
             \"stale\": \"HiddenEvidenceWiki\"
@@ -301,7 +315,8 @@ test_unsafe_evidence_values_are_minimized() {
             \"max_candidates\": \"RAW-BUDGET-CANARY\",
             \"max_context_chars\": -1,
             \"root\": \"/private/budget/root\"
-          }" "$MATCHED_FIXTURE" > "$fixture"
+          }
+        | $mutation" "$MATCHED_FIXTURE" > "$fixture"
     out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing")
     safe_evidence=$(printf '%s' "$out" | jq -c \
       '{thresholds, evidence: [.matches[] | {freshness, provenance, context_budget}]}')
