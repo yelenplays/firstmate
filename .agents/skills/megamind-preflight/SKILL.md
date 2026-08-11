@@ -20,6 +20,8 @@ This pilot integrates Megamind 0.3.x preflight as a mandatory, read-only consult
 
 Run preflight for every substantive request.
 Bypass only pure control messages (a bare single-token harness slash command, an operational input the protocol owner types as one of its pure control or routine monitoring kinds), single acknowledgments, credential or secret submissions (which never go to any tool), and routine monitoring traffic.
+A credential supplied through an active trusted credential exchange uses `bin/fm-megamind-preflight.sh classify-provenance credential-submission`; pass only that exact provenance token and never pass the credential payload to `classify`, `run`, shell arguments, or stdin.
+Ordinary prose that discusses credentials is substantive, and no regex or content guess may convert it into a credential submission.
 A slash command carrying prose arguments, a request that merely opens with a path, any dispatched task brief, and any operational input the protocol owner cannot type as one of those kinds are substantive.
 When classification is genuinely uncertain, the request is substantive: `bin/fm-megamind-preflight.sh classify "<text>"` is the deterministic screen and defaults to `substantive` for anything it does not recognize; its header owns the exact bypass kinds.
 Never classify a request as bypass to save time, and never skip a failed preflight and answer from model priors anyway.
@@ -30,8 +32,9 @@ Never classify a request as bypass to save time, and never skip a failed preflig
 2. Run `bin/fm-megamind-preflight.sh run --request "<text>"` and read the typed `fm/megamind-preflight/v1` document; `bin/fm-megamind-preflight.sh`'s header owns the exact config resolution, version gate, outcome schema, failure codes, and proof-log fields.
 3. Act on `outcome` exactly:
 
-- `matched`: read only the `allows` paths under each matched wiki `root`, within that wiki's context budget, and use the match's `follow_up` ladder for page content.
+- `matched`: read only the `allows` paths under each matched wiki `root`, within the optional numeric `context_budget`, and use the match's `follow_up` ladder for page content.
   Never read, infer, or widen to any other wiki path, and never load content for an offer, a filtered entry, or a dropped path.
+  Use the self-describing `thresholds`, safe `freshness`, and non-verbatim `provenance` summary without reconstructing request tokens or inspecting raw Megamind output.
   Wiki evidence outranks model priors; carry `preflight_id` as the inspectable proof that preflight ran.
 - `ambiguous`: offer the listed wikis as a choice and load nothing until one is picked.
 - `no-match`: stay quiet about wikis and do the work ordinarily without wiki context.

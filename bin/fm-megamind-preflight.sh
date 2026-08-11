@@ -2,6 +2,9 @@
 # Firstmate's harness-neutral, read-only Megamind preflight surface (pilot).
 # Usage: fm-megamind-preflight.sh classify "<request text>"
 #                                        print exactly substantive|bypass
+#        fm-megamind-preflight.sh classify-provenance credential-submission
+#                                        print bypass without accepting or reading
+#                                        the credential payload
 #        fm-megamind-preflight.sh run --request "<text>" [--model-class local|cloud]
 #                                        run Megamind preflight and print one typed
 #                                        fm/megamind-preflight/v1 JSON document
@@ -22,7 +25,11 @@
 #   task brief, and every shape the owner can only place in its untyped
 #   `legacy-operational` catch-all - an unrecognized kind, a future version
 #   token, a bare untyped prefix - stay substantive, so an unrecognized message
-#   always takes the mandatory path.
+#   always takes the mandatory path. A credential supplied through an active,
+#   trusted credential exchange takes the separate `classify-provenance
+#   credential-submission` path: callers pass only that provenance token and
+#   never the credential payload, so secret text cannot reach classify, run,
+#   Megamind argv, or proof logging. Every unknown provenance is substantive.
 # - `run` resolves the Megamind executable from the first line of local gitignored
 #   config/megamind-executable (absent: plain `megamind-axi` on PATH) and the
 #   pilot wiki estate from the first line of config/megamind-estate (absent:
@@ -43,9 +50,14 @@
 #   root-contained; absolute, tilde, and dot-dot entries are dropped and counted
 #   in dropped_allows) plus Megamind's follow_up ladder command. Offers carry
 #   names and roots only - never paths to load. Filtered wiki names are never
-#   echoed; only filtered_count is. `notes` is host-owned: one fixed per-outcome
-#   line chosen here, never Megamind's own notes, which can name below-floor
-#   wikis, out-of-band candidates, and absolute roots.
+#   echoed; only filtered_count is. Self-describing numeric thresholds pass
+#   through, and matches carry validated freshness, a non-verbatim provenance
+#   summary (signal count plus optional semantic score), and optional positive
+#   numeric context-budget fields. Raw evidence strings, request-derived tokens,
+#   content, identities, roots, and paths never enter those evidence fields.
+#   `notes` is host-owned: one fixed per-outcome line chosen here, never
+#   Megamind's own notes, which can name below-floor wikis, out-of-band
+#   candidates, and absolute roots.
 # - Any missing, incompatible, malformed, or failed preflight prints the typed
 #   document with outcome=error and a stable failure.code instead of a result:
 #   not_configured, estate_missing, invalid_model_class, executable_missing,
@@ -74,7 +86,7 @@ SCHEMA="fm/megamind-preflight/v1"
 MEGAMIND_SCHEMA="megamind/preflight-result/v2"
 REQUIRED_VERSION="0.3"
 LOG_FILE="$STATE/megamind-preflight.jsonl"
-READ_POLICY="Read only the allows paths listed under each matched wiki root, within that wiki's context budget; use the follow_up ladder for page content; never read, infer, or widen to any other wiki path."
+READ_POLICY="Read only the allows paths listed under each matched wiki root, within any returned context budget; use the follow_up ladder for page content; never read, infer, or widen to any other wiki path."
 RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" [--model-class local|cloud]'
 
 # Operational-input kinds that are pure control or routine monitoring. Every
@@ -222,6 +234,13 @@ resolve_model_class() {  # <flag-value-or-empty> - print class or fail loudly
     return 0
   fi
   printf '%s\n' "cloud"
+}
+
+classify_provenance() {  # <trusted-provenance> - print substantive|bypass, never read payload text
+  case "$1" in
+    credential-submission) printf 'bypass\n' ;;
+    *) printf 'substantive\n' ;;
+  esac
 }
 
 classify() {  # <request text> - print substantive|bypass
@@ -378,8 +397,13 @@ cmd_run() {
     log_proof error megamind_error "" "" "$model_class" "" '[]'
     return 1
   fi
-  if ! printf '%s' "$raw" | jq -e --arg s "$MEGAMIND_SCHEMA" '.schema_version == $s' >/dev/null 2>&1; then
-    emit_error malformed_output "Megamind preflight output is not a $MEGAMIND_SCHEMA document"
+  if ! printf '%s' "$raw" | jq -e --arg s "$MEGAMIND_SCHEMA" '
+      (.schema_version == $s)
+      and ((.thresholds | type) == "object")
+      and ([.thresholds.reliance_floor, .thresholds.offer_floor, .thresholds.ambiguity_band]
+        | all(type == "number" and . >= 0 and . <= 1))
+    ' >/dev/null 2>&1; then
+    emit_error malformed_output "Megamind preflight output is not a valid $MEGAMIND_SCHEMA document"
     log_proof error malformed_output "" "" "$model_class" "" '[]'
     return 1
   fi
@@ -396,8 +420,28 @@ cmd_run() {
     'def safe_path: (type == "string") and (length > 0)
        and (startswith("/") | not) and (startswith("~") | not)
        and (test("(^|/)\\.\\.(/|$)") | not);
+     def safe_date:
+       if type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$") then . else null end;
+     def positive_number: type == "number" and . > 0;
+     def positive_integer: positive_number and floor == .;
+     def safe_freshness:
+       if type == "object" then {
+         half_life_days: (.half_life_days | if positive_number then . else null end),
+         last_confirmed: (.last_confirmed | safe_date),
+         stale: (.stale | if type == "boolean" then . else null end)
+       } else null end;
+     def safe_provenance:
+       . as $match | {
+         lexical_signal_count: ([$match.evidence.lexical[]? | select(type == "string")] | length),
+         semantic_score: ($match.evidence.semantic | if type == "number" then . else null end)
+       };
+     def safe_budget:
+       . as $budget | {
+         max_candidates: ($budget.max_candidates | if positive_integer then . else null end),
+         max_context_chars: ($budget.max_context_chars | if positive_integer then . else null end)
+       } | with_entries(select(.value != null));
      def host_note:
-       if . == "matched" then "Megamind matched at least one wiki: read only the listed allows paths, within the returned budget, and nothing else."
+       if . == "matched" then "Megamind matched at least one wiki: read only the listed allows paths, within any returned budget, and nothing else."
        elif . == "ambiguous" then "Megamind found no single confident wiki: offer the listed candidates as a choice and load nothing."
        elif . == "no-match" then "Megamind matched no wiki: do the work ordinarily and stay quiet about the estate."
        elif . == "privacy-filtered" then "Megamind withheld every candidate for this model class: only the count is disclosed, never a name."
@@ -413,15 +457,27 @@ cmd_run() {
        catalog_hash: .catalog_hash,
        request_hash: .request_hash,
        confidence: .confidence,
-       matches: [.matches[]? | {
-         wiki: .name,
-         root: .root,
-         access: .access,
-         routing_mode: .routing_mode,
-         confidence: .confidence.score,
-         allows: [.allows[]? | select(safe_path)],
-         follow_up: .follow_up
-       }],
+       thresholds: {
+         reliance_floor: .thresholds.reliance_floor,
+         offer_floor: .thresholds.offer_floor,
+         ambiguity_band: .thresholds.ambiguity_band
+       },
+       matches: [.matches[]? |
+         . as $match |
+         ({
+           wiki: $match.name,
+           root: $match.root,
+           access: $match.access,
+           routing_mode: $match.routing_mode,
+           confidence: $match.confidence.score,
+           freshness: ($match.freshness | safe_freshness),
+           provenance: ($match | safe_provenance),
+           allows: [$match.allows[]? | select(safe_path)],
+           follow_up: $match.follow_up
+         } + (if (($match.context_budget | type) == "object")
+              then {context_budget: ($match.context_budget | safe_budget)}
+              else {} end))
+       ],
        offers: [.offers[]? | {wiki: .name, root: .root, confidence: .confidence.score}],
        filtered_count: ([.filtered[]?] | length),
        redacted_count: (.redacted_count // 0),
@@ -453,16 +509,20 @@ cmd_run() {
 }
 
 main() {
-  [ $# -ge 1 ] || { printf 'usage: fm-megamind-preflight.sh classify|run|check ...\n' >&2; return 2; }
+  [ $# -ge 1 ] || { printf 'usage: fm-megamind-preflight.sh classify|classify-provenance|run|check ...\n' >&2; return 2; }
   local cmd="$1"; shift
   case "$cmd" in
     classify)
-      [ $# -ge 1 ] || { printf 'usage: fm-megamind-preflight.sh classify "<request text>"\n' >&2; return 2; }
+      [ $# -eq 1 ] || { printf 'usage: fm-megamind-preflight.sh classify "<request text>"\n' >&2; return 2; }
       classify "$1"
+      ;;
+    classify-provenance)
+      [ $# -eq 1 ] || { printf 'usage: fm-megamind-preflight.sh classify-provenance credential-submission\n' >&2; return 2; }
+      classify_provenance "$1"
       ;;
     run) cmd_run "$@" ;;
     check) cmd_check ;;
-    *) printf 'usage: fm-megamind-preflight.sh classify|run|check ...\n' >&2; return 2 ;;
+    *) printf 'usage: fm-megamind-preflight.sh classify|classify-provenance|run|check ...\n' >&2; return 2 ;;
   esac
 }
 
