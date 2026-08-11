@@ -55,7 +55,7 @@ Membership is derived rather than enumerated, so a newly added test lands here b
 
 ## Portable serial CI shards
 
-On green CI run [30725985757](https://github.com/kunchenguid/firstmate/actions/runs/30725985757), that remainder accumulated 19m04s of script time against a 20-minute job timeout.
+On green CI run [30854740043](https://github.com/kunchenguid/firstmate/actions/runs/30854740043), that remainder accumulated 22m43s of script time across 81 scripts, already past the 20-minute job timeout the unsharded lane ran under.
 On [PR 1495](https://github.com/kunchenguid/firstmate/pull/1495), its main step ran about 19m51s before the job was cancelled at that boundary.
 `portable-serial-<k>of<n>` splits it across `n` separate CI runners.
 Each shard is still strictly serial in itself, and separate runners mean no two of these stateful scripts ever share a machine, so the split needs no concurrency isolation proof.
@@ -64,28 +64,28 @@ Each shard is still strictly serial in itself, and separate runners mean no two 
 `.github/workflows/ci.yml` derives the same `n` from `strategy.job-total` rather than a literal, so changing the shard count in either file without the other fails the lane loudly instead of leaving part of the required suite unrun.
 
 Assignment is longest-processing-time bin packing over per-script duration hints embedded in `bin/fm-test-run.sh`.
-The hints came from that run's `fm-test-timing-portable-serial` artifact on 2026-08-02, where the lane ran 69 scripts in 1143762 ms of serial work.
+The hints came from that run's four `fm-test-timing-portable-serial-*` artifacts on 2026-08-03, where the lane ran 81 measured scripts in 1363331 ms of serial work with zero failures.
 A script with no hint gets the conservative `PORTABLE_SERIAL_DEFAULT_WEIGHT_MS` default.
 Hints only affect balance: the coverage guard keeps the partition complete and disjoint whatever they say, so a stale hint costs a slower shard rather than lost coverage.
 
 | Lane | Script count | Estimated duration |
 |---|---:|---:|
-| `portable-serial-1of4` | 24 | 455937 ms (~455.9 s) |
-| `portable-serial-2of4` | 27 | 455940 ms (~455.9 s) |
-| `portable-serial-3of4` | 25 | 455948 ms (~455.9 s) |
-| `portable-serial-4of4` | 27 | 455937 ms (~455.9 s) |
-| imbalance | | 11 ms |
+| `portable-serial-1of4` | 23 | 455837 ms (~455.8 s) |
+| `portable-serial-2of4` | 27 | 455826 ms (~455.8 s) |
+| `portable-serial-3of4` | 27 | 455830 ms (~455.8 s) |
+| `portable-serial-4of4` | 27 | 455838 ms (~455.8 s) |
+| imbalance | | 12 ms |
 
-Those estimates are hint-based, and the lane has since grown to 103 scripts: 34 of them have no measured hint yet and are packed at the default weight, so the real spread is wider than the estimated imbalance until the hints are refreshed.
+Those estimates are hint-based, and the lane has since grown to 104 scripts: 23 of them have no measured hint yet and are packed at the default weight, so the real spread is wider than the estimated imbalance until the hints are refreshed.
 Print the current membership of a shard with `bin/fm-test-run.sh --list --lane portable-serial-<k>of4`, which is what the counts above are read from.
 
-The single longest script, `tests/fm-pr-check-security.test.sh` at 199573 ms, is the floor for any shard count.
+The single longest script, `tests/fm-pr-check-security.test.sh` at 205592 ms, is the floor for any shard count.
 
 Refresh the hints by downloading the per-shard timing artifacts from a green CI run, replacing the `portable_serial_weight_hints` table in `bin/fm-test-run.sh` with the measured `path`/`duration_ms` pairs, and updating the table above:
 
 ```sh
-gh run download <run-id> -R kunchenguid/firstmate --pattern 'fm-test-timing-portable-serial-*' -D /tmp/fm-serial
-jq -r '.scripts[] | [.path, .duration_ms] | @tsv' /tmp/fm-serial/*.json | LC_ALL=C sort
+gh run download <run-id> -R yelenplays/firstmate --pattern 'fm-test-timing-portable-serial-*' -D /tmp/fm-serial
+find /tmp/fm-serial -name '*.json' -exec jq -r '.scripts[] | [.path, .duration_ms] | @tsv' {} + | LC_ALL=C sort
 bin/fm-test-run.sh --check-coverage
 ```
 
