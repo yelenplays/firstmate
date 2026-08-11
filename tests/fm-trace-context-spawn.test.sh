@@ -99,6 +99,7 @@ make_spawn_case() {
   id=$name-z1
   mkdir -p "$home/data/$id"
   printf 'brief for %s\n' "$id" > "$home/data/$id/brief.md"
+  fm_test_megamind_task "$home" "$id"
   printf '%s\n' "$home|$proj|$wt|$fakebin|$launchlog|$id"
 }
 
@@ -216,6 +217,9 @@ run_two_level() {
   fm_git_worktree "$wproj" "$wwt" "wt-$name"
   mkdir -p "$sm/state" "$sm/projects" "$sm/data/$worker_id"
   printf 'worker brief\n' > "$sm/data/$worker_id/brief.md"
+  # The secondmate's OWN worker clears the SECONDMATE home's binding, never the
+  # primary's (bin/fm-worker-preflight.sh), so bind that home here.
+  fm_test_megamind_task "$sm" "$worker_id"
   touch "$sm/state/.last-watcher-beat"
   start_trace_session "$sm" "$TL_ENV_TC"
   wlog="$base/worker-launch.log"
@@ -500,6 +504,8 @@ test_two_routed_tasks_through_one_secondmate_root_distinct_traces() {
   mkdir -p "$sm/data/$id_a" "$sm/data/$id_b"
   printf 'brief a\n' > "$sm/data/$id_a/brief.md"
   printf 'brief b\n' > "$sm/data/$id_b/brief.md"
+  fm_test_megamind_task "$sm" "$id_a"
+  fm_test_megamind_task "$sm" "$id_b"
   log_a="$base/launch-a.log"
   log_b="$base/launch-b.log"
 

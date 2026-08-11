@@ -800,6 +800,48 @@ test_defensive_skill_rules() {
   pass "fm-brief.sh: generated briefs carry the third-party skill safety rules per task shape"
 }
 
+# Every ordinary worker scaffold carries the two Megamind artifacts bin/fm-spawn.sh
+# depends on: the separately authored routing request it routes instead of the
+# brief, and the fixed brief section that hands the authorized result to the
+# worker through the task's own private file rather than pane output. A charter is
+# not an ordinary worker, so it gets neither.
+test_worker_scaffolds_carry_the_megamind_routing_artifacts() {
+  local home id request brief kind
+  home="$TMP_ROOT/megamind-home"
+  write_registry "$home"
+  for kind in ship scout; do
+    id="brief-megamind-$kind"
+    if [ "$kind" = ship ]; then
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode no-mistakes >/dev/null 2>&1 \
+        || fail "fm-brief.sh $kind scaffold exited non-zero"
+    else
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --scout >/dev/null 2>&1 \
+        || fail "fm-brief.sh $kind scaffold exited non-zero"
+    fi
+    request="$home/data/$id/megamind-request.md"
+    brief="$home/data/$id/brief.md"
+    assert_present "$request" "$kind: no routing request was scaffolded beside the brief"
+    grep -qx '{ROUTING}' "$request" \
+      || fail "$kind: the routing request does not carry its own unresolved placeholder"
+    assert_no_grep "{TASK}" "$request" "$kind: the routing request duplicates the brief's task placeholder"
+    assert_grep "# Wiki routing (Megamind preflight)" "$brief" \
+      "$kind: brief carries no deterministic wiki-routing instruction"
+    assert_grep "$home/state/$id.megamind-preflight.json" "$brief" \
+      "$kind: brief does not name the task's own private preflight result"
+    assert_grep "do not rerun preflight from this worktree" "$brief" \
+      "$kind: brief does not pin the launch-time result as the authoritative consultation"
+  done
+
+  FM_SECONDMATE_CHARTER='Supervise the alpha domain.' \
+    FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-megamind-sm --secondmate alpha >/dev/null 2>&1 \
+    || fail "fm-brief.sh secondmate scaffold exited non-zero"
+  assert_absent "$home/data/brief-megamind-sm/megamind-request.md" \
+    "a secondmate charter scaffolded an ordinary worker's routing request"
+  assert_no_grep "Wiki routing (Megamind preflight)" "$home/data/brief-megamind-sm/brief.md" \
+    "a secondmate charter carries the ordinary worker's wiki-routing section"
+  pass "fm-brief: ship and scout scaffolds carry the routing request and the fixed wiki-routing section"
+}
+
 # Scout and secondmate paths still scaffold well-formed briefs.
 test_scout_and_secondmate_scaffold() {
   local brief
@@ -841,4 +883,5 @@ test_secondmate_directory_paths_are_absolute_and_output_is_stable
 test_pause_verb_override_renders_all_brief_scaffolds
 test_scout_and_secondmate_load_decision_hold_policy
 test_defensive_skill_rules
+test_worker_scaffolds_carry_the_megamind_routing_artifacts
 test_scout_and_secondmate_scaffold

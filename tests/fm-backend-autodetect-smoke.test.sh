@@ -43,6 +43,8 @@ command -v treehouse >/dev/null 2>&1 || { echo "skip: treehouse not found (requi
 
 export FM_GATE_REFUSE_BYPASS=1
 
+# shellcheck source=tests/megamind-fixture.sh
+. "$ROOT/tests/megamind-fixture.sh"
 # shellcheck source=tests/herdr-test-safety.sh
 . "$ROOT/tests/herdr-test-safety.sh"
 # This suite asserts that HERDR_ENV=1 alone selects the backend, and it runs
@@ -91,6 +93,12 @@ mkdir -p "$STATE" "$DATA/$ID" "$CONFIG"
 # presentation projection and keep the assertions on the flat per-home workspace.
 printf 'off\n' > "$CONFIG/herdr-presentation-spaces"
 printf 'trivial autodetect-smoke brief: nothing to do.\n' > "$DATA/$ID/brief.md"
+# An ordinary ship spawn must clear this home's mandatory Megamind binding before
+# any endpoint exists (bin/fm-worker-preflight.sh). Backend auto-detection is what
+# is under test, so bind the shared deterministic no-match fixture and author the
+# task's routing request.
+fm_test_megamind_config "$CONFIG"
+fm_test_megamind_request "$DATA" "$ID"
 
 PROJ="$TMP_ROOT/scratch-project"
 mkdir -p "$PROJ"

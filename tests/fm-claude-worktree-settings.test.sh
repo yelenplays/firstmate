@@ -61,6 +61,7 @@ make_case() {
   fm_git_worktree "$proj" "$wt" "wt-$name"
   mkdir -p "$home/data/$id"
   printf 'brief for %s\n' "$id" > "$home/data/$id/brief.md"
+  fm_test_megamind_task "$home" "$id"
   touch "$home/state/.last-watcher-beat"
   printf '%s|%s|%s|%s\n' "$home" "$proj" "$wt" "$fakebin"
 }
@@ -420,6 +421,7 @@ test_spawn_and_teardown_round_trip_on_a_tracked_settings_file() {
   mkdir -p "$home/data/$id" "$home/projects" "$home/state" "$home/config"
   printf 'claude\n' > "$home/config/crew-harness"
   printf 'brief\n' > "$home/data/$id/brief.md"
+  fm_test_megamind_task "$home" "$id"
   touch "$home/state/.last-watcher-beat"
 
   fm_git_init_commit "$proj"

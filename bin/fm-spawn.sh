@@ -157,6 +157,17 @@
 # muse installs no hook at all - its plugin engine is off in the default build - so
 # it writes state/<id>.muse-session to bind the pane to muse's own session event
 # log; muse is crewmate/scout only and is refused for --secondmate.
+# Every ordinary ship and scout spawn must clear the OWNING home's mandatory
+# Megamind binding before it creates an endpoint, provisions a worktree, or
+# publishes a task record, so a blocked binding is a refusal with no task left
+# behind rather than a launch that only fails inside the pane. The request routed
+# through that binding is the separately authored data/<task-id>/megamind-request.md
+# (bin/fm-brief.sh scaffolds it; never the brief itself), and the authorized typed
+# result is written to state/<task-id>.megamind-preflight.json for the worker to
+# read from the brief's fixed wiki-routing section - never through pane output.
+# bin/fm-worker-preflight.sh owns that contract. --secondmate starts a firstmate
+# home rather than an ordinary worker and is not routed through it; a secondmate's
+# own spawns bind that secondmate home, never the primary's.
 # On success prints: spawned <id> harness=<name> kind=<ship|scout|secondmate> [mode=<mode> yolo=<on|off>] window=<backend-target> worktree=<path>
 # A ship task records the explicit mode/yolo it was passed; a secondmate spawn records
 # mode=secondmate, yolo=off, home=, and projects=; a scout records neither, and both the
@@ -647,6 +658,8 @@ RELAUNCH_REPLACEMENT_BUSY_GEN=
 RELAUNCH_REPLACEMENT_HARNESS=
 RELAUNCH_REPLACEMENT_STATE=
 RELAUNCH_REPLACEMENT_WT=
+WORKER_PREFLIGHT_RESULT=
+WORKER_PREFLIGHT_RESULT_PENDING=0
 CONFIG_INHERIT_LOCK=
 CONFIG_INHERIT_LOCK_HELD=0
 
@@ -692,6 +705,18 @@ spawn_abort_cleanup() {
         echo "warning: could not retire replacement busy generation after aborted relaunch of $ID" >&2
       fi
     fi
+  fi
+  # An authorization filed for a task that did not exist yet is filed before the
+  # record, so an abort anywhere between the gate and publication would otherwise
+  # leave a private authorization for a task id no teardown will ever enumerate.
+  # Only that case arms this. A spawn over an id that ALREADY had a record - a
+  # relaunch, or a same-identity respawn onto a duplicate-launch refusal or a
+  # herdr recovery reclaim - leaves the record behind when it aborts, so its
+  # authorization is still owned by that record's own incarnation and its
+  # teardown; retiring it here would revoke a worker that is still running.
+  if [ "$WORKER_PREFLIGHT_RESULT_PENDING" = 1 ]; then
+    WORKER_PREFLIGHT_RESULT_PENDING=0
+    rm -f "$WORKER_PREFLIGHT_RESULT" 2>/dev/null || true
   fi
   if [ "$HERDR_PROJECTION_ABORT_CLEANUP" = 1 ] \
      && [ "$HERDR_PRESENTATION_ORDER_LOCK_HELD" != 1 ]; then
@@ -1612,6 +1637,42 @@ fi
 
 BRIEF_DIR_REAL=$(cd "$(dirname "$BRIEF")" && pwd -P)
 BRIEF_REAL="$BRIEF_DIR_REAL/$(basename "$BRIEF")"
+
+# Mandatory owner-home Megamind binding for every ordinary ship or scout worker,
+# cleared HERE: before this spawn creates an endpoint, provisions a worktree, or
+# publishes a task record. Enforcing it inside the worker's own pane instead
+# would leave a published task, a live endpoint, and an armed busy state behind
+# whenever the binding blocks, while this command still reported a successful
+# spawn. Only a definitive authorized outcome may proceed; every other outcome is
+# a refusal with the typed document attached and no task to clean up.
+#
+# The routing request is the separately authored, privacy-safe representation
+# bin/fm-brief.sh scaffolds beside the brief - never the brief itself - and
+# bin/fm-worker-preflight.sh owns both task artifact paths, the request's
+# validation, the owner-bound call, the outcome gate, and the private per-task
+# result the worker reads. The binding is pinned to THIS home: its identity plus
+# the operational directories this spawn already resolved, so a relocated home
+# reads its own binding and no ambient override can substitute another home's. A
+# secondmate spawning its own crewmate therefore binds its own home, and a
+# primary binding never crosses that boundary; --secondmate starts a firstmate
+# home rather than an ordinary worker and is not routed here at all.
+if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
+  mkdir -p "$STATE" || {
+    echo "error: could not create state directory for the worker preflight result" >&2
+    exit 1
+  }
+  WORKER_PREFLIGHT_DOC=
+  if ! WORKER_PREFLIGHT_DOC=$("$FM_ROOT/bin/fm-worker-preflight.sh" "$FM_HOME" "$ID" \
+      --config "$CONFIG" --state "$STATE" --data "$DATA"); then
+    echo "error: $ID was not authorized by the owning home's Megamind preflight; refusing to launch before any endpoint, worktree, or task record exists" >&2
+    [ -z "$WORKER_PREFLIGHT_DOC" ] || printf '%s\n' "$WORKER_PREFLIGHT_DOC" >&2
+    exit 1
+  fi
+  if [ ! -e "$STATE/$ID.meta" ] && [ ! -L "$STATE/$ID.meta" ]; then
+    WORKER_PREFLIGHT_RESULT="$STATE/$ID.megamind-preflight.json"
+    WORKER_PREFLIGHT_RESULT_PENDING=1
+  fi
+fi
 
 # PROJ_ABS can still carry a symlinked path component (e.g. macOS's /tmp ->
 # /private/tmp) when it came from the ship/scout branch's logical `pwd` above.
@@ -2563,6 +2624,9 @@ if [ "$RELAUNCH" -eq 1 ]; then
   fm_lock_release "$SPAWN_META_LOCK"
   SPAWN_META_LOCK_HELD=0
 fi
+# The record exists, so the task's authorization is now part of the state a
+# teardown retires; this spawn stops owning it.
+WORKER_PREFLIGHT_RESULT_PENDING=0
 if [ "$SPAWN_TASK_SET_LOCK_HELD" = 1 ]; then
   # The record is published, so this task is now part of the set a teardown
   # enumerates and locks per task. The set lock is only needed across that

@@ -76,7 +76,7 @@ Hints only affect balance: the coverage guard keeps the partition complete and d
 | `portable-serial-4of4` | 27 | 455838 ms (~455.8 s) |
 | imbalance | | 12 ms |
 
-Those estimates are hint-based, and the lane has since grown to 104 scripts: 23 of them have no measured hint yet and are packed at the default weight, so the real spread is wider than the estimated imbalance until the hints are refreshed.
+Those estimates are hint-based, and the lane has since grown to 105 scripts: 24 of them have no measured hint yet and are packed at the default weight, so the real spread is wider than the estimated imbalance until the hints are refreshed.
 Print the current membership of a shard with `bin/fm-test-run.sh --list --lane portable-serial-<k>of4`, which is what the counts above are read from.
 
 The single longest script, `tests/fm-pr-check-security.test.sh` at 205592 ms, is the floor for any shard count.

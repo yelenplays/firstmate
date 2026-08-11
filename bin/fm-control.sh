@@ -736,6 +736,30 @@ safe_checkpoint() {
   fi
 }
 
+# require_authorized_binding: prove the replacement worker COULD be launched
+# before anything touches the one that is running. bin/fm-spawn.sh refuses a ship
+# or scout launch whose owning home cannot authorize it through the mandatory
+# Megamind preflight, and that refusal lands after do_exit has already stopped
+# the old agent - so a task whose routing request is absent or unusable (every
+# task scaffolded before that request existed) would be killed to discover it.
+# The validate-only run answers the same question with no mutation at all: the
+# result file, the durable record, the instructions, and the isolated copy are
+# untouched, and the typed refusal names the exact file to author.
+require_authorized_binding() {
+  local doc
+  case "$KIND" in
+    ship|scout) ;;
+    *) return 0 ;;
+  esac
+  doc=
+  if ! doc=$("$SCRIPT_DIR/fm-worker-preflight.sh" "$FM_HOME" "$ID" \
+      --config "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
+      --state "$STATE" --data "$DATA" --validate-only); then
+    [ -z "$doc" ] || printf '%s\n' "$doc" >&2
+    die "task $ID's owning home cannot authorize a replacement worker through its mandatory Megamind preflight; refusing while the current agent, its record, and its local copy are untouched"
+  fi
+}
+
 # record_note: put the required progress note somewhere durable, and - for a
 # ship or scout, whose only record of the interrupted reasoning is the
 # conversation about to be discarded - into the instructions the replacement
@@ -789,6 +813,8 @@ do_relaunch() {
       die "task $ID records kind '$KIND', which has no defined relaunch shape"
       ;;
   esac
+
+  require_authorized_binding
 
   if [ -n "$NOTE" ]; then
     note_line="note_file=$NOTE_FILE"

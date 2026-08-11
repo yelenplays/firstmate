@@ -129,12 +129,23 @@ See [`trace-context.md`](trace-context.md) for carrier semantics, supported rout
 ## Megamind preflight (config/megamind-*)
 
 The read-only Megamind pilot makes catalog preflight mandatory before firstmate acts on any substantive request; `AGENTS.md` section 1 owns the always-loaded rule and the internal [`megamind-preflight`](../.agents/skills/megamind-preflight/SKILL.md) skill owns outcome handling and disclosure.
-Three local, gitignored files under the effective config directory configure a home's binding, and none of them is inherited into secondmate homes in this pilot.
+Three local, gitignored files under the effective config directory configure a home's binding.
 `config/megamind-estate` holds the directory of pilot wiki roots on its first non-empty, non-comment line; when it is absent, preflight is unavailable and substantive work discloses that concrete blocker rather than guessing captain-private roots.
 `config/megamind-executable` optionally pins the `megamind-axi` path; absent resolves plain `megamind-axi` from `PATH`, and only Megamind 0.3.x is accepted - any other version is a disclosed incompatibility.
 `config/megamind-model-class` optionally overrides the declared model class with `local` or `cloud`; absent defaults to `cloud`, the restrictive class for every verified primary harness.
 Each value is the first non-empty, non-comment line with surrounding whitespace trimmed, and a leading `~` in the two path values expands to `$HOME`; nothing else expands, so a glob, a variable, or a command substitution stays a literal path and fails closed as a disclosed blocker.
 `bin/fm-megamind-preflight.sh` owns the exact resolution order, typed outcome schema, failure codes, allowed-path validation, and the minimal non-verbatim proof log at `state/megamind-preflight.jsonl`; run `bin/fm-megamind-preflight.sh check` to probe a home's binding without routing a request.
+Every ordinary ship and scout worker clears the same binding through [`fm-worker-preflight.sh`](../bin/fm-worker-preflight.sh), which `bin/fm-spawn.sh` runs before it creates an endpoint, provisions a worktree, or publishes a task record, so a blocked binding is a refusal that leaves no task behind rather than a launch that only fails inside the worker's terminal.
+A matched, no-match, or privacy-filtered result is definitive and lets the spawn continue; an error, ambiguous, unavailable, malformed, or incompatible result blocks it, and `fm-spawn.sh` prints the typed document with the refusal.
+That call is hard bounded by `FM_WORKER_PREFLIGHT_TIMEOUT` seconds because every caller runs it under a held lock - `fm-spawn.sh` under the home's task-set lock and the per-task spawn lock, `fm-control.sh` under that task's control lock: expiry is one more typed refusal, so a hung Megamind binary blocks a single launch instead of stalling every other spawn in that home and any forced teardown of it.
+The routed request is never the task brief: `bin/fm-brief.sh` scaffolds `data/<task-id>/megamind-request.md` as the separately authored smallest privacy-safe routing representation, firstmate replaces its `{ROUTING}` placeholder exactly as it replaces `{TASK}`, and a missing, empty, oversized, or still-unresolved request blocks the spawn before Megamind is called at all.
+Every one of those refusals names that exact file, because authoring or correcting it is the operator's whole remedy - including for a task scaffolded before the request existed, whose one privacy-safe routing line is written by hand at that path.
+The authorized typed result is filed as the task's own private `state/<task-id>.megamind-preflight.json` (mode 0600) and reaches the worker through the fixed wiki-routing section every ship and scout brief carries, never through pane output; teardown removes it with the task's other state.
+`fm-worker-preflight.sh` owns both of those per-task paths, so no caller re-derives them, and it only ever replaces the result with a freshly authorized document - a refusal mutates nothing.
+`bin/fm-control.sh relaunch` therefore clears the same binding with `--validate-only` as a precondition, before it checkpoints, records the progress note, or stops the running agent, so a replacement that could not be launched is refused while the current worker, its record, and its local copy are still intact.
+The binding is pinned to the owning home's own resolved config and state directories, so a home relocated by `FM_CONFIG_OVERRIDE` or `FM_STATE_OVERRIDE` reads its own binding and files its own proof while an ambient value inherited from another home cannot substitute a different one.
+The worker's isolated project copy keeps its own operational-home semantics, and no config, credential, estate path, or request text is copied into it or exported onto its launch command.
+Secondmate launches are firstmate homes rather than ordinary workers and are not routed through this gate at all; a secondmate's own `fm-spawn.sh` supplies its own home's binding to its own workers, while the Megamind config files remain outside the inherited-local-material allowlist.
 Final local validation binds the adopted pilot wiki roots through `config/megamind-estate` alone, with no further tracked change.
 
 ## Gate defaults (.no-mistakes.yaml)
@@ -551,6 +562,7 @@ FM_PROCEVENT_CLAIM_ROOT=                # machine-wide source claim root; defaul
 FM_CODEX_WATCH_CHECKPOINT=180   # seconds per foreground watcher checkpoint in Codex primary supervision
 FM_CREW_STATE_NM_TIMEOUT=10   # seconds allowed per no-mistakes query inside fm-crew-state.sh
 FM_TEARDOWN_NM_TIMEOUT=10    # seconds allowed per no-mistakes query or abort inside fm-teardown.sh
+FM_WORKER_PREFLIGHT_TIMEOUT=60   # seconds allowed for a ship or scout worker's owner-bound Megamind preflight; expiry blocks the launch with a typed failure, and a non-numeric, non-positive (including 00), or above-3600 value keeps 60
 FM_CREW_STATE_RUNS_LIMIT=200  # recent no-mistakes run rows scanned when axi status cannot be attributed to the current code
 FM_CREW_STATE_BIN=bin/fm-crew-state.sh   # test override for the current-state reader used by working/paused watcher triage
 FMX_PAIRING_TOKEN=      # Relay pairing token; .env opt-in authorizes replies and eligible lifecycle actions

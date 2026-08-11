@@ -114,9 +114,13 @@ init_changed_fixture_repo() {
     chmod +x "$repo/tests/$script"
   done
   : >"$repo/tests/lib.sh"
+  : >"$repo/tests/megamind-fixture.sh"
   : >"$repo/tests/fm-backend-herdr-eventwait.test.py"
   : >"$repo/bin/fm-supervisor-target-lib.sh"
   : >"$repo/bin/unmapped-source.sh"
+  # Only one suite sources the shared Megamind fixture directly; the rest reach
+  # it through tests/lib.sh, exactly as the real tree does.
+  printf '# tests/megamind-fixture.sh\n' >>"$repo/tests/fm-brief.test.sh"
   printf '# .claude/settings.json\n# .pi/extensions/fm-primary-turnend-guard.ts\n' \
     >>"$repo/tests/fm-cd-pretool-check.test.sh"
   printf '# .pi/extensions/fm-primary-pi-watch.ts\n' >>"$repo/tests/fm-pi-watch-extension.test.sh"
@@ -144,6 +148,15 @@ test_changed_dependency_selection_and_unmapped_failure() {
   assert_contains "$listed" "tests/fm-bearings-snapshot.test.sh" "shared helper selects snapshot dependents"
   git -C "$repo" add tests/lib.sh
   git -C "$repo" -c user.name=test -c user.email=test@example.invalid commit -qm helper-change
+
+  printf '\n' >>"$repo/tests/megamind-fixture.sh"
+  listed=$(cd "$repo" && bin/fm-test-run.sh --list --changed --base HEAD)
+  assert_contains "$listed" "tests/fm-brief.test.sh" "Megamind fixture selects its direct sourcer"
+  assert_contains "$listed" "tests/fm-pr-merge.test.sh" "Megamind fixture selects library dependents"
+  assert_contains "$listed" "tests/fm-bearings-snapshot.test.sh" \
+    "Megamind fixture selects snapshot dependents through the library"
+  git -C "$repo" add tests/megamind-fixture.sh
+  git -C "$repo" -c user.name=test -c user.email=test@example.invalid commit -qm fixture-change
 
   printf '\n' >>"$repo/tests/fm-backend-herdr-eventwait.test.py"
   listed=$(cd "$repo" && bin/fm-test-run.sh --list --changed --base HEAD)
