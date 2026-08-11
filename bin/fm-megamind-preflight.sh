@@ -42,11 +42,10 @@
 #   host-consumed `megamind/preflight-result/v2` fields; malformed, older, and
 #   future versions remain version_incompatible until their compatibility is
 #   established. The probe is anchored on identity: it parses only a
-#   `megamind-axi <token>` line
-#   of `--version`, requires exactly one such line, and bounds that token's
-#   length and character set. Other output lines are ignored, raw executable
-#   output never reaches the typed document, and failure.detected carries that
-#   bounded token or `unknown`.
+#   `megamind-axi <token>` line of `--version`, requires exactly one such line,
+#   and bounds that token's length and character set. Other output lines are
+#   ignored, raw executable output never reaches the typed document, and
+#   failure.detected carries that bounded token or `unknown`.
 # - The accepted v2 result must retain the host-consumed typed fields and their
 #   required container types: identity strings, model class, status, thresholds,
 #   result arrays, and match/offer confidence and path fields. The privacy
