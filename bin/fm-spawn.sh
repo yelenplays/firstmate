@@ -157,6 +157,17 @@
 # muse installs no hook at all - its plugin engine is off in the default build - so
 # it writes state/<id>.muse-session to bind the pane to muse's own session event
 # log; muse is crewmate/scout only and is refused for --secondmate.
+# Every ordinary ship and scout spawn must clear the OWNING home's mandatory
+# Megamind binding before it creates an endpoint, provisions a worktree, or
+# publishes a task record, so a blocked binding is a refusal with no task left
+# behind rather than a launch that only fails inside the pane. The request routed
+# through that binding is the separately authored data/<task-id>/megamind-request.md
+# (bin/fm-brief.sh scaffolds it; never the brief itself), and the authorized typed
+# result is written to state/<task-id>.megamind-preflight.json for the worker to
+# read from the brief's fixed wiki-routing section - never through pane output.
+# bin/fm-worker-preflight.sh owns that contract. --secondmate starts a firstmate
+# home rather than an ordinary worker and is not routed through it; a secondmate's
+# own spawns bind that secondmate home, never the primary's.
 # On success prints: spawned <id> harness=<name> kind=<ship|scout|secondmate> [mode=<mode> yolo=<on|off>] window=<backend-target> worktree=<path>
 # A ship task records the explicit mode/yolo it was passed; a secondmate spawn records
 # mode=secondmate, yolo=off, home=, and projects=; a scout records neither, and both the
@@ -1210,17 +1221,6 @@ shell_quote() {
   printf "'"
 }
 
-worker_preflight_prefix() {
-  case "$KIND" in
-    ship|scout)
-      printf '%s %s %s && ' \
-        "$(shell_quote "$FM_ROOT/bin/fm-worker-preflight.sh")" \
-        "$(shell_quote "$FM_HOME")" \
-        "$(shell_quote "$BRIEF_REAL")"
-      ;;
-  esac
-}
-
 resolve_kimi_binary() {
   local candidate dir fallback
   candidate=$(command -v kimi 2>/dev/null || true)
@@ -1623,6 +1623,52 @@ fi
 
 BRIEF_DIR_REAL=$(cd "$(dirname "$BRIEF")" && pwd -P)
 BRIEF_REAL="$BRIEF_DIR_REAL/$(basename "$BRIEF")"
+
+absolute_dir() {  # <path> - absolute spelling; an absolute path is preserved as given
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *) printf '%s/%s\n' "$PWD" "$1" ;;
+  esac
+}
+
+# Mandatory owner-home Megamind binding for every ordinary ship or scout worker,
+# cleared HERE: before this spawn creates an endpoint, provisions a worktree, or
+# publishes a task record. Enforcing it inside the worker's own pane instead
+# would leave a published task, a live endpoint, and an armed busy state behind
+# whenever the binding blocks, while this command still reported a successful
+# spawn. Only a definitive authorized outcome may proceed; every other outcome is
+# a refusal with the typed document attached and no task to clean up.
+#
+# The routing request is the separately authored, privacy-safe representation
+# bin/fm-brief.sh scaffolds beside the brief - never the brief itself - and
+# bin/fm-worker-preflight.sh owns its validation, the owner-bound call, the
+# outcome gate, and the private per-task result the worker reads. The binding is
+# pinned to THIS home: its identity plus the operational config and state
+# directories this spawn already resolved, so a relocated home reads its own
+# binding and no ambient override can substitute another home's. A secondmate
+# spawning its own crewmate therefore binds its own home, and a primary binding
+# never crosses that boundary; --secondmate starts a firstmate home rather than
+# an ordinary worker and is not routed here at all.
+if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
+  # A relative FM_CONFIG_OVERRIDE is resolved against this caller's working
+  # directory before it crosses into another process, the same rule the other
+  # operational directories already follow (docs/configuration.md "FM_HOME").
+  WORKER_PREFLIGHT_CONFIG=$(absolute_dir "$CONFIG")
+  WORKER_PREFLIGHT_STATE=$(absolute_dir "$STATE")
+  WORKER_PREFLIGHT_RESULT="$WORKER_PREFLIGHT_STATE/$ID.megamind-preflight.json"
+  mkdir -p "$WORKER_PREFLIGHT_STATE" || {
+    echo "error: could not create state directory for the worker preflight result" >&2
+    exit 1
+  }
+  WORKER_PREFLIGHT_DOC=
+  if ! WORKER_PREFLIGHT_DOC=$("$FM_ROOT/bin/fm-worker-preflight.sh" \
+      "$FM_HOME" "$BRIEF_DIR_REAL/megamind-request.md" "$WORKER_PREFLIGHT_RESULT" \
+      --config "$WORKER_PREFLIGHT_CONFIG" --state "$WORKER_PREFLIGHT_STATE"); then
+    echo "error: $ID was not authorized by the owning home's Megamind preflight; refusing to launch before any endpoint, worktree, or task record exists" >&2
+    [ -z "$WORKER_PREFLIGHT_DOC" ] || printf '%s\n' "$WORKER_PREFLIGHT_DOC" >&2
+    exit 1
+  fi
+fi
 
 # PROJ_ABS can still carry a symlinked path component (e.g. macOS's /tmp ->
 # /private/tmp) when it came from the ship/scout branch's logical `pwd` above.
@@ -2599,12 +2645,6 @@ LAUNCH=${LAUNCH//__PIEXT__/$sq_piext}
 LAUNCH=${LAUNCH//__PITURNEND__/$sq_piturnend}
 LAUNCH=${LAUNCH//__PIWATCH__/$sq_piwatch}
 LAUNCH=${LAUNCH//__OPINPUT__/$sq_opinput}
-# Ordinary workers must complete the owner-home preflight before their harness
-# receives the substantive brief. The helper's binding-home argument is scoped
-# to that command only, so the worker keeps its ordinary FM_HOME semantics and
-# a secondmate's own spawn uses its own home rather than the primary's.
-LAUNCH_PREFLIGHT_PREFIX=$(worker_preflight_prefix)
-LAUNCH="${LAUNCH_PREFLIGHT_PREFIX}${LAUNCH}"
 # Crewmate panes are created by a long-lived tmux/herdr daemon that does not
 # inherit firstmate's current environment, so a bare `claude` in the pane falls
 # back to the default ~/.claude store even when firstmate itself runs under a
@@ -2613,10 +2653,7 @@ LAUNCH="${LAUNCH_PREFLIGHT_PREFIX}${LAUNCH}"
 # uses the same credential/config firstmate is authenticated with. Only when set;
 # an unset value is the single-store default and needs no prefix.
 if [ "$HARNESS" = claude ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
-  # Keep this vendor credential/config prefix on the worker command only; the
-  # owner-home preflight must receive no unrelated worker configuration.
-  worker_launch=${LAUNCH#"$LAUNCH_PREFLIGHT_PREFIX"}
-  LAUNCH="${LAUNCH_PREFLIGHT_PREFIX}CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_CONFIG_DIR") $worker_launch"
+  LAUNCH="CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_CONFIG_DIR") $LAUNCH"
 fi
 if [ "$KIND" = secondmate ]; then
   sq_home=$(shell_quote "$PROJ_ABS")

@@ -45,11 +45,15 @@ Never classify a request as bypass to save time, and never skip a failed preflig
 
 ## Ordinary worker launch guidance
 
-`bin/fm-spawn.sh` runs `bin/fm-worker-preflight.sh` before every ordinary ship or scout harness starts.
-That helper reads the worker brief, routes it through the owning Firstmate home's binding, prints the typed result, and blocks unresolved or failed outcomes before the worker receives substantive instructions.
-Do not rerun preflight from the isolated project copy or set that copy's `FM_HOME` to another home; the launch-time result is the authoritative consultation for the worker.
+When you dispatch an ordinary ship or scout task, author `data/<task-id>/megamind-request.md` the same way you fill in `{TASK}`: one privacy-safe routing line, enough for Megamind to match on and nothing more.
+That file - never the brief - is what `bin/fm-spawn.sh` routes through the owning home's binding before any endpoint, worktree, or task record exists, so an unfilled or oversized request refuses the spawn instead of producing a task that cannot work.
+A refusal is a concrete blocker to disclose, not a step to retry around: fix the binding or the routing request, or escalate it.
+
+As the worker, your launch-time result is already filed at `state/<task-id>.megamind-preflight.json` and your brief's wiki-routing section names it.
+Read that file and act on its `outcome` exactly as above; it is the authoritative consultation for your task.
+Do not rerun preflight from the isolated project copy and do not point that copy's `FM_HOME` at another home.
 A secondmate's own `fm-spawn.sh` performs the same step with that secondmate home's binding, so primary bindings never cross the secondmate boundary.
-The helper header and `docs/configuration.md` own the launch mechanics and binding boundary; this section only gives the conditional worker guidance.
+`bin/fm-worker-preflight.sh`'s header and `docs/configuration.md` own the launch mechanics and binding boundary; this section only gives the conditional worker guidance.
 
 ## Boundaries
 

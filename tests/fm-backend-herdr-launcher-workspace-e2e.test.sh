@@ -39,6 +39,8 @@ command -v herdr >/dev/null 2>&1 || { echo "skip: herdr not found"; exit 0; }
 command -v jq >/dev/null 2>&1 || { echo "skip: jq not found (required by the herdr adapter)"; exit 0; }
 command -v treehouse >/dev/null 2>&1 || { echo "skip: treehouse not found (required by fm-spawn.sh)"; exit 0; }
 
+# shellcheck source=tests/megamind-fixture.sh
+. "$ROOT/tests/megamind-fixture.sh"
 # shellcheck source=tests/herdr-test-safety.sh
 . "$ROOT/tests/herdr-test-safety.sh"
 
@@ -181,14 +183,25 @@ PRES_HOME="$TMP_ROOT/presentation-home"
 mkdir -p "$PRES_HOME/state" "$PRES_HOME/config"
 : > "$PRES_HOME/config/herdr-presentation-spaces"
 
+# Every home that launches an ordinary worker below must carry its own Megamind
+# binding: the spawn clears it before any endpoint exists, and a secondmate home
+# binds its own rather than inheriting the primary's.
+fm_test_megamind_binding "$PRIMARY_HOME"
+fm_test_megamind_binding "$SM_HOME"
+fm_test_megamind_binding "$PRES_HOME"
+
 for id in uniqA uniqB dupC dupD staleF smE presU presD; do
   mkdir -p "$PRIMARY_HOME/data/$id" "$SM_HOME/data/$id" "$PRES_HOME/data/$id"
   printf 'trivial launcher-placement brief: nothing to do.\n' > "$PRIMARY_HOME/data/$id/brief.md"
+  printf 'e2e routing summary\n' > "$PRIMARY_HOME/data/$id/megamind-request.md"
   printf 'trivial launcher-placement brief: nothing to do.\n' > "$SM_HOME/data/$id/brief.md"
+  printf 'e2e routing summary\n' > "$SM_HOME/data/$id/megamind-request.md"
   printf 'trivial launcher-placement brief: nothing to do.\n' > "$PRES_HOME/data/$id/brief.md"
+  printf 'e2e routing summary\n' > "$PRES_HOME/data/$id/megamind-request.md"
 done
 mkdir -p "$PRIMARY_HOME/data/$SM2_ID"
 printf 'trivial secondmate charter brief: nothing to do.\n' > "$PRIMARY_HOME/data/$SM2_ID/brief.md"
+printf 'e2e routing summary\n' > "$PRIMARY_HOME/data/$SM2_ID/megamind-request.md"
 
 PROJ="$TMP_ROOT/scratch-project"; make_scratch_project "$PROJ"
 

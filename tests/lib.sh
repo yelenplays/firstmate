@@ -187,6 +187,14 @@ SH
   chmod +x "$fakebin/$tool"
 }
 
+# --- mandatory worker Megamind binding --------------------------------------
+#
+# tests/megamind-fixture.sh owns the shared binding fixture, so a suite that
+# sources this library gets fm_test_megamind_config, fm_test_megamind_binding,
+# fm_test_megamind_request, and fm_test_megamind_task without re-rolling the stub.
+# shellcheck source=tests/megamind-fixture.sh
+. "$(dirname "${BASH_SOURCE[0]}")/megamind-fixture.sh"
+
 # --- deterministic git identity and fixtures --------------------------------
 
 # fm_git_identity [name] [email]: export a fixed author/committer identity so

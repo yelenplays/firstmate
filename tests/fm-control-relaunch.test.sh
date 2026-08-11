@@ -142,6 +142,7 @@ add_ship_task() {
   fm_git_worktree "$proj" "$wt" "task-$id"
   mkdir -p "$home/data/$id"
   printf '# brief for %s\n\nDo the thing.\n' "$id" > "$home/data/$id/brief.md"
+  fm_test_megamind_task "$home" "$id"
   {
     echo "window=fmses:fm-$id"
     echo "endpoint_task_id=$id"

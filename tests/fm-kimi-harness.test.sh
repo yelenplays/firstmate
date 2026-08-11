@@ -141,6 +141,7 @@ make_spawn_case() {
   mkdir -p "$home/data/$id" "$home/projects" "$home/state" "$home/config" "$home/.kimi-code"
   printf '# Kimi test config\ndefault_model = "test"\n' > "$home/.kimi-code/config.toml"
   printf 'brief for kimi\n' > "$home/data/$id/brief.md"
+  fm_test_megamind_task "$home" "$id"
   printf 'kimi\n' > "$home/config/crew-harness"
   fm_git_worktree "$proj" "$wt" "wt-$name"
   touch "$home/state/.last-watcher-beat"
@@ -176,12 +177,6 @@ $1
 EOF
 }
 
-worker_preflight_prefix() {
-  local home=$1 id=$2 brief_real
-  brief_real=$(cd "$home/data/$id" && pwd -P)/brief.md
-  printf "'$ROOT/bin/fm-worker-preflight.sh' '%s' '%s' && " "$home" "$brief_real"
-}
-
 test_kimi_launch_then_send_is_verified() {
   local id rec out rc launch pointer brief_real meta task_tmp
   id="kimi-success-z1-$$"
@@ -198,9 +193,8 @@ test_kimi_launch_then_send_is_verified() {
   assert_contains "$out" "spawned $id harness=kimi" "kimi spawn did not report success"
 
   launch=$(cat "$CASE_DIR/launch.log")
-  expected="$(worker_preflight_prefix "$HOME_DIR" "$id")KIMI_MODEL_THINKING_EFFORT='high' '$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto"
-  [ "$launch" = "$expected" ] \
-    || fail "kimi launch did not use the preflight, effort override, absolute binary, model, and --auto only: $launch"
+  [ "$launch" = "KIMI_MODEL_THINKING_EFFORT='high' '$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto" ] \
+    || fail "kimi launch did not use the effort override, absolute binary, model, and --auto only: $launch"
   assert_not_contains "$launch" "--effort" "kimi launch emitted a nonexistent effort flag"
   assert_not_contains "$launch" "turn-ended" "kimi launch embedded a turn-end path"
   assert_not_contains "$launch" "__TURNEND__" "kimi launch retained a turn-end placeholder"
@@ -225,7 +219,7 @@ test_kimi_launch_then_send_is_verified() {
 }
 
 test_kimi_max_effort_reaches_kimi_exactly_once() {
-  local id rec out rc launch occurrences expected
+  local id rec out rc launch occurrences
   id=kimi-effort-max-z9
   rec=$(make_spawn_case effort-max "$id")
   read_spawn_record "$rec"
@@ -235,9 +229,8 @@ test_kimi_max_effort_reaches_kimi_exactly_once() {
   expect_code 0 "$rc" "kimi spawn at max effort should succeed"
 
   launch=$(cat "$CASE_DIR/launch.log")
-  expected="$(worker_preflight_prefix "$HOME_DIR" "$id")KIMI_MODEL_THINKING_EFFORT='max' '$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto"
-  [ "$launch" = "$expected" ] \
-    || fail "kimi max effort was not delivered after the owner preflight as a single leading env assignment: $launch"
+  [ "$launch" = "KIMI_MODEL_THINKING_EFFORT='max' '$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto" ] \
+    || fail "kimi max effort was not delivered as a single leading env assignment: $launch"
   occurrences=$(printf '%s\n' "$launch" | grep -c 'KIMI_MODEL_THINKING_EFFORT')
   [ "$occurrences" -eq 1 ] \
     || fail "kimi max effort reached the launch $occurrences times instead of once"
@@ -249,7 +242,7 @@ test_kimi_max_effort_reaches_kimi_exactly_once() {
 }
 
 test_kimi_supported_efforts_deliver_and_unsupported_levels_are_omitted() {
-  local id rec out rc launch level expected
+  local id rec out rc launch level
   for level in low high; do
     id="kimi-effort-$level-z9"
     rec=$(make_spawn_case "effort-$level" "$id")
@@ -259,9 +252,8 @@ test_kimi_supported_efforts_deliver_and_unsupported_levels_are_omitted() {
     rc=$?
     expect_code 0 "$rc" "kimi spawn at $level effort should succeed"
     launch=$(cat "$CASE_DIR/launch.log")
-    expected="$(worker_preflight_prefix "$HOME_DIR" "$id")KIMI_MODEL_THINKING_EFFORT='$level' '$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto"
-    [ "$launch" = "$expected" ] \
-      || fail "kimi $level effort was not delivered through its environment override after the owner preflight: $launch"
+    [ "$launch" = "KIMI_MODEL_THINKING_EFFORT='$level' '$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto" ] \
+      || fail "kimi $level effort was not delivered through its environment override: $launch"
   done
 
   # K3 advertises low/high/max only, and the override bypasses Kimi's own
@@ -275,9 +267,8 @@ test_kimi_supported_efforts_deliver_and_unsupported_levels_are_omitted() {
     rc=$?
     expect_code 0 "$rc" "kimi spawn at unsupported $level effort should still succeed"
     launch=$(cat "$CASE_DIR/launch.log")
-    expected="$(worker_preflight_prefix "$HOME_DIR" "$id")'$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto"
-    [ "$launch" = "$expected" ] \
-      || fail "kimi $level effort was not omitted from the launch after the owner preflight: $launch"
+    [ "$launch" = "'$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto" ] \
+      || fail "kimi $level effort was not omitted from the launch: $launch"
     assert_not_contains "$launch" "KIMI_MODEL_THINKING_EFFORT" \
       "kimi launch passed unadvertised $level effort to the model"
     assert_grep "effort=$level" "$HOME_DIR/state/$id.meta" \
@@ -639,7 +630,7 @@ test_kimi_teardown_removes_pointer_and_registry_token() {
 }
 
 test_kimi_falls_back_to_expanded_home_binary() {
-  local id rec out rc launch fallback expected
+  local id rec out rc launch fallback
   id=kimi-fallback-z4
   rec=$(make_spawn_case fallback "$id")
   read_spawn_record "$rec"
@@ -651,9 +642,8 @@ test_kimi_falls_back_to_expanded_home_binary() {
   rc=$?
   expect_code 0 "$rc" "Kimi HOME fallback spawn should succeed"
   launch=$(cat "$CASE_DIR/launch.log")
-  expected="$(worker_preflight_prefix "$HOME_DIR" "$id")'$fallback' --auto"
-  [ "$launch" = "$expected" ] \
-    || fail "Kimi fallback did not expand HOME into an absolute executable after the owner preflight: $launch"
+  [ "$launch" = "'$fallback' --auto" ] \
+    || fail "Kimi fallback did not expand HOME into an absolute executable: $launch"
   pass "fm-spawn: Kimi fallback expands the active HOME"
 }
 

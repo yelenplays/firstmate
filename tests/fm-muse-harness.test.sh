@@ -105,16 +105,6 @@ set -u
 exec "$FM_FAKE_MUSE_VERSIONED" -c 'result=$($FM_FAKE_HARNESS_PROBE); printf "%s" "$result" > "$FM_FAKE_HARNESS_RESULT"'
 SH
   chmod +x "$fakebin/muse"
-  cat > "$fakebin/megamind-axi" <<'SH'
-#!/usr/bin/env bash
-set -u
-if [ "${1:-}" = --version ]; then
-  printf 'megamind-axi 0.3.0\n'
-  exit 0
-fi
-printf '%s\n' '{"schema_version":"megamind/preflight-result/v2","request_hash":"muse-test-request","model_class":"cloud","status":"no-match","confidence":null,"thresholds":{"reliance_floor":0.75,"offer_floor":0.25,"ambiguity_band":0.05},"preflight_id":"muse-test-preflight","catalog_hash":"muse-test-catalog","matches":[],"offers":[],"filtered":[],"redacted_count":0}'
-SH
-  chmod +x "$fakebin/megamind-axi"
   fm_fake_exit0 "$fakebin" treehouse gh-axi gh
   printf '%s\n' "$fakebin"
 }
@@ -130,9 +120,7 @@ make_spawn_case() {
   mkdir -p "$home/data/$id" "$home/projects" "$home/state" "$home/config" \
     "$home/xdgconfig" "$home/xdgdata"
   printf 'brief\n' > "$home/data/$id/brief.md"
-  printf '%s\n' "$fakebin/megamind-axi" > "$home/config/megamind-executable"
-  mkdir -p "$home/estate"
-  printf '%s\n' "$home/estate" > "$home/config/megamind-estate"
+  fm_test_megamind_task "$home" "$id"
   fm_git_worktree "$proj" "$wt" "fm/$id"
   touch "$home/state/.last-watcher-beat"
   printf '%s\n' "$case_dir|$home|$proj|$wt|$fakebin|$id"

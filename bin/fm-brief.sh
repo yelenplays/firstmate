@@ -54,6 +54,15 @@
 # background agent: no worker starts an interview skill (decisions return through
 # firstmate), no skill displaces the selected delivery path or no-mistakes' sole
 # review ownership, and a scout's delegated research lands only in its report.
+# Ship and scout scaffolds also write data/<task-id>/megamind-request.md, the
+# separately authored smallest privacy-safe routing representation for this task.
+# Firstmate replaces its {ROUTING} placeholder the same way it replaces {TASK};
+# bin/fm-spawn.sh routes that text - never the brief - through the owning home's
+# Megamind binding before any endpoint exists and refuses a spawn whose routing
+# request is missing, empty, oversized, or still holding a placeholder. Each of
+# those briefs carries the matching fixed wiki-routing section pointing at the
+# task's own private result file, so the authorized typed result reaches the
+# worker through a file rather than through terminal output.
 # Ship tasks include a project-memory section so durable project-intrinsic
 # learnings can be committed to AGENTS.md through the project's delivery path;
 # it carries the AGENTS.md authoring bar (widely useful knowledge only, pointers
@@ -303,6 +312,25 @@ EOF
 HERDR_SECTION=${HERDR_SECTION%$'\n'}
 fi
 
+# Ordinary ship and scout tasks carry two Megamind artifacts beside the brief.
+# data/<id>/megamind-request.md is the SEPARATELY AUTHORED smallest privacy-safe
+# routing representation: bin/fm-spawn.sh routes that text - never this brief -
+# through the owning home's binding before any endpoint exists, and refuses the
+# spawn while it still holds an unresolved placeholder. The fixed section below
+# is the deterministic scaffold instruction that hands the authorized typed
+# result to the worker through its own private file rather than pane output.
+MEGAMIND_REQUEST="$DATA/$ID/megamind-request.md"
+printf '{ROUTING}\n' > "$MEGAMIND_REQUEST"
+IFS= read -r -d '' MEGAMIND_SECTION <<EOF || true
+# Wiki routing (Megamind preflight)
+Firstmate cleared this task's mandatory Megamind preflight before launching you, bound to the firstmate home that owns you.
+Read the typed result at \`$STATE/$ID.megamind-preflight.json\` before any substantive work and follow its \`read_policy\` exactly.
+On \`matched\`, read only the \`allows\` paths under each listed wiki \`root\`, stay within any returned context budget, and use each match's \`follow_up\` ladder for page content; never read, infer, or widen to any other wiki path.
+On \`no-match\` or \`privacy-filtered\`, load no wiki content and do the work ordinarily without naming the estate.
+That file is the authoritative consultation for this task: do not rerun preflight from this worktree, and never point this copy's \`FM_HOME\` at another home.
+EOF
+MEGAMIND_SECTION=${MEGAMIND_SECTION%$'\n'}
+
 if [ "$KIND" = scout ]; then
 cat > "$BRIEF" <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
@@ -311,6 +339,8 @@ You are a crewmate: an autonomous worker agent managed by firstmate. Work on you
 {TASK}
 
 $HERDR_SECTION
+
+$MEGAMIND_SECTION
 
 # Setup
 You are in a disposable git worktree of $REPO, at a detached HEAD on a clean default branch.
@@ -357,6 +387,7 @@ When the report is complete, append \`done: {one-line conclusion}\` to the statu
 If your findings reveal work that should ship (e.g. you reproduced a bug and the fix is clear), say so in the report; firstmate may promote this task in place, and you would then receive mode-specific ship instructions as a follow-up message.
 EOF
 echo "scaffolded: $BRIEF (scout; replace {TASK})"
+echo "scaffolded: $MEGAMIND_REQUEST (Megamind routing request; replace {ROUTING} with one privacy-safe routing line)"
 exit 0
 fi
 
@@ -428,6 +459,8 @@ You are a crewmate: an autonomous worker agent managed by firstmate. Work on you
 
 $HERDR_SECTION
 
+$MEGAMIND_SECTION
+
 # Setup
 You are in a disposable git worktree of $REPO, at a detached HEAD on a clean default branch.
 
@@ -481,3 +514,4 @@ Keep it proportionate: skip \`AGENTS.md\` edits for trivial tasks that produced 
 $DOD
 EOF
 echo "scaffolded: $BRIEF (ship, mode=$MODE; replace {TASK})"
+echo "scaffolded: $MEGAMIND_REQUEST (Megamind routing request; replace {ROUTING} with one privacy-safe routing line)"
