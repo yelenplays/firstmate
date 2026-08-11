@@ -12,6 +12,8 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=bin/fm-timeout-lib.sh
+. "$ROOT/bin/fm-timeout-lib.sh"  # fm_run_timed: outer guard for the hung-binding case
 
 HELPER="$ROOT/bin/fm-worker-preflight.sh"
 SPAWN="$ROOT/bin/fm-spawn.sh"
@@ -43,6 +45,16 @@ printf '%s\n' '{
 }'
 SH
 chmod +x "$STUB"
+
+# A binary that never answers, not even to --version, so the bound has to cover
+# the whole chain rather than the routing call alone.
+HANG_STUB="$TMP_ROOT/megamind-axi-hang"
+cat > "$HANG_STUB" <<'SH'
+#!/usr/bin/env bash
+set -u
+sleep 600
+SH
+chmod +x "$HANG_STUB"
 
 file_mode() {  # <path>
   stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1"
@@ -256,6 +268,38 @@ test_unauthorized_outcomes_block_and_preserve_the_result() {
   pass "ambiguous, unavailable, and failed bindings block without mutating the task"
 }
 
+test_a_hung_binding_blocks_within_its_bound() {
+  local home id result out rc
+  home="$TMP_ROOT/hung-binding"
+  id='hung-task'
+  make_home "$home" hungbinding
+  printf '%s\n' "$HANG_STUB" > "$home/config/megamind-executable"
+  write_request "$home/data" "$id" 'routing summary for a binding that never answers'
+  result=$(result_path "$home/state" "$id")
+  printf 'prior authorization\n' > "$result"
+  # bin/fm-spawn.sh runs this call while holding the home's task-set lock and the
+  # per-task spawn lock, so an unbounded hang would refuse every other spawn in
+  # the home and any forced teardown of it for as long as the binary hangs. The
+  # outer bound is the regression guard: without the helper's own bound the call
+  # never returns and this reports 124 instead of the typed refusal.
+  out=$(fm_run_timed 60 env FM_WORKER_PREFLIGHT_TIMEOUT=2 FM_TEST_STUB_ARGS="$STUB_ARGS" \
+    "$HELPER" "$home" "$id" 2>/dev/null); rc=$?
+  expect_code 1 "$rc" "a Megamind binary that never answers"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = preflight_timed_out ] \
+    || fail "a hung binding did not block with the typed timeout failure: $out"
+  assert_grep "prior authorization" "$result" "a timed-out binding mutated the task's authorization"
+
+  # An unusable bound falls back to the default instead of refusing: this bound
+  # protects the home's locks and must never itself stop a launch that works.
+  printf '%s\n' "$STUB" > "$home/config/megamind-executable"
+  rm -f "$result"
+  : > "$STUB_ARGS"
+  FM_WORKER_PREFLIGHT_TIMEOUT=not-a-number run_helper "$home" "$id"; rc=$?
+  expect_code 0 "$rc" "an unusable FM_WORKER_PREFLIGHT_TIMEOUT"
+  assert_present "$result" "an unusable bound refused a binding that answers"
+  pass "a hung Megamind binary blocks with a typed failure instead of holding the home's locks"
+}
+
 test_validate_only_authorizes_without_filing_a_result() {
   local home id result out rc
   home="$TMP_ROOT/validate-only"
@@ -323,7 +367,11 @@ case "$*" in
 esac
 case "${1:-}" in
   display-message) printf 'firstmate\n'; exit 0 ;;
-  list-windows|has-session|new-session|new-window|kill-window) exit 0 ;;
+  new-window)
+    [ -z "${FM_FAKE_TMUX_NEW_WINDOW_FAIL:-}" ] || { printf 'fake tmux: new-window refused\n' >&2; exit 1; }
+    exit 0
+    ;;
+  list-windows|has-session|new-session|kill-window) exit 0 ;;
   send-keys)
     if [ -n "${FM_FAKE_LAUNCH_LOG:-}" ]; then
       prev=
@@ -379,6 +427,7 @@ run_spawn_case() {  # <home> <project> <worktree> <fakebin> <launchlog> <id> <ki
     FM_PROJECTS_OVERRIDE="$home/projects" FM_CONFIG_OVERRIDE="$home/config" \
     FM_SPAWN_NO_GUARD=1 FM_FAKE_PANE_PATH="$worktree" TMUX="fake,1,0" \
     FM_TEST_STUB_ARGS="$STUB_ARGS" \
+    FM_FAKE_TMUX_NEW_WINDOW_FAIL="${FM_FAKE_TMUX_NEW_WINDOW_FAIL:-}" \
     FM_FAKE_LAUNCH_LOG="$launchlog" PATH="$fakebin:$PATH" \
     "$SPAWN" "${args[@]}" 2>&1
 }
@@ -465,6 +514,28 @@ EOF
   pass "the worker's isolated copy receives no binding, credential, or request material"
 }
 
+test_aborted_spawn_retires_the_filed_authorization() {
+  local rec home project worktree fakebin launchlog id out rc
+  rec=$(make_spawn_case abort bound)
+  IFS='|' read -r _ home project worktree fakebin launchlog id <<EOF
+$rec
+EOF
+  : > "$STUB_ARGS"
+  # The authorization is filed before the task exists, so a spawn that fails
+  # after the gate - here at endpoint creation - must not leave a private
+  # authorization behind for a task id no teardown will ever enumerate.
+  out=$(FM_FAKE_TMUX_NEW_WINDOW_FAIL=1 \
+    run_spawn_case "$home" "$project" "$worktree" "$fakebin" "$launchlog" "$id" ship); rc=$?
+  unset FM_FAKE_TMUX_NEW_WINDOW_FAIL
+  [ "$rc" -ne 0 ] || fail "the spawn reported success despite a refused endpoint: $out"
+  assert_grep "worker-request-hash" "$home/state/megamind-preflight.jsonl" \
+    "the aborted spawn never reached the binding it must clean up after"
+  assert_absent "$home/state/$id.meta" "an aborted spawn published a task record"
+  assert_absent "$home/state/$id.megamind-preflight.json" \
+    "an aborted spawn left a private authorization for a task that never existed"
+  pass "a spawn that fails after the gate retires the authorization it filed"
+}
+
 test_secondmate_launch_omits_the_worker_preflight() {
   local case_dir home sm id launchlog fakebin out rc launch
   case_dir="$TMP_ROOT/spawn-secondmate"
@@ -505,12 +576,14 @@ test_relocated_home_binds_its_own_resolved_directories
 test_secondmate_binding_is_not_primary_binding
 test_routing_request_guard_blocks_before_any_call
 test_unauthorized_outcomes_block_and_preserve_the_result
+test_a_hung_binding_blocks_within_its_bound
 test_validate_only_authorizes_without_filing_a_result
 test_identity_and_path_guards
 test_ship_and_scout_spawns_authorize_before_launch
 test_blocked_binding_refuses_before_any_task_exists
 test_unresolved_routing_placeholder_refuses_spawn
 test_isolated_copy_carries_no_binding_material
+test_aborted_spawn_retires_the_filed_authorization
 test_secondmate_launch_omits_the_worker_preflight
 
 echo "# all fm-worker-preflight tests passed"

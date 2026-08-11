@@ -29,6 +29,15 @@
 #   only, never Megamind, the proof log, or the worker. The request text is read
 #   from that file and passed to fm-megamind-preflight.sh as an argument, never
 #   through an environment variable, and this script never echoes it.
+# - The owner-bound call is HARD BOUNDED (bin/fm-timeout-lib.sh, whole process
+#   group). Both callers run it inside held locks - fm-spawn.sh holds the home's
+#   task-set lock and the per-task spawn lock across it, and a hung external
+#   Megamind binary would otherwise stall every other spawn in that home and any
+#   forced teardown of it for as long as it hangs. Expiry is one more blocking
+#   outcome with its own typed failure code, so the bound is always reached and
+#   the locks are always released. FM_WORKER_PREFLIGHT_TIMEOUT overrides the
+#   seconds allowed; an absent, non-numeric, or zero value keeps the default,
+#   because "no bound" is not an available choice here.
 # - matched, no-match, and privacy-filtered are the definitive authorized
 #   outcomes: the validated typed document is written to the result path (0600,
 #   replaced atomically) as the task's own private delivery surface, and nothing
@@ -54,12 +63,23 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 PREFLIGHT="$SCRIPT_DIR/fm-megamind-preflight.sh"
+# shellcheck source=bin/fm-timeout-lib.sh
+. "$SCRIPT_DIR/fm-timeout-lib.sh"  # fm_run_timed: the shared hard bound
 
 SCHEMA="fm/worker-preflight/v1"
 # The routing representation is deliberately small: enough text for Megamind to
 # match on, never a brief, a transcript, or pasted private detail.
 MAX_REQUEST_CHARS=600
 MAX_REQUEST_LINES=3
+# Seconds allowed for the whole owner-bound call. Generous for a real routing
+# lookup and short enough that a hung binary cannot hold a home's task set. An
+# unusable override falls back rather than refusing, because this bound protects
+# the home's locks and must never itself become a reason a spawn cannot start.
+PREFLIGHT_TIMEOUT_DEFAULT=60
+PREFLIGHT_TIMEOUT=${FM_WORKER_PREFLIGHT_TIMEOUT:-$PREFLIGHT_TIMEOUT_DEFAULT}
+case "$PREFLIGHT_TIMEOUT" in
+  ''|*[!0-9]*|0) PREFLIGHT_TIMEOUT=$PREFLIGHT_TIMEOUT_DEFAULT ;;
+esac
 
 usage() {
   printf 'usage: fm-worker-preflight.sh <binding-home> <task-id> [--config <dir>] [--state <dir>] [--data <dir>] [--validate-only]\n' >&2
@@ -165,13 +185,20 @@ REQUEST_LINES=$(printf '%s\n' "$REQUEST" | wc -l | tr -d '[:space:]')
 # preflight consults is restated from this binding's own resolved directories, so
 # an ambient override inherited from another home can neither repoint the config
 # it reads nor move the proof record it writes (bin/fm-megamind-preflight.sh
-# resolves CONFIG and STATE from exactly those variables).
+# resolves CONFIG and STATE from exactly those variables). The whole chain -
+# executable resolution, the version probe, and the Megamind call itself - runs
+# under one bound that terminates the entire process group, so no wrapper or
+# grandchild of it can outlive the callers' held locks.
 rc=0
-result=$(FM_HOME="$BINDING_HOME" \
-  FM_ROOT_OVERRIDE='' FM_PROJECTS_OVERRIDE='' \
+result=$(fm_run_timed "$PREFLIGHT_TIMEOUT" env \
+  FM_HOME="$BINDING_HOME" \
+  FM_ROOT_OVERRIDE= FM_PROJECTS_OVERRIDE= \
   FM_CONFIG_OVERRIDE="$BINDING_CONFIG" FM_STATE_OVERRIDE="$BINDING_STATE" \
   FM_DATA_OVERRIDE="$BINDING_DATA" \
   "$PREFLIGHT" run --request "$REQUEST") || rc=$?
+if [ "$rc" -eq 124 ]; then
+  block preflight_timed_out "the owning home's Megamind preflight did not finish within ${PREFLIGHT_TIMEOUT}s"
+fi
 if [ "$rc" -ne 0 ]; then
   printf '%s\n' "$result"
   printf 'worker preflight: the owning home reported a failed preflight\n' >&2

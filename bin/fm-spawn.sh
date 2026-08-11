@@ -658,6 +658,8 @@ RELAUNCH_REPLACEMENT_BUSY_GEN=
 RELAUNCH_REPLACEMENT_HARNESS=
 RELAUNCH_REPLACEMENT_STATE=
 RELAUNCH_REPLACEMENT_WT=
+WORKER_PREFLIGHT_RESULT=
+WORKER_PREFLIGHT_RESULT_PENDING=0
 CONFIG_INHERIT_LOCK=
 CONFIG_INHERIT_LOCK_HELD=0
 
@@ -703,6 +705,15 @@ spawn_abort_cleanup() {
         echo "warning: could not retire replacement busy generation after aborted relaunch of $ID" >&2
       fi
     fi
+  fi
+  # A fresh spawn's authorization is filed before the task exists, so an abort
+  # anywhere between the gate and the published record would otherwise leave a
+  # private authorization for a task id no teardown will ever enumerate. Only the
+  # fresh path arms this: on a relaunch the file authorizes the incarnation that
+  # is still running, and retiring it here would revoke a live worker.
+  if [ "$WORKER_PREFLIGHT_RESULT_PENDING" = 1 ]; then
+    WORKER_PREFLIGHT_RESULT_PENDING=0
+    rm -f "$WORKER_PREFLIGHT_RESULT" 2>/dev/null || true
   fi
   if [ "$HERDR_PROJECTION_ABORT_CLEANUP" = 1 ] \
      && [ "$HERDR_PRESENTATION_ORDER_LOCK_HELD" != 1 ]; then
@@ -1653,6 +1664,10 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
     echo "error: $ID was not authorized by the owning home's Megamind preflight; refusing to launch before any endpoint, worktree, or task record exists" >&2
     [ -z "$WORKER_PREFLIGHT_DOC" ] || printf '%s\n' "$WORKER_PREFLIGHT_DOC" >&2
     exit 1
+  fi
+  if [ "$RELAUNCH" -eq 0 ]; then
+    WORKER_PREFLIGHT_RESULT="$STATE/$ID.megamind-preflight.json"
+    WORKER_PREFLIGHT_RESULT_PENDING=1
   fi
 fi
 
@@ -2606,6 +2621,9 @@ if [ "$RELAUNCH" -eq 1 ]; then
   fm_lock_release "$SPAWN_META_LOCK"
   SPAWN_META_LOCK_HELD=0
 fi
+# The record exists, so the task's authorization is now part of the state a
+# teardown retires; this spawn stops owning it.
+WORKER_PREFLIGHT_RESULT_PENDING=0
 if [ "$SPAWN_TASK_SET_LOCK_HELD" = 1 ]; then
   # The record is published, so this task is now part of the set a teardown
   # enumerates and locks per task. The set lock is only needed across that
