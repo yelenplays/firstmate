@@ -40,10 +40,17 @@
 #   default `cloud` (every verified primary harness is a cloud model). Megamind
 #   versions 0.3.x and 0.4.x are accepted because both preserve the host-consumed
 #   `megamind/preflight-result/v2` fields; malformed, older, and future versions
-#   remain version_incompatible until their compatibility is established.
+#   remain version_incompatible until their compatibility is established. The
+#   probe is anchored on identity: it parses only a `megamind-axi <token>` line
+#   of `--version`, requires exactly one such line, and bounds that token's
+#   length and character set. Other output lines are ignored, raw executable
+#   output never reaches the typed document, and failure.detected carries that
+#   bounded token or `unknown`.
 # - The accepted v2 result must retain the host-consumed typed fields and their
 #   required container types: identity strings, model class, status, thresholds,
-#   result arrays, redaction count, and match/offer confidence and path fields.
+#   result arrays, and match/offer confidence and path fields. The privacy
+#   fields `filtered` and `redacted_count` are optional: a present one is type-
+#   and range-checked, and an absent one keeps its existing safe default.
 #   Additive upstream fields remain ignored or privacy-filtered by the existing
 #   normalization boundary; missing or incompatible consumed fields are
 #   malformed_output.
@@ -112,6 +119,21 @@ is_supported_version() {  # <version> - accept only proven complete 0.3.x/0.4.x 
     0.3.*|0.4.*) return 0 ;;
     *) return 1 ;;
   esac
+}
+
+detect_version() {  # <executable> - print its one anchored megamind-axi version token, or nothing
+  # Identity is required and the disclosure is bounded: the raw stream is never
+  # captured, only whole `megamind-axi <token>` lines are parsed, and a probe
+  # that prints no such line - or more than one - names no single build and
+  # yields nothing, so the gate fails closed on it.
+  local parsed="" candidate
+  while IFS= read -r candidate; do
+    [ -z "$parsed" ] || return 1
+    parsed="$candidate"
+  done < <("$1" --version 2>/dev/null |
+    sed -n 's/^megamind-axi \([0-9A-Za-z][0-9A-Za-z.+-]\{0,31\}\)$/\1/p')
+  [ -n "$parsed" ] || return 1
+  printf '%s\n' "$parsed"
 }
 
 # Operational-input kinds that are pure control or routine monitoring. Every
@@ -328,10 +350,7 @@ cmd_check() {
     emit_error executable_missing "Megamind executable not found: $exe"
     return 1
   fi
-  version="$("$exe" --version 2>/dev/null)"
-  case "$version" in
-    "megamind-axi "*) version="${version#megamind-axi }" ;;
-  esac
+  version="$(detect_version "$exe")"
   if ! is_supported_version "$version"; then
     emit_error version_incompatible "megamind-axi $SUPPORTED_VERSION_LINES are required" \
       "$(jq -cn --arg detected "${version:-unknown}" '{detected: $detected}')"
@@ -399,10 +418,7 @@ cmd_run() {
     log_proof error executable_missing "" "" "$model_class" "" '[]'
     return 1
   fi
-  version="$("$exe" --version 2>/dev/null)"
-  case "$version" in
-    "megamind-axi "*) version="${version#megamind-axi }" ;;
-  esac
+  version="$(detect_version "$exe")"
   if ! is_supported_version "$version"; then
     emit_error version_incompatible "megamind-axi $SUPPORTED_VERSION_LINES are required" \
       "$(jq -cn --arg detected "${version:-unknown}" '{detected: $detected}')"
@@ -456,8 +472,9 @@ cmd_run() {
       and all(.matches[]; valid_match)
       and (.offers | type == "array")
       and all(.offers[]; valid_offer)
-      and (.filtered | type == "array")
-      and (.redacted_count | type == "number" and floor == . and . >= 0)
+      and ((.filtered == null) or (.filtered | type == "array"))
+      and ((.redacted_count == null)
+        or (.redacted_count | type == "number" and floor == . and . >= 0))
     ' >/dev/null 2>&1; then
     emit_error malformed_output "Megamind preflight output is not a valid $MEGAMIND_SCHEMA document"
     log_proof error malformed_output "" "" "$model_class" "" '[]'

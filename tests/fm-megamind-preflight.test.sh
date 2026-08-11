@@ -10,7 +10,8 @@
 # content appears. The suite proves mandatory-vs-bypass classification against
 # the real operational-input marker bytes, payload-free credential provenance,
 # model-class propagation, restrictive config defaults with trimming and tilde
-# expansion, version gating, safe option-value and dash-leading-request
+# expansion, identity-anchored non-verbatim version gating, optional privacy
+# fields with strict typing when present, safe option-value and dash-leading-request
 # handling, allowed-path enforcement, safe thresholds/freshness/provenance and
 # optional context-budget propagation, host-owned notes,
 # ambiguity/no-match/privacy-filtered behavior, malformed/failed/jq-missing
@@ -54,16 +55,22 @@ mkdir -p "$TMP_ROOT/fakebin"
 cat > "$STUB" <<'SH'
 #!/usr/bin/env bash
 # Synthetic megamind-axi stand-in. FM_TEST_STUB_VERSION overrides the reported
-# version, FM_TEST_STUB_FIXTURE selects the canned preflight document,
-# FM_TEST_STUB_EXIT forces a non-zero exit, and every preflight argv is
-# appended to FM_TEST_STUB_ARGS for propagation assertions.
+# version, FM_TEST_STUB_VERSION_RAW replaces the whole --version stream verbatim
+# so identity-free and noisy probes are reachable, FM_TEST_STUB_FIXTURE selects
+# the canned preflight document, FM_TEST_STUB_EXIT forces a non-zero exit, and
+# every preflight argv is appended to FM_TEST_STUB_ARGS for propagation
+# assertions.
 set -u
 printf 'CALL\n' >> "${FM_TEST_STUB_ARGS:?}"
 if [ -n "${FM_TEST_CREDENTIAL_PAYLOAD:-}" ]; then
   printf 'ENV_PAYLOAD=%s\n' "$FM_TEST_CREDENTIAL_PAYLOAD" >> "$FM_TEST_STUB_ARGS"
 fi
 if [ "${1:-}" = "--version" ]; then
-  printf 'megamind-axi %s\n' "${FM_TEST_STUB_VERSION:-0.3.0}"
+  if [ -n "${FM_TEST_STUB_VERSION_RAW:-}" ]; then
+    printf '%s\n' "$FM_TEST_STUB_VERSION_RAW"
+  else
+    printf 'megamind-axi %s\n' "${FM_TEST_STUB_VERSION:-0.3.0}"
+  fi
   exit 0
 fi
 printf '%s\n' "$@" >> "$FM_TEST_STUB_ARGS"
@@ -388,7 +395,7 @@ test_restrictive_defaults() {
   expect_code 0 "$rc" "proven-0.4-version run"
   [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "0.4.x result was not authorized: $out"
   # Old, malformed, and unproven future releases stay incompatible.
-  for version in 0.2.9 0.4 v0.4.0 0.4.0.1 0.5.0; do
+  for version in 0.2.9 0.4 v0.4.0 0.4.0.1 0.4.0-rc.1 0.5.0 1.0.0; do
     out=$(FM_TEST_STUB_VERSION="$version" FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
     expect_code 1 "$rc" "unsupported version $version"
     [ "$(printf '%s' "$out" | jq -r '.failure.code')" = version_incompatible ] || fail "unsupported version $version gave: $out"
@@ -401,6 +408,54 @@ test_restrictive_defaults() {
   expect_code 1 "$rc" "invalid-class run"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = invalid_model_class ] || fail "invalid class gave: $out"
   pass "run: restrictive defaults, version gate, and invalid config fail closed"
+}
+
+test_version_probe_is_anchored_and_non_verbatim() {
+  local home out rc raw long canary='RAW-VERSION-CANARY'
+  home=$(new_home version-probe)
+  long=$(awk 'BEGIN { for (i = 0; i < 40; i++) printf "A" }')
+  # A supported version number without the megamind-axi identity does not clear
+  # the gate, and neither does another tool claiming one.
+  for raw in "0.3.1" "megamind 0.4.0" "megamind-axi0.4.0" "MEGAMIND-AXI 0.4.0"; do
+    out=$(FM_TEST_STUB_VERSION_RAW="$raw" FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" \
+      run_in "$home" run --request "pricing"); rc=$?
+    expect_code 1 "$rc" "unidentified version probe '$raw'"
+    [ "$(printf '%s' "$out" | jq -r '.failure.code')" = version_incompatible ] \
+      || fail "unidentified version probe '$raw' gave: $out"
+    [ "$(printf '%s' "$out" | jq -r '.failure.detected')" = unknown ] \
+      || fail "unidentified version probe '$raw' disclosed a version: $out"
+  done
+  # Noise around exactly one identity line is tolerated, as the anchored probe
+  # has always tolerated it; the parsed version is the one on that line.
+  out=$(FM_TEST_STUB_VERSION_RAW=$'megamind-axi 0.4.0\nbuild 123' \
+    FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 0 "$rc" "trailing build metadata after the identity line"
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "noisy 0.4.0 probe was not authorized: $out"
+  out=$(FM_TEST_STUB_VERSION_RAW=$'loading estate cache\nmegamind-axi 0.3.5' \
+    run_in "$home" check); rc=$?
+  expect_code 0 "$rc" "leading noise before the identity line"
+  [ "$(printf '%s' "$out" | jq -r '.version')" = 0.3.5 ] || fail "noisy check lost the parsed version: $out"
+  # More than one identity line names no single build, so the gate fails closed.
+  out=$(FM_TEST_STUB_VERSION_RAW=$'megamind-axi 0.3.0\nmegamind-axi 0.4.0' \
+    FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 1 "$rc" "two identity lines in one probe"
+  [ "$(printf '%s' "$out" | jq -r '.failure.detected')" = unknown ] \
+    || fail "two identity lines resolved to a single build: $out"
+  # Raw probe output never reaches the disclosed document: only the bounded
+  # token from the identity line does, and an unbounded token is not one.
+  out=$(FM_TEST_STUB_VERSION_RAW="$canary header"$'\n'"megamind-axi 0.2.9"$'\n'"$canary trailer" \
+    FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 1 "$rc" "an unsupported version surrounded by raw output"
+  [ "$(printf '%s' "$out" | jq -r '.failure.detected')" = 0.2.9 ] \
+    || fail "the parsed version was not the one disclosed: $out"
+  assert_not_contains "$out" "$canary" "raw --version output reached the typed document"
+  out=$(FM_TEST_STUB_VERSION_RAW="megamind-axi 0.4.0$long" \
+    FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 1 "$rc" "an unbounded version token"
+  [ "$(printf '%s' "$out" | jq -r '.failure.detected')" = unknown ] \
+    || fail "an unbounded version token was disclosed: $out"
+  assert_not_contains "$out" "$long" "an unbounded version token reached the typed document"
+  pass "run: the version probe is identity-anchored, single-line, and never verbatim"
 }
 
 test_missing_option_values_fail_closed() {
@@ -470,6 +525,15 @@ test_check_probe() {
   expect_code 0 "$rc" "configured check"
   [ "$(printf '%s' "$out" | jq -r '.outcome')" = available ] || fail "check not available: $out"
   [ "$(printf '%s' "$out" | jq -r '.version')" = 0.3.0 ] || fail "check lost version: $out"
+  # Both proven lines probe as available, and the probe reports the one it read.
+  out=$(FM_TEST_STUB_VERSION=0.4.0 run_in "$home" check); rc=$?
+  expect_code 0 "$rc" "0.4 configured check"
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = available ] || fail "0.4 check not available: $out"
+  [ "$(printf '%s' "$out" | jq -r '.version')" = 0.4.0 ] || fail "0.4 check lost version: $out"
+  out=$(FM_TEST_STUB_VERSION=0.5.0 run_in "$home" check); rc=$?
+  expect_code 1 "$rc" "unproven future check"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = version_incompatible ] \
+    || fail "unproven future check gave: $out"
   home="$TMP_ROOT/probe-unconfigured"
   mkdir -p "$home/config" "$home/state"
   out=$(run_in "$home" check); rc=$?
@@ -556,7 +620,7 @@ test_notes_are_host_owned() {
 }
 
 test_privacy_filtered_never_names_wikis() {
-  local home out fixture="$TMP_ROOT/filtered.json"
+  local home out rc fixture="$TMP_ROOT/filtered.json"
   jq '.status = "privacy-filtered"
       | .confidence = null
       | .matches = []
@@ -567,6 +631,16 @@ test_privacy_filtered_never_names_wikis() {
   out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing")
   [ "$(printf '%s' "$out" | jq -r '.outcome')" = privacy-filtered ] || fail "outcome not privacy-filtered: $out"
   [ "$(printf '%s' "$out" | jq -r '.filtered_count')" = 1 ] || fail "filtered_count lost: $out"
+  assert_not_contains "$out" "HiddenWiki" "privacy-filtered must never name withheld wikis"
+  # The same outcome from a release that omits the optional privacy fields still
+  # discloses a count and still names nothing.
+  jq 'del(.filtered) | del(.redacted_count)' "$fixture" > "$fixture.optional"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture.optional" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 0 "$rc" "privacy-filtered run without the optional privacy fields"
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = privacy-filtered ] \
+    || fail "privacy-filtered without the optional fields was not definitive: $out"
+  [ "$(printf '%s' "$out" | jq -r '.filtered_count')" = 0 ] || fail "filtered_count is not the safe default: $out"
+  [ "$(printf '%s' "$out" | jq -r '.redacted_count')" = 0 ] || fail "redacted_count is not the safe default: $out"
   assert_not_contains "$out" "HiddenWiki" "privacy-filtered must never name withheld wikis"
   pass "run: privacy-filtered discloses a count, never names"
 }
@@ -590,7 +664,7 @@ test_unavailable_is_definitive() {
 # --- malformed and failed preflight disclosure --------------------------------
 
 test_malformed_and_failed_disclosure() {
-  local home out rc fixture="$TMP_ROOT/garbage.json"
+  local home out rc mutation fixture="$TMP_ROOT/garbage.json"
   printf 'this is not json\n' > "$fixture"
   home=$(new_home garbage)
   out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing"); rc=$?
@@ -621,6 +695,32 @@ test_malformed_and_failed_disclosure() {
   out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing"); rc=$?
   expect_code 1 "$rc" "incompatible-match-field run"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_output ] || fail "incompatible match field gave: $out"
+  # The privacy fields are optional: an absent one keeps its existing safe
+  # default rather than turning a definitive outcome into a failure.
+  jq 'del(.filtered) | del(.redacted_count)' "$MATCHED_FIXTURE" > "$fixture"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 0 "$rc" "absent-privacy-fields run"
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "absent privacy fields blocked a match: $out"
+  [ "$(printf '%s' "$out" | jq -r '.filtered_count')" = 0 ] || fail "absent filtered lost its safe default: $out"
+  [ "$(printf '%s' "$out" | jq -r '.redacted_count')" = 0 ] || fail "absent redacted_count lost its safe default: $out"
+  jq '.filtered = null | .redacted_count = null' "$MATCHED_FIXTURE" > "$fixture"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 0 "$rc" "null-privacy-fields run"
+  [ "$(printf '%s' "$out" | jq -r '.filtered_count')" = 0 ] || fail "null filtered lost its safe default: $out"
+  [ "$(printf '%s' "$out" | jq -r '.redacted_count')" = 0 ] || fail "null redacted_count lost its safe default: $out"
+  # A present one is still strictly typed and range-checked.
+  jq '.filtered = "RAW-FILTERED-CANARY"' "$MATCHED_FIXTURE" > "$fixture"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 1 "$rc" "wrong-typed-filtered run"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_output ] || fail "wrong-typed filtered gave: $out"
+  assert_not_contains "$out" "RAW-FILTERED-CANARY" "malformed privacy content must not pass through"
+  for mutation in '.redacted_count = "2"' '.redacted_count = -1' '.redacted_count = 1.5' '.redacted_count = true'; do
+    jq "$mutation" "$MATCHED_FIXTURE" > "$fixture"
+    out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing"); rc=$?
+    expect_code 1 "$rc" "redacted_count mutation $mutation"
+    [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_output ] \
+      || fail "redacted_count mutation $mutation gave: $out"
+  done
   # A Megamind error document surfaces its upstream code.
   printf '{"schema_version":"megamind/error/v1","code":"registry_invalid","message":"synthetic"}' > "$fixture"
   out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_STUB_EXIT=1 run_in "$home" run --request "pricing"); rc=$?
@@ -691,6 +791,7 @@ test_matched_run_and_model_class_propagation
 test_unsafe_evidence_values_are_minimized
 test_proof_log_is_minimal_and_non_verbatim
 test_restrictive_defaults
+test_version_probe_is_anchored_and_non_verbatim
 test_missing_option_values_fail_closed
 test_config_values_are_trimmed_and_tilde_expanded
 test_dash_leading_request_is_passed_safely
