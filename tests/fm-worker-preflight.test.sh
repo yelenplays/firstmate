@@ -269,7 +269,7 @@ test_unauthorized_outcomes_block_and_preserve_the_result() {
 }
 
 test_a_hung_binding_blocks_within_its_bound() {
-  local home id result out rc
+  local home id result out rc bound
   home="$TMP_ROOT/hung-binding"
   id='hung-task'
   make_home "$home" hungbinding
@@ -289,14 +289,35 @@ test_a_hung_binding_blocks_within_its_bound() {
     || fail "a hung binding did not block with the typed timeout failure: $out"
   assert_grep "prior authorization" "$result" "a timed-out binding mutated the task's authorization"
 
+  # A leading-zero bound must be read as its VALUE, not handed to the mechanism
+  # verbatim, because that is what makes an all-zero override a rejected bound
+  # rather than a disabled deadline.
+  out=$(fm_run_timed 60 env FM_WORKER_PREFLIGHT_TIMEOUT=02 FM_TEST_STUB_ARGS="$STUB_ARGS" \
+    "$HELPER" "$home" "$id" 2>/dev/null); rc=$?
+  expect_code 1 "$rc" "a leading-zero bound against a binary that never answers"
+  assert_contains "$(printf '%s' "$out" | jq -r '.failure.message')" "within 2s" \
+    "a leading-zero bound was not normalized to its value"
+
   # An unusable bound falls back to the default instead of refusing: this bound
   # protects the home's locks and must never itself stop a launch that works.
   printf '%s\n' "$STUB" > "$home/config/megamind-executable"
+  for bound in not-a-number 99999999999999999999 -5; do
+    rm -f "$result"
+    : > "$STUB_ARGS"
+    FM_WORKER_PREFLIGHT_TIMEOUT="$bound" run_helper "$home" "$id"; rc=$?
+    expect_code 0 "$rc" "an unusable FM_WORKER_PREFLIGHT_TIMEOUT=$bound"
+    assert_present "$result" "the unusable bound '$bound' refused a binding that answers"
+  done
+
+  # An all-zero bound is a disabled deadline on every mechanism, so it must be
+  # rejected by value. Forcing the dependency-free watchdog makes that visible
+  # without waiting out the default: a zero bound expires immediately.
   rm -f "$result"
   : > "$STUB_ARGS"
-  FM_WORKER_PREFLIGHT_TIMEOUT=not-a-number run_helper "$home" "$id"; rc=$?
-  expect_code 0 "$rc" "an unusable FM_WORKER_PREFLIGHT_TIMEOUT"
-  assert_present "$result" "an unusable bound refused a binding that answers"
+  FM_TIMEOUT_MECHANISM_OVERRIDE=bash FM_WORKER_PREFLIGHT_TIMEOUT=00 \
+    run_helper "$home" "$id"; rc=$?
+  expect_code 0 "$rc" "an all-zero FM_WORKER_PREFLIGHT_TIMEOUT"
+  assert_present "$result" "an all-zero bound was passed through as a deadline of zero"
   pass "a hung Megamind binary blocks with a typed failure instead of holding the home's locks"
 }
 
@@ -536,6 +557,33 @@ EOF
   pass "a spawn that fails after the gate retires the authorization it filed"
 }
 
+test_aborted_respawn_keeps_a_published_task_authorized() {
+  local rec home project worktree fakebin launchlog id out rc result
+  rec=$(make_spawn_case respawn bound)
+  IFS='|' read -r _ home project worktree fakebin launchlog id <<EOF
+$rec
+EOF
+  result="$home/state/$id.megamind-preflight.json"
+  # A same-identity respawn without --relaunch is how a duplicate-launch refusal
+  # and the herdr recovery reclaim are reached, and the record it aborts over
+  # survives. Its authorization belongs to that record's own incarnation, which
+  # may still be running and is forbidden from regenerating the file itself.
+  printf 'window=fm-%s\nproject=%s\nharness=codex\nkind=ship\n' "$id" "$project" \
+    > "$home/state/$id.meta"
+  printf 'prior authorization\n' > "$result"
+  : > "$STUB_ARGS"
+  out=$(FM_FAKE_TMUX_NEW_WINDOW_FAIL=1 \
+    run_spawn_case "$home" "$project" "$worktree" "$fakebin" "$launchlog" "$id" ship); rc=$?
+  unset FM_FAKE_TMUX_NEW_WINDOW_FAIL
+  [ "$rc" -ne 0 ] || fail "the respawn reported success despite a refused endpoint: $out"
+  assert_present "$home/state/$id.meta" "the aborted respawn removed the record it never published"
+  assert_present "$result" \
+    "an aborted respawn revoked the authorization of a task whose record still exists"
+  [ "$(jq -r '.outcome' < "$result")" = no-match ] \
+    || fail "the surviving authorization is not the typed document this spawn re-filed"
+  pass "a respawn that fails over an existing record leaves that task's authorization intact"
+}
+
 test_secondmate_launch_omits_the_worker_preflight() {
   local case_dir home sm id launchlog fakebin out rc launch
   case_dir="$TMP_ROOT/spawn-secondmate"
@@ -584,6 +632,7 @@ test_blocked_binding_refuses_before_any_task_exists
 test_unresolved_routing_placeholder_refuses_spawn
 test_isolated_copy_carries_no_binding_material
 test_aborted_spawn_retires_the_filed_authorization
+test_aborted_respawn_keeps_a_published_task_authorized
 test_secondmate_launch_omits_the_worker_preflight
 
 echo "# all fm-worker-preflight tests passed"

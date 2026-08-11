@@ -36,8 +36,9 @@
 #   forced teardown of it for as long as it hangs. Expiry is one more blocking
 #   outcome with its own typed failure code, so the bound is always reached and
 #   the locks are always released. FM_WORKER_PREFLIGHT_TIMEOUT overrides the
-#   seconds allowed; an absent, non-numeric, or zero value keeps the default,
-#   because "no bound" is not an available choice here.
+#   seconds allowed; an absent, non-numeric, non-positive (including "00"), or
+#   out-of-range value keeps the default, because "no bound" is not an available
+#   choice here and an interval no mechanism accepts is not one either.
 # - matched, no-match, and privacy-filtered are the definitive authorized
 #   outcomes: the validated typed document is written to the result path (0600,
 #   replaced atomically) as the task's own private delivery surface, and nothing
@@ -75,11 +76,25 @@ MAX_REQUEST_LINES=3
 # lookup and short enough that a hung binary cannot hold a home's task set. An
 # unusable override falls back rather than refusing, because this bound protects
 # the home's locks and must never itself become a reason a spawn cannot start.
+# The override is validated by VALUE, not by shape: bin/fm-timeout-lib.sh's
+# header requires callers to reject a non-positive bound, because `timeout 0` and
+# the perl fallback's `alarm 0` both disable the deadline - and "00" is every bit
+# as much a disabled deadline as "0". An out-of-range value is rejected the same
+# way, so an interval no mechanism accepts can never turn into a blanket refusal
+# of every ship and scout spawn.
 PREFLIGHT_TIMEOUT_DEFAULT=60
+PREFLIGHT_TIMEOUT_MAX=3600
 PREFLIGHT_TIMEOUT=${FM_WORKER_PREFLIGHT_TIMEOUT:-$PREFLIGHT_TIMEOUT_DEFAULT}
 case "$PREFLIGHT_TIMEOUT" in
-  ''|*[!0-9]*|0) PREFLIGHT_TIMEOUT=$PREFLIGHT_TIMEOUT_DEFAULT ;;
+  ''|*[!0-9]*) PREFLIGHT_TIMEOUT=0 ;;
 esac
+# Bounded digit count first: a value long enough to overflow the shell's own
+# arithmetic must never be normalized into a plausible-looking bound.
+[ "${#PREFLIGHT_TIMEOUT}" -le 5 ] || PREFLIGHT_TIMEOUT=0
+PREFLIGHT_TIMEOUT=$((10#$PREFLIGHT_TIMEOUT))
+if [ "$PREFLIGHT_TIMEOUT" -lt 1 ] || [ "$PREFLIGHT_TIMEOUT" -gt "$PREFLIGHT_TIMEOUT_MAX" ]; then
+  PREFLIGHT_TIMEOUT=$PREFLIGHT_TIMEOUT_DEFAULT
+fi
 
 usage() {
   printf 'usage: fm-worker-preflight.sh <binding-home> <task-id> [--config <dir>] [--state <dir>] [--data <dir>] [--validate-only]\n' >&2

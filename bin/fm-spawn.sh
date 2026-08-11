@@ -706,11 +706,14 @@ spawn_abort_cleanup() {
       fi
     fi
   fi
-  # A fresh spawn's authorization is filed before the task exists, so an abort
-  # anywhere between the gate and the published record would otherwise leave a
-  # private authorization for a task id no teardown will ever enumerate. Only the
-  # fresh path arms this: on a relaunch the file authorizes the incarnation that
-  # is still running, and retiring it here would revoke a live worker.
+  # An authorization filed for a task that did not exist yet is filed before the
+  # record, so an abort anywhere between the gate and publication would otherwise
+  # leave a private authorization for a task id no teardown will ever enumerate.
+  # Only that case arms this. A spawn over an id that ALREADY had a record - a
+  # relaunch, or a same-identity respawn onto a duplicate-launch refusal or a
+  # herdr recovery reclaim - leaves the record behind when it aborts, so its
+  # authorization is still owned by that record's own incarnation and its
+  # teardown; retiring it here would revoke a worker that is still running.
   if [ "$WORKER_PREFLIGHT_RESULT_PENDING" = 1 ]; then
     WORKER_PREFLIGHT_RESULT_PENDING=0
     rm -f "$WORKER_PREFLIGHT_RESULT" 2>/dev/null || true
@@ -1665,7 +1668,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
     [ -z "$WORKER_PREFLIGHT_DOC" ] || printf '%s\n' "$WORKER_PREFLIGHT_DOC" >&2
     exit 1
   fi
-  if [ "$RELAUNCH" -eq 0 ]; then
+  if [ ! -e "$STATE/$ID.meta" ] && [ ! -L "$STATE/$ID.meta" ]; then
     WORKER_PREFLIGHT_RESULT="$STATE/$ID.megamind-preflight.json"
     WORKER_PREFLIGHT_RESULT_PENDING=1
   fi
