@@ -50,11 +50,13 @@
 #   root-contained; absolute, tilde, and dot-dot entries are dropped and counted
 #   in dropped_allows) plus Megamind's follow_up ladder command. Offers carry
 #   names and roots only - never paths to load. Filtered wiki names are never
-#   echoed; only filtered_count is. Self-describing numeric thresholds pass
-#   through, and matches carry validated freshness, a non-verbatim provenance
-#   summary (signal count plus optional semantic score), and optional positive
-#   numeric context-budget fields. Raw evidence strings, request-derived tokens,
-#   content, identities, roots, and paths never enter those evidence fields.
+#   echoed; only filtered_count is. The self-describing decision thresholds pass
+#   through and are required: output without reliance_floor, offer_floor, and
+#   ambiguity_band all present as numbers in 0..1 is malformed_output. Matches
+#   carry validated freshness, a non-verbatim provenance summary (signal count
+#   plus optional semantic score), and optional positive numeric context-budget
+#   fields. Raw evidence strings, request-derived tokens, content, identities,
+#   roots, and paths never enter those evidence fields.
 #   `notes` is host-owned: one fixed per-outcome line chosen here, never
 #   Megamind's own notes, which can name below-floor wikis, out-of-band
 #   candidates, and absolute roots.

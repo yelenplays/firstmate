@@ -19,7 +19,7 @@ This pilot integrates Megamind 0.3.x preflight as a mandatory, read-only consult
 ## Mandatory vs bypass
 
 Run preflight for every substantive request.
-Bypass only pure control messages (a bare single-token harness slash command, an operational input the protocol owner types as one of its pure control or routine monitoring kinds), single acknowledgments, credential or secret submissions (which never go to any tool), and routine monitoring traffic.
+Bypass only pure control messages (a bare single-token harness slash command, an operational input the protocol owner types as one of its pure control or routine monitoring kinds), single acknowledgments, credential or secret submissions (whose payload never reaches any tool), and routine monitoring traffic.
 A credential supplied through an active trusted credential exchange uses `bin/fm-megamind-preflight.sh classify-provenance credential-submission`; pass only that exact provenance token and never pass the credential payload to `classify`, `run`, shell arguments, or stdin.
 Ordinary prose that discusses credentials is substantive, and no regex or content guess may convert it into a credential submission.
 A slash command carrying prose arguments, a request that merely opens with a path, any dispatched task brief, and any operational input the protocol owner cannot type as one of those kinds are substantive.
