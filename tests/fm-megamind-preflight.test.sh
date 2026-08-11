@@ -7,12 +7,13 @@
 # and prints a canned megamind/preflight-result/v2 JSON fixture (or a controlled
 # failure). All fixtures are fully synthetic; no real wiki, path, or request
 # content appears. The suite proves mandatory-vs-bypass classification against
-# the real operational-input marker bytes, model-class propagation, restrictive
-# config defaults with trimming and tilde expansion, version gating, safe
-# option-value and dash-leading-request handling, allowed-path enforcement,
-# host-owned notes, ambiguity/no-match/privacy-filtered behavior,
-# malformed/failed/jq-missing disclosure, minimal non-verbatim proof logging,
-# and harness/backend neutrality.
+# the real operational-input marker bytes, payload-free credential provenance,
+# model-class propagation, restrictive config defaults with trimming and tilde
+# expansion, version gating, safe option-value and dash-leading-request
+# handling, allowed-path enforcement, safe thresholds/freshness/provenance and
+# optional context-budget propagation, host-owned notes,
+# ambiguity/no-match/privacy-filtered behavior, malformed/failed/jq-missing
+# disclosure, minimal non-verbatim proof logging, and harness/backend neutrality.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -56,11 +57,15 @@ cat > "$STUB" <<'SH'
 # FM_TEST_STUB_EXIT forces a non-zero exit, and every preflight argv is
 # appended to FM_TEST_STUB_ARGS for propagation assertions.
 set -u
+printf 'CALL\n' >> "${FM_TEST_STUB_ARGS:?}"
+if [ -n "${FM_TEST_CREDENTIAL_PAYLOAD:-}" ]; then
+  printf 'ENV_PAYLOAD=%s\n' "$FM_TEST_CREDENTIAL_PAYLOAD" >> "$FM_TEST_STUB_ARGS"
+fi
 if [ "${1:-}" = "--version" ]; then
   printf 'megamind-axi %s\n' "${FM_TEST_STUB_VERSION:-0.3.0}"
   exit 0
 fi
-printf '%s\n' "$@" >> "${FM_TEST_STUB_ARGS:?}"
+printf '%s\n' "$@" >> "$FM_TEST_STUB_ARGS"
 if [ -n "${FM_TEST_STUB_FIXTURE:-}" ]; then
   cat "$FM_TEST_STUB_FIXTURE"
 fi
@@ -156,8 +161,9 @@ cat > "$MATCHED_FIXTURE" <<'JSON'
     "root": "/synthetic/estate/ProductWiki",
     "score": 9,
     "confidence": {"score": 0.9, "meets_floor": true},
-    "freshness": null,
-    "evidence": {"lexical": ["trigger match: pricing"], "semantic": null},
+    "freshness": {"half_life_days": 30, "last_confirmed": "2026-08-10", "stale": false},
+    "evidence": {"lexical": ["trigger match: pricing RAW-EVIDENCE-CANARY /private/root"], "semantic": null},
+    "context_budget": {"max_candidates": 3, "max_context_chars": 4000, "root": "/private/root"},
     "reasons": ["trigger match: pricing"],
     "access": "full",
     "routing_mode": "bounded",
@@ -181,8 +187,28 @@ cat > "$MATCHED_FIXTURE" <<'JSON'
 }
 JSON
 
+test_credential_provenance_bypasses_without_payload() {
+  local home out credential='TEST-CREDENTIAL-CANARY-NOT-A-SECRET'
+  home=$(new_home credential-provenance)
+  : > "$FM_TEST_STUB_ARGS"
+  export FM_TEST_CREDENTIAL_PAYLOAD="$credential"
+  out=$(run_in "$home" classify-provenance credential-submission)
+  unset FM_TEST_CREDENTIAL_PAYLOAD
+  [ "$out" = bypass ] || fail "trusted credential provenance classified as $out"
+  [ ! -s "$FM_TEST_STUB_ARGS" ] || fail "credential provenance reached Megamind argv: $(cat "$FM_TEST_STUB_ARGS")"
+  [ ! -e "$home/state/megamind-preflight.jsonl" ] || fail "credential provenance created a proof log"
+  assert_no_grep "$credential" "$FM_TEST_STUB_ARGS" "credential text reached Megamind argv"
+  out=$(run_in "$home" classify-provenance future-credential-kind)
+  [ "$out" = substantive ] || fail "unknown credential provenance classified as $out"
+  out=$(run_in "$home" classify "Please explain credential rotation")
+  [ "$out" = substantive ] || fail "credential-related prose classified as $out"
+  out=$(run_in "$home" classify "API key: TEST-SHAPED-TEXT-NOT-A-SECRET")
+  [ "$out" = substantive ] || fail "credential-shaped text triggered content-based bypass: $out"
+  pass "classify: trusted credential provenance bypasses without carrying payload text"
+}
+
 test_matched_run_and_model_class_propagation() {
-  local home out
+  local home out safe_evidence
   home=$(new_home matched)
   : > "$FM_TEST_STUB_ARGS"
   out=$(FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "how do we price cleanup offers")
@@ -191,6 +217,18 @@ test_matched_run_and_model_class_propagation() {
   [ "$(printf '%s' "$out" | jq -r '.model_class')" = cloud ] || fail "default model class is not cloud"
   [ "$(printf '%s' "$out" | jq -r '.matches[0].wiki')" = ProductWiki ] || fail "match wiki lost"
   [ "$(printf '%s' "$out" | jq -r '.matches[0].allows | length')" = 3 ] || fail "allows not carried"
+  [ "$(printf '%s' "$out" | jq -c '.thresholds')" = '{"reliance_floor":0.75,"offer_floor":0.25,"ambiguity_band":0.05}' ] \
+    || fail "self-describing thresholds not carried: $out"
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].freshness')" = '{"half_life_days":30,"last_confirmed":"2026-08-10","stale":false}' ] \
+    || fail "safe freshness not carried: $out"
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].provenance')" = '{"lexical_signal_count":1,"semantic_score":null}' ] \
+    || fail "safe provenance summary not carried: $out"
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].context_budget')" = '{"max_candidates":3,"max_context_chars":4000}' ] \
+    || fail "safe context budget not carried: $out"
+  safe_evidence=$(printf '%s' "$out" | jq -c '{thresholds, evidence: [.matches[] | {freshness, provenance, context_budget}]}')
+  assert_not_contains "$safe_evidence" "RAW-EVIDENCE-CANARY" "raw evidence tokens must not pass through"
+  assert_not_contains "$safe_evidence" "/private/root" "roots and paths must not enter safe evidence"
+  assert_not_contains "$safe_evidence" "HiddenWiki" "filtered identities must not enter safe evidence"
   [ "$(printf '%s' "$out" | jq -r '.filtered_count')" = 1 ] || fail "filtered_count lost"
   assert_not_contains "$out" "HiddenWiki" "filtered wiki name must never be echoed"
   assert_not_contains "$out" "RAW-REQUEST-CANARY" "raw request must never be echoed"
@@ -215,6 +253,37 @@ test_matched_run_and_model_class_propagation() {
   FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing" --model-class local >/dev/null
   assert_grep "local" "$FM_TEST_STUB_ARGS" "flag model-class not propagated"
   pass "run: matched outcome, evidence minimization, and model-class propagation"
+}
+
+test_unsafe_evidence_values_are_minimized() {
+  local home out safe_evidence fixture="$TMP_ROOT/unsafe-evidence.json"
+  jq '.matches[0].freshness = {
+        "half_life_days": "RAW-FRESHNESS-CANARY",
+        "last_confirmed": "/private/freshness/path",
+        "stale": "HiddenEvidenceWiki"
+      }
+      | .matches[0].evidence = {
+        "lexical": ["RAW-LEXICAL-CANARY", "/private/evidence/path"],
+        "semantic": "RAW-SEMANTIC-CANARY"
+      }
+      | .matches[0].context_budget = {
+        "max_candidates": "RAW-BUDGET-CANARY",
+        "max_context_chars": -1,
+        "root": "/private/budget/root"
+      }' "$MATCHED_FIXTURE" > "$fixture"
+  home=$(new_home unsafe-evidence)
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing")
+  safe_evidence=$(printf '%s' "$out" | jq -c '{thresholds, evidence: [.matches[] | {freshness, provenance, context_budget}]}')
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].freshness')" = '{"half_life_days":null,"last_confirmed":null,"stale":null}' ] \
+    || fail "unsafe freshness values survived: $out"
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].provenance')" = '{"lexical_signal_count":2,"semantic_score":null}' ] \
+    || fail "unsafe provenance values survived: $out"
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].context_budget')" = '{}' ] \
+    || fail "unsafe context budget values survived: $out"
+  assert_not_contains "$safe_evidence" "RAW-" "raw evidence strings must not pass through"
+  assert_not_contains "$safe_evidence" "/private/" "evidence roots and paths must not pass through"
+  assert_not_contains "$safe_evidence" "HiddenEvidenceWiki" "evidence identities must not pass through"
+  pass "run: unsafe evidence strings, identities, roots, and paths are minimized"
 }
 
 test_proof_log_is_minimal_and_non_verbatim() {
@@ -292,6 +361,8 @@ test_missing_option_values_fail_closed() {
   expect_code 2 "$rc" "unknown run option"
   out=$(bounded 5 "$SCRIPT" run 2>&1); rc=$?
   expect_code 2 "$rc" "run with no request"
+  out=$(bounded 5 "$SCRIPT" classify-provenance credential-submission unexpected-payload 2>&1); rc=$?
+  expect_code 2 "$rc" "credential provenance with payload argument"
   pass "run: a missing or unknown option value fails closed instead of hanging"
 }
 
@@ -473,6 +544,16 @@ test_malformed_and_failed_disclosure() {
   out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing"); rc=$?
   expect_code 1 "$rc" "wrong-schema run"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_output ] || fail "wrong schema gave: $out"
+  # Missing or non-numeric decision thresholds make the v2 document malformed.
+  jq 'del(.thresholds)' "$MATCHED_FIXTURE" > "$fixture"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 1 "$rc" "missing-thresholds run"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_output ] || fail "missing thresholds gave: $out"
+  jq '.thresholds.reliance_floor = "RAW-THRESHOLD-CANARY"' "$MATCHED_FIXTURE" > "$fixture"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing"); rc=$?
+  expect_code 1 "$rc" "malformed-thresholds run"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_output ] || fail "malformed thresholds gave: $out"
+  assert_not_contains "$out" "RAW-THRESHOLD-CANARY" "malformed threshold content must not pass through"
   # A Megamind error document surfaces its upstream code.
   printf '{"schema_version":"megamind/error/v1","code":"registry_invalid","message":"synthetic"}' > "$fixture"
   out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_STUB_EXIT=1 run_in "$home" run --request "pricing"); rc=$?
@@ -538,7 +619,9 @@ test_harness_backend_neutrality() {
 }
 
 test_classify_bypass_vs_substantive
+test_credential_provenance_bypasses_without_payload
 test_matched_run_and_model_class_propagation
+test_unsafe_evidence_values_are_minimized
 test_proof_log_is_minimal_and_non_verbatim
 test_restrictive_defaults
 test_missing_option_values_fail_closed

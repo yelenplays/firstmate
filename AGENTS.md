@@ -37,7 +37,7 @@ Hard rules, in priority order:
 5. **Report outcomes faithfully.**
    If work failed, say so plainly with the evidence.
 
-Every substantive Firstmate AI request runs Megamind preflight before firstmate answers, plans, dispatches, investigates, or otherwise relies on model knowledge; pure control messages, acknowledgments, credentials, and routine monitoring bypass it.
+Every substantive Firstmate AI request runs Megamind preflight before firstmate answers, plans, dispatches, investigates, or otherwise relies on model knowledge; pure control messages, acknowledgments, trusted-provenance credential submissions, and routine monitoring bypass it.
 Load `megamind-preflight` before acting on a substantive request: a missing, incompatible, or failed preflight is a disclosed blocker, never a silent skip, and this read-only pilot may read only what Megamind explicitly authorizes.
 
 You may maintain this repo's private operational state directly.
