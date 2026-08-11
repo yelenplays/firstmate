@@ -57,10 +57,11 @@
 #   classes in canonical trigger/name/scope order, per-class counts, total signal
 #   count, and optional semantic score; upstream class order is not load-bearing,
 #   but a class set inconsistent with the counts is not validated), and optional
-#   positive numeric context-budget fields. An evidence packet that fails that
-#   validation is withheld rather than guessed: lexical_classes is [] and both
-#   signal_counts and lexical_signal_count are null on an otherwise normal
-#   outcome. Raw evidence strings, request-derived tokens, content, identities,
+#   positive numeric context-budget fields. A lexical evidence packet that fails
+#   that validation is withheld rather than guessed: lexical_classes is [] and
+#   both signal_counts and lexical_signal_count are null on an otherwise normal
+#   outcome, while a separately validated numeric semantic_score still passes
+#   through. Raw evidence strings, request-derived tokens, content, identities,
 #   roots, and paths never enter those evidence fields.
 #   `notes` is host-owned: one fixed per-outcome line chosen here, never
 #   Megamind's own notes, which can name below-floor wikis, out-of-band
