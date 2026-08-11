@@ -365,11 +365,11 @@ list_portable_serial() {
   done < <(all_repo_tests)
 }
 
-# Measured portable-serial script durations in milliseconds, from the CI timing
-# artifact recorded in docs/fm-test-portable-shards.md. These are balance hints
-# only: the shard partition stays complete and disjoint whatever they say, so a
-# stale hint costs balance rather than coverage. That doc owns the refresh
-# procedure.
+# Measured portable-serial script durations in milliseconds, from the per-shard
+# CI timing artifacts recorded in docs/fm-test-portable-shards.md. These are
+# balance hints only: the shard partition stays complete and disjoint whatever
+# they say, so a stale hint costs balance rather than coverage. That doc owns
+# the refresh procedure.
 portable_serial_weight_hints() {
   cat <<'EOF'
 tests/fm-afk-inject-e2e.test.sh 34697
