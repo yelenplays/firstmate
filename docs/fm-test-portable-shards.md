@@ -55,7 +55,7 @@ Membership is derived rather than enumerated, so a newly added test lands here b
 
 ## Portable serial CI shards
 
-On green CI run [30854740043](https://github.com/yelenplays/firstmate/actions/runs/30854740043), that remainder accumulated 22m43s of script time across 81 scripts.
+On green CI run [30854740043](https://github.com/kunchenguid/firstmate/actions/runs/30854740043), that remainder accumulated 22m43s of script time across 81 scripts, already past the 20-minute job timeout the unsharded lane ran under.
 On [PR 1495](https://github.com/kunchenguid/firstmate/pull/1495), its main step ran about 19m51s before the job was cancelled at that boundary.
 `portable-serial-<k>of<n>` splits it across `n` separate CI runners.
 Each shard is still strictly serial in itself, and separate runners mean no two of these stateful scripts ever share a machine, so the split needs no concurrency isolation proof.
@@ -85,7 +85,7 @@ Refresh the hints by downloading the per-shard timing artifacts from a green CI 
 
 ```sh
 gh run download <run-id> -R yelenplays/firstmate --pattern 'fm-test-timing-portable-serial-*' -D /tmp/fm-serial
-jq -r '.scripts[] | [.path, .duration_ms] | @tsv' /tmp/fm-serial/*.json | LC_ALL=C sort
+find /tmp/fm-serial -name '*.json' -exec jq -r '.scripts[] | [.path, .duration_ms] | @tsv' {} + | LC_ALL=C sort
 bin/fm-test-run.sh --check-coverage
 ```
 
