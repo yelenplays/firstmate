@@ -37,8 +37,23 @@
 #   whitespace-trimmed and a leading `~` is expanded to $HOME; no other shell
 #   expansion, globbing, or eval is applied to them. The model class comes
 #   from --model-class, then config/megamind-model-class, then the restrictive
-#   default `cloud` (every verified primary harness is a cloud model). Only
-#   megamind-axi 0.3.x is accepted; any other version is version_incompatible.
+#   default `cloud` (every verified primary harness is a cloud model). Megamind
+#   versions 0.3.x and 0.4.x are accepted because both preserve the host-consumed
+#   `megamind/preflight-result/v2` fields; malformed, older, and future versions
+#   remain version_incompatible until their compatibility is established. The
+#   probe is anchored on identity: it parses only a `megamind-axi <token>` line
+#   of `--version`, requires exactly one such line, and bounds that token's
+#   length and character set. Other output lines are ignored, raw executable
+#   output never reaches the typed document, and failure.detected carries that
+#   bounded token or `unknown`.
+# - The accepted v2 result must retain the host-consumed typed fields and their
+#   required container types: identity strings, model class, status, thresholds,
+#   result arrays, and match/offer confidence and path fields. The privacy
+#   fields `filtered` and `redacted_count` are optional: a present one is type-
+#   and range-checked, and an absent one keeps its existing safe default.
+#   Additive upstream fields remain ignored or privacy-filtered by the existing
+#   normalization boundary; missing or incompatible consumed fields are
+#   malformed_output.
 # - The Megamind call is read-only, and the request is passed after `--` so a
 #   dash-leading request is never parsed as an option: `megamind-axi preflight
 #   --model-class <class> --estate <dir> --format json --no-help-hints --
@@ -92,10 +107,34 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 
 SCHEMA="fm/megamind-preflight/v1"
 MEGAMIND_SCHEMA="megamind/preflight-result/v2"
-REQUIRED_VERSION="0.3"
+SUPPORTED_VERSION_LINES='0.3.x or 0.4.x'
 LOG_FILE="$STATE/megamind-preflight.jsonl"
 READ_POLICY="Read only the allows paths listed under each matched wiki root, within any returned context budget; use the follow_up ladder for page content; never read, infer, or widen to any other wiki path."
 RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" [--model-class local|cloud]'
+
+is_supported_version() {  # <version> - accept only proven complete 0.3.x/0.4.x releases
+  local version="$1"
+  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+  case "$version" in
+    0.3.*|0.4.*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+detect_version() {  # <executable> - print its one anchored megamind-axi version token, or nothing
+  # Identity is required and the disclosure is bounded: the raw stream is never
+  # captured, only whole `megamind-axi <token>` lines are parsed, and a probe
+  # that prints no such line - or more than one - names no single build and
+  # yields nothing, so the gate fails closed on it.
+  local parsed="" candidate
+  while IFS= read -r candidate; do
+    [ -z "$parsed" ] || return 1
+    parsed="$candidate"
+  done < <("$1" --version 2>/dev/null |
+    sed -n 's/^megamind-axi \([0-9A-Za-z][0-9A-Za-z.+-]\{0,31\}\)$/\1/p')
+  [ -n "$parsed" ] || return 1
+  printf '%s\n' "$parsed"
+}
 
 # Operational-input kinds that are pure control or routine monitoring. Every
 # entry is a kind the protocol owner recognizes explicitly, so each landed legacy
@@ -311,15 +350,12 @@ cmd_check() {
     emit_error executable_missing "Megamind executable not found: $exe"
     return 1
   fi
-  version="$("$exe" --version 2>/dev/null | sed -n 's/^megamind-axi \([0-9][0-9.]*\)$/\1/p')"
-  case "$version" in
-    "$REQUIRED_VERSION".*) : ;;
-    *)
-      emit_error version_incompatible "megamind-axi $REQUIRED_VERSION.x is required" \
-        "$(jq -cn --arg detected "${version:-unknown}" '{detected: $detected}')"
-      return 1
-      ;;
-  esac
+  version="$(detect_version "$exe")"
+  if ! is_supported_version "$version"; then
+    emit_error version_incompatible "megamind-axi $SUPPORTED_VERSION_LINES are required" \
+      "$(jq -cn --arg detected "${version:-unknown}" '{detected: $detected}')"
+    return 1
+  fi
   jq -cn \
     --arg schema "$SCHEMA" \
     --arg exe "$exe" \
@@ -382,16 +418,13 @@ cmd_run() {
     log_proof error executable_missing "" "" "$model_class" "" '[]'
     return 1
   fi
-  version="$("$exe" --version 2>/dev/null | sed -n 's/^megamind-axi \([0-9][0-9.]*\)$/\1/p')"
-  case "$version" in
-    "$REQUIRED_VERSION".*) : ;;
-    *)
-      emit_error version_incompatible "megamind-axi $REQUIRED_VERSION.x is required" \
-        "$(jq -cn --arg detected "${version:-unknown}" '{detected: $detected}')"
-      log_proof error version_incompatible "" "" "$model_class" "" '[]'
-      return 1
-      ;;
-  esac
+  version="$(detect_version "$exe")"
+  if ! is_supported_version "$version"; then
+    emit_error version_incompatible "megamind-axi $SUPPORTED_VERSION_LINES are required" \
+      "$(jq -cn --arg detected "${version:-unknown}" '{detected: $detected}')"
+    log_proof error version_incompatible "" "" "$model_class" "" '[]'
+    return 1
+  fi
 
   # Read-only Megamind call. Megamind owns routing, thresholds, privacy
   # filtering, and budgets; nothing here widens what it returns. The request
@@ -406,10 +439,42 @@ cmd_run() {
     return 1
   fi
   if ! printf '%s' "$raw" | jq -e --arg s "$MEGAMIND_SCHEMA" '
+      def nonempty_string: type == "string" and length > 0;
+      def score_object:
+        type == "object"
+        and (.score | type == "number" and . >= 0 and . <= 1);
+      def valid_match:
+        type == "object"
+        and (.name | nonempty_string)
+        and (.root | nonempty_string)
+        and (.access | type == "string")
+        and (.routing_mode | type == "string")
+        and (.confidence | score_object)
+        and (.allows | type == "array")
+        and all(.allows[]; type == "string")
+        and (.follow_up | type == "string");
+      def valid_offer:
+        type == "object"
+        and (.name | nonempty_string)
+        and (.root | nonempty_string)
+        and (.confidence | score_object);
       (.schema_version == $s)
+      and (.request_hash | nonempty_string)
+      and (.model_class == "local" or .model_class == "cloud")
+      and (.status | type == "string")
+      and ((.confidence == null) or (.confidence | type == "number"))
+      and ((.preflight_id | nonempty_string))
+      and ((.catalog_hash | nonempty_string))
       and ((.thresholds | type) == "object")
       and ([.thresholds.reliance_floor, .thresholds.offer_floor, .thresholds.ambiguity_band]
         | all(type == "number" and . >= 0 and . <= 1))
+      and (.matches | type == "array")
+      and all(.matches[]; valid_match)
+      and (.offers | type == "array")
+      and all(.offers[]; valid_offer)
+      and ((.filtered == null) or (.filtered | type == "array"))
+      and ((.redacted_count == null)
+        or (.redacted_count | type == "number" and floor == . and . >= 0))
     ' >/dev/null 2>&1; then
     emit_error malformed_output "Megamind preflight output is not a valid $MEGAMIND_SCHEMA document"
     log_proof error malformed_output "" "" "$model_class" "" '[]'

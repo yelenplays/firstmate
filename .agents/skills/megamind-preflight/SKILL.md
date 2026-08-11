@@ -14,7 +14,7 @@ metadata:
 # megamind-preflight
 
 Load this before acting on any substantive Firstmate AI request: answering a captain question, planning, scoping, dispatching, investigating, or any other turn that relies on model knowledge.
-This pilot integrates Megamind 0.3.x preflight as a mandatory, read-only consultation; Megamind remains the deterministic knowledge engine and Firstmate owns orchestration and every external action.
+This pilot integrates Megamind preflight as a mandatory, read-only consultation; Megamind remains the deterministic knowledge engine and Firstmate owns orchestration and every external action.
 
 ## Mandatory vs bypass
 

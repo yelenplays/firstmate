@@ -25,7 +25,11 @@ cat > "$STUB" <<'SH'
 #!/usr/bin/env bash
 set -u
 if [ "${1:-}" = --version ]; then
-  printf 'megamind-axi 0.3.0\n'
+  # The reported version is recorded too, so a case that pins a release proves
+  # the probe actually read that release instead of silently taking the default.
+  printf 'megamind-axi %s\n' "${FM_TEST_STUB_VERSION:-0.3.0}"
+  printf 'probed megamind-axi %s\n' "${FM_TEST_STUB_VERSION:-0.3.0}" \
+    >> "${FM_TEST_STUB_ARGS:-/dev/null}"
   exit 0
 fi
 printf '%s\n' "$@" >> "${FM_TEST_STUB_ARGS:?}"
@@ -458,6 +462,31 @@ run_spawn_case() {  # <home> <project> <worktree> <fakebin> <launchlog> <id> <ki
     "$SPAWN" "${args[@]}" 2>&1
 }
 
+test_0_4_spawn_authorizes_before_launch() {
+  local rec home project worktree fakebin launchlog id out rc
+  rec=$(make_spawn_case phase3-0-4 bound)
+  IFS='|' read -r _ home project worktree fakebin launchlog id <<EOF
+$rec
+EOF
+  : > "$STUB_ARGS"
+  out=$(FM_TEST_STUB_VERSION=0.4.0 run_spawn_case "$home" "$project" "$worktree" "$fakebin" "$launchlog" "$id" ship); rc=$?
+  expect_code 0 "$rc" "0.4 worker spawn with an authorized binding: $out"
+  # The counterfactual: under the stub's 0.3.0 fallback the pinned release never
+  # reaches the real probe, so this case would authorize a launch it never
+  # exercised. Both halves are asserted, so a spawn that stops propagating the
+  # pinned release fails here instead of quietly re-testing 0.3.x.
+  assert_grep "probed megamind-axi 0.4.0" "$STUB_ARGS" \
+    "the pinned 0.4.0 release never reached the owning home's version probe"
+  assert_no_grep "probed megamind-axi 0.3.0" "$STUB_ARGS" \
+    "the spawn probed the 0.3 fallback instead of the pinned 0.4.0 release"
+  assert_present "$home/state/$id.meta" "0.4 worker spawn published no task record"
+  assert_present "$home/state/$id.megamind-preflight.json" "0.4 worker spawn filed no authorization"
+  assert_contains "$(cat "$launchlog")" "codex " "0.4 worker spawn did not reach the launch boundary"
+  assert_grep "worker-request-hash" "$home/state/megamind-preflight.jsonl" \
+    "0.4 worker spawn left no owner proof record"
+  pass "the 0.4.0 owner-bound preflight authorizes a worker before launch"
+}
+
 test_ship_and_scout_spawns_authorize_before_launch() {
   local rec home project worktree fakebin launchlog id kind out rc launch result
   for kind in ship scout; do
@@ -632,6 +661,7 @@ test_unauthorized_outcomes_block_and_preserve_the_result
 test_a_hung_binding_blocks_within_its_bound
 test_validate_only_authorizes_without_filing_a_result
 test_identity_and_path_guards
+test_0_4_spawn_authorizes_before_launch
 test_ship_and_scout_spawns_authorize_before_launch
 test_blocked_binding_refuses_before_any_task_exists
 test_unresolved_routing_placeholder_refuses_spawn
