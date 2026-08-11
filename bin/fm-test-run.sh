@@ -845,7 +845,7 @@ families_for_test_reference() {
 # Conservative path → family map. Over-selects rather than under-selects.
 # Never expands to the complete suite.
 families_for_changed_path() {
-  local path=$1 fixture_ref
+  local path=$1 fixture_ref resolved
   case "$path" in
     tests/fm-test-run.test.sh)
       printf '%s\n' pure-contract-unit
@@ -989,6 +989,16 @@ families_for_changed_path() {
     tests/lib.sh|tests/*-helpers.sh)
       families_for_test_reference "$(basename "$path")" \
         || printf '%s\n' "__unmapped__:$path"
+      ;;
+    tests/megamind-fixture.sh)
+      # tests/lib.sh sources the shared Megamind binding fixture, so every
+      # suite that loads the library depends on it as much as the few suites
+      # that source it directly without the library. Resolve both references:
+      # either one alone under-selects.
+      resolved=0
+      families_for_test_reference "$(basename "$path")" && resolved=1
+      families_for_test_reference lib.sh && resolved=1
+      [ "$resolved" -eq 1 ] || printf '%s\n' "__unmapped__:$path"
       ;;
     tests/fixtures/*/*)
       # A fixture belongs to whichever suite reads its directory, found by the
