@@ -233,6 +233,33 @@ Observed bounded results:
 | Owner-bound `fm-worker-preflight.sh` | Exit 0 with empty stdout, the task's private `state/<task-id>.megamind-preflight.json` filed at mode 0600 with outcome `matched`, and one non-verbatim owner proof line appended to `state/megamind-preflight.jsonl`. |
 
 The launch was therefore authorized from the real 0.4.0 contract before any endpoint, worktree, or task record existed.
+
+The 0.5.0 line was measured against the real Phase 4 release on 2026-08-11 after the initial compatibility refusal.
+Phase 4 changes the Megamind version metadata and adds offline evaluation commands, while the `preflight-result/v2` and `route-result/v2` producers and their host-consumed retrieval fields remain unchanged from the accepted 0.4.0 path.
+The evidence run used the same throwaway-home binding and published example estate as the 0.4.0 run, with no private wiki, request, or credential material in the evidence:
+
+```sh
+megamind-axi --version
+megamind-axi preflight --model-class cloud --estate <estate> --format json --no-help-hints -- "pricing"
+megamind-axi route --root <estate> --format json --no-help-hints -- "pricing"
+bin/fm-megamind-preflight.sh check
+bin/fm-megamind-preflight.sh run --request "pricing"
+bin/fm-worker-preflight.sh <home> <task-id> --config <home>/config --state <home>/state --data <home>/data
+```
+
+Observed bounded results:
+
+| Step | Result |
+| --- | --- |
+| `--version` | Exactly one `megamind-axi` identity line, reporting `0.5.0`. |
+| Direct preflight call | Schema `megamind/preflight-result/v2`, status `matched`, the same required thresholds and match/offer field types, one match, no offers, and both optional privacy fields present. |
+| Direct route call | Schema `megamind/route-result/v2`, the same decision, threshold, candidate, governance, and context-budget field types consumed by the accepted path. |
+| `check` | Outcome `available` at version `0.5.0`, exit 0. |
+| `run` | One typed `fm/megamind-preflight/v1` document, outcome `matched`, exit 0. |
+| Owner-bound `fm-worker-preflight.sh` | Exit 0 with empty stdout, the task's private result filed at mode 0600 with outcome `matched`, and one non-verbatim owner proof line. |
+
+The 0.5.0 result reached the existing owner-bound worker authorization before launch, so the release is accepted without adding a second policy layer.
+The same owner still refuses 0.6.x and later, malformed identities, malformed output, and older releases until each future contract is separately established.
 A second home pinned to an installed `megamind-axi` 0.1.0 over that same estate reported outcome `error` with `failure.code` `version_incompatible`, `failure.detected` `0.1.0`, and exit 1, so the old-release refusal is measured on a real build rather than assumed from the synthetic stub.
 
 The full accept-and-refuse matrix stays portable and runs with no Megamind installed:
@@ -248,10 +275,11 @@ ok - run: restrictive defaults, version gate, and invalid config fail closed
 ok - run: the version probe is identity-anchored, single-line, and never verbatim
 ok - check: availability probe reports configuration honestly
 ok - the 0.4.0 owner-bound preflight authorizes a worker before launch
+ok - 0.5.0 authorizes before launch while 0.6.0 remains refused
 FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0
 ```
 
-Those cases authorize 0.3.x and 0.4.x, refuse the older `0.2.9`, the malformed `0.4`, `v0.4.0`, `0.4.0.1`, and `0.4.0-rc.1`, and the unproven future `0.5.0` and `1.0.0`, and hold the probe to exactly one `megamind-axi` identity line.
+Those cases authorize 0.3.x, 0.4.x, and 0.5.x, refuse the older `0.2.9`, the malformed `0.4`, `v0.4.0`, `0.4.0.1`, and `0.4.0-rc.1`, and the unproven future `0.6.0` and `1.0.0`, and hold the probe to exactly one `megamind-axi` identity line.
 
 ## Herdr
 

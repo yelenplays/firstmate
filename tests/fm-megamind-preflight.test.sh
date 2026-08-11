@@ -2,8 +2,8 @@
 # Behavior tests for bin/fm-megamind-preflight.sh, Firstmate's harness-neutral
 # read-only Megamind preflight surface.
 #
-# A synthetic megamind-axi stub stands in for proven Megamind 0.3.x and 0.4.x
-# releases: it answers
+# A synthetic megamind-axi stub stands in for proven Megamind 0.3.x, 0.4.x, and
+# 0.5.x releases: it answers
 # --version, records its argv for model-class/estate propagation assertions,
 # and prints a canned megamind/preflight-result/v2 JSON fixture (or a controlled
 # failure). All fixtures are fully synthetic; no real wiki, path, or request
@@ -389,13 +389,15 @@ test_restrictive_defaults() {
   out=$(FM_TEST_STUB_VERSION=0.3.9 FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
   expect_code 0 "$rc" "proven-0.3-version run"
   [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "0.3.x result was not authorized: $out"
-  # Phase 3's 0.4.0 preserves the v2 fields consumed by Firstmate, including
-  # additive fields that normalization does not expose.
-  out=$(FM_TEST_STUB_VERSION=0.4.0 FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
-  expect_code 0 "$rc" "proven-0.4-version run"
-  [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "0.4.x result was not authorized: $out"
+  # Phase 3's 0.4.0 and Phase 4's 0.5.0 preserve the v2 fields consumed by
+  # Firstmate, including additive fields that normalization does not expose.
+  for version in 0.4.0 0.5.0; do
+    out=$(FM_TEST_STUB_VERSION="$version" FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
+    expect_code 0 "$rc" "proven-$version run"
+    [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "$version result was not authorized: $out"
+  done
   # Old, malformed, and unproven future releases stay incompatible.
-  for version in 0.2.9 0.4 v0.4.0 0.4.0.1 0.4.0-rc.1 0.5.0 1.0.0; do
+  for version in 0.2.9 0.4 v0.4.0 0.4.0.1 0.4.0-rc.1 0.6.0 1.0.0; do
     out=$(FM_TEST_STUB_VERSION="$version" FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
     expect_code 1 "$rc" "unsupported version $version"
     [ "$(printf '%s' "$out" | jq -r '.failure.code')" = version_incompatible ] || fail "unsupported version $version gave: $out"
@@ -531,6 +533,10 @@ test_check_probe() {
   [ "$(printf '%s' "$out" | jq -r '.outcome')" = available ] || fail "0.4 check not available: $out"
   [ "$(printf '%s' "$out" | jq -r '.version')" = 0.4.0 ] || fail "0.4 check lost version: $out"
   out=$(FM_TEST_STUB_VERSION=0.5.0 run_in "$home" check); rc=$?
+  expect_code 0 "$rc" "0.5 configured check"
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = available ] || fail "0.5 check not available: $out"
+  [ "$(printf '%s' "$out" | jq -r '.version')" = 0.5.0 ] || fail "0.5 check lost version: $out"
+  out=$(FM_TEST_STUB_VERSION=0.6.0 run_in "$home" check); rc=$?
   expect_code 1 "$rc" "unproven future check"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = version_incompatible ] \
     || fail "unproven future check gave: $out"

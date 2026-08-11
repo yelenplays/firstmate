@@ -38,10 +38,11 @@
 #   expansion, globbing, or eval is applied to them. The model class comes
 #   from --model-class, then config/megamind-model-class, then the restrictive
 #   default `cloud` (every verified primary harness is a cloud model). Megamind
-#   versions 0.3.x and 0.4.x are accepted because both preserve the host-consumed
-#   `megamind/preflight-result/v2` fields; malformed, older, and future versions
-#   remain version_incompatible until their compatibility is established. The
-#   probe is anchored on identity: it parses only a `megamind-axi <token>` line
+#   versions 0.3.x, 0.4.x, and 0.5.x are accepted because all three preserve the
+#   host-consumed `megamind/preflight-result/v2` fields; malformed, older, and
+#   future versions remain version_incompatible until their compatibility is
+#   established. The probe is anchored on identity: it parses only a
+#   `megamind-axi <token>` line
 #   of `--version`, requires exactly one such line, and bounds that token's
 #   length and character set. Other output lines are ignored, raw executable
 #   output never reaches the typed document, and failure.detected carries that
@@ -107,16 +108,16 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 
 SCHEMA="fm/megamind-preflight/v1"
 MEGAMIND_SCHEMA="megamind/preflight-result/v2"
-SUPPORTED_VERSION_LINES='0.3.x or 0.4.x'
+SUPPORTED_VERSION_LINES='0.3.x, 0.4.x, or 0.5.x'
 LOG_FILE="$STATE/megamind-preflight.jsonl"
 READ_POLICY="Read only the allows paths listed under each matched wiki root, within any returned context budget; use the follow_up ladder for page content; never read, infer, or widen to any other wiki path."
 RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" [--model-class local|cloud]'
 
-is_supported_version() {  # <version> - accept only proven complete 0.3.x/0.4.x releases
+is_supported_version() {  # <version> - accept only proven complete 0.3.x/0.4.x/0.5.x releases
   local version="$1"
   [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
   case "$version" in
-    0.3.*|0.4.*) return 0 ;;
+    0.3.*|0.4.*|0.5.*) return 0 ;;
     *) return 1 ;;
   esac
 }
