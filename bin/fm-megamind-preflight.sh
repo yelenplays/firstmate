@@ -53,10 +53,11 @@
 #   echoed; only filtered_count is. The self-describing decision thresholds pass
 #   through and are required: output without reliance_floor, offer_floor, and
 #   ambiguity_band all present as numbers in 0..1 is malformed_output. Matches
-#   carry validated freshness, a non-verbatim provenance summary (signal count
-#   plus optional semantic score), and optional positive numeric context-budget
-#   fields. Raw evidence strings, request-derived tokens, content, identities,
-#   roots, and paths never enter those evidence fields.
+#   carry validated freshness, a non-verbatim provenance summary (fixed lexical
+#   classes, per-class counts, total signal count, and optional semantic score),
+#   and optional positive numeric context-budget fields. Raw evidence strings,
+#   request-derived tokens, content, identities, roots, and paths never enter
+#   those evidence fields.
 #   `notes` is host-owned: one fixed per-outcome line chosen here, never
 #   Megamind's own notes, which can name below-floor wikis, out-of-band
 #   candidates, and absolute roots.
@@ -432,11 +433,35 @@ cmd_run() {
          last_confirmed: (.last_confirmed | safe_date),
          stale: (.stale | if type == "boolean" then . else null end)
        } else null end;
+     def safe_signal_counts:
+       if type == "object"
+          and ((keys | sort) == ["name", "scope", "trigger"])
+          and all(.[]; type == "number" and floor == . and . >= 0)
+       then {trigger: .trigger, name: .name, scope: .scope}
+       else null end;
+     def safe_lexical_classes($counts):
+       if type == "array"
+          and all(.[]; type == "string"
+            and (. == "trigger" or . == "name" or . == "scope"))
+          and length == (unique | length)
+          and . == (["trigger", "name", "scope"] | map(select($counts[.] > 0)))
+       then .
+       else null end;
      def safe_provenance:
-       . as $match | {
-         lexical_signal_count: ([$match.evidence.lexical[]? | select(type == "string")] | length),
-         semantic_score: ($match.evidence.semantic | if type == "number" then . else null end)
-       };
+       . as $match |
+       ($match.evidence.signal_counts | safe_signal_counts) as $counts |
+       ($match.evidence.lexical_classes | safe_lexical_classes($counts)) as $classes |
+       ({semantic_score: ($match.evidence.semantic
+          | if type == "number" then . else null end)}
+        + if $counts != null and $classes != null then {
+            lexical_classes: $classes,
+            signal_counts: $counts,
+            lexical_signal_count: ([$counts[]] | add)
+          } else {
+            lexical_classes: [],
+            signal_counts: null,
+            lexical_signal_count: null
+          } end);
      def safe_budget:
        . as $budget | {
          max_candidates: ($budget.max_candidates | if positive_integer then . else null end),

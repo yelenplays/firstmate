@@ -162,7 +162,14 @@ cat > "$MATCHED_FIXTURE" <<'JSON'
     "score": 9,
     "confidence": {"score": 0.9, "meets_floor": true},
     "freshness": {"half_life_days": 30, "last_confirmed": "2026-08-10", "stale": false},
-    "evidence": {"lexical": ["trigger match: pricing RAW-EVIDENCE-CANARY /private/root"], "semantic": null},
+    "evidence": {
+      "routing_class": "lexical-card",
+      "coverage": {"matched_terms": 1, "request_terms": 2, "ratio": 0.5},
+      "signal_counts": {"trigger": 1, "name": 0, "scope": 1},
+      "provenance": {"source": "canonical-card", "scope": "declared card metadata only", "page_content": false},
+      "lexical_classes": ["trigger", "scope"],
+      "semantic": null
+    },
     "context_budget": {"max_candidates": 3, "max_context_chars": 4000, "root": "/private/root"},
     "reasons": ["trigger match: pricing"],
     "access": "full",
@@ -221,8 +228,8 @@ test_matched_run_and_model_class_propagation() {
     || fail "self-describing thresholds not carried: $out"
   [ "$(printf '%s' "$out" | jq -c '.matches[0].freshness')" = '{"half_life_days":30,"last_confirmed":"2026-08-10","stale":false}' ] \
     || fail "safe freshness not carried: $out"
-  [ "$(printf '%s' "$out" | jq -c '.matches[0].provenance')" = '{"lexical_signal_count":1,"semantic_score":null}' ] \
-    || fail "safe provenance summary not carried: $out"
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].provenance')" = '{"semantic_score":null,"lexical_classes":["trigger","scope"],"signal_counts":{"trigger":1,"name":0,"scope":1},"lexical_signal_count":2}' ] \
+    || fail "safe v2 provenance summary not carried: $out"
   [ "$(printf '%s' "$out" | jq -c '.matches[0].context_budget')" = '{"max_candidates":3,"max_context_chars":4000}' ] \
     || fail "safe context budget not carried: $out"
   safe_evidence=$(printf '%s' "$out" | jq -c '{thresholds, evidence: [.matches[] | {freshness, provenance, context_budget}]}')
@@ -256,34 +263,60 @@ test_matched_run_and_model_class_propagation() {
 }
 
 test_unsafe_evidence_values_are_minimized() {
-  local home out safe_evidence fixture="$TMP_ROOT/unsafe-evidence.json"
-  jq '.matches[0].freshness = {
-        "half_life_days": "RAW-FRESHNESS-CANARY",
-        "last_confirmed": "/private/freshness/path",
-        "stale": "HiddenEvidenceWiki"
-      }
-      | .matches[0].evidence = {
-        "lexical": ["RAW-LEXICAL-CANARY", "/private/evidence/path"],
-        "semantic": "RAW-SEMANTIC-CANARY"
-      }
-      | .matches[0].context_budget = {
-        "max_candidates": "RAW-BUDGET-CANARY",
-        "max_context_chars": -1,
-        "root": "/private/budget/root"
-      }' "$MATCHED_FIXTURE" > "$fixture"
+  local home out safe_evidence fixture="$TMP_ROOT/unsafe-evidence.json" case_name mutation
   home=$(new_home unsafe-evidence)
-  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing")
-  safe_evidence=$(printf '%s' "$out" | jq -c '{thresholds, evidence: [.matches[] | {freshness, provenance, context_budget}]}')
-  [ "$(printf '%s' "$out" | jq -c '.matches[0].freshness')" = '{"half_life_days":null,"last_confirmed":null,"stale":null}' ] \
-    || fail "unsafe freshness values survived: $out"
-  [ "$(printf '%s' "$out" | jq -c '.matches[0].provenance')" = '{"lexical_signal_count":2,"semantic_score":null}' ] \
-    || fail "unsafe provenance values survived: $out"
-  [ "$(printf '%s' "$out" | jq -c '.matches[0].context_budget')" = '{}' ] \
-    || fail "unsafe context budget values survived: $out"
-  assert_not_contains "$safe_evidence" "RAW-" "raw evidence strings must not pass through"
-  assert_not_contains "$safe_evidence" "/private/" "evidence roots and paths must not pass through"
-  assert_not_contains "$safe_evidence" "HiddenEvidenceWiki" "evidence identities must not pass through"
-  pass "run: unsafe evidence strings, identities, roots, and paths are minimized"
+  for case_name in missing-counts missing-classes unknown-count-key boolean-count \
+      negative-count fractional-count unknown-class duplicate-class \
+      mismatched-class-order request-derived-class; do
+    case "$case_name" in
+      missing-counts)
+        mutation='del(.matches[0].evidence.signal_counts)' ;;
+      missing-classes)
+        mutation='del(.matches[0].evidence.lexical_classes)' ;;
+      unknown-count-key)
+        mutation='.matches[0].evidence.signal_counts["RAW-COUNT-CANARY"] = 1' ;;
+      boolean-count)
+        mutation='.matches[0].evidence.signal_counts.trigger = true' ;;
+      negative-count)
+        mutation='.matches[0].evidence.signal_counts.trigger = -1' ;;
+      fractional-count)
+        mutation='.matches[0].evidence.signal_counts.scope = 1.5' ;;
+      unknown-class)
+        mutation='.matches[0].evidence.lexical_classes = ["trigger", "RAW-CLASS-CANARY"]' ;;
+      duplicate-class)
+        mutation='.matches[0].evidence.lexical_classes = ["trigger", "trigger", "scope"]' ;;
+      mismatched-class-order)
+        mutation='.matches[0].evidence.lexical_classes = ["scope", "trigger"]' ;;
+      request-derived-class)
+        mutation='.matches[0].evidence.lexical_classes = ["pricing"]' ;;
+    esac
+    jq "$mutation
+        | .matches[0].freshness = {
+            \"half_life_days\": \"RAW-FRESHNESS-CANARY\",
+            \"last_confirmed\": \"/private/freshness/path\",
+            \"stale\": \"HiddenEvidenceWiki\"
+          }
+        | .matches[0].evidence.semantic = \"RAW-SEMANTIC-CANARY\"
+        | .matches[0].context_budget = {
+            \"max_candidates\": \"RAW-BUDGET-CANARY\",
+            \"max_context_chars\": -1,
+            \"root\": \"/private/budget/root\"
+          }" "$MATCHED_FIXTURE" > "$fixture"
+    out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing")
+    safe_evidence=$(printf '%s' "$out" | jq -c \
+      '{thresholds, evidence: [.matches[] | {freshness, provenance, context_budget}]}')
+    [ "$(printf '%s' "$out" | jq -c '.matches[0].freshness')" = '{"half_life_days":null,"last_confirmed":null,"stale":null}' ] \
+      || fail "$case_name unsafe freshness values survived: $out"
+    [ "$(printf '%s' "$out" | jq -c '.matches[0].provenance')" = '{"semantic_score":null,"lexical_classes":[],"signal_counts":null,"lexical_signal_count":null}' ] \
+      || fail "$case_name unsafe provenance values were not withheld: $out"
+    [ "$(printf '%s' "$out" | jq -c '.matches[0].context_budget')" = '{}' ] \
+      || fail "$case_name unsafe context budget values survived: $out"
+    assert_not_contains "$safe_evidence" "RAW-" "$case_name raw evidence strings must not pass through"
+    assert_not_contains "$safe_evidence" "/private/" "$case_name evidence roots and paths must not pass through"
+    assert_not_contains "$safe_evidence" "HiddenEvidenceWiki" "$case_name evidence identities must not pass through"
+    assert_not_contains "$safe_evidence" "pricing" "$case_name request-derived class must not pass through"
+  done
+  pass "run: malformed v2 evidence and unsafe strings, identities, roots, and paths are withheld"
 }
 
 test_proof_log_is_minimal_and_non_verbatim() {
