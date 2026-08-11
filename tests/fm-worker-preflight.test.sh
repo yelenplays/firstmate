@@ -488,7 +488,7 @@ EOF
 }
 
 test_0_5_spawn_authorizes_before_launch_and_future_refuses() {
-  local rec home project worktree fakebin launchlog id out rc
+  local rec home project worktree fakebin launchlog id out rc proof
   rec=$(make_spawn_case phase4-0-5 bound)
   IFS='|' read -r _ home project worktree fakebin launchlog id <<EOF
 $rec
@@ -505,6 +505,8 @@ EOF
     "0.5.0 worker spawn filed no authorization"
   assert_contains "$(cat "$launchlog")" "codex " \
     "0.5.0 worker spawn did not reach the launch boundary"
+  assert_grep "worker-request-hash" "$home/state/megamind-preflight.jsonl" \
+    "0.5.0 worker spawn left no owner proof record"
 
   rec=$(make_spawn_case future-0-6 bound)
   IFS='|' read -r _ home project worktree fakebin launchlog id <<EOF
@@ -519,6 +521,16 @@ EOF
   assert_absent "$home/state/$id.megamind-preflight.json" \
     "unproven 0.6.0 filed an authorization"
   [ ! -s "$launchlog" ] || fail "unproven 0.6.0 reached the launch boundary"
+  # The counterfactual for the 0.5.0 proof assertion: a refused spawn reaches the
+  # same owner log path and records its typed refusal there, so the identical
+  # fixed-string check must come back empty on this home. A proof assertion that
+  # could pass without an authorized routing call - or on a log this home never
+  # wrote - would pass here too.
+  proof="$home/state/megamind-preflight.jsonl"
+  assert_grep '"failure":"version_incompatible"' "$proof" \
+    "unproven 0.6.0 left no typed refusal in the owning home's proof log"
+  assert_no_grep "worker-request-hash" "$proof" \
+    "unproven 0.6.0 recorded an owner proof for a worker it never authorized"
   pass "0.5.0 authorizes before launch while 0.6.0 remains refused"
 }
 

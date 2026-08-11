@@ -364,7 +364,7 @@ test_proof_log_is_minimal_and_non_verbatim() {
 # --- restrictive config defaults and version gate ----------------------------
 
 test_restrictive_defaults() {
-  local home out rc
+  local home out rc consumed baseline
   # No estate config at all: never guess roots.
   home="$TMP_ROOT/unconfigured"
   mkdir -p "$home/config" "$home/state"
@@ -391,10 +391,23 @@ test_restrictive_defaults() {
   [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "0.3.x result was not authorized: $out"
   # Phase 3's 0.4.0 and Phase 4's 0.5.0 preserve the v2 fields consumed by
   # Firstmate, including additive fields that normalization does not expose.
+  # The authorized outcome alone cannot show that: a withheld lexical packet, a
+  # dropped context budget, a null freshness, and a dropped allows path all still
+  # normalize to `matched` at exit 0. Every proven line is therefore held to the
+  # same consumed retrieval surface as the 0.3.x baseline, and the baseline is
+  # itself pinned to the carried lexical packet so a globally withheld surface
+  # cannot make the comparison vacuous.
+  consumed='{outcome, thresholds, notes, filtered_count, redacted_count, dropped_allows,
+    matches: [.matches[] | {freshness, provenance, context_budget, allows}]}'
+  baseline=$(printf '%s' "$out" | jq -Sc "$consumed")
+  assert_contains "$baseline" '"signal_counts":{"name"' \
+    "the 0.3.x consumed-surface baseline already withheld the lexical packet"
   for version in 0.4.0 0.5.0; do
     out=$(FM_TEST_STUB_VERSION="$version" FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing"); rc=$?
     expect_code 0 "$rc" "proven-$version run"
     [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "$version result was not authorized: $out"
+    [ "$(printf '%s' "$out" | jq -Sc "$consumed")" = "$baseline" ] \
+      || fail "$version changed the consumed retrieval surface: $out"
   done
   # Old, malformed, and unproven future releases stay incompatible.
   for version in 0.2.9 0.4 v0.4.0 0.4.0.1 0.4.0-rc.1 0.6.0 1.0.0; do

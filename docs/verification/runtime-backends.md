@@ -247,16 +247,32 @@ bin/fm-megamind-preflight.sh run --request "pricing"
 bin/fm-worker-preflight.sh <home> <task-id> --config <home>/config --state <home>/state --data <home>/data
 ```
 
+Every command ran twice over that one estate and request - once against the accepted 0.4.0 pin, once against 0.5.0 - because the consumed retrieval fields degrade silently rather than loudly: a withheld lexical packet, a dropped context budget, a null freshness, and a discarded allows path all still normalize to `matched` at exit 0.
+The comparison therefore runs over the whole consumed surface of the typed `run` document, through one projection that carries no wiki name, root, request, or path:
+
+```sh
+bin/fm-megamind-preflight.sh run --request "pricing" | jq -S '
+  {outcome, thresholds, notes, read_policy, filtered_count, redacted_count, dropped_allows,
+   matches: [.matches[] | {access, routing_mode, freshness, provenance,
+                           allows: (.allows | length), context_budget}]}'
+```
+
 Observed bounded results:
 
 | Step | Result |
 | --- | --- |
-| `--version` | Exactly one `megamind-axi` identity line, reporting `0.5.0`. |
+| `--version` | Exactly one `megamind-axi` identity line, reporting `0.5.0`, with no second identity line. |
+| CLI flags and exit status | The same `--model-class`, `--estate`, `--root`, `--format json`, `--no-help-hints`, and trailing `--` request flags were accepted, none renamed, removed, or newly required, and every listed call exited 0 call for call with the 0.4.0 pin; Phase 4's added evaluation commands are never invoked. |
 | Direct preflight call | Schema `megamind/preflight-result/v2`, status `matched`, the same required thresholds and match/offer field types, one match, no offers, and both optional privacy fields present. |
 | Direct route call | Schema `megamind/route-result/v2`, the same decision, threshold, candidate, governance, and context-budget field types consumed by the accepted path. |
+| Consumed-surface projection | Identical between the two pins. |
+| Match evidence | `evidence.signal_counts` carried the same three non-negative `trigger`/`name`/`scope` integers and `evidence.lexical_classes` agreed with those counts on both pins, so the host emitted the full lexical packet rather than the withheld `lexical_classes: []` / `signal_counts: null` shape; `freshness` normalized to the same non-null object rather than the `null` a renamed or retyped field would give. |
+| Context budget | The match's `context_budget` normalized to the same authorized-only `max_candidates`/`max_context_chars` pair on both pins, so no renamed or retyped key was dropped into the withheld `{}`. |
+| Allows paths | The same entry count on both pins, every entry relative and root-contained, and `dropped_allows` `0` in both, so no listed path was silently discarded. |
+| Notes and privacy counters | `notes` held exactly the one fixed host line for `matched` with no upstream note text, and `filtered_count` and `redacted_count` matched the 0.4.0 run with no filtered identity anywhere in the document. |
 | `check` | Outcome `available` at version `0.5.0`, exit 0. |
 | `run` | One typed `fm/megamind-preflight/v1` document, outcome `matched`, exit 0. |
-| Owner-bound `fm-worker-preflight.sh` | Exit 0 with empty stdout, the task's private result filed at mode 0600 with outcome `matched`, and one non-verbatim owner proof line. |
+| Owner-bound `fm-worker-preflight.sh` | Exit 0 with empty stdout, the task's private result filed at mode 0600 with outcome `matched`, and one non-verbatim owner proof line carrying the minimal proof fields only - no request text and no path. |
 
 The 0.5.0 result reached the existing owner-bound worker authorization before launch, so the release is accepted without adding a second policy layer.
 The same owner still refuses 0.6.x and later, malformed identities, malformed output, and older releases until each future contract is separately established.
@@ -280,6 +296,7 @@ FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0
 ```
 
 Those cases authorize 0.3.x, 0.4.x, and 0.5.x, refuse the older `0.2.9`, the malformed `0.4`, `v0.4.0`, `0.4.0.1`, and `0.4.0-rc.1`, and the unproven future `0.6.0` and `1.0.0`, and hold the probe to exactly one `megamind-axi` identity line.
+Each proven line is held to the same normalized consumed surface as the 0.3.x baseline - lexical packet, freshness, context budget, allows, and host notes - rather than to its authorized outcome alone, and the 0.5.0 launch case requires the owner proof record that the refused 0.6.0 case, which reaches the same log with its typed refusal, must not carry.
 
 ## Herdr
 
