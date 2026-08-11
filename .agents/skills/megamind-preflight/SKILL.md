@@ -48,6 +48,8 @@ Never classify a request as bypass to save time, and never skip a failed preflig
 When you dispatch an ordinary ship or scout task, author `data/<task-id>/megamind-request.md` the same way you fill in `{TASK}`: one privacy-safe routing line, enough for Megamind to match on and nothing more.
 That file - never the brief - is what `bin/fm-spawn.sh` routes through the owning home's binding before any endpoint, worktree, or task record exists, so an unfilled or oversized request refuses the spawn instead of producing a task that cannot work.
 A refusal is a concrete blocker to disclose, not a step to retry around: fix the binding or the routing request, or escalate it.
+Every routing-request refusal names the exact file to author or correct, including for a task scaffolded before that file existed - write its one routing line at the named path.
+`bin/fm-control.sh relaunch` clears the same binding before it stops anything, so a refusal there leaves the running worker, its record, and its local copy untouched.
 
 As the worker, your launch-time result is already filed at `state/<task-id>.megamind-preflight.json` and your brief's wiki-routing section names it.
 Read that file and act on its `outcome` exactly as above; it is the authoritative consultation for your task.

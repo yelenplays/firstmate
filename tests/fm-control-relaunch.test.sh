@@ -846,6 +846,56 @@ test_missing_worktree_refuses_before_stopping_anything() {
   pass "fm-control relaunch: an unaccountable local copy refuses before the agent is touched"
 }
 
+# A replacement worker must clear the owning home's mandatory Megamind binding
+# (bin/fm-worker-preflight.sh) before this transaction touches the one that is
+# running. A task scaffolded before that routing request existed is the
+# guaranteed case, and relaunch is exactly the command that must not kill a
+# wedged worker to discover it.
+test_relaunch_without_a_routing_request_refuses_before_the_agent_is_touched() {
+  local dir out rc result meta_before meta_after brief_before brief_after
+  dir=$(new_case legacybinding rl40)
+  add_ship_task "$dir" rl40 claude
+  result="$dir/home/state/rl40.megamind-preflight.json"
+  printf 'prior authorization\n' > "$result"
+  rm -f "$dir/home/data/rl40/megamind-request.md"
+  meta_before=$(cat "$dir/home/state/rl40.meta")
+  brief_before=$(cat "$dir/home/data/rl40/brief.md")
+
+  out=$(run_control "$dir" rl40 relaunch --note "continue the interrupted fix"); rc=$?
+  expect_code 1 "$rc" "a task with no routing request should refuse"
+  assert_contains "$out" "mandatory Megamind preflight" \
+    "the refusal should name the binding that could not authorize the replacement"
+  assert_contains "$out" "$dir/home/data/rl40/megamind-request.md" \
+    "the refusal should name the exact file the operator must author"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "a refused relaunch must not stop the agent"
+  [ -z "$(cat "$dir/fake/literal")" ] || fail "a refused relaunch must send nothing"
+  meta_after=$(cat "$dir/home/state/rl40.meta")
+  [ "$meta_before" = "$meta_after" ] || fail "the refusal changed the durable task record"
+  brief_after=$(cat "$dir/home/data/rl40/brief.md")
+  [ "$brief_before" = "$brief_after" ] || fail "the refusal rewrote the running worker's instructions"
+  assert_grep "prior authorization" "$result" \
+    "the refusal replaced the running worker's own preflight result"
+  assert_absent "$dir/home/state/rl40.control-relaunch" \
+    "the refusal opened a relaunch transaction before validating the binding"
+  pass "fm-control relaunch: an unauthorized binding refuses while the worker, its record, and its copy are untouched"
+}
+
+test_authorized_relaunch_refreshes_the_task_authorization() {
+  local dir out rc result
+  dir=$(new_case bindingok rl41)
+  add_ship_task "$dir" rl41 claude
+  result="$dir/home/state/rl41.megamind-preflight.json"
+
+  out=$(run_control "$dir" rl41 relaunch --note "continue the interrupted fix"); rc=$?
+  expect_code 0 "$rc" "an authorized binding should relaunch"$'\n'"$out"
+  assert_contains "$out" "relaunched rl41" "the authorized relaunch should report its transition"
+  assert_present "$result" "an authorized relaunch filed no preflight result for the replacement"
+  [ "$(jq -r '.outcome' < "$result")" = no-match ] \
+    || fail "the filed result is not the typed preflight document"
+  assert_grep "encode launch-brief" "$dir/fake/literal" "the replacement should have been launched"
+  pass "fm-control relaunch: an authorized binding relaunches and files the replacement's own result"
+}
+
 test_missing_instructions_refuse_before_stopping_anything() {
   local dir out rc
   dir=$(new_case nobrief rl11)
@@ -1324,6 +1374,8 @@ test_ship_relaunch_ignores_the_crew_harness_config
 test_spawn_relaunch_without_a_harness_reuses_the_recorded_one
 test_prefixed_prior_harness_wiring_is_still_retired
 test_muse_session_binding_is_retired_on_a_harness_switch
+test_relaunch_without_a_routing_request_refuses_before_the_agent_is_touched
+test_authorized_relaunch_refreshes_the_task_authorization
 test_missing_worktree_refuses_before_stopping_anything
 test_missing_instructions_refuse_before_stopping_anything
 test_checkpoint_refusal_leaves_the_record_byte_identical

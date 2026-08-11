@@ -186,9 +186,10 @@ The launch-time binding matrix was verified on 2026-08-11 with the repository's 
 
 ```sh
 bin/fm-test-run.sh tests/fm-worker-preflight.test.sh tests/fm-brief.test.sh \
-  tests/fm-spawn-dispatch-profile.test.sh tests/fm-kimi-harness.test.sh \
-  tests/fm-muse-harness.test.sh tests/fm-grok-harness.test.sh \
-  tests/fm-task-delivery.test.sh tests/fm-tangle-guard.test.sh
+  tests/fm-control-relaunch.test.sh tests/fm-spawn-dispatch-profile.test.sh \
+  tests/fm-kimi-harness.test.sh tests/fm-muse-harness.test.sh \
+  tests/fm-grok-harness.test.sh tests/fm-task-delivery.test.sh \
+  tests/fm-tangle-guard.test.sh
 bin/fm-test-run.sh tests/fm-backend-autodetect-smoke.test.sh \
   tests/fm-backend-herdr-launcher-workspace-e2e.test.sh \
   tests/fm-backend-herdr-workspace-per-home-e2e.test.sh
@@ -197,12 +198,12 @@ bin/fm-test-run.sh tests/fm-backend-autodetect-smoke.test.sh \
 Observed bounded output:
 
 ```text
-FM_TEST_SUMMARY total=8 failed=0 skipped_gate=0
+FM_TEST_SUMMARY total=9 failed=0 skipped_gate=0
 FM_TEST_SUMMARY total=3 failed=0 skipped_gate=0
 ```
 
 The gate is one `fm-spawn.sh` step taken before endpoint creation, worktree provisioning, and task publication, so it is common to claude, codex, opencode, pi, pi-signed, grok, kimi, and muse for both ship and scout tasks, and to tmux, Herdr, Zellij, Orca, and cmux alike - no backend can reach its own endpoint sequence without it.
-The backend suites therefore cover endpoint creation and command delivery rather than reimplementing the gate; `tests/fm-worker-preflight.test.sh` owns the binding, routing-request, outcome, refusal, proof-placement, private-result, and isolated-copy matrix end to end, and the real-Herdr suites above prove the same step under a live runtime for a primary home and a secondmate-shaped home.
+The backend suites therefore cover endpoint creation and command delivery rather than reimplementing the gate; `tests/fm-worker-preflight.test.sh` owns the binding, routing-request, outcome, refusal, proof-placement, private-result, validate-only, and isolated-copy matrix end to end, `tests/fm-control-relaunch.test.sh` owns the relaunch precondition that refuses before the running worker is touched, and the real-Herdr suites above prove the same step under a live runtime for a primary home and a secondmate-shaped home.
 No supported worker-tool or spawn-backend axis is inapplicable to ordinary ship or scout preflight.
 Secondmate launch itself is intentionally inapplicable because it starts a firstmate home rather than an ordinary worker; `tests/fm-worker-preflight.test.sh` pins that omission at the launch boundary, and a secondmate's own worker launch applies the same matrix from that home's own binding, as covered by `tests/fm-trace-context-spawn.test.sh` and `tests/fm-backend-herdr-workspace-per-home-e2e.test.sh`.
 

@@ -50,31 +50,37 @@ file_mode() {  # <path>
 
 make_home() {
   local home=$1 name=$2
-  mkdir -p "$home/config" "$home/state" "$home/estate-$name"
+  mkdir -p "$home/config" "$home/state" "$home/data" "$home/estate-$name"
   printf '%s\n' "$STUB" > "$home/config/megamind-executable"
   printf '%s\n' "$home/estate-$name" > "$home/config/megamind-estate"
   printf 'cloud\n' > "$home/config/megamind-model-class"
 }
 
-write_request() {  # <path> <text>
-  printf '%s\n' "$2" > "$1"
+# write_request <data-dir> <task-id> <text>: author the task's own routing
+# request at the one path bin/fm-worker-preflight.sh owns.
+write_request() {
+  mkdir -p "$1/$2"
+  printf '%s\n' "$3" > "$1/$2/megamind-request.md"
 }
 
-run_helper() {  # <home> <request-file> <result-file> [extra helper args...]
+request_path() { printf '%s/%s/megamind-request.md' "$1" "$2"; }
+result_path() { printf '%s/%s.megamind-preflight.json' "$1" "$2"; }
+
+run_helper() {  # <home> <task-id> [extra helper args...]
   FM_TEST_STUB_ARGS="$STUB_ARGS" "$HELPER" "$@"
 }
 
 test_owner_binding_proof_and_private_result() {
-  local primary project request result out rc
+  local primary project id result out rc
   primary="$TMP_ROOT/primary"
   project="$TMP_ROOT/project-copy"
-  request="$TMP_ROOT/request.md"
-  result="$primary/state/owner.megamind-preflight.json"
+  id='owner-task'
   make_home "$primary" primary
   mkdir -p "$project/state"
-  write_request "$request" 'routing summary with PRIVATE-REQUEST-CANARY'
+  write_request "$primary/data" "$id" 'routing summary with PRIVATE-REQUEST-CANARY'
+  result=$(result_path "$primary/state" "$id")
   : > "$STUB_ARGS"
-  out=$(cd "$project" && unset FM_HOME && run_helper "$primary" "$request" "$result"); rc=$?
+  out=$(cd "$project" && unset FM_HOME && run_helper "$primary" "$id"); rc=$?
   expect_code 0 "$rc" "authorized worker preflight from an isolated project copy"
   [ -z "$out" ] || fail "an authorized preflight printed the typed result instead of filing it: $out"
   assert_present "$result" "the authorized typed result was not filed for the task"
@@ -84,67 +90,68 @@ test_owner_binding_proof_and_private_result() {
   assert_grep "worker-request-hash" "$primary/state/megamind-preflight.jsonl" "primary proof was not written"
   assert_absent "$project/state/megamind-preflight.jsonl" "worker proof leaked into the isolated project copy"
   assert_no_grep "PRIVATE-REQUEST-CANARY" "$primary/state/megamind-preflight.jsonl" "proof log leaked request text"
+  assert_no_grep "megamind-request.md" "$STUB_ARGS" "the routing request path was handed to Megamind"
+  assert_no_grep "megamind-request.md" "$primary/state/megamind-preflight.jsonl" \
+    "the routing request path entered the proof log"
   pass "an authorized preflight binds the owner home and files a private task result"
 }
 
 test_ambient_overrides_cannot_redirect_the_binding() {
-  local owner foreign request result rc
+  local owner foreign id rc
   owner="$TMP_ROOT/override-owner"
   foreign="$TMP_ROOT/override-foreign"
-  request="$TMP_ROOT/override-request.md"
-  result="$owner/state/override.megamind-preflight.json"
+  id='override-task'
   make_home "$owner" owner
   make_home "$foreign" foreign
-  write_request "$request" 'routing summary for the override case'
+  write_request "$owner/data" "$id" 'routing summary for the override case'
   : > "$STUB_ARGS"
   # The tmux/herdr server a worker pane lives in can be a child of firstmate, so
   # these documented overrides are reachable in the launching environment. An
   # ambient value must not repoint the binding's config or drop its proof in
   # another home.
   FM_CONFIG_OVERRIDE="$foreign/config" FM_STATE_OVERRIDE="$foreign/state" \
-    run_helper "$owner" "$request" "$result"; rc=$?
+    FM_DATA_OVERRIDE="$foreign/data" run_helper "$owner" "$id"; rc=$?
   expect_code 0 "$rc" "owner-bound preflight under ambient overrides"
   assert_grep "$owner/estate-owner" "$STUB_ARGS" "an ambient FM_CONFIG_OVERRIDE redirected the binding"
   assert_no_grep "$foreign/estate-foreign" "$STUB_ARGS" "the binding leaked into the foreign home's estate"
   assert_present "$owner/state/megamind-preflight.jsonl" "proof was not written to the binding owner's state"
   assert_absent "$foreign/state/megamind-preflight.jsonl" "an ambient FM_STATE_OVERRIDE misplaced the proof record"
+  assert_present "$(result_path "$owner/state" "$id")" "the owner home filed no task result"
   pass "ambient FM_CONFIG_OVERRIDE and FM_STATE_OVERRIDE cannot move the owner binding"
 }
 
 test_relocated_home_binds_its_own_resolved_directories() {
-  local home config state foreign request result rc
+  local home config state data foreign id rc
   home="$TMP_ROOT/relocated-home"
   config="$TMP_ROOT/relocated-config"
   state="$TMP_ROOT/relocated-state"
+  data="$TMP_ROOT/relocated-data"
   foreign="$TMP_ROOT/relocated-foreign"
-  request="$TMP_ROOT/relocated-request.md"
-  result="$state/relocated.megamind-preflight.json"
-  mkdir -p "$home" "$state"
+  id='relocated-task'
+  mkdir -p "$home" "$state" "$config" "$TMP_ROOT/relocated-estate"
   make_home "$foreign" foreign
-  mkdir -p "$config" "$TMP_ROOT/relocated-estate"
   printf '%s\n' "$STUB" > "$config/megamind-executable"
   printf '%s\n' "$TMP_ROOT/relocated-estate" > "$config/megamind-estate"
-  write_request "$request" 'routing summary for a relocated home'
+  write_request "$data" "$id" 'routing summary for a relocated home'
   : > "$STUB_ARGS"
   # A home whose operational directories are relocated (docs/configuration.md
   # "FM_HOME") still reads its OWN binding and files its OWN proof, which is what
   # the owner passes explicitly rather than leaving to the ambient environment.
   FM_CONFIG_OVERRIDE="$foreign/config" FM_STATE_OVERRIDE="$foreign/state" \
-    run_helper "$home" "$request" "$result" --config "$config" --state "$state"; rc=$?
+    run_helper "$home" "$id" --config "$config" --state "$state" --data "$data"; rc=$?
   expect_code 0 "$rc" "relocated home preflight"
   assert_grep "$TMP_ROOT/relocated-estate" "$STUB_ARGS" "the relocated home did not read its own binding"
   assert_present "$state/megamind-preflight.jsonl" "the relocated home's proof was misplaced"
   assert_absent "$foreign/state/megamind-preflight.jsonl" "the relocated home's proof leaked into another home"
-  assert_present "$result" "the relocated home filed no task result"
-  pass "an explicitly pinned config and state bind a relocated home to its own directories"
+  assert_present "$(result_path "$state" "$id")" "the relocated home filed no task result"
+  pass "an explicitly pinned config, state, and data bind a relocated home to its own directories"
 }
 
 test_secondmate_binding_is_not_primary_binding() {
-  local primary secondmate request result out rc
+  local primary secondmate id out rc
   primary="$TMP_ROOT/primary-secondmate"
   secondmate="$TMP_ROOT/secondmate"
-  request="$TMP_ROOT/secondmate-request.md"
-  result="$TMP_ROOT/secondmate/state/sm-worker.megamind-preflight.json"
+  id='sm-worker'
   make_home "$primary" primary
   mkdir -p "$secondmate/config" "$secondmate/state"
   : > "$STUB_ARGS"
@@ -153,103 +160,154 @@ test_secondmate_binding_is_not_primary_binding() {
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = not_configured ] \
     || fail "an unconfigured secondmate-shaped home inherited a binding"
   make_home "$secondmate" secondmate
-  write_request "$request" 'secondmate worker routing summary'
+  write_request "$secondmate/data" "$id" 'secondmate worker routing summary'
   : > "$STUB_ARGS"
-  run_helper "$secondmate" "$request" "$result"; rc=$?
+  run_helper "$secondmate" "$id"; rc=$?
   expect_code 0 "$rc" "secondmate worker preflight"
   assert_grep "$secondmate/estate-secondmate" "$STUB_ARGS" "secondmate worker used the primary binding"
   assert_no_grep "$primary/estate-primary" "$STUB_ARGS" "secondmate worker leaked the primary estate"
   assert_present "$secondmate/state/megamind-preflight.jsonl" "secondmate proof was not written to its own state"
   assert_absent "$primary/state/megamind-preflight.jsonl" "secondmate proof leaked into the primary state"
-  assert_present "$result" "the secondmate's worker result was not filed in its own home"
+  assert_present "$(result_path "$secondmate/state" "$id")" "the secondmate's worker result was not filed in its own home"
   pass "secondmate workers remain bound to their own home"
 }
 
-# <label> <request-file> <expected-failure-code>
+# assert_request_blocks <label> <task-id> <expected-failure-code>
+# A refusal must be typed, must name the exact file the operator has to author,
+# must never reach Megamind, and must leave the task's existing authorization
+# exactly as it found it.
 assert_request_blocks() {
-  local label=$1 request=$2 code=$3 home result out rc
+  local label=$1 id=$2 code=$3 home result out rc
   home="$TMP_ROOT/request-guard"
-  result="$TMP_ROOT/request-guard/state/guard.megamind-preflight.json"
   [ -d "$home" ] || make_home "$home" guard
-  printf 'stale authorization\n' > "$result"
+  result=$(result_path "$home/state" "$id")
+  printf 'prior authorization\n' > "$result"
   : > "$STUB_ARGS"
-  out=$(run_helper "$home" "$request" "$result" 2>/dev/null); rc=$?
+  out=$(run_helper "$home" "$id" 2>/dev/null); rc=$?
   expect_code 1 "$rc" "$label"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = "$code" ] \
     || fail "$label did not report failure code $code: $out"
-  assert_absent "$result" "$label left a stale authorization behind"
+  assert_contains "$(printf '%s' "$out" | jq -r '.failure.message')" "$(request_path "$home/data" "$id")" \
+    "$label did not name the routing request file the operator must author"
+  assert_grep "prior authorization" "$result" "$label mutated the task's existing authorization"
   [ ! -s "$STUB_ARGS" ] || fail "$label reached Megamind instead of failing closed"
 }
 
 test_routing_request_guard_blocks_before_any_call() {
-  local dir
-  dir="$TMP_ROOT/requests"
-  mkdir -p "$dir"
-  assert_request_blocks "a missing routing request" "$dir/absent.md" routing_request_missing
+  local home data
+  home="$TMP_ROOT/request-guard"
+  make_home "$home" guard
+  data="$home/data"
+  mkdir -p "$data/absent"
+  assert_request_blocks "a missing routing request" absent routing_request_missing
 
-  : > "$dir/empty.md"
-  assert_request_blocks "an empty routing request" "$dir/empty.md" routing_request_empty
+  mkdir -p "$data/empty"; : > "$data/empty/megamind-request.md"
+  assert_request_blocks "an empty routing request" empty routing_request_empty
 
-  write_request "$dir/placeholder.md" '{ROUTING}'
-  assert_request_blocks "an unresolved routing placeholder" "$dir/placeholder.md" routing_request_unresolved
+  write_request "$data" placeholder '{ROUTING}'
+  assert_request_blocks "an unresolved routing placeholder" placeholder routing_request_unresolved
 
-  write_request "$dir/task-placeholder.md" 'route the {TASK} for this worker'
-  assert_request_blocks "an unresolved task placeholder" "$dir/task-placeholder.md" routing_request_unresolved
+  write_request "$data" task-placeholder 'route the {TASK} for this worker'
+  assert_request_blocks "an unresolved task placeholder" task-placeholder routing_request_unresolved
 
-  awk 'BEGIN { for (i = 0; i < 80; i++) printf "routing words that never end " }' > "$dir/huge.md"
-  assert_request_blocks "an oversized routing request" "$dir/huge.md" routing_request_too_large
+  mkdir -p "$data/huge"
+  awk 'BEGIN { for (i = 0; i < 80; i++) printf "routing words that never end " }' \
+    > "$data/huge/megamind-request.md"
+  assert_request_blocks "an oversized routing request" huge routing_request_too_large
 
-  printf 'one\ntwo\nthree\nfour\n' > "$dir/multiline.md"
-  assert_request_blocks "a multi-paragraph routing request" "$dir/multiline.md" routing_request_too_large
+  mkdir -p "$data/multiline"
+  printf 'one\ntwo\nthree\nfour\n' > "$data/multiline/megamind-request.md"
+  assert_request_blocks "a multi-paragraph routing request" multiline routing_request_too_large
 
-  write_request "$dir/real.md" 'routing summary'
-  ln -sf "$dir/real.md" "$dir/link.md"
-  assert_request_blocks "a symlinked routing request" "$dir/link.md" routing_request_invalid
+  write_request "$data" real 'routing summary'
+  mkdir -p "$data/linked"
+  ln -sf "$data/real/megamind-request.md" "$data/linked/megamind-request.md"
+  assert_request_blocks "a symlinked routing request" linked routing_request_invalid
   pass "an unauthored, oversized, or unsafe routing request blocks before Megamind is called"
 }
 
-test_unauthorized_outcomes_block_and_clear_the_result() {
-  local home request result out rc status
+test_unauthorized_outcomes_block_and_preserve_the_result() {
+  local home id result out rc status
   home="$TMP_ROOT/outcomes"
-  request="$TMP_ROOT/outcome-request.md"
-  result="$home/state/outcome.megamind-preflight.json"
+  id='outcome-task'
   make_home "$home" outcomes
-  write_request "$request" 'routing summary for the outcome matrix'
+  write_request "$home/data" "$id" 'routing summary for the outcome matrix'
+  result=$(result_path "$home/state" "$id")
   for status in ambiguous unavailable; do
-    printf 'stale authorization\n' > "$result"
+    printf 'prior authorization\n' > "$result"
     : > "$STUB_ARGS"
-    out=$(FM_TEST_STUB_STATUS="$status" run_helper "$home" "$request" "$result" 2>/dev/null); rc=$?
+    out=$(FM_TEST_STUB_STATUS="$status" run_helper "$home" "$id" 2>/dev/null); rc=$?
     expect_code 1 "$rc" "$status outcome"
     [ "$(printf '%s' "$out" | jq -r '.outcome')" = "$status" ] \
       || fail "the $status outcome did not surface its typed document: $out"
-    assert_absent "$result" "the $status outcome left an authorization behind"
+    assert_grep "prior authorization" "$result" "the $status outcome mutated the running incarnation's authorization"
   done
 
-  printf 'stale authorization\n' > "$result"
+  printf 'prior authorization\n' > "$result"
   : > "$STUB_ARGS"
   rm -f "$home/config/megamind-estate"
-  out=$(run_helper "$home" "$request" "$result" 2>/dev/null); rc=$?
+  out=$(run_helper "$home" "$id" 2>/dev/null); rc=$?
   expect_code 1 "$rc" "unconfigured binding"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = not_configured ] \
     || fail "an unconfigured binding did not preserve its typed failure: $out"
-  assert_absent "$result" "an unconfigured binding left an authorization behind"
-  pass "ambiguous, unavailable, and failed bindings block and clear the task authorization"
+  assert_grep "prior authorization" "$result" "an unconfigured binding mutated the task's authorization"
+  assert_no_grep "megamind-request.md" "$home/state/megamind-preflight.jsonl" \
+    "a failed binding's proof line carried the routing request path"
+  pass "ambiguous, unavailable, and failed bindings block without mutating the task"
 }
 
-test_binding_home_must_be_a_real_absolute_home() {
-  local request result out rc
-  request="$TMP_ROOT/home-guard-request.md"
-  result="$TMP_ROOT/primary/state/home-guard.megamind-preflight.json"
-  write_request "$request" 'routing summary'
-  out=$("$HELPER" relative-home "$request" "$result" 2>/dev/null); rc=$?
-  expect_code 1 "$rc" "relative binding home"
-  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = binding_home_invalid \
-    ] || fail "a relative binding home was not typed: $out"
-  out=$("$HELPER" "$TMP_ROOT/primary" "$request" relative-result 2>/dev/null); rc=$?
-  expect_code 1 "$rc" "relative result path"
+test_validate_only_authorizes_without_filing_a_result() {
+  local home id result out rc
+  home="$TMP_ROOT/validate-only"
+  id='validate-task'
+  make_home "$home" validateonly
+  write_request "$home/data" "$id" 'routing summary for the validate-only path'
+  result=$(result_path "$home/state" "$id")
+  : > "$STUB_ARGS"
+  out=$(run_helper "$home" "$id" --validate-only); rc=$?
+  expect_code 0 "$rc" "validate-only run against an authorized binding"
+  [ -z "$out" ] || fail "validate-only printed a document for an authorized binding: $out"
+  assert_absent "$result" "validate-only filed a task authorization"
+  assert_present "$home/state/megamind-preflight.jsonl" "validate-only skipped the owner's proof record"
+
+  printf 'prior authorization\n' > "$result"
+  : > "$STUB_ARGS"
+  out=$(FM_TEST_STUB_STATUS=ambiguous run_helper "$home" "$id" --validate-only 2>/dev/null); rc=$?
+  expect_code 1 "$rc" "validate-only run against an unauthorized outcome"
+  assert_grep "prior authorization" "$result" "a refused validate-only run mutated the task's authorization"
+  pass "validate-only answers the launch question without touching the task's result file"
+}
+
+test_identity_and_path_guards() {
+  local home id out rc
+  home="$TMP_ROOT/identity-guard"
+  id='identity-task'
+  make_home "$home" identityguard
+  write_request "$home/data" "$id" 'routing summary'
+
+  out=$("$HELPER" "$home" "nested/task" 2>/dev/null); rc=$?
+  expect_code 1 "$rc" "a task id carrying a path separator"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = task_id_invalid ] \
+    || fail "a task id with a path separator was not typed: $out"
+
+  out=$("$HELPER" "$home" ".." 2>/dev/null); rc=$?
+  expect_code 1 "$rc" "a traversal-shaped task id"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = task_id_invalid ] \
+    || fail "a traversal-shaped task id was not typed: $out"
+
+  out=$("$HELPER" "$TMP_ROOT/no-such-home" "$id" 2>/dev/null); rc=$?
+  expect_code 1 "$rc" "a binding home that does not exist"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = binding_home_invalid ] \
+    || fail "a missing binding home was not typed: $out"
+
+  out=$("$HELPER" "$home" "$id" --state "$TMP_ROOT/no-such-state" 2>/dev/null); rc=$?
+  expect_code 1 "$rc" "a binding state directory that does not exist"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = result_path_invalid ] \
-    || fail "a relative result path was not typed: $out"
-  pass "a relative binding home or result path blocks with a typed failure"
+    || fail "a missing binding state directory was not typed: $out"
+
+  "$HELPER" "$home" 2>/dev/null; rc=$?
+  expect_code 2 "$rc" "a call with no task id"
+  pass "an unusable task id, home, or result directory blocks with a typed failure"
 }
 
 # --- spawn boundary ---------------------------------------------------------
@@ -302,7 +360,7 @@ make_spawn_case() {
     > "$home/data/$id/brief.md"
   if [ "$binding" = bound ]; then
     make_home "$home" "$name"
-    write_request "$home/data/$id/megamind-request.md" 'ROUTING-ONLY-CANARY worker routing summary'
+    write_request "$home/data" "$id" 'ROUTING-ONLY-CANARY worker routing summary'
   fi
   : > "$launchlog"
   printf '%s\n' "$case_dir|$home|$project|$worktree|$fakebin|$launchlog|$id"
@@ -446,8 +504,9 @@ test_ambient_overrides_cannot_redirect_the_binding
 test_relocated_home_binds_its_own_resolved_directories
 test_secondmate_binding_is_not_primary_binding
 test_routing_request_guard_blocks_before_any_call
-test_unauthorized_outcomes_block_and_clear_the_result
-test_binding_home_must_be_a_real_absolute_home
+test_unauthorized_outcomes_block_and_preserve_the_result
+test_validate_only_authorizes_without_filing_a_result
+test_identity_and_path_guards
 test_ship_and_scout_spawns_authorize_before_launch
 test_blocked_binding_refuses_before_any_task_exists
 test_unresolved_routing_placeholder_refuses_spawn

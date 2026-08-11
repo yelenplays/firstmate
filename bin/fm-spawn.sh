@@ -1624,13 +1624,6 @@ fi
 BRIEF_DIR_REAL=$(cd "$(dirname "$BRIEF")" && pwd -P)
 BRIEF_REAL="$BRIEF_DIR_REAL/$(basename "$BRIEF")"
 
-absolute_dir() {  # <path> - absolute spelling; an absolute path is preserved as given
-  case "$1" in
-    /*) printf '%s\n' "$1" ;;
-    *) printf '%s/%s\n' "$PWD" "$1" ;;
-  esac
-}
-
 # Mandatory owner-home Megamind binding for every ordinary ship or scout worker,
 # cleared HERE: before this spawn creates an endpoint, provisions a worktree, or
 # publishes a task record. Enforcing it inside the worker's own pane instead
@@ -1641,29 +1634,22 @@ absolute_dir() {  # <path> - absolute spelling; an absolute path is preserved as
 #
 # The routing request is the separately authored, privacy-safe representation
 # bin/fm-brief.sh scaffolds beside the brief - never the brief itself - and
-# bin/fm-worker-preflight.sh owns its validation, the owner-bound call, the
-# outcome gate, and the private per-task result the worker reads. The binding is
-# pinned to THIS home: its identity plus the operational config and state
-# directories this spawn already resolved, so a relocated home reads its own
-# binding and no ambient override can substitute another home's. A secondmate
-# spawning its own crewmate therefore binds its own home, and a primary binding
-# never crosses that boundary; --secondmate starts a firstmate home rather than
-# an ordinary worker and is not routed here at all.
+# bin/fm-worker-preflight.sh owns both task artifact paths, the request's
+# validation, the owner-bound call, the outcome gate, and the private per-task
+# result the worker reads. The binding is pinned to THIS home: its identity plus
+# the operational directories this spawn already resolved, so a relocated home
+# reads its own binding and no ambient override can substitute another home's. A
+# secondmate spawning its own crewmate therefore binds its own home, and a
+# primary binding never crosses that boundary; --secondmate starts a firstmate
+# home rather than an ordinary worker and is not routed here at all.
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
-  # A relative FM_CONFIG_OVERRIDE is resolved against this caller's working
-  # directory before it crosses into another process, the same rule the other
-  # operational directories already follow (docs/configuration.md "FM_HOME").
-  WORKER_PREFLIGHT_CONFIG=$(absolute_dir "$CONFIG")
-  WORKER_PREFLIGHT_STATE=$(absolute_dir "$STATE")
-  WORKER_PREFLIGHT_RESULT="$WORKER_PREFLIGHT_STATE/$ID.megamind-preflight.json"
-  mkdir -p "$WORKER_PREFLIGHT_STATE" || {
+  mkdir -p "$STATE" || {
     echo "error: could not create state directory for the worker preflight result" >&2
     exit 1
   }
   WORKER_PREFLIGHT_DOC=
-  if ! WORKER_PREFLIGHT_DOC=$("$FM_ROOT/bin/fm-worker-preflight.sh" \
-      "$FM_HOME" "$BRIEF_DIR_REAL/megamind-request.md" "$WORKER_PREFLIGHT_RESULT" \
-      --config "$WORKER_PREFLIGHT_CONFIG" --state "$WORKER_PREFLIGHT_STATE"); then
+  if ! WORKER_PREFLIGHT_DOC=$("$FM_ROOT/bin/fm-worker-preflight.sh" "$FM_HOME" "$ID" \
+      --config "$CONFIG" --state "$STATE" --data "$DATA"); then
     echo "error: $ID was not authorized by the owning home's Megamind preflight; refusing to launch before any endpoint, worktree, or task record exists" >&2
     [ -z "$WORKER_PREFLIGHT_DOC" ] || printf '%s\n' "$WORKER_PREFLIGHT_DOC" >&2
     exit 1
