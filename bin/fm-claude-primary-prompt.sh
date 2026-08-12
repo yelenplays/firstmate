@@ -30,7 +30,7 @@ refuse() {
 }
 
 command -v jq >/dev/null 2>&1 || refuse 'jq is required by the Megamind prompt hook and was not found on PATH'
-[ -x "$COORDINATOR" ] || refuse "the Megamind coordinator is missing or not executable ($COORDINATOR)"
+[ -x "$COORDINATOR" ] || exit 0
 payload=$(cat) || refuse 'the hook payload could not be read'
 prompt=$(printf '%s' "$payload" | jq -r '(.prompt // .user_prompt // empty) | if type == "string" then . else empty end' 2>/dev/null) || refuse 'the hook payload could not be parsed'
 session=$(printf '%s' "$payload" | jq -r '(.session_id // .sessionId // empty) | if type == "string" then . else empty end' 2>/dev/null) || refuse 'the hook payload could not be parsed'

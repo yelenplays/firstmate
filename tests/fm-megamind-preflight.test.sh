@@ -832,6 +832,42 @@ JSON
   pass "run: the ladder keeps only the ranked pages that fit the declared budget"
 }
 
+# Upstream owns the root strings and the ranked page paths, and neither is
+# constrained away from a leading dash. Both are values, never options: a root
+# that fell out of the redaction set would put an absolute estate path back into
+# follow_up, and a ranked page that fell out of the ladder would silently return
+# the authorization to the routing index.
+test_option_shaped_upstream_values_stay_values() {
+  local home out root dash_root='-x/synthetic/estate/ProductWiki'
+  local fixture="$TMP_ROOT/option-shaped.json" route="$TMP_ROOT/option-shaped-route.json"
+  home=$(new_home option-root)
+  jq --arg root "$dash_root" '.matches[0].root = $root
+      | .matches[0].follow_up = ("Run `megamind-axi --root " + $root + " route pricing` for the bounded ladder")' \
+    "$MATCHED_FIXTURE" > "$fixture"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] \
+    || fail "an option-shaped root changed the outcome: $out"
+  [ "$(printf '%s' "$out" | jq --arg root "$dash_root" -r 'tostring | contains($root)')" = false ] \
+    || fail "an option-shaped root escaped the redaction set: $out"
+
+  home=$(new_home option-candidate)
+  root="$home/estate/ProductWiki"
+  mkdir -p "$root"
+  printf 'dash page\n' > "$root/-dash.md"
+  jq --arg root "$root" '.matches[0].root = $root
+      | .matches[0].allows = ["wiki/index.md"]
+      | .matches[0].context_budget = {"max_candidates": 2, "max_context_chars": 4000}' \
+    "$MATCHED_FIXTURE" > "$fixture"
+  printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"-dash.md","kind":"page","score":8}]}' > "$route"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" run --request "pricing")
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" = '["-dash.md"]' ] \
+    || fail "an option-shaped ranked page was dropped from the ladder: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["-dash.md"]' ] \
+    || fail "an option-shaped ranked page desynchronized the binding: $out"
+  pass "run: option-shaped upstream roots and page paths stay values, never options"
+}
+
 # `route` takes no model class, so it cannot restate the per-class restriction
 # that produced a digest-only access. Trading that digest for ranked pages is
 # the one substitution that would widen an authorization, so it never happens.
@@ -1558,6 +1594,7 @@ test_allowed_path_enforcement
 test_ladder_pages_replace_the_routing_index
 test_ladder_failure_keeps_declared_paths
 test_ladder_pages_fit_the_declared_character_budget
+test_option_shaped_upstream_values_stay_values
 test_ladder_never_widens_a_restricted_access
 test_ambiguous_offers_without_loading
 test_no_match_stays_quiet

@@ -400,7 +400,7 @@ route_page_allows() {  # <executable> <wiki root> <request> <max candidates> <ma
     fitted+=("$path")
   done <<< "$ranked"
   [ "${#fitted[@]}" -gt 0 ] || { printf '%s' '[]'; return 0; }
-  jq -cn '$ARGS.positional' --args "${fitted[@]}" 2>/dev/null || printf '%s' '[]'
+  jq -cn '$ARGS.positional' --args -- "${fitted[@]}" 2>/dev/null || printf '%s' '[]'
 }
 
 # Operational-input kinds that are pure control or routine monitoring. Every
@@ -1162,7 +1162,7 @@ $root_real" 2>/dev/null || true)"
   done < <(printf '%s' "$raw" | jq -c '.matches[]? | {name,root}')
   host_paths='[]'
   [ "${#disclosing_paths[@]}" -gt 0 ] \
-    && host_paths="$(jq -cn '$ARGS.positional' --args "${disclosing_paths[@]}" 2>/dev/null || printf '%s' '[]')"
+    && host_paths="$(jq -cn '$ARGS.positional' --args -- "${disclosing_paths[@]}" 2>/dev/null || printf '%s' '[]')"
   # Descend Megamind's own ladder once per authorized root, so a match resolves
   # to the pages that answer the request instead of only the routing index that
   # lists them. A root the ladder cannot serve keeps its declared card paths.
@@ -1445,7 +1445,7 @@ $offer_root_real" 2>/dev/null || true)"
   [ -n "$offer_root_real" ] && disclosing_paths+=("$offer_root_real")
   host_paths='[]'
   [ "${#disclosing_paths[@]}" -gt 0 ] \
-    && host_paths="$(jq -cn '$ARGS.positional' --args "${disclosing_paths[@]}" 2>/dev/null || printf '%s' '[]')"
+    && host_paths="$(jq -cn '$ARGS.positional' --args -- "${disclosing_paths[@]}" 2>/dev/null || printf '%s' '[]')"
   packet_tmp="$SELECTION_DIR/.$selection_id.packet.${BASHPID:-$$}"
   # Extracted before it is published so a jq that dies partway is a preparation
   # failure rather than a truncated packet a pipeline reported as good.
