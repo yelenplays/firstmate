@@ -129,10 +129,11 @@ See [`trace-context.md`](trace-context.md) for carrier semantics, supported rout
 ## Megamind preflight (config/megamind-*)
 
 The read-only Megamind pilot makes catalog preflight mandatory before firstmate acts on any substantive request; `AGENTS.md` section 1 owns the always-loaded rule and the internal [`megamind-preflight`](../.agents/skills/megamind-preflight/SKILL.md) skill owns outcome handling and disclosure.
-Three local, gitignored files under the effective config directory configure a home's binding.
+Four local, gitignored files under the effective config directory configure a home's binding.
 `config/megamind-estate` holds the directory of pilot wiki roots on its first non-empty, non-comment line; when it is absent, preflight is unavailable and substantive work discloses that concrete blocker rather than guessing captain-private roots.
 `config/megamind-executable` optionally pins the `megamind-axi` path; absent resolves plain `megamind-axi` from `PATH`, and proven Megamind 0.3.x, 0.4.x, 0.5.x, and 0.6.x releases are accepted - malformed, older, and future versions are disclosed incompatibilities until their host-consumed preflight contract is established.
 `config/megamind-model-class` optionally overrides the declared model class with `local` or `cloud`; absent defaults to `cloud`, the restrictive class for every verified primary harness.
+`config/megamind-primary-automatic` opts the supported Claude, Pi, or pi-signed primary adapter into automatic prompt interception when its first non-empty line is `on`, `true`, `yes`, or `1`; the equivalent `FM_MEGAMIND_PRIMARY_AUTOMATIC` environment value is intended for isolated live guards.
 Each value is the first non-empty, non-comment line with surrounding whitespace trimmed, and a leading `~` in the two path values expands to `$HOME`; nothing else expands, so a glob, a variable, or a command substitution stays a literal path and fails closed as a disclosed blocker.
 `bin/fm-megamind-preflight.sh` owns the exact resolution order, typed outcome schema, failure codes, allowed-path validation, and the minimal non-verbatim proof log at `state/megamind-preflight.jsonl`; run `bin/fm-megamind-preflight.sh check` to probe a home's binding without routing a request.
 An ambiguous result retains its complete original upstream packet and exact request only in a mode-0600 record under `state/megamind-offer-selections/`, and exposes only an opaque `selection_id` to the caller.
@@ -151,6 +152,7 @@ The authorized typed result is filed as the task's own private `state/<task-id>.
 `bin/fm-control.sh relaunch` therefore clears the same binding with `--validate-only` as a precondition, before it checkpoints, records the progress note, or stops the running agent, so a replacement that could not be launched is refused while the current worker, its record, and its local copy are still intact.
 The binding is pinned to the owning home's own resolved config and state directories, so a home relocated by `FM_CONFIG_OVERRIDE` or `FM_STATE_OVERRIDE` reads its own binding and files its own proof while an ambient value inherited from another home cannot substitute a different one.
 The worker's isolated project copy keeps its own operational-home semantics, and no config, credential, estate path, or request text is copied into it or exported onto its launch command.
+`bin/fm-megamind-primary.sh` is the host-owned primary coordinator; adapters pass the exact prompt privately and receive only its typed bypass, no-context, admission, offer, or block decision.
 `bin/fm-megamind-content.sh` is the host-owned bounded admission and content channel for both primary sessions and ordinary workers.
 Its `admit` command accepts only a task result or script-issued selection authorization identified by task or selection id, never a caller root, arbitrary file, upstream packet, or handcrafted allowlist.
 It binds the owning home, executable identity and version, estate identity, model class, preflight/request/catalog identities, authorization or selection identity, wiki identity, access and routing mode, declared allows, and current root/card/file facts.

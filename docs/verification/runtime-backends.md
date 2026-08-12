@@ -227,6 +227,44 @@ FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0
 The real Megamind 0.6 synthetic-estate selection evidence above remains the upstream command compatibility proof, while `tests/fm-megamind-content.test.sh` proves that a script-issued `fm/megamind-preflight-selection/v1` authorization reaches the same reader boundary without touching a real wiki.
 No primary interception or scheduling claim is made by this reader slice.
 
+## Primary Megamind prompt interception
+
+The host-owned coordinator and the opt-in Claude and Pi primary adapters were added on 2026-08-12.
+The coordinator is `bin/fm-megamind-primary.sh`, and it is the sole semantic owner for classification, preflight, offer continuation, bounded admission, and context framing.
+The Claude transport is `bin/fm-claude-primary-prompt.sh` on `UserPromptSubmit`.
+The Pi and pi-signed transport is `.pi/extensions/fm-primary-megamind.ts` on Pi's `input` event with handled and replay semantics.
+The implementation remains opt-in through `config/megamind-primary-automatic` or `FM_MEGAMIND_PRIMARY_AUTOMATIC=1` so ordinary sessions retain their prior behavior until the live guard is intentionally enabled.
+
+Portable proof covers bypasses, no-match, privacy-filtered, matched bounded admission, prompt and root privacy, failed bindings, and deterministic unsupported decisions:
+
+```sh
+bin/fm-test-run.sh tests/fm-megamind-primary.test.sh tests/fm-megamind-preflight.test.sh tests/fm-megamind-content.test.sh
+```
+
+The live guard uses only synthetic block prompts and a synthetic coordinator, so it proves the real installed transport reaches the host gate without making a provider call or reading a wiki:
+
+```sh
+FM_MEGAMIND_PRIMARY_LIVE=1 tests/fm-megamind-primary-live-e2e.test.sh
+```
+
+Observed on 2026-08-12 with Claude Code 2.1.220, Pi 0.84.1, Codex CLI 0.145.0, Grok 1.0.0, and Kimi Code 0.34.0:
+
+```text
+live: claude 2.1.220 (Claude Code) blocked before inference with zero provider turns
+live: pi 0.84.1 blocked before inference with one coordinator submission
+unsupported: codex codex-cli 0.145.0 automatic primary interception unproven; ordinary operation retained
+absent: opencode
+unsupported: grok grok 1.0.0 (3cd0d0cbcebe) [stable] automatic primary interception unproven; ordinary operation retained
+unsupported: kimi 0.34.0 automatic primary interception unproven; ordinary operation retained
+absent: pi-signed
+```
+
+The live guard deliberately does not claim allow, context reinjection, or selection continuation against a real provider until a future synthetic-provider proof can observe those surfaces without exposing credentials or wiki material.
+Codex, OpenCode, Grok, and Kimi remain ordinary-operation-only for automatic primary interception because their installed prompt hook surfaces were not proven to stop inference and replay safely in this slice.
+The Pi adapter is reused by pi-signed only when the exact signed identity marker is present, and the signed executable was absent during this verification.
+Primary interception is harness-session behavior and has no tmux, Herdr, Zellij, Orca, or cmux-specific semantic path.
+Secondmate Pi launches load the same adapter from the secondmate home, while each home retains its own coordinator state and Megamind binding.
+
 ### Megamind version compatibility
 
 `bin/fm-megamind-preflight.sh`'s header owns which `megamind-axi` versions are accepted and why; this record holds the dated evidence and the regression pointers only.

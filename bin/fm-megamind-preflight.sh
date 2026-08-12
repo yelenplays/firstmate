@@ -2,10 +2,14 @@
 # Firstmate's harness-neutral, read-only Megamind preflight surface (pilot).
 # Usage: fm-megamind-preflight.sh classify "<request text>"
 #                                        print exactly substantive|bypass
+#        fm-megamind-preflight.sh classify-stdin
+#                                        classify one private request from stdin
 #        fm-megamind-preflight.sh classify-provenance credential-submission
 #                                        print bypass without accepting or reading
 #                                        the credential payload
 #        fm-megamind-preflight.sh run --request "<text>" [--model-class local|cloud]
+#                                        [--today YYYY-MM-DD]
+#        fm-megamind-preflight.sh run --request-stdin [--model-class local|cloud]
 #                                        [--today YYYY-MM-DD]
 #                                        run Megamind preflight and print one typed
 #                                        fm/megamind-preflight/v1 JSON document
@@ -180,7 +184,7 @@ LOG_FILE="$STATE/megamind-preflight.jsonl"
 SELECTION_DIR="$STATE/megamind-offer-selections"
 SELECTION_RETENTION_MAX=32
 READ_POLICY="Use bin/fm-megamind-content.sh admit with this owning home's task authorization, then use its content channel; never read wiki paths directly, execute follow_up, or widen beyond validated allows and budgets."
-RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" [--model-class local|cloud] [--today YYYY-MM-DD]'
+RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" | --request-stdin [--model-class local|cloud] [--today YYYY-MM-DD]'
 CONTINUE_USAGE='usage: fm-megamind-preflight.sh continue --selection-id <id> --offer <wiki>'
 
 # The one privacy-minimization vocabulary every filter that projects upstream
@@ -843,15 +847,19 @@ cmd_check() {
 }
 
 cmd_run() {
-  local request="" model_class_flag="" today_flag=""
+  local request="" request_stdin=0 model_class_flag="" today_flag=""
   # Every option value is arity-checked before the shift: `shift 2` with one
   # positional left shifts nothing and would spin this loop forever on the
   # mandatory path, so a missing value must fail closed here instead.
   while [ $# -gt 0 ]; do
     case "$1" in
       --request)
+        [ "$request_stdin" -eq 0 ] && [ -z "$request" ] || { printf '%s\n' "$RUN_USAGE" >&2; return 2; }
         [ $# -ge 2 ] || { printf '%s\n' "$RUN_USAGE" >&2; return 2; }
         request="$2"; shift; shift ;;
+      --request-stdin)
+        [ -z "$request" ] && [ "$request_stdin" -eq 0 ] || { printf '%s\n' "$RUN_USAGE" >&2; return 2; }
+        request_stdin=1; shift ;;
       --model-class)
         [ $# -ge 2 ] || { printf '%s\n' "$RUN_USAGE" >&2; return 2; }
         model_class_flag="$2"; shift; shift ;;
@@ -861,6 +869,9 @@ cmd_run() {
       *) printf '%s\n' "$RUN_USAGE" >&2; return 2 ;;
     esac
   done
+  if [ "$request_stdin" -eq 1 ]; then
+    request="$(cat)"
+  fi
   [ -n "$request" ] || { printf '%s\n' "$RUN_USAGE" >&2; return 2; }
 
   local exe estate model_class version raw rc outcome today
@@ -1381,12 +1392,18 @@ $offer_root_identity" 2>/dev/null || true)"
 )
 
 main() {
-  [ $# -ge 1 ] || { printf 'usage: fm-megamind-preflight.sh classify|classify-provenance|run|continue|check ...\n' >&2; return 2; }
+  [ $# -ge 1 ] || { printf 'usage: fm-megamind-preflight.sh classify|classify-stdin|classify-provenance|run|continue|check ...\n' >&2; return 2; }
   local cmd="$1"; shift
   case "$cmd" in
     classify)
       [ $# -eq 1 ] || { printf 'usage: fm-megamind-preflight.sh classify "<request text>"\n' >&2; return 2; }
       classify "$1"
+      ;;
+    classify-stdin)
+      [ $# -eq 0 ] || { printf 'usage: fm-megamind-preflight.sh classify-stdin\n' >&2; return 2; }
+      local classify_stdin_text
+      classify_stdin_text="$(cat)"
+      classify "$classify_stdin_text"
       ;;
     classify-provenance)
       [ $# -eq 1 ] || { printf 'usage: fm-megamind-preflight.sh classify-provenance credential-submission\n' >&2; return 2; }
@@ -1395,7 +1412,7 @@ main() {
     run) cmd_run "$@" ;;
     continue) cmd_continue "$@" ;;
     check) cmd_check ;;
-    *) printf 'usage: fm-megamind-preflight.sh classify|classify-provenance|run|continue|check ...\n' >&2; return 2 ;;
+    *) printf 'usage: fm-megamind-preflight.sh classify|classify-stdin|classify-provenance|run|continue|check ...\n' >&2; return 2 ;;
   esac
 }
 

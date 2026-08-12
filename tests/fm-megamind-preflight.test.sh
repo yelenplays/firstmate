@@ -629,6 +629,16 @@ test_config_values_are_trimmed_and_tilde_expanded() {
   pass "run: config values are trimmed and leading-tilde expanded, nothing more"
 }
 
+test_request_stdin_keeps_adapter_prompt_out_of_coordinator_argv() {
+  local home out
+  home=$(new_home request-stdin)
+  : > "$FM_TEST_STUB_ARGS"
+  out=$(printf '%s' 'stdin prompt canary' | FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request-stdin)
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "stdin request did not route: $out"
+  assert_grep "stdin prompt canary" "$FM_TEST_STUB_ARGS" "stub did not receive the stdin request"
+  pass "run: adapter prompt enters through the private stdin coordinator variant"
+}
+
 test_dash_leading_request_is_passed_safely() {
   local home out args
   home=$(new_home dash-request)
@@ -1344,6 +1354,7 @@ test_restrictive_defaults
 test_version_probe_is_anchored_and_non_verbatim
 test_missing_option_values_fail_closed
 test_config_values_are_trimmed_and_tilde_expanded
+test_request_stdin_keeps_adapter_prompt_out_of_coordinator_argv
 test_dash_leading_request_is_passed_safely
 test_check_probe
 test_allowed_path_enforcement
