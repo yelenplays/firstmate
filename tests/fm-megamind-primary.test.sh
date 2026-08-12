@@ -65,6 +65,34 @@ test_classification_and_disabled_mode() {
   pass "coordinator: classification and opt-in preserve bypass traffic"
 }
 
+# Interception is opt-in and off by default, and the hook that reaches this
+# coordinator is registered unconditionally. A checkout that never opted in must
+# therefore keep its ordinary behavior rather than lose every prompt to a state
+# requirement it was never asked to satisfy.
+test_optin_gates_precede_the_session_lock() {
+  local home outside out
+  home=$(new_home lock-order); install_stub "$home"
+  rm -f "$home/state/.lock"
+  out=$(FM_MEGAMIND_PRIMARY_AUTOMATIC=0 run_in "$home" process --harness claude \
+    --session-id session-aaaaaaaa --submission-id submission-hhhhhhhh <<< 'substantive prompt with the guard off')
+  [ "$(printf '%s' "$out" | jq -r .decision)" = bypass ] \
+    || fail "a home with the guard off lost its prompt to a missing session lock: $out"
+  outside="$TMP_ROOT/outside-primary-scope"
+  mkdir -p "$outside/bin"
+  cp "$ROOT/bin/fm-primary-scope-lib.sh" "$outside/bin/"
+  out=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$outside" "$COORDINATOR" process --harness claude \
+    --session-id session-aaaaaaaa --submission-id submission-iiiiiiii <<< 'substantive prompt outside the primary scope')
+  [ "$(printf '%s' "$out" | jq -r .decision)" = bypass ] \
+    || fail "a checkout outside the primary scope blocked instead of staying ordinary: $out"
+  out=$(run_in "$home" process --harness claude \
+    --session-id session-aaaaaaaa --submission-id submission-jjjjjjjj <<< 'substantive prompt with the guard on')
+  [ "$(printf '%s' "$out" | jq -r .decision)" = block ] \
+    || fail "an opted-in session without a live lock did not block: $out"
+  [ "$(printf '%s' "$out" | jq -r .failure_code)" = session_unavailable ] \
+    || fail "the missing-lock failure code changed: $out"
+  pass "coordinator: scope and opt-in are settled before any live-session requirement"
+}
+
 test_no_match_and_privacy_filter() {
   local home fixture out out2
   home=$(new_home no-match); install_stub "$home"; fixture=$(make_fixture "$home" no-match)
@@ -107,6 +135,7 @@ test_failures_and_unsupported() {
 }
 
 test_classification_and_disabled_mode
+test_optin_gates_precede_the_session_lock
 test_no_match_and_privacy_filter
 test_matched_reader_context_and_privacy
 test_failures_and_unsupported

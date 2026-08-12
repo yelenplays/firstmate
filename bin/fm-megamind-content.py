@@ -23,6 +23,12 @@ MAX_JSON_BYTES = 4 * 1024 * 1024
 SELECTION_RE = re.compile(r"^[0-9A-Fa-f]{16,128}$")
 TASK_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 CARD_REL = ".megamind/wiki-card.json"
+# An admission is consumed by the content channel of the same turn it was
+# written for, so nothing here is durable state. This reader is the store's only
+# writer, so it is also the only owner that can retire it: without that, every
+# admitted prompt would leave a permanent record of wiki paths, content hashes,
+# and file fingerprints behind.
+ADMISSION_RETENTION_SECONDS = 24 * 60 * 60
 
 
 def result(code: str, admitted: bool = False, **fields: Any) -> Dict[str, Any]:
@@ -423,9 +429,36 @@ def authorization(auth: Dict[str, Any], selection_id: Optional[str]) -> Optional
 def lock_for(path: Path):
     path.parent.mkdir(mode=0o700, exist_ok=True)
     fh = path.open("a+")
-    os.chmod(path, 0o600)
+    # Through the descriptor, so a concurrent admission retiring this store
+    # cannot turn the private-mode step into a failed whole admission.
+    os.fchmod(fh.fileno(), 0o600)
     fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
     return fh
+
+
+def prune_admissions(store: Path) -> None:
+    cutoff = time.time() - ADMISSION_RETENTION_SECONDS
+    try:
+        entries = list(os.scandir(store))
+    except OSError:
+        return
+    for entry in entries:
+        name = entry.name
+        # Records, their serialization locks, and any publish temporary a killed
+        # writer abandoned. Nothing else this reader creates lives here.
+        if not (
+            name.endswith(".json")
+            or name.startswith(".admission.")
+            or (name.startswith(".") and name.endswith(".lock"))
+        ):
+            continue
+        try:
+            st = entry.stat(follow_symlinks=False)
+            if not stat.S_ISREG(st.st_mode) or st.st_mtime >= cutoff:
+                continue
+            os.unlink(entry.path)
+        except OSError:
+            continue
 
 
 def write_private(path: Path, data: bytes) -> bool:
@@ -555,8 +588,13 @@ def admit(home: Path, task_id: Optional[str], selection_id: Optional[str]) -> in
     }
     admission_id = sha256_bytes(json.dumps({"binding": binding, "records": records}, sort_keys=True, separators=(",", ":")).encode())[:32]
     store = home / "state" / "megamind-admissions"
+    # The lock file is a stable rendezvous inode for the whole store, so it is
+    # retired by age with everything else rather than unlinked here: unlinking a
+    # held lock lets the next admission create a different inode at the same
+    # path and two writers stop serializing against each other.
     lock = lock_for(store / ("." + admission_id + ".lock"))
     try:
+        prune_admissions(store)
         admission = {"schema_version": BINDING_SCHEMA, "admission_id": admission_id, "binding": binding, "records": records}
         if not write_private(store / (admission_id + ".json"), json.dumps(admission, sort_keys=True, separators=(",", ":")).encode() + b"\n"):
             return fail("admission_write_failed", authorization_id=authorization_id, selection_id=selection_id)

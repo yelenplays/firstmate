@@ -784,6 +784,69 @@ test_ladder_failure_keeps_declared_paths() {
   pass "run: a ladder that ranks no page, fails, or is unrecognized leaves the declared paths untouched"
 }
 
+# `route` takes no model class, so it cannot restate the per-class restriction
+# that produced a digest-only access. Trading that digest for ranked pages is
+# the one substitution that would widen an authorization, so it never happens.
+test_ladder_never_widens_a_restricted_access() {
+  local home out root id
+  local fixture="$TMP_ROOT/ladder-digest.json" route="$TMP_ROOT/ladder-digest-route.json"
+  local ambiguous="$TMP_ROOT/ladder-digest-ambiguous.json" selection="$TMP_ROOT/ladder-digest-selection.json"
+  cat > "$route" <<'JSON'
+{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8}]}
+JSON
+  home=$(new_home ladderaccess)
+  root="$home/estate/ProductWiki"
+  mkdir -p "$root"
+  jq --arg root "$root" '.matches[0].root = $root
+      | .matches[0].access = "digest-only"
+      | .matches[0].allows = ["wiki/digest.md"]' \
+    "$MATCHED_FIXTURE" > "$fixture"
+  : > "$FM_TEST_STUB_ARGS"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" run --request "pricing")
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" = '["wiki/digest.md"]' ] \
+    || fail "the ladder widened a digest-only match: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/digest.md"]' ] \
+    || fail "the ladder widened a digest-only binding: $out"
+  if grep -q '^route$' "$FM_TEST_STUB_ARGS"; then
+    fail "a restricted access still descended the ladder: $(cat "$FM_TEST_STUB_ARGS")"
+  fi
+
+  # Selecting an offer picks the wiki; it never raises this class's access to it.
+  export FM_TEST_STUB_VERSION=0.6.0
+  home=$(new_home ladderaccess-selection)
+  root="$home/estate/OfferWiki"
+  mkdir -p "$root"
+  jq --arg root "$root" '.offers[0].root = $root' "$AMBIGUOUS_SELECTION_FIXTURE" > "$ambiguous"
+  jq --arg root "$root" '.selected.root = $root' "$SELECTION_FIXTURE" > "$selection"
+  out=$(FM_TEST_STUB_FIXTURE="$ambiguous" run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  out=$(FM_TEST_SELECTION_FIXTURE="$selection" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki)
+  [ "$(printf '%s' "$out" | jq -c '.selected.allows')" = '["wiki/digest.md"]' ] \
+    || fail "the ladder widened a digest-only selection: $out"
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/digest.md"]' ] \
+    || fail "the ladder widened a digest-only selection binding: $out"
+
+  # The same selection at full access does descend, so the restriction is the
+  # reason the digest-only one did not.
+  home=$(new_home ladderaccess-full)
+  root="$home/estate/OfferWiki"
+  mkdir -p "$root"
+  jq --arg root "$root" '.offers[0].root = $root' "$AMBIGUOUS_SELECTION_FIXTURE" > "$ambiguous"
+  jq --arg root "$root" '.selected.root = $root | .selected.access = "full"' "$SELECTION_FIXTURE" > "$selection"
+  out=$(FM_TEST_STUB_FIXTURE="$ambiguous" run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  out=$(FM_TEST_SELECTION_FIXTURE="$selection" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki)
+  [ "$(printf '%s' "$out" | jq -c '.selected.allows')" = '["wiki/concepts/pricing.md"]' ] \
+    || fail "a full-access selection did not descend the ladder: $out"
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/concepts/pricing.md"]' ] \
+    || fail "a full-access selection binding disagreed with its own allows: $out"
+  unset FM_TEST_STUB_VERSION
+  pass "ladder: an access narrowed for this model class keeps its declared paths"
+}
+
 # --- ambiguity, no-match, privacy, unavailable --------------------------------
 
 test_ambiguous_offers_without_loading() {
@@ -1445,6 +1508,7 @@ test_check_probe
 test_allowed_path_enforcement
 test_ladder_pages_replace_the_routing_index
 test_ladder_failure_keeps_declared_paths
+test_ladder_never_widens_a_restricted_access
 test_ambiguous_offers_without_loading
 test_no_match_stays_quiet
 test_notes_are_host_owned

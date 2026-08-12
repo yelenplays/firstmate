@@ -18,14 +18,28 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 PREFLIGHT="$FM_ROOT/bin/fm-megamind-preflight.sh"
 READER="$FM_ROOT/bin/fm-megamind-content.sh"
 PRIMARY_SCOPE_LIB="$FM_ROOT/bin/fm-primary-scope-lib.sh"
+GATE_REFUSE_LIB="$FM_ROOT/bin/fm-gate-refuse-lib.sh"
 SCHEMA="fm/megamind-primary-decision/v1"
 PRIMARY_DIR="$STATE/megamind-primary"
 PRIMARY_TIMEOUT="${FM_MEGAMIND_PRIMARY_TIMEOUT:-120}"
 case "$PRIMARY_TIMEOUT" in ''|*[!0-9]*) PRIMARY_TIMEOUT=120 ;; esac
 
+# Bounding a child is a liveness guard, not an authorization one, so it uses
+# whichever bounded-execution helper this host has - timeout(1), gtimeout, or
+# perl's alarm - and runs the child directly when a host has none. Refusing
+# every substantive prompt because one optional helper is absent would turn a
+# missing convenience into a blanket outage, and each adapter transport already
+# imposes its own hook timeout above this one.
 bounded_exec() {
-  command -v perl >/dev/null 2>&1 || return 124
-  perl -e 'alarm shift; exec @ARGV' "$PRIMARY_TIMEOUT" "$@"
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$PRIMARY_TIMEOUT" "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$PRIMARY_TIMEOUT" "$@"
+  elif command -v perl >/dev/null 2>&1; then
+    perl -e 'alarm shift; exec @ARGV' "$PRIMARY_TIMEOUT" "$@"
+  else
+    "$@"
+  fi
 }
 
 json_escape() {
@@ -83,6 +97,16 @@ primary_scope_allowed() {
   # shellcheck source=bin/fm-primary-scope-lib.sh
   . "$PRIMARY_SCOPE_LIB"
   fm_primary_scope_matches "$FM_ROOT" "$STATE"
+}
+
+# The same eligibility owner every other tracked hook uses, so a no-mistakes
+# gate agent never has its prompts governed by the home it is only validating.
+gate_agent_session() {
+  [ "${FM_PRIMARY_SCOPE_OVERRIDE:-}" = 1 ] && return 1
+  [ -f "$GATE_REFUSE_LIB" ] || return 1
+  # shellcheck source=bin/fm-gate-refuse-lib.sh
+  . "$GATE_REFUSE_LIB"
+  fm_is_gate_agent "$FM_ROOT"
 }
 
 valid_harness() {
@@ -175,18 +199,26 @@ admit_context() {
 process_prompt_inner() {
   local harness="$1" session_id="$2" submission_id="$3" prompt="$4"
   local current_lock shash classify_result raw outcome selection offers task_id preflight_file admitted context counts
-  current_lock=$(current_session_identity 2>/dev/null || true)
-  [ -n "$current_lock" ] || { decision block "$submission_id" "" session_unavailable; return; }
+  # Whether this session is a governed primary at all is settled before any
+  # live-session requirement. A checkout that never opted in - a gate worktree,
+  # a linked worktree, a worker copy, or a home with the guard off - keeps its
+  # ordinary behavior instead of losing every prompt to a missing session lock.
+  if gate_agent_session; then
+    decision bypass "$submission_id" ""
+    return
+  fi
   if ! primary_scope_allowed; then
     decision bypass "$submission_id" ""
     return
   fi
-  shash=$(session_hash "$session_id") || { decision block "$submission_id" "" session_identity_unavailable; return; }
-  prune_private_records
   if ! automatic_enabled; then
-    decision bypass "$submission_id" "$shash"
+    decision bypass "$submission_id" ""
     return
   fi
+  shash=$(session_hash "$session_id") || { decision block "$submission_id" "" session_identity_unavailable; return; }
+  current_lock=$(current_session_identity 2>/dev/null || true)
+  [ -n "$current_lock" ] || { decision block "$submission_id" "$shash" session_unavailable; return; }
+  prune_private_records
   if ! valid_harness "$harness"; then
     decision block "$submission_id" "$shash" harness_unsupported
     return

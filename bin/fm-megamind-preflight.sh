@@ -76,18 +76,22 @@
 #   is the card, digest, and index a wiki declares, and its `follow_up` asks the
 #   host to open that index and follow its links. That sentence stays
 #   informational and is never executed or parsed. Instead, every authorized
-#   root - a threshold match and an explicitly selected offer alike - descends
-#   Megamind's own governed ladder once: `megamind-axi --root <root> --format
-#   json --no-help-hints route -- <request>`, with global flags before the
-#   subcommand where `route` declares them and the request last after `--`. The
-#   ladder returns ranked candidate paths, kinds, scores, and reasons and never
-#   page content or file sizes, so it widens no content boundary. Its
+#   full-access root - a threshold match and an explicitly selected offer alike
+#   - descends Megamind's own governed ladder once: `megamind-axi --root <root>
+#   --format json --no-help-hints route -- <request>`, with global flags before
+#   the subcommand where `route` declares them and the request last after `--`.
+#   The ladder returns ranked candidate paths, kinds, scores, and reasons and
+#   never page content or file sizes, so it widens no content boundary. Its
 #   root-contained `page` candidates, validated by the same path rule as any
 #   declared allows and capped by that authorization's own max_candidates,
-#   become the authorized `allows`. A ladder that is unusable, fails, returns an
-#   unrecognized document, or ranks no page leaves the declared card paths
-#   exactly as they were, so this can only narrow an authorization onto pages
-#   Megamind ranked and never widen one past what Megamind returned.
+#   become the authorized `allows`. `route` takes no model class and so cannot
+#   re-apply the per-class restriction `preflight` already applied, which is why
+#   an access this model class had narrowed below full - digest-only - never
+#   descends at all and keeps the exact paths Megamind declared. A ladder that
+#   is unusable, fails, returns an unrecognized document, or ranks no page
+#   likewise leaves the declared card paths exactly as they were, so this can
+#   only narrow an authorization onto pages Megamind ranked for a surface it
+#   already opened in full, and never widen one past what Megamind returned.
 # - The date is host-owned: it is always this host's current UTC date. The
 #   optional `--today` is an assertion, not an override - a value that is not
 #   that date is invalid_today - so no caller can forge the freshness,
@@ -306,7 +310,10 @@ route_page_allows() {  # <executable> <wiki root> <request> <max candidates> - p
   # document this host does not recognize, or surfaces no page at all. The
   # caller then keeps the declared card paths it already had, so this can only
   # narrow an authorization onto specific pages Megamind ranked, never widen one
-  # past what Megamind returned.
+  # past what Megamind returned. Callers descend only for a full-access
+  # authorization: `route` takes no model class, so it cannot restate the
+  # restriction that produced a digest-only access, and trading that digest for
+  # ranked pages would be the one substitution that widens.
   local exe="$1" root="$2" request="$3" max_candidates="$4" raw rc=0
   case "$max_candidates" in ''|*[!0-9]*) printf '%s' '[]'; return 0 ;; esac
   if [ "$max_candidates" -le 0 ] || [ -z "$root" ] || [ ! -d "$root" ]; then
@@ -1085,6 +1092,10 @@ $root_real" 2>/dev/null || true)"
   # Descend Megamind's own ladder once per authorized root, so a match resolves
   # to the pages that answer the request instead of only the routing index that
   # lists them. A root the ladder cannot serve keeps its declared card paths.
+  # Only a full-access match descends: `route` takes no model class, so it
+  # cannot re-apply the per-class restriction preflight already applied, and a
+  # digest-only match must keep the digest Megamind named rather than trade it
+  # for pages this model class was never authorized to load.
   route_pages='{}'
   while IFS= read -r route_record; do
     route_name="$(printf '%s' "$route_record" | jq -r '.name')"
@@ -1093,7 +1104,7 @@ $root_real" 2>/dev/null || true)"
     route_paths="$(route_page_allows "$exe" "$route_root" "$request" "$route_max")"
     [ -n "$route_paths" ] && [ "$route_paths" != '[]' ] || continue
     route_pages="$(printf '%s' "$route_pages" | jq -c --arg name "$route_name" --argjson paths "$route_paths" '. + {($name):$paths}')"
-  done < <(printf '%s' "$raw" | jq -c '.matches[]? | {name, root, max: (.context_budget.max_candidates // 0)}')
+  done < <(printf '%s' "$raw" | jq -c '.matches[]? | select(.access == "full") | {name, root, max: (.context_budget.max_candidates // 0)}')
   normalized="$(printf '%s' "$raw" | jq -c \
     --argjson route_pages "$route_pages" \
     --arg schema "$SCHEMA" \
@@ -1113,13 +1124,15 @@ $root_real" 2>/dev/null || true)"
        else "Megamind returned an unrecognized status: treat it as a blocker for substantive work." end;
      # One owner for what a match may load, so the emitted allows and the
      # binding that the reader re-derives them from can never disagree. Ranked
-     # ladder pages replace the declared card paths when Megamind surfaced any,
-     # because those pages are what the index existed to point at; with no page
-     # ranked, the declared paths stand exactly as before.
+     # ladder pages replace the declared card paths when Megamind surfaced any
+     # for a full-access match, because those pages are what the index existed
+     # to point at; with no page ranked, or with access narrowed below full for
+     # this model class, the declared paths stand exactly as before.
      def effective_allows($pages):
        (reduce (.allows[]? | select(safe_path)) as $path
          ([]; if index($path) then . else . + [$path] end)) as $declared |
-       if ($pages | type == "array") and ($pages | length) > 0 then $pages else $declared end;
+       if (.access == "full") and ($pages | type == "array") and ($pages | length) > 0
+       then $pages else $declared end;
      ([.matches[]?.allows[]? | select(safe_path | not)] | length) as $dropped |
      {
        schema_version: $schema,
@@ -1415,9 +1428,14 @@ $offer_root_identity" 2>/dev/null || true)"
     || { selection_error selection_replayed "the selection authorization already exists"; return 1; }
   # An explicitly selected wiki descends the same ladder a threshold match does:
   # the captain picked the wiki, not a routing index, and the selection's own
-  # declared budget still bounds what may be authorized.
+  # declared budget still bounds what may be authorized. Selecting a wiki does
+  # not raise its model-class access, so a selection Megamind narrowed below
+  # full keeps the exact paths it declared.
   selected_max="$(printf '%s' "$raw" | jq -r '.selected.context_budget.max_candidates // 0')"
-  selected_pages="$(route_page_allows "$exe_path" "$offer_root" "$request" "$selected_max")"
+  selected_pages='[]'
+  if [ "$(printf '%s' "$raw" | jq -r '.selected.access // empty')" = full ]; then
+    selected_pages="$(route_page_allows "$exe_path" "$offer_root" "$request" "$selected_max")"
+  fi
   [ -n "$selected_pages" ] || selected_pages='[]'
   projection="$(printf '%s' "$raw" | jq -c --arg schema "$SELECTION_SCHEMA" \
     --argjson route_pages "$selected_pages" \
@@ -1434,7 +1452,8 @@ $offer_root_identity" 2>/dev/null || true)"
       def effective_allows:
         (reduce (.selected.allows[]? | select(safe_path)) as $path
           ([]; if index($path) then . else . + [$path] end)) as $declared |
-        if ($route_pages | length) > 0 then $route_pages else $declared end;
+        if (.selected.access == "full") and ($route_pages | length) > 0
+        then $route_pages else $declared end;
       {schema_version:$schema,outcome:"authorized",failure:null,
        preflight_id:.preflight_id,request_hash:.request_hash,catalog_hash:.catalog_hash,
        model_class:.model_class,selection_id:$id,upstream_selection_id:.selection_id,

@@ -270,7 +270,41 @@ test_over_budget_emits_nothing() {
   pass "an over-budget path refuses whole and emits no partial content"
 }
 
+# Every admission is spent by the content channel of its own turn, so a store
+# that only ever grows leaves a permanent trail of wiki paths, content hashes,
+# and file fingerprints for prompts that were answered long ago.
+test_admission_store_is_retired() {
+  local home out id store stale
+  home=$(new_home retention)
+  prepare_auth "$home" '["wiki/index.md"]' 2 100
+  out=$(admit "$home")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = admitted ] || fail "retention fixture was refused: $out"
+  id=$(printf '%s' "$out" | jq -r '.admission_id')
+  store="$home/state/megamind-admissions"
+  [ -f "$store/$id.json" ] || fail "the admission record the content channel needs was not kept"
+  FM_HOME="$home" "$READER" content --admission-id "$id" >/dev/null || fail "content refused a fresh admission"
+
+  # A record, an abandoned lock, and an abandoned publish temporary left by an
+  # earlier turn are retired by the next admission rather than accumulating for
+  # the life of the home.
+  stale="$store/00000000000000000000000000000000.json"
+  printf '{}\n' > "$stale"; chmod 600 "$stale"
+  printf '' > "$store/.00000000000000000000000000000000.lock"; chmod 600 "$store/.00000000000000000000000000000000.lock"
+  printf '{}\n' > "$store/.admission.abandoned"; chmod 600 "$store/.admission.abandoned"
+  touch -t 200001010000 "$stale" "$store/.00000000000000000000000000000000.lock" "$store/.admission.abandoned"
+  prepare_auth "$home" '["wiki/index.md"]' 2 100
+  out=$(admit "$home")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = admitted ] || fail "a second admission was refused: $out"
+  assert_absent "$stale" "a stale admission record was never retired"
+  assert_absent "$store/.00000000000000000000000000000000.lock" "a stale admission lock was never retired"
+  assert_absent "$store/.admission.abandoned" "an abandoned publish temporary was never retired"
+  [ -f "$store/$(printf '%s' "$out" | jq -r '.admission_id').json" ] \
+    || fail "pruning retired the admission it had just written"
+  pass "the admission store retires spent records and never outlives its own turn"
+}
+
 test_bounded_admission_and_unicode_counting
+test_admission_store_is_retired
 test_budget_refusals
 test_routing_mode_vocabulary
 test_over_budget_emits_nothing

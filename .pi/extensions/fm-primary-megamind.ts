@@ -109,9 +109,9 @@ export default function (pi: ExtensionAPI) {
 
     // The adapter's own replay is the only extension-originated prompt that is
     // allowed to bypass a second preflight. Watcher and session messages remain
-    // ordinary extension input and do not enter this path.
-    if ((event as { source?: string }).source === "extension") {
-      if (consumeReplay(text)) return { action: "continue" as const };
+    // ordinary extension input and take the mandatory path below, where the
+    // coordinator's own classifier decides whether they bypass.
+    if ((event as { source?: string }).source === "extension" && consumeReplay(text)) {
       return { action: "continue" as const };
     }
 
