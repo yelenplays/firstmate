@@ -307,7 +307,7 @@ The portable stub loop below cannot stand in for that argument either, because i
 
 The 0.6.0 result reached the existing owner-bound worker authorization before launch, so the release is accepted without adding a second policy layer.
 The same owner still refuses 0.7.x and later, malformed identities, malformed output, and older releases until each future contract is separately established.
-A second home pinned to an installed `megamind-axi` 0.1.0 over that same estate reported outcome `error` with `failure.code` `version_incompatible`, `failure.detected` `0.1.0`, and exit 1, so the old-release refusal is measured on a real build rather than assumed from the synthetic stub.
+A second home pinned to an installed `megamind-axi` 0.1.0 over the published example estate of the 0.4.0 and 0.5.0 runs reported outcome `error` with `failure.code` `version_incompatible`, `failure.detected` `0.1.0`, and exit 1, so the old-release refusal is measured on a real build rather than assumed from the synthetic stub.
 
 The full accept-and-refuse matrix stays portable and runs with no Megamind installed:
 
