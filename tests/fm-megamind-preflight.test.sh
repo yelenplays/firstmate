@@ -57,9 +57,9 @@ cat > "$STUB" <<'SH'
 # Synthetic megamind-axi stand-in. FM_TEST_STUB_VERSION overrides the reported
 # version, FM_TEST_STUB_VERSION_RAW replaces the whole --version stream verbatim
 # so identity-free and noisy probes are reachable, FM_TEST_STUB_FIXTURE selects
-# the canned preflight document, FM_TEST_STUB_EXIT forces a non-zero exit, and
-# every preflight argv is appended to FM_TEST_STUB_ARGS for propagation
-# assertions.
+# the canned preflight document, FM_TEST_SELECTION_FIXTURE selects the governed
+# select-offer document, FM_TEST_STUB_EXIT forces a non-zero exit, and every
+# preflight argv is appended to FM_TEST_STUB_ARGS for propagation assertions.
 set -u
 printf 'CALL\n' >> "${FM_TEST_STUB_ARGS:?}"
 if [ -n "${FM_TEST_CREDENTIAL_PAYLOAD:-}" ]; then
@@ -74,7 +74,9 @@ if [ "${1:-}" = "--version" ]; then
   exit 0
 fi
 printf '%s\n' "$@" >> "$FM_TEST_STUB_ARGS"
-if [ -n "${FM_TEST_STUB_FIXTURE:-}" ]; then
+if printf ' %s ' "$*" | grep -q ' select-offer ' && [ -n "${FM_TEST_SELECTION_FIXTURE:-}" ]; then
+  cat "$FM_TEST_SELECTION_FIXTURE"
+elif [ -n "${FM_TEST_STUB_FIXTURE:-}" ]; then
   cat "$FM_TEST_STUB_FIXTURE"
 fi
 exit "${FM_TEST_STUB_EXIT:-0}"
@@ -206,6 +208,54 @@ cat > "$MATCHED_FIXTURE" <<'JSON'
   "root_issues": [],
   "redacted_count": 0,
   "notes": ["only wikis at or above the reliance floor (0.75) are loadable matches; the weaker ones stay offers with no loadable paths"]
+}
+JSON
+
+AMBIGUOUS_SELECTION_FIXTURE="$TMP_ROOT/ambiguous-selection.json"
+jq '.status = "ambiguous" | .request = "original request" | .canary = "RAW-REQUEST-CANARY" | .confidence = 0.4 | .matches = [] | .filtered = [] | .notes = []' \
+  "$MATCHED_FIXTURE" > "$AMBIGUOUS_SELECTION_FIXTURE"
+SELECTION_FIXTURE="$TMP_ROOT/selection.json"
+cat > "$SELECTION_FIXTURE" <<'JSON'
+{
+  "schema_version": "megamind/preflight-selection-result/v1",
+  "status": "authorized",
+  "preflight_id": "pf-matched-1",
+  "request_hash": "reqhash-1",
+  "catalog_hash": "cat-1",
+  "model_class": "cloud",
+  "selection_id": "upstream-selection-1",
+  "root_facts_hash": "root-facts-1",
+  "selection": {
+    "status": "explicit-user-selection",
+    "basis": "selected-current-offer",
+    "source_disposition": "offer",
+    "source_status": "ambiguous",
+    "preflight_id": "pf-matched-1",
+    "confidence_changed": false
+  },
+  "selected": {
+    "name": "OfferWiki",
+    "root": "/synthetic/estate/OfferWiki",
+    "score": 0.4,
+    "confidence": {"score": 0.4, "meets_floor": false},
+    "freshness": {"half_life_days": 30, "last_confirmed": "2026-08-10", "stale": false},
+    "evidence": {
+      "signal_counts": {"trigger": 0, "name": 1, "scope": 0},
+      "lexical_classes": ["name"],
+      "semantic": null,
+      "RAW": "must not escape"
+    },
+    "provisional": false,
+    "access": "digest-only",
+    "routing_mode": "bounded",
+    "allows": ["wiki/digest.md"],
+    "follow_up": "Run the bounded route ladder",
+    "context_budget": {"max_candidates": 2, "max_context_chars": 2048},
+    "catalog_visibility": "redacted",
+    "redacted": true,
+    "trust": "trusted"
+  },
+  "help": ["upstream text must not escape"]
 }
 JSON
 
@@ -584,6 +634,7 @@ test_allowed_path_enforcement() {
 test_ambiguous_offers_without_loading() {
   local home out fixture="$TMP_ROOT/ambiguous.json"
   jq '.status = "ambiguous"
+      | .request = "pricing"
       | .confidence = 0.4
       | .matches = []
       | .filtered = []' "$MATCHED_FIXTURE" > "$fixture"
@@ -789,6 +840,148 @@ test_jq_missing_is_disclosed() {
 
 # --- harness and backend neutrality -------------------------------------------
 
+test_explicit_offer_selection_continuation() {
+  local home out id pending auth rc fixture mode
+  home=$(new_home explicit-selection)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" run --request "original request"); rc=$?
+  expect_code 0 "$rc" "ambiguous selection preflight"
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  [ "${#id}" -ge 16 ] && [ "${#id}" -le 128 ] && [[ "$id" =~ ^[A-Fa-f0-9]+$ ]] \
+    || fail "ambiguous output did not expose an opaque selection id"
+  pending="$home/state/megamind-offer-selections/$id.pending.json"
+  assert_present "$pending" "ambiguous preflight did not retain private pending evidence"
+  if [ "$(uname)" = Darwin ]; then mode=$(stat -f %Lp "$pending"); else mode=$(stat -c %a "$pending"); fi
+  [ "$mode" = 600 ] || fail "pending evidence is not mode 0600"
+  assert_grep "RAW-REQUEST-CANARY" "$pending" "complete upstream packet was not retained privately"
+  assert_not_contains "$out" "RAW-REQUEST-CANARY" "raw request leaked into the normalized output"
+  assert_no_grep "RAW-REQUEST-CANARY" "$home/state/megamind-preflight.jsonl" \
+    "raw packet leaked into the proof log"
+
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 0 "$rc" "exact explicit offer selection"
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = authorized ] || fail "selection was not authorized: $out"
+  [ "$(printf '%s' "$out" | jq -r '.selection.threshold_matched')" = false ] || fail "selection became a threshold match"
+  [ "$(printf '%s' "$out" | jq -r '.selected.allows[0]')" = wiki/digest.md ] || fail "selected allows changed"
+  [ "$(printf '%s' "$out" | jq -r '.selected.context_budget.max_context_chars')" = 2048 ] || fail "positive context budget was lost"
+  [ "$(printf '%s' "$out" | jq -r '.selected.evidence.lexical_classes[0]')" = name ] || fail "safe evidence was lost"
+  assert_not_contains "$out" "RAW" "raw upstream evidence escaped the authorization projection"
+  auth="$home/state/megamind-offer-selections/$id.authorization.json"
+  assert_present "$auth" "authorization projection was not retained privately"
+  if [ "$(uname)" = Darwin ]; then mode=$(stat -f %Lp "$auth"); else mode=$(stat -c %a "$auth"); fi
+  [ "$mode" = 600 ] || fail "authorization projection is not mode 0600"
+  assert_absent "$pending" "pending evidence was not retired after successful consumption"
+
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 1 "$rc" "replayed explicit offer selection"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = selection_replayed ] || fail "replay was not refused: $out"
+
+  home=$(new_home wrong-offer)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" continue --selection-id "$id" --offer UnknownWiki); rc=$?
+  expect_code 1 "$rc" "wrong offer selection"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = offer_invalid ] || fail "wrong offer was accepted: $out"
+  assert_present "$home/state/megamind-offer-selections/$id.pending.json" \
+    "wrong offer destroyed retryable pending evidence"
+
+  home=$(new_home changed-binding)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  printf 'local\n' > "$home/config/megamind-model-class"
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 1 "$rc" "changed model binding"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = binding_changed ] || fail "changed model binding was accepted"
+
+  home=$(new_home malformed-selection)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  fixture="$TMP_ROOT/malformed-selection.json"
+  jq '.selected.allows = ["../escape.md"]' "$SELECTION_FIXTURE" > "$fixture"
+  out=$(FM_TEST_SELECTION_FIXTURE="$fixture" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 1 "$rc" "malformed selection result"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_result ] || fail "malformed result was accepted"
+  assert_present "$home/state/megamind-offer-selections/$id.pending.json" \
+    "malformed result did not preserve retryable evidence"
+
+  home=$(new_home absent-budget)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  fixture="$TMP_ROOT/absent-budget.json"
+  jq 'del(.selected.context_budget)' "$SELECTION_FIXTURE" > "$fixture"
+  out=$(FM_TEST_SELECTION_FIXTURE="$fixture" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 0 "$rc" "selection without context budget"
+  [ "$(printf '%s' "$out" | jq 'has("selected") and (.selected | has("context_budget") | not)')" = true ] \
+    || fail "absent context budget was invented"
+
+  home=$(new_home stale-catalog)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  fixture="$TMP_ROOT/stale-catalog.json"
+  jq '.catalog_hash = "stale-catalog"' "$SELECTION_FIXTURE" > "$fixture"
+  out=$(FM_TEST_SELECTION_FIXTURE="$fixture" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 1 "$rc" "stale catalog result"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_result ] || fail "stale catalog was accepted"
+
+  home=$(new_home changed-version)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_TEST_STUB_VERSION=0.5.0 \
+    FM_MEGAMIND_SESSION_ID=selection-test run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 1 "$rc" "changed executable version"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = binding_changed ] || fail "changed executable version was accepted"
+
+  for governance in provisional pointer no-load; do
+    home=$(new_home "governance-$governance")
+    out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+      run_in "$home" run --request "original request")
+    id=$(printf '%s' "$out" | jq -r '.selection_id')
+    fixture="$TMP_ROOT/$governance-selection.json"
+    case "$governance" in
+      provisional) jq '.selected.provisional = true' "$SELECTION_FIXTURE" > "$fixture" ;;
+      pointer) jq '.selected.routing_mode = "pointer"' "$SELECTION_FIXTURE" > "$fixture" ;;
+      no-load) jq '.selected.access = "none"' "$SELECTION_FIXTURE" > "$fixture" ;;
+    esac
+    out=$(FM_TEST_SELECTION_FIXTURE="$fixture" FM_MEGAMIND_SESSION_ID=selection-test \
+      run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+    expect_code 1 "$rc" "$governance selection result"
+    [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_result ] \
+      || fail "$governance selection was accepted"
+  done
+
+  home=$(new_home concurrent-selection)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki > "$TMP_ROOT/concurrent-a" 2>&1 &
+  local first_pid=$!
+  FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki > "$TMP_ROOT/concurrent-b" 2>&1 &
+  local second_pid=$!
+  wait "$first_pid"; local first_rc=$?
+  wait "$second_pid"; local second_rc=$?
+  [ "$first_rc" -ne "$second_rc" ] || fail "concurrent continuation did not produce one success and one refusal"
+  [ -f "$home/state/megamind-offer-selections/$id.authorization.json" ] \
+    || fail "concurrent continuation did not publish one authorization"
+  [ ! -f "$home/state/megamind-offer-selections/$id.pending.json" ] \
+    || fail "concurrent continuation left pending evidence after success"
+  pass "continue: explicit selection is private, bound, safe, one-time, and concurrency-serialized"
+}
+
 test_harness_backend_neutrality() {
   local home baseline variant
   home=$(new_home neutral)
@@ -825,6 +1018,7 @@ test_no_match_stays_quiet
 test_notes_are_host_owned
 test_privacy_filtered_never_names_wikis
 test_unavailable_is_definitive
+test_explicit_offer_selection_continuation
 test_malformed_and_failed_disclosure
 test_jq_missing_is_disclosed
 test_harness_backend_neutrality

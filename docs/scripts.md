@@ -27,7 +27,7 @@ The shared no-mistakes gate refusal for fleet lifecycle entrypoints is summarize
 | `fm-backlog-receive.sh`  | Idempotently ingest one confined remote handoff outbox through tasks-axi             |
 | `fm-decision-hold.sh`    | Create, verify, complete, and resolve durable captain-held decisions, and author their structured record |
 | `fm-brief.sh`            | Scaffold ship (explicit `--mode`), scout, secondmate-charter, and Herdr-lab briefs   |
-| `fm-megamind-preflight.sh` | Classify, run, and probe the mandatory read-only Megamind preflight pilot          |
+| `fm-megamind-preflight.sh` | Classify, run, probe, and safely continue the mandatory read-only Megamind preflight pilot |
 | `fm-worker-preflight.sh` | Clear an ordinary ship or scout worker's owning-home Megamind binding before its task exists |
 | `fm-herdr-lab.sh`        | Provision and guardedly operate an isolated, never-default Herdr lab session         |
 | `fm-install-herdr.sh`    | Install CI's exact-version Herdr pin with official asset URL, SHA-256, and protocol checks |
