@@ -23,11 +23,14 @@ prompt=$(printf '%s' "$payload" | jq -r '(.prompt // .user_prompt // empty) | if
 session=$(printf '%s' "$payload" | jq -r '(.session_id // .sessionId // empty) | if type == "string" then . else empty end' 2>/dev/null) || refuse 'the hook payload could not be parsed'
 [ -n "$prompt" ] || exit 0
 
-# An exact host control is consumed before Claude sees it. The offer is passed
-# as one opaque transport value; free-form consent never reaches the model.
-if printf '%s' "$prompt" | jq -eR 'test("^/fm-megamind-select [0-9A-Fa-f]{16,128} [^[:space:]]+$")' >/dev/null 2>&1; then
-  selection=$(printf '%s' "$prompt" | sed -E 's#^/fm-megamind-select ([0-9A-Fa-f]{16,128}) [^[:space:]]+$#\1#')
-  offer=$(printf '%s' "$prompt" | sed -E 's#^/fm-megamind-select [0-9A-Fa-f]{16,128} ([^[:space:]]+)$#\1#')
+# An exact host control is consumed here rather than classified. It carries no
+# leading slash on purpose: Claude resolves a leading-slash prompt as one of its
+# own commands and answers "Unknown command" without ever running this hook, so
+# a slash-prefixed control would dead-end every ambiguous offer. The offer is
+# passed as one opaque transport value; free-form consent never reaches the model.
+if printf '%s' "$prompt" | jq -eR 'test("^fm-megamind-select [0-9A-Fa-f]{16,128} [^[:space:]]+$")' >/dev/null 2>&1; then
+  selection=$(printf '%s' "$prompt" | sed -E 's#^fm-megamind-select ([0-9A-Fa-f]{16,128}) [^[:space:]]+$#\1#')
+  offer=$(printf '%s' "$prompt" | sed -E 's#^fm-megamind-select [0-9A-Fa-f]{16,128} ([^[:space:]]+)$#\1#')
   result=$(FM_HOME="${FM_HOME:-$ROOT}" "$COORDINATOR" continue --harness claude --session-id "$session" \
     --selection-id "$selection" --offer "$offer" --include-replay 2>/dev/null) \
     || refuse 'the Megamind coordinator could not complete this offer selection'
@@ -57,7 +60,7 @@ case "$decision" in
     offers=$(printf '%s' "$result" | jq -r '[.offers[]?.wiki] | join(", ")' 2>/dev/null || printf 'the listed offer')
     selection=$(printf '%s' "$result" | jq -r '.selection_id // empty' 2>/dev/null || true)
     if [ -n "$selection" ]; then
-      reason="Choose one of $offers with the exact host control /fm-megamind-select $selection <offer>. No wiki content was loaded."
+      reason="Choose one of $offers by sending the exact host control fm-megamind-select $selection <offer> as an ordinary message, with no leading slash. No wiki content was loaded."
     else
       reason="Megamind returned an ambiguous result ($offers), but this session has no continuable selection. No wiki content was loaded."
     fi

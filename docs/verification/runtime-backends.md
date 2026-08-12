@@ -238,8 +238,11 @@ The implementation remains opt-in through `config/megamind-primary-automatic` or
 Portable proof covers bypasses, no-match, privacy-filtered, matched bounded admission, prompt and root privacy, failed bindings, and deterministic unsupported decisions:
 
 ```sh
-bin/fm-test-run.sh tests/fm-megamind-primary.test.sh tests/fm-megamind-preflight.test.sh tests/fm-megamind-content.test.sh
+bin/fm-test-run.sh tests/fm-megamind-primary.test.sh tests/fm-megamind-preflight.test.sh tests/fm-megamind-content.test.sh tests/fm-megamind-claude-control.test.sh
 ```
+
+`tests/fm-megamind-claude-control.test.sh` drives the Claude transport over its real hook payload and proves that the control an ambiguous offer advertises is the exact control the transport accepts, and that no approximation of it authorizes a selection.
+The control carries no leading slash because Claude resolves a leading-slash prompt as one of its own commands and answers `Unknown command` before any `UserPromptSubmit` hook runs; that reachability is not observable without the real CLI, so the live guard below round-trips the advertised control back through it.
 
 The live guard uses only synthetic block prompts and a synthetic coordinator, so it proves the real installed transport reaches the host gate without making a provider call or reading a wiki:
 

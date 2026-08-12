@@ -43,6 +43,62 @@ SH
   printf 'live: claude %s blocked before inference with zero provider turns\n' "$(claude --version 2>/dev/null)"
 }
 
+# An ambiguous preflight is only usable if the control the block advertises
+# survives the real CLI. Claude resolves a leading-slash prompt as one of its own
+# commands and answers "Unknown command" before any UserPromptSubmit hook runs,
+# which no portable test can observe, so the round trip is driven here.
+run_claude_offer_control() {
+  command -v claude >/dev/null 2>&1 || { echo "absent: claude"; return 0; }
+  local project="$LAB/claude-offer/project" home="$LAB/claude-offer/home" out control replay rc
+  mkdir -p "$project/bin" "$project/.claude" "$home/state" "$home/config"
+  cp "$ROOT/bin/fm-claude-primary-prompt.sh" "$project/bin/"
+  cat > "$project/bin/fm-megamind-primary.sh" <<'SH'
+#!/usr/bin/env bash
+set -u
+printf '%s\n' "$*" >> "${FM_HOME:?}/state/offer-coordinator-calls"
+if [ "${1:-}" = continue ]; then
+  printf '%s\n' '{"decision":"block","failure_code":"synthetic_selection"}'
+else
+  printf '%s\n' '{"decision":"offer","selection_id":"0123456789abcdef","offers":[{"wiki":"SyntheticWiki"}]}'
+fi
+SH
+  chmod 700 "$project/bin/"*.sh
+  printf '%s\n' "$$" > "$home/state/.lock"
+  : > "$home/state/offer-coordinator-calls"
+  # shellcheck disable=SC2016 # Claude expands CLAUDE_PROJECT_DIR in the hook process.
+  printf '%s\n' '{"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-claude-primary-prompt.sh"}]}]}}' > "$project/.claude/settings.json"
+
+  set +e
+  out=$(cd "$project" && CLAUDE_PROJECT_DIR="$project" FM_HOME="$home" \
+    claude --print --output-format json --dangerously-skip-permissions \
+    'SYNTHETIC-OFFER-CANARY' 2>&1)
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "Claude offer guard exited $rc"
+  # Capture any leading punctuation too, so the replay below is byte-for-byte
+  # what the block told the captain to send rather than a sanitized version.
+  control=$(printf '%s' "$out" | jq -r '.result // ""' | grep -Eo '[^[:space:]]*fm-megamind-select [0-9A-Fa-f]{16,128} <offer>') \
+    || fail "the ambiguous block advertised no recoverable host control: $out"
+  replay=${control/<offer>/SyntheticWiki}
+
+  # Send the advertised control back exactly as the captain reads it.
+  set +e
+  out=$(cd "$project" && CLAUDE_PROJECT_DIR="$project" FM_HOME="$home" \
+    claude --print --output-format json --dangerously-skip-permissions "$replay" 2>&1)
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "Claude offer control exited $rc"
+  printf '%s\n' "$out" | grep -Fq 'Unknown command' \
+    && fail "Claude consumed the advertised control as one of its own commands: $out"
+  printf '%s\n' "$out" | grep -Fq '"num_turns":0' \
+    || fail "the advertised control started a provider turn instead of reaching the host gate: $out"
+  grep -Fq -- "continue --harness claude" "$home/state/offer-coordinator-calls" \
+    || fail "the advertised control never reached the coordinator's selection path"
+  grep -Fq -- "--selection-id 0123456789abcdef --offer SyntheticWiki" "$home/state/offer-coordinator-calls" \
+    || fail "the advertised control did not carry the offered selection verbatim"
+  printf 'live: claude %s round-tripped the advertised offer control back through the hook\n' "$(claude --version 2>/dev/null)"
+}
+
 run_pi_block() {
   command -v pi >/dev/null 2>&1 || { echo "absent: pi"; return 0; }
   local project="$LAB/pi/project" home="$LAB/pi/home" out rc
@@ -90,6 +146,7 @@ run_unsupported_check() {
 
 command -v jq >/dev/null 2>&1 || fail "jq is required"
 run_claude_block
+run_claude_offer_control
 run_pi_block
 run_unsupported_check
 printf 'ok - installed primary interception guards covered every detected harness\n'
