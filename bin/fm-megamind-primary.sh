@@ -109,6 +109,18 @@ gate_agent_session() {
   fm_is_gate_agent "$FM_ROOT"
 }
 
+# Whether this session is a governed primary at all. One owner for all three
+# eligibility gates, evaluated before any durable state exists: a gate worktree,
+# a linked worktree, a worker copy, or a home with the guard off must cost
+# nothing - no store directory, no submission lock, and no decision record - and
+# must never lose a prompt to a state directory it was never asked to write.
+primary_session_governed() {
+  gate_agent_session && return 1
+  primary_scope_allowed || return 1
+  automatic_enabled || return 1
+  return 0
+}
+
 valid_harness() {
   case "$1" in claude|pi|pi-signed) return 0 ;; *) return 1 ;; esac
 }
@@ -199,22 +211,6 @@ admit_context() {
 process_prompt_inner() {
   local harness="$1" session_id="$2" submission_id="$3" prompt="$4"
   local current_lock shash classify_result raw outcome selection offers task_id preflight_file admitted context counts
-  # Whether this session is a governed primary at all is settled before any
-  # live-session requirement. A checkout that never opted in - a gate worktree,
-  # a linked worktree, a worker copy, or a home with the guard off - keeps its
-  # ordinary behavior instead of losing every prompt to a missing session lock.
-  if gate_agent_session; then
-    decision bypass "$submission_id" ""
-    return
-  fi
-  if ! primary_scope_allowed; then
-    decision bypass "$submission_id" ""
-    return
-  fi
-  if ! automatic_enabled; then
-    decision bypass "$submission_id" ""
-    return
-  fi
   shash=$(session_hash "$session_id") || { decision block "$submission_id" "" session_identity_unavailable; return; }
   current_lock=$(current_session_identity 2>/dev/null || true)
   [ -n "$current_lock" ] || { decision block "$submission_id" "$shash" session_unavailable; return; }
@@ -269,6 +265,10 @@ process_prompt_inner() {
 process_prompt() {
   local harness="$1" session_id="$2" submission_id="$3" prompt="$4"
   local record="$PRIMARY_DIR/$submission_id.decision.json" lock="$PRIMARY_DIR/.$submission_id.lock" output
+  if ! primary_session_governed; then
+    decision bypass "$submission_id" ""
+    return 0
+  fi
   prune_private_records
   if [ -f "$record" ] && [ ! -L "$record" ] && [ "$(private_mode "$record" 2>/dev/null)" = 600 ]; then
     cat "$record"

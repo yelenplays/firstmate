@@ -29,7 +29,8 @@ if printf '%s' "$prompt" | jq -eR 'test("^/fm-megamind-select [0-9A-Fa-f]{16,128
   selection=$(printf '%s' "$prompt" | sed -E 's#^/fm-megamind-select ([0-9A-Fa-f]{16,128}) [^[:space:]]+$#\1#')
   offer=$(printf '%s' "$prompt" | sed -E 's#^/fm-megamind-select [0-9A-Fa-f]{16,128} ([^[:space:]]+)$#\1#')
   result=$(FM_HOME="${FM_HOME:-$ROOT}" "$COORDINATOR" continue --harness claude --session-id "$session" \
-    --selection-id "$selection" --offer "$offer" --include-replay 2>/dev/null) || exit 0
+    --selection-id "$selection" --offer "$offer" --include-replay 2>/dev/null) \
+    || refuse 'the Megamind coordinator could not complete this offer selection'
 else
   submission="p$(date +%s).$$.$RANDOM"
   result=$(printf '%s' "$prompt" | FM_HOME="${FM_HOME:-$ROOT}" "$COORDINATOR" process --harness claude \

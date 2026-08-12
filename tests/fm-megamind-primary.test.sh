@@ -84,6 +84,9 @@ test_optin_gates_precede_the_session_lock() {
     --session-id session-aaaaaaaa --submission-id submission-iiiiiiii <<< 'substantive prompt outside the primary scope')
   [ "$(printf '%s' "$out" | jq -r .decision)" = bypass ] \
     || fail "a checkout outside the primary scope blocked instead of staying ordinary: $out"
+  # A session that is not a governed primary costs nothing: no store directory,
+  # no submission lock, and no durable decision record.
+  assert_absent "$home/state/megamind-primary" "a bypassing session still built the coordinator's private store"
   out=$(run_in "$home" process --harness claude \
     --session-id session-aaaaaaaa --submission-id submission-jjjjjjjj <<< 'substantive prompt with the guard on')
   [ "$(printf '%s' "$out" | jq -r .decision)" = block ] \
@@ -91,6 +94,22 @@ test_optin_gates_precede_the_session_lock() {
   [ "$(printf '%s' "$out" | jq -r .failure_code)" = session_unavailable ] \
     || fail "the missing-lock failure code changed: $out"
   pass "coordinator: scope and opt-in are settled before any live-session requirement"
+}
+
+# The store the coordinator would write is itself inside the state directory an
+# ungoverned checkout never opted into, so a bypass must not need it to succeed.
+test_bypass_survives_an_unwritable_state_directory() {
+  local home out rc
+  home=$(new_home unwritable); install_stub "$home"
+  rm -f "$home/state/.lock"
+  chmod 500 "$home/state"
+  out=$(FM_MEGAMIND_PRIMARY_AUTOMATIC=0 run_in "$home" process --harness claude \
+    --session-id session-aaaaaaaa --submission-id submission-kkkkkkkk <<< 'substantive prompt with the guard off'); rc=$?
+  chmod 700 "$home/state"
+  [ "$rc" -eq 0 ] || fail "an unwritable state directory made the coordinator exit $rc"
+  [ "$(printf '%s' "$out" | jq -r .decision)" = bypass ] \
+    || fail "an unwritable state directory blocked a prompt the guard never governed: $out"
+  pass "coordinator: a bypass needs no directory, no lock, and no durable record"
 }
 
 test_no_match_and_privacy_filter() {
@@ -136,6 +155,7 @@ test_failures_and_unsupported() {
 
 test_classification_and_disabled_mode
 test_optin_gates_precede_the_session_lock
+test_bypass_survives_an_unwritable_state_directory
 test_no_match_and_privacy_filter
 test_matched_reader_context_and_privacy
 test_failures_and_unsupported
