@@ -61,7 +61,7 @@ Full detail on every feature lives in [docs/architecture.md](docs/architecture.m
 - A verified primary agent harness: Claude Code, Grok, Pi, `pi-signed`, Codex, or OpenCode.
 - Git and the GitHub CLI, authenticated through `gh auth login`.
 - The CLI and dependencies for your selected runtime backend; tmux is the reference default.
-- `megamind-axi` 0.3.x, 0.4.x, or 0.5.x and a local `config/megamind-estate` binding, because the read-only Megamind preflight pilot is mandatory: firstmate runs it before every substantive request, and `bin/fm-spawn.sh` refuses to launch a ship or scout worker whose home cannot clear that binding. A home without one discloses the missing binding as a blocker rather than answering from model knowledge or dispatching crew anyway. Setup lives in the "Megamind preflight" section of [docs/configuration.md](docs/configuration.md).
+- `megamind-axi` 0.3.x, 0.4.x, 0.5.x, or 0.6.x and a local `config/megamind-estate` binding, because the read-only Megamind preflight pilot is mandatory: firstmate runs it before every substantive request, and `bin/fm-spawn.sh` refuses to launch a ship or scout worker whose home cannot clear that binding. A home without one discloses the missing binding as a blocker rather than answering from model knowledge or dispatching crew anyway. Setup lives in the "Megamind preflight" section of [docs/configuration.md](docs/configuration.md).
 
 The first mate detects and offers to install supported missing tools after you approve.
 Backend-specific setup is linked in [Documentation](#documentation).

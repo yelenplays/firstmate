@@ -275,7 +275,33 @@ Observed bounded results:
 | Owner-bound `fm-worker-preflight.sh` | Exit 0 with empty stdout, the task's private result filed at mode 0600 with outcome `matched`, and one non-verbatim owner proof line carrying the minimal proof fields only - no request text and no path. |
 
 The 0.5.0 result reached the existing owner-bound worker authorization before launch, so the release is accepted without adding a second policy layer.
-The same owner still refuses 0.6.x and later, malformed identities, malformed output, and older releases until each future contract is separately established.
+
+The 0.6.0 line was measured on 2026-08-12 against the clean merged Megamind Phase 6 commit `12d3353ac6c18696bd3f6865f195b6c249344ee`.
+The executable reported `megamind-axi 0.6.0`, and its repository had no uncommitted changes.
+The evidence used the configured executable and configured pilot estate by reference, without copying either into the fixture or recording their private paths.
+The request was a privacy-safe no-match probe, and only bounded typed fields were retained below.
+
+```sh
+megamind-axi --version
+megamind-axi preflight --model-class cloud --estate <configured pilot estate> --format json --no-help-hints -- <privacy-safe no-match request>
+FM_HOME=<temporary evidence home> bin/fm-megamind-preflight.sh check
+FM_HOME=<temporary evidence home> bin/fm-megamind-preflight.sh run --request <privacy-safe no-match request>
+bin/fm-worker-preflight.sh <temporary evidence home> <task-id>
+```
+
+Observed bounded results:
+
+| Step | Result |
+| --- | --- |
+| `--version` | Exactly one `megamind-axi` identity line, reporting `0.6.0`. |
+| Megamind commit | `12d3353ac6c18696bd3f6865f195b6c249344ee`, clean working tree. |
+| Direct preflight call | Exit 0, schema `megamind/preflight-result/v2`, status `no-match`, cloud model class, the three required thresholds, zero matches, zero offers, zero filtered entries, and redacted count `0`. |
+| `check` | Exit 0, outcome `available`, version `0.6.0`, and cloud model class. |
+| `run` | Exit 0, one typed `fm/megamind-preflight/v1` document with outcome `no-match`, zero matches and offers, zero filtered entries, and no failure. |
+| Owner-bound `fm-worker-preflight.sh` | Exit 0 with empty stdout, a private task result with outcome `no-match`, and one proof record carrying only the established minimal fields. |
+
+The 0.6.0 result reached the existing owner-bound worker authorization before launch, so the release is accepted without adding a second policy layer.
+The same owner still refuses 0.7.x and later, malformed identities, malformed output, and older releases until each future contract is separately established.
 A second home pinned to an installed `megamind-axi` 0.1.0 over that same estate reported outcome `error` with `failure.code` `version_incompatible`, `failure.detected` `0.1.0`, and exit 1, so the old-release refusal is measured on a real build rather than assumed from the synthetic stub.
 
 The full accept-and-refuse matrix stays portable and runs with no Megamind installed:
@@ -291,12 +317,12 @@ ok - run: restrictive defaults, version gate, and invalid config fail closed
 ok - run: the version probe is identity-anchored, single-line, and never verbatim
 ok - check: availability probe reports configuration honestly
 ok - the 0.4.0 owner-bound preflight authorizes a worker before launch
-ok - 0.5.0 authorizes before launch while 0.6.0 remains refused
+ok - 0.6.0 authorizes before launch while 0.7.0 remains refused
 FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0
 ```
 
-Those cases authorize 0.3.x, 0.4.x, and 0.5.x, refuse the older `0.2.9`, the malformed `0.4`, `v0.4.0`, `0.4.0.1`, and `0.4.0-rc.1`, and the unproven future `0.6.0` and `1.0.0`, and hold the probe to exactly one `megamind-axi` identity line.
-Each proven line is held to the same normalized consumed surface as the 0.3.x baseline - lexical packet, freshness, context budget, allows, and host notes - rather than to its authorized outcome alone, and the 0.5.0 launch case requires the owner proof record that the refused 0.6.0 case, which reaches the same log with its typed refusal, must not carry.
+Those cases authorize 0.3.x, 0.4.x, 0.5.x, and 0.6.x, refuse the older `0.2.9`, the malformed `0.4`, `v0.4.0`, `0.4.0.1`, and `0.4.0-rc.1`, and the unproven future `0.7.0` and `1.0.0`, and hold the probe to exactly one `megamind-axi` identity line.
+Each proven line is held to the same normalized consumed surface as the 0.3.x baseline - lexical packet, freshness, context budget, allows, and host notes - rather than to its authorized outcome alone, and the 0.6.0 launch case requires the owner proof record that the refused 0.7.0 case, which reaches the same log with its typed refusal, must not carry.
 
 ## Herdr
 
