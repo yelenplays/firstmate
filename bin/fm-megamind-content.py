@@ -374,7 +374,11 @@ def authorization(auth: Dict[str, Any], selection_id: Optional[str]) -> Optional
             return None
         if not isinstance(allows, list) or not allows:
             return None
-        if match.get("access") not in ("full", "digest-only") or match.get("routing_mode") != "bounded":
+        # Megamind's routing vocabulary is exactly ("full", "pointer"): "full"
+        # authorizes the declared allows under the declared budget, "pointer"
+        # exposes paths alone and never loads content. Any other value is
+        # unknown upstream output and refuses rather than being guessed at.
+        if match.get("access") not in ("full", "digest-only") or match.get("routing_mode") != "full":
             return None
         if not isinstance(budget, dict) or type(budget.get("max_candidates")) is not int or budget["max_candidates"] <= 0:
             return None

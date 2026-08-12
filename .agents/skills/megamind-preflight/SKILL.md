@@ -48,6 +48,14 @@ Never classify a request as bypass to save time, and never skip a failed preflig
 - `error`: the typed `failure.code` (missing configuration, missing or incompatible Megamind, malformed or failed output, or unsafe selection continuation) is a concrete blocker for substantive work.
   Disclose it plainly to the captain instead of pretending preflight ran; routine bypass traffic may still proceed.
 
+## Admitted evidence that cannot answer the request
+
+A successful preflight and a successful admission prove that routing ran, never that the admitted content answers the question.
+When the admitted evidence does not answer it, state that evidence gap plainly and stop; name what the wiki does cover and what it does not.
+Never close the gap from model knowledge, and never present model synthesis as wiki-grounded, whatever `preflight_id` the turn is carrying.
+Admitted content that only names or links pages which were not themselves authorized is exactly this case: those page names are the reportable gap, not permission to reason from them.
+This rule applies identically to a threshold `matched` result and to an `authorized` explicit selection, and it is the one case where wiki evidence outranking model priors means answering with less rather than more.
+
 ## Ordinary worker launch guidance
 
 When you dispatch an ordinary ship or scout task, author `data/<task-id>/megamind-request.md` the same way you fill in `{TASK}`: one privacy-safe routing line, enough for Megamind to match on and nothing more.

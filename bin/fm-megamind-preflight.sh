@@ -72,6 +72,22 @@
 #   and 0.6.0 all answer it identically - so one argv serves all four and no
 #   accepted release loses preflight. Megamind owns routing, thresholds, privacy
 #   filtering, and budgets; this script never reimplements them.
+# - `preflight` answers at the catalog level, so the widest surface it can name
+#   is the card, digest, and index a wiki declares, and its `follow_up` asks the
+#   host to open that index and follow its links. That sentence stays
+#   informational and is never executed or parsed. Instead, every authorized
+#   root - a threshold match and an explicitly selected offer alike - descends
+#   Megamind's own governed ladder once: `megamind-axi --root <root> --format
+#   json --no-help-hints route -- <request>`, with global flags before the
+#   subcommand where `route` declares them and the request last after `--`. The
+#   ladder returns ranked candidate paths, kinds, scores, and reasons and never
+#   page content or file sizes, so it widens no content boundary. Its
+#   root-contained `page` candidates, validated by the same path rule as any
+#   declared allows and capped by that authorization's own max_candidates,
+#   become the authorized `allows`. A ladder that is unusable, fails, returns an
+#   unrecognized document, or ranks no page leaves the declared card paths
+#   exactly as they were, so this can only narrow an authorization onto pages
+#   Megamind ranked and never widen one past what Megamind returned.
 # - The date is host-owned: it is always this host's current UTC date. The
 #   optional `--today` is an assertion, not an override - a value that is not
 #   that date is invalid_today - so no caller can forge the freshness,
@@ -271,6 +287,53 @@ detect_version() {  # <executable> - print its one anchored megamind-axi version
     sed -n 's/^megamind-axi \([0-9A-Za-z][0-9A-Za-z.+-]\{0,31\}\)$/\1/p')
   [ -n "$parsed" ] || return 1
   printf '%s\n' "$parsed"
+}
+
+route_page_allows() {  # <executable> <wiki root> <request> <max candidates> - print a JSON array of ranked page paths
+  # Megamind answers `preflight` at the catalog level, so the widest surface it
+  # can name is the card, digest, and index a wiki already declares. Its
+  # follow_up sentence therefore asks the host to open that index and follow its
+  # links, and firstmate never executes a follow_up - which left the descent
+  # with no implementation at all: an authorization named a routing index and
+  # nothing the index pointed at. `route` is Megamind's own governed ladder for
+  # exactly that step. It resolves index links into ranked, root-contained page
+  # candidates under the same declared budgets and returns paths, kinds, scores,
+  # and reasons - never page content, and never a file size - so running it
+  # widens no content boundary and the bounded reader stays the only way any
+  # wiki byte reaches a model.
+  #
+  # An empty array is printed whenever the ladder is unusable, fails, returns a
+  # document this host does not recognize, or surfaces no page at all. The
+  # caller then keeps the declared card paths it already had, so this can only
+  # narrow an authorization onto specific pages Megamind ranked, never widen one
+  # past what Megamind returned.
+  local exe="$1" root="$2" request="$3" max_candidates="$4" raw rc=0
+  case "$max_candidates" in ''|*[!0-9]*) printf '%s' '[]'; return 0 ;; esac
+  if [ "$max_candidates" -le 0 ] || [ -z "$root" ] || [ ! -d "$root" ]; then
+    printf '%s' '[]'
+    return 0
+  fi
+  # Global flags precede the subcommand, which is where every proven release
+  # declares them for `route`, and the request goes last after `--` so a
+  # dash-leading request stays a request rather than becoming an option.
+  raw="$("$exe" --root "$root" --format json --no-help-hints route -- "$request" 2>/dev/null)" && rc=0 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    printf '%s' '[]'
+    return 0
+  fi
+  printf '%s' "$raw" | jq -c --argjson max "$max_candidates" "$SAFE_JQ_DEFS"'
+      if (.schema_version | type == "string")
+         and (.schema_version | startswith("megamind/route-result/"))
+         and (.candidates | type == "array")
+      then
+        [.candidates[]?
+          | select(type == "object" and .kind == "page")
+          | .path
+          | select(safe_path)]
+        | reduce .[] as $path ([]; if index($path) then . else . + [$path] end)
+        | .[0:$max]
+      else [] end
+    ' 2>/dev/null || printf '%s' '[]'
 }
 
 # Operational-input kinds that are pure control or routine monitoring. Every
@@ -994,6 +1057,7 @@ cmd_run() {
   # own notes - which can name below-floor wikis, out-of-band candidates, and
   # absolute roots - with one fixed host-owned line per outcome.
   local normalized owner_identity_value exe_path exe_file_hash exe_identity_value estate_identity_value root_ids
+  local route_pages route_record route_name route_root route_max route_paths
   owner_identity_value="$(CDPATH='' cd -P -- "$FM_HOME" 2>/dev/null && pwd -P)" || owner_identity_value=
   if [ -n "$owner_identity_value" ]; then
     owner_identity_value="$(hash_text "firstmate-home/v1
@@ -1018,7 +1082,20 @@ $root_real" 2>/dev/null || true)"
     [ -n "$root_hash" ] || continue
     root_ids="$(printf '%s' "$root_ids" | jq -c --arg name "$root_name" --arg hash "$root_hash" '. + {($name):$hash}')"
   done < <(printf '%s' "$raw" | jq -c '.matches[]? | {name,root}')
+  # Descend Megamind's own ladder once per authorized root, so a match resolves
+  # to the pages that answer the request instead of only the routing index that
+  # lists them. A root the ladder cannot serve keeps its declared card paths.
+  route_pages='{}'
+  while IFS= read -r route_record; do
+    route_name="$(printf '%s' "$route_record" | jq -r '.name')"
+    route_root="$(printf '%s' "$route_record" | jq -r '.root')"
+    route_max="$(printf '%s' "$route_record" | jq -r '.max')"
+    route_paths="$(route_page_allows "$exe" "$route_root" "$request" "$route_max")"
+    [ -n "$route_paths" ] && [ "$route_paths" != '[]' ] || continue
+    route_pages="$(printf '%s' "$route_pages" | jq -c --arg name "$route_name" --argjson paths "$route_paths" '. + {($name):$paths}')"
+  done < <(printf '%s' "$raw" | jq -c '.matches[]? | {name, root, max: (.context_budget.max_candidates // 0)}')
   normalized="$(printf '%s' "$raw" | jq -c \
+    --argjson route_pages "$route_pages" \
     --arg schema "$SCHEMA" \
     --arg policy "$READ_POLICY" \
     --arg owner_identity "$owner_identity_value" \
@@ -1034,6 +1111,15 @@ $root_real" 2>/dev/null || true)"
        elif . == "privacy-filtered" then "Megamind withheld every candidate for this model class: only the count is disclosed, never a name."
        elif . == "unavailable" then "Megamind has no usable wiki cards: disclose the gap instead of assuming coverage."
        else "Megamind returned an unrecognized status: treat it as a blocker for substantive work." end;
+     # One owner for what a match may load, so the emitted allows and the
+     # binding that the reader re-derives them from can never disagree. Ranked
+     # ladder pages replace the declared card paths when Megamind surfaced any,
+     # because those pages are what the index existed to point at; with no page
+     # ranked, the declared paths stand exactly as before.
+     def effective_allows($pages):
+       (reduce (.allows[]? | select(safe_path)) as $path
+         ([]; if index($path) then . else . + [$path] end)) as $declared |
+       if ($pages | type == "array") and ($pages | length) > 0 then $pages else $declared end;
      ([.matches[]?.allows[]? | select(safe_path | not)] | length) as $dropped |
      {
        schema_version: $schema,
@@ -1059,7 +1145,7 @@ $root_real" 2>/dev/null || true)"
            confidence: $match.confidence.score,
            freshness: ($match.freshness | safe_freshness),
            provenance: ($match.evidence | safe_evidence),
-           allows: [$match.allows[]? | select(safe_path)],
+           allows: ($match | effective_allows($route_pages[$match.name])),
            follow_up: $match.follow_up
          } + (if (($match.context_budget | type) == "object")
               then {context_budget: ($match.context_budget | safe_budget)}
@@ -1078,8 +1164,7 @@ $root_real" 2>/dev/null || true)"
          catalog_hash: .catalog_hash,
          declared_allows: [.matches[]? | {
            wiki: .name,
-           allows: (reduce (.allows[]? | select(safe_path)) as $path
-             ([]; if index($path) then . else . + [$path] end)),
+           allows: effective_allows($route_pages[.name]),
            access: .access,
            routing_mode: .routing_mode,
            context_budget: (if (.context_budget | type) == "object" then (.context_budget | safe_budget) else null end)
@@ -1324,11 +1409,18 @@ $offer_root_identity" 2>/dev/null || true)"
     return 1
   fi
 
-  local projection result_file
+  local projection result_file selected_pages selected_max
   result_file="$(authorization_path "$selection_id")"
   [ ! -e "$result_file" ] && [ ! -L "$result_file" ] \
     || { selection_error selection_replayed "the selection authorization already exists"; return 1; }
+  # An explicitly selected wiki descends the same ladder a threshold match does:
+  # the captain picked the wiki, not a routing index, and the selection's own
+  # declared budget still bounds what may be authorized.
+  selected_max="$(printf '%s' "$raw" | jq -r '.selected.context_budget.max_candidates // 0')"
+  selected_pages="$(route_page_allows "$exe_path" "$offer_root" "$request" "$selected_max")"
+  [ -n "$selected_pages" ] || selected_pages='[]'
   projection="$(printf '%s' "$raw" | jq -c --arg schema "$SELECTION_SCHEMA" \
+    --argjson route_pages "$selected_pages" \
     --arg id "$selection_id" --arg policy "$READ_POLICY" \
     --arg owner_identity "$owner_identity_value" \
     --arg executable_identity "$executable_identity_value" \
@@ -1337,6 +1429,12 @@ $offer_root_identity" 2>/dev/null || true)"
     --arg root_identity "$offer_root_identity" \
     --arg today "$today" \
     "$SAFE_JQ_DEFS"'
+      # One owner for the load surface of the selected wiki, so the projection
+      # and the binding the reader re-derives it from can never disagree.
+      def effective_allows:
+        (reduce (.selected.allows[]? | select(safe_path)) as $path
+          ([]; if index($path) then . else . + [$path] end)) as $declared |
+        if ($route_pages | length) > 0 then $route_pages else $declared end;
       {schema_version:$schema,outcome:"authorized",failure:null,
        preflight_id:.preflight_id,request_hash:.request_hash,catalog_hash:.catalog_hash,
        model_class:.model_class,selection_id:$id,upstream_selection_id:.selection_id,
@@ -1350,8 +1448,7 @@ $offer_root_identity" 2>/dev/null || true)"
          model_class:.model_class,preflight_id:.preflight_id,
          request_hash:.request_hash,catalog_hash:.catalog_hash,
          declared_allows:[{wiki:.selected.name,
-           allows:(reduce (.selected.allows[]?) as $path
-             ([]; if index($path) then . else . + [$path] end)),
+           allows:effective_allows,
            access:.selected.access,routing_mode:.selected.routing_mode,
            context_budget:(if (.selected.context_budget | type) == "object"
              then (.selected.context_budget | safe_budget) else null end)}],
@@ -1362,7 +1459,7 @@ $offer_root_identity" 2>/dev/null || true)"
          freshness:(.selected.freshness | safe_freshness),
          evidence:(.selected.evidence | safe_evidence),
          access:.selected.access,routing_mode:.selected.routing_mode,
-         allows:.selected.allows,follow_up:.selected.follow_up,
+         allows:effective_allows,follow_up:.selected.follow_up,
          provisional:false}
          + (if (.selected.context_budget | type) == "object"
             then {context_budget:(.selected.context_budget | safe_budget)} else {} end)

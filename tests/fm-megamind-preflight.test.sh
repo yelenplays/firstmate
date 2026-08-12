@@ -118,6 +118,7 @@ i=$((i + 1))
 case "$sub" in
   preflight) allowed=' --model-class --estate --today --full --semantic --format --root --no-help-hints ' ;;
   select-offer) allowed=' --request --preflight-result --model-class --estate --today --format --root --no-help-hints ' ;;
+  route) allowed=' --fields --today --semantic --format --root --no-help-hints ' ;;
   *) usage_error "invalid choice: $sub" ;;
 esac
 while [ "$i" -lt "$count" ]; do
@@ -134,7 +135,10 @@ while [ "$i" -lt "$count" ]; do
   esac
 done
 
-if [ "$sub" = select-offer ] && [ -n "${FM_TEST_SELECTION_FIXTURE:-}" ]; then
+if [ "$sub" = route ]; then
+  [ -n "${FM_TEST_ROUTE_FIXTURE:-}" ] && cat "$FM_TEST_ROUTE_FIXTURE"
+  exit "${FM_TEST_ROUTE_EXIT:-0}"
+elif [ "$sub" = select-offer ] && [ -n "${FM_TEST_SELECTION_FIXTURE:-}" ]; then
   cat "$FM_TEST_SELECTION_FIXTURE"
 elif [ -n "${FM_TEST_STUB_FIXTURE:-}" ]; then
   cat "$FM_TEST_STUB_FIXTURE"
@@ -243,7 +247,7 @@ cat > "$MATCHED_FIXTURE" <<'JSON'
     "context_budget": {"max_candidates": 3, "max_context_chars": 4000, "root": "/private/root"},
     "reasons": ["trigger match: pricing"],
     "access": "full",
-    "routing_mode": "bounded",
+    "routing_mode": "full",
     "allows": [".megamind/wiki-card.json", "wiki/digest.md", "wiki/index.md"],
     "follow_up": "Run `megamind-axi --root /synthetic/estate/ProductWiki route pricing` for the bounded ladder"
   }],
@@ -307,7 +311,7 @@ cat > "$SELECTION_FIXTURE" <<'JSON'
     },
     "provisional": false,
     "access": "digest-only",
-    "routing_mode": "bounded",
+    "routing_mode": "full",
     "allows": ["wiki/digest.md"],
     "follow_up": "Run the bounded route ladder",
     "context_budget": {"max_candidates": 2, "max_context_chars": 2048},
@@ -697,6 +701,87 @@ test_allowed_path_enforcement() {
     || fail "unsafe allows not dropped: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
   [ "$(printf '%s' "$out" | jq -r '.dropped_allows')" = 5 ] || fail "dropped_allows miscounted: $out"
   pass "run: absolute, tilde, dot-dot, and empty allows paths are dropped"
+}
+
+# --- ladder descent ----------------------------------------------------------
+
+# preflight answers at the catalog level, so the widest surface it can name is a
+# routing index. These cover the descent that turns that index into the pages it
+# points at, and the fallback that leaves an unusable ladder exactly where it was.
+test_ladder_pages_replace_the_routing_index() {
+  local home out fixture="$TMP_ROOT/ladder-match.json" route="$TMP_ROOT/ladder-route.json"
+  local argv root
+  home=$(new_home ladder)
+  root="$home/estate/ProductWiki"
+  mkdir -p "$root"
+  jq --arg root "$root" '.matches[0].root = $root
+      | .matches[0].allows = ["wiki/index.md"]
+      | .matches[0].context_budget = {"max_candidates": 2, "max_context_chars": 4000}' \
+    "$MATCHED_FIXTURE" > "$fixture"
+  # Ranked page candidates, one duplicate, one unsafe path, and more pages than
+  # the authorization's own max_candidates permits.
+  cat > "$route" <<'JSON'
+{"schema_version": "megamind/route-result/v2", "query": "pricing", "matched": true,
+ "decision": "load", "confidence": 0.9,
+ "candidates": [
+   {"path": "wiki/concepts/pricing.md", "kind": "page", "score": 8, "reason": "keyword match: pricing"},
+   {"path": "../escape.md", "kind": "page", "score": 7, "reason": "unsafe"},
+   {"path": "wiki/concepts/pricing.md", "kind": "page", "score": 6, "reason": "duplicate"},
+   {"path": "wiki/concepts/discounts.md", "kind": "page", "score": 5, "reason": "keyword match: pricing"},
+   {"path": "wiki/concepts/overflow.md", "kind": "page", "score": 4, "reason": "beyond the budget"},
+   {"path": "wiki/index.md", "kind": "index", "score": 3, "reason": "not a page"}]}
+JSON
+  : > "$FM_TEST_STUB_ARGS"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" run --request "pricing")
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" \
+    = '["wiki/concepts/pricing.md","wiki/concepts/discounts.md"]' ] \
+    || fail "ladder pages did not replace the routing index: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
+  # The binding the reader re-derives the load surface from must agree exactly,
+  # or every admission refuses as authorization_invalid.
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" \
+    = "$(printf '%s' "$out" | jq -c '.matches[0].allows')" ] \
+    || fail "declared_allows disagreed with the emitted allows: $out"
+  # follow_up stays informational: it is carried, never executed or parsed.
+  [ "$(printf '%s' "$out" | jq -r '.matches[0].follow_up')" != null ] \
+    || fail "follow_up was dropped rather than carried: $out"
+  argv=$(cat "$FM_TEST_STUB_ARGS")
+  printf '%s' "$argv" | grep -q '^route$' || fail "the ladder subcommand was never invoked: $argv"
+  # Global flags precede the subcommand and the request goes last after --, so a
+  # dash-leading request can never be parsed as an option.
+  printf '%s' "$argv" | tr '\n' ' ' | grep -q -- '--root [^ ]* --format json --no-help-hints route -- pricing' \
+    || fail "ladder argv was not the documented shape: $argv"
+  pass "run: the ladder replaces a routing index with its ranked, budgeted pages"
+}
+
+test_ladder_failure_keeps_declared_paths() {
+  local home out fixture="$TMP_ROOT/ladder-fallback.json" route="$TMP_ROOT/ladder-empty.json" root case_name
+  home=$(new_home ladderfallback)
+  root="$home/estate/ProductWiki"
+  mkdir -p "$root"
+  jq --arg root "$root" '.matches[0].root = $root | .matches[0].allows = ["wiki/index.md"]' \
+    "$MATCHED_FIXTURE" > "$fixture"
+  for case_name in nopage failed unrecognized; do
+    case "$case_name" in
+      nopage) printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/index.md","kind":"index","score":3}]}' > "$route" ;;
+      failed) printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8}]}' > "$route" ;;
+      unrecognized) printf '%s\n' '{"schema_version":"megamind/something-else/v9","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8}]}' > "$route" ;;
+    esac
+    if [ "$case_name" = failed ]; then
+      out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" FM_TEST_ROUTE_EXIT=2 \
+        run_in "$home" run --request "pricing")
+    else
+      out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
+        run_in "$home" run --request "pricing")
+    fi
+    [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" = '["wiki/index.md"]' ] \
+      || fail "$case_name ladder changed the declared allows: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
+    [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/index.md"]' ] \
+      || fail "$case_name ladder desynchronized the binding: $out"
+    [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] \
+      || fail "$case_name ladder changed the preflight outcome: $out"
+  done
+  pass "run: a ladder that ranks no page, fails, or is unrecognized leaves the declared paths untouched"
 }
 
 # --- ambiguity, no-match, privacy, unavailable --------------------------------
@@ -1358,6 +1443,8 @@ test_request_stdin_keeps_adapter_prompt_out_of_coordinator_argv
 test_dash_leading_request_is_passed_safely
 test_check_probe
 test_allowed_path_enforcement
+test_ladder_pages_replace_the_routing_index
+test_ladder_failure_keeps_declared_paths
 test_ambiguous_offers_without_loading
 test_no_match_stays_quiet
 test_notes_are_host_owned

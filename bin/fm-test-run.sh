@@ -218,6 +218,9 @@ family_for_basename() {
     fm-backend-orca.test.sh)
       printf '%s\n' orca
       ;;
+    fm-megamind-realshape.test.sh)
+      printf '%s\n' megamind-realshape
+      ;;
     *)
       printf '%s\n' unclassified
       ;;
@@ -228,7 +231,7 @@ expected_gate_skip_for_family() {
   case "$1" in
     real-herdr-gated) printf '%s\n' herdr ;;
     live-harness-optin) printf '%s\n' optin-env ;;
-    cmux|zellij|orca) printf '%s\n' optional-binary ;;
+    cmux|zellij|orca|megamind-realshape) printf '%s\n' optional-binary ;;
     snapshot-bearings) printf '%s\n' optional-binary ;;
     *) printf '%s\n' none ;;
   esac
@@ -249,6 +252,7 @@ snapshot-bearings
 cmux
 zellij
 orca
+megamind-realshape
 unclassified
 EOF
 }
@@ -914,6 +918,9 @@ families_for_changed_path() {
       ;;
     bin/fm-megamind-content.sh|bin/fm-megamind-content.py)
       printf '%s\n' "__script__:fm-megamind-content.test.sh"
+      # The reader is one half of a contract whose other half is the real
+      # producer, so a reader change also selects the real-shape guard.
+      printf '%s\n' "__script__:fm-megamind-realshape.test.sh"
       ;;
     bin/fm-session-start.sh|bin/fm-bootstrap.sh|bin/fm-fleet-sync.sh|\
     bin/fm-sessionstart-nudge.sh|bin/fm-startup-network.sh|bin/fm-tangle*|bin/fm-update.sh|\

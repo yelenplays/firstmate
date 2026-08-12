@@ -36,10 +36,14 @@ SH
   printf '%s\n' "$home"
 }
 
+# The routing mode defaults to Megamind's real content mode. Its vocabulary is
+# exactly ("full", "pointer"), so a fixture that invents any other value proves
+# nothing about what the reader does with real upstream output.
 prepare_auth() {
-  local home=$1 allows=$2 max_candidates=$3 max_chars=$4 fixture="$TMP_ROOT/fixture-${RANDOM}-${RANDOM}.json"
+  local home=$1 allows=$2 max_candidates=$3 max_chars=$4 routing_mode=${5-full}
+  local fixture="$TMP_ROOT/fixture-${RANDOM}-${RANDOM}.json"
   cat > "$fixture" <<JSON
-{"schema_version":"megamind/preflight-result/v2","request_hash":"request-hash","model_class":"cloud","status":"matched","confidence":0.9,"preflight_id":"preflight-${RANDOM}","catalog_hash":"catalog-hash","thresholds":{"reliance_floor":0.75,"offer_floor":0.25,"ambiguity_band":0.05},"matches":[{"name":"SyntheticWiki","root":"$home/estate/SyntheticWiki","access":"full","routing_mode":"bounded","confidence":{"score":0.9},"allows":$allows,"follow_up":"This is informational and must never execute","context_budget":{"max_candidates":$max_candidates,"max_context_chars":$max_chars}}],"offers":[],"filtered":[],"redacted_count":0}
+{"schema_version":"megamind/preflight-result/v2","request_hash":"request-hash","model_class":"cloud","status":"matched","confidence":0.9,"preflight_id":"preflight-${RANDOM}","catalog_hash":"catalog-hash","thresholds":{"reliance_floor":0.75,"offer_floor":0.25,"ambiguity_band":0.05},"matches":[{"name":"SyntheticWiki","root":"$home/estate/SyntheticWiki","access":"full","routing_mode":"$routing_mode","confidence":{"score":0.9},"allows":$allows,"follow_up":"This is informational and must never execute","context_budget":{"max_candidates":$max_candidates,"max_context_chars":$max_chars}}],"offers":[],"filtered":[],"redacted_count":0}
 JSON
   FM_TEST_FIXTURE="$fixture" FM_HOME="$home" "$PREFLIGHT" run --request routing > "$home/state/task.megamind-preflight.json"
   chmod 600 "$home/state/task.megamind-preflight.json"
@@ -213,7 +217,7 @@ JSON
   [ "$selection_id" != null ] && [ -n "$selection_id" ] || fail "synthetic ambiguous preflight did not issue selection id"
   fixture="$TMP_ROOT/authorized-selection.json"
   cat > "$fixture" <<JSON
-{"schema_version":"megamind/preflight-selection-result/v1","status":"authorized","preflight_id":"selection-preflight","request_hash":"selection-request","catalog_hash":"selection-catalog","model_class":"cloud","selection_id":"upstream-selection","root_facts_hash":"synthetic-root-facts","selection":{"status":"explicit-user-selection","basis":"selected-current-offer","source_disposition":"offer","source_status":"ambiguous","preflight_id":"selection-preflight","confidence_changed":false},"selected":{"name":"OfferWiki","root":"$home/estate/OfferWiki","score":4,"confidence":{"score":0.4,"meets_floor":false},"freshness":null,"evidence":{},"provisional":false,"access":"full","routing_mode":"bounded","allows":[".megamind/wiki-card.json","wiki/index.md"],"follow_up":"must never execute","context_budget":{"max_candidates":2,"max_context_chars":100}},"help":["private"]}
+{"schema_version":"megamind/preflight-selection-result/v1","status":"authorized","preflight_id":"selection-preflight","request_hash":"selection-request","catalog_hash":"selection-catalog","model_class":"cloud","selection_id":"upstream-selection","root_facts_hash":"synthetic-root-facts","selection":{"status":"explicit-user-selection","basis":"selected-current-offer","source_disposition":"offer","source_status":"ambiguous","preflight_id":"selection-preflight","confidence_changed":false},"selected":{"name":"OfferWiki","root":"$home/estate/OfferWiki","score":4,"confidence":{"score":0.4,"meets_floor":false},"freshness":null,"evidence":{},"provisional":false,"access":"full","routing_mode":"full","allows":[".megamind/wiki-card.json","wiki/index.md"],"follow_up":"must never execute","context_budget":{"max_candidates":2,"max_context_chars":100}},"help":["private"]}
 JSON
   out=$(FM_TEST_SELECTION_FIXTURE="$fixture" FM_HOME="$home" "$PREFLIGHT" continue --selection-id "$selection_id" --offer OfferWiki); [ "$(printf '%s' "$out" | jq -r .outcome)" = authorized ] || fail "synthetic selection was not authorized: $out"
   out=$(FM_HOME="$home" "$READER" admit --selection-id "$selection_id"); [ "$(printf '%s' "$out" | jq -r .outcome)" = admitted ] || fail "selection admission refused: $out"
@@ -223,8 +227,53 @@ JSON
   pass "a real synthetic Megamind 0.6 selection authorizes only once and expires on binding change"
 }
 
+test_routing_mode_vocabulary() {
+  local home out mode
+  home=$(new_home vocabulary)
+  printf 'safe\n' > "$home/estate/SyntheticWiki/wiki/index.md"
+  prepare_auth "$home" '["wiki/index.md"]' 2 100 full
+  out=$(admit "$home")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = admitted ] \
+    || fail "the real Megamind content mode was refused: $out"
+  # Every other mode stays a refusal rather than a guess. "pointer" is the only
+  # other value Megamind can emit and it exposes paths without content, so it
+  # must never reach a load; anything else is unknown upstream output.
+  for mode in pointer bounded partial ''; do
+    prepare_auth "$home" '["wiki/index.md"]' 2 100 "$mode"
+    out=$(admit "$home")
+    assert_refusal "$out" authorization_invalid "routing mode '${mode:-empty}'"
+  done
+  prepare_auth "$home" '["wiki/index.md"]' 2 100 full
+  jq 'del(.matches[0].routing_mode)
+      | del(.authorization_binding.declared_allows[0].routing_mode)' \
+    "$home/state/task.megamind-preflight.json" > "$home/state/tmp.json"
+  chmod 600 "$home/state/tmp.json"; mv -f "$home/state/tmp.json" "$home/state/task.megamind-preflight.json"
+  out=$(admit "$home"); assert_refusal "$out" authorization_invalid 'absent routing mode'
+  pass "only Megamind's real content mode admits; pointer, unknown, and absent modes refuse"
+}
+
+test_over_budget_emits_nothing() {
+  local home out before after
+  home=$(new_home nopartial)
+  printf '12345678901234567890' > "$home/estate/SyntheticWiki/wiki/index.md"
+  before=$(find "$home/state/megamind-admissions" -type f 2>/dev/null | wc -l | tr -d ' ')
+  prepare_auth "$home" '["wiki/index.md"]' 2 5
+  out=$(admit "$home"); assert_refusal "$out" context_budget_exceeded 'single over-budget path'
+  # A refusal must hand back no partial content and leave no admission behind
+  # for the content channel to spend: truncated wiki evidence is exactly the
+  # shape that reads as complete while answering nothing.
+  [ "$(printf '%s' "$out" | jq -r '.admission_id')" = null ] || fail "a refused admission still issued an id: $out"
+  [ "$(printf '%s' "$out" | jq -r '.wikis | length')" = 0 ] || fail "a refused admission still described content: $out"
+  printf '%s' "$out" | grep -q 12345 && fail "a refused admission leaked file content: $out"
+  after=$(find "$home/state/megamind-admissions" -type f 2>/dev/null | wc -l | tr -d ' ')
+  [ "$before" = "$after" ] || fail "a refused admission wrote an admission record"
+  pass "an over-budget path refuses whole and emits no partial content"
+}
+
 test_bounded_admission_and_unicode_counting
 test_budget_refusals
+test_routing_mode_vocabulary
+test_over_budget_emits_nothing
 test_symlinks_and_traversal_refuse
 test_special_hardlink_and_invalid_utf8_refuse
 test_changed_binding_and_race_revalidation
