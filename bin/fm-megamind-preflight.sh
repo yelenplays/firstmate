@@ -63,9 +63,11 @@
 #   --model-class <class> --estate <dir> --today <date> --format json
 #   --no-help-hints -- <request>`. Every flag sits after its subcommand, the one
 #   placement Megamind's own command reference spells for both `preflight` and
-#   `select-offer`; docs/verification/runtime-backends.md records the 0.6.0
-#   end-to-end evidence for that exact argv. Megamind owns routing, thresholds,
-#   privacy filtering, and budgets; this script never reimplements them.
+#   `select-offer`; docs/verification/runtime-backends.md records the end-to-end
+#   evidence for that exact argv on every accepted line - 0.3.0, 0.4.0, 0.5.0,
+#   and 0.6.0 all answer it identically - so one argv serves all four and no
+#   accepted release loses preflight. Megamind owns routing, thresholds, privacy
+#   filtering, and budgets; this script never reimplements them.
 # - The date is host-owned: it is always this host's current UTC date. The
 #   optional `--today` is an assertion, not an override - a value that is not
 #   that date is invalid_today - so no caller can forge the freshness,
@@ -113,6 +115,13 @@
 #   invents a second one. A home with no readable lock cannot own an offer, so
 #   the ambiguous result is emitted as usual with no selection_id and no
 #   retained record, and continuation is simply unavailable there.
+# - `select-offer` and the selection contract arrive at 0.6.x, while preflight
+#   itself is proven on every accepted line. A 0.3.x, 0.4.x, or 0.5.x home keeps
+#   its full mandatory preflight and takes that same uncontinuable path: the
+#   ambiguous result stands with no selection_id and no retained record, because
+#   an offer routed there could never be spent. The command is therefore never
+#   sent to a release that does not publish it, and `continue` refuses with
+#   selection_unsupported before invoking anything if the build changed under it.
 # - The private selection store is bounded and script-owned, with no daemon: an
 #   ambiguous `run` and a completed `continue` first retire every pending record
 #   whose bound date is no longer this host's UTC date - such a record can never
@@ -139,8 +148,9 @@
 #   are selection_id_invalid, offer_invalid, jq_missing, state_invalid,
 #   selection_missing, selection_replayed, selection_invalid, selection_busy,
 #   selection_malformed, packet_malformed, packet_unavailable,
-#   session_unavailable, binding_changed, upstream_error, malformed_result,
-#   projection_failed, and retirement_failed. Consumption is one-time twice
+#   session_unavailable, selection_unsupported, binding_changed, upstream_error,
+#   malformed_result, projection_failed, and retirement_failed.
+#   Consumption is one-time twice
 #   over: a per-selection owner-recorded lock serializes it and reclaims only a
 #   provably dead owner, and the authorization is published through an
 #   exclusive link that no second continuation can win. The pending record is
@@ -233,6 +243,18 @@ is_supported_version() {  # <version> - accept only proven complete 0.3.x/0.4.x/
   [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
   case "$version" in
     0.3.*|0.4.*|0.5.*|0.6.*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_selection_capable_version() {  # <version> - only the line that publishes select-offer
+  # Every accepted line routes a preflight, but `select-offer` and the
+  # megamind/preflight-selection-result/v1 contract arrive at 0.6.x: an older
+  # accepted build answers that subcommand with usage_error, so an offer routed
+  # there is never continuable and the command is never sent to it.
+  is_supported_version "$1" || return 1
+  case "$1" in
+    0.6.*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -684,16 +706,22 @@ classify_provenance() {  # <trusted-provenance> - print substantive|bypass, neve
 }
 
 retain_ambiguous() {  # <raw upstream packet> <request> <normalized document> - write one private pending selection
-  # Returns 2 when this home has no authoritative session to bind the offer to,
-  # which is not a failure: the ambiguous result stands, only unowned.
+  # Returns 2 when nothing here could ever consume the offer - this home owns no
+  # authoritative session, or the resolved build publishes no `select-offer`.
+  # Neither is a failure: the ambiguous result stands, only uncontinuable.
   local raw="$1" request="$2" normalized="$3"
   local preflight_id request_hash catalog_hash model_class nonce session_id exe estate today
   local exe_path exe_hash estate_hash selection_id pending record
-  if ! printf '%s' "$raw" | jq -e --arg request "$request" \
+  if ! printf '%s' "$raw" | jq -e \
       '. | type == "object" and .schema_version == "megamind/preflight-result/v2"
        and .status == "ambiguous"' >/dev/null 2>&1; then
     return 1
   fi
+  today="${RUN_TODAY:-}"
+  # Retirement is store hygiene, not a privilege of a home that can still hold
+  # offers, so it precedes every reason this may decline to retain another one.
+  prune_selections "$today"
+  is_selection_capable_version "${RUN_VERSION:-}" || return 2
   session_id="$(current_session_identity)" || return 2
   preflight_id="$(printf '%s' "$normalized" | jq -r '.preflight_id')"
   request_hash="$(printf '%s' "$normalized" | jq -r '.request_hash')"
@@ -701,7 +729,6 @@ retain_ambiguous() {  # <raw upstream packet> <request> <normalized document> - 
   model_class="$(printf '%s' "$normalized" | jq -r '.model_class')"
   exe="$(resolve_executable)"
   estate="$(config_path "$CONFIG/megamind-estate" 2>/dev/null || true)"
-  today="${RUN_TODAY:-}"
   exe_path="$(resolved_executable "$exe" 2>/dev/null || true)"
   exe_hash="$(hash_file "$exe_path" 2>/dev/null || true)"
   estate_hash="$(estate_identity "$estate" 2>/dev/null || true)"
@@ -1145,6 +1172,8 @@ cmd_continue() (
   [ "$stored_exe" = "$exe_path" ] && [ "$stored_exe_hash" = "$exe_hash" ] \
     && [ "$stored_version" = "$version" ] \
     || { selection_error binding_changed "the Megamind executable or version changed since the offer"; return 1; }
+  is_selection_capable_version "$version" \
+    || { selection_error selection_unsupported "this Megamind release publishes no select-offer command"; return 1; }
   [ -n "$estate_hash" ] && [ "$stored_estate_hash" = "$estate_hash" ] \
     || { selection_error binding_changed "the Megamind estate changed since the offer"; return 1; }
   [ -n "$today" ] && [ "$stored_today" = "$today" ] \
@@ -1186,7 +1215,7 @@ cmd_continue() (
   if ! printf '%s' "$raw" | jq -e --arg schema "$MEGAMIND_SELECTION_SCHEMA" \
       --arg preflight_id "$preflight_id" --arg request_hash "$request_hash" \
       --arg catalog_hash "$catalog_hash" --arg model_class "$model_class" \
-      --arg offer "$offer" --arg root "$offer_root" --arg request "$request" \
+      --arg offer "$offer" --arg root "$offer_root" \
       "$SAFE_JQ_DEFS"'
       def text: type == "string" and length > 0;
       def score: type == "number" and . >= 0 and . <= 1;

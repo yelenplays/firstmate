@@ -38,7 +38,7 @@ Never classify a request as bypass to save time, and never skip a failed preflig
   Wiki evidence outranks model priors; carry `preflight_id` as the inspectable proof that preflight ran.
 - `ambiguous`: offer the listed wikis as a choice and load nothing until one is picked.
   When the captain chooses one listed wiki, pass only the exact returned `selection_id` and exact wiki name to `bin/fm-megamind-preflight.sh continue`; it retrieves the original request and packet privately and invokes Megamind's governed `select-offer` command.
-  An ambiguous result that carries no `selection_id` belongs to no session and cannot be continued in that home, so the choice stands but nothing is loaded.
+  An ambiguous result that carries no `selection_id` cannot be continued in that home - it belongs to no session, or the resolved Megamind release predates `select-offer` - so the choice stands but nothing is loaded.
   Treat `authorized` as an explicit offer selection, not a threshold match, and read only its returned `selected.allows` under `selected.root`, within its optional `selected.context_budget`, using its `selected.follow_up` ladder.
   A continuation refusal leaves the substantive work blocked and never falls back to the ambiguous worker path.
 - `no-match`: stay quiet about wikis and do the work ordinarily without wiki context.

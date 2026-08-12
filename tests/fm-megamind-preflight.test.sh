@@ -16,7 +16,8 @@
 # optional context-budget propagation, host-owned notes,
 # ambiguity/no-match/privacy-filtered behavior, malformed/failed/jq-missing
 # disclosure, minimal non-verbatim proof logging, the host-owned date binding,
-# session-lock ownership of an offer, the bounded private selection store and
+# session-lock ownership of an offer, preflight parity across every accepted
+# line against a 0.6-only continuation, the bounded private selection store and
 # its owner-recorded lock, and harness/backend neutrality.
 set -u
 
@@ -900,6 +901,9 @@ test_jq_missing_is_disclosed() {
 # --- harness and backend neutrality -------------------------------------------
 
 test_explicit_offer_selection_continuation() {
+  # `select-offer` and the selection contract are 0.6.x, so every home that
+  # must be able to hold or spend an offer reports that line.
+  export FM_TEST_STUB_VERSION=0.6.0
   local home out id pending auth rc fixture mode today
   home=$(new_home explicit-selection)
   : > "$FM_TEST_STUB_ARGS"
@@ -1087,10 +1091,14 @@ test_explicit_offer_selection_continuation() {
     || fail "concurrent continuation did not publish one authorization"
   [ ! -f "$home/state/megamind-offer-selections/$id.pending.json" ] \
     || fail "concurrent continuation left pending evidence after success"
+  unset FM_TEST_STUB_VERSION
   pass "continue: explicit selection is private, bound, safe, one-time, and concurrency-serialized"
 }
 
 test_date_binding_is_host_owned() {
+  # `select-offer` and the selection contract are 0.6.x, so every home that
+  # must be able to hold or spend an offer reports that line.
+  export FM_TEST_STUB_VERSION=0.6.0
   local home out id pending rc today
   home=$(new_home host-owned-date)
   # --today may only assert the host's own date, so it can never reshape the
@@ -1129,10 +1137,14 @@ test_date_binding_is_host_owned() {
     run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
   expect_code 1 "$rc" "stale date binding"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = binding_changed ] || fail "a stale date binding was accepted: $out"
+  unset FM_TEST_STUB_VERSION
   pass "run/continue: the date binding is the host's own and no caller can forge it"
 }
 
 test_offer_ownership_requires_a_session_lock() {
+  # `select-offer` and the selection contract are 0.6.x, so every home that
+  # must be able to hold or spend an offer reports that line.
+  export FM_TEST_STUB_VERSION=0.6.0
   local home out id rc
   home=$(new_home unowned-offer)
   rm -f "$home/state/.lock"
@@ -1159,10 +1171,63 @@ test_offer_ownership_requires_a_session_lock() {
   expect_code 1 "$rc" "absent session lock"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = session_unavailable ] \
     || fail "an unlocked home consumed the offer: $out"
+  unset FM_TEST_STUB_VERSION
   pass "continue: only the authoritative session lock that captured an offer can spend it"
 }
 
+test_older_lines_keep_preflight_without_offering_continuation() {
+  local home out id rc version pending
+  # Every accepted line still routes the mandatory preflight with the same argv,
+  # including --today, so no proven release loses substantive preflight.
+  for version in 0.3.0 0.4.0 0.5.0 0.6.0; do
+    home=$(new_home "line-$version")
+    : > "$FM_TEST_STUB_ARGS"
+    out=$(FM_TEST_STUB_VERSION="$version" FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" \
+      run_in "$home" run --request "pricing"); rc=$?
+    expect_code 0 "$rc" "$version mandatory preflight"
+    [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] || fail "$version lost its matched outcome: $out"
+    [ "$(sed -n '3p;8p' "$FM_TEST_STUB_ARGS")" = "$(printf 'preflight\n--today')" ] \
+      || fail "$version did not receive the one proven argv: $(cat "$FM_TEST_STUB_ARGS")"
+  done
+
+  # But select-offer is 0.6-only, so an older line takes the uncontinuable path
+  # rather than handing out a handle it could never spend.
+  for version in 0.3.0 0.4.0 0.5.0; do
+    home=$(new_home "ambiguous-$version")
+    out=$(FM_TEST_STUB_VERSION="$version" FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
+      run_in "$home" run --request "original request"); rc=$?
+    expect_code 0 "$rc" "$version ambiguous preflight"
+    [ "$(printf '%s' "$out" | jq -r '.outcome')" = ambiguous ] || fail "$version lost its ambiguous outcome: $out"
+    [ "$(printf '%s' "$out" | jq 'has("selection_id")')" = false ] \
+      || fail "$version offered a continuation its build cannot honour: $out"
+    [ ! -d "$home/state/megamind-offer-selections" ] \
+      || fail "$version retained pending evidence nobody can consume"
+  done
+
+  # A build that loses select-offer under an existing record refuses before the
+  # command is sent, rather than letting Megamind answer with a usage error.
+  home=$(new_home downgraded-line)
+  out=$(FM_TEST_STUB_VERSION=0.6.0 FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
+    run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  pending="$home/state/megamind-offer-selections/$id.pending.json"
+  jq -c '.executable.version = "0.5.0"' "$pending" > "$pending.next" && mv -f "$pending.next" "$pending"
+  chmod 600 "$pending"
+  : > "$FM_TEST_STUB_ARGS"
+  out=$(FM_TEST_STUB_VERSION=0.5.0 FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 1 "$rc" "continuation on a build without select-offer"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = selection_unsupported ] \
+    || fail "a build without select-offer was asked to select: $out"
+  assert_no_grep "select-offer" "$FM_TEST_STUB_ARGS" "select-offer was sent to a build that lacks it"
+  assert_present "$pending" "an unsupported build destroyed retryable pending evidence"
+  pass "run/continue: every accepted line keeps preflight and only 0.6.x is offered a continuation"
+}
+
 test_pending_evidence_is_bounded_and_reclaimable() {
+  # `select-offer` and the selection contract are 0.6.x, so every home that
+  # must be able to hold or spend an offer reports that line.
+  export FM_TEST_STUB_VERSION=0.6.0
   local home out id rc lock stale count
   home=$(new_home bounded-selections)
   out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" run_in "$home" run --request "original request")
@@ -1247,6 +1312,7 @@ test_pending_evidence_is_bounded_and_reclaimable() {
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = selection_busy ] || fail "a live lock was stolen: $out"
   assert_present "$home/state/megamind-offer-selections/$id.pending.json" \
     "a refused busy continuation destroyed retryable evidence"
+  unset FM_TEST_STUB_VERSION
   pass "continue: pending evidence stays bounded and only a provably dead lock owner is reclaimed"
 }
 
@@ -1289,6 +1355,7 @@ test_unavailable_is_definitive
 test_explicit_offer_selection_continuation
 test_date_binding_is_host_owned
 test_offer_ownership_requires_a_session_lock
+test_older_lines_keep_preflight_without_offering_continuation
 test_pending_evidence_is_bounded_and_reclaimable
 test_malformed_and_failed_disclosure
 test_jq_missing_is_disclosed
