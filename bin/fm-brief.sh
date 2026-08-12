@@ -324,10 +324,11 @@ printf '{ROUTING}\n' > "$MEGAMIND_REQUEST"
 IFS= read -r -d '' MEGAMIND_SECTION <<EOF || true
 # Wiki routing (Megamind preflight)
 Firstmate cleared this task's mandatory Megamind preflight before launching you, bound to the firstmate home that owns you.
-Read the typed result at \`$STATE/$ID.megamind-preflight.json\` before any substantive work and follow its \`read_policy\` exactly.
-On \`matched\`, read only the \`allows\` paths under each listed wiki \`root\`, stay within any returned context budget, and use each match's \`follow_up\` ladder for page content; never read, infer, or widen to any other wiki path.
+The owning home's typed result is filed at \`$STATE/$ID.megamind-preflight.json\`; do not read it directly.
+This contract says: do not rerun preflight from this worktree or point this copy's \`FM_HOME\` at another home.
+On \`matched\`, invoke \`$FM_ROOT/bin/fm-megamind-content.sh admit --task-id $ID --owner-home $FM_HOME\`, then use \`$FM_ROOT/bin/fm-megamind-content.sh content --admission-id <opaque-id> --owner-home $FM_HOME\` as the content channel; never read wiki paths directly, execute \`follow_up\`, or widen beyond the reader's validated allows and budget.
 On \`no-match\` or \`privacy-filtered\`, load no wiki content and do the work ordinarily without naming the estate.
-That file is the authoritative consultation for this task: do not rerun preflight from this worktree, and never point this copy's \`FM_HOME\` at another home.
+That file is the authoritative consultation for this task, and the owning-home reader is the authoritative content-admission boundary.
 EOF
 MEGAMIND_SECTION=${MEGAMIND_SECTION%$'\n'}
 

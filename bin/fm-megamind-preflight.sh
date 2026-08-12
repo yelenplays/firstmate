@@ -76,26 +76,19 @@
 #   disk, which no production path writes with a non-host date.
 # - Outcome statuses pass through exactly: matched, ambiguous, no-match,
 #   unavailable, privacy-filtered; any other status is malformed_output. A
-#   matched document carries each match's validated `allows` paths (relative,
-#   root-contained; absolute, tilde, and dot-dot entries are dropped and counted
-#   in dropped_allows) plus Megamind's follow_up ladder command. Offers carry
-#   names and roots only - never paths to load. Filtered wiki names are never
-#   echoed; only filtered_count is. The self-describing decision thresholds pass
-#   through and are required: output without reliance_floor, offer_floor, and
-#   ambiguity_band all present as numbers in 0..1 is malformed_output. Matches
-#   carry validated freshness, a non-verbatim provenance summary (fixed lexical
-#   classes in canonical trigger/name/scope order, per-class counts, total signal
-#   count, and optional semantic score; upstream class order is not load-bearing,
-#   but a class set inconsistent with the counts is not validated), and optional
-#   positive numeric context-budget fields. A lexical evidence packet that fails
-#   that validation is withheld rather than guessed: lexical_classes is [] and
-#   both signal_counts and lexical_signal_count are null on an otherwise normal
-#   outcome, while a separately validated numeric semantic_score still passes
-#   through. Raw evidence strings, request-derived tokens, content, identities,
-#   roots, and paths never enter those evidence fields.
+#   matched document carries each match's validated relative `allows` paths plus
+#   a non-disclosing wiki identity hash; absolute roots never enter the public
+#   projection. Offers carry names only - never paths to load. Filtered wiki
+#   names are never echoed; only filtered_count is. The self-describing decision
+#   thresholds pass through and are required: output without reliance_floor,
+#   offer_floor, and ambiguity_band all present as numbers in 0..1 is
+#   malformed_output. Matches carry validated freshness, a non-verbatim
+#   provenance summary, and optional positive numeric context-budget fields.
 #   `notes` is host-owned: one fixed per-outcome line chosen here, never
 #   Megamind's own notes, which can name below-floor wikis, out-of-band
-#   candidates, and absolute roots.
+#   candidates, and absolute roots. A host-owned content-binding object carries
+#   only opaque identities and current executable/model/catalog facts; the
+#   bounded reader binds current root/card/file facts before content admission.
 # - Any missing, incompatible, malformed, or failed preflight prints the typed
 #   document with outcome=error and a stable failure.code instead of a result:
 #   not_configured, estate_missing, invalid_model_class, invalid_today,
@@ -164,8 +157,10 @@
 #   the resolved megamind-axi, and the POSIX tooling every supported host
 #   already ships - `shasum` or `sha256sum` for the selection hashes, `ps` for
 #   lock ownership, and `od` over /dev/urandom for the selection nonce. It reads
-#   no harness, backend, or terminal state.
-#   tests/fm-megamind-preflight.test.sh pins that neutrality.
+#   no harness, backend, or terminal state. `bin/fm-megamind-content.sh` is the
+#   separate host-owned reader for every supported primary and worker surface.
+#   tests/fm-megamind-preflight.test.sh and tests/fm-megamind-content.test.sh pin
+#   those neutral contracts.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -184,7 +179,7 @@ SUPPORTED_VERSION_LINES='0.3.x, 0.4.x, 0.5.x, or 0.6.x'
 LOG_FILE="$STATE/megamind-preflight.jsonl"
 SELECTION_DIR="$STATE/megamind-offer-selections"
 SELECTION_RETENTION_MAX=32
-READ_POLICY="Read only the allows paths listed under each matched wiki root, within any returned context budget; use the follow_up ladder for page content; never read, infer, or widen to any other wiki path."
+READ_POLICY="Use bin/fm-megamind-content.sh admit with this owning home's task authorization, then use its content channel; never read wiki paths directly, execute follow_up, or widen beyond validated allows and budgets."
 RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" [--model-class local|cloud] [--today YYYY-MM-DD]'
 CONTINUE_USAGE='usage: fm-megamind-preflight.sh continue --selection-id <id> --offer <wiki>'
 
@@ -374,6 +369,8 @@ log_proof() {  # <outcome> <failure-code-or-empty> <preflight_id> <request_hash>
   local ts
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   mkdir -p "$STATE" 2>/dev/null || return 0
+  [ -e "$LOG_FILE" ] || : > "$LOG_FILE"
+  chmod 600 "$LOG_FILE" 2>/dev/null || true
   # A run without jq never reaches Megamind, so it never has matched wikis.
   if ! command -v jq >/dev/null 2>&1; then
     local failure_json='null'
@@ -985,10 +982,39 @@ cmd_run() {
   # relative and root-contained before it may be read, and replace Megamind's
   # own notes - which can name below-floor wikis, out-of-band candidates, and
   # absolute roots - with one fixed host-owned line per outcome.
-  local normalized
+  local normalized owner_identity_value exe_path exe_file_hash exe_identity_value estate_identity_value root_ids
+  owner_identity_value="$(CDPATH='' cd -P -- "$FM_HOME" 2>/dev/null && pwd -P)" || owner_identity_value=
+  if [ -n "$owner_identity_value" ]; then
+    owner_identity_value="$(hash_text "firstmate-home/v1
+$owner_identity_value" 2>/dev/null || true)"
+  fi
+  exe_path="$(resolved_executable "$exe" 2>/dev/null || true)"
+  exe_file_hash=
+  [ -n "$exe_path" ] && exe_file_hash="$(hash_file "$exe_path" 2>/dev/null || true)"
+  exe_identity_value=
+  [ -n "$exe_path" ] && [ -n "$exe_file_hash" ] && exe_identity_value="$(hash_text "megamind-executable/v1
+$exe_path
+$exe_file_hash" 2>/dev/null || true)"
+  estate_identity_value="$(estate_identity "$estate" 2>/dev/null || true)"
+  root_ids='{}'
+  while IFS= read -r root_record; do
+    root_name="$(printf '%s' "$root_record" | jq -r '.name')"
+    root_path="$(printf '%s' "$root_record" | jq -r '.root')"
+    root_real="$(CDPATH='' cd -P -- "$root_path" 2>/dev/null && pwd -P || true)"
+    [ -n "$root_real" ] || continue
+    root_hash="$(hash_text "wiki-root/v1
+$root_real" 2>/dev/null || true)"
+    [ -n "$root_hash" ] || continue
+    root_ids="$(printf '%s' "$root_ids" | jq -c --arg name "$root_name" --arg hash "$root_hash" '. + {($name):$hash}')"
+  done < <(printf '%s' "$raw" | jq -c '.matches[]? | {name,root}')
   normalized="$(printf '%s' "$raw" | jq -c \
     --arg schema "$SCHEMA" \
     --arg policy "$READ_POLICY" \
+    --arg owner_identity "$owner_identity_value" \
+    --arg executable_identity "$exe_identity_value" \
+    --arg executable_version "$version" \
+    --arg estate_identity "$estate_identity_value" \
+    --argjson root_ids "$root_ids" \
     "$SAFE_JQ_DEFS"'
      def host_note:
        if . == "matched" then "Megamind matched at least one wiki: read only the listed allows paths, within any returned budget, and nothing else."
@@ -1016,7 +1042,7 @@ cmd_run() {
          . as $match |
          ({
            wiki: $match.name,
-           root: $match.root,
+           root_identity: ($root_ids[$match.name] // null),
            access: $match.access,
            routing_mode: $match.routing_mode,
            confidence: $match.confidence.score,
@@ -1028,7 +1054,28 @@ cmd_run() {
               then {context_budget: ($match.context_budget | safe_budget)}
               else {} end))
        ],
-       offers: [.offers[]? | {wiki: .name, root: .root, confidence: .confidence.score}],
+       offers: [.offers[]? | {wiki: .name, confidence: .confidence.score}],
+       authorization_binding: {
+         schema_version: "fm/megamind-content-binding/v1",
+         owner_identity: $owner_identity,
+         executable_identity: $executable_identity,
+         executable_version: $executable_version,
+         estate_identity: $estate_identity,
+         model_class: .model_class,
+         preflight_id: .preflight_id,
+         request_hash: .request_hash,
+         catalog_hash: .catalog_hash,
+         declared_allows: [.matches[]? | {
+           wiki: .name,
+           allows: (reduce (.allows[]? | select(safe_path)) as $path
+             ([]; if index($path) then . else . + [$path] end)),
+           access: .access,
+           routing_mode: .routing_mode,
+           context_budget: (if (.context_budget | type) == "object" then (.context_budget | safe_budget) else null end)
+         }],
+         authorization_id: .preflight_id,
+         selection_id: null
+       },
        filtered_count: ([.filtered[]?] | length),
        redacted_count: (.redacted_count // 0),
        dropped_allows: $dropped,
@@ -1077,8 +1124,8 @@ cmd_continue() (
   local selection_id="" offer="" pending packet_tmp raw rc
   local request request_hash preflight_id catalog_hash model_class stored_today stored_session
   local stored_exe stored_exe_hash stored_version stored_estate_hash
-  local exe estate version today exe_path exe_hash estate_hash offer_root offer_count
-  local session_identity packet
+  local exe estate version today exe_path exe_hash estate_hash offer_root offer_root_identity offer_count
+  local owner_identity_value executable_identity_value session_identity packet
   while [ $# -gt 0 ]; do
     case "$1" in
       --selection-id)
@@ -1167,6 +1214,15 @@ cmd_continue() (
   exe_path="$(resolved_executable "$exe" 2>/dev/null || true)"
   exe_hash="$(hash_file "$exe_path" 2>/dev/null || true)"
   estate_hash="$(estate_identity "$estate" 2>/dev/null || true)"
+  owner_identity_value="$(CDPATH='' cd -P -- "$FM_HOME" 2>/dev/null && pwd -P)" || owner_identity_value=
+  if [ -n "$owner_identity_value" ]; then
+    owner_identity_value="$(hash_text "firstmate-home/v1
+$owner_identity_value" 2>/dev/null || true)"
+  fi
+  executable_identity_value=
+  [ -n "$exe_path" ] && [ -n "$exe_hash" ] && executable_identity_value="$(hash_text "megamind-executable/v1
+$exe_path
+$exe_hash" 2>/dev/null || true)"
   [ "$model_class" = "$(resolve_model_class "")" ] \
     || { selection_error binding_changed "the model class changed since the offer"; return 1; }
   [ "$stored_exe" = "$exe_path" ] && [ "$stored_exe_hash" = "$exe_hash" ] \
@@ -1187,6 +1243,11 @@ cmd_continue() (
   [ "$offer_count" = 1 ] \
     || { selection_error offer_invalid "the selected wiki is not exactly one current offer"; return 1; }
   offer_root="$(jq -r --arg wiki "$offer" '.packet.offers[] | select(.name == $wiki) | .root' "$pending")"
+  offer_root_identity="$(CDPATH='' cd -P -- "$offer_root" 2>/dev/null && pwd -P)" || offer_root_identity=
+  if [ -n "$offer_root_identity" ]; then
+    offer_root_identity="$(hash_text "wiki-root/v1
+$offer_root_identity" 2>/dev/null || true)"
+  fi
   packet_tmp="$SELECTION_DIR/.$selection_id.packet.${BASHPID:-$$}"
   # Extracted before it is published so a jq that dies partway is a preparation
   # failure rather than a truncated packet a pipeline reported as good.
@@ -1258,15 +1319,33 @@ cmd_continue() (
     || { selection_error selection_replayed "the selection authorization already exists"; return 1; }
   projection="$(printf '%s' "$raw" | jq -c --arg schema "$SELECTION_SCHEMA" \
     --arg id "$selection_id" --arg policy "$READ_POLICY" \
+    --arg owner_identity "$owner_identity_value" \
+    --arg executable_identity "$executable_identity_value" \
+    --arg executable_version "$version" \
+    --arg estate_identity "$estate_hash" \
+    --arg root_identity "$offer_root_identity" \
+    --arg today "$today" \
     "$SAFE_JQ_DEFS"'
       {schema_version:$schema,outcome:"authorized",failure:null,
        preflight_id:.preflight_id,request_hash:.request_hash,catalog_hash:.catalog_hash,
        model_class:.model_class,selection_id:$id,upstream_selection_id:.selection_id,
-       root_facts_hash:.root_facts_hash,
+       root_identity:$root_identity,
        selection:{status:"explicit-user-selection",basis:"selected-current-offer",
          source_disposition:"offer",source_status:"ambiguous",preflight_id:.preflight_id,
          confidence_changed:false,threshold_matched:false},
-       selected:({wiki:.selected.name,root:.selected.root,score:.selected.score,
+       authorization_binding:{schema_version:"fm/megamind-content-binding/v1",
+         owner_identity:$owner_identity,executable_identity:$executable_identity,
+         executable_version:$executable_version,estate_identity:$estate_identity,
+         model_class:.model_class,preflight_id:.preflight_id,
+         request_hash:.request_hash,catalog_hash:.catalog_hash,
+         declared_allows:[{wiki:.selected.name,
+           allows:(reduce (.selected.allows[]?) as $path
+             ([]; if index($path) then . else . + [$path] end)),
+           access:.selected.access,routing_mode:.selected.routing_mode,
+           context_budget:(if (.selected.context_budget | type) == "object"
+             then (.selected.context_budget | safe_budget) else null end)}],
+         authorization_id:$id,selection_id:$id,today:$today},
+       selected:({wiki:.selected.name,root_identity:$root_identity,score:.selected.score,
          confidence:{score:.selected.confidence.score,
            meets_floor:.selected.confidence.meets_floor},
          freshness:(.selected.freshness | safe_freshness),

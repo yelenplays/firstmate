@@ -207,6 +207,26 @@ The backend suites therefore cover endpoint creation and command delivery rather
 No supported worker-tool or spawn-backend axis is inapplicable to ordinary ship or scout preflight.
 Secondmate launch itself is intentionally inapplicable because it starts a firstmate home rather than an ordinary worker; `tests/fm-worker-preflight.test.sh` pins that omission at the launch boundary, and a secondmate's own worker launch applies the same matrix from that home's own binding, as covered by `tests/fm-trace-context-spawn.test.sh` and `tests/fm-backend-herdr-workspace-per-home-e2e.test.sh`.
 
+## Bounded Megamind content admission
+
+The host-owned reader was verified on 2026-08-12 with stock macOS Bash, Python 3, and synthetic wiki roots only.
+The portable suite covers no-follow root and component traversal, special files, hardlinks, strict UTF-8, Unicode code-point budgets, binding and root/card changes, concurrent admissions, private output, home isolation, relaunch preservation, and an actual synthetic Megamind 0.6 selection continuation.
+
+```sh
+bin/fm-test-run.sh tests/fm-megamind-content.test.sh
+bin/fm-test-run.sh tests/fm-megamind-preflight.test.sh tests/fm-worker-preflight.test.sh
+```
+
+Observed bounded output:
+
+```text
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0
+FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0
+```
+
+The real Megamind 0.6 synthetic-estate selection evidence above remains the upstream command compatibility proof, while `tests/fm-megamind-content.test.sh` proves that a script-issued `fm/megamind-preflight-selection/v1` authorization reaches the same reader boundary without touching a real wiki.
+No primary interception or scheduling claim is made by this reader slice.
+
 ### Megamind version compatibility
 
 `bin/fm-megamind-preflight.sh`'s header owns which `megamind-axi` versions are accepted and why; this record holds the dated evidence and the regression pointers only.

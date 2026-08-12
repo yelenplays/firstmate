@@ -38,7 +38,7 @@ Hard rules, in priority order:
    If work failed, say so plainly with the evidence.
 
 Every substantive Firstmate AI request runs Megamind preflight before firstmate answers, plans, dispatches, investigates, or otherwise relies on model knowledge; pure control messages, acknowledgments, trusted-provenance credential submissions, and routine monitoring bypass it.
-Load `megamind-preflight` before acting on a substantive request: a missing, incompatible, or failed preflight is a disclosed blocker, never a silent skip, and this read-only pilot may read only what Megamind explicitly authorizes.
+Load `megamind-preflight` before acting on a substantive request: a missing, incompatible, or failed preflight is a disclosed blocker, never a silent skip, and matched wiki content may enter a model only through the host-owned bounded reader.
 
 You may maintain this repo's private operational state directly.
 Shared tracked material is `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `.tasks.toml`, `.github/workflows/`, `bin/`, `.agents/skills/`, and public `skills/`.
@@ -122,6 +122,7 @@ state/               volatile runtime signals; gitignored
   x-poll.error x-poll.claim-error  generated Relay and offer-claim diagnostic dedupe markers
   megamind-preflight.jsonl  minimal non-verbatim Megamind preflight proof log appended by bin/fm-megamind-preflight.sh; never contains request text or wiki content
   megamind-offer-selections/  private mode-0600 ambiguous-offer store written, bounded, and retired only by bin/fm-megamind-preflight.sh; holds the retained original request and upstream packet plus their one-time authorization records, and only its opaque selection id may leave it
+  megamind-admissions/  private mode-0600 bounded content-admission records written and revalidated only by bin/fm-megamind-content.sh; holds no general output or log copy of page content
   .startup-network.*  status, report, per-step elapsed timings, inline-print claim, and lock for the deferred network stage session start runs off its blocking path; bin/fm-startup-network.sh
   .wake-queue        durable queued wakes: epoch<TAB>seq<TAB>kind<TAB>key<TAB>payload
   .<id>.open-decisions-cursor  per-task byte cursor and folded open-decision set bounding the OPEN DECISIONS scan's cost to new status-log appends; written only by fm-classify-lib.sh's status_open_decisions_incremental, removed by teardown, safe to delete (forces one full re-fold)
@@ -538,7 +539,7 @@ These skills are not captain-invocable; load them only at their precise triggers
 - `decision-hold-lifecycle` - load before treating an investigation or visual review as complete, before ending a visual review that exposed a decision, and when recording or routing the captain's answer.
 - `process-event-sources` - load before arming a long-polling source, and on any `procevent <adapter> <source-id> <sequence>` check wake.
   Never run a registered source's blocking command yourself in a conversational turn.
-- `megamind-preflight` - load before answering, planning, dispatching, or investigating any substantive captain request, per the mandatory preflight rule in section 1; owns outcome handling, failure disclosure, and the read-only boundary.
+- `megamind-preflight` - load before answering, planning, dispatching, or investigating any substantive captain request, per the mandatory preflight rule in section 1; owns outcome handling, failure disclosure, and the read-only boundary, including the trigger to use `bin/fm-megamind-content.sh` for matched wiki content.
 - `fmx-respond` - load on an `x-mention <request_id>` `check:` wake to handle the mention, on an `x-mode-error ...` `check:` wake to report the Relay configuration blocker, on a `public-followup ...` `check:` wake or a startup-surfaced public commitment, and on any milestone or terminal wake for a Relay-linked task before posting its completion follow-up; relevant only when Relay is on.
 - `firstmate-codexapp` - load before coordinating a visible Codex Desktop thread, evaluating a Codex App backend request, or reconciling Codex Desktop host-tool smoke evidence for Firstmate work.
 - `firstmate-coding-guidelines` - load before changing firstmate's shared, tracked material, as defined by section 1's list, whether editing directly or briefing a crewmate for a firstmate-repo task.
