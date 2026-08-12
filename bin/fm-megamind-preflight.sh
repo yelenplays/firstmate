@@ -1266,7 +1266,7 @@ cmd_continue() (
        selection:{status:"explicit-user-selection",basis:"selected-current-offer",
          source_disposition:"offer",source_status:"ambiguous",preflight_id:.preflight_id,
          confidence_changed:false,threshold_matched:false},
-       selected:{wiki:.selected.name,root:.selected.root,score:.selected.score,
+       selected:({wiki:.selected.name,root:.selected.root,score:.selected.score,
          confidence:{score:.selected.confidence.score,
            meets_floor:.selected.confidence.meets_floor},
          freshness:(.selected.freshness | safe_freshness),
@@ -1279,7 +1279,7 @@ cmd_continue() (
          + (if (.selected.catalog_visibility != null)
             then {catalog_visibility:.selected.catalog_visibility} else {} end)
          + (if (.selected.redacted != null) then {redacted:.selected.redacted} else {} end)
-         + (if (.selected.trust != null) then {trust:.selected.trust} else {} end),
+         + (if (.selected.trust != null) then {trust:.selected.trust} else {} end)),
        notes:["Explicit selection authorizes only the selected offer current bounded access surface; it is not a threshold match."],
        read_policy:$policy}' )" || {
     selection_error projection_failed "the selection authorization could not be projected safely"
