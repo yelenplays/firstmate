@@ -101,12 +101,14 @@ SH
 
 run_pi_block() {
   command -v pi >/dev/null 2>&1 || { echo "absent: pi"; return 0; }
-  local project="$LAB/pi/project" home="$LAB/pi/home" out rc
+  local project="$LAB/pi/project" home="$LAB/pi/home" out rc calls
   mkdir -p "$project/.pi/extensions" "$project/bin" "$home/state" "$home/config"
   cp "$ROOT/.pi/extensions/fm-primary-megamind.ts" "$project/.pi/extensions/"
+  # The subcommand is recorded, not a bare marker: the adapter asks the
+  # coordinator two different questions, and only one of them carries a prompt.
   cat > "$project/bin/fm-megamind-primary.sh" <<'SH'
 #!/usr/bin/env bash
-printf 'called\n' >> "${FM_HOME:?}/state/live-coordinator-called"
+printf '%s\n' "${1:-}" >> "${FM_HOME:?}/state/live-coordinator-called"
 printf '%s\n' '{"decision":"block","failure_code":"synthetic_block"}'
 SH
   chmod 700 "$project/bin/fm-megamind-primary.sh"
@@ -119,9 +121,19 @@ SH
   rc=$?
   set -e
   [ "$rc" -eq 0 ] || fail "Pi block guard exited $rc: $out"
-  [ "$(wc -l < "$home/state/live-coordinator-called" | tr -d ' ')" = 1 ] \
-    || fail "Pi did not route exactly one prompt through the coordinator"
-  printf 'live: pi %s blocked before inference with one coordinator submission\n' "$(pi --version 2>/dev/null)"
+  [ -f "$home/state/live-coordinator-called" ] \
+    || fail "Pi never reached the coordinator at all: $out"
+  calls=$(tr '\n' ' ' < "$home/state/live-coordinator-called")
+  # `process` is the one call that carries the prompt, so exactly one of them is
+  # what "routed one prompt" means. `governed` carries no prompt at all: it is
+  # the exit-status-only opt-in question the adapter asks before it turns a
+  # blocked decision into a handled, unsent prompt, so an ungoverned session
+  # never loses its prompt to this adapter. Both must appear, in that order.
+  [ "$(grep -c '^process$' "$home/state/live-coordinator-called")" = 1 ] \
+    || fail "Pi did not route exactly one prompt through the coordinator: $calls"
+  [ "$calls" = "process governed " ] \
+    || fail "Pi did not confirm the opt-in gate before withholding the prompt: $calls"
+  printf 'live: pi %s blocked before inference with one governed coordinator submission\n' "$(pi --version 2>/dev/null)"
 }
 
 run_unsupported_check() {
