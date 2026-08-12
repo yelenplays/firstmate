@@ -29,7 +29,7 @@ Never classify a request as bypass to save time, and never skip a failed preflig
 ## Procedure
 
 1. Pass the smallest privacy-safe representation of the request: enough routing text for Megamind to match on, never credentials, secrets, or unrelated private detail.
-2. Run `bin/fm-megamind-preflight.sh run --request "<text>"` and read the typed `fm/megamind-preflight/v1` document; `bin/fm-megamind-preflight.sh`'s header owns the exact config resolution, version gate, outcome schema, failure codes, and proof-log fields.
+2. Run `bin/fm-megamind-preflight.sh run --request "<text>"` and read the typed `fm/megamind-preflight/v1` document; `bin/fm-megamind-preflight.sh`'s header owns the exact config resolution, version gate, outcome schema, failure codes, proof-log fields, and private pending-selection record.
 3. Act on `outcome` exactly:
 
 - `matched`: read only the `allows` paths under each matched wiki `root`, within the optional numeric `context_budget`, and use the match's `follow_up` ladder for page content.
@@ -37,10 +37,14 @@ Never classify a request as bypass to save time, and never skip a failed preflig
   Use the self-describing `thresholds`, safe `freshness`, and non-verbatim `provenance` summary without reconstructing request tokens or inspecting raw Megamind output.
   Wiki evidence outranks model priors; carry `preflight_id` as the inspectable proof that preflight ran.
 - `ambiguous`: offer the listed wikis as a choice and load nothing until one is picked.
+  When the captain chooses one listed wiki, pass only the exact returned `selection_id` and exact wiki name to `bin/fm-megamind-preflight.sh continue`; it retrieves the original request and packet privately and invokes Megamind's governed `select-offer` command.
+  An ambiguous result that carries no `selection_id` cannot be continued in that home - it belongs to no session, or the resolved Megamind release predates `select-offer` - so the choice stands but nothing is loaded.
+  Treat `authorized` as an explicit offer selection, not a threshold match, and read only its returned `selected.allows` under `selected.root`, within its optional `selected.context_budget`, using its `selected.follow_up` ladder.
+  A continuation refusal leaves the substantive work blocked and never falls back to the ambiguous worker path.
 - `no-match`: stay quiet about wikis and do the work ordinarily without wiki context.
 - `privacy-filtered`: say wiki coverage is unavailable for this model class; load nothing and never name the withheld wikis.
 - `unavailable`: preflight ran but no usable wiki cards exist; disclose that concretely as a blocker for substantive work rather than proceeding as if coverage existed.
-- `error`: the typed `failure.code` (missing configuration, missing or incompatible Megamind, malformed or failed output) is a concrete blocker for substantive work.
+- `error`: the typed `failure.code` (missing configuration, missing or incompatible Megamind, malformed or failed output, or unsafe selection continuation) is a concrete blocker for substantive work.
   Disclose it plainly to the captain instead of pretending preflight ran; routine bypass traffic may still proceed.
 
 ## Ordinary worker launch guidance
@@ -61,6 +65,7 @@ A secondmate's own `fm-spawn.sh` performs the same step with that secondmate hom
 
 This pilot is read-only.
 It adds no autonomous research, wiki mutation, gap commissioning, wiki creation, publication, remote or account changes, merges, security changes, or billing behavior.
-Proof is minimal and non-verbatim (the script's header owns the exact log fields); never record prompt text, credentials, wiki content, or unrelated control messages.
+Proof is minimal and non-verbatim (the script's header owns the exact log fields); never record prompt text, credentials, wiki content, the original ambiguous packet, or unrelated control messages.
+The private pending-selection record is not worker input and its opaque `selection_id` is the only continuation handle that may appear in the normalized result.
 The integration is harness- and runtime-backend-neutral: it depends only on the bash surface above and applies identically on every verified primary harness and spawn backend.
 If a product choice would weaken mandatory preflight, privacy, failure disclosure, or the read-only boundary, escalate it instead of deciding it locally.

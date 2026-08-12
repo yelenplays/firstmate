@@ -305,6 +305,53 @@ The only estate bound at 0.6.0 was the configured private pilot estate, so a mat
 The projection is not what closes the gap here: the `preflight-result/v2` and `route-result/v2` producers and their command entry points are byte-identical between the measured 0.5.0 pin and this commit, whose additions are a separate rollout command surface, so the fields that degrade silently - lexical packet, freshness, context budget, and allows - have no changed producer path to degrade through.
 The portable stub loop below cannot stand in for that argument either, because its fixture is fixed across `FM_TEST_STUB_VERSION` and therefore shows that host normalization is version-independent rather than that a real 0.6.0 still emits those fields.
 
+The governed explicit offer selection was measured separately on 2026-08-12 against Megamind `97d88a3`, the PR 13 commit that publishes `megamind/preflight-selection-result/v1`, reporting `megamind-axi 0.6.0` from a clean tree.
+That run used a fully synthetic two-wiki estate built by `megamind-axi init` plus two added routing cards, never the private pilot estate, so the request, wiki names, and paths below are all fixture text.
+It exists to settle where `--today` belongs, because the flag is declared on both the top-level parser and the two subparsers, and to prove the selection path end to end rather than only against the stub.
+
+```sh
+megamind-axi preflight --model-class cloud --estate <synthetic estate> --today <date> --full --format json --no-help-hints -- "shared topic"
+megamind-axi select-offer AlphaWiki --request "shared topic" --preflight-result <packet> --model-class cloud --estate <synthetic estate> --today <date> --format json --no-help-hints
+FM_HOME=<synthetic evidence home> bin/fm-megamind-preflight.sh check
+FM_HOME=<synthetic evidence home> bin/fm-megamind-preflight.sh run --request "shared topic"
+FM_HOME=<synthetic evidence home> bin/fm-megamind-preflight.sh continue --selection-id <id> --offer AlphaWiki
+```
+
+Observed bounded results:
+
+| Step | Result |
+| --- | --- |
+| `--today` placement | Accepted after the subcommand on both `preflight` and `select-offer`, which is the one placement Megamind's own `commands.md` reference spells for each; the host now uses exactly that argv for both calls. |
+| Direct preflight call | Exit 0, schema `megamind/preflight-result/v2`, status `ambiguous`, two offers, and no matches. |
+| Direct select-offer call | Exit 0, schema `megamind/preflight-selection-result/v1`, status `authorized`, and `selection.basis` `selected-current-offer`. |
+| `check` and `run` | Exit 0, outcome `available` at version `0.6.0`, then one typed `ambiguous` document carrying an opaque `selection_id` and no request text. |
+| `continue` | Exit 0, outcome `authorized`, the selected wiki's three declared relative `allows`, and `selection.threshold_matched` `false`. |
+| Upstream field shapes this settled | `selected.score` is a raw non-negative rank (`8`), not a 0..1 confidence; `selected.confidence.meets_floor` was `true` because the ambiguity was decided inside the band; and the registry `follow_up` ladder embeds the shell-quoted original request, exactly as the already-accepted `run` path forwards it. |
+
+Those last three shapes are why the continuation validator checks the typed shape and the governed refusals rather than restating decisions Megamind already owns.
+Requiring a 0..1 `score`, a `false` `meets_floor`, or a request-free `follow_up` refused every real authorized selection while accepting the synthetic fixture, so the stub agreed with the host and both disagreed with the build.
+
+The `--today` flag the host now sends was measured on 2026-08-12 against every accepted line, because the tables above predate it and prove only the flags they list.
+Each line ran from its own release commit - `c59b58b` at 0.3.0, `27d3bf9` at 0.4.0, `44f1b37` at 0.5.0, and `97d88a3` at 0.6.0 - over the same synthetic two-wiki estate, so the comparison isolates the flag rather than the estate.
+
+```sh
+megamind-axi preflight --model-class cloud --estate <synthetic estate> --today <date> --format json --no-help-hints -- "shared topic"
+megamind-axi select-offer AlphaWiki --request "shared topic" --preflight-result <packet> --model-class cloud --estate <synthetic estate> --today <date> --format json --no-help-hints
+FM_HOME=<synthetic evidence home per line> bin/fm-megamind-preflight.sh run --request "shared topic"
+```
+
+Observed bounded results:
+
+| Line | `preflight ... --today` | `select-offer` | Host `run` |
+| --- | --- | --- | --- |
+| 0.3.0 | Exit 0, schema `megamind/preflight-result/v2`, status `ambiguous`, two offers. | Absent: `usage_error`, exit 2, `invalid choice: 'select-offer'`. | Exit 0, one typed `ambiguous` document. |
+| 0.4.0 | Exit 0, same schema, status, and two offers. | Absent, same `usage_error` and exit 2. | Exit 0, one typed `ambiguous` document. |
+| 0.5.0 | Exit 0, same schema, status, and two offers. | Absent, same `usage_error` and exit 2. | Exit 0, one typed `ambiguous` document. |
+| 0.6.0 | Exit 0, same schema, status, and two offers. | Present, and authorized end to end above. | Exit 0, one typed `ambiguous` document carrying an opaque `selection_id`. |
+
+So `--today` after the subcommand is accepted identically on all four accepted lines, and one argv serves every release the version gate admits without narrowing support to 0.6.x.
+`select-offer` is the part that is genuinely 0.6-only, so an ambiguous outcome on an older accepted line takes the same uncontinuable path a home without a session lock takes: the result stands, with no `selection_id` and no retained private record, and the command is never sent to a build that would refuse it.
+
 The 0.6.0 result reached the existing owner-bound worker authorization before launch, so the release is accepted without adding a second policy layer.
 The same owner still refuses 0.7.x and later, malformed identities, malformed output, and older releases until each future contract is separately established.
 A second home pinned to an installed `megamind-axi` 0.1.0 over the published example estate of the 0.4.0 and 0.5.0 runs reported outcome `error` with `failure.code` `version_incompatible`, `failure.detected` `0.1.0`, and exit 1, so the old-release refusal is measured on a real build rather than assumed from the synthetic stub.
