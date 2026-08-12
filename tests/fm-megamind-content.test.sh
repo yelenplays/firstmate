@@ -11,7 +11,7 @@ PREFLIGHT="$ROOT/bin/fm-megamind-preflight.sh"
 TMP_ROOT=$(fm_test_tmproot fm-megamind-content)
 
 new_home() {
-  local name=$1 home="$TMP_ROOT/$1"
+  local home="$TMP_ROOT/$1"
   mkdir -p "$home/config" "$home/state" "$home/data/task" "$home/estate/SyntheticWiki/.megamind" "$home/estate/SyntheticWiki/wiki"
   cat > "$home/bin-megamind" <<'SH'
 #!/usr/bin/env bash
@@ -200,7 +200,7 @@ test_relaunch_preserves_admission() {
 }
 
 test_real_synthetic_selection_authorization() {
-  local home out selection_id fixture selection auth id
+  local home out selection_id fixture auth id
   home=$(new_home selection)
   mkdir -p "$home/estate/OfferWiki/.megamind" "$home/estate/OfferWiki/wiki"
   printf 'offer card\n' > "$home/estate/OfferWiki/.megamind/wiki-card.json"
