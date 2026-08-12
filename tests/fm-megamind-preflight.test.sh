@@ -55,6 +55,16 @@ new_home() {
   printf '%s\n' "$home"
 }
 
+# The script owns the date and refuses every injection of one, so an assertion
+# about it reads the value back instead of predicting it: the suite may straddle
+# a UTC midnight, and either side of that boundary is a correct host date.
+assert_host_today() {  # <observed value> <label>
+  local observed="$1" label="$2"
+  [ "$observed" = "$SUITE_TODAY" ] || [ "$observed" = "$(date -u +%Y-%m-%d)" ] \
+    || fail "$label used $observed rather than this host's UTC date"
+}
+SUITE_TODAY=$(date -u +%Y-%m-%d)
+
 STUB="$TMP_ROOT/fakebin/megamind-axi"
 mkdir -p "$TMP_ROOT/fakebin"
 cat > "$STUB" <<'SH'
@@ -891,7 +901,6 @@ test_jq_missing_is_disclosed() {
 
 test_explicit_offer_selection_continuation() {
   local home out id pending auth rc fixture mode today
-  today=$(date -u +%Y-%m-%d)
   home=$(new_home explicit-selection)
   : > "$FM_TEST_STUB_ARGS"
   out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
@@ -899,6 +908,8 @@ test_explicit_offer_selection_continuation() {
   expect_code 0 "$rc" "ambiguous selection preflight"
   # The exact argv is pinned, because a flag the real parser would refuse is
   # otherwise invisible: the whole mandatory path depends on this shape.
+  today=$(sed -n '9p' "$FM_TEST_STUB_ARGS")
+  assert_host_today "$today" "the preflight call"
   [ "$(cat "$FM_TEST_STUB_ARGS")" = "$(printf 'CALL\nCALL\npreflight\n--model-class\ncloud\n--estate\n%s\n--today\n%s\n--format\njson\n--no-help-hints\n--\noriginal request' "$home/estate" "$today")" ] \
     || fail "preflight argv drifted: $(cat "$FM_TEST_STUB_ARGS")"
   id=$(printf '%s' "$out" | jq -r '.selection_id')
@@ -917,6 +928,8 @@ test_explicit_offer_selection_continuation() {
   out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" \
     run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
   expect_code 0 "$rc" "exact explicit offer selection"
+  today=$(sed -n '14p' "$FM_TEST_STUB_ARGS")
+  assert_host_today "$today" "the select-offer call"
   [ "$(sed -n '3,5p;7p;9,17p' "$FM_TEST_STUB_ARGS")" = "$(printf 'select-offer\nOfferWiki\n--request\n--preflight-result\n--model-class\ncloud\n--estate\n%s\n--today\n%s\n--format\njson\n--no-help-hints' "$home/estate" "$today")" ] \
     || fail "select-offer argv drifted: $(cat "$FM_TEST_STUB_ARGS")"
   [ "$(printf '%s' "$out" | jq -r '.outcome')" = authorized ] || fail "selection was not authorized: $out"
@@ -935,6 +948,24 @@ test_explicit_offer_selection_continuation() {
     run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
   expect_code 1 "$rc" "replayed explicit offer selection"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = selection_replayed ] || fail "replay was not refused: $out"
+
+  # A failed select-offer must still print one typed refusal carrying the
+  # upstream code, which is exactly what a corrupted extra object would swallow.
+  home=$(new_home upstream-error-selection)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
+    run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  fixture="$TMP_ROOT/upstream-error.json"
+  printf '{"schema_version":"megamind/error/v1","code":"selection_refused"}\n' > "$fixture"
+  out=$(FM_TEST_SELECTION_FIXTURE="$fixture" FM_TEST_STUB_EXIT=1 \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 1 "$rc" "failed select-offer"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = upstream_error ] \
+    || fail "a failed select-offer did not print a typed refusal: $out"
+  [ "$(printf '%s' "$out" | jq -r '.failure.upstream_code')" = selection_refused ] \
+    || fail "the typed refusal lost the upstream code: $out"
+  assert_present "$home/state/megamind-offer-selections/$id.pending.json" \
+    "an upstream error destroyed retryable pending evidence"
 
   home=$(new_home wrong-offer)
   out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
@@ -981,6 +1012,25 @@ test_explicit_offer_selection_continuation() {
   expect_code 0 "$rc" "selection without context budget"
   [ "$(printf '%s' "$out" | jq 'has("selected") and (.selected | has("context_budget") | not)')" = true ] \
     || fail "absent context budget was invented"
+
+  # The shape the real 0.6 build returns for an ambiguity decided inside the
+  # band: a raw non-negative rank and an upstream meets_floor of true. Both are
+  # Megamind's own facts, so they pass through without becoming a threshold match.
+  home=$(new_home upstream-floor-shape)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
+    run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  fixture="$TMP_ROOT/upstream-floor-shape.json"
+  jq '.selected.score = 8 | .selected.confidence = {"score": 1.0, "meets_floor": true}' \
+    "$SELECTION_FIXTURE" > "$fixture"
+  out=$(FM_TEST_SELECTION_FIXTURE="$fixture" \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 0 "$rc" "upstream rank and floor shape"
+  [ "$(printf '%s' "$out" | jq -r '.selected.score')" = 8 ] || fail "upstream rank was not preserved: $out"
+  [ "$(printf '%s' "$out" | jq -r '.selected.confidence.meets_floor')" = true ] \
+    || fail "upstream meets_floor was restated instead of preserved: $out"
+  [ "$(printf '%s' "$out" | jq -r '.selection.threshold_matched')" = false ] \
+    || fail "an upstream floor fact turned the selection into a threshold match: $out"
 
   home=$(new_home stale-catalog)
   out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
@@ -1042,11 +1092,17 @@ test_explicit_offer_selection_continuation() {
 
 test_date_binding_is_host_owned() {
   local home out id pending rc today
-  today=$(date -u +%Y-%m-%d)
   home=$(new_home host-owned-date)
   # --today may only assert the host's own date, so it can never reshape the
-  # freshness, staleness, or selection-binding semantics of a preflight.
+  # freshness, staleness, or selection-binding semantics of a preflight. A UTC
+  # midnight between the read and the call is a correct refusal, not a failure,
+  # so the assertion is re-made once against the date that has since become now.
+  today=$(date -u +%Y-%m-%d)
   out=$(FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing" --today "$today"); rc=$?
+  if [ "$rc" -ne 0 ] && [ "$today" != "$(date -u +%Y-%m-%d)" ]; then
+    today=$(date -u +%Y-%m-%d)
+    out=$(FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing" --today "$today"); rc=$?
+  fi
   expect_code 0 "$rc" "asserted host date"
   out=$(FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing" --today 2020-01-01); rc=$?
   expect_code 1 "$rc" "forged past date"
@@ -1055,10 +1111,12 @@ test_date_binding_is_host_owned() {
   expect_code 1 "$rc" "malformed date"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = invalid_today ] || fail "a malformed date was accepted: $out"
   # No environment token substitutes for the host clock either.
+  : > "$FM_TEST_STUB_ARGS"
   out=$(FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" FM_MEGAMIND_TODAY=2020-01-01 \
     run_in "$home" run --request "pricing"); rc=$?
   expect_code 0 "$rc" "environment date token"
-  assert_grep "$today" "$FM_TEST_STUB_ARGS" "the host date did not reach Megamind"
+  assert_no_grep "2020-01-01" "$FM_TEST_STUB_ARGS" "an environment date token reached Megamind"
+  assert_host_today "$(sed -n '9p' "$FM_TEST_STUB_ARGS")" "the run behind an environment date token"
 
   # A pending record whose bound date is no longer the host's cannot authorize.
   home=$(new_home stale-date-binding)
@@ -1118,6 +1176,45 @@ test_pending_evidence_is_bounded_and_reclaimable() {
   assert_absent "$stale" "an unconsumable pending record was never retired"
   count=$(find "$home/state/megamind-offer-selections" -name '*.pending.json' | wc -l | tr -d ' ')
   [ "$count" = 2 ] || fail "the live pending records did not survive pruning: $count"
+
+  # The store's own working artifacts carry the same packet and verbatim
+  # request, so the bound covers them and an abandoned lock directory too.
+  local store="$home/state/megamind-offer-selections" orphan_lock
+  printf '{}' > "$store/.$id.packet.999999"
+  printf '{}' > "$store/$id.authorization.json.tmp.999999"
+  orphan_lock="$store/.ffffffffffffffff.lock"
+  mkdir -p "$orphan_lock"
+  printf '2147483646\n' > "$orphan_lock/pid"
+  printf 'Thu Jan  1 00:00:00 2015\n' > "$orphan_lock/start"
+  printf 'megamind-continue-that-is-gone\n' > "$orphan_lock/command"
+  touch -t 202001010000 "$store/.$id.packet.999999" \
+    "$store/$id.authorization.json.tmp.999999" "$orphan_lock"
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" run_in "$home" run --request "a third request")
+  assert_absent "$store/.$id.packet.999999" "an abandoned packet extract was never retired"
+  assert_absent "$store/$id.authorization.json.tmp.999999" "an abandoned publish temporary was never retired"
+  assert_absent "$orphan_lock" "an abandoned lock directory was never released"
+
+  # Crossing the retention cap evicts the oldest same-date records and keeps
+  # exactly the newest bound, which is the only path that reads file_mtime.
+  home=$(new_home capped-selections)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  store="$home/state/megamind-offer-selections"
+  local i seeded newest
+  for i in $(seq 1 33); do
+    seeded=$(printf '%s' "$store/$(printf 'b%.0s' $(seq 1 30))$(printf '%02d' "$i").pending.json")
+    cp "$store/$id.pending.json" "$seeded"
+    chmod 600 "$seeded"
+    touch -t "$(printf '2026010100%02d' "$i")" "$seeded"
+  done
+  count=$(find "$store" -name '*.pending.json' | wc -l | tr -d ' ')
+  [ "$count" = 34 ] || fail "the retention-cap fixture did not seed 34 records: $count"
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" run_in "$home" run --request "one more request")
+  count=$(find "$store" -name '*.pending.json' | wc -l | tr -d ' ')
+  [ "$count" = 32 ] || fail "the retention cap did not bound the private store: $count"
+  newest=$(printf 'b%.0s' $(seq 1 30))
+  assert_present "$store/${newest}33.pending.json" "the newest seeded record was evicted"
+  assert_absent "$store/${newest}01.pending.json" "the oldest seeded record survived the cap"
 
   # An abandoned lock names an owner, so it is reclaimed rather than wedging
   # every later continuation of that selection.

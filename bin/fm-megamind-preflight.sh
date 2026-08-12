@@ -61,10 +61,11 @@
 # - The Megamind call is read-only, and the request is passed after `--` so a
 #   dash-leading request is never parsed as an option: `megamind-axi preflight
 #   --model-class <class> --estate <dir> --today <date> --format json
-#   --no-help-hints -- <request>`. Every flag sits after the subcommand because
-#   each accepted release declares all of them - including `--today` - on the
-#   `preflight` subparser itself. Megamind owns routing, thresholds, privacy
-#   filtering, and budgets; this script never reimplements them.
+#   --no-help-hints -- <request>`. Every flag sits after its subcommand, the one
+#   placement Megamind's own command reference spells for both `preflight` and
+#   `select-offer`; docs/verification/runtime-backends.md records the 0.6.0
+#   end-to-end evidence for that exact argv. Megamind owns routing, thresholds,
+#   privacy filtering, and budgets; this script never reimplements them.
 # - The date is host-owned: it is always this host's current UTC date. The
 #   optional `--today` is an assertion, not an override - a value that is not
 #   that date is invalid_today - so no caller can forge the freshness,
@@ -116,12 +117,25 @@
 #   ambiguous `run` and a completed `continue` first retire every pending record
 #   whose bound date is no longer this host's UTC date - such a record can never
 #   authorize again - drop authorization tombstones older than a day, and keep
-#   at most the newest SELECTION_RETENTION_MAX pending records.
+#   at most the newest SELECTION_RETENTION_MAX pending records. The bound covers
+#   everything the script writes there, not just the two published names: the
+#   packet extract and the publish temporaries carry the same original packet and
+#   verbatim request, so a day-old one is retired too, and a lock directory with
+#   no live recorded owner is released rather than left behind.
 # - `continue` accepts only that opaque selection_id and the exact offered wiki.
 #   It resolves every executable, estate, packet, request, and model value from
 #   the private record, invokes the same executable's `select-offer` command,
 #   validates the complete `megamind/preflight-selection-result/v1` result, and
-#   emits only a fixed host-owned authorization projection. Its failure codes
+#   emits only a fixed host-owned authorization projection. Validation checks the
+#   typed shape and the governed refusals - provisional, pointer, no-load, unsafe
+#   path, invalid budget - and never restates a decision Megamind already owns:
+#   `selected.score` is upstream's own non-negative rank rather than a 0..1
+#   confidence, `confidence.meets_floor` passes through as the boolean upstream
+#   reports (an ambiguity decided inside the band can carry a true one), and the
+#   ladder's `follow_up` is passed through exactly as the `run` path already
+#   passes it, request text included. That an explicit selection is not a
+#   threshold match is asserted where it belongs, in the projection's own
+#   `selection.basis` and `threshold_matched`. Its failure codes
 #   are selection_id_invalid, offer_invalid, jq_missing, state_invalid,
 #   selection_missing, selection_replayed, selection_invalid, selection_busy,
 #   selection_malformed, packet_malformed, packet_unavailable,
@@ -463,11 +477,13 @@ selection_lock_path() {  # <selection-id> - per-selection mutex, so one abandone
   printf '%s/.%s.lock\n' "$SELECTION_DIR" "$1"
 }
 
-prune_selections() {  # <today> - retire evidence that can never authorize again and bound the private store
+prune_selections() {  # <today> [records about to be written] - bound the private store
   # Pending evidence is bound to the date it was captured on, so a record from
   # another date is already refused by `continue` and only occupies the store.
   # This runs on the two paths that change the store, so no daemon is involved.
-  local today="$1" entry stored excess oldest
+  # Pruning precedes the write it makes room for, so the caller states how many
+  # records are incoming and the cap holds afterwards rather than one short.
+  local today="$1" incoming="${2:-0}" entry stored excess oldest
   local -a kept=()
   [ -d "$SELECTION_DIR" ] && [ ! -L "$SELECTION_DIR" ] || return 0
   command -v jq >/dev/null 2>&1 || return 0
@@ -485,7 +501,22 @@ prune_selections() {  # <today> - retire evidence that can never authorize again
   # still exist, and no pending record outlives its date, so a day is enough.
   find "$SELECTION_DIR" -maxdepth 1 -type f -name '*.authorization.json' -mtime +0 \
     -exec rm -f -- '{}' + 2>/dev/null || true
-  excess=$(( ${#kept[@]} - SELECTION_RETENTION_MAX ))
+  # The packet extract and every publish temporary hold the same original packet
+  # and verbatim request as a pending record, so the bound covers them too: each
+  # belongs to one live invocation and a day-old one was abandoned by a crash.
+  find "$SELECTION_DIR" -maxdepth 1 -type f \( -name '.*.packet.*' -o -name '*.tmp.*' \) \
+    -mtime +0 -exec rm -f -- '{}' + 2>/dev/null || true
+  for entry in "$SELECTION_DIR"/.*.lock; do
+    [ -d "$entry" ] && [ ! -L "$entry" ] || continue
+    selection_lock_owner_alive "$entry" && continue
+    [ -n "$(find "$entry" -maxdepth 0 -mmin +5 2>/dev/null)" ] || continue
+    rm -rf -- "$entry" 2>/dev/null || true
+  done
+  for entry in "$SELECTION_DIR"/.*.lock.stale.*; do
+    [ -d "$entry" ] && [ ! -L "$entry" ] || continue
+    rm -rf -- "$entry" 2>/dev/null || true
+  done
+  excess=$(( ${#kept[@]} + incoming - SELECTION_RETENTION_MAX ))
   [ "$excess" -gt 0 ] || return 0
   while IFS= read -r oldest; do
     [ -n "$oldest" ] || continue
@@ -632,7 +663,8 @@ private_publish_exclusive() {  # <destination> - the same publish, but only the 
 }
 
 selection_error() {  # <code> <message> [extra JSON object]
-  local code="$1" message="$2" extra="${3:-{}}"
+  local code="$1" message="$2" extra="${3:-}"
+  [ -n "$extra" ] || extra='{}'
   if ! command -v jq >/dev/null 2>&1; then
     printf '{"schema_version":"%s","outcome":"error","failure":{"code":"%s","message":"%s"}}\n' \
       "$SELECTION_SCHEMA" "$(json_escape "$code")" "$(json_escape "$message")"
@@ -686,7 +718,7 @@ retain_ambiguous() {  # <raw upstream packet> <request> <normalized document> - 
       today:$today,session:$session,nonce:$nonce}' )")" || return 1
   mkdir -p -- "$SELECTION_DIR" 2>/dev/null || return 1
   chmod 700 "$SELECTION_DIR" 2>/dev/null || return 1
-  prune_selections "$today"
+  prune_selections "$today" 1
   pending="$(selection_path "$selection_id")"
   [ ! -L "$pending" ] || return 1
   # The record is composed before it is published so a jq that dies partway is
@@ -1158,6 +1190,7 @@ cmd_continue() (
       "$SAFE_JQ_DEFS"'
       def text: type == "string" and length > 0;
       def score: type == "number" and . >= 0 and . <= 1;
+      def rank: type == "number" and . >= 0;
       def valid_context_budget: type == "object"
         and ((.max_candidates == null) or (.max_candidates | positive_integer))
         and ((.max_context_chars == null) or (.max_context_chars | positive_integer));
@@ -1170,14 +1203,14 @@ cmd_continue() (
         and .source_status == "ambiguous" and .preflight_id == $preflight_id
         and .confidence_changed == false)
       and (.selected | type == "object" and .name == $offer and .root == $root)
-      and (.selected.score | score)
+      and (.selected.score | rank)
       and (.selected.confidence | type == "object" and (.score | score)
-        and (.meets_floor == false))
+        and (.meets_floor | type == "boolean"))
       and (.selected.access == "full" or .selected.access == "digest-only")
       and (.selected.routing_mode | text and . != "pointer")
       and (.selected.provisional == false)
       and (.selected.allows | type == "array" and length > 0 and all(.[]; safe_path))
-      and (.selected.follow_up | text and (contains($request) | not))
+      and (.selected.follow_up | text)
       and ((.selected.context_budget == null) or (.selected.context_budget | valid_context_budget))
       and ((.selected.catalog_visibility == null)
         or (.selected.catalog_visibility == "full" or .selected.catalog_visibility == "redacted"))
@@ -1205,7 +1238,8 @@ cmd_continue() (
          source_disposition:"offer",source_status:"ambiguous",preflight_id:.preflight_id,
          confidence_changed:false,threshold_matched:false},
        selected:{wiki:.selected.name,root:.selected.root,score:.selected.score,
-         confidence:{score:.selected.confidence.score,meets_floor:false},
+         confidence:{score:.selected.confidence.score,
+           meets_floor:.selected.confidence.meets_floor},
          freshness:(.selected.freshness | safe_freshness),
          evidence:(.selected.evidence | safe_evidence),
          access:.selected.access,routing_mode:.selected.routing_mode,
