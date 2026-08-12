@@ -261,6 +261,7 @@ absent: pi-signed
 
 The live guard deliberately does not claim allow, context reinjection, or selection continuation against a real provider until a future synthetic-provider proof can observe those surfaces without exposing credentials or wiki material.
 Codex, OpenCode, Grok, and Kimi remain ordinary-operation-only for automatic primary interception because their installed prompt hook surfaces were not proven to stop inference and replay safely in this slice.
+Grok is the one of those four that loads `.claude/settings.json` through its Claude-compatible settings support, so the tracked `UserPromptSubmit` entry carries the same `GROK_AGENT`/`GROK_HOOK_EVENT` inertness marker its siblings do; [`../turnend-guard.md`](../turnend-guard.md) owns that marker and `tests/fm-turnend-guard.test.sh` pins the entry inventory.
 The Pi adapter is reused by pi-signed only when the exact signed identity marker is present, and the signed executable was absent during this verification.
 Primary interception is harness-session behavior and has no tmux, Herdr, Zellij, Orca, or cmux-specific semantic path.
 Secondmate Pi launches load the same adapter from the secondmate home, while each home retains its own coordinator state and Megamind binding.
