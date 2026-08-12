@@ -7,7 +7,11 @@
 # proof-placement matrix. bin/fm-spawn.sh is then driven end to end against a
 # fake tmux endpoint so the refusal boundary (no endpoint, no worktree, no task
 # record), the private per-task result delivery, the secondmate omission, and the
-# isolated-copy behavior are proven where they actually happen.
+# isolated-copy behavior are proven where they actually happen. That refusal
+# boundary is also pinned for the one arrangement in which the governed offer
+# selection is live - a 0.6.x release and an owning home holding the session lock
+# - because a captured offer is the captain's to spend and must never turn an
+# ambiguous worker preflight into a launch.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -603,6 +607,57 @@ EOF
   pass "a blocked binding refuses the spawn before any endpoint or task record exists"
 }
 
+test_capturable_ambiguous_binding_still_refuses_the_worker() {
+  local rec home project worktree fakebin launchlog id out rc store pending mode
+  rec=$(make_spawn_case ambiguous-capturable bound)
+  IFS='|' read -r _ home project worktree fakebin launchlog id <<EOF
+$rec
+EOF
+  # The one arrangement in which the governed offer-selection path is live: a
+  # 0.6.x release that publishes select-offer, and an owning home holding the
+  # authoritative session lock that can own an offer. An ambiguous worker
+  # preflight here now retains private evidence and hands its caller a
+  # continuation handle, so this is exactly where an ordinary worker could be
+  # weakened into launching on an unauthorized choice.
+  printf '%s\n' "$$" > "$home/state/.lock"
+  : > "$STUB_ARGS"
+  out=$(FM_TEST_STUB_VERSION=0.6.0 FM_TEST_STUB_STATUS=ambiguous \
+    run_spawn_case "$home" "$project" "$worktree" "$fakebin" "$launchlog" "$id" ship); rc=$?
+  expect_code 1 "$rc" "spawn behind a capturable ambiguous binding"
+  assert_contains "$out" "was not authorized by the owning home's Megamind preflight" \
+    "the ambiguous refusal did not name the blocked binding"
+  assert_contains "$out" '"outcome":"ambiguous"' \
+    "the ambiguous refusal did not carry the typed document"
+  assert_absent "$home/state/$id.meta" "an ambiguous binding still published a task record"
+  assert_absent "$home/state/$id.megamind-preflight.json" \
+    "an ambiguous binding still filed a worker authorization"
+  [ ! -s "$launchlog" ] || fail "an ambiguous binding still sent a launch command to an endpoint"
+
+  # The counterfactual that makes the refusal above meaningful: without a live
+  # capture there is no continuation to refuse, and this case would silently
+  # re-test the uncontinuable 0.3.x path instead of the governed one.
+  store="$home/state/megamind-offer-selections"
+  assert_contains "$out" '"selection_id"' \
+    "the ambiguous worker preflight never reached the governed capture path"
+  pending=$(printf '%s\n' "$store"/*.pending.json)
+  assert_present "$pending" "the capturable ambiguous binding retained no private pending evidence"
+  mode=$(file_mode "$pending")
+  [ "$mode" = 600 ] || fail "worker-path pending evidence is not mode 0600 (got $mode)"
+
+  # A captured offer is the captain's to spend, never the worker's: nothing here
+  # authorizes it, and the private request text stays in that record alone.
+  [ -z "$(printf '%s\n' "$store"/*.authorization.json 2>/dev/null | grep -v '\*' || true)" ] \
+    || fail "a blocked worker spawn published a selection authorization"
+  assert_grep "ROUTING-ONLY-CANARY" "$pending" \
+    "the private pending record did not retain the original request it binds"
+  assert_no_grep "ROUTING-ONLY-CANARY" "$home/state/megamind-preflight.jsonl" \
+    "the retained ambiguous request leaked into the owner proof log"
+  assert_not_contains "$out" "ROUTING-ONLY-CANARY" \
+    "the retained ambiguous request leaked into the spawn refusal"
+  [ ! -s "$launchlog" ] || fail "a captured offer still reached a worker endpoint"
+  pass "a capturable ambiguous binding refuses the worker before any endpoint exists"
+}
+
 test_unresolved_routing_placeholder_refuses_spawn() {
   local rec home project worktree fakebin launchlog id out rc
   rec=$(make_spawn_case placeholder bound)
@@ -736,6 +791,7 @@ test_0_5_spawn_authorizes_before_launch
 test_0_6_spawn_authorizes_before_launch_and_future_refuses
 test_ship_and_scout_spawns_authorize_before_launch
 test_blocked_binding_refuses_before_any_task_exists
+test_capturable_ambiguous_binding_still_refuses_the_worker
 test_unresolved_routing_placeholder_refuses_spawn
 test_isolated_copy_carries_no_binding_material
 test_aborted_spawn_retires_the_filed_authorization
