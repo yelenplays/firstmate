@@ -372,6 +372,11 @@ test_matched_run_and_model_class_propagation() {
   [ "$(printf '%s' "$out" | jq -r '.filtered_count')" = 1 ] || fail "filtered_count lost"
   assert_not_contains "$out" "HiddenWiki" "filtered wiki name must never be echoed"
   assert_not_contains "$out" "RAW-REQUEST-CANARY" "raw request must never be echoed"
+  # A matched document is exactly where an absolute root could still leak, and
+  # Megamind's follow_up is by its own shape the route command carrying one.
+  assert_not_contains "$out" "/synthetic/estate" "a matched projection must carry no absolute root"
+  [ "$(printf '%s' "$out" | jq -r '.matches[0].follow_up')" != null ] \
+    || fail "follow_up was dropped rather than redacted: $out"
   assert_contains "$out" "read_policy" "read policy missing"
   [ "$(printf '%s' "$out" | jq -r '.notes | length')" = 1 ] || fail "notes must be exactly one host-owned line: $out"
   assert_not_contains "$out" "reliance floor" "Megamind's own note text must never pass through"
@@ -713,9 +718,15 @@ test_ladder_pages_replace_the_routing_index() {
   local argv root
   home=$(new_home ladder)
   root="$home/estate/ProductWiki"
-  mkdir -p "$root"
+  mkdir -p "$root/wiki/concepts"
+  # Real ranked pages: the descent authorizes only candidates whose own size it
+  # can measure against the declared character budget.
+  printf 'pricing page\n' > "$root/wiki/concepts/pricing.md"
+  printf 'discounts page\n' > "$root/wiki/concepts/discounts.md"
+  printf 'overflow page\n' > "$root/wiki/concepts/overflow.md"
   jq --arg root "$root" '.matches[0].root = $root
       | .matches[0].allows = ["wiki/index.md"]
+      | .matches[0].follow_up = ("Run `megamind-axi --root " + $root + " route pricing` for the bounded ladder")
       | .matches[0].context_budget = {"max_candidates": 2, "max_context_chars": 4000}' \
     "$MATCHED_FIXTURE" > "$fixture"
   # Ranked page candidates, one duplicate, one unsafe path, and more pages than
@@ -742,9 +753,11 @@ JSON
   [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" \
     = "$(printf '%s' "$out" | jq -c '.matches[0].allows')" ] \
     || fail "declared_allows disagreed with the emitted allows: $out"
-  # follow_up stays informational: it is carried, never executed or parsed.
+  # follow_up stays informational: it is carried, never executed or parsed, and
+  # the absolute root its own shape carries is redacted out of it.
   [ "$(printf '%s' "$out" | jq -r '.matches[0].follow_up')" != null ] \
     || fail "follow_up was dropped rather than carried: $out"
+  assert_not_contains "$out" "$home/estate" "a matched projection must carry no absolute root"
   argv=$(cat "$FM_TEST_STUB_ARGS")
   printf '%s' "$argv" | grep -q '^route$' || fail "the ladder subcommand was never invoked: $argv"
   # Global flags precede the subcommand and the request goes last after --, so a
@@ -782,6 +795,41 @@ test_ladder_failure_keeps_declared_paths() {
       || fail "$case_name ladder changed the preflight outcome: $out"
   done
   pass "run: a ladder that ranks no page, fails, or is unrecognized leaves the declared paths untouched"
+}
+
+# The bounded reader refuses a whole over-budget admission and emits nothing
+# partial, so ranked pages that together outgrow the declared character budget
+# would return the matched wiki to the exact failure this descent exists to fix:
+# an authorization that admits no content at all.
+test_ladder_pages_fit_the_declared_character_budget() {
+  local home out root i page
+  local fixture="$TMP_ROOT/ladder-budget.json" route="$TMP_ROOT/ladder-budget-route.json"
+  home=$(new_home ladderbudget)
+  root="$home/estate/ProductWiki"
+  mkdir -p "$root/wiki/concepts"
+  page=$(printf 'x%.0s' {1..400})
+  for i in first second third; do
+    printf '%s' "$page" > "$root/wiki/concepts/$i.md"
+  done
+  jq --arg root "$root" '.matches[0].root = $root
+      | .matches[0].allows = ["wiki/index.md"]
+      | .matches[0].context_budget = {"max_candidates": 5, "max_context_chars": 900}' \
+    "$MATCHED_FIXTURE" > "$fixture"
+  cat > "$route" <<'JSON'
+{"schema_version": "megamind/route-result/v2", "candidates": [
+   {"path": "wiki/concepts/first.md", "kind": "page", "score": 9},
+   {"path": "wiki/concepts/second.md", "kind": "page", "score": 8},
+   {"path": "wiki/concepts/third.md", "kind": "page", "score": 7}]}
+JSON
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" run --request "pricing")
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" \
+    = '["wiki/concepts/first.md","wiki/concepts/second.md"]' ] \
+    || fail "the ladder authorized past the declared character budget: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" \
+    = "$(printf '%s' "$out" | jq -c '.matches[0].allows')" ] \
+    || fail "the budgeted ladder desynchronized the binding: $out"
+  pass "run: the ladder keeps only the ranked pages that fit the declared budget"
 }
 
 # `route` takes no model class, so it cannot restate the per-class restriction
@@ -832,7 +880,8 @@ JSON
   # reason the digest-only one did not.
   home=$(new_home ladderaccess-full)
   root="$home/estate/OfferWiki"
-  mkdir -p "$root"
+  mkdir -p "$root/wiki/concepts"
+  printf 'pricing page\n' > "$root/wiki/concepts/pricing.md"
   jq --arg root "$root" '.offers[0].root = $root' "$AMBIGUOUS_SELECTION_FIXTURE" > "$ambiguous"
   jq --arg root "$root" '.selected.root = $root | .selected.access = "full"' "$SELECTION_FIXTURE" > "$selection"
   out=$(FM_TEST_STUB_FIXTURE="$ambiguous" run_in "$home" run --request "original request")
@@ -1508,6 +1557,7 @@ test_check_probe
 test_allowed_path_enforcement
 test_ladder_pages_replace_the_routing_index
 test_ladder_failure_keeps_declared_paths
+test_ladder_pages_fit_the_declared_character_budget
 test_ladder_never_widens_a_restricted_access
 test_ambiguous_offers_without_loading
 test_no_match_stays_quiet

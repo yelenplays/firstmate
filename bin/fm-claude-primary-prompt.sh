@@ -8,10 +8,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="${CLAUDE_PROJECT_DIR:-${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd -P)}}"
 COORDINATOR="$ROOT/bin/fm-megamind-primary.sh"
 
+# This hook is registered unconditionally, but automatic primary mode is opt-in
+# and the coordinator owns that eligibility. A session that never opted in must
+# cost nothing and must not lose a prompt to an unrelated condition here, so the
+# coordinator is asked first - by exit status, with no jq and no payload, so the
+# answer never depends on the tooling that just failed. A home whose coordinator
+# cannot even run is by definition governing nothing.
+governed_session() {
+  [ -x "$COORDINATOR" ] || return 1
+  FM_HOME="${FM_HOME:-$ROOT}" "$COORDINATOR" governed --harness claude >/dev/null 2>&1
+}
+
 # Exit 2 is Claude's block code and shows only stderr, so every transport
-# failure names itself there. A prompt that disappears without a reason is
-# indistinguishable from a broken editor; a disclosed blocker is not.
+# failure in a governed session names itself there. A prompt that disappears
+# without a reason is indistinguishable from a broken editor; a disclosed
+# blocker is not.
 refuse() {
+  governed_session || exit 0
   printf 'Firstmate: %s. The prompt was not sent; no provider turn was started.\n' "$1" >&2
   exit 2
 }

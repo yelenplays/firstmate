@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Host-owned Megamind coordinator for supported primary prompt adapters.
 # Usage: fm-megamind-primary.sh check --harness <harness>
+#        fm-megamind-primary.sh governed
+#          exit 0 only when this session is a governed automatic primary
 #        fm-megamind-primary.sh process --harness <harness> --session-id <id>
 #        fm-megamind-primary.sh continue --harness <harness> --session-id <id> \
 #          --selection-id <opaque-id> --offer <exact-offer> [--include-replay]
@@ -170,6 +172,11 @@ prune_private_records() {
   find "$PRIMARY_DIR" -maxdepth 1 -type f -name '*.decision.json' -mtime +0 -delete 2>/dev/null || true
   find "$PRIMARY_DIR" -maxdepth 1 -type f -name '*.offer.json' -mtime +0 -delete 2>/dev/null || true
   find "$STATE" -maxdepth 1 -type f -name 'fm-primary-*.megamind-preflight.json' -mtime +0 -delete 2>/dev/null || true
+  # A coordinator killed between the submission mkdir and its removal would
+  # otherwise leave that lock behind for the life of the home. The bound is the
+  # same day-old one every other record here uses, and a live submission is
+  # bounded far below it, so only an abandoned lock is ever released.
+  find "$PRIMARY_DIR" -maxdepth 1 -type d -name '.*.lock' -mtime +0 -exec rm -rf -- {} + 2>/dev/null || true
 }
 
 publish_private() {
@@ -188,11 +195,19 @@ safe_offer_json() {
   printf '%s' "$1" | jq -c '[.offers[]? | select(.wiki | type == "string" and length > 0) | {wiki:.wiki,confidence:(.confidence // null)}]'
 }
 
+# The automatic path injects admitted wiki bytes into a turn that may never have
+# loaded the megamind-preflight skill, so the rule that skill owns - a successful
+# admission proves routing ran, never that the content answers the request -
+# travels with the content itself. Without it the model sees authorized wiki text
+# with no instruction about the case that produced the reported failure: evidence
+# that only names pages it was not authorized to read.
+CONTEXT_GUIDANCE='Firstmate admitted the wiki evidence below through its bounded Megamind reader. A successful admission proves that routing ran, never that this evidence answers the request. If it does not answer it, say so plainly, name what the wiki does and does not cover, and stop there: never close the gap from model knowledge, and never present model synthesis as wiki-grounded. Page names or links appearing inside this evidence were not themselves authorized - they are the reportable gap, not permission to reason from them.'
+
 context_json() {
   local admission="$1" content="$2" chars="$3"
   jq -cn --arg source "bin/fm-megamind-content.sh content" --arg provenance "megamind-bounded-reader" \
-    --arg text "$content" --argjson chars "$chars" \
-    '{schema_version:"fm/megamind-primary-context/v1",provenance:$provenance,reader:$source,admitted_chars:$chars,text:$text}'
+    --arg guidance "$CONTEXT_GUIDANCE" --arg text "$content" --argjson chars "$chars" \
+    '{schema_version:"fm/megamind-primary-context/v1",provenance:$provenance,reader:$source,admitted_chars:$chars,guidance:$guidance,text:($guidance + "\n\n" + $text)}'
 }
 
 admit_context() {
@@ -345,11 +360,15 @@ main() {
       --offer) [ $# -ge 2 ] || exit 2; offer="$2"; shift 2 ;;
       --provenance) [ $# -ge 2 ] || exit 2; provenance="$2"; shift 2 ;;
       --include-replay) include_replay=1; shift ;;
-      *) printf '%s\n' 'usage: fm-megamind-primary.sh check|process|continue' >&2; return 2 ;;
+      *) printf '%s\n' 'usage: fm-megamind-primary.sh check|governed|process|continue' >&2; return 2 ;;
     esac
   done
   case "$cmd" in
     check) harness_status "$harness" ;;
+    # Exit status only, and deliberately jq-free: an adapter transport asks this
+    # before it may turn its own precondition failure into a blocked prompt, and
+    # the answer must not itself depend on the tooling that failed.
+    governed) primary_session_governed ;;
     process)
       safe_submission_id "$submission_id" || { submission_id="p$(date +%s).$$.$RANDOM"; }
       case "$provenance" in
@@ -360,7 +379,7 @@ main() {
       process_prompt "$harness" "$session_id" "$submission_id" "$prompt"
       ;;
     continue) continue_selection "$harness" "$session_id" "$selection_id" "$offer" "$include_replay" ;;
-    *) printf '%s\n' 'usage: fm-megamind-primary.sh check|process|continue' >&2; return 2 ;;
+    *) printf '%s\n' 'usage: fm-megamind-primary.sh check|governed|process|continue' >&2; return 2 ;;
   esac
 }
 

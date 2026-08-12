@@ -244,10 +244,6 @@ def strict_read(fd: int, ceiling: int) -> Tuple[bytes, str, int]:
         raise ValueError("invalid_utf8")
 
 
-def compare_fingerprint(actual: Dict[str, Any], expected: Dict[str, Any]) -> bool:
-    return actual == expected
-
-
 def current_binding(home: Path, auth: Dict[str, Any], selection_id: Optional[str]) -> Optional[Dict[str, Any]]:
     binding = auth.get("authorization_binding")
     if not isinstance(binding, dict) or binding.get("schema_version") != BINDING_SCHEMA:
@@ -329,7 +325,10 @@ def auth_path(home: Path, task_id: Optional[str], selection_id: Optional[str]) -
     return None
 
 
-def proof_matches(home: Path, auth: Dict[str, Any], outcome: str) -> bool:
+def proof_matches(home: Path, auth: Dict[str, Any]) -> bool:
+    # The accepted outcome set is the whole contract and is deliberately not
+    # narrowed to the authorization's own kind: `continue` writes no proof line,
+    # so a selection authorization is proven by the `ambiguous` line it came from.
     proof = home / "state" / "megamind-preflight.jsonl"
     if not private_file(proof):
         return False
@@ -487,8 +486,7 @@ def admit(home: Path, task_id: Optional[str], selection_id: Optional[str]) -> in
     auth = load_json(path)
     if auth is None:
         return fail("authorization_malformed")
-    outcome = "authorized" if selection_id else "matched"
-    if not proof_matches(home, auth, outcome):
+    if not proof_matches(home, auth):
         return fail("authorization_unproven", authorization_id=auth.get("preflight_id"))
     binding_state = current_binding(home, auth, selection_id)
     if binding_state is None:
@@ -621,7 +619,7 @@ def revalidate_and_content(home: Path, admission_id: str) -> int:
     auth = load_json(auth_path_value)
     if auth is None:
         return fail("authorization_unavailable")
-    if not proof_matches(home, auth, "authorized" if auth_selection else "matched"):
+    if not proof_matches(home, auth):
         return fail("binding_changed")
     current = current_binding(home, auth, auth_selection)
     if current is None:

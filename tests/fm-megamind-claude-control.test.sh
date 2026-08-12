@@ -95,5 +95,39 @@ test_inexact_controls_stay_ordinary_prompts() {
   pass "claude transport: only the exact host control authorizes an offer"
 }
 
+# The hook is registered unconditionally while automatic primary mode is opt-in,
+# so a transport precondition failure must not cost a session that never opted in
+# the prompt it was never asked to govern. The coordinator owns that eligibility
+# and the transport must honor it before it may block anything.
+test_only_a_governed_session_can_lose_a_prompt() {
+  local lab out rc
+  lab="$TMP_ROOT/governance"
+  mkdir -p "$lab/bin"
+  write_coordinator() {  # <governed exit status>
+    cat > "$lab/bin/fm-megamind-primary.sh" <<SH
+#!/usr/bin/env bash
+set -u
+[ "\${1:-}" = governed ] && exit $1
+exit 3
+SH
+    chmod 700 "$lab/bin/fm-megamind-primary.sh"
+  }
+
+  write_coordinator 1
+  out=$(jq -cn '{prompt:"a substantive synthetic request",session_id:"session-synthetic"}' \
+    | CLAUDE_PROJECT_DIR="$lab" "$HOOK" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -eq 0 ] \
+    || fail "an ungoverned session lost its prompt to a transport failure (exit $rc): $out"
+  [ -z "$out" ] || fail "an ungoverned session was not left alone: $out"
+
+  write_coordinator 0
+  out=$(jq -cn '{prompt:"a substantive synthetic request",session_id:"session-synthetic"}' \
+    | CLAUDE_PROJECT_DIR="$lab" "$HOOK" 2>&1) && rc=0 || rc=$?
+  [ "$rc" -eq 2 ] || fail "a governed transport failure did not block the prompt (exit $rc): $out"
+  assert_contains "$out" 'Firstmate' 'a governed block disclosed no reason on stderr'
+  pass "claude transport: only a governed session can lose a prompt to a transport failure"
+}
+
 test_offer_control_is_sendable_and_round_trips
 test_inexact_controls_stay_ordinary_prompts
+test_only_a_governed_session_can_lose_a_prompt
