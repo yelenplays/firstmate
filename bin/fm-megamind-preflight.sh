@@ -6,6 +6,7 @@
 #                                        print bypass without accepting or reading
 #                                        the credential payload
 #        fm-megamind-preflight.sh run --request "<text>" [--model-class local|cloud]
+#                                        [--today YYYY-MM-DD]
 #                                        run Megamind preflight and print one typed
 #                                        fm/megamind-preflight/v1 JSON document
 #        fm-megamind-preflight.sh continue --selection-id <id> --offer <wiki>
@@ -59,9 +60,17 @@
 #   malformed_output.
 # - The Megamind call is read-only, and the request is passed after `--` so a
 #   dash-leading request is never parsed as an option: `megamind-axi preflight
-#   --model-class <class> --estate <dir> --format json --no-help-hints --
-#   <request>`. Megamind owns routing, thresholds, privacy filtering, and
-#   budgets; this script never reimplements them.
+#   --model-class <class> --estate <dir> --today <date> --format json
+#   --no-help-hints -- <request>`. Every flag sits after the subcommand because
+#   each accepted release declares all of them - including `--today` - on the
+#   `preflight` subparser itself. Megamind owns routing, thresholds, privacy
+#   filtering, and budgets; this script never reimplements them.
+# - The date is host-owned: it is always this host's current UTC date. The
+#   optional `--today` is an assertion, not an override - a value that is not
+#   that date is invalid_today - so no caller can forge the freshness,
+#   staleness, or selection-binding semantics of a preflight. Deterministic
+#   date behavior is reachable only by editing the private pending record on
+#   disk, which no production path writes with a non-host date.
 # - Outcome statuses pass through exactly: matched, ambiguous, no-match,
 #   unavailable, privacy-filtered; any other status is malformed_output. A
 #   matched document carries each match's validated `allows` paths (relative,
@@ -86,11 +95,11 @@
 #   candidates, and absolute roots.
 # - Any missing, incompatible, malformed, or failed preflight prints the typed
 #   document with outcome=error and a stable failure.code instead of a result:
-#   not_configured, estate_missing, invalid_model_class, executable_missing,
-#   version_incompatible, jq_missing, megamind_error (with upstream_code),
-#   malformed_output. The typed document and the proof line are also emitted
-#   without jq, so jq_missing can disclose itself. Exit code is 0 for definitive
-#   outcomes, 1 for errors.
+#   not_configured, estate_missing, invalid_model_class, invalid_today,
+#   executable_missing, version_incompatible, jq_missing, megamind_error (with
+#   upstream_code), malformed_output, selection_pending_write_failed. The typed
+#   document and the proof line are also emitted without jq, so jq_missing can
+#   disclose itself. Exit code is 0 for definitive outcomes, 1 for errors.
 # - An ambiguous `run` retains the complete original v2 JSON packet, exact
 #   request, and binding identity in one mode-0600 record under the private
 #   state/megamind-offer-selections directory. The normalized result exposes
@@ -98,21 +107,41 @@
 #   status, metadata, or worker instructions. The record binds request_hash,
 #   preflight_id, catalog_hash, model class, executable and version, estate
 #   identity, date semantics, and the current session identity.
+# - Session identity is the owning home's authoritative session lock,
+#   state/.lock, and nothing else: no environment token and no parent pid
+#   invents a second one. A home with no readable lock cannot own an offer, so
+#   the ambiguous result is emitted as usual with no selection_id and no
+#   retained record, and continuation is simply unavailable there.
+# - The private selection store is bounded and script-owned, with no daemon: an
+#   ambiguous `run` and a completed `continue` first retire every pending record
+#   whose bound date is no longer this host's UTC date - such a record can never
+#   authorize again - drop authorization tombstones older than a day, and keep
+#   at most the newest SELECTION_RETENTION_MAX pending records.
 # - `continue` accepts only that opaque selection_id and the exact offered wiki.
 #   It resolves every executable, estate, packet, request, and model value from
 #   the private record, invokes the same executable's `select-offer` command,
 #   validates the complete `megamind/preflight-selection-result/v1` result, and
-#   emits only a fixed host-owned authorization projection. It uses a private
-#   lock for one-time consumption, retires the pending record only after the
-#   projection is durably published, and preserves it when retry remains safe.
-#   A plain ambiguous worker preflight remains unauthorized.
+#   emits only a fixed host-owned authorization projection. Its failure codes
+#   are selection_id_invalid, offer_invalid, jq_missing, state_invalid,
+#   selection_missing, selection_replayed, selection_invalid, selection_busy,
+#   selection_malformed, packet_malformed, packet_unavailable,
+#   session_unavailable, binding_changed, upstream_error, malformed_result,
+#   projection_failed, and retirement_failed. Consumption is one-time twice
+#   over: a per-selection owner-recorded lock serializes it and reclaims only a
+#   provably dead owner, and the authorization is published through an
+#   exclusive link that no second continuation can win. The pending record is
+#   retired only after the projection is durably published, and preserved when
+#   retry remains safe. A plain ambiguous worker preflight remains unauthorized.
 # - Proof logging is minimal and non-verbatim: each `run` appends one JSON line
 #   to state/megamind-preflight.jsonl with ts, preflight_id, request_hash,
 #   model_class, catalog_hash, outcome, matched wiki names, and failure code.
 #   Request text, wiki content, and bypass traffic are never logged.
 # - Harness and runtime-backend neutral: the script depends only on bash, jq,
-#   and the resolved megamind-axi; it reads no harness, backend, or terminal
-#   state. tests/fm-megamind-preflight.test.sh pins that neutrality.
+#   the resolved megamind-axi, and the POSIX tooling every supported host
+#   already ships - `shasum` or `sha256sum` for the selection hashes, `ps` for
+#   lock ownership, and `od` over /dev/urandom for the selection nonce. It reads
+#   no harness, backend, or terminal state.
+#   tests/fm-megamind-preflight.test.sh pins that neutrality.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -130,9 +159,60 @@ MEGAMIND_SELECTION_SCHEMA="megamind/preflight-selection-result/v1"
 SUPPORTED_VERSION_LINES='0.3.x, 0.4.x, 0.5.x, or 0.6.x'
 LOG_FILE="$STATE/megamind-preflight.jsonl"
 SELECTION_DIR="$STATE/megamind-offer-selections"
+SELECTION_RETENTION_MAX=32
 READ_POLICY="Read only the allows paths listed under each matched wiki root, within any returned context budget; use the follow_up ladder for page content; never read, infer, or widen to any other wiki path."
 RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" [--model-class local|cloud] [--today YYYY-MM-DD]'
 CONTINUE_USAGE='usage: fm-megamind-preflight.sh continue --selection-id <id> --offer <wiki>'
+
+# The one privacy-minimization vocabulary every filter that projects upstream
+# retrieval evidence prepends. Holding it here rather than restating it per
+# filter is what keeps the `run` normalization and the `continue` authorization
+# projection from drifting apart on what upstream evidence may be disclosed.
+# shellcheck disable=SC2016 # jq owns these bindings; the shell must not expand them.
+SAFE_JQ_DEFS='
+  def safe_path: (type == "string") and (length > 0)
+    and (startswith("/") | not) and (startswith("~") | not)
+    and (test("(^|/)\\.\\.(/|$)") | not);
+  def safe_date:
+    if type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$") then . else null end;
+  def positive_number: type == "number" and . > 0;
+  def positive_integer: positive_number and floor == .;
+  def safe_freshness:
+    if type == "object" then {
+      half_life_days: (.half_life_days | if positive_number then . else null end),
+      last_confirmed: (.last_confirmed | safe_date),
+      stale: (.stale | if type == "boolean" then . else null end)
+    } else null end;
+  def safe_budget:
+    if type == "object" then {
+      max_candidates: (.max_candidates | if positive_integer then . else null end),
+      max_context_chars: (.max_context_chars | if positive_integer then . else null end)
+    } | with_entries(select(.value != null)) else null end;
+  def safe_signal_counts:
+    if type == "object"
+       and ((keys | sort) == ["name", "scope", "trigger"])
+       and all(.[]; type == "number" and floor == . and . >= 0)
+    then {trigger: .trigger, name: .name, scope: .scope}
+    else null end;
+  def safe_lexical_classes($counts):
+    (["trigger", "name", "scope"] | map(select($counts[.] > 0))) as $derived |
+    if type == "array" and (sort == ($derived | sort)) then $derived else null end;
+  def safe_evidence:
+    (if type == "object" then . else null end) as $evidence |
+    ($evidence.signal_counts | safe_signal_counts) as $counts |
+    ($evidence.lexical_classes | safe_lexical_classes($counts)) as $classes |
+    ({semantic_score: ($evidence.semantic
+       | if type == "number" then . else null end)}
+     + if $counts != null and $classes != null then {
+         lexical_classes: $classes,
+         signal_counts: $counts,
+         lexical_signal_count: ([$counts[]] | add)
+       } else {
+         lexical_classes: [],
+         signal_counts: null,
+         lexical_signal_count: null
+       } end);
+'
 
 is_supported_version() {  # <version> - accept only proven complete 0.3.x/0.4.x/0.5.x/0.6.x releases
   local version="$1"
@@ -329,32 +409,22 @@ valid_today() {  # <date> - accept the upstream command's explicit ISO date shap
   [[ "$1" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]
 }
 
-current_today() {
-  if [ -n "${FM_MEGAMIND_TODAY:-}" ]; then
-    valid_today "$FM_MEGAMIND_TODAY" || return 1
-    printf '%s\n' "$FM_MEGAMIND_TODAY"
-  else
-    date -u +%Y-%m-%d
-  fi
+current_today() {  # this host's own UTC date; no caller can substitute another one
+  date -u +%Y-%m-%d
 }
 
-current_session_identity() {  # the locked primary session or an explicit host session token
-  local value pid
-  value="${FM_MEGAMIND_SESSION_ID:-${FM_SESSION_ID:-}}"
-  if [ -n "$value" ]; then
-    case "$value" in
-      *[!A-Za-z0-9._:-]*) return 1 ;;
-      *) printf 'session:%s\n' "$value"; return 0 ;;
-    esac
-  fi
-  if [ -f "$STATE/.lock" ] && [ ! -L "$STATE/.lock" ]; then
-    pid="$(cat "$STATE/.lock" 2>/dev/null || true)"
-    case "$pid" in
-      ''|*[!0-9]*) return 1 ;;
-      *) printf 'lock:%s\n' "$pid"; return 0 ;;
-    esac
-  fi
-  return 1
+current_session_identity() {  # the owning home's authoritative session lock, or nothing
+  # state/.lock is the one session identity Firstmate already publishes, so the
+  # binding asks it rather than accepting an environment token or inferring a
+  # parent pid, either of which would be a second, forgeable session system.
+  local pid
+  [ -f "$STATE/.lock" ] && [ ! -L "$STATE/.lock" ] || return 1
+  { IFS= read -r pid < "$STATE/.lock"; } 2>/dev/null || return 1
+  case "$pid" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  [ "$pid" -gt 1 ] || return 1
+  printf 'lock:%s\n' "$pid"
 }
 
 resolved_executable() {  # <configured executable> - print the exact executable path used
@@ -389,6 +459,129 @@ authorization_path() {  # <selection-id> - script-owned private consumed result 
   printf '%s/%s.authorization.json\n' "$SELECTION_DIR" "$1"
 }
 
+selection_lock_path() {  # <selection-id> - per-selection mutex, so one abandoned lock cannot wedge the home
+  printf '%s/.%s.lock\n' "$SELECTION_DIR" "$1"
+}
+
+prune_selections() {  # <today> - retire evidence that can never authorize again and bound the private store
+  # Pending evidence is bound to the date it was captured on, so a record from
+  # another date is already refused by `continue` and only occupies the store.
+  # This runs on the two paths that change the store, so no daemon is involved.
+  local today="$1" entry stored excess oldest
+  local -a kept=()
+  [ -d "$SELECTION_DIR" ] && [ ! -L "$SELECTION_DIR" ] || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+  for entry in "$SELECTION_DIR"/*.pending.json; do
+    [ -f "$entry" ] && [ ! -L "$entry" ] || continue
+    stored="$(jq -r 'if type == "object" and (.today | type == "string")
+      then .today else "" end' "$entry" 2>/dev/null || true)"
+    if [ "$stored" != "$today" ]; then
+      rm -f -- "$entry" 2>/dev/null || true
+      continue
+    fi
+    kept+=("$entry")
+  done
+  # An authorization is only a replay tombstone for a pending record that could
+  # still exist, and no pending record outlives its date, so a day is enough.
+  find "$SELECTION_DIR" -maxdepth 1 -type f -name '*.authorization.json' -mtime +0 \
+    -exec rm -f -- '{}' + 2>/dev/null || true
+  excess=$(( ${#kept[@]} - SELECTION_RETENTION_MAX ))
+  [ "$excess" -gt 0 ] || return 0
+  while IFS= read -r oldest; do
+    [ -n "$oldest" ] || continue
+    rm -f -- "$oldest" 2>/dev/null || true
+  done < <(
+    for entry in "${kept[@]}"; do
+      printf '%s\t%s\n' "$(file_mtime "$entry" 2>/dev/null || printf 0)" "$entry"
+    done | LC_ALL=C sort -n | head -n "$excess" | cut -f2-
+  )
+  return 0
+}
+
+process_start() {  # <pid> - the process's own start stamp, or nothing
+  local ps_bin value
+  if [ -x /bin/ps ]; then ps_bin=/bin/ps; elif [ -x /usr/bin/ps ]; then ps_bin=/usr/bin/ps; else return 1; fi
+  value="$("$ps_bin" -p "$1" -o lstart= 2>/dev/null)" || return 1
+  [ -n "$value" ] || return 1
+  case "$value" in *$'\n'*|*$'\r'*) return 1 ;; esac
+  printf '%s\n' "$value"
+}
+
+process_command() {  # <pid> - the process's own command line, or nothing
+  local ps_bin value
+  if [ -x /bin/ps ]; then ps_bin=/bin/ps; elif [ -x /usr/bin/ps ]; then ps_bin=/usr/bin/ps; else return 1; fi
+  value="$("$ps_bin" -p "$1" -o command= 2>/dev/null)" || return 1
+  [ -n "$value" ] || return 1
+  case "$value" in *$'\n'*|*$'\r'*) return 1 ;; esac
+  printf '%s\n' "$value"
+}
+
+read_lock_field() {  # <lock dir> <field> - one bounded single-line owner value
+  local file="$1/$2" value
+  [ -f "$file" ] && [ ! -L "$file" ] || return 1
+  { IFS= read -r value < "$file"; } 2>/dev/null || return 1
+  [ -n "$value" ] || return 1
+  printf '%s\n' "$value"
+}
+
+selection_lock_owner_recorded() {  # <lock dir> - the owner record is complete
+  read_lock_field "$1" pid >/dev/null 2>&1 \
+    && read_lock_field "$1" start >/dev/null 2>&1 \
+    && read_lock_field "$1" command >/dev/null 2>&1
+}
+
+selection_lock_owner_alive() {  # <lock dir> - the recorded owner is provably the live process
+  local lock="$1" pid recorded actual
+  pid="$(read_lock_field "$lock" pid)" || return 1
+  case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$pid" -gt 1 ] || return 1
+  kill -0 "$pid" 2>/dev/null || return 1
+  recorded="$(read_lock_field "$lock" start)" || return 1
+  actual="$(process_start "$pid")" || return 1
+  [ "$recorded" = "$actual" ] || return 1
+  recorded="$(read_lock_field "$lock" command)" || return 1
+  actual="$(process_command "$pid")" || return 1
+  [ "$recorded" = "$actual" ]
+}
+
+record_selection_lock_owner() {  # <lock dir> - name the owner so a stale lock is recognizable
+  local lock="$1" pid start command
+  pid="${BASHPID:-$$}"
+  start="$(process_start "$pid")" || return 1
+  command="$(process_command "$pid")" || return 1
+  printf '%s\n' "$pid" > "$lock/pid" 2>/dev/null || return 1
+  printf '%s\n' "$start" > "$lock/start" 2>/dev/null || return 1
+  printf '%s\n' "$command" > "$lock/command" 2>/dev/null || return 1
+}
+
+acquire_selection_lock() {  # <lock dir> - take the mutex, reclaiming only a provably abandoned one
+  local lock="$1" stale
+  if mkdir -- "$lock" 2>/dev/null; then
+    record_selection_lock_owner "$lock" && return 0
+    rm -rf -- "$lock" 2>/dev/null || true
+    return 1
+  fi
+  [ -d "$lock" ] && [ ! -L "$lock" ] || return 1
+  if selection_lock_owner_recorded "$lock"; then
+    # A live owner keeps the lock; only a provably gone one is reclaimed.
+    ! selection_lock_owner_alive "$lock" || return 1
+  else
+    # An owner record is written immediately after the mkdir, so an incomplete
+    # one is a live acquisition until it is far too old to be one.
+    [ -n "$(find "$lock" -maxdepth 0 -mmin +5 2>/dev/null)" ] || return 1
+  fi
+  # Only one reclaimer can win the rename, so the loser stays refused instead of
+  # tearing down the lock the winner is about to take.
+  stale="$lock.stale.${BASHPID:-$$}"
+  rm -rf -- "$stale" 2>/dev/null || true
+  mv -- "$lock" "$stale" 2>/dev/null || return 1
+  rm -rf -- "$stale" 2>/dev/null || true
+  mkdir -- "$lock" 2>/dev/null || return 1
+  record_selection_lock_owner "$lock" && return 0
+  rm -rf -- "$lock" 2>/dev/null || true
+  return 1
+}
+
 valid_selection_id() {
   [ "${#1}" -ge 16 ] && [ "${#1}" -le 128 ] && [[ "$1" =~ ^[A-Fa-f0-9]+$ ]]
 }
@@ -398,6 +591,14 @@ private_mode() {  # <file> - print portable numeric permission bits
     stat -f '%Lp' "$1"
   else
     stat -c '%a' "$1"
+  fi
+}
+
+file_mtime() {  # <file> - print portable modification time in epoch seconds
+  if [ "$(uname)" = Darwin ]; then
+    stat -f '%m' "$1"
+  else
+    stat -c '%Y' "$1"
   fi
 }
 
@@ -412,6 +613,22 @@ private_publish() {  # <destination> - publish stdin as mode-0600 in its existin
     return 1
   fi
   umask "$old_umask"
+}
+
+private_publish_exclusive() {  # <destination> - the same publish, but only the first writer can ever win
+  # `ln` onto an existing name fails atomically, so one-time consumption does
+  # not rest on the lock alone or on a check that a racer could pass first.
+  local destination="$1" tmp old_umask
+  tmp="${destination}.tmp.${BASHPID:-$$}"
+  old_umask="$(umask)"
+  umask 077
+  if ! cat > "$tmp" || ! chmod 600 "$tmp" || ! ln -- "$tmp" "$destination" 2>/dev/null; then
+    umask "$old_umask"
+    rm -f -- "$tmp" 2>/dev/null || true
+    return 1
+  fi
+  umask "$old_umask"
+  rm -f -- "$tmp" 2>/dev/null || true
 }
 
 selection_error() {  # <code> <message> [extra JSON object]
@@ -435,14 +652,17 @@ classify_provenance() {  # <trusted-provenance> - print substantive|bypass, neve
 }
 
 retain_ambiguous() {  # <raw upstream packet> <request> <normalized document> - write one private pending selection
+  # Returns 2 when this home has no authoritative session to bind the offer to,
+  # which is not a failure: the ambiguous result stands, only unowned.
   local raw="$1" request="$2" normalized="$3"
   local preflight_id request_hash catalog_hash model_class nonce session_id exe estate today
-  local exe_path exe_hash estate_hash selection_id pending
+  local exe_path exe_hash estate_hash selection_id pending record
   if ! printf '%s' "$raw" | jq -e --arg request "$request" \
       '. | type == "object" and .schema_version == "megamind/preflight-result/v2"
        and .status == "ambiguous"' >/dev/null 2>&1; then
     return 1
   fi
+  session_id="$(current_session_identity)" || return 2
   preflight_id="$(printf '%s' "$normalized" | jq -r '.preflight_id')"
   request_hash="$(printf '%s' "$normalized" | jq -r '.request_hash')"
   catalog_hash="$(printf '%s' "$normalized" | jq -r '.catalog_hash')"
@@ -450,7 +670,6 @@ retain_ambiguous() {  # <raw upstream packet> <request> <normalized document> - 
   exe="$(resolve_executable)"
   estate="$(config_path "$CONFIG/megamind-estate" 2>/dev/null || true)"
   today="${RUN_TODAY:-}"
-  session_id="$(current_session_identity || printf 'parent:%s' "$PPID")"
   exe_path="$(resolved_executable "$exe" 2>/dev/null || true)"
   exe_hash="$(hash_file "$exe_path" 2>/dev/null || true)"
   estate_hash="$(estate_identity "$estate" 2>/dev/null || true)"
@@ -467,9 +686,12 @@ retain_ambiguous() {  # <raw upstream packet> <request> <normalized document> - 
       today:$today,session:$session,nonce:$nonce}' )")" || return 1
   mkdir -p -- "$SELECTION_DIR" 2>/dev/null || return 1
   chmod 700 "$SELECTION_DIR" 2>/dev/null || return 1
+  prune_selections "$today"
   pending="$(selection_path "$selection_id")"
   [ ! -L "$pending" ] || return 1
-  if ! jq -cn --arg schema "$SELECTION_SCHEMA" --arg selection_id "$selection_id" \
+  # The record is composed before it is published so a jq that dies partway is
+  # a write failure rather than a truncated record a pipeline reported as good.
+  record="$(jq -cn --arg schema "$SELECTION_SCHEMA" --arg selection_id "$selection_id" \
       --arg request "$request" --arg request_hash "$request_hash" \
       --arg preflight_id "$preflight_id" --arg catalog_hash "$catalog_hash" \
       --arg model_class "$model_class" --arg executable "$exe_path" \
@@ -482,10 +704,8 @@ retain_ambiguous() {  # <raw upstream packet> <request> <normalized document> - 
         catalog_hash:$catalog_hash,model_class:$model_class,
         executable:{path:$executable,sha256:$executable_hash,version:$version},
         estate_identity:$estate_identity,today:$today,session_identity:$session_identity,
-        nonce:$nonce,packet:$packet}' \
-      | private_publish "$pending"; then
-    return 1
-  fi
+        nonce:$nonce,packet:$packet}')" || return 1
+  printf '%s\n' "$record" | private_publish "$pending" || return 1
   PENDING_SELECTION_ID="$selection_id"
 }
 
@@ -592,20 +812,19 @@ cmd_run() {
   exe="$(resolve_executable)"
   model_class="$(resolve_model_class "$model_class_flag")"
   estate="$(config_path "$CONFIG/megamind-estate" 2>/dev/null || true)"
-  if [ -n "$today_flag" ]; then
-    valid_today "$today_flag" || {
-      emit_error invalid_today "date must use YYYY-MM-DD"
-      log_proof error invalid_today "" "" "$model_class" "" '[]'
-      return 1
-    }
-    today="$today_flag"
-  else
-    today="$(current_today 2>/dev/null || true)"
-    [ -n "$today" ] || {
-      emit_error invalid_today "could not establish the Megamind date"
-      log_proof error invalid_today "" "" "$model_class" "" '[]'
-      return 1
-    }
+  # The date is the host's own, never the caller's. `--today` may only assert
+  # the date the caller believes it is running on, so a rollover or a forged
+  # value is refused instead of quietly reshaping freshness and staleness.
+  today="$(current_today 2>/dev/null || true)"
+  if [ -z "$today" ] || ! valid_today "$today"; then
+    emit_error invalid_today "could not establish the Megamind date"
+    log_proof error invalid_today "" "" "$model_class" "" '[]'
+    return 1
+  fi
+  if [ -n "$today_flag" ] && [ "$today_flag" != "$today" ]; then
+    emit_error invalid_today "--today must state this host's current UTC date"
+    log_proof error invalid_today "" "" "$model_class" "" '[]'
+    return 1
   fi
   RUN_TODAY="$today"
 
@@ -647,7 +866,8 @@ cmd_run() {
   fi
 
   # Read-only Megamind call. Megamind owns routing, thresholds, privacy
-  # filtering, and budgets; nothing here widens what it returns. The request
+  # filtering, and budgets; nothing here widens what it returns. Every flag sits
+  # after the subcommand, where each proven release declares it, and the request
   # goes last, after `--`, so a dash-leading request stays a request.
   raw="$("$exe" preflight --model-class "$model_class" --estate "$estate" --today "$today" --format json --no-help-hints -- "$request" 2>/dev/null)" && rc=0 || rc=$?
   if [ "$rc" -ne 0 ]; then
@@ -710,51 +930,7 @@ cmd_run() {
   normalized="$(printf '%s' "$raw" | jq -c \
     --arg schema "$SCHEMA" \
     --arg policy "$READ_POLICY" \
-    'def safe_path: (type == "string") and (length > 0)
-       and (startswith("/") | not) and (startswith("~") | not)
-       and (test("(^|/)\\.\\.(/|$)") | not);
-     def safe_date:
-       if type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$") then . else null end;
-     def positive_number: type == "number" and . > 0;
-     def positive_integer: positive_number and floor == .;
-     def safe_freshness:
-       if type == "object" then {
-         half_life_days: (.half_life_days | if positive_number then . else null end),
-         last_confirmed: (.last_confirmed | safe_date),
-         stale: (.stale | if type == "boolean" then . else null end)
-       } else null end;
-     def safe_signal_counts:
-       if type == "object"
-          and ((keys | sort) == ["name", "scope", "trigger"])
-          and all(.[]; type == "number" and floor == . and . >= 0)
-       then {trigger: .trigger, name: .name, scope: .scope}
-       else null end;
-     def safe_lexical_classes($counts):
-       (["trigger", "name", "scope"] | map(select($counts[.] > 0))) as $derived |
-       if type == "array" and (sort == ($derived | sort))
-       then $derived
-       else null end;
-     def safe_provenance:
-       . as $match |
-       ($match.evidence | if type == "object" then . else null end) as $evidence |
-       ($evidence.signal_counts | safe_signal_counts) as $counts |
-       ($evidence.lexical_classes | safe_lexical_classes($counts)) as $classes |
-       ({semantic_score: ($evidence.semantic
-          | if type == "number" then . else null end)}
-        + if $counts != null and $classes != null then {
-            lexical_classes: $classes,
-            signal_counts: $counts,
-            lexical_signal_count: ([$counts[]] | add)
-          } else {
-            lexical_classes: [],
-            signal_counts: null,
-            lexical_signal_count: null
-          } end);
-     def safe_budget:
-       . as $budget | {
-         max_candidates: ($budget.max_candidates | if positive_integer then . else null end),
-         max_context_chars: ($budget.max_context_chars | if positive_integer then . else null end)
-       } | with_entries(select(.value != null));
+    "$SAFE_JQ_DEFS"'
      def host_note:
        if . == "matched" then "Megamind matched at least one wiki: read only the listed allows paths, within any returned budget, and nothing else."
        elif . == "ambiguous" then "Megamind found no single confident wiki: offer the listed candidates as a choice and load nothing."
@@ -786,7 +962,7 @@ cmd_run() {
            routing_mode: $match.routing_mode,
            confidence: $match.confidence.score,
            freshness: ($match.freshness | safe_freshness),
-           provenance: ($match | safe_provenance),
+           provenance: ($match.evidence | safe_evidence),
            allows: [$match.allows[]? | select(safe_path)],
            follow_up: $match.follow_up
          } + (if (($match.context_budget | type) == "object")
@@ -815,12 +991,19 @@ cmd_run() {
       ;;
   esac
   if [ "$outcome" = ambiguous ]; then
-    if ! retain_ambiguous "$raw" "$request" "$normalized"; then
-      emit_error selection_pending_write_failed "the ambiguous offer could not be retained privately"
-      log_proof error selection_pending_write_failed "" "" "$model_class" "" '[]'
-      return 1
-    fi
-    normalized="$(printf '%s' "$normalized" | jq -c --arg id "$PENDING_SELECTION_ID" '. + {selection_id:$id}')"
+    local retain_rc=0
+    retain_ambiguous "$raw" "$request" "$normalized" || retain_rc=$?
+    case "$retain_rc" in
+      0) normalized="$(printf '%s' "$normalized" | jq -c --arg id "$PENDING_SELECTION_ID" '. + {selection_id:$id}')" ;;
+      # No owning session lock: the offer belongs to nobody, so it is presented
+      # without a continuation identity rather than retained unowned.
+      2) : ;;
+      *)
+        emit_error selection_pending_write_failed "the ambiguous offer could not be retained privately"
+        log_proof error selection_pending_write_failed "" "" "$model_class" "" '[]'
+        return 1
+        ;;
+    esac
   fi
   log_proof "$outcome" "" \
     "$(printf '%s' "$normalized" | jq -r '.preflight_id // ""')" \
@@ -836,6 +1019,7 @@ cmd_continue() (
   local request request_hash preflight_id catalog_hash model_class stored_today stored_session
   local stored_exe stored_exe_hash stored_version stored_estate_hash
   local exe estate version today exe_path exe_hash estate_hash offer_root offer_count
+  local session_identity packet
   while [ $# -gt 0 ]; do
     case "$1" in
       --selection-id)
@@ -868,12 +1052,17 @@ cmd_continue() (
   [ "$(private_mode "$pending" 2>/dev/null)" = 600 ] \
     || { selection_error selection_invalid "the pending selection is not private"; return 1; }
 
-  local continue_lock="$SELECTION_DIR/.continue.lock"
-  if ! mkdir -- "$continue_lock" 2>/dev/null; then
-    selection_error selection_busy "another selection continuation is active"
+  local continue_lock lock_held=0
+  continue_lock="$(selection_lock_path "$selection_id")"
+  if ! acquire_selection_lock "$continue_lock"; then
+    selection_error selection_busy "another continuation of this selection is active"
     return 1
   fi
-  trap 'rm -f -- "${packet_tmp:-}" 2>/dev/null || true; rmdir -- "$continue_lock" 2>/dev/null || true' EXIT
+  lock_held=1
+  trap '
+    rm -f -- "${packet_tmp:-}" 2>/dev/null || true
+    if [ "${lock_held:-0}" = 1 ]; then rm -rf -- "$continue_lock" 2>/dev/null || true; fi
+  ' EXIT
 
   if ! jq -e --arg id "$selection_id" '
       type == "object" and .schema_version == "fm/megamind-preflight-selection/v1"
@@ -926,9 +1115,11 @@ cmd_continue() (
     || { selection_error binding_changed "the Megamind executable or version changed since the offer"; return 1; }
   [ -n "$estate_hash" ] && [ "$stored_estate_hash" = "$estate_hash" ] \
     || { selection_error binding_changed "the Megamind estate changed since the offer"; return 1; }
-  [ "$stored_today" = "$today" ] \
+  [ -n "$today" ] && [ "$stored_today" = "$today" ] \
     || { selection_error binding_changed "the Megamind date changed since the offer"; return 1; }
-  [ "$stored_session" = "$(current_session_identity || printf 'parent:%s' "$PPID")" ] \
+  session_identity="$(current_session_identity)" \
+    || { selection_error session_unavailable "this home has no session lock to own a selection"; return 1; }
+  [ "$stored_session" = "$session_identity" ] \
     || { selection_error binding_changed "the current Firstmate session does not own this offer"; return 1; }
 
   offer_count="$(jq -r --arg wiki "$offer" '[.packet.offers[]? | select(.name == $wiki)] | length' "$pending")"
@@ -936,16 +1127,23 @@ cmd_continue() (
     || { selection_error offer_invalid "the selected wiki is not exactly one current offer"; return 1; }
   offer_root="$(jq -r --arg wiki "$offer" '.packet.offers[] | select(.name == $wiki) | .root' "$pending")"
   packet_tmp="$SELECTION_DIR/.$selection_id.packet.${BASHPID:-$$}"
-  if ! jq -c '.packet' "$pending" | private_publish "$packet_tmp"; then
+  # Extracted before it is published so a jq that dies partway is a preparation
+  # failure rather than a truncated packet a pipeline reported as good.
+  packet="$(jq -c '.packet' "$pending")" && [ -n "$packet" ] || {
+    selection_error packet_unavailable "the private original preflight packet could not be prepared"
+    return 1
+  }
+  if ! printf '%s\n' "$packet" | private_publish "$packet_tmp"; then
     selection_error packet_unavailable "the private original preflight packet could not be prepared"
     return 1
   fi
 
   # The command, request, packet path, estate, model class, and date all come
-  # from the private pending record or the current owning-home binding.
-  raw="$("$exe_path" --format json --no-help-hints --today "$today" select-offer "$offer" \
-    --request "$request" --preflight-result "$packet_tmp" --model-class "$model_class" \
-    --estate "$estate" 2>/dev/null)" && rc=0 || rc=$?
+  # from the private pending record or the current owning-home binding. Every
+  # flag sits after the subcommand, where each proven release declares it.
+  raw="$("$exe_path" select-offer "$offer" --request "$request" \
+    --preflight-result "$packet_tmp" --model-class "$model_class" \
+    --estate "$estate" --today "$today" --format json --no-help-hints 2>/dev/null)" && rc=0 || rc=$?
   if [ "$rc" -ne 0 ]; then
     local upstream
     upstream="$(printf '%s' "$raw" | jq -r 'select(.schema_version == "megamind/error/v1") | .code // empty' 2>/dev/null || true)"
@@ -956,14 +1154,13 @@ cmd_continue() (
   if ! printf '%s' "$raw" | jq -e --arg schema "$MEGAMIND_SELECTION_SCHEMA" \
       --arg preflight_id "$preflight_id" --arg request_hash "$request_hash" \
       --arg catalog_hash "$catalog_hash" --arg model_class "$model_class" \
-      --arg offer "$offer" --arg root "$offer_root" --arg request "$request" '
+      --arg offer "$offer" --arg root "$offer_root" --arg request "$request" \
+      "$SAFE_JQ_DEFS"'
       def text: type == "string" and length > 0;
-      def safe_path: type == "string" and length > 0 and (startswith("/") | not)
-        and (startswith("~") | not) and (test("(^|/)\\.\\.(/|$)") | not);
       def score: type == "number" and . >= 0 and . <= 1;
-      def safe_budget: type == "object"
-        and ((.max_candidates == null) or (.max_candidates | type == "number" and . > 0 and floor == .))
-        and ((.max_context_chars == null) or (.max_context_chars | type == "number" and . > 0 and floor == .));
+      def valid_context_budget: type == "object"
+        and ((.max_candidates == null) or (.max_candidates | positive_integer))
+        and ((.max_context_chars == null) or (.max_context_chars | positive_integer));
       (.schema_version == $schema) and (.status == "authorized")
       and (.preflight_id == $preflight_id) and (.request_hash == $request_hash)
       and (.catalog_hash == $catalog_hash) and (.model_class == $model_class)
@@ -981,7 +1178,7 @@ cmd_continue() (
       and (.selected.provisional == false)
       and (.selected.allows | type == "array" and length > 0 and all(.[]; safe_path))
       and (.selected.follow_up | text and (contains($request) | not))
-      and ((.selected.context_budget == null) or (.selected.context_budget | safe_budget))
+      and ((.selected.context_budget == null) or (.selected.context_budget | valid_context_budget))
       and ((.selected.catalog_visibility == null)
         or (.selected.catalog_visibility == "full" or .selected.catalog_visibility == "redacted"))
       and ((.selected.redacted == null) or (.selected.redacted | type == "boolean"))
@@ -998,30 +1195,8 @@ cmd_continue() (
   [ ! -e "$result_file" ] && [ ! -L "$result_file" ] \
     || { selection_error selection_replayed "the selection authorization already exists"; return 1; }
   projection="$(printf '%s' "$raw" | jq -c --arg schema "$SELECTION_SCHEMA" \
-    --arg id "$selection_id" --arg policy "$READ_POLICY" '
-      def positive: type == "number" and . > 0;
-      def safe_budget: if type == "object" then {
-        max_candidates: (.max_candidates | if positive and floor == . then . else null end),
-        max_context_chars: (.max_context_chars | if positive and floor == . then . else null end)
-      } | with_entries(select(.value != null)) else null end;
-      def safe_date: if type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$") then . else null end;
-      def safe_freshness: if type == "object" then {
-        half_life_days: (.half_life_days | if positive then . else null end),
-        last_confirmed: (.last_confirmed | safe_date),
-        stale: (.stale | if type == "boolean" then . else null end)
-      } else null end;
-      def safe_counts: if type == "object" and ((keys | sort) == ["name","scope","trigger"])
-        and all(.[]; type == "number" and floor == . and . >= 0)
-        then {trigger:.trigger,name:.name,scope:.scope} else null end;
-      def safe_classes($counts): (["trigger","name","scope"] | map(select($counts[.] > 0))) as $wanted |
-        if type == "array" and (sort == ($wanted | sort)) then $wanted else null end;
-      def safe_evidence: . as $e | ($e | if type == "object" then . else {} end) as $x
-        | ($x.signal_counts | safe_counts) as $counts
-        | ($x.lexical_classes | safe_classes($counts)) as $classes
-        | ({semantic_score: ($x.semantic | if type == "number" then . else null end)}
-          + if $counts != null and $classes != null then {lexical_classes:$classes,signal_counts:$counts,
-              lexical_signal_count:([$counts[]] | add)} else {lexical_classes:[],signal_counts:null,
-              lexical_signal_count:null} end);
+    --arg id "$selection_id" --arg policy "$READ_POLICY" \
+    "$SAFE_JQ_DEFS"'
       {schema_version:$schema,outcome:"authorized",failure:null,
        preflight_id:.preflight_id,request_hash:.request_hash,catalog_hash:.catalog_hash,
        model_class:.model_class,selection_id:$id,upstream_selection_id:.selection_id,
@@ -1047,7 +1222,11 @@ cmd_continue() (
     selection_error projection_failed "the selection authorization could not be projected safely"
     return 1
   }
-  if ! printf '%s\n' "$projection" | private_publish "$result_file"; then
+  if ! printf '%s\n' "$projection" | private_publish_exclusive "$result_file"; then
+    if [ -e "$result_file" ]; then
+      selection_error selection_replayed "the selection authorization already exists"
+      return 1
+    fi
     selection_error projection_failed "the selection authorization could not be published privately"
     return 1
   fi
@@ -1055,6 +1234,7 @@ cmd_continue() (
     selection_error retirement_failed "the consumed selection could not be retired safely"
     return 1
   }
+  prune_selections "$today"
   printf '%s\n' "$projection"
 )
 

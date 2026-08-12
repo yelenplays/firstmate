@@ -15,7 +15,9 @@
 # handling, allowed-path enforcement, safe thresholds/freshness/provenance and
 # optional context-budget propagation, host-owned notes,
 # ambiguity/no-match/privacy-filtered behavior, malformed/failed/jq-missing
-# disclosure, minimal non-verbatim proof logging, and harness/backend neutrality.
+# disclosure, minimal non-verbatim proof logging, the host-owned date binding,
+# session-lock ownership of an offer, the bounded private selection store and
+# its owner-recorded lock, and harness/backend neutrality.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -47,6 +49,9 @@ new_home() {
   mkdir -p "$home/config" "$home/state" "$home/estate"
   printf '%s\n' "$STUB" > "$home/config/megamind-executable"
   printf '%s\n' "$home/estate" > "$home/config/megamind-estate"
+  # The offer binding uses Firstmate's own session lock and nothing else, so a
+  # scratch home carries the same state/.lock a locked home does.
+  printf '%s\n' "$$" > "$home/state/.lock"
   printf '%s\n' "$home"
 }
 
@@ -60,6 +65,11 @@ cat > "$STUB" <<'SH'
 # the canned preflight document, FM_TEST_SELECTION_FIXTURE selects the governed
 # select-offer document, FM_TEST_STUB_EXIT forces a non-zero exit, and every
 # preflight argv is appended to FM_TEST_STUB_ARGS for propagation assertions.
+#
+# The stub also refuses an option the proven megamind-axi parsers would refuse:
+# each subcommand declares its own flag set, so a flag that is unknown there, or
+# placed where that parser does not accept it, exits as a usage_error instead of
+# being silently swallowed by an argv-ignoring stand-in.
 set -u
 printf 'CALL\n' >> "${FM_TEST_STUB_ARGS:?}"
 if [ -n "${FM_TEST_CREDENTIAL_PAYLOAD:-}" ]; then
@@ -74,7 +84,46 @@ if [ "${1:-}" = "--version" ]; then
   exit 0
 fi
 printf '%s\n' "$@" >> "$FM_TEST_STUB_ARGS"
-if printf ' %s ' "$*" | grep -q ' select-offer ' && [ -n "${FM_TEST_SELECTION_FIXTURE:-}" ]; then
+
+usage_error() {
+  printf '{"schema_version":"megamind/error/v1","code":"usage_error","message":"%s"}\n' "$1"
+  exit 2
+}
+args=("$@")
+count=${#args[@]}
+i=0
+# Options the top-level parser owns, before the subcommand token.
+while [ "$i" -lt "$count" ]; do
+  case "${args[$i]}" in
+    --format|--root|--today) i=$((i + 2)) ;;
+    --no-help-hints) i=$((i + 1)) ;;
+    -*) usage_error "unrecognized top-level argument ${args[$i]}" ;;
+    *) break ;;
+  esac
+done
+[ "$i" -lt "$count" ] || usage_error "a subcommand is required"
+sub="${args[$i]}"
+i=$((i + 1))
+case "$sub" in
+  preflight) allowed=' --model-class --estate --today --full --semantic --format --root --no-help-hints ' ;;
+  select-offer) allowed=' --request --preflight-result --model-class --estate --today --format --root --no-help-hints ' ;;
+  *) usage_error "invalid choice: $sub" ;;
+esac
+while [ "$i" -lt "$count" ]; do
+  case "${args[$i]}" in
+    --) break ;;
+    --no-help-hints|--full|--semantic) i=$((i + 1)) ;;
+    -?*)
+      case "$allowed" in
+        *" ${args[$i]} "*) i=$((i + 2)) ;;
+        *) usage_error "unrecognized arguments: ${args[$i]}" ;;
+      esac
+      ;;
+    *) i=$((i + 1)) ;;
+  esac
+done
+
+if [ "$sub" = select-offer ] && [ -n "${FM_TEST_SELECTION_FIXTURE:-}" ]; then
   cat "$FM_TEST_SELECTION_FIXTURE"
 elif [ -n "${FM_TEST_STUB_FIXTURE:-}" ]; then
   cat "$FM_TEST_STUB_FIXTURE"
@@ -841,11 +890,17 @@ test_jq_missing_is_disclosed() {
 # --- harness and backend neutrality -------------------------------------------
 
 test_explicit_offer_selection_continuation() {
-  local home out id pending auth rc fixture mode
+  local home out id pending auth rc fixture mode today
+  today=$(date -u +%Y-%m-%d)
   home=$(new_home explicit-selection)
-  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  : > "$FM_TEST_STUB_ARGS"
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
     run_in "$home" run --request "original request"); rc=$?
   expect_code 0 "$rc" "ambiguous selection preflight"
+  # The exact argv is pinned, because a flag the real parser would refuse is
+  # otherwise invisible: the whole mandatory path depends on this shape.
+  [ "$(cat "$FM_TEST_STUB_ARGS")" = "$(printf 'CALL\nCALL\npreflight\n--model-class\ncloud\n--estate\n%s\n--today\n%s\n--format\njson\n--no-help-hints\n--\noriginal request' "$home/estate" "$today")" ] \
+    || fail "preflight argv drifted: $(cat "$FM_TEST_STUB_ARGS")"
   id=$(printf '%s' "$out" | jq -r '.selection_id')
   [ "${#id}" -ge 16 ] && [ "${#id}" -le 128 ] && [[ "$id" =~ ^[A-Fa-f0-9]+$ ]] \
     || fail "ambiguous output did not expose an opaque selection id"
@@ -858,9 +913,12 @@ test_explicit_offer_selection_continuation() {
   assert_no_grep "RAW-REQUEST-CANARY" "$home/state/megamind-preflight.jsonl" \
     "raw packet leaked into the proof log"
 
-  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  : > "$FM_TEST_STUB_ARGS"
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" \
     run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
   expect_code 0 "$rc" "exact explicit offer selection"
+  [ "$(sed -n '3,5p;7p;9,17p' "$FM_TEST_STUB_ARGS")" = "$(printf 'select-offer\nOfferWiki\n--request\n--preflight-result\n--model-class\ncloud\n--estate\n%s\n--today\n%s\n--format\njson\n--no-help-hints' "$home/estate" "$today")" ] \
+    || fail "select-offer argv drifted: $(cat "$FM_TEST_STUB_ARGS")"
   [ "$(printf '%s' "$out" | jq -r '.outcome')" = authorized ] || fail "selection was not authorized: $out"
   [ "$(printf '%s' "$out" | jq -r '.selection.threshold_matched')" = false ] || fail "selection became a threshold match"
   [ "$(printf '%s' "$out" | jq -r '.selected.allows[0]')" = wiki/digest.md ] || fail "selected allows changed"
@@ -873,16 +931,16 @@ test_explicit_offer_selection_continuation() {
   [ "$mode" = 600 ] || fail "authorization projection is not mode 0600"
   assert_absent "$pending" "pending evidence was not retired after successful consumption"
 
-  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" \
     run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
   expect_code 1 "$rc" "replayed explicit offer selection"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = selection_replayed ] || fail "replay was not refused: $out"
 
   home=$(new_home wrong-offer)
-  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
     run_in "$home" run --request "original request")
   id=$(printf '%s' "$out" | jq -r '.selection_id')
-  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" \
     run_in "$home" continue --selection-id "$id" --offer UnknownWiki); rc=$?
   expect_code 1 "$rc" "wrong offer selection"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = offer_invalid ] || fail "wrong offer was accepted: $out"
@@ -890,22 +948,22 @@ test_explicit_offer_selection_continuation() {
     "wrong offer destroyed retryable pending evidence"
 
   home=$(new_home changed-binding)
-  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
     run_in "$home" run --request "original request")
   id=$(printf '%s' "$out" | jq -r '.selection_id')
   printf 'local\n' > "$home/config/megamind-model-class"
-  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" \
     run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
   expect_code 1 "$rc" "changed model binding"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = binding_changed ] || fail "changed model binding was accepted"
 
   home=$(new_home malformed-selection)
-  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
     run_in "$home" run --request "original request")
   id=$(printf '%s' "$out" | jq -r '.selection_id')
   fixture="$TMP_ROOT/malformed-selection.json"
   jq '.selected.allows = ["../escape.md"]' "$SELECTION_FIXTURE" > "$fixture"
-  out=$(FM_TEST_SELECTION_FIXTURE="$fixture" FM_MEGAMIND_SESSION_ID=selection-test \
+  out=$(FM_TEST_SELECTION_FIXTURE="$fixture" \
     run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
   expect_code 1 "$rc" "malformed selection result"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_result ] || fail "malformed result was accepted"
@@ -913,40 +971,40 @@ test_explicit_offer_selection_continuation() {
     "malformed result did not preserve retryable evidence"
 
   home=$(new_home absent-budget)
-  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
     run_in "$home" run --request "original request")
   id=$(printf '%s' "$out" | jq -r '.selection_id')
   fixture="$TMP_ROOT/absent-budget.json"
   jq 'del(.selected.context_budget)' "$SELECTION_FIXTURE" > "$fixture"
-  out=$(FM_TEST_SELECTION_FIXTURE="$fixture" FM_MEGAMIND_SESSION_ID=selection-test \
+  out=$(FM_TEST_SELECTION_FIXTURE="$fixture" \
     run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
   expect_code 0 "$rc" "selection without context budget"
   [ "$(printf '%s' "$out" | jq 'has("selected") and (.selected | has("context_budget") | not)')" = true ] \
     || fail "absent context budget was invented"
 
   home=$(new_home stale-catalog)
-  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
     run_in "$home" run --request "original request")
   id=$(printf '%s' "$out" | jq -r '.selection_id')
   fixture="$TMP_ROOT/stale-catalog.json"
   jq '.catalog_hash = "stale-catalog"' "$SELECTION_FIXTURE" > "$fixture"
-  out=$(FM_TEST_SELECTION_FIXTURE="$fixture" FM_MEGAMIND_SESSION_ID=selection-test \
+  out=$(FM_TEST_SELECTION_FIXTURE="$fixture" \
     run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
   expect_code 1 "$rc" "stale catalog result"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_result ] || fail "stale catalog was accepted"
 
   home=$(new_home changed-version)
-  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
     run_in "$home" run --request "original request")
   id=$(printf '%s' "$out" | jq -r '.selection_id')
   out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_TEST_STUB_VERSION=0.5.0 \
-    FM_MEGAMIND_SESSION_ID=selection-test run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
   expect_code 1 "$rc" "changed executable version"
   [ "$(printf '%s' "$out" | jq -r '.failure.code')" = binding_changed ] || fail "changed executable version was accepted"
 
   for governance in provisional pointer no-load; do
     home=$(new_home "governance-$governance")
-    out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+    out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
       run_in "$home" run --request "original request")
     id=$(printf '%s' "$out" | jq -r '.selection_id')
     fixture="$TMP_ROOT/$governance-selection.json"
@@ -955,7 +1013,7 @@ test_explicit_offer_selection_continuation() {
       pointer) jq '.selected.routing_mode = "pointer"' "$SELECTION_FIXTURE" > "$fixture" ;;
       no-load) jq '.selected.access = "none"' "$SELECTION_FIXTURE" > "$fixture" ;;
     esac
-    out=$(FM_TEST_SELECTION_FIXTURE="$fixture" FM_MEGAMIND_SESSION_ID=selection-test \
+    out=$(FM_TEST_SELECTION_FIXTURE="$fixture" \
       run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
     expect_code 1 "$rc" "$governance selection result"
     [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_result ] \
@@ -963,13 +1021,13 @@ test_explicit_offer_selection_continuation() {
   done
 
   home=$(new_home concurrent-selection)
-  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" \
     run_in "$home" run --request "original request")
   id=$(printf '%s' "$out" | jq -r '.selection_id')
-  FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" \
     run_in "$home" continue --selection-id "$id" --offer OfferWiki > "$TMP_ROOT/concurrent-a" 2>&1 &
   local first_pid=$!
-  FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" FM_MEGAMIND_SESSION_ID=selection-test \
+  FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" \
     run_in "$home" continue --selection-id "$id" --offer OfferWiki > "$TMP_ROOT/concurrent-b" 2>&1 &
   local second_pid=$!
   wait "$first_pid"; local first_rc=$?
@@ -980,6 +1038,119 @@ test_explicit_offer_selection_continuation() {
   [ ! -f "$home/state/megamind-offer-selections/$id.pending.json" ] \
     || fail "concurrent continuation left pending evidence after success"
   pass "continue: explicit selection is private, bound, safe, one-time, and concurrency-serialized"
+}
+
+test_date_binding_is_host_owned() {
+  local home out id pending rc today
+  today=$(date -u +%Y-%m-%d)
+  home=$(new_home host-owned-date)
+  # --today may only assert the host's own date, so it can never reshape the
+  # freshness, staleness, or selection-binding semantics of a preflight.
+  out=$(FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing" --today "$today"); rc=$?
+  expect_code 0 "$rc" "asserted host date"
+  out=$(FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing" --today 2020-01-01); rc=$?
+  expect_code 1 "$rc" "forged past date"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = invalid_today ] || fail "a forged date was accepted: $out"
+  out=$(FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" run_in "$home" run --request "pricing" --today not-a-date); rc=$?
+  expect_code 1 "$rc" "malformed date"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = invalid_today ] || fail "a malformed date was accepted: $out"
+  # No environment token substitutes for the host clock either.
+  out=$(FM_TEST_STUB_FIXTURE="$MATCHED_FIXTURE" FM_MEGAMIND_TODAY=2020-01-01 \
+    run_in "$home" run --request "pricing"); rc=$?
+  expect_code 0 "$rc" "environment date token"
+  assert_grep "$today" "$FM_TEST_STUB_ARGS" "the host date did not reach Megamind"
+
+  # A pending record whose bound date is no longer the host's cannot authorize.
+  home=$(new_home stale-date-binding)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  pending="$home/state/megamind-offer-selections/$id.pending.json"
+  jq -c '.today = "2020-01-01"' "$pending" > "$pending.next" && mv -f "$pending.next" "$pending"
+  chmod 600 "$pending"
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 1 "$rc" "stale date binding"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = binding_changed ] || fail "a stale date binding was accepted: $out"
+  pass "run/continue: the date binding is the host's own and no caller can forge it"
+}
+
+test_offer_ownership_requires_a_session_lock() {
+  local home out id rc
+  home=$(new_home unowned-offer)
+  rm -f "$home/state/.lock"
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" run_in "$home" run --request "original request"); rc=$?
+  expect_code 0 "$rc" "ambiguous preflight without a session lock"
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = ambiguous ] || fail "an unowned home lost its ambiguous outcome: $out"
+  [ "$(printf '%s' "$out" | jq 'has("selection_id")')" = false ] \
+    || fail "an unowned home still offered a continuation identity: $out"
+  [ ! -d "$home/state/megamind-offer-selections" ] \
+    || fail "an unowned home retained pending evidence nobody can consume"
+
+  # An offer captured under one session lock is not the next session's to spend.
+  home=$(new_home rotated-session)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  printf '%s\n' "$(( $$ + 1 ))" > "$home/state/.lock"
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 1 "$rc" "rotated session lock"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = binding_changed ] || fail "another session consumed the offer: $out"
+  rm -f "$home/state/.lock"
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 1 "$rc" "absent session lock"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = session_unavailable ] \
+    || fail "an unlocked home consumed the offer: $out"
+  pass "continue: only the authoritative session lock that captured an offer can spend it"
+}
+
+test_pending_evidence_is_bounded_and_reclaimable() {
+  local home out id rc lock stale count
+  home=$(new_home bounded-selections)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  # A record bound to another date can never authorize again, so the next
+  # ambiguous run retires it instead of accumulating it forever.
+  stale="$home/state/megamind-offer-selections/$(printf 'a%.0s' $(seq 1 32)).pending.json"
+  jq -c '.today = "2020-01-01"' "$home/state/megamind-offer-selections/$id.pending.json" > "$stale"
+  chmod 600 "$stale"
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" run_in "$home" run --request "another request")
+  assert_absent "$stale" "an unconsumable pending record was never retired"
+  count=$(find "$home/state/megamind-offer-selections" -name '*.pending.json' | wc -l | tr -d ' ')
+  [ "$count" = 2 ] || fail "the live pending records did not survive pruning: $count"
+
+  # An abandoned lock names an owner, so it is reclaimed rather than wedging
+  # every later continuation of that selection.
+  home=$(new_home abandoned-lock)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  lock="$home/state/megamind-offer-selections/.$id.lock"
+  mkdir -p "$lock"
+  printf '2147483646\n' > "$lock/pid"
+  printf 'Thu Jan  1 00:00:00 2015\n' > "$lock/start"
+  printf 'megamind-continue-that-is-gone\n' > "$lock/command"
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 0 "$rc" "continuation behind an abandoned lock"
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = authorized ] || fail "an abandoned lock wedged the selection: $out"
+  assert_absent "$lock" "the reclaimed lock was not released"
+
+  # A live owner still holds it.
+  home=$(new_home held-lock)
+  out=$(FM_TEST_STUB_FIXTURE="$AMBIGUOUS_SELECTION_FIXTURE" run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  lock="$home/state/megamind-offer-selections/.$id.lock"
+  mkdir -p "$lock"
+  printf '%s\n' "$$" > "$lock/pid"
+  ps -p "$$" -o lstart= > "$lock/start"
+  ps -p "$$" -o command= > "$lock/command"
+  out=$(FM_TEST_SELECTION_FIXTURE="$SELECTION_FIXTURE" \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki); rc=$?
+  expect_code 1 "$rc" "continuation behind a live lock"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = selection_busy ] || fail "a live lock was stolen: $out"
+  assert_present "$home/state/megamind-offer-selections/$id.pending.json" \
+    "a refused busy continuation destroyed retryable evidence"
+  pass "continue: pending evidence stays bounded and only a provably dead lock owner is reclaimed"
 }
 
 test_harness_backend_neutrality() {
@@ -1019,6 +1190,9 @@ test_notes_are_host_owned
 test_privacy_filtered_never_names_wikis
 test_unavailable_is_definitive
 test_explicit_offer_selection_continuation
+test_date_binding_is_host_owned
+test_offer_ownership_requires_a_session_lock
+test_pending_evidence_is_bounded_and_reclaimable
 test_malformed_and_failed_disclosure
 test_jq_missing_is_disclosed
 test_harness_backend_neutrality
