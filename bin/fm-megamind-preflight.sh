@@ -2,10 +2,14 @@
 # Firstmate's harness-neutral, read-only Megamind preflight surface (pilot).
 # Usage: fm-megamind-preflight.sh classify "<request text>"
 #                                        print exactly substantive|bypass
+#        fm-megamind-preflight.sh classify-stdin
+#                                        classify one private request from stdin
 #        fm-megamind-preflight.sh classify-provenance credential-submission
 #                                        print bypass without accepting or reading
 #                                        the credential payload
 #        fm-megamind-preflight.sh run --request "<text>" [--model-class local|cloud]
+#                                        [--today YYYY-MM-DD]
+#        fm-megamind-preflight.sh run --request-stdin [--model-class local|cloud]
 #                                        [--today YYYY-MM-DD]
 #                                        run Megamind preflight and print one typed
 #                                        fm/megamind-preflight/v1 JSON document
@@ -68,6 +72,31 @@
 #   and 0.6.0 all answer it identically - so one argv serves all four and no
 #   accepted release loses preflight. Megamind owns routing, thresholds, privacy
 #   filtering, and budgets; this script never reimplements them.
+# - `preflight` answers at the catalog level, so the widest surface it can name
+#   is the card, digest, and index a wiki declares, and its `follow_up` asks the
+#   host to open that index and follow its links. That sentence stays
+#   informational and is never executed or parsed. Instead, every authorized
+#   full-access root - a threshold match and an explicitly selected offer alike
+#   - descends Megamind's own governed ladder once: `megamind-axi --root <root>
+#   --format json --no-help-hints route -- <request>`, with global flags before
+#   the subcommand where `route` declares them and the request last after `--`.
+#   The ladder returns ranked candidate paths, kinds, scores, and reasons and
+#   never page content or file sizes, so it widens no content boundary. Its
+#   root-contained `page` candidates, validated by the same path rule as any
+#   declared allows, become the authorized `allows` - capped by that
+#   authorization's own max_candidates and cut back to the ranked prefix whose
+#   own bytes fit its own max_context_chars, because the bounded reader refuses a
+#   whole over-budget admission and emits nothing partial. Byte counts are read
+#   here from the candidates themselves, never their content, and for UTF-8 are
+#   never smaller than the characters the reader will count. `route` takes no
+#   model class and so cannot
+#   re-apply the per-class restriction `preflight` already applied, which is why
+#   an access this model class had narrowed below full - digest-only - never
+#   descends at all and keeps the exact paths Megamind declared. A ladder that
+#   is unusable, fails, returns an unrecognized document, or ranks no page
+#   likewise leaves the declared card paths exactly as they were, so this can
+#   only narrow an authorization onto pages Megamind ranked for a surface it
+#   already opened in full, and never widen one past what Megamind returned.
 # - The date is host-owned: it is always this host's current UTC date. The
 #   optional `--today` is an assertion, not an override - a value that is not
 #   that date is invalid_today - so no caller can forge the freshness,
@@ -76,26 +105,23 @@
 #   disk, which no production path writes with a non-host date.
 # - Outcome statuses pass through exactly: matched, ambiguous, no-match,
 #   unavailable, privacy-filtered; any other status is malformed_output. A
-#   matched document carries each match's validated `allows` paths (relative,
-#   root-contained; absolute, tilde, and dot-dot entries are dropped and counted
-#   in dropped_allows) plus Megamind's follow_up ladder command. Offers carry
-#   names and roots only - never paths to load. Filtered wiki names are never
-#   echoed; only filtered_count is. The self-describing decision thresholds pass
-#   through and are required: output without reliance_floor, offer_floor, and
-#   ambiguity_band all present as numbers in 0..1 is malformed_output. Matches
-#   carry validated freshness, a non-verbatim provenance summary (fixed lexical
-#   classes in canonical trigger/name/scope order, per-class counts, total signal
-#   count, and optional semantic score; upstream class order is not load-bearing,
-#   but a class set inconsistent with the counts is not validated), and optional
-#   positive numeric context-budget fields. A lexical evidence packet that fails
-#   that validation is withheld rather than guessed: lexical_classes is [] and
-#   both signal_counts and lexical_signal_count are null on an otherwise normal
-#   outcome, while a separately validated numeric semantic_score still passes
-#   through. Raw evidence strings, request-derived tokens, content, identities,
-#   roots, and paths never enter those evidence fields.
+#   matched document carries each match's validated relative `allows` paths plus
+#   a non-disclosing wiki identity hash; absolute roots never enter the public
+#   projection. That holds for the one field forwarded as upstream prose too:
+#   Megamind's `follow_up` is by its own shape the route command carrying the
+#   wiki root, so every estate and wiki root this host resolved for itself is
+#   substituted out of it literally before it is emitted.
+#   Offers carry names only - never paths to load. Filtered wiki
+#   names are never echoed; only filtered_count is. The self-describing decision
+#   thresholds pass through and are required: output without reliance_floor,
+#   offer_floor, and ambiguity_band all present as numbers in 0..1 is
+#   malformed_output. Matches carry validated freshness, a non-verbatim
+#   provenance summary, and optional positive numeric context-budget fields.
 #   `notes` is host-owned: one fixed per-outcome line chosen here, never
 #   Megamind's own notes, which can name below-floor wikis, out-of-band
-#   candidates, and absolute roots.
+#   candidates, and absolute roots. A host-owned content-binding object carries
+#   only opaque identities and current executable/model/catalog facts; the
+#   bounded reader binds current root/card/file facts before content admission.
 # - Any missing, incompatible, malformed, or failed preflight prints the typed
 #   document with outcome=error and a stable failure.code instead of a result:
 #   not_configured, estate_missing, invalid_model_class, invalid_today,
@@ -142,7 +168,8 @@
 #   confidence, `confidence.meets_floor` passes through as the boolean upstream
 #   reports (an ambiguity decided inside the band can carry a true one), and the
 #   ladder's `follow_up` is passed through exactly as the `run` path already
-#   passes it, request text included. That an explicit selection is not a
+#   passes it, request text included and host-resolved roots redacted out of it
+#   the same way. That an explicit selection is not a
 #   threshold match is asserted where it belongs, in the projection's own
 #   `selection.basis` and `threshold_matched`. Its failure codes
 #   are selection_id_invalid, offer_invalid, jq_missing, state_invalid,
@@ -164,8 +191,10 @@
 #   the resolved megamind-axi, and the POSIX tooling every supported host
 #   already ships - `shasum` or `sha256sum` for the selection hashes, `ps` for
 #   lock ownership, and `od` over /dev/urandom for the selection nonce. It reads
-#   no harness, backend, or terminal state.
-#   tests/fm-megamind-preflight.test.sh pins that neutrality.
+#   no harness, backend, or terminal state. `bin/fm-megamind-content.sh` is the
+#   separate host-owned reader for every supported primary and worker surface.
+#   tests/fm-megamind-preflight.test.sh and tests/fm-megamind-content.test.sh pin
+#   those neutral contracts.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -184,8 +213,8 @@ SUPPORTED_VERSION_LINES='0.3.x, 0.4.x, 0.5.x, or 0.6.x'
 LOG_FILE="$STATE/megamind-preflight.jsonl"
 SELECTION_DIR="$STATE/megamind-offer-selections"
 SELECTION_RETENTION_MAX=32
-READ_POLICY="Read only the allows paths listed under each matched wiki root, within any returned context budget; use the follow_up ladder for page content; never read, infer, or widen to any other wiki path."
-RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" [--model-class local|cloud] [--today YYYY-MM-DD]'
+READ_POLICY="Use bin/fm-megamind-content.sh admit with this owning home's task authorization, then use its content channel; never read wiki paths directly, execute follow_up, or widen beyond validated allows and budgets."
+RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" | --request-stdin [--model-class local|cloud] [--today YYYY-MM-DD]'
 CONTINUE_USAGE='usage: fm-megamind-preflight.sh continue --selection-id <id> --offer <wiki>'
 
 # The one privacy-minimization vocabulary every filter that projects upstream
@@ -197,6 +226,16 @@ SAFE_JQ_DEFS='
   def safe_path: (type == "string") and (length > 0)
     and (startswith("/") | not) and (startswith("~") | not)
     and (test("(^|/)\\.\\.(/|$)") | not);
+  # Upstream prose the host forwards verbatim - the ladder follow_up above all -
+  # is the one place an absolute estate or wiki root can still reach the public
+  # projection, so every root this host itself resolved is substituted out of it
+  # literally. Literal, because a path is not a pattern: split/join never lets a
+  # regex metacharacter in a captain path change what is matched.
+  def redact_host_paths($paths):
+    if (type == "string") and ($paths | type == "array")
+    then reduce ($paths[] | select(type == "string" and length > 0)) as $path
+      (.; split($path) | join("<path>"))
+    else . end;
   def safe_date:
     if type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$") then . else null end;
   def positive_number: type == "number" and . > 0;
@@ -272,6 +311,96 @@ detect_version() {  # <executable> - print its one anchored megamind-axi version
     sed -n 's/^megamind-axi \([0-9A-Za-z][0-9A-Za-z.+-]\{0,31\}\)$/\1/p')
   [ -n "$parsed" ] || return 1
   printf '%s\n' "$parsed"
+}
+
+file_bytes() {  # <path> - print a regular non-symlink file's byte count, or nothing
+  # Metadata only, through the POSIX counter every supported host already ships:
+  # no wiki byte is read here, and the bounded reader stays the only path any
+  # content takes to a model.
+  [ -f "$1" ] && [ ! -L "$1" ] || return 1
+  local size
+  size="$(wc -c < "$1" 2>/dev/null)" || return 1
+  size="${size//[[:space:]]/}"
+  case "$size" in ''|*[!0-9]*) return 1 ;; esac
+  printf '%s' "$size"
+}
+
+route_page_allows() {  # <executable> <wiki root> <request> <max candidates> <max context chars> - print a JSON array of ranked page paths
+  # Megamind answers `preflight` at the catalog level, so the widest surface it
+  # can name is the card, digest, and index a wiki already declares. Its
+  # follow_up sentence therefore asks the host to open that index and follow its
+  # links, and firstmate never executes a follow_up - which left the descent
+  # with no implementation at all: an authorization named a routing index and
+  # nothing the index pointed at. `route` is Megamind's own governed ladder for
+  # exactly that step. It resolves index links into ranked, root-contained page
+  # candidates under the same declared budgets and returns paths, kinds, scores,
+  # and reasons - never page content, and never a file size - so running it
+  # widens no content boundary and the bounded reader stays the only way any
+  # wiki byte reaches a model.
+  #
+  # An empty array is printed whenever the ladder is unusable, fails, returns a
+  # document this host does not recognize, or surfaces no page at all. The
+  # caller then keeps the declared card paths it already had, so this can only
+  # narrow an authorization onto specific pages Megamind ranked, never widen one
+  # past what Megamind returned. Callers descend only for a full-access
+  # authorization: `route` takes no model class, so it cannot restate the
+  # restriction that produced a digest-only access, and trading that digest for
+  # ranked pages would be the one substitution that widens.
+  #
+  # Both halves of the authorization's own declared budget bound the result, not
+  # just max_candidates. The bounded reader refuses a whole admission that runs
+  # past max_context_chars and emits nothing partial, so ranked pages that do not
+  # fit would return the matched wiki to the exact failure this descent exists to
+  # fix - an authorization that admits no content at all. `route` reports paths,
+  # kinds, scores, and reasons and never a file size, so the fit is measured here
+  # from each candidate's own byte count, which for UTF-8 is never smaller than
+  # its character count and therefore only ever keeps a prefix that provably fits.
+  # A candidate this host cannot size is one the reader could not open either, so
+  # it is dropped rather than allowed to refuse the whole admission.
+  local exe="$1" root="$2" request="$3" max_candidates="$4" max_chars="$5" raw rc=0 ranked path bytes total=0
+  local -a fitted=()
+  case "$max_candidates" in ''|*[!0-9]*) printf '%s' '[]'; return 0 ;; esac
+  case "$max_chars" in ''|*[!0-9]*) printf '%s' '[]'; return 0 ;; esac
+  if [ "$max_candidates" -le 0 ] || [ "$max_chars" -le 0 ] || [ -z "$root" ] || [ ! -d "$root" ]; then
+    printf '%s' '[]'
+    return 0
+  fi
+  # Global flags precede the subcommand, which is where every proven release
+  # declares them for `route`, and the request goes last after `--` so a
+  # dash-leading request stays a request rather than becoming an option. Its
+  # stdin is closed explicitly: this runs inside the caller's record loop, and a
+  # build that ever read stdin during `route` would otherwise swallow the
+  # remaining match records and silently skip the ladder for every later wiki.
+  raw="$("$exe" --root "$root" --format json --no-help-hints route -- "$request" </dev/null 2>/dev/null)" && rc=0 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    printf '%s' '[]'
+    return 0
+  fi
+  # Control characters are refused with the unsafe paths, so the ranked set is a
+  # plain line-delimited stream no candidate can misframe.
+  ranked="$(printf '%s' "$raw" | jq -r --argjson max "$max_candidates" "$SAFE_JQ_DEFS"'
+      if (.schema_version | type == "string")
+         and (.schema_version | startswith("megamind/route-result/"))
+         and (.candidates | type == "array")
+      then
+        [.candidates[]?
+          | select(type == "object" and .kind == "page")
+          | .path
+          | select(safe_path and (test("[[:cntrl:]]") | not))]
+        | reduce .[] as $path ([]; if index($path) then . else . + [$path] end)
+        | .[0:$max]
+      else [] end
+      | .[]
+    ' 2>/dev/null)" || { printf '%s' '[]'; return 0; }
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    bytes="$(file_bytes "$root/$path")" || continue
+    [ $((total + bytes)) -le "$max_chars" ] || break
+    total=$((total + bytes))
+    fitted+=("$path")
+  done <<< "$ranked"
+  [ "${#fitted[@]}" -gt 0 ] || { printf '%s' '[]'; return 0; }
+  jq -cn '$ARGS.positional' --args -- "${fitted[@]}" 2>/dev/null || printf '%s' '[]'
 }
 
 # Operational-input kinds that are pure control or routine monitoring. Every
@@ -374,6 +503,8 @@ log_proof() {  # <outcome> <failure-code-or-empty> <preflight_id> <request_hash>
   local ts
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   mkdir -p "$STATE" 2>/dev/null || return 0
+  [ -e "$LOG_FILE" ] || : > "$LOG_FILE"
+  chmod 600 "$LOG_FILE" 2>/dev/null || true
   # A run without jq never reaches Megamind, so it never has matched wikis.
   if ! command -v jq >/dev/null 2>&1; then
     local failure_json='null'
@@ -846,15 +977,19 @@ cmd_check() {
 }
 
 cmd_run() {
-  local request="" model_class_flag="" today_flag=""
+  local request="" request_stdin=0 model_class_flag="" today_flag=""
   # Every option value is arity-checked before the shift: `shift 2` with one
   # positional left shifts nothing and would spin this loop forever on the
   # mandatory path, so a missing value must fail closed here instead.
   while [ $# -gt 0 ]; do
     case "$1" in
       --request)
+        [ "$request_stdin" -eq 0 ] && [ -z "$request" ] || { printf '%s\n' "$RUN_USAGE" >&2; return 2; }
         [ $# -ge 2 ] || { printf '%s\n' "$RUN_USAGE" >&2; return 2; }
         request="$2"; shift; shift ;;
+      --request-stdin)
+        [ -z "$request" ] && [ "$request_stdin" -eq 0 ] || { printf '%s\n' "$RUN_USAGE" >&2; return 2; }
+        request_stdin=1; shift ;;
       --model-class)
         [ $# -ge 2 ] || { printf '%s\n' "$RUN_USAGE" >&2; return 2; }
         model_class_flag="$2"; shift; shift ;;
@@ -864,6 +999,9 @@ cmd_run() {
       *) printf '%s\n' "$RUN_USAGE" >&2; return 2 ;;
     esac
   done
+  if [ "$request_stdin" -eq 1 ]; then
+    request="$(cat)"
+  fi
   [ -n "$request" ] || { printf '%s\n' "$RUN_USAGE" >&2; return 2; }
 
   local exe estate model_class version raw rc outcome today
@@ -985,10 +1123,73 @@ cmd_run() {
   # relative and root-contained before it may be read, and replace Megamind's
   # own notes - which can name below-floor wikis, out-of-band candidates, and
   # absolute roots - with one fixed host-owned line per outcome.
-  local normalized
+  local normalized owner_identity_value exe_path exe_file_hash exe_identity_value estate_identity_value root_ids
+  local route_pages route_record route_name route_root route_max route_chars route_paths
+  local estate_real host_paths
+  local -a disclosing_paths=()
+  owner_identity_value="$(CDPATH='' cd -P -- "$FM_HOME" 2>/dev/null && pwd -P)" || owner_identity_value=
+  if [ -n "$owner_identity_value" ]; then
+    owner_identity_value="$(hash_text "firstmate-home/v1
+$owner_identity_value" 2>/dev/null || true)"
+  fi
+  exe_path="$(resolved_executable "$exe" 2>/dev/null || true)"
+  exe_file_hash=
+  [ -n "$exe_path" ] && exe_file_hash="$(hash_file "$exe_path" 2>/dev/null || true)"
+  exe_identity_value=
+  [ -n "$exe_path" ] && [ -n "$exe_file_hash" ] && exe_identity_value="$(hash_text "megamind-executable/v1
+$exe_path
+$exe_file_hash" 2>/dev/null || true)"
+  estate_identity_value="$(estate_identity "$estate" 2>/dev/null || true)"
+  # Every absolute path this host resolved for itself, collected so the one field
+  # forwarded as upstream prose - follow_up - can be stripped of them. A root the
+  # host could not resolve still contributes the declared string it was given, so
+  # a broken or absent root discloses no more than a working one.
+  disclosing_paths+=("$estate")
+  estate_real="$(CDPATH='' cd -P -- "$estate" 2>/dev/null && pwd -P || true)"
+  [ -n "$estate_real" ] && disclosing_paths+=("$estate_real")
+  root_ids='{}'
+  while IFS= read -r root_record; do
+    root_name="$(printf '%s' "$root_record" | jq -r '.name')"
+    root_path="$(printf '%s' "$root_record" | jq -r '.root')"
+    case "$root_path" in ''|null) : ;; *) disclosing_paths+=("$root_path") ;; esac
+    root_real="$(CDPATH='' cd -P -- "$root_path" 2>/dev/null && pwd -P || true)"
+    [ -n "$root_real" ] || continue
+    disclosing_paths+=("$root_real")
+    root_hash="$(hash_text "wiki-root/v1
+$root_real" 2>/dev/null || true)"
+    [ -n "$root_hash" ] || continue
+    root_ids="$(printf '%s' "$root_ids" | jq -c --arg name "$root_name" --arg hash "$root_hash" '. + {($name):$hash}')"
+  done < <(printf '%s' "$raw" | jq -c '.matches[]? | {name,root}')
+  host_paths='[]'
+  [ "${#disclosing_paths[@]}" -gt 0 ] \
+    && host_paths="$(jq -cn '$ARGS.positional' --args -- "${disclosing_paths[@]}" 2>/dev/null || printf '%s' '[]')"
+  # Descend Megamind's own ladder once per authorized root, so a match resolves
+  # to the pages that answer the request instead of only the routing index that
+  # lists them. A root the ladder cannot serve keeps its declared card paths.
+  # Only a full-access match descends: `route` takes no model class, so it
+  # cannot re-apply the per-class restriction preflight already applied, and a
+  # digest-only match must keep the digest Megamind named rather than trade it
+  # for pages this model class was never authorized to load.
+  route_pages='{}'
+  while IFS= read -r route_record; do
+    route_name="$(printf '%s' "$route_record" | jq -r '.name')"
+    route_root="$(printf '%s' "$route_record" | jq -r '.root')"
+    route_max="$(printf '%s' "$route_record" | jq -r '.max')"
+    route_chars="$(printf '%s' "$route_record" | jq -r '.chars')"
+    route_paths="$(route_page_allows "$exe" "$route_root" "$request" "$route_max" "$route_chars")"
+    [ -n "$route_paths" ] && [ "$route_paths" != '[]' ] || continue
+    route_pages="$(printf '%s' "$route_pages" | jq -c --arg name "$route_name" --argjson paths "$route_paths" '. + {($name):$paths}')"
+  done < <(printf '%s' "$raw" | jq -c '.matches[]? | select(.access == "full") | {name, root, max: (.context_budget.max_candidates // 0), chars: (.context_budget.max_context_chars // 0)}')
   normalized="$(printf '%s' "$raw" | jq -c \
+    --argjson route_pages "$route_pages" \
+    --argjson host_paths "$host_paths" \
     --arg schema "$SCHEMA" \
     --arg policy "$READ_POLICY" \
+    --arg owner_identity "$owner_identity_value" \
+    --arg executable_identity "$exe_identity_value" \
+    --arg executable_version "$version" \
+    --arg estate_identity "$estate_identity_value" \
+    --argjson root_ids "$root_ids" \
     "$SAFE_JQ_DEFS"'
      def host_note:
        if . == "matched" then "Megamind matched at least one wiki: read only the listed allows paths, within any returned budget, and nothing else."
@@ -997,6 +1198,17 @@ cmd_run() {
        elif . == "privacy-filtered" then "Megamind withheld every candidate for this model class: only the count is disclosed, never a name."
        elif . == "unavailable" then "Megamind has no usable wiki cards: disclose the gap instead of assuming coverage."
        else "Megamind returned an unrecognized status: treat it as a blocker for substantive work." end;
+     # One owner for what a match may load, so the emitted allows and the
+     # binding that the reader re-derives them from can never disagree. Ranked
+     # ladder pages replace the declared card paths when Megamind surfaced any
+     # for a full-access match, because those pages are what the index existed
+     # to point at; with no page ranked, or with access narrowed below full for
+     # this model class, the declared paths stand exactly as before.
+     def effective_allows($pages):
+       (reduce (.allows[]? | select(safe_path)) as $path
+         ([]; if index($path) then . else . + [$path] end)) as $declared |
+       if (.access == "full") and ($pages | type == "array") and ($pages | length) > 0
+       then $pages else $declared end;
      ([.matches[]?.allows[]? | select(safe_path | not)] | length) as $dropped |
      {
        schema_version: $schema,
@@ -1016,19 +1228,39 @@ cmd_run() {
          . as $match |
          ({
            wiki: $match.name,
-           root: $match.root,
+           root_identity: ($root_ids[$match.name] // null),
            access: $match.access,
            routing_mode: $match.routing_mode,
            confidence: $match.confidence.score,
            freshness: ($match.freshness | safe_freshness),
            provenance: ($match.evidence | safe_evidence),
-           allows: [$match.allows[]? | select(safe_path)],
-           follow_up: $match.follow_up
+           allows: ($match | effective_allows($route_pages[$match.name])),
+           follow_up: ($match.follow_up | redact_host_paths($host_paths))
          } + (if (($match.context_budget | type) == "object")
               then {context_budget: ($match.context_budget | safe_budget)}
               else {} end))
        ],
-       offers: [.offers[]? | {wiki: .name, root: .root, confidence: .confidence.score}],
+       offers: [.offers[]? | {wiki: .name, confidence: .confidence.score}],
+       authorization_binding: {
+         schema_version: "fm/megamind-content-binding/v1",
+         owner_identity: $owner_identity,
+         executable_identity: $executable_identity,
+         executable_version: $executable_version,
+         estate_identity: $estate_identity,
+         model_class: .model_class,
+         preflight_id: .preflight_id,
+         request_hash: .request_hash,
+         catalog_hash: .catalog_hash,
+         declared_allows: [.matches[]? | {
+           wiki: .name,
+           allows: effective_allows($route_pages[.name]),
+           access: .access,
+           routing_mode: .routing_mode,
+           context_budget: (if (.context_budget | type) == "object" then (.context_budget | safe_budget) else null end)
+         }],
+         authorization_id: .preflight_id,
+         selection_id: null
+       },
        filtered_count: ([.filtered[]?] | length),
        redacted_count: (.redacted_count // 0),
        dropped_allows: $dropped,
@@ -1077,8 +1309,10 @@ cmd_continue() (
   local selection_id="" offer="" pending packet_tmp raw rc
   local request request_hash preflight_id catalog_hash model_class stored_today stored_session
   local stored_exe stored_exe_hash stored_version stored_estate_hash
-  local exe estate version today exe_path exe_hash estate_hash offer_root offer_count
-  local session_identity packet
+  local exe estate version today exe_path exe_hash estate_hash offer_root offer_root_real offer_root_identity offer_count
+  local owner_identity_value executable_identity_value session_identity packet
+  local estate_real host_paths
+  local -a disclosing_paths=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --selection-id)
@@ -1167,6 +1401,15 @@ cmd_continue() (
   exe_path="$(resolved_executable "$exe" 2>/dev/null || true)"
   exe_hash="$(hash_file "$exe_path" 2>/dev/null || true)"
   estate_hash="$(estate_identity "$estate" 2>/dev/null || true)"
+  owner_identity_value="$(CDPATH='' cd -P -- "$FM_HOME" 2>/dev/null && pwd -P)" || owner_identity_value=
+  if [ -n "$owner_identity_value" ]; then
+    owner_identity_value="$(hash_text "firstmate-home/v1
+$owner_identity_value" 2>/dev/null || true)"
+  fi
+  executable_identity_value=
+  [ -n "$exe_path" ] && [ -n "$exe_hash" ] && executable_identity_value="$(hash_text "megamind-executable/v1
+$exe_path
+$exe_hash" 2>/dev/null || true)"
   [ "$model_class" = "$(resolve_model_class "")" ] \
     || { selection_error binding_changed "the model class changed since the offer"; return 1; }
   [ "$stored_exe" = "$exe_path" ] && [ "$stored_exe_hash" = "$exe_hash" ] \
@@ -1187,6 +1430,22 @@ cmd_continue() (
   [ "$offer_count" = 1 ] \
     || { selection_error offer_invalid "the selected wiki is not exactly one current offer"; return 1; }
   offer_root="$(jq -r --arg wiki "$offer" '.packet.offers[] | select(.name == $wiki) | .root' "$pending")"
+  offer_root_real="$(CDPATH='' cd -P -- "$offer_root" 2>/dev/null && pwd -P)" || offer_root_real=
+  offer_root_identity=
+  if [ -n "$offer_root_real" ]; then
+    offer_root_identity="$(hash_text "wiki-root/v1
+$offer_root_real" 2>/dev/null || true)"
+  fi
+  # The same collection the `run` path builds, so the selected wiki's follow_up
+  # is stripped of every absolute root this host resolved for itself.
+  [ -n "$estate" ] && disclosing_paths+=("$estate")
+  estate_real="$(CDPATH='' cd -P -- "$estate" 2>/dev/null && pwd -P || true)"
+  [ -n "$estate_real" ] && disclosing_paths+=("$estate_real")
+  case "$offer_root" in ''|null) : ;; *) disclosing_paths+=("$offer_root") ;; esac
+  [ -n "$offer_root_real" ] && disclosing_paths+=("$offer_root_real")
+  host_paths='[]'
+  [ "${#disclosing_paths[@]}" -gt 0 ] \
+    && host_paths="$(jq -cn '$ARGS.positional' --args -- "${disclosing_paths[@]}" 2>/dev/null || printf '%s' '[]')"
   packet_tmp="$SELECTION_DIR/.$selection_id.packet.${BASHPID:-$$}"
   # Extracted before it is published so a jq that dies partway is a preparation
   # failure rather than a truncated packet a pipeline reported as good.
@@ -1252,27 +1511,66 @@ cmd_continue() (
     return 1
   fi
 
-  local projection result_file
+  local projection result_file selected_pages selected_max selected_chars
   result_file="$(authorization_path "$selection_id")"
   [ ! -e "$result_file" ] && [ ! -L "$result_file" ] \
     || { selection_error selection_replayed "the selection authorization already exists"; return 1; }
+  # An explicitly selected wiki descends the same ladder a threshold match does:
+  # the captain picked the wiki, not a routing index, and the selection's own
+  # declared budget still bounds what may be authorized. Selecting a wiki does
+  # not raise its model-class access, so a selection Megamind narrowed below
+  # full keeps the exact paths it declared.
+  selected_max="$(printf '%s' "$raw" | jq -r '.selected.context_budget.max_candidates // 0')"
+  selected_chars="$(printf '%s' "$raw" | jq -r '.selected.context_budget.max_context_chars // 0')"
+  selected_pages='[]'
+  if [ "$(printf '%s' "$raw" | jq -r '.selected.access // empty')" = full ]; then
+    selected_pages="$(route_page_allows "$exe_path" "$offer_root" "$request" "$selected_max" "$selected_chars")"
+  fi
+  [ -n "$selected_pages" ] || selected_pages='[]'
   projection="$(printf '%s' "$raw" | jq -c --arg schema "$SELECTION_SCHEMA" \
+    --argjson route_pages "$selected_pages" \
+    --argjson host_paths "$host_paths" \
     --arg id "$selection_id" --arg policy "$READ_POLICY" \
+    --arg owner_identity "$owner_identity_value" \
+    --arg executable_identity "$executable_identity_value" \
+    --arg executable_version "$version" \
+    --arg estate_identity "$estate_hash" \
+    --arg root_identity "$offer_root_identity" \
+    --arg today "$today" \
     "$SAFE_JQ_DEFS"'
+      # One owner for the load surface of the selected wiki, so the projection
+      # and the binding the reader re-derives it from can never disagree.
+      def effective_allows:
+        (reduce (.selected.allows[]? | select(safe_path)) as $path
+          ([]; if index($path) then . else . + [$path] end)) as $declared |
+        if (.selected.access == "full") and ($route_pages | length) > 0
+        then $route_pages else $declared end;
       {schema_version:$schema,outcome:"authorized",failure:null,
        preflight_id:.preflight_id,request_hash:.request_hash,catalog_hash:.catalog_hash,
        model_class:.model_class,selection_id:$id,upstream_selection_id:.selection_id,
-       root_facts_hash:.root_facts_hash,
+       root_identity:$root_identity,
        selection:{status:"explicit-user-selection",basis:"selected-current-offer",
          source_disposition:"offer",source_status:"ambiguous",preflight_id:.preflight_id,
          confidence_changed:false,threshold_matched:false},
-       selected:({wiki:.selected.name,root:.selected.root,score:.selected.score,
+       authorization_binding:{schema_version:"fm/megamind-content-binding/v1",
+         owner_identity:$owner_identity,executable_identity:$executable_identity,
+         executable_version:$executable_version,estate_identity:$estate_identity,
+         model_class:.model_class,preflight_id:.preflight_id,
+         request_hash:.request_hash,catalog_hash:.catalog_hash,
+         declared_allows:[{wiki:.selected.name,
+           allows:effective_allows,
+           access:.selected.access,routing_mode:.selected.routing_mode,
+           context_budget:(if (.selected.context_budget | type) == "object"
+             then (.selected.context_budget | safe_budget) else null end)}],
+         authorization_id:$id,selection_id:$id,today:$today},
+       selected:({wiki:.selected.name,root_identity:$root_identity,score:.selected.score,
          confidence:{score:.selected.confidence.score,
            meets_floor:.selected.confidence.meets_floor},
          freshness:(.selected.freshness | safe_freshness),
          evidence:(.selected.evidence | safe_evidence),
          access:.selected.access,routing_mode:.selected.routing_mode,
-         allows:.selected.allows,follow_up:.selected.follow_up,
+         allows:effective_allows,
+         follow_up:(.selected.follow_up | redact_host_paths($host_paths)),
          provisional:false}
          + (if (.selected.context_budget | type) == "object"
             then {context_budget:(.selected.context_budget | safe_budget)} else {} end)
@@ -1302,12 +1600,18 @@ cmd_continue() (
 )
 
 main() {
-  [ $# -ge 1 ] || { printf 'usage: fm-megamind-preflight.sh classify|classify-provenance|run|continue|check ...\n' >&2; return 2; }
+  [ $# -ge 1 ] || { printf 'usage: fm-megamind-preflight.sh classify|classify-stdin|classify-provenance|run|continue|check ...\n' >&2; return 2; }
   local cmd="$1"; shift
   case "$cmd" in
     classify)
       [ $# -eq 1 ] || { printf 'usage: fm-megamind-preflight.sh classify "<request text>"\n' >&2; return 2; }
       classify "$1"
+      ;;
+    classify-stdin)
+      [ $# -eq 0 ] || { printf 'usage: fm-megamind-preflight.sh classify-stdin\n' >&2; return 2; }
+      local classify_stdin_text
+      classify_stdin_text="$(cat)"
+      classify "$classify_stdin_text"
       ;;
     classify-provenance)
       [ $# -eq 1 ] || { printf 'usage: fm-megamind-preflight.sh classify-provenance credential-submission\n' >&2; return 2; }
@@ -1316,7 +1620,7 @@ main() {
     run) cmd_run "$@" ;;
     continue) cmd_continue "$@" ;;
     check) cmd_check ;;
-    *) printf 'usage: fm-megamind-preflight.sh classify|classify-provenance|run|continue|check ...\n' >&2; return 2 ;;
+    *) printf 'usage: fm-megamind-preflight.sh classify|classify-stdin|classify-provenance|run|continue|check ...\n' >&2; return 2 ;;
   esac
 }
 

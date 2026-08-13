@@ -38,7 +38,7 @@ Hard rules, in priority order:
    If work failed, say so plainly with the evidence.
 
 Every substantive Firstmate AI request runs Megamind preflight before firstmate answers, plans, dispatches, investigates, or otherwise relies on model knowledge; pure control messages, acknowledgments, trusted-provenance credential submissions, and routine monitoring bypass it.
-Load `megamind-preflight` before acting on a substantive request: a missing, incompatible, or failed preflight is a disclosed blocker, never a silent skip, and this read-only pilot may read only what Megamind explicitly authorizes.
+Load `megamind-preflight` before acting on a substantive request: a missing, incompatible, or failed preflight is a disclosed blocker, never a silent skip, and matched wiki content may enter a model only through the host-owned bounded reader.
 
 You may maintain this repo's private operational state directly.
 Shared tracked material is `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `.tasks.toml`, `.github/workflows/`, `bin/`, `.agents/skills/`, and public `skills/`.
@@ -81,6 +81,7 @@ config/wedge-alarm  optional away-mode wedge-alarm active-alert directives; LOCA
 config/megamind-executable  optional Megamind executable path for the read-only preflight pilot; LOCAL, gitignored, not inherited; absent = megamind-axi on PATH (docs/configuration.md "Megamind preflight")
 config/megamind-estate  pilot wiki estate directory for mandatory preflight; LOCAL, gitignored, not inherited; absent = preflight unavailable and disclosed as a blocker, never guessed
 config/megamind-model-class  optional local|cloud preflight model-class override; LOCAL, gitignored, not inherited; absent = cloud
+config/megamind-primary-automatic  optional opt-in to automatic primary prompt interception on a supported adapter; LOCAL, gitignored, not inherited; absent = off and the session keeps its ordinary behavior (docs/configuration.md "Megamind preflight")
 config/x-mode.env    generated Relay watcher cadence; LOCAL, gitignored; source before arming watcher when present
 data/                personal fleet records; LOCAL, gitignored as a whole
   backlog.md         task queue, dependencies, history
@@ -100,7 +101,7 @@ state/               volatile runtime signals; gitignored
   <id>.kimi-turnend-token   firstmate-owned Kimi hook registry token for the task; removed by teardown
   <id>.claude-settings-backup  what the worktree's .claude/settings.local.json looked like before firstmate's Claude lifecycle hooks were merged in, plus the hooks it added, so teardown can restore it; removed by teardown
   <id>.muse-session  muse busy-source binding (sessions root plus task worktree) written by fm-spawn; removed by teardown
-  <id>.megamind-preflight.json  the task's private validated preflight result written by fm-worker-preflight.sh before launch and read by the worker; removed by teardown
+  <id>.megamind-preflight.json  the task's private validated preflight result written by fm-worker-preflight.sh before launch; the worker never opens it and reaches its content only through bin/fm-megamind-content.sh; removed by teardown
   <id>.meta          written by fm-spawn: window=, endpoint_task_id=, worktree=, project=, harness=, model=, effort=, kind=, mode=, yolo=, tasktmp=; an optional traceparent= only when trace context is enabled (docs/configuration.md "Trace context propagation"); kind=secondmate also records home= and projects=, plus remote_host=/remote_root=/remote_backend=/remote_herdr_session=/remote_target= for a remote route; a non-default runtime backend records further backend-specific fields (docs/configuration.md "Runtime backend"; bin/fm-backend.sh, section 8); fm-pr-check, including through fm-pr-merge, records one canonical pr= and the forge's pr_head= when available (GitHub pull requests and GitLab merge requests; docs/gitlab-merge-watch.md); fm-x-link appends x_request=, x_request_ts=, x_followups=, and optional x_platform=/x_reply_max_chars= for a Relay-originated task (section 14)
   <id>.herdr-presentation  quarantinable attempt and restart-binding journal for Herdr's optional visual projection; never task or endpoint authority; see docs/herdr-backend.md "Presentation spaces"
   <id>.check.sh      authenticated slow poll; the watcher dispatches validated PR data and the byte-identified Relay shim through trusted repository scripts, runs registered custom checks from hash-validated private snapshots, and rejects every other state check without execution
@@ -122,6 +123,9 @@ state/               volatile runtime signals; gitignored
   x-poll.error x-poll.claim-error  generated Relay and offer-claim diagnostic dedupe markers
   megamind-preflight.jsonl  minimal non-verbatim Megamind preflight proof log appended by bin/fm-megamind-preflight.sh; never contains request text or wiki content
   megamind-offer-selections/  private mode-0600 ambiguous-offer store written, bounded, and retired only by bin/fm-megamind-preflight.sh; holds the retained original request and upstream packet plus their one-time authorization records, and only its opaque selection id may leave it
+  megamind-admissions/  private mode-0600 bounded content-admission records written, revalidated, and retired only by bin/fm-megamind-content.sh; each record is spent by the content channel of its own turn and pruned on the next admission, and none holds a general output or log copy of page content
+  megamind-primary/  private mode-0700 automatic-primary coordinator store written and day-pruned only by bin/fm-megamind-primary.sh; holds one decision record per governed prompt submission, one offer record per pending ambiguous selection, and that submission's lock, and exists only in a home that opted in
+  fm-primary-<submission>.megamind-preflight.json  one governed primary prompt's private preflight result, written and day-pruned only by bin/fm-megamind-primary.sh; it is that turn's admission input, never a task record, and never opened by an agent
   .startup-network.*  status, report, per-step elapsed timings, inline-print claim, and lock for the deferred network stage session start runs off its blocking path; bin/fm-startup-network.sh
   .wake-queue        durable queued wakes: epoch<TAB>seq<TAB>kind<TAB>key<TAB>payload
   .<id>.open-decisions-cursor  per-task byte cursor and folded open-decision set bounding the OPEN DECISIONS scan's cost to new status-log appends; written only by fm-classify-lib.sh's status_open_decisions_incremental, removed by teardown, safe to delete (forces one full re-fold)
@@ -538,7 +542,7 @@ These skills are not captain-invocable; load them only at their precise triggers
 - `decision-hold-lifecycle` - load before treating an investigation or visual review as complete, before ending a visual review that exposed a decision, and when recording or routing the captain's answer.
 - `process-event-sources` - load before arming a long-polling source, and on any `procevent <adapter> <source-id> <sequence>` check wake.
   Never run a registered source's blocking command yourself in a conversational turn.
-- `megamind-preflight` - load before answering, planning, dispatching, or investigating any substantive captain request, per the mandatory preflight rule in section 1; owns outcome handling, failure disclosure, and the read-only boundary.
+- `megamind-preflight` - load before answering, planning, dispatching, or investigating any substantive captain request, per the mandatory preflight rule in section 1; owns outcome handling, failure disclosure, and the read-only boundary, including the trigger to use `bin/fm-megamind-content.sh` for matched wiki content.
 - `fmx-respond` - load on an `x-mention <request_id>` `check:` wake to handle the mention, on an `x-mode-error ...` `check:` wake to report the Relay configuration blocker, on a `public-followup ...` `check:` wake or a startup-surfaced public commitment, and on any milestone or terminal wake for a Relay-linked task before posting its completion follow-up; relevant only when Relay is on.
 - `firstmate-codexapp` - load before coordinating a visible Codex Desktop thread, evaluating a Codex App backend request, or reconciling Codex Desktop host-tool smoke evidence for Firstmate work.
 - `firstmate-coding-guidelines` - load before changing firstmate's shared, tracked material, as defined by section 1's list, whether editing directly or briefing a crewmate for a firstmate-repo task.

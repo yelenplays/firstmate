@@ -129,11 +129,14 @@ See [`trace-context.md`](trace-context.md) for carrier semantics, supported rout
 ## Megamind preflight (config/megamind-*)
 
 The read-only Megamind pilot makes catalog preflight mandatory before firstmate acts on any substantive request; `AGENTS.md` section 1 owns the always-loaded rule and the internal [`megamind-preflight`](../.agents/skills/megamind-preflight/SKILL.md) skill owns outcome handling and disclosure.
-Three local, gitignored files under the effective config directory configure a home's binding.
+Four local, gitignored files under the effective config directory configure a home's binding.
 `config/megamind-estate` holds the directory of pilot wiki roots on its first non-empty, non-comment line; when it is absent, preflight is unavailable and substantive work discloses that concrete blocker rather than guessing captain-private roots.
 `config/megamind-executable` optionally pins the `megamind-axi` path; absent resolves plain `megamind-axi` from `PATH`, and proven Megamind 0.3.x, 0.4.x, 0.5.x, and 0.6.x releases are accepted - malformed, older, and future versions are disclosed incompatibilities until their host-consumed preflight contract is established.
 `config/megamind-model-class` optionally overrides the declared model class with `local` or `cloud`; absent defaults to `cloud`, the restrictive class for every verified primary harness.
-Each value is the first non-empty, non-comment line with surrounding whitespace trimmed, and a leading `~` in the two path values expands to `$HOME`; nothing else expands, so a glob, a variable, or a command substitution stays a literal path and fails closed as a disclosed blocker.
+`config/megamind-primary-automatic` opts the supported Claude, Pi, or pi-signed primary adapter into automatic prompt interception, and it is read with the same first-line semantics as its three siblings: the first non-empty, non-comment line, whitespace-trimmed, with or without a final newline, must be `on`, `true`, `yes`, or `1`.
+A comment header, leading blank lines, surrounding whitespace, and a missing final newline are therefore all accepted, while any other value, a commented-out value, and an absent file all leave the session on its ordinary behavior.
+`FM_MEGAMIND_PRIMARY_AUTOMATIC` overrides that file: the same four values enable, any other non-empty value disables, and unset or empty defers to the file; it exists for isolated live guards rather than for ordinary configuration.
+Each of the other three values is the first non-empty, non-comment line with surrounding whitespace trimmed, and a leading `~` in the two path values expands to `$HOME`; nothing else expands, so a glob, a variable, or a command substitution stays a literal path and fails closed as a disclosed blocker.
 `bin/fm-megamind-preflight.sh` owns the exact resolution order, typed outcome schema, failure codes, allowed-path validation, and the minimal non-verbatim proof log at `state/megamind-preflight.jsonl`; run `bin/fm-megamind-preflight.sh check` to probe a home's binding without routing a request.
 An ambiguous result retains its complete original upstream packet and exact request only in a mode-0600 record under `state/megamind-offer-selections/`, and exposes only an opaque `selection_id` to the caller.
 `bin/fm-megamind-preflight.sh continue --selection-id <id> --offer <wiki>` re-resolves the owning-home binding, invokes Megamind 0.6's `select-offer` command with the private original evidence, validates `megamind/preflight-selection-result/v1`, and publishes a mode-0600 `authorized` projection with the same read policy without treating the offer as a threshold match.
@@ -151,6 +154,17 @@ The authorized typed result is filed as the task's own private `state/<task-id>.
 `bin/fm-control.sh relaunch` therefore clears the same binding with `--validate-only` as a precondition, before it checkpoints, records the progress note, or stops the running agent, so a replacement that could not be launched is refused while the current worker, its record, and its local copy are still intact.
 The binding is pinned to the owning home's own resolved config and state directories, so a home relocated by `FM_CONFIG_OVERRIDE` or `FM_STATE_OVERRIDE` reads its own binding and files its own proof while an ambient value inherited from another home cannot substitute a different one.
 The worker's isolated project copy keeps its own operational-home semantics, and no config, credential, estate path, or request text is copied into it or exported onto its launch command.
+`bin/fm-megamind-preflight.sh` descends Megamind's own governed `route` ladder once per authorized full-access root, so an authorization names the pages a routing index points at rather than the index alone; the ranked pages are bounded by that authorization's own candidate count and character budget, and a ladder that is unusable, fails, or ranks no page leaves the declared paths exactly as they were.
+`bin/fm-megamind-primary.sh` is the host-owned primary coordinator; adapters pass the exact prompt privately and receive only its typed bypass, no-context, admission, offer, or block decision.
+Its admitted context carries one host-owned rule with the evidence: a successful admission proves that routing ran, never that the admitted content answers the request, so an adapter turn that never loaded the `megamind-preflight` skill still receives the evidence-gap instruction.
+Automatic primary mode stays opt-in at the coordinator, and an adapter transport asks it - by exit status alone, through `fm-megamind-primary.sh governed` - before a transport failure of its own may block a prompt, so a session that never opted in keeps its ordinary behavior.
+`bin/fm-megamind-content.sh` is the host-owned bounded admission and content channel for both primary sessions and ordinary workers.
+Its `admit` command accepts only a task result or script-issued selection authorization identified by task or selection id, never a caller root, arbitrary file, upstream packet, or handcrafted allowlist.
+It binds the owning home, executable identity and version, estate identity, model class, preflight/request/catalog identities, authorization or selection identity, wiki identity, access and routing mode, declared allows, and current root/card/file facts.
+Its `content` command accepts only the opaque admission id, revalidates those facts before every directory-relative no-follow open, and emits content only after strict UTF-8 and per-wiki candidate and character budgets pass.
+The reader counts Unicode code points, including newlines and combining marks, deduplicates file identities within a wiki, rejects hardlinks and special files, and refuses changed or unavailable paths rather than logging or emitting excess content.
+`follow_up` remains informational text and is never executed or parsed by the reader, and the absolute estate and wiki roots its own shape carries are substituted out of it before it enters any emitted projection.
+The reader's stdout admission result is privacy-safe and content is a separate mode-0600 artifact/channel; absolute roots, raw prompts, page content, credentials, filtered identities, and upstream notes are never included in general output or logs.
 Secondmate launches are firstmate homes rather than ordinary workers and are not routed through this gate at all; a secondmate's own `fm-spawn.sh` supplies its own home's binding to its own workers, while the Megamind config files remain outside the inherited-local-material allowlist.
 Final local validation binds the adopted pilot wiki roots through `config/megamind-estate` alone, with no further tracked change.
 
@@ -270,7 +284,11 @@ For Kimi crews, `fm-spawn.sh` runs `fm-kimi-turnend-hook.sh install`, drops a pe
 Kimi continues to use the captain's normal Kimi home, including the existing config, skills, and memory; Firstmate does not create an isolated Kimi home.
 The Kimi installer requires an existing regular non-symlink `~/.kimi-code/config.toml`, `python3` with `tomllib`, and `jq`; it validates but never serializes the captain's TOML and refuses before writing when the config is missing, malformed, or surprising or when either tool requirement is unavailable.
 Its `remove` action excises only the marker-delimited Firstmate region and removes Firstmate's hook files.
-For Pi and pi-signed secondmate launches, `fm-spawn.sh` starts the selected executable with `-e` pointed at the secondmate home's own tracked `.pi/extensions/fm-primary-pi-watch.ts` and `.pi/extensions/fm-primary-turnend-guard.ts`, both already present from the secondmate home's git worktree.
+For Pi and pi-signed secondmate launches, `fm-spawn.sh` starts the selected executable with `-e` pointed at the secondmate home's own tracked `.pi/extensions/fm-primary-pi-watch.ts`, `.pi/extensions/fm-primary-turnend-guard.ts`, and `.pi/extensions/fm-primary-megamind.ts`, all already present from the secondmate home's git worktree.
+The launched home is a firstmate home, so its own opt-in decides whether that Megamind adapter governs anything; a secondmate home without `config/megamind-primary-automatic` keeps its ordinary behavior.
+Pi and pi-signed ship and scout launches pass only the per-task turn-end extension under `state/`, and never the Megamind adapter.
+Their resolved project directory is the project's own checkout, which for any project other than this one carries no `.pi/extensions/`, and Pi treats a missing `-e` path as fatal: it reports the unloadable extension and exits without starting a session.
+Passing it there would therefore make every Pi worker unlaunchable on every project but this one, so automatic interception on a worker is not available through that path.
 
 ## Crew dispatch profiles (config/crew-dispatch.json)
 
@@ -569,6 +587,7 @@ FM_CODEX_WATCH_CHECKPOINT=180   # seconds per foreground watcher checkpoint in C
 FM_CREW_STATE_NM_TIMEOUT=10   # seconds allowed per no-mistakes query inside fm-crew-state.sh
 FM_TEARDOWN_NM_TIMEOUT=10    # seconds allowed per no-mistakes query or abort inside fm-teardown.sh
 FM_WORKER_PREFLIGHT_TIMEOUT=60   # seconds allowed for a ship or scout worker's owner-bound Megamind preflight; expiry blocks the launch with a typed failure, and a non-numeric, non-positive (including 00), or above-3600 value keeps 60
+FM_MEGAMIND_PRIMARY_TIMEOUT=120   # seconds bounding each preflight or bounded-reader child the automatic primary coordinator runs per governed prompt; expiry is one more typed block decision for that prompt, an empty or non-numeric value keeps 120, and a host with no bounded-execution helper runs the child unbounded rather than refusing every prompt
 FM_CREW_STATE_RUNS_LIMIT=200  # recent no-mistakes run rows scanned when axi status cannot be attributed to the current code
 FM_CREW_STATE_BIN=bin/fm-crew-state.sh   # test override for the current-state reader used by working/paused watcher triage
 FMX_PAIRING_TOKEN=      # Relay pairing token; .env opt-in authorizes replies and eligible lifecycle actions

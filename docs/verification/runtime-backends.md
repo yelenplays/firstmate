@@ -207,6 +207,73 @@ The backend suites therefore cover endpoint creation and command delivery rather
 No supported worker-tool or spawn-backend axis is inapplicable to ordinary ship or scout preflight.
 Secondmate launch itself is intentionally inapplicable because it starts a firstmate home rather than an ordinary worker; `tests/fm-worker-preflight.test.sh` pins that omission at the launch boundary, and a secondmate's own worker launch applies the same matrix from that home's own binding, as covered by `tests/fm-trace-context-spawn.test.sh` and `tests/fm-backend-herdr-workspace-per-home-e2e.test.sh`.
 
+## Bounded Megamind content admission
+
+The host-owned reader was verified on 2026-08-12 with stock macOS Bash, Python 3, and synthetic wiki roots only.
+The portable suite covers no-follow root and component traversal, special files, hardlinks, strict UTF-8, Unicode code-point budgets, binding and root/card changes, concurrent admissions, private output, home isolation, relaunch preservation, and an actual synthetic Megamind 0.6 selection continuation.
+
+```sh
+bin/fm-test-run.sh tests/fm-megamind-content.test.sh
+bin/fm-test-run.sh tests/fm-megamind-preflight.test.sh tests/fm-worker-preflight.test.sh
+```
+
+Observed bounded output:
+
+```text
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0
+FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0
+```
+
+The real Megamind 0.6 synthetic-estate selection evidence above remains the upstream command compatibility proof, while `tests/fm-megamind-content.test.sh` proves that a script-issued `fm/megamind-preflight-selection/v1` authorization reaches the same reader boundary without touching a real wiki.
+No primary interception or scheduling claim is made by this reader slice.
+
+Every suite above drives a synthetic Megamind stub, which can only confirm the assumption already written into that stub, so `tests/fm-megamind-realshape.test.sh` is the guard that keeps it honest about the fields the reader accepts.
+It builds its own synthetic estate, routes it through an installed `megamind-axi`, and requires the resulting authorization to survive the real host path end to end, asserting nothing about implementation source bytes.
+It resolves the build from `FM_MEGAMIND_REAL_EXE` or `PATH`, asks `bin/fm-megamind-preflight.sh check` whether that build is an accepted release, and skips loudly - naming the real routing-mode vocabulary and ladder descent as what stays unproven - rather than reporting a pass that checked nothing.
+`bin/fm-test-run.sh` runs it in the optional-binary `megamind-realshape` family and selects it whenever the bounded reader changes.
+
+## Primary Megamind prompt interception
+
+The host-owned coordinator and the opt-in Claude and Pi primary adapters were added on 2026-08-12.
+The coordinator is `bin/fm-megamind-primary.sh`, and it is the sole semantic owner for classification, preflight, offer continuation, bounded admission, and context framing.
+The Claude transport is `bin/fm-claude-primary-prompt.sh` on `UserPromptSubmit`.
+The Pi and pi-signed transport is `.pi/extensions/fm-primary-megamind.ts` on Pi's `input` event with handled and replay semantics.
+The implementation remains opt-in through `config/megamind-primary-automatic` or `FM_MEGAMIND_PRIMARY_AUTOMATIC=1` so ordinary sessions retain their prior behavior until the live guard is intentionally enabled.
+
+Portable proof covers bypasses, no-match, privacy-filtered, matched bounded admission, prompt and root privacy, failed bindings, and deterministic unsupported decisions:
+
+```sh
+bin/fm-test-run.sh tests/fm-megamind-primary.test.sh tests/fm-megamind-preflight.test.sh tests/fm-megamind-content.test.sh tests/fm-megamind-claude-control.test.sh
+```
+
+`tests/fm-megamind-claude-control.test.sh` drives the Claude transport over its real hook payload and proves that the control an ambiguous offer advertises is the exact control the transport accepts, and that no approximation of it authorizes a selection.
+The control carries no leading slash because Claude resolves a leading-slash prompt as one of its own commands and answers `Unknown command` before any `UserPromptSubmit` hook runs; that reachability is not observable without the real CLI, so the live guard below round-trips the advertised control back through it.
+
+The live guard uses only synthetic block prompts and a synthetic coordinator, so it proves the real installed transport reaches the host gate without making a provider call or reading a wiki:
+
+```sh
+FM_MEGAMIND_PRIMARY_LIVE=1 tests/fm-megamind-primary-live-e2e.test.sh
+```
+
+Observed on 2026-08-12 with Claude Code 2.1.220, Pi 0.84.1, Codex CLI 0.145.0, Grok 1.0.0, and Kimi Code 0.34.0:
+
+```text
+live: claude 2.1.220 (Claude Code) blocked before inference with zero provider turns
+live: pi 0.84.1 blocked before inference with one coordinator submission
+unsupported: codex codex-cli 0.145.0 automatic primary interception unproven; ordinary operation retained
+absent: opencode
+unsupported: grok grok 1.0.0 (3cd0d0cbcebe) [stable] automatic primary interception unproven; ordinary operation retained
+unsupported: kimi 0.34.0 automatic primary interception unproven; ordinary operation retained
+absent: pi-signed
+```
+
+The live guard deliberately does not claim allow, context reinjection, or selection continuation against a real provider until a future synthetic-provider proof can observe those surfaces without exposing credentials or wiki material.
+Codex, OpenCode, Grok, and Kimi remain ordinary-operation-only for automatic primary interception because their installed prompt hook surfaces were not proven to stop inference and replay safely in this slice.
+Grok is the one of those four that loads `.claude/settings.json` through its Claude-compatible settings support, so the tracked `UserPromptSubmit` entry carries the same `GROK_AGENT`/`GROK_HOOK_EVENT` inertness marker its siblings do; [`../turnend-guard.md`](../turnend-guard.md) owns that marker and `tests/fm-turnend-guard.test.sh` pins the entry inventory.
+The Pi adapter is reused by pi-signed only when the exact signed identity marker is present, and the signed executable was absent during this verification.
+Primary interception is harness-session behavior and has no tmux, Herdr, Zellij, Orca, or cmux-specific semantic path.
+Secondmate Pi launches load the same adapter from the secondmate home, while each home retains its own coordinator state and Megamind binding.
+
 ### Megamind version compatibility
 
 `bin/fm-megamind-preflight.sh`'s header owns which `megamind-axi` versions are accepted and why; this record holds the dated evidence and the regression pointers only.
@@ -330,6 +397,8 @@ Observed bounded results:
 
 Those last three shapes are why the continuation validator checks the typed shape and the governed refusals rather than restating decisions Megamind already owns.
 Requiring a 0..1 `score`, a `false` `meets_floor`, or a request-free `follow_up` refused every real authorized selection while accepting the synthetic fixture, so the stub agreed with the host and both disagreed with the build.
+
+The `continue` row predates the governed `route` ladder descent that `docs/configuration.md` "Megamind preflight" now owns, so it records the declared card paths a full-access selection authorized before any page was ranked; a re-run authorizes the pages `route` ranks whenever it ranks any, and the declared paths only when it ranks none.
 
 The `--today` flag the host now sends was measured on 2026-08-12 against every accepted line, because the tables above predate it and prove only the flags they list.
 Each line ran from its own release commit - `c59b58b` at 0.3.0, `27d3bf9` at 0.4.0, `44f1b37` at 0.5.0, and `97d88a3` at 0.6.0 - over the same synthetic two-wiki estate, so the comparison isolates the flag rather than the estate.

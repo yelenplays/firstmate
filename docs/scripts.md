@@ -28,6 +28,9 @@ The shared no-mistakes gate refusal for fleet lifecycle entrypoints is summarize
 | `fm-decision-hold.sh`    | Create, verify, complete, and resolve durable captain-held decisions, and author their structured record |
 | `fm-brief.sh`            | Scaffold ship (explicit `--mode`), scout, secondmate-charter, and Herdr-lab briefs   |
 | `fm-megamind-preflight.sh` | Classify, run, probe, and safely continue the mandatory read-only Megamind preflight pilot |
+| `fm-megamind-content.sh` | Admit and revalidate bounded wiki content from a private Firstmate Megamind authorization |
+| `fm-megamind-primary.sh` | Own every semantic decision behind an opt-in primary prompt adapter's Megamind interception |
+| `fm-claude-primary-prompt.sh` | Claude `UserPromptSubmit` transport that hands the prompt to that coordinator and emits only Claude's response shape |
 | `fm-worker-preflight.sh` | Clear an ordinary ship or scout worker's owning-home Megamind binding before its task exists |
 | `fm-herdr-lab.sh`        | Provision and guardedly operate an isolated, never-default Herdr lab session         |
 | `fm-install-herdr.sh`    | Install CI's exact-version Herdr pin with official asset URL, SHA-256, and protocol checks |

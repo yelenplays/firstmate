@@ -32,20 +32,38 @@ Never classify a request as bypass to save time, and never skip a failed preflig
 2. Run `bin/fm-megamind-preflight.sh run --request "<text>"` and read the typed `fm/megamind-preflight/v1` document; `bin/fm-megamind-preflight.sh`'s header owns the exact config resolution, version gate, outcome schema, failure codes, proof-log fields, and private pending-selection record.
 3. Act on `outcome` exactly:
 
-- `matched`: read only the `allows` paths under each matched wiki `root`, within the optional numeric `context_budget`, and use the match's `follow_up` ladder for page content.
-  Never read, infer, or widen to any other wiki path, and never load content for an offer, a filtered entry, or a dropped path.
+- `matched`: invoke `bin/fm-megamind-content.sh admit --task-id <task-id>` from the owning home, then use its separate content channel.
+  The reader validates and bounds only the explicitly returned `allows` paths under the owning estate; never read wiki paths directly, infer or widen paths, or load content for an offer, filtered entry, or dropped path.
   Use the self-describing `thresholds`, safe `freshness`, and non-verbatim `provenance` summary without reconstructing request tokens or inspecting raw Megamind output.
   Wiki evidence outranks model priors; carry `preflight_id` as the inspectable proof that preflight ran.
 - `ambiguous`: offer the listed wikis as a choice and load nothing until one is picked.
   When the captain chooses one listed wiki, pass only the exact returned `selection_id` and exact wiki name to `bin/fm-megamind-preflight.sh continue`; it retrieves the original request and packet privately and invokes Megamind's governed `select-offer` command.
   An ambiguous result that carries no `selection_id` cannot be continued in that home - it belongs to no session, or the resolved Megamind release predates `select-offer` - so the choice stands but nothing is loaded.
-  Treat `authorized` as an explicit offer selection, not a threshold match, and read only its returned `selected.allows` under `selected.root`, within its optional `selected.context_budget`, using its `selected.follow_up` ladder.
-  A continuation refusal leaves the substantive work blocked and never falls back to the ambiguous worker path.
+  Treat `authorized` as an explicit offer selection, not a threshold match, and invoke `bin/fm-megamind-content.sh admit --selection-id <selection-id>` from the owning home, then use its separate content channel.
+  The reader accepts only the script-issued authorization and its selected allows and budget; it never executes or parses `follow_up`.
+  A continuation or admission refusal leaves the substantive work blocked and never falls back to the ambiguous worker path.
 - `no-match`: stay quiet about wikis and do the work ordinarily without wiki context.
 - `privacy-filtered`: say wiki coverage is unavailable for this model class; load nothing and never name the withheld wikis.
 - `unavailable`: preflight ran but no usable wiki cards exist; disclose that concretely as a blocker for substantive work rather than proceeding as if coverage existed.
 - `error`: the typed `failure.code` (missing configuration, missing or incompatible Megamind, malformed or failed output, or unsafe selection continuation) is a concrete blocker for substantive work.
   Disclose it plainly to the captain instead of pretending preflight ran; routine bypass traffic may still proceed.
+
+## Automatic primary mode
+
+A home that opted into automatic primary mode routes every prompt through `bin/fm-megamind-primary.sh` before the turn starts, so a governed turn can arrive already carrying admitted wiki evidence, introduced by the host's bounded-reader guidance line.
+That is the same preflight and the same bounded reader this procedure runs, already performed for that exact prompt: act on the evidence the turn carries and do not route the same request a second time.
+Nothing else about this contract changes - the per-outcome rules, the evidence gap below, and the failure-disclosure duty apply to admitted evidence however it arrived.
+The absence of admitted evidence never proves that routing ran: a `no-match` or `privacy-filtered` decision injects nothing, and a home that never opted in is indistinguishable from one that did, so every turn without it takes the mandatory procedure above.
+An ambiguous result never reaches the model in that mode - the coordinator resolves the offer through the adapter's own control first - and a blocked prompt starts no turn at all.
+`docs/configuration.md` "Megamind preflight" owns the coordinator, the adapters, and the opt-in.
+
+## Admitted evidence that cannot answer the request
+
+A successful preflight and a successful admission prove that routing ran, never that the admitted content answers the question.
+When the admitted evidence does not answer it, state that evidence gap plainly and stop; name what the wiki does cover and what it does not.
+Never close the gap from model knowledge, and never present model synthesis as wiki-grounded, whatever `preflight_id` the turn is carrying.
+Admitted content that only names or links pages which were not themselves authorized is exactly this case: those page names are the reportable gap, not permission to reason from them.
+This rule applies identically to a threshold `matched` result and to an `authorized` explicit selection, and it is the one case where wiki evidence outranking model priors means answering with less rather than more.
 
 ## Ordinary worker launch guidance
 
@@ -55,9 +73,9 @@ A refusal is a concrete blocker to disclose, not a step to retry around: fix the
 Every routing-request refusal names the exact file to author or correct, including for a task scaffolded before that file existed - write its one routing line at the named path.
 `bin/fm-control.sh relaunch` clears the same binding before it stops anything, so a refusal there leaves the running worker, its record, and its local copy untouched.
 
-As the worker, your launch-time result is already filed at `state/<task-id>.megamind-preflight.json` and your brief's wiki-routing section names it.
-Read that file and act on its `outcome` exactly as above; it is the authoritative consultation for your task.
-Do not rerun preflight from the isolated project copy and do not point that copy's `FM_HOME` at another home.
+As the worker, your launch-time result is already filed in the owning home's private `state/<task-id>.megamind-preflight.json` and your brief's wiki-routing section names it.
+Do not read that file directly, rerun preflight from the isolated project copy, or point that copy's `FM_HOME` at another home.
+Use the owning-home `bin/fm-megamind-content.sh admit --task-id <task-id> --owner-home <owning-home>` command, then use `content --admission-id <opaque-id> --owner-home <owning-home>` for the content channel.
 A secondmate's own `fm-spawn.sh` performs the same step with that secondmate home's binding, so primary bindings never cross the secondmate boundary.
 `bin/fm-worker-preflight.sh`'s header and `docs/configuration.md` own the launch mechanics and binding boundary; this section only gives the conditional worker guidance.
 
