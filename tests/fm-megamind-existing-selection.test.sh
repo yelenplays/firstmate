@@ -22,6 +22,10 @@ cat > "$STUB" <<'SH'
 #!/usr/bin/env bash
 set -u
 if [ "${1:-}" = "--version" ]; then
+  if [ "${FM_TEST_EXISTING_MODE:-ready}" = incompatible-version ]; then
+    printf 'megamind-axi 0.7.0\n'
+    exit 0
+  fi
   printf 'megamind-axi 0.6.0\n'
   exit 0
 fi
@@ -74,7 +78,10 @@ case "$sub" in
       else
         catalog="cat-1"
       fi
-      if printf '%s\n' "${args[*]}" | grep -q -- '--full'; then
+      if [ "${FM_TEST_EXISTING_MODE:-ready}" = duplicate-list ]; then
+        notes='[]'
+        names=$(jq -cn --arg root "$estate_root/EligibleWiki" '[{name:"EligibleWiki",root:$root,access:"full",root_facts_hash:"root-facts",context_budget:{max_candidates:2,max_context_chars:1000}},{name:"EligibleWiki",root:$root,access:"full",root_facts_hash:"root-facts",context_budget:{max_candidates:2,max_context_chars:1000}}]')
+      elif printf '%s\n' "${args[*]}" | grep -q -- '--full'; then
         notes='[]'
         names=$(jq -cn --arg root "$estate_root/EligibleWiki" '[{name:"EligibleWiki",root:$root,access:"full",root_facts_hash:"root-facts",context_budget:{max_candidates:2,max_context_chars:1000}}]')
       else
@@ -100,7 +107,15 @@ case "$sub" in
       else
         provisional=false
       fi
-      result=$(jq -n --arg request_hash "$request_hash" --arg catalog "$catalog" --arg model "$model" --arg owner "$owner" --arg session "$session" --arg today "$today" --arg wiki "$wiki" --arg selection "$selection" --arg root "$estate_root/EligibleWiki" --arg root_facts_hash "$root_facts_hash" --argjson provisional "$provisional" '{schema_version:"megamind/existing-selection-result/v1",status:"authorized",request_hash:$request_hash,catalog_hash:$catalog,model_class:$model,owner_id:$owner,session_id:$session,today:$today,selection_id:$selection,root_facts_hash:$root_facts_hash,selection:{status:"explicit-user-selection",basis:"selected-eligible-existing",source_disposition:"eligible-existing",threshold_matched:false,confidence_changed:false},selected:{name:$wiki,root:$root,access:"full",routing_mode:"full",provisional:$provisional,allows:["wiki/index.md"],context_budget:{max_candidates:2,max_context_chars:1000},follow_up:"bounded follow-up"}}')
+      case "${FM_TEST_EXISTING_MODE:-ready}" in
+        access-none) access=none ;;
+        *) access=full ;;
+      esac
+      case "${FM_TEST_EXISTING_MODE:-ready}" in
+        pointer) routing_mode=pointer ;;
+        *) routing_mode=full ;;
+      esac
+      result=$(jq -n --arg request_hash "$request_hash" --arg catalog "$catalog" --arg model "$model" --arg owner "$owner" --arg session "$session" --arg today "$today" --arg wiki "$wiki" --arg selection "$selection" --arg root "$estate_root/EligibleWiki" --arg root_facts_hash "$root_facts_hash" --arg access "$access" --arg routing_mode "$routing_mode" --argjson provisional "$provisional" '{schema_version:"megamind/existing-selection-result/v1",status:"authorized",request_hash:$request_hash,catalog_hash:$catalog,model_class:$model,owner_id:$owner,session_id:$session,today:$today,selection_id:$selection,root_facts_hash:$root_facts_hash,selection:{status:"explicit-user-selection",basis:"selected-eligible-existing",source_disposition:"eligible-existing",threshold_matched:false,confidence_changed:false},selected:{name:$wiki,root:$root,access:$access,routing_mode:$routing_mode,provisional:$provisional,allows:["wiki/index.md"],context_budget:{max_candidates:2,max_context_chars:1000},follow_up:"bounded follow-up"}}')
       printf '%s' "$result" > "$FM_HOME/state/last-upstream"
       printf '%s\n' "$result"
     fi
@@ -174,6 +189,65 @@ for mode in authorization-catalog-drift root-facts-drift provisional; do
   existing_selection=$(printf '%s' "$list" | jq -r '.existing_selection_id')
   rejected=$(run_mode "$mode" existing-continue --selection-id "$selection" --existing-selection-id "$existing_selection" --wiki EligibleWiki 2>/dev/null || true)
   [ "$(printf '%s' "$rejected" | jq -r '.failure.code')" = malformed_result ] || fail "$mode authorization was not refused: $rejected"
+done
+
+# A future tool release, duplicate producer identities, and non-readable
+# access/routing results must stop at their public contracts.
+incompatible=$(run_mode incompatible-version run --request "incompatible tool request" 2>/dev/null || true)
+[ "$(printf '%s' "$incompatible" | jq -r '.failure.code')" = version_incompatible ] \
+  || fail "an incompatible Megamind version was accepted: $incompatible"
+out=$(run_in run --request "duplicate list request")
+selection=$(printf '%s' "$out" | jq -r '.selection_id')
+duplicate=$(run_mode duplicate-list existing-list --selection-id "$selection" 2>/dev/null || true)
+[ "$(printf '%s' "$duplicate" | jq -r '.failure.code')" = malformed_result ] \
+  || fail "duplicate producer identities were accepted: $duplicate"
+for mode in access-none pointer; do
+  out=$(run_in run --request "$mode authorization request")
+  selection=$(printf '%s' "$out" | jq -r '.selection_id')
+  list=$(run_in existing-list --selection-id "$selection")
+  existing_selection=$(printf '%s' "$list" | jq -r '.existing_selection_id')
+  rejected=$(run_mode "$mode" existing-continue --selection-id "$selection" --existing-selection-id "$existing_selection" --wiki EligibleWiki 2>/dev/null || true)
+  [ "$(printf '%s' "$rejected" | jq -r '.failure.code')" = malformed_result ] \
+    || fail "$mode authorization was not refused: $rejected"
+done
+
+# The opaque pending identity cannot cross homes or sessions, even where both
+# homes point at the same estate and executable.
+out=$(run_in run --request "cross-boundary request")
+selection=$(printf '%s' "$out" | jq -r '.selection_id')
+OTHER_HOME="$TMP_ROOT/other-home"
+mkdir -p "$OTHER_HOME/config" "$OTHER_HOME/state"
+printf '%s\n' "$HOME_DIR/estate" > "$OTHER_HOME/config/megamind-estate"
+printf '%s\n' "$STUB" > "$OTHER_HOME/config/megamind-executable"
+printf '%s\n' "$$" > "$OTHER_HOME/state/.lock"
+cross_home=$(FM_HOME="$OTHER_HOME" FM_ROOT_OVERRIDE="$ROOT" "$ROOT/bin/fm-megamind-preflight.sh" existing-list --selection-id "$selection" 2>/dev/null || true)
+[ "$(printf '%s' "$cross_home" | jq -r '.failure.code')" = selection_missing ] \
+  || fail "a pending existing-wiki choice crossed homes: $cross_home"
+printf '%s\n' 999999 > "$HOME_DIR/state/.lock"
+cross_session=$(run_in existing-list --selection-id "$selection" 2>/dev/null || true)
+printf '%s\n' "$$" > "$HOME_DIR/state/.lock"
+[ "$(printf '%s' "$cross_session" | jq -r '.failure.code')" = binding_changed ] \
+  || fail "a pending existing-wiki choice crossed sessions: $cross_session"
+
+# A permitted artifact that is absent or invalid remains unreadable. Admission
+# is the executable reader boundary, so neither result can yield content.
+for artifact in absent broken; do
+  out=$(run_in run --request "$artifact artifact request")
+  selection=$(printf '%s' "$out" | jq -r '.selection_id')
+  list=$(run_in existing-list --selection-id "$selection")
+  existing_selection=$(printf '%s' "$list" | jq -r '.existing_selection_id')
+  run_in existing-continue --selection-id "$selection" --existing-selection-id "$existing_selection" --wiki EligibleWiki >/dev/null
+  if [ "$artifact" = absent ]; then
+    rm -f -- "$HOME_DIR/estate/EligibleWiki/wiki/index.md"
+  else
+    printf '\377' > "$HOME_DIR/estate/EligibleWiki/wiki/index.md"
+  fi
+  refused_admission=$(FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" "$ROOT/bin/fm-megamind-content.sh" admit --selection-id "$selection" 2>/dev/null || true)
+  expected=path_unavailable
+  [ "$artifact" = broken ] && expected=invalid_utf8
+  [ "$(printf '%s' "$refused_admission" | jq -r '.refusal_code')" = "$expected" ] \
+    || fail "$artifact artifact was admitted: $refused_admission"
+  printf '%s\n' 'synthetic content' > "$HOME_DIR/estate/EligibleWiki/wiki/index.md"
 done
 
 out=$(run_in run --request "concurrent selection request")
