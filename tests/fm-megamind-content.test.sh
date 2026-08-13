@@ -206,14 +206,18 @@ test_toctou_race_never_emits_outside_content() {
   pass "TOCTOU replacement races never emit outside-root content"
 }
 
-test_relaunch_preserves_admission() {
+test_relaunch_preserves_admission_within_utc_day() {
   local home out id before after
   home=$(new_home relaunch); prepare_auth "$home" '[".megamind/wiki-card.json","wiki/index.md"]' 2 100
   out=$(admit "$home"); id=$(printf '%s' "$out" | jq -r .admission_id); before=$(FM_HOME="$home" "$READER" content --admission-id "$id")
   [ -f "$home/state/megamind-admissions/$id.json" ] || fail "admission was not durable"
   after=$(FM_HOME="$home" "$READER" content --admission-id "$id")
-  [ "$before" = "$after" ] || fail "relaunch-preserved admission changed content"
-  pass "durable admission survives a relaunch-style second invocation"
+  [ "$before" = "$after" ] || fail "same-day relaunch admission changed content"
+  jq '.binding.today = "2000-01-01"' "$home/state/megamind-admissions/$id.json" > "$home/state/tmp.json"
+  chmod 600 "$home/state/tmp.json"; mv -f "$home/state/tmp.json" "$home/state/megamind-admissions/$id.json"
+  after=$(FM_HOME="$home" "$READER" content --admission-id "$id")
+  assert_refusal "$after" binding_changed 'UTC-day rollover'
+  pass "durable admission re-reads identically within its UTC day and refuses after rollover"
 }
 
 test_real_synthetic_selection_authorization() {
@@ -283,10 +287,10 @@ test_over_budget_emits_nothing() {
   pass "an over-budget path refuses whole and emits no partial content"
 }
 
-# Every admission is spent by the content channel of its own turn, so a store
-# that only ever grows leaves a permanent trail of wiki paths, content hashes,
-# and file fingerprints for prompts that were answered long ago.
-test_admission_store_is_retired() {
+# Age-based pruning removes stale records and abandoned artifacts at the next
+# admission without retiring a fresh record that remains within its UTC-day
+# binding.
+test_admission_store_prunes_age_stale_artifacts() {
   local home out id store stale
   home=$(new_home retention)
   prepare_auth "$home" '["wiki/index.md"]' 2 100
@@ -297,9 +301,9 @@ test_admission_store_is_retired() {
   [ -f "$store/$id.json" ] || fail "the admission record the content channel needs was not kept"
   FM_HOME="$home" "$READER" content --admission-id "$id" >/dev/null || fail "content refused a fresh admission"
 
-  # A record, an abandoned lock, and an abandoned publish temporary left by an
-  # earlier turn are retired by the next admission rather than accumulating for
-  # the life of the home.
+  # A record, an abandoned lock, and an abandoned publish temporary left by a
+  # killed writer are pruned by age at the next admission rather than
+  # accumulating for the life of the home.
   stale="$store/00000000000000000000000000000000.json"
   printf '{}\n' > "$stale"; chmod 600 "$stale"
   printf '' > "$store/.00000000000000000000000000000000.lock"; chmod 600 "$store/.00000000000000000000000000000000.lock"
@@ -311,9 +315,10 @@ test_admission_store_is_retired() {
   assert_absent "$stale" "a stale admission record was never retired"
   assert_absent "$store/.00000000000000000000000000000000.lock" "a stale admission lock was never retired"
   assert_absent "$store/.admission.abandoned" "an abandoned publish temporary was never retired"
-  [ -f "$store/$(printf '%s' "$out" | jq -r '.admission_id').json" ] \
-    || fail "pruning retired the admission it had just written"
-  pass "the admission store retires spent records and never outlives its own turn"
+  new_id=$(printf '%s' "$out" | jq -r '.admission_id')
+  [ -f "$store/$new_id.json" ] || fail "pruning retired the admission it had just written"
+  [ -f "$store/$id.json" ] || fail "age pruning retired a same-day admission"
+  pass "the admission store prunes age-stale artifacts while retaining same-day records"
 }
 
 test_non_matched_outcomes_get_a_benign_refusal() {
@@ -363,7 +368,7 @@ test_digest_only_admits_exactly_one_path() {
 }
 
 test_bounded_admission_and_unicode_counting
-test_admission_store_is_retired
+test_admission_store_prunes_age_stale_artifacts
 test_budget_refusals
 test_routing_mode_vocabulary
 test_over_budget_emits_nothing
@@ -372,7 +377,7 @@ test_special_hardlink_and_invalid_utf8_refuse
 test_changed_binding_and_race_revalidation
 test_concurrent_and_home_isolation
 test_toctou_race_never_emits_outside_content
-test_relaunch_preserves_admission
+test_relaunch_preserves_admission_within_utc_day
 test_real_synthetic_selection_authorization
 test_non_matched_outcomes_get_a_benign_refusal
 test_forged_authorization_still_authorization_unproven
