@@ -211,7 +211,9 @@ Secondmate launch itself is intentionally inapplicable because it starts a first
 
 The host-owned reader was verified on 2026-08-13 with stock macOS Bash, Python 3, and synthetic wiki roots only.
 The portable suite covers no-follow root and component traversal, special files, hardlinks, strict UTF-8, Unicode code-point budgets, binding and root/card changes, concurrent admissions, private output, home isolation, same-day relaunch preservation with UTC-day rollover refusal, age-based pruning on the next admission, and an actual synthetic Megamind 0.6 selection continuation.
-The preflight suite also covers the script-owned route relevance floor of 2, including the unrelated rebalancing-to-tax-page fallback and the same floor during explicit selection continuation, while retaining a positive above-floor page-ranking control.
+The preflight suite also covers the script-owned route relevance floor of 0.5 on Megamind's own per-candidate route-confidence scale, including the unrelated rebalancing-to-tax-page fallback and the same floor during explicit selection continuation, both asserting that the ladder was actually invoked, while retaining a positive above-floor page-ranking control and the branch where a build reports no per-candidate confidence at all.
+The floor is calibrated against the real 0.6.0 producer rather than assumed: for the question `Wie oft sollte ich ein Portfolio rebalancieren?` against a synthetic German finance wiki it reports 0.3571 for each unrelated tax page and 0.7143 for the page that answers the question, and 1.0 for every on-topic page in the real-shape guard's own estate.
+A lexical-score cutoff cannot express this floor: a page candidate exists only when a wiki scored at all and one of its index entries scored at all, so the smallest score the producer can emit for a page is already 2 and no cutoff at that boundary refuses anything.
 
 ```sh
 bin/fm-test-run.sh tests/fm-megamind-preflight.test.sh \

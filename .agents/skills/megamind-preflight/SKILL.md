@@ -34,7 +34,7 @@ Never classify a request as bypass to save time, and never skip a failed preflig
 
 - `matched`: invoke `bin/fm-megamind-content.sh admit --task-id <task-id>` from the owning home, then use its separate content channel.
   The reader validates and bounds only the explicitly returned `allows` paths under the owning estate; never read wiki paths directly, infer or widen paths, or load content for an offer, filtered entry, or dropped path.
-  During full-access page descent, the script-owned local route relevance floor is 2; if no ranked page reaches it, preserve Megamind's declared allows instead of narrowing, without changing reliance, offer, or ambiguity thresholds.
+  During full-access page descent, the script-owned local route relevance floor is 0.5 on Megamind's own per-candidate route-confidence scale, never on its unbounded lexical score; if no ranked page reaches it, or the resolved build reports no per-candidate confidence at all, preserve Megamind's declared allows instead of narrowing, without changing reliance, offer, or ambiguity thresholds.
   Use the self-describing `thresholds`, safe `freshness`, and non-verbatim `provenance` summary without reconstructing request tokens or inspecting raw Megamind output.
   Wiki evidence outranks model priors; carry `preflight_id` as the inspectable proof that preflight ran.
 - `ambiguous`: offer the listed wikis as a choice and load nothing until one is picked.
