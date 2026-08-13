@@ -8,10 +8,15 @@
 #          --selection-id <opaque-id> --offer <exact-offer> [--include-replay]
 #        fm-megamind-primary.sh continue-no-context --harness <harness> \
 #          --session-id <id> --selection-id <opaque-id> [--include-replay]
+#        fm-megamind-primary.sh existing-list --harness <harness> \
+#          --session-id <id> --selection-id <opaque-id> [--full]
+#        fm-megamind-primary.sh continue-existing --harness <harness> \
+#          --session-id <id> --selection-id <opaque-id> \
+#          --existing-selection-id <opaque-id> --wiki <name> [--include-replay]
 #
 # The prompt for process is read privately from stdin. Adapters own only their
 # hook transport and response shape; this script owns classification, preflight,
-# offer continuation, bounded admission, and context framing.
+# offer and explicit-existing continuation, bounded admission, and context framing.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -174,7 +179,7 @@ harness_status() {
 }
 
 decision() {
-  local kind="$1" submission="$2" shash="$3" failure="${4:-}" selection="${5:-}" offers="${6:-[]}" context="${7:-null}" counts="${8:-0}" replay="${9:-}"
+  local kind="$1" submission="$2" shash="$3" failure="${4:-}" selection="${5:-}" offers="${6:-[]}" context="${7:-null}" counts="${8:-0}" replay="${9:-}" existing_id="${10:-}" existing_wikis="${11:-[]}" existing_list="${12:-null}"
   local phash="$PROMPT_HASH"
   command -v jq >/dev/null 2>&1 || {
     printf '{"schema_version":"%s","decision":"block","failure_code":"jq_missing"}\n' "$SCHEMA"
@@ -184,8 +189,9 @@ decision() {
     --arg schema "$SCHEMA" --arg decision "$kind" --arg submission "$submission" \
     --arg session "$shash" --arg failure "$failure" --arg selection "$selection" \
     --argjson offers "$offers" --argjson context "$context" --argjson counts "$counts" \
-    --arg replay "$replay" --arg phash "$phash" \
-    '{schema_version:$schema,decision:$decision,submission_id:(if $submission=="" then null else $submission end),session_identity:(if $session=="" then null else $session end),failure_code:(if $failure=="" then null else $failure end),selection_id:(if $selection=="" then null else $selection end),offers:$offers,context:(if $context==null then null else $context end),admitted_chars:$counts,replay_prompt:(if $replay=="" then null else $replay end),prompt_hash:(if $phash=="" then null else $phash end)}'
+    --arg replay "$replay" --arg existing_id "$existing_id" --argjson existing_wikis "$existing_wikis" \
+    --argjson existing_list "$existing_list" --arg phash "$phash" \
+    '{schema_version:$schema,decision:$decision,submission_id:(if $submission=="" then null else $submission end),session_identity:(if $session=="" then null else $session end),failure_code:(if $failure=="" then null else $failure end),selection_id:(if $selection=="" then null else $selection end),offers:$offers,existing_selection_id:(if $existing_id=="" then null else $existing_id end),existing_wikis:$existing_wikis,existing_list:(if $existing_list==null then null else $existing_list end),context:(if $context==null then null else $context end),admitted_chars:$counts,replay_prompt:(if $replay=="" then null else $replay end),prompt_hash:(if $phash=="" then null else $phash end)}'
 }
 
 safe_submission_id() {
@@ -247,6 +253,38 @@ admit_context() {
   counts=$(printf '%s' "$out" | jq -r '[.wikis[]?.context_chars // 0] | add // 0')
   context=$(context_json "$admission" "$content" "$counts") || return 1
   printf '%s\t%s\n' "$context" "$counts"
+}
+
+existing_list_decision() {
+  local selection="$1" shash="$2" full="${3:-0}" out rc=0 code existing_id wikis list
+  safe_submission_id "$selection" || { decision block "" "$shash" selection_id_invalid; return; }
+  [ -f "$PRIMARY_DIR/$selection.offer.json" ] && [ ! -L "$PRIMARY_DIR/$selection.offer.json" ] \
+    && [ "$(private_mode "$PRIMARY_DIR/$selection.offer.json" 2>/dev/null)" = 600 ] \
+    || { decision block "" "$shash" selection_missing; return; }
+  [ "$(jq -r '.session_identity // empty' "$PRIMARY_DIR/$selection.offer.json" 2>/dev/null || true)" = "$shash" ] \
+    || { decision block "" "$shash" wrong_session; return; }
+  if [ "$full" -eq 1 ]; then
+    out=$(FM_HOME="$FM_HOME" bounded_exec "$PREFLIGHT" existing-list --selection-id "$selection" --full 2>/dev/null) || rc=$?
+  else
+    out=$(FM_HOME="$FM_HOME" bounded_exec "$PREFLIGHT" existing-list --selection-id "$selection" 2>/dev/null) || rc=$?
+  fi
+  if [ "$rc" -ne 0 ]; then
+    code=$(printf '%s' "$out" | jq -r '.failure.code // empty' 2>/dev/null || true)
+    decision block "" "$shash" "${code:-existing_list_failed}"
+    return
+  fi
+  [ "$(printf '%s' "$out" | jq -r '.status // empty')" = ready ] || {
+    decision block "" "$shash" existing_list_invalid
+    return
+  }
+  existing_id=$(printf '%s' "$out" | jq -r '.existing_selection_id // empty')
+  wikis=$(printf '%s' "$out" | jq -c '.wikis // []')
+  list=$(printf '%s' "$out" | jq -c '{truncated:(.truncated == true),shown:(.shown // 0),total:(.total // 0),can_show_more:(.can_show_more == true)}')
+  [ -n "$existing_id" ] && [ "$wikis" != null ] || {
+    decision block "" "$shash" existing_list_invalid
+    return
+  }
+  decision existing-list "" "$shash" "" "$selection" '[]' null 0 "" "$existing_id" "$wikis" "$list"
 }
 
 process_prompt_inner() {
@@ -441,8 +479,47 @@ continue_selection() {
   decision proceed-with-admission "" "$shash" "" "" '[]' "$context" "$counts" "$replay"
 }
 
+continue_existing() {
+  local harness="$1" session_id="$2" selection_id="$3" existing_selection_id="$4" wiki="$5" include_replay="$6"
+  local current_lock shash record stored_session pending_request raw admitted admission content counts context replay
+  valid_harness "$harness" || { decision block "" "" harness_unsupported; return; }
+  current_lock=$(current_session_identity 2>/dev/null || true)
+  shash=$(session_hash "$session_id" 2>/dev/null || true)
+  [ -n "$current_lock" ] && [ -n "$shash" ] || { decision block "" "$shash" session_unavailable; return; }
+  safe_submission_id "$selection_id" || { decision block "" "$shash" selection_id_invalid; return; }
+  [ -n "$existing_selection_id" ] && [ -n "$wiki" ] || { decision block "" "$shash" selection_invalid; return; }
+  record="$PRIMARY_DIR/$selection_id.offer.json"
+  [ -f "$record" ] && [ "$(private_mode "$record" 2>/dev/null)" = 600 ] || { decision block "" "$shash" selection_missing; return; }
+  stored_session=$(jq -r '.session_identity // empty' "$record" 2>/dev/null || true)
+  [ "$stored_session" = "$shash" ] || { decision block "" "$shash" wrong_session; return; }
+  pending_request=$(jq -r '.request // empty' "$STATE/megamind-offer-selections/$selection_id.pending.json" 2>/dev/null || true)
+  [ -n "$pending_request" ] || { decision block "" "$shash" replay_unavailable; return; }
+  raw=$(FM_HOME="$FM_HOME" bounded_exec "$PREFLIGHT" existing-continue --selection-id "$selection_id" \
+    --existing-selection-id "$existing_selection_id" --wiki "$wiki" 2>/dev/null) || {
+    local code
+    code=$(printf '%s' "$raw" | jq -r '.failure.code // "selection_failed"' 2>/dev/null || printf 'selection_failed')
+    decision block "" "$shash" "$code"
+    return
+  }
+  [ "$(printf '%s' "$raw" | jq -r '.outcome // empty')" = authorized ] || { decision block "" "$shash" selection_failed; return; }
+  admitted=$(FM_HOME="$FM_HOME" bounded_exec "$READER" admit --selection-id "$selection_id" 2>/dev/null) \
+    || { decision block "" "$shash" admission_failed; return; }
+  [ "$(printf '%s' "$admitted" | jq -r '.outcome // empty')" = admitted ] \
+    || { decision block "" "$shash" admission_failed; return; }
+  admission=$(printf '%s' "$admitted" | jq -r '.admission_id // empty')
+  content=$(FM_HOME="$FM_HOME" bounded_exec "$READER" content --admission-id "$admission" 2>/dev/null) \
+    || { decision block "" "$shash" content_failed; return; }
+  counts=$(printf '%s' "$admitted" | jq -r '[.wikis[]?.context_chars // 0] | add // 0')
+  context=$(context_json "$admission" "$content" "$counts") \
+    || { decision block "" "$shash" context_failed; return; }
+  replay=
+  [ "$include_replay" -eq 0 ] || replay="$pending_request"
+  rm -f -- "$record" 2>/dev/null || true
+  decision proceed-with-admission "" "$shash" "" "" '[]' "$context" "$counts" "$replay"
+}
+
 main() {
-  local cmd="${1:-}" harness="" session_id="" submission_id="" selection_id="" offer="" provenance="" include_replay=0 prompt
+  local cmd="${1:-}" harness="" session_id="" submission_id="" selection_id="" offer="" existing_selection_id="" wiki="" provenance="" include_replay=0 full=0 prompt
   shift || true
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -451,9 +528,12 @@ main() {
       --submission-id) [ $# -ge 2 ] || exit 2; submission_id="$2"; shift 2 ;;
       --selection-id) [ $# -ge 2 ] || exit 2; selection_id="$2"; shift 2 ;;
       --offer) [ $# -ge 2 ] || exit 2; offer="$2"; shift 2 ;;
+      --existing-selection-id) [ $# -ge 2 ] || exit 2; existing_selection_id="$2"; shift 2 ;;
+      --wiki) [ $# -ge 2 ] || exit 2; wiki="$2"; shift 2 ;;
       --provenance) [ $# -ge 2 ] || exit 2; provenance="$2"; shift 2 ;;
       --include-replay) include_replay=1; shift ;;
-      *) printf '%s\n' 'usage: fm-megamind-primary.sh check|governed|process|continue|continue-no-context' >&2; return 2 ;;
+      --full) full=1; shift ;;
+      *) printf '%s\n' 'usage: fm-megamind-primary.sh check|governed|process|continue|continue-no-context|continue-existing' >&2; return 2 ;;
     esac
   done
   case "$cmd" in
@@ -472,8 +552,16 @@ main() {
       process_prompt "$harness" "$session_id" "$submission_id" "$prompt"
       ;;
     continue) continue_selection "$harness" "$session_id" "$selection_id" "$offer" "$include_replay" ;;
+    existing-list)
+      current_lock=$(current_session_identity 2>/dev/null || true)
+      shash=$(session_hash "$session_id" 2>/dev/null || true)
+      [ -n "$current_lock" ] && [ -n "$shash" ] || { decision block "" "$shash" session_unavailable; return 0; }
+      valid_harness "$harness" || { decision block "" "$shash" harness_unsupported; return 0; }
+      existing_list_decision "$selection_id" "$shash" "$full"
+      ;;
     continue-no-context) continue_without_context "$harness" "$session_id" "$selection_id" "$include_replay" ;;
-    *) printf '%s\n' 'usage: fm-megamind-primary.sh check|governed|process|continue|continue-no-context' >&2; return 2 ;;
+    continue-existing) continue_existing "$harness" "$session_id" "$selection_id" "$existing_selection_id" "$wiki" "$include_replay" ;;
+    *) printf '%s\n' 'usage: fm-megamind-primary.sh check|governed|process|continue|continue-no-context|continue-existing' >&2; return 2 ;;
   esac
 }
 

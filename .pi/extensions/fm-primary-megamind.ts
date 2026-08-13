@@ -8,7 +8,9 @@ import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
   WikiOfferDispositionPicker,
+  WikiExistingPicker,
   type WikiOfferDisposition,
+  type WikiExistingDisposition,
 } from "./lib/fm-megamind-offer-picker.ts";
 
 type Decision = {
@@ -16,6 +18,14 @@ type Decision = {
   failure_code?: string | null;
   selection_id?: string | null;
   offers?: Array<{ wiki?: string }>;
+  existing_selection_id?: string | null;
+  existing_wikis?: Array<{ wiki?: string }>;
+  existing_list?: {
+    truncated?: boolean;
+    shown?: number;
+    total?: number;
+    can_show_more?: boolean;
+  } | null;
   context?: { text?: string } | null;
   replay_prompt?: string | null;
 };
@@ -134,6 +144,79 @@ function failureText(result: Decision): string {
   return `Firstmate preflight stopped this request (${result.failure_code ?? "unknown"}); no provider turn was started.`;
 }
 
+function harnessName(): string {
+  return process.env.FM_PI_HARNESS === "pi-signed" ? "pi-signed" : "pi";
+}
+
+type ExistingUiContext = {
+  sessionManager?: { getSessionId?: () => string };
+  hasUI?: boolean;
+  mode?: string;
+  ui: {
+    custom<T>(factory: (tui: { requestRender: () => void }, theme: unknown, keybindings: unknown, done: (value: T) => void) => unknown): Promise<T>;
+    notify: (message: string, type: "info" | "warning" | "error") => void;
+  };
+};
+
+async function chooseExisting(
+  ctx: ExistingUiContext,
+  selection: string,
+  initial: Decision,
+): Promise<{ wiki: string; existingSelectionId: string } | null> {
+  let result = initial;
+  while (true) {
+    const existingSelectionId = result.existing_selection_id;
+    const names = (result.existing_wikis ?? [])
+      .map((item) => item.wiki ?? "")
+      .filter(Boolean);
+    if (!existingSelectionId || result.decision !== "existing-list") {
+      ctx.ui.notify(failureText({ failure_code: "existing_list_invalid" }), "error");
+      return null;
+    }
+    if (names.length === 0) {
+      ctx.ui.notify("Megamind returned no eligible existing wikis. The request was not sent.", "warning");
+      return null;
+    }
+    if (!ctx.hasUI || ctx.mode !== "tui") {
+      ctx.ui.notify("Megamind returned eligible existing wikis, but this interface cannot choose one. The request was not sent.", "warning");
+      return null;
+    }
+    const list = result.existing_list;
+    const disposition = await ctx.ui.custom<WikiExistingDisposition | null>((tui: { requestRender: () => void }, _theme: unknown, _keybindings: unknown, done: (value: WikiExistingDisposition | null) => void) => {
+      const picker = new WikiExistingPicker(names, list?.can_show_more === true);
+      picker.onSelect = done;
+      picker.onCancel = () => done(null);
+      return {
+        render: (width: number) => picker.render(width),
+        invalidate: () => picker.invalidate(),
+        handleInput: (data: string) => {
+          picker.handleInput(data);
+          tui.requestRender();
+        },
+      };
+    });
+    if (!disposition) return null;
+    if (disposition.kind === "existing") {
+      return { wiki: disposition.wiki, existingSelectionId };
+    }
+    if (list?.can_show_more !== true) {
+      ctx.ui.notify("Megamind did not offer a safe full eligible-wiki list. The request was not sent.", "error");
+      return null;
+    }
+    result = await runCoordinator([
+      "existing-list",
+      "--harness", harnessName(),
+      "--session-id", sessionId(ctx),
+      "--selection-id", selection,
+      "--full",
+    ]);
+    if (result.decision !== "existing-list") {
+      ctx.ui.notify(failureText(result), "error");
+      return null;
+    }
+  }
+}
+
 export default function (pi: ExtensionAPI) {
   pi.on?.("input", async (event, ctx) => {
     const text = String((event as { text?: unknown }).text ?? "");
@@ -148,7 +231,7 @@ export default function (pi: ExtensionAPI) {
     }
 
     const result = await runCoordinator(
-      ["process", "--harness", process.env.FM_PI_HARNESS === "pi-signed" ? "pi-signed" : "pi", "--session-id", sessionId(ctx), "--submission-id", randomUUID()],
+      ["process", "--harness", harnessName(), "--session-id", sessionId(ctx), "--submission-id", randomUUID()],
       text,
     );
     switch (result.decision) {
@@ -184,10 +267,35 @@ export default function (pi: ExtensionAPI) {
           ctx.ui.notify("Wiki evidence selection was cancelled. The request was not sent.", "warning");
           return { action: "handled" as const };
         }
+        if (disposition.kind === "different-existing") {
+          const existing = await runCoordinator([
+            "existing-list",
+            "--harness", harnessName(),
+            "--session-id", sessionId(ctx),
+            "--selection-id", selection,
+          ]);
+          const choice = await chooseExisting(ctx, selection, existing);
+          if (!choice) return { action: "handled" as const };
+          const continued = await runCoordinator([
+            "continue-existing",
+            "--harness", harnessName(),
+            "--session-id", sessionId(ctx),
+            "--selection-id", selection,
+            "--existing-selection-id", choice.existingSelectionId,
+            "--wiki", choice.wiki,
+            "--include-replay",
+          ]);
+          if (continued.decision !== "proceed-with-admission" || !continued.context?.text || !continued.replay_prompt) {
+            ctx.ui.notify(failureText(continued), "error");
+            return { action: "handled" as const };
+          }
+          enqueue(contextByPrompt, text, continued.context.text);
+          enqueueReplay(continued.replay_prompt);
+          await pi.sendUserMessage(continued.replay_prompt);
+          return { action: "handled" as const };
+        }
         if (disposition.kind === "unavailable") {
-          const message = disposition.choice === "different-existing"
-            ? "Different existing wiki is not available yet because no typed authorization path exists. The request was not sent."
-            : "New wiki proposals are not available yet because no proposal workflow exists. No wiki was created, and the request was not sent.";
+          const message = "New wiki proposals are not available yet because no proposal workflow exists. No wiki was created, and the request was not sent.";
           ctx.ui.notify(message, "warning");
           return { action: "handled" as const };
         }
@@ -209,7 +317,7 @@ export default function (pi: ExtensionAPI) {
           return { action: "handled" as const };
         }
         const continued = await runCoordinator(
-          ["continue", "--harness", process.env.FM_PI_HARNESS === "pi-signed" ? "pi-signed" : "pi", "--session-id", sessionId(ctx), "--selection-id", selection, "--offer", disposition.wiki],
+          ["continue", "--harness", harnessName(), "--session-id", sessionId(ctx), "--selection-id", selection, "--offer", disposition.wiki],
         );
         if (continued.decision !== "proceed-with-admission" || !continued.context?.text) {
           ctx.ui.notify(failureText(continued), "error");
