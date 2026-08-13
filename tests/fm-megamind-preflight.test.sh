@@ -735,12 +735,12 @@ test_ladder_pages_replace_the_routing_index() {
 {"schema_version": "megamind/route-result/v2", "query": "pricing", "matched": true,
  "decision": "load", "confidence": 0.9,
  "candidates": [
-   {"path": "wiki/concepts/pricing.md", "kind": "page", "score": 8, "confidence": 1.0},
-   {"path": "../escape.md", "kind": "page", "score": 7, "confidence": 1.0},
-   {"path": "wiki/concepts/pricing.md", "kind": "page", "score": 6, "confidence": 1.0},
-   {"path": "wiki/concepts/discounts.md", "kind": "page", "score": 5, "confidence": 0.9},
-   {"path": "wiki/concepts/overflow.md", "kind": "page", "score": 4, "confidence": 0.9},
-   {"path": "wiki/index.md", "kind": "index", "score": 3, "confidence": 1.0}]}
+   {"path": "wiki/concepts/pricing.md", "kind": "page", "score": 8, "confidence": 1.0, "reasons": "keyword match: pricing | index entry match: pricing"},
+   {"path": "../escape.md", "kind": "page", "score": 7, "confidence": 1.0, "reasons": "keyword match: pricing | index entry match: pricing"},
+   {"path": "wiki/concepts/pricing.md", "kind": "page", "score": 6, "confidence": 1.0, "reasons": "keyword match: pricing | index entry match: pricing"},
+   {"path": "wiki/concepts/discounts.md", "kind": "page", "score": 5, "confidence": 0.9, "reasons": "keyword match: pricing | index entry match: pricing"},
+   {"path": "wiki/concepts/overflow.md", "kind": "page", "score": 4, "confidence": 0.9, "reasons": "keyword match: pricing | index entry match: pricing"},
+   {"path": "wiki/index.md", "kind": "index", "score": 3, "confidence": 1.0, "reasons": "keyword match: pricing"}]}
 JSON
   : > "$FM_TEST_STUB_ARGS"
   out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
@@ -762,11 +762,11 @@ JSON
   printf '%s' "$argv" | grep -q '^route$' || fail "the ladder subcommand was never invoked: $argv"
   # Global flags precede the subcommand, --fields follows it because that is the
   # parser that owns it, and the request goes last after --, so a dash-leading
-  # request can never be parsed as an option. Confidence is asked for by name
-  # because the default candidate projection does not carry it, and the floor
-  # this suite proves has nothing to gate on without it.
+  # request can never be parsed as an option. Both halves of the relevance
+  # contract are asked for by name because the default candidate projection
+  # carries neither the confidence nor the full reason list they gate on.
   printf '%s' "$argv" | tr '\n' ' ' \
-    | grep -q -- '--root [^ ]* --format json --no-help-hints route --fields path,kind,score,confidence -- pricing' \
+    | grep -q -- '--root [^ ]* --format json --no-help-hints route --fields path,kind,score,confidence,reasons -- pricing' \
     || fail "ladder argv was not the documented shape: $argv"
   pass "run: the ladder replaces a routing index with its ranked, budgeted pages"
 }
@@ -783,15 +783,19 @@ test_ladder_failure_keeps_declared_paths() {
     "$MATCHED_FIXTURE" > "$fixture"
   # Every case but `nopage` ranks a page that would otherwise be authorized, so
   # each one fails for the reason it names rather than for a missing candidate.
-  # `noconfidence` is the branch a build too old to project a per-candidate
-  # confidence lands in: the floor has nothing to gate on, so the declaration
-  # stands rather than being replaced on a signal that was never emitted.
-  for case_name in nopage failed unrecognized noconfidence; do
+  # A build that cannot project a field does not reach `noconfidence` or
+  # `noreasons`: it refuses the whole `--fields` list and lands in `failed`, and
+  # no supported line is that old anyway. Those two cases are fail-closed depth
+  # against a producer that serves a field and leaves it empty, null, or of some
+  # other type - the declaration stands rather than being replaced on a signal
+  # that was never actually reported.
+  for case_name in nopage failed unrecognized noconfidence noreasons; do
     case "$case_name" in
-      nopage) printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/index.md","kind":"index","score":3,"confidence":1.0}]}' > "$route" ;;
-      failed) printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8,"confidence":1.0}]}' > "$route" ;;
-      unrecognized) printf '%s\n' '{"schema_version":"megamind/something-else/v9","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8,"confidence":1.0}]}' > "$route" ;;
-      noconfidence) printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8,"reason":"keyword match: pricing"}]}' > "$route" ;;
+      nopage) printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/index.md","kind":"index","score":3,"confidence":1.0,"reasons":"index entry match: pricing"}]}' > "$route" ;;
+      failed) printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8,"confidence":1.0,"reasons":"index entry match: pricing"}]}' > "$route" ;;
+      unrecognized) printf '%s\n' '{"schema_version":"megamind/something-else/v9","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8,"confidence":1.0,"reasons":"index entry match: pricing"}]}' > "$route" ;;
+      noconfidence) printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8,"confidence":null,"reasons":"index entry match: pricing"}]}' > "$route" ;;
+      noreasons) printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8,"confidence":1.0,"reasons":null}]}' > "$route" ;;
     esac
     if [ "$case_name" = failed ]; then
       out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" FM_TEST_ROUTE_EXIT=2 \
@@ -807,66 +811,95 @@ test_ladder_failure_keeps_declared_paths() {
     [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] \
       || fail "$case_name ladder changed the preflight outcome: $out"
   done
-  pass "run: a ladder that ranks no page, fails, is unrecognized, or reports no confidence leaves the declared paths untouched"
+  pass "run: a ladder that ranks no page, fails, is unrecognized, or leaves a gating field empty leaves the declared paths untouched"
 }
 
 # An unrelated route result for a portfolio-rebalancing question must not replace
-# a useful declared index with tax pages. The gate is Megamind's own per-candidate
-# route confidence, not its lexical score: score is an unbounded sum of fixed
-# weights whose smallest emittable value for a page is already 2, so a score
-# cutoff at that boundary rejects nothing the producer can produce.
+# a useful declared index with tax pages, and it must not do so under EITHER card
+# configuration. Lexical score cannot express that: it is an unbounded sum of
+# fixed weights whose smallest emittable value for a page is already 2, so a
+# score cutoff at that boundary rejects nothing the producer can produce.
+# Confidence alone cannot express it either: the producer seeds each page's
+# signal vector from the signals its whole wiki matched on, so how the wiki
+# matched, not how the page matched, sets the dominant term.
 #
-# Every candidate below is the real 0.6.0 producer's own output for this exact
-# question against a German finance wiki whose description carries "Portfolio"
-# and whose index lists all three pages: the two tax pages are surfaced only by a
-# single index-path token and report 0.3571, the page that actually answers the
-# question matches two index labels and reports 0.7143, and their lexical scores
-# (2, 2, and 5) are what makes the abandoned score cutoff useless here. The local
-# floor stays separate from Megamind's reliance, offer, and ambiguity thresholds.
+# Both fixtures below are the real 0.6.0 producer's own output for this exact
+# question against a German finance wiki whose index lists all three pages, and
+# they differ only in which card field carries the query token "portfolio":
+#
+#   description (text signal)  tax 0.3571 / 0.3571, answering page 0.7143
+#   keywords    (trigger 1.0)  tax 0.6571 / 0.6571, answering page 0.7143
+#
+# The second is the configuration that defeats a confidence-only floor: both tax
+# pages clear 0.5 while answering nothing. What separates them under both is the
+# candidate-local reason: the answering page's own index entry matched by label
+# and reads `index entry match:`, while each tax page was surfaced only by the
+# spelling of its target path and reads `index path match:`. The local contract
+# stays separate from Megamind's reliance, offer, and ambiguity thresholds.
 test_ladder_relevance_floor_preserves_declared_index() {
-  local home out fixture="$TMP_ROOT/ladder-relevance-floor.json" route="$TMP_ROOT/ladder-relevance-floor-route.json" root
+  local home out root config fixture route
   home=$(new_home ladderrelevancefloor)
   root="$home/estate/ProductWiki"
   mkdir -p "$root/wiki/concepts"
   printf 'tax page\n' > "$root/wiki/concepts/portfolio-schenkung-und-erbschaftsteuer.md"
   printf 'child tax page\n' > "$root/wiki/concepts/portfolio-kindergeld-und-kinderfreibetrag.md"
   printf 'rebalancing page\n' > "$root/wiki/concepts/portfolio-rebalancieren.md"
+  fixture="$TMP_ROOT/ladder-relevance-floor.json"
   jq --arg root "$root" '.matches[0].root = $root
       | .matches[0].allows = ["wiki/index.md"]
       | .matches[0].context_budget = {"max_candidates": 5, "max_context_chars": 4000}' \
     "$MATCHED_FIXTURE" > "$fixture"
-  # The positive ranking control and the regression in one real result: the floor
-  # has to keep the page that answers the question and drop the two that do not.
-  cat > "$route" <<'JSON'
+  for config in description keywords; do
+    route="$TMP_ROOT/ladder-relevance-floor-route-$config.json"
+    case "$config" in
+      description)
+        cat > "$route" <<'JSON'
 {"schema_version":"megamind/route-result/v2","query":"Wie oft sollte ich ein Portfolio rebalancieren?","candidates":[
-  {"path":"wiki/concepts/portfolio-rebalancieren.md","kind":"page","score":5,"confidence":0.7143},
-  {"path":"wiki/concepts/portfolio-kindergeld-und-kinderfreibetrag.md","kind":"page","score":2,"confidence":0.3571},
-  {"path":"wiki/concepts/portfolio-schenkung-und-erbschaftsteuer.md","kind":"page","score":2,"confidence":0.3571}
+  {"path":"wiki/concepts/portfolio-rebalancieren.md","kind":"page","score":5,"confidence":0.7143,"reasons":"description match: portfolio | index entry match: portfolio | index entry match: rebalancieren"},
+  {"path":"wiki/concepts/portfolio-kindergeld-und-kinderfreibetrag.md","kind":"page","score":2,"confidence":0.3571,"reasons":"description match: portfolio | index path match: portfolio"},
+  {"path":"wiki/concepts/portfolio-schenkung-und-erbschaftsteuer.md","kind":"page","score":2,"confidence":0.3571,"reasons":"description match: portfolio | index path match: portfolio"}
 ]}
 JSON
-  : > "$FM_TEST_STUB_ARGS"
-  out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
-    run_in "$home" run --request "Wie oft sollte ich ein Portfolio rebalancieren?")
-  [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" = '["wiki/concepts/portfolio-rebalancieren.md"]' ] \
-    || fail "the floor did not separate the relevant page from the unrelated tax pages: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
-  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/concepts/portfolio-rebalancieren.md"]' ] \
-    || fail "the floored ranking desynchronized the binding: $out"
+        ;;
+      keywords)
+        cat > "$route" <<'JSON'
+{"schema_version":"megamind/route-result/v2","query":"Wie oft sollte ich ein Portfolio rebalancieren?","candidates":[
+  {"path":"wiki/concepts/portfolio-rebalancieren.md","kind":"page","score":7,"confidence":0.7143,"reasons":"keyword match: portfolio | index entry match: portfolio | index entry match: rebalancieren"},
+  {"path":"wiki/concepts/portfolio-kindergeld-und-kinderfreibetrag.md","kind":"page","score":4,"confidence":0.6571,"reasons":"keyword match: portfolio | index path match: portfolio"},
+  {"path":"wiki/concepts/portfolio-schenkung-und-erbschaftsteuer.md","kind":"page","score":4,"confidence":0.6571,"reasons":"keyword match: portfolio | index path match: portfolio"}
+]}
+JSON
+        ;;
+    esac
+    # The positive ranking control and the regression in one real result: the
+    # contract has to keep the page that answers the question and drop the two
+    # that do not, whichever card field made the wiki match.
+    : > "$FM_TEST_STUB_ARGS"
+    out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
+      run_in "$home" run --request "Wie oft sollte ich ein Portfolio rebalancieren?")
+    [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" = '["wiki/concepts/portfolio-rebalancieren.md"]' ] \
+      || fail "$config: the contract did not separate the relevant page from the unrelated tax pages: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
+    [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/concepts/portfolio-rebalancieren.md"]' ] \
+      || fail "$config: the floored ranking desynchronized the binding: $out"
 
-  # The same question with only the below-floor tax pages left: the declared
-  # index survives whole rather than being traded for pages that do not answer it.
-  jq 'del(.candidates[0])' "$route" > "$route.tax-only" && mv "$route.tax-only" "$route"
-  : > "$FM_TEST_STUB_ARGS"
-  out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
-    run_in "$home" run --request "Wie oft sollte ich ein Portfolio rebalancieren?")
-  [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" = '["wiki/index.md"]' ] \
-    || fail "below-floor unrelated pages replaced the declared index: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
-  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/index.md"]' ] \
-    || fail "below-floor ranking desynchronized the binding: $out"
-  # Without this, a descent that never ran at all would read exactly like one the
-  # floor refused, and the regression would pass on a dead ladder.
-  grep -q '^route$' "$FM_TEST_STUB_ARGS" \
-    || fail "the ladder subcommand was never invoked: $(cat "$FM_TEST_STUB_ARGS")"
-  pass "ladder: the floor keeps the ranked page that answers the request and refuses unrelated rebalancing-to-tax results"
+    # The same question with only the unrelated tax pages left: the declared
+    # index survives whole rather than being traded for pages that do not
+    # answer it. Under the keywords configuration both of them clear the
+    # confidence floor, so only the candidate-local half can refuse them.
+    jq 'del(.candidates[0])' "$route" > "$route.tax-only" && mv "$route.tax-only" "$route"
+    : > "$FM_TEST_STUB_ARGS"
+    out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
+      run_in "$home" run --request "Wie oft sollte ich ein Portfolio rebalancieren?")
+    [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" = '["wiki/index.md"]' ] \
+      || fail "$config: unrelated tax pages replaced the declared index: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
+    [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/index.md"]' ] \
+      || fail "$config: the refused ranking desynchronized the binding: $out"
+    # Without this, a descent that never ran at all would read exactly like one
+    # the contract refused, and the regression would pass on a dead ladder.
+    grep -q '^route$' "$FM_TEST_STUB_ARGS" \
+      || fail "$config: the ladder subcommand was never invoked: $(cat "$FM_TEST_STUB_ARGS")"
+  done
+  pass "ladder: under both card configurations the contract keeps the page that answers the request and refuses unrelated rebalancing-to-tax results"
 }
 
 test_ladder_relevance_floor_applies_to_explicit_selection() {
@@ -882,7 +915,10 @@ test_ladder_relevance_floor_applies_to_explicit_selection() {
   jq --arg root "$root" '.offers[0].root = $root' "$AMBIGUOUS_SELECTION_FIXTURE" > "$ambiguous"
   jq --arg root "$root" '.selected.root = $root | .selected.access = "full" | .selected.allows = ["wiki/index.md"]' \
     "$SELECTION_FIXTURE" > "$selection"
-  printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/portfolio-schenkung-und-erbschaftsteuer.md","kind":"page","score":2,"confidence":0.3571}]}' > "$route"
+  # The keywords configuration deliberately: this tax page clears the confidence
+  # floor at 0.6571 and is refused only by the candidate-local half, so the
+  # continuation path is proven against the harder of the two controls.
+  printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/portfolio-schenkung-und-erbschaftsteuer.md","kind":"page","score":4,"confidence":0.6571,"reasons":"keyword match: portfolio | index path match: portfolio"}]}' > "$route"
   out=$(FM_TEST_STUB_FIXTURE="$ambiguous" run_in "$home" run --request "original request")
   selection_id=$(printf '%s' "$out" | jq -r '.selection_id')
   : > "$FM_TEST_STUB_ARGS"
@@ -918,9 +954,9 @@ test_ladder_pages_fit_the_declared_character_budget() {
     "$MATCHED_FIXTURE" > "$fixture"
   cat > "$route" <<'JSON'
 {"schema_version": "megamind/route-result/v2", "candidates": [
-   {"path": "wiki/concepts/first.md", "kind": "page", "score": 9, "confidence": 1.0},
-   {"path": "wiki/concepts/second.md", "kind": "page", "score": 8, "confidence": 0.9},
-   {"path": "wiki/concepts/third.md", "kind": "page", "score": 7, "confidence": 0.8}]}
+   {"path": "wiki/concepts/first.md", "kind": "page", "score": 9, "confidence": 1.0, "reasons": "index entry match: pricing"},
+   {"path": "wiki/concepts/second.md", "kind": "page", "score": 8, "confidence": 0.9, "reasons": "index entry match: pricing"},
+   {"path": "wiki/concepts/third.md", "kind": "page", "score": 7, "confidence": 0.8, "reasons": "index entry match: pricing"}]}
 JSON
   out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
     run_in "$home" run --request "pricing")
@@ -959,7 +995,7 @@ test_option_shaped_upstream_values_stay_values() {
       | .matches[0].allows = ["wiki/index.md"]
       | .matches[0].context_budget = {"max_candidates": 2, "max_context_chars": 4000}' \
     "$MATCHED_FIXTURE" > "$fixture"
-  printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"-dash.md","kind":"page","score":8,"confidence":1.0}]}' > "$route"
+  printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"-dash.md","kind":"page","score":8,"confidence":1.0,"reasons":"index entry match: pricing"}]}' > "$route"
   out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
     run_in "$home" run --request "pricing")
   [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" = '["-dash.md"]' ] \
@@ -977,7 +1013,7 @@ test_ladder_never_widens_a_restricted_access() {
   local fixture="$TMP_ROOT/ladder-digest.json" route="$TMP_ROOT/ladder-digest-route.json"
   local ambiguous="$TMP_ROOT/ladder-digest-ambiguous.json" selection="$TMP_ROOT/ladder-digest-selection.json"
   cat > "$route" <<'JSON'
-{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8,"confidence":1.0}]}
+{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8,"confidence":1.0,"reasons":"index entry match: pricing"}]}
 JSON
   home=$(new_home ladderaccess)
   root="$home/estate/ProductWiki"

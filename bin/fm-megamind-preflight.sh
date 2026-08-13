@@ -78,15 +78,18 @@
 #   informational and is never executed or parsed. Instead, every authorized
 #   full-access root - a threshold match and an explicitly selected offer alike
 #   - descends Megamind's own governed ladder once: `megamind-axi --root <root>
-#   --format json --no-help-hints route --fields path,kind,score,confidence --
-#   <request>`, with global flags before the subcommand, `--fields` where
-#   `route` declares it, and the request last after `--`.
-#   The ladder returns ranked candidate paths, kinds, scores, and per-candidate
-#   route confidences and
+#   --format json --no-help-hints route --fields
+#   path,kind,score,confidence,reasons -- <request>`, with global flags before
+#   the subcommand, `--fields` where `route` declares it, and the request last
+#   after `--`.
+#   The ladder returns ranked candidate paths, kinds, scores, per-candidate
+#   route confidences, and the per-candidate reasons those rest on, and
 #   never page content or file sizes, so it widens no content boundary. Its
 #   root-contained `page` candidates, validated by the same path rule as any
-#   declared allows, become eligible only when Megamind's own per-candidate
-#   route confidence reaches the explicit local ROUTE_RELEVANCE_FLOOR below,
+#   declared allows, become eligible only when they clear both halves of the
+#   local relevance contract below - the bounded ROUTE_RELEVANCE_FLOOR on
+#   Megamind's own per-candidate route confidence, and the candidate-local
+#   ROUTE_ENTRY_EVIDENCE proving the page's own index entry is what matched -
 #   then are capped by that
 #   authorization's own max_candidates and cut back to the ranked prefix whose
 #   own bytes fit its own max_context_chars, because the bounded reader refuses a
@@ -98,7 +101,8 @@
 #   an access this model class had narrowed below full - digest-only - never
 #   descends at all and keeps the exact paths Megamind declared. A ladder that
 #   is unusable, fails, returns an unrecognized document, cannot report a
-#   per-candidate confidence, ranks no page, or ranks only below-floor pages
+#   per-candidate confidence or the reasons behind it, ranks no page, or ranks
+#   only pages that miss either half of the contract
 #   likewise leaves the declared card paths exactly as
 #   they were, so this can only narrow an authorization onto pages Megamind
 #   ranked above the local floor for a surface it already opened in full, and
@@ -223,24 +227,53 @@ SUPPORTED_VERSION_LINES='0.3.x, 0.4.x, 0.5.x, or 0.6.x'
 LOG_FILE="$STATE/megamind-preflight.jsonl"
 SELECTION_DIR="$STATE/megamind-offer-selections"
 SELECTION_RETENTION_MAX=32
-# The local floor a ranked page must clear before it may replace an authorized
-# declared index, expressed on Megamind's own per-candidate route-confidence
-# scale (0..1) rather than on its raw lexical score. Score is the wrong unit
-# here: it is an unbounded sum of fixed weights, it is not comparable across
-# queries or wikis, and its smallest emittable value for a page candidate is
-# already 2 - a wiki that scored at all plus an index entry that scored at all -
-# so no score cutoff at or below 2 can reject anything the producer can emit.
-# Confidence is bounded, comparable, and reported per candidate: for a page it
-# is 0.6 * strongest matched signal class + 0.4 * query-token coverage, and the
-# weakest signal class an index entry can carry is 0.5, so a page candidate can
-# never sit at or below 0.3 and this floor is provably reachable from both
-# sides. Calibrated against the real producer: an unrelated tax page surfaced
-# for a portfolio-rebalancing question by a single index-path token reports
-# 0.3571 and is refused, while the page that actually answers it reports 0.7143
-# and the real-shape guard's on-topic pages report 1.0. This is a host-local
-# admission floor only; Megamind's own reliance, offer, and ambiguity
-# thresholds are its own and are never restated or changed here.
+# A ranked page may replace an authorized declared index only when it clears
+# both halves of this contract: a bounded floor on Megamind's own per-candidate
+# route confidence, and candidate-local evidence that the page's own index entry
+# is what matched. Neither half is sufficient alone.
+#
+# Score is the wrong unit for either half: it is an unbounded sum of fixed
+# weights, it is not comparable across queries or wikis, and its smallest
+# emittable value for a page candidate is already 2 - a wiki that scored at all
+# plus an index entry that scored at all - so no score cutoff at or below 2 can
+# reject anything the producer can emit.
+#
+# Confidence is bounded (0..1), comparable, and reported per candidate: for a
+# page it is 0.6 * strongest matched signal class + 0.4 * query-token coverage,
+# and the weakest signal class an index entry can carry is 0.5, so a page
+# candidate can never sit at or below 0.3 and this floor is reachable from both
+# sides. What confidence is not is candidate-local. The producer seeds each
+# page's signal vector from the signals its whole wiki matched on and only ever
+# raises it, so the strongest-signal term is inherited from how the WIKI matched,
+# not from how the page's own index entry matched. A query token sitting in the
+# card's own keywords is a full-strength trigger, which pins every page of that
+# wiki at 0.6 or above however weakly the page itself matched, and no constant on
+# this scale can separate them: the remaining gap is carried entirely by the
+# coverage term, so it narrows as the question lengthens and moves with card
+# configuration rather than with page relevance.
 ROUTE_RELEVANCE_FLOOR=0.5
+# The candidate-local half. Megamind reports, per candidate, why that candidate
+# was surfaced, and exactly two of those reasons are produced by the index-entry
+# pass alone: an entry whose own link label matched a query token reads `index
+# entry match: <token>`, and one matched only by the spelling of its target path
+# reads `index path match: <token>`. Requiring the label form is what the blended
+# confidence cannot express - it is emitted only when the page's own index entry
+# matched, so no amount of wiki-level trigger or keyword strength can produce it.
+# Reason tokens are lowercase alphanumeric, so no token can contain this marker's
+# separator, and the ladder's own no-index-entry fallback both spells `matched:`
+# rather than `match: ` and is never emitted with kind `page`.
+#
+# The durable form of this half belongs upstream: the smallest producer change
+# that would retire the prose match is a typed per-candidate entry-level field -
+# an entry confidence or entry score derived only from the index-entry signals,
+# never seeded from the wiki-level signal map. Until a supported release emits
+# one, the compatibility contract is fail-closed in both directions: a build that
+# refuses the `reasons` field exits non-zero and the declared paths stand, and a
+# build that serves the field without this marker ranks no eligible page and the
+# declared paths stand. Both keep the authorization exactly where Megamind left
+# it, so an unrecognized or future producer can only narrow this host, never
+# widen it.
+ROUTE_ENTRY_EVIDENCE='index entry match: '
 READ_POLICY="Use bin/fm-megamind-content.sh admit with this owning home's task authorization, then use its content channel; never read wiki paths directly, execute follow_up, or widen beyond validated allows and budgets."
 RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" | --request-stdin [--model-class local|cloud] [--today YYYY-MM-DD]'
 CONTINUE_USAGE='usage: fm-megamind-preflight.sh continue --selection-id <id> --offer <wiki>'
@@ -362,15 +395,17 @@ route_page_allows() {  # <executable> <wiki root> <request> <max candidates> <ma
   # nothing the index pointed at. `route` is Megamind's own governed ladder for
   # exactly that step. It resolves index links into ranked, root-contained page
   # candidates under the same declared budgets and returns paths, kinds, scores,
-  # and per-candidate confidences - never page content, and never a file size -
+  # per-candidate confidences, and the reasons behind them - never page content,
+  # and never a file size -
   # so running it
   # widens no content boundary and the bounded reader stays the only way any
   # wiki byte reaches a model.
   #
   # An empty array is printed whenever the ladder is unusable, fails, returns a
   # document this host does not recognize, cannot report a per-candidate
-  # confidence, surfaces no page at all, or ranks
-  # every page below ROUTE_RELEVANCE_FLOOR. The caller then keeps the declared
+  # confidence or the reasons behind it, surfaces no page at all, or ranks
+  # every page below ROUTE_RELEVANCE_FLOOR or without ROUTE_ENTRY_EVIDENCE of
+  # its own. The caller then keeps the declared
   # card paths it already had, so this can only narrow an authorization onto
   # specific pages Megamind ranked above the local floor, never widen one past
   # what Megamind returned. Callers descend only for a full-access
@@ -400,15 +435,16 @@ route_page_allows() {  # <executable> <wiki root> <request> <max candidates> <ma
   # declares them for `route`, `--fields` follows it because that is the parser
   # that owns it, and the request goes last after `--` so a
   # dash-leading request stays a request rather than becoming an option. The
-  # default candidate projection carries only path, kind, score, and reason, so
-  # the confidence this floor gates on has to be asked for by name; a build that
-  # cannot report it refuses the field, exits non-zero, and keeps the declared
-  # paths rather than descending on a signal it never emitted. Its
+  # default candidate projection carries only one truncated reason and no
+  # confidence at all, so both halves of the floor have to be asked for by name;
+  # a build that cannot report either one refuses the field, exits non-zero, and
+  # keeps the declared paths rather than descending on a signal it never
+  # emitted. Its
   # stdin is closed explicitly: this runs inside the caller's record loop, and a
   # build that ever read stdin during `route` would otherwise swallow the
   # remaining match records and silently skip the ladder for every later wiki.
   raw="$("$exe" --root "$root" --format json --no-help-hints route \
-    --fields path,kind,score,confidence -- "$request" </dev/null 2>/dev/null)" && rc=0 || rc=$?
+    --fields path,kind,score,confidence,reasons -- "$request" </dev/null 2>/dev/null)" && rc=0 || rc=$?
   if [ "$rc" -ne 0 ]; then
     printf '%s' '[]'
     return 0
@@ -416,7 +452,16 @@ route_page_allows() {  # <executable> <wiki root> <request> <max candidates> <ma
   # Control characters are refused with the unsafe paths, so the ranked set is a
   # plain line-delimited stream no candidate can misframe.
   ranked="$(printf '%s' "$raw" | jq -r --argjson max "$max_candidates" \
-      --argjson floor "$ROUTE_RELEVANCE_FLOOR" "$SAFE_JQ_DEFS"'
+      --argjson floor "$ROUTE_RELEVANCE_FLOOR" \
+      --arg entry_evidence "$ROUTE_ENTRY_EVIDENCE" "$SAFE_JQ_DEFS"'
+      # Every release since the ladder existed has rendered `reasons` as one
+      # joined string; an array is accepted too so a future projection that
+      # keeps the list shape is read rather than silently refused.
+      def entry_reasons:
+        .reasons
+        | if type == "array" then (map(select(type == "string")) | join(" | "))
+          elif type == "string" then .
+          else "" end;
       if (.schema_version | type == "string")
          and (.schema_version | startswith("megamind/route-result/"))
          and (.candidates | type == "array")
@@ -424,6 +469,7 @@ route_page_allows() {  # <executable> <wiki root> <request> <max candidates> <ma
         [.candidates[]?
           | select(type == "object" and .kind == "page")
           | select(.confidence | type == "number" and . >= $floor)
+          | select(entry_reasons | contains($entry_evidence))
           | .path
           | select(safe_path and (test("[[:cntrl:]]") | not))]
         | reduce .[] as $path ([]; if index($path) then . else . + [$path] end)
@@ -1205,7 +1251,7 @@ $root_real" 2>/dev/null || true)"
   # Descend Megamind's own ladder once per authorized root, so a match resolves
   # to the pages that answer the request instead of only the routing index that
   # lists them. A root the ladder cannot serve, or a ladder whose candidates all
-  # report a route confidence below ROUTE_RELEVANCE_FLOOR, keeps its declared
+  # miss either half of the local relevance contract, keeps its declared
   # card paths.
   # Only a full-access match descends: `route` takes no model class, so it
   # cannot re-apply the per-class restriction preflight already applied, and a

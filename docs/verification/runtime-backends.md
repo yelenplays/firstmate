@@ -211,9 +211,25 @@ Secondmate launch itself is intentionally inapplicable because it starts a first
 
 The host-owned reader was verified on 2026-08-13 with stock macOS Bash, Python 3, and synthetic wiki roots only.
 The portable suite covers no-follow root and component traversal, special files, hardlinks, strict UTF-8, Unicode code-point budgets, binding and root/card changes, concurrent admissions, private output, home isolation, same-day relaunch preservation with UTC-day rollover refusal, age-based pruning on the next admission, and an actual synthetic Megamind 0.6 selection continuation.
-The preflight suite also covers the script-owned route relevance floor of 0.5 on Megamind's own per-candidate route-confidence scale, including the unrelated rebalancing-to-tax-page fallback and the same floor during explicit selection continuation, both asserting that the ladder was actually invoked, while retaining a positive above-floor page-ranking control and the branch where a build reports no per-candidate confidence at all.
-The floor is calibrated against the real 0.6.0 producer rather than assumed: for the question `Wie oft sollte ich ein Portfolio rebalancieren?` against a synthetic German finance wiki it reports 0.3571 for each unrelated tax page and 0.7143 for the page that answers the question, and 1.0 for every on-topic page in the real-shape guard's own estate.
-A lexical-score cutoff cannot express this floor: a page candidate exists only when a wiki scored at all and one of its index entries scored at all, so the smallest score the producer can emit for a page is already 2 and no cutoff at that boundary refuses anything.
+The preflight suite also covers the script-owned route relevance contract, which a ranked page must satisfy in both halves before it may replace an authorized declared index: a floor of 0.5 on Megamind's own per-candidate route confidence, and candidate-local evidence that the page's own index entry is what matched.
+It covers the unrelated rebalancing-to-tax-page fallback under both card configurations and the same contract during explicit selection continuation, both asserting that the ladder was actually invoked, while retaining a positive above-floor page-ranking control and the fail-closed branches where a served field is left empty.
+
+The contract is calibrated against the real 0.6.0 producer rather than assumed. For the question `Wie oft sollte ich ein Portfolio rebalancieren?` against a synthetic German finance wiki whose index lists two unrelated tax pages and one page that answers it, the producer reports:
+
+| card field carrying `portfolio` | unrelated tax pages | answering page |
+| --- | --- | --- |
+| `description` (text signal) | 0.3571 | 0.7143 |
+| `keywords` (full-strength trigger) | 0.6571 | 0.7143 |
+
+Neither half alone holds the invariant.
+A lexical-score cutoff cannot express it: a page candidate exists only when a wiki scored at all and one of its index entries scored at all, so the smallest score the producer can emit for a page is already 2 and no cutoff at that boundary refuses anything.
+A confidence floor alone cannot express it either: the producer seeds each page's signal vector from the signals its whole wiki matched on, so a query token sitting in the card's own `keywords` pins every page of that wiki at or above 0.6 however weakly the page itself matched, and the remaining gap is carried entirely by the coverage term, which narrows as the question lengthens.
+What separates the controls under both configurations is candidate-local: the answering page's own index entry matched by label and reads `index entry match:`, while each tax page was surfaced only by the spelling of its target path and reads `index path match:`.
+Those two strings are produced by the index-entry pass alone, and have been spelled that way in every release long predating the oldest supported line.
+
+The durable form of that half belongs upstream. The smallest producer change that would retire the prose match is a typed per-candidate entry-level field - an entry confidence or entry score derived only from the index-entry signals and never seeded from the wiki-level signal map.
+Until a supported release emits one, the compatibility contract is fail-closed in both directions: a build that refuses the `reasons` field exits non-zero and the declared paths stand, and a build that serves it without the marker ranks no eligible page and the declared paths stand.
+Neither direction widens privacy, access, path, candidate, character-budget, model-class, or digest-only boundaries, all of which are enforced ahead of this contract and unchanged by it.
 
 ```sh
 bin/fm-test-run.sh tests/fm-megamind-preflight.test.sh \
@@ -223,7 +239,7 @@ bin/fm-test-run.sh tests/fm-megamind-preflight.test.sh \
 Observed bounded output on 2026-08-13:
 
 ```text
-FM_TEST_SUMMARY total=3 failed=0 skipped_gate=0 duration_ms=60097
+FM_TEST_SUMMARY total=3 failed=0 skipped_gate=0 duration_ms=67396
 ```
 
 The real Megamind 0.6 synthetic-estate selection evidence above remains the upstream command compatibility proof, while `tests/fm-megamind-content.test.sh` proves that a script-issued `fm/megamind-preflight-selection/v1` authorization reaches the same reader boundary without touching a real wiki.
@@ -240,7 +256,7 @@ The real-producer guard was run on 2026-08-13 with `FM_MEGAMIND_REAL_EXE` pinned
 FM_MEGAMIND_REAL_EXE=<proven Megamind 0.6.0 path> bin/fm-test-run.sh tests/fm-megamind-realshape.test.sh
 ```
 
-Observed output was `FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=1246`.
+Observed output was `FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=1089`.
 
 ## Primary Megamind prompt interception
 
