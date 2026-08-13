@@ -364,7 +364,10 @@ def authorization(auth: Dict[str, Any], selection_id: Optional[str]) -> Optional
         if authorization_id != selection_id:
             return None
         selection = auth.get("selection")
-        if not isinstance(selection, dict) or selection.get("basis") != "selected-current-offer":
+        if not isinstance(selection, dict) or selection.get("basis") not in (
+            "selected-current-offer",
+            "selected-eligible-existing",
+        ):
             return None
     if not isinstance(matches, list) or not matches:
         return None

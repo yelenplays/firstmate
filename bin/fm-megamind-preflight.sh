@@ -16,6 +16,12 @@
 #        fm-megamind-preflight.sh continue --selection-id <id> --offer <wiki>
 #                                        consume one private ambiguous offer and
 #                                        print one typed authorization projection
+#        fm-megamind-preflight.sh existing-list --selection-id <id> [--full]
+#                                        ask Megamind for the bounded eligible
+#                                        existing-wiki list for this offer
+#        fm-megamind-preflight.sh existing-continue --selection-id <id>
+#                                        --existing-selection-id <id> --wiki <name>
+#                                        authorize one exact returned wiki
 #        fm-megamind-preflight.sh decline --selection-id <id>
 #                                        consume one private ambiguous offer
 #                                        without authorizing any wiki content
@@ -158,12 +164,12 @@
 #   invents a second one. A home with no readable lock cannot own an offer, so
 #   the ambiguous result is emitted as usual with no selection_id and no
 #   retained record, and continuation is simply unavailable there.
-# - `select-offer` and the selection contract arrive at 0.6.x, while preflight
-#   itself is proven on every accepted line. A 0.3.x, 0.4.x, or 0.5.x home keeps
-#   its full mandatory preflight and takes that same uncontinuable path: the
-#   ambiguous result stands with no selection_id and no retained record, because
-#   an offer routed there could never be spent. The command is therefore never
-#   sent to a release that does not publish it, and `continue` refuses with
+# - `select-offer` and `select-existing` arrive at 0.6.x, while preflight itself
+#   is proven on every accepted line. A 0.3.x, 0.4.x, or 0.5.x home keeps its full
+#   mandatory preflight and takes the same uncontinuable path: the ambiguous
+#   result stands with no selection_id and no retained record, because an offer
+#   routed there could never be spent. The command is therefore never sent to a
+#   release that does not publish it, and continuation refuses with
 #   selection_unsupported before invoking anything if the build changed under it.
 # - The private selection store is bounded and script-owned, with no daemon: an
 #   ambiguous `run` and a completed `continue` or `decline` first retire every
@@ -176,6 +182,19 @@
 #   verbatim request, so a day-old one is retired too, and a lock directory with
 #   no live recorded owner is released rather than left behind.
 # - `continue` accepts only that opaque selection_id and the exact offered wiki.
+#   `existing-list` accepts only that same pending identity and asks Megamind to
+#   derive the eligible names from its complete current catalog; the host never
+#   enumerates roots or constructs eligibility. It retains only the returned
+#   names plus producer truncation facts, and requires the list catalog, request,
+#   model, owner, session, and date to match the pending binding. `existing-continue`
+#   accepts only a name and opaque list identity returned by that record, invokes
+#   Megamind's separate `select-existing` authorization, validates its selected
+#   root against the bounded reader's estate/name identity binding, and emits
+#   the same bounded-reader authorization shape with
+#   `basis: selected-eligible-existing` and `threshold_matched: false`. List,
+#   authorization, catalog, card/root, date, executable, estate, model, and
+#   session drift, malformed producer output, refusal, and replay stop without a
+#   fallback path.
 #   It resolves every executable, estate, packet, request, and model value from
 #   the private record, invokes the same executable's `select-offer` command,
 #   validates the complete `megamind/preflight-selection-result/v1` result, and
@@ -289,6 +308,8 @@ READ_POLICY="Use bin/fm-megamind-content.sh admit with this owning home's task a
 RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" | --request-stdin [--model-class local|cloud] [--today YYYY-MM-DD]'
 CONTINUE_USAGE='usage: fm-megamind-preflight.sh continue --selection-id <id> --offer <wiki>'
 DECLINE_USAGE='usage: fm-megamind-preflight.sh decline --selection-id <id>'
+EXISTING_LIST_USAGE='usage: fm-megamind-preflight.sh existing-list --selection-id <id> [--full]'
+EXISTING_CONTINUE_USAGE='usage: fm-megamind-preflight.sh existing-continue --selection-id <id> --existing-selection-id <id> --wiki <name>'
 
 # The one privacy-minimization vocabulary every filter that projects upstream
 # retrieval evidence prepends. Holding it here rather than restating it per
@@ -359,11 +380,11 @@ is_supported_version() {  # <version> - accept only proven complete 0.3.x/0.4.x/
   esac
 }
 
-is_selection_capable_version() {  # <version> - only the line that publishes select-offer
-  # Every accepted line routes a preflight, but `select-offer` and the
-  # megamind/preflight-selection-result/v1 contract arrive at 0.6.x: an older
-  # accepted build answers that subcommand with usage_error, so an offer routed
-  # there is never continuable and the command is never sent to it.
+is_selection_capable_version() {  # <version> - the line that publishes explicit selection
+  # Every accepted line routes a preflight, but `select-offer`, `select-existing`,
+  # and the governed selection result contracts arrive at 0.6.x: an older
+  # accepted build answers those subcommands with usage_error, so an offer
+  # routed there is never continuable and the command is never sent to it.
   is_supported_version "$1" || return 1
   case "$1" in
     0.6.*) return 0 ;;
@@ -723,6 +744,10 @@ authorization_path() {  # <selection-id> - script-owned private consumed result 
   printf '%s/%s.authorization.json\n' "$SELECTION_DIR" "$1"
 }
 
+existing_list_path() {  # <selection-id> - private host record for one Megamind list
+  printf '%s/%s.existing-list.json\n' "$SELECTION_DIR" "$1"
+}
+
 disposition_path() {  # <selection-id> - script-owned private no-content replay tombstone
   printf '%s/%s.disposition.json\n' "$SELECTION_DIR" "$1"
 }
@@ -754,7 +779,7 @@ prune_selections() {  # <today> [records about to be written] - bound the privat
   # An authorization is only a replay tombstone for a pending record that could
   # still exist, and no pending record outlives its date, so a day is enough.
   find "$SELECTION_DIR" -maxdepth 1 -type f \
-    \( -name '*.authorization.json' -o -name '*.disposition.json' \) -mtime +0 \
+    \( -name '*.authorization.json' -o -name '*.disposition.json' -o -name '*.existing-list.json' \) -mtime +0 \
     -exec rm -f -- '{}' + 2>/dev/null || true
   # The packet extract and every publish temporary hold the same original packet
   # and verbatim request as a pending record, so the bound covers them too: each
@@ -1416,6 +1441,254 @@ $root_real" 2>/dev/null || true)"
   printf '%s\n' "$normalized"
 }
 
+existing_owner_id() {
+  local owner_real
+  owner_real="$(CDPATH='' cd -P -- "$FM_HOME" 2>/dev/null && pwd -P)" || return 1
+  hash_text "firstmate-home/v1
+$owner_real"
+}
+
+load_existing_pending() {
+  local pending="$SELECTION_DIR/$1.pending.json" current_session today exe estate version exe_path exe_hash estate_hash
+  [ -f "$pending" ] && [ ! -L "$pending" ] || { selection_error selection_missing "the pending selection is unavailable"; return 1; }
+  [ "$(private_mode "$pending" 2>/dev/null)" = 600 ] || { selection_error selection_invalid "the pending selection is not private"; return 1; }
+  if ! jq -e --arg id "$1" 'type == "object" and .schema_version == "fm/megamind-preflight-selection/v1"
+      and .status == "pending" and .selection_id == $id
+      and (.request | type == "string" and length > 0)
+      and (.request_hash | type == "string" and length > 0)
+      and (.preflight_id | type == "string" and length > 0)
+      and (.catalog_hash | type == "string" and length > 0)
+      and (.model_class == "local" or .model_class == "cloud")
+      and (.executable | type == "object")
+      and (.executable.path | type == "string" and length > 0)
+      and (.executable.sha256 | type == "string" and test("^[A-Fa-f0-9]{64}$"))
+      and (.executable.version | type == "string" and length > 0)
+      and (.estate_identity | type == "string" and length > 0)
+      and (.today | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))
+      and (.session_identity | type == "string" and length > 0)' "$pending" >/dev/null 2>&1; then
+    selection_error selection_malformed "the pending selection is malformed"; return 1
+  fi
+  EXISTING_PENDING="$pending"
+  EXISTING_REQUEST="$(jq -r '.request' "$pending")"
+  EXISTING_REQUEST_HASH="$(jq -r '.request_hash' "$pending")"
+  EXISTING_PREFLIGHT_ID="$(jq -r '.preflight_id' "$pending")"
+  EXISTING_CATALOG_HASH="$(jq -r '.catalog_hash' "$pending")"
+  EXISTING_MODEL_CLASS="$(jq -r '.model_class' "$pending")"
+  EXISTING_STORED_SESSION="$(jq -r '.session_identity' "$pending")"
+  EXISTING_STORED_TODAY="$(jq -r '.today' "$pending")"
+  current_session="$(current_session_identity 2>/dev/null || true)"
+  today="$(current_today 2>/dev/null || true)"
+  [ -n "$current_session" ] && [ "$current_session" = "$EXISTING_STORED_SESSION" ] \
+    || { selection_error binding_changed "the current Firstmate session does not own this offer"; return 1; }
+  [ -n "$today" ] && [ "$today" = "$EXISTING_STORED_TODAY" ] \
+    || { selection_error binding_changed "the Megamind date changed since the offer"; return 1; }
+  [ "$EXISTING_MODEL_CLASS" = "$(resolve_model_class "")" ] \
+    || { selection_error binding_changed "the model class changed since the offer"; return 1; }
+  exe="$(resolve_executable)"
+  estate="$(config_path "$CONFIG/megamind-estate" 2>/dev/null || true)"
+  version="$(detect_version "$exe" 2>/dev/null || true)"
+  exe_path="$(resolved_executable "$exe" 2>/dev/null || true)"
+  exe_hash="$(hash_file "$exe_path" 2>/dev/null || true)"
+  estate_hash="$(estate_identity "$estate" 2>/dev/null || true)"
+  [ "$version" = "$(jq -r '.executable.version' "$pending")" ] \
+    && [ "$exe_path" = "$(jq -r '.executable.path' "$pending")" ] \
+    && [ "$exe_hash" = "$(jq -r '.executable.sha256' "$pending")" ] \
+    || { selection_error binding_changed "the Megamind executable changed since the offer"; return 1; }
+  is_selection_capable_version "$version" \
+    || { selection_error selection_unsupported "this Megamind release publishes no explicit selection command"; return 1; }
+  [ -n "$estate_hash" ] && [ "$estate_hash" = "$(jq -r '.estate_identity' "$pending")" ] \
+    || { selection_error binding_changed "the Megamind estate changed since the offer"; return 1; }
+  EXISTING_EXE_PATH="$exe_path"
+  EXISTING_ESTATE="$estate"
+  EXISTING_VERSION="$version"
+  EXISTING_TODAY="$today"
+  EXISTING_OWNER_ID="$(existing_owner_id 2>/dev/null || true)"
+  [ -n "$EXISTING_OWNER_ID" ] || { selection_error binding_changed "the Firstmate home identity is unavailable"; return 1; }
+}
+
+cmd_existing_list() (
+  local selection_id="" full=0 raw rc=0 note note_count=0 truncated=false shown total record path
+  local -a existing_list_args
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --selection-id) [ $# -ge 2 ] || { printf '%s\n' "$EXISTING_LIST_USAGE" >&2; return 2; }; selection_id="$2"; shift 2 ;;
+      --full) full=1; shift ;;
+      *) printf '%s\n' "$EXISTING_LIST_USAGE" >&2; return 2 ;;
+    esac
+  done
+  valid_selection_id "$selection_id" || { selection_error selection_id_invalid "selection identity is not valid"; return 1; }
+  command -v jq >/dev/null 2>&1 || { selection_error jq_missing "jq is required to list existing wikis"; return 1; }
+  [ -d "$STATE" ] && [ ! -L "$STATE" ] || { selection_error state_invalid "the owning state directory is unavailable"; return 1; }
+  [ -d "$SELECTION_DIR" ] && [ ! -L "$SELECTION_DIR" ] || { selection_error selection_missing "the pending selection is unavailable"; return 1; }
+  load_existing_pending "$selection_id" || return 1
+  existing_list_args=(--root "$EXISTING_ESTATE" select-existing
+    --request "$EXISTING_REQUEST" --model-class "$EXISTING_MODEL_CLASS"
+    --owner-id "$EXISTING_OWNER_ID" --session-id "$EXISTING_STORED_SESSION"
+    --estate "$EXISTING_ESTATE" --today "$EXISTING_TODAY"
+    --format json --no-help-hints)
+  [ "$full" -eq 1 ] && existing_list_args+=(--full)
+  raw="$("$EXISTING_EXE_PATH" "${existing_list_args[@]}" 2>/dev/null)" && rc=0 || rc=$?
+  [ "$rc" -eq 0 ] || { selection_error upstream_error "Megamind refused the eligible existing-wiki list"; return 1; }
+  if ! printf '%s' "$raw" | jq -e --arg request_hash "$EXISTING_REQUEST_HASH" \
+      --arg pending_catalog_hash "$EXISTING_CATALOG_HASH" \
+      --arg model_class "$EXISTING_MODEL_CLASS" --arg owner "$EXISTING_OWNER_ID" \
+      --arg session "$EXISTING_STORED_SESSION" --arg today "$EXISTING_TODAY" '
+      .schema_version == "megamind/existing-selection-list/v1" and .status == "ready"
+      and (.request_hash == $request_hash) and (.catalog_hash == $pending_catalog_hash)
+      and (.model_class == $model_class) and (.owner_id == $owner) and (.session_id == $session)
+      and (.today == $today) and (.selection_id | type == "string" and test("^[A-Fa-f0-9]{16,128}$"))
+      and (.wikis | type == "array")
+      and all(.wikis[]; type == "object" and (.name | type == "string" and length > 0)
+        and (.root | type == "string" and length > 0)
+        and (.access == "full" or .access == "digest-only")
+        and (.root_facts_hash | type == "string" and length > 0)
+        and ((.context_budget == null) or (.context_budget | type == "object"
+          and (.max_candidates | type == "number" and floor == . and . > 0)
+          and (.max_context_chars | type == "number" and floor == . and . > 0))))
+      and ([.wikis[].name] | length == (unique | length))
+      and (.notes | type == "array" and all(.[]; type == "string"))' >/dev/null 2>&1; then
+    selection_error malformed_result "Megamind returned a malformed eligible existing-wiki list"; return 1
+  fi
+  note_count="$(printf '%s' "$raw" | jq '.notes | length')"
+  [ "$note_count" -le 1 ] || { selection_error malformed_result "Megamind returned malformed truncation facts"; return 1; }
+  note="$(printf '%s' "$raw" | jq -r '.notes[0] // empty')"
+  if [ -n "$note" ]; then
+    if [[ "$note" =~ ^wikis\ truncated\ to\ ([0-9]+)\ of\ ([0-9]+)\;\ re-run\ with\ --full$ ]]; then
+      shown="${BASH_REMATCH[1]}"; total="${BASH_REMATCH[2]}"; truncated=true
+      [ "$shown" -eq "$(printf '%s' "$raw" | jq '.wikis | length')" ] && [ "$total" -gt "$shown" ] \
+        || { selection_error malformed_result "Megamind returned inconsistent truncation facts"; return 1; }
+    else
+      selection_error malformed_result "Megamind returned an unrecognized eligible-list note"; return 1
+    fi
+  else
+    shown="$(printf '%s' "$raw" | jq '.wikis | length')"; total="$shown"
+  fi
+  path="$(existing_list_path "$selection_id")"
+  record="$(printf '%s' "$raw" | jq -c --arg pending "$selection_id" --arg request_hash "$EXISTING_REQUEST_HASH" \
+    --arg model_class "$EXISTING_MODEL_CLASS" --arg owner "$EXISTING_OWNER_ID" \
+    --arg session "$EXISTING_STORED_SESSION" --arg today "$EXISTING_TODAY" \
+    --argjson truncated "$truncated" --argjson shown "$shown" --argjson total "$total" \
+    '{schema_version:"fm/megamind-existing-selection/v1",status:"ready",pending_selection_id:$pending,
+      request_hash:$request_hash,catalog_hash:.catalog_hash,model_class:$model_class,owner_id:$owner,session_id:$session,today:$today,
+      existing_selection_id:.selection_id,wikis:[.wikis[] | {wiki:.name}],truncated:$truncated,shown:$shown,total:$total,
+      can_show_more:($truncated == true)}')" || { selection_error projection_failed "the eligible list could not be recorded safely"; return 1; }
+  private_publish "$path" <<< "$record" || { selection_error projection_failed "the eligible list could not be recorded safely"; return 1; }
+  printf '%s\n' "$record"
+)
+
+cmd_existing_continue() (
+  local selection_id="" existing_selection_id="" wiki="" list_path list_count raw rc=0 auth_path_value selected_root selected_root_real expected_root expected_root_real
+  local host_paths owner_identity_value executable_identity_value root_identity_value projection
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --selection-id) [ $# -ge 2 ] || { printf '%s\n' "$EXISTING_CONTINUE_USAGE" >&2; return 2; }; selection_id="$2"; shift 2 ;;
+      --existing-selection-id) [ $# -ge 2 ] || { printf '%s\n' "$EXISTING_CONTINUE_USAGE" >&2; return 2; }; existing_selection_id="$2"; shift 2 ;;
+      --wiki) [ $# -ge 2 ] || { printf '%s\n' "$EXISTING_CONTINUE_USAGE" >&2; return 2; }; wiki="$2"; shift 2 ;;
+      *) printf '%s\n' "$EXISTING_CONTINUE_USAGE" >&2; return 2 ;;
+    esac
+  done
+  if ! valid_selection_id "$selection_id" || ! valid_selection_id "$existing_selection_id"; then
+    selection_error selection_id_invalid "selection identity is not valid"; return 1
+  fi
+  if [ -z "$wiki" ] || [[ "$wiki" = -* ]] || printf '%s' "$wiki" | LC_ALL=C grep -q '[^A-Za-z0-9_.-]'; then
+    selection_error selection_invalid "the selected wiki is not a returned eligible name"; return 1
+  fi
+  command -v jq >/dev/null 2>&1 || { selection_error jq_missing "jq is required to authorize an existing wiki"; return 1; }
+  load_existing_pending "$selection_id" || return 1
+  list_path="$(existing_list_path "$selection_id")"
+  [ -f "$list_path" ] && [ ! -L "$list_path" ] && [ "$(private_mode "$list_path" 2>/dev/null)" = 600 ] \
+    || { selection_error selection_missing "the eligible existing-wiki list is unavailable"; return 1; }
+  if ! jq -e --arg pending "$selection_id" --arg request_hash "$EXISTING_REQUEST_HASH" \
+      --arg catalog_hash "$EXISTING_CATALOG_HASH" --arg model_class "$EXISTING_MODEL_CLASS" \
+      --arg owner "$EXISTING_OWNER_ID" --arg session "$EXISTING_STORED_SESSION" \
+      --arg today "$EXISTING_TODAY" --arg existing_id "$existing_selection_id" '
+      .schema_version == "fm/megamind-existing-selection/v1" and .status == "ready"
+      and .pending_selection_id == $pending and .request_hash == $request_hash
+      and .catalog_hash == $catalog_hash and .model_class == $model_class
+      and .owner_id == $owner and .session_id == $session and .today == $today
+      and .existing_selection_id == $existing_id and (.wikis | type == "array")
+      and ([.wikis[]?.wiki] | all(type == "string" and length > 0)
+        and (length == (unique | length)))
+      and (.truncated | type == "boolean")
+      and (.shown | type == "number" and floor == . and . >= 0)
+      and (.total | type == "number" and floor == . and . >= 0)
+      and (.total >= .shown)
+      and (.can_show_more == (.truncated == true))' "$list_path" >/dev/null 2>&1; then
+    selection_error selection_invalid "the eligible existing-wiki list is malformed or stale"; return 1
+  fi
+  list_count="$(jq -r --arg id "$existing_selection_id" --arg wiki "$wiki" \
+    '[select(.existing_selection_id == $id) | .wikis[]? | select(.wiki == $wiki)] | length' "$list_path" 2>/dev/null || printf 0)"
+  [ "$list_count" = 1 ] || { selection_error selection_invalid "the selected wiki was not returned by Megamind"; return 1; }
+  auth_path_value="$(authorization_path "$selection_id")"
+  [ ! -e "$auth_path_value" ] && [ ! -L "$auth_path_value" ] \
+    || { selection_error selection_replayed "the selection authorization already exists"; return 1; }
+  raw="$("$EXISTING_EXE_PATH" --root "$EXISTING_ESTATE" select-existing "$wiki" \
+    --selection-id "$existing_selection_id" --request "$EXISTING_REQUEST" \
+    --model-class "$EXISTING_MODEL_CLASS" --owner-id "$EXISTING_OWNER_ID" \
+    --session-id "$EXISTING_STORED_SESSION" --estate "$EXISTING_ESTATE" \
+    --today "$EXISTING_TODAY" --format json --no-help-hints 2>/dev/null)" && rc=0 || rc=$?
+  [ "$rc" -eq 0 ] || { selection_error upstream_error "Megamind refused the selected existing wiki"; return 1; }
+  if ! printf '%s' "$raw" | jq -e --arg id "$existing_selection_id" --arg wiki "$wiki" \
+      --arg request_hash "$EXISTING_REQUEST_HASH" --arg catalog_hash "$EXISTING_CATALOG_HASH" \
+      --arg model_class "$EXISTING_MODEL_CLASS" --arg owner "$EXISTING_OWNER_ID" \
+      --arg session "$EXISTING_STORED_SESSION" --arg today "$EXISTING_TODAY" "$SAFE_JQ_DEFS"'
+      .schema_version == "megamind/existing-selection-result/v1" and .status == "authorized"
+      and .selection_id == $id and .request_hash == $request_hash and (.catalog_hash | type == "string" and length > 0)
+      and .model_class == $model_class and .owner_id == $owner and .session_id == $session and .today == $today
+      and (.root_facts_hash | type == "string" and length > 0)
+      and (.selection | type == "object" and .status == "explicit-user-selection"
+        and .basis == "selected-eligible-existing" and .source_disposition == "eligible-existing"
+        and .threshold_matched == false and .confidence_changed == false)
+      and (.selected | type == "object" and .name == $wiki and (.root | type == "string" and length > 0)
+        and (.access == "full" or .access == "digest-only") and .routing_mode == "full"
+        and (.allows | type == "array" and length > 0 and all(.[]; type == "string" and safe_path))
+        and (.context_budget | type == "object" and (.max_candidates | type == "number" and floor == . and . > 0)
+          and (.max_context_chars | type == "number" and floor == . and . > 0))
+        and (.follow_up | type == "string"))' >/dev/null 2>&1; then
+    selection_error malformed_result "Megamind returned a malformed existing-wiki authorization"; return 1
+  fi
+  selected_root="$(printf '%s' "$raw" | jq -r '.selected.root')"
+  selected_root_real="$(CDPATH='' cd -P -- "$selected_root" 2>/dev/null && pwd -P || true)"
+  expected_root="${EXISTING_ESTATE%/}/$wiki"
+  expected_root_real="$(CDPATH='' cd -P -- "$expected_root" 2>/dev/null && pwd -P || true)"
+  if [ -z "$selected_root_real" ] || [ -z "$expected_root_real" ] || [ "$selected_root_real" != "$expected_root_real" ]; then
+    selection_error binding_changed "Megamind selected a root outside the reader's wiki identity binding"; return 1
+  fi
+  root_identity_value="$(hash_text "wiki-root/v1
+$expected_root_real" 2>/dev/null || true)"
+  owner_identity_value="$EXISTING_OWNER_ID"
+  executable_identity_value="$(hash_text "megamind-executable/v1
+$EXISTING_EXE_PATH
+$(hash_file "$EXISTING_EXE_PATH")" 2>/dev/null || true)"
+  host_paths="$(jq -cn --arg estate "$EXISTING_ESTATE" --arg root "$expected_root_real" '$ARGS.positional' --args -- "$EXISTING_ESTATE" "$expected_root_real")"
+  projection="$(printf '%s' "$raw" | jq -c --arg schema "$SELECTION_SCHEMA" --arg pending "$selection_id" \
+    --arg preflight_id "$EXISTING_PREFLIGHT_ID" --arg root_identity "$root_identity_value" \
+    --arg owner_identity "$owner_identity_value" --arg executable_identity "$executable_identity_value" \
+    --arg executable_version "$EXISTING_VERSION" --arg estate_identity "$(estate_identity "$EXISTING_ESTATE")" \
+    --arg pending_today "$EXISTING_TODAY" --arg policy "$READ_POLICY" --argjson host_paths "$host_paths" "$SAFE_JQ_DEFS"'
+      {schema_version:$schema,outcome:"authorized",failure:null,preflight_id:$preflight_id,
+       request_hash:.request_hash,catalog_hash:.catalog_hash,model_class:.model_class,
+       selection_id:$pending,upstream_selection_id:.selection_id,root_facts_hash:.root_facts_hash,
+       selection:{status:"explicit-user-selection",basis:"selected-eligible-existing",
+         source_disposition:"eligible-existing",source_status:"ready",confidence_changed:false,
+         threshold_matched:false},
+       authorization_binding:{schema_version:"fm/megamind-content-binding/v1",
+         owner_identity:$owner_identity,executable_identity:$executable_identity,
+         executable_version:$executable_version,estate_identity:$estate_identity,
+         model_class:.model_class,preflight_id:$preflight_id,request_hash:.request_hash,
+         catalog_hash:.catalog_hash,declared_allows:[{wiki:.selected.name,allows:.selected.allows,
+           access:.selected.access,routing_mode:.selected.routing_mode,context_budget:.selected.context_budget}],
+         authorization_id:$pending,selection_id:$pending,today:$pending_today},
+       selected:{wiki:.selected.name,root_identity:$root_identity,allows:.selected.allows,
+         access:.selected.access,routing_mode:.selected.routing_mode,follow_up:(.selected.follow_up | redact_host_paths($host_paths)),
+         context_budget:.selected.context_budget,threshold_matched:false,provisional:false},
+       notes:["Explicit selection authorizes only the selected eligible existing wiki; it is not a threshold match."],
+       read_policy:$policy}' )" || { selection_error projection_failed "the existing-wiki authorization could not be projected safely"; return 1; }
+  private_publish_exclusive "$auth_path_value" <<< "$projection" || { selection_error selection_replayed "the selection authorization already exists"; return 1; }
+  rm -f -- "$EXISTING_PENDING" "$list_path" || { selection_error retirement_failed "the consumed selection could not be retired safely"; return 1; }
+  printf '%s\n' "$projection"
+)
+
 cmd_decline() (
   local selection_id="" pending tombstone decline_lock lock_held=0
   local request request_hash prompt_hash stored_today stored_session today session_identity projection
@@ -1822,7 +2095,7 @@ $offer_root_real" 2>/dev/null || true)"
 )
 
 main() {
-  [ $# -ge 1 ] || { printf 'usage: fm-megamind-preflight.sh classify|classify-stdin|classify-provenance|run|continue|decline|check ...\n' >&2; return 2; }
+  [ $# -ge 1 ] || { printf 'usage: fm-megamind-preflight.sh classify|classify-stdin|classify-provenance|run|continue|decline|existing-list|existing-continue|check ...\n' >&2; return 2; }
   local cmd="$1"; shift
   case "$cmd" in
     classify)
@@ -1842,8 +2115,10 @@ main() {
     run) cmd_run "$@" ;;
     continue) cmd_continue "$@" ;;
     decline) cmd_decline "$@" ;;
+    existing-list) cmd_existing_list "$@" ;;
+    existing-continue) cmd_existing_continue "$@" ;;
     check) cmd_check ;;
-    *) printf 'usage: fm-megamind-preflight.sh classify|classify-stdin|classify-provenance|run|continue|decline|check ...\n' >&2; return 2 ;;
+    *) printf 'usage: fm-megamind-preflight.sh classify|classify-stdin|classify-provenance|run|continue|decline|existing-list|existing-continue|check ...\n' >&2; return 2 ;;
   esac
 }
 
