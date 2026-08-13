@@ -25,6 +25,10 @@ SCHEMA="fm/megamind-primary-decision/v1"
 PRIMARY_DIR="$STATE/megamind-primary"
 PRIMARY_TIMEOUT="${FM_MEGAMIND_PRIMARY_TIMEOUT:-120}"
 case "$PRIMARY_TIMEOUT" in ''|*[!0-9]*) PRIMARY_TIMEOUT=120 ;; esac
+# Set once per process_prompt call so decision() can stamp every decision it
+# writes for that prompt without touching every call site; a cached decision
+# is only ever served back when this hash matches the prompt that asked.
+PROMPT_HASH=""
 
 # Bounding a child is a liveness guard, not an authorization one, so it uses
 # whichever bounded-execution helper this host has - timeout(1), gtimeout, or
@@ -169,6 +173,7 @@ harness_status() {
 
 decision() {
   local kind="$1" submission="$2" shash="$3" failure="${4:-}" selection="${5:-}" offers="${6:-[]}" context="${7:-null}" counts="${8:-0}" replay="${9:-}"
+  local phash="$PROMPT_HASH"
   command -v jq >/dev/null 2>&1 || {
     printf '{"schema_version":"%s","decision":"block","failure_code":"jq_missing"}\n' "$SCHEMA"
     return 0
@@ -177,8 +182,8 @@ decision() {
     --arg schema "$SCHEMA" --arg decision "$kind" --arg submission "$submission" \
     --arg session "$shash" --arg failure "$failure" --arg selection "$selection" \
     --argjson offers "$offers" --argjson context "$context" --argjson counts "$counts" \
-    --arg replay "$replay" \
-    '{schema_version:$schema,decision:$decision,submission_id:(if $submission=="" then null else $submission end),session_identity:(if $session=="" then null else $session end),failure_code:(if $failure=="" then null else $failure end),selection_id:(if $selection=="" then null else $selection end),offers:$offers,context:(if $context==null then null else $context end),admitted_chars:$counts,replay_prompt:(if $replay=="" then null else $replay end)}'
+    --arg replay "$replay" --arg phash "$phash" \
+    '{schema_version:$schema,decision:$decision,submission_id:(if $submission=="" then null else $submission end),session_identity:(if $session=="" then null else $session end),failure_code:(if $failure=="" then null else $failure end),selection_id:(if $selection=="" then null else $selection end),offers:$offers,context:(if $context==null then null else $context end),admitted_chars:$counts,replay_prompt:(if $replay=="" then null else $replay end),prompt_hash:(if $phash=="" then null else $phash end)}'
 }
 
 safe_submission_id() {
@@ -298,21 +303,42 @@ process_prompt_inner() {
 
 process_prompt() {
   local harness="$1" session_id="$2" submission_id="$3" prompt="$4"
-  local record="$PRIMARY_DIR/$submission_id.decision.json" lock="$PRIMARY_DIR/.$submission_id.lock" output
+  local record="$PRIMARY_DIR/$submission_id.decision.json" lock="$PRIMARY_DIR/.$submission_id.lock" output phash cached_phash
   if ! primary_session_governed; then
-    decision bypass "$submission_id" ""
+    if command -v jq >/dev/null 2>&1; then
+      decision bypass "$submission_id" ""
+    else
+      # "A home with the guard off must cost nothing... and must never lose a
+      # prompt" cannot itself depend on jq being present: emit the bypass
+      # document directly here, exactly as decision() already does for its
+      # own jq-less block fallback, rather than routing through decision()
+      # and getting that fallback's "block jq_missing" instead of a bypass.
+      # safe_submission_id's charset (letters, digits, "_.-") never needs
+      # JSON escaping, and process's caller always sets a valid one.
+      printf '{"schema_version":"%s","decision":"bypass","submission_id":"%s","session_identity":null,"failure_code":null,"selection_id":null,"offers":[],"context":null,"admitted_chars":0,"replay_prompt":null,"prompt_hash":null}\n' \
+        "$SCHEMA" "$submission_id"
+    fi
     return 0
   fi
   prune_private_records
-  if [ -f "$record" ] && [ ! -L "$record" ] && [ "$(private_mode "$record" 2>/dev/null)" = 600 ]; then
-    cat "$record"
-    return 0
+  phash=$(hash_text "$prompt" 2>/dev/null) || phash=""
+  # A cached record is keyed by submission id alone on disk, so a reused id
+  # carrying a different prompt must never be served the first prompt's
+  # decision - including admitted wiki bytes. Require the stored prompt_hash
+  # to match this prompt before treating the cache as a hit.
+  if [ -n "$phash" ] && [ -f "$record" ] && [ ! -L "$record" ] && [ "$(private_mode "$record" 2>/dev/null)" = 600 ]; then
+    cached_phash=$(jq -r '.prompt_hash // empty' "$record" 2>/dev/null) || cached_phash=""
+    if [ -n "$cached_phash" ] && [ "$cached_phash" = "$phash" ]; then
+      cat "$record"
+      return 0
+    fi
   fi
   if ! mkdir -- "$lock" 2>/dev/null; then
     decision block "$submission_id" "" concurrent_submission
     return 0
   fi
   chmod 700 "$lock" 2>/dev/null || true
+  PROMPT_HASH="$phash"
   output=$(process_prompt_inner "$harness" "$session_id" "$submission_id" "$prompt") || true
   if ! printf '%s\n' "$output" | publish_private "$record"; then
     rm -rf -- "$lock" 2>/dev/null || true

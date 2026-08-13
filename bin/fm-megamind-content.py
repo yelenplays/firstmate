@@ -379,10 +379,16 @@ def authorization(auth: Dict[str, Any], selection_id: Optional[str]) -> Optional
             return None
         if not isinstance(allows, list) or not allows:
             return None
-        # Megamind's routing vocabulary is exactly ("full", "pointer"): "full"
-        # authorizes the declared allows under the declared budget, "pointer"
-        # exposes paths alone and never loads content. Any other value is
-        # unknown upstream output and refuses rather than being guessed at.
+        # access and routing_mode are two different Megamind vocabularies.
+        # access is the per-model-class narrowing, exactly ("full",
+        # "digest-only"): "full" authorizes every declared allows path under
+        # the declared budget, "digest-only" authorizes exactly the one
+        # approved digest path (cardinality enforced below, once allows is
+        # known). routing_mode is exactly ("full", "pointer") and says only
+        # whether the ladder ever produced ranked pages; "pointer" names
+        # paths without having read them, so only "full" is accepted here.
+        # Any other value for either field is unknown upstream output and
+        # refuses rather than being guessed at.
         if match.get("access") not in ("full", "digest-only") or match.get("routing_mode") != "full":
             return None
         if not isinstance(budget, dict) or type(budget.get("max_candidates")) is not int or budget["max_candidates"] <= 0:
@@ -399,6 +405,10 @@ def authorization(auth: Dict[str, Any], selection_id: Optional[str]) -> Optional
             if rel not in safe_allows:
                 safe_allows.append(rel)
         if not safe_allows:
+            return None
+        # digest-only exposes exactly its approved digest; the reader does not
+        # trust upstream to have enforced that narrowing on its own.
+        if match["access"] == "digest-only" and len(safe_allows) != 1:
             return None
         normalized.append({
             "wiki": wiki,
@@ -486,6 +496,14 @@ def admit(home: Path, task_id: Optional[str], selection_id: Optional[str]) -> in
     auth = load_json(path)
     if auth is None:
         return fail("authorization_malformed")
+    # A worker's launch preflight legitimately returns no-match, privacy-filtered,
+    # or unavailable; none of those ever prove an authorization, but reporting
+    # them through the same code a forged authorization gets makes an ordinary,
+    # honest outcome indistinguishable from a tampered one to the only channel a
+    # worker has for learning it. Distinguish them before the proof check that
+    # both a real forgery and a real no-match reach next.
+    if auth.get("outcome") in ("no-match", "privacy-filtered", "unavailable"):
+        return fail("authorization_not_matched", authorization_id=auth.get("preflight_id"))
     if not proof_matches(home, auth):
         return fail("authorization_unproven", authorization_id=auth.get("preflight_id"))
     binding_state = current_binding(home, auth, selection_id)

@@ -43,6 +43,7 @@ Never classify a request as bypass to save time, and never skip a failed preflig
   The reader accepts only the script-issued authorization and its selected allows and budget; it never executes or parses `follow_up`.
   A continuation or admission refusal leaves the substantive work blocked and never falls back to the ambiguous worker path.
 - `no-match`: stay quiet about wikis and do the work ordinarily without wiki context.
+  A `no-match` whose `filtered_count` is greater than 0 withheld a candidate for this model class and is handled exactly like `privacy-filtered` below, not like an ordinary no-match.
 - `privacy-filtered`: say wiki coverage is unavailable for this model class; load nothing and never name the withheld wikis.
 - `unavailable`: preflight ran but no usable wiki cards exist; disclose that concretely as a blocker for substantive work rather than proceeding as if coverage existed.
 - `error`: the typed `failure.code` (missing configuration, missing or incompatible Megamind, malformed or failed output, or unsafe selection continuation) is a concrete blocker for substantive work.

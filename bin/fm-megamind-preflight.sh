@@ -117,11 +117,15 @@
 #   offer_floor, and ambiguity_band all present as numbers in 0..1 is
 #   malformed_output. Matches carry validated freshness, a non-verbatim
 #   provenance summary, and optional positive numeric context-budget fields.
-#   `notes` is host-owned: one fixed per-outcome line chosen here, never
+#   `notes` is host-owned: one fixed line chosen here per outcome, never
 #   Megamind's own notes, which can name below-floor wikis, out-of-band
-#   candidates, and absolute roots. A host-owned content-binding object carries
-#   only opaque identities and current executable/model/catalog facts; the
-#   bounded reader binds current root/card/file facts before content admission.
+#   candidates, and absolute roots. A no-match that withheld a candidate for
+#   this model class (filtered_count > 0) is coverage denied rather than absent
+#   and takes the privacy-filtered line, so no note ever tells an agent to
+#   proceed from priors over a withheld wiki. A host-owned content-binding
+#   object carries only opaque identities and current executable/model/catalog
+#   facts; the bounded reader binds current root/card/file facts before content
+#   admission.
 # - Any missing, incompatible, malformed, or failed preflight prints the typed
 #   document with outcome=error and a stable failure.code instead of a result:
 #   not_configured, estate_missing, invalid_model_class, invalid_today,
@@ -1191,9 +1195,15 @@ $root_real" 2>/dev/null || true)"
     --arg estate_identity "$estate_identity_value" \
     --argjson root_ids "$root_ids" \
     "$SAFE_JQ_DEFS"'
-     def host_note:
+     # A "no-match" that withheld a candidate for this model class ($filtered_count
+     # > 0) is coverage denied, not coverage absent: it must read exactly like
+     # privacy-filtered so nothing tells the agent to proceed from priors over a
+     # withheld wiki. host_note() takes filtered_count explicitly because the
+     # bare status string alone cannot distinguish the two no-match shapes.
+     def host_note($filtered_count):
        if . == "matched" then "Megamind matched at least one wiki: read only the listed allows paths, within any returned budget, and nothing else."
        elif . == "ambiguous" then "Megamind found no single confident wiki: offer the listed candidates as a choice and load nothing."
+       elif . == "no-match" and $filtered_count > 0 then "Megamind withheld every candidate for this model class: only the count is disclosed, never a name."
        elif . == "no-match" then "Megamind matched no wiki: do the work ordinarily and stay quiet about the estate."
        elif . == "privacy-filtered" then "Megamind withheld every candidate for this model class: only the count is disclosed, never a name."
        elif . == "unavailable" then "Megamind has no usable wiki cards: disclose the gap instead of assuming coverage."
@@ -1210,6 +1220,7 @@ $root_real" 2>/dev/null || true)"
        if (.access == "full") and ($pages | type == "array") and ($pages | length) > 0
        then $pages else $declared end;
      ([.matches[]?.allows[]? | select(safe_path | not)] | length) as $dropped |
+     ([.filtered[]?] | length) as $filtered_count |
      {
        schema_version: $schema,
        outcome: .status,
@@ -1261,10 +1272,10 @@ $root_real" 2>/dev/null || true)"
          authorization_id: .preflight_id,
          selection_id: null
        },
-       filtered_count: ([.filtered[]?] | length),
+       filtered_count: $filtered_count,
        redacted_count: (.redacted_count // 0),
        dropped_allows: $dropped,
-       notes: [(.status | host_note)],
+       notes: [(.status | host_note($filtered_count))],
        read_policy: $policy
      }' 2>/dev/null)" || {
     emit_error malformed_output "Megamind preflight output could not be normalized"
