@@ -81,6 +81,25 @@ session_hash() {
   hash_text "firstmate-primary-session/v1\n$1"
 }
 
+config_first_line() {  # <file> - print first non-empty, non-comment line trimmed, or nothing
+  # Every other config/megamind-* file this pilot reads is parsed this way, so
+  # the opt-in switch must be too: a bare read makes `on` with surrounding
+  # spaces, under a `# ...` header, or without a final newline silently mean
+  # off, which is the one failure a switch must never have.
+  # docs/configuration.md owns the contract these semantics implement.
+  [ -f "$1" ] || return 1
+  local line trimmed
+  while IFS= read -r line || [ -n "$line" ]; do
+    trimmed="${line#"${line%%[![:space:]]*}"}"
+    trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+    case "$trimmed" in
+      ''|'#'*) continue ;;
+      *) printf '%s\n' "$trimmed"; return 0 ;;
+    esac
+  done < "$1"
+  return 1
+}
+
 automatic_enabled() {
   if [ -n "${FM_MEGAMIND_PRIMARY_AUTOMATIC:-}" ]; then
     case "$FM_MEGAMIND_PRIMARY_AUTOMATIC" in 1|true|on|yes) return 0 ;; esac
@@ -88,7 +107,7 @@ automatic_enabled() {
   fi
   [ -f "$CONFIG/megamind-primary-automatic" ] || return 1
   local value
-  IFS= read -r value < "$CONFIG/megamind-primary-automatic" 2>/dev/null || return 1
+  value="$(config_first_line "$CONFIG/megamind-primary-automatic")" || return 1
   case "$value" in 1|true|on|yes) return 0 ;; esac
   return 1
 }

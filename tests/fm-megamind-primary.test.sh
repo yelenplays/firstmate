@@ -65,6 +65,48 @@ test_classification_and_disabled_mode() {
   pass "coordinator: classification and opt-in preserve bypass traffic"
 }
 
+# The opt-in switch is read with the same first-line semantics as every other
+# config/megamind-* file: first non-empty, non-comment line, trimmed, with or
+# without a final newline. A switch that silently means off because the value
+# carried a space, sat under a comment header, or lacked a trailing newline is
+# the one failure mode a switch must not have.
+test_optin_switch_uses_sibling_first_line_semantics() {
+  local home fixture out value label
+  home=$(new_home optin-parse); install_stub "$home"
+  fixture=$(make_fixture "$home" no-match)
+  # Every shape below states "on" under those semantics and must enable the mode.
+  # `run` is reached only when the switch is on, so a no-match decision proves it
+  # ran and a bypass decision proves the switch was read as off.
+  while IFS='|' read -r label value; do
+    [ -n "$label" ] || continue
+    printf '%b' "$value" > "$home/config/megamind-primary-automatic"
+    out=$(FM_TEST_FIXTURE="$fixture" run_in "$home" process --harness pi \
+      --session-id session-aaaaaaaa --submission-id "submission-$label" <<< 'substantive prompt')
+    [ "$(printf '%s' "$out" | jq -r .decision)" != bypass ] \
+      || fail "the opt-in switch read $label as off: $out"
+  done <<'CASES'
+padded|  on
+comment|# switch\non\n
+blank|\non\n
+nonewline|on
+tabbed|\ton\t\n
+CASES
+  # And the shapes that genuinely mean off stay off.
+  while IFS='|' read -r label value; do
+    [ -n "$label" ] || continue
+    printf '%b' "$value" > "$home/config/megamind-primary-automatic"
+    out=$(FM_TEST_FIXTURE="$fixture" run_in "$home" process --harness pi \
+      --session-id session-aaaaaaaa --submission-id "submission-off-$label" <<< 'substantive prompt')
+    [ "$(printf '%s' "$out" | jq -r .decision)" = bypass ] \
+      || fail "the opt-in switch read $label as on: $out"
+  done <<'CASES'
+commented|# on\n
+off|off\n
+empty|\n
+CASES
+  pass "coordinator: the opt-in switch uses the documented sibling first-line semantics"
+}
+
 # Interception is opt-in and off by default, and the hook that reaches this
 # coordinator is registered unconditionally. A checkout that never opted in must
 # therefore keep its ordinary behavior rather than lose every prompt to a state
@@ -154,6 +196,7 @@ test_failures_and_unsupported() {
 }
 
 test_classification_and_disabled_mode
+test_optin_switch_uses_sibling_first_line_semantics
 test_optin_gates_precede_the_session_lock
 test_bypass_survives_an_unwritable_state_directory
 test_no_match_and_privacy_filter
