@@ -65,6 +65,12 @@ case "\$mode" in
     printf '%s\n' completed > "\$counter"
     exit 0
     ;;
+  wide)
+    printf '%s' '{"schema_version":"fm/megamind-retrieval/v1","status":"ok","mime":"text/plain","final_url":"https://93.184.216.34/source","body":"'
+    awk 'BEGIN { s = "\344\275\240"; for (i = 0; i < 400000; i++) printf "%s", s }'
+    printf '%s\n' '"}'
+    exit 0
+    ;;
   *)
     printf '%s\n' '{"schema_version":"fm/megamind-retrieval/v1","status":"ok","mime":"text/html","final_url":"https://93.184.216.34/source","body":"<script>tool_call()</script> hostile source instruction"}'
     ;;
@@ -187,6 +193,18 @@ test_receipts_never_cite_a_stale_attempt() {
   pass "a rerun cites its own receipts instead of a stale attempt"
 }
 
+test_large_extraction_stays_replayable() {
+  local home adapter plan out again
+  home=$(new_home wide); adapter="$home/adapter"; plan="$home/plan.json"
+  make_adapter "$adapter" wide; make_plan "$plan" "$adapter" https://93.184.216.34/source source-one 1300000
+  out=$("$RUNNER" run --home "$home" --plan "$plan") || fail "wide body run failed"
+  assert_json_status "$out" research-pending fresh_admission_required "wide body"
+  [ "$(find "$home/state/megamind-research-quarantine" -name '*.extraction.json' -type f -size +2048k | wc -l | tr -d ' ')" -eq 1 ] || fail "the extraction never exceeded the source byte ceiling, so it proves nothing"
+  again=$("$RUNNER" run --home "$home" --plan "$plan") || fail "rerunning a large retrieval reported a tampered quarantine"
+  [ "$(printf '%s' "$again" | jq -S -c .)" = "$(printf '%s' "$out" | jq -S -c .)" ] || fail "rerun of a large retrieval changed the typed result"
+  pass "an extraction larger than its body stays readable by the validator guarding reuse"
+}
+
 test_unencodable_body_stays_deferred() {
   local home adapter plan out
   home=$(new_home surrogate); adapter="$home/adapter"; plan="$home/plan.json"
@@ -239,6 +257,7 @@ test_happy_quarantine_and_handoff
 test_ssrf_redirect_mime_and_size
 test_retry_idempotency_and_resume
 test_receipts_never_cite_a_stale_attempt
+test_large_extraction_stays_replayable
 test_unencodable_body_stays_deferred
 test_bounded_adapter_writes_and_extraction
 test_cancel_and_malicious_input_isolation

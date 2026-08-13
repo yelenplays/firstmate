@@ -30,6 +30,7 @@ EXTRACTION_SCHEMA = "fm/megamind-extraction/v1"
 RECEIPT_SCHEMA = "fm/megamind-tool-receipt/v1"
 MAX_PLAN_BYTES = 1024 * 1024
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
+MAX_EXTRACTION_BYTES = 6 * MAX_SOURCE_BYTES + 4096
 MAX_TOTAL_BYTES = 8 * 1024 * 1024
 MAX_SOURCES = 16
 MAX_ATTEMPTS = 5
@@ -342,9 +343,9 @@ def existing_result_valid(state: Path, plan_hash: str, existing: Dict[str, Any])
         extraction = qdir / (source_id + "." + content_hash + ".extraction.json")
         if not safe_private_file(body, MAX_SOURCE_BYTES, require_private=True) or sha256_file(body) != content_hash:
             return False
-        if not safe_private_file(extraction, MAX_SOURCE_BYTES, require_private=True):
+        if not safe_private_file(extraction, MAX_EXTRACTION_BYTES, require_private=True):
             return False
-        extracted = read_json(extraction, MAX_SOURCE_BYTES)
+        extracted = read_json(extraction, MAX_EXTRACTION_BYTES)
         if not extracted or extracted.get("schema_version") != EXTRACTION_SCHEMA or extracted.get("content_sha256") != content_hash:
             return False
     return True
@@ -631,9 +632,12 @@ def run_plan(home: Path, plan_path: Path) -> int:
             if not private_exclusive(content_path, body):
                 return emit(result("blocked", "quarantine_write_failed", sources=summaries, **base), 1)
         extraction = extract(body, source["source_id"], body_hash)
+        encoded_extraction = json.dumps(extraction, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode()
+        if len(encoded_extraction) > MAX_EXTRACTION_BYTES:
+            return emit(result("blocked", "extraction_too_large", sources=summaries, **base), 1)
         extract_path = qdir / (source["source_id"] + "." + body_hash + ".extraction.json")
         if not extract_path.exists():
-            if not private_exclusive(extract_path, json.dumps(extraction, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode()):
+            if not private_exclusive(extract_path, encoded_extraction):
                 return emit(result("blocked", "quarantine_write_failed", sources=summaries, **base), 1)
         summaries.append(privacy_summary(source, "retrieved", attempts, body_hash, len(body), last_latency, source_cost, receipt_ids))
     handoff = {"schema_version": "fm/megamind-fresh-admission-handoff/v1", "required": True, "request_hash": admission["request_hash"], "run_id": run_id}
