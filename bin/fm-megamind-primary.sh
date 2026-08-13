@@ -173,7 +173,7 @@ harness_status() {
 
 decision() {
   local kind="$1" submission="$2" shash="$3" failure="${4:-}" selection="${5:-}" offers="${6:-[]}" context="${7:-null}" counts="${8:-0}" replay="${9:-}"
-  local phash="${10:-$PROMPT_HASH}"
+  local phash="$PROMPT_HASH"
   command -v jq >/dev/null 2>&1 || {
     printf '{"schema_version":"%s","decision":"block","failure_code":"jq_missing"}\n' "$SCHEMA"
     return 0
