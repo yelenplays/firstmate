@@ -922,6 +922,9 @@ families_for_changed_path() {
       # producer, so a reader change also selects the real-shape guard.
       printf '%s\n' "__script__:fm-megamind-realshape.test.sh"
       ;;
+    bin/fm-megamind-research.sh|bin/fm-megamind-research.py)
+      printf '%s\n' "__script__:fm-megamind-research.test.sh"
+      ;;
     bin/fm-session-start.sh|bin/fm-bootstrap.sh|bin/fm-fleet-sync.sh|\
     bin/fm-sessionstart-nudge.sh|bin/fm-startup-network.sh|bin/fm-tangle*|bin/fm-update.sh|\
     bin/fm-gate-refuse*|bin/fm-lock*|bin/fm-quota-axi-lib.sh)
