@@ -587,6 +587,7 @@ FM_CODEX_WATCH_CHECKPOINT=180   # seconds per foreground watcher checkpoint in C
 FM_CREW_STATE_NM_TIMEOUT=10   # seconds allowed per no-mistakes query inside fm-crew-state.sh
 FM_TEARDOWN_NM_TIMEOUT=10    # seconds allowed per no-mistakes query or abort inside fm-teardown.sh
 FM_WORKER_PREFLIGHT_TIMEOUT=60   # seconds allowed for a ship or scout worker's owner-bound Megamind preflight; expiry blocks the launch with a typed failure, and a non-numeric, non-positive (including 00), or above-3600 value keeps 60
+FM_MEGAMIND_PRIMARY_TIMEOUT=120   # seconds bounding each preflight or bounded-reader child the automatic primary coordinator runs per governed prompt; expiry is one more typed block decision for that prompt, an empty or non-numeric value keeps 120, and a host with no bounded-execution helper runs the child unbounded rather than refusing every prompt
 FM_CREW_STATE_RUNS_LIMIT=200  # recent no-mistakes run rows scanned when axi status cannot be attributed to the current code
 FM_CREW_STATE_BIN=bin/fm-crew-state.sh   # test override for the current-state reader used by working/paused watcher triage
 FMX_PAIRING_TOKEN=      # Relay pairing token; .env opt-in authorizes replies and eligible lifecycle actions
