@@ -32,6 +32,7 @@ The shared no-mistakes gate refusal for fleet lifecycle entrypoints is summarize
 | `fm-megamind-primary.sh` | Own every semantic decision behind an opt-in primary prompt adapter's Megamind interception |
 | `fm-claude-primary-prompt.sh` | Claude `UserPromptSubmit` transport that hands the prompt to that coordinator and emits only Claude's response shape |
 | `fm-worker-preflight.sh` | Clear an ordinary ship or scout worker's owning-home Megamind binding before its task exists |
+| `fm-megamind-research.sh` | Execute one already-authorized deterministic Megamind research plan in the host's quarantined retrieval lane ([megamind-research-host.md](megamind-research-host.md)) |
 | `fm-herdr-lab.sh`        | Provision and guardedly operate an isolated, never-default Herdr lab session         |
 | `fm-install-herdr.sh`    | Install CI's exact-version Herdr pin with official asset URL, SHA-256, and protocol checks |
 | `fm-install-treehouse.sh`| Install CI's exact-version Treehouse pin for real-Herdr E2E that needs spawn worktrees |
