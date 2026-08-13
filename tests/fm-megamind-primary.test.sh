@@ -9,6 +9,12 @@ command -v jq >/dev/null 2>&1 || { echo "skip: jq not found"; exit 0; }
 COORDINATOR="$ROOT/bin/fm-megamind-primary.sh"
 TMP_ROOT=$(fm_test_tmproot fm-megamind-primary)
 
+if [ "$(uname)" = Darwin ]; then
+  file_mode() { stat -f %Lp "$1"; }
+else
+  file_mode() { stat -c %a "$1"; }
+fi
+
 new_home() {
   local home="$TMP_ROOT/$1"
   mkdir -p "$home/config" "$home/state" "$home/estate/Wiki/.megamind" "$home/estate/Wiki/wiki"
@@ -50,6 +56,9 @@ make_fixture() {
 JSON
   if [ "$status" = matched ]; then
     jq --arg root "$home/estate/Wiki" '.confidence=.9 | .matches=[{"name":"Wiki","root":$root,"access":"full","routing_mode":"full","confidence":{"score":.9},"allows":[".megamind/wiki-card.json","wiki/index.md"],"follow_up":"never","context_budget":{"max_candidates":2,"max_context_chars":1000}}]' "$fixture" > "$fixture.tmp"
+    mv "$fixture.tmp" "$fixture"
+  elif [ "$status" = ambiguous ]; then
+    jq --arg root "$home/estate/Wiki" '.confidence=.6 | .offers=[{"name":"Wiki","root":$root,"confidence":{"score":.6}}]' "$fixture" > "$fixture.tmp"
     mv "$fixture.tmp" "$fixture"
   fi
   printf '%s\n' "$fixture"
@@ -218,6 +227,51 @@ test_cached_decision_is_bound_to_the_prompt() {
   pass "coordinator: a cached decision under a reused submission id is bound to the exact prompt"
 }
 
+test_no_context_disposition_replays_once_without_admission() {
+  local home fixture no_match out replay selection pending disposition prompt
+  home=$(new_home no-context); install_stub "$home"
+  fixture=$(make_fixture "$home" ambiguous)
+  prompt=$'first line of the exact request\nsecond line stays exact'
+  out=$(FM_TEST_FIXTURE="$fixture" run_in "$home" process --harness pi \
+    --session-id session-aaaaaaaa --submission-id submission-no-context <<< "$prompt")
+  [ "$(printf '%s' "$out" | jq -r .decision)" = offer ] \
+    || fail "the ambiguous fixture did not produce an offer: $out"
+  selection=$(printf '%s' "$out" | jq -r .selection_id)
+  [ -n "$selection" ] && [ "$selection" != null ] || fail "the offer had no continuation identity: $out"
+  pending="$home/state/megamind-offer-selections/$selection.pending.json"
+  disposition="$home/state/megamind-offer-selections/$selection.disposition.json"
+  assert_present "$pending" "the pending offer was not retained"
+
+  out=$(run_in "$home" continue-no-context --harness pi --session-id session-aaaaaaaa \
+    --selection-id "$selection" --include-replay)
+  [ "$(printf '%s' "$out" | jq -r .decision)" = proceed-no-context ] \
+    || fail "the no-context disposition did not proceed: $out"
+  replay=$(printf '%s' "$out" | jq -r .replay_prompt)
+  [ "$replay" = "$prompt" ] || fail "the no-context disposition changed the original prompt"
+  [ "$(printf '%s' "$out" | jq -r .context)" = null ] || fail "the no-context disposition carried wiki context"
+  [ "$(printf '%s' "$out" | jq -r .admitted_chars)" = 0 ] || fail "the no-context disposition claimed admitted content"
+  assert_absent "$pending" "the no-context disposition left the pending offer spendable"
+  assert_present "$disposition" "the no-context disposition left no replay tombstone"
+  [ "$(file_mode "$disposition")" = 600 ] || fail "the no-context replay tombstone was not private"
+  assert_absent "$home/state/megamind-offer-selections/$selection.authorization.json" \
+    "the no-context disposition created wiki authorization"
+  assert_absent "$home/state/megamind-admissions" "the no-context disposition created a content admission"
+
+  out=$(run_in "$home" continue-no-context --harness pi --session-id session-aaaaaaaa \
+    --selection-id "$selection" --include-replay)
+  [ "$(printf '%s' "$out" | jq -r .decision)" = block ] \
+    || fail "a replayed no-context disposition did not refuse: $out"
+  [ "$(printf '%s' "$out" | jq -r .failure_code)" = selection_replayed ] \
+    || fail "a replayed no-context disposition did not report selection_replayed: $out"
+
+  no_match=$(make_fixture "$home" no-match)
+  out=$(FM_TEST_FIXTURE="$no_match" run_in "$home" process --harness pi \
+    --session-id session-aaaaaaaa --submission-id submission-after-none <<< 'future independent prompt')
+  [ "$(printf '%s' "$out" | jq -r .decision)" = proceed-no-context ] \
+    || fail "the consumed replay suppressed a future independent prompt: $out"
+  pass "coordinator: no wiki consumes one offer, admits nothing, replays exactly once, and leaves future prompts independent"
+}
+
 # The other half of the same contract: an identical retry - same submission id,
 # same prompt - must still return the one durable cached decision.
 test_cached_decision_reused_for_an_identical_retry() {
@@ -264,5 +318,6 @@ test_no_match_and_privacy_filter
 test_matched_reader_context_and_privacy
 test_failures_and_unsupported
 test_cached_decision_is_bound_to_the_prompt
+test_no_context_disposition_replays_once_without_admission
 test_cached_decision_reused_for_an_identical_retry
 test_process_bypasses_without_jq_on_an_opted_out_home

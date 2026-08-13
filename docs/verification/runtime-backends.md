@@ -260,19 +260,21 @@ Observed output was `FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms
 
 ## Primary Megamind prompt interception
 
-The host-owned coordinator and the opt-in Claude and Pi primary adapters were added on 2026-08-12.
+The host-owned coordinator and the opt-in Claude and Pi primary adapters were added on 2026-08-12 and their explicit no-wiki disposition was verified on 2026-08-13.
 The coordinator is `bin/fm-megamind-primary.sh`, and it is the sole semantic owner for classification, preflight, offer continuation, bounded admission, and context framing.
 The Claude transport is `bin/fm-claude-primary-prompt.sh` on `UserPromptSubmit`.
 The Pi and pi-signed transport is `.pi/extensions/fm-primary-megamind.ts` on Pi's `input` event with handled and replay semantics.
 The implementation remains opt-in through `config/megamind-primary-automatic` or `FM_MEGAMIND_PRIMARY_AUTOMATIC=1` so ordinary sessions retain their prior behavior until the live guard is intentionally enabled.
 
-Portable proof covers bypasses, no-match, privacy-filtered, matched bounded admission, prompt and root privacy, failed bindings, deterministic unsupported decisions, the prompt binding that keeps a reused submission id from replaying another prompt's decision, and the bypass an opted-out home returns even without `jq`:
+Portable proof covers bypasses, no-match, privacy-filtered, matched bounded admission, prompt and root privacy, failed bindings, deterministic unsupported decisions, the prompt binding that keeps a reused submission id from replaying another prompt's decision, and the bypass an opted-out home returns even without `jq`.
+It also proves one-offer Pi rendering with no initial selection, inert Enter before navigation, Escape cancellation, exact-once no-wiki replay, pending-offer retirement without authorization or admission, replay refusal, future-prompt independence, and truthful unavailable actions:
 
 ```sh
-bin/fm-test-run.sh tests/fm-megamind-primary.test.sh tests/fm-megamind-preflight.test.sh tests/fm-megamind-content.test.sh tests/fm-megamind-claude-control.test.sh
+bin/fm-test-run.sh tests/fm-megamind-primary.test.sh tests/fm-megamind-pi-offer.test.sh tests/fm-megamind-preflight.test.sh tests/fm-megamind-content.test.sh tests/fm-megamind-claude-control.test.sh
 ```
 
-`tests/fm-megamind-claude-control.test.sh` drives the Claude transport over its real hook payload and proves that the control an ambiguous offer advertises is the exact control the transport accepts, and that no approximation of it authorizes a selection.
+The 2026-08-13 portable run completed with `FM_TEST_SUMMARY total=5 failed=0 skipped_gate=0 duration_ms=43819`.
+`tests/fm-megamind-claude-control.test.sh` drives the Claude transport over its real hook payload and proves that the offered-wiki and no-wiki controls an ambiguous result advertises are the exact controls the transport accepts, and that no approximation authorizes or declines a selection.
 The control carries no leading slash because Claude resolves a leading-slash prompt as one of its own commands and answers `Unknown command` before any `UserPromptSubmit` hook runs; that reachability is not observable without the real CLI, so the live guard below round-trips the advertised control back through it.
 
 The live guard uses only synthetic block prompts and a synthetic coordinator, so it proves the real installed transport reaches the host gate without making a provider call or reading a wiki:
@@ -281,19 +283,21 @@ The live guard uses only synthetic block prompts and a synthetic coordinator, so
 FM_MEGAMIND_PRIMARY_LIVE=1 tests/fm-megamind-primary-live-e2e.test.sh
 ```
 
-Observed on 2026-08-12 with Claude Code 2.1.220, Pi 0.84.1, Codex CLI 0.145.0, Grok 1.0.0, and Kimi Code 0.34.0:
+Observed on 2026-08-13 with Claude Code 2.1.220, Pi 0.84.1, Codex CLI 0.145.0, Grok 1.0.0, and Kimi Code 0.34.0:
 
 ```text
 live: claude 2.1.220 (Claude Code) blocked before inference with zero provider turns
-live: pi 0.84.1 blocked before inference with one coordinator submission
+live: claude 2.1.220 (Claude Code) round-tripped the advertised offer control back through the hook
+live: pi 0.84.1 blocked before inference with one governed coordinator submission
 unsupported: codex codex-cli 0.145.0 automatic primary interception unproven; ordinary operation retained
 absent: opencode
 unsupported: grok grok 1.0.0 (3cd0d0cbcebe) [stable] automatic primary interception unproven; ordinary operation retained
 unsupported: kimi 0.34.0 automatic primary interception unproven; ordinary operation retained
 absent: pi-signed
+ok - installed primary interception guards covered every detected harness
 ```
 
-The live guard deliberately does not claim allow, context reinjection, or selection continuation against a real provider until a future synthetic-provider proof can observe those surfaces without exposing credentials or wiki material.
+The live guard deliberately does not claim allow, context reinjection, offered-wiki continuation, or no-wiki continuation against a real provider until a future synthetic-provider proof can observe those surfaces without exposing credentials or wiki material.
 Codex, OpenCode, Grok, and Kimi remain ordinary-operation-only for automatic primary interception because their installed prompt hook surfaces were not proven to stop inference and replay safely in this slice.
 Grok is the one of those four that loads `.claude/settings.json` through its Claude-compatible settings support, so the tracked `UserPromptSubmit` entry carries the same `GROK_AGENT`/`GROK_HOOK_EVENT` inertness marker its siblings do; [`../turnend-guard.md`](../turnend-guard.md) owns that marker and `tests/fm-turnend-guard.test.sh` pins the entry inventory.
 The Pi adapter is reused by pi-signed only when the exact signed identity marker is present, and the signed executable was absent during this verification.

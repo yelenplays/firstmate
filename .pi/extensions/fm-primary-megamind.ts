@@ -6,6 +6,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import {
+  WikiOfferDispositionPicker,
+  type WikiOfferDisposition,
+} from "./lib/fm-megamind-offer-picker.ts";
 
 type Decision = {
   decision?: string;
@@ -13,6 +17,7 @@ type Decision = {
   selection_id?: string | null;
   offers?: Array<{ wiki?: string }>;
   context?: { text?: string } | null;
+  replay_prompt?: string | null;
 };
 
 type ContextItem = { prompt: string; context: string };
@@ -158,17 +163,53 @@ export default function (pi: ExtensionAPI) {
       case "offer": {
         const selection = result.selection_id;
         const offers = (result.offers ?? []).map((item) => item.wiki ?? "").filter(Boolean);
-        if (!selection || offers.length === 0 || !ctx.hasUI) {
-          ctx.ui.notify("Megamind found an ambiguous request. No wiki content was loaded.", "warning");
+        if (!selection || offers.length === 0 || !ctx.hasUI || ctx.mode !== "tui") {
+          ctx.ui.notify("Megamind found an ambiguous request. No wiki content was loaded, and this interface cannot choose a disposition.", "warning");
           return { action: "handled" as const };
         }
-        const selected = await ctx.ui.select("Choose one exact wiki offer", offers);
-        if (!selected) {
-          ctx.ui.notify("No wiki offer selected. The request was not sent.", "warning");
+        const disposition = await ctx.ui.custom<WikiOfferDisposition | null>((tui, _theme, _keybindings, done) => {
+          const picker = new WikiOfferDispositionPicker(offers);
+          picker.onSelect = done;
+          picker.onCancel = () => done(null);
+          return {
+            render: (width) => picker.render(width),
+            invalidate: () => picker.invalidate(),
+            handleInput: (data) => {
+              picker.handleInput(data);
+              tui.requestRender();
+            },
+          };
+        });
+        if (!disposition) {
+          ctx.ui.notify("Wiki evidence selection was cancelled. The request was not sent.", "warning");
+          return { action: "handled" as const };
+        }
+        if (disposition.kind === "unavailable") {
+          const message = disposition.choice === "different-existing"
+            ? "Different existing wiki is not available yet because no typed authorization path exists. The request was not sent."
+            : "New wiki proposals are not available yet because no proposal workflow exists. No wiki was created, and the request was not sent.";
+          ctx.ui.notify(message, "warning");
+          return { action: "handled" as const };
+        }
+        if (disposition.kind === "no-context") {
+          const continued = await runCoordinator([
+            "continue-no-context",
+            "--harness", process.env.FM_PI_HARNESS === "pi-signed" ? "pi-signed" : "pi",
+            "--session-id", sessionId(ctx),
+            "--selection-id", selection,
+            "--include-replay",
+          ]);
+          const replay = continued.replay_prompt;
+          if (continued.decision !== "proceed-no-context" || !replay) {
+            ctx.ui.notify(failureText(continued), "error");
+            return { action: "handled" as const };
+          }
+          enqueueReplay(replay);
+          await pi.sendUserMessage(replay);
           return { action: "handled" as const };
         }
         const continued = await runCoordinator(
-          ["continue", "--harness", process.env.FM_PI_HARNESS === "pi-signed" ? "pi-signed" : "pi", "--session-id", sessionId(ctx), "--selection-id", selection, "--offer", selected],
+          ["continue", "--harness", process.env.FM_PI_HARNESS === "pi-signed" ? "pi-signed" : "pi", "--session-id", sessionId(ctx), "--selection-id", selection, "--offer", disposition.wiki],
         );
         if (continued.decision !== "proceed-with-admission" || !continued.context?.text) {
           ctx.ui.notify(failureText(continued), "error");

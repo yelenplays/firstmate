@@ -102,8 +102,9 @@ SH
 run_pi_block() {
   command -v pi >/dev/null 2>&1 || { echo "absent: pi"; return 0; }
   local project="$LAB/pi/project" home="$LAB/pi/home" out rc calls
-  mkdir -p "$project/.pi/extensions" "$project/bin" "$home/state" "$home/config"
+  mkdir -p "$project/.pi/extensions/lib" "$project/bin" "$home/state" "$home/config"
   cp "$ROOT/.pi/extensions/fm-primary-megamind.ts" "$project/.pi/extensions/"
+  cp "$ROOT/.pi/extensions/lib/fm-megamind-offer-picker.ts" "$project/.pi/extensions/lib/"
   # The subcommand is recorded, not a bare marker: the adapter asks the
   # coordinator two different questions, and only one of them carries a prompt.
   cat > "$project/bin/fm-megamind-primary.sh" <<'SH'
