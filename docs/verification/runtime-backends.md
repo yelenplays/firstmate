@@ -209,19 +209,19 @@ Secondmate launch itself is intentionally inapplicable because it starts a first
 
 ## Bounded Megamind content admission
 
-The host-owned reader was verified on 2026-08-12 with stock macOS Bash, Python 3, and synthetic wiki roots only.
-The portable suite covers no-follow root and component traversal, special files, hardlinks, strict UTF-8, Unicode code-point budgets, binding and root/card changes, concurrent admissions, private output, home isolation, relaunch preservation, and an actual synthetic Megamind 0.6 selection continuation.
+The host-owned reader was verified on 2026-08-13 with stock macOS Bash, Python 3, and synthetic wiki roots only.
+The portable suite covers no-follow root and component traversal, special files, hardlinks, strict UTF-8, Unicode code-point budgets, binding and root/card changes, concurrent admissions, private output, home isolation, same-day relaunch preservation with UTC-day rollover refusal, age-based pruning on the next admission, and an actual synthetic Megamind 0.6 selection continuation.
+The preflight suite also covers the script-owned route relevance floor of 2, including the unrelated rebalancing-to-tax-page fallback and the same floor during explicit selection continuation, while retaining a positive above-floor page-ranking control.
 
 ```sh
-bin/fm-test-run.sh tests/fm-megamind-content.test.sh
-bin/fm-test-run.sh tests/fm-megamind-preflight.test.sh tests/fm-worker-preflight.test.sh
+bin/fm-test-run.sh tests/fm-megamind-preflight.test.sh \
+  tests/fm-megamind-content.test.sh tests/fm-worker-preflight.test.sh
 ```
 
-Observed bounded output:
+Observed bounded output on 2026-08-13:
 
 ```text
-FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0
-FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0
+FM_TEST_SUMMARY total=3 failed=0 skipped_gate=0 duration_ms=60097
 ```
 
 The real Megamind 0.6 synthetic-estate selection evidence above remains the upstream command compatibility proof, while `tests/fm-megamind-content.test.sh` proves that a script-issued `fm/megamind-preflight-selection/v1` authorization reaches the same reader boundary without touching a real wiki.
@@ -232,6 +232,13 @@ It builds its own synthetic estate, routes it through an installed `megamind-axi
 It resolves the build in one order - an explicit `FM_MEGAMIND_REAL_EXE` override, then the active home's own `config/megamind-executable`, then `PATH` - so a pilot host that pins its proven build in config is actually guarded instead of skipped because `PATH` carries an older build or none at all; three checks prove that order and need no real binary.
 It then asks `bin/fm-megamind-preflight.sh check` whether the resolved build is an accepted release, and skips loudly - naming the real routing-mode vocabulary and ladder descent as what stays unproven - rather than reporting a pass that checked nothing.
 `bin/fm-test-run.sh` runs it in the optional-binary `megamind-realshape` family and selects it whenever the bounded reader changes.
+The real-producer guard was run on 2026-08-13 with `FM_MEGAMIND_REAL_EXE` pinned to the host's proven Megamind 0.6.0 build:
+
+```sh
+FM_MEGAMIND_REAL_EXE=<proven Megamind 0.6.0 path> bin/fm-test-run.sh tests/fm-megamind-realshape.test.sh
+```
+
+Observed output was `FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=1246`.
 
 ## Primary Megamind prompt interception
 

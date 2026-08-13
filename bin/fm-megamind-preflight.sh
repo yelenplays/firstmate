@@ -83,7 +83,8 @@
 #   The ladder returns ranked candidate paths, kinds, scores, and reasons and
 #   never page content or file sizes, so it widens no content boundary. Its
 #   root-contained `page` candidates, validated by the same path rule as any
-#   declared allows, become the authorized `allows` - capped by that
+#   declared allows, become eligible only when their route score reaches the
+#   explicit local ROUTE_RELEVANCE_FLOOR below, then are capped by that
 #   authorization's own max_candidates and cut back to the ranked prefix whose
 #   own bytes fit its own max_context_chars, because the bounded reader refuses a
 #   whole over-budget admission and emits nothing partial. Byte counts are read
@@ -93,10 +94,11 @@
 #   re-apply the per-class restriction `preflight` already applied, which is why
 #   an access this model class had narrowed below full - digest-only - never
 #   descends at all and keeps the exact paths Megamind declared. A ladder that
-#   is unusable, fails, returns an unrecognized document, or ranks no page
-#   likewise leaves the declared card paths exactly as they were, so this can
-#   only narrow an authorization onto pages Megamind ranked for a surface it
-#   already opened in full, and never widen one past what Megamind returned.
+#   is unusable, fails, returns an unrecognized document, ranks no page, or ranks
+#   only below-floor pages likewise leaves the declared card paths exactly as
+#   they were, so this can only narrow an authorization onto pages Megamind
+#   ranked above the local floor for a surface it already opened in full, and
+#   never widen one past what Megamind returned.
 # - The date is host-owned: it is always this host's current UTC date. The
 #   optional `--today` is an assertion, not an override - a value that is not
 #   that date is invalid_today - so no caller can forge the freshness,
@@ -217,6 +219,7 @@ SUPPORTED_VERSION_LINES='0.3.x, 0.4.x, 0.5.x, or 0.6.x'
 LOG_FILE="$STATE/megamind-preflight.jsonl"
 SELECTION_DIR="$STATE/megamind-offer-selections"
 SELECTION_RETENTION_MAX=32
+ROUTE_RELEVANCE_FLOOR=2
 READ_POLICY="Use bin/fm-megamind-content.sh admit with this owning home's task authorization, then use its content channel; never read wiki paths directly, execute follow_up, or widen beyond validated allows and budgets."
 RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" | --request-stdin [--model-class local|cloud] [--today YYYY-MM-DD]'
 CONTINUE_USAGE='usage: fm-megamind-preflight.sh continue --selection-id <id> --offer <wiki>'
@@ -329,7 +332,7 @@ file_bytes() {  # <path> - print a regular non-symlink file's byte count, or not
   printf '%s' "$size"
 }
 
-route_page_allows() {  # <executable> <wiki root> <request> <max candidates> <max context chars> - print a JSON array of ranked page paths
+route_page_allows() {  # <executable> <wiki root> <request> <max candidates> <max context chars> - print a JSON array of above-floor ranked page paths
   # Megamind answers `preflight` at the catalog level, so the widest surface it
   # can name is the card, digest, and index a wiki already declares. Its
   # follow_up sentence therefore asks the host to open that index and follow its
@@ -343,10 +346,11 @@ route_page_allows() {  # <executable> <wiki root> <request> <max candidates> <ma
   # wiki byte reaches a model.
   #
   # An empty array is printed whenever the ladder is unusable, fails, returns a
-  # document this host does not recognize, or surfaces no page at all. The
-  # caller then keeps the declared card paths it already had, so this can only
-  # narrow an authorization onto specific pages Megamind ranked, never widen one
-  # past what Megamind returned. Callers descend only for a full-access
+  # document this host does not recognize, surfaces no page at all, or ranks
+  # every page below ROUTE_RELEVANCE_FLOOR. The caller then keeps the declared
+  # card paths it already had, so this can only narrow an authorization onto
+  # specific pages Megamind ranked above the local floor, never widen one past
+  # what Megamind returned. Callers descend only for a full-access
   # authorization: `route` takes no model class, so it cannot restate the
   # restriction that produced a digest-only access, and trading that digest for
   # ranked pages would be the one substitution that widens.
@@ -382,13 +386,15 @@ route_page_allows() {  # <executable> <wiki root> <request> <max candidates> <ma
   fi
   # Control characters are refused with the unsafe paths, so the ranked set is a
   # plain line-delimited stream no candidate can misframe.
-  ranked="$(printf '%s' "$raw" | jq -r --argjson max "$max_candidates" "$SAFE_JQ_DEFS"'
+  ranked="$(printf '%s' "$raw" | jq -r --argjson max "$max_candidates" \
+      --argjson floor "$ROUTE_RELEVANCE_FLOOR" "$SAFE_JQ_DEFS"'
       if (.schema_version | type == "string")
          and (.schema_version | startswith("megamind/route-result/"))
          and (.candidates | type == "array")
       then
         [.candidates[]?
           | select(type == "object" and .kind == "page")
+          | select(.score | type == "number" and . >= $floor)
           | .path
           | select(safe_path and (test("[[:cntrl:]]") | not))]
         | reduce .[] as $path ([]; if index($path) then . else . + [$path] end)
@@ -1169,7 +1175,8 @@ $root_real" 2>/dev/null || true)"
     && host_paths="$(jq -cn '$ARGS.positional' --args -- "${disclosing_paths[@]}" 2>/dev/null || printf '%s' '[]')"
   # Descend Megamind's own ladder once per authorized root, so a match resolves
   # to the pages that answer the request instead of only the routing index that
-  # lists them. A root the ladder cannot serve keeps its declared card paths.
+  # lists them. A root the ladder cannot serve, or a ladder whose candidates all
+  # fall below ROUTE_RELEVANCE_FLOOR, keeps its declared card paths.
   # Only a full-access match descends: `route` takes no model class, so it
   # cannot re-apply the per-class restriction preflight already applied, and a
   # digest-only match must keep the digest Megamind named rather than trade it

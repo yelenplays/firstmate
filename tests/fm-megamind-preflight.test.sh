@@ -797,6 +797,61 @@ test_ladder_failure_keeps_declared_paths() {
   pass "run: a ladder that ranks no page, fails, or is unrecognized leaves the declared paths untouched"
 }
 
+# A low-confidence route result for an unrelated rebalancing question must not
+# replace the useful declared index with tax pages. The local relevance floor is
+# deliberately separate from Megamind's reliance, offer, and ambiguity thresholds.
+test_ladder_relevance_floor_preserves_declared_index() {
+  local home out fixture="$TMP_ROOT/ladder-relevance-floor.json" route="$TMP_ROOT/ladder-relevance-floor-route.json" root
+  home=$(new_home ladderrelevancefloor)
+  root="$home/estate/ProductWiki"
+  mkdir -p "$root/wiki/concepts"
+  printf 'tax page\n' > "$root/wiki/concepts/schenkung-und-erbschaftsteuer.md"
+  printf 'child tax page\n' > "$root/wiki/concepts/kindergeld-und-kinderfreibetrag.md"
+  jq --arg root "$root" '.matches[0].root = $root
+      | .matches[0].allows = ["wiki/index.md"]
+      | .matches[0].context_budget = {"max_candidates": 5, "max_context_chars": 4000}' \
+    "$MATCHED_FIXTURE" > "$fixture"
+  cat > "$route" <<'JSON'
+{"schema_version":"megamind/route-result/v2","query":"portfolio rebalancing","candidates":[
+  {"path":"wiki/concepts/schenkung-und-erbschaftsteuer.md","kind":"page","score":1,"reason":"unrelated tax result"},
+  {"path":"wiki/concepts/kindergeld-und-kinderfreibetrag.md","kind":"page","score":1,"reason":"unrelated tax result"}
+]}
+JSON
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" run --request "Wie oft sollte ich ein Portfolio rebalancieren?")
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" = '["wiki/index.md"]' ] \
+    || fail "below-floor unrelated pages replaced the declared index: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/index.md"]' ] \
+    || fail "below-floor ranking desynchronized the binding: $out"
+  pass "ladder: below-floor unrelated rebalancing results preserve the declared index"
+}
+
+test_ladder_relevance_floor_applies_to_explicit_selection() {
+  local home out selection_id ambiguous selection route root
+  export FM_TEST_STUB_VERSION=0.6.0
+  home=$(new_home ladderrelevancefloorselection)
+  root="$home/estate/OfferWiki"
+  mkdir -p "$root/wiki/concepts"
+  printf 'tax page\n' > "$root/wiki/concepts/schenkung-und-erbschaftsteuer.md"
+  ambiguous="$TMP_ROOT/ladder-relevance-floor-selection-ambiguous.json"
+  selection="$TMP_ROOT/ladder-relevance-floor-selection-authorized.json"
+  route="$TMP_ROOT/ladder-relevance-floor-selection-route.json"
+  jq --arg root "$root" '.offers[0].root = $root' "$AMBIGUOUS_SELECTION_FIXTURE" > "$ambiguous"
+  jq --arg root "$root" '.selected.root = $root | .selected.access = "full" | .selected.allows = ["wiki/index.md"]' \
+    "$SELECTION_FIXTURE" > "$selection"
+  printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/schenkung-und-erbschaftsteuer.md","kind":"page","score":1,"reason":"unrelated tax result"}]}' > "$route"
+  out=$(FM_TEST_STUB_FIXTURE="$ambiguous" run_in "$home" run --request "original request")
+  selection_id=$(printf '%s' "$out" | jq -r '.selection_id')
+  out=$(FM_TEST_SELECTION_FIXTURE="$selection" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" continue --selection-id "$selection_id" --offer OfferWiki)
+  [ "$(printf '%s' "$out" | jq -c '.selected.allows')" = '["wiki/index.md"]' ] \
+    || fail "below-floor selection pages replaced the declared index: $out"
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/index.md"]' ] \
+    || fail "below-floor selection desynchronized the binding: $out"
+  unset FM_TEST_STUB_VERSION
+  pass "ladder: the same relevance floor applies to explicit selection continuation"
+}
+
 # The bounded reader refuses a whole over-budget admission and emits nothing
 # partial, so ranked pages that together outgrow the declared character budget
 # would return the matched wiki to the exact failure this descent exists to fix:
@@ -1620,6 +1675,8 @@ test_check_probe
 test_allowed_path_enforcement
 test_ladder_pages_replace_the_routing_index
 test_ladder_failure_keeps_declared_paths
+test_ladder_relevance_floor_preserves_declared_index
+test_ladder_relevance_floor_applies_to_explicit_selection
 test_ladder_pages_fit_the_declared_character_budget
 test_option_shaped_upstream_values_stay_values
 test_ladder_never_widens_a_restricted_access

@@ -23,11 +23,11 @@ MAX_JSON_BYTES = 4 * 1024 * 1024
 SELECTION_RE = re.compile(r"^[0-9A-Fa-f]{16,128}$")
 TASK_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 CARD_REL = ".megamind/wiki-card.json"
-# An admission is consumed by the content channel of the same turn it was
-# written for, so nothing here is durable state. This reader is the store's only
-# writer, so it is also the only owner that can retire it: without that, every
-# admitted prompt would leave a permanent record of wiki paths, content hashes,
-# and file fingerprints behind.
+# An admission record remains durable through its bound UTC day so a relaunched
+# worker can re-read the same validated evidence. Every content call revalidates
+# the owner, executable and version, estate, model class, date, authorization,
+# root, card, path identity, bytes, and budgets. This reader is the store's only
+# writer and owns age-based pruning of stale records and abandoned artifacts.
 ADMISSION_RETENTION_SECONDS = 24 * 60 * 60
 
 
@@ -454,7 +454,9 @@ def prune_admissions(store: Path) -> None:
     for entry in entries:
         name = entry.name
         # Records, their serialization locks, and any publish temporary a killed
-        # writer abandoned. Nothing else this reader creates lives here.
+        # writer abandoned are pruned by age on the next admission. A record can
+        # remain reusable within its bound UTC day; content revalidation rejects
+        # it after that date even if age pruning has not run yet.
         if not (
             name.endswith(".json")
             or name.startswith(".admission.")
