@@ -36,10 +36,14 @@ SH
   printf '%s\n' "$home"
 }
 
+# The routing mode defaults to Megamind's real content mode. Its vocabulary is
+# exactly ("full", "pointer"), so a fixture that invents any other value proves
+# nothing about what the reader does with real upstream output.
 prepare_auth() {
-  local home=$1 allows=$2 max_candidates=$3 max_chars=$4 fixture="$TMP_ROOT/fixture-${RANDOM}-${RANDOM}.json"
+  local home=$1 allows=$2 max_candidates=$3 max_chars=$4 routing_mode=${5-full}
+  local fixture="$TMP_ROOT/fixture-${RANDOM}-${RANDOM}.json"
   cat > "$fixture" <<JSON
-{"schema_version":"megamind/preflight-result/v2","request_hash":"request-hash","model_class":"cloud","status":"matched","confidence":0.9,"preflight_id":"preflight-${RANDOM}","catalog_hash":"catalog-hash","thresholds":{"reliance_floor":0.75,"offer_floor":0.25,"ambiguity_band":0.05},"matches":[{"name":"SyntheticWiki","root":"$home/estate/SyntheticWiki","access":"full","routing_mode":"bounded","confidence":{"score":0.9},"allows":$allows,"follow_up":"This is informational and must never execute","context_budget":{"max_candidates":$max_candidates,"max_context_chars":$max_chars}}],"offers":[],"filtered":[],"redacted_count":0}
+{"schema_version":"megamind/preflight-result/v2","request_hash":"request-hash","model_class":"cloud","status":"matched","confidence":0.9,"preflight_id":"preflight-${RANDOM}","catalog_hash":"catalog-hash","thresholds":{"reliance_floor":0.75,"offer_floor":0.25,"ambiguity_band":0.05},"matches":[{"name":"SyntheticWiki","root":"$home/estate/SyntheticWiki","access":"full","routing_mode":"$routing_mode","confidence":{"score":0.9},"allows":$allows,"follow_up":"This is informational and must never execute","context_budget":{"max_candidates":$max_candidates,"max_context_chars":$max_chars}}],"offers":[],"filtered":[],"redacted_count":0}
 JSON
   FM_TEST_FIXTURE="$fixture" FM_HOME="$home" "$PREFLIGHT" run --request routing > "$home/state/task.megamind-preflight.json"
   chmod 600 "$home/state/task.megamind-preflight.json"
@@ -49,6 +53,19 @@ JSON
 admit() {
   local home=$1
   FM_HOME="$home" "$READER" admit --task-id task
+}
+
+# A definitive non-matched outcome (no-match, privacy-filtered, unavailable)
+# never proves an authorization, but it is also never a forgery: it must get
+# its own refusal code rather than collapsing into authorization_unproven.
+prepare_outcome_auth() {  # <home> <status>
+  local home=$1 status=$2 fixture="$TMP_ROOT/outcome-${RANDOM}-${RANDOM}.json"
+  cat > "$fixture" <<JSON
+{"schema_version":"megamind/preflight-result/v2","request_hash":"request-hash","model_class":"cloud","status":"$status","confidence":null,"preflight_id":"preflight-${RANDOM}","catalog_hash":"catalog-hash","thresholds":{"reliance_floor":0.75,"offer_floor":0.25,"ambiguity_band":0.05},"matches":[],"offers":[],"filtered":[],"redacted_count":0}
+JSON
+  FM_TEST_FIXTURE="$fixture" FM_HOME="$home" "$PREFLIGHT" run --request routing > "$home/state/task.megamind-preflight.json"
+  chmod 600 "$home/state/task.megamind-preflight.json"
+  rm -f "$fixture"
 }
 
 assert_refusal() {
@@ -213,7 +230,7 @@ JSON
   [ "$selection_id" != null ] && [ -n "$selection_id" ] || fail "synthetic ambiguous preflight did not issue selection id"
   fixture="$TMP_ROOT/authorized-selection.json"
   cat > "$fixture" <<JSON
-{"schema_version":"megamind/preflight-selection-result/v1","status":"authorized","preflight_id":"selection-preflight","request_hash":"selection-request","catalog_hash":"selection-catalog","model_class":"cloud","selection_id":"upstream-selection","root_facts_hash":"synthetic-root-facts","selection":{"status":"explicit-user-selection","basis":"selected-current-offer","source_disposition":"offer","source_status":"ambiguous","preflight_id":"selection-preflight","confidence_changed":false},"selected":{"name":"OfferWiki","root":"$home/estate/OfferWiki","score":4,"confidence":{"score":0.4,"meets_floor":false},"freshness":null,"evidence":{},"provisional":false,"access":"full","routing_mode":"bounded","allows":[".megamind/wiki-card.json","wiki/index.md"],"follow_up":"must never execute","context_budget":{"max_candidates":2,"max_context_chars":100}},"help":["private"]}
+{"schema_version":"megamind/preflight-selection-result/v1","status":"authorized","preflight_id":"selection-preflight","request_hash":"selection-request","catalog_hash":"selection-catalog","model_class":"cloud","selection_id":"upstream-selection","root_facts_hash":"synthetic-root-facts","selection":{"status":"explicit-user-selection","basis":"selected-current-offer","source_disposition":"offer","source_status":"ambiguous","preflight_id":"selection-preflight","confidence_changed":false},"selected":{"name":"OfferWiki","root":"$home/estate/OfferWiki","score":4,"confidence":{"score":0.4,"meets_floor":false},"freshness":null,"evidence":{},"provisional":false,"access":"full","routing_mode":"full","allows":[".megamind/wiki-card.json","wiki/index.md"],"follow_up":"must never execute","context_budget":{"max_candidates":2,"max_context_chars":100}},"help":["private"]}
 JSON
   out=$(FM_TEST_SELECTION_FIXTURE="$fixture" FM_HOME="$home" "$PREFLIGHT" continue --selection-id "$selection_id" --offer OfferWiki); [ "$(printf '%s' "$out" | jq -r .outcome)" = authorized ] || fail "synthetic selection was not authorized: $out"
   out=$(FM_HOME="$home" "$READER" admit --selection-id "$selection_id"); [ "$(printf '%s' "$out" | jq -r .outcome)" = admitted ] || fail "selection admission refused: $out"
@@ -223,8 +240,133 @@ JSON
   pass "a real synthetic Megamind 0.6 selection authorizes only once and expires on binding change"
 }
 
+test_routing_mode_vocabulary() {
+  local home out mode
+  home=$(new_home vocabulary)
+  printf 'safe\n' > "$home/estate/SyntheticWiki/wiki/index.md"
+  prepare_auth "$home" '["wiki/index.md"]' 2 100 full
+  out=$(admit "$home")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = admitted ] \
+    || fail "the real Megamind content mode was refused: $out"
+  # Every other mode stays a refusal rather than a guess. "pointer" is the only
+  # other value Megamind can emit and it exposes paths without content, so it
+  # must never reach a load; anything else is unknown upstream output.
+  for mode in pointer bounded partial ''; do
+    prepare_auth "$home" '["wiki/index.md"]' 2 100 "$mode"
+    out=$(admit "$home")
+    assert_refusal "$out" authorization_invalid "routing mode '${mode:-empty}'"
+  done
+  prepare_auth "$home" '["wiki/index.md"]' 2 100 full
+  jq 'del(.matches[0].routing_mode)
+      | del(.authorization_binding.declared_allows[0].routing_mode)' \
+    "$home/state/task.megamind-preflight.json" > "$home/state/tmp.json"
+  chmod 600 "$home/state/tmp.json"; mv -f "$home/state/tmp.json" "$home/state/task.megamind-preflight.json"
+  out=$(admit "$home"); assert_refusal "$out" authorization_invalid 'absent routing mode'
+  pass "only Megamind's real content mode admits; pointer, unknown, and absent modes refuse"
+}
+
+test_over_budget_emits_nothing() {
+  local home out before after
+  home=$(new_home nopartial)
+  printf '12345678901234567890' > "$home/estate/SyntheticWiki/wiki/index.md"
+  before=$(find "$home/state/megamind-admissions" -type f 2>/dev/null | wc -l | tr -d ' ')
+  prepare_auth "$home" '["wiki/index.md"]' 2 5
+  out=$(admit "$home"); assert_refusal "$out" context_budget_exceeded 'single over-budget path'
+  # A refusal must hand back no partial content and leave no admission behind
+  # for the content channel to spend: truncated wiki evidence is exactly the
+  # shape that reads as complete while answering nothing.
+  [ "$(printf '%s' "$out" | jq -r '.admission_id')" = null ] || fail "a refused admission still issued an id: $out"
+  [ "$(printf '%s' "$out" | jq -r '.wikis | length')" = 0 ] || fail "a refused admission still described content: $out"
+  printf '%s' "$out" | grep -q 12345 && fail "a refused admission leaked file content: $out"
+  after=$(find "$home/state/megamind-admissions" -type f 2>/dev/null | wc -l | tr -d ' ')
+  [ "$before" = "$after" ] || fail "a refused admission wrote an admission record"
+  pass "an over-budget path refuses whole and emits no partial content"
+}
+
+# Every admission is spent by the content channel of its own turn, so a store
+# that only ever grows leaves a permanent trail of wiki paths, content hashes,
+# and file fingerprints for prompts that were answered long ago.
+test_admission_store_is_retired() {
+  local home out id store stale
+  home=$(new_home retention)
+  prepare_auth "$home" '["wiki/index.md"]' 2 100
+  out=$(admit "$home")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = admitted ] || fail "retention fixture was refused: $out"
+  id=$(printf '%s' "$out" | jq -r '.admission_id')
+  store="$home/state/megamind-admissions"
+  [ -f "$store/$id.json" ] || fail "the admission record the content channel needs was not kept"
+  FM_HOME="$home" "$READER" content --admission-id "$id" >/dev/null || fail "content refused a fresh admission"
+
+  # A record, an abandoned lock, and an abandoned publish temporary left by an
+  # earlier turn are retired by the next admission rather than accumulating for
+  # the life of the home.
+  stale="$store/00000000000000000000000000000000.json"
+  printf '{}\n' > "$stale"; chmod 600 "$stale"
+  printf '' > "$store/.00000000000000000000000000000000.lock"; chmod 600 "$store/.00000000000000000000000000000000.lock"
+  printf '{}\n' > "$store/.admission.abandoned"; chmod 600 "$store/.admission.abandoned"
+  touch -t 200001010000 "$stale" "$store/.00000000000000000000000000000000.lock" "$store/.admission.abandoned"
+  prepare_auth "$home" '["wiki/index.md"]' 2 100
+  out=$(admit "$home")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = admitted ] || fail "a second admission was refused: $out"
+  assert_absent "$stale" "a stale admission record was never retired"
+  assert_absent "$store/.00000000000000000000000000000000.lock" "a stale admission lock was never retired"
+  assert_absent "$store/.admission.abandoned" "an abandoned publish temporary was never retired"
+  [ -f "$store/$(printf '%s' "$out" | jq -r '.admission_id').json" ] \
+    || fail "pruning retired the admission it had just written"
+  pass "the admission store retires spent records and never outlives its own turn"
+}
+
+test_non_matched_outcomes_get_a_benign_refusal() {
+  local home out status
+  home=$(new_home outcome-refusal)
+  for status in no-match privacy-filtered unavailable; do
+    prepare_outcome_auth "$home" "$status"
+    out=$(admit "$home")
+    assert_refusal "$out" authorization_not_matched "an honest $status binding"
+  done
+  pass "an honest no-match, privacy-filtered, or unavailable binding gets a distinct benign refusal"
+}
+
+# A tampered authorization must stay exactly as suspicious as any other proof
+# mismatch and never collapse into the benign non-matched code above - the
+# refusal code is a worker's only channel for learning its own outcome.
+test_forged_authorization_still_authorization_unproven() {
+  local home out
+  home=$(new_home forged); prepare_auth "$home" '[".megamind/wiki-card.json","wiki/index.md"]' 2 100
+  jq '.preflight_id = "forged-preflight-id"' "$home/state/task.megamind-preflight.json" > "$home/state/tmp.json"
+  chmod 600 "$home/state/tmp.json"; mv -f "$home/state/tmp.json" "$home/state/task.megamind-preflight.json"
+  out=$(admit "$home"); assert_refusal "$out" authorization_unproven 'a forged preflight_id'
+  pass "a tampered matched authorization still reports authorization_unproven, never the benign non-matched code"
+}
+
+# digest-only exposes exactly its one approved digest; the reader must not
+# trust upstream's own narrowing and admit a widened allows list under it.
+test_digest_only_admits_exactly_one_path() {
+  local home out
+  home=$(new_home digest-cardinality)
+  printf 'wide open\n' > "$home/estate/SyntheticWiki/wiki/other.md"
+  prepare_auth "$home" '["wiki/index.md","wiki/other.md"]' 2 100
+  jq '.matches[0].access = "digest-only"
+      | .authorization_binding.declared_allows[0].access = "digest-only"' \
+    "$home/state/task.megamind-preflight.json" > "$home/state/tmp.json"
+  chmod 600 "$home/state/tmp.json"; mv -f "$home/state/tmp.json" "$home/state/task.megamind-preflight.json"
+  out=$(admit "$home"); assert_refusal "$out" authorization_invalid 'a digest-only match naming two allows paths'
+  prepare_auth "$home" '["wiki/index.md"]' 2 100
+  jq '.matches[0].access = "digest-only"
+      | .authorization_binding.declared_allows[0].access = "digest-only"' \
+    "$home/state/task.megamind-preflight.json" > "$home/state/tmp.json"
+  chmod 600 "$home/state/tmp.json"; mv -f "$home/state/tmp.json" "$home/state/task.megamind-preflight.json"
+  out=$(admit "$home")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = admitted ] \
+    || fail "a digest-only match naming exactly one allows path was refused: $out"
+  pass "digest-only admits exactly one path and refuses a widened allows list"
+}
+
 test_bounded_admission_and_unicode_counting
+test_admission_store_is_retired
 test_budget_refusals
+test_routing_mode_vocabulary
+test_over_budget_emits_nothing
 test_symlinks_and_traversal_refuse
 test_special_hardlink_and_invalid_utf8_refuse
 test_changed_binding_and_race_revalidation
@@ -232,3 +374,6 @@ test_concurrent_and_home_isolation
 test_toctou_race_never_emits_outside_content
 test_relaunch_preserves_admission
 test_real_synthetic_selection_authorization
+test_non_matched_outcomes_get_a_benign_refusal
+test_forged_authorization_still_authorization_unproven
+test_digest_only_admits_exactly_one_path

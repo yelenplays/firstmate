@@ -327,8 +327,12 @@ Firstmate cleared this task's mandatory Megamind preflight before launching you,
 The owning home's typed result is filed at \`$STATE/$ID.megamind-preflight.json\`; do not read it directly.
 This contract says: do not rerun preflight from this worktree or point this copy's \`FM_HOME\` at another home.
 On \`matched\`, invoke \`$FM_ROOT/bin/fm-megamind-content.sh admit --task-id $ID --owner-home $FM_HOME\`, then use \`$FM_ROOT/bin/fm-megamind-content.sh content --admission-id <opaque-id> --owner-home $FM_HOME\` as the content channel; never read wiki paths directly, execute \`follow_up\`, or widen beyond the reader's validated allows and budget.
-On \`no-match\` or \`privacy-filtered\`, load no wiki content and do the work ordinarily without naming the estate.
+On \`no-match\` or \`privacy-filtered\`, load no wiki content and do the work ordinarily without naming the estate or any withheld wiki.
+On \`unavailable\`, disclose that preflight ran but found no usable wiki coverage as a concrete blocker rather than proceeding as if coverage existed.
+A \`no-match\`, \`privacy-filtered\`, or \`unavailable\` binding is a benign non-authorizing result: if you nonetheless call \`admit\` against one, its \`authorization_not_matched\` refusal is ordinary, not a blocker to escalate.
 That file is the authoritative consultation for this task, and the owning-home reader is the authoritative content-admission boundary.
+A successful admission proves that routing ran, never that this evidence answers the request: when the admitted evidence does not answer it, state that evidence gap plainly and stop rather than closing it from model knowledge or presenting model synthesis as wiki-grounded.
+Page names or links appearing inside admitted evidence were not themselves authorized - they are the reportable gap, not permission to reason from them.
 EOF
 MEGAMIND_SECTION=${MEGAMIND_SECTION%$'\n'}
 

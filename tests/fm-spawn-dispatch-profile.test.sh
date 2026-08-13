@@ -586,7 +586,34 @@ test_pi_signed_persistent_secondmate_uses_pi_extensions_and_identity() {
   launch=$(cat "$LAUNCH_LOG")
   assert_contains "$launch" "FM_PI_HARNESS=pi-signed pi-signed --tui-mode regular -e '$sm/.pi/extensions/fm-primary-turnend-guard.ts' -e '$sm/.pi/extensions/fm-primary-pi-watch.ts'" \
     "pi-signed secondmate did not force the regular TUI with Pi's primary extension launch shape"
+  # A secondmate home is a firstmate home, so it is the one pi launch that can
+  # load the primary Megamind adapter at all.
+  assert_contains "$launch" "-e '$sm/.pi/extensions/fm-primary-megamind.ts'" \
+    "pi-signed secondmate lost the primary Megamind adapter its own home provides"
   pass "pi-signed is a distinct persistent secondmate runtime with shared Pi supervision semantics"
+}
+
+# An ordinary ship or scout resolves its project directory to the project's own
+# checkout, which carries no .pi/extensions. Pi treats a missing `-e` path as
+# fatal - it reports the unloadable extension and exits without starting - so
+# passing the primary Megamind adapter there makes every pi worker on every
+# project except this one unlaunchable.
+test_pi_worker_launches_omit_the_primary_megamind_adapter() {
+  local rec id out status launch harness
+  for harness in pi pi-signed; do
+    id="profile-megamind-$harness"
+    rec=$(make_spawn_case "profile-megamind-$harness" "$harness" "$id")
+    read_case_record "$rec"
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+    status=$?
+    expect_code 0 "$status" "$harness ship spawn should succeed"
+    launch=$(cat "$LAUNCH_LOG")
+    assert_not_contains "$launch" "fm-primary-megamind.ts" \
+      "$harness worker launch passes the primary Megamind adapter, which is fatal on any project without it"
+    assert_contains "$launch" "state/$id.pi-ext.ts" \
+      "$harness worker launch lost its own turn-end extension"
+  done
+  pass "ordinary pi and pi-signed worker launches omit the primary Megamind adapter"
 }
 
 test_batch_forwards_shared_profile_flags() {
@@ -696,6 +723,7 @@ test_pi_threads_model_and_max_effort
 test_pi_signed_threads_shared_pi_profile_and_preserves_identity
 test_pi_signed_missing_binary_refuses_before_endpoint_or_metadata
 test_pi_signed_persistent_secondmate_uses_pi_extensions_and_identity
+test_pi_worker_launches_omit_the_primary_megamind_adapter
 test_batch_forwards_shared_profile_flags
 test_claude_forwards_firstmate_config_dir_when_set
 test_claude_omits_config_dir_prefix_when_unset

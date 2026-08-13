@@ -148,7 +148,15 @@
 #                  written by this script; outside the worktree to avoid pi's trust gate)
 #     __PITURNEND__ absolute path to .pi/extensions/fm-primary-turnend-guard.ts in a pi secondmate home
 #     __PIWATCH__   absolute path to .pi/extensions/fm-primary-pi-watch.ts in a pi secondmate home
-#     __PIMEGAMIND__ absolute path to .pi/extensions/fm-primary-megamind.ts in a pi secondmate home
+#     __PIMEGAMIND__ absolute path to .pi/extensions/fm-primary-megamind.ts in a pi secondmate
+#                    home, passed by the --secondmate template ONLY. A ship or scout resolves
+#                    its project directory to the project's own checkout, which carries no such
+#                    extension, and pi treats a missing `-e` path as fatal: it reports the
+#                    unloadable extension and exits without starting a session, so passing it
+#                    there made every pi worker on every project except this one unlaunchable.
+#                    The adapter derives its coordinator, home, and opt-in from
+#                    the directory it was loaded from, so bin/fm-megamind-primary.sh's own gates
+#                    decide whether it governs anything (docs/configuration.md "Harness support").
 #     __OPINPUT__   absolute path to the canonical operational-input encoder
 # Verified per-harness turn-end hooks are installed automatically where enabled; some live outside the worktree.
 # Kimi uses one surgically installed Firstmate region in $HOME/.kimi-code/config.toml,
@@ -164,8 +172,10 @@
 # behind rather than a launch that only fails inside the pane. The request routed
 # through that binding is the separately authored data/<task-id>/megamind-request.md
 # (bin/fm-brief.sh scaffolds it; never the brief itself), and the authorized typed
-# result is written to state/<task-id>.megamind-preflight.json for the worker to
-# read from the brief's fixed wiki-routing section - never through pane output.
+# result is written to state/<task-id>.megamind-preflight.json, which the brief's
+# fixed wiki-routing section names for the worker - never through pane output. The
+# worker never opens that file; bin/fm-megamind-content.sh admits from it and is
+# the only path any wiki byte takes to the worker.
 # bin/fm-worker-preflight.sh owns that contract. --secondmate starts a firstmate
 # home rather than an ordinary worker and is not routed through it; a secondmate's
 # own spawns bind that secondmate home, never the primary's.
@@ -1099,7 +1109,7 @@ launch_template() {
       if [ "$kind" = secondmate ]; then
         printf '%s%s' "$harness" ' --tui-mode regular __MODELFLAG____EFFORTFLAG__-e __PITURNEND__ -e __PIWATCH__ -e __PIMEGAMIND__ "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
       else
-        printf '%s%s' "$harness" ' --tui-mode regular __MODELFLAG____EFFORTFLAG__-e __PIEXT__ -e __PIMEGAMIND__ "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
+        printf '%s%s' "$harness" ' --tui-mode regular __MODELFLAG____EFFORTFLAG__-e __PIEXT__ "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
       fi
       ;;
     # grok (Grok Build TUI): a positional prompt starts the supervised interactive

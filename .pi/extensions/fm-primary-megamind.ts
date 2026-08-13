@@ -94,6 +94,33 @@ function runCoordinator(args: string[], prompt = ""): Promise<Decision> {
   });
 }
 
+// Automatic primary mode is opt-in and the coordinator owns that eligibility.
+// A session that never opted into it must not lose its prompt to a transport
+// failure of this adapter's own, so the coordinator is asked by exit status
+// alone before any failure is turned into a handled, unsent prompt. A
+// coordinator that cannot even be spawned is by definition governing nothing.
+function coordinatorGoverns(): Promise<boolean> {
+  return new Promise((resolveResult) => {
+    const child = spawn(coordinator, ["governed", "--harness", process.env.FM_PI_HARNESS === "pi-signed" ? "pi-signed" : "pi"], {
+      cwd: root,
+      env: { ...process.env, FM_ROOT_OVERRIDE: root },
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM");
+      resolveResult(false);
+    }, 10_000);
+    child.on("error", () => {
+      clearTimeout(timeout);
+      resolveResult(false);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+      resolveResult(code === 0);
+    });
+  });
+}
+
 function sessionId(ctx: { sessionManager?: { getSessionId?: () => string } }): string {
   return ctx.sessionManager?.getSessionId?.() ?? "pi-session";
 }
@@ -109,9 +136,9 @@ export default function (pi: ExtensionAPI) {
 
     // The adapter's own replay is the only extension-originated prompt that is
     // allowed to bypass a second preflight. Watcher and session messages remain
-    // ordinary extension input and do not enter this path.
-    if ((event as { source?: string }).source === "extension") {
-      if (consumeReplay(text)) return { action: "continue" as const };
+    // ordinary extension input and take the mandatory path below, where the
+    // coordinator's own classifier decides whether they bypass.
+    if ((event as { source?: string }).source === "extension" && consumeReplay(text)) {
       return { action: "continue" as const };
     }
 
@@ -152,9 +179,11 @@ export default function (pi: ExtensionAPI) {
         await pi.sendUserMessage(text);
         return { action: "handled" as const };
       }
-      default:
+      default: {
+        if (!(await coordinatorGoverns())) return { action: "continue" as const };
         ctx.ui.notify(failureText(result), "error");
         return { action: "handled" as const };
+      }
     }
   });
 

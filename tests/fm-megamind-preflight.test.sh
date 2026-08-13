@@ -118,6 +118,7 @@ i=$((i + 1))
 case "$sub" in
   preflight) allowed=' --model-class --estate --today --full --semantic --format --root --no-help-hints ' ;;
   select-offer) allowed=' --request --preflight-result --model-class --estate --today --format --root --no-help-hints ' ;;
+  route) allowed=' --fields --today --semantic --format --root --no-help-hints ' ;;
   *) usage_error "invalid choice: $sub" ;;
 esac
 while [ "$i" -lt "$count" ]; do
@@ -134,7 +135,10 @@ while [ "$i" -lt "$count" ]; do
   esac
 done
 
-if [ "$sub" = select-offer ] && [ -n "${FM_TEST_SELECTION_FIXTURE:-}" ]; then
+if [ "$sub" = route ]; then
+  [ -n "${FM_TEST_ROUTE_FIXTURE:-}" ] && cat "$FM_TEST_ROUTE_FIXTURE"
+  exit "${FM_TEST_ROUTE_EXIT:-0}"
+elif [ "$sub" = select-offer ] && [ -n "${FM_TEST_SELECTION_FIXTURE:-}" ]; then
   cat "$FM_TEST_SELECTION_FIXTURE"
 elif [ -n "${FM_TEST_STUB_FIXTURE:-}" ]; then
   cat "$FM_TEST_STUB_FIXTURE"
@@ -243,7 +247,7 @@ cat > "$MATCHED_FIXTURE" <<'JSON'
     "context_budget": {"max_candidates": 3, "max_context_chars": 4000, "root": "/private/root"},
     "reasons": ["trigger match: pricing"],
     "access": "full",
-    "routing_mode": "bounded",
+    "routing_mode": "full",
     "allows": [".megamind/wiki-card.json", "wiki/digest.md", "wiki/index.md"],
     "follow_up": "Run `megamind-axi --root /synthetic/estate/ProductWiki route pricing` for the bounded ladder"
   }],
@@ -307,7 +311,7 @@ cat > "$SELECTION_FIXTURE" <<'JSON'
     },
     "provisional": false,
     "access": "digest-only",
-    "routing_mode": "bounded",
+    "routing_mode": "full",
     "allows": ["wiki/digest.md"],
     "follow_up": "Run the bounded route ladder",
     "context_budget": {"max_candidates": 2, "max_context_chars": 2048},
@@ -368,6 +372,11 @@ test_matched_run_and_model_class_propagation() {
   [ "$(printf '%s' "$out" | jq -r '.filtered_count')" = 1 ] || fail "filtered_count lost"
   assert_not_contains "$out" "HiddenWiki" "filtered wiki name must never be echoed"
   assert_not_contains "$out" "RAW-REQUEST-CANARY" "raw request must never be echoed"
+  # A matched document is exactly where an absolute root could still leak, and
+  # Megamind's follow_up is by its own shape the route command carrying one.
+  assert_not_contains "$out" "/synthetic/estate" "a matched projection must carry no absolute root"
+  [ "$(printf '%s' "$out" | jq -r '.matches[0].follow_up')" != null ] \
+    || fail "follow_up was dropped rather than redacted: $out"
   assert_contains "$out" "read_policy" "read policy missing"
   [ "$(printf '%s' "$out" | jq -r '.notes | length')" = 1 ] || fail "notes must be exactly one host-owned line: $out"
   assert_not_contains "$out" "reliance floor" "Megamind's own note text must never pass through"
@@ -699,6 +708,230 @@ test_allowed_path_enforcement() {
   pass "run: absolute, tilde, dot-dot, and empty allows paths are dropped"
 }
 
+# --- ladder descent ----------------------------------------------------------
+
+# preflight answers at the catalog level, so the widest surface it can name is a
+# routing index. These cover the descent that turns that index into the pages it
+# points at, and the fallback that leaves an unusable ladder exactly where it was.
+test_ladder_pages_replace_the_routing_index() {
+  local home out fixture="$TMP_ROOT/ladder-match.json" route="$TMP_ROOT/ladder-route.json"
+  local argv root
+  home=$(new_home ladder)
+  root="$home/estate/ProductWiki"
+  mkdir -p "$root/wiki/concepts"
+  # Real ranked pages: the descent authorizes only candidates whose own size it
+  # can measure against the declared character budget.
+  printf 'pricing page\n' > "$root/wiki/concepts/pricing.md"
+  printf 'discounts page\n' > "$root/wiki/concepts/discounts.md"
+  printf 'overflow page\n' > "$root/wiki/concepts/overflow.md"
+  jq --arg root "$root" '.matches[0].root = $root
+      | .matches[0].allows = ["wiki/index.md"]
+      | .matches[0].follow_up = ("Run `megamind-axi --root " + $root + " route pricing` for the bounded ladder")
+      | .matches[0].context_budget = {"max_candidates": 2, "max_context_chars": 4000}' \
+    "$MATCHED_FIXTURE" > "$fixture"
+  # Ranked page candidates, one duplicate, one unsafe path, and more pages than
+  # the authorization's own max_candidates permits.
+  cat > "$route" <<'JSON'
+{"schema_version": "megamind/route-result/v2", "query": "pricing", "matched": true,
+ "decision": "load", "confidence": 0.9,
+ "candidates": [
+   {"path": "wiki/concepts/pricing.md", "kind": "page", "score": 8, "reason": "keyword match: pricing"},
+   {"path": "../escape.md", "kind": "page", "score": 7, "reason": "unsafe"},
+   {"path": "wiki/concepts/pricing.md", "kind": "page", "score": 6, "reason": "duplicate"},
+   {"path": "wiki/concepts/discounts.md", "kind": "page", "score": 5, "reason": "keyword match: pricing"},
+   {"path": "wiki/concepts/overflow.md", "kind": "page", "score": 4, "reason": "beyond the budget"},
+   {"path": "wiki/index.md", "kind": "index", "score": 3, "reason": "not a page"}]}
+JSON
+  : > "$FM_TEST_STUB_ARGS"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" run --request "pricing")
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" \
+    = '["wiki/concepts/pricing.md","wiki/concepts/discounts.md"]' ] \
+    || fail "ladder pages did not replace the routing index: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
+  # The binding the reader re-derives the load surface from must agree exactly,
+  # or every admission refuses as authorization_invalid.
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" \
+    = "$(printf '%s' "$out" | jq -c '.matches[0].allows')" ] \
+    || fail "declared_allows disagreed with the emitted allows: $out"
+  # follow_up stays informational: it is carried, never executed or parsed, and
+  # the absolute root its own shape carries is redacted out of it.
+  [ "$(printf '%s' "$out" | jq -r '.matches[0].follow_up')" != null ] \
+    || fail "follow_up was dropped rather than carried: $out"
+  assert_not_contains "$out" "$home/estate" "a matched projection must carry no absolute root"
+  argv=$(cat "$FM_TEST_STUB_ARGS")
+  printf '%s' "$argv" | grep -q '^route$' || fail "the ladder subcommand was never invoked: $argv"
+  # Global flags precede the subcommand and the request goes last after --, so a
+  # dash-leading request can never be parsed as an option.
+  printf '%s' "$argv" | tr '\n' ' ' | grep -q -- '--root [^ ]* --format json --no-help-hints route -- pricing' \
+    || fail "ladder argv was not the documented shape: $argv"
+  pass "run: the ladder replaces a routing index with its ranked, budgeted pages"
+}
+
+test_ladder_failure_keeps_declared_paths() {
+  local home out fixture="$TMP_ROOT/ladder-fallback.json" route="$TMP_ROOT/ladder-empty.json" root case_name
+  home=$(new_home ladderfallback)
+  root="$home/estate/ProductWiki"
+  mkdir -p "$root"
+  jq --arg root "$root" '.matches[0].root = $root | .matches[0].allows = ["wiki/index.md"]' \
+    "$MATCHED_FIXTURE" > "$fixture"
+  for case_name in nopage failed unrecognized; do
+    case "$case_name" in
+      nopage) printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/index.md","kind":"index","score":3}]}' > "$route" ;;
+      failed) printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8}]}' > "$route" ;;
+      unrecognized) printf '%s\n' '{"schema_version":"megamind/something-else/v9","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8}]}' > "$route" ;;
+    esac
+    if [ "$case_name" = failed ]; then
+      out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" FM_TEST_ROUTE_EXIT=2 \
+        run_in "$home" run --request "pricing")
+    else
+      out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
+        run_in "$home" run --request "pricing")
+    fi
+    [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" = '["wiki/index.md"]' ] \
+      || fail "$case_name ladder changed the declared allows: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
+    [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/index.md"]' ] \
+      || fail "$case_name ladder desynchronized the binding: $out"
+    [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] \
+      || fail "$case_name ladder changed the preflight outcome: $out"
+  done
+  pass "run: a ladder that ranks no page, fails, or is unrecognized leaves the declared paths untouched"
+}
+
+# The bounded reader refuses a whole over-budget admission and emits nothing
+# partial, so ranked pages that together outgrow the declared character budget
+# would return the matched wiki to the exact failure this descent exists to fix:
+# an authorization that admits no content at all.
+test_ladder_pages_fit_the_declared_character_budget() {
+  local home out root i page
+  local fixture="$TMP_ROOT/ladder-budget.json" route="$TMP_ROOT/ladder-budget-route.json"
+  home=$(new_home ladderbudget)
+  root="$home/estate/ProductWiki"
+  mkdir -p "$root/wiki/concepts"
+  page=$(printf 'x%.0s' {1..400})
+  for i in first second third; do
+    printf '%s' "$page" > "$root/wiki/concepts/$i.md"
+  done
+  jq --arg root "$root" '.matches[0].root = $root
+      | .matches[0].allows = ["wiki/index.md"]
+      | .matches[0].context_budget = {"max_candidates": 5, "max_context_chars": 900}' \
+    "$MATCHED_FIXTURE" > "$fixture"
+  cat > "$route" <<'JSON'
+{"schema_version": "megamind/route-result/v2", "candidates": [
+   {"path": "wiki/concepts/first.md", "kind": "page", "score": 9},
+   {"path": "wiki/concepts/second.md", "kind": "page", "score": 8},
+   {"path": "wiki/concepts/third.md", "kind": "page", "score": 7}]}
+JSON
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" run --request "pricing")
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" \
+    = '["wiki/concepts/first.md","wiki/concepts/second.md"]' ] \
+    || fail "the ladder authorized past the declared character budget: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" \
+    = "$(printf '%s' "$out" | jq -c '.matches[0].allows')" ] \
+    || fail "the budgeted ladder desynchronized the binding: $out"
+  pass "run: the ladder keeps only the ranked pages that fit the declared budget"
+}
+
+# Upstream owns the root strings and the ranked page paths, and neither is
+# constrained away from a leading dash. Both are values, never options: a root
+# that fell out of the redaction set would put an absolute estate path back into
+# follow_up, and a ranked page that fell out of the ladder would silently return
+# the authorization to the routing index.
+test_option_shaped_upstream_values_stay_values() {
+  local home out root dash_root='-x/synthetic/estate/ProductWiki'
+  local fixture="$TMP_ROOT/option-shaped.json" route="$TMP_ROOT/option-shaped-route.json"
+  home=$(new_home option-root)
+  jq --arg root "$dash_root" '.matches[0].root = $root
+      | .matches[0].follow_up = ("Run `megamind-axi --root " + $root + " route pricing` for the bounded ladder")' \
+    "$MATCHED_FIXTURE" > "$fixture"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "pricing")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = matched ] \
+    || fail "an option-shaped root changed the outcome: $out"
+  [ "$(printf '%s' "$out" | jq --arg root "$dash_root" -r 'tostring | contains($root)')" = false ] \
+    || fail "an option-shaped root escaped the redaction set: $out"
+
+  home=$(new_home option-candidate)
+  root="$home/estate/ProductWiki"
+  mkdir -p "$root"
+  printf 'dash page\n' > "$root/-dash.md"
+  jq --arg root "$root" '.matches[0].root = $root
+      | .matches[0].allows = ["wiki/index.md"]
+      | .matches[0].context_budget = {"max_candidates": 2, "max_context_chars": 4000}' \
+    "$MATCHED_FIXTURE" > "$fixture"
+  printf '%s\n' '{"schema_version":"megamind/route-result/v2","candidates":[{"path":"-dash.md","kind":"page","score":8}]}' > "$route"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" run --request "pricing")
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" = '["-dash.md"]' ] \
+    || fail "an option-shaped ranked page was dropped from the ladder: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["-dash.md"]' ] \
+    || fail "an option-shaped ranked page desynchronized the binding: $out"
+  pass "run: option-shaped upstream roots and page paths stay values, never options"
+}
+
+# `route` takes no model class, so it cannot restate the per-class restriction
+# that produced a digest-only access. Trading that digest for ranked pages is
+# the one substitution that would widen an authorization, so it never happens.
+test_ladder_never_widens_a_restricted_access() {
+  local home out root id
+  local fixture="$TMP_ROOT/ladder-digest.json" route="$TMP_ROOT/ladder-digest-route.json"
+  local ambiguous="$TMP_ROOT/ladder-digest-ambiguous.json" selection="$TMP_ROOT/ladder-digest-selection.json"
+  cat > "$route" <<'JSON'
+{"schema_version":"megamind/route-result/v2","candidates":[{"path":"wiki/concepts/pricing.md","kind":"page","score":8}]}
+JSON
+  home=$(new_home ladderaccess)
+  root="$home/estate/ProductWiki"
+  mkdir -p "$root"
+  jq --arg root "$root" '.matches[0].root = $root
+      | .matches[0].access = "digest-only"
+      | .matches[0].allows = ["wiki/digest.md"]' \
+    "$MATCHED_FIXTURE" > "$fixture"
+  : > "$FM_TEST_STUB_ARGS"
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" run --request "pricing")
+  [ "$(printf '%s' "$out" | jq -c '.matches[0].allows')" = '["wiki/digest.md"]' ] \
+    || fail "the ladder widened a digest-only match: $(printf '%s' "$out" | jq -c '.matches[0].allows')"
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/digest.md"]' ] \
+    || fail "the ladder widened a digest-only binding: $out"
+  if grep -q '^route$' "$FM_TEST_STUB_ARGS"; then
+    fail "a restricted access still descended the ladder: $(cat "$FM_TEST_STUB_ARGS")"
+  fi
+
+  # Selecting an offer picks the wiki; it never raises this class's access to it.
+  export FM_TEST_STUB_VERSION=0.6.0
+  home=$(new_home ladderaccess-selection)
+  root="$home/estate/OfferWiki"
+  mkdir -p "$root"
+  jq --arg root "$root" '.offers[0].root = $root' "$AMBIGUOUS_SELECTION_FIXTURE" > "$ambiguous"
+  jq --arg root "$root" '.selected.root = $root' "$SELECTION_FIXTURE" > "$selection"
+  out=$(FM_TEST_STUB_FIXTURE="$ambiguous" run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  out=$(FM_TEST_SELECTION_FIXTURE="$selection" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki)
+  [ "$(printf '%s' "$out" | jq -c '.selected.allows')" = '["wiki/digest.md"]' ] \
+    || fail "the ladder widened a digest-only selection: $out"
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/digest.md"]' ] \
+    || fail "the ladder widened a digest-only selection binding: $out"
+
+  # The same selection at full access does descend, so the restriction is the
+  # reason the digest-only one did not.
+  home=$(new_home ladderaccess-full)
+  root="$home/estate/OfferWiki"
+  mkdir -p "$root/wiki/concepts"
+  printf 'pricing page\n' > "$root/wiki/concepts/pricing.md"
+  jq --arg root "$root" '.offers[0].root = $root' "$AMBIGUOUS_SELECTION_FIXTURE" > "$ambiguous"
+  jq --arg root "$root" '.selected.root = $root | .selected.access = "full"' "$SELECTION_FIXTURE" > "$selection"
+  out=$(FM_TEST_STUB_FIXTURE="$ambiguous" run_in "$home" run --request "original request")
+  id=$(printf '%s' "$out" | jq -r '.selection_id')
+  out=$(FM_TEST_SELECTION_FIXTURE="$selection" FM_TEST_ROUTE_FIXTURE="$route" \
+    run_in "$home" continue --selection-id "$id" --offer OfferWiki)
+  [ "$(printf '%s' "$out" | jq -c '.selected.allows')" = '["wiki/concepts/pricing.md"]' ] \
+    || fail "a full-access selection did not descend the ladder: $out"
+  [ "$(printf '%s' "$out" | jq -c '.authorization_binding.declared_allows[0].allows')" = '["wiki/concepts/pricing.md"]' ] \
+    || fail "a full-access selection binding disagreed with its own allows: $out"
+  unset FM_TEST_STUB_VERSION
+  pass "ladder: an access narrowed for this model class keeps its declared paths"
+}
+
 # --- ambiguity, no-match, privacy, unavailable --------------------------------
 
 test_ambiguous_offers_without_loading() {
@@ -732,7 +965,34 @@ test_no_match_stays_quiet() {
   assert_not_contains "$out" "ProductWiki" "no-match must stay quiet about wikis"
   assert_not_contains "$out" "OfferWiki" "no-match must stay quiet about wikis"
   assert_not_contains "$out" "HiddenWiki" "no-match must stay quiet about wikis"
+  [ "$(printf '%s' "$out" | jq -r '.notes[0]')" = "Megamind matched no wiki: do the work ordinarily and stay quiet about the estate." ] \
+    || fail "an ordinary no-match note changed: $out"
   pass "run: no-match stays quiet about wikis"
+}
+
+# A no-match that withheld a candidate for this model class (filtered_count >
+# 0) is coverage denied, not coverage absent, and must read exactly like
+# privacy-filtered: nothing may tell the agent to proceed as though no wiki
+# covered the request.
+test_no_match_with_filtered_count_reads_as_privacy_filtered() {
+  local home out fixture="$TMP_ROOT/no-match-filtered.json"
+  jq '.status = "no-match"
+      | .confidence = null
+      | .matches = []
+      | .offers = []
+      | .preflight_id = "pf-nomatch-filtered-1"
+      | .notes = ["below the no-match floor (0.25): omitted HiddenWiki"]' "$MATCHED_FIXTURE" > "$fixture"
+  home=$(new_home no-match-filtered)
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "quantum llama farming")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = no-match ] || fail "outcome not no-match: $out"
+  [ "$(printf '%s' "$out" | jq -r '.filtered_count')" = 1 ] || fail "filtered_count lost: $out"
+  [ "$(printf '%s' "$out" | jq -r '.notes | length')" = 1 ] || fail "notes must be exactly one host-owned line: $out"
+  [ "$(printf '%s' "$out" | jq -r '.notes[0]')" = "Megamind withheld every candidate for this model class: only the count is disclosed, never a name." ] \
+    || fail "a no-match with a withheld candidate did not read as privacy-filtered: $out"
+  assert_not_contains "$out" "do the work ordinarily" "a withheld no-match must never tell the agent to proceed ordinarily"
+  assert_not_contains "$out" "HiddenWiki" "no-match with filtered_count must never name the withheld wiki"
+  assert_not_contains "$out" "no-match floor" "upstream note text must never pass through"
+  pass "run: a no-match that withheld a candidate reads exactly like privacy-filtered"
 }
 
 test_notes_are_host_owned() {
@@ -1358,8 +1618,14 @@ test_request_stdin_keeps_adapter_prompt_out_of_coordinator_argv
 test_dash_leading_request_is_passed_safely
 test_check_probe
 test_allowed_path_enforcement
+test_ladder_pages_replace_the_routing_index
+test_ladder_failure_keeps_declared_paths
+test_ladder_pages_fit_the_declared_character_budget
+test_option_shaped_upstream_values_stay_values
+test_ladder_never_widens_a_restricted_access
 test_ambiguous_offers_without_loading
 test_no_match_stays_quiet
+test_no_match_with_filtered_count_reads_as_privacy_filtered
 test_notes_are_host_owned
 test_privacy_filtered_never_names_wikis
 test_unavailable_is_definitive

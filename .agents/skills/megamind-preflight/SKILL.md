@@ -43,10 +43,28 @@ Never classify a request as bypass to save time, and never skip a failed preflig
   The reader accepts only the script-issued authorization and its selected allows and budget; it never executes or parses `follow_up`.
   A continuation or admission refusal leaves the substantive work blocked and never falls back to the ambiguous worker path.
 - `no-match`: stay quiet about wikis and do the work ordinarily without wiki context.
+  A `no-match` whose `filtered_count` is greater than 0 withheld a candidate for this model class and is handled exactly like `privacy-filtered` below, not like an ordinary no-match.
 - `privacy-filtered`: say wiki coverage is unavailable for this model class; load nothing and never name the withheld wikis.
 - `unavailable`: preflight ran but no usable wiki cards exist; disclose that concretely as a blocker for substantive work rather than proceeding as if coverage existed.
 - `error`: the typed `failure.code` (missing configuration, missing or incompatible Megamind, malformed or failed output, or unsafe selection continuation) is a concrete blocker for substantive work.
   Disclose it plainly to the captain instead of pretending preflight ran; routine bypass traffic may still proceed.
+
+## Automatic primary mode
+
+A home that opted into automatic primary mode routes every prompt through `bin/fm-megamind-primary.sh` before the turn starts, so a governed turn can arrive already carrying admitted wiki evidence, introduced by the host's bounded-reader guidance line.
+That is the same preflight and the same bounded reader this procedure runs, already performed for that exact prompt: act on the evidence the turn carries and do not route the same request a second time.
+Nothing else about this contract changes - the per-outcome rules, the evidence gap below, and the failure-disclosure duty apply to admitted evidence however it arrived.
+The absence of admitted evidence never proves that routing ran: a `no-match` or `privacy-filtered` decision injects nothing, and a home that never opted in is indistinguishable from one that did, so every turn without it takes the mandatory procedure above.
+An ambiguous result never reaches the model in that mode - the coordinator resolves the offer through the adapter's own control first - and a blocked prompt starts no turn at all.
+`docs/configuration.md` "Megamind preflight" owns the coordinator, the adapters, and the opt-in.
+
+## Admitted evidence that cannot answer the request
+
+A successful preflight and a successful admission prove that routing ran, never that the admitted content answers the question.
+When the admitted evidence does not answer it, state that evidence gap plainly and stop; name what the wiki does cover and what it does not.
+Never close the gap from model knowledge, and never present model synthesis as wiki-grounded, whatever `preflight_id` the turn is carrying.
+Admitted content that only names or links pages which were not themselves authorized is exactly this case: those page names are the reportable gap, not permission to reason from them.
+This rule applies identically to a threshold `matched` result and to an `authorized` explicit selection, and it is the one case where wiki evidence outranking model priors means answering with less rather than more.
 
 ## Ordinary worker launch guidance
 

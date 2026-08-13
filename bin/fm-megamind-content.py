@@ -23,6 +23,12 @@ MAX_JSON_BYTES = 4 * 1024 * 1024
 SELECTION_RE = re.compile(r"^[0-9A-Fa-f]{16,128}$")
 TASK_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 CARD_REL = ".megamind/wiki-card.json"
+# An admission is consumed by the content channel of the same turn it was
+# written for, so nothing here is durable state. This reader is the store's only
+# writer, so it is also the only owner that can retire it: without that, every
+# admitted prompt would leave a permanent record of wiki paths, content hashes,
+# and file fingerprints behind.
+ADMISSION_RETENTION_SECONDS = 24 * 60 * 60
 
 
 def result(code: str, admitted: bool = False, **fields: Any) -> Dict[str, Any]:
@@ -238,10 +244,6 @@ def strict_read(fd: int, ceiling: int) -> Tuple[bytes, str, int]:
         raise ValueError("invalid_utf8")
 
 
-def compare_fingerprint(actual: Dict[str, Any], expected: Dict[str, Any]) -> bool:
-    return actual == expected
-
-
 def current_binding(home: Path, auth: Dict[str, Any], selection_id: Optional[str]) -> Optional[Dict[str, Any]]:
     binding = auth.get("authorization_binding")
     if not isinstance(binding, dict) or binding.get("schema_version") != BINDING_SCHEMA:
@@ -323,7 +325,10 @@ def auth_path(home: Path, task_id: Optional[str], selection_id: Optional[str]) -
     return None
 
 
-def proof_matches(home: Path, auth: Dict[str, Any], outcome: str) -> bool:
+def proof_matches(home: Path, auth: Dict[str, Any]) -> bool:
+    # The accepted outcome set is the whole contract and is deliberately not
+    # narrowed to the authorization's own kind: `continue` writes no proof line,
+    # so a selection authorization is proven by the `ambiguous` line it came from.
     proof = home / "state" / "megamind-preflight.jsonl"
     if not private_file(proof):
         return False
@@ -374,7 +379,17 @@ def authorization(auth: Dict[str, Any], selection_id: Optional[str]) -> Optional
             return None
         if not isinstance(allows, list) or not allows:
             return None
-        if match.get("access") not in ("full", "digest-only") or match.get("routing_mode") != "bounded":
+        # access and routing_mode are two different Megamind vocabularies.
+        # access is the per-model-class narrowing, exactly ("full",
+        # "digest-only"): "full" authorizes every declared allows path under
+        # the declared budget, "digest-only" authorizes exactly the one
+        # approved digest path (cardinality enforced below, once allows is
+        # known). routing_mode is exactly ("full", "pointer") and says only
+        # whether the ladder ever produced ranked pages; "pointer" names
+        # paths without having read them, so only "full" is accepted here.
+        # Any other value for either field is unknown upstream output and
+        # refuses rather than being guessed at.
+        if match.get("access") not in ("full", "digest-only") or match.get("routing_mode") != "full":
             return None
         if not isinstance(budget, dict) or type(budget.get("max_candidates")) is not int or budget["max_candidates"] <= 0:
             return None
@@ -390,6 +405,10 @@ def authorization(auth: Dict[str, Any], selection_id: Optional[str]) -> Optional
             if rel not in safe_allows:
                 safe_allows.append(rel)
         if not safe_allows:
+            return None
+        # digest-only exposes exactly its approved digest; the reader does not
+        # trust upstream to have enforced that narrowing on its own.
+        if match["access"] == "digest-only" and len(safe_allows) != 1:
             return None
         normalized.append({
             "wiki": wiki,
@@ -419,9 +438,36 @@ def authorization(auth: Dict[str, Any], selection_id: Optional[str]) -> Optional
 def lock_for(path: Path):
     path.parent.mkdir(mode=0o700, exist_ok=True)
     fh = path.open("a+")
-    os.chmod(path, 0o600)
+    # Through the descriptor, so a concurrent admission retiring this store
+    # cannot turn the private-mode step into a failed whole admission.
+    os.fchmod(fh.fileno(), 0o600)
     fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
     return fh
+
+
+def prune_admissions(store: Path) -> None:
+    cutoff = time.time() - ADMISSION_RETENTION_SECONDS
+    try:
+        entries = list(os.scandir(store))
+    except OSError:
+        return
+    for entry in entries:
+        name = entry.name
+        # Records, their serialization locks, and any publish temporary a killed
+        # writer abandoned. Nothing else this reader creates lives here.
+        if not (
+            name.endswith(".json")
+            or name.startswith(".admission.")
+            or (name.startswith(".") and name.endswith(".lock"))
+        ):
+            continue
+        try:
+            st = entry.stat(follow_symlinks=False)
+            if not stat.S_ISREG(st.st_mode) or st.st_mtime >= cutoff:
+                continue
+            os.unlink(entry.path)
+        except OSError:
+            continue
 
 
 def write_private(path: Path, data: bytes) -> bool:
@@ -450,8 +496,15 @@ def admit(home: Path, task_id: Optional[str], selection_id: Optional[str]) -> in
     auth = load_json(path)
     if auth is None:
         return fail("authorization_malformed")
-    outcome = "authorized" if selection_id else "matched"
-    if not proof_matches(home, auth, outcome):
+    # A worker's launch preflight legitimately returns no-match, privacy-filtered,
+    # or unavailable; none of those ever prove an authorization, but reporting
+    # them through the same code a forged authorization gets makes an ordinary,
+    # honest outcome indistinguishable from a tampered one to the only channel a
+    # worker has for learning it. Distinguish them before the proof check that
+    # both a real forgery and a real no-match reach next.
+    if auth.get("outcome") in ("no-match", "privacy-filtered", "unavailable"):
+        return fail("authorization_not_matched", authorization_id=auth.get("preflight_id"))
+    if not proof_matches(home, auth):
         return fail("authorization_unproven", authorization_id=auth.get("preflight_id"))
     binding_state = current_binding(home, auth, selection_id)
     if binding_state is None:
@@ -551,8 +604,13 @@ def admit(home: Path, task_id: Optional[str], selection_id: Optional[str]) -> in
     }
     admission_id = sha256_bytes(json.dumps({"binding": binding, "records": records}, sort_keys=True, separators=(",", ":")).encode())[:32]
     store = home / "state" / "megamind-admissions"
+    # The lock file is a stable rendezvous inode for the whole store, so it is
+    # retired by age with everything else rather than unlinked here: unlinking a
+    # held lock lets the next admission create a different inode at the same
+    # path and two writers stop serializing against each other.
     lock = lock_for(store / ("." + admission_id + ".lock"))
     try:
+        prune_admissions(store)
         admission = {"schema_version": BINDING_SCHEMA, "admission_id": admission_id, "binding": binding, "records": records}
         if not write_private(store / (admission_id + ".json"), json.dumps(admission, sort_keys=True, separators=(",", ":")).encode() + b"\n"):
             return fail("admission_write_failed", authorization_id=authorization_id, selection_id=selection_id)
@@ -579,7 +637,7 @@ def revalidate_and_content(home: Path, admission_id: str) -> int:
     auth = load_json(auth_path_value)
     if auth is None:
         return fail("authorization_unavailable")
-    if not proof_matches(home, auth, "authorized" if auth_selection else "matched"):
+    if not proof_matches(home, auth):
         return fail("binding_changed")
     current = current_binding(home, auth, auth_selection)
     if current is None:
