@@ -260,20 +260,21 @@ Observed output was `FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms
 
 ## Primary Megamind prompt interception
 
-The host-owned coordinator and the opt-in Claude and Pi primary adapters were added on 2026-08-12 and their explicit no-wiki disposition was verified on 2026-08-13.
+The host-owned coordinator and the opt-in Claude and Pi primary adapters were added on 2026-08-12 and their explicit no-wiki disposition was verified on 2026-08-13; the Pi-only `Different existing wiki` path was added and verified on 2026-08-13.
 The coordinator is `bin/fm-megamind-primary.sh`, and it is the sole semantic owner for classification, preflight, offer continuation, bounded admission, and context framing.
 The Claude transport is `bin/fm-claude-primary-prompt.sh` on `UserPromptSubmit`.
 The Pi and pi-signed transport is `.pi/extensions/fm-primary-megamind.ts` on Pi's `input` event with handled and replay semantics.
 The implementation remains opt-in through `config/megamind-primary-automatic` or `FM_MEGAMIND_PRIMARY_AUTOMATIC=1` so ordinary sessions retain their prior behavior until the live guard is intentionally enabled.
 
 Portable proof covers bypasses, no-match, privacy-filtered, matched bounded admission, prompt and root privacy, failed bindings, deterministic unsupported decisions, the prompt binding that keeps a reused submission id from replaying another prompt's decision, and the bypass an opted-out home returns even without `jq`.
-It also proves one-offer Pi rendering with no initial selection, inert Enter before navigation, Escape cancellation, exact-once no-wiki replay, pending-offer retirement without authorization or admission, replay refusal, future-prompt independence, and truthful unavailable actions:
+It also proves one-offer Pi rendering with no initial selection, inert Enter before navigation, Escape cancellation, exact-once no-wiki replay, pending-offer retirement without authorization or admission, replay refusal, future-prompt independence, truthful unavailable proposals, and the governed existing-wiki list, bounded show-more interaction, no-initial-selection requirement, exact returned-name preservation, one-time authorization, bounded admission, and exact-once replay:
 
 ```sh
-bin/fm-test-run.sh tests/fm-megamind-primary.test.sh tests/fm-megamind-pi-offer.test.sh tests/fm-megamind-preflight.test.sh tests/fm-megamind-content.test.sh tests/fm-megamind-claude-control.test.sh
+PATH="$(dirname "$(npx -y -p typescript which tsc)"):$PATH" bin/fm-test-run.sh tests/fm-megamind-primary.test.sh tests/fm-megamind-pi-offer.test.sh tests/fm-megamind-existing-selection.test.sh tests/fm-megamind-preflight.test.sh tests/fm-megamind-content.test.sh tests/fm-megamind-claude-control.test.sh tests/fm-pi-primary-types.test.sh
 ```
 
-The 2026-08-13 portable run completed with `FM_TEST_SUMMARY total=5 failed=0 skipped_gate=0 duration_ms=43819`.
+The 2026-08-13 portable run completed with `FM_TEST_SUMMARY total=7 failed=0 skipped_gate=0 duration_ms=45938`.
+`tests/fm-megamind-existing-selection.test.sh` additionally proves that the list is producer-only, truncated facts control the deliberate full interaction, offered and withheld names are not invented or enumerated, explicit authorization reaches the bounded reader, and replay, catalog drift, malformed output, and producer refusal stop without fallback.
 `tests/fm-megamind-claude-control.test.sh` drives the Claude transport over its real hook payload and proves that the offered-wiki and no-wiki controls an ambiguous result advertises are the exact controls the transport accepts, and that no approximation authorizes or declines a selection.
 The control carries no leading slash because Claude resolves a leading-slash prompt as one of its own commands and answers `Unknown command` before any `UserPromptSubmit` hook runs; that reachability is not observable without the real CLI, so the live guard below round-trips the advertised control back through it.
 
@@ -297,7 +298,7 @@ absent: pi-signed
 ok - installed primary interception guards covered every detected harness
 ```
 
-The live guard deliberately does not claim allow, context reinjection, offered-wiki continuation, or no-wiki continuation against a real provider until a future synthetic-provider proof can observe those surfaces without exposing credentials or wiki material.
+The live guard deliberately does not claim allow, context reinjection, offered-wiki continuation, existing-wiki continuation, or no-wiki continuation against a real provider until a future synthetic-provider proof can observe those surfaces without exposing credentials or wiki material.
 Codex, OpenCode, Grok, and Kimi remain ordinary-operation-only for automatic primary interception because their installed prompt hook surfaces were not proven to stop inference and replay safely in this slice.
 Grok is the one of those four that loads `.claude/settings.json` through its Claude-compatible settings support, so the tracked `UserPromptSubmit` entry carries the same `GROK_AGENT`/`GROK_HOOK_EVENT` inertness marker its siblings do; [`../turnend-guard.md`](../turnend-guard.md) owns that marker and `tests/fm-turnend-guard.test.sh` pins the entry inventory.
 The Pi adapter is reused by pi-signed only when the exact signed identity marker is present, and the signed executable was absent during this verification.
@@ -449,7 +450,7 @@ Observed bounded results:
 | 0.6.0 | Exit 0, same schema, status, and two offers. | Present, and authorized end to end above. | Exit 0, one typed `ambiguous` document carrying an opaque `selection_id`. |
 
 So `--today` after the subcommand is accepted identically on all four accepted lines, and one argv serves every release the version gate admits without narrowing support to 0.6.x.
-`select-offer` is the part that is genuinely 0.6-only, so an ambiguous outcome on an older accepted line takes the same uncontinuable path a home without a session lock takes: the result stands, with no `selection_id` and no retained private record, and the command is never sent to a build that would refuse it.
+`select-offer` and `select-existing` are the explicit-selection commands that are genuinely 0.6-only, so an ambiguous outcome on an older accepted line takes the same uncontinuable path a home without a session lock takes: the result stands, with no `selection_id` and no retained private record, and neither command is sent to a build that would refuse it.
 
 The 0.6.0 result reached the existing owner-bound worker authorization before launch, so the release is accepted without adding a second policy layer.
 The same owner still refuses 0.7.x and later, malformed identities, malformed output, and older releases until each future contract is separately established.

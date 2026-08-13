@@ -34,6 +34,19 @@ case "${1:-}" in
   continue)
     printf '%s\n' '{"decision":"proceed-with-admission","context":{"text":"synthetic admitted wiki context"},"admitted_chars":31}'
     ;;
+  existing-list)
+    if printf '%s' "$*" | grep -q -- '--full'; then
+      printf '%s\n' '{"decision":"existing-list","selection_id":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","existing_selection_id":"fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210","existing_wikis":[{"wiki":"OtherWiki"},{"wiki":"FullWiki"}],"existing_list":{"truncated":false,"shown":2,"total":2,"can_show_more":false}}'
+    elif grep -q '^truncated existing wiki action$' "$FM_HOME/state/original-prompt"; then
+      printf '%s\n' '{"decision":"existing-list","selection_id":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","existing_selection_id":"abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef","existing_wikis":[{"wiki":"OtherWiki"}],"existing_list":{"truncated":true,"shown":1,"total":2,"can_show_more":true}}'
+    else
+      printf '%s\n' '{"decision":"existing-list","selection_id":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","existing_selection_id":"abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef","existing_wikis":[{"wiki":"OtherWiki"}],"existing_list":{"truncated":false,"shown":1,"total":1,"can_show_more":false}}'
+    fi
+    ;;
+  continue-existing)
+    replay=$(cat "$FM_HOME/state/original-prompt")
+    jq -cn --arg replay "$replay" '{decision:"proceed-with-admission",replay_prompt:$replay,context:{text:"synthetic existing admitted wiki context"},admitted_chars:37}'
+    ;;
   continue-no-context)
     replay=$(cat "$FM_HOME/state/original-prompt")
     jq -cn --arg replay "$replay" '{decision:"proceed-no-context",replay_prompt:$replay,context:null,admitted_chars:0}'
@@ -111,7 +124,7 @@ const initial = initialLines.join("\n");
 for (const expected of [
   "Nothing is loaded until you explicitly choose.",
   "SyntheticWiki (offered wiki)",
-  "Different existing wiki… (not available yet)",
+  "Different existing wiki…",
   "Continue with no wiki evidence",
   "Propose a new wiki… (not available yet)",
 ]) {
@@ -161,17 +174,35 @@ if (!notifications.some(({ message }) => message.includes("cancelled") && messag
 const { promise: different } = await begin("different existing wiki action");
 press(Key.down, 2);
 press(Key.enter);
+for (let i = 0; i < 1000 && !activeComponent?.render(100).some((line) => line.includes("Choose one eligible existing wiki")); i += 1) {
+  await new Promise((resolve) => setTimeout(resolve, 5));
+}
+if (!activeComponent?.render(100).some((line) => line.includes("Choose one eligible existing wiki"))) {
+  throw new Error("the different-existing action did not open Megamind's eligible-wiki picker");
+}
+const existingLines = activeComponent.render(100).join("\n");
+if (!existingLines.includes("OtherWiki") || existingLines.includes("SyntheticWiki")) {
+  throw new Error(`the existing picker did not preserve Megamind's exact returned-name boundary: ${existingLines}`);
+}
+if (activeComponent.render(100).some((line) => line.startsWith("→ "))) {
+  throw new Error("the eligible-existing picker preselected a wiki");
+}
+press(Key.down);
+press(Key.enter);
 await different;
-if (sent.length !== 2) throw new Error("the unavailable different-wiki action sent a prompt");
-if (!notifications.some(({ message }) => message.includes("Different existing wiki") && message.includes("not available yet"))) {
-  throw new Error(`the different-wiki action did not disclose unavailability: ${JSON.stringify(notifications)}`);
+if (sent.length !== 3 || sent[2] !== "different existing wiki action") {
+  throw new Error(`the selected existing wiki did not deliver the exact prompt once: ${JSON.stringify(sent)}`);
+}
+const existingAdmitted = await beforeStart({ prompt: "different existing wiki action" });
+if (existingAdmitted?.message?.content !== "synthetic existing admitted wiki context") {
+  throw new Error(`the selected existing wiki did not inject bounded context: ${JSON.stringify(existingAdmitted)}`);
 }
 
 const { promise: proposal } = await begin("new wiki proposal action");
 press(Key.down, 4);
 press(Key.enter);
 await proposal;
-if (sent.length !== 2) throw new Error("the unavailable new-wiki action sent a prompt");
+if (sent.length !== 3) throw new Error("the unavailable new-wiki action sent a prompt");
 if (!notifications.some(({ message }) => message.includes("New wiki proposals") && message.includes("No wiki was created"))) {
   throw new Error(`the new-wiki action did not disclose proposal unavailability: ${JSON.stringify(notifications)}`);
 }
@@ -179,6 +210,24 @@ if (!notifications.some(({ message }) => message.includes("New wiki proposals") 
 const { promise: independent } = await begin(exactPrompt);
 press(Key.escape);
 await independent;
+
+const { promise: truncated } = await begin("truncated existing wiki action");
+press(Key.down, 2);
+press(Key.enter);
+for (let i = 0; i < 1000 && !activeComponent?.render(100).some((line) => line.includes("Choose one eligible existing wiki")); i += 1) {
+  await new Promise((resolve) => setTimeout(resolve, 5));
+}
+press(Key.down, 2);
+press(Key.enter);
+for (let i = 0; i < 1000 && !activeComponent?.render(100).some((line) => line.includes("FullWiki")); i += 1) {
+  await new Promise((resolve) => setTimeout(resolve, 5));
+}
+press(Key.down);
+press(Key.enter);
+await truncated;
+if (sent.length !== 4 || sent[3] !== "truncated existing wiki action") {
+  throw new Error(`truncated eligible list did not complete exactly once: ${JSON.stringify(sent)}`);
+}
 JS
 status=$?
 out=$(cat "$output")
@@ -191,11 +240,20 @@ calls=$(cat "$HOME_DIR/state/coordinator-calls")
 assert_contains "$calls" 'continue-no-context --harness pi --session-id synthetic-session' \
   "the no-wiki action did not use the Pi session-bound coordinator path"
 assert_contains "$calls" '--include-replay' "the no-wiki action did not request the exact private replay"
-[ "$(printf '%s\n' "$calls" | grep -c '^process ')" = 6 ] \
+[ "$(printf '%s\n' "$calls" | grep -c '^process ')" = 7 ] \
   || fail "an extension replay was reprocessed or a future independent prompt was suppressed: $calls"
 [ "$(printf '%s\n' "$calls" | grep -c '^continue ')" = 1 ] \
   || fail "an unavailable action or no-wiki action was passed through select-offer: $calls"
+[ "$(printf '%s\n' "$calls" | grep -c '^existing-list ')" = 3 ] \
+  || fail "the different-existing action did not use Megamind's list path, including its bounded full interaction: $calls"
+[ "$(printf '%s\n' "$calls" | grep -c '^continue-existing ')" = 2 ] \
+  || fail "the selected existing wiki did not use its one-time authorization path: $calls"
+assert_contains "$calls" 'existing-list --harness pi --session-id synthetic-session' \
+  "the existing-wiki list was not bound to the Pi session"
+assert_contains "$calls" '--existing-selection-id abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef' \
+  "the selected existing identity did not remain opaque and exact"
+assert_contains "$calls" '--wiki OtherWiki' "the selected existing wiki name changed before authorization"
 assert_contains "$calls" 'continue --harness pi --session-id synthetic-session' \
   "the offered wiki did not use the existing typed continuation"
 assert_contains "$calls" '--offer SyntheticWiki' "the offered wiki name changed before continuation"
-pass "Pi offer UI: explicit unselected dispositions, cancellation, exact-once no-wiki replay, and truthful unavailable actions"
+pass "Pi wiki disposition UI: unselected offers and existing lists, bounded show-more, exact-once replay, cancellation, and unavailable proposals"
