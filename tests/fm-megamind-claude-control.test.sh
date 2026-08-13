@@ -22,6 +22,8 @@ set -u
 printf '%s\n' "$*" >> "${FM_TEST_CALLS:?}"
 if [ "${1:-}" = continue ]; then
   printf '%s\n' '{"decision":"proceed-with-admission","context":{"text":"synthetic admitted context"},"replay_prompt":"the original request"}'
+elif [ "${1:-}" = continue-no-context ]; then
+  printf '%s\n' '{"decision":"proceed-no-context","context":null,"admitted_chars":0,"replay_prompt":"the original request without wiki evidence"}'
 else
   printf '%s\n' '{"decision":"offer","selection_id":"0123456789abcdef","offers":[{"wiki":"SyntheticWiki"}]}'
 fi
@@ -54,6 +56,8 @@ test_offer_control_is_sendable_and_round_trips() {
   assert_contains "$reason" 'SyntheticWiki' 'the offer block never named the offered wiki'
   assert_not_contains "$reason" '/fm-megamind-select' \
     'the offer block advertised a Claude slash command, which is consumed as an unknown command before this hook runs'
+  assert_contains "$reason" 'fm-megamind-none 0123456789abcdef' \
+    'the Claude offer block did not expose the shared no-wiki disposition'
 
   # Recover the advertised control from the block the captain actually reads,
   # then send it back verbatim. Nothing but this public text is trusted.
@@ -71,7 +75,18 @@ test_offer_control_is_sendable_and_round_trips() {
     || fail "a completed selection did not return Claude's context shape: $out"
   assert_contains "$(printf '%s' "$out" | jq -r .hookSpecificOutput.additionalContext)" \
     'synthetic admitted context' 'the admitted context was not injected after selection'
-  pass "claude transport: the advertised offer control is sendable and reaches the coordinator"
+
+  out=$(hook "$lab" 'fm-megamind-none 0123456789abcdef')
+  calls=$(tail -n 1 "$FM_TEST_CALLS")
+  assert_contains "$calls" 'continue-no-context --harness claude' \
+    "the advertised no-wiki control did not reach the coordinator: $calls"
+  assert_contains "$calls" '--selection-id 0123456789abcdef --include-replay' \
+    "the no-wiki control did not request the exact private replay: $calls"
+  [ "$(printf '%s' "$out" | jq -r .hookSpecificOutput.hookEventName)" = UserPromptSubmit ] \
+    || fail "the no-wiki control did not return Claude's context shape: $out"
+  assert_contains "$(printf '%s' "$out" | jq -r .hookSpecificOutput.additionalContext)" \
+    'the original request without wiki evidence' 'the no-wiki control did not replay the original request'
+  pass "claude transport: offered and no-wiki controls are sendable and reach the coordinator"
 }
 
 # The control is an exact host transport, not a free-form consent phrase: an
@@ -84,7 +99,10 @@ test_inexact_controls_stay_ordinary_prompts() {
     'fm-megamind-select 0123456789abcdef' \
     'fm-megamind-select nothex0123456789 SyntheticWiki' \
     'please fm-megamind-select 0123456789abcdef SyntheticWiki' \
-    'fm-megamind-select 0123456789abcdef SyntheticWiki now please'; do
+    'fm-megamind-select 0123456789abcdef SyntheticWiki now please' \
+    'fm-megamind-none' \
+    'please fm-megamind-none 0123456789abcdef' \
+    'fm-megamind-none 0123456789abcdef now'; do
     : > "$FM_TEST_CALLS"
     hook "$lab" "$prompt" >/dev/null
     calls=$(tail -n 1 "$FM_TEST_CALLS")

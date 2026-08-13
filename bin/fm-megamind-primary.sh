@@ -6,6 +6,8 @@
 #        fm-megamind-primary.sh process --harness <harness> --session-id <id>
 #        fm-megamind-primary.sh continue --harness <harness> --session-id <id> \
 #          --selection-id <opaque-id> --offer <exact-offer> [--include-replay]
+#        fm-megamind-primary.sh continue-no-context --harness <harness> \
+#          --session-id <id> --selection-id <opaque-id> [--include-replay]
 #
 # The prompt for process is read privately from stdin. Adapters own only their
 # hook transport and response shape; this script owns classification, preflight,
@@ -349,6 +351,52 @@ process_prompt() {
   printf '%s\n' "$output"
 }
 
+continue_without_context() {
+  local harness="$1" session_id="$2" selection_id="$3" include_replay="$4"
+  local current_lock shash record stored_session pending pending_request prompt_hash raw outcome replay
+  valid_harness "$harness" || { decision block "" "" harness_unsupported; return; }
+  current_lock=$(current_session_identity 2>/dev/null || true)
+  shash=$(session_hash "$session_id" 2>/dev/null || true)
+  [ -n "$current_lock" ] && [ -n "$shash" ] || { decision block "" "" session_unavailable; return; }
+  safe_submission_id "$selection_id" || { decision block "" "$shash" selection_id_invalid; return; }
+  record="$PRIMARY_DIR/$selection_id.offer.json"
+  [ -f "$record" ] && [ "$(private_mode "$record" 2>/dev/null)" = 600 ] || {
+    if [ -f "$STATE/megamind-offer-selections/$selection_id.disposition.json" ] \
+      && [ ! -L "$STATE/megamind-offer-selections/$selection_id.disposition.json" ]; then
+      decision block "" "$shash" selection_replayed
+    else
+      decision block "" "$shash" selection_missing
+    fi
+    return
+  }
+  stored_session=$(jq -r '.session_identity // empty' "$record" 2>/dev/null || true)
+  [ "$stored_session" = "$shash" ] || { decision block "" "$shash" wrong_session; return; }
+  pending="$STATE/megamind-offer-selections/$selection_id.pending.json"
+  [ -f "$pending" ] && [ ! -L "$pending" ] && [ "$(private_mode "$pending" 2>/dev/null)" = 600 ] \
+    || { decision block "" "$shash" selection_missing; return; }
+  pending_request=$(jq -r '.request // empty' "$pending" 2>/dev/null || true)
+  [ -n "$pending_request" ] || { decision block "" "$shash" replay_unavailable; return; }
+  prompt_hash=$(hash_text "$pending_request" 2>/dev/null || true)
+  [ -n "$prompt_hash" ] || { decision block "" "$shash" replay_unavailable; return; }
+  raw=$(FM_HOME="$FM_HOME" "$PREFLIGHT" decline --selection-id "$selection_id" 2>/dev/null) || {
+    local code
+    code=$(printf '%s' "$raw" | jq -r '.failure.code // "selection_failed"' 2>/dev/null || printf 'selection_failed')
+    decision block "" "$shash" "$code"
+    return
+  }
+  outcome=$(printf '%s' "$raw" | jq -r '.outcome // empty' 2>/dev/null || true)
+  if [ "$outcome" != declined ] \
+    || [ "$(printf '%s' "$raw" | jq -r '.selection_id // empty' 2>/dev/null)" != "$selection_id" ] \
+    || [ "$(printf '%s' "$raw" | jq -r '.prompt_hash // empty' 2>/dev/null)" != "$prompt_hash" ]; then
+    decision block "" "$shash" selection_failed
+    return
+  fi
+  replay=
+  [ "$include_replay" -eq 0 ] || replay="$pending_request"
+  rm -f -- "$record" 2>/dev/null || true
+  decision proceed-no-context "" "$shash" "" "" '[]' null 0 "$replay"
+}
+
 continue_selection() {
   local harness="$1" session_id="$2" selection_id="$3" offer="$4" include_replay="$5"
   local current_lock shash record stored_session raw task_id preflight_file admitted context counts replay pending_request
@@ -405,7 +453,7 @@ main() {
       --offer) [ $# -ge 2 ] || exit 2; offer="$2"; shift 2 ;;
       --provenance) [ $# -ge 2 ] || exit 2; provenance="$2"; shift 2 ;;
       --include-replay) include_replay=1; shift ;;
-      *) printf '%s\n' 'usage: fm-megamind-primary.sh check|governed|process|continue' >&2; return 2 ;;
+      *) printf '%s\n' 'usage: fm-megamind-primary.sh check|governed|process|continue|continue-no-context' >&2; return 2 ;;
     esac
   done
   case "$cmd" in
@@ -424,7 +472,8 @@ main() {
       process_prompt "$harness" "$session_id" "$submission_id" "$prompt"
       ;;
     continue) continue_selection "$harness" "$session_id" "$selection_id" "$offer" "$include_replay" ;;
-    *) printf '%s\n' 'usage: fm-megamind-primary.sh check|governed|process|continue' >&2; return 2 ;;
+    continue-no-context) continue_without_context "$harness" "$session_id" "$selection_id" "$include_replay" ;;
+    *) printf '%s\n' 'usage: fm-megamind-primary.sh check|governed|process|continue|continue-no-context' >&2; return 2 ;;
   esac
 }
 

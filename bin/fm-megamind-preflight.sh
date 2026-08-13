@@ -16,6 +16,9 @@
 #        fm-megamind-preflight.sh continue --selection-id <id> --offer <wiki>
 #                                        consume one private ambiguous offer and
 #                                        print one typed authorization projection
+#        fm-megamind-preflight.sh decline --selection-id <id>
+#                                        consume one private ambiguous offer
+#                                        without authorizing any wiki content
 #        fm-megamind-preflight.sh check print the same document shape describing
 #                                        configuration, executable, and version
 #                                        availability without routing a request
@@ -163,9 +166,10 @@
 #   sent to a release that does not publish it, and `continue` refuses with
 #   selection_unsupported before invoking anything if the build changed under it.
 # - The private selection store is bounded and script-owned, with no daemon: an
-#   ambiguous `run` and a completed `continue` first retire every pending record
-#   whose bound date is no longer this host's UTC date - such a record can never
-#   authorize again - drop authorization tombstones older than a day, and keep
+#   ambiguous `run` and a completed `continue` or `decline` first retire every
+#   pending record whose bound date is no longer this host's UTC date - such a
+#   record can never authorize again - drop consumed-result tombstones older
+#   than a day, and keep
 #   at most the newest SELECTION_RETENTION_MAX pending records. The bound covers
 #   everything the script writes there, not just the two published names: the
 #   packet extract and the publish temporaries carry the same original packet and
@@ -197,6 +201,13 @@
 #   exclusive link that no second continuation can win. The pending record is
 #   retired only after the projection is durably published, and preserved when
 #   retry remains safe. A plain ambiguous worker preflight remains unauthorized.
+# - `decline` is the no-content disposition for a retained ambiguous offer.
+#   It validates the opaque identity, current owning session, and host date under
+#   the same per-selection lock, publishes a private replay tombstone, and only
+#   then retires the pending record. Its typed result carries only opaque and
+#   hashed identities; it never emits the original request, authorizes content,
+#   invokes Megamind, or creates an admission. `continue` and `decline` both
+#   refuse a selection consumed by either disposition as selection_replayed.
 # - Proof logging is minimal and non-verbatim: each `run` appends one JSON line
 #   to state/megamind-preflight.jsonl with ts, preflight_id, request_hash,
 #   model_class, catalog_hash, outcome, matched wiki names, and failure code.
@@ -277,6 +288,7 @@ ROUTE_ENTRY_EVIDENCE='index entry match: '
 READ_POLICY="Use bin/fm-megamind-content.sh admit with this owning home's task authorization, then use its content channel; never read wiki paths directly, execute follow_up, or widen beyond validated allows and budgets."
 RUN_USAGE='usage: fm-megamind-preflight.sh run --request "<text>" | --request-stdin [--model-class local|cloud] [--today YYYY-MM-DD]'
 CONTINUE_USAGE='usage: fm-megamind-preflight.sh continue --selection-id <id> --offer <wiki>'
+DECLINE_USAGE='usage: fm-megamind-preflight.sh decline --selection-id <id>'
 
 # The one privacy-minimization vocabulary every filter that projects upstream
 # retrieval evidence prepends. Holding it here rather than restating it per
@@ -711,6 +723,10 @@ authorization_path() {  # <selection-id> - script-owned private consumed result 
   printf '%s/%s.authorization.json\n' "$SELECTION_DIR" "$1"
 }
 
+disposition_path() {  # <selection-id> - script-owned private no-content replay tombstone
+  printf '%s/%s.disposition.json\n' "$SELECTION_DIR" "$1"
+}
+
 selection_lock_path() {  # <selection-id> - per-selection mutex, so one abandoned lock cannot wedge the home
   printf '%s/.%s.lock\n' "$SELECTION_DIR" "$1"
 }
@@ -737,7 +753,8 @@ prune_selections() {  # <today> [records about to be written] - bound the privat
   done
   # An authorization is only a replay tombstone for a pending record that could
   # still exist, and no pending record outlives its date, so a day is enough.
-  find "$SELECTION_DIR" -maxdepth 1 -type f -name '*.authorization.json' -mtime +0 \
+  find "$SELECTION_DIR" -maxdepth 1 -type f \
+    \( -name '*.authorization.json' -o -name '*.disposition.json' \) -mtime +0 \
     -exec rm -f -- '{}' + 2>/dev/null || true
   # The packet extract and every publish temporary hold the same original packet
   # and verbatim request as a pending record, so the bound covers them too: each
@@ -1399,6 +1416,107 @@ $root_real" 2>/dev/null || true)"
   printf '%s\n' "$normalized"
 }
 
+cmd_decline() (
+  local selection_id="" pending tombstone decline_lock lock_held=0
+  local request request_hash prompt_hash stored_today stored_session today session_identity projection
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --selection-id)
+        [ $# -ge 2 ] || { printf '%s\n' "$DECLINE_USAGE" >&2; return 2; }
+        selection_id="$2"; shift 2 ;;
+      *) printf '%s\n' "$DECLINE_USAGE" >&2; return 2 ;;
+    esac
+  done
+  valid_selection_id "$selection_id" \
+    || { selection_error selection_id_invalid "selection identity is not valid"; return 1; }
+  command -v jq >/dev/null 2>&1 \
+    || { selection_error jq_missing "jq is required to decline a selection"; return 1; }
+  [ -d "$STATE" ] && [ ! -L "$STATE" ] \
+    || { selection_error state_invalid "the owning state directory is unavailable"; return 1; }
+  [ -d "$SELECTION_DIR" ] && [ ! -L "$SELECTION_DIR" ] \
+    || { selection_error selection_missing "the pending selection is unavailable"; return 1; }
+  pending="$(selection_path "$selection_id")"
+  tombstone="$(disposition_path "$selection_id")"
+  if [ -f "$tombstone" ] && [ ! -L "$tombstone" ]; then
+    selection_error selection_replayed "the pending selection has already been consumed"
+    return 1
+  fi
+  [ -f "$pending" ] && [ ! -L "$pending" ] || {
+    if { [ -f "$(authorization_path "$selection_id")" ] && [ ! -L "$(authorization_path "$selection_id")" ]; } \
+      || { [ -f "$tombstone" ] && [ ! -L "$tombstone" ]; }; then
+      selection_error selection_replayed "the pending selection has already been consumed"
+    else
+      selection_error selection_missing "the pending selection is unavailable"
+    fi
+    return 1
+  }
+  [ "$(private_mode "$pending" 2>/dev/null)" = 600 ] \
+    || { selection_error selection_invalid "the pending selection is not private"; return 1; }
+
+  decline_lock="$(selection_lock_path "$selection_id")"
+  if ! acquire_selection_lock "$decline_lock"; then
+    selection_error selection_busy "another continuation of this selection is active"
+    return 1
+  fi
+  lock_held=1
+  trap '
+    if [ "${lock_held:-0}" = 1 ]; then rm -rf -- "$decline_lock" 2>/dev/null || true; fi
+  ' EXIT
+
+  if [ ! -f "$pending" ] || [ -L "$pending" ]; then
+    if { [ -f "$(authorization_path "$selection_id")" ] && [ ! -L "$(authorization_path "$selection_id")" ]; } \
+      || { [ -f "$tombstone" ] && [ ! -L "$tombstone" ]; }; then
+      selection_error selection_replayed "the pending selection has already been consumed"
+    else
+      selection_error selection_missing "the pending selection is unavailable"
+    fi
+    return 1
+  fi
+  if ! jq -e --arg id "$selection_id" '
+      type == "object" and .schema_version == "fm/megamind-preflight-selection/v1"
+      and .status == "pending" and .selection_id == $id
+      and (.request | type == "string" and length > 0)
+      and (.request_hash | type == "string" and length > 0)
+      and (.today | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))
+      and (.session_identity | type == "string" and length > 0)' "$pending" >/dev/null 2>&1; then
+    selection_error selection_malformed "the pending selection is malformed"
+    return 1
+  fi
+  request="$(jq -r '.request' "$pending")"
+  request_hash="$(jq -r '.request_hash' "$pending")"
+  stored_today="$(jq -r '.today' "$pending")"
+  stored_session="$(jq -r '.session_identity' "$pending")"
+  prompt_hash="$(hash_text "$request" 2>/dev/null || true)"
+  [ -n "$prompt_hash" ] \
+    || { selection_error selection_invalid "the original request identity is unavailable"; return 1; }
+  today="$(current_today 2>/dev/null || true)"
+  [ -n "$today" ] && [ "$stored_today" = "$today" ] \
+    || { selection_error binding_changed "the Megamind date changed since the offer"; return 1; }
+  session_identity="$(current_session_identity)" \
+    || { selection_error session_unavailable "this home has no session lock to own a selection"; return 1; }
+  [ "$stored_session" = "$session_identity" ] \
+    || { selection_error binding_changed "the current Firstmate session does not own this offer"; return 1; }
+  [ ! -e "$tombstone" ] && [ ! -L "$tombstone" ] \
+    || { selection_error selection_replayed "the pending selection has already been consumed"; return 1; }
+  projection="$(jq -cn --arg schema "$SELECTION_SCHEMA" --arg id "$selection_id" \
+    --arg request_hash "$request_hash" --arg prompt_hash "$prompt_hash" \
+    --arg session "$session_identity" --arg today "$today" \
+    '{schema_version:$schema,outcome:"declined",failure:null,selection_id:$id,
+      request_hash:$request_hash,prompt_hash:$prompt_hash,
+      session_identity:$session,today:$today}')" \
+    || { selection_error projection_failed "the no-content disposition could not be projected safely"; return 1; }
+  if ! printf '%s\n' "$projection" | private_publish_exclusive "$tombstone"; then
+    selection_error selection_replayed "the pending selection has already been consumed"
+    return 1
+  fi
+  rm -f -- "$pending" || {
+    selection_error retirement_failed "the consumed selection could not be retired safely"
+    return 1
+  }
+  prune_selections "$today"
+  printf '%s\n' "$projection"
+)
+
 cmd_continue() (
   local selection_id="" offer="" pending packet_tmp raw rc
   local request request_hash preflight_id catalog_hash model_class stored_today stored_session
@@ -1429,7 +1547,8 @@ cmd_continue() (
   [ -d "$SELECTION_DIR" ] && [ ! -L "$SELECTION_DIR" ] || { selection_error selection_missing "the pending selection is unavailable"; return 1; }
   pending="$(selection_path "$selection_id")"
   [ -f "$pending" ] && [ ! -L "$pending" ] || {
-    if [ -f "$(authorization_path "$selection_id")" ] && [ ! -L "$(authorization_path "$selection_id")" ]; then
+    if { [ -f "$(authorization_path "$selection_id")" ] && [ ! -L "$(authorization_path "$selection_id")" ]; } \
+      || { [ -f "$(disposition_path "$selection_id")" ] && [ ! -L "$(disposition_path "$selection_id")" ]; }; then
       selection_error selection_replayed "the pending selection has already been consumed"
     else
       selection_error selection_missing "the pending selection is unavailable"
@@ -1451,6 +1570,15 @@ cmd_continue() (
     if [ "${lock_held:-0}" = 1 ]; then rm -rf -- "$continue_lock" 2>/dev/null || true; fi
   ' EXIT
 
+  if [ ! -f "$pending" ] || [ -L "$pending" ]; then
+    if { [ -f "$(authorization_path "$selection_id")" ] && [ ! -L "$(authorization_path "$selection_id")" ]; } \
+      || { [ -f "$(disposition_path "$selection_id")" ] && [ ! -L "$(disposition_path "$selection_id")" ]; }; then
+      selection_error selection_replayed "the pending selection has already been consumed"
+    else
+      selection_error selection_missing "the pending selection is unavailable"
+    fi
+    return 1
+  fi
   if ! jq -e --arg id "$selection_id" '
       type == "object" and .schema_version == "fm/megamind-preflight-selection/v1"
       and .status == "pending" and .selection_id == $id
@@ -1694,7 +1822,7 @@ $offer_root_real" 2>/dev/null || true)"
 )
 
 main() {
-  [ $# -ge 1 ] || { printf 'usage: fm-megamind-preflight.sh classify|classify-stdin|classify-provenance|run|continue|check ...\n' >&2; return 2; }
+  [ $# -ge 1 ] || { printf 'usage: fm-megamind-preflight.sh classify|classify-stdin|classify-provenance|run|continue|decline|check ...\n' >&2; return 2; }
   local cmd="$1"; shift
   case "$cmd" in
     classify)
@@ -1713,8 +1841,9 @@ main() {
       ;;
     run) cmd_run "$@" ;;
     continue) cmd_continue "$@" ;;
+    decline) cmd_decline "$@" ;;
     check) cmd_check ;;
-    *) printf 'usage: fm-megamind-preflight.sh classify|classify-stdin|classify-provenance|run|continue|check ...\n' >&2; return 2 ;;
+    *) printf 'usage: fm-megamind-preflight.sh classify|classify-stdin|classify-provenance|run|continue|decline|check ...\n' >&2; return 2 ;;
   esac
 }
 
