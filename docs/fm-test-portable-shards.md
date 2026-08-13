@@ -70,13 +70,13 @@ Hints only affect balance: the coverage guard keeps the partition complete and d
 
 | Lane | Script count | Estimated duration |
 |---|---:|---:|
-| `portable-serial-1of4` | 23 | 455837 ms (~455.8 s) |
-| `portable-serial-2of4` | 27 | 455826 ms (~455.8 s) |
-| `portable-serial-3of4` | 27 | 455830 ms (~455.8 s) |
-| `portable-serial-4of4` | 27 | 455838 ms (~455.8 s) |
-| imbalance | | 12 ms |
+| `portable-serial-1of4` | 23 | 820841 ms (~820.8 s) |
+| `portable-serial-2of4` | 27 | 820831 ms (~820.8 s) |
+| `portable-serial-3of4` | 27 | 780823 ms (~780.8 s) |
+| `portable-serial-4of4` | 27 | 860836 ms (~860.8 s) |
+| imbalance | | 80013 ms |
 
-Those estimates are hint-based, and the lane has since grown to 105 scripts: 24 of them have no measured hint yet and are packed at the default weight, so the real spread is wider than the estimated imbalance until the hints are refreshed.
+Those estimates are hint-based, and the lane has since grown to 113 scripts: 32 of them have no measured hint yet and are packed at the default weight, so the real spread is wider than the estimated imbalance until the hints are refreshed.
 Print the current membership of a shard with `bin/fm-test-run.sh --list --lane portable-serial-<k>of4`, which is what the counts above are read from.
 
 The single longest script, `tests/fm-pr-check-security.test.sh` at 205592 ms, is the floor for any shard count.
@@ -111,7 +111,7 @@ Portable shards, each portable serial shard, and the Herdr lane upload runner-ge
 | Job | timeout-minutes | Rationale |
 |---|---:|---|
 | portable parallel 1/2 | 10 | The measured shard sums are about three minutes and the timeout is a hang tripwire. |
-| portable serial 1-4 | 15 | Each balanced shard estimates about seven and a half minutes, leaving roughly 2x hang-tripwire margin. |
+| portable serial 1-4 | 20 | Conservative current estimates reach about 14.4 minutes because 32 scripts still use the default weight. The limit allows normal runner/setup variance while remaining a hang tripwire. |
 | Herdr | 40 | The real-Herdr lane keeps its dedicated timeout. |
 
 Timeouts are hang tripwires rather than expected healthy durations.
