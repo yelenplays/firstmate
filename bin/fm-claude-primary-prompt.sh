@@ -47,6 +47,11 @@ if printf '%s' "$prompt" | jq -eR 'test("^fm-megamind-select [0-9A-Fa-f]{16,128}
   result=$(FM_HOME="${FM_HOME:-$ROOT}" "$COORDINATOR" continue --harness claude --session-id "$session" \
     --selection-id "$selection" --offer "$offer" --include-replay 2>/dev/null) \
     || refuse 'the Megamind coordinator could not complete this offer selection'
+elif printf '%s' "$prompt" | jq -eR 'test("^fm-megamind-none [0-9A-Fa-f]{16,128}$")' >/dev/null 2>&1; then
+  selection=${prompt#fm-megamind-none }
+  result=$(FM_HOME="${FM_HOME:-$ROOT}" "$COORDINATOR" continue-no-context --harness claude \
+    --session-id "$session" --selection-id "$selection" --include-replay 2>/dev/null) \
+    || refuse 'the Megamind coordinator could not continue without wiki evidence'
 else
   submission="p$(date +%s).$$.$RANDOM"
   result=$(printf '%s' "$prompt" | FM_HOME="${FM_HOME:-$ROOT}" "$COORDINATOR" process --harness claude \
@@ -57,7 +62,14 @@ fi
 decision=$(printf '%s' "$result" | jq -r '.decision // empty' 2>/dev/null) \
   || refuse 'the Megamind coordinator returned output this hook could not parse'
 case "$decision" in
-  bypass|proceed-no-context) exit 0 ;;
+  bypass) exit 0 ;;
+  proceed-no-context)
+    replay=$(printf '%s' "$result" | jq -r '.replay_prompt // empty' 2>/dev/null) \
+      || refuse 'the no-wiki replay prompt could not be read from the coordinator result'
+    [ -n "$replay" ] || exit 0
+    jq -cn --arg replay "$replay" \
+      '{hookSpecificOutput:{hookEventName:"UserPromptSubmit",additionalContext:("Firstmate continued without wiki evidence. Resume this exact original request once:\n" + $replay)}}'
+    ;;
   proceed-with-admission)
     context=$(printf '%s' "$result" | jq -r '.context.text // empty' 2>/dev/null) \
       || refuse 'the admitted wiki context could not be read from the coordinator result'
@@ -73,7 +85,7 @@ case "$decision" in
     offers=$(printf '%s' "$result" | jq -r '[.offers[]?.wiki] | join(", ")' 2>/dev/null || printf 'the listed offer')
     selection=$(printf '%s' "$result" | jq -r '.selection_id // empty' 2>/dev/null || true)
     if [ -n "$selection" ]; then
-      reason="Choose one of $offers by sending the exact host control fm-megamind-select $selection <offer> as an ordinary message, with no leading slash. No wiki content was loaded."
+      reason="Choose one of $offers by sending the exact host control fm-megamind-select $selection <offer> as an ordinary message, or continue without wiki evidence by sending fm-megamind-none $selection. Use no leading slash. No wiki content was loaded."
     else
       reason="Megamind returned an ambiguous result ($offers), but this session has no continuable selection. No wiki content was loaded."
     fi
