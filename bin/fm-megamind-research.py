@@ -430,6 +430,28 @@ def strip_tag_blocks(text: str, tag: str) -> str:
     return "".join(pieces)
 
 
+def strip_tags(text: str) -> str:
+    pieces: List[str] = []
+    cursor = 0
+    search = 0
+    while True:
+        start = text.find("<", search)
+        if start < 0:
+            break
+        end = text.find(">", start + 1)
+        if end < 0:
+            break
+        if end == start + 1:
+            search = start + 1
+            continue
+        pieces.append(text[cursor:start])
+        pieces.append(" ")
+        cursor = end + 1
+        search = cursor
+    pieces.append(text[cursor:])
+    return "".join(pieces)
+
+
 def admit_response(response: Dict[str, Any], url: str, max_bytes: int, bytes_left: int) -> Tuple[str, Optional[bytes]]:
     if response.get("final_url", url) != url:
         return "redirect_blocked", None
@@ -462,7 +484,7 @@ def extract(body: bytes, source_id: str, content_hash: str) -> Dict[str, Any]:
     text = body.decode("utf-8", "strict")
     text = html.unescape(strip_tag_blocks(text, "script"))
     text = strip_tag_blocks(text, "style")
-    text = re.sub(r"<[^>]+>", " ", text)
+    text = strip_tags(text)
     text = re.sub(r"[ \t\r\f\v]+", " ", text).strip()
     return {
         "schema_version": EXTRACTION_SCHEMA,
@@ -500,7 +522,8 @@ def deferred_reason(status: str) -> str:
 
 def defer(state: Path, reason: str, summaries: List[Dict[str, Any]], base: Dict[str, Any]) -> int:
     out = result("research-pending", reason, sources=summaries, **base)
-    atomic_private_write(state / "megamind-research-pending" / (str(base["run_id"]) + ".json"), json.dumps(out, sort_keys=True, separators=(",", ":")).encode())
+    if not atomic_private_write(state / "megamind-research-pending" / (str(base["run_id"]) + ".json"), json.dumps(out, sort_keys=True, separators=(",", ":")).encode()):
+        return emit(result("blocked", "pending_write_failed", sources=summaries, **base), 1)
     return emit(out)
 
 
@@ -592,8 +615,9 @@ def run_plan(home: Path, plan_path: Path) -> int:
             receipt_id = uuid.uuid4().hex
             receipt = receipt_bytes(source, url, attempt, status, last_latency, attempt_cost, body_hash, tool_hash, receipt_id)
             receipt_path = receipt_store / (plan_hash + "." + source["source_id"] + "." + str(attempt) + "." + receipt_id + ".json")
-            if private_exclusive(receipt_path, receipt):
-                receipt_ids.append(receipt_path.stem)
+            if not private_exclusive(receipt_path, receipt):
+                return emit(result("blocked", "receipt_write_failed", sources=summaries, **base), 1)
+            receipt_ids.append(receipt_path.stem)
             if body is not None or status not in TRANSIENT or attempt == max_attempts:
                 break
         if body is None:

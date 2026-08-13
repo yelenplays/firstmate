@@ -52,7 +52,7 @@ case "\$mode" in
     ;;
   hostile)
     printf '%s' '{"schema_version":"fm/megamind-retrieval/v1","status":"ok","mime":"text/html","final_url":"https://93.184.216.34/source","body":"'
-    awk 'BEGIN { for (i = 0; i < 50000; i++) printf "<script>" }'
+    awk 'BEGIN { for (i = 0; i < 50000; i++) printf "<script>"; for (i = 0; i < 400000; i++) printf "<" }'
     printf '%s\n' '"}'
     exit 0
     ;;
@@ -207,7 +207,7 @@ test_bounded_adapter_writes_and_extraction() {
   assert_json_status "$out" research-pending fetch_blocked "flooding adapter"
   assert_no_grep completed "$counter" "the adapter kept writing past the source byte ceiling"
   home=$(new_home hostile); adapter="$home/adapter"; plan="$home/plan.json"
-  make_adapter "$adapter" hostile; make_plan "$plan" "$adapter" https://93.184.216.34/source source-one 500000
+  make_adapter "$adapter" hostile; make_plan "$plan" "$adapter" https://93.184.216.34/source source-one 1000000
   started=$(date +%s)
   out=$("$RUNNER" run --home "$home" --plan "$plan") || fail "hostile markup run failed"
   elapsed=$(($(date +%s) - started))
