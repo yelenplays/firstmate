@@ -9,6 +9,16 @@ set -u
 RUNNER="$ROOT/bin/fm-megamind-research.sh"
 TMP_ROOT=$(fm_test_tmproot fm-megamind-research)
 
+# Permission bits, platform-detected. Never the `stat -f || stat -c` fallback:
+# on Linux `stat -f` is *filesystem* stat, so it succeeds with a filesystem dump
+# before the fallback ever runs and the mode comparison reads that instead
+# (see fm-watch.sh).
+if [ "$(uname)" = Darwin ]; then
+  file_mode() { stat -f %Lp "$1"; }
+else
+  file_mode() { stat -c %a "$1"; }
+fi
+
 new_home() {
   local home="$TMP_ROOT/$1"
   mkdir -p "$home/config" "$home/state"
@@ -267,7 +277,7 @@ PY
   assert_json_status "$out" research-pending cancelled "cancel"
   [ ! -d "$home/state/megamind-research-quarantine" ] || fail "cancelled run invoked source handling"
   marker="$home/state/megamind-research-cancel/$run_id.cancel"
-  [ "$(stat -f '%Lp' "$marker" 2>/dev/null || stat -c '%a' "$marker")" = 600 ] || fail "cancellation marker was not private"
+  [ "$(file_mode "$marker")" = 600 ] || fail "cancellation marker was not private"
   pass "cancellation stops before hostile source handling and leaves no answer path"
 }
 
