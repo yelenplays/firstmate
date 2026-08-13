@@ -148,7 +148,12 @@
 #                  written by this script; outside the worktree to avoid pi's trust gate)
 #     __PITURNEND__ absolute path to .pi/extensions/fm-primary-turnend-guard.ts in a pi secondmate home
 #     __PIWATCH__   absolute path to .pi/extensions/fm-primary-pi-watch.ts in a pi secondmate home
-#     __PIMEGAMIND__ absolute path to .pi/extensions/fm-primary-megamind.ts in a pi secondmate home
+#     __PIMEGAMIND__ absolute path to .pi/extensions/fm-primary-megamind.ts under the resolved
+#                    project directory, passed by EVERY pi template: the secondmate home for
+#                    --secondmate, the project's own checkout for a ship or scout, never the
+#                    task worktree. The adapter derives its coordinator, home, and opt-in from
+#                    the directory it was loaded from, so bin/fm-megamind-primary.sh's own gates
+#                    decide whether it governs anything (docs/configuration.md "Harness support").
 #     __OPINPUT__   absolute path to the canonical operational-input encoder
 # Verified per-harness turn-end hooks are installed automatically where enabled; some live outside the worktree.
 # Kimi uses one surgically installed Firstmate region in $HOME/.kimi-code/config.toml,

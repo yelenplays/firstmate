@@ -284,6 +284,8 @@ The Kimi installer requires an existing regular non-symlink `~/.kimi-code/config
 Its `remove` action excises only the marker-delimited Firstmate region and removes Firstmate's hook files.
 For Pi and pi-signed secondmate launches, `fm-spawn.sh` starts the selected executable with `-e` pointed at the secondmate home's own tracked `.pi/extensions/fm-primary-pi-watch.ts`, `.pi/extensions/fm-primary-turnend-guard.ts`, and `.pi/extensions/fm-primary-megamind.ts`, all already present from the secondmate home's git worktree.
 The launched home is a firstmate home, so its own opt-in decides whether that Megamind adapter governs anything; a secondmate home without `config/megamind-primary-automatic` keeps its ordinary behavior.
+Pi and pi-signed ship and scout launches pass the per-task turn-end extension under `state/` plus the same `-e` for `.pi/extensions/fm-primary-megamind.ts` under the resolved project checkout, never under the task worktree.
+That adapter always resolves its coordinator, home, and opt-in from the directory it was loaded from, so a crewmate on this repo's own checkout answers to that checkout's opt-in rather than to its own task worktree.
 
 ## Crew dispatch profiles (config/crew-dispatch.json)
 

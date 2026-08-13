@@ -48,6 +48,15 @@ Never classify a request as bypass to save time, and never skip a failed preflig
 - `error`: the typed `failure.code` (missing configuration, missing or incompatible Megamind, malformed or failed output, or unsafe selection continuation) is a concrete blocker for substantive work.
   Disclose it plainly to the captain instead of pretending preflight ran; routine bypass traffic may still proceed.
 
+## Automatic primary mode
+
+A home that opted into automatic primary mode routes every prompt through `bin/fm-megamind-primary.sh` before the turn starts, so a governed turn can arrive already carrying admitted wiki evidence, introduced by the host's bounded-reader guidance line.
+That is the same preflight and the same bounded reader this procedure runs, already performed for that exact prompt: act on the evidence the turn carries and do not route the same request a second time.
+Nothing else about this contract changes - the per-outcome rules, the evidence gap below, and the failure-disclosure duty apply to admitted evidence however it arrived.
+The absence of admitted evidence never proves that routing ran: a `no-match` or `privacy-filtered` decision injects nothing, and a home that never opted in is indistinguishable from one that did, so every turn without it takes the mandatory procedure above.
+An ambiguous result never reaches the model in that mode - the coordinator resolves the offer through the adapter's own control first - and a blocked prompt starts no turn at all.
+`docs/configuration.md` "Megamind preflight" owns the coordinator, the adapters, and the opt-in.
+
 ## Admitted evidence that cannot answer the request
 
 A successful preflight and a successful admission prove that routing ran, never that the admitted content answers the question.
