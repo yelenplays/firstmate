@@ -34,6 +34,7 @@ Never classify a request as bypass to save time, and never skip a failed preflig
 
 - `matched`: invoke `bin/fm-megamind-content.sh admit --task-id <task-id>` from the owning home, then use its separate content channel.
   The reader validates and bounds only the explicitly returned `allows` paths under the owning estate; never read wiki paths directly, infer or widen paths, or load content for an offer, filtered entry, or dropped path.
+  During full-access page descent, the script-owned local route relevance contract has two halves - a floor of 0.5 on Megamind's own per-candidate route confidence, never on its unbounded lexical score, and candidate-local evidence that the page's own index entry matched rather than its wiki; if no ranked page satisfies both, or the resolved build reports neither signal, preserve Megamind's declared allows instead of narrowing, without changing reliance, offer, or ambiguity thresholds.
   Use the self-describing `thresholds`, safe `freshness`, and non-verbatim `provenance` summary without reconstructing request tokens or inspecting raw Megamind output.
   Wiki evidence outranks model priors; carry `preflight_id` as the inspectable proof that preflight ran.
 - `ambiguous`: offer the listed wikis as a choice and load nothing until one is picked.
@@ -41,6 +42,7 @@ Never classify a request as bypass to save time, and never skip a failed preflig
   An ambiguous result that carries no `selection_id` cannot be continued in that home - it belongs to no session, or the resolved Megamind release predates `select-offer` - so the choice stands but nothing is loaded.
   Treat `authorized` as an explicit offer selection, not a threshold match, and invoke `bin/fm-megamind-content.sh admit --selection-id <selection-id>` from the owning home, then use its separate content channel.
   The reader accepts only the script-issued authorization and its selected allows and budget; it never executes or parses `follow_up`.
+  The same local route relevance contract applies when an authorized full-access selection descends pages; a ranking that misses either half preserves the selected declaration.
   A continuation or admission refusal leaves the substantive work blocked and never falls back to the ambiguous worker path.
 - `no-match`: stay quiet about wikis and do the work ordinarily without wiki context.
   A `no-match` whose `filtered_count` is greater than 0 withheld a candidate for this model class and is handled exactly like `privacy-filtered` below, not like an ordinary no-match.
