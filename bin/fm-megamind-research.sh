@@ -25,4 +25,17 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-exec "${FM_PYTHON:-python3}" "$SCRIPT_DIR/fm-megamind-research.py" "$@"
+PYTHON="${FM_PYTHON:-python3}"
+
+usage() {
+  awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+esac
+command -v "$PYTHON" >/dev/null 2>&1 || {
+  printf '%s\n' '{"schema_version":"fm/megamind-research-result/v1","status":"blocked","reason":"python_unavailable","run_id":null,"plan_hash":null,"request_hash":null,"model_class":null,"sources":[],"handoff":null}'
+  exit 1
+}
+exec "$PYTHON" "$SCRIPT_DIR/fm-megamind-research.py" "$@"

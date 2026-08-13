@@ -9,7 +9,9 @@ import ipaddress
 import json
 import os
 import re
+import resource
 import shutil
+import signal
 import socket
 import stat
 import subprocess
@@ -42,6 +44,12 @@ ALLOWED_MIME = {
     "text/xml",
 }
 TRANSIENT = {"adapter_error", "adapter_timeout", "malformed_adapter_output"}
+FETCH_BLOCKED = {"budget_exceeded", "invalid_utf8", "mime_blocked", "size_exceeded"}
+HOST_NOT_AT_FAULT = {"budget_exceeded", "cancelled", "deadline_exceeded"}
+BLOCK_TAGS = {
+    "script": (re.compile(r"<script\b", re.I), re.compile(r"</script\s*>", re.I)),
+    "style": (re.compile(r"<style\b", re.I), re.compile(r"</style\s*>", re.I)),
+}
 
 
 def emit(obj: Dict[str, Any], code: int = 0) -> int:
@@ -348,27 +356,49 @@ def adapter_command(source: Dict[str, Any], url: str) -> List[str]:
     return [*source["adapter"]["argv"], "--url", url, "--source-id", source["source_id"]]
 
 
-def read_adapter(path: Path, source: Dict[str, Any], url: str, started: float, max_bytes: int) -> Tuple[Optional[Dict[str, Any]], str, int]:
-    output = path / (".adapter-" + source["source_id"] + ".out")
+def child_write_limit(max_bytes: int):
+    def apply() -> None:
+        try:
+            _, hard = resource.getrlimit(resource.RLIMIT_FSIZE)
+            ceiling = max_bytes + 1
+            if hard != resource.RLIM_INFINITY:
+                ceiling = min(ceiling, hard)
+            resource.setrlimit(resource.RLIMIT_FSIZE, (ceiling, hard))
+        except (OSError, ValueError):
+            pass
+
+    return apply
+
+
+def read_adapter(path: Path, source: Dict[str, Any], url: str, started: float, max_bytes: int, timeout_s: float) -> Tuple[Optional[Dict[str, Any]], str, int]:
+    output = path / (".adapter-" + source["source_id"] + "." + uuid.uuid4().hex + ".out")
+
+    def elapsed() -> int:
+        return int((time.monotonic() - started) * 1000)
+
     try:
-        with output.open("wb") as stream:
-            proc = subprocess.Popen(adapter_command(source, url), stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.DEVNULL, shell=False, close_fds=True, start_new_session=True, env={"PATH": "/usr/bin:/bin", "LC_ALL": "C", "HOME": str(path)})
+        fd = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except OSError:
+        return None, "adapter_error", elapsed()
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            proc = subprocess.Popen(adapter_command(source, url), stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.DEVNULL, shell=False, close_fds=True, start_new_session=True, preexec_fn=child_write_limit(max_bytes), env={"PATH": "/usr/bin:/bin", "LC_ALL": "C", "HOME": str(path)})
             try:
-                proc.wait(timeout=max(0.1, (source.get("timeout_ms", 10000) / 1000)))
+                proc.wait(timeout=timeout_s)
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait()
-                return None, "adapter_timeout", int((time.monotonic() - started) * 1000)
-        if output.stat().st_size > max_bytes:
-            return None, "size_exceeded", int((time.monotonic() - started) * 1000)
+                return None, "adapter_timeout", elapsed()
+        if output.stat().st_size > max_bytes or proc.returncode == -signal.SIGXFSZ:
+            return None, "size_exceeded", elapsed()
         if proc.returncode != 0:
-            return None, "adapter_error", int((time.monotonic() - started) * 1000)
+            return None, "adapter_error", elapsed()
         obj = read_json(output, max_bytes)
         if not obj or obj.get("schema_version") != RETRIEVAL_SCHEMA or obj.get("status") != "ok":
-            return None, "malformed_adapter_output", int((time.monotonic() - started) * 1000)
-        return obj, "ok", int((time.monotonic() - started) * 1000)
+            return None, "malformed_adapter_output", elapsed()
+        return obj, "ok", elapsed()
     except (OSError, ValueError):
-        return None, "adapter_error", int((time.monotonic() - started) * 1000)
+        return None, "adapter_error", elapsed()
     finally:
         try:
             output.unlink()
@@ -376,11 +406,62 @@ def read_adapter(path: Path, source: Dict[str, Any], url: str, started: float, m
             pass
 
 
+def strip_tag_blocks(text: str, tag: str) -> str:
+    # One forward pass, never superlinear on a hostile body.
+    opener, closer = BLOCK_TAGS[tag]
+    pieces: List[str] = []
+    cursor = 0
+    search = 0
+    while True:
+        start = opener.search(text, search)
+        if start is None:
+            break
+        open_end = text.find(">", start.end())
+        if open_end < 0:
+            break
+        close = closer.search(text, open_end + 1)
+        if close is None:
+            break
+        pieces.append(text[cursor:start.start()])
+        pieces.append(" ")
+        cursor = close.end()
+        search = cursor
+    pieces.append(text[cursor:])
+    return "".join(pieces)
+
+
+def admit_response(response: Dict[str, Any], url: str, max_bytes: int, bytes_left: int) -> Tuple[str, Optional[bytes]]:
+    if response.get("final_url", url) != url:
+        return "redirect_blocked", None
+    mime = response.get("mime")
+    if not isinstance(mime, str) or mime.split(";", 1)[0].strip().lower() not in ALLOWED_MIME:
+        return "mime_blocked", None
+    raw_body = response.get("body")
+    if not isinstance(raw_body, str):
+        return "malformed_adapter_output", None
+    try:
+        candidate = raw_body.encode("utf-8")
+    except UnicodeEncodeError:
+        return "invalid_utf8", None
+    if len(candidate) > max_bytes:
+        return "size_exceeded", None
+    if len(candidate) > bytes_left:
+        return "budget_exceeded", None
+    return "ok", candidate
+
+
+def response_cost(response: Dict[str, Any]) -> Optional[int]:
+    cost = response.get("cost_microunits", 0)
+    if isinstance(cost, bool) or not isinstance(cost, int) or cost < 0:
+        return None
+    return cost
+
+
 def extract(body: bytes, source_id: str, content_hash: str) -> Dict[str, Any]:
     # Deliberately pure: hostile source bytes are data, never instructions.
     text = body.decode("utf-8", "strict")
-    text = html.unescape(re.sub(r"<script\b[^>]*>.*?</script\s*>", " ", text, flags=re.I | re.S))
-    text = re.sub(r"<style\b[^>]*>.*?</style\s*>", " ", text, flags=re.I | re.S)
+    text = html.unescape(strip_tag_blocks(text, "script"))
+    text = strip_tag_blocks(text, "style")
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"[ \t\r\f\v]+", " ", text).strip()
     return {
@@ -393,10 +474,10 @@ def extract(body: bytes, source_id: str, content_hash: str) -> Dict[str, Any]:
     }
 
 
-def receipt_bytes(source: Dict[str, Any], url: str, attempt: int, outcome: str, latency: int, cost: int, body_hash: Optional[str], tool_hash: str) -> bytes:
+def receipt_bytes(source: Dict[str, Any], url: str, attempt: int, outcome: str, latency: int, cost: int, body_hash: Optional[str], tool_hash: str, receipt_id: str) -> bytes:
     return json.dumps({
         "schema_version": RECEIPT_SCHEMA,
-        "receipt_id": uuid.uuid4().hex,
+        "receipt_id": receipt_id,
         "source_id": source["source_id"],
         "kind": source["kind"],
         "attempt": attempt,
@@ -411,6 +492,16 @@ def receipt_bytes(source: Dict[str, Any], url: str, attempt: int, outcome: str, 
 
 def privacy_summary(source: Dict[str, Any], status: str, attempts: int, body_hash: Optional[str], size: int, latency: int, cost: int, receipt_ids: List[str]) -> Dict[str, Any]:
     return {"source_id": source["source_id"], "kind": source["kind"], "status": status, "attempts": attempts, "content_sha256": body_hash, "bytes": size, "latency_ms": latency, "cost_microunits": cost, "receipt_ids": receipt_ids}
+
+
+def deferred_reason(status: str) -> str:
+    return "fetch_blocked" if status.endswith("blocked") or status in FETCH_BLOCKED else status
+
+
+def defer(state: Path, reason: str, summaries: List[Dict[str, Any]], base: Dict[str, Any]) -> int:
+    out = result("research-pending", reason, sources=summaries, **base)
+    atomic_private_write(state / "megamind-research-pending" / (str(base["run_id"]) + ".json"), json.dumps(out, sort_keys=True, separators=(",", ":")).encode())
+    return emit(out)
 
 
 def run_plan(home: Path, plan_path: Path) -> int:
@@ -438,7 +529,7 @@ def run_plan(home: Path, plan_path: Path) -> int:
             return emit(existing)
         return emit(result("blocked", "quarantine_changed", **base), 1)
     if is_cancelled(state, run_id):
-        return emit(result("research-pending", "cancelled", **base))
+        return defer(state, "cancelled", [], base)
     budgets = plan["budgets"]
     retry = plan.get("retry", {})
     max_attempts = retry.get("max_attempts", 1)
@@ -450,25 +541,17 @@ def run_plan(home: Path, plan_path: Path) -> int:
     cooldowns = load_cooldowns(state)
     for source in plan["sources"]:
         if is_cancelled(state, run_id):
-            out = result("research-pending", "cancelled", sources=summaries, **base)
-            atomic_private_write(state / "megamind-research-pending" / (run_id + ".json"), json.dumps(out, sort_keys=True, separators=(",", ":")).encode())
-            return emit(out)
+            return defer(state, "cancelled", summaries, base)
         if (time.monotonic() - started) * 1000 >= budgets["deadline_ms"]:
-            out = result("research-pending", "deadline_exceeded", sources=summaries, **base)
-            atomic_private_write(state / "megamind-research-pending" / (run_id + ".json"), json.dumps(out, sort_keys=True, separators=(",", ":")).encode())
-            return emit(out)
+            return defer(state, "deadline_exceeded", summaries, base)
         url, url_error = validate_url(source["url"])
         if url_error or not url:
             summary = privacy_summary(source, url_error or "invalid_url", 0, None, 0, 0, 0, [])
-            out = result("research-pending", "fetch_blocked", sources=summaries + [summary], **base)
-            atomic_private_write(state / "megamind-research-pending" / (run_id + ".json"), json.dumps(out, sort_keys=True, separators=(",", ":")).encode())
-            return emit(out)
+            return defer(state, "fetch_blocked", summaries + [summary], base)
         host = host_for(url)
         if float(cooldowns.get(host, 0)) > time.time():
             summary = privacy_summary(source, "cooldown", 0, None, 0, 0, 0, [])
-            out = result("research-pending", "cooldown", sources=summaries + [summary], **base)
-            atomic_private_write(state / "megamind-research-pending" / (run_id + ".json"), json.dumps(out, sort_keys=True, separators=(",", ":")).encode())
-            return emit(out)
+            return defer(state, "cooldown", summaries + [summary], base)
         qdir = quarantine_dir(state, plan_hash)
         receipt_ids: List[str] = []
         body: Optional[bytes] = None
@@ -477,66 +560,48 @@ def run_plan(home: Path, plan_path: Path) -> int:
         attempts = 0
         last_latency = 0
         source_cost = 0
+        source_max = int(source.get("max_bytes", MAX_SOURCE_BYTES))
         for attempt in range(1, max_attempts + 1):
             attempts = attempt
             if is_cancelled(state, run_id):
                 status = "cancelled"
                 break
-            if (time.monotonic() - started) * 1000 >= budgets["deadline_ms"]:
+            remaining_ms = budgets["deadline_ms"] - (time.monotonic() - started) * 1000
+            if remaining_ms <= 0:
                 status = "deadline_exceeded"
                 break
             tool_hash = sha256_bytes("\0".join(adapter_command(source, url)).encode())
-            response, status, last_latency = read_adapter(qdir, source, url, time.monotonic(), int(source.get("max_bytes", MAX_SOURCE_BYTES)))
+            timeout_s = max(0.05, min(source.get("timeout_ms", 10000) / 1000, remaining_ms / 1000))
+            response, status, last_latency = read_adapter(qdir, source, url, time.monotonic(), source_max, timeout_s)
+            attempt_cost = 0
             if response is not None:
-                final_url = response.get("final_url", url)
-                mime = response.get("mime")
-                raw_body = response.get("body")
-                if final_url != url:
-                    status = "redirect_blocked"
-                elif not isinstance(mime, str) or mime.split(";", 1)[0].strip().lower() not in ALLOWED_MIME:
-                    status = "mime_blocked"
-                elif not isinstance(raw_body, str):
+                reported = response_cost(response)
+                if reported is None:
                     status = "malformed_adapter_output"
                 else:
-                    try:
-                        candidate = raw_body.encode("utf-8")
-                    except UnicodeEncodeError:
-                        candidate = b""
-                        status = "invalid_utf8"
-                    if len(candidate) > int(source.get("max_bytes", MAX_SOURCE_BYTES)):
-                        status = "size_exceeded"
-                    elif total_bytes + len(candidate) > budgets["max_bytes"]:
-                        status = "budget_exceeded"
-                    else:
-                        cost = response.get("cost_microunits", 0)
-                        if not isinstance(cost, int) or cost < 0:
-                            status = "malformed_adapter_output"
-                        elif total_cost + cost > budgets["max_cost_microunits"]:
-                            status = "budget_exceeded"
-                        else:
-                            body = candidate
-                            body_hash = sha256_bytes(body)
-                            source_cost = cost
-                            total_bytes += len(body)
-                            total_cost += cost
-            receipt = receipt_bytes(source, url, attempt, status, last_latency, source_cost, body_hash, tool_hash)
-            receipt_path = receipt_store / (plan_hash + "." + source["source_id"] + "." + str(attempt) + ".json")
+                    attempt_cost = reported
+                    source_cost += attempt_cost
+                    total_cost += attempt_cost
+                    status, candidate = admit_response(response, url, source_max, budgets["max_bytes"] - total_bytes)
+                    if total_cost > budgets["max_cost_microunits"]:
+                        status, candidate = "budget_exceeded", None
+                    if candidate is not None:
+                        body = candidate
+                        body_hash = sha256_bytes(body)
+                        total_bytes += len(body)
+            receipt_id = uuid.uuid4().hex
+            receipt = receipt_bytes(source, url, attempt, status, last_latency, attempt_cost, body_hash, tool_hash, receipt_id)
+            receipt_path = receipt_store / (plan_hash + "." + source["source_id"] + "." + str(attempt) + "." + receipt_id + ".json")
             if private_exclusive(receipt_path, receipt):
                 receipt_ids.append(receipt_path.stem)
-            else:
-                existing_receipt = read_json(receipt_path, 128 * 1024)
-                if existing_receipt:
-                    receipt_ids.append(receipt_path.stem)
             if body is not None or status not in TRANSIENT or attempt == max_attempts:
                 break
-        if body is None and cooldown_seconds > 0:
-            cooldowns[host] = time.time() + cooldown_seconds
-            save_cooldowns(state, cooldowns)
         if body is None:
+            if cooldown_seconds > 0 and status not in HOST_NOT_AT_FAULT:
+                cooldowns[host] = time.time() + cooldown_seconds
+                save_cooldowns(state, cooldowns)
             summary = privacy_summary(source, status, attempts, None, 0, last_latency, source_cost, receipt_ids)
-            out = result("research-pending", "fetch_blocked" if status.endswith("blocked") or status in ("size_exceeded", "budget_exceeded", "mime_blocked") else status, sources=summaries + [summary], **base)
-            atomic_private_write(state / "megamind-research-pending" / (run_id + ".json"), json.dumps(out, sort_keys=True, separators=(",", ":")).encode())
-            return emit(out)
+            return defer(state, deferred_reason(status), summaries + [summary], base)
         content_path = qdir / (source["source_id"] + "." + body_hash + ".body")
         if not content_path.exists():
             if not private_exclusive(content_path, body):
@@ -577,12 +642,16 @@ def resume_plan(home: Path, plan_path: Path) -> int:
         return emit(result("blocked", "fresh_admission_invalid"), 1)
     plan_id, plan_hash = identity
     run_id = stable_run_id(plan_id, admission["request_hash"])
-    pending = read_json(home / "state" / "megamind-research-pending" / (run_id + ".json"), 2 * 1024 * 1024)
+    pending_path = home / "state" / "megamind-research-pending" / (run_id + ".json")
+    pending = read_json(pending_path, 2 * 1024 * 1024)
     if not pending or pending.get("request_hash") != admission.get("request_hash"):
         return emit(result("blocked", "research_not_pending", run_id=run_id, plan_hash=plan_hash), 1)
     previous = pending.get("admission_id")
     if previous is not None and previous == admission.get("admission_id"):
         return emit(result("blocked", "fresh_admission_required", run_id=run_id, plan_hash=plan_hash), 1)
+    pending["admission_id"] = admission["admission_id"]
+    if not atomic_private_write(pending_path, json.dumps(pending, sort_keys=True, separators=(",", ":")).encode()):
+        return emit(result("blocked", "resume_write_failed", run_id=run_id, plan_hash=plan_hash), 1)
     return emit(result("research-pending", "fresh_admission_accepted", run_id=run_id, plan_hash=plan_hash, request_hash=admission["request_hash"], model_class=admission["model_class"], handoff={"schema_version": "fm/megamind-fresh-admission-handoff/v1", "required": False, "run_id": run_id}))
 
 
