@@ -12,8 +12,10 @@
 #   allowlist supplied by the caller.
 # - `admit` validates the private authorization, current owning-home binding,
 #   executable/version, model class, estate identity, preflight/catalog/request
-#   identities, wiki identity, and bounded access mode, then snapshots the root,
-#   card, and candidate identities and writes one mode-0600 admission record.
+#   identities, wiki identity, and Megamind's own `access` and `routing_mode`
+#   values - fm-megamind-content.py owns the accepted vocabulary for those two
+#   and refuses anything outside it - then snapshots the root, card, and
+#   candidate identities and writes one mode-0600 admission record.
 #   It prints exactly one privacy-safe typed result and never prints content.
 # - `content` accepts only the opaque admission id produced by `admit`, repeats
 #   every binding and path check, then emits only the separately documented
