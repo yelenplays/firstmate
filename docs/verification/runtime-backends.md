@@ -227,6 +227,11 @@ FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0
 The real Megamind 0.6 synthetic-estate selection evidence above remains the upstream command compatibility proof, while `tests/fm-megamind-content.test.sh` proves that a script-issued `fm/megamind-preflight-selection/v1` authorization reaches the same reader boundary without touching a real wiki.
 No primary interception or scheduling claim is made by this reader slice.
 
+Every suite above drives a synthetic Megamind stub, which can only confirm the assumption already written into that stub, so `tests/fm-megamind-realshape.test.sh` is the guard that keeps it honest about the fields the reader accepts.
+It builds its own synthetic estate, routes it through an installed `megamind-axi`, and requires the resulting authorization to survive the real host path end to end, asserting nothing about implementation source bytes.
+It resolves the build from `FM_MEGAMIND_REAL_EXE` or `PATH`, asks `bin/fm-megamind-preflight.sh check` whether that build is an accepted release, and skips loudly - naming the real routing-mode vocabulary and ladder descent as what stays unproven - rather than reporting a pass that checked nothing.
+`bin/fm-test-run.sh` runs it in the optional-binary `megamind-realshape` family and selects it whenever the bounded reader changes.
+
 ## Primary Megamind prompt interception
 
 The host-owned coordinator and the opt-in Claude and Pi primary adapters were added on 2026-08-12.
@@ -392,6 +397,8 @@ Observed bounded results:
 
 Those last three shapes are why the continuation validator checks the typed shape and the governed refusals rather than restating decisions Megamind already owns.
 Requiring a 0..1 `score`, a `false` `meets_floor`, or a request-free `follow_up` refused every real authorized selection while accepting the synthetic fixture, so the stub agreed with the host and both disagreed with the build.
+
+The `continue` row predates the governed `route` ladder descent that `docs/configuration.md` "Megamind preflight" now owns, so it records the declared card paths a full-access selection authorized before any page was ranked; a re-run authorizes the pages `route` ranks whenever it ranks any, and the declared paths only when it ranks none.
 
 The `--today` flag the host now sends was measured on 2026-08-12 against every accepted line, because the tables above predate it and prove only the flags they list.
 Each line ran from its own release commit - `c59b58b` at 0.3.0, `27d3bf9` at 0.4.0, `44f1b37` at 0.5.0, and `97d88a3` at 0.6.0 - over the same synthetic two-wiki estate, so the comparison isolates the flag rather than the estate.

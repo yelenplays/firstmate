@@ -164,8 +164,10 @@
 # behind rather than a launch that only fails inside the pane. The request routed
 # through that binding is the separately authored data/<task-id>/megamind-request.md
 # (bin/fm-brief.sh scaffolds it; never the brief itself), and the authorized typed
-# result is written to state/<task-id>.megamind-preflight.json for the worker to
-# read from the brief's fixed wiki-routing section - never through pane output.
+# result is written to state/<task-id>.megamind-preflight.json, which the brief's
+# fixed wiki-routing section names for the worker - never through pane output. The
+# worker never opens that file; bin/fm-megamind-content.sh admits from it and is
+# the only path any wiki byte takes to the worker.
 # bin/fm-worker-preflight.sh owns that contract. --secondmate starts a firstmate
 # home rather than an ordinary worker and is not routed through it; a secondmate's
 # own spawns bind that secondmate home, never the primary's.
