@@ -1570,14 +1570,14 @@ cmd_existing_list() (
     --argjson truncated "$truncated" --argjson shown "$shown" --argjson total "$total" \
     '{schema_version:"fm/megamind-existing-selection/v1",status:"ready",pending_selection_id:$pending,
       request_hash:$request_hash,catalog_hash:.catalog_hash,model_class:$model_class,owner_id:$owner,session_id:$session,today:$today,
-      existing_selection_id:.selection_id,wikis:[.wikis[] | {wiki:.name}],truncated:$truncated,shown:$shown,total:$total,
+      existing_selection_id:.selection_id,wikis:[.wikis[] | {wiki:.name,root_facts_hash:.root_facts_hash}],truncated:$truncated,shown:$shown,total:$total,
       can_show_more:($truncated == true)}')" || { selection_error projection_failed "the eligible list could not be recorded safely"; return 1; }
   private_publish "$path" <<< "$record" || { selection_error projection_failed "the eligible list could not be recorded safely"; return 1; }
   printf '%s\n' "$record"
 )
 
 cmd_existing_continue() (
-  local selection_id="" existing_selection_id="" wiki="" list_path list_count raw rc=0 auth_path_value selected_root selected_root_real expected_root expected_root_real
+  local selection_id="" existing_selection_id="" wiki="" list_path list_count raw rc=0 auth_path_value selected_root selected_root_real expected_root expected_root_real expected_root_facts_hash
   local host_paths owner_identity_value executable_identity_value root_identity_value projection
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -1607,6 +1607,8 @@ cmd_existing_continue() (
       and .catalog_hash == $catalog_hash and .model_class == $model_class
       and .owner_id == $owner and .session_id == $session and .today == $today
       and .existing_selection_id == $existing_id and (.wikis | type == "array")
+      and ([.wikis[]? | (.wiki | type == "string" and length > 0)
+        and (.root_facts_hash | type == "string" and length > 0)] | all)
       and ([.wikis[]?.wiki] | all(type == "string" and length > 0)
         and (length == (unique | length)))
       and (.truncated | type == "boolean")
@@ -1619,6 +1621,20 @@ cmd_existing_continue() (
   list_count="$(jq -r --arg id "$existing_selection_id" --arg wiki "$wiki" \
     '[select(.existing_selection_id == $id) | .wikis[]? | select(.wiki == $wiki)] | length' "$list_path" 2>/dev/null || printf 0)"
   [ "$list_count" = 1 ] || { selection_error selection_invalid "the selected wiki was not returned by Megamind"; return 1; }
+  expected_root_facts_hash="$(jq -r --arg id "$existing_selection_id" --arg wiki "$wiki" \
+    'select(.existing_selection_id == $id) | .wikis[]? | select(.wiki == $wiki) | .root_facts_hash' "$list_path" 2>/dev/null || true)"
+  [ -n "$expected_root_facts_hash" ] && [ "$expected_root_facts_hash" != null ] \
+    || { selection_error selection_invalid "the selected wiki has no displayed root binding"; return 1; }
+  local existing_continue_lock lock_held=0
+  existing_continue_lock="$(selection_lock_path "$selection_id")"
+  if ! acquire_selection_lock "$existing_continue_lock"; then
+    selection_error selection_busy "another continuation of this selection is active"
+    return 1
+  fi
+  lock_held=1
+  trap '
+    if [ "${lock_held:-0}" = 1 ]; then rm -rf -- "$existing_continue_lock" 2>/dev/null || true; fi
+  ' EXIT
   auth_path_value="$(authorization_path "$selection_id")"
   [ ! -e "$auth_path_value" ] && [ ! -L "$auth_path_value" ] \
     || { selection_error selection_replayed "the selection authorization already exists"; return 1; }
@@ -1630,17 +1646,19 @@ cmd_existing_continue() (
   [ "$rc" -eq 0 ] || { selection_error upstream_error "Megamind refused the selected existing wiki"; return 1; }
   if ! printf '%s' "$raw" | jq -e --arg id "$existing_selection_id" --arg wiki "$wiki" \
       --arg request_hash "$EXISTING_REQUEST_HASH" --arg catalog_hash "$EXISTING_CATALOG_HASH" \
+      --arg root_facts_hash "$expected_root_facts_hash" \
       --arg model_class "$EXISTING_MODEL_CLASS" --arg owner "$EXISTING_OWNER_ID" \
       --arg session "$EXISTING_STORED_SESSION" --arg today "$EXISTING_TODAY" "$SAFE_JQ_DEFS"'
       .schema_version == "megamind/existing-selection-result/v1" and .status == "authorized"
-      and .selection_id == $id and .request_hash == $request_hash and (.catalog_hash | type == "string" and length > 0)
+      and .selection_id == $id and .request_hash == $request_hash and .catalog_hash == $catalog_hash
       and .model_class == $model_class and .owner_id == $owner and .session_id == $session and .today == $today
-      and (.root_facts_hash | type == "string" and length > 0)
+      and .root_facts_hash == $root_facts_hash
       and (.selection | type == "object" and .status == "explicit-user-selection"
         and .basis == "selected-eligible-existing" and .source_disposition == "eligible-existing"
         and .threshold_matched == false and .confidence_changed == false)
       and (.selected | type == "object" and .name == $wiki and (.root | type == "string" and length > 0)
         and (.access == "full" or .access == "digest-only") and .routing_mode == "full"
+        and .provisional == false
         and (.allows | type == "array" and length > 0 and all(.[]; type == "string" and safe_path))
         and (.context_budget | type == "object" and (.max_candidates | type == "number" and floor == . and . > 0)
           and (.max_context_chars | type == "number" and floor == . and . > 0))

@@ -83,7 +83,24 @@ case "$sub" in
       fi
       jq -n --arg request_hash "$request_hash" --arg catalog "$catalog" --arg model "$model" --arg owner "$owner" --arg session "$session" --arg today "$today" --argjson names "$names" --argjson notes "$notes" '{schema_version:"megamind/existing-selection-list/v1",status:"ready",request_hash:$request_hash,catalog_hash:$catalog,model_class:$model,owner_id:$owner,session_id:$session,today:$today,selection_id:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",wikis:$names,notes:$notes}'
     else
-      result=$(jq -n --arg request_hash "$request_hash" --arg model "$model" --arg owner "$owner" --arg session "$session" --arg today "$today" --arg wiki "$wiki" --arg selection "$selection" --arg root "$estate_root/EligibleWiki" '{schema_version:"megamind/existing-selection-result/v1",status:"authorized",request_hash:$request_hash,catalog_hash:"cat-1",model_class:$model,owner_id:$owner,session_id:$session,today:$today,selection_id:$selection,root_facts_hash:"root-facts",selection:{status:"explicit-user-selection",basis:"selected-eligible-existing",source_disposition:"eligible-existing",threshold_matched:false,confidence_changed:false},selected:{name:$wiki,root:$root,access:"full",routing_mode:"full",allows:["wiki/index.md"],context_budget:{max_candidates:2,max_context_chars:1000},follow_up:"bounded follow-up"}}')
+      printf '%s\n' "$wiki" >> "$FM_HOME/state/select-existing-calls"
+      [ -z "${FM_TEST_EXISTING_DELAY:-}" ] || sleep "$FM_TEST_EXISTING_DELAY"
+      if [ "${FM_TEST_EXISTING_MODE:-ready}" = root-facts-drift ]; then
+        root_facts_hash="changed-root-facts"
+      else
+        root_facts_hash="root-facts"
+      fi
+      if [ "${FM_TEST_EXISTING_MODE:-ready}" = authorization-catalog-drift ]; then
+        catalog="cat-2"
+      else
+        catalog="cat-1"
+      fi
+      if [ "${FM_TEST_EXISTING_MODE:-ready}" = provisional ]; then
+        provisional=true
+      else
+        provisional=false
+      fi
+      result=$(jq -n --arg request_hash "$request_hash" --arg catalog "$catalog" --arg model "$model" --arg owner "$owner" --arg session "$session" --arg today "$today" --arg wiki "$wiki" --arg selection "$selection" --arg root "$estate_root/EligibleWiki" --arg root_facts_hash "$root_facts_hash" --argjson provisional "$provisional" '{schema_version:"megamind/existing-selection-result/v1",status:"authorized",request_hash:$request_hash,catalog_hash:$catalog,model_class:$model,owner_id:$owner,session_id:$session,today:$today,selection_id:$selection,root_facts_hash:$root_facts_hash,selection:{status:"explicit-user-selection",basis:"selected-eligible-existing",source_disposition:"eligible-existing",threshold_matched:false,confidence_changed:false},selected:{name:$wiki,root:$root,access:"full",routing_mode:"full",provisional:$provisional,allows:["wiki/index.md"],context_budget:{max_candidates:2,max_context_chars:1000},follow_up:"bounded follow-up"}}')
       printf '%s' "$result" > "$FM_HOME/state/last-upstream"
       printf '%s\n' "$result"
     fi
@@ -150,4 +167,30 @@ malformed=$(run_mode malformed existing-list --selection-id "$selection" 2>/dev/
 drift=$(run_mode catalog-drift existing-list --selection-id "$selection" 2>/dev/null || true)
 [ "$(printf '%s' "$drift" | jq -r '.failure.code')" = malformed_result ] || fail "catalog drift was not refused: $drift"
 
-pass "Megamind existing-wiki list and authorization: producer-only names, truncation, explicit bounded admission shape, replay, drift, malformed output, and refusal"
+for mode in authorization-catalog-drift root-facts-drift provisional; do
+  out=$(run_in run --request "$mode request")
+  selection=$(printf '%s' "$out" | jq -r '.selection_id')
+  list=$(run_in existing-list --selection-id "$selection")
+  existing_selection=$(printf '%s' "$list" | jq -r '.existing_selection_id')
+  rejected=$(run_mode "$mode" existing-continue --selection-id "$selection" --existing-selection-id "$existing_selection" --wiki EligibleWiki 2>/dev/null || true)
+  [ "$(printf '%s' "$rejected" | jq -r '.failure.code')" = malformed_result ] || fail "$mode authorization was not refused: $rejected"
+done
+
+out=$(run_in run --request "concurrent selection request")
+selection=$(printf '%s' "$out" | jq -r '.selection_id')
+list=$(run_in existing-list --selection-id "$selection")
+existing_selection=$(printf '%s' "$list" | jq -r '.existing_selection_id')
+rm -f -- "$HOME_DIR/state/select-existing-calls"
+race_one="$TMP_ROOT/race-one.json"
+race_two="$TMP_ROOT/race-two.json"
+FM_TEST_EXISTING_DELAY=1 FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" "$ROOT/bin/fm-megamind-preflight.sh" existing-continue --selection-id "$selection" --existing-selection-id "$existing_selection" --wiki EligibleWiki >"$race_one" 2>/dev/null &
+race_one_pid=$!
+FM_TEST_EXISTING_DELAY=1 FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" "$ROOT/bin/fm-megamind-preflight.sh" existing-continue --selection-id "$selection" --existing-selection-id "$existing_selection" --wiki EligibleWiki >"$race_two" 2>/dev/null &
+race_two_pid=$!
+wait "$race_one_pid" || true
+wait "$race_two_pid" || true
+[ "$(wc -l < "$HOME_DIR/state/select-existing-calls" | tr -d '[:space:]')" = 1 ] || fail "concurrent selection invoked Megamind more than once"
+race_authorized=$(cat "$race_one" "$race_two" | jq -r 'select(.outcome == "authorized") | .outcome' | wc -l | tr -d '[:space:]')
+[ "$race_authorized" = 1 ] || fail "concurrent selection did not authorize exactly once"
+
+pass "Megamind existing-wiki list and authorization: producer-only names, truncation, bounded admission, replay, drift, provisional refusal, and concurrency"
