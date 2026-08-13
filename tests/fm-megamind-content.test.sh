@@ -55,6 +55,19 @@ admit() {
   FM_HOME="$home" "$READER" admit --task-id task
 }
 
+# A definitive non-matched outcome (no-match, privacy-filtered, unavailable)
+# never proves an authorization, but it is also never a forgery: it must get
+# its own refusal code rather than collapsing into authorization_unproven.
+prepare_outcome_auth() {  # <home> <status>
+  local home=$1 status=$2 fixture="$TMP_ROOT/outcome-${RANDOM}-${RANDOM}.json"
+  cat > "$fixture" <<JSON
+{"schema_version":"megamind/preflight-result/v2","request_hash":"request-hash","model_class":"cloud","status":"$status","confidence":null,"preflight_id":"preflight-${RANDOM}","catalog_hash":"catalog-hash","thresholds":{"reliance_floor":0.75,"offer_floor":0.25,"ambiguity_band":0.05},"matches":[],"offers":[],"filtered":[],"redacted_count":0}
+JSON
+  FM_TEST_FIXTURE="$fixture" FM_HOME="$home" "$PREFLIGHT" run --request routing > "$home/state/task.megamind-preflight.json"
+  chmod 600 "$home/state/task.megamind-preflight.json"
+  rm -f "$fixture"
+}
+
 assert_refusal() {
   local out=$1 code=$2 label=$3
   [ "$(printf '%s' "$out" | jq -r '.outcome')" = refused ] || fail "$label was admitted: $out"
@@ -303,6 +316,52 @@ test_admission_store_is_retired() {
   pass "the admission store retires spent records and never outlives its own turn"
 }
 
+test_non_matched_outcomes_get_a_benign_refusal() {
+  local home out status
+  home=$(new_home outcome-refusal)
+  for status in no-match privacy-filtered unavailable; do
+    prepare_outcome_auth "$home" "$status"
+    out=$(admit "$home")
+    assert_refusal "$out" authorization_not_matched "an honest $status binding"
+  done
+  pass "an honest no-match, privacy-filtered, or unavailable binding gets a distinct benign refusal"
+}
+
+# A tampered authorization must stay exactly as suspicious as any other proof
+# mismatch and never collapse into the benign non-matched code above - the
+# refusal code is a worker's only channel for learning its own outcome.
+test_forged_authorization_still_authorization_unproven() {
+  local home out
+  home=$(new_home forged); prepare_auth "$home" '[".megamind/wiki-card.json","wiki/index.md"]' 2 100
+  jq '.preflight_id = "forged-preflight-id"' "$home/state/task.megamind-preflight.json" > "$home/state/tmp.json"
+  chmod 600 "$home/state/tmp.json"; mv -f "$home/state/tmp.json" "$home/state/task.megamind-preflight.json"
+  out=$(admit "$home"); assert_refusal "$out" authorization_unproven 'a forged preflight_id'
+  pass "a tampered matched authorization still reports authorization_unproven, never the benign non-matched code"
+}
+
+# digest-only exposes exactly its one approved digest; the reader must not
+# trust upstream's own narrowing and admit a widened allows list under it.
+test_digest_only_admits_exactly_one_path() {
+  local home out
+  home=$(new_home digest-cardinality)
+  printf 'wide open\n' > "$home/estate/SyntheticWiki/wiki/other.md"
+  prepare_auth "$home" '["wiki/index.md","wiki/other.md"]' 2 100
+  jq '.matches[0].access = "digest-only"
+      | .authorization_binding.declared_allows[0].access = "digest-only"' \
+    "$home/state/task.megamind-preflight.json" > "$home/state/tmp.json"
+  chmod 600 "$home/state/tmp.json"; mv -f "$home/state/tmp.json" "$home/state/task.megamind-preflight.json"
+  out=$(admit "$home"); assert_refusal "$out" authorization_invalid 'a digest-only match naming two allows paths'
+  prepare_auth "$home" '["wiki/index.md"]' 2 100
+  jq '.matches[0].access = "digest-only"
+      | .authorization_binding.declared_allows[0].access = "digest-only"' \
+    "$home/state/task.megamind-preflight.json" > "$home/state/tmp.json"
+  chmod 600 "$home/state/tmp.json"; mv -f "$home/state/tmp.json" "$home/state/task.megamind-preflight.json"
+  out=$(admit "$home")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = admitted ] \
+    || fail "a digest-only match naming exactly one allows path was refused: $out"
+  pass "digest-only admits exactly one path and refuses a widened allows list"
+}
+
 test_bounded_admission_and_unicode_counting
 test_admission_store_is_retired
 test_budget_refusals
@@ -315,3 +374,6 @@ test_concurrent_and_home_isolation
 test_toctou_race_never_emits_outside_content
 test_relaunch_preserves_admission
 test_real_synthetic_selection_authorization
+test_non_matched_outcomes_get_a_benign_refusal
+test_forged_authorization_still_authorization_unproven
+test_digest_only_admits_exactly_one_path

@@ -965,7 +965,34 @@ test_no_match_stays_quiet() {
   assert_not_contains "$out" "ProductWiki" "no-match must stay quiet about wikis"
   assert_not_contains "$out" "OfferWiki" "no-match must stay quiet about wikis"
   assert_not_contains "$out" "HiddenWiki" "no-match must stay quiet about wikis"
+  [ "$(printf '%s' "$out" | jq -r '.notes[0]')" = "Megamind matched no wiki: do the work ordinarily and stay quiet about the estate." ] \
+    || fail "an ordinary no-match note changed: $out"
   pass "run: no-match stays quiet about wikis"
+}
+
+# A no-match that withheld a candidate for this model class (filtered_count >
+# 0) is coverage denied, not coverage absent, and must read exactly like
+# privacy-filtered: nothing may tell the agent to proceed as though no wiki
+# covered the request.
+test_no_match_with_filtered_count_reads_as_privacy_filtered() {
+  local home out fixture="$TMP_ROOT/no-match-filtered.json"
+  jq '.status = "no-match"
+      | .confidence = null
+      | .matches = []
+      | .offers = []
+      | .preflight_id = "pf-nomatch-filtered-1"
+      | .notes = ["below the no-match floor (0.25): omitted HiddenWiki"]' "$MATCHED_FIXTURE" > "$fixture"
+  home=$(new_home no-match-filtered)
+  out=$(FM_TEST_STUB_FIXTURE="$fixture" run_in "$home" run --request "quantum llama farming")
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = no-match ] || fail "outcome not no-match: $out"
+  [ "$(printf '%s' "$out" | jq -r '.filtered_count')" = 1 ] || fail "filtered_count lost: $out"
+  [ "$(printf '%s' "$out" | jq -r '.notes | length')" = 1 ] || fail "notes must be exactly one host-owned line: $out"
+  [ "$(printf '%s' "$out" | jq -r '.notes[0]')" = "Megamind withheld every candidate for this model class: only the count is disclosed, never a name." ] \
+    || fail "a no-match with a withheld candidate did not read as privacy-filtered: $out"
+  assert_not_contains "$out" "do the work ordinarily" "a withheld no-match must never tell the agent to proceed ordinarily"
+  assert_not_contains "$out" "HiddenWiki" "no-match with filtered_count must never name the withheld wiki"
+  assert_not_contains "$out" "no-match floor" "upstream note text must never pass through"
+  pass "run: a no-match that withheld a candidate reads exactly like privacy-filtered"
 }
 
 test_notes_are_host_owned() {
@@ -1598,6 +1625,7 @@ test_option_shaped_upstream_values_stay_values
 test_ladder_never_widens_a_restricted_access
 test_ambiguous_offers_without_loading
 test_no_match_stays_quiet
+test_no_match_with_filtered_count_reads_as_privacy_filtered
 test_notes_are_host_owned
 test_privacy_filtered_never_names_wikis
 test_unavailable_is_definitive

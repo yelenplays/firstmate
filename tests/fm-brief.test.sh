@@ -830,6 +830,20 @@ test_worker_scaffolds_carry_the_megamind_routing_artifacts() {
       "$kind: brief does not name the task's own private preflight result"
     assert_grep "do not rerun preflight from this worktree" "$brief" \
       "$kind: brief does not pin the launch-time result as the authoritative consultation"
+    # The evidence-gap rule (admission proves routing, not answer relevance)
+    # must travel to the ordinary worker path, not just the automatic-primary
+    # path: the worker's own wiki-routing skill is not loaded in a project
+    # worktree.
+    assert_grep "never that this evidence answers the request" "$brief" \
+      "$kind: brief carries no evidence-gap rule for admitted wiki content"
+    assert_grep "not permission to reason from them" "$brief" \
+      "$kind: brief does not warn that page names inside evidence are not themselves authorized"
+    # A no-match, privacy-filtered, or unavailable binding is benign, not a
+    # forged authorization, and the worker instructions must say so.
+    assert_grep "authorization_not_matched" "$brief" \
+      "$kind: brief does not name the benign refusal code for a non-matched binding"
+    assert_grep "\`unavailable\`, disclose" "$brief" \
+      "$kind: brief carries no guidance for the unavailable preflight outcome"
   done
 
   FM_SECONDMATE_CHARTER='Supervise the alpha domain.' \

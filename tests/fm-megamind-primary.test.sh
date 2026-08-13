@@ -160,8 +160,8 @@ test_no_match_and_privacy_filter() {
   out=$(FM_TEST_FIXTURE="$fixture" run_in "$home" process --harness pi --session-id session-aaaaaaaa --submission-id submission-cccccccc <<< 'synthetic substantive request')
   [ "$(printf '%s' "$out" | jq -r .decision)" = proceed-no-context ] || fail "no-match did not proceed without context: $out"
   [ "$(printf '%s' "$out" | jq -r .context)" = null ] || fail "no-match carried context"
-  out2=$(FM_TEST_FIXTURE="$fixture" run_in "$home" process --harness pi --session-id session-aaaaaaaa --submission-id submission-cccccccc <<< 'different retry text')
-  [ "$out2" = "$out" ] || fail "retry did not return the one durable decision"
+  out2=$(FM_TEST_FIXTURE="$fixture" run_in "$home" process --harness pi --session-id session-aaaaaaaa --submission-id submission-cccccccc <<< 'synthetic substantive request')
+  [ "$out2" = "$out" ] || fail "an identical retry did not return the one durable decision"
   fixture=$(make_fixture "$home" privacy-filtered)
   out=$(FM_TEST_FIXTURE="$fixture" run_in "$home" process --harness pi --session-id session-aaaaaaaa --submission-id submission-dddddddd <<< 'another substantive request')
   [ "$(printf '%s' "$out" | jq -r .decision)" = proceed-no-context ] || fail "privacy-filtered did not stay context-free"
@@ -195,6 +195,67 @@ test_failures_and_unsupported() {
   pass "coordinator: failed bindings block and unsupported harnesses are deterministic"
 }
 
+# A cached decision is keyed by submission id on disk, so a submission id
+# reused for an unrelated prompt must re-evaluate rather than replay the first
+# prompt's decision - including any wiki content it admitted.
+test_cached_decision_is_bound_to_the_prompt() {
+  local home fixture_matched fixture_nomatch out out2
+  home=$(new_home prompt-binding); install_stub "$home"
+  fixture_matched=$(make_fixture "$home" matched)
+  out=$(FM_TEST_FIXTURE="$fixture_matched" run_in "$home" process --harness pi \
+    --session-id session-aaaaaaaa --submission-id submission-llllllll <<< 'first prompt, admitted')
+  [ "$(printf '%s' "$out" | jq -r .decision)" = proceed-with-admission ] \
+    || fail "the first prompt under the reused submission id was not admitted: $out"
+  fixture_nomatch=$(make_fixture "$home" no-match)
+  out2=$(FM_TEST_FIXTURE="$fixture_nomatch" run_in "$home" process --harness pi \
+    --session-id session-aaaaaaaa --submission-id submission-llllllll <<< 'second, unrelated prompt')
+  [ "$(printf '%s' "$out2" | jq -r .decision)" = proceed-with-admission ] \
+    && fail "a reused submission id served the first prompt's admitted decision to a different prompt: $out2"
+  [ "$(printf '%s' "$out2" | jq -r .decision)" = proceed-no-context ] \
+    || fail "the re-evaluated decision for the second prompt was not proceed-no-context: $out2"
+  assert_not_contains "$out2" 'megamind-bounded-reader' \
+    'a different prompt under a reused submission id still carried the first admitted wiki context'
+  pass "coordinator: a cached decision under a reused submission id is bound to the exact prompt"
+}
+
+# The other half of the same contract: an identical retry - same submission id,
+# same prompt - must still return the one durable cached decision.
+test_cached_decision_reused_for_an_identical_retry() {
+  local home fixture out out2
+  home=$(new_home prompt-retry); install_stub "$home"
+  fixture=$(make_fixture "$home" no-match)
+  out=$(FM_TEST_FIXTURE="$fixture" run_in "$home" process --harness pi \
+    --session-id session-aaaaaaaa --submission-id submission-mmmmmmmm <<< 'identical retry text')
+  out2=$(FM_TEST_FIXTURE="$fixture" run_in "$home" process --harness pi \
+    --session-id session-aaaaaaaa --submission-id submission-mmmmmmmm <<< 'identical retry text')
+  [ "$out2" = "$out" ] || fail "an identical retry under the same submission id did not return the cached decision: $out vs $out2"
+  pass "coordinator: an identical retry under the same submission id returns the cached decision"
+}
+
+# "A home with the guard off must cost nothing... and must never lose a
+# prompt" cannot itself depend on jq: a direct coordinator call on an
+# opted-out home must still bypass when jq is absent, never decision()'s own
+# jq-less "block jq_missing" fallback.
+test_process_bypasses_without_jq_on_an_opted_out_home() {
+  local home nojq out tool
+  home=$(new_home nojq-optout); install_stub "$home"
+  rm -f "$home/config/megamind-primary-automatic"
+  nojq="$TMP_ROOT/nojq-primary"
+  mkdir -p "$nojq"
+  for tool in bash dirname cat; do
+    ln -sf "$(command -v "$tool")" "$nojq/$tool"
+  done
+  [ ! -e "$nojq/jq" ] || fail "jq-missing fixture PATH must not contain jq"
+  out=$(PATH="$nojq" FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" FM_PRIMARY_SCOPE_OVERRIDE=1 \
+    bash "$COORDINATOR" process --harness claude --session-id session-aaaaaaaa \
+    --submission-id submission-nnnnnnnn <<< 'substantive prompt with no jq on an opted-out home')
+  [ "$(printf '%s' "$out" | jq -r .decision)" = bypass ] \
+    || fail "an opted-out home without jq did not bypass: $out"
+  [ "$(printf '%s' "$out" | jq -r .failure_code)" = null ] \
+    || fail "an opted-out home without jq reported a failure code: $out"
+  pass "coordinator: an opted-out home bypasses without jq, never a jq_missing block"
+}
+
 test_classification_and_disabled_mode
 test_optin_switch_uses_sibling_first_line_semantics
 test_optin_gates_precede_the_session_lock
@@ -202,3 +263,6 @@ test_bypass_survives_an_unwritable_state_directory
 test_no_match_and_privacy_filter
 test_matched_reader_context_and_privacy
 test_failures_and_unsupported
+test_cached_decision_is_bound_to_the_prompt
+test_cached_decision_reused_for_an_identical_retry
+test_process_bypasses_without_jq_on_an_opted_out_home

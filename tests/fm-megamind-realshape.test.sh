@@ -11,8 +11,10 @@
 # requires the authorization to survive end to end.
 #
 # The estate is synthetic and built here, so no captain wiki is read and nothing
-# depends on a private path. Set FM_MEGAMIND_REAL_EXE to point at a specific
-# build; otherwise megamind-axi is resolved from PATH.
+# depends on a private path. The real producer is resolved in this order: an
+# explicit FM_MEGAMIND_REAL_EXE override, then the active home's own
+# config/megamind-executable (a pilot host pins its proven build there, and
+# PATH may still carry an older one), then PATH.
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -25,24 +27,76 @@ fail() { printf 'not ok - %s\n' "$1" >&2; exit 1; }
 pass() { printf 'ok - %s\n' "$1"; }
 check() { CHECKS=$((CHECKS + 1)); }
 
-EXE="${FM_MEGAMIND_REAL_EXE:-}"
-if [ -z "$EXE" ]; then
-  EXE="$(command -v megamind-axi 2>/dev/null || true)"
-fi
+# Same first-non-empty-non-comment-line convention every config/megamind-*
+# file in this pilot uses (bin/fm-megamind-primary.sh's config_first_line).
+configured_executable() {  # <home> - print the configured executable path, or nothing
+  local file="$1/config/megamind-executable" line trimmed
+  [ -r "$file" ] || return 1
+  while IFS= read -r line || [ -n "$line" ]; do
+    trimmed="${line#"${line%%[![:space:]]*}"}"
+    trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+    case "$trimmed" in
+      ''|'#'*) continue ;;
+      *) printf '%s\n' "$trimmed"; return 0 ;;
+    esac
+  done < "$file"
+  return 1
+}
+
+resolve_megamind_exe() {  # <override> <home> - print the resolved executable path, or nothing
+  local override="$1" home="$2" configured
+  if [ -n "$override" ]; then
+    printf '%s\n' "$override"
+    return 0
+  fi
+  configured="$(configured_executable "$home" 2>/dev/null || true)"
+  if [ -n "$configured" ] && [ -x "$configured" ]; then
+    printf '%s\n' "$configured"
+    return 0
+  fi
+  command -v megamind-axi 2>/dev/null
+}
+
+LAB="$ROOT/.no-mistakes/megamind-realshape.$$"
+mkdir -p "$LAB"
+cleanup() { rm -rf "$LAB"; }
+trap cleanup EXIT
+
+# --- resolution-order proof (no real megamind-axi required) ------------------
+
+mkdir -p "$LAB/resolve/home/config" "$LAB/resolve/path-home/config" "$LAB/resolve/bin"
+printf '%s\n' "$LAB/resolve/configured-exe" > "$LAB/resolve/home/config/megamind-executable"
+: > "$LAB/resolve/configured-exe"; chmod +x "$LAB/resolve/configured-exe"
+: > "$LAB/resolve/override-exe"; chmod +x "$LAB/resolve/override-exe"
+: > "$LAB/resolve/bin/megamind-axi"; chmod +x "$LAB/resolve/bin/megamind-axi"
+
+resolved=$(resolve_megamind_exe "$LAB/resolve/override-exe" "$LAB/resolve/home")
+[ "$resolved" = "$LAB/resolve/override-exe" ] \
+  || fail "an explicit override did not win over a configured executable: $resolved"
+check
+
+resolved=$(resolve_megamind_exe "" "$LAB/resolve/home")
+[ "$resolved" = "$LAB/resolve/configured-exe" ] \
+  || fail "the active home's configured executable was not resolved with no override: $resolved"
+check
+
+resolved=$(PATH="$LAB/resolve/bin:$PATH" resolve_megamind_exe "" "$LAB/resolve/path-home")
+[ "$resolved" = "$LAB/resolve/bin/megamind-axi" ] \
+  || fail "PATH was not the final fallback with no override and no configured executable: $resolved"
+check
+
+# --- the real producer ---------------------------------------------------------
+
+EXE="$(resolve_megamind_exe "${FM_MEGAMIND_REAL_EXE:-}" "${FM_HOME:-$ROOT}")"
 if [ -z "$EXE" ] || [ ! -x "$EXE" ]; then
   # Skip loudly and name what stays unproven, rather than passing over it.
-  echo "skip: no megamind-axi on PATH and no FM_MEGAMIND_REAL_EXE;"
+  echo "skip: no megamind-axi on PATH, no configured executable, and no FM_MEGAMIND_REAL_EXE;"
   echo "skip: the real routing-mode vocabulary and ladder descent stay unproven here"
   exit 0
 fi
 for tool in jq python3; do
   command -v "$tool" >/dev/null 2>&1 || fail "$tool is required for the real-shape guard"
 done
-
-LAB="$ROOT/.no-mistakes/megamind-realshape.$$"
-mkdir -p "$LAB"
-cleanup() { rm -rf "$LAB"; }
-trap cleanup EXIT
 
 HOME_DIR="$LAB/home"
 ESTATE="$LAB/estate"
@@ -181,5 +235,5 @@ out=$(FM_HOME="$HOME_DIR" "$READER" admit --task-id realshape)
   || fail "a pointer routing mode was not refused under real output: $out"
 check
 
-[ "$CHECKS" -ge 6 ] || fail "the real-shape guard ran only $CHECKS checks and proved nothing"
+[ "$CHECKS" -ge 9 ] || fail "the real-shape guard ran only $CHECKS checks and proved nothing"
 pass "real megamind-axi $VERSION: ladder pages authorize, admit, and read back in budget"
