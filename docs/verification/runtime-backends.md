@@ -450,7 +450,7 @@ Observed bounded results:
 | 0.6.0 | Exit 0, same schema, status, and two offers. | Present, and authorized end to end above. | Exit 0, one typed `ambiguous` document carrying an opaque `selection_id`. |
 
 So `--today` after the subcommand is accepted identically on all four accepted lines, and one argv serves every release the version gate admits without narrowing support to 0.6.x.
-`select-offer` is the part that is genuinely 0.6-only, so an ambiguous outcome on an older accepted line takes the same uncontinuable path a home without a session lock takes: the result stands, with no `selection_id` and no retained private record, and the command is never sent to a build that would refuse it.
+`select-offer` and `select-existing` are the explicit-selection commands that are genuinely 0.6-only, so an ambiguous outcome on an older accepted line takes the same uncontinuable path a home without a session lock takes: the result stands, with no `selection_id` and no retained private record, and neither command is sent to a build that would refuse it.
 
 The 0.6.0 result reached the existing owner-bound worker authorization before launch, so the release is accepted without adding a second policy layer.
 The same owner still refuses 0.7.x and later, malformed identities, malformed output, and older releases until each future contract is separately established.
