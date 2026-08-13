@@ -229,7 +229,8 @@ No primary interception or scheduling claim is made by this reader slice.
 
 Every suite above drives a synthetic Megamind stub, which can only confirm the assumption already written into that stub, so `tests/fm-megamind-realshape.test.sh` is the guard that keeps it honest about the fields the reader accepts.
 It builds its own synthetic estate, routes it through an installed `megamind-axi`, and requires the resulting authorization to survive the real host path end to end, asserting nothing about implementation source bytes.
-It resolves the build from `FM_MEGAMIND_REAL_EXE` or `PATH`, asks `bin/fm-megamind-preflight.sh check` whether that build is an accepted release, and skips loudly - naming the real routing-mode vocabulary and ladder descent as what stays unproven - rather than reporting a pass that checked nothing.
+It resolves the build in one order - an explicit `FM_MEGAMIND_REAL_EXE` override, then the active home's own `config/megamind-executable`, then `PATH` - so a pilot host that pins its proven build in config is actually guarded instead of skipped because `PATH` carries an older build or none at all; three checks prove that order and need no real binary.
+It then asks `bin/fm-megamind-preflight.sh check` whether the resolved build is an accepted release, and skips loudly - naming the real routing-mode vocabulary and ladder descent as what stays unproven - rather than reporting a pass that checked nothing.
 `bin/fm-test-run.sh` runs it in the optional-binary `megamind-realshape` family and selects it whenever the bounded reader changes.
 
 ## Primary Megamind prompt interception
@@ -240,7 +241,7 @@ The Claude transport is `bin/fm-claude-primary-prompt.sh` on `UserPromptSubmit`.
 The Pi and pi-signed transport is `.pi/extensions/fm-primary-megamind.ts` on Pi's `input` event with handled and replay semantics.
 The implementation remains opt-in through `config/megamind-primary-automatic` or `FM_MEGAMIND_PRIMARY_AUTOMATIC=1` so ordinary sessions retain their prior behavior until the live guard is intentionally enabled.
 
-Portable proof covers bypasses, no-match, privacy-filtered, matched bounded admission, prompt and root privacy, failed bindings, and deterministic unsupported decisions:
+Portable proof covers bypasses, no-match, privacy-filtered, matched bounded admission, prompt and root privacy, failed bindings, deterministic unsupported decisions, the prompt binding that keeps a reused submission id from replaying another prompt's decision, and the bypass an opted-out home returns even without `jq`:
 
 ```sh
 bin/fm-test-run.sh tests/fm-megamind-primary.test.sh tests/fm-megamind-preflight.test.sh tests/fm-megamind-content.test.sh tests/fm-megamind-claude-control.test.sh

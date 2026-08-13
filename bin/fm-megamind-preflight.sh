@@ -117,11 +117,15 @@
 #   offer_floor, and ambiguity_band all present as numbers in 0..1 is
 #   malformed_output. Matches carry validated freshness, a non-verbatim
 #   provenance summary, and optional positive numeric context-budget fields.
-#   `notes` is host-owned: one fixed per-outcome line chosen here, never
+#   `notes` is host-owned: one fixed line chosen here per outcome, never
 #   Megamind's own notes, which can name below-floor wikis, out-of-band
-#   candidates, and absolute roots. A host-owned content-binding object carries
-#   only opaque identities and current executable/model/catalog facts; the
-#   bounded reader binds current root/card/file facts before content admission.
+#   candidates, and absolute roots. A no-match that withheld a candidate for
+#   this model class (filtered_count > 0) is coverage denied rather than absent
+#   and takes the privacy-filtered line, so no note ever tells an agent to
+#   proceed from priors over a withheld wiki. A host-owned content-binding
+#   object carries only opaque identities and current executable/model/catalog
+#   facts; the bounded reader binds current root/card/file facts before content
+#   admission.
 # - Any missing, incompatible, malformed, or failed preflight prints the typed
 #   document with outcome=error and a stable failure.code instead of a result:
 #   not_configured, estate_missing, invalid_model_class, invalid_today,
