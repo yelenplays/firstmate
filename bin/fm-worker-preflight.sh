@@ -45,13 +45,14 @@
 #   printed on stdout. ambiguous authorizes while admitting nothing, because
 #   Megamind found no single confident wiki and its own instruction is to load
 #   nothing - operationally identical to no-match, so a worker whose estate has
-#   nothing to contribute works ordinarily instead of being refused. The offer
-#   such a result carries is spendable only on an interactive turn where a human
-#   can answer it, never by a worker: the filed document keeps its real outcome,
-#   so admission still refuses it and the proof log still records it as
-#   ambiguous. Every other outcome - unavailable, error, or an unrecognized
-#   status - blocks: the typed document goes to stdout for the caller to surface
-#   and the exit status is 1. No result is ever guessed from model knowledge.
+#   nothing to contribute works ordinarily instead of being refused. Any offer
+#   such a result carries is never spent here, because settling an offer belongs
+#   to the primary coordinator alone (bin/fm-megamind-primary.sh): the filed
+#   document keeps its real outcome, so admission still refuses it and the proof
+#   log still records it as ambiguous. Every other outcome - unavailable, error,
+#   or an unrecognized status - blocks: the typed document goes to stdout for the
+#   caller to surface and the exit status is 1. No result is ever guessed from
+#   model knowledge.
 # - A refusal never mutates the task. The result file is only ever REPLACED by a
 #   freshly authorized document and is never removed here, because the
 #   incarnation that owns it may still be running; bin/fm-teardown.sh retires it

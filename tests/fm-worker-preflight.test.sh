@@ -743,8 +743,8 @@ EOF
   mode=$(file_mode "$pending")
   [ "$mode" = 600 ] || fail "worker-path pending evidence is not mode 0600 (got $mode)"
 
-  # A captured offer is the captain's to spend, never the worker's: launching
-  # authorizes nothing, and the private request text stays in that record alone.
+  # A captured offer is settled by the primary path alone, never by this launch:
+  # launching authorizes nothing, and the request text stays in that record alone.
   [ -z "$(printf '%s\n' "$store"/*.authorization.json 2>/dev/null | grep -v '\*' || true)" ] \
     || fail "a launched worker spawn published a selection authorization"
   assert_grep "ROUTING-ONLY-CANARY" "$pending" \

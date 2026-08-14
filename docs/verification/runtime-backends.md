@@ -244,7 +244,7 @@ bin/fm-test-run.sh tests/fm-megamind-preflight.test.sh \
 Observed bounded output on 2026-08-14:
 
 ```text
-FM_TEST_SUMMARY total=3 failed=0 skipped_gate=0 duration_ms=65134
+FM_TEST_SUMMARY total=3 failed=0 skipped_gate=0 duration_ms=68436
 ```
 
 The reader's benign non-matched vocabulary covers `ambiguous` alongside `no-match`, `privacy-filtered`, and `unavailable`, because an ordinary worker launch now files an ambiguous binding like any other honest outcome; an offer stays spendable only through the separate script-issued selection authorization, which carries its own schema and `authorized` outcome.
@@ -263,7 +263,7 @@ The real-producer guard was run on 2026-08-14 with `FM_MEGAMIND_REAL_EXE` pinned
 FM_MEGAMIND_REAL_EXE=<proven Megamind 0.6.0 path> bin/fm-test-run.sh tests/fm-megamind-realshape.test.sh
 ```
 
-Observed output was `FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=1247`.
+Observed output was `FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=1438`.
 
 ## Primary Megamind prompt interception
 
