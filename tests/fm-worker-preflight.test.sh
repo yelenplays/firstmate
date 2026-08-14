@@ -7,11 +7,11 @@
 # proof-placement matrix. bin/fm-spawn.sh is then driven end to end against a
 # fake tmux endpoint so the refusal boundary (no endpoint, no worktree, no task
 # record), the private per-task result delivery, the secondmate omission, and the
-# isolated-copy behavior are proven where they actually happen. That refusal
-# boundary is also pinned for the one arrangement in which the governed offer
-# selection is live - a 0.6.x release and an owning home holding the session lock
-# - because a captured offer is the captain's to spend and must never turn an
-# ambiguous worker preflight into a launch.
+# isolated-copy behavior are proven where they actually happen. The ambiguous
+# launch is pinned for the one arrangement in which the governed offer selection
+# is live - a 0.6.x release and an owning home holding the session lock - because
+# that is where an offer exists at all: the worker launches and loads nothing,
+# while the offer itself stays unspent and the captain's to answer.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -48,7 +48,7 @@ printf '%s\n' '{
   "catalog_hash": "worker-catalog-1",
   "matches": [],
   "offers": [],
-  "filtered": [],
+  "filtered": '"${FM_TEST_STUB_FILTERED:-[]}"',
   "redacted_count": 0
 }'
 SH
@@ -251,22 +251,33 @@ test_routing_request_guard_blocks_before_any_call() {
   pass "an unauthored, oversized, or unsafe routing request blocks before Megamind is called"
 }
 
-test_unauthorized_outcomes_block_and_preserve_the_result() {
-  local home id result out rc status
+test_blocking_outcomes_block_and_preserve_the_result() {
+  local home id result out rc
   home="$TMP_ROOT/outcomes"
   id='outcome-task'
   make_home "$home" outcomes
   write_request "$home/data" "$id" 'routing summary for the outcome matrix'
   result=$(result_path "$home/state" "$id")
-  for status in ambiguous unavailable; do
-    printf 'prior authorization\n' > "$result"
-    : > "$STUB_ARGS"
-    out=$(FM_TEST_STUB_STATUS="$status" run_helper "$home" "$id" 2>/dev/null); rc=$?
-    expect_code 1 "$rc" "$status outcome"
-    [ "$(printf '%s' "$out" | jq -r '.outcome')" = "$status" ] \
-      || fail "the $status outcome did not surface its typed document: $out"
-    assert_grep "prior authorization" "$result" "the $status outcome mutated the running incarnation's authorization"
-  done
+  # A binding that found no usable coverage at all is a concrete blocker, not the
+  # "no single confident wiki" case that launches (test_ambiguous_binding_* below).
+  printf 'prior authorization\n' > "$result"
+  : > "$STUB_ARGS"
+  out=$(FM_TEST_STUB_STATUS=unavailable run_helper "$home" "$id" 2>/dev/null); rc=$?
+  expect_code 1 "$rc" "unavailable outcome"
+  [ "$(printf '%s' "$out" | jq -r '.outcome')" = unavailable ] \
+    || fail "the unavailable outcome did not surface its typed document: $out"
+  assert_grep "prior authorization" "$result" "the unavailable outcome mutated the running incarnation's authorization"
+
+  # An upstream status this host has no contract for is a malformed result. It is
+  # NOT an ambiguous result and must never reach the launching path with it: a
+  # binding whose output cannot be read proves nothing about wiki coverage.
+  printf 'prior authorization\n' > "$result"
+  : > "$STUB_ARGS"
+  out=$(FM_TEST_STUB_STATUS='ambiguous-ish' run_helper "$home" "$id" 2>/dev/null); rc=$?
+  expect_code 1 "$rc" "an unrecognized upstream status"
+  [ "$(printf '%s' "$out" | jq -r '.failure.code')" = malformed_output ] \
+    || fail "an unrecognized upstream status was not typed as a malformed result: $out"
+  assert_grep "prior authorization" "$result" "a malformed result mutated the task's authorization"
 
   printf 'prior authorization\n' > "$result"
   : > "$STUB_ARGS"
@@ -278,7 +289,78 @@ test_unauthorized_outcomes_block_and_preserve_the_result() {
   assert_grep "prior authorization" "$result" "an unconfigured binding mutated the task's authorization"
   assert_no_grep "megamind-request.md" "$home/state/megamind-preflight.jsonl" \
     "a failed binding's proof line carried the routing request path"
-  pass "ambiguous, unavailable, and failed bindings block without mutating the task"
+  pass "unavailable, malformed, and failed bindings block without mutating the task"
+}
+
+# Megamind's own instruction for an ambiguous result is to load nothing, which is
+# operationally identical to no-match, so the launch proceeds and admits nothing.
+# The filed result keeps its real outcome and the proof log keeps recording it as
+# ambiguous, so the routing quality this outcome reports stays measurable.
+test_ambiguous_binding_launches_and_admits_nothing() {
+  local home id result out err rc admit
+  home="$TMP_ROOT/ambiguous-authorized"
+  id='ambiguous-task'
+  err="$TMP_ROOT/ambiguous-note.err"
+  make_home "$home" ambiguousauthorized
+  write_request "$home/data" "$id" 'routing summary no single wiki answers'
+  result=$(result_path "$home/state" "$id")
+  : > "$STUB_ARGS"
+  out=$(FM_TEST_STUB_STATUS=ambiguous run_helper "$home" "$id" 2>"$err"); rc=$?
+  expect_code 0 "$rc" "an ambiguous binding"
+  [ -z "$out" ] || fail "an ambiguous binding printed the typed result instead of filing it: $out"
+  assert_present "$result" "an ambiguous binding filed no private result for the task"
+  [ "$(jq -r '.outcome' < "$result")" = ambiguous ] \
+    || fail "the filed result did not keep its real outcome: $(cat "$result")"
+  [ "$(file_mode "$result")" = 600 ] || fail "the filed ambiguous result is not private (mode $(file_mode "$result"))"
+  # Whatever it says, it must not read like a refusal: this outcome no longer
+  # stops anything, and a diagnostic-shaped line would send an operator hunting.
+  assert_contains "$(cat "$err")" "no wiki content" \
+    "an ambiguous launch left no note that it carries no wiki coverage"
+  assert_not_contains "$(cat "$err")" "does not authorize" \
+    "the ambiguous launch note still reads like a refusal"
+  # Nothing is loaded. The reader is the only content boundary, so ask it: an
+  # ambiguous task binding is a benign non-authorizing result there, exactly like
+  # no-match, and never a suspicious one.
+  admit=$("$ROOT/bin/fm-megamind-content.sh" admit --task-id "$id" --owner-home "$home" 2>/dev/null); rc=$?
+  [ "$rc" -ne 0 ] || fail "the reader admitted content for an ambiguous binding: $admit"
+  [ "$(printf '%s' "$admit" | jq -r '.outcome')" = refused ] \
+    || fail "an ambiguous binding was not refused by the reader: $admit"
+  [ "$(printf '%s' "$admit" | jq -r '.refusal_code')" = authorization_not_matched ] \
+    || fail "an ambiguous binding did not get the benign non-matched refusal: $admit"
+  [ "$(printf '%s' "$admit" | jq -r '.admission_id')" = null ] \
+    || fail "a refused ambiguous binding still issued an admission id: $admit"
+  assert_grep '"outcome":"ambiguous"' "$home/state/megamind-preflight.jsonl" \
+    "the proof log stopped recording ambiguous as ambiguous"
+  pass "an ambiguous binding authorizes the launch while admitting no wiki content"
+}
+
+# privacy-filtered already authorized the launch; what it must never do is name
+# what it withheld, on any surface the launch produces.
+test_privacy_filtered_loads_nothing_and_names_nothing() {
+  local home id result out rc admit
+  home="$TMP_ROOT/privacy-filtered"
+  id='filtered-task'
+  make_home "$home" privacyfiltered
+  write_request "$home/data" "$id" 'routing summary for a withheld candidate'
+  result=$(result_path "$home/state" "$id")
+  : > "$STUB_ARGS"
+  out=$(FM_TEST_STUB_STATUS=privacy-filtered FM_TEST_STUB_FILTERED='["WITHHELD-WIKI-CANARY"]' \
+    run_helper "$home" "$id" 2>&1); rc=$?
+  expect_code 0 "$rc" "a privacy-filtered binding"
+  [ -z "$out" ] || fail "a privacy-filtered binding printed something instead of filing its result: $out"
+  [ "$(jq -r '.outcome' < "$result")" = privacy-filtered ] \
+    || fail "the filed result is not the typed privacy-filtered document: $(cat "$result")"
+  [ "$(jq -r '.filtered_count' < "$result")" = 1 ] \
+    || fail "the filed result lost the withheld count it is allowed to disclose"
+  assert_no_grep "WITHHELD-WIKI-CANARY" "$result" "the filed result named a withheld wiki"
+  assert_no_grep "WITHHELD-WIKI-CANARY" "$home/state/megamind-preflight.jsonl" \
+    "the proof log named a withheld wiki"
+  admit=$("$ROOT/bin/fm-megamind-content.sh" admit --task-id "$id" --owner-home "$home" 2>/dev/null); rc=$?
+  [ "$rc" -ne 0 ] || fail "the reader admitted content for a privacy-filtered binding: $admit"
+  [ "$(printf '%s' "$admit" | jq -r '.refusal_code')" = authorization_not_matched ] \
+    || fail "a privacy-filtered binding did not get the benign non-matched refusal: $admit"
+  assert_not_contains "$admit" "WITHHELD-WIKI-CANARY" "the reader's refusal named a withheld wiki"
+  pass "a privacy-filtered binding loads nothing and names no withheld wiki"
 }
 
 test_a_hung_binding_blocks_within_its_bound() {
@@ -350,9 +432,18 @@ test_validate_only_authorizes_without_filing_a_result() {
 
   printf 'prior authorization\n' > "$result"
   : > "$STUB_ARGS"
-  out=$(FM_TEST_STUB_STATUS=ambiguous run_helper "$home" "$id" --validate-only 2>/dev/null); rc=$?
-  expect_code 1 "$rc" "validate-only run against an unauthorized outcome"
+  out=$(FM_TEST_STUB_STATUS=unavailable run_helper "$home" "$id" --validate-only 2>/dev/null); rc=$?
+  expect_code 1 "$rc" "validate-only run against a blocking outcome"
   assert_grep "prior authorization" "$result" "a refused validate-only run mutated the task's authorization"
+
+  # The relaunch precondition follows the launch verdict, so an ambiguous binding
+  # answers "yes" here too - still without filing anything.
+  rm -f "$result"
+  : > "$STUB_ARGS"
+  out=$(FM_TEST_STUB_STATUS=ambiguous run_helper "$home" "$id" --validate-only 2>/dev/null); rc=$?
+  expect_code 0 "$rc" "validate-only run against an ambiguous binding"
+  [ -z "$out" ] || fail "validate-only printed a document for an ambiguous binding: $out"
+  assert_absent "$result" "validate-only filed an authorization for an ambiguous binding"
   pass "validate-only answers the launch question without touching the task's result file"
 }
 
@@ -607,55 +698,64 @@ EOF
   pass "a blocked binding refuses the spawn before any endpoint or task record exists"
 }
 
-test_capturable_ambiguous_binding_still_refuses_the_worker() {
-  local rec home project worktree fakebin launchlog id out rc store pending mode
+test_capturable_ambiguous_binding_launches_without_spending_the_offer() {
+  local rec home project worktree fakebin launchlog id out rc store pending mode admit result
   rec=$(make_spawn_case ambiguous-capturable bound)
   IFS='|' read -r _ home project worktree fakebin launchlog id <<EOF
 $rec
 EOF
   # The one arrangement in which the governed offer-selection path is live: a
   # 0.6.x release that publishes select-offer, and an owning home holding the
-  # authoritative session lock that can own an offer. An ambiguous worker
-  # preflight here now retains private evidence and hands its caller a
-  # continuation handle, so this is exactly where an ordinary worker could be
-  # weakened into launching on an unauthorized choice.
+  # authoritative session lock that can own an offer. This is where an offer
+  # actually exists, so it is the case that proves the launch takes none of it:
+  # the worker runs with no wiki content and the offer stays the captain's.
   printf '%s\n' "$$" > "$home/state/.lock"
   : > "$STUB_ARGS"
   out=$(FM_TEST_STUB_VERSION=0.6.0 FM_TEST_STUB_STATUS=ambiguous \
     run_spawn_case "$home" "$project" "$worktree" "$fakebin" "$launchlog" "$id" ship); rc=$?
-  expect_code 1 "$rc" "spawn behind a capturable ambiguous binding"
-  assert_contains "$out" "was not authorized by the owning home's Megamind preflight" \
-    "the ambiguous refusal did not name the blocked binding"
-  assert_contains "$out" '"outcome":"ambiguous"' \
-    "the ambiguous refusal did not carry the typed document"
-  assert_absent "$home/state/$id.meta" "an ambiguous binding still published a task record"
-  assert_absent "$home/state/$id.megamind-preflight.json" \
-    "an ambiguous binding still filed a worker authorization"
-  [ ! -s "$launchlog" ] || fail "an ambiguous binding still sent a launch command to an endpoint"
+  expect_code 0 "$rc" "spawn behind a capturable ambiguous binding: $out"
+  assert_not_contains "$out" "was not authorized by the owning home's Megamind preflight" \
+    "an ambiguous binding still refused the spawn"
+  assert_present "$home/state/$id.meta" "an ambiguous binding published no task record"
+  result="$home/state/$id.megamind-preflight.json"
+  assert_present "$result" "an ambiguous binding filed no private result for the launched task"
+  [ "$(jq -r '.outcome' < "$result")" = ambiguous ] \
+    || fail "the launched task's filed result did not keep its real outcome: $(cat "$result")"
+  assert_contains "$(cat "$launchlog")" "codex " "an ambiguous binding never reached the launch boundary"
+  assert_grep '"outcome":"ambiguous"' "$home/state/megamind-preflight.jsonl" \
+    "the proof log stopped recording an ambiguous spawn as ambiguous"
 
-  # The counterfactual that makes the refusal above meaningful: without a live
-  # capture there is no continuation to refuse, and this case would silently
-  # re-test the uncontinuable 0.3.x path instead of the governed one.
+  # No wiki content is admitted for that launched task: the reader is the only
+  # content boundary and it refuses this binding as an ordinary non-match.
+  admit=$("$ROOT/bin/fm-megamind-content.sh" admit --task-id "$id" --owner-home "$home" 2>/dev/null); rc=$?
+  [ "$rc" -ne 0 ] || fail "the reader admitted content for a launched ambiguous task: $admit"
+  [ "$(printf '%s' "$admit" | jq -r '.refusal_code')" = authorization_not_matched ] \
+    || fail "a launched ambiguous task did not get the benign non-matched refusal: $admit"
+
+  # The counterfactual that makes the unspent-offer assertion below meaningful:
+  # without a live capture there is no offer to leave alone, and this case would
+  # silently re-test the uncontinuable 0.3.x path instead of the governed one.
   store="$home/state/megamind-offer-selections"
-  assert_contains "$out" '"selection_id"' \
-    "the ambiguous worker preflight never reached the governed capture path"
+  [ "$(jq -r '.selection_id // empty' < "$result")" != "" ] \
+    || fail "the ambiguous worker preflight never reached the governed capture path"
   pending=$(printf '%s\n' "$store"/*.pending.json)
   assert_present "$pending" "the capturable ambiguous binding retained no private pending evidence"
   mode=$(file_mode "$pending")
   [ "$mode" = 600 ] || fail "worker-path pending evidence is not mode 0600 (got $mode)"
 
-  # A captured offer is the captain's to spend, never the worker's: nothing here
-  # authorizes it, and the private request text stays in that record alone.
+  # A captured offer is the captain's to spend, never the worker's: launching
+  # authorizes nothing, and the private request text stays in that record alone.
   [ -z "$(printf '%s\n' "$store"/*.authorization.json 2>/dev/null | grep -v '\*' || true)" ] \
-    || fail "a blocked worker spawn published a selection authorization"
+    || fail "a launched worker spawn published a selection authorization"
   assert_grep "ROUTING-ONLY-CANARY" "$pending" \
     "the private pending record did not retain the original request it binds"
   assert_no_grep "ROUTING-ONLY-CANARY" "$home/state/megamind-preflight.jsonl" \
     "the retained ambiguous request leaked into the owner proof log"
   assert_not_contains "$out" "ROUTING-ONLY-CANARY" \
-    "the retained ambiguous request leaked into the spawn refusal"
-  [ ! -s "$launchlog" ] || fail "a captured offer still reached a worker endpoint"
-  pass "a capturable ambiguous binding refuses the worker before any endpoint exists"
+    "the retained ambiguous request leaked into the spawn's own output"
+  assert_not_contains "$(cat "$launchlog")" "ROUTING-ONLY-CANARY" \
+    "the retained ambiguous request leaked onto the worker's launch command"
+  pass "a capturable ambiguous binding launches the worker without spending or leaking its offer"
 }
 
 test_unresolved_routing_placeholder_refuses_spawn() {
@@ -782,7 +882,9 @@ test_ambient_overrides_cannot_redirect_the_binding
 test_relocated_home_binds_its_own_resolved_directories
 test_secondmate_binding_is_not_primary_binding
 test_routing_request_guard_blocks_before_any_call
-test_unauthorized_outcomes_block_and_preserve_the_result
+test_blocking_outcomes_block_and_preserve_the_result
+test_ambiguous_binding_launches_and_admits_nothing
+test_privacy_filtered_loads_nothing_and_names_nothing
 test_a_hung_binding_blocks_within_its_bound
 test_validate_only_authorizes_without_filing_a_result
 test_identity_and_path_guards
@@ -791,7 +893,7 @@ test_0_5_spawn_authorizes_before_launch
 test_0_6_spawn_authorizes_before_launch_and_future_refuses
 test_ship_and_scout_spawns_authorize_before_launch
 test_blocked_binding_refuses_before_any_task_exists
-test_capturable_ambiguous_binding_still_refuses_the_worker
+test_capturable_ambiguous_binding_launches_without_spending_the_offer
 test_unresolved_routing_placeholder_refuses_spawn
 test_isolated_copy_carries_no_binding_material
 test_aborted_spawn_retires_the_filed_authorization

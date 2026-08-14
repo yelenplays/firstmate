@@ -37,13 +37,15 @@ Never classify a request as bypass to save time, and never skip a failed preflig
   During full-access page descent, the script-owned local route relevance contract has two halves - a floor of 0.5 on Megamind's own per-candidate route confidence, never on its unbounded lexical score, and candidate-local evidence that the page's own index entry matched rather than its wiki; if no ranked page satisfies both, or the resolved build reports neither signal, preserve Megamind's declared allows instead of narrowing, without changing reliance, offer, or ambiguity thresholds.
   Use the self-describing `thresholds`, safe `freshness`, and non-verbatim `provenance` summary without reconstructing request tokens or inspecting raw Megamind output.
   Wiki evidence outranks model priors; carry `preflight_id` as the inspectable proof that preflight ran.
-- `ambiguous`: offer the listed wikis as a choice and load nothing until one is picked.
+- `ambiguous`: load nothing; whether the listed wikis are worth offering depends on whether anyone is there to answer.
+  On an interactive primary turn, where the captain can answer, offer them as a choice and load nothing until one is picked.
+  On an ordinary ship or scout worker launch nobody can answer, so it is non-blocking instead: nothing is loaded, the launch proceeds exactly as `no-match` does, the worker is told to say nothing about wikis and work ordinarily, and any offer the result carries stays unspent rather than being decided for the captain.
   When the captain chooses one listed wiki, pass only the exact returned `selection_id` and exact wiki name to `bin/fm-megamind-preflight.sh continue`; it retrieves the original request and packet privately and invokes Megamind's governed `select-offer` command.
   An ambiguous result that carries no `selection_id` cannot be continued in that home - it belongs to no session, or the resolved Megamind release predates `select-offer` - so the choice stands but nothing is loaded.
   Treat `authorized` as an explicit offer selection, not a threshold match, and invoke `bin/fm-megamind-content.sh admit --selection-id <selection-id>` from the owning home, then use its separate content channel.
   The reader accepts only the script-issued authorization and its selected allows and budget; it never executes or parses `follow_up`.
   The same local route relevance contract applies when an authorized full-access selection descends pages; a ranking that misses either half preserves the selected declaration.
-  A continuation or admission refusal leaves the substantive work blocked and never falls back to the ambiguous worker path.
+  A continuation or admission refusal leaves that substantive work blocked; the non-blocking worker-launch treatment above is never a fallback for an offer that was chosen and then failed.
 - `no-match`: stay quiet about wikis and do the work ordinarily without wiki context.
   A `no-match` whose `filtered_count` is greater than 0 withheld a candidate for this model class and is handled exactly like `privacy-filtered` below, not like an ordinary no-match.
 - `privacy-filtered`: say wiki coverage is unavailable for this model class; load nothing and never name the withheld wikis.

@@ -324,12 +324,15 @@ test_admission_store_prunes_age_stale_artifacts() {
 test_non_matched_outcomes_get_a_benign_refusal() {
   local home out status
   home=$(new_home outcome-refusal)
-  for status in no-match privacy-filtered unavailable; do
+  # ambiguous belongs here too: a worker launch files it like any other honest
+  # outcome, and an offer is spendable only through the separate script-issued
+  # selection authorization, never through the task binding that carries it.
+  for status in no-match ambiguous privacy-filtered unavailable; do
     prepare_outcome_auth "$home" "$status"
     out=$(admit "$home")
     assert_refusal "$out" authorization_not_matched "an honest $status binding"
   done
-  pass "an honest no-match, privacy-filtered, or unavailable binding gets a distinct benign refusal"
+  pass "an honest no-match, ambiguous, privacy-filtered, or unavailable binding gets a distinct benign refusal"
 }
 
 # A tampered authorization must stay exactly as suspicious as any other proof

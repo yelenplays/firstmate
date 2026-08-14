@@ -39,13 +39,19 @@
 #   seconds allowed; an absent, non-numeric, non-positive (including "00"), or
 #   out-of-range value keeps the default, because "no bound" is not an available
 #   choice here and an interval no mechanism accepts is not one either.
-# - matched, no-match, and privacy-filtered are the definitive authorized
-#   outcomes: the validated typed document is written to the result path (0600,
-#   replaced atomically) as the task's own private delivery surface, and nothing
-#   is printed on stdout. Every other outcome - ambiguous, unavailable, error, or
-#   an unrecognized status - blocks: the typed document goes to stdout for the
-#   caller to surface and the exit status is 1. No result is ever guessed from
-#   model knowledge.
+# - matched, no-match, privacy-filtered, and ambiguous authorize the launch: the
+#   validated typed document is written to the result path (0600, replaced
+#   atomically) as the task's own private delivery surface, and nothing is
+#   printed on stdout. ambiguous authorizes while admitting nothing, because
+#   Megamind found no single confident wiki and its own instruction is to load
+#   nothing - operationally identical to no-match, so a worker whose estate has
+#   nothing to contribute works ordinarily instead of being refused. The offer
+#   such a result carries is spendable only on an interactive turn where a human
+#   can answer it, never by a worker: the filed document keeps its real outcome,
+#   so admission still refuses it and the proof log still records it as
+#   ambiguous. Every other outcome - unavailable, error, or an unrecognized
+#   status - blocks: the typed document goes to stdout for the caller to surface
+#   and the exit status is 1. No result is ever guessed from model knowledge.
 # - A refusal never mutates the task. The result file is only ever REPLACED by a
 #   freshly authorized document and is never removed here, because the
 #   incarnation that owns it may still be running; bin/fm-teardown.sh retires it
@@ -225,7 +231,13 @@ fi
 outcome=$(printf '%s' "$result" | jq -r '.outcome // empty' 2>/dev/null || true)
 case "$outcome" in
   matched|no-match|privacy-filtered) ;;
-  ambiguous|unavailable)
+  ambiguous)
+    # Not a failure and not a refusal: no single confident wiki means nothing is
+    # loaded, exactly as for no-match. One quiet note so the operator can see the
+    # binding produced no coverage, worded so it never reads like a blocker.
+    printf 'worker preflight: no single confident wiki match; launching with no wiki content\n' >&2
+    ;;
+  unavailable)
     printf '%s\n' "$result"
     printf "worker preflight: outcome '%s' does not authorize substantive worker work\\n" "$outcome" >&2
     exit 1

@@ -182,7 +182,7 @@ Claude, Codex, OpenCode, Pi, pi-signed, Grok, Kimi, and Muse share that backend 
 
 ## Ordinary worker Megamind preflight routing
 
-The launch-time binding matrix was verified on 2026-08-11 with the repository's current test fixtures and ShellCheck 0.11.0.
+The launch-time binding matrix was verified on 2026-08-14 with the repository's current test fixtures and ShellCheck 0.11.0.
 
 ```sh
 bin/fm-test-run.sh tests/fm-worker-preflight.test.sh tests/fm-brief.test.sh \
@@ -202,6 +202,11 @@ FM_TEST_SUMMARY total=9 failed=0 skipped_gate=0
 FM_TEST_SUMMARY total=3 failed=0 skipped_gate=0
 ```
 
+The ambiguous launch verdict is calibrated against the real producer rather than the stub alone.
+On 2026-08-14, against megamind-axi 0.6.0 and the pilot estate, the routing text `Writing Bash shell scripts that read a subscription rate-limit window from a command line tool and refuse to start a new background process when the remaining allowance is below a threshold.` returned `ambiguous` at confidence 0.6571 under a 0.75 `reliance_floor`, carrying the producer's own instruction to offer the candidates and load nothing.
+Run against a throwaway home bound to that same executable, estate, and model class, `bin/fm-worker-preflight.sh` exited 0, filed `"outcome": "ambiguous"`, and printed only its one-line no-coverage note; `bin/fm-spawn.sh` then published the task record and reached its launch boundary, `bin/fm-megamind-content.sh admit --task-id` refused that binding with `authorization_not_matched` and no admission id, and `state/megamind-preflight.jsonl` recorded the run as `"outcome":"ambiguous"`.
+That confidence is one host's estate on one date and is not a pinned threshold; the invariant under test is that a result whose own instruction is to load nothing launches a worker that loads nothing.
+
 The gate is one `fm-spawn.sh` step taken before endpoint creation, worktree provisioning, and task publication, so it is common to claude, codex, opencode, pi, pi-signed, grok, kimi, and muse for both ship and scout tasks, and to tmux, Herdr, Zellij, Orca, and cmux alike - no backend can reach its own endpoint sequence without it.
 The backend suites therefore cover endpoint creation and command delivery rather than reimplementing the gate; `tests/fm-worker-preflight.test.sh` owns the binding, routing-request, outcome, refusal, proof-placement, private-result, validate-only, and isolated-copy matrix end to end, `tests/fm-control-relaunch.test.sh` owns the relaunch precondition that refuses before the running worker is touched, and the real-Herdr suites above prove the same step under a live runtime for a primary home and a secondmate-shaped home.
 No supported worker-tool or spawn-backend axis is inapplicable to ordinary ship or scout preflight.
@@ -209,7 +214,7 @@ Secondmate launch itself is intentionally inapplicable because it starts a first
 
 ## Bounded Megamind content admission
 
-The host-owned reader was verified on 2026-08-13 with stock macOS Bash, Python 3, and synthetic wiki roots only.
+The host-owned reader was verified on 2026-08-14 with stock macOS Bash, Python 3, and synthetic wiki roots only.
 The portable suite covers no-follow root and component traversal, special files, hardlinks, strict UTF-8, Unicode code-point budgets, binding and root/card changes, concurrent admissions, private output, home isolation, same-day relaunch preservation with UTC-day rollover refusal, age-based pruning on the next admission, and an actual synthetic Megamind 0.6 selection continuation.
 The preflight suite also covers the script-owned route relevance contract, which a ranked page must satisfy in both halves before it may replace an authorized declared index: a floor of 0.5 on Megamind's own per-candidate route confidence, and candidate-local evidence that the page's own index entry is what matched.
 It covers the unrelated rebalancing-to-tax-page fallback under both card configurations and the same contract during explicit selection continuation, both asserting that the ladder was actually invoked, while retaining a positive above-floor page-ranking control and the fail-closed branches where a served field is left empty.
@@ -236,11 +241,13 @@ bin/fm-test-run.sh tests/fm-megamind-preflight.test.sh \
   tests/fm-megamind-content.test.sh tests/fm-worker-preflight.test.sh
 ```
 
-Observed bounded output on 2026-08-13:
+Observed bounded output on 2026-08-14:
 
 ```text
-FM_TEST_SUMMARY total=3 failed=0 skipped_gate=0 duration_ms=67396
+FM_TEST_SUMMARY total=3 failed=0 skipped_gate=0 duration_ms=65134
 ```
+
+The reader's benign non-matched vocabulary covers `ambiguous` alongside `no-match`, `privacy-filtered`, and `unavailable`, because an ordinary worker launch now files an ambiguous binding like any other honest outcome; an offer stays spendable only through the separate script-issued selection authorization, which carries its own schema and `authorized` outcome.
 
 The real Megamind 0.6 synthetic-estate selection evidence above remains the upstream command compatibility proof, while `tests/fm-megamind-content.test.sh` proves that a script-issued `fm/megamind-preflight-selection/v1` authorization reaches the same reader boundary without touching a real wiki.
 No primary interception or scheduling claim is made by this reader slice.
@@ -250,13 +257,13 @@ It builds its own synthetic estate, routes it through an installed `megamind-axi
 It resolves the build in one order - an explicit `FM_MEGAMIND_REAL_EXE` override, then the active home's own `config/megamind-executable`, then `PATH` - so a pilot host that pins its proven build in config is actually guarded instead of skipped because `PATH` carries an older build or none at all; three checks prove that order and need no real binary.
 It then asks `bin/fm-megamind-preflight.sh check` whether the resolved build is an accepted release, and skips loudly - naming the real routing-mode vocabulary and ladder descent as what stays unproven - rather than reporting a pass that checked nothing.
 `bin/fm-test-run.sh` runs it in the optional-binary `megamind-realshape` family and selects it whenever the bounded reader changes.
-The real-producer guard was run on 2026-08-13 with `FM_MEGAMIND_REAL_EXE` pinned to the host's proven Megamind 0.6.0 build:
+The real-producer guard was run on 2026-08-14 with `FM_MEGAMIND_REAL_EXE` pinned to the host's proven Megamind 0.6.0 build:
 
 ```sh
 FM_MEGAMIND_REAL_EXE=<proven Megamind 0.6.0 path> bin/fm-test-run.sh tests/fm-megamind-realshape.test.sh
 ```
 
-Observed output was `FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=1089`.
+Observed output was `FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=1247`.
 
 ## Primary Megamind prompt interception
 

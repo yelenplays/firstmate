@@ -838,12 +838,17 @@ test_worker_scaffolds_carry_the_megamind_routing_artifacts() {
       "$kind: brief carries no evidence-gap rule for admitted wiki content"
     assert_grep "not permission to reason from them" "$brief" \
       "$kind: brief does not warn that page names inside evidence are not themselves authorized"
-    # A no-match, privacy-filtered, or unavailable binding is benign, not a
-    # forged authorization, and the worker instructions must say so.
+    # A no-match, ambiguous, privacy-filtered, or unavailable binding is benign,
+    # not a forged authorization, and the worker instructions must say so.
     assert_grep "authorization_not_matched" "$brief" \
       "$kind: brief does not name the benign refusal code for a non-matched binding"
     assert_grep "\`unavailable\`, disclose" "$brief" \
       "$kind: brief carries no guidance for the unavailable preflight outcome"
+    # An ambiguous binding launches like a no-match and must be told so in the
+    # same words: a worker that reads no instruction for its own outcome is left
+    # to guess whether it is supposed to load something.
+    assert_grep "\`no-match\`, \`ambiguous\`, or \`privacy-filtered\`, load no wiki content" "$brief" \
+      "$kind: brief does not tell an ambiguous binding to load nothing and work ordinarily"
   done
 
   FM_SECONDMATE_CHARTER='Supervise the alpha domain.' \

@@ -1654,8 +1654,12 @@ BRIEF_REAL="$BRIEF_DIR_REAL/$(basename "$BRIEF")"
 # publishes a task record. Enforcing it inside the worker's own pane instead
 # would leave a published task, a live endpoint, and an armed busy state behind
 # whenever the binding blocks, while this command still reported a successful
-# spawn. Only a definitive authorized outcome may proceed; every other outcome is
-# a refusal with the typed document attached and no task to clean up.
+# spawn. Only an authorizing outcome may proceed - a match, a result that loads
+# nothing, or an ambiguous one that loads nothing either; every blocking outcome
+# is a refusal with the typed document attached and no task to clean up.
+# bin/fm-worker-preflight.sh owns which outcomes are which, and its own quiet
+# stderr note (never a refusal) is what surfaces a launch that carries no wiki
+# coverage, so this spawn needs no second copy of that outcome vocabulary.
 #
 # The routing request is the separately authored, privacy-safe representation
 # bin/fm-brief.sh scaffolds beside the brief - never the brief itself - and

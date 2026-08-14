@@ -501,13 +501,16 @@ def admit(home: Path, task_id: Optional[str], selection_id: Optional[str]) -> in
     auth = load_json(path)
     if auth is None:
         return fail("authorization_malformed")
-    # A worker's launch preflight legitimately returns no-match, privacy-filtered,
-    # or unavailable; none of those ever prove an authorization, but reporting
-    # them through the same code a forged authorization gets makes an ordinary,
-    # honest outcome indistinguishable from a tampered one to the only channel a
-    # worker has for learning it. Distinguish them before the proof check that
-    # both a real forgery and a real no-match reach next.
-    if auth.get("outcome") in ("no-match", "privacy-filtered", "unavailable"):
+    # A worker's launch preflight legitimately returns no-match, ambiguous,
+    # privacy-filtered, or unavailable; none of those ever prove an authorization,
+    # but reporting them through the same code a forged authorization gets makes
+    # an ordinary, honest outcome indistinguishable from a tampered one to the
+    # only channel a worker has for learning it. Distinguish them before the proof
+    # check that both a real forgery and a real no-match reach next. A task-bound
+    # ambiguous result belongs here and never on the selection path: an offer is
+    # spendable only through the script-issued selection authorization, which
+    # carries its own schema and `authorized` outcome.
+    if auth.get("outcome") in ("no-match", "ambiguous", "privacy-filtered", "unavailable"):
         return fail("authorization_not_matched", authorization_id=auth.get("preflight_id"))
     if not proof_matches(home, auth):
         return fail("authorization_unproven", authorization_id=auth.get("preflight_id"))
