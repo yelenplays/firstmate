@@ -34,6 +34,15 @@ FM_TEST_LIB_SOURCED=1
 # strips this to verify real refusal.
 export FM_GATE_REFUSE_BYPASS=1
 
+# Turn the runtime quota floor off for the suite (bin/fm-quota-guard.sh). Left
+# live, every fm-spawn fixture would read the DEVELOPER's real provider
+# allowances: slow, network-dependent, and - once a provider is genuinely
+# exhausted, which is the case this guard exists for - a refusal of spawn
+# fixtures that have nothing to do with quota. tests/fm-quota-guard.test.sh turns
+# it back on explicitly and supplies its own snapshot fixtures, so the guard's
+# real behavior is still covered.
+export FM_QUOTA_GUARD=off
+
 # Resolve the repo root from this library's own location. Consumed by sourcing
 # test files, not by this library, so it reads as "unused" here.
 # shellcheck disable=SC2034

@@ -148,6 +148,33 @@ Neither this per-source shape nor `state.authStatus` exists before quota-axi 0.1
 Grok also reports `credits.remaining: 0` alongside `percentRemaining: 41` on a healthy account.
 That zero is a prepaid balance, not the subscription window, and is never headroom.
 
+## Harness-to-provider bindings the runtime quota floor rests on
+
+Verified 2026-08-14 against quota-axi 0.1.20 on macOS (Darwin 25.5.0).
+
+Nothing in this repo derives a provider from a name, and the rule above still holds: firstmate resolves a dispatch candidate's provider family by reasoning in the open.
+[`bin/fm-quota-guard.sh`](../../bin/fm-quota-guard.sh) needs a narrower fact for a different job - not "which candidate should run" but "which measured allowance would this already-chosen launch spend" - and it answers that from the declarations below rather than from any model, prefix, or family inference.
+They are registered the same way `bin/fm-vendor-auth-probe.sh` registers a probe: verified first-hand, recorded here, and re-established when a vendor changes.
+
+`command -v` for each harness's launch executable, beside the credential source `quota-axi auth --json` reports for the matching provider:
+
+| harness | launch executable | quota-axi provider | corroborating source |
+| --- | --- | --- | --- |
+| codex | `/opt/homebrew/bin/codex` | `codex` | `cli-rpc` path `/opt/homebrew/bin/codex`, plus `auth-json` `<home>/.codex/auth.json` |
+| grok | `<home>/.local/bin/grok` | `grok` | `auth-json` `<home>/.grok/auth.json`, and `state.remedyCommand: "grok"` |
+| claude | `/opt/homebrew/bin/claude` | `claude` | `oauth-file` `<home>/.claude/.credentials.json` |
+| kimi | `<home>/.kimi-code/bin/kimi` | `kimi` | source named `kimi-code-cli` |
+
+The codex and grok rows are exact: quota-axi names the same executable the `codex` harness launches, and names `grok` itself as the command that repairs the `grok` provider's credential.
+The claude and kimi rows are directory-level rather than executable-level: quota-axi reads the credential store inside each CLI's own home (`<home>/.claude`, and the `.kimi-code` tree `bin/fm-spawn.sh` already manages as `$HOME/.kimi-code/config.toml`), which is the store those CLIs authenticate from.
+
+Pi, pi-signed, opencode, muse, and raw launch commands carry no binding and are left unbound on purpose.
+Pi and opencode route to several providers, so the harness alone does not say which allowance a launch spends; muse authenticates through `META_API_KEY` (`bin/fm-spawn.sh`), which no `quota-axi` provider reports; and a raw launch command names no adapter.
+An unbound harness therefore yields no floor, which the guard discloses and launches through, rather than a guess.
+
+Re-run `command -v <harness>` and `quota-axi auth --json` and update this table together when a vendor changes its executable or credential location.
+`config/quota-floor`'s `launch <harness> <provider>` directive and `fm-spawn.sh --quota-provider` both outrank this table, so a home whose real setup differs corrects it without a code change.
+
 ## Standalone Grok discovery probe
 
 Verified 2026-07-30 on `grok 0.2.117 (f1c06093089f) [stable]`.
@@ -176,3 +203,4 @@ It asserts that the script accepts no harness, model, or provider input, never c
 `tests/fm-bootstrap.test.sh` owns the quota-axi version-floor diagnostic.
 `tests/fm-quota-array-dispatch-live-e2e.test.sh` drives the public Pi skill-loading interface against one fake `quota-axi --json` snapshot per case.
 It covers the Claude 1 percent versus Codex 55 percent reserve regression, explicit accounting for unmeasurable runway, and the strongest-reasoning constraint.
+`tests/fm-quota-guard.test.sh` owns the runtime quota floor: the spawn refusal and its absence on an unmeasurable window, a failed read degrading to disclosed uncertainty rather than to either verdict, the bounded heartbeat under a hanging and a failing read, stale windows and prepaid credits never counting as headroom, provider-level versus named-model granularity, and the guard issuing no control or teardown action against a live worker process.

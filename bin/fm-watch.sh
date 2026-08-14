@@ -85,6 +85,9 @@ mkdir -p "$STATE"
 
 WATCH_LOCK="$STATE/.watch.lock"
 WATCH_PATH="$SCRIPT_DIR/fm-watch.sh"
+# Restated from this home rather than left ambient, so the quota floor the
+# heartbeat enforces is always this home's own (bin/fm-quota-guard.sh).
+QUOTA_GUARD_CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 WATCHER_STALE_GRACE=${FM_WATCHER_STALE_GRACE:-${FM_GUARD_GRACE:-300}}
 # The singleton-lock acquisition, EXIT trap, and the blocking supervision loop
 # all live below the source guard at the very bottom of this file (see "Main
@@ -1096,6 +1099,23 @@ EOF
   hb=$(( HEARTBEAT * (1 << streak) ))
   [ "$hb" -gt "$HEARTBEAT_MAX" ] && hb=$HEARTBEAT_MAX
   if [ "$(age_of "$STATE/.last-heartbeat")" -ge "$hb" ]; then
+    # Quota floor, on the heartbeat cadence and nowhere else. The guard reads
+    # only a cached snapshot and starts any refresh detached and hard-bounded, so
+    # a slow or hung quota-axi costs this cycle nothing; it prints a line only
+    # when a provider crosses its floor, recovers, or stops being measurable, and
+    # nothing otherwise. Routed as a `check:` wake because those always escalate,
+    # including under away mode - which is the whole point, since the failure this
+    # guards against happened while nobody was watching. It never touches a
+    # running task: bin/fm-quota-guard.sh stops new dispatch and escalates, and
+    # issues no lifecycle action against work already under way.
+    quota_line=$("$SCRIPT_DIR/fm-quota-guard.sh" heartbeat \
+      --state "$STATE" --config "$QUOTA_GUARD_CONFIG" 2>/dev/null) || quota_line=
+    if [ -n "$quota_line" ]; then
+      reason="check: quota guard: $quota_line"
+      fm_wake_append check quota-floor "$reason" || exit 1
+      touch "$STATE/.last-heartbeat"
+      wake "$reason"
+    fi
     # Triage: in always-on mode a heartbeat is benign unless the cheap fleet-scan
     # turns up a captain-relevant status the per-wake path missed. Absorb the
     # no-change case (advance the schedule and back off exactly as wake() would,

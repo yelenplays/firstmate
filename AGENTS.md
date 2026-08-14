@@ -78,6 +78,7 @@ config/herdr-presentation-spaces  optional "off" opt-out from, or "on" opt-in to
 config/trace-context  optional presence flag enabling default-off native W3C trace-context propagation to spawned agents; LOCAL, gitignored; inherited by secondmate homes; see docs/configuration.md "Trace context propagation" and docs/trace-context.md
 config/cmux-socket-password  optional cmux control-socket password; LOCAL, gitignored; read fresh on every cmux CLI call and passed through without ever overriding an operator's own ambient CMUX_SOCKET_PASSWORD when absent (docs/cmux-backend.md "Setup")
 config/wedge-alarm  optional away-mode wedge-alarm active-alert directives; LOCAL, gitignored; absent means auto (macOS Notification Center when available); see docs/wedge-alarm.md
+config/quota-floor  optional per-provider quota floors and harness-to-provider launch bindings; LOCAL, gitignored; inherited by secondmate homes; absent = the documented default floor, never no guard; see docs/configuration.md "Quota floor guard"
 config/megamind-executable  optional Megamind executable path for the read-only preflight pilot; LOCAL, gitignored, not inherited; absent = megamind-axi on PATH (docs/configuration.md "Megamind preflight")
 config/megamind-estate  pilot wiki estate directory for mandatory preflight; LOCAL, gitignored, not inherited; absent = preflight unavailable and disclosed as a blocker, never guessed
 config/megamind-model-class  optional local|cloud preflight model-class override; LOCAL, gitignored, not inherited; absent = cloud
@@ -206,6 +207,7 @@ When every candidate is tight, preserve the captain's strongest-reasoning class 
 Break genuine evidence ties without array-order or harness bias.
 `quota-axi` owns how model or product windows relate to bounding account windows and remains data-only.
 Load `quota-array-dispatch` before choosing among a matched profile array; that skill is the single owner of the completion-aware selection procedure.
+Separately from that selection, `bin/fm-quota-guard.sh` enforces a runtime floor that this intake never has to consult: it refuses a spawn onto a provider already under its floor, raises the crossing through the ordinary notification path, and never touches work already running (docs/configuration.md "Quota floor guard").
 The generic effort fallback and its precedence are owned by `harness-adapters`: explicit captain and standing configured effort win; otherwise use low for well-understood explicit work, xhigh for ambiguous investigation or design, intermediate levels proportionally, and never max without explicit captain preference.
 Do not add model-specific versions of that policy.
 

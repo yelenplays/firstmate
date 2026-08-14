@@ -142,6 +142,7 @@ family_for_basename() {
     fm-operational-input.test.sh|fm-pi-primary-types.test.sh|fm-megamind-pi-offer.test.sh|\
     fm-send-popup-settle.test.sh|fm-send-settle.test.sh|\
     fm-skill-path.test.sh|fm-subagent-pretool-check.test.sh|\
+    fm-quota-guard.test.sh|\
     fm-supervision-instructions.test.sh|fm-task-delivery.test.sh|\
     fm-tmux-submit-busy.test.sh|fm-trace-context-lib.test.sh|\
     fm-transition-lib.test.sh|\
@@ -895,6 +896,7 @@ families_for_changed_path() {
     bin/fm-watch*|bin/fm-wake*|\
     bin/fm-classify-lib.sh|bin/fm-daemon*|bin/fm-turnend-guard*|bin/fm-guard.sh)
       printf '%s\n' watcher-wake-lock
+      printf '%s\n' "__script__:fm-quota-guard.test.sh"
       ;;
     bin/fm-afk*)
       printf '%s\n' afk
@@ -929,6 +931,15 @@ families_for_changed_path() {
     bin/fm-sessionstart-nudge.sh|bin/fm-startup-network.sh|bin/fm-tangle*|bin/fm-update.sh|\
     bin/fm-gate-refuse*|bin/fm-lock*|bin/fm-quota-axi-lib.sh)
       printf '%s\n' session-bootstrap
+      # The version floor is also the quota guard's compatibility gate.
+      printf '%s\n' "__script__:fm-quota-guard.test.sh"
+      ;;
+    bin/fm-quota-guard.sh)
+      # The guard has three callers whose contracts it changes: the spawn gate,
+      # the watcher heartbeat, and its own suite.
+      printf '%s\n' "__script__:fm-quota-guard.test.sh"
+      printf '%s\n' watcher-wake-lock
+      printf '%s\n' backend-dispatch
       ;;
     bin/fm-sessionstart-run.sh|.claude/settings.json|.codex/hooks.json|\
     .pi/extensions/fm-primary-turnend-guard.ts)

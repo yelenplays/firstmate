@@ -38,6 +38,13 @@
 #   axes chosen by firstmate at intake. They are only threaded into harnesses whose
 #   installed CLIs were verified to support that axis; unsupported axes are omitted
 #   from that harness's launch rather than guessed.
+#   --quota-provider <name|none> states which quota-axi provider's allowance this
+#   launch will burn, for the runtime quota floor checked before any endpoint
+#   exists. Without it the floor uses config/quota-floor's launch binding, then
+#   bin/fm-quota-guard.sh's verified per-harness binding; a harness with no
+#   binding has no floor to check and launches. `none` says no measurable
+#   provider governs this launch. bin/fm-quota-guard.sh owns the whole contract,
+#   including that it never touches work already running.
 #   --backend <name> is the explicit runtime session-provider backend for this
 #   exact task only (docs/configuration.md "Runtime backend" owns when that flag
 #   is authorized). Without it, the script resolves FM_BACKEND, then
@@ -274,6 +281,8 @@ BACKEND_ARG=
 MODE=
 YOLO=
 TRACEPARENT_ARG=
+QUOTA_PROVIDER=
+QUOTA_PROVIDER_SET=0
 HARNESS_SET=0
 MODEL_SET=0
 EFFORT_SET=0
@@ -297,6 +306,7 @@ for a in "$@"; do
       mode) MODE=$a; MODE_SET=1 ;;
       yolo) YOLO=$a; YOLO_SET=1 ;;
       traceparent) TRACEPARENT_ARG=$a; TRACEPARENT_SET=1 ;;
+      quota-provider) QUOTA_PROVIDER=$a; QUOTA_PROVIDER_SET=1 ;;
       *) echo "error: internal parser state for --$want_value" >&2; exit 1 ;;
     esac
     want_value=
@@ -320,6 +330,8 @@ for a in "$@"; do
     --yolo=*) YOLO=${a#--yolo=}; YOLO_SET=1 ;;
     --traceparent) want_value=traceparent ;;
     --traceparent=*) TRACEPARENT_ARG=${a#--traceparent=}; TRACEPARENT_SET=1 ;;
+    --quota-provider) want_value=quota-provider ;;
+    --quota-provider=*) QUOTA_PROVIDER=${a#--quota-provider=}; QUOTA_PROVIDER_SET=1 ;;
     *) POS+=("$a") ;;
   esac
 done
@@ -331,6 +343,7 @@ done
 [ "$MODE_SET" -eq 0 ] || [ -n "$MODE" ] || { echo "error: --mode requires a non-empty value" >&2; exit 1; }
 [ "$YOLO_SET" -eq 0 ] || [ -n "$YOLO" ] || { echo "error: --yolo requires a non-empty value" >&2; exit 1; }
 [ "$TRACEPARENT_SET" -eq 0 ] || [ -n "$TRACEPARENT_ARG" ] || { echo "error: --traceparent requires a non-empty value" >&2; exit 1; }
+[ "$QUOTA_PROVIDER_SET" -eq 0 ] || [ -n "$QUOTA_PROVIDER" ] || { echo "error: --quota-provider requires a non-empty value (use 'none' to state that no measurable provider governs this launch)" >&2; exit 1; }
 # A parent-delivered carrier replaces this home's own resolution, so it is
 # refused unless it is a secondmate spawn carrying a strictly valid W3C value.
 # Nothing else may reach the pane's TRACEPARENT export.
@@ -881,6 +894,8 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
   # spanning several modes is two invocations rather than a silent mixed dispatch.
   [ "$MODE_SET" -eq 0 ] || shared_args+=(--mode "$MODE")
   [ "$YOLO_SET" -eq 0 ] || shared_args+=(--yolo "$YOLO")
+  # A batch shares one harness, so it shares one provider binding too.
+  [ "$QUOTA_PROVIDER_SET" -eq 0 ] || shared_args+=(--quota-provider "$QUOTA_PROVIDER")
   for pair in "${POS[@]}"; do
     case "$pair" in
       *=*) : ;;
@@ -1686,6 +1701,35 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   if [ ! -e "$STATE/$ID.meta" ] && [ ! -L "$STATE/$ID.meta" ]; then
     WORKER_PREFLIGHT_RESULT="$STATE/$ID.megamind-preflight.json"
     WORKER_PREFLIGHT_RESULT_PENDING=1
+  fi
+
+  # Runtime quota floor, cleared HERE for the same reason the Megamind binding
+  # is: before this spawn creates an endpoint, provisions a worktree, or
+  # publishes a task record, so a refusal leaves nothing to clean up.
+  # bin/fm-quota-guard.sh owns the whole judgment - which provider this launch is
+  # bound to, what the vendor actually measured, and what the floor is - and its
+  # diagnostic names the provider, the window, the measured remaining percentage,
+  # and the floor. An unmeasurable window is NOT a refusal there: it is a
+  # disclosed unknown that still launches, so a provider firstmate cannot observe
+  # never blocks work.
+  #
+  # This gate only ever stops a NEW launch. It issues no lifecycle action against
+  # work already under way, and must not be given one: a running validation
+  # pipeline can hold hours of unlanded work, and stopping one to conserve quota
+  # is the captain's explicit call through bin/fm-control.sh, never an automatic
+  # one. Ship and scout dispatch is the "new work" it governs; a --secondmate
+  # launch is persistent infrastructure and recovery, not dispatch, so it is not
+  # routed here and a quota outage can never leave a secondmate unrecoverable.
+  #
+  # The binding is pinned to THIS home's own config and state, so an ambient
+  # override cannot substitute another home's floor.
+  QUOTA_GUARD_ARGS=(--harness "$HARNESS")
+  [ -z "$MODEL" ] || QUOTA_GUARD_ARGS+=(--model "$MODEL")
+  [ "$QUOTA_PROVIDER_SET" -eq 0 ] || QUOTA_GUARD_ARGS+=(--provider "$QUOTA_PROVIDER")
+  if [ -n "$HARNESS" ] && ! "$FM_ROOT/bin/fm-quota-guard.sh" preflight \
+      --config "$CONFIG" --state "$STATE" "${QUOTA_GUARD_ARGS[@]}"; then
+    echo "error: $ID was not launched because the provider it would run on is under this home's quota floor; refusing before any endpoint, worktree, or task record exists" >&2
+    exit 1
   fi
 fi
 

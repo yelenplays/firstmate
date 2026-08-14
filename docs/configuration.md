@@ -126,6 +126,39 @@ A Secondmate on a remote route is covered the same way: the primary resolves and
 The presence flag is session-scoped enablement, so it transfers at launch and is left unchanged by live convergence into a running home.
 See [`trace-context.md`](trace-context.md) for carrier semantics, supported routes, the manual fleet-restart requirement, the session boundary, and safety limits; `bin/fm-trace-context-lib.sh`'s header owns the exact mechanics, and [`verification/trace-context.md`](verification/trace-context.md) records repeatable evidence.
 
+## Quota floor guard (config/quota-floor)
+
+Firstmate reads `quota-axi` when it dispatches, so without this guard nothing watches a provider's allowance again until the next dispatch - which is how one unattended overnight run spent an entire seven-day allowance before anyone saw it.
+[`bin/fm-quota-guard.sh`](../bin/fm-quota-guard.sh) closes that gap from two places: the supervision heartbeat, which raises a notification when a provider crosses its floor, recovers, or stops being measurable; and `fm-spawn.sh`, which refuses to start new work on a provider already under its floor, before any endpoint, worktree, or task record exists.
+It never stops work already running: a live validation pipeline can hold hours of unlanded work, so stopping one to conserve an allowance stays the captain's explicit decision through `bin/fm-control.sh`.
+
+The default floor is 10 percent of a provider's effective remaining allowance, and it applies with no configuration at all; an absent `config/quota-floor` means that default, never no guard.
+The local, gitignored `config/quota-floor` file overrides it with one directive per non-empty, non-comment line, where a `#` starts a comment:
+
+```
+floor default 10          # the floor every provider uses unless named below
+floor codex 20            # a stricter floor for one provider
+floor grok off            # exclude one provider from the guard entirely
+launch opencode kimi      # state which provider a harness's launches burn
+```
+
+`floor <provider|default> <0-100|off>` sets a floor, and `off` excludes that provider; `off` on `default` degrades to a zero floor rather than removing the guard, because a fleet-wide silent disable is not an available setting.
+`launch <harness> <provider|none>` declares which `quota-axi` provider a harness's launches actually consume, and `none` declares that no measurable provider governs them.
+A malformed line is reported and the documented default stays in force, so a typo neither passes silently nor refuses every spawn.
+
+Provider binding for a launch resolves strongest-first: `fm-spawn.sh`'s `--quota-provider` flag, then a `launch` line, then the verified per-harness bindings for claude, codex, grok, and kimi recorded in [`verification/dispatch-auth.md`](verification/dispatch-auth.md).
+Pi, pi-signed, opencode, muse, and raw launch commands are deliberately unbound: they route to providers that cannot be observed from the harness alone, so guessing one would be the inference `AGENTS.md` section 4 forbids.
+An unbound harness has no floor to check and launches, disclosing that it did.
+
+Measurement follows the vendor and never a name.
+A provider-level or all-model window bounds every model in that family; a named model narrows it only when `quota-axi models --json` carries that exact model id.
+A stale window, an absent availability entry, a missing or incompatible `quota-axi` or `jq`, and a failed or timed-out read are all disclosed uncertainty, which never refuses a launch and is never reported as headroom.
+A prepaid credits balance, such as Grok's, is not a consumption window and is not read.
+
+`FM_QUOTA_GUARD=off` disables every verdict for a session, and `FM_QUOTA_REFRESH_TIMEOUT`, `FM_QUOTA_SNAPSHOT_MAX_AGE`, and `FM_QUOTA_REFRESH_MIN_INTERVAL` tune its bounds; each is validated by value and falls back to its default rather than refusing.
+`bin/fm-quota-guard.sh report` prints the current per-provider verdicts for inspection, and that script's header owns the exact mechanics, state files, and read-path reasoning.
+`config/quota-floor` is inherited into secondmate homes under the primary-authoritative contract owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md), because a secondmate's crewmates spend the same provider allowances the primary's do.
+
 ## Megamind preflight (config/megamind-*)
 
 The read-only Megamind pilot makes catalog preflight mandatory before firstmate acts on any substantive request; `AGENTS.md` section 1 owns the always-loaded rule and the internal [`megamind-preflight`](../.agents/skills/megamind-preflight/SKILL.md) skill owns outcome handling and disclosure.
