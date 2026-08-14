@@ -1,0 +1,662 @@
+/* ==========================================================================
+   Umzugservice Bochum - design tokens, v1
+   umzugservice-bochum.de
+
+   Direction: "Filz und Bronze" (felt and bronze).
+   One warm hue family. Three grounds. One accent. No shadows. No rules.
+
+   This file is the machine-readable half of DESIGN-SYSTEM.md. It carries the
+   tokens, the type roles that bind size to leading and tracking, and the two
+   foundational contracts that are very hard to retrofit later: the
+   reduced-motion contract and the no-JavaScript motion gate.
+
+   Component styling is NOT here. DESIGN-SYSTEM.md owns the component specs.
+
+   Colour is authored in hex because the next consumer of this file is a Figma
+   prototype and Figma variables take hex. The OKLCH value of each colour is in
+   the comment beside it, for perceptual reasoning about the ramps.
+
+   Every text-on-ground pair permitted by this file meets WCAG 2.2 AA.
+   Run `node check-contrast.mjs` to prove it. That check verifies declared
+   pairs only; it does not know which ancestor a node is actually painted on.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. PRIMITIVES - raw values. Never referenced by a component directly.
+   -------------------------------------------------------------------------- */
+
+:root {
+  /* Warm neutral ramp - "Filz". Hue ~75-85, chroma 0.005-0.020.
+     Deliberately never reaches #ffffff: the lightest surface is a warm off-white. */
+  --raw-filz-000: #f6f4ef; /* oklch(96.4% 0.006 85)  */
+  --raw-filz-100: #ede9e1; /* oklch(93.1% 0.010 85)  */
+  --raw-filz-200: #e4e0d7; /* oklch(89.9% 0.012 85)  */
+  --raw-filz-300: #c9c2b5; /* oklch(80.4% 0.018 84)  */
+  --raw-filz-400: #847d71; /* oklch(57.7% 0.017 84)  */
+  --raw-filz-500: #7e776b; /* oklch(55.4% 0.017 84)  */
+  --raw-filz-600: #615a4f; /* oklch(44.1% 0.017 82)  */
+  --raw-filz-700: #4a443b; /* oklch(35.4% 0.015 82)  */
+  --raw-filz-800: #2a2723; /* oklch(22.2% 0.009 80)  */
+  --raw-filz-900: #1c1a17; /* oklch(16.5% 0.008 80)  */
+
+  /* Paper ramp - the light text family used on dark grounds. */
+  --raw-paper-000: #f7f4ee; /* oklch(96.6% 0.008 90) */
+  --raw-paper-100: #e6e1d7; /* oklch(91.1% 0.012 85) */
+  --raw-paper-200: #d3ccc0; /* oklch(84.4% 0.014 84) */
+  --raw-paper-300: #ada396; /* oklch(70.5% 0.015 83) */
+
+  /* Bronze ramp - the accent. Three values on ONE lightness axis.
+     There is no fourth bronze anywhere in this system. */
+  --raw-bronze-400: #8f5d18; /* oklch(48.9% 0.093 66) */
+  --raw-bronze-500: #7e5010; /* oklch(44.3% 0.088 65) */
+  --raw-bronze-600: #6e460e; /* oklch(40.2% 0.079 65) */
+  --raw-bronze-050: #f7efdf; /* oklch(95.1% 0.026 84) */
+
+  /* Status. The only hues in the system that are not warm-neutral or bronze.
+     They exist because a form must be able to say "this went wrong". */
+  --raw-error-600: #9c2b1e;
+  --raw-error-200: #f0a79c;
+  --raw-success-600: #2c6440;
+  --raw-success-200: #9fd3af;
+
+  /* Unconfirmed-content violet. Deliberately outside the brand so that an
+     unfilled placeholder can never be mistaken for finished design. */
+  --raw-unconfirmed-600: #5c3b8c;
+  --raw-unconfirmed-200: #c9b7e4;
+  --raw-unconfirmed-050: #ede6f5;
+}
+
+/* --------------------------------------------------------------------------
+   2. SEMANTIC COLOUR - every name carries the ground it is legal on.
+      A colour named without its ground is what produced the reference's
+      five contrast failures. There is no `--color-text-tertiary`.
+   -------------------------------------------------------------------------- */
+
+:root {
+  /* Grounds. Exactly six, in three families. */
+  --color-ground-page: var(--raw-filz-200); /* the passe-partout behind every panel */
+  --color-ground-panel: var(--raw-filz-000); /* the main reading surface */
+  --color-ground-panel-alt: var(--raw-filz-100); /* alternating light panel */
+  --color-ground-accent: var(--raw-bronze-050); /* the one band that asks for the click */
+  --color-ground-ink: var(--raw-filz-900); /* hero panel, footer */
+  --color-ground-ink-alt: var(--raw-filz-800); /* cards sitting on ink */
+
+  /* Text on any light ground (page / panel / panel-alt / accent band). */
+  --color-text-primary-on-light: var(--raw-filz-900);
+  --color-text-secondary-on-light: var(--raw-filz-700);
+  --color-text-tertiary-on-light: var(--raw-filz-600);
+
+  /* Text on any ink ground (ink / ink-alt). Separate tokens, on purpose:
+     one dull grey serving both grounds is the reference's single biggest bug. */
+  --color-text-primary-on-ink: var(--raw-paper-000);
+  --color-text-secondary-on-ink: var(--raw-paper-200);
+  --color-text-tertiary-on-ink: var(--raw-paper-300);
+
+  /* Text on the accent fill. */
+  --color-text-on-accent: var(--raw-paper-000);
+
+  /* Accent. Fill, hover, press - one hue, one lightness axis. */
+  --color-accent: var(--raw-bronze-400);
+  --color-accent-hover: var(--raw-bronze-500);
+  --color-accent-press: var(--raw-bronze-600);
+
+  /* The accent at text strength. Same axis, one step deeper, because text
+     needs more depth than a fill to clear 4.5:1 on the page ground. */
+  --color-link-on-light: var(--raw-bronze-500);
+  --color-link-on-ink: var(--raw-paper-000);
+
+  /* Inverted primary action, for use on ink grounds only.
+     The bronze fill is 2.65:1 against ink-alt and is therefore forbidden there. */
+  --color-action-inverse: var(--raw-paper-000);
+  --color-action-inverse-hover: var(--raw-paper-100);
+  --color-action-inverse-press: var(--raw-paper-200);
+  --color-text-on-action-inverse: var(--raw-filz-900);
+
+  /* Control boundaries. Non-text UI, minimum 3:1 against its own ground. */
+  --color-line-on-light: var(--raw-filz-500);
+  --color-line-on-ink: var(--raw-filz-400);
+
+  /* Disabled. Held to 3:1 even though WCAG exempts it. */
+  --color-disabled-on-light: var(--raw-filz-500);
+  --color-disabled-on-ink: var(--raw-filz-400);
+
+  /* Focus. Never the accent: bronze is 2.35:1 on the page ground and would be
+     an invisible focus ring exactly where the reference already has one. */
+  --color-focus-on-light: var(--raw-filz-900);
+  --color-focus-on-ink: var(--raw-paper-000);
+  --color-focus-on-accent: var(--raw-paper-000);
+
+  /* Status. */
+  --color-error-on-light: var(--raw-error-600);
+  --color-error-on-ink: var(--raw-error-200);
+  --color-success-on-light: var(--raw-success-600);
+  --color-success-on-ink: var(--raw-success-200);
+
+  /* Unconfirmed content. */
+  --color-unconfirmed-on-light: var(--raw-unconfirmed-600);
+  --color-unconfirmed-on-ink: var(--raw-unconfirmed-200);
+  --color-unconfirmed-ground: var(--raw-unconfirmed-050);
+
+  /* Scrim. The only depth device in the system besides a ground change. */
+  --color-scrim: rgb(28 26 23 / 62%);
+}
+
+/* --------------------------------------------------------------------------
+   3. TYPE
+      Two families. Four weights. Two ratios with a gap between them.
+      Text zone  12 -> 20px, ratio 1.136  (12 x 1.136^4 = 20.0)
+      Gap        20 -> 26px, ratio 1.30   (nothing lands here)
+      Display    26 -> 116px, ratio 1.35  (26 x 1.35^5 = 116.6)
+   -------------------------------------------------------------------------- */
+
+:root {
+  /* A serif falls back to a serif. The reference's serif falls back to Arial,
+     which silently deletes the family contrast its whole identity rests on. */
+  --font-display: "Zilla Slab", Rockwell, "Roboto Slab", Georgia,
+    "Times New Roman", serif;
+  --font-body: "Source Sans 3", "Source Sans Pro", "Segoe UI", system-ui,
+    -apple-system, "Helvetica Neue", Arial, sans-serif;
+
+  /* Four weights in the whole system. */
+  --weight-display: 500;
+  --weight-display-strong: 600;
+  --weight-body: 400;
+  --weight-body-strong: 600;
+
+  /* Text-zone steps. Never fluid: reading sizes stay put. */
+  --size-12: 12px;
+  --size-14: 14px;
+  --size-16: 16px;
+  --size-18: 18px;
+  --size-20: 20px;
+
+  /* Display steps. */
+  --size-26: 26px;
+  --size-35: 35px;
+  --size-47: 47px;
+  --size-64: 64px;
+  --size-86: 86px;
+  --size-116: 116px;
+
+  /* Leading, five bands, decreasing as size increases.
+     Every product below is a whole pixel at the anchor size. */
+  --leading-micro: 1.8; /* 12 -> 22, 14 -> 25 */
+  --leading-body: 1.6; /* 16 -> 26, 18 -> 29, 20 -> 32 */
+  --leading-subhead: 1.4; /* 26 -> 36 */
+  --leading-display: 1.24; /* 35 -> 43, 47 -> 58 */
+  --leading-display-tight: 1.15; /* 64 -> 74 */
+  --leading-statement: 1.05; /* 86 -> 90, 116 -> 122 */
+
+  /* Tracking. Exactly two non-zero values exist, both stated as rules:
+     negative above 40px only, positive on the one uppercase micro role only. */
+  --tracking-display: -0.015em;
+  --tracking-statement: -0.02em;
+  --tracking-micro: 0.04em;
+}
+
+/* Type roles bind size + leading + tracking + weight together, so the wrong
+   combination is not available to a builder. Use these, not the raw sizes. */
+
+.type-statement {
+  font-family: var(--font-display);
+  font-weight: var(--weight-display-strong);
+  font-size: clamp(var(--size-47), 8vw, var(--size-116));
+  line-height: var(--leading-statement);
+  letter-spacing: var(--tracking-statement);
+}
+
+.type-display-1 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-display-strong);
+  font-size: clamp(var(--size-35), 6.2vw, var(--size-86));
+  line-height: var(--leading-display-tight);
+  letter-spacing: var(--tracking-statement);
+}
+
+.type-display-2 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-display-strong);
+  font-size: clamp(var(--size-26), 4.4vw, var(--size-64));
+  line-height: var(--leading-display-tight);
+  letter-spacing: var(--tracking-display);
+}
+
+.type-display-3 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
+  font-size: clamp(var(--size-26), 3.4vw, var(--size-47));
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+}
+
+.type-heading-4 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
+  font-size: clamp(var(--size-20), 2vw, var(--size-26));
+  line-height: var(--leading-subhead);
+}
+
+.type-lead {
+  font-family: var(--font-body);
+  font-weight: var(--weight-body);
+  font-size: clamp(var(--size-18), 1.6vw, var(--size-20));
+  line-height: var(--leading-body);
+}
+
+.type-body {
+  font-family: var(--font-body);
+  font-weight: var(--weight-body);
+  font-size: var(--size-16);
+  line-height: var(--leading-body);
+}
+
+.type-body-sm {
+  font-family: var(--font-body);
+  font-weight: var(--weight-body);
+  font-size: var(--size-14);
+  line-height: var(--leading-micro);
+}
+
+.type-micro {
+  font-family: var(--font-body);
+  font-weight: var(--weight-body-strong);
+  font-size: var(--size-12);
+  line-height: var(--leading-micro);
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+}
+
+/* The signature role. The phone number is typeset as a display object, not as
+   a nav link, because for this business the phone IS the conversion. It is the
+   only place the display family appears outside a heading. */
+.type-phone {
+  font-family: var(--font-display);
+  font-weight: var(--weight-display-strong);
+  font-size: clamp(var(--size-20), 2.2vw, var(--size-26));
+  line-height: var(--leading-subhead);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Emphasis inside a sentence, by contrast rather than by weight or italic.
+   One reusable role, not nineteen numbered spans. */
+.emph {
+  color: var(--color-text-primary-on-light);
+  font-weight: inherit;
+  font-style: normal;
+}
+.on-ink .emph {
+  color: var(--color-text-primary-on-ink);
+}
+
+/* --------------------------------------------------------------------------
+   4. SPACE - base 4px, thirteen steps, no value off the ladder.
+      The step number is the multiple of 4, so the base is self-enforcing.
+   -------------------------------------------------------------------------- */
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-40: 160px;
+
+  /* Section rhythm: three tokens and ONE mobile factor, derived not hand-set. */
+  --section-pad-tight: var(--space-16); /* 64 */
+  --section-pad: var(--space-24); /* 96 */
+  --section-pad-pause: var(--space-40); /* 160 - at most once per page */
+}
+
+/* --------------------------------------------------------------------------
+   5. LAYOUT - three breakpoints, named after the design, replacing defaults.
+      Custom properties cannot be used inside a media query, so the literals
+      below are the only three that may appear anywhere in the project:
+        480px  phone-large
+        768px  tablet
+        1120px desktop
+   -------------------------------------------------------------------------- */
+
+:root {
+  --frame-inset: var(--space-2); /* 8  - gap between panel and viewport edge */
+  --content-pad: var(--space-4); /* 16 - gutter inside a panel */
+  --content-max: 100%;
+  --measure: 62ch; /* the only prose width in the system */
+}
+
+@media (min-width: 480px) {
+  :root {
+    --frame-inset: var(--space-3); /* 12 */
+    --content-pad: var(--space-5); /* 20 */
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --frame-inset: var(--space-4); /* 16 */
+    --content-pad: var(--space-6); /* 24 */
+    --content-max: 680px;
+  }
+}
+
+@media (min-width: 1120px) {
+  :root {
+    --frame-inset: var(--space-5); /* 20 */
+    --content-pad: var(--space-8); /* 32 */
+    --content-max: 1180px;
+  }
+}
+
+/* Mobile section rhythm: one factor of 0.5 applied to all three tokens.
+   Not seven hand-tuned reductions ranging from 0.17x to 1.0x. */
+@media (max-width: 767px) {
+  :root {
+    --section-pad-tight: var(--space-8); /* 32 */
+    --section-pad: var(--space-12); /* 48 */
+    --section-pad-pause: var(--space-20); /* 80 */
+  }
+}
+
+/* --------------------------------------------------------------------------
+   6. SHAPE AND DEPTH
+      Radius is proportional to the size of the box. Controls are pills.
+      There are no shadow tokens. Depth is a ground change or a scrim.
+   -------------------------------------------------------------------------- */
+
+:root {
+  --radius-xs: 4px; /* tags, swatches */
+  --radius-sm: 8px; /* text inputs, small tiles */
+  --radius-md: 14px; /* cards */
+  --radius-lg: 22px; /* large cards, media frames */
+  --radius-xl: 28px; /* section panels, the page frame */
+  --radius-pill: 999px; /* anything you press */
+
+  /* A control boundary, not a hairline rule. 1.5px reads as the edge of an
+     object; 1px reads as a ruled line, which is the neighbouring brand's
+     structural material and is not used here. */
+  --border-control: 1.5px;
+  --border-focus: 2px;
+  --focus-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   7. MOTION - four verbs, one curve family, three durations.
+   -------------------------------------------------------------------------- */
+
+:root {
+  --dur-respond: 160ms; /* interface answers a pointer, tap or key */
+  --dur-base: 240ms; /* disclosure, drawer */
+  --dur-enter: 560ms; /* content arrives, once */
+  --stagger-step: 70ms; /* per child, capped at 5 children */
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --lift: -2px; /* buttons lift */
+  --press: 1px; /* controls settle when pressed */
+  --grow: 1.03; /* content images grow, controls never do */
+}
+
+/* The no-JavaScript gate.
+   Nothing in this system is authored hidden. An element's final, visible state
+   is its authored state. Motion is applied by REMOVING that state, and only
+   after a tiny inline script in <head> has set `js-motion` on <html>.
+   If the script never runs, nothing was ever hidden and the page is complete. */
+
+.js-motion [data-enter] {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.js-motion [data-enter].is-entered {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--dur-enter) var(--ease-out),
+    transform var(--dur-enter) var(--ease-out);
+}
+
+/* The reduced-motion contract.
+   This blanket rule is the floor, not the ceiling. Every script-driven
+   animation must ALSO read the query itself and jump to its end state, and
+   must subscribe to changes so a visitor who enables the setting mid-visit is
+   respected without a reload. A CSS rule cannot stop a script writing
+   transforms per frame - which is exactly how the reference still animates
+   under forced reduced motion.
+   Reduced motion removes motion. It never removes content. */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Belt and braces: never hide entrance content for these visitors at all. */
+  .js-motion [data-enter] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   8. IMAGERY - the structural split between decoration and proof.
+
+   These two classes are not styling variants. They are different contracts,
+   and the CSS makes a mix-up visible rather than silent:
+     - a proof figure without a caption collapses to the unconfirmed state
+     - a decorative figure is not allowed to render a caption at all
+   -------------------------------------------------------------------------- */
+
+:root {
+  --img-proof-radius: var(--radius-md);
+  --img-decor-radius: var(--radius-lg);
+  --img-proof-ratio: 4 / 3;
+  --img-decor-ratio: 16 / 9;
+}
+
+/* PROOF: a photograph offered as evidence. Our crew, our van, this job.
+   Requires a <figcaption> naming what, where and when, and a
+   data-proof-source attribute recording where the asset came from.
+   May never be stock. */
+.img-proof {
+  display: block;
+  margin: 0;
+  border-radius: var(--img-proof-radius);
+  overflow: hidden;
+  background: var(--color-ground-panel-alt);
+}
+
+.img-proof > img {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--img-proof-ratio);
+  object-fit: cover;
+}
+
+.img-proof > figcaption {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-ground-panel);
+  color: var(--color-text-secondary-on-light);
+  font-family: var(--font-body);
+  font-size: var(--size-14);
+  line-height: var(--leading-micro);
+}
+
+/* A proof figure that has no caption, or no recorded source, is not proof.
+   It renders as an unconfirmed slot instead of quietly passing as evidence.
+
+   These are two separate rules on purpose. A comma-joined selector list is
+   dropped whole if any part of it fails to parse, so pairing the :has() test
+   with the attribute test would silently disable BOTH checks in a browser
+   without :has() support. Split, the attribute check always survives. */
+.img-proof:not([data-proof-source]) {
+  outline: var(--border-control) dashed var(--color-unconfirmed-on-light);
+  outline-offset: calc(var(--focus-offset) * -1);
+  background: var(--color-unconfirmed-ground);
+}
+
+.img-proof:not(:has(> figcaption)) {
+  outline: var(--border-control) dashed var(--color-unconfirmed-on-light);
+  outline-offset: calc(var(--focus-offset) * -1);
+  background: var(--color-unconfirmed-ground);
+}
+
+/* DECOR: atmosphere. Carries no claim, so it carries no caption and is hidden
+   from assistive technology. Stock is allowed here and only here. */
+.img-decor {
+  display: block;
+  margin: 0;
+  border-radius: var(--img-decor-radius);
+  overflow: hidden;
+}
+
+.img-decor > img {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--img-decor-ratio);
+  object-fit: cover;
+}
+
+/* A decorative image may not caption itself. A caption is a claim. */
+.img-decor figcaption {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   9. UNCONFIRMED CONTENT - typed placeholders.
+
+   Everything the captain has not confirmed is a typed slot, never invented
+   copy and never a rounded-up number. The violet is outside the brand so a
+   placeholder cannot be mistaken for finished design in a screenshot, a
+   review, or a Figma frame.
+
+   Release rule: any element carrying data-unconfirmed in a production build
+   fails the release check. This is a rule, so it is testable.
+   -------------------------------------------------------------------------- */
+
+[data-unconfirmed] {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-xs);
+  background: var(--color-unconfirmed-ground);
+  color: var(--color-unconfirmed-on-light);
+  font-family: var(--font-body);
+  font-weight: var(--weight-body-strong);
+  font-variant-numeric: tabular-nums;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.on-ink [data-unconfirmed] {
+  background: transparent;
+  color: var(--color-unconfirmed-on-ink);
+}
+
+/* Reserved space for an unconfirmed image, so adding the real one shifts
+   nothing. Types: proof-photo, portrait, before-after. */
+[data-unconfirmed="photo"] {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--img-proof-ratio);
+  border-radius: var(--img-proof-radius);
+  border: var(--border-control) dashed var(--color-unconfirmed-on-light);
+  background: var(--color-unconfirmed-ground);
+}
+
+/* --------------------------------------------------------------------------
+   10. GLOBAL FLOOR
+   -------------------------------------------------------------------------- */
+
+html,
+body {
+  overflow-x: clip; /* never `hidden`: it breaks position: sticky */
+}
+
+body {
+  margin: 0;
+  background: var(--color-ground-page);
+  color: var(--color-text-primary-on-light);
+  font-family: var(--font-body);
+  font-size: var(--size-16);
+  line-height: var(--leading-body);
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Ground context. Setting one of these on a panel switches every semantic text
+   token underneath it. This is what makes "resolve contrast against the
+   nearest painted ancestor" a property of the system rather than a review step. */
+.on-light {
+  background: var(--color-ground-panel);
+  color: var(--color-text-primary-on-light);
+}
+
+.on-ink {
+  background: var(--color-ground-ink);
+  color: var(--color-text-primary-on-ink);
+}
+
+.on-accent-band {
+  background: var(--color-ground-accent);
+  color: var(--color-text-primary-on-light);
+}
+
+/* Focus is visible everywhere, always, and never animated in. */
+:focus-visible {
+  outline: var(--border-focus) solid var(--color-focus-on-light);
+  outline-offset: var(--focus-offset);
+}
+
+.on-ink :focus-visible {
+  outline-color: var(--color-focus-on-ink);
+}
+
+/* Long German compounds must be allowed to break rather than overflow. */
+h1,
+h2,
+h3,
+h4,
+.type-statement,
+.type-display-1,
+.type-display-2,
+.type-display-3 {
+  overflow-wrap: anywhere;
+  min-width: 0;
+  text-wrap: balance;
+  font-style: normal; /* display type is roman. Never italic. */
+}
+
+p {
+  text-wrap: pretty;
+  max-width: var(--measure);
+}
+
+/* Every image-bearing grid track needs an explicit zero minimum: a bare `1fr`
+   track refuses to shrink below its content, so one wide image or one long
+   German compound pushes the whole page sideways. The min() keeps the track
+   from demanding 280px on a 320px phone. */
+.grid {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+}
+
+.grid > * {
+  min-width: 0;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
