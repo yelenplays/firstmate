@@ -43,13 +43,18 @@ SH
   printf 'live: claude %s blocked before inference with zero provider turns\n' "$(claude --version 2>/dev/null)"
 }
 
-# An ambiguous preflight is only usable if the control the block advertises
-# survives the real CLI. Claude resolves a leading-slash prompt as one of its own
-# commands and answers "Unknown command" before any UserPromptSubmit hook runs,
-# which no portable test can observe, so the round trip is driven here.
+# Blocking an offer is what the real CLI proves unusable. A blocked
+# UserPromptSubmit erases the prompt and shows its reason to the captain alone -
+# the model is never invoked - so the block could only ever be answered by the
+# captain retyping a hex control against a request that no longer exists. The
+# coordinator resolves ambiguity itself for this adapter now; what is driven
+# here is that an offer reaching the transport anyway still costs no prompt,
+# and that the exact control keeps working for a selection retained earlier.
+# Neither the erased prompt nor Claude's own consumption of a leading-slash
+# prompt is observable in a portable test, so both are driven against the CLI.
 run_claude_offer_control() {
   command -v claude >/dev/null 2>&1 || { echo "absent: claude"; return 0; }
-  local project="$LAB/claude-offer/project" home="$LAB/claude-offer/home" out control replay rc
+  local project="$LAB/claude-offer/project" home="$LAB/claude-offer/home" out replay rc
   mkdir -p "$project/bin" "$project/.claude" "$home/state" "$home/config"
   cp "$ROOT/bin/fm-claude-primary-prompt.sh" "$project/bin/"
   cat > "$project/bin/fm-megamind-primary.sh" <<'SH'
@@ -75,13 +80,16 @@ SH
   rc=$?
   set -e
   [ "$rc" -eq 0 ] || fail "Claude offer guard exited $rc"
-  # Capture any leading punctuation too, so the replay below is byte-for-byte
-  # what the block told the captain to send rather than a sanitized version.
-  control=$(printf '%s' "$out" | jq -r '.result // ""' | grep -Eo '[^[:space:]]*fm-megamind-select [0-9A-Fa-f]{16,128} <offer>') \
-    || fail "the ambiguous block advertised no recoverable host control: $out"
-  replay=${control/<offer>/SyntheticWiki}
+  printf '%s\n' "$out" | grep -Fq 'UserPromptSubmit operation blocked by hook' \
+    && fail "an offer erased the prompt, which only the captain could ever answer: $out"
+  printf '%s\n' "$out" | grep -Fq '"num_turns":0' \
+    && fail "an offer cost the prompt its provider turn: $out"
+  replay='fm-megamind-select 0123456789abcdef SyntheticWiki'
 
-  # Send the advertised control back exactly as the captain reads it.
+  # The exact control still has to survive the real CLI: Claude resolves a
+  # leading-slash prompt as one of its own commands and answers "Unknown
+  # command" before any UserPromptSubmit hook runs, so the control carries no
+  # leading slash and reaches the hook as ordinary text.
   set +e
   out=$(cd "$project" && CLAUDE_PROJECT_DIR="$project" FM_HOME="$home" \
     claude --print --output-format json --dangerously-skip-permissions "$replay" 2>&1)
@@ -96,7 +104,7 @@ SH
     || fail "the advertised control never reached the coordinator's selection path"
   grep -Fq -- "--selection-id 0123456789abcdef --offer SyntheticWiki" "$home/state/offer-coordinator-calls" \
     || fail "the advertised control did not carry the offered selection verbatim"
-  printf 'live: claude %s round-tripped the advertised offer control back through the hook\n' "$(claude --version 2>/dev/null)"
+  printf 'live: claude %s kept its prompt through an offer and still honored the exact control\n' "$(claude --version 2>/dev/null)"
 }
 
 run_pi_block() {

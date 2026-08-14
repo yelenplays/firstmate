@@ -17,6 +17,13 @@
 # The prompt for process is read privately from stdin. Adapters own only their
 # hook transport and response shape; this script owns classification, preflight,
 # offer and explicit-existing continuation, bounded admission, and context framing.
+#
+# An "offer" decision is emitted only to an adapter that can present the choice
+# to the captain - Pi and pi-signed, through their disposition screen. For every
+# other adapter this script resolves the ambiguity itself (highest confidence,
+# ties broken on the wiki name) and returns a settled decision, because an offer
+# an adapter cannot present is not a choice: it is a lost prompt. Every failure
+# on that path degrades to the no-wiki disposition, never to a block.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -227,6 +234,52 @@ safe_offer_json() {
   printf '%s' "$1" | jq -c '[.offers[]? | select(.wiki | type == "string" and length > 0) | {wiki:.wiki,confidence:(.confidence // null)}]'
 }
 
+# An "offer" decision is only a decision at all where the adapter can actually
+# put the choice in front of a human. Pi renders it as a native picker, so it
+# owns the disposition there. Claude's prompt hook has no such surface: a
+# blocked UserPromptSubmit erases the prompt and shows its reason to the user
+# alone, never to the model, so an offer routed there is not a prompt Claude
+# answers - it is a hex control the captain has to retype by hand while the
+# original request is gone. Ambiguity is Megamind's problem to resolve, not the
+# captain's to arbitrate, so an adapter without a picker is handed a resolved
+# decision instead of a question it cannot ask.
+adapter_presents_offers() {
+  case "$1" in
+    pi|pi-signed) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Highest confidence wins; an exact tie breaks on the wiki name so the same
+# packet always resolves the same way. A missing confidence sorts last rather
+# than disqualifying the offer, because Megamind already put it above its own
+# offer floor to name it at all.
+top_offer() {
+  printf '%s' "$1" | jq -r 'sort_by([-(.confidence // 0), .wiki]) | .[0].wiki // empty' 2>/dev/null
+}
+
+# Resolving an offer is best-effort by construction: every failure below - no
+# retained selection, a refused continuation, a failed admission - degrades to
+# the no-wiki disposition the captain would otherwise have had to pick by hand.
+# None of them may cost the prompt, which is the whole defect being repaired.
+auto_select_offer() {
+  local harness="$1" session_id="$2" submission_id="$3" shash="$4" selection="$5" offers="$6"
+  local offer resolved kind
+  [ -n "$selection" ] || { decision proceed-no-context "$submission_id" "$shash"; return; }
+  offer=$(top_offer "$offers")
+  [ -n "$offer" ] || { decision proceed-no-context "$submission_id" "$shash"; return; }
+  # include_replay is 0: this prompt is still on its way to the model, so there
+  # is nothing to replay - only the blocked-then-continued path replays.
+  resolved=$(continue_selection "$harness" "$session_id" "$selection" "$offer" 0 "$submission_id") || true
+  kind=$(printf '%s' "$resolved" | jq -r '.decision // empty' 2>/dev/null || true)
+  if [ "$kind" = proceed-with-admission ]; then
+    printf '%s\n' "$resolved"
+    return
+  fi
+  rm -f -- "$PRIMARY_DIR/$selection.offer.json" 2>/dev/null || true
+  decision proceed-no-context "$submission_id" "$shash"
+}
+
 # The automatic path injects admitted wiki bytes into a turn that may never have
 # loaded the megamind-preflight skill, so the rule that skill owns - a successful
 # admission proves routing ran, never that the content answers the request -
@@ -334,7 +387,11 @@ process_prompt_inner() {
           '{schema_version:$schema,selection_id:$selection,session_identity:$session,task_id:$task}' \
           | publish_private "$PRIMARY_DIR/$selection.offer.json" || { decision block "$submission_id" "$shash" offer_write_failed; return; }
       fi
-      decision offer "$submission_id" "$shash" "" "$selection" "$offers"
+      if adapter_presents_offers "$harness"; then
+        decision offer "$submission_id" "$shash" "" "$selection" "$offers"
+      else
+        auto_select_offer "$harness" "$session_id" "$submission_id" "$shash" "$selection" "$offers"
+      fi
       ;;
     unavailable) decision block "$submission_id" "$shash" unavailable ;;
     *) decision block "$submission_id" "$shash" preflight_failed ;;
@@ -436,33 +493,38 @@ continue_without_context() {
 }
 
 continue_selection() {
-  local harness="$1" session_id="$2" selection_id="$3" offer="$4" include_replay="$5"
+  # The optional sixth argument is the submission id of the prompt this
+  # continuation belongs to, set only by the in-process automatic path so its
+  # resolved decision is stamped and cached like any other decision for that
+  # prompt. A captain-driven continuation arrives on its own invocation with no
+  # submission of its own and leaves it empty, exactly as before.
+  local harness="$1" session_id="$2" selection_id="$3" offer="$4" include_replay="$5" submission="${6:-}"
   local current_lock shash record stored_session raw task_id preflight_file admitted context counts replay pending_request
-  valid_harness "$harness" || { decision block "" "" harness_unsupported; return; }
+  valid_harness "$harness" || { decision block "$submission" "" harness_unsupported; return; }
   current_lock=$(current_session_identity 2>/dev/null || true)
   shash=$(session_hash "$session_id" 2>/dev/null || true)
-  [ -n "$current_lock" ] && [ -n "$shash" ] || { decision block "" "" session_unavailable; return; }
-  safe_submission_id "$selection_id" || { decision block "" "$shash" selection_id_invalid; return; }
-  [ -n "$offer" ] || { decision block "" "$shash" offer_invalid; return; }
+  [ -n "$current_lock" ] && [ -n "$shash" ] || { decision block "$submission" "" session_unavailable; return; }
+  safe_submission_id "$selection_id" || { decision block "$submission" "$shash" selection_id_invalid; return; }
+  [ -n "$offer" ] || { decision block "$submission" "$shash" offer_invalid; return; }
   record="$PRIMARY_DIR/$selection_id.offer.json"
-  [ -f "$record" ] && [ "$(private_mode "$record" 2>/dev/null)" = 600 ] || { decision block "" "$shash" selection_missing; return; }
+  [ -f "$record" ] && [ "$(private_mode "$record" 2>/dev/null)" = 600 ] || { decision block "$submission" "$shash" selection_missing; return; }
   stored_session=$(jq -r '.session_identity // empty' "$record" 2>/dev/null || true)
-  [ "$stored_session" = "$shash" ] || { decision block "" "$shash" wrong_session; return; }
+  [ "$stored_session" = "$shash" ] || { decision block "$submission" "$shash" wrong_session; return; }
   if [ "$include_replay" -eq 1 ]; then
     pending_request=$(jq -r '.request // empty' "$STATE/megamind-offer-selections/$selection_id.pending.json" 2>/dev/null || true)
-    [ -n "$pending_request" ] || { decision block "" "$shash" replay_unavailable; return; }
+    [ -n "$pending_request" ] || { decision block "$submission" "$shash" replay_unavailable; return; }
   fi
   raw=$(FM_HOME="$FM_HOME" "$PREFLIGHT" continue --selection-id "$selection_id" --offer "$offer" 2>/dev/null) || {
     local code
     code=$(printf '%s' "$raw" | jq -r '.failure.code // "selection_failed"' 2>/dev/null || printf 'selection_failed')
-    decision block "" "$shash" "$code"
+    decision block "$submission" "$shash" "$code"
     return
   }
-  [ "$(printf '%s' "$raw" | jq -r '.outcome // empty')" = authorized ] || { decision block "" "$shash" selection_failed; return; }
+  [ "$(printf '%s' "$raw" | jq -r '.outcome // empty')" = authorized ] || { decision block "$submission" "$shash" selection_failed; return; }
   task_id=$(jq -r '.task_id // empty' "$record")
   # The continuation authorization is keyed by the opaque selection id.
-  admitted=$(FM_HOME="$FM_HOME" bounded_exec "$READER" admit --selection-id "$selection_id" 2>/dev/null) || { decision block "" "$shash" admission_failed; return; }
-  [ "$(printf '%s' "$admitted" | jq -r '.outcome // empty')" = admitted ] || { decision block "" "$shash" admission_failed; return; }
+  admitted=$(FM_HOME="$FM_HOME" bounded_exec "$READER" admit --selection-id "$selection_id" 2>/dev/null) || { decision block "$submission" "$shash" admission_failed; return; }
+  [ "$(printf '%s' "$admitted" | jq -r '.outcome // empty')" = admitted ] || { decision block "$submission" "$shash" admission_failed; return; }
   local admission
   admission=$(printf '%s' "$admitted" | jq -r '.admission_id // empty')
   replay=
@@ -472,11 +534,11 @@ continue_selection() {
     replay="$pending_request"
   fi
   local content
-  content=$(FM_HOME="$FM_HOME" bounded_exec "$READER" content --admission-id "$admission" 2>/dev/null) || { decision block "" "$shash" content_failed; return; }
+  content=$(FM_HOME="$FM_HOME" bounded_exec "$READER" content --admission-id "$admission" 2>/dev/null) || { decision block "$submission" "$shash" content_failed; return; }
   counts=$(printf '%s' "$admitted" | jq -r '[.wikis[]?.context_chars // 0] | add // 0')
-  context=$(context_json "$admission" "$content" "$counts") || { decision block "" "$shash" context_failed; return; }
+  context=$(context_json "$admission" "$content" "$counts") || { decision block "$submission" "$shash" context_failed; return; }
   rm -f -- "$record" 2>/dev/null || true
-  decision proceed-with-admission "" "$shash" "" "" '[]' "$context" "$counts" "$replay"
+  decision proceed-with-admission "$submission" "$shash" "" "" '[]' "$context" "$counts" "$replay"
 }
 
 continue_existing() {

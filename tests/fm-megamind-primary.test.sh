@@ -34,6 +34,10 @@ if [ "${1:-}" = --version ]; then
   printf 'megamind-axi 0.6.0\n'
   exit 0
 fi
+if [ "${1:-}" = select-offer ] && [ -n "${FM_TEST_SELECTION_FIXTURE:-}" ]; then
+  cat "$FM_TEST_SELECTION_FIXTURE"
+  exit "${FM_TEST_SELECTION_EXIT:-0}"
+fi
 if [ -n "${FM_TEST_FIXTURE:-}" ]; then cat "$FM_TEST_FIXTURE"; else exit 2; fi
 SH
   chmod 700 "$home/megamind"
@@ -227,6 +231,92 @@ test_cached_decision_is_bound_to_the_prompt() {
   pass "coordinator: a cached decision under a reused submission id is bound to the exact prompt"
 }
 
+# A real ambiguous packet echoes the request it was routed for, and continuing
+# an offer refuses a retained packet that is not bound to its own request. Only
+# a test that continues one needs the echo, so it is added here rather than in
+# make_fixture, which every other outcome shares.
+bind_fixture_to_request() {
+  local fixture=$1 request=$2
+  jq --arg request "$request" '.request=$request' "$fixture" > "$fixture.bound" \
+    && mv "$fixture.bound" "$fixture"
+}
+
+# The upstream authorization Megamind returns for a selected offer. It must
+# agree with the ambiguous packet that produced the offer, so the identities
+# below are the ones make_fixture stamps into that packet.
+make_selection_fixture() {
+  local home=$1 fixture
+  fixture="$TMP_ROOT/selection-$$-$RANDOM.json"
+  jq -n --arg root "$home/estate/Wiki" '{
+    schema_version:"megamind/preflight-selection-result/v1",status:"authorized",
+    preflight_id:"preflight-ambiguous",request_hash:"request-hash",
+    catalog_hash:"catalog-hash",model_class:"cloud",
+    selection_id:"upstream-selection",root_facts_hash:"synthetic-root-facts",
+    selection:{status:"explicit-user-selection",basis:"selected-current-offer",
+      source_disposition:"offer",source_status:"ambiguous",
+      preflight_id:"preflight-ambiguous",confidence_changed:false},
+    selected:{name:"Wiki",root:$root,score:6,
+      confidence:{score:0.6,meets_floor:false},freshness:null,evidence:{},
+      provisional:false,access:"full",routing_mode:"full",
+      allows:[".megamind/wiki-card.json","wiki/index.md"],
+      follow_up:"must never execute",
+      context_budget:{max_candidates:2,max_context_chars:1000}}
+  }' > "$fixture"
+  printf '%s\n' "$fixture"
+}
+
+# Ambiguity is Megamind's to resolve, not the captain's to arbitrate. An adapter
+# with no picker - Claude, whose blocked prompt is erased and whose block reason
+# reaches the captain alone and never the model - is handed a resolved decision
+# rather than a question it has no way to ask. Pi keeps its offer, proven by
+# test_no_context_disposition_replays_once_without_admission below.
+test_an_adapter_without_a_picker_resolves_its_own_ambiguity() {
+  local home fixture selection out
+  home=$(new_home auto-select); install_stub "$home"
+  fixture=$(make_fixture "$home" ambiguous)
+  bind_fixture_to_request "$fixture" 'a substantive synthetic request'
+  selection=$(make_selection_fixture "$home")
+
+  out=$(FM_TEST_FIXTURE="$fixture" FM_TEST_SELECTION_FIXTURE="$selection" \
+    run_in "$home" process --harness claude \
+    --session-id session-aaaaaaaa --submission-id submission-auto-select <<< 'a substantive synthetic request')
+  [ "$(printf '%s' "$out" | jq -r .decision)" = proceed-with-admission ] \
+    || fail "an ambiguous result was not resolved for an adapter without a picker: $out"
+  [ "$(printf '%s' "$out" | jq -r '.offers | length')" = 0 ] \
+    || fail "a resolved decision still carried an unanswered offer: $out"
+  [ "$(printf '%s' "$out" | jq -r .selection_id)" = null ] \
+    || fail "a resolved decision still advertised a selection to spend: $out"
+  assert_contains "$(printf '%s' "$out" | jq -r '.context.text // empty')" 'safe synthetic context' \
+    'the self-selected wiki admitted no content'
+  [ "$(printf '%s' "$out" | jq -r .admitted_chars)" -gt 0 ] \
+    || fail "the self-selected wiki reported no admitted characters: $out"
+  pass "coordinator: an adapter with no picker is handed a resolved wiki, never a question"
+}
+
+# Every failure on the resolution path degrades to the no-wiki disposition the
+# captain would otherwise have had to pick by hand. None of them may cost the
+# prompt, which is the whole defect this path repairs: a lost prompt is
+# indistinguishable from a broken editor, and the request is already erased.
+test_an_unresolvable_offer_still_never_costs_the_prompt() {
+  local home fixture selection out
+  home=$(new_home auto-select-refused); install_stub "$home"
+  fixture=$(make_fixture "$home" ambiguous)
+  bind_fixture_to_request "$fixture" 'a substantive synthetic request'
+  selection=$(make_selection_fixture "$home")
+
+  out=$(FM_TEST_FIXTURE="$fixture" FM_TEST_SELECTION_FIXTURE="$selection" FM_TEST_SELECTION_EXIT=1 \
+    run_in "$home" process --harness claude \
+    --session-id session-aaaaaaaa --submission-id submission-auto-refused <<< 'a substantive synthetic request')
+  [ "$(printf '%s' "$out" | jq -r .decision)" = proceed-no-context ] \
+    || fail "a refused resolution did not continue without wiki evidence: $out"
+  [ "$(printf '%s' "$out" | jq -r .context)" = null ] \
+    || fail "a refused resolution carried wiki context anyway: $out"
+  [ "$(printf '%s' "$out" | jq -r .admitted_chars)" = 0 ] \
+    || fail "a refused resolution claimed admitted content: $out"
+  assert_absent "$home/state/megamind-admissions" "a refused resolution created a content admission"
+  pass "coordinator: a resolution that cannot complete continues the prompt without wiki evidence"
+}
+
 test_no_context_disposition_replays_once_without_admission() {
   local home fixture no_match out replay selection pending disposition prompt
   home=$(new_home no-context); install_stub "$home"
@@ -318,6 +408,8 @@ test_no_match_and_privacy_filter
 test_matched_reader_context_and_privacy
 test_failures_and_unsupported
 test_cached_decision_is_bound_to_the_prompt
+test_an_adapter_without_a_picker_resolves_its_own_ambiguity
+test_an_unresolvable_offer_still_never_costs_the_prompt
 test_no_context_disposition_replays_once_without_admission
 test_cached_decision_reused_for_an_identical_retry
 test_process_bypasses_without_jq_on_an_opted_out_home

@@ -57,7 +57,8 @@ A home that opted into automatic primary mode routes every prompt through `bin/f
 That is the same preflight and the same bounded reader this procedure runs, already performed for that exact prompt: act on the evidence the turn carries and do not route the same request a second time.
 Nothing else about this contract changes - the per-outcome rules, the evidence gap below, and the failure-disclosure duty apply to admitted evidence however it arrived.
 The absence of admitted evidence never proves that routing ran: a `no-match` or `privacy-filtered` decision injects nothing, and a home that never opted in is indistinguishable from one that did, so every turn without it takes the mandatory procedure above.
-An ambiguous result never reaches the model in that mode - the coordinator resolves the offer through the adapter's own control first - and a blocked prompt starts no turn at all.
+An ambiguous result never reaches the model in that mode - the coordinator settles it first, through the adapter's own disposition screen where one exists and by selecting the highest-confidence offer itself where none does - and a blocked prompt starts no turn at all.
+A resolution that cannot complete continues the prompt without wiki evidence, so a governed turn carrying no admitted evidence still proves nothing about routing.
 `docs/configuration.md` "Megamind preflight" owns the coordinator, the adapters, and the opt-in.
 
 ## Admitted evidence that cannot answer the request

@@ -38,34 +38,37 @@ hook() {
     | CLAUDE_PROJECT_DIR="$lab" "$HOOK"
 }
 
-# An ambiguous preflight is only usable if the control the block advertises is
-# one the captain can actually send. Claude resolves a leading-slash prompt as
-# one of its own commands and answers "Unknown command" before any
-# UserPromptSubmit hook runs, so a slash-prefixed control would dead-end every
-# offer: the hook that owns the selection would never be executed at all.
-test_offer_control_is_sendable_and_round_trips() {
-  local lab out reason control replay calls
-  lab=$(new_lab round-trip)
+# Blocking is the one response this transport may never give an offer. Claude
+# erases a blocked prompt and shows its reason to the captain alone - the model
+# is never invoked - so an offer routed here is not a question Claude answers.
+# It is a hex control the captain retypes by hand against a request that no
+# longer exists. The coordinator resolves ambiguity itself for this adapter, and
+# an offer that reaches the transport anyway must still cost nothing.
+test_an_offer_never_costs_the_prompt() {
+  local lab out
+  lab=$(new_lab offer-is-not-a-block)
   FM_TEST_CALLS="$lab/calls"; export FM_TEST_CALLS
   : > "$FM_TEST_CALLS"
 
   out=$(hook "$lab" 'a substantive synthetic request')
-  [ "$(printf '%s' "$out" | jq -r .decision)" = block ] \
-    || fail "an ambiguous offer did not block the prompt: $out"
-  reason=$(printf '%s' "$out" | jq -r .reason)
-  assert_contains "$reason" 'SyntheticWiki' 'the offer block never named the offered wiki'
-  assert_not_contains "$reason" '/fm-megamind-select' \
-    'the offer block advertised a Claude slash command, which is consumed as an unknown command before this hook runs'
-  assert_contains "$reason" 'fm-megamind-none 0123456789abcdef' \
-    'the Claude offer block did not expose the shared no-wiki disposition'
+  [ "$(printf '%s' "$out" | jq -r '.decision // empty')" != block ] \
+    || fail "an offer blocked the prompt, which the captain alone can ever answer: $out"
+  [ "$(printf '%s' "$out" | jq -r .hookSpecificOutput.hookEventName)" = UserPromptSubmit ] \
+    || fail "an offer did not return Claude's context shape: $out"
+  assert_contains "$(printf '%s' "$out" | jq -r .hookSpecificOutput.additionalContext)" \
+    'SyntheticWiki' 'the offer never named the wiki it could not resolve'
+  pass "claude transport: an unresolved offer continues the prompt instead of erasing it"
+}
 
-  # Recover the advertised control from the block the captain actually reads,
-  # then send it back verbatim. Nothing but this public text is trusted.
-  control=$(printf '%s' "$reason" | grep -Eo '[^[:space:]]*fm-megamind-select [0-9A-Fa-f]{16,128} <offer>') \
-    || fail "the offer block advertised no recoverable host control: $reason"
-  replay=${control/<offer>/SyntheticWiki}
+# The exact host controls remain live for a selection retained before this
+# session, so a pending offer on disk is still spendable rather than stranded.
+test_exact_controls_still_reach_the_coordinator() {
+  local lab out calls
+  lab=$(new_lab round-trip)
+  FM_TEST_CALLS="$lab/calls"; export FM_TEST_CALLS
+  : > "$FM_TEST_CALLS"
 
-  out=$(hook "$lab" "$replay")
+  out=$(hook "$lab" 'fm-megamind-select 0123456789abcdef SyntheticWiki')
   calls=$(tail -n 1 "$FM_TEST_CALLS")
   assert_contains "$calls" 'continue --harness claude' \
     "the advertised control did not reach the coordinator's selection path: $calls"
@@ -86,7 +89,7 @@ test_offer_control_is_sendable_and_round_trips() {
     || fail "the no-wiki control did not return Claude's context shape: $out"
   assert_contains "$(printf '%s' "$out" | jq -r .hookSpecificOutput.additionalContext)" \
     'the original request without wiki evidence' 'the no-wiki control did not replay the original request'
-  pass "claude transport: offered and no-wiki controls are sendable and reach the coordinator"
+  pass "claude transport: the exact offered and no-wiki controls still reach the coordinator"
 }
 
 # The control is an exact host transport, not a free-form consent phrase: an
@@ -146,6 +149,7 @@ SH
   pass "claude transport: only a governed session can lose a prompt to a transport failure"
 }
 
-test_offer_control_is_sendable_and_round_trips
+test_an_offer_never_costs_the_prompt
+test_exact_controls_still_reach_the_coordinator
 test_inexact_controls_stay_ordinary_prompts
 test_only_a_governed_session_can_lose_a_prompt

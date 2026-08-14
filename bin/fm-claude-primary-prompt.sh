@@ -82,14 +82,16 @@ case "$decision" in
       '{hookSpecificOutput:{hookEventName:"UserPromptSubmit",additionalContext:$context}}'
     ;;
   offer)
+    # The coordinator resolves ambiguity itself for this adapter, so an offer
+    # should never arrive here. If one ever does, it must not cost the prompt.
+    # Blocking is the one response this transport cannot safely give a choice:
+    # a blocked UserPromptSubmit erases the prompt and shows its reason to the
+    # captain alone, never to the model, so the "choice" is a hex control typed
+    # by hand against a request that no longer exists. Continue without wiki
+    # evidence and say so instead.
     offers=$(printf '%s' "$result" | jq -r '[.offers[]?.wiki] | join(", ")' 2>/dev/null || printf 'the listed offer')
-    selection=$(printf '%s' "$result" | jq -r '.selection_id // empty' 2>/dev/null || true)
-    if [ -n "$selection" ]; then
-      reason="Choose one of $offers by sending the exact host control fm-megamind-select $selection <offer> as an ordinary message, or continue without wiki evidence by sending fm-megamind-none $selection. Use no leading slash. No wiki content was loaded."
-    else
-      reason="Megamind returned an ambiguous result ($offers), but this session has no continuable selection. No wiki content was loaded."
-    fi
-    jq -cn --arg reason "$reason" '{decision:"block",reason:$reason}'
+    jq -cn --arg offers "$offers" \
+      '{hookSpecificOutput:{hookEventName:"UserPromptSubmit",additionalContext:("Firstmate could not resolve a single wiki for this request (" + $offers + ") and continued without wiki evidence. No wiki content was loaded.")}}'
     ;;
   block)
     code=$(printf '%s' "$result" | jq -r '.failure_code // "preflight_failed"' 2>/dev/null || printf 'preflight_failed')
