@@ -24,7 +24,12 @@
 #      balance is not exhaustion;
 #   7. granularity follows the vendor: a provider-level window bounds every
 #      model, a named-model window bounds only that model;
-#   8. escalation is by transition, and it reaches the wake queue as a check.
+#   8. escalation is by transition, and it reaches the wake queue as a check;
+#   9. a cache that ages past its TTL only because the watcher's own backed-off
+#      heartbeat cadence polls less often than that TTL - every attempted read
+#      still succeeding - never raises a false alarm, even at the real backoff
+#      cap; a cache that is stale AND whose refresh is genuinely failing still
+#      does.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -655,6 +660,115 @@ test_watcher_heartbeat_routes_a_crossed_floor_to_the_wake_queue() {
   pass "a crossed floor reaches the durable wake queue as a check, the path that escalates under away mode"
 }
 
+# --- 9. idle-fleet staleness is not a broken read ---------------------------
+#
+# The bug: bin/fm-watch.sh's heartbeat cadence backs off from HEARTBEAT (600s)
+# to HEARTBEAT_MAX (7200s) on an idle fleet, well past SNAPSHOT_MAX_AGE's
+# default (1800s) - so on a quiet fleet the cache reliably ages past its TTL
+# between two heartbeats even when quota-axi is perfectly healthy. These cases
+# drive the guard through that cycle with the clock under the test's own
+# control (no real waiting), rather than trusting a reading of the code.
+
+# Portable mtime in epoch seconds, mirroring bin/fm-quota-guard.sh's own
+# path_mtime (never the `stat -f || stat -c` fallback, which writes a partial
+# filesystem dump on Linux).
+file_mtime() {
+  if [ "$(uname)" = Darwin ]; then stat -f %m "$1" 2>/dev/null; else stat -c %Y "$1" 2>/dev/null; fi
+}
+
+# set_mtime <epoch> <file>: age a fixture by a precise amount without sleeping.
+# touch -t takes a local-time stamp, not an epoch, on both platforms, so
+# convert via BSD `date -r` or GNU `date -d @`.
+set_mtime() {
+  local epoch=$1 f=$2 stamp
+  if stamp=$(date -r "$epoch" +%Y%m%d%H%M.%S 2>/dev/null); then
+    touch -t "$stamp" "$f"
+  else
+    stamp=$(date -d "@$epoch" +%Y%m%d%H%M.%S)
+    touch -t "$stamp" "$f"
+  fi
+}
+
+# age_snapshot <home> <seconds>: back-date the cached snapshot and its meta
+# together, as a real successful refresh would leave them (do_refresh writes
+# SNAPSHOT_META right after SNAPSHOT, so a genuinely healthy pair is always
+# the same age). REFRESH_MIN_INTERVAL_MAX (86400s, bin/fm-quota-guard.sh) is
+# used as the guard's own env override in every case below so no detached
+# refresh this fixture did not ask for can start mid-test and race the
+# assertions - the same hazard prime()'s own comment calls out.
+age_snapshot() {
+  local home=$1 seconds=$2 epoch
+  epoch=$(( $(date +%s) - seconds ))
+  set_mtime "$epoch" "$home/state/.quota-snapshot.json"
+  set_mtime "$epoch" "$home/state/.quota-snapshot.meta"
+}
+
+test_idle_fleet_staleness_does_not_alarm_when_every_read_has_succeeded() {
+  local home fakebin out
+  home=$(make_home idle-fleet-stale)
+  fakebin=$(make_quota_axi_stub "$home")
+  write_snapshot "$home/axi-json" "$(provider_block codex known 90 false all_models weekly)"
+  prime "$home" "$fakebin"
+
+  out=$(FM_QUOTA_REFRESH_MIN_INTERVAL=86400 run_guard "$home" "$fakebin" heartbeat)
+  [ -z "$out" ] || fail "the first healthy heartbeat produced a wake: $out"
+
+  # Age the cache by the watcher's real backoff cap (HEARTBEAT_MAX=7200s,
+  # bin/fm-watch.sh), four times the default SNAPSHOT_MAX_AGE (1800s) - the
+  # worst case an idle fleet actually reaches, not a contrived multiple.
+  age_snapshot "$home" 7200
+
+  out=$(FM_QUOTA_REFRESH_MIN_INTERVAL=86400 run_guard "$home" "$fakebin" heartbeat)
+  [ -z "$out" ] || fail "a stale-but-healthy cache raised a false alarm at the real backoff cap: $out"
+
+  # Twice in a row - the exact shape observed in production, where a floor
+  # crossing's own transition/dedup logic can otherwise re-arm on a silent
+  # guard-state recovery.
+  out=$(FM_QUOTA_REFRESH_MIN_INTERVAL=86400 run_guard "$home" "$fakebin" heartbeat)
+  [ -z "$out" ] || fail "a second consecutive stale-but-healthy heartbeat raised a false alarm: $out"
+
+  # Floor protection itself must not have gone blind while the cache aged: a
+  # provider that actually crosses the floor is still caught using that same
+  # aged-but-successful reading, not skipped because it was labeled stale.
+  write_snapshot "$home/axi-json" "$(provider_block codex known 3 false all_models weekly)"
+  prime "$home" "$fakebin"
+  age_snapshot "$home" 7200
+  out=$(FM_QUOTA_REFRESH_MIN_INTERVAL=86400 run_guard "$home" "$fakebin" heartbeat)
+  assert_contains "$out" "under the 10% floor" \
+    "a floor crossing was missed while the cache was stale but healthy"
+  pass "an idle fleet's backed-off heartbeat cadence exceeding the snapshot's max age never raises a false alarm on its own, and floor protection stays live"
+}
+
+test_stale_cache_with_a_failing_refresh_still_alarms() {
+  local home fakebin out out2
+  home=$(make_home stale-refresh-failing)
+  fakebin=$(make_quota_axi_stub "$home")
+  write_snapshot "$home/axi-json" "$(provider_block codex known 90 false all_models weekly)"
+  prime "$home" "$fakebin"
+  age_snapshot "$home" 7200
+
+  # Unlike the healthy case above, the refresh attempted against this stale
+  # cache genuinely fails, and keeps failing.
+  printf 'fail\n' > "$home/axi-mode"
+  run_guard "$home" "$fakebin" refresh >/dev/null 2>&1 || true
+  assert_grep 'status=failed' "$home/state/.quota-snapshot.meta" \
+    "the fixture's failing refresh was not recorded as failed"
+
+  out=$(FM_QUOTA_REFRESH_MIN_INTERVAL=86400 run_guard "$home" "$fakebin" heartbeat)
+  assert_contains "$out" "cannot be measured right now" \
+    "a stale cache whose refresh is genuinely failing did not alarm"
+  assert_contains "$out" "the last refresh attempt failed" \
+    "the alarm did not disclose that the refresh itself, not just the cache age, is the problem"
+  assert_contains "$out" "quota-axi --json failed or returned unreadable output" \
+    "the alarm did not carry the underlying failure reason"
+
+  # It latches rather than repeating every heartbeat while nothing changes -
+  # the same single-escalation contract a healthy floor crossing gets.
+  out2=$(FM_QUOTA_REFRESH_MIN_INTERVAL=86400 run_guard "$home" "$fakebin" heartbeat)
+  [ -z "$out2" ] || fail "a steady, still-failing refresh alarmed a second time: $out2"
+  pass "a stale cache whose refresh keeps failing still alarms, exactly once per failure"
+}
+
 test_spawn_refuses_a_provider_under_its_floor
 test_spawn_launches_on_an_unmeasurable_window
 test_unbound_harness_has_no_floor_and_launches
@@ -671,3 +785,5 @@ test_heartbeat_escalates_by_transition_and_reports_recovery
 test_config_sets_floors_and_bindings_and_discloses_a_bad_line
 test_floors_are_inherited_into_secondmate_homes
 test_watcher_heartbeat_routes_a_crossed_floor_to_the_wake_queue
+test_idle_fleet_staleness_does_not_alarm_when_every_read_has_succeeded
+test_stale_cache_with_a_failing_refresh_still_alarms

@@ -111,6 +111,20 @@
 # diagnostic how old that reading was. Past that age there is no reading at all,
 # so the verdict is unknown and the launch proceeds.
 #
+# A STALE CACHE IS NOT THE SAME AS A BROKEN READ
+# ------------------------------------------------
+# The watcher's own heartbeat cadence backs off from HEARTBEAT to
+# HEARTBEAT_MAX on an idle fleet (bin/fm-watch.sh), and HEARTBEAT_MAX can run
+# well past SNAPSHOT_MAX_AGE - so on a quiet fleet the cache reliably ages past
+# SNAPSHOT_MAX_AGE between two heartbeats even when every refresh attempt is
+# succeeding. That is not a measurement failure, and the heartbeat must not
+# report it as one. stale_snapshot_blocker tells the two apart by the snapshot
+# meta's own status rather than by SNAPSHOT's raw age: status=ok means the
+# cache is merely older than its TTL and stays in use for the per-provider
+# verdicts below it, exactly like a fresh reading; status=failed or
+# status=unmeasurable means the last attempt genuinely could not produce a
+# reading, and that stays a loud, disclosed blocker.
+#
 # ESCALATION IS BY TRANSITION, NOT BY POLL
 # ----------------------------------------
 # state/.quota-floor-state records the last verdict reported for each provider
@@ -136,7 +150,10 @@
 # bounds must never become the reason a spawn cannot start:
 #   FM_QUOTA_GUARD=off             render no verdict; disclose that and proceed.
 #   FM_QUOTA_REFRESH_TIMEOUT       seconds bounding one quota-axi read.
-#   FM_QUOTA_SNAPSHOT_MAX_AGE      seconds a cached reading stays usable.
+#   FM_QUOTA_SNAPSHOT_MAX_AGE      seconds before the preflight stops trusting a
+#                                  cached reading outright, and before the
+#                                  heartbeat starts checking the last refresh
+#                                  attempt's own recorded outcome (see above).
 #   FM_QUOTA_REFRESH_MIN_INTERVAL  seconds between detached refreshes.
 set -u
 
@@ -606,6 +623,48 @@ guard_blocker() {
   return 0
 }
 
+# stale_snapshot_blocker: called only once guard_blocker has already found
+# SNAPSHOT non-empty (a real reading exists) and its age has reached
+# SNAPSHOT_MAX_AGE. A cache can age past that bound for two entirely different
+# reasons, and only one of them is a blocker:
+#
+#   - every attempted refresh has succeeded, but the caller (the watcher's own
+#     backed-off heartbeat cadence, which ranges from HEARTBEAT to
+#     HEARTBEAT_MAX in bin/fm-watch.sh) simply polls less often than
+#     SNAPSHOT_MAX_AGE on an idle fleet. The reading is old but real, so
+#     evaluating it is strictly better than declaring it unmeasurable.
+#   - the last attempted refresh could not produce a reading at all, and the
+#     snapshot on disk is a stale leftover from before that failure started.
+#
+# The snapshot meta already tells the two apart: do_refresh writes status=ok
+# only alongside a freshly published SNAPSHOT, and status=failed or
+# status=unmeasurable when an attempt could not publish one, carrying the same
+# reason a first-ever failure would. Trusting that status (rather than
+# SNAPSHOT's raw age) is what keeps a merely-slow-to-poll idle fleet quiet
+# while a genuinely broken read stays loud.
+stale_snapshot_blocker() {
+  local status reason
+  status=$(snapshot_meta_field status 2>/dev/null || true)
+  case "$status" in
+    ok) return 0 ;;
+    failed|unmeasurable)
+      reason=$(snapshot_meta_field reason 2>/dev/null || true)
+      if [ -n "$reason" ]; then
+        printf 'the last refresh attempt failed: %s\n' "$reason"
+      else
+        printf 'the last refresh attempt failed\n'
+      fi
+      ;;
+    *)
+      # No readable status for the last attempt at all - cannot confirm the
+      # cache is merely old rather than broken, so this stays loud rather than
+      # assuming health it cannot see.
+      printf 'the last reading is over %s minutes old and its refresh status is unreadable\n' \
+        "$((SNAPSHOT_MAX_AGE / 60))"
+      ;;
+  esac
+}
+
 # verdict_of <provider> <availStatus> <remainingCenti> <stale>
 #   -> "<ok|below|unknown|skipped> <remainingCenti|-> <floor|->"
 verdict_of() {
@@ -748,7 +807,7 @@ cmd_heartbeat() {
   bootstrap=$GUARD_BLOCKER_BOOTSTRAP
   start_detached_refresh
   if [ -z "$blocker" ] && [ "$(age_of "$SNAPSHOT")" -ge "$SNAPSHOT_MAX_AGE" ]; then
-    blocker="the last reading is over $((SNAPSHOT_MAX_AGE / 60)) minutes old"
+    blocker=$(stale_snapshot_blocker)
     bootstrap=0
   fi
   if [ -n "$blocker" ]; then
