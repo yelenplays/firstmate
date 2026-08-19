@@ -285,6 +285,23 @@ The 2026-08-13 portable run completed with `FM_TEST_SUMMARY total=7 failed=0 ski
 `tests/fm-megamind-claude-control.test.sh` drives the Claude transport over its real hook payload and proves that the offered-wiki and no-wiki controls an ambiguous result advertises are the exact controls the transport accepts, and that no approximation authorizes or declines a selection.
 The control carries no leading slash because Claude resolves a leading-slash prompt as one of its own commands and answers `Unknown command` before any `UserPromptSubmit` hook runs; that reachability is not observable without the real CLI, so the live guard below round-trips the advertised control back through it.
 
+On 2026-08-19 the Pi transport's replay delivery was made busy-aware: every adapter replay is sent with the intercepted submission's own `steer` or `followUp` streaming mode, defaulting to `followUp` when the submission carried none, because Pi refuses a busy `sendUserMessage` that names no delivery mode and each refusal was one silently dropped captain prompt.
+A busy replay's admitted context is queued as a custom message in the same mode directly ahead of the replayed prompt, since a queued prompt never passes `before_agent_start`; the idle path keeps its `before_agent_start` injection.
+`tests/fm-megamind-pi-busy.test.sh` first pins the installed Pi package's real busy transport by driving its own `AgentSession` and `ExtensionRunner`, so its fake pi can only be as strict as the real transport and cannot confirm its own assumptions - the drift that let the mode-less replays pass the offer suite - and then drives the adapter through busy submissions, every picker disposition, steer fidelity, the idle-at-pick/busy-at-replay race, and the idle regression.
+`bin/fm-test-run.sh` keeps it in the portable `pure-contract-unit` family and selects it, the offer suite, and the strict typecheck together for any change to the adapter or its picker:
+
+```sh
+PATH="$(dirname "$(npx -y -p typescript which tsc)"):$PATH" bin/fm-test-run.sh tests/fm-megamind-pi-offer.test.sh tests/fm-megamind-pi-busy.test.sh tests/fm-pi-primary-types.test.sh
+```
+
+Observed on 2026-08-19 against installed Pi package 0.84.2:
+
+```text
+FM_TEST_SUMMARY total=3 failed=0 skipped_gate=0 duration_ms=2666
+```
+
+The adapter cannot close Pi core's own preflight race: Pi re-checks `isStreaming` after an input handler returns continue, so an interactive prompt submitted while idle that turns busy during the coordinator's preflight can still fail inside Pi itself until an upstream pi-coding-agent change lands.
+
 The live guard uses only synthetic block prompts and a synthetic coordinator, so it proves the real installed transport reaches the host gate without making a provider call or reading a wiki:
 
 ```sh

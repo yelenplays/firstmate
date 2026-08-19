@@ -140,6 +140,7 @@ family_for_basename() {
     fm-documentation-audiences.test.sh|fm-ensure-agents-md.test.sh|fm-grok-harness.test.sh|\
     fm-kimi-harness.test.sh|fm-muse-harness.test.sh|fm-herdr-lab.test.sh|fm-lint.test.sh|\
     fm-operational-input.test.sh|fm-pi-primary-types.test.sh|fm-megamind-pi-offer.test.sh|\
+    fm-megamind-pi-busy.test.sh|\
     fm-send-popup-settle.test.sh|fm-send-settle.test.sh|\
     fm-skill-path.test.sh|fm-subagent-pretool-check.test.sh|\
     fm-quota-guard.test.sh|\
@@ -926,6 +927,14 @@ families_for_changed_path() {
       ;;
     bin/fm-megamind-research.sh|bin/fm-megamind-research.py)
       printf '%s\n' "__script__:fm-megamind-research.test.sh"
+      ;;
+    .pi/extensions/fm-primary-megamind.ts|.pi/extensions/lib/fm-megamind-offer-picker.ts)
+      # The Pi adapter's idle transport, its busy/queued transport, and the
+      # strict typecheck against the installed Pi package cover different
+      # failure classes, so an adapter change selects all three.
+      printf '%s\n' "__script__:fm-megamind-pi-offer.test.sh"
+      printf '%s\n' "__script__:fm-megamind-pi-busy.test.sh"
+      printf '%s\n' "__script__:fm-pi-primary-types.test.sh"
       ;;
     bin/fm-session-start.sh|bin/fm-bootstrap.sh|bin/fm-fleet-sync.sh|\
     bin/fm-sessionstart-nudge.sh|bin/fm-startup-network.sh|bin/fm-tangle*|bin/fm-update.sh|\
