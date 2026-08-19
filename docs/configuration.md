@@ -164,6 +164,7 @@ A deliberate `show more` asks Megamind for its bounded full list only when the p
 One exact returned name invokes Megamind's one-time `select-existing` authorization, then enters the existing bounded reader and replays the exact original prompt once with only that wiki's permitted content.
 List, authorization, catalog, card/root, date, session, model, executable, estate, malformed-output, refusal, and replay drift stop without a fallback path.
 The screen keeps `Propose a new wiki` unavailable while proposal support is pending; neither action mutates the wiki estate.
+A governed submission or disposition replay that lands while the agent is already streaming is queued in that submission's own steer or follow-up mode - follow-up when no mode is known - with its admitted context queued directly ahead of the replayed prompt, so a busy agent queues the exchange instead of erroring and dropping it.
 Claude and all other primary adapters remain unchanged.
 Claude exposes the same no-wiki disposition as the exact `fm-megamind-none <selection-id>` host control beside its existing exact offered-wiki control.
 Its admitted context carries one host-owned rule with the evidence: a successful admission proves that routing ran, never that the admitted content answers the request, and page names or links inside that evidence were not themselves authorized.

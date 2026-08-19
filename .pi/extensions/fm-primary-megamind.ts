@@ -218,15 +218,32 @@ async function chooseExisting(
 }
 
 export default function (pi: ExtensionAPI) {
+  // A prompt submitted while the agent is streaming is queued as steer or
+  // followUp and never passes before_agent_start, so its admitted context
+  // must ride the same queue, directly ahead of the prompt itself.
+  function queueContextIfBusy(prompt: string, behavior: "steer" | "followUp" | undefined): void {
+    if (!behavior) return;
+    const context = dequeue(contextByPrompt, prompt);
+    if (!context) return;
+    pi.sendMessage(
+      { customType: "firstmate-megamind-context", content: context, display: false },
+      { deliverAs: behavior },
+    );
+  }
+
   pi.on?.("input", async (event, ctx) => {
     const text = String((event as { text?: unknown }).text ?? "");
     if (!text) return { action: "continue" as const };
+    // Present exactly while the agent is streaming; it names how this prompt
+    // will be queued, and undefined means a fresh turn starts for it.
+    const behavior = (event as { streamingBehavior?: "steer" | "followUp" }).streamingBehavior;
 
     // The adapter's own replay is the only extension-originated prompt that is
     // allowed to bypass a second preflight. Watcher and session messages remain
     // ordinary extension input and take the mandatory path below, where the
     // coordinator's own classifier decides whether they bypass.
     if ((event as { source?: string }).source === "extension" && consumeReplay(text)) {
+      queueContextIfBusy(text, behavior);
       return { action: "continue" as const };
     }
 
@@ -241,6 +258,7 @@ export default function (pi: ExtensionAPI) {
       case "proceed-with-admission": {
         const context = result.context?.text;
         if (context) enqueue(contextByPrompt, text, context);
+        queueContextIfBusy(text, behavior);
         return { action: "continue" as const };
       }
       case "offer": {
@@ -291,7 +309,7 @@ export default function (pi: ExtensionAPI) {
           }
           enqueue(contextByPrompt, text, continued.context.text);
           enqueueReplay(continued.replay_prompt);
-          await pi.sendUserMessage(continued.replay_prompt);
+          await pi.sendUserMessage(continued.replay_prompt, { deliverAs: behavior ?? "followUp" });
           return { action: "handled" as const };
         }
         if (disposition.kind === "unavailable") {
@@ -313,7 +331,7 @@ export default function (pi: ExtensionAPI) {
             return { action: "handled" as const };
           }
           enqueueReplay(replay);
-          await pi.sendUserMessage(replay);
+          await pi.sendUserMessage(replay, { deliverAs: behavior ?? "followUp" });
           return { action: "handled" as const };
         }
         const continued = await runCoordinator(
@@ -325,7 +343,7 @@ export default function (pi: ExtensionAPI) {
         }
         enqueue(contextByPrompt, text, continued.context.text);
         enqueueReplay(text);
-        await pi.sendUserMessage(text);
+        await pi.sendUserMessage(text, { deliverAs: behavior ?? "followUp" });
         return { action: "handled" as const };
       }
       default: {
