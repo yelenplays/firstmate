@@ -121,6 +121,10 @@
   ],
   "surfaces": [
     {
+      "path": "ADOPTION-NOTES.md",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": ".agents/skills/afk/SKILL.md",
       "audience": "agent-runtime"
     },
@@ -242,6 +246,18 @@
     },
     {
       "path": "docs/architecture.md",
+      "audience": "maintainer-architecture"
+    },
+    {
+      "path": "data/bochum-design-system-v1/DESIGN-SYSTEM.md",
+      "audience": "maintainer-architecture"
+    },
+    {
+      "path": "data/bochum-design-system-v1/NOTES.md",
+      "audience": "maintainer-architecture"
+    },
+    {
+      "path": "data/bochum-figma-prototype-v1/PROTOTYPE-NOTES.md",
       "audience": "maintainer-architecture"
     },
     {
