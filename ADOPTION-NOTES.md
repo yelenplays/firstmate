@@ -55,9 +55,7 @@ Apply results matched the plans exactly (plus one
 
 ## Access level chosen, per wiki
 
-Every wiki in this wave is set to the **PictureWiki reference posture**:
-`model_access: {local: full, cloud: digest-only}`, `routing_mode: full`,
-`catalog_visibility: redacted`.
+The three newly adopted canonical wikis use the **PictureWiki reference posture**: `model_access: {local: full, cloud: digest-only}`, `routing_mode: full`, `catalog_visibility: redacted`.
 
 - This is the most restrictive setting that still lets routing work: local
   models route against the full page index, cloud models receive exactly the
@@ -78,11 +76,8 @@ Per-wiki privacy classification:
 - **ClashRoyaleWiki**: `personal-local`. Single-user gaming profile and
   coaching data.
 
-OutreachWiki and VentureWiki already classify every routing slice
-`company-private` **without an explicit cloud access policy, so cloud access
-defaults to `none`** - stricter than this wave's posture. Left unchanged
-(verify-only), recorded here because `doctor` surfaces it as warnings (see
-below).
+OutreachWiki and VentureWiki have schema-v2 per-slice access policies: `{local: full, cloud: full}` except VentureWiki's `RechtGeld` and `Entscheidungen`, which use `{local: full, cloud: digest-only}`.
+The later registry migration replaced the initial implicit `cloud: none` default that the original verify-only check observed.
 
 ## Digests and routing indexes
 
@@ -181,12 +176,16 @@ review and vault-side merge handling.
 
 ## Follow-ups for firstmate / the captain
 
-1. Estate sync: copy or link the five adopted/verified clones into
-   `data/megamind-readonly-pilot/estate/` so `catalog --estate` sees nine
-   wikis (firstmate side; the pilot estate is read-only to me).
-2. Decide whether OutreachWiki/VentureWiki slices get an explicit cloud
-   access policy (currently default `none`, which silences the 35 doctor
-   warnings either way).
+1. ~~Estate sync~~ **done 2026-08-20**: the three adopted clones were already
+   in `data/megamind-readonly-pilot/estate/`; `OutreachWiki` and `VentureWiki`
+   were copied in on top (real directories, `.git`/`.obsidian`/`.serena`
+   excluded, the top-level `CLAUDE.md` symlink dereferenced, because the
+   bounded reader walks every root component with `O_NOFOLLOW` and refuses a
+   symlinked wiki root). `catalog --estate` now reports 10 roots / 27 wikis,
+   0 broken.
+2. ~~Cloud access policy~~ **done 2026-08-20**: both registries migrated to schema v2, and their current per-slice access policy is owned by the Access level chosen section above.
+   Doctor warnings fell from 18 to 9 (VentureWiki) and 17 to 5 (OutreachWiki); every remaining warning is the pre-existing "looks like a wiki but is not registered" notice for deliberately unregistered folders.
+   Cloud preflight now matches `Betrieb` (0.76) for the venture's domain and mail facts and `LocalSearch` (0.80) for Google Business Profile work, where it was `privacy-filtered` before.
 3. Consider a stop-word list or keyword gate for registry-vault routing
    (the "per"/"best" weak-offer finding above).
 4. Commit the new sidecar/scaffold files in the three adopted clones through

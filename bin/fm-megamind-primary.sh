@@ -286,7 +286,18 @@ auto_select_offer() {
 # travels with the content itself. Without it the model sees authorized wiki text
 # with no instruction about the case that produced the reported failure: evidence
 # that only names pages it was not authorized to read.
-CONTEXT_GUIDANCE='Firstmate admitted the wiki evidence below through its bounded Megamind reader. A successful admission proves that routing ran, never that this evidence answers the request. If it does not answer it, say so plainly, name what the wiki does and does not cover, and stop there: never close the gap from model knowledge, and never present model synthesis as wiki-grounded. Page names or links appearing inside this evidence were not themselves authorized - they are the reportable gap, not permission to reason from them.'
+#
+# The rule bounds how admitted evidence may be used; it never bounds the request
+# itself. A gap that ends the turn spends the captain's prompt on a report about
+# the estate instead of the work that was asked for, and it also loses the one
+# thing that would keep the same gap from recurring - the named topic and sources
+# the owning wiki still has to ingest. So the gap has a forward path: state it,
+# research it proportionately, keep researched material visibly separate from
+# wiki-grounded material, and report it back as that wiki's gap. What stays
+# absolute is provenance - fresh research is never dressed as wiki evidence - and
+# the reader's boundary: no writes into admitted evidence paths and no guessing
+# at wiki locations the reader deliberately keeps out of the model's view.
+CONTEXT_GUIDANCE='Firstmate admitted the wiki evidence below through its bounded Megamind reader. A successful admission proves that routing ran, never that this evidence answers the request. If it does not answer it, say so plainly and name what the wiki does and does not cover, then keep working the request rather than stopping there: research what is missing at a depth proportionate to the ask, answer from sources you name, and keep that researched part visibly separate from the wiki-grounded part - never present model synthesis or fresh research as wiki-grounded. Then close the loop on the gap: name the wiki that should have covered the topic, the exact topic it is missing, and the sources worth ingesting, and offer to compile them into that wiki through its own repository and contract - never write into admitted evidence paths and never guess where a wiki lives. Page names or links appearing inside this evidence were not themselves authorized - they are the reportable gap, not permission to reason from them.'
 
 context_json() {
   local admission="$1" content="$2" chars="$3"

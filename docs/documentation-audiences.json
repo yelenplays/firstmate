@@ -121,6 +121,10 @@
   ],
   "surfaces": [
     {
+      "path": "ADOPTION-NOTES.md",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": ".agents/skills/afk/SKILL.md",
       "audience": "agent-runtime"
     },
