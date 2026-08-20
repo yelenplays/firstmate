@@ -316,10 +316,10 @@ pass "the worker expires queued jobs before they can mutate"
 
 FIRST_DELAYED_SIDE_EFFECT="$TMP_ROOT/first-delayed-side-effect"
 SECOND_DELAYED_SIDE_EFFECT="$TMP_ROOT/second-delayed-side-effect"
-FM_REMOTE_JOB_QUEUE_TIMEOUT=7
-FM_REMOTE_JOB_TIMEOUT=5
+FM_REMOTE_JOB_QUEUE_TIMEOUT=5
+FM_REMOTE_JOB_TIMEOUT=3
 fm_remote_job_stage "$ACCOUNT_HOME" "$REMOTE_ROOT" "$REMOTE_HOME" \
-  fm-delay-job.sh 3.5 "$FIRST_DELAYED_SIDE_EFFECT" < /dev/null > /dev/null
+  fm-delay-job.sh 1.8 "$FIRST_DELAYED_SIDE_EFFECT" < /dev/null > /dev/null
 FIRST_JOB_ID=$FM_REMOTE_JOB_ID
 FIRST_JOB_DIR="$STATE_ROOT/jobs/$FIRST_JOB_ID"
 for _ in $(seq 1 100); do
@@ -329,7 +329,7 @@ done
 [ "$(fm_remote_job_read_state "$FIRST_JOB_DIR" 2>/dev/null || true)" = running ] \
   || fail "the first delayed job did not begin running"
 fm_remote_job_stage "$ACCOUNT_HOME" "$REMOTE_ROOT" "$REMOTE_HOME" \
-  fm-delay-job.sh 2.5 "$SECOND_DELAYED_SIDE_EFFECT" < /dev/null > /dev/null
+  fm-delay-job.sh 1.8 "$SECOND_DELAYED_SIDE_EFFECT" < /dev/null > /dev/null
 JOB_ID=$FM_REMOTE_JOB_ID
 fm_remote_job_wait "$ACCOUNT_HOME" "$FIRST_JOB_ID" || fail "$FM_REMOTE_JOB_ERROR"
 fm_remote_job_wait "$ACCOUNT_HOME" "$JOB_ID" || fail "$FM_REMOTE_JOB_ERROR"
@@ -517,27 +517,22 @@ fm_remote_job_reap "$ACCOUNT_HOME" "$JOB_ID" || fail "the bounded-output job cou
 pass "the worker drains bounded output without changing command results"
 
 SIDE_EFFECT="$TMP_ROOT/side-effect"
-TAMPER_ACCOUNT_HOME="$TMP_ROOT/tamper-account"
-TAMPER_STATE_ROOT="$TMP_ROOT/tamper-remote-jobs"
-mkdir -p "$TAMPER_ACCOUNT_HOME"
-# This case needs a job to be staged before its worker starts.  Keep that
-# lifecycle independent of the long-lived fixture worker: stopping the shared
-# Linux worker tree races its asynchronous ownership cleanup and can make the
-# replacement's readiness depend on scheduling rather than the malformed argv.
-export FM_REMOTE_JOB_STATE_ROOT="$TAMPER_STATE_ROOT"
-fm_remote_job_stage "$TAMPER_ACCOUNT_HOME" "$REMOTE_ROOT" "$REMOTE_HOME" fm-touch-job.sh "$SIDE_EFFECT" < /dev/null > /dev/null
+WORKER_PID=$(cat "$STATE_ROOT/worker.pid")
+kill -TERM "$WORKER_PID"
+for _ in $(seq 1 100); do
+  [ ! -f "$STATE_ROOT/worker.pid" ] && break
+  sleep 0.05
+done
+assert_absent "$STATE_ROOT/worker.pid" "the worker did not stop before the staged-record tamper"
+fm_remote_job_stage "$ACCOUNT_HOME" "$REMOTE_ROOT" "$REMOTE_HOME" fm-touch-job.sh "$SIDE_EFFECT" < /dev/null > /dev/null
 JOB_ID=$FM_REMOTE_JOB_ID
-JOB_DIR="$TAMPER_STATE_ROOT/jobs/$JOB_ID"
+JOB_DIR="$STATE_ROOT/jobs/$JOB_ID"
 rm -f -- "$JOB_DIR/argv"
 ln -s "$TMP_ROOT/not-an-argv" "$JOB_DIR/argv"
-fm_remote_job_ensure_worker "$REMOTE_ROOT" "$TAMPER_ACCOUNT_HOME" || fail "$FM_REMOTE_JOB_ERROR"
-fm_remote_job_wait "$TAMPER_ACCOUNT_HOME" "$JOB_ID" || fail "$FM_REMOTE_JOB_ERROR"
+fm_remote_job_ensure_worker "$REMOTE_ROOT" "$ACCOUNT_HOME" || fail "$FM_REMOTE_JOB_ERROR"
+fm_remote_job_wait "$ACCOUNT_HOME" "$JOB_ID" || fail "$FM_REMOTE_JOB_ERROR"
 [ "$FM_REMOTE_JOB_EXIT" -eq 126 ] || fail "the worker accepted a symlinked argv record"
 assert_absent "$SIDE_EFFECT" "the worker executed a job after its argv changed to a symlink"
-TAMPER_WORKER_PID=$(cat "$TAMPER_STATE_ROOT/worker.pid")
-fm_remote_job_stop_worker_tree "$TAMPER_WORKER_PID" \
-  || fail "the tamper worker tree did not stop after the staged-record check"
-export FM_REMOTE_JOB_STATE_ROOT="$STATE_ROOT"
 pass "the worker refuses symlinked job fields before command execution"
 
 QUARANTINE_STARTED="$TMP_ROOT/quarantine-started"
