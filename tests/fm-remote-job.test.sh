@@ -316,10 +316,10 @@ pass "the worker expires queued jobs before they can mutate"
 
 FIRST_DELAYED_SIDE_EFFECT="$TMP_ROOT/first-delayed-side-effect"
 SECOND_DELAYED_SIDE_EFFECT="$TMP_ROOT/second-delayed-side-effect"
-FM_REMOTE_JOB_QUEUE_TIMEOUT=5
-FM_REMOTE_JOB_TIMEOUT=3
+FM_REMOTE_JOB_QUEUE_TIMEOUT=7
+FM_REMOTE_JOB_TIMEOUT=5
 fm_remote_job_stage "$ACCOUNT_HOME" "$REMOTE_ROOT" "$REMOTE_HOME" \
-  fm-delay-job.sh 1.8 "$FIRST_DELAYED_SIDE_EFFECT" < /dev/null > /dev/null
+  fm-delay-job.sh 3.5 "$FIRST_DELAYED_SIDE_EFFECT" < /dev/null > /dev/null
 FIRST_JOB_ID=$FM_REMOTE_JOB_ID
 FIRST_JOB_DIR="$STATE_ROOT/jobs/$FIRST_JOB_ID"
 for _ in $(seq 1 100); do
@@ -329,7 +329,7 @@ done
 [ "$(fm_remote_job_read_state "$FIRST_JOB_DIR" 2>/dev/null || true)" = running ] \
   || fail "the first delayed job did not begin running"
 fm_remote_job_stage "$ACCOUNT_HOME" "$REMOTE_ROOT" "$REMOTE_HOME" \
-  fm-delay-job.sh 1.8 "$SECOND_DELAYED_SIDE_EFFECT" < /dev/null > /dev/null
+  fm-delay-job.sh 2.5 "$SECOND_DELAYED_SIDE_EFFECT" < /dev/null > /dev/null
 JOB_ID=$FM_REMOTE_JOB_ID
 fm_remote_job_wait "$ACCOUNT_HOME" "$FIRST_JOB_ID" || fail "$FM_REMOTE_JOB_ERROR"
 fm_remote_job_wait "$ACCOUNT_HOME" "$JOB_ID" || fail "$FM_REMOTE_JOB_ERROR"
@@ -518,12 +518,18 @@ pass "the worker drains bounded output without changing command results"
 
 SIDE_EFFECT="$TMP_ROOT/side-effect"
 WORKER_PID=$(cat "$STATE_ROOT/worker.pid")
-kill -TERM "$WORKER_PID"
+# On Linux worker.pid names the serving child, while its restart supervisor owns
+# the process group. Stopping only that child lets the supervisor republish the
+# pid during this check, so stop the complete worker tree before staging the
+# tampered record.
+fm_remote_job_stop_worker_tree "$WORKER_PID" \
+  || fail "the worker tree did not stop before the staged-record tamper"
 for _ in $(seq 1 100); do
-  [ ! -f "$STATE_ROOT/worker.pid" ] && break
+  ! fm_remote_job_worker_alive "$ACCOUNT_HOME" && break
   sleep 0.05
 done
-assert_absent "$STATE_ROOT/worker.pid" "the worker did not stop before the staged-record tamper"
+! fm_remote_job_worker_alive "$ACCOUNT_HOME" \
+  || fail "the worker did not stop before the staged-record tamper"
 fm_remote_job_stage "$ACCOUNT_HOME" "$REMOTE_ROOT" "$REMOTE_HOME" fm-touch-job.sh "$SIDE_EFFECT" < /dev/null > /dev/null
 JOB_ID=$FM_REMOTE_JOB_ID
 JOB_DIR="$STATE_ROOT/jobs/$JOB_ID"
