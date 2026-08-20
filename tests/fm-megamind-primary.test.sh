@@ -183,7 +183,7 @@ test_no_match_and_privacy_filter() {
 }
 
 test_matched_reader_context_and_privacy() {
-  local home fixture out
+  local home fixture out guidance
   home=$(new_home matched); install_stub "$home"; fixture=$(make_fixture "$home" matched)
   out=$(FM_TEST_FIXTURE="$fixture" run_in "$home" process --harness pi --session-id session-aaaaaaaa --submission-id submission-eeeeeeee <<< 'request contains PROMPT-SECRET-CANARY')
   [ "$(printf '%s' "$out" | jq -r .decision)" = proceed-with-admission ] || fail "matched request was not admitted: $out"
@@ -192,7 +192,25 @@ test_matched_reader_context_and_privacy() {
   assert_not_contains "$out" PROMPT-SECRET-CANARY 'prompt entered decision output'
   assert_not_contains "$out" "$home/estate" 'absolute root entered decision output'
   [ "$(find "$home/state" -name '*.megamind-preflight.json' | wc -l | tr -d ' ')" = 1 ] || fail "matched authorization was not private and durable"
+  # The rule that travels with the evidence bounds how it may be used, never
+  # the request: an admitted turn whose evidence falls short must still be told
+  # to research the gap, keep that research out of wiki grounding, and report
+  # the gap back for the owning wiki rather than end the turn on it.
+  guidance=$(printf '%s' "$out" | jq -r .context.guidance)
+  case "$guidance" in
+    *"rather than stopping there"*) : ;;
+    *) fail "admitted context still ends the turn on an evidence gap: $guidance" ;;
+  esac
+  case "$guidance" in
+    *"never present model synthesis or fresh research as wiki-grounded"*) : ;;
+    *) fail "admitted context lost the provenance invariant for researched material: $guidance" ;;
+  esac
+  case "$guidance" in
+    *"never guess where a wiki lives"*) : ;;
+    *) fail "admitted context lost the reader boundary for gap reporting: $guidance" ;;
+  esac
   pass "coordinator: matched content comes only from the bounded reader with provenance"
+  pass "coordinator: admitted evidence carries a researchable gap path, not a stop"
 }
 
 test_failures_and_unsupported() {

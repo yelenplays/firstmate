@@ -66,10 +66,12 @@ A resolution that cannot complete continues the prompt without wiki evidence, so
 ## Admitted evidence that cannot answer the request
 
 A successful preflight and a successful admission prove that routing ran, never that the admitted content answers the question.
-When the admitted evidence does not answer it, state that evidence gap plainly and stop; name what the wiki does cover and what it does not.
-Never close the gap from model knowledge, and never present model synthesis as wiki-grounded, whatever `preflight_id` the turn is carrying.
-Admitted content that only names or links pages which were not themselves authorized is exactly this case: those page names are the reportable gap, not permission to reason from them.
-This rule applies identically to a threshold `matched` result and to an `authorized` explicit selection, and it is the one case where wiki evidence outranking model priors means answering with less rather than more.
+When the admitted evidence does not answer it, state that evidence gap plainly and name what the wiki does cover and what it does not, then keep working the request rather than ending the turn on that report.
+Close the gap the ordinary way: research the missing part at a depth proportionate to the request, answer from sources you name, and keep that researched part visibly separate from the wiki-grounded part.
+Never present model knowledge or fresh research as wiki-grounded, whatever `preflight_id` the turn is carrying - provenance is the invariant this rule protects, not silence.
+Then report the gap as the owning wiki's: its name, the exact topic it is missing, and the sources worth ingesting, so the knowledge can be compiled into that wiki through its own repository and contract.
+Admitted content that only names or links pages which were not themselves authorized is exactly this case: those page names are the reportable gap, not permission to reason from them, and never a path to open or write.
+This rule applies identically to a threshold `matched` result and to an `authorized` explicit selection: what the wiki grounds outranks model priors, and what it does not ground is answered as research and labeled as research.
 
 ## Ordinary worker launch guidance
 
@@ -87,8 +89,8 @@ A secondmate's own `fm-spawn.sh` performs the same step with that secondmate hom
 
 ## Boundaries
 
-This pilot is read-only.
-It adds no autonomous research, wiki mutation, gap commissioning, wiki creation, publication, remote or account changes, merges, security changes, or billing behavior.
+This pilot is read-only over the wiki estate.
+Researching what the captain asked for is ordinary work and is expected when admitted evidence falls short, but its result is answered and reported, never written back: the integration still performs no wiki mutation, gap commissioning, wiki creation, publication, remote or account changes, merges, security changes, or billing behavior, and knowledge enters a wiki only through that wiki's own repository and contract.
 Proof is minimal and non-verbatim (the script's header owns the exact log fields); never record prompt text, credentials, wiki content, the original ambiguous packet, or unrelated control messages.
 The private pending-selection record is not worker input and its opaque `selection_id` is the only continuation handle that may appear in the normalized result.
 The integration is harness- and runtime-backend-neutral: it depends only on the bash surface above and applies identically on every verified primary harness and spawn backend.

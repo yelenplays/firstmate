@@ -331,7 +331,8 @@ On \`no-match\`, \`ambiguous\`, or \`privacy-filtered\`, load no wiki content an
 On \`unavailable\`, disclose that preflight ran but found no usable wiki coverage as a concrete blocker rather than proceeding as if coverage existed.
 A \`no-match\`, \`ambiguous\`, \`privacy-filtered\`, or \`unavailable\` binding is a benign non-authorizing result: if you nonetheless call \`admit\` against one, its \`authorization_not_matched\` refusal is ordinary, not a blocker to escalate.
 That file is the authoritative consultation for this task, and the owning-home reader is the authoritative content-admission boundary.
-A successful admission proves that routing ran, never that this evidence answers the request: when the admitted evidence does not answer it, state that evidence gap plainly and stop rather than closing it from model knowledge or presenting model synthesis as wiki-grounded.
+A successful admission proves that routing ran, never that this evidence answers the request: when the admitted evidence does not answer it, state that evidence gap plainly, then keep working the task rather than stopping - research what is missing at a depth proportionate to the task, answer from sources you name, and keep that researched part visibly separate from the wiki-grounded part; never present model knowledge or fresh research as wiki-grounded.
+Close the loop on that gap in your progress note and final report: name the wiki that should have covered the topic, the exact topic it is missing, and the sources worth ingesting, so the knowledge can be compiled into the owning wiki through its own repository and contract; never write into admitted evidence paths and never guess where a wiki lives.
 Page names or links appearing inside admitted evidence were not themselves authorized - they are the reportable gap, not permission to reason from them.
 EOF
 MEGAMIND_SECTION=${MEGAMIND_SECTION%$'\n'}

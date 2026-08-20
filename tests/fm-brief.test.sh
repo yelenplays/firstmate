@@ -836,6 +836,15 @@ test_worker_scaffolds_carry_the_megamind_routing_artifacts() {
     # worktree.
     assert_grep "never that this evidence answers the request" "$brief" \
       "$kind: brief carries no evidence-gap rule for admitted wiki content"
+    # The gap must route forward, not end the task: a worker that only reports
+    # the gap spends the whole task on a report about the estate, and the topic
+    # and sources the owning wiki still has to ingest are lost with the turn.
+    assert_grep "keep working the task rather than stopping" "$brief" \
+      "$kind: brief turns an evidence gap into a stop instead of a research path"
+    assert_grep "the sources worth ingesting" "$brief" \
+      "$kind: brief does not tell the worker to report the gap back for the owning wiki"
+    assert_grep "never present model knowledge or fresh research as wiki-grounded" "$brief" \
+      "$kind: brief lost the provenance rule that keeps researched material out of wiki grounding"
     assert_grep "not permission to reason from them" "$brief" \
       "$kind: brief does not warn that page names inside evidence are not themselves authorized"
     # A no-match, ambiguous, privacy-filtered, or unavailable binding is benign,
