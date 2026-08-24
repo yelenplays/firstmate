@@ -464,7 +464,7 @@ test_check_reports_a_recorded_loader_that_later_vanished() {
 }
 
 test_check_reports_retired_pointers_and_their_recorded_loaders() {
-  local root dest mirror manifest out
+  local root dest mirror manifest retired_loader out
   root="$TMP_ROOT/retired-check"
   build_plugin "$root"
   dest="$root/skills"
@@ -482,20 +482,37 @@ test_check_reports_retired_pointers_and_their_recorded_loaders() {
     >"$manifest.new"
   mv "$manifest.new" "$manifest"
 
+  retired_loader="$root/retired-loader.sh"
+  cp "$mirror/fm-matt-skill.sh" "$retired_loader"
+  sed "s|^loader=.*|loader=$retired_loader|" \
+    "$dest/matt-grilling/.firstmate-pointer" \
+    >"$dest/matt-grilling/.firstmate-pointer.new"
+  mv "$dest/matt-grilling/.firstmate-pointer.new" \
+    "$dest/matt-grilling/.firstmate-pointer"
+
   out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
   expect_code 1 $? "--check passed a retired pointer"
   assert_contains "$out" 'RETIRED' "--check did not identify the retired pointer"
   assert_contains "$out" 'matt-grilling' "--check did not name the retired pointer"
   assert_not_contains "$out" 'BROKEN' \
     "--check reported a healthy retired pointer as broken"
+  assert_not_contains "$out" 'matt-tdd' \
+    "--check reported a declared pointer while only the retired pointer drifted"
+  assert_not_contains "$out" 'matt-wayfinder' \
+    "--check reported a declared pointer while only the retired pointer drifted"
 
-  chmod -x "$mirror/fm-matt-skill.sh"
+  chmod -x "$retired_loader"
   out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
   expect_code 1 $? "--check passed a retired pointer with a dead loader"
   assert_contains "$out" 'RETIRED' "--check hid the retired pointer with a dead loader"
-  assert_contains "$out" 'BROKEN' "--check did not audit the retired pointer loader"
-  assert_contains "$out" "$mirror/fm-matt-skill.sh" \
+  assert_contains "$out" "BROKEN: $dest/matt-grilling/SKILL.md" \
+    "--check did not identify the retired pointer with a dead loader"
+  assert_contains "$out" "$retired_loader" \
     "--check did not name the retired pointer's recorded loader"
+  assert_not_contains "$out" 'matt-tdd' \
+    "--check reported a declared pointer while only the retired loader was dead"
+  assert_not_contains "$out" 'matt-wayfinder' \
+    "--check reported a declared pointer while only the retired loader was dead"
   pass "--check audits retired pointers and their recorded loaders"
 }
 
