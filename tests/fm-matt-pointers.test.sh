@@ -568,6 +568,52 @@ test_check_audits_all_retired_pointers_without_an_identity_skill() {
   pass "--check audits all retired pointers without an identity skill"
 }
 
+test_check_reports_combined_pointer_faults_once_each() {
+  local root dest drift_loader missing_loader out
+  root="$TMP_ROOT/combined-check"
+  build_plugin "$root"
+  dest="$root/skills"
+  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null
+
+  drift_loader="$root/drift-loader.sh"
+  missing_loader="$root/missing-loader.sh"
+  cp "$LOADER" "$drift_loader"
+  cp "$LOADER" "$missing_loader"
+  sed "s|^loader=.*|loader=$drift_loader|" \
+    "$dest/matt-tdd/.firstmate-pointer" \
+    >"$dest/matt-tdd/.firstmate-pointer.new"
+  mv "$dest/matt-tdd/.firstmate-pointer.new" \
+    "$dest/matt-tdd/.firstmate-pointer"
+  sed "s|^loader=.*|loader=$missing_loader|" \
+    "$dest/matt-wayfinder/.firstmate-pointer" \
+    >"$dest/matt-wayfinder/.firstmate-pointer.new"
+  mv "$dest/matt-wayfinder/.firstmate-pointer.new" \
+    "$dest/matt-wayfinder/.firstmate-pointer"
+  chmod -x "$drift_loader" "$missing_loader"
+  printf 'drifted content\n' >>"$dest/matt-tdd/SKILL.md"
+  rm -f "$dest/matt-wayfinder/SKILL.md"
+
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  expect_code 1 $? "--check passed pointers with combined faults"
+  assert_contains "$out" "DRIFTED: $dest/matt-tdd/SKILL.md" \
+    "--check did not report the drifted pointer"
+  assert_contains "$out" "BROKEN: $dest/matt-tdd/SKILL.md" \
+    "--check did not report the drifted pointer's dead loader"
+  assert_contains "$out" "$drift_loader" \
+    "--check did not name the drifted pointer's recorded loader"
+  assert_contains "$out" "MISSING: $dest/matt-wayfinder/SKILL.md" \
+    "--check did not report the missing pointer body"
+  assert_contains "$out" "BROKEN: $dest/matt-wayfinder/SKILL.md" \
+    "--check did not report the missing pointer body's dead loader"
+  assert_contains "$out" "$missing_loader" \
+    "--check did not name the missing pointer's recorded loader"
+  assert_contains "$out" 'drift=2 foreign=0' \
+    "--check counted combined diagnostics instead of unhealthy pointers"
+  assert_not_contains "$out" 'matt-grilling' \
+    "--check reported a pointer whose loader remained executable"
+  pass "--check reports combined pointer faults without double-counting"
+}
+
 test_loader_prints_original_bytes_and_identity
 test_loader_refuses_without_printing_anything
 test_loader_reports_drift_without_hiding_the_original
@@ -583,3 +629,4 @@ test_generated_pointer_loads_through_the_shipped_loader
 test_check_reports_a_recorded_loader_that_later_vanished
 test_check_reports_retired_pointers_and_their_recorded_loaders
 test_check_audits_all_retired_pointers_without_an_identity_skill
+test_check_reports_combined_pointer_faults_once_each

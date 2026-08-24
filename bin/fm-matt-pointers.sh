@@ -40,7 +40,8 @@
 #   --check        exit 1 when an installed pointer is missing, foreign, has
 #                  drifted from what upstream would generate now, is retired
 #                  upstream even when no skills remain declared, or names a
-#                  loader that is no longer executable
+#                  loader that is no longer executable; every applicable state
+#                  is reported independently
 #   --prune        remove firstmate pointers whose upstream skill is gone
 #   --uninstall    remove every firstmate pointer under --dest. Use this when a
 #                  runtime turns out to read the installed plugin directly and
@@ -367,26 +368,34 @@ printf '%s\n' "$SKILLS" | {
     # audit running from a different checkout than the install did.
     stamp=$STAMP
     loader=$LOADER_PATH
+    recorded_loader=
     if [ "$MODE" = check ] && [ -f "$dir/$MARKER" ]; then
       existing=$(sed -n 's/^generated=//p' "$dir/$MARKER" | head -n 1)
       [ -z "$existing" ] || stamp=$existing
       recorded=$(sed -n 's/^loader=//p' "$dir/$MARKER" | head -n 1)
-      [ -z "$recorded" ] || loader=$recorded
+      if [ -n "$recorded" ]; then
+        loader=$recorded
+        recorded_loader=$recorded
+      fi
     fi
 
     want=$(render_pointer "$s" "$pname" "$desc" "$dmi" "$hint" "$stamp" "$loader")
 
     if [ "$MODE" = check ]; then
+      pointer_drift=0
       if [ ! -f "$file" ]; then
         printf 'MISSING: %s\n' "$file" >&2
-        drift=$((drift + 1))
-        status=1
+        pointer_drift=1
       elif ! printf '%s\n' "$want" | cmp -s - "$file"; then
         printf 'DRIFTED: %s no longer matches the installed plugin front matter\n' "$file" >&2
-        drift=$((drift + 1))
-        status=1
-      elif [ ! -x "$loader" ]; then
-        printf 'BROKEN: %s points at a loader that is not executable: %s\n' "$file" "$loader" >&2
+        pointer_drift=1
+      fi
+      if [ -n "$recorded_loader" ] && [ ! -x "$recorded_loader" ]; then
+        printf 'BROKEN: %s points at a loader that is not executable: %s\n' \
+          "$file" "$recorded_loader" >&2
+        pointer_drift=1
+      fi
+      if [ "$pointer_drift" -eq 1 ]; then
         drift=$((drift + 1))
         status=1
       fi

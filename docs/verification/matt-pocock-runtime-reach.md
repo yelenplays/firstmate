@@ -97,7 +97,7 @@ The case fails with `loader is missing or not executable` when the repo does not
 bin/fm-matt-pointers.sh --check --dest ~/.agents/skills
 ```
 
-It reports `MISSING` for a declared skill with no pointer, `DRIFTED` for front matter behind the installed plugin, `RETIRED` for a marked pointer whose upstream skill is no longer declared even when the manifest is empty, and `BROKEN` for a recorded loader that is no longer executable.
+It reports every applicable state independently: `MISSING` for a declared skill with no pointer, `DRIFTED` for front matter behind the installed plugin, `RETIRED` for a marked pointer whose upstream skill is no longer declared even when the manifest is empty, and `BROKEN` for a recorded loader that is no longer executable.
 This mode writes nothing.
 
 The live set is currently behind the install: 22 pointers against 25 declared skills, `drift=25`.
@@ -142,3 +142,5 @@ Re-establish any unverified row before relying on it to add or remove a pointer 
 `test_check_reports_retired_pointers_and_their_recorded_loaders` proves that `--check` reports a retired pointer with an executable recorded loader and reports its recorded loader as `BROKEN` after it becomes non-executable.
 
 `test_check_audits_all_retired_pointers_without_an_identity_skill` proves that `--check` reports every marked pointer as retired when the manifest declares no skills, continues to audit their recorded loaders, and leaves an unmarked foreign directory untouched.
+
+`test_check_reports_combined_pointer_faults_once_each` proves that `--check` reports both `DRIFTED` and `BROKEN` or both `MISSING` and `BROKEN` for one pointer while counting that pointer once in `drift`.
