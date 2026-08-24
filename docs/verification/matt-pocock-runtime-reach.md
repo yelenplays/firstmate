@@ -110,7 +110,7 @@ Re-running `bin/fm-matt-pointers.sh --prune` then a plain install from the stabl
 |---|---|---|---|
 | `claude` | 2.1.228 | yes, it owns the plugin | no |
 | `grok` | 1.0.5 | yes, re-verified below | no |
-| `kimi` | 0.36.1 | no reference to the plugin cache at 0.31.0 | yes |
+| `kimi` | 0.36.1 | not re-established | not established |
 | `codex` | 0.145.0 | no reference to the plugin cache at 0.145.0 | yes, with `--dest ~/.codex/skills` |
 | `pi` | 0.84.2 | not established | not established |
 
