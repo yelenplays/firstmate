@@ -516,6 +516,58 @@ test_check_reports_retired_pointers_and_their_recorded_loaders() {
   pass "--check audits retired pointers and their recorded loaders"
 }
 
+test_check_audits_all_retired_pointers_without_an_identity_skill() {
+  local root dest mirror manifest retired_loader out
+  root="$TMP_ROOT/all-retired-check"
+  build_plugin "$root"
+  dest="$root/skills"
+
+  mkdir -p "$root/mirror/bin"
+  mirror=$(CDPATH='' cd -- "$root/mirror/bin" && pwd -P)
+  cp "$LOADER" "$POINTERS" "$ROOT/bin/fm-skill-path.sh" "$mirror/"
+
+  CLAUDE_CONFIG_DIR="$root/config" "$mirror/fm-matt-pointers.sh" \
+    --dest "$dest" --date 2026-07-30 >/dev/null \
+    || fail "pointer install from the mirrored checkout failed"
+
+  retired_loader="$root/all-retired-loader.sh"
+  cp "$mirror/fm-matt-skill.sh" "$retired_loader"
+  sed "s|^loader=.*|loader=$retired_loader|" \
+    "$dest/matt-tdd/.firstmate-pointer" \
+    >"$dest/matt-tdd/.firstmate-pointer.new"
+  mv "$dest/matt-tdd/.firstmate-pointer.new" \
+    "$dest/matt-tdd/.firstmate-pointer"
+  chmod -x "$retired_loader"
+
+  manifest="$root/install/.claude-plugin/plugin.json"
+  jq '.skills = []' "$manifest" >"$manifest.new"
+  mv "$manifest.new" "$manifest"
+  mkdir -p "$dest/foreign-skill"
+  printf 'foreign skill remains untouched\n' >"$dest/foreign-skill/SKILL.md"
+
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  expect_code 1 $? "--check did not report an all-retired pointer set as drift"
+  assert_contains "$out" "RETIRED: $dest/matt-tdd" \
+    "--check did not report the retired tdd pointer"
+  assert_contains "$out" "RETIRED: $dest/matt-wayfinder" \
+    "--check did not report the retired wayfinder pointer"
+  assert_contains "$out" "RETIRED: $dest/matt-grilling" \
+    "--check did not report the retired grilling pointer"
+  assert_contains "$out" "BROKEN: $dest/matt-tdd/SKILL.md" \
+    "--check did not report the dead all-retired loader"
+  assert_contains "$out" "$retired_loader" \
+    "--check did not name the dead all-retired loader"
+  assert_not_contains "$out" "BROKEN: $dest/matt-wayfinder/SKILL.md" \
+    "--check reported an executable all-retired loader as broken"
+  assert_not_contains "$out" "BROKEN: $dest/matt-grilling/SKILL.md" \
+    "--check reported an executable all-retired loader as broken"
+  assert_not_contains "$out" "$dest/foreign-skill" \
+    "--check reported an unmarked foreign directory as a pointer"
+  assert_grep 'foreign skill remains untouched' "$dest/foreign-skill/SKILL.md" \
+    "--check changed an unmarked foreign directory"
+  pass "--check audits all retired pointers without an identity skill"
+}
+
 test_loader_prints_original_bytes_and_identity
 test_loader_refuses_without_printing_anything
 test_loader_reports_drift_without_hiding_the_original
@@ -530,3 +582,4 @@ test_retired_skills_are_pruned_and_reinstalls_are_idempotent
 test_generated_pointer_loads_through_the_shipped_loader
 test_check_reports_a_recorded_loader_that_later_vanished
 test_check_reports_retired_pointers_and_their_recorded_loaders
+test_check_audits_all_retired_pointers_without_an_identity_skill

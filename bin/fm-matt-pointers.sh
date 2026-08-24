@@ -39,7 +39,8 @@
 #   --list         print "<pointer-name> <upstream-skill> <invocation>" and exit
 #   --check        exit 1 when an installed pointer is missing, foreign, has
 #                  drifted from what upstream would generate now, is retired
-#                  upstream, or names a loader that is no longer executable
+#                  upstream even when no skills remain declared, or names a
+#                  loader that is no longer executable
 #   --prune        remove firstmate pointers whose upstream skill is gone
 #   --uninstall    remove every firstmate pointer under --dest. Use this when a
 #                  runtime turns out to read the installed plugin directly and
@@ -143,15 +144,21 @@ while IFS= read -r declared; do
 done <<EOF
 $SKILLS
 EOF
-[ -n "$IDENTITY_SKILL" ] \
-  || die 6 "$PLUGIN_KEY declares no skills, so there is nothing to point at"
-
-IDENTITY=$("$LOADER" "$IDENTITY_SKILL" --check)
-VERSION=$(printf '%s\n' "$IDENTITY" | sed -n 's/^resolved_version=//p' | head -n 1)
-COMMIT=$(printf '%s\n' "$IDENTITY" | sed -n 's/^resolved_commit=//p' | head -n 1)
-SKILL_ROOT=$(printf '%s\n' "$IDENTITY" | sed -n 's/^skill_file=//p' | head -n 1)
-[ -n "$VERSION" ] || die 6 "could not read the resolved plugin version from the loader"
-INSTALL_ROOT=${SKILL_ROOT%/skills/*}
+HAVE_IDENTITY=0
+VERSION=
+COMMIT=
+INSTALL_ROOT=
+if [ -n "$IDENTITY_SKILL" ]; then
+  IDENTITY=$("$LOADER" "$IDENTITY_SKILL" --check)
+  VERSION=$(printf '%s\n' "$IDENTITY" | sed -n 's/^resolved_version=//p' | head -n 1)
+  COMMIT=$(printf '%s\n' "$IDENTITY" | sed -n 's/^resolved_commit=//p' | head -n 1)
+  SKILL_ROOT=$(printf '%s\n' "$IDENTITY" | sed -n 's/^skill_file=//p' | head -n 1)
+  [ -n "$VERSION" ] || die 6 "could not read the resolved plugin version from the loader"
+  INSTALL_ROOT=${SKILL_ROOT%/skills/*}
+  HAVE_IDENTITY=1
+elif [ "$MODE" != check ]; then
+  die 6 "$PLUGIN_KEY declares no skills, so there is nothing to point at"
+fi
 
 # --- upstream front-matter reads ---------------------------------------------
 
@@ -425,7 +432,9 @@ printf '%s\n' "$SKILLS" | {
       status=1
     done
 
-    if [ "$status" -eq 0 ]; then
+    if [ "$status" -eq 0 ] && [ "$HAVE_IDENTITY" -eq 0 ]; then
+      printf 'ok - no declared skills or marked pointers under %s\n' "$DEST"
+    elif [ "$status" -eq 0 ]; then
       printf 'ok - %s pointers under %s match %s %s\n' \
         "$(printf '%s\n' "$SKILLS" | grep -c .)" "$DEST" "$PLUGIN_KEY" "$VERSION"
     else

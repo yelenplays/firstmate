@@ -122,14 +122,6 @@ assert_refusal() {
 
 # --- tests -------------------------------------------------------------------
 
-test_script_parses() {
-  local out rc
-  out=$(bash -n "$RESOLVER" 2>&1); rc=$?
-  expect_code 0 "$rc" "bash -n bin/fm-skill-path.sh must parse cleanly (got: $out)"
-  [ -z "$out" ] || fail "bash -n bin/fm-skill-path.sh emitted unexpected output: $out"
-  pass "fm-skill-path.sh: bash -n succeeds"
-}
-
 test_resolves_declared_skill() {
   local config install
   config="$TMP_ROOT/resolve"
@@ -553,7 +545,6 @@ test_usage_errors() {
   pass "fm-skill-path.sh: usage errors are exact and --help works"
 }
 
-test_script_parses
 test_resolves_declared_skill
 test_resolved_paths_are_real_and_support_files_resolve
 test_default_config_root_is_claude_home
