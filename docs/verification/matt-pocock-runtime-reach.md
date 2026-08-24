@@ -97,7 +97,7 @@ The case fails with `loader is missing or not executable` when the repo does not
 bin/fm-matt-pointers.sh --check --dest ~/.agents/skills
 ```
 
-It reports `MISSING` for a declared skill with no pointer, `DRIFTED` for front matter behind the installed plugin, and `BROKEN` for a recorded loader that is no longer executable.
+It reports `MISSING` for a declared skill with no pointer, `DRIFTED` for front matter behind the installed plugin, `RETIRED` for a marked pointer whose upstream skill is no longer declared, and `BROKEN` for a recorded loader that is no longer executable.
 This mode writes nothing.
 
 The live set is currently behind the install: 22 pointers against 25 declared skills, `drift=25`.
@@ -137,4 +137,6 @@ Re-establish any unverified row before relying on it to add or remove a pointer 
 
 `tests/fm-skill-path.test.sh` covers the resolver: identity, support-file resolution, a custom `CLAUDE_CONFIG_DIR`, paths containing spaces, expected version and commit pins, and refusal of missing, disabled, ambiguous, tampered, symlinked, and malformed installs.
 
-`tests/fm-matt-pointers.test.sh` builds a fake plugin under a private `CLAUDE_CONFIG_DIR` and covers the loader and the generator without touching the real install: original bytes plus attribution on success; silent-stdout refusal for a moved, absent, disabled, swapped, undeclared, symlinked, or misnamed install; loud but non-fatal version drift and outright refusal under `--require-validated-pin`; delegation to `bin/fm-skill-path.sh` including its exit statuses, and the loader's own silent-stdout 127 refusal without that owner; pointers that carry attribution and no procedure; mirrored invocation flags; the hard-stop instruction; `--check` catching edited, missing, and inert pointers; unmarked directories surviving install and uninstall; a generated pointer's Step 1 running against the loader the repo ships; and `--check` naming a recorded loader that later vanished.
+`tests/fm-matt-pointers.test.sh` builds a fake plugin under a private `CLAUDE_CONFIG_DIR` and covers the loader and the generator without touching the real install: original bytes plus attribution on success; silent-stdout refusal for a moved, absent, disabled, swapped, undeclared, symlinked, or misnamed install; loud but non-fatal version drift and outright refusal under `--require-validated-pin`; delegation to `bin/fm-skill-path.sh` including its exit statuses, and the loader's own silent-stdout 127 refusal without that owner; pointers that carry attribution and no procedure; mirrored invocation flags; the hard-stop instruction; `--check` catching edited, missing, inert, and retired pointers; unmarked directories surviving install and uninstall; a generated pointer's Step 1 running against the loader the repo ships; and `--check` naming a recorded loader that later vanished.
+
+`test_check_reports_retired_pointers_and_their_recorded_loaders` proves that `--check` reports a retired pointer with an executable recorded loader and reports its recorded loader as `BROKEN` after it becomes non-executable.

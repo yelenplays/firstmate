@@ -463,6 +463,42 @@ test_check_reports_a_recorded_loader_that_later_vanished() {
   pass "--check names pointers whose recorded loader no longer exists"
 }
 
+test_check_reports_retired_pointers_and_their_recorded_loaders() {
+  local root dest mirror manifest out
+  root="$TMP_ROOT/retired-check"
+  build_plugin "$root"
+  dest="$root/skills"
+
+  mkdir -p "$root/mirror/bin"
+  mirror=$(CDPATH='' cd -- "$root/mirror/bin" && pwd -P)
+  cp "$LOADER" "$POINTERS" "$ROOT/bin/fm-skill-path.sh" "$mirror/"
+
+  CLAUDE_CONFIG_DIR="$root/config" "$mirror/fm-matt-pointers.sh" \
+    --dest "$dest" --date 2026-07-30 >/dev/null \
+    || fail "pointer install from the mirrored checkout failed"
+
+  manifest="$root/install/.claude-plugin/plugin.json"
+  jq '.skills |= map(select(. != "./skills/productivity/grilling"))' "$manifest" \
+    >"$manifest.new"
+  mv "$manifest.new" "$manifest"
+
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  expect_code 1 $? "--check passed a retired pointer"
+  assert_contains "$out" 'RETIRED' "--check did not identify the retired pointer"
+  assert_contains "$out" 'matt-grilling' "--check did not name the retired pointer"
+  assert_not_contains "$out" 'BROKEN' \
+    "--check reported a healthy retired pointer as broken"
+
+  chmod -x "$mirror/fm-matt-skill.sh"
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  expect_code 1 $? "--check passed a retired pointer with a dead loader"
+  assert_contains "$out" 'RETIRED' "--check hid the retired pointer with a dead loader"
+  assert_contains "$out" 'BROKEN' "--check did not audit the retired pointer loader"
+  assert_contains "$out" "$mirror/fm-matt-skill.sh" \
+    "--check did not name the retired pointer's recorded loader"
+  pass "--check audits retired pointers and their recorded loaders"
+}
+
 test_loader_prints_original_bytes_and_identity
 test_loader_refuses_without_printing_anything
 test_loader_reports_drift_without_hiding_the_original
@@ -476,3 +512,4 @@ test_foreign_directories_are_never_written_or_removed
 test_retired_skills_are_pruned_and_reinstalls_are_idempotent
 test_generated_pointer_loads_through_the_shipped_loader
 test_check_reports_a_recorded_loader_that_later_vanished
+test_check_reports_retired_pointers_and_their_recorded_loaders

@@ -38,8 +38,8 @@
 #   --dry-run      print what would change, write nothing
 #   --list         print "<pointer-name> <upstream-skill> <invocation>" and exit
 #   --check        exit 1 when an installed pointer is missing, foreign, has
-#                  drifted from what upstream would generate now, or names a
-#                  loader that is no longer executable
+#                  drifted from what upstream would generate now, is retired
+#                  upstream, or names a loader that is no longer executable
 #   --prune        remove firstmate pointers whose upstream skill is gone
 #   --uninstall    remove every firstmate pointer under --dest. Use this when a
 #                  runtime turns out to read the installed plugin directly and
@@ -403,6 +403,28 @@ printf '%s\n' "$SKILLS" | {
   done
 
   if [ "$MODE" = check ]; then
+    # Declared skills above cannot expose a pointer whose upstream entry was
+    # removed, so scan every marked destination directory as well.
+    for dir in "$DEST"/*; do
+      [ -d "$dir" ] || continue
+      is_pointer_dir "$dir" || continue
+      skill=$(sed -n 's/^upstream_skill=//p' "$dir/$MARKER" | head -n 1)
+      [ -n "$skill" ] || skill=${dir##*/}
+      case "$skill" in "$PREFIX"*) skill=${skill#"$PREFIX"} ;; esac
+      printf '%s\n' "$SKILLS" | grep -qx -- "$skill" && continue
+
+      file="$dir/SKILL.md"
+      loader=$(sed -n 's/^loader=//p' "$dir/$MARKER" | head -n 1)
+      printf 'RETIRED: %s no longer declares upstream skill %s\n' \
+        "$dir" "$skill" >&2
+      if [ ! -x "$loader" ]; then
+        printf 'BROKEN: %s points at a loader that is not executable: %s\n' \
+          "$file" "$loader" >&2
+      fi
+      drift=$((drift + 1))
+      status=1
+    done
+
     if [ "$status" -eq 0 ]; then
       printf 'ok - %s pointers under %s match %s %s\n' \
         "$(printf '%s\n' "$SKILLS" | grep -c .)" "$DEST" "$PLUGIN_KEY" "$VERSION"
