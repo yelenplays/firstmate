@@ -1,0 +1,44 @@
+$ bin/fm-matt-skill.sh code-review --check
+===== FIRSTMATE POINTER: ORIGINAL SKILL LOADED =====
+skill=code-review
+author=Matt Pocock
+license=MIT
+upstream=https://github.com/mattpocock/skills
+plugin=mattpocock-skills@claude-plugins-official
+scope=user
+resolved_version=1.2.3
+resolved_commit=2ab958093e83e0ec752e6c1c5932da465bf23e0c
+validated_version=1.2.0
+validated_commit=2ab958093e83e0ec752e6c1c5932da465bf23e0c
+pin=changed
+skill_file=/Users/yelen/.claude/plugins/cache/claude-plugins-official/mattpocock-skills/1.2.3/skills/engineering/code-review/SKILL.md
+skill_file_sha256=9cf46653dd9c710ea1e6c22423caf31a794c88773bc94bdaa23140277f470442
+resolved_by=bin/fm-skill-path.sh
+
+!!! PLUGIN CHANGED !!!
+The installed plugin is 1.2.3 (2ab958093e83e0ec752e6c1c5932da465bf23e0c), not the 1.2.0 (2ab958093e83e0ec752e6c1c5932da465bf23e0c) this pointer was validated against.
+The bytes below are the installed original and are authoritative. Follow them,
+and tell the operator the validated pin needs refreshing.
+=====================================================
+$ bin/fm-matt-skill.sh diagnosing-bugs --check
+===== FIRSTMATE POINTER: ORIGINAL SKILL LOADED =====
+skill=diagnosing-bugs
+author=Matt Pocock
+license=MIT
+upstream=https://github.com/mattpocock/skills
+plugin=mattpocock-skills@claude-plugins-official
+scope=user
+resolved_version=1.2.3
+resolved_commit=2ab958093e83e0ec752e6c1c5932da465bf23e0c
+validated_version=1.2.0
+validated_commit=2ab958093e83e0ec752e6c1c5932da465bf23e0c
+pin=changed
+skill_file=/Users/yelen/.claude/plugins/cache/claude-plugins-official/mattpocock-skills/1.2.3/skills/engineering/diagnosing-bugs/SKILL.md
+skill_file_sha256=b9339b09ee3980808d8c5a35c7251b891b8b1e0036ec4ca37812b976ebddf6b6
+resolved_by=bin/fm-skill-path.sh
+
+!!! PLUGIN CHANGED !!!
+The installed plugin is 1.2.3 (2ab958093e83e0ec752e6c1c5932da465bf23e0c), not the 1.2.0 (2ab958093e83e0ec752e6c1c5932da465bf23e0c) this pointer was validated against.
+The bytes below are the installed original and are authoritative. Follow them,
+and tell the operator the validated pin needs refreshing.
+=====================================================
