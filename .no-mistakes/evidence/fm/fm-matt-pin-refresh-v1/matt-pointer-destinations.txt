@@ -1,0 +1,4 @@
+$ bin/fm-matt-pointers.sh --check --dest ~/.agents/skills
+ok - 25 pointers under /Users/yelen/.agents/skills match mattpocock-skills@claude-plugins-official 1.2.3
+$ bin/fm-matt-pointers.sh --check --dest ~/.pi/agent/skills
+ok - 25 pointers under /Users/yelen/.pi/agent/skills match mattpocock-skills@claude-plugins-official 1.2.3
