@@ -39,7 +39,7 @@ The tracked Pi extension `.pi/extensions/fm-hermes-agent.ts` registers `hermes_r
 `bin/fm-hermes-agent.mjs` is the single owner of configuration parsing, the HTTP allowlist, bounds, bearer handling, action enablement, response redaction, and private audit records.
 An unconfigured tool call stops before network access and tells the operator to create `$FM_HOME/config/hermes-agent.env` with mode `0600` after the local tunnel is ready.
 The operator separately owns a loopback-only tunnel at `127.0.0.1:4861`; Firstmate receives no remote host, SSH account, SSH key, SSH command, tunnel lifecycle control, or public endpoint.
-The configuration is inert data with exactly these keys:
+The configuration is inert data with these two required keys and one optional key:
 
 ```text
 HERMES_API_BASE_URL=http://127.0.0.1:4861
@@ -56,12 +56,12 @@ The extension gives the transport child only its operational home and a minimal 
 
 `hermes_read` exposes only public health, authenticated detailed health, capabilities, models, bounded session metadata, one session, explicitly gated message history, status or events for one named run, skills, and toolsets.
 Message history requires `privateContent=true` on that exact call and remains private even though the operation is read-only.
-`hermes_run` exposes only `POST /v1/runs`, binds the Hermes session to the Firstmate task identity, derives its idempotency key internally, requires a concise non-secret authorization basis, and never retries an action automatically.
+`hermes_run` exposes only `POST /v1/runs`, binds the Hermes session to the Firstmate task identity, derives its idempotency key internally, requires the non-secret `captain-approved` or `operator-approved` authorization basis, and never retries an action automatically.
 No tool exposes arbitrary URLs, methods, paths, headers, tokens, session mutation, jobs, approvals, stop, delete, fork, or patch.
 Hermes prompts retain the remote agent's full tool power, so enabling actions does not make a run harmless or read-only.
 
 Each schema-valid operation, including one refused by configuration, action policy, or transport, writes safe metadata to mode-`0600` `state/hermes-agent-audit.jsonl` using the mode-`0600` local salt at `state/.hermes-agent-audit-salt` for run and session identifier hashes.
-The audit records time, Firstmate task identity, named operation and endpoint template, HTTP status, duration, response bytes, salted subject hash, private-content classification, and the action authorization basis.
+The audit records time, salted Firstmate task identity, named operation and endpoint template, HTTP status, duration, response bytes, salted subject hash, private-content classification, and the action authorization basis.
 It never records bearer tokens, cookies, prompts, responses, titles, message text, hostnames, remote infrastructure, or raw run and session identifiers.
 
 Run the offline contract suite with:
