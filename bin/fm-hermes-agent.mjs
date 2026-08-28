@@ -649,7 +649,7 @@ function makeAuditRecord(request, audit, result) {
       : "";
   return {
     at: new Date().toISOString(),
-    task: request.taskId,
+    task: subjectHash(audit.salt, "task", request.taskId),
     operation: request.operation,
     endpoint: request.template,
     httpStatus: result.status ?? null,
@@ -808,13 +808,34 @@ function requestHttp(config, request) {
   });
 }
 
+function decodeReversibleEscapes(value) {
+  let decoded = value;
+  for (let index = 0; index < 8; index += 1) {
+    let next = decoded.replace(/\\\\/g, "\\");
+    next = next.replace(/\\u([0-9a-fA-F]{4})/g, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
+    next = next.replace(/\\x([0-9a-fA-F]{2})/g, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
+    try {
+      next = decodeURIComponent(next);
+    } catch {}
+    if (next === decoded) break;
+    decoded = next;
+  }
+  return decoded;
+}
+
+function redactText(value, apiKey) {
+  if (value.includes(apiKey)) return value.split(apiKey).join("[REDACTED]");
+  if (decodeReversibleEscapes(value).includes(apiKey)) return "[REDACTED]";
+  return value;
+}
+
 function redactDecodedValue(value, apiKey) {
-  if (typeof value === "string") return value.split(apiKey).join("[REDACTED]");
+  if (typeof value === "string") return redactText(value, apiKey);
   if (Array.isArray(value)) return value.map((entry) => redactDecodedValue(entry, apiKey));
   if (value && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value).map(([key, entry]) => [
-        key.split(apiKey).join("[REDACTED]"),
+        redactText(key, apiKey),
         redactDecodedValue(entry, apiKey),
       ]),
     );
@@ -835,8 +856,7 @@ function invalidResponse(response, message) {
 }
 
 function redactSse(text, apiKey, response) {
-  const redactedText = text.split(apiKey).join("[REDACTED]");
-  return redactedText.split(/(\r\n\r\n|\n\n|\r\r)/).map((frame) => {
+  return text.split(/(\r\n\r\n|\n\n|\r\r)/).map((frame) => {
     const lines = frame.split(/\r\n|\r|\n/);
     const dataIndexes = [];
     const data = [];
@@ -858,13 +878,13 @@ function redactSse(text, apiKey, response) {
     return lines.map((line, index) => {
       if (index === dataIndexes[0]) return `data: ${payload}`;
       if (dataIndexes.includes(index)) return "";
-      return line;
+      return redactText(line, apiKey);
     }).join("\n");
   }).join("");
 }
 
 function decodeResponse(response, request, apiKey) {
-  const text = response.body.toString("utf8").split(apiKey).join("[REDACTED]");
+  const text = response.body.toString("utf8");
   if (request.response === "sse") return redactSse(text, apiKey, response);
   if (!text) return null;
   try {

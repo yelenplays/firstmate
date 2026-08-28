@@ -96,9 +96,19 @@ const server = http.createServer((request, response) => {
       response.end('{"nested":{"echo":"Bearer TestBearerKey_\\u0031\\u0032\\u0033\\u0034\\u0035\\u0036"}}');
       return;
     }
+    if (mode === "double-escaped-secret") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end('{"nested":{"echo":"Bearer TestBearerKey_\\\\u0031\\\\u0032\\\\u0033\\\\u0034\\\\u0035\\\\u0036"}}');
+      return;
+    }
     if (mode === "escaped-sse-secret") {
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       response.end('event: run.status\ndata: {"nested":{"echo":"Bearer TestBearerKey_\\u0031\\u0032\\u0033\\u0034\\u0035\\u0036"}}\n\n');
+      return;
+    }
+    if (mode === "double-escaped-sse-secret") {
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      response.end('id: TestBearerKey_\\\\u0031\\\\u0032\\\\u0033\\\\u0034\\\\u0035\\\\u0036\nevent: TestBearerKey_\\\\u0031\\\\u0032\\\\u0033\\\\u0034\\\\u0035\\\\u0036\n: TestBearerKey_\\\\u0031\\\\u0032\\\\u0033\\\\u0034\\\\u0035\\\\u0036\ndata: {"nested":{"echo":"Bearer TestBearerKey_\\\\u0031\\\\u0032\\\\u0033\\\\u0034\\\\u0035\\\\u0036"}}\n\n');
       return;
     }
     if (mode === "escaped-nonjson-sse-secret") {
@@ -261,6 +271,21 @@ EOF
   pass "Hermes owner rejects unsafe permissions, syntax, links, keys, values, and origins"
 }
 
+test_foreign_state_directory_refusal() {
+  local out="$TMP_ROOT/foreign-state.json" hook="$TMP_ROOT/foreign-uid.cjs" foreign_uid
+  write_config true
+  foreign_uid=$(( $(id -u) + 1 ))
+  printf 'process.getuid = () => %s;\n' "$foreign_uid" > "$hook"
+  if printf '%s' '{"operation":"health","taskId":"task-foreign-state"}' \
+    | NODE_OPTIONS="--require=$hook" FM_HOME="$HOME_DIR" node "$OWNER" read > "$out"
+  then
+    fail "foreign-owned Hermes audit state directory unexpectedly opened"
+  fi
+  jq -e '.ok == false and .error.code == "unsafe-audit"' "$out" >/dev/null \
+    || fail "foreign-owned Hermes audit state directory did not return unsafe-audit"
+  pass "Hermes owner rejects an audit state directory owned by another user"
+}
+
 test_read_allowlist() {
   local out="$TMP_ROOT/read.json" before after
   write_config true
@@ -419,11 +444,25 @@ test_transport_bounds_and_redaction() {
   assert_not_contains "$text" "$TOKEN" "decoded JSON bearer key must be redacted from output"
   assert_contains "$text" "[REDACTED]" "decoded JSON bearer key must leave an explicit redaction marker"
 
+  printf 'double-escaped-secret\n' > "$CONTROL"
+  expect_owner_success read '{"operation":"capabilities","taskId":"task-transport"}' "$out"
+  text=$(cat "$out")
+  assert_not_contains "$text" "$TOKEN" "reversible JSON bearer key must be redacted from output"
+  assert_not_contains "$text" 'TestBearerKey_\u0031' "reversible JSON bearer escape leaked to output"
+  assert_contains "$text" "[REDACTED]" "reversible JSON bearer key must leave an explicit redaction marker"
+
   printf 'escaped-sse-secret\n' > "$CONTROL"
   expect_owner_success read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' "$out"
   text=$(cat "$out")
   assert_not_contains "$text" "$TOKEN" "decoded SSE bearer key must be redacted from output"
   assert_contains "$text" "[REDACTED]" "decoded SSE bearer key must leave an explicit redaction marker"
+
+  printf 'double-escaped-sse-secret\n' > "$CONTROL"
+  expect_owner_success read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' "$out"
+  text=$(cat "$out")
+  assert_not_contains "$text" "$TOKEN" "reversible SSE bearer key must be redacted from output"
+  assert_not_contains "$text" 'TestBearerKey_\u0031' "reversible SSE bearer escape leaked to output"
+  assert_contains "$text" "[REDACTED]" "reversible SSE bearer key must leave an explicit redaction marker"
 
   printf 'escaped-nonjson-sse-secret\n' > "$CONTROL"
   expect_owner_failure read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' invalid-response "$out"
@@ -439,7 +478,10 @@ test_transport_bounds_and_redaction() {
 }
 
 test_audit_secrecy() {
-  local audit="$HOME_DIR/state/hermes-agent-audit.jsonl" salt="$HOME_DIR/state/.hermes-agent-audit-salt" content
+  local audit="$HOME_DIR/state/hermes-agent-audit.jsonl" salt="$HOME_DIR/state/.hermes-agent-audit-salt" content out="$TMP_ROOT/audit-secret.json" payload
+  write_config true
+  payload=$(jq -cn --arg task "$TOKEN" '{operation:"health", taskId:$task}')
+  expect_owner_success read "$payload" "$out"
   content=$(cat "$audit")
   [ "$(stat_mode "$audit")" = 600 ] || fail "Hermes audit log is not mode 0600"
   [ "$(stat_mode "$salt")" = 600 ] || fail "Hermes audit salt is not mode 0600"
@@ -453,7 +495,7 @@ test_audit_secrecy() {
   assert_contains "$content" '"authorizationBasis":"captain-approved"' "audit omitted the action authorization basis"
   jq -e -s 'all(.[]; (.authorizationBasis == null or .authorizationBasis == "captain-approved" or .authorizationBasis == "operator-approved"))' "$audit" >/dev/null \
     || fail "audit recorded an unsafe authorization basis"
-  jq -e -s 'all(.[]; (.at | type == "string") and (.task | type == "string") and (.operation | type == "string") and (.endpoint | type == "string") and (.durationMs | type == "number") and (.responseBytes | type == "number") and (.privateContent | type == "boolean"))' "$audit" >/dev/null \
+  jq -e -s 'all(.[]; (.at | type == "string") and ((.task // "") | test("^[0-9a-f]{24}$")) and (.operation | type == "string") and (.endpoint | type == "string") and (.durationMs | type == "number") and (.responseBytes | type == "number") and (.privateContent | type == "boolean"))' "$audit" >/dev/null \
     || fail "audit record schema is incomplete"
   jq -e -s 'any(.[]; .operation == "messages" and .privateContent == true and ((.subjectHash // "") | test("^[0-9a-f]{24}$")))' "$audit" >/dev/null \
     || fail "private message audit lacks a salted subject hash"
@@ -571,6 +613,7 @@ EOF
 
 test_unconfigured_state
 test_config_refusals
+test_foreign_state_directory_refusal
 test_read_allowlist
 test_read_refusals_and_privacy_gate
 test_action_gate_and_idempotency
