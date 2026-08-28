@@ -822,7 +822,19 @@ function redactDecodedValue(value, apiKey) {
   return value;
 }
 
-function redactSse(text, apiKey) {
+function invalidResponse(response, message) {
+  return new HermesAccessError(
+    "invalid-response",
+    message,
+    {
+      status: response.status,
+      responseBytes: response.responseBytes,
+      durationMs: response.durationMs,
+    },
+  );
+}
+
+function redactSse(text, apiKey, response) {
   const redactedText = text.split(apiKey).join("[REDACTED]");
   return redactedText.split(/(\r\n\r\n|\n\n|\r\r)/).map((frame) => {
     const lines = frame.split(/\r\n|\r|\n/);
@@ -836,35 +848,29 @@ function redactSse(text, apiKey) {
       }
     }
     if (dataIndexes.length === 0) return frame;
+    let decoded;
     try {
-      const payload = JSON.stringify(redactDecodedValue(JSON.parse(data.join("\n")), apiKey));
-      return lines.map((line, index) => {
-        if (index === dataIndexes[0]) return `data: ${payload}`;
-        if (dataIndexes.includes(index)) return "";
-        return line;
-      }).join("\n");
+      decoded = JSON.parse(data.join("\n"));
     } catch {
-      return frame;
+      throw invalidResponse(response, "Hermes returned non-JSON data in an event stream.");
     }
+    const payload = JSON.stringify(redactDecodedValue(decoded, apiKey));
+    return lines.map((line, index) => {
+      if (index === dataIndexes[0]) return `data: ${payload}`;
+      if (dataIndexes.includes(index)) return "";
+      return line;
+    }).join("\n");
   }).join("");
 }
 
 function decodeResponse(response, request, apiKey) {
   const text = response.body.toString("utf8").split(apiKey).join("[REDACTED]");
-  if (request.response === "sse") return redactSse(text, apiKey);
+  if (request.response === "sse") return redactSse(text, apiKey, response);
   if (!text) return null;
   try {
     return redactDecodedValue(JSON.parse(text), apiKey);
   } catch {
-    throw new HermesAccessError(
-      "invalid-response",
-      "Hermes returned a non-JSON response for a JSON operation.",
-      {
-        status: response.status,
-        responseBytes: response.responseBytes,
-        durationMs: response.durationMs,
-      },
-    );
+    throw invalidResponse(response, "Hermes returned a non-JSON response for a JSON operation.");
   }
 }
 

@@ -101,6 +101,11 @@ const server = http.createServer((request, response) => {
       response.end('event: run.status\ndata: {"nested":{"echo":"Bearer TestBearerKey_\\u0031\\u0032\\u0033\\u0034\\u0035\\u0036"}}\n\n');
       return;
     }
+    if (mode === "escaped-nonjson-sse-secret") {
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      response.end('event: run.status\ndata: Bearer TestBearerKey_\\u0031\\u0032\\u0033\\u0034\\u0035\\u0036\n\n');
+      return;
+    }
     if (request.url?.endsWith("/events")) {
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       response.end('event: run.status\ndata: {"status":"running"}\n\n');
@@ -419,6 +424,12 @@ test_transport_bounds_and_redaction() {
   text=$(cat "$out")
   assert_not_contains "$text" "$TOKEN" "decoded SSE bearer key must be redacted from output"
   assert_contains "$text" "[REDACTED]" "decoded SSE bearer key must leave an explicit redaction marker"
+
+  printf 'escaped-nonjson-sse-secret\n' > "$CONTROL"
+  expect_owner_failure read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' invalid-response "$out"
+  text=$(cat "$out")
+  assert_not_contains "$text" "$TOKEN" "rejected non-JSON SSE bearer key leaked to output"
+  assert_not_contains "$text" 'TestBearerKey_\u0031' "rejected non-JSON SSE escape leaked to output"
 
   printf 'delay\n' > "$CONTROL"
   expect_owner_failure read '{"operation":"health","taskId":"task-transport"}' timeout "$out"
