@@ -935,17 +935,22 @@ function invalidResponse(response, message) {
 function containsBearerAcrossSseFields(lines, apiKey) {
   const names = [];
   const values = [];
+  const stream = [];
   for (const line of lines) {
     if (line === "") continue;
     const separator = line.indexOf(":");
     if (separator === -1) {
       names.push(line);
+      stream.push(line);
       continue;
     }
-    names.push(line.slice(0, separator));
-    values.push(line.slice(separator + (line[separator + 1] === " " ? 2 : 1)));
+    const name = line.slice(0, separator);
+    const value = line.slice(separator + (line[separator + 1] === " " ? 2 : 1));
+    names.push(name);
+    values.push(value);
+    stream.push(name, value);
   }
-  return [names, values].some((fragments) => {
+  return [names, values, stream].some((fragments) => {
     const raw = fragments.join("");
     return containsReversibleBearer(raw, apiKey)
       || decodeReversibleEscapes(raw).value.includes(apiKey)

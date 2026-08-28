@@ -212,6 +212,11 @@ const server = http.createServer((request, response) => {
       response.end('TestBearerKey_\\u0031\n\\u0032\\u0033\\u0034\\u0035\\u0036\ndata: {"status":"running"}\n\n');
       return;
     }
+    if (mode === "name-value-sse-secret") {
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      response.end('TestBearerKey_\\u0031: \\u0032\\u0033\\u0034\\u0035\\u0036\ndata: {"status":"running"}\n\n');
+      return;
+    }
     if (mode === "escaped-nonjson-sse-secret") {
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       response.end('event: run.status\ndata: Bearer TestBearerKey_\\u0031\\u0032\\u0033\\u0034\\u0035\\u0036\n\n');
@@ -688,6 +693,13 @@ test_transport_bounds_and_redaction() {
   assert_not_contains "$text" "TestBearerKey_" "colonless SSE bearer prefix leaked to output"
   assert_not_contains "$text" '\u0031' "colonless SSE bearer escape leaked to output"
   assert_contains "$text" "[REDACTED]" "colonless SSE bearer must leave an explicit redaction marker"
+
+  printf 'name-value-sse-secret\n' > "$CONTROL"
+  expect_owner_success read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' "$out"
+  text=$(cat "$out")
+  assert_not_contains "$text" "TestBearerKey_" "SSE field-name bearer prefix leaked to output"
+  assert_not_contains "$text" '\u0031' "SSE field-name bearer escape leaked to output"
+  assert_contains "$text" "[REDACTED]" "SSE field-name bearer must leave an explicit redaction marker"
 
   printf 'escaped-nonjson-sse-secret\n' > "$CONTROL"
   expect_owner_success read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' "$out"
