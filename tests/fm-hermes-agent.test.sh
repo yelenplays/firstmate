@@ -127,6 +127,11 @@ const server = http.createServer((request, response) => {
       response.end(JSON.stringify({ first: "TestBearer", second: "Key_123456" }));
       return;
     }
+    if (mode === "split-escaped-secret") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end('{"first":"TestBearerKey_\\\\u0031","second":"\\\\u0032\\\\u0033\\\\u0034\\\\u0035\\\\u0036"}');
+      return;
+    }
     if (mode === "escaped-sse-secret") {
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       response.end('event: run.status\ndata: {"nested":{"echo":"Bearer TestBearerKey_\\u0031\\u0032\\u0033\\u0034\\u0035\\u0036"}}\n\n');
@@ -157,6 +162,11 @@ const server = http.createServer((request, response) => {
     if (mode === "split-sse-secret") {
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       response.end('event: run.status\ndata: {"first":"TestBearer","second":"Key_123456"}\n\n');
+      return;
+    }
+    if (mode === "split-escaped-sse-secret") {
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      response.end('id: TestBearerKey_\\u0031\nevent: \\u0032\\u0033\\u0034\\u0035\\u0036\n\n');
       return;
     }
     if (mode === "escaped-nonjson-sse-secret") {
@@ -527,6 +537,13 @@ test_transport_bounds_and_redaction() {
   assert_not_contains "$text" "Key_123456" "split JSON bearer suffix leaked to output"
   assert_contains "$text" "[REDACTED]" "split JSON bearer must leave an explicit redaction marker"
 
+  printf 'split-escaped-secret\n' > "$CONTROL"
+  expect_owner_success read '{"operation":"capabilities","taskId":"task-transport"}' "$out"
+  text=$(cat "$out")
+  assert_not_contains "$text" "TestBearerKey_" "split escaped JSON bearer prefix leaked to output"
+  assert_not_contains "$text" '\u0031' "split escaped JSON bearer escape leaked to output"
+  assert_contains "$text" "[REDACTED]" "split escaped JSON bearer must leave an explicit redaction marker"
+
   printf 'escaped-sse-secret\n' > "$CONTROL"
   expect_owner_success read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' "$out"
   text=$(cat "$out")
@@ -568,11 +585,19 @@ test_transport_bounds_and_redaction() {
   assert_not_contains "$text" "Key_123456" "split SSE bearer suffix leaked to output"
   assert_contains "$text" "[REDACTED]" "split SSE bearer must leave an explicit redaction marker"
 
-  printf 'escaped-nonjson-sse-secret\n' > "$CONTROL"
-  expect_owner_failure read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' invalid-response "$out"
+  printf 'split-escaped-sse-secret\n' > "$CONTROL"
+  expect_owner_success read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' "$out"
   text=$(cat "$out")
-  assert_not_contains "$text" "$TOKEN" "rejected non-JSON SSE bearer key leaked to output"
-  assert_not_contains "$text" 'TestBearerKey_\u0031' "rejected non-JSON SSE escape leaked to output"
+  assert_not_contains "$text" "TestBearerKey_" "split escaped SSE bearer prefix leaked to output"
+  assert_not_contains "$text" '\u0031' "split escaped SSE bearer escape leaked to output"
+  assert_contains "$text" "[REDACTED]" "split escaped SSE bearer must leave an explicit redaction marker"
+
+  printf 'escaped-nonjson-sse-secret\n' > "$CONTROL"
+  expect_owner_success read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' "$out"
+  text=$(cat "$out")
+  assert_not_contains "$text" "$TOKEN" "non-JSON SSE bearer key leaked to output"
+  assert_not_contains "$text" 'TestBearerKey_\u0031' "non-JSON SSE escape leaked to output"
+  assert_contains "$text" "[REDACTED]" "non-JSON SSE bearer key must leave an explicit redaction marker"
 
   printf 'delay\n' > "$CONTROL"
   expect_owner_failure read '{"operation":"health","taskId":"task-transport"}' timeout "$out"
