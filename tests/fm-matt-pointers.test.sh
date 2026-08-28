@@ -14,7 +14,7 @@ LOADER="$ROOT/bin/fm-matt-skill.sh"
 POINTERS="$ROOT/bin/fm-matt-pointers.sh"
 TMP_ROOT=$(fm_test_tmproot fm-matt-pointers)
 
-REAL_VERSION=1.2.0
+REAL_VERSION=1.2.3
 REAL_COMMIT=2ab958093e83e0ec752e6c1c5932da465bf23e0c
 
 # --- fixture ----------------------------------------------------------------
@@ -161,8 +161,8 @@ test_loader_refuses_without_printing_anything() {
 
 test_loader_reports_drift_without_hiding_the_original() {
   local root out rc
-  root="$TMP_ROOT/loader-drift"
-  build_plugin "$root" 9.9.9 deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  root="$TMP_ROOT/loader-version-drift"
+  build_plugin "$root" 9.9.9 "$REAL_COMMIT"
 
   # An upstream bump must keep working, or every release becomes an outage and
   # the sync chore the pointer pattern removes comes straight back.
@@ -177,6 +177,26 @@ test_loader_reports_drift_without_hiding_the_original() {
   rc=$?
   expect_code 6 "$rc" "--require-validated-pin accepted a changed plugin"
   pass "version drift is reported loudly, and refused outright on request"
+}
+
+test_loader_reports_commit_drift_without_hiding_the_original() {
+  local root out rc
+  root="$TMP_ROOT/loader-commit-drift"
+  build_plugin "$root" "$REAL_VERSION" deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd) \
+    || fail "loader refused an install with a changed source commit"
+  assert_contains "$out" 'PLUGIN CHANGED' \
+    "loader stayed silent about a changed source commit"
+  assert_contains "$out" 'pin=changed' \
+    "loader reported a changed source commit as validated"
+  assert_contains "$out" 'UNIQUE-UPSTREAM-PROCEDURE-tdd' \
+    "loader withheld the installed original during commit drift"
+
+  CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd --require-validated-pin >/dev/null 2>&1
+  rc=$?
+  expect_code 6 "$rc" "--require-validated-pin accepted a changed source commit"
+  pass "commit drift is reported loudly, and refused outright on request"
 }
 
 test_loader_delegates_to_the_shared_resolver_when_present() {
@@ -617,6 +637,7 @@ test_check_reports_combined_pointer_faults_once_each() {
 test_loader_prints_original_bytes_and_identity
 test_loader_refuses_without_printing_anything
 test_loader_reports_drift_without_hiding_the_original
+test_loader_reports_commit_drift_without_hiding_the_original
 test_loader_delegates_to_the_shared_resolver_when_present
 test_loader_refuses_without_the_shared_resolver
 test_pointers_carry_attribution_and_no_procedure

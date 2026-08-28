@@ -5,7 +5,7 @@ Audience: maintainer verification.
 Records how each supported harness reaches Matt Pocock's skill suite, and the evidence behind the pointer bridge that lets a runtime without Claude plugin discovery load the installed original rather than any copy.
 Firstmate copies no upstream skill content, so this record pins what was validated rather than what is vendored.
 
-Verified 2026-08-24 on macOS 25.5.0 with `claude` 2.1.228, `grok` 1.0.5, `kimi` 0.36.1, `codex` 0.145.0, and `pi` 0.84.2.
+Verified 2026-08-28 on macOS 25.5.0 with `claude` 2.1.228, `grok` 1.0.5, `kimi` 0.36.1, `codex` 0.145.0, and `pi` 0.84.2.
 
 ## Plugin identity
 
@@ -62,19 +62,38 @@ resolved_by=bin/fm-skill-path.sh
 `resolved_by` is always `bin/fm-skill-path.sh`.
 That script is the repo's single owner of plugin-skill resolution, and the loader carries no resolver of its own: without that owner beside it the loader exits 127 with nothing on stdout rather than guessing a path.
 
-## Version drift is reported, not fatal
+## Validated pin
 
-The install is version 1.2.3 against a validated pin of 1.2.0, at the same source commit.
-The loader still prints the installed original and reports the difference, because refusing on every upstream bump would turn each release into a fleet outage:
+The loader and the installed original are validated against version 1.2.3 at source commit `2ab958093e83e0ec752e6c1c5932da465bf23e0c`.
 
-```text
-pin=changed
-
-!!! PLUGIN CHANGED !!!
-The installed plugin is 1.2.3 (2ab9580...), not the 1.2.0 (2ab9580...) this pointer was validated against.
+```sh
+bin/fm-matt-skill.sh diagnosing-bugs --check \
+  | grep -E '^(resolved_version|resolved_commit|validated_version|validated_commit|pin)='
 ```
 
-`--require-validated-pin` restores the strict reading and refuses with exit 6.
+Observed:
+
+```text
+resolved_version=1.2.3
+resolved_commit=2ab958093e83e0ec752e6c1c5932da465bf23e0c
+validated_version=1.2.3
+validated_commit=2ab958093e83e0ec752e6c1c5932da465bf23e0c
+pin=validated
+```
+
+```sh
+bin/fm-matt-skill.sh diagnosing-bugs --check --require-validated-pin >/dev/null
+printf 'exit=%s\n' "$?"
+```
+
+Observed:
+
+```text
+exit=0
+```
+
+The representative load reports `pin=validated` with no `PLUGIN CHANGED` banner.
+A genuine version or source-commit difference still reports `pin=changed` by default and exits 6 with `--require-validated-pin`, preserving the loader's strict opt-in behavior.
 
 ## The bridge names an executable the repo ships
 
@@ -100,9 +119,18 @@ bin/fm-matt-pointers.sh --check --dest ~/.agents/skills
 It reports every applicable state independently: `MISSING` for a declared skill with no pointer, `DRIFTED` for front matter behind the installed plugin, `RETIRED` for a marked pointer whose upstream skill is no longer declared even when the manifest is empty, and `BROKEN` for a recorded loader that is no longer executable.
 This mode writes nothing.
 
-The live set is currently behind the install: 22 pointers against 25 declared skills, `drift=25`.
-That is front-matter staleness only, which weakens automatic triggering and can never make a worker follow a stale procedure, since no pointer contains any procedure.
-Re-running `bin/fm-matt-pointers.sh --prune` then a plain install from the stable checkout clears it.
+Both real pointer destinations currently pass the 25-pointer audit:
+
+```sh
+bin/fm-matt-pointers.sh --check --dest ~/.agents/skills
+bin/fm-matt-pointers.sh --check --dest ~/.pi/agent/skills
+```
+
+Observed for each destination:
+
+```text
+ok - 25 pointers under <destination> match mattpocock-skills@claude-plugins-official 1.2.3
+```
 
 ## Where each runtime looks for skills
 
@@ -137,7 +165,7 @@ Re-establish any unverified row before relying on it to add or remove a pointer 
 
 `tests/fm-skill-path.test.sh` covers the resolver: identity, support-file resolution, a custom `CLAUDE_CONFIG_DIR`, paths containing spaces, expected version and commit pins, and refusal of missing, disabled, ambiguous, tampered, symlinked, and malformed installs.
 
-`tests/fm-matt-pointers.test.sh` builds a fake plugin under a private `CLAUDE_CONFIG_DIR` and covers the loader and the generator without touching the real install: original bytes plus attribution on success; silent-stdout refusal for a moved, absent, disabled, swapped, undeclared, symlinked, or misnamed install; loud but non-fatal version drift and outright refusal under `--require-validated-pin`; delegation to `bin/fm-skill-path.sh` including its exit statuses, and the loader's own silent-stdout 127 refusal without that owner; pointers that carry attribution and no procedure; mirrored invocation flags; the hard-stop instruction; `--check` catching edited, missing, inert, and retired pointers; unmarked directories surviving install and uninstall; a generated pointer's Step 1 running against the loader the repo ships; and `--check` naming a recorded loader that later vanished.
+`tests/fm-matt-pointers.test.sh` builds a fake plugin under a private `CLAUDE_CONFIG_DIR` and covers the loader and the generator without touching the real install: original bytes, full identity, a validated matching pin, and support-file discovery on success; silent-stdout refusal for a moved, absent, disabled, swapped, undeclared, symlinked, or misnamed install; loud but non-fatal version or source-commit drift and outright refusal under `--require-validated-pin`; delegation to `bin/fm-skill-path.sh` including its exit statuses, and the loader's own silent-stdout 127 refusal without that owner; pointers that carry attribution and no procedure; mirrored invocation flags; the hard-stop instruction; `--check` catching edited, missing, inert, and retired pointers; unmarked directories surviving install and uninstall; a generated pointer's Step 1 running against the loader the repo ships; and `--check` naming a recorded loader that later vanished.
 
 `test_check_reports_retired_pointers_and_their_recorded_loaders` proves that `--check` reports a retired pointer with an executable recorded loader and reports its recorded loader as `BROKEN` after it becomes non-executable.
 
