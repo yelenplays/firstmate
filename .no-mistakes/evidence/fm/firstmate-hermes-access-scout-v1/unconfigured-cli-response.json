@@ -1,0 +1,1 @@
+{"ok":false,"error":{"code":"not-configured","message":"Hermes access is not configured. Ask the operator to create /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/no-mistakes-evidence/01M140GPP3JSGT394WQ0VKHYJR/unconfigured-fm-home-20260828T142900Z/config/hermes-agent.env with mode 0600 after the local 127.0.0.1:4861 tunnel is ready."}}
