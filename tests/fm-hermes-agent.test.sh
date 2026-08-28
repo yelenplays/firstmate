@@ -137,6 +137,17 @@ const server = http.createServer((request, response) => {
       response.end('{"TestBearerKey_\\\\u0031":"\\\\u0032\\\\u0033\\\\u0034\\\\u0035\\\\u0036"}');
       return;
     }
+    if (mode === "percent-u-secret") {
+      const encoded = Array.from("TestBearerKey_123456", (character) => `%u${character.codePointAt(0).toString(16).padStart(4, "0")}`).join("");
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ nested: { echo: encoded } }));
+      return;
+    }
+    if (mode === "numeric-split-secret") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ first: "TestBearerKey_", second: 123456 }));
+      return;
+    }
     if (mode === "escaped-sse-secret") {
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       response.end('event: run.status\ndata: {"nested":{"echo":"Bearer TestBearerKey_\\u0031\\u0032\\u0033\\u0034\\u0035\\u0036"}}\n\n');
@@ -177,6 +188,11 @@ const server = http.createServer((request, response) => {
     if (mode === "cross-frame-sse-secret") {
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       response.end('id: TestBearerKey_\\u0031\n\nevent: \\u0032\\u0033\\u0034\\u0035\\u0036\n\n');
+      return;
+    }
+    if (mode === "extension-sse-secret") {
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      response.end('retry: TestBearerKey_\\u0031\nx: \\u0032\\u0033\\u0034\\u0035\\u0036\n\n');
       return;
     }
     if (mode === "escaped-nonjson-sse-secret") {
@@ -561,6 +577,18 @@ test_transport_bounds_and_redaction() {
   assert_not_contains "$text" '\u0031' "key-value split JSON bearer escape leaked to output"
   assert_contains "$text" "[REDACTED]" "key-value split JSON bearer must leave an explicit redaction marker"
 
+  printf 'percent-u-secret\n' > "$CONTROL"
+  expect_owner_success read '{"operation":"capabilities","taskId":"task-transport"}' "$out"
+  text=$(cat "$out")
+  assert_not_contains "$text" '%u0054' "percent-u JSON bearer escape leaked to output"
+  assert_contains "$text" "[REDACTED]" "percent-u JSON bearer must leave an explicit redaction marker"
+
+  printf 'numeric-split-secret\n' > "$CONTROL"
+  expect_owner_success read '{"operation":"capabilities","taskId":"task-transport"}' "$out"
+  text=$(cat "$out")
+  assert_not_contains "$text" "TestBearerKey_" "numeric split JSON bearer prefix leaked to output"
+  assert_contains "$text" "[REDACTED]" "numeric split JSON bearer must leave an explicit redaction marker"
+
   printf 'escaped-sse-secret\n' > "$CONTROL"
   expect_owner_success read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' "$out"
   text=$(cat "$out")
@@ -615,6 +643,13 @@ test_transport_bounds_and_redaction() {
   assert_not_contains "$text" "TestBearerKey_" "cross-frame SSE bearer prefix leaked to output"
   assert_not_contains "$text" '\u0031' "cross-frame SSE bearer escape leaked to output"
   assert_contains "$text" "[REDACTED]" "cross-frame SSE bearer must leave an explicit redaction marker"
+
+  printf 'extension-sse-secret\n' > "$CONTROL"
+  expect_owner_success read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' "$out"
+  text=$(cat "$out")
+  assert_not_contains "$text" "TestBearerKey_" "extension SSE bearer prefix leaked to output"
+  assert_not_contains "$text" '\u0031' "extension SSE bearer escape leaked to output"
+  assert_contains "$text" "[REDACTED]" "extension SSE bearer must leave an explicit redaction marker"
 
   printf 'escaped-nonjson-sse-secret\n' > "$CONTROL"
   expect_owner_success read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' "$out"

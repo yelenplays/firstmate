@@ -822,6 +822,7 @@ function decodeReversibleEscapeStep(value) {
     return codePoint <= 0xff ? String.fromCharCode(codePoint) : match;
   });
   decoded = decoded.replace(/\\([\s\S])/g, "$1");
+  decoded = decoded.replace(/%u([0-9a-fA-F]{4})/g, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
   try {
     return decodeURIComponent(decoded);
   } catch {
@@ -868,8 +869,8 @@ function containsBearerAcrossValues(value, apiKey) {
   const keys = [];
   const stream = [];
   const collect = (entry) => {
-    if (typeof entry === "string") {
-      const decoded = decodeReversibleEscapes(entry).value;
+    if (entry === null || typeof entry !== "object") {
+      const decoded = decodeReversibleEscapes(String(entry)).value;
       values.push(decoded);
       stream.push(decoded);
       return;
@@ -911,7 +912,7 @@ function invalidResponse(response, message) {
 function containsBearerAcrossSseFields(lines, apiKey) {
   const fields = [];
   for (const line of lines) {
-    const match = /^(?:id|event|data):(?: ?)(.*)$/.exec(line) || /^:(?: ?)(.*)$/.exec(line);
+    const match = /^[^:]*:(?: ?)(.*)$/.exec(line);
     if (match) fields.push(decodeReversibleEscapes(match[1]).value);
   }
   return fields.join("").includes(apiKey);
