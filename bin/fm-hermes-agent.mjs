@@ -35,6 +35,7 @@ const READ_TIMEOUT_MS = 5000;
 const ACTION_TIMEOUT_MS = 10000;
 const EVENT_TIMEOUT_MS = 45000;
 const INSTRUCTION_MAX_BYTES = 16384;
+const REVERSIBLE_DECODE_MAX_PASSES = 64;
 const AUTHORIZATION_BASES = new Set(["captain-approved", "operator-approved"]);
 const ID_PATTERN = /^[A-Za-z0-9._:-]+$/;
 const TASK_ID_MAX_BYTES = 128;
@@ -808,24 +809,34 @@ function requestHttp(config, request) {
   });
 }
 
+function decodeReversibleEscapeStep(value) {
+  let decoded = value.replace(/\\\\/g, "\\");
+  decoded = decoded.replace(/\\u([0-9a-fA-F]{4})/g, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
+  decoded = decoded.replace(/\\x([0-9a-fA-F]{2})/g, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
+  try {
+    return decodeURIComponent(decoded);
+  } catch {
+    return decoded;
+  }
+}
+
 function decodeReversibleEscapes(value) {
   let decoded = value;
-  for (let index = 0; index < 8; index += 1) {
-    let next = decoded.replace(/\\\\/g, "\\");
-    next = next.replace(/\\u([0-9a-fA-F]{4})/g, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
-    next = next.replace(/\\x([0-9a-fA-F]{2})/g, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
-    try {
-      next = decodeURIComponent(next);
-    } catch {}
-    if (next === decoded) break;
+  for (let index = 0; index < REVERSIBLE_DECODE_MAX_PASSES; index += 1) {
+    const next = decodeReversibleEscapeStep(decoded);
+    if (next === decoded) return { value: decoded, exhausted: false };
     decoded = next;
   }
-  return decoded;
+  return {
+    value: decoded,
+    exhausted: decodeReversibleEscapeStep(decoded) !== decoded,
+  };
 }
 
 function redactText(value, apiKey) {
   if (value.includes(apiKey)) return value.split(apiKey).join("[REDACTED]");
-  if (decodeReversibleEscapes(value).includes(apiKey)) return "[REDACTED]";
+  const decoded = decodeReversibleEscapes(value);
+  if (decoded.exhausted || decoded.value.includes(apiKey)) return "[REDACTED]";
   return value;
 }
 
