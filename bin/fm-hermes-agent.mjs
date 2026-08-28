@@ -817,6 +817,10 @@ function decodeReversibleEscapeStep(value) {
   });
   decoded = decoded.replace(/\\u([0-9a-fA-F]{4})/g, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
   decoded = decoded.replace(/\\x([0-9a-fA-F]{2})/g, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
+  decoded = decoded.replace(/\\([0-7]{1,3})/g, (match, octal) => {
+    const codePoint = Number.parseInt(octal, 8);
+    return codePoint <= 0xff ? String.fromCharCode(codePoint) : match;
+  });
   decoded = decoded.replace(/\\([\s\S])/g, "$1");
   try {
     return decodeURIComponent(decoded);
