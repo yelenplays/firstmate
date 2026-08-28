@@ -811,8 +811,13 @@ function requestHttp(config, request) {
 
 function decodeReversibleEscapeStep(value) {
   let decoded = value.replace(/\\\\/g, "\\");
+  decoded = decoded.replace(/\\u\{([0-9a-fA-F]{1,6})\}/g, (match, hex) => {
+    const codePoint = Number.parseInt(hex, 16);
+    return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : match;
+  });
   decoded = decoded.replace(/\\u([0-9a-fA-F]{4})/g, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
   decoded = decoded.replace(/\\x([0-9a-fA-F]{2})/g, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
+  decoded = decoded.replace(/\\([\s\S])/g, "$1");
   try {
     return decodeURIComponent(decoded);
   } catch {
