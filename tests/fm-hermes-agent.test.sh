@@ -387,7 +387,7 @@ let swapped = false;
 function swap() {
   if (!swapped) {
     swapped = true;
-    fs.rmSync(home, { recursive: true, force: true });
+    fs.renameSync(home, `${home}.original`);
     fs.symlinkSync(target, home);
   }
 }
