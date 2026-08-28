@@ -669,8 +669,7 @@ function prepareAudit(home) {
       throw error;
     }
   }
-  closeSync(fd);
-  return { auditFile, salt };
+  return { auditFile, auditFd: fd, salt };
 }
 
 function subjectHash(salt, kind, identifier) {
@@ -686,16 +685,12 @@ function subjectHash(salt, kind, identifier) {
 }
 
 function appendAudit(audit, record) {
-  const fd = secureOpenExisting(
-    audit.auditFile,
-    constants.O_WRONLY | constants.O_APPEND,
-    "Hermes audit log",
-  );
-  try {
-    writeSync(fd, `${JSON.stringify(record)}\n`, null, "utf8");
-  } finally {
-    closeSync(fd);
+  const stat = fstatSync(audit.auditFd);
+  assertOwnedRegularFile(stat, audit.auditFile, "Hermes audit log");
+  if (fileMode(stat) !== 0o600) {
+    throw new HermesAccessError("unsafe-audit", `Hermes audit log must have mode 0600: ${audit.auditFile}`);
   }
+  writeSync(audit.auditFd, `${JSON.stringify(record)}\n`, null, "utf8");
 }
 
 function makeAuditRecord(request, audit, result) {
@@ -1118,6 +1113,10 @@ async function main() {
     }
     emit({ ok: false, error: safeError(error) });
     process.exitCode = 1;
+  } finally {
+    if (audit?.auditFd !== undefined) {
+      try { closeSync(audit.auditFd); } catch {}
+    }
   }
 }
 
