@@ -867,7 +867,7 @@ function redactSse(text, apiKey, response) {
         data.push(match[1]);
       }
     }
-    if (dataIndexes.length === 0) return frame;
+    if (dataIndexes.length === 0) return redactText(frame, apiKey);
     let decoded;
     try {
       decoded = JSON.parse(data.join("\n"));
