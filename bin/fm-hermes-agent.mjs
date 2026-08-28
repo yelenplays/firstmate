@@ -863,6 +863,30 @@ function redactDecodedValue(value, apiKey) {
   return value;
 }
 
+function containsBearerAcrossValues(value, apiKey) {
+  const values = [];
+  const collect = (entry) => {
+    if (typeof entry === "string") {
+      values.push(entry);
+      return;
+    }
+    if (Array.isArray(entry)) {
+      for (const item of entry) collect(item);
+      return;
+    }
+    if (entry && typeof entry === "object") {
+      for (const item of Object.values(entry)) collect(item);
+    }
+  };
+  collect(value);
+  return values.join("").includes(apiKey);
+}
+
+function redactResponseValue(value, apiKey) {
+  const redacted = redactDecodedValue(value, apiKey);
+  return containsBearerAcrossValues(redacted, apiKey) ? "[REDACTED]" : redacted;
+}
+
 function invalidResponse(response, message) {
   return new HermesAccessError(
     "invalid-response",
@@ -894,7 +918,7 @@ function redactSse(text, apiKey, response) {
     } catch {
       throw invalidResponse(response, "Hermes returned non-JSON data in an event stream.");
     }
-    const payload = JSON.stringify(redactDecodedValue(decoded, apiKey));
+    const payload = JSON.stringify(redactResponseValue(decoded, apiKey));
     return lines.map((line, index) => {
       if (index === dataIndexes[0]) return `data: ${payload}`;
       if (dataIndexes.includes(index)) return "";
@@ -908,7 +932,7 @@ function decodeResponse(response, request, apiKey) {
   if (request.response === "sse") return redactSse(text, apiKey, response);
   if (!text) return null;
   try {
-    return redactDecodedValue(JSON.parse(text), apiKey);
+    return redactResponseValue(JSON.parse(text), apiKey);
   } catch {
     throw invalidResponse(response, "Hermes returned a non-JSON response for a JSON operation.");
   }
