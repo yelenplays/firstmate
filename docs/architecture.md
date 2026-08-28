@@ -190,6 +190,15 @@ The helper's header owns the exact signal detection, relocated-home limitation, 
 Ship tasks change projects and ship by project mode (`no-mistakes`, `direct-PR`, or `local-only`); scout tasks leave standalone investigation reports at `data/<id>/report.md` and never push.
 The intake and authority contract in `AGENTS.md` owns when separate scout research is warranted.
 
+## Hermes Agent security boundary
+
+Hermes integration is a Pi-primary custom-tool surface with one transport and security owner at `bin/fm-hermes-agent.mjs`.
+The tracked `.pi/extensions/fm-hermes-agent.ts` contributes only the two fixed TypeBox schemas and delegates every request through structured stdin, so the model cannot select an HTTP method, URL, path, header, bearer, or transport command.
+The transport process reads the private key itself, pins every connection to `127.0.0.1:4861`, refuses redirects and unsafe configuration, applies request and response bounds, writes the redacted audit record, and keeps action retry policy in the same owner as action submission.
+This split is deliberate because a Hermes API bearer authorizes the remote agent's full toolset even when Firstmate exposes only one action endpoint.
+The human operator owns the loopback tunnel and its remote credentials outside Firstmate, while the extension strips all Hermes credential variables from the transport child's environment.
+[`configuration.md`](configuration.md#hermes-agent-access-confighermes-agentenv) owns operator setup, the current operation allowlist, and the offline verification command.
+
 ## Dispatch profiles
 
 Crewmate and scout dispatch can stay on the static crewmate harness resolved by `config/crew-harness`, or it can use local dispatch profiles in `config/crew-dispatch.json`.

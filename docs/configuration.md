@@ -33,6 +33,45 @@ The `/calm` command replaces the file atomically before changing live presentati
 The extension reloads this preference on every Pi `session_start`, including startup, new, resume, fork, and reload reasons.
 This preference is local to each Firstmate home and is not part of secondmate inherited configuration.
 
+## Hermes Agent access (config/hermes-agent.env)
+
+The tracked Pi extension `.pi/extensions/fm-hermes-agent.ts` registers `hermes_read` and `hermes_run` in a trusted Firstmate checkout without requiring live configuration at startup.
+`bin/fm-hermes-agent.mjs` is the single owner of configuration parsing, the HTTP allowlist, bounds, bearer handling, action enablement, response redaction, and private audit records.
+An unconfigured tool call stops before network access and tells the operator to create `$FM_HOME/config/hermes-agent.env` with mode `0600` after the local tunnel is ready.
+The operator separately owns a loopback-only tunnel at `127.0.0.1:4861`; Firstmate receives no remote host, SSH account, SSH key, SSH command, tunnel lifecycle control, or public endpoint.
+The configuration is inert data with exactly these keys:
+
+```text
+HERMES_API_BASE_URL=http://127.0.0.1:4861
+HERMES_API_SERVER_KEY=<existing Hermes API Server key>
+HERMES_API_ACTIONS_ENABLED=false
+```
+
+`HERMES_API_BASE_URL` must be exactly the shown loopback URL, and `HERMES_API_SERVER_KEY` must be non-empty.
+`HERMES_API_ACTIONS_ENABLED` is optional and defaults to `false`; set it to `true` only after the captain has authorized Firstmate to submit Hermes runs through this connection.
+The parser rejects unknown or duplicate keys, shell syntax, links, non-owner files, any mode other than `0600`, oversized values, and every non-loopback or alternate URL.
+Do not export the bearer key, pass it on a command line, paste it into chat, or put it in a tracked file.
+This file is home-local and is not part of secondmate inherited configuration.
+The extension gives the transport child only its operational home and a minimal runtime environment, while the transport reads the key directly from the private file.
+
+`hermes_read` exposes only public health, authenticated detailed health, capabilities, models, bounded session metadata, one session, explicitly gated message history, status or events for one named run, skills, and toolsets.
+Message history requires `privateContent=true` on that exact call and remains private even though the operation is read-only.
+`hermes_run` exposes only `POST /v1/runs`, binds the Hermes session to the Firstmate task identity, derives its idempotency key internally, requires a concise non-secret authorization basis, and never retries an action automatically.
+No tool exposes arbitrary URLs, methods, paths, headers, tokens, session mutation, jobs, approvals, stop, delete, fork, or patch.
+Hermes prompts retain the remote agent's full tool power, so enabling actions does not make a run harmless or read-only.
+
+Each schema-valid operation, including one refused by configuration, action policy, or transport, writes safe metadata to mode-`0600` `state/hermes-agent-audit.jsonl` using the mode-`0600` local salt at `state/.hermes-agent-audit-salt` for run and session identifier hashes.
+The audit records time, Firstmate task identity, named operation and endpoint template, HTTP status, duration, response bytes, salted subject hash, private-content classification, and the action authorization basis.
+It never records bearer tokens, cookies, prompts, responses, titles, message text, hostnames, remote infrastructure, or raw run and session identifiers.
+
+Run the offline contract suite with:
+
+```sh
+tests/fm-hermes-agent.test.sh
+```
+
+The suite uses a local fake HTTP server on the pinned loopback port and never authenticates to or submits work to a live Hermes Agent.
+
 ## Backlog backend (.tasks.toml / config/backlog-backend)
 
 The tracked `.tasks.toml` pins the default `tasks-axi` markdown backend to `data/backlog.md`, with `done_keep = 10` and an archive at `data/done-archive.md`.
