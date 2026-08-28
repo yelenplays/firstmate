@@ -866,9 +866,12 @@ function redactDecodedValue(value, apiKey) {
 function containsBearerAcrossValues(value, apiKey) {
   const values = [];
   const keys = [];
+  const stream = [];
   const collect = (entry) => {
     if (typeof entry === "string") {
-      values.push(decodeReversibleEscapes(entry).value);
+      const decoded = decodeReversibleEscapes(entry).value;
+      values.push(decoded);
+      stream.push(decoded);
       return;
     }
     if (Array.isArray(entry)) {
@@ -877,13 +880,15 @@ function containsBearerAcrossValues(value, apiKey) {
     }
     if (entry && typeof entry === "object") {
       for (const [key, item] of Object.entries(entry)) {
-        keys.push(decodeReversibleEscapes(key).value);
+        const decoded = decodeReversibleEscapes(key).value;
+        keys.push(decoded);
+        stream.push(decoded);
         collect(item);
       }
     }
   };
   collect(value);
-  return values.join("").includes(apiKey) || keys.join("").includes(apiKey);
+  return values.join("").includes(apiKey) || keys.join("").includes(apiKey) || stream.join("").includes(apiKey);
 }
 
 function redactResponseValue(value, apiKey) {
@@ -913,6 +918,7 @@ function containsBearerAcrossSseFields(lines, apiKey) {
 }
 
 function redactSse(text, apiKey, response) {
+  if (containsBearerAcrossSseFields(text.split(/\r\n|\r|\n/), apiKey)) return "[REDACTED]";
   return text.split(/(\r\n\r\n|\n\n|\r\r)/).map((frame) => {
     const lines = frame.split(/\r\n|\r|\n/);
     if (containsBearerAcrossSseFields(lines, apiKey)) return "[REDACTED]";
