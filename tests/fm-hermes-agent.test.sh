@@ -371,6 +371,15 @@ EOF
   mkdir "$HOME_DIR/config"
 
   write_config true
+  chmod 777 "$HOME_DIR/config"
+  expect_owner_failure read '{"operation":"health","taskId":"task-config"}' unsafe-config "$out"
+  chmod 755 "$HOME_DIR/config"
+
+  chmod 777 "$HOME_DIR"
+  expect_owner_failure read '{"operation":"health","taskId":"task-config"}' unsafe-config "$out"
+  chmod 755 "$HOME_DIR"
+
+  write_config true
   chmod 644 "$HOME_DIR/state/hermes-agent-audit.jsonl"
   expect_owner_failure read '{"operation":"health","taskId":"task-config"}' unsafe-audit "$out"
   chmod 600 "$HOME_DIR/state/hermes-agent-audit.jsonl"

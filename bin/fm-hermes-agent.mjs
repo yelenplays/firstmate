@@ -246,6 +246,18 @@ function assertOwnedRegularFile(stat, file, label) {
   }
 }
 
+function assertOwnedSecureDirectory(stat, directory, label) {
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    throw new HermesAccessError("unsafe-config", `${label} must not be a link: ${directory}`);
+  }
+  if (typeof process.getuid === "function" && stat.uid !== process.getuid()) {
+    throw new HermesAccessError("unsafe-config", `${label} must be owned by the current user: ${directory}`);
+  }
+  if ((fileMode(stat) & 0o022) !== 0) {
+    throw new HermesAccessError("unsafe-config", `${label} must not be writable by group or other users: ${directory}`);
+  }
+}
+
 function unconfigured(configFile) {
   return new HermesAccessError(
     "not-configured",
@@ -254,6 +266,14 @@ function unconfigured(configFile) {
 }
 
 function parseConfig(home) {
+  let homeStat;
+  try {
+    homeStat = lstatSync(home);
+  } catch (error) {
+    if (error?.code === "ENOENT") throw unconfigured(path.join(home, "config", "hermes-agent.env"));
+    throw new HermesAccessError("unsafe-config", `Hermes home directory cannot be inspected safely: ${home}`);
+  }
+  assertOwnedSecureDirectory(homeStat, home, "Hermes home directory");
   const configDir = path.join(home, "config");
   const configFile = path.join(configDir, "hermes-agent.env");
   let configDirStat;
@@ -263,9 +283,7 @@ function parseConfig(home) {
     if (error?.code === "ENOENT") throw unconfigured(configFile);
     throw new HermesAccessError("unsafe-config", `Hermes configuration directory cannot be inspected safely: ${configDir}`);
   }
-  if (!configDirStat.isDirectory() || configDirStat.isSymbolicLink()) {
-    throw new HermesAccessError("unsafe-config", `Hermes configuration directory must not be a link: ${configDir}`);
-  }
+  assertOwnedSecureDirectory(configDirStat, configDir, "Hermes configuration directory");
   let fd;
   try {
     fd = openSync(configFile, constants.O_RDONLY | NOFOLLOW);
@@ -918,12 +936,7 @@ function containsBearerAcrossValues(value, apiKey) {
     }
   };
   collect(value);
-  return [values, keys, stream].some((fragments) => {
-    const raw = fragments.join("");
-    return containsReversibleBearer(raw, apiKey)
-      || decodeReversibleEscapes(raw).value.includes(apiKey)
-      || decodeReversibleEscapes(raw, decodeCssEscapeStep).value.includes(apiKey);
-  });
+  return containsBearerAcrossFragments([values, keys, stream], apiKey);
 }
 
 function redactResponseValue(value, apiKey) {
@@ -941,6 +954,10 @@ function invalidResponse(response, message) {
       durationMs: response.durationMs,
     },
   );
+}
+
+function containsBearerAcrossFragments(streams, apiKey) {
+  return streams.some((fragments) => containsReversibleBearer(fragments.join(""), apiKey));
 }
 
 function containsBearerAcrossSseFields(lines, apiKey) {
@@ -961,12 +978,7 @@ function containsBearerAcrossSseFields(lines, apiKey) {
     values.push(value);
     stream.push(name, value);
   }
-  return [names, values, stream].some((fragments) => {
-    const raw = fragments.join("");
-    return containsReversibleBearer(raw, apiKey)
-      || decodeReversibleEscapes(raw).value.includes(apiKey)
-      || decodeReversibleEscapes(raw, decodeCssEscapeStep).value.includes(apiKey);
-  });
+  return containsBearerAcrossFragments([names, values, stream], apiKey);
 }
 
 function redactSse(text, apiKey, response) {
