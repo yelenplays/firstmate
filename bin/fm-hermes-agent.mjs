@@ -12,6 +12,7 @@
 // loopback origin are fixed here. The Pi extension is only a typed wrapper.
 
 import { createHash, randomBytes } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import {
   closeSync,
   constants,
@@ -46,6 +47,29 @@ const CONFIG_KEYS = new Set([
   "HERMES_API_ACTIONS_ENABLED",
 ]);
 const NOFOLLOW = constants.O_NOFOLLOW ?? 0;
+const OPEN_CONFIG_AT_SCRIPT = String.raw`
+import os
+import stat
+import sys
+
+try:
+    fd = os.open("hermes-agent.env", os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=3)
+except FileNotFoundError:
+    sys.exit(2)
+except OSError:
+    sys.exit(3)
+
+try:
+    config_stat = os.fstat(fd)
+    if not stat.S_ISREG(config_stat.st_mode) or config_stat.st_nlink != 1 or config_stat.st_uid != os.getuid() or stat.S_IMODE(config_stat.st_mode) != 0o600 or config_stat.st_size > 8192:
+        sys.exit(3)
+    if config_stat.st_size == 0:
+        sys.exit(2)
+    with os.fdopen(fd, "rb", closefd=False) as config_file:
+        sys.stdout.buffer.write(config_file.read())
+finally:
+    os.close(fd)
+`;
 
 const READ_OPERATIONS = {
   health: {
@@ -265,6 +289,34 @@ function unconfigured(configFile) {
   );
 }
 
+function readConfigAt(configDir, configFile) {
+  let configDirFd;
+  try {
+    configDirFd = openSync(configDir, constants.O_RDONLY | constants.O_DIRECTORY | NOFOLLOW);
+    assertOwnedSecureDirectory(fstatSync(configDirFd), configDir, "Hermes configuration directory");
+  } catch (error) {
+    if (error instanceof HermesAccessError) throw error;
+    throw new HermesAccessError("unsafe-config", `Hermes configuration directory cannot be opened safely: ${configDir}`);
+  }
+  try {
+    const result = spawnSync("python3", ["-c", OPEN_CONFIG_AT_SCRIPT], {
+      encoding: "buffer",
+      maxBuffer: CONFIG_MAX_BYTES + 1,
+      stdio: ["ignore", "pipe", "ignore", configDirFd],
+    });
+    if (result.error || result.status === null || result.status === 3) {
+      throw new HermesAccessError("unsafe-config", `Hermes configuration cannot be opened safely: ${configFile}`);
+    }
+    if (result.status === 2) throw unconfigured(configFile);
+    if (result.status !== 0 || !result.stdout || result.stdout.length > CONFIG_MAX_BYTES) {
+      throw new HermesAccessError("unsafe-config", `Hermes configuration cannot be read safely: ${configFile}`);
+    }
+    return result.stdout.toString("utf8");
+  } finally {
+    closeSync(configDirFd);
+  }
+}
+
 function parseConfig(home) {
   let homeStat;
   try {
@@ -284,34 +336,7 @@ function parseConfig(home) {
     throw new HermesAccessError("unsafe-config", `Hermes configuration directory cannot be inspected safely: ${configDir}`);
   }
   assertOwnedSecureDirectory(configDirStat, configDir, "Hermes configuration directory");
-  let fd;
-  try {
-    fd = openSync(configFile, constants.O_RDONLY | NOFOLLOW);
-  } catch (error) {
-    if (error?.code === "ENOENT") throw unconfigured(configFile);
-    throw new HermesAccessError("unsafe-config", `Hermes configuration cannot be opened safely: ${configFile}`);
-  }
-  let raw;
-  try {
-    const stat = fstatSync(fd);
-    assertOwnedRegularFile(stat, configFile, "Hermes configuration");
-    if (fileMode(stat) !== 0o600) {
-      throw new HermesAccessError("unsafe-config", `Hermes configuration must have mode 0600: ${configFile}`);
-    }
-    if (stat.size === 0) throw unconfigured(configFile);
-    if (stat.size > CONFIG_MAX_BYTES) {
-      throw new HermesAccessError(
-        "unsafe-config",
-        `Hermes configuration exceeds the ${CONFIG_MAX_BYTES}-byte limit: ${configFile}`,
-      );
-    }
-    raw = readFileSync(fd, "utf8");
-  } catch (error) {
-    if (error instanceof HermesAccessError) throw error;
-    throw new HermesAccessError("unsafe-config", `Hermes configuration cannot be read safely: ${configFile}`);
-  } finally {
-    closeSync(fd);
-  }
+  let raw = readConfigAt(configDir, configFile);
   if (raw.includes("\r") || raw.includes("\u0000")) {
     throw new HermesAccessError("unsafe-config", "Hermes configuration contains unsupported control bytes.");
   }

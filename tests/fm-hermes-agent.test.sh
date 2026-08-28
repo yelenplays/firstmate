@@ -313,7 +313,7 @@ test_unconfigured_state() {
 }
 
 test_config_refusals() {
-  local out="$TMP_ROOT/config-failure.json" target="$TMP_ROOT/config-target" target_dir="$TMP_ROOT/config-directory-target"
+  local out="$TMP_ROOT/config-failure.json" target="$TMP_ROOT/config-target" target_dir="$TMP_ROOT/config-directory-target" race_target="$TMP_ROOT/config-directory-race-target" hook="$TMP_ROOT/config-directory-swap.cjs"
 
   write_config true
   chmod 644 "$HOME_DIR/config/hermes-agent.env"
@@ -368,6 +368,41 @@ EOF
   ln -s "$target_dir" "$HOME_DIR/config"
   expect_owner_failure read '{"operation":"health","taskId":"task-config"}' unsafe-config "$out"
   rm "$HOME_DIR/config"
+  mkdir "$HOME_DIR/config"
+
+  mkdir "$race_target"
+  printf 'HERMES_API_BASE_URL=http://example.invalid:4861\nHERMES_API_SERVER_KEY=%s\n' "$TOKEN" > "$race_target/hermes-agent.env"
+  chmod 600 "$race_target/hermes-agent.env"
+  write_config true
+  cat > "$hook" <<'JS'
+const fs = require("node:fs");
+
+const configDir = process.env.HERMES_TEST_CONFIG_DIR;
+const targetDir = process.env.HERMES_TEST_CONFIG_TARGET;
+const configFile = `${configDir}/hermes-agent.env`;
+const binding = process.binding("fs");
+const originalOpen = binding.open;
+let swapped = false;
+function swap() {
+  if (!swapped) {
+    swapped = true;
+    fs.rmSync(configDir, { recursive: true, force: true });
+    fs.symlinkSync(targetDir, configDir);
+  }
+}
+binding.open = function (file, ...args) {
+  if (!swapped && file === configFile) swap();
+  const fd = originalOpen.call(this, file, ...args);
+  if (!swapped && file === configDir) swap();
+  return fd;
+};
+JS
+  printf '%s' '{"operation":"health","taskId":"task-config"}' \
+    | NODE_OPTIONS="--require=$hook" HERMES_TEST_CONFIG_DIR="$HOME_DIR/config" HERMES_TEST_CONFIG_TARGET="$race_target" FM_HOME="$HOME_DIR" node "$OWNER" read > "$out" \
+    || fail "Hermes configuration directory swap interrupted descriptor-relative access"
+  jq -e '.ok == true' "$out" >/dev/null \
+    || fail "Hermes configuration directory swap did not preserve the original configuration descriptor"
+  rm -rf "$HOME_DIR/config"
   mkdir "$HOME_DIR/config"
 
   write_config true
