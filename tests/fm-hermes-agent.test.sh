@@ -313,7 +313,7 @@ test_unconfigured_state() {
 }
 
 test_config_refusals() {
-  local out="$TMP_ROOT/config-failure.json" target="$TMP_ROOT/config-target"
+  local out="$TMP_ROOT/config-failure.json" target="$TMP_ROOT/config-target" target_dir="$TMP_ROOT/config-directory-target"
 
   write_config true
   chmod 644 "$HOME_DIR/config/hermes-agent.env"
@@ -360,6 +360,15 @@ EOF
   ln -s "$target" "$HOME_DIR/config/hermes-agent.env"
   expect_owner_failure read '{"operation":"health","taskId":"task-config"}' unsafe-config "$out"
   rm -f "$HOME_DIR/config/hermes-agent.env"
+
+  mkdir "$target_dir"
+  printf 'HERMES_API_BASE_URL=http://127.0.0.1:4861\nHERMES_API_SERVER_KEY=%s\n' "$TOKEN" > "$target_dir/hermes-agent.env"
+  chmod 600 "$target_dir/hermes-agent.env"
+  rmdir "$HOME_DIR/config"
+  ln -s "$target_dir" "$HOME_DIR/config"
+  expect_owner_failure read '{"operation":"health","taskId":"task-config"}' unsafe-config "$out"
+  rm "$HOME_DIR/config"
+  mkdir "$HOME_DIR/config"
 
   write_config true
   chmod 644 "$HOME_DIR/state/hermes-agent-audit.jsonl"

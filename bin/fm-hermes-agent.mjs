@@ -254,7 +254,18 @@ function unconfigured(configFile) {
 }
 
 function parseConfig(home) {
-  const configFile = path.join(home, "config", "hermes-agent.env");
+  const configDir = path.join(home, "config");
+  const configFile = path.join(configDir, "hermes-agent.env");
+  let configDirStat;
+  try {
+    configDirStat = lstatSync(configDir);
+  } catch (error) {
+    if (error?.code === "ENOENT") throw unconfigured(configFile);
+    throw new HermesAccessError("unsafe-config", `Hermes configuration directory cannot be inspected safely: ${configDir}`);
+  }
+  if (!configDirStat.isDirectory() || configDirStat.isSymbolicLink()) {
+    throw new HermesAccessError("unsafe-config", `Hermes configuration directory must not be a link: ${configDir}`);
+  }
   let fd;
   try {
     fd = openSync(configFile, constants.O_RDONLY | NOFOLLOW);
