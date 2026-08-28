@@ -377,12 +377,12 @@ EOF
   chmod 600 "$race_target/config/hermes-agent.env"
   cat > "$hook" <<'JS'
 const fs = require("node:fs");
+const { syncBuiltinESMExports } = require("node:module");
 
 const home = process.env.HERMES_TEST_CONFIG_HOME;
 const target = process.env.HERMES_TEST_CONFIG_TARGET;
 const configDir = `${home}/config`;
-const binding = process.binding("fs");
-const originalOpen = binding.open;
+const originalOpenSync = fs.openSync;
 let swapped = false;
 function swap() {
   if (!swapped) {
@@ -391,12 +391,13 @@ function swap() {
     fs.symlinkSync(target, home);
   }
 }
-binding.open = function (file, ...args) {
+fs.openSync = function (file, ...args) {
   if (!swapped && file === configDir) swap();
-  const fd = originalOpen.call(this, file, ...args);
+  const fd = originalOpenSync.call(this, file, ...args);
   if (!swapped && file === home) swap();
   return fd;
 };
+syncBuiltinESMExports();
 JS
   printf '%s' '{"operation":"health","taskId":"task-config"}' \
     | NODE_OPTIONS="--require=$hook" HERMES_TEST_CONFIG_HOME="$race_home" HERMES_TEST_CONFIG_TARGET="$race_target" FM_HOME="$race_home" node "$OWNER" read > "$out" \
