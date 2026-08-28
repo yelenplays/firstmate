@@ -82,10 +82,8 @@ const runParameters = Type.Object({
     minLength: 1,
     maxLength: 16384,
   }),
-  authorizationBasis: Type.String({
-    description: "Concise non-secret statement of the authority for this action, written to the private audit record",
-    minLength: 1,
-    maxLength: 512,
+  authorizationBasis: StringEnum(["captain-approved", "operator-approved"], {
+    description: "Required non-secret authorization category written to the private audit record",
   }),
 }, { additionalProperties: false });
 
@@ -253,11 +251,11 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "hermes_run",
     label: "Run Hermes Agent",
-    description: "Create exactly one Hermes Agent run through POST /v1/runs. Actions are disabled by default in private configuration. Every call requires a Firstmate task identity and a concise non-secret authorization basis. The transport derives a deterministic idempotency key and never retries an action automatically. No stop, approval, session mutation, jobs, arbitrary endpoint, URL, method, path, or header is exposed.",
+    description: "Create exactly one Hermes Agent run through POST /v1/runs. Actions are disabled by default in private configuration. Every call requires a Firstmate task identity and a fixed non-secret authorization category. The transport derives a deterministic idempotency key and never retries an action automatically. No stop, approval, session mutation, jobs, arbitrary endpoint, URL, method, path, or header is exposed.",
     promptSnippet: "Create one explicitly authorized Hermes Agent run with deterministic idempotency and no automatic retry",
     promptGuidelines: [
       "Call hermes_run only for a concrete Hermes action that current authority explicitly permits, because every prompt can invoke Hermes tools and cause external effects.",
-      "Never use hermes_run for status or inspection when hermes_read can answer the request, and never place secrets or private message content in authorizationBasis.",
+      "Never use hermes_run for status or inspection when hermes_read can answer the request, and select the authorizationBasis category matching the granted authority.",
     ],
     parameters: runParameters,
     async execute(_toolCallId, params, signal) {

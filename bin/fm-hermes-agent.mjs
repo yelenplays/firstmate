@@ -35,7 +35,7 @@ const READ_TIMEOUT_MS = 5000;
 const ACTION_TIMEOUT_MS = 10000;
 const EVENT_TIMEOUT_MS = 45000;
 const INSTRUCTION_MAX_BYTES = 16384;
-const AUTHORIZATION_BASIS_MAX_BYTES = 512;
+const AUTHORIZATION_BASES = new Set(["captain-approved", "operator-approved"]);
 const ID_PATTERN = /^[A-Za-z0-9._:-]+$/;
 const TASK_ID_MAX_BYTES = 128;
 const SUBJECT_ID_MAX_BYTES = 256;
@@ -169,6 +169,16 @@ function assertInstruction(value) {
     throw new HermesAccessError(
       "invalid-input",
       "instruction may contain tabs and newlines but no other control characters.",
+    );
+  }
+  return value;
+}
+
+function assertAuthorizationBasis(value) {
+  if (typeof value !== "string" || !AUTHORIZATION_BASES.has(value)) {
+    throw new HermesAccessError(
+      "invalid-input",
+      "authorizationBasis must be one of: captain-approved, operator-approved.",
     );
   }
   return value;
@@ -473,11 +483,7 @@ function parseRunInput(input) {
   );
   const taskId = assertTaskId(input.taskId);
   const instruction = assertInstruction(input.instruction);
-  const authorizationBasis = assertBoundedString(
-    input.authorizationBasis,
-    "authorizationBasis",
-    AUTHORIZATION_BASIS_MAX_BYTES,
-  );
+  const authorizationBasis = assertAuthorizationBasis(input.authorizationBasis);
   const sessionId = `firstmate:${taskId}`;
   const idempotencyKey = `fm-${createHash("sha256")
     .update("firstmate-hermes-run-v1\u0000")
@@ -508,6 +514,12 @@ function secureStateDir(home) {
   const stat = lstatSync(stateDir);
   if (!stat.isDirectory() || stat.isSymbolicLink()) {
     throw new HermesAccessError("unsafe-audit", `Hermes audit state directory is unsafe: ${stateDir}`);
+  }
+  if (typeof process.getuid === "function" && stat.uid !== process.getuid()) {
+    throw new HermesAccessError("unsafe-audit", `Hermes audit state directory must be owned by the current user: ${stateDir}`);
+  }
+  if (fileMode(stat) !== 0o700) {
+    throw new HermesAccessError("unsafe-audit", `Hermes audit state directory must have mode 0700: ${stateDir}`);
   }
   return stateDir;
 }
@@ -796,12 +808,53 @@ function requestHttp(config, request) {
   });
 }
 
+function redactDecodedValue(value, apiKey) {
+  if (typeof value === "string") return value.split(apiKey).join("[REDACTED]");
+  if (Array.isArray(value)) return value.map((entry) => redactDecodedValue(entry, apiKey));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [
+        key.split(apiKey).join("[REDACTED]"),
+        redactDecodedValue(entry, apiKey),
+      ]),
+    );
+  }
+  return value;
+}
+
+function redactSse(text, apiKey) {
+  const redactedText = text.split(apiKey).join("[REDACTED]");
+  return redactedText.split(/(\r\n\r\n|\n\n|\r\r)/).map((frame) => {
+    const lines = frame.split(/\r\n|\r|\n/);
+    const dataIndexes = [];
+    const data = [];
+    for (let index = 0; index < lines.length; index += 1) {
+      const match = /^data:(?: ?)(.*)$/.exec(lines[index]);
+      if (match) {
+        dataIndexes.push(index);
+        data.push(match[1]);
+      }
+    }
+    if (dataIndexes.length === 0) return frame;
+    try {
+      const payload = JSON.stringify(redactDecodedValue(JSON.parse(data.join("\n")), apiKey));
+      return lines.map((line, index) => {
+        if (index === dataIndexes[0]) return `data: ${payload}`;
+        if (dataIndexes.includes(index)) return "";
+        return line;
+      }).join("\n");
+    } catch {
+      return frame;
+    }
+  }).join("");
+}
+
 function decodeResponse(response, request, apiKey) {
   const text = response.body.toString("utf8").split(apiKey).join("[REDACTED]");
-  if (request.response === "sse") return text;
+  if (request.response === "sse") return redactSse(text, apiKey);
   if (!text) return null;
   try {
-    return JSON.parse(text);
+    return redactDecodedValue(JSON.parse(text), apiKey);
   } catch {
     throw new HermesAccessError(
       "invalid-response",

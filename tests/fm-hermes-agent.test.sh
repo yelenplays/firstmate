@@ -28,6 +28,7 @@ trap 'cleanup; exit 130' INT
 trap 'cleanup; exit 143' TERM
 
 mkdir -p "$HOME_DIR/config" "$HOME_DIR/state"
+chmod 700 "$HOME_DIR/state"
 
 cat > "$SERVER" <<'JS'
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
@@ -88,6 +89,16 @@ const server = http.createServer((request, response) => {
     if (mode === "echo-secret") {
       response.writeHead(200, { "Content-Type": "application/json" });
       response.end(JSON.stringify({ echo: request.headers.authorization || "" }));
+      return;
+    }
+    if (mode === "escaped-secret") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end('{"nested":{"echo":"Bearer TestBearerKey_\\u0031\\u0032\\u0033\\u0034\\u0035\\u0036"}}');
+      return;
+    }
+    if (mode === "escaped-sse-secret") {
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      response.end('event: run.status\ndata: {"nested":{"echo":"Bearer TestBearerKey_\\u0031\\u0032\\u0033\\u0034\\u0035\\u0036"}}\n\n');
       return;
     }
     if (request.url?.endsWith("/events")) {
@@ -238,6 +249,10 @@ EOF
   expect_owner_failure read '{"operation":"health","taskId":"task-config"}' unsafe-audit "$out"
   chmod 600 "$HOME_DIR/state/.hermes-agent-audit-salt"
 
+  chmod 755 "$HOME_DIR/state"
+  expect_owner_failure read '{"operation":"health","taskId":"task-config"}' unsafe-audit "$out"
+  chmod 700 "$HOME_DIR/state"
+
   pass "Hermes owner rejects unsafe permissions, syntax, links, keys, values, and origins"
 }
 
@@ -308,20 +323,20 @@ HERMES_API_SERVER_KEY=$TOKEN
 EOF
   chmod 600 "$HOME_DIR/config/hermes-agent.env"
   before=$(request_count)
-  expect_owner_failure run '{"taskId":"task-run","instruction":"Return a test response.","authorizationBasis":"captain approved offline test"}' actions-disabled "$out"
+  expect_owner_failure run '{"taskId":"task-run","instruction":"Return a test response.","authorizationBasis":"captain-approved"}' actions-disabled "$out"
   after=$(request_count)
   [ "$after" -eq "$before" ] || fail "disabled action reached the fake Hermes server"
 
   oversized=$(printf '%016385d' 0 | tr '0' 'x')
-  payload=$(jq -cn --arg instruction "$oversized" '{taskId:"task-run", instruction:$instruction, authorizationBasis:"captain approved offline test"}')
+  payload=$(jq -cn --arg instruction "$oversized" '{taskId:"task-run", instruction:$instruction, authorizationBasis:"captain-approved"}')
   expect_owner_failure run "$payload" invalid-input "$out"
   [ "$(request_count)" -eq "$before" ] || fail "oversized action instruction reached the fake Hermes server"
 
   write_config true
   printf 'normal\n' > "$CONTROL"
-  expect_owner_success run '{"taskId":"task-run","instruction":"Return a test response.\nUse no tools.","authorizationBasis":"captain approved offline test"}' "$out"
-  expect_owner_success run '{"taskId":"task-run","instruction":"Return a test response.\nUse no tools.","authorizationBasis":"captain approved offline test"}' "$out"
-  expect_owner_success run '{"taskId":"task-run","instruction":"Return a different test response.","authorizationBasis":"captain approved offline test"}' "$out"
+  expect_owner_success run '{"taskId":"task-run","instruction":"Return a test response.\nUse no tools.","authorizationBasis":"captain-approved"}' "$out"
+  expect_owner_success run '{"taskId":"task-run","instruction":"Return a test response.\nUse no tools.","authorizationBasis":"captain-approved"}' "$out"
+  expect_owner_success run '{"taskId":"task-run","instruction":"Return a different test response.","authorizationBasis":"captain-approved"}' "$out"
   tail -n 3 "$REQUEST_LOG" > "$TMP_ROOT/run-requests.jsonl"
   key1=$(sed -n '1p' "$TMP_ROOT/run-requests.jsonl" | jq -r '.headers["idempotency-key"]')
   key2=$(sed -n '2p' "$TMP_ROOT/run-requests.jsonl" | jq -r '.headers["idempotency-key"]')
@@ -337,12 +352,27 @@ EOF
   pass "Hermes owner defaults actions off and derives deterministic idempotency for the one run endpoint"
 }
 
+test_authorization_basis_secrecy() {
+  local out="$TMP_ROOT/authorization-basis.json" before after audit="$HOME_DIR/state/hermes-agent-audit.jsonl" audit_before audit_after
+  write_config true
+  printf 'normal\n' > "$CONTROL"
+  before=$(request_count)
+  audit_before=$(wc -l < "$audit" | tr -d '[:space:]')
+  expect_owner_failure run '{"taskId":"task-basis","instruction":"Offline basis validation.","authorizationBasis":"TestBearerKey_123456"}' invalid-input "$out"
+  after=$(request_count)
+  audit_after=$(wc -l < "$audit" | tr -d '[:space:]')
+  [ "$after" -eq "$before" ] || fail "free-form authorization basis reached the fake Hermes server"
+  [ "$audit_after" -eq "$audit_before" ] || fail "free-form authorization basis reached the private audit log"
+  assert_not_contains "$(cat "$out")" "$TOKEN" "rejected authorization basis leaked to tool output"
+  pass "Hermes actions accept only fixed non-secret authorization categories"
+}
+
 test_no_action_retry() {
   local out="$TMP_ROOT/no-retry.json" before after
   write_config true
   printf 'drop-action\n' > "$CONTROL"
   before=$(request_count)
-  expect_owner_failure run '{"taskId":"task-no-retry","instruction":"Offline connection drop.","authorizationBasis":"captain approved offline test"}' network-error "$out"
+  expect_owner_failure run '{"taskId":"task-no-retry","instruction":"Offline connection drop.","authorizationBasis":"captain-approved"}' network-error "$out"
   after=$(request_count)
   [ $((after - before)) -eq 1 ] || fail "failed action was retried automatically"
   printf 'normal\n' > "$CONTROL"
@@ -378,6 +408,18 @@ test_transport_bounds_and_redaction() {
   assert_not_contains "$text" "$TOKEN" "echoed bearer key must be redacted from output"
   assert_contains "$text" "[REDACTED]" "echoed bearer key must leave an explicit redaction marker"
 
+  printf 'escaped-secret\n' > "$CONTROL"
+  expect_owner_success read '{"operation":"capabilities","taskId":"task-transport"}' "$out"
+  text=$(cat "$out")
+  assert_not_contains "$text" "$TOKEN" "decoded JSON bearer key must be redacted from output"
+  assert_contains "$text" "[REDACTED]" "decoded JSON bearer key must leave an explicit redaction marker"
+
+  printf 'escaped-sse-secret\n' > "$CONTROL"
+  expect_owner_success read '{"operation":"run_events","taskId":"task-transport","runId":"run-private-7"}' "$out"
+  text=$(cat "$out")
+  assert_not_contains "$text" "$TOKEN" "decoded SSE bearer key must be redacted from output"
+  assert_contains "$text" "[REDACTED]" "decoded SSE bearer key must leave an explicit redaction marker"
+
   printf 'delay\n' > "$CONTROL"
   expect_owner_failure read '{"operation":"health","taskId":"task-transport"}' timeout "$out"
   assert_contains "$(jq -r '.error.message' "$out")" "5-second bound" "read timeout diagnostic must name its bound"
@@ -397,7 +439,9 @@ test_audit_secrecy() {
   assert_not_contains "$content" "run-private-7" "audit leaked raw run id"
   assert_not_contains "$content" "run-created-private" "audit leaked created run id"
   assert_not_contains "$content" "Return a test response." "audit leaked a run instruction"
-  assert_contains "$content" '"authorizationBasis":"captain approved offline test"' "audit omitted the action authorization basis"
+  assert_contains "$content" '"authorizationBasis":"captain-approved"' "audit omitted the action authorization basis"
+  jq -e -s 'all(.[]; (.authorizationBasis == null or .authorizationBasis == "captain-approved" or .authorizationBasis == "operator-approved"))' "$audit" >/dev/null \
+    || fail "audit recorded an unsafe authorization basis"
   jq -e -s 'all(.[]; (.at | type == "string") and (.task | type == "string") and (.operation | type == "string") and (.endpoint | type == "string") and (.durationMs | type == "number") and (.responseBytes | type == "number") and (.privateContent | type == "boolean"))' "$audit" >/dev/null \
     || fail "audit record schema is incomplete"
   jq -e -s 'any(.[]; .operation == "messages" and .privateContent == true and ((.subjectHash // "") | test("^[0-9a-f]{24}$")))' "$audit" >/dev/null \
@@ -476,6 +520,9 @@ for (const forbidden of ["url", "method", "path", "headers", "idempotencyKey", "
 if (read.parameters.properties.operation.enum.join(",") !== "health,detailed_health,capabilities,models,sessions,session,messages,run_status,run_events,skills,toolsets") {
   throw new Error(`unexpected operation enum: ${read.parameters.properties.operation.enum}`);
 }
+if (run.parameters.properties.authorizationBasis.enum.join(",") !== "captain-approved,operator-approved") {
+  throw new Error(`unexpected authorization basis enum: ${run.parameters.properties.authorizationBasis.enum}`);
+}
 let unconfigured = "";
 try {
   await read.execute("call-unconfigured", { operation: "health", taskId: "task-extension" }, undefined);
@@ -501,7 +548,7 @@ if (Object.hasOwn(env, "HERMES_API_SERVER_KEY")) throw new Error("bearer key rea
 if (JSON.stringify(readResult).includes("SHOULD_NOT_REACH_CHILD")) throw new Error("bearer key reached tool output");
 const truncated = await read.execute("call-truncate", { operation: "health", taskId: "truncate" }, undefined);
 if (truncated.details?.truncated !== true || truncated.content[0]?.text.length > 52000) throw new Error("tool did not truncate model output");
-const runResult = await run.execute("call-run", { taskId: "task-extension", instruction: "offline", authorizationBasis: "captain approved offline test" }, undefined);
+const runResult = await run.execute("call-run", { taskId: "task-extension", instruction: "offline", authorizationBasis: "captain-approved" }, undefined);
 if (runResult.details?.status !== 200) throw new Error("run wrapper did not return owner status");
 EOF
   )
@@ -516,6 +563,7 @@ test_config_refusals
 test_read_allowlist
 test_read_refusals_and_privacy_gate
 test_action_gate_and_idempotency
+test_authorization_basis_secrecy
 test_no_action_retry
 test_transport_bounds_and_redaction
 test_audit_secrecy
