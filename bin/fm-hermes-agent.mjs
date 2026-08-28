@@ -830,23 +830,42 @@ function decodeReversibleEscapeStep(value) {
   }
 }
 
-function decodeReversibleEscapes(value) {
+function decodeCssEscapeStep(value) {
+  let decoded = value.replace(/\\\\/g, "\\");
+  decoded = decoded.replace(/\\([0-9a-fA-F]{1,6})(?:\r\n|[\t\n\f\r ])?/g, (match, hex) => {
+    const codePoint = Number.parseInt(hex, 16);
+    return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : match;
+  });
+  decoded = decoded.replace(/%u([0-9a-fA-F]{4})/g, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
+  try {
+    return decodeURIComponent(decoded);
+  } catch {
+    return decoded;
+  }
+}
+
+function decodeReversibleEscapes(value, decodeStep = decodeReversibleEscapeStep) {
   let decoded = value;
   for (let index = 0; index < REVERSIBLE_DECODE_MAX_PASSES; index += 1) {
-    const next = decodeReversibleEscapeStep(decoded);
+    const next = decodeStep(decoded);
     if (next === decoded) return { value: decoded, exhausted: false };
     decoded = next;
   }
   return {
     value: decoded,
-    exhausted: decodeReversibleEscapeStep(decoded) !== decoded,
+    exhausted: decodeStep(decoded) !== decoded,
   };
+}
+
+function containsReversibleBearer(value, apiKey) {
+  const decoded = decodeReversibleEscapes(value);
+  const cssDecoded = decodeReversibleEscapes(value, decodeCssEscapeStep);
+  return decoded.exhausted || cssDecoded.exhausted || decoded.value.includes(apiKey) || cssDecoded.value.includes(apiKey);
 }
 
 function redactText(value, apiKey) {
   if (value.includes(apiKey)) return value.split(apiKey).join("[REDACTED]");
-  const decoded = decodeReversibleEscapes(value);
-  if (decoded.exhausted || decoded.value.includes(apiKey)) return "[REDACTED]";
+  if (containsReversibleBearer(value, apiKey)) return "[REDACTED]";
   return value;
 }
 
@@ -870,9 +889,9 @@ function containsBearerAcrossValues(value, apiKey) {
   const stream = [];
   const collect = (entry) => {
     if (entry === null || typeof entry !== "object") {
-      const decoded = decodeReversibleEscapes(String(entry)).value;
-      values.push(decoded);
-      stream.push(decoded);
+      const scalar = String(entry);
+      values.push(scalar);
+      stream.push(scalar);
       return;
     }
     if (Array.isArray(entry)) {
@@ -881,15 +900,19 @@ function containsBearerAcrossValues(value, apiKey) {
     }
     if (entry && typeof entry === "object") {
       for (const [key, item] of Object.entries(entry)) {
-        const decoded = decodeReversibleEscapes(key).value;
-        keys.push(decoded);
-        stream.push(decoded);
+        keys.push(key);
+        stream.push(key);
         collect(item);
       }
     }
   };
   collect(value);
-  return values.join("").includes(apiKey) || keys.join("").includes(apiKey) || stream.join("").includes(apiKey);
+  return [values, keys, stream].some((fragments) => {
+    const raw = fragments.join("");
+    return containsReversibleBearer(raw, apiKey)
+      || decodeReversibleEscapes(raw).value.includes(apiKey)
+      || decodeReversibleEscapes(raw, decodeCssEscapeStep).value.includes(apiKey);
+  });
 }
 
 function redactResponseValue(value, apiKey) {
@@ -910,12 +933,24 @@ function invalidResponse(response, message) {
 }
 
 function containsBearerAcrossSseFields(lines, apiKey) {
-  const fields = [];
+  const names = [];
+  const values = [];
   for (const line of lines) {
-    const match = /^[^:]*:(?: ?)(.*)$/.exec(line);
-    if (match) fields.push(decodeReversibleEscapes(match[1]).value);
+    if (line === "") continue;
+    const separator = line.indexOf(":");
+    if (separator === -1) {
+      names.push(line);
+      continue;
+    }
+    names.push(line.slice(0, separator));
+    values.push(line.slice(separator + (line[separator + 1] === " " ? 2 : 1)));
   }
-  return fields.join("").includes(apiKey);
+  return [names, values].some((fragments) => {
+    const raw = fragments.join("");
+    return containsReversibleBearer(raw, apiKey)
+      || decodeReversibleEscapes(raw).value.includes(apiKey)
+      || decodeReversibleEscapes(raw, decodeCssEscapeStep).value.includes(apiKey);
+  });
 }
 
 function redactSse(text, apiKey, response) {
