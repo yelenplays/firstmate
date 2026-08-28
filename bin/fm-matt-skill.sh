@@ -61,7 +61,7 @@ RESOLVER="$HERE/fm-skill-path.sh"
 
 PLUGIN=mattpocock-skills
 MARKETPLACE=claude-plugins-official
-VALIDATED_VERSION=1.2.0
+VALIDATED_VERSION=1.2.3
 VALIDATED_COMMIT=2ab958093e83e0ec752e6c1c5932da465bf23e0c
 UPSTREAM=https://github.com/mattpocock/skills
 LICENSE=MIT
