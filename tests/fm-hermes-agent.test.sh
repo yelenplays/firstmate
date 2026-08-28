@@ -313,7 +313,7 @@ test_unconfigured_state() {
 }
 
 test_config_refusals() {
-  local out="$TMP_ROOT/config-failure.json" target="$TMP_ROOT/config-target" target_dir="$TMP_ROOT/config-directory-target" race_target="$TMP_ROOT/config-directory-race-target" hook="$TMP_ROOT/config-directory-swap.cjs"
+  local out="$TMP_ROOT/config-failure.json" target="$TMP_ROOT/config-target" target_dir="$TMP_ROOT/config-directory-target" race_home="$TMP_ROOT/config-home-race" race_target="$TMP_ROOT/config-home-race-target" hook="$TMP_ROOT/config-home-swap.cjs"
 
   write_config true
   chmod 644 "$HOME_DIR/config/hermes-agent.env"
@@ -370,40 +370,39 @@ EOF
   rm "$HOME_DIR/config"
   mkdir "$HOME_DIR/config"
 
-  mkdir "$race_target"
-  printf 'HERMES_API_BASE_URL=http://example.invalid:4861\nHERMES_API_SERVER_KEY=%s\n' "$TOKEN" > "$race_target/hermes-agent.env"
-  chmod 600 "$race_target/hermes-agent.env"
-  write_config true
+  mkdir -p "$race_home/config" "$race_target/config"
+  printf 'HERMES_API_BASE_URL=http://127.0.0.1:4861\nHERMES_API_SERVER_KEY=%s\n' "$TOKEN" > "$race_home/config/hermes-agent.env"
+  chmod 600 "$race_home/config/hermes-agent.env"
+  printf 'HERMES_API_BASE_URL=http://example.invalid:4861\nHERMES_API_SERVER_KEY=%s\n' "$TOKEN" > "$race_target/config/hermes-agent.env"
+  chmod 600 "$race_target/config/hermes-agent.env"
   cat > "$hook" <<'JS'
 const fs = require("node:fs");
 
-const configDir = process.env.HERMES_TEST_CONFIG_DIR;
-const targetDir = process.env.HERMES_TEST_CONFIG_TARGET;
-const configFile = `${configDir}/hermes-agent.env`;
+const home = process.env.HERMES_TEST_CONFIG_HOME;
+const target = process.env.HERMES_TEST_CONFIG_TARGET;
+const configDir = `${home}/config`;
 const binding = process.binding("fs");
 const originalOpen = binding.open;
 let swapped = false;
 function swap() {
   if (!swapped) {
     swapped = true;
-    fs.rmSync(configDir, { recursive: true, force: true });
-    fs.symlinkSync(targetDir, configDir);
+    fs.rmSync(home, { recursive: true, force: true });
+    fs.symlinkSync(target, home);
   }
 }
 binding.open = function (file, ...args) {
-  if (!swapped && file === configFile) swap();
-  const fd = originalOpen.call(this, file, ...args);
   if (!swapped && file === configDir) swap();
+  const fd = originalOpen.call(this, file, ...args);
+  if (!swapped && file === home) swap();
   return fd;
 };
 JS
   printf '%s' '{"operation":"health","taskId":"task-config"}' \
-    | NODE_OPTIONS="--require=$hook" HERMES_TEST_CONFIG_DIR="$HOME_DIR/config" HERMES_TEST_CONFIG_TARGET="$race_target" FM_HOME="$HOME_DIR" node "$OWNER" read > "$out" \
-    || fail "Hermes configuration directory swap interrupted descriptor-relative access"
+    | NODE_OPTIONS="--require=$hook" HERMES_TEST_CONFIG_HOME="$race_home" HERMES_TEST_CONFIG_TARGET="$race_target" FM_HOME="$race_home" node "$OWNER" read > "$out" \
+    || fail "Hermes home directory swap interrupted descriptor-relative access"
   jq -e '.ok == true' "$out" >/dev/null \
-    || fail "Hermes configuration directory swap did not preserve the original configuration descriptor"
-  rm -rf "$HOME_DIR/config"
-  mkdir "$HOME_DIR/config"
+    || fail "Hermes home directory swap did not preserve the original configuration descriptor"
 
   write_config true
   chmod 777 "$HOME_DIR/config"

@@ -53,22 +53,34 @@ import stat
 import sys
 
 try:
-    fd = os.open("hermes-agent.env", os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=3)
+    config_fd = os.open("config", os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0), dir_fd=3)
 except FileNotFoundError:
     sys.exit(2)
 except OSError:
     sys.exit(3)
 
 try:
-    config_stat = os.fstat(fd)
-    if not stat.S_ISREG(config_stat.st_mode) or config_stat.st_nlink != 1 or config_stat.st_uid != os.getuid() or stat.S_IMODE(config_stat.st_mode) != 0o600 or config_stat.st_size > 8192:
+    config_dir_stat = os.fstat(config_fd)
+    if not stat.S_ISDIR(config_dir_stat.st_mode) or config_dir_stat.st_uid != os.getuid() or stat.S_IMODE(config_dir_stat.st_mode) & 0o022:
         sys.exit(3)
-    if config_stat.st_size == 0:
+    try:
+        fd = os.open("hermes-agent.env", os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=config_fd)
+    except FileNotFoundError:
         sys.exit(2)
-    with os.fdopen(fd, "rb", closefd=False) as config_file:
-        sys.stdout.buffer.write(config_file.read())
+    except OSError:
+        sys.exit(3)
+    try:
+        config_stat = os.fstat(fd)
+        if not stat.S_ISREG(config_stat.st_mode) or config_stat.st_nlink != 1 or config_stat.st_uid != os.getuid() or stat.S_IMODE(config_stat.st_mode) != 0o600 or config_stat.st_size > 8192:
+            sys.exit(3)
+        if config_stat.st_size == 0:
+            sys.exit(2)
+        with os.fdopen(fd, "rb", closefd=False) as config_file:
+            sys.stdout.buffer.write(config_file.read())
+    finally:
+        os.close(fd)
 finally:
-    os.close(fd)
+    os.close(config_fd)
 `;
 
 const READ_OPERATIONS = {
@@ -289,20 +301,20 @@ function unconfigured(configFile) {
   );
 }
 
-function readConfigAt(configDir, configFile) {
-  let configDirFd;
+function readConfigAt(home, configFile) {
+  let homeFd;
   try {
-    configDirFd = openSync(configDir, constants.O_RDONLY | constants.O_DIRECTORY | NOFOLLOW);
-    assertOwnedSecureDirectory(fstatSync(configDirFd), configDir, "Hermes configuration directory");
+    homeFd = openSync(home, constants.O_RDONLY | constants.O_DIRECTORY | NOFOLLOW);
+    assertOwnedSecureDirectory(fstatSync(homeFd), home, "Hermes home directory");
   } catch (error) {
     if (error instanceof HermesAccessError) throw error;
-    throw new HermesAccessError("unsafe-config", `Hermes configuration directory cannot be opened safely: ${configDir}`);
+    throw new HermesAccessError("unsafe-config", `Hermes home directory cannot be opened safely: ${home}`);
   }
   try {
     const result = spawnSync("python3", ["-c", OPEN_CONFIG_AT_SCRIPT], {
       encoding: "buffer",
       maxBuffer: CONFIG_MAX_BYTES + 1,
-      stdio: ["ignore", "pipe", "ignore", configDirFd],
+      stdio: ["ignore", "pipe", "ignore", homeFd],
     });
     if (result.error || result.status === null || result.status === 3) {
       throw new HermesAccessError("unsafe-config", `Hermes configuration cannot be opened safely: ${configFile}`);
@@ -313,7 +325,7 @@ function readConfigAt(configDir, configFile) {
     }
     return result.stdout.toString("utf8");
   } finally {
-    closeSync(configDirFd);
+    closeSync(homeFd);
   }
 }
 
@@ -328,15 +340,7 @@ function parseConfig(home) {
   assertOwnedSecureDirectory(homeStat, home, "Hermes home directory");
   const configDir = path.join(home, "config");
   const configFile = path.join(configDir, "hermes-agent.env");
-  let configDirStat;
-  try {
-    configDirStat = lstatSync(configDir);
-  } catch (error) {
-    if (error?.code === "ENOENT") throw unconfigured(configFile);
-    throw new HermesAccessError("unsafe-config", `Hermes configuration directory cannot be inspected safely: ${configDir}`);
-  }
-  assertOwnedSecureDirectory(configDirStat, configDir, "Hermes configuration directory");
-  let raw = readConfigAt(configDir, configFile);
+  let raw = readConfigAt(home, configFile);
   if (raw.includes("\r") || raw.includes("\u0000")) {
     throw new HermesAccessError("unsafe-config", "Hermes configuration contains unsupported control bytes.");
   }
