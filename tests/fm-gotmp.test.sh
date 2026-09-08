@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # Behavior tests for per-task GOTMPDIR support (fm-gotmp).
 #
 # fm-spawn gives each task a temp root /tmp/fm-<id>/ with Go's build temp nested at

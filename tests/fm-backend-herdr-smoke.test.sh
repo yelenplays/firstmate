@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "20 20 12 61 79 80 81 701 33 98 100 204 250 395 398 399 400dirname "")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-backend-herdr-smoke.test.sh - real herdr smoke test for the herdr
 # session-provider adapter (bin/backends/herdr.sh), P2 of
 # data/fm-backend-design-d7 (herdr-addendum.md), extended for the P3

@@ -464,6 +464,14 @@ fi
 
 # --- run-step authoritative path -------------------------------------------
 
+if [ "$KIND" = ship ] && [ -e "$STATE/$ID.execution" ] &&
+  ! FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" confirmed "$ID"; then
+  if [ "$HAVE_RUN" = 1 ]; then
+    emit unknown run-step 'validation run active; implementation handoff processing unconfirmed'
+  fi
+  emit unknown none 'implementation handoff processing unconfirmed'
+fi
+
 if [ "$HAVE_RUN" = 1 ]; then
   RUN_STATE=working
   RUN_DETAIL=""
@@ -585,10 +593,6 @@ fi
 # liveness, so a finished-but-pane-closed crew never reaches here. Down here there
 # is no run to consult, so a dead/unreadable target means the crew is gone: report
 # unknown rather than trusting a possibly-stale status log as the current state.
-if [ "$KIND" = ship ] && [ -e "$STATE/$ID.execution" ]; then
-  FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" confirmed "$ID" \
-    || emit unknown none 'implementation handoff processing unconfirmed'
-fi
 [ -n "$BACKEND_TARGET" ] || emit unknown none "no backend target recorded"
 pane_readable "$BACKEND_TARGET" || emit unknown none "backend target gone: $BACKEND_TARGET"
 

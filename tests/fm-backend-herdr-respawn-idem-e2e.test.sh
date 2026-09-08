@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "20 20 12 61 79 80 81 701 33 98 100 204 250 395 398 399 400dirname "")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-backend-herdr-respawn-idem-e2e.test.sh - isolated real-herdr
 # regression test for firstmate-restart idempotency against herdr's
 # restored-layout husks (docs/herdr-backend.md "Known gaps" / "ID stability

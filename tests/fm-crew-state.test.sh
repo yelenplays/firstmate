@@ -829,6 +829,12 @@ test_launch_and_old_working_events_do_not_prove_processing() {
   printf 'working: old event acknowledged again\n' > "$d/state/execution-proof.status"
   out=$(run_crew_state "$d" execution-proof)
   assert_contains "$out" 'state: unknown' 'idle worker inherited historical progress'
+  token=$(FM_HOME="$d" "$ROOT/bin/fm-task-execution.sh" attempt execution-proof)
+  FM_FAKE_AXI_STATUS="$(run_running fm/execution-proof)"
+  out=$(run_crew_state "$d" execution-proof)
+  assert_contains "$out" 'state: unknown' 'failed relaunch with active validation run counted as a working owner'
+  assert_contains "$out" 'source: run-step' 'active validation run was not surfaced distinctly'
+  assert_contains "$out" 'handoff processing unconfirmed' 'relaunch receipt mismatch was not reported'
   pass 'launch seed, unconfirmed handoff and stale working event never prove current processing'
 }
 

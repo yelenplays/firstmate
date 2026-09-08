@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "20 20 12 61 79 80 81 701 33 98 100 204 250 395 398 399 400dirname "")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-harness-liveness-drift-live-e2e.test.sh - opt-in drift guard proving
 # every INSTALLED harness is still classified `alive` by the tmux liveness
 # probe (bin/backends/tmux.sh).

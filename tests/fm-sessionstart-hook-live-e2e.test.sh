@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "20 20 12 61 79 80 81 701 33 98 100 204 250 395 398 399 400dirname "")/environment.sh"
+fm_test_sanitize_environment
 # Opt-in live guard for the Claude, Codex exec, and Pi RUN-tier session-open adapters.
 # Cursor's source-free RUN-tier transport is covered with its stop-hook park by
 # tests/fm-cursor-primary-live-e2e.test.sh.

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "20 20 12 61 79 80 81 701 33 98 100 204 250 395 398 399 400dirname "")/environment.sh"
+fm_test_sanitize_environment
 # Credentialed behavior regression for the agent-owned quota-array-dispatch skill.
 #
 # This drives the public Pi skill-loading interface against a fake quota-axi

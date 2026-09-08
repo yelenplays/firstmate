@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "20 20 12 61 79 80 81 701 33 98 100 204 250 395 398 399 400dirname "")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-backend-autodetect-smoke.test.sh - real herdr smoke test for runtime
 # backend AUTO-DETECTION (bin/fm-backend.sh's fm_backend_detect, wired into
 # fm_backend_name between config/backend and the tmux default).

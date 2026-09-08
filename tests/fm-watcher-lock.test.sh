@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "20 20 12 61 79 80 81 701 33 98 100 204 250 395 398 399 400dirname "")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-watcher-lock.test.sh - watcher singleton + lock-primitive races +
 # PID identity stability + watch-arm liveness + guard warnings. These are
 # safety-critical process invariants (a race bug may not reproduce through an
