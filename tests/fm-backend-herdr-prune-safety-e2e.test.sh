@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-. "20 20 12 61 79 80 81 701 33 98 100 204 250 395 398 399 400dirname "")/environment.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
 fm_test_sanitize_environment
 # tests/fm-backend-herdr-prune-safety-e2e.test.sh - isolated real-herdr
 # regression test for the 2026-07-02 self-kill incident and its fix
