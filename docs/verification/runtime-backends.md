@@ -6,28 +6,6 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
-## Implementation processing receipts
-
-The generation-bound handoff receipt and unfinished-execution reconciliation were verified on 2026-09-08 on macOS with Bash 5.3.9, jq 1.8.1, and tasks-axi 0.2.5.
-The shared receipt executes a tool command from the isolated worker copy; it does not classify vendor-rendered text or replace current activity evidence.
-These are fixture tests, not new live-harness or live-backend certifications.
-
-```sh
-bin/fm-test-run.sh tests/fm-approved-execution.test.sh tests/fm-crew-state.test.sh tests/fm-trace-context-spawn.test.sh
-```
-
-Bounded observed output:
-
-```text
-PASS: approved scout cannot disappear after acknowledgements
-PASS: authority, fan-out, waits, promotion, receipts, restart, handoff and watcher transitions
-ok - launch seed, unconfirmed handoff and stale working event never prove current processing
-ok - spawn delivery stays unconfirmed until its isolated worker executes the delivered receipt
-```
-
-`bin/fm-task-execution.sh` owns the receipt protocol, while `bin/fm-crew-state.sh` retains current activity and validation attribution.
-The receipt is inserted at the common instruction-delivery boundary before the harness-specific launch cases in `bin/fm-spawn.sh`; backend launch and lifecycle mechanisms are unchanged.
-
 ## tmux
 
 Foreground-process behavior was verified on 2026-07-07 with tmux 3.6a on macOS.
