@@ -71,7 +71,7 @@ fm_lint_worker() {  # <manifest> <output-dir> <shard-index>
     trap 'fm_lint_worker_stop; exit 129' HUP
     trap 'fm_lint_worker_stop; exit 130' INT
     trap 'fm_lint_worker_stop; exit 143' TERM
-    "$FM_LINT_SHELLCHECK" --norc --external-sources -- "${roots[@]}" > "$output.out" 2>&1 &
+    "$FM_LINT_SHELLCHECK" --norc --external-sources --source-path=tests -- "${roots[@]}" > "$output.out" 2>&1 &
     FM_LINT_WORKER_SHELLCHECK_PID=$!
     wait "$FM_LINT_WORKER_SHELLCHECK_PID" || rc=$?
     FM_LINT_WORKER_SHELLCHECK_PID=

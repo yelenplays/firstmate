@@ -109,6 +109,7 @@ printf 'stale: fixture-rapid drained\n'
 SH
 chmod +x "$PROJECT/bin/fm-watch-arm.sh" "$PROJECT/bin/fm-wake-drain.sh"
 
+# shellcheck disable=SC2016 # The fixture prompt intentionally contains literal command examples.
 PROMPT='Run exactly `bin/fm-session-start.sh` with Bash as your first tool call. After reading its complete digest, reply with exactly CYCLE0 and stop. Whenever a Stop hook feedback message wakes you, run exactly `bin/fm-wake-drain.sh` once with Bash, then reply with exactly ACK and stop. Never run bin/fm-watch-arm.sh or any other arm command, and never use any other tool.'
 
 (
@@ -153,6 +154,7 @@ printf 'project=fixture\n' > "$LIVE_OWNER_HOME/state/task.meta"
 LIVE_OWNER_PID=$!
 printf '%s\n' "$LIVE_OWNER_PID" > "$LIVE_OWNER_HOME/state/.lock"
 LIVE_OWNER_RC=0
+# shellcheck disable=SC2016 # The child shell must expand this variable, not the fixture shell.
 printf '%s\n' '{"session_id":"live-owner-control"}' \
   | FM_HOME="$LIVE_OWNER_HOME" FM_ROOT_OVERRIDE="$PROJECT" "$FAKE_CLAUDE" -c '"$FM_ROOT_OVERRIDE/bin/fm-claude-stop-autoarm.sh"' \
       >"$LAB/live-owner.out" 2>"$LAB/live-owner.err" || LIVE_OWNER_RC=$?
