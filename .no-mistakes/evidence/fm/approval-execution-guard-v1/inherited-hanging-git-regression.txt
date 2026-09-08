@@ -1,0 +1,3 @@
+$ bash tests/fm-session-start.test.sh --inherited-hanging-git-only
+ok - the pure-Bash watchdog bounds session start, kills its hung grandchild, and emits the truncation contract
+ok - an inherited startup child marker cannot disable the test deadline or overwrite the parent breadcrumb

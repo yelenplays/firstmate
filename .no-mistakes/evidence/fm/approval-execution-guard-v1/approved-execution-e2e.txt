@@ -1,0 +1,4 @@
+$ bash tests/fm-approved-execution.test.sh
+PASS: approved scout cannot disappear after acknowledgements
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+PASS: authority, fan-out, waits, promotion, receipts, restart, handoff and watcher transitions
