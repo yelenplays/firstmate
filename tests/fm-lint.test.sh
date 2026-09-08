@@ -237,7 +237,10 @@ if [ "\${1:-}" = --version ]; then
   printf 'ShellCheck - shell script analysis tool\nversion: 0.11.0\n'
   exit 0
 fi
-shift 3
+while [ "\$#" -gt 0 ] && [ "\$1" != -- ]; do
+  shift
+done
+[ "\${1:-}" = -- ] && shift
 printf '%s\n' "\$@" >> "$log"
 exit 0
 SH
