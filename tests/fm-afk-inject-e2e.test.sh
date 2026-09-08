@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-afk-inject-e2e.test.sh - private-socket end-to-end test for the afk
 # daemon's injection path. It covers three operator-visible injection contracts:
 #

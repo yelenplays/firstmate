@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-backend-autodetect-smoke.test.sh - real herdr smoke test for runtime
 # backend AUTO-DETECTION (bin/fm-backend.sh's fm_backend_detect, wired into
 # fm_backend_name between config/backend and the tmux default).

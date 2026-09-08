@@ -261,6 +261,17 @@ print_status_presentation() {  # [<deduped-raw-rows>]
   fi
   if [ "$rc" -eq 0 ] && [ -n "$snapshot" ]; then print_status_sections "$snapshot" "$fully_presented" || rc=1; fi
   fm_lock_release "$lock"
+  # Execution obligations outlive queue acknowledgement and status presentation.
+  # Always reconcile them, including an empty queue and a missing task endpoint.
+  local execution
+  if execution=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" scan); then
+    if [ -n "$execution" ]; then
+      printf 'UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):\n%s\n' "$execution"
+    fi
+  else
+    printf 'UNFINISHED EXECUTION: reconciliation unavailable; obligations retained\n' >&2
+    rc=1
+  fi
   return "$rc"
 }
 

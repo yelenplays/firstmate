@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-tmux-agent-liveness.test.sh - portable regression for the tmux
 # agent-liveness classifier (bin/backends/tmux.sh).
 #

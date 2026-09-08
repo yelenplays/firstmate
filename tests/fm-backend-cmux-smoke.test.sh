@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-backend-cmux-smoke.test.sh - real cmux smoke test for the cmux
 # session-provider adapter (bin/backends/cmux.sh), verified against the real
 # cmux 0.64.17 binary (docs/cmux-backend.md). Mirrors

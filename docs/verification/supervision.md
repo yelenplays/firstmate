@@ -6,6 +6,28 @@ This record supports current session-start, turn-end, watcher-continuity, and we
 Operator behavior and active limits remain in the linked current guides.
 Task-specific chronology, temporary paths, run identifiers, and delivery transcripts remain in private reports or PR evidence.
 
+## Approved implementation processing
+
+The generation-bound handoff receipt and unfinished-execution reconciliation were verified on 2026-09-08 on macOS with Bash 5.3.9, jq 1.8.1, and tasks-axi 0.2.5.
+The shared receipt executes a tool command from the isolated worker copy; it does not classify vendor-rendered text or replace current activity evidence.
+These are fixture tests, not new live-harness or live-backend certifications.
+
+```sh
+bin/fm-test-run.sh tests/fm-approved-execution.test.sh tests/fm-crew-state.test.sh tests/fm-trace-context-spawn.test.sh
+```
+
+Bounded observed output:
+
+```text
+PASS: approved scout cannot disappear after acknowledgements
+PASS: authority, fan-out, waits, promotion, receipts, restart, handoff and watcher transitions
+ok - launch seed, unconfirmed handoff and stale working event never prove current processing
+ok - spawn delivery stays unconfirmed until its isolated worker executes the delivered receipt
+```
+
+`bin/fm-task-execution.sh` owns the receipt protocol, while `bin/fm-crew-state.sh` retains current activity and validation attribution.
+The receipt is inserted at the common instruction-delivery boundary before the harness-specific launch cases in `bin/fm-spawn.sh`; backend launch and lifecycle mechanisms are unchanged.
+
 ## Native session-start delivery
 
 The cross-harness transport pass ran on 2026-07-17 with Codex 0.144.4, Grok 0.2.103, OpenCode 1.17.18, Pi 0.80.10, and the tracked Claude hook wiring.

@@ -2544,6 +2544,11 @@ rm -f "$STATE/$ID.turn-ended" "$STATE/$ID.meta" \
   "$STATE/$ID.muse-session-current" "$STATE/$ID.cursor-session" \
   "$STATE/$ID.control-relaunch" "$STATE/$ID.control-relaunch.meta-prior" \
   "$STATE/$ID.control-relaunch.brief-prior" "$STATE/$ID.control-relaunch.note"
+# Only the guarded ship landing path retires the implementation obligation.
+# Scout cleanup keeps it: a report is not implementation or landing.
+if [ "$KIND" = ship ]; then
+  rm -f "$STATE/$ID.execution" "$STATE/.$ID.execution-notified"
+fi
 fm_lock_release "$META_LOCK"
 META_LOCK_HELD=0
 if [ "$KIND" != scout ] && [ "$KIND" != secondmate ] && [ "$MODE" != local-only ]; then

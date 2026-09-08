@@ -560,6 +560,34 @@ test_secondmate_carrier_and_snapshot_share_one_decision() {
   pass "secondmate carrier and FM_TRACE_CONTEXT snapshot always agree, both derived from one frozen decision (file-decided path)"
 }
 
+test_spawn_processing_receipt_is_executable_not_optimistic() {
+  local rec out rc command receipt
+  command -v tasks-axi >/dev/null || { echo 'skip: tasks-axi not found'; return; }
+  rec=$(make_spawn_case execution-receipt)
+  read_case_record "$rec"
+  printf '## In flight\n\n## Queued\n- [ ] %s - Approved implementation (kind: ship)\n\n## Done\n' "$CASE_ID" > "$HOME_DIR/data/backlog.md"
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" approve "$CASE_ID" --basis captain-approved || fail 'approval failed'
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$CASE_ID" "$PROJ_DIR")
+  rc=$?
+  [ "$rc" = 0 ] || fail "spawn failed: $out"
+  assert_contains "$out" 'processing is UNCONFIRMED' 'spawn claimed processing without evidence'
+  if FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$CASE_ID"; then fail 'launch alone confirmed receipt'; fi
+  cat > "$FAKEBIN_DIR/claude" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$FM_RECEIVED_PROMPT"
+SH
+  chmod +x "$FAKEBIN_DIR/claude"
+  command=$(tail -1 "$LAUNCH_LOG")
+  (cd "$WT_DIR" && FM_RECEIVED_PROMPT="$HOME_DIR/received" PATH="$FAKEBIN_DIR:$PATH" bash -c "$command") || fail 'generated launch did not deliver instructions'
+  # Reading the fake tool's received argv tests generated delivery, not source.
+  receipt=$(grep '^`FM_HOME=' "$HOME_DIR/received" | tr -d '\140')
+  [ -n "$receipt" ] || fail 'no executable receipt in the actual delivered prompt'
+  (cd "$WT_DIR" && bash -c "$receipt") || fail 'worker receipt from delivered prompt failed'
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$CASE_ID" || fail 'actual worker acknowledgement not recorded'
+  pass 'spawn delivery stays unconfirmed until its isolated worker executes the delivered receipt'
+}
+
+test_spawn_processing_receipt_is_executable_not_optimistic
 test_enabled_records_and_injects_identical_carrier_before_launch
 test_disabled_writes_and_injects_neither
 test_failed_delivery_omits_metadata_and_still_launches

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-wake-drain-open-decisions.test.sh - behavior tests for the OPEN
 # DECISIONS section bin/fm-wake-drain.sh prints on every drain (including the
 # empty-queue fast path). The section is pure wiring around

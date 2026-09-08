@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # Strict no-emit contract check for the tracked Firstmate Pi extensions.
 set -u
 

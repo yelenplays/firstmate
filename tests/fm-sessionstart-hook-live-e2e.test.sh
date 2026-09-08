@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # Opt-in live guard for the Claude, Codex exec, and Pi RUN-tier session-open adapters.
 # Cursor's source-free RUN-tier transport is covered with its stop-hook park by
 # tests/fm-cursor-primary-live-e2e.test.sh.

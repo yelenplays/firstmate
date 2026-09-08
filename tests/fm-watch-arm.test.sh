@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-watch-arm.test.sh - the arm layer's cycle-close contract when the arm
 # did not own the cycle.
 #

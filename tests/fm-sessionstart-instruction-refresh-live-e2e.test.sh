@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # Opt-in real-Pi regression for a post-start AGENTS.md update followed by
 # compaction. It runs an isolated tmux server, throwaway Firstmate checkout,
 # and scratch FM_HOME, so it never drives the caller's Pi session or fleet.

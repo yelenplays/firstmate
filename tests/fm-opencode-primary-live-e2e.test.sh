@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # Opt-in credentialed OpenCode continuity regression on an isolated project and
 # FM_HOME. Existing OpenCode credentials stay in their managed store.
 set -u

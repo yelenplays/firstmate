@@ -631,10 +631,18 @@ test_local_only_truly_unpushed_refuses() {
   pass "local-only worktree with truly unpushed work is refused (safety preserved)"
 }
 
+record_execution_obligation() { # <case-dir>
+  mkdir -p "$1/data"
+  printf '## In flight\n- [ ] task-x1 - Approved change (kind: ship)\n\n## Queued\n\n## Done\n' > "$1/data/backlog.md"
+  FM_HOME="$1" FM_STATE_OVERRIDE="$1/state" "$ROOT/bin/fm-task-execution.sh" approve task-x1 --basis captain-approved \
+    || fail 'could not register fixture execution obligation'
+}
+
 test_local_only_merged_to_local_main_allows() {
   local case_dir rc
   case_dir=$(make_case merged-main)
   write_meta "$case_dir" local-only ship
+  record_execution_obligation "$case_dir"
   wt_commit "$case_dir" "merged work"
   # Fast-forward the project's main to the worktree's HEAD commit so HEAD is
   # reachable from main. update-ref works whether or not main is checked out,
@@ -650,6 +658,7 @@ test_local_only_merged_to_local_main_allows() {
 
   expect_code 0 "$rc" "merged-main: teardown should succeed when work is merged into local main"
   ! grep -q REFUSED "$case_dir/stderr" || fail "merged-main: teardown printed a REFUSED line"
+  assert_absent "$case_dir/state/task-x1.execution" 'landed ship retained execution obligation'
   pass "local-only worktree with work merged into local main is torn down (no regression)"
 }
 
@@ -910,6 +919,7 @@ test_dirty_worktree_refuses() {
   local case_dir rc pr_head
   case_dir=$(make_case dirty-wt)
   write_meta "$case_dir" no-mistakes ship
+  record_execution_obligation "$case_dir"
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
   # The committed work has fully landed (merged PR + content in default), but an
   # uncommitted edit remains. Dirtiness must refuse regardless: the reset would
@@ -928,6 +938,7 @@ test_dirty_worktree_refuses() {
   expect_code 1 "$rc" "dirty-wt: teardown should refuse a dirty worktree even when the committed work has landed"
   grep -q REFUSED "$case_dir/stderr" || fail "dirty-wt: no REFUSED line in stderr"
   grep -q "uncommitted changes" "$case_dir/stderr" || fail "dirty-wt: refusal did not cite uncommitted changes"
+  assert_present "$case_dir/state/task-x1.execution" 'refused cleanup lost execution obligation'
   pass "dirty worktree is refused even when its committed work has landed (dirty always wins)"
 }
 

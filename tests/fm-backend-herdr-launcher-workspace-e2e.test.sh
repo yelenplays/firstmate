@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-backend-herdr-launcher-workspace-e2e.test.sh - mandatory ISOLATED
 # end-to-end real-Herdr test for worker PLACEMENT with presentation spaces
 # disabled.

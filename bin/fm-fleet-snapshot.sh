@@ -160,9 +160,11 @@ usage() {
   cat <<'EOF'
 usage: fm-fleet-snapshot.sh --json
        fm-fleet-snapshot.sh --secondmate-home-summary
+       fm-fleet-snapshot.sh --backlog-json [backlog-path]
 
 Print a read-only structured snapshot of the firstmate fleet.
 JSON is the stable machine-readable output contract.
+--backlog-json reads only the shared backlog parser, with no endpoint or network reads.
 
 --secondmate-home-summary emits the bounded structured summary used after a
 validated registered-home handoff. It is local-only, skips nested secondmate
@@ -189,6 +191,7 @@ EOF
 OUTPUT_MODE=json
 case "${1:---json}" in
   --json) ;;
+  --backlog-json) OUTPUT_MODE='backlog-json' ;;
   --secondmate-home-summary) OUTPUT_MODE=secondmate-home-summary ;;
   -h|--help) usage; exit 0 ;;
   *) usage >&2; exit 2 ;;
@@ -423,6 +426,14 @@ backlog_json() {  # [<backlog-path>] - defaults to this home's $BACKLOG
     | del(.section,.order)
   ' < "$backlog"
 }
+
+# Reuse this parser for execution reconciliation without probing any endpoints,
+# remote homes, transcripts, or forge APIs.
+if [ "$OUTPUT_MODE" = backlog-json ]; then
+  [ "$#" -le 2 ] || { usage >&2; exit 2; }
+  backlog_json "${2:-$BACKLOG}"
+  exit $?
+fi
 
 task_json_lines() {
   local meta id kind harness mode yolo project worktree home projects backend target status_log report_path

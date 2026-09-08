@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # Pin the Pi/OpenCode recovery-loop fix: one announcement per generation, and a
 # handling successor that keeps supervising instead of going blind.
 set -u

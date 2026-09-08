@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-backend-zellij-smoke.test.sh - real zellij smoke test for the
 # zellij session-provider adapter (bin/backends/zellij.sh), P3 of
 # data/fm-backend-design-d7 (report.md "Zellij Backend"). Mirrors

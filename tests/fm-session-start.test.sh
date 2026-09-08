@@ -1759,7 +1759,8 @@ EOF
     _ "$ROOT/bin/fm-timeout-lib.sh")
   [ "$mechanism" = bash ] || fail "the forced pure-Bash timeout fixture selected '$mechanism'"
 
-  out=$(FM_TIMEOUT_MECHANISM_OVERRIDE=bash FM_SESSION_START_TIMEOUT=3 FM_STARTUP_NETWORK_TIMEOUT=2 \
+  out=$(FM_FAKE_HARNESS_PID="$SESSION_START_TEST_HARNESS_PID" \
+    FM_TIMEOUT_MECHANISM_OVERRIDE=bash FM_SESSION_START_TIMEOUT=3 FM_STARTUP_NETWORK_TIMEOUT=2 \
     run_session_start "$home" "$root" "$fakebin:$BASE_PATH") || status=$?
 
   expect_code 0 "$status" "a truncated session start must still exit 0 so the session can open"
@@ -1781,8 +1782,11 @@ EOF
   # deferred network stage's own - because a truncated digest must not kill work
   # it was never waiting for. So the guarantee asserted here is the one that
   # actually matters: once BOTH deadlines have passed, nothing hung is left.
+  # A stable fake harness above must actually start the independent worker;
+  # otherwise this used to spend 30 seconds waiting for a nonexistent record.
+  assert_present "$home/state/.startup-network.status" "the independent network bound was not exercised"
   FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_STARTUP_NETWORK_TIMEOUT=2 \
-    "$ROOT/bin/fm-startup-network.sh" wait 30 >/dev/null || true
+    "$ROOT/bin/fm-startup-network.sh" wait 5 >/dev/null || fail "the independent network bound did not finish"
   sleep 1
   stray=$(pgrep -f "$fakebin/git" 2>/dev/null | wc -l | tr -d ' ')
   [ "$stray" -eq 0 ] || fail "the runtime bound left $stray hung subprocess(es) behind"
@@ -1793,6 +1797,30 @@ EOF
   expect_code 137 "$status" "pure-Bash natural command exit 137"
 
   pass "the pure-Bash watchdog bounds session start, kills its hung grandchild, and emits the truncation contract"
+}
+
+test_runtime_bound_with_inherited_startup_marker() {
+  local marker="$TMP_ROOT/inherited-stage" output="$TMP_ROOT/inherited-stage-output" status=0
+  printf 'preserve the parent startup breadcrumb\n' > "$marker"
+  # Start a real test entry with the leaked child marker, not a mocked timeout.
+  # The independent outer bound makes a regression fail instead of hanging CI;
+  # when the marker leaks, the fake git remains in this isolated process group.
+  perl -e '
+    my $pid = fork;
+    die "fork failed" unless defined $pid;
+    if (!$pid) { setpgrp(0, 0); exec @ARGV }
+    local $SIG{ALRM} = sub { kill "KILL", -$pid; waitpid $pid, 0; exit 99 };
+    alarm 15;
+    waitpid $pid, 0;
+    exit($? >> 8);
+  ' env FM_SESSION_START_STAGE_FILE="$marker" \
+    bash "${BASH_SOURCE[0]}" --hanging-git-only > "$output" 2>&1 || status=$?
+  cat "$output"
+  expect_code 0 "$status" "hanging-git test under an inherited startup marker (99 means the outer safety bound fired)"
+  [ "$(cat "$marker")" = 'preserve the parent startup breadcrumb' ] \
+    || fail "the test overwrote its parent's startup breadcrumb"
+  assert_grep 'ok - the pure-Bash watchdog bounds session start' "$output" "the hanging-git case did not execute"
+  pass "an inherited startup child marker cannot disable the test deadline or overwrite the parent breadcrumb"
 }
 
 test_portable_timeout_escalates_term_resistant_process() {
@@ -2397,6 +2425,13 @@ EOF
   pass "session start rejects Pi loaded markers from previous sessions"
 }
 
+# Focused reproductions; the normal suite runs the inherited-marker regression,
+# which executes every assertion in the underlying hanging-git case as well.
+case "${1:-}" in
+  --hanging-git-only) test_runtime_bound_truncates_loudly_and_exits_zero; exit $? ;;
+  --inherited-hanging-git-only) test_runtime_bound_with_inherited_startup_marker; exit $? ;;
+esac
+
 test_context_digest_absent_empty_present
 test_lock_refusal_read_only_path
 test_lock_write_failure_read_only_path
@@ -2434,7 +2469,7 @@ test_pi_diagnostic_rejects_stale_loaded_marker
 test_pi_diagnostic_accepts_prelock_loaded_marker
 test_pi_diagnostic_rejects_missing_turnend_guard_marker
 test_pi_diagnostic_rejects_previous_session_loaded_marker
-test_runtime_bound_truncates_loudly_and_exits_zero
+test_runtime_bound_with_inherited_startup_marker
 test_portable_timeout_escalates_term_resistant_process
 test_runtime_bound_leaves_a_healthy_digest_untouched
 test_runtime_bound_leaves_harness_ancestry_headroom

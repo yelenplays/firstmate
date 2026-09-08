@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-backend-tmux-smoke.test.sh - real tmux smoke test for the tmux
 # session-provider adapter (bin/backends/tmux.sh), the P1 checklist item
 # "run a real tmux smoke test (create session, send text + Enter, capture,

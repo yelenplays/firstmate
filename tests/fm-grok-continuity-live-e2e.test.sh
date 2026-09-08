@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # Opt-in credentialed Grok regression proving the shared arm wrapper still works
 # through Grok's tracked background-task notification path.
 set -u

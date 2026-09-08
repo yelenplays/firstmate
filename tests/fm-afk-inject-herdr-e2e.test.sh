@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-afk-inject-herdr-e2e.test.sh - real-herdr end-to-end test for the
 # away-mode daemon's herdr transport (bin/fm-supervise-daemon.sh), the herdr
 # counterpart of tests/fm-afk-inject-e2e.test.sh's private-socket tmux e2e.

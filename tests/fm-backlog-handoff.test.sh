@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-backlog-handoff.test.sh - full item-block handoff (header + indented body).
 #
 # The happy single-line path and broad safety refusals live in the secondmate
@@ -632,6 +634,28 @@ EOF
   pass "registry entry without (home: ...) fails cleanly with has no home"
 }
 
+test_execution_authority_handoff() {
+  local home="$TMP_ROOT/execution-main" sub="$TMP_ROOT/execution-sub" out
+  setup_homes "$home" "$sub"
+  printf '## In flight\n\n## Queued\n- [ ] approved-change - Implement bounded change (kind: ship)\n\n## Done\n' > "$home/data/backlog.md"
+  FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    "$ROOT/bin/fm-task-execution.sh" approve approved-change --basis captain-approved || fail 'approval failed'
+  FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    "$ROOT/bin/fm-backlog-handoff.sh" design approved-change >/dev/null || fail 'approved handoff failed'
+  assert_absent "$home/state/approved-change.execution" 'source execution obligation survived confirmed handoff'
+  out=$(FM_HOME="$sub" FM_STATE_OVERRIDE="$sub/state" FM_DATA_OVERRIDE="$sub/data" \
+    "$ROOT/bin/fm-task-execution.sh" show approved-change)
+  assert_contains "$out" 'implementation owner missing' 'destination lost the execution obligation'
+  # Reconstruct only the interrupted source obligation. The mover sees the
+  # destination item already present and converges without duplicating it.
+  cp "$sub/state/approved-change.execution" "$home/state/approved-change.execution"
+  FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    "$ROOT/bin/fm-backlog-handoff.sh" design approved-change >/dev/null || fail 'handoff retry failed'
+  assert_absent "$home/state/approved-change.execution" 'retry failed to retire duplicate source obligation'
+  pass 'explicit execution approval follows an in-scope handoff, including interrupted receipt recovery'
+}
+
+test_execution_authority_handoff
 test_body_moves_when_followed_by_another_item
 test_body_moves_when_followed_by_section_heading
 test_multi_paragraph_body_with_internal_blanks_moves_whole

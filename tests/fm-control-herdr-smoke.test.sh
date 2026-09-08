@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-control-herdr-smoke.test.sh - real-herdr smoke test for the agent
 # lifecycle control plane (bin/fm-control.sh).
 #

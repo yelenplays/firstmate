@@ -2618,9 +2618,14 @@ else
   fi
 fi
 
+SPAWN_GEN="s$(date +%s).${BASHPID:-$$}.$RANDOM"
+EXECUTION_TOKEN=
+if [ "$KIND" = ship ]; then
+  EXECUTION_TOKEN=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" attempt "$ID" --spawn-gen "$SPAWN_GEN") || exit 1
+fi
+
 META_WINDOW=$T
 [ "$BACKEND" = orca ] && META_WINDOW=$W
-SPAWN_GEN="s$(date +%s).${BASHPID:-$$}.$RANDOM"
 SPAWN_META_PATH="$STATE/$ID.meta"
 if [ "$RELAUNCH" -eq 1 ]; then
   SPAWN_META_LOCK=$(fm_meta_lock_path "$STATE/$ID.meta") || exit 1
@@ -2705,6 +2710,20 @@ if [ "$SPAWN_TASK_SET_LOCK_HELD" = 1 ]; then
 fi
 [ "$BACKEND" = orca ] && ORCA_ABORT_CLEANUP=0
 
+# Put a generation-bound, executable processing receipt in the delivered
+# instructions, not in vendor output or firstmate's optimistic launch message.
+if [ -n "$EXECUTION_TOKEN" ]; then
+  EXECUTION_BRIEF="$TASK_TMP/execution-brief.md"
+  {
+    cat "$BRIEF"
+    # shellcheck disable=SC2016 # Backticks are literal Markdown in worker instructions.
+    printf '\n# Confirm this implementation handoff\nAfter verifying isolation, execute from this worker copy before implementation:\n`FM_HOME=%s %s started %s %s`\nThis acknowledges processing, not task completion. Never run it from firstmate.\n' \
+      "$(shell_quote "$FM_HOME")" "$(shell_quote "$SCRIPT_DIR/fm-task-execution.sh")" \
+      "$(shell_quote "$ID")" "$(shell_quote "$EXECUTION_TOKEN")"
+  } > "$EXECUTION_BRIEF"
+  BRIEF=$EXECUTION_BRIEF
+  BRIEF_REAL=$EXECUTION_BRIEF
+fi
 sq_brief=$(shell_quote "$BRIEF")
 sq_turnend=$(shell_quote "$TURNEND")
 sq_piext=$(shell_quote "$STATE/$ID.pi-ext.ts")
@@ -2850,3 +2869,6 @@ fi
 SPAWN_DELIVERY=
 [ -z "$MODE" ] || SPAWN_DELIVERY=" mode=$MODE yolo=$YOLO"
 echo "spawned $ID harness=$HARNESS kind=$KIND$SPAWN_DELIVERY window=$META_WINDOW worktree=$WT"
+if [ -n "$EXECUTION_TOKEN" ]; then
+  echo "delivery attempted; processing is UNCONFIRMED until the worker executes its handoff receipt"
+fi

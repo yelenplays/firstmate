@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-wake-drain-open-decisions-cursor.test.sh - end-to-end behavior tests
 # for the incremental, cursor-backed OPEN DECISIONS scan
 # (fm-classify-lib.sh's status_open_decisions_incremental /

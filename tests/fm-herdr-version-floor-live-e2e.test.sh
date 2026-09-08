@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # Opt-in live guard for the Herdr presentation version floor.
 #
 # Protocol is the floor's structural signal, and its mapping to real releases

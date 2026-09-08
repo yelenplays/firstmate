@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-composer-matrix-live-e2e.test.sh - the live composer-matrix guard
 # (live-harness-optin family; task fm-composer-thin-adapter-refactor-r1).
 #

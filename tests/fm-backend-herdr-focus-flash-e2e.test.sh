@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # Real-Herdr regression for the projected-cleanup focus flash (upstream
 # ogulcancelik/herdr#1621 family, live on 0.7.5 stable).
 # Part A reproduces the OLD path: an explicit last-pane close that empties a

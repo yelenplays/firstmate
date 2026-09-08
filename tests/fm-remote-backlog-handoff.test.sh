@@ -53,6 +53,9 @@ cp "$ROOT/bin/fm-remote-entrypoint.sh" "$ROOT/bin/fm-remote-job-lib.sh" \
   "$ROOT/bin/fm-remote-job-worker.sh" "$ROOT/bin/fm-remote-file.sh" \
   "$ROOT/bin/fm-backlog-receive.sh" "$ROOT/bin/fm-tasks-axi-lib.sh" \
   "$ROOT/bin/fm-wake-lib.sh" "$REMOTE_ROOT/bin/"
+# Execution handoff uses the same tracked command transport and shared parser.
+cp "$ROOT/bin/"*.sh "$REMOTE_ROOT/bin/"
+ln -s "$(command -v jq)" "$REMOTE_ROOT/bin/jq"
 ln -s "$(command -v tasks-axi)" "$REMOTE_ROOT/bin/tasks-axi"
 ln -s "$(command -v node)" "$REMOTE_ROOT/bin/node"
 chmod +x "$REMOTE_ROOT/bin"/*.sh
@@ -95,6 +98,10 @@ case "${FM_FAKE_SSH_MODE:-normal}:$command_name" in
     exec "$FM_FAKE_REMOTE_ENTRYPOINT" "$@"
     ;;
   after-put:fm-remote-file.sh)
+    "$FM_FAKE_REMOTE_ENTRYPOINT" "$@"
+    exit 255
+    ;;
+  after-approval:fm-task-execution.sh)
     "$FM_FAKE_REMOTE_ENTRYPOINT" "$@"
     exit 255
     ;;
@@ -352,6 +359,24 @@ fi
 assert_grep 'route-race' "$PARENT/data/backlog.md" "route retirement stranded queued work outside the primary backlog"
 assert_absent "$PARENT/data/handoff/ios.outbox.md" "route retirement left an orphaned handoff outbox"
 pass "route classification serializes with retirement before staging"
+
+# A dropped approval receipt must not orphan an approved task after its backlog
+# moved. Replay reuses the same authority, never an old worker's processing proof.
+printf -- '- ios - iOS delivery (host: remote-mac; root: %s; home: %s; scope: iOS work; projects: alpha; added 2026-08-02)\n' \
+  "$REMOTE_ROOT" "$REMOTE" > "$PARENT/data/secondmates.md"
+tasks-axi add approved-remote 'Implement bounded remote change' --kind ship --file "$PARENT/data/backlog.md" >/dev/null
+FM_HOME="$PARENT" "$ROOT/bin/fm-task-execution.sh" approve approved-remote --basis captain-approved || fail 'remote test approval failed'
+if FM_FAKE_SSH_MODE=after-approval handoff_env "$ROOT/bin/fm-backlog-handoff.sh" ios approved-remote > "$TMP_ROOT/approval-drop" 2>&1; then
+  fail 'unknown remote approval receipt reported confirmed handoff'
+fi
+assert_grep 'source reminder and outbox retained' "$TMP_ROOT/approval-drop" 'dropped approval receipt lacked evidence'
+[ -f "$PARENT/state/approved-remote.execution" ] || fail 'source lost unconfirmed remote execution obligation'
+[ -f "$REMOTE/state/approved-remote.execution" ] || fail 'remote did not durably accept approval before connection drop'
+handoff_env "$ROOT/bin/fm-backlog-handoff.sh" --resume-pending >/dev/null || fail 'approved remote handoff did not recover'
+assert_absent "$PARENT/state/approved-remote.execution" 'confirmed remote handoff left source obligation'
+remote_action=$(FM_HOME="$REMOTE" "$ROOT/bin/fm-task-execution.sh" show approved-remote)
+assert_contains "$remote_action" 'implementation owner missing' 'remote task lost next action after restart'
+pass 'remote approval receipt loss retains an accountable owner and converges on retry'
 
 # With no handoff directory or remote route, bootstrap neither invokes SSH nor
 # emits a remote handoff line.

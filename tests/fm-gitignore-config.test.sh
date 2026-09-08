@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # .gitignore must ignore config/ as a directory, not by exact filename.
 #
 # A name-by-name list silently stops ignoring any new or home-local file under

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # Live Herdr submit-confirmation guard (live-harness-optin family).
 #
 # Herdr's native agent_status can stay idle for a whole landed Claude turn, and

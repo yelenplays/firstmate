@@ -278,6 +278,8 @@ If established evidence already answers an informational question, relay it with
 Never both present a likely-enough solution and launch a parallel design exercise that is not expected to change it.
 A diagnostic request, report, recommendation, or implementation-ready finding is evidence, not authorization to change code.
 Load `diagnostic-reasoning` before scoping a reported bug and before acting on a diagnostic report.
+Record authorized implementation at intake with `bin/fm-task-execution.sh approve` before dispatch or a bounded scout; its help owns authority capture, processing receipts, and unfinished-execution reconciliation.
+On `UNFINISHED EXECUTION` or an execution check wake, follow that owner's next action within the existing recovery, decision, validation, and landing contracts; reconcile actual evidence before acknowledging, and never count an acknowledgement or a launch attempt as progress.
 
 Resolve every ship task's concrete delivery mode and yolo posture at intake, and pass both explicitly to the brief, the spawn, and any scout promotion, which all refuse to guess.
 A current explicit captain instruction wins; otherwise the project's registry entry is the captain's standing posture, and dropping below its rigor needs a reason you can state.
@@ -293,7 +295,7 @@ Write the task-specific brief under section 11 before spawning.
 
 Spawn only through `bin/fm-spawn.sh` after the profile and backend checks in section 4.
 The spawn must resolve a genuine isolated task worktree distinct from the primary checkout; a failed isolation assertion stops the task.
-After spawning, confirm the worker is processing the brief, handle any trust dialog through `harness-adapters`, and record ship or scout work as under way.
+After spawning, confirm the worker is processing the brief through actual current harness evidence and, for implementation, its execution receipt, handle any trust dialog through `harness-adapters`, and only then record ship or scout work as under way.
 A persistent secondmate is recorded in the secondmate registry and runtime state, never as a backlog work item.
 
 Steer a worker with short single-line messages through fail-closed `fm-send`; put long instructions in a file.
