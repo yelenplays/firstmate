@@ -108,6 +108,9 @@ META_LOCK_HELD=1
 [ -f "$META" ] || { echo "error: no meta for task $ID at $META" >&2; exit 1; }
 grep -qx 'kind=scout' "$META" || { echo "error: task $ID is not a scout task (kind=scout not in meta)" >&2; exit 1; }
 
+# Promotion is a new implementation handoff, not evidence the scout is coding.
+EXECUTION_TOKEN=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" attempt "$ID") || exit 1
+
 TMP="$STATE/.$ID.meta.promote.${BASHPID:-$$}"
 grep -v -e '^kind=' -e '^mode=' -e '^yolo=' "$META" > "$TMP"
 {
@@ -122,4 +125,9 @@ META_LOCK_HELD=0
 
 HOME_Q=$(printf '%q' "$FM_HOME")
 echo "promoted $ID to ship mode=$MODE yolo=$YOLO (teardown protection restored)"
+if [ -n "$EXECUTION_TOKEN" ]; then
+  printf 'include in the ship instructions; execute in the worker copy: FM_HOME=%q %q started %q %q\n' \
+    "$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" "$ID" "$EXECUTION_TOKEN"
+  echo 'implementation processing remains unconfirmed until that receipt'
+fi
 echo "next: FM_HOME=$HOME_Q bin/fm-send.sh fm-$ID '<ship instructions for mode=$MODE: review scratch state with git status and git log; reset to a clean default-branch base; carry over only intended fix changes; create branch fm/$ID; implement; report done>'"

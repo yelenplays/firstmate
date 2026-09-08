@@ -585,6 +585,10 @@ fi
 # liveness, so a finished-but-pane-closed crew never reaches here. Down here there
 # is no run to consult, so a dead/unreadable target means the crew is gone: report
 # unknown rather than trusting a possibly-stale status log as the current state.
+if [ "$KIND" = ship ] && [ -e "$STATE/$ID.execution" ]; then
+  FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" confirmed "$ID" \
+    || emit unknown none 'implementation handoff processing unconfirmed'
+fi
 [ -n "$BACKEND_TARGET" ] || emit unknown none "no backend target recorded"
 pane_readable "$BACKEND_TARGET" || emit unknown none "backend target gone: $BACKEND_TARGET"
 
@@ -596,7 +600,11 @@ pane_readable "$BACKEND_TARGET" || emit unknown none "backend target gone: $BACK
 if [ "$KIND" != secondmate ]; then
   BUSY_VERDICT=$(crew_busy_verdict "$BACKEND_TARGET")
   case "${BUSY_VERDICT%% *}" in
-    busy) emit working pane "harness busy (${BUSY_VERDICT#* })" ;;
+    busy)
+      case "${BUSY_VERDICT#* }" in
+        fm-spawn|fm-recovery) emit unknown pane 'launch/recovery seed is not verified processing' ;;
+      esac
+      emit working pane "harness busy (${BUSY_VERDICT#* })" ;;
     idle) ;;
     *) emit unknown pane "harness state unavailable ($BUSY_VERDICT)" ;;
   esac
@@ -614,6 +622,9 @@ fi
 # `unknown` verdict as the "not a state" test needs no second verb list here.
 if [ -n "$LOG_VERB" ]; then
   LOG_STATE=$(map_log_state "$LOG_LINE")
+  if [ "$LOG_STATE" = working ] && [ "$KIND" != secondmate ]; then
+    emit unknown status-log 'idle worker; historical working event is not current progress'
+  fi
   if [ "$LOG_STATE" != unknown ]; then
     emit "$LOG_STATE" status-log "$(status_line_note "$LOG_LINE")"
   fi

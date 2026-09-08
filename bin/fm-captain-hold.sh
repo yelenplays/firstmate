@@ -21,7 +21,7 @@
 # Usage:
 #   fm-captain-hold.sh hold <task-id> --reason <reason> \
 #     [--title <title>] [--repo <repo>] [--origin <origin-id>] [--until YYYY-MM-DD]
-#   fm-captain-hold.sh answer <task-id> --decision-file <path> [--release]
+#   fm-captain-hold.sh answer <task-id> --decision-file <path> [--release [--execute]]
 #   fm-captain-hold.sh answers [<legacy-origin> | --any-origin] --source <provenance>   (keyed answers on stdin)
 #   fm-captain-hold.sh bind <source-id> [<legacy-origin> | --any-origin]
 #   fm-captain-hold.sh unbind <source-id>
@@ -54,6 +54,10 @@
 # answered captain call. A hold that expired by date (`--until` in the past) is
 # still answerable: the surviving hold annotations, not tasks-axi's live
 # `held:` bit, prove the captain owned it.
+#
+# --execute is an explicit firstmate attestation that this release authorizes
+# implementation; it registers fm-task-execution's obligation before releasing
+# the hold. A plain release, negative answer, or prose is never such authority.
 #
 # ONE KEYED-ANSWER INTAKE, FED BY EVERY CHANNEL.
 # "A keyed answer closes its matching captain-held task" is a single
@@ -476,17 +480,19 @@ close_answered() {  # <task-id> <release-0-or-1>
 }
 
 command_answer() {
-  local id=${1:-} decision_file='' release=0 show state hold_kind body outcome recorded_mode
+  local id=${1:-} decision_file='' release=0 execute=0 show state hold_kind body outcome recorded_mode
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
   shift
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --decision-file) shift; decision_file=${1:-} ;;
       --release) release=1 ;;
+      --execute) execute=1 ;;
       *) usage >&2; exit 2 ;;
     esac
     shift
   done
+  [ "$execute" = 0 ] || [ "$release" = 1 ] || fail '--execute requires --release'
   validate_slug task-id "$id"
   load_decision "$decision_file"
   require_tasks_axi
@@ -538,11 +544,17 @@ command_answer() {
         released) [ "$release" = 1 ] || fail "task $id records this answer as a release; retry with --release" ;;
         answered) [ "$release" = 0 ] || fail "task $id records this answer as a close; retry without --release" ;;
       esac
+      if [ "$execute" = 1 ]; then
+        FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" approve "$id" --basis captain-approved || return 1
+      fi
       close_answered "$id" "$release"
       printf '%s: %s\n' "$outcome" "$id"
       return 0
     fi
     write_resolution_record "$id" "$outcome" "$body"
+    if [ "$execute" = 1 ]; then
+      FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" approve "$id" --basis captain-approved || return 1
+    fi
     close_answered "$id" "$release"
     show=$(task_show "$id") || fail "task $id disappeared after closing"
     body_has_resolution_record "$(show_field "$show" body)" \
@@ -558,6 +570,9 @@ command_answer() {
       || fail "task $id records a different captain decision with mode ${recorded_mode:-unknown}"
     [ "$recorded_mode" = released ] && [ "$release" = 1 ] \
       || fail "task $id records this answer with mode ${recorded_mode:-unknown}; replay requires matching --release"
+    if [ "$execute" = 1 ]; then
+      FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" approve "$id" --basis captain-approved || return 1
+    fi
     printf 'released: %s\n' "$id"
     return 0
   fi

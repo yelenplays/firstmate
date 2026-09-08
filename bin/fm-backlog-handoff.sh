@@ -292,12 +292,33 @@ warn_stale_public_commitments() { # <secondmate-id> <moved-key>...
   return 0
 }
 
+# Transfer only explicit authority, never a worker receipt or a guessed consent.
+# Keep the source obligation until the destination durably accepts it. A lost
+# receipt therefore leaves a visible firstmate action, and an exact retry is safe.
+transfer_execution_obligation() { # <id> <local-home-or-empty> <task-id>
+  local mate=$1 home=$2 key=$3 file="$STATE/$3.execution" basis
+  [ -e "$file" ] || return 0
+  [ -f "$file" ] && [ ! -L "$file" ] || return 1
+  if backlog_key_section "$MAIN_BACKLOG" "$key" >/dev/null 2>&1; then
+    echo "error: execution obligation $key is still in the source backlog; resolve the task identity collision before transfer" >&2
+    return 1
+  fi
+  basis=$(jq -er 'select(.version == 1) | .basis | select(. == "captain-approved" or . == "accepted-intent")' "$file") || return 1
+  if [ -n "$home" ]; then
+    FM_HOME="$home" FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' FM_ROOT_OVERRIDE='' \
+      "$SCRIPT_DIR/fm-task-execution.sh" approve "$key" --basis "$basis" || return 1
+  else
+    "$SCRIPT_DIR/fm-on.sh" "$mate" fm-task-execution.sh approve "$key" --basis "$basis" < /dev/null || return 1
+  fi
+  rm -f -- "$file" "$STATE/.$key.execution-notified"
+}
+
 outbox_item_count() { # <path>
   awk '/^- \[[ x]\] / { count++ } END { print count + 0 }' "$1"
 }
 
 remote_deliver_outbox() { # <secondmate-id> <outbox-path>
-  local id=$1 outbox=$2 remote_rel receive_out snapshot bytes hash generation counter counter_tmp current
+  local id=$1 outbox=$2 remote_rel receive_out snapshot bytes hash generation counter counter_tmp current key execution_backlog execution_keys
   [ -f "$outbox" ] && [ ! -L "$outbox" ] || {
     echo "error: pending outbox is unavailable or unsafe: $outbox" >&2
     return 1
@@ -340,6 +361,17 @@ remote_deliver_outbox() { # <secondmate-id> <outbox-path>
     echo "error: handoff receipt by $id was unavailable or completion is unknown; outbox preserved at $outbox" >&2
     return 1
   fi
+  # Authority must reach the same home as the work before retiring the outbox.
+  # Keep it for retry if transport, remote tooling, or receipt is unavailable.
+  execution_backlog=$("$SCRIPT_DIR/fm-fleet-snapshot.sh" --backlog-json "$outbox") || return 1
+  execution_keys=$(printf '%s' "$execution_backlog" | jq -r '.records[] | select(.structured) | .id') || return 1
+  while IFS= read -r key; do
+    [ -n "$key" ] || continue
+    transfer_execution_obligation "$id" '' "$key" || {
+      echo "error: execution obligation handoff unconfirmed; source reminder and outbox retained" >&2
+      return 1
+    }
+  done <<< "$execution_keys"
   rm -f -- "$outbox" || {
     echo "error: remote receipt was confirmed but local outbox cleanup failed: $outbox" >&2
     return 1
@@ -549,6 +581,9 @@ if [ "$FAILED" -ne 0 ]; then
 fi
 
 if [ "${#TO_MOVE[@]}" -eq 0 ]; then
+  for key in "${ALREADY[@]}"; do
+    transfer_execution_obligation "$ID" "$SUB_HOME" "$key" || exit 1
+  done
   echo "nothing to move: ${ALREADY[*]:-no keys} already present in $SUB_BACKLOG"
   exit 0
 fi
@@ -598,6 +633,12 @@ if ! MV_OUT=$(tasks-axi mv "${TO_MOVE[@]}" --file "$MAIN_BACKLOG" --to "$SUB_BAC
   exit 1
 fi
 
+for key in "$@"; do
+  transfer_execution_obligation "$ID" "$SUB_HOME" "$key" || {
+    echo 'error: backlog moved but execution obligation receipt is unconfirmed; retry this handoff' >&2
+    exit 1
+  }
+done
 echo "handed off ${#TO_MOVE[@]} item(s) to $ID: ${TO_MOVE[*]}"
 echo "  into $SUB_BACKLOG"
 if [ "${#ALREADY[@]}" -gt 0 ]; then

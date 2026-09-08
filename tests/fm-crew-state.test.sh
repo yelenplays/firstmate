@@ -805,6 +805,33 @@ test_no_run_busy_pane() {
   pass "no run + a busy semantic record reads working, attributed to its source"
 }
 
+test_launch_and_old_working_events_do_not_prove_processing() {
+  reset_fakes
+  local d gen token out
+  d=$(new_case execution-proof)
+  make_repo_on_branch "$d/wt" fm/execution-proof
+  make_fakebin "$d" >/dev/null
+  mkdir -p "$d/data" "$d/project"
+  printf '## In flight\n- [ ] execution-proof - Implement approved task (kind: ship)\n\n## Queued\n\n## Done\n' > "$d/data/backlog.md"
+  fm_write_meta "$d/state/execution-proof.meta" 'window=fm:fm-execution-proof' "worktree=$d/wt" "project=$d/project" 'kind=ship' 'harness=claude' 'spawn_gen=spawn1'
+  FM_HOME="$d" "$ROOT/bin/fm-task-execution.sh" approve execution-proof --basis captain-approved || fail 'could not register approval'
+  token=$(FM_HOME="$d" "$ROOT/bin/fm-task-execution.sh" attempt execution-proof)
+  gen=$("$ROOT/bin/fm-busy-event.sh" arm "$d/state" execution-proof)
+  out=$(run_crew_state "$d" execution-proof)
+  assert_contains "$out" 'state: unknown' 'unconfirmed launch counted as working'
+  (cd "$d/wt" && FM_HOME="$d" "$ROOT/bin/fm-task-execution.sh" started execution-proof "$token") || fail 'isolated receipt failed'
+  out=$(run_crew_state "$d" execution-proof)
+  assert_contains "$out" 'launch/recovery seed is not verified processing' 'launch seed counted as active harness evidence'
+  "$ROOT/bin/fm-busy-event.sh" apply "$d/state" execution-proof busy --gen "$gen" --source claude-hook --event user-prompt-submit
+  out=$(run_crew_state "$d" execution-proof)
+  assert_contains "$out" 'state: working' 'actual semantic busy event was rejected'
+  "$ROOT/bin/fm-busy-event.sh" apply "$d/state" execution-proof idle --gen "$gen" --source claude-hook --event stop
+  printf 'working: old event acknowledged again\n' > "$d/state/execution-proof.status"
+  out=$(run_crew_state "$d" execution-proof)
+  assert_contains "$out" 'state: unknown' 'idle worker inherited historical progress'
+  pass 'launch seed, unconfirmed handoff and stale working event never prove current processing'
+}
+
 # A converted adapter must NOT read working from rendered footer text: the
 # redesign removed that dependency, so a pane painting "esc to interrupt" with
 # no semantic record is unknown, never working and never silently idle.
@@ -1341,7 +1368,7 @@ test_historical_same_branch_rewritten_head_not_current() {
   assert_not_contains "$out" "source: run-step" "historical rewritten head must not use run-step"
   assert_not_contains "$out" "parked at" "historical parked run must not mask current state"
   assert_contains "$out" "source: status-log" "falls back to status-log after head mismatch"
-  assert_contains "$out" "state: working" "status-log working: remains current"
+  assert_contains "$out" "state: unknown" "old working event cannot override semantic idle"
   pass "historical same-branch rewritten head is not attributed as current"
 }
 
@@ -1385,7 +1412,7 @@ test_local_advanced_past_run_head_invalidates() {
   out=$(run_crew_state "$d" adv)
   assert_not_contains "$out" "source: run-step" "local-advanced tip must not use historical run"
   assert_contains "$out" "source: status-log" "falls back after local advanced past run"
-  assert_contains "$out" "state: working" "status-log working: is current"
+  assert_contains "$out" "state: unknown" "unmatched run plus old working event cannot prove progress"
   pass "local work advanced past run head invalidates attribution"
 }
 
@@ -1404,7 +1431,7 @@ test_missing_run_head_falls_back_to_current_state() {
   out=$(run_crew_state "$d" no-head)
   assert_not_contains "$out" "source: run-step" "missing run head must not permit branch-only attribution"
   assert_contains "$out" "source: status-log" "missing run head falls back to current state sources"
-  assert_contains "$out" "state: working" "status-log remains current after missing run head"
+  assert_contains "$out" "state: unknown" "missing run head and old working event cannot prove progress"
   pass "missing run head falls back instead of matching by branch"
 }
 
@@ -1433,6 +1460,7 @@ test_cross_branch_attribution_picks_most_recent_row
 test_coarse_run_does_not_probe_other_branch_ci_log_for_ready_status
 test_other_branch_run_ignored
 test_no_run_busy_pane
+test_launch_and_old_working_events_do_not_prove_processing
 test_no_run_footer_text_alone_is_not_working
 test_no_run_grok_uses_isolated_fallback
 test_no_run_herdr_unknown_uses_backend_capture

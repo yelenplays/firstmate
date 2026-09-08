@@ -46,6 +46,12 @@ fm_supervision_status() {
     FM_SUP_IN_FLIGHT=$((FM_SUP_IN_FLIGHT + 1))
   done
   FM_SUP_SOURCES=0
+  # An authorized task with no implementing endpoint still needs supervision.
+  # Keep this presence-only: execution reconciliation owns content and errors.
+  for source in "$state"/*.execution; do
+    [ -e "$source" ] || [ -L "$source" ] || continue
+    FM_SUP_NEEDED=true
+  done
   for source in "$state"/procevent/*.source; do
     [ -e "$source" ] || continue
     FM_SUP_SOURCES=$((FM_SUP_SOURCES + 1))

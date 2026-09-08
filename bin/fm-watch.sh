@@ -969,6 +969,18 @@ while :; do
     triage_log "inactive-outcome reconciliation unavailable"
   fi
 
+  # Approved work can have no endpoint at all. Its owner reuses this loop and
+  # queue, never dispatches, and re-notifies after acknowledgements that did not
+  # produce real handling. Run before chatty task signals can starve it.
+  execution_out=
+  if execution_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+    "$SCRIPT_DIR/fm-task-execution.sh" notify 2>/dev/null); then
+    [ -z "$execution_out" ] || wake "check: unfinished-execution"
+  else
+    fm_wake_append check execution-unavailable "check: execution reconciliation unavailable" || exit 1
+    wake "check: execution reconciliation unavailable"
+  fi
+
   # Slow per-task checks (firstmate writes these, e.g. a merged-PR poll).
   # Time-based via .last-check mtime so the cadence survives watcher restarts.
   # Evaluated BEFORE the signal scan: wake() exits the cycle, so a check placed

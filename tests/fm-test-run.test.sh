@@ -92,6 +92,7 @@ init_changed_fixture_repo() {
   local repo=$1 script
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$repo/bin/fm-test-run.sh"
+  cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   chmod +x "$repo/bin/fm-test-run.sh"
   for script in \
     fm-brief.test.sh \
@@ -507,6 +508,7 @@ test_jobs_parallel_scheduler_and_failure_propagation() {
   d=tests/fm-supervision-instructions.test.sh
   mkdir -p "$repo/bin" "$repo/tests" "$evidence" "$fake_bin"
   cp "$RUNNER" "$runner"
+  cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   cat >"$fake_bin/stat" <<'SH'
 #!/usr/bin/env bash
 if [ "$1" = "-c" ] && [ "$2" = "%a" ]; then
@@ -703,6 +705,41 @@ assert len(doc["scripts"])==3
   pass "aggregate-json merges lane timing artifacts"
 }
 
+test_operational_environment_is_cleared_at_every_entry() {
+  local temp repo hostile jobs output
+  temp=$(fm_test_tmproot fm-test-environment)
+  repo="$temp/repo"; hostile="$temp/hostile"
+  mkdir -p "$repo/bin" "$repo/tests" "$hostile"
+  printf 'preserve this synthetic operational home\n' > "$hostile/sentinel"
+  cp "$RUNNER" "$repo/bin/fm-test-run.sh"
+  cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
+  cat > "$repo/tests/fm-brief.test.sh" <<'SH'
+#!/usr/bin/env bash
+for name in FM_HOME FM_STATE_OVERRIDE FM_DATA_OVERRIDE FM_ROOT_OVERRIDE FM_PROJECTS_OVERRIDE FM_CONFIG_OVERRIDE FM_BACKEND FM_SESSION_START_STAGE_FILE; do
+  if printenv "$name" >/dev/null; then echo "leaked operational route: $name"; exit 1; fi
+done
+printf 'sanitized test environment\n'
+SH
+  chmod +x "$repo/tests/fm-brief.test.sh"
+  for jobs in 1 2; do
+    output=$(FM_HOME="$hostile" FM_STATE_OVERRIDE="$hostile" FM_DATA_OVERRIDE="$hostile" \
+      FM_ROOT_OVERRIDE="$hostile" FM_PROJECTS_OVERRIDE="$hostile" FM_CONFIG_OVERRIDE="$hostile" FM_BACKEND=herdr \
+      FM_SESSION_START_STAGE_FILE="$hostile/sentinel" \
+      "$repo/bin/fm-test-run.sh" --jobs "$jobs" tests/fm-brief.test.sh) || fail "runner did not sanitize jobs=$jobs: $output"
+    assert_contains "$output" 'sanitized test environment' 'environment test did not execute'
+  done
+  # Direct entry uses tests/lib.sh, not a runner-only defense.
+  output=$(FM_HOME="$hostile" FM_STATE_OVERRIDE="$hostile" FM_DATA_OVERRIDE="$hostile" \
+    FM_ROOT_OVERRIDE="$hostile" FM_PROJECTS_OVERRIDE="$hostile" FM_CONFIG_OVERRIDE="$hostile" FM_BACKEND=herdr \
+    FM_SESSION_START_STAGE_FILE="$hostile/sentinel" \
+    bash -c '. "$1/tests/lib.sh"; bash "$2/tests/fm-brief.test.sh"' _ "$ROOT" "$repo") || fail 'direct test entry leaked an operational route'
+  assert_contains "$output" 'sanitized test environment' 'direct environment test did not execute'
+  [ "$(find "$hostile" -type f | wc -l | tr -d ' ')" = 1 ] || fail 'hostile synthetic home acquired artifacts'
+  assert_grep 'preserve this synthetic operational home' "$hostile/sentinel" 'hostile synthetic home changed'
+  pass 'serial, parallel and direct test entries clear inherited operational routes and startup child markers'
+}
+
+test_operational_environment_is_cleared_at_every_entry
 test_list_all_exact_suite_coverage
 test_family_selection
 test_single_script_selection
