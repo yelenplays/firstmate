@@ -86,6 +86,9 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 # shellcheck source=bin/fm-transition-lib.sh
 . "$FM_BACKEND_HERDR_ROOT/bin/fm-transition-lib.sh"
 
+# shellcheck source=bin/fm-herdr-cli-lib.sh
+. "$FM_BACKEND_HERDR_ROOT/bin/fm-herdr-cli-lib.sh"
+
 FM_BACKEND_HERDR_MIN_PROTOCOL=14
 # events.subscribe (the native pane.agent_status_changed push stream) and its
 # subscription_event schema first shipped at protocol 16 (verified: herdr
@@ -370,17 +373,14 @@ fm_backend_herdr_workspace_label() {
 # once ANY other herdr server is already bound on the machine - queries
 # silently fall back to whatever server IS running (the wrong one) instead of
 # routing to the requested session or refusing. The `--session <name>` global
-# flag (verified in both leading and trailing position; trailing used here to
-# keep every call site a minimal, append-only diff) always routes correctly,
+# flag (before any -- agent separator, otherwise trailing) routes correctly,
 # including starting a genuinely separate, isolated server process. The env
 # var is kept alongside it - harmless, self-documenting, and forward-
 # compatible if a future herdr build honors it. Never used by
 # fm_backend_herdr_version_check, which is intentionally session-independent
 # (reads only .client.* fields).
 fm_backend_herdr_cli() {  # <session> <herdr-subcommand-and-args...>
-  local session=$1
-  shift
-  HERDR_SESSION="$session" herdr "$@" --session "$session"
+  fm_herdr_scoped_cli "$@"
 }
 
 # fm_backend_herdr_tool_check: refuse loudly if herdr or jq is missing.
