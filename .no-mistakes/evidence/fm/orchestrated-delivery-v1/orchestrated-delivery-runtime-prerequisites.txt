@@ -1,0 +1,22 @@
+$ ruby -ryaml -rjson -e ... .agents/skills/orchestrated-delivery/SKILL.md
+{
+  "name": "orchestrated-delivery",
+  "description": "Load before briefing a delegated task as an orchestrated role pipeline, or when leading that pipeline. Applies only to genuinely complex or risky tasks or an explicit captain request, not ordinary delegated work.",
+  "user-invocable": false,
+  "metadata": {
+    "internal": true
+  }
+}
+
+$ pi list
+User packages:
+  npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6
+    /Users/yelen/.pi/agent/npm/node_modules/@ryan_nookpi/pi-extension-codex-fast-mode
+  extensions/openviking
+    /Users/yelen/.pi/agent/extensions/openviking
+  git:github.com/amosblomqvist/pi-interactive-subagents
+    /Users/yelen/.pi/agent/git/github.com/amosblomqvist/pi-interactive-subagents
+  git:github.com/amosblomqvist/pi-observational-memory
+    /Users/yelen/.pi/agent/git/github.com/amosblomqvist/pi-observational-memory
+  npm:pi-zen@0.1.2
+    /Users/yelen/.pi/agent/npm/node_modules/pi-zen
