@@ -632,6 +632,41 @@ test_pi_threads_model_and_max_effort() {
   pass "pi receives --model and --thinking max profile flags"
 }
 
+test_pi_role_provisioning_runs_in_the_worker_environment() {
+  local harness rec id out status launch worker_config
+  for harness in pi pi-signed; do
+    id="role-provision-$harness"
+    rec=$(make_spawn_case "$id" "$harness" "$id")
+    read_case_record "$rec"
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+    status=$?
+    expect_code 0 "$status" "$harness role provisioning spawn should succeed"
+    launch=$(cat "$LAUNCH_LOG")
+    worker_config="$CASE_DIR/worker pi config"
+    # Execute the actual emitted command, not a reimplementation of it. The
+    # fake Pi checks that definitions already exist before it starts.
+    cat > "$FAKEBIN_DIR/$harness" <<'SH'
+#!/usr/bin/env bash
+set -eu
+[ -s "$PI_CODING_AGENT_DIR/agents/fm-orchestrated-reviewer.md" ]
+[ -s "$PI_CODING_AGENT_DIR/agents/fm-orchestrated-worker.md" ]
+printf 'started\n' > "$PI_CODING_AGENT_DIR/started"
+SH
+    chmod +x "$FAKEBIN_DIR/$harness"
+    out=$(cd "$WT_DIR" && PI_CODING_AGENT_DIR="$worker_config" bash -c "$launch" 2>&1)
+    expect_code 0 "$?" "$harness must provision in the actual worker config before starting: $out"
+    assert_present "$worker_config/started" "Pi was not started after provisioning"
+    [ ! -d "$WT_DIR/.pi/agents" ] || fail "role provisioning polluted the project"
+    printf '\nuser edit\n' >> "$worker_config/agents/fm-orchestrated-worker.md"
+    rm "$worker_config/started"
+    out=$(cd "$WT_DIR" && PI_CODING_AGENT_DIR="$worker_config" bash -c "$launch" 2>&1)
+    expect_code 1 "$?" "conflicting definitions must stop $harness before starting"
+    assert_contains "$out" "refusing unowned or edited definition" "conflict diagnostic missing"
+    assert_absent "$worker_config/started" "Pi started despite failed provisioning"
+  done
+  pass "Pi-family emitted launches provision the worker's global definitions and stop on conflicts"
+}
+
 test_pi_signed_threads_shared_pi_profile_and_preserves_identity() {
   local rec id out status launch
   id=profile-pi-signed-z8b
@@ -848,6 +883,7 @@ test_cursor_refuses_model_absent_from_live_catalog
 test_cursor_failed_catalog_probe_does_not_block_spawn
 test_opencode_threads_model_and_ignores_effort_axis
 test_pi_threads_model_and_max_effort
+test_pi_role_provisioning_runs_in_the_worker_environment
 test_pi_tui_mode_probe_is_safe_for_old_and_new_pi
 test_pi_signed_threads_shared_pi_profile_and_preserves_identity
 test_pi_signed_missing_binary_refuses_before_endpoint_or_metadata
