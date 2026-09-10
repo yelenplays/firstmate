@@ -1,0 +1,2 @@
+not ok - devin 3000.10.21 (611c1cba) idle Devin composer was not recognized
+FAIL - devin 3000.10.21 (611c1cba); evidence retained at /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-devin-live.GCFnn1

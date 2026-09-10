@@ -1,0 +1,28 @@
+env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT -u CURSOR_AGENT -u CURSOR_INVOKED_AS '/Users/yelen/
+.local/bin/devin' '--respect-workspace-trust' 'false' '--permission-mode' 'dangerous' '--prompt-file' '/var/folders/9d/
+8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-devin-live.GCFnn1/home/data/probe/brief.md' '--model' 'swe-2-high'
+work on  smoke [?]
+❯ env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT -u CURSOR_AGENT -u CURSOR_INVOKED_AS '/Users/yele
+n/.local/bin/devin' '--respect-workspace-trust' 'false' '--permission-mode' 'dangerous' '--prompt-file' '/var/folders/9
+d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-devin-live.GCFnn1/home/data/probe/brief.md' '--model' 'swe-2-high'
+
+⠀⣴⣾⣶⡄⠀⠀⠀⠀
+⠀⠛⠿⠟⠻⣶⣾⣶⡄  Devin CLI
+⠀⣤⣶⣦⣴⠿⢿⠿⠃  v3000.10.21
+⠀⠻⢿⠿⠃⠀⠀⠀⠀
+
+❭ Run bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M26MT4NYAPHRCM5F8A437PN3/bin/fm-harness.sh >
+  detected.txt, then reply exactly INITIAL_DONE. No other actions.
+
+Pro · 100% remaining (resets in 8h 50m)
+
+ ⏺ Ran command
+ │ $ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M26MT4NYAPHRCM5F8A437PN3/bin/fm-harness.sh > detected.txt
+ └ Exited with code 0
+
+ INITIAL_DONE
+
+───────────────────────────────────────────────────────────────────────────────────────────── (bypass permissions on) ─
+❭ Ask Devin to build features, fix bugs, or work on your code
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+SWE-2 High                                                                           ctrl+v to paste image in clipboard

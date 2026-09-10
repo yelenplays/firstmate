@@ -1,0 +1,96 @@
+FM_TEST_BEGIN 2026-09-10T23:21:04Z tests/fm-devin-harness.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - Devin exact native ancestry identifies; lookalikes do not
+ok - Devin preflight validates credentials, model and permission vocabulary
+ok - direct launch preserves argv, clears inherited markers and rejects wrong identity
+ok - Devin controls and composer classification are executable contracts
+FM_TEST_END 2026-09-10T23:21:06Z tests/fm-devin-harness.test.sh exit=0 duration_ms=1895 gate_skip=false
+FM_TEST_BEGIN 2026-09-10T23:21:06Z tests/fm-composer-lib.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - fm_composer_classify_content: a bare shell prompt glyph (>/$/%/#) reads unknown, never empty
+ok - fm_composer_classify_content: stripped unbordered content is unknown except verified agent glyphs
+ok - fm_composer_classify_content: a bare shell prompt carrying a command is not empty
+ok - fm_composer_classify_content: a bare prompt glyph inside a bordered composer box reads empty (claude's own idle composer)
+ok - fm_composer_classify_content: agent prompt glyphs (❯ claude, › codex, ⟩ muse) read empty bordered or bare
+ok - fm_composer_classify_content: an empty composer reads empty
+ok - fm_composer_classify_content: idle matching is limited to proven placeholder positions
+ok - fm_composer_classify_content: idle matching preserves the caller's case mode
+ok - fm_composer_classify_content: Devin placeholders are scoped to Devin
+ok - fm_composer_classify_content: real unsubmitted text reads pending (including a popup argument-hint fill)
+ok - matrix: claude's ❯+NBSP row reads empty on every profile in both locales (#1988)
+ok - matrix: codex's dim hint is empty when styling proves it, unknown (never pending) when it cannot
+ok - matrix: Devin's ❭ placeholders are empty on Herdr
+ok - matrix: muse's ⟩ reads empty everywhere and survives losing the styled-glyph signal
+ok - matrix: cursor's reverse-video placeholder remnant reads empty; real typed text stays pending
+ok - matrix: herdr half-block rules bound a bare composer's wrap region
+ok - matrix: pi's separated composer needs identity + structure; the blank row alone never proves it
+ok - matrix: opencode's left-bar composer reads empty everywhere and scans the full active run
+ok - matrix: grok's titled bottom border is tolerated as a title, not read as ambiguity
+ok - matrix: kimi's bordered shell-glyph box reads empty through the shared owner (spawn's fourth copy retired)
+ok - matrix: the real claude-in-zellij --ansi dump reads empty in both locales
+ok - strict posture: blank and unidentified rows are unknown, never injectable empty
+ok - fm_composer_classify_screen: the bare composer's wrap region stays identified; structure breaks it
+ok - fm_composer_classify_screen: a row-leading agent glyph reanchors the live composer
+ok - fm_composer_classify_screen: a lower dead shell invalidates only cursorless stale composers
+ok - fm_composer_classify_screen: cursorless bare wrap regions participate in verdicts
+ok - fm_composer_classify_screen: cursorless containers reject only contiguous unclaimed activity
+ok - fm_composer_classify_screen: the bottom-most candidate wins; stale banners cannot
+ok - fm_composer_classify_screen: incomplete lower structure invalidates stale boxes
+ok - fm_composer_classify_screen: titled bottoms retain full box geometry
+ok - fm_composer_classify_screen: a proven box tolerates a bottom-border cursor
+ok - fm_composer_extract_selected_content: scopes user content and excludes furniture
+ok - fm_composer_queued_enter_verdict: pending + busy returns empty (queued Enter)
+ok - fm_composer_queued_enter_verdict: pending + idle/unknown stays pending
+ok - fm_composer_queued_enter_verdict: only proven pending is converted
+FM_TEST_END 2026-09-10T23:21:10Z tests/fm-composer-lib.test.sh exit=0 duration_ms=4643 gate_skip=false
+FM_TEST_BEGIN 2026-09-10T23:21:10Z tests/fm-herdr-lab.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - fm-herdr-lab: names fail closed and require the lab prefix
+ok - fm-herdr-lab: separator preserves explicit lab selection and exact agent arguments
+ok - fm-herdr-lab: provisioning, scoped calls, guarded teardown, and fleet tripwire are deterministic
+ok - fm-herdr-lab: missing tripwire refuses teardown before any Herdr call
+ok - fm-herdr-lab: changed default fleet state is a hard failure
+ok - fm-herdr-lab: an owned stopped lab can re-provision safely
+ok - fm-herdr-lab: failed deletion retains ownership until absence is confirmed
+ok - fm-herdr-lab: timed-out provisioning cancels the launch before teardown
+FM_TEST_END 2026-09-10T23:21:23Z tests/fm-herdr-lab.test.sh exit=0 duration_ms=12446 gate_skip=false
+FM_TEST_BEGIN 2026-09-10T23:21:23Z tests/fm-spawn-dispatch-profile.test.sh family=backend-dispatch expected_gate_skip=none
+ok - Devin backend and permission constraints refuse before launch
+ok - no --model/--effort records defaults and types the claude launch instructions
+ok - non-cursor launches clear inherited Cursor identity markers
+ok - relative home overrides ignore CDPATH and become absolute before spawn launch construction
+ok - FM_HOME defaults resolve relative paths and preserve absolute spellings
+ok - absolute override spellings are preserved in spawn launch paths
+ok - unresolvable relative spawn overrides fail with named diagnostics
+ok - active crew-dispatch profile requires an explicit harness for ship spawns
+ok - active crew-dispatch profile requires an explicit harness for scout spawns
+ok - active crew-dispatch profile allows an explicit resolved harness
+ok - active crew-dispatch profile allows the legacy positional harness form
+ok - active crew-dispatch profile allows the raw launch-command escape hatch
+ok - claude receives --model and --effort profile flags
+ok - codex receives --model and model_reasoning_effort profile flags
+ok - codex omits unsupported max effort instead of passing a bad config value
+ok - grok receives --model and --reasoning-effort profile flags
+ok - grok omits unsupported max reasoning effort
+ok - grok omits unsupported xhigh reasoning effort
+ok - cursor receives its model-qualified reasoning class and exact task workspace
+ok - cursor refuses model ids absent from its resolved binary's live catalog
+ok - cursor preserves the requested model when its live catalog is unreachable
+ok - opencode receives --model and omits the unsupported effort axis
+ok - pi receives --model and --thinking max profile flags
+ok - Pi-family emitted launches provision the worker's global definitions and stop on conflicts
+ok - Pi launch probing omits --tui-mode on older Pi and preserves it on supporting Pi
+ok - pi-signed shares Pi launch semantics while preserving its configured and recorded identity
+ok - pi-signed refuses safely and actionably when the selected executable is unavailable
+ok - pi-signed is a distinct persistent secondmate runtime with shared Pi supervision semantics
+ok - batch dispatch forwards shared --harness, --model, and --effort to every pair
+ok - claude forwards firstmate's CLAUDE_CONFIG_DIR so the crewmate uses the same credential store
+ok - claude omits the config-dir prefix when firstmate runs with the single-store default
+ok - non-claude harnesses do not receive the claude CLAUDE_CONFIG_DIR prefix
+ok - active crew-dispatch profile does not block secondmate launches
+# all fm-spawn-dispatch-profile tests passed
+FM_TEST_END 2026-09-10T23:22:49Z tests/fm-spawn-dispatch-profile.test.sh exit=0 duration_ms=86142 gate_skip=false
+FM_TEST_SUMMARY total=4 failed=0 skipped_gate=0 duration_ms=105282
+FM_TEST_SUMMARY_FAMILY family=backend-dispatch count=1 duration_ms=86142 failed=0
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=3 duration_ms=18984 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-spawn-dispatch-profile.test.sh duration_ms=86142
+FM_TEST_SLOWEST rank=2 script=tests/fm-herdr-lab.test.sh duration_ms=12446
+FM_TEST_SLOWEST rank=3 script=tests/fm-composer-lib.test.sh duration_ms=4643
+FM_TEST_SLOWEST rank=4 script=tests/fm-devin-harness.test.sh duration_ms=1895
