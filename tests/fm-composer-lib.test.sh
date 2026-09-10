@@ -215,6 +215,18 @@ test_matrix_codex_dim_hint_row() {
   pass "matrix: codex's dim hint is empty when styling proves it, unknown (never pending) when it cannot"
 }
 
+test_matrix_devin_dim_hint_row() {
+  # Real idle Devin 3000.10.21 on Herdr: `❭`, then a harness-owned prompt
+  # hint between horizontal rules. Herdr's ANSI capture can omit styling, so
+  # the structural row is the proof of an empty Devin placeholder.
+  local screen typed
+  screen=$'──────────────── (bypass permissions on) ────────────────\n❭ Ask Devin to build features, fix bugs, or work on your code\n────────────────────────────────────────────────────────────\nSWE-2 High'
+  assert_screen "Devin idle on Herdr" empty "$CAPS_STYLED" "$screen" '' probe-absent devin
+  typed=$'──────────────── (bypass permissions on) ────────────────\n❭ Guide Devin while it works\n────────────────────────────────────────────────────────────\nSWE-2 High'
+  assert_screen "Devin second idle hint on Herdr" empty "$CAPS_STYLED" "$typed" '' probe-absent devin
+  pass "matrix: Devin's ❭ placeholders are empty on Herdr"
+}
+
 test_matrix_muse_truecolor_glyph_survives_signal_loss() {
   # Real idle muse: truecolor `⟩` (38;2;90;160;255, luminance ~149.9) under a
   # TITLED rule. Two independent signals prove emptiness: the glyph surviving
@@ -623,6 +635,7 @@ test_devin_placeholders_are_harness_scoped
 test_real_text_is_pending
 test_matrix_claude_bare_nbsp_row
 test_matrix_codex_dim_hint_row
+test_matrix_devin_dim_hint_row
 test_matrix_muse_truecolor_glyph_survives_signal_loss
 test_matrix_cursor_reverse_video_placeholder_remnant
 test_matrix_herdr_halfblock_rule_bounds_bare_wrap

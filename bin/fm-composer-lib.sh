@@ -358,7 +358,7 @@ fm_busy_lines_match() {  # [harness]
 # a dead-shell prompt and must never read `empty`. Newline-separated and
 # consumed by `read` rather than word splitting, so `$`, `%`, and `#` stay
 # literal and no entry is ever exposed to pathname expansion.
-FM_COMPOSER_AGENT_PROMPT_GLYPHS=$(printf '%s\n' '❯' '›' '⟩' '→' '❭')
+FM_COMPOSER_AGENT_PROMPT_GLYPHS=$(printf '%s\n' '❯' '›' '⟩' '→' '❭' '❭')
 FM_COMPOSER_SHELL_PROMPT_GLYPHS=$(printf '%s\n' '>' '$' '%' '#')
 
 # The common idle-placeholder set: composer text a harness renders in an EMPTY
@@ -554,6 +554,11 @@ fm_composer_classify_content() {  # <bordered> <content> [idle_re] [idle_case] [
     fi
   fi
   if [ "$idle_collision" = 1 ]; then
+    # Devin's native Herdr capture can omit ANSI styling, but its bare prompt
+    # row still structurally fixes the harness-owned placeholder position.
+    if [ "$harness" = devin ] && [ "$placeholder_position" = 1 ]; then
+      printf 'empty'; return 0
+    fi
     if [ "$placeholder_position" = 1 ] && [ "$bordered" = 1 ] && [ "$styled" != 1 ]; then
       printf 'empty'; return 0
     fi
@@ -938,7 +943,7 @@ _fm_composer_classify_bare_row() {  # <screen> <styled> <row> [harness]
   content=$(_fm_composer_row_content "$raw" "$styled")
   plain=$(_fm_composer_row_content "$raw" 0)
   state=$(fm_composer_classify_content 0 "$content" \
-    "$idle_re" insensitive "$plain" 0 "$styled" "$harness")
+    "$idle_re" insensitive "$plain" 1 "$styled" "$harness")
   if [ "$styled" != 1 ] && [ "$state" = pending ]; then
     printf 'unknown'
     return 0
@@ -1042,8 +1047,8 @@ _fm_composer_leftbar_floor_row() {  # <trimmed-row>
   [ -z "${blocks//▀/}" ]
 }
 
-_fm_composer_select_cursorless() {
-  local plain=$1 generic=-1 next boundary raw trimmed
+_fm_composer_select_cursorless() {  # <plain-screen> [harness]
+  local plain=$1 harness=${2:-} generic=-1 next boundary raw trimmed
   FM_COMPOSER_SELECTED_KIND=
   FM_COMPOSER_SELECTED_FIRST=-1
   FM_COMPOSER_SELECTED_LAST=-1
@@ -1081,8 +1086,16 @@ _fm_composer_select_cursorless() {
   fi
   if [ "$FM_COMPOSER_SCAN_PI_PAIR_FOUND" = 0 ] \
      && [ "$FM_COMPOSER_SCAN_PI_LAST_SEPARATOR" -gt "$generic" ]; then
-    FM_COMPOSER_SELECTED_KIND=
-    return 1
+    # Devin's native idle composer is a bare `❭` row closed by one solid rule.
+    # That closing rule is not a Pi pair, so preserve this verified shape only
+    # for Devin without weakening the fleet-wide Pi staleness safeguard.
+    if [ "$harness" = devin ] && [ "$FM_COMPOSER_SELECTED_KIND" = bare ] \
+       && [ "$FM_COMPOSER_SCAN_PI_LAST_SEPARATOR" -eq "$((generic + 1))" ]; then
+      :
+    else
+      FM_COMPOSER_SELECTED_KIND=
+      return 1
+    fi
   fi
   if [ "$FM_COMPOSER_SCAN_SHELL_ROW" -gt "$generic" ]; then
     FM_COMPOSER_SELECTED_KIND=
@@ -1277,7 +1290,7 @@ EOF
   # No cursor: the bottom-most shape wins, with the pi-separator staleness
   # rules layered on (a live pi composer pair below the generic candidate
   # proves that candidate stale).
-  if ! _fm_composer_select_cursorless "$plain"; then
+  if ! _fm_composer_select_cursorless "$plain" "$harness"; then
     printf 'unknown'
     return 0
   fi

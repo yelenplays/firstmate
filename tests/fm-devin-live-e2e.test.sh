@@ -92,11 +92,11 @@ herdr_tab_id=$tab
 herdr_pane_id=$pane
 model=$MODEL
 effort=default
-permission_mode=smart
+permission_mode=dangerous
 x_request=devin-live-probe
 EOF
 printf 'Run bash %s/bin/fm-harness.sh > detected.txt, then reply exactly INITIAL_DONE. No other actions.\n' "$ROOT" > "$FM_HOME/data/probe/brief.md"
-fm_devin_start "$target" "$BIN" "$FM_HOME/data/probe/brief.md" "$MODEL" smart
+fm_devin_start "$target" "$BIN" "$FM_HOME/data/probe/brief.md" "$MODEL" dangerous
 fm_backend_herdr_cli "$HERDR_LAB_SESSION" pane wait-output "$pane" --regex '^ INITIAL_DONE$' --timeout 90000 > "$BASE/initial.json"
 [ "$(cat "$BASE/work/detected.txt")" = devin ] || fail "$VERSION tool detection failed"
 fm_backend_herdr_cli "$HERDR_LAB_SESSION" agent wait "$pane" --until idle --timeout 15000 >/dev/null
