@@ -1,0 +1,12 @@
+tmux=tmux 3.7c
+package=c3e8b53c0754ae5ccc19fdab5a7481ec039bc2f7
+testing: pi 0.85.1
+ok - pi tester: openai-codex/gpt-5.6-luna thinking=max global standalone live
+ok - pi integrator: openai-codex/gpt-6-astra thinking=xhigh global standalone live
+ok - pi researcher: openai-codex/gpt-5.6-luna thinking=high global standalone live
+ok - pi explorer: openai-codex/gpt-5.6-luna thinking=max global standalone live
+ok - pi reviewer: openai-codex/gpt-6-astra thinking=xhigh global standalone live
+ok - pi worker: openai-codex/gpt-5.6-luna thinking=max global standalone live
+ok - pi: six completed roles; fresh reviewer; no project trust or project changes
+absent: pi-signed
+ok - roster live proof passed for 1 installed Pi-family harness(es)
