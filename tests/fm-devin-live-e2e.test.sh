@@ -92,10 +92,11 @@ herdr_tab_id=$tab
 herdr_pane_id=$pane
 model=$MODEL
 effort=default
-permission_mode=dangerous
+permission_mode=smart
+x_request=devin-live-probe
 EOF
 printf 'Run bash %s/bin/fm-harness.sh > detected.txt, then reply exactly INITIAL_DONE. No other actions.\n' "$ROOT" > "$FM_HOME/data/probe/brief.md"
-fm_devin_start "$target" "$BIN" "$FM_HOME/data/probe/brief.md" "$MODEL" dangerous
+fm_devin_start "$target" "$BIN" "$FM_HOME/data/probe/brief.md" "$MODEL" smart
 fm_backend_herdr_cli "$HERDR_LAB_SESSION" pane wait-output "$pane" --regex '^ INITIAL_DONE$' --timeout 90000 > "$BASE/initial.json"
 [ "$(cat "$BASE/work/detected.txt")" = devin ] || fail "$VERSION tool detection failed"
 fm_backend_herdr_cli "$HERDR_LAB_SESSION" agent wait "$pane" --until idle --timeout 15000 >/dev/null
@@ -115,12 +116,21 @@ done
 fm_backend_herdr_cli "$HERDR_LAB_SESSION" agent wait "$pane" --until idle --timeout 30000 > "$BASE/followup.json"
 "$ROOT/bin/fm-control.sh" probe exit > "$BASE/exit.txt"
 [ "$(fm_backend_herdr_agent_state "$target")" = dead ] || fail "$VERSION exit did not leave an agent-free pane"
-# Run the complete same-task spawn path, including model/permission metadata,
-# encoded prompt-file delivery and native pane readiness. No work is discarded.
+# Run the complete same-task spawn path with an explicit permission override,
+# then a same-harness relaunch that must retain it. No work is discarded.
 printf '%s\n' 'Reply exactly RELAUNCH_DONE. Do not use tools.' > "$FM_HOME/data/probe/brief.md"
-FM_SPAWN_NO_GUARD=1 "$ROOT/bin/fm-spawn.sh" probe --relaunch --model "$MODEL" > "$BASE/relaunch.txt"
+FM_SPAWN_NO_GUARD=1 "$ROOT/bin/fm-spawn.sh" probe --relaunch --model "$MODEL" --permission-mode auto > "$BASE/relaunch.txt"
 fm_backend_herdr_cli "$HERDR_LAB_SESSION" pane wait-output "$pane" --regex '^ RELAUNCH_DONE$' --timeout 90000 > "$BASE/relaunched.json"
-grep -q '^permission_mode=dangerous$' "$FM_HOME/state/probe.meta" || fail 'relaunch lost permission mode'
+test "$(grep -c '^permission_mode=auto$' "$FM_HOME/state/probe.meta")" -eq 1 || fail 'explicit permission override was not authoritative'
+test "$(grep -c '^permission_mode=' "$FM_HOME/state/probe.meta")" -eq 1 || fail 'relaunch wrote duplicate permission metadata'
+grep -q '^x_request=devin-live-probe$' "$FM_HOME/state/probe.meta" || fail 'relaunch discarded unrelated metadata'
 "$ROOT/bin/fm-control.sh" probe exit > "$BASE/relaunch-exit.txt"
+printf '%s\n' 'Reply exactly RETAINED_PERMISSION_DONE. Do not use tools.' > "$FM_HOME/data/probe/brief.md"
+FM_SPAWN_NO_GUARD=1 "$ROOT/bin/fm-spawn.sh" probe --relaunch --model "$MODEL" > "$BASE/retained-permission-relaunch.txt"
+fm_backend_herdr_cli "$HERDR_LAB_SESSION" pane wait-output "$pane" --regex '^ RETAINED_PERMISSION_DONE$' --timeout 90000 > "$BASE/retained-permission.json"
+test "$(grep -c '^permission_mode=auto$' "$FM_HOME/state/probe.meta")" -eq 1 || fail 'same-harness relaunch did not retain explicit permission mode'
+test "$(grep -c '^permission_mode=' "$FM_HOME/state/probe.meta")" -eq 1 || fail 'retained permission metadata was duplicated'
+grep -q '^x_request=devin-live-probe$' "$FM_HOME/state/probe.meta" || fail 'retained permission relaunch discarded unrelated metadata'
+"$ROOT/bin/fm-control.sh" probe exit > "$BASE/retained-permission-exit.txt"
 # Restore real PATH before helper teardown to avoid wrapping its internal calls.
 export PATH="$FM_TEST_REAL_PATH"
