@@ -120,6 +120,19 @@ test_idle_placeholder_case_mode_is_explicit() {
   pass "fm_composer_classify_content: idle matching preserves the caller's case mode"
 }
 
+test_devin_placeholders_are_harness_scoped() {
+  local placeholder harness out
+  for placeholder in 'Ask Devin to build features, fix bugs, or work on your code' 'Guide Devin while it works'; do
+    out=$(classify 1 "$placeholder" '' sensitive "$placeholder" 1 0 devin)
+    [ "$out" = empty ] || fail "Devin placeholder '$placeholder' must read empty for Devin, got '$out'"
+    for harness in claude cursor; do
+      out=$(classify 1 "$placeholder" '' sensitive "$placeholder" 1 0 "$harness")
+      [ "$out" = pending ] || fail "Devin placeholder '$placeholder' must remain pending for $harness, got '$out'"
+    done
+  done
+  pass "fm_composer_classify_content: Devin placeholders are scoped to Devin"
+}
+
 # --- Real text is pending ---------------------------------------------------
 
 test_real_text_is_pending() {
@@ -606,6 +619,7 @@ test_agent_glyphs_are_empty_bordered_and_bare
 test_empty_content_is_empty
 test_idle_placeholder_is_empty
 test_idle_placeholder_case_mode_is_explicit
+test_devin_placeholders_are_harness_scoped
 test_real_text_is_pending
 test_matrix_claude_bare_nbsp_row
 test_matrix_codex_dim_hint_row

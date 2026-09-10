@@ -100,6 +100,8 @@ fm_devin_start "$target" "$BIN" "$FM_HOME/data/probe/brief.md" "$MODEL" smart
 fm_backend_herdr_cli "$HERDR_LAB_SESSION" pane wait-output "$pane" --regex '^ INITIAL_DONE$' --timeout 90000 > "$BASE/initial.json"
 [ "$(cat "$BASE/work/detected.txt")" = devin ] || fail "$VERSION tool detection failed"
 fm_backend_herdr_cli "$HERDR_LAB_SESSION" agent wait "$pane" --until idle --timeout 15000 >/dev/null
+[ "$(FM_COMPOSER_HARNESS=devin fm_backend_herdr_composer_state "$target")" = empty ] \
+  || fail "$VERSION idle Devin composer was not recognized"
 "$ROOT/bin/fm-send.sh" probe 'Run sleep 15, then reply STEER_DONE. Do nothing else.' > "$BASE/send.txt"
 fm_backend_herdr_cli "$HERDR_LAB_SESSION" agent wait "$pane" --until working --timeout 15000 > "$BASE/busy.json"
 "$ROOT/bin/fm-crew-state.sh" probe > "$BASE/crew-state.txt"

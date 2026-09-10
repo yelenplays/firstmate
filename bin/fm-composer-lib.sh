@@ -361,16 +361,28 @@ fm_busy_lines_match() {  # [harness]
 FM_COMPOSER_AGENT_PROMPT_GLYPHS=$(printf '%s\n' '❯' '›' '⟩' '→' '❭')
 FM_COMPOSER_SHELL_PROMPT_GLYPHS=$(printf '%s\n' '>' '$' '%' '#')
 
-# The ONE fleet-wide idle-placeholder set: composer text a harness renders in
-# an EMPTY composer that a plain capture cannot tell from typed text. Grok's
+# The common idle-placeholder set: composer text a harness renders in an EMPTY
+# composer that a plain capture cannot tell from typed text. Grok's
 # bordered placeholder and opencode's left-bar hint (which continues with a
 # rotating quoted suggestion, hence the unanchored tail). cursor-agent renders
 # two, both anchored: `Plan, search, build anything` in a fresh session and
 # `Add a follow-up` once a turn has completed (verified live on cursor-agent
-# 2026.08.11-e8db854). FM_COMPOSER_IDLE_RE overrides for an unverified harness;
-# matching is case-insensitive.
-# Devin 3000.10.21 uses ❭ with these idle and mid-turn placeholders.
-FM_COMPOSER_IDLE_RE_DEFAULT='^Type a message\.\.\.$|^Ask anything\.\.\.|^Plan, search, build anything$|^Add a follow-up$|^Ask Devin to build features, fix bugs, or work on your code$|^Guide Devin while it works$'
+# 2026.08.11-e8db854). Harness-specific placeholders are selected only for the
+# known harness, while FM_COMPOSER_IDLE_RE overrides an unverified harness.
+FM_COMPOSER_IDLE_RE_DEFAULT='^Type a message\.\.\.$|^Ask anything\.\.\.|^Plan, search, build anything$|^Add a follow-up$'
+FM_COMPOSER_IDLE_RE_DEVIN='^Ask Devin to build features, fix bugs, or work on your code$|^Guide Devin while it works$'
+
+fm_composer_idle_re_for_harness() {  # [harness]
+  local harness=${1:-}
+  if [ -n "${FM_COMPOSER_IDLE_RE:-}" ]; then
+    printf '%s' "$FM_COMPOSER_IDLE_RE"
+    return 0
+  fi
+  case "$harness" in
+    devin) printf '%s|%s' "$FM_COMPOSER_IDLE_RE_DEFAULT" "$FM_COMPOSER_IDLE_RE_DEVIN" ;;
+    *) printf '%s' "$FM_COMPOSER_IDLE_RE_DEFAULT" ;;
+  esac
+}
 
 # Opencode draws a mode/model footer line INSIDE its left-bar composer
 # ("Build · GPT-5.5 Fast OpenAI · high"). It is composer furniture, not typed
@@ -482,10 +494,13 @@ fm_composer_idle_matches() {
 # Content and plain_content are normalized and re-trimmed on entry, so the
 # verdict never depends on which whitespace alphabet the calling adapter
 # trimmed with.
-fm_composer_classify_content() {  # <bordered> <content> [idle_re] [idle_case] [plain_content] [placeholder-position] [styled]
+fm_composer_classify_content() {  # <bordered> <content> [idle_re] [idle_case] [plain_content] [placeholder-position] [styled] [harness]
   local bordered=$1 idle_re=${3:-} idle_case=${4:-sensitive} content plain_content glyph=''
-  local placeholder_position=${6:-0} styled=${7:-1} idle_collision=0
+  local placeholder_position=${6:-0} styled=${7:-1} harness=${8:-} idle_collision=0
   content=$2
+  if [ -z "$idle_re" ] && [ -n "$harness" ]; then
+    idle_re=$(fm_composer_idle_re_for_harness "$harness")
+  fi
   fm_composer_normalize_trim_var content
   plain_content=${5:-$2}
   fm_composer_normalize_trim_var plain_content
@@ -885,16 +900,17 @@ _fm_composer_row_content() {  # <raw-row> <styled> -> content on stdout
 # and separated shapes: pending beats empty, an unreadable row is unknown, and
 # geometry ambiguity turns pending into pending-unproven and empty into
 # unknown (an ambiguous container is not positive proof).
-_fm_composer_classify_rows() {  # <screen> <styled> <ambiguous> <first-row> <last-row>
-  local screen=$1 styled=$2 ambiguous=$3 first=$4 last=$5
+_fm_composer_classify_rows() {  # <screen> <styled> <ambiguous> <first-row> <last-row> [harness]
+  local screen=$1 styled=$2 ambiguous=$3 first=$4 last=$5 harness=${6:-} idle_re
   local row raw content plain state unknown_seen=0
+  idle_re=$(fm_composer_idle_re_for_harness "$harness")
   row=$first
   while [ "$row" -le "$last" ]; do
     raw=$(_fm_composer_screen_row "$row" "$screen")
     content=$(_fm_composer_row_content "$raw" "$styled")
     plain=$(_fm_composer_row_content "$raw" 0)
     state=$(fm_composer_classify_content 1 "$content" \
-      "${FM_COMPOSER_IDLE_RE:-$FM_COMPOSER_IDLE_RE_DEFAULT}" insensitive "$plain" 1 "$styled")
+      "$idle_re" insensitive "$plain" 1 "$styled" "$harness")
     case "$state" in
       pending)
         if [ "$ambiguous" = 1 ]; then printf 'pending-unproven'; else printf 'pending'; fi
@@ -915,13 +931,14 @@ _fm_composer_classify_rows() {  # <screen> <styled> <ambiguous> <first-row> <las
 # the styled=0 degradation: without styling, trailing text after the glyph may
 # be the harness's own idle suggestion (claude's rotating dim hint, codex's
 # `Use /skills ...`), so it must read `unknown` rather than a false `pending`.
-_fm_composer_classify_bare_row() {  # <screen> <styled> <row>
-  local screen=$1 styled=$2 row=$3 raw content plain state
+_fm_composer_classify_bare_row() {  # <screen> <styled> <row> [harness]
+  local screen=$1 styled=$2 row=$3 harness=${4:-} raw content plain state idle_re
+  idle_re=$(fm_composer_idle_re_for_harness "$harness")
   raw=$(_fm_composer_screen_row "$row" "$screen")
   content=$(_fm_composer_row_content "$raw" "$styled")
   plain=$(_fm_composer_row_content "$raw" 0)
   state=$(fm_composer_classify_content 0 "$content" \
-    "${FM_COMPOSER_IDLE_RE:-$FM_COMPOSER_IDLE_RE_DEFAULT}" insensitive "$plain" 0 "$styled")
+    "$idle_re" insensitive "$plain" 0 "$styled" "$harness")
   if [ "$styled" != 1 ] && [ "$state" = pending ]; then
     printf 'unknown'
     return 0
@@ -978,10 +995,11 @@ _fm_composer_classify_bare_wrap() {  # <screen> <styled> <glyph-row> <cursor-row
 # the idle hint read empty; the run's LAST row may be the mode/model footer
 # (composer furniture, never typed text). Real content is pending when styling
 # can prove it real, unknown otherwise.
-_fm_composer_classify_leftbar() {  # <screen> <styled> <first-row> <last-row>
-  local screen=$1 styled=$2 first=$3 last=$4
-  local row raw content pending_seen=0 footer_re leading_blank=1 placeholder_position=0
+_fm_composer_classify_leftbar() {  # <screen> <styled> <first-row> <last-row> [harness]
+  local screen=$1 styled=$2 first=$3 last=$4 harness=${5:-}
+  local row raw content pending_seen=0 footer_re idle_re leading_blank=1 placeholder_position=0
   footer_re=${FM_COMPOSER_LEFTBAR_FOOTER_RE:-$FM_COMPOSER_LEFTBAR_FOOTER_RE_DEFAULT}
+  idle_re=$(fm_composer_idle_re_for_harness "$harness")
   row=$first
   while [ "$row" -le "$last" ]; do
     raw=$(_fm_composer_screen_row "$row" "$screen")
@@ -998,7 +1016,7 @@ _fm_composer_classify_leftbar() {  # <screen> <styled> <first-row> <last-row>
     fi
     leading_blank=0
     if [ "$placeholder_position" = 1 ] \
-       && fm_composer_idle_matches "$content" "${FM_COMPOSER_IDLE_RE:-$FM_COMPOSER_IDLE_RE_DEFAULT}" insensitive; then
+       && fm_composer_idle_matches "$content" "$idle_re" insensitive; then
       row=$((row + 1)); continue
     fi
     if [ "$row" -eq "$last" ] \
@@ -1184,8 +1202,8 @@ EOF
   printf '%s\n' "$joined" | LC_ALL=C awk '{$1=$1; printf "%s", $0}'
 }
 
-fm_composer_classify_screen() {  # <caps> <screen> [cursor_row] [identity]
-  local caps=$1 screen=$2 cy=${3:-} identity=${4:-}
+fm_composer_classify_screen() {  # <caps> <screen> [cursor_row] [identity] [harness]
+  local caps=$1 screen=$2 cy=${3:-} identity=${4:-} harness=${5:-}
   local styled=0 cursor=0 has_identity=0 kv plain
   while IFS= read -r kv; do
     case "$kv" in
@@ -1209,14 +1227,14 @@ EOF
     fi
     if [ "$FM_COMPOSER_SCAN_BOX_TOP" -ge 0 ]; then
       _fm_composer_classify_rows "$screen" "$styled" "$FM_COMPOSER_SCAN_BOX_AMBIG" \
-        "$((FM_COMPOSER_SCAN_BOX_TOP + 1))" "$((FM_COMPOSER_SCAN_BOX_BOTTOM - 1))"
+        "$((FM_COMPOSER_SCAN_BOX_TOP + 1))" "$((FM_COMPOSER_SCAN_BOX_BOTTOM - 1))" "$harness"
       return 0
     fi
     if [ "$FM_COMPOSER_SCAN_LEFTBAR_START" -ge 0 ] \
        && [ "$cy" -ge "$FM_COMPOSER_SCAN_LEFTBAR_START" ] \
        && [ "$cy" -le "$FM_COMPOSER_SCAN_LEFTBAR_END" ]; then
       _fm_composer_classify_leftbar "$screen" "$styled" \
-        "$FM_COMPOSER_SCAN_LEFTBAR_START" "$FM_COMPOSER_SCAN_LEFTBAR_END"
+        "$FM_COMPOSER_SCAN_LEFTBAR_START" "$FM_COMPOSER_SCAN_LEFTBAR_END" "$harness"
       return 0
     fi
     if [ "$FM_COMPOSER_SCAN_BARE_ROW" -ge 0 ] && [ "$cy" -eq "$FM_COMPOSER_SCAN_BARE_ROW" ]; then
@@ -1225,7 +1243,7 @@ EOF
          && [ "$cy" -lt "$FM_COMPOSER_SCAN_PI_CLOSE" ]; then
         _fm_composer_classify_bare_pi_overlap "$screen" "$styled" "$has_identity" "$identity" "$cy"
       else
-        _fm_composer_classify_bare_row "$screen" "$styled" "$cy"
+        _fm_composer_classify_bare_row "$screen" "$styled" "$cy" "$harness"
       fi
       return 0
     fi
@@ -1269,7 +1287,7 @@ EOF
       ;;
     box)
       _fm_composer_classify_rows "$screen" "$styled" "$FM_COMPOSER_SELECTED_AMBIG" \
-        "$FM_COMPOSER_SELECTED_FIRST" "$FM_COMPOSER_SELECTED_LAST"
+        "$FM_COMPOSER_SELECTED_FIRST" "$FM_COMPOSER_SELECTED_LAST" "$harness"
       ;;
     bare)
       if [ "$FM_COMPOSER_SELECTED_LAST" -gt "$FM_COMPOSER_SELECTED_FIRST" ]; then
@@ -1281,12 +1299,12 @@ EOF
         _fm_composer_classify_bare_pi_overlap "$screen" "$styled" "$has_identity" "$identity" \
           "$FM_COMPOSER_SCAN_BARE_ROW"
       else
-        _fm_composer_classify_bare_row "$screen" "$styled" "$FM_COMPOSER_SCAN_BARE_ROW"
+        _fm_composer_classify_bare_row "$screen" "$styled" "$FM_COMPOSER_SCAN_BARE_ROW" "$harness"
       fi
       ;;
     leftbar)
       _fm_composer_classify_leftbar "$screen" "$styled" \
-        "$FM_COMPOSER_SELECTED_FIRST" "$FM_COMPOSER_SELECTED_LAST"
+        "$FM_COMPOSER_SELECTED_FIRST" "$FM_COMPOSER_SELECTED_LAST" "$harness"
       ;;
   esac
 }
