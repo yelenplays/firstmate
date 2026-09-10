@@ -56,6 +56,7 @@ Existing project resources retain Pi's normal trust behavior; this provisioning 
 The sub-agent package itself and tmux must already be installed.
 The package reads effort from each definition's `thinking` field and appends it to the model at launch, so no per-call effort override or prompt instruction is needed.
 Keep the roster pins intact; a changed installed package still requires checking the effective loadout rather than assuming its behavior.
+[Runtime verification](../../../docs/verification/runtime-backends.md#orchestrated-pi-role-definitions) records the live six-role proof and its refresh command.
 
 ## Spawn and carry the handoff
 
