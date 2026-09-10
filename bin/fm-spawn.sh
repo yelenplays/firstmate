@@ -112,7 +112,11 @@
 #   same path. It adds --tui-mode regular only when that help advertises the flag;
 #   a failed or inconclusive probe omits it so older Pi versions remain launchable.
 #   A missing selected executable refuses before endpoint creation, and pi-signed
-#   never falls back to pi.
+#   never falls back to pi. Every Pi-family launch first runs
+#   bin/fm-pi-role-agents.py inside the target pane, then launches Pi only on
+#   success. That helper owns global orchestrated-role definition provisioning;
+#   running beside Pi uses the pane's actual config directory on every backend
+#   without adding project resources or changing project trust.
 #   config/secondmate-harness may also carry an optional model and effort as extra
 #   whitespace-separated tokens ("<harness> [<model>] [<effort>]"). For a
 #   --secondmate spawn, those tokens apply only when this spawn also resolves its
@@ -2825,6 +2829,11 @@ if [ -n "$SPAWN_TRACEPARENT" ]; then
   fi
 fi
 sleep 0.3
+case "$HARNESS" in
+  pi|pi-signed)
+    LAUNCH="python3 $(shell_quote "$SCRIPT_DIR/fm-pi-role-agents.py") && $LAUNCH"
+    ;;
+esac
 spawn_send_literal "$T" "$LAUNCH"
 sleep 0.3
 if [ "${HERDR_PROJECTED:-0}" -eq 1 ]; then

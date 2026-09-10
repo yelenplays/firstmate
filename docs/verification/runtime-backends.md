@@ -30,6 +30,40 @@ zsh
 A persistent parent shell waiting for a child remained reported as the parent process, while a shell that directly execed a simple command changed identity with the process itself.
 Pi and pi-signed 0.82.0 were reverified on 2026-07-27 through real isolated `fm-spawn.sh` launches.
 
+### Orchestrated Pi role definitions
+
+Verified on 2026-09-10 with Pi 0.85.1, tmux 3.7c, and pi-interactive-subagents commit `c3e8b53c0754ae5ccc19fdab5a7481ec039bc2f7`.
+The contract and definition links are owned by [orchestrated-delivery](../../.agents/skills/orchestrated-delivery/SKILL.md); the provisioner's help owns installation mechanics.
+Refresh the credentialed proof with an external temporary fixture parent:
+
+```sh
+FM_PI_ROLE_AGENTS_LIVE=1 TMPDIR="$fixture_parent" nix shell nixpkgs#tmux -c bin/fm-test-run.sh tests/fm-pi-role-agents-live-e2e.test.sh
+```
+
+Observed proof output:
+
+```text
+ok - pi tester: openai-codex/gpt-5.6-luna thinking=max global standalone live
+ok - pi researcher: openai-codex/gpt-5.6-luna thinking=high global standalone live
+ok - pi explorer: openai-codex/gpt-5.6-luna thinking=max global standalone live
+ok - pi worker: openai-codex/gpt-5.6-luna thinking=max global standalone live
+ok - pi reviewer: openai-codex/gpt-6-astra thinking=xhigh global standalone live
+ok - pi integrator: openai-codex/gpt-6-astra thinking=xhigh global standalone live
+ok - pi: six completed roles; fresh reviewer; no project trust or project changes
+absent: pi-signed
+ok - roster live proof passed for 1 installed Pi-family harness(es)
+```
+
+A real Astra orchestrator in an unrelated git worktree discovered the globally provisioned roles and spawned each through the installed package without per-call model overrides.
+The guard checks discovery, launch snapshots, actual assistant model identities, thinking-level session events, and shell-tool session metadata for every completed child.
+Each session was standalone, with no inherited parent-session pointer or parent-context canary; no trust decision or project resource was written, and no trust acknowledgement was sent.
+`tests/fm-pi-role-agents.test.sh` covers provisioning, upgrades, conflicts, and concurrent installs; `tests/fm-spawn-dispatch-profile.test.sh` executes both Pi-family emitted launch commands with fake executables and proves provisioning precedes launch in the worker's actual config directory.
+The signed wrapper was absent, so its live proof remains unverified rather than inferred from the portable test.
+
+Applicability review: the new launch prefix is shared by tmux, Herdr, Zellij, Orca, and cmux before their existing literal-submit adapters, and applies to Pi and pi-signed for ships, scouts, secondmates, and relaunches.
+The proof above exercises tmux, not a claim of new sub-agent support on another backend: this installed sub-agent package still requires its orchestrator to be inside tmux.
+No other primary harness or worker adapter gains role provisioning, and no backend lifecycle or trust policy changes.
+
 ### Agent liveness name sources
 
 The earlier record that every harness is observed under its own `#{pane_current_command}` no longer holds and has been replaced by the per-harness evidence below.
