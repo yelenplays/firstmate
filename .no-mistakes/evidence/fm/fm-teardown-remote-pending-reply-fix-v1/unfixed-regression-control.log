@@ -1,0 +1,2 @@
+not ok - remote-pending-reply-foreign-last: teardown should complete: expected exit 0, got 1
+exit=1
