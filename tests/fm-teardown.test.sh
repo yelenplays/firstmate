@@ -542,8 +542,11 @@ SH
 # Run teardown with PATH mocking. Args: case_dir [extra args...]
 run_teardown() {
   local case_dir=$1; shift
+  mkdir -p "$case_dir/data" "$case_dir/fm-home"
   FM_ROOT_OVERRIDE="$ROOT" \
+  FM_HOME="$case_dir/fm-home" \
   FM_STATE_OVERRIDE="$case_dir/state" \
+  FM_DATA_OVERRIDE="$case_dir/data" \
   FM_CONFIG_OVERRIDE="$case_dir/config" \
   PATH="$case_dir/fakebin:${FM_TEARDOWN_TEST_PATH:-$PATH}" \
     "$TEARDOWN" task-x1 "$@"
@@ -560,6 +563,78 @@ make_path_without_lsof() {  # <case-dir>
     case "$resolved" in /*) ln -sf "$resolved" "$path_dir/$cmd" ;; esac
   done
   printf '%s\n' "$path_dir"
+}
+
+collapse_path_slashes() {  # <path>
+  local path=$1
+  while [[ "$path" == *//* ]]; do
+    path=${path//\/\//\/}
+  done
+  printf '%s\n' "$path"
+}
+
+configure_remote_secondmate_for_teardown() {  # <case-dir>
+  local case_dir=$1 remote_home remote_root
+  mkdir -p "$case_dir/data" "$case_dir/remote-root" "$case_dir/remote-home"
+  remote_root=$(collapse_path_slashes "$case_dir/remote-root")
+  remote_home=$(collapse_path_slashes "$case_dir/remote-home")
+  fm_write_meta "$case_dir/state/task-x1.meta" \
+    "window=remote:task-x1" \
+    "endpoint_task_id=task-x1" \
+    "kind=secondmate" \
+    "mode=secondmate" \
+    "remote_host=remote-mac" \
+    "remote_root=$remote_root" \
+    "home=$remote_home"
+  cat > "$case_dir/data/secondmates.md" <<EOF
+- task-x1 - remote build mate (host: remote-mac; root: $remote_root; home: $remote_home; scope: remote testing; projects: alpha; added 2026-09-11)
+EOF
+}
+
+add_remote_retire_ssh_stub() {  # <case-dir>
+  local case_dir=$1
+  cat > "$case_dir/fakebin/fake-ssh" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+  chmod +x "$case_dir/fakebin/fake-ssh"
+}
+
+run_remote_teardown() {  # <case-dir> [extra args...]
+  local case_dir=$1; shift
+  mkdir -p "$case_dir/data" "$case_dir/fm-home"
+  FM_ROOT_OVERRIDE="$ROOT" \
+  FM_HOME="$case_dir/fm-home" \
+  FM_STATE_OVERRIDE="$case_dir/state" \
+  FM_DATA_OVERRIDE="$case_dir/data" \
+  FM_CONFIG_OVERRIDE="$case_dir/config" \
+  FM_SSH_BIN="$case_dir/fakebin/fake-ssh" \
+  PATH="$case_dir/fakebin:${FM_TEARDOWN_TEST_PATH:-$PATH}" \
+    "$TEARDOWN" task-x1 "$@"
+}
+
+test_remote_secondmate_pending_reply_cleanup_foreign_last_record() {
+  local case_dir remote_home foreign_rec rc out
+  case_dir=$(make_case remote-pending-reply-foreign-last)
+  configure_remote_secondmate_for_teardown "$case_dir"
+  remote_home=$(collapse_path_slashes "$case_dir/remote-home")
+  add_remote_retire_ssh_stub "$case_dir"
+  mkdir -p "$case_dir/state/pending-replies"
+  printf 'task_id=other-task\nphase=resolved\n' > "$case_dir/state/pending-replies/aaa-foreign"
+  foreign_rec="$case_dir/state/pending-replies/zzz-foreign"
+  printf 'task_id=other-task\nphase=resolved\n' > "$foreign_rec"
+
+  rc=0
+  out=$(run_remote_teardown "$case_dir" 2> "$case_dir/stderr") || rc=$?
+  expect_code 0 "$rc" "remote-pending-reply-foreign-last: teardown should complete"
+  assert_contains "$out" "teardown task-x1 complete (remote remote-mac:$remote_home)" \
+    "remote-pending-reply-foreign-last: success line missing"
+  [ -f "$foreign_rec" ] || fail "remote-pending-reply-foreign-last: foreign pending reply was removed"
+  [ ! -e "$case_dir/state/task-x1.meta" ] \
+    || fail "remote-pending-reply-foreign-last: retiring meta was preserved"
+  assert_no_grep '- task-x1 ' "$case_dir/data/secondmates.md" \
+    "remote-pending-reply-foreign-last: registry route was preserved"
+  pass "remote secondmate teardown survives a foreign pending-reply record visited last"
 }
 
 test_local_only_fork_remote_allows() {
@@ -2619,6 +2694,7 @@ test_forced_secondmate_herdr_child_preflight_refuses_before_changes
 test_forced_secondmate_teardown_holds_descendant_lifecycle_locks
 test_forced_secondmate_herdr_child_retains_records_when_close_unconfirmed
 test_forced_teardown_retains_nested_secondmate_home_when_grandchild_close_unconfirmed
+test_remote_secondmate_pending_reply_cleanup_foreign_last_record
 test_herdr_projection_teardown_retires_journal_only_after_confirmed_close
 test_herdr_projection_teardown_retains_journal_when_close_unconfirmed
 test_herdr_projection_teardown_surfaces_restore_failure_without_blocking_cleanup
