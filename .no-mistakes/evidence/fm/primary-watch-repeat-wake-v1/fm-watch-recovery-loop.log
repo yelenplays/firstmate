@@ -1,0 +1,8 @@
+ok - Pi skips an acknowledged wake but preserves pending, uncertain and newly arriving work
+T2_WATCH_OUTPUT=signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-watch-recovery-loop.7noJqh/recovery-gap-successor/state/crew.status 
+T2_QUEUE_ROW=1789507270	2	signal	crew.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-watch-recovery-loop.7noJqh/recovery-gap-successor/state/crew.status
+ok - a resurfacing handling successor stays alive and supervises instead of going blind
+T1_MESSAGES=1
+T1_LOCK_PID=19936
+T1_MARKER=announced:downtime:seed.1.aaa
+ok - unacknowledged recovery is announced at most once per generation and the successor stays alive
