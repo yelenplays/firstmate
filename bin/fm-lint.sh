@@ -8,12 +8,12 @@
 # The explicit --fast mode is local-only and disables ShellCheck's extended
 # dataflow analysis while preserving ordinary shell lint checks and source
 # following. CI, main, and merge-base-less runs keep --norc --external-sources
-# with full dataflow over the whole canonical set. An ordinary local branch
-# (changed-file mode, including the no-mistakes lint step) drops
-# --external-sources, keeps dataflow, and excludes SC1091, SC2034, SC2153,
-# and SC2329, the codes that need library context. Those codes still run in
-# CI over the whole set. Explicit paths keep --external-sources with the
-# selected dataflow mode.
+# --source-path=tests with full dataflow over the whole canonical set. An
+# ordinary local branch (changed-file mode, including the no-mistakes lint
+# step) drops --external-sources, keeps dataflow, and excludes SC1091,
+# SC2034, SC2153, and SC2329, the codes that need library context. Those
+# codes still run in CI over the whole set. Explicit paths keep
+# --external-sources --source-path=tests with the selected dataflow mode.
 # Tests stop source analysis at imported production modules because CI analyzes
 # every production shell separately as a canonical, source-aware root.
 # The default (no explicit-path) path also runs bin/fm-lint-workflows.sh so a
@@ -25,8 +25,8 @@
 #   - In CI (GITHUB_ACTIONS=true or CI=true), on the main branch, or when no
 #     merge-base against origin/main (or local main) can be found, it lints
 #     the full canonical set: bin/*.sh bin/backends/*.sh tests/*.sh, with
-#     --external-sources and full dataflow. This is what CI always runs, so
-#     CI coverage never depends on a local diff.
+#     --external-sources --source-path=tests and full dataflow. This is what
+#     CI always runs, so CI coverage never depends on a local diff.
 #   - Otherwise (an ordinary local branch with a real merge-base) it lints
 #     only the canonical-set files changed since that merge-base, including
 #     uncommitted local edits, via plain local `git diff` (no network, no
@@ -100,7 +100,9 @@ fm_lint_worker() {  # <manifest> <output-dir> <shard-index>
     trap 'fm_lint_worker_stop; exit 143' TERM
     shellcheck_args=(--norc)
     if [ "${FM_LINT_INTERNAL_FOLLOW_SOURCES:-1}" -eq 1 ]; then
-      shellcheck_args+=(--external-sources)
+      # Test files source helpers via $(dirname)/file.sh. --source-path=tests is
+      # what lets ShellCheck resolve those as tests/<file> from the repo root.
+      shellcheck_args+=(--external-sources --source-path=tests)
     fi
     if [ -n "${FM_LINT_INTERNAL_EXCLUDE:-}" ]; then
       shellcheck_args+=(--exclude="$FM_LINT_INTERNAL_EXCLUDE")

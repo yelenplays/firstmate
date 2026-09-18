@@ -646,7 +646,7 @@ export default function (pi: ExtensionAPI) {
     if (!generationIsLive(owner)) return false;
     if (recovery) {
       const confirmed = confirmHandlingDeliveryWithRetry(owner, recovery);
-      if (confirmed.handled) return;
+      if (confirmed.handled) return true;
       if (!confirmed.ok) {
         const watcherPid = recovery.watcherPid;
         if (!pidAlive(watcherPid)) {
@@ -1111,7 +1111,7 @@ export default function (pi: ExtensionAPI) {
     activateOwnedWatch(generation);
   });
   pi.on?.("session_shutdown", async (event) => {
-    const replacement = event.reason === "reload" || event.reason === "new" || event.reason === "resume" || event.reason === "fork";
+    const replacement = event?.reason === "reload" || event?.reason === "new" || event?.reason === "resume" || event?.reason === "fork";
     if (replacementCoordinator.receiver === receiveReplacementActionable) replacementCoordinator.receiver = null;
     await stopSessionGeneration(generation, replacement);
   });
