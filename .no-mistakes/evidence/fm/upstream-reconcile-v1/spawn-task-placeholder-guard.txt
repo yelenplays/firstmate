@@ -1,0 +1,48 @@
+=== firstmate spawn {TASK} guard (operator-facing) ===
+worktree: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2TMGAY38PBK5W100EM4S15Y
+head: 56862de chore: rebind no-mistakes attestation to a fresh head
+fixture home: /tmp/fm-spawn-guard-demo.ylASxl/home
+
+--- 1. unedited ship scaffold (fm-brief.sh default {TASK}/{FIRSTMATE_SPEC}) ---
+scaffolded: /tmp/fm-spawn-guard-demo.ylASxl/home/data/unfilled-ship/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+Captain's intent / Firstmate spec bodies:
+## Captain's intent
+{TASK}
+
+## Firstmate spec
+## Firstmate spec
+{FIRSTMATE_SPEC}
+
+# Herdr lifecycle declaration - NOT ENABLED
+spawn:
+error: /tmp/fm-spawn-guard-demo.ylASxl/home/data/unfilled-ship/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn
+exit=1
+task metadata present? no
+
+--- 2. legacy # Task body that is only {TASK} (no subsections) ---
+Task section:
+# Task
+{TASK}
+
+# Definition of done
+spawn:
+error: brief at /tmp/fm-spawn-guard-demo.ylASxl/home/data/legacy-task-only/launch-brief.md still carries the literal {TASK} placeholder; write the task description before spawning
+exit=1
+task metadata present? no
+
+--- 3. filled subsections, no leftover placeholder ---
+Captain's intent / Firstmate spec bodies:
+## Captain's intent
+Ship the idle-working status disclosure.
+
+## Firstmate spec
+## Firstmate spec
+Keep historical working events unknown for idle ships.
+
+# Herdr lifecycle declaration - NOT ENABLED
+spawn:
+notice: filled-ship ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+tmux should not have been invoked
+tmux should not have been invoked
+tmux should not have been invoked
+exit=1

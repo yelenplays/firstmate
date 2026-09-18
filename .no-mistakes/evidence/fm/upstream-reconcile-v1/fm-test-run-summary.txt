@@ -1,0 +1,11 @@
+=== targeted fm-test-run summary ===
+total=8 failed=0 skipped_gate=2 duration_ms=261230
+
+tests/fm-crew-state.test.sh exit=0 duration_ms=113948 gate_skip=False reason=
+tests/fm-pi-watch-extension.test.sh exit=0 duration_ms=68794 gate_skip=False reason=
+tests/fm-watch-recovery-loop.test.sh exit=0 duration_ms=96994 gate_skip=False reason=
+tests/fm-task-delivery.test.sh exit=0 duration_ms=38056 gate_skip=False reason=
+tests/fm-live-gate.test.sh exit=0 duration_ms=7169 gate_skip=False reason=
+tests/fm-test-fixtures.test.sh exit=0 duration_ms=10875 gate_skip=False reason=
+tests/fm-devin-live-e2e.test.sh exit=0 duration_ms=270 gate_skip=True reason=live: opt-in; set FM_DEVIN_LIVE=1 to run
+tests/fm-pi-role-agents-live-e2e.test.sh exit=0 duration_ms=247 gate_skip=True reason=live: opt-in; set FM_PI_ROLE_AGENTS_LIVE=1 to run
