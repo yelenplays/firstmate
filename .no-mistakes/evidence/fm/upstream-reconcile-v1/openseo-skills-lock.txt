@@ -1,0 +1,13 @@
+skills-lock.json version=1
+OpenSEO skills in lock: 10
+  OK competitive-landscape        source=every-app/open-seo frontmatter_name=competitive-landscape
+  OK competitor-analysis          source=every-app/open-seo frontmatter_name=competitor-analysis
+  OK keyword-clustering           source=every-app/open-seo frontmatter_name=keyword-clustering
+  OK keyword-research             source=every-app/open-seo frontmatter_name=keyword-research
+  OK link-prospecting             source=every-app/open-seo frontmatter_name=link-prospecting
+  OK local-seo                    source=every-app/open-seo frontmatter_name=local-seo
+  OK seo-audit                    source=every-app/open-seo frontmatter_name=seo-audit
+  OK seo-coach                    source=every-app/open-seo frontmatter_name=seo-coach
+  OK seo-project-setup            source=every-app/open-seo frontmatter_name=seo-project-setup
+  OK simple-issue-description     source=every-app/open-seo frontmatter_name=simple-issue-description
+RESULT: all OpenSEO lock entries resolve to matching SKILL.md

@@ -1,0 +1,19 @@
+upstream/main ancestor: YES (9bc051ff43c6e4d23c163ee8f1d87551a11050c0)
+tests deleted vs pre-merge base 05fd82af: none
+
+capability                              evidence
+--------------------------------------  --------------------------------
+typed dispatch resolver (opt-in)        tests/fm-dispatch-resolve.test.sh PASS; CLI off without key
+Devin-on-Herdr                          tests/fm-devin-harness.test.sh PASS
+wiki-layer routing                      AGENTS.md contract present; tests/fm-fleet-sync.test.sh PASS
+unedited-brief refusal                  tests/fm-task-delivery.test.sh PASS; tests/fm-brief.test.sh PASS
+OpenSEO                                 skills-lock 10/10 SKILL.md name match
+orchestrated-delivery                   tests/fm-pi-role-agents.test.sh PASS
+approved-work handoff                   tests/fm-approved-execution.test.sh PASS; tests/fm-backlog-handoff.test.sh PASS
+Matt plugin restore                     tests/fm-matt-pointers.test.sh PASS; tests/fm-skill-path.test.sh PASS
+Hermes Agent tools                      tests/fm-hermes-agent.test.sh PASS
+decision records                        tests/fm-decision-record.test.sh PASS; CLI record/get/list
+provenance sanitization                 tests/fm-operational-input.test.sh PASS; sanitize CLI strips classification
+distinct same-key check results         tests/fm-wake-queue.test.sh PASS (drain keeps every distinct check result)
+idle-working after merge                tests/fm-crew-state.test.sh PASS
+post-merge e2e sanitizers               harness-liveness + herdr-version-floor PASS

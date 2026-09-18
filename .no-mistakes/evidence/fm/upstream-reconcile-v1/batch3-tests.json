@@ -1,0 +1,76 @@
+{
+  "families": [
+    {
+      "count": 1,
+      "duration_ms": 10512,
+      "failed": 0,
+      "name": "pure-contract-unit"
+    },
+    {
+      "count": 1,
+      "duration_ms": 85790,
+      "failed": 0,
+      "name": "secondmate"
+    },
+    {
+      "count": 1,
+      "duration_ms": 59085,
+      "failed": 0,
+      "name": "session-bootstrap"
+    },
+    {
+      "count": 1,
+      "duration_ms": 113877,
+      "failed": 0,
+      "name": "watcher-wake-lock"
+    }
+  ],
+  "finished_at": "2026-09-18T14:19:10Z",
+  "run_id": "fm-test-run-1789740880866-81825",
+  "scripts": [
+    {
+      "duration_ms": 10512,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-brief.test.sh"
+    },
+    {
+      "duration_ms": 113877,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "watcher-wake-lock",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-wake-queue.test.sh"
+    },
+    {
+      "duration_ms": 85790,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "secondmate",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-backlog-handoff.test.sh"
+    },
+    {
+      "duration_ms": 59085,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "session-bootstrap",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-fleet-sync.test.sh"
+    }
+  ],
+  "selection": "scripts;jobs=4",
+  "started_at": "2026-09-18T14:14:40Z",
+  "summary": {
+    "duration_ms": 269821,
+    "failed": 0,
+    "skipped_gate": 0,
+    "total": 4
+  }
+}

@@ -1,0 +1,6 @@
+$ unset TYPESAFE_API_KEY
+$ bin/fm-dispatch-resolve.sh /tmp/fm-dispatch-demo.EomBsU/brief.md --project demo
+--- stdout ---
+EXIT:0
+--- stderr ---
+dispatch-resolve: off (TYPESAFE_API_KEY absent from the environment and /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2TCZC01Z7R33P76YKZVBRJG/.env)

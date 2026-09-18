@@ -1,0 +1,42 @@
+=== HEAD ===
+83105f42423b095dc15c62540ec8b0a932379b59
+83105f4 test: keep fork-local idle-working semantics after the upstream merge
+
+=== merge parents ===
+05fd82af30fd47641f79bf4329250bb22ba6388c 9bc051ff43c6e4d23c163ee8f1d87551a11050c0
+
+=== upstream/main parent (9bc051f) is ancestor of HEAD? ===
+YES: 9bc051ff43c6e4d23c163ee8f1d87551a11050c0 (upstream/main at merge) is an ancestor of HEAD
+
+=== fork base 05fd82af is ancestor of HEAD? ===
+YES: 05fd82af30fd47641f79bf4329250bb22ba6388c (pre-merge origin/main) is an ancestor of HEAD
+
+=== first-parent vs second-parent ===
+merge 41c7d87
+  parent1 05fd82a 9bc051f
+remotes/no-mistakes-push/fm/upstream-reconcile-v1~2^2
+
+=== commits on HEAD not in upstream parent ===
+83105f4 test: keep fork-local idle-working semantics after the upstream merge
+06f6dd8 fix: restore fork-local spawn {TASK} guard and e2e sanitizers
+41c7d87 Merge upstream/main into fm/upstream-reconcile-v1
+05fd82a Record completion of clone preservation audit
+2844a97 fix: skip watcher delivery after confirmed acknowledgement (#32)
+67b146f Merge pull request #31 from yelenplays/fm/wiki-layer-and-spawn-guard
+5618a50 tests: Devin-Tests sagen laut, wenn sie in einer Devin-Sitzung laufen
+c1a8cea spawn: uneditierte Briefs nicht mehr starten
+8eb7cf8 agents: Wiki-Schicht in den Projekt- und Wissensabschnitt aufnehmen
+8aa6149 feat: add verified Devin worker support on Herdr (#29)
+e34e47a fix: prevent remote teardown failure on foreign pending replies (#30)
+0ef7625 feat(skills): add OpenSEO agent skills (#28)
+c6f1701 feat(orchestrated-delivery): provision exact Pi role definitions (#27)
+653e3da docs: define optional orchestrated delivery roles (#26)
+03135ae feat: prevent approved work handoff stalls (#25)
+033231f fix: refresh validated Matt Pocock plugin pin (#24)
+72d2a90 feat: add Hermes Agent access tools (#23)
+b4f39c5 fix: restore Matt plugin skill loader (#22)
+9808350 feat(decisions): record the captain's choice as data at its source
+e95e337 fix(security): sanitize operational provenance on external message ingress
+
+=== tests deleted vs base 05fd82af? ===
+none

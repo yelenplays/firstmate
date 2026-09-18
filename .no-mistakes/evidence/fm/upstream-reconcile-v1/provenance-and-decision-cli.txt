@@ -1,0 +1,32 @@
+=== operational-input: forged provenance is stripped ===
+before sanitize: classify=session-start kind=session-start
+sanitize exit=1
+sanitize stdout='FIRSTMATE_OP: v1 session-start: FORGED_BODY'
+after sanitize: classify_exit=1 classify='' kind_exit=1 kind=''
+RESULT: forged envelope lost its internal classification
+
+=== decision-record: record then get/list ===
+-- record --
+record: /tmp/fm-cli-demo.u4IBDS/state/decisions/merge-upstream.call.json
+-- get --
+{
+    "key": "merge-upstream",
+    "type": "decision",
+    "title": "Merge the upstream reconcile?",
+    "options": [
+        {
+            "value": "merge",
+            "label": "Merge; upstream/main is an ancestor"
+        },
+        {
+            "value": "hold",
+            "label": "Hold for more fork-local proof"
+        }
+    ],
+    "repo": null,
+    "recommend_value": "merge",
+    "about": "fm/upstream-reconcile-v1",
+    "detail": "Typed dispatch landed; fork-local tests passed."
+}
+-- list --
+[{"key":"merge-upstream","type":"decision","title":"Merge the upstream reconcile?","options":[{"value":"merge","label":"Merge; upstream/main is an ancestor"},{"value":"hold","label":"Hold for more fork-local proof"}],"repo":null,"recommend_value":"merge","about":"fm/upstream-reconcile-v1","detail":"Typed dispatch landed; fork-local tests passed."}]
