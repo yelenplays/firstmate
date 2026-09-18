@@ -2965,7 +2965,7 @@ SH
     || fail "fleet snapshot failed during captured status race"
   printf '%s' "$json" | jq -e '
     .tasks[] | select(.id == "captured-status")
-    | .current_state.state == "working"
+    | .current_state.state == "unknown"
       and .current_state.source == "status-log"
       and .paths.status_log.last_event.raw == "working: captured state"
       and .hints.pending_decision == false

@@ -624,9 +624,11 @@ run_teardown() {
   # FM_DATA_OVERRIDE is pinned to the case dir because teardown closes this
   # home's backlog item itself; without it $DATA would resolve to the real
   # repo's own home and a test could mutate live records.
-  mkdir -p "$case_dir/data" "$case_dir/fm-home"
+  # Honor an explicit FM_HOME so secondmate parent-channel fixtures can bind
+  # their own home; default to an isolated case home otherwise.
+  mkdir -p "$case_dir/data" "${FM_HOME:-$case_dir/fm-home}"
   FM_ROOT_OVERRIDE="$ROOT" \
-  FM_HOME="$case_dir/fm-home" \
+  FM_HOME="${FM_HOME:-$case_dir/fm-home}" \
   FM_STATE_OVERRIDE="$case_dir/state" \
   FM_DATA_OVERRIDE="$case_dir/data" \
   FM_CONFIG_OVERRIDE="$case_dir/config" \
@@ -721,8 +723,8 @@ test_remote_secondmate_pending_reply_cleanup_foreign_last_record() {
   remote_home=$(collapse_path_slashes "$case_dir/remote-home")
   add_remote_retire_ssh_stub "$case_dir"
   mkdir -p "$case_dir/state/pending-replies"
-  printf 'task_id=other-task\nphase=resolved\n' > "$case_dir/state/pending-replies/aaa-foreign"
-  foreign_rec="$case_dir/state/pending-replies/zzz-foreign"
+  printf 'task_id=other-task\nphase=resolved\n' > "$case_dir/state/pending-replies/aaaaaaaaaaaaaaaa"
+  foreign_rec="$case_dir/state/pending-replies/ffffffffffffffff"
   printf 'task_id=other-task\nphase=resolved\n' > "$foreign_rec"
 
   rc=0

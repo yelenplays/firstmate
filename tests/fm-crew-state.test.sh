@@ -2935,7 +2935,7 @@ EOF
   out=$(run_crew_state "$d" hist)
   assert_not_contains "$out" "source: run-step" "an unresolvable terminal row is history, not current state"
   assert_contains "$out" "source: status-log" "historical fallback answers after an unresolvable terminal row"
-  assert_contains "$out" "state: working" "the rewritten worktree's own log stays current"
+  assert_contains "$out" "state: unknown" "the rewritten worktree's idle working event is not current progress"
   pass "unresolvable terminal row never reads as current"
 }
 
@@ -3319,9 +3319,9 @@ test_uninitialized_idle_worker_uses_status() {
   make_uninitialized_worker_case uninitialized-idle idle
   local d=$TMP_ROOT/uninitialized-idle out
   out=$(run_crew_state "$d" worker)
-  assert_contains "$out" 'state: working' 'R2 an uninitialized gate must preserve current worker status'
+  assert_contains "$out" 'state: unknown' 'R2 an uninitialized idle worker cannot prove progress from a historical working event'
   assert_contains "$out" 'source: status-log' 'an idle worker without a gate uses its current status'
-  assert_contains "$out" 'implementation continues' 'current worker detail remains available'
+  assert_contains "$out" 'historical working event is not current progress' 'idle status-log working is disclosed as historical'
   pass 'R2 uninitialized idle workers retain status reporting'
 }
 
@@ -3352,9 +3352,9 @@ test_historical_inventory_uses_current_status() {
   make_historical_inventory_case historical-inventory-idle idle
   local d=$TMP_ROOT/historical-inventory-idle out
   out=$(run_crew_state "$d" competing)
-  assert_contains "$out" 'state: working' 'R3 a proven historical run must preserve current worker status'
+  assert_contains "$out" 'state: unknown' 'R3 a proven historical run cannot prove progress from an idle working event'
   assert_contains "$out" 'source: status-log' 'historical inventory yields to the current status log'
-  assert_contains "$out" 'implementation after validation' 'the current work detail is preserved'
+  assert_contains "$out" 'historical working event is not current progress' 'idle status-log working is disclosed as historical'
   pass 'R3 historical inventory yields to current worker status'
 }
 
@@ -3554,7 +3554,11 @@ test_captured_completed_history() {
     FM_FAKE_AXI_STATUS_RUN=$FM_FAKE_AXI_STATUS
     source=pane; [ "$activity" = busy ] || source='status-log'
     out=$(run_crew_state "$d" competing)
-    assert_contains "$out" 'state: working' 'captured completion does not hide subsequent development'
+    if [ "$activity" = busy ]; then
+      assert_contains "$out" 'state: working' 'captured completion does not hide subsequent development'
+    else
+      assert_contains "$out" 'state: unknown' 'idle worker; historical working event is not current progress'
+    fi
     assert_contains "$out" "source: $source" 'captured historical validation yields to current worker evidence'
   done
   pass 'captured completed status yields to synthetic subsequent development'
