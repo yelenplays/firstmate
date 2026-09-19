@@ -99,7 +99,7 @@ run_ship() {
     CLAUDE_CONFIG_DIR='' \
     FM_FAKE_LAUNCH_LOG="$launchlog" \
     GROK_HOME="$home/grok-home" \
-    fm_test_run_spawn "$home" "$wt" "$fakebin" "$@" "${delivery[@]}" --harness grok
+    fm_test_run_spawn "$home" "$wt" "$fakebin" "$@" "${delivery[@]}" --harness "${TEST_HARNESS:-grok}"
 }
 
 read_case() {
@@ -218,7 +218,53 @@ test_missing_safe_query_skips_selection() {
   pass "modern, legacy, and blank queries skip selection without contacting Jev"
 }
 
+
+test_codex_skill_locations() {
+  local location rec out status skill_root overlay TEST_HARNESS CODEX_HOME
+  for location in default override other-harness; do
+    rec=$(make_case "codex-$location" "t-codex-$location")
+    read_case "$rec"
+    TEST_HARNESS=codex
+    CODEX_HOME=''
+    skill_root="$HOME_DIR/user-home/.codex/skills"
+    if [ "$location" != default ]; then
+      CODEX_HOME="$HOME_DIR/custom-codex"
+      skill_root="$CODEX_HOME/skills"
+      mkdir -p "$HOME_DIR/user-home/.codex/skills/default-only"
+      printf '# default only\n' > "$HOME_DIR/user-home/.codex/skills/default-only/SKILL.md"
+    fi
+    mkdir -p "$skill_root/codex-only"
+    printf '# codex only\n' > "$skill_root/codex-only/SKILL.md"
+    : > "$HOME_DIR/config/jev-skill-select-live"
+    cat > "$RESPONSE" <<'JSON'
+{"answers":{"skill":{"type":"choice","choice":"codex-only","confidence":0.95,"probabilities":{"codex-only":0.95,"none":0.05}}}}
+JSON
+    if [ "$location" = other-harness ]; then
+      TEST_HARNESS=grok
+      write_none_response
+    fi
+    out=$(CODEX_HOME="$CODEX_HOME" FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY \
+      run_ship "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$ID" "$PROJ_DIR")
+    status=$?
+    expect_code 0 "$status" "$location skill discovery must not block spawn: $out"
+    if [ "$location" = other-harness ]; then
+      jq -e 'tostring | contains("codex-only") | not' "$HOME_DIR/request.json" >/dev/null \
+        || fail "other harness must not discover Codex-only skills"
+    else
+      jq -e 'tostring | contains("codex-only") and (contains("default-only") | not)' \
+        "$HOME_DIR/request.json" >/dev/null || fail "Codex must offer skills from its selected home only"
+      jq -e '.live_loaded == true and .primary == "codex-only"' \
+        "$HOME_DIR/state/$ID.jev-skills.json" >/dev/null || fail "Codex skill must be loaded"
+      overlay="$HOME_DIR/data/$ID/launch-brief.md"
+      assert_contains "$(cat "$overlay")" "$skill_root/codex-only/SKILL.md" "overlay must locate Codex skill"
+      assert_contains "$(cat "$overlay")" '$codex-only' "overlay must use Codex skill form"
+    fi
+  done
+  pass "Codex discovers default and overridden skill homes only for Codex launches"
+}
+
 test_live_selection_reaches_overlay
 test_disabled_and_none_match_today
 test_jev_failure_does_not_block_spawn
 test_missing_safe_query_skips_selection
+test_codex_skill_locations

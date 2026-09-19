@@ -2625,8 +2625,13 @@ fm_spawn_jev_skill_summary() {
 }
 
 fm_spawn_jev_skill_dirs() {
-  local dir
+  local dir codex_skills=
+  if [ "${HARNESS:-}" = codex ]; then
+    codex_skills="${CODEX_HOME:-${HOME:+$HOME/.codex}}"
+    [ -z "$codex_skills" ] || codex_skills="$codex_skills/skills"
+  fi
   for dir in \
+    "$codex_skills" \
     "${WT:+$WT/.agents/skills}" \
     "${WT:+$WT/.claude/skills}" \
     "${HOME:+$HOME/.agents/skills}" \

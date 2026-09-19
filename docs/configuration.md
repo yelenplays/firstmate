@@ -599,8 +599,11 @@ The script header owns flags, output lines, and exit codes.
 Default `FM_JEV_SKILL_SELECT` is `shadow`: it writes `state/<id>.jev-skills.json` and prints that record, and it does not load skills.
 Firstmate may run it after writing a brief and before spawn, then keep the printed suggestion beside the task.
 `bin/fm-spawn.sh` is the live call site: after it publishes `data/<id>/launch-brief.md` it invokes the selector with `--overlay` pointing at that file.
-Live load requires `FM_JEV_SKILL_SELECT=live` and the gitignored presence file `config/jev-skill-select-live`.
-With both set, a clear selection of installed skills is appended to that private launch overlay in the harness's skill-invocation form (`/<skill>`, `$<skill>` on Codex, or the skill id when the runtime has no verified slash form).
+Live load requires `FM_JEV_SKILL_SELECT=live`, the gitignored presence file `config/jev-skill-select-live`, and a nonblank safe query in `data/<id>/jev-skill-query.txt` under the active Firstmate home.
+Before spawning, write only an explicitly safe query string to that task's query file; page content, excerpts, and conflict lines must never be included.
+A missing, unreadable, or blank query file skips selection entirely without contacting Jev or injecting skills; raw captain text and legacy brief bodies are never used as fallback queries.
+Project skills are discovered from the resolved worker worktree after its freshness step; Codex launches also discover `$CODEX_HOME/skills`, defaulting to `~/.codex/skills` when `CODEX_HOME` is unset or empty.
+With these inputs present, a clear selection of installed skills is appended to that private launch overlay in the harness's skill-invocation form (`/<skill>`, `$<skill>` on Codex, or the skill id when the runtime has no verified slash form).
 `live_loaded` in `state/<id>.jev-skills.json` is true only after those skill ids are verified in the overlay the worker will read.
 Choice `none`, `search_external`, shadow mode, a missing overlay, uncertain or error status, a Jev outage, and any write or verify failure leave `live_loaded` false and leave the overlay identical to a spawn that never called Jev.
 A Jev outage or selector failure never refuses or stalls spawn past a short bound.
