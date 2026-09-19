@@ -1,0 +1,95 @@
+[
+  {
+    "scenario": "missing-key",
+    "command": "bash bin/fm-jev-brief-preflight.sh --brief <isolated-home>/data/live-safe/brief.md --task missing-key --kind ship --mode direct-PR",
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "elapsed_seconds": 0.014,
+    "records": [],
+    "configuration": {
+      "credentials": "absent"
+    }
+  },
+  {
+    "scenario": "off",
+    "command": "bash bin/fm-jev-brief-preflight.sh --brief <isolated-home>/data/live-safe/brief.md --task off --kind ship --mode direct-PR",
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "elapsed_seconds": 0.012,
+    "records": [],
+    "configuration": {
+      "FM_JEV_BRIEF_PREFLIGHT": "off",
+      "credential": "synthetic placeholder"
+    }
+  },
+  {
+    "scenario": "compaction-refusal",
+    "command": "bash bin/fm-jev-brief-preflight.sh --brief <isolated-home>/data/live-safe/brief.md --task compaction-refusal --kind ship --mode direct-PR",
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "elapsed_seconds": 0.04,
+    "records": [],
+    "configuration": {
+      "JEV_STATE_MAX_BYTES": "1",
+      "credential": "synthetic placeholder"
+    }
+  },
+  {
+    "scenario": "unknown-mode",
+    "command": "bash bin/fm-jev-brief-preflight.sh --brief <isolated-home>/data/live-safe/brief.md --task unknown-mode --mode private-content",
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "elapsed_seconds": 0.021,
+    "records": [],
+    "configuration": {
+      "credential": "synthetic placeholder"
+    }
+  },
+  {
+    "scenario": "removed-id-alias",
+    "command": "bash bin/fm-jev-brief-preflight.sh --brief <isolated-home>/data/live-safe/brief.md --id old-alias",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "jev-brief-preflight: unknown option: --id\n",
+    "elapsed_seconds": 0.014,
+    "records": [],
+    "configuration": {}
+  },
+  {
+    "scenario": "unavailable-service",
+    "command": "bash bin/fm-jev-brief-preflight.sh --brief <isolated-home>/data/live-safe/brief.md --task unavailable-service --kind ship --mode direct-PR",
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "elapsed_seconds": 0.1,
+    "records": [
+      {
+        "purpose": "brief-preflight",
+        "task": "unavailable-service",
+        "kind": "ship",
+        "mode": "direct-PR",
+        "verdict": "skipped",
+        "missing": "",
+        "confidence": null,
+        "probabilities": {},
+        "surfaced": false,
+        "shadow": true,
+        "block": false,
+        "route": "typesafe",
+        "model": "jev-latest",
+        "http": "000",
+        "latency_ms": 8,
+        "decide_code": 1
+      }
+    ],
+    "configuration": {
+      "JEV_URL": "http://127.0.0.1:0",
+      "JEV_TIMEOUT": "1",
+      "credential": "synthetic placeholder"
+    }
+  }
+]

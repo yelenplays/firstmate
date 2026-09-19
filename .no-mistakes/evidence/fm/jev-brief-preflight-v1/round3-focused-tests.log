@@ -1,0 +1,15 @@
+ok - usage requires --brief and --task and refuses a path-like id
+ok - a complete brief is silent, recorded, and sends only the query and structural metadata
+ok - each defect class is reported with the missing element and still exits 0
+ok - low confidence records without surfacing or blocking
+ok - a Jev failure skips without blocking
+ok - absent key and FM_JEV_BRIEF_PREFLIGHT=off skip curl and write nothing
+ok - spawn of a complete brief records silently and still proceeds
+ok - spawn reports each defect class and still proceeds past the brief checks
+ok - a Jev failure does not alter the spawn outcome
+ok - existing structural brief refusals still fire and never call Jev
+ok - quoted, fenced, indented, and conflict bodies never enter request state
+ok - populated generated ship and scout briefs reach Jev through spawn
+ok - compaction failure never bypasses the safe-input boundary
+ok - timeout honors environment and dotenv before the local default
+ok - raw bodies and unrecognized metadata never enter the request

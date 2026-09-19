@@ -1,0 +1,99 @@
+{
+  "tested_head_sha": "9f891587f99531ad52e28654274cbf7141b1003c",
+  "classification": "coverage limitation, no failing test reproduced",
+  "focused_test": {
+    "command": "TMPDIR=\"$PWD/.test-preflight-tmp\" bash tests/fm-jev-brief-preflight.test.sh",
+    "result": "pass",
+    "groups": 15,
+    "scope": "deterministic behavioral coverage with substituted curl and backend; not live Jev/backend coverage"
+  },
+  "live_cli_checks": [
+    {
+      "name": "ship-placeholder",
+      "result": "pass",
+      "scope": "real spawn CLI structural refusal, no substituted backend or transport; watcher guard disabled for isolated fixture",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XNNXKBJEFZTD9P1FCYEXPR/.test-preflight-tmp/live-followup/home/data/ship-placeholder/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn\n"
+    },
+    {
+      "name": "ship-empty",
+      "result": "pass",
+      "scope": "real spawn CLI structural refusal, no substituted backend or transport; watcher guard disabled for isolated fixture",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XNNXKBJEFZTD9P1FCYEXPR/.test-preflight-tmp/live-followup/home/data/ship-empty/brief.md must contain nonempty ## Captain's intent and ## Firstmate spec subsections (or a nonempty legacy # Task body) before spawn\n"
+    },
+    {
+      "name": "ship-half-filled",
+      "result": "pass",
+      "scope": "real spawn CLI structural refusal, no substituted backend or transport; watcher guard disabled for isolated fixture",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XNNXKBJEFZTD9P1FCYEXPR/.test-preflight-tmp/live-followup/home/data/ship-half-filled/brief.md must contain nonempty ## Captain's intent and ## Firstmate spec subsections (or a nonempty legacy # Task body) before spawn\n"
+    },
+    {
+      "name": "ship-address",
+      "result": "pass",
+      "scope": "real spawn CLI structural refusal, no substituted backend or transport; watcher guard disabled for isolated fixture",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XNNXKBJEFZTD9P1FCYEXPR/.test-preflight-tmp/live-followup/home/data/ship-address/brief.md ## Captain's intent has an operator-address line: Captain, fix the pager.; write the captain's actual words without a Captain label or address before spawn, since the heading already records provenance\n"
+    },
+    {
+      "name": "ship-safe",
+      "result": "pass",
+      "scope": "real generated brief and real preflight CLI, absent credentials; no worker launch or Jev response claimed",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "scout-placeholder",
+      "result": "pass",
+      "scope": "real spawn CLI structural refusal, no substituted backend or transport; watcher guard disabled for isolated fixture",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XNNXKBJEFZTD9P1FCYEXPR/.test-preflight-tmp/live-followup/home/data/scout-placeholder/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn\n"
+    },
+    {
+      "name": "scout-empty",
+      "result": "pass",
+      "scope": "real spawn CLI structural refusal, no substituted backend or transport; watcher guard disabled for isolated fixture",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XNNXKBJEFZTD9P1FCYEXPR/.test-preflight-tmp/live-followup/home/data/scout-empty/brief.md must contain nonempty ## Captain's intent and ## Firstmate spec subsections (or a nonempty legacy # Task body) before spawn\n"
+    },
+    {
+      "name": "scout-half-filled",
+      "result": "pass",
+      "scope": "real spawn CLI structural refusal, no substituted backend or transport; watcher guard disabled for isolated fixture",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XNNXKBJEFZTD9P1FCYEXPR/.test-preflight-tmp/live-followup/home/data/scout-half-filled/brief.md must contain nonempty ## Captain's intent and ## Firstmate spec subsections (or a nonempty legacy # Task body) before spawn\n"
+    },
+    {
+      "name": "scout-address",
+      "result": "pass",
+      "scope": "real spawn CLI structural refusal, no substituted backend or transport; watcher guard disabled for isolated fixture",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XNNXKBJEFZTD9P1FCYEXPR/.test-preflight-tmp/live-followup/home/data/scout-address/brief.md ## Captain's intent has an operator-address line: Captain, fix the pager.; write the captain's actual words without a Captain label or address before spawn, since the heading already records provenance\n"
+    },
+    {
+      "name": "scout-safe",
+      "result": "pass",
+      "scope": "real generated brief and real preflight CLI, absent credentials; no worker launch or Jev response claimed",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "limitations": [
+    "No TYPESAFE_API_KEY or OPENROUTER_API_KEY in environment and no worktree .env; no private homes inspected or credentials invented.",
+    "Actual Jev verdict and successful worker launch remain untested.",
+    "Metadata-only transmitted payload and environment/dotenv timeout behavior passed substituted-transport tests only; live service verification remains unavailable."
+  ],
+  "changes": "No source or test changes needed; all focused tests pass.",
+  "verdict": "Available focused checks pass; live Jev integration remains inconclusive."
+}
