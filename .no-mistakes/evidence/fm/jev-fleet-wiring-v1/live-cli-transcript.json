@@ -1,0 +1,271 @@
+[
+  {
+    "scenario": "Unconfigured wiki stays inert",
+    "argv": [
+      "fm-wiki-ask.sh",
+      "synthetic smoke query"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": "wiki-ask: no engine configured\n"
+  },
+  {
+    "scenario": "Configured engine without catalog stays inert",
+    "argv": [
+      "fm-wiki-ask.sh",
+      "synthetic smoke query"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": "wiki-ask: no private catalog configured\n"
+  },
+  {
+    "scenario": "Missing configured engine reports an error",
+    "argv": [
+      "fm-wiki-ask.sh",
+      "synthetic smoke query"
+    ],
+    "exit": 2,
+    "stdout": "",
+    "stderr": "wiki-ask: engine is not executable: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XY77TZ4TSJW41MK90CJWZK/.jev-live-wu_rsyov/absent-wiki-tool\n"
+  },
+  {
+    "scenario": "No credentials skips classification",
+    "argv": [
+      "fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic smoke query",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XY77TZ4TSJW41MK90CJWZK/.jev-live-wu_rsyov/envelope.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: skipped\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": "jev: no TYPESAFE_API_KEY or OPENROUTER_API_KEY in the environment or /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XY77TZ4TSJW41MK90CJWZK/.jev-live-wu_rsyov/home/.env\n",
+    "persisted_record": {
+      "purpose": "retrieval-miss",
+      "query": "synthetic smoke query",
+      "retrieval_status": "disabled",
+      "mode": "full-corpus-bm25",
+      "pages_searched": 0,
+      "embeddings_enabled": false,
+      "openviking_enabled": false,
+      "verdict": "skipped",
+      "confidence": null,
+      "sent": false,
+      "refused": false,
+      "route": "",
+      "http": "",
+      "latency_ms": null,
+      "decide_code": 2,
+      "shadow": true,
+      "retry": false,
+      "config_write": false
+    }
+  },
+  {
+    "scenario": "Refuse content: body",
+    "argv": [
+      "fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic smoke query",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XY77TZ4TSJW41MK90CJWZK/.jev-live-wu_rsyov/envelope.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: refused\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": "",
+    "persisted_record": {
+      "purpose": "retrieval-miss",
+      "query": "synthetic smoke query",
+      "retrieval_status": "disabled",
+      "mode": "full-corpus-bm25",
+      "pages_searched": 0,
+      "embeddings_enabled": false,
+      "openviking_enabled": false,
+      "verdict": "refused",
+      "confidence": null,
+      "sent": false,
+      "refused": true,
+      "route": "",
+      "http": "",
+      "latency_ms": null,
+      "decide_code": 0,
+      "shadow": true,
+      "retry": false,
+      "config_write": false
+    }
+  },
+  {
+    "scenario": "Refuse content: excerpts",
+    "argv": [
+      "fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic smoke query",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XY77TZ4TSJW41MK90CJWZK/.jev-live-wu_rsyov/envelope.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: refused\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": "",
+    "persisted_record": {
+      "purpose": "retrieval-miss",
+      "query": "synthetic smoke query",
+      "retrieval_status": "disabled",
+      "mode": "full-corpus-bm25",
+      "pages_searched": 0,
+      "embeddings_enabled": false,
+      "openviking_enabled": false,
+      "verdict": "refused",
+      "confidence": null,
+      "sent": false,
+      "refused": true,
+      "route": "",
+      "http": "",
+      "latency_ms": null,
+      "decide_code": 0,
+      "shadow": true,
+      "retry": false,
+      "config_write": false
+    }
+  },
+  {
+    "scenario": "Refuse content: conflict_lines",
+    "argv": [
+      "fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic smoke query",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XY77TZ4TSJW41MK90CJWZK/.jev-live-wu_rsyov/envelope.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: refused\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": "",
+    "persisted_record": {
+      "purpose": "retrieval-miss",
+      "query": "synthetic smoke query",
+      "retrieval_status": "disabled",
+      "mode": "full-corpus-bm25",
+      "pages_searched": 0,
+      "embeddings_enabled": false,
+      "openviking_enabled": false,
+      "verdict": "refused",
+      "confidence": null,
+      "sent": false,
+      "refused": true,
+      "route": "",
+      "http": "",
+      "latency_ms": null,
+      "decide_code": 0,
+      "shadow": true,
+      "retry": false,
+      "config_write": false
+    }
+  },
+  {
+    "scenario": "Refuse content: citations",
+    "argv": [
+      "fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic smoke query",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XY77TZ4TSJW41MK90CJWZK/.jev-live-wu_rsyov/envelope.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: refused\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": "",
+    "persisted_record": {
+      "purpose": "retrieval-miss",
+      "query": "synthetic smoke query",
+      "retrieval_status": "disabled",
+      "mode": "full-corpus-bm25",
+      "pages_searched": 0,
+      "embeddings_enabled": false,
+      "openviking_enabled": false,
+      "verdict": "refused",
+      "confidence": null,
+      "sent": false,
+      "refused": true,
+      "route": "",
+      "http": "",
+      "latency_ms": null,
+      "decide_code": 0,
+      "shadow": true,
+      "retry": false,
+      "config_write": false
+    }
+  },
+  {
+    "scenario": "Real curl connection refusal preserves attempt metadata",
+    "argv": [
+      "fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic smoke query",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XY77TZ4TSJW41MK90CJWZK/.jev-live-wu_rsyov/envelope.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: skipped\n  confidence: \n  sent: yes\n  shadow: yes\n",
+    "stderr": "jev: http 000 after 11 ms: \n",
+    "persisted_record": {
+      "purpose": "retrieval-miss",
+      "query": "synthetic smoke query",
+      "retrieval_status": "disabled",
+      "mode": "full-corpus-bm25",
+      "pages_searched": 0,
+      "embeddings_enabled": false,
+      "openviking_enabled": false,
+      "verdict": "skipped",
+      "confidence": null,
+      "sent": true,
+      "refused": false,
+      "route": "typesafe",
+      "http": "000",
+      "latency_ms": 11,
+      "decide_code": 1,
+      "shadow": true,
+      "retry": false,
+      "config_write": false
+    }
+  },
+  {
+    "scenario": "Present completion with quoted-empty credentials without dedup record",
+    "argv": [
+      "fm-wake-drain.sh"
+    ],
+    "exit": 0,
+    "stdout": "STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):\nsmoke done: synthetic completion\t\n",
+    "stderr": "",
+    "state_assertions": {
+      "original_status_bytes_preserved": true,
+      "verification_records": 0
+    }
+  },
+  {
+    "scenario": "Direct verifier remains advisory and uses external state",
+    "argv": [
+      "fm-jev-done-verify.sh",
+      "smoke",
+      "--done-line",
+      "done: synthetic completion"
+    ],
+    "exit": 0,
+    "stdout": "jev-done-verify:\n  task: smoke\n  verdict: skipped\n  confidence: \n  strength: \n  annotate: no\n  shadow: yes\n  close: no\n  teardown: no\n",
+    "stderr": "jev: no TYPESAFE_API_KEY or OPENROUTER_API_KEY in the environment or /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XY77TZ4TSJW41MK90CJWZK/.jev-live-wu_rsyov/home/.env\n",
+    "persisted_record": {
+      "purpose": "shadow-done-verify",
+      "task": "smoke",
+      "verdict": "skipped",
+      "confidence": null,
+      "strength": null,
+      "annotate": false,
+      "done_line": "done: synthetic completion",
+      "route": "",
+      "http": "",
+      "latency_ms": null,
+      "decide_code": 2,
+      "shadow": true,
+      "close": false,
+      "teardown": false
+    }
+  }
+]
