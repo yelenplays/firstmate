@@ -1,0 +1,206 @@
+{
+  "boundary": "Real scaffold, spawn, preflight and curl against a local HTTP fixture. Synthetic responses; worker backend intentionally unavailable. No live model classification evaluated.",
+  "scenarios": [
+    {
+      "scenario": "complete",
+      "scaffold_command": [
+        "bin/fm-brief.sh",
+        "evidence-complete",
+        "project",
+        "--mode",
+        "direct-PR"
+      ],
+      "command": [
+        "bin/fm-spawn.sh",
+        "evidence-complete",
+        "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2X0HH34W4A0VA7J5EJ5GEZZ/.preflight-evidence-arej3dw8/project",
+        "claude",
+        "--mode",
+        "direct-PR",
+        "--yolo",
+        "off"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "notice: evidence-complete ships mode=direct-PR while the standing posture for project is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state\nTEST BOUNDARY: worker backend intentionally unavailable\nTEST BOUNDARY: worker backend intentionally unavailable\nTEST BOUNDARY: worker backend intentionally unavailable\n",
+      "request": {
+        "model": "jev-latest",
+        "state": {
+          "query": "Check worker brief structural completeness",
+          "kind": "ship",
+          "delivery_mode": "direct-PR",
+          "recorded_delivery": "direct-PR",
+          "has_task": true,
+          "has_definition_of_done": true,
+          "has_captain_intent": true,
+          "has_firstmate_spec": true
+        },
+        "questions": {
+          "brief": {
+            "type": "choice",
+            "instructions": "Assess only the supplied structural metadata for the completeness query. No task or definition-of-done text is available. Missing sections can establish a structural defect; present sections do not prove semantic completeness or consistent constraints. Pick need_human whenever the metadata cannot establish the answer.",
+            "criteria": {
+              "complete": "The Task plus delivery contract is executable: observable outcome, acceptance or definition of done, and consistent constraints.",
+              "missing_acceptance": "No acceptance criteria and no definition of done an observer could check.",
+              "missing_constraints": "No constraints, bounds, or out-of-scope limits.",
+              "ambiguous_scope": "Vague or contradictory requirements; no single observable outcome.",
+              "need_human": "A human must inspect; this text cannot decide completeness."
+            }
+          }
+        }
+      },
+      "persisted_record": {
+        "purpose": "brief-preflight",
+        "task": "evidence-complete",
+        "kind": "ship",
+        "mode": "direct-PR",
+        "verdict": "complete",
+        "missing": "",
+        "confidence": 0.9,
+        "probabilities": {},
+        "surfaced": false,
+        "shadow": true,
+        "block": false,
+        "route": "typesafe",
+        "model": "jev-latest",
+        "http": "200",
+        "latency_ms": 14,
+        "decide_code": 0
+      }
+    },
+    {
+      "scenario": "need_human",
+      "scaffold_command": [
+        "bin/fm-brief.sh",
+        "evidence-need_human",
+        "project",
+        "--mode",
+        "direct-PR"
+      ],
+      "command": [
+        "bin/fm-spawn.sh",
+        "evidence-need_human",
+        "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2X0HH34W4A0VA7J5EJ5GEZZ/.preflight-evidence-arej3dw8/project",
+        "claude",
+        "--mode",
+        "direct-PR",
+        "--yolo",
+        "off"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "notice: evidence-need_human ships mode=direct-PR while the standing posture for project is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state\nwarning: brief preflight: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2X0HH34W4A0VA7J5EJ5GEZZ/.preflight-evidence-arej3dw8/home/data/evidence-need_human/brief.md is missing human review of brief completeness (jev need_human confidence=0.9); spawn continues\nTEST BOUNDARY: worker backend intentionally unavailable\nTEST BOUNDARY: worker backend intentionally unavailable\nTEST BOUNDARY: worker backend intentionally unavailable\n",
+      "request": {
+        "model": "jev-latest",
+        "state": {
+          "query": "Check worker brief structural completeness",
+          "kind": "ship",
+          "delivery_mode": "direct-PR",
+          "recorded_delivery": "direct-PR",
+          "has_task": true,
+          "has_definition_of_done": true,
+          "has_captain_intent": true,
+          "has_firstmate_spec": true
+        },
+        "questions": {
+          "brief": {
+            "type": "choice",
+            "instructions": "Assess only the supplied structural metadata for the completeness query. No task or definition-of-done text is available. Missing sections can establish a structural defect; present sections do not prove semantic completeness or consistent constraints. Pick need_human whenever the metadata cannot establish the answer.",
+            "criteria": {
+              "complete": "The Task plus delivery contract is executable: observable outcome, acceptance or definition of done, and consistent constraints.",
+              "missing_acceptance": "No acceptance criteria and no definition of done an observer could check.",
+              "missing_constraints": "No constraints, bounds, or out-of-scope limits.",
+              "ambiguous_scope": "Vague or contradictory requirements; no single observable outcome.",
+              "need_human": "A human must inspect; this text cannot decide completeness."
+            }
+          }
+        }
+      },
+      "persisted_record": {
+        "purpose": "brief-preflight",
+        "task": "evidence-need_human",
+        "kind": "ship",
+        "mode": "direct-PR",
+        "verdict": "need_human",
+        "missing": "human review of brief completeness",
+        "confidence": 0.9,
+        "probabilities": {},
+        "surfaced": true,
+        "shadow": true,
+        "block": false,
+        "route": "typesafe",
+        "model": "jev-latest",
+        "http": "200",
+        "latency_ms": 14,
+        "decide_code": 0
+      }
+    },
+    {
+      "scenario": "outage",
+      "scaffold_command": [
+        "bin/fm-brief.sh",
+        "evidence-outage",
+        "project",
+        "--mode",
+        "direct-PR"
+      ],
+      "command": [
+        "bin/fm-spawn.sh",
+        "evidence-outage",
+        "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2X0HH34W4A0VA7J5EJ5GEZZ/.preflight-evidence-arej3dw8/project",
+        "claude",
+        "--mode",
+        "direct-PR",
+        "--yolo",
+        "off"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "notice: evidence-outage ships mode=direct-PR while the standing posture for project is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state\nTEST BOUNDARY: worker backend intentionally unavailable\nTEST BOUNDARY: worker backend intentionally unavailable\nTEST BOUNDARY: worker backend intentionally unavailable\n",
+      "request": {
+        "model": "jev-latest",
+        "state": {
+          "query": "Check worker brief structural completeness",
+          "kind": "ship",
+          "delivery_mode": "direct-PR",
+          "recorded_delivery": "direct-PR",
+          "has_task": true,
+          "has_definition_of_done": true,
+          "has_captain_intent": true,
+          "has_firstmate_spec": true
+        },
+        "questions": {
+          "brief": {
+            "type": "choice",
+            "instructions": "Assess only the supplied structural metadata for the completeness query. No task or definition-of-done text is available. Missing sections can establish a structural defect; present sections do not prove semantic completeness or consistent constraints. Pick need_human whenever the metadata cannot establish the answer.",
+            "criteria": {
+              "complete": "The Task plus delivery contract is executable: observable outcome, acceptance or definition of done, and consistent constraints.",
+              "missing_acceptance": "No acceptance criteria and no definition of done an observer could check.",
+              "missing_constraints": "No constraints, bounds, or out-of-scope limits.",
+              "ambiguous_scope": "Vague or contradictory requirements; no single observable outcome.",
+              "need_human": "A human must inspect; this text cannot decide completeness."
+            }
+          }
+        }
+      },
+      "persisted_record": {
+        "purpose": "brief-preflight",
+        "task": "evidence-outage",
+        "kind": "ship",
+        "mode": "direct-PR",
+        "verdict": "skipped",
+        "missing": "",
+        "confidence": null,
+        "probabilities": {},
+        "surfaced": false,
+        "shadow": true,
+        "block": false,
+        "route": "typesafe",
+        "model": "jev-latest",
+        "http": "503",
+        "latency_ms": 13,
+        "decide_code": 1
+      }
+    }
+  ]
+}
