@@ -1,0 +1,1 @@
+{"purpose":"queue-triage","advisory":true,"dispatch":false,"status":"no-recommendation","next":"dispatch_next","task":"ready-1","confidence":0.1,"recommendation":null,"ready_ids":["ready-1","dependency"],"line":null,"route":"typesafe","http":"200","latency_ms":21,"decide_code":0,"ts":"2026-09-19T14:33:36Z"}

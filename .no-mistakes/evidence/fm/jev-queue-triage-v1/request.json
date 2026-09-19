@@ -1,0 +1,25 @@
+{
+  "model": "jev-latest",
+  "state": "Ready set for this home only.\nAdvisory next-work signal.\nNever dispatch.\nNever clear a hold.\nNever touch a captain-held item.\nid=ready-1 kind=ship repo=firstmate blockers=none hold_kind=none title=Ship [redacted]\nid=dependency kind=ship repo=firstmate blockers=none hold_kind=none title=Required predecessor",
+  "questions": {
+    "next": {
+      "type": "choice",
+      "instructions": "Pick the next-work signal for this ready set. Advisory only. Never dispatch, never clear a hold, never touch a captain-held item.",
+      "criteria": {
+        "dispatch_next": "A ready item should be dispatched next. Name it in the task question.",
+        "blocked": "Ready items exist but something outside this set blocks dispatch.",
+        "needs_captain": "A captain decision is required before dispatching from this set.",
+        "nothing_ready": "Nothing in this set should start now."
+      }
+    },
+    "task": {
+      "type": "choice",
+      "instructions": "If next is dispatch_next, pick that task id. Otherwise pick none.",
+      "criteria": {
+        "ready-1": "Ship [redacted] (ship, firstmate)",
+        "dependency": "Required predecessor (ship, firstmate)",
+        "none": "No task. Use when next is not dispatch_next."
+      }
+    }
+  }
+}
