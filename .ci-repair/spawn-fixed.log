@@ -1,0 +1,5 @@
+ok - live selection reaches the launch overlay and live_loaded is true
+ok - disabled and none launches match today's overlay shape
+ok - Jev failure does not block spawn and does not load skills
+ok - modern, legacy, and blank queries skip selection without contacting Jev
+ok - Codex discovers default and overridden skill homes only for Codex launches

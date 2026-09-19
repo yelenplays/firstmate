@@ -9,6 +9,8 @@ set -u
 # shellcheck source=tests/fixtures.sh
 . "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
 
+fm_git_identity
+
 TMP_ROOT=$(fm_test_tmproot fm-spawn-jev-skill-live)
 RESPONSE="$TMP_ROOT/response.json"
 TS_KEY='ts-test-key-not-for-argv'
