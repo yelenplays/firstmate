@@ -2716,6 +2716,15 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
     echo "error: could not publish current launch contract for $SOURCE_BRIEF" >&2
     exit 1
   fi
+  JEV_SKILL_RECORD="$STATE/$ID.jev-skills.json"
+  if [ -f "$JEV_SKILL_RECORD" ]; then
+    JEV_SKILL_RECORD_TMP="${JEV_SKILL_RECORD}.tmp.${BASHPID:-$$}"
+    if ! { jq '.live_loaded = false' "$JEV_SKILL_RECORD" > "$JEV_SKILL_RECORD_TMP" &&
+      mv "$JEV_SKILL_RECORD_TMP" "$JEV_SKILL_RECORD"; }; then
+      rm -f -- "$JEV_SKILL_RECORD_TMP"
+      echo "warning: could not reset Jev skill launch evidence for $ID" >&2
+    fi
+  fi
 fi
 
 # An unedited scaffold must never launch a worker. fm-brief.sh writes {TASK} in the

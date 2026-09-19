@@ -92,7 +92,9 @@ run_ship() {
   local home=$1 wt=$2 fakebin=$3 launchlog=$4
   shift 4
   local -a delivery=(--mode "${TEST_SHIP_MODE:-no-mistakes}" --yolo off)
-  if [ "${TEST_SCOUT:-0}" = 1 ]; then
+  if [ "${TEST_RELAUNCH:-0}" = 1 ]; then
+    delivery=(--relaunch)
+  elif [ "${TEST_SCOUT:-0}" = 1 ]; then
     delivery=(--scout)
   fi
   : > "$launchlog"
@@ -135,6 +137,54 @@ test_live_selection_reaches_overlay() {
   jq -e 'tostring | contains("Find pager skills") and (contains("PRIVATE_EXCERPT") | not) and (contains("launcher-only") | not)' \
     "$HOME_DIR/request.json" >/dev/null || fail "request must use only the safe query and worker catalog"
   pass "live selection reaches the launch overlay and live_loaded is true"
+}
+
+test_relaunch_clears_live_evidence() {
+  local reason rec out status record cached window TEST_RELAUNCH
+  for reason in disabled missing-query; do
+    TEST_RELAUNCH=0
+    write_pager_response
+    rec=$(make_case "relaunch-$reason" "t-relaunch-$reason")
+    read_case "$rec"
+    : > "$HOME_DIR/config/jev-skill-select-live"
+    out=$(FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY \
+      run_ship "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$ID" "$PROJ_DIR")
+    status=$?
+    expect_code 0 "$status" "initial live spawn must succeed: $out"
+    record="$HOME_DIR/state/$ID.jev-skills.json"
+    jq -e '.live_loaded == true and .primary == "pager"' "$record" >/dev/null \
+      || fail "initial launch must load pager"
+    assert_grep '# Jev-selected skills' "$HOME_DIR/data/$ID/launch-brief.md" "initial overlay must load skills"
+    cached=$(jq -S 'del(.live_loaded)' "$record")
+    mv "$FAKEBIN_DIR/tmux" "$FAKEBIN_DIR/tmux-spawn"
+    cat > "$FAKEBIN_DIR/tmux" <<'SH'
+#!/usr/bin/env bash
+case "$*" in
+  *'#{pane_current_command}'*) printf 'bash\n'; exit 0 ;;
+  *'#{pane_tty}'*) exit 0 ;;
+esac
+exec "$(dirname "$0")/tmux-spawn" "$@"
+SH
+    chmod +x "$FAKEBIN_DIR/tmux"
+    if [ "$reason" = disabled ]; then
+      rm "$HOME_DIR/config/jev-skill-select-live"
+    else
+      rm "$HOME_DIR/data/$ID/jev-skill-query.txt"
+    fi
+    rm "$HOME_DIR/request.json"
+    TEST_RELAUNCH=1
+    window=$(sed -n 's/^window=//p' "$HOME_DIR/state/$ID.meta")
+    out=$(FM_FAKE_DUPLICATE_WINDOW="${window#*:}" FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY \
+      run_ship "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$ID")
+    status=$?
+    expect_code 0 "$status" "$reason relaunch must succeed: $out"
+    assert_no_grep 'Jev-selected skills' "$HOME_DIR/data/$ID/launch-brief.md" "$reason relaunch must omit skills"
+    jq -e '.live_loaded == false' "$record" >/dev/null \
+      || fail "$reason relaunch must clear stale live_loaded"
+    assert_equals "$cached" "$(jq -S 'del(.live_loaded)' "$record")" "relaunch must retain cached selection"
+    assert_absent "$HOME_DIR/request.json" "skipped selection must not contact Jev"
+  done
+  pass "disabled and missing-query relaunches clear live evidence and retain cached selections"
 }
 
 test_disabled_and_none_match_today() {
@@ -265,6 +315,7 @@ JSON
   pass "Codex discovers default and overridden skill homes only for Codex launches"
 }
 
+test_relaunch_clears_live_evidence
 test_live_selection_reaches_overlay
 test_disabled_and_none_match_today
 test_jev_failure_does_not_block_spawn
