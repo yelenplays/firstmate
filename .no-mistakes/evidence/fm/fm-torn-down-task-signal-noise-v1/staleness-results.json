@@ -1,0 +1,21 @@
+[
+  {
+    "signal": "status",
+    "watch_outputs": [
+      "signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XZP7TZP7BX3XKCJW5VH6H6/.test-runtime/staleness-retry-status/state/locked.status\n",
+      "heartbeat\n"
+    ],
+    "staleness_output": "stale: firstmate:fm-other\n",
+    "teardown_lock_still_held": true,
+    "other_heartbeat_surfaced": true
+  },
+  {
+    "signal": "turn-ended",
+    "watch_outputs": [
+      "heartbeat\n"
+    ],
+    "staleness_output": "stale: firstmate:fm-other\n",
+    "teardown_lock_still_held": true,
+    "other_heartbeat_surfaced": true
+  }
+]

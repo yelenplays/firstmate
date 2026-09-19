@@ -1,0 +1,2 @@
+1789861604	1	signal	live.turn-ended	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XZP7TZP7BX3XKCJW5VH6H6/.test-runtime/live-release.v1/state/live.turn-ended
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 58385.1789861604.QBOWyt

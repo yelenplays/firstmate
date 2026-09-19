@@ -1,0 +1,6 @@
+Focused regression command: TMPDIR="$PWD/.test-runtime" bash tests/fm-teardown.test.sh --turn-end-signals
+All four focused regression cases passed; these use backend/tool stubs and are not classified as live.
+Live race: real fm-watch.sh, fm-teardown.sh, and fm-wake-drain.sh; real sleep grace; already-returned worktree and absent endpoint; isolated tmux socket routing only.
+Live contention: real teardown paused with SIGSTOP after acquiring its metadata lock, then resumed with SIGCONT; real watcher, drain and acknowledgement, and tmux session at 120x40. Both status and turn-end cases preserved unrelated heartbeat and pane-staleness delivery.
+Initial contention driver omitted wake acknowledgement and observed check: rearm-resurface. Corrected the driver to drain and acknowledge every wake, then reran in fresh homes successfully.
+No UI presentation changes; evidence consists of CLI output and persisted delivery records.

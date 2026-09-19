@@ -1,0 +1,20 @@
+[
+  {
+    "task": "task-x1",
+    "grace_observed": true,
+    "teardown": "teardown task-x1 complete (window firstmate:fm-task-x1, worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XZP7TZP7BX3XKCJW5VH6H6/.test-runtime/live-task-x1/already-returned)\nBacklog: task-x1 just finished (config/backlog-backend selects manual editing). Update /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XZP7TZP7BX3XKCJW5VH6H6/.test-runtime/live-task-x1/data/backlog.md - move task-x1 to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.\n",
+    "watch": "signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XZP7TZP7BX3XKCJW5VH6H6/.test-runtime/live-task-x1/state/live.turn-ended\n",
+    "drain": "1789861592\t1\tsignal\tlive.turn-ended\tsignal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XZP7TZP7BX3XKCJW5VH6H6/.test-runtime/live-task-x1/state/live.turn-ended\nWAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 43422.1789861592.Yv7SYC\n",
+    "retired_marker_exists": false,
+    "live_marker_exists": true
+  },
+  {
+    "task": "release.v1",
+    "grace_observed": true,
+    "teardown": "teardown release.v1 complete (window firstmate:fm-release.v1, worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XZP7TZP7BX3XKCJW5VH6H6/.test-runtime/live-release.v1/already-returned)\nBacklog: release.v1 just finished (config/backlog-backend selects manual editing). Update /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XZP7TZP7BX3XKCJW5VH6H6/.test-runtime/live-release.v1/data/backlog.md - move release.v1 to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.\n",
+    "watch": "signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XZP7TZP7BX3XKCJW5VH6H6/.test-runtime/live-release.v1/state/live.turn-ended\n",
+    "drain": "1789861604\t1\tsignal\tlive.turn-ended\tsignal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XZP7TZP7BX3XKCJW5VH6H6/.test-runtime/live-release.v1/state/live.turn-ended\nWAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 58385.1789861604.QBOWyt\n",
+    "retired_marker_exists": false,
+    "live_marker_exists": true
+  }
+]
