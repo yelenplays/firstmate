@@ -71,7 +71,7 @@ while [ $# -gt 0 ]; do
       brief_file=$2
       shift 2
       ;;
-    --task|--id)
+    --task)
       [ $# -ge 2 ] || die "missing value for $1"
       task_id=$2
       shift 2
@@ -108,7 +108,7 @@ esac
 
 # Off is silent and writes nothing, matching an absent key.
 case "${FM_JEV_BRIEF_PREFLIGHT:-shadow}" in
-  off|0|false|no)
+  off)
     exit 0
     ;;
 esac
