@@ -605,6 +605,8 @@ A missing, unreadable, or blank query file skips selection entirely without cont
 Project skills are discovered from the resolved worker worktree after its freshness step; Codex launches also discover `$CODEX_HOME/skills`, defaulting to `~/.codex/skills` when `CODEX_HOME` is unset or empty.
 With these inputs present, a clear selection of installed skills is appended to that private launch overlay in the harness's skill-invocation form (`/<skill>`, `$<skill>` on Codex, or the skill id when the runtime has no verified slash form).
 `live_loaded` in `state/<id>.jev-skills.json` records verified instructions in the launch overlay, not confirmation that the worker executed them; selected skill files must be readable before injection.
+Publishing a fresh launch overlay resets an existing record's `live_loaded` to false while retaining the cached selection, including on relaunch when selection is disabled or the safe query is missing.
+An eligible relaunch reuses that selection without another Jev request and checks that its skill files are still readable before injecting them again.
 Choice `none`, `search_external`, shadow mode, a missing overlay, uncertain or error status, a Jev outage, and any write or verify failure leave `live_loaded` false and leave the overlay identical to a spawn that never called Jev.
 A Jev outage or selector failure never refuses or stalls spawn past a short bound.
 The script header owns flags, the JSON file, the 0.7 confidence floor, overlay injection, and the live-load refusal.
