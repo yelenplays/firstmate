@@ -7,15 +7,14 @@
 #
 # bin/fm-spawn.sh runs this after its structural brief refusals and before any
 # endpoint exists. It asks Jev one Choice over whether the brief's Task section
-# plus recorded delivery contract is executable, logs the answer, and exits.
+# plus recorded delivery contract is structurally complete, logs, and exits.
 # Shadow only: a defect, low confidence, missing key, or Jev failure never
 # refuses launch. Structural leftovers ({TASK}, empty Task, half-filled
 # intent/spec, Captain-addressed intent) stay fm-spawn.sh refusals.
 #
-# Jev sees only the `# Task` body and `# Definition of done` body (including
-# the recorded Delivery contract line). It never receives captain-private
-# records, another home's data, page content, excerpts, conflict lines, or
-# any key.
+# Jev sees a fixed completeness query and structural metadata only.
+# Task and Definition of done bodies stay local. Briefs containing quoted,
+# fenced, indented, or conflict content skip this optional call.
 #
 # Questions (via bin/fm-jev-lib.sh):
 #   brief    Choice {complete, missing_acceptance, missing_constraints,
@@ -128,55 +127,57 @@ fi
 
 command -v jq >/dev/null 2>&1 || exit 0
 
-# Bound this gate so a hung API cannot stall spawn. An explicit JEV_TIMEOUT wins.
-if [ -z "${JEV_TIMEOUT:-}" ]; then
-  JEV_TIMEOUT=5
+JEV_TIMEOUT=$(_fm_jev_cfg JEV_TIMEOUT)
+[ -n "$JEV_TIMEOUT" ] || JEV_TIMEOUT=5
+
+if ! awk '
+  /^[[:space:]]*(```|~~~|>|<<<<<<<|=======|>>>>>>>|[|][|][|][|][|][|][|])/ { exit 1 }
+  /^(    |\t)/ { exit 1 }
+  /["“”]/ { exit 1 }
+' "$brief_file"; then
+  exit 0
 fi
 
 task_body=$(fm_brief_heading_body "$brief_file" "# Task")
 dod_body=$(fm_brief_heading_body "$brief_file" "# Definition of done")
 delivery=$(printf '%s\n' "$dod_body" | sed -n 's/^Delivery contract: mode=\([^ ]*\).*$/\1/p' | head -n 1)
 [ -n "$delivery" ] || delivery=$(sed -n 's/^Delivery contract: mode=\([^ ]*\).*$/\1/p' "$brief_file" | head -n 1)
+case "$mode" in ''|direct-PR|local-only|no-mistakes) ;; *) exit 0 ;; esac
+case "$delivery" in ''|direct-PR|local-only|no-mistakes) ;; *) exit 0 ;; esac
+has_task=false
+has_dod=false
+has_intent=false
+has_spec=false
+[[ "$task_body" =~ [^[:space:]] ]] && has_task=true
+[[ "$dod_body" =~ [^[:space:]] ]] && has_dod=true
+fm_brief_task_heading_present "$brief_file" "## Captain's intent" && has_intent=true
+fm_brief_task_heading_present "$brief_file" "## Firstmate spec" && has_spec=true
 
 state=$(jq -n \
-  --arg task_id "$task_id" \
   --arg kind "$kind" \
   --arg mode "$mode" \
   --arg delivery "$delivery" \
-  --arg task "$task_body" \
-  --arg dod "$dod_body" \
+  --argjson has_task "$has_task" \
+  --argjson has_dod "$has_dod" \
+  --argjson has_intent "$has_intent" \
+  --argjson has_spec "$has_spec" \
   '{
-    task_id: $task_id,
+    query: "Check worker brief structural completeness",
     kind: $kind,
     delivery_mode: (if $mode == "" then $delivery else $mode end),
     recorded_delivery: $delivery,
-    task: $task,
-    definition_of_done: $dod
+    has_task: $has_task,
+    has_definition_of_done: $has_dod,
+    has_captain_intent: $has_intent,
+    has_firstmate_spec: $has_spec
   }') || exit 0
 
-compacted=
-if ! compacted=$(fm_jev_compact_state "$state"); then
-  state=$(jq -n \
-    --arg task_id "$task_id" \
-    --arg kind "$kind" \
-    --arg mode "$mode" \
-    --arg delivery "$delivery" \
-    --arg task "$(printf '%s' "$task_body" | head -c 4000)" \
-    '{
-      task_id: $task_id,
-      kind: $kind,
-      delivery_mode: (if $mode == "" then $delivery else $mode end),
-      recorded_delivery: $delivery,
-      task: $task,
-      definition_of_done: "(omitted)"
-    }') || exit 0
-  compacted=$(fm_jev_compact_state "$state") || compacted=$state
-fi
+compacted=$(fm_jev_compact_state "$state" 2>/dev/null) || exit 0
 
 questions=$(jq -nc '{
   brief: {
     type: "choice",
-    instructions: "Judge whether this worker brief is executable. Read only `task` and `definition_of_done` (and delivery_mode). Pick complete when the task has an observable outcome, acceptance or a definition of done, and consistent constraints. Pick missing_acceptance when acceptance criteria or a definition of done are absent. Pick missing_constraints when bounds or out-of-scope limits are absent. Pick ambiguous_scope when the ask is too vague or contradictory to have one observable outcome. Pick need_human when this text cannot decide. Never use private records or secrets.",
+    instructions: "Assess only the supplied structural metadata for the completeness query. No task or definition-of-done text is available. Missing sections can establish a structural defect; present sections do not prove semantic completeness or consistent constraints. Pick need_human whenever the metadata cannot establish the answer.",
     criteria: {
       complete: "The Task plus delivery contract is executable: observable outcome, acceptance or definition of done, and consistent constraints.",
       missing_acceptance: "No acceptance criteria and no definition of done an observer could check.",
@@ -205,8 +206,11 @@ probabilities='{}'
 decide_code=0
 response=
 decide_err=$(mktemp) || exit 0
-response=$(fm_jev_decide "$compacted" "$questions" 2>"$decide_err") || decide_code=$?
-rm -f "$decide_err"
+response_file=$(mktemp) || { rm -f "$decide_err"; exit 0; }
+trap 'rm -f "$decide_err" "$response_file"' EXIT
+fm_jev_decide "$compacted" "$questions" >"$response_file" 2>"$decide_err" || decide_code=$?
+response=$(cat "$response_file")
+rm -f "$decide_err" "$response_file"
 
 if [ "$decide_code" -eq 0 ] && [ -n "$response" ]; then
   choice=$(printf '%s' "$response" | jq -r '.answers.brief.choice // empty')

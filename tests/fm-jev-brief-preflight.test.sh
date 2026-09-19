@@ -201,15 +201,22 @@ test_complete_is_silent_and_records() {
   assert_contains "$line" '"shadow":true' "complete stays shadow"
   assert_contains "$line" '"surfaced":false' "complete is not surfaced"
   body=$(cat "$LOG/body")
-  assert_contains "$body" 'Fix the off-by-one' "Task text reaches Jev"
-  assert_contains "$body" 'Delivery contract' "delivery contract reaches Jev"
+  jq -e '.state == {
+    query: "Check worker brief structural completeness",
+    kind: "ship", delivery_mode: "direct-PR", recorded_delivery: "direct-PR",
+    has_task: true, has_definition_of_done: true,
+    has_captain_intent: true, has_firstmate_spec: true
+  }' "$LOG/body" >/dev/null || fail "request contains only the query and structural metadata"
+  jq -e '.route == "typesafe" and .model == "jev-latest" and .http == "200"
+    and (.latency_ms | type == "number" and . >= 0)' "$(record_path)" >/dev/null \
+    || fail "successful call retains transport evidence"
   assert_not_contains "$body" 'super-secret-should-not-leave' "Setup secrets stay out of state"
   assert_not_contains "$body" 'data/captain.md' "captain-private records stay out of state"
   assert_not_contains "$body" 'other-task.status' "another task's records stay out of state"
   assert_not_contains "$body" "$TS_KEY" "the API key is not in the request body"
   assert_contains "$(cat "$LOG/child-env")" 'curl:clean' "curl child env has no key"
   assert_contains "$(cat "$LOG/header")" "Bearer $TS_KEY" "key reaches curl only via fd 3"
-  pass "a complete brief is silent, recorded, and sends only Task plus delivery"
+  pass "a complete brief is silent, recorded, and sends only the query and structural metadata"
 }
 
 test_each_defect_class_is_reported() {
@@ -263,6 +270,9 @@ test_jev_failure_skips_without_blocking() {
   line=$(cat "$(record_path)")
   assert_contains "$line" '"verdict":"skipped"' "failure records skipped"
   assert_contains "$line" '"block":false' "failure never blocks"
+  jq -e '.route == "typesafe" and .model == "jev-latest" and .http == "000"
+    and (.latency_ms | type == "number") and .decide_code == 1' "$(record_path)" >/dev/null \
+    || fail "failed call retains transport evidence"
   pass "a Jev failure skips without blocking"
 }
 
@@ -416,6 +426,70 @@ EOF
   pass "existing structural brief refusals still fire and never call Jev"
 }
 
+test_unsafe_content_skips_call() {
+  local code out err content
+  for content in '```' '~~~' '> Quoted page excerpt' '<<<<<<< HEAD' '=======' '>>>>>>> branch' '||||||| base' '    Indented excerpt' '"Inline page excerpt"'; do
+    write_complete_brief
+    printf '\n%s\nprivate page content\n' "$content" >> "$BRIEF"
+    TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
+    expect_code 0 "$code" "unsafe brief skips without blocking"
+    assert_absent "$LOG/body" "unsafe brief never calls Jev"
+    assert_absent "$(record_path)" "unsafe brief writes no call record"
+    assert_equals '' "$err" "unsafe brief skips silently"
+  done
+  printf '# Task\n```\n<<<<<<< HEAD\nGH_TOKEN=secret\n```\n# Definition of done\nTests pass.\n' > "$BRIEF"
+  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
+  assert_absent "$LOG/body" "fenced conflict never calls Jev"
+  pass "quoted, fenced, indented, and conflict content skips the optional call"
+}
+
+test_compaction_failure_skips_call() {
+  local code out err
+  write_complete_brief
+  JEV_STATE_MAX_BYTES=1 TYPESAFE_API_KEY=$TS_KEY run_preflight code out err \
+    --brief "$BRIEF" --task "$TASK_ID"
+  expect_code 0 "$code" "compaction refusal does not block"
+  assert_absent "$LOG/body" "compaction refusal never calls Jev"
+  assert_absent "$(record_path)" "compaction refusal writes no call record"
+  assert_equals '' "$err" "compaction refusal is silent"
+  pass "compaction failure never bypasses the safe-input boundary"
+}
+
+test_timeout_configuration() {
+  local code out err
+  write_complete_brief
+  write_response complete
+  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
+  assert_equals 5 "$(awk '/^--max-time$/ {getline; print}' "$LOG/argv")" "default timeout is five seconds"
+  printf 'JEV_TIMEOUT=1\n' > "$HOME_DIR/.env"
+  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
+  assert_equals 1 "$(awk '/^--max-time$/ {getline; print}' "$LOG/argv")" "dotenv timeout is honored"
+  JEV_TIMEOUT=2 TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
+  assert_equals 2 "$(awk '/^--max-time$/ {getline; print}' "$LOG/argv")" "environment timeout takes precedence"
+  rm -f "$HOME_DIR/.env"
+  pass "timeout honors environment and dotenv before the local default"
+}
+
+test_metadata_does_not_forward_content() {
+  local code out err
+  printf '# Task\nFix the off-by-one.\n# Definition of done\nGH_TOKEN=secret\nUnmarked page excerpt\n' > "$BRIEF"
+  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
+  jq -e '.state == {
+    query: "Check worker brief structural completeness",
+    kind: "", delivery_mode: "", recorded_delivery: "",
+    has_task: true, has_definition_of_done: true,
+    has_captain_intent: false, has_firstmate_spec: false
+  }' "$LOG/body" >/dev/null || fail "raw content must stay local"
+  assert_not_contains "$(cat "$LOG/body")" 'off-by-one' "task body stays local"
+  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID" --mode private-content
+  assert_absent "$LOG/body" "unrecognized metadata cannot carry arbitrary content"
+  printf '# Task\n \n' > "$BRIEF"
+  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
+  jq -e '.state.has_task == false and .state.has_definition_of_done == false' \
+    "$LOG/body" >/dev/null || fail "absent content is represented structurally"
+  pass "raw bodies and unrecognized metadata never enter the request"
+}
+
 test_usage_requires_brief_and_task
 test_complete_is_silent_and_records
 test_each_defect_class_is_reported
@@ -426,3 +500,7 @@ test_spawn_complete_brief_passes_silently
 test_spawn_reports_each_defect_and_still_proceeds
 test_spawn_jev_failure_does_not_change_outcome
 test_spawn_structural_refusals_still_fire
+test_unsafe_content_skips_call
+test_compaction_failure_skips_call
+test_timeout_configuration
+test_metadata_does_not_forward_content
