@@ -190,15 +190,15 @@ SH
 
 # Write a meta file for the task. Args: case_dir mode kind
 write_meta() {
-  local case_dir=$1 mode=$2 kind=$3
-  fm_write_meta "$case_dir/state/task-x1.meta" \
-    "window=firstmate:fm-task-x1" \
-    "endpoint_task_id=task-x1" \
+  local case_dir=$1 mode=$2 kind=$3 task=${4:-task-x1}
+  fm_write_meta "$case_dir/state/$task.meta" \
+    "window=firstmate:fm-$task" \
+    "endpoint_task_id=$task" \
     "worktree=$case_dir/wt" \
     "project=$case_dir/project" \
     "kind=$kind" \
     "mode=$mode" \
-    "spawn_gen=teardown-test-task-x1"
+    "spawn_gen=teardown-test-$task"
 }
 
 # Commit something on the worktree's task branch. Args: case_dir [message]
@@ -633,7 +633,7 @@ run_teardown() {
   FM_DATA_OVERRIDE="$case_dir/data" \
   FM_CONFIG_OVERRIDE="$case_dir/config" \
   PATH="$case_dir/fakebin:${FM_TEARDOWN_TEST_PATH:-$PATH}" \
-    "$TEARDOWN" task-x1 "$@"
+    "$TEARDOWN" "${FM_TEARDOWN_TEST_ID:-task-x1}" "$@"
 }
 
 # Seed a real backlog carrying task-x1 as In flight, so a teardown in this case
@@ -713,7 +713,7 @@ run_remote_teardown() {  # <case-dir> [extra args...]
   FM_CONFIG_OVERRIDE="$case_dir/config" \
   FM_SSH_BIN="$case_dir/fakebin/fake-ssh" \
   PATH="$case_dir/fakebin:${FM_TEARDOWN_TEST_PATH:-$PATH}" \
-    "$TEARDOWN" task-x1 "$@"
+    "$TEARDOWN" "${FM_TEARDOWN_TEST_ID:-task-x1}" "$@"
 }
 
 test_remote_secondmate_pending_reply_cleanup_foreign_last_record() {
@@ -2055,44 +2055,74 @@ test_teardown_missing_busy_sidecar_completes() {
 }
 
 test_teardown_retires_turn_end_signal_marker() {
-  local case_dir watcher_pid drain_out rc
-  case_dir=$(make_case torn-down-turn-end-signal)
-  write_meta "$case_dir" local-only ship
-  : > "$case_dir/state/task-x1.turn-ended"
-  : > "$case_dir/state/.seen-task-x1_turn-ended"
+  local case_dir watcher_pid drain_out rc task marker i
+  for task in task-x1 release.v1; do
+    case_dir=$(make_case "torn-down-turn-end-$task")
+    write_meta "$case_dir" local-only ship "$task"
+    marker="$case_dir/state/.seen-$(printf '%s.turn-ended' "$task" | tr '.' '_')"
+    : > "$case_dir/state/$task.turn-ended"
+    : > "$marker"
+    cat > "$case_dir/fakebin/sleep" <<'SH'
+#!/usr/bin/env bash
+if [ "${FM_TEST_GRACE_GATE:-}" != '' ] && [ "$1" = 30 ]; then
+  : > "$FM_TEST_GRACE_GATE/ready"
+  for ((i=0; i<600; i++)); do
+    [ ! -e "$FM_TEST_GRACE_GATE/resume" ] || exit 0
+    /bin/sleep 0.1
+  done
+  exit 1
+fi
+exec /bin/sleep "$@"
+SH
+    chmod +x "$case_dir/fakebin/sleep"
+    FM_HOME="$case_dir" FM_STATE_OVERRIDE="$case_dir/state" \
+      FM_ROOT_OVERRIDE="$case_dir" FM_POLL=1 FM_SIGNAL_GRACE=30 \
+      FM_TEST_GRACE_GATE="$case_dir" \
+      FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 PATH="$case_dir/fakebin:$PATH" \
+      "$ROOT/bin/fm-watch.sh" > "$case_dir/watch.out" 2>&1 &
+    watcher_pid=$!
+    for ((i=0; i<200; i++)); do
+      [ ! -e "$case_dir/ready" ] || break
+      kill -0 "$watcher_pid" 2>/dev/null || break
+      /bin/sleep 0.1
+    done
+    if [ ! -e "$case_dir/ready" ]; then
+      kill "$watcher_pid" 2>/dev/null || true
+      wait "$watcher_pid" 2>/dev/null || true
+      fail "$task: watcher never captured the signal: $(cat "$case_dir/watch.out")"
+    fi
 
-  run_teardown "$case_dir" --force > "$case_dir/stdout" 2> "$case_dir/stderr" \
-    || fail "torn-down-turn-end-signal: teardown failed: $(cat "$case_dir/stderr")"
-  assert_absent "$case_dir/state/.seen-task-x1_turn-ended" \
-    "torn-down-turn-end-signal: teardown left the turn-ended signal marker"
-  assert_absent "$case_dir/state/task-x1.meta" \
-    "torn-down-turn-end-signal: teardown left task metadata"
-  assert_absent "$case_dir/state/task-x1.turn-ended" \
-    "torn-down-turn-end-signal: teardown left the turn-ended marker"
+    rc=0
+    FM_TEARDOWN_TEST_ID="$task" run_teardown "$case_dir" --force \
+      > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    : > "$case_dir/state/live.turn-ended"
+    : > "$case_dir/resume"
+    for ((i=0; i<200; i++)); do
+      kill -0 "$watcher_pid" 2>/dev/null || break
+      /bin/sleep 0.1
+    done
+    if kill -0 "$watcher_pid" 2>/dev/null; then
+      kill "$watcher_pid" 2>/dev/null || true
+      wait "$watcher_pid" 2>/dev/null || true
+      fail "$task: watcher did not publish the live signal"
+    fi
+    wait "$watcher_pid" || fail "$task: watcher failed: $(cat "$case_dir/watch.out")"
+    expect_code 0 "$rc" "$task: teardown failed: $(cat "$case_dir/stderr")"
+    assert_absent "$marker" "$task: watcher recreated the retired seen marker"
+    assert_absent "$case_dir/state/$task.meta" "$task: teardown left metadata"
+    assert_absent "$case_dir/state/$task.turn-ended" "$task: teardown left turn-ended"
+    assert_present "$case_dir/state/.seen-live_turn-ended" "$task: live signal was not marked"
+    assert_grep 'live.turn-ended' "$case_dir/watch.out" "$task: live signal was not announced"
 
-  FM_HOME="$case_dir" FM_STATE_OVERRIDE="$case_dir/state" \
-    FM_ROOT_OVERRIDE="$case_dir" FM_POLL=1 FM_SIGNAL_GRACE=0 \
-    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 PATH="$case_dir/fakebin:$PATH" \
-    "$ROOT/bin/fm-watch.sh" > "$case_dir/watch.out" 2>&1 &
-  watcher_pid=$!
-  sleep 2
-  kill "$watcher_pid" 2>/dev/null || true
-  wait "$watcher_pid" 2>/dev/null || true
-
-  drain_out=$(FM_HOME="$case_dir" FM_STATE_OVERRIDE="$case_dir/state" \
-    FM_ROOT_OVERRIDE="$case_dir" "$ROOT/bin/fm-wake-drain.sh" 2>&1) || {
-    rc=$?
-    fail "torn-down-turn-end-signal: wake drain failed ($rc): $drain_out"
-  }
-  if grep -E $'\\t(signal|stale)\\t' "$case_dir/state/.wake-queue" \
-    >/dev/null 2>&1; then
-    fail "torn-down-turn-end-signal: watcher queued a wake for the retired task"
-  fi
-  if printf '%s\\n' "$drain_out" | grep -E $'\\t(signal|stale)\\t' \
-    >/dev/null 2>&1; then
-    fail "torn-down-turn-end-signal: drain presented a wake for the retired task"
-  fi
-  pass "teardown retires turn-ended signal state and keeps the watcher quiet"
+    drain_out=$(FM_HOME="$case_dir" FM_STATE_OVERRIDE="$case_dir/state" \
+      FM_ROOT_OVERRIDE="$case_dir" "$ROOT/bin/fm-wake-drain.sh" 2>&1) \
+      || fail "$task: wake drain failed: $drain_out"
+    if grep -F "$task.turn-ended" "$case_dir/watch.out" "$case_dir/state/.wake-queue" \
+      >/dev/null 2>&1 || printf '%s\n' "$drain_out" | grep -F "$task.turn-ended" >/dev/null; then
+      fail "$task: watcher announced or queued the retired signal"
+    fi
+    pass "$task: concurrent teardown rejects the pending turn-end and preserves live signals"
+  done
 }
 
 test_herdr_teardown_clears_escalation_marker() {
@@ -3793,6 +3823,11 @@ EOF
     "abort-then-reap-then-remove-order: the leaked process was not yet reaped when the worktree return ran"
   pass "the run abort and the leaked-process reap both complete before the destructive worktree return"
 }
+
+if [ "${1:-}" = --turn-end-signals ]; then
+  test_teardown_retires_turn_end_signal_marker
+  exit 0
+fi
 
 test_local_only_fork_remote_allows
 test_teardown_closes_the_backlog_item_itself
