@@ -30,6 +30,12 @@
 #   first in the private launch-brief overlay, including the exact task-owned
 #   steering inbox. This never rewrites a project's instruction files or a
 #   secondmate's charter.
+#   After that overlay is published, a live Jev skill selection may append the
+#   chosen skills to the same launch-brief (bin/fm-jev-skill-select.sh --overlay).
+#   Live load needs FM_JEV_SKILL_SELECT=live and config/jev-skill-select-live.
+#   Shadow, none, a Jev outage, and a failed load leave the overlay unchanged
+#   and never refuse the spawn; docs/configuration.md "Jev skill selector"
+#   owns the operator contract.
 #        fm-spawn.sh <task-id> --relaunch [--harness <name>] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>]
 #   --relaunch launches a replacement agent for an EXISTING task into that
 #   task's own recorded endpoint and worktree instead of creating either. It is
@@ -2602,6 +2608,69 @@ fi
   echo "error: task $ID has no brief at inaccessible data path $BRIEF" >&2
   exit 1
 }
+
+# Live Jev skill load is fail-open: missing opt-in, Choice none, or a Jev
+# outage must leave this spawn's launch overlay identical to today's and
+# must not refuse the worker. bin/fm-jev-skill-select.sh owns the decision
+# rule and live_loaded; this is only the hop into the published overlay.
+fm_spawn_jev_skill_summary() {
+  local text=
+  if [ -n "${CAPTAIN_INTENT:-}" ]; then
+    text="$CAPTAIN_INTENT"
+  elif [ -n "${SOURCE_BRIEF:-}" ] && [ -f "$SOURCE_BRIEF" ]; then
+    if fm_brief_task_heading_present "$SOURCE_BRIEF" "## Captain's intent"; then
+      text=$(fm_brief_task_heading_body "$SOURCE_BRIEF" "## Captain's intent")
+    fi
+  elif [ -n "${BRIEF:-}" ] && [ -f "$BRIEF" ]; then
+    if fm_brief_task_heading_present "$BRIEF" "## Captain's intent"; then
+      text=$(fm_brief_task_heading_body "$BRIEF" "## Captain's intent")
+    fi
+  fi
+  printf '%s' "$text" | tr '\n' ' ' | cut -c1-400
+}
+
+fm_spawn_jev_skill_dirs() {
+  local dir
+  for dir in \
+    "${PROJ_ABS:+$PROJ_ABS/.agents/skills}" \
+    "${PROJ_ABS:+$PROJ_ABS/.claude/skills}" \
+    "${HOME:+$HOME/.agents/skills}" \
+    "${HOME:+$HOME/.claude/skills}" \
+    "${HOME:+$HOME/.grok/skills}" \
+    "${HOME:+$HOME/.pi/agent/skills}"; do
+    [ -n "$dir" ] || continue
+    [ -d "$dir" ] && [ -r "$dir" ] || continue
+    printf '%s\n' "$dir"
+  done
+}
+
+fm_spawn_apply_jev_skills() {
+  local confirm="$CONFIG/jev-skill-select-live"
+  local summary dir
+  local -a args
+  [ "$KIND" = ship ] || [ "$KIND" = scout ] || return 0
+  [ "${FM_JEV_SKILL_SELECT:-shadow}" = live ] || return 0
+  [ -f "$confirm" ] || return 0
+  [ -x "$FM_ROOT/bin/fm-jev-skill-select.sh" ] || return 0
+  [ -n "${HARNESS:-}" ] || return 0
+  [ -n "${BRIEF:-}" ] && [ -f "$BRIEF" ] || return 0
+
+  summary=$(fm_spawn_jev_skill_summary)
+  args=(--harness "$HARNESS" --task-id "$ID" --overlay "$BRIEF")
+  if [ -n "$summary" ]; then
+    args+=(--summary "$summary")
+  fi
+  while IFS= read -r dir; do
+    [ -n "$dir" ] || continue
+    args+=(--skills-dir "$dir")
+  done < <(fm_spawn_jev_skill_dirs)
+
+  # Bound so a hung Jev call cannot stall launch. 4s HTTP + 2s slack.
+  fm_run_timed 6 env JEV_TIMEOUT=4 "$FM_ROOT/bin/fm-jev-skill-select.sh" "${args[@]}" \
+    >/dev/null 2>&1 || true
+  return 0
+}
+
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   if fm_brief_task_placeholders_present "$BRIEF"; then
     echo "error: $BRIEF still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn" >&2
@@ -2649,6 +2718,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
     echo "error: could not publish current launch contract for $SOURCE_BRIEF" >&2
     exit 1
   fi
+  fm_spawn_apply_jev_skills || true
 fi
 
 # An unedited scaffold must never launch a worker. fm-brief.sh writes {TASK} in the

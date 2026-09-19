@@ -598,9 +598,13 @@ The script header owns flags, output lines, and exit codes.
 `bin/fm-jev-skill-select.sh` is a once-per-session skill suggestion, not a per-prompt router.
 Default `FM_JEV_SKILL_SELECT` is `shadow`: it writes `state/<id>.jev-skills.json` and prints that record, and it does not load skills.
 Firstmate may run it after writing a brief and before spawn, then keep the printed suggestion beside the task.
-Default spawn does not inject skills, and this tool never changes worker launch.
-Live load stays off and refuses unless `FM_JEV_SKILL_SELECT=live` and the presence file `config/jev-skill-select-live` both exist; even then this release only records the suggestion.
-The script header owns flags, the JSON file, the 0.7 confidence floor, and the live-load refusal.
+`bin/fm-spawn.sh` is the live call site: after it publishes `data/<id>/launch-brief.md` it invokes the selector with `--overlay` pointing at that file.
+Live load requires `FM_JEV_SKILL_SELECT=live` and the gitignored presence file `config/jev-skill-select-live`.
+With both set, a clear selection of installed skills is appended to that private launch overlay in the harness's skill-invocation form (`/<skill>`, `$<skill>` on Codex, or the skill id when the runtime has no verified slash form).
+`live_loaded` in `state/<id>.jev-skills.json` is true only after those skill ids are verified in the overlay the worker will read.
+Choice `none`, `search_external`, shadow mode, a missing overlay, uncertain or error status, a Jev outage, and any write or verify failure leave `live_loaded` false and leave the overlay identical to a spawn that never called Jev.
+A Jev outage or selector failure never refuses or stalls spawn past a short bound.
+The script header owns flags, the JSON file, the 0.7 confidence floor, overlay injection, and the live-load refusal.
 
 ## Jev queue triage (heartbeat)
 
@@ -1227,7 +1231,7 @@ JEV_URL=                # optional complete Jev POST URL, used verbatim (same se
 JEV_BASE=               # optional TypeSafe origin; `/v1/systemone` is appended when JEV_URL is unset (same section)
 JEV_TIMEOUT=25          # optional Jev HTTP timeout in seconds; default 25 (same section); brief preflight uses 5 when this is unset (docs/configuration.md "Jev brief preflight")
 FM_JEV_TOOL_GATE=shadow # remainder Jev tool-gate after arm-command policy; live needs this plus two opt-in files; hard-ship is a do-not (docs/configuration.md "Jev remainder tool-gate")
-FM_JEV_SKILL_SELECT=shadow # once-per-session skill suggestion; live needs this plus config/jev-skill-select-live and still does not inject skills (docs/configuration.md "Jev skill selector")
+FM_JEV_SKILL_SELECT=shadow # once-per-session skill suggestion; live needs this plus config/jev-skill-select-live and then injects selected skills into data/<id>/launch-brief.md (docs/configuration.md "Jev skill selector")
 FM_JEV_BRIEF_PREFLIGHT=shadow # spawn-path Jev brief preflight; off skips; never blocks launch (docs/configuration.md "Jev brief preflight")
 FMX_DISCORD_REPLY_MAX_CHARS=1900   # Discord reply per-message split budget; values below 50 clamp to 50, values above 2000 reset to 1900
 FMX_X_THREAD_MAX=25     # maximum messages in one auto-split reply thread
