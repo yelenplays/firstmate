@@ -2125,6 +2125,77 @@ SH
   done
 }
 
+test_teardown_contention_preserves_heartbeat() {
+  local case_dir signal teardown_pid watcher_pid i watcher_rc teardown_rc still_locked
+  for signal in status turn-ended; do
+    case_dir=$(make_case "teardown-heartbeat-$signal")
+    write_meta "$case_dir" local-only ship
+    cat > "$case_dir/fakebin/treehouse" <<'SH'
+#!/usr/bin/env bash
+: > "$FM_TEST_TEARDOWN_GATE/ready"
+for ((i=0; i<600; i++)); do
+  [ ! -e "$FM_TEST_TEARDOWN_GATE/resume" ] || exit 0
+  /bin/sleep 0.1
+done
+exit 1
+SH
+    cat > "$case_dir/fakebin/crew-state" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' 'state: working · source: run-step · executing'
+SH
+    chmod +x "$case_dir/fakebin/treehouse" "$case_dir/fakebin/crew-state"
+    FM_TEST_TEARDOWN_GATE="$case_dir" run_teardown "$case_dir" --force \
+      > "$case_dir/stdout" 2> "$case_dir/stderr" &
+    teardown_pid=$!
+    for ((i=0; i<200; i++)); do
+      [ ! -e "$case_dir/ready" ] || break
+      kill -0 "$teardown_pid" 2>/dev/null || break
+      /bin/sleep 0.1
+    done
+    if [ ! -e "$case_dir/ready" ]; then
+      : > "$case_dir/resume"
+      wait "$teardown_pid" 2>/dev/null || true
+      fail "$signal: teardown did not reach the locked return: $(cat "$case_dir/stderr")"
+    fi
+    printf 'working: finishing cleanup\n' > "$case_dir/state/task-x1.$signal"
+    printf 'done: unrelated task needs review\n' > "$case_dir/state/other.status"
+    FM_STATE_OVERRIDE="$case_dir/state" bash -c '
+      . "$1"
+      fm_wake_status_reported_commit "$STATE" "$STATE/other.status" \
+        "$(fm_wake_signal_sig "$STATE/other.status")"
+    ' _ "$ROOT/bin/fm-wake-lib.sh" || fail "$signal: could not prime the other task signal"
+    touch -t 200001010000 "$case_dir/state/.last-heartbeat"
+    FM_HOME="$case_dir" FM_STATE_OVERRIDE="$case_dir/state" \
+      FM_ROOT_OVERRIDE="$case_dir" FM_POLL=1 FM_SIGNAL_GRACE=0 \
+      FM_CREW_STATE_BIN="$case_dir/fakebin/crew-state" \
+      FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=1 PATH="$case_dir/fakebin:$PATH" \
+      "$ROOT/bin/fm-watch.sh" > "$case_dir/watch.out" 2>&1 &
+    watcher_pid=$!
+    for ((i=0; i<200; i++)); do
+      kill -0 "$watcher_pid" 2>/dev/null || break
+      /bin/sleep 0.1
+    done
+    watcher_rc=0
+    if kill -0 "$watcher_pid" 2>/dev/null; then
+      kill "$watcher_pid" 2>/dev/null || true
+      watcher_rc=124
+    fi
+    wait "$watcher_pid" || watcher_rc=$?
+    still_locked=0
+    [ ! -d "$case_dir/state/.meta-task-x1.lock" ] || still_locked=1
+    : > "$case_dir/resume"
+    teardown_rc=0
+    wait "$teardown_pid" || teardown_rc=$?
+    expect_code 0 "$teardown_rc" "$signal: teardown failed: $(cat "$case_dir/stderr")"
+    expect_code 0 "$watcher_rc" "$signal: watcher failed or starved: $(cat "$case_dir/watch.out")"
+    expect_code 1 "$still_locked" "$signal: teardown released its lock before monitoring"
+    grep -Fx heartbeat "$case_dir/watch.out" >/dev/null \
+      || fail "$signal: unrelated heartbeat was suppressed: $(cat "$case_dir/watch.out")"
+    assert_present "$case_dir/state/.hb-surfaced-other" "$signal: other task was not surfaced"
+    pass "$signal: teardown lock contention preserves unrelated heartbeat monitoring"
+  done
+}
+
 test_herdr_teardown_clears_escalation_marker() {
   local case_dir marker
   case_dir=$(make_case herdr-marker-cleanup)
@@ -3826,6 +3897,7 @@ EOF
 
 if [ "${1:-}" = --turn-end-signals ]; then
   test_teardown_retires_turn_end_signal_marker
+  test_teardown_contention_preserves_heartbeat
   exit 0
 fi
 
@@ -3841,6 +3913,7 @@ test_secondmate_pr_registration_publishes_ready_line
 test_secondmate_home_teardown_delivers_final_line_or_refuses
 test_teardown_missing_busy_sidecar_completes
 test_teardown_retires_turn_end_signal_marker
+test_teardown_contention_preserves_heartbeat
 test_herdr_teardown_clears_escalation_marker
 test_herdr_flat_teardown_refuses_orphaning_records_then_retry_completes
 test_herdr_flat_teardown_refuses_records_on_unparseable_presence

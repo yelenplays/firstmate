@@ -2073,18 +2073,20 @@ signal_publish_filter() {
   local sf sig f task lock held acquired filtered=''
   while IFS=$(printf '\t') read -r sf sig f; do
     [ -n "$sf" ] || continue
-    task=${f##*/}
-    task=${task%.*}
-    lock=$(fm_meta_lock_path "$STATE/$task.meta") || return 1
-    acquired=0
-    for held in "${SIGNAL_PUBLISH_LOCKS[@]}"; do
-      [ "$held" != "$lock" ] || acquired=1
-    done
-    if [ "$acquired" -eq 0 ]; then
-      fm_lock_try_acquire "$lock" || continue
-      SIGNAL_PUBLISH_LOCKS+=("$lock")
+    if [[ "$f" == *.turn-ended ]]; then
+      task=${f##*/}
+      task=${task%.*}
+      lock=$(fm_meta_lock_path "$STATE/$task.meta") || return 1
+      acquired=0
+      for held in "${SIGNAL_PUBLISH_LOCKS[@]}"; do
+        [ "$held" != "$lock" ] || acquired=1
+      done
+      if [ "$acquired" -eq 0 ]; then
+        fm_lock_try_acquire "$lock" || continue
+        SIGNAL_PUBLISH_LOCKS+=("$lock")
+      fi
+      [ -e "$f" ] || [ -L "$f" ] || continue
     fi
-    [ -e "$f" ] || [ -L "$f" ] || continue
     filtered="${filtered}${sf}"$'\t'"${sig}"$'\t'"${f}"$'\n'
   done <<EOF
 $pending
@@ -2415,10 +2417,8 @@ EOF
     sleep "$SIGNAL_GRACE"
     pending=$(printf '%s\n%s' "$pending" "$(scan_signals)")
     signal_publish_filter || exit 1
-    if [ -z "$pending" ]; then
-      signal_publish_release || exit 1
-      continue
-    fi
+  fi
+  if [ -n "$pending" ]; then
     # The final coalesced signal set is the watcher-carried status-change
     # trigger for this home's published summary. Start it before either
     # surfacing or absorbing the signal, but never wait on it: see
@@ -2533,8 +2533,8 @@ EOF
       fi
       triage_log "absorbed benign $reason"
     fi
-    signal_publish_release || exit 1
   fi
+  signal_publish_release || exit 1
 
   # Layer 1 backbone: pane staleness. Two consecutive identical hashes with no busy
   # signature means the crewmate finished, is waiting, or is wedged. Each distinct
