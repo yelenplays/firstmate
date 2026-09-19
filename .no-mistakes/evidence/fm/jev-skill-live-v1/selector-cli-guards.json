@@ -1,0 +1,20 @@
+[
+  {
+    "scenario": "Live mode without confirmation refuses injection",
+    "command": "bash bin/fm-jev-skill-select.sh --harness codex --task-id manual --summary Find pager skills --skills-dir /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XPK3AWBTSMXB0ZA5V31Y1P/.test-phase-tmp/manual-home/skills --overlay /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XPK3AWBTSMXB0ZA5V31Y1P/.test-phase-tmp/manual-home/launch-brief.md",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "error: live skill load refused: missing confirm file /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XPK3AWBTSMXB0ZA5V31Y1P/.test-phase-tmp/manual-home/config/jev-skill-select-live\n",
+    "overlay_unchanged": true,
+    "selection_record_absent": true
+  },
+  {
+    "scenario": "Confirmed mode without credentials leaves launch unchanged",
+    "command": "bash bin/fm-jev-skill-select.sh --harness codex --task-id manual --summary Find pager skills --skills-dir /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XPK3AWBTSMXB0ZA5V31Y1P/.test-phase-tmp/manual-home/skills --overlay /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XPK3AWBTSMXB0ZA5V31Y1P/.test-phase-tmp/manual-home/launch-brief.md",
+    "exit": 0,
+    "stdout": "",
+    "stderr": "jev-skill-select: off (no TYPESAFE_API_KEY or OPENROUTER_API_KEY)\n",
+    "overlay_unchanged": true,
+    "selection_record_absent": true
+  }
+]

@@ -1,0 +1,29 @@
+[
+  {
+    "name": "Live mode without confirmation is refused",
+    "command": "FM_HOME=<isolated-home> FM_JEV_SKILL_SELECT=live bin/fm-jev-skill-select.sh --harness codex --task-id manual-check --summary \"Find a local review skill\" --overlay <launch-brief> review",
+    "exit_code": 2,
+    "stdout": "",
+    "stderr": "error: live skill load refused: missing confirm file /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XPK3AWBTSMXB0ZA5V31Y1P/.jev-validation-tmp/manual-xb2p_nn_/config/jev-skill-select-live\n",
+    "overlay": "# Task\nLocal verification only.\n",
+    "record_created": false
+  },
+  {
+    "name": "Confirmed live mode without provider credentials leaves launch unchanged",
+    "command": "FM_HOME=<isolated-home> FM_JEV_SKILL_SELECT=live bin/fm-jev-skill-select.sh --harness codex --task-id manual-check --summary \"Find a local review skill\" --overlay <launch-brief> review",
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "jev-skill-select: off (no TYPESAFE_API_KEY or OPENROUTER_API_KEY)\n",
+    "overlay": "# Task\nLocal verification only.\n",
+    "record_created": false
+  },
+  {
+    "name": "Default shadow without provider credentials leaves launch unchanged",
+    "command": "FM_HOME=<isolated-home> FM_JEV_SKILL_SELECT=shadow bin/fm-jev-skill-select.sh --harness codex --task-id manual-check --summary \"Find a local review skill\" --overlay <launch-brief> review",
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "jev-skill-select: off (no TYPESAFE_API_KEY or OPENROUTER_API_KEY)\n",
+    "overlay": "# Task\nLocal verification only.\n",
+    "record_created": false
+  }
+]
