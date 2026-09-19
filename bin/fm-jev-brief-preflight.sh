@@ -13,8 +13,8 @@
 # intent/spec, Captain-addressed intent) stay fm-spawn.sh refusals.
 #
 # Jev sees a fixed completeness query and structural metadata only.
-# Task and Definition of done bodies stay local. Briefs containing quoted,
-# fenced, indented, or conflict content skip this optional call.
+# Task and Definition of done bodies stay local, as do scaffold instructions.
+# Unrecognized metadata or failed compaction skips this optional call.
 #
 # Questions (via bin/fm-jev-lib.sh):
 #   brief    Choice {complete, missing_acceptance, missing_constraints,
@@ -129,14 +129,6 @@ command -v jq >/dev/null 2>&1 || exit 0
 
 JEV_TIMEOUT=$(_fm_jev_cfg JEV_TIMEOUT)
 [ -n "$JEV_TIMEOUT" ] || JEV_TIMEOUT=5
-
-if ! awk '
-  /^[[:space:]]*(```|~~~|>|<<<<<<<|=======|>>>>>>>|[|][|][|][|][|][|][|])/ { exit 1 }
-  /^(    |\t)/ { exit 1 }
-  /["“”]/ { exit 1 }
-' "$brief_file"; then
-  exit 0
-fi
 
 task_body=$(fm_brief_heading_body "$brief_file" "# Task")
 dod_body=$(fm_brief_heading_body "$brief_file" "# Definition of done")

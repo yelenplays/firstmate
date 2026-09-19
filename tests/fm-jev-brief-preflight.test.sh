@@ -426,21 +426,67 @@ EOF
   pass "existing structural brief refusals still fire and never call Jev"
 }
 
-test_unsafe_content_skips_call() {
-  local code out err content
-  for content in '```' '~~~' '> Quoted page excerpt' '<<<<<<< HEAD' '=======' '>>>>>>> branch' '||||||| base' '    Indented excerpt' '"Inline page excerpt"'; do
-    write_complete_brief
-    printf '\n%s\nprivate page content\n' "$content" >> "$BRIEF"
-    TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
-    expect_code 0 "$code" "unsafe brief skips without blocking"
-    assert_absent "$LOG/body" "unsafe brief never calls Jev"
-    assert_absent "$(record_path)" "unsafe brief writes no call record"
-    assert_equals '' "$err" "unsafe brief skips silently"
+test_body_content_stays_local() {
+  local code out err content section
+  write_response complete
+  for section in Task 'Definition of done' Setup; do
+    for content in '```' '~~~' '> Quoted page excerpt' '<<<<<<< HEAD' '=======' '>>>>>>> branch' '||||||| base' '    Indented excerpt' '"Inline page excerpt"'; do
+      printf '# %s\n%s\nprivate page content\nGH_TOKEN=secret\n' "$section" "$content" > "$BRIEF"
+      TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
+      expect_code 0 "$code" "body content does not block metadata-only preflight"
+      assert_present "$LOG/body" "metadata-only request still reaches Jev"
+      jq -e '.state == {
+        query: "Check worker brief structural completeness",
+        kind: "", delivery_mode: "", recorded_delivery: "",
+        has_task: ($section == "Task"), has_definition_of_done: ($section == "Definition of done"),
+        has_captain_intent: false, has_firstmate_spec: false
+      }' --arg section "$section" "$LOG/body" >/dev/null || fail "brief content entered request state"
+      assert_not_contains "$(cat "$LOG/body")" 'private page content' "page content stays local"
+      assert_not_contains "$(cat "$LOG/body")" 'GH_TOKEN=secret' "secrets stay local"
+      assert_equals '' "$err" "complete metadata verdict is silent"
+    done
   done
-  printf '# Task\n```\n<<<<<<< HEAD\nGH_TOKEN=secret\n```\n# Definition of done\nTests pass.\n' > "$BRIEF"
-  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
-  assert_absent "$LOG/body" "fenced conflict never calls Jev"
-  pass "quoted, fenced, indented, and conflict content skips the optional call"
+  pass "quoted, fenced, indented, and conflict bodies never enter request state"
+}
+
+test_spawn_generated_briefs_reach_jev() {
+  local rec home proj fakebin out content kind id mode
+  local -a args
+  rec=$(make_spawn_home generated)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_response complete
+  for mode in direct-PR local-only no-mistakes scout; do
+    id="generated-$mode"
+    kind=ship
+    args=(--mode "$mode")
+    if [ "$mode" = scout ]; then
+      kind=scout
+      args=(--scout)
+    fi
+    FM_HOME="$home" "$BRIEF_TOOL" "$id" proj "${args[@]}" >/dev/null \
+      || fail "could not scaffold $id"
+    content=$(cat "$home/data/$id/brief.md")
+    content=${content//'{TASK}'/Fix the pager off-by-one.}
+    content=${content//'{FIRSTMATE_SPEC}'/Change only pager.sh and add a regression test.}
+    printf '%s\n' "$content" > "$home/data/$id/brief.md"
+    if [ "$kind" = ship ]; then args+=(--yolo off); fi
+    out=$(TYPESAFE_API_KEY=$TS_KEY run_spawn "$home" "$fakebin" "$id" "$proj" claude "${args[@]}")
+    assert_present "$LOG/body" "$id must reach Jev through spawn: $out"
+    jq -e --arg kind "$kind" --arg mode "$mode" '.state == {
+      query: "Check worker brief structural completeness",
+      kind: $kind,
+      delivery_mode: (if $kind == "scout" then "" else $mode end),
+      recorded_delivery: (if $kind == "scout" then "" else $mode end),
+      has_task: true, has_definition_of_done: true,
+      has_captain_intent: true, has_firstmate_spec: true
+    }' "$LOG/body" >/dev/null || fail "$id request must contain only structural metadata"
+    jq -e '.verdict == "complete" and .block == false and .http == "200"' \
+      "$home/state/$id.jev-brief-preflight.jsonl" >/dev/null || fail "$id must record the call"
+    assert_not_contains "$out" 'warning: brief preflight' "$id complete verdict stays silent"
+  done
+  pass "populated generated ship and scout briefs reach Jev through spawn"
 }
 
 test_compaction_failure_skips_call() {
@@ -500,7 +546,8 @@ test_spawn_complete_brief_passes_silently
 test_spawn_reports_each_defect_and_still_proceeds
 test_spawn_jev_failure_does_not_change_outcome
 test_spawn_structural_refusals_still_fire
-test_unsafe_content_skips_call
+test_body_content_stays_local
+test_spawn_generated_briefs_reach_jev
 test_compaction_failure_skips_call
 test_timeout_configuration
 test_metadata_does_not_forward_content
