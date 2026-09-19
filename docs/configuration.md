@@ -602,6 +602,19 @@ Default spawn does not inject skills, and this tool never changes worker launch.
 Live load stays off and refuses unless `FM_JEV_SKILL_SELECT=live` and the presence file `config/jev-skill-select-live` both exist; even then this release only records the suggestion.
 The script header owns flags, the JSON file, the 0.7 confidence floor, and the live-load refusal.
 
+## Jev queue triage (heartbeat)
+
+`bin/fm-jev-queue-triage.sh` is an advisory next-work signal.
+The watcher is the only production caller and runs it at most once per heartbeat, including absorbed heartbeats, so the helper is not a command nobody runs.
+It never dispatches a task, never clears a hold, never auto-transitions backlog state, and never overrides a dependency or a time gate.
+The ready set is this home only: task ids, titles, kinds, repos, blockers, and hold kind.
+A captain-held item, a hold reason, a private report, and any other home's queue never enter Jev state.
+An empty ready set makes no model call.
+A low-confidence or failed answer still appends `state/jev-queue-triage.jsonl` and does not recommend.
+A recommendation is the single line in `state/jev-queue-triage.line`, which `bin/fm-wake-drain.sh` prints only when presenting a heartbeat row.
+The script header owns flags, the JSONL schema, the Choice questions, and the skip/off/failure exits.
+The Jev caller library above owns the HTTP client and the request timeout that bounds the heartbeat delay.
+
 ## Toolchain
 
 On session start the first mate detects what its required toolchain is missing or too old and lists each problem with either an exact install command or manual instructions.
