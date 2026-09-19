@@ -241,6 +241,12 @@ test_live_overlay_sets_live_loaded() {
     || fail "live overlay must record live_loaded true once pager reached the brief"
   assert_grep '# Jev-selected skills' "$overlay" "overlay missing skills heading"
   assert_grep '/pager' "$overlay" "grok overlay must use slash form"
+  assert_contains "$(cat "$overlay")" 'Do not speculatively search beyond these skills as part of this selection step.' \
+    "generated launch instruction limits speculative discovery only during selection"
+  assert_contains "$(cat "$overlay")" 'Discover and load other applicable skills whenever the task requires them.' \
+    "generated launch instruction preserves task-required skill discovery"
+  assert_no_grep 'Do not search for extra skills this session' "$overlay" \
+    "generated launch instruction must not prohibit discovery for the whole session"
   assert_grep '# Current worker role contract' "$overlay" "overlay lost the worker role"
   assert_grep '# Task' "$overlay" "overlay lost the task"
   pass "live overlay injects selected skills and sets live_loaded true"

@@ -171,7 +171,8 @@ overlay_apply_ok() {
     printf '\n%s\n' "$heading"
     printf '%s\n' 'This launch selected the following installed skills.'
     printf '%s\n' 'Load them now, before doing the assigned work, using this runtime'\''s skill form when it has one, otherwise by reading the installed skill file.'
-    printf '%s\n' 'Do not search for extra skills this session.'
+    printf '%s\n' 'Do not speculatively search beyond these skills as part of this selection step.'
+    printf '%s\n' 'Discover and load other applicable skills whenever the task requires them.'
     jq -r '.[]' <<<"$skills_json" | while IFS= read -r id; do
       [ -n "$id" ] || continue
       form=$(fm_jev_skill_invoke_form "$id")
