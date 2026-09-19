@@ -176,7 +176,7 @@ overlay_apply_ok() {
       [ -n "$id" ] || continue
       form=$(fm_jev_skill_invoke_form "$id")
       skill_file=$(fm_jev_skill_file "$id") || exit 1
-      printf -- '- %s: read `%s`\n' "$form" "$skill_file"
+      printf -- "- %s: read \`%s\`\n" "$form" "$skill_file"
     done
   } >> "$tmp" || { rm -f "$tmp"; return 1; }
   mv "$tmp" "$OVERLAY" || { rm -f "$tmp"; return 1; }

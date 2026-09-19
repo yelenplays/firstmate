@@ -257,7 +257,7 @@ JSON
         "$HOME_DIR/state/$ID.jev-skills.json" >/dev/null || fail "Codex skill must be loaded"
       overlay="$HOME_DIR/data/$ID/launch-brief.md"
       assert_contains "$(cat "$overlay")" "$skill_root/codex-only/SKILL.md" "overlay must locate Codex skill"
-      assert_contains "$(cat "$overlay")" '$codex-only' "overlay must use Codex skill form"
+      assert_contains "$(cat "$overlay")" "\$codex-only" "overlay must use Codex skill form"
     fi
   done
   pass "Codex discovers default and overridden skill homes only for Codex launches"
