@@ -84,6 +84,12 @@ case "${1:-}" in
     else
       printf '%s\n' "$payload" >> "$D/keys"
       case "$payload" in
+        C-q)
+          if [ "$(grep -c '^C-q$' "$D/keys")" -eq 2 ]; then
+            printf zsh > "$D/command"
+            rm -f "$D/limit-pane"
+          fi
+          ;;
         'export GOTMPDIR='*)
           if [ -n "${FM_FAKE_TRACE_PREPARE:-}" ]; then
             : > "$FM_FAKE_TRACE_PREPARE"
@@ -112,7 +118,9 @@ case "${1:-}" in
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
     [ -z "${FM_FAKE_COMPOSER_READ_FAIL:-}" ] || exit 1
-    if [ -s "$D/composer" ]; then
+    if [ -f "$D/limit-pane" ]; then
+      cat "$D/limit-pane"
+    elif [ -s "$D/composer" ]; then
       printf '╭────╮\n│ %s  │\n╰────╯\n' "$(cat "$D/composer")"
     else
       printf '╭────╮\n│    │\n╰────╯\n'
@@ -306,6 +314,26 @@ SH
 }
 
 # --- 1. same-harness relaunch -----------------------------------------------
+
+test_blocked_grok_relaunch_preserves_work_without_typing_exit() {
+  local dir out rc before
+  dir=$(new_case grok-limit)
+  add_ship_task "$dir" t1 grok
+  printf grok > "$dir/fake/command"
+  cp "$ROOT/tests/fixtures/composer/grok-weekly-limit.ansi" "$dir/fake/limit-pane"
+  printf 'uncommitted work\n' > "$dir/wt/draft.txt"
+  before=$(git -C "$dir/wt" rev-parse HEAD)
+  out=$(run_control "$dir" t1 relaunch --harness claude --note 'Continue the preserved work after the quota limit.'); rc=$?
+  expect_code 0 "$rc" "blocked Grok must be replaceable without human input"$'\n'"$out"
+  [ "$(grep -c '^C-q$' "$dir/fake/keys")" -eq 2 ] || fail "blocked relaunch must send the double quit key"
+  if grep -Eq '^/(exit|quit)$' "$dir/fake/literal"; then fail "blocked relaunch must never type into the menu"; fi
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "replacement must actually run"
+  [ "$(git -C "$dir/wt" rev-parse HEAD)" = "$before" ] || fail "relaunch must preserve the branch"
+  [ "$(cat "$dir/wt/draft.txt")" = 'uncommitted work' ] || fail "relaunch must preserve uncommitted work"
+  pass "fm-control relaunch: blocked Grok is replaced with work preserved and no typed exit"
+}
+
+test_blocked_grok_relaunch_preserves_work_without_typing_exit
 
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint() {
   local dir out rc gen_before gen_after

@@ -833,6 +833,46 @@ test_titled_bottom_requires_matching_width
 test_cursor_on_proven_box_bottom_classifies_content
 test_selected_content_is_composer_scoped_and_wrap_normalized
 
+test_pi_captured_footer_and_zen_rail() {
+  local cap screen variant out identity
+  cap=$'styled=1\ncursor=0\nidentity=1\nrows=40'
+  for variant in pi-zen-idle pi-stock-idle; do
+    screen=$(cat "$ROOT/tests/fixtures/composer/$variant.ansi")
+    out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
+    [ "$out" = empty ] || fail "$variant captured live idle must be empty, got $out"
+    out=$(fm_composer_classify_screen "$cap" "$screen")
+    [ "$out" = need-identity ] || fail "$variant must request identity before claiming empty"
+    for identity in $'pi\tblocked' $'pi\tworking' $'grok\tidle' probe-absent; do
+      out=$(fm_composer_classify_screen "$cap" "$screen" '' "$identity")
+      [ "$out" = unknown ] || fail "$variant must preserve unknown for $identity, got $out"
+    done
+    out=$(fm_composer_classify_screen $'styled=1\ncursor=0\nidentity=0' "$screen")
+    [ "$out" = unknown ] || fail "$variant without identity must stay unknown"
+    out=$(fm_composer_classify_screen "$cap" "$screen"$'\n$ echo hi' '' $'pi\tidle')
+    [ "$out" = unknown ] || fail "lower shell must invalidate $variant"
+  done
+  screen=$(cat "$ROOT/tests/fixtures/composer/pi-zen-idle.ansi")
+  for variant in "${screen#*$'\n'}" $'─── ↑ 3 more ───\n'"${screen#*$'\n'}" "${screen%$'\n'*}"; do
+    out=$(fm_composer_classify_screen "$cap" "$variant" '' $'pi\tidle')
+    [ "$out" = unknown ] || fail "truncated/scrolled rail or missing footer must remain unknown, got $out"
+  done
+  # Literal dark input is still input: Zen has no placeholder to ghost-strip.
+  screen=${screen/┃/┃draft}
+  out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
+  [ "$out" = pending ] || fail "Zen real input must be pending, got $out"
+  screen=${screen/┃draft/$'┃first\n┃\n┃last┃'}
+  out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tdone')
+  [ "$out" = pending ] || fail "Zen multiline input including a final rail glyph must stay pending"
+  out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tblocked')
+  [ "$out" = unknown ] || fail "a blocked rail must never prove a composer"
+  screen=$(cat "$ROOT/tests/fixtures/composer/grok-weekly-limit.ansi")
+  out=$(fm_composer_classify_screen "$cap" "$screen" '' $'grok\tblocked')
+  [ "$out" = unknown ] || fail "Grok limit menu is not a composer"
+  pass "captured Pi stock/Zen footers require identity and preserve pending input and menu refusal"
+}
+
+test_pi_captured_footer_and_zen_rail
+
 test_queued_enter_verdict_busy_pending_is_empty() {
   local out
   out=$(fm_composer_queued_enter_verdict pending busy)

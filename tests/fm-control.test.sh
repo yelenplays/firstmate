@@ -131,6 +131,10 @@ case "${1:-}" in
       esac
     else
       printf '%s\n' "$payload" >> "$D/keys"
+      if [ "$payload" = C-q ] && [ "$(grep -c '^C-q$' "$D/keys")" -eq 2 ]; then
+        [ ! -e "$D/quit-key-fails" ] || exit 1
+        if [ ! -e "$D/quit-key-ignored" ]; then printf zsh > "$D/command"; fi
+      fi
       if [ -n "${FM_FAKE_INTERRUPT_STOPS_AGENT:-}" ] \
          && { [ "$payload" = Escape ] || [ "$payload" = C-c ]; }; then
         printf 'zsh' > "$D/command"
@@ -384,6 +388,12 @@ test_backend_key_capability_matrix() {
       fm_control_backend_supports_key "$backend" "$key" \
         || fail "$backend should be able to deliver $key"
     done
+  done
+  for backend in tmux herdr; do
+    fm_control_backend_supports_key "$backend" C-q || fail "$backend must deliver Grok's quit key"
+  done
+  for backend in orca zellij cmux; do
+    if fm_control_backend_supports_key "$backend" C-q; then fail "$backend must not gain an unverified quit key"; fi
   done
   fm_control_backend_supports_key orca Escape \
     && fail "orca's terminal API has no Escape and must not claim it"
@@ -861,6 +871,52 @@ test_grok_idle_footer_does_not_confirm_cancellation() {
   pass "fm-control interrupt: grok's idle footer does not confirm cancellation"
 }
 
+test_grok_limit_recovery_without_typing() {
+  local dir out rc
+  dir=$(new_case grok-limit)
+  add_task "$dir" t1 grok
+  alive_as "$dir" grok
+  cp "$ROOT/tests/fixtures/composer/grok-weekly-limit.ansi" "$dir/fake/pane"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "Grok limit recovery must stop without a human keypress"$'\n'"$out"
+  [ "$(keys_sent "$dir")" = $'C-q\nC-q' ] || fail "Grok limit must receive only its double quit key"
+  [ -z "$(literals "$dir")" ] || fail "Grok limit menu must receive no typed command"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "stopped Grok remains idempotent"
+  assert_contains "$out" already-stopped "second exit must be idempotent"
+  [ "$(keys_sent "$dir")" = $'C-q\nC-q' ] || fail "already stopped must send no more keys"
+  pass "fm-control: captured Grok limit menu stops through non-typing keys and remains idempotent"
+}
+
+test_grok_quit_fallback_preserves_guards() {
+  local dir out rc failure
+  for failure in quit-key-ignored quit-key-fails; do
+    dir=$(new_case "$failure")
+    add_task "$dir" t1 grok
+    alive_as "$dir" grok
+    cp "$ROOT/tests/fixtures/composer/grok-weekly-limit.ansi" "$dir/fake/pane"
+    : > "$dir/fake/$failure"
+    out=$(run_control "$dir" t1 exit); rc=$?
+    expect_code 1 "$rc" "$failure cannot claim a stopped agent"
+    [ -z "$(literals "$dir")" ] || fail "failed non-typing quit must never fall back to typing"
+  done
+  dir=$(new_case pending-grok)
+  add_task "$dir" t1 grok
+  alive_as "$dir" grok
+  printf '╭─────────╮\n│ draft   │\n╰─────────╯\n' > "$dir/fake/pane"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "Grok draft must be preserved"
+  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "pending draft must receive no lifecycle input"
+  dir=$(new_case unknown-pi)
+  add_task "$dir" t1 pi
+  alive_as "$dir" pi
+  printf 'unrecognized menu\n' > "$dir/fake/pane"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "Pi must not inherit Grok quit keys"
+  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "other harness unknown composer must remain untouched"
+  pass "fm-control: quit fallback preserves pending drafts, transport failures, stop proof, and other harnesses"
+}
+
 # --- 6. marker non-regression -----------------------------------------------
 
 test_secondmate_control_command_carries_no_marker() {
@@ -926,6 +982,8 @@ test_harness_lookup_drains_producer() (
 )
 
 test_harness_lookup_drains_producer || exit 1
+test_grok_limit_recovery_without_typing
+test_grok_quit_fallback_preserves_guards
 test_exit_types_each_harness_verified_command
 test_interrupt_sends_each_harness_verified_key
 test_opencode_interrupts_twice_and_others_once

@@ -28,8 +28,10 @@
 #              state is never rewritten as proof of the action.
 #   exit       Stop the agent, preserving its terminal endpoint, worktree, and
 #              every uncommitted change. Interrupts first when the task reads
-#              busy, then submits the harness's exit command. Postcondition:
-#              the backend's recovery-grade classifier reports the agent gone.
+#              busy, then submits the harness's exit command only into a proven
+#              empty composer. An unreadable composer may instead use the
+#              adapter's verified non-typing quit keys (Grok: double Ctrl+Q).
+#              Postcondition: the recovery-grade classifier reports the agent gone.
 #              Already-stopped is success (idempotent).
 #   relaunch   Transactionally replace the running agent with a new one, in the
 #              SAME endpoint and SAME worktree, on the same or a newly chosen
@@ -452,6 +454,7 @@ retire_busy_incarnation() {
 # `already-stopped` or `stopped`.
 do_exit() {
   local state cmd verdict composer_state cancel interrupt_result=not-needed
+  local fallback_key='' repeat i=0 exit_input=exit-command
   require_state_verified_backend exit
   state=$(agent_state)
   case "$state" in
@@ -489,21 +492,36 @@ do_exit() {
       die "task $ID's composer visibly holds pending text; refusing to type the $cmd exit command because it would concatenate onto that text. Clear or submit the pending text, then retry '$VERB'"
       ;;
     *)
-      die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
+      fallback_key=$(fm_control_exit_fallback_key "$HARNESS") || fallback_key=''
+      if [ -z "$fallback_key" ] || ! fm_control_backend_supports_key "$BACKEND" "$fallback_key"; then
+        die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
+      fi
       ;;
   esac
-  # The submit verdict is NOT the postcondition here: a successful exit command
-  # destroys the composer the verdict is read from, so a post-exit read can
-  # legitimately report anything. Only a hard transport failure aborts; the
-  # authoritative proof is the agent-state wait below. The retried Enter still
-  # matters, because a slash command opens a completion popup on some TUIs that
-  # swallows the first Enter.
-  verdict=$(fm_backend_send_text_submit "$BACKEND" "$T" "$cmd" "$EXIT_RETRIES" "$POLL" 1.2 "$LABEL") \
-    || die "the exit command could not be sent to task $ID on $BACKEND"
-  [ "$verdict" != send-failed ] \
-    || die "the exit command could not be sent to task $ID on $BACKEND"
+  if [ -n "$fallback_key" ]; then
+    repeat=$(fm_control_exit_fallback_repeat "$HARNESS")
+    exit_input=exit-keys
+    # No composer input, Enter, clearing, or sleep between the quit keys.
+    # A slow or ignored pair is never success without the ordinary death proof.
+    while [ "$i" -lt "$repeat" ]; do
+      fm_backend_send_key "$BACKEND" "$T" "$fallback_key" "$LABEL" \
+        || die "non-typing quit key $fallback_key was not delivered to task $ID on $BACKEND; exit is unconfirmed"
+      i=$((i + 1))
+    done
+  else
+    # The submit verdict is NOT the postcondition here: a successful exit command
+    # destroys the composer the verdict is read from, so a post-exit read can
+    # legitimately report anything. Only a hard transport failure aborts; the
+    # authoritative proof is the agent-state wait below. The retried Enter still
+    # matters, because a slash command opens a completion popup on some TUIs that
+    # swallows the first Enter.
+    verdict=$(fm_backend_send_text_submit "$BACKEND" "$T" "$cmd" "$EXIT_RETRIES" "$POLL" 1.2 "$LABEL") \
+      || die "the exit command could not be sent to task $ID on $BACKEND"
+    [ "$verdict" != send-failed ] \
+      || die "the exit command could not be sent to task $ID on $BACKEND"
+  fi
   state=$(wait_agent_state "$EXIT_WAIT" dead) || {
-    die "exit-delivered $ID interrupt=$interrupt_result exit-command=delivered agent-state=$state exit=unconfirmed; the agent did not stop within ${EXIT_WAIT}s"
+    die "exit-delivered $ID interrupt=$interrupt_result $exit_input=delivered agent-state=$state exit=unconfirmed; the agent did not stop within ${EXIT_WAIT}s"
   }
   # The incarnation is over: retire its busy wiring so no stale record or
   # orphaned generation survives the agent that produced it.
