@@ -15,12 +15,8 @@
 #   ship or scout spawn also refuses leftover `{TASK}` / `{FIRSTMATE_SPEC}`
 #   placeholders, an empty Task, an incomplete pair of Task subsections, or a
 #   `## Captain's intent` line opening with a Captain label or address.
-#   After those structural refusals, a ship or scout spawn runs
-#   bin/fm-jev-brief-preflight.sh on the written brief (Task section plus
-#   recorded delivery contract only). That gate is shadow-first: it logs and
-#   may warn, and it never refuses launch. A Jev failure or low confidence is
-#   invisible to the launch path. docs/configuration.md "Jev brief preflight"
-#   owns the operator contract.
+#   For the optional bin/fm-jev-brief-preflight.sh check, see the operator
+#   contract in docs/configuration.md "Jev brief preflight".
 #   Every ship or scout spawn renders `launch-brief.md`; for a no-mistakes ship
 #   it also carries the current `--intent` contract and the extracted captain
 #   intent. A legacy mixed Task is accepted there only under bin/fm-dod-lib.sh's
