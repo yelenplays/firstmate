@@ -1,0 +1,18 @@
+
+Scenario: confirmed busy implementation owner, valid empty run table (baseline=1)
+AXI fixture input:
+count: 0 of 0 total
+runs[0]{id,branch,status,head,pr}:
+Observation 1
+fm-crew-state busy-worker: state: unknown · source: run-step · unreadable runs table; run ids: 
+fm-task-execution show busy-worker: busy-worker	firstmate	verify-idle-or-failed-owner-and-recover-or-escalate
+Observation 2
+fm-crew-state busy-worker: state: unknown · source: run-step · unreadable runs table; run ids: 
+fm-task-execution show busy-worker: busy-worker	firstmate	verify-idle-or-failed-owner-and-recover-or-escalate
+Observation 3
+fm-crew-state busy-worker: state: unknown · source: run-step · unreadable runs table; run ids: 
+fm-task-execution show busy-worker: busy-worker	firstmate	verify-idle-or-failed-owner-and-recover-or-escalate
+
+Scenario: same owner endpoint now dead, stale busy record retained
+fm-crew-state busy-worker: state: unknown · source: run-step · unreadable runs table; run ids: 
+fm-task-execution show busy-worker: busy-worker	firstmate	verify-idle-or-failed-owner-and-recover-or-escalate

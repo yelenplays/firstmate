@@ -1,0 +1,30 @@
+ok - empty runs-table classification
+ok - other-branch runs-table classification
+ok - one-running runs-table classification
+ok - malformed runs-table classification
+ok - second-count runs-table classification
+ok - capped overview with no same-branch row is absent, not unreadable
+ok - missing complete-inventory failure reports unknown
+ok - corrupt complete-inventory failure reports unknown
+ok - schema complete-inventory failure reports unknown
+ok - repo complete-inventory failure reports unknown
+ok - count complete-inventory failure reports unknown
+ok - competing live runs report unknown with both run ids
+
+Scenario: confirmed busy implementation owner, valid empty run table (baseline=0)
+AXI fixture input:
+count: 0 of 0 total
+runs[0]{id,branch,status,head,pr}:
+Observation 1
+fm-crew-state busy-worker: state: working · source: pane · harness busy (claude-hook)
+fm-task-execution show busy-worker: busy-worker	worker	continue-implementation
+Observation 2
+fm-crew-state busy-worker: state: working · source: pane · harness busy (claude-hook)
+fm-task-execution show busy-worker: busy-worker	worker	continue-implementation
+Observation 3
+fm-crew-state busy-worker: state: working · source: pane · harness busy (claude-hook)
+fm-task-execution show busy-worker: busy-worker	worker	continue-implementation
+
+Scenario: same owner endpoint now dead, stale busy record retained
+fm-crew-state busy-worker: state: unknown · source: none · backend target gone: fm:fm-busy-worker
+fm-task-execution show busy-worker: busy-worker	firstmate	verify-idle-or-failed-owner-and-recover-or-escalate
