@@ -15,13 +15,20 @@
 #   task  Choice over ready task ids plus none
 # State is this home's ready set only: id, title, kind, repo, blockers, and
 # hold kind. Never a captain-held item, never hold_reason, never a private
-# report body, and never another home's queue. The payload stays inside
-# fm_jev_compact_state's cap (default 8192).
+# report body, and never another home's queue. Metadata is sanitized before
+# building both state and Choice criteria; ids changed by sanitization are
+# excluded. At most 24 items are considered, with titles capped at 80
+# characters. Items are removed from the end until the state fits
+# fm_jev_compact_state's cap (default 8192 bytes); this cap is on state,
+# not the complete request including questions.
 #
 # Gate: skipped entirely (no model call, no JSONL) when the ready set is
 # empty after captain-held ids are dropped. Off with no key: stderr line,
 # exit 0, no JSONL. A low-confidence or failed answer still writes JSONL
 # and does not recommend.
+# A recommendation requires next=dispatch_next and a task from the offered
+# ready ids. Both confidences must be numbers in 0..1 at or above the shared
+# library floor. Recorded confidence is their minimum, or null if invalid.
 #
 # Records:
 #   $FM_HOME/state/jev-queue-triage.jsonl   one object per attempted Jev call
@@ -32,12 +39,13 @@
 #
 # JSONL fields: purpose=queue-triage, advisory=true, dispatch=false,
 # status, next, task, confidence, recommendation, ready_ids, line, route,
-# http, latency_ms, decide_code. Secrets follow fm_jev_log_call redaction.
+# http, latency_ms, decide_code, ts. Secrets follow fm_jev_log_call redaction.
 #
 # Output: one stdout line. Exit 0 except usage (exit 2). Evaluation
 # failures stay 0 so a heartbeat is never blocked.
 #
-# Environment: FM_HOME, plus the Jev library keys and JEV_* settings
+# Environment: FM_HOME, FM_STATE_OVERRIDE (replaces the state directory),
+# plus the Jev library keys and JEV_* settings
 # documented in bin/fm-jev-lib.sh. --heartbeat is accepted and ignored
 # beyond documenting the watcher as caller. This script does not roll its
 # own HTTP.

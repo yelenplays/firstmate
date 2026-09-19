@@ -605,15 +605,17 @@ The script header owns flags, the JSON file, the 0.7 confidence floor, and the l
 ## Jev queue triage (heartbeat)
 
 `bin/fm-jev-queue-triage.sh` is an advisory next-work signal.
-The watcher is the only production caller and runs it at most once per heartbeat, including absorbed heartbeats, so the helper is not a command nobody runs.
+The watcher is the only production caller and runs it at most once per due heartbeat, including absorbed heartbeats.
+With a nonempty ready set, a configured Jev API key enables requests automatically; there is no separate queue-triage opt-in flag.
 It never dispatches a task, never clears a hold, never auto-transitions backlog state, and never overrides a dependency or a time gate.
 The ready set is this home only: task ids, titles, kinds, repos, blockers, and hold kind.
 A captain-held item, a hold reason, a private report, and any other home's queue never enter Jev state.
 An empty ready set makes no model call.
-A low-confidence or failed answer still appends `state/jev-queue-triage.jsonl` and does not recommend.
-A recommendation is the single line in `state/jev-queue-triage.line`, which `bin/fm-wake-drain.sh` prints only when presenting a heartbeat row.
-The script header owns flags, the JSONL schema, the Choice questions, and the skip/off/failure exits.
-The Jev caller library above owns the HTTP client and the request timeout that bounds the heartbeat delay.
+A low-confidence or failed answer is recorded without a recommendation.
+`bin/fm-wake-drain.sh` prints the latest recommendation only when presenting a heartbeat row.
+The [script header](../bin/fm-jev-queue-triage.sh) owns flags, record paths and schema, payload sanitization and limits, the Choice questions and confidence rule, and the skip/off/failure exits.
+Backlog collection uses two sequential listings with a five-second timeout each; a model request then uses the Jev caller library's HTTP timeout.
+Regression coverage lives in [`tests/fm-jev-queue-triage.test.sh`](../tests/fm-jev-queue-triage.test.sh).
 
 ## Toolchain
 
