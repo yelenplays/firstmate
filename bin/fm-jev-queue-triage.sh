@@ -221,7 +221,7 @@ skip_empty() {
 
 collect_ready_json() {
   local ready_out held_out ready_rc held_rc rows captain_ids id kind repo title
-  local json='[]' count=0 skip_id updated
+  local json='[]' count=0 skip_id updated clean_id
   ready_rc=0
   ready_out=$(fm_run_timed "$LIST_TIMEOUT" "$SCRIPT_DIR/fm-tasks-axi.sh" ready 2>/dev/null) || ready_rc=$?
   if [ "$ready_rc" -eq 124 ]; then
@@ -245,9 +245,14 @@ collect_ready_json() {
     fi
     [ "$skip_id" -eq 0 ] || continue
     title=$(unquote "$title")
+    title=$(fm_jev_compact_state "$title") || continue
     title=$(truncate_title "$title")
     kind=$(unquote "$kind")
+    kind=$(fm_jev_compact_state "$kind") || continue
     repo=$(unquote "$repo")
+    repo=$(fm_jev_compact_state "$repo") || continue
+    clean_id=$(fm_jev_compact_state "$id") || continue
+    [ "$clean_id" = "$id" ] || continue
     updated=$(jq -c --arg id "$id" --arg kind "$kind" --arg repo "$repo" --arg title "$title" \
       '. + [{id: $id, kind: $kind, repo: $repo, title: $title, blocked_by: "none", hold_kind: "none"}]' \
       <<<"$json") || continue
@@ -344,7 +349,15 @@ questions=$(jq -nc --argjson next_c "$criteria_next" --argjson task_c "$criteria
 
 decide_code=0
 response=
-response=$(fm_jev_decide "$compacted" "$questions") || decide_code=$?
+if response_file=$(mktemp "$STATE_DIR/jev-queue-triage.response.XXXXXX"); then
+  trap 'rm -f "$response_file"' EXIT
+  fm_jev_decide "$compacted" "$questions" > "$response_file" || decide_code=$?
+  response=$(cat "$response_file")
+  rm -f "$response_file"
+  trap - EXIT
+else
+  decide_code=2
+fi
 
 status=error
 next_choice=
@@ -357,7 +370,10 @@ ready_ids_json=$(printf '%s' "$items" | jq -c '[.[].id]')
 if [ "$decide_code" -eq 0 ] && [ -n "$response" ]; then
   next_choice=$(printf '%s' "$response" | jq -r '.answers.next.choice // empty')
   task_choice=$(printf '%s' "$response" | jq -r '.answers.task.choice // empty')
-  confidence=$(printf '%s' "$response" | jq -r '.answers.next.confidence // empty')
+  confidence=$(printf '%s' "$response" | jq -r '
+    [.answers.next.confidence, .answers.task.confidence]
+    | if all(.[]; type == "number" and . >= 0 and . <= 1) then min else empty end
+  ')
   case "$next_choice" in
     dispatch_next|blocked|needs_captain|nothing_ready) ;;
     *) next_choice= ;;

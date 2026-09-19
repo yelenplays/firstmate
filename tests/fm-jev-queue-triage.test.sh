@@ -184,7 +184,9 @@ test_normal_suggestion_is_recorded() {
   [ -f "$record" ] || fail "a Jev call must append JSONL"
   jq -e '.purpose == "queue-triage" and .advisory == true and .dispatch == false
       and .status == "clear" and .recommendation == "ready-1"
-      and .next == "dispatch_next"' "$record" >/dev/null \
+      and .next == "dispatch_next" and .confidence == 0.81
+      and .route == "typesafe" and .http == "200"
+      and (.latency_ms | type == "number" and . >= 0)' "$record" >/dev/null \
     || fail "JSONL must record an advisory dispatch_next recommendation: $(cat "$record")"
   assert_contains "$out" 'advisory, never dispatch' "stdout is the surface line"
   assert_contains "$out" 'task=ready-1' "stdout names the picked task"
@@ -222,7 +224,9 @@ test_jev_failure_records_no_recommendation() {
   expect_code 0 "$code" "Jev failure exits 0"
   record="$HOME_DIR/state/jev-queue-triage.jsonl"
   [ -f "$record" ] || fail "a failed Jev call must still append JSONL"
-  jq -e '.status == "error" and .recommendation == null and .dispatch == false' \
+  jq -e '.status == "error" and .recommendation == null and .dispatch == false
+      and .route == "typesafe" and .http == "000"
+      and (.latency_ms | type == "number" and . >= 0)' \
     "$record" >/dev/null \
     || fail "failure record must not recommend: $(cat "$record")"
   assert_contains "$out" 'no-recommendation' "failure prints no-recommendation"
@@ -254,6 +258,57 @@ JSON
   [ ! -e "$HOME_DIR/state/jev-queue-triage.line" ] \
     || fail "low confidence must not leave a recommendation line"
   pass "confidence below 0.7 records no recommendation"
+}
+
+test_task_metadata_is_redacted_in_the_request() {
+  local code out err body
+  fresh_home
+  add_task ready-1 'Ship GH_TOKEN=secret' --kind ship --repo firstmate
+  mkdir -p "$HOME_DIR/data/ready-1"
+  printf 'PRIVATE_REPORT_BODY\n' > "$HOME_DIR/data/ready-1/report.md"
+  TYPESAFE_API_KEY=$TS_KEY run_triage code out err --heartbeat
+  expect_code 0 "$code" "redacted metadata exits 0"
+  body=$(cat "$LOG/body")
+  assert_not_contains "$body" 'secret' "no request path leaks the title secret"
+  assert_not_contains "$body" 'PRIVATE_REPORT_BODY' "reports never enter the request"
+  jq -e '(.state | contains("title=Ship [redacted]"))
+      and .questions.task.criteria["ready-1"] == "Ship [redacted] (ship, firstmate)"' \
+    "$LOG/body" >/dev/null || fail "both request paths must use the sanitized title"
+  pass "state and criteria share sanitized task metadata"
+}
+
+test_both_confidences_must_meet_the_floor() {
+  local code out err value answer
+  fresh_home
+  add_task ready-1 'Ship a widget' --kind ship --repo firstmate
+  for answer in next task; do
+    for value in 0.1 null '"0.95"' true -0.1 1.1 '{}'; do
+      write_response "$RESPONSE"
+      jq --arg answer "$answer" --argjson value "$value" \
+        '.answers.next.confidence = 0.95 | .answers.task.confidence = 0.95
+         | .answers[$answer].confidence = $value' "$RESPONSE" > "$TMP_ROOT/edited.json"
+      mv "$TMP_ROOT/edited.json" "$RESPONSE"
+      TYPESAFE_API_KEY=$TS_KEY run_triage code out err --heartbeat
+      expect_code 0 "$code" "invalid or low confidence exits 0"
+      jq -e '.status == "no-recommendation" and .recommendation == null' \
+        "$HOME_DIR/state/jev-queue-triage.json" >/dev/null \
+        || fail "$answer confidence $value must not recommend"
+      [ ! -e "$HOME_DIR/state/jev-queue-triage.line" ] \
+        || fail "invalid or low confidence must clear the line"
+    done
+  done
+  write_response "$RESPONSE"
+  jq '.answers.next.confidence = 0.8 | .answers.task.confidence = 0.8' \
+    "$RESPONSE" > "$TMP_ROOT/edited.json"
+  mv "$TMP_ROOT/edited.json" "$RESPONSE"
+  JEV_CONFIDENCE_FLOOR=0.8 TYPESAFE_API_KEY=$TS_KEY run_triage code out err --heartbeat
+  jq -e '.status == "clear" and .confidence == 0.8' \
+    "$HOME_DIR/state/jev-queue-triage.json" >/dev/null || fail "the configured floor is inclusive"
+  JEV_CONFIDENCE_FLOOR=0.9 TYPESAFE_API_KEY=$TS_KEY run_triage code out err --heartbeat
+  jq -e '.status == "no-recommendation"' "$HOME_DIR/state/jev-queue-triage.json" >/dev/null \
+    || fail "both answers must meet the configured floor"
+  write_response "$RESPONSE"
+  pass "both numeric confidences must meet the configured floor"
 }
 
 test_drain_prints_line_only_on_heartbeat() {
@@ -355,6 +410,8 @@ test_normal_suggestion_is_recorded
 test_captain_held_item_never_in_state
 test_jev_failure_records_no_recommendation
 test_low_confidence_is_not_a_recommendation
+test_task_metadata_is_redacted_in_the_request
+test_both_confidences_must_meet_the_floor
 test_drain_prints_line_only_on_heartbeat
 test_watcher_records_a_suggestion_on_heartbeat
 test_jev_failure_leaves_heartbeat_unaffected
