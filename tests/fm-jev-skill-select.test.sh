@@ -21,6 +21,8 @@ SKILLS_DIR="$TMP_ROOT/skills"
 BASE_PATH=$PATH
 TS_KEY='ts-test-key-not-for-argv'
 mkdir -p "$HOME_DIR/state" "$HOME_DIR/config" "$LOG" "$SKILLS_DIR/pager" "$SKILLS_DIR/review"
+printf "# pager\n" > "$SKILLS_DIR/pager/SKILL.md"
+printf "# review\n" > "$SKILLS_DIR/review/SKILL.md"
 
 write_response() {
   cat > "$1" <<'JSON'
@@ -242,6 +244,17 @@ test_live_overlay_sets_live_loaded() {
   assert_grep '# Current worker role contract' "$overlay" "overlay lost the worker role"
   assert_grep '# Task' "$overlay" "overlay lost the task"
   pass "live overlay injects selected skills and sets live_loaded true"
+  rm "$SKILLS_DIR/pager/SKILL.md"
+  seed_overlay "$overlay"
+  FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY run_select code out err \
+    --harness grok --task-id t-overlay --skills-dir "$SKILLS_DIR" --overlay "$overlay"
+  expect_code 0 "$code" "cached selection with missing file remains fail-open"
+  jq -e '.reused == true and .live_loaded == false' \
+    "$HOME_DIR/state/t-overlay.jev-skills.json" >/dev/null || fail "missing cached skill must not be loaded"
+  assert_no_grep 'Jev-selected skills' "$overlay" "missing cached skill must not reach launch overlay"
+  assert_absent "$LOG/body" "cached selection must not repeat the request"
+  printf '# pager\n' > "$SKILLS_DIR/pager/SKILL.md"
+  pass "cached skills are revalidated against currently readable files"
 }
 
 test_shadow_overlay_does_not_change_launch() {

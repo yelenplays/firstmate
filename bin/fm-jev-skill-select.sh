@@ -130,18 +130,33 @@ fm_jev_skill_invoke_form() {
   esac
 }
 
+fm_jev_skill_file() {
+  local id=$1 dir
+  for dir in ${SKILLS_DIRS+"${SKILLS_DIRS[@]}"}; do
+    if [ -f "$dir/$id/SKILL.md" ] && [ -r "$dir/$id/SKILL.md" ]; then
+      printf '%s/%s/SKILL.md' "$dir" "$id"
+      return 0
+    fi
+  done
+  return 1
+}
+
 # Write the selected skills into the published launch-brief overlay.
 # Returns 0 only when every skill id is then present in that file.
 # Never exits non-zero for a load failure: the caller records live_loaded false.
 overlay_apply_ok() {
   local skills_json=$1 status=$2
-  local overlay_dir tmp heading count
+  local overlay_dir tmp heading count id skill_file
   [ "$MODE" = live ] || return 1
   [ -n "$OVERLAY" ] || return 1
   [ -f "$OVERLAY" ] && [ -w "$OVERLAY" ] || return 1
   [ "$status" = clear ] || return 1
   count=$(jq -r 'if type == "array" then length else 0 end' <<<"$skills_json" 2>/dev/null) || return 1
   [ "$count" -gt 0 ] || return 1
+
+  while IFS= read -r id; do
+    fm_jev_skill_file "$id" >/dev/null || return 1
+  done < <(jq -r '.[]' <<<"$skills_json")
 
   heading='# Jev-selected skills'
   overlay_dir=$(dirname "$OVERLAY")
@@ -160,7 +175,8 @@ overlay_apply_ok() {
     jq -r '.[]' <<<"$skills_json" | while IFS= read -r id; do
       [ -n "$id" ] || continue
       form=$(fm_jev_skill_invoke_form "$id")
-      printf -- '- %s\n' "$form"
+      skill_file=$(fm_jev_skill_file "$id") || exit 1
+      printf -- '- %s: read `%s`\n' "$form" "$skill_file"
     done
   } >> "$tmp" || { rm -f "$tmp"; return 1; }
   mv "$tmp" "$OVERLAY" || { rm -f "$tmp"; return 1; }
@@ -219,7 +235,7 @@ for dir in ${SKILLS_DIRS+"${SKILLS_DIRS[@]}"}; do
   [ -d "$dir" ] || die "skills dir not a directory: $dir"
   [ -r "$dir" ] || die "skills dir not readable: $dir"
   for path in "$dir"/*; do
-    [ -d "$path" ] || continue
+    [ -f "$path/SKILL.md" ] && [ -r "$path/SKILL.md" ] || continue
     add_skill "$(basename "$path")"
   done
 done

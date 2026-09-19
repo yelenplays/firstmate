@@ -32,7 +32,12 @@
 #   secondmate's charter.
 #   After that overlay is published, a live Jev skill selection may append the
 #   chosen skills to the same launch-brief (bin/fm-jev-skill-select.sh --overlay).
-#   Live load needs FM_JEV_SKILL_SELECT=live and config/jev-skill-select-live.
+#   Live load needs FM_JEV_SKILL_SELECT=live, config/jev-skill-select-live,
+#   and data/<task-id>/jev-skill-query.txt containing an explicitly safe query.
+#   The caller must supply only query text there, never page content, excerpts,
+#   or conflict lines. Raw brief text is never used as a fallback; missing or
+#   blank queries skip selection. Project skills come from the refreshed worker
+#   worktree; selected skill files must still be readable at overlay publication.
 #   Shadow, none, a Jev outage, and a failed load leave the overlay unchanged
 #   and never refuse the spawn; docs/configuration.md "Jev skill selector"
 #   owns the operator contract.
@@ -2614,26 +2619,16 @@ fi
 # must not refuse the worker. bin/fm-jev-skill-select.sh owns the decision
 # rule and live_loaded; this is only the hop into the published overlay.
 fm_spawn_jev_skill_summary() {
-  local text=
-  if [ -n "${CAPTAIN_INTENT:-}" ]; then
-    text="$CAPTAIN_INTENT"
-  elif [ -n "${SOURCE_BRIEF:-}" ] && [ -f "$SOURCE_BRIEF" ]; then
-    if fm_brief_task_heading_present "$SOURCE_BRIEF" "## Captain's intent"; then
-      text=$(fm_brief_task_heading_body "$SOURCE_BRIEF" "## Captain's intent")
-    fi
-  elif [ -n "${BRIEF:-}" ] && [ -f "$BRIEF" ]; then
-    if fm_brief_task_heading_present "$BRIEF" "## Captain's intent"; then
-      text=$(fm_brief_task_heading_body "$BRIEF" "## Captain's intent")
-    fi
-  fi
-  printf '%s' "$text" | tr '\n' ' ' | cut -c1-400
+  local query="$DATA/$ID/jev-skill-query.txt"
+  [ -f "$query" ] && [ -r "$query" ] || return 0
+  LC_ALL=C tr '\n\r' '  ' < "$query" | cut -c1-400 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
 }
 
 fm_spawn_jev_skill_dirs() {
   local dir
   for dir in \
-    "${PROJ_ABS:+$PROJ_ABS/.agents/skills}" \
-    "${PROJ_ABS:+$PROJ_ABS/.claude/skills}" \
+    "${WT:+$WT/.agents/skills}" \
+    "${WT:+$WT/.claude/skills}" \
     "${HOME:+$HOME/.agents/skills}" \
     "${HOME:+$HOME/.claude/skills}" \
     "${HOME:+$HOME/.grok/skills}" \
@@ -2656,10 +2651,8 @@ fm_spawn_apply_jev_skills() {
   [ -n "${BRIEF:-}" ] && [ -f "$BRIEF" ] || return 0
 
   summary=$(fm_spawn_jev_skill_summary)
-  args=(--harness "$HARNESS" --task-id "$ID" --overlay "$BRIEF")
-  if [ -n "$summary" ]; then
-    args+=(--summary "$summary")
-  fi
+  [ -n "$summary" ] || return 0
+  args=(--harness "$HARNESS" --task-id "$ID" --overlay "$BRIEF" --summary "$summary")
   while IFS= read -r dir; do
     [ -n "$dir" ] || continue
     args+=(--skills-dir "$dir")
@@ -2718,7 +2711,6 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
     echo "error: could not publish current launch contract for $SOURCE_BRIEF" >&2
     exit 1
   fi
-  fm_spawn_apply_jev_skills || true
 fi
 
 # An unedited scaffold must never launch a worker. fm-brief.sh writes {TASK} in the
@@ -3815,6 +3807,7 @@ fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
   freshen_spawn_worktree_base "$WT" || exit 1
 fi
+fm_spawn_apply_jev_skills || true
 
 # Pre-register Claude's workspace trust for the directory this launch starts in,
 # at the first point that directory is known and before any per-task state is

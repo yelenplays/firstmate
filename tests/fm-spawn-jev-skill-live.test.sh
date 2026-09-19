@@ -43,7 +43,7 @@ while [ $# -gt 0 ]; do
     *) shift ;;
   esac
 done
-cat >/dev/null
+cat > "${FAKE_CURL_BODY:?}"
 cat /dev/fd/3 >/dev/null 2>/dev/null || true
 if [ "${FAKE_CURL_FAIL:-0}" = 1 ]; then
   exit 7
@@ -74,20 +74,32 @@ make_case() {
   fm_test_spawn_home "$home" grok
   fm_git_worktree "$proj" "$wt" "wt-$name"
   seed_project_skills "$proj"
-  fm_test_spawn_brief "$home" "$id"
+  git -C "$proj" add .agents
+  git -C "$proj" commit --quiet -m 'Add worker skills'
+  git -C "$proj" push --quiet origin HEAD
+  git -C "$proj" rm -r --quiet .agents
+  git -C "$proj" commit --quiet -m 'Remove skills only in launching checkout'
+  mkdir -p "$proj/.agents/skills/launcher-only"
+  printf '# launcher only\n' > "$proj/.agents/skills/launcher-only/SKILL.md"
+  fm_test_spawn_brief "$home" "$id" 'PRIVATE_EXCERPT <<<<<<< conflict lines'
+  printf 'Find pager skills\n' > "$home/data/$id/jev-skill-query.txt"
   printf '%s\n' "$case_dir|$home|$proj|$wt|$fakebin|$launchlog|$id"
 }
 
 run_ship() {
   local home=$1 wt=$2 fakebin=$3 launchlog=$4
   shift 4
+  local -a delivery=(--mode "${TEST_SHIP_MODE:-no-mistakes}" --yolo off)
+  if [ "${TEST_SCOUT:-0}" = 1 ]; then
+    delivery=(--scout)
+  fi
   : > "$launchlog"
-  FAKE_CURL_RESPONSE="$RESPONSE" FAKE_CURL_HTTP="${FAKE_CURL_HTTP:-200}" \
+  FAKE_CURL_BODY="$home/request.json" FAKE_CURL_RESPONSE="$RESPONSE" FAKE_CURL_HTTP="${FAKE_CURL_HTTP:-200}" \
     FAKE_CURL_FAIL="${FAKE_CURL_FAIL:-0}" \
     CLAUDE_CONFIG_DIR='' \
     FM_FAKE_LAUNCH_LOG="$launchlog" \
     GROK_HOME="$home/grok-home" \
-    fm_test_run_spawn "$home" "$wt" "$fakebin" "$@" --mode no-mistakes --yolo off --harness grok
+    fm_test_run_spawn "$home" "$wt" "$fakebin" "$@" "${delivery[@]}" --harness grok
 }
 
 read_case() {
@@ -116,6 +128,10 @@ test_live_selection_reaches_overlay() {
   assert_grep '# Jev-selected skills' "$overlay" "launch-brief missing selected skills"
   assert_grep '/pager' "$overlay" "launch-brief did not carry pager in grok form"
   assert_grep '# Current worker role contract' "$overlay" "launch-brief lost the worker role"
+  assert_grep "$WT_DIR/.agents/skills/pager/SKILL.md" "$overlay" "overlay must locate the worker skill file"
+  assert_present "$WT_DIR/.agents/skills/pager/SKILL.md" "freshness must install the selected skill"
+  jq -e 'tostring | contains("Find pager skills") and (contains("PRIVATE_EXCERPT") | not) and (contains("launcher-only") | not)' \
+    "$HOME_DIR/request.json" >/dev/null || fail "request must use only the safe query and worker catalog"
   pass "live selection reaches the launch overlay and live_loaded is true"
 }
 
@@ -175,6 +191,34 @@ test_jev_failure_does_not_block_spawn() {
   pass "Jev failure does not block spawn and does not load skills"
 }
 
+test_missing_safe_query_skips_selection() {
+  local shape rec out status TEST_SCOUT TEST_SHIP_MODE
+  for shape in modern legacy legacy-scout legacy-direct blank; do
+    write_pager_response
+    rec=$(make_case "query-$shape" "t-query-$shape")
+    read_case "$rec"
+    : > "$HOME_DIR/config/jev-skill-select-live"
+    rm "$HOME_DIR/data/$ID/jev-skill-query.txt"
+    if [[ "$shape" = legacy* ]]; then
+      printf '# Task\n[captain] PRIVATE_EXCERPT <<<<<<< conflict lines\n' > "$HOME_DIR/data/$ID/brief.md"
+    elif [ "$shape" = blank ]; then
+      printf '  \n \t\n' > "$HOME_DIR/data/$ID/jev-skill-query.txt"
+    fi
+    TEST_SCOUT=0 TEST_SHIP_MODE=no-mistakes
+    [ "$shape" != legacy-scout ] || TEST_SCOUT=1
+    [ "$shape" != legacy-direct ] || TEST_SHIP_MODE=direct-PR
+    out=$(FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY \
+      run_ship "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$ID" "$PROJ_DIR")
+    status=$?
+    expect_code 0 "$status" "missing safe query must not block $shape spawn: $out"
+    assert_absent "$HOME_DIR/request.json" "missing safe query must never contact Jev"
+    assert_absent "$HOME_DIR/state/$ID.jev-skills.json" "missing safe query must skip selection"
+    assert_no_grep 'Jev-selected skills' "$HOME_DIR/data/$ID/launch-brief.md" "missing safe query must not inject skills"
+  done
+  pass "modern, legacy, and blank queries skip selection without contacting Jev"
+}
+
 test_live_selection_reaches_overlay
 test_disabled_and_none_match_today
 test_jev_failure_does_not_block_spawn
+test_missing_safe_query_skips_selection
