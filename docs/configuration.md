@@ -619,15 +619,15 @@ Regression coverage lives in [`tests/fm-jev-queue-triage.test.sh`](../tests/fm-j
 
 ## Jev brief preflight (FM_JEV_BRIEF_PREFLIGHT)
 
-`bin/fm-spawn.sh` runs [`bin/fm-jev-brief-preflight.sh`](../bin/fm-jev-brief-preflight.sh) after its structural brief refusals and before any endpoint exists.
+`bin/fm-spawn.sh` runs [`bin/fm-jev-brief-preflight.sh`](../bin/fm-jev-brief-preflight.sh) for ship and scout briefs after its structural brief refusals and before any endpoint exists.
 Jev receives only a fixed completeness query, the validated worker kind and delivery modes, and section-presence booleans.
 It never receives the `# Task` or `# Definition of done` bodies.
 This structural metadata cannot establish semantic completeness or consistent constraints; when it cannot establish an answer, Jev is instructed to choose `need_human`.
 It never receives captain-private records, another home's data, page content, excerpts, conflict lines, or any key.
 One Choice over `{complete, missing_acceptance, missing_constraints, ambiguous_scope, need_human}` plus confidence.
-Default `FM_JEV_BRIEF_PREFLIGHT` is `shadow`: append `state/<id>.jev-brief-preflight.jsonl` and still spawn.
+Default `FM_JEV_BRIEF_PREFLIGHT` is `shadow`: attempted calls append the record described in the [script header](../bin/fm-jev-brief-preflight.sh) and still spawn.
 A high-confidence defect prints the exact missing element on stderr; `complete`, low confidence, a Jev failure, and an absent key stay silent and never refuse launch.
-`FM_JEV_BRIEF_PREFLIGHT=off` skips the call and writes nothing.
+`FM_JEV_BRIEF_PREFLIGHT=off`, an absent key, unrecognized delivery metadata, or failed compaction skips the call and writes nothing.
 This gate never blocks a spawn.
 Leftover placeholders, an empty Task, a half-filled intent/spec pair, and a Captain-addressed intent line remain `fm-spawn.sh`'s structural refusals.
 The HTTP call goes through [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh).
