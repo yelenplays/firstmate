@@ -10,7 +10,7 @@
 set -u
 
 # shellcheck source=tests/lib.sh
-. "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XJR26SAN251JJA0VBT0GB4/tests/lib.sh"
+. "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XMPQQ24V9QCMCMF2KKA8E3/tests/lib.sh"
 
 TOOL="$ROOT/bin/fm-jev-brief-preflight.sh"
 SPAWN="$ROOT/bin/fm-spawn.sh"
@@ -536,39 +536,30 @@ test_metadata_does_not_forward_content() {
   pass "raw bodies and unrecognized metadata never enter the request"
 }
 
-EVIDENCE=/Users/yelen/.no-mistakes/evidence/01M2XJR26SAN251JJA0VBT0GB4
 rec=$(make_spawn_home evidence)
-IFS='|' read -r home proj fakebin <<< "$rec"
-{
-  printf 'Jev brief preflight - public CLI integration evidence\n'
-  printf 'Transport: fake curl with deterministic Jev responses; tmux unavailable by design. No live agents or API calls.\n'
-  for scenario in complete need_human transport_failure; do
-    id="evidence-$scenario"
-    printf '\nScenario: %s\n' "$scenario"
-    printf '$ FM_HOME=<isolated home> bin/fm-brief.sh %s proj --mode direct-PR\n' "$id"
-    FM_HOME="$home" "$BRIEF_TOOL" "$id" proj --mode direct-PR
-    content=$(cat "$home/data/$id/brief.md")
-    content=${content//'{TASK}'/Fix the pager off-by-one. Private page excerpt: sentinel-page-123.}
-    content=${content//'{FIRSTMATE_SPEC}'/Change only pager.sh and add a regression test.}
-    printf '%s\n' "$content" > "$home/data/$id/brief.md"
-    printf 'Populated the standard generated brief; retained scaffold and added a private-content sentinel.\n'
-    write_response "$scenario" 0.9
-    printf '$ bin/fm-spawn.sh %s <isolated project> claude --mode direct-PR --yolo off\n' "$id"
-    rc=0
-    if [ "$scenario" = transport_failure ]; then
-      out=$(FAKE_CURL_FAIL=1 TYPESAFE_API_KEY=$TS_KEY run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off) || rc=$?
-    else
-      out=$(TYPESAFE_API_KEY=$TS_KEY run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off) || rc=$?
-    fi
-    printf '%s\nSpawn exit: %s (fixture deliberately has no backend)\n' "$out" "$rc"
-    printf 'Outbound request state captured at curl stdin:\n'
-    jq '.state' "$LOG/body"
-    jq -e '.state | keys == ["delivery_mode","has_captain_intent","has_definition_of_done","has_firstmate_spec","has_task","kind","query","recorded_delivery"]' "$LOG/body" >/dev/null || fail 'unexpected transmitted metadata'
-    assert_not_contains "$(cat "$LOG/body")" sentinel-page-123 'page body leaked'
-    printf 'Persisted operator record:\n'
-    cat "$home/state/$id.jev-brief-preflight.jsonl"
-    cp "$LOG/body" "$EVIDENCE/$scenario-request.json"
-    cp "$home/state/$id.jev-brief-preflight.jsonl" "$EVIDENCE/$scenario-record.jsonl"
-  done
-} > "$EVIDENCE/spawn-preflight-transcript.txt"
-cat "$EVIDENCE/spawn-preflight-transcript.txt"
+IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+FM_HOME="$home" "$BRIEF_TOOL" evidence-ship proj --mode direct-PR >/dev/null
+content=$(cat "$home/data/evidence-ship/brief.md")
+content=${content//'{TASK}'/Fix the pager off-by-one.}
+content=${content//'{FIRSTMATE_SPEC}'/Change only pager.sh and add a regression test.}
+printf '%s\n' "$content" > "$home/data/evidence-ship/brief.md"
+printf '%s\n' 'Integration boundary: real brief generator, spawn CLI, preflight, and JSONL persistence; curl response and tmux backend are simulated. Backend intentionally stops before worker creation.'
+for scenario in complete missing_acceptance transport_failure; do
+  write_response complete 0.9
+  [ "$scenario" != missing_acceptance ] || write_response missing_acceptance 0.9
+  printf '\nScenario: %s\n' "$scenario"
+  printf '%s\n' '$ fm-spawn.sh evidence-ship <fixture-project> claude --mode direct-PR --yolo off'
+  if [ "$scenario" = transport_failure ]; then
+    out=$(FAKE_CURL_FAIL=1 TYPESAFE_API_KEY=$TS_KEY run_spawn "$home" "$fakebin" evidence-ship "$proj" claude --mode direct-PR --yolo off)
+  else
+    out=$(TYPESAFE_API_KEY=$TS_KEY run_spawn "$home" "$fakebin" evidence-ship "$proj" claude --mode direct-PR --yolo off)
+  fi
+  rc=$?
+  printf 'Spawn exit: %s (simulated unavailable backend)\n%s\n' "$rc" "$out"
+  printf 'Request state actually delivered to curl stdin:\n'
+  jq '.state' "$LOG/body"
+  printf 'Persisted preflight record:\n'
+  tail -n 1 "$home/state/evidence-ship.jev-brief-preflight.jsonl" | jq .
+done
