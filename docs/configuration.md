@@ -617,6 +617,21 @@ The [script header](../bin/fm-jev-queue-triage.sh) owns flags, record paths and 
 Backlog collection uses two sequential listings with a five-second timeout each; a model request then uses the Jev caller library's HTTP timeout.
 Regression coverage lives in [`tests/fm-jev-queue-triage.test.sh`](../tests/fm-jev-queue-triage.test.sh).
 
+## Jev brief preflight (FM_JEV_BRIEF_PREFLIGHT)
+
+`bin/fm-spawn.sh` runs [`bin/fm-jev-brief-preflight.sh`](../bin/fm-jev-brief-preflight.sh) after its structural brief refusals and before any endpoint exists.
+Jev sees only the brief's `# Task` section plus the recorded delivery contract (`# Definition of done`, including `Delivery contract: mode=`).
+It never receives captain-private records, another home's data, page content, excerpts, conflict lines, or any key.
+One Choice over `{complete, missing_acceptance, missing_constraints, ambiguous_scope, need_human}` plus confidence.
+Default `FM_JEV_BRIEF_PREFLIGHT` is `shadow`: append `state/<id>.jev-brief-preflight.jsonl` and still spawn.
+A high-confidence defect prints the exact missing element on stderr; `complete`, low confidence, a Jev failure, and an absent key stay silent and never refuse launch.
+`FM_JEV_BRIEF_PREFLIGHT=off` skips the call and writes nothing.
+This gate never blocks a spawn.
+Leftover placeholders, an empty Task, a half-filled intent/spec pair, and a Captain-addressed intent line remain `fm-spawn.sh`'s structural refusals.
+The HTTP call goes through [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh).
+This gate defaults `JEV_TIMEOUT` to 5 seconds when unset so an outage cannot stall launch; an explicit `JEV_TIMEOUT` still wins.
+The script header owns flags, the JSONL schema, and the 0.7 confidence floor (`JEV_CONFIDENCE_FLOOR`).
+
 ## Toolchain
 
 On session start the first mate detects what its required toolchain is missing or too old and lists each problem with either an exact install command or manual instructions.
@@ -1208,9 +1223,10 @@ JEV_ROUTE=              # optional; `openrouter` or `typesafe` (docs/configurati
 JEV_MODEL=              # optional Jev model override (same section)
 JEV_URL=                # optional complete Jev POST URL, used verbatim (same section)
 JEV_BASE=               # optional TypeSafe origin; `/v1/systemone` is appended when JEV_URL is unset (same section)
-JEV_TIMEOUT=25          # optional Jev HTTP timeout in seconds; default 25 (same section)
+JEV_TIMEOUT=25          # optional Jev HTTP timeout in seconds; default 25 (same section); brief preflight uses 5 when this is unset (docs/configuration.md "Jev brief preflight")
 FM_JEV_TOOL_GATE=shadow # remainder Jev tool-gate after arm-command policy; live needs this plus two opt-in files; hard-ship is a do-not (docs/configuration.md "Jev remainder tool-gate")
 FM_JEV_SKILL_SELECT=shadow # once-per-session skill suggestion; live needs this plus config/jev-skill-select-live and still does not inject skills (docs/configuration.md "Jev skill selector")
+FM_JEV_BRIEF_PREFLIGHT=shadow # spawn-path Jev brief preflight; off skips; never blocks launch (docs/configuration.md "Jev brief preflight")
 FMX_DISCORD_REPLY_MAX_CHARS=1900   # Discord reply per-message split budget; values below 50 clamp to 50, values above 2000 reset to 1900
 FMX_X_THREAD_MAX=25     # maximum messages in one auto-split reply thread
 FMX_FOLLOWUP_MAX_AGE_SECS=604800   # local window for posting Relay completion follow-ups (7 days)
