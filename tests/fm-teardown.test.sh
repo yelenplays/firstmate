@@ -2054,6 +2054,47 @@ test_teardown_missing_busy_sidecar_completes() {
   pass "teardown completes when an exact busy-state sidecar is already absent"
 }
 
+test_teardown_retires_turn_end_signal_marker() {
+  local case_dir watcher_pid drain_out rc
+  case_dir=$(make_case torn-down-turn-end-signal)
+  write_meta "$case_dir" local-only ship
+  : > "$case_dir/state/task-x1.turn-ended"
+  : > "$case_dir/state/.seen-task-x1_turn-ended"
+
+  run_teardown "$case_dir" --force > "$case_dir/stdout" 2> "$case_dir/stderr" \
+    || fail "torn-down-turn-end-signal: teardown failed: $(cat "$case_dir/stderr")"
+  assert_absent "$case_dir/state/.seen-task-x1_turn-ended" \
+    "torn-down-turn-end-signal: teardown left the turn-ended signal marker"
+  assert_absent "$case_dir/state/task-x1.meta" \
+    "torn-down-turn-end-signal: teardown left task metadata"
+  assert_absent "$case_dir/state/task-x1.turn-ended" \
+    "torn-down-turn-end-signal: teardown left the turn-ended marker"
+
+  FM_HOME="$case_dir" FM_STATE_OVERRIDE="$case_dir/state" \
+    FM_ROOT_OVERRIDE="$case_dir" FM_POLL=1 FM_SIGNAL_GRACE=0 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 PATH="$case_dir/fakebin:$PATH" \
+    "$ROOT/bin/fm-watch.sh" > "$case_dir/watch.out" 2>&1 &
+  watcher_pid=$!
+  sleep 2
+  kill "$watcher_pid" 2>/dev/null || true
+  wait "$watcher_pid" 2>/dev/null || true
+
+  drain_out=$(FM_HOME="$case_dir" FM_STATE_OVERRIDE="$case_dir/state" \
+    FM_ROOT_OVERRIDE="$case_dir" "$ROOT/bin/fm-wake-drain.sh" 2>&1) || {
+    rc=$?
+    fail "torn-down-turn-end-signal: wake drain failed ($rc): $drain_out"
+  }
+  if grep -E $'\\t(signal|stale)\\t' "$case_dir/state/.wake-queue" \
+    >/dev/null 2>&1; then
+    fail "torn-down-turn-end-signal: watcher queued a wake for the retired task"
+  fi
+  if printf '%s\\n' "$drain_out" | grep -E $'\\t(signal|stale)\\t' \
+    >/dev/null 2>&1; then
+    fail "torn-down-turn-end-signal: drain presented a wake for the retired task"
+  fi
+  pass "teardown retires turn-ended signal state and keeps the watcher quiet"
+}
+
 test_herdr_teardown_clears_escalation_marker() {
   local case_dir marker
   case_dir=$(make_case herdr-marker-cleanup)
@@ -3764,6 +3805,7 @@ test_local_only_force_overrides_unpushed
 test_secondmate_pr_registration_publishes_ready_line
 test_secondmate_home_teardown_delivers_final_line_or_refuses
 test_teardown_missing_busy_sidecar_completes
+test_teardown_retires_turn_end_signal_marker
 test_herdr_teardown_clears_escalation_marker
 test_herdr_flat_teardown_refuses_orphaning_records_then_retry_completes
 test_herdr_flat_teardown_refuses_records_on_unparseable_presence
