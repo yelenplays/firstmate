@@ -98,6 +98,9 @@ run_ship() {
     delivery=(--scout)
   fi
   : > "$launchlog"
+  # The shared curl recorder belongs to skill selection, not brief preflight.
+  # Keep that independent spawn-time Jev consumer out of this fixture.
+  FM_JEV_BRIEF_PREFLIGHT=off \
   FAKE_CURL_BODY="$home/request.json" FAKE_CURL_RESPONSE="$RESPONSE" FAKE_CURL_HTTP="${FAKE_CURL_HTTP:-200}" \
     FAKE_CURL_FAIL="${FAKE_CURL_FAIL:-0}" \
     CLAUDE_CONFIG_DIR='' \

@@ -6,9 +6,10 @@
 #     [--skills-dir <dir>] [--max <n>] [--status-note] [--stdin]
 #     [--overlay <launch-brief>] [skill-id ...]
 #
-# Input: a harness name, an optional task summary, and installed skill ids from
+# Input: a harness name, an optional privacy-safe query as --summary, and installed skill ids from
 #   --skills-dir children, positional arguments, and stdin (--stdin, or stdin
 #   when no other skill source is given and stdin is not a terminal).
+#   Never pass page content, excerpts, or conflict lines in --summary.
 #
 # One Choice question whose options are the installed skill ids (capped), plus
 #   fixed none and search_external options. Up to --max skills (default 3) are
@@ -143,7 +144,7 @@ fm_jev_skill_file() {
 
 # Write the selected skills into the published launch-brief overlay.
 # Returns 0 only when every skill id is then present in that file.
-# Never exits non-zero for a load failure: the caller records live_loaded false.
+# A non-zero return leaves the caller's live_loaded false without failing spawn.
 overlay_apply_ok() {
   local skills_json=$1 status=$2
   local overlay_dir tmp heading count id skill_file
