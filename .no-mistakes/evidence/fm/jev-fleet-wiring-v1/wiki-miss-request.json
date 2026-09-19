@@ -1,0 +1,16 @@
+{
+  "model": "jev-latest",
+  "state": "query: How can I protect my hands against burns?\nretrieval_status: disabled\nmode: full-corpus-bm25\npages_searched: 0\nembeddings_enabled: 0\nopenviking_enabled: 0",
+  "questions": {
+    "miss": {
+      "type": "choice",
+      "instructions": "Why did this retrieval miss? Use only the query and retrieval metadata. Never recommend a retry, enabling embeddings, or a config write. Prefer need_human when the metadata cannot decide.",
+      "criteria": {
+        "true_miss": "The consented corpus should not contain an answer to this query.",
+        "vocab_divergence": "The corpus likely has the fact under different wording, the eval_semantic shape.",
+        "consent_blocked": "Dense embeddings or OpenViking look relevant but are not enabled.",
+        "need_human": "A human must inspect; the metadata cannot decide."
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+jev-retrieval-miss:
+  verdict: refused
+  confidence: 
+  sent: no
+  shadow: yes
+{"purpose":"retrieval-miss","query":"How can I protect my hands against burns?","retrieval_status":"no-match","mode":"","pages_searched":0,"embeddings_enabled":false,"openviking_enabled":false,"verdict":"refused","confidence":null,"sent":false,"refused":true,"route":"","http":"","latency_ms":null,"decide_code":0,"shadow":true,"retry":false,"config_write":false}

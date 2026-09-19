@@ -1,0 +1,1 @@
+{"purpose":"shadow-done-verify","task":"ship-fix","verdict":"evidenced","confidence":0.82,"strength":0.91,"annotate":false,"done_line":"done: pager off-by-one fixed","route":"","http":"","latency_ms":null,"decide_code":0,"shadow":true,"close":false,"teardown":false}
