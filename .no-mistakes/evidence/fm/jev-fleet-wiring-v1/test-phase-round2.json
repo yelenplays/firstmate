@@ -1,0 +1,41 @@
+{
+  "finding": "test-2",
+  "outcome": "Supported local CLI checks and focused fake-transport regressions pass; full external integration remains unverified. No failing test reproduced and no source fix justified.",
+  "root_cause": "Coverage limitation: wiki-tool is absent from PATH, and live Jev HTTP calls remain prohibited. This is an environment/authorization limitation, not an observed product failure or flake.",
+  "real_local_cli": {
+    "result": "pass",
+    "count": 9,
+    "evidence": "local-cli-round2.json",
+    "scope": "Unconfigured and unavailable wiki engine, missing credentials, nested-content refusal, removed inline option, external verifier state and unchanged status bytes."
+  },
+  "fake_transport_regressions": [
+    {
+      "command": "TMPDIR=\"$PWD/.test-phase-tmp\" bash tests/fm-jev-done-verify.test.sh",
+      "exit": 0,
+      "evidence": "done-verify-round2.log",
+      "scope": "Actual-presentation selection, concurrent deduplication, CRLF/tab variants, external state, credential recovery, asynchronous logging, no close/teardown."
+    },
+    {
+      "command": "TMPDIR=\"$PWD/.test-phase-tmp\" bash tests/fm-jev-retrieval-miss.test.sh",
+      "exit": 0,
+      "evidence": "retrieval-miss-round2.log",
+      "scope": "Metadata allowlist, content refusal, failed attempts and transport metadata, unsupported confidence."
+    },
+    {
+      "command": "TMPDIR=\"$PWD/.test-phase-tmp\" bash tests/fm-wiki-ask.test.sh",
+      "exit": 0,
+      "evidence": "wiki-ask-round2.log",
+      "scope": "Fake wiki misses classified and hit envelope unchanged."
+    }
+  ],
+  "live_limitations": [
+    "No real wiki miss/hit retrieval: wiki-tool is absent; no engine was installed or started and no real catalog or vault was accessed.",
+    "No real Jev classification or completion scoring: live HTTP remains prohibited. Passing fake transport tests do not establish service availability or model quality.",
+    "Failed HTTP/unsupported confidence behavior was verified using injected responses only, not a real service.",
+    "Referenced data/jev-everything-rag-v1/report.md is absent in this worktree; no other checkout or home was searched."
+  ],
+  "changes": "No source or test changes. Delivery evidence records limitations as requested.",
+  "live_jev_calls": 0,
+  "broad_suite_run": false,
+  "lint_run": false
+}

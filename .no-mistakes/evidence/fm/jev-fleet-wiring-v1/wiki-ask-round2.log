@@ -1,0 +1,6 @@
+ok - no engine configured says so and does nothing
+ok - no private catalog configured says so and does nothing
+ok - no-match prints the envelope and records a miss classification
+ok - missing-source records a miss classification
+ok - an engine hit is printed and not classified
+# all fm-wiki-ask tests passed

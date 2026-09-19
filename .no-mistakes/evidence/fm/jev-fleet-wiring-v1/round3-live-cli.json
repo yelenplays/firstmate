@@ -1,0 +1,56 @@
+{
+  "wiki_missing_engine": {
+    "command": [
+      "bash",
+      "bin/fm-wiki-ask.sh",
+      "synthetic smoke query"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": "wiki-ask: no engine configured\n"
+  },
+  "classifier_missing_credentials": {
+    "command": [
+      "bash",
+      "bin/fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic smoke query",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-round3/envelope.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: skipped\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": "jev: no TYPESAFE_API_KEY or OPENROUTER_API_KEY in the environment or /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-round3/home/.env\n"
+  },
+  "capabilities": {
+    "wiki_tool_on_path": false,
+    "credential_environment_nonempty": {
+      "TYPESAFE_API_KEY": false,
+      "OPENROUTER_API_KEY": false
+    },
+    "worktree_dotenv_exists": false,
+    "investigation_report_exists": false
+  },
+  "classifier_records": [
+    {
+      "purpose": "retrieval-miss",
+      "query": "synthetic smoke query",
+      "retrieval_status": "no-match",
+      "mode": "keyword",
+      "pages_searched": 0,
+      "embeddings_enabled": false,
+      "openviking_enabled": false,
+      "verdict": "skipped",
+      "confidence": null,
+      "sent": false,
+      "refused": false,
+      "route": "",
+      "http": "",
+      "latency_ms": null,
+      "decide_code": 2,
+      "shadow": true,
+      "retry": false,
+      "config_write": false
+    }
+  ]
+}

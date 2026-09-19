@@ -1,0 +1,10 @@
+ok - usage requires --query and --envelope-file
+ok - allowlisted miss logs a shadow record and never retries
+ok - failed responses retain transport attempts independently of classification
+ok - a payload carrying an excerpt is refused rather than sent
+ok - non-empty citations are refused rather than sent
+ok - low confidence resolves to need_human, never a retry
+ok - missing and null confidence require human review
+ok - low confidence true_miss stays true_miss
+ok - missing key skips without a network call
+# all fm-jev-retrieval-miss tests passed

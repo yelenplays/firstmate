@@ -1,0 +1,290 @@
+[
+  {
+    "case": "unconfigured wiki",
+    "command": [
+      "bash",
+      "bin/fm-wiki-ask.sh",
+      "synthetic test query"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": "wiki-ask: no engine configured\n"
+  },
+  {
+    "case": "refuse body",
+    "command": [
+      "bash",
+      "bin/fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic query",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-phase-live/body.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: refused\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": ""
+  },
+  {
+    "case": "refuse excerpt",
+    "command": [
+      "bash",
+      "bin/fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic query",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-phase-live/excerpt.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: refused\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": ""
+  },
+  {
+    "case": "refuse conflict_lines",
+    "command": [
+      "bash",
+      "bin/fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic query",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-phase-live/conflict_lines.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: refused\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": ""
+  },
+  {
+    "case": "refuse citations",
+    "command": [
+      "bash",
+      "bin/fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic query",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-phase-live/citations.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: refused\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": ""
+  },
+  {
+    "case": "missing credentials",
+    "command": [
+      "bash",
+      "bin/fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic query",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-phase-live/clean.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: skipped\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": "jev: no TYPESAFE_API_KEY or OPENROUTER_API_KEY in the environment or /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-phase-live/home/.env\n"
+  },
+  {
+    "case": "reject removed inline interface",
+    "command": [
+      "bash",
+      "bin/fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic query",
+      "--envelope",
+      "{}"
+    ],
+    "exit": 2,
+    "stdout": "",
+    "stderr": "jev-retrieval-miss: unknown option: --envelope\n"
+  },
+  {
+    "case": "real curl connection refused",
+    "command": [
+      "bash",
+      "bin/fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic query",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-phase-live/clean.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: skipped\n  confidence: \n  sent: yes\n  shadow: yes\n",
+    "stderr": "jev: http 000 after 1000 ms: \n"
+  },
+  {
+    "case": "present completion with quoted-empty credentials",
+    "command": [
+      "bash",
+      "bin/fm-wake-drain.sh"
+    ],
+    "exit": 0,
+    "stdout": "STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):\nsynthetic done: synthetic completion\t\n",
+    "stderr": ""
+  },
+  {
+    "case": "queue completion",
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-wake-lib.sh; fm_wake_append signal synthetic.status completion"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "case": "present with unavailable endpoint",
+    "command": [
+      "bash",
+      "bin/fm-wake-drain.sh"
+    ],
+    "exit": 0,
+    "stdout": "1789851993\t1\tsignal\tsynthetic.status\tcompletion\nwake annotation: latest wake-EVENT observed at drain, not current state: synthetic.status: done: synthetic completion  \n",
+    "stderr": "WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 79219.1789851993.S6xMrS\n"
+  },
+  {
+    "case": "persisted retrieval records",
+    "records": [
+      {
+        "purpose": "retrieval-miss",
+        "query": "synthetic query",
+        "retrieval_status": "no-match",
+        "mode": "",
+        "pages_searched": 0,
+        "embeddings_enabled": false,
+        "openviking_enabled": false,
+        "verdict": "refused",
+        "confidence": null,
+        "sent": false,
+        "refused": true,
+        "route": "",
+        "http": "",
+        "latency_ms": null,
+        "decide_code": 0,
+        "shadow": true,
+        "retry": false,
+        "config_write": false
+      },
+      {
+        "purpose": "retrieval-miss",
+        "query": "synthetic query",
+        "retrieval_status": "no-match",
+        "mode": "",
+        "pages_searched": 0,
+        "embeddings_enabled": false,
+        "openviking_enabled": false,
+        "verdict": "refused",
+        "confidence": null,
+        "sent": false,
+        "refused": true,
+        "route": "",
+        "http": "",
+        "latency_ms": null,
+        "decide_code": 0,
+        "shadow": true,
+        "retry": false,
+        "config_write": false
+      },
+      {
+        "purpose": "retrieval-miss",
+        "query": "synthetic query",
+        "retrieval_status": "no-match",
+        "mode": "",
+        "pages_searched": 0,
+        "embeddings_enabled": false,
+        "openviking_enabled": false,
+        "verdict": "refused",
+        "confidence": null,
+        "sent": false,
+        "refused": true,
+        "route": "",
+        "http": "",
+        "latency_ms": null,
+        "decide_code": 0,
+        "shadow": true,
+        "retry": false,
+        "config_write": false
+      },
+      {
+        "purpose": "retrieval-miss",
+        "query": "synthetic query",
+        "retrieval_status": "no-match",
+        "mode": "",
+        "pages_searched": 0,
+        "embeddings_enabled": false,
+        "openviking_enabled": false,
+        "verdict": "refused",
+        "confidence": null,
+        "sent": false,
+        "refused": true,
+        "route": "",
+        "http": "",
+        "latency_ms": null,
+        "decide_code": 0,
+        "shadow": true,
+        "retry": false,
+        "config_write": false
+      },
+      {
+        "purpose": "retrieval-miss",
+        "query": "synthetic query",
+        "retrieval_status": "no-match",
+        "mode": "lexical",
+        "pages_searched": 3,
+        "embeddings_enabled": false,
+        "openviking_enabled": false,
+        "verdict": "skipped",
+        "confidence": null,
+        "sent": false,
+        "refused": false,
+        "route": "",
+        "http": "",
+        "latency_ms": null,
+        "decide_code": 2,
+        "shadow": true,
+        "retry": false,
+        "config_write": false
+      },
+      {
+        "purpose": "retrieval-miss",
+        "query": "synthetic query",
+        "retrieval_status": "no-match",
+        "mode": "lexical",
+        "pages_searched": 3,
+        "embeddings_enabled": false,
+        "openviking_enabled": false,
+        "verdict": "skipped",
+        "confidence": null,
+        "sent": true,
+        "refused": false,
+        "route": "typesafe",
+        "http": "000",
+        "latency_ms": 1000,
+        "decide_code": 1,
+        "shadow": true,
+        "retry": false,
+        "config_write": false
+      }
+    ]
+  },
+  {
+    "case": "persisted completion record",
+    "records": [
+      {
+        "purpose": "shadow-done-verify",
+        "task": "synthetic",
+        "verdict": "skipped",
+        "confidence": null,
+        "strength": null,
+        "annotate": false,
+        "done_line": "done: synthetic completion ",
+        "route": "",
+        "http": "",
+        "latency_ms": null,
+        "decide_code": 1,
+        "shadow": true,
+        "close": false,
+        "teardown": false
+      }
+    ],
+    "worker_status_bytes_unchanged": true,
+    "default_state_record_absent": true
+  }
+]

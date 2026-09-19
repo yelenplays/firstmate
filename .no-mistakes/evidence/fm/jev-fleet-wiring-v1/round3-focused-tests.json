@@ -1,0 +1,17 @@
+[
+  {
+    "command": "bash tests/fm-jev-done-verify.test.sh",
+    "exit": 0,
+    "output_tail": "aths but is verified once\nok - internal-tab completion in external state emits through both paths but is verified once\nok - crlf completion in external state emits through both paths but is verified once\nok - trailing-tab completion in external state emits through both paths but is verified once\nok - trailing-tab-crlf completion in external state emits through both paths but is verified once\nok - buried and suppressed completions are scored only when annotations emit them\nok - backstop byte cap also bounds verification candidates\nok - drain without keys leaves done: presentation inert for Jev\n"
+  },
+  {
+    "command": "bash tests/fm-jev-retrieval-miss.test.sh",
+    "exit": 0,
+    "output_tail": "ok - usage requires --query and --envelope-file\nok - allowlisted miss logs a shadow record and never retries\nok - failed responses retain transport attempts independently of classification\nok - a payload carrying an excerpt is refused rather than sent\nok - non-empty citations are refused rather than sent\nok - low confidence resolves to need_human, never a retry\nok - missing and null confidence require human review\nok - low confidence true_miss stays true_miss\nok - missing key skips without a network call\n# all fm-jev-retrieval-miss tests passed\n"
+  },
+  {
+    "command": "bash tests/fm-wiki-ask.test.sh",
+    "exit": 0,
+    "output_tail": "ok - no engine configured says so and does nothing\nok - no private catalog configured says so and does nothing\nok - no-match prints the envelope and records a miss classification\nok - missing-source records a miss classification\nok - an engine hit is printed and not classified\n# all fm-wiki-ask tests passed\n"
+  }
+]

@@ -1,0 +1,197 @@
+[
+  {
+    "command": [
+      "fm-wiki-ask.sh",
+      "synthetic validation question"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": "wiki-ask: no engine configured\n"
+  },
+  {
+    "command": [
+      "fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic question",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-phase-tmp/manual/envelope.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: refused\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic question",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-phase-tmp/manual/envelope.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: refused\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic question",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-phase-tmp/manual/envelope.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: refused\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic question",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-phase-tmp/manual/envelope.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: refused\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic question",
+      "--envelope-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-phase-tmp/manual/envelope.json"
+    ],
+    "exit": 0,
+    "stdout": "jev-retrieval-miss:\n  verdict: skipped\n  confidence: \n  sent: no\n  shadow: yes\n",
+    "stderr": "jev: no TYPESAFE_API_KEY or OPENROUTER_API_KEY in the environment or /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2XP3B8DCH8TG46NGM8BDNT5/.test-phase-tmp/manual/.env\n"
+  },
+  {
+    "command": [
+      "fm-jev-retrieval-miss.sh",
+      "--query",
+      "synthetic question",
+      "--envelope",
+      "{}"
+    ],
+    "exit": 2,
+    "stdout": "",
+    "stderr": "jev-retrieval-miss: unknown option: --envelope\n"
+  },
+  {
+    "command": [
+      "fm-wake-drain.sh"
+    ],
+    "exit": 0,
+    "stdout": "STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):\nvalidation done: synthetic completion\t\n",
+    "stderr": ""
+  },
+  {
+    "persisted_retrieval_records": [
+      {
+        "purpose": "retrieval-miss",
+        "query": "synthetic question",
+        "retrieval_status": "no-match",
+        "mode": "",
+        "pages_searched": 0,
+        "embeddings_enabled": false,
+        "openviking_enabled": false,
+        "verdict": "refused",
+        "confidence": null,
+        "sent": false,
+        "refused": true,
+        "route": "",
+        "http": "",
+        "latency_ms": null,
+        "decide_code": 0,
+        "shadow": true,
+        "retry": false,
+        "config_write": false
+      },
+      {
+        "purpose": "retrieval-miss",
+        "query": "synthetic question",
+        "retrieval_status": "no-match",
+        "mode": "",
+        "pages_searched": 0,
+        "embeddings_enabled": false,
+        "openviking_enabled": false,
+        "verdict": "refused",
+        "confidence": null,
+        "sent": false,
+        "refused": true,
+        "route": "",
+        "http": "",
+        "latency_ms": null,
+        "decide_code": 0,
+        "shadow": true,
+        "retry": false,
+        "config_write": false
+      },
+      {
+        "purpose": "retrieval-miss",
+        "query": "synthetic question",
+        "retrieval_status": "no-match",
+        "mode": "",
+        "pages_searched": 0,
+        "embeddings_enabled": false,
+        "openviking_enabled": false,
+        "verdict": "refused",
+        "confidence": null,
+        "sent": false,
+        "refused": true,
+        "route": "",
+        "http": "",
+        "latency_ms": null,
+        "decide_code": 0,
+        "shadow": true,
+        "retry": false,
+        "config_write": false
+      },
+      {
+        "purpose": "retrieval-miss",
+        "query": "synthetic question",
+        "retrieval_status": "no-match",
+        "mode": "",
+        "pages_searched": 0,
+        "embeddings_enabled": false,
+        "openviking_enabled": false,
+        "verdict": "refused",
+        "confidence": null,
+        "sent": false,
+        "refused": true,
+        "route": "",
+        "http": "",
+        "latency_ms": null,
+        "decide_code": 0,
+        "shadow": true,
+        "retry": false,
+        "config_write": false
+      },
+      {
+        "purpose": "retrieval-miss",
+        "query": "synthetic question",
+        "retrieval_status": "no-match",
+        "mode": "",
+        "pages_searched": 0,
+        "embeddings_enabled": false,
+        "openviking_enabled": false,
+        "verdict": "skipped",
+        "confidence": null,
+        "sent": false,
+        "refused": false,
+        "route": "",
+        "http": "",
+        "latency_ms": null,
+        "decide_code": 2,
+        "shadow": true,
+        "retry": false,
+        "config_write": false
+      }
+    ],
+    "worker_status_bytes_unchanged": true,
+    "empty_credentials_created_done_record": false
+  }
+]

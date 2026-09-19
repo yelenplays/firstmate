@@ -1,0 +1,11 @@
+{
+  "command": [
+    "bash",
+    "bin/fm-wake-drain.sh"
+  ],
+  "exit": 0,
+  "stdout": "STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):\nship-smoke done: synthetic completion\t\n",
+  "stderr": "",
+  "verification_record_exists": false,
+  "worker_status_bytes_unchanged": true
+}

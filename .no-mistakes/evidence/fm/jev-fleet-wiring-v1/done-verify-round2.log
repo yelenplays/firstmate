@@ -1,0 +1,24 @@
+ok - quoted-empty keys leave no record and later credentials allow scoring
+ok - usage requires a task id and --done-line and refuses a path-like id
+ok - evidenced at floor logs shadow-only and offers need_human
+ok - not_evidenced at conf>=0.7 annotates and does not close
+ok - need_human at conf>=0.7 annotates and does not close
+ok - not_evidenced below 0.7 logs without annotate
+ok - transport failure skips, logs, and does not block done
+ok - missing key skips without a network call
+ok - optional report path and PR URL are included in Jev state
+ok - drain records a presented done: line without closing or teardown
+ok - first verification record prevents duplicate scoring
+ok - overlapping drains serialize verification through log append
+ok - completion scoring uses the captured presentation span
+ok - internal-tab completion in default state emits through both paths but is verified once
+ok - crlf completion in default state emits through both paths but is verified once
+ok - trailing-tab completion in default state emits through both paths but is verified once
+ok - trailing-tab-crlf completion in default state emits through both paths but is verified once
+ok - internal-tab completion in external state emits through both paths but is verified once
+ok - crlf completion in external state emits through both paths but is verified once
+ok - trailing-tab completion in external state emits through both paths but is verified once
+ok - trailing-tab-crlf completion in external state emits through both paths but is verified once
+ok - buried and suppressed completions are scored only when annotations emit them
+ok - backstop byte cap also bounds verification candidates
+ok - drain without keys leaves done: presentation inert for Jev
