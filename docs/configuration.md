@@ -620,7 +620,9 @@ Regression coverage lives in [`tests/fm-jev-queue-triage.test.sh`](../tests/fm-j
 ## Jev brief preflight (FM_JEV_BRIEF_PREFLIGHT)
 
 `bin/fm-spawn.sh` runs [`bin/fm-jev-brief-preflight.sh`](../bin/fm-jev-brief-preflight.sh) after its structural brief refusals and before any endpoint exists.
-Jev sees only the brief's `# Task` section plus the recorded delivery contract (`# Definition of done`, including `Delivery contract: mode=`).
+Jev receives only a fixed completeness query, the validated worker kind and delivery modes, and section-presence booleans.
+It never receives the `# Task` or `# Definition of done` bodies.
+This structural metadata cannot establish semantic completeness or consistent constraints; when it cannot establish an answer, Jev is instructed to choose `need_human`.
 It never receives captain-private records, another home's data, page content, excerpts, conflict lines, or any key.
 One Choice over `{complete, missing_acceptance, missing_constraints, ambiguous_scope, need_human}` plus confidence.
 Default `FM_JEV_BRIEF_PREFLIGHT` is `shadow`: append `state/<id>.jev-brief-preflight.jsonl` and still spawn.
