@@ -1,0 +1,15 @@
+{
+  "scenarios": [
+    "Launch an opted-in worker: selected skills reach its brief using the correct harness syntax",
+    "Launch modern or legacy briefs containing private excerpts: only an explicit safe query is sent; missing or blank queries skip selection",
+    "Launch after refreshing the worker revision: discover readable worker skills and the selected Codex skill home",
+    "Receive no suitable selection or a Jev failure: worker launch proceeds without injected skills",
+    "Relaunch after disabling selection or removing the query: clear live_loaded while retaining the cached choice"
+  ],
+  "blocker": "Live fm-spawn refuses gate agents (exit 3). Neither TYPESAFE_API_KEY nor OPENROUTER_API_KEY exists in the environment; worktree .env absent. Run from an authorized non-gate isolated Firstmate session with a configured worker and provider credential. Do not bypass the gate guard.",
+  "targeted_checks": {
+    "bash tests/fm-jev-skill-select.test.sh": "passed; simulated provider",
+    "bash tests/fm-spawn-jev-skill-live.test.sh": "passed; simulated provider and worker runtime"
+  },
+  "context_limit": "data/jev-everything-rag-v1/report.md absent from supplied worktree; acceptance based on supplied intent and recorded decisions."
+}
