@@ -1,0 +1,26 @@
+{
+  "model": "jev-latest",
+  "state": {
+    "query": "Check worker brief structural completeness",
+    "kind": "ship",
+    "delivery_mode": "direct-PR",
+    "recorded_delivery": "direct-PR",
+    "has_task": true,
+    "has_definition_of_done": true,
+    "has_captain_intent": true,
+    "has_firstmate_spec": true
+  },
+  "questions": {
+    "brief": {
+      "type": "choice",
+      "instructions": "Assess only the supplied structural metadata for the completeness query. No task or definition-of-done text is available. Missing sections can establish a structural defect; present sections do not prove semantic completeness or consistent constraints. Pick need_human whenever the metadata cannot establish the answer.",
+      "criteria": {
+        "complete": "The Task plus delivery contract is executable: observable outcome, acceptance or definition of done, and consistent constraints.",
+        "missing_acceptance": "No acceptance criteria and no definition of done an observer could check.",
+        "missing_constraints": "No constraints, bounds, or out-of-scope limits.",
+        "ambiguous_scope": "Vague or contradictory requirements; no single observable outcome.",
+        "need_human": "A human must inspect; this text cannot decide completeness."
+      }
+    }
+  }
+}

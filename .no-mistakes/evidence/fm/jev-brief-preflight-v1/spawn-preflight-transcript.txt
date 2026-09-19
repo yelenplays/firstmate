@@ -1,0 +1,66 @@
+Jev brief preflight - public CLI integration evidence
+Transport: fake curl with deterministic Jev responses; tmux unavailable by design. No live agents or API calls.
+
+Scenario: complete
+$ FM_HOME=<isolated home> bin/fm-brief.sh evidence-complete proj --mode direct-PR
+scaffolded: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-jev-brief-preflight.c4OT7y/evidence/home/data/evidence-complete/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+Populated the standard generated brief; retained scaffold and added a private-content sentinel.
+$ bin/fm-spawn.sh evidence-complete <isolated project> claude --mode direct-PR --yolo off
+notice: evidence-complete ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+Spawn exit: 1 (fixture deliberately has no backend)
+Outbound request state captured at curl stdin:
+{
+  "query": "Check worker brief structural completeness",
+  "kind": "ship",
+  "delivery_mode": "direct-PR",
+  "recorded_delivery": "direct-PR",
+  "has_task": true,
+  "has_definition_of_done": true,
+  "has_captain_intent": true,
+  "has_firstmate_spec": true
+}
+Persisted operator record:
+{"purpose":"brief-preflight","task":"evidence-complete","kind":"ship","mode":"direct-PR","verdict":"complete","missing":"","confidence":0.9,"probabilities":{"complete":0.92,"missing_acceptance":0.02,"missing_constraints":0.02,"ambiguous_scope":0.02,"need_human":0.02},"surfaced":false,"shadow":true,"block":false,"route":"typesafe","model":"jev-latest","http":"200","latency_ms":210,"decide_code":0}
+
+Scenario: need_human
+$ FM_HOME=<isolated home> bin/fm-brief.sh evidence-need_human proj --mode direct-PR
+scaffolded: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-jev-brief-preflight.c4OT7y/evidence/home/data/evidence-need_human/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+Populated the standard generated brief; retained scaffold and added a private-content sentinel.
+$ bin/fm-spawn.sh evidence-need_human <isolated project> claude --mode direct-PR --yolo off
+notice: evidence-need_human ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+warning: brief preflight: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-jev-brief-preflight.c4OT7y/evidence/home/data/evidence-need_human/brief.md is missing human review of brief completeness (jev need_human confidence=0.9); spawn continues
+Spawn exit: 1 (fixture deliberately has no backend)
+Outbound request state captured at curl stdin:
+{
+  "query": "Check worker brief structural completeness",
+  "kind": "ship",
+  "delivery_mode": "direct-PR",
+  "recorded_delivery": "direct-PR",
+  "has_task": true,
+  "has_definition_of_done": true,
+  "has_captain_intent": true,
+  "has_firstmate_spec": true
+}
+Persisted operator record:
+{"purpose":"brief-preflight","task":"evidence-need_human","kind":"ship","mode":"direct-PR","verdict":"need_human","missing":"human review of brief completeness","confidence":0.9,"probabilities":{"complete":0.02,"missing_acceptance":0.02,"missing_constraints":0.02,"ambiguous_scope":0.02,"need_human":0.92},"surfaced":true,"shadow":true,"block":false,"route":"typesafe","model":"jev-latest","http":"200","latency_ms":25,"decide_code":0}
+
+Scenario: transport_failure
+$ FM_HOME=<isolated home> bin/fm-brief.sh evidence-transport_failure proj --mode direct-PR
+scaffolded: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-jev-brief-preflight.c4OT7y/evidence/home/data/evidence-transport_failure/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+Populated the standard generated brief; retained scaffold and added a private-content sentinel.
+$ bin/fm-spawn.sh evidence-transport_failure <isolated project> claude --mode direct-PR --yolo off
+notice: evidence-transport_failure ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+Spawn exit: 1 (fixture deliberately has no backend)
+Outbound request state captured at curl stdin:
+{
+  "query": "Check worker brief structural completeness",
+  "kind": "ship",
+  "delivery_mode": "direct-PR",
+  "recorded_delivery": "direct-PR",
+  "has_task": true,
+  "has_definition_of_done": true,
+  "has_captain_intent": true,
+  "has_firstmate_spec": true
+}
+Persisted operator record:
+{"purpose":"brief-preflight","task":"evidence-transport_failure","kind":"ship","mode":"direct-PR","verdict":"skipped","missing":"","confidence":null,"probabilities":{},"surfaced":false,"shadow":true,"block":false,"route":"typesafe","model":"jev-latest","http":"000","latency_ms":29,"decide_code":1}

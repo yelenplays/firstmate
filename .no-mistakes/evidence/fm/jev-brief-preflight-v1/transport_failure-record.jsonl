@@ -1,0 +1,1 @@
+{"purpose":"brief-preflight","task":"evidence-transport_failure","kind":"ship","mode":"direct-PR","verdict":"skipped","missing":"","confidence":null,"probabilities":{},"surfaced":false,"shadow":true,"block":false,"route":"typesafe","model":"jev-latest","http":"000","latency_ms":29,"decide_code":1}
