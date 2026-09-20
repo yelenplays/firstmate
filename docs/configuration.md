@@ -529,7 +529,7 @@ bin/fm-dispatch-resolve.sh data/<id>/brief.md --project <name>        # TOON blo
 ```
 
 Firstmate invokes the resolve path directly after writing the brief, without a preflight; the absent-key off line is handled exactly like every other non-clear outcome.
-When on and at least one rule exists, the tool sends the project name plus either the whole brief or a compact 400-800 character intent summary as state and asks one Choice question whose options are every rule's `when` plus the fixed neutral option for no matching rule; the model never sees quota, catalogs, `why`, `use`, approvals, or credentials.
+When on and at least one rule exists, the tool sends the project name plus either the whole brief or a compact 400-800 character intent summary as state and asks the rule Choice whose options are every rule's `when` plus the fixed neutral option for no matching rule, together with the effort Choice; the model never sees quota, catalogs, `why`, `use`, approvals, or credentials.
 The HTTP call goes through [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh): TypeSafe `/v1/systemone` when a TypeSafe key is present, or OpenRouter `/api/alpha/decisions` when `OPENROUTER_API_KEY` is set and `TYPESAFE_API_KEY` is not, or when `JEV_ROUTE=openrouter`.
 This section is the single owner of the Jev HTTP override names: each is read from the process environment first, else from `$FM_HOME/.env` via `fmx_env_get`, and the environment wins.
 `JEV_ROUTE` is `openrouter` or `typesafe`.
@@ -1215,6 +1215,7 @@ The enforcement is the `spend` process-event adapter (`bin/fm-procevent-spend.sh
 - `pollIntervalSeconds` (positive number, optional): poll cadence for both sources, default 120.
 
 A task source retires itself quietly when the task record disappears (`gone`) or the current incarnation already has a stop marker (`stopped`); five consecutive unreadable ledger answers end the watch with an `error` capture instead of polling forever.
+An empty or partial task total is unknown spend, not zero, so the poller keeps waiting rather than treating it as under-ceiling.
 
 ## Environment variables
 
