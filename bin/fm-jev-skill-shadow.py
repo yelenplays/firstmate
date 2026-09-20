@@ -10,7 +10,6 @@ import signal
 import subprocess
 import sys
 import time
-import uuid
 
 
 def write(path, value):
@@ -22,34 +21,38 @@ def write(path, value):
 def evaluate(root):
     cases = [json.loads(path.read_text()) for path in (root / 'cases').glob('*.json')]
     previous = json.loads((root / 'evaluation.json').read_text()) if (root / 'evaluation.json').exists() else {}
-    labels = [case['comparison_label'] for case in cases]
+    outcomes = [set(case['comparison_label'].split(',')) for case in cases]
+    labels = [label for outcome in outcomes for label in outcome]
     reasons = set(previous.get('stop_reasons', []))
     reasons.update(label for label in labels if label in {'incorrect', 'p2-exposure', 'launch-changed', 'roster-omission'})
     errors = sum(case['status'] == 'error' for case in cases)
     latencies = sorted(case['latency_ms'] for case in cases)
     p95 = latencies[math.ceil(len(latencies) * .95) - 1] if latencies else 0
     complete = len(cases) == 20 and not any(case['status'] == 'pending' for case in cases)
-    reviewed = complete and not any(label in {'unlabeled', 'unknown'} for label in labels)
+    reviewed = complete and all(
+        len(outcome & {'correct', 'caught', 'missed', 'no-fit'}) == 1
+        and not outcome & {'unlabeled', 'unknown'} for outcome in outcomes)
     if complete:
         if errors > 1:
             reasons.add('timeouts-or-invalid')
         if p95 >= 2000:
             reasons.add('latency-target')
+        if labels.count('irrelevant') > 1:
+            reasons.add('irrelevant-suggestions')
     if reviewed:
         if labels.count('caught') <= labels.count('missed'):
             reasons.add('coverage-not-better')
         if labels.count('caught') < 2 and labels.count('irrelevant') > 0:
             reasons.add('insufficient-useful-discoveries')
-        if labels.count('irrelevant') > 1:
-            reasons.add('irrelevant-suggestions')
     result = {'status': 'stopped' if reasons else ('evaluated' if reviewed else ('review-required' if len(cases) >= 20 else 'collecting')),
               'cases': len(cases), 'stop_reasons': sorted(reasons), 'p95_ms': p95,
-              'errors': errors, 'caught': labels.count('caught'), 'missed': labels.count('missed')}
+              'errors': errors, 'caught': labels.count('caught'), 'missed': labels.count('missed'),
+              'irrelevant': labels.count('irrelevant')}
     write(root / 'evaluation.json', result)
     return result
 
 
-def catalog(home, public_only, directories):
+def catalog(home, directories):
     approval = Path(home) / 'config' / 'jev-skill-public.json'
     if not approval.exists():
         print('[]')
@@ -67,7 +70,7 @@ def catalog(home, public_only, directories):
     prefixes = ('firstmate-', 'captain-', 'secondmate-', 'bootstrap-', 'stuck-', 'process-event-', 'fmx-')
     result = {}
     for directory in directories:
-        if public_only == '1' and directory not in roots:
+        if directory not in roots:
             continue
         for path in sorted(Path(directory).glob('*/SKILL.md')):
             skill = path.parent.name
@@ -103,9 +106,10 @@ def catalog(home, public_only, directories):
 def main():
     started = time.monotonic()
     home, launch, label, selector, *arguments = sys.argv[1:]
+    if not launch:
+        raise ValueError('originating launch ID is required')
     root = Path(home) / 'state' / 'jev-skill-shadow'
     (root / 'cases').mkdir(parents=True, exist_ok=True)
-    launch = launch or uuid.uuid4().hex
     path = root / 'cases' / f'{launch}.json'
     with (root / 'lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -156,6 +160,6 @@ def main():
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == 'catalog':
-        catalog(sys.argv[2], sys.argv[3], sys.argv[4:])
+        catalog(sys.argv[2], sys.argv[3:])
     else:
         main()

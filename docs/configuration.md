@@ -609,19 +609,21 @@ The shadow record contains only opaque experiment and input hashes, the pinned r
 Both state and criteria use only authored P0/P1 requests and approved public skill content; raw briefs, page bodies, private instructions, career data, mail, traces, unpublished names, and credentials are excluded.
 Before collection, review the installed public skills for that boundary and put their full-file SHA-256 digests in the JSON array `config/jev-skill-public.json`.
 Approval is content-specific: changed files require renewed review; punctuation, Markdown headings, and public documentation links are preserved rather than treated as private content.
-Public installation roots include `~/.pi/agent/skills` under the same digest approval.
+Shadow catalog roots are always restricted to the enumerated public installation locations, including `~/.pi/agent/skills`, under the same digest approval.
 All eligible approved installed skills are offered regardless of ordering; mandatory and supervisor-only skills remain outside this optional suggestion.
 The model is pinned to `jev-1.13.0` on TypeSafe and `typesafe/jev-1.13` on OpenRouter for the experiment, while the existing `bin/fm-jev-lib.sh` route and caller remain the transport owner.
 A missing, unreadable, or blank query file skips the shadow call entirely; raw captain text and legacy brief bodies are never fallback queries.
 The shadow supervisor bounds the complete selector to 5.7 seconds with time reserved for recording within the six-second launch envelope; each HTTP call retains its four-second ceiling.
 Timeouts preserve the latest completed decision and usage, and latency measures the whole selector operation including roster preparation.
-Each ordinary launch gets a new opaque ID, including relaunches; an explicit `--launch-id` reuses only that launch and supports offline review without credentials or a query.
+Each shadow call requires its originating worker `--launch-id`, including relaunches; reusing that ID supports offline review without credentials or a query.
 Spawn uses its existing `spawn_gen` as the case filename, `experiment_id`, and review `--launch-id`, and appends that ID to `data/<task-id>/jev-skill-launches` before attempting the comparison.
 That task-local history retains the association across relaunches; skipped attempts can have no case file.
 Collection stops automatically at 20 reserved cases, including failures; concurrent reservations share that limit.
 Do not manufacture launches or claim production value before sufficient natural volume exists.
 Review each case against the unassisted agent's actual required skill loading, without changing the worker or persisting its raw trace, using `--launch-id <id> --comparison-label <label>` with the selector's required harness and task arguments.
-Use `correct` when both found the useful skill, `caught` for a genuinely useful skill missed by the agent, `missed` when only the agent found the useful skill, `no-fit` when neither needed one, and `irrelevant` for an extra high-confidence irrelevant suggestion.
+Use `correct` when both found the useful skill, `caught` for a genuinely useful skill missed by the agent, `missed` when only the agent found the useful skill, `no-fit` when neither needed one, and add `irrelevant` for an extra high-confidence irrelevant suggestion.
+Pass overlapping outcomes together as comma-separated labels, such as `--comparison-label missed,irrelevant` when the agent found a useful skill and the shadow suggested an irrelevant one.
+Coverage and irrelevant suggestions are counted independently; each reviewed case needs exactly one coverage label (`correct`, `caught`, `missed`, or `no-fit`), so `irrelevant` alone leaves coverage review pending.
 Use `incorrect` for a materially wrong high-confidence recommendation, `p2-exposure` for any P2 in a captured request, `launch-changed` for any altered launch behavior or removed mandatory/supervisor skill, and `roster-omission` for relevant installed skills omitted by ordering or truncation.
 Those four safety labels immediately and permanently stop collection; inspect requests in a controlled development capture without adding request bodies to persisted experiment records.
 `unlabeled` and `unknown` leave review pending; labeling an existing case atomically persists the comparison and recomputes `state/jev-skill-shadow/evaluation.json`.

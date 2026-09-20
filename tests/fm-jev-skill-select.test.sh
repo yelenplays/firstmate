@@ -17,7 +17,7 @@ TMP_ROOT=$(fm_test_tmproot fm-jev-skill-select)
 HOME_DIR="$TMP_ROOT/home"
 FAKEBIN=$(fm_fakebin "$TMP_ROOT")
 LOG="$TMP_ROOT/log"
-SKILLS_DIR="$TMP_ROOT/skills"
+SKILLS_DIR="$TMP_ROOT/user-home/.agents/skills"
 BASE_PATH=$PATH
 TS_KEY='ts-test-key-not-for-argv'
 mkdir -p "$HOME_DIR/state" "$HOME_DIR/config" "$LOG" "$SKILLS_DIR/pager" "$SKILLS_DIR/review"
@@ -117,7 +117,7 @@ run_select() {
   _errfile="$TMP_ROOT/stderr"
   reset_log
   _code=0
-  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" \
+  _out=$(HOME="${SKILLS_DIR%/.agents/skills}" PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" \
     FAKE_CURL_HTTP="${FAKE_CURL_HTTP:-200}" FAKE_CURL_FAIL="${FAKE_CURL_FAIL:-0}" \
     "$ROOT/bin/fm-jev-skill-select.sh" "$@" </dev/null 2> "$_errfile") || _code=$?
   printf -v "$__exit" '%s' "$_code"
@@ -435,7 +435,7 @@ JSON
 
 test_public_markdown_and_full_roster() {
   local code out err i old_skills=$SKILLS_DIR
-  SKILLS_DIR="$TMP_ROOT/full-roster"
+  SKILLS_DIR="$TMP_ROOT/full-roster/.agents/skills"
   mkdir -p "$SKILLS_DIR"
   for i in $(seq -w 1 101); do
     mkdir -p "$SKILLS_DIR/skill-$i"
@@ -502,7 +502,7 @@ test_launch_identity_and_durable_safety_labels() {
   local code out err label count
   fresh_home
   for count in 1 2; do
-    PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY=$TS_KEY "$ROOT/bin/fm-jev-skill-select.sh" --harness pi --task-id same-task --summary 'Find pager workflows' --skills-dir "$SKILLS_DIR" > /dev/null || fail "fresh launch failed"
+    HOME="${SKILLS_DIR%/.agents/skills}" PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY=$TS_KEY "$ROOT/bin/fm-jev-skill-select.sh" --launch-id "launch-$count" --harness pi --task-id same-task --summary 'Find pager workflows' --skills-dir "$SKILLS_DIR" > /dev/null || fail "fresh launch failed"
   done
   assert_equals 2 "$(find "$HOME_DIR/state/jev-skill-shadow/cases" -name '*.json' | wc -l | tr -d ' ')" "same task needs independent launch records"
   for label in incorrect p2-exposure launch-changed roster-omission; do
@@ -528,10 +528,16 @@ test_twenty_case_checkpoint() {
   jq -e '.cases == 20 and .caught == 2 and .status == "evaluated"' "$HOME_DIR/state/jev-skill-shadow/evaluation.json" >/dev/null || fail "20 compared cases should evaluate"
   TYPESAFE_API_KEY=$TS_KEY run_select code out err --harness pi --task-id case-21 --skills-dir "$SKILLS_DIR"
   [ ! -f "$LOG/body" ] || fail "passing cohort must still refuse case 21"
+  run_select code out err --harness pi --task-id case-3 --comparison-label missed
+  run_select code out err --harness pi --task-id case-4 --comparison-label irrelevant
+  jq -e '.status == "review-required"' "$HOME_DIR/state/jev-skill-shadow/evaluation.json" >/dev/null || fail "irrelevant alone cannot settle coverage"
+  run_select code out err --harness pi --task-id case-4 --comparison-label missed,irrelevant
+  jq -e '.comparison_label == "missed,irrelevant"' "$HOME_DIR/state/jev-skill-shadow/cases/case-4.json" >/dev/null || fail "overlapping comparison outcomes must persist"
+  jq -e '.caught == 2 and .missed == 2 and .irrelevant == 1 and .status == "stopped" and (.stop_reasons | index("coverage-not-better") != null)' "$HOME_DIR/state/jev-skill-shadow/evaluation.json" >/dev/null || fail "overlapping miss must prevent false improved coverage"
   run_select code out err --harness pi --task-id case-1 --comparison-label correct
-  run_select code out err --harness pi --task-id case-2 --comparison-label irrelevant
+  run_select code out err --harness pi --task-id case-2 --comparison-label no-fit,irrelevant
   jq -e '.status == "stopped" and (.stop_reasons | index("coverage-not-better") != null and index("insufficient-useful-discoveries") != null)' "$HOME_DIR/state/jev-skill-shadow/evaluation.json" >/dev/null || fail "comparison thresholds must stop experiment"
-  run_select code out err --harness pi --task-id case-3 --comparison-label irrelevant
+  run_select code out err --harness pi --task-id case-3 --comparison-label no-fit,irrelevant
   jq -e '.stop_reasons | index("irrelevant-suggestions") != null' "$HOME_DIR/state/jev-skill-shadow/evaluation.json" >/dev/null || fail "extra irrelevant picks must stop experiment"
   fresh_home
   for i in $(seq 1 20); do
@@ -587,6 +593,27 @@ test_low_choice_records_actual_noul() {
   pass "low Choice confidence preserves actual fit evidence without recommending"
 }
 
+test_shadow_requires_launch_and_public_roots() {
+  local code out err outside="$TMP_ROOT/other-skills"
+  fresh_home
+  reset_log
+  code=0
+  HOME="${SKILLS_DIR%/.agents/skills}" PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY=$TS_KEY "$ROOT/bin/fm-jev-skill-select.sh" --harness pi --task-id standalone --summary 'Find pager workflows' --skills-dir "$SKILLS_DIR" >"$TMP_ROOT/standalone.out" 2>"$TMP_ROOT/standalone.err" || code=$?
+  expect_code 2 "$code" "missing originating launch ID must be rejected"
+  [ ! -e "$HOME_DIR/state/jev-skill-shadow" ] || fail "standalone collection must not reserve cohort cases"
+  [ ! -e "$LOG/body" ] || fail "standalone collection must not call service"
+  mkdir -p "$outside/pager" "$outside/review"
+  cp "$SKILLS_DIR/pager/SKILL.md" "$outside/pager/SKILL.md"
+  cp "$SKILLS_DIR/review/SKILL.md" "$outside/review/SKILL.md"
+  TYPESAFE_API_KEY=$TS_KEY run_select code out err --harness pi --task-id outside --skills-dir "$outside"
+  expect_code 0 "$code" "ineligible roots remain advisory"
+  [ ! -e "$LOG/body" ] || fail "approved hashes must not permit arbitrary catalog roots"
+  [ ! -e "$HOME_DIR/state/jev-skill-shadow/cases/outside.json" ] || fail "outside roots must not consume a case"
+  TYPESAFE_API_KEY=$TS_KEY run_select code out err --harness pi --task-id removed-switch --public-only --skills-dir "$SKILLS_DIR"
+  expect_code 2 "$code" "removed root switch must not remain an alternate path"
+  pass "shadow requires worker identity and consistently restricts public roots"
+}
+
 cp "$RESPONSE2" "$TMP_ROOT/original-response2.json"
 
 test_help_exits_0
@@ -614,3 +641,5 @@ test_twenty_case_checkpoint
 
 test_route_specific_pins
 test_low_choice_records_actual_noul
+
+test_shadow_requires_launch_and_public_roots

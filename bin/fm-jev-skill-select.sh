@@ -3,7 +3,7 @@
 #
 # Usage:
 #   fm-jev-skill-select.sh --harness <name> --task-id <id> [--summary <text>]
-#     [--skills-dir <dir>] [--public-only] [--comparison-label <label>]
+#     [--skills-dir <dir>] [--comparison-label <label>]
 #     [--launch-id <opaque-id>]
 #     [--max <n>] [--status-note] [--stdin]
 #     [--overlay <launch-brief>] [skill-id ...]
@@ -21,8 +21,8 @@
 #   records, overlay injection, and live_loaded.
 #
 # Default shadow: reserve one case per launch under
-#   $FM_HOME/state/jev-skill-shadow/cases/<launch-id>.json. Omit --launch-id
-#   for a fresh launch; supply the same opaque ID only to retry or label it.
+#   $FM_HOME/state/jev-skill-shadow/cases/<launch-id>.json. Shadow calls require
+#   the originating worker --launch-id; reuse that ID only to retry or label it.
 #   Approved public SKILL.md SHA-256 digests are listed as a JSON array in
 #   $FM_HOME/config/jev-skill-public.json. All matching installed eligible
 #   skills are offered, with their real descriptions and public excerpts.
@@ -74,7 +74,7 @@ usage() {
 }
 
 HARNESS='' TASK_ID='' SUMMARY='' OVERLAY='' STATUS_NOTE=0 READ_STDIN=0 MAX=$DEFAULT_MAX
-PUBLIC_ONLY=0 COMPARISON_LABEL=unlabeled LAUNCH_ID=''
+COMPARISON_LABEL=unlabeled LAUNCH_ID=''
 SHADOW_ARGS=("$@")
 SKILLS_DIRS=()
 POSITIONAL=()
@@ -85,13 +85,17 @@ while [ $# -gt 0 ]; do
     --task-id) [ $# -ge 2 ] || die "--task-id needs a value"; TASK_ID=$2; shift 2 ;;
     --launch-id) [ $# -ge 2 ] || die "--launch-id needs a value"; LAUNCH_ID=$2; shift 2 ;;
     --summary) [ $# -ge 2 ] || die "--summary needs a value"; SUMMARY=$2; shift 2 ;;
-    --public-only) PUBLIC_ONLY=1; shift ;;
     --comparison-label)
       [ $# -ge 2 ] || die "--comparison-label needs a value"
-      case "$2" in
-        unlabeled|correct|incorrect|missed|caught|irrelevant|no-fit|unknown|p2-exposure|launch-changed|roster-omission) COMPARISON_LABEL=$2 ;;
-        *) die "--comparison-label is not a supported comparison outcome" ;;
-      esac
+      [[ "$2" =~ ^[a-z0-9-]+(,[a-z0-9-]+)*$ ]] || die "invalid comparison outcomes"
+      IFS=, read -r -a labels <<<"$2"
+      for label in "${labels[@]}"; do
+        case "$label" in
+          unlabeled|correct|incorrect|missed|caught|irrelevant|no-fit|unknown|p2-exposure|launch-changed|roster-omission) ;;
+          *) die "--comparison-label is not a supported comparison outcome" ;;
+        esac
+      done
+      COMPARISON_LABEL=$2
       shift 2
       ;;
     --skills-dir) [ $# -ge 2 ] || die "--skills-dir needs a value"; SKILLS_DIRS+=("$2"); shift 2 ;;
@@ -140,7 +144,7 @@ STATE_DIR="$FM_HOME/state"
 OUT="$STATE_DIR/${TASK_ID}.jev-skills.json"
 mkdir -p "$STATE_DIR" || die "could not create $STATE_DIR"
 if [ "$MODE" = shadow ]; then
-  case "$LAUNCH_ID" in *[!A-Za-z0-9._:-]*) die "invalid launch-id" ;; esac
+  case "$LAUNCH_ID" in ''|*[!A-Za-z0-9._:-]*) die "shadow requires an originating --launch-id" ;; esac
   if [ "${FM_JEV_SHADOW_CHILD:-0}" != 1 ]; then
     exec python3 "$SCRIPT_DIR/fm-jev-skill-shadow.py" "$FM_HOME" "$LAUNCH_ID" "$COMPARISON_LABEL" "$0" "${SHADOW_ARGS[@]}"
   fi
@@ -326,7 +330,7 @@ run_shadow() {
   esac
   [ -n "$SUMMARY" ] || { printf 'jev-skill-select: shadow skipped (no authored safe query)\n' >&2; exit 0; }
   shadow_safe_text "$SUMMARY" || { printf 'jev-skill-select: shadow skipped (query outside P0/P1 allowlist)\n' >&2; exit 0; }
-  roster_json=$(python3 "$SCRIPT_DIR/fm-jev-skill-shadow.py" catalog "$FM_HOME" "$PUBLIC_ONLY" "${SKILLS_DIRS[@]}") || exit 0
+  roster_json=$(python3 "$SCRIPT_DIR/fm-jev-skill-shadow.py" catalog "$FM_HOME" "${SKILLS_DIRS[@]}") || exit 0
   [ "$(jq 'length' <<<"$roster_json")" -gt 0 ] || { printf 'jev-skill-select: shadow skipped (no eligible public skills)\n' >&2; exit 0; }
   roster_hash=$(printf '%s' "$roster_json" | shadow_hash) || exit 0
   request_hash=$(printf '%s\n%s\n%s' "$SUMMARY" "$HARNESS" "$roster_hash" | shadow_hash) || exit 0

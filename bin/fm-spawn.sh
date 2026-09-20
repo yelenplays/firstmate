@@ -2673,7 +2673,7 @@ fm_spawn_shadow_jev_skills() {
   [ -f "$query" ] && [ -r "$query" ] || return 0
   summary=$(fm_spawn_jev_skill_summary)
   [ -n "$summary" ] || return 0
-  args=(--launch-id "$SPAWN_GEN" --public-only --harness "$HARNESS" --task-id "$ID" --summary "$summary")
+  args=(--launch-id "$SPAWN_GEN" --harness "$HARNESS" --task-id "$ID" --summary "$summary")
   while IFS= read -r dir; do
     [ -n "$dir" ] || continue
     args+=(--skills-dir "$dir")
