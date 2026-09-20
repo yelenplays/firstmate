@@ -75,7 +75,7 @@ Eligibility is a firstmate judgment made BEFORE arming, because the scripts cann
 Never bind an action that is destructive, irreversible, or security-sensitive, an action needing captain approval or any gate decision, or an action whose right form depends on what the condition finds - those keep the existing check-fires-then-firstmate-decides flow, for which a plain custom check or another adapter stays correct.
 When in doubt, arm only the condition half as an ordinary check and keep the action as a wake-time decision.
 
-Spend ceilings need no manual arm: `bin/fm-spawn.sh` registers a `spend-task-<id>` source per ship/scout and the shared `spend-fleet` source whenever `config/spend-ceilings.json` configures them (schema: [`docs/configuration.md`](../../../docs/configuration.md#spend-ceilings-configspend-ceilingsjson)).
+Spend ceilings need no manual arm: `bin/fm-spawn.sh` registers a `spend-task-<id>` source per measured Pi-family ship/scout and the shared `spend-fleet` source whenever `config/spend-ceilings.json` configures them (schema: [`docs/configuration.md`](../../../docs/configuration.md#spend-ceilings-configspend-ceilingsjson)).
 
 `bin/fm-procevent.sh --help`, `bin/fm-procevent-lavish.sh --help`, `bin/fm-procevent-when.sh --help`, `bin/fm-procevent-quota.sh --help`, `bin/fm-procevent-spend.sh --help`, and `bin/fm-procevent-remote-reply.sh --help` own the exact commands and flags.
 

@@ -17,9 +17,10 @@
 # Ceilings come from config/spend-ceilings.json (docs/configuration.md owns the
 # schema):
 #   pollIntervalSeconds   cadence for both pollers (default 120)
-#   taskCeilingTokens     per-task budget; each spawned ship/scout gets a
-#                         spend-task-<id> source that fires when the task's
-#                         ledger total reaches it
+#   taskCeilingTokens     per-task budget; each spawned Pi or pi-signed
+#                         ship/scout gets a spend-task-<id> source that fires
+#                         when the task's ledger total reaches it. Other
+#                         harnesses are unmeasured and are not armed.
 #   fleetWindow           {ceilingTokens, hours (default 168), family (optional)}
 #                         one shared spend-fleet source that fires when fleet
 #                         spend inside the trailing window reaches the ceiling
@@ -144,14 +145,24 @@ emit_result() {
   while [ "$#" -gt 0 ]; do printf '%s\n' "$1"; shift; done
 }
 
-ledger_task_tokens() {  # <id> -> tokens on stdout, or failure
-  local id=$1 doc
-  doc=$("$LEDGER" --state "$STATE" task "$id" --scan-budget "${SCAN_BUDGET:-30}" 2>/dev/null) || return 1
-  printf '%s\n' "$doc" | jq -er '
-    if (.status == "ok" or .status == "empty") and (.totals.tokens | type) == "number"
-    then .totals.tokens | floor
-    else empty
-    end' 2>/dev/null
+ledger_task_tokens() {  # <id> -> tokens on stdout (0), unknown (2), or failure (1)
+  local id=$1 doc parsed state
+  local -a argv=("$LEDGER" --state "$STATE" task "$id")
+  [ -z "${SCAN_BUDGET-}" ] || argv+=(--scan-budget "$SCAN_BUDGET")
+  doc=$("${argv[@]}" 2>/dev/null) || return 1
+  parsed=$(printf '%s\n' "$doc" | jq -c '
+    if .status == "ok" and (.partial != true) and ((.totals.tokens | type) == "number")
+    then {state:"ok", tokens:(.totals.tokens | floor)}
+    elif .status == "ok" or .status == "empty"
+    then {state:"unknown"}
+    else {state:"error"}
+    end' 2>/dev/null) || return 1
+  state=$(printf '%s\n' "$parsed" | jq -er '.state') || return 1
+  case "$state" in
+    ok) printf '%s\n' "$parsed" | jq -er '.tokens' ;;
+    unknown) return 2 ;;
+    *) return 1 ;;
+  esac
 }
 
 ledger_window_tokens() {  # <hours> [family] -> tokens on stdout, or failure
@@ -221,7 +232,7 @@ cmd_poll() {
   [ -n "$task" ] || die "poll needs --task <id> or --fleet"
   valid_id "$task" || die "invalid task id: $task"
   RESULT_SOURCE_ID="spend-task-$task"
-  local meta="$STATE/$task.meta" tokens fails=0 polls=0
+  local meta="$STATE/$task.meta" tokens fails=0 polls=0 rc
   while :; do
     polls=$((polls + 1))
     [ -f "$meta" ] || { emit_result gone "task: $task" "condition_polls: $polls"; exit 0; }
@@ -229,7 +240,10 @@ cmd_poll() {
       emit_result stopped "task: $task" "condition_polls: $polls"
       exit 0
     fi
-    if tokens=$(ledger_task_tokens "$task"); then
+    tokens=
+    rc=0
+    tokens=$(ledger_task_tokens "$task") || rc=$?
+    if [ "$rc" -eq 0 ]; then
       fails=0
       if [ "$tokens" -ge "$ceiling" ]; then
         emit_result ceiling \
@@ -239,7 +253,7 @@ cmd_poll() {
           "condition_polls: $polls"
         exit 0
       fi
-    else
+    elif [ "$rc" -ne 2 ]; then
       fails=$((fails + 1))
       [ "$fails" -lt "$MAX_LEDGER_FAILURES" ] || {
         emit_result error "task: $task" "detail: spend ledger unreadable for $fails consecutive polls" "condition_polls: $polls"
@@ -404,6 +418,15 @@ cmd_arm() {
       return 0
     fi
     [ -f "$STATE/$id.meta" ] || die "no task record for $id; refusing to arm a ceiling for a task that is not recorded"
+    local harness
+    harness=$(meta_get "$STATE/$id.meta" harness)
+    case "$harness" in
+      pi|pi-signed) ;;
+      *)
+        printf 'unmeasured harness %s; not arming spend-task-%s\n' "${harness:-unknown}" "$id"
+        return 0
+        ;;
+    esac
     "$SCRIPT_DIR/fm-procevent.sh" register spend "$sid" \
       -- "$SCRIPT_DIR/fm-procevent-spend.sh" poll --task "$id" --ceiling "$ceiling" --interval "$interval" || exit 1
     printf 'armed: %s ceiling=%s interval=%ss\n' "$sid" "$ceiling" "$interval"

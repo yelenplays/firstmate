@@ -734,30 +734,13 @@ def cmd_predict(args, state_dir, sessions_root):
         windows = provider.get("windows") or []
         window = next((w for w in windows if w.get("kind") == "weekly"), None)
         if window is None:
-            window = next((w for w in windows if isinstance(w.get("resetsAt"), str)), None)
-        if window is None:
             continue
         resets = parse_iso(window.get("resetsAt"))
         percent_remaining = window.get("percentRemaining")
         if resets is None or not isinstance(percent_remaining, (int, float)):
             continue
         consumed = 100.0 - float(percent_remaining)
-        if window.get("kind") == "weekly":
-            window_start = resets - WEEK_SECONDS
-        else:
-            # Non-weekly windows derive their start from pace: burnMultiple is
-            # consumed share over elapsed share, so the window length follows
-            # from the time left until resetsAt.
-            pace = (window.get("pace") or {}).get("burnMultiple")
-            if not isinstance(pace, (int, float)) or pace <= 0 or consumed <= 0:
-                continue
-            elapsed_share = consumed / 100.0 / pace
-            if elapsed_share <= 0 or elapsed_share >= 1:
-                continue
-            remaining_seconds = resets - now
-            if remaining_seconds <= 0:
-                continue
-            window_start = resets - remaining_seconds / (1 - elapsed_share)
+        window_start = resets - WEEK_SECONDS
         tokens_in_window = 0
         for day, tokens in (day_series.get(name) or {}).items():
             day_ts = parse_iso(day + "T00:00:00Z")
@@ -847,7 +830,7 @@ def main(argv=None):
 
     p = sub.add_parser("task", help="write state/<id>.spend and print it")
     p.add_argument("id")
-    p.add_argument("--scan-budget", type=float, default=30)
+    p.add_argument("--scan-budget", type=float, default=None)
 
     p = sub.add_parser("rollup", help="write and print state/spend-rollup.json")
 

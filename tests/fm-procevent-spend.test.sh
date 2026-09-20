@@ -34,7 +34,20 @@ while [ $# -gt 0 ]; do
 done
 case "${1:-}" in
   task)
-    printf '{"status":"ok","totals":{"tokens":%s}}\n' "${TASK_TOKENS:-0}"
+    case "${LEDGER_STATUS:-ok}" in
+      empty)
+        printf '{"status":"empty","totals":{"tokens":0}}\n'
+        ;;
+      partial)
+        printf '{"status":"ok","partial":true,"totals":{"tokens":%s}}\n' "${TASK_TOKENS:-0}"
+        ;;
+      unavailable)
+        printf '{"status":"unavailable","totals":{"tokens":0}}\n'
+        ;;
+      *)
+        printf '{"status":"ok","partial":false,"totals":{"tokens":%s}}\n' "${TASK_TOKENS:-0}"
+        ;;
+    esac
     ;;
   week)
     if [ -n "${WEEK_FAMILY:-}" ]; then
@@ -69,8 +82,8 @@ chmod +x "$CONTROL"
 CONTROL_COUNT="$LAB/control-count"
 CONTROL_ARGS="$LAB/control-args"
 
-write_meta() {  # <id> <spawn_gen>
-  printf 'endpoint_task_id=%s\nworktree=/wt/%s\nspawn_gen=%s\nharness=claude\n' "$1" "$1" "$2" \
+write_meta() {  # <id> <spawn_gen> [harness]
+  printf 'endpoint_task_id=%s\nworktree=/wt/%s\nspawn_gen=%s\nharness=%s\n' "$1" "$1" "$2" "${3:-pi}" \
     > "$STATE_DIR/$1.meta"
 }
 
@@ -150,6 +163,18 @@ if err=$(run_adapter arm --task '../evil' 2>&1); then
 fi
 ok "arm rejects an unsafe task id"
 
+write_config '{"taskCeilingTokens": 5000}'
+write_meta t-codex 1 codex
+out=$(run_adapter arm --task t-codex)
+printf '%s\n' "$out" | grep -Fq 'not arming' || fail "codex harness armed a ceiling: $out"
+[ ! -e "$STATE_DIR/procevent/spend-task-t-codex.source" ] || fail "codex harness registered a spend source"
+ok "arm skips an unmeasured non-Pi harness"
+
+write_meta t-signed 1 pi-signed
+out=$(run_adapter arm --task t-signed)
+printf '%s\n' "$out" | grep -Fq 'armed: spend-task-t-signed' || fail "pi-signed harness did not arm: $out"
+ok "arm registers a pi-signed task"
+
 write_config '{"fleetWindow": {"ceilingTokens": 9000, "hours": 24, "family": "codex"}}'
 out=$(run_adapter arm --fleet)
 printf '%s\n' "$out" | grep -Fq 'armed: spend-fleet' || fail "fleet arm output unexpected: $out"
@@ -198,6 +223,26 @@ out=$(LEDGER_FAIL=1 run_adapter poll --task t2 --ceiling 5000 --interval 0.01)
 printf '%s\n' "$out" | grep -qx 'status: error' || fail "persistent ledger failure did not error: $out"
 printf '%s\n' "$out" | grep -qx 'condition_polls: 5' || fail "ledger failure did not stop after the bound: $out"
 ok "task poll reports an error after bounded ledger failures"
+
+write_meta t-empty 1
+LEDGER_STATUS=empty run_adapter poll --task t-empty --ceiling 5000 --interval 0.05 \
+  > "$LAB/empty.out" 2>&1 &
+empty_pid=$!
+sleep 0.4
+kill "$empty_pid" 2>/dev/null
+wait "$empty_pid" 2>/dev/null
+[ ! -s "$LAB/empty.out" ] || fail "empty ledger status produced a capture: $(cat "$LAB/empty.out")"
+ok "task poll treats empty ledger status as unknown, not zero"
+
+write_meta t-partial 1
+LEDGER_STATUS=partial TASK_TOKENS=99999 run_adapter poll --task t-partial --ceiling 5000 --interval 0.05 \
+  > "$LAB/partial.out" 2>&1 &
+partial_pid=$!
+sleep 0.4
+kill "$partial_pid" 2>/dev/null
+wait "$partial_pid" 2>/dev/null
+[ ! -s "$LAB/partial.out" ] || fail "partial ledger total produced a capture: $(cat "$LAB/partial.out")"
+ok "task poll does not treat a partial total as under-ceiling"
 
 # --- poll: fleet -------------------------------------------------------------
 out=$(WEEK_TOKENS=9500 run_adapter poll --fleet --ceiling 9000 --hours 24 --interval 1)

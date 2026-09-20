@@ -1210,7 +1210,7 @@ The enforcement is the `spend` process-event adapter (`bin/fm-procevent-spend.sh
 }
 ```
 
-- `taskCeilingTokens` (positive integer, optional): each spawned ship or scout gets a `spend-task-<id>` source polling the task's ledger total; a crossed ceiling captures a terminal result whose autohandle delivers `fm-control.sh <id> exit`, records `state/<id>.spend-stop` keyed on the task's `spawn_gen` (a relaunched incarnation is governed again), and reports through a `state/<id>.status` line that wakes firstmate. A failed stop is recorded and left unhandled so the ordinary check wake still carries the crossing.
+- `taskCeilingTokens` (positive integer, optional): each spawned Pi or pi-signed ship or scout gets a `spend-task-<id>` source polling the task's ledger total; a crossed ceiling captures a terminal result whose autohandle delivers `fm-control.sh <id> exit`, records `state/<id>.spend-stop` keyed on the task's `spawn_gen` (a relaunched incarnation is governed again), and reports through a `state/<id>.status` line that wakes firstmate. A failed stop is recorded and left unhandled so the ordinary check wake still carries the crossing. Other harnesses are unmeasured by the ledger and are not armed.
 - `fleetWindow` (object, optional): one shared `spend-fleet` source fires once per window when fleet spend in the trailing `hours` (default 168) reaches `ceilingTokens`; `family` (optional) scopes the sum to one ledger family such as `codex`, `deepseek`, or `grok`, absent means all lanes. The capture is report-only - it stays unhandled so the check wake reaches firstmate - and `state/spend-fleet-fired.json` suppresses a re-fire inside the same window.
 - `pollIntervalSeconds` (positive number, optional): poll cadence for both sources, default 120.
 

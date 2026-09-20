@@ -153,6 +153,7 @@ RESETS=$(python3 -c 'import sys,datetime; print(datetime.datetime.fromtimestamp(
 cat > "$STATE/quota.json" <<EOF
 {"schema":"quota-axi.v5","providers":[
  {"provider":"codex","windows":[{"id":"weekly","kind":"weekly","resetsAt":"$RESETS","percentRemaining":40,"pace":{"burnMultiple":2.0}}],"availability":[]},
+ {"provider":"daily","windows":[{"id":"daily","kind":"daily","resetsAt":"$RESETS","percentRemaining":40,"pace":{"burnMultiple":2.0}}],"availability":[]},
  {"provider":"unmeasured","windows":[],"availability":[]}
  ]}
 EOF
@@ -165,6 +166,8 @@ assert_equals "60.0" "$(json_field "$PREDICT" "d['providers']['codex']['percentC
 python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert abs(d["providers"]["codex"]["tokensPerPoint"] - 3400/60) < 0.01, d' "$PREDICT" \
   || fail "predict tokensPerPoint"
 assert_not_contains "$PREDICT" '"unmeasured"' "predict invents no row for unmeasured provider"
+python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert "daily" not in d["providers"], d["providers"]' "$PREDICT" \
+  || fail "predict calibrated a non-weekly window"
 
 # --- malformed quota and missing sessions root --------------------------------
 
