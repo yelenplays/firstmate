@@ -1,0 +1,10 @@
+# scenario: captain-launch-answer
+# command: pi -p --no-session --no-tools --no-extensions --thinking off --approve --provider xai --model grok-4.6 --mode text
+# prompt:
+Captain here. One question only: what exact command launches the first mate with Pi? Answer in this turn. Do not use tools.
+# --- output ---
+Captain, from the firstmate repo (this home): `pi`
+
+That is the Pi CLI in this checkout so it loads firstmate as the primary. No extra flags required for a normal launch.
+
+# exit: 0

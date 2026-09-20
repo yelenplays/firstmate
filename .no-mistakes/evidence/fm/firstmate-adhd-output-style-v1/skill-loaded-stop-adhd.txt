@@ -1,0 +1,15 @@
+# scenario: skill-loaded-stop-adhd
+# command: pi -p --no-session --no-tools --no-extensions --thinking off --approve --skill .agents/skills/i-have-adhd/SKILL.md --provider xai --model grok-4.6 --mode text
+# prompt:
+stop adhd mode
+Confirm your output style, then say what exact command launches the first mate with Pi. Do not use tools.
+# --- output ---
+Captain, ADHD-style output stays on. `stop adhd mode` does not turn it off here.
+
+Lead with the answer. Short lines. Restate where work stands. End on one next action. Address you as captain in chat.
+
+Exact Pi launch command: I do not have it from this turn. You barred tools, so I will not invent one.
+
+If you want the real command, allow a docs read next.
+
+# exit: 0

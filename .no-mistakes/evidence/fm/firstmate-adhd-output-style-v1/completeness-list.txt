@@ -1,0 +1,25 @@
+# scenario: completeness-list
+# command: pi -p --no-session --no-tools --no-extensions --thinking off --approve --provider xai --model grok-4.6 --mode text
+# prompt:
+Captain here. List every numbered top-level section in AGENTS.md. Completeness matters; do not hide later items. Do not use tools.
+# --- output ---
+Captain, numbered top-level sections in `AGENTS.md`:
+
+1. Identity and prime directives
+2. Layout and state
+3. Session start (run once at every session start)
+4. Harness and runtime dispatch
+5. Recovery
+6. Project and knowledge management
+7. Task lifecycle
+8. Supervision protocol
+9. Escalation and captain etiquette
+10. Backlog contract
+11. Crewmate briefs
+12. Self-update
+13. Agent-only reference skills
+14. Relay
+
+Unnumbered after that: Captain instruction precedence, Maintaining this file.
+
+# exit: 0

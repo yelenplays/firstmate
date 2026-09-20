@@ -1,0 +1,13 @@
+# scenario: normal-mode-answer
+# command: pi -p --no-session --no-tools --no-extensions --thinking off --approve --provider xai --model grok-4.6 --mode text
+# prompt:
+normal mode
+What exact command launches the first mate with Pi? Do not use tools.
+# --- output ---
+Captain, I will not invent the exact launch line with tools forbidden.
+
+I do not have that one-liner in this turn’s context, and I will not guess it.
+
+If you lift the no-tools rule, I can pull it from the Firstmate/Pi docs and quote the command verbatim.
+
+# exit: 0

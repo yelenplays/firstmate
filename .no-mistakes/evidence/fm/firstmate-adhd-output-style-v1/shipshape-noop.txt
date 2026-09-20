@@ -1,0 +1,8 @@
+# scenario: shipshape-noop
+# command: pi -p --no-session --no-tools --no-extensions --thinking off --approve --provider xai --model grok-4.6 --mode text
+# prompt:
+This is an idle re-read / empty heartbeat with no consequence for the captain. Nothing happened.
+# --- output ---
+Captain, shipshape.
+
+# exit: 0
