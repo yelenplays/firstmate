@@ -609,12 +609,15 @@ The shadow record contains only opaque experiment and input hashes, the pinned r
 Both state and criteria use only authored P0/P1 requests and approved public skill content; raw briefs, page bodies, private instructions, career data, mail, traces, unpublished names, and credentials are excluded.
 Before collection, review the installed public skills for that boundary and put their full-file SHA-256 digests in the JSON array `config/jev-skill-public.json`.
 Approval is content-specific: changed files require renewed review; punctuation, Markdown headings, and public documentation links are preserved rather than treated as private content.
+Public installation roots include `~/.pi/agent/skills` under the same digest approval.
 All eligible approved installed skills are offered regardless of ordering; mandatory and supervisor-only skills remain outside this optional suggestion.
-The TypeSafe model is pinned to `jev-1.13.0` for the experiment, while the existing `bin/fm-jev-lib.sh` route and caller remain the transport owner.
+The model is pinned to `jev-1.13.0` on TypeSafe and `typesafe/jev-1.13` on OpenRouter for the experiment, while the existing `bin/fm-jev-lib.sh` route and caller remain the transport owner.
 A missing, unreadable, or blank query file skips the shadow call entirely; raw captain text and legacy brief bodies are never fallback queries.
 The shadow supervisor bounds the complete selector to 5.7 seconds with time reserved for recording within the six-second launch envelope; each HTTP call retains its four-second ceiling.
 Timeouts preserve the latest completed decision and usage, and latency measures the whole selector operation including roster preparation.
 Each ordinary launch gets a new opaque ID, including relaunches; an explicit `--launch-id` reuses only that launch and supports offline review without credentials or a query.
+Spawn uses its existing `spawn_gen` as the case filename, `experiment_id`, and review `--launch-id`, and appends that ID to `data/<task-id>/jev-skill-launches` before attempting the comparison.
+That task-local history retains the association across relaunches; skipped attempts can have no case file.
 Collection stops automatically at 20 reserved cases, including failures; concurrent reservations share that limit.
 Do not manufacture launches or claim production value before sufficient natural volume exists.
 Review each case against the unassisted agent's actual required skill loading, without changing the worker or persisting its raw trace, using `--launch-id <id> --comparison-label <label>` with the selector's required harness and task arguments.

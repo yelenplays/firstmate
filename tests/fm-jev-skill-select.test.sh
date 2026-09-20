@@ -81,6 +81,10 @@ else
   sleep "${FAKE_FIRST_DELAY:-0}"
   cp "${FAKE_CURL_RESPONSE:?}" "$out"
 fi
+if [ "${FAKE_ECHO_MODEL:-0}" = 1 ]; then
+  jq --arg model "$(jq -r '.model' "$FAKE_CURL_LOG/body")" '.model = $model' "$out" > "$out.tmp"
+  mv "$out.tmp" "$out"
+fi
 if [ "${FAKE_CURL_FAIL:-0}" = 1 ]; then
   exit 7
 fi
@@ -490,7 +494,7 @@ SH
   chmod +x "$FAKEBIN/shasum"
   TYPESAFE_API_KEY=$TS_KEY run_select code out err --harness pi --task-id latency --skills-dir "$SKILLS_DIR"
   rm "$FAKEBIN/shasum"
-  jq -e '.status == "recommended" and .latency_ms >= 900' "$HOME_DIR/state/jev-skill-shadow/cases/latency.json" >/dev/null || fail "hash preparation must count toward latency"
+  jq -e '.status == "recommended" and .latency_ms >= 600' "$HOME_DIR/state/jev-skill-shadow/cases/latency.json" >/dev/null || fail "hash preparation must count toward latency"
   pass "timeout evidence and complete operation latency are durable"
 }
 
@@ -541,6 +545,48 @@ test_twenty_case_checkpoint() {
   pass "20-case comparison and stop checkpoint block additional collection"
 }
 
+test_route_specific_pins() {
+  local code out err variant expected
+  for variant in typesafe fallback explicit configured; do
+    fresh_home
+    expected=typesafe/jev-1.13
+    case "$variant" in
+      typesafe)
+        expected=jev-1.13.0
+        FAKE_ECHO_MODEL=1 JEV_MODEL=unversioned TYPESAFE_API_KEY=$TS_KEY run_select code out err --harness pi --task-id route --skills-dir "$SKILLS_DIR"
+        ;;
+      fallback)
+        FAKE_ECHO_MODEL=1 JEV_MODEL=unversioned OPENROUTER_API_KEY=$TS_KEY run_select code out err --harness pi --task-id route --skills-dir "$SKILLS_DIR"
+        ;;
+      explicit)
+        FAKE_ECHO_MODEL=1 JEV_ROUTE=openrouter TYPESAFE_API_KEY=$TS_KEY OPENROUTER_API_KEY=$TS_KEY run_select code out err --harness pi --task-id route --skills-dir "$SKILLS_DIR"
+        ;;
+      configured)
+        printf '%s\n' "OPENROUTER_API_KEY=$TS_KEY" 'JEV_ROUTE=openrouter' 'JEV_MODEL=unversioned' > "$HOME_DIR/.env"
+        FAKE_ECHO_MODEL=1 run_select code out err --harness pi --task-id route --skills-dir "$SKILLS_DIR"
+        ;;
+    esac
+    expect_code 0 "$code" "route $variant remains supported"
+    jq -e --arg model "$expected" '.model == $model' "$LOG/first-body" >/dev/null || fail "first call must pin selected route model"
+    jq -e --arg model "$expected" '.model == $model' "$LOG/body" >/dev/null || fail "detail call must pin selected route model"
+    jq -e --arg model "$expected" '.status == "recommended" and .resolved_model == $model and .experiment_id == "route"' "$HOME_DIR/state/jev-skill-shadow/cases/route.json" >/dev/null || fail "record must retain resolved route model and launch ID"
+    if [ "$variant" != typesafe ]; then
+      assert_contains "$(cat "$LOG/argv")" 'https://openrouter.ai/api/alpha/decisions' "OpenRouter must retain existing transport"
+    fi
+  done
+  pass "both selected routes retain their versioned model identifiers"
+}
+
+test_low_choice_records_actual_noul() {
+  local code out err
+  fresh_home
+  jq '.answers.detail.confidence = 0.79 | .answers.fit_pager.noul = 0.93' "$TMP_ROOT/original-response2.json" > "$RESPONSE2"
+  TYPESAFE_API_KEY=$TS_KEY run_select code out err --harness pi --task-id low-detail --skills-dir "$SKILLS_DIR"
+  jq -e '.status == "none" and .decisions.stage2.confidence == 0.79 and .decisions.stage2.chosen_fit_probability == 0.93' "$HOME_DIR/state/jev-skill-shadow/cases/low-detail.json" >/dev/null || fail "low Choice confidence must not overwrite actual Noul"
+  cp "$TMP_ROOT/original-response2.json" "$RESPONSE2"
+  pass "low Choice confidence preserves actual fit evidence without recommending"
+}
+
 cp "$RESPONSE2" "$TMP_ROOT/original-response2.json"
 
 test_help_exits_0
@@ -565,3 +611,6 @@ test_invalid_detail_retains_usage
 test_timeout_retains_case_and_wall_latency
 test_launch_identity_and_durable_safety_labels
 test_twenty_case_checkpoint
+
+test_route_specific_pins
+test_low_choice_records_actual_noul

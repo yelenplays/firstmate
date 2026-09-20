@@ -2654,6 +2654,7 @@ fm_spawn_jev_skill_shadow_dirs() {
     "${HOME:+$HOME/.agents/skills}" \
     "${HOME:+$HOME/.claude/skills}" \
     "${HOME:+$HOME/.grok/skills}" \
+    "${HOME:+$HOME/.pi/agent/skills}" \
     "$codex_skills"; do
     [ -n "$dir" ] || continue
     [ -d "$dir" ] && [ -r "$dir" ] || continue
@@ -2672,12 +2673,13 @@ fm_spawn_shadow_jev_skills() {
   [ -f "$query" ] && [ -r "$query" ] || return 0
   summary=$(fm_spawn_jev_skill_summary)
   [ -n "$summary" ] || return 0
-  args=(--public-only --harness "$HARNESS" --task-id "$ID" --summary "$summary")
+  args=(--launch-id "$SPAWN_GEN" --public-only --harness "$HARNESS" --task-id "$ID" --summary "$summary")
   while IFS= read -r dir; do
     [ -n "$dir" ] || continue
     args+=(--skills-dir "$dir")
   done < <(fm_spawn_jev_skill_shadow_dirs)
-  env JEV_MODEL=jev-1.13.0 JEV_TIMEOUT=4 \
+  printf '%s\n' "$SPAWN_GEN" >> "$DATA/$ID/jev-skill-launches" || return 0
+  env JEV_TIMEOUT=4 \
     "$FM_ROOT/bin/fm-jev-skill-select.sh" "${args[@]}" >/dev/null 2>&1 || true
   return 0
 }
@@ -3859,6 +3861,7 @@ fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
   freshen_spawn_worktree_base "$WT" || exit 1
 fi
+SPAWN_GEN="s$(date +%s).${BASHPID:-$$}.$RANDOM"
 fm_spawn_shadow_jev_skills || true
 fm_spawn_apply_jev_skills || true
 
@@ -4357,7 +4360,6 @@ else
   fi
 fi
 
-SPAWN_GEN="s$(date +%s).${BASHPID:-$$}.$RANDOM"
 EXECUTION_TOKEN=
 if [ "$KIND" = ship ]; then
   EXECUTION_TOKEN=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" attempt "$ID" --spawn-gen "$SPAWN_GEN") || exit 1

@@ -308,7 +308,8 @@ shadow_noul_probability() {
 }
 
 run_shadow() {
-  local roster_json roster_hash request_hash experiment_id state questions
+  local roster_json roster_hash request_hash state questions
+  local _fm_jev_route _fm_jev_url _fm_jev_model _fm_jev_key
   local response stage2_response offered detail_offered
   local stage1_choice stage1_confidence stage1_probs detail_choice detail_confidence detail_probs
   local model t0 t1 latency tokens1 tokens2 tokens chosen_fit decisions
@@ -318,29 +319,33 @@ run_shadow() {
     && [ -z "$(fmx_env_get OPENROUTER_API_KEY "$FM_HOME/.env")" ]; then
     off_without_keys
   fi
+  _fm_jev_resolve_route || exit 0
+  case "$_fm_jev_route" in
+    openrouter) SHADOW_MODEL=typesafe/jev-1.13 ;;
+    typesafe) SHADOW_MODEL=jev-1.13.0 ;;
+  esac
   [ -n "$SUMMARY" ] || { printf 'jev-skill-select: shadow skipped (no authored safe query)\n' >&2; exit 0; }
   shadow_safe_text "$SUMMARY" || { printf 'jev-skill-select: shadow skipped (query outside P0/P1 allowlist)\n' >&2; exit 0; }
   roster_json=$(python3 "$SCRIPT_DIR/fm-jev-skill-shadow.py" catalog "$FM_HOME" "$PUBLIC_ONLY" "${SKILLS_DIRS[@]}") || exit 0
   [ "$(jq 'length' <<<"$roster_json")" -gt 0 ] || { printf 'jev-skill-select: shadow skipped (no eligible public skills)\n' >&2; exit 0; }
   roster_hash=$(printf '%s' "$roster_json" | shadow_hash) || exit 0
   request_hash=$(printf '%s\n%s\n%s' "$SUMMARY" "$HARNESS" "$roster_hash" | shadow_hash) || exit 0
-  experiment_id=$(printf '%s\n%s' "$request_hash" "$LAUNCH_ID" | shadow_hash) || exit 0
   state=$(jq -n --arg request "$SUMMARY" --arg runtime "$HARNESS" \
     '{request:$request,runtime:$runtime,worker_role:"worker"}')
   if ! state=$(JEV_STATE_MAX_BYTES=$SHADOW_STATE_MAX fm_jev_compact_state "$state"); then
-    shadow_write_record error "$experiment_id" "$roster_hash" "$request_hash" "$SHADOW_MODEL" \
+    shadow_write_record error "$LAUNCH_ID" "$roster_hash" "$request_hash" "$SHADOW_MODEL" \
       '{}' 0 '{"input_tokens":0,"output_tokens":0}' "$COMPARISON_LABEL" state_too_large || exit 0
     exit 0
   fi
   questions=$(jq -n --argjson roster "$roster_json" '
     {skill:{type:"choice",instructions:"Choose the one installed public skill whose documented purpose best satisfies the safe request. Choose none when no skill specifically fits.",criteria:(($roster | map({key:.id,value:.description}) | from_entries) + {none:"No optional skill specifically fits the safe request."})}}
   ') || exit 0
-  shadow_write_record pending "$experiment_id" "$roster_hash" "$request_hash" "$SHADOW_MODEL" \
+  shadow_write_record pending "$LAUNCH_ID" "$roster_hash" "$request_hash" "$SHADOW_MODEL" \
     '{}' 0 '{"input_tokens":0,"output_tokens":0}' "$COMPARISON_LABEL" pending >/dev/null
   t0=$(_fm_jev_now_ms)
   response=$(JEV_MODEL="$SHADOW_MODEL" JEV_TIMEOUT=4 fm_jev_decide "$state" "$questions" 2>/dev/null) || {
     t1=$(_fm_jev_now_ms); latency=$((t1 - t0))
-    shadow_write_record error "$experiment_id" "$roster_hash" "$request_hash" "$SHADOW_MODEL" \
+    shadow_write_record error "$LAUNCH_ID" "$roster_hash" "$request_hash" "$SHADOW_MODEL" \
       '{}' "$latency" '{"input_tokens":0,"output_tokens":0}' "$COMPARISON_LABEL" service_error || exit 0
     exit 0
   }
@@ -348,7 +353,7 @@ run_shadow() {
   offered=$(jq -c '[.[] | .id] + ["none"]' <<<"$roster_json")
   if ! shadow_choice_valid "$response" skill "$offered"; then
     model=$(jq -r '.model // empty' <<<"$response"); [ -n "$model" ] || model=$SHADOW_MODEL
-    shadow_write_record error "$experiment_id" "$roster_hash" "$request_hash" "$model" '{}' "$latency" \
+    shadow_write_record error "$LAUNCH_ID" "$roster_hash" "$request_hash" "$model" '{}' "$latency" \
       "$(shadow_usage "$response")" "$COMPARISON_LABEL" invalid_stage1 || exit 0
     exit 0
   fi
@@ -360,7 +365,7 @@ run_shadow() {
   decisions=$(jq -n --arg choice "$stage1_choice" --argjson confidence "$stage1_confidence" \
     --argjson probabilities "$stage1_probs" '{stage1:{choice:$choice,confidence:$confidence,probabilities:$probabilities}}')
   if [ "$stage1_choice" = none ] || ! fm_jev_choice_confidence_ok "$stage1_confidence" "$SHADOW_CONFIDENCE_FLOOR"; then
-    shadow_write_record none "$experiment_id" "$roster_hash" "$request_hash" "$model" \
+    shadow_write_record none "$LAUNCH_ID" "$roster_hash" "$request_hash" "$model" \
       "$decisions" "$latency" "$tokens1" "$COMPARISON_LABEL" low_or_none || exit 0
     exit 0
   fi
@@ -375,12 +380,12 @@ run_shadow() {
     + ($candidates | map({key:("fit_" + .id),value:{type:"noul",instructions:("Does the documented procedure for skill " + .id + " specifically satisfy the safe request?"),criteria:{"true":"The documented procedure directly satisfies the request.","false":"It does not directly satisfy the request."}}}) | from_entries)
   ') || exit 0
   state=$(jq -c --argjson candidates "$detail_json" '. + {candidates:$candidates}' <<<"$state")
-  shadow_write_record pending "$experiment_id" "$roster_hash" "$request_hash" "$model" \
+  shadow_write_record pending "$LAUNCH_ID" "$roster_hash" "$request_hash" "$model" \
     "$decisions" "$latency" "$tokens1" "$COMPARISON_LABEL" pending >/dev/null
   t0=$(_fm_jev_now_ms)
   stage2_response=$(JEV_MODEL="$SHADOW_MODEL" JEV_TIMEOUT=4 fm_jev_decide "$state" "$questions" 2>/dev/null) || {
     t1=$(_fm_jev_now_ms); latency=$((latency + t1 - t0))
-    shadow_write_record error "$experiment_id" "$roster_hash" "$request_hash" "$model" \
+    shadow_write_record error "$LAUNCH_ID" "$roster_hash" "$request_hash" "$model" \
       "$decisions" "$latency" "$tokens1" "$COMPARISON_LABEL" service_error || exit 0
     exit 0
   }
@@ -389,13 +394,13 @@ run_shadow() {
   tokens=$(jq -n --argjson a "$tokens1" --argjson b "$tokens2" \
     '{input_tokens:($a.input_tokens + $b.input_tokens),output_tokens:($a.output_tokens + $b.output_tokens)}')
   if ! shadow_choice_valid "$stage2_response" detail "$detail_offered"; then
-    shadow_write_record error "$experiment_id" "$roster_hash" "$request_hash" "$model" \
+    shadow_write_record error "$LAUNCH_ID" "$roster_hash" "$request_hash" "$model" \
       "$decisions" "$latency" "$tokens" "$COMPARISON_LABEL" invalid_stage2 || exit 0
     exit 0
   fi
   for id in "${top_ids[@]}"; do
     shadow_noul_probability "$stage2_response" "fit_$id" >/dev/null || {
-      shadow_write_record error "$experiment_id" "$roster_hash" "$request_hash" "$model" \
+      shadow_write_record error "$LAUNCH_ID" "$roster_hash" "$request_hash" "$model" \
         "$decisions" "$latency" "$tokens" "$COMPARISON_LABEL" invalid_noul || exit 0
       exit 0
     }
@@ -404,18 +409,18 @@ run_shadow() {
   detail_confidence=$(jq -r '.answers.detail.confidence' <<<"$stage2_response")
   detail_probs=$(jq -c '.answers.detail.probabilities' <<<"$stage2_response")
   chosen_fit=0
-  if [ "$detail_choice" != none ] && fm_jev_choice_confidence_ok "$detail_confidence" "$SHADOW_CONFIDENCE_FLOOR"; then
-    chosen_fit=$(shadow_noul_probability "$stage2_response" "fit_$detail_choice" || printf '0')
+  if [ "$detail_choice" != none ]; then
+    chosen_fit=$(shadow_noul_probability "$stage2_response" "fit_$detail_choice")
   fi
   decisions=$(jq -n --argjson first "$decisions" --arg choice "$detail_choice" \
     --argjson confidence "$detail_confidence" --argjson probabilities "$detail_probs" \
     --argjson fit "$chosen_fit" '{stage1:$first.stage1,stage2:{choice:$choice,confidence:$confidence,probabilities:$probabilities,chosen_fit_probability:$fit}}')
   if [ "$detail_choice" != none ] && fm_jev_choice_confidence_ok "$detail_confidence" "$SHADOW_CONFIDENCE_FLOOR" \
     && awk -v p="$chosen_fit" 'BEGIN { exit !(p >= 0.8) }'; then
-    shadow_write_record recommended "$experiment_id" "$roster_hash" "$request_hash" "$model" \
+    shadow_write_record recommended "$LAUNCH_ID" "$roster_hash" "$request_hash" "$model" \
       "$decisions" "$latency" "$tokens" "$COMPARISON_LABEL" recommended || exit 0
   else
-    shadow_write_record none "$experiment_id" "$roster_hash" "$request_hash" "$model" \
+    shadow_write_record none "$LAUNCH_ID" "$roster_hash" "$request_hash" "$model" \
       "$decisions" "$latency" "$tokens" "$COMPARISON_LABEL" low_detail_confidence || exit 0
   fi
   exit 0

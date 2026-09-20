@@ -59,7 +59,7 @@ def catalog(home, public_only, directories):
         raise ValueError('public approval must be a digest array')
     approved = set(approved)
     user_home = Path.home()
-    roots = {str(user_home / item) for item in ('.agents/skills', '.claude/skills', '.grok/skills')}
+    roots = {str(user_home / item) for item in ('.agents/skills', '.claude/skills', '.grok/skills', '.pi/agent/skills')}
     roots.add(str(Path(os.environ.get('CODEX_HOME') or user_home / '.codex') / 'skills'))
     excluded = {'none', 'search_external', 'afk', 'quiet', 'ahoy', 'bearings', 'orchestrated-delivery',
                 'harness-adapters', 'project-management', 'diagnostic-reasoning', 'ask-user-authority',
@@ -126,7 +126,7 @@ def main():
             print(json.dumps(checkpoint))
             return
         record = {'version': 2, 'experiment_id': launch, 'roster_hash': None, 'request_hash': None,
-                  'resolved_model': 'jev-1.13.0', 'status': 'pending', 'decisions': {},
+                  'resolved_model': None, 'status': 'pending', 'decisions': {},
                   'latency_ms': 0, 'token_totals': {'input_tokens': 0, 'output_tokens': 0},
                   'comparison_label': 'unlabeled', 'reason': 'reserved', 'shadow': True}
         write(path, record)
