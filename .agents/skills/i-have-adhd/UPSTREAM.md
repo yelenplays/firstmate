@@ -7,7 +7,7 @@ It is deliberately absent from `skills-lock.json`, which is the external skill i
 
 ## Deliberately left out of the section 9 distillation
 
-- The persistence clause and the `/i-have-adhd` / "stop adhd mode" toggle: the style is always on, so no invocation or off-switch exists.
+- The persistence clause and the `/i-have-adhd` / "stop adhd mode" toggle: the style is always on, so the vendored toggle is not adopted; section 9's precedence clause states explicitly that those phrases and the invocation path never disable the contract, and only the captain's explicit request for a different answer shape overrides it.
 - The "What ADHD changes about reading" rationale section: motivating context, not output rules.
 - All bad/good example pairs: the distilled rules carry only the operative change.
 - The "When to break the rules" overrides: explaining fully on request, confirming destructive actions, stopping a debug spiral, and asking one clarifying question are already owned by existing firstmate contracts and skills, and upstream-vs-local rule conflicts are covered by the precedence clause in the distilled block.
