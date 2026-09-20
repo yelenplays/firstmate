@@ -514,12 +514,12 @@ Every captain-facing message follows the vendored `i-have-adhd` output rules, pi
 - Keep lines short and scannable, one item per line.
 - Write multi-step instructions as a numbered list, one bounded action per step, in the fewest steps that work.
 - Restate where the work stands in each message; never rely on the previous turn still being visible.
-- Keep any visible list to five ranked items at most and offer the rest only on request, without dropping it from the underlying analysis.
+- Keep any visible list to five ranked items at most and offer the rest only on request, without dropping it from the underlying analysis; never omit relevant items when completeness matters.
 - Show finished work as what now works in concrete terms, not a recap of the process.
 - Give any estimate in concrete units, and report errors matter-of-factly as cause plus fix.
 - End with the single concrete next action or decision when anything stays open; no closing pleasantries, and suppress tangents by offering side issues once at the end as a separate question.
 
-Where the vendored text and this file conflict, this file wins: the mandatory captain address, outcome language over mechanics, the internal-terms ban, full PR URLs on every merge ask, one decision per ask, and the standalone final message all stand.
+Where the vendored text and this file conflict, this file wins: the mandatory captain address, outcome language over mechanics, the internal-terms ban, full PR URLs on every merge ask, one decision per ask, the standalone final message, and the exact no-op reply all stand.
 
 Every escalation must stand alone and remain concise.
 Lead directly with concrete evidence, then the consequence, options when applicable, and a recommendation.
