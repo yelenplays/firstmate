@@ -61,6 +61,14 @@ seed_project_skills() {
   mkdir -p "$proj/.agents/skills/pager" "$proj/.agents/skills/review"
   printf '# pager\n' > "$proj/.agents/skills/pager/SKILL.md"
   printf '# review\n' > "$proj/.agents/skills/review/SKILL.md"
+  mkdir -p "$home/.agents/skills/pager"
+  cat > "$home/.agents/skills/pager/SKILL.md" <<'EOF'
+---
+name: pager
+description: Find and explain pager workflows.
+---
+Use pager workflows.
+EOF
 }
 
 make_case() {
@@ -113,6 +121,33 @@ read_case() {
   IFS='|' read -r _ HOME_DIR PROJ_DIR WT_DIR FAKEBIN_DIR LAUNCH_LOG ID <<EOF
 $1
 EOF
+}
+
+test_shadow_launch_is_log_only() {
+  local rec out status record overlay
+  write_pager_response
+  cat > "$RESPONSE" <<'JSON'
+{ "model": "jev-1.13.0",
+  "answers": { "skill": { "type": "choice", "choice": "pager", "confidence": 0.9,
+    "probabilities": { "pager": 0.9, "none": 0.1 } } },
+  "usage": { "input_tokens": 10, "output_tokens": 4 } }
+JSON
+  rec=$(make_case shadow-log t-shadow-log)
+  read_case "$rec"
+  mkdir -p "$HOME_DIR/user-home/.agents/skills/pager"
+  cp "$HOME_DIR/.agents/skills/pager/SKILL.md" "$HOME_DIR/user-home/.agents/skills/pager/SKILL.md"
+  out=$(HOME="$HOME_DIR" TYPESAFE_API_KEY=$TS_KEY run_ship \
+    "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$ID" "$PROJ_DIR")
+  status=$?
+  expect_code 0 "$status" "shadow launch should succeed: $out"
+  record="$HOME_DIR/state/$ID.jev-skills.json"
+  overlay="$HOME_DIR/data/$ID/launch-brief.md"
+  assert_present "$record" "shadow launch did not write an experiment record"
+  jq -e '.shadow == true and ((.live_loaded // false) == false)' "$record" >/dev/null \
+    || fail "shadow launch must never mark a live load"
+  assert_no_grep '# Jev-selected skills' "$overlay" \
+    "shadow launch must not mutate the launch overlay"
+  pass "default launch shadow is log-only and leaves worker instructions unchanged"
 }
 
 test_live_selection_reaches_overlay() {
@@ -318,6 +353,7 @@ JSON
   pass "Codex discovers default and overridden skill homes only for Codex launches"
 }
 
+test_shadow_launch_is_log_only
 test_relaunch_clears_live_evidence
 test_live_selection_reaches_overlay
 test_disabled_and_none_match_today

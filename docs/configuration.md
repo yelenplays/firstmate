@@ -601,21 +601,22 @@ Behavioral regressions in [`tests/fm-jev-done-verify.test.sh`](../tests/fm-jev-d
 
 ## Jev skill selector (FM_JEV_SKILL_SELECT)
 
-`bin/fm-jev-skill-select.sh` is a once-per-session skill suggestion, not a per-prompt router.
-Default `FM_JEV_SKILL_SELECT` is `shadow`: it writes `state/<id>.jev-skills.json` and prints that record, and it does not load skills.
-Firstmate may run it after writing a brief and before spawn, then keep the printed suggestion beside the task.
-`bin/fm-spawn.sh` is the live call site for ships and scouts: after it publishes `data/<id>/launch-brief.md`, opted-in launches with a safe query invoke the selector with `--overlay` pointing at that file.
-Live load requires `FM_JEV_SKILL_SELECT=live`, the gitignored presence file `config/jev-skill-select-live`, and a nonblank safe query in `data/<id>/jev-skill-query.txt` under the active Firstmate home.
-Before spawning, write only an explicitly safe query string to that task's query file; page content, excerpts, and conflict lines must never be included.
-A missing, unreadable, or blank query file skips selection entirely without contacting Jev or injecting skills; raw captain text and legacy brief bodies are never used as fallback queries.
-Project skills are discovered from the resolved worker worktree after its freshness step; Codex launches also discover `$CODEX_HOME/skills`, defaulting to `~/.codex/skills` when `CODEX_HOME` is unset or empty.
-With these inputs present, a clear selection of installed skills is appended to that private launch overlay in the harness's skill-invocation form (`/<skill>`, `$<skill>` on Codex, or the skill id when the runtime has no verified slash form).
-`live_loaded` in `state/<id>.jev-skills.json` records verified instructions in the launch overlay, not confirmation that the worker executed them; selected skill files must be readable before injection.
-Publishing a fresh launch overlay resets an existing record's `live_loaded` to false while retaining the cached selection, including on relaunch when selection is disabled or the safe query is missing.
-An eligible relaunch reuses that selection without another Jev request and checks that its skill files are still readable before injecting them again.
-Choice `none`, `search_external`, shadow mode, a missing overlay, uncertain or error status, a Jev outage, and any write or verify failure leave `live_loaded` false and leave the overlay identical to a spawn that never called Jev.
+`bin/fm-jev-skill-select.sh` is a once-per-launch skill suggestion, not a per-prompt router.
+Default `FM_JEV_SKILL_SELECT` is `shadow`: `bin/fm-spawn.sh` runs the comparison for ships and scouts only when an authored safe query exists, writes `state/<id>.jev-skills.json`, and never changes the launch overlay or worker behavior.
+Shadow mode uses the complete code-enumerated eligible public roster with real descriptions, then conditionally makes one detail request over the top three candidates and one Noul per candidate.
+It recommends at most one optional skill only when the relevant Choice and that candidate's Noul each reach 0.8; errors, timeouts, invalid answers, and ambiguity recommend nothing.
+The shadow record contains only opaque experiment and input hashes, the pinned resolved model, decisions, probabilities, latency, token totals, and a comparison label.
+Both state and criteria use only the P0/P1 allowlist from the Jev skill-suggestion experiment; raw briefs, page bodies, private instructions, career data, mail, traces, unpublished names, credentials, paths, and URLs are excluded.
+The TypeSafe model is pinned to `jev-1.13.0` for the experiment, while the existing `bin/fm-jev-lib.sh` route and caller remain the transport owner.
+A missing, unreadable, or blank query file skips the shadow call entirely; raw captain text and legacy brief bodies are never fallback queries.
+The shadow request is bounded by the existing six-second launch envelope and uses a four-second HTTP timeout; latency is recorded so the experiment can test its below-two-second combined p95 target.
+Live load remains separately opt-in and is unchanged: it requires `FM_JEV_SKILL_SELECT=live`, the gitignored presence file `config/jev-skill-select-live`, and a nonblank safe query in `data/<id>/jev-skill-query.txt`.
+Project skills for live load are discovered from the resolved worker worktree after its freshness step; Codex launches also discover `$CODEX_HOME/skills`, defaulting to `~/.codex/skills` when `CODEX_HOME` is unset or empty.
+With live inputs present, a clear selection is appended to that private launch overlay in the harness's skill-invocation form (`/<skill>`, `$<skill>` on Codex, or the skill id when the runtime has no verified slash form).
+`live_loaded` records verified instructions in the launch overlay, not confirmation that the worker executed them; selected skill files must be readable before injection.
+Choice `none`, an uncertain or error status, a Jev outage, and any write or verify failure leave `live_loaded` false and leave the overlay identical to a spawn that never called Jev.
 A Jev outage or selector failure never refuses or stalls spawn past a short bound.
-The script header owns flags, the JSON file, the 0.7 confidence floor, overlay injection, and the live-load refusal.
+The script header owns flags, record paths and schema, the confidence rules, roster filtering, overlay injection, and live-load refusal.
 
 ## Jev queue triage (heartbeat)
 

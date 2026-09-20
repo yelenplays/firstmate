@@ -2644,6 +2644,44 @@ fm_spawn_jev_skill_dirs() {
   done
 }
 
+fm_spawn_jev_skill_shadow_dirs() {
+  local dir codex_skills=
+  if [ "${HARNESS:-}" = codex ]; then
+    codex_skills="${CODEX_HOME:-${HOME:+$HOME/.codex}}"
+    [ -z "$codex_skills" ] || codex_skills="$codex_skills/skills"
+  fi
+  for dir in \
+    "${HOME:+$HOME/.agents/skills}" \
+    "${HOME:+$HOME/.claude/skills}" \
+    "${HOME:+$HOME/.grok/skills}" \
+    "$codex_skills"; do
+    [ -n "$dir" ] || continue
+    [ -d "$dir" ] && [ -r "$dir" ] || continue
+    printf '%s\n' "$dir"
+  done
+}
+
+fm_spawn_shadow_jev_skills() {
+  local query="$DATA/$ID/jev-skill-query.txt"
+  local summary dir
+  local -a args
+  [ "$KIND" = ship ] || [ "$KIND" = scout ] || return 0
+  [ "${FM_JEV_SKILL_SELECT:-shadow}" = shadow ] || return 0
+  [ -x "$FM_ROOT/bin/fm-jev-skill-select.sh" ] || return 0
+  [ -n "${HARNESS:-}" ] || return 0
+  [ -f "$query" ] && [ -r "$query" ] || return 0
+  summary=$(fm_spawn_jev_skill_summary)
+  [ -n "$summary" ] || return 0
+  args=(--public-only --harness "$HARNESS" --task-id "$ID" --summary "$summary")
+  while IFS= read -r dir; do
+    [ -n "$dir" ] || continue
+    args+=(--skills-dir "$dir")
+  done < <(fm_spawn_jev_skill_shadow_dirs)
+  fm_run_timed 6 env JEV_MODEL=jev-1.13.0 JEV_TIMEOUT=4 \
+    "$FM_ROOT/bin/fm-jev-skill-select.sh" "${args[@]}" >/dev/null 2>&1 || true
+  return 0
+}
+
 fm_spawn_apply_jev_skills() {
   local confirm="$CONFIG/jev-skill-select-live"
   local summary dir
@@ -3821,6 +3859,7 @@ fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
   freshen_spawn_worktree_base "$WT" || exit 1
 fi
+fm_spawn_shadow_jev_skills || true
 fm_spawn_apply_jev_skills || true
 
 # Pre-register Claude's workspace trust for the directory this launch starts in,

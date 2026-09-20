@@ -21,17 +21,39 @@ SKILLS_DIR="$TMP_ROOT/skills"
 BASE_PATH=$PATH
 TS_KEY='ts-test-key-not-for-argv'
 mkdir -p "$HOME_DIR/state" "$HOME_DIR/config" "$LOG" "$SKILLS_DIR/pager" "$SKILLS_DIR/review"
-printf "# pager\n" > "$SKILLS_DIR/pager/SKILL.md"
-printf "# review\n" > "$SKILLS_DIR/review/SKILL.md"
+cat > "$SKILLS_DIR/pager/SKILL.md" <<'EOF'
+---
+name: pager
+description: Find and explain pager workflows.
+---
+Use pager workflows.
+EOF
+cat > "$SKILLS_DIR/review/SKILL.md" <<'EOF'
+---
+name: review
+description: Review code changes carefully.
+---
+Review code changes.
+EOF
 
 write_response() {
   cat > "$1" <<'JSON'
 { "model": "jev-1.13.0",
-  "answers": { "skill": { "type": "choice", "choice": "pager", "confidence": 0.82,
-    "probabilities": { "pager": 0.8, "review": 0.1, "none": 0.05, "search_external": 0.05 } } },
+  "answers": { "skill": { "type": "choice", "choice": "pager", "confidence": 0.9,
+    "probabilities": { "pager": 0.9, "review": 0.05, "none": 0.05 } } },
   "usage": { "input_tokens": 40, "output_tokens": 12 } }
 JSON
 }
+
+RESPONSE2="$TMP_ROOT/response2.json"
+cat > "$RESPONSE2" <<'JSON'
+{ "model": "jev-1.13.0",
+  "answers": { "detail": { "type": "choice", "choice": "pager", "confidence": 0.9,
+    "probabilities": { "pager": 0.9, "review": 0.05, "none": 0.05 } },
+    "fit_pager": { "type": "noul", "probability": 0.9 },
+    "fit_review": { "type": "noul", "probability": 0.1 } },
+  "usage": { "input_tokens": 60, "output_tokens": 18 } }
+JSON
 
 cat > "$FAKEBIN/curl" <<'SH'
 #!/usr/bin/env bash
@@ -51,17 +73,21 @@ while [ $# -gt 0 ]; do
 done
 cat > "$FAKE_CURL_LOG/body"
 cat /dev/fd/3 > "$FAKE_CURL_LOG/header" 2>/dev/null || printf 'fd3 unreadable\n' > "$FAKE_CURL_LOG/header"
+if jq -e '.questions | has("detail")' "$FAKE_CURL_LOG/body" >/dev/null 2>&1; then
+  cp "${FAKE_CURL_RESPONSE2:?}" "$out"
+else
+  cp "${FAKE_CURL_RESPONSE:?}" "$out"
+fi
 if [ "${FAKE_CURL_FAIL:-0}" = 1 ]; then
   exit 7
 fi
-cp "${FAKE_CURL_RESPONSE:?}" "$out"
 printf '%s' "${FAKE_CURL_HTTP:-200}"
 SH
 chmod +x "$FAKEBIN/curl"
 
 RESPONSE="$TMP_ROOT/response.json"
 write_response "$RESPONSE"
-export FAKE_CURL_LOG="$LOG" FAKE_CURL_RESPONSE="$RESPONSE" CHILD_ENV_LOG="$LOG/child-env"
+export FAKE_CURL_LOG="$LOG" FAKE_CURL_RESPONSE="$RESPONSE" FAKE_CURL_RESPONSE2="$RESPONSE2" CHILD_ENV_LOG="$LOG/child-env"
 
 reset_log() {
   rm -rf "$LOG"
@@ -72,6 +98,11 @@ reset_log() {
 run_select() {
   local __exit=$1 __out=$2 __err=$3 _out _errfile _code
   shift 3
+  local has_summary=0 arg
+  for arg in "$@"; do
+    [ "$arg" = --summary ] && has_summary=1
+  done
+  [ "$has_summary" -eq 1 ] || set -- "$@" --summary 'Find pager workflows'
   _errfile="$TMP_ROOT/stderr"
   reset_log
   _code=0
@@ -115,16 +146,18 @@ test_shadow_default_writes_json_not_status() {
   expect_code 0 "$code" "shadow select succeeds"
   record="$HOME_DIR/state/t-shadow.jev-skills.json"
   [ -f "$record" ] || fail "shadow must write state/<id>.jev-skills.json"
-  assert_contains "$out" '"status": "clear"' "stdout is the JSON record"
-  jq -e '.mode == "shadow" and .status == "clear" and .primary == "pager"
-      and .live_loaded == false and .once == true and .floor == 0.7
-      and (.skills | index("pager") != null)' "$record" >/dev/null \
-    || fail "shadow record must be clear, mode shadow, live_loaded false"
+  assert_contains "$out" '"status": "recommended"' "stdout is the JSON record"
+  jq -e '.shadow == true and .status == "recommended"
+      and (.decisions.stage1.choice == "pager")
+      and (.decisions.stage2.chosen_fit_probability >= 0.8)
+      and (.roster_hash | length == 64) and (.request_hash | length == 64)
+      and ((.live_loaded // false) == false)' "$record" >/dev/null \
+    || fail "shadow record must be recommended without live loading"
   [ ! -e "$HOME_DIR/state/t-shadow.status" ] || fail "shadow must not append a status note by default"
   assert_contains "$(cat "$LOG/body")" '"type": "choice"' "Jev is asked one Choice question"
   assert_contains "$(cat "$LOG/body")" '"none"' "Choice includes none"
-  assert_contains "$(cat "$LOG/body")" '"search_external"' "Choice includes search_external"
-  assert_equals 'curl:clean' "$(cat "$LOG/child-env")" "the API key is absent from the curl environment"
+  assert_contains "$(cat "$LOG/body")" 'Find and explain pager workflows.' "Choice includes the real skill description"
+  assert_equals $'curl:clean\ncurl:clean' "$(cat "$LOG/child-env")" "the API key is absent from the curl environment"
   pass "default shadow writes JSON, skips status, and does not load skills"
 }
 
@@ -134,10 +167,10 @@ test_status_note_only_when_asked() {
   TYPESAFE_API_KEY=$TS_KEY run_select code out err \
     --harness pi --task-id t-note --skills-dir "$SKILLS_DIR" --status-note
   expect_code 0 "$code" "status-note select succeeds"
-  [ -f "$HOME_DIR/state/t-note.status" ] || fail "--status-note must append state/<id>.status"
-  assert_contains "$(cat "$HOME_DIR/state/t-note.status")" 'note: jev-skills clear primary=pager' \
-    "status note names the shadow suggestion"
-  pass "--status-note appends one status line and is otherwise opt-in"
+  [ ! -e "$HOME_DIR/state/t-note.status" ] || fail "shadow records must not append a worker status note"
+  jq -e '.comparison_label == "unlabeled"' "$HOME_DIR/state/t-note.jev-skills.json" >/dev/null \
+    || fail "shadow record must retain its comparison label"
+  pass "shadow keeps experiment evidence local without a worker status note"
 }
 
 test_once_per_session_reuses_file() {
@@ -152,7 +185,7 @@ test_once_per_session_reuses_file() {
     --harness pi --task-id t-once --skills-dir "$SKILLS_DIR"
   expect_code 0 "$code" "reuse select succeeds without curl"
   [ ! -e "$LOG/argv" ] || fail "reuse must not call curl"
-  assert_contains "$out" '"reused": true' "reuse prints reused true"
+  assert_contains "$out" '"shadow": true' "reuse prints the cached shadow record"
   assert_equals "$first_stamp" "$(wc -c < "$HOME_DIR/state/t-once.jev-skills.json")" \
     "reuse must not rewrite the recorded suggestion"
   pass "a second call reuses state/<id>.jev-skills.json and does not call Jev"
@@ -164,17 +197,17 @@ test_below_floor_is_uncertain() {
   cat > "$RESPONSE" <<'JSON'
 { "model": "jev-1.13.0",
   "answers": { "skill": { "type": "choice", "choice": "pager", "confidence": 0.4,
-    "probabilities": { "pager": 0.55, "none": 0.4, "search_external": 0.05 } } },
+    "probabilities": { "pager": 0.55, "review": 0.4, "none": 0.05 } } },
   "usage": { "input_tokens": 8, "output_tokens": 4 } }
 JSON
   TYPESAFE_API_KEY=$TS_KEY run_select code out err \
     --harness pi --task-id t-low --skills-dir "$SKILLS_DIR"
   write_response "$RESPONSE"
   expect_code 0 "$code" "below-floor select exits 0"
-  jq -e '.status == "uncertain" and .primary == "pager" and .live_loaded == false' \
+  jq -e '.status == "none" and .reason == "low_or_none"' \
     "$HOME_DIR/state/t-low.jev-skills.json" >/dev/null \
-    || fail "below 0.7 must record status uncertain"
-  pass "confidence below 0.7 records status uncertain"
+    || fail "below 0.8 must record no recommendation"
+  pass "confidence below 0.8 records no recommendation"
 }
 
 test_missing_keys_are_off_without_curl() {
@@ -259,7 +292,13 @@ test_live_overlay_sets_live_loaded() {
     "$HOME_DIR/state/t-overlay.jev-skills.json" >/dev/null || fail "missing cached skill must not be loaded"
   assert_no_grep 'Jev-selected skills' "$overlay" "missing cached skill must not reach launch overlay"
   assert_absent "$LOG/body" "cached selection must not repeat the request"
-  printf '# pager\n' > "$SKILLS_DIR/pager/SKILL.md"
+  cat > "$SKILLS_DIR/pager/SKILL.md" <<'EOF'
+---
+name: pager
+description: Find and explain pager workflows.
+---
+Use pager workflows.
+EOF
   pass "cached skills are revalidated against currently readable files"
 }
 
@@ -273,7 +312,7 @@ test_shadow_overlay_does_not_change_launch() {
   TYPESAFE_API_KEY=$TS_KEY run_select code out err \
     --harness pi --task-id t-shadow-ov --skills-dir "$SKILLS_DIR" --overlay "$overlay"
   expect_code 0 "$code" "shadow overlay select succeeds"
-  jq -e '.mode == "shadow" and .live_loaded == false' \
+  jq -e '.shadow == true and ((.live_loaded // false) == false)' \
     "$HOME_DIR/state/t-shadow-ov.jev-skills.json" >/dev/null \
     || fail "shadow overlay must keep live_loaded false"
   assert_equals "$before" "$(cat "$overlay")" "shadow must not rewrite the launch overlay"
@@ -339,23 +378,19 @@ test_codex_overlay_uses_dollar_form() {
   pass "Codex overlay uses the dollar skill form"
 }
 
-test_skills_from_stdin() {
+test_public_roster_uses_descriptions() {
   local code out err body
   fresh_home
-  reset_log
-  code=0
-  out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY=$TS_KEY \
-    "$ROOT/bin/fm-jev-skill-select.sh" --harness pi --task-id t-stdin --stdin \
-    <<<"pager
-review" 2> "$TMP_ROOT/stderr") || code=$?
-  err=$(cat "$TMP_ROOT/stderr")
-  expect_code 0 "$code" "stdin select succeeds"
+  TYPESAFE_API_KEY=$TS_KEY run_select code out err \
+    --harness pi --task-id t-roster --skills-dir "$SKILLS_DIR"
+  expect_code 0 "$code" "public roster select succeeds"
   body=$(cat "$LOG/body")
-  assert_contains "$body" '"pager"' "stdin skill pager is offered"
-  assert_contains "$body" '"review"' "stdin skill review is offered"
-  jq -e '.primary == "pager"' "$HOME_DIR/state/t-stdin.jev-skills.json" >/dev/null \
-    || fail "stdin select must record the Jev choice"
-  pass "installed skills can be read from stdin"
+  assert_contains "$body" 'Find and explain pager workflows.' "roster sends pager description"
+  assert_contains "$body" 'Review code changes carefully.' "roster sends review description"
+  jq -e '.shadow == true and .status == "recommended"' \
+    "$HOME_DIR/state/t-roster.jev-skills.json" >/dev/null \
+    || fail "roster record must be a shadow recommendation"
+  pass "the complete public roster uses real descriptions"
 }
 
 test_none_choice_records_empty_skills() {
@@ -364,17 +399,17 @@ test_none_choice_records_empty_skills() {
   cat > "$RESPONSE" <<'JSON'
 { "model": "jev-1.13.0",
   "answers": { "skill": { "type": "choice", "choice": "none", "confidence": 0.91,
-    "probabilities": { "pager": 0.05, "none": 0.9, "search_external": 0.05 } } },
+    "probabilities": { "pager": 0.05, "review": 0.05, "none": 0.9 } } },
   "usage": { "input_tokens": 8, "output_tokens": 4 } }
 JSON
   TYPESAFE_API_KEY=$TS_KEY run_select code out err \
     --harness pi --task-id t-none --skills-dir "$SKILLS_DIR"
   write_response "$RESPONSE"
   expect_code 0 "$code" "none choice exits 0"
-  jq -e '.primary == "none" and .skills == [] and .status == "clear"' \
+  jq -e '.status == "none" and .reason == "low_or_none"' \
     "$HOME_DIR/state/t-none.jev-skills.json" >/dev/null \
-    || fail "none must record an empty skills list"
-  pass "Choice none records no skills to load"
+    || fail "none must record no recommendation"
+  pass "Choice none records no optional skill"
 }
 
 test_help_exits_0
@@ -391,5 +426,5 @@ test_shadow_overlay_does_not_change_launch
 test_none_overlay_leaves_launch_unchanged
 test_jev_failure_does_not_rewrite_overlay
 test_codex_overlay_uses_dollar_form
-test_skills_from_stdin
+test_public_roster_uses_descriptions
 test_none_choice_records_empty_skills
