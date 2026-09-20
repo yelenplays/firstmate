@@ -2677,7 +2677,7 @@ fm_spawn_shadow_jev_skills() {
     [ -n "$dir" ] || continue
     args+=(--skills-dir "$dir")
   done < <(fm_spawn_jev_skill_shadow_dirs)
-  fm_run_timed 6 env JEV_MODEL=jev-1.13.0 JEV_TIMEOUT=4 \
+  env JEV_MODEL=jev-1.13.0 JEV_TIMEOUT=4 \
     "$FM_ROOT/bin/fm-jev-skill-select.sh" "${args[@]}" >/dev/null 2>&1 || true
   return 0
 }

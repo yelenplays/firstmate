@@ -4,6 +4,7 @@
 # Usage:
 #   fm-jev-skill-select.sh --harness <name> --task-id <id> [--summary <text>]
 #     [--skills-dir <dir>] [--public-only] [--comparison-label <label>]
+#     [--launch-id <opaque-id>]
 #     [--max <n>] [--status-note] [--stdin]
 #     [--overlay <launch-brief>] [skill-id ...]
 #
@@ -19,11 +20,15 @@
 #   "Jev skill selector" owns the operator contract and this header owns flags,
 #   records, overlay injection, and live_loaded.
 #
-# Default FM_JEV_SKILL_SELECT=shadow (also when unset): write
-#   $FM_HOME/state/<task-id>.jev-skills.json and print it on stdout. Do not
-#   load skills or append a worker status note.
-#   A later call for the same task reuses that file and does not call Jev
-#   again (at most once per worker launch).
+# Default shadow: reserve one case per launch under
+#   $FM_HOME/state/jev-skill-shadow/cases/<launch-id>.json. Omit --launch-id
+#   for a fresh launch; supply the same opaque ID only to retry or label it.
+#   Approved public SKILL.md SHA-256 digests are listed as a JSON array in
+#   $FM_HOME/config/jev-skill-public.json. All matching installed eligible
+#   skills are offered, with their real descriptions and public excerpts.
+#   The supervisor owns the six-second bound, timeout records, full latency,
+#   persisted comparison labels, and the 20-case checkpoint. Labels and stop
+#   criteria are described in docs/configuration.md "Jev skill selector".
 #
 # Live load requires FM_JEV_SKILL_SELECT=live and the presence file
 #   $FM_HOME/config/jev-skill-select-live. Spawn passes --overlay at the
@@ -69,7 +74,8 @@ usage() {
 }
 
 HARNESS='' TASK_ID='' SUMMARY='' OVERLAY='' STATUS_NOTE=0 READ_STDIN=0 MAX=$DEFAULT_MAX
-PUBLIC_ONLY=0 COMPARISON_LABEL=unlabeled
+PUBLIC_ONLY=0 COMPARISON_LABEL=unlabeled LAUNCH_ID=''
+SHADOW_ARGS=("$@")
 SKILLS_DIRS=()
 POSITIONAL=()
 
@@ -77,13 +83,14 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --harness) [ $# -ge 2 ] || die "--harness needs a value"; HARNESS=$2; shift 2 ;;
     --task-id) [ $# -ge 2 ] || die "--task-id needs a value"; TASK_ID=$2; shift 2 ;;
+    --launch-id) [ $# -ge 2 ] || die "--launch-id needs a value"; LAUNCH_ID=$2; shift 2 ;;
     --summary) [ $# -ge 2 ] || die "--summary needs a value"; SUMMARY=$2; shift 2 ;;
     --public-only) PUBLIC_ONLY=1; shift ;;
     --comparison-label)
       [ $# -ge 2 ] || die "--comparison-label needs a value"
       case "$2" in
-        unlabeled|correct|incorrect|missed|no-fit|unknown) COMPARISON_LABEL=$2 ;;
-        *) die "--comparison-label must be unlabeled, correct, incorrect, missed, no-fit, or unknown" ;;
+        unlabeled|correct|incorrect|missed|caught|irrelevant|no-fit|unknown|p2-exposure|launch-changed|roster-omission) COMPARISON_LABEL=$2 ;;
+        *) die "--comparison-label is not a supported comparison outcome" ;;
       esac
       shift 2
       ;;
@@ -132,6 +139,13 @@ fi
 STATE_DIR="$FM_HOME/state"
 OUT="$STATE_DIR/${TASK_ID}.jev-skills.json"
 mkdir -p "$STATE_DIR" || die "could not create $STATE_DIR"
+if [ "$MODE" = shadow ]; then
+  case "$LAUNCH_ID" in *[!A-Za-z0-9._:-]*) die "invalid launch-id" ;; esac
+  if [ "${FM_JEV_SHADOW_CHILD:-0}" != 1 ]; then
+    exec python3 "$SCRIPT_DIR/fm-jev-skill-shadow.py" "$FM_HOME" "$LAUNCH_ID" "$COMPARISON_LABEL" "$0" "${SHADOW_ARGS[@]}"
+  fi
+  OUT="$STATE_DIR/jev-skill-shadow/cases/$LAUNCH_ID.json"
+fi
 
 # Harness skill-invocation form honored by the worker's launch overlay.
 # Slash and dollar forms are the verified composer commands; everything else
@@ -241,46 +255,6 @@ shadow_hash() {
   fi
 }
 
-shadow_description() {
-  awk '
-    NR == 1 && /^---[[:space:]]*$/ { front=1; next }
-    front && /^---[[:space:]]*$/ { exit }
-    front && /^description:[[:space:]]*/ {
-      value=$0
-      sub(/^description:[[:space:]]*/, "", value)
-      if (value != ">" && value != ">-" && value != "|") print value
-      collecting=1
-      next
-    }
-    collecting && /^[A-Za-z0-9_.-]+:[[:space:]]*/ { exit }
-    collecting {
-      line=$0
-      sub(/^[[:space:]]+/, "", line)
-      if (line != "") printf "%s ", line
-    }
-  ' "$1" | sed 's/[[:space:]]*$//' | cut -c1-500
-}
-
-shadow_excerpt() {
-  awk '
-    NR == 1 && /^---[[:space:]]*$/ { front=1; next }
-    front && /^---[[:space:]]*$/ { front=0; next }
-    !front { print }
-  ' "$1" | tr '\n\r' '  ' | cut -c1-700
-}
-
-shadow_skill_allowed() {
-  local id=$1 file=$2 description=$3
-  case "$id" in
-    ''|none|search_external|firstmate-*|captain-*|secondmate-*|bootstrap-*|stuck-*|process-event-*|fmx-*|afk|quiet|ahoy|bearings|orchestrated-delivery|harness-adapters|project-management|diagnostic-reasoning|ask-user-authority|quota-array-dispatch) return 1 ;;
-  esac
-  [ -f "$file" ] && [ -r "$file" ] || return 1
-  printf '%s' "$description" | LC_ALL=C grep -Eiq \
-    '(^|[^[:alnum:]])(firstmate|supervisor|captain|secondmate|orchestrat|no-mistakes|treehouse|merge authority)([^[:alnum:]]|$)' \
-    && return 1
-  shadow_safe_text "$description"
-}
-
 shadow_write_record() {
   local status=$1 experiment_id=$2 roster_hash=$3 request_hash=$4 model=$5
   local decisions=$6 latency=$7 tokens=$8 label=$9 reason=${10:-}
@@ -328,14 +302,14 @@ shadow_noul_probability() {
   local response=$1 key=$2
   jq -er --arg key "$key" '
     .answers[$key] | select(type == "object") | select(.type == "noul")
-    | (.probability // .probability_yes)
+    | .noul
     | select(type == "number" and . >= 0 and . <= 1)
   ' <<<"$response" 2>/dev/null
 }
 
 run_shadow() {
-  local tmpdir roster_json roster_hash request_hash experiment_id state questions
-  local response stage2_response offered detail_offered description excerpt file
+  local roster_json roster_hash request_hash experiment_id state questions
+  local response stage2_response offered detail_offered
   local stage1_choice stage1_confidence stage1_probs detail_choice detail_confidence detail_probs
   local model t0 t1 latency tokens1 tokens2 tokens chosen_fit decisions
   local -a top_ids
@@ -346,39 +320,11 @@ run_shadow() {
   fi
   [ -n "$SUMMARY" ] || { printf 'jev-skill-select: shadow skipped (no authored safe query)\n' >&2; exit 0; }
   shadow_safe_text "$SUMMARY" || { printf 'jev-skill-select: shadow skipped (query outside P0/P1 allowlist)\n' >&2; exit 0; }
-  if [ -f "$OUT" ]; then
-    jq -e 'type == "object" and .shadow == true' "$OUT" >/dev/null 2>&1 || die "existing $OUT is not a shadow record"
-    jq --arg label "$COMPARISON_LABEL" 'if $label == "unlabeled" then . else .comparison_label = $label end' "$OUT"
-    exit 0
-  fi
-  tmpdir=$(mktemp -d) || exit 0
-  CATALOG_JSON="$tmpdir/catalog.json"
-  printf '[]\n' > "$CATALOG_JSON"
-  for dir in ${SKILLS_DIRS+"${SKILLS_DIRS[@]}"}; do
-    [ -d "$dir" ] || continue
-    if [ "$PUBLIC_ONLY" -eq 1 ]; then
-      case "$dir" in
-        "$HOME/.agents/skills"|"$HOME/.claude/skills"|"$HOME/.grok/skills"|"${CODEX_HOME:-$HOME/.codex}/skills") : ;;
-        *) continue ;;
-      esac
-    fi
-    for file in "$dir"/*/SKILL.md; do
-      [ -f "$file" ] && [ -r "$file" ] || continue
-      id=$(basename "$(dirname "$file")")
-      case "$id" in *[!A-Za-z0-9._:/-]*) continue ;; esac
-      description=$(shadow_description "$file")
-      shadow_skill_allowed "$id" "$file" "$description" || continue
-      jq --arg id "$id" --arg description "$description" \
-        '. + [{id:$id,description:$description}]' "$CATALOG_JSON" > "$CATALOG_JSON.tmp" || continue
-      mv "$CATALOG_JSON.tmp" "$CATALOG_JSON"
-    done
-  done
-  roster_json=$(jq -c 'unique_by(.id) | sort_by(.id)' "$CATALOG_JSON")
-  rm -rf "$tmpdir"
+  roster_json=$(python3 "$SCRIPT_DIR/fm-jev-skill-shadow.py" catalog "$FM_HOME" "$PUBLIC_ONLY" "${SKILLS_DIRS[@]}") || exit 0
   [ "$(jq 'length' <<<"$roster_json")" -gt 0 ] || { printf 'jev-skill-select: shadow skipped (no eligible public skills)\n' >&2; exit 0; }
   roster_hash=$(printf '%s' "$roster_json" | shadow_hash) || exit 0
   request_hash=$(printf '%s\n%s\n%s' "$SUMMARY" "$HARNESS" "$roster_hash" | shadow_hash) || exit 0
-  experiment_id=$(printf '%s\n%s' "$request_hash" "$TASK_ID" | shadow_hash) || exit 0
+  experiment_id=$(printf '%s\n%s' "$request_hash" "$LAUNCH_ID" | shadow_hash) || exit 0
   state=$(jq -n --arg request "$SUMMARY" --arg runtime "$HARNESS" \
     '{request:$request,runtime:$runtime,worker_role:"worker"}')
   if ! state=$(JEV_STATE_MAX_BYTES=$SHADOW_STATE_MAX fm_jev_compact_state "$state"); then
@@ -389,6 +335,8 @@ run_shadow() {
   questions=$(jq -n --argjson roster "$roster_json" '
     {skill:{type:"choice",instructions:"Choose the one installed public skill whose documented purpose best satisfies the safe request. Choose none when no skill specifically fits.",criteria:(($roster | map({key:.id,value:.description}) | from_entries) + {none:"No optional skill specifically fits the safe request."})}}
   ') || exit 0
+  shadow_write_record pending "$experiment_id" "$roster_hash" "$request_hash" "$SHADOW_MODEL" \
+    '{}' 0 '{"input_tokens":0,"output_tokens":0}' "$COMPARISON_LABEL" pending >/dev/null
   t0=$(_fm_jev_now_ms)
   response=$(JEV_MODEL="$SHADOW_MODEL" JEV_TIMEOUT=4 fm_jev_decide "$state" "$questions" 2>/dev/null) || {
     t1=$(_fm_jev_now_ms); latency=$((t1 - t0))
@@ -419,24 +367,16 @@ run_shadow() {
   mapfile -t top_ids < <(jq -r --argjson probs "$stage1_probs" \
     'map({id:.id,p:($probs[.id] // 0)}) | sort_by(-.p,.id) | .[0:3] | .[].id' <<<"$roster_json")
   [ "${#top_ids[@]}" -gt 0 ] || exit 0
-  detail_json='[]'
-  for id in "${top_ids[@]}"; do
-    file=''
-    for dir in ${SKILLS_DIRS+"${SKILLS_DIRS[@]}"}; do
-      [ -f "$dir/$id/SKILL.md" ] && file="$dir/$id/SKILL.md" && break
-    done
-    [ -n "$file" ] || exit 0
-    excerpt=$(shadow_excerpt "$file")
-    shadow_safe_text "$excerpt" || exit 0
-    description=$(jq -r --arg id "$id" '.[] | select(.id == $id) | .description' <<<"$roster_json")
-    detail_json=$(jq -c --arg id "$id" --arg evidence "$description Documented procedure excerpt: $excerpt" \
-      '. + [{id:$id,evidence:$evidence}]' <<<"$detail_json")
-  done
+  detail_json=$(jq -c --argjson ids "$(printf '%s\n' "${top_ids[@]}" | jq -Rsc 'split("\n")[:-1]')" \
+    '[.[] | select(.id as $id | $ids | index($id)) | {id, evidence:(.description + " Documented procedure excerpt: " + .excerpt)}]' <<<"$roster_json")
   detail_offered=$(jq -c '[.[] | .id] + ["none"]' <<<"$detail_json")
   questions=$(jq -n --argjson candidates "$detail_json" '
     ({detail:{type:"choice",instructions:"Choose the single candidate whose documented procedure specifically satisfies the safe request, or none.",criteria:(($candidates | map({key:.id,value:.evidence}) | from_entries) + {none:"No candidate specifically satisfies the safe request."})}})
-    + ($candidates | map({key:("fit_" + .id),value:{type:"noul",instructions:("Does the documented procedure for skill " + .id + " specifically satisfy the safe request?"),criteria:{yes:"The documented procedure directly satisfies the request.",no:"It does not directly satisfy the request."}}}) | from_entries)
+    + ($candidates | map({key:("fit_" + .id),value:{type:"noul",instructions:("Does the documented procedure for skill " + .id + " specifically satisfy the safe request?"),criteria:{"true":"The documented procedure directly satisfies the request.","false":"It does not directly satisfy the request."}}}) | from_entries)
   ') || exit 0
+  state=$(jq -c --argjson candidates "$detail_json" '. + {candidates:$candidates}' <<<"$state")
+  shadow_write_record pending "$experiment_id" "$roster_hash" "$request_hash" "$model" \
+    "$decisions" "$latency" "$tokens1" "$COMPARISON_LABEL" pending >/dev/null
   t0=$(_fm_jev_now_ms)
   stage2_response=$(JEV_MODEL="$SHADOW_MODEL" JEV_TIMEOUT=4 fm_jev_decide "$state" "$questions" 2>/dev/null) || {
     t1=$(_fm_jev_now_ms); latency=$((latency + t1 - t0))
@@ -445,24 +385,24 @@ run_shadow() {
     exit 0
   }
   t1=$(_fm_jev_now_ms); latency=$((latency + t1 - t0))
+  tokens2=$(shadow_usage "$stage2_response")
+  tokens=$(jq -n --argjson a "$tokens1" --argjson b "$tokens2" \
+    '{input_tokens:($a.input_tokens + $b.input_tokens),output_tokens:($a.output_tokens + $b.output_tokens)}')
   if ! shadow_choice_valid "$stage2_response" detail "$detail_offered"; then
     shadow_write_record error "$experiment_id" "$roster_hash" "$request_hash" "$model" \
-      "$decisions" "$latency" "$tokens1" "$COMPARISON_LABEL" invalid_stage2 || exit 0
+      "$decisions" "$latency" "$tokens" "$COMPARISON_LABEL" invalid_stage2 || exit 0
     exit 0
   fi
   for id in "${top_ids[@]}"; do
     shadow_noul_probability "$stage2_response" "fit_$id" >/dev/null || {
       shadow_write_record error "$experiment_id" "$roster_hash" "$request_hash" "$model" \
-        "$decisions" "$latency" "$tokens1" "$COMPARISON_LABEL" invalid_noul || exit 0
+        "$decisions" "$latency" "$tokens" "$COMPARISON_LABEL" invalid_noul || exit 0
       exit 0
     }
   done
   detail_choice=$(jq -r '.answers.detail.choice' <<<"$stage2_response")
   detail_confidence=$(jq -r '.answers.detail.confidence' <<<"$stage2_response")
   detail_probs=$(jq -c '.answers.detail.probabilities' <<<"$stage2_response")
-  tokens2=$(shadow_usage "$stage2_response")
-  tokens=$(jq -n --argjson a "$tokens1" --argjson b "$tokens2" \
-    '{input_tokens:($a.input_tokens + $b.input_tokens),output_tokens:($a.output_tokens + $b.output_tokens)}')
   chosen_fit=0
   if [ "$detail_choice" != none ] && fm_jev_choice_confidence_ok "$detail_confidence" "$SHADOW_CONFIDENCE_FLOOR"; then
     chosen_fit=$(shadow_noul_probability "$stage2_response" "fit_$detail_choice" || printf '0')

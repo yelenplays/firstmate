@@ -136,11 +136,12 @@ JSON
   read_case "$rec"
   mkdir -p "$HOME_DIR/user-home/.agents/skills/pager"
   cp "$HOME_DIR/.agents/skills/pager/SKILL.md" "$HOME_DIR/user-home/.agents/skills/pager/SKILL.md"
+  shasum -a 256 "$HOME_DIR/.agents/skills/pager/SKILL.md" | awk '{print $1}' | jq -Rsc 'split("\n")[:-1]' > "$HOME_DIR/config/jev-skill-public.json"
   out=$(HOME="$HOME_DIR" TYPESAFE_API_KEY=$TS_KEY run_ship \
     "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$ID" "$PROJ_DIR")
   status=$?
   expect_code 0 "$status" "shadow launch should succeed: $out"
-  record="$HOME_DIR/state/$ID.jev-skills.json"
+  record=$(printf '%s\n' "$HOME_DIR"/state/jev-skill-shadow/cases/*.json)
   overlay="$HOME_DIR/data/$ID/launch-brief.md"
   assert_present "$record" "shadow launch did not write an experiment record"
   jq -e '.shadow == true and ((.live_loaded // false) == false)' "$record" >/dev/null \
