@@ -2062,7 +2062,7 @@ SIGNAL_PUBLISH_LOCKS=()
 
 signal_publish_release() {
   local lock rc=0
-  for lock in "${SIGNAL_PUBLISH_LOCKS[@]}"; do
+  for lock in ${SIGNAL_PUBLISH_LOCKS[@]+"${SIGNAL_PUBLISH_LOCKS[@]}"}; do
     fm_lock_release "$lock" || rc=1
   done
   SIGNAL_PUBLISH_LOCKS=()
@@ -2078,7 +2078,7 @@ signal_publish_filter() {
       task=${task%.*}
       lock=$(fm_meta_lock_path "$STATE/$task.meta") || return 1
       acquired=0
-      for held in "${SIGNAL_PUBLISH_LOCKS[@]}"; do
+      for held in ${SIGNAL_PUBLISH_LOCKS[@]+"${SIGNAL_PUBLISH_LOCKS[@]}"}; do
         [ "$held" != "$lock" ] || acquired=1
       done
       if [ "$acquired" -eq 0 ]; then
