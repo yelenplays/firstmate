@@ -143,7 +143,7 @@ test_help_exits_0() {
   local code out err
   run_select code out err --help
   expect_code 0 "$code" "--help exits 0"
-  assert_contains "$out" 'once-per-session' "--help prints the header"
+  assert_contains "$out" 'Usage:' "--help prints usage"
   pass "--help prints usage and exits 0"
 }
 
