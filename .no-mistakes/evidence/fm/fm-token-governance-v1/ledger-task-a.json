@@ -1,0 +1,157 @@
+{
+ "byEffort": {
+  "high": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.02,
+   "input": 3000,
+   "messages": 2,
+   "output": 20,
+   "pricedTokens": 3000,
+   "reasoning": 0,
+   "tokens": 3000,
+   "unpricedTokens": 0
+  },
+  "max": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.01,
+   "input": 500,
+   "messages": 1,
+   "output": 10,
+   "pricedTokens": 500,
+   "reasoning": 0,
+   "tokens": 500,
+   "unpricedTokens": 0
+  },
+  "medium": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.01,
+   "input": 400,
+   "messages": 1,
+   "output": 10,
+   "pricedTokens": 400,
+   "reasoning": 0,
+   "tokens": 400,
+   "unpricedTokens": 0
+  }
+ },
+ "byLane": {
+  "codex": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.03,
+   "input": 3400,
+   "messages": 3,
+   "output": 30,
+   "pricedTokens": 3400,
+   "reasoning": 0,
+   "tokens": 3400,
+   "unpricedTokens": 0
+  },
+  "grok": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.01,
+   "input": 500,
+   "messages": 1,
+   "output": 10,
+   "pricedTokens": 500,
+   "reasoning": 0,
+   "tokens": 500,
+   "unpricedTokens": 0
+  }
+ },
+ "byModel": {
+  "openai-codex/gpt-6-astra": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.03,
+   "input": 3400,
+   "messages": 3,
+   "output": 30,
+   "pricedTokens": 3400,
+   "reasoning": 0,
+   "tokens": 3400,
+   "unpricedTokens": 0
+  },
+  "xai/grok-4": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.01,
+   "input": 500,
+   "messages": 1,
+   "output": 10,
+   "pricedTokens": 500,
+   "reasoning": 0,
+   "tokens": 500,
+   "unpricedTokens": 0
+  }
+ },
+ "byProvider": {
+  "openai-codex": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.03,
+   "input": 3400,
+   "messages": 3,
+   "output": 30,
+   "pricedTokens": 3400,
+   "reasoning": 0,
+   "tokens": 3400,
+   "unpricedTokens": 0
+  },
+  "xai": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.01,
+   "input": 500,
+   "messages": 1,
+   "output": 10,
+   "pricedTokens": 500,
+   "reasoning": 0,
+   "tokens": 500,
+   "unpricedTokens": 0
+  }
+ },
+ "generatedAt": "2026-09-20T13:04:52.000Z",
+ "harness": "pi",
+ "partial": false,
+ "sessions": [
+  {
+   "file": "/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-token-gov-live.MdugXK/sessions/--work-alpha--/2026-09-16T10-00-00-000Z_aaaaaaaa-0000-0000-0000-000000000001.jsonl",
+   "id": "aaaaaaaa-0000-0000-0000-000000000001",
+   "nested": false,
+   "start": "2026-09-16T10:00:00.000Z",
+   "tokens": 3500
+  },
+  {
+   "file": "/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-token-gov-live.MdugXK/sessions/--work-other--/2026-09-16T10-05-00-000Z_cccccccc-0000-0000-0000-0000000000cc.jsonl",
+   "id": "cccccccc-0000-0000-0000-0000000000cc",
+   "nested": true,
+   "start": "2026-09-16T10:05:00.000Z",
+   "tokens": 400
+  }
+ ],
+ "spawnEpoch": 1789430400,
+ "status": "ok",
+ "task": "task-a",
+ "totals": {
+  "cacheRead": 0,
+  "cacheWrite": 0,
+  "cost": 0.04,
+  "costStatus": "known",
+  "input": 3900,
+  "messages": 4,
+  "nestedSessions": 1,
+  "output": 40,
+  "pricedTokens": 3900,
+  "reasoning": 0,
+  "sessions": 2,
+  "tokens": 3900,
+  "unpricedTokens": 0
+ },
+ "version": 1,
+ "worktree": "/work/alpha"
+}

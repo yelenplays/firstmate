@@ -1,0 +1,6 @@
+spend: spend-task-t-partial
+status: ceiling
+task: t-partial
+observed_tokens: 100099
+ceiling_tokens: 5000
+condition_polls: 1

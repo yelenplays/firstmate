@@ -1,0 +1,50 @@
+{
+  "explorer": {
+    "path": "/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-token-gov-live.MdugXK/pi-config/agents/fm-orchestrated-explorer.md",
+    "name": "fm-orchestrated-explorer",
+    "model": "openai-codex/gpt-5.6-luna",
+    "has_thinking": false,
+    "thinking": null,
+    "session-mode": "standalone"
+  },
+  "researcher": {
+    "path": "/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-token-gov-live.MdugXK/pi-config/agents/fm-orchestrated-researcher.md",
+    "name": "fm-orchestrated-researcher",
+    "model": "openai-codex/gpt-5.6-luna",
+    "has_thinking": false,
+    "thinking": null,
+    "session-mode": "standalone"
+  },
+  "worker": {
+    "path": "/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-token-gov-live.MdugXK/pi-config/agents/fm-orchestrated-worker.md",
+    "name": "fm-orchestrated-worker",
+    "model": "openai-codex/gpt-5.6-luna",
+    "has_thinking": false,
+    "thinking": null,
+    "session-mode": "standalone"
+  },
+  "tester": {
+    "path": "/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-token-gov-live.MdugXK/pi-config/agents/fm-orchestrated-tester.md",
+    "name": "fm-orchestrated-tester",
+    "model": "openai-codex/gpt-5.6-luna",
+    "has_thinking": false,
+    "thinking": null,
+    "session-mode": "standalone"
+  },
+  "reviewer": {
+    "path": "/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-token-gov-live.MdugXK/pi-config/agents/fm-orchestrated-reviewer.md",
+    "name": "fm-orchestrated-reviewer",
+    "model": "openai-codex/gpt-6-astra",
+    "has_thinking": false,
+    "thinking": null,
+    "session-mode": "standalone"
+  },
+  "integrator": {
+    "path": "/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-token-gov-live.MdugXK/pi-config/agents/fm-orchestrated-integrator.md",
+    "name": "fm-orchestrated-integrator",
+    "model": "openai-codex/gpt-6-astra",
+    "has_thinking": false,
+    "thinking": null,
+    "session-mode": "standalone"
+  }
+}

@@ -1,0 +1,90 @@
+{
+ "byEffort": {
+  "medium": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.01,
+   "input": 100,
+   "messages": 1,
+   "output": 10,
+   "pricedTokens": 100,
+   "reasoning": 0,
+   "tokens": 100,
+   "unpricedTokens": 0
+  }
+ },
+ "byLane": {
+  "codex": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.01,
+   "input": 100,
+   "messages": 1,
+   "output": 10,
+   "pricedTokens": 100,
+   "reasoning": 0,
+   "tokens": 100,
+   "unpricedTokens": 0
+  }
+ },
+ "byModel": {
+  "openai-codex/gpt-6-astra": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.01,
+   "input": 100,
+   "messages": 1,
+   "output": 10,
+   "pricedTokens": 100,
+   "reasoning": 0,
+   "tokens": 100,
+   "unpricedTokens": 0
+  }
+ },
+ "byProvider": {
+  "openai-codex": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.01,
+   "input": 100,
+   "messages": 1,
+   "output": 10,
+   "pricedTokens": 100,
+   "reasoning": 0,
+   "tokens": 100,
+   "unpricedTokens": 0
+  }
+ },
+ "generatedAt": "2026-09-20T13:04:54.000Z",
+ "harness": "pi",
+ "partial": true,
+ "sessions": [
+  {
+   "file": "/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-token-gov-live.MdugXK/partial-sessions/--work-partial--/2026-09-16T11-00-00-000Z_p1111111-0000-0000-0000-000000000001.jsonl",
+   "id": "p1111111-0000-0000-0000-000000000001",
+   "nested": false,
+   "start": "2026-09-16T11:00:00.000Z",
+   "tokens": 100
+  }
+ ],
+ "spawnEpoch": 1789430400,
+ "status": "ok",
+ "task": "t-partial",
+ "totals": {
+  "cacheRead": 0,
+  "cacheWrite": 0,
+  "cost": 0.01,
+  "costStatus": "known",
+  "input": 100,
+  "messages": 1,
+  "nestedSessions": 0,
+  "output": 10,
+  "pricedTokens": 100,
+  "reasoning": 0,
+  "sessions": 1,
+  "tokens": 100,
+  "unpricedTokens": 0
+ },
+ "version": 1,
+ "worktree": "/work/partial"
+}

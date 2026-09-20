@@ -1,0 +1,42 @@
+{
+ "anyProvider": {
+  "all": {
+   "seconds": 300.0,
+   "tasks": 1,
+   "tokens": 3900
+  },
+  "high": {
+   "seconds": 300.0,
+   "tasks": 1,
+   "tokens": 3900
+  }
+ },
+ "generatedAt": "2026-09-20T13:04:55.000Z",
+ "median": {
+  "codex": {
+   "all": {
+    "seconds": 300.0,
+    "tasks": 1,
+    "tokens": 3900
+   },
+   "high": {
+    "seconds": 300.0,
+    "tasks": 1,
+    "tokens": 3900
+   }
+  }
+ },
+ "partial": false,
+ "providers": {
+  "codex": {
+   "percentConsumed": 60.0,
+   "tokensPerPoint": 56.666666666666664,
+   "windowKind": "weekly",
+   "windowStart": "2026-09-14T13:04:52.000Z",
+   "windowTokens": 3400
+  }
+ },
+ "scanSeconds": 0.001,
+ "status": "ok",
+ "version": 1
+}

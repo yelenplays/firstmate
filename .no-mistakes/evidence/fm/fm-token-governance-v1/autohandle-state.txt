@@ -1,0 +1,17 @@
+control_count=1
+control_args=t-stop exit
+--- spend-stop ---
+{
+  "version": 1,
+  "task": "t-stop",
+  "spawnGen": "s1789430400.1.st",
+  "sequence": 1,
+  "observedTokens": 100099,
+  "ceilingTokens": 5000,
+  "action": "fm-control exit",
+  "actionResult": "ok",
+  "detail": "exit delivered",
+  "at": "2026-09-20T13:04:56Z"
+}
+--- status ---
+failed: spend ceiling crossed - ledger total reached the task ceiling (100099 >= 5000 tokens); agent stopped via fm-control exit

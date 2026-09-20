@@ -1,0 +1,31 @@
+{
+ "byEffort": {},
+ "byLane": {},
+ "byModel": {},
+ "byProvider": {},
+ "generatedAt": "2026-09-20T13:04:52.000Z",
+ "harness": "pi",
+ "partial": false,
+ "reason": "no Pi session files bound to this task yet",
+ "sessions": [],
+ "spawnEpoch": 1789430400,
+ "status": "empty",
+ "task": "task-empty",
+ "totals": {
+  "cacheRead": 0,
+  "cacheWrite": 0,
+  "cost": 0.0,
+  "costStatus": "none",
+  "input": 0,
+  "messages": 0,
+  "nestedSessions": 0,
+  "output": 0,
+  "pricedTokens": 0,
+  "reasoning": 0,
+  "sessions": 0,
+  "tokens": 0,
+  "unpricedTokens": 0
+ },
+ "version": 1,
+ "worktree": "/work/empty"
+}

@@ -1,0 +1,2 @@
+registered: spend-task-t-pi (spend)
+armed: spend-task-t-pi ceiling=5000 interval=7s

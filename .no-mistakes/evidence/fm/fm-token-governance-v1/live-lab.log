@@ -1,0 +1,14 @@
+PASS: ledger reports nested Pi task cost (3900 tokens, 1 nested, complete)
+PASS: ledger empty task is status=empty (tokens field=0, not treated as a complete zero)
+PASS: empty ledger poll kept watching (no ceiling/zero fire)
+PASS: arm skips unmeasured Codex harness
+PASS: arm registers a measured Pi task
+PASS: default ceiling poll invokes ledger task without a scan budget
+PASS: ledger with an elapsed scan budget reports partial=true undercount (100 of 100099)
+PASS: partial undercount did not fire the 5000-token ceiling
+PASS: complete poll fires ceiling at 100099 tokens
+PASS: predict calibrates weekly codex and skips daily/unmeasured providers
+PASS: predict against live quota-axi snapshot calibrates the Codex weekly window (consumed=100.0)
+PASS: autohandle delivers control exit and acknowledges the ceiling capture
+PASS: provisioned six role definitions omit thinking (task effort is not pinned max)
+fails=0
