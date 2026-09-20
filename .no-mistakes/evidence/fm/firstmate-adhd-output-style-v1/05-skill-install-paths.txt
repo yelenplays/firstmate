@@ -1,0 +1,25 @@
+===== 5. CLAUDE SKILL DISCOVERY PATH =====
+agents_skill: .agents/skills/i-have-adhd
+total 32
+drwxr-xr-x@  5 yelen  staff   160 Sep 20 13:07 .
+drwxr-xr-x@ 36 yelen  staff  1152 Sep 20 13:07 ..
+-rw-r--r--@  1 yelen  staff  1069 Sep 20 13:07 LICENSE
+-rw-r--r--@  1 yelen  staff  7207 Sep 20 13:07 SKILL.md
+-rw-r--r--@  1 yelen  staff  1655 Sep 20 13:07 UPSTREAM.md
+
+claude_skills_symlink:
+lrwxr-xr-x@ 1 yelen  staff  17 Sep 20 13:07 .claude/skills -> ../.agents/skills
+claude sees i-have-adhd:
+drwxr-xr-x@ 5 yelen  staff  160 Sep 20 13:07 .claude/skills/i-have-adhd
+
+pi_skills does not pin i-have-adhd:
+total 0
+drwxr-xr-x@ 3 yelen  staff   96 Sep 20 13:07 .
+drwxr-xr-x@ 4 yelen  staff  128 Sep 20 13:07 ..
+lrwxr-xr-x@ 1 yelen  staff   45 Sep 20 13:07 simple-issue-description -> ../../.agents/skills/simple-issue-description
+
+grok_skills does not pin i-have-adhd:
+total 0
+drwxr-xr-x@ 3 yelen  staff   96 Sep 20 13:07 .
+drwxr-xr-x@ 4 yelen  staff  128 Sep 20 13:07 ..
+lrwxr-xr-x@ 1 yelen  staff   45 Sep 20 13:07 simple-issue-description -> ../../.agents/skills/simple-issue-description

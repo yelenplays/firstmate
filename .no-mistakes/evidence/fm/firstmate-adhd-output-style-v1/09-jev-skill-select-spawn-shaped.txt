@@ -1,0 +1,8 @@
+===== 9. JEV SKILL-SELECT spawn-shaped, no keys =====
+exit:0
+--- stdout ---
+--- stderr ---
+jev-skill-select: off (no TYPESAFE_API_KEY or OPENROUTER_API_KEY)
+--- written state ---
+/tmp/fm-adhd-jev-home.1wHyEM/state/jev-skill-shadow/lock
+/tmp/fm-adhd-jev-home.1wHyEM/state/jev-skill-shadow/evaluation.json

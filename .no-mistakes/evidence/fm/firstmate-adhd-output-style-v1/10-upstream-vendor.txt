@@ -1,0 +1,13 @@
+pinned_commit=839872f9d1cd634fed642b4589ce7226199cc15f
+fetch_subject=Merge pull request #211 from flessan/main
+upstream_repo=https://github.com/ayghri/i-have-adhd
+
+local SKILL.md sha256=3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9 bytes=7207
+upstream skills/i-have-adhd/SKILL.md sha256=3170b16ace00aecb0dd7feb54c0b5aa642e7502acda06ecd24fd89a11c7127e9 bytes=7207
+exact_byte_match SKILL.md=YES (skills/i-have-adhd/SKILL.md and .cursor/skills/i-have-adhd/SKILL.md)
+
+local LICENSE sha256=8acbb618089b738404f76ac60fca1aaa995d9a87995eddf95f0b777acd7f7d2c bytes=1069
+upstream LICENSE sha256=8acbb618089b738404f76ac60fca1aaa995d9a87995eddf95f0b777acd7f7d2c bytes=1069
+exact_byte_match LICENSE=YES
+
+note: raw.githubusercontent.com/.../SKILL.md 404s because upstream keeps the skill at skills/i-have-adhd/SKILL.md, not repo root.

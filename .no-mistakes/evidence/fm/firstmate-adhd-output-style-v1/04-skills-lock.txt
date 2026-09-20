@@ -1,0 +1,5 @@
+===== 4. SKILLS-LOCK SEMANTIC =====
+lock_version 1
+skill_count 10
+has_i-have-adhd False
+ids competitive-landscape,competitor-analysis,keyword-clustering,keyword-research,link-prospecting,local-seo,seo-audit,seo-coach,seo-project-setup,simple-issue-description

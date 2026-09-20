@@ -1,0 +1,3 @@
+===== 3. JEV CATALOG (HOME=worktree, so Path.home roots include distro skills) =====
+[]
+exit:0
