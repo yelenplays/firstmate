@@ -601,17 +601,18 @@ Behavioral regressions in [`tests/fm-jev-done-verify.test.sh`](../tests/fm-jev-d
 
 ## Jev skill selector (FM_JEV_SKILL_SELECT)
 
-`bin/fm-jev-skill-select.sh` is a once-per-launch skill suggestion, not a per-prompt router.
+`bin/fm-jev-skill-select.sh` provides a once-per-launch shadow comparison, not a per-prompt router.
 Default `FM_JEV_SKILL_SELECT` is `shadow`: `bin/fm-spawn.sh` runs the comparison for ships and scouts only when an authored safe query exists, writes a fresh per-launch case under `state/jev-skill-shadow/cases/`, and never changes the launch overlay or worker behavior.
 Shadow mode uses the complete code-enumerated eligible public roster with real descriptions, then conditionally makes one detail request over the top three candidates and one Noul per candidate.
 It recommends at most one optional skill only when the relevant Choice and that candidate's Noul each reach 0.8; errors, timeouts, invalid answers, and ambiguity recommend nothing.
-The shadow record contains only opaque experiment and input hashes, the pinned resolved model, decisions, probabilities, latency, token totals, and a comparison label.
+The shadow record contains a local experiment ID, roster and request hashes, the pinned resolved model, decisions, probabilities, latency, token totals, comparison labels, and outcome metadata.
 Both state and criteria use only authored P0/P1 requests and approved public skill content; raw briefs, page bodies, private instructions, career data, mail, traces, unpublished names, and credentials are excluded.
 Before collection, review the installed public skills for that boundary and put their full-file SHA-256 digests in the JSON array `config/jev-skill-public.json`.
 Approval is content-specific: changed files require renewed review; punctuation, Markdown headings, and public documentation links are preserved rather than treated as private content.
 Shadow catalog roots are always restricted to the enumerated public installation locations, including `~/.pi/agent/skills`, under the same digest approval.
 All eligible approved installed skills are offered regardless of ordering; mandatory and supervisor-only skills remain outside this optional suggestion.
 The model is pinned to `jev-1.13.0` on TypeSafe and `typesafe/jev-1.13` on OpenRouter for the experiment, while the existing `bin/fm-jev-lib.sh` route and caller remain the transport owner.
+Before spawning, write the authored safe query to `data/<id>/jev-skill-query.txt` under the active Firstmate home.
 A missing, unreadable, or blank query file skips the shadow call entirely; raw captain text and legacy brief bodies are never fallback queries.
 The shadow supervisor bounds the complete selector to 5.7 seconds with time reserved for recording within the six-second launch envelope; each HTTP call retains its four-second ceiling.
 Timeouts preserve the latest completed decision and usage, and latency measures the whole selector operation including roster preparation.
@@ -635,7 +636,8 @@ With live inputs present, a clear selection is appended to that private launch o
 `live_loaded` records verified instructions in the launch overlay, not confirmation that the worker executed them; selected skill files must be readable before injection.
 Choice `none`, an uncertain or error status, a Jev outage, and any write or verify failure leave `live_loaded` false and leave the overlay identical to a spawn that never called Jev.
 A Jev outage or selector failure never refuses or stalls spawn past a short bound.
-The script header owns flags, record paths and schema, the confidence rules, roster filtering, overlay injection, and live-load refusal.
+The [script header](../bin/fm-jev-skill-select.sh) owns invocation flags, live selection and cache behavior, overlay injection, and live-load refusal.
+Behavioral coverage lives in [selector tests](../tests/fm-jev-skill-select.test.sh) and [spawn integration tests](../tests/fm-spawn-jev-skill-live.test.sh); these do not establish usefulness or latency in a natural launch cohort.
 
 ## Jev queue triage (heartbeat)
 

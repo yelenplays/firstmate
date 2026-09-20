@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fm-jev-skill-select.sh - once-per-session Jev skill selector (shadow default).
+# fm-jev-skill-select.sh - Jev skill selector (per-launch shadow default).
 #
 # Usage:
 #   fm-jev-skill-select.sh --harness <name> --task-id <id> [--summary <text>]
@@ -8,27 +8,30 @@
 #     [--max <n>] [--status-note] [--stdin]
 #     [--overlay <launch-brief>] [skill-id ...]
 #
-# Input: a harness name, an optional privacy-safe query as --summary, and installed skill ids from
-#   --skills-dir children, positional arguments, and stdin (--stdin, or stdin
-#   when no other skill source is given and stdin is not a terminal).
+# Input: a harness name and an authored privacy-safe query as --summary.
+#   Shadow reads approved SKILL.md files from --skills-dir children; positional
+#   ids, --stdin, --max, --status-note, and --overlay do not affect shadow mode.
+#   Live accepts ids from --skills-dir children, positional arguments, and stdin
+#   (--stdin, or stdin when no other source is given and stdin is not a terminal).
 #   Never pass page content, excerpts, or conflict lines in --summary.
 #
-# Shadow mode compares a Choice over the complete eligible public roster with
-#   none, then a Choice over the top three and one Noul per candidate when detail
-#   is needed. It recommends at most one skill and never mutates a launch overlay.
-#   Live mode retains the legacy overlay selector below; docs/configuration.md
-#   "Jev skill selector" owns the operator contract and this header owns flags,
+# docs/configuration.md "Jev skill selector" owns shadow selection, approval,
+#   privacy, comparison labels, and stop criteria; this header owns flags,
 #   records, overlay injection, and live_loaded.
 #
 # Default shadow: reserve one case per launch under
 #   $FM_HOME/state/jev-skill-shadow/cases/<launch-id>.json. Shadow calls require
-#   the originating worker --launch-id; reuse that ID only to retry or label it.
-#   Approved public SKILL.md SHA-256 digests are listed as a JSON array in
-#   $FM_HOME/config/jev-skill-public.json. All matching installed eligible
-#   skills are offered, with their real descriptions and public excerpts.
-#   The supervisor owns the six-second bound, timeout records, full latency,
-#   persisted comparison labels, and the 20-case checkpoint. Labels and stop
-#   criteria are described in docs/configuration.md "Jev skill selector".
+#   the originating worker --launch-id; an existing case is returned without
+#   another request. --comparison-label replaces its labels, accepting comma-
+#   separated outcomes; omit --summary and skill sources for offline review.
+#   An unfinished case cannot be labeled. Shadow never writes a launch overlay.
+#
+# Live retains state/<task-id>.jev-skills.json under $FM_HOME, reused for the
+#   same task without another request, including relaunches. It offers the first
+#   24 sorted ids plus none and search_external, selects up to --max (default 3),
+#   and uses a 0.7 confidence floor. --status-note opts into a task status note.
+#   Publishing a fresh launch overlay resets live_loaded while preserving the
+#   cached selection; an eligible relaunch rechecks readability before injection.
 #
 # Live load requires FM_JEV_SKILL_SELECT=live and the presence file
 #   $FM_HOME/config/jev-skill-select-live. Spawn passes --overlay at the
