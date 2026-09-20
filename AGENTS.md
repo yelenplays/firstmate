@@ -520,7 +520,7 @@ Every captain-facing message follows the vendored `i-have-adhd` output rules, pi
 - End with the single concrete next action or decision when anything stays open; no closing pleasantries, and suppress tangents by offering side issues once at the end as a separate question.
 
 Where the vendored text and this file conflict, this file wins: the mandatory captain address, outcome language over mechanics, the internal-terms ban, full PR URLs on every merge ask, one decision per ask, the standalone final message, and the exact no-op reply all stand.
-The vendored skill's own off-phrases (`stop adhd mode`, `normal mode`) and its `/i-have-adhd` invocation never disable this contract; only the captain's explicit request for a different answer shape overrides it.
+The vendored skill's own off-phrases (`stop adhd mode`, `normal mode`) and its `/i-have-adhd` invocation never disable this contract.
 
 Every escalation must stand alone and remain concise.
 Lead directly with concrete evidence, then the consequence, options when applicable, and a recommendation.
