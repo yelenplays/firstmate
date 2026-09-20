@@ -1,0 +1,29 @@
+[
+  {
+    "name": "Standalone collection is rejected",
+    "command": "bin/fm-jev-skill-select.sh --harness codex --task-id manual-check --summary Find public skills",
+    "exit_code": 2,
+    "stdout": "",
+    "stderr": "error: shadow requires an originating --launch-id\n",
+    "case_files": 0,
+    "passed": true
+  },
+  {
+    "name": "Removed catalog-root switch is rejected",
+    "command": "bin/fm-jev-skill-select.sh --harness codex --task-id manual-check --public-only",
+    "exit_code": 2,
+    "stdout": "",
+    "stderr": "error: unknown flag --public-only\n",
+    "case_files": 0,
+    "passed": true
+  },
+  {
+    "name": "Review cannot create an unassociated case",
+    "command": "bin/fm-jev-skill-select.sh --harness codex --task-id manual-check --launch-id absent-launch --comparison-label missed,irrelevant",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "Traceback (most recent call last):\n  File \"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2Y2Q0D9FZGHHPZ2CF1KA29A/bin/fm-jev-skill-shadow.py\", line 165, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M2Y2Q0D9FZGHHPZ2CF1KA29A/bin/fm-jev-skill-shadow.py\", line 127, in main\n    raise ValueError('comparison labels require an existing launch ID')\nValueError: comparison labels require an existing launch ID\n",
+    "case_files": 0,
+    "passed": true
+  }
+]
