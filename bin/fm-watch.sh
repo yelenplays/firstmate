@@ -1068,9 +1068,28 @@ wedge_defer_nm_run() {  # <window> <since-file> <triage-label> <idle-age> <run-i
   triage_log "absorbed $label (no-mistakes run $rid still executing, idle ${age}s): $win"
 }
 
-# Drop a window's deferral chains wherever its stale bookkeeping resets, so the
-# bounded re-surface cadence is measured from the CURRENT quiet stretch and a
-# long-finished one cannot make the next deferral resurface immediately.
+# Defer ONE wedge escalation for a pane whose tail Jev read as not-stuck.
+# This is a deferral, not a cancellation: the idle timer restarts so the next
+# window probes the pane again, and the .jevsupp-since-<key> chain marker plus
+# resurface_absorbed bound it to one re-surface per PAUSE_RESURFACE_SECS. The
+# escalation counter remains intact so a later genuine wedge retains its
+# demand-deep-inspection history.
+wedge_defer_jev() {  # <window> <since-file> <triage-label> <idle-age>
+  local win=$1 since_file=$2 label=$3 age=$4 key jsf jage
+  key=$(fm_watch_state_key "$win")
+  jsf="$STATE/.jevsupp-since-$key"
+  [ -e "$jsf" ] || date +%s > "$jsf"
+  jage=$(age_of "$jsf")
+  date +%s > "$since_file"
+  resurface_absorbed "$win" "$STATE/.jevsupp-resurfaced-$key" "$jage" \
+    "stale: $win (idle ${age}s - a Jev pane-tail read sees no wedge, suppressed for ${jage}s, rechecked on a long cadence not a wedge; inspect the pane or its task)"
+  triage_log "absorbed $label (jev pane-tail read: not stuck, idle ${age}s): $win"
+}
+
+# Drop a window's write/no-mistakes deferral chain wherever its stale
+# bookkeeping resets, so the bounded re-surface cadence is measured from the
+# CURRENT quiet stretch and a long-finished one cannot make the next deferral
+# resurface immediately.
 clear_write_tracking() {  # <window-key>
   local key=$1
   rm -f "$STATE/.writing-since-$key" "$STATE/.writing-resurfaced-$key" \
@@ -1153,18 +1172,20 @@ wedge_dead_record() {  # <window> <since-file> <triage-label> <idle-age> <pane-h
 # and the stale_is_terminal-overridden path (a captain-relevant status-log
 # line that an active run/busy pane outranked).
 # The wait-evidence consult (wedge_wait_evidence, one status-line read), the
-# worktree write probe, the dead-record probe (wedge_dead_record), and the
-# no-mistakes run-liveness probe (crew_nm_run_progressing) run ONLY here, inside
-# the at-threshold branch that is about to escalate: at most one each per window
-# per STALE_ESCALATE_SECS, never per poll. The wait consult runs first, because a
+# worktree write probe, dead-record probe, and no-mistakes run-liveness
+# probe (crew_nm_run_progressing) run ONLY here, inside the at-threshold branch
+# that is about to escalate: at most one each per window per
+# STALE_ESCALATE_SECS, never per poll. The wait consult runs first, because a
 # pane whose worker already said why it is quiet has nothing to prove through
-# its worktree. The dead-record probe runs after the two cheaper deferrals so
-# only a pane that would otherwise alarm pays for a backend read; the run
-# liveness probe runs last of all, after the recorded-step bound hold, because
-# a demonstrably executing run is the strongest "not a wedge" verdict and the
-# most expensive to ask for.
-wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-file> <task> <pane-hash>
-  local win=$1 since_file=$2 label=$3 escalation_file=$4 task=$5 hash=$6 since age n reason evidence run_id
+# its worktree. Dead-record is checked after cheaper deferrals; run liveness is
+# checked after the recorded-step bound, as the strongest and most expensive
+# positive evidence. The Jev second opinion (wedge_jev_suppress) then runs on
+# the already-captured pane tail, only when a structural escalation is otherwise
+# imminent. A valid "not stuck" Noul defers; every failure or non-suppress
+# verdict preserves escalation. Callers without a relevant pane tail pass an
+# empty argument and skip the consult.
+wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-file> <task> <pane-hash> [<pane-tail>]
+  local win=$1 since_file=$2 label=$3 escalation_file=$4 task=$5 hash=$6 tail=${7-} since age n reason evidence run_id
   since=$(cat "$since_file" 2>/dev/null || true)
   case "$since" in
     ''|*[!0-9]*)
@@ -1207,15 +1228,15 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
           date +%s > "$since_file"
           return 0
         fi
-        # The last authority before firing is the task's own no-mistakes run.
-        # crew_nm_run_progressing owns run attribution and execution evidence,
-        # protecting silent server-side validation without weakening the
-        # no-evidence escalation path. It runs last because it is the strongest
-        # verdict and most expensive: bounded status reads and, for a
-        # daemon-executed step, one bounded daemon probe, only once per window
-        # per STALE_ESCALATE_SECS.
+        # The last no-mistakes check protects silent server-side validation
+        # without weakening the no-evidence escalation path. A proven active
+        # run defers first; Jev gets a second opinion only if that stronger
+        # execution evidence is absent. Both are bounded and threshold-only.
         if run_id=$(crew_nm_run_progressing "$task" "$STATE" "$since_file"); then
           wedge_defer_nm_run "$win" "$since_file" "$label" "$age" "$run_id"
+          return 0
+        elif [ -n "$tail" ] && wedge_jev_suppress "$tail"; then
+          wedge_defer_jev "$win" "$since_file" "$label" "$age"
           return 0
         fi
         n=$(( $(cat "$escalation_file" 2>/dev/null || echo 0) + 1 ))
@@ -1398,7 +1419,11 @@ bound_stall_check() {  # <window> <task> <hash> <since-file> <escalation-file> <
     handle_paused_stale "$win" "$task" "$h"
     return 0
   fi
-  wedge_timer_check "$win" "$since_file" "$label" "$escalation_file" "$task" "$h"
+  # No pane tail is handed to the Jev consult here: this bound fires on a busy
+  # pane, and a busy-looking tail is exactly what Jev reads as not-stuck, so a
+  # consult would suppress the genuinely-hung-foreground wedges this branch
+  # exists to catch. An empty tail skips the consult inside wedge_timer_check.
+  wedge_timer_check "$win" "$since_file" "$label" "$escalation_file" "$task" "$h" ''
   return 1
 }
 
@@ -1408,15 +1433,17 @@ clear_pause_state() {  # <window-key>
 }
 
 # The hash-scoped half of clear_pause_tracking: the stale suppressor, its wedge
-# timer and escalation count, and both deferral chains the timer can take - the
-# write-deferral chain and the wait-deferral throttle. Split out so a caller
-# that must keep a window's DECLARATION-scoped pause state - its .paused-* flag,
-# recheck, and re-surface throttle - can still reset the per-hash half alone.
+# timer and escalation count, and every deferral chain the timer can take - the
+# write-deferral chain, the wait-deferral throttle, and the Jev-suppression
+# chain. Split out so a caller that must keep a window's DECLARATION-scoped
+# pause state - its .paused-* flag, recheck, and re-surface throttle - can
+# still reset the per-hash half alone.
 clear_stale_hash_tracking() {  # <window-key>
   local key=$1
   clear_write_tracking "$key"
   rm -f "$STATE/.stale-$key" "$STATE/.stale-since-$key" "$STATE/.wedge-escalations-$key" \
-    "$STATE/.waiting-resurfaced-$key"
+    "$STATE/.waiting-resurfaced-$key" \
+    "$STATE/.jevsupp-since-$key" "$STATE/.jevsupp-resurfaced-$key"
 }
 
 clear_pause_tracking() {  # <window-key>
@@ -1880,8 +1907,13 @@ signal_files_actionable() {  # <status-file> ...
     [ -e "$f" ] || [ -L "$f" ] || continue
     task=$(basename "$f"); task="${task%.status}"
     record=''; needs_decision=0
+    # The `jev` opt-in adds the escalation-only status consult to this wake
+    # triage: lines the deterministic contract declines - progress, free-text,
+    # note:/resolved: - get one bounded model read each (capped per span), and
+    # only a high-Noul escalate verdict makes the wake actionable. A helper
+    # failure or low Noul leaves the bash verdict exactly as it was.
     status_span_first_actionable_record "$f" \
-      "$(fm_wake_signal_seen_size "$STATE" "$f")" record needs_decision
+      "$(fm_wake_signal_seen_size "$STATE" "$f")" record needs_decision jev
     rc=$?
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
     if [ "$rc" -eq 2 ]; then
@@ -1953,7 +1985,11 @@ heartbeat_scan_finds_actionable() {
   for f in "$STATE"/*.status; do
     [ -e "$f" ] || [ -L "$f" ] || continue
     task=$(basename "$f"); task="${task%.status}"
-    record=$(status_span_first_actionable_record "$f" "$(hb_surfaced_offset "$task")")
+    # `jev` here too: the backstop re-classifies only spans no per-wake path
+    # surfaced (the shared hb-surfaced marker guarantees that), so a consult
+    # still fires at most once per line - it exists to catch the same
+    # escalation-only misses the signal path consults for.
+    record=$(status_span_first_actionable_record "$f" "$(hb_surfaced_offset "$task")" '' '' jev)
     rc=$?
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
     if [ "$rc" -eq 2 ]; then
@@ -2780,7 +2816,7 @@ EOF
             # wedge timer is running for it) - keep treating it that way
             # without re-reading the crew state every poll, and without
             # letting the still-captain-relevant log line re-surface it.
-            wedge_timer_check "$w" "$ssf" "stale (overridden terminal status)" "$ewf" "$task" "$h"
+            wedge_timer_check "$w" "$ssf" "stale (overridden terminal status)" "$ewf" "$task" "$h" "$tail40"
           fi
           # else: already surfaced as genuinely terminal on a prior poll of
           # this same hash - nothing left to do (matches the original,
@@ -2823,12 +2859,12 @@ EOF
                 paused)  handle_paused_stale "$w" "$task" "$h" ;;
                 working) clear_pause_state "$key"
                          printf '%s' "$h" > "$sf"
-                         wedge_timer_check "$w" "$ssf" "non-terminal stale (provably working after a declared pause)" "$ewf" "$task" "$h"
+                         wedge_timer_check "$w" "$ssf" "non-terminal stale (provably working after a declared pause)" "$ewf" "$task" "$h" "$tail40"
                          triage_log "absorbed non-terminal stale (provably working): $w" ;;
                 *)       handle_paused_stale "$w" "$task" "$h" ;;
               esac
             else
-              wedge_timer_check "$w" "$ssf" "non-terminal stale" "$ewf" "$task" "$h"
+              wedge_timer_check "$w" "$ssf" "non-terminal stale" "$ewf" "$task" "$h" "$tail40"
             fi
           fi
         fi

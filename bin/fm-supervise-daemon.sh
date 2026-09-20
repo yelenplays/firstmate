@@ -365,8 +365,10 @@ classify_signal() {  # <reason-after-colon> <state>
     case "$f" in *.status) ;; *) continue ;; esac
     [ -e "$f" ] || [ -L "$f" ] || continue
     task=$(basename "$f"); task="${task%.status}"
+    # `jev` opts the span into the escalation-only status consult (declared
+    # verbs are never offered; a helper failure leaves the bash verdict).
     record=$(status_span_first_actionable_record "$f" \
-      "$(status_seen_offset "$state" "$task")")
+      "$(status_seen_offset "$state" "$task")" '' '' jev)
     rc=$?
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
     if [ "$rc" -eq 2 ]; then
@@ -419,7 +421,7 @@ classify_stale() {  # <window> <state> [<span-record> <span-status>]
   task=$(window_to_task "$win" "$state")
   if [ -z "$rc" ]; then
     record=$(status_span_first_actionable_record "$state/$task.status" \
-      "$(status_seen_offset "$state" "$task")")
+      "$(status_seen_offset "$state" "$task")" '' '' jev)
     rc=$?
   fi
   last=$(last_status_line "$state/$task.status")
@@ -503,7 +505,9 @@ stale_marker_record() {  # <window> <state>  — create if absent
 stale_marker_remove() {  # <window> <state>
   local win=$1 state=$2 key
   key=$(_stale_key "$(window_to_task "$win" "$state")")
-  rm -f "$state/.subsuper-stale-$key"
+  # The Jev-suppression chain dies with the stale marker it belongs to, so a
+  # suppressed-then-resumed pane never inherits suppression age.
+  rm -f "$state/.subsuper-stale-$key" "$state/.subsuper-jevsupp-$key"
 }
 
 # Pause marker: state/.subsuper-paused-<key> holds the epoch a declared wait (a
@@ -532,11 +536,13 @@ clear_pause_tracking() {  # <window> <state>
   key=$(_stale_key "$task")
   watcher_key=$(_stale_key "$win")
   rm -f "$state/.subsuper-paused-$key" "$state/.subsuper-pause-until-due-$key" "$state/.subsuper-stale-$key" \
+    "$state/.subsuper-jevsupp-$key" \
     "$state/.paused-$watcher_key" "$state/.paused-rechecked-$watcher_key" "$state/.paused-resurfaced-$watcher_key" \
     "$state/.stale-$watcher_key" "$state/.stale-since-$watcher_key" "$state/.wedge-escalations-$watcher_key" \
     "$state/.writing-since-$watcher_key" "$state/.writing-resurfaced-$watcher_key" \
     "$state/.nmrun-since-$watcher_key" "$state/.nmrun-resurfaced-$watcher_key" \
-    "$state/.waiting-resurfaced-$watcher_key"
+    "$state/.waiting-resurfaced-$watcher_key" \
+    "$state/.jevsupp-since-$watcher_key" "$state/.jevsupp-resurfaced-$watcher_key"
 }
 
 reconcile_pause_tracking() {  # <window> <state> <last-status-line>
@@ -695,13 +701,18 @@ task_window_harness() {  # <window> <state>
 # when the endpoint could not be read at all. Only an exact busy verdict is
 # working: unknown semantic state never becomes busy and never becomes a
 # silent idle, so a stale pane whose state cannot be proven surfaces.
+# The captured pane tail is published in FM_STALE_TAIL40 so the wedge
+# boundary's Jev second opinion reads the SAME pane the busy verdict saw
+# instead of paying for a second capture.
 stale_window_is_busy() {  # <window> <state>
   local win=$1 state=$2 backend harness label task tail40 verdict
+  FM_STALE_TAIL40=''
   backend=$(task_window_backend "$win" "$state")
   harness=$(task_window_harness "$win" "$state")
   task=$(window_to_task "$win" "$state")
   label="fm-$task"
   tail40=$(fm_backend_capture "$backend" "$win" 40 "$label" 2>/dev/null) || return 2
+  FM_STALE_TAIL40=$tail40
   verdict=$(fm_busy_classify "$backend" "$win" "$harness" "$task" "$state" "$tail40")
   [ "${verdict%% *}" = busy ]
 }
@@ -1036,7 +1047,7 @@ _oldest_line_age() {  # <buf> -> seconds since the oldest buffered item first ar
 #  3) heartbeat scan: every HEARTBEAT_SCAN_SECS, grep state/*.status for a
 #     captain-relevant line the per-wake classifier missed and escalate it.
 housekeeping() {  # <state>
-  local state=$1 now due f key task win marker age last max_defer oldest pause_secs marker_epoch until bounded_until pause_reason run_id
+  local state=$1 now due f key task win marker age last max_defer oldest pause_secs marker_epoch until bounded_until pause_reason run_id jsf jage
   now=$(_now)
   migrate_watcher_pause_markers "$state"
 
@@ -1079,7 +1090,7 @@ housekeeping() {  # <state>
     win=$(window_for_task "$key" "$state" 2>/dev/null || true)
     if [ -z "$win" ]; then
       # Window gone (task torn down): drop the marker, nothing to escalate.
-      rm -f "$marker"; continue
+      rm -f "$marker" "$state/.subsuper-jevsupp-$key"; continue
     fi
     task=$(window_to_task "$win" "$state")
     last=$(last_status_line "$state/$task.status")
@@ -1091,14 +1102,33 @@ housekeeping() {  # <state>
     [ "$age" -ge "${FM_STALE_ESCALATE_SECS:-$STALE_ESCALATE_SECS_DEFAULT}" ] || continue
     stale_window_is_busy "$win" "$state"
     case "$?" in
-      0) rm -f "$marker" ;;
-      2) rm -f "$marker" ;;
-      *) if run_id=$(crew_nm_run_progressing "$task" "$state" "$marker"); then
-           _now > "$marker"
-           log "stale deferral: $win (its no-mistakes run $run_id is still executing, idle ${age}s)"
-         elif escalate_add "$state" "stale persisted ${age}s (possible wedge): $win"; then
-           stale_marker_remove "$win" "$state"
-         fi ;;
+      0) rm -f "$marker" "$state/.subsuper-jevsupp-$key" ;;
+      2) rm -f "$marker" "$state/.subsuper-jevsupp-$key" ;;
+      *)
+        # Preserve the stronger no-mistakes execution evidence before asking
+        # Jev for a second opinion. Both checks are threshold-only; Jev can only
+        # defer the structural escalation, never replace it on failure.
+        if run_id=$(crew_nm_run_progressing "$task" "$state" "$marker"); then
+          rm -f "$state/.subsuper-jevsupp-$key"
+          _now > "$marker"
+          log "stale deferral: $win (its no-mistakes run $run_id is still executing, idle ${age}s)"
+        elif [ -n "${FM_STALE_TAIL40:-}" ] && wedge_jev_suppress "$FM_STALE_TAIL40"; then
+          # Bound a Jev suppression: a pane that stays quiet through a full
+          # re-surface interval still escalates for inspection.
+          jsf="$state/.subsuper-jevsupp-$key"
+          [ -e "$jsf" ] || _now > "$jsf"
+          jage=$(( now - $(cat "$jsf" 2>/dev/null || echo "$now") ))
+          if [ "$jage" -ge "${FM_PAUSE_RESURFACE_SECS:-$FM_PAUSE_RESURFACE_SECS_DEFAULT}" ]; then
+            if escalate_add "$state" "stale persisted ${age}s (Jev reads no wedge, suppressed for ${jage}s; inspect anyway): $win"; then
+              stale_marker_remove "$win" "$state"
+            fi
+          else
+            _now > "$marker"
+            log "stale wedge suppressed by Jev pane-tail read (idle ${age}s): $win"
+          fi
+        elif escalate_add "$state" "stale persisted ${age}s (possible wedge): $win"; then
+          stale_marker_remove "$win" "$state"
+        fi ;;
     esac
   done
 
@@ -1198,7 +1228,7 @@ housekeeping() {  # <state>
       [ -e "$f" ] || [ -L "$f" ] || continue
       task=$(basename "$f"); task="${task%.status}"
       record=$(status_span_first_actionable_record "$f" \
-        "$(status_seen_offset "$state" "$task")")
+        "$(status_seen_offset "$state" "$task")" '' '' jev)
       rc=$?
       if [ "$rc" -eq 2 ]; then
         ident=$(status_observed_signature "$f")
@@ -1376,7 +1406,7 @@ handle_wake() {  # <reason> <state>
               task=$(window_to_task "$arg" "$state")
               if [ -n "$task" ]; then
                 span_record=$(status_span_first_actionable_record "$state/$task.status" \
-                  "$(status_seen_offset "$state" "$task")")
+                  "$(status_seen_offset "$state" "$task")" '' '' jev)
                 span_rc=$?
                 case "$span_rc" in
                   0|1)

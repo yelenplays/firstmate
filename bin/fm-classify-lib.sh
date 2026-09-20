@@ -27,7 +27,7 @@
 # A missing, malformed, identity-mismatched, or past-end classified position reads
 # from byte 0, preferring a bounded duplicate over a lost event.
 #
-# There are four documented exceptions. The absorb classification
+# There are five documented exceptions. The absorb classification
 # (crew_absorb_class and its working/paused wrappers) is NOT a pure status-file
 # read: it reuses bin/fm-crew-state.sh, which may make a bounded no-mistakes call,
 # to decide whether a crew that just stopped its turn or went stale is working,
@@ -41,7 +41,17 @@
 # a bounded slice of its worktree instead of a status file, so callers run it only
 # at the moment they would otherwise escalate. crew_nm_run_progressing checks
 # the task's attributed no-mistakes run through bounded CLI and log reads, so
-# callers hold it to the same only-at-escalation budget.
+# callers hold it to the same only-at-escalation budget. The fifth exception is
+# the pair of Jev consult wrappers near the bottom of this file
+# (status_line_jev_escalates, wedge_jev_suppress): each spawns a bounded helper
+# subprocess that can make one short TypeSafe Jev call. The status consult runs
+# only inside status_span_first_actionable_record when a caller opts in with
+# the literal `jev` fifth argument, only for a line the deterministic contract
+# did not accept and status_line_jev_in_scope admits, and only
+# FM_JEV_SPAN_TRIAGE_MAX times per span. The wedge consult runs only where its
+# callers place it: the escalation boundary. Neither can downgrade a declared
+# verb, neither replaces a deterministic check, and any helper failure, timeout,
+# or invalid answer returns nonzero so the caller's existing behavior stands.
 
 # Directory of this library, used to locate the sibling fm-crew-state.sh reader.
 # Resolved at source time from BASH_SOURCE so it works whether sourced by a
@@ -1814,9 +1824,11 @@ _fm_status_open_decision_origins() {  # <status-file> [<kind>]
   printf '%s' "$origins"
 }
 
-status_span_first_actionable_record() {  # <status-file> <start-offset> [record-var] [needs-decision-var]
-  local f=$1 start=${2:-0} output_var=${3-} needs_var=${4-} size ident cur_ident scratch chunk_file full_file prefix_file result
+status_span_first_actionable_record() {  # <status-file> <start-offset> [record-var] [needs-decision-var] [jev]
+  local f=$1 start=${2:-0} output_var=${3-} needs_var=${4-} jev_arg=${5-} size ident cur_ident scratch chunk_file full_file prefix_file result
   local line verb key origins='' folded=0 rc=1 failed=0 prefix_lines=0 line_number=0 live_line='' events='' _line _key _fm_span_needs_decision=0
+  local jev_triage=0 jev_calls=0 jev_flagged=0
+  [ "$jev_arg" = jev ] && jev_triage=1
   [ -e "$f" ] || { [ -L "$f" ] && return 2; return 1; }
   [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 2
   ident=$(_fm_open_decisions_file_ident "$f") || return 2
@@ -1853,7 +1865,27 @@ status_span_first_actionable_record() {  # <status-file> <start-offset> [record-
       _fm_span_needs_decision=1
       continue
     fi
-    status_is_captain_relevant "$line" || continue
+    if ! status_is_captain_relevant "$line"; then
+      # Escalation-only Jev consult, opt-in per caller (<arg5> = jev). Only a
+      # line the deterministic contract did NOT accept is offered, and only
+      # note:/resolved:/nonstandard/verb-less lines are even eligible inside
+      # status_line_jev_in_scope - a declared working/paused/captain-held or
+      # terminal verb can never be re-litigated by the model. The consult is
+      # capped per span call; past the cap, or on any helper failure, the bash
+      # verdict stands unchanged. A Jev-escalated line is advisory surface
+      # only: it never enters the decision fold below.
+      jev_flagged=0
+      if [ "$jev_triage" -eq 1 ] && [ "$jev_calls" -lt "$FM_JEV_SPAN_TRIAGE_MAX" ] \
+        && status_line_jev_in_scope "$line"; then
+        jev_calls=$((jev_calls + 1))
+        status_line_jev_escalates "$line" && jev_flagged=1
+      fi
+      [ "$jev_flagged" -eq 1 ] || continue
+      [ -n "$events" ] && events="${events} ; "
+      events="${events}${line} (jev-escalated)"
+      rc=0
+      continue
+    fi
     verb=$(status_line_verb "$line")
     case "$verb" in
       needs-decision|blocked)
@@ -1929,6 +1961,85 @@ status_span_first_actionable() {  # <status-file> <start-offset>
 
 status_span_has_actionable() {  # <status-file> <start-offset>
   status_span_first_actionable_record "$1" "${2:-0}" > /dev/null
+}
+
+# --- bounded Jev consults (the fourth documented exception above) -----------
+# Escalation-only Jev status triage and a second-opinion wedge read, both over
+# the existing bin/fm-jev-lib.sh binding, both additive: they can surface or
+# defer where the deterministic contract already stands, and any failure
+# returns nonzero so the caller's existing behavior is the fallback. Evidence
+# and the 0.5 Noul floor: data/jev-supervision-triage-v1/report.md.
+#
+# FM_JEV_STATUS_TRIAGE_BIN and FM_JEV_WEDGE_CHECK_BIN point at the helpers; the
+# defaults are the sibling scripts and tests substitute stubs. FM_HOME and
+# FM_STATE_OVERRIDE are passed through so the helper's JSONL lands in the
+# caller's home.
+FM_JEV_STATUS_TRIAGE_BIN="${FM_JEV_STATUS_TRIAGE_BIN:-$_FM_CLASSIFY_LIB_DIR/fm-jev-status-triage.sh}"
+FM_JEV_WEDGE_CHECK_BIN="${FM_JEV_WEDGE_CHECK_BIN:-$_FM_CLASSIFY_LIB_DIR/fm-jev-wedge-check.sh}"
+
+# Cap on Jev consults inside one status_span_first_actionable_record call.
+# Spans hold the newly appended lines - usually one or two - so the cap only
+# bites when a caller reclassifies a long log from byte 0; past it the bash
+# verdict stands for the rest of the span.
+FM_JEV_SPAN_TRIAGE_MAX=${FM_JEV_SPAN_TRIAGE_MAX:-8}
+
+# The subprocess bound around one consult. The helper's own JEV_TIMEOUT bounds
+# the HTTP call (default FM_JEV_SUPERVISION_TIMEOUT_SECS=3 inside the helper);
+# this wraps the whole helper so a stall before curl - a hung state-dir write,
+# a blocked fork - cannot stall the supervision loop either. Reads the same
+# precedence the helper uses (explicit JEV_TIMEOUT wins) plus margin.
+_fm_jev_supervision_bound() {
+  local secs=${JEV_TIMEOUT:-${FM_JEV_SUPERVISION_TIMEOUT_SECS:-3}}
+  case "$secs" in ''|*[!0-9]*|0) secs=3 ;; esac
+  printf '%s' "$((secs + 2))"
+}
+
+# 0 when <status-line> is eligible for the escalation-only Jev consult: a
+# note:/resolved: declaration, an unrecognized verb, or a verb-less free-text
+# line. Declared verbs are never offered to the model: the terminal set is
+# already captain-relevant, and working/paused/captain-held declarations are
+# absorb contracts a model read must not overturn. This is the gate that keeps
+# the consult "nur dort, wo kein erkanntes Verb greift" plus the two named
+# nonterminal verbs.
+status_line_jev_in_scope() {  # <status-line>
+  local line=$1 verb
+  [ -n "$line" ] || return 1
+  status_line_verb "$line" verb
+  case "$verb" in
+    working|done|needs-decision|blocked|failed|\
+"${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}"|\
+"${FM_CLASSIFY_CAPTAIN_HELD_VERB:-$FM_CLASSIFY_CAPTAIN_HELD_VERB_DEFAULT}")
+      return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+# 0 when Jev's captain_relevant Noul on <status-line> says escalate. 1 for
+# every other outcome - a valid low Noul, a helper error or timeout, a missing
+# helper, an invalid answer - so the caller's deterministic verdict stands.
+# The declared-verb gate runs first, so a direct caller can never accidentally
+# offer a terminal or absorb-declared line to the model.
+status_line_jev_escalates() {  # <status-line>
+  local line=$1 verdict
+  status_line_jev_in_scope "$line" || return 1
+  [ -f "$FM_JEV_STATUS_TRIAGE_BIN" ] || return 1
+  verdict=$(printf '%s' "$line" | FM_HOME="${FM_HOME:-}" FM_STATE_OVERRIDE="${FM_STATE_OVERRIDE:-}" \
+    fm_run_timed "$(_fm_jev_supervision_bound)" "$FM_JEV_STATUS_TRIAGE_BIN" 2>/dev/null) || return 1
+  [ "$verdict" = escalate ]
+}
+
+# 0 when Jev's stuck Noul on <pane-tail> reads the pane as NOT wedged - the
+# second opinion that suppresses a structural false positive at the wedge
+# escalation boundary. 1 for every other outcome, including an escalate
+# verdict, a missing helper, and any failure - so the boundary's structural
+# escalation always stands as the fallback.
+wedge_jev_suppress() {  # <pane-tail>
+  local tail=$1 verdict
+  [ -n "$tail" ] || return 1
+  [ -f "$FM_JEV_WEDGE_CHECK_BIN" ] || return 1
+  verdict=$(printf '%s' "$tail" | FM_HOME="${FM_HOME:-}" FM_STATE_OVERRIDE="${FM_STATE_OVERRIDE:-}" \
+    fm_run_timed "$(_fm_jev_supervision_bound)" "$FM_JEV_WEDGE_CHECK_BIN" 2>/dev/null) || return 1
+  [ "$verdict" = suppress ]
 }
 
 # Classify WHY an idle/stale crew MIGHT be safely absorbed instead of surfaced,
