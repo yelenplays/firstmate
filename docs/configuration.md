@@ -707,6 +707,18 @@ Without a configured key the ranking is skipped and nothing is sent.
 Both lists are advisory: every presented wake still needs handling and acknowledgement.
 [`bin/fm-startup-network.sh`](../bin/fm-startup-network.sh)'s header owns the deferred step, its fixed 20-second input-handoff wait, and the detached Jev request's effective `JEV_TIMEOUT` plus 3-second cleanup margin; regression coverage lives in [`tests/fm-startup-network.test.sh`](../tests/fm-startup-network.test.sh), [`tests/fm-jev-act-first.test.sh`](../tests/fm-jev-act-first.test.sh), and [`tests/fm-session-start.test.sh`](../tests/fm-session-start.test.sh).
 
+## Jev supervision triage (FM_JEV_SUPERVISION_TIMEOUT_SECS, FM_JEV_SPAN_TRIAGE_MAX)
+
+The watcher and the away-mode daemon ask Jev two narrow advisory questions over the existing [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) binding; evidence and the 0.5 Noul floor come from `data/jev-supervision-triage-v1/report.md`.
+Both roles are additive and fail closed: a missing key, a helper failure, a timeout, or a malformed answer leaves the deterministic verdict untouched, and a valid answer can only add a surface or defer a structural false positive.
+[`bin/fm-jev-status-triage.sh`](../bin/fm-jev-status-triage.sh) reads one status line on stdin and prints `escalate` only when the `captain_relevant` Noul is at least `FM_JEV_SUPERVISION_NOUL_FLOOR` (default 0.5).
+Only lines no declared verb explains are ever offered - free-text progress plus `note:` and `resolved:` - capped at `FM_JEV_SPAN_TRIAGE_MAX` (default 8) consults per status span; `working:`/`done:`/`blocked:`/`failed:`/`needs-decision:`/`paused:`/`captain-held:` lines are never sent to the model.
+An escalation surfaces the line marked `(jev-escalated)` as an advisory surface event; it never enters the needs-decision fold.
+[`bin/fm-jev-wedge-check.sh`](../bin/fm-jev-wedge-check.sh) reads one captured pane tail on stdin and prints `suppress` only when the `stuck` Noul is below the floor, which defers the structural wedge escalation on the shared bounded resurface cadence; a Noul at or above the floor escalates at once, and every other outcome keeps the incumbent escalation.
+The wedge consult runs only at the exact escalation boundary - the watcher's wedge timer after the wait, worktree-write, and dead-endpoint deferrals, and the daemon's stale-persistence recheck - never per poll.
+Each call is bounded by `FM_JEV_SUPERVISION_TIMEOUT_SECS` (default 3 seconds; an explicit `JEV_TIMEOUT` wins) plus a short wrapper margin, and every attempted call appends one JSONL audit record under the state directory (`jev-status-triage.jsonl`, `jev-wedge-check.jsonl`).
+Coverage lives in [`tests/fm-jev-supervision.test.sh`](../tests/fm-jev-supervision.test.sh), [`tests/fm-watch-triage.test.sh`](../tests/fm-watch-triage.test.sh), and [`tests/fm-daemon.test.sh`](../tests/fm-daemon.test.sh).
+
 ## Jev brief preflight (FM_JEV_BRIEF_PREFLIGHT)
 
 `bin/fm-spawn.sh` runs [`bin/fm-jev-brief-preflight.sh`](../bin/fm-jev-brief-preflight.sh) for ship and scout briefs after its structural brief refusals and before any endpoint exists.

@@ -64,9 +64,10 @@ set -u
 # become '_' so an endpoint target or task id is usable as a filename suffix.
 # Every per-window file the watcher keeps is named by it (.hash-, .count-,
 # .stale-, .stale-since-, .wedge-escalations-, .paused-*, .writing-*,
-# .nmrun-*, .waiting-*, .churn-since-, .dead-reported-, .window-owner-), the
+# .nmrun-*, .waiting-*, .jevsupp-*, .churn-since-, .dead-reported-, .window-owner-), the
 # sub-supervisor keys its per-task episode markers with the same derivation
-# (.subsuper-stale-, .subsuper-paused-, .subsuper-pause-until-due-), and live
+# (.subsuper-stale-, .subsuper-paused-, .subsuper-pause-until-due-,
+# .subsuper-jevsupp-), and live
 # homes hold those markers on disk under this exact format. The status-paired
 # names above keep their own encoders (bin/fm-classify-lib.sh's
 # status_signal_seen_marker_path, status_heartbeat_seen_marker_path, and
@@ -94,6 +95,8 @@ fm_watch_window_marker_families() {
     .nmrun-since- \
     .nmrun-resurfaced- \
     .waiting-resurfaced- \
+    .jevsupp-since- \
+    .jevsupp-resurfaced- \
     .wedge-escalations- \
     .churn-since- \
     .dead-reported- \
@@ -192,7 +195,7 @@ fm_watch_retire_task_state() {  # <state-dir> <task-id>
   if [ -z "$(fm_watch_task_key_live_sharer "$state" "$enc" "$task" || true)" ]; then
     rm -f -- "$state/.seen-$(printf '%s' "$task.turn-ended" | tr '.' '_')" \
       "$state/.subsuper-stale-$enc" "$state/.subsuper-paused-$enc" \
-      "$state/.subsuper-pause-until-due-$enc" || return 1
+      "$state/.subsuper-pause-until-due-$enc" "$state/.subsuper-jevsupp-$enc" || return 1
   fi
 }
 
@@ -261,7 +264,7 @@ fm_watch_window_bind() {  # <state-dir> <window-target> <task>
 #   window-keyed markers: removed when no live *.meta records a target that
 #     derives their key (longest-family-first claiming handles prefixes that
 #     nest, like .stale- inside .stale-since-).
-#   task-keyed markers: .subsuper-{stale,paused,pause-until-due}-<enc>,
+#   task-keyed markers: .subsuper-{stale,paused,pause-until-due,jevsupp}-<enc>,
 #     .secondmate-wake-{stall,progress}-<task>, and
 #     .secondmate-wake-stall-receipts/<task>/ removed when no <task>.meta lives.
 #   signal files: <task>.turn-ended and <task>.progress removed when no
@@ -352,12 +355,13 @@ fm_watch_orphan_state_sweep() {  # <state-dir>
   done
 
   for marker in "$state"/.subsuper-stale-* "$state"/.subsuper-paused-* \
-      "$state"/.subsuper-pause-until-due-*; do
+      "$state"/.subsuper-pause-until-due-* "$state"/.subsuper-jevsupp-*; do
     [ -f "$marker" ] || [ -L "$marker" ] || continue
     base=${marker##*/}
     enc=${base#.subsuper-stale-}
     enc=${enc#.subsuper-paused-}
     enc=${enc#.subsuper-pause-until-due-}
+    enc=${enc#.subsuper-jevsupp-}
     case "$live_enc" in *$'\n'"$enc"$'\n'*) continue ;; esac
     rm -f -- "$marker" || return 1
     removed=$((removed + 1))

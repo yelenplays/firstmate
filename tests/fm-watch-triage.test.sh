@@ -54,6 +54,13 @@ DRAIN="$ROOT/bin/fm-wake-drain.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-watch-triage-tests)
 
+# Jev supervision consults default off in this file: both helper seams point at
+# absent paths so no bare "$WATCH" launch can spawn the real helper (which would
+# read $FM_HOME/.env for a live key and reach the network). Cases exercising the
+# seams pass their own stub binaries per call.
+export FM_JEV_STATUS_TRIAGE_BIN="$TMP_ROOT/jev-absent-status-helper"
+export FM_JEV_WEDGE_CHECK_BIN="$TMP_ROOT/jev-absent-wedge-helper"
+
 ack_stopped_cycle() {  # <state>
   local state=$1 err sequence generation
   err="$state/.test-cycle-drain.err"
@@ -74,7 +81,16 @@ ack_stopped_cycle() {  # <state>
 watch_bg() {  # <state> <fakebin> <out> [extra env assignments...]
   local state=$1 fakebin=$2 out=$3
   shift 3
+  # Jev supervision consults: default both helper seams to a fail-closed stub so
+  # no case can reach the real helper (which would read $FM_HOME/.env for a live
+  # key and hit the network). A case overrides per-invocation via "$@" env.
+  [ -f "$fakebin/jev-off.sh" ] || {
+    printf '#!/usr/bin/env bash\nexit 1\n' > "$fakebin/jev-off.sh"
+    chmod +x "$fakebin/jev-off.sh"
+  }
   PATH="$fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_JEV_STATUS_TRIAGE_BIN="${FM_JEV_STATUS_TRIAGE_BIN:-$fakebin/jev-off.sh}" \
+    FM_JEV_WEDGE_CHECK_BIN="${FM_JEV_WEDGE_CHECK_BIN:-$fakebin/jev-off.sh}" \
     FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$@" "$WATCH" > "$out" &
 }
 
@@ -3203,11 +3219,19 @@ test_live_paused_until_controls_recheck_time() {
 # in), which is how the dead-endpoint cases below reach `dead` and `missing`.
 wedge_threshold_round() {  # <state> <fakebin> <out> <capture> <window> <verdict> <exit|absorb>
   local state=$1 fakebin=$2 out=$3 capture=$4 window=$5 verdict=$6 mode=$7 pid cycles=0
+  [ -f "$fakebin/jev-off.sh" ] || {
+    printf '#!/usr/bin/env bash\nexit 1\n' > "$fakebin/jev-off.sh"
+    chmod +x "$fakebin/jev-off.sh"
+  }
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
     FM_FAKE_TMUX_CURRENT_COMMAND="${FM_TEST_PANE_COMMAND-grok}" \
     FM_FAKE_TMUX_WINDOWS="${FM_TEST_TMUX_WINDOWS-}" FM_FAKE_CREW_STATE="$verdict" \
     FM_WATCH_HANDLING_SUCCESSOR=1 \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_JEV_STATUS_TRIAGE_BIN="${FM_JEV_STATUS_TRIAGE_BIN:-$fakebin/jev-off.sh}" \
+    FM_JEV_WEDGE_CHECK_BIN="${FM_JEV_WEDGE_CHECK_BIN:-$fakebin/jev-off.sh}" \
+    FM_JEV_STUB_DIR="${FM_JEV_STUB_DIR:-}" \
+    FM_JEV_STUB_WEDGE_VERDICT="${FM_JEV_STUB_WEDGE_VERDICT:-}" \
     FM_PAUSE_RESURFACE_SECS="${FM_TEST_PAUSE_RESURFACE:-999}" FM_STALE_ESCALATE_SECS="${FM_TEST_STALE_ESCALATE:-1}" \
     FM_POLL=1 FM_SIGNAL_GRACE=1 \
     FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" >> "$out" &
@@ -3427,6 +3451,301 @@ test_wedge_threshold_recheck_names_the_captain_for_a_held_lane() {
     || fail "the recheck owed on return did not name the captain: $(cat "$out")"
   ack_stopped_cycle "$state" || fail "could not acknowledge the on-return captain-held recheck"
   pass "a captain-held lane is rechecked as a hold on the captain, never as an external wait, and never at all while the captain is away"
+}
+
+
+# --- Jev supervision consults --------------------------------------------------
+# The two captain-approved advisory roles (evidence and the 0.5 Noul floor:
+# data/jev-supervision-triage-v1/report.md): an escalation-only status-line
+# consult that runs only where no declared verb answers, and a wedge second
+# opinion consulted exactly at the structural escalation boundary. Both are
+# fail-closed - a missing helper, a failure, or a malformed verdict leaves the
+# incumbent verdict untouched. The helpers' own contract is covered in
+# tests/fm-jev-supervision.test.sh; the seams below run verdict stubs so no case
+# can reach a live endpoint.
+
+# install_jev_stubs: verdict-driven stubs for both consult seams under <fakebin>.
+# Each appends its stdin to $FM_JEV_STUB_DIR/<name>.stdin so a case can assert
+# what state the consult saw, then prints $FM_JEV_STUB_<NAME>_VERDICT when it is
+# exactly `escalate` or `suppress`; any other value (or unset) exits 1 with no
+# verdict - the fail-closed helper shape.
+install_jev_stubs() {  # <fakebin>
+  local fakebin=$1
+  cat > "$fakebin/jev-status-stub" <<'SH'
+#!/usr/bin/env bash
+if [ -n "${FM_JEV_STUB_DIR:-}" ]; then cat >> "$FM_JEV_STUB_DIR/status.stdin"; printf '\n' >> "$FM_JEV_STUB_DIR/status.stdin"; else cat >/dev/null; fi
+case "${FM_JEV_STUB_STATUS_VERDICT:-}" in
+  escalate|suppress) printf '%s\n' "$FM_JEV_STUB_STATUS_VERDICT"; exit 0 ;;
+  *) exit 1 ;;
+esac
+SH
+  cat > "$fakebin/jev-wedge-stub" <<'SH'
+#!/usr/bin/env bash
+if [ -n "${FM_JEV_STUB_DIR:-}" ]; then cat >> "$FM_JEV_STUB_DIR/wedge.stdin"; printf '\n' >> "$FM_JEV_STUB_DIR/wedge.stdin"; else cat >/dev/null; fi
+case "${FM_JEV_STUB_WEDGE_VERDICT:-}" in
+  escalate|suppress) printf '%s\n' "$FM_JEV_STUB_WEDGE_VERDICT"; exit 0 ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x "$fakebin/jev-status-stub" "$fakebin/jev-wedge-stub"
+}
+
+# The scope gate is the whole "nur dort, wo kein erkanntes Verb greift" contract:
+# every declared verb keeps its deterministic handling and is never offered to
+# the model, while the progress/freestyle family plus the advisory-note verbs
+# note:/resolved: are exactly the corpus the evidence measured.
+test_jev_status_consult_scope() {
+  local line
+  for line in \
+    'working: still on it' \
+    'done: shipped' \
+    'needs-decision: pick a lane' \
+    'blocked: waiting on CI' \
+    'failed: red build' \
+    'paused: out for lunch' \
+    'captain-held: which retention window wins'
+  do
+    status_line_jev_in_scope "$line" \
+      && fail "a declared line was offered to the Jev consult: $line"
+  done
+  for line in \
+    'note: quota is nearly spent' \
+    'resolved: retried and green now' \
+    'progress: 80% through the matrix' \
+    'still grinding through the test matrix' \
+    'halfway there, no blockers'
+  do
+    status_line_jev_in_scope "$line" \
+      || fail "a non-declared line was withheld from the Jev consult: $line"
+  done
+  status_line_jev_in_scope '' && fail "an empty line was offered to the consult"
+  pass "the status consult admits exactly the declared-verb gap: note:, resolved:, nonstandard verbs, and free text"
+}
+
+# The verdict mapping is deliberately one-sided: only a clean `escalate` print
+# surfaces the line, and every other helper outcome - suppress, a failure, a
+# missing helper - leaves the deterministic absorb standing.
+test_jev_status_escalate_mapping() {
+  local dir fakebin line='note: the deploy window closes at 5'
+  dir=$(mktemp -d "$TMP_ROOT/jev-status-map.XXXXXX")
+  fakebin="$dir/bin"; mkdir -p "$fakebin"; install_jev_stubs "$fakebin"
+
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=escalate \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_line_jev_escalates "$line" \
+    || fail "an escalate verdict did not escalate"
+  grep -F 'note: the deploy window closes at 5' "$dir/status.stdin" >/dev/null \
+    || fail "the status consult did not receive the line on stdin"
+
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=suppress \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_line_jev_escalates "$line" \
+    && fail "a suppress verdict escalated"
+
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=fail \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_line_jev_escalates "$line" \
+    && fail "a helper failure escalated"
+
+  FM_JEV_STATUS_TRIAGE_BIN="$fakebin/absent-helper" \
+    status_line_jev_escalates "$line" \
+    && fail "a missing helper escalated"
+
+  # A declared verb never reaches the helper at all, so it can never be
+  # re-litigated or downgraded by a model read.
+  : > "$dir/status.stdin"
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=escalate \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_line_jev_escalates 'done: shipped' \
+    && fail "a done: line escalated through the consult"
+  [ ! -s "$dir/status.stdin" ] \
+    || fail "a declared-verb line reached the consult helper"
+  pass "the status consult escalates only on a clean escalate verdict and never sees a declared verb"
+}
+
+# The span opt-in: `jev` as the fifth argument consults the helper on eligible
+# lines the deterministic contract declined; without it (or on helper failure)
+# the same span stays absorbed. A Jev-escalated line is marked advisory and
+# never feeds the needs-decision fold.
+test_status_span_jev_optin() {
+  local dir fakebin f rec='' needs=''
+  dir=$(mktemp -d "$TMP_ROOT/jev-span.XXXXXX")
+  fakebin="$dir/bin"; mkdir -p "$fakebin"; install_jev_stubs "$fakebin"
+  f="$dir/task.status"
+  printf 'working: on it\nnote: the deploy window closes at 5\n' > "$f"
+
+  # No opt-in: the incumbent absorb stands, helper or no helper.
+  status_span_first_actionable_record "$f" 0 rec needs \
+    && fail "a note: line surfaced without the jev opt-in"
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=escalate \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_span_first_actionable_record "$f" 0 rec needs \
+    && fail "a note: line surfaced without the jev opt-in even with an escalating helper"
+
+  # Opt-in + escalate verdict: the line surfaces, marked as a Jev call.
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=escalate \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_span_first_actionable_record "$f" 0 rec needs jev \
+    || fail "a Jev-escalated note: line did not surface"
+  case "$rec" in
+    *'note: the deploy window closes at 5 (jev-escalated)'*) ;;
+    *) fail "the Jev-escalated surface lost its advisory marker: $rec" ;;
+  esac
+  [ "$needs" = 0 ] \
+    || fail "a Jev-escalated line entered the needs-decision fold: $needs"
+  grep -F 'note: the deploy' "$dir/status.stdin" >/dev/null \
+    || fail "the note: line was not offered to the consult"
+  grep -F 'working: on it' "$dir/status.stdin" >/dev/null \
+    && fail "a declared working: line reached the consult"
+
+  # A suppress verdict and a helper failure both keep the incumbent absorb.
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=suppress \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_span_first_actionable_record "$f" 0 rec needs jev \
+    && fail "a suppressed note: line surfaced"
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=fail \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_span_first_actionable_record "$f" 0 rec needs jev \
+    && fail "a helper failure surfaced a note: line"
+  FM_JEV_STATUS_TRIAGE_BIN="$fakebin/absent" \
+    status_span_first_actionable_record "$f" 0 rec needs jev \
+    && fail "a missing helper surfaced a note: line"
+
+  # The declared terminal verb still surfaces through the deterministic path and
+  # is never shown to the model. A span of only declared verbs pays no consult.
+  printf 'working: on it\ndone: shipped\n' > "$f"
+  : > "$dir/status.stdin"
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=escalate \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_span_first_actionable_record "$f" 0 rec needs jev \
+    || fail "a done: line stopped surfacing under the jev opt-in"
+  case "$rec" in *'done: shipped'*) ;; *) fail "the done: event was lost: $rec" ;; esac
+  [ ! -s "$dir/status.stdin" ] \
+    || fail "a span with declared verbs only still consulted the helper"
+  pass "the jev opt-in surfaces note:/resolved:/freestyle lines only on escalate, and declared verbs never reach the helper"
+}
+
+# The per-span cap: a caller reclassifying a long log from byte 0 must not pay
+# one model call per line. Past FM_JEV_SPAN_TRIAGE_MAX the bash verdict stands
+# for the rest of the span.
+test_status_span_jev_cap() {
+  local dir fakebin f rec='' n
+  dir=$(mktemp -d "$TMP_ROOT/jev-cap.XXXXXX")
+  fakebin="$dir/bin"; mkdir -p "$fakebin"; install_jev_stubs "$fakebin"
+  f="$dir/task.status"
+  n=1; while [ "$n" -le 10 ]; do printf 'note: free-text line %s\n' "$n" >> "$f"; n=$((n + 1)); done
+  FM_JEV_SPAN_TRIAGE_MAX=2 \
+    FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=suppress \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_span_first_actionable_record "$f" 0 rec '' jev \
+    && fail "a fully-suppressed span surfaced"
+  [ "$(wc -l < "$dir/status.stdin" | tr -d ' ')" = 2 ] \
+    || fail "the span paid $(wc -l < "$dir/status.stdin" | tr -d ' ') consults, past the cap of 2"
+  pass "the status consult is capped per span - past the cap the deterministic verdict stands"
+}
+
+# The wedge second opinion at the boundary, end to end. A provably-working lane
+# whose pane never changes crosses the idle bound every STALE_ESCALATE_SECS;
+# today that is a certain structural escalation. With a valid low stuck Noul
+# the consult defers it like the other boundary deferrals: no wake, no counted
+# escalation, a bounded suppression chain, and the pane tail the caller already
+# captured is the state the helper saw.
+test_wedge_jev_low_noul_suppresses_the_boundary() {
+  local dir state fakebin out capture window key n
+  dir=$(wedge_threshold_fixture jev-suppress 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+  install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  # Pre-arm the idle timer past the bound so the first round already sits at the
+  # escalation boundary.
+  printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
+
+  n=1
+  while [ "$n" -le 3 ]; do
+    FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=suppress \
+      wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+        'state: working · source: run-step · ci running' absorb \
+      || fail "a suppressed wedge boundary escalated at round $n: $(cat "$out")"
+    n=$((n + 1))
+  done
+  [ "$(wedge_stale_wakes "$state" "$window")" -eq 0 ] \
+    || fail "a suppressed wedge boundary queued a wake: $(cat "$state/.wake-queue")"
+  [ ! -e "$state/.wedge-escalations-$key" ] \
+    || fail "a suppression counted an escalation: $(cat "$state/.wedge-escalations-$key")"
+  [ -e "$state/.jevsupp-since-$key" ] \
+    || fail "the suppression did not open its bounded chain marker"
+  grep -F 'waiting at the gate' "$dir/jevstub/wedge.stdin" >/dev/null \
+    || fail "the wedge consult did not see the captured pane tail: $(cat "$dir/jevstub/wedge.stdin" 2>/dev/null)"
+  grep -F 'jev pane-tail read: not stuck' "$state/.watch-triage.log" >/dev/null \
+    || fail "the suppression was not recorded in the triage log: $(cat "$state/.watch-triage.log")"
+  pass "a valid low stuck Noul suppresses the structural wedge escalation on a bounded cadence"
+}
+
+# Every other helper outcome leaves the boundary exactly where the structural
+# rule put it: an escalate verdict escalates at once, and a helper failure
+# escalates the same way - the fallback is the incumbent behavior, not silence.
+test_wedge_jev_escalate_and_failure_keep_the_boundary() {
+  local dir state fakebin out capture window key
+  dir=$(wedge_threshold_fixture jev-escalate 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+  install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
+
+  FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+    FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=escalate \
+    wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+      'state: working · source: run-step · ci running' exit \
+    || fail "an escalate verdict at the wedge boundary did not escalate: $(cat "$out")"
+  [ "$(wedge_stale_wakes "$state" "$window")" -ge 1 ] \
+    || fail "an escalate verdict at the wedge boundary queued no wake: $(cat "$state/.wake-queue")"
+
+  dir=$(wedge_threshold_fixture jev-fail 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
+  FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+    FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=fail \
+    wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+      'state: working · source: run-step · ci running' exit \
+    || fail "a helper failure at the wedge boundary swallowed the escalation: $(cat "$out")"
+  [ "$(wedge_stale_wakes "$state" "$window")" -ge 1 ] \
+    || fail "a helper failure at the wedge boundary queued no wake: $(cat "$state/.wake-queue")"
+
+  # And without the env override the fail-closed default stub keeps the same
+  # boundary - exactly today's behavior.
+  dir=$(wedge_threshold_fixture jev-off 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
+  wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+    'state: working · source: run-step · ci running' exit \
+    || fail "the default fail-closed stub changed the wedge boundary: $(cat "$out")"
+  pass "escalate verdicts and every helper failure keep the incumbent wedge escalation"
+}
+
+# The consult pays only at the boundary: below the idle bound a pane is absorbed
+# by the timer itself and the helper is never invoked.
+test_wedge_jev_consult_only_at_the_boundary() {
+  local dir state fakebin out capture window key n
+  dir=$(wedge_threshold_fixture jev-below 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+  install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+
+  n=1
+  while [ "$n" -le 3 ]; do
+    FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=suppress \
+      FM_TEST_STALE_ESCALATE=999 \
+      wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+        'state: working · source: run-step · ci running' absorb \
+      || fail "a below-boundary pane escalated at round $n: $(cat "$out")"
+    n=$((n + 1))
+  done
+  [ ! -e "$dir/jevstub/wedge.stdin" ] \
+    || fail "a below-boundary pane paid a Jev consult"
+  pass "the wedge second opinion runs only at the escalation boundary, never per poll"
 }
 
 
@@ -6189,6 +6508,8 @@ test_reused_window_retires_predecessor_state() {
   : > "$state/.writing-since-$key"
   : > "$state/.writing-resurfaced-$key"
   : > "$state/.waiting-resurfaced-$key"
+  : > "$state/.jevsupp-since-$key"
+  : > "$state/.jevsupp-resurfaced-$key"
   : > "$state/.churn-since-$key"
   : > "$state/.dead-reported-$key"
   # Task-keyed markers belong to the predecessor's task lifecycle, not to the
@@ -6230,7 +6551,8 @@ test_reused_window_retires_predecessor_state() {
   [ "$(cat "$state/.stale-since-$key")" -gt "$seeded_since" ] \
     || { reap "$pid"; fail "the stale-since mark is the predecessor's backdated timer, not a fresh classification"; }
   for marker in .paused- .paused-rechecked- .writing-since- .writing-resurfaced- \
-      .waiting-resurfaced- .churn-since- .dead-reported-; do
+      .waiting-resurfaced- .jevsupp-since- .jevsupp-resurfaced- \
+      .churn-since- .dead-reported-; do
     [ ! -e "$state/$marker$key" ] \
       || { reap "$pid"; fail "the successor inherited the predecessor's $marker marker"; }
   done
@@ -6252,13 +6574,15 @@ test_watch_state_lib_retire_bind_and_owner() {
 
   # Retire removes every window-keyed family, including the owner record.
   for marker in .stale-since- .paused-rechecked- .paused-resurfaced- .writing-since- \
-      .writing-resurfaced- .waiting-resurfaced- .wedge-escalations- .churn-since- \
+      .writing-resurfaced- .waiting-resurfaced- .jevsupp-since- .jevsupp-resurfaced- \
+      .wedge-escalations- .churn-since- \
       .dead-reported- .window-owner- .count- .hash- .paused- .stale-; do
     : > "$state/$marker$key"
   done
   fm_watch_retire_window_state "$state" "$w" || fail "fm_watch_retire_window_state failed"
   for marker in .stale-since- .paused-rechecked- .paused-resurfaced- .writing-since- \
-      .writing-resurfaced- .waiting-resurfaced- .wedge-escalations- .churn-since- \
+      .writing-resurfaced- .waiting-resurfaced- .jevsupp-since- .jevsupp-resurfaced- \
+      .wedge-escalations- .churn-since- \
       .dead-reported- .window-owner- .count- .hash- .paused- .stale-; do
     [ ! -e "$state/$marker$key" ] || fail "fm_watch_retire_window_state left $marker$key"
   done
@@ -6286,13 +6610,14 @@ test_watch_state_lib_retire_bind_and_owner() {
   # status_retire_presentation_task.
   touch "$state/task-a.turn-ended" "$state/task-a.progress" "$state/.seen-task-a_turn-ended" \
     "$state/.subsuper-stale-task-a" "$state/.subsuper-paused-task-a" \
-    "$state/.subsuper-pause-until-due-task-a" \
+    "$state/.subsuper-pause-until-due-task-a" "$state/.subsuper-jevsupp-task-a" \
     "$state/.secondmate-wake-stall-task-a" "$state/.secondmate-wake-progress-task-a"
   mkdir -p "$state/.secondmate-wake-stall-receipts/task-a"
   touch "$state/task-a.status" "$state/.seen-task-a_status"
   fm_watch_retire_task_state "$state" task-a || fail "fm_watch_retire_task_state failed"
   for marker in task-a.turn-ended task-a.progress .seen-task-a_turn-ended \
       .subsuper-stale-task-a .subsuper-paused-task-a .subsuper-pause-until-due-task-a \
+      .subsuper-jevsupp-task-a \
       .secondmate-wake-stall-task-a .secondmate-wake-progress-task-a; do
     [ ! -e "$state/$marker" ] || fail "fm_watch_retire_task_state left $marker"
   done
@@ -6381,7 +6706,8 @@ test_colliding_task_keys_share_subsuper_markers() {
   printf 'window=sess:one\nkind=ship\n' > "$state/v2.ship.meta"
   printf 'window=sess:two\nkind=ship\n' > "$state/v2_ship.meta"
   touch "$state/.subsuper-stale-v2_ship" "$state/.subsuper-paused-v2_ship" \
-    "$state/.subsuper-pause-until-due-v2_ship" "$state/.seen-v2_ship_turn-ended" \
+    "$state/.subsuper-pause-until-due-v2_ship" "$state/.subsuper-jevsupp-v2_ship" \
+    "$state/.seen-v2_ship_turn-ended" \
     "$state/v2.ship.turn-ended" "$state/v2.ship.progress" "$state/v2_ship.turn-ended"
 
   FM_STATE_OVERRIDE="$state" bash -c '
@@ -6390,7 +6716,8 @@ test_colliding_task_keys_share_subsuper_markers() {
     fm_watch_retire_task_state "$2" "v2.ship"
   ' _ "$ROOT" "$state" || fail "the task retire under a key collision failed"
   for marker in .subsuper-stale-v2_ship .subsuper-paused-v2_ship \
-      .subsuper-pause-until-due-v2_ship .seen-v2_ship_turn-ended; do
+      .subsuper-pause-until-due-v2_ship .subsuper-jevsupp-v2_ship \
+      .seen-v2_ship_turn-ended; do
     [ -e "$state/$marker" ] || fail "the retire deleted the colliding sibling's shared $marker"
   done
   [ ! -e "$state/v2.ship.turn-ended" ] && [ ! -e "$state/v2.ship.progress" ] \
@@ -6405,7 +6732,8 @@ test_colliding_task_keys_share_subsuper_markers() {
     fm_watch_retire_task_state "$2" "v2.ship"
   ' _ "$ROOT" "$state" || fail "the unshared task retire failed"
   for marker in .subsuper-stale-v2_ship .subsuper-paused-v2_ship \
-      .subsuper-pause-until-due-v2_ship .seen-v2_ship_turn-ended; do
+      .subsuper-pause-until-due-v2_ship .subsuper-jevsupp-v2_ship \
+      .seen-v2_ship_turn-ended; do
     [ ! -e "$state/$marker" ] || fail "the unshared retire left $marker"
   done
   pass "colliding task ids share their encoded episode markers, and the last id retires them"
@@ -6458,10 +6786,12 @@ test_watch_orphan_state_sweep() {
   printf 'working: on it\n' > "$state/live.status"
   touch "$state/live.turn-ended" "$state/live.progress"
   for marker in .hash- .count- .stale-since- .stale- .wedge-escalations- \
-      .paused- .writing-since- .churn-since- .window-owner-; do
+      .paused- .writing-since- .churn-since- .jevsupp-since- .jevsupp-resurfaced- \
+      .window-owner-; do
     : > "$state/$marker$live_key"
   done
-  touch "$state/.subsuper-stale-live" "$state/.secondmate-wake-stall-live"
+  touch "$state/.subsuper-stale-live" "$state/.subsuper-jevsupp-live" \
+    "$state/.secondmate-wake-stall-live"
   touch "$state/.seen-live_status" "$state/.seen-live_turn-ended"
   touch "$state/.hb-surfaced-live" "$state/.subsuper-seen-status-live"
 
@@ -6476,12 +6806,13 @@ test_watch_orphan_state_sweep() {
   # markers whose signal file is gone.
   for marker in .hash- .count- .stale-since- .stale- .wedge-escalations- \
       .paused- .paused-rechecked- .paused-resurfaced- .writing-since- \
-      .writing-resurfaced- .waiting-resurfaced- .churn-since- .dead-reported- \
+      .writing-resurfaced- .waiting-resurfaced- .jevsupp-since- .jevsupp-resurfaced- \
+      .churn-since- .dead-reported- \
       .window-owner-; do
     : > "$state/$marker$ghost_key"
   done
   touch "$state/.subsuper-stale-dead" "$state/.subsuper-paused-dead" \
-    "$state/.subsuper-pause-until-due-dead"
+    "$state/.subsuper-pause-until-due-dead" "$state/.subsuper-jevsupp-dead"
   touch "$state/.secondmate-wake-stall-deadmate" "$state/.secondmate-wake-progress-deadmate"
   mkdir -p "$state/.secondmate-wake-stall-receipts/deadmate"
   touch "$state/dead.turn-ended" "$state/dead.progress"
@@ -6501,11 +6832,13 @@ test_watch_orphan_state_sweep() {
 
   for marker in .hash- .count- .stale-since- .stale- .wedge-escalations- \
       .paused- .paused-rechecked- .paused-resurfaced- .writing-since- \
-      .writing-resurfaced- .waiting-resurfaced- .churn-since- .dead-reported- \
+      .writing-resurfaced- .waiting-resurfaced- .jevsupp-since- .jevsupp-resurfaced- \
+      .churn-since- .dead-reported- \
       .window-owner-; do
     [ ! -e "$state/$marker$ghost_key" ] || fail "the sweep left orphaned $marker$ghost_key"
   done
   for marker in .subsuper-stale-dead .subsuper-paused-dead .subsuper-pause-until-due-dead \
+      .subsuper-jevsupp-dead \
       .secondmate-wake-stall-deadmate .secondmate-wake-progress-deadmate \
       .seen-dead_status .seen-dead_turn-ended .hb-surfaced-dead \
       .subsuper-seen-status-dead .dead.open-decisions-cursor \
@@ -6516,10 +6849,12 @@ test_watch_orphan_state_sweep() {
     || fail "the sweep left the dead task's receipts dir"
 
   for marker in .hash- .count- .stale-since- .stale- .wedge-escalations- \
-      .paused- .writing-since- .churn-since- .window-owner-; do
+      .paused- .writing-since- .churn-since- .jevsupp-since- .jevsupp-resurfaced- \
+      .window-owner-; do
     [ -e "$state/$marker$live_key" ] || fail "the sweep removed live-endpoint $marker$live_key"
   done
-  for marker in .subsuper-stale-live .secondmate-wake-stall-live \
+  for marker in .subsuper-stale-live .subsuper-jevsupp-live \
+      .secondmate-wake-stall-live \
       .seen-live_status .seen-live_turn-ended .hb-surfaced-live \
       .subsuper-seen-status-live live.turn-ended live.progress live.status live.meta \
       .seen-gone_status .hb-surfaced-gone .subsuper-seen-status-gone \
@@ -6763,6 +7098,13 @@ test_live_declared_wait_churn_honors_the_resurface_throttle
 test_live_paused_until_controls_recheck_time
 test_wedge_threshold_defers_to_a_declared_wait_under_a_working_verdict
 test_wedge_threshold_recheck_names_the_captain_for_a_held_lane
+test_jev_status_consult_scope
+test_jev_status_escalate_mapping
+test_status_span_jev_optin
+test_status_span_jev_cap
+test_wedge_jev_low_noul_suppresses_the_boundary
+test_wedge_jev_escalate_and_failure_keep_the_boundary
+test_wedge_jev_consult_only_at_the_boundary
 test_open_captain_call_bounds_stale_churn
 test_stale_churn_without_a_captain_call_still_alarms
 test_failed_wake_append_does_not_arm_the_captain_hold_throttle
