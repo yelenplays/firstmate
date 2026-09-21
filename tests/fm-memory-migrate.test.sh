@@ -130,6 +130,13 @@ out=$("$MIG" migrate --source "$SRC" --dest "$TMP_ROOT/rel-store" --archive "$TM
 assert_contains "$out" 'skipped-and-kept' 'absolute re-run reports the skip'
 assert_grep 'relative spelling edit' "$TMP_ROOT/rel-store/preferences/tea.md" 'relative and absolute dest spellings share the drift guard'
 
+# --- a nonexistent leading component keeps one leading slash ------------------
+
+FOREIGN="/fm-nm-$$-nonexistent/memories"
+out=$("$MIG" migrate --source "$SRC" --dest "$FOREIGN" --archive "$TMP_ROOT/abs-archive" --dry-run)
+dest_line=$(printf '%s\n' "$out" | sed -n 's/^dest: //p')
+assert_equals "$FOREIGN" "$dest_line" 'nonexistent leading component keeps one leading slash'
+
 # --- re-run preserves store edits and reports them as skipped-and-kept --------
 
 printf '# tea\nThe captain switched to oolong in the new store\n' > "$STORE/preferences/tea.md"

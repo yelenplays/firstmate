@@ -93,10 +93,12 @@ normalize_dir() {
     [ -n "$p" ] || p='/'
   done
   if [ -d "$p" ]; then
+    local base
+    base=$(cd "$p" && pwd -P)
     if [ -n "$rest" ]; then
-      printf '%s%s' "$(cd "$p" && pwd -P)" "$rest"
+      printf '%s%s' "${base%/}" "$rest"
     else
-      printf '%s' "$(cd "$p" && pwd -P)"
+      printf '%s' "$base"
     fi
   else
     printf '%s' "$p"
