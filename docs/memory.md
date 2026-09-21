@@ -50,7 +50,12 @@ Standing check carried over from the investigation: after any backend change, co
 
 The repo ships the store and its commands; three pieces of the old path live outside it and are repointed by hand:
 
-- `~/.local/bin/ov-remember`: replace its body with `exec <repo>/bin/fm-memory.sh remember "$@"` so existing muscle memory keeps working (its `<topic> "<fact>"` argument order is unchanged; `--category` still applies).
+- `~/.local/bin/ov-remember`: `exec <repo>/bin/fm-memory.sh remember "$@"` is not a drop-in for the old argument order; translate each old form by hand:
+  - `ov-remember <topic> "<fact>"` -> `fm-memory.sh remember <topic> "<fact>"`
+  - `ov-remember <topic> "<fact>" --category entity` -> `fm-memory.sh remember --category entity <topic> "<fact>"`; `--category` must come before the topic.
+  - `ov-remember <topic> --from-file <path>` -> `fm-memory.sh remember <topic> < <path>`; there is no `--from-file`, the body comes from arguments or stdin.
+  - `ov-remember --list` -> `fm-memory.sh list`
+  An option left after the body (`--category ...`, `--from-file ...`) now exits non-zero instead of being stored as the fact.
 - The `~/.claude/CLAUDE.md` durable-memory section: point recall at `bin/fm-memory.sh recall` and writes at `bin/fm-memory.sh remember` in place of `ov find` and `ov-remember`.
 - The Pi extension's recall injection: call `bin/fm-memory.sh recall --json <query>` where it previously called `viking_search`; session-commit shipping is gone by design.
 

@@ -114,4 +114,13 @@ expect_code 2 "$rc" 'missing query'
 rc=0; "$MEM" bogus-cmd >/dev/null 2>&1 || rc=$?
 expect_code 2 "$rc" 'unknown command'
 
+# options left after the body must fail loudly instead of being stored as the fact
+rc=0; "$MEM" remember 'trailing cat' 'the real fact' --category entity >/dev/null 2>&1 || rc=$?
+expect_code 2 "$rc" 'trailing --category after the body is rejected'
+assert_absent "$STORE/preferences/trailing-cat.md" 'rejected trailing --category wrote nothing'
+assert_absent "$STORE/entities/trailing-cat.md" 'rejected trailing --category did not reach entities'
+rc=0; "$MEM" remember 'from-file-topic' --from-file "$TMP_ROOT/fact.txt" >/dev/null 2>&1 || rc=$?
+expect_code 2 "$rc" '--from-file is rejected'
+assert_absent "$STORE/preferences/from-file-topic.md" 'rejected --from-file wrote nothing'
+
 pass 'fm-memory behavior suite'

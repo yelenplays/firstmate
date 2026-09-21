@@ -120,7 +120,7 @@ cmd_dir() {
 }
 
 cmd_remember() {
-  local category=preferences topic='' body=''
+  local category=preferences topic='' body='' arg
   while [ $# -gt 0 ]; do
     case "$1" in
       --category)
@@ -142,6 +142,13 @@ cmd_remember() {
     shift
   fi
   [ -n "$topic" ] || { usage; die "remember needs a topic"; }
+  for arg in "$@"; do
+    case "$arg" in
+      -?*)
+        die "unexpected option after the body: $arg; supported form: 'remember [--category <cat>] <topic> [body...]' with --category before the topic and the body from arguments or stdin (no --from-file)"
+        ;;
+    esac
+  done
   body=$*
   if [ $# -eq 0 ] && [ ! -t 0 ]; then
     body=$(cat)
