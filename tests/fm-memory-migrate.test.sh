@@ -244,6 +244,22 @@ else
   assert_not_contains "$out" 'dest: /store' 'an unresolvable dest prefix does not retarget the store'
 fi
 
+# --- an output dir inside the source is refused before anything is written ---
+
+rc=0; out=$("$MIG" migrate --source "$SRC" --dest "$STORE" --archive "$SRC/memory-archive" 2>&1) || rc=$?
+expect_code 2 "$rc" 'an archive inside the source is refused'
+assert_absent "$SRC/memory-archive" 'the refused archive wrote nothing into the source'
+
+rc=0; out=$("$MIG" migrate --source "$SRC" --dest "$SRC/store" --archive "$ARCHIVE" --dry-run 2>&1) || rc=$?
+expect_code 2 "$rc" 'a dest inside the source is refused'
+
+rc=0; out=$("$MIG" migrate --source "$SRC" --dest "$SRC" --archive "$ARCHIVE" --dry-run 2>&1) || rc=$?
+expect_code 2 "$rc" 'a dest equal to the source is refused'
+
+SIBLING_ARCHIVE="$TMP_ROOT/ov-data-archive"
+out=$("$MIG" migrate --source "$SRC" --dest "$STORE" --archive "$SIBLING_ARCHIVE" --dry-run)
+assert_contains "$out" "archive: $SIBLING_ARCHIVE" 'a sibling archive name is not mistaken for the source'
+
 # --- a source without canonical probes fails instead of guessing ----------------
 
 STRAY_SRC="$TMP_ROOT/stray-src"

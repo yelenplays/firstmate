@@ -33,7 +33,9 @@
 # new store since the last migration, or one the migration never wrote at all
 # (a memory the operator created first), or one whose recorded hash the newest
 # manifest does not carry - is left untouched and reported as skipped-and-kept.
-# There is no force or overwrite flag.
+# There is no force or overwrite flag. --dest and --archive must resolve outside
+# --source; an output directory inside the source is refused as a usage error
+# before anything is planned.
 # Each run writes <dest>/.migration/manifest-<utc>.txt, plus a header: one
 # "<src-rel>\t<sha256>\t<dest-path>" row per exported file, and one
 # "#skipped\t<recorded-sha256>\t<dest-path>" row per kept destination (the
@@ -158,6 +160,8 @@ cmd_migrate() {
   archive=$(normalize_dir "$archive") || exit 2
   source=$(normalize_dir "$source") || exit 2
   [ -d "$source" ] || die "source not found: $source" 3
+  case "$dest" in "$source"|"$source"/*) die "--dest must resolve outside --source: $dest" 2 ;; esac
+  case "$archive" in "$source"|"$source"/*) die "--archive must resolve outside --source: $archive" 2 ;; esac
 
   if [ -z "$memories_dir" ]; then
     memories_dir=$(find_memories_dir "$source") \
