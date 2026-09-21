@@ -1,0 +1,64 @@
+### fixture OpenViking workspace: /tmp/fm-mig.fpZwPB/ov
+/tmp/fm-mig.fpZwPB/ov/_system/queue/q.md
+/tmp/fm-mig.fpZwPB/ov/user/default/memories/entities/acme.md
+/tmp/fm-mig.fpZwPB/ov/user/default/memories/preferences/tea.md
+/tmp/fm-mig.fpZwPB/ov/user/default/memories/soul.md
+/tmp/fm-mig.fpZwPB/ov/user/default/sessions/s1.md
+/tmp/fm-mig.fpZwPB/ov/user/default/sessions/w1.md
+/tmp/fm-mig.fpZwPB/ov/vectordb/store/v.md
+
+### dry-run first (must write nothing):
+source: /private/tmp/fm-mig.fpZwPB/ov
+memories: /private/tmp/fm-mig.fpZwPB/ov/user/default/memories (3 files)
+dest: /private/tmp/fm-mig.fpZwPB/home/data/memories
+archive: /private/tmp/fm-mig.fpZwPB/home/data/memory-archive (2 files)
+dry-run: no files written
+dry-run store exists? no
+
+### real migrate:
+source: /private/tmp/fm-mig.fpZwPB/ov
+memories: /private/tmp/fm-mig.fpZwPB/ov/user/default/memories (3 files)
+dest: /private/tmp/fm-mig.fpZwPB/home/data/memories
+archive: /private/tmp/fm-mig.fpZwPB/home/data/memory-archive (2 files)
+manifest: /private/tmp/fm-mig.fpZwPB/home/data/memories/.migration/manifest-20260921T114428Z.txt
+verify: 5/5 verified
+planned: 3 memories, 2 archived; all hashes verified
+
+### resulting plain-markdown store:
+/tmp/fm-mig.fpZwPB/home/data/memories/.index.json
+/tmp/fm-mig.fpZwPB/home/data/memories/.migration/manifest-20260921T114428Z.txt
+/tmp/fm-mig.fpZwPB/home/data/memories/entities/acme.md
+/tmp/fm-mig.fpZwPB/home/data/memories/preferences/tea.md
+/tmp/fm-mig.fpZwPB/home/data/memories/soul.md
+
+### resulting archive (session history, not searchable store):
+/tmp/fm-mig.fpZwPB/home/data/memory-archive/user/default/sessions/s1.md
+/tmp/fm-mig.fpZwPB/home/data/memory-archive/user/default/sessions/w1.md
+
+### internals skipped? _system/vectordb under archive:
+ls: /tmp/fm-mig.fpZwPB/home/data/memory-archive/_system: No such file or directory
+(absent: internals skipped)
+
+### migrated memory is recallable through fm-memory.sh:
+2.183	preferences/tea.md	tea
+    # tea The captain drinks green tea 
+
+### source untouched (hash of all source markdown before vs after):
+before: b81cbe4e4cb8559043651fcf4d3b9edc62afd822287d5866b84ff22173e9c0c8  -
+after:  b81cbe4e4cb8559043651fcf4d3b9edc62afd822287d5866b84ff22173e9c0c8  -
+source markdown unchanged
+
+### verify detects loss (delete an archived file, then verify):
+missing: /private/tmp/fm-mig.fpZwPB/home/data/memory-archive/user/default/sessions/w1.md
+verify: 4/5 verified, 1 missing
+verify exit=4
+### re-run heals the missing file:
+source: /private/tmp/fm-mig.fpZwPB/ov
+memories: /private/tmp/fm-mig.fpZwPB/ov/user/default/memories (3 files)
+dest: /private/tmp/fm-mig.fpZwPB/home/data/memories
+archive: /private/tmp/fm-mig.fpZwPB/home/data/memory-archive (2 files)
+manifest: /private/tmp/fm-mig.fpZwPB/home/data/memories/.migration/manifest-20260921T114429Z.txt
+verify: 5/5 verified
+planned: 3 memories, 2 archived; all hashes verified
+/tmp/fm-mig.fpZwPB/home/data/memory-archive/user/default/sessions/w1.md
+### end

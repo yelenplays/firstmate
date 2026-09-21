@@ -1,0 +1,41 @@
+### OpenViking home fixture: /tmp/fm-retire.EIIJGN/ov
+### server.log: server.log  data: keepme.md
+
+### dry-run (narrates, changes nothing):
+openviking-retire: bootout gui/501/org.nix-community.home.openviking
+dry-run: /tmp/fm-retire.EIIJGN/bin/launchctl bootout gui/501/org.nix-community.home.openviking
+openviking-retire: disable gui/501/org.nix-community.home.openviking
+dry-run: /tmp/fm-retire.EIIJGN/bin/launchctl disable gui/501/org.nix-community.home.openviking
+openviking-retire: rollback: /tmp/fm-retire.EIIJGN/bin/launchctl enable gui/501/org.nix-community.home.openviking && /tmp/fm-retire.EIIJGN/bin/launchctl bootstrap gui/501 ~/Library/LaunchAgents/org.nix-community.home.openviking.plist
+openviking-retire: stopping residual openviking server process(es)
+dry-run: /tmp/fm-retire.EIIJGN/bin/pkill -f openviking-server|openviking serve
+openviking-retire: rotate /tmp/fm-retire.EIIJGN/ov/logs/server.log -> /tmp/fm-retire.EIIJGN/ov/logs/server.log.20260921T114453Z
+dry-run: mv /tmp/fm-retire.EIIJGN/ov/logs/server.log /tmp/fm-retire.EIIJGN/ov/logs/server.log.20260921T114453Z
+openviking-retire: dry-run complete; nothing changed
+log still present? yes
+label still loaded? yes
+
+### real retire (shimmed launchctl/pgrep/pkill/curl; no real server touched):
+openviking-retire: bootout gui/501/org.nix-community.home.openviking
+openviking-retire: disable gui/501/org.nix-community.home.openviking
+openviking-retire: rollback: /tmp/fm-retire.EIIJGN/bin/launchctl enable gui/501/org.nix-community.home.openviking && /tmp/fm-retire.EIIJGN/bin/launchctl bootstrap gui/501 ~/Library/LaunchAgents/org.nix-community.home.openviking.plist
+openviking-retire: stopping residual openviking server process(es)
+openviking-retire: rotate /tmp/fm-retire.EIIJGN/ov/logs/server.log -> /tmp/fm-retire.EIIJGN/ov/logs/server.log.20260921T114454Z
+openviking-retire: retired; data preserved under /tmp/fm-retire.EIIJGN/ov (never deleted)
+openviking-retire: standing check: after any backend change, confirm the OV queue is empty (data/memory-store-reliable-cheap report)
+exit=0
+--- logs after retire (rotated, not deleted):
+server.log.20260921T114454Z
+--- data dir after retire (never touched):
+keepme.md
+--- calls.log:
+launchctl list
+pgrep -f openviking-server|openviking serve
+launchctl list
+launchctl bootout gui/501/org.nix-community.home.openviking
+launchctl disable gui/501/org.nix-community.home.openviking
+pgrep -f openviking-server|openviking serve
+pkill -f openviking-server|openviking serve
+launchctl list
+pgrep -f openviking-server|openviking serve
+### end

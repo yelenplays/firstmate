@@ -1,0 +1,9 @@
+### recall must never answer from stale bytes after an on-disk deletion
+recall zorkmark -> 0.288	preferences/gadget.md	gadget
+    # gadget a widget with a zorkmark 
+after deleting the file:
+recall zorkmark -> []  exit=0
+dir: /tmp/fm-drift.hlmQC4/home/data/memories
+documents: 0
+index: fresh
+### end

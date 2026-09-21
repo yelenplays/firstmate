@@ -1,0 +1,32 @@
+### scratch home: /tmp/fm-live.v1tw6I/home
+### remember entity Tea Kettle
+entities/tea-kettle.md
+
+### raw bytes of the stored memory (plain markdown, no database):
+---8<--- /tmp/fm-live.v1tw6I/home/data/memories/entities/tea-kettle.md
+---
+category: entities
+created: 2026-09-21
+updated: 2026-09-21
+---
+# Tea Kettle
+
+the captain uses a steel kettle daily
+---8<---
+### store tree:
+/tmp/fm-live.v1tw6I/home/data/memories/.index.json
+/tmp/fm-live.v1tw6I/home/data/memories/entities/tea-kettle.md
+
+### remember preferences quiet hours (default category)
+preferences/quiet-hours.md
+
+### recall 'steel kettle'  (BM25 keyword search, title+body)
+1.646	entities/tea-kettle.md	Tea Kettle
+    # Tea Kettle the captain uses a steel kettle daily 
+
+### recall 'updated'  (frontmatter word -> must be empty)
+result=[] exit=0
+
+### recall '/tmp/fm-live.v1tw6I'  (arbitrary metadata/date token -> must be empty)
+exit=0
+### end

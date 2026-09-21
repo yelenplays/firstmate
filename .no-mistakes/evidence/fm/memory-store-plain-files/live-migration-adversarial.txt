@@ -1,0 +1,34 @@
+### A. first migrate must never overwrite a memory the operator wrote first
+source: /private/tmp/fm-migadv.lc3VGq/ov
+memories: /private/tmp/fm-migadv.lc3VGq/ov/user/default/memories (1 files)
+dest: /private/tmp/fm-migadv.lc3VGq/home/data/memories
+archive: /private/tmp/fm-migadv.lc3VGq/home/data/memory-archive (0 files)
+skip: /private/tmp/fm-migadv.lc3VGq/home/data/memories/preferences/tea.md (exists in store, not written by this migration; kept)
+manifest: /private/tmp/fm-migadv.lc3VGq/home/data/memories/.migration/manifest-20260921T114435Z.txt
+verify: 0/0 verified, 1 skipped-and-kept
+planned: 1 memories, 0 archived; 1 skipped-and-kept (existing destination not written by migration)
+--- store tea.md after first migrate:
+# tea
+OPERATOR WROTE THIS FIRST
+
+### B. after a verified migration, an operator edit in the store survives a re-run
+source: /private/tmp/fm-migadv.lc3VGq/ov
+memories: /private/tmp/fm-migadv.lc3VGq/ov/user/default/memories (1 files)
+dest: /private/tmp/fm-migadv.lc3VGq/home/data/memories
+archive: /private/tmp/fm-migadv.lc3VGq/home/data/memory-archive (0 files)
+skip: /private/tmp/fm-migadv.lc3VGq/home/data/memories/preferences/tea.md (edited in store since last migration; kept)
+manifest: /private/tmp/fm-migadv.lc3VGq/home/data/memories/.migration/manifest-20260921T114436Z.txt
+verify: 0/0 verified, 1 skipped-and-kept
+planned: 1 memories, 0 archived; 1 skipped-and-kept (existing destination not written by migration)
+--- store tea.md after re-run:
+# tea
+OPERATOR EDITED IN NEW STORE
+
+### C. an output directory inside the source is refused (no writes to source)
+memory-migrate: --archive must resolve outside --source: /private/tmp/fm-migadv.lc3VGq/ov/memory-archive
+exit=2  source member created? no
+
+### D. a dest resolving into the source through a '..' tail is refused
+memory-migrate: --dest must resolve outside --source: /private/tmp/fm-migadv.lc3VGq/ov/store
+exit=2  wrote into source? no
+### end

@@ -1,0 +1,25 @@
+### scratch home: /tmp/fm-live2.8u7IFw/home
+### recall 'algebra constructor'  (adversarial: JS inherited-property token)
+1.01	preferences/algebra.md	algebra
+    # algebra linear algebra notes 
+
+### index freshness after remember:
+dir: /tmp/fm-live2.8u7IFw/home/data/memories
+documents: 2
+index: fresh
+
+### edit the markdown file directly on disk (simulating an operator/editor save):
+### recall 'oolong'  (must self-rebuild the stale index and find the edit)
+0.565	preferences/tea.md	tea
+    # tea the captain drinks green tea # tea the captain switched to oolong this week 
+
+### stats after recall (index rebuilt):
+dir: /tmp/fm-live2.8u7IFw/home/data/memories
+documents: 2
+index: fresh
+
+### store resolution order
+config/memory-dir -> /tmp/fm-live2.8u7IFw/altFM_MEMORY_DIR    -> /tmp/fm-live2.8u7IFw/envstoredefault (no cfg) -> /tmp/fm-live2.8u7IFw/home/data/memories
+### the store is files only: no daemon, no server, no network reachable check
+index cache is a plain JSON file: 557 bytes
+### end
