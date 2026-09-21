@@ -1,0 +1,7 @@
+pi --offline --no-session
+worktree on  zen-lab
+❯ pi --offline --no-session
+
+┃
+/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-adv-zen.GxI4qV/worktree (zen-lab)
+$0.000 (sub) 0.0%/272k (auto)                                                        (openai-codex) gpt-6-astra • xhigh

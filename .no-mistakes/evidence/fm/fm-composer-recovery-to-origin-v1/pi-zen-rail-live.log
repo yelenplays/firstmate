@@ -1,0 +1,22 @@
+=== live Herdr Pi + pi-zen 0.1.2 rail: session=fm-lab-adv-zen-425-21130 pane=w1:p1 pi=0.85.1 ===
+--- live configured Pi idle composer (verdict=empty) ---
+pi --offline --no-session
+worktree on  zen-lab
+❯ pi --offline --no-session
+
+┃
+/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-adv-zen.GxI4qV/worktree (zen-lab)
+$0.000 (sub) 0.0%/272k (auto)                                                        (openai-codex) gpt-6-astra • xhigh
+rail glyph present: pi-zen's rail layout is the live shape
+--- live configured Pi with an unsubmitted draft (verdict=pending) ---
+pi --offline --no-session
+worktree on  zen-lab
+❯ pi --offline --no-session
+
+┃ CONTROL_DRAFT
+┃ second row
+/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-adv-zen.GxI4qV/worktree (zen-lab)
+$0.000 (sub) 0.0%/272k (auto)                                                        (openai-codex) gpt-6-astra • xhigh
+fm-control exit on the draft rc=1 :: error: task pizen's composer visibly holds pending text; refusing to type the /quit exit command because it would concatenate onto that text. Clear or submit the pending text, then retry 'exit'
+fm-control exit after clearing rc=0 :: stopped pizen harness=pi backend=herdr endpoint=fm-lab-adv-zen-425-21130:w1:p1 worktree=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-adv-zen.GxI4qV/worktree
+ok - live Herdr Pi with the pi-zen rail: empty proven, draft refused and preserved, verified exit

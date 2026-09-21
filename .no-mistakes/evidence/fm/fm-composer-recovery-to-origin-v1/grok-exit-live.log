@@ -1,0 +1,62 @@
+=== live Herdr Grok exit lab: session=fm-lab-adv-grok-exit-39684-17988 pane=w1:p1 grok 1.0.40 (eb1a2256660d) [stable] ===
+waited 5s; native_status=blocked weekly-limit-menu=1
+ grok-exit worktree /p/v/f/9/8/T/fm-adv-grok.M58mgS/worktree                                 2.3K / 500K │ [Dashboard]
+    Reply OK without using tools.                                                                            1:18 PM
+
+    ◆ session_start hook (global/settings) failed, ignored: command not found: /Users/yelen/.claude/gh-axi
+
+    ◆ session_start hook (global/settings) failed, ignored: command not found: /Users/yelen/.claude/lavish-axi
+
+    ◆ session_start hook (global/settings) failed, ignored: command not found: /Users/yelen/.claude/chrome-devtools-
+    axi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ┃
+ ┃  You hit your weekly limit.
+ ┃
+ ┃
+ ┃  1 (○) Upgrade tier      Upgrade to a higher tier for more usage
+ ┃  2 (○) Buy more credits  Purchase credits to keep using Grok Build
+ ┃  3 (○) Try Again         Resubmit the last prompt once you have usage again
+ ┃
+ ┃  ↑/↓ navigate · y copy                                                                             Enter:submit
+ ┃
+ Tab:next answer  │  Esc:scrollback  │  Shift+x:dismiss
+composer verdict for the real limit menu: unknown
+--- fm-control grokfail exit ---
+exit_code=0
+stopped grokfail harness=grok backend=herdr endpoint=fm-lab-adv-grok-exit-39684-17988:w1:p1 worktree=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-adv-grok.M58mgS/worktree
+agent_state_after=dead
+--- pane after the non-typing quit ---
+grok --always-approve "Reply OK without using tools."
+worktree on  grok-exit [?]
+❯ grok --always-approve "Reply OK without using tools."
+Finishing session…
+
+Reply OK without using tools.
+> Reply OK without using tools.
+
+Resume this session with:
+  grok --resume 01a0c3b0-7fd8-7d63-859a-b091a1e59d6e
+worktree on  grok-exit [?] 9s
+❯
+second exit rc=0 :: already-stopped grokfail harness=grok backend=herdr endpoint=fm-lab-adv-grok-exit-39684-17988:w1:p1 worktree=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-adv-grok.M58mgS/worktree
+ok - live Herdr Grok: real weekly-limit worker stopped by the non-typing double Ctrl+Q with death proof, work preserved, second exit already-stopped

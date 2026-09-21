@@ -1,0 +1,33 @@
+=== tmux live lab: session=fm-groklab-76715 window=fm-groklab-76715:fm-groklab ===
+grok version: grok 1.0.40 (eb1a2256660d) [stable]
+waited 3s for the real weekly-limit menu; found=1
+ tmux-lab worktree /p/t/fm-grok-tmux.ZrdjUb/worktree  2.3K / 500K │ [Dashboard]
+    Reply OK without using tools.                                     1:13 PM
+
+    ◆ session_start hook (global/settings) failed, ignored: command not
+    found: /Users/yelen/.claude/gh-axi
+
+    ◆ session_start hook (global/settings) failed, ignored: command not
+    found: /Users/yelen/.claude/lavish-axi
+
+    ◆ session_start hook (global/settings) failed, ignored: command not
+    found: /Users/yelen/.claude/chrome-devtools-axi
+
+
+ ┃
+ ┃  You hit your weekly limit.
+ ┃
+ ┃
+ ┃  1 (○) Upgrade tier      Upgrade to a higher tier for more usage
+ ┃  2 (○) Buy more credits  Purchase credits to keep using Grok Build
+ ┃  3 (○) Try Again         Resubmit the last prompt once you have usage…
+ ┃
+ ┃  ↑/↓ navigate · y copy                                      Enter:submit
+ ┃
+ Tab:next answer  │  Esc:scrollback  │  Shift+x:dismiss
+composer_state=unknown agent_state=alive
+--- fm-control groklab exit ---
+exit_code=1
+error: task groklab's composer state is 'unknown', not proven empty; refusing to type the /exit exit command because it could concatenate onto existing text. Clear the composer, then retry 'exit'
+agent_state_after=alive
+ok - live tmux grok weekly-limit menu: exit refused with no bytes sent; menu and uncommitted work intact
