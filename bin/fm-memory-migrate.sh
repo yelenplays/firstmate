@@ -27,12 +27,13 @@
 # are deliberately left behind.
 #
 # The migration never writes to or deletes from the source, and never deletes
-# from the destination. A re-run refreshes a changed source file only while its
-# destination still matches what the last migration wrote, so it still heals a
-# partial or missing copy; a destination edited in the new store since the last
-# migration, or one the migration never wrote at all (a memory the operator
-# created first), is left untouched and reported as skipped-and-kept. There is
-# no force or overwrite flag.
+# from the destination. A re-run refreshes a destination the last migration
+# wrote and that still matches its recorded hash, and restores a missing
+# destination; every other destination that already exists - one edited in the
+# new store since the last migration, or one the migration never wrote at all
+# (a memory the operator created first), or one whose recorded hash the newest
+# manifest does not carry - is left untouched and reported as skipped-and-kept.
+# There is no force or overwrite flag.
 # Each run writes <dest>/.migration/manifest-<utc>.txt, plus a header: one
 # "<src-rel>\t<sha256>\t<dest-path>" row per exported file, and one
 # "#skipped\t<recorded-sha256>\t<dest-path>" row per kept destination (the
@@ -218,18 +219,18 @@ EOF
   local fails=0 skipped=0
   while IFS=$'\t' read -r src_f rel dst_f; do
     [ -n "$src_f" ] || continue
-    local src_sum dst_dir dst_sum prev_sum
+    local src_sum dst_dir dst_sum prev_sum=''
     if [ -f "$dst_f" ]; then
       if [ -n "$prev_manifest" ]; then
         prev_sum=$(awk -F'\t' -v k="$dst_f" 'NF >= 3 && $3 == k { h = $2 } END { print h }' "$prev_manifest")
-        if [ -n "$prev_sum" ]; then
-          dst_sum=$(sha256_file "$dst_f") || { fails=$((fails + 1)); continue; }
-          if [ "$dst_sum" != "$prev_sum" ]; then
-            printf 'skip: %s (edited in store since last migration; kept)\n' "$dst_f"
-            printf '#skipped\t%s\t%s\n' "$prev_sum" "$dst_f" >> "$work/manifest.rows"
-            skipped=$((skipped + 1))
-            continue
-          fi
+      fi
+      if [ -n "$prev_sum" ]; then
+        dst_sum=$(sha256_file "$dst_f") || { fails=$((fails + 1)); continue; }
+        if [ "$dst_sum" != "$prev_sum" ]; then
+          printf 'skip: %s (edited in store since last migration; kept)\n' "$dst_f"
+          printf '#skipped\t%s\t%s\n' "$prev_sum" "$dst_f" >> "$work/manifest.rows"
+          skipped=$((skipped + 1))
+          continue
         fi
       else
         src_sum=$(sha256_file "$src_f") || { fails=$((fails + 1)); continue; }

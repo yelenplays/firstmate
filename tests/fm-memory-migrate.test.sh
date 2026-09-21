@@ -149,7 +149,7 @@ assert_grep 'switched to oolong' "$STORE/preferences/tea.md" 'store edit survive
 out=$("$MIG" migrate --source "$SRC")
 assert_grep 'switched to oolong' "$STORE/preferences/tea.md" 'store edit still survives a later re-run'
 
-# --- a corrupt copy never leaves a hash the destination never had -------------
+# --- a failed copy leaves no recorded hash and is never silently overwritten ---
 
 FAKEBIN="$TMP_ROOT/fakebin"
 mkdir -p "$FAKEBIN"
@@ -170,10 +170,27 @@ rc=0; PATH="$FAKEBIN:$PATH" "$MIG" migrate --source "$SRC" --dest "$CORRUPT_STOR
 expect_code 4 "$rc" 'a corrupted copy fails the run'
 
 out=$("$MIG" migrate --source "$SRC" --dest "$CORRUPT_STORE" --archive "$CORRUPT_ARCHIVE")
-assert_contains "$out" 'all hashes verified' 're-run re-verifies the corrupted file'
-src_sum=$(shasum -a 256 "$SRC/user/default/memories/preferences/tea.md" | awk '{print $1}')
-dst_sum=$(shasum -a 256 "$CORRUPT_STORE/preferences/tea.md" | awk '{print $1}')
-assert_equals "$src_sum" "$dst_sum" 're-run heals the corrupted copy instead of skipping it'
+assert_contains "$out" 'skipped-and-kept' 'a destination with no recorded hash is reported as skipped-and-kept'
+assert_contains "$out" "$CORRUPT_STORE/preferences/tea.md" 'the unrecorded corrupt destination is named'
+assert_not_contains "$out" 'all hashes verified' 'the re-run does not claim blanket verification over a kept destination'
+assert_grep 'corrupted bytes' "$CORRUPT_STORE/preferences/tea.md" 'a destination with no recorded hash is never overwritten'
+
+# --- a manifest without a row for an existing destination protects it --------
+
+NOROW_STORE="$TMP_ROOT/norow-store"
+NOROW_ARCHIVE="$TMP_ROOT/norow-archive"
+NOROW_SRC="$TMP_ROOT/norow-src"
+mkdir -p "$NOROW_STORE/preferences" "$NOROW_SRC/user/default/memories/preferences"
+printf '# tea\ngreen tea\n' > "$NOROW_SRC/user/default/memories/preferences/tea.md"
+printf '# oolong\noperator wrote this first\n' > "$NOROW_STORE/preferences/oolong.md"
+"$MIG" migrate --source "$NOROW_SRC" --dest "$NOROW_STORE" --archive "$NOROW_ARCHIVE" >/dev/null
+printf '# oolong\nOpenViking copy\n' > "$NOROW_SRC/user/default/memories/preferences/oolong.md"
+out=$("$MIG" migrate --source "$NOROW_SRC" --dest "$NOROW_STORE" --archive "$NOROW_ARCHIVE")
+assert_contains "$out" 'skipped-and-kept' 'a manifest without a row for the destination reports the skip'
+assert_contains "$out" "$NOROW_STORE/preferences/oolong.md" 'the destination missing a manifest row is named'
+assert_grep 'operator wrote this first' "$NOROW_STORE/preferences/oolong.md" 'an operator memory with no recorded hash survives the re-run'
+assert_not_contains "$out" 'all hashes verified' 'the re-run does not claim blanket verification'
+assert_present "$NOROW_STORE/preferences/tea.md" 'already-exported memories stay in place'
 
 # --- a first migrate never overwrites a memory the operator wrote first -------
 
