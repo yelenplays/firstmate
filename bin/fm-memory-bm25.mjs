@@ -193,7 +193,14 @@ function parseArgs(argv) {
     switch (a) {
       case '--dir': args.dir = argv[++i]; break;
       case '--query': args.query = argv[++i]; break;
-      case '--limit': args.limit = Number.parseInt(argv[++i], 10); break;
+      case '--limit': {
+        const raw = argv[++i];
+        if (raw === undefined || !/^\d+$/.test(raw) || Number.parseInt(raw, 10) < 1) {
+          die(`--limit must be a positive integer, got: ${raw}`);
+        }
+        args.limit = Number.parseInt(raw, 10);
+        break;
+      }
       case '--json': args.json = true; break;
       default:
         if (a.startsWith('--')) die(`unknown option: ${a}`);
@@ -244,7 +251,7 @@ function main() {
       }
       hits.sort((a, b) => b.score - a.score || a.doc.path.localeCompare(b.doc.path));
     }
-    const limit = Number.isFinite(args.limit) && args.limit > 0 ? args.limit : DEFAULT_LIMIT;
+    const limit = args.limit;
     const top = hits.slice(0, limit).map(({ doc, score }) => {
       let text = '';
       try {

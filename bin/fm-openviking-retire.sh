@@ -82,6 +82,8 @@ done
 
 command -v "$LAUNCHCTL" >/dev/null 2>&1 || die "launchctl not found: $LAUNCHCTL"
 
+left=0
+
 # 1. Retire launchd labels.
 labels=''
 list_failed=0
@@ -95,7 +97,10 @@ if [ -n "$labels" ]; then
     note "bootout gui/$UID_/$label"
     run "$LAUNCHCTL" bootout "gui/$UID_/$label"
     note "disable gui/$UID_/$label"
-    run "$LAUNCHCTL" disable "gui/$UID_/$label"
+    if ! run "$LAUNCHCTL" disable "gui/$UID_/$label"; then
+      printf 'openviking-retire: launchctl disable failed for %s\n' "$label" >&2
+      left=1
+    fi
     note "rollback: $LAUNCHCTL enable gui/$UID_/$label && $LAUNCHCTL bootstrap gui/$UID_ ~/Library/LaunchAgents/$label.plist"
   done <<EOF
 $labels
@@ -118,7 +123,10 @@ if [ -d "$OV_HOME/logs" ]; then
     [ -n "$log" ] || continue
     [ -s "$log" ] || continue
     note "rotate $log -> $log.$TS"
-    run mv "$log" "$log.$TS"
+    if ! run mv "$log" "$log.$TS"; then
+      printf 'openviking-retire: failed to rotate %s\n' "$log" >&2
+      left=1
+    fi
   done <<EOF
 $(find "$OV_HOME/logs" -type f -name '*.log' 2>/dev/null | sort)
 EOF
@@ -127,7 +135,6 @@ else
 fi
 
 # 4. Verify.
-left=0
 if [ "$dry_run" -eq 0 ]; then
   if ! labels_now=$(list_viking_labels); then
     printf 'openviking-retire: cannot verify launchd labels: launchctl list failed\n' >&2

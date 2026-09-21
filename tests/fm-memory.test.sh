@@ -69,6 +69,11 @@ out=$("$MEM" recall 'qqqzzz')
 assert_equals '' "$out" 'recall prints nothing on zero hits'
 "$MEM" recall 'qqqzzz' >/dev/null || fail 'zero-hit recall must exit 0'
 
+rc=0; "$MEM" recall --limit 0 'steel kettle' >/dev/null 2>&1 || rc=$?
+expect_code 2 "$rc" 'zero --limit is rejected'
+rc=0; "$MEM" recall --limit abc 'steel kettle' >/dev/null 2>&1 || rc=$?
+expect_code 2 "$rc" 'non-numeric --limit is rejected'
+
 json=$("$MEM" recall --json 'steel kettle')
 printf '%s' "$json" | grep -q '"path":"entities/tea-kettle.md"' \
   || fail "recall --json must carry the hit path, got: $json"

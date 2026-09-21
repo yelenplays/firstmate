@@ -111,6 +111,51 @@ assert_contains "$out" 'no launchd label' 'no labels case'
 assert_contains "$out" 'retired' 'still exits cleanly'
 assert_no_grep 'bootout' "$CALLS" 'no bootout without labels'
 
+# --- a failed launchctl disable is a leftover ---------------------------------
+
+printf -- '-\t0\torg.nix-community.home.openviking\n' > "$LABELS"
+rm -f "$TMP_ROOT/pids"
+cat > "$FAKEBIN/launchctl" <<'SH'
+#!/usr/bin/env bash
+set -u
+printf 'launchctl %s\n' "$*" >> "${CALLS_LOG:?}"
+case "${1:-}" in
+  list)
+    printf 'PID\tStatus\tLabel\n'
+    [ -f "${LABELS_FILE:?}" ] && cat "$LABELS_FILE"
+    ;;
+  bootout)
+    label=${2##*/}
+    if [ -f "${LABELS_FILE:?}" ]; then
+      grep -v "$label" "$LABELS_FILE" > "$LABELS_FILE.tmp" || true
+      mv "$LABELS_FILE.tmp" "$LABELS_FILE"
+    fi
+    ;;
+  disable) exit 1 ;;
+esac
+exit 0
+SH
+chmod +x "$FAKEBIN/launchctl"
+rc=0; out=$(run_retire 2>&1) || rc=$?
+expect_code 1 "$rc" 'failed launchctl disable is a leftover'
+assert_contains "$out" 'launchctl disable failed' 'reports the failed disable'
+
+# --- a failed log rotation is a leftover --------------------------------------
+
+rm -f "$LABELS" "$TMP_ROOT/pids"
+rm -f "$OV_HOME_DIR"/logs/server.log.*
+printf 'rotate me\n' > "$OV_HOME_DIR/logs/server.log"
+FAKEMV="$TMP_ROOT/fakemv"; mkdir -p "$FAKEMV"
+cat > "$FAKEMV/mv" <<'SH'
+#!/usr/bin/env bash
+exit 1
+SH
+chmod +x "$FAKEMV/mv"
+rc=0; out=$(PATH="$FAKEMV:$PATH" run_retire 2>&1) || rc=$?
+expect_code 1 "$rc" 'failed log rotation is a leftover'
+assert_contains "$out" 'failed to rotate' 'reports the failed rotation'
+assert_present "$OV_HOME_DIR/logs/server.log" 'failed rotation leaves the log in place'
+
 # --- leftovers are reported ---------------------------------------------------
 
 printf -- '-\t0\torg.nix-community.home.openviking\n' > "$LABELS"
