@@ -63,6 +63,15 @@ run() {
   fi
 }
 
+list_viking_labels() {
+  local out rc
+  out=$("$LAUNCHCTL" list 2>/dev/null)
+  rc=$?
+  [ "$rc" -eq 0 ] || return 1
+  printf '%s\n' "$out" | awk 'NR>1 {print $3}' | grep -i 'viking' || true
+  return 0
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) dry_run=1; shift ;;
@@ -74,7 +83,12 @@ done
 command -v "$LAUNCHCTL" >/dev/null 2>&1 || die "launchctl not found: $LAUNCHCTL"
 
 # 1. Retire launchd labels.
-labels=$("$LAUNCHCTL" list 2>/dev/null | awk 'NR>1 {print $3}' | grep -i 'viking' || true)
+labels=''
+list_failed=0
+if ! labels=$(list_viking_labels); then
+  printf 'openviking-retire: launchctl list failed; cannot enumerate viking labels\n' >&2
+  list_failed=1
+fi
 if [ -n "$labels" ]; then
   while IFS= read -r label; do
     [ -n "$label" ] || continue
@@ -86,7 +100,7 @@ if [ -n "$labels" ]; then
   done <<EOF
 $labels
 EOF
-else
+elif [ "$list_failed" -eq 0 ]; then
   note "no launchd label containing 'viking'"
 fi
 
@@ -115,7 +129,10 @@ fi
 # 4. Verify.
 left=0
 if [ "$dry_run" -eq 0 ]; then
-  if "$LAUNCHCTL" list 2>/dev/null | awk 'NR>1 {print $3}' | grep -qi 'viking'; then
+  if ! labels_now=$(list_viking_labels); then
+    printf 'openviking-retire: cannot verify launchd labels: launchctl list failed\n' >&2
+    left=1
+  elif [ -n "$labels_now" ]; then
     printf 'openviking-retire: launchd label still loaded\n' >&2
     left=1
   fi

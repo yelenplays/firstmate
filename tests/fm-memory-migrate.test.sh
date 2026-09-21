@@ -112,6 +112,16 @@ TRAIL_ARCHIVE="$TMP_ROOT/trail-archive"
 assert_present "$TRAIL_STORE/preferences/tea.md" 'trailing-slash memories dir still copies memories'
 assert_absent "$TRAIL_ARCHIVE/user/default/memories/preferences/tea.md" 'trailing-slash memories dir is not also archived'
 
+# --- equivalent --dest spellings share one drift-guard key --------------------
+
+SLASH_STORE="$TMP_ROOT/slash-store"
+SLASH_ARCHIVE="$TMP_ROOT/slash-archive"
+"$MIG" migrate --source "$SRC" --dest "$SLASH_STORE/" --archive "$SLASH_ARCHIVE" >/dev/null
+printf '# tea\noperator edit via slash store\n' > "$SLASH_STORE/preferences/tea.md"
+out=$("$MIG" migrate --source "$SRC" --dest "$SLASH_STORE" --archive "$SLASH_ARCHIVE")
+assert_contains "$out" 'skipped-and-kept' 'trailing-slash dest reports the skip'
+assert_grep 'operator edit via slash store' "$SLASH_STORE/preferences/tea.md" 'trailing-slash dest still honors the drift guard'
+
 # --- re-run preserves store edits and reports them as skipped-and-kept --------
 
 printf '# tea\nThe captain switched to oolong in the new store\n' > "$STORE/preferences/tea.md"
@@ -123,6 +133,32 @@ assert_grep 'switched to oolong' "$STORE/preferences/tea.md" 'store edit survive
 
 out=$("$MIG" migrate --source "$SRC")
 assert_grep 'switched to oolong' "$STORE/preferences/tea.md" 'store edit still survives a later re-run'
+
+# --- a corrupt copy never leaves a hash the destination never had -------------
+
+FAKEBIN="$TMP_ROOT/fakebin"
+mkdir -p "$FAKEBIN"
+REAL_CP=$(command -v cp)
+cat > "$FAKEBIN/cp" <<SH
+#!/usr/bin/env bash
+"$REAL_CP" "\$@" || exit \$?
+dest=''
+for a in "\$@"; do dest=\$a; done
+case "\$dest" in */tea.md) printf 'corrupted bytes\n' > "\$dest" ;; esac
+exit 0
+SH
+chmod +x "$FAKEBIN/cp"
+
+CORRUPT_STORE="$TMP_ROOT/corrupt-store"
+CORRUPT_ARCHIVE="$TMP_ROOT/corrupt-archive"
+rc=0; PATH="$FAKEBIN:$PATH" "$MIG" migrate --source "$SRC" --dest "$CORRUPT_STORE" --archive "$CORRUPT_ARCHIVE" >/dev/null 2>&1 || rc=$?
+expect_code 4 "$rc" 'a corrupted copy fails the run'
+
+out=$("$MIG" migrate --source "$SRC" --dest "$CORRUPT_STORE" --archive "$CORRUPT_ARCHIVE")
+assert_contains "$out" 'all hashes verified' 're-run re-verifies the corrupted file'
+src_sum=$(shasum -a 256 "$SRC/user/default/memories/preferences/tea.md" | awk '{print $1}')
+dst_sum=$(shasum -a 256 "$CORRUPT_STORE/preferences/tea.md" | awk '{print $1}')
+assert_equals "$src_sum" "$dst_sum" 're-run heals the corrupted copy instead of skipping it'
 
 # --- error paths ----------------------------------------------------------------
 

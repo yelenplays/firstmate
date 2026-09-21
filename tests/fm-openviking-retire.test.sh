@@ -158,4 +158,16 @@ assert_grep 'org.nix-community.home.openviking' "$LABELS" 'dry-run keeps the lab
 rc=0; run_retire --bogus >/dev/null 2>&1 || rc=$?
 expect_code 2 "$rc" 'unknown option'
 
+# --- launchctl list failure is unverifiable, not "no label" -------------------
+
+cat > "$FAKEBIN/launchctl" <<'SH'
+#!/usr/bin/env bash
+exit 1
+SH
+chmod +x "$FAKEBIN/launchctl"
+rc=0; out=$(run_retire 2>&1) || rc=$?
+expect_code 1 "$rc" 'launchctl list failure is unverifiable'
+assert_contains "$out" 'launchctl list failed' 'reports the launchctl list failure'
+assert_not_contains "$out" 'no launchd label' 'does not claim no label when the list failed'
+
 pass 'fm-openviking-retire behavior suite'

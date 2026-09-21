@@ -77,6 +77,14 @@ sha256_file() {
   fi
 }
 
+normalize_dir() {
+  local p=$1
+  while [ "${#p}" -gt 1 ] && [ "${p%/}" != "$p" ]; do
+    p=${p%/}
+  done
+  printf '%s' "$p"
+}
+
 resolve_dest() {
   local store
   store=$("$SCRIPT_DIR/fm-memory.sh" dir) \
@@ -134,16 +142,18 @@ cmd_migrate() {
   if [ -z "$dest" ]; then
     dest=$(resolve_dest) || exit 2
   fi
+  dest=$(normalize_dir "$dest")
   [ -n "$archive" ] || archive=$FM_HOME/data/memory-archive
+  archive=$(normalize_dir "$archive")
+  source=$(normalize_dir "$source")
   [ -d "$source" ] || die "source not found: $source" 3
-  source=${source%/}
 
   if [ -z "$memories_dir" ]; then
     memories_dir=$(find_memories_dir "$source") \
       || die "no memories tree under $source; pass --memories-dir" 3
   fi
+  memories_dir=$(normalize_dir "$memories_dir")
   [ -d "$memories_dir" ] || die "memories dir not found: $memories_dir" 3
-  memories_dir=${memories_dir%/}
   local memories_rel=${memories_dir#"$source"/}
 
   local manifest
@@ -216,11 +226,12 @@ EOF
     mkdir -p "$dst_dir" || { printf 'error: cannot create %s\n' "$dst_dir" >&2; fails=$((fails + 1)); continue; }
     cp -p "$src_f" "$dst_f" || { printf 'error: copy failed %s\n' "$src_f" >&2; fails=$((fails + 1)); continue; }
     dst_sum=$(sha256_file "$dst_f")
-    printf '%s\t%s\t%s\n' "$rel" "$src_sum" "$dst_f" >> "$work/manifest.rows"
     if [ "$src_sum" != "$dst_sum" ]; then
       printf 'error: hash mismatch after copy: %s\n' "$dst_f" >&2
       fails=$((fails + 1))
+      continue
     fi
+    printf '%s\t%s\t%s\n' "$rel" "$src_sum" "$dst_f" >> "$work/manifest.rows"
   done < "$work/plan"
 
   cat "$work/manifest.head" > "$manifest"
@@ -231,10 +242,10 @@ EOF
   verify_manifest "$manifest" || exit 4
 
   if [ "$skipped" -gt 0 ]; then
-    printf 'migrated: %s memories, %s archived; %s skipped-and-kept (edited in store since last migration)\n' \
+    printf 'planned: %s memories, %s archived; %s skipped-and-kept (edited in store since last migration)\n' \
       "$count_mem" "$count_arc" "$skipped"
   else
-    printf 'migrated: %s memories, %s archived; all hashes verified\n' "$count_mem" "$count_arc"
+    printf 'planned: %s memories, %s archived; all hashes verified\n' "$count_mem" "$count_arc"
   fi
 
   if [ -x "$SCRIPT_DIR/fm-memory.sh" ] && command -v node >/dev/null 2>&1; then
