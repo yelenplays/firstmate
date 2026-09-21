@@ -85,7 +85,7 @@ assert_contains "$out" 'preferences/tea.md' 'migrated memory is recallable'
 
 rm "$ARCHIVE/resources/r1.md"
 rc=0; out=$("$MIG" verify 2>/dev/null) || rc=$?
-expect_code 1 "$rc" 'verify fails when a file is missing'
+expect_code 4 "$rc" 'verify fails when a file is missing'
 assert_contains "$out" 'missing' 'verify reports the missing file'
 
 # --- re-run is idempotent and heals -------------------------------------------
@@ -121,6 +121,14 @@ printf '# tea\noperator edit via slash store\n' > "$SLASH_STORE/preferences/tea.
 out=$("$MIG" migrate --source "$SRC" --dest "$SLASH_STORE" --archive "$SLASH_ARCHIVE")
 assert_contains "$out" 'skipped-and-kept' 'trailing-slash dest reports the skip'
 assert_grep 'operator edit via slash store' "$SLASH_STORE/preferences/tea.md" 'trailing-slash dest still honors the drift guard'
+
+# --- relative and absolute --dest spellings share the drift guard -------------
+
+(cd "$TMP_ROOT" && "$MIG" migrate --source "$SRC" --dest rel-store --archive rel-archive >/dev/null)
+printf '# tea\nrelative spelling edit\n' > "$TMP_ROOT/rel-store/preferences/tea.md"
+out=$("$MIG" migrate --source "$SRC" --dest "$TMP_ROOT/rel-store" --archive "$TMP_ROOT/rel-archive")
+assert_contains "$out" 'skipped-and-kept' 'absolute re-run reports the skip'
+assert_grep 'relative spelling edit' "$TMP_ROOT/rel-store/preferences/tea.md" 'relative and absolute dest spellings share the drift guard'
 
 # --- re-run preserves store edits and reports them as skipped-and-kept --------
 

@@ -78,11 +78,29 @@ sha256_file() {
 }
 
 normalize_dir() {
-  local p=$1
+  local p=$1 rest=''
+  [ -n "$p" ] || { printf '%s' "$p"; return 0; }
+  case "$p" in
+    /*) ;;
+    *) p="$PWD/$p" ;;
+  esac
   while [ "${#p}" -gt 1 ] && [ "${p%/}" != "$p" ]; do
     p=${p%/}
   done
-  printf '%s' "$p"
+  while [ ! -d "$p" ] && [ "$p" != '/' ]; do
+    rest="/${p##*/}$rest"
+    p=${p%/*}
+    [ -n "$p" ] || p='/'
+  done
+  if [ -d "$p" ]; then
+    if [ -n "$rest" ]; then
+      printf '%s%s' "$(cd "$p" && pwd -P)" "$rest"
+    else
+      printf '%s' "$(cd "$p" && pwd -P)"
+    fi
+  else
+    printf '%s' "$p"
+  fi
 }
 
 resolve_dest() {
@@ -301,7 +319,7 @@ cmd_verify() {
     manifest=$(find "$dest/.migration" -name 'manifest-*.txt' 2>/dev/null | sort | tail -n1)
     [ -n "$manifest" ] || die "no manifest under $dest/.migration" 2
   fi
-  verify_manifest "$manifest"
+  verify_manifest "$manifest" || exit 4
 }
 
 cmd=${1:-migrate}

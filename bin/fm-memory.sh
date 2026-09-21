@@ -4,7 +4,6 @@
 # Usage:
 #   fm-memory.sh remember [--category <cat>] <topic> [body...]
 #   fm-memory.sh recall [--json] [--limit <n>] <query>
-#   fm-memory.sh find ...            alias for recall
 #   fm-memory.sh list [prefix]
 #   fm-memory.sh reindex
 #   fm-memory.sh stats
@@ -30,7 +29,7 @@
 # must match ^[a-z0-9][a-z0-9-]*$ (or `.` for the store root). The topic is
 # slugified to a filename (lowercase, non-alphanumeric runs collapse to `-`).
 #
-# `recall`/`find` runs BM25 over the store through bin/fm-memory-bm25.mjs and
+# `recall` runs BM25 over the store through bin/fm-memory-bm25.mjs and
 # prints ranked `score  relpath  title` lines with a snippet; --json prints one
 # JSON envelope for programmatic consumers. The index is the disposable cache
 # <store>/.index.json owned by the engine; it self-rebuilds whenever the tree
@@ -56,7 +55,6 @@ usage() {
 Usage:
   fm-memory.sh remember [--category <cat>] <topic> [body...]
   fm-memory.sh recall [--json] [--limit <n>] <query>
-  fm-memory.sh find ...            alias for recall
   fm-memory.sh list [prefix]
   fm-memory.sh reindex
   fm-memory.sh stats
@@ -288,7 +286,7 @@ shift
 case "$cmd" in
   dir) cmd_dir "$@" ;;
   remember) cmd_remember "$@" ;;
-  recall|find) cmd_recall "$@" ;;
+  recall) cmd_recall "$@" ;;
   list) cmd_list "$@" ;;
   reindex) cmd_reindex "$@" ;;
   stats) cmd_stats "$@" ;;

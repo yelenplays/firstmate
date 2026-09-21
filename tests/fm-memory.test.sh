@@ -59,8 +59,10 @@ out=$("$MEM" recall 'steel kettle')
 assert_contains "$out" 'entities/tea-kettle.md' 'recall finds the kettle memory'
 assert_contains "$out" 'Tea Kettle' 'recall shows the title'
 
-out=$("$MEM" find 'eleven')
-assert_contains "$out" 'preferences/quiet-hours.md' 'find alias works'
+out=$("$MEM" recall 'updated')
+assert_equals '' "$out" 'frontmatter metadata is not indexed'
+out=$("$MEM" recall '2026')
+assert_equals '' "$out" 'frontmatter dates are not indexed'
 
 out=$("$MEM" recall -- 'steel kettle')
 assert_contains "$out" 'entities/tea-kettle.md' 'recall -- <query> handles end-of-options'

@@ -19,7 +19,7 @@ Session history and other non-memory markdown migrate to `$FM_HOME/data/memory-a
 ## Commands
 
 - `bin/fm-memory.sh remember [--category <cat>] <topic> [body...]` writes or updates a memory; the body may come from stdin.
-- `bin/fm-memory.sh recall [--json] [--limit <n>] <query>` ranks memories by BM25 (`find` is an alias); `--json` emits one envelope for programmatic consumers such as a recall-injection hook.
+- `bin/fm-memory.sh recall [--json] [--limit <n>] <query>` ranks memories by BM25; `--json` emits one envelope for programmatic consumers such as a recall-injection hook.
 - `bin/fm-memory.sh list`, `stats`, `dir`, and `reindex` inspect the store and manage the index.
 
 ## Migrating from OpenViking

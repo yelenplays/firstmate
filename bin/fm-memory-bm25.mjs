@@ -75,7 +75,12 @@ function manifestOf(dir) {
   walk(dir, '', files);
   const manifest = {};
   for (const rel of files) {
-    const st = fs.statSync(path.join(dir, rel));
+    let st;
+    try {
+      st = fs.statSync(path.join(dir, rel));
+    } catch {
+      continue;
+    }
     manifest[rel] = { m: st.mtimeMs, s: st.size };
   }
   return manifest;
@@ -93,7 +98,7 @@ function buildIndex(dir) {
     } catch {
       continue;
     }
-    const tokens = tokenize(text);
+    const tokens = tokenize(bodyText(text));
     const tf = new Map();
     for (const tok of tokens) tf.set(tok, (tf.get(tok) || 0) + 1);
     for (const tok of tf.keys()) df.set(tok, (df.get(tok) || 0) + 1);
