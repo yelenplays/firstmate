@@ -937,7 +937,7 @@ remote_secondmate_teardown() {
   mv -f -- "$tmp" "$SECONDMATE_REG"
   status_retire_presentation_task "$STATE" "$ID" || return 1
   fm_watch_retire_task_state "$STATE" "$ID" || return 1
-  fm_watch_retire_window_state "$STATE" "$(fm_backend_target_of_meta "$META")" || return 1
+  fm_watch_retire_window_state "$STATE" "$(fm_backend_target_of_meta "$META")" "$ID" || return 1
   fm_backlog_atomic_transition remove "$STATE/$ID.meta" "task record" "$STATE" || return 1
   rm -f -- "$STATE/$ID.turn-ended" "$STATE/$ID.progress"
   printf 'teardown %s complete (remote %s:%s)\n' "$ID" "$remote_host" "$remote_home"
@@ -3578,7 +3578,7 @@ status_retire_presentation_task "$STATE" "$ID" || exit 1
 # successor claiming the same endpoint can never inherit this worker's stale
 # counters or escalation count.
 fm_watch_retire_task_state "$STATE" "$ID" || exit 1
-fm_watch_retire_window_state "$STATE" "$T" || exit 1
+fm_watch_retire_window_state "$STATE" "$T" "$ID" || exit 1
 rm -f "$STATE/$ID.turn-ended" "$(fm_wake_signal_seen_path "$STATE" "$STATE/$ID.turn-ended")" "$STATE/$ID.progress" \
   "$STATE/$ID.pi-ext.ts" "$STATE/$ID.omp-ext.ts" "$STATE/$ID.grok-turnend-token" \
   "$STATE/$ID.kimi-turnend-token" "$STATE/$ID.muse-session" \

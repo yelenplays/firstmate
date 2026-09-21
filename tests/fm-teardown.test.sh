@@ -797,7 +797,9 @@ seed_watcher_state() {  # <case_dir> <endpoint-target> <task>
     "$case_dir/state/.writing-resurfaced-$key" "$case_dir/state/.waiting-resurfaced-$key" \
     "$case_dir/state/.churn-since-$key" "$case_dir/state/.dead-reported-$key"
   printf 'predecessor\n' > "$case_dir/state/.window-owner-$key"
-  touch "$case_dir/state/.subsuper-stale-$task" "$case_dir/state/.subsuper-paused-$task" \
+  touch "$case_dir/state/$task.turn-ended" "$case_dir/state/$task.progress" \
+    "$case_dir/state/.seen-${task}_turn-ended" \
+    "$case_dir/state/.subsuper-stale-$task" "$case_dir/state/.subsuper-paused-$task" \
     "$case_dir/state/.subsuper-pause-until-due-$task" \
     "$case_dir/state/.secondmate-wake-stall-$task" "$case_dir/state/.secondmate-wake-progress-$task"
   mkdir -p "$case_dir/state/.secondmate-wake-stall-receipts/$task"
@@ -812,6 +814,10 @@ assert_watcher_state_retired() {  # <case_dir> <endpoint-target> <task>
       .window-owner-; do
     [ ! -e "$case_dir/state/$marker$key" ] \
       || fail "teardown left the endpoint's $marker marker behind"
+  done
+  for marker in "$task.turn-ended" "$task.progress" ".seen-${task}_turn-ended"; do
+    [ ! -e "$case_dir/state/$marker" ] \
+      || fail "teardown left the task's $marker behind"
   done
   for marker in .subsuper-stale- .subsuper-paused- .subsuper-pause-until-due- \
       .secondmate-wake-stall- .secondmate-wake-progress-; do

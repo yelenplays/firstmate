@@ -19,20 +19,30 @@
 #   bind    fm_watch_window_bind, called by the watcher for every recorded
 #           window once at startup and again per poll before any marker is
 #           read. The .window-owner-<key> marker records which task the key's
-#           state belongs to. Two cases: the recorded owner IS the task - one
-#           marker read and return; any other owner, including no record at
-#           all, makes the key foreign - a predecessor's residue, or markers
-#           from before the owner era - so every window-keyed marker is
-#           retired before it can be read, then the new owner is written.
-#           Spawn claims the key before it publishes the record, so a task
-#           never loses its own live markers to this bind. Detection semantics
-#           are unchanged: the successor's own fresh counters still classify,
-#           absorb, and escalate exactly as before.
+#           state belongs to. Three cases: the recorded owner IS the task -
+#           one marker read and return; the recorded owner is another task
+#           still live on an endpoint that derives this key - the flattened
+#           key space is lossy (sess:a.b and sess:a_b share one key), so a
+#           live sharer's marker set is shared state left untouched, not
+#           residue; anything else - a dead or moved owner, or no record at
+#           all - makes the key foreign residue retired before it can be
+#           read, then the new owner is written, except while another live
+#           task still shares the key, where only the owner record is
+#           re-pointed. Spawn claims the key before it publishes the record,
+#           so a task never loses its own live markers to this bind.
+#           Detection semantics are unchanged: the successor's own fresh
+#           counters still classify, absorb, and escalate exactly as before.
 #
 #   retire  fm_watch_retire_window_state + fm_watch_retire_task_state, called
 #           by bin/fm-teardown.sh when a task's endpoint goes away and by
 #           bin/fm-spawn.sh just before it publishes a task record claiming an
-#           endpoint. fm_watch_orphan_state_sweep, called by bin/fm-bootstrap.sh
+#           endpoint. The task retire also removes the per-incarnation turn
+#           anchors (<task>.turn-ended, <task>.progress, and the turn-end seen
+#           marker) so a relaunched incarnation's turn-age clock starts from
+#           its own record, never a predecessor's stale mtime - a stale anchor
+#           reads as already over the completed-turn bound and skips the wedge
+#           hold on the new incarnation's first silent step.
+#           fm_watch_orphan_state_sweep, called by bin/fm-bootstrap.sh
 #          's locked session-start mutating phase after backlog reconciliation
 #           settles the live meta set, removes whatever those paths could not:
 #           window-keyed markers whose key no live meta records, task-keyed
@@ -88,12 +98,38 @@ fm_watch_window_marker_families() {
     .stale-
 }
 
+# Print the id of a live task - a task whose <task>.meta survives - whose
+# recorded endpoint target derives <key>, excluding <exclude-task>. Prints
+# nothing and returns 1 when no live task shares the key. The flattened key
+# space is lossy, so two distinct endpoints can derive one key (sess:a.b and
+# sess:a_b) and share its marker set: while a live task sits on a colliding
+# endpoint the set is shared state, never residue.
+fm_watch_key_live_sharer() {  # <state-dir> <key> [exclude-task] -> prints task
+  local state=$1 key=$2 excl=${3:-} meta mt mw
+  for meta in "$state"/*.meta; do
+    [ -e "$meta" ] || [ -L "$meta" ] || continue
+    mt=${meta##*/}
+    mt=${mt%.meta}
+    [ "$mt" = "$excl" ] && continue
+    mw=$(fm_backend_target_of_meta "$meta" 2>/dev/null || true)
+    [ -n "$mw" ] || continue
+    [ "$(fm_watch_state_key "$mw")" = "$key" ] || continue
+    printf '%s' "$mt"
+    return 0
+  done
+  return 1
+}
+
 # Remove every per-window marker one recorded endpoint target owns. Idempotent;
-# safe to call for a target that never had markers written.
-fm_watch_retire_window_state() {  # <state-dir> <window-target>
-  local state=$1 w=$2 key family
+# safe to call for a target that never had markers written. A no-op while
+# another live task's endpoint derives the same flattened key: the marker set
+# is shared with that survivor, not residue to wipe. <exclude-task> names the
+# acting task so its own record cannot count as the sharer.
+fm_watch_retire_window_state() {  # <state-dir> <window-target> [exclude-task]
+  local state=$1 w=$2 excl=${3:-} key family
   [ -n "$w" ] || return 0
   key=$(fm_watch_state_key "$w")
+  [ -n "$(fm_watch_key_live_sharer "$state" "$key" "$excl" || true)" ] && return 0
   while IFS= read -r family; do
     [ -n "$family" ] || continue
     rm -f -- "$state/$family$key" || return 1
@@ -103,17 +139,23 @@ EOF
 }
 
 # Remove the task-keyed supervision markers a retired or replaced task leaves:
-# the sub-supervisor's per-task stale/pause episode markers (keyed by the same
-# derivation) and the parent-side secondmate wake-stall trackers (keyed by the
-# raw task id). Deliberately excludes the status-paired families - the
-# status-presentation owner retires those with <task>.status, and a task's
-# log legitimately outlives one incarnation. Safe at both teardown (task gone)
-# and spawn (fresh incarnation of a reused id or claimed endpoint).
+# the per-incarnation turn anchors (<task>.turn-ended, <task>.progress, and
+# the turn-end's .seen- signature marker - busy_turn_over_age reads those
+# mtimes as the recorded-step age, and a relaunched incarnation must never
+# start its clock from a predecessor's stale anchor), the sub-supervisor's
+# per-task stale/pause episode markers (keyed by the same derivation), and
+# the parent-side secondmate wake-stall trackers (keyed by the raw task id).
+# Deliberately excludes the status-paired families - the status-presentation
+# owner retires those with <task>.status, and a task's log legitimately
+# outlives one incarnation. Safe at both teardown (task gone) and spawn
+# (fresh incarnation of a reused id or claimed endpoint).
 fm_watch_retire_task_state() {  # <state-dir> <task-id>
   local state=$1 task=$2 enc
   [ -n "$task" ] || return 0
   enc=$(fm_watch_state_key "$task")
-  rm -f -- "$state/.subsuper-stale-$enc" "$state/.subsuper-paused-$enc" \
+  rm -f -- "$state/$task.turn-ended" "$state/$task.progress" \
+    "$state/.seen-$(printf '%s' "$task.turn-ended" | tr '.' '_')" \
+    "$state/.subsuper-stale-$enc" "$state/.subsuper-paused-$enc" \
     "$state/.subsuper-pause-until-due-$enc" \
     "$state/.secondmate-wake-stall-$task" "$state/.secondmate-wake-progress-$task" \
     || return 1
@@ -142,27 +184,41 @@ fm_watch_window_claim() {  # <state-dir> <window-target> <task>
   local state=$1 w=$2 task=$3 key
   [ -n "$w" ] && [ -n "$task" ] || return 0
   key=$(fm_watch_state_key "$w")
-  fm_watch_retire_window_state "$state" "$w" || return 1
+  fm_watch_retire_window_state "$state" "$w" "$task" || return 1
   fm_watch_window_owner_write "$state/.window-owner-$key" "$task"
 }
 
 # Bind a recorded window's marker set to its current owning task. The owner
 # recorded in .window-owner-<key> decides:
-#   same task:  one marker read and return - the steady-state cost.
-#   otherwise:  the key is foreign. A different owner means a predecessor's
-#               residue; no owner at all means markers from before the owner
-#               era (or a predecessor whose record did not survive). Retire
-#               the whole set before it can be read, then write the new owner.
+#   same task:     one marker read and return - the steady-state cost.
+#   live sharer:   the recorded owner is another task whose meta still records
+#                  an endpoint deriving this key. Distinct endpoints collide
+#                  on the flattened key space, so the marker set is shared
+#                  state - leave it and its owner record untouched, or the
+#                  colliding tasks would thrash-retire each other's counters
+#                  and throttle markers every poll.
+#   otherwise:     the key is foreign. A dead or moved owner means a
+#                  predecessor's residue; no owner at all means markers from
+#                  before the owner era (or a predecessor whose record did
+#                  not survive). Retire the set before it can be read, then
+#                  write the new owner. The retire itself stays collision-
+#                  safe: while another live task still shares the key it only
+#                  re-points the dead record at this claimant and keeps the
+#                  shared set.
 #               Spawn claims the key before publishing its record, so this can
 #               never erase the current task's own live markers.
 fm_watch_window_bind() {  # <state-dir> <window-target> <task>
-  local state=$1 w=$2 task=$3 key owner_file owner
+  local state=$1 w=$2 task=$3 key owner_file owner owner_w
   [ -n "$w" ] && [ -n "$task" ] || return 0
   key=$(fm_watch_state_key "$w")
   owner_file="$state/.window-owner-$key"
   owner=$(cat "$owner_file" 2>/dev/null || true)
   [ "$owner" = "$task" ] && return 0
-  fm_watch_retire_window_state "$state" "$w" || return 1
+  if [ -n "$owner" ] && [ -e "$state/$owner.meta" ]; then
+    owner_w=$(fm_backend_target_of_meta "$state/$owner.meta" 2>/dev/null || true)
+    [ -n "$owner_w" ] && [ "$(fm_watch_state_key "$owner_w")" = "$key" ] && return 0
+  fi
+  fm_watch_retire_window_state "$state" "$w" "$task" || return 1
   fm_watch_window_owner_write "$owner_file" "$task"
 }
 

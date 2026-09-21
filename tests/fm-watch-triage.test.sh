@@ -5647,15 +5647,18 @@ test_watch_state_lib_retire_bind_and_owner() {
   [ ! -e "$state/.wedge-escalations-$key" ] && [ ! -e "$state/.count-$key" ] \
     || fail "an owner change did not retire the predecessor's markers"
 
-  # Task retirement removes the task-keyed supervision markers only: the
-  # status-paired families belong to status_retire_presentation_task.
-  touch "$state/.subsuper-stale-task-a" "$state/.subsuper-paused-task-a" \
+  # Task retirement removes the per-incarnation turn anchors and the
+  # task-keyed supervision markers only: the status-paired families belong to
+  # status_retire_presentation_task.
+  touch "$state/task-a.turn-ended" "$state/task-a.progress" "$state/.seen-task-a_turn-ended" \
+    "$state/.subsuper-stale-task-a" "$state/.subsuper-paused-task-a" \
     "$state/.subsuper-pause-until-due-task-a" \
     "$state/.secondmate-wake-stall-task-a" "$state/.secondmate-wake-progress-task-a"
   mkdir -p "$state/.secondmate-wake-stall-receipts/task-a"
   touch "$state/task-a.status" "$state/.seen-task-a_status"
   fm_watch_retire_task_state "$state" task-a || fail "fm_watch_retire_task_state failed"
-  for marker in .subsuper-stale-task-a .subsuper-paused-task-a .subsuper-pause-until-due-task-a \
+  for marker in task-a.turn-ended task-a.progress .seen-task-a_turn-ended \
+      .subsuper-stale-task-a .subsuper-paused-task-a .subsuper-pause-until-due-task-a \
       .secondmate-wake-stall-task-a .secondmate-wake-progress-task-a; do
     [ ! -e "$state/$marker" ] || fail "fm_watch_retire_task_state left $marker"
   done
@@ -5664,6 +5667,72 @@ test_watch_state_lib_retire_bind_and_owner() {
   [ -e "$state/task-a.status" ] && [ -e "$state/.seen-task-a_status" ] \
     || fail "fm_watch_retire_task_state touched status-presentation state it does not own"
   pass "the state library retires window and task markers and binds each endpoint to its owner"
+}
+
+# Distinct endpoints collide on the flattened key space: sess:fm-a.b and
+# sess:fm-a_b both derive sess_fm-a_b, so two live tasks share one marker set.
+# A bind for the colliding sibling must treat the recorded owner as a live
+# sharer - leaving the shared set and its owner record untouched - or the two
+# tasks would thrash-retire each other's counters and throttle markers every
+# poll (window-bind-thrash-on-colliding-live-keys).
+test_colliding_live_keys_share_marker_set() {
+  local dir state key
+  dir=$(make_case key-collision); state="$dir/state"
+  printf 'window=sess:fm-a.b\nkind=ship\n' > "$state/task-a.meta"
+  printf 'window=sess:fm-a_b\nkind=ship\n' > "$state/task-b.meta"
+  key="sess_fm-a_b"
+  printf '4\n' > "$state/.count-$key"
+  : > "$state/.stale-since-$key"
+  printf '2\n' > "$state/.wedge-escalations-$key"
+  printf 'task-a' > "$state/.window-owner-$key"
+
+  # The sibling's bind must not wipe the shared set nor re-point a live owner.
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1/bin/fm-backend.sh"
+    . "$1/bin/fm-watch-state-lib.sh"
+    fm_watch_window_bind "$2" "sess:fm-a_b" task-b
+  ' _ "$ROOT" "$state" || fail "the colliding sibling bind failed"
+  [ "$(cat "$state/.count-$key")" = 4 ] || fail "the colliding bind wiped the shared count"
+  [ -e "$state/.stale-since-$key" ] || fail "the colliding bind wiped the shared timer"
+  [ "$(cat "$state/.wedge-escalations-$key")" = 2 ] \
+    || fail "the colliding bind wiped the shared escalation count"
+  [ "$(cat "$state/.window-owner-$key")" = task-a ] \
+    || fail "the colliding bind re-pointed a live owner's record"
+
+  # task-a's own bind stays a same-owner no-op on the shared set.
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1/bin/fm-backend.sh"
+    . "$1/bin/fm-watch-state-lib.sh"
+    fm_watch_window_bind "$2" "sess:fm-a.b" task-a
+  ' _ "$ROOT" "$state" || fail "the recorded owner's bind failed"
+  [ "$(cat "$state/.count-$key")" = 4 ] && [ -e "$state/.stale-since-$key" ] \
+    || fail "the recorded owner's bind touched the shared set"
+
+  # A dead owner record under a still-shared key is re-pointed at a live
+  # claimant without wiping the shared set.
+  printf 'stale-owner' > "$state/.window-owner-$key"
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1/bin/fm-backend.sh"
+    . "$1/bin/fm-watch-state-lib.sh"
+    fm_watch_window_bind "$2" "sess:fm-a_b" task-b
+  ' _ "$ROOT" "$state" || fail "the dead-owner re-point bind failed"
+  [ "$(cat "$state/.count-$key")" = 4 ] || fail "a still-shared set was wiped with the dead record"
+  [ "$(cat "$state/.window-owner-$key")" = task-b ] \
+    || fail "a dead owner record was not re-pointed at a live claimant"
+
+  # Once no live task shares the key the residue retires as before.
+  rm -f "$state/task-a.meta"
+  printf 'stale-owner' > "$state/.window-owner-$key"
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1/bin/fm-backend.sh"
+    . "$1/bin/fm-watch-state-lib.sh"
+    fm_watch_window_bind "$2" "sess:fm-a_b" task-b
+  ' _ "$ROOT" "$state" || fail "the unshared bind failed"
+  [ "$(cat "$state/.window-owner-$key")" = task-b ] || fail "the unshared bind did not claim the key"
+  [ ! -e "$state/.count-$key" ] && [ ! -e "$state/.stale-since-$key" ] \
+    && [ ! -e "$state/.wedge-escalations-$key" ] \
+    || fail "the unshared residue was not retired"
+  pass "colliding live endpoints share one marker set without thrash, and residue still retires once unshared"
 }
 
 # The pre-owner era: nothing ever wrote .window-owner-* before the bind was
@@ -6053,6 +6122,7 @@ test_paused_until_wrong_year_is_bounded_by_the_cadence
 test_paused_until_that_passed_is_rechecked_before_the_cadence
 test_reused_window_retires_predecessor_state
 test_watch_state_lib_retire_bind_and_owner
+test_colliding_live_keys_share_marker_set
 test_unowned_legacy_residue_never_adopted
 test_watch_orphan_state_sweep
 test_stale_escalation_holds_while_recorded_step_advances
