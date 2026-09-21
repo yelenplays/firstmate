@@ -45,7 +45,10 @@ watch_under_test() {
         || printf '%s' "$task" > "$FM_STATE_OVERRIDE/.window-owner-$key"
     done
   fi
-  "$REAL_WATCH" "$@"
+  # exec: the backgrounded function must BE the watcher process - running it
+  # as a child would leave tests reaping a subshell pid while the real watcher
+  # survives orphaned, still holding .watch.lock for the next launch.
+  exec "$REAL_WATCH" "$@"
 }
 DRAIN="$ROOT/bin/fm-wake-drain.sh"
 
