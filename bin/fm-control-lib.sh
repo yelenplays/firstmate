@@ -216,7 +216,7 @@ fm_control_exit_fallback_repeat() {  # <harness>
 fm_control_backend_supports_key() {  # <backend> <key>
   local backend=${1-} key=${2-}
   case "$backend:$key" in
-    tmux:C-q|herdr:C-q) return 0 ;;
+    herdr:C-q) return 0 ;;
   esac
   case "$backend" in
     tmux|herdr|zellij|cmux)

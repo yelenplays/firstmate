@@ -84,12 +84,6 @@ case "${1:-}" in
     else
       printf '%s\n' "$payload" >> "$D/keys"
       case "$payload" in
-        C-q)
-          if [ "$(grep -c '^C-q$' "$D/keys")" -eq 2 ]; then
-            printf zsh > "$D/command"
-            rm -f "$D/capture"
-          fi
-          ;;
         'export GOTMPDIR='*)
           if [ -n "${FM_FAKE_TRACE_PREPARE:-}" ]; then
             : > "$FM_FAKE_TRACE_PREPARE"
@@ -315,7 +309,7 @@ SH
 
 # --- 1. same-harness relaunch -----------------------------------------------
 
-test_blocked_grok_relaunch_preserves_work_without_typing_exit() {
+test_blocked_grok_relaunch_refuses_without_verified_quit_keys() {
   local dir out rc before
   dir=$(new_case grok-limit)
   add_ship_task "$dir" t1 grok
@@ -324,16 +318,16 @@ test_blocked_grok_relaunch_preserves_work_without_typing_exit() {
   printf 'uncommitted work\n' > "$dir/wt/draft.txt"
   before=$(git -C "$dir/wt" rev-parse HEAD)
   out=$(run_control "$dir" t1 relaunch --harness claude --note 'Continue the preserved work after the quota limit.'); rc=$?
-  expect_code 0 "$rc" "blocked Grok must be replaceable without human input"$'\n'"$out"
-  [ "$(grep -c '^C-q$' "$dir/fake/keys")" -eq 2 ] || fail "blocked relaunch must send the double quit key"
+  expect_code 1 "$rc" "blocked Grok on tmux has no verified quit key and must refuse"$'\n'"$out"
+  assert_no_grep "C-q" "$dir/fake/keys" "an unverified quit key must not be sent"
   if grep -Eq '^/(exit|quit)$' "$dir/fake/literal"; then fail "blocked relaunch must never type into the menu"; fi
-  [ "$(cat "$dir/fake/command")" = claude ] || fail "replacement must actually run"
+  [ "$(cat "$dir/fake/command")" = grok ] || fail "a refused relaunch must leave the old agent running"
   [ "$(git -C "$dir/wt" rev-parse HEAD)" = "$before" ] || fail "relaunch must preserve the branch"
   [ "$(cat "$dir/wt/draft.txt")" = 'uncommitted work' ] || fail "relaunch must preserve uncommitted work"
-  pass "fm-control relaunch: blocked Grok is replaced with work preserved and no typed exit"
+  pass "fm-control relaunch: blocked Grok on tmux refuses and preserves work without typing"
 }
 
-test_blocked_grok_relaunch_preserves_work_without_typing_exit
+test_blocked_grok_relaunch_refuses_without_verified_quit_keys
 
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint() {
   local dir out rc gen_before gen_after

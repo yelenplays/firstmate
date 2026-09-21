@@ -1445,7 +1445,7 @@ ok - live Grok grok 1.0.34 (3736acbc8658): real weekly-limit menu replaced by Pi
 The test reaches the actual `fm-control.sh relaunch` transaction, proves the replacement alive on the same endpoint, and checks that both the branch head and uncommitted file survive.
 Every Herdr call goes through `fm-herdr-lab.sh`, whose teardown verifies that the default session remained unchanged.
 Without `FM_CONTROL_GROK_REQUIRE_LIMIT=1`, an account that does not expose its quota menu reports the missing live coverage explicitly.
-Tmux quit-key delivery and failed/ignored-key postconditions are fixture-proven by `tests/fm-control.test.sh` and `tests/fm-control-relaunch.test.sh`; this refresh did not run the real Grok quit sequence on tmux.
+The non-typing quit fallback is Herdr-only: this refresh did not run the real Grok quit sequence on tmux, so tmux keeps its prior behavior and refuses an unproven Grok composer without sending Ctrl+Q. `tests/fm-control.test.sh` and `tests/fm-control-relaunch.test.sh` pin that tmux refusal and the draft-preserving guards; Herdr's real sequence is the live case above.
 The existing shared-classifier and Herdr backend suites passed without changing other harness expectations; Zellij, Orca, and cmux retain their refusal of stop-proving verbs and gain no quit-key capability.
 
 ### Endpoint recovery classification
