@@ -14,6 +14,7 @@ Every home has its own store; `config/memory-dir` is home-local and is not part 
 A memory is one markdown file `<category>/<topic>.md` written by `remember` with a small frontmatter block (`category`, `created`, `updated`) and a `# <topic>` title.
 The OpenViking categories carry over: `preferences`, `entities`, `events`; `remember` normalizes the singular names.
 The BM25 index is `<store>/.index.json`, a disposable cache owned by [`bin/fm-memory-bm25.mjs`](../bin/fm-memory-bm25.mjs) that self-rebuilds whenever the tree drifts from its recorded manifest, so recall never answers from stale bytes.
+Recall scores the title and body only: the frontmatter block stays structured metadata and is never indexed, so a metadata word or a date is not a ranking signal.
 Session history and other non-memory markdown migrate to `$FM_HOME/data/memory-archive/` rather than into the searchable store.
 
 ## Commands
