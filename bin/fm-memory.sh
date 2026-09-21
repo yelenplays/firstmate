@@ -144,7 +144,7 @@ cmd_remember() {
   [ -n "$topic" ] || { usage; die "remember needs a topic"; }
   for arg in "$@"; do
     case "$arg" in
-      -?*)
+      --category|--category=*|--from-file|--from-file=*)
         die "unexpected option after the body: $arg; supported form: 'remember [--category <cat>] <topic> [body...]' with --category before the topic and the body from arguments or stdin (no --from-file)"
         ;;
     esac

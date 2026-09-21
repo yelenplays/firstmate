@@ -129,4 +129,10 @@ rc=0; "$MEM" remember 'from-file-topic' --from-file "$TMP_ROOT/fact.txt" >/dev/n
 expect_code 2 "$rc" '--from-file is rejected'
 assert_absent "$ALT/preferences/from-file-topic.md" 'rejected --from-file wrote nothing'
 
+# single-dash body tokens and -- escaped bodies are not stale shim options
+"$MEM" remember -- 'dash topic' -5C degrees outside >/dev/null
+assert_grep '-5C degrees outside' "$ALT/preferences/dash-topic.md" '-- escaped single-dash body token is stored'
+"$MEM" remember 'flag note' remember to pass -v for verbose >/dev/null
+assert_grep 'pass -v for verbose' "$ALT/preferences/flag-note.md" 'unquoted single-dash token stays in the body'
+
 pass 'fm-memory behavior suite'
