@@ -187,6 +187,11 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-config-inherit-lib.sh"
 # shellcheck source=bin/fm-secondmate-nudge-lib.sh disable=SC1091
 . "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
+# The watcher marker lifecycle owner: the locked startup sweep retires
+# orphaned per-window/per-task supervision bookkeeping after the backlog
+# reconcile settles which task records are live.
+# shellcheck source=bin/fm-watch-state-lib.sh disable=SC1091
+. "$SCRIPT_DIR/fm-watch-state-lib.sh"
 # shellcheck source=bin/fm-startup-memory-budget-lib.sh disable=SC1091
 . "$SCRIPT_DIR/fm-startup-memory-budget-lib.sh"
 # shellcheck source=bin/fm-x-lib.sh disable=SC1091
@@ -1453,6 +1458,18 @@ if [ "${FM_BOOTSTRAP_DETECT_ONLY:-0}" != 1 ] && local_phase; then
     if [ "$BOOTSTRAP_BACKLOG_RECONCILE_STATUS" -eq 2 ]; then
       exit 1
     fi
+  fi
+  # With the live task-record set settled, retire the watcher supervision
+  # bookkeeping no live meta or task owns - the residue an interrupted
+  # teardown or a torn-down worker leaves behind, which is what a reused
+  # endpoint could otherwise inherit.
+  if BOOTSTRAP_WATCH_SWEEP_COUNT=$(fm_watch_orphan_state_sweep "$STATE"); then
+    if [ "${FM_BOOTSTRAP_VERBOSE_FACTS:-0}" = 1 ] && [ "$BOOTSTRAP_WATCH_SWEEP_COUNT" -gt 0 ]; then
+      echo "BOOTSTRAP_INFO: retired $BOOTSTRAP_WATCH_SWEEP_COUNT orphaned watcher state marker(s)"
+    fi
+  else
+    echo "error: bootstrap could not retire orphaned watcher state in $STATE" >&2
+    exit 1
   fi
 fi
 

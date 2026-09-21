@@ -185,6 +185,12 @@ mkdir -p "$STATE"
 # watcher reads only its presence (afk_record_present below).
 # shellcheck source=bin/fm-afk-contract.sh
 . "$SCRIPT_DIR/fm-afk-contract.sh"
+# Per-window/per-task marker key derivation and lifecycle owner: the bind that
+# stops a reused endpoint from feeding a successor its predecessor's stale and
+# escalation bookkeeping, plus the retirement primitives teardown, spawn, and
+# the session-start sweep call.
+# shellcheck source=bin/fm-watch-state-lib.sh
+. "$SCRIPT_DIR/fm-watch-state-lib.sh"
 
 WATCH_LOCK="$STATE/.watch.lock"
 WATCH_PATH="$SCRIPT_DIR/fm-watch.sh"
@@ -397,19 +403,11 @@ window_label() {
   [ -n "$task" ] && printf 'fm-%s' "$task"
 }
 
-# The ONE derivation of a window's per-window marker key: `:`, `/` and `.` become
-# `_` so a window name is usable as a filename suffix. Every per-window file the
-# watcher keeps is named by it (.hash-, .count-, .stale-, .stale-since-,
-# .wedge-escalations-, .paused-*, .writing-*, .waiting-*), and live homes hold those markers on
-# disk under the current format, so the format lives here alone: a second copy is
-# how a future change to it silently orphans a window's markers instead of clearing
-# them. The helpers below take the derived key rather than re-deriving it, so one
-# poll of one window derives it once.
-window_key() {  # <window>
-  local key=${1//:/_}
-  key=${key//\//_}
-  printf '%s' "${key//./_}"
-}
+# The ONE derivation of a window's per-window marker key lives in
+# bin/fm-watch-state-lib.sh (fm_watch_state_key) - the same owner that retires
+# those markers, so the format can never drift away from its own cleanup. The
+# helpers below take the derived key rather than re-deriving it, so one poll of
+# one window derives it once.
 
 inbox_steer_escalate_unavailable() {  # <window> <task> <record>
   local w=$1 task=$2 rec=$3 reason
@@ -598,7 +596,7 @@ signal_turnend_panes_churned() {  # <file> ...
       w=$(fm_meta_get "$meta" window)
     fi
     key=
-    [ -n "$w" ] && key=$(window_key "$w")
+    [ -n "$w" ] && key=$(fm_watch_state_key "$w")
     label="fm-$rec_task"
     snapshot_tasks+=("$rec_task")
     snapshot_kinds+=("$kind")
@@ -912,7 +910,7 @@ resurface_absorbed() {  # <window> <throttle-marker> <age> <reason> [scope] [min
 # history it had already earned).
 wedge_defer_writing() {  # <window> <since-file> <triage-label> <idle-age>
   local win=$1 since_file=$2 label=$3 age=$4 key wsf wage
-  key=$(window_key "$win")
+  key=$(fm_watch_state_key "$win")
   wsf="$STATE/.writing-since-$key"
   [ -e "$wsf" ] || date +%s > "$wsf"
   wage=$(age_of "$wsf")
@@ -998,7 +996,7 @@ wedge_defer_wait() {  # <window> <task> <since-file> <triage-label> <idle-age> <
     kind='declared wait, awaiting external'
     action='confirm the wait still holds'
   fi
-  key=$(window_key "$win")
+  key=$(fm_watch_state_key "$win")
   mtime=$(stat_mtime "$STATE/$task.status")
   case "$mtime" in
     ''|*[!0-9]*)
@@ -1067,7 +1065,7 @@ clear_write_tracking() {  # <window-key>
 # Returns 0 when it has handled the window, 1 to escalate on the unchanged path.
 wedge_dead_record() {  # <window> <since-file> <triage-label> <idle-age> <pane-hash> <task>
   local win=$1 since_file=$2 label=$3 age=$4 hash=$5 task=$6 key marker agent_state detail reason gen id
-  key=$(window_key "$win")
+  key=$(fm_watch_state_key "$win")
   marker="$STATE/.dead-reported-$key"
   agent_state=$(fm_backend_agent_state "$(window_backend "$win")" "$win" 2>/dev/null) || agent_state=unreadable
   case "$agent_state" in
@@ -1120,7 +1118,7 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
     ''|*[!0-9]*)
       # Publish the repaired timer only after its old write-deferral chain is
       # gone, so observers cannot mistake a new idle window for the old chain.
-      clear_write_tracking "$(window_key "$win")"
+      clear_write_tracking "$(fm_watch_state_key "$win")"
       date +%s > "$since_file"
       triage_log "absorbed $label timer reset: $win"
       ;;
@@ -1138,6 +1136,18 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
         if wedge_dead_record "$win" "$since_file" "$label" "$age" "$hash" "$task"; then
           return 0
         fi
+        # The recorded step carrying this pane is still inside the same
+        # completed-turn bound a busy pane gets (BUSY_TURN_MAX_SECS). An
+        # idle-looking pane in that window is a healthy long silent tool
+        # step - an in-flight sleep-based status poll, a long foreground
+        # command - not a wedge, so the idle threshold must not fire while
+        # the step is still advancing. The timer is left running: the
+        # first poll after the step's own bound crosses still escalates
+        # on this same stale interval, keeping genuine wedge detection.
+        if ! busy_turn_over_age "$task"; then
+          triage_log "absorbed $label escalation held: recorded step still inside the turn bound: $win"
+          return 0
+        fi
         n=$(( $(cat "$escalation_file" 2>/dev/null || echo 0) + 1 ))
         echo "$n" > "$escalation_file"
         reason="stale: $win (idle ${age}s, possible wedge, escalation $n)"
@@ -1146,7 +1156,7 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
         fi
         fm_wake_append stale "$win" "$reason" || exit 1
         rm -f "$since_file"
-        clear_write_tracking "$(window_key "$win")"
+        clear_write_tracking "$(fm_watch_state_key "$win")"
         wake "$reason"
       fi
       ;;
@@ -1185,7 +1195,7 @@ busy_turn_over_age() {  # <task>
 # no declaring verb left on the log, keeps the external-wait wording it always had.
 handle_paused_stale() {  # <window> <task> <hash>
   local win=$1 task=$2 h=$3 key statusf mtime age detail reason declaration last until now min_age
-  key=$(window_key "$win")
+  key=$(fm_watch_state_key "$win")
   printf '%s' "$h" > "$STATE/.stale-$key"
   : > "$STATE/.paused-$key"
   rm -f "$STATE/.stale-since-$key" "$STATE/.wedge-escalations-$key"
@@ -1267,7 +1277,7 @@ busy_turn_bound_check() {  # <window> <task> <hash> <since-file> <escalation-fil
       # not resume its count the moment the declaration is lifted. Normal-mode
       # pause tracking stays unwritten here, exactly as the idle away-mode handoff
       # leaves it, because the daemon owns that bookkeeping.
-      key=$(window_key "$win")
+      key=$(fm_watch_state_key "$win")
       rm -f "$since_file" "$escalation_file"
       clear_write_tracking "$key"
       declared="declared:$(fm_wake_signal_sig "$statusf" || true)"
@@ -1319,7 +1329,7 @@ clear_pause_tracking() {  # <window-key>
 # endpoint liveness this function deliberately never reads.
 pause_state_class() {  # <window> <task>
   local win=$1 task=$2 key last recheck_file class agent_alive kind
-  key=$(window_key "$win")
+  key=$(fm_watch_state_key "$win")
   last=$(last_status_line "$STATE/$task.status")
   recheck_file="$STATE/.paused-rechecked-$key"
   if ! status_is_paused_or_captain_held "$last"; then
@@ -1491,7 +1501,7 @@ captain_call_stale_bound() {  # <window-key> <task>
 # recorded once the captain took the work in hand.
 surface_nonterminal_stale() {  # <window> <hash>
   local win=$1 h=$2 key task last declared=1 bounded=1 throttled=1 until now
-  key=$(window_key "$win")
+  key=$(fm_watch_state_key "$win")
   task=$(window_to_task "$win" "$STATE")
   last=$(last_status_line "$STATE/$task.status")
   STALE_WAIT_DECLARATION=
@@ -2203,6 +2213,16 @@ resurface_after_downtime() {
   wake "check: rearm-resurface"
 }
 
+# Establish each recorded endpoint's owner record before the first poll:
+# anything under a marker key that no live task claimed is residue from a
+# predecessor or from the pre-owner era, and this one pass retires it before
+# any signal or stale path can classify inside it. Doing it here - once,
+# before any marker is written this session - is what keeps a just-created
+# marker from being mistaken for residue by the same poll's in-loop bind.
+while IFS= read -r w; do
+  fm_watch_window_bind "$STATE" "$w" "$(window_to_task "$w" "$STATE")" || exit 1
+done < <(recorded_windows)
+
 while :; do
   # Self-eviction: if the singleton lock no longer names this process, a second
   # watcher has taken over (e.g. a transient duplicate from a racy arm). Stand
@@ -2547,7 +2567,12 @@ EOF
     # Steering-inbox loss detection runs before the secondmate stale
     # exemption below, because a mate's steers land in an inbox too.
     [ -z "$task" ] || inbox_steer_check "$w" "$task"
-    key=$(window_key "$w")
+    key=$(fm_watch_state_key "$w")
+    # A window that changed hands since its markers were written carries the
+    # predecessor's counters, timers, and escalation count under this same key;
+    # the owner bind retires them before any marker below is read, so a fresh
+    # worker can never inherit another worker's stale timeline.
+    fm_watch_window_bind "$STATE" "$w" "$task" || exit 1
     last=$(last_status_line "$STATE/$task.status")
     if ! status_is_paused_or_captain_held "$last" && [ -e "$STATE/.paused-$key" ]; then
       clear_pause_tracking "$key"
