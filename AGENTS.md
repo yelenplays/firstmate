@@ -158,7 +158,7 @@ state/               runtime records and signals; gitignored
   .hash-* .count-* .stale-* .stale-since-* .churn-since-* .paused-* .wedge-escalations-* .dead-reported-* .writing-* .waiting-* .seen-* .hb-surfaced-* .last-* .heartbeat-streak .secondmate-wake-* .window-owner-*   watcher internals; never touch; marker-key derivation, per-endpoint owner binding (lossy keys: distinct endpoints can share one flattened key, so a live sharer's set is never retired), and lifecycle retirement are owned solely by bin/fm-watch-state-lib.sh (spawn and teardown call its retire functions, session-start bootstrap runs its orphan sweep) - never create or remove these files elsewhere
   .watch-triage.log  watcher's absorbed-wake debug log (size-capped); never relied on, safe to delete
   .last-watcher-beat watcher liveness beacon, touched every poll (including while absorbing benign wakes); guard scripts read it
-  .subsuper-* .supervise-daemon.*   sub-supervisor internals; never touch; per-task sub-supervisor markers are retired through bin/fm-watch-state-lib.sh like the watcher's own
+  .subsuper-* .supervise-daemon.*   sub-supervisor internals; never touch; per-task sub-supervisor markers are keyed by the same lossy derivation, so a live sibling task sharing the encoding keeps the set, and they are retired through bin/fm-watch-state-lib.sh like the watcher's own
 .no-mistakes/        local validation state and evidence; gitignored
 ```
 

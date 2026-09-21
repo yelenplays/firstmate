@@ -16,12 +16,11 @@ set -u
 REAL_WATCH="$ROOT/bin/fm-watch.sh"
 # Same spawn-claim ordering model as fm-watch-triage.test.sh: a window any
 # recorded meta names is already owned when the watcher binds, so a fixture's
-# seeded markers survive the first bind; a test modeling unowned residue opts
-# out via FM_TEST_NO_AUTO_OWNER=1.
+# seeded markers survive the first bind.
 WATCH=watch_under_test
 watch_under_test() {
   local meta task window key
-  if [ "${FM_TEST_NO_AUTO_OWNER:-0}" != 1 ] && [ -n "${FM_STATE_OVERRIDE:-}" ]; then
+  if [ -n "${FM_STATE_OVERRIDE:-}" ]; then
     for meta in "$FM_STATE_OVERRIDE"/*.meta; do
       [ -e "$meta" ] || continue
       task=${meta##*/}; task=${task%.meta}

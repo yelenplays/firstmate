@@ -120,6 +120,26 @@ fm_watch_key_live_sharer() {  # <state-dir> <key> [exclude-task] -> prints task
   return 1
 }
 
+# Print the id of a live task whose own id derives <enc> under the same lossy
+# key derivation, excluding <exclude-task>. Prints nothing and returns 1 when
+# no live task shares the encoding. Task ids carry both '.' and '_'
+# (fm_task_id_path_safe allows [A-Za-z0-9._-]), so two live tasks like
+# v2.ship and v2_ship encode to one key: while a live sibling shares the
+# encoding the .subsuper-* markers under it are shared state, not residue.
+fm_watch_task_key_live_sharer() {  # <state-dir> <enc> [exclude-task] -> prints task
+  local state=$1 enc=$2 excl=${3:-} meta mt
+  for meta in "$state"/*.meta; do
+    [ -e "$meta" ] || [ -L "$meta" ] || continue
+    mt=${meta##*/}
+    mt=${mt%.meta}
+    [ "$mt" = "$excl" ] && continue
+    [ "$(fm_watch_state_key "$mt")" = "$enc" ] || continue
+    printf '%s' "$mt"
+    return 0
+  done
+  return 1
+}
+
 # Remove every per-window marker one recorded endpoint target owns. Idempotent;
 # safe to call for a target that never had markers written. A no-op while
 # another live task's endpoint derives the same flattened key: the marker set
@@ -143,8 +163,12 @@ EOF
 # the turn-end's .seen- signature marker - busy_turn_over_age reads those
 # mtimes as the recorded-step age, and a relaunched incarnation must never
 # start its clock from a predecessor's stale anchor), the sub-supervisor's
-# per-task stale/pause episode markers (keyed by the same derivation), and
-# the parent-side secondmate wake-stall trackers (keyed by the raw task id).
+# per-task stale/pause episode markers, and the parent-side secondmate
+# wake-stall trackers. The raw-id files belong to this task alone and always
+# go. The .subsuper-* families and the turn-end's .seen- name are all derived
+# through lossy flattening, so while a live sibling task's id encodes to the
+# same key they are shared state left untouched - removing them would reset
+# that sibling's declared-wait epoch or make its next turn-end replay.
 # Deliberately excludes the status-paired families - the status-presentation
 # owner retires those with <task>.status, and a task's log legitimately
 # outlives one incarnation. Safe at both teardown (task gone) and spawn
@@ -154,13 +178,15 @@ fm_watch_retire_task_state() {  # <state-dir> <task-id>
   [ -n "$task" ] || return 0
   enc=$(fm_watch_state_key "$task")
   rm -f -- "$state/$task.turn-ended" "$state/$task.progress" \
-    "$state/.seen-$(printf '%s' "$task.turn-ended" | tr '.' '_')" \
-    "$state/.subsuper-stale-$enc" "$state/.subsuper-paused-$enc" \
-    "$state/.subsuper-pause-until-due-$enc" \
     "$state/.secondmate-wake-stall-$task" "$state/.secondmate-wake-progress-$task" \
     || return 1
   if [ -d "$state/.secondmate-wake-stall-receipts/$task" ]; then
     rm -rf -- "$state/.secondmate-wake-stall-receipts/$task" || return 1
+  fi
+  if [ -z "$(fm_watch_task_key_live_sharer "$state" "$enc" "$task" || true)" ]; then
+    rm -f -- "$state/.seen-$(printf '%s' "$task.turn-ended" | tr '.' '_')" \
+      "$state/.subsuper-stale-$enc" "$state/.subsuper-paused-$enc" \
+      "$state/.subsuper-pause-until-due-$enc" || return 1
   fi
 }
 

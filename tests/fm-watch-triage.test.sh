@@ -30,12 +30,11 @@ REAL_WATCH="$ROOT/bin/fm-watch.sh"
 # any recorded meta names is already owned when the watcher binds. A fixture's
 # seeded markers then represent the live task's own state and survive the
 # first bind, which retires only keys whose owner record is missing
-# (pre-owner-era residue) or names another task. A test that deliberately
-# models unowned residue opts out via FM_TEST_NO_AUTO_OWNER=1.
+# (pre-owner-era residue) or names another task.
 WATCH=watch_under_test
 watch_under_test() {
   local meta task window key
-  if [ "${FM_TEST_NO_AUTO_OWNER:-0}" != 1 ] && [ -n "${FM_STATE_OVERRIDE:-}" ]; then
+  if [ -n "${FM_STATE_OVERRIDE:-}" ]; then
     for meta in "$FM_STATE_OVERRIDE"/*.meta; do
       [ -e "$meta" ] || continue
       task=${meta##*/}; task=${task%.meta}
@@ -5735,6 +5734,48 @@ test_colliding_live_keys_share_marker_set() {
   pass "colliding live endpoints share one marker set without thrash, and residue still retires once unshared"
 }
 
+# Task ids collide on the same lossy derivation: v2.ship and v2_ship both
+# encode to v2_ship, so their .subsuper-* episode markers and the turn-end
+# .seen- name are shared. Retiring one must leave the sibling's live markers
+# - and the shared seen marker its turn-end dedup needs - untouched, while
+# still removing the acting task's own raw-id anchors
+# (task-key-collision-deletes-sibling-markers).
+test_colliding_task_keys_share_subsuper_markers() {
+  local dir state
+  dir=$(make_case task-key-collision); state="$dir/state"
+  printf 'window=sess:one\nkind=ship\n' > "$state/v2.ship.meta"
+  printf 'window=sess:two\nkind=ship\n' > "$state/v2_ship.meta"
+  touch "$state/.subsuper-stale-v2_ship" "$state/.subsuper-paused-v2_ship" \
+    "$state/.subsuper-pause-until-due-v2_ship" "$state/.seen-v2_ship_turn-ended" \
+    "$state/v2.ship.turn-ended" "$state/v2.ship.progress" "$state/v2_ship.turn-ended"
+
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1/bin/fm-backend.sh"
+    . "$1/bin/fm-watch-state-lib.sh"
+    fm_watch_retire_task_state "$2" "v2.ship"
+  ' _ "$ROOT" "$state" || fail "the task retire under a key collision failed"
+  for marker in .subsuper-stale-v2_ship .subsuper-paused-v2_ship \
+      .subsuper-pause-until-due-v2_ship .seen-v2_ship_turn-ended; do
+    [ -e "$state/$marker" ] || fail "the retire deleted the colliding sibling's shared $marker"
+  done
+  [ ! -e "$state/v2.ship.turn-ended" ] && [ ! -e "$state/v2.ship.progress" ] \
+    || fail "the retire kept the acting task's own turn anchors"
+  [ -e "$state/v2_ship.turn-ended" ] || fail "the retire touched the sibling's raw turn-ended"
+
+  # Once no live task shares the encoding the markers retire with the last id.
+  rm -f "$state/v2_ship.meta"
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1/bin/fm-backend.sh"
+    . "$1/bin/fm-watch-state-lib.sh"
+    fm_watch_retire_task_state "$2" "v2.ship"
+  ' _ "$ROOT" "$state" || fail "the unshared task retire failed"
+  for marker in .subsuper-stale-v2_ship .subsuper-paused-v2_ship \
+      .subsuper-pause-until-due-v2_ship .seen-v2_ship_turn-ended; do
+    [ ! -e "$state/$marker" ] || fail "the unshared retire left $marker"
+  done
+  pass "colliding task ids share their encoded episode markers, and the last id retires them"
+}
+
 # The pre-owner era: nothing ever wrote .window-owner-* before the bind was
 # introduced, so a live home carries a predecessor's endpoint markers under a
 # key with no owner record at all. The bind must treat that key as foreign and
@@ -5902,17 +5943,20 @@ test_stale_escalation_holds_while_recorded_step_advances() {
     && { reap "$pid"; fail "a worker polling its run inside the turn bound was wedge-escalated: $(cat "$out")"; }
   [ ! -e "$state/.wedge-escalations-$key" ] \
     || { reap "$pid"; fail "a worker inside the turn bound counted a wedge escalation"; }
-  # The timer is held, not reset: when the step's own bound later crosses the
-  # same stale interval escalates immediately instead of starting over.
-  [ "$(cat "$state/.stale-since-$key")" -le $(( $(date +%s) - 400 )) ] \
-    || { reap "$pid"; fail "the held deferral reset the wedge timer instead of holding it"; }
+  # The hold re-arms the idle timer like the sibling deferrals: the probes
+  # above run once per stale interval while the pane sits at threshold
+  # instead of on every poll, so the timer is fresh, not still aged.
+  [ "$(cat "$state/.stale-since-$key")" -gt $(( $(date +%s) - 400 )) ] \
+    || { reap "$pid"; fail "the held deferral left the at-threshold probes unbounded instead of re-arming"; }
   reap "$pid"
   ack_stopped_cycle "$state" || fail "could not settle the held-deferral watcher's recovery state"
 
   # The step stops advancing: progress and every other anchor are old, so the
-  # same pane, same hash, same timer escalates - genuine wedge detection keeps
-  # its semantics the moment the recorded step's bound actually crosses.
+  # same pane, same hash escalates once the idle interval has re-accumulated
+  # past the threshold - genuine wedge detection keeps its semantics after
+  # the recorded step's bound crosses.
   touch -t 200001010000 "$state/pollwait.progress"
+  echo $(( $(date +%s) - 300 )) > "$state/.stale-since-$key"
   : > "$out"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
@@ -5972,10 +6016,12 @@ test_stale_escalation_holds_without_progress_marker() {
   reap "$pid"
   ack_stopped_cycle "$state" || fail "could not settle the no-progress watcher's recovery state"
 
-  # The completed-turn anchor crosses the bound: same pane, same hash, same
-  # timer escalates - genuine wedge detection keeps its semantics on a
-  # harness that never writes .progress.
+  # The completed-turn anchor crosses the bound: same pane, same hash
+  # escalates once the idle interval has re-accumulated past the threshold -
+  # genuine wedge detection keeps its semantics on a harness that never
+  # writes .progress.
   touch -t 200001010000 "$state/noprog.turn-ended"
+  echo $(( $(date +%s) - 300 )) > "$state/.stale-since-$key"
   : > "$out"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
@@ -6123,6 +6169,7 @@ test_paused_until_that_passed_is_rechecked_before_the_cadence
 test_reused_window_retires_predecessor_state
 test_watch_state_lib_retire_bind_and_owner
 test_colliding_live_keys_share_marker_set
+test_colliding_task_keys_share_subsuper_markers
 test_unowned_legacy_residue_never_adopted
 test_watch_orphan_state_sweep
 test_stale_escalation_holds_while_recorded_step_advances

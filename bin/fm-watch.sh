@@ -1149,12 +1149,15 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
         # pi-only file. An idle-looking pane inside that bound is a healthy
         # long silent tool step - an in-flight sleep-based status poll, a
         # long foreground command - not a wedge, so the idle threshold must
-        # not fire while the step is still advancing. The timer is left
-        # running: the first poll after the step's own bound crosses still
-        # escalates on this same stale interval, keeping genuine wedge
-        # detection on every harness.
+        # not fire while the step is still advancing. Like the deferrals
+        # above it re-arms the idle timer, so the probes above run once per
+        # STALE_ESCALATE_SECS while the pane sits at threshold instead of on
+        # every poll; a genuinely wedged step still escalates within one
+        # stale interval of its bound crossing, keeping detection on every
+        # harness.
         if ! busy_turn_over_age "$task"; then
           triage_log "absorbed $label escalation held: recorded step still inside the turn bound: $win"
+          date +%s > "$since_file"
           return 0
         fi
         n=$(( $(cat "$escalation_file" 2>/dev/null || echo 0) + 1 ))
