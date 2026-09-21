@@ -43,7 +43,7 @@ mkdir -p "$AXI_STATE/sessions" "$HOME_STATE" "$HOME_DATA"
 export FM_CHROME_AXI_STATE_DIR=$AXI_STATE
 
 # A python stand-in that mirrors the real detached shape: own process group
-# (like detached:true), a same-group "mcp" child, and further children each in
+# (like detached:true), same-group "mcp" children, and further children each in
 # their own process group (the mcp watchdog and the puppeteer Chrome).
 FIXTURE=$TMP_ROOT/chrome-devtools-axi-bridge.py
 cat > "$FIXTURE" <<'PY'
@@ -57,6 +57,8 @@ except OSError:
     pass
 kids = []
 kids.append(subprocess.Popen(["python3", "-c", "import time;time.sleep(300)"]))
+kids.append(subprocess.Popen(["python3", "-c", "import time;time.sleep(300)",
+                             "gap  gap"]))
 kids.append(subprocess.Popen(["python3", "-c", "import time;time.sleep(300)"],
                              start_new_session=True))
 for d in profiles:

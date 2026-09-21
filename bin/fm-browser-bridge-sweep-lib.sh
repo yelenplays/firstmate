@@ -102,6 +102,14 @@ fm_browser_bridge_process_command() { # <pid>
   "$ps_bin" -p "$pid" -o command= 2>/dev/null
 }
 
+# The scan rebuilds a command through awk, which collapses every whitespace run
+# and trims both ends; a raw `ps -p -o command=` read must be collapsed the same
+# way before the two can be compared. `$1=$1` rebuilds $0 with the output field
+# separator, which is exactly that collapse.
+fm_browser_bridge_normalize_command() { # <command>
+  printf '%s\n' "$1" | awk '{$1=$1; print}'
+}
+
 # The pid,ppid,pgid,stat,etime,command process table for this uid, one
 # TAB-separated record per line so descendant and group membership queries
 # work from a single snapshot. FM_BROWSER_BRIDGE_PROC_TABLE (test hook)
@@ -228,11 +236,13 @@ EOF
 
 # Does <pid> still run exactly the command line recorded for it? A recycled
 # pid - or one whose command changed - fails this and is never signalled on
-# the strength of the earlier snapshot.
+# the strength of the earlier snapshot. Both sides are whitespace-normalized so
+# the scan's awk rebuild and a raw ps read compare like for like.
 fm_browser_bridge_pid_matches() { # <pid> <command>
   local pid=$1 want=$2 live
   live=$(fm_browser_bridge_process_command "$pid") || return 1
-  [ "$live" = "$want" ]
+  [ "$(fm_browser_bridge_normalize_command "$live")" \
+    = "$(fm_browser_bridge_normalize_command "$want")" ]
 }
 
 # Is <pid> still the same live tree member the scan recorded - alive, not a
