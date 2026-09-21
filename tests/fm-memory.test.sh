@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Behavior tests for bin/fm-memory.sh and bin/fm-memory-bm25.mjs.
+#
+# Drives the real CLI against a scratch home: writes, BM25 recall, index
+# freshness, store-dir resolution order, and slug/category validation. No
+# network, no OpenViking.
+set -u
+
+# shellcheck source=tests/lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+command -v node >/dev/null 2>&1 || fail "node is required for fm-memory tests"
+
+TMP_ROOT=$(fm_test_tmproot fm-memory)
+HOME_DIR="$TMP_ROOT/home"
+STORE="$HOME_DIR/data/memories"
+mkdir -p "$HOME_DIR/config"
+export FM_HOME=$HOME_DIR
+unset FM_MEMORY_DIR FM_CONFIG_OVERRIDE FM_ROOT_OVERRIDE
+
+MEM="$ROOT/bin/fm-memory.sh"
+
+# --- remember writes category/slug.md with frontmatter -----------------------
+
+out=$("$MEM" remember --category entity 'Tea Kettle' 'the captain uses a steel kettle')
+assert_equals 'entities/tea-kettle.md' "$out" 'remember prints relative path'
+assert_present "$STORE/entities/tea-kettle.md" 'remember wrote the memory file'
+assert_grep 'category: entities' "$STORE/entities/tea-kettle.md" 'category recorded'
+assert_grep '# Tea Kettle' "$STORE/entities/tea-kettle.md" 'title recorded'
+
+# default category is preferences; singular names normalize
+"$MEM" remember 'quiet hours' 'no meetings before ten' >/dev/null
+assert_present "$STORE/preferences/quiet-hours.md" 'default category preferences'
+"$MEM" remember --category event 'launch day' 'fleet v2 went out' >/dev/null
+assert_present "$STORE/events/launch-day.md" 'event normalizes to events'
+
+# stdin body and --category . (store root)
+printf 'from stdin body\n' | "$MEM" remember --category . 'Root Note' >/dev/null
+assert_present "$STORE/root-note.md" 'root category writes at store root'
+assert_grep 'from stdin body' "$STORE/root-note.md" 'stdin body recorded'
+
+# rewrite preserves created date, updates updated
+created1=$(sed -n 's/^created:[[:space:]]*//p' "$STORE/preferences/quiet-hours.md" | head -n1)
+sleep 1
+"$MEM" remember 'quiet hours' 'no meetings before eleven' >/dev/null
+created2=$(sed -n 's/^created:[[:space:]]*//p' "$STORE/preferences/quiet-hours.md" | head -n1)
+assert_equals "$created1" "$created2" 'rewrite preserves created'
+assert_grep 'no meetings before eleven' "$STORE/preferences/quiet-hours.md" 'rewrite updates body'
+
+# --- recall ------------------------------------------------------------------
+
+out=$("$MEM" recall 'steel kettle')
+assert_contains "$out" 'entities/tea-kettle.md' 'recall finds the kettle memory'
+assert_contains "$out" 'Tea Kettle' 'recall shows the title'
+
+out=$("$MEM" find 'eleven')
+assert_contains "$out" 'preferences/quiet-hours.md' 'find alias works'
+
+out=$("$MEM" recall 'qqqzzz')
+assert_equals '' "$out" 'recall prints nothing on zero hits'
+"$MEM" recall 'qqqzzz' >/dev/null || fail 'zero-hit recall must exit 0'
+
+json=$("$MEM" recall --json 'steel kettle')
+printf '%s' "$json" | grep -q '"path":"entities/tea-kettle.md"' \
+  || fail "recall --json must carry the hit path, got: $json"
+
+# ranking: the doc dense in the query term beats one that mentions it once
+"$MEM" remember 'apples' 'apple apple apple orchard harvest' >/dev/null
+"$MEM" remember 'misc' 'one apple and other things entirely unrelated words' >/dev/null
+top=$("$MEM" recall --limit 1 'apple' | head -n1)
+assert_contains "$top" 'preferences/apples.md' 'BM25 ranks the denser doc first'
+
+# stale index self-rebuilds: edit on disk without remember, recall must see it
+printf '# quiet hours\n\nno meetings before noon\n' >> "$STORE/preferences/quiet-hours.md"
+out=$("$MEM" recall 'noon')
+assert_contains "$out" 'quiet-hours.md' 'recall self-rebuilds a stale index'
+
+# --- list / stats / reindex / dir --------------------------------------------
+
+out=$("$MEM" list)
+assert_contains "$out" 'entities/tea-kettle.md' 'list shows memory paths'
+assert_not_contains "$out" '.index.json' 'list hides the index cache'
+
+out=$("$MEM" dir)
+assert_equals "$STORE" "$out" 'dir resolves to FM_HOME data/memories'
+
+out=$("$MEM" stats)
+assert_contains "$out" "dir: $STORE" 'stats prints dir'
+assert_contains "$out" 'documents:' 'stats prints document count'
+
+out=$("$MEM" reindex)
+assert_contains "$out" 'indexed' 'reindex reports'
+assert_present "$STORE/.index.json" 'reindex writes the index cache'
+
+# --- resolution order ---------------------------------------------------------
+
+ALT="$TMP_ROOT/alt-store"
+printf '%s\n' "$ALT" > "$HOME_DIR/config/memory-dir"
+out=$("$MEM" dir)
+assert_equals "$ALT" "$out" 'config/memory-dir wins over default'
+out=$(FM_MEMORY_DIR="$TMP_ROOT/env-store" "$MEM" dir)
+assert_equals "$TMP_ROOT/env-store" "$out" 'FM_MEMORY_DIR wins over config file'
+
+# --- validation ---------------------------------------------------------------
+
+rc=0; "$MEM" remember --category 'bad_cat!' 'x' 'y' >/dev/null 2>&1 || rc=$?
+expect_code 3 "$rc" 'invalid category'
+rc=0; "$MEM" remember '!!!' 'y' </dev/null >/dev/null 2>&1 || rc=$?
+expect_code 3 "$rc" 'topic with no usable characters'
+rc=0; "$MEM" remember 'no-body-topic' </dev/null >/dev/null 2>&1 || rc=$?
+expect_code 2 "$rc" 'missing body'
+rc=0; "$MEM" recall </dev/null >/dev/null 2>&1 || rc=$?
+expect_code 2 "$rc" 'missing query'
+rc=0; "$MEM" bogus-cmd >/dev/null 2>&1 || rc=$?
+expect_code 2 "$rc" 'unknown command'
+
+pass 'fm-memory behavior suite'
