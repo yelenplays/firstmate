@@ -527,10 +527,11 @@ inbox_steer_check() {  # <window> <task>
 #
 # The evidence is the one the pane-staleness backbone below already trusts for
 # liveness: this compares a fresh capture against the .hash- marker that backbone
-# recorded on the previous poll, which is why the derivation lives here with the
-# marker format rather than in the shared classifier. Absorbing here DEFERS a wake
-# rather than swallowing it, and the deferral is BOUNDED: a task's turn-ends may
-# ride churn evidence for at most FM_TURNEND_CHURN_ABSORB_SECS, tracked per window
+# recorded on the previous poll, which is why this derivation lives here beside
+# the staleness backbone rather than in the shared classifier. Absorbing here
+# DEFERS a wake rather than swallowing it, and the deferral is BOUNDED: a task's
+# turn-ends may ride churn evidence for at most FM_TURNEND_CHURN_ABSORB_SECS,
+# tracked per window
 # in .churn-since-, after which the wake surfaces and the window restarts. The
 # bound is what keeps churn from muting supervision outright. A pane that renders
 # continuously - a clock, a spinner, a shell heartbeat, a harness that leaves a
