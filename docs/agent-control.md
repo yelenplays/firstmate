@@ -43,8 +43,8 @@ An interrupt is not complete until the composer is empty.
 muse is the one verified adapter that restores the cancelled prompt back into its composer as real text, so its interrupt key is followed by a Ctrl+U clear; without it the next submitted line - including this plane's own exit command - would concatenate onto the restored prompt and submit both as one line.
 The clear is refused before anything is sent when the recorded backend cannot deliver it.
 
-`exit` requires the exact `empty` composer verdict before typing an exit command and refuses when a draft is visibly pending.
-An unreadable composer can use only an adapter-owned non-typing quit fallback from `bin/fm-control-lib.sh`; absent that capability, it refuses without typing.
+`exit` requires the exact `empty` composer verdict before typing an exit command and refuses when a draft is visibly pending or when real text sits in a container whose geometry cannot be proven (`pending-unproven`).
+An `unknown` composer - no readable draft and no proven geometry - can use only an adapter-owned non-typing quit fallback from `bin/fm-control-lib.sh`; absent that capability, it refuses without typing, and every other verdict refuses as well.
 Both paths retain the same agent-gone postcondition, including when reached through `relaunch`.
 
 **Teardown and discard are not verbs and will not become verbs.**

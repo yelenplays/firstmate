@@ -907,6 +907,15 @@ test_grok_quit_fallback_preserves_guards() {
   out=$(run_control "$dir" t1 exit); rc=$?
   expect_code 1 "$rc" "Grok draft must be preserved"
   [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "pending draft must receive no lifecycle input"
+  dir=$(new_case unproven-grok)
+  add_task "$dir" t1 grok
+  alive_as "$dir" grok
+  printf '╭──────────╮\n│ > draft │\n╰──────────╯\n' > "$dir/fake/pane"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "Grok text in an unproven-geometry composer must be preserved"
+  assert_contains "$out" "visibly holds pending text" \
+    "the refusal should report the unproven draft, not fall through to quit keys"
+  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "pending-unproven draft must receive no lifecycle input"
   dir=$(new_case unknown-pi)
   add_task "$dir" t1 pi
   alive_as "$dir" pi
@@ -914,7 +923,7 @@ test_grok_quit_fallback_preserves_guards() {
   out=$(run_control "$dir" t1 exit); rc=$?
   expect_code 1 "$rc" "Pi must not inherit Grok quit keys"
   [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "other harness unknown composer must remain untouched"
-  pass "fm-control: quit fallback preserves pending drafts, transport failures, stop proof, and other harnesses"
+  pass "fm-control: quit fallback preserves pending and unproven drafts, transport failures, stop proof, and other harnesses"
 }
 
 # --- 6. marker non-regression -----------------------------------------------

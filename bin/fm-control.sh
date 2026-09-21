@@ -29,7 +29,9 @@
 #   exit       Stop the agent, preserving its terminal endpoint, worktree, and
 #              every uncommitted change. Interrupts first when the task reads
 #              busy, then submits the harness's exit command only into a proven
-#              empty composer. An unreadable composer may instead use the
+#              empty composer, and never when a draft is pending or its text
+#              sits in a container whose geometry is unproven. An `unknown`
+#              composer with no readable draft may instead use the
 #              adapter's verified non-typing quit keys (Grok: double Ctrl+Q).
 #              Postcondition: the recovery-grade classifier reports the agent gone.
 #              Already-stopped is success (idempotent).
@@ -488,14 +490,17 @@ do_exit() {
     || composer_state=unknown
   case "$composer_state" in
     empty) ;;
-    pending)
+    pending|pending-unproven)
       die "task $ID's composer visibly holds pending text; refusing to type the $cmd exit command because it would concatenate onto that text. Clear or submit the pending text, then retry '$VERB'"
       ;;
-    *)
+    unknown)
       fallback_key=$(fm_control_exit_fallback_key "$HARNESS") || fallback_key=''
       if [ -z "$fallback_key" ] || ! fm_control_backend_supports_key "$BACKEND" "$fallback_key"; then
         die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
       fi
+      ;;
+    *)
+      die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
       ;;
   esac
   if [ -n "$fallback_key" ]; then
