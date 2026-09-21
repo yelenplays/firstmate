@@ -19,8 +19,9 @@
 # standalone with unchanged default behavior - other flows (fm-bootstrap.sh
 # install <tools> after consent, /updatefirstmate, the afk daemon, existing
 # tests) still call them directly. The one seam this script needed -
-# bootstrap running its detect-only diagnostics without its six mutating
-# sweeps - is an opt-in FM_BOOTSTRAP_DETECT_ONLY=1 flag on fm-bootstrap.sh
+# bootstrap running its detect-only diagnostics without its mutating
+# sweeps (fm-bootstrap.sh's header is the single owner of that enumeration) -
+# is an opt-in FM_BOOTSTRAP_DETECT_ONLY=1 flag on fm-bootstrap.sh
 # itself (default unset/0 = unchanged behavior), not a fork.
 #
 # ORDERING, and why LOCK now runs before BOOTSTRAP (the old AGENTS.md order
@@ -30,12 +31,11 @@
 #                       mutating step runs.
 #   2. bootstrap      - home-local stale Herdr projection cleanup runs only
 #                       when this session actually holds the lock. Detect-only
-#                       diagnostics always run. Bootstrap's six MUTATING sweeps
-#                       (same-home backlog reconciliation,
-#                       secondmate convergence, secondmate liveness, pending remote
-#                       handoff retry, X-mode artifact writes, fleet sync) also run only when
-#                       locked; the four network sweeps run in the deferred
-#                       stage rather than this synchronous bootstrap section.
+#                       diagnostics always run. Bootstrap's own header owns the
+#                       MUTATING-sweep enumeration; those sweeps also run only
+#                       when locked, and the four network ones run in the
+#                       deferred stage rather than this synchronous bootstrap
+#                       section.
 #   3. wake-drain     - presents durable wakes and advances recovery handling
 #                       state, so it only runs when locked. The local bounded
 #                       inactive-outcome startup scan runs in the deferred worker.
@@ -121,8 +121,8 @@
 # and all of which are safe to compute without verified lock ownership.
 # It deliberately skips the network-only GitHub-auth probe because a read-only
 # session has no dispatch, spawn, steer, or merge action for that verdict to gate.
-# Only projection cleanup, the six bootstrap mutating sweeps, and wake-queue
-# presentation are skipped.
+# Only projection cleanup, the bootstrap mutating sweeps (enumerated in
+# fm-bootstrap.sh's header), and wake-queue presentation are skipped.
 # The context and fleet-state digests
 # below are always read-only, so they run unconditionally in both modes.
 #
@@ -194,12 +194,10 @@
 #   --reemit  This process ALREADY took the helm at its own startup and has
 #             only lost its context (a /clear or a compaction). Skip the
 #             mutating sweeps that startup already reconciled - the stale Herdr
-#             projection cleanup and bootstrap's six mutating sweeps (fleet
-#             sync, same-home backlog reconciliation, secondmate convergence and
-#             liveness, pending remote handoff retry, X-mode
-#             artifact writes) - and
-#             re-emit the rest. Wake-queue presentation is NOT skipped: queued
-#             records are this turn's work queue, they arrived after startup,
+#             projection cleanup and bootstrap's mutating sweeps (enumerated in
+#             fm-bootstrap.sh's header) - and re-emit the rest. Wake-queue
+#             presentation is NOT skipped: queued records are this turn's work
+#             queue, they arrived after startup,
 #             and a session that owns the lock is exactly the session that must
 #             handle and acknowledge them. Lock acquisition still runs, because
 #             ownership must be re-verified rather than assumed: fm-lock.sh already treats a lock
