@@ -177,7 +177,11 @@ cmd_remember() {
   file=$dir/$slug.md
   today=$(date +%F)
   if [ -f "$file" ]; then
-    created=$(sed -n 's/^created:[[:space:]]*//p' "$file" | head -n1)
+    created=$(awk '
+      NR == 1 { if ($0 != "---") exit; next }
+      /^---[[:space:]]*$/ { exit }
+      /^created:/ { sub(/^created:[[:space:]]*/, ""); print; exit }
+    ' "$file")
   fi
   [ -n "$created" ] || created=$today
 

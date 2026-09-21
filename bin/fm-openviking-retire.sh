@@ -123,8 +123,10 @@ if [ "$dry_run" -eq 0 ]; then
     printf 'openviking-retire: server process still running\n' >&2
     left=1
   fi
-  if command -v "$CURL" >/dev/null 2>&1 \
-    && "$CURL" -sf -m 2 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
+  if ! command -v "$CURL" >/dev/null 2>&1; then
+    printf 'openviking-retire: cannot verify port %s: %s not found\n' "$PORT" "$CURL" >&2
+    left=1
+  elif "$CURL" -s -o /dev/null -m 2 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
     printf 'openviking-retire: port %s still answers\n' "$PORT" >&2
     left=1
   fi

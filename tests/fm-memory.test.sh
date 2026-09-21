@@ -40,12 +40,18 @@ assert_present "$STORE/root-note.md" 'root category writes at store root'
 assert_grep 'from stdin body' "$STORE/root-note.md" 'stdin body recorded'
 
 # rewrite preserves created date, updates updated
-created1=$(sed -n 's/^created:[[:space:]]*//p' "$STORE/preferences/quiet-hours.md" | head -n1)
-sleep 1
+sed 's/^created:.*/created: 1999-01-01/' "$STORE/preferences/quiet-hours.md" > "$TMP_ROOT/quiet-hours.tmp"
+mv "$TMP_ROOT/quiet-hours.tmp" "$STORE/preferences/quiet-hours.md"
 "$MEM" remember 'quiet hours' 'no meetings before eleven' >/dev/null
 created2=$(sed -n 's/^created:[[:space:]]*//p' "$STORE/preferences/quiet-hours.md" | head -n1)
-assert_equals "$created1" "$created2" 'rewrite preserves created'
+assert_equals '1999-01-01' "$created2" 'rewrite preserves created'
 assert_grep 'no meetings before eleven' "$STORE/preferences/quiet-hours.md" 'rewrite updates body'
+
+# a migrated plain-markdown file whose body begins `created:` must not donate that prose
+printf 'created: 1999-01-01 was when Acme started\nmore body\n' > "$STORE/preferences/acme.md"
+"$MEM" remember 'acme' 'new body' >/dev/null
+assert_grep "created: $(date +%F)" "$STORE/preferences/acme.md" 'body created: line is not reused as the frontmatter date'
+assert_no_grep 'was when Acme started' "$STORE/preferences/acme.md" 'stale body date is discarded'
 
 # --- recall ------------------------------------------------------------------
 

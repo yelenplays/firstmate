@@ -58,18 +58,23 @@ exit 0
 SH
 chmod +x "$FAKEBIN/pkill"
 
-# Fake curl: exit 1 (port closed) unless PORT_UP is set.
+# Fake curl: exit 7 (port closed) by default; with PORT_UP=1 answer 2xx (exit
+# 0), except under -f where an HTTP >= 400 answer exits 22 as real curl does.
 cat > "$FAKEBIN/curl" <<'SH'
 #!/usr/bin/env bash
 printf 'curl %s\n' "$*" >> "${CALLS_LOG:?}"
-[ "${PORT_UP:-0}" = 1 ] && exit 0
-exit 1
+[ "${PORT_UP:-0}" = 1 ] || exit 7
+case "$*" in
+  *-sf*) exit 22 ;;
+esac
+exit 0
 SH
 chmod +x "$FAKEBIN/curl"
 
 RETIRE="$ROOT/bin/fm-openviking-retire.sh"
 run_retire() {
   CALLS_LOG=$CALLS LABELS_FILE=$LABELS OV_PIDS="$TMP_ROOT/pids" \
+    PORT_UP=${PORT_UP:-0} \
     FM_OV_HOME=$OV_HOME_DIR \
     FM_OV_LAUNCHCTL=$FAKEBIN/launchctl FM_OV_PGREP=$FAKEBIN/pgrep \
     FM_OV_PKILL=$FAKEBIN/pkill FM_OV_CURL=$FAKEBIN/curl \
@@ -123,6 +128,23 @@ chmod +x "$FAKEBIN/launchctl"
 rc=0; out=$(run_retire 2>&1) || rc=$?
 expect_code 1 "$rc" 'label surviving bootout is a failure'
 assert_contains "$out" 'still loaded' 'reports the surviving label'
+
+# --- a listener answering on the port is a failure ----------------------------
+
+rm -f "$LABELS" "$TMP_ROOT/pids"
+rc=0; out=$(PORT_UP=1 run_retire 2>&1) || rc=$?
+expect_code 1 "$rc" 'port still answering is a failure'
+assert_contains "$out" 'still answers' 'reports the answering port'
+
+# --- a missing curl probe is unverified, not success ---------------------------
+
+rc=0; out=$(CALLS_LOG=$CALLS LABELS_FILE=$LABELS OV_PIDS="$TMP_ROOT/pids" \
+  FM_OV_HOME=$OV_HOME_DIR \
+  FM_OV_LAUNCHCTL=$FAKEBIN/launchctl FM_OV_PGREP=$FAKEBIN/pgrep \
+  FM_OV_PKILL=$FAKEBIN/pkill FM_OV_CURL="$TMP_ROOT/no-such-curl" \
+  "$RETIRE" 2>&1) || rc=$?
+expect_code 1 "$rc" 'missing curl is unverified'
+assert_contains "$out" 'cannot verify port' 'reports the unverified port'
 
 # --- dry-run changes nothing ---------------------------------------------------
 
