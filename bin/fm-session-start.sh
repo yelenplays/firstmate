@@ -20,7 +20,8 @@
 # install <tools> after consent, /updatefirstmate, the afk daemon, existing
 # tests) still call them directly. The one seam this script needed -
 # bootstrap running its detect-only diagnostics without its mutating
-# sweeps (fm-bootstrap.sh's header is the single owner of that enumeration) -
+# sweeps (fm-bootstrap.sh's header is the single owner of that enumeration,
+# which includes orphaned browser bridge reaping) -
 # is an opt-in FM_BOOTSTRAP_DETECT_ONLY=1 flag on fm-bootstrap.sh
 # itself (default unset/0 = unchanged behavior), not a fork.
 #
@@ -32,8 +33,9 @@
 #   2. bootstrap      - home-local stale Herdr projection cleanup runs only
 #                       when this session actually holds the lock. Detect-only
 #                       diagnostics always run. Bootstrap's own header owns the
-#                       MUTATING-sweep enumeration; those sweeps also run only
-#                       when locked, and the four network ones run in the
+#                       MUTATING-sweep enumeration, which includes the
+#                       orphaned browser bridge reaping; those sweeps also run
+#                       only when locked, and the four network ones run in the
 #                       deferred stage rather than this synchronous bootstrap
 #                       section.
 #   3. wake-drain     - presents durable wakes and advances recovery handling
@@ -122,7 +124,9 @@
 # It deliberately skips the network-only GitHub-auth probe because a read-only
 # session has no dispatch, spawn, steer, or merge action for that verdict to gate.
 # Only projection cleanup, the bootstrap mutating sweeps (enumerated in
-# fm-bootstrap.sh's header), and wake-queue presentation are skipped.
+# fm-bootstrap.sh's header), and wake-queue presentation are skipped; the
+# browser bridge sweep still runs its read-only detection and reports what it
+# found.
 # The context and fleet-state digests
 # below are always read-only, so they run unconditionally in both modes.
 #
@@ -195,7 +199,8 @@
 #             only lost its context (a /clear or a compaction). Skip the
 #             mutating sweeps that startup already reconciled - the stale Herdr
 #             projection cleanup and bootstrap's mutating sweeps (enumerated in
-#             fm-bootstrap.sh's header) - and re-emit the rest. Wake-queue
+#             fm-bootstrap.sh's header, which includes the orphaned browser
+#             bridge reaping) - and re-emit the rest. Wake-queue
 #             presentation is NOT skipped: queued records are this turn's work
 #             queue, they arrived after startup,
 #             and a session that owns the lock is exactly the session that must
