@@ -868,10 +868,40 @@ test_pi_captured_footer_and_zen_rail() {
   screen=$(cat "$ROOT/tests/fixtures/composer/grok-weekly-limit.ansi")
   out=$(fm_composer_classify_screen "$cap" "$screen" '' $'grok\tblocked')
   [ "$out" = unknown ] || fail "Grok limit menu is not a composer"
+  screen=$(printf '%s\n' '' '↑ 0.000 (sub) 0.0%/272k (auto) (openai-codex) gpt-6-astra • xhigh' '~/project (main)')
+  out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
+  [ "$out" = unknown ] || fail "an up-arrow footer spelling must stay unknown, got $out"
   pass "captured Pi stock/Zen footers require identity and preserve pending input and menu refusal"
 }
 
 test_pi_captured_footer_and_zen_rail
+
+test_pi_footer_rule_fragment_never_proves_empty() {
+  local cap screen out rule24 rule10 footer path
+  cap=$'styled=1\ncursor=0\nidentity=1\nrows=40'
+  rule24=$(printf '─%.0s' $(seq 1 24))
+  rule10=$(printf '─%.0s' $(seq 1 10))
+  path='~/project (main)'
+  footer='$0.000 (sub) 0.0%/272k (auto) (openai-codex) gpt-6-astra • xhigh'
+  # A typed draft row of rule glyphs re-opens the scan's pair at that row, so
+  # the pair closes exactly at the row above the path while the draft sits in
+  # the input region above its open.
+  screen=$(printf '%s\n' '' "$rule24" "$rule10" "$rule24" "$path" "$footer")
+  out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
+  [ "$out" = pending-unproven ] \
+    || fail "a typed rule fragment must never prove empty, got '$out'"
+  screen=$(printf '%s\n' '' "$rule24" 'hi' "$rule10" "$rule24" "$path" "$footer")
+  out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
+  [ "$out" = pending-unproven ] \
+    || fail "draft text above a typed rule must never prove empty, got '$out'"
+  screen=$(printf '%s\n' '' "$rule24" 'hi' "$rule10" '' "$rule24" "$path" "$footer")
+  out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
+  [ "$out" = pending-unproven ] \
+    || fail "draft text above a typed rule with a trailing blank must never prove empty, got '$out'"
+  pass "fm_composer_classify_screen: a typed rule fragment in Pi's footer path never proves empty"
+}
+
+test_pi_footer_rule_fragment_never_proves_empty
 
 test_queued_enter_verdict_busy_pending_is_empty() {
   local out

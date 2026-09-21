@@ -1404,7 +1404,7 @@ EOF
 _fm_composer_pi_footer_verdict() {  # <plain-screen> <screen> <styled> <has-identity> <identity>
   local plain=$1 screen=$2 styled=$3 has_identity=$4 identity=$5
   local -a rows=()
-  local line n end first row content pending=0 shape=rail max=$FM_COMPOSER_PI_MAX_LINES
+  local line n end first row content pending=0 shape=rail max=$FM_COMPOSER_PI_MAX_LINES open_row close_row
   case "$max" in ''|*[!0-9]*|0) max=8 ;; esac
   local metrics_re='(^|[[:space:]])[0-9]+([.][0-9]+)?%/[0-9]+([.][0-9]+)?[kM]?([[:space:]]+\(auto\))?[[:space:]]+\([^)]+\)[[:space:]]+[^[:space:]]'
   while IFS= read -r line; do rows+=("$line"); done <<EOF
@@ -1418,7 +1418,7 @@ EOF
     n=$((n - 1))
   done
   [ "$n" -ge 4 ] || { printf unknown; return; }
-  case "$line" in '$'*|↑*) ;; *) printf unknown; return ;; esac
+  case "$line" in '$'*) ;; *) printf unknown; return ;; esac
   [[ "$line" =~ $metrics_re ]] || { printf unknown; return; }
   case "${rows[$((n - 2))]}" in /*|\~/*) ;; *) printf unknown; return ;; esac
   end=$((n - 3))
@@ -1451,6 +1451,19 @@ EOF
   [ "$has_identity" = 1 ] || { printf unknown; return; }
   [ -n "$identity" ] || { printf need-identity; return; }
   if [ "$shape" = pair ]; then
+    open_row=${rows[$FM_COMPOSER_SCAN_PI_OPEN]}
+    close_row=${rows[$FM_COMPOSER_SCAN_PI_CLOSE]}
+    fm_composer_normalize_trim_var open_row
+    fm_composer_normalize_trim_var close_row
+    # A draft row of rule glyphs is indistinguishable from a drawn separator,
+    # so the scan's last pair can bound a fragment with draft rows left above
+    # its open. Equal-width rules around at least one input row are the proof
+    # that the whole input region between them was inspected.
+    if [ "$FM_COMPOSER_SCAN_PI_CLOSE" -le "$((FM_COMPOSER_SCAN_PI_OPEN + 1))" ] \
+       || [ "${#open_row}" -ne "${#close_row}" ]; then
+      printf 'pending-unproven'
+      return
+    fi
     _fm_composer_pi_verdict "$screen" "$styled" "$has_identity" "$identity"
     return
   fi
