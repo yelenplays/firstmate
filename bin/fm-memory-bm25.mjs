@@ -189,9 +189,9 @@ function snippetOf(text, queryTerms) {
 function scoreDoc(doc, terms, dfMap, nDocs, avgLen) {
   let score = 0;
   for (const term of terms) {
-    const tf = doc.tf[term];
+    const tf = Object.hasOwn(doc.tf, term) ? doc.tf[term] : 0;
     if (!tf) continue;
-    const n = dfMap[term] || 0;
+    const n = Object.hasOwn(dfMap, term) ? dfMap[term] : 0;
     const idf = Math.log(1 + (nDocs - n + 0.5) / (n + 0.5));
     const denom = tf + K1 * (1 - B + (B * doc.len) / (avgLen || 1));
     score += idf * ((tf * (K1 + 1)) / denom);

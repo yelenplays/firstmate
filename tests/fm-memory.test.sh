@@ -67,6 +67,10 @@ assert_equals '' "$out" 'frontmatter dates are not indexed'
 out=$("$MEM" recall -- 'steel kettle')
 assert_contains "$out" 'entities/tea-kettle.md' 'recall -- <query> handles end-of-options'
 
+"$MEM" remember 'algebra' 'linear algebra notes' >/dev/null
+out=$("$MEM" recall 'algebra constructor')
+assert_contains "$out" 'preferences/algebra.md' 'inherited term names do not drop matching documents'
+
 out=$("$MEM" recall 'qqqzzz')
 assert_equals '' "$out" 'recall prints nothing on zero hits'
 "$MEM" recall 'qqqzzz' >/dev/null || fail 'zero-hit recall must exit 0'
