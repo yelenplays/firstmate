@@ -60,16 +60,20 @@
 # every production caller already has it.
 set -u
 
-# The ONE derivation of a watcher marker key: ':', '/', and '.' become '_' so
-# an endpoint target or task id is usable as a filename suffix. Every per-
-# window file the watcher keeps is named by it (.hash-, .count-, .stale-,
-# .stale-since-, .wedge-escalations-, .paused-*, .writing-*, .waiting-*,
-# .churn-since-, .dead-reported-, .window-owner-), the sub-supervisor keys its
-# per-task episode markers with the same derivation (.subsuper-stale-,
-# .subsuper-paused-, .subsuper-pause-until-due-), and live homes hold those
-# markers on disk under this exact format, so the format lives here alone: a
-# second copy is how a future change silently orphans markers instead of
-# retiring them.
+# The single shared derivation of a watcher marker key: ':', '/', and '.'
+# become '_' so an endpoint target or task id is usable as a filename suffix.
+# Every per-window file the watcher keeps is named by it (.hash-, .count-,
+# .stale-, .stale-since-, .wedge-escalations-, .paused-*, .writing-*,
+# .waiting-*, .churn-since-, .dead-reported-, .window-owner-), the
+# sub-supervisor keys its per-task episode markers with the same derivation
+# (.subsuper-stale-, .subsuper-paused-, .subsuper-pause-until-due-), and live
+# homes hold those markers on disk under this exact format. The status-paired
+# names above keep their own encoders (bin/fm-classify-lib.sh's
+# status_signal_seen_marker_path, status_heartbeat_seen_marker_path, and
+# status_daemon_seen_marker_path, plus bin/fm-wake-lib.sh's
+# fm_wake_signal_seen_path), and the sweep reconstructs them with this
+# derivation, so a drift on either side silently mispairs or orphans live
+# markers.
 fm_watch_state_key() {  # <window-target-or-task-id> -> marker key
   local key=${1//:/_}
   key=${key//\//_}
