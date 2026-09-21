@@ -278,7 +278,12 @@ STALE_ESCALATE_SECS=${FM_STALE_ESCALATE_SECS:-240}  # idle secs before a provabl
 # non-busy stale - so it escalates via the existing stale reason, escalation
 # counter, and demand-deep-inspection marker for human inspection only, never an
 # automatic interrupt, signal, or restart - unless the crew declared the wait
-# itself, which takes the long pause cadence instead. Set generously above
+# itself, which takes the long pause cadence instead. The same bound also
+# holds an idle-looking pane's wedge escalation while its recorded step is
+# still inside it, so a healthy long silent foreground step (an in-flight
+# sleep-based status poll, a long command with a static pane) is not mistaken
+# for a wedge; the stale timer keeps running and the first poll past the
+# bound still escalates on the stale interval. Set generously above
 # any legitimate interval without observable progress, including silent long
 # tool calls, builds, or test runs.
 BUSY_TURN_MAX_SECS=${FM_BUSY_TURN_MAX_SECS:-3600}
@@ -1137,13 +1142,17 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
           return 0
         fi
         # The recorded step carrying this pane is still inside the same
-        # completed-turn bound a busy pane gets (BUSY_TURN_MAX_SECS). An
-        # idle-looking pane in that window is a healthy long silent tool
-        # step - an in-flight sleep-based status poll, a long foreground
-        # command - not a wedge, so the idle threshold must not fire while
-        # the step is still advancing. The timer is left running: the
-        # first poll after the step's own bound crosses still escalates
-        # on this same stale interval, keeping genuine wedge detection.
+        # completed-turn bound a busy pane gets (BUSY_TURN_MAX_SECS). The
+        # age rests on evidence every harness produces - the completed-turn
+        # marker, else the spawn record - with .progress only freshening the
+        # anchor where a harness emits one, so the hold never depends on a
+        # pi-only file. An idle-looking pane inside that bound is a healthy
+        # long silent tool step - an in-flight sleep-based status poll, a
+        # long foreground command - not a wedge, so the idle threshold must
+        # not fire while the step is still advancing. The timer is left
+        # running: the first poll after the step's own bound crosses still
+        # escalates on this same stale interval, keeping genuine wedge
+        # detection on every harness.
         if ! busy_turn_over_age "$task"; then
           triage_log "absorbed $label escalation held: recorded step still inside the turn bound: $win"
           return 0
@@ -1163,11 +1172,15 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
   esac
 }
 
-# busy_turn_over_age: 0 iff the last completed turn or explicit native-harness
-# progress is at least BUSY_TURN_MAX_SECS old. Progress is actual observed model
-# or tool activity, never a timer or a busy footer. It does not emit a wake or
-# change semantic busy state. Before either marker exists, age the spawn record.
-# The caller checks busy state and routes a crossed bound through inspection.
+# busy_turn_over_age: 0 iff the recorded step's anchor is at least
+# BUSY_TURN_MAX_SECS old. The anchor is evidence every harness produces: the
+# completed-turn marker when one exists, else the spawn record; a .progress
+# marker only freshens the anchor when it is newer, so a harness that never
+# writes one is still bounded by its completed-turn or spawn age rather than
+# held open indefinitely. Progress is actual observed model or tool activity,
+# never a timer or a busy footer. It does not emit a wake or change semantic
+# busy state. The caller checks busy state and routes a crossed bound through
+# inspection.
 busy_turn_over_age() {  # <task>
   local task=$1 f progress
   f="$STATE/$task.turn-ended"

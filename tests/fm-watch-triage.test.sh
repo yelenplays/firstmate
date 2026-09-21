@@ -24,7 +24,30 @@ set -u
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-classify-lib.sh"
 
-WATCH="$ROOT/bin/fm-watch.sh"
+REAL_WATCH="$ROOT/bin/fm-watch.sh"
+# Every fixture launch models production's spawn-claim ordering: fm-spawn.sh
+# writes .window-owner-<key> before it publishes the task's meta, so a window
+# any recorded meta names is already owned when the watcher binds. A fixture's
+# seeded markers then represent the live task's own state and survive the
+# first bind, which retires only keys whose owner record is missing
+# (pre-owner-era residue) or names another task. A test that deliberately
+# models unowned residue opts out via FM_TEST_NO_AUTO_OWNER=1.
+WATCH=watch_under_test
+watch_under_test() {
+  local meta task window key
+  if [ "${FM_TEST_NO_AUTO_OWNER:-0}" != 1 ] && [ -n "${FM_STATE_OVERRIDE:-}" ]; then
+    for meta in "$FM_STATE_OVERRIDE"/*.meta; do
+      [ -e "$meta" ] || continue
+      task=${meta##*/}; task=${task%.meta}
+      window=$(sed -n 's/^window=\(..*\)/\1/p' "$meta" | head -1)
+      [ -n "$window" ] || continue
+      key=$(printf '%s' "$window" | tr ':/.' '___')
+      [ -e "$FM_STATE_OVERRIDE/.window-owner-$key" ] \
+        || printf '%s' "$task" > "$FM_STATE_OVERRIDE/.window-owner-$key"
+    done
+  fi
+  "$REAL_WATCH" "$@"
+}
 DRAIN="$ROOT/bin/fm-wake-drain.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-watch-triage-tests)
@@ -5606,15 +5629,16 @@ test_watch_state_lib_retire_bind_and_owner() {
     [ ! -e "$state/$marker$key" ] || fail "fm_watch_retire_window_state left $marker$key"
   done
 
-  # Bind: an unclaimed key belongs to the live task's own not-yet-bound state
-  # (spawn claims before publish, so predecessor residue always still carries
-  # ITS owner) - a first bind records the owner and leaves the markers alone;
-  # the same owner is a pure no-op; a DIFFERENT recorded owner is what retires.
+  # Bind: only the task the owner record names keeps the key's markers. An
+  # unclaimed key is foreign - legacy residue, or a predecessor whose record
+  # did not survive - so a first bind retires it and records the owner; the
+  # same owner is then a pure no-op; a different owner retires again.
   : > "$state/.wedge-escalations-$key"; printf '3\n' > "$state/.count-$key"
   fm_watch_window_bind "$state" "$w" task-a || fail "first bind failed"
   [ "$(cat "$state/.window-owner-$key")" = task-a ] || fail "the first bind did not record task-a"
-  [ -e "$state/.wedge-escalations-$key" ] && [ "$(cat "$state/.count-$key")" = 3 ] \
-    || fail "a first bind wiped the live task's own not-yet-bound markers"
+  [ ! -e "$state/.wedge-escalations-$key" ] && [ ! -e "$state/.count-$key" ] \
+    || fail "a first bind adopted ownerless residue instead of retiring it"
+  : > "$state/.wedge-escalations-$key"; printf '3\n' > "$state/.count-$key"
   fm_watch_window_bind "$state" "$w" task-a || fail "same-owner bind failed"
   [ -e "$state/.wedge-escalations-$key" ] && [ "$(cat "$state/.count-$key")" = 3 ] \
     || fail "a same-owner bind cleared live state it must preserve"
@@ -5640,6 +5664,42 @@ test_watch_state_lib_retire_bind_and_owner() {
   [ -e "$state/task-a.status" ] && [ -e "$state/.seen-task-a_status" ] \
     || fail "fm_watch_retire_task_state touched status-presentation state it does not own"
   pass "the state library retires window and task markers and binds each endpoint to its owner"
+}
+
+# The pre-owner era: nothing ever wrote .window-owner-* before the bind was
+# introduced, so a live home carries a predecessor's endpoint markers under a
+# key with no owner record at all. The bind must treat that key as foreign and
+# retire the residue, never adopt it into the new task's timeline: the bind's
+# old no-owner branch claimed the key and left a backdated stale-since timer
+# and a wedge count in place, which is exactly how a successor inherited an
+# escalation.
+test_unowned_legacy_residue_never_adopted() {
+  local dir state w key seeded_since marker
+  dir=$(make_case unowned-residue); state="$dir/state"
+  w="test:fm-legacy"
+  # shellcheck source=bin/fm-watch-state-lib.sh
+  . "$ROOT/bin/fm-watch-state-lib.sh"
+  key=$(fm_watch_state_key "$w")
+
+  printf 'legacy-hash' > "$state/.hash-$key"
+  printf 'legacy-hash' > "$state/.stale-$key"
+  seeded_since=$(( $(date +%s) - 500 ))
+  printf '%s\n' "$seeded_since" > "$state/.stale-since-$key"
+  printf '2\n' > "$state/.wedge-escalations-$key"
+  printf '7\n' > "$state/.count-$key"
+  : > "$state/.paused-$key"
+  [ ! -e "$state/.window-owner-$key" ] || fail "fixture unexpectedly has an owner record"
+
+  fm_watch_window_bind "$state" "$w" successor || fail "the bind failed"
+  [ "$(cat "$state/.window-owner-$key")" = successor ] \
+    || fail "the bind did not record the new task as owner"
+  [ ! -e "$state/.stale-since-$key" ] \
+    || fail "the unowned backdated stale-since timer was inherited"
+  for marker in .hash- .stale- .wedge-escalations- .count- .paused-; do
+    [ ! -e "$state/$marker$key" ] \
+      || fail "the bind adopted ownerless $marker residue instead of retiring it"
+  done
+  pass "a window whose markers carry no owner record is foreign residue the bind retires, never adopts"
 }
 
 test_watch_orphan_state_sweep() {
@@ -5798,6 +5858,69 @@ test_stale_escalation_holds_while_recorded_step_advances() {
   pass "a long silent poll holds the idle threshold while its recorded step advances, then escalates once it stops"
 }
 
+# A harness that never writes .progress at all (every harness except pi today):
+# the hold must rest on the anchor every harness produces - the completed-turn
+# marker, else the spawn record - never on a pi-only file, or a genuinely
+# wedged worker on such a harness would outlast the bound undetected, and a
+# healthy silent step would still escalate inside it.
+test_stale_escalation_holds_without_progress_marker() {
+  local dir state fakebin out capture_file window key pane_hash sig pid
+  dir=$(make_case sleep-poll-noprogress); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture_file="$dir/pane.txt"; window="test:fm-noprog"
+  printf 'sleep 240 && run-status' > "$capture_file"
+  printf 'window=%s\nkind=ship\n' "$window" > "$state/noprog.meta"
+  printf 'working: polling the run\n' > "$state/noprog.status"
+  sig=$(seen_sig "$state/noprog.status"); printf '%s' "$sig" > "$state/.seen-noprog_status"
+  key=$(printf '%s' "$window" | tr ':/.' '___')
+  pane_hash=$(hash_text "sleep 240 && run-status")
+  # Same deep wedge timeline as the incident pane: stable hash, recorded
+  # classification, and a timer already past the escalation threshold.
+  printf 'noprog' > "$state/.window-owner-$key"
+  printf '%s' "$pane_hash" > "$state/.hash-$key"
+  printf '1\n' > "$state/.count-$key"
+  printf '%s' "$pane_hash" > "$state/.stale-$key"
+  echo $(( $(date +%s) - 500 )) > "$state/.stale-since-$key"
+  # No .progress file exists anywhere in this fixture. The every-harness
+  # anchor is the completed-turn marker, still fresh inside the bound; the
+  # spawn record underneath it is old and never what the age rests on.
+  touch -t 200001010000 "$state/noprog.meta"
+  touch "$state/noprog.turn-ended"
+  [ ! -e "$state/noprog.progress" ] || fail "fixture unexpectedly has a progress marker"
+  export FM_FAKE_CREW_STATE='state: working · source: run-step · validating (running)'
+
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_BUSY_TURN_MAX_SECS=3600 FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  if ! wait_poll_cycle "$state" "$pid"; then
+    reap "$pid"; fail "a no-progress-harness worker inside the turn bound was wedge-escalated: $(cat "$out")"
+  fi
+  grep -F "possible wedge" "$out" >/dev/null \
+    && { reap "$pid"; fail "a no-progress-harness worker inside the turn bound was wedge-escalated: $(cat "$out")"; }
+  [ ! -e "$state/.wedge-escalations-$key" ] \
+    || { reap "$pid"; fail "a no-progress-harness worker inside the turn bound counted a wedge escalation"; }
+  reap "$pid"
+  ack_stopped_cycle "$state" || fail "could not settle the no-progress watcher's recovery state"
+
+  # The completed-turn anchor crosses the bound: same pane, same hash, same
+  # timer escalates - genuine wedge detection keeps its semantics on a
+  # harness that never writes .progress.
+  touch -t 200001010000 "$state/noprog.turn-ended"
+  : > "$out"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_BUSY_TURN_MAX_SECS=3600 FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_for_exit "$pid" 100 || fail "a no-progress-harness pane whose turn anchor crossed the bound did not wedge-escalate"
+  grep -F "possible wedge, escalation 1" "$out" >/dev/null \
+    || fail "the no-progress-harness escalation did not flag a possible wedge: $(cat "$out")"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the no-progress escalation"
+  unset FM_FAKE_CREW_STATE
+  pass "the hold rests on the every-harness turn anchor, so a harness with no .progress marker still defers and still detects"
+}
+
 # CI's stock macOS Bash lane sets FM_TEST_ONLY to run just the bash-3.2
 # churn-deferral regression. The rest of this file is not a 3.2 snapshot suite.
 if [ -n "${FM_TEST_ONLY:-}" ]; then
@@ -5930,5 +6053,7 @@ test_paused_until_wrong_year_is_bounded_by_the_cadence
 test_paused_until_that_passed_is_rechecked_before_the_cadence
 test_reused_window_retires_predecessor_state
 test_watch_state_lib_retire_bind_and_owner
+test_unowned_legacy_residue_never_adopted
 test_watch_orphan_state_sweep
 test_stale_escalation_holds_while_recorded_step_advances
+test_stale_escalation_holds_without_progress_marker

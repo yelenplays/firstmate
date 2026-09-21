@@ -19,15 +19,14 @@
 #   bind    fm_watch_window_bind, called by the watcher for every recorded
 #           window once at startup and again per poll before any marker is
 #           read. The .window-owner-<key> marker records which task the key's
-#           state belongs to. Three cases: the recorded owner IS the task -
-#           one marker read and return; a DIFFERENT owner is recorded - the
-#           key belongs to a predecessor, so every window-keyed marker is
-#           retired before it can be read, then the new owner is written; no
-#           owner is recorded - the markers can only be this task's own
-#           not-yet-claimed state (spawn claims at publish, so a predecessor's
-#           residue always still carries ITS owner), so the task just claims
-#           the key without touching the markers. Detection semantics are
-#           unchanged: the successor's own fresh counters still classify,
+#           state belongs to. Two cases: the recorded owner IS the task - one
+#           marker read and return; any other owner, including no record at
+#           all, makes the key foreign - a predecessor's residue, or markers
+#           from before the owner era - so every window-keyed marker is
+#           retired before it can be read, then the new owner is written.
+#           Spawn claims the key before it publishes the record, so a task
+#           never loses its own live markers to this bind. Detection semantics
+#           are unchanged: the successor's own fresh counters still classify,
 #           absorb, and escalate exactly as before.
 #
 #   retire  fm_watch_retire_window_state + fm_watch_retire_task_state, called
@@ -149,27 +148,19 @@ fm_watch_window_claim() {  # <state-dir> <window-target> <task>
 
 # Bind a recorded window's marker set to its current owning task. The owner
 # recorded in .window-owner-<key> decides:
-#   same task:        one marker read and return - the steady-state cost.
-#   different owner:  the key belongs to a predecessor, so the whole marker
-#                     set is retired before it can be read, then the new
-#                     owner is written.
-#   no owner record:  claim the key for this task and leave the markers alone.
-#                     Spawn writes the owner at claim time before the meta is
-#                     published, so a predecessor's residue always still
-#                     carries ITS owner record; whatever sits under an
-#                     unclaimed key is this task's own not-yet-bound state
-#                     (including anything a signal path wrote earlier in the
-#                     same poll) and must never be mistaken for residue.
+#   same task:  one marker read and return - the steady-state cost.
+#   otherwise:  the key is foreign. A different owner means a predecessor's
+#               residue; no owner at all means markers from before the owner
+#               era (or a predecessor whose record did not survive). Retire
+#               the whole set before it can be read, then write the new owner.
+#               Spawn claims the key before publishing its record, so this can
+#               never erase the current task's own live markers.
 fm_watch_window_bind() {  # <state-dir> <window-target> <task>
   local state=$1 w=$2 task=$3 key owner_file owner
   [ -n "$w" ] && [ -n "$task" ] || return 0
   key=$(fm_watch_state_key "$w")
   owner_file="$state/.window-owner-$key"
   owner=$(cat "$owner_file" 2>/dev/null || true)
-  if [ -z "$owner" ]; then
-    fm_watch_window_owner_write "$owner_file" "$task"
-    return $?
-  fi
   [ "$owner" = "$task" ] && return 0
   fm_watch_retire_window_state "$state" "$w" || return 1
   fm_watch_window_owner_write "$owner_file" "$task"
@@ -312,7 +303,7 @@ fm_watch_orphan_state_sweep() {  # <state-dir>
       base=${marker##*/}
       case "$seen_files" in *$'\n'"$base"$'\n'*) continue ;; esac
       seen_files="$seen_files$base"$'\n'
-      key=${base#$family}
+      key=${base#"$family"}
       case "$live_keys" in *$'\n'"$key"$'\n'*) continue ;; esac
       rm -f -- "$marker" || return 1
       removed=$((removed + 1))
