@@ -112,6 +112,34 @@ rc=0; node "$ROOT/bin/fm-memory-bm25.mjs" build --dir "$STORE" --index "$TMP_ROO
 expect_code 2 "$rc" 'the removed --index option is rejected'
 assert_absent "$TMP_ROOT/custom.json" 'rejected --index wrote no index'
 
+# an unreadable file must keep the index stale instead of falsely fresh
+LOCKED="$STORE/preferences/locked.md"
+printf '# locked\nsecret word zyxwvu\n' > "$LOCKED"
+chmod 000 "$LOCKED"
+if [ -r "$LOCKED" ]; then
+  chmod 644 "$LOCKED"
+  pass 'unreadable-file staleness skipped because permissions cannot deny reads'
+else
+  "$MEM" reindex >/dev/null
+  out=$("$MEM" stats)
+  assert_contains "$out" 'index: stale' 'unreadable file keeps the index stale'
+  chmod 644 "$LOCKED"
+  out=$("$MEM" recall 'zyxwvu')
+  assert_contains "$out" 'preferences/locked.md' 'restored readable file becomes searchable'
+fi
+
+# an unwritable store surfaces the documented usage exit instead of a crash
+rm -f "$STORE/.index.json"
+chmod 555 "$STORE"
+if [ -w "$STORE" ]; then
+  chmod 755 "$STORE"
+  pass 'unwritable-store write exit skipped because permissions cannot deny writes'
+else
+  rc=0; "$MEM" recall 'steel kettle' >/dev/null 2>&1 || rc=$?
+  chmod 755 "$STORE"
+  expect_code 2 "$rc" 'unwritable index exits 2'
+fi
+
 # --- resolution order ---------------------------------------------------------
 
 ALT="$TMP_ROOT/alt-store"

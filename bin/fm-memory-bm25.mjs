@@ -96,6 +96,7 @@ function buildIndex(dir) {
     try {
       text = fs.readFileSync(path.join(dir, rel), 'utf8');
     } catch {
+      delete manifest[rel];
       continue;
     }
     const tokens = tokenize(bodyText(text));
@@ -140,8 +141,16 @@ function loadIndex(file) {
 
 function writeIndex(file, index) {
   const tmp = `${file}.tmp.${process.pid}`;
-  fs.writeFileSync(tmp, JSON.stringify(index));
-  fs.renameSync(tmp, file);
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(index));
+    fs.renameSync(tmp, file);
+  } catch (err) {
+    try {
+      fs.unlinkSync(tmp);
+    } catch {
+    }
+    die(`cannot write index ${file}: ${err.message}`);
+  }
 }
 
 function bodyText(text) {
