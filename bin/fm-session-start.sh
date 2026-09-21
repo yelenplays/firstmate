@@ -20,8 +20,7 @@
 # install <tools> after consent, /updatefirstmate, the afk daemon, existing
 # tests) still call them directly. The one seam this script needed -
 # bootstrap running its detect-only diagnostics without its mutating
-# sweeps (fm-bootstrap.sh's header is the single owner of that enumeration,
-# which includes orphaned browser bridge reaping) -
+# sweeps (fm-bootstrap.sh's header is the single owner of that enumeration) -
 # is an opt-in FM_BOOTSTRAP_DETECT_ONLY=1 flag on fm-bootstrap.sh
 # itself (default unset/0 = unchanged behavior), not a fork.
 #
@@ -33,9 +32,8 @@
 #   2. bootstrap      - home-local stale Herdr projection cleanup runs only
 #                       when this session actually holds the lock. Detect-only
 #                       diagnostics always run. Bootstrap's own header owns the
-#                       MUTATING-sweep enumeration, which includes the
-#                       orphaned browser bridge reaping; those sweeps also run
-#                       only when locked, and the four network ones run in the
+#                       MUTATING-sweep enumeration; those sweeps also run only
+#                       when locked, and the four network ones run in the
 #                       deferred stage rather than this synchronous bootstrap
 #                       section.
 #   3. wake-drain     - presents durable wakes and advances recovery handling
@@ -123,8 +121,8 @@
 # and all of which are safe to compute without verified lock ownership.
 # It deliberately skips the network-only GitHub-auth probe because a read-only
 # session has no dispatch, spawn, steer, or merge action for that verdict to gate.
-# Only projection cleanup, the bootstrap mutating sweeps (enumerated in
-# fm-bootstrap.sh's header), and wake-queue presentation are skipped; the
+# Only projection cleanup, the mutating half of bootstrap's sweeps (enumerated
+# in fm-bootstrap.sh's header), and wake-queue presentation are skipped; the
 # browser bridge sweep still runs its read-only detection and reports what it
 # found.
 # The context and fleet-state digests
@@ -199,10 +197,9 @@
 #             only lost its context (a /clear or a compaction). Skip the
 #             mutating sweeps that startup already reconciled - the stale Herdr
 #             projection cleanup and bootstrap's mutating sweeps (enumerated in
-#             fm-bootstrap.sh's header, which includes the orphaned browser
-#             bridge reaping) - and re-emit the rest. Wake-queue
-#             presentation is NOT skipped: queued records are this turn's work
-#             queue, they arrived after startup,
+#             fm-bootstrap.sh's header) - and re-emit the rest.
+#             Wake-queue presentation is NOT skipped: queued
+#             records are this turn's work queue, they arrived after startup,
 #             and a session that owns the lock is exactly the session that must
 #             handle and acknowledge them. Lock acquisition still runs, because
 #             ownership must be re-verified rather than assumed: fm-lock.sh already treats a lock
@@ -622,8 +619,8 @@ if [ "$REEMIT" -eq 1 ]; then
   printf 'context. Lock ownership is re-verified and the durable records below are\n'
   printf 'reprinted, but the sweeps startup already reconciled - project clone refresh,\n'
   printf 'secondmate convergence and liveness, pending remote handoff\n'
-  printf 'retry, X-mode artifact writes, orphaned watcher state cleanup, and stale Herdr\n'
-  printf 'child cleanup - are NOT repeated.\n'
+  printf 'retry, X-mode artifact writes, orphaned browser bridge reaping, orphaned\n'
+  printf 'watcher state cleanup, and stale Herdr child cleanup - are NOT repeated.\n'
   printf 'Queued wakes ARE still drained: they arrived after startup and are this turn work.\n'
 else
   section "SESSION START - $FM_HOME"
@@ -644,8 +641,8 @@ if [ "$LOCK_RC" -ne 0 ]; then
     printf '●  %s\n' "$LOCK_OUT"
     printf '●  Skipping every mutating step: stale Herdr child cleanup,\n'
     printf '●  secondmate convergence, secondmate liveness, pending remote handoff retry,\n'
-    printf '●  X-mode artifacts, fleet sync, orphaned watcher state cleanup, and wake-queue\n'
-    printf '●  drain. Detect-only bootstrap\n'
+    printf '●  X-mode artifacts, fleet sync, orphaned browser bridge reaping, orphaned\n'
+    printf '●  watcher state cleanup, and wake-queue drain. Detect-only bootstrap\n'
     printf '●  diagnostics and the rest of this read-only-safe digest still ran below.\n'
     printf '●  Operate read-only until this resolves - do not spawn, steer, merge, or\n'
     printf '●  otherwise mutate fleet state from this session.\n'

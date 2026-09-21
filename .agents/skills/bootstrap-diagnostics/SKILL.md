@@ -77,5 +77,6 @@ When any diagnostic needs captain attention, report the plain consequence and re
   A `left bridge ... running - owner could not be proven dead` or `... not attributable to a firstmate task` line is a deliberate refusal: verify by hand before touching that tree, and never kill a bridge on a guess.
   A `left profile dir ... a live process still names it` line means the orphan's tree was reaped but its profile is shared with a live consumer, so the profile was kept on purpose; touch it only after you have confirmed that consumer is gone.
   A `partially survived` warning or `could not remove` line means manual cleanup is needed; kill the named process group and remove the named profile dir yourself after verifying them.
+  A `process scan failed; sweep did not run` line means the sweep could not read the process table, so nothing was reaped this run; fix the scan failure rather than assuming there was nothing to reap.
 - `FMX: X mode on ...` / `FMX: X mode off ...` - bootstrap confirmed or removed the local Relay poll artifacts (`docs/configuration.md` "Relay (.env)"); the emitted line still carries Relay's former `X mode` wording.
   Only when a running watcher needs the cadence transition applied immediately, restart the home-scoped watcher through the emitted harness supervision protocol; bootstrap deliberately never restarts the watcher itself.

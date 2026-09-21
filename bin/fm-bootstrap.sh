@@ -108,9 +108,10 @@
 #          the bridge is detached and has no parent-liveness check, so a task
 #          that ends without a signal leaves bridge, mcp, and Chrome running.
 #          Every reap names the process group, age, and profile dir first, and
-#          the tree's --user-data-dir profile directories are removed only when
-#          they sit under a temporary root. A bridge with a live owner, an
-#          unproven owner, or no firstmate attribution is never touched, and
+#          the tree's --user-data-dir profile directories are removed only under
+#          the sweep library's removable rules; anything else is reported and
+#          left. A bridge with a live owner, an unproven owner, or no
+#          firstmate attribution is never touched, and
 #          stale bridge pid files are removed once their recorded pid is dead
 #          or reused. Its detect-only mode reports the same findings without
 #          reaping.
