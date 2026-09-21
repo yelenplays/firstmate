@@ -1,0 +1,10 @@
+# Regression proof for target commit 176a82d (own-key BM25 lookups)
+# Store: one memory preferences/algebra.md containing 'linear algebra notes'
+
+$ node <parent-engine> query --dir <store> --query 'algebra constructor'
+[exit 0]  <-- before fix: matching doc silently dropped, exit 0
+
+$ node <target-engine> query --dir <store> --query 'algebra constructor'
+0.396	preferences/algebra.md	algebra
+    # algebra linear algebra notes 
+[exit 0]  <-- after fix: hit returned

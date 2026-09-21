@@ -1,0 +1,269 @@
+############################################################
+# Scenario A: plain markdown store + BM25 recall (live)
+# repo: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5
+# FM_HOME: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mem-scenario.spdd6Q/home
+############################################################
+
+=== A1. remember writes plain markdown with frontmatter and title ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh remember --category entity Tea Kettle the captain uses a steel kettle
+entities/tea-kettle.md
+[exit 0]
+--- raw file on disk (persisted state) ---
+---
+category: entities
+created: 2026-09-21
+updated: 2026-09-21
+---
+# Tea Kettle
+
+the captain uses a steel kettle
+
+=== A2. category normalization and default category ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh remember quiet hours no meetings before ten
+preferences/quiet-hours.md
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh remember --category event launch day fleet v2 went out
+events/launch-day.md
+[exit 0]
+--- files present ---
+./entities/tea-kettle.md
+./events/launch-day.md
+./preferences/quiet-hours.md
+
+=== A3. recall finds a memory by keyword and shows title + snippet ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall steel kettle
+2.183	entities/tea-kettle.md	Tea Kettle
+    # Tea Kettle the captain uses a steel kettle 
+[exit 0]
+
+=== A4. recall --json envelope ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall --json steel kettle
+{"version":1,"dir":"/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mem-scenario.spdd6Q/home/data/memories","count":1,"documents":[{"path":"entities/tea-kettle.md","score":2.183,"title":"Tea Kettle","snippet":"# Tea Kettle the captain uses a steel kettle "}]}
+[exit 0]
+
+=== A5. BM25 ranking: denser doc beats single mention ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh remember apples apple apple apple orchard harvest
+preferences/apples.md
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh remember misc one apple and other things entirely unrelated words
+preferences/misc.md
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall --limit 1 apple
+1.419	preferences/apples.md	apples
+    # apples apple apple apple orchard harvest 
+[exit 0]
+
+=== A6. zero-hit recall prints nothing and exits 0 ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall qqqzzz
+[exit 0]
+
+=== A7. frontmatter metadata is not a ranking signal (adversarial) ===
+--- query 'updated' (only in frontmatter) ---
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall updated
+[exit 0]
+--- query 'category' (only in frontmatter) ---
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall category
+[exit 0]
+--- query '2026' (frontmatter date) ---
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall 2026
+[exit 0]
+--- query 'entities' (frontmatter category value) ---
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall entities
+[exit 0]
+
+=== A8. index self-rebuilds on out-of-band edit ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall noon
+1.165	preferences/quiet-hours.md	quiet hours
+    # quiet hours no meetings before ten # quiet hours no meetings before noon 
+[exit 0]
+--- stats after recall ---
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh stats
+dir: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mem-scenario.spdd6Q/home/data/memories
+documents: 5
+index: fresh
+[exit 0]
+--- delete the cache; recall must rebuild from plain files ---
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall noon
+1.165	preferences/quiet-hours.md	quiet hours
+    # quiet hours no meetings before ten # quiet hours no meetings before noon 
+[exit 0]
+
+=== A9. rewrite preserves created, updates updated ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh remember quiet hours no meetings before eleven
+preferences/quiet-hours.md
+[exit 0]
+--- frontmatter after rewrite ---
+---
+category: preferences
+created: 1999-01-01
+updated: 2026-09-21
+---
+# quiet hours
+
+=== A10. inherited Object.prototype term names do not drop matches (adversarial) ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh remember algebra linear algebra notes
+preferences/algebra.md
+[exit 0]
+--- query 'algebra constructor' ---
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall algebra constructor
+2.375	preferences/algebra.md	algebra
+    # algebra linear algebra notes 
+[exit 0]
+--- query 'algebra' (control) ---
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall algebra
+2.375	preferences/algebra.md	algebra
+    # algebra linear algebra notes 
+[exit 0]
+--- query 'toString valueOf' (other inherited names) ---
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall algebra toString valueOf
+2.375	preferences/algebra.md	algebra
+    # algebra linear algebra notes 
+[exit 0]
+
+=== A11. removed 'find' alias is rejected (adversarial) ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh find steel kettle
+Usage:
+  fm-memory.sh remember [--category <cat>] <topic> [body...]
+  fm-memory.sh recall [--json] [--limit <n>] <query>
+  fm-memory.sh list [prefix]
+  fm-memory.sh reindex
+  fm-memory.sh stats
+  fm-memory.sh dir
+memory: unknown command: find
+[exit 2]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh bogus-cmd
+Usage:
+  fm-memory.sh remember [--category <cat>] <topic> [body...]
+  fm-memory.sh recall [--json] [--limit <n>] <query>
+  fm-memory.sh list [prefix]
+  fm-memory.sh reindex
+  fm-memory.sh stats
+  fm-memory.sh dir
+memory: unknown command: bogus-cmd
+[exit 2]
+
+=== A12. list / dir / stats / reindex ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh list
+entities/tea-kettle.md
+events/launch-day.md
+preferences/algebra.md
+preferences/apples.md
+preferences/misc.md
+preferences/quiet-hours.md
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh dir
+/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mem-scenario.spdd6Q/home/data/memories[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh stats
+dir: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mem-scenario.spdd6Q/home/data/memories
+documents: 6
+index: fresh
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh reindex
+indexed 6 documents
+[exit 0]
+--- index cache present ---
+-rw-r--r--@ 1 yelen  staff  1416 Sep 21 12:16 /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mem-scenario.spdd6Q/home/data/memories/.index.json
+--- list hides the index cache ---
+0
+
+=== A13. store-dir resolution order: config then env ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh dir
+/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mem-scenario.spdd6Q/alt-store[exit 0]
+
+$ env FM_MEMORY_DIR=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mem-scenario.spdd6Q/env-store /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh dir
+/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mem-scenario.spdd6Q/env-store[exit 0]
+
+=== A14. validation exit codes ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh remember --category bad_cat! x y
+memory: invalid category: bad_cat!
+[exit 3]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh remember !!! y
+memory: topic has no usable characters: !!!
+[exit 3]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall --limit 0 x
+bm25: --limit must be a positive integer, got: 0
+[exit 2]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall --limit abc x
+bm25: --limit must be a positive integer, got: abc
+[exit 2]
+
+=== A15. existing-but-empty store recall exits 0 with no hits ===
+
+$ env FM_MEMORY_DIR=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mem-scenario.spdd6Q/empty-store /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall anything
+[exit 0]
+
+$ env FM_MEMORY_DIR=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mem-scenario.spdd6Q/empty-store /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh stats
+dir: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mem-scenario.spdd6Q/empty-store
+documents: 0
+index: fresh
+[exit 0]
+
+=== A16. body beginning with 'created:' does not donate a date ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh remember acme new body
+preferences/acme.md
+[exit 0]
+--- acme frontmatter ---
+---
+category: preferences
+created: 2026-09-21
+updated: 2026-09-21
+---
+# acme
+
+=== A17. unreadable file keeps the index stale instead of falsely fresh ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh reindex
+indexed 7 documents
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh stats
+dir: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mem-scenario.spdd6Q/home/data/memories
+documents: 8
+index: stale
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall zyxwvu
+2.047	preferences/locked.md	locked
+    # locked secret word zyxwvu 
+[exit 0]
+
+=== A18. unwritable store exits 2 with a message, no stack trace ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall steel kettle
+bm25: cannot write index /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mem-scenario.spdd6Q/home/data/memories/.index.json: EACCES: permission denied, open '/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mem-scenario.spdd6Q/home/data/memories/.index.json.tmp.58225'
+[exit 2]
+
+DONE

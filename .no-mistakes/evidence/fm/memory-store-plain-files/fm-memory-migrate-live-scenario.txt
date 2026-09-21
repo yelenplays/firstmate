@@ -1,0 +1,175 @@
+############################################################
+# Scenario M: OpenViking -> markdown migration (live)
+# repo: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5
+# FM_HOME: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/home
+############################################################
+
+=== M1. dry-run prints the plan and writes nothing ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory-migrate.sh migrate --source /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/ov-data --dry-run
+source: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data
+memories: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data/user/default/memories (3 files)
+dest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memories
+archive: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memory-archive (3 files)
+dry-run: no files written
+[exit 0]
+--- store exists? ---
+ls: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/home/data/memories: No such file or directory
+
+=== M2. migrate: memories land, others archive, internals skipped ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory-migrate.sh migrate --source /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/ov-data
+source: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data
+memories: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data/user/default/memories (3 files)
+dest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memories
+archive: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memory-archive (3 files)
+manifest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memories/.migration/manifest-20260921T101638Z.txt
+verify: 6/6 verified
+planned: 3 memories, 3 archived; all hashes verified
+[exit 0]
+--- store tree ---
+./.index.json
+./.migration/manifest-20260921T101638Z.txt
+./entities/acme.md
+./preferences/tea.md
+./soul.md
+--- archive tree ---
+./resources/r1.md
+./user/default/sessions/s1.md
+./user/default/wiki-layer/w1.md
+--- source untouched (hash before/after) ---
+328b0e3b9f0b69e30b0e4a6eca78b35a8cb9e0960ffdb0f863fcb701d2c0266b  /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/ov-data/user/default/memories/preferences/tea.md
+--- dest byte-identical to source ---
+328b0e3b9f0b69e30b0e4a6eca78b35a8cb9e0960ffdb0f863fcb701d2c0266b  /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/home/data/memories/preferences/tea.md
+
+=== M3. manifest written; standalone verify passes ===
+manifest: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/home/data/memories/.migration/manifest-20260921T101638Z.txt
+# fm-memory-migrate manifest
+# source: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data
+# memories-dir: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data/user/default/memories
+# dest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memories
+# archive: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memory-archive
+# at: 2026-09-21T10:16:38Z
+entities/acme.md	dc52f09b11e2263a34602ccd6a2bbfee8f4a001b3011b34101b7670f2ce17f40	/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memories/entities/acme.md
+preferences/tea.md	328b0e3b9f0b69e30b0e4a6eca78b35a8cb9e0960ffdb0f863fcb701d2c0266b	/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memories/preferences/tea.md
+soul.md	ced184861a89f972d7d32aa1bba9fd9176fdfa99f6a2f00a19021b7d588f1d44	/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memories/soul.md
+resources/r1.md	6b460f4e42621a18f7af35bfd3614e8874dcaa0cca3c74f47001b58ffa66467b	/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memory-archive/resources/r1.md
+user/default/sessions/s1.md	2889d225e78805fd21db61c6d572d8c5d4cd7d13332d5f4f8a4d57e4b37077bc	/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memory-archive/user/default/sessions/s1.md
+user/default/wiki-layer/w1.md	dc67bf30fa9c6e9a0a70e2fd1ab9c922ee7c2792dd3e015dcd4b123107c60b0d	/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memory-archive/user/default/wiki-layer/w1.md
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory-migrate.sh verify
+verify: 6/6 verified
+[exit 0]
+
+=== M4. verify exits 4 when an exported file goes missing (adversarial) ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory-migrate.sh verify
+missing: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memory-archive/resources/r1.md
+verify: 5/6 verified, 1 missing
+[exit 4]
+
+=== M5. re-run heals the missing file ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory-migrate.sh migrate --source /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/ov-data
+source: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data
+memories: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data/user/default/memories (3 files)
+dest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memories
+archive: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memory-archive (3 files)
+manifest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memories/.migration/manifest-20260921T101639Z.txt
+verify: 6/6 verified
+planned: 3 memories, 3 archived; all hashes verified
+[exit 0]
+healed: r1.md present
+
+=== M6. migrated memories are searchable through fm-memory.sh ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory.sh recall green tea
+2.183	preferences/tea.md	tea
+    # tea The captain drinks green tea 
+[exit 0]
+
+=== M7. drift guard: an operator edit in the store is kept (adversarial) ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory-migrate.sh migrate --source /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/ov-data
+source: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data
+memories: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data/user/default/memories (3 files)
+dest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memories
+archive: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memory-archive (3 files)
+skip: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memories/preferences/tea.md (edited in store since last migration; kept)
+manifest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/home/data/memories/.migration/manifest-20260921T101639Z.txt
+verify: 5/5 verified, 1 skipped-and-kept
+planned: 3 memories, 3 archived; 1 skipped-and-kept (edited in store since last migration)
+[exit 0]
+--- store file after re-run ---
+# tea
+The captain switched to oolong in the new store
+
+=== M8. equivalent --dest spellings share one drift-guard key ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory-migrate.sh migrate --source /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/ov-data --dest /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/slash-store/ --archive /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/slash-archive
+source: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data
+memories: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data/user/default/memories (3 files)
+dest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/slash-store
+archive: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/slash-archive (3 files)
+manifest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/slash-store/.migration/manifest-20260921T101640Z.txt
+verify: 6/6 verified
+planned: 3 memories, 3 archived; all hashes verified
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory-migrate.sh migrate --source /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/ov-data --dest /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/slash-store --archive /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/slash-archive
+source: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data
+memories: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data/user/default/memories (3 files)
+dest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/slash-store
+archive: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/slash-archive (3 files)
+skip: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/slash-store/preferences/tea.md (edited in store since last migration; kept)
+manifest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/slash-store/.migration/manifest-20260921T101640Z.txt
+verify: 5/5 verified, 1 skipped-and-kept
+planned: 3 memories, 3 archived; 1 skipped-and-kept (edited in store since last migration)
+[exit 0]
+--- kept edit? ---
+1
+
+=== M9. relative vs absolute --dest spellings share the drift guard ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory-migrate.sh migrate --source /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/ov-data --dest /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/rel-store --archive /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/rel-archive
+source: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data
+memories: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data/user/default/memories (3 files)
+dest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/rel-store
+archive: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/rel-archive (3 files)
+skip: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/rel-store/preferences/tea.md (edited in store since last migration; kept)
+manifest: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/rel-store/.migration/manifest-20260921T101641Z.txt
+verify: 5/5 verified, 1 skipped-and-kept
+planned: 3 memories, 3 archived; 1 skipped-and-kept (edited in store since last migration)
+[exit 0]
+--- kept edit? ---
+1
+
+=== M10. nonexistent leading component keeps one leading slash (adversarial) ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory-migrate.sh migrate --source /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/ov-data --dest /fm-nm-86137-nonexistent/memories --archive /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/abs-archive --dry-run
+source: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data
+memories: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/ov-data/user/default/memories (3 files)
+dest: /fm-nm-86137-nonexistent/memories
+archive: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/abs-archive (3 files)
+dry-run: no files written
+[exit 0]
+
+=== M11. missing source / no memories tree / bad flag exit codes ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory-migrate.sh migrate --source /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/no-such
+memory-migrate: source not found: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/no-such
+[exit 3]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory-migrate.sh migrate --source /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-mig-scenario.phUhLu/empty-src
+memory-migrate: no memories tree under /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mig-scenario.phUhLu/empty-src; pass --memories-dir
+[exit 3]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-memory-migrate.sh migrate --bogus
+Usage:
+  fm-memory-migrate.sh migrate [--source <dir>] [--dest <dir>]
+      [--archive <dir>] [--memories-dir <dir>] [--dry-run]
+  fm-memory-migrate.sh verify  [--dest <dir>] [--manifest <file>]
+memory-migrate: unknown option: --bogus
+[exit 2]
+
+DONE

@@ -1,0 +1,48 @@
+############################################################
+# Scenario R: OpenViking retire --dry-run (live, read-only)
+# repo: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5
+# FM_OV_HOME: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-retire-scenario.9PEFPv/ov
+############################################################
+
+=== host state before (read-only probes) ===
+--- launchctl viking labels ---
+763	0	org.nix-community.home.openviking
+-	0	com.yelen.openviking-cool-guard
+--- openviking processes ---
+763
+--- port 1933 ---
+http 200
+
+=== R1. dry-run narrates the full sequence and changes nothing ===
+
+$ env FM_OV_HOME=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-retire-scenario.9PEFPv/ov /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-openviking-retire.sh --dry-run
+openviking-retire: bootout gui/501/org.nix-community.home.openviking
+dry-run: launchctl bootout gui/501/org.nix-community.home.openviking
+openviking-retire: disable gui/501/org.nix-community.home.openviking
+dry-run: launchctl disable gui/501/org.nix-community.home.openviking
+openviking-retire: rollback: launchctl enable gui/501/org.nix-community.home.openviking && launchctl bootstrap gui/501 ~/Library/LaunchAgents/org.nix-community.home.openviking.plist
+openviking-retire: bootout gui/501/com.yelen.openviking-cool-guard
+dry-run: launchctl bootout gui/501/com.yelen.openviking-cool-guard
+openviking-retire: disable gui/501/com.yelen.openviking-cool-guard
+dry-run: launchctl disable gui/501/com.yelen.openviking-cool-guard
+openviking-retire: rollback: launchctl enable gui/501/com.yelen.openviking-cool-guard && launchctl bootstrap gui/501 ~/Library/LaunchAgents/com.yelen.openviking-cool-guard.plist
+openviking-retire: stopping residual openviking server process(es)
+dry-run: pkill -f openviking-server|openviking serve
+openviking-retire: rotate /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-retire-scenario.9PEFPv/ov/logs/server.log -> /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-retire-scenario.9PEFPv/ov/logs/server.log.20260921T101701Z
+dry-run: mv /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-retire-scenario.9PEFPv/ov/logs/server.log /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-retire-scenario.9PEFPv/ov/logs/server.log.20260921T101701Z
+openviking-retire: dry-run complete; nothing changed
+[exit 0]
+
+=== after dry-run: fixture log and data still present ===
+total 8
+-rw-r--r--@ 1 yelen  staff  22 Sep 21 12:17 server.log
+/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-retire-scenario.9PEFPv/ov/data
+
+=== R2. bad flag exits 2 ===
+
+$ env FM_OV_HOME=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-retire-scenario.9PEFPv/ov /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M31FC6B8W2APZMRB99SA0WR5/bin/fm-openviking-retire.sh --bogus
+Usage: fm-openviking-retire.sh [--dry-run]
+openviking-retire: unknown option: --bogus
+[exit 2]
+
+DONE

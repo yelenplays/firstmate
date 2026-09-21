@@ -1,0 +1,19 @@
+=== E1. deleted memory makes the index stale, then recall rebuilds ===
+indexed 1 documents
+dir: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-edge.9DQqzm/home/data/memories
+documents: 1
+index: fresh
+dir: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-edge.9DQqzm/home/data/memories
+documents: 0
+index: stale
+--- recall after delete (must not find the removed memory) ---
+[exit 0]
+dir: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-edge.9DQqzm/home/data/memories
+documents: 0
+index: fresh
+
+=== E2. .migration manifest is excluded from the searchable index ===
+indexed 0 documents
+[exit 0]
+--- list hides .migration ---
+DONE
