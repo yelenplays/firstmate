@@ -175,6 +175,30 @@ src_sum=$(shasum -a 256 "$SRC/user/default/memories/preferences/tea.md" | awk '{
 dst_sum=$(shasum -a 256 "$CORRUPT_STORE/preferences/tea.md" | awk '{print $1}')
 assert_equals "$src_sum" "$dst_sum" 're-run heals the corrupted copy instead of skipping it'
 
+# --- a first migrate never overwrites a memory the operator wrote first -------
+
+FRESH_STORE="$TMP_ROOT/fresh-store"
+FRESH_ARCHIVE="$TMP_ROOT/fresh-archive"
+mkdir -p "$FRESH_STORE/preferences"
+printf '# tea\noperator wrote this first\n' > "$FRESH_STORE/preferences/tea.md"
+out=$("$MIG" migrate --source "$SRC" --dest "$FRESH_STORE" --archive "$FRESH_ARCHIVE")
+assert_contains "$out" 'skipped-and-kept' 'first migrate reports the kept operator memory'
+assert_contains "$out" 'not written by this migration' 'first migrate names the foreign destination'
+assert_grep 'operator wrote this first' "$FRESH_STORE/preferences/tea.md" 'operator memory survived the first migrate'
+assert_present "$FRESH_STORE/soul.md" 'non-conflicting memories still migrated'
+
+out=$("$MIG" migrate --source "$SRC" --dest "$FRESH_STORE" --archive "$FRESH_ARCHIVE")
+assert_grep 'operator wrote this first' "$FRESH_STORE/preferences/tea.md" 'operator memory survives a second migrate too'
+
+# --- a source without canonical probes fails instead of guessing ----------------
+
+STRAY_SRC="$TMP_ROOT/stray-src"
+mkdir -p "$STRAY_SRC/deep/nested/memories"
+printf '# stray\nnot the payload\n' > "$STRAY_SRC/deep/nested/memories/stray.md"
+rc=0; out=$("$MIG" migrate --source "$STRAY_SRC" 2>&1) || rc=$?
+expect_code 3 "$rc" 'a stray memories dir is not auto-accepted'
+assert_contains "$out" 'pass --memories-dir' 'the miss error names the explicit escape'
+
 # --- error paths ----------------------------------------------------------------
 
 rc=0; "$MIG" migrate --source "$TMP_ROOT/no-such" >/dev/null 2>&1 || rc=$?

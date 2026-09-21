@@ -13,9 +13,9 @@
 # Source: the OpenViking data workspace, default $FM_OV_HOME/data with
 # FM_OV_HOME defaulting to ~/.openviking. The memories tree is located by, in
 # order: --memories-dir, <source>/user/default/memories, <source>/memories,
-# <source>/data/user/default/memories, then the deepest-scoring directory
-# named "memories" found within six levels (the one holding the most *.md
-# files). Memories are copied into <dest> (default: fm-memory.sh's resolved
+# then <source>/data/user/default/memories. When none of those exists the run
+# fails and --memories-dir is the way to pin a variant layout; there is no
+# search fallback. Memories are copied into <dest> (default: fm-memory.sh's resolved
 # store dir) preserving their relative layout, so preferences/x.md lands at
 # <dest>/preferences/x.md.
 #
@@ -30,13 +30,15 @@
 # from the destination. A re-run refreshes a changed source file only while its
 # destination still matches what the last migration wrote, so it still heals a
 # partial or missing copy; a destination edited in the new store since the last
-# migration is left untouched and reported as skipped-and-kept. There is no
-# force or overwrite flag.
+# migration, or one the migration never wrote at all (a memory the operator
+# created first), is left untouched and reported as skipped-and-kept. There is
+# no force or overwrite flag.
 # Each run writes <dest>/.migration/manifest-<utc>.txt, plus a header: one
 # "<src-rel>\t<sha256>\t<dest-path>" row per exported file, and one
 # "#skipped\t<recorded-sha256>\t<dest-path>" row per kept destination (the
-# recorded hash is what the migration last wrote, so later runs keep detecting
-# drift). `verify` recomputes every exported destination hash in the newest (or
+# recorded hash is what the migration last wrote, or the source hash it
+# declined to write when the destination is foreign, so later runs keep
+# detecting drift). `verify` recomputes every exported destination hash in the newest (or
 # --manifest) manifest and reports verified/skipped/missing/mismatch counts; the
 # migrate run performs the same verification before reporting success.
 #
@@ -114,28 +116,13 @@ resolve_dest() {
 }
 
 find_memories_dir() {
-  local src=$1 cand best='' best_n=-1 rel
+  local src=$1 rel
   for rel in user/default/memories memories data/user/default/memories; do
     if [ -d "$src/$rel" ]; then
       printf '%s' "$src/$rel"
       return 0
     fi
   done
-  while IFS= read -r cand; do
-    [ -n "$cand" ] || continue
-    local n
-    n=$(find "$cand" -type f -name '*.md' | wc -l | tr -d ' ')
-    if [ "$n" -gt "$best_n" ]; then
-      best=$cand
-      best_n=$n
-    fi
-  done <<EOF
-$(find "$src" -maxdepth 6 -type d -name memories 2>/dev/null | sort)
-EOF
-  if [ -n "$best" ] && [ "$best_n" -gt 0 ]; then
-    printf '%s' "$best"
-    return 0
-  fi
   return 1
 }
 
@@ -229,13 +216,24 @@ EOF
   while IFS=$'\t' read -r src_f rel dst_f; do
     [ -n "$src_f" ] || continue
     local src_sum dst_dir dst_sum prev_sum
-    if [ -n "$prev_manifest" ] && [ -f "$dst_f" ]; then
-      prev_sum=$(awk -F'\t' -v k="$dst_f" 'NF >= 3 && $3 == k { h = $2 } END { print h }' "$prev_manifest")
-      if [ -n "$prev_sum" ]; then
+    if [ -f "$dst_f" ]; then
+      if [ -n "$prev_manifest" ]; then
+        prev_sum=$(awk -F'\t' -v k="$dst_f" 'NF >= 3 && $3 == k { h = $2 } END { print h }' "$prev_manifest")
+        if [ -n "$prev_sum" ]; then
+          dst_sum=$(sha256_file "$dst_f")
+          if [ "$dst_sum" != "$prev_sum" ]; then
+            printf 'skip: %s (edited in store since last migration; kept)\n' "$dst_f"
+            printf '#skipped\t%s\t%s\n' "$prev_sum" "$dst_f" >> "$work/manifest.rows"
+            skipped=$((skipped + 1))
+            continue
+          fi
+        fi
+      else
+        src_sum=$(sha256_file "$src_f")
         dst_sum=$(sha256_file "$dst_f")
-        if [ "$dst_sum" != "$prev_sum" ]; then
-          printf 'skip: %s (edited in store since last migration; kept)\n' "$dst_f"
-          printf '#skipped\t%s\t%s\n' "$prev_sum" "$dst_f" >> "$work/manifest.rows"
+        if [ "$dst_sum" != "$src_sum" ]; then
+          printf 'skip: %s (exists in store, not written by this migration; kept)\n' "$dst_f"
+          printf '#skipped\t%s\t%s\n' "$src_sum" "$dst_f" >> "$work/manifest.rows"
           skipped=$((skipped + 1))
           continue
         fi
@@ -262,7 +260,7 @@ EOF
   verify_manifest "$manifest" || exit 4
 
   if [ "$skipped" -gt 0 ]; then
-    printf 'planned: %s memories, %s archived; %s skipped-and-kept (edited in store since last migration)\n' \
+    printf 'planned: %s memories, %s archived; %s skipped-and-kept (existing destination not written by migration)\n' \
       "$count_mem" "$count_arc" "$skipped"
   else
     printf 'planned: %s memories, %s archived; all hashes verified\n' "$count_mem" "$count_arc"

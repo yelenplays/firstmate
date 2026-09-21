@@ -132,6 +132,27 @@ else
   assert_contains "$out" 'preferences/locked.md' 'restored readable file becomes searchable'
 fi
 
+# an unreadable directory is recorded as skipped, not silently dropped
+LOCKED_DIR="$STORE/preferences/locked"
+mkdir -p "$LOCKED_DIR"
+printf '# hidden\nsecret word qqqvvv\n' > "$LOCKED_DIR/hidden.md"
+chmod 000 "$LOCKED_DIR"
+if [ -x "$LOCKED_DIR" ]; then
+  chmod 755 "$LOCKED_DIR"
+  pass 'unreadable-directory check skipped because permissions cannot deny reads'
+else
+  out=$("$MEM" reindex)
+  assert_contains "$out" 'skipped 1 unreadable director' 'unreadable directory is reported at build'
+  chmod 755 "$LOCKED_DIR"
+  "$MEM" reindex >/dev/null
+  out=$("$MEM" recall 'qqqvvv')
+  assert_contains "$out" 'preferences/locked/hidden.md' 'restored directory becomes searchable'
+fi
+
+# list is the plain unfiltered listing: it rejects a prefix argument
+rc=0; "$MEM" list entities >/dev/null 2>&1 || rc=$?
+expect_code 2 "$rc" 'list rejects a prefix argument'
+
 # an unwritable store surfaces the documented usage exit instead of a crash
 rm -f "$STORE/.index.json"
 chmod 555 "$STORE"

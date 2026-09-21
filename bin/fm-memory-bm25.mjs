@@ -51,11 +51,12 @@ function isIndexable(rel) {
   return true;
 }
 
-function walk(dir, prefix, out) {
+function walk(dir, prefix, files, unreadable) {
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch {
+    unreadable.push(prefix || '.');
     return;
   }
   entries.sort((a, b) => a.name.localeCompare(b.name));
@@ -63,16 +64,17 @@ function walk(dir, prefix, out) {
     const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (!entry.name.startsWith('.')) walk(full, rel, out);
+      if (!entry.name.startsWith('.')) walk(full, rel, files, unreadable);
     } else if (entry.isFile() && isIndexable(rel)) {
-      out.push(rel);
+      files.push(rel);
     }
   }
 }
 
 function manifestOf(dir) {
   const files = [];
-  walk(dir, '', files);
+  const unreadable = [];
+  walk(dir, '', files, unreadable);
   const manifest = {};
   for (const rel of files) {
     let st;
@@ -83,6 +85,9 @@ function manifestOf(dir) {
     }
     manifest[rel] = { m: st.mtimeMs, s: st.size };
   }
+  for (const d of unreadable) {
+    manifest[`${d}/`] = { u: 1 };
+  }
   return manifest;
 }
 
@@ -92,6 +97,7 @@ function buildIndex(dir) {
   const df = new Map();
   let totalLen = 0;
   for (const rel of Object.keys(manifest)) {
+    if (manifest[rel].u) continue;
     let text = '';
     try {
       text = fs.readFileSync(path.join(dir, rel), 'utf8');
@@ -239,7 +245,12 @@ function main() {
     if (!fs.existsSync(dir)) die(`store directory not found: ${dir}`);
     const index = buildIndex(dir);
     writeIndex(indexFile, index);
-    process.stdout.write(`indexed ${index.docs.length} documents\n`);
+    const skipped = Object.values(index.manifest).filter((e) => e.u).length;
+    process.stdout.write(
+      `indexed ${index.docs.length} documents` +
+        (skipped ? `; skipped ${skipped} unreadable director${skipped === 1 ? 'y' : 'ies'}` : '') +
+        '\n',
+    );
     return;
   }
 

@@ -4,7 +4,7 @@
 # Usage:
 #   fm-memory.sh remember [--category <cat>] <topic> [body...]
 #   fm-memory.sh recall [--json] [--limit <n>] <query>
-#   fm-memory.sh list [prefix]
+#   fm-memory.sh list
 #   fm-memory.sh reindex
 #   fm-memory.sh stats
 #   fm-memory.sh dir
@@ -55,7 +55,7 @@ usage() {
 Usage:
   fm-memory.sh remember [--category <cat>] <topic> [body...]
   fm-memory.sh recall [--json] [--limit <n>] <query>
-  fm-memory.sh list [prefix]
+  fm-memory.sh list
   fm-memory.sh reindex
   fm-memory.sh stats
   fm-memory.sh dir
@@ -235,12 +235,12 @@ cmd_recall() {
 }
 
 cmd_list() {
-  local prefix=${1:-}
+  [ $# -eq 0 ] || die "list takes no arguments"
   local store
   store=$(resolve_store_dir)
   [ -d "$store" ] || die "memory store not found: $store"
   (cd "$store" && find . -type f -name '*.md' ! -path '*/.*' \
-    | sed 's|^\./||' | sort | grep -E "^${prefix}" ) || true
+    | sed 's|^\./||' | sort) || true
 }
 
 cmd_reindex() {
