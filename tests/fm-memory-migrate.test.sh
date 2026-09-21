@@ -190,6 +190,43 @@ assert_present "$FRESH_STORE/soul.md" 'non-conflicting memories still migrated'
 out=$("$MIG" migrate --source "$SRC" --dest "$FRESH_STORE" --archive "$FRESH_ARCHIVE")
 assert_grep 'operator wrote this first' "$FRESH_STORE/preferences/tea.md" 'operator memory survives a second migrate too'
 
+# --- an unhashable source fails the run instead of recording an empty-hash skip ---
+
+UNHASH_STORE="$TMP_ROOT/unhash-store"
+UNHASH_ARCHIVE="$TMP_ROOT/unhash-archive"
+UNHASH_SRC="$TMP_ROOT/unhash-src"
+mkdir -p "$UNHASH_STORE/preferences" "$UNHASH_SRC/user/default/memories/preferences"
+printf '# tea\noperator wrote this\n' > "$UNHASH_STORE/preferences/tea.md"
+printf '# tea\nOV copy\n' > "$UNHASH_SRC/user/default/memories/preferences/tea.md"
+chmod 000 "$UNHASH_SRC/user/default/memories/preferences/tea.md"
+if [ -r "$UNHASH_SRC/user/default/memories/preferences/tea.md" ]; then
+  chmod 644 "$UNHASH_SRC/user/default/memories/preferences/tea.md"
+  pass 'unhashable-source check skipped because permissions cannot deny reads'
+else
+  rc=0; out=$("$MIG" migrate --source "$UNHASH_SRC" --dest "$UNHASH_STORE" --archive "$UNHASH_ARCHIVE" 2>&1) || rc=$?
+  chmod 644 "$UNHASH_SRC/user/default/memories/preferences/tea.md"
+  expect_code 4 "$rc" 'an unhashable source exits 4 instead of claiming a foreign skip'
+  assert_not_contains "$out" 'skipped-and-kept' 'an unhashable source is not reported as skipped-and-kept'
+  assert_not_contains "$out" 'all hashes verified' 'an unhashable source is never reported as verified'
+  assert_grep 'operator wrote this' "$UNHASH_STORE/preferences/tea.md" 'the failed run left the operator memory untouched'
+fi
+
+# --- an unresolvable destination prefix fails loudly instead of retargeting -----
+
+LOCKED_DEST="$TMP_ROOT/locked-dest"
+mkdir -p "$LOCKED_DEST/store"
+chmod 000 "$LOCKED_DEST"
+if [ -x "$LOCKED_DEST" ]; then
+  chmod 755 "$LOCKED_DEST"
+  pass 'unresolvable-dest check skipped because permissions cannot deny reads'
+else
+  rc=0; out=$("$MIG" migrate --source "$SRC" --dest "$LOCKED_DEST/store" --archive "$TMP_ROOT/locked-archive" --dry-run 2>&1) || rc=$?
+  chmod 755 "$LOCKED_DEST"
+  expect_code 2 "$rc" 'an unresolvable dest prefix exits 2'
+  assert_contains "$out" 'cannot resolve directory' 'an unresolvable dest prefix is named'
+  assert_not_contains "$out" 'dest: /store' 'an unresolvable dest prefix does not retarget the store'
+fi
+
 # --- a source without canonical probes fails instead of guessing ----------------
 
 STRAY_SRC="$TMP_ROOT/stray-src"

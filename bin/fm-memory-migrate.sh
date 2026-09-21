@@ -72,11 +72,17 @@ die() {
 }
 
 sha256_file() {
+  local out
   if command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$1" | awk '{print $1}'
+    out=$(shasum -a 256 "$1" 2>/dev/null | awk '{print $1}')
+  elif command -v sha256sum >/dev/null 2>&1; then
+    out=$(sha256sum "$1" 2>/dev/null | awk '{print $1}')
   else
-    sha256sum "$1" | awk '{print $1}'
+    printf 'memory-migrate: no sha256 tool (shasum or sha256sum) on PATH\n' >&2
+    return 1
   fi
+  [ -n "$out" ] || { printf 'memory-migrate: cannot hash %s\n' "$1" >&2; return 1; }
+  printf '%s' "$out"
 }
 
 normalize_dir() {
@@ -94,16 +100,13 @@ normalize_dir() {
     p=${p%/*}
     [ -n "$p" ] || p='/'
   done
-  if [ -d "$p" ]; then
-    local base
-    base=$(cd "$p" && pwd -P)
-    if [ -n "$rest" ]; then
-      printf '%s%s' "${base%/}" "$rest"
-    else
-      printf '%s' "$base"
-    fi
+  local base
+  base=$(cd "$p" 2>/dev/null && pwd -P)
+  [ -n "$base" ] || die "cannot resolve directory: $1"
+  if [ -n "$rest" ]; then
+    printf '%s%s' "${base%/}" "$rest"
   else
-    printf '%s' "$p"
+    printf '%s' "$base"
   fi
 }
 
@@ -149,17 +152,17 @@ cmd_migrate() {
   if [ -z "$dest" ]; then
     dest=$(resolve_dest) || exit 2
   fi
-  dest=$(normalize_dir "$dest")
+  dest=$(normalize_dir "$dest") || exit 2
   [ -n "$archive" ] || archive=$FM_HOME/data/memory-archive
-  archive=$(normalize_dir "$archive")
-  source=$(normalize_dir "$source")
+  archive=$(normalize_dir "$archive") || exit 2
+  source=$(normalize_dir "$source") || exit 2
   [ -d "$source" ] || die "source not found: $source" 3
 
   if [ -z "$memories_dir" ]; then
     memories_dir=$(find_memories_dir "$source") \
       || die "no memories tree under $source; pass --memories-dir" 3
   fi
-  memories_dir=$(normalize_dir "$memories_dir")
+  memories_dir=$(normalize_dir "$memories_dir") || exit 2
   [ -d "$memories_dir" ] || die "memories dir not found: $memories_dir" 3
   local memories_rel=${memories_dir#"$source"/}
 
@@ -220,7 +223,7 @@ EOF
       if [ -n "$prev_manifest" ]; then
         prev_sum=$(awk -F'\t' -v k="$dst_f" 'NF >= 3 && $3 == k { h = $2 } END { print h }' "$prev_manifest")
         if [ -n "$prev_sum" ]; then
-          dst_sum=$(sha256_file "$dst_f")
+          dst_sum=$(sha256_file "$dst_f") || { fails=$((fails + 1)); continue; }
           if [ "$dst_sum" != "$prev_sum" ]; then
             printf 'skip: %s (edited in store since last migration; kept)\n' "$dst_f"
             printf '#skipped\t%s\t%s\n' "$prev_sum" "$dst_f" >> "$work/manifest.rows"
@@ -229,8 +232,8 @@ EOF
           fi
         fi
       else
-        src_sum=$(sha256_file "$src_f")
-        dst_sum=$(sha256_file "$dst_f")
+        src_sum=$(sha256_file "$src_f") || { fails=$((fails + 1)); continue; }
+        dst_sum=$(sha256_file "$dst_f") || { fails=$((fails + 1)); continue; }
         if [ "$dst_sum" != "$src_sum" ]; then
           printf 'skip: %s (exists in store, not written by this migration; kept)\n' "$dst_f"
           printf '#skipped\t%s\t%s\n' "$src_sum" "$dst_f" >> "$work/manifest.rows"
@@ -239,11 +242,11 @@ EOF
         fi
       fi
     fi
-    src_sum=$(sha256_file "$src_f")
+    src_sum=$(sha256_file "$src_f") || { fails=$((fails + 1)); continue; }
     dst_dir=$(dirname "$dst_f")
     mkdir -p "$dst_dir" || { printf 'error: cannot create %s\n' "$dst_dir" >&2; fails=$((fails + 1)); continue; }
     cp -p "$src_f" "$dst_f" || { printf 'error: copy failed %s\n' "$src_f" >&2; fails=$((fails + 1)); continue; }
-    dst_sum=$(sha256_file "$dst_f")
+    dst_sum=$(sha256_file "$dst_f") || { fails=$((fails + 1)); continue; }
     if [ "$src_sum" != "$dst_sum" ]; then
       printf 'error: hash mismatch after copy: %s\n' "$dst_f" >&2
       fails=$((fails + 1))
@@ -286,8 +289,8 @@ verify_manifest() {
       printf 'missing: %s\n' "$dst" >&2
       continue
     fi
-    cur=$(sha256_file "$dst")
-    if [ "$cur" = "$sum" ]; then
+    cur=$(sha256_file "$dst") || cur=''
+    if [ -n "$cur" ] && [ "$cur" = "$sum" ]; then
       ok=$((ok + 1))
     else
       mismatch=$((mismatch + 1))
