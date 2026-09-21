@@ -94,6 +94,36 @@ out=$("$MIG" migrate --source "$SRC")
 assert_contains "$out" 'all hashes verified' 're-run re-verifies'
 assert_present "$ARCHIVE/resources/r1.md" 're-run restores the missing file'
 
+# --- resolved dest honors the documented config/memory-dir override ----------
+
+ALT_STORE="$TMP_ROOT/alt-memories"
+printf '%s\n' "$ALT_STORE" > "$HOME_DIR/config/memory-dir"
+out=$("$MIG" migrate --source "$SRC")
+assert_present "$ALT_STORE/preferences/tea.md" 'migrate targets the config/memory-dir store'
+assert_contains "$out" 'all hashes verified' 'migrate verifies against the config store'
+rm -f "$HOME_DIR/config/memory-dir"
+
+# --- a trailing slash on --memories-dir must not duplicate memories ----------
+
+TRAIL_STORE="$TMP_ROOT/trail-store"
+TRAIL_ARCHIVE="$TMP_ROOT/trail-archive"
+"$MIG" migrate --source "$SRC" --dest "$TRAIL_STORE" --archive "$TRAIL_ARCHIVE" \
+  --memories-dir "$SRC/user/default/memories/" >/dev/null
+assert_present "$TRAIL_STORE/preferences/tea.md" 'trailing-slash memories dir still copies memories'
+assert_absent "$TRAIL_ARCHIVE/user/default/memories/preferences/tea.md" 'trailing-slash memories dir is not also archived'
+
+# --- re-run preserves store edits and reports them as skipped-and-kept --------
+
+printf '# tea\nThe captain switched to oolong in the new store\n' > "$STORE/preferences/tea.md"
+out=$("$MIG" migrate --source "$SRC")
+assert_contains "$out" 'skipped-and-kept' 're-run reports skipped-and-kept files'
+assert_contains "$out" "$STORE/preferences/tea.md" 're-run names the skipped destination'
+assert_not_contains "$out" 'all hashes verified' 're-run does not claim blanket verification'
+assert_grep 'switched to oolong' "$STORE/preferences/tea.md" 'store edit survived the re-run'
+
+out=$("$MIG" migrate --source "$SRC")
+assert_grep 'switched to oolong' "$STORE/preferences/tea.md" 'store edit still survives a later re-run'
+
 # --- error paths ----------------------------------------------------------------
 
 rc=0; "$MIG" migrate --source "$TMP_ROOT/no-such" >/dev/null 2>&1 || rc=$?

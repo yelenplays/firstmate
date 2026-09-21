@@ -27,12 +27,18 @@
 # are deliberately left behind.
 #
 # The migration never writes to or deletes from the source, and never deletes
-# from the destination; re-running refreshes changed files and re-verifies.
-# Each run writes <dest>/.migration/manifest-<utc>.txt: one row per exported
-# file as "<src-rel>\t<sha256>\t<dest-rel>", plus a header. `verify`
-# recomputes every destination hash in the newest (or --manifest) manifest and
-# reports verified/missing/mismatch counts; the migrate run performs the same
-# verification before reporting success.
+# from the destination. A re-run refreshes a changed source file only while its
+# destination still matches what the last migration wrote, so it still heals a
+# partial or missing copy; a destination edited in the new store since the last
+# migration is left untouched and reported as skipped-and-kept. There is no
+# force or overwrite flag.
+# Each run writes <dest>/.migration/manifest-<utc>.txt, plus a header: one
+# "<src-rel>\t<sha256>\t<dest-path>" row per exported file, and one
+# "#skipped\t<recorded-sha256>\t<dest-path>" row per kept destination (the
+# recorded hash is what the migration last wrote, so later runs keep detecting
+# drift). `verify` recomputes every exported destination hash in the newest (or
+# --manifest) manifest and reports verified/skipped/missing/mismatch counts; the
+# migrate run performs the same verification before reporting success.
 #
 # Exit codes: 0 success; 2 usage; 3 source or memories tree not found;
 # 4 verification failed (missing or mismatched destination files).
@@ -72,12 +78,11 @@ sha256_file() {
 }
 
 resolve_dest() {
-  local raw=${FM_MEMORY_DIR:-}
-  if [ -n "$raw" ]; then
-    printf '%s' "$raw"
-  else
-    printf '%s' "$FM_HOME/data/memories"
-  fi
+  local store
+  store=$("$SCRIPT_DIR/fm-memory.sh" dir) \
+    || die "cannot resolve the store dir; $SCRIPT_DIR/fm-memory.sh dir failed"
+  [ -n "$store" ] || die "cannot resolve the store dir; $SCRIPT_DIR/fm-memory.sh dir was empty"
+  printf '%s' "$store"
 }
 
 find_memories_dir() {
@@ -126,15 +131,19 @@ cmd_migrate() {
       *) usage; die "unknown option: $1" ;;
     esac
   done
-  [ -n "$dest" ] || dest=$(resolve_dest)
+  if [ -z "$dest" ]; then
+    dest=$(resolve_dest) || exit 2
+  fi
   [ -n "$archive" ] || archive=$FM_HOME/data/memory-archive
   [ -d "$source" ] || die "source not found: $source" 3
+  source=${source%/}
 
   if [ -z "$memories_dir" ]; then
     memories_dir=$(find_memories_dir "$source") \
       || die "no memories tree under $source; pass --memories-dir" 3
   fi
   [ -d "$memories_dir" ] || die "memories dir not found: $memories_dir" 3
+  memories_dir=${memories_dir%/}
   local memories_rel=${memories_dir#"$source"/}
 
   local manifest
@@ -183,10 +192,25 @@ EOF
   } > "$work/manifest.head"
   : > "$work/manifest.rows"
 
-  local fails=0
+  local prev_manifest
+  prev_manifest=$(find "$dest/.migration" -name 'manifest-*.txt' 2>/dev/null | sort | tail -n1)
+
+  local fails=0 skipped=0
   while IFS=$'\t' read -r src_f rel dst_f; do
     [ -n "$src_f" ] || continue
-    local src_sum dst_dir dst_sum
+    local src_sum dst_dir dst_sum prev_sum
+    if [ -n "$prev_manifest" ] && [ -f "$dst_f" ]; then
+      prev_sum=$(awk -F'\t' -v k="$dst_f" 'NF >= 3 && $3 == k { h = $2 } END { print h }' "$prev_manifest")
+      if [ -n "$prev_sum" ]; then
+        dst_sum=$(sha256_file "$dst_f")
+        if [ "$dst_sum" != "$prev_sum" ]; then
+          printf 'skip: %s (edited in store since last migration; kept)\n' "$dst_f"
+          printf '#skipped\t%s\t%s\n' "$prev_sum" "$dst_f" >> "$work/manifest.rows"
+          skipped=$((skipped + 1))
+          continue
+        fi
+      fi
+    fi
     src_sum=$(sha256_file "$src_f")
     dst_dir=$(dirname "$dst_f")
     mkdir -p "$dst_dir" || { printf 'error: cannot create %s\n' "$dst_dir" >&2; fails=$((fails + 1)); continue; }
@@ -206,7 +230,12 @@ EOF
   [ "$fails" -eq 0 ] || die "$fails file(s) failed to copy" 4
   verify_manifest "$manifest" || exit 4
 
-  printf 'migrated: %s memories, %s archived; all hashes verified\n' "$count_mem" "$count_arc"
+  if [ "$skipped" -gt 0 ]; then
+    printf 'migrated: %s memories, %s archived; %s skipped-and-kept (edited in store since last migration)\n' \
+      "$count_mem" "$count_arc" "$skipped"
+  else
+    printf 'migrated: %s memories, %s archived; all hashes verified\n' "$count_mem" "$count_arc"
+  fi
 
   if [ -x "$SCRIPT_DIR/fm-memory.sh" ] && command -v node >/dev/null 2>&1; then
     FM_MEMORY_DIR=$dest "$SCRIPT_DIR/fm-memory.sh" reindex >/dev/null 2>&1 \
@@ -215,10 +244,13 @@ EOF
 }
 
 verify_manifest() {
-  local manifest=$1 total=0 ok=0 missing=0 mismatch=0 rel sum dst cur
+  local manifest=$1 total=0 ok=0 missing=0 mismatch=0 skipped=0 rel sum dst cur
   [ -f "$manifest" ] || die "manifest not found: $manifest" 2
   while IFS=$'\t' read -r rel sum dst; do
-    case "$rel" in ''|\#*) continue ;; esac
+    case "$rel" in
+      '#skipped') skipped=$((skipped + 1)); continue ;;
+      ''|\#*) continue ;;
+    esac
     total=$((total + 1))
     if [ ! -f "$dst" ]; then
       missing=$((missing + 1))
@@ -234,10 +266,11 @@ verify_manifest() {
     fi
   done < "$manifest"
   printf 'verify: %s/%s verified' "$ok" "$total"
+  [ "$skipped" -eq 0 ] || printf ', %s skipped-and-kept' "$skipped"
   [ "$missing" -eq 0 ] || printf ', %s missing' "$missing"
   [ "$mismatch" -eq 0 ] || printf ', %s mismatched' "$mismatch"
   printf '\n'
-  [ "$total" -gt 0 ] && [ "$ok" -eq "$total" ]
+  [ "$ok" -eq "$total" ] && { [ "$total" -gt 0 ] || [ "$skipped" -gt 0 ]; }
 }
 
 cmd_verify() {
@@ -251,7 +284,9 @@ cmd_verify() {
     esac
   done
   if [ -z "$manifest" ]; then
-    [ -n "$dest" ] || dest=$(resolve_dest)
+    if [ -z "$dest" ]; then
+      dest=$(resolve_dest) || exit 2
+    fi
     manifest=$(find "$dest/.migration" -name 'manifest-*.txt' 2>/dev/null | sort | tail -n1)
     [ -n "$manifest" ] || die "no manifest under $dest/.migration" 2
   fi

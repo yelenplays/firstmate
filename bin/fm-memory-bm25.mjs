@@ -3,10 +3,10 @@
 // plain-markdown memory store.
 //
 // Usage:
-//   fm-memory-bm25.mjs build --dir <store> [--index <file>]
-//   fm-memory-bm25.mjs query --dir <store> --query <text> [--index <file>]
+//   fm-memory-bm25.mjs build --dir <store>
+//   fm-memory-bm25.mjs query --dir <store> --query <text>
 //                            [--limit <n>] [--json]
-//   fm-memory-bm25.mjs stale --dir <store> [--index <file>]
+//   fm-memory-bm25.mjs stale --dir <store>
 //
 // This file is the single owner of the index format, the tokenizer, the BM25
 // scoring constants, and the staleness rule. docs/memory.md owns the operator
@@ -192,7 +192,6 @@ function parseArgs(argv) {
     const a = argv[i];
     switch (a) {
       case '--dir': args.dir = argv[++i]; break;
-      case '--index': args.index = argv[++i]; break;
       case '--query': args.query = argv[++i]; break;
       case '--limit': args.limit = Number.parseInt(argv[++i], 10); break;
       case '--json': args.json = true; break;
@@ -207,13 +206,13 @@ function parseArgs(argv) {
 function main() {
   const [cmd, ...rest] = process.argv.slice(2);
   if (!cmd || cmd === '-h' || cmd === '--help') {
-    process.stderr.write('Usage: fm-memory-bm25.mjs build|query|stale --dir <store> [--index <file>] [--query <text>] [--limit <n>] [--json]\n');
+    process.stderr.write('Usage: fm-memory-bm25.mjs build|query|stale --dir <store> [--query <text>] [--limit <n>] [--json]\n');
     process.exit(cmd ? 0 : 2);
   }
   const { args } = parseArgs(rest);
   if (!args.dir) die('--dir is required');
   const dir = args.dir;
-  const indexFile = args.index || path.join(dir, '.index.json');
+  const indexFile = path.join(dir, '.index.json');
 
   if (cmd === 'build') {
     if (!fs.existsSync(dir)) die(`store directory not found: ${dir}`);

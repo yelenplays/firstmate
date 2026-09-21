@@ -219,6 +219,10 @@ cmd_recall() {
       *) query=$1; shift; break ;;
     esac
   done
+  if [ -z "$query" ] && [ $# -gt 0 ]; then
+    query=$1
+    shift
+  fi
   [ -n "$query" ] || { usage; die "recall needs a query"; }
   [ $# -eq 0 ] || die "pass the query as one argument"
 

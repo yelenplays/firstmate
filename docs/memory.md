@@ -34,7 +34,7 @@ bin/fm-memory-migrate.sh verify                 # re-checks every destination ha
 
 The memories tree is located under `--source` (default `$FM_OV_HOME/data`, `FM_OV_HOME` defaulting to `~/.openviking`) by the probe order in the script header, or pinned directly with `--memories-dir`.
 All remaining markdown under the source - sessions, wiki-layer, resources, skills - lands in the archive directory, while `_system/`, `vectordb/`, and `logs/` are deliberately skipped.
-Each run writes a manifest under `<store>/.migration/` pairing every source file with its sha256, and verifies destination hashes before reporting success; the script never writes to the source and never deletes from the destination, so a re-run heals a partial copy.
+Each run writes a manifest under `<store>/.migration/` pairing every exported source file with its sha256, and verifies destination hashes before reporting success; the script never writes to the source and never deletes from the destination. A re-run heals a partial or missing copy, but leaves a destination edited in the new store since the last migration untouched and reports it as skipped-and-kept, so operator edits are never overwritten.
 
 ## Retiring the server
 

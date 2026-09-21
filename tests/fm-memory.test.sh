@@ -62,6 +62,9 @@ assert_contains "$out" 'Tea Kettle' 'recall shows the title'
 out=$("$MEM" find 'eleven')
 assert_contains "$out" 'preferences/quiet-hours.md' 'find alias works'
 
+out=$("$MEM" recall -- 'steel kettle')
+assert_contains "$out" 'entities/tea-kettle.md' 'recall -- <query> handles end-of-options'
+
 out=$("$MEM" recall 'qqqzzz')
 assert_equals '' "$out" 'recall prints nothing on zero hits'
 "$MEM" recall 'qqqzzz' >/dev/null || fail 'zero-hit recall must exit 0'
@@ -97,6 +100,10 @@ assert_contains "$out" 'documents:' 'stats prints document count'
 out=$("$MEM" reindex)
 assert_contains "$out" 'indexed' 'reindex reports'
 assert_present "$STORE/.index.json" 'reindex writes the index cache'
+
+rc=0; node "$ROOT/bin/fm-memory-bm25.mjs" build --dir "$STORE" --index "$TMP_ROOT/custom.json" >/dev/null 2>&1 || rc=$?
+expect_code 2 "$rc" 'the removed --index option is rejected'
+assert_absent "$TMP_ROOT/custom.json" 'rejected --index wrote no index'
 
 # --- resolution order ---------------------------------------------------------
 
