@@ -37,15 +37,16 @@
 # group the orphaned tree leads - the bridge group, the mcp telemetry
 # watchdog group, and the puppeteer Chrome group - because a detached
 # automation tree spans more than the bridge's own group. The sweep never
-# signals this process or any ancestor, re-reads the bridge's live command
-# before signalling so a recycled pid is never hit, and re-checks the owner
-# verdict immediately before the first signal.
+# signals this process or any ancestor, re-reads every signalled process's
+# live command immediately before each TERM/KILL pass so a recycled pid is
+# never hit, and re-checks the owner verdict immediately before the first
+# signal.
 #
 # Every termination reports the process group, age, and profile directory
 # first. After the tree is dead, Chrome profile directories named by its
 # --user-data-dir arguments are removed - but only directories whose canonical
-# path sits under a temporary root and whose basename contains "profile";
-# anything else is reported and left.
+# path sits under a temporary root, whose basename contains "profile", and
+# which no live command line still names; anything else is reported and left.
 #
 # Stale bridge pid files (~/.chrome-devtools-axi/bridge.pid and
 # ~/.chrome-devtools-axi/sessions/<name>/bridge.pid) whose recorded pid is dead
@@ -55,8 +56,10 @@
 # Environment:
 #   FM_CHROME_AXI_STATE_DIR      bridge state dir override (default
 #                                ~/.chrome-devtools-axi); test hook.
-#   FM_BROWSER_BRIDGE_TMP_ROOTS  extra ':'-separated canonical temp roots a
-#                                profile dir may live under; test hook.
+#   FM_BROWSER_BRIDGE_PROC_TABLE file holding the tab-separated process table
+#                                to use in place of the live scan; test hook,
+#                                so a fixture run never reads the host's own
+#                                process table.
 
 # shellcheck source=bin/fm-backend.sh disable=SC1091
 . "$(CDPATH='' cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/fm-backend.sh"
@@ -92,11 +95,24 @@ fm_browser_bridge_env_get() { # <pid> <name>
     | tail -1
 }
 
+# A live process's command line, used to re-prove identity before a signal.
+fm_browser_bridge_process_command() { # <pid>
+  local pid=$1 ps_bin
+  ps_bin=$(fm_browser_bridge_ps_bin) || return 1
+  "$ps_bin" -p "$pid" -o command= 2>/dev/null
+}
+
 # The pid,ppid,pgid,stat,etime,command process table for this uid, one
 # TAB-separated record per line so descendant and group membership queries
-# work from a single snapshot.
+# work from a single snapshot. FM_BROWSER_BRIDGE_PROC_TABLE (test hook)
+# substitutes a prepared table for the live scan so a fixture never reads the
+# host's own processes; a set-but-unreadable table is empty, never a live scan.
 fm_browser_bridge_scan() { # echoes the table
   local uid ps_bin
+  if [ -n "${FM_BROWSER_BRIDGE_PROC_TABLE:-}" ]; then
+    cat "${FM_BROWSER_BRIDGE_PROC_TABLE}" 2>/dev/null || true
+    return 0
+  fi
   uid=$(id -u 2>/dev/null || true)
   case "$uid" in ''|*[!0-9]*) return 1 ;; esac
   ps_bin=$(fm_browser_bridge_ps_bin) || return 1
@@ -135,10 +151,11 @@ fm_browser_bridge_pid_gone() { # <pid>
 # sweep; an ancestor chain the sweep cannot fully walk still yields the
 # provable prefix, which is the safe direction for both exclusion uses.
 fm_browser_bridge_self_chain() { # echoes " pid pid ... "
-  local walk=$$ out=" " i=0
+  local walk=$$ out=" " i=0 ps_bin
+  ps_bin=$(fm_browser_bridge_ps_bin) || ps_bin="ps"
   while [ "$walk" -gt 1 ] && [ "$i" -lt 64 ]; do
     out="$out$walk "
-    walk=$(ps -p "$walk" -o ppid= 2>/dev/null | tr -d '[:space:]') || break
+    walk=$("$ps_bin" -p "$walk" -o ppid= 2>/dev/null | tr -d '[:space:]') || break
     case "$walk" in ''|*[!0-9]*) break ;; esac
     i=$((i + 1))
   done
@@ -179,6 +196,55 @@ $table
 EOF
 }
 
+# Every tree member with the command line recorded for it in <table>, as
+# "<pid>\t<command>" lines. The command is captured at scan time so each
+# signal pass can re-prove the pid still runs it before being hit.
+fm_browser_bridge_tree_members() { # <table> <tree-pids-nl>
+  local table=$1 members=$2 member_set line pid T=$'\t'
+  member_set=" $(printf '%s\n' "$members" | tr '\n' ' ')"
+  while IFS= read -r line; do
+    pid=${line%%"$T"*}
+    case "$member_set" in *" $pid "*) ;; *) continue ;; esac
+    printf '%s\t%s\n' "$pid" "${line#*"$T"*"$T"*"$T"*"$T"*"$T"}"
+  done <<EOF
+$table
+EOF
+}
+
+# The command line recorded for <pid> in a "<pid>\t<command>" member list.
+fm_browser_bridge_member_command() { # <members-nl> <pid>
+  local members=$1 want=$2 line pid T=$'\t'
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    pid=${line%%"$T"*}
+    [ "$pid" = "$want" ] || continue
+    printf '%s\n' "${line#*"$T"}"
+    return 0
+  done <<EOF
+$members
+EOF
+  return 1
+}
+
+# Does <pid> still run exactly the command line recorded for it? A recycled
+# pid - or one whose command changed - fails this and is never signalled on
+# the strength of the earlier snapshot.
+fm_browser_bridge_pid_matches() { # <pid> <command>
+  local pid=$1 want=$2 live
+  live=$(fm_browser_bridge_process_command "$pid") || return 1
+  [ "$live" = "$want" ]
+}
+
+# Is <pid> still the same live tree member the scan recorded - alive, not a
+# zombie, and still running its recorded command? A recycled pid fails this
+# and is neither waited on nor signalled.
+fm_browser_bridge_member_current() { # <members-nl> <pid>
+  local members=$1 pid=$2 cmd
+  fm_browser_bridge_pid_gone "$pid" && return 1
+  cmd=$(fm_browser_bridge_member_command "$members" "$pid") || return 1
+  fm_browser_bridge_pid_matches "$pid" "$cmd"
+}
+
 # Every --user-data-dir path named by the tree's command lines, deduplicated.
 fm_browser_bridge_profile_dirs() { # reads command lines on stdin
   sed -n \
@@ -213,8 +279,6 @@ fm_browser_bridge_profile_dir_removable() { # <dir>
   base=${canon##*/}
   case "$base" in *[Pp]rofile*) ;; *) return 1 ;; esac
   roots="/tmp"$'\n'"${TMPDIR:-/tmp}"$'\n'"/var/tmp"
-  [ -n "${FM_BROWSER_BRIDGE_TMP_ROOTS:-}" ] \
-    && roots="$roots"$'\n'"${FM_BROWSER_BRIDGE_TMP_ROOTS//:/$'\n'}"
   while IFS= read -r root; do
     [ -n "$root" ] || continue
     root=$(fm_browser_bridge_canonical "$root" 2>/dev/null || true)
@@ -227,6 +291,30 @@ $roots
 EOF
   [ "$found" -eq 1 ] || return 1
   printf '%s\n' "$canon"
+}
+
+# Would deleting <dir> (as named by the tree, or its canonical form) discard a
+# profile another live process still names? A stable, reused
+# CHROME_DEVTOOLS_AXI_USER_DATA_DIR can belong to a live task as easily as to
+# the dead tree being reaped, so the live process table is re-scanned and any
+# live, non-zombie command line that names the path refuses the removal. A
+# failed scan is treated as in use: never delete on an unproven answer.
+fm_browser_bridge_profile_dir_in_use() { # <dir> <canonical-dir>
+  local dir=$1 canon=$2 table line stat command T=$'\t'
+  table=$(fm_browser_bridge_scan) || return 0
+  [ -n "$table" ] || return 1
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    stat=${line#*"$T"}; stat=${stat#*"$T"}; stat=${stat#*"$T"}; stat=${stat%%"$T"*}
+    case "$stat" in *Z*) continue ;; esac
+    command=${line#*"$T"*"$T"*"$T"*"$T"*"$T"}
+    case "$command" in
+      *"$canon"*|*"$dir"*) return 0 ;;
+    esac
+  done <<EOF
+$table
+EOF
+  return 1
 }
 
 # Carriers of FM_TASK_ID=<id> outside every bridge tree; any such process
@@ -309,16 +397,22 @@ EOF
 
 # Stop an orphaned bridge tree: TERM the bridge pid first so its own shutdown
 # path (pid-file removal, group SIGTERM, browser close) runs, then TERM and
-# finally KILL every process group the tree still leads. Returns non-zero when
-# any tree member survives.
-fm_browser_bridge_stop_tree() { # <root-pid> <tree-pids-nl> <tree-pgids-nl>
-  local root=$1 members=$2 pgids=$3 pid pgid i alive
-  kill -TERM "$root" 2>/dev/null || true
+# finally KILL every process group the tree still leads. Members are
+# "<pid>\t<command>" lines from the scan, and every signal pass re-proves the
+# target still runs its recorded command first, so a pid recycled in the
+# seconds this takes is never hit. Returns non-zero when any tree member
+# survives.
+fm_browser_bridge_stop_tree() { # <root-pid> <members: pid\tcmd-nl> <tree-pgids-nl>
+  local root=$1 members=$2 pgids=$3 pid cmd pgid i alive T=$'\t'
+  fm_browser_bridge_member_current "$members" "$root" \
+    && kill -TERM "$root" 2>/dev/null || true
   i=0
   while [ "$i" -lt 40 ]; do
     alive=0
     while IFS= read -r pid; do
-      fm_browser_bridge_pid_gone "$pid" || alive=1
+      pid=${pid%%"$T"*}
+      [ -n "$pid" ] || continue
+      fm_browser_bridge_member_current "$members" "$pid" && alive=1
     done <<EOF
 $members
 EOF
@@ -326,7 +420,10 @@ EOF
     i=$((i + 1)); sleep 0.1
   done
   while IFS= read -r pgid; do
-    if kill -0 -- "-$pgid" 2>/dev/null; then kill -TERM -- "-$pgid" 2>/dev/null || true; fi
+    [ -n "$pgid" ] || continue
+    cmd=$(fm_browser_bridge_member_command "$members" "$pgid") || continue
+    fm_browser_bridge_pid_matches "$pgid" "$cmd" || continue
+    kill -0 -- "-$pgid" 2>/dev/null && kill -TERM -- "-$pgid" 2>/dev/null || true
   done <<EOF
 $pgids
 EOF
@@ -334,7 +431,9 @@ EOF
   while [ "$i" -lt 30 ]; do
     alive=0
     while IFS= read -r pid; do
-      fm_browser_bridge_pid_gone "$pid" || alive=1
+      pid=${pid%%"$T"*}
+      [ -n "$pid" ] || continue
+      fm_browser_bridge_member_current "$members" "$pid" && alive=1
     done <<EOF
 $members
 EOF
@@ -342,12 +441,18 @@ EOF
     i=$((i + 1)); sleep 0.1
   done
   while IFS= read -r pgid; do
-    if kill -0 -- "-$pgid" 2>/dev/null; then kill -KILL -- "-$pgid" 2>/dev/null || true; fi
+    [ -n "$pgid" ] || continue
+    cmd=$(fm_browser_bridge_member_command "$members" "$pgid") || continue
+    fm_browser_bridge_pid_matches "$pgid" "$cmd" || continue
+    kill -0 -- "-$pgid" 2>/dev/null && kill -KILL -- "-$pgid" 2>/dev/null || true
   done <<EOF
 $pgids
 EOF
   while IFS= read -r pid; do
-    fm_browser_bridge_pid_gone "$pid" || kill -KILL "$pid" 2>/dev/null || true
+    pid=${pid%%"$T"*}
+    [ -n "$pid" ] || continue
+    fm_browser_bridge_member_current "$members" "$pid" || continue
+    kill -KILL "$pid" 2>/dev/null || true
   done <<EOF
 $members
 EOF
@@ -355,7 +460,9 @@ EOF
   while [ "$i" -lt 30 ]; do
     alive=0
     while IFS= read -r pid; do
-      fm_browser_bridge_pid_gone "$pid" || alive=1
+      pid=${pid%%"$T"*}
+      [ -n "$pid" ] || continue
+      fm_browser_bridge_member_current "$members" "$pid" && alive=1
     done <<EOF
 $members
 EOF
@@ -378,7 +485,7 @@ fm_browser_bridge_stale_pidfiles() { # <state-dir>
       ''|*[!0-9]*) printf '%s\tunreadable\n' "$f"; continue ;;
     esac
     if kill -0 "$pid" 2>/dev/null; then
-      live_cmd=$(ps -p "$pid" -o command= 2>/dev/null || true)
+      live_cmd=$(fm_browser_bridge_process_command "$pid" || true)
       fm_browser_bridge_is_bridge_command "$live_cmd" && continue
       printf '%s\t%s\treused\n' "$f" "$pid"
     else
@@ -399,14 +506,13 @@ fm_browser_bridge_stale_pidfiles() { # <state-dir>
 fm_browser_bridge_sweep() { # <mutate|report> [own-state] [registry]
   local mode=$1 state=${2:-${STATE:-}} registry=${3:-${DATA:-}/secondmates.md} T=$'	'
   local table envtable state_dir self line pid pgid stat etime command
-  local session task_id tree tree_pgids profiles verdict live_cmd
+  local session task_id tree tree_members tree_pgids profiles verdict live_cmd
   local joined_profiles f fp fstale d tp
   local candidates world_nl
   table=$(fm_browser_bridge_scan) || {
     echo "BROWSER_BRIDGES: process scan failed; sweep did not run"
     return 1
   }
-  envtable=$(fm_browser_bridge_env_scan) || envtable=
   self=$(fm_browser_bridge_self_chain)
   state_dir=${FM_CHROME_AXI_STATE_DIR:-$HOME/.chrome-devtools-axi}
   candidates=
@@ -427,6 +533,9 @@ fm_browser_bridge_sweep() { # <mutate|report> [own-state] [registry]
   done <<EOF
 $table
 EOF
+  # The environment table is only needed once a candidate exists; scanning the
+  # whole env table on every startup is wasted work when no bridge runs.
+  if [ -n "$candidates" ]; then envtable=$(fm_browser_bridge_env_scan) || envtable=; fi
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     pid=${line%%"$T"*}; line=${line#*"$T"}
@@ -463,7 +572,7 @@ EOF
     esac
     tree_pgids=$(fm_browser_bridge_tree_pgids "$table" "$tree")
     profiles=$(while IFS= read -r tp; do
-      [ -n "$tp" ] && ps -p "$tp" -o command= 2>/dev/null
+      [ -n "$tp" ] && fm_browser_bridge_process_command "$tp"
     done <<EOF2 | fm_browser_bridge_profile_dirs
 $tree
 EOF2
@@ -477,7 +586,7 @@ EOF2
     echo "BROWSER_BRIDGES: reaping orphaned bridge pid=$pid pgid=$pgid session=${session:-?} task=$task_id age=$etime profile=$joined_profiles"
     # Last-instant rechecks: the bridge must still be the same live bridge,
     # and a task carrier that appeared since the scan cancels the reap.
-    live_cmd=$(ps -p "$pid" -o command= 2>/dev/null || true)
+    live_cmd=$(fm_browser_bridge_process_command "$pid" || true)
     if ! fm_browser_bridge_is_bridge_command "$live_cmd"; then
       echo "BROWSER_BRIDGES: bridge pid=$pid vanished or changed before signalling - skipped"
       continue
@@ -487,11 +596,14 @@ EOF2
       echo "BROWSER_BRIDGES: bridge pid=$pid owner state changed before signalling - skipped"
       continue
     fi
-    if fm_browser_bridge_stop_tree "$pid" "$tree" "$tree_pgids"; then
+    tree_members=$(fm_browser_bridge_tree_members "$table" "$tree")
+    if fm_browser_bridge_stop_tree "$pid" "$tree_members" "$tree_pgids"; then
       while IFS= read -r f; do
         [ -n "$f" ] || continue
         if fp=$(fm_browser_bridge_profile_dir_removable "$f" 2>/dev/null); then
-          if rm -rf -- "$fp" 2>/dev/null; then
+          if fm_browser_bridge_profile_dir_in_use "$f" "$fp"; then
+            echo "BROWSER_BRIDGES: left profile dir $fp - a live process still names it (task=$task_id)"
+          elif rm -rf -- "$fp" 2>/dev/null; then
             echo "BROWSER_BRIDGES: removed browser profile dir $fp (task=$task_id)"
           else
             echo "BROWSER_BRIDGES: could not remove browser profile dir $fp (task=$task_id) - left for a human"

@@ -24,6 +24,11 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+# The shared test boundary pins the sweep's process-table hook to an empty
+# table so no fixture bootstrap reaps the host's own bridges. This suite is the
+# one that means to scan the real table, so it clears the hook.
+unset FM_BROWSER_BRIDGE_PROC_TABLE
+
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 TMP_ROOT=$(fm_test_tmproot fm-browser-bridge-sweep)
 TMP_ROOT=$(cd "$TMP_ROOT" && pwd -P)
@@ -339,6 +344,32 @@ assert_present "$NOTDIR" "a directory outside the profile rules was removed"
 assert_contains "$out" "outside the removable rules" \
   "the sweep did not report the refused profile dir"
 pass "a --user-data-dir outside the profile rules is left and reported, never guessed"
+
+# --- case 8b: a profile another live process names is left ----------------
+# CHROME_DEVTOOLS_AXI_USER_DATA_DIR is often a stable, reused path, so an
+# orphaned tree's profile can be the same one a live task still intends to
+# use. The tree is reaped, but a shared profile is never deleted underneath
+# that live consumer.
+
+ID8B=fmtest-bbs-inuse-$RANDOM
+C8B=$TMP_ROOT/case8b
+PROFILE8B=$TMP_ROOT/zk-axi-profile-$ID8B
+mkdir -p "$PROFILE8B"
+python3 -c 'import time;time.sleep(300)' "--user-data-dir=$PROFILE8B" >/dev/null 2>&1 &
+HOLDER8B=$!
+track "$HOLDER8B"
+alive "$HOLDER8B" || fail "the live profile holder did not start"
+BP8B=$(start_bridge "$C8B" "$ID8B" s-inuse "$PROFILE8B") ||
+  fail "could not start the shared-profile fixture bridge"
+track_tree "$BP8B" "$C8B"
+
+out=$(fm_browser_bridge_sweep mutate "$HOME_STATE" "$HOME_DATA/secondmates.md" 2>&1) \
+  || fail "the sweep failed on a shared profile: $out"
+wait_gone "$BP8B" 15 || fail "the orphaned bridge survived the sweep"
+assert_present "$PROFILE8B" "a profile a live process still names was removed"
+assert_contains "$out" "a live process still names it" \
+  "the sweep did not report the shared profile as still in use"
+pass "a profile dir a live process still names is left and reported"
 
 # --- case 9: stale bridge pid files ------------------------------------------
 
