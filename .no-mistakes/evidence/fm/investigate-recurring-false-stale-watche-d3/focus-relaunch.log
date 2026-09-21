@@ -1,0 +1,2 @@
+relaunch exit=0
+ok - a relaunch retires the predecessor incarnation's turn anchors and watcher state and claims the endpoint

@@ -1,0 +1,16 @@
+tests/zz-focus-phantom.test.sh: Zeile 19: status_observed_signature: Kommando nicht gefunden
+tests/zz-focus-phantom.test.sh: Zeile 20: size_of: Kommando nicht gefunden
+tests/zz-focus-phantom.test.sh: Zeile 21: _fm_open_decisions_file_ident: Kommando nicht gefunden
+=== watcher stdout/stderr ===
+stale: test:fm-phantom (idle 503s, possible wedge, escalation 3, demand-deep-inspection: same pane has wedge-escalated 3 times in a row - do not re-absorb on the run-step/pane state alone)
+=== watcher still running after 12s: no ===
+=== absorbed-wake triage log ===
+[2026-09-21T20:01:49+0200] absorbed benign signal: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-focus-phantom.I15uzB/phantom/state/phantom.status
+=== durable wake queue ===
+1790013709	1	stale	test:fm-phantom	stale: test:fm-phantom (idle 503s, possible wedge, escalation 3, demand-deep-inspection: same pane has wedge-escalated 3 times in a row - do not re-absorb on the run-step/pane state alone)
+=== resulting markers ===
+.window-owner-test_fm-phantom: old-worker
+.wedge-escalations-test_fm-phantom: 3
+.count-test_fm-phantom: 2
+.stale-test_fm-phantom: d48adef4af906a9d99a9ff606bfdf917.stale-since-test_fm-phantom: <absent>
+.hash-test_fm-phantom: d48adef4af906a9d99a9ff606bfdf917

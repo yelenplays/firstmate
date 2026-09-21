@@ -1,0 +1,15 @@
+=== watcher stdout/stderr ===
+=== watcher still running after 8s: yes ===
+=== absorbed-wake triage log ===
+[2026-09-21T20:07:22+0200] absorbed benign signal: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-focus-collide.p4NmC5/collide/state/task-a.status /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-focus-collide.p4NmC5/collide/state/task-b.status
+[2026-09-21T20:07:23+0200] absorbed non-terminal stale (provably working): sess:fm-a.b
+=== shared marker set after ~8 polls ===
+.window-owner-sess_fm-a_b: task-a
+
+.wedge-escalations-sess_fm-a_b: <absent>
+.count-sess_fm-a_b: 13
+
+.stale-since-sess_fm-a_b: 1790014043
+
+.hash-sess_fm-a_b: 14f8e8feda8bea839b41a57308a03066
+ok - two colliding live endpoints keep one shared marker set and its live owner across polls

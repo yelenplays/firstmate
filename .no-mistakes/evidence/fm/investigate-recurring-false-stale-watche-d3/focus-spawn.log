@@ -1,0 +1,2 @@
+spawn exit=0
+ok - a fresh spawn retires a predecessor incarnation's watcher state and claims the endpoint

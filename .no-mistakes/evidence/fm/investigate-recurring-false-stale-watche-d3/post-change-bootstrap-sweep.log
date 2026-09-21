@@ -1,0 +1,5 @@
+bootstrap exit=0
+BOOTSTRAP_INFO: retired 7 orphaned watcher state marker(s)
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ok - the real session-start bootstrap retires only orphaned watcher state

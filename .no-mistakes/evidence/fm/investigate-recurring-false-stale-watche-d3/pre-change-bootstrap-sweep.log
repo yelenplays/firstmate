@@ -1,0 +1,7 @@
+bootstrap exit=0
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+not ok - bootstrap did not report retiring orphaned watcher state (missing: 'BOOTSTRAP_INFO: retired')
+--- output ---
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git

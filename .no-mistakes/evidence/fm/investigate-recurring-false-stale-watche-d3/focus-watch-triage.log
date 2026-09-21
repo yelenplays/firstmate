@@ -1,0 +1,9 @@
+ok - a successor on a reused endpoint starts clean: no inherited counters, timer, or escalation count
+ok - a long silent poll holds the idle threshold while its recorded step advances, then escalates once it stops
+ok - the hold rests on the every-harness turn anchor, so a harness with no .progress marker still defers and still detects
+ok - consecutive wedge escalations on the same pane accumulate and demand deep inspection at the threshold
+ok - the state library retires window and task markers and binds each endpoint to its owner
+ok - colliding live endpoints share one marker set without thrash, and residue still retires once unshared
+ok - colliding task ids share their encoded episode markers, and the last id retires them
+ok - a window whose markers carry no owner record is foreign residue the bind retires, never adopts
+ok - the startup sweep removes only watcher state no live record or surviving log owns

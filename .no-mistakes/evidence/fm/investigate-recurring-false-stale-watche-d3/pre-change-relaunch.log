@@ -1,0 +1,2 @@
+relaunch exit=0
+not ok - the relaunch did not claim the endpoint owner record (got 'predecessor-task')
