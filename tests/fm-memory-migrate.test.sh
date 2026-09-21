@@ -260,6 +260,19 @@ SIBLING_ARCHIVE="$TMP_ROOT/ov-data-archive"
 out=$("$MIG" migrate --source "$SRC" --dest "$STORE" --archive "$SIBLING_ARCHIVE" --dry-run)
 assert_contains "$out" "archive: $SIBLING_ARCHIVE" 'a sibling archive name is not mistaken for the source'
 
+# --- a .. tail cannot smuggle an output back inside the source ---------------
+
+rc=0; out=$("$MIG" migrate --source "$SRC" --dest "$TMP_ROOT/ov-data-sib/../ov-data/store" --archive "$ARCHIVE" 2>&1) || rc=$?
+expect_code 2 "$rc" 'a dest resolving into the source through a .. tail is refused'
+assert_absent "$SRC/store" 'the refused dest wrote nothing into the source'
+assert_absent "$TMP_ROOT/ov-data-sib" 'the refused dest did not create its missing component'
+
+rc=0; out=$("$MIG" migrate --source "$SRC" --dest "$STORE" --archive "$TMP_ROOT/ov-data-sib/../ov-data/archive" --dry-run 2>&1) || rc=$?
+expect_code 2 "$rc" 'an archive resolving into the source through a .. tail is refused'
+
+out=$("$MIG" migrate --source "$SRC" --dest "$TMP_ROOT/ov-data-sib/../outside-store" --archive "$ARCHIVE" --dry-run)
+assert_contains "$out" "dest: $TMP_ROOT/outside-store" 'a .. tail outside the source is collapsed, not refused'
+
 # --- a source without canonical probes fails instead of guessing ----------------
 
 STRAY_SRC="$TMP_ROOT/stray-src"

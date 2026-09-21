@@ -88,6 +88,23 @@ sha256_file() {
   printf '%s' "$out"
 }
 
+canonical_path() {
+  local path=$1 out='' seg
+  [ -n "$path" ] || { printf '/'; return 0; }
+  local -a segs
+  local IFS='/'
+  read -r -a segs <<< "$path"
+  for seg in "${segs[@]}"; do
+    case "$seg" in
+      ''|'.') continue ;;
+      '..') out=${out%/*}; continue ;;
+    esac
+    out="$out/$seg"
+  done
+  [ -n "$out" ] || out='/'
+  printf '%s' "$out"
+}
+
 normalize_dir() {
   local p=$1 rest=''
   [ -n "$p" ] || { printf '%s' "$p"; return 0; }
@@ -106,11 +123,7 @@ normalize_dir() {
   local base
   base=$(cd "$p" 2>/dev/null && pwd -P)
   [ -n "$base" ] || die "cannot resolve directory: $1"
-  if [ -n "$rest" ]; then
-    printf '%s%s' "${base%/}" "$rest"
-  else
-    printf '%s' "$base"
-  fi
+  canonical_path "${base%/}$rest"
 }
 
 resolve_dest() {
