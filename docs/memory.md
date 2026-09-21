@@ -9,7 +9,7 @@ Vector recall, session auto-ingest, and vikingbot were deliberately traded away;
 
 ## Layout
 
-The store resolves in this order: `FM_MEMORY_DIR`, then the first non-comment line of gitignored `config/memory-dir`, then `$FM_HOME/data/memories`.
+The store defaults to `$FM_HOME/data/memories`; [`configuration.md`](configuration.md#memory-store-configmemory-dir) owns the `FM_MEMORY_DIR` and gitignored `config/memory-dir` overrides and their precedence.
 Every home has its own store; `config/memory-dir` is home-local and is not part of secondmate inherited configuration.
 A memory is one markdown file `<category>/<topic>.md` written by `remember` with a small frontmatter block (`category`, `created`, `updated`) and a `# <topic>` title.
 The OpenViking categories carry over: `preferences`, `entities`, `events`; `remember` normalizes the singular names.
