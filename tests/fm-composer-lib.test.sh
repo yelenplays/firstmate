@@ -834,7 +834,8 @@ test_cursor_on_proven_box_bottom_classifies_content
 test_selected_content_is_composer_scoped_and_wrap_normalized
 
 test_pi_captured_footer_and_zen_rail() {
-  local cap screen variant out identity
+  local cap screen variant out identity tilde
+  tilde='~'
   cap=$'styled=1\ncursor=0\nidentity=1\nrows=40'
   for variant in pi-zen-idle pi-stock-idle; do
     screen=$(cat "$ROOT/tests/fixtures/composer/$variant.ansi")
@@ -868,7 +869,7 @@ test_pi_captured_footer_and_zen_rail() {
   screen=$(cat "$ROOT/tests/fixtures/composer/grok-weekly-limit.ansi")
   out=$(fm_composer_classify_screen "$cap" "$screen" '' $'grok\tblocked')
   [ "$out" = unknown ] || fail "Grok limit menu is not a composer"
-  screen=$(printf '%s\n' '' '↑ 0.000 (sub) 0.0%/272k (auto) (openai-codex) gpt-6-astra • xhigh' '~/project (main)')
+  screen=$(printf '%s\n' '' '↑ 0.000 (sub) 0.0%/272k (auto) (openai-codex) gpt-6-astra • xhigh' "${tilde}/project (main)")
   out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
   [ "$out" = unknown ] || fail "an up-arrow footer spelling must stay unknown, got $out"
   pass "captured Pi stock/Zen footers require identity and preserve pending input and menu refusal"
@@ -877,12 +878,14 @@ test_pi_captured_footer_and_zen_rail() {
 test_pi_captured_footer_and_zen_rail
 
 test_pi_footer_rule_fragment_never_proves_empty() {
-  local cap screen out rule24 rule10 footer path
+  local cap screen out rule24 rule10 footer path tilde dollar
   cap=$'styled=1\ncursor=0\nidentity=1\nrows=40'
   rule24=$(printf '─%.0s' $(seq 1 24))
   rule10=$(printf '─%.0s' $(seq 1 10))
-  path='~/project (main)'
-  footer='$0.000 (sub) 0.0%/272k (auto) (openai-codex) gpt-6-astra • xhigh'
+  tilde='~'
+  dollar='$'
+  path="${tilde}/project (main)"
+  footer="${dollar}0.000 (sub) 0.0%/272k (auto) (openai-codex) gpt-6-astra • xhigh"
   # A typed draft row of rule glyphs re-opens the scan's pair at that row, so
   # the pair closes exactly at the row above the path while the draft sits in
   # the input region above its open.
