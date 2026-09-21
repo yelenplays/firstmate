@@ -1,0 +1,135 @@
+###############################################################
+# SCENARIO 1 - an orphaned bridge tree is reaped by a real mutating bootstrap run
+###############################################################
+fixture bridge pid=88306 pgid=88306 task=fmtest-live-orphan-8673 profile=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/zk-axi-profile-fmtest-live-orphan-8673
+fixture children (incl. one TERM-ignoring member and two with odd command whitespace):
+  pid=88328 cmd=/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resource
+  pid=88329 cmd=/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resource
+  pid=88331 cmd=/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resource
+  pid=88334 cmd=/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resource
+  pid=88336 cmd=/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resource
+--- BROWSER_BRIDGES transcript ---
+BROWSER_BRIDGES: reaping orphaned bridge pid=88306 pgid=88306 session=s-orphan task=fmtest-live-orphan-8673 age=00:01 profile=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/zk-axi-profile-fmtest-live-orphan-8673
+BROWSER_BRIDGES: removed browser profile dir /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/zk-axi-profile-fmtest-live-orphan-8673 (task=fmtest-live-orphan-8673)
+  PASS: reap line names the orphaned bridge pid
+  PASS: reap line names the process group
+  PASS: reap line names the owning task
+  PASS: reap line names the bridge age
+  PASS: reap line names the profile dir
+  PASS: no partially-survived warning
+  PASS: bridge process is gone
+  PASS: every descendant is gone (incl. TERM-ignorer and whitespace members)
+  PASS: profile removal is reported
+  PASS: orphaned profile dir removed
+
+###############################################################
+# SCENARIO 2 - a read-only (detect-only) session start reports the orphan and touches nothing
+###############################################################
+fixture bridge pid=23448 task=fmtest-live-report-14527 profile=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/zk-axi-profile-fmtest-live-report-14527
+--- BROWSER_BRIDGES transcript ---
+BROWSER_BRIDGES: orphaned bridge pid=23448 pgid=23448 session=s-report task=fmtest-live-report-14527 age=00:01 profile=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/zk-axi-profile-fmtest-live-report-14527 - not reaped (report-only run)
+  PASS: report line names the orphaned bridge
+  PASS: report line is marked report-only
+  PASS: report line names the profile
+  PASS: report run did not signal the bridge
+  PASS: report run did not remove the profile
+  PASS: a later mutating run reaps what the report found
+  PASS: the later mutating run removes the profile
+
+###############################################################
+# SCENARIO 3 (adversarial) - a bridge whose owning task is alive is never touched
+###############################################################
+fixture bridge pid=50934 task=fmtest-live-alive-17339 ; live carrier pid=50982
+--- BROWSER_BRIDGES transcript ---
+(none)
+  PASS: the sweep did not reap the live-owner bridge
+  PASS: the live-owner bridge still runs
+
+###############################################################
+# SCENARIO 4 (adversarial) - an unattributable bridge is refused, reported, never killed
+###############################################################
+fixture bridge pid=51665 (no FM_TASK_ID, session name matches no recorded task)
+--- BROWSER_BRIDGES transcript ---
+BROWSER_BRIDGES: left bridge pid=51665 pgid=51665 session=s-foreign age=00:01 running - owner is not attributable to a firstmate task
+  PASS: the refusal line names the bridge
+  PASS: the refusal names the attribution gap
+  PASS: the unattributable bridge still runs
+
+###############################################################
+# SCENARIO 5 (adversarial) - a shared profile is kept while a live consumer names it
+###############################################################
+fixture bridge pid=53108 task=fmtest-live-shared-19219 ; separate live holder pid=52703 naming the same profile
+--- BROWSER_BRIDGES transcript ---
+BROWSER_BRIDGES: left bridge pid=51665 pgid=51665 session=s-foreign age=00:03 running - owner is not attributable to a firstmate task
+BROWSER_BRIDGES: reaping orphaned bridge pid=53108 pgid=53108 session=s-shared task=fmtest-live-shared-19219 age=00:01 profile=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/zk-axi-profile-fmtest-live-shared-19219
+BROWSER_BRIDGES: left profile dir /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/zk-axi-profile-fmtest-live-shared-19219 - a live process still names it (task=fmtest-live-shared-19219)
+  PASS: the orphaned tree is still reaped
+  PASS: the shared profile is reported as still in use
+  PASS: the shared profile dir was not deleted
+
+###############################################################
+# SCENARIO 6 - stale bridge pid files are cleaned; live and unreadable ones stay
+###############################################################
+/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/scenarios.sh: Zeile 156: 52703 Killed: 9                  python3 -c 'import time;time.sleep(600)' "--user-data-dir=$P5" > /dev/null 2>&1
+--- report-only BROWSER_BRIDGES transcript ---
+BROWSER_BRIDGES: left bridge pid=51665 pgid=51665 session=s-foreign age=00:22 running - owner is not attributable to a firstmate task
+BROWSER_BRIDGES: orphaned bridge pid=85030 pgid=85030 session=s-pidfiles task=fmtest-live-pidfiles-24377 age=00:00 profile=- - not reaped (report-only run)
+BROWSER_BRIDGES: unreadable bridge pid file /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/axi-state/sessions/broken-one/bridge.pid - left alone
+BROWSER_BRIDGES: stale bridge pid file /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/axi-state/sessions/dead-one/bridge.pid (recorded pid 99999 dead) - left for a mutating run
+BROWSER_BRIDGES: stale bridge pid file /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/axi-state/sessions/reused-one/bridge.pid (recorded pid 50982 reused) - left for a mutating run
+  PASS: report-only names the stale pid files
+  PASS: report-only names the unreadable pid file
+  PASS: report-only removed nothing
+--- mutating BROWSER_BRIDGES transcript ---
+BROWSER_BRIDGES: left bridge pid=51665 pgid=51665 session=s-foreign age=00:23 running - owner is not attributable to a firstmate task
+BROWSER_BRIDGES: reaping orphaned bridge pid=85030 pgid=85030 session=s-pidfiles task=fmtest-live-pidfiles-24377 age=00:01 profile=-
+BROWSER_BRIDGES: unreadable bridge pid file /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/axi-state/sessions/broken-one/bridge.pid - left alone
+BROWSER_BRIDGES: removed stale bridge pid file /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/axi-state/sessions/dead-one/bridge.pid (recorded pid 99999 dead)
+BROWSER_BRIDGES: removed stale bridge pid file /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/axi-state/sessions/reused-one/bridge.pid (recorded pid 50982 reused)
+  PASS: dead-pid file removed
+  PASS: reused-pid file removed
+  PASS: live bridge pid file kept (points at the still-alive live-owner bridge)
+  PASS: unreadable pid file kept
+
+###############################################################
+# SCENARIO 7 - a fixture bootstrap cannot see the host's real bridge state
+###############################################################
+a stale bridge.pid exists at $fakeHOME/.chrome-devtools-axi/sessions/host-leftover/bridge.pid
+--- with the hook unset (real default state dir), BROWSER_BRIDGES says: ---
+BROWSER_BRIDGES: left bridge pid=51665 pgid=51665 session=s-foreign age=00:43 running - owner is not attributable to a firstmate task
+BROWSER_BRIDGES: stale bridge pid file /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/fakehome/.chrome-devtools-axi/sessions/host-leftover/bridge.pid (recorded pid 99999 dead) - left for a mutating run
+--- with the test-boundary hooks pinned (as tests/environment.sh sets them) ---
+(none)
+  PASS: the default path does see the host-state leftover (proves the fixture is real)
+  PASS: the test boundary silences it
+
+###############################################################
+# SCENARIO 8 (adversarial) - a reused/recycled pid never matches its recorded tree command,
+#                            so it is never signalled
+###############################################################
+fixture bridge pid=10271 task=fmtest-live-guard-22897
+unrelated live pid=10596 (real command: /opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.fr)
+the sweep's process table is rigged to present pid 10596 as a tree member whose recorded
+command is 'python3 chrome-devtools-axi-bridge-ghost.js' - a simulated pid recycle
+--- BROWSER_BRIDGES transcript ---
+BROWSER_BRIDGES: reaping orphaned bridge pid=10271 pgid=10271 session=s-guard task=fmtest-live-guard-22897 age=00:02 profile=-
+BROWSER_BRIDGES: left bridge pid=51665 pgid=51665 session=s-foreign age=00:46 running - owner is not attributable to a firstmate task
+BROWSER_BRIDGES: unreadable bridge pid file /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/axi-state/sessions/broken-one/bridge.pid - left alone
+  PASS: the mismatched pid was NOT signalled
+
+###############################################################
+# SCENARIO 9 - a bridge whose task left a recorded but now-missing endpoint is reaped
+###############################################################
+fixture bridge pid=40895 task=fmtest-live-meta-32367
+recorded endpoint: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/home/state/fmtest-live-meta-32367.meta -> firstmate:fm-fmtest-live-meta-32367 (does not exist)
+--- BROWSER_BRIDGES transcript ---
+BROWSER_BRIDGES: reaping orphaned bridge pid=40895 pgid=40895 session=s-meta task=fmtest-live-meta-32367 age=00:01 profile=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/zk-axi-profile-fmtest-live-meta-32367
+BROWSER_BRIDGES: removed browser profile dir /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/zk-axi-profile-fmtest-live-meta-32367 (task=fmtest-live-meta-32367)
+BROWSER_BRIDGES: left bridge pid=51665 pgid=51665 session=s-foreign age=01:06 running - owner is not attributable to a firstmate task
+BROWSER_BRIDGES: unreadable bridge pid file /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/axi-state/sessions/broken-one/bridge.pid - left alone
+  PASS: the recorded-endpoint bridge was reaped
+  PASS: the reap names the task
+  PASS: the recorded-endpoint bridge's profile was removed
+
+###############################################################
+ALL SCENARIOS PASSED

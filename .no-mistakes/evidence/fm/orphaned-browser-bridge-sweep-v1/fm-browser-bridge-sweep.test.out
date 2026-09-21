@@ -1,0 +1,13 @@
+ok - an orphaned bridge tree is reaped across every group it leads and its profile removed
+ok - report mode names the orphan, its group, age, and profile - and signals nothing
+ok - a mutating run reaps what report mode found, and a repeat run is silent
+ok - a bridge whose FM_TASK_ID carrier is alive is never touched
+ok - a bridge with no firstmate attribution is refused and reported, never killed
+ok - a bridge whose recorded endpoint cannot be verified is refused, not reaped
+ok - a bridge whose recorded endpoint is proven missing is reaped
+ok - a bridge whose session name matches a recorded task id is attributable and reaped
+ok - a --user-data-dir outside the profile rules is left and reported, never guessed
+ok - a profile dir a live process still names is left and reported
+ok - report mode names stale and unreadable pid files without touching them
+ok - stale pid files for dead or reused pids are removed; live and unreadable ones stay
+ok - the signature gate excludes ordinary browsers and admits only the axi bridge

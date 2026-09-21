@@ -1,0 +1,16 @@
+bridge=99138 task=fmtest-prefix-4078 profile=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/zk-axi-profile-fmtest-prefix-4078
+children:
+  99155: /opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Ve
+  99156: /opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Ve
+  99157: /opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Ve
+  99158: /opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Ve
+  99159: /opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Ve
+--- PRE-FIX sweep output ---
+BROWSER_BRIDGES: reaping orphaned bridge pid=99138 pgid=99138 session=s-prefix task=fmtest-prefix-4078 age=00:00 profile=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/zk-axi-profile-fmtest-prefix-4078
+BROWSER_BRIDGES: removed browser profile dir /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/zk-axi-profile-fmtest-prefix-4078 (task=fmtest-prefix-4078)
+BROWSER_BRIDGES: unreadable bridge pid file /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/axi-state/sessions/broken-one/bridge.pid - left alone
+BROWSER_BRIDGES: removed stale bridge pid file /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bbs-live.VJ3kUV/axi-state/sessions/live-one/bridge.pid (recorded pid 83971 dead)
+SURVIVOR 99156: /opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Ve
+SURVIVOR 99157: /opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Ve
+PRE-FIX surviving members=2 of        5
+PRE-FIX profile=REMOVED (reported success)
