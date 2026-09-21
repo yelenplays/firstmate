@@ -1,0 +1,2 @@
+ok - teardown retires the task's watcher state with its endpoint
+ok - remote secondmate teardown retires the task's watcher state

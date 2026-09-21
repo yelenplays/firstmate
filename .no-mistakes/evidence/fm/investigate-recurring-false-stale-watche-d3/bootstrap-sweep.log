@@ -1,0 +1,1 @@
+ok - bootstrap's local session-start phase retires orphan watcher state and keeps live state

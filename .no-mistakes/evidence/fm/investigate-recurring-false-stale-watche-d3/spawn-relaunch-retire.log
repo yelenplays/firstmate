@@ -1,0 +1,2 @@
+ok - a relaunch retires the predecessor's turn anchors and window markers before publishing
+ok - a relaunch under a task-key collision retires its own anchors and spares the live sibling's shared markers
