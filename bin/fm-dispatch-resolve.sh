@@ -716,7 +716,7 @@ RESULT=$(jq -n --arg margin "$MARGIN" --argjson lat "$LAT_MS" --arg none_criteri
     effort: {choice: $jev_effort, confidence: $effort.confidence, source: $effort.source}
   } as $ev |
   if $sel.invalid then $ev + {status: "error", reason: $sel.invalid}
-  elif $top2.margin < ($margin | tonumber) then
+  elif ($top2.raw_margin + 1e-9) < ($margin | tonumber) then
     $ev + {status: "ambiguous", reason: "top-2 margin \($top2.margin) below \($margin) (\($top2.first) vs \($top2.second))", candidates: ($answer_use | map(assess(.)))}
   elif $sel.escalate then
     $ev + {status: "escalate", reason: $sel.escalate, candidates: ($answer_use | map(assess(.)))}

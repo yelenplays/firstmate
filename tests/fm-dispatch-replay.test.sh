@@ -157,6 +157,18 @@ run_tool out err score --margin 0.1 --rows "$TMP_ROOT/top2.jsonl"
 assert_contains "$out" '  row: tie pick=a first=a second=b margin=0 confidence=- expected=- margin-gate=ambiguous -' "ties use option names to order equal probabilities"
 assert_contains "$out" '  row: single pick=only first=only second=- margin=1 confidence=- expected=- margin-gate=pass -' "a single option has the full margin"
 assert_contains "$out" '  row: rounded pick=alpha first=alpha second=beta margin=0.1235 confidence=- expected=- margin-gate=pass -' "the margin is rounded to four decimal places"
+cat > "$TMP_ROOT/boundaries.jsonl" <<'JSONL'
+{"case":"below","expected":["rule_1"],"confidence":0.9,"probabilities":{"rule_1":0.52996,"rule_2":0.13,"rule_3":0.12,"rule_4":0.11,"default":0.11004}}
+{"case":"exact-0.4","expected":["rule_1"],"confidence":0.9,"probabilities":{"rule_1":0.65,"rule_2":0.25,"rule_3":0.05,"rule_4":0.01,"default":0.04}}
+{"case":"exact-0.45","expected":["rule_1"],"confidence":0.9,"probabilities":{"rule_1":0.63,"rule_2":0.18,"rule_3":0.11,"rule_4":0.03,"default":0.05}}
+JSONL
+run_tool out err score --margin 0.4,0.45 --rows "$TMP_ROOT/boundaries.jsonl"
+assert_contains "$out" '  gate: margin>=0.4 ambiguous=1 pass=2 wrong=0' "the replay gate keeps a true 0.39996 margin ambiguous"
+assert_contains "$out" '  gate: margin>=0.45 ambiguous=2 pass=1 wrong=0' "the replay gate passes an exact 0.45 margin"
+assert_contains "$out" '  row: below pick=rule_1 first=rule_1 second=rule_2 margin=0.4 confidence=0.9 expected=rule_1 margin-gate=ambiguous -' "the displayed 0.4 does not pass on a raw 0.39996 margin"
+assert_contains "$out" '  row: exact-0.4 pick=rule_1 first=rule_1 second=rule_2 margin=0.4 confidence=0.9 expected=rule_1 margin-gate=pass ok' "an exact 0.4 margin passes with tolerance"
+run_tool out err score --margin 0.45 --rows "$TMP_ROOT/boundaries.jsonl"
+assert_contains "$out" '  row: exact-0.45 pick=rule_1 first=rule_1 second=rule_2 margin=0.45 confidence=0.9 expected=rule_1 margin-gate=pass ok' "an exact 0.45 margin passes with tolerance"
 pass "score: margin sweep, recorded picks, tie ordering, single option, and rounding"
 
 # --- usage errors exit 2 -------------------------------------------------------

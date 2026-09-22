@@ -176,9 +176,9 @@ replay_score() {
     | ($margins | split(",") | map(tonumber)) as $ts
     | "replay-score: rows=\($rs | length) labeled=\([$rs[] | select((.expected | type) == "array")] | length) skipped=\(length - ($rs | length))",
       tally($rs; "confidence>=0.6"; (.confidence // 0) >= 0.6),
-      ($ts[] as $t | tally($rs; "margin>=\($t)"; .top.margin >= $t)),
+      ($ts[] as $t | tally($rs; "margin>=\($t)"; (.top.raw_margin + 1e-9) >= $t)),
       (if $rows == 1 then
-         ($rs[] | . as $r | ($r.top.margin >= $ts[0]) as $p
+         ($rs[] | . as $r | (($r.top.raw_margin + 1e-9) >= $ts[0]) as $p
           | "  row: \($r.case // "#\($r.idx)") pick=\($r.pick) first=\($r.top.first) second=\($r.top.second // "-") margin=\($r.top.margin) confidence=\($r.confidence // "-") expected=\(if ($r.expected | type) == "array" then ($r.expected | join("|")) else "-" end) margin-gate=\(if $p then "pass" else "ambiguous" end) \(verdict($r; $p))")
        else empty end)
   ' || die "could not score input (not JSON lines?)"

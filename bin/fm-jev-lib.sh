@@ -317,8 +317,9 @@ fm_jev_probabilities_sum_ok() {
 # shellcheck disable=SC2016  # a jq program, expanded by jq rather than the shell
 FM_JEV_CHOICE_TOP2_JQ='def jev_choice_top2:
   (to_entries | sort_by(-.value, .key)) as $s
-  | {first: ($s[0].key // null), second: ($s[1].key // null),
-     margin: (((($s[0].value // 0) - ($s[1].value // 0)) * 10000 | round) / 10000)};'
+  | ((($s[0].value // 0) - ($s[1].value // 0))) as $raw_margin
+  | {first: ($s[0].key // null), second: ($s[1].key // null), raw_margin: $raw_margin,
+     margin: (($raw_margin * 10000 | round) / 10000)};'
 
 fm_jev_compact_state() {
   local state max bytes

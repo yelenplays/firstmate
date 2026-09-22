@@ -362,6 +362,12 @@ TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 assert_contains "$out" '  status: ambiguous' "a margin just below the default threshold is ambiguous"
 assert_contains "$out" '  reason: top-2 margin 0.39 below 0.4 (rule_4 vs default)' "the runner-up may be the none option"
 reset_log
+unset FM_JEV_DISPATCH_MARGIN
+write_response "$RESPONSE" rule_1 0.99 '{ "rule_1": 0.52996, "rule_2": 0.13, "rule_3": 0.12, "rule_4": 0.11, "default": 0.11004 }'
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
+assert_contains "$out" '  status: ambiguous' "a true margin below the threshold stays ambiguous despite display rounding"
+assert_contains "$out" '  reason: top-2 margin 0.4 below 0.4 (rule_1 vs rule_2)' "the ambiguous reason keeps the rounded display margin"
+reset_log
 write_response "$RESPONSE" rule_4 0.45 '{ "rule_1": 0.10, "rule_2": 0.10, "rule_3": 0.09, "rule_4": 0.56, "default": 0.15 }'
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 assert_contains "$out" '  status: clear' "a derived confidence far below 0.6 still clears on a wide enough margin"
