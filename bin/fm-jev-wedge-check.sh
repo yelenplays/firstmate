@@ -5,7 +5,7 @@
 #   fm-jev-wedge-check.sh          reads the pane tail on stdin
 #
 # Prints exactly one verdict word on stdout:
-#   escalate  - the stuck Noul met FM_JEV_SUPERVISION_NOUL_FLOOR
+#   escalate  - the stuck Noul met the 0.5 floor
 #   suppress  - a valid Noul below the floor (the pane reads as not-stuck)
 # Anything else - a missing key, a Jev error, a non-200, a timeout, a malformed
 # answer, an out-of-range Noul - prints no verdict and exits nonzero, so the
@@ -29,7 +29,7 @@
 # JSONL record:
 #   ${FM_STATE_OVERRIDE:-$FM_HOME/state}/jev-wedge-check.jsonl
 #
-# Environment: FM_HOME, FM_STATE_OVERRIDE, FM_JEV_SUPERVISION_NOUL_FLOOR,
+# Environment: FM_HOME, FM_STATE_OVERRIDE,
 # FM_JEV_SUPERVISION_TIMEOUT_SECS, plus the Jev library keys and JEV_*
 # settings documented in bin/fm-jev-lib.sh. This script does not roll its
 # own HTTP.
@@ -82,7 +82,6 @@ command -v jq >/dev/null 2>&1 || fail "jq required"
 JEV_TIMEOUT=${JEV_TIMEOUT:-${FM_JEV_SUPERVISION_TIMEOUT_SECS:-3}}
 export JEV_TIMEOUT
 
-FLOOR=${FM_JEV_SUPERVISION_NOUL_FLOOR:-0.5}
 STATE_DIR="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 LOG_PATH="$STATE_DIR/jev-wedge-check.jsonl"
 
@@ -185,7 +184,7 @@ state_confidence=$(jq -r '.answers.state.confidence // empty' <<<"$response" 2>/
 # Gate on the Noul alone (see the caller-scope note): a Noul at or above the
 # floor escalates as the structural rule intended; a valid Noul below it
 # suppresses this structural false positive.
-if awk -v n="$noul" -v f="$FLOOR" 'BEGIN { exit !(n + 0 >= f + 0) }'; then
+if awk -v n="$noul" 'BEGIN { exit !(n + 0 >= 0.5) }'; then
   verdict=escalate
 else
   verdict=suppress

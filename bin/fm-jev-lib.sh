@@ -438,6 +438,13 @@ fm_jev_compact_state() {
       while (match(buf, credential_uri_pattern)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
+      lowered = tolower(buf)
+      while (match(lowered, /(fm_mail_pass|aws_access_key_id|[[:alnum:]_.-]*(password|passwd|pwd|secret|token)[[:alnum:]_.-]*|[[:alnum:]_.-]*api[[:space:]_-]*key[[:alnum:]_.-]*)["]?[[:space:]]*[:=][[:space:]]*("[^"]*"|[^[:space:],;]+)/)) {
+        start = RSTART
+        end = RSTART + RLENGTH
+        buf = substr(buf, 1, start - 1) "[redacted]" substr(buf, end)
+        lowered = tolower(buf)
+      }
       email_pattern = "(^|[^[:alnum:]_.%+-])[[:alnum:]_%+.-]+@[[:alnum:]][[:alnum:].-]*[.][[:alpha:]][[:alpha:]]+([^[:alnum:]_-]|$)"
       while (match(buf, email_pattern)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)

@@ -5,7 +5,7 @@
 #   fm-jev-status-triage.sh        reads the status line on stdin
 #
 # Prints exactly one verdict word on stdout:
-#   escalate  - the captain_relevant Noul met FM_JEV_SUPERVISION_NOUL_FLOOR
+#   escalate  - the captain_relevant Noul met the 0.5 floor
 #   suppress  - a valid Noul below the floor (the model read it as routine)
 # Anything else - a missing key, a Jev error, a non-200, a timeout, a malformed
 # answer, an out-of-range Noul - prints no verdict and exits nonzero, so the
@@ -30,7 +30,7 @@
 # Every attempted call appends one JSONL record:
 #   ${FM_STATE_OVERRIDE:-$FM_HOME/state}/jev-status-triage.jsonl
 #
-# Environment: FM_HOME, FM_STATE_OVERRIDE, FM_JEV_SUPERVISION_NOUL_FLOOR,
+# Environment: FM_HOME, FM_STATE_OVERRIDE,
 # FM_JEV_SUPERVISION_TIMEOUT_SECS, plus the Jev library keys and JEV_*
 # settings documented in bin/fm-jev-lib.sh. This script does not roll its
 # own HTTP.
@@ -83,7 +83,6 @@ command -v jq >/dev/null 2>&1 || fail "jq required"
 JEV_TIMEOUT=${JEV_TIMEOUT:-${FM_JEV_SUPERVISION_TIMEOUT_SECS:-3}}
 export JEV_TIMEOUT
 
-FLOOR=${FM_JEV_SUPERVISION_NOUL_FLOOR:-0.5}
 STATE_DIR="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 LOG_PATH="$STATE_DIR/jev-status-triage.jsonl"
 
@@ -194,7 +193,7 @@ verb_confidence=$(jq -r '.answers.verb.confidence // empty' <<<"$response" 2>/de
 # where the Noul stays calibrated (the dashboard sample, Choice 0.74 vs Noul
 # 0.31). A Noul at or above the floor escalates; a valid Noul below it is an
 # advisory abstain, reported as suppress.
-if awk -v n="$noul" -v f="$FLOOR" 'BEGIN { exit !(n + 0 >= f + 0) }'; then
+if awk -v n="$noul" 'BEGIN { exit !(n + 0 >= 0.5) }'; then
   verdict=escalate
 else
   verdict=suppress
