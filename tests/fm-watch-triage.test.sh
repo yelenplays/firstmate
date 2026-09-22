@@ -3527,6 +3527,7 @@ test_jev_status_consult_scope() {
 # missing helper - leaves the deterministic absorb standing.
 test_jev_status_escalate_mapping() {
   local dir fakebin line='note: the deploy window closes at 5'
+  fm_jev_supervision_cycle_reset
   dir=$(mktemp -d "$TMP_ROOT/jev-status-map.XXXXXX")
   fakebin="$dir/bin"; mkdir -p "$fakebin"; install_jev_stubs "$fakebin"
 
@@ -3569,6 +3570,7 @@ test_jev_status_escalate_mapping() {
 # never feeds the needs-decision fold.
 test_status_span_jev_optin() {
   local dir fakebin f rec='' needs=''
+  fm_jev_supervision_cycle_reset
   dir=$(mktemp -d "$TMP_ROOT/jev-span.XXXXXX")
   fakebin="$dir/bin"; mkdir -p "$fakebin"; install_jev_stubs "$fakebin"
   f="$dir/task.status"
@@ -3630,6 +3632,7 @@ test_status_span_jev_optin() {
 # for the rest of the span.
 test_status_span_jev_cap() {
   local dir fakebin f rec='' n
+  fm_jev_supervision_cycle_reset
   dir=$(mktemp -d "$TMP_ROOT/jev-cap.XXXXXX")
   fakebin="$dir/bin"; mkdir -p "$fakebin"; install_jev_stubs "$fakebin"
   f="$dir/task.status"
