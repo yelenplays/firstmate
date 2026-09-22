@@ -587,8 +587,9 @@ Typed dispatch resolution above uses this library for the HTTP call and owns the
 ## Jev worker command (bin/fm-jev.sh)
 
 [`bin/fm-jev.sh`](../bin/fm-jev.sh) is the one Jev command firstmate and every worker call for closed-set judgments; the Jev-first rule in every ship and scout brief names it by absolute path.
-It reuses the caller library above and adds no runtime dependency; its `--help` is its whole interface and its header owns the privacy refusal, escalation floor, output, and exit codes.
-The key comes from the environment or the firstmate home `.env`, so a worker needs no setup: ship and scout launches carry only the spawning home's absolute path as `FM_HOME`, never the key.
+It reuses the caller library above and pins its route to TypeSafe, regardless of `OPENROUTER_API_KEY` or `JEV_ROUTE`; it requires `TYPESAFE_API_KEY` from the environment or a candidate firstmate `.env`.
+Its `--help` is its whole interface, flags follow the command, and the header owns the privacy refusal, escalation floor, output, and exit codes.
+Ship and scout launches carry only the spawning home's absolute path as `FM_HOME`, never the key.
 Each call appends a metadata-only record, without state or question text, to that home's `state/jev-calls.jsonl`.
 
 ## Jev remainder tool-gate (FM_JEV_TOOL_GATE)
@@ -1321,8 +1322,8 @@ FMX_RELAY_URL=https://myfirstmate.io   # optional Relay endpoint override, mainl
 FMX_ENV_FILE=           # optional alternate .env file for direct Relay client invocations; bootstrap still checks $FM_HOME/.env
 FMX_DRY_RUN=            # truthy previews Relay replies and dismissals to state/x-outbox/ without posting or requiring a token
 FMX_X_REPLY_MAX_CHARS=280   # X reply per-message split budget; values below 50 clamp to 50
-TYPESAFE_API_KEY=       # typed dispatch resolution opt-in, from the environment or .env; absent with OPENROUTER_API_KEY also absent means bin/fm-dispatch-resolve.sh is off (docs/configuration.md "Typed dispatch resolution"); also the TypeSafe route key for bin/fm-jev-lib.sh (docs/configuration.md "Jev caller library")
-OPENROUTER_API_KEY=     # optional OpenRouter Jev route for typed dispatch and bin/fm-jev-lib.sh; used when it is the only key or when JEV_ROUTE=openrouter (docs/configuration.md "Typed dispatch resolution" and "Jev caller library")
+TYPESAFE_API_KEY=       # typed dispatch resolution opt-in; also the required TypeSafe key for bin/fm-jev.sh and the TypeSafe route key for bin/fm-jev-lib.sh
+OPENROUTER_API_KEY=     # optional OpenRouter Jev route for typed dispatch and bin/fm-jev-lib.sh; unused by bin/fm-jev.sh
 JEV_ROUTE=              # optional; `openrouter` or `typesafe` (docs/configuration.md "Typed dispatch resolution")
 JEV_MODEL=              # optional Jev model override (same section)
 JEV_URL=                # optional complete Jev POST URL, used verbatim (same section)

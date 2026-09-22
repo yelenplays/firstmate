@@ -8,13 +8,10 @@
 # fm_jev_first_rule names this command to every worker; `--help` (usage below)
 # is the only schema an agent ever loads, so keep it under 15 lines.
 #
-# Key discovery: the process environment first (TYPESAFE_API_KEY, else
-# OPENROUTER_API_KEY, as the library resolves them), else the .env of the
-# first home that carries a key among $FM_HOME, this script's own checkout,
-# and that checkout's main worktree - so a worker calling the command from any
-# directory or pooled worktree needs no env setup. The chosen home becomes
-# FM_HOME for the library call. The key never reaches argv, stdout, stderr, or
-# the log.
+# Key discovery uses TYPESAFE_API_KEY from the environment, else the first
+# candidate .env among $FM_HOME, this checkout, and its main worktree. The
+# chosen home becomes FM_HOME for the library call. The key never reaches argv,
+# stdout, stderr, or the log. This command always uses the TypeSafe route.
 #
 # Privacy: the state plus every question and option text is refused, never
 # sent, when the state exceeds FM_JEV_CLI_STATE_MAX bytes (4096) or when
@@ -27,7 +24,7 @@
 # confidence TypeSafe reports on choice and score answers, 0.4 for a yes/no
 # answer, whose confidence is estimated here as 2*|p-0.5|, and for a choice or
 # score answer with no reported confidence, estimated as top minus runner-up
-# probability. --min overrides both.
+# probability.
 #
 # Log: every attempted call appends one metadata-only record (purpose
 # worker-cli, route, model, http, latency, usage in/out token counts - named
@@ -53,11 +50,11 @@ fm-jev.sh - one typed Jev judgment (TypeSafe) with one output line per question.
   fm-jev.sh score "<state>" "<question>" lvl1 lvl2 ...   ordered levels, lowest first
   fm-jev.sh batch < {"state":"..","questions":[{"id":"x","type":"pick|yes|score","q":"..","opts":[..]}]}
     Several questions on one state in one call; opts is an array of label or label=meaning strings.
-Flags go before the state: --id NAME (label for a single question), --min C (escalation floor), --json (raw response).
-Output: "id: answer p=0.96 conf=0.94"; a low-confidence verdict prints "id: ESCALATE conf=0.31 prior=X -> decide yourself".
+Flags follow the command: --json (raw response); --help prints this interface.
+Output: "pick: answer p=0.96 conf=0.94"; a batch uses its question id; escalation prints "ESCALATE conf=0.31 prior=X -> decide yourself".
 Exit: 0 answered, 2 any escalation, 1 error with a one-line reason; on 1 or 2 use your own judgment, never block.
 State: minimal facts only, at most 4096 bytes; secrets, keys, tokens, wiki page bodies, private-vault text: never.
-Key: TYPESAFE_API_KEY from the environment, else the firstmate home .env; no setup needed.
+Key: TYPESAFE_API_KEY from the environment or firstmate home .env; no OpenRouter route.
 EOF
 }
 
@@ -78,50 +75,42 @@ candidate_homes() {
   esac
 }
 
-# Set FM_HOME to the first candidate whose .env holds a Jev key, unless the
+# Set FM_HOME to the first candidate whose .env holds a TypeSafe key, unless the
 # environment already carries one. Leaves FM_HOME unchanged when nothing
 # matches so the library reports its own missing-key diagnostic.
 select_home() {
   local home
-  if [ -n "${TYPESAFE_API_KEY:-}" ] || [ -n "${OPENROUTER_API_KEY:-}" ]; then
+  if [ -n "${TYPESAFE_API_KEY:-}" ]; then
     return 0
   fi
   while IFS= read -r home; do
     [ -f "$home/.env" ] || continue
-    if [ -n "$(fmx_env_get TYPESAFE_API_KEY "$home/.env")" ] \
-      || [ -n "$(fmx_env_get OPENROUTER_API_KEY "$home/.env")" ]; then
+    if [ -n "$(fmx_env_get TYPESAFE_API_KEY "$home/.env")" ]; then
       FM_HOME=$home
       return 0
     fi
   done < <(candidate_homes)
 }
 
-# Succeeds when <text> contains the live key value from the environment or
+# Succeeds when <text> contains the live TypeSafe key from the environment or
 # the selected home's .env. The key stays in a function-local variable.
 contains_live_key() {
-  local text=$1 name key home=${FM_HOME:-$FM_JEV_CLI_ROOT}
-  for name in TYPESAFE_API_KEY OPENROUTER_API_KEY; do
-    key=${!name:-}
-    if [ -z "$key" ] && [ -f "$home/.env" ]; then
-      key=$(fmx_env_get "$name" "$home/.env")
-    fi
-    [ -n "$key" ] || continue
-    case "$text" in
-      *"$key"*) return 0 ;;
-    esac
-  done
+  local text=$1 key=${TYPESAFE_API_KEY:-} home=${FM_HOME:-$FM_JEV_CLI_ROOT}
+  if [ -z "$key" ] && [ -f "$home/.env" ]; then
+    key=$(fmx_env_get TYPESAFE_API_KEY "$home/.env")
+  fi
+  [ -n "$key" ] || return 1
+  case "$text" in
+    *"$key"*) return 0 ;;
+  esac
   return 1
 }
 
 # --- argv ------------------------------------------------------------------
-ID=''
-MIN=''
 JSON=0
 parse_flags() {
   while [ $# -gt 0 ]; do
     case "$1" in
-      --id) [ $# -ge 2 ] || die "--id needs a value"; ID=$2; FLAG_SHIFT=$((FLAG_SHIFT + 2)); shift 2 ;;
-      --min) [ $# -ge 2 ] || die "--min needs a value"; MIN=$2; FLAG_SHIFT=$((FLAG_SHIFT + 2)); shift 2 ;;
       --json) JSON=1; FLAG_SHIFT=$((FLAG_SHIFT + 1)); shift ;;
       -h|--help) usage; exit 0 ;;
       *) return 0 ;;
@@ -130,19 +119,12 @@ parse_flags() {
 }
 
 FLAG_SHIFT=0
-parse_flags "$@"
-shift "$FLAG_SHIFT"
 [ $# -gt 0 ] || { usage >&2; exit 1; }
 SUB=$1
 shift
 FLAG_SHIFT=0
 parse_flags "$@"
 shift "$FLAG_SHIFT"
-
-if [ -n "$MIN" ]; then
-  awk -v m="$MIN" 'BEGIN { exit !(m ~ /^(0|1)(\.[0-9]+)?$/ && m + 0 <= 1) }' \
-    || die "--min must be a number from 0 to 1"
-fi
 
 command -v jq >/dev/null 2>&1 || die "jq required"
 
@@ -153,18 +135,17 @@ command -v jq >/dev/null 2>&1 || die "jq required"
 case "$SUB" in
   pick|score)
     [ $# -ge 4 ] || die "$SUB needs <state> <question> and at least two options"
-    SPEC=$(jq -n --arg id "${ID:-$SUB}" --arg type "$SUB" --arg state "$1" --arg q "$2" \
+    SPEC=$(jq -n --arg id "$SUB" --arg type "$SUB" --arg state "$1" --arg q "$2" \
       '{state: $state, questions: [{id: $id, type: $type, q: $q, opts: $ARGS.positional}]}' \
       --args "${@:3}") || die "could not build the question"
     ;;
   yes)
     [ $# -eq 2 ] || die "yes needs exactly <state> <question>"
-    SPEC=$(jq -n --arg id "${ID:-yes}" --arg state "$1" --arg q "$2" \
+    SPEC=$(jq -n --arg id "$SUB" --arg state "$1" --arg q "$2" \
       '{state: $state, questions: [{id: $id, type: "yes", q: $q}]}') || die "could not build the question"
     ;;
   batch)
     [ $# -eq 0 ] || die "batch reads its JSON from stdin and takes no arguments"
-    [ -z "$ID" ] || die "--id applies to a single question; batch questions carry their own id"
     SPEC=$(jq -cs 'if length == 1 then .[0] else error("x") end' 2>/dev/null) \
       || die "batch input must be exactly one JSON object"
     ;;
@@ -265,7 +246,7 @@ log_call() {
 OUT_FILE=$(mktemp) || die "mktemp failed"
 ERR_FILE=$(mktemp) || { rm -f "$OUT_FILE"; die "mktemp failed"; }
 trap 'rm -f "$OUT_FILE" "$ERR_FILE"' EXIT
-if ! fm_jev_decide "$STATE_TEXT" "$QUESTIONS" >"$OUT_FILE" 2>"$ERR_FILE"; then
+if ! JEV_ROUTE=typesafe fm_jev_decide "$STATE_TEXT" "$QUESTIONS" >"$OUT_FILE" 2>"$ERR_FILE"; then
   log_call 1
   reason=$(sed -e 's/^jev: //' "$ERR_FILE" | head -n 1)
   die "${reason:-Jev call failed} -> decide yourself"
@@ -275,7 +256,7 @@ RESPONSE=$(cat "$OUT_FILE")
 # --- output --------------------------------------------------------------------
 # Emits "A<TAB>line" per answered question and "E<TAB>line" per escalation, or
 # fails with a one-line reason when an answer is missing or mistyped.
-LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" --arg min "$MIN" '
+LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
   def r2: (. * 100 | round) / 100;
   def estimate(p): (p | [.[]] | sort | reverse) as $s | (($s[0] // 0) - ($s[1] // 0));
   ($resp.answers // error("response has no answers")) as $answers
@@ -288,20 +269,32 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" --arg min "$MIN
           conf: ((($p - 0.5) | fabs) * 2), floor: 0.4 }
     elif $q.type == "pick" then
       (($a.choice | strings) // error("answer \($q.id) has no choice")) as $c
-      | { answer: $c, p: ($a.probabilities[$c] // null),
-          conf: ($a.confidence // (if $a.probabilities then estimate($a.probabilities) else null end)),
-          floor: (if $a.confidence then 0.5 else 0.4 end) }
+      | if ($q.opts | map(.[0]) | index($c)) == null then
+          error("answer \($q.id) chose an unoffered option")
+        else
+          { answer: $c, p: ($a.probabilities[$c] // null),
+            conf: ($a.confidence // (if $a.probabilities then estimate($a.probabilities) else null end)),
+            floor: (if $a.confidence then 0.5 else 0.4 end) }
+        end
     else
       (($a.score | numbers) // error("answer \($q.id) has no score")) as $s
       | ($q.opts | length) as $n
       | (if ($a.probabilities | type) == "object" and ($a.probabilities | length) > 0
-         then ($a.probabilities | to_entries | max_by(.value) | {i: (.key | tonumber), p: .value})
+         then ($a.probabilities | keys | map(tonumber)) as $indices
+         | if any($indices[]; . < 0 or . >= $n or . != floor) then
+             error("answer \($q.id) has an out-of-range score index")
+           else
+             ($a.probabilities | to_entries | max_by(.value) | {i: (.key | tonumber), p: .value})
+           end
          else {i: ([[($s | round), 0] | max, $n - 1] | min), p: null} end) as $top
-      | { answer: $q.opts[$top.i][0], p: $top.p, s: $s,
-          conf: ($a.confidence // (if $a.probabilities then estimate($a.probabilities) else null end)),
-          floor: (if $a.confidence then 0.5 else 0.4 end) }
+      | if $top.i < 0 or $top.i >= $n or $top.i != ($top.i | floor) then
+          error("answer \($q.id) has an out-of-range score index")
+        else
+          { answer: $q.opts[$top.i][0], p: $top.p, s: $s,
+            conf: ($a.confidence // (if $a.probabilities then estimate($a.probabilities) else null end)),
+            floor: (if $a.confidence then 0.5 else 0.4 end) }
+        end
     end
-  | .floor = (if $min != "" then ($min | tonumber) else .floor end)
   | if .conf == null or .conf < .floor then
       "E\t\($q.id): ESCALATE conf=\(if .conf == null then "na" else (.conf | r2) end) prior=\(.answer) -> decide yourself"
     else

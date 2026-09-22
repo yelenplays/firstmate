@@ -66,30 +66,46 @@ run_jev() {
 
 test_help_is_short_and_complete() {
   local out lines
-  out=$("$JEV" --help)
+  out=$("$JEV" yes --help)
   lines=$(printf '%s\n' "$out" | wc -l)
   lines=${lines// /}
   [ "$lines" -lt 15 ] || fail "--help is $lines lines, want under 15"
-  for word in pick yes score batch --json --min ESCALATE TYPESAFE_API_KEY; do
+  for word in pick yes score batch --json ESCALATE TYPESAFE_API_KEY; do
     assert_contains "$out" "$word" "--help names $word"
   done
+  assert_not_contains "$out" "--id" "--help omits the removed id option"
+  assert_not_contains "$out" "--min" "--help omits the removed threshold option"
+  assert_not_contains "$out" "OPENROUTER_API_KEY" "--help does not advertise an OpenRouter route"
   pass "fm-jev.sh: --help is the whole interface in under 15 lines"
 }
 
 test_pick_answers_one_line() {
   local code out err
   reset_log
-  respond '{"model":"jev-1.13.0","answers":{"vault":{"type":"choice","choice":"PlacementWiki","confidence":0.94,"probabilities":{"PlacementWiki":0.96,"FinanzWiki":0.04}}},"usage":{"input_tokens":120,"output_tokens":9}}'
-  run_jev code out err --id vault pick "topic: trainee hiring" "Which vault?" PlacementWiki "FinanzWiki=money and budgets"
+  respond '{"model":"jev-1.13.0","answers":{"pick":{"type":"choice","choice":"PlacementWiki","confidence":0.94,"probabilities":{"PlacementWiki":0.96,"FinanzWiki":0.04}}},"usage":{"input_tokens":120,"output_tokens":9}}'
+  run_jev code out err pick "topic: trainee hiring" "Which vault?" PlacementWiki "FinanzWiki=money and budgets"
   assert_equals "$code" 0 "a confident pick exits 0"
-  assert_equals "$out" "vault: PlacementWiki p=0.96 conf=0.94" "a pick prints one TOON line"
+  assert_equals "$out" "pick: PlacementWiki p=0.96 conf=0.94" "a pick prints one TOON line"
   assert_equals "$err" "" "a confident pick prints nothing on stderr"
-  assert_equals "$(jq -c '.questions.vault' "$LOG/body")" \
+  assert_equals "$(jq -c '.questions.pick' "$LOG/body")" \
     '{"type":"choice","instructions":"Which vault?","criteria":{"PlacementWiki":"PlacementWiki","FinanzWiki":"money and budgets"}}' \
     "a pick becomes one choice question with label=meaning criteria"
   assert_equals "$(jq -r '.state' "$LOG/body")" "topic: trainee hiring" "the state is sent as a string"
   assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY" "the key travels only as the fd 3 header"
   pass "fm-jev.sh: pick sends one choice question and prints one line"
+}
+
+test_cli_forces_typesafe_route() {
+  local code out err
+  respond '{"answers":{"yes":{"noul":0.97}}}'
+  reset_log
+  JEV_ROUTE=openrouter OPENROUTER_API_KEY='or-cli-test-key-0123456789' \
+    run_jev code out err yes "route check" "Did the CLI stay on TypeSafe?"
+  assert_equals "$code" 0 "a TypeSafe key answers despite an OpenRouter override"
+  assert_equals "$(jq -r '.route' <(tail -n 1 "$HOME_DIR/state/jev-calls.jsonl"))" \
+    "typesafe" "the worker command pins the TypeSafe route"
+  assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY" "the TypeSafe key reaches the request"
+  pass "fm-jev.sh: OpenRouter settings cannot redirect the worker command"
 }
 
 test_yes_and_score_lines() {
@@ -143,12 +159,6 @@ test_escalation_exits_two() {
   assert_equals "$code" 2 "a low-confidence verdict exits 2"
   assert_equals "$out" "pick: ESCALATE conf=0.31 prior=merge -> decide yourself" "an escalation names its prior"
 
-  respond '{"answers":{"pick":{"choice":"merge","confidence":0.8,"probabilities":{"merge":0.9,"hold":0.1}}}}'
-  run_jev code out err --min 0.9 pick "state" "Next?" merge hold
-  assert_equals "$code" 2 "--min raises the escalation floor"
-  run_jev code out err pick --min 0.7 "state" "Next?" merge hold
-  assert_equals "$code" 0 "--min after the command is accepted and can lower the bar"
-
   respond '{"answers":{"yes":{"noul":0.6}}}'
   run_jev code out err yes "state" "Done?"
   assert_equals "$code" 2 "a near-even yes/no escalates"
@@ -160,7 +170,7 @@ test_json_prints_raw_response() {
   local code out err raw
   raw='{"model":"jev-1.13.0","answers":{"yes":{"type":"noul","noul":0.97}},"usage":{"input_tokens":5,"output_tokens":2}}'
   respond "$raw"
-  run_jev code out err --json yes "state" "Done?"
+  run_jev code out err yes --json "state" "Done?"
   assert_equals "$code" 0 "--json keeps the exit contract"
   assert_equals "$(printf '%s' "$out" | jq -c .)" "$raw" "--json prints the full response"
   pass "fm-jev.sh: --json prints the raw response"
@@ -181,7 +191,20 @@ test_errors_exit_one_with_one_line() {
   assert_equals "$code" 1 "a missing answer is an error, never a silent low confidence"
   assert_contains "$err" "missing answer for yes" "the missing answer is named"
 
-  for args in "frob" "pick s q only" "yes s" "--min 2 yes s q" "--id a.b yes s q"; do
+  respond '{"answers":{"pick":{"choice":"C","confidence":0.9}}}'
+  run_jev code out err pick "state" "Choose?" A B
+  assert_equals "$code" 1 "a pick outside the offered options is rejected"
+  assert_contains "$err" "unoffered option" "the malformed pick is explained"
+  assert_equals "$out" "" "a malformed pick prints no answer"
+
+  respond '{"answers":{"score":{"score":1,"confidence":0.9,"probabilities":{"0":0.05,"9":0.95}}}}'
+  run_jev code out err score "state" "How severe?" low medium high
+  assert_equals "$code" 1 "a score distribution with an out-of-range index is rejected"
+  assert_contains "$err" "out-of-range score index" "the malformed score is explained"
+  assert_equals "$out" "" "a malformed score prints no answer"
+
+  for args in "frob" "pick s q only" "yes s" "--min 2 yes s q" "--id x pick s q A B" \
+    "--json yes s q" "yes --min 0.7 s q" "yes s --json q"; do
     # shellcheck disable=SC2086 # Deliberate word splitting of the case args.
     run_jev code out err $args
     assert_equals "$code" 1 "usage error '$args' exits 1"
@@ -222,7 +245,7 @@ test_privacy_guard_refuses_before_sending() {
 
   for token in sk-abcdefghijklmnop sk-or-abcdefghijklmnop ghp_abcdefghijklmnop github_pat_abcdefghijklmnop; do
     reset_log
-    run_jev code out err yes "credential: $token" "Done?"
+    run_jev code out err yes "credential ($token)" "Done?"
     assert_equals "$code" 1 "a token boundary before $token is refused"
     assert_contains "$err" "secret" "the token refusal says why"
     assert_absent "$LOG/body" "a secret-looking token is never sent"
@@ -329,11 +352,25 @@ test_key_discovery_needs_no_env_setup() {
   assert_equals "$code" 1 "a missing key exits 1"
   assert_contains "$(cat "$TMP_ROOT/nokey.err")" "TYPESAFE_API_KEY" "the missing key is named"
   assert_absent "$LOG/body" "nothing is sent without a key"
+
+  printf 'OPENROUTER_API_KEY=%s\nJEV_ROUTE=openrouter\n' "$KEY-or" > "$nokey/.env"
+  reset_log
+  env -u TYPESAFE_API_KEY FM_HOME="$nokey" OPENROUTER_API_KEY="$KEY-or" JEV_ROUTE=openrouter PATH="$FAKEBIN:$PATH" \
+    "$nokey/bin/fm-jev.sh" yes s q > "$TMP_ROOT/openrouter-only.out" 2> "$TMP_ROOT/openrouter-only.err"
+  code=$?
+  assert_equals "$code" 1 "an OpenRouter key alone cannot authorize the worker command"
+  assert_contains "$(cat "$TMP_ROOT/openrouter-only.err")" "TYPESAFE_API_KEY missing" \
+    "the missing TypeSafe key is named"
+  assert_equals "$(wc -l < "$TMP_ROOT/openrouter-only.err" | tr -d ' ')" 1 \
+    "a missing TypeSafe key prints one stderr line"
+  assert_not_contains "$(cat "$TMP_ROOT/openrouter-only.err")" "$KEY-or" "the OpenRouter key is never echoed"
+  assert_absent "$LOG/body" "OpenRouter credentials never trigger a request"
   pass "fm-jev.sh: key discovery works from any directory without env setup"
 }
 
 test_help_is_short_and_complete
 test_pick_answers_one_line
+test_cli_forces_typesafe_route
 test_yes_and_score_lines
 test_batch_one_call_many_lines
 test_escalation_exits_two
