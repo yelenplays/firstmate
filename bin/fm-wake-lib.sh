@@ -1397,7 +1397,7 @@ fm_canonical_file_path() {  # <path>
 FM_FIRSTMATE_LOCAL_STATES=()
 fm_collect_local_firstmate_states() {  # <own-state-dir> [abort-note]
   local record_state=$1 note=${2:-nothing was changed}
-  local root home reg line child known existing i=0 own_state
+  local root home reg line child known existing i=0 own_state home_state
   local -a homes
   # The own state dir is enumerated once, under the same canonical spelling the
   # root walk below uses. A non-canonical caller spelling (a symlinked or
@@ -1415,10 +1415,11 @@ fm_collect_local_firstmate_states() {  # <own-state-dir> [abort-note]
     home=${homes[$i]}
     i=$((i + 1))
     known=0
+    home_state=$(fm_canonical_existing_dir "$home/state") || home_state="$home/state"
     for existing in "${FM_FIRSTMATE_LOCAL_STATES[@]}"; do
-      [ "$existing" != "$home/state" ] || known=1
+      [ "$existing" != "$home_state" ] || known=1
     done
-    [ "$known" = 1 ] || FM_FIRSTMATE_LOCAL_STATES+=("$home/state")
+    [ "$known" = 1 ] || FM_FIRSTMATE_LOCAL_STATES+=("$home_state")
     reg="$home/data/secondmates.md"
     [ ! -e "$reg" ] && [ ! -L "$reg" ] && continue
     [ -f "$reg" ] && [ ! -L "$reg" ] || {

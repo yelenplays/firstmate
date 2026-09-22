@@ -910,10 +910,47 @@ test_own_record_is_not_a_conflict_under_a_spelled_home() {
   pass "a spelled home skips its own record but still refuses another task's, naming the endpoint"
 }
 
+# The root home's default state dir can be a symlink while the effective state
+# root is the real directory it points at (FM_STATE_OVERRIDE names the real one,
+# which is the path lifecycle access validates). The enumeration then reaches the
+# same meta file through <home>/state and through the real directory. If it
+# canonicalizes one but appends the other, the caller's own record is reported
+# as its own holder. The re-spawn must launch.
+test_own_record_is_not_a_conflict_under_a_symlinked_default_state_dir() {
+  local rec id out status spawn_home
+
+  id='pool-own-record-symstate-r15'
+  rec=$(make_case own-record-symstate "$id")
+  read_case_record "$rec"
+  lay_out_as_pool_slot
+  mv "$HOME_DIR/state" "$HOME_DIR/state-real"
+  ln -s state-real "$HOME_DIR/state"
+  fm_write_meta "$HOME_DIR/state-real/$id.meta" \
+    "window=firstmate:fm-$id" "endpoint_task_id=$id" \
+    "worktree=$POOL_DIR" "project=$PROJECT_DIR" "kind=ship"
+
+  spawn_home="$CASE_DIR/spawn-user-home"
+  mkdir -p "$spawn_home"
+
+  out=$(FM_ROOT_OVERRIDE='' FM_HOME="$HOME_DIR" HOME="$spawn_home" \
+    CLAUDE_CONFIG_DIR='' \
+    FM_STATE_OVERRIDE="$HOME_DIR/state-real" FM_DATA_OVERRIDE="$HOME_DIR/data" \
+    FM_PROJECTS_OVERRIDE="$HOME_DIR/projects" FM_CONFIG_OVERRIDE="$HOME_DIR/config" \
+    FM_SPAWN_NO_GUARD=1 FM_FAKE_PANE_PATH="$POOL_DIR" TMUX="fake,1,0" \
+    PATH="$FAKEBIN_DIR:$PATH" \
+    "$ROOT/bin/fm-spawn.sh" "$id" "$PROJECT_DIR" --scout 2>&1)
+  status=$?
+  expect_code 0 "$status" \
+    "a spawn whose home state dir is a symlink refused its own recorded worktree"$'\n'"$out"
+  assert_contains "$out" "spawned $id" "the symlinked-state re-spawn did not report success"
+  pass "a symlinked default state dir does not make a task its own worktree holder"
+}
+
 test_remote_seeded_home_spawns_from_treehouse_pool
 test_pool_slot_claim_follows_the_spawn_outcome
 test_record_held_pool_worktree_refuses_spawn
 test_own_record_is_not_a_conflict_under_a_spelled_home
+test_own_record_is_not_a_conflict_under_a_symlinked_default_state_dir
 test_linked_spawning_home_rejects_primary_before_refresh
 test_stale_pool_base_refreshes_before_branching
 test_non_main_default_branch_refreshes_before_branching
