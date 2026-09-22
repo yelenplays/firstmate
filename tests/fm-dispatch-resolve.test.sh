@@ -415,7 +415,12 @@ reset_log
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 body=$(cat "$LOG/body")
 assert_not_contains "$body" 'Tie-break' "rules without beats send the question unchanged"
-pass "beats: tie-break sentences on both sides, absent without beats"
+reset_log
+jq '.rules[0].beats = [{"rule": 2, "when": "both fit"}] | .rules[1].beats = [{"rule": 1, "when": "both fit"}, {"rule": 3}]' "$BASE_RULES" > "$RULES"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
+assert_contains "$out" '  status: clear' "a conditional pair and non-cyclic chain remain valid"
+cp "$BASE_RULES" "$RULES"
+pass "beats: tie-break sentences, conditional pairs, non-cyclic chains, and no-beats behavior"
 
 # --- escalate: captain approval ------------------------------------------------
 reset_log
@@ -697,7 +702,8 @@ for bad in \
   '{"rules":[{"when":"x","use":{"harness":"codex"},"beats":[{"rule":1.5}]},{"when":"y","use":{"harness":"codex"}}]}|beats must be a non-empty array of {rule, when?} naming other rules by 1-based number, each at most once, with when a non-empty string when present' \
   '{"rules":[{"when":"x","use":{"harness":"codex"},"beats":[{"rule":2},{"rule":2,"when":"z"}]},{"when":"y","use":{"harness":"codex"}}]}|beats must be a non-empty array of {rule, when?} naming other rules by 1-based number, each at most once, with when a non-empty string when present' \
   '{"rules":[{"when":"x","use":{"harness":"codex"},"beats":[{"rule":2,"when":""}]},{"when":"y","use":{"harness":"codex"}}]}|beats must be a non-empty array of {rule, when?} naming other rules by 1-based number, each at most once, with when a non-empty string when present' \
-  '{"rules":[{"when":"x","use":{"harness":"codex"},"beats":[{"rule":2}]},{"when":"y","use":{"harness":"codex"},"beats":[{"rule":1}]}]}|two rules must not beat each other unconditionally; give at least one of the pair a when condition'; do
+  '{"rules":[{"when":"x","use":{"harness":"codex"},"beats":[{"rule":2}]},{"when":"y","use":{"harness":"codex"},"beats":[{"rule":1}]}]}|two rules must not beat each other unconditionally; give at least one of the pair a when condition' \
+  '{"rules":[{"when":"x","use":{"harness":"codex"},"beats":[{"rule":2,"when":"fits"}]},{"when":"y","use":{"harness":"codex"},"beats":[{"rule":3,"when":"fits"}]},{"when":"z","use":{"harness":"codex"},"beats":[{"rule":1,"when":"fits"}]}]}|beats must not form a cycle of three or more rules: rule_1 -> rule_2 -> rule_3 -> rule_1'; do
   printf '%s\n' "${bad%%|*}" > "$RULES"
   TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
   expect_code 2 "$code" "malformed rules exit 2: ${bad#*|}"
