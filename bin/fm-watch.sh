@@ -1991,7 +1991,8 @@ heartbeat_scan_finds_actionable() {
     # hb-surfaced, so a line the signal path already offered can be offered
     # once more here; the scan then marks it surfaced, bounding the consult to
     # at most twice per line.
-    record=$(status_span_first_actionable_record "$f" "$(hb_surfaced_offset "$task")" '' '' jev)
+    record=''
+    status_span_first_actionable_record "$f" "$(hb_surfaced_offset "$task")" record '' jev
     rc=$?
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
     if [ "$rc" -eq 2 ]; then
@@ -2364,6 +2365,7 @@ while IFS= read -r w; do
 done < <(recorded_windows)
 
 while :; do
+  fm_jev_supervision_cycle_reset
   # Self-eviction: if the singleton lock no longer names this process, a second
   # watcher has taken over (e.g. a transient duplicate from a racy arm). Stand
   # down so the rightful singleton continues alone. The EXIT trap's release

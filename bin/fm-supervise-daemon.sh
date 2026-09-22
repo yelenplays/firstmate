@@ -359,16 +359,17 @@ _collapse_newlines() {  # <text>
 # field for "self" is informational (logged); for "escalate" it is the pre-read
 # summary firstmate would otherwise have to re-read.
 
-classify_signal() {  # <reason-after-colon> <state>
-  local reason=$1 state=$2 f last event record rest endpoint ident rc distilled="" rel="" seen_rel="" task sig marker
+classify_signal() {  # <reason-after-colon> <state> [<output-var>]
+  local reason=$1 state=$2 output_var=${3-} classified_decision f last event record rest endpoint ident rc distilled="" rel="" seen_rel="" task sig marker
   for f in $reason; do
     case "$f" in *.status) ;; *) continue ;; esac
     [ -e "$f" ] || [ -L "$f" ] || continue
     task=$(basename "$f"); task="${task%.status}"
     # `jev` opts the span into the escalation-only status consult (declared
     # verbs are never offered; a helper failure leaves the bash verdict).
-    record=$(status_span_first_actionable_record "$f" \
-      "$(status_seen_offset "$state" "$task")" '' '' jev)
+    record=''
+    status_span_first_actionable_record "$f" \
+      "$(status_seen_offset "$state" "$task")" record '' jev
     rc=$?
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
     if [ "$rc" -eq 2 ]; then
@@ -403,14 +404,15 @@ classify_signal() {  # <reason-after-colon> <state>
   # strip a trailing " | " separator so the distilled line is clean
   distilled="${distilled% | }"
   if [ -n "$rel" ]; then
-    printf 'escalate|%s' "$distilled"
+    classified_decision="escalate|$distilled"
   elif [ -n "$seen_rel" ]; then
     # Already escalated by the per-wake path or the catch-all scan; self-handle
     # to avoid a duplicate entry in the digest.
-    printf 'self|signal already escalated (catch-all scan): %s' "$distilled"
+    classified_decision="self|signal already escalated (catch-all scan): $distilled"
   else
-    printf 'self|routine signal: %s' "$distilled"
+    classified_decision="self|routine signal: $distilled"
   fi
+  if [ -n "$output_var" ]; then printf -v "$output_var" '%s' "$classified_decision"; else printf '%s' "$classified_decision"; fi
 }
 
 # classify_stale decides the WAKE itself (one-shot per distinct hash). On a
@@ -420,8 +422,9 @@ classify_stale() {  # <window> <state> [<span-record> <span-status>]
   local win=$1 state=$2 record=${3-} rc=${4-} task last event rest
   task=$(window_to_task "$win" "$state")
   if [ -z "$rc" ]; then
-    record=$(status_span_first_actionable_record "$state/$task.status" \
-      "$(status_seen_offset "$state" "$task")" '' '' jev)
+    record=''
+    status_span_first_actionable_record "$state/$task.status" \
+      "$(status_seen_offset "$state" "$task")" record '' jev
     rc=$?
   fi
   last=$(last_status_line "$state/$task.status")
@@ -1227,8 +1230,9 @@ housekeeping() {  # <state>
     for f in "$state"/*.status; do
       [ -e "$f" ] || [ -L "$f" ] || continue
       task=$(basename "$f"); task="${task%.status}"
-      record=$(status_span_first_actionable_record "$f" \
-        "$(status_seen_offset "$state" "$task")" '' '' jev)
+      record=''
+      status_span_first_actionable_record "$f" \
+        "$(status_seen_offset "$state" "$task")" record '' jev
       rc=$?
       if [ "$rc" -eq 2 ]; then
         ident=$(status_observed_signature "$f")
@@ -1400,13 +1404,14 @@ handle_wake() {  # <reason> <state>
                 needs-decision:*) arg="${reason#needs-decision: }" ;;
                 *) arg="${reason#signal: }" ;;
               esac
-              decision=$(FM_STATUS_SPAN_ENDPOINT_FILE="$capture" classify_signal "$arg" "$state") ;;
+              FM_STATUS_SPAN_ENDPOINT_FILE="$capture" classify_signal "$arg" "$state" decision ;;
     stale:*)  kind=stale; arg="${reason#stale: }"; stale_detail="${arg#"$arg"}"
               case "$arg" in *" ("*) stale_detail="${arg#*" ("}"; arg="${arg%% \(*}" ;; esac
               task=$(window_to_task "$arg" "$state")
               if [ -n "$task" ]; then
-                span_record=$(status_span_first_actionable_record "$state/$task.status" \
-                  "$(status_seen_offset "$state" "$task")" '' '' jev)
+                span_record=''
+                status_span_first_actionable_record "$state/$task.status" \
+                  "$(status_seen_offset "$state" "$task")" span_record '' jev
                 span_rc=$?
                 case "$span_rc" in
                   0|1)
@@ -1752,6 +1757,7 @@ fm_super_main() {
 
   local rc reason
   while true; do
+    fm_jev_supervision_cycle_reset
     # --- pane-gone guard (preserved) ---------------------------------------
     # With the #29 watcher's enqueue-before-suppress, a wake is no longer
     # swallowed by running the watcher with no injection target. We still back

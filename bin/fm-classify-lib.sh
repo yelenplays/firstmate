@@ -1982,6 +1982,7 @@ FM_JEV_WEDGE_CHECK_BIN="${FM_JEV_WEDGE_CHECK_BIN:-$_FM_CLASSIFY_LIB_DIR/fm-jev-w
 # bites when a caller reclassifies a long log from byte 0; past it the bash
 # verdict stands for the rest of the span.
 FM_JEV_SPAN_TRIAGE_MAX=${FM_JEV_SPAN_TRIAGE_MAX:-8}
+FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS=${FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS:-6}
 
 # The subprocess bound around one consult. The helper's own JEV_TIMEOUT bounds
 # the HTTP call (default FM_JEV_SUPERVISION_TIMEOUT_SECS=3 inside the helper);
@@ -1992,6 +1993,79 @@ _fm_jev_supervision_bound() {
   local secs=${JEV_TIMEOUT:-${FM_JEV_SUPERVISION_TIMEOUT_SECS:-3}}
   case "$secs" in ''|*[!0-9]*|0) secs=3 ;; esac
   printf '%s' "$((secs + 2))"
+}
+
+_fm_jev_supervision_now_ms() {
+  local raw sec frac
+  raw=${EPOCHREALTIME:-}
+  case "$raw" in
+    *[0-9][.,][0-9]*)
+      sec=${raw%%[.,]*}
+      frac=${raw#*[.,]}
+      frac="${frac}000"
+      frac=${frac:0:3}
+      case "$sec$frac" in
+        ''|*[!0-9]*) ;;
+        *) printf '%s\n' "$((sec * 1000 + 10#$frac))"; return 0 ;;
+      esac
+      ;;
+  esac
+  sec=$(date +%s 2>/dev/null || printf '0')
+  case "$sec" in ''|*[!0-9]*) sec=0 ;; esac
+  printf '%s\n' "$((sec * 1000))"
+}
+
+fm_jev_supervision_cycle_reset() {
+  local budget=$FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS
+  case "$budget" in ''|*[!0-9]*|0|??????????*) budget=6 ;; esac
+  budget=$((10#$budget))
+  [ "$budget" -gt 0 ] || budget=6
+  FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS=$budget
+  _FM_JEV_SUPERVISION_CYCLE_BUDGET_MS=$((budget * 1000))
+  _FM_JEV_SUPERVISION_CYCLE_USED_MS=0
+  _FM_JEV_SUPERVISION_CYCLE_FAILED=0
+  case "${EPOCHREALTIME:-}" in *[0-9][.,][0-9]*) _FM_JEV_SUPERVISION_CYCLE_COARSE_CLOCK=0 ;; *) _FM_JEV_SUPERVISION_CYCLE_COARSE_CLOCK=1 ;; esac
+}
+
+_fm_jev_supervision_cycle_prepare() {
+  local remaining_ms available_secs bound
+  [ -n "${_FM_JEV_SUPERVISION_CYCLE_BUDGET_MS:-}" ] || fm_jev_supervision_cycle_reset
+  [ "${_FM_JEV_SUPERVISION_CYCLE_FAILED:-0}" -eq 0 ] || return 1
+  remaining_ms=$((_FM_JEV_SUPERVISION_CYCLE_BUDGET_MS - _FM_JEV_SUPERVISION_CYCLE_USED_MS))
+  available_secs=$(((remaining_ms - 2000) / 1000))
+  if [ "$available_secs" -le 0 ]; then
+    _FM_JEV_SUPERVISION_CYCLE_FAILED=1
+    return 1
+  fi
+  bound=$(_fm_jev_supervision_bound)
+  [ "$bound" -le "$available_secs" ] || bound=$available_secs
+  _FM_JEV_SUPERVISION_CYCLE_CALL_TIMEOUT_SECS=$bound
+}
+
+_fm_jev_supervision_cycle_charge() {
+  local started=$1 finished=$2 elapsed_ms
+  elapsed_ms=$((finished - started))
+  [ "$elapsed_ms" -ge 0 ] || elapsed_ms=0
+  if [ "${_FM_JEV_SUPERVISION_CYCLE_COARSE_CLOCK:-1}" -eq 1 ]; then
+    elapsed_ms=$((elapsed_ms + 1000))
+  fi
+  _FM_JEV_SUPERVISION_CYCLE_USED_MS=$((_FM_JEV_SUPERVISION_CYCLE_USED_MS + elapsed_ms))
+}
+
+_fm_jev_supervision_consult() {
+  local helper=$1 payload=$2 output_var=$3 started finished response rc=0
+  [ -f "$helper" ] || return 1
+  _fm_jev_supervision_cycle_prepare || return 1
+  started=$(_fm_jev_supervision_now_ms)
+  response=$(printf '%s' "$payload" | FM_HOME="${FM_HOME:-}" FM_STATE_OVERRIDE="${FM_STATE_OVERRIDE:-}" \
+    fm_run_timed "$_FM_JEV_SUPERVISION_CYCLE_CALL_TIMEOUT_SECS" "$helper" 2>/dev/null) || rc=$?
+  finished=$(_fm_jev_supervision_now_ms)
+  _fm_jev_supervision_cycle_charge "$started" "$finished"
+  if [ "$rc" -ne 0 ]; then
+    _FM_JEV_SUPERVISION_CYCLE_FAILED=1
+    return 1
+  fi
+  printf -v "$output_var" '%s' "$response"
 }
 
 # 0 when <status-line> is eligible for the escalation-only Jev consult: a
@@ -2022,9 +2096,7 @@ status_line_jev_in_scope() {  # <status-line>
 status_line_jev_escalates() {  # <status-line>
   local line=$1 verdict
   status_line_jev_in_scope "$line" || return 1
-  [ -f "$FM_JEV_STATUS_TRIAGE_BIN" ] || return 1
-  verdict=$(printf '%s' "$line" | FM_HOME="${FM_HOME:-}" FM_STATE_OVERRIDE="${FM_STATE_OVERRIDE:-}" \
-    fm_run_timed "$(_fm_jev_supervision_bound)" "$FM_JEV_STATUS_TRIAGE_BIN" 2>/dev/null) || return 1
+  _fm_jev_supervision_consult "$FM_JEV_STATUS_TRIAGE_BIN" "$line" verdict || return 1
   [ "$verdict" = escalate ]
 }
 
@@ -2036,11 +2108,11 @@ status_line_jev_escalates() {  # <status-line>
 wedge_jev_suppress() {  # <pane-tail>
   local tail=$1 verdict
   [ -n "$tail" ] || return 1
-  [ -f "$FM_JEV_WEDGE_CHECK_BIN" ] || return 1
-  verdict=$(printf '%s' "$tail" | FM_HOME="${FM_HOME:-}" FM_STATE_OVERRIDE="${FM_STATE_OVERRIDE:-}" \
-    fm_run_timed "$(_fm_jev_supervision_bound)" "$FM_JEV_WEDGE_CHECK_BIN" 2>/dev/null) || return 1
+  _fm_jev_supervision_consult "$FM_JEV_WEDGE_CHECK_BIN" "$tail" verdict || return 1
   [ "$verdict" = suppress ]
 }
+
+fm_jev_supervision_cycle_reset
 
 # Classify WHY an idle/stale crew MIGHT be safely absorbed instead of surfaced,
 # from bin/fm-crew-state.sh's one authoritative current-state line
