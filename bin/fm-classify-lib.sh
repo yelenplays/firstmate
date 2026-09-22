@@ -27,7 +27,7 @@
 # A missing, malformed, identity-mismatched, or past-end classified position reads
 # from byte 0, preferring a bounded duplicate over a lost event.
 #
-# There are three documented exceptions. The absorb classification
+# There are four documented exceptions. The absorb classification
 # (crew_absorb_class and its working/paused wrappers) is NOT a pure status-file
 # read: it reuses bin/fm-crew-state.sh, which may make a bounded no-mistakes call,
 # to decide whether a crew that just stopped its turn or went stale is working,
@@ -39,7 +39,11 @@
 # stays bounded by new appends instead of re-reading each task's whole lifetime
 # log every time. crew_worktree_written_since reads the task's meta file and walks
 # a bounded slice of its worktree instead of a status file, so callers run it only
-# at the moment they would otherwise escalate.
+# at the moment they would otherwise escalate. crew_nm_run_progressing reads the
+# meta, makes one bounded `axi status` call (plus a bounded `daemon status` probe
+# for a daemon-executed step), and compares run-log mtimes under
+# NM_HOME/logs/<run-id>/ against the caller's idle-window anchor, so it is held
+# to the same only-at-escalation budget.
 
 # Directory of this library, used to locate the sibling fm-crew-state.sh reader.
 # Resolved at source time from BASH_SOURCE so it works whether sourced by a
@@ -61,6 +65,17 @@ case $- in *u*) _fm_classify_nounset=on ;; *) _fm_classify_nounset=off ;; esac
 # shellcheck source=bin/fm-timeout-lib.sh
 # shellcheck disable=SC1091
 . "$_FM_CLASSIFY_LIB_DIR/fm-timeout-lib.sh"
+[ "$_fm_classify_nounset" = on ] || set +u
+unset _fm_classify_nounset
+
+# crew_nm_run_progressing below reads the run's own execution evidence through
+# the shared no-mistakes run primitives (bounded CLI call, TOON field readers,
+# active_steps parsing). bin/fm-nm-run-lib.sh is their one owner; it is plain
+# function definitions, so the same nounset courtesy applies.
+case $- in *u*) _fm_classify_nounset=on ;; *) _fm_classify_nounset=off ;; esac
+# shellcheck source=bin/fm-nm-run-lib.sh
+# shellcheck disable=SC1091
+. "$_FM_CLASSIFY_LIB_DIR/fm-nm-run-lib.sh"
 [ "$_fm_classify_nounset" = on ] || set +u
 unset _fm_classify_nounset
 
@@ -2056,6 +2071,103 @@ crew_worktree_written_since() {  # <id> <state> <anchor-file>
       -type f -newer "$anchor" -print -quit 2>/dev/null || true)
   fi
   [ -n "$hit" ]
+}
+
+# Wall-clock seconds each bounded `no-mistakes` call below may take. The probe
+# runs synchronously inside the caller's poll at the exact moment an escalation
+# would otherwise fire, so an unresponsive CLI must cost the escalation only the
+# bound: hitting it reads as no evidence, exactly like every other negative
+# outcome here.
+FM_NM_RUN_EVIDENCE_TIMEOUT=${FM_NM_RUN_EVIDENCE_TIMEOUT:-10}
+
+# Prints <id>'s no-mistakes run id and returns 0 when the run attributed to the
+# task's branch is demonstrably EXECUTING: positive process or log evidence
+# from the run itself, never the pane. This is the wedge detector's fourth
+# liveness input and the one that sees work the other three cannot: a crew
+# handed to `axi run` produces no pane output, no worktree writes in its own
+# checkout, and often no fresh status line for the whole validation, so pane
+# quietness alone must never escalate while the run proves itself - the
+# 25-consecutive-escalation false alarm the captain reported on the cleanup
+# task. Silence of the work window is not evidence; the run's own state is.
+#
+# Execution evidence, any one of which is sufficient:
+#   - the daemon reports fresh step activity (an active_steps row whose
+#     last_activity the pipeline itself has not marked quiet), or
+#   - an in-flight step's recorded agent_pid is a live non-zombie process, or
+#   - an in-flight daemon-executed step (empty agent_pid: the ci monitor, push
+#     or pr bookkeeping) while a bounded `daemon status` probe answers - the
+#     daemon IS the process executing that step, or
+#   - a file under NM_HOME/logs/<run-id>/ was written since <anchor-file>,
+#     the same idle-window anchor the worktree probe compares against, so a
+#     run between step rows still counts while its logs grow.
+#
+# 1 for every other outcome - missing meta or worktree, a kind that never
+# validates (scout, secondmate), a detached HEAD, an unanswered or
+# branch-foreign `axi status`, a terminal or gate-parked run record, an empty
+# active_steps table with no log growth, a dead agent pid, a daemon probe that
+# fails, or an unreadable run-log dir. Absence of evidence therefore always
+# leaves the caller's escalation schedule untouched: a crew whose run shows
+# neither a live process nor a growing log still escalates exactly as before.
+# Callers must reach this only when they are otherwise about to escalate,
+# never on every poll: each call is one bounded `axi status` plus, for a
+# daemon-executed step, one bounded `daemon status`.
+crew_nm_run_progressing() {  # <id> <state> <anchor-file>
+  local id=$1 state=$2 anchor=$3 wt kind branch out rbranch rid pairs
+  local pid activity daemon_up nm_home logdir hit
+  [ -n "$id" ] || return 1
+  [ -f "$anchor" ] || return 1
+  command -v no-mistakes >/dev/null 2>&1 || return 1
+  wt=$(grep '^worktree=' "$state/$id.meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+  [ -n "$wt" ] && [ -d "$wt" ] || return 1
+  kind=$(grep '^kind=' "$state/$id.meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+  [ "${kind:-ship}" = ship ] || return 1
+  branch=$(git -C "$wt" symbolic-ref --quiet --short HEAD 2>/dev/null) || return 1
+  [ -n "$branch" ] || return 1
+  out=$(fm_nm_run_checked "$wt" "$FM_NM_RUN_EVIDENCE_TIMEOUT" axi status) || return 1
+  [ -n "$out" ] || return 1
+  rbranch=$(fm_nm_strip_quotes "$(fm_nm_field "$out" branch)")
+  [ "$rbranch" = "$branch" ] || return 1
+  fm_nm_run_is_active "$out" || return 1
+  rid=$(fm_nm_strip_quotes "$(fm_nm_field "$out" id)")
+  [ -n "$rid" ] || return 1
+  pairs=$(fm_nm_active_steps_pairs "$out")
+  if [ -n "$pairs" ]; then
+    daemon_up=''
+    while IFS=$'\t' read -r pid activity; do
+      case "$activity" in
+        ''|quiet*) ;;
+        *) printf '%s' "$rid"; return 0 ;;
+      esac
+      case "$pid" in
+        ''|*[!0-9]*)
+          if [ -z "$daemon_up" ]; then
+            if fm_nm_run_checked "$wt" "$FM_NM_RUN_EVIDENCE_TIMEOUT" daemon status >/dev/null; then
+              daemon_up=1
+            else
+              daemon_up=0
+            fi
+          fi
+          [ "$daemon_up" = 1 ] && { printf '%s' "$rid"; return 0; }
+          ;;
+        *)
+          if kill -0 "$pid" 2>/dev/null; then
+            case "$(ps -p "$pid" -o stat= 2>/dev/null)" in
+              Z*) ;;
+              *) printf '%s' "$rid"; return 0 ;;
+            esac
+          fi
+          ;;
+      esac
+    done <<EOF
+$pairs
+EOF
+  fi
+  nm_home=${NM_HOME:-$HOME/.no-mistakes}
+  logdir=$nm_home/logs/$rid
+  [ -d "$logdir" ] || return 1
+  hit=$(fm_run_timed "$FM_NM_RUN_EVIDENCE_TIMEOUT" find "$logdir" -type f -name '*.log' -newer "$anchor" -print -quit 2>/dev/null || true)
+  [ -n "$hit" ] || return 1
+  printf '%s' "$rid"
 }
 
 # 0 (benign/absorb) if EVERY task referenced by a no-verb "signal:" wake is provably

@@ -310,6 +310,66 @@ fm_nm_run_is_pipeline_owned_active() {  # <toon-output>
   fm_nm_run_is_active "$1"
 }
 
+# Rows of the `active_steps[N]{...}:` table in captured `axi status` TOON $1,
+# which the pipeline emits only while a step is actually running or fixing.
+# Column order is deliberately not assumed: the header's own indentation bounds
+# the block, and callers read the table as text.
+fm_nm_active_steps_rows() {  # <toon-output>
+  printf '%s\n' "$1" | awk '
+    /^[[:space:]]*active_steps\[[0-9]+\]\{/ { hdr = index($0, "active_steps"); inblock = 1; next }
+    inblock {
+      if ($0 ~ /^[[:space:]]*$/) { inblock = 0; next }
+      match($0, /[^ \t]/)
+      if (RSTART <= hdr) { inblock = 0; next }
+      print
+    }
+  '
+}
+
+# `agent_pid` and `last_activity` of each active_steps row in $1, emitted as one
+# "pid<TAB>activity" line per row with the columns resolved by header name, so
+# a CLI that adds or reorders columns still parses. An empty agent_pid marks a
+# daemon-executed step (the ci monitor, push/pr bookkeeping): no spawned agent
+# process can prove it - its executor is the daemon itself.
+fm_nm_active_steps_pairs() {  # <toon-output>
+  printf '%s\n' "$1" | awk '
+    function row_fields(s, f, i, ch, n, quoted, escaped) {
+      for (i in f) delete f[i]
+      n = 1; f[n] = ""
+      for (i = 1; i <= length(s); i++) {
+        ch = substr(s, i, 1)
+        if (escaped) { f[n] = f[n] ch; escaped = 0 }
+        else if (quoted && ch == "\\") escaped = 1
+        else if (ch == "\"") quoted = !quoted
+        else if (!quoted && ch == ",") { n++; f[n] = "" }
+        else f[n] = f[n] ch
+      }
+      for (i = 1; i <= n; i++) {
+        sub(/^[ \t]+/, "", f[i]); sub(/[ \t]+$/, "", f[i])
+      }
+      return n
+    }
+    /^[[:space:]]*active_steps\[[0-9]+\]\{/ {
+      hdr = index($0, "active_steps"); inblock = 1
+      cols = $0; sub(/^.*\{/, "", cols); sub(/\}.*/, "", cols)
+      m = split(cols, c, ","); pi = 0; ai = 0
+      for (i = 1; i <= m; i++) {
+        sub(/^[ \t]+/, "", c[i]); sub(/[ \t]+$/, "", c[i])
+        if (c[i] == "agent_pid") pi = i
+        if (c[i] == "last_activity") ai = i
+      }
+      next
+    }
+    inblock {
+      if ($0 ~ /^[[:space:]]*$/) { inblock = 0; next }
+      match($0, /[^ \t]/)
+      if (RSTART <= hdr) { inblock = 0; next }
+      row_fields($0, f)
+      printf "%s\t%s\n", (pi ? f[pi] : ""), (ai ? f[ai] : "")
+    }
+  '
+}
+
 # ONE owner for attribution from the pipeline's own runs ledger, replacing a
 # per-row scan-and-skip. The ledger is the real top-level `no-mistakes runs
 # --limit N` listing (plain text, no run id, no quoting, newest-first, columns
