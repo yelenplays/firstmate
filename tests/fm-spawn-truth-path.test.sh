@@ -91,6 +91,8 @@ test_shared_pool_clone_refuses_early_naming_the_live_path() {
   [ "$status" -ne 0 ] || fail "spawn accepted a clone whose pool slots belong to its origin"$'\n'"$out"
   assert_not_contains "$out" "is not a worktree of project" \
     "spawn still died late on the trust-registration refusal"
+  assert_contains "$out" "project '$CLONE_DIR' shares its Treehouse worktree pool" \
+    "the refusal did not name the clone it refused"$'\n'"$out"
   assert_contains "$out" "pass '$live_real'" \
     "the refusal did not name the exact path to pass"$'\n'"$out"
   [ "$(printf '%s\n' "$out" | grep -c '^error:')" -eq 1 ] \

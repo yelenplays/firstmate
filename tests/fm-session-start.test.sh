@@ -29,12 +29,18 @@
 #     network result surfaces exactly once (inline or as a wake, never both), a
 #     read-only session declares the checks it skipped, and the tasks-axi
 #     compatibility verdict is paid for once per session start
+#   - the ACT FIRST ranking: it prints after the wake queue, and a hanging Jev
+#     call is cut off inside its bound and prints nothing
 set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 # shellcheck source=tests/wake-helpers.sh
 . "$(dirname "${BASH_SOURCE[0]}")/wake-helpers.sh"
+
+# The digest's ACT FIRST ranking reads Jev keys from the environment first; the
+# cases that exercise it supply a key through the test home's .env instead.
+unset TYPESAFE_API_KEY OPENROUTER_API_KEY JEV_ROUTE JEV_URL JEV_BASE
 
 SESSION_START="$ROOT/bin/fm-session-start.sh"
 BASE_PATH=${FM_TEST_BASE_PATH:-/usr/bin:/bin:/usr/sbin:/sbin}
@@ -1395,6 +1401,97 @@ EOF
   pass "fm-session-start.sh composes the real fm-lock.sh, fm-bootstrap.sh, and fm-wake-drain.sh output verbatim"
 }
 
+# install_fake_jev_curl <fakebin> <log-dir> <sleep-seconds>: a curl that records
+# the Jev request and when it started, sleeps, then answers the ACT FIRST Choice
+# with the second offered item on top. jq is linked in because the digest runs
+# on a minimal PATH.
+install_fake_jev_curl() {
+  local fakebin=$1 log=$2 delay=$3
+  mkdir -p "$log"
+  ln -sf "$(command -v jq)" "$fakebin/jq"
+  cat > "$fakebin/curl" <<SH
+#!/usr/bin/env bash
+out=''
+while [ \$# -gt 0 ]; do
+  case "\$1" in -o) out=\$2; shift 2 ;; *) shift ;; esac
+done
+date +%s > '$log/started'
+cat > '$log/body'
+sleep $delay
+touch '$log/finished'
+printf '%s' '{"answers":{"first":{"type":"choice","choice":"i2","confidence":0.8,"probabilities":{"i1":0.2,"i2":0.8}}}}' > "\$out"
+printf '200'
+SH
+  chmod +x "$fakebin/curl"
+}
+
+test_act_first_ranks_presented_items_after_the_wake_queue() {
+  local rec root home fakebin out log act wake supervision
+  rec=$(new_world act-first)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  log="${root%/root}/jev"
+  install_fake_jev_curl "$fakebin" "$log" 0
+  printf 'TYPESAFE_API_KEY=ts-act-first-test\n' > "$home/.env"
+  printf 'needs-decision: pick a library\n' > "$home/state/task-y.status"
+  printf 'blocked: waiting on a key\n' > "$home/state/task-z.status"
+  append_wake "$home/state" signal task-y.status "needs-decision: pick a library"
+  append_wake "$home/state" signal task-z.status "blocked: waiting on a key"
+
+  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+
+  assert_contains "$out" "ACT FIRST (advisory Jev ranking of the items above" "the ACT FIRST section did not print"
+  assert_contains "$out" "1. decision task-z blocked: waiting on a key (p=0.8)" \
+    "the ranking did not put Jev's pick first"$'\n'"$out"
+  wake=$(printf '%s\n' "$out" | grep -n '^WAKE QUEUE$' | cut -d: -f1)
+  act=$(printf '%s\n' "$out" | grep -n '^ACT FIRST' | cut -d: -f1)
+  supervision=$(printf '%s\n' "$out" | grep -n '^SUPERVISION OPERATING INSTRUCTIONS' | cut -d: -f1)
+  [ -n "$wake" ] && [ -n "$act" ] && [ -n "$supervision" ] && [ "$wake" -lt "$act" ] && [ "$act" -lt "$supervision" ] \
+    || fail "ACT FIRST was not between the wake queue and the supervision block (wake=$wake act=$act supervision=$supervision)"
+  jq -e '.state | contains("wake signal task-y.status")' "$log/body" >/dev/null \
+    || fail "the presented wake records were not what Jev ranked"
+  pass "session start: ACT FIRST ranks the presented items right after the wake queue"
+}
+
+test_act_first_never_delays_the_digest() {
+  local rec root home fakebin out log started resumed
+  rec=$(new_world act-first-hang)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  log="${root%/root}/jev"
+  install_fake_jev_curl "$fakebin" "$log" 30
+  # The fleet-state endpoint read is the digest's next tmux call after the
+  # ranking, so its first call once the Jev request started marks when the
+  # digest resumed.
+  cat > "$fakebin/tmux" <<SH
+#!/usr/bin/env bash
+if [ -e '$log/started' ] && [ ! -e '$log/resumed' ]; then date +%s > '$log/resumed'; fi
+exit 1
+SH
+  chmod +x "$fakebin/tmux"
+  printf 'TYPESAFE_API_KEY=ts-act-first-test\n' > "$home/.env"
+  printf 'window=fm-sess:probe-window\nkind=ship\n' > "$home/state/task-y.meta"
+  append_wake "$home/state" signal task-y.status "needs-decision: pick a library"
+  append_wake "$home/state" signal task-z.status "blocked: waiting on a key"
+
+  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+
+  started=$(cat "$log/started" 2>/dev/null) || fail "the ranking call was never attempted"
+  resumed=$(cat "$log/resumed" 2>/dev/null) || fail "the digest never reached its endpoint read"
+  [ $((resumed - started)) -lt 3 ] \
+    || fail "the digest resumed $((resumed - started))s after a hanging Jev call started; the bound is under 3s"
+  [ ! -e "$log/finished" ] || fail "the hanging Jev call was allowed to finish"
+  assert_not_contains "$out" "ACT FIRST" "a timed-out ranking still printed a section"
+  assert_contains "$out" "READ-ONCE CONTRACT" "the digest did not complete after the timed-out ranking"
+  pass "session start: a hanging Jev call costs under 3s and prints nothing"
+}
+
 test_branch_outcome_replay_respects_captain_barrier_and_lease_sweep() {
   local rec root home fakebin out
   rec=$(new_world branch-recovery)
@@ -2730,6 +2827,8 @@ test_orphan_status_logs_are_printed
 test_endpoint_liveness_tmux
 test_endpoint_liveness_herdr
 test_composition_invokes_real_scripts
+test_act_first_ranks_presented_items_after_the_wake_queue
+test_act_first_never_delays_the_digest
 test_branch_outcome_replay_respects_captain_barrier_and_lease_sweep
 test_non_pi_session_start_leaves_branch_state_untouched
 test_backlog_compact_tasks_axi_omits_bodies_and_keeps_metadata

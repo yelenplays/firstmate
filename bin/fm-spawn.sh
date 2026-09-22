@@ -229,6 +229,13 @@
 #   scan bin/fm-teardown.sh runs before returning a slot (bin/fm-wake-lib.sh
 #   owns it), applied before the slot is claimed or refreshed; a scan that
 #   cannot prove the slot unowned refuses the same way.
+#   Before any pane, lock, or slot exists, a fresh ship or scout given a fleet
+#   clone under projects/ refuses with one line naming the path to pass when
+#   that clone shares its Treehouse pool with the local origin repository it
+#   was cloned from (bin/fm-wake-lib.sh's fm_treehouse_pool_origin_root owns
+#   the detection): the pool's slots would be worktrees of that repository,
+#   not of the clone. Spawn never redirects silently, because that would change
+#   which repository the work lands in.
 #   Only after this isolation check, every fresh ship or scout requires a clean
 #   task worktree. When an origin configuration is detected, spawn fetches it,
 #   resolves the current remote default branch, and resets to its tip. When none

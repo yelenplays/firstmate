@@ -667,6 +667,23 @@ The [script header](../bin/fm-jev-queue-triage.sh) owns flags, record paths and 
 Backlog collection uses two sequential listings with a five-second timeout each; a model request then uses the Jev caller library's HTTP timeout.
 Regression coverage lives in [`tests/fm-jev-queue-triage.test.sh`](../tests/fm-jev-queue-triage.test.sh).
 
+## Jev intake match
+
+[`bin/fm-jev-intake-match.sh`](../bin/fm-jev-intake-match.sh) resolves a loose captain reference, such as "the wiki plan I had in one prompt", to the backlog items and `data/<id>/` records it most likely means.
+It builds a bounded candidate list without a model call and asks Jev one Choice over candidate ids.
+Only ids, titles, and backlog states reach Jev; report and brief bodies never do.
+With no key, a failed call, a `none` answer, or confidence below the library floor, it says so and prints a plain keyword ranking instead.
+It is advisory and never opens, dispatches, or edits anything.
+The [script header](../bin/fm-jev-intake-match.sh) owns candidate selection, limits, the output shape, and the log schema; regression coverage lives in [`tests/fm-jev-intake-match.test.sh`](../tests/fm-jev-intake-match.test.sh).
+
+## Jev act-first ranking (session start)
+
+`bin/fm-session-start.sh` asks [`bin/fm-jev-act-first.sh`](../bin/fm-jev-act-first.sh) to rank the actionable items the locked digest already printed, and prints at most five lines under an ACT FIRST heading right after the wake queue.
+It is hard-bounded to 2 seconds, and prints nothing when no key is configured, the call fails or times out, or fewer than two items exist.
+The ranking is advisory: every presented wake still needs handling and acknowledgement.
+The session-start header owns placement and the bound; the helper header owns item selection, what Jev sees, and the log schema.
+Regression coverage lives in [`tests/fm-jev-act-first.test.sh`](../tests/fm-jev-act-first.test.sh) and [`tests/fm-session-start.test.sh`](../tests/fm-session-start.test.sh).
+
 ## Jev brief preflight (FM_JEV_BRIEF_PREFLIGHT)
 
 `bin/fm-spawn.sh` runs [`bin/fm-jev-brief-preflight.sh`](../bin/fm-jev-brief-preflight.sh) for ship and scout briefs after its structural brief refusals and before any endpoint exists.
