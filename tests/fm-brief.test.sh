@@ -839,6 +839,8 @@ test_ship_and_scout_carry_advisory_jev_rule() {
       "$kind brief did not carry the Jev-first rule"
     assert_grep "use your own judgment and never block on it" "$brief" \
       "$kind brief did not keep the Jev-first rule advisory"
+    assert_grep "never secrets, credentials, API keys, or tokens" "$brief" \
+      "$kind brief did not bound the state sent to Jev"
     assert_grep "stay in code, because Jev has no filesystem or tools" "$brief" \
       "$kind brief did not keep deterministic operations in code"
   done
