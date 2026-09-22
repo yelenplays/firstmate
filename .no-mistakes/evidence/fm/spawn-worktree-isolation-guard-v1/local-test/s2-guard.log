@@ -1,0 +1,2 @@
+error: assigned worktree /private/tmp/fmlive-sb/user-home/.treehouse/project-2d6851/1/project is already task freehaul's recorded worktree; launching would put two tasks in the same copy; inspect window firstmate:fm-guarded
+Reconcile whichever record is wrong (bin/fm-crew-state.sh freehaul), or tear that task down if it is finished (bin/fm-teardown.sh freehaul), then re-run the spawn

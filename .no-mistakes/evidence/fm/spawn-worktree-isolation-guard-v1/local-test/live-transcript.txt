@@ -1,0 +1,70 @@
+
+===== SETUP (fresh sandbox, real tmux via TMUX_TMPDIR, real Treehouse pool) =====
+project=/tmp/fmlive-sb/project
+single free pool slot=/private/tmp/fmlive-sb/user-home/.treehouse/project-2d6851/1/project
+
+===== S1  a fresh spawn takes an UNHELD worktree and launches =====
+$ bin/fm-spawn.sh freehaul /tmp/fmlive-sb/project sleep 600 --scout (FM_HOME=/tmp/fmlive-sb/home, FM_STATE_OVERRIDE=/tmp/fmlive-sb/home/state)
+    spawned freehaul harness=sleep kind=scout window=firstmate:fm-freehaul worktree=/private/tmp/fmlive-sb/user-home/.treehouse/project-2d6851/1/project
+    exit=0   [log: local-test/s1-free.log]
+-- published record:
+    window=firstmate:fm-freehaul
+    endpoint_task_id=freehaul
+    worktree=/private/tmp/fmlive-sb/user-home/.treehouse/project-2d6851/1/project
+    project=/tmp/fmlive-sb/project
+    harness=sleep
+    kind=scout
+    tasktmp=/tmp/fm-freehaul
+    model=default
+    effort=default
+    spawn_gen=s1790076383.41522.17282
+-- tmux windows:
+    firstmate:zsh /private/tmp zsh
+    firstmate:fm-freehaul /private/tmp/fmlive-sb/user-home/.treehouse/project-2d6851/1/project sleep
+
+===== S2  worker exits but its record survives: the next spawn must REFUSE =====
+-- freehaul endpoint killed; its durable record still names the slot:
+    worktree=/private/tmp/fmlive-sb/user-home/.treehouse/project-2d6851/1/project
+$ bin/fm-spawn.sh guarded /tmp/fmlive-sb/project sleep 600 --scout (FM_HOME=/tmp/fmlive-sb/home, FM_STATE_OVERRIDE=/tmp/fmlive-sb/home/state)
+    error: assigned worktree /private/tmp/fmlive-sb/user-home/.treehouse/project-2d6851/1/project is already task freehaul's recorded worktree; launching would put two tasks in the same copy; inspect window firstmate:fm-guarded
+    Reconcile whichever record is wrong (bin/fm-crew-state.sh freehaul), or tear that task down if it is finished (bin/fm-teardown.sh freehaul), then re-run the spawn
+    exit=1   [log: local-test/s2-guard.log]
+-- side effects:
+    guarded.meta present? no
+    freehaul record untouched? YES
+    pool HEAD before/after: f07f58ac0944c256998f02109819f95453bb2515
+-- window named in the refusal (lease holder) is alive:
+    firstmate:zsh /private/tmp
+    firstmate:fm-guarded /private/tmp/fmlive-sb/user-home/.treehouse/project-2d6851/1/project
+
+===== S3  re-spawn of the SAME id whose own record names the slot must LAUNCH =====
+$ bin/fm-spawn.sh freehaul /tmp/fmlive-sb/project sleep 600 --scout (FM_HOME=/tmp/fmlive-sb/home, FM_STATE_OVERRIDE=/tmp/fmlive-sb/home/state)
+    spawned freehaul harness=sleep kind=scout window=firstmate:fm-freehaul worktree=/private/tmp/fmlive-sb/user-home/.treehouse/project-2d6851/1/project
+    exit=0   [log: local-test/s3-own-record.log]
+
+===== S4  the holder may live in a registered SECONDMATE home: still REFUSE =====
+mate record: home=/tmp/fmlive-sb/mate-home worktree=/private/tmp/fmlive-sb/user-home/.treehouse/project-2d6851/2/project
+$ bin/fm-spawn.sh guarded /tmp/fmlive-sb/project sleep 600 --scout (FM_HOME=/tmp/fmlive-sb/home, FM_STATE_OVERRIDE=/tmp/fmlive-sb/home/state)
+    error: assigned worktree /private/tmp/fmlive-sb/user-home/.treehouse/project-2d6851/2/project is already task mate-holder's recorded worktree; launching would put two tasks in the same copy; inspect window firstmate:fm-guarded
+    Reconcile whichever record is wrong (bin/fm-crew-state.sh mate-holder), or tear that task down if it is finished (bin/fm-teardown.sh mate-holder), then re-run the spawn
+    exit=1   [log: local-test/s4-cross-home.log]
+
+===== S5  symlinked HOME and symlinked state dir must still skip the own record =====
+$ bin/fm-spawn.sh freehaul /tmp/fmlive-sb/project sleep 600 --scout (FM_HOME=/tmp/fmlive-sb/home-link, FM_STATE_OVERRIDE=/tmp/fmlive-sb/home/state-real)
+    spawned freehaul harness=sleep kind=scout window=firstmate:fm-freehaul worktree=/private/tmp/fmlive-sb/user-home/.treehouse/project-2d6851/1/project
+    exit=0   [log: local-test/s5-symlinked.log]
+
+===== S6  a registry the scan cannot trust must REFUSE the spawn (fail closed) =====
+$ bin/fm-spawn.sh guarded /tmp/fmlive-sb/project sleep 600 --scout (FM_HOME=/tmp/fmlive-sb/home, FM_STATE_OVERRIDE=/tmp/fmlive-sb/home/state-real)
+    REFUSED: malformed local Firstmate registry entry in /private/tmp/fmlive-sb/home/data/secondmates.md; refusing to launch
+    exit=1   [log: local-test/s6-malformed.log]
+    guarded.meta present? no
+
+===== S7  a registered local home that cannot be resolved must REFUSE the spawn =====
+$ bin/fm-spawn.sh guarded /tmp/fmlive-sb/project sleep 600 --scout (FM_HOME=/tmp/fmlive-sb/home, FM_STATE_OVERRIDE=/tmp/fmlive-sb/home/state-real)
+    REFUSED: registered local Firstmate home is unavailable: /tmp/fmlive-sb/does-not-exist; refusing to launch
+    exit=1   [log: local-test/s7-unavailable.log]
+    guarded.meta present? no
+
+===== CLEANUP =====
+tmux sandbox server stopped

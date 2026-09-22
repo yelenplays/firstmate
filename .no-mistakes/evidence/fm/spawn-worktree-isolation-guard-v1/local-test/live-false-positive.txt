@@ -1,0 +1,8 @@
+===== LIVE false-positive: neighbouring record on a DIFFERENT copy =====
+neighbour record worktree=/tmp/fmlive-fp/neighbour-copy (NOT the pool slot)
+$ bin/fm-spawn.sh probe /tmp/fmlive-fp/project 'sleep 600' --scout
+    spawned probe harness=sleep kind=scout window=firstmate:fm-probe worktree=/private/tmp/fmlive-fp/user-home/.treehouse/project-90634e/1/project
+    exit=0
+    probe.meta published? YES
+    probe worktree=/private/tmp/fmlive-fp/user-home/.treehouse/project-90634e/1/project
+sandbox removed

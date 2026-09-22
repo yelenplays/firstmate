@@ -1,0 +1,2 @@
+error: assigned worktree /private/tmp/fmlive-sb/user-home/.treehouse/project-2d6851/2/project is already task mate-holder's recorded worktree; launching would put two tasks in the same copy; inspect window firstmate:fm-guarded
+Reconcile whichever record is wrong (bin/fm-crew-state.sh mate-holder), or tear that task down if it is finished (bin/fm-teardown.sh mate-holder), then re-run the spawn
