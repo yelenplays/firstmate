@@ -148,7 +148,16 @@ run_tool out err score --margin 0.5 --rows "$TMP_ROOT/pick.jsonl"
 assert_contains "$out" '  row: recorded pick=rule_2 first=rule_1 second=default margin=0.85 confidence=0.9 expected=rule_2 margin-gate=pass ok' "a recorded rule is judged even when it is not the most probable option"
 assert_contains "$out" '  row: argmax pick=rule_1 first=rule_1 second=default margin=0.85 confidence=0.9 expected=rule_2 margin-gate=pass wrong' "a row without a recorded rule is judged by the most probable option"
 assert_contains "$out" '  gate: margin>=0.5 ambiguous=0 pass=2 wrong=1' "the wrong count follows the judged pick"
-pass "score: margin sweep beside the confidence gate, labeled wrong picks, per-row detail"
+cat > "$TMP_ROOT/top2.jsonl" <<'JSONL'
+{"case":"tie","probabilities":{"b":0.4,"a":0.4,"c":0.2}}
+{"case":"single","probabilities":{"only":1}}
+{"case":"rounded","probabilities":{"alpha":0.512345,"beta":0.388889,"gamma":0.098766}}
+JSONL
+run_tool out err score --margin 0.1 --rows "$TMP_ROOT/top2.jsonl"
+assert_contains "$out" '  row: tie pick=a first=a second=b margin=0 confidence=- expected=- margin-gate=ambiguous -' "ties use option names to order equal probabilities"
+assert_contains "$out" '  row: single pick=only first=only second=- margin=1 confidence=- expected=- margin-gate=pass -' "a single option has the full margin"
+assert_contains "$out" '  row: rounded pick=alpha first=alpha second=beta margin=0.1235 confidence=- expected=- margin-gate=pass -' "the margin is rounded to four decimal places"
+pass "score: margin sweep, recorded picks, tie ordering, single option, and rounding"
 
 # --- usage errors exit 2 -------------------------------------------------------
 run_tool out err score --margin 0 "$TMP_ROOT/score.jsonl"

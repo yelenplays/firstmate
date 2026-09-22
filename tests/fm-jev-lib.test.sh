@@ -362,23 +362,6 @@ test_probabilities_sum() {
   pass "probabilities must be 0..1 numbers that sum to about 1"
 }
 
-test_choice_top2() {
-  local out
-  out=$(fm_jev_choice_top2 '{"rule_9":0.63,"rule_11":0.18,"default":0.19}') || fail "a probabilities object must succeed"
-  assert_equals '{"first":"rule_9","second":"default","margin":0.44}' "$out" "top-2 names both contenders and rounds the gap"
-  out=$(fm_jev_choice_top2 '{"b":0.4,"a":0.4,"c":0.2}') || fail "a tie must succeed"
-  assert_equals '{"first":"a","second":"b","margin":0}' "$out" "a tie is ordered by option name and has zero margin"
-  out=$(fm_jev_choice_top2 '{"only":1}') || fail "a single option must succeed"
-  assert_equals '{"first":"only","second":null,"margin":1}' "$out" "a single option has the full margin"
-  if fm_jev_choice_top2 '[]' >/dev/null; then
-    fail "a JSON array must fail"
-  fi
-  if fm_jev_choice_top2 '{"a":"high"}' >/dev/null; then
-    fail "non-numeric probabilities must fail"
-  fi
-  pass "choice top-2 names both contenders, orders ties by name, and rejects non-probabilities"
-}
-
 test_compact_state_strips_secrets_and_refuses_oversized() {
   local out secret big
   secret='note TYPESAFE_API_KEY=abc123 and Bearer tok_secret_value and sk-or-v1-abcdefghijklmnopqrstuvwxyz'
@@ -444,7 +427,6 @@ test_curl_transport_failure
 test_missing_curl
 test_confidence_floor
 test_probabilities_sum
-test_choice_top2
 test_compact_state_strips_secrets_and_refuses_oversized
 test_log_call_writes_jsonl_without_secrets
 test_default_log_path
