@@ -1985,10 +1985,12 @@ heartbeat_scan_finds_actionable() {
   for f in "$STATE"/*.status; do
     [ -e "$f" ] || [ -L "$f" ] || continue
     task=$(basename "$f"); task="${task%.status}"
-    # `jev` here too: the backstop re-classifies only spans no per-wake path
-    # surfaced (the shared hb-surfaced marker guarantees that), so a consult
-    # still fires at most once per line - it exists to catch the same
-    # escalation-only misses the signal path consults for.
+    # `jev` here too: the backstop re-classifies spans past the hb-surfaced
+    # marker to catch the same escalation-only misses the signal path consults
+    # for. An absorbed signal advances only its wake-signal seen marker, not
+    # hb-surfaced, so a line the signal path already offered can be offered
+    # once more here; the scan then marks it surfaced, bounding the consult to
+    # at most twice per line.
     record=$(status_span_first_actionable_record "$f" "$(hb_surfaced_offset "$task")" '' '' jev)
     rc=$?
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
