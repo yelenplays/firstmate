@@ -27,9 +27,14 @@
 #   An unfinished case cannot be labeled. Shadow never writes a launch overlay.
 #
 # Live retains state/<task-id>.jev-skills.json under $FM_HOME, reused for the
-#   same task without another request, including relaunches. It offers the first
-#   24 sorted ids plus none and search_external, selects up to --max (default 3),
-#   and uses a 0.7 confidence floor. --status-note opts into a task status note.
+#   same task without another request, including relaunches. It offers every
+#   collected skill id as a Choice option described by its SKILL.md front-matter
+#   description (first 400 characters; "Installed skill <id>" when it has none),
+#   plus none and search_external, selects up to --max (default 3), and uses a
+#   0.7 confidence floor. The API caps a Choice at 255 options, so a roster over
+#   253 skills keeps described skills first, then the most recently modified
+#   SKILL.md, then id order, and records catalog_truncated. --status-note opts
+#   into a task status note.
 #   Publishing a fresh launch overlay resets live_loaded while preserving the
 #   cached selection; an eligible relaunch rechecks readability before injection.
 #
@@ -60,7 +65,9 @@ FM_HOME="${FM_HOME:-$FM_ROOT}"
 CONFIDENCE_FLOOR=0.7
 SHADOW_CONFIDENCE_FLOOR=0.8
 DEFAULT_MAX=3
-CATALOG_MAX=24
+CHOICE_OPTIONS_MAX=255
+CATALOG_MAX=$((CHOICE_OPTIONS_MAX - 2))
+DESCRIPTION_MAX=400
 SHADOW_MODEL=jev-1.13.0
 SHADOW_STATE_MAX=30000
 LIVE_CONFIRM="${FM_JEV_SKILL_SELECT_LIVE_CONFIRM:-$FM_HOME/config/jev-skill-select-live}"
@@ -467,6 +474,40 @@ add_skill() {
   printf '%s\n' "$id" >> "$CATALOG"
 }
 
+# One-line front-matter description of a SKILL.md, empty when it has none.
+# Handles plain, quoted, and folded (>, >-, |) values with indented continuation.
+# Tabs are flattened here; the character cap is applied by jq, which counts
+# characters rather than bytes and so never splits a multibyte sequence.
+skill_description() {
+  awk '
+    NR == 1 { if ($0 !~ /^---[[:space:]]*$/) exit; next }
+    /^---[[:space:]]*$/ { exit }
+    found && /^[ \t]+[^ \t]/ { buf = buf " " $0; next }
+    found { exit }
+    /^description:/ { sub(/^description:[ \t]*/, ""); buf = $0; found = 1 }
+    END {
+      sub(/^[>|][-+]?/, "", buf)
+      gsub(/[ \t\r]+/, " ", buf)
+      sub(/^ /, "", buf); sub(/ $/, "", buf)
+      if (buf ~ /^".*"$/ || buf ~ /^\047.*\047$/) buf = substr(buf, 2, length(buf) - 2)
+      printf "%s", buf
+    }
+  ' "$1" 2>/dev/null
+}
+
+STAT_BSD=0
+[ "$(uname)" != Darwin ] || STAT_BSD=1
+skill_mtime() {
+  local mtime
+  if [ "$STAT_BSD" = 1 ]; then
+    mtime=$(/usr/bin/stat -f %m "$1" 2>/dev/null)
+  else
+    mtime=$(stat -c %Y "$1" 2>/dev/null)
+  fi
+  case "$mtime" in ''|*[!0-9]*) mtime=0 ;; esac
+  printf '%s' "$mtime"
+}
+
 : > "$CATALOG"
 for dir in ${SKILLS_DIRS+"${SKILLS_DIRS[@]}"}; do
   [ -d "$dir" ] || die "skills dir not a directory: $dir"
@@ -502,10 +543,31 @@ if [ "$SKILL_COUNT" -gt "$CATALOG_MAX" ]; then
   TRUNCATED=true
 fi
 
-QUESTIONS=$(jq -n --argjson skills "$SKILLS_JSON" --argjson max "$CATALOG_MAX" '
-  def take: $skills[:$max];
+# Candidates: every collected id with its description and SKILL.md mtime.
+# Over the Choice ceiling, rank described skills first, then newest, then id.
+: > "$TMPDIR/candidates.tsv"
+while IFS= read -r id; do
+  [ -n "$id" ] || continue
+  description='' mtime=0
+  if skill_file=$(fm_jev_skill_file "$id"); then
+    description=$(skill_description "$skill_file")
+    mtime=$(skill_mtime "$skill_file")
+  fi
+  printf '%s\t%s\t%s\n' "$id" "$mtime" "$description" >> "$TMPDIR/candidates.tsv"
+done < "$CATALOG"
+CANDIDATES_JSON=$(jq -Rsc --argjson max "$CATALOG_MAX" --argjson chars "$DESCRIPTION_MAX" '
+  split("\n") | map(select(length > 0) | split("\t")
+    | {id: .[0], mtime: (.[1] | tonumber), description: (.[2:] | join(" ") | .[:$chars])})
+  | sort_by([(if .description == "" then 1 else 0 end), -.mtime, .id])
+  | .[:$max]
+  | sort_by(.id)
+  | map({id, description: (if .description == "" then "Installed skill " + .id else .description end)})
+' < "$TMPDIR/candidates.tsv") || die "could not build skill candidates"
+OFFERED_JSON=$(jq -c 'map(.id)' <<<"$CANDIDATES_JSON")
+
+QUESTIONS=$(jq -n --argjson candidates "$CANDIDATES_JSON" '
   def criteria:
-    (take | map({key: ., value: ("Installed skill " + .)}) | from_entries)
+    ($candidates | map({key: .id, value: .description}) | from_entries)
     + {
         none: "Load no extra skill this session.",
         search_external: "A useful skill is missing from the installed list."
@@ -652,8 +714,8 @@ fi
 SKILLS_OUT='[]'
 if [ "$CHOICE" != none ] && [ "$CHOICE" != search_external ]; then
   SKILLS_OUT=$(jq -n --argjson probs "$PROBS" --arg primary "$CHOICE" --argjson max "$MAX" \
-    --argjson catalog "$SKILLS_JSON" --argjson cap "$CATALOG_MAX" '
-      def offered: ($catalog[:$cap]);
+    --argjson offered_ids "$OFFERED_JSON" '
+      def offered: $offered_ids;
       def extras:
         ($probs
           | to_entries

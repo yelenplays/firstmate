@@ -399,6 +399,89 @@ test_codex_overlay_uses_dollar_form() {
   pass "Codex overlay uses the dollar skill form"
 }
 
+# Live candidates are the full collected roster, each described by its own
+# SKILL.md front matter, so a late skill such as typesafe-ai (slot 102 here)
+# stays selectable instead of falling past a fixed first-N id cut.
+test_live_full_roster_offers_described_late_skill() {
+  local code out err i old_skills=$SKILLS_DIR
+  SKILLS_DIR="$TMP_ROOT/live-roster/.agents/skills"
+  mkdir -p "$SKILLS_DIR"
+  for i in $(seq -w 1 101); do
+    mkdir -p "$SKILLS_DIR/skill-$i"
+    printf '%s\n' '---' "name: skill-$i" "description: Handle workflow $i." '---' 'Body.' > "$SKILLS_DIR/skill-$i/SKILL.md"
+  done
+  mkdir -p "$SKILLS_DIR/typesafe-ai"
+  printf '%s\n' '---' 'name: typesafe-ai' 'description: >-' '  Build AI-powered software' '  with TypeSafe typed questions.' '---' 'Body.' \
+    > "$SKILLS_DIR/typesafe-ai/SKILL.md"
+  fresh_home
+  : > "$HOME_DIR/config/jev-skill-select-live"
+  python3 - "$RESPONSE" <<'PYTHON'
+import json, sys
+p = {f'skill-{i:03}': 0 for i in range(1, 102)}
+p.update({'typesafe-ai': .9, 'none': .05, 'search_external': .05})
+json.dump({'model': 'jev-1.13.0', 'answers': {'skill': {'type': 'choice', 'choice': 'typesafe-ai', 'confidence': .9, 'probabilities': p}}}, open(sys.argv[1], 'w'))
+PYTHON
+  FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY run_select code out err \
+    --harness claude --task-id t-live-roster --skills-dir "$SKILLS_DIR"
+  expect_code 0 "$code" "live full-roster select succeeds: $err"
+  jq -e '.questions.skill.criteria | length == 104' "$LOG/body" >/dev/null \
+    || fail "live must offer all 102 installed skills plus none and search_external"
+  jq -e '.questions.skill.criteria["typesafe-ai"] == "Build AI-powered software with TypeSafe typed questions."' "$LOG/body" >/dev/null \
+    || fail "live candidate must carry the flattened front-matter description"
+  jq -e '.questions.skill.criteria["skill-001"] == "Handle workflow 001."' "$LOG/body" >/dev/null \
+    || fail "every live candidate must carry its own description"
+  jq -e '.status == "clear" and .primary == "typesafe-ai" and .catalog_truncated == false
+      and (.skills | index("typesafe-ai") != null) and .live_loaded == false' \
+    "$HOME_DIR/state/t-live-roster.jev-skills.json" >/dev/null \
+    || fail "a late described skill must be selectable without changing live_loaded"
+  SKILLS_DIR=$old_skills
+  write_response "$RESPONSE"
+  pass "live offers the full described roster and a late skill stays selectable"
+}
+
+# The API accepts at most 255 Choice options: 253 skills plus none and
+# search_external. Over that, undescribed skills go first, then the oldest.
+test_live_roster_respects_choice_ceiling() {
+  local code out err i old_skills=$SKILLS_DIR
+  SKILLS_DIR="$TMP_ROOT/live-ceiling/.agents/skills"
+  mkdir -p "$SKILLS_DIR"
+  for i in $(seq -w 1 256); do
+    mkdir -p "$SKILLS_DIR/skill-$i"
+    printf '%s\n' '---' "name: skill-$i" "description: Handle workflow $i." '---' > "$SKILLS_DIR/skill-$i/SKILL.md"
+    touch -t 202001010000 "$SKILLS_DIR/skill-$i/SKILL.md"
+  done
+  touch -t 200101010000 "$SKILLS_DIR/skill-001/SKILL.md" "$SKILLS_DIR/skill-002/SKILL.md" "$SKILLS_DIR/skill-003/SKILL.md"
+  for i in 1 2 3 4; do
+    mkdir -p "$SKILLS_DIR/bare-$i"
+    printf 'No front matter.\n' > "$SKILLS_DIR/bare-$i/SKILL.md"
+  done
+  fresh_home
+  : > "$HOME_DIR/config/jev-skill-select-live"
+  python3 - "$RESPONSE" <<'PYTHON'
+import json, sys
+p = {f'skill-{i:03}': 0 for i in range(4, 257)}
+p.update({'none': .9, 'search_external': .1})
+json.dump({'model': 'jev-1.13.0', 'answers': {'skill': {'type': 'choice', 'choice': 'none', 'confidence': .9, 'probabilities': p}}}, open(sys.argv[1], 'w'))
+PYTHON
+  FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY run_select code out err \
+    --harness pi --task-id t-live-ceiling --skills-dir "$SKILLS_DIR"
+  expect_code 0 "$code" "live ceiling select succeeds: $err"
+  jq -e '.questions.skill.criteria | length == 255' "$LOG/body" >/dev/null \
+    || fail "live must stay within the 255-option Choice ceiling"
+  jq -e '.questions.skill.criteria | (has("bare-1") or has("bare-4")) | not' "$LOG/body" >/dev/null \
+    || fail "undescribed skills must be cut before described ones"
+  jq -e '.questions.skill.criteria | (has("skill-001") or has("skill-002") or has("skill-003")) | not' "$LOG/body" >/dev/null \
+    || fail "the oldest described skills must be cut next"
+  jq -e '.questions.skill.criteria | has("skill-004") and has("skill-256") and has("none") and has("search_external")' "$LOG/body" >/dev/null \
+    || fail "newer described skills and the fixed options must remain"
+  jq -e '.catalog_truncated == true and .status == "clear"' \
+    "$HOME_DIR/state/t-live-ceiling.jev-skills.json" >/dev/null \
+    || fail "a cut roster must record catalog_truncated"
+  SKILLS_DIR=$old_skills
+  write_response "$RESPONSE"
+  pass "live roster over the Choice ceiling cuts undescribed, then oldest skills"
+}
+
 test_public_roster_uses_descriptions() {
   local code out err body
   fresh_home
@@ -630,6 +713,8 @@ test_shadow_overlay_does_not_change_launch
 test_none_overlay_leaves_launch_unchanged
 test_jev_failure_does_not_rewrite_overlay
 test_codex_overlay_uses_dollar_form
+test_live_full_roster_offers_described_late_skill
+test_live_roster_respects_choice_ceiling
 test_public_roster_uses_descriptions
 test_none_choice_records_empty_skills
 
