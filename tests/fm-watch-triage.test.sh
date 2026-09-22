@@ -3429,6 +3429,57 @@ test_wedge_threshold_recheck_names_the_captain_for_a_held_lane() {
   pass "a captain-held lane is rechecked as a hold on the captain, never as an external wait, and never at all while the captain is away"
 }
 
+# The backlog record of the same wait. Work firstmate already handed to the
+# captain keeps whatever line its worker last wrote - here a plain `working:` -
+# so no line predicate can see the hold, and a run or busy pane attributed to it
+# hands the stable hash to the wedge timer, which then escalated "possible wedge"
+# on elapsed idle time alone for as long as the captain was deciding. The open
+# captain call bounds it to the captain-held recheck cadence instead; the same
+# fixture with no hold (declared-wait-control above) keeps the unchanged ladder.
+test_wedge_threshold_defers_to_an_open_captain_call_in_the_backlog() {
+  local dir state fakebin out capture window key n
+  local working='state: working · source: run-step · ci running'
+  command -v tasks-axi >/dev/null 2>&1 \
+    || { echo "skip: tasks-axi not found (backlog captain call at wedge threshold)"; return 0; }
+  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+
+  for age in 0 2000; do
+    dir=$(wedge_threshold_fixture "backlog-call-$age" 'working: validation under way' "$age")
+    state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+    mkdir -p "$dir/data" "$dir/config"
+    cp "$ROOT/.tasks.toml" "$dir/.tasks.toml"
+    printf '## In flight\n\n## Queued\n\n## Done\n' > "$dir/data/backlog.md"
+    (cd "$dir" && tasks-axi add wedge 'delivered work' --file data/backlog.md) >/dev/null 2>&1 \
+      || fail "could not add the backlog item"
+    FM_HOME="$dir" FM_STATE_OVERRIDE="$state" FM_DATA_OVERRIDE="$dir/data" FM_CONFIG_OVERRIDE="$dir/config" \
+      "$ROOT/bin/fm-captain-hold.sh" hold wedge --reason 'awaiting the captain on the merge' >/dev/null 2>&1 \
+      || fail "could not hold the backlog item for the captain"
+    if [ "$age" -eq 0 ]; then
+      n=1
+      while [ "$n" -le 3 ]; do
+        FM_HOME="$dir" FM_DATA_OVERRIDE="$dir/data" FM_CONFIG_OVERRIDE="$dir/config" \
+          wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" "$working" absorb \
+          || fail "a lane held for the captain in the backlog wedge-escalated at threshold $n: $(cat "$out")"
+        n=$((n + 1))
+      done
+      [ "$(wedge_stale_wakes "$state" "$window")" -eq 0 ] \
+        || fail "a lane held for the captain in the backlog queued a wedge wake: $(cat "$state/.wake-queue")"
+      [ ! -e "$state/.wedge-escalations-$key" ] \
+        || fail "a lane held for the captain in the backlog counted a wedge escalation"
+    else
+      FM_HOME="$dir" FM_DATA_OVERRIDE="$dir/data" FM_CONFIG_OVERRIDE="$dir/config" FM_TEST_PAUSE_RESURFACE=240 \
+        wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" "$working" exit \
+        || fail "a lane held for the captain in the backlog was never rechecked: $(cat "$out")"
+      grep -F 'open captain call in the backlog' "$out" >/dev/null \
+        || fail "the recheck did not name the backlog captain call: $(cat "$out")"
+      grep -F 'possible wedge' "$out" >/dev/null \
+        && fail "a lane held for the captain in the backlog was reported as a possible wedge: $(cat "$out")"
+      ack_stopped_cycle "$state" || fail "could not acknowledge the backlog-call recheck"
+    fi
+  done
+  pass "a lane held for the captain in the backlog is rechecked on the captain-held cadence, never escalated as a possible wedge"
+}
+
 
 # --- a record whose agent is GONE reports once, instead of alarming forever ---
 # Observed on a live fleet: two finished lanes reached 226 and 203 CONSECUTIVE
@@ -6763,6 +6814,7 @@ test_live_declared_wait_churn_honors_the_resurface_throttle
 test_live_paused_until_controls_recheck_time
 test_wedge_threshold_defers_to_a_declared_wait_under_a_working_verdict
 test_wedge_threshold_recheck_names_the_captain_for_a_held_lane
+test_wedge_threshold_defers_to_an_open_captain_call_in_the_backlog
 test_open_captain_call_bounds_stale_churn
 test_stale_churn_without_a_captain_call_still_alarms
 test_failed_wake_append_does_not_arm_the_captain_hold_throttle

@@ -17,8 +17,9 @@
 # script never edits the queue, a status log, the backlog, or a worker.
 #
 # Deterministic rules decide first:
-#   routine  an execution reminder for a worker crew-state reads as working;
-#            an execution obligation whose owner is not firstmate; an idle
+#   routine  an execution reminder for a worker crew-state reads as working,
+#            or for a recorded PR that only awaits merge authority; an
+#            execution obligation whose owner is not firstmate; an idle
 #            alert or bare turn-end for a worker that is working, paused, held
 #            for the captain (bin/fm-captain-hold.sh open), finished with a
 #            recorded PR, or parked on an already-open decision; a status
@@ -408,6 +409,8 @@ handle_check_row() {  # <key> <payload>
         routine "$task" "execution reminder; owner is $owner ($action)"
       elif [ "$word" = working ]; then
         routine "$task" "execution reminder; worker busy ($action)"
+      elif [ "$action" = verify-landing-with-configured-approval-authority ] && [ -n "$(meta_get "$task" pr)" ]; then
+        routine "$task" "execution reminder; PR $(meta_get "$task" pr) awaits merge authority"
       else
         act "$task" "execution obligation: $action" "reconcile the evidence and take that action ($(crew_state "$task"))"
       fi

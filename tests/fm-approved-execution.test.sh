@@ -138,6 +138,26 @@ grep -q approved-scout "$home/notifications"
 [ ! -s "$home/dedup" ] || fail 'duplicate reminders ignored their cadence'
 "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
 grep -q 'approved-scout.*owner unconfirmed' "$home/drain"
+# A worker whose pane reads busy is not a stall: its launch-seed reminder keeps
+# the long busy cadence instead of re-waking every FM_EXECUTION_REMIND, and the
+# same obligation reminds again once the busy cadence has elapsed.
+tasks add busy-worker 'Busy implementation' --kind ship --start >/dev/null
+"$EXEC" approve busy-worker --basis captain-approved
+mkdir -p "$home/busy-wt"
+git -C "$home/busy-wt" init -q
+printf 'kind=ship\nwindow=fake\nworktree=%s\nproject=%s\nspawn_gen=b1\nharness=claude\nmode=no-mistakes\n' "$home/busy-wt" "$home/project" > "$home/state/busy-worker.meta"
+busy_token=$("$EXEC" attempt busy-worker)
+(cd "$home/busy-wt" && "$EXEC" started busy-worker "$busy_token")
+"$ROOT/bin/fm-busy-event.sh" arm "$home/state" busy-worker >/dev/null
+busy_verdict='state: working · source: pane · running the test suite'
+FM_FAKE_CREW_STATE_busy_worker=$busy_verdict "$EXEC" show busy-worker | grep -q 'firstmate.*verify-progress-not-launch-seed'
+rm -f "$home/state/.busy-worker.execution-notified"
+FM_FAKE_CREW_STATE_busy_worker=$busy_verdict FM_EXECUTION_REMIND=0 "$EXEC" notify > "$home/busy-first"
+grep -q busy-worker "$home/busy-first" || fail 'first busy-worker reminder was not sent'
+FM_FAKE_CREW_STATE_busy_worker=$busy_verdict FM_EXECUTION_REMIND=0 "$EXEC" notify > "$home/busy-repeat"
+if grep -q busy-worker "$home/busy-repeat"; then fail 'a busy worker was re-reminded on the short cadence'; fi
+FM_FAKE_CREW_STATE_busy_worker=$busy_verdict FM_EXECUTION_REMIND=0 FM_EXECUTION_REMIND_BUSY=0 "$EXEC" notify > "$home/busy-due"
+grep -q busy-worker "$home/busy-due" || fail 'a busy worker was never reminded once the busy cadence elapsed'
 # Supervision remains required with no endpoint at all, across process restart.
 rm "$home/state/approved-scout.meta"
 FM_STATE_OVERRIDE="$home/state" bash -c '. "$1"; fm_supervision_needed "$2"' _ "$ROOT/bin/fm-supervision-lib.sh" "$home/state"

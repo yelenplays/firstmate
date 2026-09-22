@@ -141,15 +141,18 @@ test_busy_execution_reminder_is_routine_and_idle_one_is_act_now() {
   dir=$(triage_case execution-reminder)
   write_meta "$dir" runner ship
   write_meta "$dir" stopped ship
+  write_meta "$dir" merging ship 'pr=https://github.com/o/r/pull/9'
   fake="$dir/fakebin/fm-wake-drain.sh"
   cat > "$fake" <<'SH'
 #!/usr/bin/env bash
 [ "${1:-}" = --ack-through ] && { echo "acked through $2"; exit 0; }
 printf '1\t1\tcheck\texecution:runner\tcheck: execution runner\n'
 printf '1\t2\tcheck\texecution:stopped\tcheck: execution stopped\n'
+printf '1\t3\tcheck\texecution:merging\tcheck: execution merging\n'
 printf 'UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):\n'
 printf 'runner\tfirstmate\tverify-progress-not-launch-seed\n'
 printf 'stopped\tfirstmate\tverify-idle-or-failed-owner-and-recover-or-escalate\n'
+printf 'merging\tfirstmate\tverify-landing-with-configured-approval-authority\n'
 printf 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation g1\n' >&2
 SH
   chmod +x "$fake"
@@ -157,6 +160,7 @@ SH
     FM_FAKE_CREW_STATE_stopped='state: unknown · source: none · idle' run_triage "$dir" --auto-ack --no-jev) \
     || fail "triage failed: $out"
   has "$out" 'runner (execution reminder; worker busy (verify-progress-not-launch-seed))'
+  has "$out" 'merging (execution reminder; PR https://github.com/o/r/pull/9 awaits merge authority)'
   has "$out" '- stopped | execution obligation: verify-idle-or-failed-owner-and-recover-or-escalate'
   has "$out" 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation g1'
   pass "an execution reminder is routine while the worker is busy and act-now once it is not"

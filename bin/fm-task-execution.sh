@@ -36,7 +36,10 @@
 #
 # notify runs only inside the existing watcher. Per-task queue keys coalesce;
 # reminders recur after FM_EXECUTION_REMIND (default 300 seconds), even after
-# queue acknowledgement, until current evidence changes. Reconciliation runs at
+# queue acknowledgement, until current evidence changes. While the worker's
+# current state reads working (verify-progress-not-launch-seed), the reminder
+# recurs only after FM_EXECUTION_REMIND_BUSY (default 1800 seconds): a busy
+# worker is not the stall this reminder exists for. Reconciliation runs at
 # FM_EXECUTION_SCAN_INTERVAL (default 30 seconds), independent of fleet signals.
 # Drain always prints
 # the outstanding firstmate actions. Neither notification nor acknowledgement
@@ -175,6 +178,9 @@ case "$command" in
       [ "$owner" = firstmate ] || continue
       now=$(date +%s)
       interval=${FM_EXECUTION_REMIND:-300}
+      if [ "$(printf '%s' "$line" | cut -f3)" = verify-progress-not-launch-seed ]; then
+        interval=${FM_EXECUTION_REMIND_BUSY:-1800}
+      fi
       case "$interval" in ''|*[!0-9]*) fail 'invalid reminder interval' ;; esac
       marker="$STATE/.$id.execution-notified"
       [ ! -L "$marker" ] || fail 'reminder marker is a symlink'

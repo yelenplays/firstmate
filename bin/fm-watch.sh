@@ -974,7 +974,12 @@ wedge_defer_writing() {  # <window> <since-file> <triage-label> <idle-age>
 # external dependency the worker named, `captain-held:` on the captain themself -
 # so a recheck that named the wrong one would point the reader away from the
 # person who can clear it.
-wedge_wait_evidence() {  # <task> -> `declared` or `held` on stdout
+# With no standing line declaration, the backlog's open captain call is the other
+# record of the same wait (task_captain_call_open below owns why): work the
+# captain already holds is never a wedge suspect, so it prints `call`. The read
+# costs one subprocess and runs only here, at most once per window per
+# STALE_ESCALATE_SECS, and a backlog it cannot read keeps the unchanged ladder.
+wedge_wait_evidence() {  # <task> -> `declared`, `held`, or `call` on stdout
   local task=$1 last until
   [ -n "$task" ] || return 1
   last=$(last_status_line "$STATE/$task.status")
@@ -982,11 +987,17 @@ wedge_wait_evidence() {  # <task> -> `declared` or `held` on stdout
     printf 'held'
     return 0
   fi
-  status_is_paused "$last" || return 1
-  if until=$(status_paused_until "$last"); then
-    [ "$(date +%s)" -lt "$until" ] || return 1
+  if status_is_paused "$last"; then
+    if ! until=$(status_paused_until "$last") || [ "$(date +%s)" -lt "$until" ]; then
+      printf 'declared'
+      return 0
+    fi
   fi
-  printf 'declared'
+  if task_captain_call_open "$task"; then
+    printf 'call'
+    return 0
+  fi
+  return 1
 }
 
 # Defer ONE wedge escalation for a pane whose own declaration explains the quiet
@@ -1013,14 +1024,15 @@ wedge_wait_evidence() {  # <task> -> `declared` or `held` on stdout
 # The escalation counter is left alone, exactly as the write deferral leaves it:
 # this is not an escalation, and a later genuine one must keep the
 # demand-inspection history it had already earned.
-wedge_defer_wait() {  # <window> <task> <since-file> <triage-label> <idle-age> <declared|held>
+wedge_defer_wait() {  # <window> <task> <since-file> <triage-label> <idle-age> <declared|held|call>
   local win=$1 task=$2 since_file=$3 label=$4 age=$5 evidence=$6 key mtime wage min_age kind action waited
-  if [ "$evidence" = held ]; then
+  if [ "$evidence" = held ] || [ "$evidence" = call ]; then
     if afk_record_present; then
       triage_log "absorbed $label (captain-held, never rechecked while the away-posture record exists): $win"
       return 0
     fi
     kind='captain-held, awaiting the captain - verified hold transfer'
+    [ "$evidence" = held ] || kind='captain-held, awaiting the captain - open captain call in the backlog'
     action='answer the held decision or release the hold'
   else
     kind='declared wait, awaiting external'
