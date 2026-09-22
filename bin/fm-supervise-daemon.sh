@@ -43,9 +43,13 @@
 #     routine is escalated.
 #   - Bounded wedge latency: a stale pane without a declared wait is escalated
 #     only after it has been idle for STALE_ESCALATE_SECS
-#     (configurable), rechecked once. A wedged crewmate is therefore detected
-#     within STALE_ESCALATE_SECS + a tick, never lost. A declared wait - either a
-#     paused: external wait or a verified captain-held transfer, per
+#     (configurable), rechecked once; one whose own task's no-mistakes run is
+#     demonstrably executing (fm-classify-lib.sh's crew_nm_run_progressing) is
+#     deferred by re-arming the marker instead, so a run that stops proving
+#     execution still escalates within one interval. A wedged crewmate is
+#     therefore detected within STALE_ESCALATE_SECS + a tick, never lost. A
+#     declared wait - either a paused: external wait or a verified captain-held
+#     transfer, per
 #     fm-classify-lib.sh's combined predicate - instead gets its own longer
 #     PAUSE_RESURFACE_SECS recheck, never a wedge escalation, whether its pane
 #     reads idle or busy; only a status append that stops declaring the wait
