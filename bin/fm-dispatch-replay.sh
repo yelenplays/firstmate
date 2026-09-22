@@ -45,7 +45,7 @@
 #            gate: margin>=<t> ambiguous=<n> pass=<n> wrong=<n>
 #          --rows adds per row:
 #            row: <case> pick=<rule> first=<rule> second=<rule> margin=<m> confidence=<c>
-#              expected=<labels|-> margin-gate=<pass|ambiguous> <ok|wrong|->
+#              expected=<labels|-> margin-gate@<t>=<pass|ambiguous> ... verdict@<t>=<ok|wrong|-> ...
 # Exit: 0 on success, 2 on usage error, unreadable input, or missing jq.
 # docs/configuration.md "Typed dispatch resolution" owns the calibration
 # contract this tool supports.
@@ -81,7 +81,7 @@ replay_default_margin() {
 
 replay_run() {
   local cases='' out='' max='' rules='' cfg_dir='' cases_dir calls=0 written=0 stopped=none
-  local id brief project expected text line status rule confidence probs reason
+  local id brief project expected text line status rule confidence probs reason resolver_stderr resolver_status
   while [ $# -gt 0 ]; do
     case "$1" in
       --cases) [ $# -ge 2 ] || die "--cases needs a value"; cases=$2; shift 2 ;;
@@ -95,6 +95,7 @@ replay_run() {
   [ -n "$out" ] || die "run needs --out"
   case "$max" in ''|*[!0-9]*) die "run needs --max-calls <non-negative integer>" ;; esac
   [ -r "$cases" ] || die "cases file not readable: $cases"
+  : >> "$out" || die "could not append to $out"
   cases_dir=$(cd "$(dirname "$cases")" && pwd)
   if [ -n "$rules" ]; then
     [ -r "$rules" ] || die "rules file not readable: $rules"
@@ -115,11 +116,20 @@ replay_run() {
       break
     fi
     calls=$((calls + 1))
+    resolver_stderr=$(mktemp) || die "mktemp failed"
     if [ -n "$cfg_dir" ]; then
-      text=$(FM_HOME="$FM_HOME" FM_JEV_DISPATCH_SHADOW=0 FM_CONFIG_OVERRIDE="$cfg_dir" "$RESOLVER" "$brief" --project "$project" 2>/dev/null)
+      text=$(FM_HOME="$FM_HOME" FM_JEV_DISPATCH_SHADOW=0 FM_CONFIG_OVERRIDE="$cfg_dir" "$RESOLVER" "$brief" --project "$project" 2>"$resolver_stderr")
+      resolver_status=$?
     else
-      text=$(FM_HOME="$FM_HOME" FM_JEV_DISPATCH_SHADOW=0 "$RESOLVER" "$brief" --project "$project" 2>/dev/null)
+      text=$(FM_HOME="$FM_HOME" FM_JEV_DISPATCH_SHADOW=0 "$RESOLVER" "$brief" --project "$project" 2>"$resolver_stderr")
+      resolver_status=$?
     fi
+    if [ "$resolver_status" -ne 0 ] || grep -Fq 'dispatch-resolve: off' "$resolver_stderr"; then
+      cat "$resolver_stderr" >&2
+      rm -f "$resolver_stderr"
+      exit 2
+    fi
+    rm -f "$resolver_stderr"
     status=$(awk '/^  status: / { print $2; exit }' <<<"$text")
     rule=$(awk '/^  rule: / { print $2; exit }' <<<"$text")
     confidence=$(awk '/^  rule: / { print $NF; exit }' <<<"$text")
@@ -163,11 +173,16 @@ replay_score() {
   cat "${files[@]}" | jq -rs --arg margins "$margins" --argjson rows "$rows" "$FM_JEV_CHOICE_TOP2_JQ"'
     def valid: (.probabilities | type) == "object" and (.probabilities | length) > 0
       and all(.probabilities[]; type == "number");
+    def gate_pass($row; $threshold): ($row.top.raw_margin + 1e-9) >= $threshold;
     def verdict($row; $pass):
       if ($row.expected | type) != "array" then "-"
       elif ($pass | not) then "-"
       elif ($row.expected | index($row.pick)) != null then "ok"
       else "wrong" end;
+    def gate_field($row; $threshold):
+      "margin-gate@\($threshold)=" + (if gate_pass($row; $threshold) then "pass" else "ambiguous" end);
+    def verdict_field($row; $threshold):
+      "verdict@\($threshold)=\(verdict($row; gate_pass($row; $threshold)))";
     def tally($rs; $label; pass_fn):
       ($rs | map(. as $r | $r + {pass: ($r | pass_fn)})) as $g
       | "  gate: \($label) ambiguous=\([$g[] | select(.pass | not)] | length) pass=\([$g[] | select(.pass)] | length) wrong=\([$g[] | select(verdict(.; .pass) == "wrong")] | length)";
@@ -176,10 +191,22 @@ replay_score() {
     | ($margins | split(",") | map(tonumber)) as $ts
     | "replay-score: rows=\($rs | length) labeled=\([$rs[] | select((.expected | type) == "array")] | length) skipped=\(length - ($rs | length))",
       tally($rs; "confidence>=0.6"; (.confidence // 0) >= 0.6),
-      ($ts[] as $t | tally($rs; "margin>=\($t)"; (.top.raw_margin + 1e-9) >= $t)),
+      ($ts[] as $t | tally($rs; "margin>=\($t)"; gate_pass(.; $t))),
       (if $rows == 1 then
-         ($rs[] | . as $r | (($r.top.raw_margin + 1e-9) >= $ts[0]) as $p
-          | "  row: \($r.case // "#\($r.idx)") pick=\($r.pick) first=\($r.top.first) second=\($r.top.second // "-") margin=\($r.top.margin) confidence=\($r.confidence // "-") expected=\(if ($r.expected | type) == "array" then ($r.expected | join("|")) else "-" end) margin-gate=\(if $p then "pass" else "ambiguous" end) \(verdict($r; $p))")
+         ($rs[] | . as $r
+          | ($ts | map(gate_field($r; .)) | join(" ")) as $gates
+          | ($ts | map(verdict_field($r; .)) | join(" ")) as $verdicts
+          | [
+              "  row: " + ($r.case // ("#" + ($r.idx | tostring)))
+                + " pick=" + $r.pick
+                + " first=" + $r.top.first
+                + " second=" + ($r.top.second // "-")
+                + " margin=" + ($r.top.margin | tostring)
+                + " confidence=" + (($r.confidence // "-") | tostring)
+                + " expected=" + (if ($r.expected | type) == "array" then ($r.expected | join("|")) else "-" end),
+              $gates,
+              $verdicts
+            ] | join(" "))
        else empty end)
   ' || die "could not score input (not JSON lines?)"
 }

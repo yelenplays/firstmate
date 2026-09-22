@@ -95,6 +95,26 @@ run_tool() {  # <out-var> <err-var> [args...]; exit status in $code
   printf -v "$__err" '%s' "$(cat "$TMP_ROOT/stderr")"
 }
 
+run_tool_with_margin() {  # <margin> <out-var> <err-var> [args...]
+  local margin=$1 __out=$2 __err=$3 _out
+  shift 3
+  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_SPEND_LEDGER="$LEDGER_STUB" \
+    TYPESAFE_API_KEY="$KEY" FM_JEV_DISPATCH_MARGIN="$margin" "$TOOL" "$@" 2> "$TMP_ROOT/stderr")
+  code=$?
+  printf -v "$__out" '%s' "$_out"
+  printf -v "$__err" '%s' "$(cat "$TMP_ROOT/stderr")"
+}
+
+run_tool_without_key() {  # <out-var> <err-var> [args...]
+  local __out=$1 __err=$2 _out
+  shift 2
+  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_SPEND_LEDGER="$LEDGER_STUB" \
+    env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY "$TOOL" "$@" 2> "$TMP_ROOT/stderr")
+  code=$?
+  printf -v "$__out" '%s' "$_out"
+  printf -v "$__err" '%s' "$(cat "$TMP_ROOT/stderr")"
+}
+
 code='' out='' err=''
 
 # --- run: one resolver call per case, budget stop, candidate rules, no shadow --
@@ -119,6 +139,38 @@ assert_equals "$(cat "$TMP_ROOT/home-rules.before")" "$(cat "$HOME_DIR/config/cr
 assert_absent "$HOME_DIR/state/jev-dispatch-shadow.jsonl" "run forces the resolver's shadow log off"
 pass "run: one resolver call per case under a hard budget, candidate rules, no shadow log"
 
+# --- run: validate output before live calls and propagate resolver failures --
+MISSING_PARENT_OUT="$TMP_ROOT/missing-parent/out.jsonl"
+run_tool out err run --cases "$CASES" --out "$MISSING_PARENT_OUT" --max-calls 1 --rules "$CANDIDATE"
+expect_code 2 "$code" "an output path with a missing parent is refused"
+assert_contains "$err" "could not append to $MISSING_PARENT_OUT" "the unusable output path is named"
+assert_absent "$TMP_ROOT/missing-parent" "an output path preflight does not create missing parents"
+assert_present "$QUEUE/3.json" "an output preflight failure never reaches the transport"
+
+BAD_MARGIN_OUT="$TMP_ROOT/bad-margin.jsonl"
+run_tool_with_margin invalid out err run --cases "$CASES" --out "$BAD_MARGIN_OUT" --max-calls 1 --rules "$CANDIDATE"
+expect_code 2 "$code" "a resolver configuration failure stops replay"
+assert_contains "$err" 'FM_JEV_DISPATCH_MARGIN must be a number in (0, 1]' "the resolver configuration error is relayed"
+assert_equals 0 "$(wc -l < "$BAD_MARGIN_OUT" | tr -d ' ')" "a resolver configuration failure is not written as a row"
+assert_present "$QUEUE/3.json" "a resolver configuration failure never reaches the transport"
+
+OFF_OUT="$TMP_ROOT/off.jsonl"
+run_tool_without_key out err run --cases "$CASES" --out "$OFF_OUT" --max-calls 1
+expect_code 2 "$code" "an opt-out resolver stops replay"
+assert_contains "$err" 'dispatch-resolve: off (TYPESAFE_API_KEY and OPENROUTER_API_KEY absent from the environment and' "the opt-out cause is relayed"
+assert_equals 0 "$(wc -l < "$OFF_OUT" | tr -d ' ')" "an opt-out outcome is not written as a generic row"
+assert_present "$QUEUE/3.json" "an opt-out replay never reaches the transport"
+
+cat > "$QUEUE/3.json" <<'JSON'
+{ "model": "jev-1.13.0", "answers": {}, "usage": { "input_tokens": 100, "output_tokens": 10 } }
+JSON
+API_ERROR_OUT="$TMP_ROOT/api-error.jsonl"
+run_tool out err run --cases "$CASES" --out "$API_ERROR_OUT" --max-calls 1 --rules "$CANDIDATE"
+expect_code 0 "$code" "a normal resolver error outcome keeps replay running"
+assert_equals '{"status":"error","reason":"response is not a rule Choice answer"}' \
+  "$(jq -c 'select(.case == "diagnose") | {status, reason}' "$API_ERROR_OUT")" "a normal exit-zero error outcome is recorded with its reason"
+pass "run: output preflight and resolver failure propagation"
+
 # --- score: margin sweep against the fixed confidence gate, with labels -------
 cat > "$TMP_ROOT/score.jsonl" <<'JSONL'
 {"case":"a","expected":["rule_1"],"confidence":0.55,"probabilities":{"rule_1":0.6,"rule_2":0.3,"default":0.1}}
@@ -133,10 +185,10 @@ assert_equals 'replay-score: rows=4 labeled=2 skipped=1
   gate: confidence>=0.6 ambiguous=2 pass=2 wrong=1
   gate: margin>=0.3 ambiguous=1 pass=3 wrong=1
   gate: margin>=0.5 ambiguous=2 pass=2 wrong=1
-  row: a pick=rule_1 first=rule_1 second=rule_2 margin=0.3 confidence=0.55 expected=rule_1 margin-gate=pass ok
-  row: b pick=rule_1 first=rule_1 second=default margin=0.7 confidence=0.7 expected=rule_2 margin-gate=pass wrong
-  row: c pick=rule_1 first=rule_1 second=rule_2 margin=0.05 confidence=0.2 expected=- margin-gate=ambiguous -
-  row: #4 pick=rule_2 first=rule_2 second=default margin=0.96 confidence=0.97 expected=- margin-gate=pass -' "$out" "score compares both gates, counts wrong picks, and prints rows"
+  row: a pick=rule_1 first=rule_1 second=rule_2 margin=0.3 confidence=0.55 expected=rule_1 margin-gate@0.3=pass margin-gate@0.5=ambiguous verdict@0.3=ok verdict@0.5=-
+  row: b pick=rule_1 first=rule_1 second=default margin=0.7 confidence=0.7 expected=rule_2 margin-gate@0.3=pass margin-gate@0.5=pass verdict@0.3=wrong verdict@0.5=wrong
+  row: c pick=rule_1 first=rule_1 second=rule_2 margin=0.05 confidence=0.2 expected=- margin-gate@0.3=ambiguous margin-gate@0.5=ambiguous verdict@0.3=- verdict@0.5=-
+  row: #4 pick=rule_2 first=rule_2 second=default margin=0.96 confidence=0.97 expected=- margin-gate@0.3=pass margin-gate@0.5=pass verdict@0.3=- verdict@0.5=-' "$out" "score compares both gates, counts wrong picks, and prints per-threshold rows"
 run_tool out err score "$TMP_ROOT/score.jsonl"
 assert_contains "$out" '  gate: margin>=0.4 ambiguous=2 pass=2 wrong=1' "the default threshold is the resolver's default"
 PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_JEV_DISPATCH_MARGIN=0.75 "$TOOL" score "$TMP_ROOT/score.jsonl" > "$TMP_ROOT/out" 2>&1
@@ -145,8 +197,8 @@ printf '%s\n' \
   '{"case":"recorded","expected":["rule_2"],"rule":"rule_2","confidence":0.9,"probabilities":{"rule_1":0.9,"rule_2":0.05,"default":0.05}}' \
   '{"case":"argmax","expected":["rule_2"],"confidence":0.9,"probabilities":{"rule_1":0.9,"rule_2":0.05,"default":0.05}}' > "$TMP_ROOT/pick.jsonl"
 run_tool out err score --margin 0.5 --rows "$TMP_ROOT/pick.jsonl"
-assert_contains "$out" '  row: recorded pick=rule_2 first=rule_1 second=default margin=0.85 confidence=0.9 expected=rule_2 margin-gate=pass ok' "a recorded rule is judged even when it is not the most probable option"
-assert_contains "$out" '  row: argmax pick=rule_1 first=rule_1 second=default margin=0.85 confidence=0.9 expected=rule_2 margin-gate=pass wrong' "a row without a recorded rule is judged by the most probable option"
+assert_contains "$out" '  row: recorded pick=rule_2 first=rule_1 second=default margin=0.85 confidence=0.9 expected=rule_2 margin-gate@0.5=pass verdict@0.5=ok' "a recorded rule is judged even when it is not the most probable option"
+assert_contains "$out" '  row: argmax pick=rule_1 first=rule_1 second=default margin=0.85 confidence=0.9 expected=rule_2 margin-gate@0.5=pass verdict@0.5=wrong' "a row without a recorded rule is judged by the most probable option"
 assert_contains "$out" '  gate: margin>=0.5 ambiguous=0 pass=2 wrong=1' "the wrong count follows the judged pick"
 cat > "$TMP_ROOT/top2.jsonl" <<'JSONL'
 {"case":"tie","probabilities":{"b":0.4,"a":0.4,"c":0.2}}
@@ -154,21 +206,22 @@ cat > "$TMP_ROOT/top2.jsonl" <<'JSONL'
 {"case":"rounded","probabilities":{"alpha":0.512345,"beta":0.388889,"gamma":0.098766}}
 JSONL
 run_tool out err score --margin 0.1 --rows "$TMP_ROOT/top2.jsonl"
-assert_contains "$out" '  row: tie pick=a first=a second=b margin=0 confidence=- expected=- margin-gate=ambiguous -' "ties use option names to order equal probabilities"
-assert_contains "$out" '  row: single pick=only first=only second=- margin=1 confidence=- expected=- margin-gate=pass -' "a single option has the full margin"
-assert_contains "$out" '  row: rounded pick=alpha first=alpha second=beta margin=0.1235 confidence=- expected=- margin-gate=pass -' "the margin is rounded to four decimal places"
+assert_contains "$out" '  row: tie pick=a first=a second=b margin=0 confidence=- expected=- margin-gate@0.1=ambiguous verdict@0.1=-' "ties use option names to order equal probabilities"
+assert_contains "$out" '  row: single pick=only first=only second=- margin=1 confidence=- expected=- margin-gate@0.1=pass verdict@0.1=-' "a single option has the full margin"
+assert_contains "$out" '  row: rounded pick=alpha first=alpha second=beta margin=0.1235 confidence=- expected=- margin-gate@0.1=pass verdict@0.1=-' "the margin is rounded to four decimal places"
 cat > "$TMP_ROOT/boundaries.jsonl" <<'JSONL'
 {"case":"below","expected":["rule_1"],"confidence":0.9,"probabilities":{"rule_1":0.52996,"rule_2":0.13,"rule_3":0.12,"rule_4":0.11,"default":0.11004}}
 {"case":"exact-0.4","expected":["rule_1"],"confidence":0.9,"probabilities":{"rule_1":0.65,"rule_2":0.25,"rule_3":0.05,"rule_4":0.01,"default":0.04}}
 {"case":"exact-0.45","expected":["rule_1"],"confidence":0.9,"probabilities":{"rule_1":0.63,"rule_2":0.18,"rule_3":0.11,"rule_4":0.03,"default":0.05}}
+{"case":"split","expected":["rule_1"],"confidence":0.9,"probabilities":{"rule_1":0.57,"rule_2":0.17,"rule_3":0.15,"rule_4":0.1,"default":0.01}}
 JSONL
 run_tool out err score --margin 0.4,0.45 --rows "$TMP_ROOT/boundaries.jsonl"
-assert_contains "$out" '  gate: margin>=0.4 ambiguous=1 pass=2 wrong=0' "the replay gate keeps a true 0.39996 margin ambiguous"
-assert_contains "$out" '  gate: margin>=0.45 ambiguous=2 pass=1 wrong=0' "the replay gate passes an exact 0.45 margin"
-assert_contains "$out" '  row: below pick=rule_1 first=rule_1 second=rule_2 margin=0.4 confidence=0.9 expected=rule_1 margin-gate=ambiguous -' "the displayed 0.4 does not pass on a raw 0.39996 margin"
-assert_contains "$out" '  row: exact-0.4 pick=rule_1 first=rule_1 second=rule_2 margin=0.4 confidence=0.9 expected=rule_1 margin-gate=pass ok' "an exact 0.4 margin passes with tolerance"
+assert_contains "$out" '  gate: margin>=0.4 ambiguous=1 pass=3 wrong=0' "the replay gate keeps a true 0.39996 margin ambiguous"
+assert_contains "$out" '  gate: margin>=0.45 ambiguous=3 pass=1 wrong=0' "the replay gate passes an exact 0.45 margin"
+assert_contains "$out" '  row: below pick=rule_1 first=rule_1 second=rule_2 margin=0.4 confidence=0.9 expected=rule_1 margin-gate@0.4=ambiguous margin-gate@0.45=ambiguous verdict@0.4=- verdict@0.45=-' "the displayed 0.4 does not pass on a raw 0.39996 margin"
+assert_contains "$out" '  row: exact-0.4 pick=rule_1 first=rule_1 second=rule_2 margin=0.4 confidence=0.9 expected=rule_1 margin-gate@0.4=pass margin-gate@0.45=ambiguous verdict@0.4=ok verdict@0.45=-' "each row shows which exact threshold passes"
 run_tool out err score --margin 0.45 --rows "$TMP_ROOT/boundaries.jsonl"
-assert_contains "$out" '  row: exact-0.45 pick=rule_1 first=rule_1 second=rule_2 margin=0.45 confidence=0.9 expected=rule_1 margin-gate=pass ok' "an exact 0.45 margin passes with tolerance"
+assert_contains "$out" '  row: exact-0.45 pick=rule_1 first=rule_1 second=rule_2 margin=0.45 confidence=0.9 expected=rule_1 margin-gate@0.45=pass verdict@0.45=ok' "an exact 0.45 margin passes with tolerance"
 pass "score: margin sweep, recorded picks, tie ordering, single option, and rounding"
 
 # --- usage errors exit 2 -------------------------------------------------------
