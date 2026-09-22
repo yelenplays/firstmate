@@ -5,7 +5,7 @@
 #   approve ID --basis captain-approved|accepted-intent
 #   attempt ID [--spawn-gen GENERATION]
 #   started ID TOKEN                   (worker, from its isolated worktree)
-#   show ID | scan | notify
+#   show ID | scan [--cached] | notify
 #   confirmed ID                      (read-only receipt check for crew-state)
 #
 # approve is an explicit semantic attestation by firstmate that implementation
@@ -41,6 +41,12 @@
 # recurs only after FM_EXECUTION_REMIND_BUSY (default 1800 seconds): a busy
 # worker is not the stall this reminder exists for. Reconciliation runs at
 # FM_EXECUTION_SCAN_INTERVAL (default 30 seconds), independent of fleet signals.
+# Every completed notify reconciliation also publishes its full scan to
+# state/.execution-scan. `scan --cached` (the drain's read) prints that result
+# while it is younger than FM_EXECUTION_SCAN_CACHE_SECS (default 30) and no
+# execution record, task metadata, or backlog file changed after it; otherwise
+# it reconciles in full and republishes. Current worker state inside that
+# window may be up to its age old; records that change an obligation never are.
 # Drain always prints
 # the outstanding firstmate actions. Neither notification nor acknowledgement
 # is handling. No dispatch, send, recovery, merge, or other project mutation is
@@ -58,7 +64,37 @@ STATE=${FM_STATE_OVERRIDE:-$FM_HOME/state}
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
 
-crew_state() { fm_run_timed 10 "${FM_CREW_STATE_BIN:-$SCRIPT_DIR/fm-crew-state.sh}" "$1"; }
+CREW_CACHE=''
+crew_state() {
+  if [ -n "$CREW_CACHE" ] && [ -f "$CREW_CACHE/$1" ]; then cat "$CREW_CACHE/$1"; return 0; fi
+  fm_run_timed 10 "${FM_CREW_STATE_BIN:-$SCRIPT_DIR/fm-crew-state.sh}" "$1"
+}
+
+# scan and notify read every implementation owner's current state; each read is
+# about a second, so reading them one after another made every drain pay their
+# sum. Read them concurrently first, FM_EXECUTION_SCAN_PARALLEL (default 8) at a
+# time, into a per-run cache the per-task derivation below consumes. A read
+# that produced nothing falls back to the ordinary direct read.
+prefetch_crew_states() {
+  local file id kind n=0 max=${FM_EXECUTION_SCAN_PARALLEL:-8}
+  case "$max" in ''|*[!0-9]*|0) max=8 ;; esac
+  CREW_CACHE=$(mktemp -d "${TMPDIR:-/tmp}/fm-execution-crew.XXXXXX") || { CREW_CACHE=''; return 0; }
+  for file in "$STATE"/*.execution; do
+    [ -f "$file" ] && [ ! -L "$file" ] || continue
+    id=$(basename "$file" .execution)
+    fm_task_id_creation_valid "$id" || continue
+    kind=$(meta "$STATE/$id.meta" kind)
+    case "$kind" in ship|scout) ;; *) continue ;; esac
+    (
+      fm_run_timed 10 "${FM_CREW_STATE_BIN:-$SCRIPT_DIR/fm-crew-state.sh}" "$id" \
+        > "$CREW_CACHE/.$id" 2>/dev/null || true
+      [ -s "$CREW_CACHE/.$id" ] && mv -f "$CREW_CACHE/.$id" "$CREW_CACHE/$id"
+    ) &
+    n=$((n + 1))
+    if [ "$n" -ge "$max" ]; then wait || true; n=0; fi
+  done
+  wait || true
+}
 
 fail() { printf 'fm-task-execution: %s\n' "$*" >&2; exit 1; }
 meta() { awk -F= -v key="$2" '$1==key {v=substr($0,length(key)+2)} END {print v}' "$1" 2>/dev/null || true; }
@@ -143,9 +179,36 @@ scan_one() {
   esac
 }
 
+# The published scan is fresh while it is young and nothing that defines an
+# obligation - an execution record, task metadata, or the backlog - is newer.
+scan_cache_fresh() {  # <cache-file>
+  local cache=$1 max=${FM_EXECUTION_SCAN_CACHE_SECS:-30} now mtime f backlog
+  case "$max" in ''|*[!0-9]*) return 1 ;; esac
+  [ -f "$cache" ] && [ ! -L "$cache" ] || return 1
+  mtime=$(fm_path_mtime "$cache" 2>/dev/null) || return 1
+  now=$(date +%s)
+  [ $((now - mtime)) -lt "$max" ] || return 1
+  backlog="${FM_DATA_OVERRIDE:-$FM_HOME/data}/backlog.md"
+  for f in "$STATE"/*.execution "$STATE"/*.meta "$backlog"; do
+    [ -e "$f" ] || continue
+    # Strictly newer, so a change inside the publishing second still rescans.
+    [ "$cache" -nt "$f" ] || return 1
+  done
+  return 0
+}
+
+publish_scan_cache() {  # <cache-file> <lines>
+  local cache=$1 tmp
+  [ ! -L "$cache" ] || return 0
+  tmp="$cache.$$"
+  (umask 077; printf '%s' "$2" > "$tmp") 2>/dev/null && mv -f -- "$tmp" "$cache" 2>/dev/null \
+    || rm -f -- "$tmp" 2>/dev/null || true
+}
+
 LOCK='' TMP=''
 cleanup() {
   [ -z "$TMP" ] || rm -f -- "$TMP"
+  [ -z "$CREW_CACHE" ] || rm -rf -- "$CREW_CACHE"
   [ -z "$LOCK" ] || fm_lock_release "$LOCK" || true
 }
 trap cleanup EXIT
@@ -153,11 +216,19 @@ command=${1:---help}; shift || true
 case "$command" in
   -h|--help) awk 'NR==1 {next} /^#/ {sub(/^# ?/, ""); print; next} {exit}' "$0"; exit 0 ;;
   scan|notify)
+    cached=0
+    if [ "$command" = scan ] && [ "${1:-}" = --cached ]; then cached=1; shift; fi
+    [ "$#" -eq 0 ] || fail 'unexpected scan argument (use --help)'
     found=0
     for file in "$STATE"/*.execution; do
       if [ -e "$file" ] || [ -L "$file" ]; then found=1; fi
     done
     [ "$found" = 1 ] || exit 0
+    scan_cache="$STATE/.execution-scan"
+    if [ "$cached" = 1 ] && scan_cache_fresh "$scan_cache"; then
+      cat "$scan_cache"
+      exit 0
+    fi
     if [ "$command" = notify ]; then
       scan_marker="$STATE/.execution-scan-at"
       [ ! -L "$scan_marker" ] || fail 'scan marker is a symlink'
@@ -169,10 +240,13 @@ case "$command" in
       printf '%s\n' "$now" > "$scan_marker"
     fi
     BACKLOG_JSON=$(read_backlog) || fail 'backlog reconciliation unavailable'
+    prefetch_crew_states
+    scan_lines=''
     for file in "$STATE"/*.execution; do
       [ -e "$file" ] || [ -L "$file" ] || continue
       id=$(basename "$file" .execution); valid_id "$id"
       line=$(scan_one "$id")
+      scan_lines="$scan_lines$line"$'\n'
       if [ "$command" = scan ]; then printf '%s\n' "$line"; continue; fi
       owner=$(printf '%s' "$line" | cut -f2)
       [ "$owner" = firstmate ] || continue
@@ -191,6 +265,7 @@ case "$command" in
       printf '%s\n' "$now" > "$marker"
       printf '%s\n' "$line"
     done
+    if [ "$command" = notify ] || [ "$cached" = 1 ]; then publish_scan_cache "$scan_cache" "$scan_lines"; fi
     exit 0 ;;
   approve|attempt|started|show|confirmed) ;;
   *) fail 'unknown command (use --help)' ;;

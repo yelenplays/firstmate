@@ -158,6 +158,19 @@ FM_FAKE_CREW_STATE_busy_worker=$busy_verdict FM_EXECUTION_REMIND=0 "$EXEC" notif
 if grep -q busy-worker "$home/busy-repeat"; then fail 'a busy worker was re-reminded on the short cadence'; fi
 FM_FAKE_CREW_STATE_busy_worker=$busy_verdict FM_EXECUTION_REMIND=0 FM_EXECUTION_REMIND_BUSY=0 "$EXEC" notify > "$home/busy-due"
 grep -q busy-worker "$home/busy-due" || fail 'a busy worker was never reminded once the busy cadence elapsed'
+# The drain reuses the watcher's published reconciliation while it is fresh,
+# and never across a change to a record that defines an obligation.
+FM_FAKE_CREW_STATE_busy_worker=$busy_verdict FM_EXECUTION_REMIND=0 FM_EXECUTION_SCAN_INTERVAL=0 "$EXEC" notify >/dev/null
+[ -s "$home/state/.execution-scan" ] || fail 'notify did not publish its reconciliation'
+FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' "$EXEC" scan --cached > "$home/cached"
+grep -q 'busy-worker.*verify-progress-not-launch-seed' "$home/cached" || fail 'a fresh published scan was not reused'
+FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' FM_EXECUTION_SCAN_CACHE_SECS=0 "$EXEC" scan --cached > "$home/expired"
+grep -q 'busy-worker.*verify-idle-or-failed' "$home/expired" || fail 'an expired published scan was reused'
+FM_FAKE_CREW_STATE_busy_worker=$busy_verdict "$EXEC" scan --cached >/dev/null
+sleep 1
+printf 'pr=https://github.com/example/fixture/pull/2\n' >> "$home/state/busy-worker.meta"
+FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' "$EXEC" scan --cached > "$home/invalidated"
+grep -q 'busy-worker.*verify-idle-or-failed' "$home/invalidated" || fail 'a metadata change did not invalidate the published scan'
 # Supervision remains required with no endpoint at all, across process restart.
 rm "$home/state/approved-scout.meta"
 FM_STATE_OVERRIDE="$home/state" bash -c '. "$1"; fm_supervision_needed "$2"' _ "$ROOT/bin/fm-supervision-lib.sh" "$home/state"
