@@ -413,6 +413,7 @@ The report is the only thing that survives, so anything worth keeping must be in
    going. A drive-call error, timeout, slow read, or generic unreachability is NOT a daemon error:
    the daemon accepts \`respond\` immediately and runs the round in the background, so a killed or
    timed-out call was only waiting for a read while the run kept working.
+8. For a closed-set judgment - picking one of options you can list, a yes/no check, or a score against levels you can write down - prefer one batched typed Jev call when the installed TypeSafe surface makes one available; when it does not, or the key is missing or the endpoint does not answer, use your own judgment and never block on it. Deterministic operations such as grep, builds, tests, file moves, and doctor runs stay in code, because Jev has no filesystem or tools.
 
 $INBOX_SECTION
 
@@ -502,6 +503,7 @@ $ASK_USER_BLOCK
    going. A drive-call error, timeout, slow read, or generic unreachability is NOT a daemon error:
    the daemon accepts \`respond\` immediately and runs the round in the background, so a killed or
    timed-out call was only waiting for a read while the run kept working.
+8. For a closed-set judgment - picking one of options you can list, a yes/no check, or a score against levels you can write down - prefer one batched typed Jev call when the installed TypeSafe surface makes one available; when it does not, or the key is missing or the endpoint does not answer, use your own judgment and never block on it. Deterministic operations such as grep, builds, tests, file moves, and doctor runs stay in code, because Jev has no filesystem or tools.
 
 $INBOX_SECTION
 
