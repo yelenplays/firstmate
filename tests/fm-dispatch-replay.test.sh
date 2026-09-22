@@ -111,7 +111,7 @@ assert_present "$QUEUE/3.json" "the budget-stopped case never reaches the transp
 assert_equals '{"case":"diagnose","project":"pager","expected":["rule_1"],"status":"clear","rule":"rule_1","confidence":0.6,"probabilities":{"rule_1":0.7,"rule_2":0.2,"default":0.1},"reason":null}' \
   "$(jq -c 'select(.case == "diagnose") | del(.brief)' "$RESULT")" "run records the answer, label, and probabilities"
 assert_equals "$TMP_ROOT/briefs/diagnose.md" "$(jq -r 'select(.case == "diagnose") | .brief' "$RESULT")" "relative brief paths resolve against the cases file"
-assert_equals '{"case":"build","project":"","expected":["rule_2","default"],"status":"ambiguous","rule":"rule_2","reason":"top-2 margin 0.15 below 0.25 (rule_2 vs rule_1)"}' \
+assert_equals '{"case":"build","project":"","expected":["rule_2","default"],"status":"ambiguous","rule":"rule_2","reason":"top-2 margin 0.15 below 0.4 (rule_2 vs rule_1)"}' \
   "$(jq -c 'select(.case == "build") | {case, project, expected, status, rule, reason}' "$RESULT")" "run keeps the resolver's own gate verdict and reason"
 assert_contains "$(cat "$BODIES/1.body")" 'CANDIDATE investigation work. Tie-break: when rule_2 also fits and the deliverable is findings, choose this option over rule_2.' "run replays the candidate rules file"
 assert_not_contains "$(cat "$BODIES/1.body")" 'HOME-RULE-ONE' "the home's rules are not replayed when a candidate is given"
@@ -133,14 +133,21 @@ assert_equals 'replay-score: rows=4 labeled=2 skipped=1
   gate: confidence>=0.6 ambiguous=2 pass=2 wrong=1
   gate: margin>=0.3 ambiguous=1 pass=3 wrong=1
   gate: margin>=0.5 ambiguous=2 pass=2 wrong=1
-  row: a first=rule_1 second=rule_2 margin=0.3 confidence=0.55 expected=rule_1 margin-gate=pass ok
-  row: b first=rule_1 second=default margin=0.7 confidence=0.7 expected=rule_2 margin-gate=pass wrong
-  row: c first=rule_1 second=rule_2 margin=0.05 confidence=0.2 expected=- margin-gate=ambiguous -
-  row: #4 first=rule_2 second=default margin=0.96 confidence=0.97 expected=- margin-gate=pass -' "$out" "score compares both gates, counts wrong picks, and prints rows"
+  row: a pick=rule_1 first=rule_1 second=rule_2 margin=0.3 confidence=0.55 expected=rule_1 margin-gate=pass ok
+  row: b pick=rule_1 first=rule_1 second=default margin=0.7 confidence=0.7 expected=rule_2 margin-gate=pass wrong
+  row: c pick=rule_1 first=rule_1 second=rule_2 margin=0.05 confidence=0.2 expected=- margin-gate=ambiguous -
+  row: #4 pick=rule_2 first=rule_2 second=default margin=0.96 confidence=0.97 expected=- margin-gate=pass -' "$out" "score compares both gates, counts wrong picks, and prints rows"
 run_tool out err score "$TMP_ROOT/score.jsonl"
-assert_contains "$out" '  gate: margin>=0.25 ambiguous=1 pass=3 wrong=1' "the default threshold is the resolver's default"
+assert_contains "$out" '  gate: margin>=0.4 ambiguous=2 pass=2 wrong=1' "the default threshold is the resolver's default"
 PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_JEV_DISPATCH_MARGIN=0.75 "$TOOL" score "$TMP_ROOT/score.jsonl" > "$TMP_ROOT/out" 2>&1
 assert_contains "$(cat "$TMP_ROOT/out")" '  gate: margin>=0.75 ambiguous=3 pass=1 wrong=0' "FM_JEV_DISPATCH_MARGIN sets the default threshold"
+printf '%s\n' \
+  '{"case":"recorded","expected":["rule_2"],"rule":"rule_2","confidence":0.9,"probabilities":{"rule_1":0.9,"rule_2":0.05,"default":0.05}}' \
+  '{"case":"argmax","expected":["rule_2"],"confidence":0.9,"probabilities":{"rule_1":0.9,"rule_2":0.05,"default":0.05}}' > "$TMP_ROOT/pick.jsonl"
+run_tool out err score --margin 0.5 --rows "$TMP_ROOT/pick.jsonl"
+assert_contains "$out" '  row: recorded pick=rule_2 first=rule_1 second=default margin=0.85 confidence=0.9 expected=rule_2 margin-gate=pass ok' "a recorded rule is judged even when it is not the most probable option"
+assert_contains "$out" '  row: argmax pick=rule_1 first=rule_1 second=default margin=0.85 confidence=0.9 expected=rule_2 margin-gate=pass wrong' "a row without a recorded rule is judged by the most probable option"
+assert_contains "$out" '  gate: margin>=0.5 ambiguous=0 pass=2 wrong=1' "the wrong count follows the judged pick"
 pass "score: margin sweep beside the confidence gate, labeled wrong picks, per-row detail"
 
 # --- usage errors exit 2 -------------------------------------------------------

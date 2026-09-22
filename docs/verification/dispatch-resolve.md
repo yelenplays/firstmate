@@ -81,7 +81,8 @@ The three `beats` variants pooled, 42 rows:
   gate: margin>=0.3 ambiguous=12 pass=30 wrong=0
 ```
 
-0.25 is the lowest threshold with no wrong pick across the pooled precedence rows, which is why it is the default.
+0.4 is the lowest tested threshold with no wrong pick under unchanged rules, which is why it is the default.
+0.25 is the lowest threshold with no wrong pick across the pooled precedence rows, so it becomes valid only once `beats` are applied and a replay re-verifies it at `wrong=0`.
 The best variant, the conditional `beats` proposed for rules 8 through 13, measured 2 of 14 ambiguous at 0.25 with no wrong pick; both remaining rows are short German briefs split between a rule and the none option.
 Margins moved by up to 0.17 between variants on a brief whose contested pair neither variant's `beats` named, so one run per brief cannot certify a threshold finer than that.
 

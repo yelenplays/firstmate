@@ -29,7 +29,9 @@
 #   threshold, prints how many rows the top-2 margin gate would pass or hold
 #   as ambiguous next to the fixed 0.6 derived-confidence gate the resolver
 #   used before the margin gate. Rows with an `expected` label also count
-#   `wrong`: rows that pass the gate with a top pick outside the label. The
+#   `wrong`: rows that pass the gate with a pick outside the label. The pick
+#   is the row's recorded `rule` (the rule the resolver answered), or the
+#   most probable option when a row records none. The
 #   margin arithmetic is bin/fm-jev-lib.sh's jev_choice_top2, the same
 #   definition the resolver gates on. Default threshold: the resolver's
 #   effective FM_JEV_DISPATCH_MARGIN. --rows prints one line per row.
@@ -42,7 +44,7 @@
 #            gate: confidence>=0.6 ambiguous=<n> pass=<n> wrong=<n>
 #            gate: margin>=<t> ambiguous=<n> pass=<n> wrong=<n>
 #          --rows adds per row:
-#            row: <case> first=<rule> second=<rule> margin=<m> confidence=<c>
+#            row: <case> pick=<rule> first=<rule> second=<rule> margin=<m> confidence=<c>
 #              expected=<labels|-> margin-gate=<pass|ambiguous> <ok|wrong|->
 # Exit: 0 on success, 2 on usage error, unreadable input, or missing jq.
 # docs/configuration.md "Typed dispatch resolution" owns the calibration
@@ -164,19 +166,20 @@ replay_score() {
     def verdict($row; $pass):
       if ($row.expected | type) != "array" then "-"
       elif ($pass | not) then "-"
-      elif ($row.expected | index($row.top.first)) != null then "ok"
+      elif ($row.expected | index($row.pick)) != null then "ok"
       else "wrong" end;
     def tally($rs; $label; pass_fn):
       ($rs | map(. as $r | $r + {pass: ($r | pass_fn)})) as $g
       | "  gate: \($label) ambiguous=\([$g[] | select(.pass | not)] | length) pass=\([$g[] | select(.pass)] | length) wrong=\([$g[] | select(verdict(.; .pass) == "wrong")] | length)";
-    (map(select(valid)) | to_entries | map(.value + {top: (.value.probabilities | jev_choice_top2), idx: (.key + 1)})) as $rs
+    (map(select(valid)) | to_entries | map((.value.probabilities | jev_choice_top2) as $top
+      | .value + {top: $top, pick: (if (.value.rule | type) == "string" then .value.rule else $top.first end), idx: (.key + 1)})) as $rs
     | ($margins | split(",") | map(tonumber)) as $ts
     | "replay-score: rows=\($rs | length) labeled=\([$rs[] | select((.expected | type) == "array")] | length) skipped=\(length - ($rs | length))",
       tally($rs; "confidence>=0.6"; (.confidence // 0) >= 0.6),
       ($ts[] as $t | tally($rs; "margin>=\($t)"; .top.margin >= $t)),
       (if $rows == 1 then
          ($rs[] | . as $r | ($r.top.margin >= $ts[0]) as $p
-          | "  row: \($r.case // "#\($r.idx)") first=\($r.top.first) second=\($r.top.second // "-") margin=\($r.top.margin) confidence=\($r.confidence // "-") expected=\(if ($r.expected | type) == "array" then ($r.expected | join("|")) else "-" end) margin-gate=\(if $p then "pass" else "ambiguous" end) \(verdict($r; $p))")
+          | "  row: \($r.case // "#\($r.idx)") pick=\($r.pick) first=\($r.top.first) second=\($r.top.second // "-") margin=\($r.top.margin) confidence=\($r.confidence // "-") expected=\(if ($r.expected | type) == "array" then ($r.expected | join("|")) else "-" end) margin-gate=\(if $p then "pass" else "ambiguous" end) \(verdict($r; $p))")
        else empty end)
   ' || die "could not score input (not JSON lines?)"
 }

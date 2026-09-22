@@ -349,7 +349,7 @@ write_response "$RESPONSE" rule_4 0.26 '{ "rule_1": 0.02, "rule_2": 0.30, "rule_
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 expect_code 0 "$code" "ambiguous exits 0"
 assert_contains "$out" '  status: ambiguous' "a narrow top-2 margin is ambiguous"
-assert_contains "$out" '  reason: top-2 margin 0.11 below 0.25 (rule_4 vs rule_2)' "ambiguous names the margin, the threshold, and both contenders"
+assert_contains "$out" '  reason: top-2 margin 0.11 below 0.4 (rule_4 vs rule_2)' "ambiguous names the margin, the threshold, and both contenders"
 assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(high ceiling)  scope=all_models  remaining=79%  spendPriority=-0.4627  runway=projected_exhaustion  pred=unknown  -> eligible' "ambiguous preserves matched candidate evidence"
 assert_contains "$out" 'candidate: kimi:kimi-code/k3  provider=kimi  pred=unknown  -> eligible, unranked: provider kimi unmeasured (unknown): disclosed uncertainty' "ambiguous preserves eligible unranked candidate evidence"
 assert_not_contains "$out" '  profile:' "ambiguous emits no profile line"
@@ -357,22 +357,22 @@ pass "ambiguous: a narrow top-2 margin hands the decision back"
 
 # --- the margin gate is invariant to option count and configurable ---------------
 reset_log
-write_response "$RESPONSE" rule_4 0.3 '{ "rule_1": 0.12, "rule_2": 0.12, "rule_3": 0.12, "rule_4": 0.44, "default": 0.20 }'
+write_response "$RESPONSE" rule_4 0.46 '{ "rule_1": 0.09, "rule_2": 0.08, "rule_3": 0.08, "rule_4": 0.57, "default": 0.18 }'
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 assert_contains "$out" '  status: ambiguous' "a margin just below the default threshold is ambiguous"
-assert_contains "$out" '  reason: top-2 margin 0.24 below 0.25 (rule_4 vs default)' "the runner-up may be the none option"
+assert_contains "$out" '  reason: top-2 margin 0.39 below 0.4 (rule_4 vs default)' "the runner-up may be the none option"
 reset_log
-write_response "$RESPONSE" rule_4 0.4 '{ "rule_1": 0.11, "rule_2": 0.11, "rule_3": 0.11, "rule_4": 0.52, "default": 0.15 }'
+write_response "$RESPONSE" rule_4 0.45 '{ "rule_1": 0.10, "rule_2": 0.10, "rule_3": 0.09, "rule_4": 0.56, "default": 0.15 }'
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 assert_contains "$out" '  status: clear' "a derived confidence far below 0.6 still clears on a wide enough margin"
-assert_contains "$out" '  rule: rule_4 (A simple bug fix with a stated root cause.)   confidence: 0.4' "the derived confidence is still reported unchanged"
+assert_contains "$out" '  rule: rule_4 (A simple bug fix with a stated root cause.)   confidence: 0.45' "the derived confidence is still reported unchanged"
 reset_log
-write_response "$RESPONSE" rule_4 0.61 '{ "rule_1": 0.0, "rule_2": 0.3, "rule_3": 0.0, "rule_4": 0.55, "default": 0.15 }'
+write_response "$RESPONSE" rule_4 0.56 '{ "rule_1": 0.0, "rule_2": 0.25, "rule_3": 0.0, "rule_4": 0.65, "default": 0.10 }'
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 assert_contains "$out" '  status: clear' "a margin exactly at the threshold clears"
 reset_log
 TYPESAFE_API_KEY=$KEY FM_JEV_DISPATCH_MARGIN=0.5 run code out err "$BRIEF"
-assert_contains "$out" '  reason: top-2 margin 0.25 below 0.5 (rule_4 vs rule_2)' "FM_JEV_DISPATCH_MARGIN in the environment sets the threshold"
+assert_contains "$out" '  reason: top-2 margin 0.4 below 0.5 (rule_4 vs rule_2)' "FM_JEV_DISPATCH_MARGIN in the environment sets the threshold"
 printf '%s\n' 'FM_JEV_DISPATCH_MARGIN=0.2' > "$HOME_DIR/.env"
 reset_log
 write_response "$RESPONSE" rule_4 0.26 '{ "rule_1": 0.02, "rule_2": 0.30, "rule_3": 0.02, "rule_4": 0.41, "default": 0.25 }'

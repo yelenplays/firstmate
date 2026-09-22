@@ -1202,6 +1202,11 @@ crew_dispatch_validate() {
         or (.rule < 1) or (.rule > $count) or (.rule == $self)
         or (has("when") and ((.when | type) != "string" or (.when | length) == 0)))
       or ((map(.rule) | length) != (map(.rule) | unique | length));
+    def mutual_unconditional($rs):
+      [range(0; $rs | length) as $i | ($rs[$i] | if type == "object" then (.beats // []) else [] end)
+        | if type == "array" then .[] else empty end
+        | select(type == "object" and (has("when") | not)) | [$i + 1, .rule]] as $e
+      | any($e[]; . as [$w, $l] | ($e | index([[$l, $w]])) != null);
     def malformed_profile_floors($items):
       ($items | any(has("floor") and floor_bad(.floor; false)));
     def bad_efforts:
@@ -1228,6 +1233,7 @@ crew_dispatch_validate() {
     elif $typed and ([(.rules // [])[]? | select(has("approval") and .approval != "captain")] | length > 0) then "approval must be \"captain\" when present"
     elif $typed and ([(.rules // [])[]? | select(has("floor") and floor_bad(.floor; true))] | length > 0) then "rule floor needs scope, min_percent 0..100, and provider matching ^[a-z0-9]+(-[a-z0-9]+)*\\z"
     elif $typed and ((.rules // []) as $rs | any(range(0; $rs | length); . as $i | ($rs[$i] | type) == "object" and ($rs[$i] | has("beats")) and ($rs[$i].beats | beats_bad($i + 1; $rs | length)))) then "beats must be a non-empty array of {rule, when?} naming other rules by 1-based number, each at most once, with when a non-empty string when present"
+    elif $typed and mutual_unconditional(.rules // []) then "two rules must not beat each other unconditionally; give at least one of the pair a when condition"
     elif [(.rules // [])[]? | select(has("select") and ((.select? | type) != "string" or (.select | length) == 0))] | length > 0 then "select must be a non-empty string"
     elif [(.rules // [])[]? | .select? // empty | select(. != "quota-balanced")] | length > 0 then
       "unknown select: " + ([ (.rules // [])[]? | .select? // empty | select(. != "quota-balanced") ] | unique | join(", "))

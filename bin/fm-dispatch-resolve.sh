@@ -38,7 +38,7 @@
 #
 # Clear gate: the rule answer clears only when its top-2 probability margin
 #   (the most probable option minus the runner-up, bin/fm-jev-lib.sh's
-#   jev_choice_top2) is at least FM_JEV_DISPATCH_MARGIN, default 0.25. The
+#   jev_choice_top2) is at least FM_JEV_DISPATCH_MARGIN, default 0.4. The
 #   derived confidence is still reported but no longer gates: it shrinks as
 #   rules are added ((n x peak - 1) / (n - 1)), while the margin does not.
 #
@@ -94,7 +94,9 @@
 #   authority beyond today's optional clear-profile use.
 #   FM_JEV_DISPATCH_EXTRA=1 adds log-only home and deliverable questions.
 #   FM_JEV_DISPATCH_MARGIN (environment, then $FM_HOME/.env) sets the clear
-#   gate's top-2 margin, a number in (0, 1]; default 0.25.
+#   gate's top-2 margin, a number in (0, 1]; default 0.4, calibrated for rules
+#   without `beats`. A lower value such as 0.25 is valid only once `beats` are
+#   applied and bin/fm-dispatch-replay.sh re-verifies it at wrong=0.
 #   FM_JEV_DISPATCH_COMPACT is read from the process environment first, else
 #   from $FM_HOME/.env via fmx_env_get; the environment wins. A truthy value
 #   sends a 400-800 character intent summary instead of the whole brief
@@ -124,7 +126,7 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 # shellcheck source=bin/fm-jev-lib.sh
 . "$SCRIPT_DIR/fm-jev-lib.sh"
 
-DEFAULT_MARGIN=0.25
+DEFAULT_MARGIN=0.4
 DEFAULT_WHEN="No listed rule applies to this task."
 DISPATCH_HOMES="main agency lay frontend zimmer"
 
