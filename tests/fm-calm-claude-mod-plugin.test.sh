@@ -5,8 +5,9 @@
 # `claude plugin test` suites (tests/*.test.ts inside the mod), which run the hooks
 # module in the engine's own host against a mocked clock, environment, file system,
 # and drawing surface. No model turn is submitted and no credential is spent, so the
-# guard runs by default wherever `claude` is installed; the portable checks that need
-# no Claude Code binary live in tests/fm-calm-claude-mod.test.sh.
+# guard runs by default wherever `claude` is installed on a build that has the mods
+# surface, capability-skipping an older one by name (see the probe below); the
+# portable checks that need no Claude Code binary live in tests/fm-calm-claude-mod.test.sh.
 #
 # The early-access function-hooks surface is default-off; the flag is set on this
 # test's own processes only and never written into any settings file.
