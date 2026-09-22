@@ -65,7 +65,7 @@ fm_devin_shell_quote() {
 }
 
 fm_devin_start() { # <target> <binary> <prompt-file> <model> <permission-mode>
-  local target=$1 binary=$2 brief=$3 model=$4 mode=$5 session pane out arg attempt
+  local target=$1 binary=$2 brief=$3 model=$4 mode=$5 session pane out arg attempt home
   local launch='env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT -u CURSOR_AGENT -u CURSOR_INVOKED_AS'
   local args=("$binary" --respect-workspace-trust false --permission-mode "$mode" --prompt-file "$brief")
   fm_devin_permission_valid "$mode" || return 1
@@ -73,6 +73,13 @@ fm_devin_start() { # <target> <binary> <prompt-file> <model> <permission-mode>
   session=$FM_BACKEND_HERDR_SESSION
   pane=$FM_BACKEND_HERDR_PANE
   [ -n "$model" ] && [ "$model" != default ] && args+=(--model "$model")
+  # Ship and scout launches carry only the spawning home's absolute path so the
+  # Jev command resolves its key from that home's .env. The key itself never
+  # crosses the launch boundary and the .env stays home-local.
+  if [ -n "${FM_HOME:-}" ]; then
+    home=$(cd "$FM_HOME" 2>/dev/null && pwd -P) || return 1
+    launch="FM_HOME=$(fm_devin_shell_quote "$home") $launch"
+  fi
   # Devin retains PI_CODING_AGENT from its parent. Clear foreign markers in
   # the agent's environment without modifying the pane shell or global config.
   for arg in "${args[@]}"; do launch+=" $(fm_devin_shell_quote "$arg")"; done

@@ -80,7 +80,12 @@ fm_backend_herdr_cli() {
   [ "$*" = 'fm-lab-test agent get w1:p2' ] || fail 'readiness must query exact lab pane'
   printf '%s\n' '{"result":{"agent":{"agent":"devin","pane_id":"w1:p2","interactive_ready":true}}}'
 }
-fm_devin_start fm-lab-test:w1:p2 "$TMP_ROOT/bin/devin" \
+DEVIN_HOME="$TMP_ROOT/home"
+DEVIN_KEY='ts-devin-test-key-must-not-leak'
+mkdir -p "$DEVIN_HOME"
+printf 'TYPESAFE_API_KEY=%s\n' "$DEVIN_KEY" > "$DEVIN_HOME/.env"
+FM_HOME="$DEVIN_HOME" TYPESAFE_API_KEY="$DEVIN_KEY" \
+  fm_devin_start fm-lab-test:w1:p2 "$TMP_ROOT/bin/devin" \
   "/path with 'quotes'/brief.md" swe-2-high smart
 # Run the actual generated launch with a recording executable to prove both
 # argument boundaries and environment sanitization, not just command text.
@@ -88,13 +93,22 @@ cat > "$TMP_ROOT/bin/devin" <<'SH'
 #!/bin/bash
 printf '%s\n' "$@" > "$DEVIN_TEST_RECORD/argv"
 printf '%s' "${CLAUDECODE-}${PI_CODING_AGENT-}${CURSOR_AGENT-}${GROK_AGENT-}${FM_PI_HARNESS-}${CURSOR_INVOKED_AS-}" > "$DEVIN_TEST_RECORD/markers"
+printf '%s' "${FM_HOME-}" > "$DEVIN_TEST_RECORD/launch-home"
 SH
+launch=$(cat "$TMP_ROOT/shell-command")
+case "$launch" in
+  "FM_HOME='$DEVIN_HOME' env -u CLAUDECODE "*) ;;
+  *) fail "devin launch did not lead with the spawning home"$'\n'"actual: $launch" ;;
+esac
+assert_not_contains "$launch" "$DEVIN_KEY" "devin launch must never carry the Jev key value"
+assert_not_contains "$launch" "TYPESAFE_API_KEY" "devin launch must never export a Jev key"
 DEVIN_TEST_RECORD="$TMP_ROOT" CLAUDECODE=1 PI_CODING_AGENT=true CURSOR_AGENT=1 \
   GROK_AGENT=1 FM_PI_HARNESS=pi-signed CURSOR_INVOKED_AS=cursor-agent \
-  bash "$TMP_ROOT/shell-command"
+  env -u TYPESAFE_API_KEY bash "$TMP_ROOT/shell-command"
 expected=$(printf '%s\n' --respect-workspace-trust false --permission-mode smart --prompt-file "/path with 'quotes'/brief.md" --model swe-2-high)
 [ "$expected" = "$(cat "$TMP_ROOT/argv")" ] || fail "direct launch argv changed"
 [ ! -s "$TMP_ROOT/markers" ] || fail "foreign markers survived direct launch"
+[ "$(cat "$TMP_ROOT/launch-home")" = "$DEVIN_HOME" ] || fail "devin launch did not deliver FM_HOME to the agent"
 sleep() { :; }
 fm_backend_herdr_cli() { echo '{"result":{"agent":{"agent":"pi","pane_id":"w1:p2","interactive_ready":true}}}'; }
 ! fm_devin_start fm-lab-test:w1:p2 "$TMP_ROOT/bin/devin" /brief default dangerous 2>/dev/null || fail "wrong native agent identity accepted"

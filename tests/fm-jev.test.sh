@@ -215,6 +215,26 @@ test_privacy_guard_refuses_before_sending() {
   pass "fm-jev.sh: privacy guard refuses before anything is sent"
 }
 
+# The guard must screen the same .env the library resolves the key from, even
+# when the environment carries only the other route's key and FM_HOME is unset.
+test_privacy_guard_screens_checkout_env_without_fm_home() {
+  local code main
+  respond '{"answers":{"yes":{"noul":0.97}}}'
+  main="$TMP_ROOT/guard-checkout"
+  make_checkout "$main"
+  printf 'TYPESAFE_API_KEY=%s\n' "$KEY-checkout" > "$main/.env"
+  reset_log
+  env -u FM_HOME -u TYPESAFE_API_KEY OPENROUTER_API_KEY="$KEY-or" PATH="$FAKEBIN:$PATH" \
+    "$main/bin/fm-jev.sh" yes "the key is $KEY-checkout" "Done?" \
+    > "$TMP_ROOT/guard.out" 2> "$TMP_ROOT/guard.err"
+  code=$?
+  assert_equals "$code" 1 "the checkout .env key is refused with FM_HOME unset"
+  assert_contains "$(cat "$TMP_ROOT/guard.err")" "Jev API key itself" "the refusal names the live key"
+  assert_not_contains "$(cat "$TMP_ROOT/guard.err")" "$KEY-checkout" "the refusal never echoes the key"
+  assert_absent "$LOG/body" "the checkout .env key is never sent"
+  pass "fm-jev.sh: the guard screens the checkout .env the library resolves"
+}
+
 test_log_records_metadata_only() {
   local code out err line
   rm -f "$HOME_DIR/state/jev-calls.jsonl"
@@ -291,5 +311,6 @@ test_escalation_exits_two
 test_json_prints_raw_response
 test_errors_exit_one_with_one_line
 test_privacy_guard_refuses_before_sending
+test_privacy_guard_screens_checkout_env_without_fm_home
 test_log_records_metadata_only
 test_key_discovery_needs_no_env_setup

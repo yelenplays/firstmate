@@ -99,11 +99,11 @@ select_home() {
 # Succeeds when <text> contains the live key value from the environment or
 # the selected home's .env. The key stays in a function-local variable.
 contains_live_key() {
-  local text=$1 name key
+  local text=$1 name key home=${FM_HOME:-$FM_JEV_CLI_ROOT}
   for name in TYPESAFE_API_KEY OPENROUTER_API_KEY; do
     key=${!name:-}
-    if [ -z "$key" ] && [ -n "${FM_HOME:-}" ] && [ -f "$FM_HOME/.env" ]; then
-      key=$(fmx_env_get "$name" "$FM_HOME/.env")
+    if [ -z "$key" ] && [ -f "$home/.env" ]; then
+      key=$(fmx_env_get "$name" "$home/.env")
     fi
     [ -n "$key" ] || continue
     case "$text" in
