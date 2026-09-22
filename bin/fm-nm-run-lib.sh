@@ -416,17 +416,17 @@ fm_nm_active_steps_pairs() {  # <toon-output>
 # Read-only: git reads resolve objects in place; custody never changes.
 fm_nm_runs_status_for_worktree() {  # <worktree> <branch> <runs-list-output> [expected-head]
   local wt=$1 branch=$2 list=$3 expected_head=${4:-}
-  local local_full row_full row st br sha day clock pr extra year_num month_num day_num max_day pending_st=''
+  local local_full row_full row row_status br sha day clock pr extra year_num month_num day_num max_day pending_st=''
   local decided=''
   local_full=$(git -C "$wt" rev-parse HEAD 2>/dev/null) || return 0
   [ -n "$list" ] || return 0
   while IFS= read -r row; do
     row=$(fm_nm_trim "$row")
     [ -n "$row" ] || continue
-    IFS=$' \t' read -r st br sha day clock pr extra <<< "$row"
-    [ -n "$st" ] && [ -n "$br" ] && [ -n "$sha" ] && [ -n "$day" ] && [ -n "$clock" ] || break
+    IFS=$' \t' read -r row_status br sha day clock pr extra <<< "$row"
+    [ -n "$row_status" ] && [ -n "$br" ] && [ -n "$sha" ] && [ -n "$day" ] && [ -n "$clock" ] || break
     [ -z "$extra" ] || break
-    case "$st" in *[!a-z_-]*|'') break ;; esac
+    case "$row_status" in *[!a-z_-]*|'') break ;; esac
     case "$br" in *[!A-Za-z0-9._/-]*|'') break ;; esac
     case "$sha" in *[!A-Fa-f0-9]*|'') break ;; esac
     case "$day" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) break ;; esac
@@ -470,12 +470,12 @@ fm_nm_runs_status_for_worktree() {  # <worktree> <branch> <runs-list-output> [ex
     row_full=$(fm_nm_resolve_commit "$wt" "$sha")
     if [ -n "$row_full" ]; then
       if fm_nm_head_matches_worktree "$wt" "$sha"; then
-        decided=$st
+        decided=$row_status
       fi
       break
     fi
-    [ "$st" = running ] || break
-    pending_st=$st
+    [ "$row_status" = running ] || break
+    pending_st=$row_status
   done <<< "$list"
   printf '%s' "$decided"
   return 0

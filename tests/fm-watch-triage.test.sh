@@ -2238,7 +2238,7 @@ test_nonterminal_stale_not_working_surfaced() {
 # log evidence at a fixture run directory.
 
 test_nonterminal_stale_live_nm_run_defers_then_escalates_when_run_dies() {
-  local dir state fakebin out drain_out capture_file window key pane_hash sig pid wt nmhome since
+  local dir state fakebin out drain_out capture_file window key pane_hash sig pid wt nmhome since back
   dir=$(make_case nm-run-live); state="$dir/state"; fakebin="$dir/fakebin"
   out="$dir/watch.out"; drain_out="$dir/drain.out"; capture_file="$dir/pane.txt"
   window="test:fm-nmrun"
@@ -2320,7 +2320,9 @@ TOON
   # executing (a daemon-executed ci step, its own log deliberately stale), so
   # the escalation defers instead of firing: no wake, the idle timer re-arms,
   # and the deferral chain is recorded.
-  echo $(( $(date +%s) - 500 )) > "$state/.stale-since-$key"
+  back=$(( $(date +%s) - 500 ))
+  echo "$back" > "$state/.stale-since-$key"
+  set_mtime "$back" "$state/.stale-since-$key"
   : > "$nmhome/logs/01NMRUN01/ci.log"
   set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/ci.log"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
@@ -2341,7 +2343,9 @@ TOON
 
   # Phase B: no step is in flight at all, but the run's own log dir was written
   # since the quiet window opened - still executing evidence, still a deferral.
-  echo $(( $(date +%s) - 500 )) > "$state/.stale-since-$key"
+  back=$(( $(date +%s) - 500 ))
+  echo "$back" > "$state/.stale-since-$key"
+  set_mtime "$back" "$state/.stale-since-$key"
   : > "$nmhome/logs/01NMRUN01/review.log"
   : > "$out"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
@@ -2360,7 +2364,9 @@ TOON
   # Phase C: the run record still claims running, but the agent pid is dead,
   # activity went quiet, and no log has grown since the pane went idle -
   # nothing proves execution, so the wedge escalates on the unchanged schedule.
-  echo $(( $(date +%s) - 500 )) > "$state/.stale-since-$key"
+  back=$(( $(date +%s) - 500 ))
+  echo "$back" > "$state/.stale-since-$key"
+  set_mtime "$back" "$state/.stale-since-$key"
   set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/review.log"
   : > "$out"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
