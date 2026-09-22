@@ -24,6 +24,9 @@
 #            for the captain (bin/fm-captain-hold.sh open), finished with a
 #            recorded PR, or parked on an already-open decision; a status
 #            line declaring working:, paused:, resolved:, or captain-held:;
+#            a done: line without a PR whose worker is now validating; a
+#            task's earlier done:/failed: lines superseded by a newer one and
+#            decision lines the OPEN DECISIONS fold no longer holds open;
 #            a secondmate turn-end with no status line; OPEN DECISIONS
 #            identical to the set the previous triage presented.
 #   act-now  needs-decision:, blocked:, failed:, a done: line (with its PR
@@ -176,12 +179,15 @@ meta_get() {  # <task> <key>
 }
 
 crew_state() {  # <task> -> one crew-state line (cached)
-  local task=$1 f
+  local task=$1 f tmp
   safe_id "$task" || { printf 'state: unknown · source: none · invalid task id\n'; return; }
   f="$CACHE/$task.crew"
   if [ ! -f "$f" ]; then
-    fm_run_timed 20 "$CREW_STATE_BIN" "$task" 2>/dev/null | head -n 1 > "$f" || true
-    [ -s "$f" ] || printf 'state: unknown · source: none · crew-state unavailable\n' > "$f"
+    # Named once: $BASHPID inside the pipeline below would be a pipeline subshell's.
+    tmp="$f.$BASHPID"
+    fm_run_timed 20 "$CREW_STATE_BIN" "$task" 2>/dev/null | head -n 1 > "$tmp" || true
+    [ -s "$tmp" ] || printf 'state: unknown · source: none · crew-state unavailable\n' > "$tmp"
+    mv -f "$tmp" "$f"
   fi
   cat "$f"
 }
@@ -244,17 +250,65 @@ routine() { printf '%s\t%s\n' "$1" "$(cap "$2")" >> "$ROUTINE"; }
 
 task_kind() { local k; k=$(meta_get "$1" kind); printf '%s' "${k:-ship}"; }
 
+# Every presented status line of <task>, oldest first: the drain's annotations
+# (chronological per task), then any unread-surface or backstop line they did
+# not already carry.
+task_lines() {  # <task>
+  awk -F '\t' -v t="$1" '
+    function emit(l) { if (!(l in seen)) { seen[l] = 1; print l } }
+    $1 == "ANN" && $2 == t { l = $0; sub(/^ANN\t[^\t]*\t/, "", l); emit(l); next }
+    $1 == "SEC" && ($2 == "unread" || $2 == "backstop") && index($3, t " ") == 1 {
+      l = $0; sub(/^SEC\t[^\t]*\t/, "", l); emit(substr(l, length(t) + 2))
+    }
+  ' "$PARSED"
+}
+
+# The newest of <task>'s presented lines whose verb is one of <verbs>.
+task_last_line() {  # <task> <space-separated-verbs>
+  local line verb last=''
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    status_line_verb "$line" verb
+    case " $2 " in *" $verb "*) last=$line ;; esac
+  done <<EOF
+$(task_lines "$1")
+EOF
+  printf '%s' "$last"
+}
+
 # Classify one status line by its declared verb. Returns 0 when it produced an
-# act-now item, 1 when routine, 2 when it was handed to the ambiguous set.
+# act-now item, 1 when routine, 2 when it was handed to the ambiguous set, and 3
+# when the OPEN DECISIONS presentation owns it.
+# A batch can carry a task's whole unread history, so only its newest done: or
+# failed: line is act-now, and a needs-decision: or blocked: line defers to the
+# drain's OPEN DECISIONS fold, which owns whether it is still open.
 classify_status_line() {  # <task> <status-line> <origin>
   local task=$1 line=$2 origin=$3 verb url file kind
   if grep -qxF "$task$TAB$line" "$SEEN_LINES"; then
     return 1
   fi
   printf '%s\t%s\n' "$task" "$line" >> "$SEEN_LINES"
-  verb=$(status_line_verb "$line")
+  status_line_verb "$line" verb
   url=$(first_url "$line")
   kind=$(task_kind "$task")
+  case "$verb" in
+    needs-decision|blocked)
+      if open_decision_for "$task"; then
+        # The OPEN DECISIONS path presents it; nothing to add here.
+        return 3
+      fi
+      if [ "$line" != "$(task_last_line "$task" "needs-decision blocked done failed working paused resolved captain-held note")" ]; then
+        routine "$task" "earlier $verb line, since resolved or superseded"
+        return 1
+      fi
+      ;;
+    done|failed)
+      if [ "$line" != "$(task_last_line "$task" "done failed")" ]; then
+        routine "$task" "earlier $verb line, superseded by a later one"
+        return 1
+      fi
+      ;;
+  esac
   case "$verb" in
     needs-decision)
       file=$(findings_file "$line")
@@ -279,6 +333,10 @@ classify_status_line() {  # <task> <status-line> <origin>
       fi
       if [ "$kind" = scout ]; then
         act "$task" "scout reports done: $(status_line_note "$line")" "read data/$task/report.md and relay the findings"
+      elif [ "$verb" = 'done' ] && crew_state "$task" | grep -q '^state: working · source: run-step'; then
+        # Validation is already running on this work, so the line was handled.
+        routine "$task" "done line already followed by a running validation"
+        return 1
       else
         act "$task" "worker reports done: $(status_line_note "$line")" "verify the result and continue the selected delivery path"
       fi
@@ -328,6 +386,30 @@ classify_by_state() {  # <task> <what-happened>
   esac
 }
 
+# Read every named worker's current state concurrently before classifying, so a
+# batch costs one crew-state read of wall time rather than their sum.
+prefetch_crew_states() {
+  local tag epoch seq kind key payload task n=0 max=8 seen=' '
+  while IFS="$TAB" read -r tag epoch seq kind key payload; do
+    [ "$tag" = ROW ] || continue
+    : "$epoch" "$seq" "$payload"
+    case "$kind" in
+      signal) task=${key%.status}; task=${task%.turn-ended} ;;
+      stale) task=$(window_to_task "$key" "$STATE") ;;
+      check) case "$key" in execution:*) task=${key#execution:} ;; *) continue ;; esac ;;
+      *) continue ;;
+    esac
+    safe_id "$task" || continue
+    case "$seen" in *" $task "*) continue ;; esac
+    seen="$seen$task "
+    [ "$(task_kind "$task")" != secondmate ] || continue
+    ( crew_state "$task" >/dev/null ) &
+    n=$((n + 1))
+    if [ "$n" -ge "$max" ]; then wait; n=0; fi
+  done < "$PARSED"
+  wait
+}
+
 # --- walk the presented wake rows ----------------------------------------------
 ROW_COUNT=0
 EXECUTION_LINES=$(awk -F '\t' '$1 == "SEC" && $2 == "execution" { sub(/^SEC\texecution\t/, ""); print }' "$PARSED")
@@ -336,8 +418,11 @@ execution_line_for() {  # <task> -> "task \t owner \t action" from the drain
   printf '%s\n' "$EXECUTION_LINES" | awk -F '\t' -v t="$1" '$1 == t { print; exit }'
 }
 
-annotation_lines_for() {  # <task>
-  awk -F '\t' -v t="$1" '$1 == "ANN" && $2 == t { print $3 }' "$PARSED"
+# A task is judged once per batch however many rows name it.
+HANDLED=' '
+first_sight() {  # <task> -> 0 the first time this batch sees <task>
+  case "$HANDLED" in *" $1 "*) return 1 ;; esac
+  HANDLED="$HANDLED$1 "
 }
 
 handle_signal_row() {  # <key> <payload>
@@ -345,12 +430,15 @@ handle_signal_row() {  # <key> <payload>
   task=${key%.status}
   task=${task%.turn-ended}
   safe_id "$task" || { act "$key" "signal for an unrecognized record: $payload" "inspect the full drain output"; return; }
+  first_sight "$task" || return 0
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     had_lines=0
-    classify_status_line "$task" "$line" batch && any_act=0
+    rc=0
+    classify_status_line "$task" "$line" batch || rc=$?
+    case "$rc" in 0|3) any_act=0 ;; esac
   done <<EOF
-$(annotation_lines_for "$task")
+$(task_lines "$task")
 EOF
   case "$payload" in
     needs-decision:*)
@@ -375,6 +463,8 @@ handle_stale_row() {  # <key> <payload>
   local win=$1 payload=$2 task
   task=$(window_to_task "$win" "$STATE")
   safe_id "$task" || task=$win
+  # A signal earlier in this batch already judged this task.
+  first_sight "$task" || return 0
   case "$payload" in
     *"possible wedge"*|*demand-deep-inspection*)
       act "$task" "idle alert: ${payload#stale: }" "inspect the pane below and load stuck-crewmate-recovery ($(crew_state "$task"))"
@@ -436,6 +526,7 @@ handle_check_row() {  # <key> <payload>
   esac
 }
 
+prefetch_crew_states
 while IFS="$TAB" read -r tag epoch seq kind key payload; do
   [ "$tag" = ROW ] || continue
   : "$epoch" "$seq"
@@ -493,7 +584,8 @@ if [ -n "$DECISIONS" ]; then
       grep -qxF "$line" "$DECISIONS_SEEN" 2>/dev/null && continue
       # The same decision already arrived as this batch's needs-decision line.
       grep -q "^${line%% *}${TAB}needs a decision" "$ACT" && continue
-      act "${line%% *}" "open decision: ${line#* }" "decide or escalate, then answer with bin/fm-send.sh ${line%% *} --resolve-key <key>" \
+      key=$(printf '%s' "$line" | sed -n 's/^[^ ]* \[key=\([^]]*\)\].*/\1/p')
+      act "${line%% *}" "open decision: ${line#* }" "decide or escalate (load ask-user-authority for review findings), then answer with bin/fm-send.sh ${line%% *} --resolve-key ${key:-<key>} '<answer>'" \
         "$(f=$(findings_file "$line"); printf '%s' "${f:+findings: $f}")"
     done <<EOF
 $DECISIONS
@@ -590,7 +682,14 @@ if [ "$ACT_COUNT" -gt 0 ]; then
   done < "$ACT"
 fi
 if [ "$ROUTINE_COUNT" -gt 0 ]; then
-  printf 'ROUTINE: %s\n' "$(awk -F '\t' '{ printf "%s%s (%s)", (NR > 1 ? "; " : ""), $1, $2 }' "$ROUTINE")"
+  printf 'ROUTINE: %s\n' "$(awk -F '\t' '
+    { k = $1 "\t" $2; if (!(k in n)) order[++c] = k; n[k]++ }
+    END {
+      for (i = 1; i <= c; i++) {
+        split(order[i], f, "\t")
+        printf "%s%s (%s)%s", (i > 1 ? "; " : ""), f[1], f[2], (n[order[i]] > 1 ? " x" n[order[i]] : "")
+      }
+    }' "$ROUTINE")"
 fi
 if [ -n "$DECISIONS" ] && [ "$DECISIONS_CHANGED" = false ]; then
   printf 'OPEN DECISIONS unchanged since the last triage (%s): %s\n' \

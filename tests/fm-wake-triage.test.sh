@@ -86,10 +86,16 @@ test_all_routine_batch_is_summarized_and_auto_acked() {
   append_wake "$dir/state" signal mate.turn-ended "signal: $dir/state/mate.turn-ended"
   append_wake "$dir/state" check execution:gone "check: execution gone"
 
+  write_meta "$dir" validating ship
+  printf 'done: implementation committed\n' > "$dir/state/validating.status"
+  append_wake "$dir/state" signal validating.status "signal: $dir/state/validating.status"
+
   out=$(FM_FAKE_CREW_STATE_busy='state: working · source: run-step · running' \
+    FM_FAKE_CREW_STATE_validating='state: working · source: run-step · validating' \
     FM_FAKE_CREW_STATE_held='state: parked · source: status-log · waiting' FM_FAKE_HELD=held \
     run_triage "$dir" --auto-ack --no-jev) || fail "triage failed on an all-routine batch: $out"
-  has "$out" 'WAKE TRIAGE: 4 wake row(s); 0 act-now'
+  has "$out" 'WAKE TRIAGE: 5 wake row(s); 0 act-now'
+  has "$out" 'validating (done line already followed by a running validation)'
   lacks "$out" 'ACT NOW'
   has "$out" 'held (idle alert; held for the captain)'
   has "$out" 'mate (secondmate turn ended)'
@@ -113,7 +119,8 @@ test_act_now_items_carry_next_action_pr_and_findings_and_block_auto_ack() {
   done
 
   out=$(run_triage "$dir" --auto-ack --no-jev) || fail "triage failed: $out"
-  has "$out" '- rev | needs a decision:'
+  has "$out" '- rev | open decision: [key=nm-r1-review] needs-decision: ask-user findings=f1'
+  has "$out" "bin/fm-send.sh rev --resolve-key nm-r1-review '<answer>'"
   has "$out" 'findings: /x/data/rev/nm-r1-findings.txt'
   has "$out" '- shipped | reports done with a PR | next: run bin/fm-pr-check.sh shipped https://github.com/o/r/pull/42'
   has "$out" 'pr: https://github.com/o/r/pull/42'
@@ -122,6 +129,28 @@ test_act_now_items_carry_next_action_pr_and_findings_and_block_auto_ack() {
   has "$out" 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through'
   [ "$(queued_rows "$dir")" -gt 0 ] || fail "act-now rows were acknowledged: $out"
   pass "act-now items name the next action, PR URL, and findings file, and block --auto-ack"
+}
+
+test_superseded_history_is_routine_and_only_the_newest_outcome_acts() {
+  local dir out
+  dir=$(triage_case superseded)
+  write_meta "$dir" hist ship
+  {
+    printf 'needs-decision [key=pick]: sqlite or postgres\n'
+    printf 'resolved [key=pick]: postgres\n'
+    printf 'failed: first push rejected\n'
+    printf 'done: PR https://github.com/o/r/pull/5 checks green\n'
+  } > "$dir/state/hist.status"
+  append_wake "$dir/state" signal hist.status "signal: $dir/state/hist.status"
+  append_wake "$dir/state" signal hist.turn-ended "signal: $dir/state/hist.turn-ended"
+  out=$(run_triage "$dir" --no-jev) || fail "triage failed: $out"
+  has "$out" 'WAKE TRIAGE: 2 wake row(s); 1 act-now'
+  has "$out" '- hist | reports done with a PR'
+  lacks "$out" 'failed: first push rejected |'
+  lacks "$out" 'sqlite or postgres |'
+  has "$out" 'hist (earlier failed line, superseded by a later one)'
+  has "$out" 'hist (earlier needs-decision line, since resolved or superseded)'
+  pass "a task's resolved decisions and superseded outcomes are routine; only its newest outcome acts, once"
 }
 
 test_unknown_state_shows_pane_lines_to_firstmate() {
@@ -255,6 +284,7 @@ test_drain_failure_is_passed_through() {
 
 test_all_routine_batch_is_summarized_and_auto_acked
 test_act_now_items_carry_next_action_pr_and_findings_and_block_auto_ack
+test_superseded_history_is_routine_and_only_the_newest_outcome_acts
 test_unknown_state_shows_pane_lines_to_firstmate
 test_busy_execution_reminder_is_routine_and_idle_one_is_act_now
 test_open_decisions_are_act_now_only_when_the_set_changes

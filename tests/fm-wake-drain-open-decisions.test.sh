@@ -217,6 +217,28 @@ test_over_long_decision_note_is_capped_with_a_marker() {
   pass "an over-long open decision is cut to its per-item budget with the shared truncation marker"
 }
 
+# A turn-end row for a task that has no status log yet (a fresh worker, an idle
+# secondmate) has nothing to annotate. It used to abort the annotation pass,
+# which dropped every later task's annotation and, through the presentation,
+# the OPEN DECISIONS section for the whole drain.
+test_turn_end_without_a_status_log_keeps_the_presentation() {
+  local dir state out
+  dir=$(make_case turnend-no-status)
+  state="$dir/state"
+  out="$dir/drain.out"
+  printf 'needs-decision [key=k1]: pick a or b\n' > "$state/task1.status"
+  append_wake "$state" signal fresh.turn-ended "signal: $state/fresh.turn-ended"
+  append_wake "$state" signal task1.status "signal: $state/task1.status"
+
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" 2>/dev/null || fail "drain failed with a status-less turn-end row"
+
+  grep -F 'task1.status: needs-decision [key=k1]: pick a or b' "$out" >/dev/null \
+    || fail "a status-less turn-end row dropped a later task's annotation: $(cat "$out")"
+  grep -F 'task1 [key=k1] needs-decision: pick a or b' "$out" >/dev/null \
+    || fail "a status-less turn-end row dropped the OPEN DECISIONS section: $(cat "$out")"
+  pass "a turn-end row for a task with no status log keeps every annotation and OPEN DECISIONS"
+}
+
 test_buried_decision_still_surfaces
 test_over_long_decision_note_is_capped_with_a_marker
 test_explicit_resolution_closes_it
@@ -226,3 +248,4 @@ test_no_open_decisions_prints_nothing
 test_open_decision_surfaces_even_with_an_unrelated_queued_wake
 test_buried_decision_surfaces_on_the_empty_queue_fast_path
 test_status_symlink_is_not_followed
+test_turn_end_without_a_status_log_keeps_the_presentation

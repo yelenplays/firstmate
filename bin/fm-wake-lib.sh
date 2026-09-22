@@ -2551,6 +2551,13 @@ fm_wake_print_annotations() {  # <deduped-raw-rows> [<presentation-snapshot>]
     if [ "$mode" = historical ] && fm_wake_signal_seen_current "$STATE" "$path"; then
       continue
     fi
+    # A turn-end row for a task with no status log yet (a fresh worker, an
+    # idle secondmate) has nothing to annotate. Failing here instead aborted
+    # every later annotation and, through the caller, the drain's status
+    # sections - OPEN DECISIONS included - for the whole presentation.
+    if [ ! -e "$path" ] && [ ! -L "$path" ]; then
+      continue
+    fi
     offset=$(fm_wake_status_cursor_offset "$path") || return 1
     endpoint=
     if [ -n "$snapshot" ]; then
