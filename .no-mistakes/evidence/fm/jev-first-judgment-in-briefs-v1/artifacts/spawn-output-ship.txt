@@ -1,0 +1,1 @@
+spawned live-jev-worker harness=claude kind=ship mode=no-mistakes yolo=off window=firstmate:fm-live-jev-worker worktree=/private/tmp/fmjev.TjRo6R/wt

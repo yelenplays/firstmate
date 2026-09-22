@@ -1,0 +1,11 @@
+# Rule 8 rendered into each real fm-brief.sh scaffold (live product output)
+digests:
+no-mistakes  435b4d870f8890dd1838676b7ad07b73
+direct-PR    435b4d870f8890dd1838676b7ad07b73
+local-only   435b4d870f8890dd1838676b7ad07b73
+scout        435b4d870f8890dd1838676b7ad07b73
+
+secondmate scaffold contains the rule: 0 occurrences (expected 0)
+
+--- rule text as rendered (ship no-mistakes brief, uses only ASCII hyphens: no apostrophes) ---
+For a closed-set judgment - picking one of options you can list, a yes/no check, or a score against levels you can write down - prefer one batched typed Jev call when the installed TypeSafe surface makes one available; when it does not, or the key is missing or the endpoint does not answer, use your own judgment and never block on it. The state you pass carries only the minimal facts the judgment needs - never secrets, credentials, API keys, or tokens, never wiki page bodies, excerpts, or private-vault content, and when in doubt leave the fact out and use your own judgment. Deterministic operations such as grep, builds, tests, file moves, and doctor runs stay in code, because Jev has no filesystem or tools.

@@ -1,0 +1,4 @@
+# Rule parity check
+ship: BYTE-IDENTICAL bytes=     717
+scout: BYTE-IDENTICAL bytes=     717
+apostrophes in launch rule: 0

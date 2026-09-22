@@ -1,0 +1,5 @@
+=== claude invocation ===
+ARG[0]=<<--dangerously-skip-permissions>>
+ARG[1]=<<--settings>>
+ARG[2]=<<{"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}>>
+ARG[3]=<<⁣FIRSTMATE_OP: v1 launch-brief: charter for live-jev-sm>>

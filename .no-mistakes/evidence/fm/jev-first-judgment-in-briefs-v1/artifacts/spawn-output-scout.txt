@@ -1,0 +1,1 @@
+spawned live-jev-scout harness=claude kind=scout window=firstmate:fm-live-jev-scout worktree=/private/tmp/fmjev.cNPI70/wt

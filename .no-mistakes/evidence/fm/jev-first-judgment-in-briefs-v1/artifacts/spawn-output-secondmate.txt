@@ -1,0 +1,2 @@
+warning: secondmate live-jev-sm sync skipped before launch: primary default-branch commit cannot be resolved
+spawned live-jev-sm harness=claude kind=secondmate mode=secondmate yolo=off window=firstmate:fm-live-jev-sm worktree=/private/tmp/fmjev.z4mTEJ/sm
