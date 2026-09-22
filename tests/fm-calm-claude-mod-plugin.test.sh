@@ -27,8 +27,13 @@ TMP_ROOT=$(fm_test_tmproot fm-calm-claude-mod-plugin)
 # validation's capability scan plus `claude plugin test`, first verified on
 # 2.1.272. An installed claude that predates the surface has neither - the
 # command is unknown to it - so it capability-skips like any other absent
-# tool rather than failing a mod it was never asked to load.
+# tool, unless the guard was demanded: an explicit request must fail rather
+# than pass as a skip, the same contract fm_live_gate applies to an absent
+# tool.
 if CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude plugin test "$TMP_ROOT/no-such-dir" 2>&1 | grep -q 'unknown command'; then
+  if [ "${FM_CLAUDE_CALM_PLUGIN_TEST:-}" = 1 ] || [ "${FM_LIVE:-}" = 1 ]; then
+    fail "FM_CLAUDE_CALM_PLUGIN_TEST was requested but Claude Code $CLAUDE_VERSION has no mods surface (plugin test unknown)"
+  fi
   printf 'skip: live: Claude Code %s has no mods surface (plugin test unknown)\n' "$CLAUDE_VERSION"
   exit 0
 fi
