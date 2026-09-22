@@ -23,6 +23,16 @@ CLAUDE_VERSION=$(claude --version 2>/dev/null || true)
 [ -n "$CLAUDE_VERSION" ] || fail "claude is installed but reports no version"
 TMP_ROOT=$(fm_test_tmproot fm-calm-claude-mod-plugin)
 
+# The guard exercises Claude Code's early-access mods surface: strict
+# validation's capability scan plus `claude plugin test`, first verified on
+# 2.1.272. An installed claude that predates the surface has neither - the
+# command is unknown to it - so it capability-skips like any other absent
+# tool rather than failing a mod it was never asked to load.
+if CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude plugin test "$TMP_ROOT/no-such-dir" 2>&1 | grep -q 'unknown command'; then
+  printf 'skip: live: Claude Code %s has no mods surface (plugin test unknown)\n' "$CLAUDE_VERSION"
+  exit 0
+fi
+
 expect_in_report() {
   local report=$1 needle=$2 what=$3
   case "$report" in
