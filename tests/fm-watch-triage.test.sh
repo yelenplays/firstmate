@@ -635,7 +635,16 @@ run:
   status: running
   head: "deadbeef"
 active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
-  review,running,4h28m,4h28m,"2s ago: log: reviewing","$$",1
+  review,running,4h28m,4h28m,"quiet 45s ago: log: reviewing","$$",1
+TOON
+  cat > "$dir/fresh-activity.toon" <<'TOON'
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "deadbeef"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  ci,running,4h28m,4h28m,"2s ago: log: checking","",starting
 TOON
   cat > "$dir/transition.toon" <<'TOON'
 run:
@@ -691,7 +700,13 @@ TOON
   ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" FM_FAKE_NM_DAEMON_DOWN=1 \
     crew_nm_run_progressing a "$state" "$anchor" \
     || fail "a daemon-executed step still counted after the daemon probe failed"
-  # A live agent process for an in-flight step is execution evidence.
+  # Fresh in-flight step activity the pipeline has not marked quiet is
+  # execution evidence on its own.
+  [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/fresh-activity.toon" \
+      crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
+    || fail "fresh step activity did not prove the run executing"
+  # A live agent process behind a quiet in-flight step is execution evidence
+  # even with no fresh activity.
   [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/live-agent.toon" \
       crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
     || fail "a live agent pid did not prove the run executing"
