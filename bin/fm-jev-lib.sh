@@ -357,8 +357,12 @@ fm_jev_compact_state() {
     }
     END {
       gsub(/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*-----END [A-Z0-9 ]*PRIVATE KEY-----/, "[redacted]", buf)
-      while (match(buf, /(TYPESAFE_API_KEY|OPENROUTER_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|FMX_PAIRING_TOKEN|FM_MAIL_PASS|AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|GITHUB_TOKEN|GH_TOKEN|JEV_API_KEY)=[^[:space:]]+/)) {
-        buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
+      lowered = tolower(buf)
+      while (match(lowered, /(fm_mail_pass|aws_access_key_id|[[:alnum:]_.-]*(password|passwd|pwd|secret|token)[[:alnum:]_.-]*|[[:alnum:]_.-]*api[[:space:]_-]*key[[:alnum:]_.-]*)["]?[[:space:]]*[:=][[:space:]]*("[^"]*"|[^[:space:],;]+)/)) {
+        start = RSTART
+        end = RSTART + RLENGTH
+        buf = substr(buf, 1, start - 1) "[redacted]" substr(buf, end)
+        lowered = tolower(buf)
       }
       while (match(buf, /[Aa]uthorization:[[:space:]]*[Bb]earer[[:space:]]+[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)

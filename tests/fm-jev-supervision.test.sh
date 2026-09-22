@@ -161,6 +161,32 @@ test_status_triage_question_shape_and_line_only() {
   pass "the status consult sends the corpus question pair with only the line as state"
 }
 
+test_status_triage_redacts_credentials() {
+  local code out _err password secret token api_key
+  fresh_home
+  password='hunter2'
+  secret='secret-value'
+  token='token-value'
+  api_key='api-key-value'
+  printf 'note: DB_PASSWORD=%s CLIENT_SECRET: %s access_token=%s API key: %s\n' \
+    "$password" "$secret" "$token" "$api_key" > "$STDIN_FILE"
+  status_response "$RESPONSE" 0.2 note 0.7
+  run_helper "$STATUS_TRIAGE" code out _err
+  expect_code 0 "$code" "a credential-bearing note line is still classified"
+  jq -e --arg password "$password" --arg secret "$secret" --arg token "$token" --arg api_key "$api_key" '
+    .state as $state
+    | ([$password, $secret, $token, $api_key] | all(.[]; . as $credential | $state | contains($credential) | not))
+      and ($state | split("[redacted]") | length == 5)
+  ' "$LOG/body" >/dev/null || fail "a credential reached the Jev request body unredacted"
+  jq -e --arg password "$password" --arg secret "$secret" --arg token "$token" --arg api_key "$api_key" '
+    .line_excerpt as $excerpt
+    | ([$password, $secret, $token, $api_key] | all(.[]; . as $credential | $excerpt | contains($credential) | not))
+      and ($excerpt | split("[redacted]") | length == 5)
+  ' "$HOME_DIR/state/jev-status-triage.jsonl" >/dev/null \
+    || fail "a credential reached the Jev audit excerpt unredacted"
+  pass "status triage redacts credential fields before sending and auditing"
+}
+
 test_status_triage_failure_is_fail_closed() {
   local code out _err
   fresh_home
@@ -321,6 +347,7 @@ test_supervision_cycle_budget_and_breaker() {
 
 test_status_triage_verdicts
 test_status_triage_question_shape_and_line_only
+test_status_triage_redacts_credentials
 test_status_triage_failure_is_fail_closed
 test_wedge_check_verdicts
 test_wedge_check_question_shape_and_tail_only
