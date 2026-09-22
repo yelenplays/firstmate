@@ -1458,7 +1458,7 @@ fm_collect_local_firstmate_states() {  # <own-state-dir> [abort-note]
 # ownership fm_collect_local_firstmate_states gathered. <exclude-meta> skips
 # the caller's own record; pass an empty value for none.
 fm_task_record_conflicts_on_path() {  # <canonical-path> [exclude-meta]
-  local slot=$1 exclude=${2:-} state_dir other other_id field other_path other_slot
+  local slot=$1 exclude=${2:-} state_dir other_meta other_id field other_path other_slot
   command -v fm_meta_get >/dev/null 2>&1 || {
     # shellcheck source=bin/fm-backend.sh
     . "$FM_WAKE_LIB_DIR/fm-backend.sh"
@@ -1467,16 +1467,16 @@ fm_task_record_conflicts_on_path() {  # <canonical-path> [exclude-meta]
     exclude=$(fm_canonical_file_path "$exclude" 2>/dev/null) || exclude=$2
   fi
   for state_dir in "${FM_FIRSTMATE_LOCAL_STATES[@]+"${FM_FIRSTMATE_LOCAL_STATES[@]}"}"; do
-    for other in "$state_dir"/*.meta; do
-      [ -f "$other" ] && [ ! -L "$other" ] || continue
-      [ "$other" != "$exclude" ] || continue
-      other_id=$(basename "$other" .meta)
+    for other_meta in "$state_dir"/*.meta; do
+      [ -f "$other_meta" ] && [ ! -L "$other_meta" ] || continue
+      [ "$other_meta" != "$exclude" ] || continue
+      other_id=$(basename "$other_meta" .meta)
       for field in worktree home; do
-        other_path=$(fm_meta_get "$other" "$field")
+        other_path=$(fm_meta_get "$other_meta" "$field")
         [ -n "$other_path" ] || continue
         other_slot=$(fm_canonical_existing_dir "$other_path") || continue
         [ "$other_slot" = "$slot" ] || continue
-        printf '%s\t%s\t%s\n' "$other_id" "$field" "$other"
+        printf '%s\t%s\t%s\n' "$other_id" "$field" "$other_meta"
       done
     done
   done
