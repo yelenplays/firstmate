@@ -92,17 +92,19 @@ select_home() {
   done < <(candidate_homes)
 }
 
-# Succeeds when <text> contains the live TypeSafe key from the environment or
-# the selected home's .env. The key stays in a function-local variable.
+# Succeeds when <text> contains a live Jev provider key. Keys stay local.
 contains_live_key() {
-  local text=$1 key=${TYPESAFE_API_KEY:-} home=${FM_HOME:-$FM_JEV_CLI_ROOT}
-  if [ -z "$key" ] && [ -f "$home/.env" ]; then
-    key=$(fmx_env_get TYPESAFE_API_KEY "$home/.env")
-  fi
-  [ -n "$key" ] || return 1
-  case "$text" in
-    *"$key"*) return 0 ;;
-  esac
+  local text=$1 home=${FM_HOME:-$FM_JEV_CLI_ROOT} name key
+  for name in TYPESAFE_API_KEY OPENROUTER_API_KEY; do
+    key=${!name-}
+    if [ -z "$key" ] && [ -f "$home/.env" ]; then
+      key=$(fmx_env_get "$name" "$home/.env")
+    fi
+    [ -n "$key" ] || continue
+    case "$text" in
+      *"$key"*) return 0 ;;
+    esac
+  done
   return 1
 }
 
@@ -259,40 +261,57 @@ RESPONSE=$(cat "$OUT_FILE")
 LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
   def r2: (. * 100 | round) / 100;
   def estimate(p): (p | [.[]] | sort | reverse) as $s | (($s[0] // 0) - ($s[1] // 0));
+  def unit_interval(message):
+    if type != "number" or . < 0 or . > 1 then error(message) else . end;
+  def checked_probabilities(probabilities; id):
+    if probabilities == null then {}
+    elif (probabilities | type) != "object" then
+      error("answer \(id) probabilities must be an object")
+    elif any(probabilities[]; type != "number" or . < 0 or . > 1) then
+      error("answer \(id) has a probability outside 0..1")
+    else probabilities end;
   ($resp.answers // error("response has no answers")) as $answers
   | $spec.questions[]
   | . as $q
   | ($answers[$q.id] // error("response missing answer for \($q.id)")) as $a
+  | (if $a.confidence == null then null
+     else ($a.confidence | unit_interval("answer \($q.id) confidence must be within 0..1"))
+     end) as $confidence
   | if $q.type == "yes" then
-      (($a.noul | numbers) // error("answer \($q.id) has no probability")) as $p
+      (($a.noul | numbers) // error("answer \($q.id) has no probability")) as $raw_p
+      | ($raw_p | unit_interval("answer \($q.id) probability must be within 0..1")) as $p
       | { answer: (if $p >= 0.5 then "yes" else "no" end), p: $p,
           conf: ((($p - 0.5) | fabs) * 2), floor: 0.4 }
     elif $q.type == "pick" then
       (($a.choice | strings) // error("answer \($q.id) has no choice")) as $c
+      | checked_probabilities($a.probabilities; $q.id) as $probabilities
       | if ($q.opts | map(.[0]) | index($c)) == null then
           error("answer \($q.id) chose an unoffered option")
         else
-          { answer: $c, p: ($a.probabilities[$c] // null),
-            conf: ($a.confidence // (if $a.probabilities then estimate($a.probabilities) else null end)),
-            floor: (if $a.confidence then 0.5 else 0.4 end) }
+          { answer: $c, p: ($probabilities[$c] // null),
+            conf: (if $confidence != null then $confidence
+                   elif $a.probabilities then estimate($probabilities) else null end),
+            floor: (if $confidence != null then 0.5 else 0.4 end) }
         end
     else
       (($a.score | numbers) // error("answer \($q.id) has no score")) as $s
       | ($q.opts | length) as $n
-      | (if ($a.probabilities | type) == "object" and ($a.probabilities | length) > 0
-         then ($a.probabilities | keys | map(tonumber)) as $indices
+      | checked_probabilities($a.probabilities; $q.id) as $probabilities
+      | (if ($probabilities | length) > 0
+         then ($probabilities | keys | map(tonumber)) as $indices
          | if any($indices[]; . < 0 or . >= $n or . != floor) then
              error("answer \($q.id) has an out-of-range score index")
            else
-             ($a.probabilities | to_entries | max_by(.value) | {i: (.key | tonumber), p: .value})
+             ($probabilities | to_entries | max_by(.value) | {i: (.key | tonumber), p: .value})
            end
-         else {i: ([[($s | round), 0] | max, $n - 1] | min), p: null} end) as $top
+         else {i: ($s | round), p: null} end) as $top
       | if $top.i < 0 or $top.i >= $n or $top.i != ($top.i | floor) then
           error("answer \($q.id) has an out-of-range score index")
         else
           { answer: $q.opts[$top.i][0], p: $top.p, s: $s,
-            conf: ($a.confidence // (if $a.probabilities then estimate($a.probabilities) else null end)),
-            floor: (if $a.confidence then 0.5 else 0.4 end) }
+            conf: (if $confidence != null then $confidence
+                   elif $a.probabilities then estimate($probabilities) else null end),
+            floor: (if $confidence != null then 0.5 else 0.4 end) }
         end
     end
   | if .conf == null or .conf < .floor then

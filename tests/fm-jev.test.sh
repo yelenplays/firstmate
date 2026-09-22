@@ -203,6 +203,38 @@ test_errors_exit_one_with_one_line() {
   assert_contains "$err" "out-of-range score index" "the malformed score is explained"
   assert_equals "$out" "" "a malformed score prints no answer"
 
+  respond '{"answers":{"score":{"score":9,"confidence":0.9}}}'
+  run_jev code out err score "state" "How severe?" low medium high
+  assert_equals "$code" 1 "a probability-free score outside the offered range is rejected"
+  assert_contains "$err" "out-of-range score index" "the malformed score is explained"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "an out-of-range score prints one stderr line"
+  assert_equals "$out" "" "an out-of-range score prints no answer"
+
+  respond '{"answers":{"yes":{"noul":1.5}}}'
+  run_jev code out err yes "state" "Is the value in range?"
+  assert_equals "$code" 1 "a yes probability above one is rejected"
+  assert_contains "$err" "probability must be within 0..1" "the malformed probability is explained"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "an invalid yes probability prints one stderr line"
+  assert_equals "$out" "" "an invalid yes probability prints no answer"
+
+  respond '{"answers":{"pick":{"choice":"A","confidence":1.2}}}'
+  run_jev code out err pick "state" "Choose?" A B
+  assert_equals "$code" 1 "a confidence above one is rejected"
+  assert_contains "$err" "confidence must be within 0..1" "the malformed confidence is explained"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "an invalid confidence prints one stderr line"
+  assert_equals "$out" "" "an invalid confidence prints no answer"
+
+  respond '{"answers":{"score":{"score":1,"confidence":0.9,"probabilities":{"0":0.05,"1":1.2,"2":0.0}}}}'
+  run_jev code out err score "state" "How severe?" low medium high
+  assert_equals "$code" 1 "a probability above one is rejected"
+  assert_contains "$err" "probability outside 0..1" "the malformed probability is explained"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "an invalid score probability prints one stderr line"
+  assert_equals "$out" "" "an invalid score probability prints no answer"
+
   for args in "frob" "pick s q only" "yes s" "--min 2 yes s q" "--id x pick s q A B" \
     "--json yes s q" "yes --min 0.7 s q" "yes s --json q"; do
     # shellcheck disable=SC2086 # Deliberate word splitting of the case args.
@@ -227,7 +259,7 @@ JSON
 }
 
 test_privacy_guard_refuses_before_sending() {
-  local code out err big
+  local code out err big openrouter_key
   respond '{"answers":{"yes":{"noul":0.9}}}'
   reset_log
   big=$(head -c 4097 /dev/zero | tr '\0' a)
@@ -264,6 +296,23 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "the live key value is refused"
   assert_not_contains "$err" "$KEY" "the refusal never echoes the key"
   assert_absent "$LOG/body" "the live key is never sent"
+
+  openrouter_key='or-cli-test-key-9876543210'
+  reset_log
+  OPENROUTER_API_KEY="$openrouter_key" run_jev code out err yes \
+    "provider credential $openrouter_key" "Done?"
+  assert_equals "$code" 1 "an OpenRouter key value is refused even on the TypeSafe route"
+  assert_not_contains "$err" "$openrouter_key" "the OpenRouter key is never echoed"
+  assert_absent "$LOG/body" "the OpenRouter key is never sent to TypeSafe"
+
+  printf 'OPENROUTER_API_KEY=%s\n' "$openrouter_key" > "$HOME_DIR/.env"
+  reset_log
+  OPENROUTER_API_KEY= run_jev code out err yes \
+    "provider credential $openrouter_key" "Done?"
+  assert_equals "$code" 1 "an OpenRouter key from the resolved .env is refused"
+  assert_not_contains "$err" "$openrouter_key" "the .env OpenRouter key is never echoed"
+  assert_absent "$LOG/body" "the .env OpenRouter key is never sent to TypeSafe"
+  rm -f "$HOME_DIR/.env"
   pass "fm-jev.sh: privacy guard refuses before anything is sent"
 }
 
