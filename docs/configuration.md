@@ -584,6 +584,13 @@ It is a sourceable library, not a user CLI; the script header owns route selecti
 Set `TYPESAFE_API_KEY` for the TypeSafe route, or `OPENROUTER_API_KEY` for OpenRouter when that is the only key or when `JEV_ROUTE=openrouter`.
 Typed dispatch resolution above uses this library for the HTTP call and owns the `JEV_ROUTE`, `JEV_MODEL`, `JEV_URL`, `JEV_BASE`, and `JEV_TIMEOUT` names.
 
+## Jev worker command (bin/fm-jev.sh)
+
+[`bin/fm-jev.sh`](../bin/fm-jev.sh) is the one Jev command firstmate and every worker call for closed-set judgments; the Jev-first rule in every ship and scout brief names it by absolute path.
+It reuses the caller library above and adds no runtime dependency; its `--help` is its whole interface and its header owns the privacy refusal, escalation floor, output, and exit codes.
+The key comes from the environment or the firstmate home `.env`, so a worker needs no setup: ship and scout launches carry only the spawning home's absolute path as `FM_HOME`, never the key.
+Each call appends a metadata-only record, without state or question text, to that home's `state/jev-calls.jsonl`.
+
 ## Jev remainder tool-gate (FM_JEV_TOOL_GATE)
 
 `bin/fm-jev-tool-gate.sh` may shadow-log a Jev Choice `{allow, deny, need_human}` only after `bin/fm-arm-command-policy.mjs` allows a command.

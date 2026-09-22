@@ -4680,6 +4680,16 @@ if [ "$KIND" = secondmate ]; then
   # Reuse the single frozen decision from the carrier resolution above so the
   # injected carrier and this on/off snapshot are guaranteed to agree.
   LAUNCH="FM_ROOT_OVERRIDE= FM_STATE_OVERRIDE= FM_DATA_OVERRIDE= FM_PROJECTS_OVERRIDE= FM_CONFIG_OVERRIDE= FM_PUBLIC_FOLLOWUP_PRIMARY_HOME=$sq_primary_home FM_HOME=$sq_home FM_TRACE_CONTEXT=$SPAWN_TRACE_EFFECTIVE FM_SUPERVISION_MODEL=$supervision_model $LAUNCH"
+elif [ "$RAW_LAUNCH" = 0 ]; then
+  # A ship or scout worker learns which home spawned it, as a secondmate does
+  # above, so bin/fm-jev.sh and bin/fm-jev-lib.sh resolve the Jev key from that
+  # home's .env from any worktree. Only the absolute home path crosses the
+  # launch boundary: no key is exported, and the .env stays home-local. The
+  # repo's own session hooks scope themselves by the checkout, not by FM_HOME
+  # (bin/fm-primary-scope-lib.sh), so a firstmate-repo task worktree stays a
+  # non-primary child. A raw launch command stays byte-for-byte the operator's.
+  sq_worker_home=$(shell_quote "$(cd "$FM_HOME" && pwd -P)")
+  LAUNCH="FM_HOME=$sq_worker_home $LAUNCH"
 fi
 if [ -z "$SPAWN_TRACEPARENT" ] && [ "$RELAUNCH" -eq 1 ]; then
   LAUNCH="unset TRACEPARENT; $LAUNCH"
