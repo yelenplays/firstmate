@@ -1,0 +1,45 @@
+LIVE: TypeSafe Jev Score contract (docs.typesafe.ai/api.md "Score")
+==================================================================
+Route: https://api.typesafe.ai/v1/systemone (real API, TYPESAFE_API_KEY from the
+operator home, model jev-latest -> resolved jev-1.13.0).
+JEV_URL was pointed at a local recording pass-through proxy (127.0.0.1) that
+forwards each request verbatim, Authorization included, to the real API and
+returns the real response; it only copies the exchange to a JSONL record. The
+recorded copy has the Authorization header removed. Nothing here is a stub.
+
+Driver: bin/fm-jev-lib.sh fm_jev_decide (the shared transport owner) called with
+the old min/max shape and with the documented ordered-criteria shape.
+
+--- A. The shape the repo used BEFORE this change (min/max) ---
+== minmax ==
+exit=1 http=422 model=jev-latest
+stderr: jev: http 422 after 668 ms: {"detail":[{"type":"missing","loc":["body","questions","strength","score","criteria"],"msg":"Field required","input":{"type":"score","instructions":"How strongly is that verdict supported, from 0 (gue
+
+--- B. The documented shape this change now sends (ordered criteria, 5 levels) ---
+== criteria ==
+exit=0 http=200 model=jev-latest
+stderr: 
+{"model":"jev-1.13.0","answers":{"strength":{"type":"score","score":3.42,"confidence":0.52,"legend":{"0":"Guess: the evidence barely bears on the verdict.","1":"Weak: the evidence leans toward the verdict but leaves it open.","2":"Moderate: the evidence supports the verdict with notable gaps.","3":"Strong: the evidence supports the verdict with only minor gaps.","4":"Clear: the evidence plainly matches or plainly contradicts the claim."},"probabilities":{"0":0.0,"1":0.02,"2":0.09,"3":0.35,"4":0.54}}}}
+
+The criteria run weakest -> strongest ("Guess" .. "Clear") and the API returns
+score 3.42, a probability-weighted LEVEL INDEX on the 0..4 scale, not a 0..1
+value. That is why both builders now divide the index by the top level
+(length-1).
+
+--- C. Choice option ceiling that forces the chunked roster ---
+== options=255 ==
+exit=0 http=200
+stderr: 
+{"choice":"none","confidence":0.68}
+== options=256 ==
+exit=1 http=400
+stderr: jev: http 400 after 979 ms: {"detail":"Too many choices. Must have at most 255 choices."}
+== options=302 ==
+exit=1 http=400
+stderr: jev: http 400 after 656 ms: {"detail":"Too many choices. Must have at most 255 choices."}
+
+255 options is accepted; 256 is rejected ("Too many choices. Must have at most
+255 choices."). The selector therefore chunks skills at 253 so a chunk plus
+none and search_external is exactly 255.
+
+Raw recorded exchanges: live-api-requests.jsonl (tags score-minmax, score-criteria, choice-limit-*)

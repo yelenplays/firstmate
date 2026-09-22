@@ -1,0 +1,53 @@
+LIVE: bin/fm-jev-skill-select.sh live load can select the official typesafe-ai skill
+====================================================================================
+Roster: the operator's real installed Pi skills, /Users/yelen/.pi/agent/skills
+(74 skills; typesafe-ai sits at sorted slot 67). Approval list
+$FM_HOME/config/jev-skill-public.json carries the SHA-256 digest of every file,
+so each skill is offered with its real front-matter description. Real TypeSafe API
+through the recording pass-through proxy; throwaway /tmp FM_HOME with the live
+confirm file.
+
+BEFORE (base 5d523ba6: first 24 ids, no descriptions):
+  $ FM_HOME=/tmp/jvq/home-skill-old FM_JEV_SKILL_SELECT=live \
+      /tmp/jvq/old/bin/fm-jev-skill-select.sh --harness claude --task-id t-live-skill-old \
+      --skills-dir /Users/yelen/.pi/agent/skills --summary '<the TypeSafe feature request>'
+  record: {"status":"clear","primary":"none","skills":[],"catalog_truncated":true,"confidence":0.75}
+  offered options: 26 (24 skill ids + none + search_external)
+  typesafe-ai offered: false
+  offered ids: ai-seo, algorithmic-art, analyze-sessions, brand-guidelines, c4-architecture, canvas-design, claude-api, claude-md-improver, cold-email, competitor-profiling, content-strategy, copy-editing, copywriting, crafting-effective-readmes, cro, customer-research, database-schema-designer, defuddle, design-handoff, deslop, directory-submissions, doc-coauthoring, docx, draw-io, none, search_external
+
+AFTER (target 642df04: every id, described when approved):
+  $ FM_HOME=/tmp/jvq/home-skill FM_JEV_SKILL_SELECT=live \
+      bin/fm-jev-skill-select.sh --harness claude --task-id t-live-skill \
+      --skills-dir /Users/yelen/.pi/agent/skills --summary '<the TypeSafe feature request>'
+  record: {"status":"clear","primary":"typesafe-ai","skills":["typesafe-ai","skill-creator","sales-enablement"],"catalog_truncated":false,"confidence":0.94}
+  offered options: 76 (74 skill ids + none + search_external)
+  typesafe-ai offered at 0-indexed position: 66
+  typesafe-ai description: Build AI-powered software with TypeSafe: small units of AI intelligence you can use like programming primitives. Its System One models, including Jev, turn natural language and application state into typed judgments and probabilities that code can combine. Use when a feature needs programmable common sense, when brainstorming what AI could make possible in an app, or when an LLM prompt-and-parse s
+  api: {"status":200}
+  typesafe-ai probability in the answer: 0.95
+
+So with the real API and the real installed roster the selector now offers
+typesafe-ai (slot 67, far past the old 24-id cut), sends its real description,
+and the model selects it: primary=typesafe-ai at 0.94 confidence, clear.
+
+LIVE: the selection reaches the launch overlay
+  $ FM_HOME=/tmp/jvq/home-overlay FM_JEV_SKILL_SELECT=live bin/fm-jev-skill-select.sh \
+      --harness claude --task-id t-live-overlay --skills-dir /Users/yelen/.pi/agent/skills \
+      --summary '<the TypeSafe feature request>' --overlay /tmp/jvq/launch-brief.md
+  record: {"status":"clear","primary":"typesafe-ai","skills":["typesafe-ai","json-canvas","c4-architecture"],"live_loaded":true}
+  api: {"status":200}
+  overlay tail:
+    Load them now, before doing the assigned work, using this runtime's skill form when it has one, otherwise by reading the installed skill file.
+    Do not speculatively search beyond these skills as part of this selection step.
+    Discover and load other applicable skills whenever the task requires them.
+    - /typesafe-ai: read `/Users/yelen/.pi/agent/skills/typesafe-ai/SKILL.md`
+    - /json-canvas: read `/Users/yelen/.pi/agent/skills/json-canvas/SKILL.md`
+    - /c4-architecture: read `/Users/yelen/.pi/agent/skills/c4-architecture/SKILL.md`
+
+Raw exchanges: live-api-requests.jsonl tags old-skill-select-truncated-roster /
+new-skill-select-full-roster / new-skill-select-overlay-load
+
+LIVE: once-per-task reuse is unchanged by the rewrite
+  Re-running the same --task-id with the same cached record made no new API call
+  (proxy line count unchanged), printed reused=true, and kept primary=typesafe-ai.

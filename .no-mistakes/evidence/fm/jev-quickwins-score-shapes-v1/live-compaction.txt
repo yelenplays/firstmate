@@ -1,0 +1,33 @@
+LIVE: bin/fm-jev-compaction.sh keep_value Score (real TypeSafe API)
+===================================================================
+Fixture tests/fixtures/jev-compaction/trace.jsonl (segments s1..s5), opt-in via
+FM_JEV_COMPACTION=on, no --scores, so every segment is scored by the real Jev
+API through the recording pass-through proxy. Throwaway /tmp FM_HOME.
+
+BEFORE (base 5d523ba6, min/max Score) -- the Jev compaction path was broken live:
+  $ FM_HOME=/tmp/jvq/home-old-comp FM_JEV_COMPACTION=on \
+      /tmp/jvq/old/bin/fm-jev-compaction.sh --task old-comp \
+      --trace tests/fixtures/jev-compaction/trace.jsonl \
+      --park-dir .../old-comp/trace-park --out /tmp/jvq/old-compacted.jsonl
+  exit=1
+  stderr: jev: http 422 after 554 ms: {"detail":[{"type":"missing","loc":["body","questions","keep_value","score","criteria"],"msg":"Field required","input":{"type":"score","instructions":"Keep-value of this cr
+  api:    422 
+  request Score sent: {"type":"score","instructions":"Keep-value of this crew-harness trace segment for the live prompt. 1 means must keep. 0 means safe to park on disk.","min":0,"max":1}
+
+AFTER (target 642df04, ordered criteria Score) -- accepted live, park decisions on 0..1:
+  $ FM_HOME=/tmp/jvq/home-comp FM_JEV_COMPACTION=on bin/fm-jev-compaction.sh \
+      --task live-comp --trace tests/fixtures/jev-compaction/trace.jsonl \
+      --park-dir .../live-comp/trace-park --out /tmp/jvq/compacted.jsonl
+  exit=0
+  kept:   s1
+  parked: s2=0.08,s3=0.34,s4=0.0025,s5=0.0125
+  api statuses: 200 
+  request Score sent: {"type":"score","instructions":"How much does the live prompt still need this crew-harness trace segment, versus parking it on disk?","criteria":["Safe to park: noise or output nothing later relies on.","Probably parkable: low value and unlikely to be needed again.","Uncertain: it might be referenced again.","Probably keep: the live prompt likely still needs it.","Must keep: the live prompt depends on it."]}
+
+The answer is a level index on 0..4; the script divides by 4 so keep_value stays
+on the 0..1 scale the 0.5 threshold uses (e.g. level 0.32 -> 0.08, level 0.01 ->
+0.0025). The trailing low-value run s2..s5 parked, the anchor s1 stayed, and the
+live prompt prefix stayed byte-identical -- the same park policy as before, now
+actually reaching the API.
+
+Raw exchanges: live-api-requests.jsonl tags old-compaction-keep-value / new-compaction-keep-value

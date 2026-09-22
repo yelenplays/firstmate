@@ -1,0 +1,56 @@
+LIVE: chunked live roster past the Choice ceiling, and the approval privacy guard
+==================================================================================
+Real TypeSafe API through the recording pass-through proxy. Throwaway /tmp FM_HOME
+with the live confirm file.
+
+A. 407-skill roster is enumerated whole, across two Choices, in one request
+   Roster: /Users/yelen/.agents/skills (407 skills; no approval list, so every
+   candidate is offered as "Installed skill <id>" -- the operator-home case).
+  $ FM_HOME=/tmp/jvq/home-chunk FM_JEV_SKILL_SELECT=live bin/fm-jev-skill-select.sh \
+      --harness pi --task-id t-live-chunk --skills-dir /Users/yelen/.agents/skills \
+      --summary 'Add a TypeSafe System One typed judgment ...'
+  record: {"status":"uncertain","primary":"typesafe-ai","skills":["typesafe-ai","domain-modeling","dev"],"catalog_truncated":false,"confidence":0.57,"reason":"confidence below 0.7"}
+  api: {"status":200}
+  choices:     skill: choice options=255 (skills=253)
+    skill_2: choice options=156 (skills=154)
+  skill ids offered across all choices: total=407 distinct=407
+  typesafe-ai lands in: skill_2 (0-indexed position 113)
+  real answer per choice: {"key":"skill","choice":"none","confidence":0.51,"probsum":0.9900000000000001} {"key":"skill_2","choice":"typesafe-ai","confidence":0.57,"probsum":1} 
+
+   Both Choices came back well formed from the real API (the script refuses the
+   whole selection otherwise), every one of the 407 skills is offered exactly
+   once, each Choice stays at or under the 255-option ceiling (253 + none +
+   search_external), and the primary pick comes from the SECOND Choice while the
+   extras (domain-modeling, dev) are ranked across both -- the behaviour the
+   multi-Choice rewrite exists for. Whole run: 2.6 s.
+
+B. The approval digest still gates descriptions (privacy guard, live)
+   Roster: /tmp/jvq/leak-skills (32 skills). jev-skill-public.json approves only
+   typesafe-ai and skill-01. "unapproved" carries the marker description
+   "ZZQQLEAKMARKER unreviewed private notes that must never leave this host."
+  $ FM_HOME=/tmp/jvq/home-leak FM_JEV_SKILL_SELECT=live bin/fm-jev-skill-select.sh \
+      --harness pi --task-id t-live-leak --skills-dir /tmp/jvq/leak-skills \
+      --summary 'Build a feature that needs a typed judgment.'
+  record: {"status":"clear","primary":"typesafe-ai","catalog_truncated":false}
+  api: {"status":200}
+  marker occurrences in the request body: 0
+  unapproved still offered: true -> Installed skill unapproved
+  approved description sent: Build AI-powered software with TypeSafe typed judgments.
+
+   Unapproved content never leaves the host; the skill stays selectable by id.
+   (See the review note: an operator home without config/jev-skill-public.json
+   still gets the full roster, just id-only descriptions.)
+
+C. The 255-option ceiling this chunking avoids (live, see live-score-contract.txt)
+   A single Choice of 256 or 302 options is rejected by the real API with
+   HTTP 400 "Too many choices. Must have at most 255 choices."; 255 is accepted.
+
+Raw exchanges: live-api-requests.jsonl tags new-skill-select-chunked-roster /
+new-skill-select-unapproved-guard / choice-option-limit
+
+D. Exact chunk boundary (254 skills) driven live
+   A 254-skill roster must produce one full 255-option Choice and one 3-option
+   Choice, both accepted by the real API in the same request.
+  $ FM_HOME=/tmp/jvq/home-bound FM_JEV_SKILL_SELECT=live bin/fm-jev-skill-select.sh \
+      --harness pi --task-id t-bound --skills-dir /tmp/jvq/bound-skills \
+      --summary 'Pick a public workflow skill for a documentation task.'

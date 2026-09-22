@@ -1,0 +1,27 @@
+ok - --help prints usage and exits 0
+ok - missing --harness is a usage error
+ok - default shadow writes JSON, skips status, and does not load skills
+ok - shadow keeps experiment evidence local without a worker status note
+ok - a second call for the same launch ID does not call Jev
+ok - confidence below 0.8 records no recommendation
+ok - missing keys are off, no network, no JSON record
+ok - live without the confirm file is refused
+ok - live plus confirm without --overlay only records a suggestion
+ok - live overlay injects selected skills and sets live_loaded true
+ok - cached skills are revalidated against currently readable files
+ok - shadow plus --overlay leaves the launch file unchanged
+ok - Choice none leaves the launch overlay unchanged
+ok - Jev failure records error, skips load, and exits 0
+ok - Codex overlay uses the dollar skill form
+ok - live offers the full described roster and a late skill stays selectable
+ok - live roster past the Choice ceiling is chunked in one request with no skill cut
+ok - the complete public roster uses real descriptions
+ok - Choice none records no optional skill
+ok - complete approved public roster preserves quotes and Markdown
+ok - invalid Choice and Noul retain total usage
+ok - timeout evidence and complete operation latency are durable
+ok - relaunch identity and all immediate stop labels are enforced
+ok - 20-case comparison and stop checkpoint block additional collection
+ok - both selected routes retain their versioned model identifiers
+ok - low Choice confidence preserves actual fit evidence without recommending
+ok - shadow requires worker identity and consistently restricts public roots

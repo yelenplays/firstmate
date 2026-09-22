@@ -1,0 +1,7 @@
+ok - default off is a no-op
+ok - FM_JEV_COMPACTION=off no-ops even with config/jev-compaction
+ok - suffix park keeps prefix and middle s2
+ok - cache-busted parks middle low-value segments
+ok - config/jev-compaction presence flag enables
+ok - keep_value Score sends documented criteria and normalizes the level index
+all tests passed

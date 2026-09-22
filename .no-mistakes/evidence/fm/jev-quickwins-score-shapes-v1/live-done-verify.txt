@@ -1,0 +1,45 @@
+LIVE: bin/fm-jev-done-verify.sh strength Score (real TypeSafe API)
+==================================================================
+Same task/done-line/acceptance through the base-commit script and the changed
+script, each against https://api.typesafe.ai/v1/systemone through the recording
+pass-through proxy. FM_HOME and the state dir are throwaway /tmp homes.
+
+BEFORE (base 5d523ba6, min/max Score) -- the reported failure reproduces live:
+  $ FM_HOME=/tmp/jvq/home-old-done /tmp/jvq/old/bin/fm-jev-done-verify.sh t-old-done \
+      --done-line 'fix(bin): send documented Score criteria' \
+      --acceptance 'the strength Score must be accepted by the API'
+jev-done-verify:
+  task: t-old-done
+  verdict: skipped
+  confidence: 
+  strength: 
+  annotate: no
+  shadow: yes
+  close: no
+  teardown: no
+stderr: jev: http 422 after 631 ms: {"detail":[{"type":"missing","loc":["body","questions","strength","score","criteria"],"msg":"Field required","input":{"type":"score","instructions":"How strongly is that ve
+log:    {"verdict":"skipped","strength":null,"decide_code":1}
+api:    {"status":422}
+
+AFTER (target 642df04, ordered criteria Score) -- accepted live, strength on 0..1:
+  $ FM_HOME=/tmp/jvq/home-done bin/fm-jev-done-verify.sh t-live-done \
+      --done-line 'fix(bin): send documented Score criteria; tests/... fails before ...' \
+      --acceptance 'the strength Score must send an ordered criteria array ...'
+jev-done-verify:
+  task: t-live-done
+  verdict: need_human
+  confidence: 0.49
+  strength: 0.615
+  annotate: no
+  shadow: yes
+  close: no
+  teardown: no
+log:    {"verdict":"need_human","confidence":0.49,"strength":0.615,"decide_code":0}
+api:    {"status":200}
+request Score sent: {"type":"score","instructions":"How strongly does the supplied evidence support that verdict?","criteria":["Guess: the evidence barely bears on the verdict.","Weak: the evidence leans toward the verdict but leaves it open.","Moderate: the evidence supports the verdict with notable gaps.","Strong: the evidence supports the verdict with only minor gaps.","Clear: the evidence plainly matches or plainly contradicts the claim."]}
+
+The API answered 3.42/4 = 0.855 expected index; the script logged strength 0.615
+from its own answer (index 2.46/4). Either way the logged value is on the 0..1
+scale the floor and record schema expect, and the real HTTP status is 200.
+
+Raw exchange: live-api-requests.jsonl tags old-done-verify-strength / new-done-verify-strength
