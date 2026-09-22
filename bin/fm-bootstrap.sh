@@ -1193,6 +1193,15 @@ crew_dispatch_validate() {
           then (provider_id($f.provider) | not)
           else ($f | has("provider"))
           end);
+    # Rule precedence: bin/fm-dispatch-resolve.sh renders each beats entry as
+    # tie-break sentences in its question and refuses a malformed one.
+    def beats_bad($self; $count):
+      (type != "array") or (length == 0)
+      or any(.[]; (type != "object")
+        or ((.rule | type) != "number") or (.rule != (.rule | floor))
+        or (.rule < 1) or (.rule > $count) or (.rule == $self)
+        or (has("when") and ((.when | type) != "string" or (.when | length) == 0)))
+      or ((map(.rule) | length) != (map(.rule) | unique | length));
     def malformed_profile_floors($items):
       ($items | any(has("floor") and floor_bad(.floor; false)));
     def bad_efforts:
@@ -1218,6 +1227,7 @@ crew_dispatch_validate() {
     elif $typed and malformed_profile_floors([(.rules // [])[]? | profiles(.use?)[]?]) then "use profile floor needs scope and min_percent 0..100"
     elif $typed and ([(.rules // [])[]? | select(has("approval") and .approval != "captain")] | length > 0) then "approval must be \"captain\" when present"
     elif $typed and ([(.rules // [])[]? | select(has("floor") and floor_bad(.floor; true))] | length > 0) then "rule floor needs scope, min_percent 0..100, and provider matching ^[a-z0-9]+(-[a-z0-9]+)*\\z"
+    elif $typed and ((.rules // []) as $rs | any(range(0; $rs | length); . as $i | ($rs[$i] | type) == "object" and ($rs[$i] | has("beats")) and ($rs[$i].beats | beats_bad($i + 1; $rs | length)))) then "beats must be a non-empty array of {rule, when?} naming other rules by 1-based number, each at most once, with when a non-empty string when present"
     elif [(.rules // [])[]? | select(has("select") and ((.select? | type) != "string" or (.select | length) == 0))] | length > 0 then "select must be a non-empty string"
     elif [(.rules // [])[]? | .select? // empty | select(. != "quota-balanced")] | length > 0 then
       "unknown select: " + ([ (.rules // [])[]? | .select? // empty | select(. != "quota-balanced") ] | unique | join(", "))

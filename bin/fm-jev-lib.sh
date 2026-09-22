@@ -41,11 +41,22 @@
 #     attempted call (empty HTTP/latency when the call never reached curl).
 #   fm_jev_choice_confidence_ok <confidence> [<floor>]
 #     Succeeds when <confidence> is a number in 0..1 at or above <floor>.
-#     Default floor is 0.7 (new shadows). Typed dispatch keeps 0.6 in its own
-#     tool. JEV_CONFIDENCE_FLOOR overrides the default when <floor> is omitted.
+#     Default floor is 0.7 (new shadows); typed dispatch gates on the top-2
+#     margin (fm_jev_choice_top2) instead. JEV_CONFIDENCE_FLOOR overrides the
+#     default when <floor> is omitted.
 #   fm_jev_probabilities_sum_ok <probabilities-json>
 #     Succeeds when the value is a JSON object of numbers in 0..1 that sum to
 #     approximately 1 within 0.01.
+#   fm_jev_choice_top2 <probabilities-json>
+#     Prints {first, second, margin} for a Choice answer's probabilities: the
+#     two most probable options (ties broken by option name) and the top-2
+#     probability gap rounded to four decimals. Unlike the derived confidence,
+#     the margin does not shrink as options are added. Non-zero when the value
+#     is not a non-empty object of numbers.
+#   FM_JEV_CHOICE_TOP2_JQ
+#     The same computation as a jq definition (`jev_choice_top2`, applied to a
+#     probabilities object) for callers that fold it into a larger jq program;
+#     it is the single owner of the margin arithmetic.
 #   fm_jev_log_call <json-object> [<path>]
 #     Appends one JSONL line. Default path is $FM_HOME/state/jev-calls.jsonl.
 #     Known secret-shaped object keys are replaced with [redacted]; live
@@ -309,6 +320,23 @@ fm_jev_probabilities_sum_ok() {
     and all(.[]; type == "number" and . >= 0 and . <= 1)
     and (([.[]] | add) as $t | $t >= 0.99 and $t <= 1.01)
   ' >/dev/null 2>&1
+}
+
+# shellcheck disable=SC2016  # a jq program, expanded by jq rather than the shell
+FM_JEV_CHOICE_TOP2_JQ='def jev_choice_top2:
+  (to_entries | sort_by(-.value, .key)) as $s
+  | {first: ($s[0].key // null), second: ($s[1].key // null),
+     margin: (((($s[0].value // 0) - ($s[1].value // 0)) * 10000 | round) / 10000)};'
+
+fm_jev_choice_top2() {
+  if [ $# -ne 1 ]; then
+    _fm_jev_err "usage: fm_jev_choice_top2 <probabilities-json>"
+    return 2
+  fi
+  command -v jq >/dev/null 2>&1 || { _fm_jev_err "jq required"; return 2; }
+  printf '%s' "$1" | jq -ce "$FM_JEV_CHOICE_TOP2_JQ"'
+    if type == "object" and length > 0 and all(.[]; type == "number")
+    then jev_choice_top2 else error("not a probabilities object") end' 2>/dev/null
 }
 
 fm_jev_compact_state() {
