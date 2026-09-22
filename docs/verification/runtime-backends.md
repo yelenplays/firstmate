@@ -1758,6 +1758,12 @@ Double Escape produced `Canceled. What should Devin do?` and an empty composer; 
 The portable guard is `tests/fm-devin-harness.test.sh`, and `tests/fm-herdr-lab.test.sh` proves explicit session selection survives a `--` separator without changing agent arguments.
 The native named-agent startup race is a separate follow-up, not a prerequisite for the verified direct path.
 
+Refreshed 2026-09-22 on the same versions, against the stopped `wiki-ingest-router-design` scout pane `default:w9B:p2` (`swe-2-max`).
+A stopped Devin worker reports `agent_status=done` while its TUI keeps animating a `Thinking · Nm (esc twice to interrupt)` footer and a `── N queued ──` banner over `❭ Press Enter to send queued messages now`.
+A healthy idle pane is static at `❭ Ask Devin to build features, fix bugs, or work on your code`, and a working pane reports `agent_status=working`.
+The wedged pane's capture hash therefore never stabilizes, which is why stable-hash stale detection cannot see the stop and the watcher keys the stopped-worker signature on native idle plus continued churn instead.
+The queue-flush prompt is empty-composer furniture: the wedged pane later drained its four queued steering messages on its own and returned to the static idle composer.
+
 ## Cursor Agent CLI
 
 Cursor runs crewmate, scout, secondmate, and primary work; [`supervision.md`](supervision.md#cursor-primary-park-2026-08-13) owns the primary evidence.
