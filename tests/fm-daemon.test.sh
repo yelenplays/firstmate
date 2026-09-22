@@ -1270,7 +1270,7 @@ test_housekeeping_persistent_stale_escalates() {
 # not a wedge, so housekeeping re-arms its stale marker instead of escalating.
 # Once nothing proves the run, the unchanged schedule escalates it as before.
 test_housekeeping_run_liveness_defers_then_escalates() {
-  local dir state fakebin win pane key wt nmhome age
+  local dir state fakebin win pane key wt nmhome age run_head
   dir=$(make_supercase stale-nmrun)
   state="$dir/state"; fakebin="$dir/fakebin"
   win="sess:fm-nmrun-w9"; pane="$dir/pane.txt"
@@ -1278,6 +1278,8 @@ test_housekeeping_run_liveness_defers_then_escalates() {
   mkdir -p "$wt" "$nmhome/logs/01NMRUN01"
   git -C "$wt" init -q
   git -C "$wt" checkout -qb fm/nmrun-task
+  git -C "$wt" -c user.name=test -c user.email=test@example.invalid commit --allow-empty -qm initial
+  run_head=$(git -C "$wt" rev-parse HEAD)
   fm_write_meta "$state/nmrun-w9.meta" "window=$win" "worktree=$wt" "kind=ship"
   printf 'working: validating\n' > "$state/nmrun-w9.status"
   printf 'idle prompt $\n' > "$pane"
@@ -1294,21 +1296,30 @@ esac
 exit 1
 SH
   chmod +x "$fakebin/no-mistakes"
-  cat > "$dir/quiet-ci.toon" <<'TOON'
+  cat > "$dir/quiet-ci.toon" <<TOON
 run:
   id: "01NMRUN01"
   branch: "fm/nmrun-task"
   status: running
-  head: "deadbeef"
+  head: "$run_head"
 active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
-  ci,running,4h28m,4h28m,"quiet 2h58m ago: log: CI checks running","",starting
+  ci,running,4h28m,4h28m,"quiet 3h ago: log: CI checks running","",starting
+TOON
+  cat > "$dir/quiet-over-bound.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  ci,running,4h28m,4h28m,"quiet 4h1m ago: log: CI checks running","",starting
 TOON
   cat > "$dir/dead.toon" <<TOON
 run:
   id: "01NMRUN01"
   branch: "fm/nmrun-task"
   status: running
-  head: "deadbeef"
+  head: "$run_head"
 active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
   review,running,4h28m,4h28m,"quiet 3h ago: log: stalled","$(dead_pid)",1
 TOON
@@ -1316,10 +1327,19 @@ TOON
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
     FM_STATE_OVERRIDE="$state" FM_STALE_ESCALATE_SECS=240 NM_HOME="$nmhome" \
     FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" housekeeping "$state"
-  [ ! -s "$state/.subsuper-escalations" ] || fail "away-mode escalated while the run demonstrably executes"
+  [ ! -s "$state/.subsuper-escalations" ] || fail "away-mode escalated while the run demonstrably executes at three hours quiet"
   [ -e "$state/.subsuper-stale-$key" ] || fail "run-liveness deferral did not keep the stale marker"
   age=$(( $(date +%s) - $(cat "$state/.subsuper-stale-$key") ))
   [ "$age" -lt 120 ] || fail "run-liveness deferral did not re-arm the stale marker"
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+    FM_STATE_OVERRIDE="$state" FM_STALE_ESCALATE_SECS=240 NM_HOME="$nmhome" \
+    FM_FAKE_NM_AXI_STATUS="$dir/quiet-over-bound.toon" housekeeping "$state"
+  [ -s "$state/.subsuper-escalations" ] || fail "away-mode did not escalate a daemon-executed run quiet past four hours"
+  grep -F "possible wedge" "$state/.subsuper-escalations" >/dev/null \
+    || fail "quiet-over-bound away-mode escalation was not labeled a possible wedge"
+  [ ! -e "$state/.subsuper-stale-$key" ] || fail "quiet-over-bound stale marker was not cleared after escalation"
+  : > "$state/.subsuper-escalations"
   echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
     FM_STATE_OVERRIDE="$state" FM_STALE_ESCALATE_SECS=240 NM_HOME="$nmhome" \
@@ -1328,7 +1348,7 @@ TOON
   grep -F "possible wedge" "$state/.subsuper-escalations" >/dev/null \
     || fail "away-mode escalation was not labeled a possible wedge"
   [ ! -e "$state/.subsuper-stale-$key" ] || fail "away-mode wedge marker was not cleared after escalation"
-  pass "away-mode housekeeping defers while the run executes and escalates once it does not"
+  pass "away-mode defers a three-hour quiet run, then escalates after the quiet bound or without evidence"
 }
 
 test_housekeeping_resumed_stale_cleared() {

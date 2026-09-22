@@ -579,12 +579,15 @@ test_crew_worktree_written_since_classifier() {
 # record, a dead agent pid, a dead daemon behind a daemon-executed step, and a
 # log dir nothing has written since the quiet window opened.
 test_crew_nm_run_progressing_classifier() {
-  local dir state fakebin wt anchor nmhome
+  local dir state fakebin wt anchor nmhome relative_nmhome run_head
   dir=$(make_case classify-nm-run); state="$dir/state"; fakebin="$dir/fakebin"
   wt="$dir/wt"; anchor="$state/anchor"; nmhome="$dir/nmhome"
+  relative_nmhome=.nm-home
   mkdir -p "$wt"
   git -C "$wt" init -q
   git -C "$wt" checkout -qb fm/nmrun-task
+  git -C "$wt" -c user.name=test -c user.email=test@example.invalid commit --allow-empty -qm initial
+  run_head=$(git -C "$wt" rev-parse HEAD)
   mkdir -p "$nmhome/logs/01NMRUN01"
   : > "$anchor"
   set_mtime "$(( $(date +%s) - 500 ))" "$anchor"
@@ -610,21 +613,30 @@ esac
 exit 1
 SH
   chmod +x "$fakebin/no-mistakes"
-  cat > "$dir/quiet-ci.toon" <<'TOON'
+  cat > "$dir/quiet-ci.toon" <<TOON
 run:
   id: "01NMRUN01"
   branch: "fm/nmrun-task"
   status: running
-  head: "deadbeef"
+  head: "$run_head"
 active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
-  ci,running,4h28m,4h28m,"quiet 2h58m ago: log: CI checks running","",starting
+  ci,running,4h28m,4h28m,"quiet 3h ago: log: CI checks running","",starting
+TOON
+  cat > "$dir/quiet-over-bound.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  ci,running,4h28m,4h28m,"quiet 4h1m ago: log: CI checks running","",starting
 TOON
   cat > "$dir/dead-agent.toon" <<TOON
 run:
   id: "01NMRUN01"
   branch: "fm/nmrun-task"
   status: running
-  head: "deadbeef"
+  head: "$run_head"
 active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
   review,running,4h28m,4h28m,"quiet 3h ago: log: review stalled","$(dead_pid)",1
 TOON
@@ -633,41 +645,90 @@ run:
   id: "01NMRUN01"
   branch: "fm/nmrun-task"
   status: running
-  head: "deadbeef"
+  head: "$run_head"
 active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
-  review,running,4h28m,4h28m,"quiet 45s ago: log: reviewing","$$",1
+  review,running,4h28m,4h28m,"quiet 3h ago: log: reviewing","$$",1
 TOON
-  cat > "$dir/fresh-activity.toon" <<'TOON'
+  cat > "$dir/live-agent-over-bound.toon" <<TOON
 run:
   id: "01NMRUN01"
   branch: "fm/nmrun-task"
   status: running
-  head: "deadbeef"
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"quiet 4h1m ago: log: reviewing","$$",1
+TOON
+  cat > "$dir/malformed-activity.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"age unknown","$$",1
+TOON
+  cat > "$dir/fresh-activity.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
 active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
   ci,running,4h28m,4h28m,"2s ago: log: checking","",starting
 TOON
-  cat > "$dir/transition.toon" <<'TOON'
+  cat > "$dir/transition.toon" <<TOON
 run:
   id: "01NMRUN01"
   branch: "fm/nmrun-task"
   status: running
-  head: "deadbeef"
+  head: "$run_head"
 active_steps[0]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
 TOON
-  cat > "$dir/terminal.toon" <<'TOON'
+  cat > "$dir/parked.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[0]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+gate:
+  step: test
+  status: awaiting_approval
+TOON
+  cat > "$dir/wrong-head.toon" <<'TOON'
+run:
+  id: "01NMRUN01"
+  branch: fm/nmrun-task
+  status: running
+  head: deadbeef
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"quiet 3h ago: log: reviewing","$$",1
+TOON
+  cat > "$dir/pipeline-owned.toon" <<'TOON'
+run:
+  id: "01NMRUN01"
+  branch: fm/nmrun-task
+  status: running
+  head: deadbeef
+branch_sync:
+  state: pipeline_owned
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"quiet 3h ago: log: reviewing","$$",1
+TOON
+  cat > "$dir/terminal.toon" <<TOON
 run:
   id: "01NMRUN01"
   branch: "fm/nmrun-task"
   status: failed
   outcome: "failed"
-  head: "deadbeef"
+  head: "$run_head"
 TOON
-  cat > "$dir/foreign.toon" <<'TOON'
+  cat > "$dir/foreign.toon" <<TOON
 run:
   id: "01NMRUN01"
   branch: "fm/someone-else"
   status: running
-  head: "deadbeef"
+  head: "$run_head"
 TOON
 
   printf 'window=test:fm-a\nkind=ship\nworktree=%s\n' "$wt" > "$state/a.meta"
@@ -689,12 +750,14 @@ TOON
   ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/terminal.toon" \
     crew_nm_run_progressing a "$state" "$anchor" || fail "a terminal run counted as executing evidence"
 
-  # The incident shape itself: a quiet daemon-executed ci monitor whose logs
-  # have stopped growing still proves execution through the live daemon.
+  # The captured replacement-run shape still defers at three hours of quiet.
   set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/ci.log"
   [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
       crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
-    || fail "a daemon-executed quiet ci step did not prove the run executing"
+    || fail "a daemon-executed three-hour quiet ci step did not prove the run executing"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-over-bound.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a responsive daemon counted after four hours of quiet activity"
   # With the daemon itself down, the same record is a stale ledger row, not a
   # running process - and no log has grown, so nothing proves execution.
   ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" FM_FAKE_NM_DAEMON_DOWN=1 \
@@ -709,13 +772,31 @@ TOON
   # even with no fresh activity.
   [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/live-agent.toon" \
       crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
-    || fail "a live agent pid did not prove the run executing"
+    || fail "a live agent pid at three hours of quiet did not prove the run executing"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/live-agent-over-bound.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a live agent pid counted after four hours of quiet activity"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/malformed-activity.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "an unparseable last_activity field counted as execution evidence"
   # Between steps the step log is the witness: written since the pane went
   # quiet, the run is still producing output.
   : > "$nmhome/logs/01NMRUN01/review.log"
-  [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/transition.toon" \
+  mkdir -p "$wt/$relative_nmhome/logs/01NMRUN01"
+  : > "$wt/$relative_nmhome/logs/01NMRUN01/review.log"
+  [ "$(NM_HOME="$relative_nmhome" PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/transition.toon" \
       crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
-    || fail "a run log written inside the quiet window did not prove the run executing"
+    || fail "a relative NM_HOME log written inside the quiet window did not prove execution"
+  : > "$nmhome/logs/01NMRUN01/review.log"
+  PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/parked.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    && fail "a gate-parked run counted fresh log writes as execution evidence"
+  PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/wrong-head.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    && fail "a run with a foreign head counted as this task's execution evidence"
+  [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/pipeline-owned.toon" \
+      crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
+    || fail "an active pipeline-owned continuation did not bind its run"
   # The genuine wedge: record still says running, but the agent pid is dead,
   # activity went quiet, and no log has grown - escalate as before.
   set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/review.log"
@@ -2238,7 +2319,7 @@ test_nonterminal_stale_not_working_surfaced() {
 # log evidence at a fixture run directory.
 
 test_nonterminal_stale_live_nm_run_defers_then_escalates_when_run_dies() {
-  local dir state fakebin out drain_out capture_file window key pane_hash sig pid wt nmhome since back
+  local dir state fakebin out drain_out capture_file window key pane_hash sig pid wt nmhome since back run_head
   dir=$(make_case nm-run-live); state="$dir/state"; fakebin="$dir/fakebin"
   out="$dir/watch.out"; drain_out="$dir/drain.out"; capture_file="$dir/pane.txt"
   window="test:fm-nmrun"
@@ -2247,6 +2328,8 @@ test_nonterminal_stale_live_nm_run_defers_then_escalates_when_run_dies() {
   mkdir -p "$wt"
   git -C "$wt" init -q
   git -C "$wt" checkout -qb fm/nmrun-task
+  git -C "$wt" -c user.name=test -c user.email=test@example.invalid commit --allow-empty -qm initial
+  run_head=$(git -C "$wt" rev-parse HEAD)
   printf 'window=%s\nkind=ship\nworktree=%s\n' "$window" "$wt" > "$state/nmrun.meta"
   printf 'working: validating\n' > "$state/nmrun.status"
   sig=$(seen_sig "$state/nmrun.status"); printf '%s' "$sig" > "$state/.seen-nmrun_status"
@@ -2283,24 +2366,32 @@ exit 1
 SH
   chmod +x "$fakebin/no-mistakes"
   nmhome="$dir/nmhome"; mkdir -p "$nmhome/logs/01NMRUN01"
-  # The reported shape: the ci monitor has been quiet for hours by design - no
-  # agent pid, no fresh step activity - yet the daemon is still executing it.
-  cat > "$dir/axi-quiet-ci.toon" <<'TOON'
+  # The replacement-run shape remains executing evidence at three hours quiet.
+  cat > "$dir/axi-quiet-ci.toon" <<TOON
 run:
   id: "01NMRUN01"
   branch: "fm/nmrun-task"
   status: running
-  head: "deadbeef"
+  head: "$run_head"
 active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
-  ci,running,4h28m,4h28m,"quiet 2h58m ago: log: CI checks running","",starting
+  ci,running,4h28m,4h28m,"quiet 3h ago: log: CI checks running","",starting
+TOON
+  cat > "$dir/axi-quiet-over-bound.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  ci,running,4h28m,4h28m,"quiet 4h1m ago: log: CI checks running","",starting
 TOON
   # A run between steps: nothing in flight, but its step log was just written.
-  cat > "$dir/axi-transition.toon" <<'TOON'
+  cat > "$dir/axi-transition.toon" <<TOON
 run:
   id: "01NMRUN01"
   branch: "fm/nmrun-task"
   status: running
-  head: "deadbeef"
+  head: "$run_head"
 active_steps[0]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
 TOON
   # A wedged run: the record still says running, but the agent pid is dead and
@@ -2310,7 +2401,7 @@ run:
   id: "01NMRUN01"
   branch: "fm/nmrun-task"
   status: running
-  head: "deadbeef"
+  head: "$run_head"
 active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
   review,running,4h28m,4h28m,"quiet 3h ago: log: review stalled","$(dead_pid)",1
 TOON
@@ -2361,7 +2452,23 @@ TOON
   reap "$pid"
   ack_stopped_cycle "$state" || fail "could not acknowledge the phase-B watcher stop"
 
-  # Phase C: the run record still claims running, but the agent pid is dead,
+  # Phase C: a responsive daemon no longer proves progress past the quiet-age bound.
+  back=$(( $(date +%s) - 500 ))
+  echo "$back" > "$state/.stale-since-$key"
+  set_mtime "$back" "$state/.stale-since-$key"
+  set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/ci.log"
+  set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/review.log"
+  : > "$out"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    NM_HOME="$nmhome" FM_FAKE_NM_AXI_STATUS="$dir/axi-quiet-over-bound.toon" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_for_exit "$pid" 100 || fail "watcher did not escalate a daemon-executed run quiet past four hours"
+  grep -F "possible wedge" "$out" >/dev/null || fail "quiet-over-bound run was not flagged as a possible wedge"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the phase-C watcher stop"
+
+  # Phase D: the run record still claims running, but the agent pid is dead,
   # activity went quiet, and no log has grown since the pane went idle -
   # nothing proves execution, so the wedge escalates on the unchanged schedule.
   back=$(( $(date +%s) - 500 ))

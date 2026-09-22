@@ -2073,18 +2073,11 @@ crew_worktree_written_since() {  # <id> <state> <anchor-file>
   [ -n "$hit" ]
 }
 
-# Wall-clock seconds each bounded `no-mistakes` call below may take. The probe
-# runs synchronously inside the caller's poll at the exact moment an escalation
-# would otherwise fire, so an unresponsive CLI must cost the escalation only the
-# bound: hitting it reads as no evidence, exactly like every other negative
-# outcome here.
-FM_NM_RUN_EVIDENCE_TIMEOUT=${FM_NM_RUN_EVIDENCE_TIMEOUT:-10}
-case "$FM_NM_RUN_EVIDENCE_TIMEOUT" in ''|*[!0-9]*|0) FM_NM_RUN_EVIDENCE_TIMEOUT=10 ;; esac
-
 # Prints <id>'s no-mistakes run id and returns 0 when the run attributed to the
-# task's branch is demonstrably EXECUTING: positive process or log evidence
-# from the run itself, never the pane. This is the wedge detector's fourth
-# liveness input and the one that sees work the other three cannot: a crew
+# task's branch and code identity is demonstrably EXECUTING: positive activity,
+# process, or log evidence from the run itself, never the pane. This is the
+# wedge detector's fourth liveness input and the one that sees work the other
+# three cannot: a crew
 # handed to `axi run` produces no pane output, no worktree writes in its own
 # checkout, and often no fresh status line for the whole validation, so pane
 # quietness alone must never escalate while the run proves itself - the
@@ -2092,29 +2085,17 @@ case "$FM_NM_RUN_EVIDENCE_TIMEOUT" in ''|*[!0-9]*|0) FM_NM_RUN_EVIDENCE_TIMEOUT=
 # task. Silence of the work window is not evidence; the run's own state is.
 #
 # Execution evidence, any one of which is sufficient:
-#   - the daemon reports fresh step activity (an active_steps row whose
-#     last_activity the pipeline itself has not marked quiet), or
-#   - an in-flight step's recorded agent_pid is a live non-zombie process, or
-#   - an in-flight daemon-executed step (empty agent_pid: the ci monitor, push
-#     or pr bookkeeping) while a bounded `daemon status` probe answers - the
-#     daemon IS the process executing that step, or
-#   - a file under NM_HOME/logs/<run-id>/ was written since <anchor-file>,
-#     the same idle-window anchor the worktree probe compares against, so a
-#     run between step rows still counts while its logs grow.
-#
-# 1 for every other outcome - missing meta or worktree, a kind that never
-# validates (scout, secondmate), a detached HEAD, an unanswered or
-# branch-foreign `axi status`, a terminal or gate-parked run record, an empty
-# active_steps table with no log growth, a dead agent pid, a daemon probe that
-# fails, or an unreadable run-log dir. Absence of evidence therefore always
-# leaves the caller's escalation schedule untouched: a crew whose run shows
-# neither a live process nor a growing log still escalates exactly as before.
+#   - an active step has parseable, non-quiet last_activity, or a parseable
+#     quiet age below FM_PAUSE_RESURFACE_SECS and a live agent/daemon executor;
+#   - a file under NM_HOME/logs/<run-id>/ was written since <anchor-file>.
+# A parked approval gate, mismatched run identity, or malformed activity is not
+# execution evidence; relative NM_HOME resolves from the recorded worktree.
 # Callers must reach this only when they are otherwise about to escalate,
 # never on every poll: each call is one bounded `axi status` plus, for a
 # daemon-executed step, one bounded `daemon status`.
 crew_nm_run_progressing() {  # <id> <state> <anchor-file>
-  local id=$1 state=$2 anchor=$3 wt kind branch out rbranch rid pairs
-  local pid activity daemon_up nm_home logdir hit row
+  local id=$1 state=$2 anchor=$3 wt kind branch out rbranch rhead rid pairs
+  local pid activity activity_age quiet_bound daemon_up nm_home logdir hit row
   [ -n "$id" ] || return 1
   [ -f "$anchor" ] || return 1
   command -v no-mistakes >/dev/null 2>&1 || return 1
@@ -2124,27 +2105,39 @@ crew_nm_run_progressing() {  # <id> <state> <anchor-file>
   [ "${kind:-ship}" = ship ] || return 1
   branch=$(git -C "$wt" symbolic-ref --quiet --short HEAD 2>/dev/null) || return 1
   [ -n "$branch" ] || return 1
-  out=$(fm_nm_run_checked "$wt" "$FM_NM_RUN_EVIDENCE_TIMEOUT" axi status) || return 1
+  out=$(fm_nm_run_checked "$wt" 10 axi status) || return 1
   [ -n "$out" ] || return 1
   rbranch=$(fm_nm_strip_quotes "$(fm_nm_field "$out" branch)")
   [ "$rbranch" = "$branch" ] || return 1
   fm_nm_run_is_active "$out" || return 1
+  rhead=$(fm_nm_strip_quotes "$(fm_nm_field "$out" head)")
+  if ! fm_nm_head_matches_worktree "$wt" "$rhead" \
+    && ! fm_nm_run_is_pipeline_owned_active "$out"; then return 1; fi
+  fm_nm_run_is_gate_parked "$out" && return 1
   rid=$(fm_nm_strip_quotes "$(fm_nm_field "$out" id)")
   [ -n "$rid" ] || return 1
   pairs=$(fm_nm_active_steps_pairs "$out")
   if [ -n "$pairs" ]; then
+    quiet_bound=${FM_PAUSE_RESURFACE_SECS:-$FM_PAUSE_RESURFACE_SECS_DEFAULT}
+    case "$quiet_bound" in ''|*[!0-9]*) quiet_bound=$FM_PAUSE_RESURFACE_SECS_DEFAULT ;; esac
+    while [ "${quiet_bound#0}" != "$quiet_bound" ]; do quiet_bound=${quiet_bound#0}; done
+    [ -n "$quiet_bound" ] || quiet_bound=0
+    case "$quiet_bound" in 0) quiet_bound=$FM_PAUSE_RESURFACE_SECS_DEFAULT ;; esac
+    [ "${#quiet_bound}" -le 9 ] || quiet_bound=$FM_PAUSE_RESURFACE_SECS_DEFAULT
+    quiet_bound=$((quiet_bound + 0))
     daemon_up=''
     while IFS= read -r row; do
       pid=${row%%$'\t'*}
       activity=${row#*$'\t'}
+      activity_age=$(fm_nm_activity_age_secs "$activity" "$quiet_bound") || continue
       case "$activity" in
-        ''|quiet*) ;;
+        quiet\ *) [ "$activity_age" -lt "$quiet_bound" ] || continue ;;
         *) printf '%s' "$rid"; return 0 ;;
       esac
       case "$pid" in
         ''|*[!0-9]*)
           if [ -z "$daemon_up" ]; then
-            if fm_nm_daemon_running "$wt" "$FM_NM_RUN_EVIDENCE_TIMEOUT"; then
+            if fm_nm_daemon_running "$wt" 10; then
               daemon_up=1
             else
               daemon_up=0
@@ -2166,9 +2159,10 @@ $pairs
 EOF
   fi
   nm_home=${NM_HOME:-$HOME/.no-mistakes}
+  case "$nm_home" in /*) ;; *) nm_home=$wt/$nm_home ;; esac
   logdir=$nm_home/logs/$rid
   [ -d "$logdir" ] || return 1
-  hit=$(fm_run_timed "$FM_NM_RUN_EVIDENCE_TIMEOUT" find "$logdir" -type f -name '*.log' -newer "$anchor" -print -quit 2>/dev/null || true)
+  hit=$(fm_run_timed 10 find "$logdir" -type f -name '*.log' -newer "$anchor" -print -quit 2>/dev/null || true)
   [ -n "$hit" ] || return 1
   printf '%s' "$rid"
 }

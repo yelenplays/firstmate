@@ -388,6 +388,59 @@ fm_nm_active_steps_pairs() {  # <toon-output>
   '
 }
 
+fm_nm_activity_age_secs() {  # <last_activity> <saturation-seconds>
+  local activity=${1:-} limit=${2:-} age=0 amount unit factor rest seconds
+  case "$limit" in ''|*[!0-9]*|0) return 1 ;; esac
+  while [ "${limit#0}" != "$limit" ]; do limit=${limit#0}; done
+  [ -n "$limit" ] || return 1
+  [ "${#limit}" -le 9 ] || return 1
+  limit=$((limit + 0))
+  case "$activity" in quiet\ *) activity=${activity#quiet } ;; esac
+  activity=${activity%% ago*}
+  activity=${activity%%:*}
+  activity=$(fm_nm_trim "$activity")
+  activity=${activity//[[:space:]]/}
+  [ -n "$activity" ] || return 1
+  while [ -n "$activity" ]; do
+    [[ "$activity" =~ ^([0-9]+)([dhms])(.*)$ ]] || return 1
+    amount=${BASH_REMATCH[1]}
+    unit=${BASH_REMATCH[2]}
+    rest=${BASH_REMATCH[3]}
+    while [ "${amount#0}" != "$amount" ]; do amount=${amount#0}; done
+    [ -n "$amount" ] || amount=0
+    case "$unit" in d) factor=86400 ;; h) factor=3600 ;; m) factor=60 ;; s) factor=1 ;; esac
+    if [ "$age" -le "$limit" ]; then
+      if [ "${#amount}" -gt 9 ]; then
+        age=$((limit + 1))
+      else
+        amount=$((amount + 0))
+        if [ "$amount" -gt "$((limit / factor))" ]; then
+          age=$((limit + 1))
+        else
+          seconds=$((amount * factor))
+          if [ "$seconds" -gt "$((limit - age))" ]; then age=$((limit + 1)); else age=$((age + seconds)); fi
+        fi
+      fi
+    fi
+    activity=$rest
+  done
+  printf '%s' "$age"
+}
+
+fm_nm_run_is_gate_parked() {  # <toon-output>
+  local status
+  status=$(printf '%s\n' "$1" | awk '
+    /^[[:space:]]*gate:[[:space:]]*$/ { in_gate = 1; next }
+    in_gate && $0 !~ /^[[:space:]]/ { exit }
+    in_gate && /^[[:space:]]+status:[[:space:]]*/ {
+      sub(/^[[:space:]]+status:[[:space:]]*/, "")
+      print
+      exit
+    }
+  ')
+  [ "$(fm_nm_strip_quotes "$status")" = awaiting_approval ]
+}
+
 # ONE owner for attribution from the pipeline's own runs ledger, replacing a
 # per-row scan-and-skip. The ledger is the real top-level `no-mistakes runs
 # --limit N` listing (plain text, no run id, no quoting, newest-first, columns
