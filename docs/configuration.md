@@ -678,11 +678,12 @@ The [script header](../bin/fm-jev-intake-match.sh) owns candidate selection, lim
 
 ## Jev act-first ranking (session start)
 
-`bin/fm-session-start.sh` asks [`bin/fm-jev-act-first.sh`](../bin/fm-jev-act-first.sh) to rank the actionable items the locked digest already printed, and prints at most five lines under an ACT FIRST heading right after the wake queue.
-It is hard-bounded to 2 seconds, and prints nothing when no key is configured, the call fails or times out, or fewer than two items exist.
-The ranking is advisory: every presented wake still needs handling and acknowledgement.
-The session-start header owns placement and the bound; the helper header owns item selection, what Jev sees, and the log schema.
-Regression coverage lives in [`tests/fm-jev-act-first.test.sh`](../tests/fm-jev-act-first.test.sh) and [`tests/fm-session-start.test.sh`](../tests/fm-session-start.test.sh).
+On the locked path, `bin/fm-session-start.sh` prints at most five ACT FIRST lines right after the wake queue: the actionable items the digest already printed, in a fixed priority order, with no model or network call.
+[`bin/fm-jev-act-first.sh`](../bin/fm-jev-act-first.sh) owns item selection and that order.
+The deferred startup network stage ranks the same items with one Jev call, off the digest's blocking path, and reports the result as `ACT_FIRST:` lines with its other deferred checks; those lines never raise a wake on their own.
+Without a configured key the ranking is skipped and nothing is sent.
+Both lists are advisory: every presented wake still needs handling and acknowledgement.
+[`bin/fm-startup-network.sh`](../bin/fm-startup-network.sh)'s header owns the deferred step and its wait bound; regression coverage lives in [`tests/fm-jev-act-first.test.sh`](../tests/fm-jev-act-first.test.sh) and [`tests/fm-session-start.test.sh`](../tests/fm-session-start.test.sh).
 
 ## Jev brief preflight (FM_JEV_BRIEF_PREFLIGHT)
 

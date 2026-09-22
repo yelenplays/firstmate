@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Behavior tests for bin/fm-jev-act-first.sh, the advisory ACT FIRST ranking
-# the session-start digest prints after its wake queue.
+# Behavior tests for bin/fm-jev-act-first.sh: the session-start digest's local
+# ACT FIRST list and the deferred network stage's advisory Jev ranking.
 #
 # Drives the helper with a fake curl on PATH that records argv, the request
 # body, and the header read from file descriptor 3. No case touches the network.
@@ -126,6 +126,22 @@ test_ranks_collected_items() {
   pass "the collected items are ranked by Jev probabilities, at most five lines"
 }
 
+test_local_lists_priority_order_without_a_call() {
+  local out
+  fresh_home
+  KEY='' run_helper out --local --drain-file "$DRAIN" --status-dir "$HOME_DIR/state"
+  expect_code 0 "$RUN_CODE" "--local should exit 0"
+  [ "$(printf '%s\n' "$out" | grep -c .)" -eq 5 ] || fail "--local did not print five lines"$'\n'"$out"
+  assert_contains "$out" "1. decision scout-b [key=pick-lib] needs-decision: pick a library for the parser" \
+    "--local did not put the open decision first"$'\n'"$out"
+  assert_contains "$out" "3. status ship-d failed: build broke on main" \
+    "--local did not order failures after unfinished execution"$'\n'"$out"
+  assert_contains "$out" "5. wake heartbeat fleet" "--local did not end with the wakes"$'\n'"$out"
+  assert_not_contains "$out" "(p=" "--local printed a model probability"
+  [ ! -e "$LOG/body" ] || fail "--local made a model call"
+  pass "--local lists the items in priority order with no key and no call"
+}
+
 test_failures_are_silent() {
   local out
   fresh_home
@@ -152,6 +168,7 @@ test_single_item_makes_no_call() {
 test_usage
 test_off_is_silent
 test_ranks_collected_items
+test_local_lists_priority_order_without_a_call
 test_failures_are_silent
 test_single_item_makes_no_call
 

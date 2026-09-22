@@ -240,24 +240,11 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 0
 fi
 
-has_key() {
-  local typesafe_key openrouter_key
-  typesafe_key=${TYPESAFE_API_KEY:-}
-  openrouter_key=${OPENROUTER_API_KEY:-}
-  if [ -z "$typesafe_key" ]; then
-    typesafe_key=$(fmx_env_get TYPESAFE_API_KEY "$FM_HOME/.env")
-  fi
-  if [ -z "$openrouter_key" ]; then
-    openrouter_key=$(fmx_env_get OPENROUTER_API_KEY "$FM_HOME/.env")
-  fi
-  [ -n "$typesafe_key" ] || [ -n "$openrouter_key" ]
-}
-
 if [ -z "$SCORED" ]; then
   emit_keyword no-candidates ''
   exit 0
 fi
-if ! has_key; then
+if ! fm_jev_key_configured; then
   emit_keyword off ''
   exit 0
 fi

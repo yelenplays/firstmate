@@ -39,6 +39,10 @@
 #     non-200 response. Sets FM_JEV_LAST_ROUTE, FM_JEV_LAST_URL,
 #     FM_JEV_LAST_MODEL, FM_JEV_LAST_HTTP, and FM_JEV_LAST_LATENCY_MS on every
 #     attempted call (empty HTTP/latency when the call never reached curl).
+#   fm_jev_key_configured
+#     Succeeds when fm_jev_decide would resolve a route and key right now, by
+#     the same resolution; prints nothing and never reaches the network.
+#     Callers use it to stay off without a model call.
 #   fm_jev_choice_confidence_ok <confidence> [<floor>]
 #     Succeeds when <confidence> is a number in 0..1 at or above <floor>.
 #     Default floor is 0.7 (new shadows); typed dispatch uses the top-2 margin.
@@ -283,6 +287,11 @@ fm_jev_decide() {
   cat "$resp_file"
   rm -f "$resp_file"
   return 0
+}
+
+fm_jev_key_configured() {
+  local _fm_jev_route _fm_jev_url _fm_jev_model _fm_jev_key
+  _fm_jev_resolve_route 2>/dev/null
 }
 
 fm_jev_choice_confidence_ok() {

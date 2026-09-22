@@ -29,8 +29,8 @@
 #     network result surfaces exactly once (inline or as a wake, never both), a
 #     read-only session declares the checks it skipped, and the tasks-axi
 #     compatibility verdict is paid for once per session start
-#   - the ACT FIRST ranking: it prints after the wake queue, and a hanging Jev
-#     call is cut off inside its bound and prints nothing
+#   - ACT FIRST: a local priority list after the wake queue, with the Jev
+#     ranking deferred to the network stage's report
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -1425,71 +1425,70 @@ SH
   chmod +x "$fakebin/curl"
 }
 
-test_act_first_ranks_presented_items_after_the_wake_queue() {
-  local rec root home fakebin out log act wake supervision
-  rec=$(new_world act-first)
-  IFS='|' read -r root home fakebin <<EOF
+# make_act_first_world <name> <curl-delay>: a locked world with a Jev key, the
+# recording fake curl, and two presented wakes whose status logs are live. Runs
+# pin FM_FAKE_HARNESS_PID so the lock has a stable owner and the deferred stage
+# starts.
+make_act_first_world() {
+  local name=$1 delay=$2 rec
+  rec=$(new_world "$name")
+  IFS='|' read -r AF_ROOT AF_HOME AF_FAKEBIN <<EOF
 $rec
 EOF
-  make_fake_toolchain "$fakebin"
-  make_fake_ps_claude "$fakebin"
-  log="${root%/root}/jev"
-  install_fake_jev_curl "$fakebin" "$log" 0
-  printf 'TYPESAFE_API_KEY=ts-act-first-test\n' > "$home/.env"
-  printf 'needs-decision: pick a library\n' > "$home/state/task-y.status"
-  printf 'blocked: waiting on a key\n' > "$home/state/task-z.status"
-  append_wake "$home/state" signal task-y.status "needs-decision: pick a library"
-  append_wake "$home/state" signal task-z.status "blocked: waiting on a key"
+  make_fake_toolchain "$AF_FAKEBIN"
+  make_fake_ps_claude "$AF_FAKEBIN"
+  AF_LOG="${AF_ROOT%/root}/jev"
+  install_fake_jev_curl "$AF_FAKEBIN" "$AF_LOG" "$delay"
+  printf 'TYPESAFE_API_KEY=ts-act-first-test\n' > "$AF_HOME/.env"
+  printf 'needs-decision: pick a library\n' > "$AF_HOME/state/task-y.status"
+  printf 'blocked: waiting on a key\n' > "$AF_HOME/state/task-z.status"
+  append_wake "$AF_HOME/state" signal task-y.status "needs-decision: pick a library"
+  append_wake "$AF_HOME/state" signal task-z.status "blocked: waiting on a key"
+}
 
-  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+test_act_first_lists_presented_items_without_a_network_call() {
+  local out wake act supervision section
+  make_act_first_world act-first-local 8
 
-  assert_contains "$out" "ACT FIRST (advisory Jev ranking of the items above" "the ACT FIRST section did not print"
-  assert_contains "$out" "1. decision task-z blocked: waiting on a key (p=0.8)" \
-    "the ranking did not put Jev's pick first"$'\n'"$out"
+  out=$(FM_FAKE_HARNESS_PID=$$ run_session_start "$AF_HOME" "$AF_ROOT" "$AF_FAKEBIN:$BASE_PATH")
+
+  [ ! -e "$AF_LOG/finished" ] || fail "the digest waited for the Jev call to finish"
+  assert_contains "$out" "ACT FIRST (priority order: open decisions, unfinished execution, failures and blockers, then wakes" \
+    "the ACT FIRST section did not print"
+  section=$(printf '%s\n' "$out" | awk '/^ACT FIRST/ { p = 1; next } p && /^(=|SUPERVISION)/ { exit } p')
+  assert_contains "$section" "1. decision task-y needs-decision: pick a library" \
+    "open decisions were not listed first"$'\n'"$section"
+  assert_contains "$section" "3. wake signal task-y.status: needs-decision: pick a library" \
+    "wakes were not listed after the decisions"$'\n'"$section"
+  assert_not_contains "$section" "(p=" "the digest printed a model ranking"
   wake=$(printf '%s\n' "$out" | grep -n '^WAKE QUEUE$' | cut -d: -f1)
   act=$(printf '%s\n' "$out" | grep -n '^ACT FIRST' | cut -d: -f1)
   supervision=$(printf '%s\n' "$out" | grep -n '^SUPERVISION OPERATING INSTRUCTIONS' | cut -d: -f1)
   [ -n "$wake" ] && [ -n "$act" ] && [ -n "$supervision" ] && [ "$wake" -lt "$act" ] && [ "$act" -lt "$supervision" ] \
     || fail "ACT FIRST was not between the wake queue and the supervision block (wake=$wake act=$act supervision=$supervision)"
-  jq -e '.state | contains("wake signal task-y.status")' "$log/body" >/dev/null \
-    || fail "the presented wake records were not what Jev ranked"
-  pass "session start: ACT FIRST ranks the presented items right after the wake queue"
+  wait_for_network_stage "$AF_HOME" "$AF_ROOT" 60 || fail "the deferred stage never finished"
+  pass "session start: ACT FIRST lists presented items in priority order without waiting on Jev"
 }
 
-test_act_first_never_delays_the_digest() {
-  local rec root home fakebin out log started resumed
-  rec=$(new_world act-first-hang)
-  IFS='|' read -r root home fakebin <<EOF
-$rec
-EOF
-  make_fake_toolchain "$fakebin"
-  make_fake_ps_claude "$fakebin"
-  log="${root%/root}/jev"
-  install_fake_jev_curl "$fakebin" "$log" 30
-  # The fleet-state endpoint read is the digest's next tmux call after the
-  # ranking, so its first call once the Jev request started marks when the
-  # digest resumed.
-  cat > "$fakebin/tmux" <<SH
-#!/usr/bin/env bash
-if [ -e '$log/started' ] && [ ! -e '$log/resumed' ]; then date +%s > '$log/resumed'; fi
-exit 1
-SH
-  chmod +x "$fakebin/tmux"
-  printf 'TYPESAFE_API_KEY=ts-act-first-test\n' > "$home/.env"
-  printf 'window=fm-sess:probe-window\nkind=ship\n' > "$home/state/task-y.meta"
-  append_wake "$home/state" signal task-y.status "needs-decision: pick a library"
-  append_wake "$home/state" signal task-z.status "blocked: waiting on a key"
+test_act_first_jev_ranking_arrives_with_the_network_checks() {
+  local report
+  make_act_first_world act-first-deferred 0
 
-  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  # A Herdr runtime inherited from the developer's shell adds its own actionable
+  # notice to the report, so it is cleared to keep the wake assertion about the
+  # ranking lines alone.
+  (unset HERDR_ENV; FM_FAKE_HARNESS_PID=$$ run_session_start "$AF_HOME" "$AF_ROOT" "$AF_FAKEBIN:$BASE_PATH" >/dev/null)
 
-  started=$(cat "$log/started" 2>/dev/null) || fail "the ranking call was never attempted"
-  resumed=$(cat "$log/resumed" 2>/dev/null) || fail "the digest never reached its endpoint read"
-  [ $((resumed - started)) -lt 3 ] \
-    || fail "the digest resumed $((resumed - started))s after a hanging Jev call started; the bound is under 3s"
-  [ ! -e "$log/finished" ] || fail "the hanging Jev call was allowed to finish"
-  assert_not_contains "$out" "ACT FIRST" "a timed-out ranking still printed a section"
-  assert_contains "$out" "READ-ONCE CONTRACT" "the digest did not complete after the timed-out ranking"
-  pass "session start: a hanging Jev call costs under 3s and prints nothing"
+  wait_for_network_stage "$AF_HOME" "$AF_ROOT" 60 || fail "the deferred stage never finished"
+  report=$(network_stage_report "$AF_HOME" "$AF_ROOT")
+  assert_contains "$report" "ACT_FIRST: 1. decision task-z blocked: waiting on a key (p=0.8)" \
+    "the deferred report did not carry Jev's ranking"$'\n'"$report"
+  jq -e '.state | contains("wake signal task-y.status")' "$AF_LOG/body" >/dev/null \
+    || fail "the ranking did not use this session start's presented wakes"
+  assert_no_grep $'check\tstartup-network' "$AF_HOME/state/.wake-queue" \
+    "the advisory ranking raised a startup-network wake"
+  [ ! -e "$AF_HOME/state/.startup-network.act-first-input" ] || fail "the consumed ranking input was left behind"
+  pass "session start: the Jev ranking runs in the deferred stage and arrives with its report"
 }
 
 test_branch_outcome_replay_respects_captain_barrier_and_lease_sweep() {
@@ -2827,8 +2826,8 @@ test_orphan_status_logs_are_printed
 test_endpoint_liveness_tmux
 test_endpoint_liveness_herdr
 test_composition_invokes_real_scripts
-test_act_first_ranks_presented_items_after_the_wake_queue
-test_act_first_never_delays_the_digest
+test_act_first_lists_presented_items_without_a_network_call
+test_act_first_jev_ranking_arrives_with_the_network_checks
 test_branch_outcome_replay_respects_captain_barrier_and_lease_sweep
 test_non_pi_session_start_leaves_branch_state_untouched
 test_backlog_compact_tasks_axi_omits_bodies_and_keeps_metadata

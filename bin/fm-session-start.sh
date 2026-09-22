@@ -39,7 +39,7 @@
 #   3. wake-drain     - presents durable wakes and advances recovery handling
 #                       state, so it only runs when locked. The local bounded
 #                       inactive-outcome startup scan runs in the deferred worker.
-#                       An optional ACT FIRST ranking follows it (note below).
+#                       An optional ACT FIRST priority list follows it (note below).
 #   4. supervision-instructions - the one emitted operating block for the
 #                       detected primary harness.
 #   5. read-once contract - the do-not-re-read contract covering every source
@@ -63,15 +63,16 @@
 # startup can name exactly which of them never ran.
 #
 # ACT FIRST: on the locked path, right after the wake queue and inside the same
-# stage, bin/fm-jev-act-first.sh ranks items the drain just printed (open
-# decisions, unfinished execution, raw wake records) plus each live task's
-# newest failed or blocked status line, with one Jev call. It prints at most
-# five lines under an "ACT FIRST" heading. It is hard-bounded to 2 seconds and
-# prints nothing when Jev is off, errors, or times out, or when fewer than two
-# items exist. It restates only items already in this digest, so it adds
-# no source to the read-once contract and never replaces handling or
-# acknowledging every presented wake. The helper's header owns item selection,
-# what Jev sees, and the output shape.
+# stage, bin/fm-jev-act-first.sh --local lists items the drain just printed
+# (open decisions, unfinished execution, raw wake records) plus each live
+# task's newest failed or blocked status line, in that fixed priority order,
+# at most five lines under an "ACT FIRST" heading, and nothing when fewer than
+# two items exist. It makes no model or network call. The same drain output is
+# handed to the deferred network stage, whose Jev ranking of it arrives with
+# the NETWORK CHECKS result (bin/fm-startup-network.sh owns that step). Both
+# restate only items already in this digest, so they add no source to the
+# read-once contract and never replace handling or acknowledging every
+# presented wake. The helper's header owns item selection and output shape.
 #
 # NO NETWORK ON THE BLOCKING PATH. This digest runs on a session-open hook that
 # blocks session initialization, so anything it waits for is time the captain
@@ -757,19 +758,19 @@ else
   else
     printf '(no queued wakes)\n'
   fi
-  # ACT FIRST: an advisory ranking of items already printed above (see this
-  # file's ACT FIRST note). Part of the wake-queue stage, hard-bounded to
-  # ACT_FIRST_BOUND seconds, and silent unless the helper printed a ranking.
-  ACT_FIRST_BOUND=2
+  # ACT FIRST: the local priority list of items already in this digest, plus
+  # the hand-off of the same drain output to the deferred stage's Jev ranking
+  # (see this file's ACT FIRST note). Neither makes a network call here.
   ACT_FIRST_INPUT=$(mktemp "$STATE/.act-first-input.XXXXXX" 2>/dev/null) || ACT_FIRST_INPUT=
   if [ -n "$ACT_FIRST_INPUT" ]; then
     printf '%s\n' "$DRAIN_OUT" > "$ACT_FIRST_INPUT"
-    ACT_FIRST_OUT=$(JEV_TIMEOUT=$ACT_FIRST_BOUND FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
-      fm_run_timed "$ACT_FIRST_BOUND" "$SCRIPT_DIR/fm-jev-act-first.sh" \
-      --drain-file "$ACT_FIRST_INPUT" --status-dir "$STATE" 2>/dev/null </dev/null) || ACT_FIRST_OUT=
+    ACT_FIRST_OUT=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-jev-act-first.sh" \
+      --local --drain-file "$ACT_FIRST_INPUT" --status-dir "$STATE" 2>/dev/null </dev/null) || ACT_FIRST_OUT=
+    FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-startup-network.sh" act-first-input \
+      < "$ACT_FIRST_INPUT" >/dev/null 2>&1 || true
     rm -f "$ACT_FIRST_INPUT"
     if [ -n "$ACT_FIRST_OUT" ]; then
-      subsection "ACT FIRST (advisory Jev ranking of the items above; handle and acknowledge every item regardless)"
+      subsection "ACT FIRST (priority order: open decisions, unfinished execution, failures and blockers, then wakes; handle and acknowledge every item regardless)"
       printf '%s\n' "$ACT_FIRST_OUT" | head -n 5
     fi
   fi

@@ -2,14 +2,17 @@
 # fm-jev-act-first.sh - advisory Jev ranking of what to act on first at startup.
 #
 # Usage:
-#   fm-jev-act-first.sh --drain-file <path> [--status-dir <dir>]
+#   fm-jev-act-first.sh --drain-file <path> [--status-dir <dir>] [--local]
 #
-# bin/fm-session-start.sh is the production caller: on the locked path it
-# hands this helper the wake-drain output it already printed, and prints what
-# comes back as its bounded ACT FIRST section right after the wake queue. It is
+# Two production callers, both fed the wake-drain output of one locked session
+# start. bin/fm-session-start.sh runs --local, which never calls Jev or the
+# network: it prints the items below in their fixed priority order as the
+# digest's ACT FIRST section right after the wake queue. The deferred startup
+# network stage (bin/fm-startup-network.sh) runs the Jev ranking off the
+# digest's blocking path and reports it with its other deferred checks. It is
 # advisory only: it never acknowledges a wake, answers a decision, steers,
-# dispatches, or edits any record, and every item it ranks was already printed
-# in full above it.
+# dispatches, or edits any record, and every item it ranks is already part of
+# this digest.
 #
 # Items (no model call), in this order, at most 12, each capped to 160
 # characters:
@@ -26,12 +29,13 @@
 # probabilities are the ranking; malformed probabilities fall back to the
 # single pick. No status log body, brief, report, or backlog body is sent.
 #
-# Output (stdout), only on a usable answer: at most five lines,
-#   <rank>. <item> (p=<probability>)
-# Nothing at all when Jev is off (no key), the call fails, the answer is
-# malformed, or there are fewer than two items, so the caller can print the
-# section only when this helper printed something. The caller owns the hard
-# time bound; JEV_TIMEOUT is used as given. Exit 0 except usage (exit 2).
+# Output (stdout): at most five lines. --local prints `<rank>. <item>` in the
+# priority order above whenever there are at least two items. Otherwise, only
+# on a usable Jev answer, `<rank>. <item> (p=<probability>)`, and nothing at all
+# when Jev is off (no key), the call fails, or the answer is malformed. Fewer
+# than two items prints nothing in either mode, so a caller can print a section
+# only when this helper printed something. The caller owns the time bound;
+# JEV_TIMEOUT is used as given. Exit 0 except usage (exit 2).
 #
 # Log: one JSONL object per attempted call appended to
 # ${FM_STATE_OVERRIDE:-$FM_HOME/state}/jev-act-first.jsonl with
@@ -66,11 +70,13 @@ die() {
 
 DRAIN_FILE=
 STATUS_DIR=
+LOCAL=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -h|--help) usage; exit 0 ;;
     --drain-file) [ $# -ge 2 ] || die "--drain-file needs a path"; DRAIN_FILE=$2; shift 2 ;;
     --status-dir) [ $# -ge 2 ] || die "--status-dir needs a path"; STATUS_DIR=$2; shift 2 ;;
+    --local) LOCAL=1; shift ;;
     *) die "unexpected argument: $1" ;;
   esac
 done
@@ -84,20 +90,6 @@ ITEM_CHARS=160
 SHOW_MAX=5
 
 command -v jq >/dev/null 2>&1 || exit 0
-
-has_key() {
-  local typesafe_key openrouter_key
-  typesafe_key=${TYPESAFE_API_KEY:-}
-  openrouter_key=${OPENROUTER_API_KEY:-}
-  if [ -z "$typesafe_key" ]; then
-    typesafe_key=$(fmx_env_get TYPESAFE_API_KEY "$FM_HOME/.env")
-  fi
-  if [ -z "$openrouter_key" ]; then
-    openrouter_key=$(fmx_env_get OPENROUTER_API_KEY "$FM_HOME/.env")
-  fi
-  [ -n "$typesafe_key" ] || [ -n "$openrouter_key" ]
-}
-has_key || exit 0
 
 # Drain items as kind<TAB>text, grouped decision, execution, wake.
 drain_items() {
@@ -156,6 +148,11 @@ done < <(
   drain_items | awk -F '\t' '$1 == "wake"'
 )
 [ "$n" -ge 2 ] || exit 0
+if [ "$LOCAL" -eq 1 ]; then
+  jq -r --argjson max "$SHOW_MAX" '.[:$max] | to_entries[] | "\(.key + 1). \(.value.text)"' <<<"$items"
+  exit 0
+fi
+fm_jev_key_configured || exit 0
 
 state=$(fm_jev_compact_state "$(jq -r '"Actionable items a Firstmate supervisor sees at session start:", (.[] | "\(.key): \(.text)")' <<<"$items")") || exit 0
 questions=$(jq -nc --argjson c "$(jq -c 'map({key: .key, value: .text}) | from_entries' <<<"$items")" '{
