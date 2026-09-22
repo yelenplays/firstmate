@@ -2620,6 +2620,18 @@ else
   WT=""
   BRIEF="$DATA/$ID/brief.md"
 fi
+# Truth-path check: a fleet clone whose Treehouse pool is rooted in its local
+# origin repository would be handed a slot of that other repository, and the
+# launch would only die late on the trust or isolation checks. Refuse before
+# any pane, lock, or slot exists and name the path that owns the pool; never
+# redirect silently, because that would change which repository work lands in.
+# bin/fm-wake-lib.sh's fm_treehouse_pool_origin_root owns the detection.
+if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ] &&
+  [ "$(cd "$(dirname "$PROJ_ABS")" 2>/dev/null && pwd -P)" = "$(cd "$PROJECTS" 2>/dev/null && pwd -P)" ] &&
+  SPAWN_POOL_TRUTH_PATH=$(fm_treehouse_pool_origin_root "$PROJ_ABS"); then
+  echo "error: project '$PROJ_ABS' shares its Treehouse worktree pool with its origin repository, so its slots are worktrees of that repository, not of this clone; pass '$SPAWN_POOL_TRUTH_PATH' as the project to spawn from the repository that owns the pool" >&2
+  exit 1
+fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
   SPAWN_TREEHOUSE_PROJECT_LOCK=$(fm_treehouse_project_lock_path "$PROJ_ABS") || {
     echo "error: could not resolve the shared Treehouse project lock for $PROJ_ABS" >&2
