@@ -107,6 +107,12 @@ test_yes_and_score_lines() {
   assert_equals "$out" "score: worth a look s=0.52 p=0.8 conf=0.81" "a score names its most probable level"
   assert_equals "$(jq -c '.questions.score.criteria' "$LOG/body")" '["routine","worth a look","incident"]' \
     "score levels are sent in order"
+
+  respond '{"answers":{"score":{"type":"score","score":1.43,"confidence":0.6}}}'
+  run_jev code out err score "one issue blocks progress" "How severe is it?" Cosmetic Workaround Blocking
+  assert_equals "$code" 0 "a confident score without probabilities exits 0"
+  assert_equals "$out" "score: Workaround s=1.43 conf=0.6" \
+    "a probability-free score rounds to its fractional level index"
   pass "fm-jev.sh: yes and score print one line each"
 }
 
@@ -116,7 +122,7 @@ test_batch_one_call_many_lines() {
   respond '{"answers":{"vault":{"choice":"A","confidence":0.9,"probabilities":{"A":0.95,"B":0.05}},"private":{"noul":0.9},"q3":{"score":0.1,"confidence":0.7,"probabilities":{"0":0.85,"1":0.15}}}}'
   run_jev code out err batch <<'JSON'
 {"state":"s","questions":[
-  {"id":"vault","type":"pick","q":"Which?","opts":{"A":"first","B":"second"}},
+  {"id":"vault","type":"pick","q":"Which?","opts":["A=first","B=second"]},
   {"id":"private","type":"yes","q":"Private?"},
   {"type":"score","q":"How big?","opts":["small","large"]}]}
 JSON
@@ -126,7 +132,7 @@ JSON
   assert_equals "$(jq -c '.questions | keys_unsorted' "$LOG/body")" '["vault","private","q3"]' \
     "a batch sends every question in one request"
   assert_equals "$(jq -c '.questions.vault.criteria' "$LOG/body")" '{"A":"first","B":"second"}' \
-    "batch options may be a label to meaning map"
+    "batch options accept label=meaning strings"
   pass "fm-jev.sh: batch asks several questions in one call"
 }
 
@@ -186,6 +192,14 @@ test_errors_exit_one_with_one_line() {
 JSON
   assert_equals "$code" 1 "duplicate batch ids exit 1"
   assert_contains "$err" "ids must be unique" "the duplicate is explained"
+
+  reset_log
+  run_jev code out err batch <<'JSON'
+{"state":"s","questions":[{"id":"q","type":"pick","q":"Choose?","opts":{"A":"first","B":"second"}}]}
+JSON
+  assert_equals "$code" 1 "batch object-map options are rejected"
+  assert_contains "$err" "opts must be an array of strings" "the batch option format is explained"
+  assert_absent "$LOG/body" "invalid batch options are never sent"
   pass "fm-jev.sh: errors exit 1 with one line"
 }
 
@@ -198,6 +212,21 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "state over 4096 bytes is refused"
   assert_contains "$err" "4096-byte cap" "the cap is named"
   assert_absent "$LOG/body" "an oversized state is never sent"
+
+  respond '{"answers":{"yes":{"noul":0.97}}}'
+  reset_log
+  run_jev code out err yes "worktree for task-execution-receipt-retry is clean" "Done?"
+  assert_equals "$code" 0 "a hyphenated task slug is accepted"
+  assert_equals "$(jq -r '.state' "$LOG/body")" "worktree for task-execution-receipt-retry is clean" \
+    "the complete task slug is sent unchanged"
+
+  for token in sk-abcdefghijklmnop sk-or-abcdefghijklmnop ghp_abcdefghijklmnop github_pat_abcdefghijklmnop; do
+    reset_log
+    run_jev code out err yes "credential: $token" "Done?"
+    assert_equals "$code" 1 "a token boundary before $token is refused"
+    assert_contains "$err" "secret" "the token refusal says why"
+    assert_absent "$LOG/body" "a secret-looking token is never sent"
+  done
 
   run_jev code out err yes "GITHUB_TOKEN=ghp_abcdefghijklmnopqrst" "Done?"
   assert_equals "$code" 1 "secret-shaped state is refused"

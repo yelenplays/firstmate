@@ -52,7 +52,7 @@ fm-jev.sh - one typed Jev judgment (TypeSafe) with one output line per question.
   fm-jev.sh yes   "<state>" "<question>"                 yes/no with probability p of yes
   fm-jev.sh score "<state>" "<question>" lvl1 lvl2 ...   ordered levels, lowest first
   fm-jev.sh batch < {"state":"..","questions":[{"id":"x","type":"pick|yes|score","q":"..","opts":[..]}]}
-    Several questions on one state in one call; opts is omitted for yes and may be a {label:meaning} map.
+    Several questions on one state in one call; opts is an array of label or label=meaning strings.
 Flags go before the state: --id NAME (label for a single question), --min C (escalation floor), --json (raw response).
 Output: "id: answer p=0.96 conf=0.94"; a low-confidence verdict prints "id: ESCALATE conf=0.31 prior=X -> decide yourself".
 Exit: 0 answered, 2 any escalation, 1 error with a one-line reason; on 1 or 2 use your own judgment, never block.
@@ -193,9 +193,7 @@ NORM=$(printf '%s' "$SPEC" | jq -c '
                        | if test("=") then [(split("=")[0]), (split("=")[1:] | join("="))] else [., .] end
                        | if .[0] == "" then fail("question \(.id): empty option label") else . end
                        | if .[1] == "" then .[1] = .[0] else . end ]
-                   elif (.opts | type) == "object" then
-                     [ .opts | to_entries[] | [.key, (if (.value | type) == "string" and .value != "" then .value else .key end)] ]
-                   else fail("question \(.id): opts must be an array or a {label: meaning} map") end)
+                   else fail("question \(.id): opts must be an array of strings") end)
           | if (.opts | length) < 2 then fail("question \(.id): needs at least two options") else . end
           | if ([.opts[][0]] | unique | length) != (.opts | length) then fail("question \(.id): option labels must be unique") else . end
           | if .type == "score" and (.opts | length) > 10 then fail("question \(.id): score takes at most 10 levels") else . end
@@ -298,7 +296,7 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" --arg min "$MIN
       | ($q.opts | length) as $n
       | (if ($a.probabilities | type) == "object" and ($a.probabilities | length) > 0
          then ($a.probabilities | to_entries | max_by(.value) | {i: (.key | tonumber), p: .value})
-         else {i: ([[($s * ($n - 1) | round), 0] | max, $n - 1] | min), p: null} end) as $top
+         else {i: ([[($s | round), 0] | max, $n - 1] | min), p: null} end) as $top
       | { answer: $q.opts[$top.i][0], p: $top.p, s: $s,
           conf: ($a.confidence // (if $a.probabilities then estimate($a.probabilities) else null end)),
           floor: (if $a.confidence then 0.5 else 0.4 end) }

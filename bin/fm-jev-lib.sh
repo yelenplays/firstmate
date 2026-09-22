@@ -352,17 +352,15 @@ fm_jev_compact_state() {
       while (match(buf, /Bearer[[:space:]]+[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
-      while (match(buf, /sk-or-[A-Za-z0-9_-]+/)) {
-        buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
-      }
-      while (match(buf, /github_pat_[A-Za-z0-9_]+/)) {
-        buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
-      }
-      while (match(buf, /ghp_[A-Za-z0-9]+/)) {
-        buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
-      }
-      while (match(buf, /sk-[A-Za-z0-9_-]{16,}/)) {
-        buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
+      token_pattern = "(^|[[:space:]\"=:]|" sprintf("%c", 39) ")(sk-or-[A-Za-z0-9_-]+|github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|sk-[A-Za-z0-9_-]{16,})"
+      while (match(buf, token_pattern)) {
+        matched = substr(buf, RSTART, RLENGTH)
+        boundary = substr(matched, 1, 1)
+        if (boundary ~ /[[:space:]\"=:]/ || boundary == sprintf("%c", 39)) {
+          buf = substr(buf, 1, RSTART) "[redacted]" substr(buf, RSTART + RLENGTH)
+        } else {
+          buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
+        }
       }
       printf "%s", buf
     }
