@@ -1,0 +1,2 @@
+not ok - FM_CLAUDE_CALM_PLUGIN_TEST was requested but Claude Code 2.1.228 (Claude Code) has no mods surface (plugin test unknown)
+FM_LIVE=1 exit=1

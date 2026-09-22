@@ -1,0 +1,4 @@
+not ok - a timed-out verification did not report the preservation as attempted, not verified (missing: 'preservation could not be verified')
+--- output ---
+fm_portability-prefix.test.sh: Zeile 1486: timeout: Kommando nicht gefunden
+exit=1

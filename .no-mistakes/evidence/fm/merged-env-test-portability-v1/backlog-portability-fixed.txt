@@ -1,0 +1,3 @@
+ok - a signal-deferred spawn bounds its verification so an unresponsive tasks-axi cannot hold the meta lock forever
+ok - spawn refuses a special-file tasks-axi config instead of blocking on it
+exit=0

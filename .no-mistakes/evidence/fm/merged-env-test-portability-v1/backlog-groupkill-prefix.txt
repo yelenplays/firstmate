@@ -1,0 +1,5 @@
+/tmp/fm-targeted/prefixbin/fm-backlog-transition-lib.sh: Zeile 80: dirname: Kommando nicht gefunden
+/tmp/fm-targeted/prefixbin/fm-backlog-transition-lib.sh: Zeile 80: cd: NULL Verzeichnis
+/tmp/fm-targeted/prefixbin/fm-backlog-transition-lib.sh: Zeile 80: /fm-timeout-lib.sh: No such file or directory
+not ok - the perl watchdog killed only the leader and left a pipe-holding orphan behind (21s)
+exit=1

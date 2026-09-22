@@ -1,0 +1,47 @@
+# claude pane tail at failure:
+#    Accessing workspace:
+#    /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD
+#    Quick safety check: Is this a project you created or one you trust? (Like your own code, a well-known open source project, or work from your team). If not, take a moment to review what's in this folder first.
+#    Claude Code'll be able to read, edit, and execute files here.
+#    Security guide
+#    ❯ 1. Yes, I trust this folder
+#      2. No, exit
+#    Enter to confirm · Esc to cancel
+not ok - claude (2.1.228 (Claude Code)): idle composer never classified empty (last verdict: pending)
+ok - codex (codex-cli 0.154.0): real idle composer classifies empty
+# harness absent, not verified here: opencode
+# pi pane tail at failure:
+#    This allows pi to load .pi settings and resources, install missing project packages, and execute project extensions.
+#    → Trust
+#      Trust parent folder (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec)
+#      Trust (this session only)
+#      Do not trust
+#      Do not trust (this session only)
+#    ↑↓ navigate  enter select  escape/ctrl+c cancel
+#   ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+not ok - pi (0.85.1): idle composer never classified empty (last verdict: unknown)
+# grok pane tail at failure:
+#     detached worktree ~/.n/w/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD
+#                                                                                           Do you trust the contents of this directory?
+#                                                                            /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD
+#                                                                                     Grok Build may run or modify contents in this directory,
+#                                                                                                      posing security risks.
+#                                                                                                  Yes, proceed                 y
+#                                                                                                  No, quit                     n
+#                                                                                                                                                                                                   Grok Build  1.0.40 [stable]
+not ok - grok (grok 1.0.40 (eb1a2256660d) [stable]): idle composer never classified empty (last verdict: unknown)
+# kimi pane tail at failure:
+#     ↑↓ navigate · Enter select · Esc exit
+#     /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD
+#     Project-level MCP servers are disabled until you explicitly choose Trust. Trust starts the listed project MCP targets and remembers this folder.
+#        Trust this folder
+#        Enable project MCP servers. Remembered for this folder.
+#      ❯ Don't trust
+#        Exit Kimi Code. Asked again next launch.
+#    ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+not ok - kimi (0.39.1): idle composer never classified empty (last verdict: unknown)
+# harness absent, not verified here: muse
+ok - strict posture live: a blank shell row classifies unknown and injection defers
+ok - zellij (zellij 0.45.1): unrelated pane change never confirms delivery (verdict: unknown)
+not ok - live composer-matrix guard observed failures above
+exit=1

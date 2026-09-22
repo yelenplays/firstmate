@@ -1,0 +1,4 @@
+== PRE-FIX omp negative case (no fake ps, host ancestry) ==
+pi
+== POST-FIX omp negative case (pinned ps) ==
+claude

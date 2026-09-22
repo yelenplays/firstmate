@@ -1,0 +1,4 @@
+# codex (codex-cli 0.154.0): starfield furniture observed=no placeholder observed=no
+# codex pane tail at failure:
+not ok - codex (codex-cli 0.154.0): idle screen never classified empty (tmux read: unknown, cursorless styled read: unknown)
+exit=1

@@ -1,0 +1,18 @@
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD/bin/fm-backlog-transition-lib.sh: Zeile 80: dirname: Kommando nicht gefunden
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD/bin/fm-backlog-transition-lib.sh: Zeile 80: cd: NULL Verzeichnis
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD/bin/fm-backlog-transition-lib.sh: Zeile 80: /fm-timeout-lib.sh: No such file or directory
+ok - fm_tasks_axi bounds the call through its perl watchdog when no timeout binary exists
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD/bin/fm-backlog-transition-lib.sh: Zeile 80: dirname: Kommando nicht gefunden
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD/bin/fm-backlog-transition-lib.sh: Zeile 80: cd: NULL Verzeichnis
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD/bin/fm-backlog-transition-lib.sh: Zeile 80: /fm-timeout-lib.sh: No such file or directory
+ok - fm_tasks_axi's perl watchdog passes the child status and output through unchanged
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD/bin/fm-backlog-transition-lib.sh: Zeile 80: dirname: Kommando nicht gefunden
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD/bin/fm-backlog-transition-lib.sh: Zeile 80: cd: NULL Verzeichnis
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD/bin/fm-backlog-transition-lib.sh: Zeile 80: /fm-timeout-lib.sh: No such file or directory
+ok - fm_tasks_axi fails closed rather than running unbounded when no bounding mechanism exists
+ok - fm_tasks_axi's GNU timeout forces termination (skipped: no timeout binary on this host)
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD/bin/fm-backlog-transition-lib.sh: Zeile 80: dirname: Kommando nicht gefunden
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD/bin/fm-backlog-transition-lib.sh: Zeile 80: cd: NULL Verzeichnis
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M34AHM21B5F6Z1AWNZJAENFD/bin/fm-backlog-transition-lib.sh: Zeile 80: /fm-timeout-lib.sh: No such file or directory
+ok - fm_tasks_axi's perl watchdog signals the child's whole process group like GNU timeout
+exit=0

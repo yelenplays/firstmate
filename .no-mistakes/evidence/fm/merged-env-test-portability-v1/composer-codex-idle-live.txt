@@ -1,0 +1,4 @@
+# codex (codex-cli 0.154.0): starfield furniture observed=no placeholder observed=yes
+ok - codex (codex-cli 0.154.0): real idle screen classifies empty on the cursor-anchored tmux read and the cursorless styled read
+ok - live codex idle-screen guard verified 1 live surface(s)
+exit=0

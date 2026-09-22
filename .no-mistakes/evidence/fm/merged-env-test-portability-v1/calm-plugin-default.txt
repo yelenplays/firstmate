@@ -1,0 +1,2 @@
+skip: live: Claude Code 2.1.228 (Claude Code) has no mods surface (plugin test unknown)
+exit=0
