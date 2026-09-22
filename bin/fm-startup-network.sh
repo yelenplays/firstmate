@@ -78,14 +78,18 @@
 #          worker's ACT FIRST ranking. Called by bin/fm-session-start.sh after
 #          its locked drain; a no-op when no Jev key is configured.
 #
-# ACT FIRST RANKING. On a locked run started by `start`, the worker also runs
-# bin/fm-jev-act-first.sh's Jev ranking of the digest's actionable items in
-# parallel with the sweeps, so the one model call it makes never touches the
-# digest's blocking path. It waits up to FM_STARTUP_NETWORK_ACT_FIRST_WAIT
-# seconds (default 20) for act-first-input to deliver its own generation's
-# drain output, skips at once when no Jev key is configured, and appends its
-# lines to the report prefixed `ACT_FIRST:`. Those lines are advisory, so like
-# BOOTSTRAP_INFO they never make a finished report wake on their own.
+# ACT FIRST RANKING. On a locked run started by `start`, the worker also
+# launches bin/fm-jev-act-first.sh's Jev ranking of the digest's actionable
+# items as its own detached process, so the one model call it makes never
+# touches the digest's blocking path and the sweep report never waits for it:
+# the report publishes as soon as the sweeps finish. The ranking waits up to
+# FM_STARTUP_NETWORK_ACT_FIRST_WAIT seconds (default 20) for act-first-input to
+# deliver its own generation's drain output, skips at once when no Jev key is
+# configured, and publishes separately to .startup-network.act-first. Only when
+# it ranked at least one item does it raise one `check: act-first` wake through
+# the ordinary durable wake queue, so the advisory ranking is actually seen; no
+# items, no key, or a Jev error stays silent. `report` prints the latest ranking
+# after the sweep result.
 #
 # STATE, all under this home's state/ and gitignored with it:
 #   .startup-network.status   key=value record - generation, lock_pid, state,
@@ -118,6 +122,9 @@
 #   .startup-network.act-first-input
 #                             the generation line plus the drain output the
 #                             ACT FIRST ranking reads; removed once consumed.
+#   .startup-network.act-first
+#                             the generation line plus the latest published
+#                             ACT FIRST ranking, at most five lines.
 #
 # The whole stage is bounded by FM_STARTUP_NETWORK_TIMEOUT (default 120s), one
 # aggregate deadline covering both the inactive-outcome scan and network sweeps.
@@ -137,6 +144,7 @@ DELIVERED_FILE="$STATE/.startup-network.delivered"
 TIMINGS_FILE="$STATE/.startup-network.timings"
 PUBLISH_LOCK="$STATE/.startup-network.lock"
 ACT_FIRST_INPUT="$STATE/.startup-network.act-first-input"
+ACT_FIRST_FILE="$STATE/.startup-network.act-first"
 
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
@@ -335,15 +343,14 @@ lock_unchanged() {  # <expected-pid>
 
 # Bootstrap owns the meaning of its output protocol: silence is success,
 # BOOTSTRAP_INFO is an explicit completed no-action fact, and every other line
-# is a diagnostic; ACT_FIRST lines are the advisory ranking described in the
-# header. This delivery layer does not maintain a second semantic
+# is a diagnostic. This delivery layer does not maintain a second semantic
 # prefix list or decide what a diagnostic means; it only applies that producer-
 # supplied transport type. Unknown non-empty output fails safe by waking.
 report_requires_wake() {  # <state>
   local state=$1
   [ "$state" = "done" ] || return 0
   [ -s "$REPORT_FILE" ] || return 1
-  awk 'NF && $0 !~ /^(BOOTSTRAP_INFO|ACT_FIRST):/ { found=1; exit } END { exit !found }' \
+  awk 'NF && $0 !~ /^BOOTSTRAP_INFO:/ { found=1; exit } END { exit !found }' \
     "$REPORT_FILE" 2>/dev/null
 }
 
@@ -509,31 +516,22 @@ EOF
   # inactive-outcome wakes directly. A child shell composes the two executable
   # owners only so fm_run_timed can govern them as one process group.
   if [ "$sweep_locked" -eq 1 ]; then
+    # The ACT FIRST ranking is detached from the sweeps and publishes on its
+    # own, so the sweep report never waits for it (see the header). Only a
+    # worker started by `start` has a generation the digest hands input to; a
+    # manual run skips it rather than waiting for input that never comes.
+    if [ "$internal" -eq 1 ]; then
+      nohup "$SCRIPT_DIR/fm-startup-network.sh" act-first-rank --generation "$generation" \
+        >/dev/null 2>&1 </dev/null &
+    fi
     # shellcheck disable=SC2016  # Child-shell variables expand inside the bound.
-    # The ACT FIRST ranking runs beside the sweeps and appends after them, so
-    # it costs the stage no extra time unless it is the slower of the two.
-    # Only a worker started by `start` has a generation the digest hands input
-    # to; a manual run skips it rather than waiting for input that never comes.
     fm_run_timed "$budget" env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
       FM_BOOTSTRAP_NETWORK=only FM_BOOTSTRAP_NETWORK_LOCK_PID="$lock_pid" \
       bash -c '
-        script_dir=$1 generation=$2
-        rank_out=$(mktemp "${TMPDIR:-/tmp}/fm-startup-act-first.XXXXXX" 2>/dev/null) || rank_out=
-        rank_pid=
-        if [ -n "$generation" ] && [ -n "$rank_out" ]; then
-          "$script_dir/fm-startup-network.sh" act-first-rank --generation "$generation" >"$rank_out" 2>/dev/null &
-          rank_pid=$!
-        fi
+        script_dir=$1
         "$script_dir/fm-inactive-reconcile.sh" scan --startup >/dev/null 2>&1 || true
-        "$script_dir/fm-bootstrap.sh"
-        sweep_rc=$?
-        if [ -n "$rank_pid" ]; then
-          wait "$rank_pid" 2>/dev/null || true
-          cat "$rank_out" 2>/dev/null || true
-        fi
-        [ -z "$rank_out" ] || rm -f "$rank_out"
-        exit "$sweep_rc"
-      ' _ "$SCRIPT_DIR" "$([ "$internal" -eq 1 ] && printf '%s' "$generation")" >"$out" 2>&1 || rc=$?
+        exec "$script_dir/fm-bootstrap.sh"
+      ' _ "$SCRIPT_DIR" >"$out" 2>&1 || rc=$?
   else
     fm_run_timed "$budget" env FM_BOOTSTRAP_NETWORK=only FM_BOOTSTRAP_DETECT_ONLY=1 \
       "$SCRIPT_DIR/fm-bootstrap.sh" >"$out" 2>&1 || rc=$?
@@ -701,8 +699,17 @@ cmd_act_first_rank() {  # <generation>
     fm_run_timed 10 "$SCRIPT_DIR/fm-jev-act-first.sh" --drain-file "$drain" --status-dir "$STATE" 2>/dev/null </dev/null) || lines=
   rm -f "$drain"
   [ -n "$lines" ] || return 0
-  printf 'ACT_FIRST: Jev ranking of this session start'"'"'s actionable items (advisory; handle every item regardless):\n'
-  printf '%s\n' "$lines" | head -n 5 | sed 's/^/ACT_FIRST: /'
+  printf 'generation=%s\n%s\n' "$generation" "$(printf '%s\n' "$lines" | head -n 5)" \
+    | write_atomic "$ACT_FIRST_FILE" || return 0
+  fm_wake_append check act-first \
+    "check: act-first: Jev ranked this session start's actionable items (advisory; handle every item regardless); read them with $FM_ROOT/bin/fm-startup-network.sh report" \
+    || true
+}
+
+print_act_first() {
+  [ -s "$ACT_FIRST_FILE" ] || return 0
+  printf 'ACT FIRST - latest advisory Jev ranking of a session start'"'"'s actionable items:\n'
+  tail -n +2 "$ACT_FIRST_FILE"
 }
 
 # --- entry -------------------------------------------------------------------
@@ -729,7 +736,7 @@ case "$MODE" in
   start) cmd_start "$LOCKED" "${HARVEST_PID:-0}" ;;
   run) cmd_run "$LOCKED" "$LOCK_PID" "$GENERATION" ;;
   harvest) cmd_harvest "${HARVEST_PID:-}" ;;
-  report) print_state; print_timings ;;
+  report) print_state; print_timings; print_act_first ;;
   wait) cmd_wait "${1:-120}" || exit $? ;;
   act-first-input) cmd_act_first_input ;;
   act-first-rank) cmd_act_first_rank "$GENERATION" ;;

@@ -68,8 +68,9 @@
 # task's newest failed or blocked status line, in that fixed priority order,
 # at most five lines under an "ACT FIRST" heading, and nothing when fewer than
 # two items exist. It makes no model or network call. The same drain output is
-# handed to the deferred network stage, whose Jev ranking of it arrives with
-# the NETWORK CHECKS result (bin/fm-startup-network.sh owns that step). Both
+# handed to the deferred network stage, whose Jev ranking of it publishes
+# separately and raises one check wake when it has items
+# (bin/fm-startup-network.sh owns that step). Both
 # restate only items already in this digest, so they add no source to the
 # read-once contract and never replace handling or acknowledging every
 # presented wake. The helper's header owns item selection and output shape.

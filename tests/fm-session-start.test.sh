@@ -29,8 +29,8 @@
 #     network result surfaces exactly once (inline or as a wake, never both), a
 #     read-only session declares the checks it skipped, and the tasks-axi
 #     compatibility verdict is paid for once per session start
-#   - ACT FIRST: a local priority list after the wake queue, with the Jev
-#     ranking deferred to the network stage's report
+#   - ACT FIRST: a local priority list after the wake queue; the deferred Jev
+#     ranking never delays the network result and raises exactly one wake
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -1470,25 +1470,50 @@ test_act_first_lists_presented_items_without_a_network_call() {
   pass "session start: ACT FIRST lists presented items in priority order without waiting on Jev"
 }
 
-test_act_first_jev_ranking_arrives_with_the_network_checks() {
-  local report
-  make_act_first_world act-first-deferred 0
+# wait_for_file <path> <seconds>: poll until the file exists.
+wait_for_file() {
+  local path=$1 limit=$2 waited=0
+  while [ ! -e "$path" ] && [ "$waited" -lt "$((limit * 10))" ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  [ -e "$path" ]
+}
 
-  # A Herdr runtime inherited from the developer's shell adds its own actionable
-  # notice to the report, so it is cleared to keep the wake assertion about the
-  # ranking lines alone.
+test_act_first_network_result_never_waits_for_the_ranking() {
+  local report
+  # Slower than the sweeps, yet inside the ranking's own 10-second bound.
+  make_act_first_world act-first-slow 7
+
   (unset HERDR_ENV; FM_FAKE_HARNESS_PID=$$ run_session_start "$AF_HOME" "$AF_ROOT" "$AF_FAKEBIN:$BASE_PATH" >/dev/null)
 
-  wait_for_network_stage "$AF_HOME" "$AF_ROOT" 60 || fail "the deferred stage never finished"
+  wait_for_network_stage "$AF_HOME" "$AF_ROOT" 15 || fail "the network result waited for the slow ranking"
+  [ ! -e "$AF_LOG/finished" ] || fail "the network result was published only after the Jev call finished"
   report=$(network_stage_report "$AF_HOME" "$AF_ROOT")
-  assert_contains "$report" "ACT_FIRST: 1. decision task-z blocked: waiting on a key (p=0.8)" \
-    "the deferred report did not carry Jev's ranking"$'\n'"$report"
+  assert_not_contains "$report" "ACT FIRST" "the ranking was published before its Jev call could finish"
+  wait_for_file "$AF_HOME/state/.startup-network.act-first" 30 || fail "the slow ranking never published"
+  pass "session start: the network result publishes without waiting for a slow Jev ranking"
+}
+
+test_act_first_ranking_with_items_raises_exactly_one_wake() {
+  local report wakes
+  make_act_first_world act-first-deferred 0
+
+  (unset HERDR_ENV; FM_FAKE_HARNESS_PID=$$ run_session_start "$AF_HOME" "$AF_ROOT" "$AF_FAKEBIN:$BASE_PATH" >/dev/null)
+
+  wait_for_file "$AF_HOME/state/.startup-network.act-first" 45 || fail "the ranking never published"
+  wait_for_network_stage "$AF_HOME" "$AF_ROOT" 60 || fail "the deferred stage never finished"
+  wakes=$(grep -c $'\tcheck\tact-first\t' "$AF_HOME/state/.wake-queue" 2>/dev/null)
+  [ "$wakes" = 1 ] || fail "the ranking raised $wakes act-first wakes, want exactly one"$'\n'"$(cat "$AF_HOME/state/.wake-queue")"
+  assert_no_grep $'check\tstartup-network' "$AF_HOME/state/.wake-queue" \
+    "the ranking made the network result raise its own wake"
+  report=$(network_stage_report "$AF_HOME" "$AF_ROOT")
+  assert_contains "$report" "1. decision task-z blocked: waiting on a key (p=0.8)" \
+    "report did not show Jev's ranking"$'\n'"$report"
   jq -e '.state | contains("wake signal task-y.status")' "$AF_LOG/body" >/dev/null \
     || fail "the ranking did not use this session start's presented wakes"
-  assert_no_grep $'check\tstartup-network' "$AF_HOME/state/.wake-queue" \
-    "the advisory ranking raised a startup-network wake"
   [ ! -e "$AF_HOME/state/.startup-network.act-first-input" ] || fail "the consumed ranking input was left behind"
-  pass "session start: the Jev ranking runs in the deferred stage and arrives with its report"
+  pass "session start: a ranking with items publishes separately and raises exactly one wake"
 }
 
 test_branch_outcome_replay_respects_captain_barrier_and_lease_sweep() {
@@ -2827,7 +2852,8 @@ test_endpoint_liveness_tmux
 test_endpoint_liveness_herdr
 test_composition_invokes_real_scripts
 test_act_first_lists_presented_items_without_a_network_call
-test_act_first_jev_ranking_arrives_with_the_network_checks
+test_act_first_network_result_never_waits_for_the_ranking
+test_act_first_ranking_with_items_raises_exactly_one_wake
 test_branch_outcome_replay_respects_captain_barrier_and_lease_sweep
 test_non_pi_session_start_leaves_branch_state_untouched
 test_backlog_compact_tasks_axi_omits_bodies_and_keeps_metadata
