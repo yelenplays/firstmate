@@ -598,7 +598,14 @@ case "${1:-}" in
       exit "${FM_FAKE_NM_AXI_RC:-0}"
     fi ;;
   daemon)
-    if [ "${2:-}" = status ]; then exit "${FM_FAKE_NM_DAEMON_RC:-0}"; fi ;;
+    if [ "${2:-}" = status ]; then
+      if [ "${FM_FAKE_NM_DAEMON_DOWN:-0}" = 1 ]; then
+        printf '  daemon not running\n'
+      else
+        printf '  daemon running (pid %s)\n' "$$"
+      fi
+      exit 0
+    fi ;;
 esac
 exit 1
 SH
@@ -681,7 +688,7 @@ TOON
     || fail "a daemon-executed quiet ci step did not prove the run executing"
   # With the daemon itself down, the same record is a stale ledger row, not a
   # running process - and no log has grown, so nothing proves execution.
-  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" FM_FAKE_NM_DAEMON_RC=1 \
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" FM_FAKE_NM_DAEMON_DOWN=1 \
     crew_nm_run_progressing a "$state" "$anchor" \
     || fail "a daemon-executed step still counted after the daemon probe failed"
   # A live agent process for an in-flight step is execution evidence.
@@ -2248,7 +2255,14 @@ case "${1:-}" in
       exit "${FM_FAKE_NM_AXI_RC:-0}"
     fi ;;
   daemon)
-    if [ "${2:-}" = status ]; then exit "${FM_FAKE_NM_DAEMON_RC:-0}"; fi ;;
+    if [ "${2:-}" = status ]; then
+      if [ "${FM_FAKE_NM_DAEMON_DOWN:-0}" = 1 ]; then
+        printf '  daemon not running\n'
+      else
+        printf '  daemon running (pid %s)\n' "$$"
+      fi
+      exit 0
+    fi ;;
 esac
 exit 1
 SH

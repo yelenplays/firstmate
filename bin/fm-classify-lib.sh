@@ -2079,6 +2079,7 @@ crew_worktree_written_since() {  # <id> <state> <anchor-file>
 # bound: hitting it reads as no evidence, exactly like every other negative
 # outcome here.
 FM_NM_RUN_EVIDENCE_TIMEOUT=${FM_NM_RUN_EVIDENCE_TIMEOUT:-10}
+case "$FM_NM_RUN_EVIDENCE_TIMEOUT" in ''|*[!0-9]*|0) FM_NM_RUN_EVIDENCE_TIMEOUT=10 ;; esac
 
 # Prints <id>'s no-mistakes run id and returns 0 when the run attributed to the
 # task's branch is demonstrably EXECUTING: positive process or log evidence
@@ -2113,7 +2114,7 @@ FM_NM_RUN_EVIDENCE_TIMEOUT=${FM_NM_RUN_EVIDENCE_TIMEOUT:-10}
 # daemon-executed step, one bounded `daemon status`.
 crew_nm_run_progressing() {  # <id> <state> <anchor-file>
   local id=$1 state=$2 anchor=$3 wt kind branch out rbranch rid pairs
-  local pid activity daemon_up nm_home logdir hit
+  local pid activity daemon_up nm_home logdir hit row
   [ -n "$id" ] || return 1
   [ -f "$anchor" ] || return 1
   command -v no-mistakes >/dev/null 2>&1 || return 1
@@ -2133,7 +2134,9 @@ crew_nm_run_progressing() {  # <id> <state> <anchor-file>
   pairs=$(fm_nm_active_steps_pairs "$out")
   if [ -n "$pairs" ]; then
     daemon_up=''
-    while IFS=$'\t' read -r pid activity; do
+    while IFS= read -r row; do
+      pid=${row%%$'\t'*}
+      activity=${row#*$'\t'}
       case "$activity" in
         ''|quiet*) ;;
         *) printf '%s' "$rid"; return 0 ;;
@@ -2141,7 +2144,7 @@ crew_nm_run_progressing() {  # <id> <state> <anchor-file>
       case "$pid" in
         ''|*[!0-9]*)
           if [ -z "$daemon_up" ]; then
-            if fm_nm_run_checked "$wt" "$FM_NM_RUN_EVIDENCE_TIMEOUT" daemon status >/dev/null; then
+            if fm_nm_daemon_running "$wt" "$FM_NM_RUN_EVIDENCE_TIMEOUT"; then
               daemon_up=1
             else
               daemon_up=0

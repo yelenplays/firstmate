@@ -38,6 +38,24 @@ fm_nm_run() {  # <dir> <timeout_secs> <args...>
   fm_nm_run_checked "$@" || true
 }
 
+# 0 when the shared no-mistakes daemon is provably up in dir $1. The status
+# subcommand exits 0 whether or not the daemon answers (verified against the
+# installed CLI: a missing, empty, or stale NM_HOME also prints "daemon not
+# running" and returns 0), so its ANSWER is the evidence, never its exit
+# status: "daemon running" is the only positive, while "daemon not running",
+# "daemon stopped", a non-zero exit, or an empty answer all read as not
+# provably up. Bounded like every other CLI call, and the ONE owner of this
+# probe for both the run-liveness deferral in fm-classify-lib.sh and
+# nm_daemon_probe_down in fm-crew-state.sh.
+fm_nm_daemon_running() {  # <dir> <timeout_secs>
+  local out
+  out=$(fm_nm_run_checked "$1" "$2" daemon status) || return 1
+  case "$out" in
+    *'daemon running'*) return 0 ;;
+  esac
+  return 1
+}
+
 fm_nm_trim() {
   local s=${1:-}
   s="${s#"${s%%[![:space:]]*}"}"
