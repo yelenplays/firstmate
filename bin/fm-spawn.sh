@@ -2962,8 +2962,8 @@ validate_spawn_worktree() { # <source> <inspect-target>
 # below and before any refresh, so a second worker can never start inside a
 # copy another task still owns. A scan that cannot run fails closed the same
 # way: without it the slot cannot be proved unowned.
-spawn_refuse_record_held_worktree() { # <worktree>
-  local worktree=$1 slot conflict other_id field
+spawn_refuse_record_held_worktree() { # <worktree> <inspect-target>
+  local worktree=$1 inspect_target=$2 slot conflict other_id field
   slot=$(fm_canonical_existing_dir "$worktree") || {
     echo "error: assigned worktree $worktree cannot be resolved; refusing to launch" >&2
     return 1
@@ -2974,7 +2974,7 @@ spawn_refuse_record_held_worktree() { # <worktree>
   [ -n "$conflict" ] || return 0
   other_id=$(printf '%s' "$conflict" | cut -f1)
   field=$(printf '%s' "$conflict" | cut -f2)
-  echo "error: assigned worktree $worktree is already task $other_id's recorded $field; launching would put two tasks in the same copy" >&2
+  echo "error: assigned worktree $worktree is already task $other_id's recorded $field; launching would put two tasks in the same copy; inspect window $inspect_target" >&2
   echo "Reconcile whichever record is wrong (bin/fm-crew-state.sh $other_id), or tear that task down if it is finished (bin/fm-teardown.sh $other_id), then re-run the spawn" >&2
   return 1
 }
@@ -3887,7 +3887,7 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
 
   validate_spawn_worktree "treehouse get" "$T"
 
-  spawn_refuse_record_held_worktree "$WT" || exit 1
+  spawn_refuse_record_held_worktree "$WT" "$T" || exit 1
 
   # Claim the pool slot for this task. The interactive `treehouse get` sent to
   # the pane above records only a process lease (Treehouse's durable

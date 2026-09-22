@@ -847,9 +847,73 @@ test_record_held_pool_worktree_refuses_spawn() {
   pass "spawn refuses a worktree held by another task record - same-home, home=, or cross-home - and launches on an unheld one"
 }
 
+# The exclusion that skips the caller's own record has to compare spellings the
+# way the scan does. A home reached through a symlink enumerates its own state
+# dir under the canonical path while the exclusion carries the spelled path, so
+# a re-spawn of an id whose own record names the assigned slot would be told it
+# is its own holder. A genuine other record on the same slot still refuses
+# through that spelling, and the refusal names the endpoint still holding it.
+test_own_record_is_not_a_conflict_under_a_spelled_home() {
+  local rec id other out status linked_home spawn_home
+
+  id='pool-own-record-r15'
+  rec=$(make_case own-record "$id")
+  read_case_record "$rec"
+  lay_out_as_pool_slot
+  fm_write_meta "$HOME_DIR/state/$id.meta" \
+    "window=firstmate:fm-$id" "endpoint_task_id=$id" \
+    "worktree=$POOL_DIR" "project=$PROJECT_DIR" "kind=ship"
+
+  linked_home="$CASE_DIR/home-link"
+  ln -s "$HOME_DIR" "$linked_home"
+  spawn_home="$CASE_DIR/spawn-user-home"
+  mkdir -p "$spawn_home"
+
+  out=$(FM_ROOT_OVERRIDE='' FM_HOME="$linked_home" HOME="$spawn_home" \
+    CLAUDE_CONFIG_DIR='' \
+    FM_STATE_OVERRIDE="$linked_home/state" FM_DATA_OVERRIDE="$linked_home/data" \
+    FM_PROJECTS_OVERRIDE="$linked_home/projects" FM_CONFIG_OVERRIDE="$linked_home/config" \
+    FM_SPAWN_NO_GUARD=1 FM_FAKE_PANE_PATH="$POOL_DIR" TMUX="fake,1,0" \
+    PATH="$FAKEBIN_DIR:$PATH" \
+    "$ROOT/bin/fm-spawn.sh" "$id" "$PROJECT_DIR" --scout 2>&1)
+  status=$?
+  expect_code 0 "$status" \
+    "a spawn reusing its own recorded worktree through a spelled home refused itself"$'\n'"$out"
+  assert_contains "$out" "spawned $id" "the re-spawn through a spelled home did not report success"
+
+  # A second task's record on the same slot is a real collision and still
+  # refuses, through the same spelled home, naming the endpoint to inspect.
+  other='pool-other-holder-r15'
+  rec=$(make_case own-record-other "$other")
+  read_case_record "$rec"
+  lay_out_as_pool_slot
+  fm_test_spawn_brief "$HOME_DIR" 'pool-other-spawn-r15'
+  fm_write_meta "$HOME_DIR/state/$other.meta" \
+    "window=firstmate:fm-$other" "endpoint_task_id=$other" \
+    "worktree=$POOL_DIR" "project=$PROJECT_DIR" "kind=ship"
+  linked_home="$CASE_DIR/home-link"
+  ln -s "$HOME_DIR" "$linked_home"
+  spawn_home="$CASE_DIR/spawn-user-home"
+  mkdir -p "$spawn_home"
+
+  out=$(FM_ROOT_OVERRIDE='' FM_HOME="$linked_home" HOME="$spawn_home" \
+    CLAUDE_CONFIG_DIR='' \
+    FM_STATE_OVERRIDE="$linked_home/state" FM_DATA_OVERRIDE="$linked_home/data" \
+    FM_PROJECTS_OVERRIDE="$linked_home/projects" FM_CONFIG_OVERRIDE="$linked_home/config" \
+    FM_SPAWN_NO_GUARD=1 FM_FAKE_PANE_PATH="$POOL_DIR" TMUX="fake,1,0" \
+    PATH="$FAKEBIN_DIR:$PATH" \
+    "$ROOT/bin/fm-spawn.sh" 'pool-other-spawn-r15' "$PROJECT_DIR" --scout 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn launched into a worktree another task holds under a spelled home"
+  assert_contains "$out" "$other" "the spelled-home refusal did not name the task holding the worktree"
+  assert_contains "$out" "inspect window" "the spelled-home refusal did not point at the endpoint holding the slot"
+  pass "a spelled home skips its own record but still refuses another task's, naming the endpoint"
+}
+
 test_remote_seeded_home_spawns_from_treehouse_pool
 test_pool_slot_claim_follows_the_spawn_outcome
 test_record_held_pool_worktree_refuses_spawn
+test_own_record_is_not_a_conflict_under_a_spelled_home
 test_linked_spawning_home_rejects_primary_before_refresh
 test_stale_pool_base_refreshes_before_branching
 test_non_main_default_branch_refreshes_before_branching

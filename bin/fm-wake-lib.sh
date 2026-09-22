@@ -1374,6 +1374,20 @@ fm_canonical_existing_dir() {  # <path>
   (CDPATH='' cd -- "$target" 2>/dev/null && pwd -P)
 }
 
+# Canonicalize a file path through its parent directory. The file itself cannot
+# be entered, so a meta file reached through a symlinked or /tmp-prefixed state
+# dir keeps its spelled prefix while the canonical enumeration of the same state
+# dir does not; comparing the two spellings only works when both are canonical.
+# The parent must exist and resolve.
+fm_canonical_file_path() {  # <path>
+  local target=$1 dir base
+  [ -n "$target" ] || return 1
+  dir=$(dirname "$target") || return 1
+  base=$(basename "$target") || return 1
+  dir=$(CDPATH='' cd -- "$dir" 2>/dev/null && pwd -P) || return 1
+  printf '%s/%s\n' "$dir" "$base"
+}
+
 # Fill FM_FIRSTMATE_LOCAL_STATES with every local Firstmate home's state
 # directory, own first: the local root home plus each registered local
 # descendant, walked breadth-first through the secondmates.md registry chain.
@@ -1383,9 +1397,15 @@ fm_canonical_existing_dir() {  # <path>
 FM_FIRSTMATE_LOCAL_STATES=()
 fm_collect_local_firstmate_states() {  # <own-state-dir> [abort-note]
   local record_state=$1 note=${2:-nothing was changed}
-  local root home reg line child known existing i=0
+  local root home reg line child known existing i=0 own_state
   local -a homes
-  FM_FIRSTMATE_LOCAL_STATES=("$record_state")
+  # The own state dir is enumerated once, under the same canonical spelling the
+  # root walk below uses. A non-canonical caller spelling (a symlinked or
+  # /tmp-prefixed home) would otherwise enumerate the same directory twice, so
+  # the caller's own record could be seen under a spelling its exclusion does
+  # not cover and reported as its own holder.
+  own_state=$(fm_canonical_existing_dir "$record_state") || own_state=$record_state
+  FM_FIRSTMATE_LOCAL_STATES=("$own_state")
   root=$(fm_firstmate_root_home "$FM_HOME") || {
     echo "REFUSED: cannot resolve the root Firstmate home; $note" >&2
     return 1
@@ -1442,6 +1462,9 @@ fm_task_record_conflicts_on_path() {  # <canonical-path> [exclude-meta]
     # shellcheck source=bin/fm-backend.sh
     . "$FM_WAKE_LIB_DIR/fm-backend.sh"
   }
+  if [ -n "$exclude" ]; then
+    exclude=$(fm_canonical_file_path "$exclude" 2>/dev/null) || exclude=$2
+  fi
   for state_dir in "${FM_FIRSTMATE_LOCAL_STATES[@]+"${FM_FIRSTMATE_LOCAL_STATES[@]}"}"; do
     for other in "$state_dir"/*.meta; do
       [ -f "$other" ] && [ ! -L "$other" ] || continue
