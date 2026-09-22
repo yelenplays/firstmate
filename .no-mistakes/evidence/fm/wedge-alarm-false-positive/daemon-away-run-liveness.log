@@ -1,0 +1,4 @@
+$ bash /tmp/fm-daemon-single.test.sh   # test_housekeeping_run_liveness_defers_then_escalates
+
+ok - away-mode housekeeping defers while the run executes and escalates once it does not
+rc=0

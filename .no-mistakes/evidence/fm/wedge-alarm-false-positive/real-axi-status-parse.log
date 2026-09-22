@@ -1,0 +1,30 @@
+# Run-liveness probe parses the REAL no-mistakes 'axi status' output
+## Real captured 'no-mistakes axi status --run 01M348NVD5C868787DKTCDMNYN' (the live gate run for this branch)
+run:
+  id: "01M348NVD5C868787DKTCDMNYN"
+  branch: fm/wedge-alarm-false-positive
+  status: running
+  head: 0de490e8
+  head_sha: 0de490e842423dd05225e5f2cc0c403f48096518
+  findings: 1 info
+  steps[9]{step,status,findings,duration_ms}:
+    intent,completed,0,18
+    rebase,completed,0,1447
+    review,completed,1,4711855
+    test,running,0,0
+    document,pending,0,0
+    lint,pending,0,0
+    push,pending,0,0
+    pr,pending,0,0
+    ci,pending,0,0
+  active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+    test,running,6m38s,6m38s,"0s ago: pi producing output","1561",starting
+
+## fm_nm_active_steps_rows <real output>
+    test,running,6m38s,6m38s,"0s ago: pi producing output","1561",starting
+
+## fm_nm_active_steps_pairs <real output> -> pid / activity as the probe reads them
+pid=[1561] activity=[0s ago: pi producing output]  -> non-quiet (execution evidence)? YES
+
+## Incident shape: daemon-executed step with EMPTY agent_pid (tab pairing)
+pid=[] activity=[quiet 2h58m ago: log: CI checks running]

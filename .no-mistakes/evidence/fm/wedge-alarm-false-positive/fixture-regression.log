@@ -1,0 +1,27 @@
+# Fixture regression: fm-classify-lib.sh now sources fm-nm-run-lib.sh
+
+## Minimal reproduction of the pre-fix abort (fixture installs fm-classify-lib.sh without its new sibling)
+$ bash -eu -c '. $dir/bin/fm-classify-lib.sh; echo sourced-ok'   # sibling missing
+/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/tmp.5KOJGuQ5Hg/bin/fm-classify-lib.sh: Zeile 78: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/tmp.5KOJGuQ5Hg/bin/fm-nm-run-lib.sh: No such file or directory
+rc=1
+
+## Same, with fm-nm-run-lib.sh installed (the updated fixture set)
+$ bash -eu -c '. $dir/bin/fm-classify-lib.sh; echo sourced-ok'   # sibling present
+sourced-ok
+rc=0
+
+## tests/fm-afk-return.test.sh (updated install_runner adds fm-nm-run-lib.sh)
+ok - the return brief leads with supervisor health and names every detected gap
+ok - the return brief does not report an already-acked watcher-down marker as an open gap
+ok - a return with only the legacy away flag still renders the brief and measures the window from the flag
+rc=0
+
+## tests/fm-pi-branch-extension.test.sh :: test_branch_default_on_heartbeat_afk_and_fallback
+ok - branch default-on eligibility (task-scoped, heartbeat, afk) binds and a broken branch rejects to watcher fallback
+rc=0
+
+## tests/fm-remote-transport-lanes.test.sh (updated fixture cp list)
+ok - --stdin still delivers a payload caller's bytes
+ok - abandoned stage litter is reaped by age while live staging survives
+ALL TESTS PASSED
+rc=0

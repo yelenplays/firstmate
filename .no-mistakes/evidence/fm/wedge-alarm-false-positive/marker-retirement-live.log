@@ -1,0 +1,6 @@
+PASS: retire+claim removed predecessor .nmrun-* chain
+orphan sweep: removed=2 left=0
+PASS: orphan sweep reaped .nmrun-* markers
+daemon clear_pause_tracking: left=0
+PASS: daemon cleared .nmrun-* markers
+marker rc=0

@@ -1,0 +1,28 @@
+# Real no-mistakes CLI contract: 'daemon status' exit code vs ANSWER
+no-mistakes version: no-mistakes version v1.75.2 (4debd42) 2026-09-14T06:41:58Z
+
+## Raw CLI, real default NM_HOME (daemon up)
+[33mA new version of no-mistakes is available: v1.75.2 -> v1.79.0
+Run "no-mistakes update" to update[0m
+  ● daemon running (pid 90719)
+rc=0
+
+## Raw CLI, NM_HOME=/tmp/nm-not-there (missing)
+  ○ daemon not running
+rc=0
+
+## Raw CLI, empty NM_HOME
+  ○ daemon not running
+rc=0
+
+## Raw CLI, stale NM_HOME (pid/lock)
+[33mA new version of no-mistakes is available: v1.75.2 -> v1.79.0
+Run "no-mistakes update" to update[0m
+  ○ daemon not running
+rc=0
+
+## fm_nm_daemon_running (the fixed probe) against the same real CLI
+real NM_HOME (daemon up)   -> UP
+missing NM_HOME            -> DOWN
+empty NM_HOME              -> DOWN
+stale NM_HOME (pid/lock)   -> DOWN

@@ -1,0 +1,4 @@
+$ FM_TEST_ONLY=test_nonterminal_stale_live_nm_run_defers_then_escalates_when_run_dies bash tests/fm-watch-triage.test.sh
+
+ok - a stale pane defers while its no-mistakes run demonstrably executes, and still escalates once nothing proves it
+rc=0

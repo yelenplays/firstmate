@@ -1,0 +1,4 @@
+$ FM_TEST_ONLY=test_crew_nm_run_progressing_classifier bash tests/fm-watch-triage.test.sh
+
+ok - crew_nm_run_progressing: live pid, live daemon-step, or growing run logs prove execution; every negative outcome reports none
+rc=0
