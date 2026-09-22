@@ -1,0 +1,14 @@
+== Opt-in live Devin/Herdr e2e: base vs fixed ==
+The guard's changed assertion (real Devin composer read through the caller path) passed in BOTH runs.
+Both BASE (7ffa14d) and FIXED (c90364b) reproducibly abort later, at the interrupt->follow-up step,
+with the follow-up steer (002.msg) left unhandled: a pre-existing live-guard timing failure independent
+of this change (base bin, base test file: tests/fm-devin-live-e2e.test.sh at 7ffa14d).
+
+BASE   run tail:
+WARNING: watcher still down (same stale episode; last beat: 26s ago, grace 300s) - full banner already printed this episode.
+not ok - devin 3000.11.1 (cc4e349ca55e) follow-up was not processed
+FAIL - devin 3000.11.1 (cc4e349ca55e); evidence retained at /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-devin-live.95QFPF
+FIXED  run tail:
+WARNING: watcher still down (same stale episode; last beat: 30s ago, grace 300s) - full banner already printed this episode.
+not ok - devin 3000.11.1 (cc4e349ca55e) follow-up was not processed
+FAIL - devin 3000.11.1 (cc4e349ca55e); evidence retained at /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-devin-live.nmSn4I

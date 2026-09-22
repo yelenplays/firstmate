@@ -1,0 +1,4 @@
+--- fm-crew-state.sh probe, harness=devin (real w9C churning done Devin) ---
+state: unknown · source: none · no current-state source available
+--- same real pane, harness=claude control ---
+state: unknown · source: pane · harness state unavailable (unknown missing)

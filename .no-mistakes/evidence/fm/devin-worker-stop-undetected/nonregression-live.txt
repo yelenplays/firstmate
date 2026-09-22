@@ -1,0 +1,11 @@
+== other runtimes unchanged: REAL herdr panes ==
+{"pane":"w4V(pi)","agent":"pi","agent_status":"done"}
+{"pane":"w9C(devin)","agent":"devin","agent_status":"done"}
+BASE  busy_classify herdr pi    (w4V) -> unknown missing
+FIXED busy_classify herdr pi    (w4V) -> unknown missing
+BASE  busy_classify herdr claude(w9C) -> unknown missing
+FIXED busy_classify herdr claude(w9C) -> unknown missing
+BASE  busy_classify herdr devin (w9C) -> unknown missing
+FIXED busy_classify herdr devin (w9C) -> idle herdr-native
+BASE  composer_state(label) pi  (w4V) -> unknown
+FIXED composer_state(label) pi  (w4V) -> unknown

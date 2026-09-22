@@ -1,0 +1,9 @@
+== Opt-in live Devin/Herdr e2e (FM_DEVIN_LIVE=1) — observations before the guard's follow-up failure ==
+-- changed assertion: fm_backend_herdr_composer_state "$target" (no harness hint) = empty: PASSED (test advanced past it)
+-- initial prompt + detection: devin
+-- native busy during the steer (busy.json): {"agent":"devin","agent_status":"working"}
+-- fm-crew-state.sh while working (crew-state.txt): state: working · source: pane · harness busy (herdr-native)
+-- fm-control interrupt (interrupt.txt): interrupt-delivered probe harness=devin backend=herdr verified=agent-alive cancel=unconfirmed
+-- steer delivered to inbox (handled/001.msg): Run sleep 15, then reply STEER_DONE. Do nothing else.
+-- follow-up written to inbox (002.msg): The previous request is cancelled. Run printf followup > followup.txt and finish. Do nothing else.
+-- follow-up NOT consumed by Devin within 90s: 002.msg still unhandled at failure (guard step after the changed code; interrupt/follow-up timing, not composer classification)

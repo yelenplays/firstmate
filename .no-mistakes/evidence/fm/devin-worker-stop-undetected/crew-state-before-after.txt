@@ -1,0 +1,3 @@
+== real pane default:w9C:p2 (devin, agent_status=done, churning), status log says blocked ==
+BASE  fm-crew-state.sh -> state: unknown · source: pane · harness state unavailable (unknown missing)
+FIXED fm-crew-state.sh -> state: blocked · source: status-log · waiting on the upstream release

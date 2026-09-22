@@ -1,0 +1,3 @@
+== watcher stdout (wake reason) ==
+stale: default:w9C:p2 (idle 1s, possible wedge, escalation 1)
+== watcher stderr ==

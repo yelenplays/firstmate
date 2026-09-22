@@ -1,0 +1,7 @@
+== real pane default:w9B:p2 (static idle Devin) / w9C (churning done Devin) ==
+{"pane":"w9B","agent":"devin","agent_status":"idle"}
+{"pane":"w9C","agent":"devin","agent_status":"done"}
+BASE  busy_classify herdr devin (w9C)          -> unknown missing
+FIXED busy_classify herdr devin (w9C)          -> idle herdr-native
+BASE  composer_state(label slot) idle w9B       -> unknown
+FIXED composer_state(label slot) idle w9B       -> empty
