@@ -1175,7 +1175,7 @@ fm_task_set_lock_path() {  # <state-dir>
 # the walk at the current home, which is the correct answer rather than an
 # error: the parent lives on another machine, so its filesystem can neither hold
 # nor be observed by a lock taken here, and a remote-seeded home is itself the
-# top of the local tree that bin/fm-teardown.sh's collect_local_firstmate_states
+# top of the local tree that fm_collect_local_firstmate_states below
 # enumerates (that walk already skips remote registry entries for the same
 # reason). Refusing a remote binding instead made every operation anchored here
 # fail closed inside a remote secondmate home and its local descendants.
@@ -1350,6 +1350,112 @@ fm_treehouse_slot_owner_release() {  # <worktree> <task-id>
   [ "$FM_TREEHOUSE_SLOT_OWNER" = mine ] || return 0
   marker=$(fm_treehouse_slot_owner_marker "$worktree") || return 0
   rm -f "$marker" 2>/dev/null || true
+}
+
+# --- Live-path ownership scan over every local home's task records ----------
+#
+# A Treehouse pool slot is reused across tasks and across HOMES: the slot
+# allocation lock is anchored in the local root home, so the task holding a
+# slot may be recorded in any local Firstmate home. Proving a live path
+# unowned therefore scans every local home's task records, not only the
+# caller's own. bin/fm-teardown.sh refuses to return a slot another record
+# still names; bin/fm-spawn.sh refuses to launch a worker into one.
+#
+# A state/<id>.meta record is the fleet's durable ownership proof: it is
+# published at spawn and removed at teardown, so a record naming the path IS
+# the living task's claim on it. A record whose own path no longer resolves is
+# skipped - it cannot name the slot that was just handed out.
+
+# Canonical form of a directory that must already exist; anything else fails.
+fm_canonical_existing_dir() {  # <path>
+  local target=$1
+  [ -n "$target" ] || return 1
+  [ -d "$target" ] || return 1
+  (CDPATH='' cd -- "$target" 2>/dev/null && pwd -P)
+}
+
+# Fill FM_FIRSTMATE_LOCAL_STATES with every local Firstmate home's state
+# directory, own first: the local root home plus each registered local
+# descendant, walked breadth-first through the secondmates.md registry chain.
+# Remote entries are skipped - their records live on another machine and
+# cannot claim a slot here. <abort-note> tails each refusal line so the caller
+# names its own stop instead of inheriting another's.
+FM_FIRSTMATE_LOCAL_STATES=()
+fm_collect_local_firstmate_states() {  # <own-state-dir> [abort-note]
+  local record_state=$1 note=${2:-nothing was changed}
+  local root home reg line child known existing i=0
+  local -a homes
+  FM_FIRSTMATE_LOCAL_STATES=("$record_state")
+  root=$(fm_firstmate_root_home "$FM_HOME") || {
+    echo "REFUSED: cannot resolve the root Firstmate home; $note" >&2
+    return 1
+  }
+  homes=("$root")
+  while [ "$i" -lt "${#homes[@]}" ]; do
+    home=${homes[$i]}
+    i=$((i + 1))
+    known=0
+    for existing in "${FM_FIRSTMATE_LOCAL_STATES[@]}"; do
+      [ "$existing" != "$home/state" ] || known=1
+    done
+    [ "$known" = 1 ] || FM_FIRSTMATE_LOCAL_STATES+=("$home/state")
+    reg="$home/data/secondmates.md"
+    [ ! -e "$reg" ] && [ ! -L "$reg" ] && continue
+    [ -f "$reg" ] && [ ! -L "$reg" ] || {
+      echo "REFUSED: local Firstmate registry is unsafe at $reg; $note" >&2
+      return 1
+    }
+    if ! command -v secondmate_registry_parse_line >/dev/null 2>&1; then
+      # shellcheck source=bin/fm-secondmate-registry-lib.sh
+      . "$FM_WAKE_LIB_DIR/fm-secondmate-registry-lib.sh"
+    fi
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in
+        "- "*)
+          secondmate_registry_parse_line "$line" || {
+            echo "REFUSED: malformed local Firstmate registry entry in $reg; $note" >&2
+            return 1
+          }
+          [ "$SECONDMATE_REGISTRY_REMOTE" -eq 0 ] || continue
+          child=$(fm_canonical_existing_dir "$SECONDMATE_REGISTRY_HOME") || {
+            echo "REFUSED: registered local Firstmate home is unavailable: $SECONDMATE_REGISTRY_HOME; $note" >&2
+            return 1
+          }
+          known=0
+          for existing in "${homes[@]}"; do
+            [ "$existing" != "$child" ] || known=1
+          done
+          [ "$known" = 1 ] || homes+=("$child")
+          ;;
+      esac
+    done < "$reg"
+  done
+}
+
+# Print one "<task-id>\t<field>\t<meta-file>" line per local task record whose
+# worktree= or home= field resolves to <canonical-path>, the same evidence of
+# ownership fm_collect_local_firstmate_states gathered. <exclude-meta> skips
+# the caller's own record; pass an empty value for none.
+fm_task_record_conflicts_on_path() {  # <canonical-path> [exclude-meta]
+  local slot=$1 exclude=${2:-} state_dir other other_id field other_path other_slot
+  command -v fm_meta_get >/dev/null 2>&1 || {
+    # shellcheck source=bin/fm-backend.sh
+    . "$FM_WAKE_LIB_DIR/fm-backend.sh"
+  }
+  for state_dir in "${FM_FIRSTMATE_LOCAL_STATES[@]+"${FM_FIRSTMATE_LOCAL_STATES[@]}"}"; do
+    for other in "$state_dir"/*.meta; do
+      [ -f "$other" ] && [ ! -L "$other" ] || continue
+      [ "$other" != "$exclude" ] || continue
+      other_id=$(basename "$other" .meta)
+      for field in worktree home; do
+        other_path=$(fm_meta_get "$other" "$field")
+        [ -n "$other_path" ] || continue
+        other_slot=$(fm_canonical_existing_dir "$other_path") || continue
+        [ "$other_slot" = "$slot" ] || continue
+        printf '%s\t%s\t%s\n' "$other_id" "$field" "$other"
+      done
+    done
+  done
 }
 
 fm_failure_episode_reset() {
