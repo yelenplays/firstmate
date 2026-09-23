@@ -314,7 +314,7 @@ fm_jev_probabilities_sum_ok() {
   ' >/dev/null 2>&1
 }
 
-# shellcheck disable=SC2016  # a jq program, expanded by jq rather than the shell
+# shellcheck disable=SC2016,SC2034  # a jq program expanded by jq, consumed by the scripts that source this library
 FM_JEV_CHOICE_TOP2_JQ='def jev_choice_top2:
   (to_entries | sort_by(-.value, .key)) as $s
   | ((($s[0].value // 0) - ($s[1].value // 0))) as $raw_margin
