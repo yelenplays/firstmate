@@ -164,28 +164,53 @@ EOF
   pass "ACT FIRST keeps distinct keys for one task as separate actions"
 }
 
-test_keyed_status_wakes_dedupe_with_their_matching_decision() {
+test_keyed_status_wakes_and_tails_dedupe_in_both_key_positions() {
   local out
   fresh_home
   {
-    printf '1790000000\t7\tsignal\ttask-z.status\tneeds-decision [key=route]: choose a route\n'
-    printf '1790000001\t8\tsignal\ttask-z.status\tneeds-decision [key=access]: choose access\n'
+    printf '1790000000\t7\tsignal\ttask-z.status\tblocked [key=route]: waiting for route\n'
+    printf '1790000001\t8\tsignal\ttask-z.status\tblocked: [key=access] waiting for access\n'
     printf '%s\n' \
       'OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):' \
-      'task-z [key=route] needs-decision: choose a route' \
-      'task-z [key=access] needs-decision: choose access' \
+      'task-z [key=route] blocked: waiting for route' \
+      'task-z blocked: [key=access] waiting for access' \
       'OPEN DECISIONS: close one by answering it'
   } > "$DRAIN"
-  KEY='' run_helper out --local --drain-file "$DRAIN"
-  expect_code 0 "$RUN_CODE" "keyed status wakes should deduplicate against their decision"
-  [ "$(printf '%s\n' "$out" | grep -c .)" -eq 2 ] \
-    || fail "keyed wakes duplicated their two open decisions"$'\n'"$out"
-  assert_contains "$out" "task-z [key=route] needs-decision: choose a route" \
+  printf 'blocked: [key=route] waiting for route\n' > "$HOME_DIR/state/task-z.status"
+  printf 'kind=ship\n' > "$HOME_DIR/state/task-z.meta"
+  KEY='' run_helper out --local --drain-file "$DRAIN" --status-dir "$HOME_DIR/state"
+  expect_code 0 "$RUN_CODE" "keyed status events should deduplicate"
+  [ "$(printf '%s\n' "$out" | grep -c 'task-z')" -eq 2 ] \
+    || fail "keyed wakes or status tails duplicated the two decisions"$'\n'"$out"
+  assert_contains "$out" "task-z [key=route] blocked: waiting for route" \
     "the route decision was omitted"$'\n'"$out"
-  assert_contains "$out" "task-z [key=access] needs-decision: choose access" \
+  assert_contains "$out" "task-z blocked: [key=access] waiting for access" \
     "the access decision was omitted"$'\n'"$out"
   assert_not_contains "$out" "wake signal task-z.status" "a keyed wake was not deduplicated"$'\n'"$out"
-  pass "keyed status wakes deduplicate by task, decision key, and verb"
+  assert_not_contains "$out" "status task-z blocked" "a keyed status tail was not deduplicated"$'\n'"$out"
+  pass "keyed status wakes and tails deduplicate across key positions"
+}
+
+test_status_and_meta_symlinks_are_not_read() {
+  local out outside_status outside_meta
+  fresh_home
+  rm -f "$HOME_DIR/state/"*
+  outside_status="$TMP_ROOT/outside-status"
+  outside_meta="$TMP_ROOT/outside-meta"
+  printf 'failed: private status event\n' > "$outside_status"
+  printf 'kind=ship\n' > "$outside_meta"
+  ln -s "$outside_status" "$HOME_DIR/state/status-link.status"
+  printf 'kind=ship\n' > "$HOME_DIR/state/status-link.meta"
+  printf 'failed: private meta event\n' > "$HOME_DIR/state/meta-link.status"
+  ln -s "$outside_meta" "$HOME_DIR/state/meta-link.meta"
+  printf '1790000000\t7\theartbeat\talpha\t\n1790000001\t8\theartbeat\tbeta\t\n' > "$DRAIN"
+  KEY='' run_helper out --local --drain-file "$DRAIN" --status-dir "$HOME_DIR/state"
+  expect_code 0 "$RUN_CODE" "symlinked state should be ignored"
+  [ "$(printf '%s\n' "$out" | grep -c .)" -eq 2 ] \
+    || fail "a symlinked status item was offered"$'\n'"$out"
+  assert_not_contains "$out" "private status event" "a symlinked status file was read"$'\n'"$out"
+  assert_not_contains "$out" "private meta event" "a symlinked meta file was accepted"$'\n'"$out"
+  pass "ACT FIRST ignores symlinked status and metadata files"
 }
 
 test_local_items_ignore_network_state_limit() {
@@ -228,6 +253,31 @@ EOF
     "the record divergence was not included after the backstop"$'\n'"$out"
   assert_not_contains "$out" "wake signal workflow-a.status" "the backstop and raw wake were not deduplicated"$'\n'"$out"
   pass "status outcome and divergence sections join the local ACT FIRST recovery items"
+}
+
+test_probability_maps_with_unoffered_keys_use_the_single_pick_fallback() {
+  local out
+  fresh_home
+  respond i1 0.83 '{"i2":0.8,"unoffered":0.2}'
+  KEY=$TS_KEY run_helper out --drain-file "$DRAIN" --status-dir "$HOME_DIR/state"
+  expect_code 0 "$RUN_CODE" "the valid single pick should remain usable"
+  assert_contains "$out" "1. decision scout-b [key=pick-lib] needs-decision: pick a library for the parser (p=0.83)" \
+    "an invalid probability map outranked the selected item"$'\n'"$out"
+  jq -e 'select(.ranked_keys == ["i1"])' "$HOME_DIR/state/jev-act-first.jsonl" >/dev/null \
+    || fail "the chosen item was not used as the single-pick fallback"
+  pass "probability maps containing unoffered keys fall back to the selected item"
+}
+
+test_out_of_range_confidence_is_not_published_as_probability() {
+  local out
+  fresh_home
+  respond i2 1.4 '{"unrelated-a":0.6,"unrelated-b":0.4}'
+  KEY=$TS_KEY run_helper out --drain-file "$DRAIN" --status-dir "$HOME_DIR/state"
+  expect_code 0 "$RUN_CODE" "an invalid confidence should remain advisory"
+  [ -z "$out" ] || fail "an out-of-range confidence was published: $out"
+  jq -e 'select(.choice == "i2" and .ranked_keys == [])' "$HOME_DIR/state/jev-act-first.jsonl" >/dev/null \
+    || fail "an out-of-range confidence produced a ranking"
+  pass "ACT FIRST never publishes confidence outside the probability range"
 }
 
 test_unoffered_probability_keys_fall_back_to_the_chosen_item() {
@@ -290,10 +340,13 @@ test_off_is_silent
 test_ranks_collected_items
 test_local_lists_priority_order_without_a_call
 test_distinct_open_decision_keys_remain_separate
-test_keyed_status_wakes_dedupe_with_their_matching_decision
+test_keyed_status_wakes_and_tails_dedupe_in_both_key_positions
+test_status_and_meta_symlinks_are_not_read
 test_local_items_ignore_network_state_limit
 test_status_recovery_sections_are_ranked_without_wakes_or_decisions
 test_unoffered_probability_keys_fall_back_to_the_chosen_item
+test_probability_maps_with_unoffered_keys_use_the_single_pick_fallback
+test_out_of_range_confidence_is_not_published_as_probability
 test_one_blocker_is_one_item
 test_failures_are_silent
 test_single_item_makes_no_call

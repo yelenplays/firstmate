@@ -109,15 +109,28 @@ drain_items() {
     /^UNFINISHED EXECUTION \(/ { sec = "execution"; next }
     /^[A-Z][A-Z ]+[ (:]/ && $0 !~ /\t/ { sec = ""; next }
     function verb(s) { sub(/^\[[^]]*\][[:space:]]*/, "", s); sub(/[[:space:]]*(\[|:).*$/, "", s); return s }
-    function event_identity(task, s, key) {
-      if (match(s, /^[a-z-]+ \[key=[^]]+\]:/)) {
-        key = substr(s, RSTART, RLENGTH)
-        sub(/^[a-z-]+ \[key=/, "", key)
-        sub(/\]:$/, "", key)
-        return task "|" key "|" verb(s)
+    function event_key(s, prefix, note, key) {
+      prefix = s
+      sub(/:.*/, "", prefix)
+      if (index(prefix, "[key=") > 0) {
+        if (match(prefix, /\[key=[^]]+\]/)) {
+          key = substr(prefix, RSTART, RLENGTH)
+          sub(/^\[key=/, "", key)
+          sub(/\]$/, "", key)
+          if (key ~ /^[A-Za-z0-9._-]+$/) return key
+        }
+        return "default"
       }
-      return task "|" verb(s)
+      note = s
+      if (sub(/^[^:]*:[[:space:]]*/, "", note) && match(note, /^\[key=[^]]+\]/)) {
+        key = substr(note, RSTART, RLENGTH)
+        sub(/^\[key=/, "", key)
+        sub(/\]$/, "", key)
+        if (key ~ /^[A-Za-z0-9._-]+$/) return key
+      }
+      return "default"
     }
+    function event_identity(task, s) { return task "|" event_key(s) "|" verb(s) }
     $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && NF >= 5 {
       p = $5
       for (i = 6; i <= NF; i++) p = p " " $i
@@ -136,12 +149,7 @@ drain_items() {
       sub(/^[^ ]+ /, "", rest)
       decision_task = $0
       sub(/ .*/, "", decision_task)
-      if (match(rest, /^\[key=[^]]+\]/)) {
-        decision_key = substr(rest, 6, RLENGTH - 6)
-        did[nd] = decision_task "|" decision_key "|" verb(rest)
-      } else {
-        did[nd] = decision_task "|" verb(rest)
-      }
+      did[nd] = event_identity(decision_task, rest)
       next
     }
     sec == "outcome" && NF == 1 && $0 != "" {
@@ -170,18 +178,39 @@ drain_items() {
 }
 
 # Newest failed:/blocked: line of each live task's status log.
+status_item_key() {
+  local line=$1 prefix note key=default
+  prefix=${line%%:*}
+  case "$prefix" in
+    *'[key='*) key=${prefix#*'[key='}; key=${key%%]*} ;;
+    *)
+      case "$line" in
+        *:*) note=${line#*:}; note=${note#"${note%%[![:space:]]*}"} ;;
+        *) note= ;;
+      esac
+      case "$note" in
+        '[key='*) key=${note#'[key='}; key=${key%%]*} ;;
+      esac
+      ;;
+  esac
+  case "$key" in ''|*[!A-Za-z0-9._-]*) key=default ;; esac
+  printf '%s' "$key"
+}
+
 status_items() {
-  local status task last
+  local status task meta last key
   [ -n "$STATUS_DIR" ] && [ -d "$STATUS_DIR" ] || return 0
   for status in "$STATUS_DIR"/*.status; do
-    [ -f "$status" ] || continue
+    [ -f "$status" ] && [ -r "$status" ] && [ ! -L "$status" ] || continue
     task=${status##*/}
     task=${task%.status}
-    [ -f "$STATUS_DIR/$task.meta" ] || continue
+    meta=$STATUS_DIR/$task.meta
+    [ -f "$meta" ] && [ -r "$meta" ] && [ ! -L "$meta" ] || continue
     last=$(tail -n 1 "$status" 2>/dev/null | tr '\t' ' ')
+    key=$(status_item_key "$last")
     case "$last" in
-      failed:*|failed\ \[*) printf 'status\t%s|failed\tstatus %s %s\n' "$task" "$task" "$last" ;;
-      blocked:*|blocked\ \[*) printf 'status\t%s|blocked\tstatus %s %s\n' "$task" "$task" "$last" ;;
+      failed:*|failed\ \[*) printf 'status\t%s|%s|failed\tstatus %s %s\n' "$task" "$key" "$task" "$last" ;;
+      blocked:*|blocked\ \[*) printf 'status\t%s|%s|blocked\tstatus %s %s\n' "$task" "$key" "$task" "$last" ;;
     esac
   done
 }
@@ -245,15 +274,13 @@ if [ "$decide_code" -eq 0 ] && [ -n "$response" ]; then
   confidence=$(jq -r '.answers.first.confidence | select(type == "number") // empty' <<<"$response" 2>/dev/null)
   if [ -n "$choice" ] && jq -e --arg c "$choice" 'any(.[]; .key == $c)' <<<"$items" >/dev/null 2>&1; then
     probs=$(jq -c '.answers.first.probabilities // empty' <<<"$response" 2>/dev/null)
-    if [ -n "$probs" ] && fm_jev_probabilities_sum_ok "$probs"; then
+    if [ -n "$probs" ] && fm_jev_probabilities_sum_ok "$probs" \
+      && jq -en --argjson p "$probs" --argjson items "$items" \
+        'all($p | keys[]; . as $key | any($items[]; .key == $key))' >/dev/null 2>&1; then
       ranked=$(jq -c --argjson p "$probs" '
         map(. + {p: ($p[.key] // 0)}) | map(select(.p > 0)) | sort_by(-.p)
       ' <<<"$items")
-    elif [ -n "$confidence" ]; then
-      ranked=$(jq -c --arg c "$choice" --arg conf "$confidence" \
-        'map(select(.key == $c) | . + {p: ($conf | tonumber)})' <<<"$items")
-    fi
-    if ! jq -e 'length > 0' <<<"$ranked" >/dev/null 2>&1; then
+    elif [ -n "$confidence" ] && fm_jev_choice_confidence_ok "$confidence" 0; then
       ranked=$(jq -c --arg c "$choice" --arg conf "$confidence" \
         'map(select(.key == $c) | . + {p: ($conf | tonumber)})' <<<"$items")
     fi

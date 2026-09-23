@@ -138,6 +138,22 @@ test_jev_ranking_sends_only_ids_and_titles() {
   pass "a clear Jev answer ranks by probabilities and sends only ids and titles"
 }
 
+test_probability_map_ranks_every_candidate_independently_of_choice_confidence() {
+  local code out first second
+  fresh_home
+  respond wiki-layer-plan-v1 0.9 \
+    '{"wiki-layer-plan-v1":0.1,"wf-p0-privacy-ceiling":0.8,"wf-p1-register":0.04,"deck-refresh-v1":0.02,"bochum-hero-v1":0.02,"mail-plane-v1":0.01,"none?":0.01}'
+  KEY=$TS_KEY run_match code out get our wiki plan which I had in one prompt
+  expect_code 0 "$code" "a probability-ranked answer should exit 0"
+  first=$(printf '%s\n' "$out" | grep -m1 '^    1\. ')
+  second=$(printf '%s\n' "$out" | grep -m1 '^    2\. ')
+  assert_contains "$first" "wf-p0-privacy-ceiling confidence=0.8" \
+    "the probability leader did not outrank the selected candidate"$'\n'"$out"
+  assert_contains "$second" "wiki-layer-plan-v1 confidence=0.1" \
+    "the selected candidate did not keep its probability score"$'\n'"$out"
+  pass "valid candidate probabilities determine the full ranking"
+}
+
 test_candidate_id_none_does_not_collide_with_no_match_choice() {
   local code out
   fresh_home
@@ -219,6 +235,22 @@ test_ties_use_selected_record_file_mtime() {
   first=$(printf '%s\n' "$out" | grep -m1 '^    1\. ')
   assert_contains "$first" "zeta-sync-v1" "the record with the newer selected file did not rank first"$'\n'"$out"
   pass "tied records follow selected report-file mtimes, not directory mtimes"
+}
+
+test_record_symlinks_outside_the_data_root_are_not_read() {
+  local code out outside
+  fresh_home
+  outside="$TMP_ROOT/outside-records"
+  mkdir -p "$outside" "$HOME_DIR/data/file-link-record"
+  printf '# PRIVATE OUTSIDE TITLE\n\nprivate content\n' > "$outside/report.md"
+  ln -s "$outside/report.md" "$HOME_DIR/data/file-link-record/report.md"
+  ln -s "$outside" "$HOME_DIR/data/directory-link-record"
+  KEY='' run_match code out private outside
+  expect_code 0 "$code" "symlinked records should be ignored advisory"
+  assert_not_contains "$out" "file-link-record" "a symlinked report was offered"$'\n'"$out"
+  assert_not_contains "$out" "directory-link-record" "a symlinked record directory was offered"$'\n'"$out"
+  assert_not_contains "$out" "PRIVATE OUTSIDE TITLE" "an outside heading was read"$'\n'"$out"
+  pass "record symlinks cannot expose titles outside the data root"
 }
 
 test_backlog_listing_failure_is_not_reported_as_empty() {
@@ -326,10 +358,12 @@ test_candidate_list_is_bounded() {
 test_usage
 test_off_falls_back_to_keyword_ranking
 test_jev_ranking_sends_only_ids_and_titles
+test_probability_map_ranks_every_candidate_independently_of_choice_confidence
 test_candidate_id_none_does_not_collide_with_no_match_choice
 test_related_tasks_follow_a_matched_record
 test_reference_is_one_bounded_line
 test_ties_use_selected_record_file_mtime
+test_record_symlinks_outside_the_data_root_are_not_read
 test_backlog_listing_failure_is_not_reported_as_empty
 test_related_listing_failure_is_reported
 test_low_confidence_falls_back

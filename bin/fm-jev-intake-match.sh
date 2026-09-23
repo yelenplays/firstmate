@@ -183,10 +183,10 @@ record_rows() {
   local dir paths=() sorted_paths=()
   [ -d "$DATA_DIR" ] || return 0
   for dir in "$DATA_DIR"/*; do
-    [ -d "$dir" ] || continue
-    if [ -f "$dir/report.md" ]; then
+    [ -d "$dir" ] && [ ! -L "$dir" ] || continue
+    if [ -f "$dir/report.md" ] && [ ! -L "$dir/report.md" ]; then
       paths+=("$dir/report.md")
-    elif [ -f "$dir/brief.md" ]; then
+    elif [ -f "$dir/brief.md" ] && [ ! -L "$dir/brief.md" ]; then
       paths+=("$dir/brief.md")
     fi
   done
@@ -461,9 +461,8 @@ if [ "$decide_code" -eq 0 ] && [ -n "$response" ]; then
     fallback=none
     probs=$(jq -c '.answers.match.probabilities // empty' <<<"$response" 2>/dev/null)
     if [ -n "$probs" ] && fm_jev_probabilities_sum_ok "$probs"; then
-      ranked=$(jq -c --argjson p "$probs" --arg choice "$choice" --arg conf "$confidence" '
-        map(. + {confidence: (if .id == $choice then ($conf | tonumber) else ($p[.id] // 0) end)})
-        | map(select(.confidence > 0))
+      ranked=$(jq -c --argjson p "$probs" '
+        map(. + {confidence: ($p[.id] // 0)})
         | sort_by(-.confidence)
       ' <<<"$offered")
     else
