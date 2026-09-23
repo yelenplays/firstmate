@@ -1,0 +1,13 @@
+Pi 0.87.1, pane 50x220, verdict=empty
+ This project is not trusted. Project .pi resources and packages are ignored. Use /trust to save a trust decision, then restart pi.
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys on` to ~/.tmux.conf and restart tmux.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+~/.no-mistakes/worktrees/548b8aa73bec/01M35MNQN51EMM91Q25Q3Z0095 (detached)
+$0.000 (sub) 0.0%/272k (auto)                                                                                                                                                                (openai-codex) gpt-6-luna • max
+
+ANSI byte count: 2029
+Tmux capture nonempty: yes

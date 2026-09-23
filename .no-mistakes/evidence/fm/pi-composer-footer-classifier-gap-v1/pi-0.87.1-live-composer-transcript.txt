@@ -1,0 +1,10 @@
+Live isolated Pi composer check
+pi_version=0.87.1
+tmux_version=tmux 3.7c
+launch=pi --no-session --no-tools --no-extensions --no-skills --no-themes --no-context-files --no-approve --offline --provider openai-codex --model gpt-6-luna --thinking max
+terminal_size=50 rows x 220 columns (set by isolated tmux session before Pi launch)
+observed_pane_size=50x220
+idle_composer_verdict=empty
+after_unsent_text_verdict=pending
+after_clear_verdict=empty
+No message was submitted; isolated tmux server was terminated by cleanup.
