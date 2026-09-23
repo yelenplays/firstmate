@@ -2260,7 +2260,7 @@ SH
 # --- context re-emit (--reemit) ----------------------------------------------
 
 test_reemit_skips_startup_sweeps_but_keeps_the_wake_drain() {
-  local rec root home fakebin network_report reemit sequence generation
+  local rec root home fakebin network_report reemit sequence generation transcript capture_output node_path recent_output
   rec=$(new_world reemit)
   IFS='|' read -r root home fakebin <<EOF
 $rec
@@ -2278,6 +2278,24 @@ EOF
   network_report=$(network_stage_report "$home" "$root")
   assert_contains "$network_report" "SECONDMATE_LIVENESS" \
     "the full startup fixture did not exercise a mutating sweep"
+
+  transcript="$TMP_ROOT/reemit-history.jsonl"
+  jq -nc '{type:"user",origin:"human",uuid:"reemit-captain-1",timestamp:"2026-09-22T22:30:00Z",message:{content:"Words retained for the next compact."}}' > "$transcript"
+  jq -nc '{type:"assistant",uuid:"reemit-firstmate-1",timestamp:"2026-09-22T22:30:05Z",message:{content:"The compact can recover this reply.",stop_reason:"end_turn"}}' >> "$transcript"
+  capture_output=$(TZ=Europe/Berlin FM_HOME="$home" FM_ROOT_OVERRIDE="$root" \
+    FM_DATA_OVERRIDE="$home/data" FM_STATE_OVERRIDE="$home/state" \
+    "$ROOT/bin/fm-history.sh" capture --transcript "$transcript") \
+    || fail "history capture failed before context re-emit: $capture_output"
+  assert_contains "$capture_output" 'captured 1 captain message(s) and 1 final reply/replies' \
+    'history capture did not record the re-emit fixture conversation'
+  node_path=$(command -v node)
+  rm -f "$fakebin/node"
+  ln -s "$node_path" "$fakebin/node"
+  recent_output=$(PATH="$fakebin:$BASE_PATH" TZ=Europe/Berlin FM_HOME="$home" \
+    FM_ROOT_OVERRIDE="$root" FM_DATA_OVERRIDE="$home/data" FM_STATE_OVERRIDE="$home/state" \
+    "$ROOT/bin/fm-history.sh" recent --n 5)
+  assert_contains "$recent_output" 'Words retained for the next compact.' \
+    'the fixture did not make the captured captain words available to recent'
 
   append_wake "$home/state" signal task-r "done: queued after the re-emit too" || fail "seed second wake failed"
   reemit=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_FAKE_HARNESS_PID=$$ PATH="$fakebin:$BASE_PATH" \
@@ -2297,6 +2315,9 @@ EOF
   [ ! -s "$home/state/.wake-queue" ] || fail "--reemit acknowledgement left queued wakes behind"
   assert_contains "$reemit" "CONTEXT" "--reemit dropped the context digest"
   assert_contains "$reemit" "FLEET STATE" "--reemit dropped the fleet-state digest"
+  assert_contains "$reemit" "RECENT CAPTAIN WORDS" "--reemit dropped its bounded history section"
+  assert_contains "$reemit" "Words retained for the next compact." "--reemit did not recover the captain's exact words"
+  assert_contains "$reemit" "The compact can recover this reply." "--reemit did not recover its final reply"
   assert_contains "$reemit" "NEXT STEP" "--reemit dropped the closing reminder"
 
   pass "--reemit reprints the digest without repeating startup's mutating sweeps and still drains queued wakes"
@@ -2834,6 +2855,7 @@ EOF
 case "${1:-}" in
   --hanging-git-only) test_runtime_bound_truncates_loudly_and_exits_zero; exit $? ;;
   --inherited-hanging-git-only) test_runtime_bound_with_inherited_startup_marker; exit $? ;;
+  --reemit-only) test_reemit_skips_startup_sweeps_but_keeps_the_wake_drain; exit $? ;;
 esac
 
 test_context_digest_absent_empty_present

@@ -977,6 +977,15 @@ print_file_or_absent "$DATA/captain.md" "data/captain.md"
 print_file_or_absent "$DATA/captain-shared.md" "data/captain-shared.md (shared, main-authoritative, read-only in secondmate homes)"
 print_file_or_absent "$DATA/learnings.md" "data/learnings.md"
 
+if [ "$REEMIT" -eq 1 ]; then
+  section "RECENT CAPTAIN WORDS"
+  if HISTORY_RECENT=$("$SCRIPT_DIR/fm-history.sh" recent --n 5 2>/dev/null); then
+    printf '%s\n' "$HISTORY_RECENT"
+  else
+    printf 'History could not be read from %s/history; retrieve it with bin/fm-history.sh find <query>.\n' "$DATA"
+  fi
+fi
+
 # --- 9. closing reminder -----------------------------------------------
 stage next-step
 section "NEXT STEP"

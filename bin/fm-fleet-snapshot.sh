@@ -957,12 +957,43 @@ main_inventory_json() {  # <backlog-json-file> <tasks-json-file>
       }'
 }
 
+task_modes_json() {
+  local card encoded metadata id mode meta task_dir="$DATA/history/tasks"
+  {
+    if [ -d "$DATA/history" ] && [ ! -L "$DATA/history" ] \
+      && [ -d "$task_dir" ] && [ ! -L "$task_dir" ]; then
+      for card in "$task_dir"/*.md; do
+        [ -f "$card" ] && [ ! -L "$card" ] || continue
+        encoded=$(sed -n 's/^<!-- fm-history:task:v1 \([A-Za-z0-9+/=]*\) -->$/\1/p' "$card" | head -1)
+        [ -n "$encoded" ] || continue
+        metadata=$(printf '%s' "$encoded" | base64 --decode 2>/dev/null \
+          || printf '%s' "$encoded" | base64 -D 2>/dev/null) || continue
+        id=$(printf '%s' "$metadata" | jq -er 'select(.schema == "fm-history-task.v1") | .id // empty') || continue
+        mode=$(printf '%s' "$metadata" | jq -r '.mode // empty') || continue
+        [ -n "$mode" ] || continue
+        jq -nc --arg id "$id" --arg mode "$mode" '{($id):$mode}'
+      done
+    fi
+    for meta in "$STATE"/*.meta; do
+      [ -f "$meta" ] && [ ! -L "$meta" ] || continue
+      id=$(basename "$meta" .meta)
+      mode=$(meta_value "$meta" delivery)
+      [ -n "$mode" ] || mode=$(meta_value "$meta" mode)
+      [ -n "$mode" ] || continue
+      jq -nc --arg id "$id" --arg mode "$mode" '{($id):$mode}'
+    done
+  } | jq -s 'add // {}'
+}
+
 # Project one home's canonical structured inventory into the bounded shape a
 # validated parent read needs.
 # This mode never reads parent events or terminal text and never aggregates
 # nested secondmates.
 secondmate_home_summary_json() {  # <backlog-json-file> <tasks-json-file>
+  local task_modes
+  task_modes=$(task_modes_json) || return 1
   jq -n \
+    --argjson task_modes "$task_modes" \
     --arg generated "$SNAPSHOT_NOW" \
     --argjson generated_epoch "$SNAPSHOT_EPOCH" \
     --arg home "$FM_HOME" \
@@ -1006,6 +1037,7 @@ secondmate_home_summary_json() {  # <backlog-json-file> <tasks-json-file>
     | ([ $backlog.records[]? | select(landed_record)
          | {id:(.id | trunc(120)),title:(.title | trunc(120)),
             kind:((.kind // null) | if . == null then null else trunc(40) end),
+            mode:(($task_modes[.id] // null) | if . == null then null else trunc(40) end),
             hold_kind:((.hold_kind // null) | if . == null then null else trunc(40) end),
             pr_url:((.pr_url // null) | if . == null then null else trunc(500) end),
             report_path:((.report_path // null) | if . == null then null else trunc(500) end),

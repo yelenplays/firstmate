@@ -3539,6 +3539,15 @@ if [ -d "$STATE" ]; then
     ship|scout|task) rm -f -- "$STATE/$ID.execution" "$STATE/.$ID.execution-notified" ;;
   esac
 fi
+# Preserve the finished-task record while its brief, status log, and backlog
+# row are still available; the history command is idempotent if cleanup retries.
+if [ "$KIND" != secondmate ]; then
+  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
+    "$SCRIPT_DIR/fm-history.sh" task "$ID" || {
+      echo "error: $ID's private task-history card could not be written; retaining the remaining task records for retry" >&2
+      exit 1
+    }
+fi
 # The steering inbox (bin/fm-task-inbox-lib.sh) is runtime state for the
 # retired endpoint; teardown only runs after landing is confirmed, so any
 # leftover unhandled steer here is moot rather than unlanded work.

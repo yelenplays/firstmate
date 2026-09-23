@@ -997,6 +997,36 @@ test_parked_scout_decision_stays_pending() {
   pass "a scout still parked at a decision stays pending (terminal clear does not over-fire)"
 }
 
+test_secondmate_summary_preserves_landed_delivery_mode() {
+  local home fakebin out encoded
+  home=$(make_home summary-landed-mode)
+  cat > "$home/data/backlog.md" <<'EOF'
+## In flight
+
+## Queued
+
+## Done
+- [x] mate-ship - A secondmate ship https://github.com/acme/sample/pull/12 (repo: sample) (kind: ship) (merged 2026-09-23)
+EOF
+  fm_write_meta "$home/state/mate-ship.meta" \
+    "kind=ship" \
+    "mode=direct-PR"
+  fakebin=$(make_fakebin "$home")
+  out=$(PATH="$fakebin:$PATH" FM_HOME="$home" "$SNAPSHOT" --secondmate-home-summary)
+  printf '%s' "$out" | jq -e '
+    any(.landed[]; .id == "mate-ship" and .kind == "ship" and .mode == "direct-PR")
+  ' >/dev/null || fail "secondmate landed summary dropped the task's live delivery mode: $out"
+  rm -f "$home/state/mate-ship.meta"
+  mkdir -p "$home/data/history/tasks"
+  encoded=$(jq -nc '{schema:"fm-history-task.v1",id:"mate-ship",mode:"local-only"}' | base64 | tr -d '\n')
+  printf '<!-- fm-history:task:v1 %s -->\n' "$encoded" > "$home/data/history/tasks/mate-ship.md"
+  out=$(PATH="$fakebin:$PATH" FM_HOME="$home" "$SNAPSHOT" --secondmate-home-summary)
+  printf '%s' "$out" | jq -e '
+    any(.landed[]; .id == "mate-ship" and .mode == "local-only")
+  ' >/dev/null || fail "secondmate landed summary did not recover delivery mode from its task card: $out"
+  pass "secondmate landed snapshots preserve delivery mode from live metadata or local task cards"
+}
+
 # Home-summary validity treats persistent secondmates as registered homes, not
 # in-flight children. They have no backlog rows, so they must not produce
 # unowned_current or terminal_in_flight. Ordinary crew/ship metas still do.
@@ -1108,6 +1138,7 @@ test_open_decision_transfers_to_captain_hold
 test_open_decision_clears_on_keyed_resolution
 test_completed_scout_report_is_pointer_not_pending
 test_parked_scout_decision_stays_pending
+test_secondmate_summary_preserves_landed_delivery_mode
 test_scout_reports_include_teardown_reports
 test_backlog_tasks_axi_forms_and_overrides
 test_view_renders_snapshot
