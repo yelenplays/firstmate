@@ -54,15 +54,12 @@
 #                          not a wedge and is reported ONCE instead of escalating
 #                          on that cadence forever (wedge_dead_record); only the
 #                          two recovery-grade verdicts license it, and every other
-#                          verdict escalates unchanged. And a pane whose own
-#                          no-mistakes run is demonstrably still executing - a
-#                          live process for it, or its step logs still growing
-#                          under ~/.no-mistakes/logs/<run-id>/ - is deferred on
-#                          that same bounded cadence rather than escalated
-#                          (wedge_defer_nm_run), because a server-side
-#                          validation renders the work window silent by design;
-#                          a run with neither a live process nor a growing log
-#                          keeps the unchanged escalation schedule.
+#                          verdict escalates unchanged. A pane whose task's
+#                          attributed run passes crew_nm_run_progressing's
+#                          execution checks is deferred on that same bounded
+#                          cadence (wedge_defer_nm_run); server-side validation
+#                          may render its work window silent, while absent run
+#                          evidence keeps the unchanged escalation schedule.
 #                          A genuinely busy pane
 #                          (window_is_busy true) is exempt from the above, but
 #                          only up to BUSY_TURN_MAX_SECS with no completed turn
@@ -1034,20 +1031,12 @@ wedge_defer_wait() {  # <window> <task> <since-file> <triage-label> <idle-age> <
   triage_log "absorbed $label (the pane's own wait explains the quiet, idle ${age}s): $win"
 }
 
-# Defer ONE wedge escalation for a pane that went quiet while its own task's
-# no-mistakes run is demonstrably still executing (crew_nm_run_progressing in
-# fm-classify-lib.sh): a live process for the run, or its step logs still
-# growing under NM_HOME/logs/<run-id>/. The pane and the status log can both
-# sit silent for the whole server-side validation, so pane quietness alone is
-# not wedge evidence while the run itself proves progress - the false-alarm
-# chain the captain reported on the cleanup task. Deliberately the same shape
-# as wedge_defer_writing: a DEFERRAL, not a cancellation, so the idle timer
-# restarts, the next window re-proves the run, and a run that stops showing
-# process or log evidence escalates within one STALE_ESCALATE_SECS. A
-# .nmrun-since-<key> marker ages the whole deferral chain so the pane still
-# re-surfaces once every PAUSE_RESURFACE_SECS through the shared
-# resurface_absorbed, throttled by .nmrun-resurfaced-<key>; the escalation
-# counter is left alone exactly as the sibling deferrals leave it.
+# Defer ONE wedge escalation when crew_nm_run_progressing in
+# fm-classify-lib.sh proves the task's attributed no-mistakes run is executing.
+# This is a deferral, not a cancellation: the idle timer restarts and evidence
+# is checked again at the next threshold. The .nmrun-since marker ages the
+# deferral chain so the watcher re-surfaces at PAUSE_RESURFACE_SECS, throttled
+# by .nmrun-resurfaced; existing escalation history remains intact.
 wedge_defer_nm_run() {  # <window> <since-file> <triage-label> <idle-age> <run-id>
   local win=$1 since_file=$2 label=$3 age=$4 rid=$5 key wsf wage
   key=$(fm_watch_state_key "$win")
@@ -1199,18 +1188,13 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
           date +%s > "$since_file"
           return 0
         fi
-        # The last authority before firing: the task's own no-mistakes run. A
-        # pane that went quiet while its run is demonstrably still executing -
-        # a live process for it, or its step logs still growing under
-        # NM_HOME/logs/<run-id>/ - is progress, not a wedge: a crew handed to
-        # `axi run` can render a silent pane for the whole server-side
-        # validation, which is exactly the false-alarm chain this probe exists
-        # to stop. It runs last because it is the strongest verdict and the
-        # most expensive: one bounded `axi status` plus, for a daemon-executed
-        # step, one bounded `daemon status`, still only once per window per
-        # STALE_ESCALATE_SECS. Absence of evidence keeps the unchanged
-        # schedule, so a run with neither a live process nor a growing log
-        # escalates exactly as before.
+        # The last authority before firing is the task's own no-mistakes run.
+        # crew_nm_run_progressing owns run attribution and execution evidence,
+        # protecting silent server-side validation without weakening the
+        # no-evidence escalation path. It runs last because it is the strongest
+        # verdict and most expensive: bounded status reads and, for a
+        # daemon-executed step, one bounded daemon probe, only once per window
+        # per STALE_ESCALATE_SECS.
         if run_id=$(crew_nm_run_progressing "$task" "$STATE" "$since_file"); then
           wedge_defer_nm_run "$win" "$since_file" "$label" "$age" "$run_id"
           return 0

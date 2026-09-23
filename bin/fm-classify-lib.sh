@@ -39,11 +39,9 @@
 # stays bounded by new appends instead of re-reading each task's whole lifetime
 # log every time. crew_worktree_written_since reads the task's meta file and walks
 # a bounded slice of its worktree instead of a status file, so callers run it only
-# at the moment they would otherwise escalate. crew_nm_run_progressing reads the
-# meta, makes one bounded `axi status` call (plus a bounded `daemon status` probe
-# for a daemon-executed step), and compares run-log mtimes under
-# NM_HOME/logs/<run-id>/ against the caller's idle-window anchor, so it is held
-# to the same only-at-escalation budget.
+# at the moment they would otherwise escalate. crew_nm_run_progressing checks
+# the task's attributed no-mistakes run through bounded CLI and log reads, so
+# callers hold it to the same only-at-escalation budget.
 
 # Directory of this library, used to locate the sibling fm-crew-state.sh reader.
 # Resolved at source time from BASH_SOURCE so it works whether sourced by a
@@ -2080,8 +2078,7 @@ crew_worktree_written_since() {  # <id> <state> <anchor-file>
 # three cannot: a crew handed to `axi run` produces no pane output, no worktree
 # writes in its own checkout, and often no fresh status line for the whole
 # validation, so pane quietness alone must never escalate while the run proves
-# itself - the 25-consecutive-escalation false alarm reported on the cleanup
-# task. Silence of the work window is not evidence; the run's own state is.
+# execution.
 #
 # Execution evidence, any one of which is sufficient:
 #   - an active step has parseable, non-quiet last_activity, or a parseable
