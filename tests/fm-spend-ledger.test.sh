@@ -64,9 +64,17 @@ fixture_day() {
   python3 -c 'import datetime,sys; print((datetime.datetime.fromtimestamp(int(sys.argv[1]), datetime.timezone.utc) - datetime.timedelta(days=int(sys.argv[2]))).strftime("%Y-%m-%d"))' \
     "$NOW_EPOCH" "$1"
 }
-DAY_TASK_A=$(fixture_day 6)
+format_reset() {
+  python3 -c 'import sys,datetime; print(datetime.datetime.fromtimestamp(int(sys.argv[1]), tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"))' "$1"
+}
+format_session_filename_stamp() {
+  python3 -c 'import datetime,sys; print(datetime.datetime.fromtimestamp(int(sys.argv[1]), datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%S-000Z"))' "$1"
+}
 DAY_TASK_B=$(fixture_day 1)
 DAY_PRESPAWN=$(fixture_day 14)
+SESSION_A_EPOCH=$((NOW_EPOCH - 5 * 86400 - 12 * 3600))
+SESSION_A_ISO=$(format_reset "$SESSION_A_EPOCH")
+SESSION_A_FILE_STAMP=$(format_session_filename_stamp "$SESSION_A_EPOCH")
 EPOCH_A=$((NOW_EPOCH - 12 * 86400))
 EPOCH_B=$((NOW_EPOCH - 2 * 86400))
 fm_write_meta "$STATE/task-a.meta" \
@@ -81,13 +89,13 @@ DIR_OTHER=$(make_session_dir "$SESSIONS" /work/other)
 
 # Session 1: task-a window, mixed lanes, effort switch mid-session, one
 # cost-free record.
-S1=$DIR_ALPHA/${DAY_TASK_A}T10-00-00-000Z_aaaaaaaa-0000-0000-0000-000000000001.jsonl
-write_session_header "$S1" "aaaaaaaa-0000-0000-0000-000000000001" /work/alpha "${DAY_TASK_A}T10:00:00.000Z"
-append_effort "$S1" "${DAY_TASK_A}T10:00:05.000Z" high
-append_message "$S1" "${DAY_TASK_A}T10:01:00.000Z" openai-codex gpt-6-astra 1000 none
-append_message "$S1" "${DAY_TASK_A}T10:02:00.000Z" openai-codex gpt-6-astra 2000 "0.10"
-append_effort "$S1" "${DAY_TASK_A}T10:03:00.000Z" max
-append_message "$S1" "${DAY_TASK_A}T10:04:00.000Z" xai grok-4 500 "0.05"
+S1=$DIR_ALPHA/${SESSION_A_FILE_STAMP}_aaaaaaaa-0000-0000-0000-000000000001.jsonl
+write_session_header "$S1" "aaaaaaaa-0000-0000-0000-000000000001" /work/alpha "$SESSION_A_ISO"
+append_effort "$S1" "$(format_reset "$((SESSION_A_EPOCH + 5))")" high
+append_message "$S1" "$(format_reset "$((SESSION_A_EPOCH + 60))")" openai-codex gpt-6-astra 1000 none
+append_message "$S1" "$(format_reset "$((SESSION_A_EPOCH + 120))")" openai-codex gpt-6-astra 2000 "0.10"
+append_effort "$S1" "$(format_reset "$((SESSION_A_EPOCH + 180))")" max
+append_message "$S1" "$(format_reset "$((SESSION_A_EPOCH + 240))")" xai grok-4 500 "0.05"
 
 # Session 2: predates task-a's spawn -> unattributed to it, but before task-b's
 # spawn too -> unattributed entirely.
@@ -103,10 +111,10 @@ append_message "$S3" "${DAY_TASK_B}T10:01:00.000Z" xai grok-4 300 "0.02"
 
 # Nested child: lives in the OTHER dir (cannot bind itself to task-a), linked
 # via task-a session's subagent registry.
-CHILD=$DIR_OTHER/${DAY_TASK_A}T10-05-00-000Z_cccccccc-0000-0000-0000-0000000000cc.jsonl
-write_session_header "$CHILD" "cccccccc-0000-0000-0000-0000000000cc" /work/other "${DAY_TASK_A}T10:05:00.000Z"
-append_effort "$CHILD" "${DAY_TASK_A}T10:05:05.000Z" max
-append_message "$CHILD" "${DAY_TASK_A}T10:06:00.000Z" openai-codex gpt-6-astra 400 "0.02"
+CHILD=$DIR_OTHER/$(format_session_filename_stamp "$((SESSION_A_EPOCH + 300))")_cccccccc-0000-0000-0000-0000000000cc.jsonl
+write_session_header "$CHILD" "cccccccc-0000-0000-0000-0000000000cc" /work/other "$(format_reset "$((SESSION_A_EPOCH + 300))")"
+append_effort "$CHILD" "$(format_reset "$((SESSION_A_EPOCH + 305))")" max
+append_message "$CHILD" "$(format_reset "$((SESSION_A_EPOCH + 360))")" openai-codex gpt-6-astra 400 "0.02"
 mkdir -p "$DIR_ALPHA/artifacts/aaaaaaaa-0000-0000-0000-000000000001"
 printf '{"fm-orchestrated-worker":{"sessionFile":"%s","sessionId":"cccccccc-0000-0000-0000-0000000000cc"}}\n' \
   "$CHILD" > "$DIR_ALPHA/artifacts/aaaaaaaa-0000-0000-0000-000000000001/subagent-registry.json"
@@ -156,9 +164,6 @@ assert_equals "800" "$(json_field "$(cat "$ROLLUP")" "d['byFamily']['grok']['tok
 
 # --- predict: weekly window calibration --------------------------------------
 
-format_reset() {
-  python3 -c 'import sys,datetime; print(datetime.datetime.fromtimestamp(int(sys.argv[1]), tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"))' "$1"
-}
 write_quota() {
   local path=$1 resets=$2
   cat > "$path" <<EOF

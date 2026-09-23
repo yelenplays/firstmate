@@ -806,6 +806,10 @@ TOON
 running fm/nmrun-task deadbeef 2026-08-10 10:02
 running fm/nmrun-task $run_head 2026-08-10 10:01
 TOON
+  cat > "$dir/legacy-matching-competing-runs.txt" <<TOON
+running fm/nmrun-task $run_head 2026-08-10 10:02
+running fm/nmrun-task $run_head 2026-08-10 10:01
+TOON
   cat > "$dir/pipeline-owned.toon" <<'TOON'
 run:
   id: "01NMRUN01"
@@ -927,6 +931,11 @@ TOON
     FM_FAKE_NM_RUNS="$dir/legacy-active-anchor-runs.txt" \
     crew_nm_run_progressing a "$state" "$anchor" \
     || fail "a competing active ledger row made the legacy continuation ambiguous"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+    FM_FAKE_NM_RUNS="$dir/legacy-matching-competing-runs.txt" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a live ledger row was attributed despite a competing active run"
   [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/legacy-pipeline.toon" \
       FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
       FM_FAKE_NM_RUNS="$dir/legacy-pipeline-runs.txt" \

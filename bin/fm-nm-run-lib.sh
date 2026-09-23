@@ -482,7 +482,7 @@ fm_nm_run_is_gate_parked() {  # <toon-output> [active-step-evidence]
 fm_nm_runs_status_for_worktree() {  # <worktree> <branch> <runs-list-output> [expected-head]
   local wt=$1 branch=$2 list=$3 expected_head=${4:-}
   local local_full row_full row row_status br sha day clock pr extra year_num month_num day_num max_day pending_st=''
-  local decided=''
+  local decided='' decision_made=0 live_count=0
   local_full=$(git -C "$wt" rev-parse HEAD 2>/dev/null) || return 0
   [ -n "$list" ] || return 0
   while IFS= read -r row; do
@@ -515,15 +515,17 @@ fm_nm_runs_status_for_worktree() {  # <worktree> <branch> <runs-list-output> [ex
     esac
     [ "$day_num" -ge 1 ] && [ "$day_num" -le "$max_day" ] || break
     [ "$br" = "$branch" ] || continue
+    if [ "$(fm_nm_run_status_class "$row_status")" = live ]; then
+      live_count=$((live_count + 1))
+    fi
+    [ "$decision_made" -eq 0 ] || continue
     if [ -n "$pending_st" ]; then
-      # This is the row immediately older than the active unresolvable row:
-      # the only admissible anchor, and only exact head equality proves the
-      # worktree still sits at the submitted head.
       if [ "$(fm_nm_run_status_class "$row_status")" = terminal ] \
         && [ "$(fm_nm_resolve_commit "$wt" "$sha")" = "$local_full" ]; then
         decided=$pending_st
       fi
-      break
+      decision_made=1
+      continue
     fi
     if [ -n "$expected_head" ]; then
       case "$expected_head" in *[!A-Fa-f0-9]*|'') break ;; esac
@@ -538,11 +540,18 @@ fm_nm_runs_status_for_worktree() {  # <worktree> <branch> <runs-list-output> [ex
       if fm_nm_head_matches_worktree "$wt" "$sha"; then
         decided=$row_status
       fi
-      break
+      decision_made=1
+      continue
     fi
-    [ "$row_status" = running ] || break
+    if [ "$row_status" != running ]; then
+      decision_made=1
+      continue
+    fi
     pending_st=$row_status
   done <<< "$list"
+  if [ "$(fm_nm_run_status_class "$decided")" = live ] && [ "$live_count" -gt 1 ]; then
+    decided=''
+  fi
   printf '%s' "$decided"
   return 0
 }
