@@ -2113,8 +2113,6 @@ crew_nm_run_progressing() {  # <id> <state> <anchor-file>
   rid=$(fm_nm_strip_quotes "$(fm_nm_field "$out" id)")
   [ -n "$rid" ] || return 1
   rhead=$(fm_nm_strip_quotes "$(fm_nm_field "$out" head)")
-  if ! fm_nm_head_equals_worktree "$wt" "$rhead" \
-    && ! fm_nm_run_is_pipeline_owned_active "$out"; then return 1; fi
   overview=$(fm_nm_run_checked "$wt" 10 axi) || return 1
   selection=$(fm_nm_select_run "$branch" "$overview" "$wt")
   case "$selection" in
@@ -2122,9 +2120,12 @@ crew_nm_run_progressing() {  # <id> <state> <anchor-file>
       IFS='|' read -r _ selected_id selected_status _ <<< "$selection"
       [ "$selected_id" = "$rid" ] || return 1
       [ "$(fm_nm_run_status_class "$selected_status")" = live ] || return 1
+      if ! fm_nm_head_equals_worktree "$wt" "$rhead" \
+        && ! fm_nm_run_is_pipeline_owned_active "$out"; then return 1; fi
       ;;
     unavailable)
       [ "$(fm_nm_run_status_class "$(fm_nm_strip_quotes "$(fm_nm_field "$out" status)")")" = live ] || return 1
+      [ -n "$rhead" ] || return 1
       runs_limit=${FM_CREW_STATE_RUNS_LIMIT:-200}
       case "$runs_limit" in ''|*[!0-9]*) runs_limit=200 ;; esac
       while [ "${runs_limit#0}" != "$runs_limit" ]; do runs_limit=${runs_limit#0}; done
@@ -2133,6 +2134,8 @@ crew_nm_run_progressing() {  # <id> <state> <anchor-file>
       runs_list=$(fm_nm_run "$wt" 10 runs --limit "$runs_limit")
       selected_status=$(fm_nm_runs_status_for_worktree "$wt" "$branch" "$runs_list" "$rhead")
       [ "$(fm_nm_run_status_class "$selected_status")" = live ] || return 1
+      if ! fm_nm_head_equals_worktree "$wt" "$rhead" \
+        && [ -n "$(fm_nm_resolve_commit "$wt" "$rhead")" ]; then return 1; fi
       ;;
     *) return 1 ;;
   esac

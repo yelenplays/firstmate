@@ -779,6 +779,25 @@ TOON
   cat > "$dir/legacy-running-runs.txt" <<TOON
 running fm/nmrun-task $run_head 2026-08-10 10:00
 TOON
+  cat > "$dir/legacy-pipeline.toon" <<'TOON'
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: deadbeef
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  ci,running,4h28m,4h28m,"quiet 3h ago: log: CI checks running","",starting
+TOON
+  cat > "$dir/legacy-pipeline-runs.txt" <<TOON
+running fm/nmrun-task deadbeef 2026-08-10 10:01
+failed fm/nmrun-task $run_head 2026-08-10 10:00
+TOON
+  cat > "$dir/legacy-unanchored-runs.txt" <<TOON
+running fm/nmrun-task deadbeef 2026-08-10 10:01
+TOON
+  cat > "$dir/legacy-descendant-runs.txt" <<TOON
+running fm/nmrun-task $descendant_head 2026-08-10 10:01
+TOON
   cat > "$dir/legacy-conflicting-runs.txt" <<TOON
 failed fm/nmrun-task $run_head 2026-08-10 10:01
 running fm/nmrun-task $run_head 2026-08-10 10:00
@@ -899,6 +918,21 @@ TOON
     FM_FAKE_NM_RUNS="$dir/legacy-conflicting-runs.txt" \
     crew_nm_run_progressing a "$state" "$anchor" \
     || fail "a newer terminal ledger row did not reject legacy run attribution"
+  [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/legacy-pipeline.toon" \
+      FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+      FM_FAKE_NM_RUNS="$dir/legacy-pipeline-runs.txt" \
+      crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
+    || fail "an anchored pipeline continuation did not prove legacy run progress"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/legacy-pipeline.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+    FM_FAKE_NM_RUNS="$dir/legacy-unanchored-runs.txt" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "an unanchored pipeline continuation proved legacy run progress"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/descendant-head.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+    FM_FAKE_NM_RUNS="$dir/legacy-descendant-runs.txt" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a resolved descendant head proved legacy run progress"
   ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
     FM_FAKE_NM_AXI_OVERVIEW="$dir/competing-runs-overview.toon" \
     FM_FAKE_NM_RUNS="$dir/legacy-running-runs.txt" \
