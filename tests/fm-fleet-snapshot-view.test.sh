@@ -522,6 +522,8 @@ test_backlog_tasks_axi_forms_and_overrides() {
 - [x] done-bracket-pr - Done Bracket PR - <https://github.com/kunchenguid/firstmate/pull/43> (repo: gamma, merged 2026-07-12) (kind: ship)
 - [x] reported-comma - Reported Scout data/reported-comma/report.md (repo: gamma, reported 2026-07-10) (kind: scout)
 - [x] done-note - Done Note local main (repo: delta, done 2026-07-11) (kind: ship)
+- [x] done-marker - Done Marker local main (repo: delta, done 2026-07-11) (kind: ship)
+  Resolution recorded by fm-captain-hold.
 EOF
   printf '# Bold Scout\n' > "$data/bold-task/report.md"
   fm_write_meta "$home/state/bold-task.meta" \
@@ -621,6 +623,10 @@ EOF
       and .done == "2026-07-11"
       and .completion == {verb:"done",date:"2026-07-11"}
   ' >/dev/null || fail "done closure metadata did not parse"
+  printf '%s' "$out" | jq -e '
+    .backlog.records[] | select(.id == "done-marker")
+    | .local_note == "local main" and .body_lines == ["Resolution recorded by fm-captain-hold."]
+  ' >/dev/null || fail 'captain-authored marker text was treated as a resolution record'
   printf '%s' "$out" | jq -e --arg data "$data" '
     .tasks[] | select(.id == "bold-task")
     | .backlog.id == "bold-task"
@@ -997,7 +1003,7 @@ test_parked_scout_decision_stays_pending() {
   pass "a scout still parked at a decision stays pending (terminal clear does not over-fire)"
 }
 
-test_secondmate_summary_preserves_landed_delivery_mode() {
+test_secondmate_summary_omits_landed_delivery_mode() {
   local home fakebin out encoded
   home=$(make_home summary-landed-mode)
   cat > "$home/data/backlog.md" <<'EOF'
@@ -1014,17 +1020,17 @@ EOF
   fakebin=$(make_fakebin "$home")
   out=$(PATH="$fakebin:$PATH" FM_HOME="$home" "$SNAPSHOT" --secondmate-home-summary)
   printf '%s' "$out" | jq -e '
-    any(.landed[]; .id == "mate-ship" and .kind == "ship" and .mode == "direct-PR")
-  ' >/dev/null || fail "secondmate landed summary dropped the task's live delivery mode: $out"
+    any(.landed[]; .id == "mate-ship" and .kind == "ship" and (has("mode") | not))
+  ' >/dev/null || fail "secondmate landed summary included an unrequested delivery mode: $out"
   rm -f "$home/state/mate-ship.meta"
   mkdir -p "$home/data/history/tasks"
   encoded=$(jq -nc '{schema:"fm-history-task.v1",id:"mate-ship",mode:"local-only"}' | base64 | tr -d '\n')
   printf '<!-- fm-history:task:v1 %s -->\n' "$encoded" > "$home/data/history/tasks/mate-ship.md"
   out=$(PATH="$fakebin:$PATH" FM_HOME="$home" "$SNAPSHOT" --secondmate-home-summary)
   printf '%s' "$out" | jq -e '
-    any(.landed[]; .id == "mate-ship" and .mode == "local-only")
-  ' >/dev/null || fail "secondmate landed summary did not recover delivery mode from its task card: $out"
-  pass "secondmate landed snapshots preserve delivery mode from live metadata or local task cards"
+    any(.landed[]; .id == "mate-ship" and (has("mode") | not))
+  ' >/dev/null || fail "secondmate landed summary read delivery mode from a task card: $out"
+  pass "secondmate landed snapshots contain no delivery-mode projection"
 }
 
 # Home-summary validity treats persistent secondmates as registered homes, not
@@ -1138,7 +1144,7 @@ test_open_decision_transfers_to_captain_hold
 test_open_decision_clears_on_keyed_resolution
 test_completed_scout_report_is_pointer_not_pending
 test_parked_scout_decision_stays_pending
-test_secondmate_summary_preserves_landed_delivery_mode
+test_secondmate_summary_omits_landed_delivery_mode
 test_scout_reports_include_teardown_reports
 test_backlog_tasks_axi_forms_and_overrides
 test_view_renders_snapshot

@@ -2,7 +2,7 @@
 # fm-history.sh - capture and retrieve the primary conversation journal.
 #
 # Usage:
-#   fm-history.sh capture [--compaction] [--trigger <auto|manual>] --transcript <path>
+#   fm-history.sh capture [--compaction] --transcript <path>
 #   fm-history.sh wakes --rows-file <path> --ack-through <sequence> --actor <main|branch>
 #   fm-history.sh wake-ack <sequence> <row-count> <main|branch>
 #   fm-history.sh recent [--n <count>]
@@ -49,7 +49,7 @@ HISTORY_DIR="$DATA_DIR/history"
 usage() {
   cat >&2 <<'EOF'
 Usage:
-  fm-history.sh capture [--compaction] [--trigger <auto|manual>] --transcript <path>
+  fm-history.sh capture [--compaction] --transcript <path>
   fm-history.sh wakes --rows-file <path> --ack-through <sequence> --actor <main|branch>
   fm-history.sh wake-ack <sequence> <row-count> <main|branch>
   fm-history.sh recent [--n <count>]
@@ -359,7 +359,7 @@ function updateIndex(historyDir) {
   writeAtomic(index, `${lines.join('\n')}\n`);
 }
 
-function capture(transcript, historyDir, stateDir, compaction, trigger) {
+function capture(transcript, historyDir, stateDir, compaction) {
   if (!transcript || !historyDir || !stateDir) fail('capture requires transcript, history, and state paths');
   const transcriptPath = path.resolve(transcript);
   if (!regularFile(transcriptPath)) fail(`transcript is not a readable regular file: ${transcriptPath}`);
@@ -411,7 +411,9 @@ function capture(transcript, historyDir, stateDir, compaction, trigger) {
           try { rec = JSON.parse(line); } catch { badLines++; continue; }
           const type = rec && rec.type;
           const piRole = type === 'message' && rec.message && rec.message.role;
-          if (type === 'assistant' || piRole === 'assistant') lastUsage = tokenCounts(rec) || lastUsage;
+          const assistantRecord = type === 'assistant' || piRole === 'assistant';
+          const sidechain = Boolean(rec && (rec.isSidechain || (rec.message && rec.message.isSidechain)));
+          if (assistantRecord && !sidechain) lastUsage = tokenCounts(rec) || lastUsage;
           const fromTool = Boolean(rec && (rec.sourceToolAssistantUUID || rec.toolUseResult));
           if ((type === 'user' && !fromTool) || piRole === 'user') {
             if (type === 'user') {
@@ -437,8 +439,7 @@ function capture(transcript, historyDir, stateDir, compaction, trigger) {
             captainCount++;
             continue;
           }
-          if ((type === 'assistant' || piRole === 'assistant') && pending
-            && !(rec && (rec.isSidechain || (rec.message && rec.message.isSidechain)))) {
+          if (assistantRecord && pending && !sidechain) {
             const stopReason = rec.message && (rec.message.stop_reason || rec.message.stopReason);
             if (stopReason !== 'end_turn' && stopReason !== 'stop') continue;
             const text = textOf(rec);
@@ -466,15 +467,12 @@ function capture(transcript, historyDir, stateDir, compaction, trigger) {
     };
     if (compaction) {
       const observed = localDateParts(new Date());
-      const contextInputTokens = lastUsage && Number.isSafeInteger(lastUsage.input_tokens)
-        ? lastUsage.input_tokens + (lastUsage.cache_read_input_tokens || 0) + (lastUsage.cache_creation_input_tokens || 0)
-        : null;
       const identity = crypto.createHash('sha256')
         .update(`${transcriptPath}\u0000${st.dev}\u0000${st.ino}\u0000${scanEnd}`, 'utf8')
         .digest('hex').slice(0, 32);
       appendStructuredRecord(historyDir, observed.day, { type: 'compaction', value: identity }, observed.time,
-        'compaction token counts', { trigger: trigger || 'unknown', transcript_bytes: scanEnd,
-          context_input_tokens: contextInputTokens, usage: lastUsage });
+        'last assistant token usage before compaction', { transcript_bytes: scanEnd,
+          last_assistant_usage: lastUsage });
     }
     updateIndex(historyDir);
     writeAtomic(cursorFile, `${JSON.stringify(nextCursor)}\n`, 0o600, false);
@@ -688,27 +686,57 @@ function cleanTaskTitle(value) {
     .trim();
 }
 
-function resolutionSignatures(body) {
+function resolutionSignatures(body, verifyDecisionWords = true) {
   if (typeof body !== 'string') return [];
-  const marker = /(?:^|\n)Resolution recorded by fm-(?:captain|decision)-hold\./g;
-  const starts = [];
-  let match;
-  while ((match = marker.exec(body)) !== null) starts.push(match.index + (match[0][0] === '\n' ? 1 : 0));
+  const marker = /^Resolution recorded by fm-(?:captain|decision)-hold\.$/gm;
   const signatures = [];
-  for (let index = 0; index < starts.length; index++) {
-    const start = starts[index];
-    const end = starts[index + 1] === undefined ? body.length : starts[index + 1];
-    const block = body.slice(start, end);
-    const mode = block.match(/^Resolution mode: ([a-z-]+)\s*$/m)?.[1];
-    const at = block.match(/^Resolved: (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\s*$/m)?.[1];
-    const digest = block.match(/^Decision digest: ([a-f0-9]{64})\s*$/m)?.[1];
-    if (mode && at && digest) signatures.push({ mode, at, digest, block });
+  let cursor = 0;
+  while (cursor < body.length) {
+    marker.lastIndex = cursor;
+    const match = marker.exec(body);
+    if (!match) break;
+    const start = match.index;
+    const tail = body.slice(start);
+    const label = /^Captain decision:\n/m.exec(tail);
+    if (!label) {
+      cursor = start + match[0].length;
+      continue;
+    }
+    const header = tail.slice(0, label.index);
+    if (/^Resolution recorded by fm-(?:captain|decision)-hold\.$/m.test(header.slice(match[0].length))) {
+      cursor = start + match[0].length;
+      continue;
+    }
+    const mode = header.match(/^Resolution mode: ([a-z-]+)\s*$/m)?.[1];
+    const at = header.match(/^Resolved: (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\s*$/m)?.[1];
+    const digest = header.match(/^Decision digest: ([a-f0-9]{64})\s*$/m)?.[1];
+    if (!mode || !at || !digest) {
+      cursor = start + match[0].length;
+      continue;
+    }
+    let end = body.length;
+    if (verifyDecisionWords) {
+      const wordsStart = start + label.index + label[0].length;
+      end = -1;
+      for (let offset = wordsStart; offset <= body.length; offset++) {
+        if (offset !== body.length && body[offset] !== '\n') continue;
+        const words = body.slice(wordsStart, offset);
+        const hash = crypto.createHash('sha256').update(words, 'utf8').digest('hex');
+        if (hash === digest) { end = offset; break; }
+      }
+      if (end < 0) {
+        cursor = start + match[0].length;
+        continue;
+      }
+    }
+    signatures.push({ mode, at, digest, block: body.slice(start, end) });
+    cursor = verifyDecisionWords ? end + 1 : start + label.index + label[0].length;
   }
   return signatures;
 }
 
 function decisionRows(snapshotBody, body, id, project, title, home, targetDate) {
-  const snapshot = new Set(resolutionSignatures(snapshotBody).map(({ mode, at, digest }) => `${mode}\u0000${at}\u0000${digest}`));
+  const snapshot = new Set(resolutionSignatures(snapshotBody, false).map(({ mode, at, digest }) => `${mode}\u0000${at}\u0000${digest}`));
   const rows = [];
   for (const { mode, at, digest, block } of resolutionSignatures(body)) {
     if (!snapshot.has(`${mode}\u0000${at}\u0000${digest}`)
@@ -882,7 +910,7 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
       const card = cardByIdentity.get(taskIdentityKey(home, row.id));
       return { ...row, home, mode: row.mode || taskModeFromMeta(stateDir, row.id) || card?.mode || null };
     }),
-    ...secondmate.map((row) => ({ ...row, home: row.home_id || row.home || 'unknown', mode: row.mode || null })),
+    ...secondmate.map((row) => ({ ...row, state: 'done', home: row.home_id || row.home || 'unknown', mode: row.mode || null })),
   ];
   const present = new Set(taskRows.map((row) => `${row.home}\u0000${row.id}`));
   for (const card of cards) if (!present.has(`${card.home || 'main'}\u0000${card.id}`)) {
@@ -903,7 +931,6 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
     const rowHome = row.home || 'main';
     const prUrl = typeof row.pr_url === 'string' && row.pr_url ? row.pr_url : null;
     const project = row.repo || repoFromUrl(prUrl) || (rowHome !== 'main' ? rowHome : null);
-    if (!project) continue;
     const title = cleanTaskTitle(row.title || id);
     if (!title) continue;
     if (completion.date !== date) continue;
@@ -942,26 +969,44 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
   const decisions = [...decisionById.values()].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
     .map((row, index) => ({ ...row, order: index + 1 }));
 
-  const openIds = new Set();
+  const openIds = new Map();
+  const openOmitted = [];
+  const addOpenId = (identityHome, id) => {
+    const safe = safeId(id, '');
+    if (!safe) return;
+    const rowHome = identityHome || 'main';
+    openIds.set(taskIdentityKey(rowHome, safe), `${rowHome}/${safe}`);
+  };
   let running = 0;
   let waitingOnYou = 0;
   for (const row of main) {
-    if (row.state !== 'done' && row.id) openIds.add(row.id);
+    if (row.state !== 'done' && row.id) addOpenId(home, row.id);
     if (row.state === 'in_flight') running++;
     if (row.state !== 'done' && row.hold_kind === 'captain') waitingOnYou++;
   }
   for (const mate of snapshot.secondmate_current?.records || []) {
     const counts = mate.counts || {};
+    const mateHome = mate.id || mate.home_id || 'unknown';
     running += Number.isInteger(counts.active_children) ? counts.active_children : 0;
     waitingOnYou += Number.isInteger(counts.decisions_open) ? counts.decisions_open : 0;
-    for (const child of mate.active_children || []) if (child.id) openIds.add(child.id);
-    for (const decision of mate.decisions_open || []) if (decision.id) openIds.add(decision.id);
-    for (const row of mate.queued || []) if (row.id) openIds.add(row.id);
+    for (const child of mate.active_children || []) addOpenId(mateHome, child.id);
+    for (const decision of mate.decisions_open || []) addOpenId(mateHome, decision.id);
+    for (const row of mate.queued || []) addOpenId(mateHome, row.id);
+    for (const omitted of mate.omitted || []) {
+      if (['active_children', 'decisions_open', 'queued'].includes(omitted.surface)
+        && Number.isSafeInteger(omitted.count) && omitted.count > 0) {
+        openOmitted.push({ home: mateHome, surface: omitted.surface, count: omitted.count });
+      }
+    }
   }
   const record = {
     schema: 'fm-logbook.v1', date, tz: HOME_TIME_ZONE, closed: date < currentLocalDate(),
     generated: new Date().toISOString(), landed, reports, decisions,
-    open: { running, waiting_on_you: waitingOnYou, ids: [...openIds].sort() },
+    open: {
+      running, waiting_on_you: waitingOnYou,
+      ids: [...openIds.values()].sort(),
+      omitted: openOmitted.sort((a, b) => a.home.localeCompare(b.home) || a.surface.localeCompare(b.surface)),
+    },
   };
   return record;
 }
@@ -970,23 +1015,26 @@ function renderLogbook(record) {
   const lines = ['## Logbook', '', `Local date: ${record.date} (${record.tz})`, ''];
   if (record.landed.length) {
     lines.push(`### Landed (${record.landed.length})`, '');
-    for (const row of record.landed) lines.push(`- ${row.title} (${row.project}) - task ${row.id}, kind ${row.kind || 'unknown'}, mode ${row.mode || 'unspecified'}, home ${row.home}; ${row.via === 'pull_request' ? `pull request ${row.pr_url}` : 'local landing'}`);
+    for (const row of record.landed) lines.push(`- ${row.title} (${row.project || 'unclassified'}) - task ${row.id}, kind ${row.kind || 'unknown'}, mode ${row.mode || 'unspecified'}, home ${row.home}; ${row.via === 'pull_request' ? `pull request ${row.pr_url}` : 'local landing'}`);
     lines.push('');
   }
   if (record.reports.length) {
     lines.push(`### Reports (${record.reports.length})`, '');
-    for (const row of record.reports) lines.push(`- ${row.title} (${row.project}) - task ${row.id}, kind ${row.kind || 'unknown'}, mode ${row.mode || 'unspecified'}, home ${row.home}; ${row.report_path}`);
+    for (const row of record.reports) lines.push(`- ${row.title} (${row.project || 'unclassified'}) - task ${row.id}, kind ${row.kind || 'unknown'}, mode ${row.mode || 'unspecified'}, home ${row.home}; ${row.report_path}`);
     lines.push('');
   }
   if (record.decisions.length) {
     lines.push(`### Captain decisions (${record.decisions.length})`, '');
     for (const row of record.decisions) {
       const decisionFence = '`'.repeat(Math.max(3, maxBacktickRun(row.words) + 1));
-      lines.push(`- ${row.title} (${row.project}) - task ${row.id}, ${row.mode}, ${row.at}`, '', `${decisionFence}text`, row.words, decisionFence, '');
+      lines.push(`- ${row.title} (${row.project || 'unclassified'}) - task ${row.id}, ${row.mode}, ${row.at}`, '', `${decisionFence}text`, row.words, decisionFence, '');
     }
   }
   lines.push('### Still open', '', `- In flight: ${record.open.running}`, `- Waiting on you: ${record.open.waiting_on_you}`);
   if (record.open.ids.length) lines.push(`- Task ids: ${record.open.ids.join(', ')}`);
+  for (const omitted of record.open.omitted || []) {
+    lines.push(`- Not individually listed: ${omitted.count} ${omitted.surface} item(s) from ${omitted.home}`);
+  }
   return lines.join('\n');
 }
 
@@ -1037,6 +1085,10 @@ function logbookPrepare(historyDir, homeDir, snapshotFile, decisionsFile, date, 
   assertRegularOrMissing(target, 'Logbook file');
   if (regularFile(target)) previous = readJsonFile(target, 'existing Logbook');
   if (previous?.closed === true && !rebuild) {
+    withHistoryLock(stateDir, () => {
+      upsertLogbookMarkdown(historyDir, date, previous);
+      updateIndex(historyDir);
+    });
     process.stdout.write(JSON.stringify({ skip: 'closed', date, record: previous }));
     return;
   }
@@ -1060,10 +1112,11 @@ function closeOlderLogbooks(historyDir, exceptDate) {
     if (!match || !ent.isFile() || ent.isSymbolicLink() || match[1] >= currentLocalDate() || match[1] === exceptDate) continue;
     const file = path.join(daysDir, ent.name);
     const older = readJsonFile(file, 'older Logbook');
-    if (older.closed === true) continue;
-    older.closed = true;
-    older.generated = new Date().toISOString();
-    writeAtomic(file, `${JSON.stringify(older)}\n`);
+    if (older.closed !== true) {
+      older.closed = true;
+      older.generated = new Date().toISOString();
+      writeAtomic(file, `${JSON.stringify(older)}\n`);
+    }
     upsertLogbookMarkdown(historyDir, older.date, older);
   }
 }
@@ -1103,16 +1156,16 @@ function logbookFinalizeLocked(historyDir, stateDir, recordFile, rebuild) {
     process.stdout.write(`Logbook unchanged: ${record.date}\n`);
   } else {
     writeAtomic(target, serialized);
-    upsertLogbookMarkdown(historyDir, record.date, record);
     process.stdout.write(`wrote data/history/days/${record.date}.logbook.json\n`);
   }
+  upsertLogbookMarkdown(historyDir, record.date, record);
   closeOlderLogbooks(historyDir, record.date);
   updateIndex(historyDir);
 }
 
 const [mode, ...args] = process.argv.slice(2);
 try {
-  if (mode === 'capture') capture(args[0], args[1], args[2], args[3] === '1', args[4]);
+  if (mode === 'capture') capture(args[0], args[1], args[2], args[3] === '1');
   else if (mode === 'wakes') wakeBatch(args[0], args[1], args[2], args[3], args[4]);
   else if (mode === 'wake-ack') wakeAcknowledgement(args[0], args[1], args[2], args[3], args[4]);
   else if (mode === 'recent') {
@@ -1129,7 +1182,7 @@ NODE
 }
 
 cmd_capture() {
-  local transcript='' compaction=0 trigger=unknown
+  local transcript='' compaction=0
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --transcript)
@@ -1138,18 +1191,12 @@ cmd_capture() {
         shift 2
         ;;
       --compaction) compaction=1; shift ;;
-      --trigger)
-        [ "$#" -ge 2 ] || die '--trigger needs auto or manual'
-        trigger=$2
-        shift 2
-        ;;
       -h|--help) usage; exit 0 ;;
       *) die "unexpected capture argument: $1" ;;
     esac
   done
   [ -n "$transcript" ] || die 'capture requires --transcript <path>'
-  case "$trigger" in auto|manual|unknown) : ;; *) die '--trigger must be auto or manual' ;; esac
-  run_history_node capture "$transcript" "$HISTORY_DIR" "$STATE_DIR" "$compaction" "$trigger"
+  run_history_node capture "$transcript" "$HISTORY_DIR" "$STATE_DIR" "$compaction"
 }
 
 cmd_wakes() {
@@ -1194,9 +1241,20 @@ history_snapshot() {
 history_decision_bodies() {
   local snapshot_file=$1 destination=$2 rows row id snapshot_body show encoded body
   rows=$(jq -c '
+    def has_resolution_header($lines):
+      ($lines // []) as $rows
+      | any($rows | to_entries[];
+          . as $entry
+          | (
+              (($entry.value // "") | test("^Resolution recorded by fm-(captain|decision)-hold\\.$"))
+              and (($rows[$entry.key + 1] // "") | test("^Decision digest: [a-f0-9]{64}$"))
+              and (($rows[$entry.key + 2] // "") | test("^Resolution mode: [a-z-]+$"))
+              and (($rows[$entry.key + 3] // "") | test("^Resolved: [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
+              and ($rows[$entry.key + 4] == "Captain decision:")
+            )
+        );
     [((.backlog.records // .records) // [])[]?
-      | select(.structured == true and
-          any(.body_lines[]?; test("^Resolution recorded by fm-(captain|decision)-hold\\.$")))
+      | select(.structured == true and has_resolution_header(.body_lines))
       | {id, snapshot_body:(.body_lines // [] | join("\n"))}][]?
   ' "$snapshot_file") || die 'could not find recorded captain answers'
   : > "$destination"
@@ -1334,15 +1392,20 @@ cmd_find() {
 
   if [ "$count" -ge 2 ] && fm_jev_key_configured; then
     local offer
-    offer=$(printf '%s' "$candidates" | jq -c '[.[] | {id: (.path | sub("\\.md$"; "")), title: (.title | .[0:120])}]') || offer='[]'
-    state=$(jq -nc --arg query "$query" --argjson candidates "$offer" \
-      '{query: $query, candidates: $candidates}') || state=
+    offer=$(printf '%s' "$candidates" | jq -c '
+      [.[] | . as $row | (.path | split("/")) as $parts
+        | {id:($row.path | sub("\\.md$"; "")),
+           date:(if $parts[0] == "days" then $parts[1] else null end),
+           kind:(if $parts[0] == "days" then "day" else "task" end),
+           title:($row.title | .[0:120])}]
+    ') || offer='[]'
+    state=$(jq -nc --argjson candidates "$offer" '{candidates: $candidates}') || state=
     if [ -n "$state" ] && state=$(fm_jev_compact_state "$state"); then
       questions=$(printf '%s' "$offer" | jq -c '
         {match: {
           type: "choice",
-          instructions: "Choose the history page most likely to contain the captain conversation described by the query. Judge only the query and page id/date/title. Page contents are intentionally unavailable. Pick none? when no offered page fits.",
-          criteria: (reduce .[] as $row ({}; .[$row.id] = $row.title) + {"none?": "No offered history page fits."})
+          instructions: "Choose from the locally BM25-ranked pages using only their page id, date, kind, and title. The original query and page contents are unavailable. Pick none? when metadata does not support a choice.",
+          criteria: (reduce .[] as $row ({}; .[$row.id] = ([$row.kind, ($row.date // "undated"), $row.title] | join(" - "))) + {"none?": "No offered history page fits from its metadata."})
         }}
       ') || questions=
       response_file=$(mktemp "${TMPDIR:-/tmp}/fm-history-jev-response.XXXXXX" 2>/dev/null) || response_file=

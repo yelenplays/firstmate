@@ -88,6 +88,46 @@ test_capture_is_idempotent_and_uses_the_captains_local_day() {
   pass 'capture is idempotent, local-day keyed, and recoverable through recent and BM25 search'
 }
 
+test_jev_history_selection_never_receives_query_or_page_content() {
+  local query='SILVER ORCHID private search phrase' transcript request output day
+  fresh_home
+  for day in 2026-09-22 2026-09-23; do
+    transcript="$TMP_ROOT/$day-transcript.jsonl"
+    jq -nc --arg day "$day" --arg query "$query" \
+      '{type:"user",origin:"human",uuid:($day+"-captain"),timestamp:($day+"T10:00:00Z"),message:{content:($query+" PRIVATE_PAGE_CONTENT_MARKER")}}' > "$transcript"
+    jq -nc --arg day "$day" \
+      '{type:"assistant",uuid:($day+"-reply"),timestamp:($day+"T10:00:05Z"),message:{content:"Saved response.",stop_reason:"end_turn"}}' >> "$transcript"
+    run_history capture --transcript "$transcript" >/dev/null
+  done
+  cat > "$FAKEBIN/curl" <<'SH'
+#!/usr/bin/env bash
+response_file=
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = -o ]; then response_file=$2; shift 2; else shift; fi
+done
+request=$(cat)
+printf '%s' "$request" > "$FM_TEST_JEV_REQUEST_CAPTURE"
+choice=$(printf '%s' "$request" | jq -r '.state.candidates[0].id')
+jq -nc --arg choice "$choice" '{answers:{match:{choice:$choice,confidence:0.99}}}' > "$response_file"
+printf '200'
+SH
+  chmod +x "$FAKEBIN/curl"
+  request="$TMP_ROOT/jev-request.json"
+  output=$(FM_TEST_JEV_REQUEST_CAPTURE="$request" TYPESAFE_API_KEY=fixture-key \
+    JEV_ROUTE=typesafe JEV_URL=https://example.invalid/jev run_history find "$query") \
+    || fail 'the metadata-only Jev history choice failed'
+  assert_contains "$output" 'ranking: jev' 'the configured Jev selection was not applied'
+  assert_present "$request" 'the fake Jev endpoint did not receive a request'
+  assert_not_contains "$(<"$request")" "$query" 'the private history query was sent to Jev'
+  assert_not_contains "$(<"$request")" 'PRIVATE_PAGE_CONTENT_MARKER' 'private page content was sent to Jev'
+  jq -e '
+    (.state | has("query") | not)
+    and ([.state.candidates[] | keys | sort] | all(. == ["date","id","kind","title"]))
+    and (.state.candidates | length >= 2)
+  ' "$request" >/dev/null || fail 'Jev received fields outside the allowed page metadata'
+  pass 'Jev history choices receive only locally retrieved page metadata'
+}
+
 test_pi_transcript_capture_keeps_captain_words_and_final_reply_only() {
   local transcript output recent
   fresh_home
@@ -122,6 +162,8 @@ test_claude_compaction_and_session_end_hooks_capture_once() {
     jq -nc '{type:"assistant",uuid:"claude-operational-reply",timestamp:"2026-09-23T10:00:07Z",message:{content:"Reply to the internal injection.",stop_reason:"end_turn"}}'
     jq -nc '{type:"user",origin:"human",uuid:"claude-captain-2",timestamp:"2026-09-23T10:00:08Z",message:{content:"Second Claude captain words."}}'
     jq -nc '{type:"assistant",uuid:"claude-reply-2",timestamp:"2026-09-23T10:00:09Z",message:{content:"Second Claude final answer.",stop_reason:"end_turn",usage:{input_tokens:30,output_tokens:6,cache_creation_input_tokens:4,cache_read_input_tokens:8}}}'
+    jq -nc '{type:"user",origin:"human",uuid:"claude-captain-after-usage",timestamp:"2026-09-23T10:00:10Z",message:{content:"A long captain turn arrives after the last assistant usage."}}'
+    jq -nc '{type:"assistant",uuid:"claude-sidechain",timestamp:"2026-09-23T10:00:11Z",isSidechain:true,message:{content:"Sidechain output.",stop_reason:"end_turn",usage:{input_tokens:999,output_tokens:999}}}'
   } >> "$transcript"
   compact_hook=$(jq -r '.hooks.PreCompact[0].hooks[0].command' "$ROOT/.claude/settings.json")
   end_hook=$(jq -r '.hooks.SessionEnd[0].hooks[0].command' "$ROOT/.claude/settings.json")
@@ -157,16 +199,23 @@ test_claude_compaction_and_session_end_hooks_capture_once() {
     'Claude lifecycle hooks did not preserve a later captain turn'
   assert_contains "$recent" 'Second Claude final answer.' \
     'the session-end hook did not capture the final reply after compaction'
+  assert_contains "$recent" 'A long captain turn arrives after the last assistant usage.' \
+    'the compaction capture omitted the latest captain words'
   assert_not_contains "$recent" 'FIRSTMATE_OP' 'Claude capture journaled an internal operational input'
   assert_not_contains "$recent" 'Reply to the internal injection.' 'Claude capture journaled an internal response'
+  assert_not_contains "$recent" 'Sidechain output.' 'Claude capture journaled sidechain output'
   today=$(date +%Y-%m-%d)
-  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" 'context_input_tokens' \
-    'the compaction hook did not record a local token-count entry'
-  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" '"context_input_tokens": 42' \
-    'the compaction record did not include cached and uncached context tokens'
+  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" 'last_assistant_usage' \
+    'the compaction record did not label the available last-turn usage explicitly'
+  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" '"input_tokens": 30' \
+    'a later sidechain usage overwrote the primary assistant usage'
   assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" '"output_tokens": 6' \
     'the compaction record did not retain available output-token usage'
-  pass 'Claude pre-compaction records local token usage and shares an idempotent capture cursor'
+  assert_not_contains "$(<"$HOME_DIR/data/history/days/$today.md")" 'context_input_tokens' \
+    'last-turn usage was mislabeled as the current compaction context count'
+  assert_not_contains "$(<"$HOME_DIR/data/history/days/$today.md")" '"trigger":' \
+    'the compaction record persisted an unrequested trigger classification'
+  pass 'Claude compaction records clearly scoped usage and share an idempotent cursor'
 }
 
 test_task_cards_are_written_once_and_indexed() {
@@ -301,6 +350,7 @@ test_wake_batches_and_acknowledgements_are_journaled() {
 }
 
 test_capture_is_idempotent_and_uses_the_captains_local_day
+test_jev_history_selection_never_receives_query_or_page_content
 test_pi_transcript_capture_keeps_captain_words_and_final_reply_only
 test_claude_compaction_and_session_end_hooks_capture_once
 test_task_cards_are_written_once_and_indexed

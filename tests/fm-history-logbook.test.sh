@@ -129,9 +129,10 @@ test_logbook_projects_reports_decisions_and_open_work() {
       and all(.landed[]; (keys | sort) == ["home","id","kind","mode","order","pr_url","project","title","via"])
       and all(.reports[]; (keys | sort) == ["home","id","kind","mode","order","project","report_path","title"])
       and all(.decisions[]; (keys | sort) == ["at","digest","home","id","mode","order","project","title","words"])
-      and ((.open | keys | sort) == ["ids","running","waiting_on_you"])
+      and ((.open | keys | sort) == ["ids","omitted","running","waiting_on_you"])
       and .open.running == 2 and .open.waiting_on_you == 1
-      and ([.open.ids[]] | index("open-queued") != null)
+      and (.open.ids | index("main/open-queued") != null)
+      and .open.omitted == []
     ' "$path" >/dev/null || fail "the Logbook JSON did not preserve the structured daily record: $json"
   assert_contains "$output" "wrote data/history/days/$today.logbook.json" 'the generator did not report its result'
   assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" '## Logbook' 'the day page has no Logbook section'
@@ -147,6 +148,44 @@ test_logbook_projects_reports_decisions_and_open_work() {
   pass 'Logbook captures outcomes, exact decisions, all open work, and private permissions'
 }
 
+test_unclassified_reports_and_verbatim_decisions_are_logged() {
+  local today at answer path card meta_line encoded metadata
+  fresh_home
+  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
+  at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  mkdir -p "$HOME_DIR/data/unclassified-report"
+  printf '# Finished report\n' > "$HOME_DIR/data/unclassified-report/report.md"
+  run_axi add unclassified-report 'A report without project metadata' --kind scout --start >/dev/null
+  TZ=Europe/Berlin run_axi "done" unclassified-report --report data/unclassified-report/report.md >/dev/null
+
+  run_axi add decision-marker 'A decision without project metadata' --kind captain --start >/dev/null
+  run_captain hold decision-marker --reason 'Needs a captain answer' >/dev/null
+  answer=$'Decision text before the marker.\nResolution recorded by fm-captain-hold.\nDecision text after the marker.'
+  printf '%s' "$answer" > "$TMP_ROOT/marker-answer.txt"
+  FM_CAPTAIN_HOLD_NOW="$at" run_captain answer decision-marker --decision-file "$TMP_ROOT/marker-answer.txt" >/dev/null
+  run_history task decision-marker >/dev/null
+  card="$HOME_DIR/data/history/tasks/decision-marker.md"
+  meta_line=$(grep 'fm-history:task:v1' "$card")
+  encoded=${meta_line#*fm-history:task:v1 }
+  encoded=${encoded% -->}
+  if [ "$(uname -s)" = Darwin ]; then metadata=$(printf '%s' "$encoded" | base64 -D); else metadata=$(printf '%s' "$encoded" | base64 -d); fi
+  jq -e --arg answer "$answer" '
+    .project == null and any(.decisions[]; .words == $answer and .project == null)
+  ' <<< "$metadata" >/dev/null || fail 'the task card lost a marker-shaped captain decision or invented a project'
+
+  run_history logbook >/dev/null
+  path="$HOME_DIR/data/history/days/$today.logbook.json"
+  jq -e --arg answer "$answer" '
+    any(.reports[]; .id == "unclassified-report" and .project == null)
+    and any(.decisions[]; .id == "decision-marker" and .project == null and .words == $answer)
+  ' "$path" >/dev/null || fail 'the Logbook omitted unclassified work or truncated verbatim decision text'
+  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" '(unclassified)' \
+    'the readable Logbook did not label a missing project safely'
+  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" "$answer" \
+    'the readable Logbook omitted the complete captain decision'
+  pass 'unclassified work and marker-shaped captain words survive task and Logbook capture'
+}
+
 test_queued_only_day_writes_a_logbook() {
   local today path output
   fresh_home
@@ -158,11 +197,12 @@ test_queued_only_day_writes_a_logbook() {
   jq -e --arg date "$today" '
     .schema == "fm-logbook.v1" and .date == $date and (.landed | length) == 0
     and (.reports | length) == 0 and (.decisions | length) == 0
-    and ([.open.ids[]] | index("open-only") != null)
+    and (.open.ids | index("main/open-only") != null)
+    and .open.omitted == []
     and ((keys | sort) == ["closed","date","decisions","generated","landed","open","reports","schema","tz"])
   ' "$path" >/dev/null || fail 'queued work was absent from the quiet-day Logbook'
   assert_contains "$output" "wrote data/history/days/$today.logbook.json" 'the queued-only Logbook was not reported as written'
-  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" 'Task ids: open-only' 'the readable Logbook omitted queued work'
+  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" 'Task ids: main/open-only' 'the readable Logbook omitted queued work'
   pass 'a queued-only day still writes one JSON Logbook with its open task'
 }
 
@@ -201,8 +241,10 @@ test_closed_day_requires_explicit_rebuild() {
   mv "$TMP_ROOT/closed.json" "$path"
   cp "$path" "$TMP_ROOT/before-closed.json"
   add_done_pr later-pr 'A second landed item' sample-repo 'https://github.com/acme/sample-repo/pull/34'
+  rm -f "$HOME_DIR/data/history/days/$today.md"
   run_history logbook > "$TMP_ROOT/frozen.out"
   cmp -s "$TMP_ROOT/before-closed.json" "$path" || fail 'a closed day was rewritten without --rebuild'
+  assert_present "$HOME_DIR/data/history/days/$today.md" 'a closed-day retry did not restore its Markdown projection'
   assert_contains "$(<"$TMP_ROOT/frozen.out")" 'already closed' 'the frozen-day explanation was missing'
   run_history logbook --rebuild >/dev/null
   jq -e '.closed == false and ([.landed[].id] | index("later-pr") != null)' "$path" >/dev/null \
@@ -231,6 +273,135 @@ test_first_later_day_closes_the_previous_logbook() {
   pass 'the first later local-day run freezes yesterday and records today'
 }
 
+test_secondmate_landed_rows_reach_the_logbook() {
+  local today mate url
+  fresh_home
+  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
+  mate="$TMP_ROOT/landed-mate"
+  mkdir -p "$mate/data" "$mate/state" "$mate/config" "$mate/projects" "$mate/bin"
+  cp "$ROOT/.tasks.toml" "$mate/.tasks.toml"
+  printf '%s\n' 'registered-mate' > "$mate/.fm-secondmate-home"
+  printf '%s\n' '# Registered secondmate fixture' > "$mate/AGENTS.md"
+  cat > "$mate/data/backlog.md" <<'EOF'
+## In flight
+
+## Queued
+
+## Done
+EOF
+  url='https://github.com/acme/sample-repo/pull/52'
+  TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
+    "$ROOT/bin/fm-tasks-axi.sh" add mate-landed 'A secondmate landed task' --kind ship --repo sample-repo --start >/dev/null
+  TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
+    "$ROOT/bin/fm-tasks-axi.sh" "done" mate-landed --pr "$url" >/dev/null
+  printf '%s\n' "- registered-mate - Delegated work (home: $mate; scope: landed work; projects: sample-repo; added $today)" \
+    > "$HOME_DIR/data/secondmates.md"
+  FM_HOME="$mate" FM_ROOT_OVERRIDE="$ROOT" FM_DATA_OVERRIDE="$mate/data" FM_STATE_OVERRIDE="$mate/state" \
+    "$ROOT/bin/fm-fleet-snapshot.sh" --secondmate-home-summary > "$mate/state/home-summary.json" \
+    || fail 'the secondmate landed summary could not be prepared'
+  run_history logbook >/dev/null
+  jq -e --arg url "$url" '
+    any(.landed[]; .id == "mate-landed" and .home == "registered-mate"
+      and .project == "sample-repo" and .pr_url == $url and .via == "pull_request")
+  ' "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null \
+    || fail 'the Logbook rejected terminal secondmate landed evidence without a state field'
+  pass 'secondmate landed rows are retained from their terminal producer inventory'
+}
+
+test_secondmate_open_inventory_omissions_and_identity_are_preserved() {
+  local today mate index
+  fresh_home
+  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
+  run_axi add duplicate-open 'A main-home task with a shared id' --kind ship --repo sample-repo >/dev/null
+  mate="$TMP_ROOT/open-mate"
+  mkdir -p "$mate/data" "$mate/state" "$mate/config" "$mate/projects" "$mate/bin"
+  cp "$ROOT/.tasks.toml" "$mate/.tasks.toml"
+  printf '%s\n' 'registered-mate' > "$mate/.fm-secondmate-home"
+  printf '%s\n' '# Registered secondmate fixture' > "$mate/AGENTS.md"
+  {
+    printf '## In flight\n\n## Queued\n'
+    printf -- '- [ ] duplicate-open - A secondmate task with the same id (repo: sample-repo) (kind: ship) (since %s)\n' "$today"
+    index=1
+    while [ "$index" -le 20 ]; do
+      printf -- '- [ ] mate-queued-%02d - A queued secondmate task (repo: sample-repo) (kind: ship)\n' "$index"
+      index=$((index + 1))
+    done
+    printf '\n## Done\n'
+  } > "$mate/data/backlog.md"
+  printf '%s\n' "- registered-mate - Delegated work (home: $mate; scope: queued work; projects: sample-repo; added $today)" \
+    > "$HOME_DIR/data/secondmates.md"
+  FM_HOME="$mate" FM_ROOT_OVERRIDE="$ROOT" FM_DATA_OVERRIDE="$mate/data" FM_STATE_OVERRIDE="$mate/state" \
+    "$ROOT/bin/fm-fleet-snapshot.sh" --secondmate-home-summary > "$mate/state/home-summary.json" \
+    || fail 'the secondmate open-work summary could not be prepared'
+  FM_SNAPSHOT_SECONDMATE_QUEUED=20 run_history logbook >/dev/null
+  jq -e '
+    ([.open.ids[] | select(endswith("/duplicate-open"))] | length) == 2
+    and (.open.ids | index("main/duplicate-open") != null)
+    and (.open.ids | index("registered-mate/duplicate-open") != null)
+    and (.open.ids | length) == 21
+    and any(.open.omitted[]; .home == "registered-mate" and .surface == "queued" and .count == 1)
+  ' "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null \
+    || fail 'the Logbook collapsed home-scoped ids or lost capped secondmate work'
+  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" \
+    'Not individually listed: 1 queued item(s) from registered-mate' \
+    'the readable Logbook omitted the secondmate truncation count'
+  pass 'Logbook open work preserves home identity and explicitly reports capped rows'
+}
+
+test_logbook_markdown_retries_when_json_is_unchanged() {
+  local today path markdown
+  fresh_home
+  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
+  add_done_pr landed-pr 'A landed item' sample-repo 'https://github.com/acme/sample-repo/pull/63'
+  run_history logbook >/dev/null
+  path="$HOME_DIR/data/history/days/$today.logbook.json"
+  markdown="$HOME_DIR/data/history/days/$today.md"
+  cp "$path" "$TMP_ROOT/unchanged-logbook.json"
+  rm "$markdown"
+  run_history logbook > "$TMP_ROOT/retry-logbook.out"
+  cmp -s "$TMP_ROOT/unchanged-logbook.json" "$path" || fail 'a Markdown-only retry rewrote unchanged JSON'
+  assert_present "$markdown" 'a retry did not recreate the missing Markdown projection'
+  assert_contains "$(<"$markdown")" 'Landed (1)' 'a retry recreated Markdown without the current Logbook'
+  assert_contains "$(<"$TMP_ROOT/retry-logbook.out")" 'Logbook unchanged' 'the retry did not retain JSON idempotence'
+  pass 'daily Markdown is synchronized even when its JSON source is unchanged'
+}
+
+test_closed_older_logbook_retries_markdown_sync() {
+  local today previous path
+  fresh_home
+  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
+  previous=$(day_before)
+  mkdir -p "$HOME_DIR/data/history/days"
+  path="$HOME_DIR/data/history/days/$previous.logbook.json"
+  jq -n --arg date "$previous" '
+    {schema:"fm-logbook.v1",date:$date,tz:"Europe/Berlin",closed:true,generated:"2026-01-01T00:00:00.000Z",
+      landed:[{id:"prior-landed",project:"sample",title:"Prior day result",kind:"ship",mode:"no-mistakes",via:"local",pr_url:null,home:"main",order:1}],
+      reports:[],decisions:[],open:{running:0,waiting_on_you:0,ids:[],omitted:[]}}
+  ' > "$path"
+  chmod 600 "$path"
+  run_history logbook --date "$today" >/dev/null
+  assert_contains "$(<"$HOME_DIR/data/history/days/$previous.md")" 'Prior day result' \
+    'a retry skipped Markdown synchronization for an already-closed day'
+  pass 'already-closed older Logbooks retry their Markdown projection'
+}
+
+test_explicit_closed_day_retries_markdown_sync() {
+  local previous path
+  fresh_home
+  previous=$(day_before)
+  mkdir -p "$HOME_DIR/data/history/days"
+  path="$HOME_DIR/data/history/days/$previous.logbook.json"
+  jq -n --arg date "$previous" '
+    {schema:"fm-logbook.v1",date:$date,tz:"Europe/Berlin",closed:true,generated:"2026-01-01T00:00:00.000Z",
+      landed:[],reports:[],decisions:[],open:{running:0,waiting_on_you:0,ids:[],omitted:[]}}
+  ' > "$path"
+  chmod 600 "$path"
+  run_history logbook --date "$previous" >/dev/null
+  assert_present "$HOME_DIR/data/history/days/$previous.md" \
+    'an explicit closed-day retry did not restore its Markdown projection'
+  pass 'explicit retries synchronize Markdown for an already-closed day'
+}
+
 test_registered_secondmate_queued_work_is_open() {
   local today mate
   fresh_home
@@ -254,7 +425,7 @@ EOF
     "$ROOT/bin/fm-fleet-snapshot.sh" --secondmate-home-summary > "$mate/state/home-summary.json" \
     || fail 'the registered secondmate summary could not be prepared'
   run_history logbook >/dev/null
-  jq -e 'any(.open.ids[]; . == "mate-queued")' "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null \
+  jq -e 'any(.open.ids[]; . == "registered-mate/mate-queued")' "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null \
     || fail 'the daily Logbook omitted queued work from a registered secondmate'
   pass 'the daily Logbook includes queued work from registered secondmates'
 }
@@ -274,9 +445,15 @@ test_secondmate_home_is_the_project_fallback() {
 }
 
 test_logbook_projects_reports_decisions_and_open_work
+test_unclassified_reports_and_verbatim_decisions_are_logged
 test_queued_only_day_writes_a_logbook
 test_captured_markers_remain_content_when_logbook_is_written
 test_closed_day_requires_explicit_rebuild
 test_first_later_day_closes_the_previous_logbook
+test_secondmate_landed_rows_reach_the_logbook
+test_secondmate_open_inventory_omissions_and_identity_are_preserved
+test_logbook_markdown_retries_when_json_is_unchanged
+test_closed_older_logbook_retries_markdown_sync
+test_explicit_closed_day_retries_markdown_sync
 test_registered_secondmate_queued_work_is_open
 test_secondmate_home_is_the_project_fallback
