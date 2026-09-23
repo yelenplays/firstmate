@@ -88,6 +88,9 @@
 #          refresh relays any completed fm-fleet-sync.sh output before the
 #          aggregate timeout skip line with timeout and elapsed seconds.
 #          Set FM_FLEET_PRUNE=0 to skip branch pruning during that refresh.
+#          Each remote secondmate operation is individually bounded to 8
+#          seconds; timeout reports the affected operation and lets the sweep
+#          continue, while timing records identify liveness and convergence.
 #          BACKLOG_RECONCILE lines report what backlog_record_reconcile could not
 #          settle in THIS home. Every ordinary dispatch and completion now moves
 #          the backlog row inside the script that moves the task's record
@@ -223,6 +226,10 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 # deferred network stage sets, so an ordinary bootstrap run records nothing.
 # shellcheck source=bin/fm-timing-lib.sh disable=SC1091
 . "$SCRIPT_DIR/fm-timing-lib.sh"
+# shellcheck source=bin/fm-timeout-lib.sh disable=SC1091
+. "$SCRIPT_DIR/fm-timeout-lib.sh"
+
+REMOTE_SYNC_OPERATION_TIMEOUT=8
 
 # Network-phase selection (see the header). An unrecognized value resolves to
 # `all` so a malformed override runs every step rather than silently dropping a
@@ -612,15 +619,38 @@ secondmate_sync() {
   # "move on to the next secondmate".
   secondmate_sync_remote_one() {  # <id> <home> <remote-host>
     local id=$1 _home=$2 remote_host=$3
-    local sync_out sync_rc inherit_out nudge_needed remote_marker remote_pending converged out remote_lock remote_generation
+    local sync_out sync_rc inherit_out inherit_rc nudge_needed remote_marker remote_pending converged out remote_lock remote_generation operation_started nudge_rc lock_rc
     remote_lock=$(fm_remote_inherit_transaction_lock_path "$STATE" "$id" 2>/dev/null || true)
-    if [ -z "$remote_lock" ] || ! fm_lock_acquire_wait "$remote_lock"; then
-      echo "NUDGE_SECONDMATES: secondmate $id: send failed: cannot lock remote inheritance transaction"
+    operation_started=$(fm_timing_now_ms)
+    if [ -z "$remote_lock" ]; then
+      lock_rc=1
+    elif fm_lock_acquire_wait_bounded "$remote_lock" "$REMOTE_SYNC_OPERATION_TIMEOUT"; then
+      lock_rc=0
+    else
+      lock_rc=$?
+    fi
+    fm_timing_record remote-operation inheritance-lock "$operation_started" "$id@$remote_host"
+    if [ "$lock_rc" -ne 0 ]; then
+      if [ "$lock_rc" -eq 124 ]; then
+        echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance lock timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host"
+      else
+        echo "SECONDMATE_SYNC: secondmate $id: skipped: cannot lock remote inheritance transaction"
+      fi
       return 0
     fi
-    if ! "$SCRIPT_DIR/fm-procevent-remote-reply.sh" arm "$id" >/dev/null 2>&1; then
-      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote reply source could not be registered"
+    operation_started=$(fm_timing_now_ms)
+    lock_rc=0
+    if fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" "$SCRIPT_DIR/fm-procevent-remote-reply.sh" arm "$id" >/dev/null 2>&1; then
+      :
+    else
+      lock_rc=$?
+      if [ "$lock_rc" -eq 124 ]; then
+        echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote reply registration timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host"
+      else
+        echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote reply source could not be registered"
+      fi
     fi
+    fm_timing_record remote-operation reply-registration "$operation_started" "$id@$remote_host"
     remote_generation=$(fm_remote_inherit_generation_next "$STATE" "$id" 2>/dev/null || true)
     if [ -z "$remote_generation" ]; then
       echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance generation could not be published"
@@ -638,30 +668,53 @@ secondmate_sync() {
     fi
     nudge_needed=0
     converged=1
-    if sync_out=$("$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh sync "$id" \
+    operation_started=$(fm_timing_now_ms)
+    if sync_out=$(fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" \
+      "$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh sync "$id" \
       "$primary_head" < /dev/null 2>&1); then
       case "$sync_out" in synced:*) nudge_needed=1 ;; esac
     else
       sync_rc=$?
-      echo "SECONDMATE_SYNC: secondmate $id: skipped: remote tracked-file sync failed on $remote_host: $(remote_sync_failure_reason "$sync_rc" "$sync_out")"
+      if [ "$sync_rc" -eq 124 ]; then
+        echo "SECONDMATE_SYNC: secondmate $id: skipped: remote tracked-file sync timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host"
+      else
+        echo "SECONDMATE_SYNC: secondmate $id: skipped: remote tracked-file sync failed on $remote_host: $(remote_sync_failure_reason "$sync_rc" "$sync_out")"
+      fi
       converged=0
     fi
-    if inherit_out=$(FM_CONFIG_INHERIT_LIVE=1 \
+    fm_timing_record remote-operation tracked-sync "$operation_started" "$id@$remote_host"
+    operation_started=$(fm_timing_now_ms)
+    if inherit_out=$(fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" \
+      env FM_CONFIG_INHERIT_LIVE=1 \
       "$SCRIPT_DIR/fm-remote-inherit-push.sh" "$id" "$remote_generation" 2>&1); then
       if printf '%s\n' "$inherit_out" | grep -Eq '^(pushed|removed):'; then nudge_needed=1; fi
     else
-      echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance failed on $remote_host: $(first_line "$inherit_out")"
+      inherit_rc=$?
+      if [ "$inherit_rc" -eq 124 ]; then
+        echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host"
+      else
+        echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance failed on $remote_host: $(first_line "$inherit_out")"
+      fi
       converged=0
     fi
+    fm_timing_record remote-operation inheritance-push "$operation_started" "$id@$remote_host"
     [ "$remote_pending" -eq 0 ] || nudge_needed=1
     if [ "$converged" -eq 1 ] && [ "$nudge_needed" -eq 1 ]; then
-      if out=$(FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" FM_STATE_OVERRIDE="$STATE" \
+      operation_started=$(fm_timing_now_ms)
+      if out=$(fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" \
+        env FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" FM_STATE_OVERRIDE="$STATE" \
         "$SCRIPT_DIR/fm-send.sh" "fm-$id" "$REMOTE_SECOND_MATE_NUDGE_MESSAGE" 2>&1); then
         rm -f "$remote_marker"
         [ "${FM_BOOTSTRAP_VERBOSE_FACTS:-0}" != 1 ] || echo "BOOTSTRAP_INFO: nudged remote fm-$id after convergence"
       else
-        echo "NUDGE_SECONDMATES: secondmate $id: send failed: $(first_line "$out")"
+        nudge_rc=$?
+        if [ "$nudge_rc" -eq 124 ]; then
+          echo "NUDGE_SECONDMATES: secondmate $id: send timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host"
+        else
+          echo "NUDGE_SECONDMATES: secondmate $id: send failed: $(first_line "$out")"
+        fi
       fi
+      fm_timing_record remote-operation reread-nudge "$operation_started" "$id@$remote_host"
     elif [ "$converged" -eq 1 ]; then
       rm -f "$remote_marker"
     fi
@@ -757,16 +810,20 @@ secondmate_liveness_one_timed() {  # <meta> <id> <label>
 # secondmate_note_respawned so a concurrent sweep can collect them after wait.
 secondmate_liveness_one() {  # <meta> <id>
   local meta=$1 id=$2
-  local window harness backend target agent_state out cause remote_host remote_rc readiness_reason route_out remote_backend
+  local window harness backend target agent_state out cause remote_host remote_rc readiness_reason route_out remote_backend operation_started
   window=$(fm_meta_get "$meta" window)
   [ -n "$window" ] || return 0
   harness=$(fm_meta_get "$meta" harness)
   remote_host=$(fm_meta_get "$meta" remote_host)
   if [ -n "$remote_host" ]; then
     remote_rc=0
-    fm_remote_readiness_ensure "$SCRIPT_DIR" "$id" || remote_rc=$?
+    fm_remote_readiness_ensure "$SCRIPT_DIR" "$id" "$REMOTE_SYNC_OPERATION_TIMEOUT" "$id@$remote_host" || remote_rc=$?
     if [ "$remote_rc" -eq 255 ]; then
       echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote host unavailable or endpoint state unknown; route preserved on $remote_host"
+      return 0
+    fi
+    if [ "$remote_rc" -eq 124 ]; then
+      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote readiness timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host; route preserved"
       return 0
     fi
     if [ "$remote_rc" -ne 0 ]; then
@@ -777,10 +834,17 @@ secondmate_liveness_one() {  # <meta> <id>
       echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote readiness failed on $remote_host: $readiness_reason"
       return 0
     fi
-    if out=$("$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null); then
+    operation_started=$(fm_timing_now_ms)
+    if out=$(fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" \
+      "$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null); then
       remote_rc=0
     else
       remote_rc=$?
+    fi
+    fm_timing_record remote-operation endpoint-state "$operation_started" "$id@$remote_host"
+    if [ "$remote_rc" -eq 124 ]; then
+      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote endpoint probe timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host; route preserved"
+      return 0
     fi
     if [ "$remote_rc" -eq 255 ]; then
       echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote host unavailable or endpoint state unknown; route preserved on $remote_host"
@@ -793,10 +857,17 @@ secondmate_liveness_one() {  # <meta> <id>
     agent_state=$(printf '%s\n' "$out" | tail -1)
     case "$agent_state" in
       alive)
-        if route_out=$("$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh route "$id" < /dev/null 2>/dev/null); then
+        operation_started=$(fm_timing_now_ms)
+        if route_out=$(fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" \
+          "$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh route "$id" < /dev/null 2>/dev/null); then
           remote_rc=0
         else
           remote_rc=$?
+        fi
+        fm_timing_record remote-operation endpoint-route "$operation_started" "$id@$remote_host"
+        if [ "$remote_rc" -eq 124 ]; then
+          echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote endpoint route timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host; route preserved"
+          return 0
         fi
         if [ "$remote_rc" -eq 255 ]; then
           echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote host unavailable or endpoint route unknown; route preserved on $remote_host"
@@ -815,12 +886,20 @@ secondmate_liveness_one() {  # <meta> <id>
         ;;
       dead|missing)
         cause="remote endpoint $agent_state on its configured host"
-        if out=$(FM_SPAWN_NO_GUARD=1 "$FM_ROOT/bin/fm-spawn.sh" "$id" --secondmate 2>&1); then
+        operation_started=$(fm_timing_now_ms)
+        if out=$(fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" \
+          env FM_SPAWN_NO_GUARD=1 "$FM_ROOT/bin/fm-spawn.sh" "$id" --secondmate 2>&1); then
           secondmate_note_respawned "$id"
           report_relaunch "$id" "$cause" "host=$remote_host"
         else
-          echo "SECONDMATE_LIVENESS: secondmate $id: respawn failed after $cause: $(first_line "$out")"
+          remote_rc=$?
+          if [ "$remote_rc" -eq 124 ]; then
+            echo "SECONDMATE_LIVENESS: secondmate $id: respawn timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s; completion is unknown on $remote_host, reconcile before retrying"
+          else
+            echo "SECONDMATE_LIVENESS: secondmate $id: respawn failed after $cause: $(first_line "$out")"
+          fi
         fi
+        fm_timing_record remote-operation endpoint-relaunch "$operation_started" "$id@$remote_host"
         ;;
       ambiguous|unreadable|unverified)
         echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote endpoint state is $agent_state on $remote_host"

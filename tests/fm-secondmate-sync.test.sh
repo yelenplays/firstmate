@@ -1257,6 +1257,86 @@ test_bootstrap_syncs_remote_home_to_primary_commit() {
   pass "R8 session start converges a remote home on the primary's default-branch commit"
 }
 
+test_bootstrap_bounds_each_remote_convergence_operation() {
+  local w c1 home fakebin out timings started elapsed lock ready release holder_pid lock_out lock_elapsed
+  w=$(new_remote_world remote-bootstrap-timeout)
+  cp "$ROOT"/bin/fm-remote-*.sh "$w/main/bin/"
+  git -C "$w/main" add -A
+  git -C "$w/main" commit -qm "primary remote tooling"
+  git -C "$w/main" push -q origin main
+  c1=$(head_of "$w/main")
+  add_remote_home "$w" sm "$w/forge.git" "$c1"
+  home="$w/home"
+  mkdir -p "$home/config" "$home/projects"
+  printf -- '- sm - remote fixture (host: host-sm; root: %s; home: %s; scope: remote work; projects: alpha; added 2026-08-02)\n' \
+    "$w/coderoot" "$w/sm" > "$home/data/secondmates.md"
+  fm_write_secondmate_meta "$home/state/sm.meta" "$w/sm"
+  printf 'remote_host=host-sm\n' >> "$home/state/sm.meta"
+  fakebin=$(make_remote_leg_ssh_stub "$w")
+  cat > "$fakebin/fake-ssh" <<'SH'
+#!/usr/bin/env bash
+cat >/dev/null
+sleep 10
+SH
+  chmod +x "$fakebin/fake-ssh"
+  fm_fake_exit0 "$fakebin" gh treehouse tmux node
+  timings="$w/timings.tsv"
+  started=$(date +%s)
+  out=$(PATH="$fakebin:$BASE_PATH" \
+    FM_HOME="$home" FM_ROOT_OVERRIDE="$w/main" \
+    FM_BOOTSTRAP_NETWORK=only \
+    FM_SSH_BIN="$fakebin/fake-ssh" FM_REMOTE_CODE_ROOT="$w/coderoot" \
+    FM_TEST_REPO_ROOT="$ROOT" FM_INHERITABLE_CONFIG='' \
+    FM_FAKE_TREEHOUSE_LEASE_HELP=1 FM_SEND_SETTLE=0 \
+    FM_TIMING_LOG="$timings" FM_TIMING_EPOCH_MS=0 \
+    "$ROOT/bin/fm-bootstrap.sh" 2>&1)
+  elapsed=$(( $(date +%s) - started ))
+  [ "$elapsed" -lt 40 ] || fail "a slow remote route delayed the remaining bootstrap sweeps for ${elapsed}s: $out"
+  assert_contains "$out" "SECONDMATE_LIVENESS: secondmate sm: skipped: remote readiness timed out after 8s on host-sm; route preserved" \
+    "the timed-out remote readiness probe was not named as unconfirmed"
+  assert_contains "$out" "SECONDMATE_SYNC: secondmate sm: skipped: remote tracked-file sync timed out after 8s on host-sm" \
+    "the timed-out tracked sync was not named as unconfirmed"
+  assert_contains "$out" "SECONDMATE_SYNC: secondmate sm: skipped: remote inheritance timed out after 8s on host-sm" \
+    "the timed-out inheritance push was not named as unconfirmed"
+  assert_grep $'phase\tgh-auth' "$timings" "GitHub authentication was not timed after the slow route"
+  assert_grep $'phase\thandoff-delivery' "$timings" "pending handoff delivery was not timed after the slow route"
+  assert_grep $'remote-operation\treadiness-probe' "$timings" "the remote readiness probe lacked its operation timing"
+  assert_grep $'remote-operation\ttracked-sync' "$timings" "the remote tracked sync lacked its operation timing"
+  assert_grep $'remote-operation\tinheritance-push' "$timings" "the remote inheritance push lacked its operation timing"
+  assert_grep $'phase\tsecondmate-sync' "$timings" "the secondmate convergence phase did not finish"
+  lock="$home/state/.remote-inherit-sm.lock"
+  ready="$w/lock-ready"
+  release="$w/lock-release"
+  (
+    FM_STATE_OVERRIDE="$home/state" FM_ROOT_OVERRIDE="$w/main" bash -c '
+      . "$1/bin/fm-wake-lib.sh"
+      fm_lock_acquire_wait "$2"
+      : > "$3"
+      while [ ! -e "$4" ]; do sleep 0.1; done
+      fm_lock_release "$2"
+    ' _ "$ROOT" "$lock" "$ready" "$release"
+  ) &
+  holder_pid=$!
+  for _ in $(seq 1 100); do [ -e "$ready" ] && break; sleep 0.1; done
+  [ -e "$ready" ] || fail "could not acquire the remote inheritance lock fixture"
+  started=$(date +%s)
+  lock_out=$(PATH="$fakebin:$BASE_PATH" \
+    FM_HOME="$home" FM_ROOT_OVERRIDE="$w/main" \
+    FM_BOOTSTRAP_NETWORK=only FM_SSH_BIN="$fakebin/fake-ssh" \
+    FM_REMOTE_CODE_ROOT="$w/coderoot" FM_TEST_REPO_ROOT="$ROOT" \
+    FM_INHERITABLE_CONFIG='' FM_FAKE_TREEHOUSE_LEASE_HELP=1 FM_SEND_SETTLE=0 \
+    FM_TIMING_LOG="$timings" FM_TIMING_EPOCH_MS=0 \
+    "$ROOT/bin/fm-bootstrap.sh" 2>&1)
+  lock_elapsed=$(( $(date +%s) - started ))
+  : > "$release"
+  wait "$holder_pid" || true
+  assert_contains "$lock_out" "SECONDMATE_SYNC: secondmate sm: skipped: remote inheritance lock timed out after 8s on host-sm" \
+    "a held remote inheritance lock did not produce a bounded unconfirmed result"
+  [ "$lock_elapsed" -lt 24 ] || fail "a held remote inheritance lock delayed other checks for ${lock_elapsed}s: $lock_out"
+  assert_grep $'phase\thandoff-delivery' "$timings" "handoff delivery did not finish after the locked route was skipped"
+  pass "bootstrap bounds slow remote operations and lock waits while other checks finish"
+}
+
 # --- R10: an outdated host refuses, and the report says how to fix it ----------
 # A host still running an older Firstmate copy rejects a command shape it does
 # not know, which for this leg can only mean it predates the parent-targeted
@@ -1372,6 +1452,7 @@ test_remote_sync_skips_unimportable_target
 test_remote_sync_skips_dirty_diverged_and_feature_branch
 test_remote_sync_without_target_follows_host_copy
 test_bootstrap_syncs_remote_home_to_primary_commit
+test_bootstrap_bounds_each_remote_convergence_operation
 test_bootstrap_reports_outdated_host_actionably
 test_remote_launch_does_not_retarget_host_copy
 
