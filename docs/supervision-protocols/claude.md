@@ -1,7 +1,7 @@
 Mode: Claude Stop-hook-owned supervision.
 
 When this session owns supervision and away mode is not active:
-1. Drain first with `bin/fm-wake-triage.sh`, which runs `bin/fm-wake-drain.sh` once, reads the current state of every task the wakes name, and prints an act-now list, a one-line routine summary, and the drain's exact acknowledgement; its header owns the classification rules.
+1. Drain first with `bin/fm-wake-triage.sh`, which runs `bin/fm-wake-drain.sh` once, reads the current state of every task named by a presented wake or outstanding execution obligation, and prints an act-now list, a one-line routine summary, and the drain's exact acknowledgement; its header owns the classification rules.
    Handle every act-now item, reading the saved full drain output it names whenever an item needs the raw text; `bin/fm-wake-drain.sh` itself remains the direct path when the triage reports a drain failure.
    After handling all emitted wakes and reconciling open decisions and unread status lines, run the exact `--ack-through` command printed as `WAKE_ACK_REQUIRED`; until then the work remains durable for idempotent re-handling after interruption.
    `bin/fm-wake-triage.sh --auto-ack` acknowledges the batch itself only when every item is routine, and never when anything needs action.

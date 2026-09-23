@@ -978,8 +978,9 @@ wedge_defer_writing() {  # <window> <since-file> <triage-label> <idle-age>
 # With no standing line declaration, the backlog's open captain call is the other
 # record of the same wait (task_captain_call_open below owns why): work the
 # captain already holds is never a wedge suspect, so it prints `call`. The read
-# costs one subprocess and runs only here, at most once per window per
-# STALE_ESCALATE_SECS, and a backlog it cannot read keeps the unchanged ladder.
+# runs only here, at most once per window per STALE_ESCALATE_SECS; a matched
+# call's identity is read again when the deferral is recorded, and an unreadable
+# backlog keeps the unchanged ladder.
 wedge_wait_evidence() {  # <task> -> `declared`, `held`, or `call` on stdout
   local task=$1 last until
   [ -n "$task" ] || return 1
@@ -1198,8 +1199,8 @@ wedge_dead_record() {  # <window> <since-file> <triage-label> <idle-age> <pane-h
 # both places a hash can be absorbed this way: the plain non-terminal path,
 # and the stale_is_terminal-overridden path (a captain-relevant status-log
 # line that an active run/busy pane outranked).
-# The wait-evidence consult (wedge_wait_evidence, one status-line read), the
-# worktree write probe, the dead-record probe (wedge_dead_record), and the
+# The wait-evidence check (status line plus an open-call lookup when needed),
+# the worktree write probe, the dead-record probe (wedge_dead_record), and the
 # no-mistakes run-liveness probe (crew_nm_run_progressing) run ONLY here, inside
 # the at-threshold branch that is about to escalate: at most one each per window
 # per STALE_ESCALATE_SECS, never per poll. The wait consult runs first, because a

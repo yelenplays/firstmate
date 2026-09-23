@@ -585,9 +585,7 @@ Set `TYPESAFE_API_KEY` for the TypeSafe route, or `OPENROUTER_API_KEY` for OpenR
 Typed dispatch resolution above uses this library for the HTTP call and owns the `JEV_ROUTE`, `JEV_MODEL`, `JEV_URL`, `JEV_BASE`, and `JEV_TIMEOUT` names.
 
 Wake triage (`bin/fm-wake-triage.sh`) asks Jev only about status lines its fixed rules leave ambiguous, and only when a key is configured.
-Its payload follows the captain's privacy line: a line's free text is sent only for a ship or scout task of this firstmate repository, from the main home, scrubbed of secret-shaped tokens and size-capped.
-Secondmate tasks, runs in a secondmate home, other projects such as wikis, websites, or vaults, and any task whose kind or project cannot be established send structured facts only, and pane content is never sent.
-The script header owns the exact rule and the fact fields.
+The script header owns the exact payload privacy rules and structured fact fields.
 
 ## Jev remainder tool-gate (FM_JEV_TOOL_GATE)
 
