@@ -39,7 +39,7 @@ A caller that disconnects or whose caller-side wait expires before its job compl
 Linux uses the same queue and worker protocol without the Aqua-session requirement.
 A worker stops itself once its configured code root stops being a Firstmate checkout, so a worker started from a worktree cannot outlive that worktree, and `bin/fm-remote-job-reap-orphans.sh` clears any worker already left behind that way without ever touching one whose checkout still exists.
 On Linux, each detached restart supervisor now holds a separate account-queue lock; the serving child's existing lock alone did not prevent multiple supervisors from starting.
-After updating a Linux Firstmate checkout that accumulated legacy supervisors, use the worker's `--help` over direct SSH for the supported cleanup procedure; it preserves one healthy current worker and refuses to interrupt a live lane.
+After updating a Linux Firstmate checkout that accumulated legacy supervisors, run `cd <remote-root> && bin/fm-remote-job-worker.sh --cleanup` over direct SSH; it preserves one healthy current worker and refuses to interrupt a live lane.
 The remote account must provide the required toolchain, the selected worker runtime, the selected session backend, and credentials that work on that host; Linux also requires the `flock` utility for supervisor ownership updates.
 The origin URL named for each project must be reachable from the remote account because projects are cloned on that host rather than copied from the primary.
 

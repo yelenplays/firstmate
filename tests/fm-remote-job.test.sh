@@ -26,8 +26,6 @@ import sys
 
 fd = int(sys.argv[-1])
 operation = fcntl.LOCK_UN if "-u" in sys.argv else fcntl.LOCK_EX
-if "-n" in sys.argv:
-    operation |= fcntl.LOCK_NB
 try:
     fcntl.flock(fd, operation)
 except BlockingIOError:
@@ -830,10 +828,30 @@ case "${1:-}" in
 esac
 SH
 chmod +x "$RACE_ROOT/bin/fm-remote-job-worker.sh" "$RACE_SUPERVISOR"
+RACE_RELEASE_BIN="$TMP_ROOT/supervisor-release-bin"
+RACE_RELEASE_READY="$TMP_ROOT/supervisor-release-ready"
+RACE_RELEASE_CONTINUE="$TMP_ROOT/supervisor-release-continue"
+mkdir -p "$RACE_RELEASE_BIN"
+cat > "$RACE_RELEASE_BIN/rm" <<'SH'
+#!/bin/bash
+for path do
+  if [ "$path" = "$FM_TEST_SUPERVISOR_OWNER_PATH" ]; then
+    printf 'ready\n' > "$FM_TEST_SUPERVISOR_RELEASE_READY"
+    while [ ! -e "$FM_TEST_SUPERVISOR_RELEASE_CONTINUE" ]; do sleep 0.05; done
+    break
+  fi
+done
+exec /bin/rm "$@"
+SH
+chmod +x "$RACE_RELEASE_BIN/rm"
 export FM_TEST_SUPERVISOR_PID_LOG="$RACE_PID_LOG"
 set -m
 for index in $(seq 1 12); do
-  HOME="$RACE_HOME" FM_ROOT_OVERRIDE="$RACE_ROOT" FM_REMOTE_JOB_STATE_ROOT="$RACE_STATE" \
+  PATH="$RACE_RELEASE_BIN:$PATH" \
+    FM_TEST_SUPERVISOR_OWNER_PATH="$RACE_STATE/supervisor.lock/owner" \
+    FM_TEST_SUPERVISOR_RELEASE_READY="$RACE_RELEASE_READY" \
+    FM_TEST_SUPERVISOR_RELEASE_CONTINUE="$RACE_RELEASE_CONTINUE" \
+    HOME="$RACE_HOME" FM_ROOT_OVERRIDE="$RACE_ROOT" FM_REMOTE_JOB_STATE_ROOT="$RACE_STATE" \
     FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux "$RACE_ROOT/bin/fm-remote-job-worker.sh" \
     > "$TMP_ROOT/race-supervisor-$index.out" 2>&1 &
   RACE_SUPERVISOR_PIDS+=("$!")
@@ -871,21 +889,60 @@ pass "concurrent Linux starts admit one restart supervisor per account queue"
 for _ in $(seq 1 10); do
   kill -TERM "$RACE_ACTIVE_SUPERVISOR_PID" 2>/dev/null || true
 done
+for _ in $(seq 1 100); do
+  [ -f "$RACE_RELEASE_READY" ] && break
+  sleep 0.05
+done
+assert_present "$RACE_RELEASE_READY" "the exiting supervisor did not reach owner release"
+RACE_PID_LOG_LINES=$(wc -l < "$RACE_PID_LOG" | tr -d ' ')
+set -m
+HOME="$RACE_HOME" FM_ROOT_OVERRIDE="$RACE_ROOT" FM_REMOTE_JOB_STATE_ROOT="$RACE_STATE" \
+  FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux "$RACE_ROOT/bin/fm-remote-job-worker.sh" \
+  > "$TMP_ROOT/release-contender.out" 2>&1 &
+RACE_RELEASE_CONTENDER_PID=$!
+RACE_SUPERVISOR_PIDS+=("$RACE_RELEASE_CONTENDER_PID")
+set +m
+for _ in $(seq 1 100); do
+  [ "$(wc -l < "$RACE_PID_LOG" | tr -d ' ')" -ge "$((RACE_PID_LOG_LINES + 1))" ] && break
+  sleep 0.05
+done
+[ "$(wc -l < "$RACE_PID_LOG" | tr -d ' ')" -ge "$((RACE_PID_LOG_LINES + 1))" ] \
+  || fail "the replacement did not reach the releasing supervisor"
+RACE_RELEASE_CONTENDER_COMMAND=
+for _ in $(seq 1 100); do
+  RACE_RELEASE_CONTENDER_COMMAND=$(fm_remote_job_process_command "$RACE_RELEASE_CONTENDER_PID" 2>/dev/null || true)
+  case "$RACE_RELEASE_CONTENDER_COMMAND" in
+    *"$RACE_SUPERVISOR") break ;;
+    *"$RACE_ROOT/bin/fm-remote-job-worker.sh") ;;
+    *) break ;;
+  esac
+  sleep 0.05
+done
+case "$RACE_RELEASE_CONTENDER_COMMAND" in
+  *"$RACE_SUPERVISOR") ;;
+  *) fail "the replacement exited instead of waiting for supervisor release" ;;
+esac
+[ "$(head -n 1 "$RACE_STATE/supervisor.lock/owner" 2>/dev/null || true)" = "$RACE_ACTIVE_SUPERVISOR_PID" ] \
+  || fail "the exiting supervisor lost ownership before release completed"
+: > "$RACE_RELEASE_CONTINUE"
 for pid in "${RACE_SUPERVISOR_PIDS[@]}"; do
+  [ "$pid" = "$RACE_RELEASE_CONTENDER_PID" ] && continue
   wait "$pid" 2>/dev/null || true
 done
-for _ in $(seq 1 50); do
-  RACE_ACTIVE_SUPERVISORS=0
-  for pid in "${RACE_SUPERVISOR_PIDS[@]}"; do
-    command=$(fm_remote_job_process_command "$pid" 2>/dev/null || true)
-    case "$command" in *"$RACE_SUPERVISOR") RACE_ACTIVE_SUPERVISORS=$((RACE_ACTIVE_SUPERVISORS + 1)) ;; esac
-  done
-  [ "$RACE_ACTIVE_SUPERVISORS" -eq 0 ] && break
-  sleep 0.1
+RACE_RELEASE_OWNER_PID=
+for _ in $(seq 1 100); do
+  RACE_RELEASE_OWNER_PID=$(head -n 1 "$RACE_STATE/supervisor.lock/owner" 2>/dev/null || true)
+  [ "$RACE_RELEASE_OWNER_PID" = "$RACE_RELEASE_CONTENDER_PID" ] && break
+  sleep 0.05
 done
-[ "$RACE_ACTIVE_SUPERVISORS" -eq 0 ] || fail "the race fixture's supervisor did not exit cleanly"
-assert_absent "$RACE_STATE/supervisor.lock" "the race fixture left stale supervisor ownership"
-pass "repeated supervisor signals release its singleton lock"
+[ "$RACE_RELEASE_OWNER_PID" = "$RACE_RELEASE_CONTENDER_PID" ] \
+  || fail "the replacement did not claim ownership after the prior supervisor exited"
+command=$(fm_remote_job_process_command "$RACE_RELEASE_CONTENDER_PID" 2>/dev/null || true)
+case "$command" in *"$RACE_SUPERVISOR") ;; *) fail "the replacement exited after claiming ownership" ;; esac
+pass "guard contention starts a replacement after owner release"
+kill -TERM "$RACE_RELEASE_CONTENDER_PID" 2>/dev/null || true
+wait "$RACE_RELEASE_CONTENDER_PID" 2>/dev/null || true
+assert_absent "$RACE_STATE/supervisor.lock" "the replacement left stale supervisor ownership"
 RACE_SUPERVISOR_PIDS=()
 mkdir -m 700 "$RACE_STATE/supervisor.lock"
 printf '2147483646\nstale start\nstale command\n' > "$RACE_STATE/supervisor.lock/owner"
@@ -975,17 +1032,17 @@ RACE_RECLAIMER_COMMAND=
 for _ in $(seq 1 100); do
   RACE_RECLAIMER_COMMAND=$(fm_remote_job_process_command "$RACE_RECLAIMER_PID" 2>/dev/null || true)
   case "$RACE_RECLAIMER_COMMAND" in
-    *"$RACE_SUPERVISOR") [ ! -e "$RACE_STATE/supervisor.lock/owner" ] || fail "the reclaimer removed the publisher's live ownership" ;;
+    *"$RACE_SUPERVISOR") break ;;
     *"$RACE_ROOT/bin/fm-remote-job-worker.sh") ;;
     *) break ;;
   esac
   sleep 0.05
 done
 case "$RACE_RECLAIMER_COMMAND" in
-  *"$RACE_SUPERVISOR"|*"$RACE_ROOT/bin/fm-remote-job-worker.sh") fail "the competing supervisor did not leave the ownership guard" ;;
+  *"$RACE_SUPERVISOR") ;;
+  *) fail "the competing startup exited instead of waiting for publication" ;;
 esac
 assert_absent "$RACE_STATE/supervisor.lock/owner" "the publisher lost its claim before publication"
-wait "$RACE_RECLAIMER_PID" 2>/dev/null || fail "the competing startup did not exit cleanly"
 : > "$RACE_PUBLISH_RELEASE"
 for _ in $(seq 1 100); do
   owner_pid=$(head -n 1 "$RACE_STATE/supervisor.lock/owner" 2>/dev/null || true)
@@ -993,6 +1050,9 @@ for _ in $(seq 1 100); do
   sleep 0.05
 done
 [ "$owner_pid" = "$RACE_PAUSED_SUPERVISOR_PID" ] || fail "the paused publisher did not retain the lock"
+wait "$RACE_RECLAIMER_PID" 2>/dev/null || fail "the competing startup did not verify its owner"
+[ "$(head -n 1 "$RACE_STATE/supervisor.lock/owner")" = "$RACE_PAUSED_SUPERVISOR_PID" ] \
+  || fail "the competing startup removed the published owner"
 command=$(fm_remote_job_process_command "$RACE_PAUSED_SUPERVISOR_PID" 2>/dev/null || true)
 case "$command" in *"$RACE_SUPERVISOR") ;; *) fail "the paused publisher did not remain the active supervisor" ;; esac
 pass "stale reclamation cannot remove a live supervisor claim"

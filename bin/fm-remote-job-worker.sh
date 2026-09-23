@@ -1115,10 +1115,10 @@ worker_supervisor_lock_guard_acquire() {
   chmod 600 "$guard" 2>/dev/null || return 1
   exec 9>>"$guard" || return 1
   WORKER_SUPERVISOR_GUARD_FD=9
-  if ! flock -n -x "$WORKER_SUPERVISOR_GUARD_FD" 2>/dev/null; then
+  if ! flock -x "$WORKER_SUPERVISOR_GUARD_FD" 2>/dev/null; then
     exec 9>&-
     WORKER_SUPERVISOR_GUARD_FD=
-    return 2
+    return 1
   fi
   WORKER_SUPERVISOR_GUARD_HELD=1
 }
@@ -1135,9 +1135,7 @@ worker_supervisor_lock_guard_release() {
 
 worker_supervisor_acquire_lock() { # 0=acquired, 2=another owner, 3=indeterminate
   local status
-  worker_supervisor_lock_guard_acquire
-  status=$?
-  [ "$status" -eq 0 ] || return "$status"
+  worker_supervisor_lock_guard_acquire || return 1
   worker_supervisor_acquire_lock_guarded
   status=$?
   worker_supervisor_lock_guard_release || return 1
@@ -1226,9 +1224,7 @@ worker_supervisor_release_lock() {
     WORKER_SUPERVISOR_GUARD_FD=
     WORKER_SUPERVISOR_GUARD_HELD=0
   fi
-  worker_supervisor_lock_guard_acquire
-  status=$?
-  [ "$status" -eq 0 ] || return 1
+  worker_supervisor_lock_guard_acquire || return 1
   worker_supervisor_release_lock_guarded
   status=$?
   worker_supervisor_lock_guard_release || status=1
@@ -1487,16 +1483,6 @@ case "${1:-}" in
   --cleanup)
     shift
     worker_cleanup_main "$@"
-    ;;
-  --help)
-    cat <<'TXT'
-Usage: fm-remote-job-worker.sh --cleanup
-       fm-remote-job-worker.sh --help
-
-On Linux, ensure one healthy current queue worker and stop surplus supervisors
-with their worker trees. Cleanup refuses when a job has a live lane claim.
-Run --cleanup over direct SSH, not through the queue it repairs.
-TXT
     ;;
   --serve)
     [ "$#" -eq 1 ] || { worker_error "unexpected worker arguments"; exit 2; }
