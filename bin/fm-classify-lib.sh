@@ -93,9 +93,12 @@ unset _fm_classify_nounset
 # The bounded Jev consults near the bottom of this file resolve their per-call
 # HTTP bound through bin/fm-jev-lib.sh (fm_jev_supervision_timeout), the same
 # answer the helpers read. The library is plain definitions plus constants.
+# It is a canonical lint root in its own right, and only its functions are used
+# here. Keep it an analysis boundary: this library is re-sourced through the
+# wake and pending-reply graphs, and following it from every copy exceeds the
+# bounded CI lint worker while adding no uncovered file.
 case $- in *u*) _fm_classify_nounset=on ;; *) _fm_classify_nounset=off ;; esac
-# shellcheck source=bin/fm-jev-lib.sh
-# shellcheck disable=SC1091
+# shellcheck source=/dev/null
 . "$_FM_CLASSIFY_LIB_DIR/fm-jev-lib.sh"
 [ "$_fm_classify_nounset" = on ] || set +u
 unset _fm_classify_nounset
