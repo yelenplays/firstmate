@@ -178,9 +178,10 @@ scan_cache_fresh() {  # <cache-file>
   now=$(date +%s)
   [ $((now - mtime)) -lt "$max" ] || return 1
   backlog="${FM_DATA_OVERRIDE:-$FM_HOME/data}/backlog.md"
-  [ -e "$backlog" ] || [ -L "$backlog" ] || return 1
+  [ -f "$backlog" ] || return 1
   for f in "$STATE"/*.execution; do
     [ -e "$f" ] || [ -L "$f" ] || continue
+    [ -f "$f" ] || return 1
     id=$(basename "$f" .execution)
     if [ ! -e "$STATE/$id.meta" ] && [ ! -L "$STATE/$id.meta" ]; then
       cached_action=$(awk -F '\t' -v t="$id" '$1 == t { print $3; exit }' "$cache")
@@ -192,6 +193,7 @@ scan_cache_fresh() {  # <cache-file>
   done
   for f in "$STATE"/*.execution "$STATE"/*.meta "$backlog"; do
     [ -e "$f" ] || [ -L "$f" ] || continue
+    [ -f "$f" ] || return 1
     # Strictly newer, so a change inside the publishing second still rescans.
     [ "$cache" -nt "$f" ] || return 1
   done

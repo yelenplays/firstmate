@@ -184,6 +184,30 @@ FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' "$EXEC" 
 grep -q 'busy-worker.*reconcile-missing-backlog-item' "$home/state/missing-backlog" || fail 'a deleted backlog did not invalidate the published scan'
 mv "$home/backlog.md" "$home/data/backlog.md"
 touch "$home/data/backlog.md"
+FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' "$EXEC" scan --cached >/dev/null
+mv "$home/data/backlog.md" "$home/backlog.md"
+ln -s "$home/missing-backlog-target" "$home/data/backlog.md"
+FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' "$EXEC" scan --cached > "$home/state/dangling-backlog"
+grep -q 'busy-worker.*reconcile-missing-backlog-item' "$home/state/dangling-backlog" || fail 'a dangling backlog symlink did not invalidate the published scan'
+rm "$home/data/backlog.md"
+mv "$home/backlog.md" "$home/data/backlog.md"
+touch "$home/data/backlog.md"
+FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' "$EXEC" scan --cached >/dev/null
+mv "$home/state/busy-worker.meta" "$home/busy-worker.meta"
+ln -s "$home/missing-meta-target" "$home/state/busy-worker.meta"
+FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' "$EXEC" scan --cached > "$home/state/dangling-meta"
+grep -q 'busy-worker.*implementation owner missing' "$home/state/dangling-meta" || fail 'a dangling task metadata symlink did not invalidate the published scan'
+rm "$home/state/busy-worker.meta"
+mv "$home/busy-worker.meta" "$home/state/busy-worker.meta"
+touch "$home/state/busy-worker.meta"
+FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' "$EXEC" scan --cached >/dev/null
+mv "$home/state/busy-worker.execution" "$home/busy-worker.execution"
+ln -s "$home/missing-execution-target" "$home/state/busy-worker.execution"
+FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' "$EXEC" scan --cached > "$home/state/dangling-execution"
+grep -q 'busy-worker.*reconcile-corrupt-execution-record' "$home/state/dangling-execution" || fail 'a dangling execution symlink did not invalidate the published scan'
+rm "$home/state/busy-worker.execution"
+mv "$home/busy-worker.execution" "$home/state/busy-worker.execution"
+touch "$home/state/busy-worker.execution"
 # A retired record changes no surviving file, so the published task list itself
 # must match the records that exist before the cache is reused.
 FM_FAKE_CREW_STATE_busy_worker=$busy_verdict "$EXEC" scan --cached >/dev/null

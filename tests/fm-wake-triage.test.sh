@@ -300,6 +300,42 @@ SH
   pass "outstanding firstmate obligations stay act-now even without a reminder row"
 }
 
+test_worker_owned_execution_obligations_use_current_state() {
+  local dir fake out
+  dir=$(triage_case worker-execution-state)
+  for task in failed-check parked-unreminded busy-check dependency external; do
+    write_meta "$dir" "$task" ship
+  done
+  fake="$dir/fakebin/fm-wake-drain.sh"
+  cat > "$fake" <<'SH'
+#!/usr/bin/env bash
+[ "${1:-}" = --ack-through ] && { echo "acked through $2"; exit 0; }
+printf '1\t1\tcheck\texecution:failed-check\tcheck: execution failed-check\n'
+printf '1\t2\tcheck\texecution:busy-check\tcheck: execution busy-check\n'
+printf 'UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):\n'
+printf 'failed-check\tworker\tcontinue-validation\n'
+printf 'parked-unreminded\tworker\tcontinue-validation\n'
+printf 'busy-check\tworker\tcontinue-validation\n'
+printf 'dependency\tdependency\twait-for-other\n'
+printf 'external\texternal\trecheck-at-2099-01-01\n'
+printf 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation g1\n' >&2
+SH
+  chmod +x "$fake"
+  out=$(FM_WAKE_DRAIN_BIN="$fake" \
+    FM_FAKE_CREW_STATE_failed_check='state: failed · source: run-step · tests failed' \
+    FM_FAKE_CREW_STATE_parked_unreminded='state: parked · source: run-step · parked at review' \
+    FM_FAKE_CREW_STATE_busy_check='state: working · source: run-step · running validation' \
+    run_triage "$dir" --auto-ack) || fail "triage failed: $out"
+  has "$out" '- failed-check | execution obligation: continue-validation; worker state reads failed'
+  has "$out" '- parked-unreminded | execution obligation: continue-validation; worker parked at a validation gate'
+  has "$out" 'busy-check (execution reminder; worker-owned obligation (continue-validation) is routine; worker busy'
+  has "$out" 'dependency (execution obligation; owner is dependency (wait-for-other))'
+  has "$out" 'external (execution obligation; owner is external (recheck-at-2099-01-01))'
+  has "$out" 'not auto-acknowledged'
+  lacks "$out" 'WAKE_ACKED'
+  pass "worker-owned obligations follow current state across both reminder paths"
+}
+
 test_omission_markers_are_drain_alerts_not_task_records() {
   local dir fake out
   dir=$(triage_case omission-markers)
@@ -530,6 +566,7 @@ test_distinct_row_semantics_survive_per_task_dedupe
 test_secondmate_in_a_failed_or_unknown_state_is_act_now
 test_later_row_is_judged_after_a_stateless_routine_row
 test_busy_execution_reminder_is_routine_and_idle_one_is_act_now
+test_worker_owned_execution_obligations_use_current_state
 test_omission_markers_are_drain_alerts_not_task_records
 test_open_decisions_are_act_now_only_when_the_set_changes
 test_ambiguous_status_without_a_jev_key_stays_act_now

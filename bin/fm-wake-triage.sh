@@ -517,7 +517,7 @@ EOF
 # concurrently, so a batch costs one crew-state read of wall time rather than
 # their sum. A task its presented lines already settle is never waited on.
 prefetch_crew_states() {
-  local tag epoch seq kind key payload task n=0 max=8 seen=' '
+  local tag epoch seq kind key payload task owner action n=0 max=8 seen=' '
   while IFS="$TAB" read -r tag epoch seq kind key payload; do
     [ "$tag" = ROW ] || continue
     : "$epoch" "$seq" "$payload"
@@ -537,7 +537,8 @@ prefetch_crew_states() {
     if [ "$n" -ge "$max" ]; then wait; n=0; fi
   done < "$PARSED"
   while IFS="$TAB" read -r task owner action; do
-    [ -n "$task" ] && [ "$owner" = firstmate ] || continue
+    [ -n "$task" ] && [ -n "$action" ] \
+      && { [ "$owner" = firstmate ] || [ "$owner" = worker ]; } || continue
     safe_id "$task" || continue
     case "$seen" in *" $task "*) continue ;; esac
     seen="$seen$task "
@@ -656,10 +657,23 @@ handle_plain_stale() {  # <task> <payload>
 }
 
 classify_execution_obligation() {  # <task> <execution-line> <source-label>
-  local task=$1 line=$2 label=$3 owner action
+  local task=$1 line=$2 label=$3 owner action verdict sub detail next pane what
   owner=$(printf '%s' "$line" | cut -f2)
   action=$(printf '%s' "$line" | cut -f3)
-  if [ "$owner" != firstmate ]; then
+  if [ "$owner" = worker ]; then
+    IFS="$VERDICT_SEP" read -r verdict sub detail next pane <<EOF
+$(state_verdict "$task")
+EOF
+    if [ "$verdict" = routine ]; then
+      routine "$task" "$label; worker-owned obligation ($action) is routine${sub:+; $sub}${detail:+; $detail}"
+    else
+      what="execution obligation: $action"
+      [ -z "$sub" ] || what="$what; $sub"
+      [ -z "$detail" ] || what="$what; $detail"
+      act "$task" "$what" "$next"
+      [ "$pane" != pane ] || pane_tail "$task" > "$CACHE/$task.pane"
+    fi
+  elif [ "$owner" != firstmate ]; then
     routine "$task" "$label; owner is $owner ($action)"
   elif [ "$action" = verify-progress-not-launch-seed ] && [ "$(crew_word "$task")" = working ]; then
     routine "$task" "$label; worker busy ($action)"
