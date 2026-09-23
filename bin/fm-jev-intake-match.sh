@@ -29,7 +29,8 @@
 #
 # What Jev sees (one Choice call through bin/fm-jev-lib.sh): the one-line
 # reference, then candidate ids as choices with their title and backlog state
-# as criteria, plus `none`. Titles are sanitized by fm_jev_compact_state and
+# as criteria, plus `none?` for no candidate, which cannot be a valid id.
+# Titles are sanitized by fm_jev_compact_state and
 # cut to 80 characters; an id that sanitization would change is dropped. File
 # and task bodies never leave the machine: only the reference, ids, titles,
 # and backlog states do. JEV_TIMEOUT comes from the environment or
@@ -44,8 +45,8 @@
 # Ranking: when the chosen id is an offered candidate at or above the library
 # confidence floor (JEV_CONFIDENCE_FLOOR, default 0.7), candidates are ranked
 # by the Choice probabilities, or the single pick when probabilities are
-# absent or malformed. Otherwise - no key, a failed call, `none`, or low
-# confidence - the output says so and falls back to the keyword ranking.
+# absent or malformed. Otherwise - no key, a failed call, the no-candidate
+# choice, or low confidence - the output says so and falls back to keywords.
 #
 # Output (stdout), at most five candidates:
 #   jev-intake-match:
@@ -58,6 +59,7 @@
 #       1. <id> confidence=<p> state=<backlog state or -> record=<path or -> title=<title>
 #     related:
 #       - <record id> -> <backlog id> state=<state> title=<title>
+#     related-source-error: related task listing failed for <open, done>
 # The keyword ranking prints score=<matched>/<reference words> in place of
 # confidence and lists only candidates that matched; `candidates: none` when
 # nothing did. A failed backlog listing is named in `source-error` and prevents
@@ -127,6 +129,8 @@ export JEV_TIMEOUT
 RELATED_MAX=12
 BACKLOG_ROWS=
 BACKLOG_FAILURES=
+RELATED_ROWS=
+RELATED_FAILURES=
 
 # Reference words: lowercase ASCII runs of three or more characters, filler
 # dropped, each word once.
@@ -147,7 +151,7 @@ backlog_rows() {
   local out state_args listing_name parsed
   for state_args in '' '--state done'; do
     listing_name=open
-    [ "$state_args" != '--state done' ] || listing_name=done
+    [ "$state_args" != '--state done' ] || listing_name='done'
     # shellcheck disable=SC2086 # state_args is a fixed flag pair or empty
     if ! out=$(fm_run_timed "$LIST_TIMEOUT" "$SCRIPT_DIR/fm-tasks-axi.sh" list $state_args 2>/dev/null); then
       BACKLOG_FAILURES="${BACKLOG_FAILURES:+$BACKLOG_FAILURES, }$listing_name"
@@ -276,12 +280,19 @@ emit_keyword() {
 # item whose body contains one of the given record ids as a whole token, never
 # the record's own backlog entry, at most RELATED_MAX lines.
 related_tasks() {
-  local out state_args
+  local out state_args listing_name parsed
   [ $# -gt 0 ] || return 0
+  RELATED_ROWS=
+  RELATED_FAILURES=
   for state_args in '' '--state done'; do
+    listing_name=open
+    [ "$state_args" != '--state done' ] || listing_name='done'
     # shellcheck disable=SC2086 # state_args is a fixed flag pair or empty
-    out=$(fm_run_timed "$LIST_TIMEOUT" "$SCRIPT_DIR/fm-tasks-axi.sh" list $state_args --fields body 2>/dev/null) || continue
-    printf '%s\n' "$out" | awk -v recs="$*" '
+    if ! out=$(fm_run_timed "$LIST_TIMEOUT" "$SCRIPT_DIR/fm-tasks-axi.sh" list $state_args --fields body 2>/dev/null); then
+      RELATED_FAILURES="${RELATED_FAILURES:+$RELATED_FAILURES, }$listing_name"
+      continue
+    fi
+    parsed=$(printf '%s\n' "$out" | awk -v recs="$*" '
       function csv_field(s, wanted,    i, c, field, value, quoted) {
         field = 1
         value = ""
@@ -337,8 +348,10 @@ related_tasks() {
       }
       p { p = 0 }
       BEGIN { n = split(recs, r, " ") }
-    '
-  done | awk '!seen[$0]++' | head -n "$RELATED_MAX"
+    ')
+    [ -z "$parsed" ] || RELATED_ROWS="${RELATED_ROWS}${parsed}"$'\n'
+  done
+  RELATED_ROWS=$(printf '%s\n' "$RELATED_ROWS" | awk '!seen[$0]++' | head -n "$RELATED_MAX")
 }
 
 # emit_related <shown-rows>: rows are id<TAB>path, as shown in the ranking.
@@ -347,15 +360,18 @@ emit_related() {
   records=$(printf '%s\n' "$shown" | awk -F '\t' '$2 != "-" && $2 != "" { print $1 }')
   [ -n "$records" ] || return 0
   # shellcheck disable=SC2086 # record ids are [A-Za-z0-9._-]+ by construction
-  rows=$(related_tasks $records)
-  [ -n "$rows" ] || return 0
-  printf '  related:\n'
-  printf '%s\n' "$rows" | while IFS=$(printf '\t') read -r rec task; do
-    printf '%s\n' "$SCORED" | awk -F '\t' -v rec="$rec" -v task="$task" '
-      $3 == task { printf "    - %s -> %s state=%s title=%s\n", rec, task, $4, $6; found = 1; exit }
-      END { if (!found) printf "    - %s -> %s\n", rec, task }
-    '
-  done
+  related_tasks $records
+  rows=$RELATED_ROWS
+  if [ -n "$rows" ]; then
+    printf '  related:\n'
+    printf '%s\n' "$rows" | while IFS=$(printf '\t') read -r rec task; do
+      printf '%s\n' "$SCORED" | awk -F '\t' -v rec="$rec" -v task="$task" '
+        $3 == task { printf "    - %s -> %s state=%s title=%s\n", rec, task, $4, $6; found = 1; exit }
+        END { if (!found) printf "    - %s -> %s\n", rec, task }
+      '
+    done
+  fi
+  [ -z "$RELATED_FAILURES" ] || printf '  related-source-error: related task listing failed for %s\n' "$RELATED_FAILURES"
 }
 
 backlog_rows
@@ -400,14 +416,15 @@ state=$(fm_jev_compact_state "$(printf "Captain reference: %s\nCandidates are th
   emit_keyword error ''
   exit 0
 }
-criteria=$(jq -c '
+none_choice='none?'
+criteria=$(jq -c --arg none "$none_choice" '
   (map({key: .id, value: ((if .title == "" then .id else .title end) + " (backlog: " + .state + ")")}) | from_entries)
-  + {none: "No candidate is the record the captain means."}
+  + {($none): "No candidate is the record the captain means."}
 ' <<<"$offered") || { emit_keyword error ''; exit 0; }
 questions=$(jq -nc --argjson c "$criteria" '{
   match: {
     type: "choice",
-    instructions: "Pick the backlog item or task record the captain reference most likely means. Judge by id and title only. Pick none when no candidate fits.",
+    instructions: "Pick the backlog item or task record the captain reference most likely means. Judge by id and title only. Pick the no-candidate option when no candidate fits.",
     criteria: $c
   }
 }') || { emit_keyword error ''; exit 0; }
@@ -431,7 +448,7 @@ fallback=error
 if [ "$decide_code" -eq 0 ] && [ -n "$response" ]; then
   choice=$(jq -r '.answers.match.choice // empty' <<<"$response" 2>/dev/null)
   confidence=$(jq -r '.answers.match.confidence | select(type == "number") // empty' <<<"$response" 2>/dev/null)
-  if [ -z "$choice" ] || [ "$choice" = none ]; then
+  if [ -z "$choice" ] || [ "$choice" = "$none_choice" ]; then
     fallback=no-match
   elif ! jq -e --arg id "$choice" 'any(.[]; .id == $id)' <<<"$offered" >/dev/null 2>&1; then
     fallback=error

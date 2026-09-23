@@ -117,7 +117,14 @@ drain_items() {
       if ($3 == "signal" && $4 ~ /\.status$/ && p ~ /^[a-z-]+( \[[^]]*\])?:/) {
         t = $4
         sub(/\.status$/, "", t)
-        wid[nw] = t "|" verb(p)
+        if (match(p, /^[a-z-]+ \[key=[^]]+\]:/)) {
+          decision_key = substr(p, RSTART, RLENGTH)
+          sub(/^[a-z-]+ \[key=/, "", decision_key)
+          sub(/\]:$/, "", decision_key)
+          wid[nw] = t "|" decision_key "|" verb(p)
+        } else {
+          wid[nw] = t "|" verb(p)
+        }
       }
       next
     }
@@ -125,12 +132,14 @@ drain_items() {
       dec[++nd] = "decision " $0
       rest = $0
       sub(/^[^ ]+ /, "", rest)
-      did[nd] = $0
-      sub(/ .*/, "", did[nd])
-      decision_key = "default"
-      if (match(rest, /^\[key=[^]]+\]/)) decision_key = substr(rest, 6, RLENGTH - 6)
-      if (decision_key == "default") did[nd] = did[nd] "|" verb(rest)
-      else did[nd] = did[nd] "|" decision_key "|" verb(rest)
+      decision_task = $0
+      sub(/ .*/, "", decision_task)
+      if (match(rest, /^\[key=[^]]+\]/)) {
+        decision_key = substr(rest, 6, RLENGTH - 6)
+        did[nd] = decision_task "|" decision_key "|" verb(rest)
+      } else {
+        did[nd] = decision_task "|" verb(rest)
+      }
       next
     }
     sec == "outcome" && NF == 1 && $0 != "" {
@@ -180,7 +189,9 @@ while IFS=$(printf '\t') read -r kind identity text; do
     *$'\n'"$identity"$'\n'*) continue ;;
   esac
   seen_ids="$seen_ids$identity"$'\n'
-  text=$(fm_jev_compact_state "$text") || continue
+  if [ "$LOCAL" -eq 0 ]; then
+    text=$(fm_jev_compact_state "$text") || continue
+  fi
   text=${text:0:$ITEM_CHARS}
   if jq -e --arg t "$text" 'any(.[]; .text == $t)' <<<"$items" >/dev/null 2>&1; then
     continue

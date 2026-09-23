@@ -112,7 +112,7 @@ test_jev_ranking_sends_only_ids_and_titles() {
   local code out
   fresh_home
   respond wiki-layer-plan-v1 0.84 \
-    '{"wiki-layer-plan-v1":0.84,"wf-p0-privacy-ceiling":0.1,"mail-plane-v1":0.02,"deck-refresh-v1":0.01,"bochum-hero-v1":0.01,"none":0.02}'
+    '{"wiki-layer-plan-v1":0.84,"wf-p0-privacy-ceiling":0.1,"mail-plane-v1":0.02,"deck-refresh-v1":0.01,"bochum-hero-v1":0.01,"none?":0.02}'
   KEY=$TS_KEY run_match code out get our wiki plan which I had in one prompt
   expect_code 0 "$code" "a clear answer should exit 0"
   assert_contains "$out" "ranking: jev" "a clear answer did not rank by Jev"$'\n'"$out"
@@ -120,8 +120,8 @@ test_jev_ranking_sends_only_ids_and_titles() {
   assert_contains "$out" "    1. wiki-layer-plan-v1 confidence=0.84" "the pick was not first"$'\n'"$out"
   assert_contains "$out" "    2. wf-p0-privacy-ceiling confidence=0.1 state=queued" \
     "the runner-up backlog item was not second with its state"$'\n'"$out"
-  jq -e '.questions.match.type == "choice" and (.questions.match.criteria | has("none"))' "$LOG/body" >/dev/null \
-    || fail "the request was not one Choice with a none option"
+  jq -e '.questions.match.type == "choice" and (.questions.match.criteria | has("none?"))' "$LOG/body" >/dev/null \
+    || fail "the request was not one Choice with a no-candidate option"
   jq -e '.questions.match.criteria["wiki-layer-plan-v1"] | contains("Wiki layer: verdict")' "$LOG/body" >/dev/null \
     || fail "the record title did not reach the criteria"
   jq -e '.state | contains("get our wiki plan")' "$LOG/body" >/dev/null || fail "the reference did not reach state"
@@ -138,6 +138,27 @@ test_jev_ranking_sends_only_ids_and_titles() {
   pass "a clear Jev answer ranks by probabilities and sends only ids and titles"
 }
 
+test_candidate_id_none_does_not_collide_with_no_match_choice() {
+  local code out
+  fresh_home
+  (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add none \
+    "None is a real backlog item" --file data/backlog.md) >/dev/null
+  (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add none_ \
+    "Another none-like item" --file data/backlog.md) >/dev/null
+  respond none 0.9 '{"none":0.9,"none_":0.05,"none?":0.05}'
+  KEY=$TS_KEY run_match code out none
+  expect_code 0 "$code" "the candidate named none should remain selectable"
+  assert_contains "$out" "ranking: jev" "the real none candidate was treated as the sentinel"$'\n'"$out"
+  assert_contains "$out" "    1. none confidence=0.9" "the candidate named none was not selected"$'\n'"$out"
+  jq -e '.questions.match.criteria["none"] | contains("None is a real backlog item")' "$LOG/body" >/dev/null \
+    || fail "the real none candidate was overwritten in the Choice criteria"
+  jq -e '.questions.match.criteria["none_"] | contains("Another none-like item")' "$LOG/body" >/dev/null \
+    || fail "the candidate id none_ was overwritten in the Choice criteria"
+  jq -e '.questions.match.criteria["none?"] == "No candidate is the record the captain means."' "$LOG/body" >/dev/null \
+    || fail "the no-match sentinel collided with a valid candidate id"
+  pass "a candidate id of none no longer collides with the no-match choice"
+}
+
 test_related_tasks_follow_a_matched_record() {
   local code out
   fresh_home
@@ -151,7 +172,7 @@ test_related_tasks_follow_a_matched_record() {
     "Body mentions a longer id" --body "This names wiki-layer-plan-v10 only." --file data/backlog.md) >/dev/null
   (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add dotted-lookalike \
     "Body mentions a dotted id" --body "This names wiki-layer-plan-v1.0 only." --file data/backlog.md) >/dev/null
-  respond wiki-layer-plan-v1 0.9 '{"wiki-layer-plan-v1":0.9,"none":0.1}'
+  respond wiki-layer-plan-v1 0.9 '{"wiki-layer-plan-v1":0.9,"none?":0.1}'
   KEY=$TS_KEY run_match code out wiki plan
   assert_contains "$out" "  related:" "a matched record listed no related tasks"$'\n'"$out"
   assert_contains "$out" "    - wiki-layer-plan-v1 -> wf-p0-privacy-ceiling state=queued title=Wiki family p0: privacy-ceiling" \
@@ -221,10 +242,34 @@ SH
   pass "backlog listing failure is distinct from a successful empty listing"
 }
 
+test_related_listing_failure_is_reported() {
+  local code out real_tasks_axi
+  fresh_home
+  real_tasks_axi=$(PATH="$BASE_PATH" command -v tasks-axi)
+  cat > "$FAKEBIN/tasks-axi" <<SH
+#!/usr/bin/env bash
+count_file='$TMP_ROOT/related-list-count'
+count=0
+[ ! -f "\$count_file" ] || read -r count < "\$count_file"
+count=\$((count + 1))
+printf '%s\\n' "\$count" > "\$count_file"
+[ "\$count" -le 2 ] || exit 1
+exec '$real_tasks_axi' "\$@"
+SH
+  chmod +x "$FAKEBIN/tasks-axi"
+  KEY='' run_match code out wiki plan
+  expect_code 0 "$code" "related-task listing failures should remain advisory"
+  assert_contains "$out" "  related-source-error: related task listing failed for open, done" \
+    "a failed related-task read was silently omitted"$'\n'"$out"
+  assert_contains "$out" "  candidates:" "the keyword candidates disappeared on related-list failure"$'\n'"$out"
+  rm -f "$FAKEBIN/tasks-axi" "$TMP_ROOT/related-list-count"
+  pass "related-task listing failures are surfaced without blocking intake"
+}
+
 test_low_confidence_falls_back() {
   local code out
   fresh_home
-  respond wiki-layer-plan-v1 0.41 '{"wiki-layer-plan-v1":0.41,"wf-p0-privacy-ceiling":0.39,"none":0.2}'
+  respond wiki-layer-plan-v1 0.41 '{"wiki-layer-plan-v1":0.41,"wf-p0-privacy-ceiling":0.39,"none?":0.2}'
   KEY=$TS_KEY run_match code out wiki plan
   assert_contains "$out" "ranking: keyword" "a low-confidence answer was trusted"
   assert_contains "$out" "fallback: low-confidence" "the low-confidence fallback was not stated"
@@ -238,10 +283,10 @@ test_failures_fall_back() {
   FAKE_CURL_FAIL=1 KEY=$TS_KEY run_match code out wiki plan
   expect_code 0 "$code" "a transport failure should exit 0"
   assert_contains "$out" "fallback: error" "a transport failure was not reported"
-  respond none 0.9 '{"none":0.9,"wiki-layer-plan-v1":0.1}'
+  respond 'none?' 0.9 '{"none?":0.9,"wiki-layer-plan-v1":0.1}'
   KEY=$TS_KEY run_match code out wiki plan
   assert_contains "$out" "fallback: no-match" "a none answer was not reported"
-  respond not-offered 0.95 '{"not-offered":0.95,"none":0.05}'
+  respond not-offered 0.95 '{"not-offered":0.95,"none?":0.05}'
   KEY=$TS_KEY run_match code out wiki plan
   assert_contains "$out" "fallback: error" "an unoffered pick was accepted"
   pass "transport failure, none, and an unoffered pick all fall back to keywords"
@@ -253,7 +298,7 @@ test_candidate_list_is_bounded() {
   for i in $(seq 1 40); do
     add_record "extra-plan-$i" report.md "Extra plan $i"
   done
-  respond wiki-layer-plan-v1 0.9 '{"wiki-layer-plan-v1":0.9,"none":0.1}'
+  respond wiki-layer-plan-v1 0.9 '{"wiki-layer-plan-v1":0.9,"none?":0.1}'
   KEY=$TS_KEY run_match code out wiki plan
   offered=$(jq '.questions.match.criteria | length' "$LOG/body")
   [ "$offered" -eq 25 ] || fail "offered $offered choices, want 24 candidates plus none"
@@ -265,10 +310,12 @@ test_candidate_list_is_bounded() {
 test_usage
 test_off_falls_back_to_keyword_ranking
 test_jev_ranking_sends_only_ids_and_titles
+test_candidate_id_none_does_not_collide_with_no_match_choice
 test_related_tasks_follow_a_matched_record
 test_reference_is_one_bounded_line
 test_ties_use_selected_record_file_mtime
 test_backlog_listing_failure_is_not_reported_as_empty
+test_related_listing_failure_is_reported
 test_low_confidence_falls_back
 test_failures_fall_back
 test_candidate_list_is_bounded

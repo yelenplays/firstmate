@@ -164,6 +164,47 @@ EOF
   pass "ACT FIRST keeps distinct keys for one task as separate actions"
 }
 
+test_keyed_status_wakes_dedupe_with_their_matching_decision() {
+  local out
+  fresh_home
+  {
+    printf '1790000000\t7\tsignal\ttask-z.status\tneeds-decision [key=route]: choose a route\n'
+    printf '1790000001\t8\tsignal\ttask-z.status\tneeds-decision [key=access]: choose access\n'
+    printf '%s\n' \
+      'OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):' \
+      'task-z [key=route] needs-decision: choose a route' \
+      'task-z [key=access] needs-decision: choose access' \
+      'OPEN DECISIONS: close one by answering it'
+  } > "$DRAIN"
+  KEY='' run_helper out --local --drain-file "$DRAIN"
+  expect_code 0 "$RUN_CODE" "keyed status wakes should deduplicate against their decision"
+  [ "$(printf '%s\n' "$out" | grep -c .)" -eq 2 ] \
+    || fail "keyed wakes duplicated their two open decisions"$'\n'"$out"
+  assert_contains "$out" "task-z [key=route] needs-decision: choose a route" \
+    "the route decision was omitted"$'\n'"$out"
+  assert_contains "$out" "task-z [key=access] needs-decision: choose access" \
+    "the access decision was omitted"$'\n'"$out"
+  assert_not_contains "$out" "wake signal task-z.status" "a keyed wake was not deduplicated"$'\n'"$out"
+  pass "keyed status wakes deduplicate by task, decision key, and verb"
+}
+
+test_local_items_ignore_network_state_limit() {
+  local out long_note
+  fresh_home
+  long_note=$(printf 'x%.0s' $(seq 1 200))
+  {
+    printf '%s\n' 'OPEN DECISIONS (still open):'
+    printf 'task-long needs-decision: %s\n' "$long_note"
+    printf '%s\n' 'task-short needs-decision: choose a safe option' 'OPEN DECISIONS: close one by answering it'
+  } > "$DRAIN"
+  JEV_STATE_MAX_BYTES=32 KEY='' run_helper out --local --drain-file "$DRAIN"
+  expect_code 0 "$RUN_CODE" "local output should not depend on the Jev state limit"
+  assert_contains "$out" "1. decision task-long needs-decision:" "the long local item was dropped by the network-state limit"$'\n'"$out"
+  [ "$(printf '%s\n' "$out" | awk 'length($0) > 163 { print; exit }')" = "" ] || fail "a local item exceeded the 160-character display cap"$'\n'"$out"
+  [ ! -e "$LOG/body" ] || fail "--local made a model call"
+  pass "local ACT FIRST applies its display cap independently of the network state limit"
+}
+
 test_status_recovery_sections_are_ranked_without_wakes_or_decisions() {
   local out
   fresh_home
@@ -245,6 +286,8 @@ test_off_is_silent
 test_ranks_collected_items
 test_local_lists_priority_order_without_a_call
 test_distinct_open_decision_keys_remain_separate
+test_keyed_status_wakes_dedupe_with_their_matching_decision
+test_local_items_ignore_network_state_limit
 test_status_recovery_sections_are_ranked_without_wakes_or_decisions
 test_unoffered_probability_keys_fall_back_to_the_chosen_item
 test_one_blocker_is_one_item
