@@ -573,7 +573,7 @@ JSON
 }
 
 test_privacy_guard_refuses_before_sending() {
-  local code out err big openrouter_key large_state large_question large_meaning private_key boundary_state batch_json credential configured_state yaml_state
+  local code out err big openrouter_key large_state large_question large_meaning private_key boundary_state batch_json credential configured_state yaml_state json_credential
   respond '{"answers":{"yes":{"noul":0.9}}}'
   reset_log
   big=$(head -c 4097 /dev/zero | tr '\0' a)
@@ -730,6 +730,19 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "a quoted password key in JSON state is refused"
   assert_contains "$err" "secret" "the JSON state refusal names the privacy issue"
   assert_absent "$LOG/body" "a JSON password value is never sent"
+
+  for json_credential in \
+    '{"api-key":"opaque-vendor-secret"}' \
+    '{"apiKey":"opaque-vendor-secret"}' \
+    '{"clientSecret":"opaque-vendor-secret"}'; do
+    batch_json=$(jq -cn --arg state "$json_credential" \
+      '{state:$state,questions:[{id:"json-alias",type:"yes",q:"Done?"}]}')
+    reset_log
+    run_jev code out err batch <<<"$batch_json"
+    assert_equals "$code" 1 "a normalized sensitive key in JSON state is refused: $json_credential"
+    assert_contains "$err" "secret" "the normalized JSON-key refusal names the privacy issue"
+    assert_absent "$LOG/body" "a normalized JSON credential value is never sent"
+  done
 
   reset_log
   run_jev code out err yes "task summary" '{"api_key":"ordinary-user-api-key"}'

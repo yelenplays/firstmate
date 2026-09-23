@@ -395,52 +395,67 @@ fm_jev_compact_state() {
       while (match(tolower(buf), /aws_(secret_access_key|access_key_id)[[:space:]]*[:=][[:space:]]*[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
-      sensitive_assignment_pattern = "(^|[^[:alnum:]_])([[:alpha:]_][[:alnum:]_]*)?(password|passwd|pwd|secret_key|api_key|secret|token)[\042\047]?[[:space:]]*[:=][[:space:]]*"
-      while (match(tolower(buf), sensitive_assignment_pattern)) {
-        key_start = RSTART
-        assignment = substr(buf, RSTART, RLENGTH)
-        prefix = substr(buf, 1, RSTART - 1)
+      assignment_pattern = "(^|[^[:alnum:]_])([-[:alnum:]_.]+)[\042\047]?[[:space:]]*[:=][[:space:]]*"
+      sensitive_suffix_pattern = "(password|passwd|pwd|pass|secret|token|apikey|secretkey|accesskey|privatekey|clientsecret|auth|credential)$"
+      search_from = 1
+      while (search_from <= length(buf)) {
+        tail = substr(buf, search_from)
+        if (!match(tail, assignment_pattern)) break
+        key_start = search_from + RSTART - 1
+        match_length = RLENGTH
+        assignment = substr(tail, RSTART, match_length)
         boundary = substr(assignment, 1, 1)
-        if (RSTART > 1 && boundary ~ /[^[:alnum:]_]/) prefix = prefix boundary
-        tail = substr(buf, key_start + RLENGTH)
-        newline = index(tail, "\n")
-        indicator = newline ? substr(tail, 1, newline - 1) : tail
-        sub(/\r$/, "", indicator)
-        if (indicator ~ /^[ \t]*[|>][+-]?[1-9]?[+-]?[ \t]*(#[^\n]*)?$/) {
-          block_tail = newline ? substr(tail, newline + 1) : ""
-          token_start = key_start
-          if (boundary ~ /[^[:alnum:]_]/) token_start++
-          line_start = token_start - 1
-          while (line_start > 0 && substr(buf, line_start, 1) != "\n") line_start--
-          line_head = substr(buf, line_start + 1, token_start - line_start - 1)
-          match(line_head, /^[ \t]*/)
-          key_indent = RLENGTH
-          line_head = substr(line_head, key_indent + 1)
-          if (line_head ~ /^-[ \t]/) {
-            match(line_head, /^-[ \t]+/)
-            key_indent += RLENGTH
-          }
-          while (length(block_tail) > 0) {
-            block_newline = index(block_tail, "\n")
-            block_line = block_newline ? substr(block_tail, 1, block_newline - 1) : block_tail
-            block_line_for_indent = block_line
-            sub(/\r$/, "", block_line_for_indent)
-            if (block_line_for_indent != "") {
-              match(block_line_for_indent, /^[ \t]*/)
-              if (RLENGTH <= key_indent) break
-            }
-            if (block_newline) block_tail = substr(block_tail, block_newline + 1)
-            else {
-              block_tail = ""
-              break
-            }
-          }
-          buf = prefix "[redacted]"
-          if (length(block_tail) > 0) buf = buf "\n" block_tail
+        key_name = assignment
+        if (boundary ~ /[^[:alnum:]_]/) key_name = substr(assignment, 2)
+        sub(/[\042\047]?[[:space:]]*[:=][[:space:]]*$/, "", key_name)
+        normalized_key = tolower(key_name)
+        gsub(/[-_.]/, "", normalized_key)
+        if (normalized_key !~ sensitive_suffix_pattern) {
+          search_from = key_start + match_length
         } else {
-          if (newline) tail = substr(tail, newline)
-          else tail = ""
-          buf = prefix "[redacted]" tail
+          prefix = substr(buf, 1, key_start - 1)
+          if (key_start > 1 && boundary ~ /[^[:alnum:]_]/) prefix = prefix boundary
+          tail = substr(buf, key_start + match_length)
+          newline = index(tail, "\n")
+          indicator = newline ? substr(tail, 1, newline - 1) : tail
+          sub(/\r$/, "", indicator)
+          if (indicator ~ /^[ \t]*[|>][+-]?[1-9]?[+-]?[ \t]*(#[^\n]*)?$/) {
+            block_tail = newline ? substr(tail, newline + 1) : ""
+            token_start = key_start
+            if (boundary ~ /[^[:alnum:]_]/) token_start++
+            line_start = token_start - 1
+            while (line_start > 0 && substr(buf, line_start, 1) != "\n") line_start--
+            line_head = substr(buf, line_start + 1, token_start - line_start - 1)
+            match(line_head, /^[ \t]*/)
+            key_indent = RLENGTH
+            line_head = substr(line_head, key_indent + 1)
+            if (line_head ~ /^-[ \t]/) {
+              match(line_head, /^-[ \t]+/)
+              key_indent += RLENGTH
+            }
+            while (length(block_tail) > 0) {
+              block_newline = index(block_tail, "\n")
+              block_line = block_newline ? substr(block_tail, 1, block_newline - 1) : block_tail
+              block_line_for_indent = block_line
+              sub(/\r$/, "", block_line_for_indent)
+              if (block_line_for_indent != "") {
+                match(block_line_for_indent, /^[ \t]*/)
+                if (RLENGTH <= key_indent) break
+              }
+              if (block_newline) block_tail = substr(block_tail, block_newline + 1)
+              else {
+                block_tail = ""
+                break
+              }
+            }
+            buf = prefix "[redacted]"
+            if (length(block_tail) > 0) buf = buf "\n" block_tail
+          } else {
+            if (newline) tail = substr(tail, newline)
+            else tail = ""
+            buf = prefix "[redacted]" tail
+          }
+          search_from = 1
         }
       }
       while (match(buf, /[Aa]uthorization:[[:space:]]*[Bb]earer[[:space:]]+[^[:space:]]+/)) {
