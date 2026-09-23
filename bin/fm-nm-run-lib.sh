@@ -352,12 +352,12 @@ fm_nm_active_steps_rows() {  # <toon-output>
   '
 }
 
-# `agent_pid` and `last_activity` of each active_steps row in $1, emitted as one
-# "pid<TAB>activity" line per row with the columns resolved by header name, so
-# a CLI that adds or reorders columns still parses. An empty agent_pid marks a
-# daemon-executed step (the ci monitor, push/pr bookkeeping): no spawned agent
+# `agent_pid`, `last_activity`, and `status` of each active_steps row in $1,
+# emitted as one tab-delimited line per row with columns resolved by header name,
+# so a CLI that adds or reorders columns still parses. An empty agent_pid marks
+# a daemon-executed step (the ci monitor, push/pr bookkeeping): no spawned agent
 # process can prove it - its executor is the daemon itself.
-fm_nm_active_steps_pairs() {  # <toon-output>
+fm_nm_active_steps_evidence() {  # <toon-output>
   local header rows
   header=$(printf '%s\n' "$1" | awk '/^[[:space:]]*active_steps\[[0-9]+\]\{/ { print; exit }')
   [ -n "$header" ] || return 0
@@ -382,16 +382,17 @@ fm_nm_active_steps_pairs() {  # <toon-output>
     }
     BEGIN {
       cols = header; sub(/^.*\{/, "", cols); sub(/\}.*/, "", cols)
-      m = split(cols, c, ","); pi = 0; ai = 0
+      m = split(cols, c, ","); pi = 0; ai = 0; si = 0
       for (i = 1; i <= m; i++) {
         sub(/^[ \t]+/, "", c[i]); sub(/[ \t]+$/, "", c[i])
         if (c[i] == "agent_pid") pi = i
         if (c[i] == "last_activity") ai = i
+        if (c[i] == "status") si = i
       }
     }
     {
       row_fields($0, f)
-      printf "%s\t%s\n", (pi ? f[pi] : ""), (ai ? f[ai] : "")
+      printf "%s\t%s\t%s\n", (pi ? f[pi] : ""), (ai ? f[ai] : ""), (si ? f[si] : "")
     }
   '
 }
@@ -435,14 +436,21 @@ fm_nm_activity_age_secs() {  # <last_activity> <saturation-seconds>
   printf '%s' "$age"
 }
 
-fm_nm_run_is_gate_parked() {  # <toon-output>
-  printf '%s\n' "$1" | awk '
+fm_nm_run_is_gate_parked() {  # <toon-output> [active-step-evidence]
+  local evidence row step_status
+  if printf '%s\n' "$1" | awk '
     /^[[:space:]]*awaiting_agent:/ { parked = 1 }
     /^[[:space:]]*(status|state):[[:space:]]*"?(awaiting_approval|fix_review)"?[[:space:]]*$/ { parked = 1 }
-    /^[[:space:]]*[^,]+,[[:space:]]*"?(awaiting_approval|fix_review)"?[[:space:]]*,/ { parked = 1 }
     /^[[:space:]]*gate:[[:space:]]*/ { parked = 1 }
     END { exit !parked }
-  '
+  '; then return 0; fi
+  evidence=${2:-}
+  [ -n "$evidence" ] || evidence=$(fm_nm_active_steps_evidence "$1")
+  while IFS= read -r row; do
+    step_status=${row##*$'\t'}
+    case "$step_status" in awaiting_approval|fix_review) return 0 ;; esac
+  done <<< "$evidence"
+  return 1
 }
 
 # ONE owner for attribution from the pipeline's own runs ledger, replacing a

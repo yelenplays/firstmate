@@ -2093,8 +2093,8 @@ crew_worktree_written_since() {  # <id> <state> <anchor-file>
 # never on every poll: each call is bounded `axi status` and `axi` overview
 # reads plus, for a daemon-executed step, one bounded `daemon status`.
 crew_nm_run_progressing() {  # <id> <state> <anchor-file>
-  local id=$1 state=$2 anchor=$3 wt kind branch out rbranch rhead rid pairs
-  local overview selection selected_id selected_status
+  local id=$1 state=$2 anchor=$3 wt kind branch out rbranch rhead rid steps
+  local overview selection selected_id selected_status runs_list runs_limit
   local pid activity activity_age quiet_bound daemon_up nm_home logdir hit row
   [ -n "$id" ] || return 1
   [ -f "$anchor" ] || return 1
@@ -2112,21 +2112,33 @@ crew_nm_run_progressing() {  # <id> <state> <anchor-file>
   fm_nm_run_is_active "$out" || return 1
   rid=$(fm_nm_strip_quotes "$(fm_nm_field "$out" id)")
   [ -n "$rid" ] || return 1
-  overview=$(fm_nm_run_checked "$wt" 10 axi) || return 1
-  [ -n "$overview" ] || return 1
-  selection=$(fm_nm_select_run "$branch" "$overview" "$wt")
-  case "$selection" in
-    selected\|*) IFS='|' read -r _ selected_id selected_status _ <<< "$selection" ;;
-    *) return 1 ;;
-  esac
-  [ "$selected_id" = "$rid" ] || return 1
-  [ "$(fm_nm_run_status_class "$selected_status")" = live ] || return 1
   rhead=$(fm_nm_strip_quotes "$(fm_nm_field "$out" head)")
   if ! fm_nm_head_equals_worktree "$wt" "$rhead" \
     && ! fm_nm_run_is_pipeline_owned_active "$out"; then return 1; fi
-  fm_nm_run_is_gate_parked "$out" && return 1
-  pairs=$(fm_nm_active_steps_pairs "$out")
-  if [ -n "$pairs" ]; then
+  overview=$(fm_nm_run_checked "$wt" 10 axi) || return 1
+  selection=$(fm_nm_select_run "$branch" "$overview" "$wt")
+  case "$selection" in
+    selected\|*)
+      IFS='|' read -r _ selected_id selected_status _ <<< "$selection"
+      [ "$selected_id" = "$rid" ] || return 1
+      [ "$(fm_nm_run_status_class "$selected_status")" = live ] || return 1
+      ;;
+    unavailable)
+      [ "$(fm_nm_run_status_class "$(fm_nm_strip_quotes "$(fm_nm_field "$out" status)")")" = live ] || return 1
+      runs_limit=${FM_CREW_STATE_RUNS_LIMIT:-200}
+      case "$runs_limit" in ''|*[!0-9]*) runs_limit=200 ;; esac
+      while [ "${runs_limit#0}" != "$runs_limit" ]; do runs_limit=${runs_limit#0}; done
+      [ -n "$runs_limit" ] || runs_limit=200
+      [ "${#runs_limit}" -le 9 ] || runs_limit=200
+      runs_list=$(fm_nm_run "$wt" 10 runs --limit "$runs_limit")
+      selected_status=$(fm_nm_runs_status_for_worktree "$wt" "$branch" "$runs_list" "$rhead")
+      [ "$(fm_nm_run_status_class "$selected_status")" = live ] || return 1
+      ;;
+    *) return 1 ;;
+  esac
+  steps=$(fm_nm_active_steps_evidence "$out")
+  fm_nm_run_is_gate_parked "$out" "$steps" && return 1
+  if [ -n "$steps" ]; then
     quiet_bound=${FM_PAUSE_RESURFACE_SECS:-$FM_PAUSE_RESURFACE_SECS_DEFAULT}
     case "$quiet_bound" in ''|*[!0-9]*) quiet_bound=$FM_PAUSE_RESURFACE_SECS_DEFAULT ;; esac
     while [ "${quiet_bound#0}" != "$quiet_bound" ]; do quiet_bound=${quiet_bound#0}; done
@@ -2138,6 +2150,7 @@ crew_nm_run_progressing() {  # <id> <state> <anchor-file>
     while IFS= read -r row; do
       pid=${row%%$'\t'*}
       activity=${row#*$'\t'}
+      activity=${activity%%$'\t'*}
       activity_age=$(fm_nm_activity_age_secs "$activity" "$quiet_bound") || continue
       case "$activity" in
         quiet\ *) [ "$activity_age" -lt "$quiet_bound" ] || continue ;;
@@ -2164,7 +2177,7 @@ crew_nm_run_progressing() {  # <id> <state> <anchor-file>
           ;;
       esac
     done <<EOF
-$pairs
+$steps
 EOF
   fi
   nm_home=${NM_HOME:-$HOME/.no-mistakes}

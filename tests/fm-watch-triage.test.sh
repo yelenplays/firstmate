@@ -619,6 +619,11 @@ case "${1:-}" in
       fi
       exit 0
     fi ;;
+  runs)
+    if [ -n "${FM_FAKE_NM_RUNS:-}" ]; then
+      cat "$FM_FAKE_NM_RUNS"
+      exit 0
+    fi ;;
   daemon)
     if [ "${2:-}" = status ]; then
       if [ "${FM_FAKE_NM_DAEMON_DOWN:-0}" = 1 ]; then
@@ -738,8 +743,8 @@ run:
   branch: "fm/nmrun-task"
   status: running
   head: "$run_head"
-active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
-  test,fix_review,1,0
+active_steps[1]{step,active_for,status,last_activity,agent_pid}:
+  test,1,fix_review,"2s ago: log: waiting","$$"
 TOON
   cat > "$dir/wrong-head.toon" <<'TOON'
 run:
@@ -763,6 +768,20 @@ TOON
 count: 1 of 1 total
 runs[1]{id,branch,status,head,pr}:
   "01NMRUN02","fm/nmrun-task","running","$run_head",""
+TOON
+  cat > "$dir/competing-runs-overview.toon" <<TOON
+count: 2 of 2 total
+runs[2]{id,branch,status,head,pr}:
+  "01NMRUN01","fm/nmrun-task","running","$run_head",""
+  "01NMRUN02","fm/nmrun-task","running","$run_head",""
+TOON
+  : > "$dir/legacy-overview.toon"
+  cat > "$dir/legacy-running-runs.txt" <<TOON
+running fm/nmrun-task $run_head 2026-08-10 10:00
+TOON
+  cat > "$dir/legacy-conflicting-runs.txt" <<TOON
+failed fm/nmrun-task $run_head 2026-08-10 10:01
+running fm/nmrun-task $run_head 2026-08-10 10:00
 TOON
   cat > "$dir/pipeline-owned.toon" <<'TOON'
 run:
@@ -870,6 +889,21 @@ TOON
     FM_FAKE_NM_AXI_OVERVIEW="$dir/newer-run-overview.toon" \
     crew_nm_run_progressing a "$state" "$anchor" \
     || fail "a different newest same-branch run failed to displace the queried older run"
+  [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
+      FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+      FM_FAKE_NM_RUNS="$dir/legacy-running-runs.txt" \
+      crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
+    || fail "a matching legacy run ledger did not prove an active server-side check"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+    FM_FAKE_NM_RUNS="$dir/legacy-conflicting-runs.txt" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a newer terminal ledger row did not reject legacy run attribution"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/competing-runs-overview.toon" \
+    FM_FAKE_NM_RUNS="$dir/legacy-running-runs.txt" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "an ambiguous overview fell back to coarse legacy attribution"
   [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/pipeline-owned.toon" \
       crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
     || fail "an active pipeline-owned continuation did not bind its run"
