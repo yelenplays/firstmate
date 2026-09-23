@@ -1,0 +1,76 @@
+{
+  "families": [
+    {
+      "count": 6,
+      "duration_ms": 704291,
+      "failed": 0,
+      "name": "pure-contract-unit"
+    }
+  ],
+  "finished_at": "2026-09-23T07:28:35Z",
+  "run_id": "fm-test-run-1790147810568-42981",
+  "scripts": [
+    {
+      "duration_ms": 679061,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-captain-hold-lifecycle.test.sh"
+    },
+    {
+      "duration_ms": 15041,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-grok-harness.test.sh"
+    },
+    {
+      "duration_ms": 34,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": true,
+      "gate_skip_reason": "Pi extension typecheck prerequisite not found: tsc",
+      "path": "tests/fm-pi-primary-types.test.sh"
+    },
+    {
+      "duration_ms": 8961,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-composer-ghost.test.sh"
+    },
+    {
+      "duration_ms": 882,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-supervision-instructions.test.sh"
+    },
+    {
+      "duration_ms": 312,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-transition-lib.test.sh"
+    }
+  ],
+  "selection": "lane=portable-parallel-1",
+  "started_at": "2026-09-23T07:16:50Z",
+  "summary": {
+    "duration_ms": 704629,
+    "failed": 0,
+    "skipped_gate": 1,
+    "total": 6
+  }
+}
