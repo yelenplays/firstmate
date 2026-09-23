@@ -28,8 +28,8 @@
 # One task in one state is one item: a blocker that appears as an open
 # decision, a status line, and a status wake is kept once, as its
 # highest-priority form. Task-level status pointers, including coalesced path
-# lists, are omitted when that task has a detailed decision, outcome, or unread
-# status item.
+# lists, are omitted when that task has a detailed decision, outcome, unread
+# status item, or live failed/blocked status tail.
 # Distinct open-decision keys remain
 # separate actions.
 # Fewer than two items makes no call: there is nothing to rank.
@@ -138,6 +138,13 @@ drain_items() {
     }
     function event_identity(task, s) { return task "|" event_key(s) "|" verb(s) }
     function status_task(path) { sub(/^.*\//, "", path); sub(/\.status$/, "", path); return path }
+    FILENAME == "-" && $1 == "status" && NF >= 3 {
+      status_items[++ns] = $0
+      detail_task = $2
+      sub(/\|.*/, "", detail_task)
+      detailed_task[detail_task] = 1
+      next
+    }
     $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && NF >= 5 {
       p = $5
       for (i = 6; i <= NF; i++) p = p " " $i
@@ -206,12 +213,13 @@ drain_items() {
       for (i = 1; i <= nv; i++) print "divergence\t" vid[i] "\t" divergence[i]
       for (i = 1; i <= ne; i++) print "execution\t" eid[i] "\t" exe[i]
       for (i = 1; i <= nu; i++) print "unread\t" uid[i] "\t" unread[i]
+      for (i = 1; i <= ns; i++) print status_items[i]
       for (i = 1; i <= nw; i++) {
         if (wake_is_pointer[i] && detailed_task[wake_pointer_task[i]]) continue
         print "wake\t" wid[i] "\t" wake[i]
       }
     }
-  ' "$DRAIN_FILE"
+  ' "$DRAIN_FILE" - < <(status_items)
 }
 
 # Newest failed:/blocked: line of each live task's status log.
@@ -271,11 +279,7 @@ while IFS=$(printf '\t') read -r kind identity text; do
   n=$((n + 1))
   items=$(jq -c --arg k "i$n" --arg kind "$kind" --arg t "$text" '. + [{key: $k, kind: $kind, text: $t}]' <<<"$items") || exit 0
   [ "$n" -lt "$ITEM_MAX" ] || break
-done < <(
-  drain_items | awk -F '\t' '$1 != "wake"'
-  status_items
-  drain_items | awk -F '\t' '$1 == "wake"'
-)
+done < <(drain_items)
 [ "$n" -ge 2 ] || exit 0
 if [ "$LOCAL" -eq 1 ]; then
   jq -r --argjson max "$SHOW_MAX" '.[:$max] | to_entries[] | "\(.key + 1). \(.value.text)"' <<<"$items"

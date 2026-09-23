@@ -314,6 +314,28 @@ test_unread_status_items_dedupe_task_level_wakes() {
   pass "an unread status item makes its task-level wake pointer redundant"
 }
 
+test_status_tail_items_dedupe_task_level_wakes() {
+  local out
+  fresh_home
+  rm -f "$HOME_DIR/state/"*.status "$HOME_DIR/state/"*.meta
+  printf 'failed: the deployment check failed\n' > "$HOME_DIR/state/task-tail.status"
+  printf 'kind=ship\n' > "$HOME_DIR/state/task-tail.meta"
+  {
+    printf '1790000000\t7\tsignal\ttask-tail.status\tsignal: %s/state/task-tail.status\n' "$HOME_DIR"
+    printf '1790000001\t8\theartbeat\tfleet\t\n'
+  } > "$DRAIN"
+  KEY='' run_helper out --local --drain-file "$DRAIN" --status-dir "$HOME_DIR/state"
+  expect_code 0 "$RUN_CODE" "a live failed status tail should remain advisory"
+  [ "$(printf '%s\n' "$out" | grep -c .)" -eq 2 ] \
+    || fail "the status tail, pointer, and distinct heartbeat were not deduplicated correctly"$'\n'"$out"
+  assert_contains "$out" "1. status task-tail failed: the deployment check failed" \
+    "the detailed status tail was not retained"$'\n'"$out"
+  assert_contains "$out" "2. wake heartbeat fleet" "the distinct heartbeat was omitted"$'\n'"$out"
+  assert_not_contains "$out" "wake signal task-tail.status" \
+    "the failed status tail was duplicated by its task-level pointer"$'\n'"$out"
+  pass "live failed status tails make task-level wake pointers redundant"
+}
+
 test_probability_maps_with_unoffered_keys_use_the_single_pick_fallback() {
   local out
   fresh_home
@@ -403,6 +425,7 @@ test_keyed_status_wakes_and_tails_dedupe_in_both_key_positions
 test_status_and_meta_symlinks_are_not_read
 test_task_level_status_pointers_yield_to_detailed_items
 test_unread_status_items_dedupe_task_level_wakes
+test_status_tail_items_dedupe_task_level_wakes
 test_local_items_ignore_network_state_limit
 test_status_recovery_sections_are_ranked_without_wakes_or_decisions
 test_unoffered_probability_keys_fall_back_to_the_chosen_item
