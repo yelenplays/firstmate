@@ -497,7 +497,7 @@ Rule `beats` is a non-empty array of `{rule, when}` entries that declares preced
 The resolver renders every entry as a tie-break sentence on both rules' options, so precedence reaches the model as text rather than as a post-hoc override; two rules may beat each other only when at least one of the pair carries a `when`, which is how a real fault line such as findings versus a code change is expressed in both directions. Precedence cycles of three or more distinct rules are rejected even when some edges have `when` conditions; conditional two-rule pairs remain allowed.
 Because `rule` is positional, reordering `rules` requires renumbering every `beats` entry.
 A profile `provider` optionally names the quota-axi provider family whose rows apply to that profile; when present, profile and rule-floor provider IDs must match the strict whole-string pattern `^[a-z0-9]+(-[a-z0-9]+)*\z`.
-Bootstrap validates resolver-only `approval`, `floor`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
+Bootstrap validates resolver-only `approval`, `floor`, `beats`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
 Typed resolution additively recognizes `gemini` because AGENTS.md section 4 verifies it for crewmate and scout dispatch.
 The opted-in resolver has authoritative single-provider mappings for `claude`, `codex`, `grok`, `kimi`, `cursor`, `agy`, and `muse`; every other verified harness must declare `provider` explicitly, including multi-provider `pi`, `pi-signed`, `omp`, and `opencode` and unmapped `gemini` and `rovo`.
 Its single-provider table is separate from the frozen legacy mapping used by `fm-quota-choose.sh`, so additions cannot alter no-key routing.
@@ -1322,6 +1322,7 @@ JEV_URL=                # optional complete Jev POST URL, used verbatim (same se
 JEV_BASE=               # optional TypeSafe origin; `/v1/systemone` is appended when JEV_URL is unset (same section)
 JEV_TIMEOUT=25          # optional Jev HTTP timeout in seconds; default 25 (same section); brief preflight uses 5 when this is unset (docs/configuration.md "Jev brief preflight")
 FM_JEV_DISPATCH_SHADOW= # 1 logs the Jev dispatch pick to state/jev-dispatch-shadow.jsonl; 0 overrides config/jev-dispatch-shadow off (docs/configuration.md "Typed dispatch resolution")
+FM_JEV_DISPATCH_MARGIN= # optional typed-dispatch top-2 margin threshold; default and calibration: docs/configuration.md "Typed dispatch resolution"
 FM_WIKI_ENGINE=         # wiki-tool executable path or command; else config/wiki-engine (docs/configuration.md "Wiki engine ask")
 FM_WIKI_CATALOG=        # private wiki-tool catalog JSON path; else config/wiki-catalog (docs/configuration.md "Wiki engine ask")
 FM_MEMORY_DIR=          # memory store directory; else config/memory-dir, else $FM_HOME/data/memories (docs/configuration.md "Memory store")
