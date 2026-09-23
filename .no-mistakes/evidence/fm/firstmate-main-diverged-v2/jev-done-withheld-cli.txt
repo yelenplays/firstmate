@@ -1,0 +1,14 @@
+command=fm-jev-done-verify.sh task-42 --done-line "done: example task is complete"
+provider_key=absent
+stdout:
+jev-done-verify:
+  task: task-42
+  verdict: skipped
+  confidence: 
+  strength: 
+  annotate: no
+  shadow: yes
+  close: no
+  teardown: no
+audit_record:
+{"verdict":"skipped","payload":"withheld","shadow":true,"close":false,"teardown":false}

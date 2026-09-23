@@ -1,0 +1,12 @@
+ok - --help prints usage and exits 0
+ok - an empty ready set makes no Jev call
+ok - a normal suggestion is recorded and surfaced
+ok - a captain-held item never appears in Jev state
+ok - a Jev failure records no recommendation
+ok - confidence below 0.7 records no recommendation
+ok - state and criteria share sanitized task metadata
+ok - both numeric confidences must meet the configured floor
+ok - drain prints the advisory line only on a heartbeat row
+ok - an actual heartbeat records a suggestion
+ok - a Jev failure leaves the heartbeat absorb path unaffected
+ok - the heartbeat queue triage shares the cycle budget and breaker with every other Jev call

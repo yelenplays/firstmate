@@ -1,0 +1,7 @@
+product=fm_jev_supervision_queue_triage + fm-jev-queue-triage.sh
+queue_ready=ready-1
+provider_endpoint=local_blackhole
+blackhole_requests=1
+elapsed_ms=3490
+post_queue_status_consult=yes
+queue_snapshot=error

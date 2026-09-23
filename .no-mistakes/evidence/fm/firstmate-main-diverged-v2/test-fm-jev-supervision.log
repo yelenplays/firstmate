@@ -1,0 +1,13 @@
+ok - status triage gates on the captain_relevant Noul at 0.5 and logs the verdict
+ok - the status consult sends the corpus question pair with only the line as state
+ok - status triage redacts credential fields before sending and auditing
+ok - escaped-quote credential values and every GitHub token prefix are redacted before sending and auditing
+ok - free text leaves the home only for firstmate-repo tasks in the primary home; every other case sends structured facts
+ok - structured status payloads carry only a vocabulary verb, never a free-text leading token
+ok - free-text pane tails are size-capped to their most recent characters
+ok - the helpers and the cycle bound read JEV_TIMEOUT from the environment or $FM_HOME/.env
+ok - every status-triage failure is fail-closed: nonzero exit, no verdict, no downgrade
+ok - wedge check gates on the stuck Noul alone, never the state Choice
+ok - the wedge consult sends the corpus question pair with only the pane tail as state
+ok - every wedge-check failure is fail-closed: nonzero exit, no verdict
+ok - one Jev timeout trips the cycle breaker, preserves deterministic surfaces, and resets next cycle

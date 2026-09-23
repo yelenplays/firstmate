@@ -1,0 +1,5 @@
+helper=fm-jev-status-triage.sh exit=1 elapsed_ms=1322 stdout=<empty> stderr=jev: http 000 after 1156 ms:  jev-status-triage: no verdict (decide_code=1) 
+helper=fm-jev-wedge-check.sh exit=1 elapsed_ms=1315 stdout=<empty> stderr=jev: http 000 after 1159 ms:  jev-wedge-check: no verdict (decide_code=1) 
+dotenv_timeout=1s configured; FM_JEV_SUPERVISION_TIMEOUT_SECS=3s
+real_curl_requests=2
+live_assertions=pass (both helpers honored the 1s home .env timeout; two real local curl requests)

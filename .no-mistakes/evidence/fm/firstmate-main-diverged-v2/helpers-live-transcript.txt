@@ -1,0 +1,95 @@
+== S1 eligible firstmate-repo task in primary home: compacted free text, secrets stripped ==
+
+### status escalate
+$ printf ... | FM_HOME=primary bin/fm-jev-status-triage.sh --task fmtask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout=escalate exit=0 elapsed=0.15s stderr=
+request state sent: "note: pushed fix; [redacted] in log, [redacted] leftover, need captain sign-off?"
+auth header: Bearer <key matches configured key>
+audit record: {"purpose":"status-triage","advisory":true,"escalate_only":true,"status":"escalate","noul":0.82,"verb_choice":"note","verb_confidence":0.9,"payload":"free-text","line_chars":106,"line_excerpt":"note: pushed fix; [redacted] in log, [redacted] leftover, need captain sign-off?","route":"typesafe","http":"200","latency_ms":10,"decide_code":0,"ts":"2026-09-23T09:04:58Z"}
+
+### status suppress
+$ printf ... | FM_HOME=primary bin/fm-jev-status-triage.sh --task fmtask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout=suppress exit=0 elapsed=0.13s stderr=
+audit record: {"status":"suppress","noul":0.12,"payload":"free-text"}
+
+== S2 data boundary: non-eligible callers send structured facts only ==
+
+### status secondmate home
+$ printf ... | FM_HOME=second bin/fm-jev-status-triage.sh --task fmtask --state-dir /tmp/fmjev-live.iepopG/second/state
+stdout=escalate exit=0 elapsed=0.15s stderr=
+request state sent: {"payload":"structured","note":"Structured facts only; the status text is withheld by the Firstmate data boundary.","kind":"status-line","verb":"other","chars":49,"words":5,"signals":{"key_tag":false,"question":false,"decision_language":true,"blocker_language":false,"failure_language":false,"completion_language":false,"link":false}}
+audit record: {"status":"escalate","payload":"structured","line_excerpt":null,"line_chars":49}
+
+### status secondmate task
+$ printf ... | FM_HOME=primary bin/fm-jev-status-triage.sh --task smtask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout=escalate exit=0 elapsed=0.15s stderr=
+request state sent: {"payload":"structured","note":"Structured facts only; the status text is withheld by the Firstmate data boundary.","kind":"status-line","verb":"other","chars":49,"words":5,"signals":{"key_tag":false,"question":false,"decision_language":true,"blocker_language":false,"failure_language":false,"completion_language":false,"link":false}}
+audit record: {"status":"escalate","payload":"structured","line_excerpt":null,"line_chars":49}
+
+### status other-project task
+$ printf ... | FM_HOME=primary bin/fm-jev-status-triage.sh --task wikitask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout=escalate exit=0 elapsed=0.17s stderr=
+request state sent: {"payload":"structured","note":"Structured facts only; the status text is withheld by the Firstmate data boundary.","kind":"status-line","verb":"other","chars":49,"words":5,"signals":{"key_tag":false,"question":false,"decision_language":true,"blocker_language":false,"failure_language":false,"completion_language":false,"link":false}}
+audit record: {"status":"escalate","payload":"structured","line_excerpt":null,"line_chars":49}
+
+### status no --task
+$ printf ... | FM_HOME=primary bin/fm-jev-status-triage.sh 
+stdout=escalate exit=0 elapsed=0.15s stderr=
+request state sent: {"payload":"structured","note":"Structured facts only; the status text is withheld by the Firstmate data boundary.","kind":"status-line","verb":"other","chars":49,"words":5,"signals":{"key_tag":false,"question":false,"decision_language":true,"blocker_language":false,"failure_language":false,"completion_language":false,"link":false}}
+audit record: {"status":"escalate","payload":"structured","line_excerpt":null,"line_chars":49}
+
+### status known verb, other-project task
+$ printf ... | FM_HOME=primary bin/fm-jev-status-triage.sh --task wikitask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout=escalate exit=0 elapsed=0.17s stderr=
+request state sent: {"payload":"structured","note":"Structured facts only; the status text is withheld by the Firstmate data boundary.","kind":"status-line","verb":"note","chars":31,"words":5,"signals":{"key_tag":false,"question":false,"decision_language":false,"blocker_language":false,"failure_language":false,"completion_language":false,"link":false}}
+leak check (acme|contoso|merger in any request body or audit record outside eligible fmtask):
+/tmp/fmjev-live.iepopG/rec/requests.jsonl:0
+/tmp/fmjev-live.iepopG/second/state/jev-status-triage.jsonl:0
+
+== S3 wedge check ==
+
+### wedge eligible escalate
+$ printf ... | FM_HOME=primary bin/fm-jev-wedge-check.sh --task fmtask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout=escalate exit=0 elapsed=0.13s stderr=
+request state sent: "$ claude\n> Allow edit to src/app.ts? (y/n)\n  waiting for approval - [redacted] secret"
+audit record: {"status":"escalate","noul":0.69,"payload":"free-text","tail_excerpt":"$ claude\n> Allow edit to src/app.ts? (y/n)\n  waiting for approval - [redacted] secret"}
+
+### wedge other-project suppress
+$ printf ... | FM_HOME=primary bin/fm-jev-wedge-check.sh --task wikitask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout=suppress exit=0 elapsed=0.17s stderr=
+request state sent: {"payload":"structured","note":"Structured facts only; the pane text is withheld by the Firstmate data boundary.","kind":"pane-tail","chars":88,"nonblank_lines":3,"signals":{"prompt_waiting":true,"quota_or_rate_limit":false,"error_text":false,"permission_prompt":false,"busy_indicator":false,"completion_text":false,"shell_prompt_last_line":false}}
+audit record: {"status":"suppress","noul":0.2,"payload":"structured","tail_excerpt":null}
+
+== S4 fail closed ==
+
+### black-holed endpoint, default supervision bound
+$ printf ... | FM_HOME=primary bin/fm-jev-status-triage.sh --task fmtask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout='' exit=1 elapsed=3.29s stderr=jev: http 000 after 3161 ms:  jev-status-triage: no verdict (decide_code=1) 
+
+### black-holed endpoint, JEV_TIMEOUT=1 in $FM_HOME/.env (status)
+$ printf ... | FM_HOME=primary bin/fm-jev-status-triage.sh --task fmtask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout='' exit=1 elapsed=1.27s stderr=jev: http 000 after 1153 ms:  jev-status-triage: no verdict (decide_code=1) 
+
+### black-holed endpoint, JEV_TIMEOUT=1 in $FM_HOME/.env (wedge)
+$ printf ... | FM_HOME=primary bin/fm-jev-wedge-check.sh --task fmtask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout='' exit=1 elapsed=1.29s stderr=jev: http 000 after 1159 ms:  jev-wedge-check: no verdict (decide_code=1) 
+
+### http 503
+$ printf ... | FM_HOME=primary bin/fm-jev-status-triage.sh --task fmtask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout='' exit=1 elapsed=0.11s stderr=jev: http 503 after 9 ms: {"error":"x"} jev-status-triage: no verdict (decide_code=1) 
+
+### out-of-range noul
+$ printf ... | FM_HOME=primary bin/fm-jev-status-triage.sh --task fmtask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout='' exit=1 elapsed=0.11s stderr=jev-status-triage: invalid noul answer 
+
+### out-of-range noul (wedge)
+$ printf ... | FM_HOME=primary bin/fm-jev-wedge-check.sh --task fmtask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout='' exit=1 elapsed=0.11s stderr=jev-wedge-check: invalid noul answer 
+error audit records: {"status":"error","http":"000","decide_code":1} {"status":"error","http":"000","decide_code":1} {"status":"error","http":"503","decide_code":1} {"status":"error","http":"200","decide_code":0} 
+
+### no key configured
+$ printf ... | FM_HOME=primary bin/fm-jev-status-triage.sh --task fmtask --state-dir /tmp/fmjev-live.iepopG/primary/state
+stdout='' exit=1 elapsed=0.04s stderr=jev-status-triage: off (no TYPESAFE_API_KEY or OPENROUTER_API_KEY) 
+
+key leak check across all audit logs: 0 hits
+total requests reaching endpoint:       15

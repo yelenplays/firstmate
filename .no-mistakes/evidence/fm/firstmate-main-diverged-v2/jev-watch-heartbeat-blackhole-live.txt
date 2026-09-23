@@ -1,0 +1,7 @@
+product=bin/fm-watch.sh
+heartbeat=due; backlog=one ready task (ready-1)
+provider_endpoint=local_blackhole_via_real_curl
+requests=1
+queue_snapshot_status=error
+heartbeat_request_to_finished_ms=3389
+watcher_alive_after_failed_advisory=yes

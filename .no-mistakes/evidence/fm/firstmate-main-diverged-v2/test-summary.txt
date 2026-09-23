@@ -1,0 +1,4 @@
+fm-jev-supervision exit=0 9s
+fm-jev-queue-triage exit=0 26s
+fm-jev-done-verify exit=0 48s
+fm-daemon exit=0 51s
