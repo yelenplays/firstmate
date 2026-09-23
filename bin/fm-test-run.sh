@@ -681,6 +681,7 @@ tests/fm-afk-pi-herdr-return-e2e.test.sh 45
 tests/fm-afk-return.test.sh 20385
 tests/fm-agy-harness.test.sh 47933
 tests/fm-agy-signals-live-e2e.test.sh 49
+tests/fm-approved-execution.test.sh 15161
 tests/fm-ask-user-authority.test.sh 131
 tests/fm-backend-cmux-smoke.test.sh 33
 tests/fm-backend-cmux.test.sh 3498
@@ -702,6 +703,7 @@ tests/fm-browser-step.test.sh 1000
 tests/fm-bootstrap-network-parallel.test.sh 9539
 tests/fm-bootstrap.test.sh 46634
 tests/fm-branch-supervision.test.sh 8915
+tests/fm-browser-bridge-sweep.test.sh 83900
 tests/fm-busy-adapter-wiring.test.sh 27817
 tests/fm-busy-state.test.sh 2990
 tests/fm-calm-claude-mod-live-e2e.test.sh 46
@@ -721,12 +723,17 @@ tests/fm-codex-hook-layer-live-e2e.test.sh 47
 tests/fm-composer-codex-idle-live-e2e.test.sh 229
 tests/fm-composer-matrix-live-e2e.test.sh 47
 tests/fm-contributions.test.sh 35676
+tests/fm-control-composer-live-e2e.test.sh 77
 tests/fm-control-relaunch.test.sh 137013
 tests/fm-control.test.sh 39524
 tests/fm-cursor-harness.test.sh 30212
 tests/fm-cursor-primary-live-e2e.test.sh 72
 tests/fm-cursor-primary.test.sh 52269
 tests/fm-daemon.test.sh 27262
+tests/fm-decision-record.test.sh 312
+tests/fm-devin-harness.test.sh 1098
+tests/fm-devin-live-e2e.test.sh 48
+tests/fm-dispatch-replay.test.sh 1337
 tests/fm-dispatch-resolve.test.sh 4397
 tests/fm-documentation-audiences.test.sh 847
 tests/fm-extension-binding.test.sh 9053
@@ -747,13 +754,29 @@ tests/fm-herdr-pi-stale-registration-live-e2e.test.sh 47
 tests/fm-herdr-session-cleanup.test.sh 6828
 tests/fm-herdr-submit-confirm-live-e2e.test.sh 46
 tests/fm-herdr-version-floor-live-e2e.test.sh 72
+tests/fm-hermes-agent.test.sh 12988
 tests/fm-home-summary-refresh.test.sh 37264
 tests/fm-inactive-reconcile.test.sh 53178
+tests/fm-jev-act-first.test.sh 5426
+tests/fm-jev-brief-preflight.test.sh 10209
+tests/fm-jev-compaction.test.sh 638
+tests/fm-jev-done-verify.test.sh 38035
+tests/fm-jev-intake-match.test.sh 17464
+tests/fm-jev-lib.test.sh 1005
+tests/fm-jev-queue-triage.test.sh 17375
+tests/fm-jev-retrieval-miss.test.sh 1363
+tests/fm-jev-skill-select.test.sh 77991
+tests/fm-jev-supervision.test.sh 6220
+tests/fm-jev-tool-gate.test.sh 611
+tests/fm-jev.test.sh 8666
 tests/fm-kimi-harness.test.sh 19151
 tests/fm-lint-workflows.test.sh 785
 tests/fm-live-gate.test.sh 1755
 tests/fm-mail-check.test.sh 9162
 tests/fm-mail.test.sh 9703
+tests/fm-matt-pointers.test.sh 13064
+tests/fm-memory-migrate.test.sh 8698
+tests/fm-memory.test.sh 1761
 tests/fm-muse-harness.test.sh 40970
 tests/fm-muse-signals-live-e2e.test.sh 77
 tests/fm-nm-test-contract.test.sh 128
@@ -762,6 +785,7 @@ tests/fm-omp-harness.test.sh 47734
 tests/fm-omp-primary-live-e2e.test.sh 46
 tests/fm-on.test.sh 11001
 tests/fm-opencode-primary-live-e2e.test.sh 48
+tests/fm-openviking-retire.test.sh 547
 tests/fm-operational-input.test.sh 221
 tests/fm-peek-remote.test.sh 964
 tests/fm-pending-reply.test.sh 28255
@@ -770,6 +794,8 @@ tests/fm-pi-branch-live-e2e.test.sh 72
 tests/fm-pi-branch-responsiveness-live-e2e.test.sh 13121
 tests/fm-pi-codex-native.test.sh 46
 tests/fm-pi-primary-live-e2e.test.sh 47
+tests/fm-pi-role-agents-live-e2e.test.sh 82
+tests/fm-pi-role-agents.test.sh 918
 tests/fm-pi-watch-extension.test.sh 50637
 tests/fm-pi-windows-shell-invocation.test.sh 5121
 tests/fm-pr-check-security.test.sh 226546
@@ -777,6 +803,7 @@ tests/fm-pr-reviewers.test.sh 273
 tests/fm-pr-state-live-e2e.test.sh 45
 tests/fm-pr-state.test.sh 531
 tests/fm-procevent-quota.test.sh 1900
+tests/fm-procevent-spend.test.sh 7574
 tests/fm-procevent-when.test.sh 23805
 tests/fm-procevent.test.sh 221745
 tests/fm-project-origin.test.sh 136
@@ -816,9 +843,13 @@ tests/fm-sessionstart-hook-live-e2e.test.sh 97
 tests/fm-sessionstart-instruction-refresh-live-e2e.test.sh 46
 tests/fm-sessionstart-nudge.test.sh 66247
 tests/fm-shared-captain-inheritance.test.sh 5687
+tests/fm-skill-path.test.sh 1853
 tests/fm-spawn-dispatch-profile.test.sh 138433
+tests/fm-spawn-jev-skill-live.test.sh 49907
 tests/fm-spawn-pool-base-freshen.test.sh 62249
+tests/fm-spawn-truth-path.test.sh 10650
 tests/fm-spawn-worktree-settle.test.sh 8482
+tests/fm-spend-ledger.test.sh 1209
 tests/fm-startup-memory-budget.test.sh 7392
 tests/fm-startup-network.test.sh 61336
 tests/fm-stat-shadowing.test.sh 48
@@ -854,6 +885,7 @@ tests/fm-watch-checkpoint.test.sh 6076
 tests/fm-watch-recovery-loop.test.sh 58946
 tests/fm-watch-triage.test.sh 697969
 tests/fm-watcher-lock.test.sh 108940
+tests/fm-wiki-ask.test.sh 391
 EOF
 }
 

@@ -51,13 +51,21 @@ else
   printf 'curl:clean\n' >> "${CHILD_ENV_LOG:?}"
 fi
 out=''
+max_time=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -o) out=$2; shift 2 ;;
+    --max-time) max_time=$2; printf '%s\n%s\n' "$1" "$2" >> "${FAKE_CURL_LOG:?}/argv"; shift 2 ;;
     *) printf '%s\n' "$1" >> "${FAKE_CURL_LOG:?}/argv"; shift ;;
   esac
 done
+printf '%s\n' "$max_time" > "$FAKE_CURL_LOG/max_time"
 cat > "$FAKE_CURL_LOG/body"
+printf 'call\n' >> "$FAKE_CURL_LOG/calls"
+if [ "${FAKE_CURL_HANG:-0}" = 1 ]; then
+  sleep "$max_time"
+  exit 28
+fi
 cat /dev/fd/3 > "$FAKE_CURL_LOG/header" 2>/dev/null || printf 'fd3 unreadable\n' > "$FAKE_CURL_LOG/header"
 if [ "${FAKE_CURL_FAIL:-0}" = 1 ]; then
   exit 7
@@ -404,6 +412,43 @@ SH
   pass "a Jev failure leaves the heartbeat absorb path unaffected"
 }
 
+# A black-holed endpoint on a due heartbeat with a ready queue: the queue call
+# rides the watcher cycle's shared Jev budget and breaker
+# (fm_jev_supervision_queue_triage), so it is bounded by the budget rather than
+# the library's 25-second default, trips the breaker, and leaves no room for
+# another consult in the same cycle.
+test_heartbeat_queue_triage_shares_the_cycle_budget() {
+  local start_ms finished_ms elapsed_ms stub_dir saved_path=$PATH
+  fresh_home
+  add_task ready-1 'Ship a widget' --kind ship --repo firstmate
+  reset_log
+  stub_dir="$TMP_ROOT/jevstub"
+  rm -rf "$stub_dir"
+  mkdir -p "$stub_dir"
+  fm_install_jev_stubs "$FAKEBIN"
+  export FM_HOME="$HOME_DIR" TYPESAFE_API_KEY="$TS_KEY" FAKE_CURL_HANG=1
+  export FM_JEV_STUB_DIR="$stub_dir" FM_JEV_STUB_STATUS_VERDICT=escalate
+  export PATH="$FAKEBIN:$BASE_PATH"
+  # shellcheck disable=SC2034 # both read by the sourced bin/fm-classify-lib.sh
+  FM_JEV_STATUS_TRIAGE_BIN="$FAKEBIN/jev-status-stub" FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS=6
+  fm_jev_supervision_cycle_reset
+  start_ms=$(_fm_jev_supervision_now_ms)
+  fm_jev_supervision_queue_triage "$HELPER" "$HOME_DIR/state"
+  status_line_jev_escalates 'note: the captain should hear this' "$HOME_DIR/state/fmtask.status" \
+    && fail "a consult ran after the queue call tripped the cycle breaker"
+  finished_ms=$(_fm_jev_supervision_now_ms)
+  elapsed_ms=$((finished_ms - start_ms))
+  unset FM_HOME TYPESAFE_API_KEY FAKE_CURL_HANG FM_JEV_STUB_DIR FM_JEV_STUB_STATUS_VERDICT
+  PATH=$saved_path
+  export PATH
+  [ "$(cat "$LOG/calls" 2>/dev/null | wc -l | tr -d '[:space:]')" = 1 ] \
+    || fail "the ready queue did not reach the black-holed endpoint exactly once"
+  [ "$(cat "$LOG/max_time")" -le 3 ] || fail "the queue call's HTTP bound $(cat "$LOG/max_time")s ignores the cycle budget"
+  [ "$elapsed_ms" -lt 6000 ] || fail "the heartbeat cycle took ${elapsed_ms}ms past its 6000ms Jev budget"
+  [ ! -e "$stub_dir/status.args" ] || fail "the status consult ran after the breaker tripped"
+  pass "the heartbeat queue triage shares the cycle budget and breaker with every other Jev call"
+}
+
 test_help_exits_0
 test_empty_ready_set_makes_no_call
 test_normal_suggestion_is_recorded
@@ -415,3 +460,4 @@ test_both_confidences_must_meet_the_floor
 test_drain_prints_line_only_on_heartbeat
 test_watcher_records_a_suggestion_on_heartbeat
 test_jev_failure_leaves_heartbeat_unaffected
+test_heartbeat_queue_triage_shares_the_cycle_budget

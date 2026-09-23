@@ -59,7 +59,7 @@ mkdir -p "$SESSIONS" "$STATE"
 # Two tasks reuse the same worktree across spawn generations. Keep their
 # sessions relative to the test's captured clock so the weekly quota window
 # includes task-a's session and excludes the pre-spawn session on every date.
-NOW_EPOCH=$(python3 -c 'import time; print(int(time.time()))')
+NOW_EPOCH=$(python3 -c 'import time; print(int(time.time()) // 86400 * 86400)')
 fixture_day() {
   python3 -c 'import datetime,sys; print((datetime.datetime.fromtimestamp(int(sys.argv[1]), datetime.timezone.utc) - datetime.timedelta(days=int(sys.argv[2]))).strftime("%Y-%m-%d"))' \
     "$NOW_EPOCH" "$1"

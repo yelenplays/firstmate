@@ -35,6 +35,12 @@ fi
 
 TMP_ROOT=$(fm_test_tmproot fm-wake-daemon-e2e)
 
+# Jev supervision consults default off in this file: both helper seams point at
+# absent paths so no case can spawn the real helper (which would read
+# $FM_HOME/.env for a live key and reach the network).
+export FM_JEV_STATUS_TRIAGE_BIN="$TMP_ROOT/jev-absent-status-helper"
+export FM_JEV_WEDGE_CHECK_BIN="$TMP_ROOT/jev-absent-wedge-helper"
+
 # Run the daemon-managed watcher once: under the supervise-daemon (away mode) the
 # watcher is one-shot - it exits with a single reason line on EVERY wake and the
 # daemon does the triage. This e2e exercises exactly that path, so it runs with

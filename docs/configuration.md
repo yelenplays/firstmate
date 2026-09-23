@@ -612,6 +612,9 @@ The thin hook point is documented in [`docs/arm-pretool-check.md`](arm-pretool-c
 
 [`bin/fm-jev-done-verify.sh`](../bin/fm-jev-done-verify.sh) is a log-only helper the wake drain invokes after successfully presenting a worker `done:` line on a ship or scout.
 It asks Jev one Choice (`evidenced`, `not_evidenced`, `need_human`) plus a strength Score, using the 0.7 confidence floor from the Jev caller library.
+It sends the done line, and any acceptance, report, or PR input, only for a ship or scout task of the firstmate repository verified from the primary home - the same outbound data boundary as "Jev supervision triage" below.
+This boundary is deliberate: per the captain's privacy decision, other projects' task text (done lines, acceptance, reports, and PR input) must not go to Jev.
+With a configured key, every other task makes no model call and records `payload: withheld` with a `skipped` verdict.
 `need_human` is required because a currently healthy system is not evidence the claimed repair happened.
 Each call appends one JSONL record in the effective state directory, honoring `FM_STATE_OVERRIDE`.
 The helper never tears down a task, never writes `resolved` or `done` on the worker's behalf, and never reopens work from its score.
@@ -622,7 +625,7 @@ It skips a completion whose normalized text already appears in that task's JSONL
 The background record may not exist yet when firstmate handles the wake; the drain discards the helper's stdout and does not display its risk annotation automatically.
 Automatic calls supply only the task ID and done line, without the optional acceptance, report, or PR inputs.
 The script header owns flags, output lines, exit codes, and the log path and schema.
-Behavioral regressions in [`tests/fm-jev-done-verify.test.sh`](../tests/fm-jev-done-verify.test.sh) use fake transport to exercise presentation selection, concurrent deduplication, whitespace normalization, state overrides, and empty credentials.
+Behavioral regressions in [`tests/fm-jev-done-verify.test.sh`](../tests/fm-jev-done-verify.test.sh) use fake transport to exercise presentation selection, concurrent deduplication, whitespace normalization, state overrides, empty credentials, and both sides of the data boundary.
 
 ## Jev skill selector (FM_JEV_SKILL_SELECT)
 
@@ -677,7 +680,8 @@ An empty ready set makes no model call.
 A low-confidence or failed answer is recorded without a recommendation.
 `bin/fm-wake-drain.sh` prints the latest recommendation only when presenting a heartbeat row.
 The [script header](../bin/fm-jev-queue-triage.sh) owns flags, record paths and schema, payload sanitization and limits, the Choice questions and confidence rule, and the skip/off/failure exits.
-Backlog collection uses two sequential listings with a five-second timeout each; a model request then uses the Jev caller library's HTTP timeout.
+Backlog collection uses two sequential listings with a five-second timeout each.
+The heartbeat call runs inside the watcher cycle's shared Jev budget and breaker (see "Jev supervision triage" below), so its model request is bounded by that budget rather than the caller library's default HTTP timeout, it is skipped once the breaker has tripped, and a timeout or failed answer trips the breaker for the rest of the cycle.
 Regression coverage lives in [`tests/fm-jev-queue-triage.test.sh`](../tests/fm-jev-queue-triage.test.sh).
 
 ## Jev intake match
@@ -706,6 +710,29 @@ Task-level status-pointer wakes, including coalesced path lists, are omitted whe
 Without a configured key the ranking is skipped and nothing is sent.
 Both lists are advisory: every presented wake still needs handling and acknowledgement.
 [`bin/fm-startup-network.sh`](../bin/fm-startup-network.sh)'s header owns the deferred step, its fixed 20-second input-handoff wait, and the detached Jev request's effective `JEV_TIMEOUT` plus 3-second cleanup margin; regression coverage lives in [`tests/fm-startup-network.test.sh`](../tests/fm-startup-network.test.sh), [`tests/fm-jev-act-first.test.sh`](../tests/fm-jev-act-first.test.sh), and [`tests/fm-session-start.test.sh`](../tests/fm-session-start.test.sh).
+
+## Jev supervision triage
+
+The watcher and the away-mode daemon ask Jev two narrow advisory questions over the existing [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) binding; each helper's header records the corpus calibration behind the 0.5 Noul floor.
+Both roles are additive and fail closed: a missing key, a helper failure, a timeout, or a malformed answer leaves the deterministic verdict untouched, and a valid answer can only add a surface or defer a structural false positive.
+[`bin/fm-jev-status-triage.sh`](../bin/fm-jev-status-triage.sh) reads one status line on stdin and prints `escalate` only when the `captain_relevant` Noul is at least 0.5.
+Only lines no declared verb explains are ever offered - free-text progress plus `note:` and `resolved:` - capped at `FM_JEV_SPAN_TRIAGE_MAX` (default 8) consults per status span; `working:`/`done:`/`blocked:`/`failed:`/`needs-decision:`/`paused:`/`captain-held:` lines are never sent to the model.
+One `FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS` (default 6) wall-clock budget is shared by every Jev call in each watcher or daemon cycle - status triage, the wedge check, and the watcher's heartbeat queue triage - and resets at the next cycle.
+Each call's HTTP bound is clipped to what the budget still allows, so a cycle never runs past it.
+After the first Jev timeout or error, Jev is skipped for the rest of that cycle and deterministic surfacing or escalation remains in force.
+An escalation surfaces the line marked `(jev-escalated)` as an advisory surface event; it never enters the needs-decision fold.
+[`bin/fm-jev-wedge-check.sh`](../bin/fm-jev-wedge-check.sh) reads one captured pane tail on stdin and prints `suppress` only when the `stuck` Noul is below the floor, which defers the structural wedge escalation on the shared bounded resurface cadence; a Noul at or above the floor escalates at once, and every other outcome keeps the incumbent escalation.
+The wedge consult runs only when the structural checks leave an escalation due: after the watcher has checked declared waits, worktree writes, dead endpoints, and no-mistakes run liveness, or at the daemon's stale-persistence recheck after its run-liveness check; it never runs per poll.
+The watcher's busy-turn-bound path deliberately supplies no pane tail and skips Jev, so a busy-looking pane cannot suppress the hung-foreground escalation this bound exists to catch.
+Each call is bounded by a positive-integer `JEV_TIMEOUT` from the environment or `$FM_HOME/.env` when set, otherwise `FM_JEV_SUPERVISION_TIMEOUT_SECS` (default 3 seconds), plus a short wrapper margin.
+Each consultation that reaches the Jev request appends one JSONL audit record under the state directory (`jev-status-triage.jsonl`, `jev-wedge-check.jsonl`).
+
+Outbound data boundary.
+Status text and pane text leave the home only for a ship or scout task whose `project=` resolves to the code root, or whose resolved Git common directory matches the code root's, supervised from the primary home (no `.fm-secondmate-home` marker). `remote.origin.url` is not accepted as project identity.
+That free text is size-capped (the first 4000 characters of a status line, the last 4000 of a pane tail) and secret-stripped by `fm_jev_compact_state` before it is sent, and its audit record keeps a short redacted excerpt.
+When a model call is made for any other case - a secondmate home, a secondmate task, another project such as a wiki, website, or vault, or a task whose eligibility cannot be established - it sends structured facts only: the status verb when it is a known Firstmate verb (any other leading token becomes `other`), character and line counts, and fixed-vocabulary signal flags, never the text itself, and its audit record carries no excerpt.
+`fm_jev_supervision_free_text_ok` and `fm_jev_supervision_state` in [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) own that rule and the exact facts.
+Coverage lives in [`tests/fm-jev-supervision.test.sh`](../tests/fm-jev-supervision.test.sh), [`tests/fm-watch-triage.test.sh`](../tests/fm-watch-triage.test.sh), and [`tests/fm-daemon.test.sh`](../tests/fm-daemon.test.sh).
 
 ## Jev brief preflight (FM_JEV_BRIEF_PREFLIGHT)
 
@@ -1360,7 +1387,10 @@ JEV_ROUTE=              # optional library and typed-dispatch route; bin/fm-jev.
 JEV_MODEL=              # optional Jev model override (same section)
 JEV_URL=                # optional library and typed-dispatch POST URL, used verbatim; ignored by bin/fm-jev.sh
 JEV_BASE=               # optional library and typed-dispatch TypeSafe origin; ignored by bin/fm-jev.sh
-JEV_TIMEOUT=25          # optional Jev HTTP timeout in seconds; default 25 (same section); brief preflight uses 5 when this is unset (docs/configuration.md "Jev brief preflight")
+JEV_TIMEOUT=25          # optional Jev HTTP timeout in seconds; default 25 (same section); brief preflight uses 5 when this is unset (docs/configuration.md "Jev brief preflight"), and supervision triage uses FM_JEV_SUPERVISION_TIMEOUT_SECS, default 3 (docs/configuration.md "Jev supervision triage")
+FM_JEV_SUPERVISION_TIMEOUT_SECS=3  # fallback per-call bound for supervision consults when JEV_TIMEOUT is unset or invalid; see "Jev supervision triage"
+FM_JEV_SPAN_TRIAGE_MAX=8  # status-line Jev consult cap per span; see "Jev supervision triage"
+FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS=6  # shared Jev-call wall-clock budget per watcher or daemon cycle; see "Jev supervision triage"
 FM_JEV_DISPATCH_SHADOW= # 1 logs the Jev dispatch pick to state/jev-dispatch-shadow.jsonl; 0 overrides config/jev-dispatch-shadow off (docs/configuration.md "Typed dispatch resolution")
 FM_JEV_DISPATCH_MARGIN= # optional typed-dispatch top-2 margin threshold; default and calibration: docs/configuration.md "Typed dispatch resolution"
 FM_WIKI_ENGINE=         # wiki-tool executable path or command; else config/wiki-engine (docs/configuration.md "Wiki engine ask")

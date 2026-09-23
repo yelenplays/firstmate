@@ -23,6 +23,14 @@ TASK_ID='ship-fix-pager'
 DONE_LINE='done: pager off-by-one fixed'
 mkdir -p "$HOME_DIR/state" "$LOG"
 
+# The shadow verifier sends a done line only for a task its data boundary
+# admits (fm_jev_supervision_free_text_ok): a ship or scout task of this
+# firstmate repository in a primary home. firstmate_task writes that record.
+firstmate_task() {  # <state-dir> <task>
+  printf 'kind=ship\nproject=%s\n' "$ROOT" > "$1/$2.meta"
+}
+firstmate_task "$HOME_DIR/state" "$TASK_ID"
+
 cat > "$FAKEBIN/curl" <<'SH'
 #!/usr/bin/env bash
 set -u
@@ -294,6 +302,7 @@ test_drain_done_line_records_without_closing() {
   state="$dir/state"
   jsonl="$state/ship-fix.jev-done.jsonl"
   printf 'done: pager off-by-one fixed\n' > "$state/ship-fix.status"
+  firstmate_task "$state" ship-fix
   reset_log
   write_response evidenced 0.82
   PATH="$FAKEBIN:$BASE_PATH" \
@@ -320,6 +329,7 @@ test_drain_deduplicates_first_record() {
   dir=$(make_case jev-done-dedup)
   state="$dir/state"
   printf '%s\n' "$DONE_LINE" > "$state/ship-fix.status"
+  firstmate_task "$state" ship-fix
   jq -nc --arg line "$DONE_LINE" '{done_line: $line}' > "$state/ship-fix.jev-done.jsonl"
   reset_log
   PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" TYPESAFE_API_KEY=$TS_KEY \
@@ -338,6 +348,7 @@ test_drain_uses_presented_span() {
     jsonl="$state/ship-fix.jev-done.jsonl"
     if [ "$initial" = 'done' ]; then appended='note: appended during presentation'; else appended="$DONE_LINE"; fi
     printf '%s: original event\n' "$initial" > "$state/ship-fix.status"
+    firstmate_task "$state" ship-fix
     cat > "$dir/fakebin/cat" <<'SH'
 #!/usr/bin/env bash
 /bin/cat "$@"
@@ -380,6 +391,7 @@ test_drain_serializes_inflight_verification() {
   state="$dir/state"
   jsonl="$state/ship-fix.jev-done.jsonl"
   printf '%s\n' "$DONE_LINE" > "$state/ship-fix.status"
+  firstmate_task "$state" ship-fix
   reset_log
   write_response evidenced
   PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" TYPESAFE_API_KEY=$TS_KEY \
@@ -421,6 +433,7 @@ check_completion_deduplication() {
     trailing-tab-crlf) completion+=$'\t\r'; expected+=' ' ;;
   esac
   printf '%s\n' "$completion" > "$state/ship-fix.status"
+  firstmate_task "$state" ship-fix
   cp "$state/ship-fix.status" "$dir/original-status"
   append_wake "$state" signal ship-fix.status completion
   reset_log
@@ -466,6 +479,7 @@ test_drain_scores_only_emitted_completions() {
     state="$dir/state"
     jsonl="$state/ship-fix.jev-done.jsonl"
     printf '%s\n' "$DONE_LINE" > "$state/ship-fix.status"
+    firstmate_task "$state" ship-fix
     case "$mode" in
       buried) printf 'note: later update\n' >> "$state/ship-fix.status" ;;
       covered)
@@ -502,6 +516,7 @@ test_drain_scores_only_uncapped_backstop_events() {
   payload=$(printf '%0300d' 0)
   for i in $(seq 1 22); do
     printf 'done: completion-%s %s\n' "$i" "$payload" > "$state/task-$i.status"
+    firstmate_task "$state" "task-$i"
   done
   reset_log
   out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" TYPESAFE_API_KEY=$TS_KEY \
@@ -536,6 +551,7 @@ test_drain_without_keys_does_not_record() {
   state="$dir/state"
   jsonl="$state/ship-fix.jev-done.jsonl"
   printf 'done: pager off-by-one fixed\n' > "$state/ship-fix.status"
+  firstmate_task "$state" ship-fix
   unset TYPESAFE_API_KEY OPENROUTER_API_KEY
   PATH="$FAKEBIN:$BASE_PATH" \
     FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
@@ -553,6 +569,7 @@ test_drain_empty_env_keys_allow_later_scoring() {
     state="$dir/state"
     jsonl="$state/ship-fix.jev-done.jsonl"
     printf '%s\n' "$DONE_LINE" > "$state/ship-fix.status"
+    firstmate_task "$state" ship-fix
     cp "$state/ship-fix.status" "$dir/original-status"
     printf '%s\n' 'TYPESAFE_API_KEY=""' "OPENROUTER_API_KEY=''" > "$dir/.env"
     reset_log
@@ -580,6 +597,83 @@ test_drain_empty_env_keys_allow_later_scoring() {
   pass "quoted-empty keys leave no record and later credentials allow scoring"
 }
 
+# The captain's data boundary: a done line leaves the home only for a ship or
+# scout task of the firstmate repository, verified from the primary home.
+# Every other task - a second mate task, another project such as a website or
+# vault, a task with no record, anything run from a second mate home - makes
+# no model call and records payload=withheld.
+test_data_boundary_withholds_other_tasks() {
+  local code out err case_name other spoofed root_origin report
+  local -a verify_args
+  other="$TMP_ROOT/other-project"
+  spoofed="$TMP_ROOT/spoofed-origin"
+  report="$TMP_ROOT/spoofed-origin-report.txt"
+  rm -rf "$other" "$spoofed"
+  mkdir -p "$other" "$spoofed"
+  git -C "$other" init -q
+  git -C "$other" remote add origin https://example.invalid/someone/vault.git
+  git -C "$spoofed" init -q
+  root_origin=$(git -C "$ROOT" config --get remote.origin.url) || fail "the firstmate test checkout has no origin to spoof"
+  git -C "$spoofed" remote add origin "$root_origin"
+  printf 'private report sentinel\n' > "$report"
+  write_response evidenced 0.8
+
+  firstmate_task "$HOME_DIR/state" "$TASK_ID"
+  TYPESAFE_API_KEY=$TS_KEY run_verify code out err "$TASK_ID" --done-line "$DONE_LINE"
+  expect_code 0 "$code" "an eligible firstmate task verifies"
+  assert_present "$LOG/requests" "an eligible firstmate task reaches Jev"
+  jq -e '.payload == "free-text" and .verdict == "evidenced"' \
+    "$HOME_DIR/state/${TASK_ID}.jev-done.jsonl" >/dev/null \
+    || fail "the eligible record does not name its free-text payload"
+
+  for case_name in no-record secondmate-task scout-elsewhere other-project spoofed-origin secondmate-home; do
+    rm -f "$HOME_DIR/state/${TASK_ID}.meta" "$HOME_DIR/.fm-secondmate-home"
+    verify_args=("$TASK_ID" --done-line "$DONE_LINE")
+    case "$case_name" in
+      no-record) ;;
+      secondmate-task) printf 'kind=secondmate\nproject=%s\n' "$ROOT" > "$HOME_DIR/state/${TASK_ID}.meta" ;;
+      scout-elsewhere) printf 'kind=scout\nproject=%s\n' "$other" > "$HOME_DIR/state/${TASK_ID}.meta" ;;
+      other-project) printf 'kind=ship\nproject=%s\n' "$other" > "$HOME_DIR/state/${TASK_ID}.meta" ;;
+      spoofed-origin)
+        printf 'kind=ship\nproject=%s\n' "$spoofed" > "$HOME_DIR/state/${TASK_ID}.meta"
+        verify_args+=(--acceptance 'spoofed acceptance sentinel' --report "$report" \
+          --pr-url 'https://example.invalid/pull/777') ;;
+      secondmate-home)
+        firstmate_task "$HOME_DIR/state" "$TASK_ID"
+        printf 'sm-test\n' > "$HOME_DIR/.fm-secondmate-home"
+        ;;
+    esac
+    TYPESAFE_API_KEY=$TS_KEY run_verify code out err "${verify_args[@]}"
+    expect_code 0 "$code" "$case_name: a withheld verification still exits 0"
+    assert_contains "$out" 'verdict: skipped' "$case_name: a withheld verification is skipped"
+    assert_absent "$LOG/requests" "$case_name: the done line must not reach Jev"
+    jq -e '.payload == "withheld" and .verdict == "skipped" and .close == false and .teardown == false' \
+      "$HOME_DIR/state/${TASK_ID}.jev-done.jsonl" >/dev/null \
+      || fail "$case_name: the local record does not name its withheld payload"
+  done
+  rm -f "$HOME_DIR/.fm-secondmate-home"
+  firstmate_task "$HOME_DIR/state" "$TASK_ID"
+  pass "done inputs from an origin-spoofing repo remain withheld"
+}
+
+test_drain_withholds_other_project_done_lines() {
+  local dir state jsonl
+  dir=$(make_case jev-done-boundary)
+  state="$dir/state"
+  jsonl="$state/website.jev-done.jsonl"
+  printf 'done: homepage hero shipped\n' > "$state/website.status"
+  printf 'kind=ship\nproject=%s\n' "$dir" > "$state/website.meta"
+  reset_log
+  write_response evidenced 0.82
+  PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" TYPESAFE_API_KEY=$TS_KEY \
+    "$DRAIN" >/dev/null 2>/dev/null || fail "drain failed while presenting another project's done: line"
+  wait_for_jev_done "$jsonl" 5 || fail "drain did not record the withheld verification"
+  jq -e '.payload == "withheld" and .verdict == "skipped"' "$jsonl" >/dev/null \
+    || fail "another project's done line was not withheld: $(cat "$jsonl")"
+  assert_absent "$LOG/requests" "another project's done line must not reach Jev"
+  pass "the drain withholds done lines of tasks outside the firstmate repository"
+}
+
 test_drain_empty_env_keys_allow_later_scoring
 
 test_usage_requires_task_and_done_line
@@ -599,3 +693,5 @@ test_drain_deduplicates_tabbed_completion_across_presentation_paths
 test_drain_scores_only_emitted_completions
 test_drain_scores_only_uncapped_backstop_events
 test_drain_without_keys_does_not_record
+test_data_boundary_withholds_other_tasks
+test_drain_withholds_other_project_done_lines
