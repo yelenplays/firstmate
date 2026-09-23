@@ -20,6 +20,10 @@ OTHER_PID=
 RECOVERY_WORKER_PID=
 REPEAT_WORKER_PID=
 RESTART_SUPERVISOR_PID=
+RACE_SUPERVISOR_PIDS=()
+CLEANUP_SUPERVISOR_PIDS=()
+CLEANUP_LANE_PIDS=()
+CLEANUP_TEST_STATE=
 mkdir -p "$REMOTE_ROOT/bin" "$REMOTE_HOME" "$ACCOUNT_HOME" "$RUNTIME_BIN"
 # worker.pid records the serving child, not its restart supervisor, so stopping
 # that pid alone leaves the supervisor to respawn - the leak
@@ -29,6 +33,19 @@ cleanup_remote_job_fixture() {
   [ -z "$RECOVERY_WORKER_PID" ] || kill "$RECOVERY_WORKER_PID" 2>/dev/null || true
   [ -z "$REPEAT_WORKER_PID" ] || kill "$REPEAT_WORKER_PID" 2>/dev/null || true
   [ -z "$RESTART_SUPERVISOR_PID" ] || kill -KILL "$RESTART_SUPERVISOR_PID" 2>/dev/null || true
+  for pid in "${RACE_SUPERVISOR_PIDS[@]:-}" "${CLEANUP_SUPERVISOR_PIDS[@]:-}"; do
+    [ -n "$pid" ] || continue
+    kill -KILL -- "-$pid" 2>/dev/null || true
+    kill -KILL "$pid" 2>/dev/null || true
+  done
+  for pid in "${CLEANUP_LANE_PIDS[@]:-}"; do
+    [ -n "$pid" ] || continue
+    kill -KILL "$pid" 2>/dev/null || true
+  done
+  if [ -n "$CLEANUP_TEST_STATE" ] && [ -f "$CLEANUP_TEST_STATE/supervisor.lock/owner" ]; then
+    IFS= read -r pid < "$CLEANUP_TEST_STATE/supervisor.lock/owner" || true
+    case "$pid" in ''|*[!0-9]*) ;; *) kill -KILL -- "-$pid" 2>/dev/null || true; kill -KILL "$pid" 2>/dev/null || true ;; esac
+  fi
   if [ -f "$STATE_ROOT/worker.pid" ]; then
     fm_remote_job_stop_worker_tree "$(cat "$STATE_ROOT/worker.pid")" || true
   fi
@@ -581,7 +598,7 @@ assert_present "$STATE_ROOT/worker.lock/quarantine" "failed shutdown released wo
 fm_remote_job_probe "$ACCOUNT_HOME" && fail "quarantined worker ownership still reported ready"
 set +e
 HOME="$ACCOUNT_HOME" FM_ROOT_OVERRIDE="$REMOTE_ROOT" FM_REMOTE_JOB_STATE_ROOT="$STATE_ROOT" \
-  FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux "$REMOTE_ROOT/bin/fm-remote-job-worker.sh" \
+  FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux "$REMOTE_ROOT/bin/fm-remote-job-worker.sh" --serve \
   >> "$TMP_ROOT/worker.out" 2>> "$TMP_ROOT/worker.err"
 REPLACEMENT_RC=$?
 set -e
@@ -618,7 +635,7 @@ chmod 600 "$RECOVERY_STATE/worker.lock"/* "$RECOVERY_JOB/state" "$RECOVERY_JOB/.
 touch -t 200001010000 "$RECOVERY_STATE/worker.lock"
 set +e
 HOME="$RECOVERY_HOME" FM_ROOT_OVERRIDE="$REMOTE_ROOT" FM_REMOTE_JOB_STATE_ROOT="$RECOVERY_STATE" \
-  FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux "$REMOTE_ROOT/bin/fm-remote-job-worker.sh" \
+  FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux "$REMOTE_ROOT/bin/fm-remote-job-worker.sh" --serve \
   > "$TMP_ROOT/recovery-refused.out" 2> "$TMP_ROOT/recovery-refused.err"
 RECOVERY_REFUSED_RC=$?
 set -e
@@ -764,5 +781,209 @@ RESTART_SUPERVISOR_PID=
 assert_grep "remote job worker exited 3 times; stopping the supervisor" "$TMP_ROOT/restart-supervisor.err" \
   "the restart guard did not explain why it stopped"
 pass "barely healthy worker failures remain bounded by the restart guard"
+
+# All remote entrypoints can race while creating first-use state and before a
+# serving child publishes worker.pid. The lifetime lock admits one restart loop
+# and separately recovers a stale owner.
+RACE_ROOT="$TMP_ROOT/supervisor-race-root"
+RACE_HOME="$TMP_ROOT/supervisor-race-home"
+RACE_STATE="$TMP_ROOT/supervisor-race-state"
+RACE_PID_LOG="$TMP_ROOT/supervisor-race-pids"
+RACE_SUPERVISOR="$RACE_ROOT/bin/fm-remote-job-supervisor-under-test.sh"
+mkdir -p "$RACE_ROOT/bin" "$RACE_HOME"
+cp "$ROOT/bin/fm-remote-job-lib.sh" "$ROOT/bin/fm-remote-job-worker.sh" "$RACE_ROOT/bin/"
+cp "$RACE_ROOT/bin/fm-remote-job-worker.sh" "$RACE_SUPERVISOR"
+printf 'fixture\n' > "$RACE_ROOT/AGENTS.md"
+git -C "$RACE_ROOT" init -q -b main
+git -C "$RACE_ROOT" config user.email test@example.com
+git -C "$RACE_ROOT" config user.name Test
+git -C "$RACE_ROOT" add AGENTS.md bin
+git -C "$RACE_ROOT" commit -qm 'remote supervisor fixture'
+cat > "$RACE_ROOT/bin/fm-remote-job-worker.sh" <<'SH'
+#!/bin/bash
+case "${1:-}" in
+  --serve) sleep 4; exit 1 ;;
+  '') printf '%s\n' "$$" >> "$FM_TEST_SUPERVISOR_PID_LOG"; sleep 1; exec "$(dirname "$0")/fm-remote-job-supervisor-under-test.sh" ;;
+  *) exit 2 ;;
+esac
+SH
+chmod +x "$RACE_ROOT/bin/fm-remote-job-worker.sh" "$RACE_SUPERVISOR"
+export FM_TEST_SUPERVISOR_PID_LOG="$RACE_PID_LOG"
+set -m
+for index in $(seq 1 12); do
+  HOME="$RACE_HOME" FM_ROOT_OVERRIDE="$RACE_ROOT" FM_REMOTE_JOB_STATE_ROOT="$RACE_STATE" \
+    FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux "$RACE_ROOT/bin/fm-remote-job-worker.sh" \
+    > "$TMP_ROOT/race-supervisor-$index.out" 2>&1 &
+  RACE_SUPERVISOR_PIDS+=("$!")
+done
+set +m
+for _ in $(seq 1 100); do
+  if [ -f "$RACE_PID_LOG" ] && [ "$(wc -l < "$RACE_PID_LOG" | tr -d ' ')" -eq 12 ]; then break; fi
+  sleep 0.05
+done
+assert_present "$RACE_PID_LOG" "the concurrent-start reproduction did not start any supervisor"
+[ "$(wc -l < "$RACE_PID_LOG" | tr -d ' ')" -eq 12 ] \
+  || fail "the concurrent-start reproduction did not launch all requested supervisor attempts"
+sleep 2
+[ "${#RACE_SUPERVISOR_PIDS[@]}" -eq 12 ] \
+  || fail "the concurrent-start reproduction did not launch all requested supervisor attempts"
+RACE_ACTIVE_SUPERVISORS=0
+RACE_ACTIVE_SUPERVISOR_PID=
+for pid in "${RACE_SUPERVISOR_PIDS[@]}"; do
+  command=$(fm_remote_job_process_command "$pid" 2>/dev/null || true)
+  case "$command" in
+    *"$RACE_SUPERVISOR")
+      RACE_ACTIVE_SUPERVISORS=$((RACE_ACTIVE_SUPERVISORS + 1))
+      RACE_ACTIVE_SUPERVISOR_PID=$pid
+      ;;
+  esac
+done
+[ "$RACE_ACTIVE_SUPERVISORS" -eq 1 ] \
+  || fail "concurrent Linux starts left $RACE_ACTIVE_SUPERVISORS active restart supervisors"
+pass "concurrent Linux starts admit one restart supervisor per account queue"
+for _ in $(seq 1 10); do
+  kill -TERM "$RACE_ACTIVE_SUPERVISOR_PID" 2>/dev/null || true
+done
+for pid in "${RACE_SUPERVISOR_PIDS[@]}"; do
+  wait "$pid" 2>/dev/null || true
+done
+for _ in $(seq 1 50); do
+  RACE_ACTIVE_SUPERVISORS=0
+  for pid in "${RACE_SUPERVISOR_PIDS[@]}"; do
+    command=$(fm_remote_job_process_command "$pid" 2>/dev/null || true)
+    case "$command" in *"$RACE_SUPERVISOR") RACE_ACTIVE_SUPERVISORS=$((RACE_ACTIVE_SUPERVISORS + 1)) ;; esac
+  done
+  [ "$RACE_ACTIVE_SUPERVISORS" -eq 0 ] && break
+  sleep 0.1
+done
+[ "$RACE_ACTIVE_SUPERVISORS" -eq 0 ] || fail "the race fixture's supervisor did not exit cleanly"
+assert_absent "$RACE_STATE/supervisor.lock" "the race fixture left stale supervisor ownership"
+pass "repeated supervisor signals release its singleton lock"
+RACE_SUPERVISOR_PIDS=()
+mkdir -m 700 "$RACE_STATE/supervisor.lock"
+printf '2147483646\nstale start\nstale command\n' > "$RACE_STATE/supervisor.lock/owner"
+chmod 600 "$RACE_STATE/supervisor.lock/owner"
+touch -t 200001010000 "$RACE_STATE/supervisor.lock"
+HOME="$RACE_HOME" FM_ROOT_OVERRIDE="$RACE_ROOT" FM_REMOTE_JOB_STATE_ROOT="$RACE_STATE" \
+  FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux "$RACE_ROOT/bin/fm-remote-job-worker.sh" \
+  > "$TMP_ROOT/stale-supervisor.out" 2>&1 &
+RACE_STALE_SUPERVISOR_PID=$!
+RACE_SUPERVISOR_PIDS+=("$RACE_STALE_SUPERVISOR_PID")
+for _ in $(seq 1 100); do
+  owner_pid=$(head -n 1 "$RACE_STATE/supervisor.lock/owner" 2>/dev/null || true)
+  [ "$owner_pid" = "$RACE_STALE_SUPERVISOR_PID" ] && break
+  sleep 0.05
+done
+[ "$owner_pid" = "$RACE_STALE_SUPERVISOR_PID" ] \
+  || fail "the supervisor did not recover a stale lock: $(<"$TMP_ROOT/stale-supervisor.out")"
+command=$(fm_remote_job_process_command "$RACE_STALE_SUPERVISOR_PID" 2>/dev/null || true)
+case "$command" in *"$RACE_SUPERVISOR") ;; *) fail "stale owner record does not match a live supervisor" ;; esac
+pass "a supervisor reclaims stale ownership after an abnormal exit"
+kill -TERM "$RACE_STALE_SUPERVISOR_PID" 2>/dev/null || true
+wait "$RACE_STALE_SUPERVISOR_PID" 2>/dev/null || true
+assert_absent "$RACE_STATE/supervisor.lock" "stale-lock fixture left supervisor ownership behind"
+RACE_SUPERVISOR_PIDS=()
+unset FM_TEST_SUPERVISOR_PID_LOG
+
+# Cleanup must refuse before touching any queue with a live lane. The active-job
+# guard is portable even though process consolidation itself needs Linux /proc.
+CLEANUP_TEST_STATE="$RACE_STATE"
+CLEANUP_JOB="$RACE_STATE/jobs/job-cleanup-active"
+cp "$ROOT/bin/fm-remote-job-worker.sh" "$RACE_ROOT/bin/fm-remote-job-worker.sh"
+sleep 30 &
+CLEANUP_TEST_LANE=$!
+CLEANUP_LANE_PIDS+=("$CLEANUP_TEST_LANE")
+mkdir -p "$CLEANUP_JOB/.claim"
+printf 'running\n' > "$CLEANUP_JOB/state"
+printf '%s\n' "$CLEANUP_TEST_LANE" > "$CLEANUP_JOB/.claim/owner"
+fm_remote_job_process_start "$CLEANUP_TEST_LANE" > "$CLEANUP_JOB/.claim/owner_start" \
+  || fail "could not record the active lane identity"
+chmod 700 "$CLEANUP_JOB" "$CLEANUP_JOB/.claim"
+chmod 600 "$CLEANUP_JOB/state" "$CLEANUP_JOB/.claim/owner" "$CLEANUP_JOB/.claim/owner_start"
+set +e
+cleanup_out=$(HOME="$RACE_HOME" FM_ROOT_OVERRIDE="$RACE_ROOT" \
+  FM_REMOTE_JOB_STATE_ROOT="$RACE_STATE" FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux \
+  "$RACE_ROOT/bin/fm-remote-job-worker.sh" --cleanup 2>&1)
+cleanup_rc=$?
+set -e
+[ "$cleanup_rc" -eq 75 ] \
+  || fail "cleanup did not refuse a live lane (exit=$cleanup_rc): $cleanup_out"
+assert_contains "$cleanup_out" 'refusing cleanup while job job-cleanup-active has a live lane' \
+  "cleanup did not explain its active-lane refusal"
+kill -0 "$CLEANUP_TEST_LANE" 2>/dev/null || fail "cleanup killed a lane after refusing its active job"
+assert_contains "$(<"$CLEANUP_JOB/state")" 'running' "cleanup changed the interrupted job record"
+rm -rf -- "$CLEANUP_JOB"
+kill "$CLEANUP_TEST_LANE" 2>/dev/null || true
+wait "$CLEANUP_TEST_LANE" 2>/dev/null || true
+CLEANUP_LANE_PIDS=()
+pass "cleanup refuses to signal a lane while its job is active"
+
+# On Linux, consolidation proves one healthy current worker and stops only old
+# supervisors whose process environments bind them to this account queue.
+if [ "$(uname -s)" = Linux ]; then
+  CLEANUP_PID_LOG="$TMP_ROOT/cleanup-supervisor-pids"
+  CLEANUP_LANE_LOG="$TMP_ROOT/cleanup-lane-pids"
+  cat > "$RACE_ROOT/bin/fm-remote-job-worker.sh" <<'SH'
+#!/bin/bash
+case "${1:-}" in
+  --lane)
+    printf '%s\n' "$$" >> "$FM_TEST_CLEANUP_LANE_LOG"
+    exec sleep 30
+    ;;
+  '')
+    printf '%s\n' "$$" >> "$FM_TEST_CLEANUP_SUPERVISOR_LOG"
+    "$0" --lane cleanup-active &
+    wait "$!" 2>/dev/null || true
+    while :; do "$0" --lane extra & wait "$!" 2>/dev/null || true; done
+    ;;
+  *) exit 2 ;;
+esac
+SH
+  chmod +x "$RACE_ROOT/bin/fm-remote-job-worker.sh"
+  export FM_TEST_CLEANUP_LANE_LOG="$CLEANUP_LANE_LOG"
+  export FM_TEST_CLEANUP_SUPERVISOR_LOG="$CLEANUP_PID_LOG"
+  set -m
+  HOME="$RACE_HOME" FM_ROOT_OVERRIDE="$RACE_ROOT" FM_REMOTE_JOB_STATE_ROOT="$RACE_STATE" \
+    FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux "$RACE_ROOT/bin/fm-remote-job-worker.sh" \
+    > "$TMP_ROOT/cleanup-old-1.out" 2>&1 &
+  CLEANUP_OLD_1=$!
+  HOME="$RACE_HOME" FM_ROOT_OVERRIDE="$RACE_ROOT" FM_REMOTE_JOB_STATE_ROOT="$RACE_STATE" \
+    FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux "$RACE_ROOT/bin/fm-remote-job-worker.sh" \
+    > "$TMP_ROOT/cleanup-old-2.out" 2>&1 &
+  CLEANUP_OLD_2=$!
+  set +m
+  CLEANUP_SUPERVISOR_PIDS+=("$CLEANUP_OLD_1" "$CLEANUP_OLD_2")
+  for _ in $(seq 1 100); do
+    if [ -f "$CLEANUP_LANE_LOG" ] && [ "$(wc -l < "$CLEANUP_LANE_LOG" | tr -d ' ')" -ge 2 ]; then break; fi
+    sleep 0.05
+  done
+  assert_present "$CLEANUP_LANE_LOG" "the legacy cleanup fixtures did not start their lane processes"
+  while IFS= read -r pid; do
+    [ -n "$pid" ] && CLEANUP_LANE_PIDS+=("$pid")
+  done < "$CLEANUP_LANE_LOG"
+  [ "${#CLEANUP_LANE_PIDS[@]}" -ge 2 ] || fail "both legacy supervisor lanes did not start"
+  cp "$ROOT/bin/fm-remote-job-worker.sh" "$RACE_ROOT/bin/fm-remote-job-worker.sh"
+  cleanup_out=$(HOME="$RACE_HOME" FM_ROOT_OVERRIDE="$RACE_ROOT" \
+    FM_REMOTE_JOB_STATE_ROOT="$RACE_STATE" FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux \
+    "$RACE_ROOT/bin/fm-remote-job-worker.sh" --cleanup 2>&1) \
+    || fail "cleanup could not retain one healthy worker: $cleanup_out"
+  cleanup_stopped=$(printf '%s\n' "$cleanup_out" | grep -c '^stopped surplus remote job supervisor ' || true)
+  [ "$cleanup_stopped" -eq 2 ] \
+    || fail "cleanup stopped $cleanup_stopped legacy supervisors instead of both: $cleanup_out"
+  for pid in "$CLEANUP_OLD_1" "$CLEANUP_OLD_2" "${CLEANUP_LANE_PIDS[@]}"; do
+    wait "$pid" 2>/dev/null || true
+    kill -0 "$pid" 2>/dev/null && fail "cleanup left legacy worker process $pid alive"
+  done
+  worker_supervisor=$(head -n 1 "$RACE_STATE/supervisor.lock/owner")
+  CLEANUP_SUPERVISOR_PIDS+=("$worker_supervisor")
+  [ "$(cat "$RACE_STATE/worker.identity")" != '' ] \
+    || fail "cleanup left no current worker identity"
+  worker_pid=$(cat "$RACE_STATE/worker.pid")
+  fm_remote_job_stop_worker_tree "$worker_pid" || fail "the cleanup fixture's retained worker did not stop"
+  CLEANUP_SUPERVISOR_PIDS=()
+  CLEANUP_LANE_PIDS=()
+  unset FM_TEST_CLEANUP_LANE_LOG FM_TEST_CLEANUP_SUPERVISOR_LOG
+  pass "Linux cleanup stops surplus supervisors and keeps one healthy worker"
+fi
 
 echo "ALL TESTS PASSED"

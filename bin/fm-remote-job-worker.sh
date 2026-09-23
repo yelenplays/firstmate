@@ -18,9 +18,17 @@
 # The shared library header owns lane selection, FIFO, and caller-cancellation
 # contracts. This serving loop implements each active lane as a tracked,
 # top-level --lane process that claims one job, records itself as the claim's
-# supervisor, and runs it to publication. Shutdown stops every tracked lane and
-# its recorded command group, leaving interrupted records for the replacement
-# worker's orphan recovery.
+# supervisor, and runs it to publication. Linux supervisors hold a separate
+# per-queue ownership lock for their lifetime; the serving child still owns the
+# worker lock. Shutdown stops every tracked lane and its recorded command group,
+# leaving interrupted records for the replacement worker's orphan recovery.
+#
+# On Linux, --cleanup starts or verifies one healthy current worker and stops
+# surplus worker process groups for this account queue. It refuses when any
+# queued job has a live lane claim unless --allow-active is supplied. That
+# option permits interruption; the job record remains for normal orphan
+# recovery. Run cleanup over a direct SSH command so it does not depend on the
+# worker it is consolidating.
 #
 # The worker is abandoned when its configured FM_ROOT stops being a genuine
 # Firstmate checkout - the state a pruned no-mistakes gate worktree, a returned
@@ -59,6 +67,8 @@ FM_ROOT=${FM_ROOT_OVERRIDE:-$(CDPATH='' cd "$SCRIPT_DIR/.." && pwd -P)}
 
 WORKER_LOCK=
 WORKER_LOCK_HELD=0
+WORKER_SUPERVISOR_LOCK=
+WORKER_SUPERVISOR_LOCK_HELD=0
 WORKER_RELEASE_OWNERSHIP=1
 WORKER_SUPERVISED_PID=
 WORKER_PREEMPTIBLE=0
@@ -1034,6 +1044,285 @@ main() {
   done
 }
 
+worker_supervisor_lock_owner_status() { # <lock-dir>; 0=owned, 1=stale, 2=indeterminate
+  local lock=$1 owner pid recorded_start recorded_command actual_start actual_command extra
+  [ -d "$lock" ] && [ ! -L "$lock" ] || return 2
+  owner="$lock/owner"
+  [ -f "$owner" ] && [ ! -L "$owner" ] || return 2
+  fm_remote_job_regular_bounded "$owner" 16384 || return 2
+  {
+    IFS= read -r pid || return 2
+    IFS= read -r recorded_start || return 2
+    IFS= read -r recorded_command || return 2
+    if IFS= read -r extra; then return 2; fi
+  } < "$owner"
+  case "$pid" in ''|*[!0-9]*) return 2 ;; esac
+  [ "$pid" -gt 1 ] || return 2
+  [ -n "$recorded_start" ] && [ -n "$recorded_command" ] || return 2
+  actual_start=$(fm_remote_job_process_start "$pid" 2>/dev/null || true)
+  if [ -z "$actual_start" ]; then
+    kill -0 "$pid" 2>/dev/null && return 2
+    return 1
+  fi
+  [ "$recorded_start" = "$actual_start" ] || return 1
+  actual_command=$(fm_remote_job_process_command "$pid" 2>/dev/null || true)
+  if [ -z "$actual_command" ]; then
+    kill -0 "$pid" 2>/dev/null && return 2
+    return 1
+  fi
+  [ "$recorded_command" = "$actual_command" ] || return 1
+  WORKER_SUPERVISOR_OWNER_PID=$pid
+}
+
+worker_supervisor_lock_recent() {
+  local mtime now
+  mtime=$(fm_remote_job_path_mtime "$WORKER_SUPERVISOR_LOCK" 2>/dev/null || true)
+  case "$mtime" in ''|*[!0-9]*) return 0 ;; esac
+  now=$(date +%s)
+  [ $((now - mtime)) -le 10 ]
+}
+
+worker_supervisor_remove_stale_lock() {
+  local file status
+  [ -d "$WORKER_SUPERVISOR_LOCK" ] && [ ! -L "$WORKER_SUPERVISOR_LOCK" ] || return 1
+  worker_supervisor_lock_owner_status "$WORKER_SUPERVISOR_LOCK"
+  status=$?
+  [ "$status" -eq 1 ] || return 1
+  for file in "$WORKER_SUPERVISOR_LOCK/owner" "$WORKER_SUPERVISOR_LOCK"/.owner.*; do
+    [ -e "$file" ] || [ -L "$file" ] || continue
+    [ -f "$file" ] && [ ! -L "$file" ] || return 1
+    rm -f -- "$file" || return 1
+  done
+  rmdir "$WORKER_SUPERVISOR_LOCK" 2>/dev/null
+}
+
+worker_supervisor_acquire_lock() { # 0=acquired, 2=another owner, 3=indeterminate
+  local attempt=0 status=0 pid start command tmp
+  WORKER_SUPERVISOR_LOCK=$(fm_remote_job_worker_supervisor_lock_path)
+  while [ "$attempt" -lt 150 ]; do
+    attempt=$((attempt + 1))
+    if (umask 077; mkdir "$WORKER_SUPERVISOR_LOCK") 2>/dev/null; then
+      WORKER_SUPERVISOR_LOCK_HELD=1
+      status=0
+      pid=${BASHPID:-$$}
+      start=$(fm_remote_job_process_start "$pid") || status=1
+      command=$(fm_remote_job_process_command "$pid") || status=1
+      if [ "${status:-0}" -eq 0 ] && [ -n "$start" ] && [ -n "$command" ]; then
+        tmp=$(umask 077; mktemp "$WORKER_SUPERVISOR_LOCK/.owner.XXXXXX") || status=1
+      else
+        status=1
+      fi
+      if [ "${status:-0}" -eq 0 ]; then
+        if ! printf '%s\n%s\n%s\n' "$pid" "$start" "$command" > "$tmp" \
+          || ! chmod 600 "$tmp" \
+          || ! mv -f -- "$tmp" "$WORKER_SUPERVISOR_LOCK/owner"; then
+          rm -f -- "$tmp"
+          status=1
+        fi
+      fi
+      if [ "${status:-0}" -eq 0 ]; then return 0; fi
+      [ -z "${tmp:-}" ] || rm -f -- "$tmp"
+      rmdir "$WORKER_SUPERVISOR_LOCK" 2>/dev/null || true
+      WORKER_SUPERVISOR_LOCK_HELD=0
+      return 1
+    fi
+    [ -d "$WORKER_SUPERVISOR_LOCK" ] && [ ! -L "$WORKER_SUPERVISOR_LOCK" ] || return 1
+    worker_supervisor_lock_owner_status "$WORKER_SUPERVISOR_LOCK"
+    status=$?
+    case "$status" in
+      0) return 2 ;;
+      1)
+        if ! worker_supervisor_lock_recent; then
+          if worker_supervisor_remove_stale_lock; then continue; fi
+          if [ ! -e "$WORKER_SUPERVISOR_LOCK" ] && [ ! -L "$WORKER_SUPERVISOR_LOCK" ]; then continue; fi
+          worker_supervisor_lock_owner_status "$WORKER_SUPERVISOR_LOCK"
+          status=$?
+          case "$status" in
+            0) return 2 ;;
+            1|2) ;;
+            *) return 3 ;;
+          esac
+        fi
+        ;;
+      2) ;;
+      *) return 3 ;;
+    esac
+    sleep 0.1
+  done
+  return 3
+}
+
+worker_supervisor_release_lock() {
+  [ "$WORKER_SUPERVISOR_LOCK_HELD" -eq 1 ] || return 0
+  worker_supervisor_lock_owner_status "$WORKER_SUPERVISOR_LOCK" || return 1
+  [ "$WORKER_SUPERVISOR_OWNER_PID" = "${BASHPID:-$$}" ] || return 1
+  [ ! -L "$WORKER_SUPERVISOR_LOCK/owner" ] || return 1
+  rm -f -- "$WORKER_SUPERVISOR_LOCK/owner" || return 1
+  rmdir "$WORKER_SUPERVISOR_LOCK" || return 1
+  WORKER_SUPERVISOR_LOCK_HELD=0
+}
+
+worker_supervisor_exit_cleanup() {
+  worker_supervisor_release_lock || worker_error "could not release supervisor ownership"
+}
+
+worker_cleanup_supervisor_command_matches() { # <command>
+  local command=$1 worker="$FM_ROOT/bin/fm-remote-job-worker.sh"
+  case "$command" in
+    "$worker"|"bash $worker"|"/bin/bash $worker"|"/usr/bin/bash $worker") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+worker_cleanup_process_matches_queue() { # <pid> <account-home> <root> <state-root>; 2=unreadable
+  local pid=$1 account_home=$2 root=$3 state=$4 item home_match=0 root_match=0 state_match=0
+  [ -r "/proc/$pid/environ" ] || return 2
+  while IFS= read -r -d '' item; do
+    case "$item" in
+      "HOME=$account_home") home_match=1 ;;
+      "FM_ROOT_OVERRIDE=$root") root_match=1 ;;
+      "FM_REMOTE_JOB_STATE_ROOT=$state") state_match=1 ;;
+    esac
+  done < "/proc/$pid/environ"
+  [ "$home_match" -eq 1 ] && [ "$root_match" -eq 1 ] && [ "$state_match" -eq 1 ]
+}
+
+worker_cleanup_has_active_job() {
+  local job state owner
+  for job in "$FM_REMOTE_JOB_JOBS"/job-*; do
+    [ -d "$job" ] && [ ! -L "$job" ] || continue
+    state=$(fm_remote_job_read_state "$job" 2>/dev/null || true)
+    [ "$state" = running ] || continue
+    if worker_claim_owner_alive "$job"; then
+      WORKER_CLEANUP_ACTIVE_JOB=${job##*/}
+      return 0
+    fi
+    owner=$(worker_read_process_id "$job/.claim/owner" 2>/dev/null || true)
+    if [ -n "$owner" ] && kill -0 "$owner" 2>/dev/null; then
+      WORKER_CLEANUP_ACTIVE_JOB=${job##*/}
+      return 0
+    fi
+  done
+  return 1
+}
+
+worker_cleanup_main() {
+  local allow_active=0 account_home uid scan pid command start pgid keep_pid keep_pgid
+  local stopped=0 env_status current_start current_command
+  local -a candidate_pids=() candidate_starts=() candidate_groups=()
+  [ "$(fm_remote_job_platform)" = linux ] || {
+    worker_error "--cleanup is supported on Linux only"
+    return 2
+  }
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --allow-active) [ "$allow_active" -eq 0 ] || { worker_error "--allow-active was repeated"; return 2; }; allow_active=1 ;;
+      *) worker_error "unexpected cleanup argument: $1"; return 2 ;;
+    esac
+    shift
+  done
+  account_home=$(worker_account_home) || { worker_error "cannot resolve account home"; return 1; }
+  FM_ROOT=$(fm_remote_job_canonical_existing_dir "$FM_ROOT") || { worker_error "configured FM_ROOT is unsafe"; return 1; }
+  [ -f "$FM_ROOT/AGENTS.md" ] && [ ! -L "$FM_ROOT/AGENTS.md" ] || { worker_error "FM_ROOT is not a Firstmate checkout"; return 1; }
+  fm_remote_job_prepare_state "$account_home" || { worker_error "$FM_REMOTE_JOB_ERROR"; return 1; }
+  if worker_cleanup_has_active_job && [ "$allow_active" -eq 0 ]; then
+    worker_error "refusing cleanup while job $WORKER_CLEANUP_ACTIVE_JOB has a live lane; use --allow-active only if interrupting it is intended"
+    return 75
+  fi
+  fm_remote_job_ensure_worker "$FM_ROOT" "$account_home" || {
+    worker_error "cannot confirm one healthy current worker: ${FM_REMOTE_JOB_ERROR:-unknown startup failure}"
+    return 1
+  }
+  WORKER_SUPERVISOR_LOCK=$(fm_remote_job_worker_supervisor_lock_path)
+  worker_supervisor_lock_owner_status "$WORKER_SUPERVISOR_LOCK" || {
+    worker_error "the healthy worker has no verifiable supervisor owner"
+    return 1
+  }
+  keep_pid=$WORKER_SUPERVISOR_OWNER_PID
+  current_command=$(fm_remote_job_process_command "$keep_pid" 2>/dev/null || true)
+  worker_cleanup_supervisor_command_matches "$current_command" || {
+    worker_error "the recorded supervisor is not the configured Linux worker"
+    return 1
+  }
+  worker_cleanup_process_matches_queue "$keep_pid" "$account_home" "$FM_ROOT" "$FM_REMOTE_JOB_STATE"
+  env_status=$?
+  [ "$env_status" -eq 0 ] || { worker_error "cannot verify the healthy supervisor's account queue identity"; return 1; }
+  keep_pgid=$(fm_remote_job_process_pgid "$keep_pid" 2>/dev/null || true)
+  [ -n "$keep_pgid" ] || { worker_error "cannot verify the healthy supervisor process group"; return 1; }
+  uid=$(id -u 2>/dev/null || true)
+  case "$uid" in ''|*[!0-9]*) worker_error "cannot resolve the current uid"; return 1 ;; esac
+  scan=$(ps -u "$uid" -o pid=,command= 2>/dev/null) || {
+    worker_error "cannot scan this account's processes for remote job supervisors"
+    return 1
+  }
+  while read -r pid command; do
+    case "$pid" in ''|*[!0-9]*) continue ;; esac
+    [ -n "$command" ] || continue
+    current_command=$(fm_remote_job_process_command "$pid" 2>/dev/null || true)
+    worker_cleanup_supervisor_command_matches "$current_command" || continue
+    worker_cleanup_process_matches_queue "$pid" "$account_home" "$FM_ROOT" "$FM_REMOTE_JOB_STATE"
+    env_status=$?
+    case "$env_status" in
+      0) ;;
+      1) continue ;;
+      *) worker_error "cannot verify process $pid's account queue identity; refusing cleanup"; return 1 ;;
+    esac
+    [ "$pid" = "$keep_pid" ] && continue
+    pgid=$(fm_remote_job_process_pgid "$pid" 2>/dev/null || true)
+    [ -n "$pgid" ] || { worker_error "cannot verify surplus supervisor $pid's process group"; return 1; }
+    [ "$pgid" = "$keep_pgid" ] && continue
+    start=$(fm_remote_job_process_start "$pid" 2>/dev/null || true)
+    [ -n "$start" ] || { worker_error "cannot verify surplus supervisor $pid's start identity"; return 1; }
+    candidate_pids+=("$pid")
+    candidate_starts+=("$start")
+    candidate_groups+=("$pgid")
+  done <<EOF
+$scan
+EOF
+  if [ "$allow_active" -eq 0 ] && worker_cleanup_has_active_job; then
+    worker_error "refusing cleanup while job $WORKER_CLEANUP_ACTIVE_JOB has a live lane; no surplus process was stopped"
+    return 75
+  fi
+  while [ "$stopped" -lt "${#candidate_pids[@]}" ]; do
+    pid=${candidate_pids[$stopped]}
+    start=${candidate_starts[$stopped]}
+    pgid=${candidate_groups[$stopped]}
+    current_start=$(fm_remote_job_process_start "$pid" 2>/dev/null || true)
+    current_command=$(fm_remote_job_process_command "$pid" 2>/dev/null || true)
+    [ "$current_start" = "$start" ] && [ -n "$current_command" ] || {
+      worker_error "surplus supervisor $pid changed during cleanup; stopped $stopped supervisor(s)"
+      return 1
+    }
+    worker_cleanup_supervisor_command_matches "$current_command" || {
+      worker_error "surplus supervisor $pid changed command during cleanup; stopped $stopped supervisor(s)"
+      return 1
+    }
+    if ! worker_cleanup_process_matches_queue "$pid" "$account_home" "$FM_ROOT" "$FM_REMOTE_JOB_STATE"; then
+      worker_error "surplus supervisor $pid changed queue identity during cleanup"
+      return 1
+    fi
+    [ "$(fm_remote_job_process_pgid "$pid" 2>/dev/null || true)" = "$pgid" ] || {
+      worker_error "surplus supervisor $pid changed process group during cleanup"
+      return 1
+    }
+    if ! fm_remote_job_stop_worker_tree "$pid"; then
+      worker_error "surplus supervisor $pid and its worker tree did not stop"
+      return 1
+    fi
+    printf 'stopped surplus remote job supervisor %s\n' "$pid"
+    stopped=$((stopped + 1))
+  done
+  if ! worker_supervisor_lock_owner_status "$WORKER_SUPERVISOR_LOCK" \
+    || [ "$WORKER_SUPERVISOR_OWNER_PID" != "$keep_pid" ] \
+    || ! fm_remote_job_probe "$account_home" \
+    || ! fm_remote_job_worker_identity_matches "$FM_ROOT" "$account_home"; then
+    worker_error "the retained remote job worker is no longer healthy"
+    return 1
+  fi
+  printf 'remote job cleanup complete; retained supervisor %s and stopped %s surplus supervisor(s)\n' \
+    "$keep_pid" "$stopped"
+}
+
 worker_supervisor_cleanup_dead_child() { # <account-home> <pid>
   local account_home=$1 pid=$2 lock recorded pid_file ready identity
   fm_remote_job_prepare_state "$account_home" || return 1
@@ -1055,7 +1344,7 @@ worker_supervisor_cleanup_dead_child() { # <account-home> <pid>
 
 worker_supervisor_shutdown() {
   local pid=${WORKER_SUPERVISED_PID:-}
-  trap - HUP INT TERM
+  trap '' HUP INT TERM
   if [ -n "$pid" ]; then
     kill -TERM "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
@@ -1064,11 +1353,19 @@ worker_supervisor_shutdown() {
 }
 
 worker_supervise_linux() {
-  local account_home child_status started failures=0 restarts=0 backoff
+  local account_home child_status started failures=0 restarts=0 backoff lock_status
   account_home=$(worker_account_home) || { worker_error "cannot resolve account home"; return 1; }
   FM_ROOT=$(fm_remote_job_canonical_existing_dir "$FM_ROOT") || { worker_error "configured FM_ROOT is unsafe"; return 1; }
   [ -f "$FM_ROOT/AGENTS.md" ] && [ ! -L "$FM_ROOT/AGENTS.md" ] || { worker_error "FM_ROOT is not a Firstmate checkout"; return 1; }
   fm_remote_job_prepare_state "$account_home" || { worker_error "$FM_REMOTE_JOB_ERROR"; return 1; }
+  worker_supervisor_acquire_lock
+  lock_status=$?
+  case "$lock_status" in
+    0) trap worker_supervisor_exit_cleanup EXIT ;;
+    2) return 0 ;;
+    3) worker_error "supervisor ownership is indeterminate; refusing a second supervisor"; return 75 ;;
+    *) worker_error "cannot acquire supervisor ownership"; return 1 ;;
+  esac
   trap worker_supervisor_shutdown HUP INT TERM
   while :; do
     if worker_code_root_abandoned; then
@@ -1109,6 +1406,21 @@ worker_supervise_linux() {
 }
 
 case "${1:-}" in
+  --cleanup)
+    shift
+    worker_cleanup_main "$@"
+    ;;
+  --help|-h)
+    cat <<'TXT'
+Usage: fm-remote-job-worker.sh --cleanup [--allow-active]
+       fm-remote-job-worker.sh --help
+
+On Linux, ensure one healthy current queue worker and stop surplus supervisors
+with their worker trees. Cleanup refuses when a job has a live lane claim;
+--allow-active explicitly permits interruption and leaves its record for normal
+orphan recovery. Run --cleanup over direct SSH, not through the queue it repairs.
+TXT
+    ;;
   --serve)
     [ "$#" -eq 1 ] || { worker_error "unexpected worker arguments"; exit 2; }
     main

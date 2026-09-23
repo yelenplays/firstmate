@@ -71,10 +71,12 @@
 # an Aqua requirement. The launch-agent renderer and repair helpers here are
 # shared by the entrypoint and remote doctor so their ownership cannot drift.
 #
-# The Linux start path puts the worker tree in its own process group, so
-# stopping a worker signals its restart supervisor, its serving child, and any
-# job descendant together instead of leaving a supervisor to restart what was
-# just killed. fm_remote_job_stop_worker_tree owns that stop and refuses to
+# Linux uses supervisor.lock to admit one restart supervisor per account
+# queue; worker.lock separately owns the serving child. The Linux start path
+# puts the worker tree in its own process group, so stopping a worker signals
+# its restart supervisor, its serving child, and any job descendant together
+# instead of leaving a supervisor to restart what was just killed.
+# fm_remote_job_stop_worker_tree owns that stop and refuses to
 # signal a group whose leader is not itself a worker, so a worker inherited
 # from an older build or from launchd's own session is still stopped safely as
 # a single process. fm_remote_job_root_is_live is the shared predicate for
@@ -384,7 +386,9 @@ fm_remote_job_safe_child_dir() { # <canonical-parent> <single child basename>
   if [ -e "$candidate" ] || [ -L "$candidate" ]; then
     [ -d "$candidate" ] && [ ! -L "$candidate" ] || return 1
   else
-    (umask 077; mkdir "$candidate") || return 1
+    if ! (umask 077; mkdir "$candidate") 2>/dev/null; then
+      [ -d "$candidate" ] && [ ! -L "$candidate" ] || return 1
+    fi
   fi
   chmod 700 "$candidate" 2>/dev/null || return 1
   physical=$(CDPATH='' cd -- "$candidate" 2>/dev/null && pwd -P) || return 1
@@ -901,6 +905,7 @@ fm_remote_job_worker_pid_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.pid
 fm_remote_job_worker_ready_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.ready"; }
 fm_remote_job_worker_identity_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.identity"; }
 fm_remote_job_worker_lock_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.lock"; }
+fm_remote_job_worker_supervisor_lock_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/supervisor.lock"; }
 
 fm_remote_job_process_start() {
   local pid=$1 ps_bin value
