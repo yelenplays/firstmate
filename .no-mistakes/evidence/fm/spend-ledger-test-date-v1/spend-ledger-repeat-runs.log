@@ -1,0 +1,4 @@
+RUN 1: ok - spend ledger: parsing, lanes, effort, nested transcripts, task binding, rollup, predict, malformed inputs
+RUN 2: ok - spend ledger: parsing, lanes, effort, nested transcripts, task binding, rollup, predict, malformed inputs
+RUN 3: ok - spend ledger: parsing, lanes, effort, nested transcripts, task binding, rollup, predict, malformed inputs
+All three focused runs passed.

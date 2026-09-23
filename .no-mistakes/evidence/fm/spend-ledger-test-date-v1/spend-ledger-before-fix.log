@@ -1,0 +1,3 @@
+not ok - predict window tokens (expected '3400', got '0')
+
+BASE_TEST_EXIT=1
