@@ -7,7 +7,7 @@
 #   fm-history.sh wake-ack <sequence> <row-count> <main|branch>
 #   fm-history.sh recent [--n <count>]
 #   fm-history.sh find <query>
-#   fm-history.sh task <id>
+#   fm-history.sh task <id> [--completed]
 #   fm-history.sh logbook [--date <YYYY-MM-DD>] [--rebuild]
 #
 # Capture reads Claude or Pi JSONL transcripts deterministically. Transcript
@@ -54,7 +54,7 @@ Usage:
   fm-history.sh wake-ack <sequence> <row-count> <main|branch>
   fm-history.sh recent [--n <count>]
   fm-history.sh find <query>
-  fm-history.sh task <id>
+  fm-history.sh task <id> [--completed]
   fm-history.sh logbook [--date <YYYY-MM-DD>] [--rebuild]
 EOF
 }
@@ -798,11 +798,11 @@ function taskCardMetadata(page) {
   catch { return null; }
 }
 
-function taskCard(historyDir, stateDir, dataDir, homeDir, snapshotFile, decisionsFile, id) {
-  return withHistoryLock(stateDir, () => taskCardLocked(historyDir, stateDir, dataDir, homeDir, snapshotFile, decisionsFile, id));
+function taskCard(historyDir, stateDir, dataDir, homeDir, snapshotFile, decisionsFile, id, cleanupCompleted) {
+  return withHistoryLock(stateDir, () => taskCardLocked(historyDir, stateDir, dataDir, homeDir, snapshotFile, decisionsFile, id, cleanupCompleted));
 }
 
-function taskCardLocked(historyDir, stateDir, dataDir, homeDir, snapshotFile, decisionsFile, id) {
+function taskCardLocked(historyDir, stateDir, dataDir, homeDir, snapshotFile, decisionsFile, id, cleanupCompleted) {
   if (!/^[A-Za-z0-9._:-]{1,200}$/.test(id)) fail('task id contains unsupported characters');
   const taskDir = path.join(historyDir, 'tasks');
   ensureDirectory(historyDir);
@@ -845,7 +845,8 @@ function taskCardLocked(historyDir, stateDir, dataDir, homeDir, snapshotFile, de
   const localNote = mode === 'local-only' ? 'local main' : row?.local_note || null;
   const kind = row?.kind || meta.kind || null;
   const recordedVerb = row?.completion && row.completion.verb;
-  const doneEvidence = row?.state === 'done'
+  const doneEvidence = cleanupCompleted
+    || row?.state === 'done'
     || (row?.hold_kind !== 'captain' && events.some((line) => line.startsWith('done:')));
   if (!doneEvidence) {
     process.stdout.write(`task card skipped; no terminal completion evidence: ${id}\n`);
@@ -1171,7 +1172,7 @@ try {
   else if (mode === 'recent') {
     const n = Number.parseInt(args[1], 10);
     recent(args[0], Number.isInteger(n) && n > 0 ? n : 5);
-  } else if (mode === 'task') taskCard(args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
+  } else if (mode === 'task') taskCard(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7] === '1');
   else if (mode === 'logbook-prepare') logbookPrepare(args[0], args[1], args[2], args[3], args[4], args[5], args[6] === '1');
   else if (mode === 'logbook-finalize') logbookFinalize(args[0], args[1], args[2], args[3] === '1');
   else fail('unknown internal operation');
@@ -1279,8 +1280,14 @@ history_decision_bodies() {
 }
 
 cmd_task() {
-  [ "$#" -eq 1 ] || { usage; die 'task requires one task id'; }
-  case "$1" in ''|*[!A-Za-z0-9._:-]*) die 'task id contains unsupported characters' ;; esac
+  [ "$#" -ge 1 ] || { usage; die 'task requires one task id'; }
+  local id=$1 cleanup_completed=0
+  shift
+  if [ "$#" -gt 0 ]; then
+    [ "$#" -eq 1 ] && [ "$1" = --completed ] || { usage; die 'task accepts only the --completed cleanup flag'; }
+    cleanup_completed=1
+  fi
+  case "$id" in ''|*[!A-Za-z0-9._:-]*) die 'task id contains unsupported characters' ;; esac
   history_tmp_start
   local snapshot_file="$HISTORY_TMP_DIR/backlog.json" decisions_file="$HISTORY_TMP_DIR/decisions.jsonl"
   FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA_DIR" FM_STATE_OVERRIDE="$STATE_DIR" \
@@ -1288,7 +1295,7 @@ cmd_task() {
     || die 'could not read the structured backlog snapshot'
   history_decision_bodies "$snapshot_file" "$decisions_file"
   run_history_node task "$HISTORY_DIR" "$STATE_DIR" "$DATA_DIR" "$FM_HOME" \
-    "$snapshot_file" "$decisions_file" "$1"
+    "$snapshot_file" "$decisions_file" "$id" "$cleanup_completed"
 }
 
 cmd_logbook() {

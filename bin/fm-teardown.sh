@@ -3542,8 +3542,10 @@ fi
 # Preserve the finished-task record while its brief, status log, and backlog
 # row are still available; the history command is idempotent if cleanup retries.
 if [ "$KIND" != secondmate ]; then
+  HISTORY_TASK_ARGS=("$ID")
+  if [ "$BACKLOG_TRANSITION" = close ]; then HISTORY_TASK_ARGS+=(--completed); fi
   FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
-    "$SCRIPT_DIR/fm-history.sh" task "$ID" || {
+    "$SCRIPT_DIR/fm-history.sh" task "${HISTORY_TASK_ARGS[@]}" || {
       echo "error: $ID's private task-history card could not be written; retaining the remaining task records for retry" >&2
       exit 1
     }

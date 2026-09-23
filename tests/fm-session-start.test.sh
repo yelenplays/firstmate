@@ -1383,7 +1383,8 @@ $rec
 EOF
   make_fake_toolchain "$fakebin"
   make_fake_ps_claude "$fakebin"
-  rm -f "$fakebin/node"
+  rm -f "$fakebin/node" "$fakebin/chrome-devtools-axi"
+  ln -s "$(command -v node)" "$fakebin/node"
 
   printf 'needs-decision: pick a library\n' > "$home/state/task-z.status"
   append_wake "$home/state" signal task-z.status "needs-decision: pick a library"
@@ -1393,7 +1394,7 @@ EOF
   # fm-lock.sh's own exact success text.
   assert_contains "$out" "lock acquired: harness pid" "fm-lock.sh's real output did not appear (composition, not reimplementation)"
   # fm-bootstrap.sh's own exact MISSING-tool line format.
-  assert_contains "$out" "MISSING: node (install:" "fm-bootstrap.sh's real detect line did not appear verbatim"
+  assert_contains "$out" "MISSING: chrome-devtools-axi (install:" "fm-bootstrap.sh's real detect line did not appear verbatim"
   # fm-wake-drain.sh's real drained record (raw tab-separated queue line).
   assert_contains "$out" "$(printf 'signal\ttask-z.status\tneeds-decision: pick a library')" "fm-wake-drain.sh's real drained record did not appear"
   assert_contains "$out" "wake annotation: latest wake-EVENT observed at drain, not current state: task-z.status: needs-decision: pick a library" "fm-session-start.sh did not preserve the drain's separate annotation line"
