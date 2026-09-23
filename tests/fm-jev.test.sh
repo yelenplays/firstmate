@@ -723,6 +723,32 @@ test_privacy_guard_refuses_before_sending() {
     assert_absent "$LOG/body" "a sensitive assignment is never sent"
   done
 
+  batch_json=$(jq -cn --arg state '{"password": "ordinary-user-password"}' \
+    '{state:$state,questions:[{id:"json-password",type:"yes",q:"Done?"}]}')
+  reset_log
+  run_jev code out err batch <<<"$batch_json"
+  assert_equals "$code" 1 "a quoted password key in JSON state is refused"
+  assert_contains "$err" "secret" "the JSON state refusal names the privacy issue"
+  assert_absent "$LOG/body" "a JSON password value is never sent"
+
+  reset_log
+  run_jev code out err yes "task summary" '{"api_key":"ordinary-user-api-key"}'
+  assert_equals "$code" 1 "a quoted API key in question text is refused"
+  assert_contains "$err" "secret" "the JSON question refusal names the privacy issue"
+  assert_absent "$LOG/body" "a JSON API key in question text is never sent"
+
+  reset_log
+  run_jev code out err pick "task summary" "Choose?" '{"token":"ordinary-user-token"}' Safe
+  assert_equals "$code" 1 "a quoted token key in an option label is refused"
+  assert_contains "$err" "secret" "the JSON option-label refusal names the privacy issue"
+  assert_absent "$LOG/body" "a JSON token in an option label is never sent"
+
+  reset_log
+  run_jev code out err pick "task summary" "Choose?" 'A={"secret_key":"ordinary-user-secret"}' Safe
+  assert_equals "$code" 1 "a quoted secret key in an option meaning is refused"
+  assert_contains "$err" "secret" "the JSON option-meaning refusal names the privacy issue"
+  assert_absent "$LOG/body" "a JSON secret in an option meaning is never sent"
+
   reset_log
   run_jev code out err yes "The password is required for deployment." "Done?"
   assert_equals "$code" 0 "ordinary prose mentioning password remains usable"

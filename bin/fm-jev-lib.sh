@@ -395,7 +395,8 @@ fm_jev_compact_state() {
       while (match(tolower(buf), /aws_(secret_access_key|access_key_id)[[:space:]]*[:=][[:space:]]*[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
-      while (match(tolower(buf), /(^|[^[:alnum:]_])([[:alpha:]_][[:alnum:]_]*)?(password|passwd|pwd|secret_key|api_key|secret|token)[[:space:]]*[:=][[:space:]]*/)) {
+      sensitive_assignment_pattern = "(^|[^[:alnum:]_])([[:alpha:]_][[:alnum:]_]*)?(password|passwd|pwd|secret_key|api_key|secret|token)[\042\047]?[[:space:]]*[:=][[:space:]]*"
+      while (match(tolower(buf), sensitive_assignment_pattern)) {
         key_start = RSTART
         assignment = substr(buf, RSTART, RLENGTH)
         prefix = substr(buf, 1, RSTART - 1)

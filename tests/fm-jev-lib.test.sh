@@ -381,7 +381,7 @@ test_probabilities_sum() {
 }
 
 test_compact_state_strips_secrets_and_refuses_oversized() {
-  local out secret big yaml
+  local out secret big yaml json
   secret='note TYPESAFE_API_KEY=abc123 and Bearer tok_secret_value and sk-or-v1-abcdefghijklmnopqrstuvwxyz'
   out=$(fm_jev_compact_state "keep this $secret skill-selector")
   assert_contains "$out" 'keep this' "compact keeps ordinary prose"
@@ -396,6 +396,16 @@ test_compact_state_strips_secrets_and_refuses_oversized() {
   assert_equals "$out" '[redacted]/0' "compact removes a URI credential with an empty username"
   out=$(fm_jev_compact_state 'https://example.com/path')
   assert_equals "$out" 'https://example.com/path' "compact preserves a URL without user-and-password credentials"
+
+  json='{"password": "ordinary-user-password", "status": "ready"}'
+  out=$(fm_jev_compact_state "$json")
+  assert_not_contains "$out" 'ordinary-user-password' "compact redacts a value under a double-quoted sensitive key"
+  assert_contains "$out" '[redacted]' "compact marks the double-quoted sensitive value as redacted"
+
+  json="{'token': 'ordinary-user-token', 'status': 'ready'}"
+  out=$(fm_jev_compact_state "$json")
+  assert_not_contains "$out" 'ordinary-user-token' "compact redacts a value under a single-quoted sensitive key"
+  assert_contains "$out" '[redacted]' "compact marks the single-quoted sensitive value as redacted"
 
   yaml=$'config:\n  API_TOKEN: |\n    opaque-secret\n    second line\n  next: preserved'
   out=$(fm_jev_compact_state "$yaml")
