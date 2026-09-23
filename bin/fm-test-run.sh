@@ -741,8 +741,8 @@ tests/fm-dispatch-resolve.test.sh 4397
 tests/fm-documentation-audiences.test.sh 847
 tests/fm-extension-binding.test.sh 9053
 tests/fm-fleet-snapshot-view.test.sh 17465
-tests/fm-history.test.sh 1747
-tests/fm-history-logbook.test.sh 18790
+tests/fm-history.test.sh 5760
+tests/fm-history-logbook.test.sh 13530
 tests/fm-fleet-sync.test.sh 35983
 tests/fm-gate-refuse.test.sh 5328
 tests/fm-gemini-harness.test.sh 938

@@ -15,30 +15,8 @@ unset TYPESAFE_API_KEY OPENROUTER_API_KEY TYPESAFE_API_KEY_PRIVATE \
 
 TMP_ROOT=$(fm_test_tmproot fm-history-logbook)
 HOME_DIR="$TMP_ROOT/home"
-FAKEBIN=$(fm_fakebin "$TMP_ROOT")
-FAKE_LOG="$TMP_ROOT/jev"
-FAKE_RESPONSE="$TMP_ROOT/response.json"
 BASE_PATH=$PATH
 HELPER="$ROOT/bin/fm-history.sh"
-
-cat > "$FAKEBIN/curl" <<'SH'
-#!/usr/bin/env bash
-set -u
-out=''
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    -o) out=$2; shift 2 ;;
-    *) shift ;;
-  esac
-done
-mkdir -p "${FAKE_CURL_LOG:?}"
-cat > "$FAKE_CURL_LOG/request.json"
-cat /dev/fd/3 > "$FAKE_CURL_LOG/header" 2>/dev/null || :
-printf 'x\n' >> "$FAKE_CURL_LOG/calls"
-cp "${FAKE_CURL_RESPONSE:?}" "$out"
-printf '200'
-SH
-chmod +x "$FAKEBIN/curl"
 
 fresh_home() {
   rm -rf "$HOME_DIR"
@@ -59,7 +37,7 @@ run_axi() {
 }
 
 run_history() {
-  PATH="$FAKEBIN:$BASE_PATH" TZ=Europe/Berlin FM_HOME="$HOME_DIR" \
+  PATH="$BASE_PATH" TZ=Europe/Berlin FM_HOME="$HOME_DIR" \
     FM_ROOT_OVERRIDE="$ROOT" FM_DATA_OVERRIDE="$HOME_DIR/data" \
     FM_STATE_OVERRIDE="$HOME_DIR/state" "$HELPER" "$@"
 }
@@ -72,12 +50,6 @@ run_captain() {
 add_done_pr() {  # <id> <title> <repo> <url>
   run_axi add "$1" "$2" --kind ship --repo "$3" --start >/dev/null
   run_axi "done" "$1" --pr "$4" >/dev/null
-}
-
-set_response() {  # <choice> <confidence> <probabilities-json>
-  jq -n --arg choice "$1" --argjson confidence "$2" --argjson probabilities "$3" \
-    '{model:"jev-test",answers:{highlight:{type:"choice",choice:$choice,confidence:$confidence,probabilities:$probabilities}}}' \
-    > "$FAKE_RESPONSE"
 }
 
 mode_of() {
@@ -132,6 +104,7 @@ test_logbook_projects_reports_decisions_and_open_work() {
   run_axi add open-running 'Work still in flight' --kind ship --repo sample-repo --start >/dev/null
   run_axi add open-waiting 'A question still needs an answer' --kind captain --repo sample-repo --start >/dev/null
   run_captain hold open-waiting --reason 'Wait for captain' >/dev/null
+  run_axi add open-queued 'A queued next step' --kind ship --repo sample-repo >/dev/null
 
   output=$(run_history logbook)
   path="$HOME_DIR/data/history/days/$today.logbook.json"
@@ -140,7 +113,7 @@ test_logbook_projects_reports_decisions_and_open_work() {
   jq -e --arg date "$today" --arg at "$at" --arg words "$answer" --arg url "$url" \
     --arg merged_url "$merged_url" '
       .schema == "fm-logbook.v1" and .date == $date and .tz == "Europe/Berlin" and .closed == false
-      and ((keys | sort) == ["closed","date","decisions","generated","highlight","landed","open","reports","schema","tz"])
+      and ((keys | sort) == ["closed","date","decisions","generated","landed","open","reports","schema","tz"])
       and ([.landed[].id] | index("landed-pr") != null)
       and ([.landed[].id] | index("landed-local") != null)
       and any(.landed[]; .id == "pr-url-fallback" and .project == "url-repo")
@@ -158,10 +131,10 @@ test_logbook_projects_reports_decisions_and_open_work() {
       and all(.decisions[]; (keys | sort) == ["at","digest","home","id","mode","order","project","title","words"])
       and ((.open | keys | sort) == ["ids","running","waiting_on_you"])
       and .open.running == 2 and .open.waiting_on_you == 1
+      and ([.open.ids[]] | index("open-queued") != null)
     ' "$path" >/dev/null || fail "the Logbook JSON did not preserve the structured daily record: $json"
   assert_contains "$output" "wrote data/history/days/$today.logbook.json" 'the generator did not report its result'
   assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" '## Logbook' 'the day page has no Logbook section'
-  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" '### Highlight' 'the selected daily highlight is not visible on the page'
   assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" "$answer" 'the private page lost the captain\x27s exact words'
   assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" '````text' 'a captain code fence was not safely nested in the generated page'
   [ "$(mode_of "$HOME_DIR/data/history")" = 700 ] || fail 'history directory mode is not 0700'
@@ -171,105 +144,50 @@ test_logbook_projects_reports_decisions_and_open_work() {
   cp "$path" "$TMP_ROOT/first.json"
   run_history logbook >/dev/null
   cmp -s "$TMP_ROOT/first.json" "$path" || fail 'a repeated run changed identical Logbook bytes'
-  pass 'Logbook captures landed work, reports, exact answers, open work, and private permissions'
+  pass 'Logbook captures outcomes, exact decisions, all open work, and private permissions'
 }
 
-test_jev_receives_only_allowed_candidates_and_reuses_the_daily_choice() {
-  local today url1 url2 record request
+test_queued_only_day_writes_a_logbook() {
+  local today path output
   fresh_home
   today=$(TZ=Europe/Berlin date +%Y-%m-%d)
-  url1='https://github.com/acme/private-repo/pull/17'
-  url2='https://github.com/acme/another-repo/pull/18'
-  add_done_pr landed-pr 'A private-title marker landed' private-repo "$url1"
-  add_done_pr another-pr 'Another title marker' another-repo "$url2"
-  mkdir -p "$HOME_DIR/data/report-one"
-  printf '# private report body marker\n' > "$HOME_DIR/data/report-one/report.md"
-  run_axi add report-one 'A report title marker' --kind scout --repo docs-repo --start >/dev/null
-  run_axi "done" report-one --report data/report-one/report.md >/dev/null
-  run_axi add decision-one 'A private decision title marker' --kind captain --repo sample-repo --start >/dev/null
-  run_captain hold decision-one --reason 'A private hold reason marker' >/dev/null
-  printf 'Captain words must stay local marker.' > "$TMP_ROOT/answer.txt"
-  FM_CAPTAIN_HOLD_NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)" run_captain answer decision-one --decision-file "$TMP_ROOT/answer.txt" >/dev/null
-  jq -n '{"landed-pr":0.05,"another-pr":0.05,"report-one":0.8,"decision-one":0.05,"none?":0.05}' > "$TMP_ROOT/probabilities.json"
-  set_response report-one 0.8 "$(<"$TMP_ROOT/probabilities.json")"
-  rm -rf "$FAKE_LOG"
-  PATH="$FAKEBIN:$BASE_PATH" FAKE_CURL_LOG="$FAKE_LOG" FAKE_CURL_RESPONSE="$FAKE_RESPONSE" \
-    TYPESAFE_API_KEY='test-api-key-not-for-request-body' JEV_URL='https://jev.invalid/test' \
-    TZ=Europe/Berlin FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" \
-    FM_DATA_OVERRIDE="$HOME_DIR/data" FM_STATE_OVERRIDE="$HOME_DIR/state" \
-    "$HELPER" logbook >/dev/null
-  record="$HOME_DIR/data/history/days/$today.logbook.json"
-  jq -e '.highlight.id == "report-one" and .highlight.by == "jev" and .highlight.confidence == 0.8' "$record" >/dev/null \
-    || fail 'a confident offered Jev choice did not become the highlight'
-  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" 'A report title marker (docs-repo) - task report-one' \
-    'the selected Jev highlight is not rendered into the day page'
-  request=$(<"$FAKE_LOG/request.json")
-  assert_not_contains "$request" 'Captain words must stay local marker' 'captain decision words reached Jev'
-  assert_not_contains "$request" 'private report body marker' 'report body reached Jev'
-  assert_not_contains "$request" "$url1" 'a PR URL reached Jev'
-  assert_not_contains "$request" 'data/report-one/report.md' 'a report path reached Jev'
-  assert_not_contains "$request" 'private hold reason marker' 'a hold reason reached Jev'
-  assert_not_contains "$request" 'test-api-key-not-for-request-body' 'the API key reached Jev request content'
-  jq -e '(.state | keys) == ["entries"] and all(.state.entries[]; (keys | sort) == ["id","kind","title"])' \
-    "$FAKE_LOG/request.json" >/dev/null || fail 'Jev received fields beyond ids, kinds, and titles'
-  [ "$(wc -l < "$FAKE_LOG/calls" | tr -d ' ')" = 1 ] || fail 'the first daily highlight did not make exactly one Jev call'
-
-  cp "$record" "$TMP_ROOT/first.json"
-  PATH="$FAKEBIN:$BASE_PATH" FAKE_CURL_LOG="$FAKE_LOG" FAKE_CURL_RESPONSE="$FAKE_RESPONSE" \
-    TYPESAFE_API_KEY='test-api-key-not-for-request-body' JEV_URL='https://jev.invalid/test' \
-    TZ=Europe/Berlin FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" \
-    FM_DATA_OVERRIDE="$HOME_DIR/data" FM_STATE_OVERRIDE="$HOME_DIR/state" \
-    "$HELPER" logbook >/dev/null
-  cmp -s "$TMP_ROOT/first.json" "$record" || fail 'the cached same-day highlight changed the JSON bytes'
-  [ "$(wc -l < "$FAKE_LOG/calls" | tr -d ' ')" = 1 ] || fail 'the unchanged candidate set caused a second Jev call'
-
-  perl -0pi -e 's/A private-title marker landed/A changed private-title marker landed/' "$HOME_DIR/data/backlog.md"
-  PATH="$FAKEBIN:$BASE_PATH" FAKE_CURL_LOG="$FAKE_LOG" FAKE_CURL_RESPONSE="$FAKE_RESPONSE" \
-    TYPESAFE_API_KEY='test-api-key-not-for-request-body' JEV_URL='https://jev.invalid/test' \
-    TZ=Europe/Berlin FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" \
-    FM_DATA_OVERRIDE="$HOME_DIR/data" FM_STATE_OVERRIDE="$HOME_DIR/state" \
-    "$HELPER" logbook >/dev/null
-  [ "$(wc -l < "$FAKE_LOG/calls" | tr -d ' ')" = 2 ] || fail 'changing an offered title reused a stale Jev choice'
-  jq -e '.highlight.id == "report-one" and .highlight.by == "jev"' "$record" >/dev/null \
-    || fail 'the fresh candidate-set decision was not recorded'
-  pass 'Jev sees only allowed ids, kinds, and titles, and caches by the full candidate set'
+  run_axi add open-only 'A queued next step' --kind ship --repo sample-repo >/dev/null
+  output=$(run_history logbook)
+  path="$HOME_DIR/data/history/days/$today.logbook.json"
+  assert_present "$path" 'a queued-only day did not produce its daily JSON'
+  jq -e --arg date "$today" '
+    .schema == "fm-logbook.v1" and .date == $date and (.landed | length) == 0
+    and (.reports | length) == 0 and (.decisions | length) == 0
+    and ([.open.ids[]] | index("open-only") != null)
+    and ((keys | sort) == ["closed","date","decisions","generated","landed","open","reports","schema","tz"])
+  ' "$path" >/dev/null || fail 'queued work was absent from the quiet-day Logbook'
+  assert_contains "$output" "wrote data/history/days/$today.logbook.json" 'the queued-only Logbook was not reported as written'
+  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" 'Task ids: open-only' 'the readable Logbook omitted queued work'
+  pass 'a queued-only day still writes one JSON Logbook with its open task'
 }
 
-test_low_confidence_uses_deterministic_rule() {
-  local today url1 url2 fallback choice probabilities
+test_captured_markers_remain_content_when_logbook_is_written() {
+  local today transcript text recent page
   fresh_home
   today=$(TZ=Europe/Berlin date +%Y-%m-%d)
-  url1='https://github.com/acme/first-repo/pull/1'
-  url2='https://github.com/acme/second-repo/pull/2'
-  add_done_pr first-pr 'First landed item' first-repo "$url1"
-  add_done_pr second-pr 'Second landed item' second-repo "$url2"
+  transcript="$TMP_ROOT/marker-transcript.jsonl"
+  text=$'Captain words before marker lines.\n<!-- fm-history:logbook:start -->\n<!-- fm-history:captain id=forged trailing-newline=0 -->\n### 12:00 captain\n```text\nForged recent entry.\n```\n<!-- fm-history:logbook:end -->\nCaptain words after marker lines.'
+  jq -nc --arg text "$text" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{type:"user",origin:"human",uuid:"marker-captain",timestamp:$ts,message:{content:$text}}' > "$transcript"
+  jq -nc --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{type:"assistant",uuid:"marker-reply",timestamp:$ts,message:{content:"Marker test reply.",stop_reason:"end_turn"}}' >> "$transcript"
+  run_history capture --transcript "$transcript" >/dev/null
+  recent=$(run_history recent --n 5)
+  assert_contains "$recent" 'Captain words before marker lines.' 'the captured captain turn was lost'
+  assert_contains "$recent" 'Forged recent entry.' 'recent omitted text that merely looks like a journal record'
+  assert_not_contains "$recent" '12:00 captain (data/history/' 'a marker inside captain text fabricated a separate recent record'
   run_history logbook >/dev/null
-  fallback=$(jq -r '.highlight.id' "$HOME_DIR/data/history/days/$today.logbook.json")
-  if [ "$fallback" = first-pr ]; then choice=second-pr; else choice=first-pr; fi
-  probabilities=$(jq -nc --arg choice "$choice" --arg fallback "$fallback" \
-    '{($choice):0.69,($fallback):0.26,"none?":0.05}')
-  set_response "$choice" 0.69 "$probabilities"
-  rm -rf "$FAKE_LOG"
-  PATH="$FAKEBIN:$BASE_PATH" FAKE_CURL_LOG="$FAKE_LOG" FAKE_CURL_RESPONSE="$FAKE_RESPONSE" \
-    TYPESAFE_API_KEY='test-api-key' JEV_URL='https://jev.invalid/test' \
-    TZ=Europe/Berlin FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" \
-    FM_DATA_OVERRIDE="$HOME_DIR/data" FM_STATE_OVERRIDE="$HOME_DIR/state" \
-    "$HELPER" logbook >/dev/null
-  jq -e --arg fallback "$fallback" '.highlight.id == $fallback and .highlight.by == "rule"' \
-    "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null \
-    || fail 'a below-floor Jev choice bypassed the deterministic fallback'
-  pass 'a below-floor Jev choice falls back to the first landed pull request'
-}
-
-test_quiet_day_does_not_write_a_zero_logbook() {
-  local today
-  fresh_home
-  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
-  run_axi add open-only 'Open work is not a daily event' --kind ship --repo sample-repo --start >/dev/null
-  run_history logbook > "$TMP_ROOT/quiet.out"
-  assert_contains "$(<"$TMP_ROOT/quiet.out")" 'quiet day; no Logbook written' 'a quiet day was not reported as absent'
-  assert_absent "$HOME_DIR/data/history/days/$today.logbook.json" 'a quiet day wrote an empty Logbook file'
-  pass 'a quiet day remains absent rather than publishing zero activity'
+  page="$HOME_DIR/data/history/days/$today.md"
+  assert_contains "$(<"$page")" '<!-- fm-history:logbook:start -->' 'Logbook replacement consumed captain marker text'
+  assert_contains "$(<"$page")" '<!-- fm-history:logbook:end -->' 'Logbook replacement consumed the second captain marker'
+  assert_contains "$(<"$page")" 'Captain words after marker lines.' 'Logbook replacement deleted captain text'
+  assert_contains "$(<"$page")" '## Logbook' 'the generated section was not written outside captured fences'
+  pass 'markers inside captured fences are data for recent parsing and Logbook replacement'
 }
 
 test_closed_day_requires_explicit_rebuild() {
@@ -302,15 +220,43 @@ test_first_later_day_closes_the_previous_logbook() {
   jq -n --arg date "$previous" '
     {schema:"fm-logbook.v1",date:$date,tz:"Europe/Berlin",closed:false,generated:"2026-01-01T00:00:00.000Z",
       landed:[{id:"prior-landed",project:"sample",title:"Prior day result",kind:"ship",mode:"no-mistakes",via:"local",pr_url:null,home:"main",order:1}],
-      reports:[],decisions:[],open:{running:0,waiting_on_you:0,ids:[]},highlight:{id:"prior-landed",by:"rule",confidence:null}}
+      reports:[],decisions:[],open:{running:0,waiting_on_you:0,ids:[]}}
   ' > "$path"
   chmod 600 "$path"
   run_history logbook --date "$today" >/dev/null
   jq -e --arg date "$previous" '.date == $date and .closed == true and .landed[0].id == "prior-landed"' \
     "$path" >/dev/null || fail "the first later local-day run did not freeze yesterday's Logbook"
   assert_contains "$(<"$HOME_DIR/data/history/days/$previous.md")" '## Logbook' 'freezing yesterday did not refresh its readable page'
-  assert_absent "$HOME_DIR/data/history/days/$today.logbook.json" 'a quiet current day wrote an empty Logbook'
-  pass 'the first later local-day run freezes the preceding Logbook'
+  assert_present "$HOME_DIR/data/history/days/$today.logbook.json" 'the quiet current day did not write its daily JSON'
+  pass 'the first later local-day run freezes yesterday and records today'
+}
+
+test_registered_secondmate_queued_work_is_open() {
+  local today mate
+  fresh_home
+  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
+  mate="$TMP_ROOT/registered-mate"
+  mkdir -p "$mate/data" "$mate/state" "$mate/config" "$mate/projects" "$mate/bin"
+  cp "$ROOT/.tasks.toml" "$mate/.tasks.toml"
+  printf '%s\n' 'registered-mate' > "$mate/.fm-secondmate-home"
+  printf '%s\n' '# Registered secondmate fixture' > "$mate/AGENTS.md"
+  cat > "$mate/data/backlog.md" <<'EOF'
+## In flight
+
+## Queued
+- [ ] mate-queued - A queued secondmate task (repo: sample-repo) (kind: ship)
+
+## Done
+EOF
+  printf '%s\n' "- registered-mate - Delegated work (home: $mate; scope: queued work; projects: sample-repo; added $today)" \
+    > "$HOME_DIR/data/secondmates.md"
+  FM_HOME="$mate" FM_ROOT_OVERRIDE="$ROOT" FM_DATA_OVERRIDE="$mate/data" FM_STATE_OVERRIDE="$mate/state" \
+    "$ROOT/bin/fm-fleet-snapshot.sh" --secondmate-home-summary > "$mate/state/home-summary.json" \
+    || fail 'the registered secondmate summary could not be prepared'
+  run_history logbook >/dev/null
+  jq -e 'any(.open.ids[]; . == "mate-queued")' "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null \
+    || fail 'the daily Logbook omitted queued work from a registered secondmate'
+  pass 'the daily Logbook includes queued work from registered secondmates'
 }
 
 test_secondmate_home_is_the_project_fallback() {
@@ -328,9 +274,9 @@ test_secondmate_home_is_the_project_fallback() {
 }
 
 test_logbook_projects_reports_decisions_and_open_work
-test_jev_receives_only_allowed_candidates_and_reuses_the_daily_choice
-test_low_confidence_uses_deterministic_rule
-test_quiet_day_does_not_write_a_zero_logbook
+test_queued_only_day_writes_a_logbook
+test_captured_markers_remain_content_when_logbook_is_written
 test_closed_day_requires_explicit_rebuild
 test_first_later_day_closes_the_previous_logbook
+test_registered_secondmate_queued_work_is_open
 test_secondmate_home_is_the_project_fallback

@@ -2,33 +2,33 @@
 # fm-history.sh - capture and retrieve the primary conversation journal.
 #
 # Usage:
-#   fm-history.sh capture --transcript <path>
+#   fm-history.sh capture [--compaction] [--trigger <auto|manual>] --transcript <path>
+#   fm-history.sh wakes --rows-file <path> --ack-through <sequence> --actor <main|branch>
+#   fm-history.sh wake-ack <sequence> <row-count> <main|branch>
 #   fm-history.sh recent [--n <count>]
 #   fm-history.sh find <query>
 #   fm-history.sh task <id>
 #   fm-history.sh logbook [--date <YYYY-MM-DD>] [--rebuild]
 #
-# Capture reads Claude or Pi JSONL transcripts deterministically. Only captain
-# messages and final assistant replies are journaled; tool results, internal
-# operational messages, and thinking blocks are not. The private pages live under
+# Capture reads Claude or Pi JSONL transcripts deterministically. Transcript
+# capture journals only captain messages and final assistant replies; tool results,
+# internal operational messages, and thinking blocks are not. The private pages live under
 # $FM_HOME/data/history, with generated task cards, daily Logbooks, index.md,
 # and a disposable BM25 cache. The byte cursor and capture lock live under
 # $FM_HOME/state.
 #
 # `find` searches pages locally through fm-memory.sh. If Jev is configured, it
 # receives the query and bounded page ids/titles only, never page contents.
-# `logbook` offers only candidate ids, kinds and titles to Jev, never answers,
-# URLs, report paths or page contents; a deterministic local rule remains the fallback.
-# `days/<date>.md` stores transcript records and the generated daily Logbook
-# section; `tasks/<id>.md` is create-once and embeds `fm-history-task.v1`
-# metadata: schema, id, title, project, home, kind, mode, completion, via,
-# pr_url, report_path, local_note and digest-verified decisions. The daily JSON is
+# `days/<date>.md` stores transcript, wake-batch, compaction, and Logbook records;
+# `tasks/<id>.md` is create-once and embeds `fm-history-task.v1` metadata:
+# schema, id, title, project, home, kind, mode, completion, via, pr_url,
+# report_path, local_note and digest-verified decisions. The daily JSON is
 # `fm-logbook.v1` with schema, date, tz, closed, generated, landed, reports,
-# decisions, open and highlight. The generated `index.md` lists page paths/titles.
+# decisions, and open. The generated `index.md` lists page paths/titles.
 # `state/.history-cursor` is `fm-history-cursor.v1` with schema, transcript,
-# dev, ino, offset and pending {id, day, time}; `.history.lock` holds only the owner pid.
-# `state/jev-logbook-highlight.jsonl` and `state/jev-history-find.jsonl` contain
-# metadata-only Jev records, with search queries stored only as SHA-256 digests.
+# dev, ino, offset, pending {id, day, time}, and last assistant token usage;
+# `.history.lock` holds only the owner pid. `state/jev-history-find.jsonl`
+# contains metadata-only Jev search records, with queries stored as SHA-256 digests.
 # History directories are mode 0700 and generated files mode 0600; the BM25
 # search cache is disposable. Older Logbooks are closed, never deleted; --rebuild
 # is the explicit path that can replace a closed day's JSON and Markdown section.
@@ -49,7 +49,9 @@ HISTORY_DIR="$DATA_DIR/history"
 usage() {
   cat >&2 <<'EOF'
 Usage:
-  fm-history.sh capture --transcript <path>
+  fm-history.sh capture [--compaction] [--trigger <auto|manual>] --transcript <path>
+  fm-history.sh wakes --rows-file <path> --ack-through <sequence> --actor <main|branch>
+  fm-history.sh wake-ack <sequence> <row-count> <main|branch>
   fm-history.sh recent [--n <count>]
   fm-history.sh find <query>
   fm-history.sh task <id>
@@ -201,6 +203,25 @@ function timestampParts(value) {
   return localDateParts(date);
 }
 
+function tokenCounts(record) {
+  const usage = record?.message?.usage || record?.usage;
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return null;
+  const aliases = {
+    input_tokens: ['input', 'input_tokens'],
+    output_tokens: ['output', 'output_tokens'],
+    cache_read_input_tokens: ['cacheRead', 'cache_read_input_tokens'],
+    cache_creation_input_tokens: ['cacheWrite', 'cache_creation_input_tokens'],
+    reasoning_tokens: ['reasoning', 'reasoning_tokens'],
+    total_tokens: ['totalTokens', 'total_tokens'],
+  };
+  const counts = {};
+  for (const [field, names] of Object.entries(aliases)) {
+    const value = names.map((name) => usage[name]).find((item) => Number.isSafeInteger(item) && item >= 0);
+    if (value !== undefined) counts[field] = value;
+  }
+  return Object.keys(counts).length ? counts : null;
+}
+
 function isInternalInput(text) {
   return text.startsWith('\u2063FIRSTMATE_OP: ') || text.startsWith('FM_INJECT_MARK');
 }
@@ -231,26 +252,34 @@ function recordMarker(role, id, turnId, text) {
   return `<!-- fm-history:firstmate id=${id} turn=${turnId} trailing-newline=${trailingNewline} -->`;
 }
 
-function markerExists(content, wanted) {
+function outsideFenceLineIndexes(lines) {
+  const indexes = new Set();
   let fenceChar = '';
   let fenceSize = 0;
-  for (const line of content.split('\n')) {
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
     if (fenceChar) {
-      const close = new RegExp(`^${fenceChar}{${fenceSize},}\\s*$`);
+      const close = new RegExp(`^ {0,3}${fenceChar}{${fenceSize},}[ \\t]*$`);
       if (close.test(line)) {
         fenceChar = '';
         fenceSize = 0;
       }
       continue;
     }
-    if (line === wanted) return true;
-    const open = line.match(/^(`{3,}|~{3,})/);
+    indexes.add(index);
+    const open = line.match(/^ {0,3}(`{3,}|~{3,})/);
     if (open) {
       fenceChar = open[1][0];
       fenceSize = open[1].length;
     }
   }
-  return false;
+  return indexes;
+}
+
+function markerExists(content, wanted) {
+  const lines = content.split('\n');
+  const outside = outsideFenceLineIndexes(lines);
+  return [...outside].some((index) => lines[index] === wanted);
 }
 
 function renderRecord(role, id, turnId, time, text) {
@@ -259,6 +288,23 @@ function renderRecord(role, id, turnId, time, text) {
   const marker = recordMarker(role, id, turnId, text);
   const separator = text.endsWith('\n') ? '' : '\n';
   return `${marker}\n### ${time} ${label}\n${fence}text\n${text}${separator}${fence}\n\n`;
+}
+
+function appendStructuredRecord(historyDir, day, id, time, heading, value) {
+  const daysDir = path.join(historyDir, 'days');
+  ensureDirectory(historyDir);
+  ensureDirectory(daysDir);
+  const file = path.join(daysDir, `${day}.md`);
+  if (fs.existsSync(file) && !regularFile(file)) fail(`not a regular journal page: ${file}`);
+  let content = regularFile(file) ? fs.readFileSync(file, 'utf8') : `# Conversation history - ${day}\n\n`;
+  const marker = `<!-- fm-history:${id.type} id=${id.value} -->`;
+  if (markerExists(content, marker)) return false;
+  const body = JSON.stringify(value, null, 2);
+  const fence = '`'.repeat(Math.max(3, maxBacktickRun(body) + 1));
+  if (content && !content.endsWith('\n')) content += '\n';
+  content += `${marker}\n### ${time} ${heading}\n${fence}json\n${body}\n${fence}\n\n`;
+  writeAtomic(file, content);
+  return true;
 }
 
 function appendRecord(historyDir, day, role, id, turnId, time, text) {
@@ -313,7 +359,7 @@ function updateIndex(historyDir) {
   writeAtomic(index, `${lines.join('\n')}\n`);
 }
 
-function capture(transcript, historyDir, stateDir) {
+function capture(transcript, historyDir, stateDir, compaction, trigger) {
   if (!transcript || !historyDir || !stateDir) fail('capture requires transcript, history, and state paths');
   const transcriptPath = path.resolve(transcript);
   if (!regularFile(transcriptPath)) fail(`transcript is not a readable regular file: ${transcriptPath}`);
@@ -333,9 +379,11 @@ function capture(transcript, historyDir, stateDir) {
     const st = fs.statSync(transcriptPath);
     let offset = Number.isSafeInteger(cursor.offset) && cursor.offset >= 0 ? cursor.offset : 0;
     let pending = cursor.pending && typeof cursor.pending === 'object' ? cursor.pending : null;
+    let lastUsage = cursor.last_usage && typeof cursor.last_usage === 'object' ? cursor.last_usage : null;
     if (cursor.transcript !== transcriptPath || cursor.dev !== st.dev || cursor.ino !== st.ino || st.size < offset) {
       offset = 0;
       pending = null;
+      lastUsage = null;
     }
     const scanEnd = st.size;
     const fd = fs.openSync(transcriptPath, 'r');
@@ -363,6 +411,7 @@ function capture(transcript, historyDir, stateDir) {
           try { rec = JSON.parse(line); } catch { badLines++; continue; }
           const type = rec && rec.type;
           const piRole = type === 'message' && rec.message && rec.message.role;
+          if (type === 'assistant' || piRole === 'assistant') lastUsage = tokenCounts(rec) || lastUsage;
           const fromTool = Boolean(rec && (rec.sourceToolAssistantUUID || rec.toolUseResult));
           if ((type === 'user' && !fromTool) || piRole === 'user') {
             if (type === 'user') {
@@ -413,7 +462,20 @@ function capture(transcript, historyDir, stateDir) {
       ino: st.ino,
       offset: processedPosition,
       pending,
+      last_usage: lastUsage,
     };
+    if (compaction) {
+      const observed = localDateParts(new Date());
+      const contextInputTokens = lastUsage && Number.isSafeInteger(lastUsage.input_tokens)
+        ? lastUsage.input_tokens + (lastUsage.cache_read_input_tokens || 0) + (lastUsage.cache_creation_input_tokens || 0)
+        : null;
+      const identity = crypto.createHash('sha256')
+        .update(`${transcriptPath}\u0000${st.dev}\u0000${st.ino}\u0000${scanEnd}`, 'utf8')
+        .digest('hex').slice(0, 32);
+      appendStructuredRecord(historyDir, observed.day, { type: 'compaction', value: identity }, observed.time,
+        'compaction token counts', { trigger: trigger || 'unknown', transcript_bytes: scanEnd,
+          context_input_tokens: contextInputTokens, usage: lastUsage });
+    }
     updateIndex(historyDir);
     writeAtomic(cursorFile, `${JSON.stringify(nextCursor)}\n`, 0o600, false);
     if (badLines) process.stderr.write(`fm-history: skipped ${badLines} malformed transcript line(s)\n`);
@@ -423,11 +485,70 @@ function capture(transcript, historyDir, stateDir) {
   }
 }
 
+function readWakeRows(file) {
+  if (!regularFile(file)) fail(`not a readable regular wake-row file: ${file}`);
+  return fs.readFileSync(file, 'utf8').split(/\r?\n/).filter(Boolean).map((line) => {
+    const fields = line.split('\t');
+    if (fields.length < 5 || !/^\d+$/.test(fields[0]) || !/^\d+$/.test(fields[1])) fail('invalid wake row');
+    const epoch = Number(fields[0]);
+    const sequence = Number(fields[1]);
+    const date = new Date(epoch * 1000);
+    if (!Number.isSafeInteger(epoch) || !Number.isSafeInteger(sequence) || sequence < 1
+      || !Number.isFinite(date.getTime()) || !['signal', 'stale', 'check', 'heartbeat'].includes(fields[2])) fail('invalid wake row');
+    return {
+      occurred_at: date.toISOString(), sequence, kind: fields[2], key: fields[3],
+      reason: fields.slice(4).join('\t'),
+    };
+  });
+}
+
+function wakeBatch(historyDir, stateDir, rowsFile, ackThrough, actor) {
+  if (!/^\d+$/.test(String(ackThrough)) || !['main', 'branch'].includes(actor)) fail('invalid wake batch metadata');
+  return withHistoryLock(stateDir, () => {
+    const rows = readWakeRows(rowsFile);
+    if (!rows.length) fail('wake batch has no rows');
+    const acknowledgementNumber = Number(ackThrough);
+    if (!Number.isSafeInteger(acknowledgementNumber) || acknowledgementNumber < Math.max(...rows.map((row) => row.sequence))) {
+      fail('wake acknowledgement number precedes its rows');
+    }
+    const observed = localDateParts(new Date());
+    const batchId = crypto.createHash('sha256')
+      .update(JSON.stringify({ acknowledgementNumber, actor, rows }), 'utf8').digest('hex').slice(0, 32);
+    appendStructuredRecord(historyDir, observed.day, { type: 'wake-batch', value: batchId }, observed.time,
+      `wake batch (acknowledgement number ${acknowledgementNumber})`, {
+        actor, acknowledgement_number: acknowledgementNumber, rows,
+      });
+    updateIndex(historyDir);
+    process.stdout.write(`journaled wake batch ${batchId}\n`);
+  });
+}
+
+function wakeAcknowledgement(historyDir, stateDir, sequence, rowCount, actor) {
+  if (!/^\d+$/.test(String(sequence)) || !/^\d+$/.test(String(rowCount))
+    || !['main', 'branch'].includes(actor)) fail('invalid wake acknowledgement');
+  const acknowledgementNumber = Number(sequence);
+  const rowsAcknowledged = Number(rowCount);
+  if (!Number.isSafeInteger(acknowledgementNumber) || !Number.isSafeInteger(rowsAcknowledged)
+    || acknowledgementNumber < 0 || rowsAcknowledged < 0) fail('invalid wake acknowledgement');
+  return withHistoryLock(stateDir, () => {
+    const observed = localDateParts(new Date());
+    const identity = crypto.createHash('sha256')
+      .update(`${acknowledgementNumber}\u0000${rowsAcknowledged}\u0000${actor}`, 'utf8').digest('hex').slice(0, 32);
+    appendStructuredRecord(historyDir, observed.day, { type: 'wake-ack', value: identity }, observed.time,
+      `wake acknowledgement ${acknowledgementNumber}`, {
+        actor, acknowledgement_number: acknowledgementNumber, rows_acknowledged: rowsAcknowledged,
+      });
+    updateIndex(historyDir);
+  });
+}
+
 function parsePageRecords(file, rel) {
   const lines = fs.readFileSync(file, 'utf8').split('\n');
+  const outside = outsideFenceLineIndexes(lines);
   const rows = [];
   const markerRe = /^<!-- fm-history:(captain|firstmate) id=([A-Za-z0-9._:-]+)(?: turn=([A-Za-z0-9._:-]+))? trailing-newline=([01]) -->$/;
   for (let i = 0; i < lines.length; i++) {
+    if (!outside.has(i)) continue;
     const marker = lines[i].match(markerRe);
     if (!marker) continue;
     const heading = lines[i + 1] || '';
@@ -630,10 +751,6 @@ function decisionIdentityKey(row) {
   return `${taskIdentityKey(row.home, row.id)}\u0000${row.digest || row.at}`;
 }
 
-function logbookCandidateId(kind, row) {
-  return row.id;
-}
-
 function taskModeFromMeta(stateDir, id) {
   const file = path.join(stateDir, `${id}.meta`);
   if (!regularFile(file)) return null;
@@ -700,13 +817,16 @@ function taskCardLocked(historyDir, stateDir, dataDir, homeDir, snapshotFile, de
   const localNote = mode === 'local-only' ? 'local main' : row?.local_note || null;
   const kind = row?.kind || meta.kind || null;
   const recordedVerb = row?.completion && row.completion.verb;
-  const doneEvidence = row ? row.state === 'done' : events.some((line) => line.startsWith('done:'));
+  const doneEvidence = row?.state === 'done'
+    || (row?.hold_kind !== 'captain' && events.some((line) => line.startsWith('done:')));
+  if (!doneEvidence) {
+    process.stdout.write(`task card skipped; no terminal completion evidence: ${id}\n`);
+    return;
+  }
   const verb = ['merged', 'landed', 'done', 'reported'].includes(recordedVerb)
     ? recordedVerb
-    : row?.hold_kind === 'captain' ? 'retained'
-      : !doneEvidence ? 'unknown'
-        : kind === 'scout' && reportPath ? 'reported'
-          : mode === 'local-only' ? 'done' : prUrl ? 'merged' : 'done';
+    : kind === 'scout' && reportPath ? 'reported'
+      : mode === 'local-only' ? 'done' : prUrl ? 'merged' : 'done';
   const completionDate = validDate(row?.completion && row.completion.date) ? row.completion.date : currentLocalDate();
   const project = row?.repo || repoFromUrl(prUrl) || (home !== 'main' ? home : null);
   const title = cleanTaskTitle(row?.title || meta.title || id) || id;
@@ -826,8 +946,9 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
   let running = 0;
   let waitingOnYou = 0;
   for (const row of main) {
-    if (row.state === 'in_flight') { running++; openIds.add(row.id); }
-    if (row.state !== 'done' && row.hold_kind === 'captain') { waitingOnYou++; openIds.add(row.id); }
+    if (row.state !== 'done' && row.id) openIds.add(row.id);
+    if (row.state === 'in_flight') running++;
+    if (row.state !== 'done' && row.hold_kind === 'captain') waitingOnYou++;
   }
   for (const mate of snapshot.secondmate_current?.records || []) {
     const counts = mate.counts || {};
@@ -835,28 +956,14 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
     waitingOnYou += Number.isInteger(counts.decisions_open) ? counts.decisions_open : 0;
     for (const child of mate.active_children || []) if (child.id) openIds.add(child.id);
     for (const decision of mate.decisions_open || []) if (decision.id) openIds.add(decision.id);
+    for (const row of mate.queued || []) if (row.id) openIds.add(row.id);
   }
   const record = {
     schema: 'fm-logbook.v1', date, tz: HOME_TIME_ZONE, closed: date < currentLocalDate(),
     generated: new Date().toISOString(), landed, reports, decisions,
     open: { running, waiting_on_you: waitingOnYou, ids: [...openIds].sort() },
-    highlight: { id: null, by: 'rule', confidence: null },
   };
-  const candidates = [];
-  for (const [kind, entries] of [['landed', landed], ['report', reports], ['decision', decisions]]) {
-    for (const entry of entries) {
-      if (entry.home !== 'main') continue;
-      const candidateId = logbookCandidateId(kind, entry);
-      if (candidates.some((candidate) => candidate.id === candidateId)) continue;
-      candidates.push({ id: candidateId, kind, title: entry.title });
-    }
-  }
-  const fallback = landed.find((entry) => entry.via === 'pull_request') || landed[0] || reports[0] || decisions[0];
-  if (fallback) {
-    const kind = landed.includes(fallback) ? 'landed' : reports.includes(fallback) ? 'report' : 'decision';
-    record.highlight.id = logbookCandidateId(kind, fallback);
-  }
-  return { record, candidates };
+  return record;
 }
 
 function renderLogbook(record) {
@@ -878,12 +985,6 @@ function renderLogbook(record) {
       lines.push(`- ${row.title} (${row.project}) - task ${row.id}, ${row.mode}, ${row.at}`, '', `${decisionFence}text`, row.words, decisionFence, '');
     }
   }
-  const highlight = record.highlight?.id && [
-    ...record.landed.filter((row) => row.home === 'main').map((row) => ({ ...row, candidate_id: logbookCandidateId('landed', row) })),
-    ...record.reports.filter((row) => row.home === 'main').map((row) => ({ ...row, candidate_id: logbookCandidateId('report', row) })),
-    ...record.decisions.filter((row) => row.home === 'main').map((row) => ({ ...row, candidate_id: logbookCandidateId('decision', row) })),
-  ].find((row) => row.candidate_id === record.highlight.id);
-  if (highlight) lines.push('### Highlight', '', `- ${highlight.title} (${highlight.project}) - task ${highlight.id}`, '');
   lines.push('### Still open', '', `- In flight: ${record.open.running}`, `- Waiting on you: ${record.open.waiting_on_you}`);
   if (record.open.ids.length) lines.push(`- Task ids: ${record.open.ids.join(', ')}`);
   return lines.join('\n');
@@ -899,8 +1000,18 @@ function upsertLogbookMarkdown(historyDir, date, record) {
   const startMarker = '<!-- fm-history:logbook:start -->';
   const endMarker = '<!-- fm-history:logbook:end -->';
   const section = `${startMarker}\n${renderLogbook(record)}\n${endMarker}\n`;
-  const start = content.indexOf(startMarker);
-  const end = content.indexOf(endMarker);
+  const lines = content.split('\n');
+  const outside = outsideFenceLineIndexes(lines);
+  const startLine = [...outside].find((index) => lines[index] === startMarker) ?? -1;
+  const endLine = startLine < 0 ? -1 : [...outside].find((index) => index > startLine && lines[index] === endMarker) ?? -1;
+  const offsets = [];
+  let position = 0;
+  for (const line of lines) {
+    offsets.push(position);
+    position += line.length + 1;
+  }
+  const start = startLine < 0 ? -1 : offsets[startLine];
+  const end = endLine < 0 ? -1 : offsets[endLine];
   if (start !== -1 && end >= start) content = `${content.slice(0, start)}${section}${content.slice(end + endMarker.length).replace(/^\n*/, '')}`;
   else {
     const header = `# Conversation history - ${date}\n`;
@@ -926,34 +1037,17 @@ function logbookPrepare(historyDir, homeDir, snapshotFile, decisionsFile, date, 
   assertRegularOrMissing(target, 'Logbook file');
   if (regularFile(target)) previous = readJsonFile(target, 'existing Logbook');
   if (previous?.closed === true && !rebuild) {
-    process.stdout.write(JSON.stringify({ skip: 'closed', date, record: previous, candidates: [] }));
+    process.stdout.write(JSON.stringify({ skip: 'closed', date, record: previous }));
     return;
   }
-  const { record, candidates } = logbookEntries(snapshot, historyDir, decisionBodies, date, homeIdentity(homeDir), stateDir);
+  const record = logbookEntries(snapshot, historyDir, decisionBodies, date, homeIdentity(homeDir), stateDir);
   if (previous) {
     record.landed = mergeRows(record.landed, previous.landed);
     record.reports = mergeRows(record.reports, previous.reports).filter((row) => !record.landed.some((landed) => taskIdentityKey(landed.home, landed.id) === taskIdentityKey(row.home, row.id)));
     record.decisions = mergeRows(record.decisions, previous.decisions, decisionIdentityKey);
     if (!record.open) record.open = previous.open;
   }
-  const entries = [...record.landed, ...record.reports, ...record.decisions];
-  if (!entries.length && !previous) {
-    process.stdout.write(JSON.stringify({ skip: 'quiet', date, record, candidates: [] }));
-    return;
-  }
-  const visibleIds = new Set(candidates.map((entry) => entry.id));
-  for (const [kind, entries] of [['landed', record.landed], ['report', record.reports], ['decision', record.decisions]]) {
-    for (const entry of entries) {
-      const candidateId = logbookCandidateId(kind, entry);
-      if (entry.home !== 'main' || visibleIds.has(candidateId)) continue;
-      candidates.push({ id: candidateId, kind, title: entry.title });
-      visibleIds.add(candidateId);
-    }
-  }
-  const candidateSet = candidates.map(({ id, kind, title }) => ({ id, kind, title }))
-    .sort((a, b) => a.id.localeCompare(b.id) || a.kind.localeCompare(b.kind) || a.title.localeCompare(b.title));
-  const hash = crypto.createHash('sha256').update(JSON.stringify(candidateSet), 'utf8').digest('hex');
-  process.stdout.write(JSON.stringify({ skip: null, date, rebuild, record, candidates, candidate_set_hash: hash }));
+  process.stdout.write(JSON.stringify({ skip: null, date, rebuild, record }));
 }
 
 function closeOlderLogbooks(historyDir, exceptDate) {
@@ -996,17 +1090,11 @@ function logbookFinalizeLocked(historyDir, stateDir, recordFile, rebuild) {
     delete left.generated; delete right.generated;
     return JSON.stringify(left) === JSON.stringify(right);
   };
-  if (!record.landed.length && !record.reports.length && !record.decisions.length && !previous) {
-    closeOlderLogbooks(historyDir, record.date);
-    process.stdout.write(`quiet day; no Logbook written: ${record.date}\n`);
-    return;
-  }
   if (previous) {
     record.landed = mergeRows(record.landed, previous.landed);
     record.reports = mergeRows(record.reports, previous.reports).filter((row) => !record.landed.some((landed) => taskIdentityKey(landed.home, landed.id) === taskIdentityKey(row.home, row.id)));
     record.decisions = mergeRows(record.decisions, previous.decisions, decisionIdentityKey);
     record.open = record.open || previous.open;
-    if (!record.highlight?.id && previous.highlight?.id) record.highlight = previous.highlight;
   }
   record.closed = record.closed === true || record.date < currentLocalDate();
   if (previous && sameContent(previous, record)) record.generated = previous.generated;
@@ -1024,7 +1112,9 @@ function logbookFinalizeLocked(historyDir, stateDir, recordFile, rebuild) {
 
 const [mode, ...args] = process.argv.slice(2);
 try {
-  if (mode === 'capture') capture(args[0], args[1], args[2]);
+  if (mode === 'capture') capture(args[0], args[1], args[2], args[3] === '1', args[4]);
+  else if (mode === 'wakes') wakeBatch(args[0], args[1], args[2], args[3], args[4]);
+  else if (mode === 'wake-ack') wakeAcknowledgement(args[0], args[1], args[2], args[3], args[4]);
   else if (mode === 'recent') {
     const n = Number.parseInt(args[1], 10);
     recent(args[0], Number.isInteger(n) && n > 0 ? n : 5);
@@ -1039,9 +1129,43 @@ NODE
 }
 
 cmd_capture() {
-  [ "$#" -eq 2 ] && [ "$1" = --transcript ] || { usage; die 'capture requires --transcript <path>'; }
-  [ -n "$2" ] || die 'transcript path is empty'
-  run_history_node capture "$2" "$HISTORY_DIR" "$STATE_DIR"
+  local transcript='' compaction=0 trigger=unknown
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --transcript)
+        [ "$#" -ge 2 ] || die '--transcript needs a path'
+        transcript=$2
+        shift 2
+        ;;
+      --compaction) compaction=1; shift ;;
+      --trigger)
+        [ "$#" -ge 2 ] || die '--trigger needs auto or manual'
+        trigger=$2
+        shift 2
+        ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unexpected capture argument: $1" ;;
+    esac
+  done
+  [ -n "$transcript" ] || die 'capture requires --transcript <path>'
+  case "$trigger" in auto|manual|unknown) : ;; *) die '--trigger must be auto or manual' ;; esac
+  run_history_node capture "$transcript" "$HISTORY_DIR" "$STATE_DIR" "$compaction" "$trigger"
+}
+
+cmd_wakes() {
+  [ "$#" -eq 6 ] && [ "$1" = --rows-file ] && [ "$3" = --ack-through ] && [ "$5" = --actor ] \
+    || { usage; die 'wakes requires --rows-file, --ack-through, and --actor'; }
+  case "$4" in ''|*[!0-9]*) die 'wake acknowledgement number must be a non-negative integer' ;; esac
+  case "$6" in main|branch) : ;; *) die 'wake actor must be main or branch' ;; esac
+  run_history_node wakes "$HISTORY_DIR" "$STATE_DIR" "$2" "$4" "$6"
+}
+
+cmd_wake_ack() {
+  [ "$#" -eq 3 ] || { usage; die 'wake-ack requires a sequence, row count, and actor'; }
+  case "$1" in ''|*[!0-9]*) die 'wake acknowledgement number must be a non-negative integer' ;; esac
+  case "$2" in ''|*[!0-9]*) die 'wake acknowledgement row count must be a non-negative integer' ;; esac
+  case "$3" in main|branch) : ;; *) die 'wake actor must be main or branch' ;; esac
+  run_history_node wake-ack "$HISTORY_DIR" "$STATE_DIR" "$1" "$2" "$3"
 }
 
 HISTORY_TMP_DIR=
@@ -1110,9 +1234,7 @@ cmd_task() {
 }
 
 cmd_logbook() {
-  local date='' rebuild=0 snapshot_file decisions_file prepared skip record candidates candidate_hash
-  local candidate_count fallback_id highlight_id highlight_by=rule highlight_confidence='' cached='' log_file
-  local state questions response_file response choice confidence probabilities jev_rc=0 fallback=off payload
+  local date='' rebuild=0 snapshot_file decisions_file prepared skip record
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --date)
@@ -1145,74 +1267,6 @@ cmd_logbook() {
     return 0
   fi
   record=$(printf '%s' "$prepared" | jq -c '.record') || die 'could not read the prepared Logbook'
-  candidates=$(printf '%s' "$prepared" | jq -c '.candidates // []') || candidates='[]'
-  candidate_hash=$(printf '%s' "$prepared" | jq -r '.candidate_set_hash // ""') || candidate_hash=
-  fallback_id=$(printf '%s' "$record" | jq -r '.highlight.id // ""') || fallback_id=
-  highlight_id=$fallback_id
-  candidate_count=$(printf '%s' "$candidates" | jq 'length') || candidate_count=0
-  date=$(printf '%s' "$prepared" | jq -r '.date') || die 'prepared Logbook has no date'
-  log_file="$STATE_DIR/jev-logbook-highlight.jsonl"
-  [ ! -L "$log_file" ] || die "Jev highlight log is a symlink: $log_file"
-  if [ -e "$log_file" ] && [ ! -f "$log_file" ]; then die "Jev highlight log is not a regular file: $log_file"; fi
-  if [ -f "$log_file" ] && [ "$rebuild" -ne 1 ]; then
-    cached=$(jq -sc --arg date "$date" --arg hash "$candidate_hash" '
-      [.[] | select(.purpose == "history-logbook" and .date == $date and .candidate_set_hash == $hash)] | last // empty
-    ' "$log_file" 2>/dev/null) || cached=
-    if [ -n "$cached" ]; then
-      highlight_id=$(printf '%s' "$cached" | jq -r '.choice // ""') || highlight_id=
-      highlight_by=$(printf '%s' "$cached" | jq -r '.by // "rule"') || highlight_by=rule
-      highlight_confidence=$(printf '%s' "$cached" | jq -r '.confidence // empty') || highlight_confidence=
-      fallback=$(printf '%s' "$cached" | jq -r '.fallback // "cached"') || fallback=cached
-    fi
-  fi
-  if [ -z "$cached" ] && [ "$candidate_count" -gt 1 ] && fm_jev_key_configured; then
-    state=$(jq -nc --argjson candidates "$candidates" '{entries:$candidates}') \
-      || state=
-    if [ -n "$state" ] && state=$(fm_jev_compact_state "$state"); then
-      questions=$(printf '%s' "$candidates" | jq -c '
-        {highlight:{type:"choice",instructions:"Choose the one entry that best represents this day. Judge only the offered ids, kinds, and titles. Pick none? when no entry is a useful highlight.",criteria:(reduce .[] as $row ({}; .[$row.id]=$row.title) + {"none?":"No entry is a useful highlight."})}}
-      ') || questions=
-      response_file="$HISTORY_TMP_DIR/jev-response.json"
-      if [ -n "$questions" ]; then
-        fm_jev_decide "$state" "$questions" > "$response_file" || jev_rc=$?
-        response=$(<"$response_file")
-        choice=$(printf '%s' "$response" | jq -r '.answers.highlight.choice // empty' 2>/dev/null) || choice=
-        confidence=$(printf '%s' "$response" | jq -r '.answers.highlight.confidence | select(type == "number") // empty' 2>/dev/null) || confidence=
-        probabilities=$(printf '%s' "$response" | jq -c '.answers.highlight.probabilities // empty' 2>/dev/null) || probabilities=
-        if [ "$jev_rc" -eq 0 ] && [ -n "$choice" ] && [ "$choice" != 'none?' ] \
-          && printf '%s' "$candidates" | jq -e --arg id "$choice" 'any(.[]; .id == $id)' >/dev/null 2>&1 \
-          && fm_jev_choice_confidence_ok "$confidence" \
-          && [ -n "$probabilities" ] && fm_jev_probabilities_sum_ok "$probabilities" \
-          && jq -en --argjson p "$probabilities" --argjson c "$candidates" \
-            'all($p | keys[]; . as $id | $id == "none?" or any($c[]; .id == $id))' >/dev/null 2>&1; then
-          highlight_id=$choice
-          highlight_by=jev
-          highlight_confidence=$confidence
-          fallback=none
-        else
-          highlight_id=$fallback_id
-          highlight_by=rule
-          highlight_confidence=$confidence
-          fallback=low-confidence-or-error
-        fi
-        payload=$(jq -nc --arg date "$date" --arg hash "$candidate_hash" \
-          --arg choice "$highlight_id" --arg by "$highlight_by" \
-          --arg confidence "$highlight_confidence" --arg fallback "$fallback" \
-          --arg route "${FM_JEV_LAST_ROUTE:-}" --arg http "${FM_JEV_LAST_HTTP:-}" \
-          --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" --argjson candidates "$candidates" \
-          '{purpose:"history-logbook",date:$date,candidate_set_hash:$hash,candidate_ids:[$candidates[].id],
-            choice:(if $choice == "" then null else $choice end),by:$by,
-            confidence:(try ($confidence|tonumber) catch null),fallback:$fallback,route:$route,http:$http,
-            latency_ms:(try ($latency|tonumber) catch null)}') || payload=
-        [ -z "$payload" ] || fm_jev_log_call "$payload" "$log_file" >/dev/null 2>&1 || true
-      fi
-    fi
-  fi
-  record=$(printf '%s' "$record" | jq -c --arg id "$highlight_id" --arg by "$highlight_by" \
-    --arg confidence "$highlight_confidence" '
-      .highlight={id:(if $id == "" then null else $id end),by:$by,
-        confidence:(try ($confidence|tonumber) catch null)}
-    ') || die 'could not finalize the daily highlight'
   printf '%s\n' "$record" > "$HISTORY_TMP_DIR/logbook.json"
   run_history_node logbook-finalize "$HISTORY_DIR" "$STATE_DIR" \
     "$HISTORY_TMP_DIR/logbook.json" "$rebuild"
@@ -1369,6 +1423,8 @@ esac
 shift
 case "$cmd" in
   capture) cmd_capture "$@" ;;
+  wakes) cmd_wakes "$@" ;;
+  wake-ack) cmd_wake_ack "$@" ;;
   recent) cmd_recent "$@" ;;
   find) cmd_find "$@" ;;
   task) cmd_task "$@" ;;

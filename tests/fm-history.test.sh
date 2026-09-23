@@ -14,6 +14,8 @@ HOME_DIR="$TMP_ROOT/home"
 FAKEBIN=$(fm_fakebin "$TMP_ROOT")
 BASE_PATH=$PATH
 HELPER="$ROOT/bin/fm-history.sh"
+TZ=Europe/Berlin
+export TZ
 
 fresh_home() {
   rm -rf "$HOME_DIR"
@@ -32,6 +34,15 @@ run_history() {
   PATH="$FAKEBIN:$BASE_PATH" TZ=Europe/Berlin FM_HOME="$HOME_DIR" \
     FM_ROOT_OVERRIDE="$ROOT" FM_DATA_OVERRIDE="$HOME_DIR/data" \
     FM_STATE_OVERRIDE="$HOME_DIR/state" "$HELPER" "$@"
+}
+
+run_test_axi() {
+  FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" "$ROOT/bin/fm-tasks-axi.sh" "$@"
+}
+
+run_test_captain() {
+  FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" FM_STATE_OVERRIDE="$HOME_DIR/state" \
+    "$ROOT/bin/fm-captain-hold.sh" "$@"
 }
 
 mode_of() {
@@ -101,7 +112,7 @@ test_pi_transcript_capture_keeps_captain_words_and_final_reply_only() {
 }
 
 test_claude_compaction_and_session_end_hooks_capture_once() {
-  local transcript payload compact_hook end_hook recent
+  local transcript payload compact_hook end_hook recent today
   fresh_home
   transcript="$TMP_ROOT/claude-transcript.jsonl"
   jq -nc '{type:"user",origin:"human",uuid:"claude-captain",timestamp:"2026-09-23T10:00:00Z",message:{content:"Exact Claude captain words."}}' > "$transcript"
@@ -110,11 +121,11 @@ test_claude_compaction_and_session_end_hooks_capture_once() {
     jq -nc '{type:"user",origin:"human",uuid:"claude-operational",timestamp:"2026-09-23T10:00:06Z",message:{content:"\u2063FIRSTMATE_OP: hidden supervisor injection"}}'
     jq -nc '{type:"assistant",uuid:"claude-operational-reply",timestamp:"2026-09-23T10:00:07Z",message:{content:"Reply to the internal injection.",stop_reason:"end_turn"}}'
     jq -nc '{type:"user",origin:"human",uuid:"claude-captain-2",timestamp:"2026-09-23T10:00:08Z",message:{content:"Second Claude captain words."}}'
-    jq -nc '{type:"assistant",uuid:"claude-reply-2",timestamp:"2026-09-23T10:00:09Z",message:{content:"Second Claude final answer.",stop_reason:"end_turn"}}'
+    jq -nc '{type:"assistant",uuid:"claude-reply-2",timestamp:"2026-09-23T10:00:09Z",message:{content:"Second Claude final answer.",stop_reason:"end_turn",usage:{input_tokens:30,output_tokens:6,cache_creation_input_tokens:4,cache_read_input_tokens:8}}}'
   } >> "$transcript"
   compact_hook=$(jq -r '.hooks.PreCompact[0].hooks[0].command' "$ROOT/.claude/settings.json")
   end_hook=$(jq -r '.hooks.SessionEnd[0].hooks[0].command' "$ROOT/.claude/settings.json")
-  payload=$(jq -nc --arg transcript "$transcript" '{transcript_path:$transcript}')
+  payload=$(jq -nc --arg transcript "$transcript" '{transcript_path:$transcript,trigger:"auto"}')
   printf '%s' "$payload" | env -u GROK_AGENT -u GROK_HOOK_EVENT FM_TASK_ID=claude-worker \
     CLAUDE_PROJECT_DIR="$ROOT" FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" \
     FM_DATA_OVERRIDE="$HOME_DIR/data" FM_STATE_OVERRIDE="$HOME_DIR/state" \
@@ -148,7 +159,14 @@ test_claude_compaction_and_session_end_hooks_capture_once() {
     'the session-end hook did not capture the final reply after compaction'
   assert_not_contains "$recent" 'FIRSTMATE_OP' 'Claude capture journaled an internal operational input'
   assert_not_contains "$recent" 'Reply to the internal injection.' 'Claude capture journaled an internal response'
-  pass 'Claude pre-compaction and session-end hooks share an idempotent capture cursor'
+  today=$(date +%Y-%m-%d)
+  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" 'context_input_tokens' \
+    'the compaction hook did not record a local token-count entry'
+  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" '"context_input_tokens": 42' \
+    'the compaction record did not include cached and uncached context tokens'
+  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" '"output_tokens": 6' \
+    'the compaction record did not retain available output-token usage'
+  pass 'Claude pre-compaction records local token usage and shares an idempotent capture cursor'
 }
 
 test_task_cards_are_written_once_and_indexed() {
@@ -200,7 +218,91 @@ EOF
   pass 'cleanup writes one private task card and updates the generated history index'
 }
 
+test_task_cards_use_terminal_events_without_filing_open_work() {
+  local card meta_line encoded metadata output
+  fresh_home
+  run_test_axi add stale-open-row 'Completed according to its status event' --kind ship --repo sample-project --start >/dev/null
+  printf 'done: completed through the status stream\n' > "$HOME_DIR/state/stale-open-row.status"
+  run_history task stale-open-row >/dev/null
+  card="$HOME_DIR/data/history/tasks/stale-open-row.md"
+  assert_present "$card" 'the terminal done event did not produce a task card'
+  meta_line=$(grep 'fm-history:task:v1' "$card")
+  encoded=${meta_line#*fm-history:task:v1 }
+  encoded=${encoded% -->}
+  if [ "$(uname -s)" = Darwin ]; then metadata=$(printf '%s' "$encoded" | base64 -D); else metadata=$(printf '%s' "$encoded" | base64 -d); fi
+  jq -e '.completion.verb == "done"' <<< "$metadata" >/dev/null \
+    || fail 'status-event completion was not recorded in the task card'
+
+  run_test_axi add still-running 'Work that is not complete' --kind ship --repo sample-project --start >/dev/null
+  output=$(run_history task still-running)
+  assert_contains "$output" 'no terminal completion evidence' 'an in-flight task was not retained'
+  assert_absent "$HOME_DIR/data/history/tasks/still-running.md" 'an in-flight task was filed as a completed card'
+
+  run_test_axi add captain-held 'A question is waiting for the captain' --kind captain --repo sample-project --start >/dev/null
+  run_test_captain hold captain-held --reason 'Needs a decision' >/dev/null
+  printf 'done: deliverable exists, but the captain decision is still open\n' > "$HOME_DIR/state/captain-held.status"
+  run_history task captain-held >/dev/null
+  assert_absent "$HOME_DIR/data/history/tasks/captain-held.md" 'a captain-held task was filed as complete'
+  pass 'task cards use independent terminal evidence and leave unfinished work intact'
+}
+
+test_wake_batches_and_acknowledgements_are_journaled() {
+  local today page stderr ack_through generation marker history_backup queue_before queue_after
+  fresh_home
+  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
+  FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$HOME_DIR/state" \
+    bash -c '. "$1"; fm_wake_append check test-key "check: exact wake reason"' _ "$ROOT/bin/fm-wake-lib.sh" \
+    || fail 'the wake fixture could not append a durable row'
+  : > "$HOME_DIR/data/history"
+  if FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$HOME_DIR/state" \
+    TZ=Europe/Berlin "$ROOT/bin/fm-wake-drain.sh" > "$TMP_ROOT/drain-failed.out" 2> "$TMP_ROOT/drain-failed.err"; then
+    fail 'the wake was presented despite a failed journal write'
+  fi
+  assert_present "$HOME_DIR/state/.wake-queue" 'a journal failure discarded the durable wake'
+  assert_not_contains "$(<"$TMP_ROOT/drain-failed.out")" 'exact wake reason' 'an unjournaled wake was presented'
+  rm -f "$HOME_DIR/data/history"
+  FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$HOME_DIR/state" \
+    TZ=Europe/Berlin "$ROOT/bin/fm-wake-drain.sh" > "$TMP_ROOT/drain.out" 2> "$TMP_ROOT/drain.err" \
+    || fail 'the wake drain did not present the fixture row after journal recovery'
+  stderr=$(<"$TMP_ROOT/drain.err")
+  ack_through=$(printf '%s\n' "$stderr" | sed -n 's/.*--ack-through \([0-9][0-9]*\) --recovery-generation.*/\1/p')
+  generation=$(printf '%s\n' "$stderr" | sed -n 's/.*--ack-through [0-9][0-9]* --recovery-generation \([A-Za-z0-9._:-]*\).*/\1/p')
+  [ -n "$ack_through" ] && [ -n "$generation" ] || fail 'the drain omitted its acknowledgement command'
+  page="$HOME_DIR/data/history/days/$today.md"
+  assert_contains "$(<"$page")" 'exact wake reason' 'the presented wake row was not journaled'
+  assert_contains "$(<"$page")" 'test-key' 'the wake journal omitted its key'
+  marker=$(grep -c 'fm-history:wake-batch id=' "$page")
+  [ "$marker" = 1 ] || fail 'the initial wake batch was not recorded exactly once'
+  assert_contains "$(<"$page")" "\"acknowledgement_number\": $ack_through" 'the wake batch omitted its acknowledgement number'
+  FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$HOME_DIR/state" \
+    TZ=Europe/Berlin "$ROOT/bin/fm-wake-drain.sh" > "$TMP_ROOT/drain-retry.out" 2> "$TMP_ROOT/drain-retry.err" \
+    || fail 'a repeated unacknowledged wake presentation failed'
+  [ "$(grep -c 'fm-history:wake-batch id=' "$page")" = 1 ] || fail 'a repeated presentation duplicated the wake batch'
+  history_backup="$HOME_DIR/data/history-backup"
+  mv "$HOME_DIR/data/history" "$history_backup"
+  : > "$HOME_DIR/data/history"
+  queue_before=$(wc -l < "$HOME_DIR/state/.wake-queue" | tr -d ' ')
+  if FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$HOME_DIR/state" \
+    TZ=Europe/Berlin "$ROOT/bin/fm-wake-drain.sh" --ack-through "$ack_through" \
+      --recovery-generation "$generation" > "$TMP_ROOT/ack-failed.out" 2> "$TMP_ROOT/ack-failed.err"; then
+    fail 'the wake was acknowledged despite a failed acknowledgement journal write'
+  fi
+  queue_after=$(wc -l < "$HOME_DIR/state/.wake-queue" | tr -d ' ')
+  [ "$queue_after" = "$queue_before" ] || fail 'an unjournaled acknowledgement consumed its wake'
+  rm -f "$HOME_DIR/data/history"
+  mv "$history_backup" "$HOME_DIR/data/history"
+  FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$HOME_DIR/state" \
+    TZ=Europe/Berlin "$ROOT/bin/fm-wake-drain.sh" --ack-through "$ack_through" \
+      --recovery-generation "$generation" > "$TMP_ROOT/ack.out" 2> "$TMP_ROOT/ack.err" \
+    || fail 'the wake acknowledgement did not complete after journal recovery'
+  assert_contains "$(<"$page")" 'wake-ack' 'the acknowledgement was not journaled'
+  assert_contains "$(<"$page")" 'rows_acknowledged' 'the acknowledgement row count was not recorded'
+  pass 'wake presentations are retry-safe and their acknowledgements are journaled'
+}
+
 test_capture_is_idempotent_and_uses_the_captains_local_day
 test_pi_transcript_capture_keeps_captain_words_and_final_reply_only
 test_claude_compaction_and_session_end_hooks_capture_once
 test_task_cards_are_written_once_and_indexed
+test_task_cards_use_terminal_events_without_filing_open_work
+test_wake_batches_and_acknowledgements_are_journaled

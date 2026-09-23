@@ -239,10 +239,11 @@ The sweep above preserves knowledge; this one preserves the state of work.
 A reset destroys whatever exists only in this session, and that includes what you have learned about work already under way, not just facts worth remembering.
 So before the reset, make sure the important open work you are holding in context is durably recorded: file what was never filed, and correct what you now know is stale.
 When `PI_SESSION_FILE` is set, first run `bin/fm-history.sh capture --transcript "$PI_SESSION_FILE"` to preserve the captain's exact words through this point; its byte cursor makes retries safe.
-Claude's registered pre-compaction and session-end hooks perform that same capture automatically.
+Claude's registered pre-compaction and session-end hooks perform that same capture automatically; pre-compaction also stores the available local token-usage count.
+Wake draining records each presented batch and its later acknowledgement in the private conversation history; do not copy wake rows into another record.
 Before the completion receipt and secondmate cascade, run `bin/fm-history.sh logbook` once to preserve this home's current local-day outcomes and open-work snapshot in its private history.
-This records structured landings, reports, and digest-verified captain answers; it does not close tasks or reconcile task or forge state.
-Treat a quiet-day result as no artifact and never hand-edit the generated Logbook.
+This records structured landings, reports, digest-verified captain answers, and all unfinished task ids, including queued work; it does not close tasks or reconcile task or forge state.
+A daily Logbook is written even when there were no landings, reports, or answers, because open work still matters. Never hand-edit the generated Logbook.
 
 Judge for yourself what is important and which record each thing belongs to, and write it through the owner that already governs that record.
 One bound holds: this covers the open work you are actually holding in context, not the records at large.
