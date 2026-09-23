@@ -4457,7 +4457,7 @@ else
 fi
 
 EXECUTION_TOKEN=
-if [ "$KIND" = ship ]; then
+if [ "$KIND" != scout ] && [ "$KIND" != secondmate ]; then
   EXECUTION_TOKEN=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" attempt "$ID" --spawn-gen "$SPAWN_GEN") || exit 1
 fi
 

@@ -7,6 +7,7 @@
 #   started ID TOKEN                   (worker, from its isolated worktree)
 #   show ID | scan | notify
 #   confirmed ID                      (read-only receipt check for crew-state)
+#   retire ID --reason TEXT            (firstmate retires an unused approval)
 #
 # approve is an explicit semantic attestation by firstmate that implementation
 # is authorized for this backlog item within its existing bounded intent. It
@@ -99,13 +100,14 @@ scan_one() {
     printf '%s\tdependency\twait-for-%s\n' "$id" "$blockers"; return
   fi
   kind=$(meta "$STATE/$id.meta" kind)
-  if [ "$kind" != ship ]; then
+  if [ "$kind" != ship ] && [ "$kind" != task ]; then
     if [ "$kind" = scout ]; then
       current=$(crew_state "$id" 2>/dev/null || true)
       case "$current" in
         'state: working · source: pane'*)
           printf '%s\tworker\tfinish-authorized-research-then-handoff\n' "$id"; return ;;
       esac
+      printf '%s\tfirstmate\tapproved research is complete; promote, dispatch, or retire the implementation approval\n' "$id"; return
     fi
     printf '%s\tfirstmate\timplementation owner missing; dispatch or promote within approved intent\n' "$id"; return
   fi
@@ -186,7 +188,7 @@ case "$command" in
       printf '%s\n' "$line"
     done
     exit 0 ;;
-  approve|attempt|started|show|confirmed) ;;
+  approve|attempt|started|show|confirmed|retire) ;;
   *) fail 'unknown command (use --help)' ;;
 esac
 id=${1:-}; shift || true; valid_id "$id"
@@ -218,6 +220,19 @@ mkdir -p "$STATE"
 LOCK="$STATE/.$id.execution.lock"
 fm_lock_acquire_wait "$LOCK"
 case "$command" in
+  retire)
+    [ "${1:-}" = --reason ] && [ "$#" = 2 ] && [ -n "$2" ] || fail 'retire requires --reason TEXT'
+    [ -e "$file" ] || exit 0
+    record_valid "$file" || fail 'invalid execution obligation'
+    kind=$(meta "$STATE/$id.meta" kind)
+    if [ "$kind" = scout ]; then
+      current=$(crew_state "$id" 2>/dev/null || true)
+      case "$current" in
+        'state: working · source: pane'*) fail 'cannot retire approval while the scout is live' ;;
+      esac
+    fi
+    rm -f -- "$file" "$STATE/.$id.execution-notified"
+    exit 0 ;;
   approve)
     [ "${1:-}" = --basis ] && [ "$#" = 2 ] || fail 'approve requires --basis'
     case "$2" in captain-approved|accepted-intent) basis=$2 ;; *) fail 'invalid approval basis' ;; esac
@@ -245,7 +260,7 @@ case "$command" in
     record_valid "$file" || fail 'no valid execution obligation'
     [ "$#" = 1 ] && [ -n "$1" ] || fail 'started requires handoff token'
     [ "$(jq -r .attempt "$file")" = "$1" ] || fail 'stale or mismatched handoff token'
-    [ "$(meta "$STATE/$id.meta" kind)" = ship ] || fail 'a scout or secondmate is not an implementation owner'
+    case "$(meta "$STATE/$id.meta" kind)" in ship|task) ;; *) fail 'a scout or secondmate is not an implementation owner' ;; esac
     wt=$(meta "$STATE/$id.meta" worktree); project=$(meta "$STATE/$id.meta" project)
     gen=$(meta "$STATE/$id.meta" spawn_gen)
     [ -n "$gen" ] && [ -d "$wt" ] && [ -d "$project" ] || fail 'missing dispatch identity'

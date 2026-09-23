@@ -800,6 +800,23 @@ test_batch_preserves_native_ultra() {
   pass "batch dispatch preserves native Ultra in metadata and launch flags"
 }
 
+test_pi_spawn_registers_only_its_isolated_copy() {
+  local rec id out status sandbox trust trust_pi_id
+  trust_pi_id='trust-pi-spawn'
+  rec=$(make_spawn_case trust-pi pi "$trust_pi_id")
+  read_case_record "$rec"
+  sandbox="$HOME_DIR/user-home"
+  trust="$sandbox/.pi/agent/trust.json"
+  mkdir -p "${trust%/*}"
+  printf '{"/unrelated/path":true}\n' > "$trust"
+  out=$(HOME="$sandbox" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$trust_pi_id" "$PROJ_DIR")
+  status=$?
+  expect_code 0 "$status" "Pi trust registration spawn should succeed"
+  jq -e --arg path "$WT_DIR" '.[$path] == true and .["/unrelated/path"] == true and length == 2' "$trust" >/dev/null \
+    || fail "Pi did not trust only this worker copy while preserving existing entries"
+  pass "Pi spawn registers exact isolated worktree trust without disturbing existing trust"
+}
+
 test_pi_threads_model_and_max_effort() {
   local rec id out status launch
   id=profile-pi-z8
@@ -1704,6 +1721,7 @@ test_opencode_threads_model_and_ignores_effort_axis
 test_native_effort_validator_keeps_axes_separate
 test_native_pi_ultra_is_explicit_and_model_scoped
 test_batch_preserves_native_ultra
+test_pi_spawn_registers_only_its_isolated_copy
 test_pi_threads_model_and_max_effort
 test_pi_role_provisioning_runs_in_the_worker_environment
 test_pi_tui_mode_probe_is_safe_for_old_and_new_pi
