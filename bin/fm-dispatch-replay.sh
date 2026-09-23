@@ -28,7 +28,9 @@
 #   the resolver's shadow log and `run` output both qualify - and, for each
 #   threshold, prints how many rows the top-2 margin gate would pass or hold
 #   as ambiguous next to the fixed 0.6 derived-confidence gate the resolver
-#   used before the margin gate. Rows with an `expected` label also count
+#   used before the margin gate. A row passes only when its recorded choice is
+#   the most probable option and its top-2 margin reaches the threshold. Rows
+#   with an `expected` label also count
 #   `wrong`: rows that pass the gate with a pick outside the label. The pick
 #   is the row's recorded `rule` (the rule the resolver answered), or the
 #   most probable option when a row records none. The
@@ -54,7 +56,7 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-$FM_ROOT}"
-RESOLVER="${FM_DISPATCH_RESOLVER:-$SCRIPT_DIR/fm-dispatch-resolve.sh}"
+RESOLVER="$SCRIPT_DIR/fm-dispatch-resolve.sh"
 
 # shellcheck source=bin/fm-env-lib.sh
 . "$SCRIPT_DIR/fm-env-lib.sh"
@@ -173,7 +175,7 @@ replay_score() {
   cat "${files[@]}" | jq -rs --arg margins "$margins" --argjson rows "$rows" "$FM_JEV_CHOICE_TOP2_JQ"'
     def valid: (.probabilities | type) == "object" and (.probabilities | length) > 0
       and all(.probabilities[]; type == "number");
-    def gate_pass($row; $threshold): ($row.top.raw_margin + 1e-9) >= $threshold;
+    def gate_pass($row; $threshold): $row.first == $row.top.first and (($row.top.raw_margin + 1e-9) >= $threshold);
     def verdict($row; $pass):
       if ($row.expected | type) != "array" then "-"
       elif ($pass | not) then "-"

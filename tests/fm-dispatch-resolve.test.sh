@@ -355,6 +355,15 @@ assert_contains "$out" 'candidate: kimi:kimi-code/k3  provider=kimi  pred=unknow
 assert_not_contains "$out" '  profile:' "ambiguous emits no profile line"
 pass "ambiguous: a narrow top-2 margin hands the decision back"
 
+reset_log
+write_response "$RESPONSE" rule_2 0.4125 '{ "rule_1": 0.53, "rule_2": 0.13, "rule_3": 0.12, "rule_4": 0.11, "default": 0.11 }'
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
+assert_contains "$out" '  status: ambiguous' "a non-winning choice cannot clear on a wide top-2 margin"
+assert_contains "$out" '  reason: choice rule_2 is not the most probable option rule_1' "the ambiguity names the selected choice and probability leader"
+assert_contains "$out" 'candidate: pi:openai-codex/gpt-5.6-sol' "a non-winning choice preserves candidate evidence"
+assert_not_contains "$out" '  profile:' "a non-winning choice emits no profile line"
+pass "ambiguous: a choice below the probability leader hands the decision back"
+
 # --- the margin gate is invariant to option count and configurable ---------------
 reset_log
 write_response "$RESPONSE" rule_4 0.46 '{ "rule_1": 0.09, "rule_2": 0.08, "rule_3": 0.08, "rule_4": 0.57, "default": 0.18 }'
@@ -424,7 +433,7 @@ pass "beats: tie-break sentences, conditional pairs, non-cyclic chains, and no-b
 
 # --- escalate: captain approval ------------------------------------------------
 reset_log
-write_response "$RESPONSE" rule_3 0.95
+write_response "$RESPONSE" rule_3 0.95 '{ "rule_1": 0.01, "rule_2": 0.01, "rule_3": 0.96, "rule_4": 0.01, "default": 0.01 }'
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 expect_code 0 "$code" "escalate exits 0"
 assert_contains "$out" '  status: escalate' "approval-gated rule escalates"
@@ -435,7 +444,7 @@ pass "escalate: a rule declared approval: captain never yields a profile"
 
 # --- rule floor fails: fall through to default -------------------------------
 reset_log
-write_response "$RESPONSE" rule_1 0.97
+write_response "$RESPONSE" rule_1 0.97 '{ "rule_1": 0.96, "rule_2": 0.01, "rule_3": 0.01, "rule_4": 0.01, "default": 0.01 }'
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 assert_contains "$out" '  status: clear' "rule floor fall-through still resolves"
 assert_contains "$out" '  note: rule rule_1 floor model:fable below 20%: fall through to default' "rule floor fall-through is explained"
@@ -452,7 +461,7 @@ pass "rule floor: known shortfall falls through while unavailable evidence escal
 
 # --- declared provider and profile floor --------------------------------------
 reset_log
-write_response "$RESPONSE" rule_2 0.99
+write_response "$RESPONSE" rule_2 0.99 '{ "rule_1": 0.01, "rule_2": 0.96, "rule_3": 0.01, "rule_4": 0.01, "default": 0.01 }'
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 assert_contains "$out" 'candidate: pi:openai-codex/gpt-5.6-sol  provider=codex  scope=all_models  remaining=31%' "declared provider routes a Pi profile to the codex row"
 assert_contains "$out" 'candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=31%  spendPriority=-  runway=projected_exhaustion  -> not eligible: profile floor all_models below 50%' "profile floor makes a candidate ineligible with its reason"
@@ -556,7 +565,7 @@ pass "provider-wide and exact quota rows combine into one limiting candidate"
 
 # --- default choice ------------------------------------------------------------
 reset_log
-write_response "$RESPONSE" default 0.88
+write_response "$RESPONSE" default 0.88 '{ "rule_1": 0.01, "rule_2": 0.01, "rule_3": 0.01, "rule_4": 0.01, "default": 0.96 }'
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 assert_contains "$out" '  rule: default (No listed rule applies to this task.)' "default names the fixed neutral none option"
 assert_contains "$out" '  note: no rule matched' "default is explained"
@@ -567,7 +576,7 @@ pass "default: no rule matched resolves among the default profiles"
 reset_log
 TIE="$TMP_ROOT/tie.json"
 write_quota "$TIE" 0.5 0.5
-write_response "$RESPONSE" default 0.88
+write_response "$RESPONSE" default 0.88 '{ "rule_1": 0.01, "rule_2": 0.01, "rule_3": 0.01, "rule_4": 0.01, "default": 0.96 }'
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$TIE" run code out err "$BRIEF"
 assert_contains "$out" '  status: escalate' "tie escalates"
 assert_contains "$out" '  reason: genuine spendPriority tie' "tie is named"

@@ -36,11 +36,12 @@
 #   docs/configuration.md "Crew dispatch profiles" owns the declared fields and
 #   "Typed dispatch resolution" owns this tool's operator contract.
 #
-# Clear gate: the rule answer clears only when its top-2 probability margin
-#   (the most probable option minus the runner-up, bin/fm-jev-lib.sh's
-#   jev_choice_top2) is at least FM_JEV_DISPATCH_MARGIN, default 0.4. The
-#   derived confidence is still reported but no longer gates: it shrinks as
-#   rules are added ((n x peak - 1) / (n - 1)), while the margin does not.
+# Clear gate: the rule answer clears only when its choice is the most probable
+#   option and its top-2 probability margin (the most probable option minus
+#   the runner-up, bin/fm-jev-lib.sh's jev_choice_top2) is at least
+#   FM_JEV_DISPATCH_MARGIN, default 0.4. The derived confidence is still
+#   reported but no longer gates: it shrinks as rules are added
+#   ((n x peak - 1) / (n - 1)), while the margin does not.
 #
 # Rule precedence: a rule may declare `beats`, a non-empty array of
 #   {rule: <1-based rule number>, when?: <condition>} naming other rules it
@@ -77,7 +78,7 @@
 #       -> eligible | eligible, unranked: <reason> | not eligible: <reason>
 #     profile: --harness <h> [--model <m>] [--effort <e>]     (status clear only; effort is the assessed class)
 #   clear     -> pass the profile line to fm-spawn.sh unless you state a reason to override
-#   ambiguous -> top-2 margin below the threshold; decide as today from the probabilities
+#   ambiguous -> choice is not the most probable option or the top-2 margin is below threshold; decide as today from the probabilities
 #   escalate  -> the rule requires captain approval, no candidate is rankable, or a genuine tie
 #   error     -> API, network, response, or quota-axi failure; decide as today
 #   Every outcome exits 0 so an intake is never blocked by this tool.
@@ -759,6 +760,8 @@ RESULT=$(jq -n --arg margin "$MARGIN" --argjson lat "$LAT_MS" --arg none_criteri
     effort: {choice: $jev_effort, confidence: $effort.confidence, source: $effort.source}
   } as $ev |
   if $sel.invalid then $ev + {status: "error", reason: $sel.invalid}
+  elif $choice != $top2.first then
+    $ev + {status: "ambiguous", reason: "choice \($choice) is not the most probable option \($top2.first)", candidates: ($answer_use | map(assess(.)))}
   elif ($top2.raw_margin + 1e-9) < ($margin | tonumber) then
     $ev + {status: "ambiguous", reason: "top-2 margin \($top2.margin) below \($margin) (\($top2.first) vs \($top2.second))", candidates: ($answer_use | map(assess(.)))}
   elif $sel.escalate then

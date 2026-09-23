@@ -193,13 +193,19 @@ run_tool out err score "$TMP_ROOT/score.jsonl"
 assert_contains "$out" '  gate: margin>=0.4 ambiguous=2 pass=2 wrong=1' "the default threshold is the resolver's default"
 PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_JEV_DISPATCH_MARGIN=0.75 "$TOOL" score "$TMP_ROOT/score.jsonl" > "$TMP_ROOT/out" 2>&1
 assert_contains "$(cat "$TMP_ROOT/out")" '  gate: margin>=0.75 ambiguous=3 pass=1 wrong=0' "FM_JEV_DISPATCH_MARGIN sets the default threshold"
+ALTERNATE_RESOLVER="$TMP_ROOT/alternate-resolver"
+printf '%s\n' '#!/usr/bin/env bash' 'DEFAULT_MARGIN=0.9' > "$ALTERNATE_RESOLVER"
+chmod +x "$ALTERNATE_RESOLVER"
+PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_DISPATCH_RESOLVER="$ALTERNATE_RESOLVER" "$TOOL" score "$TMP_ROOT/score.jsonl" > "$TMP_ROOT/out" 2>&1
+assert_contains "$(cat "$TMP_ROOT/out")" '  gate: margin>=0.4 ambiguous=2 pass=2 wrong=1' "an alternate resolver environment variable cannot change replay scoring"
 printf '%s\n' \
   '{"case":"recorded","expected":["rule_2"],"rule":"rule_2","confidence":0.9,"probabilities":{"rule_1":0.9,"rule_2":0.05,"default":0.05}}' \
   '{"case":"argmax","expected":["rule_2"],"confidence":0.9,"probabilities":{"rule_1":0.9,"rule_2":0.05,"default":0.05}}' > "$TMP_ROOT/pick.jsonl"
-run_tool out err score --margin 0.5 --rows "$TMP_ROOT/pick.jsonl"
-assert_contains "$out" '  row: recorded first=rule_2 top=rule_1 second=default margin=0.85 confidence=0.9 expected=rule_2 margin-gate@0.5=pass verdict@0.5=ok' "first shows the recorded rule while top preserves probability ranking"
-assert_contains "$out" '  row: argmax first=rule_1 top=rule_1 second=default margin=0.85 confidence=0.9 expected=rule_2 margin-gate@0.5=pass verdict@0.5=wrong' "a row without a recorded rule falls back to the most probable option"
-assert_contains "$out" '  gate: margin>=0.5 ambiguous=0 pass=2 wrong=1' "the wrong count follows the judged pick"
+run_tool out err score --margin 0.3,0.5 --rows "$TMP_ROOT/pick.jsonl"
+assert_contains "$out" '  row: recorded first=rule_2 top=rule_1 second=default margin=0.85 confidence=0.9 expected=rule_2 margin-gate@0.3=ambiguous margin-gate@0.5=ambiguous verdict@0.3=- verdict@0.5=-' "a recorded choice below the leader is ambiguous at every threshold"
+assert_contains "$out" '  row: argmax first=rule_1 top=rule_1 second=default margin=0.85 confidence=0.9 expected=rule_2 margin-gate@0.3=pass margin-gate@0.5=pass verdict@0.3=wrong verdict@0.5=wrong' "a row without a recorded rule falls back to the most probable option"
+assert_contains "$out" '  gate: margin>=0.3 ambiguous=1 pass=1 wrong=1' "the gate counts a non-winning recorded choice as ambiguous"
+assert_contains "$out" '  gate: margin>=0.5 ambiguous=1 pass=1 wrong=1' "the same mismatch remains ambiguous at higher thresholds"
 cat > "$TMP_ROOT/top2.jsonl" <<'JSONL'
 {"case":"tie","probabilities":{"b":0.4,"a":0.4,"c":0.2}}
 {"case":"single","probabilities":{"only":1}}
