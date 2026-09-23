@@ -28,7 +28,8 @@
 # One task in one state is one item: a blocker that appears as an open
 # decision, a status line, and a status wake is kept once, as its
 # highest-priority form. Task-level status pointers, including coalesced path
-# lists, are omitted when that task has a detailed decision or outcome item.
+# lists, are omitted when that task has a detailed decision, outcome, or unread
+# status item.
 # Distinct open-decision keys remain
 # separate actions.
 # Fewer than two items makes no call: there is nothing to rank.
@@ -191,7 +192,14 @@ drain_items() {
       next
     }
     sec == "execution" && NF == 3 { exe[++ne] = "execution " $1 " owner=" $2 " next=" $3; eid[ne] = exe[ne]; next }
-    sec == "unread" && $0 != "" { unread[++nu] = "unread status " $0; uid[nu] = "unread|" $0; next }
+    sec == "unread" && $0 != "" {
+      unread[++nu] = "unread status " $0
+      uid[nu] = "unread|" $0
+      unread_task = $0
+      sub(/[[:space:]].*$/, "", unread_task)
+      if (unread_task != "") detailed_task[unread_task] = 1
+      next
+    }
     END {
       for (i = 1; i <= nd; i++) print "decision\t" did[i] "\t" dec[i]
       for (i = 1; i <= no; i++) print "outcome\t" oid[i] "\t" outcome[i]

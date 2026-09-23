@@ -138,6 +138,21 @@ test_jev_ranking_sends_only_ids_and_titles() {
   pass "a clear Jev answer ranks by probabilities and sends only ids and titles"
 }
 
+test_sparse_probabilities_omit_zero_probability_candidates() {
+  local code out candidate_lines
+  fresh_home
+  respond wiki-layer-plan-v1 0.9 '{"wiki-layer-plan-v1":1}'
+  KEY=$TS_KEY run_match code out get our wiki plan which I had in one prompt
+  expect_code 0 "$code" "a sparse probability map should remain advisory"
+  assert_contains "$out" "ranking: jev" "the valid sparse map was not used"$'\n'"$out"
+  assert_contains "$out" "1. wiki-layer-plan-v1 confidence=1" "the positive-probability candidate was omitted"$'\n'"$out"
+  candidate_lines=$(printf '%s\n' "$out" | grep -c 'confidence=')
+  [ "$candidate_lines" -eq 1 ] || fail "zero-probability candidates were printed as Jev results"$'\n'"$out"
+  jq -e 'select(.ranked_ids == ["wiki-layer-plan-v1"])' "$HOME_DIR/state/jev-intake-match.jsonl" >/dev/null \
+    || fail "the sparse ranking log included zero-probability candidates"
+  pass "sparse probability maps print only candidates with positive mass"
+}
+
 test_no_candidate_probability_falls_back_to_keywords() {
   local code out
   fresh_home
@@ -403,6 +418,7 @@ test_candidate_list_is_bounded() {
 test_usage
 test_off_falls_back_to_keyword_ranking
 test_jev_ranking_sends_only_ids_and_titles
+test_sparse_probabilities_omit_zero_probability_candidates
 test_no_candidate_probability_falls_back_to_keywords
 test_unoffered_probability_keys_use_the_single_pick_fallback
 test_probability_map_ranks_every_candidate_independently_of_choice_confidence

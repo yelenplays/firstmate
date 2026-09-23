@@ -292,6 +292,28 @@ test_task_level_status_pointers_yield_to_detailed_items() {
   pass "task-level status pointers yield to detailed decision and outcome items"
 }
 
+test_unread_status_items_dedupe_task_level_wakes() {
+  local out
+  fresh_home
+  {
+    printf '1790000000\t7\tsignal\ttask-note.status\tsignal: task-note.status\n'
+    printf '1790000001\t8\theartbeat\tfleet\t\n'
+    printf '%s\n' \
+      'UNREAD STATUS (new since last drain, not re-printed after this presentation):' \
+      'task-note note: captain resolved the deployment question'
+  } > "$DRAIN"
+  KEY='' run_helper out --local --drain-file "$DRAIN"
+  expect_code 0 "$RUN_CODE" "an unread status note should remain advisory"
+  [ "$(printf '%s\n' "$out" | grep -c .)" -eq 2 ] \
+    || fail "the unread status and heartbeat should be the only items"$'\n'"$out"
+  assert_contains "$out" "unread status task-note note: captain resolved the deployment question" \
+    "the unread status item was omitted"$'\n'"$out"
+  assert_contains "$out" "wake heartbeat fleet" "the distinct heartbeat was omitted"$'\n'"$out"
+  assert_not_contains "$out" "wake signal task-note.status" \
+    "the task-level pointer duplicated its unread detail"$'\n'"$out"
+  pass "an unread status item makes its task-level wake pointer redundant"
+}
+
 test_probability_maps_with_unoffered_keys_use_the_single_pick_fallback() {
   local out
   fresh_home
@@ -380,6 +402,7 @@ test_distinct_open_decision_keys_remain_separate
 test_keyed_status_wakes_and_tails_dedupe_in_both_key_positions
 test_status_and_meta_symlinks_are_not_read
 test_task_level_status_pointers_yield_to_detailed_items
+test_unread_status_items_dedupe_task_level_wakes
 test_local_items_ignore_network_state_limit
 test_status_recovery_sections_are_ranked_without_wakes_or_decisions
 test_unoffered_probability_keys_fall_back_to_the_chosen_item

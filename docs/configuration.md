@@ -676,6 +676,7 @@ Report, brief, and task bodies never do, and the local call log keeps only the r
 When a matched candidate is a `data/<id>` record, the backlog tasks whose body names that record are listed with it, found locally without another Jev question.
 If either backlog listing fails, the output names the failed source and skips Jev rather than treating an incomplete candidate set as empty.
 Probability maps may name only offered candidate ids and the `none?` sentinel; an unknown key makes Jev use the validated single-pick fallback.
+A Jev ranking prints only candidates with positive probability; zero-probability candidates are omitted.
 If a valid map gives no positive mass to an offered candidate, such as putting all mass on `none?`, the output uses a keyword ranking with `fallback=no-candidate-probability`.
 With no key, a failed call, a `none` answer, or confidence below the library floor, it says so and prints a plain keyword ranking instead.
 It is advisory and never opens, dispatches, or edits anything.
@@ -686,8 +687,9 @@ The [script header](../bin/fm-jev-intake-match.sh) owns candidate selection, lim
 On the locked path, `bin/fm-session-start.sh` prints at most five ACT FIRST lines right after the wake queue: the actionable items the digest already printed, in a fixed priority order, with no model or network call.
 [`bin/fm-jev-act-first.sh`](../bin/fm-jev-act-first.sh) owns item selection and that order, including the drain's one-shot `UNREAD STATUS` lines after decisions and execution but before wakes; these lines are compacted like the other items before a Jev request.
 The deferred startup network stage ranks the same items with one Jev call, off the digest's blocking path, and publishes that ranking separately so the network-check result never waits for it.
+If the ranker's fixed 20-second input wait expires before the drain arrives, the later handoff starts one detached ranker for that generation; generation markers prevent duplicate launches.
 When the ranking has at least one item it raises one `check: act-first` wake, and `bin/fm-startup-network.sh report` prints it; no items, no key, or a Jev error stays silent.
-Task-level status-pointer wakes, including coalesced path lists, are omitted when a detailed decision or outcome for that task is present.
+Task-level status-pointer wakes, including coalesced path lists, are omitted when a detailed decision, outcome, or unread status item for that task is present.
 Without a configured key the ranking is skipped and nothing is sent.
 Both lists are advisory: every presented wake still needs handling and acknowledgement.
 [`bin/fm-startup-network.sh`](../bin/fm-startup-network.sh)'s header owns the deferred step and its fixed 20-second input-handoff wait; regression coverage lives in [`tests/fm-jev-act-first.test.sh`](../tests/fm-jev-act-first.test.sh) and [`tests/fm-session-start.test.sh`](../tests/fm-session-start.test.sh).

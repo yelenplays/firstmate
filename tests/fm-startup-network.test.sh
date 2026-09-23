@@ -786,18 +786,19 @@ EOF
   [ ! -e "$home/state/.startup-network.act-first-input" ] \
     || fail "a ranking waiting for another generation received this one's drain output"
   act_first_status "$home" g-locked 1
-  rm -f "$home/state/.startup-network.act-first-waiting"
+  printf 'g-locked\n' > "$home/state/.startup-network.act-first-launched"
+  printf 'g-locked\n' > "$home/state/.startup-network.act-first-waiting"
   expected=$(act_first_drain)
   act_first_drain | run_stage "$home" "$root" act-first-input
   [ "$(head -n 1 "$home/state/.startup-network.act-first-input" 2>/dev/null)" = "generation=g-locked" ] \
-    || fail "the drain output was not persisted for its generation before the ranker waited"
+    || fail "the drain output was not persisted for its active generation"
   actual=$(tail -n +2 "$home/state/.startup-network.act-first-input")
   [ "$actual" = "$expected" ] || fail "the persisted drain output changed"$'\n'"$actual"
-  pass "fm-startup-network: generation input persists before the ranker waits"
+  pass "fm-startup-network: drain input persists for its locked generation"
 }
 
 test_act_first_rank_uses_the_home_timeout_and_wakes_once() {
-  local rec home root log calls rank_pid
+  local rec home root log calls rank_pid waited
   rec=$(new_world act-first-rank)
   IFS='|' read -r home root log <<EOF
 $rec
@@ -818,11 +819,17 @@ SH
   chmod +x "$root/bin/curl"
   printf 'TYPESAFE_API_KEY=ts-test-key\nJEV_TIMEOUT=3\n' > "$home/.env"
   act_first_status "$home" g-rank 1
-  act_first_drain | run_stage "$home" "$root" act-first-input
-  [ ! -e "$home/state/.startup-network.act-first-waiting" ] \
-    || fail "the input was not handed off before a ranker started waiting"
   (unset JEV_TIMEOUT; run_stage "$home" "$root" act-first-rank --generation g-rank) &
   rank_pid=$!
+  waited=0
+  while [ "$(cat "$home/state/.startup-network.act-first-waiting" 2>/dev/null)" != g-rank ] \
+    && [ "$waited" -lt 100 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  [ "$(cat "$home/state/.startup-network.act-first-waiting" 2>/dev/null)" = g-rank ] \
+    || fail "the ranker did not register its wait"
+  act_first_drain | run_stage "$home" "$root" act-first-input
   wait "$rank_pid"
   grep -A1 -x -- '--max-time' "$calls/argv" | grep -qx 3 \
     || fail "the ranking ignored the home JEV_TIMEOUT: $(tr '\n' ' ' < "$calls/argv")"
@@ -833,6 +840,66 @@ SH
   [ ! -e "$home/state/.startup-network.act-first-input" ] || fail "the consumed input was left behind"
   [ ! -e "$home/state/.startup-network.act-first-waiting" ] || fail "the finished ranking still claimed to be waiting"
   pass "fm-startup-network: the ranking honours the home timeout, publishes, and wakes once"
+}
+
+test_late_act_first_input_restarts_an_expired_ranker_once() {
+  local rec home root log calls rank_pid waited count
+  rec=$(new_world act-first-late-input)
+  IFS='|' read -r home root log <<EOF
+$rec
+EOF
+  calls="$home/curl-calls"
+  mkdir -p "$calls"
+  ln -sf "$(command -v jq)" "$root/bin/jq"
+  cat > "$root/bin/sleep" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-}" = 0.1 ]; then
+  : > '$home/sleep-seen'
+  /bin/sleep 0.001
+else
+  exec /bin/sleep "\$@"
+fi
+SH
+  chmod +x "$root/bin/sleep"
+  cat > "$root/bin/curl" <<SH
+#!/usr/bin/env bash
+out=''
+while [ \$# -gt 0 ]; do
+  case "\$1" in -o) out=\$2; shift 2 ;; *) shift ;; esac
+done
+cat > /dev/null
+printf 'call\\n' >> '$calls/count'
+printf '%s' '{"answers":{"first":{"type":"choice","choice":"i1","confidence":0.8,"probabilities":{"i1":0.8,"i2":0.2}}}}' > "\$out"
+printf '200'
+SH
+  chmod +x "$root/bin/curl"
+  printf 'TYPESAFE_API_KEY=ts-test-key\n' > "$home/.env"
+  act_first_status "$home" g-late 1
+  (run_stage "$home" "$root" act-first-rank --generation g-late) &
+  rank_pid=$!
+  wait "$rank_pid"
+  assert_present "$home/sleep-seen" "the primary ranker never entered its bounded input wait"
+  [ ! -e "$home/state/.startup-network.act-first-waiting" ] \
+    || fail "the expired ranker retained its waiting marker"
+  [ ! -e "$home/state/.startup-network.act-first-launched" ] \
+    || fail "the expired ranker retained its launch marker"
+
+  act_first_drain | run_stage "$home" "$root" act-first-input
+  act_first_drain | run_stage "$home" "$root" act-first-input
+  waited=0
+  while [ ! -s "$home/state/.startup-network.act-first" ] && [ "$waited" -lt 100 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  assert_present "$home/state/.startup-network.act-first" "the late handoff did not produce a ranking"
+  [ "$(head -n 1 "$home/state/.startup-network.act-first")" = generation=g-late ] \
+    || fail "the late ranking was published for the wrong generation"
+  count=$(grep -c . "$calls/count")
+  [ "$count" -eq 1 ] || fail "duplicate handoffs started $count rankers"
+  [ "$(grep -c $'\tcheck\tact-first\t' "$home/state/.wake-queue")" -eq 1 ] \
+    || fail "the late ranking did not raise exactly one wake"
+  [ ! -e "$home/state/.startup-network.act-first-input" ] || fail "the late input was not consumed"
+  pass "fm-startup-network: late input starts one ranker after the bounded wait expires"
 }
 
 test_act_first_rank_drops_a_result_after_its_generation_changes() {
@@ -941,6 +1008,7 @@ EOF
 test_wait_fails_without_a_published_stage
 test_act_first_input_is_generation_scoped_and_persisted_early
 test_act_first_rank_uses_the_home_timeout_and_wakes_once
+test_late_act_first_input_restarts_an_expired_ranker_once
 test_act_first_rank_drops_a_result_after_its_generation_changes
 test_timed_out_ranker_preserves_newer_generation_state
 test_report_omits_a_ranking_from_another_generation

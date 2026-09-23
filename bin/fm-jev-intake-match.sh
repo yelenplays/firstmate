@@ -43,7 +43,8 @@
 # Ranking: when the chosen id is an offered candidate at or above the library
 # confidence floor (JEV_CONFIDENCE_FLOOR, default 0.7), candidates are ranked
 # by the Choice probabilities, or the single pick when probabilities are
-# absent or malformed. Probability keys must be offered candidate ids or
+# absent or malformed. A valid probability map prints only candidates with
+# positive probability. Probability keys must be offered candidate ids or
 # `none?`; at least one candidate must have positive mass, or output uses the
 # keyword ranking. No key, a failed call, the `none?` choice, or low confidence
 # also produces a keyword ranking with a reason.
@@ -467,6 +468,7 @@ if [ "$decide_code" -eq 0 ] && [ -n "$response" ]; then
         'any($offered[]; ($p[.id] // 0) > 0)' >/dev/null 2>&1; then
         ranked=$(jq -c --argjson p "$probs" '
           map(. + {confidence: ($p[.id] // 0)})
+          | map(select(.confidence > 0))
           | sort_by(-.confidence)
         ' <<<"$offered")
       else
