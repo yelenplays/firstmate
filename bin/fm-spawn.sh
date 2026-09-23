@@ -3978,7 +3978,7 @@ claude*)
   fi
   ;;
 pi | pi-signed)
-  if [ "$KIND" != secondmate ]; then
+  if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
     pi_agent_dir=${PI_CODING_AGENT_DIR-$HOME/.pi/agent}
     [ -n "$pi_agent_dir" ] || { echo "error: PI_CODING_AGENT_DIR is empty" >&2; exit 1; }
     pi_agent_dir=$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).expanduser())' "$pi_agent_dir") \
