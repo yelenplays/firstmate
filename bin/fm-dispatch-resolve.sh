@@ -20,10 +20,10 @@
 #   is not, or when JEV_ROUTE=openrouter) with the project name plus either
 #   the whole brief or a compact intent summary as state, and a Choice
 #   question whose options are every rule's `when` from
-#   config/crew-dispatch.json plus one fixed generic none option. A rule's
-#   optional `beats` entries render as tie-break sentences on both options of
-#   each pair (see "Rule precedence" below). Jev returns the matched rule, a
-#   probability per option, and a confidence. The same
+#   config/crew-dispatch.json plus one fixed generic none option. Optional
+#   rule precedence follows the owner contract in docs/configuration.md
+#   "Crew dispatch profiles". Jev returns the matched rule, a probability per
+#   option, and a confidence. The same
 #   response carries a second typed Choice classifying the reasoning effort
 #   the brief itself needs (low|medium|high|xhigh|max). Everything after that
 #   is jq: the top-2 margin gate, the rule's declared `approval` and `floor`,
@@ -35,26 +35,6 @@
 #   non-clear result so firstmate keeps using the existing intake.
 #   docs/configuration.md "Crew dispatch profiles" owns the declared fields and
 #   "Typed dispatch resolution" owns this tool's operator contract.
-#
-# Clear gate: the rule answer clears only when its choice is the most probable
-#   option and its top-2 probability margin (the most probable option minus
-#   the runner-up, bin/fm-jev-lib.sh's jev_choice_top2) is at least
-#   FM_JEV_DISPATCH_MARGIN, default 0.4. The derived confidence is still
-#   reported but no longer gates: it shrinks as rules are added
-#   ((n x peak - 1) / (n - 1)), while the margin does not.
-#
-# Rule precedence: a rule may declare `beats`, a non-empty array of
-#   {rule: <1-based rule number>, when?: <condition>} naming other rules it
-#   wins over when both fit. Each entry adds "Tie-break: when rule_L also fits
-#   [and <when>], choose this option over rule_L." to the winner and the
-#   mirrored sentence to the loser, and the question then tells Jev to follow
-#   tie-breaks and to rank every fitting rule over `default`. Unconditional
-#   mutual beats, precedence cycles of three or more distinct rules (including
-#   conditional edges), self references, out-of-range numbers, and duplicate
-#   targets are configuration errors. Conditional two-rule pairs are allowed.
-#   Without any beats the question is unchanged.
-#   bin/fm-dispatch-replay.sh calibrates the margin and precedence on labeled
-#   briefs before they are trusted.
 #
 # Effort is dynamic, not static: a profile's declared `effort` is the ceiling
 #   Jev may not exceed (xhigh when undeclared, so max always needs an explicit
@@ -96,10 +76,8 @@
 #   Jev pick to state/jev-dispatch-shadow.jsonl and does not add spawn
 #   authority beyond today's optional clear-profile use.
 #   FM_JEV_DISPATCH_EXTRA=1 adds log-only home and deliverable questions.
-#   FM_JEV_DISPATCH_MARGIN (environment, then $FM_HOME/.env) sets the clear
-#   gate's top-2 margin, a number in (0, 1]; default 0.4, calibrated for rules
-#   without `beats`. A lower value such as 0.25 is valid only once `beats` are
-#   applied and bin/fm-dispatch-replay.sh re-verifies it at wrong=0.
+#   FM_JEV_DISPATCH_MARGIN configures the clear gate; docs/configuration.md
+#   "Typed dispatch resolution" owns its source, range, default, and calibration.
 #   FM_JEV_DISPATCH_COMPACT is read from the process environment first, else
 #   from $FM_HOME/.env via fmx_env_get; the environment wins. A truthy value
 #   sends a 400-800 character intent summary instead of the whole brief
@@ -190,9 +168,6 @@ fm_dispatch_compact_on() {
   [ "$(fm_dispatch_route)" = openrouter ]
 }
 
-# The clear gate: the top-2 probability margin of the rule answer, from
-# FM_JEV_DISPATCH_MARGIN (environment, then $FM_HOME/.env), default
-# DEFAULT_MARGIN. A value outside (0, 1] is a configuration error.
 fm_dispatch_margin() {
   local v=${FM_JEV_DISPATCH_MARGIN:-}
   if [ -z "$v" ]; then

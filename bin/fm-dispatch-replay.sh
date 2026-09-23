@@ -16,7 +16,10 @@
 #   forced off so a replay never writes $FM_HOME/state/jev-dispatch-shadow.jsonl.
 #   --rules replays a candidate rules file without touching the home's
 #   config/crew-dispatch.json (it becomes the only file in a private
-#   FM_CONFIG_OVERRIDE directory). Screen briefs before replaying them: the
+#   FM_CONFIG_OVERRIDE directory). Before the first call, --out is append-opened
+#   and must not resolve to the cases file, candidate rules file, or any case
+#   brief; resolver configuration errors or an opt-out stop the run with exit
+#   2 rather than emitting a row. Screen briefs before replaying them: the
 #   resolver sends the brief text, so never list a brief that carries secrets
 #   or private personal data.
 #   Cases file: one case per line, tab-separated
@@ -26,11 +29,9 @@
 #
 # score: reads JSON lines that carry a rule-answer `probabilities` object -
 #   the resolver's shadow log and `run` output both qualify - and, for each
-#   threshold, prints how many rows the top-2 margin gate would pass or hold
-#   as ambiguous next to the fixed 0.6 derived-confidence gate the resolver
-#   used before the margin gate. A row passes only when its recorded choice is
-#   the most probable option and its top-2 margin reaches the threshold. Rows
-#   with an `expected` label also count
+#   threshold, applies the resolver's clear gate (see docs/configuration.md
+#   "Typed dispatch resolution"), and compares it with the former fixed 0.6
+#   derived-confidence gate. Rows with an `expected` label also count
 #   `wrong`: rows that pass the gate with a pick outside the label. The pick
 #   is the row's recorded `rule` (the rule the resolver answered), or the
 #   most probable option when a row records none. The
