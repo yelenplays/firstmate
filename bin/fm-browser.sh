@@ -23,12 +23,14 @@
 # deadline in milliseconds (default 5000, max 120000).
 # Use --session or CHROME_DEVTOOLS_AXI_SESSION; the default session is refused,
 # and auto-connect, remote browser URLs, custom ports, and custom profiles are cleared.
-# Output is one compact JSON object with step, ok, verified, appeared, gone, and ms fields.
+# Output is one compact JSON object with step, ok, verified, appeared, gone, and ms fields, plus an optional reason.
 # `ok` means the action succeeded and any supplied expectation passed; `verified`
-# is true only when an explicit expectation passed. Appeared and gone contain at
-# most 12 redacted role|label pairs total. A failed target match returns
-# TARGET_NOT_FOUND. Snapshots, page text, titles, field values, browser errors,
-# and URLs never pass through to stdout or stderr.
+# is true only when an explicit expectation changed from unmet to met. If the
+# expectation was already true before the action, the result is ok but unverified
+# with reason `already true before action`. Appeared and gone contain at most 12
+# redacted role|label pairs total. A failed target match returns TARGET_NOT_FOUND.
+# Snapshots, page text, titles, field values, browser errors, and URLs never pass
+# through to stdout or stderr.
 # `--help` owns the public command and output contract.
 
 set -euo pipefail

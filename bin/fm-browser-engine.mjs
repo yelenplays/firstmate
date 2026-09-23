@@ -20,10 +20,8 @@ export function redact(value) {
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
     .replace(/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g, '[redacted]')
     .replace(/(?:TYPESAFE_API_KEY|OPENROUTER_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|FMX_PAIRING_TOKEN|FM_MAIL_PASS|AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|GITHUB_TOKEN|GH_TOKEN|JEV_API_KEY)=\S+/gi, '[redacted]')
-    .replace(/(^|[^A-Za-z0-9])((?:api[\s_-]*)?(?:token|key|secret|password|passcode|code|credential|auth(?:orization)?))(\s*[:=]\s*)([^\s"'<>;,|]+)/gi, '$1$2$3[redacted]')
-    .replace(/(^|[^A-Za-z0-9])((?:api[\s_-]*)?(?:token|key|secret|password|passcode|code|credential|auth(?:orization)?))(\s+)([A-Za-z0-9][A-Za-z0-9._~+/=-]{2,})/gi,
-      (match, prefix, keyword, space, value) => /[A-Za-z]/.test(value) && /\d/.test(value) || /^\d{3,}$/.test(value)
-        ? `${prefix}${keyword}${space}[redacted]` : match)
+    .replace(/(^|[^A-Za-z0-9])((?:token|key|secret|password|passcode|code|otp|api|credential|auth(?:orization)?))(\s*[:=]\s*)([^\s"'<>;,|]+)/gi, '$1$2$3[redacted]')
+    .replace(/(^|[^A-Za-z0-9])((?:token|key|secret|password|passcode|code|otp|api|credential|auth(?:orization)?))(\s+)([^\s"'<>;,|]+)/gi, '$1$2$3[redacted]')
     .replace(/(?:authorization:\s*)?bearer\s+[^\s"'<>]+/gi, '[redacted]')
     .replace(/(?:sk-or-|github_pat_|ghp_|cfut_)[^\s"'<>]+/gi, '[redacted]')
     .replace(/\bsk-[A-Za-z0-9_-]{16,}/g, '[redacted]')
@@ -205,6 +203,7 @@ export function sanitizeResult(result) {
     ...(Array.isArray(result?.gone) ? result.gone.map((label) => ['gone', label]) : []),
   ].slice(0, 12);
   for (const [kind, label] of pairs) safe[kind].push(redact(label).slice(0, 96));
+  if (result?.reason === 'already true before action') safe.reason = result.reason;
   if (!safe.ok) {
     safe.error = SAFE_ERRORS.has(result?.error) ? result.error : 'BROWSER_ACTION_FAILED';
   }
@@ -217,6 +216,7 @@ export async function executeStep(rawParams, pageApi) {
   let before = [];
   let after = [];
   let hasAfterSnapshot = false;
+  let expectationWasMetBefore = false;
   let result = { step: rawParams?.action ?? 'step', ok: false, verified: false };
   try {
     params = validateParams({ ...rawParams });
@@ -237,6 +237,12 @@ export async function executeStep(rawParams, pageApi) {
       }
       target = selected.target;
     }
+    if (params.expectation) {
+      const beforePath = params.expectation.kind === 'url-path'
+        ? await pageApi.eval(() => location.pathname)
+        : null;
+      expectationWasMetBefore = expectationMet(params.expectation, before, beforePath);
+    }
     if (params.action === 'click') await pageApi.click(`@${target.uid}`);
     if (params.action === 'fill') await pageApi.fill(`@${target.uid}`, params.value);
     if (params.action === 'select') await pageApi.fill(`@${target.uid}`, params.option);
@@ -253,7 +259,8 @@ export async function executeStep(rawParams, pageApi) {
       }
       if (expectationMet(params.expectation, after, currentPath)) {
         result.ok = true;
-        result.verified = Boolean(params.expectation);
+        result.verified = Boolean(params.expectation) && !expectationWasMetBefore;
+        if (params.expectation && expectationWasMetBefore) result.reason = 'already true before action';
         break;
       }
       if (Date.now() >= deadline) {
