@@ -219,7 +219,7 @@ case "$ROUTE" in *'route-fixture'*) fail 'a route variable value was written to 
 pass 'one named-session browser run replays, verifies, and keeps variable values out of route storage'
 OUT=$(FM_HOME="$TMP_HOME" "$SCRIPT" step --fill 'textbox=Route name' --value recorded-literal --expect 'heading=Name recorded' --record 127.0.0.1/recorded --record-var name --session "$SESSION") || fail "verified step was not recorded: $OUT"
 RECORDED=$(cat "$TMP_HOME/data/browser-routes/127.0.0.1/recorded.json")
-case "$RECORDED" in *'${name}'*) ;; *) fail 'recorded fill did not use its named variable placeholder' ;; esac
+case "$RECORDED" in *"\${name}"*) ;; *) fail 'recorded fill did not use its named variable placeholder' ;; esac
 case "$RECORDED" in *recorded-literal*) fail 'recorded input value was persisted' ;; esac
 pass 'verified steps append safely and replace fill text with a named variable'
 env -u FM_HOME FM_ROOT_OVERRIDE="$TMP_HOME" "$SCRIPT" step --press Tab --expect-title 'Firstmate ~ browser-route fixture' --record 127.0.0.1/root-override --session "$SESSION" >/dev/null || fail 'recording did not use FM_ROOT_OVERRIDE'
