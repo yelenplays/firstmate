@@ -22,9 +22,8 @@ It stops at the finding, routes the decision to firstmate, and applies only the 
 
 ## Review-round cap
 
-For one validation run's review step, rounds 1 to 3 follow the normal decision procedure below.
-After round 3, fix only error-severity findings required by accepted intent; warnings and simplifications become follow-up backlog work, and approve the gate when only those remain.
-If a further review round still finds error-severity in-intent issues, stop fixing and escalate to the captain under [Captain-facing escalation](#captain-facing-escalation), including whether the approach itself should change.
+For one validation run's review step, rounds 1 to 3 follow the normal decision procedure below. Do not permit a fourth fix or review round.
+After round 3, Firstmate explicitly decides the gate. If any in-scope error-severity finding remains, escalate to the captain under [Captain-facing escalation](#captain-facing-escalation), including whether the approach itself should change. Firstmate may approve only after filing every remaining non-error finding as follow-up work; there is no automatic approval.
 
 ## Decide
 
