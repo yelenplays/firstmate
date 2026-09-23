@@ -32,7 +32,7 @@ EOF
 }
 
 run_axi() {
-  FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" \
+  TZ=Europe/Berlin FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" \
     "$ROOT/bin/fm-tasks-axi.sh" "$@"
 }
 
@@ -43,7 +43,7 @@ run_history() {
 }
 
 run_captain() {
-  FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" \
+  TZ=Europe/Berlin FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" \
     FM_STATE_OVERRIDE="$HOME_DIR/state" "$ROOT/bin/fm-captain-hold.sh" "$@"
 }
 
@@ -157,7 +157,7 @@ test_unclassified_reports_and_verbatim_decisions_are_logged() {
   mkdir -p "$HOME_DIR/data/unclassified-report"
   printf '# Finished report\n' > "$HOME_DIR/data/unclassified-report/report.md"
   run_axi add unclassified-report 'A report without project metadata' --kind scout --start >/dev/null
-  TZ=Europe/Berlin run_axi "done" unclassified-report --report data/unclassified-report/report.md >/dev/null
+  run_axi "done" unclassified-report --report data/unclassified-report/report.md >/dev/null
 
   run_axi add decision-marker 'A decision without project metadata' --kind captain --start >/dev/null
   run_captain hold decision-marker --reason 'Needs a captain answer' >/dev/null
