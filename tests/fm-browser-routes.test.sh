@@ -112,8 +112,11 @@ console.log('offline route format, variables, resume, confirmation, selector sem
 JS
 pass 'route format, interpolation, resume, confirmation, and one-run sequencing are covered'
 
-fm_live_gate default-on FM_BROWSER_ROUTES_LIVE chrome-devtools-axi node python3
 TMP_HOME=$(fm_test_tmproot fm-browser-routes)
+if FM_HOME="$TMP_HOME" "$SCRIPT" step --fill 'textbox=Route name' --value ignored --expect 'heading=Name recorded' --record 127.0.0.1/ignored --record-var toKEN --session browser-routes-test >/dev/null 2>&1; then
+  fail 'mixed-case secret-like record variable was accepted'
+fi
+fm_live_gate default-on FM_BROWSER_ROUTES_LIVE chrome-devtools-axi node python3
 mkdir -p "$TMP_HOME/data/browser-routes/127.0.0.1"
 PORT=$((40000 + $$ % 20000))
 python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$ROOT/tests/fixtures/browser-steps" >/dev/null 2>&1 &
@@ -157,7 +160,7 @@ export CHROME_DEVTOOLS_AXI_SESSION="$SESSION"
 chrome-devtools-axi start >/dev/null 2>&1 || fail 'could not start the named isolated browser session'
 STARTED=1
 printf 'await page.open("http://127.0.0.1:%s/routes.html");\nconsole.log("ready");\n' "$PORT" | chrome-devtools-axi run >/dev/null 2>&1 || fail 'could not open the route fixture'
-OUT=$(FM_HOME="$TMP_HOME" "$SCRIPT" route run 127.0.0.1/fixture --var name=route-fixture --session "$SESSION") || fail "route did not replay: $OUT"
+OUT=$(env -u FM_HOME FM_ROOT_OVERRIDE="$TMP_HOME" "$SCRIPT" route run 127.0.0.1/fixture --var name=route-fixture --session "$SESSION") || fail "route did not replay from FM_ROOT_OVERRIDE: $OUT"
 node -e 'const r=JSON.parse(process.argv[1]); if (!r.ok || r.completed.join(",") !== "name,reveal,handoff") process.exit(1)' "$OUT" || fail "route output did not confirm the full sequence: $OUT"
 ROUTE=$(cat "$TMP_HOME/data/browser-routes/127.0.0.1/fixture.json")
 case "$ROUTE" in *'route-fixture'*) fail 'a route variable value was written to disk' ;; esac
@@ -167,6 +170,8 @@ RECORDED=$(cat "$TMP_HOME/data/browser-routes/127.0.0.1/recorded.json")
 case "$RECORDED" in *'${name}'*) ;; *) fail 'recorded fill did not use its named variable placeholder' ;; esac
 case "$RECORDED" in *recorded-literal*) fail 'recorded input value was persisted' ;; esac
 pass 'verified steps append safely and replace fill text with a named variable'
+env -u FM_HOME FM_ROOT_OVERRIDE="$TMP_HOME" "$SCRIPT" step --press Tab --expect-title 'Firstmate ~ browser-route fixture' --record 127.0.0.1/root-override --session "$SESSION" >/dev/null || fail 'recording did not use FM_ROOT_OVERRIDE'
+[ -f "$TMP_HOME/data/browser-routes/127.0.0.1/root-override.json" ] || fail 'recording was not written beneath FM_ROOT_OVERRIDE'
 OUT=$(FM_HOME="$TMP_HOME" "$SCRIPT" step --press Tab --expect-title 'Firstmate ~ browser-route fixture' --record 127.0.0.1/titled --session "$SESSION") || fail "tilde-containing title expectation was not recorded: $OUT"
 node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); const t=r.steps[0].expect.title; if (t.role !== "title" || t.operator !== "~" || t.label !== "Firstmate ~ browser-route fixture") process.exit(1)' "$TMP_HOME/data/browser-routes/127.0.0.1/titled.json" || fail 'recorded title expectation changed its substring semantics'
 pass 'title expectations preserve embedded tildes when recorded'

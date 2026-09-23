@@ -55,6 +55,7 @@ if [ "${1:-}" = '--help' ] || [ "${1:-}" = '-h' ]; then
 fi
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+BROWSER_HOME=${FM_HOME:-${FM_ROOT_OVERRIDE:-$ROOT}}
 ENGINE="$ROOT/bin/fm-browser-engine.mjs"
 command -v node >/dev/null 2>&1 || fail 'node is required'
 
@@ -69,7 +70,7 @@ if [ "${1:-}" = 'route' ]; then
   ROUTE_HOST=${BASH_REMATCH[1]}
   [ "$ROUTE_HOST" != '.' ] && [ "$ROUTE_HOST" != '..' ] || fail 'invalid route host'
   ROUTE_NAME=${BASH_REMATCH[2]}
-  ROUTE_ROOT=${FM_HOME:-$ROOT}/data/browser-routes
+  ROUTE_ROOT=$BROWSER_HOME/data/browser-routes
   ROUTE_FILE="$ROUTE_ROOT/$ROUTE_HOST/$ROUTE_NAME.json"
   [[ ! -L "$ROUTE_ROOT" && ! -L "$ROUTE_ROOT/$ROUTE_HOST" && ! -L "$ROUTE_FILE" ]] || fail 'route path cannot contain symbolic links'
   [ -f "$ROUTE_FILE" ] || fail 'route file not found'
@@ -270,9 +271,10 @@ if [ -n "$RECORD_ID" ]; then
   RECORD_NAME=${BASH_REMATCH[2]}
   [ "$ACTION" != 'fill' ] || [ -n "$RECORD_VAR" ] || fail 'recording a fill requires --record-var to avoid storing a value'
   [ -n "$EXPECT_KIND" ] || fail '--record requires an explicit expectation so only verified steps are saved'
-  [ ! -L "${FM_HOME:-$ROOT}/data/browser-routes" ] || fail 'route storage cannot be a symbolic link'
+  [ ! -L "$BROWSER_HOME/data/browser-routes" ] || fail 'route storage cannot be a symbolic link'
   [ -z "$RECORD_VAR" ] || [ "$ACTION" = 'fill' ] || fail '--record-var is only valid with --fill'
-  [ -z "$RECORD_VAR" ] || [[ "$RECORD_VAR" != *[Ss]ecret* && "$RECORD_VAR" != *[Tt]oken* && "$RECORD_VAR" != *[Pp]ass* && "$RECORD_VAR" != *[Kk]ey* ]] || fail 'secret-like route variable names are not allowed'
+  RECORD_VAR_LOWER=$(printf '%s' "$RECORD_VAR" | tr '[:upper:]' '[:lower:]')
+  [ -z "$RECORD_VAR" ] || [[ "$RECORD_VAR_LOWER" != *secret* && "$RECORD_VAR_LOWER" != *token* && "$RECORD_VAR_LOWER" != *pass* && "$RECORD_VAR_LOWER" != *key* ]] || fail 'secret-like route variable names are not allowed'
 else
   [ -z "$RECORD_VAR" ] || fail '--record-var requires --record'
 fi
@@ -385,7 +387,7 @@ if ! {
 fi
 
 SAFE_OUTPUT=$(
-  FM_BROWSER_ENGINE="$ENGINE" FM_BROWSER_RAW_OUTPUT="$RAW_OUTPUT" FM_BROWSER_HOME="${FM_HOME:-$ROOT}" \
+  FM_BROWSER_ENGINE="$ENGINE" FM_BROWSER_RAW_OUTPUT="$RAW_OUTPUT" FM_BROWSER_HOME="$BROWSER_HOME" \
     node --input-type=module 2>/dev/null <<'NODE'
 import { readFileSync, writeFileSync, renameSync, mkdirSync, lstatSync } from "node:fs";
 import path from "node:path";
