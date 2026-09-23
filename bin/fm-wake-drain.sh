@@ -228,6 +228,7 @@ assert_watcher_liveness() {
 }
 
 record_history_batch() {
+  local history_data_override=${FM_DATA_OVERRIDE:-$FM_HOME/data}
   [ -n "$RAW_ROWS" ] || return 0
   DRAIN_TMP=$(mktemp "$STATE/.history-wake-batch.XXXXXX") || {
     printf 'wake drain: could not stage the history record for the presented wake batch\n' >&2
@@ -235,7 +236,7 @@ record_history_batch() {
   }
   if ! printf '%s\n' "$RAW_ROWS" > "$DRAIN_TMP" \
     || ! FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" \
-      FM_DATA_OVERRIDE="${FM_DATA_OVERRIDE:-$FM_HOME/data}" FM_STATE_OVERRIDE="$STATE" \
+      FM_DATA_OVERRIDE="$history_data_override" FM_STATE_OVERRIDE="$STATE" \
       "$SCRIPT_DIR/fm-history.sh" wakes --rows-file "$DRAIN_TMP" \
         --ack-through "$ACK_THROUGH" --actor "$ACTOR" >/dev/null; then
     rm -f -- "$DRAIN_TMP"
@@ -248,8 +249,9 @@ record_history_batch() {
 }
 
 record_history_acknowledgement() {
+  local history_data_override=${FM_DATA_OVERRIDE:-$FM_HOME/data}
   if ! FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" \
-    FM_DATA_OVERRIDE="${FM_DATA_OVERRIDE:-$FM_HOME/data}" FM_STATE_OVERRIDE="$STATE" \
+    FM_DATA_OVERRIDE="$history_data_override" FM_STATE_OVERRIDE="$STATE" \
     "$SCRIPT_DIR/fm-history.sh" wake-ack "$ACK_THROUGH" "$ACK_REMOVED" "$ACTOR" >/dev/null; then
     printf 'wake drain: could not journal the wake acknowledgement\n' >&2
     return 1
