@@ -1625,14 +1625,14 @@ SH
 
 test_task_launch_does_not_cache_key_from_home_env() {
   local rec id out status launch key
-  id=home-env-key-launch-z23
+  id='home-env-key-launch-z23'
   key='ts-spawn-env-file-key-must-not-leak'
   rec=$(make_spawn_case home-key-file-from-env claude "$id")
   read_case_record "$rec"
   rm -f "$HOME_DIR/config/typesafe-key"
   printf 'TYPESAFE_API_KEY=%s\n' "$key" > "$HOME_DIR/.env"
 
-  out=$(TYPESAFE_API_KEY= OPENROUTER_API_KEY= \
+  out=$(TYPESAFE_API_KEY='' OPENROUTER_API_KEY='' \
     run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
   status=$?
   expect_code 0 "$status" "a home .env key does not block worker launch"

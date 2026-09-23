@@ -133,7 +133,7 @@ SH
   printf 'TYPESAFE_API_KEY=%s\n' "$KEY-env-file" > "$HOME_DIR/.env"
   respond '{"answers":{"yes":{"noul":0.97}}}'
   reset_log
-  OPENROUTER_API_KEY="$openrouter_key" JEV_TEST_API_KEY= run_jev code out err yes \
+  OPENROUTER_API_KEY="$openrouter_key" JEV_TEST_API_KEY='' run_jev code out err yes \
     "ordinary task facts" "Is the helper environment clean?"
   assert_equals "$code" 0 "a request with keys resolved from env and .env succeeds"
   assert_equals "$out" "yes: yes p=0.97 conf=0.94" "the command still returns its ordinary answer"
@@ -892,7 +892,7 @@ test_privacy_guard_refuses_before_sending() {
 
   printf 'OPENROUTER_API_KEY=%s\n' "$openrouter_key" > "$HOME_DIR/.env"
   reset_log
-  OPENROUTER_API_KEY= run_jev code out err yes \
+  OPENROUTER_API_KEY='' run_jev code out err yes \
     "provider credential $openrouter_key" "Done?"
   assert_equals "$code" 1 "an OpenRouter key from the resolved .env is refused"
   assert_not_contains "$err" "$openrouter_key" "the .env OpenRouter key is never echoed"
@@ -900,7 +900,7 @@ test_privacy_guard_refuses_before_sending() {
 
   batch_json=$(jq -cn --arg id "$openrouter_key" '{state:"safe",questions:[{id:$id,type:"yes",q:"Done?"}]}')
   reset_log
-  OPENROUTER_API_KEY= run_jev code out err batch <<<"$batch_json"
+  OPENROUTER_API_KEY='' run_jev code out err batch <<<"$batch_json"
   assert_equals "$code" 1 "an OpenRouter key used as a batch id is refused"
   assert_contains "$err" "Jev API key itself" "a secret batch id is refused by the privacy guard"
   assert_not_contains "$err" "$openrouter_key" "the secret batch id is never echoed"
@@ -1012,7 +1012,7 @@ test_key_discovery_needs_no_env_setup() {
   JEV="$main/bin/fm-jev.sh"
   printf 'TYPESAFE_API_KEY=%s\n' "$KEY-home" > "$HOME_DIR/.env"
   reset_log
-  JEV_TEST_API_KEY= JEV_TEST_HOME="$HOME_DIR" run_jev code out err yes s q
+  JEV_TEST_API_KEY='' JEV_TEST_HOME="$HOME_DIR" run_jev code out err yes s q
   assert_equals "$code" 0 "an FM_HOME .env key is accepted"
   assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-home" "FM_HOME .env wins over checkout .env"
   reset_log
@@ -1022,7 +1022,7 @@ test_key_discovery_needs_no_env_setup() {
 
   printf 'OTHER_SETTING=value\n' > "$HOME_DIR/.env"
   reset_log
-  JEV_TEST_API_KEY= JEV_TEST_HOME="$HOME_DIR" run_jev code out err yes s q
+  JEV_TEST_API_KEY='' JEV_TEST_HOME="$HOME_DIR" run_jev code out err yes s q
   assert_equals "$code" 0 "an empty FM_HOME key falls back to the owning checkout .env"
   assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-own" "the owning checkout .env is the final fallback"
 
