@@ -65,9 +65,6 @@
 #     flow or block value, so escaped quotes inside it never end the redaction
 #     early, and every GitHub token prefix (ghp_, gho_, ghu_, ghs_, ghr_,
 #     github_pat_) is stripped.
-#   fm_jev_has_key
-#     Succeeds when a TypeSafe or OpenRouter key is present in the environment
-#     or $FM_HOME/.env; never prints the key.
 #   fm_jev_iso_now
 #     Prints the current UTC time as an ISO-8601 second timestamp.
 #   fm_jev_supervision_timeout
@@ -672,20 +669,6 @@ fm_jev_log_call() {
 
 fm_jev_iso_now() {
   date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf 'unknown'
-}
-
-fm_jev_has_key() {
-  local home typesafe_key openrouter_key
-  home=$(_fm_jev_home)
-  typesafe_key=${TYPESAFE_API_KEY:-}
-  openrouter_key=${OPENROUTER_API_KEY:-}
-  if [ -z "$typesafe_key" ]; then
-    typesafe_key=$(fmx_env_get TYPESAFE_API_KEY "$home/.env")
-  fi
-  if [ -z "$openrouter_key" ]; then
-    openrouter_key=$(fmx_env_get OPENROUTER_API_KEY "$home/.env")
-  fi
-  [ -n "$typesafe_key" ] || [ -n "$openrouter_key" ]
 }
 
 # --- supervision consults: timeout and outbound data boundary ---------------

@@ -136,7 +136,7 @@ log_call() {
   fm_jev_log_call "$payload" "$LOG_PATH" || true
 }
 
-fm_jev_has_key || fail "off (no TYPESAFE_API_KEY or OPENROUTER_API_KEY)"
+fm_jev_key_configured || fail "off (no TYPESAFE_API_KEY or OPENROUTER_API_KEY)"
 
 free_text=0
 payload_mode=structured
