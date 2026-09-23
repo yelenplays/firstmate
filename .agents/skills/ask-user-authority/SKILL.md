@@ -20,6 +20,12 @@ Firstmate always applies this judgment, decides any finding that is unambiguous 
 The implementation worker never decides or answers its own ask-user finding.
 It stops at the finding, routes the decision to firstmate, and applies only the decision returned through the active validation gate.
 
+## Review-round cap
+
+For one validation run's review step, rounds 1 to 3 follow the normal decision procedure below.
+After round 3, fix only error-severity findings required by accepted intent; warnings and simplifications become follow-up backlog work, and approve the gate when only those remain.
+If a further review round still finds error-severity in-intent issues, stop fixing and escalate to the captain under [Captain-facing escalation](#captain-facing-escalation), including whether the approach itself should change.
+
 ## Decide
 
 1. Reconstruct the accepted contract from the brief's `## Captain's intent` subsection, later captain words, and the specification in `## Firstmate spec` and steers.
