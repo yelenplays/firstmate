@@ -114,7 +114,25 @@ drain_items() {
     /^RECORD DIVERGENCE \(/ { sec = "divergence"; next }
     /^UNFINISHED EXECUTION \(/ { sec = "execution"; next }
     /^[A-Z][A-Z ]+[ (:]/ && $0 !~ /\t/ { sec = ""; next }
-    function verb(s) { sub(/^\[[^]]*\][[:space:]]*/, "", s); sub(/[[:space:]]*(\[|:).*$/, "", s); return s }
+    function corr_token(s) { return length(s) == 21 && s ~ /^corr=[A-Fa-f0-9]+$/ }
+    function strip_corr_tokens(s, words, count, i, normalized) {
+      if (s !~ /corr=/) return s
+      count = split(s, words, /[[:space:]]+/)
+      normalized = words[1]
+      for (i = 2; i <= count; i++) if (!corr_token(words[i])) normalized = normalized " " words[i]
+      return normalized
+    }
+    function verb(s) {
+      sub(/^\[[^]]*\][[:space:]]*/, "", s)
+      sub(/[[:space:]]*(\[|:).*$/, "", s)
+      return strip_corr_tokens(s)
+    }
+    function status_event(s, prefix) {
+      prefix = s
+      if (!sub(/:.*/, "", prefix)) return 0
+      prefix = strip_corr_tokens(prefix)
+      return prefix ~ /^[a-z-]+( \[[^]]*\])?$/
+    }
     function event_key(s, prefix, note, key) {
       prefix = s
       sub(/:.*/, "", prefix)
@@ -167,7 +185,7 @@ drain_items() {
           wake_pointer_task[nw] = wake_task
         }
       }
-      if (!wake_is_pointer[nw] && $3 == "signal" && $4 ~ /\.status$/ && p ~ /^[a-z-]+( \[[^]]*\])?:/) {
+      if (!wake_is_pointer[nw] && $3 == "signal" && $4 ~ /\.status$/ && status_event(p)) {
         t = status_task($4)
         wid[nw] = event_identity(t, p)
       }

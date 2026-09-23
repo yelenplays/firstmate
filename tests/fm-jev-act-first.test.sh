@@ -203,6 +203,31 @@ test_keyed_status_wakes_and_tails_dedupe_in_both_key_positions() {
   pass "keyed status wakes and tails deduplicate across key positions"
 }
 
+test_correlated_status_wakes_dedupe_before_and_after_keys() {
+  local out
+  fresh_home
+  {
+    printf '1790000000\t7\tsignal\ttask-before.status\tneeds-decision corr=0123456789abcdef [key=choice]: choose a color\n'
+    printf '1790000001\t8\tsignal\ttask-after.status\tneeds-decision [key=choice] corr=abcdef0123456789: choose a route\n'
+    printf '%s\n' \
+      'OPEN DECISIONS (still open):' \
+      'task-before [key=choice] needs-decision: choose a color' \
+      'task-after [key=choice] needs-decision: choose a route' \
+      'OPEN DECISIONS: close one by answering it'
+  } > "$DRAIN"
+  KEY='' run_helper out --local --drain-file "$DRAIN"
+  expect_code 0 "$RUN_CODE" "correlated decision wakes should deduplicate"
+  [ "$(printf '%s\n' "$out" | grep -c .)" -eq 2 ] \
+    || fail "correlated status wakes were ranked beside their open decisions"$'\n'"$out"
+  assert_contains "$out" "decision task-before [key=choice] needs-decision: choose a color" \
+    "the decision with corr before its key was omitted"$'\n'"$out"
+  assert_contains "$out" "decision task-after [key=choice] needs-decision: choose a route" \
+    "the decision with corr after its key was omitted"$'\n'"$out"
+  assert_not_contains "$out" "wake signal" \
+    "a correlated status wake was not deduplicated"$'\n'"$out"
+  pass "correlated decision wakes deduplicate on either side of the key"
+}
+
 test_status_and_meta_symlinks_are_not_read() {
   local out outside_status outside_meta
   fresh_home
@@ -422,6 +447,7 @@ test_ranks_collected_items
 test_local_lists_priority_order_without_a_call
 test_distinct_open_decision_keys_remain_separate
 test_keyed_status_wakes_and_tails_dedupe_in_both_key_positions
+test_correlated_status_wakes_dedupe_before_and_after_keys
 test_status_and_meta_symlinks_are_not_read
 test_task_level_status_pointers_yield_to_detailed_items
 test_unread_status_items_dedupe_task_level_wakes
