@@ -1087,7 +1087,13 @@ worker_supervisor_remove_stale_lock() {
   [ -d "$WORKER_SUPERVISOR_LOCK" ] && [ ! -L "$WORKER_SUPERVISOR_LOCK" ] || return 1
   worker_supervisor_lock_owner_status "$WORKER_SUPERVISOR_LOCK"
   status=$?
-  [ "$status" -eq 1 ] || return 1
+  case "$status" in
+    1) ;;
+    2)
+      [ ! -e "$WORKER_SUPERVISOR_LOCK/owner" ] && [ ! -L "$WORKER_SUPERVISOR_LOCK/owner" ] || return 1
+      ;;
+    *) return 1 ;;
+  esac
   for file in "$WORKER_SUPERVISOR_LOCK/owner" "$WORKER_SUPERVISOR_LOCK"/.owner.*; do
     [ -e "$file" ] || [ -L "$file" ] || continue
     [ -f "$file" ] && [ ! -L "$file" ] || return 1
@@ -1131,7 +1137,7 @@ worker_supervisor_acquire_lock() { # 0=acquired, 2=another owner, 3=indeterminat
     status=$?
     case "$status" in
       0) return 2 ;;
-      1)
+      1|2)
         if ! worker_supervisor_lock_recent; then
           if worker_supervisor_remove_stale_lock; then continue; fi
           if [ ! -e "$WORKER_SUPERVISOR_LOCK" ] && [ ! -L "$WORKER_SUPERVISOR_LOCK" ]; then continue; fi
@@ -1144,7 +1150,6 @@ worker_supervisor_acquire_lock() { # 0=acquired, 2=another owner, 3=indeterminat
           esac
         fi
         ;;
-      2) ;;
       *) return 3 ;;
     esac
     sleep 0.1
@@ -1410,7 +1415,7 @@ case "${1:-}" in
     shift
     worker_cleanup_main "$@"
     ;;
-  --help|-h)
+  --help)
     cat <<'TXT'
 Usage: fm-remote-job-worker.sh --cleanup [--allow-active]
        fm-remote-job-worker.sh --help

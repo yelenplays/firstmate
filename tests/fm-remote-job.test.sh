@@ -883,6 +883,27 @@ kill -TERM "$RACE_STALE_SUPERVISOR_PID" 2>/dev/null || true
 wait "$RACE_STALE_SUPERVISOR_PID" 2>/dev/null || true
 assert_absent "$RACE_STATE/supervisor.lock" "stale-lock fixture left supervisor ownership behind"
 RACE_SUPERVISOR_PIDS=()
+mkdir -m 700 "$RACE_STATE/supervisor.lock"
+touch -t 200001010000 "$RACE_STATE/supervisor.lock"
+HOME="$RACE_HOME" FM_ROOT_OVERRIDE="$RACE_ROOT" FM_REMOTE_JOB_STATE_ROOT="$RACE_STATE" \
+  FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux "$RACE_ROOT/bin/fm-remote-job-worker.sh" \
+  > "$TMP_ROOT/ownerless-supervisor.out" 2>&1 &
+RACE_OWNERLESS_SUPERVISOR_PID=$!
+RACE_SUPERVISOR_PIDS+=("$RACE_OWNERLESS_SUPERVISOR_PID")
+for _ in $(seq 1 100); do
+  owner_pid=$(head -n 1 "$RACE_STATE/supervisor.lock/owner" 2>/dev/null || true)
+  [ "$owner_pid" = "$RACE_OWNERLESS_SUPERVISOR_PID" ] && break
+  sleep 0.05
+done
+[ "$owner_pid" = "$RACE_OWNERLESS_SUPERVISOR_PID" ] \
+  || fail "the supervisor did not recover an aged ownerless lock: $(<"$TMP_ROOT/ownerless-supervisor.out")"
+command=$(fm_remote_job_process_command "$RACE_OWNERLESS_SUPERVISOR_PID" 2>/dev/null || true)
+case "$command" in *"$RACE_SUPERVISOR") ;; *) fail "recovered ownerless lock does not match a live supervisor" ;; esac
+pass "a supervisor reclaims an aged ownerless lock after publication grace"
+kill -TERM "$RACE_OWNERLESS_SUPERVISOR_PID" 2>/dev/null || true
+wait "$RACE_OWNERLESS_SUPERVISOR_PID" 2>/dev/null || true
+assert_absent "$RACE_STATE/supervisor.lock" "ownerless-lock fixture left supervisor ownership behind"
+RACE_SUPERVISOR_PIDS=()
 unset FM_TEST_SUPERVISOR_PID_LOG
 
 # Cleanup must refuse before touching any queue with a live lane. The active-job
