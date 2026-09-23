@@ -147,7 +147,7 @@ parse_flags() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --json) JSON=1; FLAG_SHIFT=$((FLAG_SHIFT + 1)); shift ;;
-      -h|--help) usage; exit 0 ;;
+      --help) usage; exit 0 ;;
       *) return 0 ;;
     esac
   done
@@ -155,6 +155,7 @@ parse_flags() {
 
 FLAG_SHIFT=0
 [ $# -gt 0 ] || { usage >&2; exit 1; }
+if [ "$1" = --help ]; then usage; exit 0; fi
 SUB=$1
 shift
 FLAG_SHIFT=0

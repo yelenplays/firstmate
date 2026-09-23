@@ -68,8 +68,10 @@ run_jev() {
 }
 
 test_help_is_short_and_complete() {
-  local out lines
+  local out lines top_help
   out=$("$JEV" yes --help)
+  top_help=$("$JEV" --help) || fail "top-level --help should exit 0"
+  assert_equals "$top_help" "$out" "top-level --help prints the CLI interface"
   lines=$(printf '%s\n' "$out" | wc -l)
   lines=${lines// /}
   [ "$lines" -lt 15 ] || fail "--help is $lines lines, want under 15"
@@ -315,7 +317,7 @@ test_errors_exit_one_with_one_line() {
     "an invalid score probability prints one stderr line"
   assert_equals "$out" "" "an invalid score probability prints no answer"
 
-  for args in "frob" "pick s q only" "yes s" "--min 2 yes s q" "--id x pick s q A B" \
+  for args in "frob" "-h" "pick s q only" "yes s" "--min 2 yes s q" "--id x pick s q A B" \
     "--json yes s q" "yes --min 0.7 s q" "yes s --json q"; do
     # shellcheck disable=SC2086 # Deliberate word splitting of the case args.
     run_jev code out err $args
@@ -349,7 +351,7 @@ JSON
 }
 
 test_privacy_guard_refuses_before_sending() {
-  local code out err big openrouter_key large_state large_question large_meaning private_key boundary_state batch_json
+  local code out err big openrouter_key large_state large_question large_meaning private_key boundary_state batch_json credential
   respond '{"answers":{"yes":{"noul":0.9}}}'
   reset_log
   big=$(head -c 4097 /dev/zero | tr '\0' a)
@@ -412,6 +414,16 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "secret-shaped state is refused"
   assert_contains "$err" "secret" "the refusal says why"
   assert_absent "$LOG/body" "a secret-shaped state is never sent"
+
+  for credential in \
+    'aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY' \
+    'aWs_AcCeSs_KeY_Id : AKIAIOSFODNN7EXAMPLE'; do
+    reset_log
+    run_jev code out err yes "$credential" "Done?"
+    assert_equals "$code" 1 "an AWS credential assignment is refused"
+    assert_contains "$err" "secret" "the AWS credential refusal says why"
+    assert_absent "$LOG/body" "an AWS credential assignment is never sent"
+  done
 
   run_jev code out err pick "state" "Which?" "a=Bearer abcdef123456" b
   assert_equals "$code" 1 "secret-shaped option text is refused"
