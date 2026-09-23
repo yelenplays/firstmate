@@ -1,0 +1,6 @@
+history-find:
+  ranking: bm25
+  fallback: single-candidate
+  candidates:
+    1. data/history/days/2026-08-01.md score=5.2 title=Conversation history - 2026-08-01
+  journal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37FRWXGQMBGY1MJZAE447KG/.validation-tmp/live-home/data/history

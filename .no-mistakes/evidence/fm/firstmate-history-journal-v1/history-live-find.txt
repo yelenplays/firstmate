@@ -1,0 +1,6 @@
+history-find:
+  ranking: bm25
+  fallback: single-candidate
+  candidates:
+    1. data/history/days/2025-01-17.md score=4.465 title=Conversation history - 2025-01-17
+  journal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37FRWXGQMBGY1MJZAE447KG/.fm-history-live-31290/home/data/history

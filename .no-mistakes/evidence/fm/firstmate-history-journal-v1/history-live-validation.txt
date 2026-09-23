@@ -1,0 +1,48 @@
+PreCompact hook exit: 0; elapsed wall-clock seconds: 1
+
+--- recent after capture ---
+21:42 captain (data/history/days/2026-09-23.md):
+Please preserve this exact captain request for after compaction.
+
+21:42 firstmate:
+I will restore the exact request and this final reply.
+journal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37FRWXGQMBGY1MJZAE447KG/.fm-history-live-31290/home/data/history/days/
+
+--- session-start re-emission excerpt ---
+RECENT CAPTAIN WORDS
+================================================================================
+21:42 captain (data/history/days/2026-09-23.md):
+Please preserve this exact captain request for after compaction.
+
+21:42 firstmate:
+I will restore the exact request and this final reply.
+journal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37FRWXGQMBGY1MJZAE447KG/.fm-history-live-31290/home/data/history/days/
+
+================================================================================
+NEXT STEP
+
+--- local BM25 history find ---
+history-find:
+  ranking: bm25
+  fallback: single-candidate
+  candidates:
+    1. data/history/days/2025-01-17.md score=4.465 title=Conversation history - 2025-01-17
+  journal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37FRWXGQMBGY1MJZAE447KG/.fm-history-live-31290/home/data/history
+
+--- wake drain presentation ---
+1790192539	1	check	live-test-key	check: preserve this exact wake reason
+
+--- wake drain acknowledgement instruction ---
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 47069.1790192539.8pkiyU
+
+--- wake journal failure guard ---
+exit=1; reason was not presented; durable queue remained non-empty
+
+--- wake acknowledgement ---
+ack-through=1; queue empty after successful journaled acknowledgement
+
+--- daily Logbook result ---
+wrote data/history/days/2026-09-23.logbook.json
+
+--- adversarial bounded-slice check ---
+Six conversations captured; context re-emission contains turns 2-6 and omits turn 1.

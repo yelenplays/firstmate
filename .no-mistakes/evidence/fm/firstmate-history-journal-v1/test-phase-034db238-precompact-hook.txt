@@ -1,0 +1,1 @@
+Configured PreCompact hook returned successfully; elapsed_seconds=0

@@ -1,0 +1,5 @@
+fm-history: not a real directory: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37FRWXGQMBGY1MJZAE447KG/.validation-tmp/wake-failure-home/data/history
+wake drain: could not journal the presented wake batch
+
+stdout was empty; queue remains: 1
+
