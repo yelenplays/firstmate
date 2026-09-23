@@ -613,6 +613,7 @@ The thin hook point is documented in [`docs/arm-pretool-check.md`](arm-pretool-c
 [`bin/fm-jev-done-verify.sh`](../bin/fm-jev-done-verify.sh) is a log-only helper the wake drain invokes after successfully presenting a worker `done:` line on a ship or scout.
 It asks Jev one Choice (`evidenced`, `not_evidenced`, `need_human`) plus a strength Score, using the 0.7 confidence floor from the Jev caller library.
 It sends the done line, and any acceptance, report, or PR input, only for a ship or scout task of the firstmate repository verified from the primary home - the same outbound data boundary as "Jev supervision triage" below.
+This boundary is deliberate: per the captain's privacy decision, other projects' task text (done lines, acceptance, reports, and PR input) must not go to Jev.
 Every other task makes no model call: its record says `payload: withheld` with a `skipped` verdict.
 `need_human` is required because a currently healthy system is not evidence the claimed repair happened.
 Each call appends one JSONL record in the effective state directory, honoring `FM_STATE_OVERRIDE`.

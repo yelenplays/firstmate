@@ -1086,14 +1086,14 @@ wedge_defer_jev() {  # <window> <since-file> <triage-label> <idle-age>
   triage_log "absorbed $label (jev pane-tail read: not stuck, idle ${age}s): $win"
 }
 
-# Drop a window's write/no-mistakes deferral chain wherever its stale
-# bookkeeping resets, so the bounded re-surface cadence is measured from the
-# CURRENT quiet stretch and a long-finished one cannot make the next deferral
-# resurface immediately.
+# Drop a window's deferral-chain state wherever its stale bookkeeping resets,
+# so the bounded re-surface cadence is measured from the CURRENT quiet stretch
+# and a long-finished one cannot make the next deferral resurface immediately.
 clear_write_tracking() {  # <window-key>
   local key=$1
   rm -f "$STATE/.writing-since-$key" "$STATE/.writing-resurfaced-$key" \
-    "$STATE/.nmrun-since-$key" "$STATE/.nmrun-resurfaced-$key"
+    "$STATE/.nmrun-since-$key" "$STATE/.nmrun-resurfaced-$key" \
+    "$STATE/.jevsupp-since-$key" "$STATE/.jevsupp-resurfaced-$key"
 }
 
 # The question the wedge timer never asked before it alarmed: is there still an
@@ -1442,8 +1442,7 @@ clear_stale_hash_tracking() {  # <window-key>
   local key=$1
   clear_write_tracking "$key"
   rm -f "$STATE/.stale-$key" "$STATE/.stale-since-$key" "$STATE/.wedge-escalations-$key" \
-    "$STATE/.waiting-resurfaced-$key" \
-    "$STATE/.jevsupp-since-$key" "$STATE/.jevsupp-resurfaced-$key"
+    "$STATE/.waiting-resurfaced-$key"
 }
 
 clear_pause_tracking() {  # <window-key>

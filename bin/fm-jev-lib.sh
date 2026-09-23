@@ -603,7 +603,7 @@ fm_jev_compact_state() {
         buf = substr(buf, 1, start - 1) "[redacted]" substr(buf, end)
         lowered = tolower(buf)
       }
-      while (match(buf, /[Aa]uthorization:[[:space:]]*[Bb]earer[[:space:]]+[^[:space:]]+/)) {
+      while (match(tolower(buf), /authorization:[[:blank:]]*[^\n]*/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
       while (match(buf, /Bearer[[:space:]]+[^[:space:]]+/)) {

@@ -217,6 +217,61 @@ test_status_triage_redacts_escaped_quotes_and_github_tokens() {
   pass "escaped-quote credential values and every GitHub token prefix are redacted before sending and auditing"
 }
 
+test_supervision_redacts_authorization_header_values() {
+  local helper code out _err basic negotiate excerpt_field audit_path state_text compact fn
+  basic='QWxhZGRpbjpvcGVuIHNlc2FtZQ=='
+  negotiate='YIIGgAYJKoZIhvcSAQICAQBuggZ8MIIGeA=='
+  state_text=$(printf 'note: captured response headers\nAuthorization: Basic %s\nauthorization: Negotiate %s\n' "$basic" "$negotiate")
+
+  for fn in fm_jev_compact_state fm_jev_supervision_state; do
+    compact=$(FM_HOME="$HOME_DIR" bash -c '
+      . "$1/bin/fm-jev-lib.sh"
+      case "$2" in
+        fm_jev_compact_state) fm_jev_compact_state "$3" ;;
+        fm_jev_supervision_state) fm_jev_supervision_state pane-tail "$3" 1 ;;
+      esac
+    ' _ "$ROOT" "$fn" "$state_text") || fail "$fn rejected authorization-bearing state"
+    for secret in "$basic" "$negotiate"; do
+      case "$compact" in *"$secret"*) fail "$fn exposed an Authorization header value" ;; esac
+    done
+    case "$compact" in *'[redacted]'*) ;; *) fail "$fn did not mark Authorization values redacted" ;; esac
+  done
+
+  for helper in "$STATUS_TRIAGE" "$WEDGE_CHECK"; do
+    fresh_home
+    write_task_meta fmtask ship "$ROOT"
+    case "$helper" in
+      "$STATUS_TRIAGE")
+        excerpt_field=line_excerpt
+        audit_path="$HOME_DIR/state/jev-status-triage.jsonl"
+        printf '%s\n' "$state_text" > "$STDIN_FILE"
+        status_response "$RESPONSE" 0.2 note 0.7
+        ;;
+      *)
+        excerpt_field=tail_excerpt
+        audit_path="$HOME_DIR/state/jev-wedge-check.jsonl"
+        printf '%s\n' "$state_text" > "$STDIN_FILE"
+        wedge_response "$RESPONSE" 0.2 idle_finished 0.8
+        ;;
+    esac
+    run_helper "$helper" code out _err "${FREE_TEXT_ARGS[@]}"
+    expect_code 0 "$code" "$(basename "$helper") handles Authorization headers in eligible free text"
+    jq -e --arg basic "$basic" --arg negotiate "$negotiate" '
+      .state as $state
+      | ($state | type == "string")
+        and ([$basic, $negotiate] | all(.[]; . as $secret | $state | contains($secret) | not))
+        and ($state | contains("[redacted]"))
+    ' "$LOG/body" >/dev/null || fail "an Authorization value reached the $(basename "$helper") request body"
+    jq -e --arg field "$excerpt_field" --arg basic "$basic" --arg negotiate "$negotiate" '
+      .[$field] as $excerpt
+      | ([$basic, $negotiate] | all(.[]; . as $secret | $excerpt | contains($secret) | not))
+        and ($excerpt | contains("[redacted]"))
+    ' "$audit_path" >/dev/null \
+      || fail "an Authorization value reached the $(basename "$helper") local excerpt"
+  done
+  pass "Authorization values are redacted from compact state, supervision state, helper requests, and excerpts"
+}
+
 # The captain's data boundary: free text leaves the home only for a firstmate
 # repository task in the primary home. Each other side of the line - no task
 # named, a secondmate home, a secondmate task, another project - sends only
@@ -503,6 +558,7 @@ test_status_triage_verdicts
 test_status_triage_question_shape_and_line_only
 test_status_triage_redacts_credentials
 test_status_triage_redacts_escaped_quotes_and_github_tokens
+test_supervision_redacts_authorization_header_values
 test_supervision_payload_boundary
 test_structured_status_verb_is_vocabulary_only
 test_wedge_check_caps_free_text_to_the_pane_end

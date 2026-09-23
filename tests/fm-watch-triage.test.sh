@@ -3726,6 +3726,52 @@ test_wedge_jev_consult_only_at_the_boundary() {
   pass "the wedge second opinion runs only at the escalation boundary, never per poll"
 }
 
+test_jev_suppression_chain_resets_after_activity() {
+  local dir state fakebin out capture window key old quiet_hash marker_time
+  dir=$(wedge_threshold_fixture jev-chain-reset 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  old=$(( $(date +%s) - 1200 ))
+  printf '%s' "$old" > "$state/.jevsupp-since-$key"
+  set_mtime "$old" "$state/.jevsupp-since-$key"
+  : > "$state/.jevsupp-resurfaced-$key"
+  set_mtime "$old" "$state/.jevsupp-resurfaced-$key"
+
+  printf 'Ctrl+c:cancel\n' > "$capture"
+  FM_BUSY_TURN_MAX_SECS=999999999 wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+    'state: working · source: run-step · ci running' absorb \
+    || fail "the busy activity reset did not complete: $(cat "$out")"
+  for marker in .jevsupp-since- .jevsupp-resurfaced-; do
+    [ ! -e "$state/$marker$key" ] || fail "busy activity retained the old Jev marker $marker$key"
+  done
+
+  printf 'waiting at the gate' > "$capture"
+  FM_BUSY_TURN_MAX_SECS=1 FM_TEST_STALE_ESCALATE=999 \
+    wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+      'state: working · source: run-step · ci running' absorb \
+    || fail "the new quiet pane did not settle before its wedge interval: $(cat "$out")"
+  [ -s "$state/.stale-since-$key" ] || fail "the quiet episode did not start a fresh wedge timer"
+
+  quiet_hash=$(hash_text 'waiting at the gate')
+  [ "$(cat "$state/.hash-$key")" = "$quiet_hash" ] \
+    || fail "the returning quiet pane did not retain its stable hash"
+  : > "$out"
+  printf '%s' "$old" > "$state/.stale-since-$key"
+  FM_BUSY_TURN_MAX_SECS=1 FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+    FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=suppress \
+    wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+      'state: working · source: run-step · ci running' absorb \
+    || fail "a fresh Jev suppression inherited and immediately spent the old chain: $(cat "$out")"
+  [ "$(wedge_stale_wakes "$state" "$window")" -eq 0 ] \
+    || fail "the new quiet episode immediately re-surfaced on the old Jev throttle"
+  marker_time=$(file_mtime "$state/.jevsupp-since-$key")
+  [ "$marker_time" -gt "$old" ] || fail "the new Jev suppression reused the old chain timestamp"
+  [ ! -e "$state/.jevsupp-resurfaced-$key" ] \
+    || fail "the first Jev suppression in a new quiet episode spent the old re-surface throttle"
+  pass "busy activity clears Jev suppression age and throttle before the next quiet episode"
+}
+
 
 # --- a record whose agent is GONE reports once, instead of alarming forever ---
 # Observed on a live fleet: two finished lanes reached 226 and 203 CONSECUTIVE
@@ -7083,6 +7129,7 @@ test_status_span_jev_cap
 test_wedge_jev_low_noul_suppresses_the_boundary
 test_wedge_jev_escalate_and_failure_keep_the_boundary
 test_wedge_jev_consult_only_at_the_boundary
+test_jev_suppression_chain_resets_after_activity
 test_open_captain_call_bounds_stale_churn
 test_stale_churn_without_a_captain_call_still_alarms
 test_failed_wake_append_does_not_arm_the_captain_hold_throttle
