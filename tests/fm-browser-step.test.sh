@@ -55,6 +55,8 @@ assert.equal(engine.redact('Copy token=ab12cd34 and trailing details'), 'Copy to
 assert.equal(engine.redact('Copy token abcdef'), 'Copy token [redacted]');
 assert.equal(engine.redact('Authorization: Bearer abcdef'), 'Authorization [redacted]');
 assert.equal(engine.redact('Copy API key Qx6'), 'Copy API [redacted]');
+assert.equal(engine.redact('Copy API_KEY=Qx6'), 'Copy API [redacted]');
+assert.equal(engine.redact('Copy access_token=ab12cd34'), 'Copy access_token [redacted]');
 assert.equal(engine.redact('OTP abcdef'), 'OTP [redacted]');
 assert.equal(engine.redact('passcode abcdef'), 'passcode [redacted]');
 assert.equal(engine.redact('PIN abcdef'), 'PIN [redacted]');
@@ -101,7 +103,7 @@ assert.equal(engine.resolveSelector(nodes, engine.parseSelector('button=Use'), e
 assert.throws(() => engine.validateParams({ action: 'select', target: 'button=Use', option: 'DNS Edit' }));
 
 let index = 0;
-const afterSnapshot = `${snapshot}\n    uid=g2:7 button "Copy token=ab12cd34"\n    uid=g2:8 button "Copy token abcdef"\n    uid=g2:9 button "Authorization: Bearer abcdef"\n    uid=g2:10 button "Copy API key Qx6"\n    uid=g2:11 generic "${secret}"`;
+const afterSnapshot = `${snapshot}\n    uid=g2:7 button "Copy token=ab12cd34"\n    uid=g2:8 button "Copy token abcdef"\n    uid=g2:9 button "Authorization: Bearer abcdef"\n    uid=g2:10 button "Copy API key Qx6"\n    uid=g2:11 button "Copy API_KEY=Qx6"\n    uid=g2:12 generic "${secret}"`;
 const clickCalls = [];
 const fakePage = {
   async snapshot() { return index++ === 0 ? snapshot : afterSnapshot; },
@@ -125,7 +127,9 @@ assert.deepEqual(result.appeared, [
   'button|Copy token [redacted]',
   'button|Authorization [redacted]',
   'button|Copy API [redacted]',
+  'button|Copy API [redacted]',
 ]);
+assert.deepEqual(engine.sanitizeResult(result).appeared, result.appeared);
 assert.equal(JSON.stringify(result).includes(secret), false);
 assert.equal(JSON.stringify(result).includes('scout-fixture'), false);
 
@@ -257,7 +261,7 @@ assert.equal(titleResult.ok, true);
 assert.equal(titleResult.verified, true);
 
 const filtered = engine.sanitizeResult({
-  step: 'step', ok: true, verified: true, appeared: [`button|${secret}`, 'button|Copy token=ab12cd34'], gone: ['button|Copy token abcdef with suffix'], ms: 4,
+  step: 'step', ok: true, verified: true, appeared: [`button|${secret}`, 'button|Copy token=ab12cd34'], gone: ['button|Copy token abcdef with suffix', 'button|Copy access_token=abc'], ms: 4,
   value: secret, pageText: secret,
 });
 assert.equal(JSON.stringify(filtered).includes(secret), false);
@@ -265,6 +269,7 @@ assert.equal(JSON.stringify(filtered).includes('ab12cd34'), false);
 assert.equal(JSON.stringify(filtered).includes('abcdef'), false);
 assert.equal(JSON.stringify(filtered).includes('Qx6'), false);
 assert.equal(JSON.stringify(filtered).includes('suffix'), false);
+assert.equal(JSON.stringify(filtered).includes('abc'), false);
 assert.equal(Object.hasOwn(filtered, 'value'), false);
 console.log('offline parser, selector, execution, and redaction checks passed');
 JS

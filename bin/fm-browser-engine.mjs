@@ -26,7 +26,7 @@ export function redact(value) {
     .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '[email]');
   text = text.replace(/(^|[^A-Za-z0-9_\-+/=.])([A-Za-z0-9_\-+/=.]{24,})(?=$|[^A-Za-z0-9_\-+/=.])/g,
     (match, prefix, token) => /[A-Za-z]/.test(token) && /\d/.test(token) ? `${prefix}[opaque]` : match);
-  const credential = text.match(/\b(?:token|key|secret|password|passcode|bearer|authorization|api|otp|pin|credential)\b/i);
+  const credential = text.match(/(^|[^A-Za-z0-9])(?:token|key|secret|password|passcode|bearer|authorization|api|otp|pin|credential)(?![A-Za-z0-9])/i);
   if (credential) text = `${text.slice(0, credential.index + credential[0].length)} [redacted]`;
   return text.replace(/\d{6,}/g, '[number]').replace(/\s+/g, ' ').trim();
 }
