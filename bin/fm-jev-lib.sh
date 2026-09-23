@@ -342,10 +342,10 @@ fm_jev_compact_state() {
       buf = buf $0
     }
     END {
-      while (match(buf, /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/)) {
+      while (match(buf, /-----BEGIN [A-Z0-9 ]*PRIVATE KEY( [A-Z0-9]+)?-----/)) {
         prefix = substr(buf, 1, RSTART - 1)
         tail = substr(buf, RSTART + RLENGTH)
-        if (match(tail, /-----END [A-Z0-9 ]*PRIVATE KEY-----/)) {
+        if (match(tail, /-----END [A-Z0-9 ]*PRIVATE KEY( [A-Z0-9]+)?-----/)) {
           suffix = substr(tail, RSTART + RLENGTH)
           buf = prefix "[redacted]" suffix
         } else {

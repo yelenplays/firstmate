@@ -401,6 +401,30 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=bin/fm-env-lib.sh
+. "$SCRIPT_DIR/fm-env-lib.sh"
+
+prepare_worker_jev_key_file() {
+  local key_file="$FM_HOME/config/typesafe-key" key temp
+  key=${TYPESAFE_API_KEY:-}
+  [ -n "$key" ] || key=$(fmx_env_get TYPESAFE_API_KEY "$FM_HOME/.env")
+  [ -n "$key" ] || return 0
+  case "$key" in
+    *$'\n'*|*$'\r'*)
+      return 1
+      ;;
+  esac
+  mkdir -p "$FM_HOME/config" || return 1
+  temp=$(mktemp "$FM_HOME/config/.typesafe-key.XXXXXX") || return 1
+  if ! (umask 077; printf '%s\n' "$key" > "$temp") || ! chmod 600 "$temp"; then
+    rm -f "$temp"
+    return 1
+  fi
+  if ! mv -f "$temp" "$key_file"; then
+    rm -f "$temp"
+    return 1
+  fi
+}
 
 usage() {
   # The whole leading comment block, ending at the first line that is not a
@@ -4681,13 +4705,16 @@ if [ "$KIND" = secondmate ]; then
   # injected carrier and this on/off snapshot are guaranteed to agree.
   LAUNCH="FM_ROOT_OVERRIDE= FM_STATE_OVERRIDE= FM_DATA_OVERRIDE= FM_PROJECTS_OVERRIDE= FM_CONFIG_OVERRIDE= FM_PUBLIC_FOLLOWUP_PRIMARY_HOME=$sq_primary_home FM_HOME=$sq_home FM_TRACE_CONTEXT=$SPAWN_TRACE_EFFECTIVE FM_SUPERVISION_MODEL=$supervision_model $LAUNCH"
 elif [ "$RAW_LAUNCH" = 0 ]; then
-  # A ship or scout worker learns which home spawned it, as a secondmate does
-  # above, so bin/fm-jev.sh and bin/fm-jev-lib.sh resolve the Jev key from that
-  # home's .env from any worktree. Only the absolute home path crosses the
-  # launch boundary: no key is exported, and the .env stays home-local. The
-  # repo's own session hooks scope themselves by the checkout, not by FM_HOME
+  # A ship or scout worker learns which home spawned it. The TypeSafe key is
+  # copied from the firstmate environment or .env into a key-only mode-0600
+  # file before launch; the key itself never crosses the launch boundary. The
+  # repo's own session hooks scope themselves by checkout, not FM_HOME
   # (bin/fm-primary-scope-lib.sh), so a firstmate-repo task worktree stays a
   # non-primary child. A raw launch command stays byte-for-byte the operator's.
+  prepare_worker_jev_key_file || {
+    printf 'error: could not prepare config/typesafe-key for the worker\n' >&2
+    exit 1
+  }
   sq_worker_home=$(shell_quote "$(cd "$FM_HOME" && pwd -P)")
   LAUNCH="FM_HOME=$sq_worker_home env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY $LAUNCH"
 fi

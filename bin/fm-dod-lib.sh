@@ -36,9 +36,10 @@
 # absolute path of the firstmate checkout this library runs from, so workers
 # can call it from any directory.
 fm_jev_first_rule() {
-  local cmd
+  local cmd quoted_cmd
   cmd="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-jev.sh"
-  printf '%s\n' "For a closed-set judgment - picking one of options you can list, a yes/no check, or a score against levels you can write down - prefer one batched typed Jev call through \"$cmd\" (its --help is the whole interface); when it exits non-zero - an escalation, a missing key, or an endpoint that does not answer - use your own judgment and never block on it."' The state you pass carries only the minimal facts the judgment needs - never secrets, credentials, API keys, or tokens, never wiki page bodies, excerpts, or private-vault content, and when in doubt leave the fact out and use your own judgment. Deterministic operations such as grep, builds, tests, file moves, and doctor runs stay in code, because Jev has no filesystem or tools.'
+  quoted_cmd=$(printf '%s' "$cmd" | sed "s/'/'\\\\''/g")
+  printf '%s\n' "For a closed-set judgment - picking one of options you can list, a yes/no check, or a score against levels you can write down - prefer one batched typed Jev call through '$quoted_cmd' (its --help is the whole interface); when it exits non-zero - an escalation, a missing key, or an endpoint that does not answer - use your own judgment and never block on it."' The state you pass carries only the minimal facts the judgment needs - never secrets, credentials, API keys, or tokens, never wiki page bodies, excerpts, or private-vault content, and when in doubt leave the fact out and use your own judgment. Deterministic operations such as grep, builds, tests, file moves, and doctor runs stay in code, because Jev has no filesystem or tools.'
 }
 
 # fm_brief_worker_role owns the ship/scout role scope. bin/fm-spawn.sh is its one

@@ -1107,12 +1107,12 @@ SH
 }
 
 test_jev_rule_preserves_apostrophe_in_checkout_path() {
-  local rec id out status launch capture prompt root checkout jev
+  local rec id out status launch capture prompt root checkout jev callable help
   id=profile-claude-jev-apostrophe-z21c
   rec=$(make_spawn_case profile-claude-jev-apostrophe claude "$id")
   read_case_record "$rec"
   root=$ROOT
-  checkout="$TMP_ROOT/firstmate's checkout"
+  checkout="$TMP_ROOT/firstmate's \$(printf substitution) \`printf backtick\` checkout"
   ln -s "$root" "$checkout"
   ROOT=$checkout
 
@@ -1138,12 +1138,17 @@ SH
   prompt=$(cat "$capture")
   jev="$checkout/bin/fm-jev.sh"
   [ -x "$jev" ] || fail "the launched Jev command path is not executable"
-  "$jev" yes --help >/dev/null || fail "the launched Jev command path did not run"
-  assert_contains "$prompt" "through \"$jev\" (its --help is the whole interface)" \
-    "the agent prompt did not carry the callable apostrophe path"
+  assert_contains "$prompt" "through $(expected_shell_quote "$jev") (its --help is the whole interface)" \
+    "the agent prompt did not carry the shell-escaped checkout path"
+  callable=${prompt#*through }
+  callable=${callable%% (its --help is the whole interface)*}
+  [ "$callable" != "$prompt" ] || fail "the captured agent prompt did not contain the command"
+  help=$(eval "$callable yes --help") || fail "the command embedded in the agent prompt did not execute"
+  assert_contains "$help" "fm-jev.sh - one typed Jev judgment" \
+    "the shell-escaped absolute path resolves to the worker CLI"
   ROOT=$root
   rm -f "$checkout"
-  pass "fm-spawn: the real claude launch quotes the callable apostrophe path"
+  pass "fm-spawn: the real launch preserves shell metacharacters in the Jev path"
 }
 
 test_claude_secondmate_launch_omits_task_control_channel_authority() {
@@ -1575,10 +1580,10 @@ test_claude_permission_mode_auto_reaches_scout_launch() {
   pass "config/claude-permission-mode=auto reaches scout launches too"
 }
 
-# A ship or scout worker receives the spawning home's absolute path so the
-# Jev command resolves its key from that home's .env; the key itself never
-# crosses the launch boundary, even when the spawner's environment and the
-# home .env both hold one.
+# A ship or scout worker receives the spawning home's absolute path and a
+# key-only config file is materialized before launch; the key itself never
+# crosses the launch boundary, even when the spawner environment and home
+# .env both hold one.
 test_task_launch_forwards_home_never_key() {
   local rec id out status launch key openrouter_key kind agent_env
   key='ts-spawn-test-key-must-not-leak'
@@ -1603,6 +1608,9 @@ test_task_launch_forwards_home_never_key() {
     esac
     assert_not_contains "$launch" "$key" "$kind launch must never carry the Jev key value"
     assert_not_contains "$launch" "$openrouter_key" "$kind launch must never carry an OpenRouter key value"
+    assert_equals "$(cat "$HOME_DIR/config/typesafe-key")" "$key" "$kind spawn writes the key-only file"
+    assert_equals "$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$HOME_DIR/config/typesafe-key")" \
+      "0o600" "$kind key-only file has mode 0600"
     cat > "$FAKEBIN_DIR/claude" <<'SH'
 #!/usr/bin/env bash
 printf '%s|%s|%s' "${FM_HOME-}" "${TYPESAFE_API_KEY-}" "${OPENROUTER_API_KEY-}" > "${FM_TEST_AGENT_ENV:?}"
@@ -1615,6 +1623,26 @@ SH
     assert_equals "$(cat "$agent_env")" "$HOME_DIR||" "$kind agent receives FM_HOME but no provider key"
   done
   pass "fm-spawn: ship and scout launches carry FM_HOME without inherited provider keys"
+}
+
+test_task_launch_materializes_key_from_home_env() {
+  local rec id out status launch key
+  id=home-key-file-from-env-z23
+  key='ts-spawn-env-file-key-must-not-leak'
+  rec=$(make_spawn_case home-key-file-from-env claude "$id")
+  read_case_record "$rec"
+  printf 'TYPESAFE_API_KEY=%s\n' "$key" > "$HOME_DIR/.env"
+
+  out=$(TYPESAFE_API_KEY= OPENROUTER_API_KEY= \
+    run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  status=$?
+  expect_code 0 "$status" "a home .env key can be made available to Jev"
+  assert_equals "$(cat "$HOME_DIR/config/typesafe-key")" "$key" ".env key is copied to the dedicated file"
+  assert_equals "$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$HOME_DIR/config/typesafe-key")" \
+    "0o600" ".env key file is restricted to its owner"
+  launch=$(cat "$LAUNCH_LOG")
+  assert_not_contains "$launch" "$key" "the .env value does not appear in the launch command"
+  pass "fm-spawn: worker Jev key file is created from the home .env"
 }
 
 test_claude_permission_mode_invalid_refuses_before_endpoint_or_metadata() {
@@ -1693,6 +1721,7 @@ test_claude_permission_mode_auto_swaps_only_the_permission_flag
 test_claude_permission_mode_auto_reaches_scout_launch
 test_claude_permission_mode_invalid_refuses_before_endpoint_or_metadata
 test_task_launch_forwards_home_never_key
+test_task_launch_materializes_key_from_home_env
 test_non_claude_harness_ignores_claude_permission_mode
 test_non_claude_harness_ignores_config_dir
 test_claude_task_launch_carries_control_channel_authority

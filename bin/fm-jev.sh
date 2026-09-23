@@ -2,17 +2,20 @@
 # fm-jev.sh - the one Jev judgment command for firstmate and every worker.
 #
 # A lean CLI over bin/fm-jev-lib.sh, which stays the single owner of the HTTP
-# call, route and key resolution, secret stripping, and call logging. This
+# call, route, and transport. This
 # script owns only the typed argv/stdin interface, the privacy refusal, the
 # escalation floor, and the one-line-per-answer output. bin/fm-dod-lib.sh's
 # fm_jev_first_rule names this command to every worker; `--help` (usage below)
 # is the only schema an agent ever loads, so keep it under 15 lines.
 #
 # Key discovery uses TYPESAFE_API_KEY from the environment, else the first
-# candidate .env among $FM_HOME, this checkout, and its main worktree. The
-# chosen home becomes FM_HOME for the library call. The key never reaches argv,
-# stdout, stderr, or the log. This command always uses the TypeSafe route and
-# production endpoint.
+# config/typesafe-key among $FM_HOME, this checkout, and its main worktree.
+# Firstmate writes the effective environment or .env key to that key-only file
+# with mode 0600 before a worker launch. The key is passed to the library through its environment and
+# never reaches argv, stdout, stderr, or the log. This command always uses the
+# TypeSafe route and production endpoint; it never discovers its key from .env.
+# Crew workers run as the same OS user with full file access. The key-only file
+# reduces accidental exposure but is not a sandbox.
 #
 # Privacy: state, question text, option labels and meanings are refused, never
 # sent, when their combined UTF-8 text exceeds FM_JEV_CLI_INPUT_MAX bytes
@@ -60,7 +63,9 @@ Flags follow the command: --json (raw response); --help prints this interface.
 Output: "pick: answer p=0.96 conf=0.94"; a batch uses its question id; escalation prints "ESCALATE conf=0.31 prior=X -> decide yourself".
 Exit: 0 answered, 2 any escalation, 1 error with a one-line reason; on 1 or 2 use your own judgment, never block.
 Input: state, questions and options are 4096 bytes total; minimal facts only, no secrets, keys, tokens, wiki page bodies or private-vault text.
-Key: TYPESAFE_API_KEY from the environment or firstmate home .env; no OpenRouter route.
+Key: TYPESAFE_API_KEY env or config/typesafe-key in FM_HOME, checkout, main worktree; firstmate copies .env at mode 0600.
+Security: crew workers run as the same OS user with full file access; this file reduces accidents, not a sandbox.
+Create: put only the key in config/typesafe-key, then chmod 600.
 EOF
 }
 
@@ -69,42 +74,64 @@ die() {
   exit 1
 }
 
-# Candidate homes, in order, one per line: $FM_HOME, this checkout, and the
-# checkout's main worktree when this checkout is a linked worktree.
-candidate_homes() {
+# Candidate key files, in order: config/typesafe-key under $FM_HOME, this
+# checkout, and the checkout's main worktree when this is a linked worktree.
+candidate_key_files() {
   local common
-  [ -n "${FM_HOME:-}" ] && printf '%s\n' "$FM_HOME"
-  printf '%s\n' "$FM_JEV_CLI_ROOT"
+  [ -n "${FM_HOME:-}" ] && printf '%s\n' "$FM_HOME/config/typesafe-key"
+  printf '%s\n' "$FM_JEV_CLI_ROOT/config/typesafe-key"
   common=$(git -C "$FM_JEV_CLI_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 0
   case "$common" in
-    */.git) printf '%s\n' "${common%/.git}" ;;
+    */.git) printf '%s\n' "${common%/.git}/config/typesafe-key" ;;
   esac
 }
 
-# Set FM_HOME to the first candidate whose .env holds a TypeSafe key, unless the
-# environment already carries one. Leaves FM_HOME unchanged when nothing
-# matches so the library reports its own missing-key diagnostic.
-select_home() {
-  local home
+# Resolve only the dedicated TypeSafe key source accepted by this CLI.
+resolve_typesafe_key() {
+  local file mode key
   if [ -n "${TYPESAFE_API_KEY:-}" ]; then
+    JEV_KEY=$TYPESAFE_API_KEY
+    JEV_KEY_HOME=${FM_HOME:-$FM_JEV_CLI_ROOT}
     return 0
   fi
-  while IFS= read -r home; do
-    [ -f "$home/.env" ] || continue
-    if [ -n "$(fmx_env_get TYPESAFE_API_KEY "$home/.env")" ]; then
-      FM_HOME=$home
-      return 0
+  while IFS= read -r file; do
+    [ -e "$file" ] || [ -L "$file" ] || continue
+    [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] \
+      || die "key file must be a readable regular file: config/typesafe-key"
+    mode=$(stat -f '%Lp' "$file" 2>/dev/null || true)
+    case "$mode" in
+      [0-7][0-7][0-7]|[0-7][0-7][0-7][0-7]) ;;
+      *) mode=$(stat -c '%a' "$file" 2>/dev/null || true) ;;
+    esac
+    case "$mode" in
+      [0-7][0-7][0-7]|[0-7][0-7][0-7][0-7]) ;;
+      *) die "could not read key file permissions: config/typesafe-key" ;;
+    esac
+    if (( (8#$mode & 077) != 0 )); then
+      die "key file must not be group- or world-readable: config/typesafe-key"
     fi
-  done < <(candidate_homes)
+    key=$(cat "$file") || die "could not read key file: config/typesafe-key"
+    case "$key" in
+      ''|*$'\n'*|*$'\r'*) die "key file must contain one non-empty key line: config/typesafe-key" ;;
+    esac
+    JEV_KEY=$key
+    JEV_KEY_HOME=${file%/config/typesafe-key}
+    return 0
+  done < <(candidate_key_files)
+  die "TYPESAFE_API_KEY missing; set the environment variable or create config/typesafe-key"
 }
 
 # Succeeds when <text> contains a live Jev provider key. Keys stay local.
 contains_live_key() {
-  local text=$1 home=${FM_HOME:-$FM_JEV_CLI_ROOT} name key
+  local text=$1 home=${JEV_KEY_HOME:-${FM_HOME:-$FM_JEV_CLI_ROOT}} name key
   for name in TYPESAFE_API_KEY OPENROUTER_API_KEY; do
-    key=${!name-}
-    if [ -z "$key" ] && [ -f "$home/.env" ]; then
-      key=$(fmx_env_get "$name" "$home/.env")
+    if [ "$name" = TYPESAFE_API_KEY ]; then
+      key=${JEV_KEY:-}
+    else
+      key=${OPENROUTER_API_KEY:-}
+      if [ -z "$key" ] && [ -f "$home/.env" ]; then
+        key=$(fmx_env_get OPENROUTER_API_KEY "$home/.env")
+      fi
     fi
     [ -n "$key" ] || continue
     case "$text" in
@@ -209,7 +236,7 @@ COMPACT=$(JEV_STATE_MAX_BYTES=1048576 fm_jev_compact_state "$ALL_TEXT" 2>/dev/nu
 [ "$COMPACT" = "$ALL_TEXT" ] \
   || die "input looks like it carries a secret (key, token, or credential); refused, nothing sent"
 
-select_home
+resolve_typesafe_key
 if contains_live_key "$ALL_TEXT"; then
   die "input carries the Jev API key itself; refused, nothing sent"
 fi
@@ -256,7 +283,8 @@ log_call() {
 OUT_FILE=$(mktemp) || die "mktemp failed"
 ERR_FILE=$(mktemp) || { rm -f "$OUT_FILE"; die "mktemp failed"; }
 trap 'rm -f "$OUT_FILE" "$ERR_FILE"' EXIT
-if ! JEV_ROUTE=typesafe JEV_URL="$FM_JEV_CLI_URL" fm_jev_decide "$STATE_TEXT" "$QUESTIONS" >"$OUT_FILE" 2>"$ERR_FILE"; then
+if ! TYPESAFE_API_KEY="$JEV_KEY" JEV_ROUTE=typesafe JEV_URL="$FM_JEV_CLI_URL" \
+  fm_jev_decide "$STATE_TEXT" "$QUESTIONS" >"$OUT_FILE" 2>"$ERR_FILE"; then
   log_call 1
   reason=$(sed -e 's/^jev: //' "$ERR_FILE" | head -n 1)
   die "${reason:-Jev call failed} -> decide yourself"
