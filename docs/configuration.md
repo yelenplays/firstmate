@@ -714,7 +714,7 @@ Each call is bounded by `FM_JEV_SUPERVISION_TIMEOUT_SECS` (default 3 seconds; an
 Outbound data boundary.
 Status text and pane text leave the home only for a ship or scout task whose project is the firstmate repository itself, supervised from the primary home (no `.fm-secondmate-home` marker).
 That free text is size-capped (the first 4000 characters of a status line, the last 4000 of a pane tail) and secret-stripped by `fm_jev_compact_state` before it is sent, and its audit record keeps a short redacted excerpt.
-Every other case - any secondmate home, any secondmate task, any other project such as a wiki, website, or vault, and any task whose eligibility cannot be established - sends structured facts only: the status verb, character and line counts, and fixed-vocabulary signal flags, never the text itself, and its audit record carries no excerpt.
+Every other case - any secondmate home, any secondmate task, any other project such as a wiki, website, or vault, and any task whose eligibility cannot be established - sends structured facts only: the status verb when it is a known Firstmate verb (any other leading token becomes `other`), character and line counts, and fixed-vocabulary signal flags, never the text itself, and its audit record carries no excerpt.
 `fm_jev_supervision_free_text_ok` and `fm_jev_supervision_state` in [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) own that rule and the exact facts.
 Coverage lives in [`tests/fm-jev-supervision.test.sh`](../tests/fm-jev-supervision.test.sh), [`tests/fm-watch-triage.test.sh`](../tests/fm-watch-triage.test.sh), and [`tests/fm-daemon.test.sh`](../tests/fm-daemon.test.sh).
 

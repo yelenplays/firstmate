@@ -274,6 +274,35 @@ test_supervision_payload_boundary() {
   pass "free text leaves the home only for firstmate-repo tasks in the primary home; every other case sends structured facts"
 }
 
+# A structured status payload names its verb only from the Firstmate status
+# vocabulary: a nonstandard leading token is itself free text, so it maps to
+# "other" and nothing from the line reaches the request or the audit record.
+test_structured_status_verb_is_vocabulary_only() {
+  local code out _err fragment
+  fresh_home
+  write_task_meta fmtask secondmate "$ROOT"
+  printf 'acme-confidential-merger: draft ready for contoso\n' > "$STDIN_FILE"
+  status_response "$RESPONSE" 0.2 note 0.7
+  run_helper "$STATUS_TRIAGE" code out _err "${FREE_TEXT_ARGS[@]}"
+  expect_code 0 "$code" "a nonstandard-verb line from a non-eligible task is still classified"
+  jq -e '.state | type == "object" and .payload == "structured" and .verb == "other"' "$LOG/body" >/dev/null \
+    || fail "a nonstandard verb was not sent as \"other\": $(cat "$LOG/body")"
+  for fragment in acme confidential merger draft contoso; do
+    grep -qi -- "$fragment" "$LOG/body" && fail "line text '$fragment' reached the Jev request body"
+    grep -qi -- "$fragment" "$HOME_DIR/state/jev-status-triage.jsonl" && fail "line text '$fragment' reached the audit record"
+  done
+
+  fresh_home
+  write_task_meta fmtask secondmate "$ROOT"
+  printf 'note: draft ready for contoso\n' > "$STDIN_FILE"
+  run_helper "$STATUS_TRIAGE" code out _err "${FREE_TEXT_ARGS[@]}"
+  expect_code 0 "$code" "a known-verb line from a non-eligible task is still classified"
+  jq -e '.state.verb == "note"' "$LOG/body" >/dev/null \
+    || fail "a known status verb was not sent as itself: $(cat "$LOG/body")"
+  grep -qi contoso "$LOG/body" && fail "line text reached the Jev request body alongside a known verb"
+  pass "structured status payloads carry only a vocabulary verb, never a free-text leading token"
+}
+
 test_wedge_check_caps_free_text_to_the_pane_end() {
   local code out _err tail_text
   fresh_home
@@ -477,6 +506,7 @@ test_status_triage_question_shape_and_line_only
 test_status_triage_redacts_credentials
 test_status_triage_redacts_escaped_quotes_and_github_tokens
 test_supervision_payload_boundary
+test_structured_status_verb_is_vocabulary_only
 test_wedge_check_caps_free_text_to_the_pane_end
 test_helpers_honor_dotenv_timeout
 test_status_triage_failure_is_fail_closed
