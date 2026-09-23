@@ -336,7 +336,7 @@ JSON
 }
 
 test_privacy_guard_refuses_before_sending() {
-  local code out err big openrouter_key large_state large_question large_meaning
+  local code out err big openrouter_key large_state large_question large_meaning private_key
   respond '{"answers":{"yes":{"noul":0.9}}}'
   reset_log
   big=$(head -c 4097 /dev/zero | tr '\0' a)
@@ -353,6 +353,24 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "combined state, question, and option text over 4096 bytes is refused"
   assert_contains "$err" "4096-byte cap" "the aggregate cap is named"
   assert_absent "$LOG/body" "oversized combined input is never sent"
+
+  private_key=$(printf '%s\n' \
+    '-----BEGIN RSA PRIVATE KEY-----' \
+    'MIIEpAIBAAKCAQEA7VhY5V2Qe9yJx7u4UmP9zT0qkQmN5Z8bV2hV8xH6TgH8' \
+    'dQ7aY6Jm4Vxg9pWq3Nf2cK8rL1sT5uB0eH6iO9mZ2aC4dF7gJ1kL5pR8vX3w' \
+    'q2M5nB8cD1fG4hJ7kL0pS3uV6xY9aC2dE5gH8jK1mN4pQ7sT0vW3yZ6bC9d' \
+    '-----END RSA PRIVATE KEY-----')
+  reset_log
+  run_jev code out err yes "$private_key" "Done?"
+  assert_equals "$code" 1 "a multiline PEM key in state is refused"
+  assert_contains "$err" "secret" "the PEM state refusal names the privacy issue"
+  assert_absent "$LOG/body" "a multiline PEM key in state is never sent"
+
+  reset_log
+  run_jev code out err pick "state" "Choose?" "A=$private_key" B
+  assert_equals "$code" 1 "a multiline PEM key in option text is refused"
+  assert_contains "$err" "secret" "the PEM option refusal names the privacy issue"
+  assert_absent "$LOG/body" "a multiline PEM key in option text is never sent"
 
   respond '{"answers":{"yes":{"noul":0.97}}}'
   reset_log
@@ -462,6 +480,8 @@ test_log_records_metadata_only() {
   assert_not_contains "$line" "secret-free state text" "the log never holds the state"
   assert_not_contains "$line" "Unique question text" "the log never holds the question"
   assert_not_contains "$line" "$KEY" "the log never holds the key"
+  assert_equals "$(printf '%s' "$line" | jq -r 'has("cwd")')" false \
+    "the metadata record does not store the working directory"
   pass "fm-jev.sh: every call is logged as metadata only"
 }
 

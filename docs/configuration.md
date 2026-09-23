@@ -590,7 +590,7 @@ Typed dispatch resolution above uses this library for the HTTP call and owns the
 It reuses the caller library above and pins its route and URL to TypeSafe production, regardless of `OPENROUTER_API_KEY`, `JEV_ROUTE`, `JEV_URL`, or `JEV_BASE`; it requires `TYPESAFE_API_KEY` from the environment or a candidate firstmate `.env`.
 Its `--help` is its whole interface, flags follow the command, and the header owns the privacy refusal, escalation floor, output, and exit codes.
 Ship, scout, and Devin launches carry the spawning home's absolute path as `FM_HOME` and clear inherited provider keys; the command reads its key from the home `.env`.
-Each call appends a metadata-only record, without state or question text, to that home's `state/jev-calls.jsonl`.
+Each call appends a metadata-only record, without the working directory, state, or question text, to that home's `state/jev-calls.jsonl`.
 
 ## Jev remainder tool-gate (FM_JEV_TOOL_GATE)
 

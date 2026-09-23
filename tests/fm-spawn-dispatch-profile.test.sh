@@ -1107,16 +1107,43 @@ SH
 }
 
 test_jev_rule_preserves_apostrophe_in_checkout_path() {
-  local checkout="$TMP_ROOT/firstmate's checkout" rule quoted roundtrip
-  mkdir -p "$checkout/bin"
-  cp "$ROOT/bin/fm-dod-lib.sh" "$checkout/bin/fm-dod-lib.sh"
-  rule=$( ( . "$checkout/bin/fm-dod-lib.sh"; fm_jev_first_rule ) )
-  assert_contains "$rule" "through \"$checkout/bin/fm-jev.sh\" (its --help is the whole interface)" \
-    "the Jev-first rule did not preserve the absolute path with an apostrophe"
-  quoted=$(expected_shell_quote "$rule")
-  roundtrip=$(bash -c "printf '%s' $quoted")
-  assert_equals "$roundtrip" "$rule" "an apostrophe path survives a single-quoted shell argument"
-  pass "fm-spawn: an apostrophe in the checkout path remains callable"
+  local rec id out status launch capture prompt root checkout jev
+  id=profile-claude-jev-apostrophe-z21c
+  rec=$(make_spawn_case profile-claude-jev-apostrophe claude "$id")
+  read_case_record "$rec"
+  root=$ROOT
+  checkout="$TMP_ROOT/firstmate's checkout"
+  ln -s "$root" "$checkout"
+  ROOT=$checkout
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  status=$?
+  expect_code 0 "$status" "claude spawn from an apostrophe path should succeed"$'\n'"$out"
+  launch=$(cat "$LAUNCH_LOG")
+  capture="$CASE_DIR/system-prompt"
+  cat > "$FAKEBIN_DIR/claude" <<'SH'
+#!/usr/bin/env bash
+while [ $# -gt 0 ]; do
+  if [ "$1" = --append-system-prompt ]; then
+    printf '%s' "$2" > "$FM_CAPTURE_SYSTEM_PROMPT"
+    exit 0
+  fi
+  shift
+done
+exit 1
+SH
+  chmod +x "$FAKEBIN_DIR/claude"
+  PATH="$FAKEBIN_DIR:$PATH" FM_CAPTURE_SYSTEM_PROMPT="$capture" bash -c "$launch" \
+    || fail "the production claude launch did not parse"
+  prompt=$(cat "$capture")
+  jev="$checkout/bin/fm-jev.sh"
+  [ -x "$jev" ] || fail "the launched Jev command path is not executable"
+  "$jev" yes --help >/dev/null || fail "the launched Jev command path did not run"
+  assert_contains "$prompt" "through \"$jev\" (its --help is the whole interface)" \
+    "the agent prompt did not carry the callable apostrophe path"
+  ROOT=$root
+  rm -f "$checkout"
+  pass "fm-spawn: the real claude launch quotes the callable apostrophe path"
 }
 
 test_claude_secondmate_launch_omits_task_control_channel_authority() {

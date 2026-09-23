@@ -342,7 +342,16 @@ fm_jev_compact_state() {
       buf = buf $0
     }
     END {
-      gsub(/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*-----END [A-Z0-9 ]*PRIVATE KEY-----/, "[redacted]", buf)
+      while (match(buf, /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/)) {
+        prefix = substr(buf, 1, RSTART - 1)
+        tail = substr(buf, RSTART + RLENGTH)
+        if (match(tail, /-----END [A-Z0-9 ]*PRIVATE KEY-----/)) {
+          suffix = substr(tail, RSTART + RLENGTH)
+          buf = prefix "[redacted]" suffix
+        } else {
+          buf = prefix "[redacted]"
+        }
+      }
       while (match(buf, /(TYPESAFE_API_KEY|OPENROUTER_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|FMX_PAIRING_TOKEN|FM_MAIL_PASS|AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|GITHUB_TOKEN|GH_TOKEN|JEV_API_KEY)=[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }

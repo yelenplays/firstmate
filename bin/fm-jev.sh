@@ -33,7 +33,7 @@
 # Log: every attempted call appends one metadata-only record (purpose
 # worker-cli, route, model, http, latency, usage in/out token counts - named
 # so fm_jev_log_call's token-key redaction leaves them readable - question count,
-# escalations, exit code, cwd; never the state or question text) through
+# escalations, exit code; never the working directory, state, or question text) through
 # fm_jev_log_call to the chosen home's state/jev-calls.jsonl. A log failure
 # never changes the result.
 #
@@ -230,7 +230,6 @@ log_call() {
     --arg model "${FM_JEV_LAST_MODEL:-}" \
     --arg http "${FM_JEV_LAST_HTTP:-}" \
     --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" \
-    --arg cwd "$PWD" \
     --argjson questions "$(printf '%s' "$NORM" | jq '.questions | length')" \
     --argjson escalated "$escalated" \
     --argjson exit "$exit_code" \
@@ -247,8 +246,7 @@ log_call() {
       },
       questions: $questions,
       escalated: $escalated,
-      exit: $exit,
-      cwd: $cwd
+      exit: $exit
     }' 2>/dev/null) || return 0
   fm_jev_log_call "$payload" >/dev/null 2>&1 || true
 }
