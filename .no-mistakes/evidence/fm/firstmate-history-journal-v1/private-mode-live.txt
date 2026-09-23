@@ -1,0 +1,1 @@
+FM_HOME/data/history=/tmp/fmht.OGOtBJ/home/data/history; history dir=700; days dir=700; day page=600; repository-root history absent=yes

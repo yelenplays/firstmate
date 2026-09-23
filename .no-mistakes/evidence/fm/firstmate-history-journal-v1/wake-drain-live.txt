@@ -1,0 +1,15 @@
+Command: bin/fm-wake-drain.sh (isolated FM_HOME)
+--- presented batch ---
+1790199192	1	check	live-wake	check: verify the exact release note before handoff
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 47503.1790199192.XlWvVW
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WORKTREE TANGLE - PRIMARY CHECKOUT IS ON A FEATURE BRANCH
+●  /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37FRWXGQMBGY1MJZAE447KG is on 'fm/firstmate-history-journal-v1', not its default branch 'main'.
+●  A crewmate likely branched/committed in the primary instead of its own worktree.
+●  The work is SAFE on the 'fm/firstmate-history-journal-v1' ref.
+●  Restore the primary to 'main':
+●      git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37FRWXGQMBGY1MJZAE447KG checkout main
+●  then re-validate 'fm/firstmate-history-journal-v1' in a proper isolated worktree.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+--- acknowledgement ---
+--- journaled sequence 1; queue empty after acknowledgement ---

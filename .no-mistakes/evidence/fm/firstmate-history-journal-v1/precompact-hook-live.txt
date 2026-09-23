@@ -1,0 +1,1 @@
+PreCompact hook exit=0; SessionEnd hook exit=0; captured turns=2; compaction records=1; duplicate records=0.

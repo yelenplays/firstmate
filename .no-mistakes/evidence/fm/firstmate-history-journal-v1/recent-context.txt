@@ -1,0 +1,12 @@
+23:31 captain (data/history/days/2026-09-23.md):
+Please retain the copper lighthouse plan exactly.
+
+23:31 firstmate:
+I will keep the plan and its follow-up visible.
+
+23:31 captain (data/history/days/2026-09-23.md):
+Also preserve the final checklist.
+
+23:31 firstmate:
+The final checklist is saved.
+journal: /tmp/fmht.Smk2Xv/home/data/history/days/

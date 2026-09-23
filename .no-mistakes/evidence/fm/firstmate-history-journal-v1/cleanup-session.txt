@@ -1,0 +1,24 @@
+Command: FM_HOME=<isolated> TMUX_TMPDIR=<isolated> bin/fm-teardown.sh cleanup-card
+--- output ---
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WORKTREE TANGLE - PRIMARY CHECKOUT IS ON A FEATURE BRANCH
+●  /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37FRWXGQMBGY1MJZAE447KG is on 'fm/firstmate-history-journal-v1', not its default branch 'main'.
+●  A crewmate likely branched/committed in the primary instead of its own worktree.
+●  The work is SAFE on the 'fm/firstmate-history-journal-v1' ref.
+●  Restore the primary to 'main':
+●      git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37FRWXGQMBGY1MJZAE447KG checkout main
+●  then re-validate 'fm/firstmate-history-journal-v1' in a proper isolated worktree.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37FRWXGQMBGY1MJZAE447KG/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37FRWXGQMBGY1MJZAE447KG/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+wrote data/history/tasks/cleanup-card.md
+teardown cleanup-card complete (window history-validation:fm-cleanup-card, worktree $HOME_DIR/no-worktree)
+Backlog: cleanup-card is closed in /private/tmp/fmht.IbBByZ/home/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+exit=0
+card=present
+remaining_backlog=1
