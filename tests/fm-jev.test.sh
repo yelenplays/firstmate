@@ -446,7 +446,7 @@ JSON
 }
 
 test_privacy_guard_refuses_before_sending() {
-  local code out err big openrouter_key large_state large_question large_meaning private_key boundary_state batch_json credential
+  local code out err big openrouter_key large_state large_question large_meaning private_key boundary_state batch_json credential configured_state
   respond '{"answers":{"yes":{"noul":0.9}}}'
   reset_log
   big=$(head -c 4097 /dev/zero | tr '\0' a)
@@ -463,6 +463,13 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "combined state, question, and option text over 4096 bytes is refused"
   assert_contains "$err" "4096-byte cap" "the aggregate cap is named"
   assert_absent "$LOG/body" "oversized combined input is never sent"
+
+  configured_state=$(head -c 129 /dev/zero | tr '\0' s)
+  reset_log
+  JEV_STATE_MAX_BYTES=128 run_jev code out err yes "$configured_state" "Done?"
+  assert_equals "$code" 1 "a caller-configured 128-byte state cap is enforced"
+  assert_contains "$err" "could not screen the input" "the configured state cap refuses input"
+  assert_absent "$LOG/body" "state over the caller-configured cap is never sent"
 
   boundary_state=$(head -c 4095 /dev/zero | tr '\0' s)
   batch_json=$(jq -cn --arg state "$boundary_state" '{state:$state,questions:[{id:"i",type:"yes",q:"q"}]}')
@@ -497,7 +504,7 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$(jq -r '.state' "$LOG/body")" "worktree for task-execution-receipt-retry is clean" \
     "the complete task slug is sent unchanged"
 
-  for token in sk-abcdefghijklmnop sk-or-abcdefghijklmnop sk_live_51AbCdEfGhIjKlMnOp sk_test_51AbCdEfGhIjKlMnOp ghp_abcdefghijklmnop github_pat_abcdefghijklmnop gho_abcdefghijklmnop ghu_abcdefghijklmnop ghs_abcdefghijklmnop ghr_abcdefghijklmnop xoxb-1234-5678-abcdef xoxp-1234-5678-abcdef xoxa-1234-5678-abcdef xoxr-1234-5678-abcdef xoxs-1234-5678-abcdef; do
+  for token in sk-abcdefghijklmnop sk-or-abcdefghijklmnop sk_live_51AbCdEfGhIjKlMnOp sk_test_51AbCdEfGhIjKlMnOp ghp_abcdefghijklmnop github_pat_abcdefghijklmnop glpat-12345678901234567890 gho_abcdefghijklmnop ghu_abcdefghijklmnop ghs_abcdefghijklmnop ghr_abcdefghijklmnop xoxb-1234-5678-abcdef xoxp-1234-5678-abcdef xoxa-1234-5678-abcdef xoxr-1234-5678-abcdef xoxs-1234-5678-abcdef; do
     reset_log
     run_jev code out err yes "credential ($token)" "Done?"
     assert_equals "$code" 1 "a token boundary before $token is refused"

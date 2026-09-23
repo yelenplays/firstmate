@@ -212,7 +212,7 @@ ALL_TEXT=$(printf '%s' "$NORM" | jq -r '.state, (.questions[] | .id, .q, (.opts[
 INPUT_BYTES=$(printf '%s' "$NORM" | jq -r '[.state, (.questions[] | .id, .q, (.opts[][]))] | map(utf8bytelength) | add')
 [ "$INPUT_BYTES" -le "$FM_JEV_CLI_INPUT_MAX" ] \
   || die "input is $INPUT_BYTES bytes, over the $FM_JEV_CLI_INPUT_MAX-byte cap; pass only the facts the judgment needs"
-COMPACT=$(JEV_STATE_MAX_BYTES=1048576 fm_jev_compact_state "$ALL_TEXT" 2>/dev/null) \
+COMPACT=$(fm_jev_compact_state "$ALL_TEXT" 2>/dev/null) \
   || die "could not screen the input for secrets"
 [ "$COMPACT" = "$ALL_TEXT" ] \
   || die "input looks like it carries a secret (key, token, or credential); refused, nothing sent"
