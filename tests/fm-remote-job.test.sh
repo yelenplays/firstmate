@@ -232,6 +232,14 @@ for _ in $(seq 1 100); do
   sleep 0.05
 done
 assert_present "$STATE_ROOT/worker.ready" "the worker did not publish its readiness heartbeat: $(<"$TMP_ROOT/worker.err") $(<"$TMP_ROOT/worker.out")"
+SUPERVISOR_PID=$(head -n 1 "$STATE_ROOT/supervisor.lock/owner")
+SERVING_PID=$(cat "$STATE_ROOT/worker.pid")
+SUPERVISOR_PGID=$(fm_remote_job_process_pgid "$SUPERVISOR_PID") \
+  || fail "the supervisor process group was unreadable"
+SERVING_PGID=$(fm_remote_job_process_pgid "$SERVING_PID") \
+  || fail "the serving process group was unreadable"
+[ "$SUPERVISOR_PGID" = "$SERVING_PGID" ] \
+  || fail "the serving child escaped its restart supervisor's worker group"
 
 file_mode() {
   if [ "$(uname)" = Darwin ]; then

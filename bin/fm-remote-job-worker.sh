@@ -1449,6 +1449,8 @@ worker_supervise_linux() {
     *) worker_error "cannot acquire supervisor ownership"; return 1 ;;
   esac
   trap worker_supervisor_shutdown HUP INT TERM
+  # The serving child shares this isolated group so worker.pid stops its parent too.
+  set +m
   while :; do
     if worker_code_root_abandoned; then
       worker_error "configured FM_ROOT $FM_ROOT no longer exists; stopping the abandoned worker supervisor"
