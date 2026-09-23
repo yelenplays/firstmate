@@ -352,7 +352,7 @@ fm_jev_compact_state() {
           buf = prefix "[redacted]"
         }
       }
-      credential_uri_pattern = "[[:alpha:]][[:alnum:].+-]*://[^/@:?#[:space:]]+:[^/@?#[:space:]]+@[^/@?#[:space:]]+"
+      credential_uri_pattern = "[[:alpha:]][[:alnum:].+-]*://[^/@:?#[:space:]]*:[^/@?#[:space:]]+@[^/@?#[:space:]]+"
       while (match(buf, credential_uri_pattern)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
@@ -363,17 +363,51 @@ fm_jev_compact_state() {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
       while (match(tolower(buf), /(^|[^[:alnum:]_])([[:alpha:]_][[:alnum:]_]*)?(password|passwd|pwd|secret_key|api_key|secret|token)[[:space:]]*[:=][[:space:]]*/)) {
+        key_start = RSTART
         assignment = substr(buf, RSTART, RLENGTH)
         prefix = substr(buf, 1, RSTART - 1)
-        if (RSTART > 1) {
-          boundary = substr(assignment, 1, 1)
-          if (boundary ~ /[^[:alnum:]_]/) prefix = prefix boundary
-        }
-        tail = substr(buf, RSTART + RLENGTH)
+        boundary = substr(assignment, 1, 1)
+        if (RSTART > 1 && boundary ~ /[^[:alnum:]_]/) prefix = prefix boundary
+        tail = substr(buf, key_start + RLENGTH)
         newline = index(tail, "\n")
-        if (newline) tail = substr(tail, newline)
-        else tail = ""
-        buf = prefix "[redacted]" tail
+        indicator = newline ? substr(tail, 1, newline - 1) : tail
+        sub(/\r$/, "", indicator)
+        if (indicator ~ /^[ \t]*[|>][+-]?[1-9]?[+-]?[ \t]*(#[^\n]*)?$/) {
+          block_tail = newline ? substr(tail, newline + 1) : ""
+          token_start = key_start
+          if (boundary ~ /[^[:alnum:]_]/) token_start++
+          line_start = token_start - 1
+          while (line_start > 0 && substr(buf, line_start, 1) != "\n") line_start--
+          line_head = substr(buf, line_start + 1, token_start - line_start - 1)
+          match(line_head, /^[ \t]*/)
+          key_indent = RLENGTH
+          line_head = substr(line_head, key_indent + 1)
+          if (line_head ~ /^-[ \t]/) {
+            match(line_head, /^-[ \t]+/)
+            key_indent += RLENGTH
+          }
+          while (length(block_tail) > 0) {
+            block_newline = index(block_tail, "\n")
+            block_line = block_newline ? substr(block_tail, 1, block_newline - 1) : block_tail
+            block_line_for_indent = block_line
+            sub(/\r$/, "", block_line_for_indent)
+            if (block_line_for_indent != "") {
+              match(block_line_for_indent, /^[ \t]*/)
+              if (RLENGTH <= key_indent) break
+            }
+            if (block_newline) block_tail = substr(block_tail, block_newline + 1)
+            else {
+              block_tail = ""
+              break
+            }
+          }
+          buf = prefix "[redacted]"
+          if (length(block_tail) > 0) buf = buf "\n" block_tail
+        } else {
+          if (newline) tail = substr(tail, newline)
+          else tail = ""
+          buf = prefix "[redacted]" tail
+        }
       }
       while (match(buf, /[Aa]uthorization:[[:space:]]*[Bb]earer[[:space:]]+[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)

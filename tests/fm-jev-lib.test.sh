@@ -363,7 +363,7 @@ test_probabilities_sum() {
 }
 
 test_compact_state_strips_secrets_and_refuses_oversized() {
-  local out secret big
+  local out secret big yaml
   secret='note TYPESAFE_API_KEY=abc123 and Bearer tok_secret_value and sk-or-v1-abcdefghijklmnopqrstuvwxyz'
   out=$(fm_jev_compact_state "keep this $secret skill-selector")
   assert_contains "$out" 'keep this' "compact keeps ordinary prose"
@@ -373,6 +373,27 @@ test_compact_state_strips_secrets_and_refuses_oversized() {
   assert_not_contains "$out" 'tok_secret_value' "compact drops a Bearer token"
   assert_not_contains "$out" 'sk-or-v1-abcdefghijklmnopqrstuvwxyz' "compact drops an OpenRouter-shaped key"
   assert_contains "$out" '[redacted]' "compact leaves an explicit redaction marker"
+
+  out=$(fm_jev_compact_state 'redis://:opaque-pass@db.internal/0')
+  assert_equals "$out" '[redacted]/0' "compact removes a URI credential with an empty username"
+  out=$(fm_jev_compact_state 'https://example.com/path')
+  assert_equals "$out" 'https://example.com/path' "compact preserves a URL without user-and-password credentials"
+
+  yaml=$'config:\n  API_TOKEN: |\n    opaque-secret\n    second line\n  next: preserved'
+  out=$(fm_jev_compact_state "$yaml")
+  assert_equals "$out" $'config:\n  [redacted]\n  next: preserved' \
+    "compact removes a sensitive YAML block scalar without consuming its sibling"
+
+  yaml=$'- API_TOKEN: >\n    opaque-secret\n  next: preserved'
+  out=$(fm_jev_compact_state "$yaml")
+  assert_equals "$out" $'- [redacted]\n  next: preserved' \
+    "compact preserves a sibling after a sequence block scalar"
+
+  yaml=$'API_TOKEN: >\r\n  opaque-secret\r\nnext: preserved'
+  out=$(fm_jev_compact_state "$yaml")
+  assert_not_contains "$out" 'opaque-secret' "compact removes secrets in CRLF block scalars"
+  assert_contains "$out" 'next: preserved' "compact preserves content after a CRLF block scalar"
+
   big=$(printf '%*s' 9000 '' | tr ' ' 'x')
   if out=$(fm_jev_compact_state "$big" 2>/dev/null); then
     fail "oversized state must be refused"

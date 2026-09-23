@@ -23,7 +23,7 @@
 #
 # Option text accepts label=meaning, split on its first equals sign; later
 # equals signs belong to the meaning, so labels cannot contain equals signs.
-# Option labels must be one line.
+# Option labels and meanings must not contain control characters.
 #
 # Escalation floor: a verdict whose confidence is below the floor prints
 # ESCALATE. The default floor follows the confidence source: 0.5 for the
@@ -57,7 +57,7 @@ fm-jev.sh - one typed Jev judgment (TypeSafe) with one output line per question.
   fm-jev.sh score "<state>" "<question>" lvl1 lvl2 ...   ordered levels, at most 10
   fm-jev.sh batch < {"state":"..","questions":[{"id":"x","type":"pick|yes|score","q":"..","opts":[..]}]}
     Several questions on one state in one call; opts is an array of label or label=meaning strings.
-    First "=" splits label from meaning; later "=" stays in meaning; labels cannot contain "=" or line breaks.
+    First "=" splits label from meaning; later "=" stays in meaning; labels cannot contain "="; labels and meanings cannot contain controls.
 Flags follow the command: --json (raw response); --help prints this interface.
 Output: "pick: answer p=0.96 conf=0.94"; a batch uses its question id; escalation prints "ESCALATE conf=0.31 prior=X -> decide yourself".
 Exit: 0 answered, 2 any escalation, 1 error with a one-line reason; on 1 or 2 use your own judgment, never block.
@@ -170,6 +170,7 @@ esac
 # Validate and normalize: opts becomes an ordered [[label, meaning]] list.
 NORM=$(printf '%s' "$SPEC" | jq -c '
   def fail(m): error(m);
+  def has_control: ([explode[] | select(. < 32 or . == 127)] | length > 0);
   if type != "object" then fail("input must be a JSON object") else . end
   | if (.state | type) != "string" or .state == "" then fail("state must be a non-empty string") else . end
   | if (.questions | type) != "array" or (.questions | length) == 0 then fail("questions must be a non-empty array") else . end
@@ -191,8 +192,9 @@ NORM=$(printf '%s' "$SPEC" | jq -c '
                          else [$option, $option]
                          end
                        | if .[0] == "" then fail("question \(.id): empty option label") else . end
-                       | if (.[0] | contains("\n")) or (.[0] | contains("\r")) then fail("option labels must not contain line breaks") else . end
-                       | if .[1] == "" then .[1] = .[0] else . end ]
+                       | if .[1] == "" then .[1] = .[0] else . end
+                       | if (.[0] | has_control) or (.[1] | has_control)
+                         then fail("option labels and meanings must not contain control characters") else . end ]
                    else fail("question \(.id): opts must be an array of strings") end)
           | if (.opts | length) < 2 then fail("question \(.id): needs at least two options") else . end
           | if .type == "pick" and (.opts | length) > 255 then fail("question \(.id): pick supports at most 255 options")

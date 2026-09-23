@@ -445,8 +445,44 @@ JSON
   pass "fm-jev.sh: errors exit 1 with one line"
 }
 
+test_option_control_characters_are_refused() {
+  local code out err esc del
+  esc=$'\033'
+  del=$'\177'
+
+  reset_log
+  run_jev code out err pick "state" "Choose?" "${esc}[2J=clear screen" B
+  assert_equals "$code" 1 "an ESC control in a pick label is refused"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "a pick-label control refusal prints one stderr line"
+  assert_contains "$err" "option labels and meanings must not contain control characters" \
+    "the pick-label control refusal is explained"
+  assert_absent "$LOG/body" "a pick label with terminal control is never sent"
+
+  reset_log
+  run_jev code out err score "state" "How severe?" low "high=${del}meaning"
+  assert_equals "$code" 1 "a DEL control in a score meaning is refused"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "a score-meaning control refusal prints one stderr line"
+  assert_contains "$err" "option labels and meanings must not contain control characters" \
+    "the score-meaning control refusal is explained"
+  assert_absent "$LOG/body" "a score meaning with terminal control is never sent"
+
+  reset_log
+  run_jev code out err batch <<'JSON'
+{"state":"s","questions":[{"id":"pick","type":"pick","q":"Choose?","opts":["A\u0000=meaning","B"]}]}
+JSON
+  assert_equals "$code" 1 "a NUL control in a batch label is refused"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "a batch-label control refusal prints one stderr line"
+  assert_contains "$err" "option labels and meanings must not contain control characters" \
+    "the batch-label control refusal is explained"
+  assert_absent "$LOG/body" "a batch label with NUL is never sent"
+  pass "fm-jev.sh: option labels and meanings reject terminal controls"
+}
+
 test_privacy_guard_refuses_before_sending() {
-  local code out err big openrouter_key large_state large_question large_meaning private_key boundary_state batch_json credential configured_state
+  local code out err big openrouter_key large_state large_question large_meaning private_key boundary_state batch_json credential configured_state yaml_state
   respond '{"answers":{"yes":{"noul":0.9}}}'
   reset_log
   big=$(head -c 4097 /dev/zero | tr '\0' a)
@@ -494,7 +530,8 @@ test_privacy_guard_refuses_before_sending() {
   reset_log
   run_jev code out err pick "state" "Choose?" "A=$private_key" B
   assert_equals "$code" 1 "a multiline PEM key in option text is refused"
-  assert_contains "$err" "secret" "the PEM option refusal names the privacy issue"
+  assert_contains "$err" "option labels and meanings must not contain control characters" \
+    "the PEM option is rejected before the privacy screen"
   assert_absent "$LOG/body" "a multiline PEM key in option text is never sent"
 
   reset_log
@@ -502,6 +539,19 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "a credential-bearing database URL is refused"
   assert_contains "$err" "secret" "the database URL refusal names the privacy issue"
   assert_absent "$LOG/body" "a credential-bearing database URL is never sent"
+
+  reset_log
+  run_jev code out err yes 'redis://:opaque-pass@db.internal/0' "Done?"
+  assert_equals "$code" 1 "a credential-bearing URL with an empty username is refused"
+  assert_contains "$err" "secret" "the empty-username URL refusal names the privacy issue"
+  assert_absent "$LOG/body" "an empty-username credential URL is never sent"
+
+  yaml_state=$'config:\n  API_TOKEN: |\n    opaque-secret\n    second line\n  next: preserved'
+  reset_log
+  run_jev code out err yes "$yaml_state" "Done?"
+  assert_equals "$code" 1 "a sensitive YAML block scalar is refused"
+  assert_contains "$err" "secret" "the YAML block-scalar refusal names the privacy issue"
+  assert_absent "$LOG/body" "a YAML block-scalar secret is never sent"
 
   reset_log
   run_jev code out err yes 'https://example.com/path' "Done?"
@@ -603,7 +653,7 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "an option label containing a newline is refused"
   assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
     "the multiline label refusal prints one stderr line"
-  assert_contains "$err" "option labels must not contain line breaks" "the invalid label is explained"
+  assert_contains "$err" "option labels and meanings must not contain control characters" "the invalid label is explained"
   assert_absent "$LOG/body" "a multiline option label is never sent"
 
   run_jev code out err yes "the key is $KEY" "Done?"
@@ -785,6 +835,7 @@ test_escalation_exits_two
 test_split_score_distribution_escalates_by_design
 test_json_prints_raw_response
 test_errors_exit_one_with_one_line
+test_option_control_characters_are_refused
 test_privacy_guard_refuses_before_sending
 test_privacy_guard_screens_checkout_env_without_fm_home
 test_log_records_metadata_only
