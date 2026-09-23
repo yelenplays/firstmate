@@ -1,0 +1,40 @@
+MD07H4EEPEZ/.test-runtime/fm-root/bin/fm-operational-input.sh' encode launch-brief < '<USER>/.no-mistakes/worktre
+es/548b8aa73bec/01M36HCFZNVQ8CKMD07H4EEPEZ/.test-runtime/home-secondmate/data/charter.md')"
+
+ [0m[1m[38;2;138;190;183mpi[0m[38;2;102;102;102m v0.87.1[0m                                                                                                            
+ [0m[38;2;102;102;102mescape[0m[38;2;128;128;128m interrupt · [0m[38;2;102;102;102mctrl+c/ctrl+d[0m[38;2;128;128;128m clear/exit · [0m[38;2;102;102;102m/[0m[38;2;128;128;128m commands · [0m[38;2;102;102;102m![0m[38;2;128;128;128m bash · [0m[38;2;102;102;102mctrl+o[0m[38;2;128;128;128m more[0m                                       
+ [0m[38;2;102;102;102mPress ctrl+o to show full startup help and loaded resources.[0m                                                          
+                                                                                                                       
+ [0m[38;2;102;102;102mPi can explain its own features and look up its docs. Ask it how to use or extend Pi.[0m                                 
+
+
+[0m[38;2;240;198;116m[Context][0m                                                                                                              
+[0m[38;2;102;102;102m  <USER>/AGENTS.md, <WORKTREE>/AGENTS.md,       [0m
+[0m[38;2;102;102;102mAGENTS.md[0m                                                                                                              
+
+[0m[38;2;240;198;116m[Skills][0m                                                                                                               
+[0m[38;2;102;102;102m  afk, ahoy, ask-user-authority, bearings, bootstrap-diagnostics, captain-hold-lifecycle, competitive-landscape,       [0m
+[0m[38;2;102;102;102mcompetitor-analysis, decision-hold-lifecycle, diagnostic-reasoning, firstmate-codexapp, firstmate-coding-guidelines,   [0m
+[0m[38;2;102;102;102mfirstmate-orca, fmx-respond, harness-adapters, i-have-adhd, keyword-clustering, keyword-research, link-prospecting,    [0m
+[0m[38;2;102;102;102mlocal-seo, orchestrated-delivery, process-event-sources, project-management, quiet, quota-array-dispatch,              [0m
+[0m[38;2;102;102;102msecondmate-provisioning, seo-audit, seo-coach, seo-project-setup, simple-issue-description, stow,                      [0m
+[0m[38;2;102;102;102mstuck-crewmate-recovery, updatefirstmate[0m                                                                               
+
+[0m[38;2;240;198;116m[Extensions][0m                                                                                                           
+[0m[38;2;102;102;102m  fm-branch-supervision.ts, fm-calm.ts, fm-hermes-agent.ts, fm-primary-pi-watch.ts, fm-primary-turnend-guard.ts[0m        
+
+[0m[48;2;52;53;65m                                                                                                                       [0m
+[0m[48;2;52;53;65m [0m[38;2;212;212;212m[48;2;52;53;65mFIRSTMATE_OP: v1 launch-brief: # Disposable live Pi secondmate charter[0m[48;2;52;53;65m                                                [0m
+[0m[48;2;52;53;65m                                                                                                                       [0m
+[0m[48;2;52;53;65m [0m[38;2;212;212;212m[48;2;52;53;65mReply to the bounded validation request with exactly ACK.[0m[48;2;52;53;65m                                                             [0m
+[0m[48;2;52;53;65m                                                                                                                       [0m
+
+ [0m[1m[3m[38;2;128;128;128mAcknowledging event[0m                                                                                                   
+
+ ACK                                                                                                                   
+
+[0m[38;2;255;95;255m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
+[0m[7m [0m                                                                                                                      
+[0m[38;2;255;95;255m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
+[0m[38;2;102;102;102m<WORKTREE>/.test-runtime/home-secondmate (detached)[0m
+[0m[38;2;102;102;102m↑47k ↓508 $0.005 (sub) 17.3%/272k (auto)                                                               gpt-6-luna • max[0m
