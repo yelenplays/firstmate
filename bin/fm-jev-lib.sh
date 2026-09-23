@@ -767,8 +767,11 @@ fm_jev_supervision_state() {  # <status-line|pane-tail> <text> <free-text:0|1>
   case "$kind" in
     status-line)
       verb=$(printf '%s' "$lower" | sed -nE '1s/^[[:space:]]*([a-z][a-z-]*)([[:space:]]*\[[^]]*\])?:.*/\1/p')
-      [ -n "$verb" ] || verb=none
-      [ "${#verb}" -le 32 ] || verb=other
+      case "$verb" in
+        working|done|needs-decision|blocked|failed|paused|resolved|note|captain-held) ;;
+        '') verb=none ;;
+        *) verb=other ;;
+      esac
       jq -nc \
         --arg verb "$verb" \
         --argjson chars "${#text}" \
