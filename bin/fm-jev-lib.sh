@@ -61,6 +61,34 @@
 #   fm_jev_compact_state <state>
 #     Strips obvious secret-shaped tokens and prints the remainder. Refuses
 #     (exit 1) when the raw state exceeds JEV_STATE_MAX_BYTES (default 8192).
+#     Quoted credential values are consumed through their real closing quote,
+#     escaped quotes included, and every GitHub token prefix (ghp_, gho_, ghu_,
+#     ghs_, ghr_, github_pat_) is stripped.
+#   fm_jev_has_key
+#     Succeeds when a TypeSafe or OpenRouter key is present in the environment
+#     or $FM_HOME/.env; never prints the key.
+#   fm_jev_iso_now
+#     Prints the current UTC time as an ISO-8601 second timestamp.
+#   fm_jev_supervision_timeout
+#     Prints the per-call HTTP bound for the supervision consults: JEV_TIMEOUT
+#     from the environment or $FM_HOME/.env when it is a positive integer,
+#     else FM_JEV_SUPERVISION_TIMEOUT_SECS, else 3.
+#   fm_jev_supervision_free_text_ok <state-dir> <task-id>
+#     The supervision payload boundary. Succeeds only when this home is the
+#     primary firstmate home (no .fm-secondmate-home marker under $FM_HOME),
+#     the task record <state-dir>/<task-id>.meta is a regular file whose kind
+#     is ship or scout, and its project= is this firstmate repository itself
+#     (same resolved path as the code root, or the same origin remote URL).
+#     Any other case, including an unreadable record or a missing kind, fails.
+#     Supervision triage, the wedge check, and the shadow done verifier all
+#     gate their free-text payloads on it.
+#   fm_jev_supervision_state <status-line|pane-tail> <text> <free-text:0|1>
+#     Prints the Jev state for one supervision consult. With free-text 1 it is
+#     the size-capped text (FM_JEV_SUPERVISION_FREE_TEXT_MAX_CHARS, first chars
+#     of a status line, last chars of a pane tail) run through
+#     fm_jev_compact_state. With free-text 0 it is a JSON object of
+#     structured facts only - verb, counts, and fixed-vocabulary signal flags -
+#     and carries no text from the input.
 #
 # Environment (library-specific):
 #   TYPESAFE_API_KEY, OPENROUTER_API_KEY, JEV_ROUTE, JEV_MODEL, JEV_URL,
@@ -439,7 +467,7 @@ fm_jev_compact_state() {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
       lowered = tolower(buf)
-      while (match(lowered, /(fm_mail_pass|aws_access_key_id|[[:alnum:]_.-]*(password|passwd|pwd|secret|token)[[:alnum:]_.-]*|[[:alnum:]_.-]*api[[:space:]_-]*key[[:alnum:]_.-]*)["]?[[:space:]]*[:=][[:space:]]*("[^"]*"|[^[:space:],;]+)/)) {
+      while (match(lowered, /(fm_mail_pass|aws_access_key_id|[[:alnum:]_.-]*(password|passwd|pwd|secret|token)[[:alnum:]_.-]*|[[:alnum:]_.-]*api[[:space:]_-]*key[[:alnum:]_.-]*)["]?[[:space:]]*[:=][[:space:]]*("([^"\\]|\\.)*"?|[^[:space:],;]+)/)) {
         start = RSTART
         end = RSTART + RLENGTH
         buf = substr(buf, 1, start - 1) "[redacted]" substr(buf, end)
@@ -639,4 +667,147 @@ fm_jev_log_call() {
   dir=$(dirname "$path")
   mkdir -p "$dir" || { _fm_jev_err "could not create $dir"; return 1; }
   printf '%s\n' "$line" >> "$path" || { _fm_jev_err "could not write $path"; return 1; }
+}
+
+fm_jev_iso_now() {
+  date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf 'unknown'
+}
+
+fm_jev_has_key() {
+  local home typesafe_key openrouter_key
+  home=$(_fm_jev_home)
+  typesafe_key=${TYPESAFE_API_KEY:-}
+  openrouter_key=${OPENROUTER_API_KEY:-}
+  if [ -z "$typesafe_key" ]; then
+    typesafe_key=$(fmx_env_get TYPESAFE_API_KEY "$home/.env")
+  fi
+  if [ -z "$openrouter_key" ]; then
+    openrouter_key=$(fmx_env_get OPENROUTER_API_KEY "$home/.env")
+  fi
+  [ -n "$typesafe_key" ] || [ -n "$openrouter_key" ]
+}
+
+# --- supervision consults: timeout and outbound data boundary ---------------
+# Shared by bin/fm-jev-status-triage.sh and bin/fm-jev-wedge-check.sh, and by
+# bin/fm-classify-lib.sh's per-cycle budget, so the three read one answer.
+FM_JEV_SUPERVISION_FREE_TEXT_MAX_CHARS=4000
+
+fm_jev_supervision_timeout() {
+  local secs
+  secs=$(_fm_jev_cfg JEV_TIMEOUT)
+  case "$secs" in
+    ''|*[!0-9]*|0|??????????*) secs=${FM_JEV_SUPERVISION_TIMEOUT_SECS:-3} ;;
+  esac
+  case "$secs" in
+    ''|*[!0-9]*|0|??????????*) secs=3 ;;
+  esac
+  printf '%s' "$((10#$secs))"
+}
+
+_fm_jev_realpath_dir() {
+  (cd "$1" 2>/dev/null && pwd -P)
+}
+
+_fm_jev_origin_url() {
+  local url
+  url=$(git -C "$1" config --get remote.origin.url 2>/dev/null) || return 1
+  url=${url%/}
+  url=${url%.git}
+  [ -n "$url" ] || return 1
+  printf '%s' "$url"
+}
+
+fm_jev_supervision_free_text_ok() {  # <state-dir> <task-id>
+  local state=$1 task=$2 home meta kind project project_real root_real project_url root_url
+  [ -n "$state" ] && [ -n "$task" ] || return 1
+  case "$task" in */*|.*) return 1 ;; esac
+  home=${FM_HOME:-}
+  [ -n "$home" ] && [ -d "$home" ] || return 1
+  if [ -e "$home/.fm-secondmate-home" ] || [ -L "$home/.fm-secondmate-home" ]; then
+    return 1
+  fi
+  meta="$state/$task.meta"
+  [ -f "$meta" ] && [ ! -L "$meta" ] && [ -r "$meta" ] || return 1
+  kind=$(grep '^kind=' "$meta" 2>/dev/null | tail -1 | cut -d= -f2-)
+  case "$kind" in ship|scout) ;; *) return 1 ;; esac
+  project=$(grep '^project=' "$meta" 2>/dev/null | tail -1 | cut -d= -f2-)
+  [ -n "$project" ] && [ -d "$project" ] || return 1
+  if [ -e "$project/.fm-secondmate-home" ] || [ -L "$project/.fm-secondmate-home" ]; then
+    return 1
+  fi
+  project_real=$(_fm_jev_realpath_dir "$project") || return 1
+  root_real=$(_fm_jev_realpath_dir "$_FM_JEV_ROOT") || return 1
+  [ -n "$project_real" ] && [ -n "$root_real" ] || return 1
+  [ "$project_real" = "$root_real" ] && return 0
+  project_url=$(_fm_jev_origin_url "$project_real") || return 1
+  root_url=$(_fm_jev_origin_url "$root_real") || return 1
+  [ "$project_url" = "$root_url" ]
+}
+
+_fm_jev_signal() {  # <lowered-text> <extended-regex>
+  if printf '%s' "$1" | grep -Eq -- "$2"; then printf 'true'; else printf 'false'; fi
+}
+
+fm_jev_supervision_state() {  # <status-line|pane-tail> <text> <free-text:0|1>
+  local kind=$1 text=$2 free=$3 max lower verb last_line lines words
+  command -v jq >/dev/null 2>&1 || { _fm_jev_err "jq required"; return 2; }
+  max=$FM_JEV_SUPERVISION_FREE_TEXT_MAX_CHARS
+  if [ "$free" = 1 ]; then
+    if [ "${#text}" -gt "$max" ]; then
+      case "$kind" in
+        pane-tail) text=${text: -$max} ;;
+        *) text=${text:0:$max} ;;
+      esac
+    fi
+    fm_jev_compact_state "$text"
+    return
+  fi
+  lower=$(printf '%s' "$text" | tr '[:upper:]' '[:lower:]')
+  words=$(printf '%s' "$text" | wc -w | tr -d '[:space:]')
+  case "$kind" in
+    status-line)
+      verb=$(printf '%s' "$lower" | sed -nE '1s/^[[:space:]]*([a-z][a-z-]*)([[:space:]]*\[[^]]*\])?:.*/\1/p')
+      [ -n "$verb" ] || verb=none
+      [ "${#verb}" -le 32 ] || verb=other
+      jq -nc \
+        --arg verb "$verb" \
+        --argjson chars "${#text}" \
+        --argjson words "${words:-0}" \
+        --argjson key_tag "$(_fm_jev_signal "$lower" '\[key=')" \
+        --argjson question "$(_fm_jev_signal "$lower" '\?')" \
+        --argjson decision "$(_fm_jev_signal "$lower" 'decid|decision|choose|option|approv|merge|sign-off|pick')" \
+        --argjson blocker "$(_fm_jev_signal "$lower" 'block|stuck|cannot|can.t|unable|need help|waiting on|missing')" \
+        --argjson failure "$(_fm_jev_signal "$lower" 'fail|error|broken|crash|abort')" \
+        --argjson completion "$(_fm_jev_signal "$lower" 'done|finish|complete|shipped|merged|green|passed')" \
+        --argjson link "$(_fm_jev_signal "$lower" 'https?://')" \
+        '{payload: "structured", note: "Structured facts only; the status text is withheld by the Firstmate data boundary.",
+          kind: "status-line", verb: $verb, chars: $chars, words: $words,
+          signals: {key_tag: $key_tag, question: $question, decision_language: $decision,
+            blocker_language: $blocker, failure_language: $failure,
+            completion_language: $completion, link: $link}}'
+      ;;
+    pane-tail)
+      lines=$(printf '%s\n' "$text" | awk 'NF { n++ } END { print n + 0 }')
+      last_line=$(printf '%s\n' "$lower" | awk 'NF { l = $0 } END { print l }')
+      jq -nc \
+        --argjson chars "${#text}" \
+        --argjson lines "${lines:-0}" \
+        --argjson prompt "$(_fm_jev_signal "$lower" '\(y/n\)|\[y/n\]|press enter|continue\?|do you want|approve|allow')" \
+        --argjson quota "$(_fm_jev_signal "$lower" 'rate limit|usage limit|quota|429|credits')" \
+        --argjson error "$(_fm_jev_signal "$lower" 'error|traceback|panic|exception|fatal|failed')" \
+        --argjson permission "$(_fm_jev_signal "$lower" 'permission|denied|trust')" \
+        --argjson busy "$(_fm_jev_signal "$lower" 'thinking|running|working|esc to interrupt|generating')" \
+        --argjson finished "$(_fm_jev_signal "$lower" 'done|finished|complete|all tests pass')" \
+        --argjson shell "$(_fm_jev_signal "$last_line" '[$%>#][[:space:]]*$')" \
+        '{payload: "structured", note: "Structured facts only; the pane text is withheld by the Firstmate data boundary.",
+          kind: "pane-tail", chars: $chars, nonblank_lines: $lines,
+          signals: {prompt_waiting: $prompt, quota_or_rate_limit: $quota, error_text: $error,
+            permission_prompt: $permission, busy_indicator: $busy, completion_text: $finished,
+            shell_prompt_last_line: $shell}}'
+      ;;
+    *)
+      _fm_jev_err "unknown supervision state kind: $kind"
+      return 2
+      ;;
+  esac
 }

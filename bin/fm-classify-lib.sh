@@ -52,6 +52,9 @@
 # callers place it: the escalation boundary. Neither can downgrade a declared
 # verb, neither replaces a deterministic check, and any helper failure, timeout,
 # or invalid answer returns nonzero so the caller's existing behavior stands.
+# Every Jev call in one watcher or daemon cycle - these two plus the watcher's
+# heartbeat queue triage (fm_jev_supervision_queue_triage) - shares one
+# wall-clock budget and one circuit breaker (fm_jev_supervision_cycle_reset).
 
 # Directory of this library, used to locate the sibling fm-crew-state.sh reader.
 # Resolved at source time from BASH_SOURCE so it works whether sourced by a
@@ -84,6 +87,16 @@ case $- in *u*) _fm_classify_nounset=on ;; *) _fm_classify_nounset=off ;; esac
 # shellcheck source=bin/fm-nm-run-lib.sh
 # shellcheck disable=SC1091
 . "$_FM_CLASSIFY_LIB_DIR/fm-nm-run-lib.sh"
+[ "$_fm_classify_nounset" = on ] || set +u
+unset _fm_classify_nounset
+
+# The bounded Jev consults near the bottom of this file resolve their per-call
+# HTTP bound through bin/fm-jev-lib.sh (fm_jev_supervision_timeout), the same
+# answer the helpers read. The library is plain definitions plus constants.
+case $- in *u*) _fm_classify_nounset=on ;; *) _fm_classify_nounset=off ;; esac
+# shellcheck source=bin/fm-jev-lib.sh
+# shellcheck disable=SC1091
+. "$_FM_CLASSIFY_LIB_DIR/fm-jev-lib.sh"
 [ "$_fm_classify_nounset" = on ] || set +u
 unset _fm_classify_nounset
 
@@ -1878,7 +1891,7 @@ status_span_first_actionable_record() {  # <status-file> <start-offset> [record-
       if [ "$jev_triage" -eq 1 ] && [ "$jev_calls" -lt "$FM_JEV_SPAN_TRIAGE_MAX" ] \
         && status_line_jev_in_scope "$line"; then
         jev_calls=$((jev_calls + 1))
-        status_line_jev_escalates "$line" && jev_flagged=1
+        status_line_jev_escalates "$line" "$f" && jev_flagged=1
       fi
       [ "$jev_flagged" -eq 1 ] || continue
       [ -n "$events" ] && events="${events} ; "
@@ -1963,7 +1976,7 @@ status_span_has_actionable() {  # <status-file> <start-offset>
   status_span_first_actionable_record "$1" "${2:-0}" > /dev/null
 }
 
-# --- bounded Jev consults (the fourth documented exception above) -----------
+# --- bounded Jev consults (the fifth documented exception above) ------------
 # Escalation-only Jev status triage and a second-opinion wedge read, both over
 # the existing bin/fm-jev-lib.sh binding, both additive: they can surface or
 # defer where the deterministic contract already stands, and any failure
@@ -1984,16 +1997,10 @@ FM_JEV_WEDGE_CHECK_BIN="${FM_JEV_WEDGE_CHECK_BIN:-$_FM_CLASSIFY_LIB_DIR/fm-jev-w
 FM_JEV_SPAN_TRIAGE_MAX=${FM_JEV_SPAN_TRIAGE_MAX:-8}
 FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS=${FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS:-6}
 
-# The subprocess bound around one consult. The helper's own JEV_TIMEOUT bounds
-# the HTTP call (default FM_JEV_SUPERVISION_TIMEOUT_SECS=3 inside the helper);
-# this wraps the whole helper so a stall before curl - a hung state-dir write,
-# a blocked fork - cannot stall the supervision loop either. Reads the same
-# precedence the helper uses (explicit JEV_TIMEOUT wins) plus margin.
-_fm_jev_supervision_bound() {
-  local secs=${JEV_TIMEOUT:-${FM_JEV_SUPERVISION_TIMEOUT_SECS:-3}}
-  case "$secs" in ''|*[!0-9]*|0) secs=3 ;; esac
-  printf '%s' "$((secs + 2))"
-}
+# Margin, in seconds, between one consult's HTTP bound and the subprocess
+# bound wrapped around the whole helper, so a stall before curl - a hung
+# state-dir write, a blocked fork - cannot stall the supervision loop either.
+_FM_JEV_SUPERVISION_WRAP_MARGIN_SECS=2
 
 _fm_jev_supervision_now_ms() {
   local raw sec frac
@@ -2027,19 +2034,25 @@ fm_jev_supervision_cycle_reset() {
   case "${EPOCHREALTIME:-}" in *[0-9][.,][0-9]*) _FM_JEV_SUPERVISION_CYCLE_COARSE_CLOCK=0 ;; *) _FM_JEV_SUPERVISION_CYCLE_COARSE_CLOCK=1 ;; esac
 }
 
+# Admit one more consult into the current cycle, or refuse (1) once the breaker
+# has tripped or too little budget remains for even a one-second call. Sets the
+# consult's HTTP bound (the helper's JEV_TIMEOUT) to the configured supervision
+# timeout clipped to what the budget still allows, and its subprocess bound to
+# that plus the wrap margin, so the whole consult always fits the remainder.
 _fm_jev_supervision_cycle_prepare() {
-  local remaining_ms available_secs bound
+  local remaining_ms available_secs http
   [ -n "${_FM_JEV_SUPERVISION_CYCLE_BUDGET_MS:-}" ] || fm_jev_supervision_cycle_reset
   [ "${_FM_JEV_SUPERVISION_CYCLE_FAILED:-0}" -eq 0 ] || return 1
   remaining_ms=$((_FM_JEV_SUPERVISION_CYCLE_BUDGET_MS - _FM_JEV_SUPERVISION_CYCLE_USED_MS))
-  available_secs=$(((remaining_ms - 2000) / 1000))
+  available_secs=$(((remaining_ms - _FM_JEV_SUPERVISION_WRAP_MARGIN_SECS * 1000) / 1000))
   if [ "$available_secs" -le 0 ]; then
     _FM_JEV_SUPERVISION_CYCLE_FAILED=1
     return 1
   fi
-  bound=$(_fm_jev_supervision_bound)
-  [ "$bound" -le "$available_secs" ] || bound=$available_secs
-  _FM_JEV_SUPERVISION_CYCLE_CALL_TIMEOUT_SECS=$bound
+  http=$(fm_jev_supervision_timeout)
+  [ "$http" -le "$available_secs" ] || http=$available_secs
+  _FM_JEV_SUPERVISION_CYCLE_CALL_HTTP_SECS=$http
+  _FM_JEV_SUPERVISION_CYCLE_CALL_TIMEOUT_SECS=$((http + _FM_JEV_SUPERVISION_WRAP_MARGIN_SECS))
 }
 
 _fm_jev_supervision_cycle_charge() {
@@ -2052,13 +2065,15 @@ _fm_jev_supervision_cycle_charge() {
   _FM_JEV_SUPERVISION_CYCLE_USED_MS=$((_FM_JEV_SUPERVISION_CYCLE_USED_MS + elapsed_ms))
 }
 
-_fm_jev_supervision_consult() {
+_fm_jev_supervision_consult() {  # <helper> <payload> <output-var> [helper-arg...]
   local helper=$1 payload=$2 output_var=$3 started finished response rc=0
+  shift 3
   [ -f "$helper" ] || return 1
   _fm_jev_supervision_cycle_prepare || return 1
   started=$(_fm_jev_supervision_now_ms)
   response=$(printf '%s' "$payload" | FM_HOME="${FM_HOME:-}" FM_STATE_OVERRIDE="${FM_STATE_OVERRIDE:-}" \
-    fm_run_timed "$_FM_JEV_SUPERVISION_CYCLE_CALL_TIMEOUT_SECS" "$helper" 2>/dev/null) || rc=$?
+    JEV_TIMEOUT="$_FM_JEV_SUPERVISION_CYCLE_CALL_HTTP_SECS" \
+    fm_run_timed "$_FM_JEV_SUPERVISION_CYCLE_CALL_TIMEOUT_SECS" "$helper" "$@" 2>/dev/null) || rc=$?
   finished=$(_fm_jev_supervision_now_ms)
   _fm_jev_supervision_cycle_charge "$started" "$finished"
   if [ "$rc" -ne 0 ]; then
@@ -2066,6 +2081,31 @@ _fm_jev_supervision_consult() {
     return 1
   fi
   printf -v "$output_var" '%s' "$response"
+}
+
+# The watcher's advisory heartbeat queue triage (bin/fm-jev-queue-triage.sh),
+# admitted into the same cycle budget and breaker as the consults below. The
+# helper always exits 0 on an evaluation failure, so a timeout of the wrapper,
+# a nonzero exit, or an "error" snapshot trips the breaker. Never fails its
+# caller: the helper is advisory and dispatches nothing.
+fm_jev_supervision_queue_triage() {  # <helper> <state-dir>
+  local helper=$1 state=$2 started finished rc=0 snapshot_status
+  [ -f "$helper" ] || return 0
+  _fm_jev_supervision_cycle_prepare || return 0
+  started=$(_fm_jev_supervision_now_ms)
+  FM_HOME="${FM_HOME:-}" FM_STATE_OVERRIDE="$state" \
+    JEV_TIMEOUT="$_FM_JEV_SUPERVISION_CYCLE_CALL_HTTP_SECS" \
+    fm_run_timed "$_FM_JEV_SUPERVISION_CYCLE_CALL_TIMEOUT_SECS" "$helper" --heartbeat \
+    </dev/null >/dev/null 2>&1 || rc=$?
+  finished=$(_fm_jev_supervision_now_ms)
+  _fm_jev_supervision_cycle_charge "$started" "$finished"
+  if [ "$rc" -ne 0 ]; then
+    _FM_JEV_SUPERVISION_CYCLE_FAILED=1
+    return 0
+  fi
+  snapshot_status=$(jq -r '.status // empty' "$state/jev-queue-triage.json" 2>/dev/null || true)
+  [ "$snapshot_status" != error ] || _FM_JEV_SUPERVISION_CYCLE_FAILED=1
+  return 0
 }
 
 # 0 when <status-line> is eligible for the escalation-only Jev consult: a
@@ -2093,10 +2133,21 @@ status_line_jev_in_scope() {  # <status-line>
 # helper, an invalid answer - so the caller's deterministic verdict stands.
 # The declared-verb gate runs first, so a direct caller can never accidentally
 # offer a terminal or absorb-declared line to the model.
-status_line_jev_escalates() {  # <status-line>
-  local line=$1 verdict
+# <status-file> names the task and its state directory for the helper's data
+# boundary (fm_jev_supervision_free_text_ok in bin/fm-jev-lib.sh); without it
+# the helper sends structured facts only.
+status_line_jev_escalates() {  # <status-line> [<status-file>]
+  local line=$1 file=${2-} verdict task dir
+  local -a args=()
   status_line_jev_in_scope "$line" || return 1
-  _fm_jev_supervision_consult "$FM_JEV_STATUS_TRIAGE_BIN" "$line" verdict || return 1
+  if [ -n "$file" ]; then
+    task=${file##*/}
+    task=${task%.status}
+    dir=${file%/*}
+    [ "$dir" != "$file" ] || dir=.
+    [ -z "$task" ] || args=(--task "$task" --state-dir "$dir")
+  fi
+  _fm_jev_supervision_consult "$FM_JEV_STATUS_TRIAGE_BIN" "$line" verdict ${args[@]+"${args[@]}"} || return 1
   [ "$verdict" = escalate ]
 }
 
@@ -2105,10 +2156,16 @@ status_line_jev_escalates() {  # <status-line>
 # escalation boundary. 1 for every other outcome, including an escalate
 # verdict, a missing helper, and any failure - so the boundary's structural
 # escalation always stands as the fallback.
-wedge_jev_suppress() {  # <pane-tail>
-  local tail=$1 verdict
+# <task> and <state-dir> feed the helper's data boundary exactly as for the
+# status consult; without them the helper sends structured facts only.
+wedge_jev_suppress() {  # <pane-tail> [<task> <state-dir>]
+  local tail=$1 task=${2-} dir=${3-} verdict
+  local -a args=()
   [ -n "$tail" ] || return 1
-  _fm_jev_supervision_consult "$FM_JEV_WEDGE_CHECK_BIN" "$tail" verdict || return 1
+  if [ -n "$task" ] && [ -n "$dir" ]; then
+    args=(--task "$task" --state-dir "$dir")
+  fi
+  _fm_jev_supervision_consult "$FM_JEV_WEDGE_CHECK_BIN" "$tail" verdict ${args[@]+"${args[@]}"} || return 1
   [ "$verdict" = suppress ]
 }
 

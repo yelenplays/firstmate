@@ -16,6 +16,12 @@
 # report path, optional PR URL. The report path is read as a short excerpt
 # when the file is readable; a missing file is recorded as unreadable.
 #
+# Data boundary: these inputs leave the home only when
+# fm_jev_supervision_free_text_ok (bin/fm-jev-lib.sh) admits the task - a ship
+# or scout task of the firstmate repository, verified from the primary home.
+# Every other task makes no model call: the verdict is skipped with
+# payload=withheld, and only the local record is written.
+#
 # Questions (via bin/fm-jev-lib.sh):
 #   claim    Choice {evidenced, not_evidenced, need_human}
 #   strength Score over five ordered criteria levels, guess -> clear; the
@@ -35,7 +41,8 @@
 #     close: no
 #     teardown: no
 #   annotate is yes only for not_evidenced or need_human at conf >= floor.
-#   skipped covers missing keys, transport errors, and unparsable answers.
+#   skipped covers missing keys, transport errors, unparsable answers, and a
+#   task outside the data boundary.
 #   Exit 2 only for usage (missing task id / done-line, bad task id, bad
 #   flags). Evaluation failures still exit 0 so a done line is never blocked.
 #
@@ -132,8 +139,14 @@ state=$(printf '%s\n' \
   "report: ${report_excerpt:-(none)}" \
   "note: A currently healthy system is not evidence the claimed repair happened. Prefer need_human when the claim and the evidence can both be true without the work being done.")
 
+state_dir=${FM_STATE_OVERRIDE:-$FM_HOME/state}
+payload_mode=withheld
+fm_jev_supervision_free_text_ok "$state_dir" "$task_id" && payload_mode='free-text'
+
 compacted=
-if compacted=$(fm_jev_compact_state "$state"); then
+if [ "$payload_mode" = withheld ]; then
+  :
+elif compacted=$(fm_jev_compact_state "$state"); then
   :
 else
   state=$(printf '%s\n' \
@@ -175,7 +188,9 @@ strength=
 annotate=no
 decide_code=0
 response=
-response=$(fm_jev_decide "$compacted" "$questions") || decide_code=$?
+if [ "$payload_mode" != withheld ]; then
+  response=$(fm_jev_decide "$compacted" "$questions") || decide_code=$?
+fi
 
 if [ "$decide_code" -eq 0 ] && [ -n "$response" ]; then
   choice=$(printf '%s' "$response" | jq -r '.answers.claim.choice // empty')
@@ -201,7 +216,6 @@ if [ "$decide_code" -eq 0 ] && [ -n "$response" ]; then
   fi
 fi
 
-state_dir=${FM_STATE_OVERRIDE:-$FM_HOME/state}
 log_path="$state_dir/${task_id}.jev-done.jsonl"
 mkdir -p "$state_dir"
 log_payload=$(jq -nc \
@@ -211,6 +225,7 @@ log_payload=$(jq -nc \
   --arg strength "$strength" \
   --arg annotate "$annotate" \
   --arg done_line "$done_line" \
+  --arg payload "$payload_mode" \
   --arg route "${FM_JEV_LAST_ROUTE:-}" \
   --arg http "${FM_JEV_LAST_HTTP:-}" \
   --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" \
@@ -223,6 +238,7 @@ log_payload=$(jq -nc \
     strength: (try ($strength | tonumber) catch null),
     annotate: ($annotate == "yes"),
     done_line: $done_line,
+    payload: $payload,
     route: $route,
     http: $http,
     latency_ms: (try ($latency | tonumber) catch null),

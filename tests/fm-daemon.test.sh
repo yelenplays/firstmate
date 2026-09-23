@@ -695,31 +695,11 @@ test_stale_diagnostic_wedge_survives_busy_housekeeping() {
 # already captured. Stubs stand in for the helpers; the file-level export above
 # points both seams at absent paths everywhere else.
 
-install_jev_stubs() {  # <fakebin>
-  local fakebin=$1
-  cat > "$fakebin/jev-status-stub" <<'SH'
-#!/usr/bin/env bash
-if [ -n "${FM_JEV_STUB_DIR:-}" ]; then cat >> "$FM_JEV_STUB_DIR/status.stdin"; printf '\n' >> "$FM_JEV_STUB_DIR/status.stdin"; else cat >/dev/null; fi
-case "${FM_JEV_STUB_STATUS_VERDICT:-}" in
-  escalate|suppress) printf '%s\n' "$FM_JEV_STUB_STATUS_VERDICT"; exit 0 ;;
-  *) exit 1 ;;
-esac
-SH
-  cat > "$fakebin/jev-wedge-stub" <<'SH'
-#!/usr/bin/env bash
-if [ -n "${FM_JEV_STUB_DIR:-}" ]; then cat >> "$FM_JEV_STUB_DIR/wedge.stdin"; printf '\n' >> "$FM_JEV_STUB_DIR/wedge.stdin"; else cat >/dev/null; fi
-case "${FM_JEV_STUB_WEDGE_VERDICT:-}" in
-  escalate|suppress) printf '%s\n' "$FM_JEV_STUB_WEDGE_VERDICT"; exit 0 ;;
-  *) exit 1 ;;
-esac
-SH
-  chmod +x "$fakebin/jev-status-stub" "$fakebin/jev-wedge-stub"
-}
 
 test_daemon_signal_jev_consult() {
   local dir state fakebin out
   dir=$(make_supercase jev-signal); state="$dir/state"; fakebin="$dir/fakebin"
-  install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
   printf 'working: on it\nnote: the deploy window closes at 5\n' > "$state/task.status"
 
   # An escalate verdict surfaces the line through the ordinary escalate digest,
@@ -767,7 +747,7 @@ test_daemon_wedge_jev_boundary() {
   fm_write_meta "$state/$task.meta" "window=$win" "backend=tmux"
   printf 'working: building\n' > "$state/$task.status"
   printf 'Working...\n' > "$pane"
-  install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
   echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
 
   # suppress: no escalation, the stale marker is re-armed for another window,
@@ -834,6 +814,25 @@ test_daemon_wedge_jev_boundary() {
     || fail "an aged-out Jev suppression did not escalate: $(cat "$state/.subsuper-escalations" 2>/dev/null)"
   [ ! -e "$state/.subsuper-stale-$key" ] \
     || fail "an aged-out suppression kept its stale marker"
+
+  # An interrupted write can leave the suppression marker present but empty or
+  # garbled. It cannot prove the suppression is young, so the pane escalates
+  # for inspection instead of housekeeping aborting under set -u.
+  for garbage in '' 'not-a-time'; do
+    : > "$state/.subsuper-escalations"
+    echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+    printf '%s' "$garbage" > "$state/.subsuper-jevsupp-$key"
+    (
+      set -u
+      PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+        FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 \
+        FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+        FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=suppress \
+        housekeeping "$state"
+    ) || fail "housekeeping failed on a suppression marker holding '$garbage'"
+    grep -F 'suppressed for' "$state/.subsuper-escalations" >/dev/null \
+      || fail "a suppression marker holding '$garbage' did not escalate: $(cat "$state/.subsuper-escalations" 2>/dev/null)"
+  done
   pass "the daemon wedge boundary suppresses on a valid low Noul and escalates on every other outcome, bounded"
 }
 

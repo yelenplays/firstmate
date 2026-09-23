@@ -44,6 +44,7 @@ while [ $# -gt 0 ]; do
     *) printf '%s\n' "$1" >> "${FAKE_CURL_LOG:?}/argv"; shift ;;
   esac
 done
+printf '%s\n' "$max_time" > "$FAKE_CURL_LOG/max_time"
 cat > "$FAKE_CURL_LOG/body"
 cat /dev/fd/3 > "$FAKE_CURL_LOG/header" 2>/dev/null || printf 'fd3 unreadable\n' > "$FAKE_CURL_LOG/header"
 printf 'call\n' >> "$FAKE_CURL_LOG/calls"
@@ -68,6 +69,14 @@ fresh_home() {
   rm -rf "$HOME_DIR"
   mkdir -p "$HOME_DIR/state"
 }
+
+# A task record the supervision data boundary admits for free text: a ship task
+# whose project is this firstmate repository, in a primary home (HOME_DIR has no
+# .fm-secondmate-home marker). FREE_TEXT_ARGS names it to a helper.
+write_task_meta() {  # <task> <kind> <project>
+  printf 'kind=%s\nproject=%s\n' "$2" "$3" > "$HOME_DIR/state/$1.meta"
+}
+FREE_TEXT_ARGS=(--task fmtask --state-dir "$HOME_DIR/state")
 
 status_response() {  # <out-file> <noul> [verb] [confidence]
   local f=$1
@@ -97,9 +106,11 @@ wedge_response() {  # <out-file> <noul> [state-choice] [confidence]
 JSON
 }
 
-# run_helper <helper> <exit-var> <out-var> <err-var>  - stdin from STDIN_FILE.
+# run_helper <helper> <exit-var> <out-var> <err-var> [helper-arg...]
+#   - stdin from STDIN_FILE.
 run_helper() {
   local helper=$1 __exit=$2 __out=$3 __err=$4 _out _code _errfile
+  shift 4
   _errfile="$TMP_ROOT/stderr"
   reset_log
   _code=0
@@ -107,7 +118,7 @@ run_helper() {
     TYPESAFE_API_KEY="$TS_KEY" FAKE_CURL_LOG="$LOG" \
     FAKE_CURL_RESPONSE="$RESPONSE" FAKE_CURL_HTTP="${FAKE_CURL_HTTP:-200}" \
     FAKE_CURL_FAIL="${FAKE_CURL_FAIL:-0}" \
-    "$helper" < "$STDIN_FILE" 2> "$_errfile") || _code=$?
+    "$helper" "$@" < "$STDIN_FILE" 2> "$_errfile") || _code=$?
   printf -v "$__exit" '%s' "$_code"
   printf -v "$__out" '%s' "$_out"
   printf -v "$__err" '%s' "$(cat "$_errfile")"
@@ -148,9 +159,10 @@ test_status_triage_verdicts() {
 test_status_triage_question_shape_and_line_only() {
   local code out _err body
   fresh_home
+  write_task_meta fmtask ship "$ROOT"
   printf 'resolved [key=api]: took A\n' > "$STDIN_FILE"
   status_response "$RESPONSE" 0.2 resolved 0.8
-  run_helper "$STATUS_TRIAGE" code out _err
+  run_helper "$STATUS_TRIAGE" code out _err "${FREE_TEXT_ARGS[@]}"
   expect_code 0 "$code" "resolved: line consult exits 0"
   body=$(cat "$LOG/body")
   assert_contains "$body" '"captain_relevant"' "the request carries the Noul question"
@@ -168,10 +180,11 @@ test_status_triage_redacts_credentials() {
   secret='secret-value'
   token='token-value'
   api_key='api-key-value'
+  write_task_meta fmtask ship "$ROOT"
   printf 'note: DB_PASSWORD=%s CLIENT_SECRET: %s access_token=%s API key: %s\n' \
     "$password" "$secret" "$token" "$api_key" > "$STDIN_FILE"
   status_response "$RESPONSE" 0.2 note 0.7
-  run_helper "$STATUS_TRIAGE" code out _err
+  run_helper "$STATUS_TRIAGE" code out _err "${FREE_TEXT_ARGS[@]}"
   expect_code 0 "$code" "a credential-bearing note line is still classified"
   jq -e --arg password "$password" --arg secret "$secret" --arg token "$token" --arg api_key "$api_key" '
     .state as $state
@@ -185,6 +198,119 @@ test_status_triage_redacts_credentials() {
   ' "$HOME_DIR/state/jev-status-triage.jsonl" >/dev/null \
     || fail "a credential reached the Jev audit excerpt unredacted"
   pass "status triage redacts credential fields before sending and auditing"
+}
+
+test_status_triage_redacts_escaped_quotes_and_github_tokens() {
+  local code out _err
+  fresh_home
+  write_task_meta fmtask ship "$ROOT"
+  printf '%s\n' 'note: DB_PASSWORD="alpha\"omega" then gho_oauthSECRET1 ghu_userSECRET2 ghs_srvSECRET3 ghr_refSECRET4 ghp_patSECRET5' > "$STDIN_FILE"
+  status_response "$RESPONSE" 0.2 note 0.7
+  run_helper "$STATUS_TRIAGE" code out _err "${FREE_TEXT_ARGS[@]}"
+  expect_code 0 "$code" "a line carrying an escaped-quote password and GitHub tokens is still classified"
+  for secret in alpha omega oauthSECRET1 userSECRET2 srvSECRET3 refSECRET4 patSECRET5; do
+    jq -e --arg s "$secret" '.state | contains($s) | not' "$LOG/body" >/dev/null \
+      || fail "secret fragment $secret reached the Jev request body: $(cat "$LOG/body")"
+    grep -q -- "$secret" "$HOME_DIR/state/jev-status-triage.jsonl" \
+      && fail "secret fragment $secret reached the Jev audit record"
+  done
+  jq -e '.state | contains("then")' "$LOG/body" >/dev/null \
+    || fail "redaction swallowed text past the escaped-quote value's closing quote"
+  pass "escaped-quote credential values and every GitHub token prefix are redacted before sending and auditing"
+}
+
+# The captain's data boundary: free text leaves the home only for a firstmate
+# repository task in the primary home. Each other side of the line - no task
+# named, a secondmate home, a secondmate task, another project - sends only
+# structured facts, and its audit record carries no text.
+test_supervision_payload_boundary() {
+  local helper kind marker code out _err case_name other
+  other="$TMP_ROOT/other-project"
+  rm -rf "$other"
+  mkdir -p "$other"
+  git -C "$other" init -q
+  git -C "$other" remote add origin https://example.invalid/someone/website.git
+  for helper in "$STATUS_TRIAGE" "$WEDGE_CHECK"; do
+    case "$helper" in
+      "$STATUS_TRIAGE") marker='MARKERWORD'; printf 'note: MARKERWORD please tell the captain?\n' > "$STDIN_FILE"
+        status_response "$RESPONSE" 0.2 note 0.7; kind='status-line' ;;
+      *) marker='MARKERWORD'; printf 'MARKERWORD compiling\nerror: rate limit reached\n$ \n' > "$STDIN_FILE"
+        wedge_response "$RESPONSE" 0.2 idle_finished 0.8; kind='pane-tail' ;;
+    esac
+
+    fresh_home
+    write_task_meta fmtask ship "$ROOT"
+    run_helper "$helper" code out _err "${FREE_TEXT_ARGS[@]}"
+    expect_code 0 "$code" "$kind: an eligible firstmate task consult succeeds"
+    jq -e --arg m "$marker" '.state | type == "string" and contains($m)' "$LOG/body" >/dev/null \
+      || fail "$kind: an eligible firstmate-repo task in the primary home did not send its compacted text"
+    grep -q '"payload":"free-text"' "$HOME_DIR/state"/jev-*.jsonl \
+      || fail "$kind: the eligible audit record does not name its free-text payload"
+
+    for case_name in no-task secondmate-home secondmate-task other-project; do
+      fresh_home
+      write_task_meta fmtask ship "$ROOT"
+      case "$case_name" in
+        no-task) run_helper "$helper" code out _err ;;
+        secondmate-home)
+          printf 'sm-test\n' > "$HOME_DIR/.fm-secondmate-home"
+          run_helper "$helper" code out _err "${FREE_TEXT_ARGS[@]}" ;;
+        secondmate-task)
+          write_task_meta fmtask secondmate "$ROOT"
+          run_helper "$helper" code out _err "${FREE_TEXT_ARGS[@]}" ;;
+        other-project)
+          write_task_meta fmtask ship "$other"
+          run_helper "$helper" code out _err "${FREE_TEXT_ARGS[@]}" ;;
+      esac
+      expect_code 0 "$code" "$kind/$case_name: a structured consult still yields a verdict"
+      jq -e --arg k "$kind" '.state | type == "object" and .payload == "structured" and .kind == $k' "$LOG/body" >/dev/null \
+        || fail "$kind/$case_name: the request state is not the structured facts object: $(cat "$LOG/body")"
+      grep -q "$marker" "$LOG/body" && fail "$kind/$case_name: free text reached the Jev request body"
+      grep -q "$marker" "$HOME_DIR/state"/jev-*.jsonl && fail "$kind/$case_name: free text reached the audit record"
+      grep -q '"payload":"structured"' "$HOME_DIR/state"/jev-*.jsonl \
+        || fail "$kind/$case_name: the audit record does not name its structured payload"
+    done
+  done
+  pass "free text leaves the home only for firstmate-repo tasks in the primary home; every other case sends structured facts"
+}
+
+test_wedge_check_caps_free_text_to_the_pane_end() {
+  local code out _err tail_text
+  fresh_home
+  write_task_meta fmtask ship "$ROOT"
+  tail_text="HEADMARK$(printf '%9000s' '' | tr ' ' 'x')TAILMARK"
+  printf '%s\n' "$tail_text" > "$STDIN_FILE"
+  wedge_response "$RESPONSE" 0.2 idle_finished 0.8
+  run_helper "$WEDGE_CHECK" code out _err "${FREE_TEXT_ARGS[@]}"
+  expect_code 0 "$code" "a pane tail past the state cap is capped, not refused"
+  jq -e '.state | (length <= 4000) and contains("TAILMARK") and (contains("HEADMARK") | not)' "$LOG/body" >/dev/null \
+    || fail "the free-text pane state is not capped to its last characters"
+  pass "free-text pane tails are size-capped to their most recent characters"
+}
+
+test_helpers_honor_dotenv_timeout() {
+  local helper code out _err
+  for helper in "$STATUS_TRIAGE" "$WEDGE_CHECK"; do
+    fresh_home
+    printf 'JEV_TIMEOUT=1\n' > "$HOME_DIR/.env"
+    printf 'note: anything\n' > "$STDIN_FILE"
+    status_response "$RESPONSE" 0.2 note 0.7
+    jq '.answers.stuck = {type: "noul", noul: 0.2}' "$RESPONSE" > "$TMP_ROOT/edited.json" && mv "$TMP_ROOT/edited.json" "$RESPONSE"
+    run_helper "$helper" code out _err
+    expect_code 0 "$code" "$(basename "$helper") consult with a .env timeout"
+    assert_equals 1 "$(cat "$LOG/max_time")" "$(basename "$helper") honors JEV_TIMEOUT from \$FM_HOME/.env"
+  done
+  fresh_home
+  printf 'JEV_TIMEOUT=1\n' > "$HOME_DIR/.env"
+  FM_HOME="$HOME_DIR" bash -c '
+    . "$1/bin/fm-classify-lib.sh"
+    unset JEV_TIMEOUT
+    FM_JEV_SUPERVISION_TIMEOUT_SECS=3
+    fm_jev_supervision_cycle_reset
+    _fm_jev_supervision_cycle_prepare || exit 1
+    [ "$_FM_JEV_SUPERVISION_CYCLE_CALL_HTTP_SECS" = 1 ]
+  ' _ "$ROOT" || fail "the cycle bound ignored JEV_TIMEOUT from \$FM_HOME/.env"
+  pass "the helpers and the cycle bound read JEV_TIMEOUT from the environment or \$FM_HOME/.env"
 }
 
 test_status_triage_failure_is_fail_closed() {
@@ -252,9 +378,10 @@ test_wedge_check_verdicts() {
 test_wedge_check_question_shape_and_tail_only() {
   local code out _err body
   fresh_home
+  write_task_meta fmtask ship "$ROOT"
   printf 'some pane text\n$ \n' > "$STDIN_FILE"
   wedge_response "$RESPONSE" 0.2 idle_finished 0.8
-  run_helper "$WEDGE_CHECK" code out _err
+  run_helper "$WEDGE_CHECK" code out _err "${FREE_TEXT_ARGS[@]}"
   expect_code 0 "$code" "pane-tail consult exits 0"
   body=$(cat "$LOG/body")
   assert_contains "$body" '"stuck"' "the request carries the stuck Noul question"
@@ -348,6 +475,10 @@ test_supervision_cycle_budget_and_breaker() {
 test_status_triage_verdicts
 test_status_triage_question_shape_and_line_only
 test_status_triage_redacts_credentials
+test_status_triage_redacts_escaped_quotes_and_github_tokens
+test_supervision_payload_boundary
+test_wedge_check_caps_free_text_to_the_pane_end
+test_helpers_honor_dotenv_timeout
 test_status_triage_failure_is_fail_closed
 test_wedge_check_verdicts
 test_wedge_check_question_shape_and_tail_only

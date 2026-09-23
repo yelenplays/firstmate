@@ -353,6 +353,36 @@ fm_fakebin() {
   printf '%s\n' "$fakebin"
 }
 
+# fm_install_jev_stubs: verdict-driven stand-ins for the two bounded Jev
+# supervision helpers (bin/fm-jev-status-triage.sh, bin/fm-jev-wedge-check.sh),
+# written as <fakebin>/jev-status-stub and <fakebin>/jev-wedge-stub. Each
+# appends its stdin to $FM_JEV_STUB_DIR/<name>.stdin and its argv to
+# $FM_JEV_STUB_DIR/<name>.args so a case can assert what the consult saw, then
+# prints $FM_JEV_STUB_<NAME>_VERDICT when it is exactly `escalate` or
+# `suppress`; any other value (or unset) exits 1 with no verdict - the
+# fail-closed helper shape.
+fm_install_jev_stubs() {  # <fakebin>
+  local fakebin=$1 name upper
+  mkdir -p "$fakebin"
+  for name in status wedge; do
+    upper=$(printf '%s' "$name" | tr '[:lower:]' '[:upper:]')
+    cat > "$fakebin/jev-$name-stub" <<SH
+#!/usr/bin/env bash
+if [ -n "\${FM_JEV_STUB_DIR:-}" ]; then
+  cat >> "\$FM_JEV_STUB_DIR/$name.stdin"; printf '\\n' >> "\$FM_JEV_STUB_DIR/$name.stdin"
+  printf '%s\\n' "\$*" >> "\$FM_JEV_STUB_DIR/$name.args"
+else
+  cat >/dev/null
+fi
+case "\${FM_JEV_STUB_${upper}_VERDICT:-}" in
+  escalate|suppress) printf '%s\\n' "\$FM_JEV_STUB_${upper}_VERDICT"; exit 0 ;;
+  *) exit 1 ;;
+esac
+SH
+    chmod +x "$fakebin/jev-$name-stub"
+  done
+}
+
 fm_fake_exit0() {
   local fakebin=$1 tool
   shift
