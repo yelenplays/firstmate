@@ -835,7 +835,7 @@ test_ship_and_scout_carry_advisory_jev_rule() {
       FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" firstmate --mode "$kind" >/dev/null 2>&1
     fi
     brief="$home/data/$id/brief.md"
-    assert_grep "prefer one batched typed Jev call through \"$ROOT/bin/fm-jev.sh\" (its --help is the whole interface)" "$brief" \
+    assert_grep "prefer one batched typed Jev call through '$ROOT/bin/fm-jev.sh' (its --help is the whole interface)" "$brief" \
       "$kind brief did not name the Jev command by its absolute path"
     assert_grep "use your own judgment and never block on it" "$brief" \
       "$kind brief did not keep the Jev-first rule advisory"

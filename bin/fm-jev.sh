@@ -53,9 +53,9 @@ FM_JEV_CLI_INPUT_MAX=4096
 usage() {
   cat <<'EOF'
 fm-jev.sh - one typed Jev judgment (TypeSafe) with one output line per question.
-  fm-jev.sh pick  "<state>" "<question>" optA optB ...   pick one option (opt or label=meaning)
+  fm-jev.sh pick  "<state>" "<question>" optA optB ...   pick one option, at most 255
   fm-jev.sh yes   "<state>" "<question>"                 yes/no with probability p of yes
-  fm-jev.sh score "<state>" "<question>" lvl1 lvl2 ...   ordered levels, lowest first
+  fm-jev.sh score "<state>" "<question>" lvl1 lvl2 ...   ordered levels, at most 10
   fm-jev.sh batch < {"state":"..","questions":[{"id":"x","type":"pick|yes|score","q":"..","opts":[..]}]}
     Several questions on one state in one call; opts is an array of label or label=meaning strings.
     First "=" splits label from meaning; later "=" stays in meaning; labels cannot contain "=" or line breaks.
@@ -91,7 +91,6 @@ resolve_typesafe_key() {
   local file mode key
   if [ -n "${TYPESAFE_API_KEY:-}" ]; then
     JEV_KEY=$TYPESAFE_API_KEY
-    JEV_KEY_HOME=${FM_HOME:-$FM_JEV_CLI_ROOT}
     return 0
   fi
   while IFS= read -r file; do
@@ -115,7 +114,6 @@ resolve_typesafe_key() {
       ''|*$'\n'*|*$'\r'*) die "key file must contain one non-empty key line: config/typesafe-key" ;;
     esac
     JEV_KEY=$key
-    JEV_KEY_HOME=${file%/config/typesafe-key}
     return 0
   done < <(candidate_key_files)
   die "TYPESAFE_API_KEY missing; set the environment variable or create config/typesafe-key"
@@ -123,7 +121,7 @@ resolve_typesafe_key() {
 
 # Succeeds when <text> contains a live Jev provider key. Keys stay local.
 contains_live_key() {
-  local text=$1 home=${JEV_KEY_HOME:-${FM_HOME:-$FM_JEV_CLI_ROOT}} name key
+  local text=$1 home=${FM_HOME:-$FM_JEV_CLI_ROOT} name key
   for name in TYPESAFE_API_KEY OPENROUTER_API_KEY; do
     if [ "$name" = TYPESAFE_API_KEY ]; then
       key=${JEV_KEY:-}
@@ -218,6 +216,9 @@ NORM=$(printf '%s' "$SPEC" | jq -c '
                        | if .[1] == "" then .[1] = .[0] else . end ]
                    else fail("question \(.id): opts must be an array of strings") end)
           | if (.opts | length) < 2 then fail("question \(.id): needs at least two options") else . end
+          | if .type == "pick" and (.opts | length) > 255 then fail("question \(.id): pick supports at most 255 options")
+            elif .type == "score" and (.opts | length) > 10 then fail("question \(.id): score supports at most 10 levels")
+            else . end
           | if ([.opts[][0]] | unique | length) != (.opts | length) then fail("question \(.id): option labels must be unique") else . end
         end
       | {id, type, q, opts} ]

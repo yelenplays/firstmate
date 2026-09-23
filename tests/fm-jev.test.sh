@@ -199,17 +199,51 @@ JSON
   pass "fm-jev.sh: batch asks several questions in one call"
 }
 
-test_batch_score_accepts_more_than_ten_levels() {
-  local code out err
-  respond '{"answers":{"levels":{"score":10,"confidence":0.9}}}'
+test_option_limits_refuse_before_sending() {
+  local code out err batch_json i
+  local -a pick_opts=() score_opts=()
+  for ((i = 0; i < 256; i++)); do pick_opts+=("option$i"); done
+  for ((i = 0; i < 11; i++)); do score_opts+=("level$i"); done
+
+  reset_log
+  run_jev code out err score "s" "How large?" "${score_opts[@]}"
+  assert_equals "$code" 1 "a single score with eleven levels is refused"
+  assert_contains "$err" "at most 10 levels" "the single score limit is explained"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "the single score limit prints one stderr line"
+  assert_equals "$out" "" "the single score limit prints no answer"
+  assert_absent "$LOG/body" "an over-limit single score is never sent"
+
+  reset_log
   run_jev code out err batch <<'JSON'
 {"state":"s","questions":[{"id":"levels","type":"score","q":"How large?","opts":["L0","L1","L2","L3","L4","L5","L6","L7","L8","L9","L10"]}]}
 JSON
-  assert_equals "$code" 0 "a batch score with eleven levels is accepted"
-  assert_equals "$out" "levels: L10 s=10 conf=0.9" "the final offered score level remains selectable"
-  assert_equals "$(jq '.questions.levels.criteria | length' "$LOG/body")" 11 \
-    "all eleven score levels reach TypeSafe"
-  pass "fm-jev.sh: batch score accepts more than ten levels"
+  assert_equals "$code" 1 "a batch score with eleven levels is refused"
+  assert_contains "$err" "at most 10 levels" "the batch score limit is explained"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "the batch score limit prints one stderr line"
+  assert_equals "$out" "" "the batch score limit prints no answer"
+  assert_absent "$LOG/body" "an over-limit batch score is never sent"
+
+  reset_log
+  run_jev code out err pick "s" "Choose?" "${pick_opts[@]}"
+  assert_equals "$code" 1 "a single pick with 256 options is refused"
+  assert_contains "$err" "at most 255 options" "the single pick limit is explained"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "the single pick limit prints one stderr line"
+  assert_equals "$out" "" "the single pick limit prints no answer"
+  assert_absent "$LOG/body" "an over-limit single pick is never sent"
+
+  batch_json=$(jq -cn '{state:"s",questions:[{id:"choices",type:"pick",q:"Choose?",opts:[range(0;256) | "option" + tostring]}]}')
+  reset_log
+  run_jev code out err batch <<<"$batch_json"
+  assert_equals "$code" 1 "a batch pick with 256 options is refused"
+  assert_contains "$err" "at most 255 options" "the batch pick limit is explained"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "the batch pick limit prints one stderr line"
+  assert_equals "$out" "" "the batch pick limit prints no answer"
+  assert_absent "$LOG/body" "an over-limit batch pick is never sent"
+  pass "fm-jev.sh: TypeSafe option limits apply to single and batch requests"
 }
 
 test_escalation_exits_two() {
@@ -425,6 +459,27 @@ test_privacy_guard_refuses_before_sending() {
     assert_absent "$LOG/body" "an AWS credential assignment is never sent"
   done
 
+  for credential in \
+    'DB_PASSWORD = cleartext value' \
+    'API_token : opaque-value' \
+    'db_PWD=another-value' \
+    'SERVICE_SECRET = "two word value"'; do
+    reset_log
+    run_jev code out err yes "$credential" "Done?"
+    assert_equals "$code" 1 "a sensitive assignment is refused: $credential"
+    assert_contains "$err" "secret" "the sensitive assignment refusal says why"
+    assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+      "a sensitive assignment refusal prints one stderr line"
+    assert_absent "$LOG/body" "a sensitive assignment is never sent"
+  done
+
+  reset_log
+  run_jev code out err yes "The password is required for deployment." "Done?"
+  assert_equals "$code" 0 "ordinary prose mentioning password remains usable"
+  assert_equals "$(jq -r '.state' "$LOG/body")" "The password is required for deployment." \
+    "ordinary prose is sent unchanged"
+
+  reset_log
   run_jev code out err pick "state" "Which?" "a=Bearer abcdef123456" b
   assert_equals "$code" 1 "secret-shaped option text is refused"
   assert_absent "$LOG/body" "secret-shaped option text is never sent"
@@ -504,7 +559,7 @@ test_privacy_guard_refuses_before_sending() {
 # The guard must screen the selected key-only file, even when the environment
 # carries only the other route's key and FM_HOME is unset.
 test_privacy_guard_screens_checkout_key_file_without_fm_home() {
-  local code main
+  local code main home openrouter_key
   respond '{"answers":{"yes":{"noul":0.97}}}'
   main="$TMP_ROOT/guard-checkout"
   make_checkout "$main"
@@ -520,7 +575,25 @@ test_privacy_guard_screens_checkout_key_file_without_fm_home() {
   assert_contains "$(cat "$TMP_ROOT/guard.err")" "Jev API key itself" "the refusal names the live key"
   assert_not_contains "$(cat "$TMP_ROOT/guard.err")" "$KEY-checkout" "the refusal never echoes the key"
   assert_absent "$LOG/body" "the checkout config key is never sent"
-  pass "fm-jev.sh: the guard screens the selected key file"
+
+  home="$TMP_ROOT/router-home"
+  openrouter_key='opaque-home-router-credential-918273'
+  mkdir -p "$home"
+  printf 'OPENROUTER_API_KEY=%s\n' "$openrouter_key" > "$home/.env"
+  reset_log
+  env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY FM_HOME="$home" PATH="$FAKEBIN:$PATH" \
+    "$main/bin/fm-jev.sh" yes "provider credential $openrouter_key" "Done?" \
+    > "$TMP_ROOT/home-router.out" 2> "$TMP_ROOT/home-router.err"
+  code=$?
+  assert_equals "$code" 1 "the FM_HOME OpenRouter key is refused when the TypeSafe key comes from checkout config"
+  assert_contains "$(cat "$TMP_ROOT/home-router.err")" "Jev API key itself" \
+    "the FM_HOME OpenRouter key refusal is explained"
+  assert_equals "$(wc -l < "$TMP_ROOT/home-router.err" | tr -d ' ')" 1 \
+    "the FM_HOME OpenRouter key refusal prints one stderr line"
+  assert_not_contains "$(cat "$TMP_ROOT/home-router.err")" "$openrouter_key" \
+    "the FM_HOME OpenRouter key is never echoed"
+  assert_absent "$LOG/body" "the FM_HOME OpenRouter key is never sent"
+  pass "fm-jev.sh: the guard screens provider keys from resolved home"
 }
 
 test_log_records_metadata_only() {
@@ -634,7 +707,7 @@ test_cli_forces_typesafe_route
 test_cli_pins_typesafe_endpoint
 test_yes_and_score_lines
 test_batch_one_call_many_lines
-test_batch_score_accepts_more_than_ten_levels
+test_option_limits_refuse_before_sending
 test_escalation_exits_two
 test_json_prints_raw_response
 test_errors_exit_one_with_one_line

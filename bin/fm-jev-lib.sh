@@ -358,6 +358,19 @@ fm_jev_compact_state() {
       while (match(tolower(buf), /aws_(secret_access_key|access_key_id)[[:space:]]*[:=][[:space:]]*[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
+      while (match(tolower(buf), /(^|[^[:alnum:]_])([[:alpha:]_][[:alnum:]_]*)?(password|passwd|pwd|secret|token)[[:space:]]*[:=][[:space:]]*/)) {
+        assignment = substr(buf, RSTART, RLENGTH)
+        prefix = substr(buf, 1, RSTART - 1)
+        if (RSTART > 1) {
+          boundary = substr(assignment, 1, 1)
+          if (boundary ~ /[^[:alnum:]_]/) prefix = prefix boundary
+        }
+        tail = substr(buf, RSTART + RLENGTH)
+        newline = index(tail, "\n")
+        if (newline) tail = substr(tail, newline)
+        else tail = ""
+        buf = prefix "[redacted]" tail
+      }
       while (match(buf, /[Aa]uthorization:[[:space:]]*[Bb]earer[[:space:]]+[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
