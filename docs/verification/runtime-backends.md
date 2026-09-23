@@ -639,7 +639,7 @@ Cursor is deliberately outside this cursor-anchored empty-composer matrix becaus
 
 ### 2026-09-22 Pi 0.87.1 token-first footer through Herdr
 
-Verified a read-only Pi 0.87.1 pane capture with Herdr 0.9.0 using `herdr pane read w6X:p2 --source visible --format ansi`.
+Verified a read-only Pi 0.87.1 pane capture with Herdr 0.9.0 using `herdr pane read <pane> --source visible --format ansi`.
 The captured idle footer was `↑121k ↓37k R9.5M $0.069 (sub) 55.2%/272k (auto) (openai-codex) gpt-6-luna • max`.
 Before the fix, the captured screen classified as `unknown` because this footer begins with token counts rather than a dollar cost.
 `tests/fm-composer-lib.test.sh` now proves that this capture is empty for an idle Pi, typed content stays pending, and an unrecognized token-first prefix stays unknown; `tests/fm-backend-herdr.test.sh` proves the Herdr adapter returns empty after one native Pi identity probe.
