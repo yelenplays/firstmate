@@ -2077,11 +2077,10 @@ crew_worktree_written_since() {  # <id> <state> <anchor-file>
 # task's branch and code identity is demonstrably EXECUTING: positive activity,
 # process, or log evidence from the run itself, never the pane. This is the
 # wedge detector's fourth liveness input and the one that sees work the other
-# three cannot: a crew
-# handed to `axi run` produces no pane output, no worktree writes in its own
-# checkout, and often no fresh status line for the whole validation, so pane
-# quietness alone must never escalate while the run proves itself - the
-# 25-consecutive-escalation false alarm the captain reported on the cleanup
+# three cannot: a crew handed to `axi run` produces no pane output, no worktree
+# writes in its own checkout, and often no fresh status line for the whole
+# validation, so pane quietness alone must never escalate while the run proves
+# itself - the 25-consecutive-escalation false alarm reported on the cleanup
 # task. Silence of the work window is not evidence; the run's own state is.
 #
 # Execution evidence, any one of which is sufficient:
@@ -2091,10 +2090,11 @@ crew_worktree_written_since() {  # <id> <state> <anchor-file>
 # A parked approval gate, mismatched run identity, or malformed activity is not
 # execution evidence; relative NM_HOME resolves from the recorded worktree.
 # Callers must reach this only when they are otherwise about to escalate,
-# never on every poll: each call is one bounded `axi status` plus, for a
-# daemon-executed step, one bounded `daemon status`.
+# never on every poll: each call is bounded `axi status` and `axi` overview
+# reads plus, for a daemon-executed step, one bounded `daemon status`.
 crew_nm_run_progressing() {  # <id> <state> <anchor-file>
   local id=$1 state=$2 anchor=$3 wt kind branch out rbranch rhead rid pairs
+  local overview selection selected_id selected_status
   local pid activity activity_age quiet_bound daemon_up nm_home logdir hit row
   [ -n "$id" ] || return 1
   [ -f "$anchor" ] || return 1
@@ -2110,12 +2110,21 @@ crew_nm_run_progressing() {  # <id> <state> <anchor-file>
   rbranch=$(fm_nm_strip_quotes "$(fm_nm_field "$out" branch)")
   [ "$rbranch" = "$branch" ] || return 1
   fm_nm_run_is_active "$out" || return 1
-  rhead=$(fm_nm_strip_quotes "$(fm_nm_field "$out" head)")
-  if ! fm_nm_head_matches_worktree "$wt" "$rhead" \
-    && ! fm_nm_run_is_pipeline_owned_active "$out"; then return 1; fi
-  fm_nm_run_is_gate_parked "$out" && return 1
   rid=$(fm_nm_strip_quotes "$(fm_nm_field "$out" id)")
   [ -n "$rid" ] || return 1
+  overview=$(fm_nm_run_checked "$wt" 10 axi) || return 1
+  [ -n "$overview" ] || return 1
+  selection=$(fm_nm_select_run "$branch" "$overview" "$wt")
+  case "$selection" in
+    selected\|*) IFS='|' read -r _ selected_id selected_status _ <<< "$selection" ;;
+    *) return 1 ;;
+  esac
+  [ "$selected_id" = "$rid" ] || return 1
+  [ "$(fm_nm_run_status_class "$selected_status")" = live ] || return 1
+  rhead=$(fm_nm_strip_quotes "$(fm_nm_field "$out" head)")
+  if ! fm_nm_head_equals_worktree "$wt" "$rhead" \
+    && ! fm_nm_run_is_pipeline_owned_active "$out"; then return 1; fi
+  fm_nm_run_is_gate_parked "$out" && return 1
   pairs=$(fm_nm_active_steps_pairs "$out")
   if [ -n "$pairs" ]; then
     quiet_bound=${FM_PAUSE_RESURFACE_SECS:-$FM_PAUSE_RESURFACE_SECS_DEFAULT}

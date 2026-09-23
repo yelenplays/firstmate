@@ -1287,9 +1287,24 @@ test_housekeeping_run_liveness_defers_then_escalates() {
   cat > "$fakebin/no-mistakes" <<'SH'
 #!/usr/bin/env bash
 set -u
+read_field() {
+  local value
+  value=$(sed -n "s/^[[:space:]]*$1:[[:space:]]*//p" "$2" | head -1)
+  case "$value" in \"*\") value=${value#\"}; value=${value%\"} ;; esac
+  printf '%s' "$value"
+}
 case "${1:-}" in
   axi)
-    if [ "${2:-}" = status ]; then cat "${FM_FAKE_NM_AXI_STATUS:?}"; exit 0; fi ;;
+    if [ "${2:-}" = status ]; then
+      cat "${FM_FAKE_NM_AXI_STATUS:?}"
+      exit 0
+    elif [ -z "${2:-}" ]; then
+      file=${FM_FAKE_NM_AXI_STATUS:?}
+      printf 'count: 1 of 1 total\nruns[1]{id,branch,status,head,pr}:\n  "%s","%s","%s","%s",""\n' \
+        "$(read_field id "$file")" "$(read_field branch "$file")" \
+        "$(read_field status "$file")" "$(read_field head "$file")"
+      exit 0
+    fi ;;
   daemon)
     if [ "${2:-}" = status ]; then printf '  daemon running (pid 1)\n'; exit 0; fi ;;
 esac

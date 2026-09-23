@@ -117,6 +117,14 @@ fm_nm_head_matches_worktree() {  # <worktree> <run_head>
   git -C "$wt" merge-base --is-ancestor "$local_full" "$run_full" 2>/dev/null
 }
 
+fm_nm_head_equals_worktree() {  # <worktree> <run_head>
+  local wt=$1 run_head=$2 local_full run_full
+  [ -n "$run_head" ] || return 1
+  local_full=$(git -C "$wt" rev-parse HEAD 2>/dev/null) || return 1
+  run_full=$(fm_nm_resolve_commit "$wt" "$run_head")
+  [ -n "$run_full" ] && [ "$run_full" = "$local_full" ]
+}
+
 # Liveness class of a recorded ledger status word.
 # The coarse `no-mistakes runs` ledger emits database status words; an
 # `axi status` run object reports its terminal result through its own outcome
@@ -350,7 +358,12 @@ fm_nm_active_steps_rows() {  # <toon-output>
 # daemon-executed step (the ci monitor, push/pr bookkeeping): no spawned agent
 # process can prove it - its executor is the daemon itself.
 fm_nm_active_steps_pairs() {  # <toon-output>
-  printf '%s\n' "$1" | awk '
+  local header rows
+  header=$(printf '%s\n' "$1" | awk '/^[[:space:]]*active_steps\[[0-9]+\]\{/ { print; exit }')
+  [ -n "$header" ] || return 0
+  rows=$(fm_nm_active_steps_rows "$1")
+  [ -n "$rows" ] || return 0
+  printf '%s\n' "$rows" | awk -v header="$header" '
     function row_fields(s, f, i, ch, n, quoted, escaped) {
       for (i in f) delete f[i]
       n = 1; f[n] = ""
@@ -367,21 +380,16 @@ fm_nm_active_steps_pairs() {  # <toon-output>
       }
       return n
     }
-    /^[[:space:]]*active_steps\[[0-9]+\]\{/ {
-      hdr = index($0, "active_steps"); inblock = 1
-      cols = $0; sub(/^.*\{/, "", cols); sub(/\}.*/, "", cols)
+    BEGIN {
+      cols = header; sub(/^.*\{/, "", cols); sub(/\}.*/, "", cols)
       m = split(cols, c, ","); pi = 0; ai = 0
       for (i = 1; i <= m; i++) {
         sub(/^[ \t]+/, "", c[i]); sub(/[ \t]+$/, "", c[i])
         if (c[i] == "agent_pid") pi = i
         if (c[i] == "last_activity") ai = i
       }
-      next
     }
-    inblock {
-      if ($0 ~ /^[[:space:]]*$/) { inblock = 0; next }
-      match($0, /[^ \t]/)
-      if (RSTART <= hdr) { inblock = 0; next }
+    {
       row_fields($0, f)
       printf "%s\t%s\n", (pi ? f[pi] : ""), (ai ? f[ai] : "")
     }
@@ -428,17 +436,13 @@ fm_nm_activity_age_secs() {  # <last_activity> <saturation-seconds>
 }
 
 fm_nm_run_is_gate_parked() {  # <toon-output>
-  local status
-  status=$(printf '%s\n' "$1" | awk '
-    /^[[:space:]]*gate:[[:space:]]*$/ { in_gate = 1; next }
-    in_gate && $0 !~ /^[[:space:]]/ { exit }
-    in_gate && /^[[:space:]]+status:[[:space:]]*/ {
-      sub(/^[[:space:]]+status:[[:space:]]*/, "")
-      print
-      exit
-    }
-  ')
-  [ "$(fm_nm_strip_quotes "$status")" = awaiting_approval ]
+  printf '%s\n' "$1" | awk '
+    /^[[:space:]]*awaiting_agent:/ { parked = 1 }
+    /^[[:space:]]*(status|state):[[:space:]]*"?(awaiting_approval|fix_review)"?[[:space:]]*$/ { parked = 1 }
+    /^[[:space:]]*[^,]+,[[:space:]]*"?(awaiting_approval|fix_review)"?[[:space:]]*,/ { parked = 1 }
+    /^[[:space:]]*gate:[[:space:]]*/ { parked = 1 }
+    END { exit !parked }
+  '
 }
 
 # ONE owner for attribution from the pipeline's own runs ledger, replacing a

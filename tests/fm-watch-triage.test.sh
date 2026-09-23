@@ -579,7 +579,7 @@ test_crew_worktree_written_since_classifier() {
 # record, a dead agent pid, a dead daemon behind a daemon-executed step, and a
 # log dir nothing has written since the quiet window opened.
 test_crew_nm_run_progressing_classifier() {
-  local dir state fakebin wt anchor nmhome relative_nmhome run_head
+  local dir state fakebin wt anchor nmhome relative_nmhome run_head descendant_head
   dir=$(make_case classify-nm-run); state="$dir/state"; fakebin="$dir/fakebin"
   wt="$dir/wt"; anchor="$state/anchor"; nmhome="$dir/nmhome"
   relative_nmhome=.nm-home
@@ -588,17 +588,36 @@ test_crew_nm_run_progressing_classifier() {
   git -C "$wt" checkout -qb fm/nmrun-task
   git -C "$wt" -c user.name=test -c user.email=test@example.invalid commit --allow-empty -qm initial
   run_head=$(git -C "$wt" rev-parse HEAD)
+  git -C "$wt" -c user.name=test -c user.email=test@example.invalid commit --allow-empty -qm descendant
+  descendant_head=$(git -C "$wt" rev-parse HEAD)
+  git -C "$wt" reset --hard -q "$run_head"
   mkdir -p "$nmhome/logs/01NMRUN01"
   : > "$anchor"
   set_mtime "$(( $(date +%s) - 500 ))" "$anchor"
   cat > "$fakebin/no-mistakes" <<'SH'
 #!/usr/bin/env bash
 set -u
+read_field() {
+  local value
+  value=$(sed -n "s/^[[:space:]]*$1:[[:space:]]*//p" "$2" | head -1)
+  case "$value" in \"*\") value=${value#\"}; value=${value%\"} ;; esac
+  printf '%s' "$value"
+}
 case "${1:-}" in
   axi)
     if [ "${2:-}" = status ]; then
       cat "${FM_FAKE_NM_AXI_STATUS:?FM_FAKE_NM_AXI_STATUS unset}"
       exit "${FM_FAKE_NM_AXI_RC:-0}"
+    elif [ -z "${2:-}" ]; then
+      if [ -n "${FM_FAKE_NM_AXI_OVERVIEW:-}" ]; then
+        cat "$FM_FAKE_NM_AXI_OVERVIEW"
+      else
+        file=${FM_FAKE_NM_AXI_STATUS:?FM_FAKE_NM_AXI_STATUS unset}
+        printf 'count: 1 of 1 total\nruns[1]{id,branch,status,head,pr}:\n  "%s","%s","%s","%s",""\n' \
+          "$(read_field id "$file")" "$(read_field branch "$file")" \
+          "$(read_field status "$file")" "$(read_field head "$file")"
+      fi
+      exit 0
     fi ;;
   daemon)
     if [ "${2:-}" = status ]; then
@@ -695,6 +714,33 @@ gate:
   step: test
   status: awaiting_approval
 TOON
+  cat > "$dir/fix-review.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+state: fix_review
+active_steps[0]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+TOON
+  cat > "$dir/scalar-gate.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[0]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+gate: review
+TOON
+  cat > "$dir/step-fix-review.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  test,fix_review,1,0
+TOON
   cat > "$dir/wrong-head.toon" <<'TOON'
 run:
   id: "01NMRUN01"
@@ -703,6 +749,20 @@ run:
   head: deadbeef
 active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
   review,running,4h28m,4h28m,"quiet 3h ago: log: reviewing","$$",1
+TOON
+  cat > "$dir/descendant-head.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: fm/nmrun-task
+  status: running
+  head: "$descendant_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"quiet 3h ago: log: reviewing","$$",1
+TOON
+  cat > "$dir/newer-run-overview.toon" <<TOON
+count: 1 of 1 total
+runs[1]{id,branch,status,head,pr}:
+  "01NMRUN02","fm/nmrun-task","running","$run_head",""
 TOON
   cat > "$dir/pipeline-owned.toon" <<'TOON'
 run:
@@ -790,10 +850,26 @@ TOON
   : > "$nmhome/logs/01NMRUN01/review.log"
   PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/parked.toon" \
     crew_nm_run_progressing a "$state" "$anchor" \
-    && fail "a gate-parked run counted fresh log writes as execution evidence"
+    && fail "an awaiting-approval run counted fresh log writes as execution evidence"
+  PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/fix-review.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    && fail "a fix_review run counted fresh log writes as execution evidence"
+  PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/scalar-gate.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    && fail "a scalar-gated run counted fresh log writes as execution evidence"
+  PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/step-fix-review.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    && fail "a fix_review step counted fresh log writes as execution evidence"
   PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/wrong-head.toon" \
     crew_nm_run_progressing a "$state" "$anchor" \
     && fail "a run with a foreign head counted as this task's execution evidence"
+  PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/descendant-head.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    && fail "a descendant-head run without pipeline custody counted as this task's execution evidence"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/live-agent.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/newer-run-overview.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a different newest same-branch run failed to displace the queried older run"
   [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/pipeline-owned.toon" \
       crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
     || fail "an active pipeline-owned continuation did not bind its run"
@@ -2346,11 +2422,23 @@ test_nonterminal_stale_live_nm_run_defers_then_escalates_when_run_dies() {
   cat > "$fakebin/no-mistakes" <<'SH'
 #!/usr/bin/env bash
 set -u
+read_field() {
+  local value
+  value=$(sed -n "s/^[[:space:]]*$1:[[:space:]]*//p" "$2" | head -1)
+  case "$value" in \"*\") value=${value#\"}; value=${value%\"} ;; esac
+  printf '%s' "$value"
+}
 case "${1:-}" in
   axi)
     if [ "${2:-}" = status ]; then
       cat "${FM_FAKE_NM_AXI_STATUS:?FM_FAKE_NM_AXI_STATUS unset}"
       exit "${FM_FAKE_NM_AXI_RC:-0}"
+    elif [ -z "${2:-}" ]; then
+      file=${FM_FAKE_NM_AXI_STATUS:?FM_FAKE_NM_AXI_STATUS unset}
+      printf 'count: 1 of 1 total\nruns[1]{id,branch,status,head,pr}:\n  "%s","%s","%s","%s",""\n' \
+        "$(read_field id "$file")" "$(read_field branch "$file")" \
+        "$(read_field status "$file")" "$(read_field head "$file")"
+      exit 0
     fi ;;
   daemon)
     if [ "${2:-}" = status ]; then
