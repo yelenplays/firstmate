@@ -519,7 +519,8 @@ fm_nm_runs_status_for_worktree() {  # <worktree> <branch> <runs-list-output> [ex
       # This is the row immediately older than the active unresolvable row:
       # the only admissible anchor, and only exact head equality proves the
       # worktree still sits at the submitted head.
-      if [ "$(fm_nm_resolve_commit "$wt" "$sha")" = "$local_full" ]; then
+      if [ "$(fm_nm_run_status_class "$row_status")" = terminal ] \
+        && [ "$(fm_nm_resolve_commit "$wt" "$sha")" = "$local_full" ]; then
         decided=$pending_st
       fi
       break

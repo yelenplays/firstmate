@@ -802,6 +802,10 @@ TOON
 failed fm/nmrun-task $run_head 2026-08-10 10:01
 running fm/nmrun-task $run_head 2026-08-10 10:00
 TOON
+  cat > "$dir/legacy-active-anchor-runs.txt" <<TOON
+running fm/nmrun-task deadbeef 2026-08-10 10:02
+running fm/nmrun-task $run_head 2026-08-10 10:01
+TOON
   cat > "$dir/pipeline-owned.toon" <<'TOON'
 run:
   id: "01NMRUN01"
@@ -918,6 +922,11 @@ TOON
     FM_FAKE_NM_RUNS="$dir/legacy-conflicting-runs.txt" \
     crew_nm_run_progressing a "$state" "$anchor" \
     || fail "a newer terminal ledger row did not reject legacy run attribution"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/legacy-pipeline.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+    FM_FAKE_NM_RUNS="$dir/legacy-active-anchor-runs.txt" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a competing active ledger row made the legacy continuation ambiguous"
   [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/legacy-pipeline.toon" \
       FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
       FM_FAKE_NM_RUNS="$dir/legacy-pipeline-runs.txt" \
@@ -2562,6 +2571,42 @@ active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,
   review,running,4h28m,4h28m,"quiet 3h ago: log: review stalled","$(dead_pid)",1
 TOON
   export FM_FAKE_CREW_STATE='state: working · source: run-step · ci running'
+
+  back=$(( $(date +%s) - 500 ))
+  echo "$back" > "$state/.stale-since-$key"
+  set_mtime "$back" "$state/.stale-since-$key"
+  printf 'source changed\n' > "$wt/src.c"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_STALE_ESCALATE_SECS=240 FM_PAUSE_RESURFACE_SECS=14400 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  if ! wait_poll_cycle "$state" "$pid"; then
+    reap "$pid"; fail "the write-evidence phase did not defer the stale pane: $(cat "$out")"
+  fi
+  [ ! -s "$out" ] || { reap "$pid"; fail "the write-evidence phase unexpectedly surfaced a wake"; }
+  [ -e "$state/.writing-since-$key" ] || { reap "$pid"; fail "the write deferral did not start its chain"; }
+  reap "$pid"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the write-evidence watcher stop"
+
+  set_mtime "$(( $(date +%s) - 600 ))" "$wt/src.c"
+  back=$(( $(date +%s) - 500 ))
+  echo "$back" > "$state/.stale-since-$key"
+  set_mtime "$back" "$state/.stale-since-$key"
+  set_mtime "$(( $(date +%s) - 14500 ))" "$state/.writing-since-$key"
+  : > "$nmhome/logs/01NMRUN01/ci.log"
+  set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/ci.log"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    NM_HOME="$nmhome" FM_FAKE_NM_AXI_STATUS="$dir/axi-quiet-ci.toon" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_STALE_ESCALATE_SECS=240 FM_PAUSE_RESURFACE_SECS=14400 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_for_exit "$pid" 100 || fail "switching from write evidence reset the existing deferral cadence"
+  grep -F "its no-mistakes run 01NMRUN01 is still executing" "$out" >/dev/null \
+    || fail "the evidence-switch recheck did not identify the executing run"
+  grep -F "possible wedge" "$out" >/dev/null && fail "the evidence-switch recheck was mislabeled a possible wedge"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the evidence-switch recheck"
 
   # Phase A: the timer is past the threshold, but the run is demonstrably
   # executing (a daemon-executed ci step, its own log deliberately stale), so

@@ -905,28 +905,47 @@ resurface_absorbed() {  # <window> <throttle-marker> <age> <reason> [scope] [min
   wake "$reason"
 }
 
+wedge_deferral_chain_age() {  # <window-key>
+  local key=$1 marker age oldest=0
+  for marker in "$STATE/.writing-since-$key" "$STATE/.nmrun-since-$key"; do
+    [ -e "$marker" ] || continue
+    age=$(age_of "$marker")
+    [ "$age" -le "$oldest" ] || oldest=$age
+  done
+  printf '%s' "$oldest"
+}
+
+wedge_deferral_resurface_marker() {  # <window-key>
+  local key=$1 writing="$STATE/.writing-resurfaced-$1" nmrun="$STATE/.nmrun-resurfaced-$1"
+  local writing_age nmrun_age
+  writing_age=$(age_of "$writing")
+  nmrun_age=$(age_of "$nmrun")
+  if [ "$nmrun_age" -lt "$writing_age" ]; then
+    printf '%s' "$nmrun"
+  else
+    printf '%s' "$writing"
+  fi
+}
+
 # Defer ONE wedge escalation for a pane that went quiet while its own task
 # worktree is demonstrably still being written (crew_worktree_written_since in
 # fm-classify-lib.sh). The pane and the run step both say nothing is happening;
 # the worktree says otherwise, and files appearing in it is the harder signal to
 # fake, so the escalation is deferred rather than fired. Deliberately a DEFERRAL,
 # not a cancellation: the idle timer restarts, so the next window probes again,
-# and a .writing-since-<key> marker ages the whole deferral chain so the pane
-# still re-surfaces once every PAUSE_RESURFACE_SECS through the shared
-# resurface_absorbed above - literally the same bounded cadence a declared pause
-# uses, throttled by its own .writing-resurfaced-<key> marker - and a crew whose
-# worktree churns without real progress cannot stay invisible. The escalation
-# counter is left alone: it is neither advanced (this is not an escalation) nor
-# reset (a later genuine escalation must still carry the demand-deep-inspection
-# history it had already earned).
+# and the deferral chain re-surfaces once every PAUSE_RESURFACE_SECS through the
+# shared resurface_absorbed above. The escalation counter is left alone: it is
+# neither advanced (this is not an escalation) nor reset (a later genuine
+# escalation must still carry the demand-deep-inspection history it had earned).
 wedge_defer_writing() {  # <window> <since-file> <triage-label> <idle-age>
-  local win=$1 since_file=$2 label=$3 age=$4 key wsf wage
+  local win=$1 since_file=$2 label=$3 age=$4 key wsf wage throttle
   key=$(fm_watch_state_key "$win")
   wsf="$STATE/.writing-since-$key"
   [ -e "$wsf" ] || date +%s > "$wsf"
-  wage=$(age_of "$wsf")
+  wage=$(wedge_deferral_chain_age "$key")
+  throttle=$(wedge_deferral_resurface_marker "$key")
   date +%s > "$since_file"
-  resurface_absorbed "$win" "$STATE/.writing-resurfaced-$key" "$wage" \
+  resurface_absorbed "$win" "$throttle" "$wage" \
     "stale: $win (idle ${age}s, writing its worktree for ${wage}s, rechecked on a long cadence not a wedge; confirm the writes are real progress)"
   triage_log "absorbed $label (worktree written since the idle window opened, idle ${age}s): $win"
 }
@@ -1034,17 +1053,17 @@ wedge_defer_wait() {  # <window> <task> <since-file> <triage-label> <idle-age> <
 # Defer ONE wedge escalation when crew_nm_run_progressing in
 # fm-classify-lib.sh proves the task's attributed no-mistakes run is executing.
 # This is a deferral, not a cancellation: the idle timer restarts and evidence
-# is checked again at the next threshold. The .nmrun-since marker ages the
-# deferral chain so the watcher re-surfaces at PAUSE_RESURFACE_SECS, throttled
-# by .nmrun-resurfaced; existing escalation history remains intact.
+# is checked again at the next threshold. The deferral chain re-surfaces at
+# PAUSE_RESURFACE_SECS; existing escalation history remains intact.
 wedge_defer_nm_run() {  # <window> <since-file> <triage-label> <idle-age> <run-id>
-  local win=$1 since_file=$2 label=$3 age=$4 rid=$5 key wsf wage
+  local win=$1 since_file=$2 label=$3 age=$4 rid=$5 key wsf wage throttle
   key=$(fm_watch_state_key "$win")
   wsf="$STATE/.nmrun-since-$key"
   [ -e "$wsf" ] || date +%s > "$wsf"
-  wage=$(age_of "$wsf")
+  wage=$(wedge_deferral_chain_age "$key")
+  throttle=$(wedge_deferral_resurface_marker "$key")
   date +%s > "$since_file"
-  resurface_absorbed "$win" "$STATE/.nmrun-resurfaced-$key" "$wage" \
+  resurface_absorbed "$win" "$throttle" "$wage" \
     "stale: $win (idle ${age}s, its no-mistakes run $rid is still executing, deferred ${wage}s and rechecked on a long cadence not a wedge; confirm the run is real progress)"
   triage_log "absorbed $label (no-mistakes run $rid still executing, idle ${age}s): $win"
 }
