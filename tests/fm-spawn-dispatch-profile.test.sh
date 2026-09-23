@@ -831,13 +831,13 @@ test_pi_trust_override_and_concurrent_updates() {
       rec=$(make_spawn_case "$id" "$harness" "$id")
       read_case_record "$rec"
       slot=${#ids[@]}
-      ids[$slot]=$id
-      homes[$slot]=$HOME_DIR
-      projects[$slot]=$PROJ_DIR
-      worktrees[$slot]=$WT_DIR
-      fakebins[$slot]=$FAKEBIN_DIR
-      launchlogs[$slot]=$LAUNCH_LOG
-      case_dirs[$slot]=$CASE_DIR
+      ids[slot]=$id
+      homes[slot]=$HOME_DIR
+      projects[slot]=$PROJ_DIR
+      worktrees[slot]=$WT_DIR
+      fakebins[slot]=$FAKEBIN_DIR
+      launchlogs[slot]=$LAUNCH_LOG
+      case_dirs[slot]=$CASE_DIR
       mkdir -p "$HOME_DIR/user-home/.pi/agent"
       printf '{"/default-home-marker":true}\n' > "$HOME_DIR/user-home/.pi/agent/trust.json"
       cat > "$FAKEBIN_DIR/jq" <<'SH'
@@ -899,7 +899,7 @@ SH
 
 test_pi_trust_expands_named_user_config() {
   local rec id username relative config agent_dir out status trust
-  id=trust-named-user
+  id='trust-named-user'
   rec=$(make_spawn_case trust-named-user pi "$id")
   read_case_record "$rec"
   agent_dir="$CASE_DIR/named-pi-agent"
