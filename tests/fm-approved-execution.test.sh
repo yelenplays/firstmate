@@ -173,6 +173,17 @@ sleep 1
 printf 'pr=https://github.com/example/fixture/pull/2\n' >> "$home/state/busy-worker.meta"
 FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' "$EXEC" scan --cached > "$home/invalidated"
 grep -q 'busy-worker.*verify-idle-or-failed' "$home/invalidated" || fail 'a metadata change did not invalidate the published scan'
+mv "$home/state/busy-worker.meta" "$home/busy-worker.meta"
+FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' "$EXEC" scan --cached > "$home/state/missing-meta"
+grep -q 'busy-worker.*implementation owner missing' "$home/state/missing-meta" || fail 'a deleted task metadata file did not invalidate the published scan'
+mv "$home/busy-worker.meta" "$home/state/busy-worker.meta"
+touch "$home/state/busy-worker.meta"
+FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' "$EXEC" scan --cached >/dev/null
+mv "$home/data/backlog.md" "$home/backlog.md"
+FM_FAKE_CREW_STATE_busy_worker='state: unknown · source: none · gone' "$EXEC" scan --cached > "$home/state/missing-backlog"
+grep -q 'busy-worker.*reconcile-missing-backlog-item' "$home/state/missing-backlog" || fail 'a deleted backlog did not invalidate the published scan'
+mv "$home/backlog.md" "$home/data/backlog.md"
+touch "$home/data/backlog.md"
 # A retired record changes no surviving file, so the published task list itself
 # must match the records that exist before the cache is reused.
 FM_FAKE_CREW_STATE_busy_worker=$busy_verdict "$EXEC" scan --cached >/dev/null

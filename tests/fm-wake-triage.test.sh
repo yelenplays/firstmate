@@ -259,6 +259,7 @@ test_busy_execution_reminder_is_routine_and_idle_one_is_act_now() {
   write_meta "$dir" validating ship
   write_meta "$dir" typing ship
   write_meta "$dir" orphan ship
+  write_meta "$dir" unreminded ship
   fake="$dir/fakebin/fm-wake-drain.sh"
   cat > "$fake" <<'SH'
 #!/usr/bin/env bash
@@ -276,6 +277,7 @@ printf 'merging\tfirstmate\tverify-landing-with-configured-approval-authority\n'
 printf 'validating\tfirstmate\tverify-idle-or-failed-owner-and-recover-or-escalate\n'
 printf 'typing\tfirstmate\tverify-idle-or-failed-owner-and-recover-or-escalate\n'
 printf 'orphan\tfirstmate\treconcile-missing-backlog-item\n'
+printf 'unreminded\tfirstmate\treconcile-corrupt-execution-record\n'
 printf 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 6 --recovery-generation g1\n' >&2
 SH
   chmod +x "$fake"
@@ -283,7 +285,8 @@ SH
     FM_FAKE_CREW_STATE_stopped='state: unknown · source: none · idle' \
     FM_FAKE_CREW_STATE_validating='state: working · source: run-step · running' \
     FM_FAKE_CREW_STATE_typing='state: working · source: pane · busy' \
-    FM_FAKE_CREW_STATE_orphan='state: working · source: pane · busy' run_triage "$dir" --auto-ack) \
+    FM_FAKE_CREW_STATE_orphan='state: working · source: pane · busy' \
+    FM_FAKE_CREW_STATE_unreminded='state: working · source: pane · busy' run_triage "$dir" --auto-ack) \
     || fail "triage failed: $out"
   has "$out" 'runner (execution reminder; worker busy (verify-progress-not-launch-seed))'
   has "$out" 'merging (execution reminder; PR https://github.com/o/r/pull/9 awaits merge authority)'
@@ -291,9 +294,28 @@ SH
   has "$out" '- stopped | execution obligation: verify-idle-or-failed-owner-and-recover-or-escalate'
   has "$out" '- typing | execution obligation: verify-idle-or-failed-owner-and-recover-or-escalate'
   has "$out" '- orphan | execution obligation: reconcile-missing-backlog-item'
+  has "$out" '- unreminded | execution obligation: reconcile-corrupt-execution-record'
   lacks "$out" 'WAKE_ACKED'
   has "$out" 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 6 --recovery-generation g1'
-  pass "only a busy-progress execution reminder is routine; reconcile and other firstmate obligations stay act-now"
+  pass "outstanding firstmate obligations stay act-now even without a reminder row"
+}
+
+test_omission_markers_are_drain_alerts_not_task_records() {
+  local dir fake out
+  dir=$(triage_case omission-markers)
+  fake="$dir/fakebin/fm-wake-drain.sh"
+  cat > "$fake" <<'SH'
+#!/usr/bin/env bash
+printf 'RECORD DIVERGENCE: 3 more omitted (byte cap)\n'
+printf 'STATUS OUTCOME BACKSTOP: 4 more omitted (byte cap)\n'
+SH
+  chmod +x "$fake"
+  out=$(FM_WAKE_DRAIN_BIN="$fake" run_triage "$dir") || fail "triage failed: $out"
+  has "$out" '- fleet | RECORD DIVERGENCE: 3 more omitted (byte cap)'
+  has "$out" '- fleet | STATUS OUTCOME BACKSTOP: 4 more omitted (byte cap)'
+  lacks "$out" '- RECORD |'
+  lacks "$out" '- STATUS |'
+  pass "omission counts surface as drain alerts, not fabricated task records"
 }
 
 test_open_decisions_are_act_now_only_when_the_set_changes() {
@@ -418,6 +440,19 @@ test_failed_state_acts_whatever_jev_answers() {
   pass "a failed worker whose status line went to Jev is act-now even on a confident routine answer"
 }
 
+test_open_captain_call_cannot_hide_failed_state_from_jev_guard() {
+  local dir out
+  dir=$(triage_case jev-failed-held-state)
+  write_meta "$dir" held ship "project=$ROOT"
+  out=$(FM_FAKE_HELD=held FM_FAKE_CREW_STATE='state: failed · source: run-step · tests failed' \
+    jev_triage_one "$dir" held 'note: review finished' routine 0.95) || fail "triage failed: $out"
+  has "$out" '- held | ambiguous status; worker state reads failed'
+  has "$out" 'not auto-acknowledged'
+  lacks "$out" 'WAKE_ACKED'
+  assert_equals 1 "$(queued_rows "$dir")" "rows left queued after --auto-ack"
+  pass "an open captain call cannot hide a failed state from Jev's routine verdict"
+}
+
 # Every state the state rules call act-now wins over a confident routine Jev
 # answer; a routine state lets that answer stand.
 test_state_verdict_decides_whether_jev_may_call_a_line_routine() {
@@ -495,11 +530,13 @@ test_distinct_row_semantics_survive_per_task_dedupe
 test_secondmate_in_a_failed_or_unknown_state_is_act_now
 test_later_row_is_judged_after_a_stateless_routine_row
 test_busy_execution_reminder_is_routine_and_idle_one_is_act_now
+test_omission_markers_are_drain_alerts_not_task_records
 test_open_decisions_are_act_now_only_when_the_set_changes
 test_ambiguous_status_without_a_jev_key_stays_act_now
 test_jev_gets_free_text_only_for_firstmate_repo_work_in_the_main_home
 test_jev_gets_structured_facts_only_outside_the_line
 test_failed_state_acts_whatever_jev_answers
+test_open_captain_call_cannot_hide_failed_state_from_jev_guard
 test_state_verdict_decides_whether_jev_may_call_a_line_routine
 test_unsure_jev_answer_keeps_the_line_act_now
 test_jev_failure_keeps_ambiguous_line_act_now

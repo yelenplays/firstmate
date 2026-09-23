@@ -5,8 +5,9 @@
 #   fm-wake-triage.sh [--auto-ack]
 #
 # Runs bin/fm-wake-drain.sh exactly once, reads the current state of every
-# task a presented wake names (bin/fm-crew-state.sh, plus the pane's last
-# lines through bin/fm-peek.sh only when that state is unknown), and sorts
+# task a presented wake or outstanding execution obligation names
+# (bin/fm-crew-state.sh, plus the pane's last lines through bin/fm-peek.sh only
+# when that state is unknown), and sorts
 # every presented item into ACT NOW or ROUTINE. It prints one compact ACT NOW
 # line per item (task, what happened, the next action, and any PR URL or
 # findings file), one ROUTINE summary line, and the drain's exact
@@ -166,9 +167,9 @@ awk -F '\t' -v OFS='\t' '
   /^OPEN DECISIONS: close one/ { next }
   /^OPEN DECISIONS: [0-9]+ more omitted/ { print "SEC", "decisions-omitted", $0; next }
   /^RECORD DIVERGENCE \(/ { section = "divergence"; next }
-  /^RECORD DIVERGENCE: / { if ($0 ~ /more omitted/) print "SEC", "divergence", $0; next }
+  /^RECORD DIVERGENCE: / { if ($0 ~ /more omitted/) print "SEC", "divergence-omitted", $0; next }
   /^STATUS OUTCOME BACKSTOP \(/ { section = "backstop"; next }
-  /^STATUS OUTCOME BACKSTOP: [0-9]+ more omitted/ { print "SEC", "backstop", $0; next }
+  /^STATUS OUTCOME BACKSTOP: [0-9]+ more omitted/ { print "SEC", "backstop-omitted", $0; next }
   /^UNFINISHED EXECUTION \(/ { section = "execution"; next }
   /^WAKE ROWS HELD BY SUPERVISION BRANCH/ { print "SEC", "branch-held", $0; section = ""; next }
   /^[A-Z][A-Z ]+[A-Z]( SKIPPED| INCOMPLETE)?:/ { print "NOTE", $0; section = ""; next }
@@ -459,22 +460,22 @@ state_verdict() {  # <task>
   case "$word" in
     working) verdict_record routine "worker busy (${state#state: })" ;;
     paused) verdict_record routine "declared external wait" ;;
-    *)
-      if captain_call_open "$task"; then
-        verdict_record routine "held for the captain"
-      elif [ "$word" = 'done' ] && [ -n "$pr" ]; then
+    done)
+      if [ -n "$pr" ]; then
         verdict_record routine "finished, PR $pr awaiting merge"
-      elif [ "$word" = parked ] && open_decision_for "$task"; then
-        verdict_record routine "parked on an already-open decision"
       else
-        case "$word" in
-          done) verdict_record act "worker state reads done" "verify the result and continue the selected delivery path (${state#state: })" ;;
-          parked) verdict_record act "worker parked at a validation gate" "have the worker follow the gate's help or escalate its findings (${state#state: })" ;;
-          failed|blocked) verdict_record act "worker state reads $word" "inspect and recover (${state#state: })" ;;
-          *) verdict_record act "state unknown" "inspect the pane below; recover through stuck-crewmate-recovery if it is stuck (${state#state: })" pane ;;
-        esac
-      fi
-      ;;
+        verdict_record act "worker state reads done" "verify the result and continue the selected delivery path (${state#state: })"
+      fi ;;
+    parked)
+      if open_decision_for "$task"; then
+        verdict_record routine "parked on an already-open decision"
+      elif captain_call_open "$task"; then
+        verdict_record routine "held for the captain"
+      else
+        verdict_record act "worker parked at a validation gate" "have the worker follow the gate's help or escalate its findings (${state#state: })"
+      fi ;;
+    failed|blocked) verdict_record act "worker state reads $word" "inspect and recover (${state#state: })" ;;
+    *) verdict_record act "state unknown" "inspect the pane below; recover through stuck-crewmate-recovery if it is stuck (${state#state: })" pane ;;
   esac
 }
 
@@ -535,6 +536,17 @@ prefetch_crew_states() {
     n=$((n + 1))
     if [ "$n" -ge "$max" ]; then wait; n=0; fi
   done < "$PARSED"
+  while IFS="$TAB" read -r task owner action; do
+    [ -n "$task" ] && [ "$owner" = firstmate ] || continue
+    safe_id "$task" || continue
+    case "$seen" in *" $task "*) continue ;; esac
+    seen="$seen$task "
+    ( crew_state "$task" >/dev/null ) &
+    n=$((n + 1))
+    if [ "$n" -ge "$max" ]; then wait; n=0; fi
+  done <<EOF
+$EXECUTION_LINES
+EOF
   wait
 }
 
@@ -643,28 +655,34 @@ handle_plain_stale() {  # <task> <payload>
   esac
 }
 
+classify_execution_obligation() {  # <task> <execution-line> <source-label>
+  local task=$1 line=$2 label=$3 owner action
+  owner=$(printf '%s' "$line" | cut -f2)
+  action=$(printf '%s' "$line" | cut -f3)
+  if [ "$owner" != firstmate ]; then
+    routine "$task" "$label; owner is $owner ($action)"
+  elif [ "$action" = verify-progress-not-launch-seed ] && [ "$(crew_word "$task")" = working ]; then
+    routine "$task" "$label; worker busy ($action)"
+  elif [ "$action" = verify-idle-or-failed-owner-and-recover-or-escalate ] \
+    && crew_state "$task" | grep -q '^state: working · source: run-step'; then
+    routine "$task" "$label; run validating ($action)"
+  elif [ "$action" = verify-landing-with-configured-approval-authority ] && [ -n "$(meta_get "$task" pr)" ]; then
+    routine "$task" "$label; PR $(meta_get "$task" pr) awaits merge authority"
+  else
+    act "$task" "execution obligation: $action" "reconcile the evidence and take that action ($(crew_state "$task"))"
+  fi
+}
+
 handle_check_row() {  # <key> <payload>
-  local key=$1 payload=$2 task line owner action word
+  local key=$1 payload=$2 task line
   case "$key" in
     execution:*)
       task=${key#execution:}
       line=$(execution_line_for "$task")
-      owner=$(printf '%s' "$line" | cut -f2)
-      action=$(printf '%s' "$line" | cut -f3)
-      word=$(crew_word "$task")
       if [ -z "$line" ]; then
         routine "$task" "execution reminder; obligation no longer listed"
-      elif [ "$owner" != firstmate ]; then
-        routine "$task" "execution reminder; owner is $owner ($action)"
-      elif [ "$action" = verify-progress-not-launch-seed ] && [ "$word" = working ]; then
-        routine "$task" "execution reminder; worker busy ($action)"
-      elif [ "$action" = verify-idle-or-failed-owner-and-recover-or-escalate ] \
-        && crew_state "$task" | grep -q '^state: working · source: run-step'; then
-        routine "$task" "execution reminder; run validating ($action)"
-      elif [ "$action" = verify-landing-with-configured-approval-authority ] && [ -n "$(meta_get "$task" pr)" ]; then
-        routine "$task" "execution reminder; PR $(meta_get "$task" pr) awaits merge authority"
       else
-        act "$task" "execution obligation: $action" "reconcile the evidence and take that action ($(crew_state "$task"))"
+        classify_execution_obligation "$task" "$line" "execution reminder"
       fi
       return ;;
     inbox:*)
@@ -702,6 +720,17 @@ while IFS="$TAB" read -r tag epoch seq kind key payload; do
   esac
 done < "$PARSED"
 
+while IFS="$TAB" read -r task owner action; do
+  [ -n "$task" ] || continue
+  if awk -F '\t' -v k="execution:$task" '$1 == "ROW" && $4 == "check" && $5 == k { found = 1 }
+    END { exit !found }' "$PARSED"; then
+    continue
+  fi
+  classify_execution_obligation "$task" "$task$TAB$owner$TAB$action" "execution obligation"
+done <<EOF
+$EXECUTION_LINES
+EOF
+
 # --- presentation sections ---------------------------------------------------------
 while IFS="$TAB" read -r tag section line; do
   [ "$tag" = SEC ] || continue
@@ -710,6 +739,8 @@ while IFS="$TAB" read -r tag section line; do
       classify_status_line "${line%% *}" "${line#* }" "unread status" || true ;;
     divergence)
       act "${line%% *}" "record divergence: $line" "load captain-hold-lifecycle and reconcile the two records" ;;
+    divergence-omitted|backstop-omitted)
+      act fleet "$line" "read the full drain output" ;;
     backstop)
       # A recovered captain-facing status line: judged like any other line.
       classify_status_line "${line%% *}" "${line#* }" "recovered status" || true ;;

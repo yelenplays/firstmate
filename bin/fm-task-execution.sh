@@ -169,7 +169,7 @@ execution_ids() {
 }
 
 scan_cache_fresh() {  # <cache-file>
-  local cache=$1 max=$SCAN_CACHE_SECS now mtime f backlog
+  local cache=$1 max=$SCAN_CACHE_SECS now mtime f backlog id cached_action
   [ -f "$cache" ] && [ ! -L "$cache" ] || return 1
   # A retired record changes no surviving file's mtime, so the cached task list
   # itself must still match the records that exist.
@@ -178,8 +178,20 @@ scan_cache_fresh() {  # <cache-file>
   now=$(date +%s)
   [ $((now - mtime)) -lt "$max" ] || return 1
   backlog="${FM_DATA_OVERRIDE:-$FM_HOME/data}/backlog.md"
+  [ -e "$backlog" ] || [ -L "$backlog" ] || return 1
+  for f in "$STATE"/*.execution; do
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    id=$(basename "$f" .execution)
+    if [ ! -e "$STATE/$id.meta" ] && [ ! -L "$STATE/$id.meta" ]; then
+      cached_action=$(awk -F '\t' -v t="$id" '$1 == t { print $3; exit }' "$cache")
+      case "$cached_action" in
+        reconcile-corrupt-execution-record|reconcile-missing-backlog-item|reconcile-recorded-completion-before-dispatch-or-cleanup|reconcile-undated-external-wait|answer-recorded-hold|recheck-at-*|wait-for-*|'implementation owner missing; dispatch or promote within approved intent') ;;
+        *) return 1 ;;
+      esac
+    fi
+  done
   for f in "$STATE"/*.execution "$STATE"/*.meta "$backlog"; do
-    [ -e "$f" ] || continue
+    [ -e "$f" ] || [ -L "$f" ] || continue
     # Strictly newer, so a change inside the publishing second still rescans.
     [ "$cache" -nt "$f" ] || return 1
   done
