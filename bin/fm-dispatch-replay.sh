@@ -81,9 +81,33 @@ replay_default_margin() {
   printf '%s' "$v"
 }
 
+replay_canonical_path() {
+  local path=$1 dir base target hops=0
+  case "$path" in /*) ;; *) path="$(pwd -P)/$path" ;; esac
+  dir=$(CDPATH='' cd "$(dirname "$path")" 2>/dev/null && pwd -P) || return 1
+  base=$(basename "$path")
+  while [ -L "$dir/$base" ]; do
+    [ "$hops" -lt 64 ] || return 1
+    target=$(readlink "$dir/$base" 2>/dev/null) || return 1
+    case "$target" in
+      /*) path=$target ;;
+      *) path="$dir/$target" ;;
+    esac
+    dir=$(CDPATH='' cd "$(dirname "$path")" 2>/dev/null && pwd -P) || return 1
+    base=$(basename "$path")
+    hops=$((hops + 1))
+  done
+  printf '%s/%s\n' "$dir" "$base"
+}
+
+replay_same_file() {
+  [ "$1" = "$2" ] || [ "$1" -ef "$2" ]
+}
+
 replay_run() {
-  local cases='' out='' max='' rules='' cfg_dir='' cases_dir calls=0 written=0 stopped=none
-  local id brief project expected text line status rule confidence probs reason resolver_stderr resolver_status
+  local cases='' out='' max='' rules='' cfg_dir='' cases_dir cases_real out_real rules_real brief_real calls=0 written=0 stopped=none
+  local id brief project expected text line status rule confidence probs reason resolver_stderr resolver_status case_index
+  local -a case_ids=() case_briefs=() case_projects=() case_expected=() case_brief_reals=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --cases) [ $# -ge 2 ] || die "--cases needs a value"; cases=$2; shift 2 ;;
@@ -97,22 +121,51 @@ replay_run() {
   [ -n "$out" ] || die "run needs --out"
   case "$max" in ''|*[!0-9]*) die "run needs --max-calls <non-negative integer>" ;; esac
   [ -r "$cases" ] || die "cases file not readable: $cases"
-  : >> "$out" || die "could not append to $out"
-  cases_dir=$(cd "$(dirname "$cases")" && pwd)
+  cases_dir=$(CDPATH='' cd "$(dirname "$cases")" 2>/dev/null && pwd -P) || die "cases file not readable: $cases"
+  cases_real=$(replay_canonical_path "$cases") || die "cases file not readable: $cases"
+  rules_real=''
   if [ -n "$rules" ]; then
     [ -r "$rules" ] || die "rules file not readable: $rules"
-    cfg_dir=$(mktemp -d) || die "mktemp failed"
-    # shellcheck disable=SC2064
-    trap "rm -rf '$cfg_dir'" EXIT
-    cp "$rules" "$cfg_dir/crew-dispatch.json" || die "could not stage rules file"
+    rules_real=$(replay_canonical_path "$rules") || die "rules file not readable: $rules"
   fi
   while IFS=$'\t' read -r id brief project expected || [ -n "$id" ]; do
     case "$id" in ''|'#'*) continue ;; esac
     [ -n "$brief" ] || die "case $id has no brief path"
     case "$brief" in /*) ;; *) brief="$cases_dir/$brief" ;; esac
     [ -r "$brief" ] || die "case $id brief not readable: $brief"
+    brief_real=$(replay_canonical_path "$brief") || die "case $id brief not readable: $brief"
     [ "$project" = - ] && project=''
     [ "${expected:--}" = - ] && expected=''
+    case_ids+=("$id")
+    case_briefs+=("$brief")
+    case_projects+=("$project")
+    case_expected+=("$expected")
+    case_brief_reals+=("$brief_real")
+  done < "$cases"
+  out_real=$(replay_canonical_path "$out") || die "could not append to $out"
+  if replay_same_file "$out_real" "$cases_real"; then
+    die "--out conflicts with cases file: $cases"
+  fi
+  if [ -n "$rules_real" ] && replay_same_file "$out_real" "$rules_real"; then
+    die "--out conflicts with --rules file: $rules"
+  fi
+  for ((case_index = 0; case_index < ${#case_ids[@]}; case_index++)); do
+    if replay_same_file "$out_real" "${case_brief_reals[$case_index]}"; then
+      die "--out conflicts with brief for case ${case_ids[$case_index]}: ${case_briefs[$case_index]}"
+    fi
+  done
+  : >> "$out" || die "could not append to $out"
+  if [ -n "$rules" ]; then
+    cfg_dir=$(mktemp -d) || die "mktemp failed"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$cfg_dir'" EXIT
+    cp "$rules" "$cfg_dir/crew-dispatch.json" || die "could not stage rules file"
+  fi
+  for ((case_index = 0; case_index < ${#case_ids[@]}; case_index++)); do
+    id=${case_ids[$case_index]}
+    brief=${case_briefs[$case_index]}
+    project=${case_projects[$case_index]}
+    expected=${case_expected[$case_index]}
     if [ "$calls" -ge "$max" ]; then
       stopped=budget
       break
@@ -151,7 +204,7 @@ replay_run() {
       }' >> "$out" || die "could not append to $out"
     written=$((written + 1))
     printf 'case %s: %s %s\n' "$id" "${status:-error}" "${rule:--}" >&2
-  done < "$cases"
+  done
   printf 'replay-run: calls=%s written=%s stopped=%s\n' "$calls" "$written" "$stopped"
 }
 
