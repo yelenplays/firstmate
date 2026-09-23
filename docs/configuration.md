@@ -673,7 +673,7 @@ Regression coverage lives in [`tests/fm-jev-queue-triage.test.sh`](../tests/fm-j
 It builds a bounded candidate list without a model call and asks Jev one Choice over candidate ids.
 Exactly this reaches Jev: the reference itself (one line of at most 300 characters; longer or multi-line input is refused), and each candidate's id, title, and backlog state.
 Report, brief, and task bodies never do, and the local call log keeps only the reference's length and SHA-256, never its text.
-When a matched candidate is a `data/<id>` record, the backlog tasks whose body names that record are listed with it, found locally without another Jev question.
+For each displayed candidate backed by a `data/<id>/` record, backlog tasks whose body names that record are listed under the ranking, found locally without another Jev question.
 If either backlog listing fails, the output names the failed source and skips Jev rather than treating an incomplete candidate set as empty.
 Probability maps may name only offered candidate ids and the `none?` sentinel; an unknown key makes Jev use the validated single-pick fallback.
 A Jev ranking prints only candidates with positive probability; zero-probability candidates are omitted.
@@ -684,9 +684,9 @@ The [script header](../bin/fm-jev-intake-match.sh) owns candidate selection, lim
 
 ## Jev act-first ranking (session start)
 
-On the locked path, `bin/fm-session-start.sh` prints at most five ACT FIRST lines right after the wake queue: the actionable items the digest already printed, in a fixed priority order, with no model or network call.
-[`bin/fm-jev-act-first.sh`](../bin/fm-jev-act-first.sh) owns item selection and that order, including the drain's one-shot `UNREAD STATUS` lines after decisions and execution but before wakes; these lines are compacted like the other items before a Jev request.
-The deferred startup network stage ranks the same items with one Jev call, off the digest's blocking path, and publishes that ranking separately so the network-check result never waits for it.
+On the locked path, `bin/fm-session-start.sh` prints at most five ACT FIRST lines right after the wake queue: a local priority view drawn from the wake-drain output and current live-task status tails, with no model or network call.
+[`bin/fm-jev-act-first.sh`](../bin/fm-jev-act-first.sh)'s header owns item selection, deduplication, ordering, and limits, including the drain's one-shot `UNREAD STATUS` lines; selected lines are compacted before a Jev request.
+The deferred startup network stage ranks the same drain output, with live-task status tails read when the ranker runs, using one Jev call off the digest's blocking path; its separate publication never delays the network-check result.
 If the ranker's fixed 20-second input wait expires before the drain arrives, the later handoff starts one detached ranker for that generation; generation markers prevent duplicate launches.
 When the ranking has at least one item it raises one `check: act-first` wake, and `bin/fm-startup-network.sh report` prints it; no items, no key, or a Jev error stays silent.
 Task-level status-pointer wakes, including coalesced path lists, are omitted when a detailed decision, outcome, unread status item, or live failed/blocked status tail for that task is present.

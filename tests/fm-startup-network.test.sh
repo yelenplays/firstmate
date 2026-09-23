@@ -897,6 +897,12 @@ SH
     || fail "the late ranking was published for the wrong generation"
   count=$(grep -c . "$calls/count")
   [ "$count" -eq 1 ] || fail "duplicate handoffs started $count rankers"
+  waited=0
+  while ! grep -q $'\tcheck\tact-first\t' "$home/state/.wake-queue" 2>/dev/null \
+    && [ "$waited" -lt 100 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
   [ "$(grep -c $'\tcheck\tact-first\t' "$home/state/.wake-queue")" -eq 1 ] \
     || fail "the late ranking did not raise exactly one wake"
   [ ! -e "$home/state/.startup-network.act-first-input" ] || fail "the late input was not consumed"

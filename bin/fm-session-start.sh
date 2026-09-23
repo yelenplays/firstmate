@@ -62,18 +62,14 @@
 # Those nine names are also the runtime-bound stage list below, so a truncated
 # startup can name exactly which of them never ran.
 #
-# ACT FIRST: on the locked path, right after the wake queue and inside the same
-# stage, bin/fm-jev-act-first.sh --local lists items the drain just printed
-# (open decisions, unfinished execution, raw wake records) plus each live
-# task's newest failed or blocked status line, in that fixed priority order,
-# at most five lines under an "ACT FIRST" heading, and nothing when fewer than
-# two items exist. It makes no model or network call. The same drain output is
-# handed to the deferred network stage, whose Jev ranking of it publishes
-# separately and raises one check wake when it has items
-# (bin/fm-startup-network.sh owns that step). Both
-# restate only items already in this digest, so they add no source to the
-# read-once contract and never replace handling or acknowledging every
-# presented wake. The helper's header owns item selection and output shape.
+# ACT FIRST: on the locked path, after the wake queue, the --local mode of
+# bin/fm-jev-act-first.sh prints a bounded priority view from the drain output
+# and current live-task status tails, without a model or network call. That
+# same drain output is handed to the deferred network stage, which ranks it
+# with Jev and current status tails in a separate publication and wake
+# (bin/fm-startup-network.sh owns that step). The helper header owns item
+# selection and ordering; neither list replaces handling and acknowledging
+# every presented wake.
 #
 # NO NETWORK ON THE BLOCKING PATH. This digest runs on a session-open hook that
 # blocks session initialization, so anything it waits for is time the captain
