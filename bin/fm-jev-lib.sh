@@ -352,6 +352,10 @@ fm_jev_compact_state() {
           buf = prefix "[redacted]"
         }
       }
+      credential_uri_pattern = "[[:alpha:]][[:alnum:].+-]*://[^/@:?#[:space:]]+:[^/@?#[:space:]]+@[^/@?#[:space:]]+"
+      while (match(buf, credential_uri_pattern)) {
+        buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
+      }
       while (match(buf, /(TYPESAFE_API_KEY|OPENROUTER_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|FMX_PAIRING_TOKEN|FM_MAIL_PASS|GITHUB_TOKEN|GH_TOKEN|JEV_API_KEY)=[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }

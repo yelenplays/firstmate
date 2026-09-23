@@ -497,6 +497,18 @@ test_privacy_guard_refuses_before_sending() {
   assert_contains "$err" "secret" "the PEM option refusal names the privacy issue"
   assert_absent "$LOG/body" "a multiline PEM key in option text is never sent"
 
+  reset_log
+  run_jev code out err yes 'DATABASE_URL=postgres://svc:db-secret@db.internal/app' "Done?"
+  assert_equals "$code" 1 "a credential-bearing database URL is refused"
+  assert_contains "$err" "secret" "the database URL refusal names the privacy issue"
+  assert_absent "$LOG/body" "a credential-bearing database URL is never sent"
+
+  reset_log
+  run_jev code out err yes 'https://example.com/path' "Done?"
+  assert_equals "$code" 0 "a URL without user-and-password credentials is accepted"
+  assert_equals "$(jq -r '.state' "$LOG/body")" 'https://example.com/path' \
+    "an ordinary URL is sent unchanged"
+
   respond '{"answers":{"yes":{"noul":0.97}}}'
   reset_log
   run_jev code out err yes "worktree for task-execution-receipt-retry is clean" "Done?"
