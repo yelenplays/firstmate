@@ -1,0 +1,17 @@
+### Scenario 8: real execution reminders from the watcher's notify pass (busy worker vs idle owner)
+crew-state rtbusy: state: working · source: pane · harness busy (claude-hook)
+crew-state rtidle: state: unknown · source: none · no current-state source available
+$ bin/fm-task-execution.sh notify   (the watcher step that enqueues "check: execution" reminders)
+rtidle	firstmate	verify-idle-or-failed-owner-and-recover-or-escalate
+queue:
+check	execution:rtidle	check: execution rtidle
+$ bin/fm-wake-triage.sh --auto-ack
+WAKE TRIAGE: 1 wake row(s); 1 act-now, 0 routine
+ACT NOW:
+- rtidle | execution obligation: verify-idle-or-failed-owner-and-recover-or-escalate | next: reconcile the evidence and take that action (state: unknown · source: none · no current-state source available)
+OPEN DECISIONS unchanged since the last triage (1): rev [key=nm-r1-review] needs-decision: ask-user findings=f1 file=/tmp/fm-live-HS
+OBLIGATIONS: rtbusy worker continue-implementation; rtidle firstmate verify-idle-or-failed-owner-and-recover-or-escalate
+FULL DRAIN OUTPUT: /tmp/fm-live-HSvR/home/state/.wake-triage-last.out
+WAKE TRIAGE: not auto-acknowledged - 1 act-now item(s) need handling first.
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 20 --recovery-generation 69724.1790159227.q3qMyw
+queued rows after: 1

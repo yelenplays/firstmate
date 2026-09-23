@@ -1,0 +1,14 @@
+{
+  "model": "jev-latest",
+  "state": "Status lines from firstmate workers. Classify each independently.\ni1: worker_kind=ship facts: verb=note has_url=no has_file_ref=no has_key_or_corr=no length=short\n",
+  "questions": {
+    "i1": {
+      "type": "choice",
+      "instructions": "Does status line i1 need the supervisor to act now, or is it routine progress?",
+      "criteria": {
+        "act_now": "Reports a finished deliverable, a PR, a decision, a blocker, a failure, a question, an answer, or anything a supervisor or the captain must act on.",
+        "routine": "Routine progress, an acknowledgement, or bookkeeping that needs no action."
+      }
+    }
+  }
+}

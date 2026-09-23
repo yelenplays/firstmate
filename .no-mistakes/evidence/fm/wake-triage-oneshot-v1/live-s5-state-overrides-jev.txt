@@ -1,0 +1,27 @@
+### Scenario 5 (adversarial): ambiguous note on a worker whose real state is unknown; Jev confidently says routine
+$ bin/fm-crew-state.sh other -> state: unknown · source: pane · harness state unavailable (unknown missing)
+queued rows before: 2
+$ bin/fm-wake-triage.sh --auto-ack
+WAKE TRIAGE: 2 wake row(s); 1 act-now, 1 routine
+ACT NOW:
+- other | ambiguous status; state unknown | next: inspect the pane below; recover through stuck-crewmate-recovery if it is stuck (unknown · source: pane · harness state unavailable (unknown missing))
+    pane: bash-5.3$ echo "worker output line"; echo "LIVE-PANE-TEXT"
+    pane: worker output line
+    pane: LIVE-PANE-TEXT
+    pane: bash-5.3$
+ROUTINE: other (status line judged routine by Jev)
+OPEN DECISIONS unchanged since the last triage (1): rev [key=nm-r1-review] needs-decision: ask-user findings=f1 file=/tmp/fm-live-HS
+FULL DRAIN OUTPUT: /tmp/fm-live-HSvR/home/state/.wake-triage-last.out
+WAKE TRIAGE: not auto-acknowledged - 1 act-now item(s) need handling first.
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 13 --recovery-generation 61262.1790159134.QYkIUe
+queued rows after: 2
+Jev calls this run: 1
+jq: error: Could not open file /tmp/fm-live-HSvR/jev/req-       2.json: No such file or directory
+--- body state sent: 
+ugrep: warning: /tmp/fm-live-HSvR/jev/req-       2.json: No such file or directory
+ugrep: warning: /tmp/fm-live-HSvR/jev/req-       2.json: No such file or directory
+pane text in Jev body: ; status text in Jev body: 
+(firstmate acked after handling: rows now 0)
+--- (re-read) body state sent in scenario 5: Status lines from firstmate workers. Classify each independently.
+i1: worker_kind=ship facts: verb=note has_url=no has_file_ref=no has_key_or_corr=no length=short
+pane text in Jev body: 0; status text in Jev body: 0

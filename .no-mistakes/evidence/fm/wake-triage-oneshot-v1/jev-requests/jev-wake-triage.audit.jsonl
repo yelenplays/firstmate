@@ -1,0 +1,6 @@
+{"purpose":"wake-triage","ts":"2026-09-23T10:25:21Z","lines":2,"text_lines":1,"decide_code":0,"verdicts":["routine","routine"],"route":"typesafe","http":"200","latency_ms":"11"}
+{"purpose":"wake-triage","ts":"2026-09-23T10:25:36Z","lines":1,"text_lines":0,"decide_code":0,"verdicts":["routine"],"route":"typesafe","http":"200","latency_ms":"10"}
+{"purpose":"wake-triage","ts":"2026-09-23T10:25:55Z","lines":1,"text_lines":1,"decide_code":0,"verdicts":["routine"],"route":"typesafe","http":"200","latency_ms":"10"}
+{"purpose":"wake-triage","ts":"2026-09-23T10:25:56Z","lines":1,"text_lines":1,"decide_code":1,"verdicts":["none"],"route":"typesafe","http":"000","latency_ms":"9"}
+{"purpose":"wake-triage","ts":"2026-09-23T10:27:24Z","lines":1,"text_lines":0,"decide_code":0,"verdicts":["routine"],"route":"typesafe","http":"200","latency_ms":"11"}
+{"purpose":"wake-triage","ts":"2026-09-23T10:28:25Z","lines":1,"text_lines":1,"decide_code":0,"verdicts":["routine"],"route":"typesafe","http":"200","latency_ms":"58"}

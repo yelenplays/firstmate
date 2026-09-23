@@ -1,0 +1,19 @@
+ok - an all-routine batch prints one summary and --auto-ack consumes it
+ok - act-now items name the next action, PR URL, and findings file, and block --auto-ack
+ok - a task's resolved decisions and superseded outcomes are routine; only its newest outcome acts, once
+ok - an idle alert with unknown state is act-now and carries the pane's last lines
+ok - a possible-wedge alert is routine for finished-with-PR and parked-on-decision work, act-now when stuck
+ok - a wedge alert survives an earlier routine signal, dotted ids match literally, and only listed decisions defer
+ok - a secondmate whose state reads failed or unknown is act-now; a healthy idle one stays routine
+ok - a later row is still judged against current state after an earlier stateless routine row
+ok - only a busy-progress execution reminder is routine; reconcile and other firstmate obligations stay act-now
+ok - OPEN DECISIONS surface as act-now on change and as one unchanged line otherwise
+ok - with no Jev key an ambiguous line stays act-now and nothing is sent
+ok - a firstmate-repo ship task in the main home sends its scrubbed, capped status text to Jev
+ok - secondmate tasks, other projects, secondmate homes, and unknown kinds send Jev structured facts only
+ok - a failed worker whose status line went to Jev is act-now even on a confident routine answer
+ok - an act-now current state wins over a confident routine Jev answer; a routine state lets it stand
+ok - an unconfident Jev answer keeps the line act-now
+ok - a failed Jev call keeps the ambiguous line act-now and blocks --auto-ack
+ok - a failing drain is reported unchanged with its exit status
+bash tests/$t.test.sh  10.79s user 14.43s system 72% cpu 34.686 total

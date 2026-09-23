@@ -1,0 +1,30 @@
+### Scenario 6: no Jev key configured -> ambiguous line stays act-now, no network call
+$ bin/fm-wake-triage.sh --auto-ack
+WAKE TRIAGE: 1 wake row(s); 1 act-now, 0 routine
+ACT NOW:
+- fmwork | unclassified status: note: halfway through the refactor | next: read it and decide (Jev off)
+OPEN DECISIONS unchanged since the last triage (1): rev [key=nm-r1-review] needs-decision: ask-user findings=f1 file=/tmp/fm-live-HS
+FULL DRAIN OUTPUT: /tmp/fm-live-HSvR/home/state/.wake-triage-last.out
+WAKE TRIAGE: not auto-acknowledged - 1 act-now item(s) need handling first.
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 14 --recovery-generation 78564.1790159152.gyiEJt
+Jev HTTP requests this run: 0
+
+### Scenario 6b: Jev reachable but unsure (routine at confidence 0.40, below the 0.7 floor) -> act-now
+$ bin/fm-wake-triage.sh --auto-ack
+WAKE TRIAGE: 1 wake row(s); 1 act-now, 0 routine
+ACT NOW:
+- fmwork | unclassified status: note: some more progress | next: read it and decide (Jev did not confidently call it routine)
+OPEN DECISIONS unchanged since the last triage (1): rev [key=nm-r1-review] needs-decision: ask-user findings=f1 file=/tmp/fm-live-HS
+FULL DRAIN OUTPUT: /tmp/fm-live-HSvR/home/state/.wake-triage-last.out
+WAKE TRIAGE: not auto-acknowledged - 1 act-now item(s) need handling first.
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 15 --recovery-generation 80445.1790159154.kYbXLR
+
+### Scenario 6c: Jev endpoint down -> act-now (Jev unavailable)
+$ bin/fm-wake-triage.sh --auto-ack
+WAKE TRIAGE: 1 wake row(s); 1 act-now, 0 routine
+ACT NOW:
+- fmwork | unclassified status: note: yet more progress | next: read it and decide (Jev unavailable)
+OPEN DECISIONS unchanged since the last triage (1): rev [key=nm-r1-review] needs-decision: ask-user findings=f1 file=/tmp/fm-live-HS
+FULL DRAIN OUTPUT: /tmp/fm-live-HSvR/home/state/.wake-triage-last.out
+WAKE TRIAGE: not auto-acknowledged - 1 act-now item(s) need handling first.
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 16 --recovery-generation 83020.1790159155.MMYga0

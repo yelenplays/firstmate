@@ -1,0 +1,46 @@
+### Scenario 3+4: ambiguous note: lines -> one Jev call; firstmate-repo text sent (scrubbed+capped), wiki text withheld
+queued rows before: 2
+$ bin/fm-wake-triage.sh --auto-ack
+WAKE TRIAGE: 2 wake row(s); 0 act-now, 2 routine
+ROUTINE: fmwork (status line judged routine by Jev); wiki (status line judged routine by Jev)
+OPEN DECISIONS unchanged since the last triage (1): rev [key=nm-r1-review] needs-decision: ask-user findings=f1 file=/tmp/fm-live-HS
+FULL DRAIN OUTPUT: /tmp/fm-live-HSvR/home/state/.wake-triage-last.out
+WAKE_ACKED: every item was routine; acknowledged through 11
+rc=0
+queued rows after: 0
+
+--- Jev requests received by the local endpoint:        1
+--- request body (as sent over HTTP):
+{
+  "model": "jev-latest",
+  "state": "Status lines from firstmate workers. Classify each independently.\ni1: worker_kind=ship status=note: switched the drain parser to a streaming reader token=[redacted] xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...\ni2: worker_kind=ship facts: verb=note has_url=no has_file_ref=no has_key_or_corr=no length=short\n",
+  "questions": {
+    "i1": {
+      "type": "choice",
+      "instructions": "Does status line i1 need the supervisor to act now, or is it routine progress?",
+      "criteria": {
+        "act_now": "Reports a finished deliverable, a PR, a decision, a blocker, a failure, a question, an answer, or anything a supervisor or the captain must act on.",
+        "routine": "Routine progress, an acknowledgement, or bookkeeping that needs no action."
+      }
+    },
+    "i2": {
+      "type": "choice",
+      "instructions": "Does status line i2 need the supervisor to act now, or is it routine progress?",
+      "criteria": {
+        "act_now": "Reports a finished deliverable, a PR, a decision, a blocker, a failure, a question, an answer, or anything a supervisor or the captain must act on.",
+        "routine": "Routine progress, an acknowledgement, or bookkeeping that needs no action."
+      }
+    }
+  }
+}
+--- Authorization header present: 1
+--- privacy checks on the request body:
+streaming reader       1
+TAIL-BEYOND-CAP        0
+LIVESECRET             0
+PRIVATE-WIKI-TEXT      0
+LIVE-PANE-TEXT         0
+verb=note              1
+--- audit record state/jev-wake-triage.jsonl:
+{"purpose":"wake-triage","ts":"2026-09-23T10:25:21Z","lines":2,"text_lines":1,"decide_code":0,"verdicts":["routine","routine"],"route":"typesafe","http":"200","latency_ms":"11"}
+audit contains status text: 0

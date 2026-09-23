@@ -1,0 +1,22 @@
+### Scenario 7: possible-wedge alerts reconciled against current state
+crew-state fin: state: done · source: status-log · PR https://github.com/o/r/pull/3 checks green
+crew-state other: state: unknown · source: pane · harness state unavailable (unknown missing)
+crew-state busy: state: working · source: pane · harness busy (claude-hook)
+queued rows before: 3
+$ bin/fm-wake-triage.sh --auto-ack
+WAKE TRIAGE: 3 wake row(s); 3 act-now, 1 routine
+ACT NOW:
+- other | idle alert: fm-other (idle 900s, possible wedge, escalation 2) | next: inspect the pane below and load stuck-crewmate-recovery (state: unknown · source: pane · harness state unavailable (unknown missing))
+    pane: bash-5.3$ echo "worker output line"; echo "LIVE-PANE-TEXT"
+    pane: worker output line
+    pane: LIVE-PANE-TEXT
+    pane: bash-5.3$
+- busy | idle alert: fm-busy (idle 900s, possible wedge, escalation 2) | next: inspect the pane below and load stuck-crewmate-recovery (state: working · source: pane · harness busy (claude-hook))
+    pane: bash-5.3$
+- fin | reports done with a PR | next: run bin/fm-pr-check.sh fin https://github.com/o/r/pull/3, then give the captain the PR URL and outcome | pr: https://github.com/o/r/pull/3
+ROUTINE: fin (possible-wedge alert; finished, PR https://github.com/o/r/pull/3 awaiting merge)
+OPEN DECISIONS unchanged since the last triage (1): rev [key=nm-r1-review] needs-decision: ask-user findings=f1 file=/tmp/fm-live-HS
+FULL DRAIN OUTPUT: /tmp/fm-live-HSvR/home/state/.wake-triage-last.out
+WAKE TRIAGE: not auto-acknowledged - 3 act-now item(s) need handling first.
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 19 --recovery-generation 95778.1790159169.aR8Bq2
+queued rows after: 3

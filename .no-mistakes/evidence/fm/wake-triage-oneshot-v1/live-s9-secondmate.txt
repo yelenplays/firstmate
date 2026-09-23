@@ -1,0 +1,25 @@
+### Scenario 9: secondmate routine done line + secondmate turn-end
+crew-state mate: state: unknown · source: none · no current-state source available
+$ bin/fm-wake-triage.sh --auto-ack   (turn-end only, no status line)
+WAKE TRIAGE: 1 wake row(s); 1 act-now, 0 routine
+ACT NOW:
+- mate | secondmate turn ended; state unknown | next: inspect the pane below and reconcile the secondmate (unknown · source: none · no current-state source available)
+    pane: bash-5.3$
+OPEN DECISIONS unchanged since the last triage (1): rev [key=nm-r1-review] needs-decision: ask-user findings=f1 file=/tmp/fm-live-HS
+OBLIGATIONS: rtbusy worker continue-implementation; rtidle firstmate verify-idle-or-failed-owner-and-recover-or-escalate
+FULL DRAIN OUTPUT: /tmp/fm-live-HSvR/home/state/.wake-triage-last.out
+WAKE TRIAGE: not auto-acknowledged - 1 act-now item(s) need handling first.
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 21 --recovery-generation 92434.1790159240.niBGej
+queued rows after: 1
+
+$ bin/fm-wake-triage.sh --auto-ack   (secondmate done: line without URL, Jev says routine 0.91)
+WAKE TRIAGE: 2 wake row(s); 0 act-now, 1 routine
+ROUTINE: mate (status line judged routine by Jev)
+OPEN DECISIONS unchanged since the last triage (1): rev [key=nm-r1-review] needs-decision: ask-user findings=f1 file=/tmp/fm-live-HS
+OBLIGATIONS: rtbusy worker continue-implementation; rtidle firstmate verify-idle-or-failed-owner-and-recover-or-escalate
+FULL DRAIN OUTPUT: /tmp/fm-live-HSvR/home/state/.wake-triage-last.out
+WAKE_ACKED: every item was routine; acknowledged through 22
+queued rows after: 0
+Jev calls: 2; body state: Status lines from firstmate workers. Classify each independently.
+i1: worker_kind=secondmate facts: verb=done has_url=no has_file_ref=no has_key_or_corr=no length=short
+secondmate text in Jev body: 0

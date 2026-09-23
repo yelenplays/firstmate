@@ -1,0 +1,23 @@
+### Scenario 1 (re-run into transcript): all-routine batch, --auto-ack
+queued rows before: 3
+$ bin/fm-wake-triage.sh --auto-ack
+WAKE TRIAGE: 3 wake row(s); 0 act-now, 1 routine
+ROUTINE: busy (status update; worker busy (working · source: pane · harness busy (claude-hook)))
+FULL DRAIN OUTPUT: /tmp/fm-live-HSvR/home/state/.wake-triage-last.out
+WAKE_ACKED: every item was routine; acknowledged through 6
+rc=0
+queued rows after: 0
+
+### Scenario 2: done+PR, needs-decision with findings, failed run -> ACT NOW, no auto-ack
+queued rows before: 3
+$ bin/fm-wake-triage.sh --auto-ack
+WAKE TRIAGE: 3 wake row(s); 3 act-now, 0 routine
+ACT NOW:
+- shipped | reports done with a PR | next: run bin/fm-pr-check.sh shipped https://github.com/o/r/pull/42, then give the captain the PR URL and outcome | pr: https://github.com/o/r/pull/42
+- broke | failed: pipeline rejected the push | next: inspect bin/fm-crew-state.sh broke and recover or report the failure
+- rev | open decision: [key=nm-r1-review] needs-decision: ask-user findings=f1 file=/tmp/fm-live-HSvR/data/rev/nm-r1-findings.txt | next: decide or escalate (load ask-user-authority for review findings), then answer with bin/fm-send.sh rev --resolve-key nm-r1-review '<answer>' | findings: /tmp/fm-live-HSvR/data/rev/nm-r1-findings.txt
+FULL DRAIN OUTPUT: /tmp/fm-live-HSvR/home/state/.wake-triage-last.out
+WAKE TRIAGE: not auto-acknowledged - 3 act-now item(s) need handling first.
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 9 --recovery-generation 10416.1790159095.sONBRA
+rc=0
+queued rows after: 3

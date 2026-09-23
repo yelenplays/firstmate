@@ -1,0 +1,15 @@
+### Scenario 10: one realistic mixed batch (the 2026-09-22 wake mix) handled in ONE call
+queued rows: 8
+$ time bin/fm-wake-triage.sh --auto-ack
+WAKE TRIAGE: 8 wake row(s); 2 act-now, 4 routine
+ACT NOW:
+- broke | failed: no-mistakes test step red | next: inspect bin/fm-crew-state.sh broke and recover or report the failure
+- rtidle | execution obligation: verify-idle-or-failed-owner-and-recover-or-escalate | next: reconcile the evidence and take that action (state: unknown · source: none · no current-state source available)
+ROUTINE: busy (status update; worker busy (working · source: pane · harness busy (claude-hook))); fin (idle alert; finished, PR https://github.com/o/r/pull/3 awaiting merge); mate (secondmate turn ended); fmwork (status line judged routine by Jev)
+OPEN DECISIONS unchanged since the last triage (1): rev [key=nm-r1-review] needs-decision: ask-user findings=f1 file=/tmp/fm-live-HS
+OBLIGATIONS: rtbusy worker continue-implementation; rtidle firstmate verify-idle-or-failed-owner-and-recover-or-escalate
+FULL DRAIN OUTPUT: /tmp/fm-live-HSvR/home/state/.wake-triage-last.out
+WAKE TRIAGE: not auto-acknowledged - 2 act-now item(s) need handling first.
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 30 --recovery-generation 35603.1790159299.rePWUb
+wall time: 5.01s
+queued rows after: 8

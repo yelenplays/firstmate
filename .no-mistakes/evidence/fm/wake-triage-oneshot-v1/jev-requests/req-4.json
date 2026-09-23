@@ -1,0 +1,26 @@
+{
+  "model": "jev-latest",
+  "state": "task: fin\ndone: done: PR https://github.com/o/r/pull/3 checks green\nacceptance: (none)\npr: (none)\nreport: (none)\nnote: A currently healthy system is not evidence the claimed repair happened. Prefer need_human when the claim and the evidence can both be true without the work being done.",
+  "questions": {
+    "claim": {
+      "type": "choice",
+      "instructions": "Is the worker done-line evidenced against acceptance? Healthy now is not repaired. Use need_human when a human must inspect or the claim is not decidable from this evidence.",
+      "criteria": {
+        "evidenced": "The supplied evidence supports the done claim against acceptance.",
+        "not_evidenced": "The done claim is not supported by the supplied evidence.",
+        "need_human": "A human must inspect. Healthy now is not proof of repair, or the supplied evidence cannot decide the claim."
+      }
+    },
+    "strength": {
+      "type": "score",
+      "instructions": "How strongly does the supplied evidence support that verdict?",
+      "criteria": [
+        "Guess: the evidence barely bears on the verdict.",
+        "Weak: the evidence leans toward the verdict but leaves it open.",
+        "Moderate: the evidence supports the verdict with notable gaps.",
+        "Strong: the evidence supports the verdict with only minor gaps.",
+        "Clear: the evidence plainly matches or plainly contradicts the claim."
+      ]
+    }
+  }
+}
