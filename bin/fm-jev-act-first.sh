@@ -109,6 +109,15 @@ drain_items() {
     /^UNFINISHED EXECUTION \(/ { sec = "execution"; next }
     /^[A-Z][A-Z ]+[ (:]/ && $0 !~ /\t/ { sec = ""; next }
     function verb(s) { sub(/^\[[^]]*\][[:space:]]*/, "", s); sub(/[[:space:]]*(\[|:).*$/, "", s); return s }
+    function event_identity(task, s, key) {
+      if (match(s, /^[a-z-]+ \[key=[^]]+\]:/)) {
+        key = substr(s, RSTART, RLENGTH)
+        sub(/^[a-z-]+ \[key=/, "", key)
+        sub(/\]:$/, "", key)
+        return task "|" key "|" verb(s)
+      }
+      return task "|" verb(s)
+    }
     $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && NF >= 5 {
       p = $5
       for (i = 6; i <= NF; i++) p = p " " $i
@@ -117,14 +126,7 @@ drain_items() {
       if ($3 == "signal" && $4 ~ /\.status$/ && p ~ /^[a-z-]+( \[[^]]*\])?:/) {
         t = $4
         sub(/\.status$/, "", t)
-        if (match(p, /^[a-z-]+ \[key=[^]]+\]:/)) {
-          decision_key = substr(p, RSTART, RLENGTH)
-          sub(/^[a-z-]+ \[key=/, "", decision_key)
-          sub(/\]:$/, "", decision_key)
-          wid[nw] = t "|" decision_key "|" verb(p)
-        } else {
-          wid[nw] = t "|" verb(p)
-        }
+        wid[nw] = event_identity(t, p)
       }
       next
     }
@@ -144,7 +146,11 @@ drain_items() {
     }
     sec == "outcome" && NF == 1 && $0 != "" {
       outcome[++no] = "status outcome " $0
-      oid[no] = "outcome|" $0
+      outcome_task = $0
+      sub(/ .*/, "", outcome_task)
+      outcome_event = $0
+      sub(/^[^ ]+ /, "", outcome_event)
+      oid[no] = event_identity(outcome_task, outcome_event)
       next
     }
     sec == "divergence" && NF == 1 && $0 != "" {

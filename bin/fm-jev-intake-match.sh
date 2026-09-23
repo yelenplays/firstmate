@@ -448,7 +448,9 @@ fallback=error
 if [ "$decide_code" -eq 0 ] && [ -n "$response" ]; then
   choice=$(jq -r '.answers.match.choice // empty' <<<"$response" 2>/dev/null)
   confidence=$(jq -r '.answers.match.confidence | select(type == "number") // empty' <<<"$response" 2>/dev/null)
-  if [ -z "$choice" ] || [ "$choice" = "$none_choice" ]; then
+  if [ -z "$choice" ]; then
+    fallback=error
+  elif [ "$choice" = "$none_choice" ]; then
     fallback=no-match
   elif ! jq -e --arg id "$choice" 'any(.[]; .id == $id)' <<<"$offered" >/dev/null 2>&1; then
     fallback=error

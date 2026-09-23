@@ -208,13 +208,16 @@ test_local_items_ignore_network_state_limit() {
 test_status_recovery_sections_are_ranked_without_wakes_or_decisions() {
   local out
   fresh_home
-  cat > "$DRAIN" <<'EOF'
+  {
+    printf '1790000000\t7\tsignal\tworkflow-a.status\tdone: branch outcome was never recorded\n'
+    cat <<'EOF'
 STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):
 workflow-a done: branch outcome was never recorded
 RECORD DIVERGENCE (answered in the status log, still held in the backlog - nothing was closed automatically):
 workflow-b [key=release] reads resolved in worker's status log but is still held for the captain
 RECORD DIVERGENCE: reconcile each one - record the captain's own words
 EOF
+  } > "$DRAIN"
   KEY='' run_helper out --local --drain-file "$DRAIN"
   expect_code 0 "$RUN_CODE" "recovery sections should be listed locally"
   [ "$(printf '%s\n' "$out" | grep -c .)" -eq 2 ] \
@@ -223,6 +226,7 @@ EOF
     "the status outcome backstop was not the first recovery item"$'\n'"$out"
   assert_contains "$out" "2. record divergence workflow-b [key=release] reads resolved in worker's status log but is still held for the captain" \
     "the record divergence was not included after the backstop"$'\n'"$out"
+  assert_not_contains "$out" "wake signal workflow-a.status" "the backstop and raw wake were not deduplicated"$'\n'"$out"
   pass "status outcome and divergence sections join the local ACT FIRST recovery items"
 }
 

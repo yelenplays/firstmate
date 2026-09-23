@@ -286,10 +286,26 @@ test_failures_fall_back() {
   respond 'none?' 0.9 '{"none?":0.9,"wiki-layer-plan-v1":0.1}'
   KEY=$TS_KEY run_match code out wiki plan
   assert_contains "$out" "fallback: no-match" "a none answer was not reported"
+  jq -n '{model: "jev-1.13.0", answers: {match: {type: "choice", confidence: 0.9, probabilities: {"none?": 1}}}}' > "$RESPONSE"
+  KEY=$TS_KEY run_match code out wiki plan
+  assert_contains "$out" "fallback: error" "a response missing its choice was reported as no-match"
   respond not-offered 0.95 '{"not-offered":0.95,"none?":0.05}'
   KEY=$TS_KEY run_match code out wiki plan
   assert_contains "$out" "fallback: error" "an unoffered pick was accepted"
   pass "transport failure, none, and an unoffered pick all fall back to keywords"
+}
+
+test_invalid_route_is_reported_as_error_not_off() {
+  local code out
+  fresh_home
+  export JEV_ROUTE=invalid-route
+  KEY=$TS_KEY run_match code out wiki plan
+  unset JEV_ROUTE
+  expect_code 0 "$code" "a route configuration error should remain advisory"
+  assert_contains "$out" "fallback: error" "a present key with a bad route was reported as off"$'\n'"$out"
+  assert_not_contains "$out" "fallback: off" "a configured but invalid route was indistinguishable from no key"$'\n'"$out"
+  [ ! -e "$LOG/body" ] || fail "an invalid route reached curl"
+  pass "a present API key reaches route validation instead of appearing off"
 }
 
 test_candidate_list_is_bounded() {
@@ -318,6 +334,7 @@ test_backlog_listing_failure_is_not_reported_as_empty
 test_related_listing_failure_is_reported
 test_low_confidence_falls_back
 test_failures_fall_back
+test_invalid_route_is_reported_as_error_not_off
 test_candidate_list_is_bounded
 
 echo "# all fm-jev-intake-match tests passed"
