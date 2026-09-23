@@ -84,8 +84,8 @@
 # items as its own detached process, so the one model call it makes never
 # touches the digest's blocking path and the sweep report never waits for it:
 # the report publishes as soon as the sweeps finish. The ranking waits up to
-# FM_STARTUP_NETWORK_ACT_FIRST_WAIT seconds (default 20) for act-first-input to
-# deliver its own generation's drain output, skips at once when no Jev key is
+# 20 seconds for act-first-input to deliver its own generation's drain output,
+# skips at once when no Jev key is
 # configured, and publishes separately to .startup-network.act-first. Only when
 # it ranked at least one item does it raise one `check: act-first` wake through
 # the ordinary durable wake queue, so the advisory ranking is actually seen; no
@@ -721,13 +721,10 @@ consume_act_first_input() {  # <generation> <drain-file>
 }
 
 cmd_act_first_rank() {  # <generation>
-  local generation=$1 limit waited=0 drain lines timeout
+  local generation=$1 waited=0 drain lines timeout
   # shellcheck source=bin/fm-jev-lib.sh
   . "$SCRIPT_DIR/fm-jev-lib.sh"
   fm_jev_key_configured || return 0
-  limit=${FM_STARTUP_NETWORK_ACT_FIRST_WAIT:-20}
-  case "$limit" in ''|*[!0-9]*) limit=20 ;; esac
-  limit=$((limit * 10))
   fm_lock_acquire_wait "$PUBLISH_LOCK"
   if [ "$(status_get generation)" != "$generation" ] || [ "$(status_get locked)" != 1 ]; then
     fm_lock_release "$PUBLISH_LOCK"
@@ -749,7 +746,7 @@ cmd_act_first_rank() {  # <generation>
       fi
       rm -f "$drain"
     fi
-    if [ "$waited" -ge "$limit" ]; then
+    if [ "$waited" -ge 200 ]; then
       remove_act_first_waiting "$generation"
       return 0
     fi

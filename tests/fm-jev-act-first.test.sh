@@ -255,6 +255,31 @@ EOF
   pass "status outcome and divergence sections join the local ACT FIRST recovery items"
 }
 
+test_task_level_status_pointers_yield_to_detailed_items() {
+  local out
+  fresh_home
+  {
+    printf '1790000000\t7\tsignal\ttask-a.status\tneeds-decision: task-a.status\n'
+    printf '1790000001\t8\tsignal\ttask-b.status\tsignal: task-b.status\n'
+    printf '%s\n' \
+      'OPEN DECISIONS (still open):' \
+      'task-a [key=release] needs-decision: choose a release target' \
+      'OPEN DECISIONS: close one by answering it' \
+      'STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):' \
+      'task-b done: branch outcome was never recorded'
+  } > "$DRAIN"
+  KEY='' run_helper out --local --drain-file "$DRAIN"
+  expect_code 0 "$RUN_CODE" "task-level pointers should remain advisory"
+  [ "$(printf '%s\n' "$out" | grep -c .)" -eq 2 ] \
+    || fail "task-level pointers duplicated detailed items"$'\n'"$out"
+  assert_contains "$out" "decision task-a [key=release] needs-decision: choose a release target" \
+    "the detailed decision was not retained"$'\n'"$out"
+  assert_contains "$out" "status outcome task-b done: branch outcome was never recorded" \
+    "the detailed outcome was not retained"$'\n'"$out"
+  assert_not_contains "$out" "wake signal" "a task-level pointer was retained beside its detail"$'\n'"$out"
+  pass "task-level status pointers yield to detailed decision and outcome items"
+}
+
 test_probability_maps_with_unoffered_keys_use_the_single_pick_fallback() {
   local out
   fresh_home
@@ -342,6 +367,7 @@ test_local_lists_priority_order_without_a_call
 test_distinct_open_decision_keys_remain_separate
 test_keyed_status_wakes_and_tails_dedupe_in_both_key_positions
 test_status_and_meta_symlinks_are_not_read
+test_task_level_status_pointers_yield_to_detailed_items
 test_local_items_ignore_network_state_limit
 test_status_recovery_sections_are_ranked_without_wakes_or_decisions
 test_unoffered_probability_keys_fall_back_to_the_chosen_item

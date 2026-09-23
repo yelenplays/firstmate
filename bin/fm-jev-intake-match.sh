@@ -3,11 +3,9 @@
 #
 # Usage:
 #   fm-jev-intake-match.sh <reference text...>
-#   fm-jev-intake-match.sh -          reads the reference on stdin
 #
-# The reference is the query: one line of at most 300 characters. A longer or
-# multi-line reference is refused with one line and exit 2 (a single trailing
-# newline on stdin is ignored).
+# The positional reference is the query: one line of at most 300 characters.
+# A longer or multi-line reference is refused with one line and exit 2.
 #
 # Resolves a loose reference such as "the wiki plan I had in one prompt" to
 # the backlog items and task records it most likely means, so intake does not
@@ -45,7 +43,8 @@
 # Ranking: when the chosen id is an offered candidate at or above the library
 # confidence floor (JEV_CONFIDENCE_FLOOR, default 0.7), candidates are ranked
 # by the Choice probabilities, or the single pick when probabilities are
-# absent or malformed. Otherwise - no key, a failed call, the no-candidate
+# absent or malformed. Probability keys must be offered candidate ids or
+# `none?`. Otherwise - no key, a failed call, the no-candidate
 # choice, or low confidence - the output says so and falls back to keywords.
 #
 # Output (stdout), at most five candidates:
@@ -104,8 +103,7 @@ die() {
 
 case "${1:-}" in
   -h|--help) usage; exit 0 ;;
-  '') die "usage: fm-jev-intake-match.sh <reference text...> | -" ;;
-  -) [ $# -eq 1 ] || die "unexpected argument after -"; REFERENCE=$(cat) ;;
+  '') die "usage: fm-jev-intake-match.sh <reference text...>" ;;
   -*) die "unknown option: $1" ;;
   *) REFERENCE="$*" ;;
 esac
@@ -460,7 +458,10 @@ if [ "$decide_code" -eq 0 ] && [ -n "$response" ]; then
     ranking=jev
     fallback=none
     probs=$(jq -c '.answers.match.probabilities // empty' <<<"$response" 2>/dev/null)
-    if [ -n "$probs" ] && fm_jev_probabilities_sum_ok "$probs"; then
+    if [ -n "$probs" ] && fm_jev_probabilities_sum_ok "$probs" \
+      && jq -en --argjson p "$probs" --argjson offered "$offered" --arg none "$none_choice" \
+        'all($p | keys[]; . as $key | ($key == $none or any($offered[]; .id == $key)))' \
+        >/dev/null 2>&1; then
       ranked=$(jq -c --argjson p "$probs" '
         map(. + {confidence: ($p[.id] // 0)})
         | sort_by(-.confidence)

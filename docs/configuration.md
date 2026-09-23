@@ -669,12 +669,13 @@ Regression coverage lives in [`tests/fm-jev-queue-triage.test.sh`](../tests/fm-j
 
 ## Jev intake match
 
-[`bin/fm-jev-intake-match.sh`](../bin/fm-jev-intake-match.sh) resolves a loose captain reference, such as "the wiki plan I had in one prompt", to the backlog items and `data/<id>/` records it most likely means.
+[`bin/fm-jev-intake-match.sh`](../bin/fm-jev-intake-match.sh) resolves a loose positional captain reference, such as "the wiki plan I had in one prompt", to the backlog items and `data/<id>/` records it most likely means; stdin is not an input mode.
 It builds a bounded candidate list without a model call and asks Jev one Choice over candidate ids.
 Exactly this reaches Jev: the reference itself (one line of at most 300 characters; longer or multi-line input is refused), and each candidate's id, title, and backlog state.
 Report, brief, and task bodies never do, and the local call log keeps only the reference's length and SHA-256, never its text.
 When a matched candidate is a `data/<id>` record, the backlog tasks whose body names that record are listed with it, found locally without another Jev question.
 If either backlog listing fails, the output names the failed source and skips Jev rather than treating an incomplete candidate set as empty.
+Probability maps may name only offered candidate ids and the `none?` sentinel; an unknown key makes Jev use the validated single-pick fallback.
 With no key, a failed call, a `none` answer, or confidence below the library floor, it says so and prints a plain keyword ranking instead.
 It is advisory and never opens, dispatches, or edits anything.
 The [script header](../bin/fm-jev-intake-match.sh) owns candidate selection, limits, the output shape, and the log schema; regression coverage lives in [`tests/fm-jev-intake-match.test.sh`](../tests/fm-jev-intake-match.test.sh).
@@ -685,9 +686,10 @@ On the locked path, `bin/fm-session-start.sh` prints at most five ACT FIRST line
 [`bin/fm-jev-act-first.sh`](../bin/fm-jev-act-first.sh) owns item selection and that order.
 The deferred startup network stage ranks the same items with one Jev call, off the digest's blocking path, and publishes that ranking separately so the network-check result never waits for it.
 When the ranking has at least one item it raises one `check: act-first` wake, and `bin/fm-startup-network.sh report` prints it; no items, no key, or a Jev error stays silent.
+Task-level status-pointer wakes are omitted when a detailed decision or outcome for that task is present.
 Without a configured key the ranking is skipped and nothing is sent.
 Both lists are advisory: every presented wake still needs handling and acknowledgement.
-[`bin/fm-startup-network.sh`](../bin/fm-startup-network.sh)'s header owns the deferred step and its wait bound; regression coverage lives in [`tests/fm-jev-act-first.test.sh`](../tests/fm-jev-act-first.test.sh) and [`tests/fm-session-start.test.sh`](../tests/fm-session-start.test.sh).
+[`bin/fm-startup-network.sh`](../bin/fm-startup-network.sh)'s header owns the deferred step and its fixed 20-second input-handoff wait; regression coverage lives in [`tests/fm-jev-act-first.test.sh`](../tests/fm-jev-act-first.test.sh) and [`tests/fm-session-start.test.sh`](../tests/fm-session-start.test.sh).
 
 ## Jev brief preflight (FM_JEV_BRIEF_PREFLIGHT)
 

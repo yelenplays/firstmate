@@ -26,7 +26,9 @@
 #   wake       every raw wake record (epoch, seq, kind, key, payload)
 # One task in one state is one item: a blocker that appears as an open
 # decision, a status line, and a status wake is kept once, as its
-# highest-priority form. Distinct open-decision keys remain separate actions.
+# highest-priority form. Task-level status pointers are omitted when that task
+# has a detailed decision or outcome item. Distinct open-decision keys remain
+# separate actions.
 # Fewer than two items makes no call: there is nothing to rank.
 #
 # What Jev sees (one Choice call through bin/fm-jev-lib.sh): the items above,
@@ -136,8 +138,23 @@ drain_items() {
       for (i = 6; i <= NF; i++) p = p " " $i
       wake[++nw] = "wake " $3 " " $4 (p == "" ? "" : ": " p)
       wid[nw] = wake[nw]
-      if ($3 == "signal" && $4 ~ /\.status$/ && p ~ /^[a-z-]+( \[[^]]*\])?:/) {
+      if ($3 == "signal" && $4 ~ /\.status$/ && p ~ /^(signal|needs-decision):[[:space:]]+[^[:space:]]+\.status$/) {
+        pointer_path = p
+        sub(/^[^:]+:[[:space:]]*/, "", pointer_path)
+        pointer_task = pointer_path
+        sub(/^.*\//, "", pointer_task)
+        sub(/\.status$/, "", pointer_task)
+        wake_task = $4
+        sub(/^.*\//, "", wake_task)
+        sub(/\.status$/, "", wake_task)
+        if (pointer_task == wake_task) {
+          wid[nw] = event_identity(wake_task, p)
+          wake_is_pointer[nw] = 1
+          wake_pointer_task[nw] = wake_task
+        }
+      } else if ($3 == "signal" && $4 ~ /\.status$/ && p ~ /^[a-z-]+( \[[^]]*\])?:/) {
         t = $4
+        sub(/^.*\//, "", t)
         sub(/\.status$/, "", t)
         wid[nw] = event_identity(t, p)
       }
@@ -150,6 +167,7 @@ drain_items() {
       decision_task = $0
       sub(/ .*/, "", decision_task)
       did[nd] = event_identity(decision_task, rest)
+      detailed_task[decision_task] = 1
       next
     }
     sec == "outcome" && NF == 1 && $0 != "" {
@@ -159,6 +177,7 @@ drain_items() {
       outcome_event = $0
       sub(/^[^ ]+ /, "", outcome_event)
       oid[no] = event_identity(outcome_task, outcome_event)
+      detailed_task[outcome_task] = 1
       next
     }
     sec == "divergence" && NF == 1 && $0 != "" {
@@ -172,7 +191,10 @@ drain_items() {
       for (i = 1; i <= no; i++) print "outcome\t" oid[i] "\t" outcome[i]
       for (i = 1; i <= nv; i++) print "divergence\t" vid[i] "\t" divergence[i]
       for (i = 1; i <= ne; i++) print "execution\t" eid[i] "\t" exe[i]
-      for (i = 1; i <= nw; i++) print "wake\t" wid[i] "\t" wake[i]
+      for (i = 1; i <= nw; i++) {
+        if (wake_is_pointer[i] && detailed_task[wake_pointer_task[i]]) continue
+        print "wake\t" wid[i] "\t" wake[i]
+      }
     }
   ' "$DRAIN_FILE"
 }

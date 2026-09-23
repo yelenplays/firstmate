@@ -821,8 +821,7 @@ SH
   act_first_drain | run_stage "$home" "$root" act-first-input
   [ ! -e "$home/state/.startup-network.act-first-waiting" ] \
     || fail "the input was not handed off before a ranker started waiting"
-  (unset JEV_TIMEOUT; FM_STARTUP_NETWORK_ACT_FIRST_WAIT=2 \
-    run_stage "$home" "$root" act-first-rank --generation g-rank) &
+  (unset JEV_TIMEOUT; run_stage "$home" "$root" act-first-rank --generation g-rank) &
   rank_pid=$!
   wait "$rank_pid"
   grep -A1 -x -- '--max-time' "$calls/argv" | grep -qx 3 \
@@ -898,8 +897,7 @@ $rec
 EOF
   printf 'TYPESAFE_API_KEY=ts-test-key\n' > "$home/.env"
   act_first_status "$home" g-old 1
-  (FM_STARTUP_NETWORK_ACT_FIRST_WAIT=1 \
-    run_stage "$home" "$root" act-first-rank --generation g-old) &
+  (run_stage "$home" "$root" act-first-rank --generation g-old) &
   rank_pid=$!
   waited=0
   while [ "$(cat "$home/state/.startup-network.act-first-waiting" 2>/dev/null)" != g-old ] \
