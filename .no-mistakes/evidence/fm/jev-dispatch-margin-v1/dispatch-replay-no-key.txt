@@ -1,0 +1,6 @@
+command: env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY FM_HOME=<isolated> bin/fm-dispatch-replay.sh run --cases <one case> --out <isolated> --max-calls 1 --rules docs/examples/crew-dispatch.json
+exit: 2
+stdout:
+stderr:
+dispatch-resolve: off (TYPESAFE_API_KEY and OPENROUTER_API_KEY absent from the environment and /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M35WBEVTMA0W9C557TA5Z6GQ/.dispatch-live-validation/home/.env)
+output rows: 0

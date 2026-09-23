@@ -1,0 +1,6 @@
+command: env TYPESAFE_API_KEY=validation-only JEV_URL=http://127.0.0.1:1 FM_HOME=<isolated> bin/fm-dispatch-resolve.sh <brief> --project validation
+fixture: three-rule conditional precedence cycle; endpoint restricted to localhost
+exit: 2
+stdout:
+stderr:
+error: malformed rules file: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M35WBEVTMA0W9C557TA5Z6GQ/.dispatch-cycle-validation/home/config/crew-dispatch.json - beats must not form a cycle of three or more rules: rule_1 -> rule_2 -> rule_3 -> rule_1

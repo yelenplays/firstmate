@@ -1,0 +1,5 @@
+command: env TYPESAFE_API_KEY=<validation-only> FM_HOME=<isolated> FM_ROOT_OVERRIDE=<worktree> FM_BOOTSTRAP_NETWORK=skip FM_BOOTSTRAP_DETECT_ONLY=1 bin/fm-bootstrap.sh
+fixture: three-rule conditional precedence cycle
+exit: 0
+stdout:
+CREW_DISPATCH: invalid config/crew-dispatch.json - beats must not form a cycle of three or more rules: rule_1 -> rule_2 -> rule_3 -> rule_1

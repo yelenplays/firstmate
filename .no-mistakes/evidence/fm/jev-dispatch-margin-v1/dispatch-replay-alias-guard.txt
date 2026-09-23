@@ -1,0 +1,13 @@
+scenario: replay output aliases are rejected before append or resolver call
+
+cases: exit=2
+error: --out conflicts with cases file: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M35WBEVTMA0W9C557TA5Z6GQ/.dispatch-alias-validation/input/cases.tsv
+input_hashes_unchanged=yes
+
+brief-symlink: exit=2
+error: --out conflicts with brief for case case-1: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M35WBEVTMA0W9C557TA5Z6GQ/.dispatch-alias-validation/input/brief.md
+input_hashes_unchanged=yes
+
+rules: exit=2
+error: --out conflicts with --rules file: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M35WBEVTMA0W9C557TA5Z6GQ/.dispatch-alias-validation/rules.json
+input_hashes_unchanged=yes

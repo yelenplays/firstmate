@@ -1,0 +1,5 @@
+command: env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY FM_HOME=<isolated> bin/fm-dispatch-resolve.sh <brief> --project test-project
+exit: 0
+stdout:
+stderr:
+dispatch-resolve: off (TYPESAFE_API_KEY and OPENROUTER_API_KEY absent from the environment and /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M35WBEVTMA0W9C557TA5Z6GQ/.dispatch-test-home/.env)

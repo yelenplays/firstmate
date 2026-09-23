@@ -1,0 +1,3 @@
+{"case":"at-0.4","rule":"rule_1","expected":["rule_1"],"confidence":0.59,"probabilities":{"rule_1":0.65,"rule_2":0.25,"rule_3":0.05,"rule_4":0.01,"default":0.04}}
+{"case":"raw-below-rounded-0.4","rule":"rule_1","expected":["rule_1"],"confidence":0.9,"probabilities":{"rule_1":0.52996,"rule_2":0.13,"rule_3":0.12,"rule_4":0.11,"default":0.11004}}
+{"case":"choice-below-leader","rule":"rule_2","expected":["rule_2"],"confidence":0.4125,"probabilities":{"rule_1":0.53,"rule_2":0.13,"rule_3":0.12,"rule_4":0.11,"default":0.11}}
