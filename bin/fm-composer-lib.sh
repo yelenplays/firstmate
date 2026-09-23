@@ -1413,7 +1413,7 @@ _fm_composer_pi_footer_verdict() {  # <plain-screen> <screen> <styled> <has-iden
   case "$max" in ''|*[!0-9]*|0) max=8 ;; esac
   metrics_tail='[0-9]+([.][0-9]+)?%/[0-9]+([.][0-9]+)?[kM]?([[:space:]]+\(auto\))?[[:space:]]+\([^)]+\)[[:space:]]+[^[:space:]]'
   metrics_re="(^|[[:space:]])$metrics_tail"
-  token_prefix_re='^↑[[:space:]]*[0-9]+([.][0-9]+)?[kM]?[[:space:]]+↓[[:space:]]*[0-9]+([.][0-9]+)?[kM]?[[:space:]]+R[0-9]+([.][0-9]+)?[kM]?([[:space:]]+\$?([0-9]+([.][0-9]+)?|[.][0-9]+))?([[:space:]]+\(sub\))?[[:space:]]+'
+  token_prefix_re='^↑[[:space:]]*[0-9]+([.][0-9]+)?[kM]?[[:space:]]+↓[[:space:]]*[0-9]+([.][0-9]+)?[kM]?([[:space:]]+R[0-9]+([.][0-9]+)?[kM]?)?([[:space:]]+\$?([0-9]+([.][0-9]+)?|[.][0-9]+))?([[:space:]]+\(sub\))?[[:space:]]+'
   token_prefix_re+=$metrics_tail
   while IFS= read -r line; do rows+=("$line"); done <<EOF
 $plain

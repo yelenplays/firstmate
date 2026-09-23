@@ -845,7 +845,7 @@ test_pi_captured_footer_and_zen_rail() {
   local cap screen variant out identity tilde no_dollar old_metrics new_metrics
   tilde='~'
   cap=$'styled=1\ncursor=0\nidentity=1\nrows=40'
-  for variant in pi-zen-idle pi-stock-idle pi-0.87.1-token-first-idle; do
+  for variant in pi-zen-idle pi-stock-idle pi-0.87.1-token-first-idle pi-0.87.1-token-first-no-r-idle; do
     screen=$(cat "$ROOT/tests/fixtures/composer/$variant.ansi")
     out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
     [ "$out" = empty ] || fail "$variant captured live idle must be empty, got $out"
@@ -861,6 +861,11 @@ test_pi_captured_footer_and_zen_rail() {
     [ "$out" = unknown ] || fail "$variant without identity must stay unknown"
     out=$(fm_composer_classify_screen "$cap" "$screen"$'\n$ echo hi' '' $'pi\tidle')
     [ "$out" = unknown ] || fail "lower shell must invalidate $variant"
+    if [ "$variant" = pi-0.87.1-token-first-no-r-idle ]; then
+      screen=${screen/┃/┃draft}
+      out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
+      [ "$out" = pending ] || fail "typed text with no R-count cell must remain pending, got '$out'"
+    fi
   done
   screen=$(cat "$ROOT/tests/fixtures/composer/pi-zen-idle.ansi")
   for variant in "${screen#*$'\n'}" $'─── ↑ 3 more ───\n'"${screen#*$'\n'}" "${screen%$'\n'*}"; do
