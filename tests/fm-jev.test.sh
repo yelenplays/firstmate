@@ -173,6 +173,12 @@ test_cli_pins_typesafe_endpoint() {
 
 test_yes_and_score_lines() {
   local code out err
+  respond '{"answers":{"yes":{"noul":0.97}}}'
+  reset_log
+  run_jev code out err yes s q
+  assert_equals "$code" 0 "plain yes input passes the privacy guard"
+  assert_equals "$(jq -r '.state' "$LOG/body")" "s" "plain yes input reaches the mock transport"
+
   respond '{"answers":{"yes":{"type":"noul","noul":0.02}}}'
   run_jev code out err yes "diff touches docs only" "Does the diff change runtime code?"
   assert_equals "$code" 0 "a clear yes/no exits 0"
@@ -573,7 +579,7 @@ JSON
 }
 
 test_privacy_guard_refuses_before_sending() {
-  local code out err big openrouter_key large_state large_question large_meaning private_key boundary_state batch_json credential configured_state yaml_state json_credential
+  local code out err big openrouter_key large_state large_question large_meaning private_key boundary_state batch_json credential configured_state yaml_state json_credential nested_secret_state
   respond '{"answers":{"yes":{"noul":0.9}}}'
   reset_log
   big=$(head -c 4097 /dev/zero | tr '\0' a)
@@ -730,6 +736,15 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "a quoted password key in JSON state is refused"
   assert_contains "$err" "secret" "the JSON state refusal names the privacy issue"
   assert_absent "$LOG/body" "a JSON password value is never sent"
+
+  nested_secret_state=$'{\n  "clientSecret": {\n    "value": "opaque-vendor-secret"\n  }\n}'
+  batch_json=$(jq -cn --arg state "$nested_secret_state" \
+    '{state:$state,questions:[{id:"nested-secret",type:"yes",q:"Done?"}]}')
+  reset_log
+  run_jev code out err batch <<<"$batch_json"
+  assert_equals "$code" 1 "a nested sensitive object in state is refused"
+  assert_contains "$err" "secret" "the nested sensitive object refusal names the privacy issue"
+  assert_absent "$LOG/body" "a nested sensitive value never reaches TypeSafe"
 
   for json_credential in \
     '{"api-key":"opaque-vendor-secret"}' \

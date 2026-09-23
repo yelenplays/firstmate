@@ -416,44 +416,87 @@ fm_jev_compact_state() {
           prefix = substr(buf, 1, key_start - 1)
           if (key_start > 1 && boundary ~ /[^[:alnum:]_]/) prefix = prefix boundary
           tail = substr(buf, key_start + match_length)
-          newline = index(tail, "\n")
-          indicator = newline ? substr(tail, 1, newline - 1) : tail
-          sub(/\r$/, "", indicator)
-          if (indicator ~ /^[ \t]*[|>][+-]?[1-9]?[+-]?[ \t]*(#[^\n]*)?$/) {
-            block_tail = newline ? substr(tail, newline + 1) : ""
-            token_start = key_start
-            if (boundary ~ /[^[:alnum:]_]/) token_start++
-            line_start = token_start - 1
-            while (line_start > 0 && substr(buf, line_start, 1) != "\n") line_start--
-            line_head = substr(buf, line_start + 1, token_start - line_start - 1)
-            match(line_head, /^[ \t]*/)
-            key_indent = RLENGTH
-            line_head = substr(line_head, key_indent + 1)
-            if (line_head ~ /^-[ \t]/) {
-              match(line_head, /^-[ \t]+/)
-              key_indent += RLENGTH
-            }
-            while (length(block_tail) > 0) {
-              block_newline = index(block_tail, "\n")
-              block_line = block_newline ? substr(block_tail, 1, block_newline - 1) : block_tail
-              block_line_for_indent = block_line
-              sub(/\r$/, "", block_line_for_indent)
-              if (block_line_for_indent != "") {
-                match(block_line_for_indent, /^[ \t]*/)
-                if (RLENGTH <= key_indent) break
+          value_start = 1
+          while (substr(tail, value_start, 1) ~ /[[:space:]]/) value_start++
+          first_value_char = substr(tail, value_start, 1)
+          if (first_value_char == "{" || first_value_char == "[") {
+            structured_tail = substr(tail, value_start)
+            bracket_stack[1] = first_value_char
+            bracket_depth = 1
+            active_quote = ""
+            escaped = 0
+            structure_end = 0
+            malformed_structure = 0
+            for (structure_pos = 2; structure_pos <= length(structured_tail); structure_pos++) {
+              character = substr(structured_tail, structure_pos, 1)
+              if (active_quote != "") {
+                if (escaped) escaped = 0
+                else if (character == "\\") escaped = 1
+                else if (character == active_quote) active_quote = ""
+              } else if (character == "\"" || character == "\047") {
+                active_quote = character
+              } else if (character == "{" || character == "[") {
+                bracket_depth++
+                bracket_stack[bracket_depth] = character
+              } else if (character == "}" || character == "]") {
+                expected_open = character == "}" ? "{" : "["
+                if (bracket_depth < 1 || bracket_stack[bracket_depth] != expected_open) {
+                  malformed_structure = 1
+                  break
+                }
+                delete bracket_stack[bracket_depth]
+                bracket_depth--
+                if (bracket_depth == 0) {
+                  structure_end = structure_pos
+                  break
+                }
               }
-              if (block_newline) block_tail = substr(block_tail, block_newline + 1)
-              else {
-                block_tail = ""
-                break
-              }
             }
-            buf = prefix "[redacted]"
-            if (length(block_tail) > 0) buf = buf "\n" block_tail
+            if (!malformed_structure && structure_end > 0) {
+              buf = prefix "[redacted]" substr(tail, value_start + structure_end)
+            } else {
+              buf = prefix "[redacted]"
+            }
           } else {
-            if (newline) tail = substr(tail, newline)
-            else tail = ""
-            buf = prefix "[redacted]" tail
+            newline = index(tail, "\n")
+            indicator = newline ? substr(tail, 1, newline - 1) : tail
+            sub(/\r$/, "", indicator)
+            if (indicator ~ /^[ \t]*[|>][+-]?[1-9]?[+-]?[ \t]*(#[^\n]*)?$/) {
+              block_tail = newline ? substr(tail, newline + 1) : ""
+              token_start = key_start
+              if (boundary ~ /[^[:alnum:]_]/) token_start++
+              line_start = token_start - 1
+              while (line_start > 0 && substr(buf, line_start, 1) != "\n") line_start--
+              line_head = substr(buf, line_start + 1, token_start - line_start - 1)
+              match(line_head, /^[ \t]*/)
+              key_indent = RLENGTH
+              line_head = substr(line_head, key_indent + 1)
+              if (line_head ~ /^-[ \t]/) {
+                match(line_head, /^-[ \t]+/)
+                key_indent += RLENGTH
+              }
+              while (length(block_tail) > 0) {
+                block_newline = index(block_tail, "\n")
+                block_line = block_newline ? substr(block_tail, 1, block_newline - 1) : block_tail
+                block_line_for_indent = block_line
+                sub(/\r$/, "", block_line_for_indent)
+                if (block_line_for_indent != "") {
+                  match(block_line_for_indent, /^[ \t]*/)
+                  if (RLENGTH <= key_indent) break
+                }
+                if (block_newline) block_tail = substr(block_tail, block_newline + 1)
+                else {
+                  block_tail = ""
+                  break
+                }
+              }
+              buf = prefix "[redacted]"
+              if (length(block_tail) > 0) buf = buf "\n" block_tail
+            } else {
+              if (newline) tail = substr(tail, newline)
+              else tail = ""
+              buf = prefix "[redacted]" tail
+            }
           }
           search_from = 1
         }

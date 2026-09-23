@@ -407,6 +407,16 @@ test_compact_state_strips_secrets_and_refuses_oversized() {
   assert_not_contains "$out" 'ordinary-user-token' "compact redacts a value under a single-quoted sensitive key"
   assert_contains "$out" '[redacted]' "compact marks the single-quoted sensitive value as redacted"
 
+  json=$'prefix\n  "clientSecret": [\n    {"value": "opaque-vendor-secret"}\n  ]\npublic: safe'
+  out=$(fm_jev_compact_state "$json")
+  assert_not_contains "$out" 'opaque-vendor-secret' "compact redacts a nested array and object value"
+  assert_contains "$out" 'public: safe' "compact preserves text after a matched structured value"
+
+  json=$'prefix\n  "clientSecret": {\n    "value": "opaque-vendor-secret"\ntrailing content'
+  out=$(fm_jev_compact_state "$json")
+  assert_not_contains "$out" 'opaque-vendor-secret' "compact redacts an unmatched structured secret through end of input"
+  assert_not_contains "$out" 'trailing content' "compact fails closed on an unmatched structured secret"
+
   yaml=$'config:\n  API_TOKEN: |\n    opaque-secret\n    second line\n  next: preserved'
   out=$(fm_jev_compact_state "$yaml")
   assert_equals "$out" $'config:\n  [redacted]\n  next: preserved' \

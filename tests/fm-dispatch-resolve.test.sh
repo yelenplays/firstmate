@@ -804,6 +804,23 @@ body=$(cat "$LOG/body")
 assert_contains "$body" 'Do not send this section' "TypeSafe with compact unset sends the whole brief"
 pass "compact state sends project plus intent, never credentials"
 
+NESTED_BRIEF="$TMP_ROOT/nested-secret-brief.md"
+cat > "$NESTED_BRIEF" <<'MD'
+{
+  "clientSecret": {
+    "value": "opaque-vendor-secret"
+  }
+}
+MD
+reset_log
+TYPESAFE_API_KEY=$KEY FM_JEV_DISPATCH_COMPACT=0 run code out err "$NESTED_BRIEF" --project pager
+expect_code 0 "$code" "dispatch with a nested sensitive value still resolves"
+body=$(cat "$LOG/body")
+assert_equals 'pager' "$(jq -r '.state.task.project' <<<"$body")" \
+  "dispatch reaches the mock transport after sanitizing the brief"
+assert_not_contains "$(jq -r '.state.task.brief' <<<"$body")" 'opaque-vendor-secret' \
+  "dispatch sanitization removes a nested value under a sensitive key"
+
 # --- shadow logs the Jev pick and does not change the profile line --------------
 reset_log
 rm -f "$HOME_DIR/state/jev-dispatch-shadow.jsonl"
