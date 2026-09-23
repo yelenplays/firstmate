@@ -547,7 +547,11 @@ EOF
       FM_BOOTSTRAP_NETWORK=only FM_BOOTSTRAP_NETWORK_LOCK_PID="$lock_pid" \
       bash -c '
         script_dir=$1
+        # shellcheck source=bin/fm-timing-lib.sh
+        . "$script_dir/fm-timing-lib.sh"
+        inactive_started=$(fm_timing_now_ms)
         "$script_dir/fm-inactive-reconcile.sh" scan --startup >/dev/null 2>&1 || true
+        fm_timing_record phase inactive-reconcile "$inactive_started"
         exec "$script_dir/fm-bootstrap.sh"
       ' _ "$SCRIPT_DIR" >"$out" 2>&1 || rc=$?
   else
