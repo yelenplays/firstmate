@@ -8,14 +8,13 @@
 # fm_jev_first_rule names this command to every worker; `--help` (usage below)
 # is the only schema an agent ever loads, so keep it under 15 lines.
 #
-# Key discovery uses TYPESAFE_API_KEY from the environment, else the first
-# config/typesafe-key among $FM_HOME, this checkout, and its main worktree.
-# Firstmate writes the effective environment or .env key to that key-only file
-# with mode 0600 before a worker launch. The key is passed to the library through its environment and
-# never reaches argv, stdout, stderr, or the log. This command always uses the
-# TypeSafe route and production endpoint; it never discovers its key from .env.
-# Crew workers run as the same OS user with full file access. The key-only file
-# reduces accidental exposure but is not a sandbox.
+# Key resolution uses TYPESAFE_API_KEY from the environment, then $FM_HOME/.env,
+# then the .env of the firstmate home that owns this checkout. For pooled
+# worktrees, the owning home is the main worktree resolved through git-common-dir.
+# The key is passed to the library through its environment and never reaches
+# argv, stdout, stderr, or the log. This command always uses the TypeSafe route
+# and production endpoint. Crew workers run as the same OS user with full file
+# access and are not sandboxed.
 #
 # Privacy: state, question IDs and text, option labels and meanings are refused,
 # never sent, when their combined UTF-8 text exceeds FM_JEV_CLI_INPUT_MAX bytes
@@ -63,9 +62,8 @@ Flags follow the command: --json (raw response); --help prints this interface.
 Output: "pick: answer p=0.96 conf=0.94"; a batch uses its question id; escalation prints "ESCALATE conf=0.31 prior=X -> decide yourself".
 Exit: 0 answered, 2 any escalation, 1 error with a one-line reason; on 1 or 2 use your own judgment, never block.
 Input: state, question IDs and text, and options are 4096 bytes total; minimal facts only, no secrets, keys, tokens, wiki page bodies or private-vault text.
-Key: TYPESAFE_API_KEY env or config/typesafe-key in FM_HOME, checkout, main worktree; firstmate copies .env at mode 0600.
-Security: crew workers run as the same OS user with full file access; this file reduces accidents, not a sandbox.
-Create: put only the key in config/typesafe-key, then chmod 600.
+Key: TYPESAFE_API_KEY env, else FM_HOME/.env, then the owning firstmate checkout .env; pooled worktrees use the main checkout.
+Security: crew workers run as the same OS user with full file access and are not sandboxed.
 EOF
 }
 
@@ -74,62 +72,43 @@ die() {
   exit 1
 }
 
-# Candidate key files, in order: config/typesafe-key under $FM_HOME, this
-# checkout, and the checkout's main worktree when this is a linked worktree.
-candidate_key_files() {
+firstmate_home() {
   local common
-  [ -n "${FM_HOME:-}" ] && printf '%s\n' "$FM_HOME/config/typesafe-key"
-  printf '%s\n' "$FM_JEV_CLI_ROOT/config/typesafe-key"
-  common=$(git -C "$FM_JEV_CLI_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 0
+  common=$(git -C "$FM_JEV_CLI_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || common=
   case "$common" in
-    */.git) printf '%s\n' "${common%/.git}/config/typesafe-key" ;;
+    */.git) printf '%s' "${common%/.git}" ;;
+    *) printf '%s' "$FM_JEV_CLI_ROOT" ;;
   esac
 }
 
-# Resolve only the dedicated TypeSafe key source accepted by this CLI.
-resolve_typesafe_key() {
-  local file mode key
-  if [ -n "${TYPESAFE_API_KEY:-}" ]; then
-    JEV_KEY=$TYPESAFE_API_KEY
-    return 0
+home_env_value() {
+  local name=$1 value owner
+  value=${!name-}
+  [ -n "$value" ] && { printf '%s' "$value"; return 0; }
+  if [ -n "${FM_HOME:-}" ]; then
+    value=$(fmx_env_get "$name" "$FM_HOME/.env")
+    [ -n "$value" ] && { printf '%s' "$value"; return 0; }
   fi
-  while IFS= read -r file; do
-    [ -e "$file" ] || [ -L "$file" ] || continue
-    [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] \
-      || die "key file must be a readable regular file: config/typesafe-key"
-    mode=$(stat -f '%Lp' "$file" 2>/dev/null || true)
-    case "$mode" in
-      [0-7][0-7][0-7]|[0-7][0-7][0-7][0-7]) ;;
-      *) mode=$(stat -c '%a' "$file" 2>/dev/null || true) ;;
-    esac
-    case "$mode" in
-      [0-7][0-7][0-7]|[0-7][0-7][0-7][0-7]) ;;
-      *) die "could not read key file permissions: config/typesafe-key" ;;
-    esac
-    if (( (8#$mode & 077) != 0 )); then
-      die "key file must not be group- or world-readable: config/typesafe-key"
-    fi
-    key=$(cat "$file") || die "could not read key file: config/typesafe-key"
-    case "$key" in
-      ''|*$'\n'*|*$'\r'*) die "key file must contain one non-empty key line: config/typesafe-key" ;;
-    esac
-    JEV_KEY=$key
-    return 0
-  done < <(candidate_key_files)
-  die "TYPESAFE_API_KEY missing; set the environment variable or create config/typesafe-key"
+  owner=$(firstmate_home)
+  if [ "$owner" != "${FM_HOME:-}" ]; then
+    value=$(fmx_env_get "$name" "$owner/.env")
+  fi
+  printf '%s' "$value"
+}
+
+resolve_typesafe_key() {
+  JEV_KEY=$(home_env_value TYPESAFE_API_KEY)
+  [ -n "$JEV_KEY" ] || die "TYPESAFE_API_KEY missing; set it in the environment or the resolved .env"
 }
 
 # Succeeds when <text> contains a live Jev provider key. Keys stay local.
 contains_live_key() {
-  local text=$1 home=${FM_HOME:-$FM_JEV_CLI_ROOT} name key
+  local text=$1 name key
   for name in TYPESAFE_API_KEY OPENROUTER_API_KEY; do
     if [ "$name" = TYPESAFE_API_KEY ]; then
       key=${JEV_KEY:-}
     else
-      key=${OPENROUTER_API_KEY:-}
-      if [ -z "$key" ] && [ -f "$home/.env" ]; then
-        key=$(fmx_env_get OPENROUTER_API_KEY "$home/.env")
-      fi
+      key=$(home_env_value OPENROUTER_API_KEY)
     fi
     [ -n "$key" ] || continue
     case "$text" in
@@ -327,7 +306,9 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
     elif $q.type == "pick" then
       (($a.choice | strings) // error("answer \($q.id) has no choice")) as $c
       | checked_probabilities($a.probabilities; ($q.opts | map(.[0]) | sort); $q.id; "options") as $probabilities
-      | { answer: $c, p: ($probabilities[$c] // null),
+      | { answer: $c,
+          prior: (if (($q.opts | map(.[0]) | index($c)) == null) then "invalid" else $c end),
+          p: ($probabilities[$c] // null),
           conf: (if $confidence != null then $confidence
                  elif ($probabilities | length) > 0 then estimate($probabilities) else null end),
           floor: (if $confidence != null then 0.5 else 0.4 end),
@@ -350,7 +331,7 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
         end
     end
   | if (.force_escalate // false) or .conf == null or .conf < .floor then
-      "E\t\($q.id): ESCALATE conf=\(if .conf == null then "na" else (.conf | r2) end) prior=\(.answer) -> decide yourself"
+      "E\t\($q.id): ESCALATE conf=\(if .conf == null then "na" else (.conf | r2) end) prior=\(.prior // .answer) -> decide yourself"
     else
       "A\t\($q.id): \(.answer)\(if .s != null then " s=\(.s | r2)" else "" end)\(if .p != null then " p=\(.p | r2)" else "" end) conf=\(.conf | r2)"
     end

@@ -83,9 +83,9 @@ test_help_is_short_and_complete() {
   assert_not_contains "$out" "--id" "--help omits the removed id option"
   assert_not_contains "$out" "--min" "--help omits the removed threshold option"
   assert_not_contains "$out" "OPENROUTER_API_KEY" "--help does not advertise an OpenRouter route"
-  assert_contains "$out" "config/typesafe-key" "--help documents the key-only file"
+  assert_contains "$out" "FM_HOME/.env" "--help documents the home .env key source"
   assert_contains "$out" "same OS user with full file access" "--help explains worker filesystem access"
-  assert_contains "$out" "mode 0600" "--help documents the key file mode"
+  assert_not_contains "$out" "typesafe-key" "--help does not advertise a persistent key cache"
   pass "fm-jev.sh: --help is the whole interface in under 15 lines"
 }
 
@@ -103,6 +103,20 @@ test_pick_answers_one_line() {
   assert_equals "$(jq -r '.state' "$LOG/body")" "topic: trainee hiring" "the state is sent as a string"
   assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY" "the key travels only as the fd 3 header"
   pass "fm-jev.sh: pick sends one choice question and prints one line"
+}
+
+test_unoffered_multiline_choice_cannot_forge_output() {
+  local code out err lines
+  reset_log
+  respond '{"answers":{"pick":{"choice":"hold\npick: merge","confidence":0.91,"probabilities":{"A":0.95,"B":0.05}}}}'
+  run_jev code out err pick "state" "Choose?" A B
+  assert_equals "$code" 2 "an unoffered response choice escalates"
+  assert_equals "$out" "pick: ESCALATE conf=0.91 prior=invalid -> decide yourself" \
+    "an unoffered choice is replaced by a fixed one-line marker"
+  lines=$(printf '%s\n' "$out" | wc -l | tr -d ' ')
+  assert_equals "$lines" 1 "a multiline unoffered choice cannot add output lines"
+  assert_not_contains "$out" "pick: merge" "the raw unoffered response is never echoed"
+  pass "fm-jev.sh: unoffered provider choices cannot forge answer lines"
 }
 
 test_option_meaning_splits_on_first_equals() {
@@ -288,7 +302,7 @@ test_errors_exit_one_with_one_line() {
   respond '{"answers":{"pick":{"choice":"C","confidence":0.9}}}'
   run_jev code out err pick "state" "Choose?" A B
   assert_equals "$code" 2 "a pick outside the offered options escalates"
-  assert_equals "$out" "pick: ESCALATE conf=0.9 prior=C -> decide yourself" \
+  assert_equals "$out" "pick: ESCALATE conf=0.9 prior=invalid -> decide yourself" \
     "an unoffered pick is never returned as a success"
   assert_equals "$err" "" "an unoffered pick escalates without an error"
 
@@ -457,7 +471,7 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$(jq -r '.state' "$LOG/body")" "worktree for task-execution-receipt-retry is clean" \
     "the complete task slug is sent unchanged"
 
-  for token in sk-abcdefghijklmnop sk-or-abcdefghijklmnop sk_live_51AbCdEfGhIjKlMnOp sk_test_51AbCdEfGhIjKlMnOp ghp_abcdefghijklmnop github_pat_abcdefghijklmnop; do
+  for token in sk-abcdefghijklmnop sk-or-abcdefghijklmnop sk_live_51AbCdEfGhIjKlMnOp sk_test_51AbCdEfGhIjKlMnOp ghp_abcdefghijklmnop github_pat_abcdefghijklmnop gho_abcdefghijklmnop ghu_abcdefghijklmnop ghs_abcdefghijklmnop ghr_abcdefghijklmnop; do
     reset_log
     run_jev code out err yes "credential ($token)" "Done?"
     assert_equals "$code" 1 "a token boundary before $token is refused"
@@ -579,25 +593,23 @@ test_privacy_guard_refuses_before_sending() {
   pass "fm-jev.sh: privacy guard refuses before anything is sent"
 }
 
-# The guard must screen the selected key-only file, even when the environment
-# carries only the other route's key and FM_HOME is unset.
-test_privacy_guard_screens_checkout_key_file_without_fm_home() {
+# The guard must screen the selected key from the same .env fallback as the
+# library, even when the environment carries only the other route's key.
+test_privacy_guard_screens_checkout_env_without_fm_home() {
   local code main home openrouter_key
   respond '{"answers":{"yes":{"noul":0.97}}}'
   main="$TMP_ROOT/guard-checkout"
   make_checkout "$main"
-  mkdir -p "$main/config"
-  printf '%s\n' "$KEY-checkout" > "$main/config/typesafe-key"
-  chmod 600 "$main/config/typesafe-key"
+  printf 'TYPESAFE_API_KEY=%s\n' "$KEY-checkout" > "$main/.env"
   reset_log
   env -u FM_HOME -u TYPESAFE_API_KEY OPENROUTER_API_KEY="$KEY-or" PATH="$FAKEBIN:$PATH" \
     "$main/bin/fm-jev.sh" yes "the key is $KEY-checkout" "Done?" \
     > "$TMP_ROOT/guard.out" 2> "$TMP_ROOT/guard.err"
   code=$?
-  assert_equals "$code" 1 "the checkout config key is refused with FM_HOME unset"
+  assert_equals "$code" 1 "the checkout .env key is refused with FM_HOME unset"
   assert_contains "$(cat "$TMP_ROOT/guard.err")" "Jev API key itself" "the refusal names the live key"
   assert_not_contains "$(cat "$TMP_ROOT/guard.err")" "$KEY-checkout" "the refusal never echoes the key"
-  assert_absent "$LOG/body" "the checkout config key is never sent"
+  assert_absent "$LOG/body" "the checkout .env key is never sent"
 
   home="$TMP_ROOT/router-home"
   openrouter_key='opaque-home-router-credential-918273'
@@ -646,21 +658,17 @@ test_key_discovery_needs_no_env_setup() {
   local main wt nokey code out err
   respond '{"answers":{"yes":{"noul":0.97}}}'
 
-  # A checkout-local key-only file works from an unrelated directory, while a
-  # TypeSafe key in .env is not a CLI credential source.
+  # A checkout-local .env works from an unrelated directory.
   main="$TMP_ROOT/own-checkout"
   make_checkout "$main"
-  mkdir -p "$main/config"
-  printf '%s\n' "$KEY-own" > "$main/config/typesafe-key"
-  chmod 600 "$main/config/typesafe-key"
-  printf 'TYPESAFE_API_KEY=%s\n' "$KEY-env-file-must-not-be-used" > "$main/.env"
+  printf 'TYPESAFE_API_KEY=%s\n' "$KEY-own" > "$main/.env"
   reset_log
   out=$(cd "$TMP_ROOT" && env -u FM_HOME -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY PATH="$FAKEBIN:$PATH" \
     "$main/bin/fm-jev.sh" yes s q)
-  assert_equals "$out" "yes: yes p=0.97 conf=0.94" "the checkout key file answers with no env setup"
-  assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-own" "the key-only file supplies the request key"
+  assert_equals "$out" "yes: yes p=0.97 conf=0.94" "the checkout .env answers with no env setup"
+  assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-own" "the checkout .env supplies the request key"
 
-  # A linked worktree copy falls back to its main worktree's config file.
+  # A pooled worktree call with no env key reads the main checkout's .env.
   git -C "$main" init -q
   git -C "$main" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
   wt="$TMP_ROOT/pooled-worktree"
@@ -669,44 +677,40 @@ test_key_discovery_needs_no_env_setup() {
   reset_log
   out=$(cd "$TMP_ROOT" && env -u FM_HOME -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY PATH="$FAKEBIN:$PATH" \
     "$wt/bin/fm-jev.sh" yes s q)
-  assert_equals "$out" "yes: yes p=0.97 conf=0.94" "a pooled worktree copy finds the main worktree config key"
-  assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-own" "the main worktree config key is used"
+  assert_equals "$out" "yes: yes p=0.97 conf=0.94" "a pooled worktree copy finds the main checkout .env without an env key"
+  assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-own" "the main checkout .env key is used"
 
-  # FM_HOME config wins over checkout config. The process environment still
-  # takes precedence over any key file.
-  mkdir -p "$HOME_DIR/config"
-  printf '%s\n' "$KEY-home" > "$HOME_DIR/config/typesafe-key"
-  chmod 600 "$HOME_DIR/config/typesafe-key"
+  # FM_HOME .env wins over the owning checkout .env; the process environment
+  # still takes precedence over both.
+  JEV="$main/bin/fm-jev.sh"
+  printf 'TYPESAFE_API_KEY=%s\n' "$KEY-home" > "$HOME_DIR/.env"
   reset_log
   JEV_TEST_API_KEY= JEV_TEST_HOME="$HOME_DIR" run_jev code out err yes s q
-  assert_equals "$code" 0 "an FM_HOME key file is accepted"
-  assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-home" "FM_HOME config wins over checkout config"
+  assert_equals "$code" 0 "an FM_HOME .env key is accepted"
+  assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-home" "FM_HOME .env wins over checkout .env"
   reset_log
   JEV_TEST_API_KEY="$KEY-env-wins" JEV_TEST_HOME="$HOME_DIR" run_jev code out err yes s q
   assert_equals "$code" 0 "the environment key remains supported"
-  assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-env-wins" "the environment key wins over files"
+  assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-env-wins" "the environment key wins over .env files"
 
-  chmod 644 "$HOME_DIR/config/typesafe-key"
+  printf 'OTHER_SETTING=value\n' > "$HOME_DIR/.env"
   reset_log
   JEV_TEST_API_KEY= JEV_TEST_HOME="$HOME_DIR" run_jev code out err yes s q
-  assert_equals "$code" 1 "a group-readable key file is refused"
-  assert_contains "$err" "must not be group- or world-readable" "the unsafe key-file refusal is explained"
-  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 "an unsafe key file prints one stderr line"
-  assert_absent "$LOG/body" "an unsafe key file is never sent to TypeSafe"
-  chmod 600 "$HOME_DIR/config/typesafe-key"
+  assert_equals "$code" 0 "an empty FM_HOME key falls back to the owning checkout .env"
+  assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-own" "the owning checkout .env is the final fallback"
 
-  # A TypeSafe key only in .env is not accepted, even if .env is in FM_HOME.
+  # OpenRouter-only configuration cannot authorize this TypeSafe-only command.
   nokey="$TMP_ROOT/no-key-checkout"
   make_checkout "$nokey"
-  printf 'TYPESAFE_API_KEY=%s\n' "$KEY-dotenv" > "$nokey/.env"
+  printf 'OTHER_SETTING=value\n' > "$nokey/.env"
   reset_log
   env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY FM_HOME="$nokey" PATH="$FAKEBIN:$PATH" \
     "$nokey/bin/fm-jev.sh" yes s q > "$TMP_ROOT/nokey.out" 2> "$TMP_ROOT/nokey.err"
   code=$?
-  assert_equals "$code" 1 "a .env-only key is refused"
+  assert_equals "$code" 1 "a missing TypeSafe key is refused"
   assert_contains "$(cat "$TMP_ROOT/nokey.err")" "TYPESAFE_API_KEY missing" "the missing key is named"
   assert_equals "$(wc -l < "$TMP_ROOT/nokey.err" | tr -d ' ')" 1 "a missing key prints one stderr line"
-  assert_absent "$LOG/body" "a .env-only key never reaches TypeSafe"
+  assert_absent "$LOG/body" "a missing TypeSafe key never triggers a request"
 
   printf 'OPENROUTER_API_KEY=%s\nJEV_ROUTE=openrouter\n' "$KEY-or" > "$nokey/.env"
   reset_log
@@ -725,6 +729,7 @@ test_key_discovery_needs_no_env_setup() {
 
 test_help_is_short_and_complete
 test_pick_answers_one_line
+test_unoffered_multiline_choice_cannot_forge_output
 test_option_meaning_splits_on_first_equals
 test_cli_forces_typesafe_route
 test_cli_pins_typesafe_endpoint
@@ -735,6 +740,6 @@ test_escalation_exits_two
 test_json_prints_raw_response
 test_errors_exit_one_with_one_line
 test_privacy_guard_refuses_before_sending
-test_privacy_guard_screens_checkout_key_file_without_fm_home
+test_privacy_guard_screens_checkout_env_without_fm_home
 test_log_records_metadata_only
 test_key_discovery_needs_no_env_setup

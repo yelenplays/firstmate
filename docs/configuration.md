@@ -587,12 +587,11 @@ Typed dispatch resolution above uses this library for the HTTP call and owns the
 ## Jev worker command (bin/fm-jev.sh)
 
 [`bin/fm-jev.sh`](../bin/fm-jev.sh) is the one Jev command firstmate and every worker call for closed-set judgments; the Jev-first rule in every ship and scout brief names it by absolute path.
-It reuses the caller library above and pins its route and URL to TypeSafe production, regardless of `OPENROUTER_API_KEY`, `JEV_ROUTE`, `JEV_URL`, or `JEV_BASE`. Its key comes from `TYPESAFE_API_KEY` in the process environment or a dedicated `config/typesafe-key`, searched in `$FM_HOME`, the command's checkout, then that checkout's main worktree. The command never discovers its TypeSafe key from `.env`.
+It reuses the caller library above and pins its route and URL to TypeSafe production, regardless of `OPENROUTER_API_KEY`, `JEV_ROUTE`, `JEV_URL`, or `JEV_BASE`. It resolves `TYPESAFE_API_KEY` from the process environment, then `$FM_HOME/.env`, then the `.env` of the firstmate home that owns the command checkout. For pooled worktrees, it finds that home through `git rev-parse --git-common-dir`; `.env` values use the shared `fmx_env_get` accessor.
 Its `--help` is its whole interface, flags follow the command, and the header owns the privacy refusal, escalation floor, output, and exit codes.
-Before a ship or scout launch, firstmate copies the effective TypeSafe key from its environment or `.env` into `$FM_HOME/config/typesafe-key`, with mode `0600`; only the home path is passed to the worker. To provision it manually, create the `config` directory, put only the TypeSafe key value on one line in `config/typesafe-key`, and run `chmod 600 config/typesafe-key`.
-Ship, scout, and Devin launches carry the spawning home's absolute path as `FM_HOME` and clear inherited provider keys.
+Ship, scout, and Devin launches carry the spawning home's absolute path as `FM_HOME` and clear inherited provider keys; the key itself is not added to the launch command or environment.
 Each call appends a metadata-only record, without the working directory, state, or question text, to that home's `state/jev-calls.jsonl`.
-Crew workers run as the operator's same OS user and have full file access. The key-only file reduces accidental exposure but is not a sandbox; workers with shell access can still read other home files.
+Crew workers run as the operator's same OS user and have full file access; they are not sandboxed and can read files available to that user.
 
 ## Jev remainder tool-gate (FM_JEV_TOOL_GATE)
 
@@ -1324,7 +1323,7 @@ FMX_RELAY_URL=https://myfirstmate.io   # optional Relay endpoint override, mainl
 FMX_ENV_FILE=           # optional alternate .env file for direct Relay client invocations; bootstrap still checks $FM_HOME/.env
 FMX_DRY_RUN=            # truthy previews Relay replies and dismissals to state/x-outbox/ without posting or requiring a token
 FMX_X_REPLY_MAX_CHARS=280   # X reply per-message split budget; values below 50 clamp to 50
-TYPESAFE_API_KEY=       # typed dispatch resolution opt-in; TypeSafe key for bin/fm-jev-lib.sh and optional env source for bin/fm-jev.sh (otherwise config/typesafe-key)
+TYPESAFE_API_KEY=       # typed dispatch resolution opt-in; TypeSafe key for bin/fm-jev-lib.sh and optional env source for bin/fm-jev.sh (otherwise $FM_HOME/.env, then the owning checkout's .env)
 OPENROUTER_API_KEY=     # optional OpenRouter Jev route for typed dispatch and bin/fm-jev-lib.sh; unused by bin/fm-jev.sh
 JEV_ROUTE=              # optional library and typed-dispatch route; bin/fm-jev.sh always uses TypeSafe
 JEV_MODEL=              # optional Jev model override (same section)

@@ -73,9 +73,8 @@ fm_devin_start() { # <target> <binary> <prompt-file> <model> <permission-mode>
   session=$FM_BACKEND_HERDR_SESSION
   pane=$FM_BACKEND_HERDR_PANE
   [ -n "$model" ] && [ "$model" != default ] && args+=(--model "$model")
-  # Ship and scout launches carry only the spawning home's absolute path so the
-  # Jev command finds its key-only config/typesafe-key file there. The key
-  # itself never crosses the launch boundary.
+  # Ship and scout launches carry the spawning home's absolute path so the Jev
+  # command can resolve the home's .env without inheriting provider keys.
   if [ -n "${FM_HOME:-}" ]; then
     home=$(cd "$FM_HOME" 2>/dev/null && pwd -P) || return 1
     launch="FM_HOME=$(fm_devin_shell_quote "$home") $launch"

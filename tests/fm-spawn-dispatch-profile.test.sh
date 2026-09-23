@@ -1580,10 +1580,9 @@ test_claude_permission_mode_auto_reaches_scout_launch() {
   pass "config/claude-permission-mode=auto reaches scout launches too"
 }
 
-# A ship or scout worker receives the spawning home's absolute path and a
-# key-only config file is materialized before launch; the key itself never
-# crosses the launch boundary, even when the spawner environment and home
-# .env both hold one.
+# A ship or scout worker receives the spawning home's absolute path and no
+# provider key crosses the launch boundary, even when the spawner environment
+# and home .env both hold one.
 test_task_launch_forwards_home_never_key() {
   local rec id out status launch key openrouter_key kind agent_env
   key='ts-spawn-test-key-must-not-leak'
@@ -1593,6 +1592,7 @@ test_task_launch_forwards_home_never_key() {
     rec=$(make_spawn_case "home-forward-$kind" claude "$id")
     read_case_record "$rec"
     agent_env="$CASE_DIR/agent-env"
+    rm -f "$HOME_DIR/config/typesafe-key"
     printf 'TYPESAFE_API_KEY=%s\nOPENROUTER_API_KEY=%s\n' "$key" "$openrouter_key" > "$HOME_DIR/.env"
     if [ "$kind" = scout ]; then
       out=$(TYPESAFE_API_KEY="$key" OPENROUTER_API_KEY="$openrouter_key" run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --scout)
@@ -1608,9 +1608,6 @@ test_task_launch_forwards_home_never_key() {
     esac
     assert_not_contains "$launch" "$key" "$kind launch must never carry the Jev key value"
     assert_not_contains "$launch" "$openrouter_key" "$kind launch must never carry an OpenRouter key value"
-    assert_equals "$(cat "$HOME_DIR/config/typesafe-key")" "$key" "$kind spawn writes the key-only file"
-    assert_equals "$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$HOME_DIR/config/typesafe-key")" \
-      "0o600" "$kind key-only file has mode 0600"
     cat > "$FAKEBIN_DIR/claude" <<'SH'
 #!/usr/bin/env bash
 printf '%s|%s|%s' "${FM_HOME-}" "${TYPESAFE_API_KEY-}" "${OPENROUTER_API_KEY-}" > "${FM_TEST_AGENT_ENV:?}"
@@ -1621,28 +1618,28 @@ SH
       fail "$kind launch command failed to execute"
     fi
     assert_equals "$(cat "$agent_env")" "$HOME_DIR||" "$kind agent receives FM_HOME but no provider key"
+    [ ! -e "$HOME_DIR/config/typesafe-key" ] || fail "$kind spawn cached the TypeSafe key"
   done
   pass "fm-spawn: ship and scout launches carry FM_HOME without inherited provider keys"
 }
 
-test_task_launch_materializes_key_from_home_env() {
+test_task_launch_does_not_cache_key_from_home_env() {
   local rec id out status launch key
-  id=home-key-file-from-env-z23
+  id=home-env-key-launch-z23
   key='ts-spawn-env-file-key-must-not-leak'
   rec=$(make_spawn_case home-key-file-from-env claude "$id")
   read_case_record "$rec"
+  rm -f "$HOME_DIR/config/typesafe-key"
   printf 'TYPESAFE_API_KEY=%s\n' "$key" > "$HOME_DIR/.env"
 
   out=$(TYPESAFE_API_KEY= OPENROUTER_API_KEY= \
     run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
   status=$?
-  expect_code 0 "$status" "a home .env key can be made available to Jev"
-  assert_equals "$(cat "$HOME_DIR/config/typesafe-key")" "$key" ".env key is copied to the dedicated file"
-  assert_equals "$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$HOME_DIR/config/typesafe-key")" \
-    "0o600" ".env key file is restricted to its owner"
+  expect_code 0 "$status" "a home .env key does not block worker launch"
+  [ ! -e "$HOME_DIR/config/typesafe-key" ] || fail "a home .env key was copied to persistent config"
   launch=$(cat "$LAUNCH_LOG")
   assert_not_contains "$launch" "$key" "the .env value does not appear in the launch command"
-  pass "fm-spawn: worker Jev key file is created from the home .env"
+  pass "fm-spawn: home .env credentials are not copied into persistent config"
 }
 
 test_claude_permission_mode_invalid_refuses_before_endpoint_or_metadata() {
@@ -1721,7 +1718,7 @@ test_claude_permission_mode_auto_swaps_only_the_permission_flag
 test_claude_permission_mode_auto_reaches_scout_launch
 test_claude_permission_mode_invalid_refuses_before_endpoint_or_metadata
 test_task_launch_forwards_home_never_key
-test_task_launch_materializes_key_from_home_env
+test_task_launch_does_not_cache_key_from_home_env
 test_non_claude_harness_ignores_claude_permission_mode
 test_non_claude_harness_ignores_config_dir
 test_claude_task_launch_carries_control_channel_authority
