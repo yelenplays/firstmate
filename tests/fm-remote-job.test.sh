@@ -824,19 +824,24 @@ done
 assert_present "$RACE_PID_LOG" "the concurrent-start reproduction did not start any supervisor"
 [ "$(wc -l < "$RACE_PID_LOG" | tr -d ' ')" -eq 12 ] \
   || fail "the concurrent-start reproduction did not launch all requested supervisor attempts"
-sleep 2
 [ "${#RACE_SUPERVISOR_PIDS[@]}" -eq 12 ] \
   || fail "the concurrent-start reproduction did not launch all requested supervisor attempts"
 RACE_ACTIVE_SUPERVISORS=0
 RACE_ACTIVE_SUPERVISOR_PID=
-for pid in "${RACE_SUPERVISOR_PIDS[@]}"; do
-  command=$(fm_remote_job_process_command "$pid" 2>/dev/null || true)
-  case "$command" in
-    *"$RACE_SUPERVISOR")
-      RACE_ACTIVE_SUPERVISORS=$((RACE_ACTIVE_SUPERVISORS + 1))
-      RACE_ACTIVE_SUPERVISOR_PID=$pid
-      ;;
-  esac
+for _ in $(seq 1 100); do
+  RACE_ACTIVE_SUPERVISORS=0
+  RACE_ACTIVE_SUPERVISOR_PID=
+  for pid in "${RACE_SUPERVISOR_PIDS[@]}"; do
+    command=$(fm_remote_job_process_command "$pid" 2>/dev/null || true)
+    case "$command" in
+      *"$RACE_SUPERVISOR")
+        RACE_ACTIVE_SUPERVISORS=$((RACE_ACTIVE_SUPERVISORS + 1))
+        RACE_ACTIVE_SUPERVISOR_PID=$pid
+        ;;
+    esac
+  done
+  [ "$RACE_ACTIVE_SUPERVISORS" -eq 1 ] && break
+  sleep 0.1
 done
 [ "$RACE_ACTIVE_SUPERVISORS" -eq 1 ] \
   || fail "concurrent Linux starts left $RACE_ACTIVE_SUPERVISORS active restart supervisors"
@@ -904,6 +909,59 @@ kill -TERM "$RACE_OWNERLESS_SUPERVISOR_PID" 2>/dev/null || true
 wait "$RACE_OWNERLESS_SUPERVISOR_PID" 2>/dev/null || true
 assert_absent "$RACE_STATE/supervisor.lock" "ownerless-lock fixture left supervisor ownership behind"
 RACE_SUPERVISOR_PIDS=()
+
+RACE_SLOW_BIN="$TMP_ROOT/supervisor-slow-bin"
+RACE_PUBLISH_READY="$TMP_ROOT/supervisor-publish-ready"
+RACE_PUBLISH_RELEASE="$TMP_ROOT/supervisor-publish-release"
+mkdir -p "$RACE_SLOW_BIN"
+cat > "$RACE_SLOW_BIN/ln" <<'SH'
+#!/bin/bash
+printf 'ready\n' > "$FM_TEST_LOCK_PUBLISHER_READY"
+while [ ! -e "$FM_TEST_LOCK_PUBLISHER_RELEASE" ]; do sleep 0.05; done
+exec /bin/ln "$@"
+SH
+chmod +x "$RACE_SLOW_BIN/ln"
+set -m
+PATH="$RACE_SLOW_BIN:$PATH" \
+  FM_TEST_LOCK_PUBLISHER_READY="$RACE_PUBLISH_READY" \
+  FM_TEST_LOCK_PUBLISHER_RELEASE="$RACE_PUBLISH_RELEASE" \
+  HOME="$RACE_HOME" FM_ROOT_OVERRIDE="$RACE_ROOT" FM_REMOTE_JOB_STATE_ROOT="$RACE_STATE" \
+  FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux "$RACE_ROOT/bin/fm-remote-job-worker.sh" \
+  > "$TMP_ROOT/paused-publisher.out" 2>&1 &
+RACE_PAUSED_SUPERVISOR_PID=$!
+RACE_SUPERVISOR_PIDS+=("$RACE_PAUSED_SUPERVISOR_PID")
+set +m
+for _ in $(seq 1 100); do
+  [ -f "$RACE_PUBLISH_READY" ] && break
+  sleep 0.05
+done
+assert_present "$RACE_PUBLISH_READY" "the supervisor did not reach owner publication"
+touch -t 200001010000 "$RACE_STATE/supervisor.lock"
+HOME="$RACE_HOME" FM_ROOT_OVERRIDE="$RACE_ROOT" FM_REMOTE_JOB_STATE_ROOT="$RACE_STATE" \
+  FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux "$RACE_ROOT/bin/fm-remote-job-worker.sh" \
+  > "$TMP_ROOT/reclaimed-publisher.out" 2>&1 &
+RACE_WINNING_SUPERVISOR_PID=$!
+RACE_SUPERVISOR_PIDS+=("$RACE_WINNING_SUPERVISOR_PID")
+for _ in $(seq 1 100); do
+  owner_pid=$(head -n 1 "$RACE_STATE/supervisor.lock/owner" 2>/dev/null || true)
+  [ "$owner_pid" = "$RACE_WINNING_SUPERVISOR_PID" ] && break
+  sleep 0.05
+done
+[ "$owner_pid" = "$RACE_WINNING_SUPERVISOR_PID" ] || fail "the replacement supervisor did not claim the aged ownerless lock"
+: > "$RACE_PUBLISH_RELEASE"
+set +e
+wait "$RACE_PAUSED_SUPERVISOR_PID" 2>/dev/null
+RACE_PAUSED_RC=$?
+set -e
+[ "$RACE_PAUSED_RC" -eq 0 ] || fail "the paused publisher did not yield to the replacement supervisor"
+[ "$(head -n 1 "$RACE_STATE/supervisor.lock/owner")" = "$RACE_WINNING_SUPERVISOR_PID" ] || fail "the paused publisher displaced the replacement supervisor's ownership"
+command=$(fm_remote_job_process_command "$RACE_WINNING_SUPERVISOR_PID" 2>/dev/null || true)
+case "$command" in *"$RACE_SUPERVISOR") ;; *) fail "the replacement supervisor exited with the lock" ;; esac
+pass "a paused publisher cannot displace a reclaimed supervisor lock"
+kill -TERM "$RACE_WINNING_SUPERVISOR_PID" 2>/dev/null || true
+wait "$RACE_WINNING_SUPERVISOR_PID" 2>/dev/null || true
+assert_absent "$RACE_STATE/supervisor.lock" "publisher-race fixture left supervisor ownership behind"
+RACE_SUPERVISOR_PIDS=()
 unset FM_TEST_SUPERVISOR_PID_LOG
 
 # Cleanup must refuse before touching any queue with a live lane. The active-job
@@ -931,6 +989,14 @@ set -e
   || fail "cleanup did not refuse a live lane (exit=$cleanup_rc): $cleanup_out"
 assert_contains "$cleanup_out" 'refusing cleanup while job job-cleanup-active has a live lane' \
   "cleanup did not explain its active-lane refusal"
+set +e
+cleanup_override_out=$(HOME="$RACE_HOME" FM_ROOT_OVERRIDE="$RACE_ROOT" \
+  FM_REMOTE_JOB_STATE_ROOT="$RACE_STATE" FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux \
+  "$RACE_ROOT/bin/fm-remote-job-worker.sh" --cleanup --allow-active 2>&1)
+cleanup_override_rc=$?
+set -e
+[ "$cleanup_override_rc" -eq 2 ] \
+  || fail "cleanup accepted the removed interruption option: $cleanup_override_out"
 kill -0 "$CLEANUP_TEST_LANE" 2>/dev/null || fail "cleanup killed a lane after refusing its active job"
 assert_contains "$(<"$CLEANUP_JOB/state")" 'running' "cleanup changed the interrupted job record"
 rm -rf -- "$CLEANUP_JOB"
