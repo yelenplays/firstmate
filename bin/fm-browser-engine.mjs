@@ -276,7 +276,6 @@ async function executeRouteStep(step, vars, pageApi) {
       await pageApi.wait(100);
     }
   }
-  if (step.confirm === true) return { ok: false, error: 'CONFIRM_REQUIRED' };
   const params = { action: step.do, expectation };
   if (step.do === 'press') params.key = step.key;
   else {
@@ -286,7 +285,7 @@ async function executeRouteStep(step, vars, pageApi) {
   if (step.do === 'fill') params.value = substituteRouteValue(step.value, vars);
   if (step.do === 'select') params.option = substituteRouteValue(step.option, vars);
   let result = await executeStep(params, pageApi);
-  if (result.error === 'TARGET_NOT_FOUND' && step.confirm !== true) {
+  if (result.error === 'TARGET_NOT_FOUND') {
     const nodes = parseSnapshot(await pageApi.snapshot());
     const exact = parseSelector(params.target);
     let scope = nodes;
@@ -335,6 +334,8 @@ export async function executeRoute(routeInput, vars = {}, from = null, pageApi) 
   const heals = [];
   const routeUpdates = [];
   for (const step of route.steps.slice(begin)) {
+    const current = await pageApi.eval(() => ({ host: location.hostname }));
+    if (current.host.toLowerCase() !== route.host) return { ok: false, error: 'START_MISMATCH', step: step.id, completed };
     if (step.confirm === true) return { ok: false, error: 'CONFIRM_REQUIRED', step: step.id, completed };
     const result = await executeRouteStep(step, vars, pageApi);
     if (!result.ok) return { ok: false, error: result.error ?? 'BROWSER_ACTION_FAILED', step: step.id, completed };
@@ -409,12 +410,13 @@ export async function executeStep(rawParams, pageApi) {
 }
 
 if (typeof page !== 'undefined' && typeof PARAMS !== 'undefined') {
+  const start = PARAMS.record ? await page.eval(() => ({ path: location.pathname })) : null;
   const result = PARAMS.mode === 'route'
     ? await executeRoute(PARAMS.route, PARAMS.vars, PARAMS.from, page)
     : await executeStep(PARAMS, page);
   if (PARAMS.record && result.ok && result.verified) {
-    const location = await page.eval(() => ({ host: location.hostname.toLowerCase(), path: location.pathname }));
-    console.log(JSON.stringify({ result, record: { ...PARAMS.record, currentHost: location.host, path: location.path } }));
+    const current = await page.eval(() => ({ host: location.hostname.toLowerCase() }));
+    console.log(JSON.stringify({ result, record: { ...PARAMS.record, currentHost: current.host, path: start.path } }));
   } else {
     console.log(JSON.stringify(result));
   }

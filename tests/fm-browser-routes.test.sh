@@ -33,12 +33,7 @@ assert.throws(() => engine.validateRoute({ ...route, steps: [...route.steps, rou
 const snapshot = 'uid=x:0 rootwebarea "fixture"\n  uid=x:1 textbox "Route name"\n  uid=x:2 button "Reveal fixture"\n  uid=x:3 heading "Name recorded"\n  uid=x:4 heading "Route finished"';
 let actionLog = [];
 const page = {
-  async eval(fn) {
-    const source = String(fn);
-    if (source.includes('location.hostname')) return { host: '127.0.0.1', path: '/routes.html' };
-    if (source.includes('location.pathname')) return '/routes.html';
-    return null;
-  },
+  async eval() { return { host: '127.0.0.1', path: '/routes.html' }; },
   async snapshot() { return snapshot; },
   async fill(target, value) { actionLog.push(['fill', target, value]); },
   async click(target) { actionLog.push(['click', target]); },
@@ -69,8 +64,18 @@ actionLog = [];
 result = await engine.executeRoute(confirmed, { name: 'safe' }, null, page);
 assert.equal(result.error, 'CONFIRM_REQUIRED');
 assert.deepEqual(actionLog, []);
-const mismatchPage = { ...page, async eval(fn) { return fn.toString().includes('hostname') ? { host: 'elsewhere.test', path: '/routes.html' } : null; } };
+const mismatchPage = { ...page, async eval() { return { host: 'elsewhere.test', path: '/routes.html' }; } };
 assert.equal((await engine.executeRoute(route, { name: 'safe' }, null, mismatchPage)).error, 'START_MISMATCH');
+let hostChecks = 0;
+actionLog = [];
+const changingHostPage = { ...page, async eval() {
+  hostChecks += 1;
+  return { host: hostChecks >= 3 ? 'elsewhere.test' : '127.0.0.1', path: '/routes.html' };
+} };
+result = await engine.executeRoute(route, { name: 'safe' }, null, changingHostPage);
+assert.equal(result.error, 'START_MISMATCH');
+assert.deepEqual(result.completed, ['name']);
+assert.deepEqual(actionLog, [['fill', '@x:1', 'safe']]);
 const healingRoute = {
   version: 1, host: '127.0.0.1', route: 'healing', start: { url_path: '/routes.html' }, vars: {},
   steps: [{ id: 'deploy', do: 'click', target: { role: 'button', label: 'Deploy production' }, expect: { appears: { role: 'heading', label: 'Done' } } }],
@@ -144,6 +149,10 @@ RECORDED=$(cat "$TMP_HOME/data/browser-routes/127.0.0.1/recorded.json")
 case "$RECORDED" in *'${name}'*) ;; *) fail 'recorded fill did not use its named variable placeholder' ;; esac
 case "$RECORDED" in *recorded-literal*) fail 'recorded input value was persisted' ;; esac
 pass 'verified steps append safely and replace fill text with a named variable'
+OUT=$(FM_HOME="$TMP_HOME" "$SCRIPT" step --click 'button=Navigate fixture' --expect-url-path /done --record 127.0.0.1/navigated --session "$SESSION") || fail "navigating step was not recorded: $OUT"
+START_PATH=$(node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); process.stdout.write(r.start.url_path)' "$TMP_HOME/data/browser-routes/127.0.0.1/navigated.json")
+[ "$START_PATH" = '/routes.html' ] || fail "recording used the post-action path: $START_PATH"
+pass 'recording preserves the pre-action route start path'
 cat >"$TMP_HOME/data/browser-routes/127.0.0.1/heal.json" <<'JSON'
 {
   "version": 1,
