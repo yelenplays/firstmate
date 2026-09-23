@@ -129,10 +129,11 @@ test_logbook_projects_reports_decisions_and_open_work() {
       and all(.landed[]; (keys | sort) == ["home","id","kind","mode","order","pr_url","project","title","via"])
       and all(.reports[]; (keys | sort) == ["home","id","kind","mode","order","project","report_path","title"])
       and all(.decisions[]; (keys | sort) == ["at","digest","home","id","mode","order","project","title","words"])
-      and ((.open | keys | sort) == ["ids","omitted","running","waiting_on_you"])
+      and ((.open | keys | sort) == ["ids","incomplete_homes","omitted","registry_complete","running","unlisted_homes","waiting_on_you"])
       and .open.running == 2 and .open.waiting_on_you == 1
       and (.open.ids | index("main/open-queued") != null)
-      and .open.omitted == []
+      and .open.omitted == [] and .open.unlisted_homes == 0
+      and .open.incomplete_homes == [] and .open.registry_complete == true
     ' "$path" >/dev/null || fail "the Logbook JSON did not preserve the structured daily record: $json"
   assert_contains "$output" "wrote data/history/days/$today.logbook.json" 'the generator did not report its result'
   assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" '## Logbook' 'the day page has no Logbook section'
@@ -184,6 +185,42 @@ test_unclassified_reports_and_verbatim_decisions_are_logged() {
   assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" "$answer" \
     'the readable Logbook omitted the complete captain decision'
   pass 'unclassified work and marker-shaped captain words survive task and Logbook capture'
+}
+
+test_cleanup_card_does_not_infer_merge_from_pr_url() {
+  local today url card meta_line encoded metadata
+  fresh_home
+  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
+  url='https://github.com/acme/sample-repo/pull/77'
+  cat > "$HOME_DIR/data/backlog.md" <<EOF
+## In flight
+- [ ] open-pr - A cleanup card with an open PR (repo: sample-repo) (kind: ship) <$url>
+
+## Queued
+
+## Done
+EOF
+  run_history task open-pr --completed >/dev/null
+  card="$HOME_DIR/data/history/tasks/open-pr.md"
+  assert_present "$card" 'completed cleanup did not write its task card'
+  meta_line=$(grep 'fm-history:task:v1' "$card")
+  encoded=${meta_line#*fm-history:task:v1 }
+  encoded=${encoded% -->}
+  if [ "$(uname -s)" = Darwin ]; then metadata=$(printf '%s' "$encoded" | base64 -D); else metadata=$(printf '%s' "$encoded" | base64 -d); fi
+  jq -e --arg url "$url" '.completion.verb == "done" and .pr_url == $url' <<< "$metadata" >/dev/null \
+    || fail 'the PR URL was recorded as merge evidence in the task card'
+
+  cat > "$HOME_DIR/data/backlog.md" <<'EOF'
+## In flight
+
+## Queued
+
+## Done
+EOF
+  run_history logbook >/dev/null
+  jq -e 'all(.landed[]; .id != "open-pr")' "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null \
+    || fail 'the Logbook treated a completed cleanup card with an open PR as landed'
+  pass 'cleanup preserves an open PR URL without inferring merge or landing'
 }
 
 test_queued_only_day_writes_a_logbook() {
@@ -348,6 +385,52 @@ test_secondmate_open_inventory_omissions_and_identity_are_preserved() {
   pass 'Logbook open work preserves home identity and explicitly reports capped rows'
 }
 
+test_secondmate_truncated_and_unknown_home_coverage_is_disclosed() {
+  local today unknown_home omitted_home home
+  fresh_home
+  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
+  unknown_home="$TMP_ROOT/mate-01-unknown"
+  omitted_home="$TMP_ROOT/mate-02-omitted"
+  for home in "$unknown_home" "$omitted_home"; do
+    mkdir -p "$home/data" "$home/state" "$home/config" "$home/projects" "$home/bin"
+    cp "$ROOT/.tasks.toml" "$home/.tasks.toml"
+    printf '%s\n' "${home##*/}" > "$home/.fm-secondmate-home"
+    printf '%s\n' '# Registered secondmate fixture' > "$home/AGENTS.md"
+    cat > "$home/data/backlog.md" <<'EOF'
+## In flight
+
+## Queued
+
+## Done
+EOF
+  done
+  cat > "$omitted_home/data/backlog.md" <<'EOF'
+## In flight
+
+## Queued
+- [ ] omitted-home-task - Work from a home beyond the snapshot cap (repo: sample-repo) (kind: ship)
+
+## Done
+EOF
+  printf '%s\n' \
+    "- mate-01-unknown - Unknown summary (home: $unknown_home; scope: queued work; projects: sample-repo; added $today)" \
+    "- mate-02-omitted - Omitted summary (home: $omitted_home; scope: queued work; projects: sample-repo; added $today)" \
+    > "$HOME_DIR/data/secondmates.md"
+  FM_SNAPSHOT_SECONDMATES=1 run_history logbook >/dev/null
+  jq -e '
+    .open.registry_complete == true
+    and .open.unlisted_homes == 1
+    and .open.incomplete_homes == ["mate-01-unknown"]
+    and (.open.ids | index("mate-02-omitted/omitted-home-task") == null)
+  ' "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null \
+    || fail 'the Logbook hid omitted homes or an unknown home inventory'
+  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" \
+    'Secondmate home summaries not sampled: 1' 'the readable Logbook omitted snapshot-level home truncation'
+  assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" \
+    'Open-work inventory incomplete for: mate-01-unknown' 'the readable Logbook omitted an unknown home inventory'
+  pass 'the Logbook discloses omitted secondmates and unknown home inventories'
+}
+
 test_logbook_markdown_retries_when_json_is_unchanged() {
   local today path markdown
   fresh_home
@@ -446,12 +529,14 @@ test_secondmate_home_is_the_project_fallback() {
 
 test_logbook_projects_reports_decisions_and_open_work
 test_unclassified_reports_and_verbatim_decisions_are_logged
+test_cleanup_card_does_not_infer_merge_from_pr_url
 test_queued_only_day_writes_a_logbook
 test_captured_markers_remain_content_when_logbook_is_written
 test_closed_day_requires_explicit_rebuild
 test_first_later_day_closes_the_previous_logbook
 test_secondmate_landed_rows_reach_the_logbook
 test_secondmate_open_inventory_omissions_and_identity_are_preserved
+test_secondmate_truncated_and_unknown_home_coverage_is_disclosed
 test_logbook_markdown_retries_when_json_is_unchanged
 test_closed_older_logbook_retries_markdown_sync
 test_explicit_closed_day_retries_markdown_sync

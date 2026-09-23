@@ -854,8 +854,7 @@ function taskCardLocked(historyDir, stateDir, dataDir, homeDir, snapshotFile, de
   }
   const verb = ['merged', 'landed', 'done', 'reported'].includes(recordedVerb)
     ? recordedVerb
-    : kind === 'scout' && reportPath ? 'reported'
-      : mode === 'local-only' ? 'done' : prUrl ? 'merged' : 'done';
+    : kind === 'scout' && reportPath ? 'reported' : 'done';
   const completionDate = validDate(row?.completion && row.completion.date) ? row.completion.date : currentLocalDate();
   const project = row?.repo || repoFromUrl(prUrl) || (home !== 'main' ? home : null);
   const title = cleanTaskTitle(row?.title || meta.title || id) || id;
@@ -938,7 +937,7 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
     const identity = taskIdentityKey(rowHome, id);
     if (completion.verb === 'reported' && row.report_path) {
       reportsById.set(identity, { id, project, title, kind: row.kind || null, mode: row.mode || row.delivery_mode || null, report_path: row.report_path, home: rowHome });
-    } else if (['merged', 'landed', 'done'].includes(completion.verb)
+    } else if ((['merged', 'landed'].includes(completion.verb) || (completion.verb === 'done' && !prUrl))
       && row.state === 'done' && row.kind !== 'captain' && row.hold_kind !== 'captain') {
       const via = prUrl ? 'pull_request' : 'local';
       landedById.set(identity, { id, project, title, kind: row.kind || null, mode: row.mode || row.delivery_mode || null, via, pr_url: prUrl, home: rowHome, order: Number.isSafeInteger(row.order) ? row.order : Number.MAX_SAFE_INTEGER });
@@ -970,6 +969,10 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
   const decisions = [...decisionById.values()].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
     .map((row, index) => ({ ...row, order: index + 1 }));
 
+  const secondmateCurrent = snapshot.secondmate_current || {};
+  const unlistedHomes = Number.isSafeInteger(secondmateCurrent.truncated) ? secondmateCurrent.truncated : null;
+  const registryComplete = secondmateCurrent.registry?.complete === true;
+  const incompleteHomes = [];
   const openIds = new Map();
   const openOmitted = [];
   const addOpenId = (identityHome, id) => {
@@ -985,9 +988,12 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
     if (row.state === 'in_flight') running++;
     if (row.state !== 'done' && row.hold_kind === 'captain') waitingOnYou++;
   }
-  for (const mate of snapshot.secondmate_current?.records || []) {
+  for (const mate of secondmateCurrent.records || []) {
     const counts = mate.counts || {};
     const mateHome = mate.id || mate.home_id || 'unknown';
+    if (mate.current?.state === 'unknown' || mate.provenance?.trust === 'partial-structured') {
+      incompleteHomes.push(mateHome);
+    }
     running += Number.isInteger(counts.active_children) ? counts.active_children : 0;
     waitingOnYou += Number.isInteger(counts.decisions_open) ? counts.decisions_open : 0;
     for (const child of mate.active_children || []) addOpenId(mateHome, child.id);
@@ -1007,6 +1013,9 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
       running, waiting_on_you: waitingOnYou,
       ids: [...openIds.values()].sort(),
       omitted: openOmitted.sort((a, b) => a.home.localeCompare(b.home) || a.surface.localeCompare(b.surface)),
+      unlisted_homes: unlistedHomes,
+      incomplete_homes: [...new Set(incompleteHomes)].sort(),
+      registry_complete: registryComplete,
     },
   };
   return record;
@@ -1035,6 +1044,17 @@ function renderLogbook(record) {
   if (record.open.ids.length) lines.push(`- Task ids: ${record.open.ids.join(', ')}`);
   for (const omitted of record.open.omitted || []) {
     lines.push(`- Not individually listed: ${omitted.count} ${omitted.surface} item(s) from ${omitted.home}`);
+  }
+  if (record.open.registry_complete === false) {
+    lines.push('- Secondmate registry incomplete or unavailable; total home coverage may be unknown.');
+  }
+  if (record.open.unlisted_homes === null) {
+    lines.push('- Secondmate home coverage count unavailable.');
+  } else if (record.open.unlisted_homes > 0) {
+    lines.push(`- Secondmate home summaries not sampled: ${record.open.unlisted_homes}`);
+  }
+  if ((record.open.incomplete_homes || []).length) {
+    lines.push(`- Open-work inventory incomplete for: ${record.open.incomplete_homes.join(', ')}`);
   }
   return lines.join('\n');
 }
@@ -1402,7 +1422,7 @@ cmd_find() {
     offer=$(printf '%s' "$candidates" | jq -c '
       [.[] | . as $row | (.path | split("/")) as $parts
         | {id:($row.path | sub("\\.md$"; "")),
-           date:(if $parts[0] == "days" then $parts[1] else null end),
+           date:(if $parts[0] == "days" then ($parts[1] | sub("\\.md$"; "")) else null end),
            kind:(if $parts[0] == "days" then "day" else "task" end),
            title:($row.title | .[0:120])}]
     ') || offer='[]'

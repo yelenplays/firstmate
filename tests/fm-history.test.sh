@@ -124,6 +124,7 @@ SH
     (.state | has("query") | not)
     and ([.state.candidates[] | keys | sort] | all(. == ["date","id","kind","title"]))
     and (.state.candidates | length >= 2)
+    and all(.state.candidates[] | select(.kind == "day"); .date == (.id | split("/")[-1]))
   ' "$request" >/dev/null || fail 'Jev received fields outside the allowed page metadata'
   pass 'Jev history choices receive only locally retrieved page metadata'
 }
