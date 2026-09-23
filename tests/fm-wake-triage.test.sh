@@ -331,13 +331,15 @@ test_ambiguous_status_without_a_jev_key_stays_act_now() {
 }
 
 # One ambiguous line for <task> through a Jev-enabled triage; the fake route
-# records the request body in $dir/curl/body.
+# records the request body in $dir/curl/body. The worker reads busy unless the
+# caller sets FM_FAKE_CREW_STATE.
 jev_triage_one() {  # <dir> <task> <status-line> <choice> <confidence>
   local dir=$1
   printf '%s\n' "$3" > "$dir/state/$2.status"
   append_wake "$dir/state" signal "$2.status" "signal: $dir/state/$2.status"
   jev_response "$dir/response.json" "$4" "$5"
-  TYPESAFE_API_KEY=ts-fake-key-for-tests FAKE_CURL_RESPONSE="$dir/response.json" run_triage "$dir" --auto-ack
+  FM_FAKE_CREW_STATE="${FM_FAKE_CREW_STATE:-state: working · source: pane · busy}" \
+    TYPESAFE_API_KEY=ts-fake-key-for-tests FAKE_CURL_RESPONSE="$dir/response.json" run_triage "$dir" --auto-ack
 }
 
 other_repo() {  # <dir> -> a git repository that is not this firstmate repo
@@ -397,6 +399,25 @@ test_jev_gets_structured_facts_only_outside_the_line() {
   pass "secondmate tasks, other projects, secondmate homes, and unknown kinds send Jev structured facts only"
 }
 
+test_failed_state_acts_whatever_jev_answers() {
+  local dir out
+  dir=$(triage_case jev-failed-state)
+  write_meta "$dir" fixer ship "project=$ROOT"
+  printf 'note: pushing fix\n' > "$dir/state/fixer.status"
+  append_wake "$dir/state" signal fixer.status "signal: $dir/state/fixer.status"
+  append_wake "$dir/state" signal fixer.turn-ended "signal: $dir/state/fixer.turn-ended"
+  jev_response "$dir/response.json" routine 0.95
+  out=$(FM_FAKE_CREW_STATE_fixer='state: failed · source: run-step · tests failed' \
+    TYPESAFE_API_KEY=ts-fake-key-for-tests FAKE_CURL_RESPONSE="$dir/response.json" run_triage "$dir" --auto-ack) \
+    || fail "triage failed: $out"
+  has "$out" 'fixer (status line judged routine by Jev)'
+  has "$out" '- fixer | ambiguous status; worker state reads failed'
+  has "$out" 'not auto-acknowledged'
+  lacks "$out" 'WAKE_ACKED'
+  assert_equals 2 "$(queued_rows "$dir")" "rows left queued without --auto-ack"
+  pass "a failed worker whose status line went to Jev is act-now even on a confident routine answer"
+}
+
 test_unsure_jev_answer_keeps_the_line_act_now() {
   local dir out
   dir=$(triage_case jev-unsure)
@@ -447,6 +468,7 @@ test_open_decisions_are_act_now_only_when_the_set_changes
 test_ambiguous_status_without_a_jev_key_stays_act_now
 test_jev_gets_free_text_only_for_firstmate_repo_work_in_the_main_home
 test_jev_gets_structured_facts_only_outside_the_line
+test_failed_state_acts_whatever_jev_answers
 test_unsure_jev_answer_keeps_the_line_act_now
 test_jev_failure_keeps_ambiguous_line_act_now
 test_drain_failure_is_passed_through

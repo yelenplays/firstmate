@@ -49,7 +49,9 @@
 # verb, or a secondmate done: with no URL) go to Jev, in one bounded call
 # through bin/fm-jev-lib.sh, and only when a Jev key is configured. A line
 # becomes routine only on a confident routine answer; no key, an unsure
-# answer, or a failed call keeps it act-now.
+# answer, or a failed call keeps it act-now. Whatever Jev answers, the task is
+# also judged by its current state, and one that reads failed, blocked, or
+# unknown is act-now.
 #
 # Jev payload policy (the captain's privacy line). A line's free text reaches
 # Jev only when BOTH hold: this triage runs in the main home (FM_HOME carries
@@ -424,17 +426,25 @@ classify_status_line() {  # <task> <status-line> <origin>
   esac
 }
 
+# crew_word, except that a secondmate whose remote endpoint reports alive reads
+# as idle: crew-state names that endpoint healthy while its word stays unknown.
+state_word() {  # <task>
+  if [ "$(task_kind "$1")" = secondmate ]; then
+    case "$(crew_state "$1")" in
+      'state: unknown · source: remote-endpoint · alive on '*) printf idle; return ;;
+    esac
+  fi
+  crew_word "$1"
+}
+
 # The state-based verdict for a worker whose wake carried no act-now status
 # line: a bare turn-end, an idle alert, or a routine-only status batch.
 classify_by_state() {  # <task> <what-happened>
   local task=$1 what=$2 state word pr
   first_sight "$task" || return 0
   state=$(crew_state "$task")
-  word=$(crew_word "$task")
+  word=$(state_word "$task")
   if [ "$(task_kind "$task")" = secondmate ]; then
-    case "$state" in
-      'state: unknown · source: remote-endpoint · alive on '*) word=idle ;;
-    esac
     case "$word" in
       working|paused|parked|done|idle) routine "$task" "secondmate $what" ;;
       failed|blocked) act "$task" "secondmate $what; state reads $word" "inspect and recover (${state#state: })" ;;
@@ -731,6 +741,18 @@ $DECISIONS
 EOF
   fi
 fi
+
+# A task whose status line waits on Jev is still judged against its current
+# state: a failed, blocked, or unknown worker acts whatever Jev answers.
+while IFS= read -r task; do
+  safe_id "$task" || continue
+  settled "$task" && continue
+  case "$(state_word "$task")" in
+    failed|blocked|unknown) classify_by_state "$task" "ambiguous status" ;;
+  esac
+done <<EOF
+$(cut -f1 "$AMBIG" | awk '!seen[$0]++')
+EOF
 
 # --- Jev for the leftover ambiguous lines ------------------------------------------
 JEV_STATUS=off
