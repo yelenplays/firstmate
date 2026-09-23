@@ -2,7 +2,7 @@
 # fm-wake-triage.sh - one call per wake batch: drain, read, classify, summarize.
 #
 # Usage:
-#   fm-wake-triage.sh [--auto-ack] [--no-jev]
+#   fm-wake-triage.sh [--auto-ack]
 #
 # Runs bin/fm-wake-drain.sh exactly once, reads the current state of every
 # task a presented wake names (bin/fm-crew-state.sh, plus the pane's last
@@ -32,28 +32,40 @@
 #   act-now  needs-decision:, blocked:, failed:, a done: line (with its PR
 #            URL when present), a worker whose state reads done, parked,
 #            failed, blocked, or unknown without a covering reason, a
-#            possible-wedge, dead-agent, or unread-instruction idle alert, a
+#            possible-wedge alert unless the worker is finished with a
+#            recorded PR or parked on a listed open decision, a dead-agent or
+#            unread-instruction idle alert, a
 #            procevent/board, inbox, merge, or any other check result, a
 #            heartbeat, a changed OPEN DECISIONS set, RECORD DIVERGENCE, and
 #            every drain notice or error. UNREAD STATUS and STATUS OUTCOME
 #            BACKSTOP lines are judged by the same status-line rules.
 # Only the leftover ambiguous status lines (a note:, a nonstandard or missing
 # verb, or a secondmate done: with no URL) go to Jev, in one bounded call
-# through bin/fm-jev-lib.sh. Jev sees the status line text only - never pane
-# content - after fm_jev_compact_state scrubs it. A line becomes routine only
-# on a confident routine answer; Jev off, unsure, or failing keeps it act-now.
+# through bin/fm-jev-lib.sh, and only when a Jev key is configured. A line
+# becomes routine only on a confident routine answer; no key, an unsure
+# answer, or a failed call keeps it act-now.
+#
+# Jev payload policy (the captain's privacy line). A line's free text reaches
+# Jev only when BOTH hold: this triage runs in the main home (FM_HOME carries
+# no secondmate-home marker, bin/fm-primary-scope-lib.sh), and the task is a
+# ship or scout task whose recorded project resolves to this firstmate
+# repository itself. That text is scrubbed by fm_jev_compact_state and capped
+# at LINE_CAP. Every other line - a secondmate task, any run in a secondmate
+# home, another project (wikis, websites, vaults), or a task whose kind or
+# project cannot be established - sends structured facts only: task kind, a
+# vocabulary-checked verb, whether a URL, a file= reference, or a key=/corr=
+# token is present, and a coarse length bucket. Pane content is never sent.
 #
 # --auto-ack  when every presented item is routine, run the printed
 #             acknowledgement itself and print WAKE_ACKED instead. Any act-now
 #             item, drain notice, or unparseable acknowledgement prevents it.
-# --no-jev    classify with the deterministic rules alone (ambiguous = act-now).
 #
 # Exit: the drain's own non-zero status when the drain failed (its output is
 # printed unchanged), 2 for usage, otherwise 0.
 #
-# Environment: FM_HOME, FM_STATE_OVERRIDE, FM_WAKE_TRIAGE_JEV=off (same as
-# --no-jev), FM_WAKE_TRIAGE_JEV_TIMEOUT (seconds, default 8, used when
-# JEV_TIMEOUT is unset), and the Jev keys documented in bin/fm-jev-lib.sh.
+# Environment: FM_HOME, FM_STATE_OVERRIDE, and the Jev keys and JEV_* settings
+# documented in bin/fm-jev-lib.sh. When no JEV_TIMEOUT is configured in the
+# environment or $FM_HOME/.env, the triage call is bounded at 8 seconds.
 # Test seams: FM_WAKE_DRAIN_BIN, FM_CREW_STATE_BIN, FM_PEEK_BIN,
 # FM_CAPTAIN_HOLD_BIN. Every Jev call appends one metadata-only record
 # (counts and verdicts, never status text) to state/jev-wake-triage.jsonl.
@@ -71,6 +83,8 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
 # shellcheck source=bin/fm-jev-lib.sh
 . "$SCRIPT_DIR/fm-jev-lib.sh"
+# shellcheck source=bin/fm-primary-scope-lib.sh
+. "$SCRIPT_DIR/fm-primary-scope-lib.sh"
 
 DRAIN_BIN=${FM_WAKE_DRAIN_BIN:-$SCRIPT_DIR/fm-wake-drain.sh}
 CREW_STATE_BIN=${FM_CREW_STATE_BIN:-$SCRIPT_DIR/fm-crew-state.sh}
@@ -83,8 +97,7 @@ PANE_LINES=6
 LINE_CAP=240
 
 AUTO_ACK=false
-USE_JEV=true
-case "${FM_WAKE_TRIAGE_JEV:-}" in off|0|false) USE_JEV=false ;; esac
+TRIAGE_JEV_TIMEOUT=8
 
 usage() {
   awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
@@ -93,7 +106,6 @@ usage() {
 while [ $# -gt 0 ]; do
   case "$1" in
     --auto-ack) AUTO_ACK=true ;;
-    --no-jev) USE_JEV=false ;;
     -h|--help) usage; exit 0 ;;
     *) printf 'fm-wake-triage: unknown argument: %s\n' "$1" >&2; exit 2 ;;
   esac
@@ -184,7 +196,7 @@ crew_state() {  # <task> -> one crew-state line (cached)
   f="$CACHE/$task.crew"
   if [ ! -f "$f" ]; then
     # Named once: $BASHPID inside the pipeline below would be a pipeline subshell's.
-    tmp="$f.$BASHPID"
+    tmp="$f.${BASHPID:-$$}"
     fm_run_timed 20 "$CREW_STATE_BIN" "$task" 2>/dev/null | head -n 1 > "$tmp" || true
     [ -s "$tmp" ] || printf 'state: unknown · source: none · crew-state unavailable\n' > "$tmp"
     mv -f "$tmp" "$f"
@@ -226,6 +238,22 @@ open_decision_for() {  # <task> -> 0 when the drain listed an open decision for 
     split($3, w, " "); if (w[1] == t) found = 1 } END { exit !found }' "$PARSED"
 }
 
+# 0 when the drain's OPEN DECISIONS lists this exact decision line: the same
+# task and decision key (the fold's unkeyed form for the default key). A line
+# the fold rejected, such as a malformed key, is never deferred to it.
+decision_listed() {  # <task> <status-line>
+  local task=$1 line=$2 key verb
+  key=$(_fm_decision_key "$line") || return 1
+  status_line_verb "$line" verb
+  if [ "$key" = default ]; then
+    key="$task $verb:"
+  else
+    key="$task [key=$key] "
+  fi
+  awk -F '\t' -v p="$key" '$1 == "SEC" && $2 == "decisions" && index($3, p) == 1 { found = 1 }
+    END { exit !found }' "$PARSED"
+}
+
 first_url() { printf '%s' "$1" | grep -oE 'https://[^[:space:]]+' | head -n 1 | sed 's/[),.;]*$//'; }
 findings_file() { printf '%s' "$1" | grep -oE 'file=[^[:space:]]+' | head -n 1 | sed 's/^file=//'; }
 
@@ -248,7 +276,47 @@ act() {  # <task> <what> <next> [<extra>]
 }
 routine() { printf '%s\t%s\n' "$1" "$(cap "$2")" >> "$ROUTINE"; }
 
-task_kind() { local k; k=$(meta_get "$1" kind); printf '%s' "${k:-ship}"; }
+# The recorded task kind, empty when the record carries none.
+task_kind() { meta_get "$1" kind; }
+
+# The git common dir of <dir> as an absolute path, empty when it is not a repo.
+repo_identity() {  # <dir>
+  local d
+  d=$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 1
+  (cd "$d" 2>/dev/null && pwd -P)
+}
+FM_ROOT_REPO=$(repo_identity "$FM_ROOT" || true)
+IN_MAIN_HOME=true
+fm_root_is_secondmate_home "$FM_HOME" && IN_MAIN_HOME=false
+
+# 0 when <task>'s free-text status may reach Jev under the payload policy in
+# this file's header: main home, ship or scout kind, and a recorded project in
+# this firstmate repository. Anything unestablished answers no.
+jev_text_allowed() {  # <task>
+  local task=$1 kind project
+  [ "$IN_MAIN_HOME" = true ] && [ -n "$FM_ROOT_REPO" ] || return 1
+  safe_id "$task" || return 1
+  kind=$(task_kind "$task")
+  case "$kind" in ship|scout) ;; *) return 1 ;; esac
+  project=$(meta_get "$task" project)
+  [ -n "$project" ] && [ -d "$project" ] || return 1
+  [ "$(repo_identity "$project" || true)" = "$FM_ROOT_REPO" ]
+}
+
+# Structured facts about a status line, carrying none of its free text.
+status_facts() {  # <status-line>
+  local line=$1 verb yes_url=no yes_file=no yes_key=no len
+  status_line_verb "$line" verb
+  case "$verb" in ''|*[!a-z-]*) verb=other ;; esac
+  [ "${#verb}" -le 20 ] || verb=other
+  case "$line" in *https://*|*http://*) yes_url=yes ;; esac
+  case "$line" in *file=*) yes_file=yes ;; esac
+  case "$line" in *'[key='*|*corr=*) yes_key=yes ;; esac
+  len=${#line}
+  if [ "$len" -le 80 ]; then len=short; elif [ "$len" -le 240 ]; then len=medium; else len=long; fi
+  printf 'verb=%s has_url=%s has_file_ref=%s has_key_or_corr=%s length=%s' \
+    "$verb" "$yes_url" "$yes_file" "$yes_key" "$len"
+}
 
 # Every presented status line of <task>, oldest first: the drain's annotations
 # (chronological per task), then any unread-surface or backstop line they did
@@ -293,7 +361,7 @@ classify_status_line() {  # <task> <status-line> <origin>
   kind=$(task_kind "$task")
   case "$verb" in
     needs-decision|blocked)
-      if open_decision_for "$task"; then
+      if decision_listed "$task" "$line"; then
         # The OPEN DECISIONS path presents it; nothing to add here.
         return 3
       fi
@@ -328,7 +396,7 @@ classify_status_line() {  # <task> <status-line> <origin>
         return 0
       fi
       if [ "$kind" = secondmate ]; then
-        printf '%s\t%s\t%s\n' "$task" "$kind" "$line" >> "$AMBIG"
+        printf '%s\t%s\t%s\n' "$task" "${kind:-unknown}" "$line" >> "$AMBIG"
         return 2
       fi
       if [ "$kind" = scout ]; then
@@ -345,7 +413,7 @@ classify_status_line() {  # <task> <status-line> <origin>
       [ "$origin" = batch ] || routine "$task" "$verb ($origin)"
       return 1 ;;
     *)
-      printf '%s\t%s\t%s\n' "$task" "$kind" "$line" >> "$AMBIG"
+      printf '%s\t%s\t%s\n' "$task" "${kind:-unknown}" "$line" >> "$AMBIG"
       return 2 ;;
   esac
 }
@@ -386,15 +454,35 @@ classify_by_state() {  # <task> <what-happened>
   esac
 }
 
-# Read every named worker's current state concurrently before classifying, so a
-# batch costs one crew-state read of wall time rather than their sum.
+# 0 when a presented line already settles <task> without its current state: a
+# failed:, needs-decision:, or blocked: line, or a done: line carrying a URL.
+settled_by_lines() {  # <task>
+  local line verb
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    status_line_verb "$line" verb
+    case "$verb" in
+      failed|needs-decision|blocked) return 0 ;;
+      done) case "$line" in *https://*) return 0 ;; esac ;;
+    esac
+  done <<EOF
+$(task_lines "$1")
+EOF
+  return 1
+}
+
+# Read the current state of every worker whose classification will consume it,
+# concurrently, so a batch costs one crew-state read of wall time rather than
+# their sum. A task its presented lines already settle is never waited on.
 prefetch_crew_states() {
   local tag epoch seq kind key payload task n=0 max=8 seen=' '
   while IFS="$TAB" read -r tag epoch seq kind key payload; do
     [ "$tag" = ROW ] || continue
     : "$epoch" "$seq" "$payload"
     case "$kind" in
-      signal) task=${key%.status}; task=${task%.turn-ended} ;;
+      signal)
+        task=${key%.status}; task=${task%.turn-ended}
+        ! settled_by_lines "$task" || continue ;;
       stale) task=$(window_to_task "$key" "$STATE") ;;
       check) case "$key" in execution:*) task=${key#execution:} ;; *) continue ;; esac ;;
       *) continue ;;
@@ -449,7 +537,7 @@ EOF
   esac
   [ "$any_act" -eq 0 ] && return
   rc=0
-  grep -q "^$task$TAB" "$AMBIG" && rc=1
+  awk -F '\t' -v t="$task" '$1 == t { found = 1 } END { exit !found }' "$AMBIG" && rc=1
   if [ "$rc" -eq 0 ]; then
     if [ "$had_lines" -eq 0 ]; then
       classify_by_state "$task" "status update"
@@ -461,18 +549,42 @@ EOF
 
 handle_stale_row() {  # <key> <payload>
   local win=$1 payload=$2 task
+  local word pr
   task=$(window_to_task "$win" "$STATE")
   safe_id "$task" || task=$win
-  # A signal earlier in this batch already judged this task.
-  first_sight "$task" || return 0
+  # An alarm that names its own reason is judged even when a signal earlier in
+  # this batch already summarized the task; only plain idle rechecks dedupe.
   case "$payload" in
     *"possible wedge"*|*demand-deep-inspection*)
-      act "$task" "idle alert: ${payload#stale: }" "inspect the pane below and load stuck-crewmate-recovery ($(crew_state "$task"))"
-      pane_tail "$task" > "$CACHE/$task.pane" ;;
+      first_sight "$task" || true
+      # Reconcile the current state first: a finished worker with a recorded
+      # PR, or one parked on a decision already listed, is waiting on someone
+      # else, not wedged.
+      word=$(crew_word "$task")
+      pr=$(meta_get "$task" pr)
+      if [ "$word" = 'done' ] && [ -n "$pr" ]; then
+        routine "$task" "possible-wedge alert; finished, PR $pr awaiting merge"
+      elif [ "$word" = parked ] && open_decision_for "$task"; then
+        routine "$task" "possible-wedge alert; parked on an already-open decision"
+      else
+        act "$task" "idle alert: ${payload#stale: }" "inspect the pane below and load stuck-crewmate-recovery ($(crew_state "$task"))"
+        pane_tail "$task" > "$CACHE/$task.pane"
+      fi ;;
     *"unread firstmate instruction"*|*"ladder bookkeeping unwritable"*)
+      first_sight "$task" || true
       act "$task" "idle alert: ${payload#stale: }" "inspect the worker's inbox and pane; recover the worker" ;;
     *"agent dead"*|*"agent missing"*)
+      first_sight "$task" || true
       act "$task" "idle alert: the worker's agent is gone" "reconcile the record and check for unlanded work before any cleanup" ;;
+    *)
+      first_sight "$task" || return 0
+      handle_plain_stale "$task" "$payload" ;;
+  esac
+}
+
+handle_plain_stale() {  # <task> <payload>
+  local task=$1 payload=$2
+  case "$payload" in
     *"captain-held, awaiting the captain"*)
       routine "$task" "idle while held for the captain" ;;
     *"writing its worktree"*)
@@ -583,7 +695,8 @@ if [ -n "$DECISIONS" ]; then
       [ -n "$line" ] || continue
       grep -qxF "$line" "$DECISIONS_SEEN" 2>/dev/null && continue
       # The same decision already arrived as this batch's needs-decision line.
-      grep -q "^${line%% *}${TAB}needs a decision" "$ACT" && continue
+      awk -F '\t' -v t="${line%% *}" '$1 == t && index($2, "needs a decision") == 1 { found = 1 }
+        END { exit !found }' "$ACT" && continue
       key=$(printf '%s' "$line" | sed -n 's/^[^ ]* \[key=\([^]]*\)\].*/\1/p')
       act "${line%% *}" "open decision: ${line#* }" "decide or escalate (load ask-user-authority for review findings), then answer with bin/fm-send.sh ${line%% *} --resolve-key ${key:-<key>} '<answer>'" \
         "$(f=$(findings_file "$line"); printf '%s' "${f:+findings: $f}")"
@@ -591,26 +704,36 @@ if [ -n "$DECISIONS" ]; then
 $DECISIONS
 EOF
   fi
-  (umask 077; printf '%s\n' "$DECISIONS" > "$DECISIONS_SEEN") 2>/dev/null || true
-else
-  rm -f -- "$DECISIONS_SEEN" 2>/dev/null || true
 fi
 
 # --- Jev for the leftover ambiguous lines ------------------------------------------
 JEV_STATUS=off
+jev_key_present() {
+  [ -n "${TYPESAFE_API_KEY:-}" ] || [ -n "${OPENROUTER_API_KEY:-}" ] \
+    || [ -n "$(fmx_env_get TYPESAFE_API_KEY "$FM_HOME/.env")" ] \
+    || [ -n "$(fmx_env_get OPENROUTER_API_KEY "$FM_HOME/.env")" ]
+}
+
 jev_resolve_ambiguous() {
   local n state='' questions='{}' i=0 task kind line clean response choice conf verdicts='[]' rc=0 timeout
+  local text_lines=0
   n=$(awk 'END { print NR }' "$AMBIG")
   [ "$n" -gt 0 ] || return 0
   : > "$WORK/jev"
-  if [ "$USE_JEV" != true ] || ! command -v jq >/dev/null 2>&1; then
+  if ! jev_key_present || ! command -v jq >/dev/null 2>&1; then
     return 0
   fi
   while IFS="$TAB" read -r task kind line; do
     i=$((i + 1))
-    clean=$(fm_jev_compact_state "$line" 2>/dev/null) || clean=''
-    state="${state}i$i: worker_kind=$kind status=$(cap "$clean")
+    if jev_text_allowed "$task"; then
+      clean=$(fm_jev_compact_state "$line" 2>/dev/null) || clean=''
+      state="${state}i$i: worker_kind=$kind status=$(cap "$clean")
 "
+      text_lines=$((text_lines + 1))
+    else
+      state="${state}i$i: worker_kind=$kind facts: $(status_facts "$line")
+"
+    fi
     questions=$(jq -c --arg q "i$i" '. + {($q): {type: "choice",
       instructions: ("Does status line " + $q + " need the supervisor to act now, or is it routine progress?"),
       criteria: {act_now: "Reports a finished deliverable, a PR, a decision, a blocker, a failure, a question, an answer, or anything a supervisor or the captain must act on.",
@@ -618,7 +741,10 @@ jev_resolve_ambiguous() {
   done < "$AMBIG"
   state="Status lines from firstmate workers. Classify each independently.
 $state"
-  timeout=${JEV_TIMEOUT:-${FM_WAKE_TRIAGE_JEV_TIMEOUT:-8}}
+  # A timeout configured in the environment or $FM_HOME/.env wins; the triage
+  # bound applies only when none is.
+  timeout=${JEV_TIMEOUT:-$(fmx_env_get JEV_TIMEOUT "$FM_HOME/.env")}
+  [ -n "$timeout" ] || timeout=$TRIAGE_JEV_TIMEOUT
   # A file, not a command substitution, so FM_JEV_LAST_* survive for the log.
   JEV_TIMEOUT=$timeout fm_jev_decide "$state" "$questions" > "$WORK/jev-response" 2>/dev/null || rc=$?
   response=$(cat "$WORK/jev-response" 2>/dev/null || true)
@@ -641,9 +767,9 @@ $state"
     fi
   done < "$AMBIG"
   fm_jev_log_call "$(jq -nc --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson n "$n" \
-    --argjson rc "$rc" --argjson verdicts "$verdicts" --arg route "${FM_JEV_LAST_ROUTE:-}" \
+    --argjson rc "$rc" --argjson verdicts "$verdicts" --argjson text "$text_lines" --arg route "${FM_JEV_LAST_ROUTE:-}" \
     --arg http "${FM_JEV_LAST_HTTP:-}" --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" \
-    '{purpose: "wake-triage", ts: $ts, lines: $n, decide_code: $rc, verdicts: $verdicts,
+    '{purpose: "wake-triage", ts: $ts, lines: $n, text_lines: $text, decide_code: $rc, verdicts: $verdicts,
       route: $route, http: $http, latency_ms: $latency}')" "$JEV_LOG" 2>/dev/null || true
 }
 
@@ -702,6 +828,14 @@ fi
 awk -F '\t' '$1 == "ADV" { print "ADVISORY: " $2 }' "$PARSED"
 awk -F '\t' '$1 == "SEC" && $2 == "branch-held" { print $3 }' "$PARSED"
 printf 'FULL DRAIN OUTPUT: %s\n' "$LAST_OUT"
+
+# Only now that the report is out is the open-decision set recorded as seen, so
+# an interrupted run re-presents a changed set rather than calling it unchanged.
+if [ -n "$DECISIONS" ]; then
+  (umask 077; printf '%s\n' "$DECISIONS" > "$DECISIONS_SEEN") 2>/dev/null || true
+else
+  rm -f -- "$DECISIONS_SEEN" 2>/dev/null || true
+fi
 
 if [ -z "$ACK_LINE" ]; then
   exit 0

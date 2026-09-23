@@ -3436,48 +3436,87 @@ test_wedge_threshold_recheck_names_the_captain_for_a_held_lane() {
 # on elapsed idle time alone for as long as the captain was deciding. The open
 # captain call bounds it to the captain-held recheck cadence instead; the same
 # fixture with no hold (declared-wait-control above) keeps the unchanged ladder.
+# The recheck belongs to the CALL: it ages from the call's hold-set stamp, never
+# from the status file, and a re-held call is a new call with its own first sight.
+backlog_call_fixture() {  # <name> <status-age-secs>
+  local dir
+  dir=$(wedge_threshold_fixture "$1" 'working: validation under way' "$2")
+  mkdir -p "$dir/data" "$dir/config"
+  cp "$ROOT/.tasks.toml" "$dir/.tasks.toml"
+  printf '## In flight\n\n## Queued\n\n## Done\n' > "$dir/data/backlog.md"
+  (cd "$dir" && tasks-axi add wedge 'delivered work' --file data/backlog.md) >/dev/null 2>&1 \
+    || return 1
+  backlog_call_hold "$dir" 'awaiting the captain on the merge' || return 1
+  printf '%s\n' "$dir"
+}
+
+backlog_call_hold() {  # <dir> <reason>
+  FM_HOME="$1" FM_STATE_OVERRIDE="$1/state" FM_DATA_OVERRIDE="$1/data" FM_CONFIG_OVERRIDE="$1/config" \
+    "$ROOT/bin/fm-captain-hold.sh" hold wedge --reason "$2" >/dev/null 2>&1
+}
+
+backlog_call_round() {  # <dir> <exit|absorb>
+  local dir=$1
+  FM_HOME="$dir" FM_DATA_OVERRIDE="$dir/data" FM_CONFIG_OVERRIDE="$dir/config" \
+    wedge_threshold_round "$dir/state" "$dir/fakebin" "$dir/watch.out" "$dir/pane.txt" \
+    test:fm-wedge 'state: working · source: run-step · ci running' "$2"
+}
+
 test_wedge_threshold_defers_to_an_open_captain_call_in_the_backlog() {
-  local dir state fakebin out capture window key n
-  local working='state: working · source: run-step · ci running'
+  local dir state out key n
   command -v tasks-axi >/dev/null 2>&1 \
     || { echo "skip: tasks-axi not found (backlog captain call at wedge threshold)"; return 0; }
-  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+  key=$(printf '%s' test:fm-wedge | tr ':/.' '___')
 
+  # A fresh call is absorbed whole, and so is a fresh call under an OLD status
+  # line: the status file's age says nothing about how long the captain has had it.
   for age in 0 2000; do
-    dir=$(wedge_threshold_fixture "backlog-call-$age" 'working: validation under way' "$age")
-    state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
-    mkdir -p "$dir/data" "$dir/config"
-    cp "$ROOT/.tasks.toml" "$dir/.tasks.toml"
-    printf '## In flight\n\n## Queued\n\n## Done\n' > "$dir/data/backlog.md"
-    (cd "$dir" && tasks-axi add wedge 'delivered work' --file data/backlog.md) >/dev/null 2>&1 \
-      || fail "could not add the backlog item"
-    FM_HOME="$dir" FM_STATE_OVERRIDE="$state" FM_DATA_OVERRIDE="$dir/data" FM_CONFIG_OVERRIDE="$dir/config" \
-      "$ROOT/bin/fm-captain-hold.sh" hold wedge --reason 'awaiting the captain on the merge' >/dev/null 2>&1 \
-      || fail "could not hold the backlog item for the captain"
-    if [ "$age" -eq 0 ]; then
-      n=1
-      while [ "$n" -le 3 ]; do
-        FM_HOME="$dir" FM_DATA_OVERRIDE="$dir/data" FM_CONFIG_OVERRIDE="$dir/config" \
-          wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" "$working" absorb \
-          || fail "a lane held for the captain in the backlog wedge-escalated at threshold $n: $(cat "$out")"
-        n=$((n + 1))
-      done
-      [ "$(wedge_stale_wakes "$state" "$window")" -eq 0 ] \
-        || fail "a lane held for the captain in the backlog queued a wedge wake: $(cat "$state/.wake-queue")"
-      [ ! -e "$state/.wedge-escalations-$key" ] \
-        || fail "a lane held for the captain in the backlog counted a wedge escalation"
-    else
-      FM_HOME="$dir" FM_DATA_OVERRIDE="$dir/data" FM_CONFIG_OVERRIDE="$dir/config" FM_TEST_PAUSE_RESURFACE=240 \
-        wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" "$working" exit \
-        || fail "a lane held for the captain in the backlog was never rechecked: $(cat "$out")"
-      grep -F 'open captain call in the backlog' "$out" >/dev/null \
-        || fail "the recheck did not name the backlog captain call: $(cat "$out")"
-      grep -F 'possible wedge' "$out" >/dev/null \
-        && fail "a lane held for the captain in the backlog was reported as a possible wedge: $(cat "$out")"
-      ack_stopped_cycle "$state" || fail "could not acknowledge the backlog-call recheck"
-    fi
+    dir=$(backlog_call_fixture "backlog-call-$age" "$age") \
+      || fail "could not build a captain call in the backlog"
+    state="$dir/state"; out="$dir/watch.out"
+    n=1
+    while [ "$n" -le 3 ]; do
+      FM_TEST_PAUSE_RESURFACE=240 backlog_call_round "$dir" absorb \
+        || fail "a fresh captain call (status aged ${age}s) was rechecked or escalated at threshold $n: $(cat "$out")"
+      n=$((n + 1))
+    done
+    [ "$(wedge_stale_wakes "$state" test:fm-wedge)" -eq 0 ] \
+      || fail "a fresh captain call (status aged ${age}s) queued a wake: $(cat "$state/.wake-queue")"
+    [ ! -e "$state/.wedge-escalations-$key" ] \
+      || fail "a lane held for the captain in the backlog counted a wedge escalation"
   done
-  pass "a lane held for the captain in the backlog is rechecked on the captain-held cadence, never escalated as a possible wedge"
+
+  # A call held past the cadence is rechecked once, as a hold on the captain.
+  dir=$(backlog_call_fixture backlog-call-held 0) || fail "could not build a captain call in the backlog"
+  state="$dir/state"; out="$dir/watch.out"
+  sleep 2
+  FM_TEST_PAUSE_RESURFACE=1 backlog_call_round "$dir" exit \
+    || fail "a captain call held past the cadence was never rechecked: $(cat "$out")"
+  grep -F 'open captain call in the backlog' "$out" >/dev/null \
+    || fail "the recheck did not name the backlog captain call: $(cat "$out")"
+  grep -F 'possible wedge' "$out" >/dev/null \
+    && fail "a lane held for the captain in the backlog was reported as a possible wedge: $(cat "$out")"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the backlog-call recheck"
+
+  # Inside the cadence the same call stays quiet.
+  : > "$out"
+  FM_TEST_PAUSE_RESURFACE=240 backlog_call_round "$dir" absorb \
+    || fail "the same captain call re-alarmed inside its cadence: $(cat "$out")"
+
+  # Answered, released, and held again: a new call with no status append. It
+  # must not inherit the first call's silence inside that same cadence.
+  printf 'go ahead\n' > "$dir/decision.txt"
+  FM_HOME="$dir" FM_STATE_OVERRIDE="$state" FM_DATA_OVERRIDE="$dir/data" FM_CONFIG_OVERRIDE="$dir/config" \
+    "$ROOT/bin/fm-captain-hold.sh" answer wedge --decision-file "$dir/decision.txt" --release >/dev/null 2>&1 \
+    || fail "could not record the captain's answer"
+  backlog_call_hold "$dir" 'awaiting the captain a second time' \
+    || fail "could not re-hold the task as a second captain call"
+  FM_TEST_PAUSE_RESURFACE=240 backlog_call_round "$dir" exit \
+    || fail "a re-held captain call inherited the first call's silence: $(cat "$out")"
+  grep -F 'open captain call in the backlog' "$out" >/dev/null \
+    || fail "the re-held call's first sight did not name the captain call: $(cat "$out")"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the re-held call's first sight"
+  pass "a captain call in the backlog is rechecked on its own hold-set cadence and identity, never as a possible wedge"
 }
 
 

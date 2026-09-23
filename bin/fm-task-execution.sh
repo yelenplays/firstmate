@@ -38,15 +38,19 @@
 # reminders recur after FM_EXECUTION_REMIND (default 300 seconds), even after
 # queue acknowledgement, until current evidence changes. While the worker's
 # current state reads working (verify-progress-not-launch-seed), the reminder
-# recurs only after FM_EXECUTION_REMIND_BUSY (default 1800 seconds): a busy
-# worker is not the stall this reminder exists for. Reconciliation runs at
+# recurs only every 1800 seconds: a busy worker is not the stall this reminder
+# exists for. Reconciliation runs at
 # FM_EXECUTION_SCAN_INTERVAL (default 30 seconds), independent of fleet signals.
 # Every completed notify reconciliation also publishes its full scan to
 # state/.execution-scan. `scan --cached` (the drain's read) prints that result
-# while it is younger than FM_EXECUTION_SCAN_CACHE_SECS (default 30) and no
-# execution record, task metadata, or backlog file changed after it; otherwise
-# it reconciles in full and republishes. Current worker state inside that
-# window may be up to its age old; records that change an obligation never are.
+# while it is younger than 30 seconds, it lists exactly the execution records
+# that exist now, and no execution record, task metadata, or backlog file
+# changed after it; otherwise it reconciles in full and republishes. Current
+# worker state inside that window may be up to its age old; records that change
+# an obligation never are.
+# Each task's reconciliation runs concurrently, 8 at a time, because the
+# current-state read inside it takes about a second; tasks whose obligation is
+# settled by the backlog alone never read it.
 # Drain always prints
 # the outstanding firstmate actions. Neither notification nor acknowledgement
 # is handling. No dispatch, send, recovery, merge, or other project mutation is
@@ -64,37 +68,11 @@ STATE=${FM_STATE_OVERRIDE:-$FM_HOME/state}
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
 
-CREW_CACHE=''
-crew_state() {
-  if [ -n "$CREW_CACHE" ] && [ -f "$CREW_CACHE/$1" ]; then cat "$CREW_CACHE/$1"; return 0; fi
-  fm_run_timed 10 "${FM_CREW_STATE_BIN:-$SCRIPT_DIR/fm-crew-state.sh}" "$1"
-}
-
-# scan and notify read every implementation owner's current state; each read is
-# about a second, so reading them one after another made every drain pay their
-# sum. Read them concurrently first, FM_EXECUTION_SCAN_PARALLEL (default 8) at a
-# time, into a per-run cache the per-task derivation below consumes. A read
-# that produced nothing falls back to the ordinary direct read.
-prefetch_crew_states() {
-  local file id kind n=0 max=${FM_EXECUTION_SCAN_PARALLEL:-8}
-  case "$max" in ''|*[!0-9]*|0) max=8 ;; esac
-  CREW_CACHE=$(mktemp -d "${TMPDIR:-/tmp}/fm-execution-crew.XXXXXX") || { CREW_CACHE=''; return 0; }
-  for file in "$STATE"/*.execution; do
-    [ -f "$file" ] && [ ! -L "$file" ] || continue
-    id=$(basename "$file" .execution)
-    fm_task_id_creation_valid "$id" || continue
-    kind=$(meta "$STATE/$id.meta" kind)
-    case "$kind" in ship|scout) ;; *) continue ;; esac
-    (
-      fm_run_timed 10 "${FM_CREW_STATE_BIN:-$SCRIPT_DIR/fm-crew-state.sh}" "$id" \
-        > "$CREW_CACHE/.$id" 2>/dev/null || true
-      [ -s "$CREW_CACHE/.$id" ] && mv -f "$CREW_CACHE/.$id" "$CREW_CACHE/$id"
-    ) &
-    n=$((n + 1))
-    if [ "$n" -ge "$max" ]; then wait || true; n=0; fi
-  done
-  wait || true
-}
+crew_state() { fm_run_timed 10 "${FM_CREW_STATE_BIN:-$SCRIPT_DIR/fm-crew-state.sh}" "$1"; }
+SCAN_PARALLEL=8
+SCAN_CACHE_SECS=30
+REMIND_BUSY_SECS=1800
+SCAN_DIR=''
 
 fail() { printf 'fm-task-execution: %s\n' "$*" >&2; exit 1; }
 meta() { awk -F= -v key="$2" '$1==key {v=substr($0,length(key)+2)} END {print v}' "$1" 2>/dev/null || true; }
@@ -181,10 +159,21 @@ scan_one() {
 
 # The published scan is fresh while it is young and nothing that defines an
 # obligation - an execution record, task metadata, or the backlog - is newer.
+# The execution record ids present now, in glob order (the scan's own order).
+execution_ids() {
+  local file
+  for file in "$STATE"/*.execution; do
+    [ -e "$file" ] || [ -L "$file" ] || continue
+    basename "$file" .execution
+  done
+}
+
 scan_cache_fresh() {  # <cache-file>
-  local cache=$1 max=${FM_EXECUTION_SCAN_CACHE_SECS:-30} now mtime f backlog
-  case "$max" in ''|*[!0-9]*) return 1 ;; esac
+  local cache=$1 max=$SCAN_CACHE_SECS now mtime f backlog
   [ -f "$cache" ] && [ ! -L "$cache" ] || return 1
+  # A retired record changes no surviving file's mtime, so the cached task list
+  # itself must still match the records that exist.
+  [ "$(cut -f1 "$cache")" = "$(execution_ids)" ] || return 1
   mtime=$(fm_path_mtime "$cache" 2>/dev/null) || return 1
   now=$(date +%s)
   [ $((now - mtime)) -lt "$max" ] || return 1
@@ -205,10 +194,34 @@ publish_scan_cache() {  # <cache-file> <lines>
     || rm -f -- "$tmp" 2>/dev/null || true
 }
 
+# Reconcile every execution record concurrently, SCAN_PARALLEL at a time, into
+# SCAN_DIR, and print their lines in record order. Any task's reconciliation failing fails the
+# whole scan, exactly as a sequential scan would.
+scan_all() {
+  local id n=0 i=0 pids=''
+  for id in $(execution_ids); do
+    valid_id "$id"
+    i=$((i + 1))
+    ( scan_one "$id" > "$SCAN_DIR/$i" ) &
+    pids="$pids $!"
+    n=$((n + 1))
+    if [ "$n" -ge "$SCAN_PARALLEL" ]; then
+      for n in $pids; do wait "$n" || fail 'task reconciliation failed'; done
+      pids=''; n=0
+    fi
+  done
+  for n in $pids; do wait "$n" || fail 'task reconciliation failed'; done
+  n=1
+  while [ "$n" -le "$i" ]; do
+    cat "$SCAN_DIR/$n"
+    n=$((n + 1))
+  done
+}
+
 LOCK='' TMP=''
 cleanup() {
   [ -z "$TMP" ] || rm -f -- "$TMP"
-  [ -z "$CREW_CACHE" ] || rm -rf -- "$CREW_CACHE"
+  [ -z "$SCAN_DIR" ] || rm -rf -- "$SCAN_DIR"
   [ -z "$LOCK" ] || fm_lock_release "$LOCK" || true
 }
 trap cleanup EXIT
@@ -240,20 +253,20 @@ case "$command" in
       printf '%s\n' "$now" > "$scan_marker"
     fi
     BACKLOG_JSON=$(read_backlog) || fail 'backlog reconciliation unavailable'
-    prefetch_crew_states
-    scan_lines=''
-    for file in "$STATE"/*.execution; do
-      [ -e "$file" ] || [ -L "$file" ] || continue
-      id=$(basename "$file" .execution); valid_id "$id"
-      line=$(scan_one "$id")
-      scan_lines="$scan_lines$line"$'\n'
+    # Created here, not inside the substitution below, so cleanup removes it.
+    SCAN_DIR=$(mktemp -d "${TMPDIR:-/tmp}/fm-execution-scan.XXXXXX") || fail 'scan workspace unavailable'
+    scan_lines=$(scan_all) || exit 1
+    [ -z "$scan_lines" ] || scan_lines="$scan_lines"$'\n'
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      id=$(printf '%s' "$line" | cut -f1)
       if [ "$command" = scan ]; then printf '%s\n' "$line"; continue; fi
       owner=$(printf '%s' "$line" | cut -f2)
       [ "$owner" = firstmate ] || continue
       now=$(date +%s)
       interval=${FM_EXECUTION_REMIND:-300}
       if [ "$(printf '%s' "$line" | cut -f3)" = verify-progress-not-launch-seed ]; then
-        interval=${FM_EXECUTION_REMIND_BUSY:-1800}
+        interval=$REMIND_BUSY_SECS
       fi
       case "$interval" in ''|*[!0-9]*) fail 'invalid reminder interval' ;; esac
       marker="$STATE/.$id.execution-notified"
@@ -264,7 +277,9 @@ case "$command" in
       fm_wake_append check "execution:$id" "check: execution $id" || exit 1
       printf '%s\n' "$now" > "$marker"
       printf '%s\n' "$line"
-    done
+    done <<EOF
+$scan_lines
+EOF
     if [ "$command" = notify ] || [ "$cached" = 1 ]; then publish_scan_cache "$scan_cache" "$scan_lines"; fi
     exit 0 ;;
   approve|attempt|started|show|confirmed) ;;

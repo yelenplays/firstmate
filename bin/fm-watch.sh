@@ -1039,6 +1039,10 @@ wedge_defer_wait() {  # <window> <task> <since-file> <triage-label> <idle-age> <
     action='confirm the wait still holds'
   fi
   key=$(fm_watch_state_key "$win")
+  if [ "$evidence" = call ]; then
+    wedge_defer_call "$win" "$task" "$since_file" "$label" "$age" "$key" "$kind" "$action"
+    return 0
+  fi
   mtime=$(stat_mtime "$STATE/$task.status")
   case "$mtime" in
     ''|*[!0-9]*)
@@ -1060,6 +1064,35 @@ wedge_defer_wait() {  # <window> <task> <since-file> <triage-label> <idle-age> <
     "stale: $win (idle ${age}s${waited} - $kind, rechecked on a long cadence not a wedge; $action)" \
     '' "$min_age"
   triage_log "absorbed $label (the pane's own wait explains the quiet, idle ${age}s): $win"
+}
+
+# The backlog-call half of wedge_defer_wait. The call is its own record, so its
+# recheck is measured and scoped by that call, never by the status file: the
+# wait ages from the call's hold-set stamp (the leading half of the lifecycle
+# identity bin/fm-captain-hold.sh `open --identity` prints), and the cadence is
+# bound through the same call-scoped .paused-resurfaced-<key> marker the other
+# captain-call stale path uses (captain_call_declaration). An old status line
+# therefore cannot make a new call re-surface at once, and a re-held call - a
+# new identity - never inherits the previous call's silence. A call whose
+# identity cannot be re-read, or whose stamp does not parse, ages from the quiet
+# window in hand, as an unreadable status file does above.
+wedge_defer_call() {  # <window> <task> <since-file> <triage-label> <idle-age> <window-key> <kind> <action>
+  local win=$1 task=$2 since_file=$3 label=$4 age=$5 key=$6 kind=$7 action=$8
+  local scope='' wage=$age min_age=0 waited='' set_at
+  if task_captain_call_open "$task"; then
+    scope=$(captain_call_declaration "$task" "$CAPTAIN_CALL_IDENTITY")
+    if set_at=$(fm_utc_iso_to_epoch "${CAPTAIN_CALL_IDENTITY%%#*}"); then
+      wage=$(( $(date +%s) - set_at ))
+      [ "$wage" -ge 0 ] || wage=0
+      min_age=$PAUSE_RESURFACE_SECS; waited=", held ${wage}s"
+    fi
+  fi
+  clear_write_tracking "$key"
+  date +%s > "$since_file"
+  resurface_absorbed "$win" "$STATE/.paused-resurfaced-$key" "$wage" \
+    "stale: $win (idle ${age}s${waited} - $kind, rechecked on a long cadence not a wedge; $action)" \
+    "$scope" "$min_age"
+  triage_log "absorbed $label (open captain call in the backlog explains the quiet, idle ${age}s): $win"
 }
 
 # Defer ONE wedge escalation when crew_nm_run_progressing in

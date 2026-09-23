@@ -11,7 +11,7 @@ set -u
 . "$(dirname "${BASH_SOURCE[0]}")/wake-helpers.sh"
 
 unset TYPESAFE_API_KEY OPENROUTER_API_KEY JEV_ROUTE JEV_MODEL JEV_TIMEOUT \
-  JEV_URL JEV_BASE JEV_CONFIDENCE_FLOOR FM_WAKE_TRIAGE_JEV
+  JEV_URL JEV_BASE JEV_CONFIDENCE_FLOOR
 
 TRIAGE="$ROOT/bin/fm-wake-triage.sh"
 DRAIN="$ROOT/bin/fm-wake-drain.sh"
@@ -93,7 +93,7 @@ test_all_routine_batch_is_summarized_and_auto_acked() {
   out=$(FM_FAKE_CREW_STATE_busy='state: working · source: run-step · running' \
     FM_FAKE_CREW_STATE_validating='state: working · source: run-step · validating' \
     FM_FAKE_CREW_STATE_held='state: parked · source: status-log · waiting' FM_FAKE_HELD=held \
-    run_triage "$dir" --auto-ack --no-jev) || fail "triage failed on an all-routine batch: $out"
+    run_triage "$dir" --auto-ack) || fail "triage failed on an all-routine batch: $out"
   has "$out" 'WAKE TRIAGE: 5 wake row(s); 0 act-now'
   has "$out" 'validating (done line already followed by a running validation)'
   lacks "$out" 'ACT NOW'
@@ -118,7 +118,7 @@ test_act_now_items_carry_next_action_pr_and_findings_and_block_auto_ack() {
     append_wake "$dir/state" signal "$t.status" "signal: $dir/state/$t.status"
   done
 
-  out=$(run_triage "$dir" --auto-ack --no-jev) || fail "triage failed: $out"
+  out=$(run_triage "$dir" --auto-ack) || fail "triage failed: $out"
   has "$out" '- rev | open decision: [key=nm-r1-review] needs-decision: ask-user findings=f1'
   has "$out" "bin/fm-send.sh rev --resolve-key nm-r1-review '<answer>'"
   has "$out" 'findings: /x/data/rev/nm-r1-findings.txt'
@@ -143,7 +143,7 @@ test_superseded_history_is_routine_and_only_the_newest_outcome_acts() {
   } > "$dir/state/hist.status"
   append_wake "$dir/state" signal hist.status "signal: $dir/state/hist.status"
   append_wake "$dir/state" signal hist.turn-ended "signal: $dir/state/hist.turn-ended"
-  out=$(run_triage "$dir" --no-jev) || fail "triage failed: $out"
+  out=$(run_triage "$dir") || fail "triage failed: $out"
   has "$out" 'WAKE TRIAGE: 2 wake row(s); 1 act-now'
   has "$out" '- hist | reports done with a PR'
   lacks "$out" 'failed: first push rejected |'
@@ -153,12 +153,59 @@ test_superseded_history_is_routine_and_only_the_newest_outcome_acts() {
   pass "a task's resolved decisions and superseded outcomes are routine; only its newest outcome acts, once"
 }
 
+test_possible_wedge_reconciles_current_state_first() {
+  local dir out
+  dir=$(triage_case wedge-reconcile)
+  write_meta "$dir" merged ship 'pr=https://github.com/o/r/pull/3'
+  write_meta "$dir" gated ship
+  write_meta "$dir" stuck ship
+  printf 'needs-decision [key=pick]: sqlite or postgres\n' > "$dir/state/gated.status"
+  for t in merged gated stuck; do
+    append_wake "$dir/state" stale "fm-$t" "stale: fm-$t (idle 300s, possible wedge, escalation 2)"
+  done
+  out=$(FM_FAKE_CREW_STATE_merged='state: done · source: run-step · checks passed' \
+    FM_FAKE_CREW_STATE_gated='state: parked · source: run-step · parked at review' \
+    FM_FAKE_CREW_STATE_stuck='state: unknown · source: none · idle' run_triage "$dir") || fail "triage failed: $out"
+  has "$out" 'merged (possible-wedge alert; finished, PR https://github.com/o/r/pull/3 awaiting merge)'
+  has "$out" 'gated (possible-wedge alert; parked on an already-open decision)'
+  lacks "$out" '- merged | idle alert'
+  lacks "$out" '- gated | idle alert'
+  has "$out" '- stuck | idle alert: fm-stuck (idle 300s, possible wedge, escalation 2)'
+  has "$out" '    pane: last tool output line'
+  pass "a possible-wedge alert is routine for finished-with-PR and parked-on-decision work, act-now when stuck"
+}
+
+test_distinct_row_semantics_survive_per_task_dedupe() {
+  local dir out
+  dir=$(triage_case row-semantics)
+  write_meta "$dir" both ship
+  write_meta "$dir" a.b ship
+  write_meta "$dir" aXb ship
+  printf 'working: running tests\n' > "$dir/state/both.status"
+  printf 'working: compiling\n' > "$dir/state/a.b.status"
+  printf 'note: odd free text\n' > "$dir/state/aXb.status"
+  printf 'needs-decision [key=ok]: first choice\n' > "$dir/state/keyed.status"
+  printf 'needs-decision [key=bad/key]: malformed choice\n' >> "$dir/state/keyed.status"
+  write_meta "$dir" keyed ship
+  append_wake "$dir/state" signal both.status "signal: $dir/state/both.status"
+  append_wake "$dir/state" stale fm-both "stale: fm-both (idle 900s, possible wedge, escalation 3)"
+  append_wake "$dir/state" signal a.b.status "signal: $dir/state/a.b.status"
+  append_wake "$dir/state" signal aXb.status "signal: $dir/state/aXb.status"
+  append_wake "$dir/state" signal keyed.status "signal: $dir/state/keyed.status"
+  out=$(FM_FAKE_CREW_STATE_both='state: working · source: pane · busy' \
+    FM_FAKE_CREW_STATE_a_b='state: working · source: pane · busy' run_triage "$dir") || fail "triage failed: $out"
+  has "$out" '- both | idle alert: fm-both (idle 900s, possible wedge, escalation 3)'
+  has "$out" 'a.b (status update; worker busy'
+  has "$out" '- keyed | needs a decision: malformed choice'
+  pass "a wedge alert survives an earlier routine signal, dotted ids match literally, and only listed decisions defer"
+}
+
 test_unknown_state_shows_pane_lines_to_firstmate() {
   local dir out
   dir=$(triage_case unknown-pane)
   write_meta "$dir" quiet ship
   append_wake "$dir/state" stale fm-quiet "stale: fm-quiet"
-  out=$(run_triage "$dir" --no-jev) || fail "triage failed: $out"
+  out=$(run_triage "$dir") || fail "triage failed: $out"
   has "$out" '- quiet | idle alert; state unknown'
   has "$out" '    pane: last tool output line'
   has "$out" "    pane: $PANE_SECRET"
@@ -186,7 +233,7 @@ printf 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --a
 SH
   chmod +x "$fake"
   out=$(FM_WAKE_DRAIN_BIN="$fake" FM_FAKE_CREW_STATE_runner='state: working · source: pane · busy' \
-    FM_FAKE_CREW_STATE_stopped='state: unknown · source: none · idle' run_triage "$dir" --auto-ack --no-jev) \
+    FM_FAKE_CREW_STATE_stopped='state: unknown · source: none · idle' run_triage "$dir" --auto-ack) \
     || fail "triage failed: $out"
   has "$out" 'runner (execution reminder; worker busy (verify-progress-not-launch-seed))'
   has "$out" 'merging (execution reminder; PR https://github.com/o/r/pull/9 awaits merge authority)'
@@ -200,13 +247,13 @@ test_open_decisions_are_act_now_only_when_the_set_changes() {
   dir=$(triage_case decisions)
   write_meta "$dir" waiting ship
   printf 'needs-decision [key=pick-db]: postgres or sqlite\n' > "$dir/state/waiting.status"
-  out=$(run_triage "$dir" --no-jev) || fail "first triage failed: $out"
+  out=$(run_triage "$dir") || fail "first triage failed: $out"
   has "$out" '- waiting | open decision: [key=pick-db] needs-decision: postgres or sqlite'
-  out=$(run_triage "$dir" --auto-ack --no-jev) || fail "second triage failed: $out"
+  out=$(run_triage "$dir" --auto-ack) || fail "second triage failed: $out"
   lacks "$out" 'ACT NOW'
   has "$out" 'OPEN DECISIONS unchanged since the last triage (1): waiting [key=pick-db]'
   printf 'needs-decision [key=pick-cache]: redis or none\n' >> "$dir/state/waiting.status"
-  out=$(run_triage "$dir" --no-jev) || fail "third triage failed: $out"
+  out=$(run_triage "$dir") || fail "third triage failed: $out"
   has "$out" 'open decision: [key=pick-cache]'
   lacks "$out" 'open decision: [key=pick-db]'
   pass "OPEN DECISIONS surface as act-now on change and as one unchanged line otherwise"
@@ -216,43 +263,94 @@ jev_response() {  # <file> <choice> <confidence>
   printf '{"answers":{"i1":{"type":"choice","choice":"%s","confidence":%s}}}\n' "$2" "$3" > "$1"
 }
 
-test_ambiguous_status_uses_jev_status_text_only_and_fails_toward_showing() {
-  local dir out resp ack_out
-  dir=$(triage_case jev)
-  resp="$dir/response.json"
+test_ambiguous_status_without_a_jev_key_stays_act_now() {
+  local dir out
+  dir=$(triage_case no-key)
   write_meta "$dir" mate secondmate
   printf 'done: routine sync of the wiki clone finished\n' > "$dir/state/mate.status"
-  : > "$dir/state/mate.turn-ended"
-
   append_wake "$dir/state" signal mate.status "signal: $dir/state/mate.status"
-  out=$(run_triage "$dir" --no-jev) || fail "triage failed: $out"
+  out=$(run_triage "$dir" --auto-ack) || fail "triage failed: $out"
   has "$out" '- mate | unclassified status: done: routine sync of the wiki clone finished | next: read it and decide (Jev off)'
-  ack_out=$(printf '%s\n' "$out" | grep '^WAKE_ACK_REQUIRED' | sed 's/.*--ack-through \([0-9]*\) --recovery-generation \(.*\)$/\1 \2/')
-  FM_STATE_OVERRIDE="$dir/state" "$DRAIN" --ack-through "${ack_out% *}" --recovery-generation "${ack_out#* }" >/dev/null 2>&1
+  has "$out" 'not auto-acknowledged'
+  [ ! -e "$dir/curl/body" ] || fail "Jev was called with no key configured"
+  pass "with no Jev key an ambiguous line stays act-now and nothing is sent"
+}
 
-  printf 'done: second routine sync finished\n' >> "$dir/state/mate.status"
-  append_wake "$dir/state" signal mate.status "signal: $dir/state/mate.status"
-  jev_response "$resp" routine 0.93
-  out=$(TYPESAFE_API_KEY=ts-fake-key-for-tests FAKE_CURL_RESPONSE="$resp" run_triage "$dir" --auto-ack) || fail "triage failed: $out"
-  has "$out" 'mate (status line judged routine by Jev)'
+# One ambiguous line for <task> through a Jev-enabled triage; the fake route
+# records the request body in $dir/curl/body.
+jev_triage_one() {  # <dir> <task> <status-line> <choice> <confidence>
+  local dir=$1
+  printf '%s\n' "$3" > "$dir/state/$2.status"
+  append_wake "$dir/state" signal "$2.status" "signal: $dir/state/$2.status"
+  jev_response "$dir/response.json" "$4" "$5"
+  TYPESAFE_API_KEY=ts-fake-key-for-tests FAKE_CURL_RESPONSE="$dir/response.json" run_triage "$dir" --auto-ack
+}
+
+other_repo() {  # <dir> -> a git repository that is not this firstmate repo
+  mkdir -p "$1/other-project"
+  git -C "$1/other-project" init -q
+  printf '%s\n' "$1/other-project"
+}
+
+# The captain's privacy line: free text reaches Jev only for a ship or scout
+# task of this firstmate repository, from the main home. Asserted on the actual
+# request body the Jev route receives.
+test_jev_gets_free_text_only_for_firstmate_repo_work_in_the_main_home() {
+  local dir out long
+  dir=$(triage_case jev-text-allowed)
+  write_meta "$dir" fmwork ship "project=$ROOT"
+  long="note: switched the drain parser to a streaming reader $(printf 'x%.0s' $(seq 1 400)) TAIL-BEYOND-CAP"
+  out=$(jev_triage_one "$dir" fmwork "$long" routine 0.93) || fail "triage failed: $out"
+  has "$out" 'fmwork (status line judged routine by Jev)'
   has "$out" 'WAKE_ACKED'
-  grep -F 'second routine sync finished' "$dir/curl/body" >/dev/null \
-    || fail "Jev was not given the status line: $(cat "$dir/curl/body")"
+  grep -F 'switched the drain parser to a streaming reader' "$dir/curl/body" >/dev/null \
+    || fail "a firstmate-repo task's text did not reach Jev: $(cat "$dir/curl/body")"
+  if grep -F 'TAIL-BEYOND-CAP' "$dir/curl/body" >/dev/null; then
+    fail "the free text sent to Jev was not size-capped"
+  fi
   if grep -F "$PANE_SECRET" "$dir/curl/body" >/dev/null || grep -F 'last tool output' "$dir/curl/body" >/dev/null; then
     fail "pane content reached Jev"
   fi
   grep -F '"purpose":"wake-triage"' "$dir/state/jev-wake-triage.jsonl" >/dev/null || fail "no Jev audit record"
-  if grep -F 'routine sync' "$dir/state/jev-wake-triage.jsonl" >/dev/null; then
+  if grep -F 'streaming reader' "$dir/state/jev-wake-triage.jsonl" >/dev/null; then
     fail "the Jev audit record stored status text"
   fi
+  pass "a firstmate-repo ship task in the main home sends its scrubbed, capped status text to Jev"
+}
 
-  printf 'done: third sync\n' >> "$dir/state/mate.status"
-  append_wake "$dir/state" signal mate.status "signal: $dir/state/mate.status"
-  jev_response "$resp" routine 0.4
-  out=$(TYPESAFE_API_KEY=ts-fake-key-for-tests FAKE_CURL_RESPONSE="$resp" run_triage "$dir" --auto-ack) || fail "triage failed: $out"
+test_jev_gets_structured_facts_only_outside_the_line() {
+  local dir out case_name
+  for case_name in secondmate-task other-project secondmate-home unknown-kind; do
+    dir=$(triage_case "jev-facts-$case_name")
+    case "$case_name" in
+      secondmate-task) write_meta "$dir" mate secondmate "project=$ROOT" ;;
+      other-project) write_meta "$dir" mate ship "project=$(other_repo "$dir")" ;;
+      secondmate-home)
+        write_meta "$dir" mate ship "project=$ROOT"
+        printf 'wikilab\n' > "$dir/.fm-secondmate-home" ;;
+      unknown-kind) printf 'window=fm-mate\nproject=%s\n' "$ROOT" > "$dir/state/mate.meta" ;;
+    esac
+    out=$(jev_triage_one "$dir" mate 'note: synced the private wiki vault notes for the captain' routine 0.93) \
+      || fail "[$case_name] triage failed: $out"
+    [ -s "$dir/curl/body" ] || fail "[$case_name] Jev was not consulted: $out"
+    if grep -F 'private wiki vault' "$dir/curl/body" >/dev/null; then
+      fail "[$case_name] free status text crossed the privacy line: $(cat "$dir/curl/body")"
+    fi
+    grep -F 'verb=note' "$dir/curl/body" >/dev/null \
+      || fail "[$case_name] the structured facts were not sent: $(cat "$dir/curl/body")"
+    has "$out" 'mate (status line judged routine by Jev)'
+  done
+  pass "secondmate tasks, other projects, secondmate homes, and unknown kinds send Jev structured facts only"
+}
+
+test_unsure_jev_answer_keeps_the_line_act_now() {
+  local dir out
+  dir=$(triage_case jev-unsure)
+  write_meta "$dir" mate secondmate
+  out=$(jev_triage_one "$dir" mate 'done: third sync' routine 0.4) || fail "triage failed: $out"
   has "$out" 'next: read it and decide (Jev did not confidently call it routine)'
   has "$out" 'not auto-acknowledged'
-  pass "ambiguous lines reach Jev as status text only; only a confident routine answer quiets them"
+  pass "an unconfident Jev answer keeps the line act-now"
 }
 
 test_jev_failure_keeps_ambiguous_line_act_now() {
@@ -286,8 +384,13 @@ test_all_routine_batch_is_summarized_and_auto_acked
 test_act_now_items_carry_next_action_pr_and_findings_and_block_auto_ack
 test_superseded_history_is_routine_and_only_the_newest_outcome_acts
 test_unknown_state_shows_pane_lines_to_firstmate
+test_possible_wedge_reconciles_current_state_first
+test_distinct_row_semantics_survive_per_task_dedupe
 test_busy_execution_reminder_is_routine_and_idle_one_is_act_now
 test_open_decisions_are_act_now_only_when_the_set_changes
-test_ambiguous_status_uses_jev_status_text_only_and_fails_toward_showing
+test_ambiguous_status_without_a_jev_key_stays_act_now
+test_jev_gets_free_text_only_for_firstmate_repo_work_in_the_main_home
+test_jev_gets_structured_facts_only_outside_the_line
+test_unsure_jev_answer_keeps_the_line_act_now
 test_jev_failure_keeps_ambiguous_line_act_now
 test_drain_failure_is_passed_through
