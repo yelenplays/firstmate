@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Drain durable wakes and auto-acknowledge only rows whose task is verifiably
-# working, has no open decision, and is not held for the captain.
+# Drain durable wakes and classify rows as routine only when the task is
+# verifiably working, has no open decision, and is not held for the captain.
+# Acknowledgement remains manual.
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-wake-lib.sh

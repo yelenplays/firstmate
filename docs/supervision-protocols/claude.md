@@ -3,8 +3,7 @@ Mode: Claude Stop-hook-owned supervision.
 When this session owns supervision and away mode is not active:
 1. Drain first with `bin/fm-wake-triage.sh`.
    Act on every ACT NOW, NOTICES and STANDING entry.
-   When it prints `WAKE_ACKED`, nothing is left to acknowledge.
-   Otherwise, after handling, run its exact `WAKE_ACK_REQUIRED` command.
+   Automatic acknowledgement is disabled; after handling, run its exact `WAKE_ACK_REQUIRED` command.
    If the triage itself fails, read any `state/.wake-triage.pending.*` output, then use `bin/fm-wake-drain.sh`.
 2. Routine watcher arm and re-arm are owned by the Stop `asyncRewake` hook (`bin/fm-claude-stop-autoarm.sh`), never by you.
    Every turn end while supervision is needed launches or attaches one home-scoped watcher cycle with no model command and no model tokens.
