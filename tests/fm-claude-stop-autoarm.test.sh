@@ -402,7 +402,8 @@ test_actionable_close_rewakes_with_reason() {
   expect_code 2 "$status" "an actionable arm close must exit 2 so Claude rewakes"
   assert_contains "$out" "firstmate watcher wake" "rewake must carry the wake banner"
   assert_contains "$out" "stale: fixture-win actionable" "rewake must carry the arm's reason line"
-  assert_contains "$out" "bin/fm-wake-drain.sh" "rewake must direct the drain-first protocol"
+  assert_contains "$out" "bin/fm-wake-drain.sh" "rewake must retain the plain-drain fallback"
+  assert_contains "$out" "bin/fm-wake-triage.sh" "rewake must direct the triage-first protocol"
   assert_contains "$out" "do NOT run bin/fm-watch-arm.sh" "rewake must forbid a duplicate model re-arm"
   [ "$(epoch_outcome "$dir")" = rewake ] || fail "epoch must record outcome=rewake, got: $(epoch_outcome "$dir")"
   [ "$(epoch_field "$dir" session_pid)" = "$(cat "$dir/state/.lock")" ] \

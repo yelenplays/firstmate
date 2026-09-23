@@ -593,6 +593,10 @@
       "audience": "operator-current"
     },
     {
+      "path": "docs/wake-triage-follow-up.md",
+      "audience": "maintainer-architecture"
+    },
+    {
       "path": "docs/watcher-continuity.md",
       "audience": "operator-current"
     },
