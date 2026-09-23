@@ -44,7 +44,7 @@
 #            gate: confidence>=0.6 ambiguous=<n> pass=<n> wrong=<n>
 #            gate: margin>=<t> ambiguous=<n> pass=<n> wrong=<n>
 #          --rows adds per row:
-#            row: <case> pick=<rule> first=<rule> second=<rule> margin=<m> confidence=<c>
+#            row: <case> first=<recorded rule or argmax> top=<most probable> second=<runner-up> margin=<top gap> confidence=<c>
 #              expected=<labels|-> margin-gate@<t>=<pass|ambiguous> ... verdict@<t>=<ok|wrong|-> ...
 # Exit: 0 on success, 2 on usage error, unreadable input, or missing jq.
 # docs/configuration.md "Typed dispatch resolution" owns the calibration
@@ -177,7 +177,7 @@ replay_score() {
     def verdict($row; $pass):
       if ($row.expected | type) != "array" then "-"
       elif ($pass | not) then "-"
-      elif ($row.expected | index($row.pick)) != null then "ok"
+      elif ($row.expected | index($row.first)) != null then "ok"
       else "wrong" end;
     def gate_field($row; $threshold):
       "margin-gate@\($threshold)=" + (if gate_pass($row; $threshold) then "pass" else "ambiguous" end);
@@ -187,7 +187,7 @@ replay_score() {
       ($rs | map(. as $r | $r + {pass: ($r | pass_fn)})) as $g
       | "  gate: \($label) ambiguous=\([$g[] | select(.pass | not)] | length) pass=\([$g[] | select(.pass)] | length) wrong=\([$g[] | select(verdict(.; .pass) == "wrong")] | length)";
     (map(select(valid)) | to_entries | map((.value.probabilities | jev_choice_top2) as $top
-      | .value + {top: $top, pick: (if (.value.rule | type) == "string" then .value.rule else $top.first end), idx: (.key + 1)})) as $rs
+      | .value + {top: $top, first: (if (.value.rule | type) == "string" then .value.rule else $top.first end), idx: (.key + 1)})) as $rs
     | ($margins | split(",") | map(tonumber)) as $ts
     | "replay-score: rows=\($rs | length) labeled=\([$rs[] | select((.expected | type) == "array")] | length) skipped=\(length - ($rs | length))",
       tally($rs; "confidence>=0.6"; (.confidence // 0) >= 0.6),
@@ -198,8 +198,8 @@ replay_score() {
           | ($ts | map(verdict_field($r; .)) | join(" ")) as $verdicts
           | [
               "  row: " + ($r.case // ("#" + ($r.idx | tostring)))
-                + " pick=" + $r.pick
-                + " first=" + $r.top.first
+                + " first=" + $r.first
+                + " top=" + $r.top.first
                 + " second=" + ($r.top.second // "-")
                 + " margin=" + ($r.top.margin | tostring)
                 + " confidence=" + (($r.confidence // "-") | tostring)
