@@ -212,11 +212,15 @@ function routeExpectation(expect) {
 }
 
 function substituteRouteValue(value, vars) {
-  if (typeof value !== 'string') return value;
-  return value.replace(/\$\{([A-Za-z][A-Za-z0-9_-]*)\}/g, (_, name) => {
-    if (!Object.hasOwn(vars, name)) throw new Error(`missing route variable: ${name}`);
+  let missing = false;
+  const substituted = value.replace(/\$\{([A-Za-z][A-Za-z0-9_-]*)\}/g, (_, name) => {
+    if (!Object.hasOwn(vars, name)) {
+      missing = true;
+      return '';
+    }
     return vars[name];
   });
+  return { value: substituted, missing };
 }
 
 export function validateRoute(route) {
@@ -282,8 +286,16 @@ async function executeRouteStep(step, vars, pageApi) {
     params.target = selectorFromRoute(step.target);
     if (step.target.within) params.within = selectorFromRoute(step.target.within);
   }
-  if (step.do === 'fill') params.value = substituteRouteValue(step.value, vars);
-  if (step.do === 'select') params.option = substituteRouteValue(step.option, vars);
+  if (step.do === 'fill') {
+    const substituted = substituteRouteValue(step.value, vars);
+    if (substituted.missing) return { ok: false, error: 'MISSING_VARIABLE' };
+    params.value = substituted.value;
+  }
+  if (step.do === 'select') {
+    const substituted = substituteRouteValue(step.option, vars);
+    if (substituted.missing) return { ok: false, error: 'MISSING_VARIABLE' };
+    params.option = substituted.value;
+  }
   if (step.timeoutMs != null) params.timeoutMs = step.timeoutMs;
   let result = await executeStep(params, pageApi);
   if (result.error === 'TARGET_NOT_FOUND') {
@@ -338,6 +350,9 @@ export async function executeRoute(routeInput, vars = {}, from = null, pageApi) 
     const current = await pageApi.eval(() => ({ host: location.hostname }));
     if (current.host.toLowerCase() !== route.host) return { ok: false, error: 'START_MISMATCH', step: step.id, completed, heals, routeUpdates };
     if (step.confirm === true) return { ok: false, error: 'CONFIRM_REQUIRED', step: step.id, completed, heals, routeUpdates };
+    if (step.do === 'handoff' && from !== step.id) {
+      return { ok: true, completed, heals, routeUpdates, handoff: { step: step.id, say: redact(step.say).slice(0, 500) } };
+    }
     const result = await executeRouteStep(step, vars, pageApi);
     if (!result.ok) return { ok: false, error: result.error ?? 'BROWSER_ACTION_FAILED', step: step.id, completed, heals, routeUpdates };
     completed.push(step.id);
@@ -345,7 +360,6 @@ export async function executeRoute(routeInput, vars = {}, from = null, pageApi) 
       routeUpdates.push({ step: step.id, target: result.healedTarget });
       heals.push({ step: step.id, to: redact(result.healedTarget).slice(0, 96), confidence: result.healedConfidence });
     }
-    if (step.do === 'handoff') return { ok: true, completed, heals, routeUpdates, handoff: { step: step.id, say: redact(step.say).slice(0, 500) } };
   }
   return { ok: true, completed, heals, routeUpdates };
 }

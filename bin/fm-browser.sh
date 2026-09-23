@@ -158,7 +158,7 @@ try {
     writeFileSync(temp, `${JSON.stringify(route, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
     renameSync(temp, file);
   }
-  const safe = { ok: result.ok === true, completed: Array.isArray(result.completed) ? result.completed.slice(0, 100) : [] };
+  const safe = { ok: result.ok === true, completed: Array.isArray(result.completed) ? result.completed : [] };
   for (const key of ['error', 'step']) if (typeof result[key] === 'string') safe[key] = result[key];
   if (result.handoff && typeof result.handoff === 'object') safe.handoff = { step: result.handoff.step, say: String(result.handoff.say ?? '').slice(0, 500) };
   process.stdout.write(`${JSON.stringify(safe)}\n`);
@@ -421,7 +421,7 @@ try {
       const text = String(value);
       const opaque = [...text.matchAll(/[A-Za-z0-9_+/.=-]{24,}/g)].some(([token]) => /[A-Za-z]/.test(token) && /\d/.test(token));
       if (opaque || /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----|(?:sk-or-|github_pat_|ghp_|cfut_)|https?:\/\/|[\w.+-]+@[\w-]+(?:\.[\w-]+)+|\d{6,}/i.test(text)) process.exit(2);
-      return text.slice(0, 96);
+      return text;
     };
     const cleanTarget = (target) => {
       if (target) target.label = safeRouteText(target.label);
