@@ -61,9 +61,10 @@
 #   fm_jev_compact_state <state>
 #     Strips obvious secret-shaped tokens and prints the remainder. Refuses
 #     (exit 1) when the raw state exceeds JEV_STATE_MAX_BYTES (default 8192).
-#     Quoted credential values are consumed through their real closing quote,
-#     escaped quotes included, and every GitHub token prefix (ghp_, gho_, ghu_,
-#     ghs_, ghr_, github_pat_) is stripped.
+#     A credential value is consumed through the end of its line, or its whole
+#     flow or block value, so escaped quotes inside it never end the redaction
+#     early, and every GitHub token prefix (ghp_, gho_, ghu_, ghs_, ghr_,
+#     github_pat_) is stripped.
 #   fm_jev_has_key
 #     Succeeds when a TypeSafe or OpenRouter key is present in the environment
 #     or $FM_HOME/.env; never prints the key.
@@ -466,13 +467,6 @@ fm_jev_compact_state() {
       while (match(buf, credential_uri_pattern)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
-      lowered = tolower(buf)
-      while (match(lowered, /(fm_mail_pass|aws_access_key_id|[[:alnum:]_.-]*(password|passwd|pwd|secret|token)[[:alnum:]_.-]*|[[:alnum:]_.-]*api[[:space:]_-]*key[[:alnum:]_.-]*)["]?[[:space:]]*[:=][[:space:]]*("([^"\\]|\\.)*"?|[^[:space:],;]+)/)) {
-        start = RSTART
-        end = RSTART + RLENGTH
-        buf = substr(buf, 1, start - 1) "[redacted]" substr(buf, end)
-        lowered = tolower(buf)
-      }
       email_pattern = "(^|[^[:alnum:]_.%+-])[[:alnum:]_%+.-]+@[[:alnum:]][[:alnum:].-]*[.][[:alpha:]][[:alpha:]]+([^[:alnum:]_-]|$)"
       while (match(buf, email_pattern)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
@@ -604,6 +598,13 @@ fm_jev_compact_state() {
           }
           search_from = 1
         }
+      }
+      lowered = tolower(buf)
+      while (match(lowered, /(fm_mail_pass|aws_access_key_id|[[:alnum:]_.-]*(password|passwd|pwd|secret|token)[[:alnum:]_.-]*|[[:alnum:]_.-]*api[[:space:]_-]*key[[:alnum:]_.-]*)["]?[[:space:]]*[:=][[:space:]]*("([^"\\]|\\.)*"?|[^[:space:],;]+)/)) {
+        start = RSTART
+        end = RSTART + RLENGTH
+        buf = substr(buf, 1, start - 1) "[redacted]" substr(buf, end)
+        lowered = tolower(buf)
       }
       while (match(buf, /[Aa]uthorization:[[:space:]]*[Bb]earer[[:space:]]+[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
