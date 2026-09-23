@@ -641,8 +641,9 @@ Cursor is deliberately outside this cursor-anchored empty-composer matrix becaus
 
 Verified a read-only Pi 0.87.1 pane capture with Herdr 0.9.0 using `herdr pane read <pane> --source visible --format ansi`.
 The captured idle footer was `↑121k ↓37k R9.5M $0.069 (sub) 55.2%/272k (auto) (openai-codex) gpt-6-luna • max`.
-Before the fix, the captured screen classified as `unknown` because this footer begins with token counts rather than a dollar cost.
-`tests/fm-composer-lib.test.sh` now proves that this capture is empty for an idle Pi, typed content stays pending, and an unrecognized token-first prefix stays unknown; `tests/fm-backend-herdr.test.sh` proves the Herdr adapter returns empty after one native Pi identity probe.
+A second captured idle footer omitted the R-count cell: `↑35k ↓6 $0.000 (sub) 12.8%/272k (auto) (openai-codex) gpt-6-astra • low`.
+Before the fix, the first captured screen classified as `unknown` because its footer begins with token counts rather than a dollar cost.
+`tests/fm-composer-lib.test.sh` proves both captures are empty for an idle Pi, typed content stays pending, and an unrecognized token-first prefix stays unknown; `tests/fm-backend-herdr.test.sh` proves the Herdr adapter returns empty after one native Pi identity probe for each capture.
 No Herdr lifecycle operation was run, so this record does not claim a live stop or restart.
 `FM_COMPOSER_MATRIX_LIVE=1 tests/fm-composer-matrix-live-e2e.test.sh` refreshes the installed-harness live matrix; this cursorless Herdr footer variant is refreshed from a live read-only capture and the two fixture-backed suites above.
 
