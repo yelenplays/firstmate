@@ -770,8 +770,8 @@ act_first_drain() {
   printf '1790000001\t8\tsignal\ttask-z.status\tblocked: waiting on a key\n'
 }
 
-test_act_first_input_is_written_only_for_a_consuming_run() {
-  local rec home root log
+test_act_first_input_is_generation_scoped_and_persisted_early() {
+  local rec home root log expected actual
   rec=$(new_world act-first-input)
   IFS='|' read -r home root log <<EOF
 $rec
@@ -786,15 +786,18 @@ EOF
   [ ! -e "$home/state/.startup-network.act-first-input" ] \
     || fail "a ranking waiting for another generation received this one's drain output"
   act_first_status "$home" g-locked 1
-  printf 'g-locked\n' > "$home/state/.startup-network.act-first-waiting"
+  rm -f "$home/state/.startup-network.act-first-waiting"
+  expected=$(act_first_drain)
   act_first_drain | run_stage "$home" "$root" act-first-input
   [ "$(head -n 1 "$home/state/.startup-network.act-first-input" 2>/dev/null)" = "generation=g-locked" ] \
-    || fail "the waiting ranking did not receive its drain output"
-  pass "fm-startup-network: ranking input is written only for a ranking waiting to consume it"
+    || fail "the drain output was not persisted for its generation before the ranker waited"
+  actual=$(tail -n +2 "$home/state/.startup-network.act-first-input")
+  [ "$actual" = "$expected" ] || fail "the persisted drain output changed"$'\n'"$actual"
+  pass "fm-startup-network: generation input persists before the ranker waits"
 }
 
 test_act_first_rank_uses_the_home_timeout_and_wakes_once() {
-  local rec home root log calls rank_pid waited
+  local rec home root log calls rank_pid
   rec=$(new_world act-first-rank)
   IFS='|' read -r home root log <<EOF
 $rec
@@ -815,14 +818,12 @@ SH
   chmod +x "$root/bin/curl"
   printf 'TYPESAFE_API_KEY=ts-test-key\nJEV_TIMEOUT=3\n' > "$home/.env"
   act_first_status "$home" g-rank 1
-  (unset JEV_TIMEOUT; run_stage "$home" "$root" act-first-rank --generation g-rank) &
-  rank_pid=$!
-  waited=0
-  while [ ! -e "$home/state/.startup-network.act-first-waiting" ] && [ "$waited" -lt 100 ]; do
-    sleep 0.1
-    waited=$((waited + 1))
-  done
   act_first_drain | run_stage "$home" "$root" act-first-input
+  [ ! -e "$home/state/.startup-network.act-first-waiting" ] \
+    || fail "the input was not handed off before a ranker started waiting"
+  (unset JEV_TIMEOUT; FM_STARTUP_NETWORK_ACT_FIRST_WAIT=2 \
+    run_stage "$home" "$root" act-first-rank --generation g-rank) &
+  rank_pid=$!
   wait "$rank_pid"
   grep -A1 -x -- '--max-time' "$calls/argv" | grep -qx 3 \
     || fail "the ranking ignored the home JEV_TIMEOUT: $(tr '\n' ' ' < "$calls/argv")"
@@ -889,6 +890,38 @@ SH
   pass "fm-startup-network: a late ranking cannot publish or wake after supersession"
 }
 
+test_timed_out_ranker_preserves_newer_generation_state() {
+  local rec home root log rank_pid waited input_body
+  rec=$(new_world act-first-generation-race)
+  IFS='|' read -r home root log <<EOF
+$rec
+EOF
+  printf 'TYPESAFE_API_KEY=ts-test-key\n' > "$home/.env"
+  act_first_status "$home" g-old 1
+  (FM_STARTUP_NETWORK_ACT_FIRST_WAIT=1 \
+    run_stage "$home" "$root" act-first-rank --generation g-old) &
+  rank_pid=$!
+  waited=0
+  while [ "$(cat "$home/state/.startup-network.act-first-waiting" 2>/dev/null)" != g-old ] \
+    && [ "$waited" -lt 100 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  [ "$(cat "$home/state/.startup-network.act-first-waiting" 2>/dev/null)" = g-old ] \
+    || fail "the older ranker did not register its wait"
+  act_first_status "$home" g-new 1
+  printf 'g-new\n' > "$home/state/.startup-network.act-first-waiting"
+  act_first_drain | run_stage "$home" "$root" act-first-input
+  wait "$rank_pid"
+  [ "$(cat "$home/state/.startup-network.act-first-waiting" 2>/dev/null)" = g-new ] \
+    || fail "the timed-out older ranker removed the newer generation's marker"
+  [ "$(head -n 1 "$home/state/.startup-network.act-first-input" 2>/dev/null)" = "generation=g-new" ] \
+    || fail "the newer generation's input was removed or replaced"
+  input_body=$(tail -n +2 "$home/state/.startup-network.act-first-input")
+  [ "$input_body" = "$(act_first_drain)" ] || fail "the newer generation's drain was changed"
+  pass "fm-startup-network: an older timeout preserves newer marker and input"
+}
+
 test_report_omits_a_ranking_from_another_generation() {
   local rec home root log report_out
   rec=$(new_world act-first-stale-report)
@@ -908,9 +941,10 @@ EOF
 }
 
 test_wait_fails_without_a_published_stage
-test_act_first_input_is_written_only_for_a_consuming_run
+test_act_first_input_is_generation_scoped_and_persisted_early
 test_act_first_rank_uses_the_home_timeout_and_wakes_once
 test_act_first_rank_drops_a_result_after_its_generation_changes
+test_timed_out_ranker_preserves_newer_generation_state
 test_report_omits_a_ranking_from_another_generation
 test_start_returns_without_holding_the_callers_stdout
 test_harvest_acknowledgement_suppresses_the_wake_and_no_claim_produces_it

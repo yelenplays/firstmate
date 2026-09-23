@@ -132,6 +132,8 @@ test_jev_ranking_sends_only_ids_and_titles() {
     "$HOME_DIR/state/jev-intake-match.jsonl" >/dev/null || fail "the call was not logged"
   jq -e 'select(.reference_chars == 43 and (.reference_sha256 | test("^[0-9a-f]{64}$")) and (has("reference") | not))' \
     "$HOME_DIR/state/jev-intake-match.jsonl" >/dev/null || fail "the log did not keep only the reference length and hash"
+  jq -e 'select(.route == "typesafe" and .http == "200" and (.latency_ms | type) == "number")' \
+    "$HOME_DIR/state/jev-intake-match.jsonl" >/dev/null || fail "the call route and timing were not logged"
   assert_no_grep "get our wiki plan" "$HOME_DIR/state/jev-intake-match.jsonl" "the log stored the reference text"
   pass "a clear Jev answer ranks by probabilities and sends only ids and titles"
 }
@@ -147,6 +149,8 @@ test_related_tasks_follow_a_matched_record() {
     "Title mentions wiki-layer-plan-v1" --file data/backlog.md) >/dev/null
   (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add lookalike-body \
     "Body mentions a longer id" --body "This names wiki-layer-plan-v10 only." --file data/backlog.md) >/dev/null
+  (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add dotted-lookalike \
+    "Body mentions a dotted id" --body "This names wiki-layer-plan-v1.0 only." --file data/backlog.md) >/dev/null
   respond wiki-layer-plan-v1 0.9 '{"wiki-layer-plan-v1":0.9,"none":0.1}'
   KEY=$TS_KEY run_match code out wiki plan
   assert_contains "$out" "  related:" "a matched record listed no related tasks"$'\n'"$out"
@@ -159,6 +163,7 @@ test_related_tasks_follow_a_matched_record() {
   assert_not_contains "$out" "-> wiki-layer-plan-v10" "a longer version id was mistaken for the record token"
   assert_not_contains "$out" "-> title-mentions-record" "a title mention was mistaken for a body reference"
   assert_not_contains "$out" "-> lookalike-body" "a longer id in the body was matched by prefix"
+  assert_not_contains "$out" "-> dotted-lookalike" "a longer dotted id was matched as the record token"
   [ "$(jq '.questions | length' "$LOG/body")" -eq 1 ] || fail "related tasks cost an extra question"
   KEY='' run_match code out wiki plan
   assert_contains "$out" "    - wiki-layer-plan-v1 -> wf-p0-privacy-ceiling" \
@@ -180,15 +185,40 @@ test_reference_is_one_bounded_line() {
   pass "a multi-line or over-300-character reference is refused before any call"
 }
 
-test_ties_put_recent_records_before_backlog_items() {
+test_ties_use_selected_record_file_mtime() {
   local code out first
   fresh_home
-  (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add alpha-sync-v1 "Alpha sync" --file data/backlog.md) >/dev/null
+  add_record alpha-sync-v1 report.md "Alpha sync"
   add_record zeta-sync-v1 report.md "Zeta sync"
+  touch -t 202501010100.00 "$HOME_DIR/data/alpha-sync-v1/report.md"
+  touch -t 202501010200.00 "$HOME_DIR/data/zeta-sync-v1/report.md"
+  touch -t 202501010200.00 "$HOME_DIR/data/alpha-sync-v1"
+  touch -t 202501010100.00 "$HOME_DIR/data/zeta-sync-v1"
   KEY='' run_match code out sync
   first=$(printf '%s\n' "$out" | grep -m1 '^    1\. ')
-  assert_contains "$first" "zeta-sync-v1" "a tied backlog-only item outranked the recent record"$'\n'"$out"
-  pass "tied candidates list recent records before backlog-only items"
+  assert_contains "$first" "zeta-sync-v1" "the record with the newer selected file did not rank first"$'\n'"$out"
+  pass "tied records follow selected report-file mtimes, not directory mtimes"
+}
+
+test_backlog_listing_failure_is_not_reported_as_empty() {
+  local code out
+  fresh_home
+  rm -rf "$HOME_DIR/data"/*
+  cat > "$FAKEBIN/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+exit 1
+SH
+  chmod +x "$FAKEBIN/tasks-axi"
+  KEY=$TS_KEY run_match code out wiki plan
+  expect_code 0 "$code" "a backlog read failure should remain advisory"
+  assert_contains "$out" "ranking: keyword" "an incomplete backlog did not fail open to keyword candidates"$'\n'"$out"
+  assert_contains "$out" "fallback: backlog-error" "a failed backlog was reported as an empty candidate set"$'\n'"$out"
+  assert_contains "$out" "source-error: backlog listing failed for open, done" \
+    "the failed backlog sources were not identified"$'\n'"$out"
+  assert_not_contains "$out" "fallback: no-candidates" "an unreadable backlog was described as empty"
+  [ ! -e "$LOG/body" ] || fail "Jev ranked an incomplete candidate list"
+  rm -f "$FAKEBIN/tasks-axi"
+  pass "backlog listing failure is distinct from a successful empty listing"
 }
 
 test_low_confidence_falls_back() {
@@ -237,7 +267,8 @@ test_off_falls_back_to_keyword_ranking
 test_jev_ranking_sends_only_ids_and_titles
 test_related_tasks_follow_a_matched_record
 test_reference_is_one_bounded_line
-test_ties_put_recent_records_before_backlog_items
+test_ties_use_selected_record_file_mtime
+test_backlog_listing_failure_is_not_reported_as_empty
 test_low_confidence_falls_back
 test_failures_fall_back
 test_candidate_list_is_bounded

@@ -26,8 +26,8 @@
 #   wake       every raw wake record (epoch, seq, kind, key, payload)
 # One task in one state is one item: a blocker that appears as an open
 # decision, a status line, and a status wake is kept once, as its
-# highest-priority form. Fewer than two items makes no call: there is nothing
-# to rank.
+# highest-priority form. Distinct open-decision keys remain separate actions.
+# Fewer than two items makes no call: there is nothing to rank.
 #
 # What Jev sees (one Choice call through bin/fm-jev-lib.sh): the items above,
 # each sanitized by fm_jev_compact_state, as criteria keyed i1..iN. The Choice
@@ -127,7 +127,10 @@ drain_items() {
       sub(/^[^ ]+ /, "", rest)
       did[nd] = $0
       sub(/ .*/, "", did[nd])
-      did[nd] = did[nd] "|" verb(rest)
+      decision_key = "default"
+      if (match(rest, /^\[key=[^]]+\]/)) decision_key = substr(rest, 6, RLENGTH - 6)
+      if (decision_key == "default") did[nd] = did[nd] "|" verb(rest)
+      else did[nd] = did[nd] "|" decision_key "|" verb(rest)
       next
     }
     sec == "outcome" && NF == 1 && $0 != "" {
@@ -208,7 +211,14 @@ questions=$(jq -nc --argjson c "$(jq -c 'map({key: .key, value: .text}) | from_e
 
 decide_code=0
 mkdir -p "$STATE_DIR" 2>/dev/null || true
-response=$(fm_jev_decide "$state" "$questions") || decide_code=$?
+response=
+if response_file=$(mktemp "$STATE_DIR/.jev-act-first-response.XXXXXX" 2>/dev/null); then
+  fm_jev_decide "$state" "$questions" > "$response_file" || decide_code=$?
+  response=$(cat "$response_file" 2>/dev/null)
+  rm -f "$response_file"
+else
+  decide_code=2
+fi
 
 choice=
 confidence=
@@ -223,6 +233,10 @@ if [ "$decide_code" -eq 0 ] && [ -n "$response" ]; then
         map(. + {p: ($p[.key] // 0)}) | map(select(.p > 0)) | sort_by(-.p)
       ' <<<"$items")
     elif [ -n "$confidence" ]; then
+      ranked=$(jq -c --arg c "$choice" --arg conf "$confidence" \
+        'map(select(.key == $c) | . + {p: ($conf | tonumber)})' <<<"$items")
+    fi
+    if ! jq -e 'length > 0' <<<"$ranked" >/dev/null 2>&1; then
       ranked=$(jq -c --arg c "$choice" --arg conf "$confidence" \
         'map(select(.key == $c) | . + {p: ($conf | tonumber)})' <<<"$items")
     fi

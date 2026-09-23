@@ -123,6 +123,8 @@ test_ranks_collected_items() {
   assert_grep "Bearer $TS_KEY" "$LOG/header" "the key did not travel on fd 3"
   jq -e 'select(.purpose == "act-first" and .item_count == 5 and .choice == "i1")' \
     "$HOME_DIR/state/jev-act-first.jsonl" >/dev/null || fail "the call was not logged"
+  jq -e 'select(.route == "typesafe" and .http == "200" and (.latency_ms | type) == "number")' \
+    "$HOME_DIR/state/jev-act-first.jsonl" >/dev/null || fail "the call route and timing were not logged"
   pass "the collected items are ranked by Jev probabilities, at most five lines"
 }
 
@@ -140,6 +142,26 @@ test_local_lists_priority_order_without_a_call() {
   assert_not_contains "$out" "(p=" "--local printed a model probability"
   [ ! -e "$LOG/body" ] || fail "--local made a model call"
   pass "--local lists the items in priority order with no key and no call"
+}
+
+test_distinct_open_decision_keys_remain_separate() {
+  local out
+  fresh_home
+  cat > "$DRAIN" <<'EOF'
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+scout-a [key=pick-runtime] needs-decision: choose a runtime
+scout-a [key=pick-license] needs-decision: choose a license
+OPEN DECISIONS: close one by answering it
+EOF
+  KEY='' run_helper out --local --drain-file "$DRAIN"
+  expect_code 0 "$RUN_CODE" "two distinct decisions should be listed"
+  [ "$(printf '%s\n' "$out" | grep -c .)" -eq 2 ] \
+    || fail "one of the decision keys disappeared from ACT FIRST"$'\n'"$out"
+  assert_contains "$out" "scout-a [key=pick-runtime] needs-decision: choose a runtime" \
+    "the runtime decision was omitted"$'\n'"$out"
+  assert_contains "$out" "scout-a [key=pick-license] needs-decision: choose a license" \
+    "the license decision was omitted"$'\n'"$out"
+  pass "ACT FIRST keeps distinct keys for one task as separate actions"
 }
 
 test_status_recovery_sections_are_ranked_without_wakes_or_decisions() {
@@ -161,6 +183,19 @@ EOF
   assert_contains "$out" "2. record divergence workflow-b [key=release] reads resolved in worker's status log but is still held for the captain" \
     "the record divergence was not included after the backstop"$'\n'"$out"
   pass "status outcome and divergence sections join the local ACT FIRST recovery items"
+}
+
+test_unoffered_probability_keys_fall_back_to_the_chosen_item() {
+  local out
+  fresh_home
+  respond i2 0.83 '{"unrelated-a":0.6,"unrelated-b":0.4}'
+  KEY=$TS_KEY run_helper out --drain-file "$DRAIN" --status-dir "$HOME_DIR/state"
+  expect_code 0 "$RUN_CODE" "a valid pick should exit 0"
+  assert_contains "$out" "1. execution ship-c owner=firstmate next=implementation owner missing; dispatch or promote within approved intent (p=0.83)" \
+    "a valid pick vanished when probability keys did not match offered items"$'\n'"$out"
+  jq -e 'select(.ranked_keys == ["i2"])' "$HOME_DIR/state/jev-act-first.jsonl" >/dev/null \
+    || fail "the chosen item was not logged as the fallback ranking"
+  pass "ACT FIRST falls back to the valid chosen item when probabilities do not map"
 }
 
 test_one_blocker_is_one_item() {
@@ -209,7 +244,9 @@ test_usage
 test_off_is_silent
 test_ranks_collected_items
 test_local_lists_priority_order_without_a_call
+test_distinct_open_decision_keys_remain_separate
 test_status_recovery_sections_are_ranked_without_wakes_or_decisions
+test_unoffered_probability_keys_fall_back_to_the_chosen_item
 test_one_blocker_is_one_item
 test_failures_are_silent
 test_single_item_makes_no_call

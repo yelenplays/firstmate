@@ -674,6 +674,7 @@ It builds a bounded candidate list without a model call and asks Jev one Choice 
 Exactly this reaches Jev: the reference itself (one line of at most 300 characters; longer or multi-line input is refused), and each candidate's id, title, and backlog state.
 Report, brief, and task bodies never do, and the local call log keeps only the reference's length and SHA-256, never its text.
 When a matched candidate is a `data/<id>` record, the backlog tasks whose body names that record are listed with it, found locally without another Jev question.
+If either backlog listing fails, the output names the failed source and skips Jev rather than treating an incomplete candidate set as empty.
 With no key, a failed call, a `none` answer, or confidence below the library floor, it says so and prints a plain keyword ranking instead.
 It is advisory and never opens, dispatches, or edits anything.
 The [script header](../bin/fm-jev-intake-match.sh) owns candidate selection, limits, the output shape, and the log schema; regression coverage lives in [`tests/fm-jev-intake-match.test.sh`](../tests/fm-jev-intake-match.test.sh).

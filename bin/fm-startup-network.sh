@@ -74,11 +74,10 @@
 #          Block until the report is published, up to <seconds> (default 120).
 #          For operators and tests only; a session start never waits.
 #        fm-startup-network.sh act-first-input
-#          Hand this generation's wake-drain output (stdin) to the running
-#          worker's ACT FIRST ranking. Called by bin/fm-session-start.sh after
-#          its locked drain. A no-op unless a Jev key is configured and a
-#          ranking for the current generation is waiting for input, so the
-#          drain output is never left behind for nothing to consume.
+#          Persist this generation's wake-drain output (stdin) for the ACT FIRST
+#          ranking. Called by bin/fm-session-start.sh after its locked drain.
+#          The generation-tagged input is durable even when the ranker has not
+#          started waiting yet; a missing Jev key leaves it unused.
 #
 # ACT FIRST RANKING. On a locked run started by `start`, the worker also
 # launches bin/fm-jev-act-first.sh's Jev ranking of the digest's actionable
@@ -124,7 +123,9 @@
 #                             and the wake decision.
 #   .startup-network.act-first-input
 #                             the generation line plus the drain output the
-#                             ACT FIRST ranking reads; removed once consumed.
+#                             ACT FIRST ranking reads, persisted before the
+#                             ranker waits; removed only when that generation
+#                             consumes it.
 #   .startup-network.act-first
 #                             the generation line plus the latest published
 #                             ACT FIRST ranking, at most five lines.
@@ -678,15 +679,45 @@ cmd_act_first_input() {
   # shellcheck source=bin/fm-jev-lib.sh
   . "$SCRIPT_DIR/fm-jev-lib.sh"
   fm_jev_key_configured || { cat >/dev/null; return 0; }
-  generation=$(status_get generation)
-  if [ -z "$generation" ] || [ "$(cat "$ACT_FIRST_WAITING" 2>/dev/null)" != "$generation" ]; then
-    cat >/dev/null
+  tmp=$(mktemp "$STATE/.startup-network.act-first-input.XXXXXX" 2>/dev/null) || { cat >/dev/null; return 0; }
+  if ! cat > "$tmp"; then
+    rm -f "$tmp"
     return 0
   fi
-  tmp=$(mktemp "$STATE/.startup-network.act-first-input.XXXXXX" 2>/dev/null) || { cat >/dev/null; return 0; }
-  if ! { printf 'generation=%s\n' "$generation"; cat; } > "$tmp" || ! mv -f "$tmp" "$ACT_FIRST_INPUT"; then
-    rm -f "$tmp"
+  fm_lock_acquire_wait "$PUBLISH_LOCK"
+  generation=$(status_get generation)
+  if [ -n "$generation" ] && [ "$(status_get locked)" = 1 ]; then
+    { printf 'generation=%s\n' "$generation"; cat "$tmp"; } | write_atomic "$ACT_FIRST_INPUT" || true
   fi
+  fm_lock_release "$PUBLISH_LOCK"
+  rm -f "$tmp"
+}
+
+remove_act_first_waiting() {
+  local generation=$1
+  fm_lock_acquire_wait "$PUBLISH_LOCK"
+  if [ "$(cat "$ACT_FIRST_WAITING" 2>/dev/null)" = "$generation" ]; then
+    rm -f "$ACT_FIRST_WAITING"
+  fi
+  fm_lock_release "$PUBLISH_LOCK"
+}
+
+consume_act_first_input() {  # <generation> <drain-file>
+  local generation=$1 drain=$2 waiting
+  fm_lock_acquire_wait "$PUBLISH_LOCK"
+  if [ "$(status_get generation)" != "$generation" ] \
+    || [ "$(head -n 1 "$ACT_FIRST_INPUT" 2>/dev/null)" != "generation=$generation" ]; then
+    fm_lock_release "$PUBLISH_LOCK"
+    return 1
+  fi
+  tail -n +2 "$ACT_FIRST_INPUT" > "$drain" 2>/dev/null || {
+    fm_lock_release "$PUBLISH_LOCK"
+    return 1
+  }
+  rm -f "$ACT_FIRST_INPUT" 2>/dev/null || true
+  waiting=$(cat "$ACT_FIRST_WAITING" 2>/dev/null)
+  [ "$waiting" != "$generation" ] || rm -f "$ACT_FIRST_WAITING"
+  fm_lock_release "$PUBLISH_LOCK"
 }
 
 cmd_act_first_rank() {  # <generation>
@@ -697,19 +728,34 @@ cmd_act_first_rank() {  # <generation>
   limit=${FM_STARTUP_NETWORK_ACT_FIRST_WAIT:-20}
   case "$limit" in ''|*[!0-9]*) limit=20 ;; esac
   limit=$((limit * 10))
-  printf '%s\n' "$generation" | write_atomic "$ACT_FIRST_WAITING" || return 0
-  while [ "$(head -n 1 "$ACT_FIRST_INPUT" 2>/dev/null)" != "generation=$generation" ]; do
+  fm_lock_acquire_wait "$PUBLISH_LOCK"
+  if [ "$(status_get generation)" != "$generation" ] || [ "$(status_get locked)" != 1 ]; then
+    fm_lock_release "$PUBLISH_LOCK"
+    return 0
+  fi
+  printf '%s\n' "$generation" | write_atomic "$ACT_FIRST_WAITING" || {
+    fm_lock_release "$PUBLISH_LOCK"
+    return 0
+  }
+  fm_lock_release "$PUBLISH_LOCK"
+  while :; do
+    if [ "$(head -n 1 "$ACT_FIRST_INPUT" 2>/dev/null)" = "generation=$generation" ]; then
+      drain=$(mktemp "${TMPDIR:-/tmp}/fm-startup-act-first-drain.XXXXXX" 2>/dev/null) || {
+        remove_act_first_waiting "$generation"
+        return 0
+      }
+      if consume_act_first_input "$generation" "$drain"; then
+        break
+      fi
+      rm -f "$drain"
+    fi
     if [ "$waited" -ge "$limit" ]; then
-      rm -f "$ACT_FIRST_WAITING"
+      remove_act_first_waiting "$generation"
       return 0
     fi
     sleep 0.1
     waited=$((waited + 1))
   done
-  rm -f "$ACT_FIRST_WAITING"
-  drain=$(mktemp "${TMPDIR:-/tmp}/fm-startup-act-first-drain.XXXXXX" 2>/dev/null) || return 0
-  tail -n +2 "$ACT_FIRST_INPUT" > "$drain" 2>/dev/null
-  rm -f "$ACT_FIRST_INPUT" 2>/dev/null || true
   timeout=${JEV_TIMEOUT:-$(fmx_env_get JEV_TIMEOUT "$FM_HOME/.env")}
   lines=$(JEV_TIMEOUT=${timeout:-5} FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
     fm_run_timed 10 "$SCRIPT_DIR/fm-jev-act-first.sh" --drain-file "$drain" --status-dir "$STATE" 2>/dev/null </dev/null) || lines=

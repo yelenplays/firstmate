@@ -22,8 +22,8 @@
 # One id seen in both places is one candidate. Each candidate gets a keyword
 # score: the number of distinct reference words (three or more characters,
 # common English and German filler dropped) found in its lowercased id plus
-# title. Ties go to the most recently changed data/<id> record first
-# (`ls -t` order), then backlog-only items in listing order. The bounded list
+# title. Ties go to the record whose selected report.md or brief.md changed most
+# recently first, then backlog-only items in listing order. The bounded list
 # is the 24 best, topped up with unscored candidates in that same order when
 # fewer than 24 score.
 #
@@ -51,7 +51,8 @@
 #   jev-intake-match:
 #     ranking: jev | keyword
 #     fallback: none | off | error | low-confidence | no-match | no-candidates |
-#               jq-missing
+#               backlog-error | jq-missing
+#     source-error: backlog listing failed for <open, done> (only on failure)
 #     confidence: <Jev's confidence in its pick, or empty>
 #     candidates:
 #       1. <id> confidence=<p> state=<backlog state or -> record=<path or -> title=<title>
@@ -59,7 +60,9 @@
 #       - <record id> -> <backlog id> state=<state> title=<title>
 # The keyword ranking prints score=<matched>/<reference words> in place of
 # confidence and lists only candidates that matched; `candidates: none` when
-# nothing did. `related:` appears only when a shown record has related tasks.
+# nothing did. A failed backlog listing is named in `source-error` and prevents
+# Jev from ranking an incomplete offer. `related:` appears only when a shown
+# record has related tasks.
 # Exit 0 except usage (exit 2), so intake is never blocked.
 #
 # Log: one JSONL object per attempted Jev call appended to
@@ -122,6 +125,8 @@ JEV_TIMEOUT=${JEV_TIMEOUT:-$(fmx_env_get JEV_TIMEOUT "$FM_HOME/.env")}
 JEV_TIMEOUT=${JEV_TIMEOUT:-5}
 export JEV_TIMEOUT
 RELATED_MAX=12
+BACKLOG_ROWS=
+BACKLOG_FAILURES=
 
 # Reference words: lowercase ASCII runs of three or more characters, filler
 # dropped, each word once.
@@ -139,11 +144,16 @@ reference_words() {
 
 # Backlog rows as id<TAB>state<TAB>title, open items first, then Done.
 backlog_rows() {
-  local out state_args
+  local out state_args listing_name parsed
   for state_args in '' '--state done'; do
+    listing_name=open
+    [ "$state_args" != '--state done' ] || listing_name=done
     # shellcheck disable=SC2086 # state_args is a fixed flag pair or empty
-    out=$(fm_run_timed "$LIST_TIMEOUT" "$SCRIPT_DIR/fm-tasks-axi.sh" list $state_args 2>/dev/null) || continue
-    printf '%s\n' "$out" | awk '
+    if ! out=$(fm_run_timed "$LIST_TIMEOUT" "$SCRIPT_DIR/fm-tasks-axi.sh" list $state_args 2>/dev/null); then
+      BACKLOG_FAILURES="${BACKLOG_FAILURES:+$BACKLOG_FAILURES, }$listing_name"
+      continue
+    fi
+    parsed=$(printf '%s\n' "$out" | awk '
       /^tasks\[/ { p = 1; next }
       p && /^[[:space:]]/ {
         line = $0
@@ -158,24 +168,28 @@ backlog_rows() {
         next
       }
       p { p = 0 }
-    '
+    ')
+    [ -z "$parsed" ] || BACKLOG_ROWS="${BACKLOG_ROWS}${parsed}"$'\n'
   done
 }
 
 # Task records as id<TAB>path<TAB>heading, most recently changed first. One awk
 # pass reads each file only up to its first heading.
 record_rows() {
-  local id paths=()
+  local dir paths=() sorted_paths=()
   [ -d "$DATA_DIR" ] || return 0
-  # shellcheck disable=SC2012 # ls -t is the portable mtime order; ids are plain
-  while IFS= read -r id; do
-    if [ -f "$DATA_DIR/$id/report.md" ]; then
-      paths+=("$DATA_DIR/$id/report.md")
-    elif [ -f "$DATA_DIR/$id/brief.md" ]; then
-      paths+=("$DATA_DIR/$id/brief.md")
+  for dir in "$DATA_DIR"/*; do
+    [ -d "$dir" ] || continue
+    if [ -f "$dir/report.md" ]; then
+      paths+=("$dir/report.md")
+    elif [ -f "$dir/brief.md" ]; then
+      paths+=("$dir/brief.md")
     fi
-  done < <(ls -t "$DATA_DIR" 2>/dev/null)
+  done
   [ "${#paths[@]}" -gt 0 ] || return 0
+  # shellcheck disable=SC2012 # ls -t orders the selected record files by mtime
+  while IFS= read -r dir; do sorted_paths+=("$dir"); done < <(ls -t "${paths[@]}" 2>/dev/null)
+  [ "${#sorted_paths[@]}" -gt 0 ] || return 0
   awk '
     function emit(file, h,    id) {
       id = file
@@ -197,7 +211,7 @@ record_rows() {
       nextfile
     }
     END { if (prev != "" && !found) emit(prev, "") }
-  ' "${paths[@]}" 2>/dev/null
+  ' "${sorted_paths[@]}" 2>/dev/null
 }
 
 # Merge both sources and score: prints score<TAB>order<TAB>id<TAB>state<TAB>path<TAB>title
@@ -205,7 +219,7 @@ record_rows() {
 scored_candidates() {
   local words=$1
   {
-    backlog_rows | awk '{ print "B\t" $0 }'
+    printf '%s\n' "$BACKLOG_ROWS" | awk 'NF { print "B\t" $0 }'
     record_rows | awk '{ print "R\t" $0 }'
   } | awk -F '\t' -v words="$(printf '%s' "$words" | tr '\n' ' ')" '
     BEGIN { nw = split(words, w, " ") }
@@ -239,6 +253,7 @@ scored_candidates() {
 
 emit_header() {
   printf 'jev-intake-match:\n  ranking: %s\n  fallback: %s\n  confidence: %s\n' "$1" "$2" "$3"
+  [ -z "$BACKLOG_FAILURES" ] || printf '  source-error: backlog listing failed for %s\n' "$BACKLOG_FAILURES"
 }
 
 # Keyword ranking over the scored candidates: only matched ones, best first.
@@ -258,8 +273,8 @@ emit_keyword() {
 }
 
 # related_tasks <record-id...>: "<record id>\t<backlog id>" for every backlog
-# item whose task body names one of the given record ids, never the record's
-# own backlog entry, at most RELATED_MAX lines.
+# item whose body contains one of the given record ids as a whole token, never
+# the record's own backlog entry, at most RELATED_MAX lines.
 related_tasks() {
   local out state_args
   [ $# -gt 0 ] || return 0
@@ -287,12 +302,14 @@ related_tasks() {
         }
         return (field == wanted) ? value : ""
       }
-      function whole_token(text, token,    at, before, after) {
+      function whole_token(text, token,    at, before, suffix) {
         while ((at = index(text, token)) > 0) {
           before = (at == 1) ? "" : substr(text, at - 1, 1)
-          after = substr(text, at + length(token), 1)
-          if ((before == "" || before !~ /[A-Za-z0-9_-]/) &&
-            (after == "" || after !~ /[A-Za-z0-9_-]/)) return 1
+          suffix = substr(text, at + length(token))
+          if (match(suffix, /^[A-Za-z0-9._-]+/)) suffix = substr(suffix, 1, RLENGTH)
+          else suffix = ""
+          sub(/\.+$/, "", suffix)
+          if ((before == "" || before !~ /[A-Za-z0-9._-]/) && suffix == "") return 1
           text = substr(text, at + length(token))
         }
         return 0
@@ -341,6 +358,7 @@ emit_related() {
   done
 }
 
+backlog_rows
 WORDS=$(reference_words)
 SCORED=$(scored_candidates "$WORDS")
 
@@ -349,6 +367,10 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 0
 fi
 
+if [ -n "$BACKLOG_FAILURES" ]; then
+  emit_keyword backlog-error ''
+  exit 0
+fi
 if [ -z "$SCORED" ]; then
   emit_keyword no-candidates ''
   exit 0
@@ -392,7 +414,14 @@ questions=$(jq -nc --argjson c "$criteria" '{
 
 decide_code=0
 mkdir -p "$STATE_DIR" 2>/dev/null || true
-response=$(fm_jev_decide "$state" "$questions") || decide_code=$?
+response=
+if response_file=$(mktemp "$STATE_DIR/.jev-intake-match-response.XXXXXX" 2>/dev/null); then
+  fm_jev_decide "$state" "$questions" > "$response_file" || decide_code=$?
+  response=$(cat "$response_file" 2>/dev/null)
+  rm -f "$response_file"
+else
+  decide_code=2
+fi
 
 choice=
 confidence=
