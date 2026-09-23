@@ -85,7 +85,11 @@ meta_for_stale() {
   local key=$1 f value match='' count=0
   for f in "$STATE"/*.meta; do
     [ -f "$f" ] && [ ! -L "$f" ] || continue
-    value=$(awk -F= -v k="$key" '$1=="window" || $1=="terminal" { if ($2==k) found=1 } END { if (found) print "yes" }' "$f" 2>/dev/null)
+    value=$(awk -F= -v k="$key" '
+      $1 == "window" { windows++; if (NF != 2 || $2 == "") invalid=1; if ($2 == k) found=1 }
+      $1 == "terminal" { terminals++; if (NF != 2 || $2 == "") invalid=1; if ($2 == k) found=1 }
+      END { if (!invalid && windows <= 1 && terminals <= 1 && found) print "yes" }
+    ' "$f" 2>/dev/null)
     [ "$value" = yes ] || continue
     match=${f##*/}; match=${match%.meta}; count=$((count+1))
   done
@@ -110,7 +114,7 @@ while IFS= read -r tagged; do
   case "$id" in *[!A-Za-z0-9._-]*|'') printf '%s\t%s\n' '-' 'C2 invalid task identity' >> "$act_file"; all_routine=0; continue ;; esac
   meta="$STATE/$id.meta"
   [ -f "$meta" ] && [ -r "$meta" ] && [ ! -L "$meta" ] || { printf '%s\t%s\n' "$id" 'C2 metadata missing or unreadable' >> "$act_file"; all_routine=0; continue; }
-  kind=$(awk -F= '$1=="kind" {print $2; exit}' "$meta")
+  kind=$(awk -F= '$1 == "kind" { count++; if (NF != 2 || $2 == "") invalid=1; value=$2 } END { if (count == 1 && !invalid) print value }' "$meta")
   [ "$kind" = ship ] || [ "$kind" = scout ] || { printf '%s\t%s\n' "$id" 'C2 task kind is not ship/scout' >> "$act_file"; all_routine=0; continue; }
   task_count=$((task_count+1))
   if [ "$LOCK_FAILED" -eq 1 ]; then reason='queue lock unavailable';

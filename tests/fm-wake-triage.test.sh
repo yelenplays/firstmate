@@ -97,6 +97,37 @@ test_nonworking_and_terminal_rows_stay_actionable() {
   pass 'terminal and parked tasks are never auto-acknowledged'
 }
 
+test_meta_classification_fields_must_be_unique_and_well_formed() {
+  local dir out
+  dir=$(make_case duplicate-kind); install_crew_stub "$dir"; install_hold_stub "$dir"
+  setup_task duplicate "$dir"
+  printf 'kind=scout\n' >> "$dir/state/duplicate.meta"
+  append_wake "$dir/state" stale 'test:duplicate' 'stale: test:duplicate'
+  out=$(run_triage "$dir") || fail 'triage with duplicate kind failed'
+  assert_contains "$out" 'C2 task kind is not ship/scout' 'duplicate kind metadata was accepted'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'duplicate kind metadata must block auto-ack'
+  assert_unacked "$dir"
+
+  dir=$(make_case duplicate-window); install_crew_stub "$dir"; install_hold_stub "$dir"
+  setup_task duplicate "$dir"
+  printf 'window=test:duplicate\n' >> "$dir/state/duplicate.meta"
+  append_wake "$dir/state" stale 'test:duplicate' 'stale: test:duplicate'
+  out=$(run_triage "$dir") || fail 'triage with duplicate identity metadata failed'
+  assert_contains "$out" 'C2 stale identity is not exact' 'duplicate identity metadata was accepted'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'duplicate identity metadata must block auto-ack'
+  assert_unacked "$dir"
+
+  dir=$(make_case malformed-kind); install_crew_stub "$dir"; install_hold_stub "$dir"
+  setup_task malformed "$dir"
+  printf 'kind=ship=secondmate\nwindow=test:malformed\n' > "$dir/state/malformed.meta"
+  append_wake "$dir/state" stale 'test:malformed' 'stale: test:malformed'
+  out=$(run_triage "$dir") || fail 'triage with malformed kind failed'
+  assert_contains "$out" 'C2 task kind is not ship/scout' 'unparseable kind metadata was accepted'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'unparseable metadata must block auto-ack'
+  assert_unacked "$dir"
+  pass 'classification metadata must contain unique, well-formed fields'
+}
+
 test_status_annotations_require_exact_event_keys_and_verbs() {
   local dir out
   dir=$(make_case status-event-decoy); install_crew_stub "$dir"; install_hold_stub "$dir"
@@ -380,6 +411,7 @@ test_shellcheck() {
 }
 
 test_nonworking_and_terminal_rows_stay_actionable
+test_meta_classification_fields_must_be_unique_and_well_formed
 test_status_annotations_require_exact_event_keys_and_verbs
 test_ack_gate_with_and_without_extra_notice
 test_shape_identity_and_secondmate_fail_closed
