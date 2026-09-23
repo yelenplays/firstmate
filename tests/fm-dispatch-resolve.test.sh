@@ -386,8 +386,8 @@ write_response "$RESPONSE" rule_4 0.56 '{ "rule_1": 0.0, "rule_2": 0.25, "rule_3
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 assert_contains "$out" '  status: clear' "a margin exactly at the threshold clears"
 reset_log
-TYPESAFE_API_KEY=$KEY FM_JEV_DISPATCH_MARGIN=0.5 run code out err "$BRIEF"
-assert_contains "$out" '  reason: top-2 margin 0.4 below 0.5 (rule_4 vs rule_2)' "FM_JEV_DISPATCH_MARGIN in the environment sets the threshold"
+TYPESAFE_API_KEY=$KEY FM_JEV_DISPATCH_MARGIN=.5 run code out err "$BRIEF"
+assert_contains "$out" '  reason: top-2 margin 0.4 below 0.5 (rule_4 vs rule_2)' "a leading-dot environment margin is normalized before the gate"
 printf '%s\n' 'FM_JEV_DISPATCH_MARGIN=0.2' > "$HOME_DIR/.env"
 reset_log
 write_response "$RESPONSE" rule_4 0.26 '{ "rule_1": 0.02, "rule_2": 0.30, "rule_3": 0.02, "rule_4": 0.41, "default": 0.25 }'

@@ -156,7 +156,8 @@ replay_run() {
 }
 
 replay_score() {
-  local margins='' rows=0 files=() f
+  local margins='' rows=0 files=() f normalized_margins='' margin
+  local -a threshold_values=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --margin) [ $# -ge 2 ] || die "--margin needs a value"; margins=$2; shift 2 ;;
@@ -172,6 +173,12 @@ replay_score() {
   [ -n "$margins" ] || margins=$(replay_default_margin)
   printf '%s' "$margins" | awk -F, '{ for (i = 1; i <= NF; i++) if (!($i ~ /^(0|1)?(\.[0-9]+)?$/ && $i ~ /[0-9]/ && $i + 0 > 0 && $i + 0 <= 1)) exit 1 }' \
     || die "--margin needs comma-separated numbers in (0, 1]"
+  IFS=, read -r -a threshold_values <<< "$margins"
+  for margin in "${threshold_values[@]}"; do
+    case "$margin" in .*) margin="0$margin" ;; esac
+    normalized_margins="${normalized_margins:+$normalized_margins,}$margin"
+  done
+  margins=$normalized_margins
   cat "${files[@]}" | jq -rs --arg margins "$margins" --argjson rows "$rows" "$FM_JEV_CHOICE_TOP2_JQ"'
     def valid: (.probabilities | type) == "object" and (.probabilities | length) > 0
       and all(.probabilities[]; type == "number");

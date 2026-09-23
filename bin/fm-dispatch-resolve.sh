@@ -203,6 +203,7 @@ fm_dispatch_margin() {
     return 0
   fi
   awk -v m="$v" 'BEGIN { exit !(m ~ /^(0|1)?(\.[0-9]+)?$/ && m ~ /[0-9]/ && m+0 > 0 && m+0 <= 1) }' || return 1
+  case "$v" in .*) v="0$v" ;; esac
   printf '%s' "$v"
 }
 

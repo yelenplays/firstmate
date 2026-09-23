@@ -191,8 +191,11 @@ assert_equals 'replay-score: rows=4 labeled=2 skipped=1
   row: #4 first=rule_2 top=rule_2 second=default margin=0.96 confidence=0.97 expected=- margin-gate@0.3=pass margin-gate@0.5=pass verdict@0.3=- verdict@0.5=-' "$out" "score compares both gates, counts wrong picks, and prints per-threshold rows"
 run_tool out err score "$TMP_ROOT/score.jsonl"
 assert_contains "$out" '  gate: margin>=0.4 ambiguous=2 pass=2 wrong=1' "the default threshold is the resolver's default"
-PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_JEV_DISPATCH_MARGIN=0.75 "$TOOL" score "$TMP_ROOT/score.jsonl" > "$TMP_ROOT/out" 2>&1
-assert_contains "$(cat "$TMP_ROOT/out")" '  gate: margin>=0.75 ambiguous=3 pass=1 wrong=0' "FM_JEV_DISPATCH_MARGIN sets the default threshold"
+PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_JEV_DISPATCH_MARGIN=.75 "$TOOL" score "$TMP_ROOT/score.jsonl" > "$TMP_ROOT/out" 2>&1
+assert_contains "$(cat "$TMP_ROOT/out")" '  gate: margin>=0.75 ambiguous=3 pass=1 wrong=0' "the leading-dot environment margin is normalized as the default threshold"
+run_tool out err score --margin .5 "$TMP_ROOT/score.jsonl"
+expect_code 0 "$code" "a leading-dot replay threshold scores successfully"
+assert_contains "$out" '  gate: margin>=0.5 ambiguous=2 pass=2 wrong=1' "a leading-dot --margin value is normalized before scoring"
 ALTERNATE_RESOLVER="$TMP_ROOT/alternate-resolver"
 printf '%s\n' '#!/usr/bin/env bash' 'DEFAULT_MARGIN=0.9' > "$ALTERNATE_RESOLVER"
 chmod +x "$ALTERNATE_RESOLVER"
