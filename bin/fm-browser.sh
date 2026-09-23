@@ -124,8 +124,7 @@ NODE
   TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/fm-browser-route.XXXXXX") || fail 'cannot create a private temporary directory' 1
   RAW_OUTPUT="$TMP_DIR/output"
   RAW_ERROR="$TMP_DIR/error"
-  cleanup() { rm -rf "$TMP_DIR"; }
-  trap cleanup EXIT
+  trap 'rm -rf "$TMP_DIR"' EXIT
   trap 'exit 129' HUP
   trap 'exit 130' INT
   trap 'exit 143' TERM
