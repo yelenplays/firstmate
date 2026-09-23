@@ -3087,6 +3087,11 @@ cleanup_firstmate_home_children() {
     fi
     retire_busy_state "$sub_state" "$child_id" "$child_busy_gen" || return 1
     status_retire_presentation_task "$sub_state" "$child_id" || return 1
+    if [ -d "$sub_state" ]; then
+      case "$child_kind" in
+        ship|scout|task) rm -f -- "$sub_state/$child_id.execution" "$sub_state/.$child_id.execution-notified" ;;
+      esac
+    fi
     fm_backlog_atomic_transition remove "$sub_state/$child_id.meta" "task record" "$sub_state" || return 1
     rm -f "$sub_state/$child_id.turn-ended" "$sub_state/$child_id.progress" \
       "$sub_state/$child_id.pi-ext.ts" "$sub_state/$child_id.omp-ext.ts" \
@@ -3529,10 +3534,10 @@ rm -f "$STATE/$ID.turn-ended" "$(fm_wake_signal_seen_path "$STATE" "$STATE/$ID.t
   "$STATE/$ID.control-relaunch.brief-prior" "$STATE/$ID.control-relaunch.note" \
   "$STATE/$ID.reconcile-nudged" "$STATE/$ID.gemini-settings.json" \
   "$STATE/.$ID.branch-outcome-index"
-# Only the guarded ship landing path retires the implementation obligation.
-# Scout cleanup keeps it: a report is not implementation or landing.
-if [ "$KIND" = ship ]; then
-  rm -f "$STATE/$ID.execution" "$STATE/.$ID.execution-notified"
+if [ -d "$STATE" ]; then
+  case "$KIND" in
+    ship|scout|task) rm -f -- "$STATE/$ID.execution" "$STATE/.$ID.execution-notified" ;;
+  esac
 fi
 # The steering inbox (bin/fm-task-inbox-lib.sh) is runtime state for the
 # retired endpoint; teardown only runs after landing is confirmed, so any

@@ -21,7 +21,7 @@
 # invalidating every old receipt;
 # spawn/relaunch and promotion call it before delivering instructions. Output
 # is the token to put in the worker's instructions. started accepts it only
-# from the recorded isolated worktree, for kind=ship, and binds the receipt
+# from the recorded isolated worktree, for kind=ship or kind=task, and binds the receipt
 # to spawn_gen. Executing this instruction proves processing of this handoff,
 # not successful implementation, activity, or progress. It is independent of
 # vendor text and works even when a harness has no semantic busy source.
@@ -76,7 +76,8 @@ scan_one() {
   record_valid "$file" || { printf '%s\tfirstmate\treconcile-corrupt-execution-record\n' "$id"; return; }
   task=$(row "$id")
   if [ "$task" = null ]; then
-    printf '%s\tfirstmate\treconcile-missing-backlog-item\n' "$id"; return
+    printf '%s\tfirstmate\treconcile-missing-backlog-item\n' "$id"
+    return
   fi
   if [ "$(printf '%s' "$task" | jq -r .state)" = 'done' ]; then
     printf '%s\tfirstmate\treconcile-recorded-completion-before-dispatch-or-cleanup\n' "$id"; return
@@ -99,13 +100,14 @@ scan_one() {
     printf '%s\tdependency\twait-for-%s\n' "$id" "$blockers"; return
   fi
   kind=$(meta "$STATE/$id.meta" kind)
-  if [ "$kind" != ship ]; then
+  if [ "$kind" != ship ] && [ "$kind" != task ]; then
     if [ "$kind" = scout ]; then
       current=$(crew_state "$id" 2>/dev/null || true)
       case "$current" in
         'state: working · source: pane'*)
           printf '%s\tworker\tfinish-authorized-research-then-handoff\n' "$id"; return ;;
       esac
+      printf '%s\tfirstmate\tscout is not a confirmed active implementation owner; verify status, then promote or dispatch within approved intent\n' "$id"; return
     fi
     printf '%s\tfirstmate\timplementation owner missing; dispatch or promote within approved intent\n' "$id"; return
   fi
@@ -245,7 +247,7 @@ case "$command" in
     record_valid "$file" || fail 'no valid execution obligation'
     [ "$#" = 1 ] && [ -n "$1" ] || fail 'started requires handoff token'
     [ "$(jq -r .attempt "$file")" = "$1" ] || fail 'stale or mismatched handoff token'
-    [ "$(meta "$STATE/$id.meta" kind)" = ship ] || fail 'a scout or secondmate is not an implementation owner'
+    case "$(meta "$STATE/$id.meta" kind)" in ship|task) ;; *) fail 'a scout or secondmate is not an implementation owner' ;; esac
     wt=$(meta "$STATE/$id.meta" worktree); project=$(meta "$STATE/$id.meta" project)
     gen=$(meta "$STATE/$id.meta" spawn_gen)
     [ -n "$gen" ] && [ -d "$wt" ] && [ -d "$project" ] || fail 'missing dispatch identity'

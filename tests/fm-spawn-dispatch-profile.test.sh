@@ -800,6 +800,122 @@ test_batch_preserves_native_ultra() {
   pass "batch dispatch preserves native Ultra in metadata and launch flags"
 }
 
+test_pi_spawn_registers_only_its_isolated_copy() {
+  local rec id out status sandbox trust trust_pi_id
+  trust_pi_id='trust-pi-spawn'
+  rec=$(make_spawn_case trust-pi pi "$trust_pi_id")
+  read_case_record "$rec"
+  sandbox="$HOME_DIR/user-home"
+  trust="$sandbox/.pi/agent/trust.json"
+  mkdir -p "${trust%/*}"
+  printf '{"/unrelated/path":true}\n' > "$trust"
+  out=$(HOME="$sandbox" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$trust_pi_id" "$PROJ_DIR")
+  status=$?
+  expect_code 0 "$status" "Pi trust registration spawn should succeed"
+  jq -e --arg path "$WT_DIR" '.[$path] == true and .["/unrelated/path"] == true and length == 2' "$trust" >/dev/null \
+    || fail "Pi did not trust only this worker copy while preserving existing entries"
+  pass "Pi spawn registers exact isolated worktree trust without disturbing existing trust"
+}
+
+test_pi_trust_override_and_concurrent_updates() {
+  local agent_dir="$TMP_ROOT/pi-agent-shared" gate_dir="$TMP_ROOT/pi-trust-gate"
+  local real_jq harness index slot rec attempt count concurrent=0 spawn_status=0
+  local -a ids=() homes=() projects=() worktrees=() case_dirs=() pids=()
+  real_jq=$(command -v jq)
+  mkdir -p "$agent_dir" "$gate_dir"
+  printf '{"/unrelated/path":true}\n' > "$agent_dir/trust.json"
+
+  for harness in pi pi-signed; do
+    for index in 1 2; do
+      local id="trust-override-$harness-$index"
+      rec=$(make_spawn_case "$id" "$harness" "$id")
+      read_case_record "$rec"
+      slot=${#ids[@]}
+      ids[slot]=$id
+      homes[slot]=$HOME_DIR
+      projects[slot]=$PROJ_DIR
+      worktrees[slot]=$WT_DIR
+      case_dirs[slot]=$CASE_DIR
+      mkdir -p "$HOME_DIR/user-home/.pi/agent"
+      printf '{"/default-home-marker":true}\n' > "$HOME_DIR/user-home/.pi/agent/trust.json"
+      cat > "$FAKEBIN_DIR/jq" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = --arg ] && [ "${2:-}" = path ] && [ "${5:-}" = "${FM_TEST_PI_TRUST_FILE:-}" ]; then
+  output="$FM_TEST_PI_TRUST_GATE_DIR/output.${BASHPID:-$$}"
+  "$FM_TEST_REAL_JQ" "$@" > "$output" || exit $?
+  printf '%s\n' "${BASHPID:-$$}" >> "$FM_TEST_PI_TRUST_GATE_DIR/ready"
+  while [ ! -e "$FM_TEST_PI_TRUST_GATE_DIR/release" ]; do sleep 0.02; done
+  cat "$output"
+  rm -f -- "$output"
+  exit 0
+fi
+exec "$FM_TEST_REAL_JQ" "$@"
+SH
+      chmod +x "$FAKEBIN_DIR/jq"
+      PI_CODING_AGENT_DIR="$agent_dir" \
+        FM_TEST_PI_TRUST_FILE="$agent_dir/trust.json" \
+        FM_TEST_PI_TRUST_GATE_DIR="$gate_dir" FM_TEST_REAL_JQ="$real_jq" \
+        run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+        > "$CASE_DIR/out" 2>&1 &
+      pids+=("$!")
+    done
+  done
+
+  for ((attempt = 0; attempt < 300; attempt++)); do
+    [ -s "$gate_dir/ready" ] && break
+    sleep 0.02
+  done
+  if [ ! -s "$gate_dir/ready" ]; then
+    : > "$gate_dir/release"
+    for pid in "${pids[@]}"; do wait "$pid" || spawn_status=1; done
+    fail "Pi workers did not update the configured trust store"
+  fi
+  for ((attempt = 0; attempt < 100; attempt++)); do
+    count=$(wc -l < "$gate_dir/ready")
+    if [ "$count" -gt 1 ]; then concurrent=1; break; fi
+    sleep 0.02
+  done
+  : > "$gate_dir/release"
+  for pid in "${pids[@]}"; do wait "$pid" || spawn_status=1; done
+  [ "$spawn_status" = 0 ] || {
+    for case_dir in "${case_dirs[@]}"; do cat "$case_dir/out" >&2; done
+    fail "a concurrent Pi worker spawn failed"
+  }
+  [ "$concurrent" = 0 ] || fail "concurrent Pi trust updates entered the read/merge boundary together"
+
+  jq -e --arg a "${worktrees[0]}" --arg b "${worktrees[1]}" \
+    --arg c "${worktrees[2]}" --arg d "${worktrees[3]}" \
+    '."/unrelated/path" == true and .[$a] == true and .[$b] == true and .[$c] == true and .[$d] == true and length == 5' \
+    "$agent_dir/trust.json" >/dev/null || fail "Pi workers overwrote one another's trust entries"
+  for index in 0 1 2 3; do
+    jq -e 'length == 1 and .["/default-home-marker"] == true' \
+      "${homes[$index]}/user-home/.pi/agent/trust.json" >/dev/null \
+      || fail "Pi worker wrote to its HOME trust store instead of PI_CODING_AGENT_DIR"
+  done
+  pass "Pi and pi-signed use and serialize updates to the configured trust store"
+}
+
+test_pi_trust_expands_named_user_config() {
+  local rec id username relative config agent_dir out status trust
+  id='trust-named-user'
+  rec=$(make_spawn_case trust-named-user pi "$id")
+  read_case_record "$rec"
+  agent_dir="$CASE_DIR/named-pi-agent"
+  username=$(python3 -c 'import os, pwd; print(pwd.getpwuid(os.getuid()).pw_name)')
+  relative=$(python3 -c 'import os, pwd, sys; home = pwd.getpwnam(sys.argv[2]).pw_dir; print(os.path.relpath(sys.argv[1], home))' "$agent_dir" "$username")
+  config="~$username/$relative"
+
+  out=$(PI_CODING_AGENT_DIR="$config" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  status=$?
+  expect_code 0 "$status" "Pi spawn with a named-user config path should succeed: $out"
+  trust="$agent_dir/trust.json"
+  jq -e --arg path "$WT_DIR" '.[$path] == true and length == 1' "$trust" >/dev/null \
+    || fail "Pi did not register the worktree in the named-user config directory"
+  [ ! -e "$HOME_DIR/user-home/.pi/agent/trust.json" ] \
+    || fail "Pi also wrote to the default HOME trust store"
+  pass "Pi trust registration expands named-user config paths"
+}
+
 test_pi_threads_model_and_max_effort() {
   local rec id out status launch
   id=profile-pi-z8
@@ -1704,6 +1820,9 @@ test_opencode_threads_model_and_ignores_effort_axis
 test_native_effort_validator_keeps_axes_separate
 test_native_pi_ultra_is_explicit_and_model_scoped
 test_batch_preserves_native_ultra
+test_pi_spawn_registers_only_its_isolated_copy
+test_pi_trust_override_and_concurrent_updates
+test_pi_trust_expands_named_user_config
 test_pi_threads_model_and_max_effort
 test_pi_role_provisioning_runs_in_the_worker_environment
 test_pi_tui_mode_probe_is_safe_for_old_and_new_pi

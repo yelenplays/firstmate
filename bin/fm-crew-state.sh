@@ -791,7 +791,8 @@ fi
 
 # --- run-step authoritative path -------------------------------------------
 
-if [ "$KIND" = ship ] && [ -e "$STATE/$ID.execution" ] &&
+if { [ "$KIND" = ship ] || [ "$KIND" = task ]; } &&
+  [ -e "$STATE/$ID.execution" ] &&
   ! FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" confirmed "$ID"; then
   if [ "$HAVE_RUN" = 1 ]; then
     emit unknown run-step 'validation run active; implementation handoff processing unconfirmed'

@@ -165,7 +165,8 @@ The signed wrapper was absent, so its live proof remains unverified rather than 
 
 Applicability review: the new launch prefix is shared by tmux, Herdr, Zellij, Orca, and cmux before their existing literal-submit adapters, and applies to Pi and pi-signed for ships, scouts, secondmates, and relaunches.
 The proof above exercises tmux, not a claim of new sub-agent support on another backend: this installed sub-agent package still requires its orchestrator to be inside tmux.
-No other primary harness or worker adapter gains role provisioning, and no backend lifecycle or trust policy changes.
+No other primary harness or worker adapter gains role provisioning, and no backend lifecycle changes.
+Pi fresh-worker trust registration is documented in the [Pi harness reference](../../.agents/skills/harness-adapters/references/harness/pi.md).
 
 ### Agent liveness name sources
 

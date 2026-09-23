@@ -3977,6 +3977,40 @@ claude*)
     exit 1
   fi
   ;;
+pi | pi-signed)
+  if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
+    pi_agent_dir=${PI_CODING_AGENT_DIR-$HOME/.pi/agent}
+    [ -n "$pi_agent_dir" ] || { echo "error: PI_CODING_AGENT_DIR is empty" >&2; exit 1; }
+    pi_agent_dir=$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).expanduser())' "$pi_agent_dir") \
+      || { echo "error: could not resolve Pi trust directory" >&2; exit 1; }
+    case "$pi_agent_dir" in
+      /*) ;;
+      *) pi_agent_dir="$WT/$pi_agent_dir" ;;
+    esac
+    mkdir -p "$pi_agent_dir" || { echo "error: could not create Pi trust directory" >&2; exit 1; }
+    pi_agent_dir=$(CDPATH='' cd -- "$pi_agent_dir" && pwd -P) \
+      || { echo "error: could not resolve Pi trust directory" >&2; exit 1; }
+    pi_trust="$pi_agent_dir/trust.json"
+    pi_trust_lock="$pi_agent_dir/.trust.json.lock"
+    (
+      fm_lock_acquire_wait "$pi_trust_lock" || { echo "error: could not lock Pi trust store" >&2; exit 1; }
+      trust_tmp="$pi_agent_dir/.trust.json.${BASHPID:-$$}"
+      trap 'rm -f -- "$trust_tmp"; fm_lock_release "$pi_trust_lock"' EXIT
+      [ ! -L "$pi_trust" ] || { echo "error: Pi trust store is a symlink" >&2; exit 1; }
+      if [ -e "$pi_trust" ]; then
+        jq -e 'type == "object" and all(to_entries[]; .value == true)' "$pi_trust" >/dev/null \
+          || { echo "error: invalid Pi trust store" >&2; exit 1; }
+        jq --arg path "$WT" '.[$path] = true' "$pi_trust" > "$trust_tmp" || exit 1
+      else
+        jq -n --arg path "$WT" '{($path): true}' > "$trust_tmp" || exit 1
+      fi
+      if ! chmod 600 "$trust_tmp" || ! mv -f -- "$trust_tmp" "$pi_trust"; then
+        echo "error: could not update Pi trust store" >&2
+        exit 1
+      fi
+    ) || exit 1
+  fi
+  ;;
 agy)
   if [ "$KIND" != secondmate ]; then
     if "$FM_ROOT/bin/fm-agy-trust.sh" "$WT" "$PROJ_ABS" >/dev/null; then
@@ -4436,7 +4470,7 @@ else
 fi
 
 EXECUTION_TOKEN=
-if [ "$KIND" = ship ]; then
+if [ "$KIND" != scout ] && [ "$KIND" != secondmate ]; then
   EXECUTION_TOKEN=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" attempt "$ID" --spawn-gen "$SPAWN_GEN") || exit 1
 fi
 

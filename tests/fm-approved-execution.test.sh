@@ -29,11 +29,13 @@ for _round in 1 2; do
   ack_drain_err "$home/state" "$home/err"
 done
 "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
-if ! grep -q 'approved-scout.*implementation owner' "$home/drain"; then
-  printf 'FAIL: approved work disappeared after finished-report acknowledgements; no implementation owner reminder\n' >&2
+if ! grep -q 'approved-scout.*scout is not a confirmed active implementation owner' "$home/drain"; then
+  printf 'FAIL: approved scout did not retain its firstmate-owned next action\n' >&2
   exit 1
 fi
 printf 'PASS: approved scout cannot disappear after acknowledgements\n'
+"$EXEC" show approved-scout | grep -q 'verify status, then promote or dispatch' \
+  || fail 'finished approved scout did not report an actionable status check'
 
 # Independent approvals all stay actionable, without an arbitrary concurrency cap.
 for id in independent-a independent-b independent-c; do
@@ -72,7 +74,7 @@ if "$EXEC" scan | grep -q negative-answer; then fail 'plain release fabricated i
 # finished report, a stale working line, or a promotion alone is not implementation.
 FM_FAKE_CREW_STATE='state: working · source: pane · harness busy (pi-ext)' "$EXEC" show approved-scout | grep -q 'worker.*finish-authorized-research'
 printf 'working: stale acknowledgement\n' >> "$home/state/approved-scout.status"
-"$EXEC" show approved-scout | grep -q 'implementation owner missing'
+"$EXEC" show approved-scout | grep -q 'verify status, then promote or dispatch'
 ln -s "$ROOT/bin" "$home/bin"
 mkdir -p "$home/data/approved-scout"
 cat > "$home/data/approved-scout/brief.md" <<'EOF'
@@ -118,9 +120,10 @@ if (cd "$home/worker" && "$EXEC" started approved-scout "$new_token") 2>/dev/nul
 # A backlog completion, including a finished scout, is not landing evidence.
 tasks 'done' independent-b >/dev/null
 "$EXEC" show independent-b | grep -q 'firstmate.*reconcile-recorded-completion'
-# Lost handoff retains the source obligation even if its backlog row vanished.
+# A missing backlog item remains a reconciliation issue, not a cleanup trigger.
 tasks rm independent-c >/dev/null
-"$EXEC" show independent-c | grep -q 'firstmate.*reconcile-missing-backlog'
+"$EXEC" show independent-c | grep -q 'reconcile-missing-backlog-item'
+[ -e "$home/state/independent-c.execution" ] || fail 'scan removed an orphaned approval automatically'
 
 # The real watcher reuses its queue; acknowledgment cannot retire the obligation.
 # No live backend lifecycle or external service is used by this fixture.
@@ -149,4 +152,14 @@ if FM_HOME="$home" FM_STATE_OVERRIDE="$other/state" "$EXEC" approve independent-
   fail 'inherited cross-home state override accepted for approval'
 fi
 [ ! -e "$other/state/independent-a.execution" ] || fail 'cross-home approval mutated another home'
+# Generic task workers receive the same generation-bound receipt as ships.
+tasks add task-receipt 'Process a bounded task' --kind task >/dev/null
+"$EXEC" approve task-receipt --basis captain-approved
+mkdir -p "$home/task-worker"
+git -C "$home/task-worker" init -q
+printf 'kind=task\nwindow=fake\nworktree=%s/task-worker\nproject=%s/project\nspawn_gen=task-gen\nharness=pi\n' "$home" "$home" > "$home/state/task-receipt.meta"
+task_token=$(FM_HOME="$home" "$EXEC" attempt task-receipt --spawn-gen task-gen)
+(cd "$home/task-worker" && FM_HOME="$home" "$EXEC" started task-receipt "$task_token")
+FM_HOME="$home" "$EXEC" confirmed task-receipt
+
 printf 'PASS: authority, fan-out, waits, promotion, receipts, restart, handoff and watcher transitions\n'
