@@ -41,6 +41,7 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 out="$pending"
+ack_required_count=$(grep -c '^WAKE_ACK_REQUIRED:' "$out" || true)
 cutoff=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through \([0-9][0-9]*\) --recovery-generation .*/\1/p' "$out" | tail -1)
 generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--recovery-generation \([A-Za-z0-9._-][A-Za-z0-9._-]*\).*$/\1/p' "$out" | tail -1)
 
@@ -201,7 +202,7 @@ for f in "${recovered[@]}"; do rm -f -- "$f" || exit 1; done
 if [ "$DRAIN_CODE" -ne 0 ]; then exit "$DRAIN_CODE"; fi
 if [ "$all_routine" -eq 1 ] && [ -s "$rows" ] && [ "$recovered_count" -eq 0 ] \
   && [ -z "$(grep -E '^(WAKE ROWS HELD|STATUS PRESENTATION (SKIPPED|INCOMPLETE)|WAKE DRAIN SKIPPED|UNREAD STATUS|OPEN DECISIONS|STATUS OUTCOME BACKSTOP|RECORD DIVERGENCE|UNFINISHED EXECUTION: reconciliation unavailable|wake drain:|watcher:|firstmate watcher|WARNING:|●)' "$out" | grep -Ev '^WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else[.]' || true)" ] \
-  && [ "$(grep -c '^WAKE_ACK_REQUIRED:' "$out" || true)" -eq 1 ] \
+  && [ "$ack_required_count" -eq 1 ] \
   && [ -n "$cutoff" ] && [ "$cutoff" -gt 0 ] && [ -n "$generation" ] \
   && [ ! -e "$STATE/.afk" ]; then
   ack=$("$SCRIPT_DIR/fm-wake-drain.sh" --ack-through "$cutoff" --recovery-generation "$generation" 2>&1) || { printf '%s\n' "$ack"; exit 1; }

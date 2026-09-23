@@ -97,6 +97,30 @@ test_nonworking_and_terminal_rows_stay_actionable() {
   pass 'terminal and parked tasks are never auto-acknowledged'
 }
 
+test_ack_gate_with_and_without_extra_notice() {
+  local dir out pid
+  dir=$(make_case ack-without-notice); install_crew_stub "$dir"; install_hold_stub "$dir"
+  setup_task routine "$dir"
+  pid=$(seed_fresh_watcher "$dir")
+  append_wake "$dir/state" stale 'test:routine' 'stale: test:routine'
+  out=$(run_triage "$dir") || fail 'routine triage failed'
+  assert_contains "$out" 'WAKE_ACKED:' 'one routine row without notices should auto-ack'
+  kill "$pid" 2>/dev/null || true
+
+  dir=$(make_case ack-with-extra-notice); install_crew_stub "$dir"; install_hold_stub "$dir"
+  setup_task routine "$dir"
+  setup_task unrelated "$dir"
+  pid=$(seed_fresh_watcher "$dir")
+  printf 'note: unrelated update\n' >> "$dir/state/unrelated.status"
+  append_wake "$dir/state" stale 'test:routine' 'stale: test:routine'
+  out=$(run_triage "$dir") || fail 'triage with unrelated notice failed'
+  assert_contains "$out" 'UNREAD STATUS' 'extra one-shot notice was not emitted'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'an extra notice must block automatic acknowledgement'
+  assert_unacked "$dir"
+  kill "$pid" 2>/dev/null || true
+  pass 'ack gate accepts a clean drain and blocks one with an extra notice'
+}
+
 test_shape_identity_and_secondmate_fail_closed() {
   local dir out log
   dir=$(make_case malformed); install_crew_stub "$dir"; install_hold_stub "$dir"
@@ -333,6 +357,7 @@ test_shellcheck() {
 }
 
 test_nonworking_and_terminal_rows_stay_actionable
+test_ack_gate_with_and_without_extra_notice
 test_shape_identity_and_secondmate_fail_closed
 test_open_decisions_pauses_holds_and_execution_are_actionable
 test_happy_path_and_afk
