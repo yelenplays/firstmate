@@ -401,7 +401,7 @@ try {
   if (!result || typeof result !== "object" || Array.isArray(result)) process.exit(2);
   if (envelope?.record && result.ok && result.verified) {
     const record = envelope.record;
-    if (record.currentHost !== record.host) process.exit(2);
+    if (record.startHost !== record.host || record.currentHost !== record.host) process.exit(2);
     const base = path.join(process.env.FM_BROWSER_HOME, "data", "browser-routes");
     const dir = path.join(base, record.host);
     const file = path.join(dir, `${record.route}.json`);

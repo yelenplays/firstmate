@@ -411,13 +411,13 @@ export async function executeStep(rawParams, pageApi) {
 }
 
 if (typeof page !== 'undefined' && typeof PARAMS !== 'undefined') {
-  const start = PARAMS.record ? await page.eval(() => ({ path: location.pathname })) : null;
+  const start = PARAMS.record ? await page.eval(() => ({ host: location.hostname.toLowerCase(), path: location.pathname })) : null;
   const result = PARAMS.mode === 'route'
     ? await executeRoute(PARAMS.route, PARAMS.vars, PARAMS.from, page)
     : await executeStep(PARAMS, page);
-  if (PARAMS.record && result.ok && result.verified) {
+  if (PARAMS.record && result.ok && result.verified && start.host === PARAMS.record.host.toLowerCase()) {
     const current = await page.eval(() => ({ host: location.hostname.toLowerCase() }));
-    console.log(JSON.stringify({ result, record: { ...PARAMS.record, currentHost: current.host, path: start.path } }));
+    console.log(JSON.stringify({ result, record: { ...PARAMS.record, startHost: start.host, currentHost: current.host, path: start.path } }));
   } else {
     console.log(JSON.stringify(result));
   }

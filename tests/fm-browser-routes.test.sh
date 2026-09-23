@@ -9,6 +9,7 @@ ENGINE="$ROOT/bin/fm-browser-engine.mjs"
 SCRIPT="$ROOT/bin/fm-browser.sh"
 FM_BROWSER_ENGINE="$ENGINE" node --input-type=module <<'JS'
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 const engine = await import(pathToFileURL(process.env.FM_BROWSER_ENGINE));
 const route = {
@@ -108,7 +109,31 @@ result = await engine.executeRoute(healingRoute, {}, null, healingPage);
 assert.equal(result.ok, true);
 assert.equal(result.routeUpdates[0].target, 'Deploy production 123456');
 assert.equal(result.heals[0].to, 'Deploy production [number]');
-console.log('offline route format, variables, resume, confirmation, selector semantics, healing, and replay checks passed');
+const runner = String.raw`
+import { pathToFileURL } from 'node:url';
+let evalCount = 0;
+globalThis.PARAMS = {
+  action: 'click', target: 'button=Go', expectation: { kind: 'url-path', path: '/done' },
+  record: { host: 'target.example', route: 'mismatch', step: { id: 'click', do: 'click' } },
+};
+globalThis.page = {
+  async eval() {
+    evalCount += 1;
+    if (evalCount === 1) return { host: 'start.example', path: '/form' };
+    if (evalCount === 2) return '/done';
+    return { host: 'target.example' };
+  },
+  async snapshot() { return 'uid=x:0 rootwebarea "fixture"\n  uid=x:1 button "Go"'; },
+  async click() {}, async wait() {},
+};
+await import(pathToFileURL(process.env.FM_BROWSER_ENGINE));
+`;
+const invocation = spawnSync(process.execPath, ['--input-type=module', '-e', runner], {
+  encoding: 'utf8', env: { ...process.env, FM_BROWSER_ENGINE: process.env.FM_BROWSER_ENGINE },
+});
+assert.equal(invocation.status, 0, invocation.stderr);
+assert.equal(JSON.parse(invocation.stdout).record, undefined);
+console.log('offline route format, variables, resume, confirmation, selector semantics, healing, and recording host checks passed');
 JS
 pass 'route format, interpolation, resume, confirmation, and one-run sequencing are covered'
 
