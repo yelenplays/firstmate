@@ -53,7 +53,6 @@ shift
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 ENGINE="$ROOT/bin/fm-browser-engine.mjs"
 command -v node >/dev/null 2>&1 || fail 'node is required'
-command -v chrome-devtools-axi >/dev/null 2>&1 || fail 'chrome-devtools-axi is required'
 
 ACTION=''
 TARGET=''
@@ -192,6 +191,8 @@ try {
 }
 NODE
 ) || fail 'invalid step arguments'
+
+command -v chrome-devtools-axi >/dev/null 2>&1 || fail 'chrome-devtools-axi is required'
 
 umask 077
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/fm-browser-step.XXXXXX") || fail 'cannot create a private temporary directory' 1
