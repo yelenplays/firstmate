@@ -123,7 +123,6 @@ while IFS= read -r tagged; do
       if [ -n "$owner_lines" ] && ! printf '%s\n' "$owner_lines" | grep -q 'worker'; then reason='C8 execution belongs to firstmate';
       elif awk -F '\t' -v id="$id" '$3 == "check" && $4 == "execution:" id && $5 == "check: execution " id { found=1 } END { exit !found }' "$rows" \
         && [ -z "$owner_lines" ]; then reason='C8 execution obligation missing';
-      elif [ "$kind" = secondmate ]; then reason='C2 secondmate is never routine';
       else
         reason=''
       fi
@@ -131,8 +130,7 @@ while IFS= read -r tagged; do
   fi
   if [ -z "$reason" ]; then
     crew=$(FM_STATE_OVERRIDE="$STATE" "$FM_CREW_STATE_BIN" "$id" 2>/dev/null || true)
-    FM_CREW_STATE_BIN="${FM_CREW_STATE_BIN:-$SCRIPT_DIR/fm-crew-state.sh}"
-    class=$(crew_absorb_class "$id" 2>/dev/null || true)
+    class=$(crew_absorb_class "$id" "$crew" 1 2>/dev/null || true)
     if [ "$class" != working ]; then reason='C3 crew not working'; fi
     hold_code=0
     FM_STATE_OVERRIDE="$STATE" "${FM_CAPTAIN_HOLD_BIN:-$SCRIPT_DIR/fm-captain-hold.sh}" open "$id" --distinguish-absent >/dev/null 2>&1 || hold_code=$?
@@ -192,7 +190,7 @@ for f in "${recovered[@]}"; do rm -f -- "$f" || exit 1; done
 
 if [ "$DRAIN_CODE" -ne 0 ]; then exit "$DRAIN_CODE"; fi
 if [ "$all_routine" -eq 1 ] && [ -s "$rows" ] && [ "$recovered_count" -eq 0 ] \
-  && [ -z "$(grep -E '^(WAKE ROWS HELD|STATUS PRESENTATION (SKIPPED|INCOMPLETE)|WAKE DRAIN SKIPPED|wake drain:|watcher:|firstmate watcher|WARNING:|●)' "$out" | grep -Ev '^WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else\.' || true)" ] \
+  && [ -z "$(grep -E '^(WAKE ROWS HELD|STATUS PRESENTATION (SKIPPED|INCOMPLETE)|WAKE DRAIN SKIPPED|UNREAD STATUS|OPEN DECISIONS|STATUS OUTCOME BACKSTOP|RECORD DIVERGENCE|UNFINISHED EXECUTION: reconciliation unavailable|wake drain:|watcher:|firstmate watcher|WARNING:|●)' "$out" | grep -Ev '^WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else[.]' || true)" ] \
   && [ "$(grep -c '^WAKE_ACK_REQUIRED:' "$out" || true)" -eq 1 ] \
   && [ -n "$cutoff" ] && [ "$cutoff" -gt 0 ] && [ -n "$generation" ] \
   && [ ! -e "$STATE/.afk" ]; then

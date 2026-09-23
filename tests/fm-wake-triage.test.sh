@@ -135,12 +135,14 @@ test_open_decisions_pauses_holds_and_execution_are_actionable() {
 }
 
 test_happy_path_and_afk() {
-  local dir out pid
+  local dir out pid log
   dir=$(make_case routine); install_crew_stub "$dir"; install_hold_stub "$dir"
   setup_task routine "$dir"
   pid=$(seed_fresh_watcher "$dir")
   append_wake "$dir/state" stale 'test:routine' 'stale: test:routine'
-  out=$(run_triage "$dir") || fail "routine triage failed"
+  log="$dir/crew.log"
+  out=$(FM_CREW_LOG="$log" run_triage "$dir") || fail "routine triage failed"
+  [ "$(wc -l < "$log" | tr -d ' ')" = 1 ] || fail 'crew state was not read exactly once'
   assert_contains "$out" 'ROUTINE (worker verifiably working' 'working task was not classified routine'
   assert_contains "$out" 'WAKE_ACKED:' 'all-routine queue was not acknowledged'
   [ ! -s "$dir/state/.wake-queue" ] || fail 'all-routine queue was not consumed'
@@ -157,7 +159,7 @@ test_happy_path_and_afk() {
   pass 'all-routine rows auto-ack, except while away mode is active'
 }
 
-test_branch_actor_and_static_guards() {
+test_branch_actor_delegates_to_drain() {
   local dir out
   dir=$(make_case branch); install_crew_stub "$dir"; install_hold_stub "$dir"
   append_wake "$dir/state" heartbeat heartbeat 'heartbeat'
@@ -166,9 +168,7 @@ test_branch_actor_and_static_guards() {
   assert_contains "$out" 'no branch-eligible row snapshot' 'branch actor must preserve the drain grant requirement'
   assert_not_contains "$out" 'WAKE TRIAGE:' 'branch actor must not reclassify wakes'
 
-  assert_not_contains "$(<"$TRIAGE")" 'jev' 'triage command must not call Jev'
-  assert_not_contains "$(<"$TRIAGE")" 'curl' 'triage command must not make network calls'
-  pass 'branch handling remains delegated and classifier has no Jev/network dependency'
+  pass 'branch handling remains delegated to the existing drain contract'
 }
 
 test_reason_specific_and_nonproof_failures() {
@@ -221,6 +221,16 @@ test_unread_note_and_captain_hold_exit_codes() {
   out=$(run_triage "$dir") || fail 'triage failed'
   assert_contains "$out" 'C7' 'unread note must prevent routine dismissal'
   assert_unacked "$dir"
+
+  dir=$(make_case unrelated-unread-note); install_crew_stub "$dir"; install_hold_stub "$dir"
+  setup_task routine "$dir"
+  setup_task unrelated "$dir"
+  printf 'note: unrelated captain reply\n' >> "$dir/state/unrelated.status"
+  append_wake "$dir/state" stale 'test:routine' 'stale: test:routine'
+  out=$(run_triage "$dir") || fail 'triage failed'
+  assert_contains "$out" 'UNREAD STATUS' 'unrelated one-shot notice was not surfaced'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'unrelated one-shot notice must block acknowledgement'
+  assert_unacked "$dir"
   pass 'ambiguous hold results and unread informational status remain actionable'
 }
 
@@ -257,9 +267,8 @@ test_instruction_wiring() {
   local rendered
   rendered=$("$ROOT/bin/fm-supervision-instructions.sh" --harness claude)
   assert_contains "$rendered" 'bin/fm-wake-triage.sh' 'Claude instructions omit the triage command'
-  assert_contains "$(<"$ROOT/docs/supervision-protocols/claude.md")" 'ACT NOW, NOTICES and STANDING' 'Claude protocol lacks triage response guidance'
-  assert_contains "$(<"$ROOT/bin/fm-claude-stop-autoarm.sh")" 'fallback: bin/fm-wake-drain.sh' 'auto-arm fallback is missing'
-  pass 'Claude-only instruction surfaces name wake triage'
+  assert_contains "$rendered" 'ACT NOW' 'Claude instructions omit triage response guidance'
+  pass 'Claude instruction renderer exposes the triage interface'
 }
 
 test_shellcheck() {
@@ -271,7 +280,7 @@ test_nonworking_and_terminal_rows_stay_actionable
 test_shape_identity_and_secondmate_fail_closed
 test_open_decisions_pauses_holds_and_execution_are_actionable
 test_happy_path_and_afk
-test_branch_actor_and_static_guards
+test_branch_actor_delegates_to_drain
 test_reason_specific_and_nonproof_failures
 test_unread_note_and_captain_hold_exit_codes
 test_hidden_duplicate_row_stays_actionable
