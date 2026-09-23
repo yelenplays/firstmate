@@ -537,8 +537,8 @@ prefetch_crew_states() {
     if [ "$n" -ge "$max" ]; then wait; n=0; fi
   done < "$PARSED"
   while IFS="$TAB" read -r task owner action; do
-    [ -n "$task" ] && [ -n "$action" ] \
-      && { [ "$owner" = firstmate ] || [ "$owner" = worker ]; } || continue
+    if [ -z "$task" ] || [ -z "$action" ]; then continue; fi
+    case "$owner" in firstmate|worker) ;; *) continue ;; esac
     safe_id "$task" || continue
     case "$seen" in *" $task "*) continue ;; esac
     seen="$seen$task "
