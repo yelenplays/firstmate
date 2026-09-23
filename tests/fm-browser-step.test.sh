@@ -28,8 +28,8 @@ const engine = await import(pathToFileURL(process.env.FM_BROWSER_ENGINE));
 
 const secret = 'cfut_Zx9Kq2Lm8Rt4Vw6Yb1Nc3Hd5Jf7Gs0PaQe8Ui2Ok4';
 const account = '0123456789abcdef0123456789abcdef';
-const redacted = engine.redact(`Copy ${secret}; account ${account}; ghp_abcdefghijklmnopqrstuvwxyz0123456789; github_pat_abcdefghijklmnopqrstuvwxyz0123456789; sk-abcdefghijklmnopqrstuvwxyz0123456789; Bearer abcdefghijklmnopqrstuvwxyz0123456789; mail jane@example.test; https://example.test/callback?code=123456; OTP 123456`);
-for (const needle of [secret, account, 'ghp_abcdefghijklmnopqrstuvwxyz', 'github_pat_abcdefghijklmnopqrstuvwxyz', 'sk-abcdefghijklmnopqrstuvwxyz', 'Bearer abcdef', 'jane@example.test', 'example.test/callback', '123456']) {
+const redacted = engine.redact(`Copy ${secret}; account ${account}; ghp_abcdefghijklmnopqrstuvwxyz0123456789; github_pat_abcdefghijklmnopqrstuvwxyz0123456789; sk-abcdefghijklmnopqrstuvwxyz0123456789; Bearer abcdefghijklmnopqrstuvwxyz0123456789; mail jane@example.test; https://example.test/callback?code=123456; OTP 123456; Copy token=ab12cd34; API key: Qx6; password hunter2; code 123`);
+for (const needle of [secret, account, 'ghp_abcdefghijklmnopqrstuvwxyz', 'github_pat_abcdefghijklmnopqrstuvwxyz', 'sk-abcdefghijklmnopqrstuvwxyz', 'Bearer abcdef', 'jane@example.test', 'example.test/callback', '123456', 'ab12cd34', 'Qx6', 'hunter2']) {
   assert.equal(redacted.includes(needle), false, `redactor leaked ${needle}`);
 }
 for (const expected of ['[redacted]', '[opaque]', '[email]', '[url]', '[number]']) {
@@ -63,7 +63,7 @@ assert.throws(() => engine.parseSelector('button=Use#0'));
 assert.throws(() => engine.validateParams({ action: 'select', target: 'button=Use', option: 'DNS Edit' }));
 
 let index = 0;
-const afterSnapshot = `${snapshot}\n    uid=g2:7 button "Copy"\n    uid=g2:8 generic "${secret}"`;
+const afterSnapshot = `${snapshot}\n    uid=g2:7 button "Copy token=ab12cd34"\n    uid=g2:8 generic "${secret}"`;
 const clickCalls = [];
 const fakePage = {
   async snapshot() { return index++ === 0 ? snapshot : afterSnapshot; },
@@ -76,13 +76,32 @@ const fakePage = {
 const result = await engine.executeStep({
   action: 'click',
   target: 'button=Use#2',
-  expectation: { kind: 'appears', selector: 'button=Copy' },
+  expectation: { kind: 'appears', selector: 'button~Copy' },
 }, fakePage);
 assert.equal(result.ok, true);
+assert.equal(result.verified, true);
 assert.deepEqual(clickCalls, ['@g1:5']);
-assert.deepEqual(result.appeared, ['button|Copy']);
+assert.deepEqual(result.appeared, ['button|Copy token=[redacted]']);
 assert.equal(JSON.stringify(result).includes(secret), false);
 assert.equal(JSON.stringify(result).includes('scout-fixture'), false);
+
+const missingTarget = await engine.executeStep({ action: 'click', target: 'button=Settings' }, {
+  ...fakePage,
+  async snapshot() { return snapshot; },
+});
+assert.equal(missingTarget.error, 'TARGET_NOT_FOUND');
+assert.equal(Object.hasOwn(missingTarget, 'candidates'), false);
+assert.deepEqual(missingTarget.gone, []);
+
+const actionFailure = await engine.executeStep({ action: 'click', target: 'button=Use' }, {
+  ...fakePage,
+  async snapshot() { return snapshot; },
+  async click() { throw new Error('rejected click'); },
+});
+assert.equal(actionFailure.ok, false);
+assert.equal(actionFailure.verified, false);
+assert.deepEqual(actionFailure.gone, []);
+assert.deepEqual(actionFailure.appeared, []);
 
 let fillValue = '';
 index = 0;
@@ -97,6 +116,7 @@ const fillResult = await engine.executeStep({
 });
 assert.equal(fillValue, '@g1:6:scout-fixture');
 assert.equal(fillResult.ok, true);
+assert.equal(fillResult.verified, false);
 assert.equal(JSON.stringify(fillResult).includes('scout-fixture'), false);
 
 let pressed = '';
@@ -110,20 +130,23 @@ const urlResult = await engine.executeStep({
 });
 assert.equal(pressed, 'Enter');
 assert.equal(urlResult.ok, true);
+assert.equal(urlResult.verified, true);
 const titleResult = await engine.executeStep({
-  action: 'press', key: 'Enter', expectation: { kind: 'title', selector: 'title~step fixture' },
+  action: 'press', key: 'Enter', expectation: { kind: 'title', selector: 'title~Build #2' },
 }, {
   ...fakePage,
-  async snapshot() { return snapshot; },
+  async snapshot() { return 'uid=t:0 rootwebarea "Build #2"'; },
   async press() {},
 });
 assert.equal(titleResult.ok, true);
+assert.equal(titleResult.verified, true);
 
 const filtered = engine.sanitizeResult({
-  step: 'step', ok: true, appeared: [`button|${secret}`], gone: [], ms: 4,
+  step: 'step', ok: true, verified: true, appeared: [`button|${secret}`, 'button|Copy token=ab12cd34'], gone: [], ms: 4,
   value: secret, pageText: secret,
 });
 assert.equal(JSON.stringify(filtered).includes(secret), false);
+assert.equal(JSON.stringify(filtered).includes('ab12cd34'), false);
 assert.equal(Object.hasOwn(filtered, 'value'), false);
 console.log('offline parser, selector, execution, and redaction checks passed');
 JS

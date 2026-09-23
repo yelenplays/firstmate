@@ -22,6 +22,7 @@
         <option>DNS Read</option>
         <option>DNS Edit</option>
       </select>
+      <p id="form-status" role="status" aria-live="polite"></p>
 
       <fieldset id="token-7">
         <legend>Token 7</legend>
@@ -35,6 +36,12 @@
     <script>
       document.querySelector('#reveal').addEventListener('click', () => {
         document.querySelector('#revealed').hidden = false;
+      });
+      document.querySelector('#token-name').addEventListener('input', () => {
+        document.querySelector('#form-status').textContent = 'Token name updated';
+      });
+      document.querySelector('#permission').addEventListener('change', () => {
+        document.querySelector('#form-status').textContent = 'Permission updated';
       });
       document.querySelector('#token-7 button').addEventListener('click', () => {
         document.querySelector('#token-7').remove();

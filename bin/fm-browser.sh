@@ -4,7 +4,7 @@
 # Usage:
 #   fm-browser.sh step --click <target> [--within <target>] [--expect <target>]
 #   fm-browser.sh step --fill <target> --value <text> [--expect <target>]
-#   fm-browser.sh step --select <target> --option <label>
+#   fm-browser.sh step --select <target> --option <label> [--expect <target>]
 #   fm-browser.sh step --press <key> [--expect <target>]
 #   fm-browser.sh step --press <key> --expect-gone <target>
 #   fm-browser.sh step --press <key> --expect-url-path <path>
@@ -23,11 +23,12 @@
 # deadline in milliseconds (default 5000, max 120000).
 # Use --session or CHROME_DEVTOOLS_AXI_SESSION; the default session is refused,
 # and auto-connect, remote browser URLs, custom ports, and custom profiles are cleared.
-# Output is one compact JSON object with step, ok, appeared, gone, and ms fields.
-# Appeared and gone contain at most 12 redacted role|label pairs total.
-# A failed target match also returns TARGET_NOT_FOUND and up to eight redacted
-# interactive role|label candidates. Snapshots, page text, titles, field values,
-# browser errors, and URLs never pass through to stdout or stderr.
+# Output is one compact JSON object with step, ok, verified, appeared, gone, and ms fields.
+# `ok` means the action succeeded and any supplied expectation passed; `verified`
+# is true only when an explicit expectation passed. Appeared and gone contain at
+# most 12 redacted role|label pairs total. A failed target match returns
+# TARGET_NOT_FOUND. Snapshots, page text, titles, field values, browser errors,
+# and URLs never pass through to stdout or stderr.
 # `--help` owns the public command and output contract.
 
 set -euo pipefail

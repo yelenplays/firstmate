@@ -20,6 +20,10 @@ export function redact(value) {
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
     .replace(/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g, '[redacted]')
     .replace(/(?:TYPESAFE_API_KEY|OPENROUTER_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|FMX_PAIRING_TOKEN|FM_MAIL_PASS|AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|GITHUB_TOKEN|GH_TOKEN|JEV_API_KEY)=\S+/gi, '[redacted]')
+    .replace(/(^|[^A-Za-z0-9])((?:api[\s_-]*)?(?:token|key|secret|password|passcode|code|credential|auth(?:orization)?))(\s*[:=]\s*)([^\s"'<>;,|]+)/gi, '$1$2$3[redacted]')
+    .replace(/(^|[^A-Za-z0-9])((?:api[\s_-]*)?(?:token|key|secret|password|passcode|code|credential|auth(?:orization)?))(\s+)([A-Za-z0-9][A-Za-z0-9._~+/=-]{2,})/gi,
+      (match, prefix, keyword, space, value) => /[A-Za-z]/.test(value) && /\d/.test(value) || /^\d{3,}$/.test(value)
+        ? `${prefix}${keyword}${space}[redacted]` : match)
     .replace(/(?:authorization:\s*)?bearer\s+[^\s"'<>]+/gi, '[redacted]')
     .replace(/(?:sk-or-|github_pat_|ghp_|cfut_)[^\s"'<>]+/gi, '[redacted]')
     .replace(/\bsk-[A-Za-z0-9_-]{16,}/g, '[redacted]')
@@ -62,14 +66,16 @@ export function parseSelector(input, { allowTitle = false } = {}) {
   let label = match[3].trim();
   if (!label) throw new Error('empty selector label');
   let ordinal = 1;
-  const ordinalMatch = label.match(/#([1-9]\d*)$/);
-  if (ordinalMatch) {
-    ordinal = Number(ordinalMatch[1]);
-    if (!Number.isSafeInteger(ordinal)) throw new Error('invalid selector ordinal');
-    label = label.slice(0, ordinalMatch.index).trim();
-    if (!label) throw new Error('empty selector label');
-  } else if (/#\d+$/.test(label)) {
-    throw new Error('invalid selector ordinal');
+  if (role !== 'title') {
+    const ordinalMatch = label.match(/#([1-9]\d*)$/);
+    if (ordinalMatch) {
+      ordinal = Number(ordinalMatch[1]);
+      if (!Number.isSafeInteger(ordinal)) throw new Error('invalid selector ordinal');
+      label = label.slice(0, ordinalMatch.index).trim();
+      if (!label) throw new Error('empty selector label');
+    } else if (/#\d+$/.test(label)) {
+      throw new Error('invalid selector ordinal');
+    }
   }
   return { role, operator: match[2], label, ordinal };
 }
@@ -92,37 +98,19 @@ function descendantsOf(nodes, container) {
   });
 }
 
-function tokenSimilarity(left, right) {
-  const a = new Set(normalize(left).split(' ').filter(Boolean));
-  const b = new Set(normalize(right).split(' ').filter(Boolean));
-  if (!a.size || !b.size) return 0;
-  let shared = 0;
-  for (const token of a) if (b.has(token)) shared += 1;
-  return shared / Math.max(a.size, b.size);
-}
-
 export function resolveSelector(nodes, selector, withinSelector = null) {
   let scope = nodes;
   if (withinSelector) {
     const containers = nodes.filter((node) => selectorMatches(node, withinSelector));
     const container = containers[withinSelector.ordinal - 1];
-    if (!container) return { target: null, error: 'WITHIN_NOT_FOUND', candidates: [] };
+    if (!container) return { target: null, error: 'WITHIN_NOT_FOUND' };
     scope = descendantsOf(nodes, container);
   }
   const matches = scope.filter((node) => selectorMatches(node, selector));
   if (matches[selector.ordinal - 1]) {
-    return { target: matches[selector.ordinal - 1], error: null, candidates: [] };
+    return { target: matches[selector.ordinal - 1], error: null };
   }
-  const wantedRole = selector.role === 'title' ? 'rootwebarea' : selector.role;
-  const candidates = scope.filter((node) => INTERACTIVE_ROLES.has(node.role))
-    .map((node) => ({
-      node,
-      score: (node.role === wantedRole ? 1 : 0) + tokenSimilarity(node.label, selector.label),
-    }))
-    .sort((a, b) => b.score - a.score || a.node.lineIndex - b.node.lineIndex)
-    .slice(0, 8)
-    .map(({ node }) => ({ role: node.role, label: node.label }));
-  return { target: null, error: 'TARGET_NOT_FOUND', candidates };
+  return { target: null, error: 'TARGET_NOT_FOUND' };
 }
 
 function normalizeExpectation(value) {
@@ -203,14 +191,11 @@ function expectationMet(expectation, nodes, pathname) {
   return expectation.kind === 'gone' ? !found : found;
 }
 
-function fuzzyCandidates(nodes, selector) {
-  return resolveSelector(nodes, selector).candidates;
-}
-
 export function sanitizeResult(result) {
   const safe = {
     step: redact(result?.step ?? 'step').slice(0, 32),
     ok: result?.ok === true,
+    verified: result?.ok === true && result?.verified === true,
     appeared: [],
     gone: [],
     ms: Number.isFinite(result?.ms) ? Math.max(0, Math.round(result.ms)) : 0,
@@ -222,12 +207,6 @@ export function sanitizeResult(result) {
   for (const [kind, label] of pairs) safe[kind].push(redact(label).slice(0, 96));
   if (!safe.ok) {
     safe.error = SAFE_ERRORS.has(result?.error) ? result.error : 'BROWSER_ACTION_FAILED';
-    if (Array.isArray(result?.candidates)) {
-      safe.candidates = result.candidates.slice(0, 8).map((candidate) => ({
-        role: INTERACTIVE_ROLES.has(String(candidate?.role).toLowerCase()) ? String(candidate.role).toLowerCase() : 'element',
-        label: redact(candidate?.label ?? '').slice(0, 80),
-      }));
-    }
   }
   return safe;
 }
@@ -237,7 +216,8 @@ export async function executeStep(rawParams, pageApi) {
   let params;
   let before = [];
   let after = [];
-  let result = { step: rawParams?.action ?? 'step', ok: false };
+  let hasAfterSnapshot = false;
+  let result = { step: rawParams?.action ?? 'step', ok: false, verified: false };
   try {
     params = validateParams({ ...rawParams });
     if (params.expectation != null) params.expectation = normalizeExpectation(params.expectation);
@@ -251,8 +231,7 @@ export async function executeStep(rawParams, pageApi) {
       if (!selected.target) {
         result = {
           ...result,
-          error: selected.error ?? 'TARGET_NOT_FOUND',
-          candidates: selected.candidates.length ? selected.candidates : fuzzyCandidates(before, targetSelector),
+          error: selected.error,
         };
         return sanitizeResult({ ...result, ms: Date.now() - started });
       }
@@ -268,11 +247,13 @@ export async function executeStep(rawParams, pageApi) {
     for (;;) {
       const afterSnapshot = await pageApi.snapshot();
       after = parseSnapshot(afterSnapshot);
+      hasAfterSnapshot = true;
       if (params.expectation?.kind === 'url-path') {
         currentPath = await pageApi.eval(() => location.pathname);
       }
       if (expectationMet(params.expectation, after, currentPath)) {
         result.ok = true;
+        result.verified = Boolean(params.expectation);
         break;
       }
       if (Date.now() >= deadline) {
@@ -284,7 +265,9 @@ export async function executeStep(rawParams, pageApi) {
   } catch {
     result.error = 'BROWSER_ACTION_FAILED';
   }
-  const changes = diffPairs(accessibleInteractive(before), accessibleInteractive(after));
+  const changes = hasAfterSnapshot
+    ? diffPairs(accessibleInteractive(before), accessibleInteractive(after))
+    : { appeared: [], gone: [] };
   return sanitizeResult({ ...result, ...changes, ms: Date.now() - started });
 }
 
