@@ -330,6 +330,7 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
           | { answer: $q.opts[$top.i][0], p: $top.p, s: $s,
               conf: (if $confidence != null then $confidence else estimate($probabilities) end),
               floor: (if $confidence != null then 0.5 else 0.4 end),
+              # A mean between distant probability peaks is a split judgment; escalate.
               force_escalate: ($s < 0 or $s > ($n - 1)
                 or ($top_indices | index($s | round)) == null
                 or (($s - $weighted) | fabs) > 0.05) }

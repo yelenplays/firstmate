@@ -281,6 +281,18 @@ test_escalation_exits_two() {
   pass "fm-jev.sh: low confidence escalates with exit 2"
 }
 
+test_split_score_distribution_escalates_by_design() {
+  local code out err
+  respond '{"answers":{"score":{"score":4.08,"confidence":0.9,"probabilities":{"0":0.49,"1":0,"2":0,"3":0,"4":0,"5":0,"6":0,"7":0,"8":0.51}}}}'
+  run_jev code out err score "split distribution" "How severe?" \
+    level0 level1 level2 level3 level4 level5 level6 level7 level8
+  assert_equals "$code" 2 "a split score distribution escalates by design"
+  assert_equals "$out" "score: ESCALATE conf=0.9 prior=level8 -> decide yourself" \
+    "a weighted mean between distant peaks escalates by design"
+  assert_equals "$err" "" "a split score distribution escalates without an error"
+  pass "fm-jev.sh: a split score distribution escalates by design"
+}
+
 test_json_prints_raw_response() {
   local code out err raw
   raw='{"model":"jev-1.13.0","answers":{"yes":{"type":"noul","noul":0.97}},"usage":{"input_tokens":5,"output_tokens":2}}'
@@ -751,6 +763,7 @@ test_yes_and_score_lines
 test_batch_one_call_many_lines
 test_option_limits_refuse_before_sending
 test_escalation_exits_two
+test_split_score_distribution_escalates_by_design
 test_json_prints_raw_response
 test_errors_exit_one_with_one_line
 test_privacy_guard_refuses_before_sending
