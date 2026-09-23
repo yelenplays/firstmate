@@ -14,7 +14,6 @@ unset TYPESAFE_API_KEY OPENROUTER_API_KEY JEV_ROUTE JEV_MODEL JEV_TIMEOUT \
   JEV_URL JEV_BASE JEV_CONFIDENCE_FLOOR
 
 TRIAGE="$ROOT/bin/fm-wake-triage.sh"
-DRAIN="$ROOT/bin/fm-wake-drain.sh"
 TMP_ROOT=$(fm_test_tmproot fm-wake-triage-tests)
 BASE_PATH=$PATH
 
@@ -49,7 +48,8 @@ cp "${FAKE_CURL_RESPONSE:?}" "$out"
 printf '200'
 SH
   chmod +x "$dir/fakebin/fm-peek.sh" "$dir/fakebin/fm-captain-hold.sh" "$dir/fakebin/curl"
-  # A fresh watcher beacon keeps the drain's liveness guard quiet mid-turn.
+  # A fresh watcher beacon keeps the drain's liveness guard quiet mid-turn
+  # under the auto-arm model run_triage pins.
   touch "$dir/state/.last-watcher-beat"
   printf '%s\n' "$dir"
 }
@@ -57,7 +57,7 @@ SH
 run_triage() {  # <dir> [args...]
   local dir=$1
   shift
-  FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" FM_BACKEND=tmux \
+  FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" FM_BACKEND=tmux FM_SUPERVISION_MODEL=autoarm \
     FM_CREW_STATE_BIN="$dir/fakebin/fm-crew-state.sh" FM_PEEK_BIN="$dir/fakebin/fm-peek.sh" \
     FM_CAPTAIN_HOLD_BIN="$dir/fakebin/fm-captain-hold.sh" FAKE_CURL_LOG="$dir/curl" \
     PATH="$dir/fakebin:$BASE_PATH" "$TRIAGE" "$@"
