@@ -31,6 +31,9 @@ install_runner() {  # <case-dir>
   # fm-nm-run-lib.sh: the shared no-mistakes run primitives fm-classify-lib.sh
   # sources for the wedge detector's run-liveness probe.
   cp "$ROOT/bin/fm-nm-run-lib.sh" "$dir/bin/"
+  # fm-jev-lib.sh and its fm-env-lib.sh: fm-classify-lib.sh sources them for
+  # the Jev supervision bound.
+  cp "$ROOT/bin/fm-jev-lib.sh" "$ROOT/bin/fm-env-lib.sh" "$dir/bin/"
   # The return brief's durable sources: the posture-record owner, the outcome
   # store owner, and the backlog reader with its tasks-axi probe.
   cp "$ROOT/bin/fm-afk-contract.sh" "$dir/bin/"
