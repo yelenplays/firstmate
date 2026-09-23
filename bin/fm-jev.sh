@@ -11,7 +11,8 @@
 # Key discovery uses TYPESAFE_API_KEY from the environment, else the first
 # candidate .env among $FM_HOME, this checkout, and its main worktree. The
 # chosen home becomes FM_HOME for the library call. The key never reaches argv,
-# stdout, stderr, or the log. This command always uses the TypeSafe route.
+# stdout, stderr, or the log. This command always uses the TypeSafe route and
+# production endpoint.
 #
 # Privacy: the state plus every question and option text is refused, never
 # sent, when the state exceeds FM_JEV_CLI_STATE_MAX bytes (4096) or when
@@ -40,6 +41,7 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_JEV_CLI_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+FM_JEV_CLI_URL='https://api.typesafe.ai/v1/systemone'
 FM_JEV_CLI_STATE_MAX=4096
 
 usage() {
@@ -179,7 +181,6 @@ NORM=$(printf '%s' "$SPEC" | jq -c '
                    else fail("question \(.id): opts must be an array of strings") end)
           | if (.opts | length) < 2 then fail("question \(.id): needs at least two options") else . end
           | if ([.opts[][0]] | unique | length) != (.opts | length) then fail("question \(.id): option labels must be unique") else . end
-          | if .type == "score" and (.opts | length) > 10 then fail("question \(.id): score takes at most 10 levels") else . end
         end
       | {id, type, q, opts} ]
   | if ([.questions[].id] | unique | length) != (.questions | length) then fail("question ids must be unique") else . end
@@ -248,7 +249,7 @@ log_call() {
 OUT_FILE=$(mktemp) || die "mktemp failed"
 ERR_FILE=$(mktemp) || { rm -f "$OUT_FILE"; die "mktemp failed"; }
 trap 'rm -f "$OUT_FILE" "$ERR_FILE"' EXIT
-if ! JEV_ROUTE=typesafe fm_jev_decide "$STATE_TEXT" "$QUESTIONS" >"$OUT_FILE" 2>"$ERR_FILE"; then
+if ! JEV_ROUTE=typesafe JEV_URL="$FM_JEV_CLI_URL" fm_jev_decide "$STATE_TEXT" "$QUESTIONS" >"$OUT_FILE" 2>"$ERR_FILE"; then
   log_call 1
   reason=$(sed -e 's/^jev: //' "$ERR_FILE" | head -n 1)
   die "${reason:-Jev call failed} -> decide yourself"
@@ -263,12 +264,16 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
   def estimate(p): (p | [.[]] | sort | reverse) as $s | (($s[0] // 0) - ($s[1] // 0));
   def unit_interval(message):
     if type != "number" or . < 0 or . > 1 then error(message) else . end;
-  def checked_probabilities(probabilities; id):
+  def checked_probabilities(probabilities; expected_keys; id; kind):
     if probabilities == null then {}
     elif (probabilities | type) != "object" then
       error("answer \(id) probabilities must be an object")
+    elif (probabilities | keys) != expected_keys then
+      error("answer \(id) probability keys do not match offered \(kind)")
     elif any(probabilities[]; type != "number" or . < 0 or . > 1) then
       error("answer \(id) has a probability outside 0..1")
+    elif ((((probabilities | [.[]] | add) - 1) | fabs) > 0.0100000001) then
+      error("answer \(id) probabilities must sum to approximately 1")
     else probabilities end;
   ($resp.answers // error("response has no answers")) as $answers
   | $spec.questions[]
@@ -284,33 +289,28 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
           conf: ((($p - 0.5) | fabs) * 2), floor: 0.4 }
     elif $q.type == "pick" then
       (($a.choice | strings) // error("answer \($q.id) has no choice")) as $c
-      | checked_probabilities($a.probabilities; $q.id) as $probabilities
+      | checked_probabilities($a.probabilities; ($q.opts | map(.[0]) | sort); $q.id; "options") as $probabilities
       | if ($q.opts | map(.[0]) | index($c)) == null then
           error("answer \($q.id) chose an unoffered option")
         else
           { answer: $c, p: ($probabilities[$c] // null),
             conf: (if $confidence != null then $confidence
-                   elif $a.probabilities then estimate($probabilities) else null end),
+                   elif ($probabilities | length) > 0 then estimate($probabilities) else null end),
             floor: (if $confidence != null then 0.5 else 0.4 end) }
         end
     else
       (($a.score | numbers) // error("answer \($q.id) has no score")) as $s
       | ($q.opts | length) as $n
-      | checked_probabilities($a.probabilities; $q.id) as $probabilities
+      | checked_probabilities($a.probabilities; ([range(0; $n) | tostring] | sort); $q.id; "levels") as $probabilities
       | (if ($probabilities | length) > 0
-         then ($probabilities | keys | map(tonumber)) as $indices
-         | if any($indices[]; . < 0 or . >= $n or . != floor) then
-             error("answer \($q.id) has an out-of-range score index")
-           else
-             ($probabilities | to_entries | max_by(.value) | {i: (.key | tonumber), p: .value})
-           end
+         then ($probabilities | to_entries | max_by(.value) | {i: (.key | tonumber), p: .value})
          else {i: ($s | round), p: null} end) as $top
       | if $top.i < 0 or $top.i >= $n or $top.i != ($top.i | floor) then
           error("answer \($q.id) has an out-of-range score index")
         else
           { answer: $q.opts[$top.i][0], p: $top.p, s: $s,
             conf: (if $confidence != null then $confidence
-                   elif $a.probabilities then estimate($probabilities) else null end),
+                   elif ($probabilities | length) > 0 then estimate($probabilities) else null end),
             floor: (if $confidence != null then 0.5 else 0.4 end) }
         end
     end

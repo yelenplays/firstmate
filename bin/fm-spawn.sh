@@ -4689,7 +4689,7 @@ elif [ "$RAW_LAUNCH" = 0 ]; then
   # (bin/fm-primary-scope-lib.sh), so a firstmate-repo task worktree stays a
   # non-primary child. A raw launch command stays byte-for-byte the operator's.
   sq_worker_home=$(shell_quote "$(cd "$FM_HOME" && pwd -P)")
-  LAUNCH="FM_HOME=$sq_worker_home $LAUNCH"
+  LAUNCH="FM_HOME=$sq_worker_home env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY $LAUNCH"
 fi
 if [ -z "$SPAWN_TRACEPARENT" ] && [ "$RELAUNCH" -eq 1 ]; then
   LAUNCH="unset TRACEPARENT; $LAUNCH"

@@ -215,7 +215,7 @@ test_no_profile_keeps_claude_profile_defaults() {
   assert_meta_profile "$HOME_DIR/state/$id.meta" claude default default
 
   launch=$(cat "$LAUNCH_LOG")
-  expected="FM_HOME='$HOME_DIR' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}' $CLAUDE_CONTROL_CHANNEL_FLAG \"\$('${ROOT}/bin/fm-operational-input.sh' encode launch-brief < '$HOME_DIR/data/$id/launch-brief.md')\""
+  expected="FM_HOME='$HOME_DIR' env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}' $CLAUDE_CONTROL_CHANNEL_FLAG \"\$('${ROOT}/bin/fm-operational-input.sh' encode launch-brief < '$HOME_DIR/data/$id/launch-brief.md')\""
   [ "$launch" = "$expected" ] || fail "no-profile claude launch did not use the canonical launch kind"$'\n'"expected: $expected"$'\n'"actual:   $launch"
   pass "no --model/--effort records defaults and types the claude launch instructions"
 }
@@ -1016,7 +1016,7 @@ test_claude_forwards_firstmate_config_dir_when_set() {
   status=$?
   expect_code 0 "$status" "claude spawn with CLAUDE_CONFIG_DIR set should succeed"
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "CLAUDE_CONFIG_DIR='$CASE_DIR/claude-work' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}'" \
+  assert_contains "$launch" "env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY CLAUDE_CONFIG_DIR='$CASE_DIR/claude-work' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}'" \
     "claude launch did not forward firstmate's CLAUDE_CONFIG_DIR to the crewmate pane"
   pass "claude forwards firstmate's CLAUDE_CONFIG_DIR so the crewmate uses the same credential store"
 }
@@ -1494,7 +1494,7 @@ SH
 # permission flag, and any other token refuses before endpoint or metadata.
 claude_expected_launch() {  # <home> <id> <permission-flag>
   local home=$1 id=$2 flag=$3
-  printf '%s' "FM_HOME='$home' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude $flag --settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}' $CLAUDE_CONTROL_CHANNEL_FLAG \"\$('${ROOT}/bin/fm-operational-input.sh' encode launch-brief < '$home/data/$id/launch-brief.md')\""
+  printf '%s' "FM_HOME='$home' env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude $flag --settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}' $CLAUDE_CONTROL_CHANNEL_FLAG \"\$('${ROOT}/bin/fm-operational-input.sh' encode launch-brief < '$home/data/$id/launch-brief.md')\""
 }
 
 test_claude_permission_mode_bypass_matches_absent_launch() {
@@ -1553,29 +1553,41 @@ test_claude_permission_mode_auto_reaches_scout_launch() {
 # crosses the launch boundary, even when the spawner's environment and the
 # home .env both hold one.
 test_task_launch_forwards_home_never_key() {
-  local rec id out status launch key kind
+  local rec id out status launch key openrouter_key kind agent_env
   key='ts-spawn-test-key-must-not-leak'
+  openrouter_key='or-spawn-test-key-must-not-leak'
   for kind in ship scout; do
     id=home-forward-$kind-z23
     rec=$(make_spawn_case "home-forward-$kind" claude "$id")
     read_case_record "$rec"
-    printf 'TYPESAFE_API_KEY=%s\n' "$key" > "$HOME_DIR/.env"
+    agent_env="$CASE_DIR/agent-env"
+    printf 'TYPESAFE_API_KEY=%s\nOPENROUTER_API_KEY=%s\n' "$key" "$openrouter_key" > "$HOME_DIR/.env"
     if [ "$kind" = scout ]; then
-      out=$(TYPESAFE_API_KEY=$key run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --scout)
+      out=$(TYPESAFE_API_KEY="$key" OPENROUTER_API_KEY="$openrouter_key" run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --scout)
     else
-      out=$(TYPESAFE_API_KEY=$key run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+      out=$(TYPESAFE_API_KEY="$key" OPENROUTER_API_KEY="$openrouter_key" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
     fi
     status=$?
     expect_code 0 "$status" "$kind spawn should succeed"
     launch=$(cat "$LAUNCH_LOG")
     case "$launch" in
-      "FM_HOME='$HOME_DIR' env -u CURSOR_AGENT "*) ;;
+      "FM_HOME='$HOME_DIR' env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY env -u CURSOR_AGENT "*) ;;
       *) fail "$kind launch did not lead with the spawning home"$'\n'"actual: $launch" ;;
     esac
     assert_not_contains "$launch" "$key" "$kind launch must never carry the Jev key value"
-    assert_not_contains "$launch" "TYPESAFE_API_KEY" "$kind launch must never export a Jev key"
+    assert_not_contains "$launch" "$openrouter_key" "$kind launch must never carry an OpenRouter key value"
+    cat > "$FAKEBIN_DIR/claude" <<'SH'
+#!/usr/bin/env bash
+printf '%s|%s|%s' "${FM_HOME-}" "${TYPESAFE_API_KEY-}" "${OPENROUTER_API_KEY-}" > "${FM_TEST_AGENT_ENV:?}"
+SH
+    chmod +x "$FAKEBIN_DIR/claude"
+    if ! PATH="$FAKEBIN_DIR:$PATH" TYPESAFE_API_KEY="$key" OPENROUTER_API_KEY="$openrouter_key" \
+      FM_TEST_AGENT_ENV="$agent_env" bash -c "$launch"; then
+      fail "$kind launch command failed to execute"
+    fi
+    assert_equals "$(cat "$agent_env")" "$HOME_DIR||" "$kind agent receives FM_HOME but no provider key"
   done
-  pass "fm-spawn: ship and scout launches carry the home path and never the Jev key"
+  pass "fm-spawn: ship and scout launches carry FM_HOME without inherited provider keys"
 }
 
 test_claude_permission_mode_invalid_refuses_before_endpoint_or_metadata() {

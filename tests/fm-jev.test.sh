@@ -22,16 +22,19 @@ mkdir -p "$LOG" "$HOME_DIR/state"
 
 cat > "$FAKEBIN/curl" <<'SH'
 #!/usr/bin/env bash
-# Fake curl: records the stdin body and the fd 3 header, then answers with
-# FAKE_CURL_RESPONSE and FAKE_CURL_HTTP.
+# Fake curl: records the request URL, stdin body, and fd 3 header, then answers
+# with FAKE_CURL_RESPONSE and FAKE_CURL_HTTP.
 set -u
 out=''
+url=''
 while [ $# -gt 0 ]; do
   case "$1" in
     -o) out=$2; shift 2 ;;
+    -X) shift 2; url=$1; shift ;;
     *) shift ;;
   esac
 done
+printf '%s' "$url" > "$FAKE_CURL_LOG/url"
 cat > "${FAKE_CURL_LOG:?}/body"
 cat /dev/fd/3 > "$FAKE_CURL_LOG/header" 2>/dev/null || printf 'fd3 unreadable\n' > "$FAKE_CURL_LOG/header"
 cp "${FAKE_CURL_RESPONSE:?}" "$out"
@@ -108,6 +111,32 @@ test_cli_forces_typesafe_route() {
   pass "fm-jev.sh: OpenRouter settings cannot redirect the worker command"
 }
 
+test_cli_pins_typesafe_endpoint() {
+  local code out err expected_url
+  expected_url='https://api.typesafe.ai/v1/systemone'
+  respond '{"answers":{"yes":{"noul":0.97}}}'
+
+  reset_log
+  JEV_URL='https://example.invalid/collect' JEV_BASE='https://example.invalid/base' \
+    run_jev code out err yes "endpoint check" "Did the CLI keep its endpoint?"
+  assert_equals "$code" 0 "a caller URL override does not block the request"
+  assert_equals "$(cat "$LOG/url")" "$expected_url" "the CLI pins JEV_URL to the TypeSafe production endpoint"
+
+  reset_log
+  JEV_BASE='https://example.invalid/base' \
+    run_jev code out err yes "endpoint check" "Did the CLI ignore JEV_BASE?"
+  assert_equals "$code" 0 "a caller base override does not block the request"
+  assert_equals "$(cat "$LOG/url")" "$expected_url" "the CLI ignores an environment JEV_BASE"
+
+  printf 'JEV_URL=https://example.invalid/env-file\nJEV_BASE=https://example.invalid/env-file-base\n' > "$HOME_DIR/.env"
+  reset_log
+  run_jev code out err yes "endpoint check" "Did the CLI ignore .env endpoints?"
+  assert_equals "$code" 0 "home .env endpoint overrides do not block the request"
+  assert_equals "$(cat "$LOG/url")" "$expected_url" "the CLI ignores JEV_URL and JEV_BASE in the home .env"
+  rm -f "$HOME_DIR/.env"
+  pass "fm-jev.sh: destination settings cannot redirect the TypeSafe credential"
+}
+
 test_yes_and_score_lines() {
   local code out err
   respond '{"answers":{"yes":{"type":"noul","noul":0.02}}}'
@@ -135,7 +164,7 @@ test_yes_and_score_lines() {
 test_batch_one_call_many_lines() {
   local code out err
   reset_log
-  respond '{"answers":{"vault":{"choice":"A","confidence":0.9,"probabilities":{"A":0.95,"B":0.05}},"private":{"noul":0.9},"q3":{"score":0.1,"confidence":0.7,"probabilities":{"0":0.85,"1":0.15}}}}'
+  respond '{"answers":{"vault":{"choice":"A","confidence":0.9,"probabilities":{"A":0.95,"B":0.04}},"private":{"noul":0.9},"q3":{"score":0.1,"confidence":0.7,"probabilities":{"0":0.85,"1":0.15}}}}'
   run_jev code out err batch <<'JSON'
 {"state":"s","questions":[
   {"id":"vault","type":"pick","q":"Which?","opts":["A=first","B=second"]},
@@ -150,6 +179,19 @@ JSON
   assert_equals "$(jq -c '.questions.vault.criteria' "$LOG/body")" '{"A":"first","B":"second"}' \
     "batch options accept label=meaning strings"
   pass "fm-jev.sh: batch asks several questions in one call"
+}
+
+test_batch_score_accepts_more_than_ten_levels() {
+  local code out err
+  respond '{"answers":{"levels":{"score":10,"confidence":0.9}}}'
+  run_jev code out err batch <<'JSON'
+{"state":"s","questions":[{"id":"levels","type":"score","q":"How large?","opts":["L0","L1","L2","L3","L4","L5","L6","L7","L8","L9","L10"]}]}
+JSON
+  assert_equals "$code" 0 "a batch score with eleven levels is accepted"
+  assert_equals "$out" "levels: L10 s=10 conf=0.9" "the final offered score level remains selectable"
+  assert_equals "$(jq '.questions.levels.criteria | length' "$LOG/body")" 11 \
+    "all eleven score levels reach TypeSafe"
+  pass "fm-jev.sh: batch score accepts more than ten levels"
 }
 
 test_escalation_exits_two() {
@@ -200,8 +242,30 @@ test_errors_exit_one_with_one_line() {
   respond '{"answers":{"score":{"score":1,"confidence":0.9,"probabilities":{"0":0.05,"9":0.95}}}}'
   run_jev code out err score "state" "How severe?" low medium high
   assert_equals "$code" 1 "a score distribution with an out-of-range index is rejected"
-  assert_contains "$err" "out-of-range score index" "the malformed score is explained"
+  assert_contains "$err" "probability keys do not match offered levels" "the malformed score map is explained"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 "an invalid score map prints one stderr line"
   assert_equals "$out" "" "a malformed score prints no answer"
+
+  respond '{"answers":{"pick":{"choice":"A","confidence":0.9,"probabilities":{"A":0.1,"B":0.1,"unexpected":0.8}}}}'
+  run_jev code out err pick "state" "Choose?" A B C
+  assert_equals "$code" 1 "a pick map with an unoffered label is rejected"
+  assert_contains "$err" "probability keys do not match offered options" "the malformed pick map is explained"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 "an invalid pick map prints one stderr line"
+  assert_equals "$out" "" "an invalid pick map prints no answer"
+
+  respond '{"answers":{"pick":{"choice":"A","confidence":0.9,"probabilities":{"A":0.1,"B":0.1}}}}'
+  run_jev code out err pick "state" "Choose?" A B
+  assert_equals "$code" 1 "a pick map that does not sum to one is rejected"
+  assert_contains "$err" "must sum to approximately 1" "the malformed pick sum is explained"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 "an invalid pick sum prints one stderr line"
+  assert_equals "$out" "" "an invalid pick sum prints no answer"
+
+  respond '{"answers":{"score":{"score":1,"confidence":0.9,"probabilities":{"0":0.8,"1":0.1,"2":0.0}}}}'
+  run_jev code out err score "state" "How severe?" low medium high
+  assert_equals "$code" 1 "a score map that does not sum to one is rejected"
+  assert_contains "$err" "must sum to approximately 1" "the malformed score sum is explained"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 "an invalid score sum prints one stderr line"
+  assert_equals "$out" "" "an invalid score sum prints no answer"
 
   respond '{"answers":{"score":{"score":9,"confidence":0.9}}}'
   run_jev code out err score "state" "How severe?" low medium high
@@ -420,8 +484,10 @@ test_key_discovery_needs_no_env_setup() {
 test_help_is_short_and_complete
 test_pick_answers_one_line
 test_cli_forces_typesafe_route
+test_cli_pins_typesafe_endpoint
 test_yes_and_score_lines
 test_batch_one_call_many_lines
+test_batch_score_accepts_more_than_ten_levels
 test_escalation_exits_two
 test_json_prints_raw_response
 test_errors_exit_one_with_one_line

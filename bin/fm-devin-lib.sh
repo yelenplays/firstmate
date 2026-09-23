@@ -66,7 +66,7 @@ fm_devin_shell_quote() {
 
 fm_devin_start() { # <target> <binary> <prompt-file> <model> <permission-mode>
   local target=$1 binary=$2 brief=$3 model=$4 mode=$5 session pane out arg attempt home
-  local launch='env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT -u CURSOR_AGENT -u CURSOR_INVOKED_AS'
+  local launch='env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY'
   local args=("$binary" --respect-workspace-trust false --permission-mode "$mode" --prompt-file "$brief")
   fm_devin_permission_valid "$mode" || return 1
   fm_backend_herdr_parse_target "$target" || return 1

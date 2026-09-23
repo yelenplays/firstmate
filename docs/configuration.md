@@ -587,9 +587,9 @@ Typed dispatch resolution above uses this library for the HTTP call and owns the
 ## Jev worker command (bin/fm-jev.sh)
 
 [`bin/fm-jev.sh`](../bin/fm-jev.sh) is the one Jev command firstmate and every worker call for closed-set judgments; the Jev-first rule in every ship and scout brief names it by absolute path.
-It reuses the caller library above and pins its route to TypeSafe, regardless of `OPENROUTER_API_KEY` or `JEV_ROUTE`; it requires `TYPESAFE_API_KEY` from the environment or a candidate firstmate `.env`.
+It reuses the caller library above and pins its route and URL to TypeSafe production, regardless of `OPENROUTER_API_KEY`, `JEV_ROUTE`, `JEV_URL`, or `JEV_BASE`; it requires `TYPESAFE_API_KEY` from the environment or a candidate firstmate `.env`.
 Its `--help` is its whole interface, flags follow the command, and the header owns the privacy refusal, escalation floor, output, and exit codes.
-Ship and scout launches carry only the spawning home's absolute path as `FM_HOME`, never the key.
+Ship, scout, and Devin launches carry the spawning home's absolute path as `FM_HOME` and clear inherited provider keys; the command reads its key from the home `.env`.
 Each call appends a metadata-only record, without state or question text, to that home's `state/jev-calls.jsonl`.
 
 ## Jev remainder tool-gate (FM_JEV_TOOL_GATE)
@@ -1324,10 +1324,10 @@ FMX_DRY_RUN=            # truthy previews Relay replies and dismissals to state/
 FMX_X_REPLY_MAX_CHARS=280   # X reply per-message split budget; values below 50 clamp to 50
 TYPESAFE_API_KEY=       # typed dispatch resolution opt-in; also the required TypeSafe key for bin/fm-jev.sh and the TypeSafe route key for bin/fm-jev-lib.sh
 OPENROUTER_API_KEY=     # optional OpenRouter Jev route for typed dispatch and bin/fm-jev-lib.sh; unused by bin/fm-jev.sh
-JEV_ROUTE=              # optional; `openrouter` or `typesafe` (docs/configuration.md "Typed dispatch resolution")
+JEV_ROUTE=              # optional library and typed-dispatch route; bin/fm-jev.sh always uses TypeSafe
 JEV_MODEL=              # optional Jev model override (same section)
-JEV_URL=                # optional complete Jev POST URL, used verbatim (same section)
-JEV_BASE=               # optional TypeSafe origin; `/v1/systemone` is appended when JEV_URL is unset (same section)
+JEV_URL=                # optional library and typed-dispatch POST URL, used verbatim; ignored by bin/fm-jev.sh
+JEV_BASE=               # optional library and typed-dispatch TypeSafe origin; ignored by bin/fm-jev.sh
 JEV_TIMEOUT=25          # optional Jev HTTP timeout in seconds; default 25 (same section); brief preflight uses 5 when this is unset (docs/configuration.md "Jev brief preflight")
 FM_JEV_DISPATCH_SHADOW= # 1 logs the Jev dispatch pick to state/jev-dispatch-shadow.jsonl; 0 overrides config/jev-dispatch-shadow off (docs/configuration.md "Typed dispatch resolution")
 FM_JEV_DISPATCH_MARGIN= # optional typed-dispatch top-2 margin threshold; default and calibration: docs/configuration.md "Typed dispatch resolution"
