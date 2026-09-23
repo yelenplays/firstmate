@@ -1,0 +1,3 @@
+Real helper with Jev credentials unset: exit 1, no verdict; jev-status-triage: off (no TYPESAFE_API_KEY or OPENROUTER_API_KEY)
+Real caller fallback: status_event=none (deterministic absorb retained)
+wedge_action=defer denied; structural escalation remains enabled

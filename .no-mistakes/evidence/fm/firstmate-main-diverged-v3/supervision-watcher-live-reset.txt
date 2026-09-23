@@ -1,0 +1,5 @@
+real tmux worker pane geometry: 100x30
+real bin/fm-watch.sh process: running against isolated tmux server and state directory
+pane activity: printf fresh activity resets suppression
+state result: .jevsupp-since-live_worker absent; .jevsupp-resurfaced-live_worker absent
+Jev API credentials: unset; this scenario exercises marker reset without model calls
