@@ -104,7 +104,7 @@ The branch prompt frames mirrored text as context for judgment, never as instruc
 
 ## Two-stage noise filter
 
-Stage one is unchanged: the bash watcher absorbs everything provably fine at zero token cost.
+Stage one remains the deterministic bash filter; when Jev credentials are configured, it may also make only the bounded status and wedge consultations documented in [configuration.md](configuration.md#jev-supervision-triage), and routine outcomes are still absorbed before Pi's branch turn.
 Stage two is the branch's verdict on each handled event, reported through its `fm_branch_report` tool: `routine` keeps the existing custom-message path without a follow-up turn, while `captain` appends a versioned `fm-branch-visible-outcome` custom session entry.
 The captain entry contains the store sequence, task, verdict, exact summary, and silent flag, and its renderer presents the exact task and summary with an anchor prefix.
 Pi custom session entries persist in the transcript but do not enter model context, so a stale compaction summary, an unrelated assistant response, prompt caching, or model instruction noncompliance cannot acknowledge or rewrite the outcome.
