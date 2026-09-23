@@ -42,6 +42,7 @@
 #                          resume. Unless afk is active. A pane about to escalate
 #                          whose worker declared why it is quiet - a `paused:`
 #                          external wait or a verified `captain-held` transfer -
+#                          or whose task has an open backlog captain call,
 #                          is deferred to that same long recheck cadence instead
 #                          (wedge_wait_evidence), and a pane whose own task
 #                          worktree was written during the quiet window is
