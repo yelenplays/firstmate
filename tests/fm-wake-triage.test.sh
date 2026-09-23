@@ -93,6 +93,7 @@ test_all_routine_batch_is_summarized_and_auto_acked() {
   out=$(FM_FAKE_CREW_STATE_busy='state: working · source: run-step · running' \
     FM_FAKE_CREW_STATE_validating='state: working · source: run-step · validating' \
     FM_FAKE_CREW_STATE_held='state: parked · source: status-log · waiting' FM_FAKE_HELD=held \
+    FM_FAKE_CREW_STATE_mate='state: done · source: status-log · wiki synced' \
     run_triage "$dir" --auto-ack) || fail "triage failed on an all-routine batch: $out"
   has "$out" 'WAKE TRIAGE: 5 wake row(s); 0 act-now'
   has "$out" 'validating (done line already followed by a running validation)'
@@ -210,6 +211,43 @@ test_unknown_state_shows_pane_lines_to_firstmate() {
   has "$out" '    pane: last tool output line'
   has "$out" "    pane: $PANE_SECRET"
   pass "an idle alert with unknown state is act-now and carries the pane's last lines"
+}
+
+test_secondmate_in_a_failed_or_unknown_state_is_act_now() {
+  local dir out
+  dir=$(triage_case secondmate-state)
+  write_meta "$dir" broken secondmate
+  write_meta "$dir" lost secondmate
+  write_meta "$dir" remote secondmate
+  append_wake "$dir/state" signal broken.turn-ended "signal: $dir/state/broken.turn-ended"
+  append_wake "$dir/state" stale fm-lost "stale: fm-lost (idle 900s)"
+  append_wake "$dir/state" signal remote.turn-ended "signal: $dir/state/remote.turn-ended"
+  out=$(FM_FAKE_CREW_STATE_broken='state: failed · source: status-log · sync crashed' \
+    FM_FAKE_CREW_STATE_remote='state: unknown · source: remote-endpoint · alive on host2 (an idle secondmate is healthy)' \
+    run_triage "$dir" --auto-ack) || fail "triage failed: $out"
+  has "$out" '- broken | secondmate turn ended; state reads failed'
+  has "$out" '- lost | secondmate idle alert; state unknown'
+  has "$out" 'remote (secondmate turn ended)'
+  has "$out" 'not auto-acknowledged'
+  lacks "$out" 'WAKE_ACKED'
+  assert_equals 3 "$(queued_rows "$dir")" "rows left queued without --auto-ack"
+  pass "a secondmate whose state reads failed or unknown is act-now; a healthy idle one stays routine"
+}
+
+test_later_row_is_judged_after_a_stateless_routine_row() {
+  local dir out
+  dir=$(triage_case stateless-then-turn-end)
+  write_meta "$dir" writer ship
+  append_wake "$dir/state" stale fm-writer "stale: fm-writer (idle 600s, writing its worktree for 30s, rechecked on a long cadence not a wedge; confirm the writes are real progress)"
+  append_wake "$dir/state" signal writer.turn-ended "signal: $dir/state/writer.turn-ended"
+  out=$(FM_FAKE_CREW_STATE_writer='state: failed · source: status-log · tests crashed' \
+    run_triage "$dir" --auto-ack) || fail "triage failed: $out"
+  has "$out" 'writer (idle pane but still writing its worktree)'
+  has "$out" '- writer | turn ended; worker state reads failed'
+  has "$out" 'not auto-acknowledged'
+  lacks "$out" 'WAKE_ACKED'
+  assert_equals 2 "$(queued_rows "$dir")" "rows left queued without --auto-ack"
+  pass "a later row is still judged against current state after an earlier stateless routine row"
 }
 
 test_busy_execution_reminder_is_routine_and_idle_one_is_act_now() {
@@ -402,6 +440,8 @@ test_superseded_history_is_routine_and_only_the_newest_outcome_acts
 test_unknown_state_shows_pane_lines_to_firstmate
 test_possible_wedge_reconciles_current_state_first
 test_distinct_row_semantics_survive_per_task_dedupe
+test_secondmate_in_a_failed_or_unknown_state_is_act_now
+test_later_row_is_judged_after_a_stateless_routine_row
 test_busy_execution_reminder_is_routine_and_idle_one_is_act_now
 test_open_decisions_are_act_now_only_when_the_set_changes
 test_ambiguous_status_without_a_jev_key_stays_act_now

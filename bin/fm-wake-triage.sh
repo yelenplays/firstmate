@@ -29,19 +29,22 @@
 #            a done: line without a PR whose worker is now validating; a
 #            task's earlier done:/failed: lines superseded by a newer one and
 #            decision lines the OPEN DECISIONS fold no longer holds open;
-#            a secondmate turn-end with no status line; OPEN DECISIONS
+#            a secondmate turn-end or idle alert with no status line while
+#            the secondmate's state is healthy; OPEN DECISIONS
 #            identical to the set the previous triage presented.
 #   act-now  needs-decision:, blocked:, failed:, a done: line (with its PR
 #            URL when present), a worker whose state reads done, parked,
-#            failed, blocked, or unknown without a covering reason, a
+#            failed, blocked, or unknown without a covering reason (for a
+#            secondmate, failed, blocked, or unknown whatever the reason), a
 #            possible-wedge alert unless the worker is finished with a
 #            recorded PR or parked on a listed open decision, a dead-agent or
 #            unread-instruction idle alert, every other firstmate-owned
 #            execution obligation (every reconcile-* action included)
 #            whatever the pane shows, a procevent/board, inbox, merge, or
-#            any other check result, a heartbeat, a changed OPEN DECISIONS set, RECORD DIVERGENCE, and
-#            every drain notice or error. UNREAD STATUS and STATUS OUTCOME
-#            BACKSTOP lines are judged by the same status-line rules.
+#            any other check result, a heartbeat, a changed OPEN DECISIONS
+#            set, RECORD DIVERGENCE, and every drain notice or error. UNREAD
+#            STATUS and STATUS OUTCOME BACKSTOP lines are judged by the same
+#            status-line rules.
 # Only the leftover ambiguous status lines (a note:, a nonstandard or missing
 # verb, or a secondmate done: with no URL) go to Jev, in one bounded call
 # through bin/fm-jev-lib.sh, and only when a Jev key is configured. A line
@@ -425,12 +428,23 @@ classify_status_line() {  # <task> <status-line> <origin>
 # line: a bare turn-end, an idle alert, or a routine-only status batch.
 classify_by_state() {  # <task> <what-happened>
   local task=$1 what=$2 state word pr
-  if [ "$(task_kind "$task")" = secondmate ]; then
-    routine "$task" "secondmate $what"
-    return
-  fi
+  first_sight "$task" || return 0
   state=$(crew_state "$task")
   word=$(crew_word "$task")
+  if [ "$(task_kind "$task")" = secondmate ]; then
+    case "$state" in
+      'state: unknown · source: remote-endpoint · alive on '*) word=idle ;;
+    esac
+    case "$word" in
+      working|paused|parked|done|idle) routine "$task" "secondmate $what" ;;
+      failed|blocked) act "$task" "secondmate $what; state reads $word" "inspect and recover (${state#state: })" ;;
+      *)
+        act "$task" "secondmate $what; state unknown" "inspect the pane below and reconcile the secondmate (${state#state: })"
+        pane_tail "$task" > "$CACHE/$task.pane"
+        ;;
+    esac
+    return
+  fi
   pr=$(meta_get "$task" pr)
   case "$word" in
     working) routine "$task" "$what; worker busy (${state#state: })" ;;
@@ -493,7 +507,6 @@ prefetch_crew_states() {
     safe_id "$task" || continue
     case "$seen" in *" $task "*) continue ;; esac
     seen="$seen$task "
-    [ "$(task_kind "$task")" != secondmate ] || continue
     ( crew_state "$task" >/dev/null ) &
     n=$((n + 1))
     if [ "$n" -ge "$max" ]; then wait; n=0; fi
@@ -509,10 +522,13 @@ execution_line_for() {  # <task> -> "task \t owner \t action" from the drain
   printf '%s\n' "$EXECUTION_LINES" | awk -F '\t' -v t="$1" '$1 == t { print; exit }'
 }
 
-# A task is judged once per batch however many rows name it.
+# A task's current state is judged once per batch however many rows name it. A
+# row settles the task only once it produced an act-now item or read that
+# state, so a later row still judges a task an earlier stateless verdict left.
 HANDLED=' '
-first_sight() {  # <task> -> 0 the first time this batch sees <task>
-  case "$HANDLED" in *" $1 "*) return 1 ;; esac
+settled() { case "$HANDLED" in *" $1 "*) return 0 ;; esac; return 1; }
+first_sight() {  # <task> -> 0 the first time this batch settles <task>
+  settled "$1" && return 1
   HANDLED="$HANDLED$1 "
 }
 
@@ -521,7 +537,7 @@ handle_signal_row() {  # <key> <payload>
   task=${key%.status}
   task=${task%.turn-ended}
   safe_id "$task" || { act "$key" "signal for an unrecognized record: $payload" "inspect the full drain output"; return; }
-  first_sight "$task" || return 0
+  settled "$task" && return 0
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     had_lines=0
@@ -536,9 +552,13 @@ EOF
       if [ "$any_act" -ne 0 ]; then
         act "$task" "the watcher flagged a decision" "read bin/fm-crew-state.sh $task and the full drain output"
       fi
+      first_sight "$task" || true
       return ;;
   esac
-  [ "$any_act" -eq 0 ] && return
+  if [ "$any_act" -eq 0 ]; then
+    first_sight "$task" || true
+    return
+  fi
   rc=0
   awk -F '\t' -v t="$task" '$1 == t { found = 1 } END { exit !found }' "$AMBIG" && rc=1
   if [ "$rc" -eq 0 ]; then
@@ -580,7 +600,7 @@ handle_stale_row() {  # <key> <payload>
       first_sight "$task" || true
       act "$task" "idle alert: the worker's agent is gone" "reconcile the record and check for unlanded work before any cleanup" ;;
     *)
-      first_sight "$task" || return 0
+      settled "$task" && return 0
       handle_plain_stale "$task" "$payload" ;;
   esac
 }
