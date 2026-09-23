@@ -1,0 +1,7 @@
+1790192932	1	signal	decision.status	signal: changed
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 11806.1790192932.EEHY5o
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+decision [key=choice] needs-decision: choose deployment target
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.

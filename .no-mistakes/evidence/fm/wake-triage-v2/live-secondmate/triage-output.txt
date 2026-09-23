@@ -1,0 +1,19 @@
+WAKE TRIAGE: 1 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/evidence/01M37R4ZD45W7JBJDM4AX8AEP7/live-secondmate/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1790192408	1	signal	remote.status	signal: changed
+wake annotation: latest wake-EVENT observed at drain, not current state: remote.status: working: implementing
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37R4ZD45W7JBJDM4AX8AEP7/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M37R4ZD45W7JBJDM4AX8AEP7/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+remote - C2 task kind is not ship/scout
+  crew: 
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 21835.1790192408.EWpdvE
+
+EXIT_CODE=0

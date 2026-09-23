@@ -1,0 +1,4 @@
+version=8:ship
+offset=76
+ident=strong:16777233:93163419:1790192932.770131174
+choice	needs-decision	choose deployment target

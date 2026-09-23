@@ -1,0 +1,11 @@
+WAKE TRIAGE: 1 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/evidence/01M37R4ZD45W7JBJDM4AX8AEP7/live-triage-interruption/state/.wake-triage.last
+RECOVERED DRAIN OUTPUT (an earlier triage was interrupted; act on all of it):
+1790192965	1	heartbeat	heartbeat	heartbeat
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 49308.1790192965.4fyNQK
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1790192965	1	heartbeat	heartbeat	heartbeat
+ACT NOW:
+- - C1 row shape is not eligible
+  crew: 
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 49308.1790192965.4fyNQK

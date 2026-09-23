@@ -1,0 +1,5 @@
+8:- Ordinary wake: the Stop-owned auto-arm (bin/fm-claude-stop-autoarm.sh) already owns watcher continuity; run bin/fm-wake-triage.sh and handle the wake, and do not arm another cycle yourself.
+13:1. Drain first with `bin/fm-wake-triage.sh`.
+14:   Act on every ACT NOW, NOTICES and STANDING entry.
+16:   Otherwise, after handling, run its exact `WAKE_ACK_REQUIRED` command.
+21:3. On a `Stop hook feedback` wake (`signal:`, `stale:`, `check:`, or `heartbeat`), run `bin/fm-wake-triage.sh` first and handle the wake.

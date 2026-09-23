@@ -1,0 +1,14 @@
+WAKE TRIAGE: 2 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/evidence/01M37R4ZD45W7JBJDM4AX8AEP7/live-triage-current/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1790192900	1	stale	test:routine	stale: test:routine
+1790192910	2	signal	routine.status	signal: changed
+wake annotation: latest wake-EVENT observed at drain, not current state: routine.status: working: implementing
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+routine - C6 captain hold or unavailable
+  crew: state: working · source: pane · harness busy (claude-hook)
+routine - C6 captain hold or unavailable
+  crew: state: working · source: pane · harness busy (claude-hook)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 78100.1790192900.IyX5mO

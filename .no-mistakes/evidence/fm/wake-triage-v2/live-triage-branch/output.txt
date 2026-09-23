@@ -1,0 +1,2 @@
+1790193039	1	heartbeat	heartbeat	heartbeat
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 34500.1790193039.crXMzG

@@ -1,0 +1,13 @@
+WAKE TRIAGE: 1 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/evidence/01M37R4ZD45W7JBJDM4AX8AEP7/live-triage-decision/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1790192932	1	signal	decision.status	signal: changed
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+decision [key=choice] needs-decision: choose deployment target
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+decision - C4 open decision
+  crew: not read (failed earlier clause)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 11806.1790192932.EEHY5o
