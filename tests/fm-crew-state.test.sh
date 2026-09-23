@@ -1736,7 +1736,23 @@ test_launch_and_old_working_events_do_not_prove_processing() {
   assert_contains "$out" 'state: unknown' 'failed relaunch with active validation run counted as a working owner'
   assert_contains "$out" 'source: run-step' 'active validation run was not surfaced distinctly'
   assert_contains "$out" 'handoff processing unconfirmed' 'relaunch receipt mismatch was not reported'
-  pass 'launch seed, unconfirmed handoff and stale working event never prove current processing'
+
+  make_repo_on_branch "$d/task-wt" fm/execution-task-proof
+  mkdir -p "$d/task-project"
+  printf '## In flight\n- [ ] execution-task-proof - Implement approved generic task (kind: task)\n\n## Queued\n\n## Done\n' \
+    > "$d/data/backlog.md"
+  fm_write_meta "$d/state/execution-task-proof.meta" \
+    'window=fm:fm-execution-task-proof' "worktree=$d/task-wt" \
+    "project=$d/task-project" 'kind=task' 'harness=claude' 'spawn_gen=task1'
+  FM_HOME="$d" "$ROOT/bin/fm-task-execution.sh" approve execution-task-proof --basis captain-approved
+  FM_HOME="$d" "$ROOT/bin/fm-task-execution.sh" attempt execution-task-proof >/dev/null
+  FM_FAKE_AXI_STATUS=""
+  FM_FAKE_RUNS_LIST=""
+  FM_FAKE_BUSY=1
+  out=$(FM_HOME="$d" run_crew_state "$d" execution-task-proof)
+  assert_contains "$out" 'state: unknown' 'an unconfirmed task receipt was reported as working'
+  assert_contains "$out" 'handoff processing unconfirmed' 'task receipt mismatch was not reported'
+  pass 'launch seed, unconfirmed ship/task handoffs and stale working events never prove current processing'
 }
 
 # A converted adapter must NOT read working from rendered footer text: the

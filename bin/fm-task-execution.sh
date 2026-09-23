@@ -7,7 +7,6 @@
 #   started ID TOKEN                   (worker, from its isolated worktree)
 #   show ID | scan | notify
 #   confirmed ID                      (read-only receipt check for crew-state)
-#   retire ID --reason TEXT            (firstmate retires an orphaned approval)
 #
 # approve is an explicit semantic attestation by firstmate that implementation
 # is authorized for this backlog item within its existing bounded intent. It
@@ -77,11 +76,7 @@ scan_one() {
   record_valid "$file" || { printf '%s\tfirstmate\treconcile-corrupt-execution-record\n' "$id"; return; }
   task=$(row "$id")
   if [ "$task" = null ]; then
-    if [ ! -e "$STATE/$id.meta" ] && [ ! -L "$STATE/$id.meta" ]; then
-      printf '%s\tfirstmate\tbacklog item and task metadata are absent; retire %s --reason TEXT\n' "$id" "$id"
-    else
-      printf '%s\tfirstmate\treconcile-missing-backlog-item\n' "$id"
-    fi
+    printf '%s\tfirstmate\treconcile-missing-backlog-item\n' "$id"
     return
   fi
   if [ "$(printf '%s' "$task" | jq -r .state)" = 'done' ]; then
@@ -193,7 +188,7 @@ case "$command" in
       printf '%s\n' "$line"
     done
     exit 0 ;;
-  approve|attempt|started|show|confirmed|retire) ;;
+  approve|attempt|started|show|confirmed) ;;
   *) fail 'unknown command (use --help)' ;;
 esac
 id=${1:-}; shift || true; valid_id "$id"
@@ -225,14 +220,6 @@ mkdir -p "$STATE"
 LOCK="$STATE/.$id.execution.lock"
 fm_lock_acquire_wait "$LOCK"
 case "$command" in
-  retire)
-    [ "${1:-}" = --reason ] && [ "$#" = 2 ] && [ -n "$2" ] || fail 'retire requires --reason TEXT'
-    [ -e "$file" ] || exit 0
-    [ ! -e "$STATE/$id.meta" ] && [ ! -L "$STATE/$id.meta" ] \
-      || fail 'cannot retire while task metadata exists'
-    record_valid "$file" || fail 'invalid execution obligation'
-    rm -f -- "$file" "$STATE/.$id.execution-notified"
-    exit 0 ;;
   approve)
     [ "${1:-}" = --basis ] && [ "$#" = 2 ] || fail 'approve requires --basis'
     case "$2" in captain-approved|accepted-intent) basis=$2 ;; *) fail 'invalid approval basis' ;; esac

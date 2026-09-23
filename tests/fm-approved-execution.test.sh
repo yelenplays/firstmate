@@ -23,9 +23,6 @@ printf 'kind=scout\nwindow=fake\nworktree=%s\n' "$home" > "$home/state/approved-
 printf 'done: research complete; implementation required\n' > "$home/state/approved-scout.status"
 # Explicit semantic intake, never chat or status parsing.
 "$EXEC" approve approved-scout --basis captain-approved
-if "$EXEC" show approved-scout | grep -q 'retire approved-scout --reason'; then
-  fail 'scan recommended retirement while the task metadata still exists'
-fi
 for _round in 1 2; do
   append_wake "$home/state" signal approved-scout.status "$home/state/approved-scout.status"
   "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
@@ -45,9 +42,6 @@ for id in independent-a independent-b independent-c; do
   tasks add "$id" 'Independent approved change' --kind ship >/dev/null
   "$EXEC" approve "$id" --basis accepted-intent
   "$EXEC" show "$id" | grep -q 'firstmate.*implementation owner missing'
-  if "$EXEC" show "$id" | grep -q 'retire'; then
-    fail 'unspawned backlog work recommended retirement'
-  fi
 done
 tasks add parked-project 'Unrelated parked project' --kind ship >/dev/null
 if "$EXEC" scan | grep -q parked-project; then fail 'unapproved parked work was enrolled'; fi
@@ -105,10 +99,6 @@ token=$("$EXEC" attempt approved-scout)
 if "$EXEC" started approved-scout "$token" 2>/dev/null; then fail 'firstmate cwd accepted as worker receipt'; fi
 (cd "$home/worker" && "$EXEC" started approved-scout "$token")
 "$EXEC" confirmed approved-scout
-if (cd "$home/worker" && "$EXEC" retire approved-scout --reason 'worker cancellation') 2>/dev/null; then
-  fail 'worker retired an execution obligation while task metadata existed'
-fi
-[ -e "$home/state/approved-scout.execution" ] || fail 'rejected worker retirement removed the obligation'
 FM_FAKE_CREW_STATE='state: working · source: status-log · old note' "$EXEC" show approved-scout | grep -q 'firstmate.*verify-idle'
 FM_FAKE_CREW_STATE='state: unknown · source: none · endpoint dead' "$EXEC" show approved-scout | grep -q 'firstmate.*recover-or-escalate'
 FM_FAKE_CREW_STATE='state: working · source: run-step · running review' "$EXEC" show approved-scout | grep -q 'worker.*continue-validation'
@@ -130,10 +120,10 @@ if (cd "$home/worker" && "$EXEC" started approved-scout "$new_token") 2>/dev/nul
 # A backlog completion, including a finished scout, is not landing evidence.
 tasks 'done' independent-b >/dev/null
 "$EXEC" show independent-b | grep -q 'firstmate.*reconcile-recorded-completion'
-# A missing backlog item and task record retain the obligation until explicit retirement.
+# A missing backlog item remains a reconciliation issue, not a cleanup trigger.
 tasks rm independent-c >/dev/null
-"$EXEC" show independent-c | grep -q 'retire independent-c --reason TEXT'
-[ -e "$home/state/independent-c.execution" ] || fail 'scan retired an orphaned approval automatically'
+"$EXEC" show independent-c | grep -q 'reconcile-missing-backlog-item'
+[ -e "$home/state/independent-c.execution" ] || fail 'scan removed an orphaned approval automatically'
 
 # The real watcher reuses its queue; acknowledgment cannot retire the obligation.
 # No live backend lifecycle or external service is used by this fixture.
@@ -153,9 +143,6 @@ grep -q approved-scout "$home/notifications"
 grep -q 'approved-scout.*owner unconfirmed' "$home/drain"
 # Supervision remains required with no endpoint at all, across process restart.
 rm "$home/state/approved-scout.meta"
-tasks rm approved-scout >/dev/null
-"$EXEC" show approved-scout | grep -q 'retire approved-scout --reason TEXT' \
-  || fail 'orphaned execution did not recommend manual retirement'
 FM_STATE_OVERRIDE="$home/state" bash -c '. "$1"; fm_supervision_needed "$2"' _ "$ROOT/bin/fm-supervision-lib.sh" "$home/state"
 # Explicit enrollment never crosses homes.
 other=$(make_case other-home)
@@ -165,10 +152,6 @@ if FM_HOME="$home" FM_STATE_OVERRIDE="$other/state" "$EXEC" approve independent-
   fail 'inherited cross-home state override accepted for approval'
 fi
 [ ! -e "$other/state/independent-a.execution" ] || fail 'cross-home approval mutated another home'
-# Retiring an unused implementation approval removes its live obligation.
-"$EXEC" retire approved-scout --reason 'implementation will not proceed'
-[ ! -e "$home/state/approved-scout.execution" ] || fail 'retire left the approval record behind'
-
 # Generic task workers receive the same generation-bound receipt as ships.
 tasks add task-receipt 'Process a bounded task' --kind task >/dev/null
 "$EXEC" approve task-receipt --basis captain-approved
