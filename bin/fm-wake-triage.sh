@@ -50,8 +50,8 @@
 # through bin/fm-jev-lib.sh, and only when a Jev key is configured. A line
 # becomes routine only on a confident routine answer; no key, an unsure
 # answer, or a failed call keeps it act-now. Whatever Jev answers, the task is
-# also judged by its current state, and one that reads failed, blocked, or
-# unknown is act-now.
+# also judged by its current state, and one whose state alone is act-now by
+# the rules above stays act-now.
 #
 # Jev payload policy (the captain's privacy line). A line's free text reaches
 # Jev only when BOTH hold: this triage runs in the main home (FM_HOME carries
@@ -437,48 +437,62 @@ state_word() {  # <task>
   crew_word "$1"
 }
 
-# The state-based verdict for a worker whose wake carried no act-now status
-# line: a bare turn-end, an idle alert, or a routine-only status batch.
-classify_by_state() {  # <task> <what-happened>
-  local task=$1 what=$2 state word pr
-  first_sight "$task" || return 0
+# The verdict <task>'s current state alone gives, as one record separated by
+# VERDICT_SEP: routine|act, subject prefix, detail, next action, and "pane"
+# when the pane's last lines belong with it.
+VERDICT_SEP=$(printf '\037')
+state_verdict() {  # <task>
+  local task=$1 state word pr sub=''
+  verdict_record() { printf '%s\n' "$1$VERDICT_SEP$sub$VERDICT_SEP${2:-}$VERDICT_SEP${3:-}$VERDICT_SEP${4:-}"; }
   state=$(crew_state "$task")
   word=$(state_word "$task")
   if [ "$(task_kind "$task")" = secondmate ]; then
+    sub='secondmate '
     case "$word" in
-      working|paused|parked|done|idle) routine "$task" "secondmate $what" ;;
-      failed|blocked) act "$task" "secondmate $what; state reads $word" "inspect and recover (${state#state: })" ;;
-      *)
-        act "$task" "secondmate $what; state unknown" "inspect the pane below and reconcile the secondmate (${state#state: })"
-        pane_tail "$task" > "$CACHE/$task.pane"
-        ;;
+      working|paused|parked|done|idle) verdict_record routine ;;
+      failed|blocked) verdict_record act "state reads $word" "inspect and recover (${state#state: })" ;;
+      *) verdict_record act "state unknown" "inspect the pane below and reconcile the secondmate (${state#state: })" pane ;;
     esac
     return
   fi
   pr=$(meta_get "$task" pr)
   case "$word" in
-    working) routine "$task" "$what; worker busy (${state#state: })" ;;
-    paused) routine "$task" "$what; declared external wait" ;;
+    working) verdict_record routine "worker busy (${state#state: })" ;;
+    paused) verdict_record routine "declared external wait" ;;
     *)
       if captain_call_open "$task"; then
-        routine "$task" "$what; held for the captain"
+        verdict_record routine "held for the captain"
       elif [ "$word" = 'done' ] && [ -n "$pr" ]; then
-        routine "$task" "$what; finished, PR $pr awaiting merge"
+        verdict_record routine "finished, PR $pr awaiting merge"
       elif [ "$word" = parked ] && open_decision_for "$task"; then
-        routine "$task" "$what; parked on an already-open decision"
+        verdict_record routine "parked on an already-open decision"
       else
         case "$word" in
-          done) act "$task" "$what; worker state reads done" "verify the result and continue the selected delivery path (${state#state: })" "${pr:+pr: $pr}" ;;
-          parked) act "$task" "$what; worker parked at a validation gate" "have the worker follow the gate's help or escalate its findings (${state#state: })" ;;
-          failed|blocked) act "$task" "$what; worker state reads $word" "inspect and recover (${state#state: })" ;;
-          *)
-            act "$task" "$what; state unknown" "inspect the pane below; recover through stuck-crewmate-recovery if it is stuck (${state#state: })"
-            pane_tail "$task" > "$CACHE/$task.pane"
-            ;;
+          done) verdict_record act "worker state reads done" "verify the result and continue the selected delivery path (${state#state: })" ;;
+          parked) verdict_record act "worker parked at a validation gate" "have the worker follow the gate's help or escalate its findings (${state#state: })" ;;
+          failed|blocked) verdict_record act "worker state reads $word" "inspect and recover (${state#state: })" ;;
+          *) verdict_record act "state unknown" "inspect the pane below; recover through stuck-crewmate-recovery if it is stuck (${state#state: })" pane ;;
         esac
       fi
       ;;
   esac
+}
+
+# The state-based verdict for a worker whose wake carried no act-now status
+# line: a bare turn-end, an idle alert, or a routine-only status batch.
+classify_by_state() {  # <task> <what-happened>
+  local task=$1 what=$2 verdict sub detail next pane
+  first_sight "$task" || return 0
+  IFS="$VERDICT_SEP" read -r verdict sub detail next pane <<EOF
+$(state_verdict "$task")
+EOF
+  what="$sub$what${detail:+; $detail}"
+  if [ "$verdict" = routine ]; then
+    routine "$task" "$what"
+    return
+  fi
+  act "$task" "$what" "$next"
+  [ "$pane" != pane ] || pane_tail "$task" > "$CACHE/$task.pane"
 }
 
 # 0 when a presented line already settles <task> without its current state: a
@@ -743,13 +757,12 @@ EOF
 fi
 
 # A task whose status line waits on Jev is still judged against its current
-# state: a failed, blocked, or unknown worker acts whatever Jev answers.
+# state: one its state alone calls act-now acts whatever Jev answers.
 while IFS= read -r task; do
   safe_id "$task" || continue
   settled "$task" && continue
-  case "$(state_word "$task")" in
-    failed|blocked|unknown) classify_by_state "$task" "ambiguous status" ;;
-  esac
+  [ "$(state_verdict "$task" | cut -d "$VERDICT_SEP" -f1)" = act ] \
+    && classify_by_state "$task" "ambiguous status"
 done <<EOF
 $(cut -f1 "$AMBIG" | awk '!seen[$0]++')
 EOF

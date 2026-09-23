@@ -418,6 +418,37 @@ test_failed_state_acts_whatever_jev_answers() {
   pass "a failed worker whose status line went to Jev is act-now even on a confident routine answer"
 }
 
+# Every state the state rules call act-now wins over a confident routine Jev
+# answer; a routine state lets that answer stand.
+test_state_verdict_decides_whether_jev_may_call_a_line_routine() {
+  local dir out state expect
+  while IFS='|' read -r state expect; do
+    dir=$(triage_case "jev-state-${state%% *}")
+    write_meta "$dir" worker ship "project=$ROOT"
+    out=$(FM_FAKE_CREW_STATE="state: $state" \
+      jev_triage_one "$dir" worker 'note: review finished' routine 0.95) || fail "[$state] triage failed: $out"
+    has "$out" 'worker (status line judged routine by Jev)'
+    if [ -n "$expect" ]; then
+      has "$out" "- worker | ambiguous status; $expect"
+      has "$out" 'not auto-acknowledged'
+      lacks "$out" 'WAKE_ACKED'
+      assert_equals 1 "$(queued_rows "$dir")" "[$state] rows left queued without --auto-ack"
+    else
+      lacks "$out" 'ACT NOW'
+      has "$out" 'WAKE_ACKED'
+      assert_equals 0 "$(queued_rows "$dir")" "[$state] rows left queued after --auto-ack"
+    fi
+  done <<'EOF'
+failed · source: run-step · tests failed|worker state reads failed
+blocked · source: status-log · waiting on credentials|worker state reads blocked
+unknown · source: none · idle|state unknown
+parked · source: run-step · parked at review|worker parked at a validation gate
+done · source: run-step · finished|worker state reads done
+working · source: pane · busy|
+EOF
+  pass "an act-now current state wins over a confident routine Jev answer; a routine state lets it stand"
+}
+
 test_unsure_jev_answer_keeps_the_line_act_now() {
   local dir out
   dir=$(triage_case jev-unsure)
@@ -469,6 +500,7 @@ test_ambiguous_status_without_a_jev_key_stays_act_now
 test_jev_gets_free_text_only_for_firstmate_repo_work_in_the_main_home
 test_jev_gets_structured_facts_only_outside_the_line
 test_failed_state_acts_whatever_jev_answers
+test_state_verdict_decides_whether_jev_may_call_a_line_routine
 test_unsure_jev_answer_keeps_the_line_act_now
 test_jev_failure_keeps_ambiguous_line_act_now
 test_drain_failure_is_passed_through
