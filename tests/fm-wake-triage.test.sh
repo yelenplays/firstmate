@@ -218,6 +218,9 @@ test_busy_execution_reminder_is_routine_and_idle_one_is_act_now() {
   write_meta "$dir" runner ship
   write_meta "$dir" stopped ship
   write_meta "$dir" merging ship 'pr=https://github.com/o/r/pull/9'
+  write_meta "$dir" validating ship
+  write_meta "$dir" typing ship
+  write_meta "$dir" orphan ship
   fake="$dir/fakebin/fm-wake-drain.sh"
   cat > "$fake" <<'SH'
 #!/usr/bin/env bash
@@ -225,21 +228,34 @@ test_busy_execution_reminder_is_routine_and_idle_one_is_act_now() {
 printf '1\t1\tcheck\texecution:runner\tcheck: execution runner\n'
 printf '1\t2\tcheck\texecution:stopped\tcheck: execution stopped\n'
 printf '1\t3\tcheck\texecution:merging\tcheck: execution merging\n'
+printf '1\t4\tcheck\texecution:validating\tcheck: execution validating\n'
+printf '1\t5\tcheck\texecution:typing\tcheck: execution typing\n'
+printf '1\t6\tcheck\texecution:orphan\tcheck: execution orphan\n'
 printf 'UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):\n'
 printf 'runner\tfirstmate\tverify-progress-not-launch-seed\n'
 printf 'stopped\tfirstmate\tverify-idle-or-failed-owner-and-recover-or-escalate\n'
 printf 'merging\tfirstmate\tverify-landing-with-configured-approval-authority\n'
-printf 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation g1\n' >&2
+printf 'validating\tfirstmate\tverify-idle-or-failed-owner-and-recover-or-escalate\n'
+printf 'typing\tfirstmate\tverify-idle-or-failed-owner-and-recover-or-escalate\n'
+printf 'orphan\tfirstmate\treconcile-missing-backlog-item\n'
+printf 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 6 --recovery-generation g1\n' >&2
 SH
   chmod +x "$fake"
   out=$(FM_WAKE_DRAIN_BIN="$fake" FM_FAKE_CREW_STATE_runner='state: working · source: pane · busy' \
-    FM_FAKE_CREW_STATE_stopped='state: unknown · source: none · idle' run_triage "$dir" --auto-ack) \
+    FM_FAKE_CREW_STATE_stopped='state: unknown · source: none · idle' \
+    FM_FAKE_CREW_STATE_validating='state: working · source: run-step · running' \
+    FM_FAKE_CREW_STATE_typing='state: working · source: pane · busy' \
+    FM_FAKE_CREW_STATE_orphan='state: working · source: pane · busy' run_triage "$dir" --auto-ack) \
     || fail "triage failed: $out"
   has "$out" 'runner (execution reminder; worker busy (verify-progress-not-launch-seed))'
   has "$out" 'merging (execution reminder; PR https://github.com/o/r/pull/9 awaits merge authority)'
+  has "$out" 'validating (execution reminder; run validating (verify-idle-or-failed-owner-and-recover-or-escalate))'
   has "$out" '- stopped | execution obligation: verify-idle-or-failed-owner-and-recover-or-escalate'
-  has "$out" 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation g1'
-  pass "an execution reminder is routine while the worker is busy and act-now once it is not"
+  has "$out" '- typing | execution obligation: verify-idle-or-failed-owner-and-recover-or-escalate'
+  has "$out" '- orphan | execution obligation: reconcile-missing-backlog-item'
+  lacks "$out" 'WAKE_ACKED'
+  has "$out" 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 6 --recovery-generation g1'
+  pass "only a busy-progress execution reminder is routine; reconcile and other firstmate obligations stay act-now"
 }
 
 test_open_decisions_are_act_now_only_when_the_set_changes() {

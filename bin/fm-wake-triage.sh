@@ -17,8 +17,10 @@
 # script never edits the queue, a status log, the backlog, or a worker.
 #
 # Deterministic rules decide first:
-#   routine  an execution reminder for a worker crew-state reads as working,
-#            or for a recorded PR that only awaits merge authority; an
+#   routine  an execution reminder to verify progress for a worker
+#            crew-state reads as working, to verify an idle or failed owner
+#            whose run-step reads working (validation is running), or for a
+#            recorded PR that only awaits merge authority; an
 #            execution obligation whose owner is not firstmate; an idle
 #            alert or bare turn-end for a worker that is working, paused, held
 #            for the captain (bin/fm-captain-hold.sh open), finished with a
@@ -34,9 +36,10 @@
 #            failed, blocked, or unknown without a covering reason, a
 #            possible-wedge alert unless the worker is finished with a
 #            recorded PR or parked on a listed open decision, a dead-agent or
-#            unread-instruction idle alert, a
-#            procevent/board, inbox, merge, or any other check result, a
-#            heartbeat, a changed OPEN DECISIONS set, RECORD DIVERGENCE, and
+#            unread-instruction idle alert, every other firstmate-owned
+#            execution obligation (every reconcile-* action included)
+#            whatever the pane shows, a procevent/board, inbox, merge, or
+#            any other check result, a heartbeat, a changed OPEN DECISIONS set, RECORD DIVERGENCE, and
 #            every drain notice or error. UNREAD STATUS and STATUS OUTCOME
 #            BACKSTOP lines are judged by the same status-line rules.
 # Only the leftover ambiguous status lines (a note:, a nonstandard or missing
@@ -609,8 +612,11 @@ handle_check_row() {  # <key> <payload>
         routine "$task" "execution reminder; obligation no longer listed"
       elif [ "$owner" != firstmate ]; then
         routine "$task" "execution reminder; owner is $owner ($action)"
-      elif [ "$word" = working ]; then
+      elif [ "$action" = verify-progress-not-launch-seed ] && [ "$word" = working ]; then
         routine "$task" "execution reminder; worker busy ($action)"
+      elif [ "$action" = verify-idle-or-failed-owner-and-recover-or-escalate ] \
+        && crew_state "$task" | grep -q '^state: working · source: run-step'; then
+        routine "$task" "execution reminder; run validating ($action)"
       elif [ "$action" = verify-landing-with-configured-approval-authority ] && [ -n "$(meta_get "$task" pr)" ]; then
         routine "$task" "execution reminder; PR $(meta_get "$task" pr) awaits merge authority"
       else
