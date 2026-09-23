@@ -281,7 +281,7 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
   def unit_interval(message):
     if type != "number" or . < 0 or . > 1 then error(message) else . end;
   def checked_probabilities(probabilities; expected_keys; id; kind):
-    if probabilities == null then {}
+    if probabilities == null or probabilities == {} then {}
     elif (probabilities | type) != "object" then
       error("answer \(id) probabilities must be an object")
     elif (probabilities | keys) != expected_keys then
@@ -307,14 +307,15 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
       (($a.choice | strings) // error("answer \($q.id) has no choice")) as $c
       | checked_probabilities($a.probabilities; ($q.opts | map(.[0]) | sort); $q.id; "options") as $probabilities
       | { answer: $c,
-          prior: (if (($q.opts | map(.[0]) | index($c)) == null) then "invalid" else $c end),
+          prior: (if (($q.opts | map(.[0]) | index($c)) == null) then "invalid"
+                  elif ($probabilities | length) == 0 then "unknown" else $c end),
           p: ($probabilities[$c] // null),
           conf: (if $confidence != null then $confidence
                  elif ($probabilities | length) > 0 then estimate($probabilities) else null end),
           floor: (if $confidence != null then 0.5 else 0.4 end),
-          force_escalate: (($q.opts | map(.[0]) | index($c)) == null
-            or (($probabilities | length) > 0
-                and $probabilities[$c] != ($probabilities | [.[]] | max))) }
+          force_escalate: (($probabilities | length) == 0
+            or ($q.opts | map(.[0]) | index($c)) == null
+            or $probabilities[$c] != ($probabilities | [.[]] | max)) }
     else
       (($a.score | numbers) // error("answer \($q.id) has no score")) as $s
       | ($q.opts | length) as $n
@@ -324,10 +325,14 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
         else
           ($probabilities | to_entries | max_by(.value) | {i: (.key | tonumber), p: .value}) as $top
           | ($probabilities | to_entries | map(select(.value == $top.p) | (.key | tonumber))) as $top_indices
+          | ((($probabilities | to_entries | map((.key | tonumber) * .value) | add)
+              / ($probabilities | [.[]] | add))) as $weighted
           | { answer: $q.opts[$top.i][0], p: $top.p, s: $s,
               conf: (if $confidence != null then $confidence else estimate($probabilities) end),
               floor: (if $confidence != null then 0.5 else 0.4 end),
-              force_escalate: ($s < 0 or $s > ($n - 1) or ($top_indices | index($s | round)) == null) }
+              force_escalate: ($s < 0 or $s > ($n - 1)
+                or ($top_indices | index($s | round)) == null
+                or (($s - $weighted) | fabs) > 0.05) }
         end
     end
   | if (.force_escalate // false) or .conf == null or .conf < .floor then

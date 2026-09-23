@@ -178,10 +178,10 @@ test_yes_and_score_lines() {
   assert_equals "$(jq -c '.questions.yes' "$LOG/body")" \
     '{"type":"noul","instructions":"Does the diff change runtime code?"}' "yes becomes a noul question"
 
-  respond '{"answers":{"score":{"type":"score","score":0.52,"confidence":0.81,"probabilities":{"0":0.1,"1":0.8,"2":0.1}}}}'
+  respond '{"answers":{"score":{"type":"score","score":1,"confidence":0.81,"probabilities":{"0":0.1,"1":0.8,"2":0.1}}}}'
   run_jev code out err score "one flaky test quarantined" "How risky is merging?" routine "worth a look" incident
   assert_equals "$code" 0 "a confident score exits 0"
-  assert_equals "$out" "score: worth a look s=0.52 p=0.8 conf=0.81" "a score names its most probable level"
+  assert_equals "$out" "score: worth a look s=1 p=0.8 conf=0.81" "a score names its most probable level"
   assert_equals "$(jq -c '.questions.score.criteria' "$LOG/body")" '["routine","worth a look","incident"]' \
     "score levels are sent in order"
 
@@ -262,6 +262,13 @@ JSON
 
 test_escalation_exits_two() {
   local code out err
+  respond '{"answers":{"pick":{"choice":"A","confidence":0.9}}}'
+  run_jev code out err pick "state" "Next?" A B
+  assert_equals "$code" 2 "a pick without probabilities escalates"
+  assert_equals "$out" "pick: ESCALATE conf=0.9 prior=unknown -> decide yourself" \
+    "a probability-free pick never returns its choice"
+  assert_equals "$err" "" "a probability-free pick escalates without an error"
+
   respond '{"answers":{"pick":{"choice":"merge","confidence":0.31,"probabilities":{"merge":0.55,"hold":0.45}}}}'
   run_jev code out err pick "state" "Next?" merge hold
   assert_equals "$code" 2 "a low-confidence verdict exits 2"
@@ -361,6 +368,13 @@ test_errors_exit_one_with_one_line() {
   assert_equals "$out" "score: ESCALATE conf=0.9 prior=medium -> decide yourself" \
     "an inconsistent score is not reported as a success"
   assert_equals "$err" "" "an inconsistent score escalates without an error"
+
+  respond '{"answers":{"score":{"score":1.4,"confidence":0.9,"probabilities":{"0":0.1,"1":0.8,"2":0.1}}}}'
+  run_jev code out err score "state" "How severe?" low medium high
+  assert_equals "$code" 2 "a score inconsistent with its weighted value escalates"
+  assert_equals "$out" "score: ESCALATE conf=0.9 prior=medium -> decide yourself" \
+    "a score inconsistent with its weighted value is not returned as a success"
+  assert_equals "$err" "" "a weighted-value mismatch escalates without an error"
 
   respond '{"answers":{"yes":{"noul":1.5}}}'
   run_jev code out err yes "state" "Is the value in range?"
@@ -471,7 +485,7 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$(jq -r '.state' "$LOG/body")" "worktree for task-execution-receipt-retry is clean" \
     "the complete task slug is sent unchanged"
 
-  for token in sk-abcdefghijklmnop sk-or-abcdefghijklmnop sk_live_51AbCdEfGhIjKlMnOp sk_test_51AbCdEfGhIjKlMnOp ghp_abcdefghijklmnop github_pat_abcdefghijklmnop gho_abcdefghijklmnop ghu_abcdefghijklmnop ghs_abcdefghijklmnop ghr_abcdefghijklmnop; do
+  for token in sk-abcdefghijklmnop sk-or-abcdefghijklmnop sk_live_51AbCdEfGhIjKlMnOp sk_test_51AbCdEfGhIjKlMnOp ghp_abcdefghijklmnop github_pat_abcdefghijklmnop gho_abcdefghijklmnop ghu_abcdefghijklmnop ghs_abcdefghijklmnop ghr_abcdefghijklmnop xoxb-1234-5678-abcdef xoxp-1234-5678-abcdef xoxa-1234-5678-abcdef xoxr-1234-5678-abcdef xoxs-1234-5678-abcdef; do
     reset_log
     run_jev code out err yes "credential ($token)" "Done?"
     assert_equals "$code" 1 "a token boundary before $token is refused"

@@ -377,7 +377,7 @@ fm_jev_compact_state() {
       while (match(buf, /Bearer[[:space:]]+[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
-      token_pattern = "(^|[^[:alnum:]_-])(sk-or-[A-Za-z0-9_-]+|sk_(live|test)_[A-Za-z0-9_-]+|github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|gh(o|u|s|r)_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{16,})"
+      token_pattern = "(^|[^[:alnum:]_-])(sk-or-[A-Za-z0-9_-]+|sk_(live|test)_[A-Za-z0-9_-]+|github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|gh(o|u|s|r)_[A-Za-z0-9_]+|xox(b|p|a|r|s)-[A-Za-z0-9_-]+|sk-[A-Za-z0-9_-]{16,})"
       while (match(buf, token_pattern)) {
         matched = substr(buf, RSTART, RLENGTH)
         boundary = substr(matched, 1, 1)
