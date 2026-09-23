@@ -36,7 +36,10 @@ chmod 0600 "$pending" || { cat "$pending"; exit 1; }
 
 work=$(mktemp -d "$STATE/.wake-triage.work.XXXXXX") || { cat "$pending"; exit 1; }
 chmod 0700 "$work" || { cat "$pending"; rm -rf "$work"; exit 1; }
-trap 'rm -rf "$work"' EXIT HUP INT TERM
+trap 'rm -rf "$work"' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 out="$pending"
 cutoff=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through \([0-9][0-9]*\) --recovery-generation .*/\1/p' "$out" | tail -1)
 generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--recovery-generation \([A-Za-z0-9._-][A-Za-z0-9._-]*\).*$/\1/p' "$out" | tail -1)
@@ -119,8 +122,9 @@ while IFS= read -r tagged; do
     elif awk -F '\t' -v id="$id" '$3 == "signal" && $4 == id ".status" { found=1 } END { exit !found }' "$rows" \
       && ! grep -F "wake annotation:" "$out" | grep -F "$id.status: working:" >/dev/null; then reason='C7 signal has no current working annotation';
     else
-      owner_lines=$(awk -v id="$id" 'index($0,"UNFINISHED EXECUTION") { section=1; next } section && /^[A-Z][A-Z ]+ \(/ { section=0 } section && $0 ~ "^" id "[[:space:]]" {print}' "$out")
-      if [ -n "$owner_lines" ] && ! printf '%s\n' "$owner_lines" | grep -q 'worker'; then reason='C8 execution belongs to firstmate';
+      owner_lines=$(awk -F '\t' -v id="$id" 'index($0,"UNFINISHED EXECUTION") { section=1; next } section && /^[A-Z][A-Z ]+ \(/ { section=0 } section && $1 == id {print}' "$out")
+      owner_bad=$(printf '%s\n' "$owner_lines" | awk -F '\t' 'NF && $2 != "worker" {print; exit}')
+      if [ -n "$owner_bad" ]; then reason='C8 execution belongs to firstmate';
       elif awk -F '\t' -v id="$id" '$3 == "check" && $4 == "execution:" id && $5 == "check: execution " id { found=1 } END { exit !found }' "$rows" \
         && [ -z "$owner_lines" ]; then reason='C8 execution obligation missing';
       else

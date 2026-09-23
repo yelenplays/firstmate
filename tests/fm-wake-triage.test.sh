@@ -247,6 +247,39 @@ test_hidden_duplicate_row_stays_actionable() {
   pass 'dedupe-hidden rows remain actionable and visible'
 }
 
+test_signal_terminates_before_acknowledgement() {
+  local dir pid tries
+  dir=$(make_case signal-interruption)
+  install_crew_stub "$dir"
+  cat > "$dir/fakebin/fm-captain-hold.sh" <<'SH'
+#!/usr/bin/env bash
+touch "$FM_HOLD_STARTED"
+sleep 2
+exit 3
+SH
+  chmod +x "$dir/fakebin/fm-captain-hold.sh"
+  setup_task interrupted "$dir"
+  append_wake "$dir/state" stale 'test:interrupted' 'stale: test:interrupted'
+  PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" \
+    FM_CREW_STATE_BIN="$dir/fakebin/fm-crew-state.sh" \
+    FM_CAPTAIN_HOLD_BIN="$dir/fakebin/fm-captain-hold.sh" \
+    FM_HOLD_STARTED="$dir/hold.started" FM_ROOT_OVERRIDE="$dir" \
+    "$TRIAGE" >"$dir/output" 2>&1 &
+  pid=$!
+  tries=0
+  while [ ! -e "$dir/hold.started" ] && [ "$tries" -lt 100 ]; do
+    sleep 0.02
+    tries=$((tries + 1))
+  done
+  [ -e "$dir/hold.started" ] || { kill "$pid" 2>/dev/null || true; fail 'triage never reached the hold check'; }
+  kill -TERM "$pid" 2>/dev/null || fail 'could not interrupt triage'
+  wait "$pid" && fail 'terminated triage continued successfully'
+  assert_unacked "$dir"
+  set -- "$dir/state"/.wake-triage.pending.*
+  [ -f "$1" ] || fail 'signal interruption discarded pending drain output'
+  pass 'signals terminate triage before acknowledgement and retain pending output'
+}
+
 test_interruption_retains_pending_output() {
   local dir out
   dir=$(make_case interruption); install_crew_stub "$dir"; install_hold_stub "$dir"
@@ -284,6 +317,7 @@ test_branch_actor_delegates_to_drain
 test_reason_specific_and_nonproof_failures
 test_unread_note_and_captain_hold_exit_codes
 test_hidden_duplicate_row_stays_actionable
+test_signal_terminates_before_acknowledgement
 test_interruption_retains_pending_output
 test_instruction_wiring
 test_shellcheck
