@@ -820,7 +820,7 @@ test_pi_spawn_registers_only_its_isolated_copy() {
 test_pi_trust_override_and_concurrent_updates() {
   local agent_dir="$TMP_ROOT/pi-agent-shared" gate_dir="$TMP_ROOT/pi-trust-gate"
   local real_jq harness index slot rec attempt count concurrent=0 spawn_status=0
-  local -a ids=() homes=() projects=() worktrees=() fakebins=() launchlogs=() case_dirs=() pids=()
+  local -a ids=() homes=() projects=() worktrees=() case_dirs=() pids=()
   real_jq=$(command -v jq)
   mkdir -p "$agent_dir" "$gate_dir"
   printf '{"/unrelated/path":true}\n' > "$agent_dir/trust.json"
@@ -835,8 +835,6 @@ test_pi_trust_override_and_concurrent_updates() {
       homes[slot]=$HOME_DIR
       projects[slot]=$PROJ_DIR
       worktrees[slot]=$WT_DIR
-      fakebins[slot]=$FAKEBIN_DIR
-      launchlogs[slot]=$LAUNCH_LOG
       case_dirs[slot]=$CASE_DIR
       mkdir -p "$HOME_DIR/user-home/.pi/agent"
       printf '{"/default-home-marker":true}\n' > "$HOME_DIR/user-home/.pi/agent/trust.json"
