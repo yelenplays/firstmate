@@ -692,7 +692,7 @@ When the ranking has at least one item it raises one `check: act-first` wake, an
 Task-level status-pointer wakes, including coalesced path lists, are omitted when a detailed decision, outcome, or unread status item for that task is present.
 Without a configured key the ranking is skipped and nothing is sent.
 Both lists are advisory: every presented wake still needs handling and acknowledgement.
-[`bin/fm-startup-network.sh`](../bin/fm-startup-network.sh)'s header owns the deferred step and its fixed 20-second input-handoff wait; regression coverage lives in [`tests/fm-jev-act-first.test.sh`](../tests/fm-jev-act-first.test.sh) and [`tests/fm-session-start.test.sh`](../tests/fm-session-start.test.sh).
+[`bin/fm-startup-network.sh`](../bin/fm-startup-network.sh)'s header owns the deferred step, its fixed 20-second input-handoff wait, and the detached Jev request's effective `JEV_TIMEOUT` plus 3-second cleanup margin; regression coverage lives in [`tests/fm-startup-network.test.sh`](../tests/fm-startup-network.test.sh), [`tests/fm-jev-act-first.test.sh`](../tests/fm-jev-act-first.test.sh), and [`tests/fm-session-start.test.sh`](../tests/fm-session-start.test.sh).
 
 ## Jev brief preflight (FM_JEV_BRIEF_PREFLIGHT)
 

@@ -813,11 +813,12 @@ while [ \$# -gt 0 ]; do
   case "\$1" in -o) out=\$2; shift 2 ;; *) printf '%s\n' "\$1" >> '$calls/argv'; shift ;; esac
 done
 cat > /dev/null
+sleep 11
 printf '%s' '{"answers":{"first":{"type":"choice","choice":"i2","confidence":0.8,"probabilities":{"i1":0.2,"i2":0.8}}}}' > "\$out"
 printf '200'
 SH
   chmod +x "$root/bin/curl"
-  printf 'TYPESAFE_API_KEY=ts-test-key\nJEV_TIMEOUT=3\n' > "$home/.env"
+  printf 'TYPESAFE_API_KEY=ts-test-key\nJEV_TIMEOUT=12\n' > "$home/.env"
   act_first_status "$home" g-rank 1
   (unset JEV_TIMEOUT; run_stage "$home" "$root" act-first-rank --generation g-rank) &
   rank_pid=$!
@@ -831,7 +832,7 @@ SH
     || fail "the ranker did not register its wait"
   act_first_drain | run_stage "$home" "$root" act-first-input
   wait "$rank_pid"
-  grep -A1 -x -- '--max-time' "$calls/argv" | grep -qx 3 \
+  grep -A1 -x -- '--max-time' "$calls/argv" | grep -qx 12 \
     || fail "the ranking ignored the home JEV_TIMEOUT: $(tr '\n' ' ' < "$calls/argv")"
   assert_grep "1. wake signal task-z.status: blocked: waiting on a key (p=0.8)" \
     "$home/state/.startup-network.act-first" "the ranking was not published"
@@ -839,7 +840,7 @@ SH
     || fail "the ranking did not raise exactly one act-first wake"
   [ ! -e "$home/state/.startup-network.act-first-input" ] || fail "the consumed input was left behind"
   [ ! -e "$home/state/.startup-network.act-first-waiting" ] || fail "the finished ranking still claimed to be waiting"
-  pass "fm-startup-network: the ranking honours the home timeout, publishes, and wakes once"
+  pass "fm-startup-network: the ranking honours a home timeout above ten seconds and wakes once"
 }
 
 test_late_act_first_input_restarts_an_expired_ranker_once() {

@@ -86,8 +86,9 @@
 # the report publishes as soon as the sweeps finish. The ranking waits up to
 # 20 seconds for act-first-input to deliver its own generation's drain output;
 # if that wait expires, a later handoff starts one detached ranker for that
-# generation. Generation markers prevent duplicate launches. It skips at once
-# when no Jev key is
+# generation. Generation markers prevent duplicate launches. Its detached
+# helper allows the resolved JEV_TIMEOUT plus a 3-second cleanup margin; this
+# stage uses 5 seconds when JEV_TIMEOUT is unset. It skips at once when no Jev key is
 # configured, and publishes separately to .startup-network.act-first. Only when
 # it ranked at least one item does it raise one `check: act-first` wake through
 # the ordinary durable wake queue, so the advisory ranking is actually seen; no
@@ -776,7 +777,7 @@ consume_act_first_input() {  # <generation> <drain-file>
 }
 
 cmd_act_first_rank() {  # <generation>
-  local generation=$1 waited=0 drain lines timeout launched
+  local generation=$1 waited=0 drain lines timeout launched outer_timeout
   # shellcheck source=bin/fm-jev-lib.sh
   . "$SCRIPT_DIR/fm-jev-lib.sh"
   fm_jev_key_configured || return 0
@@ -823,8 +824,11 @@ cmd_act_first_rank() {  # <generation>
     waited=$((waited + 1))
   done
   timeout=${JEV_TIMEOUT:-$(fmx_env_get JEV_TIMEOUT "$FM_HOME/.env")}
-  lines=$(JEV_TIMEOUT=${timeout:-5} FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
-    fm_run_timed 10 "$SCRIPT_DIR/fm-jev-act-first.sh" --drain-file "$drain" --status-dir "$STATE" 2>/dev/null </dev/null) || lines=
+  JEV_TIMEOUT=${timeout:-5}
+  timeout=$(_fm_jev_timeout)
+  outer_timeout=$((10#$timeout + 3))
+  lines=$(JEV_TIMEOUT="$timeout" FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+    fm_run_timed "$outer_timeout" "$SCRIPT_DIR/fm-jev-act-first.sh" --drain-file "$drain" --status-dir "$STATE" 2>/dev/null </dev/null) || lines=
   rm -f "$drain"
   [ -n "$lines" ] || return 0
   fm_lock_acquire_wait "$PUBLISH_LOCK"
