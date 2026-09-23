@@ -175,6 +175,7 @@ replay_score() {
   cat "${files[@]}" | jq -rs --arg margins "$margins" --argjson rows "$rows" "$FM_JEV_CHOICE_TOP2_JQ"'
     def valid: (.probabilities | type) == "object" and (.probabilities | length) > 0
       and all(.probabilities[]; type == "number");
+    # The 1e-9 tolerance matches the resolver: two-decimal gaps such as 0.7 - 0.3 compute just below the threshold in binary floating point.
     def gate_pass($row; $threshold): $row.first == $row.top.first and (($row.top.raw_margin + 1e-9) >= $threshold);
     def verdict($row; $pass):
       if ($row.expected | type) != "array" then "-"

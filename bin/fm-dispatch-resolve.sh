@@ -762,6 +762,7 @@ RESULT=$(jq -n --arg margin "$MARGIN" --argjson lat "$LAT_MS" --arg none_criteri
   if $sel.invalid then $ev + {status: "error", reason: $sel.invalid}
   elif $choice != $top2.first then
     $ev + {status: "ambiguous", reason: "choice \($choice) is not the most probable option \($top2.first)", candidates: ($answer_use | map(assess(.)))}
+  # The 1e-9 tolerance is intentional: two-decimal gaps such as 0.7 - 0.3 compute just below the threshold in binary floating point.
   elif ($top2.raw_margin + 1e-9) < ($margin | tonumber) then
     $ev + {status: "ambiguous", reason: "top-2 margin \($top2.margin) below \($margin) (\($top2.first) vs \($top2.second))", candidates: ($answer_use | map(assess(.)))}
   elif $sel.escalate then
