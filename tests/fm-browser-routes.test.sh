@@ -25,6 +25,9 @@ const route = {
   heal_log: [],
 };
 assert.equal(engine.validateRoute(route), route);
+assert.equal(engine.selectorFromRoute({ role: 'button', operator: '~', label: 'Save' }), 'button~Save');
+assert.equal(engine.selectorFromRoute({ role: 'main', operator: '~', label: 'Workspace' }), 'main~Workspace');
+assert.equal(engine.selectorFromRoute({ role: 'title', operator: '~', label: 'Dashboard' }, true), 'title~Dashboard');
 assert.throws(() => engine.validateRoute({ ...route, version: 2 }));
 assert.throws(() => engine.validateRoute({ ...route, steps: [...route.steps, route.steps[0]] }));
 const snapshot = 'uid=x:0 rootwebarea "fixture"\n  uid=x:1 textbox "Route name"\n  uid=x:2 button "Reveal fixture"\n  uid=x:3 heading "Name recorded"\n  uid=x:4 heading "Route finished"';
@@ -68,7 +71,21 @@ assert.equal(result.error, 'CONFIRM_REQUIRED');
 assert.deepEqual(actionLog, []);
 const mismatchPage = { ...page, async eval(fn) { return fn.toString().includes('hostname') ? { host: 'elsewhere.test', path: '/routes.html' } : null; } };
 assert.equal((await engine.executeRoute(route, { name: 'safe' }, null, mismatchPage)).error, 'START_MISMATCH');
-console.log('offline route format, variables, resume, confirmation, and replay checks passed');
+const healingRoute = {
+  version: 1, host: '127.0.0.1', route: 'healing', start: { url_path: '/routes.html' }, vars: {},
+  steps: [{ id: 'deploy', do: 'click', target: { role: 'button', label: 'Deploy production' }, expect: { appears: { role: 'heading', label: 'Done' } } }],
+  heal_log: [],
+};
+const healingPage = {
+  ...page,
+  async snapshot() { return 'uid=x:0 rootwebarea "fixture"\n  uid=x:1 button "Deploy production 123456"\n  uid=x:2 heading "Done"'; },
+  async click(target) { actionLog.push(['click', target]); },
+};
+result = await engine.executeRoute(healingRoute, {}, null, healingPage);
+assert.equal(result.ok, true);
+assert.equal(result.routeUpdates[0].target, 'Deploy production 123456');
+assert.equal(result.heals[0].to, 'Deploy production [number]');
+console.log('offline route format, variables, resume, confirmation, selector semantics, healing, and replay checks passed');
 JS
 pass 'route format, interpolation, resume, confirmation, and one-run sequencing are covered'
 

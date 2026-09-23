@@ -145,12 +145,13 @@ try {
     const file = process.env.FM_BROWSER_ROUTE_FILE;
     if (lstatSync(file).isSymbolicLink()) process.exit(1);
     const route = JSON.parse(readFileSync(file, 'utf8'));
-    for (const heal of result.heals) {
-      const step = route.steps.find((entry) => entry.id === heal.step);
-      if (!step || step.confirm === true) process.exit(1);
+    for (const update of result.routeUpdates ?? []) {
+      const step = route.steps.find((entry) => entry.id === update.step);
+      const heal = result.heals.find((entry) => entry.step === update.step);
+      if (!step || step.confirm === true || !heal) process.exit(1);
       const from = step.target.label;
-      step.target.label = heal.to;
-      route.heal_log.push({ step: heal.step, from, to: heal.to, by: 'local', confidence: heal.confidence, date: new Date().toISOString() });
+      step.target.label = update.target;
+      route.heal_log.push({ step: update.step, from, to: heal.to, by: 'local', confidence: heal.confidence, date: new Date().toISOString() });
     }
     const temp = `${file}.${process.pid}.tmp`;
     writeFileSync(temp, `${JSON.stringify(route, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
@@ -331,7 +332,7 @@ if (process.env.FM_BROWSER_EXPECT_KIND) {
 if (process.env.FM_BROWSER_RECORD_HOST) {
   const selector = (text) => {
     const match = text.match(/^([a-z][a-z0-9-]*)(=|~)(.+)$/i);
-    return match ? { role: match[1].toLowerCase(), label: match[3].trim() } : null;
+    return match ? { role: match[1].toLowerCase(), operator: match[2], label: match[3].trim() } : null;
   };
   const expectation = !process.env.FM_BROWSER_EXPECT_KIND ? null :
     process.env.FM_BROWSER_EXPECT_KIND === "url-path" ? { url_path: process.env.FM_BROWSER_EXPECT_VALUE } :

@@ -197,7 +197,7 @@ export function sanitizeResult(result) {
 export function selectorFromRoute(target, allowTitle = false) {
   if (!target || typeof target !== 'object' || Array.isArray(target) ||
       typeof target.role !== 'string' || typeof target.label !== 'string') throw new Error('invalid route target');
-  const selector = `${target.role}=${target.label}`;
+  const selector = `${target.role}${target.operator ?? '='}${target.label}`;
   parseSelector(selector, { allowTitle });
   return selector;
 }
@@ -333,15 +333,19 @@ export async function executeRoute(routeInput, vars = {}, from = null, pageApi) 
   }
   const completed = [];
   const heals = [];
+  const routeUpdates = [];
   for (const step of route.steps.slice(begin)) {
     if (step.confirm === true) return { ok: false, error: 'CONFIRM_REQUIRED', step: step.id, completed };
     const result = await executeRouteStep(step, vars, pageApi);
     if (!result.ok) return { ok: false, error: result.error ?? 'BROWSER_ACTION_FAILED', step: step.id, completed };
     completed.push(step.id);
-    if (result.healedTarget) heals.push({ step: step.id, to: redact(result.healedTarget).slice(0, 96), confidence: result.healedConfidence });
-    if (step.do === 'handoff') return { ok: true, completed, heals, handoff: { step: step.id, say: redact(step.say).slice(0, 500) } };
+    if (result.healedTarget) {
+      routeUpdates.push({ step: step.id, target: result.healedTarget });
+      heals.push({ step: step.id, to: redact(result.healedTarget).slice(0, 96), confidence: result.healedConfidence });
+    }
+    if (step.do === 'handoff') return { ok: true, completed, heals, routeUpdates, handoff: { step: step.id, say: redact(step.say).slice(0, 500) } };
   }
-  return { ok: true, completed, heals };
+  return { ok: true, completed, heals, routeUpdates };
 }
 
 export async function executeStep(rawParams, pageApi) {
