@@ -699,7 +699,7 @@ Both lists are advisory: every presented wake still needs handling and acknowled
 
 ## Jev supervision triage (FM_JEV_SUPERVISION_TIMEOUT_SECS, FM_JEV_SPAN_TRIAGE_MAX, FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS)
 
-The watcher and the away-mode daemon ask Jev two narrow advisory questions over the existing [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) binding; evidence and the 0.5 Noul floor come from `data/jev-supervision-triage-v1/report.md`.
+The watcher and the away-mode daemon ask Jev two narrow advisory questions over the existing [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) binding; each helper's header records the corpus calibration behind the 0.5 Noul floor.
 Both roles are additive and fail closed: a missing key, a helper failure, a timeout, or a malformed answer leaves the deterministic verdict untouched, and a valid answer can only add a surface or defer a structural false positive.
 [`bin/fm-jev-status-triage.sh`](../bin/fm-jev-status-triage.sh) reads one status line on stdin and prints `escalate` only when the `captain_relevant` Noul is at least 0.5.
 Only lines no declared verb explains are ever offered - free-text progress plus `note:` and `resolved:` - capped at `FM_JEV_SPAN_TRIAGE_MAX` (default 8) consults per status span; `working:`/`done:`/`blocked:`/`failed:`/`needs-decision:`/`paused:`/`captain-held:` lines are never sent to the model.
