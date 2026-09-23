@@ -76,7 +76,9 @@
 #        fm-startup-network.sh act-first-input
 #          Hand this generation's wake-drain output (stdin) to the running
 #          worker's ACT FIRST ranking. Called by bin/fm-session-start.sh after
-#          its locked drain; a no-op when no Jev key is configured.
+#          its locked drain. A no-op unless a Jev key is configured and a
+#          ranking for the current generation is waiting for input, so the
+#          drain output is never left behind for nothing to consume.
 #
 # ACT FIRST RANKING. On a locked run started by `start`, the worker also
 # launches bin/fm-jev-act-first.sh's Jev ranking of the digest's actionable
@@ -125,6 +127,9 @@
 #   .startup-network.act-first
 #                             the generation line plus the latest published
 #                             ACT FIRST ranking, at most five lines.
+#   .startup-network.act-first-waiting
+#                             the generation whose ranking is waiting for
+#                             input; present only while it waits.
 #
 # The whole stage is bounded by FM_STARTUP_NETWORK_TIMEOUT (default 120s), one
 # aggregate deadline covering both the inactive-outcome scan and network sweeps.
@@ -145,6 +150,7 @@ TIMINGS_FILE="$STATE/.startup-network.timings"
 PUBLISH_LOCK="$STATE/.startup-network.lock"
 ACT_FIRST_INPUT="$STATE/.startup-network.act-first-input"
 ACT_FIRST_FILE="$STATE/.startup-network.act-first"
+ACT_FIRST_WAITING="$STATE/.startup-network.act-first-waiting"
 
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
@@ -672,7 +678,10 @@ cmd_act_first_input() {
   . "$SCRIPT_DIR/fm-jev-lib.sh"
   fm_jev_key_configured || { cat >/dev/null; return 0; }
   generation=$(status_get generation)
-  [ -n "$generation" ] || { cat >/dev/null; return 0; }
+  if [ -z "$generation" ] || [ "$(cat "$ACT_FIRST_WAITING" 2>/dev/null)" != "$generation" ]; then
+    cat >/dev/null
+    return 0
+  fi
   tmp=$(mktemp "$STATE/.startup-network.act-first-input.XXXXXX" 2>/dev/null) || { cat >/dev/null; return 0; }
   if ! { printf 'generation=%s\n' "$generation"; cat; } > "$tmp" || ! mv -f "$tmp" "$ACT_FIRST_INPUT"; then
     rm -f "$tmp"
@@ -680,22 +689,28 @@ cmd_act_first_input() {
 }
 
 cmd_act_first_rank() {  # <generation>
-  local generation=$1 limit waited=0 drain lines
+  local generation=$1 limit waited=0 drain lines timeout
   # shellcheck source=bin/fm-jev-lib.sh
   . "$SCRIPT_DIR/fm-jev-lib.sh"
   fm_jev_key_configured || return 0
   limit=${FM_STARTUP_NETWORK_ACT_FIRST_WAIT:-20}
   case "$limit" in ''|*[!0-9]*) limit=20 ;; esac
   limit=$((limit * 10))
+  printf '%s\n' "$generation" | write_atomic "$ACT_FIRST_WAITING" || return 0
   while [ "$(head -n 1 "$ACT_FIRST_INPUT" 2>/dev/null)" != "generation=$generation" ]; do
-    [ "$waited" -lt "$limit" ] || return 0
+    if [ "$waited" -ge "$limit" ]; then
+      rm -f "$ACT_FIRST_WAITING"
+      return 0
+    fi
     sleep 0.1
     waited=$((waited + 1))
   done
+  rm -f "$ACT_FIRST_WAITING"
   drain=$(mktemp "${TMPDIR:-/tmp}/fm-startup-act-first-drain.XXXXXX" 2>/dev/null) || return 0
   tail -n +2 "$ACT_FIRST_INPUT" > "$drain" 2>/dev/null
   rm -f "$ACT_FIRST_INPUT" 2>/dev/null || true
-  lines=$(JEV_TIMEOUT=${JEV_TIMEOUT:-5} FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+  timeout=${JEV_TIMEOUT:-$(fmx_env_get JEV_TIMEOUT "$FM_HOME/.env")}
+  lines=$(JEV_TIMEOUT=${timeout:-5} FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
     fm_run_timed 10 "$SCRIPT_DIR/fm-jev-act-first.sh" --drain-file "$drain" --status-dir "$STATE" 2>/dev/null </dev/null) || lines=
   rm -f "$drain"
   [ -n "$lines" ] || return 0

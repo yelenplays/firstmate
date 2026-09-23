@@ -1458,8 +1458,10 @@ test_act_first_lists_presented_items_without_a_network_call() {
   section=$(printf '%s\n' "$out" | awk '/^ACT FIRST/ { p = 1; next } p && /^(=|SUPERVISION)/ { exit } p')
   assert_contains "$section" "1. decision task-y needs-decision: pick a library" \
     "open decisions were not listed first"$'\n'"$section"
-  assert_contains "$section" "3. wake signal task-y.status: needs-decision: pick a library" \
-    "wakes were not listed after the decisions"$'\n'"$section"
+  assert_contains "$section" "2. decision task-z blocked: waiting on a key" \
+    "the second decision was not listed"$'\n'"$section"
+  [ "$(printf '%s\n' "$section" | grep -c '^[0-9]\. ')" -eq 2 ] \
+    || fail "each task's wake repeated its open decision"$'\n'"$section"
   assert_not_contains "$section" "(p=" "the digest printed a model ranking"
   wake=$(printf '%s\n' "$out" | grep -n '^WAKE QUEUE$' | cut -d: -f1)
   act=$(printf '%s\n' "$out" | grep -n '^ACT FIRST' | cut -d: -f1)
@@ -1496,13 +1498,21 @@ test_act_first_network_result_never_waits_for_the_ranking() {
 }
 
 test_act_first_ranking_with_items_raises_exactly_one_wake() {
-  local report wakes
+  local report wakes waited
   make_act_first_world act-first-deferred 0
 
   (unset HERDR_ENV; FM_FAKE_HARNESS_PID=$$ run_session_start "$AF_HOME" "$AF_ROOT" "$AF_FAKEBIN:$BASE_PATH" >/dev/null)
 
   wait_for_file "$AF_HOME/state/.startup-network.act-first" 45 || fail "the ranking never published"
   wait_for_network_stage "$AF_HOME" "$AF_ROOT" 60 || fail "the deferred stage never finished"
+  # The wake follows the published ranking; wait for the ranking process to
+  # finish (it no longer claims to be waiting and has queued its wake).
+  waited=0
+  while ! grep -q $'\tcheck\tact-first\t' "$AF_HOME/state/.wake-queue" 2>/dev/null && [ "$waited" -lt 100 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  sleep 1
   wakes=$(grep -c $'\tcheck\tact-first\t' "$AF_HOME/state/.wake-queue" 2>/dev/null)
   [ "$wakes" = 1 ] || fail "the ranking raised $wakes act-first wakes, want exactly one"$'\n'"$(cat "$AF_HOME/state/.wake-queue")"
   assert_no_grep $'check\tstartup-network' "$AF_HOME/state/.wake-queue" \
@@ -1510,8 +1520,8 @@ test_act_first_ranking_with_items_raises_exactly_one_wake() {
   report=$(network_stage_report "$AF_HOME" "$AF_ROOT")
   assert_contains "$report" "1. decision task-z blocked: waiting on a key (p=0.8)" \
     "report did not show Jev's ranking"$'\n'"$report"
-  jq -e '.state | contains("wake signal task-y.status")' "$AF_LOG/body" >/dev/null \
-    || fail "the ranking did not use this session start's presented wakes"
+  jq -e '.state | contains("decision task-y needs-decision: pick a library")' "$AF_LOG/body" >/dev/null \
+    || fail "the ranking did not use this session start's presented items"
   [ ! -e "$AF_HOME/state/.startup-network.act-first-input" ] || fail "the consumed ranking input was left behind"
   pass "session start: a ranking with items publishes separately and raises exactly one wake"
 }

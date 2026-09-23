@@ -5,6 +5,10 @@
 #   fm-jev-intake-match.sh <reference text...>
 #   fm-jev-intake-match.sh -          reads the reference on stdin
 #
+# The reference is the query: one line of at most 300 characters. A longer or
+# multi-line reference is refused with one line and exit 2 (a single trailing
+# newline on stdin is ignored).
+#
 # Resolves a loose reference such as "the wiki plan I had in one prompt" to
 # the backlog items and task records it most likely means, so intake does not
 # have to grep the backlog and every data/<id>/ record by hand. Advisory only:
@@ -18,16 +22,24 @@
 # One id seen in both places is one candidate. Each candidate gets a keyword
 # score: the number of distinct reference words (three or more characters,
 # common English and German filler dropped) found in its lowercased id plus
-# title. The bounded list is the 24 best by score, most recent record first
-# on ties, topped up with the most recent unscored candidates when fewer than
-# 24 score.
+# title. Ties go to the most recently changed data/<id> record first
+# (`ls -t` order), then backlog-only items in listing order. The bounded list
+# is the 24 best, topped up with unscored candidates in that same order when
+# fewer than 24 score.
 #
-# What Jev sees (one Choice call through bin/fm-jev-lib.sh): the reference
-# text, then candidate ids as choices with their title and backlog state as
-# criteria, plus `none`. Titles are sanitized by fm_jev_compact_state and cut
-# to 80 characters; an id that sanitization would change is dropped. File
-# bodies never leave the machine: only ids, titles, and backlog states do.
-# JEV_TIMEOUT defaults to 5 seconds here when unset.
+# What Jev sees (one Choice call through bin/fm-jev-lib.sh): the one-line
+# reference, then candidate ids as choices with their title and backlog state
+# as criteria, plus `none`. Titles are sanitized by fm_jev_compact_state and
+# cut to 80 characters; an id that sanitization would change is dropped. File
+# and task bodies never leave the machine: only the reference, ids, titles,
+# and backlog states do. JEV_TIMEOUT comes from the environment or
+# $FM_HOME/.env, else 5 seconds.
+#
+# Related tasks (no model call): for every shown candidate that is a
+# data/<id> record, the backlog items whose task body names that record id
+# are listed under it, for example a plan's phase tasks. They come from one
+# timed `fm-tasks-axi.sh list --fields body` per open and done listing, sit
+# outside the five-candidate cap, and are capped at 12 lines.
 #
 # Ranking: when the chosen id is an offered candidate at or above the library
 # confidence floor (JEV_CONFIDENCE_FLOOR, default 0.7), candidates are ranked
@@ -43,15 +55,19 @@
 #     confidence: <Jev's confidence in its pick, or empty>
 #     candidates:
 #       1. <id> confidence=<p> state=<backlog state or -> record=<path or -> title=<title>
+#     related:
+#       - <record id> -> <backlog id> state=<state> title=<title>
 # The keyword ranking prints score=<matched>/<reference words> in place of
 # confidence and lists only candidates that matched; `candidates: none` when
-# nothing did. Exit 0 except usage (exit 2), so intake is never blocked.
+# nothing did. `related:` appears only when a shown record has related tasks.
+# Exit 0 except usage (exit 2), so intake is never blocked.
 #
 # Log: one JSONL object per attempted Jev call appended to
 # ${FM_STATE_OVERRIDE:-$FM_HOME/state}/jev-intake-match.jsonl with
-# purpose=intake-match, advisory=true, the reference, offered ids, choice,
-# confidence, ranked ids, ranking, fallback, route, http, latency_ms,
-# decide_code, and ts. Secrets follow fm_jev_log_call redaction.
+# purpose=intake-match, advisory=true, the reference's length and SHA-256 (the
+# reference text itself is never stored), offered ids, choice, confidence,
+# ranked ids, ranking, fallback, route, http, latency_ms, decide_code, and ts.
+# Secrets follow fm_jev_log_call redaction.
 #
 # Environment: FM_HOME, FM_DATA_OVERRIDE (the data directory, as
 # bin/fm-tasks-axi.sh resolves it), FM_STATE_OVERRIDE, plus the Jev library
@@ -88,7 +104,11 @@ case "${1:-}" in
   -*) die "unknown option: $1" ;;
   *) REFERENCE="$*" ;;
 esac
-REFERENCE=$(printf '%s' "$REFERENCE" | tr '\n\t' '  ')
+case "$REFERENCE" in
+  *$'\n'*|*$'\r'*) die "reference must be one line" ;;
+esac
+[ "${#REFERENCE}" -le 300 ] || die "reference is ${#REFERENCE} characters; the limit is 300"
+REFERENCE=${REFERENCE//$'\t'/ }
 [ -n "${REFERENCE// /}" ] || die "empty reference"
 
 DATA_DIR="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
@@ -101,6 +121,7 @@ LIST_TIMEOUT=5
 JEV_TIMEOUT=${JEV_TIMEOUT:-$(fmx_env_get JEV_TIMEOUT "$FM_HOME/.env")}
 JEV_TIMEOUT=${JEV_TIMEOUT:-5}
 export JEV_TIMEOUT
+RELATED_MAX=12
 
 # Reference words: lowercase ASCII runs of three or more characters, filler
 # dropped, each word once.
@@ -196,6 +217,7 @@ scored_candidates() {
         if (state[id] == "-") state[id] = $3
         if (btitle[id] == "") btitle[id] = $4
       } else {
+        if (!(id in rorder)) rorder[id] = ++nr
         path[id] = $3
         if ($4 != "") title[id] = $4
       }
@@ -207,7 +229,9 @@ scored_candidates() {
         hay = tolower(id " " t)
         s = 0
         for (i = 1; i <= nw; i++) if (w[i] != "" && index(hay, w[i]) > 0) s++
-        printf "%d\t%d\t%s\t%s\t%s\t%s\n", s, k, id, state[id], path[id], t
+        # Tie order: records by recency, then backlog-only items by listing order.
+        o = (id in rorder) ? rorder[id] : 1000000 + order[id]
+        printf "%d\t%d\t%s\t%s\t%s\t%s\n", s, o, id, state[id], path[id], t
       }
     }
   ' | sort -t "$(printf '\t')" -k1,1nr -k2,2n
@@ -230,6 +254,49 @@ emit_keyword() {
   printf '  candidates:\n'
   printf '%s\n' "$rows" | awk -F '\t' -v nw="$nwords" \
     '{ printf "    %d. %s score=%d/%d state=%s record=%s title=%s\n", NR, $3, $1, nw, $4, $5, $6 }'
+  emit_related "$(printf '%s\n' "$rows" | awk -F '\t' '{ printf "%s\t%s\n", $3, $5 }')"
+}
+
+# related_tasks <record-id...>: "<record id>\t<backlog id>" for every backlog
+# item whose task body names one of the given record ids, never the record's
+# own backlog entry, at most RELATED_MAX lines.
+related_tasks() {
+  local out state_args
+  [ $# -gt 0 ] || return 0
+  for state_args in '' '--state done'; do
+    # shellcheck disable=SC2086 # state_args is a fixed flag pair or empty
+    out=$(fm_run_timed "$LIST_TIMEOUT" "$SCRIPT_DIR/fm-tasks-axi.sh" list $state_args --fields body 2>/dev/null) || continue
+    printf '%s\n' "$out" | awk -v recs="$*" '
+      BEGIN { n = split(recs, r, " ") }
+      /^tasks\[/ { p = 1; next }
+      p && /^[[:space:]]/ {
+        line = $0
+        sub(/^[[:space:]]+/, "", line)
+        id = line
+        sub(/,.*/, "", id)
+        for (i = 1; i <= n; i++) if (id != r[i] && index(line, r[i]) > 0) printf "%s\t%s\n", r[i], id
+        next
+      }
+      p { p = 0 }
+    '
+  done | awk '!seen[$0]++' | head -n "$RELATED_MAX"
+}
+
+# emit_related <shown-rows>: rows are id<TAB>path, as shown in the ranking.
+emit_related() {
+  local shown=$1 records rows
+  records=$(printf '%s\n' "$shown" | awk -F '\t' '$2 != "-" && $2 != "" { print $1 }')
+  [ -n "$records" ] || return 0
+  # shellcheck disable=SC2086 # record ids are [A-Za-z0-9._-]+ by construction
+  rows=$(related_tasks $records)
+  [ -n "$rows" ] || return 0
+  printf '  related:\n'
+  printf '%s\n' "$rows" | while IFS=$(printf '\t') read -r rec task; do
+    printf '%s\n' "$SCORED" | awk -F '\t' -v rec="$rec" -v task="$task" '
+      $3 == task { printf "    - %s -> %s state=%s title=%s\n", rec, task, $4, $6; found = 1; exit }
+      END { if (!found) printf "    - %s -> %s\n", rec, task }
+    '
+  done
 }
 
 WORDS=$(reference_words)
@@ -318,7 +385,8 @@ fi
 
 payload=$(jq -nc \
   --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf unknown)" \
-  --arg reference "$REFERENCE" \
+  --argjson reference_chars "${#REFERENCE}" \
+  --arg reference_sha256 "$(printf '%s' "$REFERENCE" | { shasum -a 256 2>/dev/null || sha256sum; } | cut -d ' ' -f 1)" \
   --arg choice "$choice" \
   --arg confidence "$confidence" \
   --arg ranking "$ranking" \
@@ -332,7 +400,8 @@ payload=$(jq -nc \
   '{
     purpose: "intake-match",
     advisory: true,
-    reference: $reference,
+    reference_chars: $reference_chars,
+    reference_sha256: $reference_sha256,
     offered_ids: $offered,
     choice: (if $choice == "" then null else $choice end),
     confidence: (try ($confidence | tonumber) catch null),
@@ -356,4 +425,5 @@ jq -r --argjson max "$SHOW_MAX" '
   .[:$max] | to_entries[]
   | "    \(.key + 1). \(.value.id) confidence=\(.value.confidence) state=\(.value.state) record=\(.value.path) title=\(.value.title)"
 ' <<<"$ranked"
+emit_related "$(jq -r --argjson max "$SHOW_MAX" '.[:$max][] | "\(.id)\t\(.path)"' <<<"$ranked")"
 exit 0

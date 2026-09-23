@@ -671,7 +671,9 @@ Regression coverage lives in [`tests/fm-jev-queue-triage.test.sh`](../tests/fm-j
 
 [`bin/fm-jev-intake-match.sh`](../bin/fm-jev-intake-match.sh) resolves a loose captain reference, such as "the wiki plan I had in one prompt", to the backlog items and `data/<id>/` records it most likely means.
 It builds a bounded candidate list without a model call and asks Jev one Choice over candidate ids.
-Only ids, titles, and backlog states reach Jev; report and brief bodies never do.
+Exactly this reaches Jev: the reference itself (one line of at most 300 characters; longer or multi-line input is refused), and each candidate's id, title, and backlog state.
+Report, brief, and task bodies never do, and the local call log keeps only the reference's length and SHA-256, never its text.
+When a matched candidate is a `data/<id>` record, the backlog tasks whose body names that record are listed with it, found locally without another Jev question.
 With no key, a failed call, a `none` answer, or confidence below the library floor, it says so and prints a plain keyword ranking instead.
 It is advisory and never opens, dispatches, or edits anything.
 The [script header](../bin/fm-jev-intake-match.sh) owns candidate selection, limits, the output shape, and the log schema; regression coverage lives in [`tests/fm-jev-intake-match.test.sh`](../tests/fm-jev-intake-match.test.sh).

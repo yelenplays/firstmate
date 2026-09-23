@@ -759,7 +759,85 @@ GITHUB_TOKEN=ghp_supersecretvalue" \
   pass "fm-startup-network: the timing artifact cannot carry a command line or forge records"
 }
 
+# act_first_status <home> <generation> <locked>: a running stage record.
+act_first_status() {
+  printf 'state=running\npid=%s\nstarted=%s\nlocked=%s\nphases=probe,sweeps\ngeneration=%s\nlock_pid=\n' \
+    "$$" "$(date +%s)" "$3" "$2" > "$1/state/.startup-network.status"
+}
+
+act_first_drain() {
+  printf '1790000000\t7\tsignal\ttask-y.status\tneeds-decision: pick a library\n'
+  printf '1790000001\t8\tsignal\ttask-z.status\tblocked: waiting on a key\n'
+}
+
+test_act_first_input_is_written_only_for_a_consuming_run() {
+  local rec home root log
+  rec=$(new_world act-first-input)
+  IFS='|' read -r home root log <<EOF
+$rec
+EOF
+  printf 'TYPESAFE_API_KEY=ts-test-key\n' > "$home/.env"
+  act_first_status "$home" g-reemit 0
+  act_first_drain | run_stage "$home" "$root" act-first-input
+  [ ! -e "$home/state/.startup-network.act-first-input" ] \
+    || fail "a run with no waiting ranking still got the drain output"
+  printf 'g-older\n' > "$home/state/.startup-network.act-first-waiting"
+  act_first_drain | run_stage "$home" "$root" act-first-input
+  [ ! -e "$home/state/.startup-network.act-first-input" ] \
+    || fail "a ranking waiting for another generation received this one's drain output"
+  act_first_status "$home" g-locked 1
+  printf 'g-locked\n' > "$home/state/.startup-network.act-first-waiting"
+  act_first_drain | run_stage "$home" "$root" act-first-input
+  [ "$(head -n 1 "$home/state/.startup-network.act-first-input" 2>/dev/null)" = "generation=g-locked" ] \
+    || fail "the waiting ranking did not receive its drain output"
+  pass "fm-startup-network: ranking input is written only for a ranking waiting to consume it"
+}
+
+test_act_first_rank_uses_the_home_timeout_and_wakes_once() {
+  local rec home root log calls rank_pid waited
+  rec=$(new_world act-first-rank)
+  IFS='|' read -r home root log <<EOF
+$rec
+EOF
+  calls="${root%/root}/curl"
+  mkdir -p "$calls"
+  ln -sf "$(command -v jq)" "$root/bin/jq"
+  cat > "$root/bin/curl" <<SH
+#!/usr/bin/env bash
+out=''
+while [ \$# -gt 0 ]; do
+  case "\$1" in -o) out=\$2; shift 2 ;; *) printf '%s\n' "\$1" >> '$calls/argv'; shift ;; esac
+done
+cat > /dev/null
+printf '%s' '{"answers":{"first":{"type":"choice","choice":"i2","confidence":0.8,"probabilities":{"i1":0.2,"i2":0.8}}}}' > "\$out"
+printf '200'
+SH
+  chmod +x "$root/bin/curl"
+  printf 'TYPESAFE_API_KEY=ts-test-key\nJEV_TIMEOUT=3\n' > "$home/.env"
+  act_first_status "$home" g-rank 1
+  (unset JEV_TIMEOUT; run_stage "$home" "$root" act-first-rank --generation g-rank) &
+  rank_pid=$!
+  waited=0
+  while [ ! -e "$home/state/.startup-network.act-first-waiting" ] && [ "$waited" -lt 100 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  act_first_drain | run_stage "$home" "$root" act-first-input
+  wait "$rank_pid"
+  grep -A1 -x -- '--max-time' "$calls/argv" | grep -qx 3 \
+    || fail "the ranking ignored the home JEV_TIMEOUT: $(tr '\n' ' ' < "$calls/argv")"
+  assert_grep "1. wake signal task-z.status: blocked: waiting on a key (p=0.8)" \
+    "$home/state/.startup-network.act-first" "the ranking was not published"
+  [ "$(grep -c $'\tcheck\tact-first\t' "$home/state/.wake-queue")" = 1 ] \
+    || fail "the ranking did not raise exactly one act-first wake"
+  [ ! -e "$home/state/.startup-network.act-first-input" ] || fail "the consumed input was left behind"
+  [ ! -e "$home/state/.startup-network.act-first-waiting" ] || fail "the finished ranking still claimed to be waiting"
+  pass "fm-startup-network: the ranking honours the home timeout, publishes, and wakes once"
+}
+
 test_wait_fails_without_a_published_stage
+test_act_first_input_is_written_only_for_a_consuming_run
+test_act_first_rank_uses_the_home_timeout_and_wakes_once
 test_start_returns_without_holding_the_callers_stdout
 test_harvest_acknowledgement_suppresses_the_wake_and_no_claim_produces_it
 test_a_claimant_crash_after_publish_still_queues_the_wake

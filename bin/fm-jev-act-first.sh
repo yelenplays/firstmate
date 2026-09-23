@@ -22,7 +22,10 @@
 #              task still has state/<id>.meta, when that line is failed: or
 #              blocked:
 #   wake       every raw wake record (epoch, seq, kind, key, payload)
-# Fewer than two items makes no call: there is nothing to rank.
+# One task in one state is one item: a blocker that appears as an open
+# decision, a status line, and a status wake is kept once, as its
+# highest-priority form. Fewer than two items makes no call: there is nothing
+# to rank.
 #
 # What Jev sees (one Choice call through bin/fm-jev-lib.sh): the items above,
 # each sanitized by fm_jev_compact_state, as criteria keyed i1..iN. The Choice
@@ -91,25 +94,42 @@ SHOW_MAX=5
 
 command -v jq >/dev/null 2>&1 || exit 0
 
-# Drain items as kind<TAB>text, grouped decision, execution, wake.
+# Drain items as kind<TAB>identity<TAB>text, grouped decision, execution, wake.
+# The identity is task|state where the line names both, so one task in one
+# state collapses to its first (highest-priority) item; otherwise it is the text.
 drain_items() {
   awk -F '\t' '
     /^OPEN DECISIONS \(/ { sec = "decision"; next }
     /^OPEN DECISIONS:/ { sec = ""; next }
     /^UNFINISHED EXECUTION \(/ { sec = "execution"; next }
     /^[A-Z][A-Z ]+[ (:]/ && $0 !~ /\t/ { sec = ""; next }
+    function verb(s) { sub(/^\[[^]]*\][[:space:]]*/, "", s); sub(/[[:space:]]*(\[|:).*$/, "", s); return s }
     $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && NF >= 5 {
       p = $5
       for (i = 6; i <= NF; i++) p = p " " $i
       wake[++nw] = "wake " $3 " " $4 (p == "" ? "" : ": " p)
+      wid[nw] = wake[nw]
+      if ($3 == "signal" && $4 ~ /\.status$/ && p ~ /^[a-z-]+( \[[^]]*\])?:/) {
+        t = $4
+        sub(/\.status$/, "", t)
+        wid[nw] = t "|" verb(p)
+      }
       next
     }
-    sec == "decision" && NF == 1 && $0 != "" { dec[++nd] = "decision " $0; next }
-    sec == "execution" && NF == 3 { exe[++ne] = "execution " $1 " owner=" $2 " next=" $3; next }
+    sec == "decision" && NF == 1 && $0 != "" {
+      dec[++nd] = "decision " $0
+      rest = $0
+      sub(/^[^ ]+ /, "", rest)
+      did[nd] = $0
+      sub(/ .*/, "", did[nd])
+      did[nd] = did[nd] "|" verb(rest)
+      next
+    }
+    sec == "execution" && NF == 3 { exe[++ne] = "execution " $1 " owner=" $2 " next=" $3; eid[ne] = exe[ne]; next }
     END {
-      for (i = 1; i <= nd; i++) print "decision\t" dec[i]
-      for (i = 1; i <= ne; i++) print "execution\t" exe[i]
-      for (i = 1; i <= nw; i++) print "wake\t" wake[i]
+      for (i = 1; i <= nd; i++) print "decision\t" did[i] "\t" dec[i]
+      for (i = 1; i <= ne; i++) print "execution\t" eid[i] "\t" exe[i]
+      for (i = 1; i <= nw; i++) print "wake\t" wid[i] "\t" wake[i]
     }
   ' "$DRAIN_FILE"
 }
@@ -125,15 +145,21 @@ status_items() {
     [ -f "$STATUS_DIR/$task.meta" ] || continue
     last=$(tail -n 1 "$status" 2>/dev/null | tr '\t' ' ')
     case "$last" in
-      failed:*|blocked:*|failed\ \[*|blocked\ \[*) printf 'status\tstatus %s %s\n' "$task" "$last" ;;
+      failed:*|failed\ \[*) printf 'status\t%s|failed\tstatus %s %s\n' "$task" "$task" "$last" ;;
+      blocked:*|blocked\ \[*) printf 'status\t%s|blocked\tstatus %s %s\n' "$task" "$task" "$last" ;;
     esac
   done
 }
 
 items='[]'
 n=0
-while IFS=$(printf '\t') read -r kind text; do
+seen_ids=$'\n'
+while IFS=$(printf '\t') read -r kind identity text; do
   [ -n "$text" ] || continue
+  case "$seen_ids" in
+    *$'\n'"$identity"$'\n'*) continue ;;
+  esac
+  seen_ids="$seen_ids$identity"$'\n'
   text=$(fm_jev_compact_state "$text") || continue
   text=${text:0:$ITEM_CHARS}
   if jq -e --arg t "$text" 'any(.[]; .text == $t)' <<<"$items" >/dev/null 2>&1; then

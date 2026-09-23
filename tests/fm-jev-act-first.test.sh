@@ -142,6 +142,25 @@ test_local_lists_priority_order_without_a_call() {
   pass "--local lists the items in priority order with no key and no call"
 }
 
+test_one_blocker_is_one_item() {
+  local out
+  fresh_home
+  {
+    printf '1790000000\t7\tsignal\ttask-z.status\tblocked: waiting on a key\n'
+    printf 'OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):\n'
+    printf 'task-z blocked: waiting on a key\n'
+    printf "OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'\n"
+  } > "$DRAIN"
+  printf 'blocked: waiting on a key\n' > "$HOME_DIR/state/task-z.status"
+  printf 'kind=ship\n' > "$HOME_DIR/state/task-z.meta"
+  KEY='' run_helper out --local --drain-file "$DRAIN" --status-dir "$HOME_DIR/state"
+  [ "$(printf '%s\n' "$out" | grep -c 'task-z')" -eq 1 ] \
+    || fail "one blocker was listed more than once"$'\n'"$out"
+  assert_contains "$out" "1. decision task-z blocked: waiting on a key" \
+    "the blocker did not keep its highest-priority form"$'\n'"$out"
+  pass "one task in one state is one item across decisions, status tails, and wakes"
+}
+
 test_failures_are_silent() {
   local out
   fresh_home
@@ -169,6 +188,7 @@ test_usage
 test_off_is_silent
 test_ranks_collected_items
 test_local_lists_priority_order_without_a_call
+test_one_blocker_is_one_item
 test_failures_are_silent
 test_single_item_makes_no_call
 

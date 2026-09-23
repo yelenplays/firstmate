@@ -63,7 +63,9 @@ fresh_home() {
   cp "$ROOT/.tasks.toml" "$HOME_DIR/.tasks.toml"
   : > "$HOME_DIR/data/backlog.md"
   (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add wf-p0-privacy-ceiling "Wiki family p0: privacy-ceiling" \
-    --file data/backlog.md) >/dev/null
+    --body "Phase 0 of the plan in data/wiki-layer-plan-v1/report.md." --file data/backlog.md) >/dev/null
+  (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add wf-p1-register "Wiki family p1: register" \
+    --body "Next phase of wiki-layer-plan-v1." --file data/backlog.md) >/dev/null
   (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add deck-refresh-v1 "Refresh the pitch deck colors" \
     --file data/backlog.md) >/dev/null
   add_record wiki-layer-plan-v1 report.md "Wiki layer: verdict and prioritized plan"
@@ -128,7 +130,53 @@ test_jev_ranking_sends_only_ids_and_titles() {
   assert_grep "Bearer $TS_KEY" "$LOG/header" "the key did not travel on fd 3"
   jq -e 'select(.purpose == "intake-match" and .ranking == "jev" and .choice == "wiki-layer-plan-v1")' \
     "$HOME_DIR/state/jev-intake-match.jsonl" >/dev/null || fail "the call was not logged"
+  jq -e 'select(.reference_chars == 43 and (.reference_sha256 | test("^[0-9a-f]{64}$")) and (has("reference") | not))' \
+    "$HOME_DIR/state/jev-intake-match.jsonl" >/dev/null || fail "the log did not keep only the reference length and hash"
+  assert_no_grep "get our wiki plan" "$HOME_DIR/state/jev-intake-match.jsonl" "the log stored the reference text"
   pass "a clear Jev answer ranks by probabilities and sends only ids and titles"
+}
+
+test_related_tasks_follow_a_matched_record() {
+  local code out
+  fresh_home
+  respond wiki-layer-plan-v1 0.9 '{"wiki-layer-plan-v1":0.9,"none":0.1}'
+  KEY=$TS_KEY run_match code out wiki plan
+  assert_contains "$out" "  related:" "a matched record listed no related tasks"$'\n'"$out"
+  assert_contains "$out" "    - wiki-layer-plan-v1 -> wf-p0-privacy-ceiling state=queued title=Wiki family p0: privacy-ceiling" \
+    "a task whose body names the record was not listed"$'\n'"$out"
+  assert_contains "$out" "    - wiki-layer-plan-v1 -> wf-p1-register state=queued" \
+    "a second related task was not listed"$'\n'"$out"
+  assert_not_contains "$out" "-> deck-refresh-v1" "a task that does not name the record was listed"
+  [ "$(jq '.questions | length' "$LOG/body")" -eq 1 ] || fail "related tasks cost an extra question"
+  KEY='' run_match code out wiki plan
+  assert_contains "$out" "    - wiki-layer-plan-v1 -> wf-p0-privacy-ceiling" \
+    "the keyword fallback did not list related tasks"$'\n'"$out"
+  pass "a matched record brings the backlog tasks that name it, with no extra Jev question"
+}
+
+test_reference_is_one_bounded_line() {
+  local code out long
+  fresh_home
+  KEY=$TS_KEY run_match code out "$(printf 'wiki\nplan')"
+  expect_code 2 "$code" "a multi-line reference should be refused"
+  assert_grep "one line" "$TMP_ROOT/stderr" "the refusal did not say why"
+  long=$(printf 'w%.0s' $(seq 1 301))
+  KEY=$TS_KEY run_match code out "$long"
+  expect_code 2 "$code" "a 301-character reference should be refused"
+  assert_grep "limit is 300" "$TMP_ROOT/stderr" "the refusal did not name the limit"
+  [ ! -e "$LOG/body" ] || fail "a refused reference reached Jev"
+  pass "a multi-line or over-300-character reference is refused before any call"
+}
+
+test_ties_put_recent_records_before_backlog_items() {
+  local code out first
+  fresh_home
+  (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add alpha-sync-v1 "Alpha sync" --file data/backlog.md) >/dev/null
+  add_record zeta-sync-v1 report.md "Zeta sync"
+  KEY='' run_match code out sync
+  first=$(printf '%s\n' "$out" | grep -m1 '^    1\. ')
+  assert_contains "$first" "zeta-sync-v1" "a tied backlog-only item outranked the recent record"$'\n'"$out"
+  pass "tied candidates list recent records before backlog-only items"
 }
 
 test_low_confidence_falls_back() {
@@ -175,6 +223,9 @@ test_candidate_list_is_bounded() {
 test_usage
 test_off_falls_back_to_keyword_ranking
 test_jev_ranking_sends_only_ids_and_titles
+test_related_tasks_follow_a_matched_record
+test_reference_is_one_bounded_line
+test_ties_put_recent_records_before_backlog_items
 test_low_confidence_falls_back
 test_failures_fall_back
 test_candidate_list_is_bounded
