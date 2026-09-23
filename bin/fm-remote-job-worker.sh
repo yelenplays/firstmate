@@ -1105,18 +1105,26 @@ worker_supervisor_remove_stale_lock() {
 }
 
 worker_supervisor_lock_guard_acquire() {
-  local guard="$FM_REMOTE_JOB_STATE/supervisor.guard"
+  local guard="$FM_REMOTE_JOB_STATE/supervisor.guard" fd=9
   command -v flock >/dev/null 2>&1 || return 1
   [ -z "$WORKER_SUPERVISOR_GUARD_FD" ] || return 1
-  ( : >&9 ) 2>/dev/null && return 1
   [ ! -L "$guard" ] || return 1
   (umask 077; : >> "$guard") || return 1
   [ -f "$guard" ] && [ ! -L "$guard" ] || return 1
   chmod 600 "$guard" 2>/dev/null || return 1
-  exec 9>>"$guard" || return 1
-  WORKER_SUPERVISOR_GUARD_FD=9
+  while [ "$fd" -le 254 ]; do
+    if [ -e "/dev/fd/$fd" ] || [ -L "/dev/fd/$fd" ] \
+      || ( : >&"$fd" ) 2>/dev/null || ( : <&"$fd" ) 2>/dev/null; then
+      fd=$((fd + 1))
+    else
+      break
+    fi
+  done
+  [ "$fd" -le 254 ] || return 1
+  eval "exec $fd>>\"\$guard\"" || return 1
+  WORKER_SUPERVISOR_GUARD_FD=$fd
   if ! flock -x "$WORKER_SUPERVISOR_GUARD_FD" 2>/dev/null; then
-    exec 9>&-
+    eval "exec $fd>&-"
     WORKER_SUPERVISOR_GUARD_FD=
     return 1
   fi
@@ -1124,11 +1132,11 @@ worker_supervisor_lock_guard_acquire() {
 }
 
 worker_supervisor_lock_guard_release() {
-  local status=0
-  [ "$WORKER_SUPERVISOR_GUARD_HELD" -eq 1 ] && [ "$WORKER_SUPERVISOR_GUARD_FD" = 9 ] || return 1
+  local status=0 fd=$WORKER_SUPERVISOR_GUARD_FD
+  [ "$WORKER_SUPERVISOR_GUARD_HELD" -eq 1 ] && [ -n "$fd" ] || return 1
   WORKER_SUPERVISOR_GUARD_HELD=0
-  flock -u 9 2>/dev/null || status=1
-  exec 9>&- || status=1
+  flock -u "$fd" 2>/dev/null || status=1
+  eval "exec $fd>&-" || status=1
   WORKER_SUPERVISOR_GUARD_FD=
   return "$status"
 }
@@ -1220,7 +1228,7 @@ worker_supervisor_release_lock() {
     return "$status"
   fi
   if [ -n "$WORKER_SUPERVISOR_GUARD_FD" ]; then
-    exec 9>&-
+    eval "exec $WORKER_SUPERVISOR_GUARD_FD>&-"
     WORKER_SUPERVISOR_GUARD_FD=
     WORKER_SUPERVISOR_GUARD_HELD=0
   fi
