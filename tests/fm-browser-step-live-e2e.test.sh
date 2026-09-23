@@ -26,7 +26,7 @@ trap cleanup EXIT
 
 unset CHROME_DEVTOOLS_AXI_AUTO_CONNECT CHROME_DEVTOOLS_AXI_BROWSER_URL \
   CHROME_DEVTOOLS_AXI_WS_HEADERS CHROME_DEVTOOLS_AXI_USER_DATA_DIR \
-  CHROME_DEVTOOLS_AXI_PORT
+  CHROME_DEVTOOLS_AXI_PORT CHROME_DEVTOOLS_AXI_CHROME_ARGS
 export CHROME_DEVTOOLS_AXI_SESSION="$SESSION"
 
 chrome-devtools-axi start >/dev/null 2>&1 || fail 'could not start the named isolated browser session'
@@ -67,10 +67,11 @@ node -e 'const result = JSON.parse(process.argv[1]); if (!result.ok || !result.v
 pass 'a combobox option can be selected in one step'
 
 OUT=$("$ROOT/bin/fm-browser.sh" step \
-  --click 'button=Use#2' \
-  --expect-gone 'statictext=Token 8') || fail 'the ordinal-scoped control step failed'
+  --click 'button=Use' \
+  --within 'group=Token 8' \
+  --expect-gone 'group=Token 8') || fail 'the scoped control step failed'
 node -e 'const result = JSON.parse(process.argv[1]); if (!result.ok || !result.verified) process.exit(1)' "$OUT" \
-  || fail "the ordinal control did not verify removal: $OUT"
-pass 'an ordinal targets one of two duplicate controls and verifies removal'
+  || fail "the scoped control did not verify removal: $OUT"
+pass 'within scoping selects and verifies the intended duplicate control'
 
 printf 'live browser-step checks passed\n'

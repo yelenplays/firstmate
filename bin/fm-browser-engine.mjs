@@ -7,7 +7,7 @@ const INTERACTIVE_ROLES = new Set([
   'menuitem', 'tab', 'option', 'switch', 'listbox',
 ]);
 const SAFE_ERRORS = new Set([
-  'TARGET_NOT_FOUND', 'WITHIN_NOT_FOUND', 'EXPECT_TIMEOUT', 'BROWSER_ACTION_FAILED',
+  'TARGET_NOT_FOUND', 'WITHIN_NOT_FOUND', 'AMBIGUOUS_TARGET', 'EXPECT_TIMEOUT', 'BROWSER_ACTION_FAILED',
 ]);
 const MAX_TIMEOUT_MS = 120_000;
 
@@ -20,15 +20,14 @@ export function redact(value) {
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
     .replace(/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g, '[redacted]')
     .replace(/(?:TYPESAFE_API_KEY|OPENROUTER_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|FMX_PAIRING_TOKEN|FM_MAIL_PASS|AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|GITHUB_TOKEN|GH_TOKEN|JEV_API_KEY)=\S+/gi, '[redacted]')
-    .replace(/(^|[^A-Za-z0-9])((?:token|key|secret|password|passcode|code|otp|api|credential|auth(?:orization)?))(\s*[:=]\s*)([^\s"'<>;,|]+)/gi, '$1$2$3[redacted]')
-    .replace(/(^|[^A-Za-z0-9])((?:token|key|secret|password|passcode|code|otp|api|credential|auth(?:orization)?))(\s+)([^\s"'<>;,|]+)/gi, '$1$2$3[redacted]')
-    .replace(/(?:authorization:\s*)?bearer\s+[^\s"'<>]+/gi, '[redacted]')
     .replace(/(?:sk-or-|github_pat_|ghp_|cfut_)[^\s"'<>]+/gi, '[redacted]')
     .replace(/\bsk-[A-Za-z0-9_-]{16,}/g, '[redacted]')
     .replace(/https?:\/\/[^\s"'<>]+/gi, '[url]')
     .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '[email]');
   text = text.replace(/(^|[^A-Za-z0-9_\-+/=.])([A-Za-z0-9_\-+/=.]{24,})(?=$|[^A-Za-z0-9_\-+/=.])/g,
     (match, prefix, token) => /[A-Za-z]/.test(token) && /\d/.test(token) ? `${prefix}[opaque]` : match);
+  const credential = text.match(/\b(?:token|key|secret|password|passcode|bearer|authorization|api|otp|pin|credential|code)\b/i);
+  if (credential) text = `${text.slice(0, credential.index + credential[0].length)} [redacted]`;
   return text.replace(/\d{6,}/g, '[number]').replace(/\s+/g, ' ').trim();
 }
 
@@ -61,21 +60,9 @@ export function parseSelector(input, { allowTitle = false } = {}) {
   if (!match) throw new Error('invalid selector');
   const role = match[1].toLowerCase();
   if (role === 'title' && !allowTitle) throw new Error('unsupported role');
-  let label = match[3].trim();
+  const label = match[3].trim();
   if (!label) throw new Error('empty selector label');
-  let ordinal = 1;
-  if (role !== 'title') {
-    const ordinalMatch = label.match(/#([1-9]\d*)$/);
-    if (ordinalMatch) {
-      ordinal = Number(ordinalMatch[1]);
-      if (!Number.isSafeInteger(ordinal)) throw new Error('invalid selector ordinal');
-      label = label.slice(0, ordinalMatch.index).trim();
-      if (!label) throw new Error('empty selector label');
-    } else if (/#\d+$/.test(label)) {
-      throw new Error('invalid selector ordinal');
-    }
-  }
-  return { role, operator: match[2], label, ordinal };
+  return { role, operator: match[2], label };
 }
 
 function selectorMatches(node, selector) {
@@ -100,15 +87,14 @@ export function resolveSelector(nodes, selector, withinSelector = null) {
   let scope = nodes;
   if (withinSelector) {
     const containers = nodes.filter((node) => selectorMatches(node, withinSelector));
-    const container = containers[withinSelector.ordinal - 1];
-    if (!container) return { target: null, error: 'WITHIN_NOT_FOUND' };
-    scope = descendantsOf(nodes, container);
+    if (!containers.length) return { target: null, error: 'WITHIN_NOT_FOUND' };
+    if (containers.length > 1) return { target: null, error: 'AMBIGUOUS_TARGET' };
+    scope = descendantsOf(nodes, containers[0]);
   }
   const matches = scope.filter((node) => selectorMatches(node, selector));
-  if (matches[selector.ordinal - 1]) {
-    return { target: matches[selector.ordinal - 1], error: null };
-  }
-  return { target: null, error: 'TARGET_NOT_FOUND' };
+  if (!matches.length) return { target: null, error: 'TARGET_NOT_FOUND' };
+  if (matches.length > 1) return { target: null, error: 'AMBIGUOUS_TARGET' };
+  return { target: matches[0], error: null };
 }
 
 function normalizeExpectation(value) {
@@ -184,8 +170,7 @@ function diffPairs(before, after) {
 function expectationMet(expectation, nodes, pathname) {
   if (!expectation) return true;
   if (expectation.kind === 'url-path') return pathname === expectation.path;
-  const foundCount = nodes.filter((node) => selectorMatches(node, expectation.selector)).length;
-  const found = foundCount >= expectation.selector.ordinal;
+  const found = nodes.some((node) => selectorMatches(node, expectation.selector));
   return expectation.kind === 'gone' ? !found : found;
 }
 
@@ -203,7 +188,6 @@ export function sanitizeResult(result) {
     ...(Array.isArray(result?.gone) ? result.gone.map((label) => ['gone', label]) : []),
   ].slice(0, 12);
   for (const [kind, label] of pairs) safe[kind].push(redact(label).slice(0, 96));
-  if (result?.reason === 'already true before action') safe.reason = result.reason;
   if (!safe.ok) {
     safe.error = SAFE_ERRORS.has(result?.error) ? result.error : 'BROWSER_ACTION_FAILED';
   }
@@ -216,7 +200,6 @@ export async function executeStep(rawParams, pageApi) {
   let before = [];
   let after = [];
   let hasAfterSnapshot = false;
-  let expectationWasMetBefore = false;
   let result = { step: rawParams?.action ?? 'step', ok: false, verified: false };
   try {
     params = validateParams({ ...rawParams });
@@ -237,12 +220,6 @@ export async function executeStep(rawParams, pageApi) {
       }
       target = selected.target;
     }
-    if (params.expectation) {
-      const beforePath = params.expectation.kind === 'url-path'
-        ? await pageApi.eval(() => location.pathname)
-        : null;
-      expectationWasMetBefore = expectationMet(params.expectation, before, beforePath);
-    }
     if (params.action === 'click') await pageApi.click(`@${target.uid}`);
     if (params.action === 'fill') await pageApi.fill(`@${target.uid}`, params.value);
     if (params.action === 'select') await pageApi.fill(`@${target.uid}`, params.option);
@@ -259,8 +236,7 @@ export async function executeStep(rawParams, pageApi) {
       }
       if (expectationMet(params.expectation, after, currentPath)) {
         result.ok = true;
-        result.verified = Boolean(params.expectation) && !expectationWasMetBefore;
-        if (params.expectation && expectationWasMetBefore) result.reason = 'already true before action';
+        result.verified = Boolean(params.expectation);
         break;
       }
       if (Date.now() >= deadline) {

@@ -10,8 +10,8 @@
 #   fm-browser.sh step --press <key> --expect-url-path <path>
 #   fm-browser.sh step --press <key> --expect-title <substring>
 #
-# A target is role=label (exact) or role~label (substring), optionally ending
-# in #N for the Nth match. Labels compare with case and whitespace normalized.
+# A target is role=label (exact) or role~label (substring). Labels compare with
+# case and whitespace normalized; multiple matches are reported as ambiguous.
 # Action roles are button, link, textbox, searchbox, combobox, checkbox, radio,
 # menuitem, tab, option, switch, and listbox.
 # --within scopes an action target to descendants of one matching accessibility
@@ -23,12 +23,11 @@
 # deadline in milliseconds (default 5000, max 120000).
 # Use --session or CHROME_DEVTOOLS_AXI_SESSION; the default session is refused,
 # and auto-connect, remote browser URLs, custom ports, and custom profiles are cleared.
-# Output is one compact JSON object with step, ok, verified, appeared, gone, and ms fields, plus an optional reason.
-# `ok` means the action succeeded and any supplied expectation passed; `verified`
-# is true only when an explicit expectation changed from unmet to met. If the
-# expectation was already true before the action, the result is ok but unverified
-# with reason `already true before action`. Appeared and gone contain at most 12
-# redacted role|label pairs total. A failed target match returns TARGET_NOT_FOUND.
+# Output is one compact JSON object with step, ok, verified, appeared, gone, and ms fields.
+# `ok` means the action succeeded and any supplied expectation held afterward;
+# `verified` is true only when an explicit expectation held after the action.
+# Appeared and gone contain at most 12 redacted role|label pairs total. A failed
+# target match returns TARGET_NOT_FOUND; multiple matches return AMBIGUOUS_TARGET.
 # Snapshots, page text, titles, field values, browser errors, and URLs never pass
 # through to stdout or stderr.
 # `--help` owns the public command and output contract.
@@ -59,6 +58,7 @@ command -v chrome-devtools-axi >/dev/null 2>&1 || fail 'chrome-devtools-axi is r
 ACTION=''
 TARGET=''
 WITHIN=''
+WITHIN_SET=0
 VALUE=''
 OPTION=''
 KEY=''
@@ -84,8 +84,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --within)
       [ "$#" -ge 2 ] || fail '--within needs a target'
-      [ -z "$WITHIN" ] || fail '--within may be used once'
+      [ "$WITHIN_SET" -eq 0 ] || fail '--within may be used once'
       WITHIN=$2
+      WITHIN_SET=1
+      [[ "$WITHIN" =~ [^[:space:]] ]] || fail '--within needs a non-empty target'
       shift 2
       ;;
     --value)
@@ -205,7 +207,7 @@ trap 'exit 143' TERM
 # persistent profile. A named session launches its own isolated browser.
 unset CHROME_DEVTOOLS_AXI_AUTO_CONNECT CHROME_DEVTOOLS_AXI_BROWSER_URL \
   CHROME_DEVTOOLS_AXI_WS_HEADERS CHROME_DEVTOOLS_AXI_USER_DATA_DIR \
-  CHROME_DEVTOOLS_AXI_PORT
+  CHROME_DEVTOOLS_AXI_PORT CHROME_DEVTOOLS_AXI_CHROME_ARGS
 export CHROME_DEVTOOLS_AXI_SESSION="$SESSION"
 
 if ! {
