@@ -48,7 +48,7 @@ generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--recovery-generation \([A-Za-z0-9._
 rows="$work/rows"
 if [ -n "$cutoff" ] && fm_lock_acquire_wait_bounded "$FM_WAKE_QUEUE_LOCK" 5; then
   if [ -r "$FM_WAKE_QUEUE" ]; then
-    awk -F '\t' -v n="$cutoff" 'NF >= 5 && $2 ~ /^[0-9]+$/ && $2 <= n { print }' "$FM_WAKE_QUEUE" > "$rows"
+    awk -F '\t' -v n="$cutoff" '$2 ~ /^[0-9]+$/ && $2 <= n { print }' "$FM_WAKE_QUEUE" > "$rows"
   else
     : > "$rows"
   fi
@@ -69,7 +69,8 @@ function routine_shape(kind,key,payload,id) {
   if (kind == "check" && key == "execution:" id && payload == "check: execution " id) return 1
   return 0
 }
-NF >= 5 { kind=$3; key=$4; payload=$5; for (i=6;i<=NF;i++) payload=payload FS $i; id="";
+NF < 5 { print "!"; next }
+{ kind=$3; key=$4; payload=$5; for (i=6;i<=NF;i++) payload=payload FS $i; id="";
   if (kind=="signal" && key ~ /\.status$/) { id=key; sub(/\.status$/, "", id) }
   else if (kind=="check" && key ~ /^execution:[A-Za-z0-9._-]+$/) { id=substr(key,11) }
   else if (kind=="stale" && payload == "stale: " key) { print "?" key; next }
@@ -115,7 +116,8 @@ while IFS= read -r tagged; do
   elif [ -s "$STATE/$id.status" ] && [ -n "$(status_open_decisions "$STATE/$id.status" "$kind")" ]; then reason='C4 open decision';
   else
     current=$(status_current_line "$STATE/$id.status" "$kind" 2>/dev/null || true)
-    if status_is_paused_or_captain_held "$current"; then reason='C5 paused/captain-held status';
+    if [ ! -f "$STATE/$id.status" ] || [ ! -r "$STATE/$id.status" ] || [ -L "$STATE/$id.status" ] || [ -z "$current" ]; then reason='C7 latest task status missing';
+    elif status_is_paused_or_captain_held "$current"; then reason='C5 paused/captain-held status';
     elif status_is_captain_relevant "$current"; then reason='C7 latest status is captain-relevant';
     elif [ "$(grep -Ec "^${id}[[:space:]].*(done:|needs-decision:|blocked:|failed:|note:)" "$out" || true)" -gt 0 ]; then reason='C7 task has terminal or unread status';
     elif [ "$(grep -F "wake annotation:" "$out" | grep -F "$id.status: " | awk '!/: working:/ { count++ } END { print count + 0 }')" -gt 0 ]; then reason='C7 presented status event is not working';
@@ -161,6 +163,10 @@ rendered="$work/rendered"
     "$(awk 'END{print NR+0}' "$rows")" "$task_count" \
     "$act_count" "$routine_count"
   printf 'FULL DRAIN OUTPUT: %s/.wake-triage.last\n' "$STATE"
+  if grep -q '^wake drain: retired ' "$out"; then
+    printf 'ACT NOW: drain retired malformed queue rows; review the drain output above.\n'
+    all_routine=0
+  fi
   if [ "$recovered_count" -gt 0 ]; then
     printf 'RECOVERED DRAIN OUTPUT (an earlier triage was interrupted; act on all of it):\n'
     for f in "${recovered[@]}"; do cat "$f"; done

@@ -77,6 +77,15 @@ test_nonworking_and_terminal_rows_stay_actionable() {
   out=$(run_triage "$dir") || fail "triage command failed"
   assert_contains "$out" 'ACT NOW:' 'done task must remain actionable'
   assert_unacked "$dir"
+
+  dir=$(make_case missing-status); install_crew_stub "$dir"; install_hold_stub "$dir"
+  setup_task missing-status "$dir"
+  rm "$dir/state/missing-status.status"
+  append_wake "$dir/state" stale 'test:missing-status' 'stale: test:missing-status'
+  out=$(run_triage "$dir") || fail 'triage failed'
+  assert_contains "$out" 'C7 latest task status missing' 'missing latest status must remain actionable'
+  assert_unacked "$dir"
+
   dir=$(make_case parked-row); install_crew_stub "$dir"; install_hold_stub "$dir"
   setup_task parked "$dir"
   append_wake "$dir/state" stale 'test:parked' 'stale: test:parked'
@@ -234,6 +243,20 @@ test_unread_note_and_captain_hold_exit_codes() {
   pass 'ambiguous hold results and unread informational status remain actionable'
 }
 
+test_malformed_queue_row_is_actionable() {
+  local dir out
+  dir=$(make_case malformed-queue-row); install_crew_stub "$dir"; install_hold_stub "$dir"
+  setup_task routine "$dir"
+  append_wake "$dir/state" stale 'test:routine' 'stale: test:routine'
+  printf '1234567890\t2\tstale\ttruncated-key\n' >> "$dir/state/.wake-queue"
+  out=$(run_triage "$dir") || fail 'triage failed'
+  assert_contains "$out" 'ACT NOW: drain retired malformed queue rows' 'retired malformed row was not classified actionable'
+  assert_contains "$out" 'truncated-key' 'malformed row evidence was lost'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'malformed row must block acknowledgement'
+  assert_unacked "$dir"
+  pass 'malformed queue rows remain visible and prevent auto-ack'
+}
+
 test_hidden_duplicate_row_stays_actionable() {
   local dir out
   dir=$(make_case hidden-row); install_crew_stub "$dir"; install_hold_stub "$dir"
@@ -316,6 +339,7 @@ test_happy_path_and_afk
 test_branch_actor_delegates_to_drain
 test_reason_specific_and_nonproof_failures
 test_unread_note_and_captain_hold_exit_codes
+test_malformed_queue_row_is_actionable
 test_hidden_duplicate_row_stays_actionable
 test_signal_terminates_before_acknowledgement
 test_interruption_retains_pending_output
