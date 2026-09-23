@@ -17,8 +17,8 @@
 # Crew workers run as the same OS user with full file access. The key-only file
 # reduces accidental exposure but is not a sandbox.
 #
-# Privacy: state, question text, option labels and meanings are refused, never
-# sent, when their combined UTF-8 text exceeds FM_JEV_CLI_INPUT_MAX bytes
+# Privacy: state, question IDs and text, option labels and meanings are refused,
+# never sent, when their combined UTF-8 text exceeds FM_JEV_CLI_INPUT_MAX bytes
 # (4096), when fm_jev_compact_state would strip anything from the combined
 # text, or when it contains the live key value itself.
 #
@@ -62,7 +62,7 @@ fm-jev.sh - one typed Jev judgment (TypeSafe) with one output line per question.
 Flags follow the command: --json (raw response); --help prints this interface.
 Output: "pick: answer p=0.96 conf=0.94"; a batch uses its question id; escalation prints "ESCALATE conf=0.31 prior=X -> decide yourself".
 Exit: 0 answered, 2 any escalation, 1 error with a one-line reason; on 1 or 2 use your own judgment, never block.
-Input: state, questions and options are 4096 bytes total; minimal facts only, no secrets, keys, tokens, wiki page bodies or private-vault text.
+Input: state, question IDs and text, and options are 4096 bytes total; minimal facts only, no secrets, keys, tokens, wiki page bodies or private-vault text.
 Key: TYPESAFE_API_KEY env or config/typesafe-key in FM_HOME, checkout, main worktree; firstmate copies .env at mode 0600.
 Security: crew workers run as the same OS user with full file access; this file reduces accidents, not a sandbox.
 Create: put only the key in config/typesafe-key, then chmod 600.
@@ -197,7 +197,7 @@ NORM=$(printf '%s' "$SPEC" | jq -c '
   | if (.questions | type) != "array" or (.questions | length) == 0 then fail("questions must be a non-empty array") else . end
   | .questions |= [ to_entries[] | .key as $i | .value
       | if type != "object" then fail("question \($i + 1) must be an object") else . end
-      | .id = (.id // "q\($i + 1)")
+      | .id = (if has("id") then .id else "q\($i + 1)" end)
       | if (.id | type) != "string" or (.id | test("^[A-Za-z0-9_-]{1,64}$") | not)
         then fail("question id must match [A-Za-z0-9_-]{1,64}") else . end
       | if (.q | type) != "string" or .q == "" then fail("question \(.id): q must be a non-empty string") else . end
@@ -225,10 +225,10 @@ NORM=$(printf '%s' "$SPEC" | jq -c '
 ' 2>&1) || die "$(printf '%s' "$NORM" | sed -n 's/^jq: error ([^)]*): //p' | head -n 1)"
 
 STATE_TEXT=$(printf '%s' "$NORM" | jq -r '.state')
-ALL_TEXT=$(printf '%s' "$NORM" | jq -r '.state, (.questions[] | .q, (.opts[][]))')
+ALL_TEXT=$(printf '%s' "$NORM" | jq -r '.state, (.questions[] | .id, .q, (.opts[][]))')
 
 # --- privacy guard -----------------------------------------------------------
-INPUT_BYTES=$(printf '%s' "$NORM" | jq -r '[.state, (.questions[] | .q, (.opts[][]))] | map(utf8bytelength) | add')
+INPUT_BYTES=$(printf '%s' "$NORM" | jq -r '[.state, (.questions[] | .id, .q, (.opts[][]))] | map(utf8bytelength) | add')
 [ "$INPUT_BYTES" -le "$FM_JEV_CLI_INPUT_MAX" ] \
   || die "input is $INPUT_BYTES bytes, over the $FM_JEV_CLI_INPUT_MAX-byte cap; pass only the facts the judgment needs"
 COMPACT=$(JEV_STATE_MAX_BYTES=1048576 fm_jev_compact_state "$ALL_TEXT" 2>/dev/null) \

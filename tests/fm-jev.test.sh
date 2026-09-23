@@ -330,6 +330,16 @@ JSON
 
   reset_log
   run_jev code out err batch <<'JSON'
+{"state":"s","questions":[{"id":false,"type":"yes","q":"x"}]}
+JSON
+  assert_equals "$code" 1 "a non-string batch id exits 1"
+  assert_contains "$err" "question id must match" "the invalid batch id is explained"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "a non-string batch id prints one stderr line"
+  assert_absent "$LOG/body" "a non-string batch id is never sent"
+
+  reset_log
+  run_jev code out err batch <<'JSON'
 {"state":"s","questions":[{"id":"q","type":"pick","q":"Choose?","opts":{"A":"first","B":"second"}}]}
 JSON
   assert_equals "$code" 1 "batch object-map options are rejected"
@@ -339,7 +349,7 @@ JSON
 }
 
 test_privacy_guard_refuses_before_sending() {
-  local code out err big openrouter_key large_state large_question large_meaning private_key
+  local code out err big openrouter_key large_state large_question large_meaning private_key boundary_state batch_json
   respond '{"answers":{"yes":{"noul":0.9}}}'
   reset_log
   big=$(head -c 4097 /dev/zero | tr '\0' a)
@@ -356,6 +366,14 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "combined state, question, and option text over 4096 bytes is refused"
   assert_contains "$err" "4096-byte cap" "the aggregate cap is named"
   assert_absent "$LOG/body" "oversized combined input is never sent"
+
+  boundary_state=$(head -c 4095 /dev/zero | tr '\0' s)
+  batch_json=$(jq -cn --arg state "$boundary_state" '{state:$state,questions:[{id:"i",type:"yes",q:"q"}]}')
+  reset_log
+  run_jev code out err batch <<<"$batch_json"
+  assert_equals "$code" 1 "batch ids count toward the aggregate input cap"
+  assert_contains "$err" "4096-byte cap" "the batch id cap is named"
+  assert_absent "$LOG/body" "an oversized batch including its id is never sent"
 
   private_key=$(printf '%s\n' \
     '-----BEGIN RSA PRIVATE KEY-----' \
@@ -459,6 +477,14 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "an OpenRouter key from the resolved .env is refused"
   assert_not_contains "$err" "$openrouter_key" "the .env OpenRouter key is never echoed"
   assert_absent "$LOG/body" "the .env OpenRouter key is never sent to TypeSafe"
+
+  batch_json=$(jq -cn --arg id "$openrouter_key" '{state:"safe",questions:[{id:$id,type:"yes",q:"Done?"}]}')
+  reset_log
+  OPENROUTER_API_KEY= run_jev code out err batch <<<"$batch_json"
+  assert_equals "$code" 1 "an OpenRouter key used as a batch id is refused"
+  assert_contains "$err" "Jev API key itself" "a secret batch id is refused by the privacy guard"
+  assert_not_contains "$err" "$openrouter_key" "the secret batch id is never echoed"
+  assert_absent "$LOG/body" "a secret batch id is never sent to TypeSafe"
   rm -f "$HOME_DIR/.env"
   pass "fm-jev.sh: privacy guard refuses before anything is sent"
 }
