@@ -3977,6 +3977,27 @@ claude*)
     exit 1
   fi
   ;;
+pi | pi-signed)
+  if [ "$KIND" != secondmate ]; then
+    pi_trust="$HOME/.pi/agent/trust.json"
+    pi_trust_dir=${pi_trust%/*}
+    mkdir -p "$pi_trust_dir" || { echo "error: could not create Pi trust directory" >&2; exit 1; }
+    [ ! -L "$pi_trust" ] || { echo "error: Pi trust store is a symlink" >&2; exit 1; }
+    trust_tmp="$pi_trust_dir/.trust.json.$$"
+    if [ -e "$pi_trust" ]; then
+      jq -e 'type == "object" and all(to_entries[]; .value == true)' "$pi_trust" >/dev/null \
+        || { echo "error: invalid Pi trust store" >&2; exit 1; }
+      jq --arg path "$WT" '.[$path] = true' "$pi_trust" > "$trust_tmp" || exit 1
+    else
+      jq -n --arg path "$WT" '{($path): true}' > "$trust_tmp" || exit 1
+    fi
+    if ! chmod 600 "$trust_tmp" || ! mv -f -- "$trust_tmp" "$pi_trust"; then
+      rm -f -- "$trust_tmp"
+      echo "error: could not update Pi trust store" >&2
+      exit 1
+    fi
+  fi
+  ;;
 agy)
   if [ "$KIND" != secondmate ]; then
     if "$FM_ROOT/bin/fm-agy-trust.sh" "$WT" "$PROJ_ABS" >/dev/null; then
