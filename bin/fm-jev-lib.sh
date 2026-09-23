@@ -356,6 +356,30 @@ fm_jev_compact_state() {
       while (match(buf, credential_uri_pattern)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
+      email_pattern = "(^|[^[:alnum:]_.%+-])[[:alnum:]_%+.-]+@[[:alnum:]][[:alnum:].-]*[.][[:alpha:]][[:alpha:]]+([^[:alnum:]_.-]|$)"
+      while (match(buf, email_pattern)) {
+        buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
+      }
+      phone_pattern = "(^|[^[:alnum:]])([+][0-9][0-9() ./-]*[0-9]|[0-9][0-9() ./-]*[-./()][0-9() ./-]*[0-9])([^[:alnum:]]|$)"
+      date_pattern = "^([0-9][0-9][0-9][0-9][-/.][0-9][0-9]?[-/.][0-9][0-9]?|[0-9][0-9]?[-/.][0-9][0-9]?[-/.][0-9][0-9][0-9][0-9])([ Tt][0-9][0-9](:[0-9][0-9](:[0-9][0-9]([.][0-9]+)?)?)?([Zz]|[+-][0-9][0-9]:?[0-9][0-9])?)?$"
+      search_from = 1
+      while (search_from <= length(buf)) {
+        tail = substr(buf, search_from)
+        if (!match(tail, phone_pattern)) break
+        start = search_from + RSTART - 1
+        match_length = RLENGTH
+        phone = substr(tail, RSTART, match_length)
+        if (phone ~ /^[^[:alnum:]]/) phone = substr(phone, 2)
+        if (phone ~ /[^[:alnum:]]$/) phone = substr(phone, 1, length(phone) - 1)
+        digits = phone
+        gsub(/[^0-9]/, "", digits)
+        if (length(digits) >= 7 && phone !~ date_pattern) {
+          buf = substr(buf, 1, start - 1) "[redacted]" substr(buf, start + match_length)
+          search_from = start + 10
+        } else {
+          search_from = start + match_length
+        }
+      }
       while (match(buf, /(TYPESAFE_API_KEY|OPENROUTER_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|FMX_PAIRING_TOKEN|FM_MAIL_PASS|GITHUB_TOKEN|GH_TOKEN|JEV_API_KEY)=[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }

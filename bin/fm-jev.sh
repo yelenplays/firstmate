@@ -61,8 +61,8 @@ fm-jev.sh - one typed Jev judgment (TypeSafe) with one output line per question.
 Flags follow the command: --json (raw response); --help prints this interface.
 Output: "pick: answer p=0.96 conf=0.94"; a batch uses its question id; escalation prints "ESCALATE conf=0.31 prior=X -> decide yourself".
 Exit: 0 answered, 2 any escalation, 1 error with a one-line reason; on 1 or 2 use your own judgment, never block.
-Input: state, question IDs and text, and options are 4096 bytes total; minimal facts only, no secrets, keys, tokens, wiki page bodies or private-vault text.
-Key: TYPESAFE_API_KEY env, else FM_HOME/.env, then the owning firstmate checkout .env; pooled worktrees use the main checkout.
+Input: 4096 bytes total; only task facts, never personal data, private-vault content, secrets, keys or tokens.
+Key: workers use the firstmate home .env (launch environments clear keys); direct calls use TYPESAFE_API_KEY env, FM_HOME/.env, then owning checkout .env.
 Security: crew workers run as the same OS user with full file access and are not sandboxed.
 EOF
 }
@@ -163,61 +163,64 @@ case "$SUB" in
       || die "batch input must be exactly one JSON object"
     ;;
   *)
-    die "unknown command '$SUB' (want pick, yes, score, or batch; --help)"
+    die "unknown command (want pick, yes, score, or batch; --help)"
     ;;
 esac
 
 # Validate and normalize: opts becomes an ordered [[label, meaning]] list.
 NORM=$(printf '%s' "$SPEC" | jq -c '
   def fail(m): error(m);
-  def has_control: ([explode[] | select(. < 32 or . == 127)] | length > 0);
+  def has_control: ([explode[] | select(. < 32 or (. >= 127 and . <= 159))] | length > 0);
   if type != "object" then fail("input must be a JSON object") else . end
   | if (.state | type) != "string" or .state == "" then fail("state must be a non-empty string") else . end
   | if (.questions | type) != "array" or (.questions | length) == 0 then fail("questions must be a non-empty array") else . end
   | .questions |= [ to_entries[] | .key as $i | .value
       | if type != "object" then fail("question \($i + 1) must be an object") else . end
       | .id = (if has("id") then .id else "q\($i + 1)" end)
-      | if (.id | type) != "string" or (.id | test("^[A-Za-z0-9_-]{1,64}$") | not)
-        then fail("question id must match [A-Za-z0-9_-]{1,64}") else . end
-      | if (.q | type) != "string" or .q == "" then fail("question \(.id): q must be a non-empty string") else . end
-      | if (.type | IN("pick", "yes", "score") | not) then fail("question \(.id): type must be pick, yes, or score") else . end
+      | if (.id | type) != "string" or (.id | has_control) or (.id | test("^[A-Za-z0-9_-]{1,64}$") | not)
+        then fail("question \($i + 1) id must match [A-Za-z0-9_-]{1,64}") else . end
+      | if (.q | type) != "string" or .q == "" then fail("question \($i + 1): q must be a non-empty string") else . end
+      | if (.type | IN("pick", "yes", "score") | not) then fail("question \($i + 1): type must be pick, yes, or score") else . end
       | if .type == "yes" then .opts = []
         else
           .opts = (if (.opts | type) == "array" then
-                     [ .opts[] | if type != "string" or . == "" then fail("question \(.id): options must be non-empty strings") else . end
+                     [ .opts[] | if type != "string" or . == "" then fail("question \($i + 1): options must be non-empty strings") else . end
                        | . as $option
                        | ($option | index("=")) as $separator
                        | if $separator != null
                          then [$option[0:$separator], $option[($separator + 1):]]
                          else [$option, $option]
                          end
-                       | if .[0] == "" then fail("question \(.id): empty option label") else . end
+                       | if .[0] == "" then fail("question \($i + 1): empty option label") else . end
                        | if .[1] == "" then .[1] = .[0] else . end
                        | if (.[0] | has_control) or (.[1] | has_control)
                          then fail("option labels and meanings must not contain control characters") else . end ]
-                   else fail("question \(.id): opts must be an array of strings") end)
-          | if (.opts | length) < 2 then fail("question \(.id): needs at least two options") else . end
-          | if .type == "pick" and (.opts | length) > 255 then fail("question \(.id): pick supports at most 255 options")
-            elif .type == "score" and (.opts | length) > 10 then fail("question \(.id): score supports at most 10 levels")
+                   else fail("question \($i + 1): opts must be an array of strings") end)
+          | if (.opts | length) < 2 then fail("question \($i + 1): needs at least two options") else . end
+          | if .type == "pick" and (.opts | length) > 255 then fail("question \($i + 1): pick supports at most 255 options")
+            elif .type == "score" and (.opts | length) > 10 then fail("question \($i + 1): score supports at most 10 levels")
             else . end
-          | if ([.opts[][0]] | unique | length) != (.opts | length) then fail("question \(.id): option labels must be unique") else . end
+          | if ([.opts[][0]] | unique | length) != (.opts | length) then fail("question \($i + 1): option labels must be unique") else . end
         end
       | {id, type, q, opts} ]
   | if ([.questions[].id] | unique | length) != (.questions | length) then fail("question ids must be unique") else . end
   | {state, questions}
 ' 2>&1) || die "$(printf '%s' "$NORM" | sed -n 's/^jq: error ([^)]*): //p' | head -n 1)"
 
-STATE_TEXT=$(printf '%s' "$NORM" | jq -r '.state')
-ALL_TEXT=$(printf '%s' "$NORM" | jq -r '.state, (.questions[] | .id, .q, (.opts[][]))')
+STATE_TEXT=$(printf '%s' "$NORM" | jq -jr '.state + "x"') \
+  || die "could not read normalized state"
+STATE_TEXT=${STATE_TEXT%x}
+ALL_TEXT=$(printf '%s' "$NORM" | jq -jr '[.state, (.questions[] | .id, .q, (.opts[][]))] | join("\n") + "\nx"') \
+  || die "could not read normalized input"
 
 # --- privacy guard -----------------------------------------------------------
 INPUT_BYTES=$(printf '%s' "$NORM" | jq -r '[.state, (.questions[] | .id, .q, (.opts[][]))] | map(utf8bytelength) | add')
 [ "$INPUT_BYTES" -le "$FM_JEV_CLI_INPUT_MAX" ] \
   || die "input is $INPUT_BYTES bytes, over the $FM_JEV_CLI_INPUT_MAX-byte cap; pass only the facts the judgment needs"
 COMPACT=$(fm_jev_compact_state "$ALL_TEXT" 2>/dev/null) \
-  || die "could not screen the input for secrets"
+  || die "could not screen the input for secrets or personal data"
 [ "$COMPACT" = "$ALL_TEXT" ] \
-  || die "input looks like it carries a secret (key, token, or credential); refused, nothing sent"
+  || die "input contains a secret, credential, or personal data; refused, nothing sent"
 
 resolve_typesafe_key
 if contains_live_key "$ALL_TEXT"; then
@@ -280,6 +283,9 @@ RESPONSE=$(cat "$OUT_FILE")
 LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
   def r2: (. * 100 | round) / 100;
   def estimate(p): (p | [.[]] | sort | reverse) as $s | (($s[0] // 0) - ($s[1] // 0));
+  def unique_top($probabilities):
+    ($probabilities | [.[]] | max) as $maximum
+    | ([$probabilities[] | select(. == $maximum)] | length) == 1;
   def unit_interval(message):
     if type != "number" or . < 0 or . > 1 then error(message) else . end;
   def checked_probabilities(probabilities; expected_keys; id; kind):
@@ -317,6 +323,7 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
           floor: (if $confidence != null then 0.5 else 0.4 end),
           force_escalate: (($probabilities | length) == 0
             or ($q.opts | map(.[0]) | index($c)) == null
+            or (unique_top($probabilities) | not)
             or $probabilities[$c] != ($probabilities | [.[]] | max)) }
     else
       (($a.score | numbers) // error("answer \($q.id) has no score")) as $s
@@ -334,6 +341,7 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
               floor: (if $confidence != null then 0.5 else 0.4 end),
               # A mean between distant probability peaks is a split judgment; escalate.
               force_escalate: ($s < 0 or $s > ($n - 1)
+                or ($top_indices | length) != 1
                 or ($top_indices | index($s | round)) == null
                 or (($s - $weighted) | fabs) > 0.05) }
         end

@@ -83,7 +83,9 @@ test_help_is_short_and_complete() {
   assert_not_contains "$out" "--id" "--help omits the removed id option"
   assert_not_contains "$out" "--min" "--help omits the removed threshold option"
   assert_not_contains "$out" "OPENROUTER_API_KEY" "--help does not advertise an OpenRouter route"
-  assert_contains "$out" "FM_HOME/.env" "--help documents the home .env key source"
+  assert_contains "$out" "FM_HOME/.env" "--help documents the direct-call home .env key source"
+  assert_contains "$out" "workers use the firstmate home .env" "--help documents the worker key source"
+  assert_contains "$out" "only task facts, never personal data, private-vault content" "--help states the data policy"
   assert_contains "$out" "same OS user with full file access" "--help explains worker filesystem access"
   assert_not_contains "$out" "typesafe-key" "--help does not advertise a persistent key cache"
   pass "fm-jev.sh: --help is the whole interface in under 15 lines"
@@ -193,6 +195,21 @@ test_yes_and_score_lines() {
   pass "fm-jev.sh: yes and score print one line each"
 }
 
+test_batch_state_preserves_trailing_newlines() {
+  local code out err state batch_json expected_state
+  state=$'task facts with trailing newlines\n\n'
+  batch_json=$(jq -cn --arg state "$state" \
+    '{state:$state,questions:[{id:"newline",type:"yes",q:"Is this preserved?"}]}')
+  respond '{"answers":{"newline":{"noul":0.97}}}'
+  reset_log
+  run_jev code out err batch <<<"$batch_json"
+  assert_equals "$code" 0 "a batch with trailing state newlines is answered"
+  expected_state=$(printf '%s' "$state" | base64 | tr -d '\n')
+  assert_equals "$(jq -r '.state | @base64' "$LOG/body")" "$expected_state" \
+    "the request state preserves every trailing newline"
+  pass "fm-jev.sh: request construction preserves trailing state newlines"
+}
+
 test_batch_one_call_many_lines() {
   local code out err
   reset_log
@@ -279,6 +296,22 @@ test_escalation_exits_two() {
   assert_equals "$code" 2 "a near-even yes/no escalates"
   assert_equals "$out" "yes: ESCALATE conf=0.2 prior=yes -> decide yourself" "a yes/no escalation reports its estimate"
   pass "fm-jev.sh: low confidence escalates with exit 2"
+}
+
+test_tied_top_probabilities_escalate() {
+  local code out err
+  respond '{"answers":{"pick":{"choice":"A","confidence":0.9,"probabilities":{"A":0.5,"B":0.5}}}}'
+  run_jev code out err pick "state" "Choose?" A B
+  assert_equals "$code" 2 "a pick with tied top probabilities escalates"
+  assert_contains "$out" "ESCALATE" "a tied pick prints the escalation marker"
+  assert_equals "$err" "" "a tied pick escalates without an error"
+
+  respond '{"answers":{"score":{"score":0.5,"confidence":0.9,"probabilities":{"0":0.5,"1":0.5}}}}'
+  run_jev code out err score "state" "How severe?" low high
+  assert_equals "$code" 2 "a score with tied top probabilities escalates"
+  assert_contains "$out" "ESCALATE" "a tied score prints the escalation marker"
+  assert_equals "$err" "" "a tied score escalates without an error"
+  pass "fm-jev.sh: tied top probabilities escalate for picks and scores"
 }
 
 test_split_score_distribution_escalates_by_design() {
@@ -430,7 +463,7 @@ JSON
 {"state":"s","questions":[{"id":false,"type":"yes","q":"x"}]}
 JSON
   assert_equals "$code" 1 "a non-string batch id exits 1"
-  assert_contains "$err" "question id must match" "the invalid batch id is explained"
+  assert_contains "$err" "question 1 id must match" "the invalid batch id is explained without echoing the ID"
   assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
     "a non-string batch id prints one stderr line"
   assert_absent "$LOG/body" "a non-string batch id is never sent"
@@ -446,9 +479,10 @@ JSON
 }
 
 test_option_control_characters_are_refused() {
-  local code out err esc del
+  local code out err esc del c1 batch_json
   esc=$'\033'
   del=$'\177'
+  c1=$'\u009B'
 
   reset_log
   run_jev code out err pick "state" "Choose?" "${esc}[2J=clear screen" B
@@ -478,7 +512,29 @@ JSON
   assert_contains "$err" "option labels and meanings must not contain control characters" \
     "the batch-label control refusal is explained"
   assert_absent "$LOG/body" "a batch label with NUL is never sent"
-  pass "fm-jev.sh: option labels and meanings reject terminal controls"
+
+  reset_log
+  run_jev code out err pick "state" "Choose?" "A${c1}=meaning" B
+  assert_equals "$code" 1 "a C1 control in a pick label is refused"
+  assert_contains "$err" "option labels and meanings must not contain control characters" \
+    "the C1 pick-label refusal is explained"
+  assert_absent "$LOG/body" "a C1 pick label is never sent"
+
+  reset_log
+  run_jev code out err score "state" "How severe?" low "high=${c1}meaning"
+  assert_equals "$code" 1 "a C1 control in a score meaning is refused"
+  assert_contains "$err" "option labels and meanings must not contain control characters" \
+    "the C1 score-meaning refusal is explained"
+  assert_absent "$LOG/body" "a C1 score meaning is never sent"
+
+  batch_json=$(jq -cn --arg id "control${c1}" \
+    '{state:"s",questions:[{id:$id,type:"yes",q:"Done?"}]}')
+  reset_log
+  run_jev code out err batch <<<"$batch_json"
+  assert_equals "$code" 1 "a C1 control in a batch ID is refused"
+  assert_contains "$err" "question 1 id must match" "the C1 ID refusal uses its position"
+  assert_absent "$LOG/body" "a C1 batch ID is never sent"
+  pass "fm-jev.sh: option labels, meanings, and IDs reject C0, DEL, and C1 controls"
 }
 
 test_privacy_guard_refuses_before_sending() {
@@ -558,6 +614,27 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 0 "a URL without user-and-password credentials is accepted"
   assert_equals "$(jq -r '.state' "$LOG/body")" 'https://example.com/path' \
     "an ordinary URL is sent unchanged"
+
+  reset_log
+  run_jev code out err yes "task summary" "Contact alice@example.com?"
+  assert_equals "$code" 1 "an email address in question text is refused"
+  assert_contains "$err" "personal data" "the email refusal identifies the privacy category"
+  assert_absent "$LOG/body" "an email address in question text is never sent"
+
+  reset_log
+  run_jev code out err pick "task summary" "Which option?" \
+    "A=Call +1 (212) 555-0199" B
+  assert_equals "$code" 1 "a grouped phone number in an option meaning is refused"
+  assert_contains "$err" "personal data" "the phone refusal identifies the privacy category"
+  assert_absent "$LOG/body" "a grouped phone number in option text is never sent"
+
+  for safe_state in "Version 1.2.3" "Date 2025-03-08" "Timestamp 2025-03-08T14:32:10Z" "Count 123456789"; do
+    reset_log
+    run_jev code out err yes "$safe_state" "Is this accepted?"
+    assert_equals "$code" 0 "non-phone numeric text is accepted: $safe_state"
+    assert_equals "$(jq -r '.state' "$LOG/body")" "$safe_state" \
+      "accepted version, date, timestamp, or ordinary number stays unchanged"
+  done
 
   respond '{"answers":{"yes":{"noul":0.97}}}'
   reset_log
@@ -684,6 +761,16 @@ test_privacy_guard_refuses_before_sending() {
   assert_contains "$err" "Jev API key itself" "a secret batch id is refused by the privacy guard"
   assert_not_contains "$err" "$openrouter_key" "the secret batch id is never echoed"
   assert_absent "$LOG/body" "a secret batch id is never sent to TypeSafe"
+
+  batch_json=$(jq -cn --arg id "$KEY" \
+    '{state:"safe",questions:[{id:$id,type:"yes",q:""}]}')
+  reset_log
+  run_jev code out err batch <<<"$batch_json"
+  assert_equals "$code" 1 "an empty question with an ID equal to the live key is rejected"
+  assert_contains "$err" "question 1: q must be a non-empty string" \
+    "validation identifies the question by position"
+  assert_not_contains "$err" "$KEY" "pre-guard validation never echoes the live-key ID"
+  assert_absent "$LOG/body" "invalid input with the live-key ID is never sent"
   rm -f "$HOME_DIR/.env"
   pass "fm-jev.sh: privacy guard refuses before anything is sent"
 }
@@ -830,8 +917,10 @@ test_cli_forces_typesafe_route
 test_cli_pins_typesafe_endpoint
 test_yes_and_score_lines
 test_batch_one_call_many_lines
+test_batch_state_preserves_trailing_newlines
 test_option_limits_refuse_before_sending
 test_escalation_exits_two
+test_tied_top_probabilities_escalate
 test_split_score_distribution_escalates_by_design
 test_json_prints_raw_response
 test_errors_exit_one_with_one_line
