@@ -74,7 +74,7 @@ Stop payload `stop_hook_active=true` follows any hook-driven continuation, inclu
 
 Project `.claude/settings.json` loads only when the exact project root is the session root; Claude does not search parents, so Firstmate starts at repository root.
 Hooks still run through cwd-sensitive `/bin/sh`, so tracked commands anchor through `"$CLAUDE_PROJECT_DIR"/bin/...`.
-The project settings also capture the current transcript at `PreCompact` and `SessionEnd`; `PreCompact` records the local token-usage snapshot when available. Both hooks skip Grok and `FM_TASK_ID` workers, while `../../../bin/fm-history.sh` owns privacy filtering and local storage.
+The project settings also capture the current transcript at `PreCompact` and `SessionEnd`; `PreCompact` records the latest assistant-reported token-usage fields when available. Both hooks skip Grok and `FM_TASK_ID` workers, while `../../../bin/fm-history.sh` owns transcript privacy filtering and local storage.
 `../../../docs/turnend-guard.md` owns details.
 
 The Stop-owned watcher hook runs every Stop, foregrounds `../../../bin/fm-watch-arm.sh` only when eligible, and uses exit-2 async reawakening as notification.

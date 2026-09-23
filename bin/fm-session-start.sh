@@ -208,6 +208,8 @@
 #             mutating sweeps that startup already reconciled - the stale Herdr
 #             projection cleanup and bootstrap's mutating sweeps (enumerated in
 #             fm-bootstrap.sh's header) - and re-emit the rest.
+#             The context digest also restores a bounded slice of up to five
+#             captured captain turns and their paired final replies when available.
 #             Wake-queue presentation is NOT skipped: queued
 #             records are this turn's work queue, they arrived after startup,
 #             and a session that owns the lock is exactly the session that must

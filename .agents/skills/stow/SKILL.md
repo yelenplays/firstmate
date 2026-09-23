@@ -238,10 +238,10 @@ A local skill exists only in this home, so offloading an entry out of `data/capt
 The sweep above preserves knowledge; this one preserves the state of work.
 A reset destroys whatever exists only in this session, and that includes what you have learned about work already under way, not just facts worth remembering.
 So before the reset, make sure the important open work you are holding in context is durably recorded: file what was never filed, and correct what you now know is stale.
-When `PI_SESSION_FILE` is set, first run `bin/fm-history.sh capture --transcript "$PI_SESSION_FILE"` to preserve the captain's exact words through this point; its byte cursor makes retries safe.
-Claude's registered pre-compaction and session-end hooks perform that same capture automatically; pre-compaction also stores the available local token-usage count.
+When `PI_SESSION_FILE` is set, capture the current transcript through the history helper before reset; its byte cursor makes retries safe, and the helper's usage output owns the invocation details.
+Claude's registered lifecycle hooks capture automatically; see the [Claude adapter reference](../harness-adapters/references/harness/claude.md) for hook and token-usage behavior.
 Wake draining records each presented batch and its later acknowledgement in the private conversation history; do not copy wake rows into another record.
-Before the completion receipt and secondmate cascade, run `bin/fm-history.sh logbook` once to preserve this home's current local-day outcomes and open-work snapshot in its private history.
+Before the completion receipt and secondmate cascade, preserve this home's current local-day outcomes and open-work snapshot in private history with the helper's Logbook operation.
 This records structured landings, reports, digest-verified captain answers, and all unfinished task ids, including queued work; it does not close tasks or reconcile task or forge state.
 A daily Logbook is written even when there were no landings, reports, or answers, because open work still matters. Never hand-edit the generated Logbook.
 
