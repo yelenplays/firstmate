@@ -1,0 +1,6 @@
+WAKE TRIAGE: 1 wake row(s); 0 act-now, 1 routine
+ROUTINE: runner (turn ended; worker busy (working · source: pane · harness busy (claude-hook)))
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M3701CEYMR11VHGV39DT1RA6/.wake-triage-live-34013/routine/state/.wake-triage-last.out
+WAKE_ACKED: every item was routine; acknowledged through 1
+
+Persisted queue rows after triage: 0

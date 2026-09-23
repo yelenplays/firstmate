@@ -1,0 +1,10 @@
+WAKE TRIAGE: 3 wake row(s); 3 act-now, 0 routine
+ACT NOW:
+- shipped | reports done with a PR | next: run bin/fm-pr-check.sh shipped https://github.com/example/project/pull/17, then give the captain the PR URL and outcome | pr: https://github.com/example/project/pull/17
+- broken | failed: validation run failed | next: inspect bin/fm-crew-state.sh broken and recover or report the failure
+- review | open decision: [key=review] needs-decision: resolve the review finding | next: decide or escalate (load ask-user-authority for review findings), then answer with bin/fm-send.sh review --resolve-key review '<answer>'
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M3701CEYMR11VHGV39DT1RA6/.wake-triage-real-51451/home/state/.wake-triage-last.out
+WAKE TRIAGE: not auto-acknowledged - 3 act-now item(s) need handling first.
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 51458.1790169499.mUNhon
+
+Persisted queue rows after triage: 3

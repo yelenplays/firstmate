@@ -1,0 +1,32 @@
+$ fm-task-execution.sh notify (eight approved execution records)
+cache-task-01	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-02	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-03	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-04	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-05	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-06	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-07	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-08	firstmate	implementation owner missing; dispatch or promote within approved intent
+
+$ fm-task-execution.sh scan --cached
+cache-task-01	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-02	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-03	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-04	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-05	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-06	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-07	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-08	firstmate	implementation owner missing; dispatch or promote within approved intent
+Published scan reused without rewrite: yes
+
+$ tasks-axi done cache-task-01; fm-task-execution.sh scan --cached
+cache-task-01	firstmate	reconcile-recorded-completion-before-dispatch-or-cleanup
+cache-task-02	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-03	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-04	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-05	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-06	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-07	firstmate	implementation owner missing; dispatch or promote within approved intent
+cache-task-08	firstmate	implementation owner missing; dispatch or promote within approved intent
+
+Changed backlog caused a fresh reconciliation: confirmed

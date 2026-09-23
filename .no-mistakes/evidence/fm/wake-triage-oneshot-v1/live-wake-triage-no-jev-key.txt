@@ -1,0 +1,9 @@
+WAKE TRIAGE: 1 wake row(s); 2 act-now, 0 routine
+ACT NOW:
+- mate | secondmate ambiguous status; state unknown | next: inspect the pane below and reconcile the secondmate (unknown · source: none · worktree gone (torn down?))
+- mate | unclassified status: done: routine wiki sync completed | next: read it and decide (Jev off)
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M3701CEYMR11VHGV39DT1RA6/.wake-triage-no-key-58446/home/state/.wake-triage-last.out
+WAKE TRIAGE: not auto-acknowledged - 2 act-now item(s) need handling first.
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 58466.1790169613.RnnRql
+
+Persisted queue rows after triage: 1

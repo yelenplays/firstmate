@@ -1,0 +1,16 @@
+WAKE TRIAGE: 8 wake row(s); 8 act-now, 0 routine
+ACT NOW:
+- wake-task-01 | execution obligation: implementation owner missing; dispatch or promote within approved intent | next: reconcile the evidence and take that action (state: unknown · source: none · no metadata for wake-task-01)
+- wake-task-02 | execution obligation: implementation owner missing; dispatch or promote within approved intent | next: reconcile the evidence and take that action (state: unknown · source: none · no metadata for wake-task-02)
+- wake-task-03 | execution obligation: implementation owner missing; dispatch or promote within approved intent | next: reconcile the evidence and take that action (state: unknown · source: none · no metadata for wake-task-03)
+- wake-task-04 | execution obligation: implementation owner missing; dispatch or promote within approved intent | next: reconcile the evidence and take that action (state: unknown · source: none · no metadata for wake-task-04)
+- wake-task-05 | execution obligation: implementation owner missing; dispatch or promote within approved intent | next: reconcile the evidence and take that action (state: unknown · source: none · no metadata for wake-task-05)
+- wake-task-06 | execution obligation: implementation owner missing; dispatch or promote within approved intent | next: reconcile the evidence and take that action (state: unknown · source: none · no metadata for wake-task-06)
+- wake-task-07 | execution obligation: implementation owner missing; dispatch or promote within approved intent | next: reconcile the evidence and take that action (state: unknown · source: none · no metadata for wake-task-07)
+- wake-task-08 | execution obligation: implementation owner missing; dispatch or promote within approved intent | next: reconcile the evidence and take that action (state: unknown · source: none · no metadata for wake-task-08)
+OBLIGATIONS: wake-task-01 firstmate implementation owner missing; dispatch or promote within approved intent; wake-task-02 firstmate implementation owner missing; dispatch or promote within approved intent; wake-task-03 firstmate implementation owner missing; dispatch or promote within approved intent; wake-task-04 firstmate implementation owner missing; dispatch or promote within approved intent; wake-task-05 firstmate implementation owner missing; dispatch or promote within approved intent; wake-task-06 firstmate implementation owner missing; dispatch or promote within approved intent; wake-task-07 firstmate implementation owner missing; dispatch or promote within approved intent; wake-task-08 firstmate implementation owner missing; dispatch or promote within approved intent
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M3701CEYMR11VHGV39DT1RA6/.execution-triage-live-96448/home/state/.wake-triage-last.out
+WAKE TRIAGE: not auto-acknowledged - 8 act-now item(s) need handling first.
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 8 --recovery-generation 98589.1790169848.iKWNDy
+
+Persisted check rows after triage: 8

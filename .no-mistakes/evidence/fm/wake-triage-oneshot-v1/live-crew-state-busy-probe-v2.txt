@@ -1,0 +1,2 @@
+state: working · source: pane · harness busy (claude-hook)
+session=wake-validation-17674 target=wake-validation-17674:0.0

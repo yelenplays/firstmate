@@ -1,0 +1,9 @@
+WAKE TRIAGE: 1 wake row(s); 2 act-now, 0 routine
+ACT NOW:
+- busy | status update; state unknown | next: inspect the pane below; recover through stuck-crewmate-recovery if it is stuck (unknown · source: none · worktree gone (torn down?))
+- drain | drain notice: WATCHER DOWN - SUPERVISION IS OFF (+4 more line(s)) | next: read the full drain output and follow the notice
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M3701CEYMR11VHGV39DT1RA6/.wake-triage-live-19072/routine/state/.wake-triage-last.out
+WAKE TRIAGE: not auto-acknowledged - 2 act-now item(s) need handling first.
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 23114.1790169312.MxBLLy
+
+Persisted queue rows after triage: 1
