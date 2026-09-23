@@ -334,10 +334,9 @@ if (process.env.FM_BROWSER_RECORD_HOST) {
     const match = text.match(/^([a-z][a-z0-9-]*)(=|~)(.+)$/i);
     return match ? { role: match[1].toLowerCase(), operator: match[2], label: match[3].trim() } : null;
   };
-  const expectation = !process.env.FM_BROWSER_EXPECT_KIND ? null :
-    process.env.FM_BROWSER_EXPECT_KIND === "url-path" ? { url_path: process.env.FM_BROWSER_EXPECT_VALUE } :
-    { [process.env.FM_BROWSER_EXPECT_KIND === "appears" ? "appears" : process.env.FM_BROWSER_EXPECT_KIND === "gone" ? "gone" : "title"]:
-      selector(process.env.FM_BROWSER_EXPECT_VALUE.includes("~") ? process.env.FM_BROWSER_EXPECT_VALUE : `${process.env.FM_BROWSER_EXPECT_KIND === "title" ? "title~" : ""}${process.env.FM_BROWSER_EXPECT_VALUE}`) };
+  const expectation = !params.expectation ? null :
+    params.expectation.kind === "url-path" ? { url_path: params.expectation.path } :
+    { [params.expectation.kind]: selector(params.expectation.selector) };
   const target = params.target ? selector(params.target) : null;
   if (params.within) target.within = selector(params.within);
   const step = { id: `${params.action}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, do: params.action };

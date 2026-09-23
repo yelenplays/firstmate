@@ -76,6 +76,24 @@ result = await engine.executeRoute(route, { name: 'safe' }, null, changingHostPa
 assert.equal(result.error, 'START_MISMATCH');
 assert.deepEqual(result.completed, ['name']);
 assert.deepEqual(actionLog, [['fill', '@x:1', 'safe']]);
+const timeoutRoute = {
+  version: 1, host: '127.0.0.1', route: 'timeout', start: { url_path: '/routes.html' }, vars: {},
+  steps: [{ id: 'wait', do: 'press', key: 'Tab', timeoutMs: 25, expect: { appears: { role: 'heading', label: 'Never appears' } } }],
+  heal_log: [],
+};
+let timeoutWaits = 0;
+const timeoutPage = {
+  ...page,
+  async snapshot() { return 'uid=x:0 rootwebarea "fixture"'; },
+  async wait() {
+    timeoutWaits += 1;
+    if (timeoutWaits > 10) throw new Error('route timeout was not forwarded');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  },
+};
+result = await engine.executeRoute(timeoutRoute, {}, null, timeoutPage);
+assert.equal(result.error, 'EXPECT_TIMEOUT');
+assert.ok(timeoutWaits <= 10);
 const healingRoute = {
   version: 1, host: '127.0.0.1', route: 'healing', start: { url_path: '/routes.html' }, vars: {},
   steps: [{ id: 'deploy', do: 'click', target: { role: 'button', label: 'Deploy production' }, expect: { appears: { role: 'heading', label: 'Done' } } }],
@@ -149,6 +167,9 @@ RECORDED=$(cat "$TMP_HOME/data/browser-routes/127.0.0.1/recorded.json")
 case "$RECORDED" in *'${name}'*) ;; *) fail 'recorded fill did not use its named variable placeholder' ;; esac
 case "$RECORDED" in *recorded-literal*) fail 'recorded input value was persisted' ;; esac
 pass 'verified steps append safely and replace fill text with a named variable'
+OUT=$(FM_HOME="$TMP_HOME" "$SCRIPT" step --press Tab --expect-title 'Firstmate ~ browser-route fixture' --record 127.0.0.1/titled --session "$SESSION") || fail "tilde-containing title expectation was not recorded: $OUT"
+node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); const t=r.steps[0].expect.title; if (t.role !== "title" || t.operator !== "~" || t.label !== "Firstmate ~ browser-route fixture") process.exit(1)' "$TMP_HOME/data/browser-routes/127.0.0.1/titled.json" || fail 'recorded title expectation changed its substring semantics'
+pass 'title expectations preserve embedded tildes when recorded'
 OUT=$(FM_HOME="$TMP_HOME" "$SCRIPT" step --click 'button=Navigate fixture' --expect-url-path /done --record 127.0.0.1/navigated --session "$SESSION") || fail "navigating step was not recorded: $OUT"
 START_PATH=$(node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); process.stdout.write(r.start.url_path)' "$TMP_HOME/data/browser-routes/127.0.0.1/navigated.json")
 [ "$START_PATH" = '/routes.html' ] || fail "recording used the post-action path: $START_PATH"

@@ -284,6 +284,7 @@ async function executeRouteStep(step, vars, pageApi) {
   }
   if (step.do === 'fill') params.value = substituteRouteValue(step.value, vars);
   if (step.do === 'select') params.option = substituteRouteValue(step.option, vars);
+  if (step.timeoutMs != null) params.timeoutMs = step.timeoutMs;
   let result = await executeStep(params, pageApi);
   if (result.error === 'TARGET_NOT_FOUND') {
     const nodes = parseSnapshot(await pageApi.snapshot());
