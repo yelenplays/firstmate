@@ -71,10 +71,9 @@
 # an Aqua requirement. The launch-agent renderer and repair helpers here are
 # shared by the entrypoint and remote doctor so their ownership cannot drift.
 #
-# Linux uses supervisor.lock to admit one restart supervisor per account
-# queue; worker.lock separately owns the serving child. The Linux start path
-# puts the worker tree in its own process group, so stopping a worker signals
-# its restart supervisor, its serving child, and any job descendant together
+# bin/fm-remote-job-worker.sh owns the Linux supervisor-lock contract. The
+# Linux start path puts the worker tree in its own process group, so stopping
+# it signals its restart supervisor, its serving child, and any job descendant
 # instead of leaving a supervisor to restart what was just killed.
 # fm_remote_job_stop_worker_tree owns that stop and refuses to
 # signal a group whose leader is not itself a worker, so a worker inherited
