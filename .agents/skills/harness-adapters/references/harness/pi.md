@@ -30,7 +30,8 @@ The router's Detection section owns how launch markers and ancestry select betwe
 Keep the instructions as one positional argument.
 Multiple positional arguments become separate queued messages; the spawn template already preserves the one-argument shape.
 
-Pi workers are registered as trusted in `~/.pi/agent/trust.json` at spawn for their exact isolated worktree, so a fresh worker copy does not pause for the project-trust dialog.
+A fresh Pi or Pi-signed spawn for a ship, scout, or task registers its exact isolated worktree in the Pi trust store under the spawn's `PI_CODING_AGENT_DIR` (default `~/.pi/agent/trust.json`), so the worker does not pause for the project-trust dialog.
+Relaunches and secondmates do not register trust.
 For a manually launched Pi in an untrusted directory, accept the dialog with Enter and verify the instructions begin processing.
 
 ## Worker turn-end extension
