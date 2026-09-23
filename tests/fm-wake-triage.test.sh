@@ -49,7 +49,7 @@ run_triage() {
 
 seed_fresh_watcher() {
   local dir=$1 pid identity
-  sleep 60 &
+  sleep 60 >/dev/null 2>&1 &
   pid=$!
   identity=$(FM_STATE_OVERRIDE="$dir/state" bash -c '. "$1"; fm_pid_identity "$2"' _ "$ROOT/bin/fm-wake-lib.sh" "$pid") || fail 'could not identify fixture watcher'
   mkdir -p "$dir/state/.watch.lock"
