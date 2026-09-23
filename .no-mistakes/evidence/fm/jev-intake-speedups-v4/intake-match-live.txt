@@ -1,0 +1,17 @@
+jev-intake-match:
+  ranking: keyword
+  fallback: off
+  confidence: 
+  candidates:
+    1. wiki-layer-plan-v1 score=3/3 state=- record=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M36H5XFV25ZVYZ78SYZG5A9M/.nm-validation-intake.dX8RAG/home/data/wiki-layer-plan-v1/report.md title=Wiki layer plan: one-prompt implementation roadmap
+    2. wf-p0 score=2/3 state=queued record=- title=Wiki plan phase p0
+    3. wf-p1 score=2/3 state=queued record=- title=Wiki plan phase p1
+    4. wf-p2 score=2/3 state=queued record=- title=Wiki plan phase p2
+    5. wf-p3 score=2/3 state=queued record=- title=Wiki plan phase p3
+  related:
+    - wiki-layer-plan-v1 -> wf-p0 state=queued title=Wiki plan phase p0
+    - wiki-layer-plan-v1 -> wf-p1 state=queued title=Wiki plan phase p1
+    - wiki-layer-plan-v1 -> wf-p2 state=queued title=Wiki plan phase p2
+    - wiki-layer-plan-v1 -> wf-p3 state=queued title=Wiki plan phase p3
+    - wiki-layer-plan-v1 -> wf-p4 state=queued title=Wiki plan phase p4
+    - wiki-layer-plan-v1 -> wf-p5 state=queued title=Wiki plan phase p5

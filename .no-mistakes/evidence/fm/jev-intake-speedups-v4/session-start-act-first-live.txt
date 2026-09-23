@@ -1,0 +1,25 @@
+Live CLI: fm-session-start.sh (isolated FM_HOME; no Jev keys)
+exit=0
+WAKE QUEUE
+--------------------------------------------------------------------------------
+1790151094	1	signal	task-alpha.status	needs-decision [key=runtime]: choose the runtime for the wiki sync
+1790151094	2	signal	task-beta.status	blocked: waiting on a provider token
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 52241.1790151094.2i209j
+wake annotation: latest wake-EVENT observed at drain, not current state: task-alpha.status: needs-decision [key=runtime]: choose the runtime for the wiki sync
+wake annotation: unread wake-EVENT since last drain, not current state: task-beta.status: working: tests started
+wake annotation: latest wake-EVENT observed at drain, not current state: task-beta.status: blocked: waiting on a provider token
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+task-alpha [key=runtime] needs-decision: choose the runtime for the wiki sync
+task-beta blocked: waiting on a provider token
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+ACT FIRST (priority order: open decisions, unfinished execution, failures and blockers, then wakes; handle and acknowledge every item regardless)
+--------------------------------------------------------------------------------
+1. decision task-alpha [key=runtime] needs-decision: choose the runtime for the wiki sync
+2. decision task-beta blocked: waiting on a provider token
+PI_WATCH_EXTENSION: not loaded - approve Pi project trust once per clone, then restart plain pi so /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M36H5XFV25ZVYZ78SYZG5A9M/.pi/extensions/fm-primary-turnend-guard.ts and /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M36H5XFV25ZVYZ78SYZG5A9M/.pi/extensions/fm-primary-pi-watch.ts auto-load for turn-end guard and background wake coverage; use -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M36H5XFV25ZVYZ78SYZG5A9M/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M36H5XFV25ZVYZ78SYZG5A9M/.pi/extensions/fm-primary-pi-watch.ts only if project hooks are not trusted
+================================================================================
+SUPERVISION OPERATING INSTRUCTIONS - primary harness: pi
+ACT-FIRST Jev log: absent
