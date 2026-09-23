@@ -1,0 +1,12 @@
+offline route format, variables, resume, confirmation, selector semantics, healing, and recording host checks passed
+ok - route format, interpolation, resume, confirmation, and one-run sequencing are covered
+ok - one named-session browser run replays, verifies, and keeps variable values out of route storage
+ok - verified steps append safely and replace fill text with a named variable
+ok - title expectations preserve embedded tildes when recorded
+ok - recording preserves complete long selector and expectation labels
+ok - recording preserves the pre-action route start path
+ok - route output preserves all completed steps
+ok - verified healing persists even when a later step stops for confirmation
+browser route tests passed
+
+exit_status=0
