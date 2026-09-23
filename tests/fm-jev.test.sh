@@ -24,6 +24,12 @@ cat > "$FAKEBIN/curl" <<'SH'
 # Fake curl: records the request URL, stdin body, and fd 3 header, then answers
 # with FAKE_CURL_RESPONSE and FAKE_CURL_HTTP.
 set -u
+if [ -n "${TYPESAFE_API_KEY+x}" ] || [ -n "${OPENROUTER_API_KEY+x}" ] \
+  || [ -n "${TYPESAFE_API_KEY_PRIVATE+x}" ] || [ -n "${OPENROUTER_API_KEY_PRIVATE+x}" ]; then
+  printf 'provider-key-present\n' > "${FAKE_CURL_LOG:?}/curl-env"
+else
+  printf 'clean\n' > "${FAKE_CURL_LOG:?}/curl-env"
+fi
 out=''
 url=''
 while [ $# -gt 0 ]; do
@@ -85,7 +91,8 @@ test_help_is_short_and_complete() {
   assert_not_contains "$out" "OPENROUTER_API_KEY" "--help does not advertise an OpenRouter route"
   assert_contains "$out" "FM_HOME/.env" "--help documents the direct-call home .env key source"
   assert_contains "$out" "workers use the firstmate home .env" "--help documents the worker key source"
-  assert_contains "$out" "only task facts, never personal data, private-vault content" "--help states the data policy"
+  assert_contains "$out" "caller must pass only task facts, never personal data or private-vault content" "--help states the caller's data policy"
+  assert_contains "$out" "safety net only" "--help limits the refusal to a safety net"
   assert_contains "$out" "same OS user with full file access" "--help explains worker filesystem access"
   assert_not_contains "$out" "typesafe-key" "--help does not advertise a persistent key cache"
   pass "fm-jev.sh: --help is the whole interface in under 15 lines"
@@ -105,6 +112,40 @@ test_pick_answers_one_line() {
   assert_equals "$(jq -r '.state' "$LOG/body")" "topic: trainee hiring" "the state is sent as a string"
   assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY" "the key travels only as the fd 3 header"
   pass "fm-jev.sh: pick sends one choice question and prints one line"
+}
+
+test_key_stays_out_of_child_environments() {
+  local code out err real_jq openrouter_key
+  real_jq=$(command -v jq)
+  export FM_JEV_TEST_REAL_JQ=$real_jq
+  cat > "$FAKEBIN/jq" <<'SH'
+#!/usr/bin/env bash
+if [ -n "${TYPESAFE_API_KEY+x}" ] || [ -n "${OPENROUTER_API_KEY+x}" ] \
+  || [ -n "${TYPESAFE_API_KEY_PRIVATE+x}" ] || [ -n "${OPENROUTER_API_KEY_PRIVATE+x}" ]; then
+  printf 'provider-key-present\n' >> "${FAKE_CURL_LOG:?}/jq-env"
+else
+  printf 'clean\n' >> "${FAKE_CURL_LOG:?}/jq-env"
+fi
+exec "${FM_JEV_TEST_REAL_JQ:?}" "$@"
+SH
+  chmod +x "$FAKEBIN/jq"
+  openrouter_key='or-cli-child-env-test-key'
+  printf 'TYPESAFE_API_KEY=%s\n' "$KEY-env-file" > "$HOME_DIR/.env"
+  respond '{"answers":{"yes":{"noul":0.97}}}'
+  reset_log
+  OPENROUTER_API_KEY="$openrouter_key" JEV_TEST_API_KEY= run_jev code out err yes \
+    "ordinary task facts" "Is the helper environment clean?"
+  assert_equals "$code" 0 "a request with keys resolved from env and .env succeeds"
+  assert_equals "$out" "yes: yes p=0.97 conf=0.94" "the command still returns its ordinary answer"
+  assert_not_contains "$(cat "$LOG/jq-env")" 'provider-key-present' \
+    "no jq helper subprocess inherits either provider key"
+  assert_contains "$(cat "$LOG/jq-env")" 'clean' "validation and response jq helpers execute without keys"
+  assert_equals "$(cat "$LOG/curl-env")" 'clean' "curl receives no provider key through its environment"
+  assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-env-file" \
+    "curl receives the TypeSafe key only through the fd 3 header"
+  rm -f "$FAKEBIN/jq" "$HOME_DIR/.env"
+  unset FM_JEV_TEST_REAL_JQ
+  pass "fm-jev.sh: provider keys stay out of every child environment"
 }
 
 test_unoffered_multiline_choice_cannot_forge_output() {
@@ -1015,6 +1056,7 @@ test_key_discovery_needs_no_env_setup() {
 
 test_help_is_short_and_complete
 test_pick_answers_one_line
+test_key_stays_out_of_child_environments
 test_unoffered_multiline_choice_cannot_forge_output
 test_option_meaning_splits_on_first_equals
 test_cli_forces_typesafe_route

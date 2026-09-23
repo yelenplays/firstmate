@@ -152,8 +152,8 @@ _fm_jev_state_max() {
 # The key variable is local to the caller of this function (fm_jev_decide).
 _fm_jev_resolve_route() {
   local typesafe_key openrouter_key home route
-  typesafe_key=${TYPESAFE_API_KEY:-}
-  openrouter_key=${OPENROUTER_API_KEY:-}
+  typesafe_key=${TYPESAFE_API_KEY_PRIVATE:-${TYPESAFE_API_KEY:-}}
+  openrouter_key=${OPENROUTER_API_KEY_PRIVATE:-${OPENROUTER_API_KEY:-}}
   home=$(_fm_jev_home)
   if [ -z "$typesafe_key" ]; then
     typesafe_key=$(fmx_env_get TYPESAFE_API_KEY "$home/.env")
@@ -219,6 +219,7 @@ _fm_jev_resolve_route() {
 fm_jev_decide() {
   local state questions request resp_file http t0 t1 timeout state_mode
   local _fm_jev_route _fm_jev_url _fm_jev_model _fm_jev_key
+  export -n TYPESAFE_API_KEY OPENROUTER_API_KEY TYPESAFE_API_KEY_PRIVATE OPENROUTER_API_KEY_PRIVATE 2>/dev/null || true
   FM_JEV_LAST_ROUTE=''
   FM_JEV_LAST_URL=''
   FM_JEV_LAST_MODEL=''
@@ -268,8 +269,6 @@ fm_jev_decide() {
   timeout=$(_fm_jev_timeout)
   t0=$(_fm_jev_now_ms)
   http=$(
-    unset TYPESAFE_API_KEY OPENROUTER_API_KEY
-    unset TYPESAFE_API_KEY_PRIVATE OPENROUTER_API_KEY_PRIVATE
     printf '%s' "$request" | curl -sS --max-time "$timeout" -o "$resp_file" -w '%{http_code}' \
       -X POST "$_fm_jev_url" -H 'Content-Type: application/json' \
       -H @/dev/fd/3 3< <(printf 'Authorization: Bearer %s\n' "$_fm_jev_key") \
@@ -380,6 +379,32 @@ fm_jev_compact_state() {
     return 1
   fi
   printf '%s' "$state" | awk '
+    function flow_value_end(text,    depth, active_quote, escaped, pos, character, expected_open, stack) {
+      if (substr(text, 1, 1) != "{" && substr(text, 1, 1) != "[") return 0
+      depth = 1
+      stack[depth] = substr(text, 1, 1)
+      active_quote = ""
+      escaped = 0
+      for (pos = 2; pos <= length(text); pos++) {
+        character = substr(text, pos, 1)
+        if (active_quote != "") {
+          if (escaped) escaped = 0
+          else if (character == "\\") escaped = 1
+          else if (character == active_quote) active_quote = ""
+        } else if (character == "\"" || character == "\047") {
+          active_quote = character
+        } else if (character == "{" || character == "[") {
+          depth++
+          stack[depth] = character
+        } else if (character == "}" || character == "]") {
+          expected_open = character == "}" ? "{" : "["
+          if (depth < 1 || stack[depth] != expected_open) return 0
+          depth--
+          if (depth == 0) return pos
+        }
+      }
+      return 0
+    }
     {
       if (NR > 1) buf = buf "\n"
       buf = buf $0
@@ -455,38 +480,8 @@ fm_jev_compact_state() {
           first_value_char = substr(tail, value_start, 1)
           if (first_value_char == "{" || first_value_char == "[") {
             structured_tail = substr(tail, value_start)
-            bracket_stack[1] = first_value_char
-            bracket_depth = 1
-            active_quote = ""
-            escaped = 0
-            structure_end = 0
-            malformed_structure = 0
-            for (structure_pos = 2; structure_pos <= length(structured_tail); structure_pos++) {
-              character = substr(structured_tail, structure_pos, 1)
-              if (active_quote != "") {
-                if (escaped) escaped = 0
-                else if (character == "\\") escaped = 1
-                else if (character == active_quote) active_quote = ""
-              } else if (character == "\"" || character == "\047") {
-                active_quote = character
-              } else if (character == "{" || character == "[") {
-                bracket_depth++
-                bracket_stack[bracket_depth] = character
-              } else if (character == "}" || character == "]") {
-                expected_open = character == "}" ? "{" : "["
-                if (bracket_depth < 1 || bracket_stack[bracket_depth] != expected_open) {
-                  malformed_structure = 1
-                  break
-                }
-                delete bracket_stack[bracket_depth]
-                bracket_depth--
-                if (bracket_depth == 0) {
-                  structure_end = structure_pos
-                  break
-                }
-              }
-            }
-            if (!malformed_structure && structure_end > 0) {
+            structure_end = flow_value_end(structured_tail)
+            if (structure_end > 0) {
               buf = prefix "[redacted]" substr(tail, value_start + structure_end)
             } else {
               buf = prefix "[redacted]"
@@ -497,7 +492,8 @@ fm_jev_compact_state() {
             sub(/\r$/, "", indicator)
             empty_indicator = indicator
             sub(/[ \t]*#[^\n]*$/, "", empty_indicator)
-            if (empty_indicator ~ /^[ \t]*$/ || indicator ~ /^[ \t]*[|>][+-]?[1-9]?[+-]?[ \t]*(#[^\n]*)?$/) {
+            blank_value = empty_indicator ~ /^[ \t]*$/
+            if (blank_value || indicator ~ /^[ \t]*[|>][+-]?[1-9]?[+-]?[ \t]*(#[^\n]*)?$/) {
               block_tail = newline ? substr(tail, newline + 1) : ""
               token_start = key_start
               if (boundary ~ /[^[:alnum:]_]/) token_start++
@@ -511,23 +507,46 @@ fm_jev_compact_state() {
                 match(line_head, /^-[ \t]+/)
                 key_indent += RLENGTH
               }
-              while (length(block_tail) > 0) {
+              flow_start = 0
+              if (blank_value && length(block_tail) > 0) {
                 block_newline = index(block_tail, "\n")
                 block_line = block_newline ? substr(block_tail, 1, block_newline - 1) : block_tail
                 block_line_for_indent = block_line
                 sub(/\r$/, "", block_line_for_indent)
-                if (block_line_for_indent != "") {
-                  match(block_line_for_indent, /^[ \t]*/)
-                  if (RLENGTH <= key_indent) break
-                }
-                if (block_newline) block_tail = substr(block_tail, block_newline + 1)
-                else {
-                  block_tail = ""
-                  break
+                match(block_line_for_indent, /^[ \t]*/)
+                flow_indent = RLENGTH
+                flow_char = substr(block_line_for_indent, flow_indent + 1, 1)
+                if (flow_indent >= key_indent && (flow_char == "{" || flow_char == "[")) {
+                  flow_start = newline + flow_indent + 1
                 }
               }
-              buf = prefix "[redacted]"
-              if (length(block_tail) > 0) buf = buf "\n" block_tail
+              if (flow_start > 0) {
+                structured_tail = substr(tail, flow_start)
+                structure_end = flow_value_end(structured_tail)
+                if (structure_end > 0) {
+                  buf = prefix "[redacted]" substr(tail, flow_start + structure_end)
+                } else {
+                  buf = prefix "[redacted]"
+                }
+              } else {
+                while (length(block_tail) > 0) {
+                  block_newline = index(block_tail, "\n")
+                  block_line = block_newline ? substr(block_tail, 1, block_newline - 1) : block_tail
+                  block_line_for_indent = block_line
+                  sub(/\r$/, "", block_line_for_indent)
+                  if (block_line_for_indent != "") {
+                    match(block_line_for_indent, /^[ \t]*/)
+                    if (RLENGTH <= key_indent) break
+                  }
+                  if (block_newline) block_tail = substr(block_tail, block_newline + 1)
+                  else {
+                    block_tail = ""
+                    break
+                  }
+                }
+                buf = prefix "[redacted]"
+                if (length(block_tail) > 0) buf = buf "\n" block_tail
+              }
             } else {
               if (newline) tail = substr(tail, newline)
               else tail = ""
@@ -560,8 +579,8 @@ fm_jev_compact_state() {
 
 _fm_jev_redact_live_keys() {
   local text=$1
-  local typesafe_key=${TYPESAFE_API_KEY:-}
-  local openrouter_key=${OPENROUTER_API_KEY:-}
+  local typesafe_key=${TYPESAFE_API_KEY_PRIVATE:-${TYPESAFE_API_KEY:-}}
+  local openrouter_key=${OPENROUTER_API_KEY_PRIVATE:-${OPENROUTER_API_KEY:-}}
   [ -n "$typesafe_key" ] && text=${text//"$typesafe_key"/[redacted]}
   [ -n "$openrouter_key" ] && text=${text//"$openrouter_key"/[redacted]}
   printf '%s' "$text"

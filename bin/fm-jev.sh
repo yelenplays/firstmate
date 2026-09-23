@@ -11,15 +11,17 @@
 # Key resolution uses TYPESAFE_API_KEY from the environment, then $FM_HOME/.env,
 # then the .env of the firstmate home that owns this checkout. For pooled
 # worktrees, the owning home is the main worktree resolved through git-common-dir.
-# The key is passed to the library through its environment and never reaches
-# argv, stdout, stderr, or the log. This command always uses the TypeSafe route
-# and production endpoint. Crew workers run as the same OS user with full file
-# access and are not sandboxed.
+# The key stays in non-exported shell variables and reaches curl only as an
+# Authorization header read from a file descriptor, never on argv. This command
+# always uses the TypeSafe route and production endpoint. Crew workers run as
+# the same OS user with full file access and are not sandboxed.
 #
-# Privacy: state, question IDs and text, option labels and meanings are refused,
-# never sent, when their combined UTF-8 text exceeds FM_JEV_CLI_INPUT_MAX bytes
-# (4096), when fm_jev_compact_state would strip anything from the combined
-# text, or when it contains the live key value itself.
+# Privacy: callers must pass only task facts and never personal data or
+# private-vault content. The command also refuses obvious secrets, email
+# addresses, and phone numbers as a safety net only, not a general personal-data
+# detector. State, question IDs and text, option labels and meanings are refused
+# when their combined UTF-8 text exceeds FM_JEV_CLI_INPUT_MAX bytes (4096), when
+# fm_jev_compact_state would strip anything, or when the text contains a live key.
 #
 # Option text accepts label=meaning, split on its first equals sign; later
 # equals signs belong to the meaning, so labels cannot contain equals signs.
@@ -44,6 +46,11 @@
 # one-line reason on stderr.
 set -u
 
+TYPESAFE_API_KEY_PRIVATE=${TYPESAFE_API_KEY:-}
+OPENROUTER_API_KEY_PRIVATE=${OPENROUTER_API_KEY:-}
+export -n TYPESAFE_API_KEY_PRIVATE OPENROUTER_API_KEY_PRIVATE 2>/dev/null || true
+unset TYPESAFE_API_KEY OPENROUTER_API_KEY
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_JEV_CLI_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 FM_JEV_CLI_URL='https://api.typesafe.ai/v1/systemone'
@@ -61,7 +68,7 @@ fm-jev.sh - one typed Jev judgment (TypeSafe) with one output line per question.
 Flags follow the command: --json (raw response); --help prints this interface.
 Output: "pick: answer p=0.96 conf=0.94"; a batch uses its question id; escalation prints "ESCALATE conf=0.31 prior=X -> decide yourself".
 Exit: 0 answered, 2 any escalation, 1 error with a one-line reason; on 1 or 2 use your own judgment, never block.
-Input: 4096 bytes total; only task facts, never personal data, private-vault content, secrets, keys or tokens.
+Input: 4096 bytes total; caller must pass only task facts, never personal data or private-vault content. Obvious secrets, email addresses and phone numbers are refused as a safety net only.
 Key: workers use the firstmate home .env (launch environments clear keys); direct calls use TYPESAFE_API_KEY env, FM_HOME/.env, then owning checkout .env.
 Security: crew workers run as the same OS user with full file access and are not sandboxed.
 EOF
@@ -83,7 +90,11 @@ firstmate_home() {
 
 home_env_value() {
   local name=$1 value owner
-  value=${!name-}
+  case "$name" in
+    TYPESAFE_API_KEY) value=${TYPESAFE_API_KEY_PRIVATE:-} ;;
+    OPENROUTER_API_KEY) value=${OPENROUTER_API_KEY_PRIVATE:-} ;;
+    *) value=${!name-} ;;
+  esac
   [ -n "$value" ] && { printf '%s' "$value"; return 0; }
   if [ -n "${FM_HOME:-}" ]; then
     value=$(fmx_env_get "$name" "$FM_HOME/.env")
@@ -97,19 +108,15 @@ home_env_value() {
 }
 
 resolve_typesafe_key() {
-  JEV_KEY=$(home_env_value TYPESAFE_API_KEY)
-  [ -n "$JEV_KEY" ] || die "TYPESAFE_API_KEY missing; set it in the environment or the resolved .env"
+  TYPESAFE_API_KEY_PRIVATE=$(home_env_value TYPESAFE_API_KEY)
+  [ -n "$TYPESAFE_API_KEY_PRIVATE" ] || die "TYPESAFE_API_KEY missing; set it in the environment or the resolved .env"
 }
 
 # Succeeds when <text> contains a live Jev provider key. Keys stay local.
 contains_live_key() {
   local text=$1 name key
   for name in TYPESAFE_API_KEY OPENROUTER_API_KEY; do
-    if [ "$name" = TYPESAFE_API_KEY ]; then
-      key=${JEV_KEY:-}
-    else
-      key=$(home_env_value OPENROUTER_API_KEY)
-    fi
+    key=$(home_env_value "$name")
     [ -n "$key" ] || continue
     case "$text" in
       *"$key"*) return 0 ;;
@@ -275,7 +282,7 @@ log_call() {
 OUT_FILE=$(mktemp) || die "mktemp failed"
 ERR_FILE=$(mktemp) || { rm -f "$OUT_FILE"; die "mktemp failed"; }
 trap 'rm -f "$OUT_FILE" "$ERR_FILE"' EXIT
-if ! TYPESAFE_API_KEY="$JEV_KEY" JEV_ROUTE=typesafe JEV_URL="$FM_JEV_CLI_URL" \
+if ! JEV_ROUTE=typesafe JEV_URL="$FM_JEV_CLI_URL" \
   fm_jev_decide "$STATE_TEXT" "$QUESTIONS" --string >"$OUT_FILE" 2>"$ERR_FILE"; then
   log_call 1
   reason=$(sed -e 's/^jev: //' "$ERR_FILE" | head -n 1)

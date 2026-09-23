@@ -412,6 +412,16 @@ test_compact_state_strips_secrets_and_refuses_oversized() {
   assert_not_contains "$out" 'opaque-vendor-secret' "compact redacts a nested array and object value"
   assert_contains "$out" 'public: safe' "compact preserves text after a matched structured value"
 
+  json=$'{\n  "clientSecret":\n  {"value":"opaque-vendor-secret"},\n  "safe":"retained"\n}'
+  out=$(fm_jev_compact_state "$json")
+  assert_not_contains "$out" 'opaque-vendor-secret' "compact redacts a flow value opened on the next same-indent line"
+  assert_contains "$out" 'safe' "compact preserves a sibling after a matched next-line flow value"
+
+  json=$'{\n  "clientSecret":\n  {"value":"opaque-vendor-secret"\n  "safe":"not retained"'
+  out=$(fm_jev_compact_state "$json")
+  assert_not_contains "$out" 'opaque-vendor-secret' "compact redacts an unmatched next-line flow secret"
+  assert_not_contains "$out" 'not retained' "compact fails closed through end of an unmatched next-line flow value"
+
   json=$'prefix\n  "clientSecret": {\n    "value": "opaque-vendor-secret"\ntrailing content'
   out=$(fm_jev_compact_state "$json")
   assert_not_contains "$out" 'opaque-vendor-secret' "compact redacts an unmatched structured secret through end of input"
