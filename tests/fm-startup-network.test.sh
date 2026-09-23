@@ -835,9 +835,83 @@ SH
   pass "fm-startup-network: the ranking honours the home timeout, publishes, and wakes once"
 }
 
+test_act_first_rank_drops_a_result_after_its_generation_changes() {
+  local rec home root log rank_pid waited report_out
+  rec=$(new_world act-first-stale-rank)
+  IFS='|' read -r home root log <<EOF
+$rec
+EOF
+  mkdir -p "$root/bin"
+  ln -sf "$(command -v jq)" "$root/bin/jq"
+  cat > "$root/bin/curl" <<'SH'
+#!/usr/bin/env bash
+out=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) out=$2; shift 2 ;;
+    *) shift ;;
+  esac
+done
+cat > /dev/null
+: > "${FAKE_CURL_STARTED:?}"
+while [ ! -e "${FAKE_CURL_RELEASE:?}" ]; do sleep 0.05; done
+printf '%s' '{"answers":{"first":{"type":"choice","choice":"i2","confidence":0.8,"probabilities":{"i1":0.2,"i2":0.8}}}}' > "$out"
+printf '200'
+SH
+  chmod +x "$root/bin/curl"
+  printf 'TYPESAFE_API_KEY=ts-test-key\n' > "$home/.env"
+  act_first_status "$home" g-stale 1
+  (FAKE_CURL_STARTED="$home/curl-started" FAKE_CURL_RELEASE="$home/curl-release" \
+    run_stage "$home" "$root" act-first-rank --generation g-stale) &
+  rank_pid=$!
+  waited=0
+  while [ ! -e "$home/state/.startup-network.act-first-waiting" ] && [ "$waited" -lt 100 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  act_first_drain | run_stage "$home" "$root" act-first-input
+  waited=0
+  while [ ! -e "$home/curl-started" ] && [ "$waited" -lt 100 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  [ -e "$home/curl-started" ] || fail "the stale ranking never reached Jev"
+  act_first_status "$home" g-current 1
+  : > "$home/curl-release"
+  wait "$rank_pid"
+  [ ! -e "$home/state/.startup-network.act-first" ] \
+    || fail "a result from the superseded generation was published"
+  if grep -Fq $'\tcheck\tact-first\t' "$home/state/.wake-queue" 2>/dev/null; then
+    fail "a result from the superseded generation raised a wake"
+  fi
+  report_out=$(run_stage "$home" "$root" report)
+  assert_not_contains "$report_out" "ACT FIRST" "report showed a ranking from another generation"
+  pass "fm-startup-network: a late ranking cannot publish or wake after supersession"
+}
+
+test_report_omits_a_ranking_from_another_generation() {
+  local rec home root log report_out
+  rec=$(new_world act-first-stale-report)
+  IFS='|' read -r home root log <<EOF
+$rec
+EOF
+  act_first_status "$home" g-current 1
+  printf 'generation=g-old\n1. stale ranking\n' > "$home/state/.startup-network.act-first"
+  report_out=$(run_stage "$home" "$root" report)
+  assert_not_contains "$report_out" "ACT FIRST" "report rendered a stale generation heading"
+  assert_not_contains "$report_out" "stale ranking" "report rendered stale ranking items"
+  printf 'generation=g-current\n1. current ranking\n' > "$home/state/.startup-network.act-first"
+  report_out=$(run_stage "$home" "$root" report)
+  assert_contains "$report_out" "ACT FIRST" "report omitted the current generation ranking"
+  assert_contains "$report_out" "1. current ranking" "report omitted the current ranking item"
+  pass "fm-startup-network: report renders only the matching generation ranking"
+}
+
 test_wait_fails_without_a_published_stage
 test_act_first_input_is_written_only_for_a_consuming_run
 test_act_first_rank_uses_the_home_timeout_and_wakes_once
+test_act_first_rank_drops_a_result_after_its_generation_changes
+test_report_omits_a_ranking_from_another_generation
 test_start_returns_without_holding_the_callers_stdout
 test_harvest_acknowledgement_suppresses_the_wake_and_no_claim_produces_it
 test_a_claimant_crash_after_publish_still_queues_the_wake

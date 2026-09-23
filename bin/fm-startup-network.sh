@@ -90,8 +90,9 @@
 # configured, and publishes separately to .startup-network.act-first. Only when
 # it ranked at least one item does it raise one `check: act-first` wake through
 # the ordinary durable wake queue, so the advisory ranking is actually seen; no
-# items, no key, or a Jev error stays silent. `report` prints the latest ranking
-# after the sweep result.
+# items, no key, or a Jev error stays silent. Publication and its wake require
+# the ranking's generation to remain current in the status record; `report`
+# prints a stored ranking only when its generation still matches.
 #
 # STATE, all under this home's state/ and gitignored with it:
 #   .startup-network.status   key=value record - generation, lock_pid, state,
@@ -714,15 +715,27 @@ cmd_act_first_rank() {  # <generation>
     fm_run_timed 10 "$SCRIPT_DIR/fm-jev-act-first.sh" --drain-file "$drain" --status-dir "$STATE" 2>/dev/null </dev/null) || lines=
   rm -f "$drain"
   [ -n "$lines" ] || return 0
-  printf 'generation=%s\n%s\n' "$generation" "$(printf '%s\n' "$lines" | head -n 5)" \
-    | write_atomic "$ACT_FIRST_FILE" || return 0
+  fm_lock_acquire_wait "$PUBLISH_LOCK"
+  if [ "$(status_get generation)" != "$generation" ]; then
+    fm_lock_release "$PUBLISH_LOCK"
+    return 0
+  fi
+  if ! printf 'generation=%s\n%s\n' "$generation" "$(printf '%s\n' "$lines" | head -n 5)" \
+    | write_atomic "$ACT_FIRST_FILE"; then
+    fm_lock_release "$PUBLISH_LOCK"
+    return 0
+  fi
   fm_wake_append check act-first \
     "check: act-first: Jev ranked this session start's actionable items (advisory; handle every item regardless); read them with $FM_ROOT/bin/fm-startup-network.sh report" \
     || true
+  fm_lock_release "$PUBLISH_LOCK"
 }
 
 print_act_first() {
+  local generation
   [ -s "$ACT_FIRST_FILE" ] || return 0
+  generation=$(status_get generation)
+  [ -n "$generation" ] && [ "$(head -n 1 "$ACT_FIRST_FILE" 2>/dev/null)" = "generation=$generation" ] || return 0
   printf 'ACT FIRST - latest advisory Jev ranking of a session start'"'"'s actionable items:\n'
   tail -n +2 "$ACT_FIRST_FILE"
 }

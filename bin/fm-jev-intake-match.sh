@@ -36,10 +36,10 @@
 # $FM_HOME/.env, else 5 seconds.
 #
 # Related tasks (no model call): for every shown candidate that is a
-# data/<id> record, the backlog items whose task body names that record id
-# are listed under it, for example a plan's phase tasks. They come from one
-# timed `fm-tasks-axi.sh list --fields body` per open and done listing, sit
-# outside the five-candidate cap, and are capped at 12 lines.
+# data/<id> record, backlog items whose body names that record id or path as a
+# whole token are listed under it, for example a plan's phase tasks. They come
+# from one timed `fm-tasks-axi.sh list --fields body` per open and done listing,
+# sit outside the five-candidate cap, and are capped at 12 lines.
 #
 # Ranking: when the chosen id is an offered candidate at or above the library
 # confidence floor (JEV_CONFIDENCE_FLOOR, default 0.7), candidates are ranked
@@ -267,17 +267,59 @@ related_tasks() {
     # shellcheck disable=SC2086 # state_args is a fixed flag pair or empty
     out=$(fm_run_timed "$LIST_TIMEOUT" "$SCRIPT_DIR/fm-tasks-axi.sh" list $state_args --fields body 2>/dev/null) || continue
     printf '%s\n' "$out" | awk -v recs="$*" '
-      BEGIN { n = split(recs, r, " ") }
-      /^tasks\[/ { p = 1; next }
+      function csv_field(s, wanted,    i, c, field, value, quoted) {
+        field = 1
+        value = ""
+        quoted = 0
+        for (i = 1; i <= length(s); i++) {
+          c = substr(s, i, 1)
+          if (quoted) {
+            if (c == "\"") {
+              if (substr(s, i + 1, 1) == "\"") { value = value "\""; i++ }
+              else quoted = 0
+            } else value = value c
+          } else if (c == "\"") quoted = 1
+          else if (c == ",") {
+            if (field == wanted) return value
+            field++
+            value = ""
+          } else value = value c
+        }
+        return (field == wanted) ? value : ""
+      }
+      function whole_token(text, token,    at, before, after) {
+        while ((at = index(text, token)) > 0) {
+          before = (at == 1) ? "" : substr(text, at - 1, 1)
+          after = substr(text, at + length(token), 1)
+          if ((before == "" || before !~ /[A-Za-z0-9_-]/) &&
+            (after == "" || after !~ /[A-Za-z0-9_-]/)) return 1
+          text = substr(text, at + length(token))
+        }
+        return 0
+      }
+      /^tasks\[/ {
+        marker = index($0, "]{")
+        if (!marker) next
+        columns = substr($0, marker + 2)
+        sub(/}:$/, "", columns)
+        count = split(columns, names, ",")
+        body_index = 0
+        for (i = 1; i <= count; i++) if (names[i] == "body") body_index = i
+        p = body_index > 0
+        next
+      }
       p && /^[[:space:]]/ {
         line = $0
         sub(/^[[:space:]]+/, "", line)
-        id = line
-        sub(/,.*/, "", id)
-        for (i = 1; i <= n; i++) if (id != r[i] && index(line, r[i]) > 0) printf "%s\t%s\n", r[i], id
+        id = csv_field(line, 1)
+        body = csv_field(line, body_index)
+        for (i = 1; i <= n; i++) {
+          if (id != r[i] && whole_token(body, r[i])) printf "%s\t%s\n", r[i], id
+        }
         next
       }
       p { p = 0 }
+      BEGIN { n = split(recs, r, " ") }
     '
   done | awk '!seen[$0]++' | head -n "$RELATED_MAX"
 }

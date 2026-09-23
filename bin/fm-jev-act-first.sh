@@ -17,6 +17,8 @@
 # Items (no model call), in this order, at most 12, each capped to 160
 # characters:
 #   decision   every line of the drain's OPEN DECISIONS section
+#   outcome    every item of STATUS OUTCOME BACKSTOP
+#   divergence every item of RECORD DIVERGENCE
 #   execution  every task/owner/next-action row of UNFINISHED EXECUTION
 #   status     the newest line of each state/<id>.status in --status-dir whose
 #              task still has state/<id>.meta, when that line is failed: or
@@ -94,13 +96,16 @@ SHOW_MAX=5
 
 command -v jq >/dev/null 2>&1 || exit 0
 
-# Drain items as kind<TAB>identity<TAB>text, grouped decision, execution, wake.
-# The identity is task|state where the line names both, so one task in one
-# state collapses to its first (highest-priority) item; otherwise it is the text.
+# Drain items as kind<TAB>identity<TAB>text, grouped decision, recovery,
+# execution, wake. The identity is task|state where the line names both, so one
+# task in one state collapses to its first (highest-priority) item; otherwise
+# it is the text.
 drain_items() {
   awk -F '\t' '
     /^OPEN DECISIONS \(/ { sec = "decision"; next }
     /^OPEN DECISIONS:/ { sec = ""; next }
+    /^STATUS OUTCOME BACKSTOP \(/ { sec = "outcome"; next }
+    /^RECORD DIVERGENCE \(/ { sec = "divergence"; next }
     /^UNFINISHED EXECUTION \(/ { sec = "execution"; next }
     /^[A-Z][A-Z ]+[ (:]/ && $0 !~ /\t/ { sec = ""; next }
     function verb(s) { sub(/^\[[^]]*\][[:space:]]*/, "", s); sub(/[[:space:]]*(\[|:).*$/, "", s); return s }
@@ -125,9 +130,21 @@ drain_items() {
       did[nd] = did[nd] "|" verb(rest)
       next
     }
+    sec == "outcome" && NF == 1 && $0 != "" {
+      outcome[++no] = "status outcome " $0
+      oid[no] = "outcome|" $0
+      next
+    }
+    sec == "divergence" && NF == 1 && $0 != "" {
+      divergence[++nv] = "record divergence " $0
+      vid[nv] = "divergence|" $0
+      next
+    }
     sec == "execution" && NF == 3 { exe[++ne] = "execution " $1 " owner=" $2 " next=" $3; eid[ne] = exe[ne]; next }
     END {
       for (i = 1; i <= nd; i++) print "decision\t" did[i] "\t" dec[i]
+      for (i = 1; i <= no; i++) print "outcome\t" oid[i] "\t" outcome[i]
+      for (i = 1; i <= nv; i++) print "divergence\t" vid[i] "\t" divergence[i]
       for (i = 1; i <= ne; i++) print "execution\t" eid[i] "\t" exe[i]
       for (i = 1; i <= nw; i++) print "wake\t" wid[i] "\t" wake[i]
     }

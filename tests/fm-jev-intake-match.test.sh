@@ -139,6 +139,14 @@ test_jev_ranking_sends_only_ids_and_titles() {
 test_related_tasks_follow_a_matched_record() {
   local code out
   fresh_home
+  (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add wiki-layer-plan-v1-followup \
+    "Unrelated follow-up" --file data/backlog.md) >/dev/null
+  (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add wiki-layer-plan-v10 \
+    "Unrelated version ten" --file data/backlog.md) >/dev/null
+  (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add title-mentions-record \
+    "Title mentions wiki-layer-plan-v1" --file data/backlog.md) >/dev/null
+  (cd "$HOME_DIR" && BEADS_ACTOR=fixture tasks-axi add lookalike-body \
+    "Body mentions a longer id" --body "This names wiki-layer-plan-v10 only." --file data/backlog.md) >/dev/null
   respond wiki-layer-plan-v1 0.9 '{"wiki-layer-plan-v1":0.9,"none":0.1}'
   KEY=$TS_KEY run_match code out wiki plan
   assert_contains "$out" "  related:" "a matched record listed no related tasks"$'\n'"$out"
@@ -147,6 +155,10 @@ test_related_tasks_follow_a_matched_record() {
   assert_contains "$out" "    - wiki-layer-plan-v1 -> wf-p1-register state=queued" \
     "a second related task was not listed"$'\n'"$out"
   assert_not_contains "$out" "-> deck-refresh-v1" "a task that does not name the record was listed"
+  assert_not_contains "$out" "-> wiki-layer-plan-v1-followup" "a longer task id was mistaken for the record token"
+  assert_not_contains "$out" "-> wiki-layer-plan-v10" "a longer version id was mistaken for the record token"
+  assert_not_contains "$out" "-> title-mentions-record" "a title mention was mistaken for a body reference"
+  assert_not_contains "$out" "-> lookalike-body" "a longer id in the body was matched by prefix"
   [ "$(jq '.questions | length' "$LOG/body")" -eq 1 ] || fail "related tasks cost an extra question"
   KEY='' run_match code out wiki plan
   assert_contains "$out" "    - wiki-layer-plan-v1 -> wf-p0-privacy-ceiling" \
