@@ -67,6 +67,8 @@ WORKER_LOCK=
 WORKER_LOCK_HELD=0
 WORKER_SUPERVISOR_LOCK=
 WORKER_SUPERVISOR_LOCK_HELD=0
+WORKER_SUPERVISOR_GUARD_FD=
+WORKER_SUPERVISOR_GUARD_HELD=0
 WORKER_RELEASE_OWNERSHIP=1
 WORKER_SUPERVISED_PID=
 WORKER_PREEMPTIBLE=0
@@ -1089,6 +1091,8 @@ worker_supervisor_remove_stale_lock() {
     1) ;;
     2)
       [ ! -e "$WORKER_SUPERVISOR_LOCK/owner" ] && [ ! -L "$WORKER_SUPERVISOR_LOCK/owner" ] || return 1
+      rmdir "$WORKER_SUPERVISOR_LOCK" 2>/dev/null
+      return $?
       ;;
     *) return 1 ;;
   esac
@@ -1100,7 +1104,47 @@ worker_supervisor_remove_stale_lock() {
   rmdir "$WORKER_SUPERVISOR_LOCK" 2>/dev/null
 }
 
+worker_supervisor_lock_guard_acquire() {
+  local guard="$FM_REMOTE_JOB_STATE/supervisor.guard"
+  command -v flock >/dev/null 2>&1 || return 1
+  [ -z "$WORKER_SUPERVISOR_GUARD_FD" ] || return 1
+  ( : >&9 ) 2>/dev/null && return 1
+  [ ! -L "$guard" ] || return 1
+  (umask 077; : >> "$guard") || return 1
+  [ -f "$guard" ] && [ ! -L "$guard" ] || return 1
+  chmod 600 "$guard" 2>/dev/null || return 1
+  exec 9>>"$guard" || return 1
+  WORKER_SUPERVISOR_GUARD_FD=9
+  if ! flock -n -x "$WORKER_SUPERVISOR_GUARD_FD" 2>/dev/null; then
+    exec 9>&-
+    WORKER_SUPERVISOR_GUARD_FD=
+    return 2
+  fi
+  WORKER_SUPERVISOR_GUARD_HELD=1
+}
+
+worker_supervisor_lock_guard_release() {
+  local status=0
+  [ "$WORKER_SUPERVISOR_GUARD_HELD" -eq 1 ] && [ "$WORKER_SUPERVISOR_GUARD_FD" = 9 ] || return 1
+  WORKER_SUPERVISOR_GUARD_HELD=0
+  flock -u 9 2>/dev/null || status=1
+  exec 9>&- || status=1
+  WORKER_SUPERVISOR_GUARD_FD=
+  return "$status"
+}
+
 worker_supervisor_acquire_lock() { # 0=acquired, 2=another owner, 3=indeterminate
+  local status
+  worker_supervisor_lock_guard_acquire
+  status=$?
+  [ "$status" -eq 0 ] || return "$status"
+  worker_supervisor_acquire_lock_guarded
+  status=$?
+  worker_supervisor_lock_guard_release || return 1
+  return "$status"
+}
+
+worker_supervisor_acquire_lock_guarded() {
   local attempt=0 status=0 pid start command tmp
   WORKER_SUPERVISOR_LOCK=$(fm_remote_job_worker_supervisor_lock_path)
   while [ "$attempt" -lt 150 ]; do
@@ -1169,6 +1213,29 @@ worker_supervisor_acquire_lock() { # 0=acquired, 2=another owner, 3=indeterminat
 }
 
 worker_supervisor_release_lock() {
+  local status
+  [ "$WORKER_SUPERVISOR_LOCK_HELD" -eq 1 ] || return 0
+  if [ "$WORKER_SUPERVISOR_GUARD_HELD" -eq 1 ]; then
+    worker_supervisor_release_lock_guarded
+    status=$?
+    worker_supervisor_lock_guard_release || status=1
+    return "$status"
+  fi
+  if [ -n "$WORKER_SUPERVISOR_GUARD_FD" ]; then
+    exec 9>&-
+    WORKER_SUPERVISOR_GUARD_FD=
+    WORKER_SUPERVISOR_GUARD_HELD=0
+  fi
+  worker_supervisor_lock_guard_acquire
+  status=$?
+  [ "$status" -eq 0 ] || return 1
+  worker_supervisor_release_lock_guarded
+  status=$?
+  worker_supervisor_lock_guard_release || status=1
+  return "$status"
+}
+
+worker_supervisor_release_lock_guarded() {
   [ "$WORKER_SUPERVISOR_LOCK_HELD" -eq 1 ] || return 0
   worker_supervisor_lock_owner_status "$WORKER_SUPERVISOR_LOCK" || return 1
   [ "$WORKER_SUPERVISOR_OWNER_PID" = "${BASHPID:-$$}" ] || return 1
