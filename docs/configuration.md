@@ -726,7 +726,7 @@ The wedge consult runs only at the exact escalation boundary - the watcher's wed
 Each call is bounded by `FM_JEV_SUPERVISION_TIMEOUT_SECS` (default 3 seconds; an explicit `JEV_TIMEOUT` in the environment or `$FM_HOME/.env` wins) plus a short wrapper margin, and every attempted call appends one JSONL audit record under the state directory (`jev-status-triage.jsonl`, `jev-wedge-check.jsonl`).
 
 Outbound data boundary.
-Status text and pane text leave the home only for a ship or scout task whose project is the firstmate repository itself, supervised from the primary home (no `.fm-secondmate-home` marker).
+Status text and pane text leave the home only for a ship or scout task whose `project=` resolves to the code root, or whose resolved Git common directory matches the code root's, supervised from the primary home (no `.fm-secondmate-home` marker). `remote.origin.url` is not accepted as project identity.
 That free text is size-capped (the first 4000 characters of a status line, the last 4000 of a pane tail) and secret-stripped by `fm_jev_compact_state` before it is sent, and its audit record keeps a short redacted excerpt.
 Every other case - any secondmate home, any secondmate task, any other project such as a wiki, website, or vault, and any task whose eligibility cannot be established - sends structured facts only: the status verb when it is a known Firstmate verb (any other leading token becomes `other`), character and line counts, and fixed-vocabulary signal flags, never the text itself, and its audit record carries no excerpt.
 `fm_jev_supervision_free_text_ok` and `fm_jev_supervision_state` in [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) own that rule and the exact facts.

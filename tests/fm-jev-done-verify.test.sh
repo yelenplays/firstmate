@@ -603,12 +603,19 @@ test_drain_empty_env_keys_allow_later_scoring() {
 # vault, a task with no record, anything run from a second mate home - makes
 # no model call and records payload=withheld.
 test_data_boundary_withholds_other_tasks() {
-  local code out err case_name other
+  local code out err case_name other spoofed root_origin report
+  local -a verify_args
   other="$TMP_ROOT/other-project"
-  rm -rf "$other"
-  mkdir -p "$other"
+  spoofed="$TMP_ROOT/spoofed-origin"
+  report="$TMP_ROOT/spoofed-origin-report.txt"
+  rm -rf "$other" "$spoofed"
+  mkdir -p "$other" "$spoofed"
   git -C "$other" init -q
   git -C "$other" remote add origin https://example.invalid/someone/vault.git
+  git -C "$spoofed" init -q
+  root_origin=$(git -C "$ROOT" config --get remote.origin.url) || fail "the firstmate test checkout has no origin to spoof"
+  git -C "$spoofed" remote add origin "$root_origin"
+  printf 'private report sentinel\n' > "$report"
   write_response evidenced 0.8
 
   firstmate_task "$HOME_DIR/state" "$TASK_ID"
@@ -619,19 +626,24 @@ test_data_boundary_withholds_other_tasks() {
     "$HOME_DIR/state/${TASK_ID}.jev-done.jsonl" >/dev/null \
     || fail "the eligible record does not name its free-text payload"
 
-  for case_name in no-record secondmate-task scout-elsewhere other-project secondmate-home; do
+  for case_name in no-record secondmate-task scout-elsewhere other-project spoofed-origin secondmate-home; do
     rm -f "$HOME_DIR/state/${TASK_ID}.meta" "$HOME_DIR/.fm-secondmate-home"
+    verify_args=("$TASK_ID" --done-line "$DONE_LINE")
     case "$case_name" in
       no-record) ;;
       secondmate-task) printf 'kind=secondmate\nproject=%s\n' "$ROOT" > "$HOME_DIR/state/${TASK_ID}.meta" ;;
       scout-elsewhere) printf 'kind=scout\nproject=%s\n' "$other" > "$HOME_DIR/state/${TASK_ID}.meta" ;;
       other-project) printf 'kind=ship\nproject=%s\n' "$other" > "$HOME_DIR/state/${TASK_ID}.meta" ;;
+      spoofed-origin)
+        printf 'kind=ship\nproject=%s\n' "$spoofed" > "$HOME_DIR/state/${TASK_ID}.meta"
+        verify_args+=(--acceptance 'spoofed acceptance sentinel' --report "$report" \
+          --pr-url 'https://example.invalid/pull/777') ;;
       secondmate-home)
         firstmate_task "$HOME_DIR/state" "$TASK_ID"
         printf 'sm-test\n' > "$HOME_DIR/.fm-secondmate-home"
         ;;
     esac
-    TYPESAFE_API_KEY=$TS_KEY run_verify code out err "$TASK_ID" --done-line "$DONE_LINE"
+    TYPESAFE_API_KEY=$TS_KEY run_verify code out err "${verify_args[@]}"
     expect_code 0 "$code" "$case_name: a withheld verification still exits 0"
     assert_contains "$out" 'verdict: skipped' "$case_name: a withheld verification is skipped"
     assert_absent "$LOG/requests" "$case_name: the done line must not reach Jev"
@@ -641,7 +653,7 @@ test_data_boundary_withholds_other_tasks() {
   done
   rm -f "$HOME_DIR/.fm-secondmate-home"
   firstmate_task "$HOME_DIR/state" "$TASK_ID"
-  pass "done lines leave the home only for firstmate-repo ship or scout tasks in the primary home"
+  pass "done inputs from an origin-spoofing repo remain withheld"
 }
 
 test_drain_withholds_other_project_done_lines() {

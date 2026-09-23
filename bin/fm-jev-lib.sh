@@ -76,7 +76,7 @@
 #     primary firstmate home (no .fm-secondmate-home marker under $FM_HOME),
 #     the task record <state-dir>/<task-id>.meta is a regular file whose kind
 #     is ship or scout, and its project= is this firstmate repository itself
-#     (same resolved path as the code root, or the same origin remote URL).
+#     (same resolved path as the code root, or the same resolved Git common directory).
 #     Any other case, including an unreadable record or a missing kind, fails.
 #     Supervision triage, the wedge check, and the shadow done verifier all
 #     gate their free-text payloads on it.
@@ -692,17 +692,14 @@ _fm_jev_realpath_dir() {
   (cd "$1" 2>/dev/null && pwd -P)
 }
 
-_fm_jev_origin_url() {
-  local url
-  url=$(git -C "$1" config --get remote.origin.url 2>/dev/null) || return 1
-  url=${url%/}
-  url=${url%.git}
-  [ -n "$url" ] || return 1
-  printf '%s' "$url"
+_fm_jev_git_common_dir() {
+  local common_dir
+  common_dir=$(git -C "$1" rev-parse --git-common-dir 2>/dev/null) || return 1
+  (cd -P "$1" 2>/dev/null && _fm_jev_realpath_dir "$common_dir")
 }
 
 fm_jev_supervision_free_text_ok() {  # <state-dir> <task-id>
-  local state=$1 task=$2 home meta kind project project_real root_real project_url root_url
+  local state=$1 task=$2 home meta kind project project_real root_real project_common root_common
   [ -n "$state" ] && [ -n "$task" ] || return 1
   case "$task" in */*|.*) return 1 ;; esac
   home=${FM_HOME:-}
@@ -723,9 +720,9 @@ fm_jev_supervision_free_text_ok() {  # <state-dir> <task-id>
   root_real=$(_fm_jev_realpath_dir "$_FM_JEV_ROOT") || return 1
   [ -n "$project_real" ] && [ -n "$root_real" ] || return 1
   [ "$project_real" = "$root_real" ] && return 0
-  project_url=$(_fm_jev_origin_url "$project_real") || return 1
-  root_url=$(_fm_jev_origin_url "$root_real") || return 1
-  [ "$project_url" = "$root_url" ]
+  project_common=$(_fm_jev_git_common_dir "$project_real") || return 1
+  root_common=$(_fm_jev_git_common_dir "$root_real") || return 1
+  [ "$project_common" = "$root_common" ]
 }
 
 _fm_jev_signal() {  # <lowered-text> <extended-regex>

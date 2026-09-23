@@ -274,15 +274,19 @@ test_supervision_redacts_authorization_header_values() {
 
 # The captain's data boundary: free text leaves the home only for a firstmate
 # repository task in the primary home. Each other side of the line - no task
-# named, a secondmate home, a secondmate task, another project - sends only
-# structured facts, and its audit record carries no text.
+# named, a secondmate home, another project, or an unrelated repo spoofing the
+# firstmate origin - sends only structured facts and records no excerpt.
 test_supervision_payload_boundary() {
-  local helper kind marker code out _err case_name other
+  local helper kind marker code out _err case_name other spoofed root_origin
   other="$TMP_ROOT/other-project"
-  rm -rf "$other"
-  mkdir -p "$other"
+  spoofed="$TMP_ROOT/spoofed-origin"
+  rm -rf "$other" "$spoofed"
+  mkdir -p "$other" "$spoofed"
   git -C "$other" init -q
   git -C "$other" remote add origin https://example.invalid/someone/website.git
+  git -C "$spoofed" init -q
+  root_origin=$(git -C "$ROOT" config --get remote.origin.url) || fail "the firstmate test checkout has no origin to spoof"
+  git -C "$spoofed" remote add origin "$root_origin"
   for helper in "$STATUS_TRIAGE" "$WEDGE_CHECK"; do
     case "$helper" in
       "$STATUS_TRIAGE") marker='MARKERWORD'; printf 'note: MARKERWORD please tell the captain?\n' > "$STDIN_FILE"
@@ -300,7 +304,7 @@ test_supervision_payload_boundary() {
     grep -q '"payload":"free-text"' "$HOME_DIR/state"/jev-*.jsonl \
       || fail "$kind: the eligible audit record does not name its free-text payload"
 
-    for case_name in no-task secondmate-home secondmate-task other-project; do
+    for case_name in no-task secondmate-home secondmate-task other-project spoofed-origin; do
       fresh_home
       write_task_meta fmtask ship "$ROOT"
       case "$case_name" in
@@ -314,6 +318,9 @@ test_supervision_payload_boundary() {
         other-project)
           write_task_meta fmtask ship "$other"
           run_helper "$helper" code out _err "${FREE_TEXT_ARGS[@]}" ;;
+        spoofed-origin)
+          write_task_meta fmtask ship "$spoofed"
+          run_helper "$helper" code out _err "${FREE_TEXT_ARGS[@]}" ;;
       esac
       expect_code 0 "$code" "$kind/$case_name: a structured consult still yields a verdict"
       jq -e --arg k "$kind" '.state | type == "object" and .payload == "structured" and .kind == $k' "$LOG/body" >/dev/null \
@@ -324,7 +331,29 @@ test_supervision_payload_boundary() {
         || fail "$kind/$case_name: the audit record does not name its structured payload"
     done
   done
-  pass "free text leaves the home only for firstmate-repo tasks in the primary home; every other case sends structured facts"
+  pass "free text requires trusted project identity; a spoofed origin stays structured-only"
+}
+
+test_supervision_accepts_shared_git_common_directory() {
+  local primary linked
+  fresh_home
+  primary="$TMP_ROOT/trusted-checkout"
+  linked="$TMP_ROOT/trusted-worktree"
+  mkdir -p "$primary"
+  git -C "$primary" init -q
+  printf 'trusted identity\n' > "$primary/identity.txt"
+  git -C "$primary" add identity.txt
+  git -C "$primary" -c user.name=Firstmate -c user.email=firstmate@example.invalid \
+    -c commit.gpgsign=false commit -qm 'seed trusted checkout'
+  git -C "$primary" worktree add -q --detach "$linked" HEAD
+  write_task_meta fmtask ship "$linked"
+  FM_HOME="$HOME_DIR" bash -c '
+    . "$1/bin/fm-jev-lib.sh"
+    _FM_JEV_ROOT=$2
+    fm_jev_supervision_free_text_ok "$3/state" fmtask
+  ' _ "$ROOT" "$primary" "$HOME_DIR" \
+    || fail "a linked project worktree with the trusted common directory was rejected"
+  pass "a linked worktree sharing the code root's Git common directory is eligible"
 }
 
 # A structured status payload names its verb only from the Firstmate status
@@ -560,6 +589,7 @@ test_status_triage_redacts_credentials
 test_status_triage_redacts_escaped_quotes_and_github_tokens
 test_supervision_redacts_authorization_header_values
 test_supervision_payload_boundary
+test_supervision_accepts_shared_git_common_directory
 test_structured_status_verb_is_vocabulary_only
 test_wedge_check_caps_free_text_to_the_pane_end
 test_helpers_honor_dotenv_timeout
