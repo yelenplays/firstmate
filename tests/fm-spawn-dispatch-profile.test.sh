@@ -897,6 +897,27 @@ SH
   pass "Pi and pi-signed use and serialize updates to the configured trust store"
 }
 
+test_pi_trust_expands_named_user_config() {
+  local rec id username relative config agent_dir out status trust
+  id=trust-named-user
+  rec=$(make_spawn_case trust-named-user pi "$id")
+  read_case_record "$rec"
+  agent_dir="$CASE_DIR/named-pi-agent"
+  username=$(python3 -c 'import os, pwd; print(pwd.getpwuid(os.getuid()).pw_name)')
+  relative=$(python3 -c 'import os, pwd, sys; home = pwd.getpwnam(sys.argv[2]).pw_dir; print(os.path.relpath(sys.argv[1], home))' "$agent_dir" "$username")
+  config="~$username/$relative"
+
+  out=$(PI_CODING_AGENT_DIR="$config" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  status=$?
+  expect_code 0 "$status" "Pi spawn with a named-user config path should succeed: $out"
+  trust="$agent_dir/trust.json"
+  jq -e --arg path "$WT_DIR" '.[$path] == true and length == 1' "$trust" >/dev/null \
+    || fail "Pi did not register the worktree in the named-user config directory"
+  [ ! -e "$HOME_DIR/user-home/.pi/agent/trust.json" ] \
+    || fail "Pi also wrote to the default HOME trust store"
+  pass "Pi trust registration expands named-user config paths"
+}
+
 test_pi_threads_model_and_max_effort() {
   local rec id out status launch
   id=profile-pi-z8
@@ -1803,6 +1824,7 @@ test_native_pi_ultra_is_explicit_and_model_scoped
 test_batch_preserves_native_ultra
 test_pi_spawn_registers_only_its_isolated_copy
 test_pi_trust_override_and_concurrent_updates
+test_pi_trust_expands_named_user_config
 test_pi_threads_model_and_max_effort
 test_pi_role_provisioning_runs_in_the_worker_environment
 test_pi_tui_mode_probe_is_safe_for_old_and_new_pi

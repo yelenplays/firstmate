@@ -938,7 +938,6 @@ remote_secondmate_teardown() {
   status_retire_presentation_task "$STATE" "$ID" || return 1
   fm_watch_retire_task_state "$STATE" "$ID" || return 1
   fm_watch_retire_window_state "$STATE" "$(fm_backend_target_of_meta "$META")" "$ID" || return 1
-  rm -f -- "$STATE/$ID.execution" "$STATE/.$ID.execution-notified"
   fm_backlog_atomic_transition remove "$STATE/$ID.meta" "task record" "$STATE" || return 1
   rm -f -- "$STATE/$ID.turn-ended" "$STATE/$ID.progress"
   printf 'teardown %s complete (remote %s:%s)\n' "$ID" "$remote_host" "$remote_home"
@@ -3089,7 +3088,9 @@ cleanup_firstmate_home_children() {
     retire_busy_state "$sub_state" "$child_id" "$child_busy_gen" || return 1
     status_retire_presentation_task "$sub_state" "$child_id" || return 1
     if [ -d "$sub_state" ]; then
-      rm -f -- "$sub_state/$child_id.execution" "$sub_state/.$child_id.execution-notified"
+      case "$child_kind" in
+        ship|scout|task) rm -f -- "$sub_state/$child_id.execution" "$sub_state/.$child_id.execution-notified" ;;
+      esac
     fi
     fm_backlog_atomic_transition remove "$sub_state/$child_id.meta" "task record" "$sub_state" || return 1
     rm -f "$sub_state/$child_id.turn-ended" "$sub_state/$child_id.progress" \
@@ -3534,7 +3535,9 @@ rm -f "$STATE/$ID.turn-ended" "$(fm_wake_signal_seen_path "$STATE" "$STATE/$ID.t
   "$STATE/$ID.reconcile-nudged" "$STATE/$ID.gemini-settings.json" \
   "$STATE/.$ID.branch-outcome-index"
 if [ -d "$STATE" ]; then
-  rm -f -- "$STATE/$ID.execution" "$STATE/.$ID.execution-notified"
+  case "$KIND" in
+    ship|scout|task) rm -f -- "$STATE/$ID.execution" "$STATE/.$ID.execution-notified" ;;
+  esac
 fi
 # The steering inbox (bin/fm-task-inbox-lib.sh) is runtime state for the
 # retired endpoint; teardown only runs after landing is confirmed, so any

@@ -3981,9 +3981,9 @@ pi | pi-signed)
   if [ "$KIND" != secondmate ]; then
     pi_agent_dir=${PI_CODING_AGENT_DIR-$HOME/.pi/agent}
     [ -n "$pi_agent_dir" ] || { echo "error: PI_CODING_AGENT_DIR is empty" >&2; exit 1; }
+    pi_agent_dir=$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).expanduser())' "$pi_agent_dir") \
+      || { echo "error: could not resolve Pi trust directory" >&2; exit 1; }
     case "$pi_agent_dir" in
-      "~") pi_agent_dir=$HOME ;;
-      "~/"*) pi_agent_dir="$HOME/${pi_agent_dir:2}" ;;
       /*) ;;
       *) pi_agent_dir="$WT/$pi_agent_dir" ;;
     esac

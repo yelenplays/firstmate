@@ -722,6 +722,9 @@ test_remote_secondmate_pending_reply_cleanup_foreign_last_record() {
   configure_remote_secondmate_for_teardown "$case_dir"
   remote_home=$(collapse_path_slashes "$case_dir/remote-home")
   add_remote_retire_ssh_stub "$case_dir"
+  printf '{"version":1,"basis":"captain-approved","phase":"approved","attempt":"","spawn_gen":"","attempt_gen":""}\n' \
+    > "$case_dir/state/task-x1.execution"
+  : > "$case_dir/state/.task-x1.execution-notified"
   mkdir -p "$case_dir/state/pending-replies"
   printf 'task_id=other-task\nphase=resolved\n' > "$case_dir/state/pending-replies/aaaaaaaaaaaaaaaa"
   foreign_rec="$case_dir/state/pending-replies/ffffffffffffffff"
@@ -735,6 +738,10 @@ test_remote_secondmate_pending_reply_cleanup_foreign_last_record() {
   [ -f "$foreign_rec" ] || fail "remote-pending-reply-foreign-last: foreign pending reply was removed"
   [ ! -e "$case_dir/state/task-x1.meta" ] \
     || fail "remote-pending-reply-foreign-last: retiring meta was preserved"
+  assert_present "$case_dir/state/task-x1.execution" \
+    "remote-pending-reply-foreign-last: secondmate teardown removed an execution record"
+  assert_present "$case_dir/state/.task-x1.execution-notified" \
+    "remote-pending-reply-foreign-last: secondmate teardown removed an execution reminder"
   assert_no_grep '- task-x1 ' "$case_dir/data/secondmates.md" \
     "remote-pending-reply-foreign-last: registry route was preserved"
   pass "remote secondmate teardown survives a foreign pending-reply record visited last"
