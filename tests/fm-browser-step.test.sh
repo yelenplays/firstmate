@@ -55,6 +55,10 @@ assert.equal(engine.redact('Copy token=ab12cd34 and trailing details'), 'Copy to
 assert.equal(engine.redact('Copy token abcdef'), 'Copy token [redacted]');
 assert.equal(engine.redact('Authorization: Bearer abcdef'), 'Authorization [redacted]');
 assert.equal(engine.redact('Copy API key Qx6'), 'Copy API [redacted]');
+assert.equal(engine.redact('OTP abcdef'), 'OTP [redacted]');
+assert.equal(engine.redact('passcode abcdef'), 'passcode [redacted]');
+assert.equal(engine.redact('PIN abcdef'), 'PIN [redacted]');
+assert.equal(engine.redact('View code samples'), 'View code samples');
 assert.equal(engine.redact('mail jane@example.test').includes('jane@example.test'), false);
 assert.ok(engine.redact('mail jane@example.test').includes('[email]'));
 assert.equal(engine.redact('https://example.test/callback?code=123456'), '[url]');
@@ -62,6 +66,9 @@ assert.equal(engine.redact('OTP 123456').includes('123456'), false);
 assert.ok(engine.redact('reference 987654').includes('[number]'));
 assert.ok(engine.redact('Workers Scripts Edit').includes('Workers Scripts Edit'));
 assert.ok(engine.redact('internationalization-settings-panel').includes('internationalization-settings-panel'));
+const ordinaryCodeLabel = engine.sanitizeResult({ ok: true, appeared: ['button|View code samples'] });
+assert.deepEqual(ordinaryCodeLabel.appeared, ['button|View code samples']);
+assert.deepEqual(engine.sanitizeResult(ordinaryCodeLabel).appeared, ['button|View code samples']);
 
 const snapshot = [
   'uid=g1:0 rootwebarea "Step fixture"',
