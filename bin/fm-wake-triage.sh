@@ -120,10 +120,10 @@ while IFS= read -r tagged; do
     if [ ! -f "$STATE/$id.status" ] || [ ! -r "$STATE/$id.status" ] || [ -L "$STATE/$id.status" ] || [ -z "$current" ]; then reason='C7 latest task status missing';
     elif status_is_paused_or_captain_held "$current"; then reason='C5 paused/captain-held status';
     elif status_is_captain_relevant "$current"; then reason='C7 latest status is captain-relevant';
-    elif [ "$(grep -Ec "^${id}[[:space:]].*(done:|needs-decision:|blocked:|failed:|note:)" "$out" || true)" -gt 0 ]; then reason='C7 task has terminal or unread status';
-    elif [ "$(grep -F "wake annotation:" "$out" | grep -F "$id.status: " | awk '!/: working:/ { count++ } END { print count + 0 }')" -gt 0 ]; then reason='C7 presented status event is not working';
+    elif [ "$(awk -F ': ' -v key="$id.status" '$1 == "wake annotation" && $3 == key { verb=$4; sub(/:.*/, "", verb); if (verb == "done" || verb == "needs-decision" || verb == "blocked" || verb == "failed" || verb == "note") n++ } END { print n+0 }' "$out")" -gt 0 ]; then reason='C7 task has terminal or unread status';
+    elif [ "$(awk -F ': ' -v key="$id.status" '$1 == "wake annotation" && $3 == key { verb=$4; sub(/:.*/, "", verb); if (verb != "working") n++ } END { print n+0 }' "$out")" -gt 0 ]; then reason='C7 presented status event is not working';
     elif awk -F '\t' -v id="$id" '$3 == "signal" && $4 == id ".status" { found=1 } END { exit !found }' "$rows" \
-      && ! grep -F "wake annotation:" "$out" | grep -F "$id.status: working:" >/dev/null; then reason='C7 signal has no current working annotation';
+      && [ "$(awk -F ': ' -v key="$id.status" '$1 == "wake annotation" && $3 == key { verb=$4; sub(/:.*/, "", verb); if (verb == "working") found=1 } END { print found+0 }' "$out")" -eq 0 ]; then reason='C7 signal has no current working annotation';
     else
       owner_lines=$(awk -F '\t' -v id="$id" 'index($0,"UNFINISHED EXECUTION") { section=1; next } section && /^[A-Z][A-Z ]+ \(/ { section=0 } section && $1 == id {print}' "$out")
       owner_bad=$(printf '%s\n' "$owner_lines" | awk -F '\t' 'NF && $2 != "worker" {print; exit}')

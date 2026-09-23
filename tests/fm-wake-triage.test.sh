@@ -97,6 +97,29 @@ test_nonworking_and_terminal_rows_stay_actionable() {
   pass 'terminal and parked tasks are never auto-acknowledged'
 }
 
+test_status_annotations_require_exact_event_keys_and_verbs() {
+  local dir out
+  dir=$(make_case status-event-decoy); install_crew_stub "$dir"; install_hold_stub "$dir"
+  setup_task target "$dir"
+  printf 'done: historical note says working: but is complete\nworking: resumed\n' > "$dir/state/target.status"
+  append_wake "$dir/state" signal target.status 'signal: changed'
+  out=$(run_triage "$dir") || fail 'triage with status-event decoy failed'
+  assert_contains "$out" 'C7 task has terminal or unread status' 'a done event containing working text was accepted'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'a decoy working token must not auto-ack'
+  assert_unacked "$dir"
+
+  dir=$(make_case status-key-decoy); install_crew_stub "$dir"; install_hold_stub "$dir"
+  setup_task target "$dir"
+  setup_task other "$dir"
+  printf 'note: target.status: done: working: this is unrelated free text\n' >> "$dir/state/other.status"
+  append_wake "$dir/state" signal target.status 'signal: changed'
+  out=$(run_triage "$dir") || fail 'triage with unrelated annotation failed'
+  assert_contains "$out" 'ROUTINE (worker verifiably working' 'an unrelated annotation was treated as a target event'
+  assert_not_contains "$out" 'C7 presented status event is not working' 'an unrelated annotation was treated as a target event'
+  assert_unacked "$dir"
+  pass 'status annotations use exact keys and leading event verbs'
+}
+
 test_ack_gate_with_and_without_extra_notice() {
   local dir out pid
   dir=$(make_case ack-without-notice); install_crew_stub "$dir"; install_hold_stub "$dir"
@@ -357,6 +380,7 @@ test_shellcheck() {
 }
 
 test_nonworking_and_terminal_rows_stay_actionable
+test_status_annotations_require_exact_event_keys_and_verbs
 test_ack_gate_with_and_without_extra_notice
 test_shape_identity_and_secondmate_fail_closed
 test_open_decisions_pauses_holds_and_execution_are_actionable
