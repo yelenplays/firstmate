@@ -173,9 +173,9 @@ test_yes_and_score_lines() {
 
   respond '{"answers":{"score":{"type":"score","score":1.43,"confidence":0.6}}}'
   run_jev code out err score "one issue blocks progress" "How severe is it?" Cosmetic Workaround Blocking
-  assert_equals "$code" 0 "a confident score without probabilities exits 0"
-  assert_equals "$out" "score: Workaround s=1.43 conf=0.6" \
-    "a probability-free score rounds to its fractional level index"
+  assert_equals "$code" 2 "a score without probabilities escalates"
+  assert_equals "$out" "score: ESCALATE conf=na prior=unknown -> decide yourself" \
+    "a probability-free score never guesses a label"
   pass "fm-jev.sh: yes and score print one line each"
 }
 
@@ -287,9 +287,17 @@ test_errors_exit_one_with_one_line() {
 
   respond '{"answers":{"pick":{"choice":"C","confidence":0.9}}}'
   run_jev code out err pick "state" "Choose?" A B
-  assert_equals "$code" 1 "a pick outside the offered options is rejected"
-  assert_contains "$err" "unoffered option" "the malformed pick is explained"
-  assert_equals "$out" "" "a malformed pick prints no answer"
+  assert_equals "$code" 2 "a pick outside the offered options escalates"
+  assert_equals "$out" "pick: ESCALATE conf=0.9 prior=C -> decide yourself" \
+    "an unoffered pick is never returned as a success"
+  assert_equals "$err" "" "an unoffered pick escalates without an error"
+
+  respond '{"answers":{"pick":{"choice":"A","confidence":0.9,"probabilities":{"A":0.05,"B":0.95}}}}'
+  run_jev code out err pick "state" "Choose?" A B
+  assert_equals "$code" 2 "a pick below the maximum probability escalates"
+  assert_equals "$out" "pick: ESCALATE conf=0.9 prior=A -> decide yourself" \
+    "a lower-probability pick is not returned as a success"
+  assert_equals "$err" "" "a probability mismatch escalates without an error"
 
   respond '{"answers":{"score":{"score":1,"confidence":0.9,"probabilities":{"0":0.05,"9":0.95}}}}'
   run_jev code out err score "state" "How severe?" low medium high
@@ -321,11 +329,24 @@ test_errors_exit_one_with_one_line() {
 
   respond '{"answers":{"score":{"score":9,"confidence":0.9}}}'
   run_jev code out err score "state" "How severe?" low medium high
-  assert_equals "$code" 1 "a probability-free score outside the offered range is rejected"
-  assert_contains "$err" "out-of-range score index" "the malformed score is explained"
-  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
-    "an out-of-range score prints one stderr line"
-  assert_equals "$out" "" "an out-of-range score prints no answer"
+  assert_equals "$code" 2 "a probability-free score outside the offered range escalates"
+  assert_equals "$out" "score: ESCALATE conf=na prior=unknown -> decide yourself" \
+    "an out-of-range score without probabilities never guesses a label"
+  assert_equals "$err" "" "a probability-free out-of-range score escalates without an error"
+
+  respond '{"answers":{"score":{"score":9,"confidence":0.9,"probabilities":{"0":0.05,"1":0.05,"2":0.9}}}}'
+  run_jev code out err score "state" "How severe?" low medium high
+  assert_equals "$code" 2 "an out-of-range score with valid probabilities escalates"
+  assert_equals "$out" "score: ESCALATE conf=0.9 prior=high -> decide yourself" \
+    "an out-of-range score is not reported as a success"
+  assert_equals "$err" "" "an out-of-range score escalates without an error"
+
+  respond '{"answers":{"score":{"score":0.2,"confidence":0.9,"probabilities":{"0":0.05,"1":0.9,"2":0.05}}}}'
+  run_jev code out err score "state" "How severe?" low medium high
+  assert_equals "$code" 2 "a score that rounds away from the probability maximum escalates"
+  assert_equals "$out" "score: ESCALATE conf=0.9 prior=medium -> decide yourself" \
+    "an inconsistent score is not reported as a success"
+  assert_equals "$err" "" "an inconsistent score escalates without an error"
 
   respond '{"answers":{"yes":{"noul":1.5}}}'
   run_jev code out err yes "state" "Is the value in range?"
@@ -436,7 +457,7 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$(jq -r '.state' "$LOG/body")" "worktree for task-execution-receipt-retry is clean" \
     "the complete task slug is sent unchanged"
 
-  for token in sk-abcdefghijklmnop sk-or-abcdefghijklmnop ghp_abcdefghijklmnop github_pat_abcdefghijklmnop; do
+  for token in sk-abcdefghijklmnop sk-or-abcdefghijklmnop sk_live_51AbCdEfGhIjKlMnOp sk_test_51AbCdEfGhIjKlMnOp ghp_abcdefghijklmnop github_pat_abcdefghijklmnop; do
     reset_log
     run_jev code out err yes "credential ($token)" "Done?"
     assert_equals "$code" 1 "a token boundary before $token is refused"
@@ -463,7 +484,9 @@ test_privacy_guard_refuses_before_sending() {
     'DB_PASSWORD = cleartext value' \
     'API_token : opaque-value' \
     'db_PWD=another-value' \
-    'SERVICE_SECRET = "two word value"'; do
+    'SERVICE_SECRET = "two word value"' \
+    'STRIPE_SECRET_KEY=opaque-stripe-secret' \
+    'vendor_API_KEY : opaque-vendor-key'; do
     reset_log
     run_jev code out err yes "$credential" "Done?"
     assert_equals "$code" 1 "a sensitive assignment is refused: $credential"

@@ -358,7 +358,7 @@ fm_jev_compact_state() {
       while (match(tolower(buf), /aws_(secret_access_key|access_key_id)[[:space:]]*[:=][[:space:]]*[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
-      while (match(tolower(buf), /(^|[^[:alnum:]_])([[:alpha:]_][[:alnum:]_]*)?(password|passwd|pwd|secret|token)[[:space:]]*[:=][[:space:]]*/)) {
+      while (match(tolower(buf), /(^|[^[:alnum:]_])([[:alpha:]_][[:alnum:]_]*)?(password|passwd|pwd|secret_key|api_key|secret|token)[[:space:]]*[:=][[:space:]]*/)) {
         assignment = substr(buf, RSTART, RLENGTH)
         prefix = substr(buf, 1, RSTART - 1)
         if (RSTART > 1) {
@@ -377,7 +377,7 @@ fm_jev_compact_state() {
       while (match(buf, /Bearer[[:space:]]+[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
-      token_pattern = "(^|[^[:alnum:]_-])(sk-or-[A-Za-z0-9_-]+|github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|sk-[A-Za-z0-9_-]{16,})"
+      token_pattern = "(^|[^[:alnum:]_-])(sk-or-[A-Za-z0-9_-]+|sk_(live|test)_[A-Za-z0-9_-]+|github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|sk-[A-Za-z0-9_-]{16,})"
       while (match(buf, token_pattern)) {
         matched = substr(buf, RSTART, RLENGTH)
         boundary = substr(matched, 1, 1)

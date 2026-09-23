@@ -327,31 +327,29 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
     elif $q.type == "pick" then
       (($a.choice | strings) // error("answer \($q.id) has no choice")) as $c
       | checked_probabilities($a.probabilities; ($q.opts | map(.[0]) | sort); $q.id; "options") as $probabilities
-      | if ($q.opts | map(.[0]) | index($c)) == null then
-          error("answer \($q.id) chose an unoffered option")
-        else
-          { answer: $c, p: ($probabilities[$c] // null),
-            conf: (if $confidence != null then $confidence
-                   elif ($probabilities | length) > 0 then estimate($probabilities) else null end),
-            floor: (if $confidence != null then 0.5 else 0.4 end) }
-        end
+      | { answer: $c, p: ($probabilities[$c] // null),
+          conf: (if $confidence != null then $confidence
+                 elif ($probabilities | length) > 0 then estimate($probabilities) else null end),
+          floor: (if $confidence != null then 0.5 else 0.4 end),
+          force_escalate: (($q.opts | map(.[0]) | index($c)) == null
+            or (($probabilities | length) > 0
+                and $probabilities[$c] != ($probabilities | [.[]] | max))) }
     else
       (($a.score | numbers) // error("answer \($q.id) has no score")) as $s
       | ($q.opts | length) as $n
       | checked_probabilities($a.probabilities; ([range(0; $n) | tostring] | sort); $q.id; "levels") as $probabilities
-      | (if ($probabilities | length) > 0
-         then ($probabilities | to_entries | max_by(.value) | {i: (.key | tonumber), p: .value})
-         else {i: ($s | round), p: null} end) as $top
-      | if $top.i < 0 or $top.i >= $n or $top.i != ($top.i | floor) then
-          error("answer \($q.id) has an out-of-range score index")
+      | if ($probabilities | length) == 0 then
+          { answer: "unknown", p: null, s: $s, conf: null, floor: 0.4, force_escalate: true }
         else
-          { answer: $q.opts[$top.i][0], p: $top.p, s: $s,
-            conf: (if $confidence != null then $confidence
-                   elif ($probabilities | length) > 0 then estimate($probabilities) else null end),
-            floor: (if $confidence != null then 0.5 else 0.4 end) }
+          ($probabilities | to_entries | max_by(.value) | {i: (.key | tonumber), p: .value}) as $top
+          | ($probabilities | to_entries | map(select(.value == $top.p) | (.key | tonumber))) as $top_indices
+          | { answer: $q.opts[$top.i][0], p: $top.p, s: $s,
+              conf: (if $confidence != null then $confidence else estimate($probabilities) end),
+              floor: (if $confidence != null then 0.5 else 0.4 end),
+              force_escalate: ($s < 0 or $s > ($n - 1) or ($top_indices | index($s | round)) == null) }
         end
     end
-  | if .conf == null or .conf < .floor then
+  | if (.force_escalate // false) or .conf == null or .conf < .floor then
       "E\t\($q.id): ESCALATE conf=\(if .conf == null then "na" else (.conf | r2) end) prior=\(.answer) -> decide yourself"
     else
       "A\t\($q.id): \(.answer)\(if .s != null then " s=\(.s | r2)" else "" end)\(if .p != null then " p=\(.p | r2)" else "" end) conf=\(.conf | r2)"
