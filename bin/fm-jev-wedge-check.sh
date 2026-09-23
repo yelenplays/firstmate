@@ -2,7 +2,8 @@
 # fm-jev-wedge-check.sh - second-opinion Jev read of one pane tail.
 #
 # Usage:
-#   fm-jev-wedge-check.sh          reads the pane tail on stdin
+#   fm-jev-wedge-check.sh [--task <id> --state-dir <dir>]
+#                                   reads the pane tail on stdin
 #
 # Prints exactly one verdict word on stdout:
 #   escalate  - the stuck Noul met the 0.5 floor
@@ -21,12 +22,17 @@
 # every sample - the one genuine wedge scored 0.69, healthy idle/busy/dead
 # panes stayed at 0.06-0.35 - so 0.5 is the floor.
 #
-# One bounded HTTP call per invocation through bin/fm-jev-lib.sh. JEV_TIMEOUT
-# defaults to FM_JEV_SUPERVISION_TIMEOUT_SECS (3s) because a triage answer
-# older than ~2s has lost its value; an explicitly set JEV_TIMEOUT still wins.
-# State is the pane tail only - never status files, backlog, or report bodies -
-# secret-scrubbed by fm_jev_compact_state. Every attempted call appends one
-# JSONL record:
+# One bounded HTTP call per invocation through bin/fm-jev-lib.sh. The HTTP
+# bound is fm_jev_supervision_timeout: an explicit JEV_TIMEOUT (environment or
+# $FM_HOME/.env) wins, else FM_JEV_SUPERVISION_TIMEOUT_SECS (3s), because a
+# triage answer older than ~2s has lost its value.
+#
+# Data boundary (fm_jev_supervision_free_text_ok owns the rule): the pane tail
+# itself - its last chars, size-capped and secret-scrubbed - is sent only when
+# --task names a firstmate-repository task in the primary home. Every other
+# case, including a call with no --task, sends structured facts only
+# (fm_jev_supervision_state) and records no text excerpt. Never status files,
+# backlog, or report bodies. Every attempted call appends one JSONL record:
 #   ${FM_STATE_OVERRIDE:-$FM_HOME/state}/jev-wedge-check.jsonl
 #
 # Environment: FM_HOME, FM_STATE_OVERRIDE,
@@ -60,11 +66,23 @@ fail() {
   exit 1
 }
 
+task_id=
+task_state_dir=
 while [ $# -gt 0 ]; do
   case "$1" in
     -h|--help)
       usage
       exit 0
+      ;;
+    --task)
+      [ $# -ge 2 ] || die "--task needs a value"
+      task_id=$2
+      shift 2
+      ;;
+    --state-dir)
+      [ $# -ge 2 ] || die "--state-dir needs a value"
+      task_state_dir=$2
+      shift 2
       ;;
     *)
       die "unexpected argument: $1"
@@ -76,24 +94,17 @@ tail_text=$(cat)
 [ -n "$tail_text" ] || fail "empty pane tail on stdin"
 command -v jq >/dev/null 2>&1 || fail "jq required"
 
-# The supervision-path bound: a triage answer older than ~2s has already lost
-# its value (report section 6), so default JEV_TIMEOUT to 3s. An explicit
-# JEV_TIMEOUT in the environment still wins.
-JEV_TIMEOUT=${JEV_TIMEOUT:-${FM_JEV_SUPERVISION_TIMEOUT_SECS:-3}}
+JEV_TIMEOUT=$(fm_jev_supervision_timeout)
 export JEV_TIMEOUT
 
 STATE_DIR="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 LOG_PATH="$STATE_DIR/jev-wedge-check.jsonl"
 
-iso_now() {
-  date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf 'unknown'
-}
-
 log_call() {
   local status=$1 noul=$2 state_choice=$3 state_confidence=$4 decide_code=$5
   local payload
   payload=$(jq -nc \
-    --arg ts "$(iso_now)" \
+    --arg ts "$(fm_jev_iso_now)" \
     --arg status "$status" \
     --arg noul "$noul" \
     --arg state_choice "$state_choice" \
@@ -101,7 +112,8 @@ log_call() {
     --arg route "${FM_JEV_LAST_ROUTE:-}" \
     --arg http "${FM_JEV_LAST_HTTP:-}" \
     --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" \
-    --arg excerpt "$(printf '%s' "${state:-}" | head -c 200)" \
+    --arg payload "$payload_mode" \
+    --arg excerpt "$excerpt" \
     --argjson chars "${#tail_text}" \
     --argjson decide_code "$decide_code" \
     '{
@@ -112,8 +124,9 @@ log_call() {
       noul: (try ($noul | tonumber) catch null),
       state_choice: (if $state_choice == "" then null else $state_choice end),
       state_confidence: (try ($state_confidence | tonumber) catch null),
+      payload: $payload,
       tail_chars: $chars,
-      tail_excerpt: $excerpt,
+      tail_excerpt: (if $excerpt == "" then null else $excerpt end),
       route: $route,
       http: $http,
       latency_ms: (try ($latency | tonumber) catch null),
@@ -123,22 +136,17 @@ log_call() {
   fm_jev_log_call "$payload" "$LOG_PATH" || true
 }
 
-has_key() {
-  local typesafe_key openrouter_key
-  typesafe_key=${TYPESAFE_API_KEY:-}
-  openrouter_key=${OPENROUTER_API_KEY:-}
-  if [ -z "$typesafe_key" ]; then
-    typesafe_key=$(fmx_env_get TYPESAFE_API_KEY "$FM_HOME/.env")
-  fi
-  if [ -z "$openrouter_key" ]; then
-    openrouter_key=$(fmx_env_get OPENROUTER_API_KEY "$FM_HOME/.env")
-  fi
-  [ -n "$typesafe_key" ] || [ -n "$openrouter_key" ]
-}
+fm_jev_has_key || fail "off (no TYPESAFE_API_KEY or OPENROUTER_API_KEY)"
 
-has_key || fail "off (no TYPESAFE_API_KEY or OPENROUTER_API_KEY)"
-
-state=$(fm_jev_compact_state "$tail_text") || fail "pane tail exceeds the state cap"
+free_text=0
+payload_mode=structured
+if [ -n "$task_id" ] && fm_jev_supervision_free_text_ok "${task_state_dir:-$STATE_DIR}" "$task_id"; then
+  free_text=1
+  payload_mode='free-text'
+fi
+state=$(fm_jev_supervision_state pane-tail "$tail_text" "$free_text") || fail "could not build the pane state"
+excerpt=
+[ "$free_text" -eq 0 ] || excerpt=$(printf '%s' "$state" | head -c 200)
 
 # The exact question pair the evidence corpus measured (jev-panes.sh in the
 # report directory): a state Choice for the audit trail, and the stuck Noul

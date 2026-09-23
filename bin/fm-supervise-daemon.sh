@@ -1050,7 +1050,7 @@ _oldest_line_age() {  # <buf> -> seconds since the oldest buffered item first ar
 #  3) heartbeat scan: every HEARTBEAT_SCAN_SECS, grep state/*.status for a
 #     captain-relevant line the per-wake classifier missed and escalate it.
 housekeeping() {  # <state>
-  local state=$1 now due f key task win marker age last max_defer oldest pause_secs marker_epoch until bounded_until pause_reason run_id jsf jage
+  local state=$1 now due f key task win marker age last max_defer oldest pause_secs marker_epoch until bounded_until pause_reason run_id jsf jts jage
   now=$(_now)
   migrate_watcher_pause_markers "$state"
 
@@ -1115,12 +1115,20 @@ housekeeping() {  # <state>
           rm -f "$state/.subsuper-jevsupp-$key"
           _now > "$marker"
           log "stale deferral: $win (its no-mistakes run $run_id is still executing, idle ${age}s)"
-        elif [ -n "${FM_STALE_TAIL40:-}" ] && wedge_jev_suppress "$FM_STALE_TAIL40"; then
+        elif [ -n "${FM_STALE_TAIL40:-}" ] && wedge_jev_suppress "$FM_STALE_TAIL40" "$task" "$state"; then
           # Bound a Jev suppression: a pane that stays quiet through a full
-          # re-surface interval still escalates for inspection.
+          # re-surface interval still escalates for inspection. A marker whose
+          # timestamp is missing or malformed (an interrupted write) cannot
+          # prove the suppression is young, so it reads as expired and
+          # escalates rather than aborting housekeeping.
           jsf="$state/.subsuper-jevsupp-$key"
           [ -e "$jsf" ] || _now > "$jsf"
-          jage=$(( now - $(cat "$jsf" 2>/dev/null || echo "$now") ))
+          jts=$(cat "$jsf" 2>/dev/null || true)
+          case "$jts" in
+            ''|*[!0-9]*|??????????????????*) jage=${FM_PAUSE_RESURFACE_SECS:-$FM_PAUSE_RESURFACE_SECS_DEFAULT} ;;
+            *) jage=$(( now - 10#$jts )) ;;
+          esac
+          case "$jage" in ''|*[!0-9-]*) jage=$FM_PAUSE_RESURFACE_SECS_DEFAULT ;; esac
           if [ "$jage" -ge "${FM_PAUSE_RESURFACE_SECS:-$FM_PAUSE_RESURFACE_SECS_DEFAULT}" ]; then
             if escalate_add "$state" "stale persisted ${age}s (Jev reads no wedge, suppressed for ${jage}s; inspect anyway): $win"; then
               stale_marker_remove "$win" "$state"

@@ -3464,31 +3464,6 @@ test_wedge_threshold_recheck_names_the_captain_for_a_held_lane() {
 # tests/fm-jev-supervision.test.sh; the seams below run verdict stubs so no case
 # can reach a live endpoint.
 
-# install_jev_stubs: verdict-driven stubs for both consult seams under <fakebin>.
-# Each appends its stdin to $FM_JEV_STUB_DIR/<name>.stdin so a case can assert
-# what state the consult saw, then prints $FM_JEV_STUB_<NAME>_VERDICT when it is
-# exactly `escalate` or `suppress`; any other value (or unset) exits 1 with no
-# verdict - the fail-closed helper shape.
-install_jev_stubs() {  # <fakebin>
-  local fakebin=$1
-  cat > "$fakebin/jev-status-stub" <<'SH'
-#!/usr/bin/env bash
-if [ -n "${FM_JEV_STUB_DIR:-}" ]; then cat >> "$FM_JEV_STUB_DIR/status.stdin"; printf '\n' >> "$FM_JEV_STUB_DIR/status.stdin"; else cat >/dev/null; fi
-case "${FM_JEV_STUB_STATUS_VERDICT:-}" in
-  escalate|suppress) printf '%s\n' "$FM_JEV_STUB_STATUS_VERDICT"; exit 0 ;;
-  *) exit 1 ;;
-esac
-SH
-  cat > "$fakebin/jev-wedge-stub" <<'SH'
-#!/usr/bin/env bash
-if [ -n "${FM_JEV_STUB_DIR:-}" ]; then cat >> "$FM_JEV_STUB_DIR/wedge.stdin"; printf '\n' >> "$FM_JEV_STUB_DIR/wedge.stdin"; else cat >/dev/null; fi
-case "${FM_JEV_STUB_WEDGE_VERDICT:-}" in
-  escalate|suppress) printf '%s\n' "$FM_JEV_STUB_WEDGE_VERDICT"; exit 0 ;;
-  *) exit 1 ;;
-esac
-SH
-  chmod +x "$fakebin/jev-status-stub" "$fakebin/jev-wedge-stub"
-}
 
 # The scope gate is the whole "nur dort, wo kein erkanntes Verb greift" contract:
 # every declared verb keeps its deterministic handling and is never offered to
@@ -3529,7 +3504,7 @@ test_jev_status_escalate_mapping() {
   local dir fakebin line='note: the deploy window closes at 5'
   fm_jev_supervision_cycle_reset
   dir=$(mktemp -d "$TMP_ROOT/jev-status-map.XXXXXX")
-  fakebin="$dir/bin"; mkdir -p "$fakebin"; install_jev_stubs "$fakebin"
+  fakebin="$dir/bin"; mkdir -p "$fakebin"; fm_install_jev_stubs "$fakebin"
 
   FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=escalate \
     FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
@@ -3572,7 +3547,7 @@ test_status_span_jev_optin() {
   local dir fakebin f rec='' needs=''
   fm_jev_supervision_cycle_reset
   dir=$(mktemp -d "$TMP_ROOT/jev-span.XXXXXX")
-  fakebin="$dir/bin"; mkdir -p "$fakebin"; install_jev_stubs "$fakebin"
+  fakebin="$dir/bin"; mkdir -p "$fakebin"; fm_install_jev_stubs "$fakebin"
   f="$dir/task.status"
   printf 'working: on it\nnote: the deploy window closes at 5\n' > "$f"
 
@@ -3634,7 +3609,7 @@ test_status_span_jev_cap() {
   local dir fakebin f rec='' n
   fm_jev_supervision_cycle_reset
   dir=$(mktemp -d "$TMP_ROOT/jev-cap.XXXXXX")
-  fakebin="$dir/bin"; mkdir -p "$fakebin"; install_jev_stubs "$fakebin"
+  fakebin="$dir/bin"; mkdir -p "$fakebin"; fm_install_jev_stubs "$fakebin"
   f="$dir/task.status"
   n=1; while [ "$n" -le 10 ]; do printf 'note: free-text line %s\n' "$n" >> "$f"; n=$((n + 1)); done
   FM_JEV_SPAN_TRIAGE_MAX=2 \
@@ -3658,7 +3633,7 @@ test_wedge_jev_low_noul_suppresses_the_boundary() {
   dir=$(wedge_threshold_fixture jev-suppress 'working: quiet' 0)
   state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
   window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
-  install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
   # Pre-arm the idle timer past the bound so the first round already sits at the
   # escalation boundary.
   printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
@@ -3693,7 +3668,7 @@ test_wedge_jev_escalate_and_failure_keep_the_boundary() {
   dir=$(wedge_threshold_fixture jev-escalate 'working: quiet' 0)
   state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
   window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
-  install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
   printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
 
   FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
@@ -3706,7 +3681,7 @@ test_wedge_jev_escalate_and_failure_keep_the_boundary() {
 
   dir=$(wedge_threshold_fixture jev-fail 'working: quiet' 0)
   state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
-  install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
   printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
   FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
     FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=fail \
@@ -3734,7 +3709,7 @@ test_wedge_jev_consult_only_at_the_boundary() {
   dir=$(wedge_threshold_fixture jev-below 'working: quiet' 0)
   state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
   window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
-  install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
 
   n=1
   while [ "$n" -le 3 ]; do

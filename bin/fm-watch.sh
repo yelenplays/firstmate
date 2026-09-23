@@ -1235,7 +1235,7 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
         if run_id=$(crew_nm_run_progressing "$task" "$STATE" "$since_file"); then
           wedge_defer_nm_run "$win" "$since_file" "$label" "$age" "$run_id"
           return 0
-        elif [ -n "$tail" ] && wedge_jev_suppress "$tail"; then
+        elif [ -n "$tail" ] && wedge_jev_suppress "$tail" "$task" "$STATE"; then
           wedge_defer_jev "$win" "$since_file" "$label" "$age"
           return 0
         fi
@@ -1956,17 +1956,16 @@ EOF
   return "$rc"
 }
 
-# Advisory Jev next-work signal. One bounded subprocess per due heartbeat,
-# including absorbed ones, so the helper has a real recurring caller. Failure
-# never fails the watcher, never dispatches, and never delays past the helper's
-# own timeouts. FM_JEV_QUEUE_TRIAGE_BIN is a test override. Contract:
+# Advisory Jev next-work signal. At most one bounded subprocess per due
+# heartbeat, including absorbed ones, so the helper has a real recurring caller.
+# It runs inside this cycle's shared Jev budget and breaker
+# (fm_jev_supervision_queue_triage in bin/fm-classify-lib.sh), so it is skipped
+# once the breaker has tripped and never holds the loop past the remaining
+# budget. Failure never fails the watcher and never dispatches.
+# FM_JEV_QUEUE_TRIAGE_BIN is a test override. Contract:
 # bin/fm-jev-queue-triage.sh; docs/configuration.md "Jev queue triage".
 jev_queue_triage_on_heartbeat() {
-  local bin
-  bin=${FM_JEV_QUEUE_TRIAGE_BIN:-$SCRIPT_DIR/fm-jev-queue-triage.sh}
-  [ -f "$bin" ] || return 0
-  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
-    "$bin" --heartbeat </dev/null >/dev/null 2>&1 || true
+  fm_jev_supervision_queue_triage "${FM_JEV_QUEUE_TRIAGE_BIN:-$SCRIPT_DIR/fm-jev-queue-triage.sh}" "$STATE"
 }
 
 # Cheap heartbeat fleet-scan (the always-on twin of the daemon's catch-all). 0 if
