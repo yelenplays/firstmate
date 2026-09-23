@@ -810,7 +810,8 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "an empty question with an ID equal to the live key is rejected"
   assert_contains "$err" "question 1: q must be a non-empty string" \
     "validation identifies the question by position"
-  assert_not_contains "$err" "$KEY" "pre-guard validation never echoes the live-key ID"
+  assert_not_contains "$err" "$KEY" "pre-guard validation never echoes the live-key ID to stderr"
+  assert_not_contains "$out" "$KEY" "pre-guard validation never echoes the live-key ID to stdout"
   assert_absent "$LOG/body" "invalid input with the live-key ID is never sent"
   rm -f "$HOME_DIR/.env"
   pass "fm-jev.sh: privacy guard refuses before anything is sent"
