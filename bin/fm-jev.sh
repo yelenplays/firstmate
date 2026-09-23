@@ -14,11 +14,14 @@
 # stdout, stderr, or the log. This command always uses the TypeSafe route and
 # production endpoint.
 #
-# Privacy: the state plus every question and option text is refused, never
-# sent, when the state exceeds FM_JEV_CLI_STATE_MAX bytes (4096) or when
-# fm_jev_compact_state would strip anything from the combined text (its
-# secret patterns are the single owner of what looks like a secret), or when it
-# contains the live key value itself.
+# Privacy: state, question text, option labels and meanings are refused, never
+# sent, when their combined UTF-8 text exceeds FM_JEV_CLI_INPUT_MAX bytes
+# (4096), when fm_jev_compact_state would strip anything from the combined
+# text, or when it contains the live key value itself.
+#
+# Option text accepts label=meaning, split on its first equals sign; later
+# equals signs belong to the meaning, so labels cannot contain equals signs.
+# Option labels must be one line.
 #
 # Escalation floor: a verdict whose confidence is below the floor prints
 # ESCALATE. The default floor follows the confidence source: 0.5 for the
@@ -42,7 +45,7 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_JEV_CLI_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 FM_JEV_CLI_URL='https://api.typesafe.ai/v1/systemone'
-FM_JEV_CLI_STATE_MAX=4096
+FM_JEV_CLI_INPUT_MAX=4096
 
 usage() {
   cat <<'EOF'
@@ -52,10 +55,11 @@ fm-jev.sh - one typed Jev judgment (TypeSafe) with one output line per question.
   fm-jev.sh score "<state>" "<question>" lvl1 lvl2 ...   ordered levels, lowest first
   fm-jev.sh batch < {"state":"..","questions":[{"id":"x","type":"pick|yes|score","q":"..","opts":[..]}]}
     Several questions on one state in one call; opts is an array of label or label=meaning strings.
+    First "=" splits label from meaning; later "=" stays in meaning; labels cannot contain "=" or line breaks.
 Flags follow the command: --json (raw response); --help prints this interface.
 Output: "pick: answer p=0.96 conf=0.94"; a batch uses its question id; escalation prints "ESCALATE conf=0.31 prior=X -> decide yourself".
 Exit: 0 answered, 2 any escalation, 1 error with a one-line reason; on 1 or 2 use your own judgment, never block.
-State: minimal facts only, at most 4096 bytes; secrets, keys, tokens, wiki page bodies, private-vault text: never.
+Input: state, questions and options are 4096 bytes total; minimal facts only, no secrets, keys, tokens, wiki page bodies or private-vault text.
 Key: TYPESAFE_API_KEY from the environment or firstmate home .env; no OpenRouter route.
 EOF
 }
@@ -175,8 +179,14 @@ NORM=$(printf '%s' "$SPEC" | jq -c '
         else
           .opts = (if (.opts | type) == "array" then
                      [ .opts[] | if type != "string" or . == "" then fail("question \(.id): options must be non-empty strings") else . end
-                       | if test("=") then [(split("=")[0]), (split("=")[1:] | join("="))] else [., .] end
+                       | . as $option
+                       | ($option | index("=")) as $separator
+                       | if $separator != null
+                         then [$option[0:$separator], $option[($separator + 1):]]
+                         else [$option, $option]
+                         end
                        | if .[0] == "" then fail("question \(.id): empty option label") else . end
+                       | if (.[0] | contains("\n")) or (.[0] | contains("\r")) then fail("option labels must not contain line breaks") else . end
                        | if .[1] == "" then .[1] = .[0] else . end ]
                    else fail("question \(.id): opts must be an array of strings") end)
           | if (.opts | length) < 2 then fail("question \(.id): needs at least two options") else . end
@@ -191,10 +201,9 @@ STATE_TEXT=$(printf '%s' "$NORM" | jq -r '.state')
 ALL_TEXT=$(printf '%s' "$NORM" | jq -r '.state, (.questions[] | .q, (.opts[][]))')
 
 # --- privacy guard -----------------------------------------------------------
-STATE_BYTES=$(printf '%s' "$STATE_TEXT" | wc -c)
-STATE_BYTES=${STATE_BYTES// /}
-[ "$STATE_BYTES" -le "$FM_JEV_CLI_STATE_MAX" ] \
-  || die "state is $STATE_BYTES bytes, over the $FM_JEV_CLI_STATE_MAX-byte cap; pass only the facts the judgment needs"
+INPUT_BYTES=$(printf '%s' "$NORM" | jq -r '[.state, (.questions[] | .q, (.opts[][]))] | map(utf8bytelength) | add')
+[ "$INPUT_BYTES" -le "$FM_JEV_CLI_INPUT_MAX" ] \
+  || die "input is $INPUT_BYTES bytes, over the $FM_JEV_CLI_INPUT_MAX-byte cap; pass only the facts the judgment needs"
 COMPACT=$(JEV_STATE_MAX_BYTES=1048576 fm_jev_compact_state "$ALL_TEXT" 2>/dev/null) \
   || die "could not screen the input for secrets"
 [ "$COMPACT" = "$ALL_TEXT" ] \

@@ -76,6 +76,8 @@ test_help_is_short_and_complete() {
   for word in pick yes score batch --json ESCALATE TYPESAFE_API_KEY; do
     assert_contains "$out" "$word" "--help names $word"
   done
+  assert_contains "$out" 'First "=" splits label from meaning' "--help documents option parsing"
+  assert_contains "$out" "4096 bytes total" "--help documents the combined input cap"
   assert_not_contains "$out" "--id" "--help omits the removed id option"
   assert_not_contains "$out" "--min" "--help omits the removed threshold option"
   assert_not_contains "$out" "OPENROUTER_API_KEY" "--help does not advertise an OpenRouter route"
@@ -96,6 +98,17 @@ test_pick_answers_one_line() {
   assert_equals "$(jq -r '.state' "$LOG/body")" "topic: trainee hiring" "the state is sent as a string"
   assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY" "the key travels only as the fd 3 header"
   pass "fm-jev.sh: pick sends one choice question and prints one line"
+}
+
+test_option_meaning_splits_on_first_equals() {
+  local code out err
+  respond '{"answers":{"pick":{"choice":"A","confidence":0.9,"probabilities":{"A":0.95,"B":0.05}}}}'
+  reset_log
+  run_jev code out err pick "state" "Choose?" "A=first=second=third" B
+  assert_equals "$code" 0 "equals in an option meaning does not change its label"
+  assert_equals "$(jq -c '.questions.pick.criteria' "$LOG/body")" \
+    '{"A":"first=second=third","B":"B"}' "only the first equals separates label and meaning"
+  pass "fm-jev.sh: option text uses the first equals as delimiter"
 }
 
 test_cli_forces_typesafe_route() {
@@ -323,7 +336,7 @@ JSON
 }
 
 test_privacy_guard_refuses_before_sending() {
-  local code out err big openrouter_key
+  local code out err big openrouter_key large_state large_question large_meaning
   respond '{"answers":{"yes":{"noul":0.9}}}'
   reset_log
   big=$(head -c 4097 /dev/zero | tr '\0' a)
@@ -331,6 +344,15 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "state over 4096 bytes is refused"
   assert_contains "$err" "4096-byte cap" "the cap is named"
   assert_absent "$LOG/body" "an oversized state is never sent"
+
+  large_state=$(head -c 1000 /dev/zero | tr '\0' s)
+  large_question=$(head -c 1000 /dev/zero | tr '\0' q)
+  large_meaning=$(head -c 1100 /dev/zero | tr '\0' m)
+  reset_log
+  run_jev code out err pick "$large_state" "$large_question" "A=$large_meaning" "B=$large_meaning"
+  assert_equals "$code" 1 "combined state, question, and option text over 4096 bytes is refused"
+  assert_contains "$err" "4096-byte cap" "the aggregate cap is named"
+  assert_absent "$LOG/body" "oversized combined input is never sent"
 
   respond '{"answers":{"yes":{"noul":0.97}}}'
   reset_log
@@ -355,6 +377,34 @@ test_privacy_guard_refuses_before_sending() {
   run_jev code out err pick "state" "Which?" "a=Bearer abcdef123456" b
   assert_equals "$code" 1 "secret-shaped option text is refused"
   assert_absent "$LOG/body" "secret-shaped option text is never sent"
+
+  reset_log
+  run_jev code out err yes "state" "Question includes $KEY"
+  assert_equals "$code" 1 "the live key value in a question is refused"
+  assert_absent "$LOG/body" "the question key is never sent"
+
+  reset_log
+  run_jev code out err pick "state" "Which?" "A=meaning includes $KEY" B
+  assert_equals "$code" 1 "the live key value in an option meaning is refused"
+  assert_absent "$LOG/body" "the option key is never sent"
+
+  reset_log
+  run_jev code out err pick "state" "Which?" "$KEY=meaning" B
+  assert_equals "$code" 1 "the live key value in an option label is refused"
+  assert_absent "$LOG/body" "the option label key is never sent"
+
+  reset_log
+  run_jev code out err pick "state" "Which?" "sk-or-v1-abcdefghijklmnop=meaning" B
+  assert_equals "$code" 1 "a secret-shaped option label is refused"
+  assert_absent "$LOG/body" "the secret-shaped option label is never sent"
+
+  reset_log
+  run_jev code out err pick "state" "Which?" $'A\nB' C
+  assert_equals "$code" 1 "an option label containing a newline is refused"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "the multiline label refusal prints one stderr line"
+  assert_contains "$err" "option labels must not contain line breaks" "the invalid label is explained"
+  assert_absent "$LOG/body" "a multiline option label is never sent"
 
   run_jev code out err yes "the key is $KEY" "Done?"
   assert_equals "$code" 1 "the live key value is refused"
@@ -483,6 +533,7 @@ test_key_discovery_needs_no_env_setup() {
 
 test_help_is_short_and_complete
 test_pick_answers_one_line
+test_option_meaning_splits_on_first_equals
 test_cli_forces_typesafe_route
 test_cli_pins_typesafe_endpoint
 test_yes_and_score_lines
