@@ -58,6 +58,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-$FM_ROOT}"
 RESOLVER="$SCRIPT_DIR/fm-dispatch-resolve.sh"
+REPLAY_CFG_DIR=''
+
+replay_cleanup() {
+  [ -n "$REPLAY_CFG_DIR" ] && rm -rf -- "$REPLAY_CFG_DIR"
+}
 
 # shellcheck source=bin/fm-env-lib.sh
 . "$SCRIPT_DIR/fm-env-lib.sh"
@@ -106,7 +111,7 @@ replay_same_file() {
 }
 
 replay_run() {
-  local cases='' out='' max='' rules='' cfg_dir='' cases_dir cases_real out_real rules_real brief_real calls=0 written=0 stopped=none
+  local cases='' out='' max='' rules='' cases_dir cases_real out_real rules_real brief_real calls=0 written=0 stopped=none
   local id brief project expected text line status rule confidence probs reason resolver_stderr resolver_status case_index
   local -a case_ids=() case_briefs=() case_projects=() case_expected=() case_brief_reals=()
   while [ $# -gt 0 ]; do
@@ -157,10 +162,9 @@ replay_run() {
   done
   : >> "$out" || die "could not append to $out"
   if [ -n "$rules" ]; then
-    cfg_dir=$(mktemp -d) || die "mktemp failed"
-    # shellcheck disable=SC2064
-    trap "rm -rf '$cfg_dir'" EXIT
-    cp "$rules" "$cfg_dir/crew-dispatch.json" || die "could not stage rules file"
+    REPLAY_CFG_DIR=$(mktemp -d) || die "mktemp failed"
+    trap replay_cleanup EXIT
+    cp "$rules" "$REPLAY_CFG_DIR/crew-dispatch.json" || die "could not stage rules file"
   fi
   for ((case_index = 0; case_index < ${#case_ids[@]}; case_index++)); do
     id=${case_ids[$case_index]}
@@ -173,8 +177,8 @@ replay_run() {
     fi
     calls=$((calls + 1))
     resolver_stderr=$(mktemp) || die "mktemp failed"
-    if [ -n "$cfg_dir" ]; then
-      text=$(FM_HOME="$FM_HOME" FM_JEV_DISPATCH_SHADOW=0 FM_CONFIG_OVERRIDE="$cfg_dir" "$RESOLVER" "$brief" --project "$project" 2>"$resolver_stderr")
+    if [ -n "$REPLAY_CFG_DIR" ]; then
+      text=$(FM_HOME="$FM_HOME" FM_JEV_DISPATCH_SHADOW=0 FM_CONFIG_OVERRIDE="$REPLAY_CFG_DIR" "$RESOLVER" "$brief" --project "$project" 2>"$resolver_stderr")
       resolver_status=$?
     else
       text=$(FM_HOME="$FM_HOME" FM_JEV_DISPATCH_SHADOW=0 "$RESOLVER" "$brief" --project "$project" 2>"$resolver_stderr")

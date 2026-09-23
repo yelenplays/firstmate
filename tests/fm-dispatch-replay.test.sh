@@ -95,6 +95,16 @@ run_tool() {  # <out-var> <err-var> [args...]; exit status in $code
   printf -v "$__err" '%s' "$(cat "$TMP_ROOT/stderr")"
 }
 
+run_tool_with_tmpdir() {  # <tmpdir> <out-var> <err-var> [args...]
+  local tmpdir=$1 __out=$2 __err=$3 _out
+  shift 3
+  _out=$(TMPDIR="$tmpdir" PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_SPEND_LEDGER="$LEDGER_STUB" \
+    TYPESAFE_API_KEY="$KEY" "$TOOL" "$@" 2> "$TMP_ROOT/stderr")
+  code=$?
+  printf -v "$__out" '%s' "$_out"
+  printf -v "$__err" '%s' "$(cat "$TMP_ROOT/stderr")"
+}
+
 run_tool_with_margin() {  # <margin> <out-var> <err-var> [args...]
   local margin=$1 __out=$2 __err=$3 _out
   shift 3
@@ -186,6 +196,15 @@ expect_code 2 "$code" "an opt-out resolver stops replay"
 assert_contains "$err" 'dispatch-resolve: off (TYPESAFE_API_KEY and OPENROUTER_API_KEY absent from the environment and' "the opt-out cause is relayed"
 assert_equals 0 "$(wc -l < "$OFF_OUT" | tr -d ' ')" "an opt-out outcome is not written as a generic row"
 assert_present "$QUEUE/3.json" "an opt-out replay never reaches the transport"
+
+TRAP_MARKER="$TMP_ROOT/trap-marker"
+TRAP_STAGING_TMPDIR="$TMP_ROOT/x'; touch $TRAP_MARKER; #"
+mkdir -p "$TRAP_STAGING_TMPDIR"
+run_tool_with_tmpdir "$TRAP_STAGING_TMPDIR" out err run --cases "$CASES" --out "$TMP_ROOT/trap.jsonl" --max-calls 1 --rules "$CANDIDATE"
+expect_code 0 "$code" "a quoted temporary-directory path is safe"
+assert_absent "$TRAP_MARKER" "cleanup does not execute shell syntax from TMPDIR"
+assert_present "$TRAP_STAGING_TMPDIR" "cleanup leaves the caller's temporary directory intact"
+assert_equals '' "$(find "$TRAP_STAGING_TMPDIR" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" "the staged rules directory is removed"
 
 cat > "$QUEUE/3.json" <<'JSON'
 { "model": "jev-1.13.0", "answers": {}, "usage": { "input_tokens": 100, "output_tokens": 10 } }
