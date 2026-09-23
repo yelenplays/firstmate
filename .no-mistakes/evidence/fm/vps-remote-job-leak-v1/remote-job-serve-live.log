@@ -1,0 +1,4 @@
+Live shared serving-worker validation on host kernel: Darwin
+PASS: public staging/wait path returned exit 0 and: remote-send-result: reply-check; stdin: send live
+PASS: --cleanup refused the live lane with exit 75 and left its owner process 51778 running.
+PASS: live worker exited cleanly after cancellation.

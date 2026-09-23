@@ -1,0 +1,6 @@
+Live validation on host kernel: Darwin
+Starting two independent Linux-mode worker supervisors for one isolated account queue.
+PASS: concurrent starts retained exactly one supervisor (pid 52462); the contender exited.
+PASS: staged remote send completed with exit 0 and returned: remote-command-completed <reply-check>; stdin=live input
+PASS: --cleanup refused live job job-mGvXyu (exit 75) and left lane pid 56180 running.
+PASS: isolated worker shut down and released supervisor ownership.

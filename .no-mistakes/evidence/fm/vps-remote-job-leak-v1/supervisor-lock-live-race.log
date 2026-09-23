@@ -1,0 +1,6 @@
+Live lock-race validation on host kernel: Darwin
+Seeded stale ownerless lock; start A reclaims it and pauses at owner publication.
+PASS: real supervisor recovered stale ownerless lock and paused before publishing owner.
+PASS: contender remained blocked while start A held the shared ownership guard.
+PASS: after publication, contender observed start A as sole owner and exited.
+PASS: shutdown released the recovered supervisor lock.
