@@ -330,6 +330,40 @@ FM_JEV_CHOICE_TOP2_JQ='def jev_choice_top2:
   | {first: ($s[0].key // null), second: ($s[1].key // null), raw_margin: $raw_margin,
      margin: (($raw_margin * 10000 | round) / 10000)};'
 
+fm_jev_has_sensitive_key() {
+  local text
+  if [ $# -ne 1 ]; then
+    _fm_jev_err "usage: fm_jev_has_sensitive_key <text>"
+    return 2
+  fi
+  text=$1
+  printf '%s' "$text" | awk '
+    BEGIN {
+      assignment_pattern = "(^|[^[:alnum:]_])([-[:alnum:]_.]+)[\042\047]?[ \t]*[:=]"
+      sensitive_suffix_pattern = "(password|passwd|pwd|pass|secret|token|apikey|secretkey|accesskey|privatekey|clientsecret|auth|credential)$"
+    }
+    {
+      remaining = $0
+      while (length(remaining) > 0) {
+        if (!match(remaining, assignment_pattern)) break
+        assignment = substr(remaining, RSTART, RLENGTH)
+        boundary = substr(assignment, 1, 1)
+        key_name = assignment
+        if (boundary ~ /[^[:alnum:]_]/) key_name = substr(assignment, 2)
+        sub(/[\042\047]?[ \t]*[:=]$/, "", key_name)
+        normalized_key = tolower(key_name)
+        gsub(/[-_.]/, "", normalized_key)
+        if (normalized_key ~ sensitive_suffix_pattern) {
+          found = 1
+          exit
+        }
+        remaining = substr(remaining, RSTART + RLENGTH)
+      }
+    }
+    END { exit(found ? 0 : 1) }
+  '
+}
+
 fm_jev_compact_state() {
   local state max bytes
   if [ $# -ne 1 ]; then
@@ -395,7 +429,7 @@ fm_jev_compact_state() {
       while (match(tolower(buf), /aws_(secret_access_key|access_key_id)[[:space:]]*[:=][[:space:]]*[^[:space:]]+/)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
-      assignment_pattern = "(^|[^[:alnum:]_])([-[:alnum:]_.]+)[\042\047]?[[:space:]]*[:=][[:space:]]*"
+      assignment_pattern = "(^|[^[:alnum:]_])([-[:alnum:]_.]+)[\042\047]?[ \t]*[:=][ \t]*"
       sensitive_suffix_pattern = "(password|passwd|pwd|pass|secret|token|apikey|secretkey|accesskey|privatekey|clientsecret|auth|credential)$"
       search_from = 1
       while (search_from <= length(buf)) {
@@ -407,7 +441,7 @@ fm_jev_compact_state() {
         boundary = substr(assignment, 1, 1)
         key_name = assignment
         if (boundary ~ /[^[:alnum:]_]/) key_name = substr(assignment, 2)
-        sub(/[\042\047]?[[:space:]]*[:=][[:space:]]*$/, "", key_name)
+        sub(/[\042\047]?[ \t]*[:=][ \t]*$/, "", key_name)
         normalized_key = tolower(key_name)
         gsub(/[-_.]/, "", normalized_key)
         if (normalized_key !~ sensitive_suffix_pattern) {
@@ -417,7 +451,7 @@ fm_jev_compact_state() {
           if (key_start > 1 && boundary ~ /[^[:alnum:]_]/) prefix = prefix boundary
           tail = substr(buf, key_start + match_length)
           value_start = 1
-          while (substr(tail, value_start, 1) ~ /[[:space:]]/) value_start++
+          while (substr(tail, value_start, 1) ~ /[ \t]/) value_start++
           first_value_char = substr(tail, value_start, 1)
           if (first_value_char == "{" || first_value_char == "[") {
             structured_tail = substr(tail, value_start)
@@ -461,7 +495,9 @@ fm_jev_compact_state() {
             newline = index(tail, "\n")
             indicator = newline ? substr(tail, 1, newline - 1) : tail
             sub(/\r$/, "", indicator)
-            if (indicator ~ /^[ \t]*[|>][+-]?[1-9]?[+-]?[ \t]*(#[^\n]*)?$/) {
+            empty_indicator = indicator
+            sub(/[ \t]*#[^\n]*$/, "", empty_indicator)
+            if (empty_indicator ~ /^[ \t]*$/ || indicator ~ /^[ \t]*[|>][+-]?[1-9]?[+-]?[ \t]*(#[^\n]*)?$/) {
               block_tail = newline ? substr(tail, newline + 1) : ""
               token_start = key_start
               if (boundary ~ /[^[:alnum:]_]/) token_start++

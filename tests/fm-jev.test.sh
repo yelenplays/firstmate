@@ -579,7 +579,7 @@ JSON
 }
 
 test_privacy_guard_refuses_before_sending() {
-  local code out err big openrouter_key large_state large_question large_meaning private_key boundary_state batch_json credential configured_state yaml_state json_credential nested_secret_state
+  local code out err big openrouter_key large_state large_question large_meaning private_key boundary_state batch_json credential configured_state yaml_state json_credential nested_secret_state nested_yaml
   respond '{"answers":{"yes":{"noul":0.9}}}'
   reset_log
   big=$(head -c 4097 /dev/zero | tr '\0' a)
@@ -736,6 +736,14 @@ test_privacy_guard_refuses_before_sending() {
   assert_equals "$code" 1 "a quoted password key in JSON state is refused"
   assert_contains "$err" "secret" "the JSON state refusal names the privacy issue"
   assert_absent "$LOG/body" "a JSON password value is never sent"
+
+  nested_yaml=$'clientSecret:\n value:\n text: opaque-vendor-secret'
+  reset_log
+  run_jev code out err yes "$nested_yaml" "Done?"
+  assert_equals "$code" 1 "a sensitive YAML key is refused regardless of its nested value shape"
+  assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+    "a sensitive YAML key refusal prints one stderr line"
+  assert_absent "$LOG/body" "a sensitive YAML key never reaches TypeSafe"
 
   nested_secret_state=$'{\n  "clientSecret": {\n    "value": "opaque-vendor-secret"\n  }\n}'
   batch_json=$(jq -cn --arg state "$nested_secret_state" \

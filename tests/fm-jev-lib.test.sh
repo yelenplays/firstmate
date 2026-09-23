@@ -432,6 +432,11 @@ test_compact_state_strips_secrets_and_refuses_oversized() {
   assert_not_contains "$out" 'opaque-secret' "compact removes secrets in CRLF block scalars"
   assert_contains "$out" 'next: preserved' "compact preserves content after a CRLF block scalar"
 
+  yaml=$'before: retained\nclientSecret:\n value:\n text: opaque-vendor-secret\nnext: preserved'
+  out=$(fm_jev_compact_state "$yaml")
+  assert_equals "$out" $'before: retained\n[redacted]\nnext: preserved' \
+    "compact removes all nested lines under an empty sensitive YAML value"
+
   big=$(printf '%*s' 9000 '' | tr ' ' 'x')
   if out=$(fm_jev_compact_state "$big" 2>/dev/null); then
     fail "oversized state must be refused"

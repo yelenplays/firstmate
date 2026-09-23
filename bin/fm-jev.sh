@@ -220,6 +220,9 @@ ALL_TEXT=$(printf '%s' "$NORM" | jq -jr '[.state, (.questions[] | .id, .q, (.opt
 INPUT_BYTES=$(printf '%s' "$NORM" | jq -r '[.state, (.questions[] | .id, .q, (.opts[][]))] | map(utf8bytelength) | add')
 [ "$INPUT_BYTES" -le "$FM_JEV_CLI_INPUT_MAX" ] \
   || die "input is $INPUT_BYTES bytes, over the $FM_JEV_CLI_INPUT_MAX-byte cap; pass only the facts the judgment needs"
+if fm_jev_has_sensitive_key "$ALL_TEXT"; then
+  die "input contains a secret, credential, or personal data; refused, nothing sent"
+fi
 COMPACT=$(fm_jev_compact_state "$ALL_TEXT" 2>/dev/null) \
   || die "could not screen the input for secrets or personal data"
 [ "$COMPACT" = "$ALL_TEXT" ] \

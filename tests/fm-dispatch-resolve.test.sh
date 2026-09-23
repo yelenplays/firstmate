@@ -821,6 +821,24 @@ assert_equals 'pager' "$(jq -r '.state.task.project' <<<"$body")" \
 assert_not_contains "$(jq -r '.state.task.brief' <<<"$body")" 'opaque-vendor-secret' \
   "dispatch sanitization removes a nested value under a sensitive key"
 
+YAML_BRIEF="$TMP_ROOT/nested-secret-yaml-brief.md"
+cat > "$YAML_BRIEF" <<'MD'
+clientSecret:
+ value:
+ text: opaque-vendor-secret
+safe: retained
+MD
+reset_log
+TYPESAFE_API_KEY=$KEY FM_JEV_DISPATCH_COMPACT=0 run code out err "$YAML_BRIEF" --project pager
+expect_code 0 "$code" "dispatch with an indented YAML secret still resolves"
+body=$(cat "$LOG/body")
+assert_equals 'pager' "$(jq -r '.state.task.project' <<<"$body")" \
+  "dispatch reaches the mock transport after sanitizing YAML"
+assert_not_contains "$(jq -r '.state.task.brief' <<<"$body")" 'opaque-vendor-secret' \
+  "dispatch sanitization removes nested YAML values under a sensitive key"
+assert_contains "$(jq -r '.state.task.brief' <<<"$body")" 'safe: retained' \
+  "dispatch preserves a sibling following the sensitive YAML block"
+
 # --- shadow logs the Jev pick and does not change the profile line --------------
 reset_log
 rm -f "$HOME_DIR/state/jev-dispatch-shadow.jsonl"
