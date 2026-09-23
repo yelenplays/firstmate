@@ -1,0 +1,25 @@
+Live CLI smoke test (real bin/fm-jev.sh; isolated empty-key environment)
+
+$ (cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M36H6PCYMJYA4Q6MMN6ZRJ74/.fm-jev-live.wZeGMz && env -i PATH=<system PATH> HOME=<isolated home> FM_HOME=<isolated home> /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M36H6PCYMJYA4Q6MMN6ZRJ74/bin/fm-jev.sh --help)
+fm-jev.sh - one typed Jev judgment (TypeSafe) with one output line per question.
+  fm-jev.sh pick  "<state>" "<question>" optA optB ...   pick one option, at most 255
+  fm-jev.sh yes   "<state>" "<question>"                 yes/no with probability p of yes
+  fm-jev.sh score "<state>" "<question>" lvl1 lvl2 ...   ordered levels, at most 10
+  fm-jev.sh batch < {"state":"..","questions":[{"id":"x","type":"pick|yes|score","q":"..","opts":[..]}]}
+    Several questions on one state in one call; opts is an array of label or label=meaning strings.
+    First "=" splits label from meaning; later "=" stays in meaning; labels cannot contain "="; labels and meanings cannot contain controls.
+Flags follow the command: --json (raw response); --help prints this interface.
+Output: "pick: answer p=0.96 conf=0.94"; a batch uses its question id; escalation prints "ESCALATE conf=0.31 prior=X -> decide yourself".
+Exit: 0 answered, 2 any escalation, 1 error with a one-line reason; on 1 or 2 use your own judgment, never block.
+Input: 4096 bytes total; caller must pass only task facts, never personal data or private-vault content. Obvious secrets, email addresses and phone numbers are refused as a safety net only.
+Key: workers use the firstmate home .env (launch environments clear keys); direct calls use TYPESAFE_API_KEY env, FM_HOME/.env, then owning checkout .env.
+Security: crew workers run as the same OS user with full file access and are not sandboxed.
+exit status: 0
+
+$ (cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M36H6PCYMJYA4Q6MMN6ZRJ74/.fm-jev-live.wZeGMz && env -i PATH=<system PATH> HOME=<isolated home> FM_HOME=<isolated home> /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M36H6PCYMJYA4Q6MMN6ZRJ74/bin/fm-jev.sh yes "Review alice@example.com for this task" "Done?")
+fm-jev: input contains a secret, credential, or personal data; refused, nothing sent
+exit status: 1
+
+$ (cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M36H6PCYMJYA4Q6MMN6ZRJ74/.fm-jev-live.wZeGMz && env -i PATH=<system PATH> HOME=<isolated home> FM_HOME=<isolated home> /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M36H6PCYMJYA4Q6MMN6ZRJ74/bin/fm-jev.sh yes "task facts" "Is the change safe?")
+fm-jev: TYPESAFE_API_KEY missing; set it in the environment or the resolved .env
+exit status: 1
