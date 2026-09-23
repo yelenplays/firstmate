@@ -44,14 +44,15 @@
 # confidence floor (JEV_CONFIDENCE_FLOOR, default 0.7), candidates are ranked
 # by the Choice probabilities, or the single pick when probabilities are
 # absent or malformed. Probability keys must be offered candidate ids or
-# `none?`. Otherwise - no key, a failed call, the no-candidate
-# choice, or low confidence - the output says so and falls back to keywords.
+# `none?`; at least one candidate must have positive mass, or output uses the
+# keyword ranking. No key, a failed call, the `none?` choice, or low confidence
+# also produces a keyword ranking with a reason.
 #
 # Output (stdout), at most five candidates:
 #   jev-intake-match:
 #     ranking: jev | keyword
 #     fallback: none | off | error | low-confidence | no-match | no-candidates |
-#               backlog-error | jq-missing
+#               no-candidate-probability | backlog-error | jq-missing
 #     source-error: backlog listing failed for <open, done> (only on failure)
 #     confidence: <Jev's confidence in its pick, or empty>
 #     candidates:
@@ -462,10 +463,16 @@ if [ "$decide_code" -eq 0 ] && [ -n "$response" ]; then
       && jq -en --argjson p "$probs" --argjson offered "$offered" --arg none "$none_choice" \
         'all($p | keys[]; . as $key | ($key == $none or any($offered[]; .id == $key)))' \
         >/dev/null 2>&1; then
-      ranked=$(jq -c --argjson p "$probs" '
-        map(. + {confidence: ($p[.id] // 0)})
-        | sort_by(-.confidence)
-      ' <<<"$offered")
+      if jq -en --argjson p "$probs" --argjson offered "$offered" \
+        'any($offered[]; ($p[.id] // 0) > 0)' >/dev/null 2>&1; then
+        ranked=$(jq -c --argjson p "$probs" '
+          map(. + {confidence: ($p[.id] // 0)})
+          | sort_by(-.confidence)
+        ' <<<"$offered")
+      else
+        ranking=keyword
+        fallback=no-candidate-probability
+      fi
     else
       ranked=$(jq -c --arg choice "$choice" --arg conf "$confidence" \
         'map(select(.id == $choice) | . + {confidence: ($conf | tonumber)})' <<<"$offered")

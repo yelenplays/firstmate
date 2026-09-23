@@ -138,6 +138,22 @@ test_jev_ranking_sends_only_ids_and_titles() {
   pass "a clear Jev answer ranks by probabilities and sends only ids and titles"
 }
 
+test_no_candidate_probability_falls_back_to_keywords() {
+  local code out
+  fresh_home
+  respond wf-p0-privacy-ceiling 0.9 '{"none?":1}'
+  KEY=$TS_KEY run_match code out get our wiki plan which I had in one prompt
+  expect_code 0 "$code" "a no-candidate probability map should remain advisory"
+  assert_contains "$out" "ranking: keyword" "a candidate with no probability mass received a Jev ranking"$'\n'"$out"
+  assert_contains "$out" "fallback: no-candidate-probability" \
+    "the no-candidate probability fallback was not identified"$'\n'"$out"
+  assert_not_contains "$out" "confidence=" "the unsupported Jev ranking was printed"$'\n'"$out"
+  jq -e 'select(.ranking == "keyword" and .fallback == "no-candidate-probability" and .ranked_ids == [])' \
+    "$HOME_DIR/state/jev-intake-match.jsonl" >/dev/null \
+    || fail "the no-candidate probability result was not logged as a fallback"
+  pass "probability mass only on none? falls back to keyword ranking"
+}
+
 test_unoffered_probability_keys_use_the_single_pick_fallback() {
   local code out first
   fresh_home
@@ -387,6 +403,7 @@ test_candidate_list_is_bounded() {
 test_usage
 test_off_falls_back_to_keyword_ranking
 test_jev_ranking_sends_only_ids_and_titles
+test_no_candidate_probability_falls_back_to_keywords
 test_unoffered_probability_keys_use_the_single_pick_fallback
 test_probability_map_ranks_every_candidate_independently_of_choice_confidence
 test_candidate_id_none_does_not_collide_with_no_match_choice

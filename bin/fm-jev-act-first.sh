@@ -20,14 +20,16 @@
 #   outcome    every item of STATUS OUTCOME BACKSTOP
 #   divergence every item of RECORD DIVERGENCE
 #   execution  every task/owner/next-action row of UNFINISHED EXECUTION
+#   unread     every line of the drain's UNREAD STATUS section
 #   status     the newest line of each state/<id>.status in --status-dir whose
 #              task still has state/<id>.meta, when that line is failed: or
 #              blocked:
 #   wake       every raw wake record (epoch, seq, kind, key, payload)
 # One task in one state is one item: a blocker that appears as an open
 # decision, a status line, and a status wake is kept once, as its
-# highest-priority form. Task-level status pointers are omitted when that task
-# has a detailed decision or outcome item. Distinct open-decision keys remain
+# highest-priority form. Task-level status pointers, including coalesced path
+# lists, are omitted when that task has a detailed decision or outcome item.
+# Distinct open-decision keys remain
 # separate actions.
 # Fewer than two items makes no call: there is nothing to rank.
 #
@@ -107,6 +109,7 @@ drain_items() {
     /^OPEN DECISIONS \(/ { sec = "decision"; next }
     /^OPEN DECISIONS:/ { sec = ""; next }
     /^STATUS OUTCOME BACKSTOP \(/ { sec = "outcome"; next }
+    /^UNREAD STATUS \(/ { sec = "unread"; next }
     /^RECORD DIVERGENCE \(/ { sec = "divergence"; next }
     /^UNFINISHED EXECUTION \(/ { sec = "execution"; next }
     /^[A-Z][A-Z ]+[ (:]/ && $0 !~ /\t/ { sec = ""; next }
@@ -133,29 +136,31 @@ drain_items() {
       return "default"
     }
     function event_identity(task, s) { return task "|" event_key(s) "|" verb(s) }
+    function status_task(path) { sub(/^.*\//, "", path); sub(/\.status$/, "", path); return path }
     $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && NF >= 5 {
       p = $5
       for (i = 6; i <= NF; i++) p = p " " $i
       wake[++nw] = "wake " $3 " " $4 (p == "" ? "" : ": " p)
       wid[nw] = wake[nw]
-      if ($3 == "signal" && $4 ~ /\.status$/ && p ~ /^(signal|needs-decision):[[:space:]]+[^[:space:]]+\.status$/) {
-        pointer_path = p
-        sub(/^[^:]+:[[:space:]]*/, "", pointer_path)
-        pointer_task = pointer_path
-        sub(/^.*\//, "", pointer_task)
-        sub(/\.status$/, "", pointer_task)
-        wake_task = $4
-        sub(/^.*\//, "", wake_task)
-        sub(/\.status$/, "", wake_task)
-        if (pointer_task == wake_task) {
+      if ($3 == "signal" && $4 ~ /\.status$/ && p ~ /^(signal|needs-decision):/) {
+        pointer_paths = p
+        sub(/^[^:]+:[[:space:]]*/, "", pointer_paths)
+        pointer_count = split(pointer_paths, pointer_path_list, /[[:space:]]+/)
+        pointer_valid = pointer_count > 0
+        pointer_contains_wake = 0
+        wake_task = status_task($4)
+        for (j = 1; j <= pointer_count; j++) {
+          if (pointer_path_list[j] !~ /\.status$/) pointer_valid = 0
+          if (status_task(pointer_path_list[j]) == wake_task) pointer_contains_wake = 1
+        }
+        if (pointer_valid && pointer_contains_wake) {
           wid[nw] = event_identity(wake_task, p)
           wake_is_pointer[nw] = 1
           wake_pointer_task[nw] = wake_task
         }
-      } else if ($3 == "signal" && $4 ~ /\.status$/ && p ~ /^[a-z-]+( \[[^]]*\])?:/) {
-        t = $4
-        sub(/^.*\//, "", t)
-        sub(/\.status$/, "", t)
+      }
+      if (!wake_is_pointer[nw] && $3 == "signal" && $4 ~ /\.status$/ && p ~ /^[a-z-]+( \[[^]]*\])?:/) {
+        t = status_task($4)
         wid[nw] = event_identity(t, p)
       }
       next
@@ -186,11 +191,13 @@ drain_items() {
       next
     }
     sec == "execution" && NF == 3 { exe[++ne] = "execution " $1 " owner=" $2 " next=" $3; eid[ne] = exe[ne]; next }
+    sec == "unread" && $0 != "" { unread[++nu] = "unread status " $0; uid[nu] = "unread|" $0; next }
     END {
       for (i = 1; i <= nd; i++) print "decision\t" did[i] "\t" dec[i]
       for (i = 1; i <= no; i++) print "outcome\t" oid[i] "\t" outcome[i]
       for (i = 1; i <= nv; i++) print "divergence\t" vid[i] "\t" divergence[i]
       for (i = 1; i <= ne; i++) print "execution\t" eid[i] "\t" exe[i]
+      for (i = 1; i <= nu; i++) print "unread\t" uid[i] "\t" unread[i]
       for (i = 1; i <= nw; i++) {
         if (wake_is_pointer[i] && detailed_task[wake_pointer_task[i]]) continue
         print "wake\t" wid[i] "\t" wake[i]

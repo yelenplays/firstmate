@@ -59,7 +59,8 @@ fresh_home() {
     printf '1790000001\t8\theartbeat\tfleet\t\n'
     printf 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 8 --recovery-generation 3\n'
     printf 'UNREAD STATUS (new since last drain, not re-printed after this presentation):\n'
-    printf 'ship-a note: routine note\n'
+    printf 'ship-a note: captain requested keep the API stable\n'
+    printf 'ship-b resolved [key=pending-reply-abcdef0123456789]: pending-reply-resolved: task=ship-b pending-reply-id=abcdef0123456789 via=status\n'
     printf 'OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):\n'
     printf 'scout-b [key=pick-lib] needs-decision: pick a library for the parser\n'
     printf "OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'\n"
@@ -111,17 +112,25 @@ test_ranks_collected_items() {
     "the top pick was not first"$'\n'"$out"
   assert_contains "$out" "2. execution ship-c owner=firstmate next=implementation owner missing" \
     "the execution row was not ranked second"$'\n'"$out"
-  assert_contains "$out" "3. status ship-d failed: build broke on main (p=0.1)" \
+  assert_contains "$out" "3. unread status ship-a note: captain requested keep the API stable (p=0.1)" \
+    "the unread status item was not ranked after execution"$'\n'"$out"
+  assert_contains "$out" "4. unread status ship-b resolved [key=pending-reply-abcdef0123456789]: pending-reply-resolved: task=ship-b pending-reply-id=abcdef0123456789 via=status (p=0.05)" \
+    "the pending-reply resolution was not ranked after the unread note"$'\n'"$out"
+  assert_contains "$out" "5. status ship-d failed: build broke on main (p=0.03)" \
     "the live task's failed status tail was not offered"$'\n'"$out"
-  jq -e '.questions.first.type == "choice" and (.questions.first.criteria | length) == 5' "$LOG/body" >/dev/null \
-    || fail "the request was not one Choice over the five items"
+  jq -e '.questions.first.type == "choice" and (.questions.first.criteria | length) == 7' "$LOG/body" >/dev/null \
+    || fail "the request was not one Choice over the seven items"
   jq -e '[.questions.first.criteria[]] | any(startswith("wake signal ship-a.status: working"))' "$LOG/body" >/dev/null \
     || fail "a raw wake record was not offered"
-  jq -e '[.questions.first.criteria[]] | all(test("gone task|routine note|WAKE_ACK") | not)' "$LOG/body" >/dev/null \
-    || fail "a dead task's status, an unread note, or the ack line was offered"
+  jq -e '[.questions.first.criteria[]] | any(contains("captain requested keep the API stable"))' "$LOG/body" >/dev/null \
+    || fail "the unread status note was not sanitized and offered"
+  jq -e '[.questions.first.criteria[]] | any(contains("pending-reply-resolved: task=ship-b"))' "$LOG/body" >/dev/null \
+    || fail "the unread pending-reply resolution was not sanitized and offered"
+  jq -e '[.questions.first.criteria[]] | all(test("gone task|WAKE_ACK") | not)' "$LOG/body" >/dev/null \
+    || fail "a dead task's status or the ack line was offered"
   assert_no_grep "$TS_KEY" "$LOG/argv" "the key reached curl argv"
   assert_grep "Bearer $TS_KEY" "$LOG/header" "the key did not travel on fd 3"
-  jq -e 'select(.purpose == "act-first" and .item_count == 5 and .choice == "i1")' \
+  jq -e 'select(.purpose == "act-first" and .item_count == 7 and .choice == "i1")' \
     "$HOME_DIR/state/jev-act-first.jsonl" >/dev/null || fail "the call was not logged"
   jq -e 'select(.route == "typesafe" and .http == "200" and (.latency_ms | type) == "number")' \
     "$HOME_DIR/state/jev-act-first.jsonl" >/dev/null || fail "the call route and timing were not logged"
@@ -136,9 +145,12 @@ test_local_lists_priority_order_without_a_call() {
   [ "$(printf '%s\n' "$out" | grep -c .)" -eq 5 ] || fail "--local did not print five lines"$'\n'"$out"
   assert_contains "$out" "1. decision scout-b [key=pick-lib] needs-decision: pick a library for the parser" \
     "--local did not put the open decision first"$'\n'"$out"
-  assert_contains "$out" "3. status ship-d failed: build broke on main" \
-    "--local did not order failures after unfinished execution"$'\n'"$out"
-  assert_contains "$out" "5. wake heartbeat fleet" "--local did not end with the wakes"$'\n'"$out"
+  assert_contains "$out" "3. unread status ship-a note: captain requested keep the API stable" \
+    "--local did not include unread status after execution"$'\n'"$out"
+  assert_contains "$out" "4. unread status ship-b resolved [key=pending-reply-abcdef0123456789]: pending-reply-resolved: task=ship-b pending-reply-id=abcdef0123456789 via=status" \
+    "--local did not include the pending-reply resolution"$'\n'"$out"
+  assert_contains "$out" "5. status ship-d failed: build broke on main" \
+    "--local did not put status tails after unread status"$'\n'"$out"
   assert_not_contains "$out" "(p=" "--local printed a model probability"
   [ ! -e "$LOG/body" ] || fail "--local made a model call"
   pass "--local lists the items in priority order with no key and no call"
@@ -259,8 +271,8 @@ test_task_level_status_pointers_yield_to_detailed_items() {
   local out
   fresh_home
   {
-    printf '1790000000\t7\tsignal\ttask-a.status\tneeds-decision: task-a.status\n'
-    printf '1790000001\t8\tsignal\ttask-b.status\tsignal: task-b.status\n'
+    printf '1790000000\t7\tsignal\ttask-a.status\tneeds-decision: %s/state/task-a.status %s/state/task-b.status\n' "$HOME_DIR" "$HOME_DIR"
+    printf '1790000001\t8\tsignal\ttask-b.status\tsignal: %s/state/task-a.status %s/state/task-b.status\n' "$HOME_DIR" "$HOME_DIR"
     printf '%s\n' \
       'OPEN DECISIONS (still open):' \
       'task-a [key=release] needs-decision: choose a release target' \
