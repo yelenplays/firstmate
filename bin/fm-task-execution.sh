@@ -7,7 +7,7 @@
 #   started ID TOKEN                   (worker, from its isolated worktree)
 #   show ID | scan | notify
 #   confirmed ID                      (read-only receipt check for crew-state)
-#   retire ID --reason TEXT            (firstmate retires an unused approval)
+#   retire ID --reason TEXT            (firstmate retires an orphaned approval)
 #
 # approve is an explicit semantic attestation by firstmate that implementation
 # is authorized for this backlog item within its existing bounded intent. It
@@ -22,7 +22,7 @@
 # invalidating every old receipt;
 # spawn/relaunch and promotion call it before delivering instructions. Output
 # is the token to put in the worker's instructions. started accepts it only
-# from the recorded isolated worktree, for kind=ship, and binds the receipt
+# from the recorded isolated worktree, for kind=ship or kind=task, and binds the receipt
 # to spawn_gen. Executing this instruction proves processing of this handoff,
 # not successful implementation, activity, or progress. It is independent of
 # vendor text and works even when a harness has no semantic busy source.
@@ -77,7 +77,12 @@ scan_one() {
   record_valid "$file" || { printf '%s\tfirstmate\treconcile-corrupt-execution-record\n' "$id"; return; }
   task=$(row "$id")
   if [ "$task" = null ]; then
-    printf '%s\tfirstmate\treconcile-missing-backlog-item\n' "$id"; return
+    if [ ! -e "$STATE/$id.meta" ] && [ ! -L "$STATE/$id.meta" ]; then
+      printf '%s\tfirstmate\tbacklog item and task metadata are absent; retire %s --reason TEXT\n' "$id" "$id"
+    else
+      printf '%s\tfirstmate\treconcile-missing-backlog-item\n' "$id"
+    fi
+    return
   fi
   if [ "$(printf '%s' "$task" | jq -r .state)" = 'done' ]; then
     printf '%s\tfirstmate\treconcile-recorded-completion-before-dispatch-or-cleanup\n' "$id"; return
@@ -107,7 +112,7 @@ scan_one() {
         'state: working · source: pane'*)
           printf '%s\tworker\tfinish-authorized-research-then-handoff\n' "$id"; return ;;
       esac
-      printf '%s\tfirstmate\tapproved research is complete; promote, dispatch, or retire the implementation approval\n' "$id"; return
+      printf '%s\tfirstmate\tscout is not a confirmed active implementation owner; verify status, then promote or dispatch within approved intent\n' "$id"; return
     fi
     printf '%s\tfirstmate\timplementation owner missing; dispatch or promote within approved intent\n' "$id"; return
   fi
@@ -223,14 +228,9 @@ case "$command" in
   retire)
     [ "${1:-}" = --reason ] && [ "$#" = 2 ] && [ -n "$2" ] || fail 'retire requires --reason TEXT'
     [ -e "$file" ] || exit 0
+    [ ! -e "$STATE/$id.meta" ] && [ ! -L "$STATE/$id.meta" ] \
+      || fail 'cannot retire while task metadata exists'
     record_valid "$file" || fail 'invalid execution obligation'
-    kind=$(meta "$STATE/$id.meta" kind)
-    if [ "$kind" = scout ]; then
-      current=$(crew_state "$id" 2>/dev/null || true)
-      case "$current" in
-        'state: working · source: pane'*) fail 'cannot retire approval while the scout is live' ;;
-      esac
-    fi
     rm -f -- "$file" "$STATE/.$id.execution-notified"
     exit 0 ;;
   approve)

@@ -921,35 +921,51 @@ test_local_only_truly_unpushed_refuses() {
   pass "local-only worktree with truly unpushed work is refused (safety preserved)"
 }
 
-record_execution_obligation() { # <case-dir>
-  mkdir -p "$1/data"
-  printf '## In flight\n- [ ] task-x1 - Approved change (kind: ship)\n\n## Queued\n\n## Done\n' > "$1/data/backlog.md"
-  FM_HOME="$1" FM_STATE_OVERRIDE="$1/state" "$ROOT/bin/fm-task-execution.sh" approve task-x1 --basis captain-approved \
+record_execution_obligation() { # <case-dir> [kind]
+  local case_dir=$1 kind=${2:-ship}
+  mkdir -p "$case_dir/data"
+  printf '## In flight\n- [ ] task-x1 - Approved change (kind: %s)\n\n## Queued\n\n## Done\n' "$kind" > "$case_dir/data/backlog.md"
+  FM_HOME="$case_dir" FM_STATE_OVERRIDE="$case_dir/state" "$ROOT/bin/fm-task-execution.sh" approve task-x1 --basis captain-approved \
     || fail 'could not register fixture execution obligation'
 }
 
 test_local_only_merged_to_local_main_allows() {
-  local case_dir rc
-  case_dir=$(make_case merged-main)
-  write_meta "$case_dir" local-only ship
-  record_execution_obligation "$case_dir"
-  wt_commit "$case_dir" "merged work"
-  # Fast-forward the project's main to the worktree's HEAD commit so HEAD is
-  # reachable from main. update-ref works whether or not main is checked out,
-  # and the worktree shares the project's object db so the commit is visible.
-  local wt_head
-  wt_head=$(git -C "$case_dir/wt" rev-parse HEAD)
-  git -C "$case_dir/project" update-ref refs/heads/main "$wt_head"
+  local case_dir rc kind wt_head
+  for kind in ship scout task; do
+    case_dir=$(make_case "merged-main-$kind")
+    write_meta "$case_dir" local-only "$kind"
+    record_execution_obligation "$case_dir" "$kind"
+    if [ "$kind" = scout ]; then
+      mkdir -p "$case_dir/data/task-x1"
+      printf '# Research report\n' > "$case_dir/data/task-x1/report.md"
+    fi
+    wt_commit "$case_dir" "merged work"
+    # Fast-forward the project's main to the worktree's HEAD commit so HEAD is
+    # reachable from main. update-ref works whether or not main is checked out,
+    # and the worktree shares the project's object db so the commit is visible.
+    wt_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+    git -C "$case_dir/project" update-ref refs/heads/main "$wt_head"
+    : > "$case_dir/state/.task-x1.execution-notified"
 
-  set +e
-  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
-  rc=$?
-  set -e
+    set +e
+    if [ "$kind" = scout ]; then
+      run_teardown "$case_dir" --force > "$case_dir/stdout" 2> "$case_dir/stderr"
+    else
+      run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+    fi
+    rc=$?
+    set -e
 
-  expect_code 0 "$rc" "merged-main: teardown should succeed when work is merged into local main"
-  ! grep -q REFUSED "$case_dir/stderr" || fail "merged-main: teardown printed a REFUSED line"
-  assert_absent "$case_dir/state/task-x1.execution" 'landed ship retained execution obligation'
-  pass "local-only worktree with work merged into local main is torn down (no regression)"
+    if [ "$rc" -ne 0 ]; then
+      printf 'merged-main-%s teardown output:\n' "$kind" >&2
+      printf '%s\n' "$(<"$case_dir/stderr")" "$(<"$case_dir/stdout")" >&2
+    fi
+    expect_code 0 "$rc" "merged-main-$kind: teardown should succeed when work is merged into local main"
+    ! grep -q REFUSED "$case_dir/stderr" || fail "merged-main-$kind: teardown printed a REFUSED line"
+    assert_absent "$case_dir/state/task-x1.execution" "landed $kind retained execution obligation"
+    assert_absent "$case_dir/state/.task-x1.execution-notified" "$kind retained execution reminder marker"
+  done
+  pass "teardown retires execution obligations for ships, scouts, and tasks"
 }
 
 test_no_mistakes_origin_remote_allows() {
