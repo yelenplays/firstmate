@@ -144,6 +144,7 @@ test_measured_lanes_keep_their_existing_bounds() {
   done <<'CAPS'
 tests-portable-parallel-1 10
 tests-portable-parallel-2 10
+tests-portable-parallel-3 10
 tests-portable-serial 30
 tests-herdr 75
 macos-stock-bash 10
@@ -165,6 +166,23 @@ raise "cannot list runner lanes" unless status.success?
 actual = lanes.lines.map(&:strip).select { |l| l.match?(/\Aportable-serial-\d+of\d+\z/) }
 expected = shards.map { |s| "portable-serial-#{s}of#{shards.length}" }
 raise "CI matrix and runner disagree" unless actual.sort == expected.sort
+parallel_jobs = jobs.keys.grep(/\Atests-portable-parallel-\d+\z/).sort
+actual_parallel = lanes.lines.map(&:strip).select { |lane| lane.match?(/\Aportable-parallel-\d+\z/) }.sort
+expected_parallel = parallel_jobs.map { |job| job.sub(/\Atests-/, "") }
+raise "portable parallel jobs and runner lanes disagree" unless actual_parallel == expected_parallel
+aggregate_needs = jobs.fetch("tests-timing-aggregate").fetch("needs")
+raise "timing aggregate must wait for every portable parallel shard" unless (parallel_jobs - aggregate_needs).empty?
+parallel_jobs.each do |job|
+  index = job.sub(/\Atests-portable-parallel-/, "")
+  definition = jobs.fetch(job)
+  raise "unexpected name for #{job}" unless definition.fetch("name") == "Behavior portable parallel #{index}"
+  steps = definition.fetch("steps")
+  run_step = steps.find { |step| step["name"] == "Run portable parallel shard #{index}" }
+  raise "#{job} must run its matching portable lane" unless run_step && run_step.fetch("run").include?("--lane portable-parallel-#{index}")
+  upload_step = steps.find { |step| step["name"] == "Upload shard #{index} timing artifact" }
+  expected_artifact = "fm-test-timing-portable-parallel-#{index}"
+  raise "#{job} must upload its matching timing artifact" unless upload_step && upload_step.fetch("with").fetch("name") == expected_artifact
+end
 lint = jobs.fetch("lint").fetch("strategy")
 raise "lint failures must not cancel another partition" unless lint.fetch("fail-fast") == false
 matrix = lint.fetch("matrix")
