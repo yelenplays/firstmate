@@ -158,7 +158,9 @@ test_ack_gate_with_and_without_extra_notice() {
   pid=$(seed_fresh_watcher "$dir")
   append_wake "$dir/state" stale 'test:routine' 'stale: test:routine'
   out=$(run_triage "$dir") || fail 'routine triage failed'
-  assert_contains "$out" 'WAKE_ACKED:' 'one routine row without notices should auto-ack'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'all-routine rows must remain manual by default'
+  assert_contains "$out" 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through' 'manual acknowledgement command was not shown'
+  assert_unacked "$dir"
   kill "$pid" 2>/dev/null || true
 
   dir=$(make_case ack-with-extra-notice); install_crew_stub "$dir"; install_hold_stub "$dir"
@@ -172,7 +174,7 @@ test_ack_gate_with_and_without_extra_notice() {
   assert_not_contains "$out" 'WAKE_ACKED:' 'an extra notice must block automatic acknowledgement'
   assert_unacked "$dir"
   kill "$pid" 2>/dev/null || true
-  pass 'ack gate accepts a clean drain and blocks one with an extra notice'
+  pass 'clean routine drains remain manual; extra notices remain visible'
 }
 
 test_shape_identity_and_secondmate_fail_closed() {
@@ -231,8 +233,9 @@ test_happy_path_and_afk() {
   out=$(FM_CREW_LOG="$log" run_triage "$dir") || fail "routine triage failed"
   [ "$(wc -l < "$log" | tr -d ' ')" = 1 ] || fail 'crew state was not read exactly once'
   assert_contains "$out" 'ROUTINE (worker verifiably working' 'working task was not classified routine'
-  assert_contains "$out" 'WAKE_ACKED:' 'all-routine queue was not acknowledged'
-  [ ! -s "$dir/state/.wake-queue" ] || fail 'all-routine queue was not consumed'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'all-routine queue must remain manual by default'
+  assert_contains "$out" 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through' 'manual acknowledgement command was not shown'
+  assert_unacked "$dir"
   [ -s "$dir/state/.wake-triage.last" ] || fail 'full drain output was not retained'
   kill "$pid" 2>/dev/null || true
 
@@ -243,7 +246,7 @@ test_happy_path_and_afk() {
   out=$(run_triage "$dir") || fail "afk triage failed"
   assert_not_contains "$out" 'WAKE_ACKED:' 'away posture must disable automatic acknowledgement'
   assert_unacked "$dir"
-  pass 'all-routine rows auto-ack, except while away mode is active'
+  pass 'all-routine rows remain manual, including while away mode is active'
 }
 
 test_branch_actor_delegates_to_drain() {

@@ -41,10 +41,7 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 out="$pending"
-ack_required_count=$(grep -c '^WAKE_ACK_REQUIRED:' "$out" || true)
 cutoff=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through \([0-9][0-9]*\) --recovery-generation .*/\1/p' "$out" | tail -1)
-generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--recovery-generation \([A-Za-z0-9._-][A-Za-z0-9._-]*\).*$/\1/p' "$out" | tail -1)
-
 # Capture all rows hidden by the drain's presentation dedupe, under its queue lock.
 rows="$work/rows"
 if [ -n "$cutoff" ] && fm_lock_acquire_wait_bounded "$FM_WAKE_QUEUE_LOCK" 5; then
@@ -100,7 +97,6 @@ meta_for_stale() {
 act_file="$work/act"
 routine_file="$work/routine"
 : > "$act_file"; : > "$routine_file"
-all_routine=1
 task_count=0
 while IFS= read -r tagged; do
   [ -n "$tagged" ] || continue
@@ -110,12 +106,12 @@ while IFS= read -r tagged; do
     '!'*) id=${tagged#!}; reason='C1 row shape is not eligible' ;;
     '?'*) key=${tagged#?}; id=$(meta_for_stale "$key" 2>/dev/null || true); reason='C2 stale identity is not exact' ;;
   esac
-  [ -n "$id" ] || { printf '%s\t%s\n' '-' "$reason" >> "$act_file"; all_routine=0; continue; }
-  case "$id" in *[!A-Za-z0-9._-]*|'') printf '%s\t%s\n' '-' 'C2 invalid task identity' >> "$act_file"; all_routine=0; continue ;; esac
+  [ -n "$id" ] || { printf '%s\t%s\n' '-' "$reason" >> "$act_file"; continue; }
+  case "$id" in *[!A-Za-z0-9._-]*|'') printf '%s\t%s\n' '-' 'C2 invalid task identity' >> "$act_file"; continue ;; esac
   meta="$STATE/$id.meta"
-  [ -f "$meta" ] && [ -r "$meta" ] && [ ! -L "$meta" ] || { printf '%s\t%s\n' "$id" 'C2 metadata missing or unreadable' >> "$act_file"; all_routine=0; continue; }
+  [ -f "$meta" ] && [ -r "$meta" ] && [ ! -L "$meta" ] || { printf '%s\t%s\n' "$id" 'C2 metadata missing or unreadable' >> "$act_file"; continue; }
   kind=$(awk -F= '$1 == "kind" { count++; if (NF != 2 || $2 == "") invalid=1; value=$2 } END { if (count == 1 && !invalid) print value }' "$meta")
-  [ "$kind" = ship ] || [ "$kind" = scout ] || { printf '%s\t%s\n' "$id" 'C2 task kind is not ship/scout' >> "$act_file"; all_routine=0; continue; }
+  [ "$kind" = ship ] || [ "$kind" = scout ] || { printf '%s\t%s\n' "$id" 'C2 task kind is not ship/scout' >> "$act_file"; continue; }
   task_count=$((task_count+1))
   if [ "$LOCK_FAILED" -eq 1 ]; then reason='queue lock unavailable';
   elif [ -s "$STATE/$id.status" ] && [ -n "$(status_open_decisions "$STATE/$id.status" "$kind")" ]; then reason='C4 open decision';
@@ -151,7 +147,6 @@ while IFS= read -r tagged; do
   fi
   if [ -n "$reason" ]; then
     printf '%s\t%s\t%s\n' "$id" "$reason" "${crew:-not read}" >> "$act_file"
-    all_routine=0
   else
     printf '%s\t%s\n' "$id" "$crew" >> "$routine_file"
   fi
@@ -170,12 +165,10 @@ rendered="$work/rendered"
   printf 'FULL DRAIN OUTPUT: %s/.wake-triage.last\n' "$STATE"
   if grep -q '^wake drain: retired ' "$out"; then
     printf 'ACT NOW: drain retired malformed queue rows; review the drain output above.\n'
-    all_routine=0
   fi
   if [ "$recovered_count" -gt 0 ]; then
     printf 'RECOVERED DRAIN OUTPUT (an earlier triage was interrupted; act on all of it):\n'
     for f in "${recovered[@]}"; do cat "$f"; done
-    all_routine=0
   fi
   printf 'DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):\n'
   sed '/^WAKE_ACK_REQUIRED:/d' "$out"
@@ -204,15 +197,5 @@ out="$STATE/.wake-triage.last"
 for f in "${recovered[@]}"; do rm -f -- "$f" || exit 1; done
 
 if [ "$DRAIN_CODE" -ne 0 ]; then exit "$DRAIN_CODE"; fi
-if [ "$all_routine" -eq 1 ] && [ -s "$rows" ] && [ "$recovered_count" -eq 0 ] \
-  && [ -z "$(grep -E '^(WAKE ROWS HELD|STATUS PRESENTATION (SKIPPED|INCOMPLETE)|WAKE DRAIN SKIPPED|UNREAD STATUS|OPEN DECISIONS|STATUS OUTCOME BACKSTOP|RECORD DIVERGENCE|UNFINISHED EXECUTION: reconciliation unavailable|wake drain:|watcher:|firstmate watcher|WARNING:|●)' "$out" | grep -Ev '^WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else[.]' || true)" ] \
-  && [ "$ack_required_count" -eq 1 ] \
-  && [ -n "$cutoff" ] && [ "$cutoff" -gt 0 ] && [ -n "$generation" ] \
-  && [ ! -e "$STATE/.afk" ]; then
-  ack=$("$SCRIPT_DIR/fm-wake-drain.sh" --ack-through "$cutoff" --recovery-generation "$generation" 2>&1) || { printf '%s\n' "$ack"; exit 1; }
-  printf 'WAKE_ACKED: every row was routine; acknowledged through %s\n' "$cutoff"
-  printf '%s\n' "$ack"
-else
-  sed -n '/^WAKE_ACK_REQUIRED:/p' "$STATE/.wake-triage.last" | tail -1
-fi
+sed -n '/^WAKE_ACK_REQUIRED:/p' "$STATE/.wake-triage.last" | tail -1
 exit 0
