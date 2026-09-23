@@ -38,7 +38,9 @@ Within a home's lane the worker preempts a running reply long-poll as soon as an
 A caller that disconnects or whose caller-side wait expires before its job completes cancels it instead of abandoning it: cancelled queued work is skipped, cancelled running work is stopped, and the finalized record is cleaned up, so retries never convoy behind abandoned work.
 Linux uses the same queue and worker protocol without the Aqua-session requirement.
 A worker stops itself once its configured code root stops being a Firstmate checkout, so a worker started from a worktree cannot outlive that worktree, and `bin/fm-remote-job-reap-orphans.sh` clears any worker already left behind that way without ever touching one whose checkout still exists.
-The remote account must provide the required toolchain, the selected worker runtime, the selected session backend, and credentials that work on that host.
+The [worker header](../bin/fm-remote-job-worker.sh) owns Linux restart-supervisor ownership details.
+After updating a Linux Firstmate checkout that accumulated legacy supervisors, run `cd <remote-root> && bin/fm-remote-job-worker.sh --cleanup` over direct SSH; it preserves one healthy current worker and refuses to interrupt a live lane.
+The remote account must provide the required toolchain, the selected worker runtime, the selected session backend, and credentials that work on that host; Linux also requires the `flock` utility for supervisor ownership updates.
 The origin URL named for each project must be reachable from the remote account because projects are cloned on that host rather than copied from the primary.
 
 ## Non-interactive tool contract

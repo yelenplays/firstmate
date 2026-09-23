@@ -2589,16 +2589,48 @@ pass "a replacement registration starts with one fresh launch floor"
 HPACE_RACE="$TMP_ROOT/registration-pacing-race"; new_home "$HPACE_RACE"
 fm_test_track_procevent_home "$HPACE_RACE"
 PACE_RACE_LOG="$TMP_ROOT/registration-pacing-race.log"
+PACE_RACE_PERL_BIN="$TMP_ROOT/registration-pacing-perl-bin"
+PACE_RACE_PERL_READY="$TMP_ROOT/registration-pacing-perl-ready"
+PACE_RACE_PERL_RELEASE="$TMP_ROOT/registration-pacing-perl-release"
+PACE_RACE_REAL_PERL=$(command -v perl) || fail "this host has no perl for the pacing barrier"
+mkdir -p "$PACE_RACE_PERL_BIN"
+cat > "$PACE_RACE_PERL_BIN/perl" <<'SH'
+#!/usr/bin/env bash
+if [ -e "$FM_TEST_PACE_CLAIM" ] && [ ! -e "$FM_TEST_PACE_PERL_READY" ]; then
+  printf 'ready\n' > "$FM_TEST_PACE_PERL_READY"
+  for _ in $(seq 1 600); do
+    [ -e "$FM_TEST_PACE_PERL_RELEASE" ] && break
+    /bin/sleep 0.05
+  done
+  [ -e "$FM_TEST_PACE_PERL_RELEASE" ] || exit 125
+fi
+exec "$FM_TEST_PACE_REAL_PERL" "$@"
+SH
+chmod +x "$PACE_RACE_PERL_BIN/perl"
 pe_register "$HPACE_RACE" lavish pace-race-src -- "$FAST_SOURCE" "$PACE_RACE_LOG" >/dev/null
 FM_PROCEVENT_LAUNCH_FLOOR_SECONDS=3 pe "$HPACE_RACE" start pace-race-src >/dev/null
-FM_PROCEVENT_LAUNCH_FLOOR_SECONDS=3 \
+PATH="$PACE_RACE_PERL_BIN:$PATH" \
+  FM_TEST_PACE_PERL_READY="$PACE_RACE_PERL_READY" \
+  FM_TEST_PACE_PERL_RELEASE="$PACE_RACE_PERL_RELEASE" \
+  FM_TEST_PACE_CLAIM="$FM_PROCEVENT_CLAIM_ROOT/pace-race-src.claim" \
+  FM_TEST_PACE_REAL_PERL="$PACE_RACE_REAL_PERL" \
+  FM_PROCEVENT_LAUNCH_FLOOR_SECONDS=3 \
   pe "$HPACE_RACE" start pace-race-src > "$TMP_ROOT/registration-pacing-race.out" 2>&1 &
 PACE_RACE_PID=$!
-wait_for "$FM_PROCEVENT_CLAIM_ROOT/pace-race-src.claim" \
-  || fail "the superseded pacing fixture did not claim its registration"
-[ "$(wc -l < "$PACE_RACE_LOG" | tr -d ' ')" = 1 ] \
-  || fail "the superseded pacing fixture was not waiting on its launch floor"
+wait_for "$FM_PROCEVENT_CLAIM_ROOT/pace-race-src.claim" || {
+  : > "$PACE_RACE_PERL_RELEASE"
+  fail "the superseded pacing fixture did not claim its registration"
+}
+wait_for "$PACE_RACE_PERL_READY" || {
+  : > "$PACE_RACE_PERL_RELEASE"
+  fail "the superseded pacing fixture did not reach the launch-floor wait"
+}
+[ "$(wc -l < "$PACE_RACE_LOG" | tr -d ' ')" = 1 ] || {
+  : > "$PACE_RACE_PERL_RELEASE"
+  fail "the superseded pacing fixture was not waiting on its launch floor"
+}
 pe_register "$HPACE_RACE" lavish pace-race-src -- "$FAST_SOURCE" "$PACE_RACE_LOG" >/dev/null
+: > "$PACE_RACE_PERL_RELEASE"
 wait "$PACE_RACE_PID" || fail "the superseded paced runner failed"
 [ "$(wc -l < "$PACE_RACE_LOG" | tr -d ' ')" = 1 ] \
   || fail "the superseded paced runner invoked its stale command"

@@ -35,6 +35,23 @@ TOOLS="$TMP_ROOT/tools"
 mkdir -p "$TOOLS"
 ln -sf "$(command -v git)" "$TOOLS/git"
 ln -sf "$(command -v jq)" "$TOOLS/jq"
+if ! command -v flock >/dev/null 2>&1; then
+  cat > "$TOOLS/flock" <<'PY'
+#!/usr/bin/env python3
+import fcntl
+import sys
+
+fd = int(sys.argv[-1])
+operation = fcntl.LOCK_UN if "-u" in sys.argv else fcntl.LOCK_EX
+try:
+    fcntl.flock(fd, operation)
+except BlockingIOError:
+    raise SystemExit(1)
+PY
+  chmod +x "$TOOLS/flock"
+  PATH="$TOOLS:$PATH"
+  export PATH
+fi
 BASE_PATH="$TOOLS:/usr/bin:/bin:/usr/sbin:/sbin"
 
 # Real socket-owner holders for the Darwin birth check: jq blocked on a fifo
