@@ -141,7 +141,7 @@ const raw = readFileSync(process.env.FM_BROWSER_RAW_OUTPUT, 'utf8').trim();
 if (!raw || raw.length > 65536) process.exit(1);
 try {
   const result = JSON.parse(raw);
-  if (result.ok === true && Array.isArray(result.heals) && result.heals.length) {
+  if (Array.isArray(result.routeUpdates) && result.routeUpdates.length) {
     const file = process.env.FM_BROWSER_ROUTE_FILE;
     if (lstatSync(file).isSymbolicLink()) process.exit(1);
     const route = JSON.parse(readFileSync(file, 'utf8'));

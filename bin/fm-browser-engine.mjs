@@ -336,10 +336,10 @@ export async function executeRoute(routeInput, vars = {}, from = null, pageApi) 
   const routeUpdates = [];
   for (const step of route.steps.slice(begin)) {
     const current = await pageApi.eval(() => ({ host: location.hostname }));
-    if (current.host.toLowerCase() !== route.host) return { ok: false, error: 'START_MISMATCH', step: step.id, completed };
-    if (step.confirm === true) return { ok: false, error: 'CONFIRM_REQUIRED', step: step.id, completed };
+    if (current.host.toLowerCase() !== route.host) return { ok: false, error: 'START_MISMATCH', step: step.id, completed, heals, routeUpdates };
+    if (step.confirm === true) return { ok: false, error: 'CONFIRM_REQUIRED', step: step.id, completed, heals, routeUpdates };
     const result = await executeRouteStep(step, vars, pageApi);
-    if (!result.ok) return { ok: false, error: result.error ?? 'BROWSER_ACTION_FAILED', step: step.id, completed };
+    if (!result.ok) return { ok: false, error: result.error ?? 'BROWSER_ACTION_FAILED', step: step.id, completed, heals, routeUpdates };
     completed.push(step.id);
     if (result.healedTarget) {
       routeUpdates.push({ step: step.id, target: result.healedTarget });
