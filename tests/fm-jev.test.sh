@@ -195,6 +195,23 @@ test_yes_and_score_lines() {
   pass "fm-jev.sh: yes and score print one line each"
 }
 
+test_batch_state_json_text_remains_a_string() {
+  local code out err state batch_json
+  for state in '{"topic":"task facts"}' '["task facts"]'; do
+    batch_json=$(jq -cn --arg state "$state" \
+      '{state:$state,questions:[{id:"state-json",type:"yes",q:"Is this preserved?"}]}')
+    respond '{"answers":{"state-json":{"noul":0.97}}}'
+    reset_log
+    run_jev code out err batch <<<"$batch_json"
+    assert_equals "$code" 0 "JSON-looking state text is answered as a string"
+    assert_equals "$(jq -r '.state | type' "$LOG/body")" string \
+      "object or array text remains a JSON string"
+    assert_equals "$(jq -r '.state' "$LOG/body")" "$state" \
+      "JSON-looking state text is not reparsed"
+  done
+  pass "fm-jev.sh: JSON-looking state remains a JSON string"
+}
+
 test_batch_state_preserves_trailing_newlines() {
   local code out err state batch_json expected_state
   state=$'task facts with trailing newlines\n\n'
@@ -296,6 +313,24 @@ test_escalation_exits_two() {
   assert_equals "$code" 2 "a near-even yes/no escalates"
   assert_equals "$out" "yes: ESCALATE conf=0.2 prior=yes -> decide yourself" "a yes/no escalation reports its estimate"
   pass "fm-jev.sh: low confidence escalates with exit 2"
+}
+
+test_batch_nul_values_are_refused() {
+  local code out err batch_json
+  for batch_json in \
+    '{"state":"task\u0000facts","questions":[{"id":"n","type":"yes","q":"Done?"}]}' \
+    '{"state":"task facts","questions":[{"id":"n","type":"yes","q":"Done?\u0000"}]}' \
+    '{"state":"task facts","questions":[{"id":"n","type":"pick","q":"Choose?","opts":["A\u0000=first","B"]}]}' \
+    '{"state":"task facts","questions":[{"id":"n\u0000","type":"yes","q":"Done?"}]}'; do
+    reset_log
+    run_jev code out err batch <<<"$batch_json"
+    assert_equals "$code" 1 "NUL in any batch text field is refused"
+    assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
+      "NUL refusal prints exactly one stderr line"
+    assert_equals "$out" "" "NUL refusal produces no answer"
+    assert_absent "$LOG/body" "NUL input is never sent"
+  done
+  pass "fm-jev.sh: NUL in state, questions, options, and IDs is refused"
 }
 
 test_tied_top_probabilities_escalate() {
@@ -616,7 +651,7 @@ test_privacy_guard_refuses_before_sending() {
     "an ordinary URL is sent unchanged"
 
   reset_log
-  run_jev code out err yes "task summary" "Contact alice@example.com?"
+  run_jev code out err yes "task summary" "Contact alice@example.com."
   assert_equals "$code" 1 "an email address in question text is refused"
   assert_contains "$err" "personal data" "the email refusal identifies the privacy category"
   assert_absent "$LOG/body" "an email address in question text is never sent"
@@ -628,7 +663,13 @@ test_privacy_guard_refuses_before_sending() {
   assert_contains "$err" "personal data" "the phone refusal identifies the privacy category"
   assert_absent "$LOG/body" "a grouped phone number in option text is never sent"
 
-  for safe_state in "Version 1.2.3" "Date 2025-03-08" "Timestamp 2025-03-08T14:32:10Z" "Count 123456789"; do
+  reset_log
+  run_jev code out err yes "task summary" "Call 212 555 0199?"
+  assert_equals "$code" 1 "a phone number grouped with spaces in question text is refused"
+  assert_contains "$err" "personal data" "the spaced phone refusal identifies the privacy category"
+  assert_absent "$LOG/body" "a space-grouped phone number is never sent"
+
+  for safe_state in "Version 1.2.3" "Date 2025-03-08" "Date 2025 03 08" "Timestamp 2025-03-08T14:32:10Z" "Count 123456789"; do
     reset_log
     run_jev code out err yes "$safe_state" "Is this accepted?"
     assert_equals "$code" 0 "non-phone numeric text is accepted: $safe_state"
@@ -917,10 +958,12 @@ test_cli_forces_typesafe_route
 test_cli_pins_typesafe_endpoint
 test_yes_and_score_lines
 test_batch_one_call_many_lines
+test_batch_state_json_text_remains_a_string
 test_batch_state_preserves_trailing_newlines
 test_option_limits_refuse_before_sending
 test_escalation_exits_two
 test_tied_top_probabilities_escalate
+test_batch_nul_values_are_refused
 test_split_score_distribution_escalates_by_design
 test_json_prints_raw_response
 test_errors_exit_one_with_one_line

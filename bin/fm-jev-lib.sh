@@ -30,10 +30,11 @@
 # child environment. Nothing prints, logs, or writes the key.
 #
 # Public helpers:
-#   fm_jev_decide <state> <questions-json>
-#     POST {model, state, questions}. <state> is a JSON object or array when
-#     the argument parses as one, otherwise a string; <questions-json> is a
-#     JSON object. Prints the full JSON response on stdout. Non-zero on
+#   fm_jev_decide <state> <questions-json> [--string]
+#     POST {model, state, questions}. By default, <state> is a JSON object or
+#     array when the argument parses as one, otherwise a string; --string
+#     forces a JSON string. <questions-json> is a JSON object. Prints the full
+#     JSON response on stdout. Non-zero on
 #     hard failure: 2 for usage/config (missing args, missing key, missing
 #     jq/curl, questions not a JSON object), 1 for transport or a non-JSON /
 #     non-200 response. Sets FM_JEV_LAST_ROUTE, FM_JEV_LAST_URL,
@@ -216,19 +217,27 @@ _fm_jev_resolve_route() {
 }
 
 fm_jev_decide() {
-  local state questions request resp_file http t0 t1 timeout
+  local state questions request resp_file http t0 t1 timeout state_mode
   local _fm_jev_route _fm_jev_url _fm_jev_model _fm_jev_key
   FM_JEV_LAST_ROUTE=''
   FM_JEV_LAST_URL=''
   FM_JEV_LAST_MODEL=''
   FM_JEV_LAST_HTTP=''
   FM_JEV_LAST_LATENCY_MS=''
-  if [ $# -ne 2 ]; then
-    _fm_jev_err "usage: fm_jev_decide <state> <questions-json>"
+  if [ $# -lt 2 ] || [ $# -gt 3 ]; then
+    _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string]"
     return 2
   fi
   state=$1
   questions=$2
+  state_mode=auto
+  if [ $# -eq 3 ]; then
+    if [ "$3" != --string ]; then
+      _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string]"
+      return 2
+    fi
+    state_mode=string
+  fi
   command -v jq >/dev/null 2>&1 || { _fm_jev_err "jq required"; return 2; }
   command -v curl >/dev/null 2>&1 || { _fm_jev_err "curl not installed"; return 2; }
   printf '%s' "$questions" | jq -e 'type == "object"' >/dev/null 2>&1 || {
@@ -242,7 +251,7 @@ fm_jev_decide() {
   FM_JEV_LAST_URL=$_fm_jev_url
   # shellcheck disable=SC2034 # Output globals, read by the sourcing caller.
   FM_JEV_LAST_MODEL=$_fm_jev_model
-  if printf '%s' "$state" | jq -e 'type == "object" or type == "array"' >/dev/null 2>&1; then
+  if [ "$state_mode" = auto ] && printf '%s' "$state" | jq -e 'type == "object" or type == "array"' >/dev/null 2>&1; then
     request=$(jq -n --arg model "$_fm_jev_model" --argjson state "$state" --argjson questions "$questions" \
       '{model: $model, state: $state, questions: $questions}') || {
       _fm_jev_err "could not build request"
@@ -356,12 +365,12 @@ fm_jev_compact_state() {
       while (match(buf, credential_uri_pattern)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
-      email_pattern = "(^|[^[:alnum:]_.%+-])[[:alnum:]_%+.-]+@[[:alnum:]][[:alnum:].-]*[.][[:alpha:]][[:alpha:]]+([^[:alnum:]_.-]|$)"
+      email_pattern = "(^|[^[:alnum:]_.%+-])[[:alnum:]_%+.-]+@[[:alnum:]][[:alnum:].-]*[.][[:alpha:]][[:alpha:]]+([^[:alnum:]_-]|$)"
       while (match(buf, email_pattern)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
-      phone_pattern = "(^|[^[:alnum:]])([+][0-9][0-9() ./-]*[0-9]|[0-9][0-9() ./-]*[-./()][0-9() ./-]*[0-9])([^[:alnum:]]|$)"
-      date_pattern = "^([0-9][0-9][0-9][0-9][-/.][0-9][0-9]?[-/.][0-9][0-9]?|[0-9][0-9]?[-/.][0-9][0-9]?[-/.][0-9][0-9][0-9][0-9])([ Tt][0-9][0-9](:[0-9][0-9](:[0-9][0-9]([.][0-9]+)?)?)?([Zz]|[+-][0-9][0-9]:?[0-9][0-9])?)?$"
+      phone_pattern = "(^|[^[:alnum:]])([+][0-9][0-9() ./-]*[0-9]|[0-9][0-9() ./-]*[-./() ][0-9() ./-]*[0-9])([^[:alnum:]]|$)"
+      date_pattern = "^([0-9][0-9][0-9][0-9][./ -][0-9][0-9]?[./ -][0-9][0-9]?|[0-9][0-9]?[./ -][0-9][0-9]?[./ -][0-9][0-9][0-9][0-9])([ Tt][0-9][0-9](:[0-9][0-9](:[0-9][0-9]([.][0-9]+)?)?)?([Zz]|[+-][0-9][0-9]:?[0-9][0-9])?)?$"
       search_from = 1
       while (search_from <= length(buf)) {
         tail = substr(buf, search_from)

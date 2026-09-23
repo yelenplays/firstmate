@@ -137,6 +137,24 @@ test_typesafe_only_uses_typesafe_url() {
   pass "with only TYPESAFE_API_KEY, decide uses the TypeSafe URL and bearer header"
 }
 
+test_auto_state_detection_remains_for_library_callers() {
+  local code out err saved_state state expected_type
+  saved_state=$STATE
+  for state in '{"topic":"task facts"}' '["task facts"]'; do
+    case "$state" in
+      \{*) expected_type=object ;;
+      *) expected_type=array ;;
+    esac
+    STATE=$state
+    TYPESAFE_API_KEY=$TS_KEY run_decide code out err
+    expect_code 0 "$code" "the default library mode accepts structured JSON state"
+    assert_equals "$(jq -r '.state | type' "$LOG/body")" "$expected_type" \
+      "two-argument callers retain structured state detection"
+  done
+  STATE=$saved_state
+  pass "fm_jev_decide keeps auto-detection for existing callers"
+}
+
 test_typesafe_wins_when_both_keys_present() {
   local code out err argv
   unset JEV_ROUTE
@@ -430,6 +448,7 @@ test_default_log_path() {
 test_cli_is_not_a_user_command
 test_openrouter_only_uses_openrouter_url_and_bearer
 test_typesafe_only_uses_typesafe_url
+test_auto_state_detection_remains_for_library_callers
 test_typesafe_wins_when_both_keys_present
 test_jev_route_openrouter_overrides_typesafe_key
 test_jev_model_override

@@ -171,15 +171,18 @@ esac
 NORM=$(printf '%s' "$SPEC" | jq -c '
   def fail(m): error(m);
   def has_control: ([explode[] | select(. < 32 or (. >= 127 and . <= 159))] | length > 0);
+  def has_nul: ([explode[] | select(. == 0)] | length > 0);
   if type != "object" then fail("input must be a JSON object") else . end
-  | if (.state | type) != "string" or .state == "" then fail("state must be a non-empty string") else . end
+  | if (.state | type) != "string" or .state == "" then fail("state must be a non-empty string")
+    elif (.state | has_nul) then fail("state must not contain NUL") else . end
   | if (.questions | type) != "array" or (.questions | length) == 0 then fail("questions must be a non-empty array") else . end
   | .questions |= [ to_entries[] | .key as $i | .value
       | if type != "object" then fail("question \($i + 1) must be an object") else . end
       | .id = (if has("id") then .id else "q\($i + 1)" end)
       | if (.id | type) != "string" or (.id | has_control) or (.id | test("^[A-Za-z0-9_-]{1,64}$") | not)
         then fail("question \($i + 1) id must match [A-Za-z0-9_-]{1,64}") else . end
-      | if (.q | type) != "string" or .q == "" then fail("question \($i + 1): q must be a non-empty string") else . end
+      | if (.q | type) != "string" or .q == "" then fail("question \($i + 1): q must be a non-empty string")
+        elif (.q | has_nul) then fail("question \($i + 1): q must not contain NUL") else . end
       | if (.type | IN("pick", "yes", "score") | not) then fail("question \($i + 1): type must be pick, yes, or score") else . end
       | if .type == "yes" then .opts = []
         else
@@ -270,7 +273,7 @@ OUT_FILE=$(mktemp) || die "mktemp failed"
 ERR_FILE=$(mktemp) || { rm -f "$OUT_FILE"; die "mktemp failed"; }
 trap 'rm -f "$OUT_FILE" "$ERR_FILE"' EXIT
 if ! TYPESAFE_API_KEY="$JEV_KEY" JEV_ROUTE=typesafe JEV_URL="$FM_JEV_CLI_URL" \
-  fm_jev_decide "$STATE_TEXT" "$QUESTIONS" >"$OUT_FILE" 2>"$ERR_FILE"; then
+  fm_jev_decide "$STATE_TEXT" "$QUESTIONS" --string >"$OUT_FILE" 2>"$ERR_FILE"; then
   log_call 1
   reason=$(sed -e 's/^jev: //' "$ERR_FILE" | head -n 1)
   die "${reason:-Jev call failed} -> decide yourself"
