@@ -1,0 +1,5 @@
+exit=2
+stdout:
+stderr:
+dispatch-resolve: off (TYPESAFE_API_KEY and OPENROUTER_API_KEY absent from the environment and /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M362EMXYBY0D09WA5XSPN193/.env)
+output-jsonl-bytes=0

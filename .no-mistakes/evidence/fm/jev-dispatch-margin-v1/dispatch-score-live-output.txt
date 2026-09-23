@@ -1,0 +1,8 @@
+replay-score: rows=4 labeled=4 skipped=0
+  gate: confidence>=0.6 ambiguous=3 pass=1 wrong=0
+  gate: margin>=0.3 ambiguous=2 pass=2 wrong=0
+  gate: margin>=0.5 ambiguous=3 pass=1 wrong=0
+  row: clear-correct first=rule_1 top=rule_1 second=rule_2 margin=0.6 confidence=0.51 expected=rule_1 margin-gate@0.3=pass margin-gate@0.5=pass verdict@0.3=ok verdict@0.5=ok
+  row: threshold-split first=rule_1 top=rule_1 second=rule_2 margin=0.4 confidence=0.55 expected=rule_1 margin-gate@0.3=pass margin-gate@0.5=ambiguous verdict@0.3=ok verdict@0.5=-
+  row: nonleader-pick first=rule_2 top=rule_1 second=rule_2 margin=0.81 confidence=0.99 expected=rule_2 margin-gate@0.3=ambiguous margin-gate@0.5=ambiguous verdict@0.3=- verdict@0.5=-
+  row: narrow-margin first=rule_1 top=rule_1 second=rule_2 margin=0.15 confidence=0.30 expected=rule_1 margin-gate@0.3=ambiguous margin-gate@0.5=ambiguous verdict@0.3=- verdict@0.5=-
