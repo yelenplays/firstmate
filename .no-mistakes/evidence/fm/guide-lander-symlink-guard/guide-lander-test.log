@@ -1,0 +1,4 @@
+ok - pending lists every lane, skips filed and no-guide drafts, and flags bad headers
+ok - a symlinked task directory or draft is skipped by pending and refused by mark-filed
+ok - an unconfigured home lists nothing
+ok - mark-filed writes one receipt, keeps it on repeat, and refuses bad input
