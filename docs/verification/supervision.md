@@ -559,7 +559,7 @@ tests/fm-turnend-guard.test.sh
 
 ## Claude primary Remote Control
 
-A Claude primary launched through `bin/fm-claude-primary.sh` with `config/claude-remote-control` set to `on <name>` was verified on 2026-09-24 with Claude Code 2.1.282 on macOS arm64 and tmux 3.7c, in a throwaway firstmate home on a private tmux socket, signed in to a claude.ai Pro account.
+A Claude primary launched through `bin/fm-claude-primary.sh` with `config/claude-remote-control` set to `on` was verified on 2026-09-24 with Claude Code 2.1.282 on macOS arm64 and tmux 3.7c, in a throwaway firstmate home on a private tmux socket, signed in to a claude.ai Pro account.
 The guard runs the model at low effort on Haiku by default (`FM_CLAUDE_LIVE_MODEL` overrides it), because none of the hooks under test depend on the model.
 
 ```sh

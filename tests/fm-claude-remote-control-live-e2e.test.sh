@@ -45,7 +45,6 @@ SOCKET="fm-claude-rc-$$"
 LAB=$(mktemp -d "${TMPDIR:-/tmp}/fm-claude-rc.XXXXXX")
 LAB=$(cd "$LAB" && pwd -P)
 HOME_DIR="$LAB/home"
-RC_NAME="fm-live-rc-$$"
 # The hooks under test do not depend on the model, so keep the spend small.
 LIVE_MODEL=${FM_CLAUDE_LIVE_MODEL:-haiku}
 
@@ -70,7 +69,7 @@ git -C "$HOME_DIR" -c user.email=fmtest@example.invalid -c user.name=fmtest \
   commit -q -m "live-e2e fixture" >/dev/null 2>&1 || true
 
 mkdir -p "$HOME_DIR/state" "$HOME_DIR/data" "$HOME_DIR/config"
-printf 'on %s\n' "$RC_NAME" > "$HOME_DIR/config/claude-remote-control"
+printf 'on\n' > "$HOME_DIR/config/claude-remote-control"
 printf '# Backlog\n\n- live probe\n' > "$HOME_DIR/data/backlog.md"
 # One in-flight task so supervision is genuinely needed, plus a status line the
 # watcher must surface as a real wake.
@@ -95,11 +94,6 @@ printf 'rc=%s\n' "\$rc" >> '$GUARD_LOG'
 exit "\$rc"
 SH
 chmod +x "$HOME_DIR/bin/fm-turnend-guard.sh"
-
-"$HOME_DIR/bin/fm-claude-primary.sh" --print --dangerously-skip-permissions > "$LAB/argv" \
-  || harness_fail "the launcher refused the fixture config"
-[ "$(sed -n '2,3p' "$LAB/argv" | tr '\n' ' ')" = "--remote-control $RC_NAME " ] \
-  || harness_fail "the launcher did not resolve Remote Control: $(tr '\n' ' ' < "$LAB/argv")"
 
 "$REAL_TMUX" -L "$SOCKET" new-session -d -s primary -x 220 -y 60 -c "$HOME_DIR" \
   "env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_CHILD_SESSION -u CLAUDE_PROJECT_DIR -u FM_TASK_ID \
@@ -162,8 +156,8 @@ done
 PANE_PID=$("$REAL_TMUX" -L "$SOCKET" display-message -p -t primary '#{pane_pid}' 2>/dev/null)
 CLAUDE_ARGS=$(ps -o args= -p "$PANE_PID" 2>/dev/null)
 case "$CLAUDE_ARGS" in
-  *"--remote-control $RC_NAME"*) ;;
-  *) harness_fail "the pane process was not launched with --remote-control $RC_NAME: $CLAUDE_ARGS" ;;
+  *"--remote-control firstmate"*) ;;
+  *) harness_fail "the pane process was not launched with --remote-control firstmate: $CLAUDE_ARGS" ;;
 esac
 wait_for_pane 'remote-control is active|claude\.ai/code/session_' 120 "the Remote Control bridge"
 pass "claude primary: the launcher started claude with --remote-control and the bridge came up"

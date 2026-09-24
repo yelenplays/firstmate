@@ -2,13 +2,10 @@
 # Launch (or relaunch) the Claude Code PRIMARY firstmate session for this home,
 # adding Claude Code's native Remote Control when the home opts in.
 #
-# Usage: fm-claude-primary.sh [--print] [<claude arg>...]
+# Usage: fm-claude-primary.sh [<claude arg>...]
 #   <claude arg>  passed through to claude unchanged, after the Remote Control
 #                 flag, so a relaunch is the same command plus e.g. --continue
 #                 or --resume <id>.
-#   --print       print the resolved argv, one word per line, instead of
-#                 launching; the only way to check the resolution without
-#                 starting a session.
 #
 # The opt-in is the local, gitignored config/claude-remote-control under the
 # effective home (FM_HOME, else this checkout). docs/configuration.md "Claude
@@ -16,7 +13,6 @@
 # the flag does and does not change. In short:
 #   absent or "off"   launch plain `claude`, exactly as `claude` typed by hand.
 #   "on"              launch `claude --remote-control firstmate`.
-#   "on <name>"       launch `claude --remote-control <name>`.
 # Anything else, or an unreadable file, refuses to launch and names the accepted
 # values: the captain chose a posture, so the launcher never guesses another one.
 #
@@ -27,7 +23,7 @@
 # the live guard that those hooks still fire with it on.
 #
 # FM_CLAUDE_BIN overrides the claude executable (tests use it).
-# Exit codes: exec's own on launch; 0 for --print; 2 for a refused config.
+# Exit codes: exec's own on launch; 2 for a refused config.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,14 +33,8 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 RC_FILE="$CONFIG/claude-remote-control"
 DEFAULT_NAME=firstmate
 
-PRINT=0
-if [ "${1:-}" = --print ]; then
-  PRINT=1
-  shift
-fi
-
 refuse() {
-  printf 'error: %s; accepted values are: off (the default when the file is absent), on, or on <name> where <name> uses only letters, digits, dot, underscore, and dash\n' "$1" >&2
+  printf 'error: %s; accepted values are: off (the default when the file is absent) or on\n' "$1" >&2
   exit 2
 }
 
@@ -60,11 +50,8 @@ if [ -e "$RC_FILE" ] || [ -L "$RC_FILE" ]; then
       [ -z "${NAME:-}" ] || refuse "$RC_FILE gives a name with off: '$LINE'"
       ;;
     on)
-      NAME=${NAME:-$DEFAULT_NAME}
-      case "$NAME" in
-        *[!A-Za-z0-9._-]*) refuse "$RC_FILE names an unsupported session name '$NAME'" ;;
-      esac
-      RC_ARGS=(--remote-control "$NAME")
+      [ -z "${NAME:-}" ] || refuse "$RC_FILE gives an unsupported value: '$LINE'"
+      RC_ARGS=(--remote-control "$DEFAULT_NAME")
       ;;
     *) refuse "$RC_FILE holds '$LINE'" ;;
   esac
@@ -72,11 +59,6 @@ fi
 
 CLAUDE_BIN="${FM_CLAUDE_BIN:-claude}"
 ARGV=("$CLAUDE_BIN" ${RC_ARGS[@]+"${RC_ARGS[@]}"} "$@")
-
-if [ "$PRINT" = 1 ]; then
-  printf '%s\n' "${ARGV[@]}"
-  exit 0
-fi
 
 cd "$FM_ROOT" || exit 1
 exec "${ARGV[@]}"

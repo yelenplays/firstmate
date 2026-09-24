@@ -59,17 +59,12 @@ expect_args "on" --remote-control firstmate --continue
 pass "on adds --remote-control with the default session name before passed-through arguments"
 
 set_config '# phone steering
-on deck-1.b_x'
-launch || fail "on <name>: launcher exited $?"
-expect_args "on <name>" --remote-control deck-1.b_x
-pass "on <name> uses the configured session name and ignores comment lines"
+on'
+launch || fail "on after a comment: launcher exited $?"
+expect_args "on after a comment" --remote-control firstmate
+pass "on ignores comment lines and uses the fixed firstmate session name"
 
-OUT=$(FM_HOME="$HOME_DIR" FM_CLAUDE_BIN="$FAKE" "$LAUNCHER" --print --resume abc) || fail "--print exited $?"
-[ "$OUT" = "$(printf '%s\n' "$FAKE" --remote-control deck-1.b_x --resume abc)" ] \
-  || fail "--print must print the resolved argv, got: $OUT"
-pass "--print shows the resolved launch without starting a session"
-
-for bad in 'yes' 'on two words' 'off name' 'on bad/name' 'ON'; do
+for bad in 'yes' 'on x' 'on two words' 'off name' 'ON'; do
   set_config "$bad"
   rm -f "$RECORD"
   RC=0
