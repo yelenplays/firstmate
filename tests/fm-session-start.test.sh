@@ -1194,6 +1194,28 @@ EOF
   pass "orphan status logs are printed once with bounded tails"
 }
 
+test_cursor_cloud_records_are_printed_only_when_present() {
+  local rec root home fakebin out
+  rec=$(new_world cursor-cloud)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+
+  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_not_contains "$out" "Cursor cloud tasks" "digest printed a cloud section with no cloud records"
+
+  printf 'provider=cursor\nagent_id=bc-1234\nagent_url=https://cursor.com/agents/bc-1234\n' \
+    > "$home/state/task-cloud.cloud"
+  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "Cursor cloud tasks" "digest did not label cloud records"
+  assert_contains "$out" "--- task-cloud ---" "digest did not print the cloud task id"
+  assert_contains "$out" "agent_url=https://cursor.com/agents/bc-1234" "digest did not print the cloud record"
+
+  pass "cursor cloud records are printed only when present"
+}
+
 # --- session-start secondmate recovery boundary -----------------------------
 
 test_session_start_relaunches_missing_pi_secondmate() {
@@ -2881,6 +2903,7 @@ test_session_start_relaunches_herdr_husk_secondmate
 test_status_tail_bounding
 test_status_tail_line_cap
 test_orphan_status_logs_are_printed
+test_cursor_cloud_records_are_printed_only_when_present
 test_endpoint_liveness_tmux
 test_endpoint_liveness_herdr
 test_composition_invokes_real_scripts

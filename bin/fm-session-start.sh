@@ -904,6 +904,17 @@ for status in "$STATE"/*.status; do
 done
 [ "$ORPHAN_STATUS_FOUND" -eq 1 ] || printf '(none)\n'
 
+# Cursor cloud pilot tasks have no local endpoint; print them only when present,
+# with no network read (bin/fm-cursor-cloud.sh status <id> reads live state).
+CLOUD_FOUND=0
+for cloud in "$STATE"/*.cloud; do
+  [ -f "$cloud" ] || continue
+  [ "$CLOUD_FOUND" -eq 1 ] || subsection "Cursor cloud tasks (state/*.cloud; live state: bin/fm-cursor-cloud.sh status <id>)"
+  CLOUD_FOUND=1
+  printf '\n--- %s ---\n' "$(basename "$cloud" .cloud)"
+  cat "$cloud"
+done
+
 subsection "AFK"
 # The away posture is the record (bin/fm-afk-contract.sh); the legacy flag
 # still marks a running daemon on the harnesses that launch one.

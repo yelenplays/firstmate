@@ -536,6 +536,21 @@ Missing `jq` is reported through the normal `MISSING: jq` install-consent flow.
 While the file remains present, no crewmate or scout spawn may proceed without an explicit resolved harness; malformed configuration must be reported and corrected rather than selected around.
 Secondmate homes inherit this file from the primary, so a secondmate's own crewmates apply the same dispatch profile behavior.
 
+## Cursor cloud pilot (.env CURSOR_API_KEY)
+
+`bin/fm-cursor-cloud.sh` is an opt-in pilot that dispatches one ship task to a Cursor cloud agent through Cursor's official Cloud Agents API, so the work keeps running while this machine sleeps.
+It is not an `fm-spawn` harness or runtime backend, and no dispatch profile or routing rule selects it; only an explicit `dispatch` call sends work there.
+The script refuses, before any request, every project that is not registered, is `local-only`, lacks a `github.com` origin, is a wiki vault, or is not a public repository, and it refuses a prompt that names this home or the wikis root.
+It reads `CURSOR_API_KEY` from the environment first, else from the home's gitignored `.env`, and never creates or stores a key; the captain creates a user key at Cursor Dashboard -> API Keys and connects the Cursor GitHub app to the target repository.
+A dry run applies the same boundary and prints the request without a key or any Cursor call.
+A dispatched task has a private `state/<id>.cloud` record instead of `state/<id>.meta`, a registered watcher check that wakes once per new pull request or terminal run outcome, and a Cursor cloud tasks section in the session-start digest; `fm-spawn` refuses its id.
+The pilot does not move the backlog item or record a merge path: firstmate notes the dispatch in the item, relays the pull request, and lands it on the captain's explicit word.
+The script header owns the subcommands, boundary checks, record fields, exit codes, and cleanup rules.
+
+```sh
+bin/fm-cursor-cloud.sh dispatch <id> <project> --prompt-file <file> --dry-run
+```
+
 ## Typed dispatch resolution (.env TYPESAFE_API_KEY)
 
 `bin/fm-dispatch-resolve.sh` resolves one concrete crewmate or scout profile from a written brief with typesafe.ai's System One model (Jev), so the rule match that firstmate otherwise reasons out in its own context becomes one short tool turn.

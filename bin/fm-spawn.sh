@@ -1417,6 +1417,11 @@ elif [ "$RELAUNCH" -eq 1 ]; then
   echo "error: spawn refused: state directory does not exist at $STATE" >&2
   exit 1
 fi
+# A Cursor cloud pilot task owns its id through its own record, never a meta.
+if [ -e "$STATE/$ID.cloud" ] || [ -L "$STATE/$ID.cloud" ]; then
+  echo "error: spawn refused: task $ID is dispatched to a Cursor cloud agent (state/$ID.cloud); bin/fm-cursor-cloud.sh owns it" >&2
+  exit 1
+fi
 # Role partition: spawning NEW work is MAIN-owned. A relaunch of an existing
 # task is legitimate branch recovery (fm-control drives it through this same
 # entrypoint), so only a fresh spawn refuses the branch actor (contract:

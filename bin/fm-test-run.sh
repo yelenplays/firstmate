@@ -403,7 +403,7 @@ family_for_basename() {
       ;;
     fm-branch-supervision.test.sh|fm-busy-adapter-wiring.test.sh|\
     fm-busy-state.test.sh|fm-classify-corr-token.test.sh|\
-    fm-claude-stop-autoarm.test.sh|fm-cursor-harness.test.sh|\
+    fm-claude-stop-autoarm.test.sh|fm-cursor-cloud.test.sh|fm-cursor-harness.test.sh|\
     fm-dispatch-resolve.test.sh|fm-dispatch-replay.test.sh|\
     fm-jev-done-verify.test.sh|fm-jev-retrieval-miss.test.sh|fm-wiki-ask.test.sh|\
     fm-extension-binding.test.sh|fm-gitignore-config.test.sh|\
@@ -729,6 +729,7 @@ tests/fm-contributions.test.sh 35676
 tests/fm-control-composer-live-e2e.test.sh 77
 tests/fm-control-relaunch.test.sh 137013
 tests/fm-control.test.sh 39524
+tests/fm-cursor-cloud.test.sh 6000
 tests/fm-cursor-harness.test.sh 30212
 tests/fm-cursor-primary-live-e2e.test.sh 72
 tests/fm-cursor-primary.test.sh 52269
