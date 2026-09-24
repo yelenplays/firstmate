@@ -1,0 +1,2 @@
+$ FM_CLAUDE_AGENTS_LIVE_E2E=1 tests/fm-claude-agents-live-e2e.test.sh
+ok - claude 2.1.282 (Claude Code): session list classified idle, busy, needs-input, idle, then fell back after the session died (unknown_missing idle_claude-agents busy_claude-agents busy_claude-needs-input)

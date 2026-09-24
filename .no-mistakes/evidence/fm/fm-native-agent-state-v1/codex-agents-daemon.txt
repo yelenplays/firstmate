@@ -1,0 +1,3 @@
+$ codex agents (PTY 24x100)
+Error: managed standalone Codex install not found at /Users/yelen/.codex/packages/standalone/current/codex
+This command requires the standalone install managed by the Codex installer, because the daemon starts and updates app-server from that fixed path.
