@@ -83,6 +83,7 @@ test_configured_brief_renders_the_privacy_ladder() {
   assert_line '# Wiki context' "$f" "configured ship brief has no wiki context"
   assert_grep "Project page: \`$WIKIS/ProjektWiki/wiki/app/app.md\`" "$f" "existing project page was not named"
   assert_grep 'digest, then its entry page, then at most 3 further pages' "$f" "read ladder missing"
+  # shellcheck disable=SC2016 # Backticks are literal Markdown.
   assert_grep 'Skip any page with `private: true`' "$f" "private-page rule missing"
   assert_grep "- OpenWiki (card open-wiki, budget normal) at \`$WIKIS/OpenWiki\`: digest \`$WIKIS/OpenWiki/digest.md\`, entry page \`$WIKIS/OpenWiki/index.md\`." "$f" \
     "cloud=ja vault did not get the full ladder"
