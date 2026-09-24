@@ -466,13 +466,13 @@ composer_state_now() {
 # empty for an idle or done Pi. Waiting grants no new authority - only the
 # classifier's own positive verdict is ever acted on.
 wait_composer_settled() {
-  local verdict elapsed=0
+  local verdict started=$SECONDS elapsed
   while :; do
     verdict=$(composer_state_now)
     [ "$verdict" = unknown ] || break
+    elapsed=$((SECONDS - started))
     awk -v e="$elapsed" -v t="$COMPOSER_WAIT" 'BEGIN{exit !(e < t)}' || break
     sleep "$POLL"
-    elapsed=$(awk -v e="$elapsed" -v p="$POLL" 'BEGIN{printf "%.3f", e + p}')
   done
   printf '%s' "$verdict"
 }
