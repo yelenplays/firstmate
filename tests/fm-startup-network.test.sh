@@ -677,6 +677,8 @@ EOF
     "the stage did not publish what the sweep recorded"
   assert_grep 'stage	network-checks' "$home/state/.startup-network.timings" \
     "the stage did not record its own bounded total"
+  assert_grep 'phase	inactive-reconcile' "$home/state/.startup-network.timings" \
+    "the stage did not time inactive-outcome reconciliation separately"
 
   report_out=$(run_stage "$home" "$root" report)
   assert_contains "$report_out" "sweep finding" "report stopped printing the sweep result"
@@ -745,8 +747,8 @@ GITHUB_TOKEN=ghp_supersecretvalue" \
   assert_grep 'unrecordable' "$home/state/.startup-network.timings" \
     "free text was silently dropped instead of being marked unrecordable"
   lines=$(grep -c . "$home/state/.startup-network.timings")
-  [ "$lines" -eq 2 ] \
-    || fail "one sweep record plus the stage total should be 2 lines, got $lines"
+  [ "$lines" -eq 3 ] \
+    || fail "the sweep, inactive-reconciliation, and stage timing records should be 3 lines, got $lines"
 
   # The step itself is still measured - only its untrustworthy label is refused,
   # so a sweep that mislabels itself still shows up as time spent.
