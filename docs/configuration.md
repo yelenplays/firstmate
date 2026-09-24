@@ -808,7 +808,7 @@ Unresolved targets and unparseable headers are listed as their own lanes for fir
 A home runs the filing as a daily batch:
 
 1. Firstmate runs `bin/fm-guide-lander.sh pending`.
-2. It dispatches one filing task per non-empty lane: the bulk lane to the dispatch rule for token-heavy page writing; the private lane only to the profile the home designates for private vault content, which is Opus at low effort. Never route private drafts to the bulk profile, SWE-2, Space Bunny, Jev, or any third-party tool. If that Opus-low profile is unavailable, leave private drafts pending rather than routing them elsewhere.
+2. It dispatches one filing task per non-empty lane: the bulk lane to SWE-2 for token-heavy page writing; the private lane only to the profile the home designates for private vault content, which is Opus at low effort. Never route private drafts to the bulk profile, SWE-2, Space Bunny, Jev, or any third-party tool. If that Opus-low profile is unavailable, leave private drafts pending rather than routing them elsewhere.
 3. Each filing task writes its drafts into the vault through that vault's clone and delivery path.
 4. After a draft lands, firstmate runs `bin/fm-guide-lander.sh mark-filed <home> <task-id> <vault-commit>`, which writes `data/<task-id>/guide.filed` so the draft is filed once.
 
