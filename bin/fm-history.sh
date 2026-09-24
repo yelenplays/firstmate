@@ -1164,6 +1164,7 @@ function closeOlderLogbooks(historyDir, exceptDate) {
     const file = path.join(daysDir, ent.name);
     const older = readJsonFile(file, 'older Logbook');
     if (older.closed !== true) {
+      normalizeLogbookRecord(older);
       older.closed = true;
       older.generated = new Date().toISOString();
       writeAtomic(file, `${JSON.stringify(older)}\n`);

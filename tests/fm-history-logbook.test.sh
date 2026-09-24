@@ -350,13 +350,17 @@ test_first_later_day_closes_the_previous_logbook() {
   path="$HOME_DIR/data/history/days/$previous.logbook.json"
   jq -n --arg date "$previous" '
     {schema:"fm-logbook.v1",date:$date,tz:"Europe/Berlin",closed:false,generated:"2026-01-01T00:00:00.000Z",
-      landed:[{id:"prior-landed",project:"sample",title:"Prior day result",kind:"ship",mode:"no-mistakes",via:"local",pr_url:null,home:"main",order:1}],
-      reports:[],decisions:[],open:{running:0,waiting_on_you:0,ids:[]}}
+      landed:[{id:"prior-landed",project:null,title:"Prior day result",kind:"ship",mode:"no-mistakes",via:"local",pr_url:null,home:"main",order:1}],
+      reports:[],decisions:[{id:"prior-repaired",project:null,title:"Prior decision",mode:"repaired",at:"2026-01-01T00:00:00Z",words:"Legacy repaired answer",digest:"legacy",home:"main",order:1}],
+      open:{running:0,waiting_on_you:0,ids:[]}}
   ' > "$path"
   chmod 600 "$path"
   run_history logbook --date "$today" >/dev/null
-  jq -e --arg date "$previous" '.date == $date and .closed == true and .landed[0].id == "prior-landed"' \
-    "$path" >/dev/null || fail "the first later local-day run did not freeze yesterday's Logbook"
+  jq -e --arg date "$previous" '
+    .date == $date and .closed == true and .landed[0].id == "prior-landed"
+    and .landed[0].project == "unclassified" and .highlight == {id:"prior-landed",by:"rule",confidence:null}
+    and (.decisions | length) == 0
+  ' "$path" >/dev/null || fail "closing a legacy Logbook did not normalize it"
   assert_contains "$(<"$HOME_DIR/data/history/days/$previous.md")" '## Logbook' 'freezing yesterday did not refresh its readable page'
   assert_present "$HOME_DIR/data/history/days/$today.logbook.json" 'the quiet current day did not write its daily JSON'
   pass 'the first later local-day run freezes yesterday and records today'
