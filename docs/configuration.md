@@ -422,6 +422,36 @@ Any other value, or an unreadable file, refuses every spawn from that home, whic
 The file is a captain-wide safety preference, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract; a secondmate's own Claude crewmates then launch on the same posture.
 The [Claude adapter reference](../.agents/skills/harness-adapters/references/harness/claude.md) records the verified shape of both launches and which once-per-machine dialog each one can meet.
 
+## Claude primary Remote Control (config/claude-remote-control)
+
+The optional local, gitignored `config/claude-remote-control` lets the captain steer a Claude Code primary from a phone or another browser through Claude Code's native Remote Control.
+It is read only by `bin/fm-claude-primary.sh`, the launcher for a Claude primary, so it changes nothing for a primary started with plain `claude` or on another harness, and nothing for crewmates, scouts, or secondmates.
+Only the first non-empty, non-comment line counts:
+
+- absent or `off` launches plain `claude`, exactly like typing it by hand.
+- `on` launches `claude --remote-control firstmate`.
+- `on <name>` launches `claude --remote-control <name>`, where `<name>` uses only letters, digits, dot, underscore, and dash; the name is the session title in the Claude app.
+
+Any other value, or an unreadable file, refuses to launch and names the accepted values.
+Arguments after the launcher pass through to `claude`, so a relaunch is the same command plus `--continue` or `--resume <id>`, and `--print` shows the resolved command without starting a session.
+The file is home-local and not inherited into secondmate homes.
+
+Remote Control keeps the session running on this machine and only bridges it to claude.ai, so the tracked Claude hooks still own session start, the Stop-hook watcher arm, and the turn-end guard; `FM_CLAUDE_REMOTE_CONTROL_LIVE_E2E=1 tests/fm-claude-remote-control-live-e2e.test.sh` is the live guard for that, and [the supervision verification record](verification/supervision.md#claude-primary-remote-control) holds its latest result.
+Anyone signed in to the same claude.ai account can then type into the primary, which may run with permission prompts bypassed, so treat that account's login as access to this machine.
+
+Firstmate never handles the claude.ai login or the phone pairing.
+The captain sets them up once:
+
+1. On the Mac, run `claude` in this checkout, use `/login` to sign in with a claude.ai Pro, Max, Team, or Enterprise account (API keys are not supported), and accept the workspace trust dialog.
+2. On Team or Enterprise, have an Owner enable Remote Control in the Claude Code admin settings.
+3. Install the Claude app on the phone and sign in to the same account; `/mobile` inside Claude Code shows a QR code for the app store.
+4. Write `on` into `config/claude-remote-control` and start the primary with `bin/fm-claude-primary.sh`, plus any flags you normally pass to `claude`.
+5. Open the session from the app's Code tab, the session URL Claude Code posts, or the QR code `/remote-control` shows, and accept Remote Control's one-time confirmation if Claude Code asks for it.
+
+Remote Control does not connect through Bedrock, Vertex, Foundry, a non-Anthropic `ANTHROPIC_BASE_URL`, or with `DISABLE_TELEMETRY`, `DO_NOT_TRACK`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, or `DISABLE_GROWTHBOOK` set; the session still starts locally and shows the failure.
+`/remote-control` inside an already-running primary turns it on for that session only, without this file.
+Claude Code's [Remote Control documentation](https://code.claude.com/docs/en/remote-control) owns the product behavior.
+
 ## Worker launch environment (config/launch-env-allowlist)
 
 The optional local, gitignored `config/launch-env-allowlist` limits the ambient environment passed to newly launched workers, scouts, and secondmates, including relaunches.

@@ -557,6 +557,33 @@ tests/fm-claude-stop-autoarm.test.sh
 tests/fm-turnend-guard.test.sh
 ```
 
+## Claude primary Remote Control
+
+A Claude primary launched through `bin/fm-claude-primary.sh` with `config/claude-remote-control` set to `on <name>` was verified on 2026-09-24 with Claude Code 2.1.282 on macOS arm64 and tmux 3.7c, in a throwaway firstmate home on a private tmux socket, signed in to a claude.ai Pro account.
+The guard runs the model at low effort on Haiku by default (`FM_CLAUDE_LIVE_MODEL` overrides it), because none of the hooks under test depend on the model.
+
+```sh
+claude --version
+FM_CLAUDE_REMOTE_CONTROL_LIVE_E2E=1 tests/fm-claude-remote-control-live-e2e.test.sh
+```
+
+Observed output:
+
+```text
+2.1.282 (Claude Code)
+harness: claude 2.1.282 (Claude Code)
+ok - claude primary: the launcher started claude with --remote-control and the bridge came up
+ok - claude primary: the SessionStart run tier takes the fleet lock and completes session start
+ok - claude primary: the Stop-hook auto-arm arms a watcher and rewakes the session with a real wake
+ok - claude primary: the session-start digest reaches model context under Remote Control
+ok - claude primary: the turn-end guard ran on 1 stop(s) and allowed the healthy session
+ok - Claude 2.1.282 (Claude Code) with --remote-control kept session start, the Stop-hook auto-arm, and the turn-end guard working
+```
+
+The session lock was owned by the Remote Control `claude` process itself, and Claude Code records the bridge in the session transcript as a `bridge_status` system entry reading `/remote-control is active`.
+The 2.1.282 session-start digest exceeded Claude Code's inline hook-output limit and reached the model as a preview plus a saved file, so the guard proves model context through the lock line, which sits in the preview.
+The same build's workspace-trust dialog preselected `No, exit` for a fresh non-home folder, so the guard selects the trusting option explicitly.
+
 ## Wedge-alarm channels
 
 The two real notification channels were bounded manually on 2026-07-10 on macOS 26.5.2 with Herdr 0.7.3.
