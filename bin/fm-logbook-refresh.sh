@@ -4,6 +4,9 @@
 # Called after a task lands or a captain decision is recorded. Both operations
 # have hard time bounds and never affect the caller's success. The optional
 # $FM_HOME/config/deck-path contains one absolute path to a Deck checkout.
+# When the optional one-line $FM_HOME/config/deck-launchd-label names the Deck's
+# launchd job, request a refresh with its environment and publish settings.
+# The direct hook receives FM_DECK_ROOT and FM_DECK_FIRSTMATE_ROOT (this home).
 #
 # Environment: FM_HOME, FM_DATA_OVERRIDE, FM_STATE_OVERRIDE, FM_CONFIG_OVERRIDE,
 # FM_ROOT_OVERRIDE, FM_LOGBOOK_TIMEOUT, FM_DECK_REFRESH_TIMEOUT.
@@ -44,7 +47,28 @@ case "$deck_path" in /*) ;; *) exit 0 ;; esac
 IFS= read -r extra_line < <(tail -n +2 "$config_file") || true
 [ -z "${extra_line:-}" ] || exit 0
 [ -d "$deck_path" ] && [ ! -L "$deck_path" ] || exit 0
+
+label_file="$CONFIG_DIR/deck-launchd-label"
+if [ -f "$label_file" ] && [ ! -L "$label_file" ] && command -v launchctl >/dev/null 2>&1; then
+  IFS= read -r label < "$label_file" || [ -n "${label:-}" ] || label=
+  extra_label_line=
+  if IFS= read -r extra_label_line < <(tail -n +2 "$label_file") || [ -n "$extra_label_line" ]; then
+    label=
+  fi
+  case "${label:-}" in
+    ''|*[!A-Za-z0-9._-]*) ;;
+    *)
+      if fm_run_timed "$DECK_REFRESH_TIMEOUT" launchctl kickstart "gui/$(id -u)/$label" \
+        >/dev/null 2>&1; then
+        # If the job is already running, its 30-minute timer is the backstop.
+        exit 0
+      fi
+      ;;
+  esac
+fi
+
 refresh="$deck_path/deploy/refresh.sh"
 [ -f "$refresh" ] && [ -x "$refresh" ] && [ ! -L "$refresh" ] || exit 0
-fm_run_timed "$DECK_REFRESH_TIMEOUT" "$refresh" work-landed >/dev/null 2>&1 || true
+FM_DECK_ROOT="$deck_path" FM_DECK_FIRSTMATE_ROOT="$FM_HOME" \
+  fm_run_timed "$DECK_REFRESH_TIMEOUT" "$refresh" work-landed >/dev/null 2>&1 || true
 exit 0

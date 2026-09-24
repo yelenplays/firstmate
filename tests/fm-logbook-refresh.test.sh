@@ -42,7 +42,8 @@ test_generates_logbook_and_calls_configured_deck() {
   cat > "$DECK_DIR/deploy/refresh.sh" <<'EOF'
 #!/usr/bin/env bash
 [ "$1" = work-landed ] || exit 9
-printf '%s\n' "$1" >> "$FM_TEST_REFRESH_LOG"
+[ -n "${FM_DECK_FIRSTMATE_ROOT:-}" ] || exit 2
+printf '%s %s %s\n' "$1" "$FM_DECK_FIRSTMATE_ROOT" "$FM_DECK_ROOT" >> "$FM_TEST_REFRESH_LOG"
 EOF
   chmod +x "$DECK_DIR/deploy/refresh.sh"
   printf '%s\n' "$DECK_DIR" > "$HOME_DIR/config/deck-path"
@@ -50,8 +51,8 @@ EOF
     || fail 'best-effort helper returned failure'
   [ -f "$HOME_DIR/data/history/days/$TODAY.logbook.json" ] \
     || fail "helper did not generate today's Logbook"
-  [ "$(<"$TMP_ROOT/refresh.log")" = work-landed ] \
-    || fail 'configured Deck refresh hook did not run with work-landed'
+  [ "$(cat "$TMP_ROOT/refresh.log" 2>/dev/null)" = "work-landed $HOME_DIR $DECK_DIR" ] \
+    || fail 'configured Deck refresh hook did not run with work-landed and its roots'
   pass 'generation precedes a configured Deck refresh hook'
 }
 
@@ -77,6 +78,51 @@ EOF
   pass 'Deck refresh failure does not fail the caller'
 }
 
+test_kickstarts_configured_launchd_job() {
+  fresh_home
+  mkdir -p "$DECK_DIR/deploy" "$TMP_ROOT/bin"
+  cat > "$DECK_DIR/deploy/refresh.sh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s %s %s\n' "$1" "$FM_DECK_FIRSTMATE_ROOT" "$FM_DECK_ROOT" >> "$FM_TEST_REFRESH_LOG"
+EOF
+  chmod +x "$DECK_DIR/deploy/refresh.sh"
+  cat > "$TMP_ROOT/bin/launchctl" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$FM_TEST_LAUNCHCTL_LOG"
+exit "${FM_TEST_LAUNCHCTL_STATUS:-0}"
+EOF
+  chmod +x "$TMP_ROOT/bin/launchctl"
+  printf '%s\n' "$DECK_DIR" > "$HOME_DIR/config/deck-path"
+  printf '%s\n' example.fm-deck > "$HOME_DIR/config/deck-launchd-label"
+  PATH="$TMP_ROOT/bin:$PATH" FM_TEST_LAUNCHCTL_LOG="$TMP_ROOT/launchctl.log" \
+    FM_TEST_REFRESH_LOG="$TMP_ROOT/refresh.log" run_refresh \
+    || fail 'kickstart path returned failure'
+  [ "$(cat "$TMP_ROOT/launchctl.log" 2>/dev/null)" = "kickstart gui/$(id -u)/example.fm-deck" ] \
+    || fail 'configured Deck launchd job was not kickstarted'
+  [ ! -e "$TMP_ROOT/refresh.log" ] \
+    || fail 'successful kickstart also started a concurrent direct refresh'
+
+  FM_TEST_LAUNCHCTL_STATUS=9 PATH="$TMP_ROOT/bin:$PATH" \
+    FM_TEST_LAUNCHCTL_LOG="$TMP_ROOT/launchctl.log" \
+    FM_TEST_REFRESH_LOG="$TMP_ROOT/refresh.log" run_refresh \
+    || fail 'failed-kickstart fallback returned failure'
+  [ "$(cat "$TMP_ROOT/refresh.log" 2>/dev/null)" = "work-landed $HOME_DIR $DECK_DIR" ] \
+    || fail 'failed kickstart did not fall back to direct refresh'
+
+  : > "$TMP_ROOT/launchctl.log"
+  : > "$TMP_ROOT/refresh.log"
+  printf '%s\n%s\n' example.fm-deck other.fm-deck > "$HOME_DIR/config/deck-launchd-label"
+  PATH="$TMP_ROOT/bin:$PATH" FM_TEST_LAUNCHCTL_LOG="$TMP_ROOT/launchctl.log" \
+    FM_TEST_REFRESH_LOG="$TMP_ROOT/refresh.log" run_refresh \
+    || fail 'multi-line-label fallback returned failure'
+  [ ! -s "$TMP_ROOT/launchctl.log" ] \
+    || fail 'multi-line label kickstarted a job'
+  [ "$(cat "$TMP_ROOT/refresh.log" 2>/dev/null)" = "work-landed $HOME_DIR $DECK_DIR" ] \
+    || fail 'multi-line label did not fall back to direct refresh'
+  pass 'successful kickstart avoids direct refresh; invalid labels fall back'
+}
+
 test_generates_logbook_and_calls_configured_deck
+test_kickstarts_configured_launchd_job
 test_missing_deck_configuration_is_silent
 test_deck_failure_is_best_effort
