@@ -81,34 +81,34 @@ fake_response() {  # <home> <METHOD path> <json> [code]
   local file
   file="$1/cursor/$(printf '%s' "$2" | tr ' /' '__')"
   printf '%s' "$3" > "$file.json"
-  [ -z "${4:-}" ] || printf '%s' "$4" > "$file.code"
+  if [ -n "${4:-}" ]; then printf '%s' "$4" > "$file.code"; else rm -f "$file.code"; fi
 }
 
 test_boundary_refusals() {
   local home estate_root
   home=$(make_home unregistered '- other [no-mistakes] - x (added 2026-09-24)')
-  run_cloud "$home" eligible demo
+  run_cloud "$home" dispatch elig demo --prompt-file "$home/prompt.txt" --dry-run
   expect_code 3 "$RC" "unregistered project"
   assert_contains "$ERR" "not registered" "unregistered refusal reason"
 
   home=$(make_home localonly '- demo [local-only +yolo] - x (added 2026-09-24)')
-  run_cloud "$home" eligible demo
+  run_cloud "$home" dispatch elig demo --prompt-file "$home/prompt.txt" --dry-run
   expect_code 3 "$RC" "local-only project"
   assert_contains "$ERR" "local-only" "local-only refusal reason"
 
   home=$(make_home gitlab "$row_ok" https://gitlab.com/octo/demo.git)
-  run_cloud "$home" eligible demo
+  run_cloud "$home" dispatch elig demo --prompt-file "$home/prompt.txt" --dry-run
   expect_code 3 "$RC" "non-github origin"
   assert_contains "$ERR" "not a github.com repository" "non-github refusal reason"
 
   home=$(make_home lookalike "$row_ok" https://github.com.evil.example/octo/demo.git)
-  run_cloud "$home" eligible demo
+  run_cloud "$home" dispatch elig demo --prompt-file "$home/prompt.txt" --dry-run
   expect_code 3 "$RC" "github lookalike host"
 
   home=$(make_home scaffold "$row_ok")
   mkdir -p "$home/projects/demo/_meta"
   : > "$home/projects/demo/_meta/pruefe.sh"
-  run_cloud "$home" eligible demo
+  run_cloud "$home" dispatch elig demo --prompt-file "$home/prompt.txt" --dry-run
   expect_code 3 "$RC" "vault scaffold"
   assert_contains "$ERR" "wiki vault" "vault scaffold refusal reason"
 
@@ -117,27 +117,37 @@ test_boundary_refusals() {
   mkdir -p "$estate_root/routing"
   printf '{"vaults":[{"wiki":"Other","repo":"Octo/Demo","path":"~/nowhere","cloud":"nein"}]}\n' \
     > "$estate_root/routing/estate.json"
-  WIKIS=$estate_root run_cloud "$home" eligible demo
+  WIKIS=$estate_root run_cloud "$home" dispatch elig demo --prompt-file "$home/prompt.txt" --dry-run
   expect_code 3 "$RC" "repo listed as a vault"
   assert_contains "$ERR" "wiki vault listed" "estate refusal reason"
 
+  home=$(make_home associated-private '- demo [no-mistakes] [wiki: PrivateWiki] - public test repo (added 2026-09-24)')
+  estate_root="$home/wikis"
+  mkdir -p "$estate_root/routing"
+  printf '{"vaults":[{"wiki":"PrivateWiki","repo":"other/private","path":"~/private","cloud":"nein"}]}\n' \
+    > "$estate_root/routing/estate.json"
+  WIKIS=$estate_root run_cloud "$home" dispatch t-private demo --prompt-file "$home/prompt.txt" --dry-run
+  expect_code 3 "$RC" "associated cloud:no wiki"
+  assert_contains "$ERR" "associated with cloud: nein vault 'PrivateWiki'" "associated private vault refusal"
+  assert_absent "$home/cursor/calls.log" "private associated vault reached Cursor API"
+
   home=$(make_home noestate "$row_ok")
   printf '%s\n' "$home/missing-wikis" > "$home/config/wikis-root"
-  run_cloud "$home" eligible demo
+  run_cloud "$home" dispatch elig demo --prompt-file "$home/prompt.txt" --dry-run
   expect_code 3 "$RC" "configured wikis root without estate"
   assert_contains "$ERR" "cannot be proven" "unreadable estate refusal reason"
 
   home=$(make_home private "$row_ok")
-  VIS=private run_cloud "$home" eligible demo
+  VIS=private run_cloud "$home" dispatch elig demo --prompt-file "$home/prompt.txt" --dry-run
   expect_code 3 "$RC" "private repository"
   assert_contains "$ERR" "not public" "private refusal reason"
-  VIS='' run_cloud "$home" eligible demo
+  VIS='' run_cloud "$home" dispatch elig demo --prompt-file "$home/prompt.txt" --dry-run
   expect_code 3 "$RC" "unreadable visibility"
 
   home=$(make_home okay "$row_ok" git@github.com:octo/demo.git)
-  run_cloud "$home" eligible demo
+  run_cloud "$home" dispatch elig demo --prompt-file "$home/prompt.txt" --dry-run
   expect_code 0 "$RC" "public github project"
-  assert_contains "$OUT" "eligible: demo https://github.com/octo/demo" "eligible output"
+  assert_contains "$OUT" '"url": "https://github.com/octo/demo"' "eligible dispatch dry-run output"
   assert_absent "$home/cursor/calls.log" "eligibility check called the Cursor API"
   pass "boundary refuses every ineligible project before any request"
 }
@@ -195,9 +205,24 @@ test_dispatch_poll_cleanup() {
     "{\"id\":\"$RUN\",\"status\":\"FINISHED\",\"result\":\"done\",\"git\":{\"branches\":[{\"repoUrl\":\"github.com/octo/demo\",\"branch\":\"cursor/x\",\"prUrl\":\"$PR\"}]}}"
   fake_response "$home" "GET v1/agents/$AGENT" "{\"id\":\"$AGENT\",\"status\":\"IDLE\",\"latestRunId\":\"$RUN\"}"
   run_cloud "$home" poll t2
-  assert_equals "cursor-cloud t2 FINISHED pr=$PR" "$OUT" "poll outcome line"
+  assert_equals "cursor-cloud t2 run=$RUN FINISHED pr=$PR" "$OUT" "poll outcome line"
   run_cloud "$home" poll t2
   assert_equals "" "$OUT" "poll repeated an outcome it already reported"
+
+  local run2=run-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+  fake_response "$home" "GET v1/agents/$AGENT" "{\"id\":\"$AGENT\",\"status\":\"IDLE\",\"latestRunId\":\"$run2\"}"
+  fake_response "$home" "GET v1/agents/$AGENT/runs/$run2" \
+    "{\"id\":\"$run2\",\"status\":\"FINISHED\",\"result\":\"done\",\"git\":{\"branches\":[{\"branch\":\"cursor/x\",\"prUrl\":\"$PR\"}]}}"
+  run_cloud "$home" poll t2
+  assert_equals "cursor-cloud t2 run=$run2 FINISHED pr=$PR" "$OUT" "new run has distinct terminal identity"
+
+  local run3=run-bbbbbbbb-cccc-dddd-eeee-ffffffffffff
+  fake_response "$home" "GET v1/agents/$AGENT" "{\"id\":\"$AGENT\",\"status\":\"ACTIVE\",\"latestRunId\":\"$run3\"}"
+  fake_response "$home" "GET v1/agents/$AGENT/runs/$run3" \
+    "{\"id\":\"$run3\",\"status\":\"RUNNING\",\"git\":{\"branches\":[{\"branch\":\"cursor/x\",\"prUrl\":\"$PR\"}]}}"
+  run_cloud "$home" poll t2
+  assert_equals "cursor-cloud t2 run=$run3 pr-opened pr=$PR" "$OUT" "new run has distinct PR-opened identity"
+  fake_response "$home" "GET v1/agents/$AGENT" "{\"id\":\"$AGENT\",\"status\":\"IDLE\",\"latestRunId\":\"$RUN\"}"
 
   run_cloud "$home" pr t2
   assert_equals "$PR" "$OUT" "pr subcommand"
@@ -228,7 +253,18 @@ test_cancel() {
   run_cloud "$home" status t3
   expect_code 4 "$RC" "rejected key"
   assert_contains "$ERR" "was rejected" "rejected key names the captain step"
-  pass "cancel posts to the active run and a rejected key stops with the captain's step"
+
+  fake_response "$home" "GET v1/agents/$AGENT" '{"status":"ACTIVE"}'
+  run_cloud "$home" status t3
+  expect_code 1 "$RC" "agent response missing latestRunId"
+  assert_contains "$ERR" "invalid-response" "malformed agent response is rejected"
+
+  fake_response "$home" "GET v1/agents/$AGENT" "{\"id\":\"$AGENT\",\"status\":\"ACTIVE\",\"latestRunId\":\"$RUN\"}"
+  fake_response "$home" "GET v1/agents/$AGENT/runs/$RUN" '{"status":"RUNNING","git":{"branches":[{"branch":4}]}}'
+  run_cloud "$home" status t3
+  expect_code 1 "$RC" "run response with wrong-typed branch"
+  assert_contains "$ERR" "invalid-response" "malformed run response is rejected"
+  pass "cancel posts to the active run and malformed reads are rejected"
 }
 
 test_spawn_refuses_cloud_id() {

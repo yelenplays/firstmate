@@ -4,9 +4,8 @@
 # work keeps running while this machine sleeps.
 #
 # Usage:
-#   fm-cursor-cloud.sh eligible <project>
 #   fm-cursor-cloud.sh dispatch <task-id> <project> --prompt-file <file>
-#                      [--ref <branch-or-sha>] [--model <model-id>] [--dry-run]
+#                      [--ref <branch-or-sha>] [--dry-run]
 #   fm-cursor-cloud.sh status <task-id>
 #   fm-cursor-cloud.sh pr <task-id>
 #   fm-cursor-cloud.sh cancel <task-id>
@@ -24,10 +23,10 @@
 #   - its clone projects/<project> is a git repository whose origin is a
 #     github.com repository;
 #   - it is no wiki vault: the clone carries no vault scaffold (_meta/pruefe.sh
-#     or _meta/einstieg.sh), and, when a wikis root is configured
-#     (bin/fm-wiki-lib.sh fm_wiki_root), no vault in its routing/estate.json names
-#     that repository, that project, or that path; a configured but unreadable
-#     estate refuses;
+#     or _meta/einstieg.sh), and no vault in its routing/estate.json names that
+#     repository, that project, or that path; registered wiki associations are
+#     resolved and any unresolved association or cloud: nein vault refuses;
+#     a configured but unreadable estate refuses;
 #   - GitHub reports the repository's visibility as public, so private projects
 #     and cloud: nein material never reach a vendor VM;
 #   - the prompt file names neither this home's path nor the wikis root, since a
@@ -95,7 +94,7 @@ need_tools() {
 # ELIGIBLE_CLONE; refuses (exit 3) on any failed check.
 check_eligible() {
   local name=$1 reg="$DATA/projects.md" mode origin slug clone real root estate
-  local configured_root=0 visibility
+  local configured_root=0 visibility names wiki row cloud
   case "$name" in
     ''|*/*|.*|-*) refuse "project name '$name' is not a registry name" ;;
   esac
@@ -144,8 +143,21 @@ check_eligible() {
       ' "$estate" >/dev/null 2>&1; then
       refuse "project '$name' is a wiki vault listed in $estate"
     fi
+    names=$(fm_wiki_registry_names "$reg" "$name")
+    if [ -n "$names" ]; then
+      while IFS= read -r wiki; do
+        [ -n "$wiki" ] || continue
+        row=$(fm_wiki_estate_row "$estate" "$wiki") || row=
+        [ -n "$row" ] || refuse "registered wiki '$wiki' for '$name' cannot be resolved in $estate"
+        IFS=$'\037' read -r _ _ _ _ _ cloud _ _ <<<"$row"
+        [ "$cloud" != nein ] || refuse "project '$name' is associated with cloud: nein vault '$wiki'"
+      done <<<"$names"
+    fi
   elif [ "$configured_root" -eq 1 ]; then
     refuse "a wikis root is configured but its routing/estate.json is unavailable, so '$name' cannot be proven not to be a vault"
+  else
+    names=$(fm_wiki_registry_names "$reg" "$name")
+    [ -z "$names" ] || refuse "project '$name' has registered wiki associations but no readable wikis estate to verify them"
   fi
 
   need_tools gh
@@ -254,17 +266,32 @@ load_record() {  # <id>
 # Reads the agent and its latest run; sets RUN_STATUS AGENT_STATUS RUN_ID
 # BRANCH PR_URL RESULT.
 read_live() {  # <id>
-  local run
+  local agent run
   api GET "/v1/agents/$REC_AGENT"
   api_ok || return 1
-  AGENT_STATUS=$(printf '%s' "$API_BODY" | jq -r '.status // empty')
-  RUN_ID=$(printf '%s' "$API_BODY" | jq -r '.latestRunId // empty')
-  [ -n "$RUN_ID" ] || RUN_ID=$REC_RUN
-  printf '%s' "$RUN_ID" | grep -Eq '^run-[A-Za-z0-9-]+$' || { API_CODE=invalid-run; return 1; }
+  agent=$API_BODY
+  if ! printf '%s' "$agent" | jq -e '
+      type == "object" and (.status | type == "string" and length > 0)
+      and (.latestRunId | type == "string" and test("^run-[A-Za-z0-9-]+$"))
+    ' >/dev/null 2>&1; then API_CODE=invalid-response; return 1; fi
+  AGENT_STATUS=$(printf '%s' "$agent" | jq -r '.status')
+  RUN_ID=$(printf '%s' "$agent" | jq -r '.latestRunId')
   api GET "/v1/agents/$REC_AGENT/runs/$RUN_ID"
   api_ok || return 1
   run=$API_BODY
-  RUN_STATUS=$(printf '%s' "$run" | jq -r '.status // empty')
+  if ! printf '%s' "$run" | jq -e '
+      type == "object" and (.status | type == "string" and length > 0)
+      and ((has("result") | not) or (.result | type == "string"))
+      and ((has("git") | not) or
+        (.git | type == "object" and
+          ((has("branches") | not) or
+            (.branches | type == "array" and all(.[];
+              type == "object" and
+              ((has("branch") | not) or (.branch | type == "string")) and
+              ((has("prUrl") | not) or (.prUrl | type == "string"))
+            )))))
+    ' >/dev/null 2>&1; then API_CODE=invalid-response; return 1; fi
+  RUN_STATUS=$(printf '%s' "$run" | jq -r '.status')
   BRANCH=$(printf '%s' "$run" | jq -r '[.git.branches[]? | .branch // empty] | first // empty')
   PR_URL=$(printf '%s' "$run" | jq -r '[.git.branches[]? | .prUrl // empty] | first // empty')
   RESULT=$(printf '%s' "$run" | jq -r '.result // empty')
@@ -290,14 +317,13 @@ Task:
 '
 
 cmd_dispatch() {
-  local id=${1-} name=${2-} prompt_file='' ref='' model='' dry=0 body text root
+  local id=${1-} name=${2-} prompt_file='' ref='' dry=0 body text root
   [ -n "$id" ] && [ -n "$name" ] || usage
   shift 2
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --prompt-file) prompt_file=${2-}; shift 2 || usage ;;
       --ref) ref=${2-}; shift 2 || usage ;;
-      --model) model=${2-}; shift 2 || usage ;;
       --dry-run) dry=1; shift ;;
       *) usage ;;
     esac
@@ -338,12 +364,11 @@ cmd_dispatch() {
   # shellcheck disable=SC2064 # expand now: the path is fixed for this process.
   trap "rm -f -- '$body'" EXIT
   jq -n --arg text "$text" --arg url "$ELIGIBLE_REPO_URL" --arg ref "$ref" \
-    --arg name "fm $id" --arg model "$model" '
+    --arg name "fm $id" '
     {prompt: {text: $text},
      repos: [{url: $url, startingRef: $ref}],
      name: $name,
-     autoCreatePR: true}
-    + (if $model == "" then {} else {model: {id: $model}} end)' > "$body" \
+     autoCreatePR: true}' > "$body" \
     || die "could not build the request"
 
   if [ "$dry" -eq 1 ]; then
@@ -455,9 +480,9 @@ cmd_poll() {
   elif ! read_live "$id"; then
     line="cursor-cloud $id poll-error http-$API_CODE"
   elif run_terminal "$RUN_STATUS"; then
-    line="cursor-cloud $id $RUN_STATUS${PR_URL:+ pr=$PR_URL}"
+    line="cursor-cloud $id run=$RUN_ID $RUN_STATUS${PR_URL:+ pr=$PR_URL}"
   elif [ -n "$PR_URL" ]; then
-    line="cursor-cloud $id pr-opened pr=$PR_URL"
+    line="cursor-cloud $id run=$RUN_ID pr-opened pr=$PR_URL"
   fi
   [ -n "$line" ] && [ "$line" != "$prev" ] || exit 0
   printf '%s\n' "$line" > "$notified" 2>/dev/null || true
@@ -500,19 +525,10 @@ cmd_cleanup() {
   printf 'cleaned up: %s (agent %s archived)\n' "$id" "$REC_AGENT"
 }
 
-cmd_eligible() {
-  local name=${1-}
-  [ -n "$name" ] && [ "$#" -eq 1 ] || usage
-  need_tools git
-  check_eligible "$name"
-  printf 'eligible: %s %s\n' "$name" "$ELIGIBLE_REPO_URL"
-}
-
 sub=${1-}
 [ -n "$sub" ] || usage
 shift
 case "$sub" in
-  eligible) cmd_eligible "$@" ;;
   dispatch) cmd_dispatch "$@" ;;
   status) cmd_status "$@" ;;
   pr) cmd_pr "$@" ;;
