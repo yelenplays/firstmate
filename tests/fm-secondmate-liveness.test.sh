@@ -424,6 +424,26 @@ test_sweep_respawns_authoritatively_missing_pi_signed_secondmate() {
   pass "sweep: an authoritatively missing pi-signed secondmate window is relaunched"
 }
 
+test_sweep_relaunch_honors_per_id_pin() {
+  local w fb tmuxfb log out
+  w=$(new_world sweep-per-id-pin)
+  mkdir -p "$w/home/config/secondmate-harness.d"
+  printf '%s\n' 'pi-signed shared-model medium' > "$w/home/config/secondmate-harness"
+  printf '%s\n' 'pi-signed own-model high' > "$w/home/config/secondmate-harness.d/sm1"
+  add_sm_home "$w" sm1 firstmate:fm-sm1 pi-signed
+  fb=$(make_toolchain "$w"); tmuxfb=$(make_liveness_tmux "$w")
+  log="$w/calls.log"; : > "$log"
+
+  out=$(run_bootstrap "$tmuxfb:$fb" "$w/home" missing "$log")
+
+  assert_contains "$(cat "$log")" "new-window" "the missing pinned secondmate should be relaunched"$'\n'"$out"
+  [ "$(grep '^effort=' "$w/home/state/sm1.meta" | tail -1)" = effort=high ] \
+    || fail "the liveness relaunch did not honor the per-id effort: $(grep '^effort=' "$w/home/state/sm1.meta")"
+  [ "$(grep '^model=' "$w/home/state/sm1.meta" | tail -1)" = model=own-model ] \
+    || fail "the liveness relaunch did not honor the per-id model: $(grep '^model=' "$w/home/state/sm1.meta")"
+  pass "sweep: a liveness relaunch re-resolves the secondmate's own per-id pin"
+}
+
 test_sweep_never_acts_on_ambiguous_existing_process() {
   local w fb tmuxfb log out
   w=$(new_world sweep-ambiguous)
@@ -548,6 +568,7 @@ test_sweep_respawns_confirmed_dead_secondmate
 test_sweep_leaves_alive_secondmate_untouched
 test_sweep_respawns_authoritatively_missing_pi_secondmate
 test_sweep_respawns_authoritatively_missing_pi_signed_secondmate
+test_sweep_relaunch_honors_per_id_pin
 test_sweep_never_acts_on_ambiguous_existing_process
 test_sweep_never_acts_on_transient_unreadability
 test_sweep_reports_missing_endpoint_relaunch_failure

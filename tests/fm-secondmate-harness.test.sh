@@ -172,6 +172,43 @@ ROWS
   pass "C1 fm-harness.sh secondmate-model/secondmate-effort resolve the optional tokens; bare harness stays empty (backward-compat)"
 }
 
+# config/secondmate-harness.d/<id> is a per-secondmate pin in the same format.
+# Only the named id sees it; every other id and the no-id form keep the shared
+# pin, and a per-id line never borrows the shared line's model or effort.
+#   <label>^<shared-or-ABSENT>^<per-id-or-ABSENT>^<query-id>^<harness>^<model>^<effort>
+test_secondmate_per_id_pin_tokens() {
+  local label shared perid qid exp_h exp_m exp_e cfg got_h got_m got_e n out rc
+  n=0
+  while IFS='^' read -r label shared perid qid exp_h exp_m exp_e; do
+    [ -n "$label" ] || continue
+    n=$((n + 1))
+    cfg="$TMP_ROOT/perid-$n/config"
+    mkdir -p "$cfg/secondmate-harness.d"
+    [ "$shared" = ABSENT ] || printf '%b\n' "$shared" > "$cfg/secondmate-harness"
+    [ "$perid" = ABSENT ] || printf '%b\n' "$perid" > "$cfg/secondmate-harness.d/wb"
+    got_h=$(PATH="$BLIND_BIN:$BASE_PATH" CLAUDECODE=1 FM_CONFIG_OVERRIDE="$cfg" "$ROOT/bin/fm-harness.sh" secondmate ${qid:+"$qid"})
+    got_m=$(PATH="$BLIND_BIN:$BASE_PATH" CLAUDECODE=1 FM_CONFIG_OVERRIDE="$cfg" "$ROOT/bin/fm-harness.sh" secondmate-model ${qid:+"$qid"})
+    got_e=$(PATH="$BLIND_BIN:$BASE_PATH" CLAUDECODE=1 FM_CONFIG_OVERRIDE="$cfg" "$ROOT/bin/fm-harness.sh" secondmate-effort ${qid:+"$qid"})
+    [ "$got_h" = "$exp_h" ] || fail "$label: harness resolved '$got_h', expected '$exp_h'"
+    [ "$got_m" = "$exp_m" ] || fail "$label: model resolved '$got_m', expected '$exp_m'"
+    [ "$got_e" = "$exp_e" ] || fail "$label: effort resolved '$got_e', expected '$exp_e'"
+  done <<'ROWS'
+per-id pin wins for its id^claude opus medium^claude opus high^wb^claude^opus^high
+another id keeps the shared pin^claude opus medium^claude opus high^other^claude^opus^medium
+no id keeps the shared pin (existing output)^claude opus medium^claude opus high^^claude^opus^medium
+absent per-id pin changes nothing^claude opus medium^ABSENT^wb^claude^opus^medium
+per-id harness starts clean on model and effort^claude opus medium^codex^wb^codex^^
+per-id pin without a shared pin^ABSENT^grok grok-4 xhigh^wb^grok^grok-4^xhigh
+default per-id harness defers to the shared pin^claude opus medium^default gpt high^wb^claude^opus^medium
+comment-only per-id file defers to the shared pin^claude opus medium^# parked\n^wb^claude^opus^medium
+per-id comments and blank lines are skipped^claude opus medium^# pin\n\n  pi-signed openai-codex/gpt-5.6-sol max  ^wb^pi-signed^openai-codex/gpt-5.6-sol^max
+ROWS
+  out=$(FM_CONFIG_OVERRIDE="$TMP_ROOT/perid-1/config" "$ROOT/bin/fm-harness.sh" secondmate-effort ../wb 2>&1); rc=$?
+  expect_code 2 "$rc" "a path-escaping secondmate id must be refused"
+  assert_contains "$out" "invalid secondmate id" "the refusal should name the invalid id"
+  pass "C1b fm-harness.sh resolves config/secondmate-harness.d/<id> ahead of the shared pin for that id only"
+}
+
 # ===========================================================================
 # A/C) pi-signed process identity and shared Pi marker behavior
 # ===========================================================================
@@ -883,6 +920,40 @@ test_spawn_explicit_harness_does_not_inherit_secondmate_harness_tokens() {
   assert_not_contains "$launch" "model_reasoning_effort" \
     "explicit-harness-no-tokens: launch must not carry a codex effort flag"
   pass "C7 spawn: an explicit --harness starts with clean model/effort defaults"
+}
+
+# The per-id pin governs a --secondmate spawn of that id, an explicit axis still
+# wins over it, a different id keeps the shared pin, and the .d/ directory never
+# flows into the secondmate home.
+test_spawn_per_id_secondmate_pin() {
+  local w sm other launchlog launch
+  w="$TMP_ROOT/spawn-per-id-pin"
+  sm="$w/wb"
+  other="$w/other"
+  launchlog="$w/launch.log"
+  mkdir -p "$w/home/config/secondmate-harness.d"
+  printf 'claude opus medium\n' > "$w/home/config/secondmate-harness"
+  printf 'claude opus high\n' > "$w/home/config/secondmate-harness.d/wb"
+  make_seeded_home "$sm" wb
+  make_seeded_home "$other" other
+
+  spawn_secondmate_capture "$w" wb "$sm" "$launchlog" >/dev/null 2>&1
+  [ "$(meta_field "$w/home/state/wb.meta" effort)" = high ] \
+    || fail "per-id: wb effort '$(meta_field "$w/home/state/wb.meta" effort)', expected its own high pin"
+  [ "$(meta_field "$w/home/state/wb.meta" model)" = opus ] || fail "per-id: wb model not opus"
+  launch=$(cat "$launchlog")
+  assert_contains "$launch" "--model 'opus' --effort 'high'" "per-id: launch did not carry the per-id pin"
+  [ -e "$sm/config/secondmate-harness.d" ] && fail "per-id: secondmate-harness.d leaked into the secondmate home"
+
+  spawn_secondmate_capture "$w" other "$other" "$w/other.log" >/dev/null 2>&1
+  [ "$(meta_field "$w/home/state/other.meta" effort)" = medium ] \
+    || fail "per-id: another id must keep the shared medium pin, got '$(meta_field "$w/home/state/other.meta" effort)'"
+
+  rm -f "$w/home/state/wb.meta"
+  spawn_secondmate_capture "$w" wb "$sm" "$launchlog" --effort low >/dev/null 2>&1
+  [ "$(meta_field "$w/home/state/wb.meta" effort)" = low ] \
+    || fail "per-id: an explicit --effort must beat the per-id pin"
+  pass "C7b spawn: config/secondmate-harness.d/<id> pins one secondmate; explicit flags still win; not inherited"
 }
 
 test_spawn_explicit_harness_uses_explicit_profile_axes() {
@@ -2631,6 +2702,7 @@ SH
 test_harness_resolution
 test_cursor_marker_detection
 test_secondmate_model_effort_tokens
+test_secondmate_per_id_pin_tokens
 test_pi_signed_detection_and_session_lock_identity
 test_dash_leading_process_names_are_basename_operands
 test_propagate_lib
@@ -2649,6 +2721,7 @@ test_spawn_explicit_model_overrides_secondmate_harness_token
 test_spawn_explicit_effort_overrides_secondmate_harness_token
 test_spawn_explicit_harness_does_not_inherit_secondmate_harness_tokens
 test_spawn_explicit_harness_uses_explicit_profile_axes
+test_spawn_per_id_secondmate_pin
 test_spawned_secondmate_uses_its_harness_supervision_model
 test_spawn_fallback_chain_and_crew_scout_unaffected
 test_bootstrap_sweep_propagates_and_reconverges
