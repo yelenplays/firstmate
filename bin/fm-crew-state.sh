@@ -1015,15 +1015,17 @@ fi
 
 # Secondmates idle on their own watcher (idle pane = healthy), so the busy
 # state is not meaningful for them; read their state from the status log only.
-# Only an exact busy verdict reports working here, and only an exact idle
-# verdict permits the status-log fallback below. Missing, malformed, stale, or
-# unverified semantic state remains unknown.
+# Only an exact busy verdict reports working here, except a Claude turn parked
+# on a prompt answer, which reports blocked because someone must answer it.
+# Only an exact idle verdict permits the status-log fallback below. Missing,
+# malformed, stale, or unverified semantic state remains unknown.
 if [ "$KIND" != secondmate ]; then
   BUSY_VERDICT=$(crew_busy_verdict "$BACKEND_TARGET")
   case "${BUSY_VERDICT%% *}" in
     busy)
       case "${BUSY_VERDICT#* }" in
         fm-spawn|fm-recovery) emit unknown pane 'launch/recovery seed is not verified processing' ;;
+        claude-needs-input) emit blocked pane 'harness is waiting on a prompt answer (claude-needs-input)' ;;
       esac
       emit working pane "harness busy (${BUSY_VERDICT#* })" ;;
     idle) ;;
