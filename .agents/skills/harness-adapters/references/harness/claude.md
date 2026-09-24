@@ -6,7 +6,7 @@ Busy hooks verified 2026-07-28 on Claude Code 2.1.220.
 
 | Fact | Value |
 |---|---|
-| Busy | Owned hooks: `UserPromptSubmit` opens while `Stop`, `StopFailure`, and `SessionEnd` close; manual interrupt emits no hook, so control reports delivered keys and live endpoint only, publishes no idle event or cancellation claim, and usually leaves `claude-hook` busy. |
+| Busy | Claude's own session list (`claude agents --json`, verified on 2.1.282) is read first and wins whenever it names exactly one live session in the task worktree: `busy`, `idle`, or `waiting` on a prompt answer, which classifies `busy claude-needs-input` and surfaces as blocked rather than working. Otherwise the owned hooks answer: `UserPromptSubmit` opens while `Stop`, `StopFailure`, and `SessionEnd` close; manual interrupt emits no hook, so control reports delivered keys and live endpoint only, publishes no idle event or cancellation claim, and usually leaves `claude-hook` busy until the session list corrects it. `bin/fm-busy-lib.sh` owns the precedence. |
 | Exit | `/exit`. |
 | Interrupt | Single Escape. |
 | Skill | `/<skill>`, for example `/no-mistakes`. |

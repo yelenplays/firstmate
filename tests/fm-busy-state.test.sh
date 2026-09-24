@@ -473,6 +473,151 @@ test_progress_is_generation_bound_and_not_semantic_state() {
 
 test_progress_is_generation_bound_and_not_semantic_state
 
+# --- claude-agents: Claude Code's own session list --------------------------
+
+# claude_agents_case <name> <json>: a state dir holding a claude task meta whose
+# worktree exists, plus a stub CLI that prints <json> for `agents --json`.
+# Prints the case root; the stub is <root>/bin/claude and the worktree
+# <root>/wt.
+claude_agents_case() {  # <name> <json>
+  local root="$TMP_ROOT/$1"
+  mkdir -p "$root/state" "$root/wt" "$root/bin"
+  printf 'window=w1\nworktree=%s\nharness=claude\n' "$root/wt" > "$root/state/t1.meta"
+  printf '%s\n' "$2" > "$root/agents.json"
+  cat > "$root/bin/claude" <<STUB
+#!/usr/bin/env bash
+[ "\$1 \$2" = "agents --json" ] || exit 2
+cat '$root/agents.json'
+STUB
+  chmod +x "$root/bin/claude"
+  printf '%s' "$root"
+}
+
+claude_agents_entry() {  # <cwd> <status> [pid]
+  printf '{"pid":%s,"cwd":"%s","kind":"interactive","sessionId":"s","status":"%s"}' \
+    "${3:-4242}" "$1" "$2"
+}
+
+# classify_native <root>: classify t1 with the stub CLI enabled.
+classify_native() {  # <root>
+  FM_CLAUDE_AGENTS_BIN="$1/bin/claude" fm_busy_classify tmux w1 claude t1 "$1/state"
+}
+
+test_claude_agents_status_maps_turn_state() {
+  local root out st
+  for st in busy idle waiting; do
+    root=$(claude_agents_case "claude-agents-$st" "[$(claude_agents_entry "$TMP_ROOT/claude-agents-$st/wt" "$st")]")
+    out=$(classify_native "$root")
+    case "$st" in
+      busy) [ "$out" = "busy claude-agents" ] || fail "busy status should classify 'busy claude-agents', got '$out'" ;;
+      idle) [ "$out" = "idle claude-agents" ] || fail "idle status should classify 'idle claude-agents', got '$out'" ;;
+      waiting) [ "$out" = "busy claude-needs-input" ] || fail "waiting status should classify 'busy claude-needs-input', got '$out'" ;;
+    esac
+  done
+  pass "claude-agents maps busy, idle, and waiting to busy, idle, and a parked open turn"
+}
+
+test_claude_agents_overrides_a_wrong_hook_record() {
+  local root gen out
+  root=$(claude_agents_case claude-agents-over "[$(claude_agents_entry "$TMP_ROOT/claude-agents-over/wt" idle)]")
+  gen=$("$EV" arm "$root/state" t1)
+  "$EV" apply "$root/state" t1 busy --gen "$gen" --source claude-hook --event user-prompt-submit
+  [ "$(FM_CLAUDE_AGENTS_BIN=/dev/null fm_busy_classify tmux w1 claude t1 "$root/state")" = "busy claude-hook" ] \
+    || fail "precondition: the hook record alone should read busy"
+  out=$(classify_native "$root")
+  [ "$out" = "idle claude-agents" ] || fail "a live vendor idle should win over a stuck busy hook record, got '$out'"
+  pass "a stuck claude-hook busy record yields to the vendor's current idle"
+}
+
+test_claude_agents_fallback_to_hook_record() {
+  local root gen out wt name json
+  for name in none-match two-match no-pid odd-status not-json not-array fails disabled no-meta; do
+    root="$TMP_ROOT/claude-agents-fb-$name"
+    wt="$root/wt"
+    case "$name" in
+      none-match) json="[$(claude_agents_entry /elsewhere busy)]" ;;
+      two-match) json="[$(claude_agents_entry "$wt" busy 1),$(claude_agents_entry "$wt" busy 2)]" ;;
+      no-pid) json="[{\"cwd\":\"$wt\",\"kind\":\"background\",\"state\":\"working\",\"status\":\"busy\"}]" ;;
+      odd-status) json="[$(claude_agents_entry "$wt" compacting)]" ;;
+      not-json) json='Unknown command: agents' ;;
+      not-array) json="{\"cwd\":\"$wt\",\"pid\":1,\"status\":\"busy\"}" ;;
+      *) json="[$(claude_agents_entry "$wt" busy)]" ;;
+    esac
+    claude_agents_case "claude-agents-fb-$name" "$json" >/dev/null
+    [ "$name" != fails ] || printf '#!/usr/bin/env bash\nexit 1\n' > "$root/bin/claude"
+    [ "$name" != no-meta ] || rm -f "$root/state/t1.meta"
+    gen=$("$EV" arm "$root/state" t1)
+    "$EV" apply "$root/state" t1 idle --gen "$gen" --source claude-hook --event stop
+    if [ "$name" = disabled ]; then
+      out=$(FM_CLAUDE_AGENTS_BIN=/dev/null fm_busy_classify tmux w1 claude t1 "$root/state")
+    else
+      out=$(classify_native "$root")
+    fi
+    [ "$out" = "idle claude-hook" ] || fail "case $name should fall back to the hook record, got '$out'"
+  done
+  pass "no unique live match, an unknown status, bad output, a failing or disabled CLI, and no meta all fall back to the hook record"
+}
+
+test_claude_agents_absence_is_not_evidence() {
+  local root out
+  root=$(claude_agents_case claude-agents-empty '[]')
+  out=$(classify_native "$root")
+  [ "$out" = "unknown missing" ] || fail "an empty session list with no record must stay 'unknown missing', got '$out'"
+  pass "an empty session list is not read as idle or dead"
+}
+
+test_claude_agents_matches_physical_worktree() {
+  local root link out
+  root=$(claude_agents_case claude-agents-phys '[]')
+  link="$TMP_ROOT/claude-agents-phys-link"
+  ln -s "$root/wt" "$link"
+  printf 'window=w1\nworktree=%s\nharness=claude\n' "$link" > "$root/state/t1.meta"
+  printf '[%s]\n' "$(claude_agents_entry "$(cd "$root/wt" && pwd -P)" busy)" > "$root/agents.json"
+  out=$(classify_native "$root")
+  [ "$out" = "busy claude-agents" ] || fail "a session cwd equal to the worktree's physical path should match, got '$out'"
+  pass "the recorded worktree matches the session cwd through symlinks"
+}
+
+test_claude_agents_is_claude_only() {
+  local root out h
+  root=$(claude_agents_case claude-agents-iso "[$(claude_agents_entry "$TMP_ROOT/claude-agents-iso/wt" busy)]")
+  for h in codex pi opencode; do
+    out=$(FM_CLAUDE_AGENTS_BIN="$root/bin/claude" fm_busy_classify tmux w1 "$h" t1 "$root/state")
+    case "$out" in
+      *claude-agents*|*claude-needs-input*) fail "harness $h must never classify from claude-agents, got '$out'" ;;
+    esac
+  done
+  pass "the claude-agents source never classifies another harness"
+}
+
+test_claude_agents_bounded() {
+  local root out start elapsed
+  root=$(claude_agents_case claude-agents-slow '[]')
+  printf '#!/usr/bin/env bash\nsleep 30\n' > "$root/bin/claude"
+  start=$(date +%s)
+  out=$(FM_BUSY_CLAUDE_AGENTS_TIMEOUT=1 classify_native "$root")
+  elapsed=$(( $(date +%s) - start ))
+  [ "$out" = "unknown missing" ] || fail "a hung CLI should fall back, got '$out'"
+  [ "$elapsed" -lt 10 ] || fail "a hung CLI held the classifier for ${elapsed}s"
+  pass "a hung session-list CLI is bounded and falls back"
+}
+
+test_needs_input_is_not_working() {
+  fm_busy_verdict_working "busy claude-agents" || fail "busy claude-agents should count as working"
+  fm_busy_verdict_working "busy claude-hook" || fail "busy claude-hook should count as working"
+  if fm_busy_verdict_working "busy claude-needs-input"; then
+    fail "a turn parked on a prompt answer must not count as working"
+  fi
+  if fm_busy_verdict_working "idle claude-agents"; then fail "idle must not count as working"; fi
+  if fm_busy_verdict_working "unknown missing"; then fail "unknown must not count as working"; fi
+  local root
+  root=$(claude_agents_case claude-agents-bool "[$(claude_agents_entry "$TMP_ROOT/claude-agents-bool/wt" waiting)]")
+  if FM_CLAUDE_AGENTS_BIN="$root/bin/claude" fm_busy_is_busy tmux w1 claude t1 "$root/state"; then
+    fail "fm_busy_is_busy must be false for a turn waiting on a prompt answer"
+  fi
+  pass "a turn waiting on a prompt answer is busy for control but never provably working"
+}
+
 test_arm_seeds_busy_spawn
 test_apply_advances_seq_and_source
 test_apply_current_gen_reset
@@ -495,5 +640,13 @@ test_dead_endpoint_overrides
 test_herdr_native_busy_only
 test_record_read_leaves_caller_shell_intact
 test_boolean_view_never_promotes_unknown
+test_claude_agents_status_maps_turn_state
+test_claude_agents_overrides_a_wrong_hook_record
+test_claude_agents_fallback_to_hook_record
+test_claude_agents_absence_is_not_evidence
+test_claude_agents_matches_physical_worktree
+test_claude_agents_is_claude_only
+test_claude_agents_bounded
+test_needs_input_is_not_working
 
 echo "all fm-busy-state tests passed"

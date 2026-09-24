@@ -1706,6 +1706,36 @@ test_no_run_busy_pane() {
   pass "no run + a busy semantic record reads working, attributed to its source"
 }
 
+# A Claude turn parked on a permission or question prompt (the vendor session
+# list reports status=waiting) reads blocked, not working, even while the hook
+# record still says busy; a live vendor busy reads working from claude-agents.
+test_claude_session_list_needs_input_reads_blocked() {
+  reset_fakes
+  local d; d=$(new_case claude-needs-input)
+  make_repo_on_branch "$d/wt" fm/feat-ni
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-ni.meta" "window=fm:fm-feat-ni" "worktree=$d/wt" "kind=ship" "harness=claude"
+  FM_FAKE_AXI_STATUS=""
+  FM_FAKE_RUNS_LIST=""
+  FM_FAKE_BUSY=1
+  local gen; gen=$("$ROOT/bin/fm-busy-event.sh" arm "$d/state" feat-ni)
+  "$ROOT/bin/fm-busy-event.sh" apply "$d/state" feat-ni busy --gen "$gen" \
+    --source claude-hook --event user-prompt-submit
+  mkdir -p "$d/claudebin"
+  printf '#!/usr/bin/env bash\ncat "%s/agents.json"\n' "$d" > "$d/claudebin/claude"
+  chmod +x "$d/claudebin/claude"
+  local cwd; cwd=$(cd "$d/wt" && pwd -P)
+  printf '[{"pid":4242,"cwd":"%s","kind":"interactive","status":"waiting"}]\n' "$cwd" > "$d/agents.json"
+  local out; out=$(FM_CLAUDE_AGENTS_BIN="$d/claudebin/claude" run_crew_state "$d" feat-ni)
+  assert_contains "$out" "state: blocked" "waiting session -> blocked"
+  assert_contains "$out" "claude-needs-input" "blocked verdict names its source"
+  printf '[{"pid":4242,"cwd":"%s","kind":"interactive","status":"busy"}]\n' "$cwd" > "$d/agents.json"
+  out=$(FM_CLAUDE_AGENTS_BIN="$d/claudebin/claude" run_crew_state "$d" feat-ni)
+  assert_contains "$out" "state: working" "busy session -> working"
+  assert_contains "$out" "claude-agents" "working verdict names the session-list source"
+  pass "a Claude session waiting on a prompt reads blocked and a busy one reads working from its own session list"
+}
+
 test_launch_and_old_working_events_do_not_prove_processing() {
   reset_fakes
   local d gen token out
@@ -3767,6 +3797,7 @@ test_terminal_run_without_live_sibling_is_unchanged
 test_coarse_run_does_not_probe_other_branch_ci_log_for_ready_status
 test_other_branch_run_ignored
 test_no_run_busy_pane
+test_claude_session_list_needs_input_reads_blocked
 test_launch_and_old_working_events_do_not_prove_processing
 test_no_run_footer_text_alone_is_not_working
 test_no_run_grok_uses_isolated_fallback
