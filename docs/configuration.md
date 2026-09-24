@@ -32,7 +32,8 @@ Ordinary dead-direct-report recovery is owned by `stuck-crewmate-recovery`, whil
 ## Private Deck checkout (config/deck-path)
 
 When a private Firstmate Deck checkout is available, the optional one-line `$FM_HOME/config/deck-path` file may name its absolute path.
-After a successful non-secondmate task teardown or a successful captain `answer`, `bin/fm-logbook-refresh.sh` regenerates the daily Logbook and runs that checkout's `deploy/refresh.sh work-landed` hook when present.
+After a successful non-secondmate task teardown or a successful captain `answer`, `bin/fm-logbook-refresh.sh` regenerates the daily Logbook and refreshes the Deck.
+When the optional one-line `$FM_HOME/config/deck-launchd-label` names the Deck's scheduled launchd job, the refresh kickstarts that job so it rebuilds and publishes with the job's own settings; otherwise it runs the checkout's `deploy/refresh.sh work-landed` hook directly with this home as the Deck's Firstmate root.
 Missing or invalid configuration skips the Deck refresh, and both operations are bounded best-effort work that cannot fail teardown or answer.
 
 ## Calm preference (config/calm)

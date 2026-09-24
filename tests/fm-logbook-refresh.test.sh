@@ -42,7 +42,8 @@ test_generates_logbook_and_calls_configured_deck() {
   cat > "$DECK_DIR/deploy/refresh.sh" <<'EOF'
 #!/usr/bin/env bash
 [ "$1" = work-landed ] || exit 9
-printf '%s\n' "$1" >> "$FM_TEST_REFRESH_LOG"
+[ -n "${FM_DECK_FIRSTMATE_ROOT:-}" ] || exit 2
+printf '%s %s %s\n' "$1" "$FM_DECK_FIRSTMATE_ROOT" "$FM_DECK_ROOT" >> "$FM_TEST_REFRESH_LOG"
 EOF
   chmod +x "$DECK_DIR/deploy/refresh.sh"
   printf '%s\n' "$DECK_DIR" > "$HOME_DIR/config/deck-path"
@@ -50,8 +51,8 @@ EOF
     || fail 'best-effort helper returned failure'
   [ -f "$HOME_DIR/data/history/days/$TODAY.logbook.json" ] \
     || fail "helper did not generate today's Logbook"
-  [ "$(<"$TMP_ROOT/refresh.log")" = work-landed ] \
-    || fail 'configured Deck refresh hook did not run with work-landed'
+  [ "$(cat "$TMP_ROOT/refresh.log" 2>/dev/null)" = "work-landed $HOME_DIR $DECK_DIR" ] \
+    || fail 'configured Deck refresh hook did not run with work-landed and its roots'
   pass 'generation precedes a configured Deck refresh hook'
 }
 
@@ -77,6 +78,26 @@ EOF
   pass 'Deck refresh failure does not fail the caller'
 }
 
+test_kickstarts_configured_launchd_job() {
+  fresh_home
+  mkdir -p "$DECK_DIR/deploy" "$TMP_ROOT/bin"
+  printf '#!/bin/sh\nexit 9\n' > "$DECK_DIR/deploy/refresh.sh"
+  chmod +x "$DECK_DIR/deploy/refresh.sh"
+  cat > "$TMP_ROOT/bin/launchctl" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$FM_TEST_LAUNCHCTL_LOG"
+EOF
+  chmod +x "$TMP_ROOT/bin/launchctl"
+  printf '%s\n' "$DECK_DIR" > "$HOME_DIR/config/deck-path"
+  printf '%s\n' example.fm-deck > "$HOME_DIR/config/deck-launchd-label"
+  PATH="$TMP_ROOT/bin:$PATH" FM_TEST_LAUNCHCTL_LOG="$TMP_ROOT/launchctl.log" run_refresh \
+    || fail 'kickstart path returned failure'
+  [ "$(cat "$TMP_ROOT/launchctl.log" 2>/dev/null)" = "kickstart gui/$(id -u)/example.fm-deck" ] \
+    || fail 'configured Deck launchd job was not kickstarted'
+  pass 'a configured Deck launchd job is kickstarted instead of the bare hook'
+}
+
 test_generates_logbook_and_calls_configured_deck
+test_kickstarts_configured_launchd_job
 test_missing_deck_configuration_is_silent
 test_deck_failure_is_best_effort
