@@ -68,6 +68,7 @@ The shared no-mistakes gate refusal for fleet lifecycle entrypoints is summarize
 | `fm-wiki-ask.sh` | Config-gated wiki-tool ask; classifies no-match and missing-source only (docs/configuration.md) |
 | `fm-memory.sh` | Plain-markdown memory store: remember, BM25 recall, list, reindex (docs/memory.md) |
 | [`fm-history.sh`](../bin/fm-history.sh) | Capture and search the private conversation journal and generate task cards and daily Logbooks ([configuration](configuration.md#operational-home-layout-and-state)) |
+| [`fm-logbook-refresh.sh`](../bin/fm-logbook-refresh.sh) | Best-effort Logbook generation and configured Deck refresh ([configuration](configuration.md#private-deck-checkout-configdeck-path)) |
 | `fm-memory-bm25.mjs` | BM25 index and query engine behind fm-memory.sh; owns the index format and staleness rule |
 | `fm-memory-migrate.sh` | Verified OpenViking-workspace export into the markdown store plus archive (docs/memory.md) |
 | `fm-openviking-retire.sh` | Reversibly stop the OpenViking launchd agent and rotate its logs (docs/memory.md) |

@@ -1934,7 +1934,11 @@ command_open() {  # <task-id> [--identity] [--distinguish-absent]
 
 case "${1:-}" in
   hold) shift; command_hold "$@" ;;
-  answer) shift; command_answer "$@" ;;
+  answer)
+    shift
+    command_answer "$@" || exit $?
+    "$SCRIPT_DIR/fm-logbook-refresh.sh" >/dev/null 2>&1 || true
+    ;;
   answers) shift; command_answers "$@" ;;
   reconcile-requests) shift; command_reconcile_requests "$@" ;;
   bind) shift; command_bind "$@" ;;
