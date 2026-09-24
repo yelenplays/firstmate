@@ -116,7 +116,7 @@ test_logbook_projects_reports_decisions_and_open_work() {
   jq -e --arg date "$today" --arg at "$at" --arg words "$answer" --arg url "$url" \
     --arg merged_url "$merged_url" '
       .schema == "fm-logbook.v1" and .date == $date and .tz == "Europe/Berlin" and .closed == false
-      and ((keys | sort) == ["closed","date","decisions","generated","landed","open","reports","schema","tz"])
+      and ((keys | sort) == ["closed","date","decisions","generated","highlight","landed","open","reports","schema","tz"])
       and ([.landed[].id] | index("landed-pr") != null)
       and ([.landed[].id] | index("landed-local") != null)
       and any(.landed[]; .id == "pr-url-fallback" and .project == "url-repo")
@@ -128,7 +128,7 @@ test_logbook_projects_reports_decisions_and_open_work() {
       and any(.landed[]; .id == "scout-merge" and .pr_url == $merged_url)
       and any(.reports[]; .id == "report-only" and .kind == "scout" and .mode == "direct-PR" and .report_path == "data/report-only/report.md")
       and any(.decisions[]; .id == "decision-one" and .mode == "answered" and .at == $at and .words == $words)
-      and any(.decisions[]; .id == "decision-repaired" and .mode == "repaired" and .words == "A repaired answer remains captain-authored.")
+      and all(.decisions[]; .mode == "answered" or .mode == "released")
       and all(.landed[]; (keys | sort) == ["home","id","kind","mode","order","pr_url","project","title","via"])
       and all(.reports[]; (keys | sort) == ["home","id","kind","mode","order","project","report_path","title"])
       and all(.decisions[]; (keys | sort) == ["at","digest","home","id","mode","order","project","title","words"])
@@ -180,8 +180,8 @@ test_unclassified_reports_and_verbatim_decisions_are_logged() {
   run_history logbook >/dev/null
   path="$HOME_DIR/data/history/days/$today.logbook.json"
   jq -e --arg answer "$answer" '
-    any(.reports[]; .id == "unclassified-report" and .project == null)
-    and any(.decisions[]; .id == "decision-marker" and .project == null and .words == $answer)
+    any(.reports[]; .id == "unclassified-report" and .project == "unclassified")
+    and any(.decisions[]; .id == "decision-marker" and .project == "unclassified" and .words == $answer)
   ' "$path" >/dev/null || fail 'the Logbook omitted unclassified work or truncated verbatim decision text'
   assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" '(unclassified)' \
     'the readable Logbook did not label a missing project safely'
@@ -238,12 +238,61 @@ test_queued_only_day_writes_a_logbook() {
     .schema == "fm-logbook.v1" and .date == $date and (.landed | length) == 0
     and (.reports | length) == 0 and (.decisions | length) == 0
     and (.open.ids | index("main/open-only") != null)
-    and .open.omitted == []
-    and ((keys | sort) == ["closed","date","decisions","generated","landed","open","reports","schema","tz"])
+    and .open.omitted == [] and .highlight == {id:null,by:"rule"}
+    and ((keys | sort) == ["closed","date","decisions","generated","highlight","landed","open","reports","schema","tz"])
   ' "$path" >/dev/null || fail 'queued work was absent from the quiet-day Logbook'
   assert_contains "$output" "wrote data/history/days/$today.logbook.json" 'the queued-only Logbook was not reported as written'
   assert_contains "$(<"$HOME_DIR/data/history/days/$today.md")" 'Task ids: main/open-only' 'the readable Logbook omitted queued work'
   pass 'a queued-only day still writes one JSON Logbook with its open task'
+}
+
+test_logbook_highlight_fallbacks() {
+  local today path at
+  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
+
+  fresh_home
+  run_axi add landed-local-first 'A local result first' --kind ship --repo sample --start >/dev/null
+  run_axi "done" landed-local-first --note 'local main' >/dev/null
+  add_done_pr landed-pr 'A pull request result' sample 'https://github.com/acme/sample/pull/91'
+  run_history logbook >/dev/null
+  path="$HOME_DIR/data/history/days/$today.logbook.json"
+  jq -e '.highlight == {id:"landed-pr",by:"rule",confidence:null}' "$path" >/dev/null \
+    || fail 'the highlight did not prefer a pull-request landing over an earlier local landing'
+
+  fresh_home
+  run_axi add landed-local 'A local result' --kind ship --repo sample --start >/dev/null
+  run_axi "done" landed-local --note 'local main' >/dev/null
+  run_history logbook >/dev/null
+  jq -e '.highlight.id == "landed-local" and .highlight.by == "rule"' \
+    "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null || fail 'the highlight missed its landed fallback'
+
+  fresh_home
+  mkdir -p "$HOME_DIR/data/report-z-first" "$HOME_DIR/data/report-a-second"
+  printf '# First report\n' > "$HOME_DIR/data/report-z-first/report.md"
+  printf '# Second report\n' > "$HOME_DIR/data/report-a-second/report.md"
+  run_axi add report-z-first 'First finished report' --kind scout --repo sample --start >/dev/null
+  run_axi "done" report-z-first --report data/report-z-first/report.md >/dev/null
+  run_axi add report-a-second 'Second finished report' --kind scout --repo sample --start >/dev/null
+  run_axi "done" report-a-second --report data/report-a-second/report.md >/dev/null
+  run_history logbook >/dev/null
+  jq -e '.highlight.id == "report-a-second" and .highlight.by == "rule"' \
+    "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null || fail 'the highlight missed the first report by backlog order'
+
+  fresh_home
+  at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  run_axi add decision-only 'A resolved decision' --kind captain --repo sample --start >/dev/null
+  run_captain hold decision-only --reason 'Needs a captain answer' >/dev/null
+  printf 'Keep this decision.' > "$TMP_ROOT/highlight-answer.txt"
+  FM_CAPTAIN_HOLD_NOW="$at" run_captain answer decision-only --decision-file "$TMP_ROOT/highlight-answer.txt" >/dev/null
+  run_history logbook >/dev/null
+  jq -e '.highlight.id == "decision-only" and .highlight.by == "rule"' \
+    "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null || fail 'the highlight missed its decision fallback'
+
+  fresh_home
+  run_history logbook >/dev/null
+  jq -e '.highlight == {id:null,by:"rule"}' \
+    "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null || fail 'an empty day did not record the null rule highlight'
+  pass 'Logbook highlights follow PR, landed, report, decision, and empty-day fallback order'
 }
 
 test_captured_markers_remain_content_when_logbook_is_written() {
@@ -301,13 +350,26 @@ test_first_later_day_closes_the_previous_logbook() {
   path="$HOME_DIR/data/history/days/$previous.logbook.json"
   jq -n --arg date "$previous" '
     {schema:"fm-logbook.v1",date:$date,tz:"Europe/Berlin",closed:false,generated:"2026-01-01T00:00:00.000Z",
-      landed:[{id:"prior-landed",project:"sample",title:"Prior day result",kind:"ship",mode:"no-mistakes",via:"local",pr_url:null,home:"main",order:1}],
-      reports:[],decisions:[],open:{running:0,waiting_on_you:0,ids:[]}}
+      landed:[
+        {id:"prior-landed",project:null,title:"Prior day result",kind:"ship",mode:"no-mistakes",via:"pull_request",pr_url:"https://github.com/acme/repo/pull/1",home:"main",order:1},
+        {id:"shared",project:null,title:"Main shared result",kind:"ship",mode:"no-mistakes",via:"local",pr_url:null,home:"main",order:2},
+        {id:"shared",project:null,title:"Mate shared result",kind:"ship",mode:"no-mistakes",via:"local",pr_url:null,home:"legacy-mate",order:3}
+      ], reports:[], decisions:[
+        {id:"shared",project:null,title:"Main decision",mode:"answered",at:"2026-01-01T00:00:00Z",words:"Main answer",digest:"main",home:"main",order:1},
+        {id:"shared",project:null,title:"Mate decision",mode:"answered",at:"2026-01-01T00:01:00Z",words:"Mate answer",digest:"mate",home:"legacy-mate",order:2},
+        {id:"prior-repaired",project:null,title:"Prior repaired decision",mode:"repaired",at:"2026-01-01T00:02:00Z",words:"Legacy repaired answer",digest:"legacy",home:"main",order:3}
+      ], open:{running:0,waiting_on_you:0,ids:[]}}
   ' > "$path"
   chmod 600 "$path"
   run_history logbook --date "$today" >/dev/null
-  jq -e --arg date "$previous" '.date == $date and .closed == true and .landed[0].id == "prior-landed"' \
-    "$path" >/dev/null || fail "the first later local-day run did not freeze yesterday's Logbook"
+  jq -e --arg date "$previous" '
+    .date == $date and .closed == true and .landed[0].id == "prior-landed"
+    and .landed[0].project == "repo" and .highlight == {id:"prior-landed",by:"rule",confidence:null}
+    and ([.landed[].id] | sort) == ["legacy-mate/shared","main/shared","prior-landed"]
+    and ([.decisions[].id] | sort) == ["legacy-mate/shared","main/shared"]
+    and ([.landed[].id] | unique | length) == (.landed | length)
+    and ([.decisions[].id] | unique | length) == (.decisions | length)
+  ' "$path" >/dev/null || fail "closing a legacy Logbook did not normalize it"
   assert_contains "$(<"$HOME_DIR/data/history/days/$previous.md")" '## Logbook' 'freezing yesterday did not refresh its readable page'
   assert_present "$HOME_DIR/data/history/days/$today.logbook.json" 'the quiet current day did not write its daily JSON'
   pass 'the first later local-day run freezes yesterday and records today'
@@ -334,6 +396,10 @@ EOF
     "$ROOT/bin/fm-tasks-axi.sh" add mate-landed 'A secondmate landed task' --kind ship --repo sample-repo --start >/dev/null
   TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
     "$ROOT/bin/fm-tasks-axi.sh" "done" mate-landed --pr "$url" >/dev/null
+  TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
+    "$ROOT/bin/fm-tasks-axi.sh" add mate-unclassified 'A secondmate task without project metadata' --kind ship --start >/dev/null
+  TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
+    "$ROOT/bin/fm-tasks-axi.sh" "done" mate-unclassified --note 'local main' >/dev/null
   printf '%s\n' "- registered-mate - Delegated work (home: $mate; scope: landed work; projects: sample-repo; added $today)" \
     > "$HOME_DIR/data/secondmates.md"
   FM_HOME="$mate" FM_ROOT_OVERRIDE="$ROOT" FM_DATA_OVERRIDE="$mate/data" FM_STATE_OVERRIDE="$mate/state" \
@@ -343,6 +409,8 @@ EOF
   jq -e --arg url "$url" '
     any(.landed[]; .id == "mate-landed" and .home == "registered-mate"
       and .project == "sample-repo" and .pr_url == $url and .via == "pull_request")
+    and any(.landed[]; .id == "mate-unclassified" and .home == "registered-mate"
+      and .project == "registered-mate")
   ' "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null \
     || fail 'the Logbook rejected terminal secondmate landed evidence without a state field'
   pass 'secondmate landed rows are retained from their terminal producer inventory'
@@ -534,6 +602,7 @@ test_logbook_projects_reports_decisions_and_open_work
 test_unclassified_reports_and_verbatim_decisions_are_logged
 test_cleanup_card_does_not_infer_merge_from_pr_url
 test_queued_only_day_writes_a_logbook
+test_logbook_highlight_fallbacks
 test_captured_markers_remain_content_when_logbook_is_written
 test_closed_day_requires_explicit_rebuild
 test_first_later_day_closes_the_previous_logbook

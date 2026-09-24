@@ -24,7 +24,7 @@
 # schema, id, title, project, home, kind, mode, completion, via, pr_url,
 # report_path, local_note and digest-verified decisions. The daily JSON is
 # `fm-logbook.v1` with schema, date, tz, closed, generated, landed, reports,
-# decisions, and open. The generated `index.md` lists page paths/titles.
+# decisions, open, and highlight. The generated `index.md` lists page paths/titles.
 # `state/.history-cursor` is `fm-history-cursor.v1` with schema, transcript,
 # dev, ino, offset, pending {id, day, time}, and last assistant token usage;
 # `.history.lock` holds only the owner pid. `state/jev-history-find.jsonl`
@@ -775,8 +775,19 @@ function taskIdentityKey(home, id) {
   return `${home || 'main'}\u0000${id}`;
 }
 
+function logbookTaskId(row) {
+  const home = row.home || 'main';
+  const id = String(row.id || '');
+  if (!id.startsWith(`${home}/`)) return id;
+  return id.slice(home.length + 1).split('/')[0];
+}
+
+function logbookTaskIdentityKey(row) {
+  return taskIdentityKey(row.home, logbookTaskId(row));
+}
+
 function decisionIdentityKey(row) {
-  return `${taskIdentityKey(row.home, row.id)}\u0000${row.digest || row.at}`;
+  return `${logbookTaskIdentityKey(row)}\u0000${row.digest || row.at}`;
 }
 
 function taskModeFromMeta(stateDir, id) {
@@ -930,13 +941,13 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
     const completion = row.completion || {};
     const rowHome = row.home || 'main';
     const prUrl = typeof row.pr_url === 'string' && row.pr_url ? row.pr_url : null;
-    const project = row.repo || repoFromUrl(prUrl) || (rowHome !== 'main' ? rowHome : null);
+    const project = row.repo || repoFromUrl(prUrl) || (rowHome !== 'main' ? rowHome : 'unclassified');
     const title = cleanTaskTitle(row.title || id);
     if (!title) continue;
     if (completion.date !== date) continue;
     const identity = taskIdentityKey(rowHome, id);
     if (completion.verb === 'reported' && row.report_path) {
-      reportsById.set(identity, { id, project, title, kind: row.kind || null, mode: row.mode || row.delivery_mode || null, report_path: row.report_path, home: rowHome });
+      reportsById.set(identity, { id, project, title, kind: row.kind || null, mode: row.mode || row.delivery_mode || null, report_path: row.report_path, home: rowHome, order: Number.isSafeInteger(row.order) ? row.order : Number.MAX_SAFE_INTEGER });
     } else if ((['merged', 'landed'].includes(completion.verb) || (completion.verb === 'done' && !prUrl))
       && row.state === 'done' && row.kind !== 'captain' && row.hold_kind !== 'captain') {
       const via = prUrl ? 'pull_request' : 'local';
@@ -958,15 +969,17 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
       }
     }
   }
-  const landedIdentities = new Set([...landedById.values()].map((row) => taskIdentityKey(row.home, row.id)));
+  const landedIdentities = new Set([...landedById.values()].map(logbookTaskIdentityKey));
   for (const [identity, row] of reportsById) {
-    if (landedIdentities.has(taskIdentityKey(row.home, row.id))) reportsById.delete(identity);
+    if (landedIdentities.has(logbookTaskIdentityKey(row))) reportsById.delete(identity);
   }
   const orderedRows = (map) => [...map.values()].sort((a, b) =>
     (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id));
   const landed = orderedRows(landedById).map(({ order, prior, ...row }, index) => ({ ...row, order: index + 1 }));
   const reports = orderedRows(reportsById).map((row, index) => ({ ...row, order: index + 1 }));
-  const decisions = [...decisionById.values()].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
+  const decisions = [...decisionById.values()]
+    .filter((row) => ['answered', 'released'].includes(row.mode))
+    .sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
     .map((row, index) => ({ ...row, order: index + 1 }));
 
   const secondmateCurrent = snapshot.secondmate_current || {};
@@ -1018,6 +1031,45 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
       registry_complete: registryComplete,
     },
   };
+  return record;
+}
+
+function normalizeLogbookRecord(record) {
+  for (const group of ['landed', 'reports', 'decisions']) {
+    const uniqueRows = new Map();
+    for (const row of record[group]) {
+      if (group === 'decisions' && !['answered', 'released'].includes(row.mode)) continue;
+      const identity = group === 'decisions' ? decisionIdentityKey(row) : logbookTaskIdentityKey(row);
+      if (!uniqueRows.has(identity)) uniqueRows.set(identity, row);
+    }
+    const rows = [...uniqueRows.values()];
+    const ids = new Map();
+    record[group] = rows.map((row, index) => {
+      const repo = typeof row.project === 'string' && row.project !== 'unclassified' ? row.project : null;
+      row.project = repo || repoFromUrl(row.pr_url) || (row.home && row.home !== 'main' ? row.home : 'unclassified');
+      row.order = index + 1;
+      const taskId = logbookTaskId(row);
+      if (!ids.has(taskId)) ids.set(taskId, []);
+      ids.get(taskId).push(row);
+      return row;
+    });
+    for (const [taskId, collisions] of ids) {
+      if (collisions.length < 2) continue;
+      const homeCounts = new Map();
+      for (const row of collisions) homeCounts.set(row.home || 'main', (homeCounts.get(row.home || 'main') || 0) + 1);
+      for (const row of collisions) {
+        const home = row.home || 'main';
+        const suffix = homeCounts.get(home) > 1 ? `/${row.digest || row.at || row.order}` : '';
+        row.id = `${home}/${taskId}${suffix}`;
+      }
+    }
+  }
+  // Jev-based selection remains a follow-up; current highlights use this deterministic rule.
+  const highlight = record.landed.find((row) => row.via === 'pull_request')
+    || record.landed[0] || record.reports[0] || record.decisions[0];
+  record.highlight = highlight
+    ? { id: highlight.id, by: 'rule', confidence: null }
+    : { id: null, by: 'rule' };
   return record;
 }
 
@@ -1115,11 +1167,12 @@ function logbookPrepare(historyDir, homeDir, snapshotFile, decisionsFile, date, 
   }
   const record = logbookEntries(snapshot, historyDir, decisionBodies, date, homeIdentity(homeDir), stateDir);
   if (previous) {
-    record.landed = mergeRows(record.landed, previous.landed);
-    record.reports = mergeRows(record.reports, previous.reports).filter((row) => !record.landed.some((landed) => taskIdentityKey(landed.home, landed.id) === taskIdentityKey(row.home, row.id)));
+    record.landed = mergeRows(record.landed, previous.landed, logbookTaskIdentityKey);
+    record.reports = mergeRows(record.reports, previous.reports, logbookTaskIdentityKey).filter((row) => !record.landed.some((landed) => logbookTaskIdentityKey(landed) === logbookTaskIdentityKey(row)));
     record.decisions = mergeRows(record.decisions, previous.decisions, decisionIdentityKey);
     if (!record.open) record.open = previous.open;
   }
+  normalizeLogbookRecord(record);
   process.stdout.write(JSON.stringify({ skip: null, date, rebuild, record }));
 }
 
@@ -1134,6 +1187,7 @@ function closeOlderLogbooks(historyDir, exceptDate) {
     const file = path.join(daysDir, ent.name);
     const older = readJsonFile(file, 'older Logbook');
     if (older.closed !== true) {
+      normalizeLogbookRecord(older);
       older.closed = true;
       older.generated = new Date().toISOString();
       writeAtomic(file, `${JSON.stringify(older)}\n`);
@@ -1165,11 +1219,12 @@ function logbookFinalizeLocked(historyDir, stateDir, recordFile, rebuild) {
     return JSON.stringify(left) === JSON.stringify(right);
   };
   if (previous) {
-    record.landed = mergeRows(record.landed, previous.landed);
-    record.reports = mergeRows(record.reports, previous.reports).filter((row) => !record.landed.some((landed) => taskIdentityKey(landed.home, landed.id) === taskIdentityKey(row.home, row.id)));
+    record.landed = mergeRows(record.landed, previous.landed, logbookTaskIdentityKey);
+    record.reports = mergeRows(record.reports, previous.reports, logbookTaskIdentityKey).filter((row) => !record.landed.some((landed) => logbookTaskIdentityKey(landed) === logbookTaskIdentityKey(row)));
     record.decisions = mergeRows(record.decisions, previous.decisions, decisionIdentityKey);
     record.open = record.open || previous.open;
   }
+  normalizeLogbookRecord(record);
   record.closed = record.closed === true || record.date < currentLocalDate();
   if (previous && sameContent(previous, record)) record.generated = previous.generated;
   const serialized = `${JSON.stringify(record)}\n`;
