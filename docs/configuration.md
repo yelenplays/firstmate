@@ -782,6 +782,24 @@ Captain consent for this path: the query string may be sent to Jev; page bodies,
 The classifier never retries the engine, never enables embeddings or OpenViking, and never writes a wiki vault, catalog, or engine config.
 Classification results remain in the helper's local log rather than being added to the engine envelope.
 
+## Wiki context in briefs (config/wikis-root)
+
+This section is the single owner of the opt-in wiki integration for ship and scout briefs; [`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh)'s header owns the parser, the rendered wording, and the guide marker.
+`FM_WIKIS_ROOT` or gitignored `config/wikis-root` names a directory holding `routing/estate.json`; the environment wins, the file's first non-comment non-blank line is used, and a leading `~/` expands to `$HOME`.
+With neither set, or with a directory that lacks `routing/estate.json`, briefs carry no wiki sections and cleanup checks nothing, so the feature is inert until configured.
+`config/wikis-root` is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract; a home where the path does not resolve renders no wiki sections.
+
+A project's backing wikis come from its `data/projects.md` row: an optional `[wiki: A, B]` bracket directly after the mode bracket, or directly after the name when the row has none, lists vault names or card ids separated by commas, and names may contain spaces ([`bin/fm-project-mode.sh`](../bin/fm-project-mode.sh) `--wikis` prints them).
+The token never changes the registered delivery posture.
+
+When configured, `bin/fm-brief.sh` adds a `# Wiki context` section resolved against `estate.json`'s `vaults[]`: each named vault with its path, card id, digest, entry page, and budget class, read cheapest first - digest, then entry page, then at most three further pages.
+The vault's `cloud` flag bounds what the worker may open: `ja` gets that full ladder, `nur-digest` gets the digest only, and `nein` or `modus` `pointer` is named only with an instruction not to open it; any page with `private: true` is always skipped.
+When `<wikis-root>/ProjektWiki/wiki/<project>/<project>.md` exists it is named first.
+A missing token or unreadable estate gets a fallback line pointing at the routing cards; unresolved names are listed with the same guidance while other resolved wikis still render, and none of these conditions fails the scaffold.
+
+The same configuration adds a `# Wiki guide` step: before reporting done, the worker writes a topic-named guide draft with its GitHub prior-art findings to `data/<task-id>/guide.md` in the firstmate home, or `no guide: <reason>`, and never writes into a vault; a separate lander files the draft.
+`bin/fm-teardown.sh` refuses cleanup of a ship or scout task whose brief carries the guide marker while that file is absent; briefs without the marker are unaffected, and `--force` skips the check.
+
 ## Memory store (config/memory-dir)
 
 Durable memory is plain markdown searched by a light BM25 index; [`docs/memory.md`](memory.md) owns the store contract, the OpenViking migration, and the retirement of the old server.
@@ -1330,6 +1348,7 @@ FM_CONFIG_OVERRIDE=      # alternate config dir, mainly for tests
 FM_PROC_ROOT_OVERRIDE=   # alternate /proc root for Linux process-identity reads in fm-wake-lib.sh and fm-teardown.sh, mainly for tests
 FM_BACKEND=             # optional runtime backend override for new spawns; tmux/herdr/zellij/orca/cmux support ship/scout spawns, codex-app is not accepted
 FM_TRACE_CONTEXT=       # optional trace-context override; see "Trace context propagation"
+FM_WIKIS_ROOT=          # optional wikis root override; see "Wiki context in briefs"
 FM_TASK_ID=             # internal task-worker marker fm-spawn.sh exports into ship and scout panes, never set by hand; bin/fm-test-run.sh refuses to execute in the repository primary checkout while it is set
 HERDR_SESSION=default  # herdr-only: named session for normal backend ops; not enough for destructive cleanup (docs/herdr-backend.md)
 FM_BACKEND_HERDR_SUBMIT_POLLS=6  # herdr-only: agent-state samples spread across each Enter attempt's budget when confirming a submit (docs/herdr-backend.md "Current transport behavior")

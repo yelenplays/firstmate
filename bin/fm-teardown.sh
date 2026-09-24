@@ -73,6 +73,10 @@
 # declared scratch and the report at data/<task-id>/report.md is the work
 # product. Teardown proceeds only once the report exists and the shared
 # unresolved-decision completion gate verifies its captain-held inventory.
+# Ship and scout tasks whose brief carries bin/fm-wiki-lib.sh's wiki guide
+# marker line additionally refuse while data/<task-id>/guide.md is absent;
+# briefs without the marker (wikis unconfigured, or scaffolded earlier) are
+# unaffected, and --force skips the check.
 # Before destructive cleanup, teardown validates task check artifacts as
 # ordinary single-link files on the state device. It refuses and preserves
 # task state when that proof fails; otherwise it removes the task's check,
@@ -3178,6 +3182,14 @@ if [ "$KIND" = scout ] && [ "$FORCE" != "--force" ]; then
     echo "Inventory its report and any visual review through bin/fm-captain-hold.sh before teardown." >&2
     exit 1
   fi
+fi
+
+if { [ "$KIND" = ship ] || [ "$KIND" = scout ]; } && [ "$FORCE" != "--force" ] &&
+  [ -f "$DATA/$ID/brief.md" ] && grep -qxF 'Wiki guide contract: required' "$DATA/$ID/brief.md" &&
+  [ ! -f "$DATA/$ID/guide.md" ]; then
+  echo "REFUSED: $KIND task $ID has no wiki guide at $DATA/$ID/guide.md, which its brief requires." >&2
+  echo "Have the crewmate write the guide draft (or a 'no guide: <reason>' line) there, or use --force after explicit discard approval." >&2
+  exit 1
 fi
 
 # A public commitment is not kept until its final reply lands in the ORIGINAL
