@@ -191,6 +191,7 @@ Cleanup refuses while this file is absent.
 EOF
 }
 
+# shellcheck disable=SC2034 # these globals are the parser's result API for sourced callers.
 fm_wiki_guide_header() {
   local file=$1 line key value n=0 target='' topic='' action=''
   FM_WIKI_GUIDE_KIND=invalid
