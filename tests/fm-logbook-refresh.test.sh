@@ -89,6 +89,7 @@ EOF
   cat > "$TMP_ROOT/bin/launchctl" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$*" >> "$FM_TEST_LAUNCHCTL_LOG"
+exit "${FM_TEST_LAUNCHCTL_STATUS:-0}"
 EOF
   chmod +x "$TMP_ROOT/bin/launchctl"
   printf '%s\n' "$DECK_DIR" > "$HOME_DIR/config/deck-path"
@@ -98,9 +99,16 @@ EOF
     || fail 'kickstart path returned failure'
   [ "$(cat "$TMP_ROOT/launchctl.log" 2>/dev/null)" = "kickstart gui/$(id -u)/example.fm-deck" ] \
     || fail 'configured Deck launchd job was not kickstarted'
+  [ ! -e "$TMP_ROOT/refresh.log" ] \
+    || fail 'successful kickstart also started a concurrent direct refresh'
+
+  FM_TEST_LAUNCHCTL_STATUS=9 PATH="$TMP_ROOT/bin:$PATH" \
+    FM_TEST_LAUNCHCTL_LOG="$TMP_ROOT/launchctl.log" \
+    FM_TEST_REFRESH_LOG="$TMP_ROOT/refresh.log" run_refresh \
+    || fail 'failed-kickstart fallback returned failure'
   [ "$(cat "$TMP_ROOT/refresh.log" 2>/dev/null)" = "work-landed $HOME_DIR $DECK_DIR" ] \
-    || fail 'direct refresh did not follow successful kickstart'
-  pass 'successful kickstart is followed by a direct refresh'
+    || fail 'failed kickstart did not fall back to direct refresh'
+  pass 'successful kickstart avoids direct refresh; failure falls back'
 }
 
 test_generates_logbook_and_calls_configured_deck
