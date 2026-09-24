@@ -29,6 +29,12 @@ Wake, watcher, away-mode, and Relay-specific state mechanics remain with their n
 `AGENTS.md` retains the run-once and read-once operator rules, lock-refusal safety, installation consent, and direct-report recovery boundaries because those facts apply at every session start.
 Ordinary dead-direct-report recovery is owned by `stuck-crewmate-recovery`, while persistent-secondmate recovery is owned by `secondmate-provisioning`.
 
+## Private Deck checkout (config/deck-path)
+
+When a private Firstmate Deck checkout is available, the optional one-line `$FM_HOME/config/deck-path` file may name its absolute path.
+After a task lands or a captain decision is recorded, `bin/fm-logbook-refresh.sh` regenerates the daily Logbook and runs that checkout's `deploy/refresh.sh work-landed` hook when present.
+Missing or invalid configuration skips the Deck refresh, and both operations are bounded best-effort work that cannot fail the landing or answer operation.
+
 ## Calm preference (config/calm)
 
 The Pi Calm extension and the Claude Code Calm mod share the captain's home-local presentation choice in gitignored `config/calm` under the effective Firstmate home, so one `/calm` choice applies on either harness.

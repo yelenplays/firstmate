@@ -96,6 +96,9 @@ test_logbook_projects_reports_decisions_and_open_work() {
   answer=$'Keep the private words here.\n\nSecond exact paragraph.\n\nCode marker: ```text\nnot a Markdown fence.'
   printf '%s' "$answer" > "$TMP_ROOT/answer.txt"
   FM_CAPTAIN_HOLD_NOW="$at" run_captain answer decision-one --decision-file "$TMP_ROOT/answer.txt" >/dev/null
+  jq -e --arg id decision-one 'any(.decisions[]; .id == $id)' \
+    "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null \
+    || fail 'captain answer did not regenerate the Logbook immediately'
   run_axi add decision-repaired 'Repair a captain answer record' --kind captain --repo example-repo --start >/dev/null
   run_captain hold decision-repaired --reason 'This task was closed before its answer was captured' >/dev/null
   run_axi "done" decision-repaired >/dev/null

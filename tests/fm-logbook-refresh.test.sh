@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# End-to-end tests for bounded best-effort Logbook and Deck refresh wiring.
+set -u
+
+# shellcheck source=tests/lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+command -v jq >/dev/null 2>&1 || { echo "skip: jq not found"; exit 0; }
+command -v tasks-axi >/dev/null 2>&1 || { echo "skip: tasks-axi not found"; exit 0; }
+command -v node >/dev/null 2>&1 || { echo "skip: node not found"; exit 0; }
+
+TMP_ROOT=$(fm_test_tmproot fm-logbook-refresh)
+HOME_DIR="$TMP_ROOT/home"
+DECK_DIR="$TMP_ROOT/deck"
+TODAY=$(TZ=Europe/Berlin date +%Y-%m-%d)
+
+fail() { echo "not ok: $*" >&2; exit 1; }
+pass() { echo "ok: $*"; }
+
+fresh_home() {
+  rm -rf "$TMP_ROOT"
+  mkdir -p "$HOME_DIR/data" "$HOME_DIR/state" "$HOME_DIR/config" "$HOME_DIR/projects"
+  cp "$ROOT/.tasks.toml" "$HOME_DIR/.tasks.toml"
+  cat > "$HOME_DIR/data/backlog.md" <<'EOF'
+## In flight
+
+## Queued
+
+## Done
+EOF
+}
+
+run_refresh() {
+  FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$HOME_DIR" \
+    FM_STATE_OVERRIDE="$HOME_DIR/state" FM_DATA_OVERRIDE="$HOME_DIR/data" \
+    "$ROOT/bin/fm-logbook-refresh.sh"
+}
+
+test_generates_logbook_and_calls_configured_deck() {
+  fresh_home
+  mkdir -p "$DECK_DIR/deploy"
+  cat > "$DECK_DIR/deploy/refresh.sh" <<'EOF'
+#!/usr/bin/env bash
+[ "$1" = work-landed ] || exit 9
+printf '%s\n' "$1" >> "$FM_TEST_REFRESH_LOG"
+EOF
+  chmod +x "$DECK_DIR/deploy/refresh.sh"
+  printf '%s\n' "$DECK_DIR" > "$HOME_DIR/config/deck-path"
+  FM_TEST_REFRESH_LOG="$TMP_ROOT/refresh.log" run_refresh \
+    || fail 'best-effort helper returned failure'
+  [ -f "$HOME_DIR/data/history/days/$TODAY.logbook.json" ] \
+    || fail "helper did not generate today's Logbook"
+  [ "$(<"$TMP_ROOT/refresh.log")" = work-landed ] \
+    || fail 'configured Deck refresh hook did not run with work-landed'
+  pass 'generation precedes a configured Deck refresh hook'
+}
+
+test_missing_deck_configuration_is_silent() {
+  fresh_home
+  output=$(run_refresh 2>&1) || fail 'missing optional Deck config changed the caller result'
+  [ -z "$output" ] || fail "missing optional Deck config was not silent: $output"
+  [ -f "$HOME_DIR/data/history/days/$TODAY.logbook.json" ] \
+    || fail 'missing Deck config also skipped local Logbook generation'
+  pass 'missing Deck configuration skips only the publish refresh'
+}
+
+test_deck_failure_is_best_effort() {
+  fresh_home
+  mkdir -p "$DECK_DIR/deploy"
+  cat > "$DECK_DIR/deploy/refresh.sh" <<'EOF'
+#!/usr/bin/env bash
+exit 19
+EOF
+  chmod +x "$DECK_DIR/deploy/refresh.sh"
+  printf '%s\n' "$DECK_DIR" > "$HOME_DIR/config/deck-path"
+  run_refresh >/dev/null 2>&1 || fail 'Deck refresh failure escaped the best-effort helper'
+  pass 'Deck refresh failure does not fail the caller'
+}
+
+test_generates_logbook_and_calls_configured_deck
+test_missing_deck_configuration_is_silent
+test_deck_failure_is_best_effort
