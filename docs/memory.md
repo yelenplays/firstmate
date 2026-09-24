@@ -5,7 +5,7 @@ This page owns the operator contract: store layout, the migration out of OpenVik
 Each script's header and `--help` own exact flags and exit codes; this page states the shape and the invariants.
 
 The arrangement exists because the captain chose it on 2026-09-20 after the `data/memory-store-reliable-cheap` investigation: the OpenViking server burned about 9.5% of a core in a non-converging retry loop against a dead Ollama, while the memory payload itself was about 119 markdown files.
-Vector recall, session auto-ingest, and vikingbot were deliberately traded away; what remains is files plus keyword search, with no daemon, no model backend, and no GPU.
+The memory store deliberately excludes vector recall, automatic session ingestion, and vikingbot; it remains plain files plus keyword search, with no daemon, model backend, or GPU.
 
 ## Layout
 
@@ -15,7 +15,7 @@ A memory is one markdown file `<category>/<topic>.md` written by `remember` with
 The OpenViking categories carry over: `preferences`, `entities`, `events`; `remember` normalizes the singular names.
 The BM25 index is `<store>/.index.json`, a disposable cache owned by [`bin/fm-memory-bm25.mjs`](../bin/fm-memory-bm25.mjs) that self-rebuilds whenever the tree drifts from its recorded manifest, so recall never answers from stale bytes.
 Recall scores the title and body only: the frontmatter block stays structured metadata and is never indexed, so a metadata word or a date is not a ranking signal.
-Session history and other non-memory markdown migrate to `$FM_HOME/data/memory-archive/` rather than into the searchable store.
+During OpenViking migration, legacy session history and other non-memory Markdown files are copied to `$FM_HOME/data/memory-archive/`, not to the searchable memory store.
 
 ## Commands
 

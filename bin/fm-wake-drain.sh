@@ -227,6 +227,37 @@ assert_watcher_liveness() {
   "$SCRIPT_DIR/fm-guard.sh" || true
 }
 
+record_history_batch() {
+  local history_data_override=${FM_DATA_OVERRIDE:-$FM_HOME/data}
+  [ -n "$RAW_ROWS" ] || return 0
+  DRAIN_TMP=$(mktemp "$STATE/.history-wake-batch.XXXXXX") || {
+    printf 'wake drain: could not stage the history record for the presented wake batch\n' >&2
+    return 1
+  }
+  if ! printf '%s\n' "$RAW_ROWS" > "$DRAIN_TMP" \
+    || ! FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" \
+      FM_DATA_OVERRIDE="$history_data_override" FM_STATE_OVERRIDE="$STATE" \
+      "$SCRIPT_DIR/fm-history.sh" wakes --rows-file "$DRAIN_TMP" \
+        --ack-through "$ACK_THROUGH" --actor "$ACTOR" >/dev/null; then
+    rm -f -- "$DRAIN_TMP"
+    DRAIN_TMP=
+    printf 'wake drain: could not journal the presented wake batch\n' >&2
+    return 1
+  fi
+  rm -f -- "$DRAIN_TMP"
+  DRAIN_TMP=
+}
+
+record_history_acknowledgement() {
+  local history_data_override=${FM_DATA_OVERRIDE:-$FM_HOME/data}
+  if ! FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" \
+    FM_DATA_OVERRIDE="$history_data_override" FM_STATE_OVERRIDE="$STATE" \
+    "$SCRIPT_DIR/fm-history.sh" wake-ack "$ACK_THROUGH" "$ACK_REMOVED" "$ACTOR" >/dev/null; then
+    printf 'wake drain: could not journal the wake acknowledgement\n' >&2
+    return 1
+  fi
+}
+
 # Mark presentation-stage inactive terminal outcomes only after the handling
 # turn has completed and before this acknowledgement consumes its queue rows.
 # The helper ignores non-presentation and legacy keys, so this is a narrow
@@ -781,6 +812,7 @@ if [ -n "$ACK_THROUGH" ]; then
     }
   fi
   ACK_REMOVED=$(( $(awk 'END { print NR }' "$FM_WAKE_QUEUE") - $(awk 'END { print NR }' "$DRAIN_TMP") ))
+  record_history_acknowledgement || exit 1
   if [ ! -s "$DRAIN_TMP" ]; then
     fm_recovery_marker_ack "$RECOVERY_MARKER" "$ACK_GENERATION"
     RECOVERY_ACK_STATUS=$?
@@ -922,10 +954,6 @@ case "${FM_WAKE_DRAIN_TEST_DELAY_BEFORE_COMMIT:-0}" in
   ''|*[!0-9]*) ;;
   *) sleep "$FM_WAKE_DRAIN_TEST_DELAY_BEFORE_COMMIT" ;;
 esac
-if [ -n "$RAW_ROWS" ]; then
-  printf '%s\n' "$RAW_ROWS" || exit "$?"
-  print_jev_queue_triage_line "$RAW_ROWS" || true
-fi
 fm_recovery_marker_snapshot "$RECOVERY_MARKER" || exit 1
 RECOVERY_MARKER_TOKEN=$FM_RECOVERY_MARKER_TOKEN
 case "$RECOVERY_MARKER_TOKEN" in
@@ -934,6 +962,11 @@ case "$RECOVERY_MARKER_TOKEN" in
 esac
 fm_lock_release "$FM_WAKE_QUEUE_LOCK"
 DRAIN_LOCK_HELD=false
+record_history_batch || exit 1
+if [ -n "$RAW_ROWS" ]; then
+  printf '%s\n' "$RAW_ROWS" || exit "$?"
+  print_jev_queue_triage_line "$RAW_ROWS" || true
+fi
 printf 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through %s --recovery-generation %s\n' \
   "$ACK_THROUGH" "${RECOVERY_MARKER_TOKEN##*:}" >&2
 

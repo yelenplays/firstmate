@@ -454,6 +454,13 @@ backlog_json() {  # [<backlog-path>] - defaults to this home's $BACKLOG
         end;
     def local_note($rest):
       cap(($rest | strip_trailing_metadata); ".*(?:^|[[:space:]]+-[[:space:]]+|[[:space:]])(?<v>local main)$");
+    def has_resolution_header($lines):
+      any(range(0; ($lines | length)); . as $i |
+        ((($lines[$i] // "") | test("^Resolution recorded by fm-(captain|decision)-hold\\.$"))
+        and (($lines[$i + 1] // "") | test("^Decision digest: [a-f0-9]{64}$"))
+        and (($lines[$i + 2] // "") | test("^Resolution mode: [a-z-]+$"))
+        and (($lines[$i + 3] // "") | test("^Resolved: [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
+        and ($lines[$i + 4] == "Captain decision:")));
     def completion($rest):
       (metadata_word($rest; "merged")) as $merged
       | (metadata_word($rest; "reported")) as $reported
@@ -525,8 +532,7 @@ backlog_json() {  # [<backlog-path>] - defaults to this home's $BACKLOG
         if (.body_lines | length) > 0 then
           .hold_set = cap(.body_lines[0]; "^Captain hold set:[[:space:]]*(?<v>[0-9]{4}-[0-9]{2}-[0-9]{2}(?:T[0-9]{2}:[0-9]{2}:[0-9]{2}Z)?)$")
           | .local_note = (.local_note
-              // (if any(.body_lines[];
-                    test("^Resolution recorded by fm-(captain|decision)-hold\\.$"))
+              // (if has_resolution_header(.body_lines)
                   then null
                   else cap(.body_lines[-1]; "^(?<v>local main)$")
                   end))

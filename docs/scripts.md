@@ -67,6 +67,7 @@ The shared no-mistakes gate refusal for fleet lifecycle entrypoints is summarize
 | `fm-jev-retrieval-miss.sh` | Metadata-only Jev miss classifier; refuses excerpts and conflict lines (docs/configuration.md) |
 | `fm-wiki-ask.sh` | Config-gated wiki-tool ask; classifies no-match and missing-source only (docs/configuration.md) |
 | `fm-memory.sh` | Plain-markdown memory store: remember, BM25 recall, list, reindex (docs/memory.md) |
+| [`fm-history.sh`](../bin/fm-history.sh) | Capture and search the private conversation journal and generate task cards and daily Logbooks ([configuration](configuration.md#operational-home-layout-and-state)) |
 | `fm-memory-bm25.mjs` | BM25 index and query engine behind fm-memory.sh; owns the index format and staleness rule |
 | `fm-memory-migrate.sh` | Verified OpenViking-workspace export into the markdown store plus archive (docs/memory.md) |
 | `fm-openviking-retire.sh` | Reversibly stop the OpenViking launchd agent and rotate its logs (docs/memory.md) |

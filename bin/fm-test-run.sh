@@ -389,7 +389,7 @@ family_for_basename() {
       printf '%s\n' afk
       ;;
     fm-bearings-board-render.test.sh|fm-bearings-snapshot.test.sh|fm-contributions.test.sh|\
-    fm-fleet-snapshot-view.test.sh|fm-home-summary-refresh.test.sh)
+    fm-fleet-snapshot-view.test.sh|fm-history.test.sh|fm-history-logbook.test.sh|fm-home-summary-refresh.test.sh)
       printf '%s\n' snapshot-bearings
       ;;
     fm-backend-cmux.test.sh|fm-backend-cmux-smoke.test.sh)
@@ -671,8 +671,10 @@ list_portable_serial() {
 # the slowest successful sample in the referenced complete/partial CI runs.
 # The live browser-step test uses its successful CI capability-skip sample; the
 # offline test has a conservative initial estimate pending a full CI sample.
-# Hints only affect balance: partition coverage stays complete and disjoint,
-# and docs/fm-test-portable-shards.md owns the refresh procedure.
+# The history suites use local green samples until their first CI timing
+# artifacts are available; replace those at the next refresh. Hints only affect
+# balance: partition coverage stays complete and disjoint, and the doc owns the
+# refresh procedure.
 portable_serial_weight_hints() {
   cat <<'EOF'
 tests/fm-afk-contract.test.sh 15645
@@ -739,6 +741,8 @@ tests/fm-dispatch-resolve.test.sh 4397
 tests/fm-documentation-audiences.test.sh 847
 tests/fm-extension-binding.test.sh 9053
 tests/fm-fleet-snapshot-view.test.sh 17465
+tests/fm-history.test.sh 5760
+tests/fm-history-logbook.test.sh 13530
 tests/fm-fleet-sync.test.sh 35983
 tests/fm-gate-refuse.test.sh 5328
 tests/fm-gemini-harness.test.sh 938
@@ -1502,6 +1506,9 @@ families_for_changed_path() {
     bin/fm-stow-cascade.sh)
       printf '%s\n' secondmate
       ;;
+    bin/fm-history.sh)
+      printf '%s\n' snapshot-bearings
+      ;;
     bin/fm-session-start.sh|bin/fm-fleet-sync.sh|\
     bin/fm-sessionstart-nudge.sh|bin/fm-startup-network.sh|bin/fm-tangle*|bin/fm-update.sh|\
     bin/fm-gate-refuse*|bin/fm-lock*)
@@ -1591,6 +1598,8 @@ families_for_changed_path() {
       # The run tier's two harness-supplied facts (source vocabulary and
       # context-reset stdout injection) only show up against a real harness.
       printf '%s\n' __script__:fm-pi-windows-shell-invocation.test.sh
+      printf '%s\n' __script__:fm-history.test.sh
+      printf '%s\n' __script__:fm-turnend-guard.test.sh
       printf '%s\n' session-bootstrap
       printf '%s\n' live-harness-optin
       ;;

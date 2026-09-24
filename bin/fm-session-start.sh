@@ -208,6 +208,8 @@
 #             mutating sweeps that startup already reconciled - the stale Herdr
 #             projection cleanup and bootstrap's mutating sweeps (enumerated in
 #             fm-bootstrap.sh's header) - and re-emit the rest.
+#             The context digest also restores a bounded slice of up to five
+#             captured captain turns and their paired final replies when available.
 #             Wake-queue presentation is NOT skipped: queued
 #             records are this turn's work queue, they arrived after startup,
 #             and a session that owns the lock is exactly the session that must
@@ -976,6 +978,15 @@ print_file_or_absent "$DATA/secondmates.md" "data/secondmates.md"
 print_file_or_absent "$DATA/captain.md" "data/captain.md"
 print_file_or_absent "$DATA/captain-shared.md" "data/captain-shared.md (shared, main-authoritative, read-only in secondmate homes)"
 print_file_or_absent "$DATA/learnings.md" "data/learnings.md"
+
+if [ "$REEMIT" -eq 1 ]; then
+  section "RECENT CAPTAIN WORDS"
+  if HISTORY_RECENT=$("$SCRIPT_DIR/fm-history.sh" recent --n 5 2>/dev/null); then
+    printf '%s\n' "$HISTORY_RECENT"
+  else
+    printf 'History could not be read from %s/history; retrieve it with bin/fm-history.sh find <query>.\n' "$DATA"
+  fi
+fi
 
 # --- 9. closing reminder -----------------------------------------------
 stage next-step

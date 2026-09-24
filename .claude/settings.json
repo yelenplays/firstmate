@@ -11,6 +11,28 @@
         ]
       }
     ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; [ -z \"${FM_TASK_ID:-}\" ] || exit 0; input=$(cat); transcript=$(printf '%s' \"$input\" | jq -r '.transcript_path // empty' 2>/dev/null); [ -n \"$transcript\" ] || exit 0; \"$CLAUDE_PROJECT_DIR\"/bin/fm-history.sh capture --compaction --transcript \"$transcript\" >/dev/null || true; exit 0",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; [ -z \"${FM_TASK_ID:-}\" ] || exit 0; input=$(cat); transcript=$(printf '%s' \"$input\" | jq -r '.transcript_path // empty' 2>/dev/null); [ -n \"$transcript\" ] || exit 0; \"$CLAUDE_PROJECT_DIR\"/bin/fm-history.sh capture --transcript \"$transcript\" >/dev/null || true; exit 0",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
