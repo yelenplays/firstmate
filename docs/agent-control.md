@@ -44,7 +44,9 @@ muse is the one verified adapter that restores the cancelled prompt back into it
 The clear is refused before anything is sent when the recorded backend cannot deliver it.
 
 `exit` requires the exact `empty` composer verdict before typing an exit command and refuses when a draft is visibly pending or when real text sits in a container whose geometry cannot be proven (`pending-unproven`).
-An `unknown` composer - no readable draft and no proven geometry - can use only an adapter-owned non-typing quit fallback from `bin/fm-control-lib.sh`; absent that capability, it refuses without typing, and every other verdict refuses as well.
+An `unknown` composer - no readable draft and no proven geometry - can use only an adapter-owned non-typing quit fallback from `bin/fm-control-lib.sh`.
+Absent that capability, `exit` re-reads the composer for a bounded settle window (`FM_CONTROL_COMPOSER_WAIT`) and acts only on a later decided verdict, because `unknown` can be transient: a Pi on Herdr keeps reporting a working turn for up to about 30 seconds after an interrupt, and Pi's composer is proven empty only for an idle Pi.
+A composer still `unknown` after that window refuses without typing, and every other verdict refuses as well.
 Both paths retain the same agent-gone postcondition, including when reached through `relaunch`.
 
 **Teardown and discard are not verbs and will not become verbs.**

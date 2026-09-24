@@ -1453,6 +1453,17 @@ ok - live Pi stock 0.85.1: empty, multiline pending refusal, verified exit, idem
 ok - live Grok grok 1.0.34 (3736acbc8658): real weekly-limit menu replaced by Pi without human input; dirty work preserved
 ```
 
+Refreshed 2026-09-24 on macOS with Herdr 0.9.0, Pi 0.87.1, and Grok 1.0.41 (4220f3b224a6), whose account did not expose its quota menu.
+The added aborted-turn case submits a real online Pi prompt, interrupts it with Escape, and reads the composer immediately: it reported `unknown` with Herdr's native Pi status still `working`, and `fm-control.sh exit` then waited for the composer to settle and stopped the agent.
+In the same lab, a streamed turn kept native `working` for 20 to 30 seconds after Escape and a tool-call abort for about 2 seconds, which is the basis for exit's composer settle window.
+
+```text
+ok - live Pi configured 0.87.1: empty, multiline pending refusal, verified exit, idempotence
+ok - live Pi stock 0.87.1: empty, multiline pending refusal, verified exit, idempotence
+# Pi composer right after the interrupt: unknown (native working)
+ok - live Pi 0.87.1: exit waits out the post-interrupt unknown composer and stops the agent
+```
+
 The test reaches the actual `fm-control.sh relaunch` transaction, proves the replacement alive on the same endpoint, and checks that both the branch head and uncommitted file survive.
 Every Herdr call goes through `fm-herdr-lab.sh`, whose teardown verifies that the default session remained unchanged.
 Without `FM_CONTROL_GROK_REQUIRE_LIMIT=1`, an account that does not expose its quota menu reports the missing live coverage explicitly.
