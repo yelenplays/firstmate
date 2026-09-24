@@ -16,8 +16,8 @@
 # call does. It is not an fm-spawn harness or runtime backend: there is no local
 # endpoint, worktree, status log, or state/<id>.meta.
 #
-# BOUNDARY (enforced here, before any request leaves this machine; every check
-# fails closed, and a dry run applies the same checks):
+# BOUNDARY (enforced before any Cursor request leaves this machine; every
+# check fails closed, and a dry run applies the same checks):
 #   - <project> has a row in data/projects.md and its registered mode is not
 #     local-only;
 #   - its clone projects/<project> is a git repository whose origin is a

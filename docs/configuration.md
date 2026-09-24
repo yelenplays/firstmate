@@ -540,10 +540,11 @@ Secondmate homes inherit this file from the primary, so a secondmate's own crewm
 
 `bin/fm-cursor-cloud.sh` is an opt-in pilot that dispatches one ship task to a Cursor cloud agent through Cursor's official Cloud Agents API, so the work keeps running while this machine sleeps.
 It is not an `fm-spawn` harness or runtime backend, and no dispatch profile or routing rule selects it; only an explicit `dispatch` call sends work there.
-The script refuses, before any request, every project that is not registered, is `local-only`, lacks a `github.com` origin, is a wiki vault, or is not a public repository, and it refuses a prompt that names this home or the wikis root.
+Before any Cursor API request, the script refuses a project that is not registered, is `local-only`, lacks a `github.com` origin, is a wiki vault, is associated with a `cloud: nein` wiki vault, or is not a public repository; unresolved wiki associations or an unreadable configured wiki estate also refuse dispatch.
+It also refuses a prompt that names this home or the wikis root.
 It reads `CURSOR_API_KEY` from the environment first, else from the home's gitignored `.env`, and never creates or stores a key; the captain creates a user key at Cursor Dashboard -> API Keys and connects the Cursor GitHub app to the target repository.
 A dry run applies the same boundary and prints the request without a key or any Cursor call.
-A dispatched task has a private `state/<id>.cloud` record instead of `state/<id>.meta`, a registered watcher check that wakes once per new pull request or terminal run outcome, and a Cursor cloud tasks section in the session-start digest; `fm-spawn` refuses its id.
+A dispatched task has a private `state/<id>.cloud` record instead of `state/<id>.meta`, a registered watcher check that reports new pull requests, terminal run outcomes, and poll errors, and a Cursor cloud tasks section in the session-start digest; `fm-spawn` refuses its id.
 The pilot does not move the backlog item or record a merge path: firstmate notes the dispatch in the item, relays the pull request, and lands it on the captain's explicit word.
 The script header owns the subcommands, boundary checks, record fields, exit codes, and cleanup rules.
 
