@@ -51,6 +51,8 @@ draft "$HOME_DIR/data" d-locked $'target: LockedWiki\ntopic: y\naction: new\n'
 draft "$HOME_DIR/data" e-odd $'target: OddWiki\ntopic: z\naction: new\n'
 draft "$HOME_DIR/data" f-nowhere $'target: Nowhere Wiki\ntopic: q\naction: new\n'
 draft "$HOME_DIR/data" g-none $'no guide: config-only change\n'
+draft "$HOME_DIR/data" g-empty-reason $'no guide:   \n'
+draft "$HOME_DIR/data" g-missing-space $'no guide:reason\n'
 draft "$HOME_DIR/data" h-filed $'target: OpenWiki\ntopic: done\naction: new\n'
 printf 'commit: abcdef1\n' > "$HOME_DIR/data/h-filed/guide.filed"
 draft "$HOME_DIR/data" i-badtopic $'target: OpenWiki\ntopic: Not A Slug\naction: new\n'
@@ -70,6 +72,8 @@ test_pending_lists_each_lane_and_skips_filed_and_no_guide() {
     "$HOME_DIR${TAB}d-locked${TAB}LockedWiki${TAB}$WIKIS/LockedWiki${TAB}ja${TAB}private" \
     "$HOME_DIR${TAB}e-odd${TAB}OddWiki${TAB}$WIKIS/OddWiki${TAB}vielleicht${TAB}private" \
     "$HOME_DIR${TAB}f-nowhere${TAB}Nowhere Wiki${TAB}-${TAB}-${TAB}unresolved" \
+    "$HOME_DIR${TAB}g-empty-reason${TAB}-${TAB}-${TAB}-${TAB}invalid" \
+    "$HOME_DIR${TAB}g-missing-space${TAB}-${TAB}-${TAB}-${TAB}invalid" \
     "$HOME_DIR${TAB}i-badtopic${TAB}-${TAB}-${TAB}-${TAB}invalid" \
     "$HOME_DIR${TAB}j-badaction${TAB}-${TAB}-${TAB}-${TAB}invalid" \
     "$HOME_DIR${TAB}k-legacy${TAB}-${TAB}-${TAB}-${TAB}invalid" \
@@ -82,6 +86,8 @@ test_pending_lists_each_lane_and_skips_filed_and_no_guide() {
   assert_contains "$err" "topic is not a kebab-case slug" "bad topic reason missing"
   assert_contains "$err" "action is neither new nor update" "bad action reason missing"
   assert_contains "$err" "header repeats target" "repeated key reason missing"
+  assert_contains "$err" "no-guide reason is empty" "empty no-guide reason was accepted"
+  assert_contains "$err" "header line 1 is not target, topic, or action" "missing no-guide space was accepted"
   pass "pending lists every lane, skips filed and no-guide drafts, and flags bad headers"
 }
 
@@ -109,6 +115,9 @@ test_mark_filed_is_idempotent() {
   lander mark-filed "$HOME_DIR" g-none 0123abc >/dev/null 2>&1; rc=$?
   assert_equals 2 "$rc" "a no-guide draft was marked filed"
   [ ! -e "$HOME_DIR/data/g-none/guide.filed" ] || fail "a no-guide draft gained a receipt"
+  lander mark-filed "$HOME_DIR" g-empty-reason 0123abc >/dev/null 2>&1; rc=$?
+  assert_equals 2 "$rc" "an empty no-guide reason was marked filed"
+  [ ! -e "$HOME_DIR/data/g-empty-reason/guide.filed" ] || fail "an empty-reason draft gained a receipt"
   lander mark-filed "$HOME_DIR" a-open not-a-commit >/dev/null 2>&1; rc=$?
   assert_equals 2 "$rc" "a bad commit was accepted"
   lander mark-filed "$TMP_ROOT" a-open 0123abc >/dev/null 2>&1; rc=$?

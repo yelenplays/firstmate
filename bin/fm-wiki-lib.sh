@@ -204,12 +204,19 @@ fm_wiki_guide_header() {
   fi
   while IFS= read -r line || [ -n "$line" ]; do
     line=${line%$'\r'}
-    line=$(printf '%s' "$line" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
-    [ -n "$line" ] || continue
-    if [ "$n" -eq 0 ] && [[ "$line" == 'no guide:'* ]]; then
-      FM_WIKI_GUIDE_KIND=none
-      return 0
+    line=$(printf '%s' "$line" | sed 's/^[[:space:]]*//')
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+    if [ "$n" -eq 0 ] && [[ "$line" == 'no guide: '* ]]; then
+      local reason=${line#'no guide: '}
+      reason=$(printf '%s' "$reason" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+      if [ -n "$reason" ]; then
+        FM_WIKI_GUIDE_KIND=none
+        return 0
+      fi
+      FM_WIKI_GUIDE_ERROR='no-guide reason is empty'
+      return 1
     fi
+    line=$(printf '%s' "$line" | sed 's/[[:space:]]*$//')
     n=$((n + 1))
     key=${line%%:*}
     value=
