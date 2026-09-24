@@ -36,7 +36,6 @@ LAB=$(mktemp -d "${TMPDIR:-/tmp}/fm-claude-rc.XXXXXX")
 LAB=$(cd "$LAB" && pwd -P)
 HOME_DIR="$LAB/home"
 # The hooks under test do not depend on the model, so keep the spend small.
-LIVE_MODEL=${FM_CLAUDE_LIVE_MODEL:-haiku}
 
 cleanup_all() {
   "$REAL_TMUX" -L "$SOCKET" kill-server >/dev/null 2>&1 || true
@@ -75,7 +74,7 @@ printf 'blocked: fixture needs a decision\n' > "$HOME_DIR/state/probe.status"
 "$REAL_TMUX" -L "$SOCKET" new-session -d -s primary -x 220 -y 60 -c "$HOME_DIR" \
   "env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_CHILD_SESSION -u CLAUDE_PROJECT_DIR -u FM_TASK_ID \
      FM_HOME='$HOME_DIR' FM_HEARTBEAT=30 FM_HEARTBEAT_MAX=30 \
-     '$HOME_DIR/bin/fm-claude-primary.sh' --dangerously-skip-permissions --model '$LIVE_MODEL' --effort low" \
+     '$HOME_DIR/bin/fm-claude-primary.sh' --dangerously-skip-permissions --model haiku --effort low" \
   || harness_fail "could not start the private tmux server"
 
 pane_text() {
