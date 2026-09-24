@@ -1,12 +1,12 @@
 # Claude
 
-Busy hooks verified 2026-07-28 on Claude Code 2.1.220.
+Busy-state sources live-verified on Claude Code 2.1.282; hook fallback details are in [supervision verification](../../../../../docs/verification/supervision.md#semantic-busy-state).
 
 ## Operating facts
 
 | Fact | Value |
 |---|---|
-| Busy | Claude's own session list (`claude agents --json`, verified on 2.1.282) is read first and wins whenever it names exactly one live session in the task worktree: `busy`, `idle`, or `waiting` on a prompt answer, which classifies `busy claude-needs-input` and surfaces as blocked rather than working. Otherwise the owned hooks answer: `UserPromptSubmit` opens while `Stop`, `StopFailure`, and `SessionEnd` close; manual interrupt emits no hook, so control reports delivered keys and live endpoint only, publishes no idle event or cancellation claim, and leaves the hook record unchanged while the session list can correct the classified state. `bin/fm-busy-lib.sh` owns the precedence. |
+| Busy | `claude agents --json` is the primary source; owned lifecycle hooks are the fallback. The shared classifier owns matching, precedence, and waiting-state semantics; see [`bin/fm-busy-lib.sh`](../../../../../bin/fm-busy-lib.sh) and [live evidence](../../../../../docs/verification/supervision.md#claude-session-list-2026-09-24). |
 | Exit | `/exit`. |
 | Interrupt | Single Escape. |
 | Skill | `/<skill>`, for example `/no-mistakes`. |
