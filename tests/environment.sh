@@ -24,5 +24,8 @@ fm_test_sanitize_environment() {
   # (tests/fm-browser-bridge-sweep.test.sh) unsets the table hook itself.
   FM_BROWSER_BRIDGE_PROC_TABLE=/dev/null
   FM_CHROME_AXI_STATE_DIR=/dev/null
-  export FM_BROWSER_BRIDGE_PROC_TABLE FM_CHROME_AXI_STATE_DIR
+  # Keep the host's live Claude session list out of busy classification; tests
+  # that exercise that source point this at their own stub.
+  FM_CLAUDE_AGENTS_BIN=/dev/null
+  export FM_BROWSER_BRIDGE_PROC_TABLE FM_CHROME_AXI_STATE_DIR FM_CLAUDE_AGENTS_BIN
 }

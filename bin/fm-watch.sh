@@ -354,8 +354,9 @@ hash_pane() {
 }
 
 # window_is_busy: 0 (busy) iff the task's harness is PROVABLY working, through
-# the semantic busy-state contract (bin/fm-busy-lib.sh). Only an exact busy
-# verdict returns 0: idle, unknown, and dead all return 1, so a converted
+# the semantic busy-state contract (bin/fm-busy-lib.sh). Only a verdict that
+# fm_busy_verdict_working accepts returns 0: a turn parked on a prompt answer,
+# idle, unknown, and dead all return 1, so a converted
 # adapter whose semantic state is missing, malformed, stale, or unverified is
 # treated as not-provably-working and surfaces rather than being absorbed.
 # <tail40> is the same bounded capture already read for hashing and is
@@ -370,7 +371,7 @@ window_is_busy() {  # <window> <tail40>
     verdict=$(fm_busy_classify "$(window_backend "$w")" "$w" "$(window_harness "$w")" \
       "${task:-unknown}" "$STATE" "$tail40")
   fi
-  [ "${verdict%% *}" = busy ]
+  fm_busy_verdict_working "$verdict"
 }
 
 window_kind() {

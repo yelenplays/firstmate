@@ -701,8 +701,9 @@ task_window_harness() {  # <window> <state>
 
 # stale_window_is_busy: 0 when the task is PROVABLY working through the
 # semantic busy-state contract (bin/fm-busy-lib.sh), 1 when it is not, and 2
-# when the endpoint could not be read at all. Only an exact busy verdict is
-# working: unknown semantic state never becomes busy and never becomes a
+# when the endpoint could not be read at all. Only a verdict that
+# fm_busy_verdict_working accepts is working, so a turn parked on a prompt
+# answer surfaces: unknown semantic state never becomes busy and never becomes a
 # silent idle, so a stale pane whose state cannot be proven surfaces.
 # The captured pane tail is published in FM_STALE_TAIL40 so the wedge
 # boundary's Jev second opinion reads the SAME pane the busy verdict saw
@@ -717,7 +718,7 @@ stale_window_is_busy() {  # <window> <state>
   tail40=$(fm_backend_capture "$backend" "$win" 40 "$label" 2>/dev/null) || return 2
   FM_STALE_TAIL40=$tail40
   verdict=$(fm_busy_classify "$backend" "$win" "$harness" "$task" "$state" "$tail40")
-  [ "${verdict%% *}" = busy ]
+  fm_busy_verdict_working "$verdict"
 }
 
 escalate_add() {  # <state> <distilled-item>
