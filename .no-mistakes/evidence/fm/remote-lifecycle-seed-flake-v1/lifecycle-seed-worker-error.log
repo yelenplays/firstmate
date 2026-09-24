@@ -1,0 +1,2 @@
+error: remote job worker did not report ready after startup
+error: remote provisioning failed; registry restored

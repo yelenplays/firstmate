@@ -1,0 +1,2 @@
+ok - overlapping remote home provisioning serializes through publication and rollback
+not ok - serialized successful seed failed
