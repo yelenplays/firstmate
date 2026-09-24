@@ -127,6 +127,30 @@ test_mark_filed_is_idempotent() {
   pass "mark-filed writes one receipt, keeps it on repeat, and refuses bad input"
 }
 
+test_symlinked_task_dir_or_draft_is_refused() {
+  local out err rc outside="$TMP_ROOT/outside"
+  draft "$TMP_ROOT" outside $'target: OpenWiki\ntopic: linked\naction: new\n'
+  ln -s "$outside" "$HOME_DIR/data/n-linkdir"
+  mkdir -p "$HOME_DIR/data/o-linkdraft"
+  ln -s "$outside/guide.md" "$HOME_DIR/data/o-linkdraft/guide.md"
+  out=$(lander pending 2>"$TMP_ROOT/link.err") || fail "pending failed with a symlink"
+  err=$(cat "$TMP_ROOT/link.err")
+  assert_not_contains "$out" "n-linkdir" "a symlinked task directory was listed"
+  assert_not_contains "$out" "o-linkdraft" "a symlinked draft was listed"
+  assert_contains "$err" "skipping $HOME_DIR/data/n-linkdir/guide.md: symlinked" "no notice for a symlinked task directory"
+  assert_contains "$err" "skipping $HOME_DIR/data/o-linkdraft/guide.md: symlinked" "no notice for a symlinked draft"
+  for id in n-linkdir o-linkdraft; do
+    err=$(lander mark-filed "$HOME_DIR" "$id" 0123abc 2>&1 >/dev/null); rc=$?
+    assert_equals 2 "$rc" "mark-filed accepted symlinked $id"
+    assert_contains "$err" "symlinked task directory or draft" "mark-filed gave no clear refusal for $id"
+  done
+  [ ! -e "$outside/guide.filed" ] || fail "mark-filed wrote through a symlink"
+  [ ! -e "$HOME_DIR/data/o-linkdraft/guide.filed" ] || fail "mark-filed wrote a receipt beside a symlinked draft"
+  rm -f "$HOME_DIR/data/n-linkdir"; rm -rf "$HOME_DIR/data/o-linkdraft"
+  pass "a symlinked task directory or draft is skipped by pending and refused by mark-filed"
+}
+
 test_pending_lists_each_lane_and_skips_filed_and_no_guide
+test_symlinked_task_dir_or_draft_is_refused
 test_unconfigured_is_inert
 test_mark_filed_is_idempotent
