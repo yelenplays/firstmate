@@ -936,17 +936,17 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
     if (completion.date !== date) continue;
     const identity = taskIdentityKey(rowHome, id);
     if (completion.verb === 'reported' && row.report_path) {
-      reportsById.set(identity, { id, project, title, kind: row.kind || null, mode: row.mode || row.delivery_mode || null, report_path: row.report_path, home: rowHome });
+      reportsById.set(identity, { id, project: project || 'unclassified', title, kind: row.kind || null, mode: row.mode || row.delivery_mode || null, report_path: row.report_path, home: rowHome, order: Number.isSafeInteger(row.order) ? row.order : Number.MAX_SAFE_INTEGER });
     } else if ((['merged', 'landed'].includes(completion.verb) || (completion.verb === 'done' && !prUrl))
       && row.state === 'done' && row.kind !== 'captain' && row.hold_kind !== 'captain') {
       const via = prUrl ? 'pull_request' : 'local';
-      landedById.set(identity, { id, project, title, kind: row.kind || null, mode: row.mode || row.delivery_mode || null, via, pr_url: prUrl, home: rowHome, order: Number.isSafeInteger(row.order) ? row.order : Number.MAX_SAFE_INTEGER });
+      landedById.set(identity, { id, project: project || 'unclassified', title, kind: row.kind || null, mode: row.mode || row.delivery_mode || null, via, pr_url: prUrl, home: rowHome, order: Number.isSafeInteger(row.order) ? row.order : Number.MAX_SAFE_INTEGER });
     }
     if (rowHome === home) {
       const decisionBody = decisionBodies[id];
       if (decisionBody) {
         for (const decision of decisionRows(decisionBody.snapshot_body, decisionBody.body, id, project, title, rowHome, date)) {
-          decisionById.set(decisionIdentityKey(decision), decision);
+          decisionById.set(decisionIdentityKey(decision), { ...decision, project: decision.project || 'unclassified' });
         }
       }
     }
@@ -962,12 +962,19 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
   for (const [identity, row] of reportsById) {
     if (landedIdentities.has(taskIdentityKey(row.home, row.id))) reportsById.delete(identity);
   }
-  const orderedRows = (map) => [...map.values()].sort((a, b) =>
-    (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id));
+  const orderedRows = (map) => {
+    const seen = new Set();
+    return [...map.values()].sort((a, b) =>
+      (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id))
+      .filter((row) => !seen.has(row.id) && seen.add(row.id));
+  };
   const landed = orderedRows(landedById).map(({ order, prior, ...row }, index) => ({ ...row, order: index + 1 }));
   const reports = orderedRows(reportsById).map((row, index) => ({ ...row, order: index + 1 }));
-  const decisions = [...decisionById.values()].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
-    .map((row, index) => ({ ...row, order: index + 1 }));
+  const decisions = [...decisionById.values()]
+    .filter((row) => ['answered', 'released'].includes(row.mode))
+    .sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
+    .filter((row, index, rows) => rows.findIndex((candidate) => candidate.id === row.id) === index)
+    .map((row, index) => ({ ...row, project: row.project || 'unclassified', order: index + 1 }));
 
   const secondmateCurrent = snapshot.secondmate_current || {};
   const unlistedHomes = Number.isSafeInteger(secondmateCurrent.truncated) ? secondmateCurrent.truncated : null;
@@ -1018,6 +1025,26 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
       registry_complete: registryComplete,
     },
   };
+  return record;
+}
+
+function normalizeLogbookRecord(record) {
+  for (const group of ['landed', 'reports', 'decisions']) {
+    const seen = new Set();
+    record[group] = record[group].filter((row) => {
+      if (group === 'decisions' && !['answered', 'released'].includes(row.mode)) return false;
+      if (seen.has(row.id)) return false;
+      seen.add(row.id);
+      if (typeof row.project !== 'string') row.project = 'unclassified';
+      return true;
+    }).map((row, index) => ({ ...row, order: index + 1 }));
+  }
+  // Jev-based selection remains a follow-up; current highlights use this deterministic rule.
+  const highlight = record.landed.find((row) => row.via === 'pull_request')
+    || record.landed[0] || record.reports[0] || record.decisions[0];
+  record.highlight = highlight
+    ? { id: highlight.id, by: 'rule', confidence: null }
+    : { id: null, by: 'rule' };
   return record;
 }
 
@@ -1120,6 +1147,7 @@ function logbookPrepare(historyDir, homeDir, snapshotFile, decisionsFile, date, 
     record.decisions = mergeRows(record.decisions, previous.decisions, decisionIdentityKey);
     if (!record.open) record.open = previous.open;
   }
+  normalizeLogbookRecord(record);
   process.stdout.write(JSON.stringify({ skip: null, date, rebuild, record }));
 }
 
@@ -1170,6 +1198,7 @@ function logbookFinalizeLocked(historyDir, stateDir, recordFile, rebuild) {
     record.decisions = mergeRows(record.decisions, previous.decisions, decisionIdentityKey);
     record.open = record.open || previous.open;
   }
+  normalizeLogbookRecord(record);
   record.closed = record.closed === true || record.date < currentLocalDate();
   if (previous && sameContent(previous, record)) record.generated = previous.generated;
   const serialized = `${JSON.stringify(record)}\n`;
