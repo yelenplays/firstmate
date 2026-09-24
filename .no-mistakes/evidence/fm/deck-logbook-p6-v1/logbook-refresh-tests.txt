@@ -1,0 +1,14 @@
+Targeted product-level test transcripts
+
+$ bash tests/fm-logbook-refresh.test.sh
+ok: generation precedes a configured Deck refresh hook
+ok: missing Deck configuration skips only the publish refresh
+ok: Deck refresh failure does not fail the caller
+
+$ bash tests/fm-history-logbook.test.sh
+ok - Logbook captures outcomes, exact decisions, all open work, and private permissions
+
+$ bash tests/fm-teardown.test.sh (target teardown case ran before the full test file timed out)
+ok - teardown closes its own backlog item before reporting success
+
+The teardown test's case asserts that a successful landed-task teardown creates today's Logbook JSON and includes the landed task id. The full teardown test file later exceeded the 300-second command timeout while continuing unrelated cases; that timeout occurred after this target scenario had passed.
