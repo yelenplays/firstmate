@@ -1,7 +1,8 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2016 # backticks in printf formats are literal Markdown.
 # Wiki integration helpers for crewmate briefs and teardown.
-# Sourced by bin/fm-brief.sh, bin/fm-project-mode.sh, and bin/fm-teardown.sh.
+# Sourced by bin/fm-brief.sh, bin/fm-project-mode.sh, bin/fm-teardown.sh, and
+# bin/fm-guide-lander.sh.
 # Everything here is opt-in: with no wikis root configured, briefs carry no wiki
 # sections and teardown checks nothing (docs/configuration.md "Wiki context in
 # briefs" owns the operator contract).
@@ -20,12 +21,30 @@
 # fm_wiki_context_section <wikis-root> <project> <registry>
 #   Prints the brief's "# Wiki context" section. Never fails on missing or
 #   malformed wiki data; it degrades to a single explanatory line instead.
+# fm_wiki_estate_row <estate.json> <name>
+#   Prints the first vault whose wiki name or card id matches <name> (case
+#   insensitive) as unit-separator-joined fields: wiki, id, path, digest,
+#   einstieg, cloud, modus, budget_klasse. Prints nothing when unmatched.
 # fm_wiki_guide_section <guide-path>
 #   Prints the brief's "# Wiki guide" section, which opens with the fixed
 #   FM_WIKI_GUIDE_MARKER line bin/fm-teardown.sh keys its guide check on.
+# fm_wiki_guide_header <guide-path>
+#   Parses a guide draft's header into FM_WIKI_GUIDE_KIND and its fields.
+#   The first non-blank line `no guide: <reason>` gives kind `none`.
+#   Otherwise the first three non-blank lines must be, in any order, exactly
+#   one each of `target: <vault name or card id>`, `topic: <kebab-slug>`, and
+#   `action: new` or `action: update <page path>`, giving kind `draft` with
+#   FM_WIKI_GUIDE_TARGET, FM_WIKI_GUIDE_TOPIC, and FM_WIKI_GUIDE_ACTION set.
+#   Anything else gives kind `invalid` with FM_WIKI_GUIDE_ERROR naming why and
+#   returns 1. A cloud flag in the draft is never read; the lander looks it up.
 
 FM_WIKI_GUIDE_MARKER='Wiki guide contract: required'
 FM_WIKI_MAX_PAGES=3
+FM_WIKI_GUIDE_KIND=
+FM_WIKI_GUIDE_TARGET=
+FM_WIKI_GUIDE_TOPIC=
+FM_WIKI_GUIDE_ACTION=
+FM_WIKI_GUIDE_ERROR=
 
 fm_wiki_registry_names() {
   local reg=$1 name=$2
@@ -87,6 +106,17 @@ fm_wiki_root() {
   printf '%s\n' "$root"
 }
 
+fm_wiki_estate_row() {
+  jq -r --arg n "$2" '
+    [.vaults[] | select(type == "object")
+      | select(((.wiki // "") | tostring | ascii_downcase) == ($n | ascii_downcase)
+            or ((.id // "") | tostring | ascii_downcase) == ($n | ascii_downcase))][0]
+    | select(. != null)
+    | [.wiki, .id, .path, .digest, .einstieg, .cloud, .modus, .budget_klasse]
+    | map(if . == null then "" else tostring end) | join("\u001f")
+  ' "$1" 2>/dev/null
+}
+
 fm_wiki_context_section() {
   local root=$1 project=$2 reg=$3 estate names name row line lines='' unresolved=''
   local wiki id path digest einstieg cloud modus budget vault_path entry label
@@ -110,14 +140,7 @@ fm_wiki_context_section() {
   fi
   while IFS= read -r name; do
     [ -n "$name" ] || continue
-    row=$(jq -r --arg n "$name" '
-      [.vaults[] | select(type == "object")
-        | select(((.wiki // "") | tostring | ascii_downcase) == ($n | ascii_downcase)
-              or ((.id // "") | tostring | ascii_downcase) == ($n | ascii_downcase))][0]
-      | select(. != null)
-      | [.wiki, .id, .path, .digest, .einstieg, .cloud, .modus, .budget_klasse]
-      | map(if . == null then "" else tostring end) | join("\u001f")
-    ' "$estate" 2>/dev/null) || row=
+    row=$(fm_wiki_estate_row "$estate" "$name") || row=
     if [ -z "$row" ]; then
       unresolved="$unresolved${unresolved:+, }$name"
       continue
@@ -161,9 +184,78 @@ $FM_WIKI_GUIDE_MARKER
 Before you append \`done:\`, write a guide draft to \`$guide\`; you may write this file even though it is outside your worktree.
 Never write into a wiki vault yourself; a lander files the draft later.
 Name the guide by its topic, not by this task, and check the target vault's entry page for an existing guide on that topic first so you update it rather than duplicate it.
-Open the file with a short header: target vault, topic slug, \`new\` or \`update <existing page>\`, and the vault's cloud flag.
+Open the file with exactly these three header lines, before any other text: \`target: <vault name or card id>\`, \`topic: <kebab-case-slug>\`, and \`action: new\` or \`action: update <existing page path>\`; the lander looks up the vault's cloud flag itself.
 Then write the body: how it works, what we did, what worked, pitfalls, sources, and the GitHub prior-art findings you checked, each marked adopt, adapt, or reject with why.
 A trivial task may write a single line to add to an existing guide; a task with truly nothing reusable writes \`no guide: <reason>\`.
 Cleanup refuses while this file is absent.
 EOF
+}
+
+# shellcheck disable=SC2034 # these globals are the parser's result API for sourced callers.
+fm_wiki_guide_header() {
+  local file=$1 line key value n=0 target='' topic='' action=''
+  FM_WIKI_GUIDE_KIND=invalid
+  FM_WIKI_GUIDE_TARGET=
+  FM_WIKI_GUIDE_TOPIC=
+  FM_WIKI_GUIDE_ACTION=
+  FM_WIKI_GUIDE_ERROR=
+  if [ ! -f "$file" ] || [ ! -r "$file" ]; then
+    FM_WIKI_GUIDE_ERROR='draft is not a readable file'
+    return 1
+  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    line=${line%$'\r'}
+    line=$(printf '%s' "$line" | sed 's/^[[:space:]]*//')
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+    if [ "$n" -eq 0 ] && [[ "$line" == 'no guide: '* ]]; then
+      local reason=${line#'no guide: '}
+      reason=$(printf '%s' "$reason" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+      if [ -n "$reason" ]; then
+        FM_WIKI_GUIDE_KIND=none
+        return 0
+      fi
+      FM_WIKI_GUIDE_ERROR='no-guide reason is empty'
+      return 1
+    fi
+    line=$(printf '%s' "$line" | sed 's/[[:space:]]*$//')
+    n=$((n + 1))
+    key=${line%%:*}
+    value=
+    [ "$key" != "$line" ] && value=$(printf '%s' "${line#*:}" | sed 's/^[[:space:]]*//')
+    case "$key" in
+      target|topic|action)
+        if [ -z "$value" ]; then
+          FM_WIKI_GUIDE_ERROR="header line $n has an empty $key"
+          return 1
+        fi
+        if [ -n "${!key}" ]; then
+          FM_WIKI_GUIDE_ERROR="header repeats $key"
+          return 1
+        fi
+        printf -v "$key" '%s' "$value"
+        ;;
+      *)
+        FM_WIKI_GUIDE_ERROR="header line $n is not target, topic, or action"
+        return 1
+        ;;
+    esac
+    [ "$n" -lt 3 ] || break
+  done < "$file"
+  if [ -z "$target" ] || [ -z "$topic" ] || [ -z "$action" ]; then
+    FM_WIKI_GUIDE_ERROR='header lacks target, topic, or action'
+    return 1
+  fi
+  if ! [[ "$topic" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+    FM_WIKI_GUIDE_ERROR='topic is not a kebab-case slug'
+    return 1
+  fi
+  if [ "$action" != new ] && ! [[ "$action" =~ ^update[[:space:]]+[^[:space:]] ]]; then
+    FM_WIKI_GUIDE_ERROR='action is neither new nor update <page path>'
+    return 1
+  fi
+  FM_WIKI_GUIDE_KIND=draft
+  FM_WIKI_GUIDE_TARGET=$target
+  FM_WIKI_GUIDE_TOPIC=$topic
+  FM_WIKI_GUIDE_ACTION=$action
+  return 0
 }
