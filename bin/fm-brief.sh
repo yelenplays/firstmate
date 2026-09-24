@@ -40,7 +40,7 @@
 #   omitted contract cannot be silent.
 # For ship tasks, --mode is REQUIRED and shapes the definition of done. Firstmate
 # resolves it per task at intake (AGENTS.md section 7); data/projects.md holds the
-# captain's standing posture as context, and this script never reads it:
+# captain's standing posture as context, and this script never reads a mode from it:
 #   no-mistakes  implement -> /no-mistakes pipeline -> PR -> configured merge authority
 #   direct-PR    implement -> push + open PR via gh-axi (no pipeline) -> configured merge authority
 #   local-only   implement on branch, stop and report "ready in branch" (no push/PR);
@@ -52,6 +52,10 @@
 # to launch a ship task whose explicit --mode disagrees, so an adjusted brief and the
 # recorded task metadata cannot drift apart.
 # Ship briefs begin with a worktree-isolation assertion before the branch step.
+# When a wikis root is configured (docs/configuration.md "Wiki context in
+# briefs"), ship and scout briefs also carry a "# Wiki context" section built
+# from the project's registry wiki token and a "# Wiki guide" step whose marker
+# bin/fm-teardown.sh enforces; bin/fm-wiki-lib.sh owns both.
 # --mode is refused on scout and secondmate scaffolds: a scout's deliverable is a
 # report rather than a merge, and a charter is not a delivery contract.
 # There is no --yolo flag here. The worker never owns merge decisions, so yolo is
@@ -94,6 +98,8 @@ esac
 . "$SCRIPT_DIR/fm-classify-lib.sh"
 # shellcheck source=bin/fm-dod-lib.sh
 . "$SCRIPT_DIR/fm-dod-lib.sh"
+# shellcheck source=bin/fm-wiki-lib.sh
+. "$SCRIPT_DIR/fm-wiki-lib.sh"
 PAUSED_VERB=${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}
 CREWMATE_PAUSE_WAIT_EXAMPLES='an upstream release, a rate-limit reset, a scheduled window, or your own validation round'
 
@@ -121,6 +127,7 @@ if [ -n "${FM_STATE_OVERRIDE:-}" ]; then
 else
   STATE="$FM_HOME/state"
 fi
+CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 KIND=ship
 HERDR_LAB=0
 NO_PROJECTS=0
@@ -358,6 +365,19 @@ IFS= read -r -d '' TASK_SECTION <<'EOF' || true
 EOF
 TASK_SECTION=${TASK_SECTION%$'\n'}
 
+# Wiki context and the guide step are opt-in: both appear only when a wikis
+# root is configured (bin/fm-wiki-lib.sh; docs/configuration.md "Wiki context in
+# briefs"). Missing or malformed wiki data never fails the scaffold.
+WIKI_CONTEXT_SECTION=
+WIKI_GUIDE_SECTION=
+if WIKI_ROOT=$(fm_wiki_root "$CONFIG"); then
+  WIKI_CONTEXT_SECTION=$(fm_wiki_context_section "$WIKI_ROOT" "$REPO" "$DATA/projects.md" 2>/dev/null) ||
+    WIKI_CONTEXT_SECTION="# Wiki context
+The wiki context could not be generated; pick guide targets by the routing cards in $WIKI_ROOT/routing/cards/."
+  WIKI_CONTEXT_SECTION=$'\n\n'"$WIKI_CONTEXT_SECTION"
+  WIKI_GUIDE_SECTION=$'\n\n'"$(fm_wiki_guide_section "$DATA/$ID/guide.md")"
+fi
+
 if [ "$KIND" = scout ]; then
 if "$SCRIPT_DIR/fm-bootstrap.sh" lavish-compatible >/dev/null 2>&1; then
   LAVISH_LINE='If your deliverable is a visual artifact the captain will review and iterate on, you may host the Lavish review loop yourself (poll, revise, re-serve, staying alive) instead of handing it back to firstmate.'
@@ -369,7 +389,7 @@ You are a crewmate: an autonomous worker agent managed by firstmate. Work on you
 
 $TASK_SECTION
 
-$HERDR_SECTION
+$HERDR_SECTION$WIKI_CONTEXT_SECTION
 
 # Setup
 You are in a disposable git worktree of $REPO, at a detached HEAD on a clean default branch.
@@ -415,7 +435,7 @@ The report is the only thing that survives, so anything worth keeping must be in
    timed-out call was only waiting for a read while the run kept working.
 8. $(fm_jev_first_rule)
 
-$INBOX_SECTION
+$INBOX_SECTION$WIKI_GUIDE_SECTION
 
 # Definition of done
 Write your findings to \`$DATA/$ID/report.md\`.
@@ -454,7 +474,7 @@ You are a crewmate: an autonomous worker agent managed by firstmate. Work on you
 
 $TASK_SECTION
 
-$HERDR_SECTION
+$HERDR_SECTION$WIKI_CONTEXT_SECTION
 
 # Setup
 You are in a disposable git worktree of $REPO, at a detached HEAD on a clean default branch.
@@ -512,7 +532,7 @@ If \`AGENTS.md\` or \`CLAUDE.md\` already exists, or if this task produced durab
 Record only project knowledge useful to almost every future session.
 For anything the codebase already shows, prefer a pointer to the authoritative file, command, or doc over copying the detail.
 If you touch a project \`AGENTS.md\`, follow \`$FM_ROOT/bin/fm-ensure-agents-md.sh\`'s self-governance contract in the same pass.
-Keep it proportionate: skip \`AGENTS.md\` edits for trivial tasks that produced no durable project knowledge.
+Keep it proportionate: skip \`AGENTS.md\` edits for trivial tasks that produced no durable project knowledge.$WIKI_GUIDE_SECTION
 
 $DOD
 EOF

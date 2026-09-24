@@ -1619,6 +1619,37 @@ test_completion_closes_a_scout_with_its_report() {
   pass "completion closes a scout item against its report"
 }
 
+test_completion_refuses_a_ship_whose_brief_requires_a_missing_wiki_guide() {
+  local case_dir id home out rc=0
+  id=atomic-close-wiki-guide-b6
+  case_dir=$(make_home close-wiki-guide)
+  home=$(home_of "$case_dir")
+  add_item "$case_dir" "$id"
+  start_item "$case_dir" "$id"
+  write_task_meta "$case_dir" "$id" ship local-only "spawn_gen=spawn-close-wiki-guide"
+  # Render the brief through the real scaffold with a configured wikis root, so
+  # the check keys on whatever marker the brief generator actually writes.
+  mkdir -p "$case_dir/wikis/routing"
+  printf '{"vaults": []}\n' > "$case_dir/wikis/routing/estate.json"
+  FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$home" FM_WIKIS_ROOT="$case_dir/wikis" \
+    "$ROOT/bin/fm-brief.sh" "$id" app --mode local-only >/dev/null \
+    || fail "could not scaffold a wiki-guide brief"
+
+  out=$(run_teardown "$case_dir" "$id") || rc=$?
+  [ "$rc" -ne 0 ] || fail "teardown accepted a task whose brief requires a missing wiki guide"
+  assert_contains "$out" "has no wiki guide at $home/data/$id/guide.md" \
+    "teardown did not name the missing guide and its path"
+  assert_present "$home/state/$id.meta" "the guide refusal removed the task record"
+  [ "$(row_state "$case_dir" "$id")" = in_flight ] \
+    || fail "the guide refusal changed the backlog row"
+
+  printf 'no guide: nothing reusable\n' > "$home/data/$id/guide.md"
+  out=$(run_teardown "$case_dir" "$id") || fail "teardown failed once the guide existed: $out"
+  [ "$(row_state "$case_dir" "$id")" = "done" ] \
+    || fail "teardown reported success with the item still $(row_state "$case_dir" "$id")"
+  pass "completion refuses a task whose brief requires a wiki guide until the guide exists"
+}
+
 test_completion_refuses_a_legacy_record_without_an_incarnation() {
   local case_dir id meta out rc=0
   id=atomic-close-legacy-no-incarnation-b7
@@ -3061,6 +3092,7 @@ test_dispatch_does_not_resurrect_a_row_closed_after_preflight
 test_dispatch_fails_when_its_row_vanishes_after_preflight
 test_completion_closes_a_local_only_ship_before_reporting_success
 test_completion_closes_a_scout_with_its_report
+test_completion_refuses_a_ship_whose_brief_requires_a_missing_wiki_guide
 test_completion_refuses_a_legacy_record_without_an_incarnation
 test_completion_refuses_ambiguous_incarnation_metadata
 test_completion_records_a_relative_report_for_relocated_data

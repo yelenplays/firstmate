@@ -15,6 +15,13 @@
 #   - <name> - <desc> (added <date>)                  -> no-mistakes off  (legacy default)
 #   - <name> [<mode>] - <desc> (added <date>)          -> <mode> off
 #   - <name> [<mode> +yolo] - <desc> (added <date>)    -> <mode> on
+# Any row may also carry a wiki token as a second bracket directly after the
+# mode bracket, or directly after the name when there is no mode bracket:
+#   - <name> [<mode>] [wiki: A, B] - <desc> (added <date>)
+#   - <name> [wiki: Some Wiki] - <desc> (added <date>)       -> no-mistakes off
+# The token names the project's backing wikis (comma-separated; names may
+# contain spaces) and never changes the delivery posture; bin/fm-wiki-lib.sh
+# owns its parser and bin/fm-brief.sh consumes it.
 #
 # Registered modes:
 #   no-mistakes            full pipeline -> PR -> configured merge authority (default)
@@ -31,10 +38,12 @@
 #
 # --raw prints the registered annotation unmapped, so a caller that must tell a
 # conditional policy apart from a flat mode sees "no-mistakes-prod-only" itself.
+# --wikis prints the row's wiki token instead, one name per line, and nothing
+# when the project is absent or carries no token.
 #
 # An unknown/missing project or unknown mode falls back to "no-mistakes off" and warns
 # to stderr, so a typo never silently drops the gate.
-# Usage: fm-project-mode.sh [--raw] <project-name>
+# Usage: fm-project-mode.sh [--raw|--wikis] <project-name>
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,11 +52,19 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 REG="$DATA/projects.md"
 RAW=0
-if [ "${1:-}" = "--raw" ]; then
-  RAW=1
-  shift
+WIKIS=0
+case "${1:-}" in
+  --raw) RAW=1; shift ;;
+  --wikis) WIKIS=1; shift ;;
+esac
+NAME=${1:?usage: fm-project-mode.sh [--raw|--wikis] <project-name>}
+
+if [ "$WIKIS" -eq 1 ]; then
+  # shellcheck source=bin/fm-wiki-lib.sh
+  . "$SCRIPT_DIR/fm-wiki-lib.sh"
+  fm_wiki_registry_names "$REG" "$NAME"
+  exit 0
 fi
-NAME=${1:?usage: fm-project-mode.sh [--raw] <project-name>}
 
 if [ ! -f "$REG" ]; then
   echo "warn: no registry at $REG; defaulting $NAME to no-mistakes off" >&2
@@ -59,7 +76,7 @@ fi
 parsed=$(awk -v n="$NAME" '
   $1=="-" && $2==n {
     mode="no-mistakes"; yolo="off";
-    if ($3 ~ /^\[/) {
+    if ($3 ~ /^\[/ && $3 !~ /^\[wiki:/) {   # a leading wiki token is not a mode
       s="";
       for (i=3; i<=NF; i++) { s = s (s==""?"":" ") $i; if ($i ~ /\]$/) break }
       gsub(/^\[|\]$/, "", s);           # strip the surrounding brackets

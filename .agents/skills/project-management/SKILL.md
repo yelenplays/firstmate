@@ -52,6 +52,8 @@ The optional `+yolo` posture changes merge authority only and does not change th
 Default it off for every project and every posture, and enable it only on the captain's explicit instruction.
 `AGENTS.md` section 7 owns the merge-authority contract.
 
+A registry row may also name the project's backing wikis with a `[wiki: ...]` token; `docs/configuration.md` "Wiki context in briefs" owns its syntax and effect, and it never changes the delivery posture.
+
 ## Add or clone an existing project
 
 Confirm the source URL, local project name, delivery posture, and autonomy posture, stating the resolved default for each rather than asking the captain to invent one.
