@@ -100,6 +100,9 @@ test_configured_brief_renders_the_privacy_ladder() {
   assert_line '# Wiki guide' "$f" "configured ship brief has no guide step"
   assert_line 'Wiki guide contract: required' "$f" "guide marker missing"
   assert_grep "$HOME_DIR/data/c-ship/guide.md" "$f" "guide path missing"
+  # shellcheck disable=SC2016 # backticks are literal Markdown.
+  assert_grep '`target: <vault name or card id>`, `topic: <kebab-case-slug>`, and `action: new` or `action: update <existing page path>`' "$f" \
+    "guide step does not name the parseable header"
   FM_WIKIS_ROOT="$WIKIS" brief c-scout app --scout
   f="$HOME_DIR/data/c-scout/brief.md"
   assert_line '# Wiki context' "$f" "configured scout brief has no wiki context"

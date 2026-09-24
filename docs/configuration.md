@@ -799,6 +799,20 @@ A missing token or unreadable estate gets a fallback line pointing at the routin
 
 The same configuration adds a `# Wiki guide` step: before reporting done, the worker writes a topic-named guide draft with its GitHub prior-art findings to `data/<task-id>/guide.md` in the firstmate home, or `no guide: <reason>`, and never writes into a vault; a separate lander files the draft.
 `bin/fm-teardown.sh` refuses cleanup of a ship or scout task whose brief carries the guide marker while that file is absent; briefs without the marker are unaffected, and `--force` skips the check.
+The draft opens with `target: <vault name or card id>`, `topic: <kebab-slug>`, and `action: new` or `action: update <page path>` lines ([`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) owns the parse); the vault's cloud flag is always looked up in the estate, never taken from the draft.
+
+[`bin/fm-guide-lander.sh`](../bin/fm-guide-lander.sh) collects drafts for filing, and its header owns the row format and receipt.
+`pending` scans this home and every local secondmate home in `data/secondmates.md`, skipping remote homes with a notice, and lists each unfiled draft that is not `no guide:` with its resolved vault, cloud flag, and lane.
+The lane is `bulk` only for a vault whose estate `cloud` is `ja` outside `pointer` modus; `nur-digest`, `nein`, `pointer`, and any other value land in `private`, and a private vault never goes to the bulk lane.
+Unresolved targets and unparseable headers are listed as their own lanes for firstmate to correct by hand.
+A home runs the filing as a daily batch:
+
+1. Firstmate runs `bin/fm-guide-lander.sh pending`.
+2. It dispatches one filing task per non-empty lane: the bulk lane to the dispatch rule for token-heavy page writing, and the private lane to the reasoning rule, so private vault content reaches only that profile.
+3. Each filing task writes its drafts into the vault through that vault's clone and delivery path.
+4. After a draft lands, firstmate runs `bin/fm-guide-lander.sh mark-filed <home> <task-id> <vault-commit>`, which writes `data/<task-id>/guide.filed` so the draft is filed once.
+
+The daily schedule itself is home-local operator setup, not tracked code.
 
 ## Memory store (config/memory-dir)
 
