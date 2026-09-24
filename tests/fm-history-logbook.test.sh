@@ -383,6 +383,10 @@ EOF
     "$ROOT/bin/fm-tasks-axi.sh" add mate-landed 'A secondmate landed task' --kind ship --repo sample-repo --start >/dev/null
   TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
     "$ROOT/bin/fm-tasks-axi.sh" "done" mate-landed --pr "$url" >/dev/null
+  TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
+    "$ROOT/bin/fm-tasks-axi.sh" add mate-unclassified 'A secondmate task without project metadata' --kind ship --start >/dev/null
+  TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
+    "$ROOT/bin/fm-tasks-axi.sh" "done" mate-unclassified --note 'local main' >/dev/null
   printf '%s\n' "- registered-mate - Delegated work (home: $mate; scope: landed work; projects: sample-repo; added $today)" \
     > "$HOME_DIR/data/secondmates.md"
   FM_HOME="$mate" FM_ROOT_OVERRIDE="$ROOT" FM_DATA_OVERRIDE="$mate/data" FM_STATE_OVERRIDE="$mate/state" \
@@ -392,6 +396,8 @@ EOF
   jq -e --arg url "$url" '
     any(.landed[]; .id == "mate-landed" and .home == "registered-mate"
       and .project == "sample-repo" and .pr_url == $url and .via == "pull_request")
+    and any(.landed[]; .id == "mate-unclassified" and .home == "registered-mate"
+      and .project == "registered-mate")
   ' "$HOME_DIR/data/history/days/$today.logbook.json" >/dev/null \
     || fail 'the Logbook rejected terminal secondmate landed evidence without a state field'
   pass 'secondmate landed rows are retained from their terminal producer inventory'
