@@ -913,10 +913,8 @@ rm -f "$PARENT/state/.wake-queue"
 
 printf '{"revision":2}\n' > "$PARENT/config/crew-dispatch.json"
 printf 'grok\n' > "$PARENT/config/crew-harness"
-# Keep this bounded convergence case focused on the two config entries it changes.
 set +e
-FM_INHERITABLE_CONFIG='crew-dispatch.json crew-harness' \
-  FM_FAKE_SSH_MODE=inherit-partial remote_env "$ROOT/bin/fm-config-push.sh" \
+FM_FAKE_SSH_MODE=inherit-partial remote_env "$ROOT/bin/fm-config-push.sh" \
   > "$TMP_ROOT/config-partial.out" 2>&1
 config_partial_rc=$?
 set -e
@@ -927,12 +925,14 @@ assert_grep '"revision":2' "$REMOTE_HOME/config/crew-dispatch.json" "partial inh
 NUDGE_MARKER="$PARENT/state/.secondmate-nudge-pending/ios.pending"
 assert_grep 'remote=1' "$NUDGE_MARKER" "partial inheritance left no durable remote reread marker"
 publish_healthy_watcher_identity "$PARENT/state" "$PARENT" "$REMOTE_ROOT/bin/fm-watch.sh"
-FM_INHERITABLE_CONFIG='crew-dispatch.json crew-harness' \
+TIMINGS="$TMP_ROOT/config-partial-retry.timings.tsv"
+FM_TIMING_LOG="$TIMINGS" FM_TIMING_EPOCH_MS=0 \
   remote_env "$ROOT/bin/fm-bootstrap.sh" > "$TMP_ROOT/config-partial-retry.out" \
   || fail "bootstrap did not converge partial remote inheritance"
 [ "$(cat "$REMOTE_HOME/config/crew-harness")" = grok ] \
   || fail "bootstrap did not apply the remaining inherited file"
 assert_absent "$NUDGE_MARKER" "bootstrap cleared no remote reread marker after convergence"
+awk -F '\t' '$2 == "remote-operation" && ($3 == "reply-registration" || $3 == "tracked-sync" || $3 == "inheritance-push") { printf "CI remote secondmate timing: %s=%sms (%s)\n", $3, $5, $6 }' "$TIMINGS"
 PARTIAL_CONFIG_CORR=$(newest_remote_inbox_corr)
 [ -n "$PARTIAL_CONFIG_CORR" ] || fail "bootstrap config reread did not carry a correlation token"
 printf 'done [corr=%s]: converged inherited config re-read\n' "$PARTIAL_CONFIG_CORR" >> "$REMOTE_HOME/state/parent-replies.status"

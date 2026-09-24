@@ -88,9 +88,11 @@
 #          refresh relays any completed fm-fleet-sync.sh output before the
 #          aggregate timeout skip line with timeout and elapsed seconds.
 #          Set FM_FLEET_PRUNE=0 to skip branch pruning during that refresh.
-#          Each remote secondmate operation is individually bounded to 8
-#          seconds; timeout reports the affected operation and lets the sweep
-#          continue, while timing records identify liveness and convergence.
+#          Remote secondmate operations are individually bounded: routine
+#          operations use 8 seconds, while full inherited-config convergence
+#          gets 30 seconds for its multiple remote transfers. Timeout reports
+#          the affected operation and lets the sweep continue, while timing
+#          records identify liveness and convergence.
 #          BACKLOG_RECONCILE lines report what backlog_record_reconcile could not
 #          settle in THIS home. Every ordinary dispatch and completion now moves
 #          the backlog row inside the script that moves the task's record
@@ -230,6 +232,7 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
 
 REMOTE_SYNC_OPERATION_TIMEOUT=8
+REMOTE_SYNC_INHERITANCE_TIMEOUT=30
 
 # Network-phase selection (see the header). An unrecognized value resolves to
 # `all` so a malformed override runs every step rather than silently dropping a
@@ -684,14 +687,14 @@ secondmate_sync() {
     fi
     fm_timing_record remote-operation tracked-sync "$operation_started" "$id@$remote_host"
     operation_started=$(fm_timing_now_ms)
-    if inherit_out=$(fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" \
+    if inherit_out=$(fm_run_timed "$REMOTE_SYNC_INHERITANCE_TIMEOUT" \
       env FM_CONFIG_INHERIT_LIVE=1 \
       "$SCRIPT_DIR/fm-remote-inherit-push.sh" "$id" "$remote_generation" 2>&1); then
       if printf '%s\n' "$inherit_out" | grep -Eq '^(pushed|removed):'; then nudge_needed=1; fi
     else
       inherit_rc=$?
       if [ "$inherit_rc" -eq 124 ]; then
-        echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host"
+        echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance timed out after ${REMOTE_SYNC_INHERITANCE_TIMEOUT}s on $remote_host"
       else
         echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance failed on $remote_host: $(first_line "$inherit_out")"
       fi

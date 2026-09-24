@@ -1276,7 +1276,7 @@ test_bootstrap_bounds_each_remote_convergence_operation() {
   cat > "$fakebin/fake-ssh" <<'SH'
 #!/usr/bin/env bash
 cat >/dev/null
-sleep 10
+sleep 35
 SH
   chmod +x "$fakebin/fake-ssh"
   fm_fake_exit0 "$fakebin" gh treehouse tmux node
@@ -1291,12 +1291,12 @@ SH
     FM_TIMING_LOG="$timings" FM_TIMING_EPOCH_MS=0 \
     "$ROOT/bin/fm-bootstrap.sh" 2>&1)
   elapsed=$(( $(date +%s) - started ))
-  [ "$elapsed" -lt 40 ] || fail "a slow remote route delayed the remaining bootstrap sweeps for ${elapsed}s: $out"
+  [ "$elapsed" -lt 75 ] || fail "a slow remote route delayed the remaining bootstrap sweeps for ${elapsed}s: $out"
   assert_contains "$out" "SECONDMATE_LIVENESS: secondmate sm: skipped: remote readiness timed out after 8s on host-sm; route preserved" \
     "the timed-out remote readiness probe was not named as unconfirmed"
   assert_contains "$out" "SECONDMATE_SYNC: secondmate sm: skipped: remote tracked-file sync timed out after 8s on host-sm" \
     "the timed-out tracked sync was not named as unconfirmed"
-  assert_contains "$out" "SECONDMATE_SYNC: secondmate sm: skipped: remote inheritance timed out after 8s on host-sm" \
+  assert_contains "$out" "SECONDMATE_SYNC: secondmate sm: skipped: remote inheritance timed out after 30s on host-sm" \
     "the timed-out inheritance push was not named as unconfirmed"
   assert_grep $'phase\tgh-auth' "$timings" "GitHub authentication was not timed after the slow route"
   assert_grep $'phase\thandoff-delivery' "$timings" "pending handoff delivery was not timed after the slow route"
