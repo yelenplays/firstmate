@@ -17,10 +17,10 @@
 # values: the captain chose a posture, so the launcher never guesses another one.
 #
 # The launch always runs from this checkout's root so Claude loads the tracked
-# .claude/settings.json hooks (SessionStart digest, Stop-hook auto-arm, turn-end
-# guard) for this home. Remote Control only adds a claude.ai bridge to the same
-# local interactive process; tests/fm-claude-remote-control-live-e2e.test.sh is
-# the live guard that those hooks still fire with it on.
+# .claude/settings.json hooks for this home. Remote Control only adds a
+# claude.ai bridge to the same local interactive process;
+# tests/fm-claude-remote-control-live-e2e.test.sh checks the bridge and the
+# Stop-hook auto-arm with it on.
 #
 # FM_CLAUDE_BIN overrides the claude executable (tests use it).
 # Exit codes: exec's own on launch; 2 for a refused config.

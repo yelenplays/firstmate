@@ -434,7 +434,7 @@ Any other value, or an unreadable file, refuses to launch and names the accepted
 Arguments after the launcher pass through to `claude`, so a relaunch is the same command plus `--continue` or `--resume <id>`.
 The file is home-local and not inherited into secondmate homes.
 
-Remote Control keeps the session running on this machine and only bridges it to claude.ai, so the tracked Claude hooks still own session start, the Stop-hook watcher arm, and the turn-end guard; `FM_CLAUDE_REMOTE_CONTROL_LIVE_E2E=1 tests/fm-claude-remote-control-live-e2e.test.sh` is the live guard for that, and [the supervision verification record](verification/supervision.md#claude-primary-remote-control) holds its latest result.
+Remote Control keeps the session running on this machine and only bridges it to claude.ai; `FM_CLAUDE_REMOTE_CONTROL_LIVE_E2E=1 tests/fm-claude-remote-control-live-e2e.test.sh` verifies the bridge and Stop-hook auto-arm, and [the supervision verification record](verification/supervision.md#claude-primary-remote-control) holds its latest result.
 Anyone signed in to the same claude.ai account can then type into the primary, which may run with permission prompts bypassed, so treat that account's login as access to this machine.
 
 Firstmate never handles the claude.ai login or the phone pairing.

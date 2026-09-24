@@ -559,7 +559,7 @@ tests/fm-turnend-guard.test.sh
 
 ## Claude primary Remote Control
 
-A Claude primary launched through `bin/fm-claude-primary.sh` with `config/claude-remote-control` set to `on` was verified on 2026-09-24 with Claude Code 2.1.282 on macOS arm64 and tmux 3.7c, in a throwaway firstmate home on a private tmux socket, signed in to a claude.ai Pro account.
+The Remote Control bridge and Stop-hook auto-arm were verified on 2026-09-24 with a Claude primary launched through `bin/fm-claude-primary.sh` and `config/claude-remote-control` set to `on`, using Claude Code 2.1.282 on macOS arm64 and tmux 3.7c in a throwaway firstmate home on a private tmux socket signed in to a claude.ai Pro account.
 The guard runs the model at low effort on Haiku by default (`FM_CLAUDE_LIVE_MODEL` overrides it), because none of the hooks under test depend on the model.
 
 ```sh
@@ -573,15 +573,11 @@ Observed output:
 2.1.282 (Claude Code)
 harness: claude 2.1.282 (Claude Code)
 ok - claude primary: the launcher started claude with --remote-control and the bridge came up
-ok - claude primary: the SessionStart run tier takes the fleet lock and completes session start
 ok - claude primary: the Stop-hook auto-arm arms a watcher and rewakes the session with a real wake
-ok - claude primary: the session-start digest reaches model context under Remote Control
-ok - claude primary: the turn-end guard ran on 1 stop(s) and allowed the healthy session
-ok - Claude 2.1.282 (Claude Code) with --remote-control kept session start, the Stop-hook auto-arm, and the turn-end guard working
+ok - Claude 2.1.282 (Claude Code) with --remote-control proved the Stop-hook auto-arm under Remote Control
 ```
 
-The session lock was owned by the Remote Control `claude` process itself, and Claude Code records the bridge in the session transcript as a `bridge_status` system entry reading `/remote-control is active`.
-The 2.1.282 session-start digest exceeded Claude Code's inline hook-output limit and reached the model as a preview plus a saved file, so the guard proves model context through the lock line, which sits in the preview.
+Claude Code records the bridge in the session transcript as a `bridge_status` system entry reading `/remote-control is active`.
 The same build's workspace-trust dialog preselected `No, exit` for a fresh non-home folder, so the guard selects the trusting option explicitly.
 
 ## Wedge-alarm channels
