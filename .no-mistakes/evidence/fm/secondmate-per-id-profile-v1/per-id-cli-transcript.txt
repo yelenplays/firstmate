@@ -1,0 +1,11 @@
+$ FM_CONFIG_OVERRIDE=<isolated config> CLAUDECODE=1 bin/fm-harness.sh secondmate wikibridge
+claude
+$ ... secondmate-model wikibridge
+claude-opus-5-5
+$ ... secondmate-effort wikibridge
+high
+$ ... secondmate-effort anothermate
+medium
+$ bin/fm-harness.sh secondmate ../wikibridge
+exit=2
+error: invalid secondmate id: ../wikibridge
