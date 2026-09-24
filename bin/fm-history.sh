@@ -775,8 +775,19 @@ function taskIdentityKey(home, id) {
   return `${home || 'main'}\u0000${id}`;
 }
 
+function logbookTaskId(row) {
+  const home = row.home || 'main';
+  const id = String(row.id || '');
+  if (!id.startsWith(`${home}/`)) return id;
+  return id.slice(home.length + 1).split('/')[0];
+}
+
+function logbookTaskIdentityKey(row) {
+  return taskIdentityKey(row.home, logbookTaskId(row));
+}
+
 function decisionIdentityKey(row) {
-  return `${taskIdentityKey(row.home, row.id)}\u0000${row.digest || row.at}`;
+  return `${logbookTaskIdentityKey(row)}\u0000${row.digest || row.at}`;
 }
 
 function taskModeFromMeta(stateDir, id) {
@@ -958,22 +969,17 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
       }
     }
   }
-  const landedIdentities = new Set([...landedById.values()].map((row) => taskIdentityKey(row.home, row.id)));
+  const landedIdentities = new Set([...landedById.values()].map(logbookTaskIdentityKey));
   for (const [identity, row] of reportsById) {
-    if (landedIdentities.has(taskIdentityKey(row.home, row.id))) reportsById.delete(identity);
+    if (landedIdentities.has(logbookTaskIdentityKey(row))) reportsById.delete(identity);
   }
-  const orderedRows = (map) => {
-    const seen = new Set();
-    return [...map.values()].sort((a, b) =>
-      (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id))
-      .filter((row) => !seen.has(row.id) && seen.add(row.id));
-  };
+  const orderedRows = (map) => [...map.values()].sort((a, b) =>
+    (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id));
   const landed = orderedRows(landedById).map(({ order, prior, ...row }, index) => ({ ...row, order: index + 1 }));
   const reports = orderedRows(reportsById).map((row, index) => ({ ...row, order: index + 1 }));
   const decisions = [...decisionById.values()]
     .filter((row) => ['answered', 'released'].includes(row.mode))
     .sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
-    .filter((row, index, rows) => rows.findIndex((candidate) => candidate.id === row.id) === index)
     .map((row, index) => ({ ...row, order: index + 1 }));
 
   const secondmateCurrent = snapshot.secondmate_current || {};
@@ -1030,16 +1036,33 @@ function logbookEntries(snapshot, historyDir, decisionBodies, date, home, stateD
 
 function normalizeLogbookRecord(record) {
   for (const group of ['landed', 'reports', 'decisions']) {
-    const seen = new Set();
-    record[group] = record[group].filter((row) => {
-      if (group === 'decisions' && !['answered', 'released'].includes(row.mode)) return false;
-      if (seen.has(row.id)) return false;
-      seen.add(row.id);
-      if (typeof row.project !== 'string' || !row.project) {
-        row.project = row.home && row.home !== 'main' ? row.home : 'unclassified';
+    const uniqueRows = new Map();
+    for (const row of record[group]) {
+      if (group === 'decisions' && !['answered', 'released'].includes(row.mode)) continue;
+      const identity = group === 'decisions' ? decisionIdentityKey(row) : logbookTaskIdentityKey(row);
+      if (!uniqueRows.has(identity)) uniqueRows.set(identity, row);
+    }
+    const rows = [...uniqueRows.values()];
+    const ids = new Map();
+    record[group] = rows.map((row, index) => {
+      const repo = typeof row.project === 'string' && row.project !== 'unclassified' ? row.project : null;
+      row.project = repo || repoFromUrl(row.pr_url) || (row.home && row.home !== 'main' ? row.home : 'unclassified');
+      row.order = index + 1;
+      const taskId = logbookTaskId(row);
+      if (!ids.has(taskId)) ids.set(taskId, []);
+      ids.get(taskId).push(row);
+      return row;
+    });
+    for (const [taskId, collisions] of ids) {
+      if (collisions.length < 2) continue;
+      const homeCounts = new Map();
+      for (const row of collisions) homeCounts.set(row.home || 'main', (homeCounts.get(row.home || 'main') || 0) + 1);
+      for (const row of collisions) {
+        const home = row.home || 'main';
+        const suffix = homeCounts.get(home) > 1 ? `/${row.digest || row.at || row.order}` : '';
+        row.id = `${home}/${taskId}${suffix}`;
       }
-      return true;
-    }).map((row, index) => ({ ...row, order: index + 1 }));
+    }
   }
   // Jev-based selection remains a follow-up; current highlights use this deterministic rule.
   const highlight = record.landed.find((row) => row.via === 'pull_request')
@@ -1144,8 +1167,8 @@ function logbookPrepare(historyDir, homeDir, snapshotFile, decisionsFile, date, 
   }
   const record = logbookEntries(snapshot, historyDir, decisionBodies, date, homeIdentity(homeDir), stateDir);
   if (previous) {
-    record.landed = mergeRows(record.landed, previous.landed);
-    record.reports = mergeRows(record.reports, previous.reports).filter((row) => !record.landed.some((landed) => taskIdentityKey(landed.home, landed.id) === taskIdentityKey(row.home, row.id)));
+    record.landed = mergeRows(record.landed, previous.landed, logbookTaskIdentityKey);
+    record.reports = mergeRows(record.reports, previous.reports, logbookTaskIdentityKey).filter((row) => !record.landed.some((landed) => logbookTaskIdentityKey(landed) === logbookTaskIdentityKey(row)));
     record.decisions = mergeRows(record.decisions, previous.decisions, decisionIdentityKey);
     if (!record.open) record.open = previous.open;
   }
@@ -1196,8 +1219,8 @@ function logbookFinalizeLocked(historyDir, stateDir, recordFile, rebuild) {
     return JSON.stringify(left) === JSON.stringify(right);
   };
   if (previous) {
-    record.landed = mergeRows(record.landed, previous.landed);
-    record.reports = mergeRows(record.reports, previous.reports).filter((row) => !record.landed.some((landed) => taskIdentityKey(landed.home, landed.id) === taskIdentityKey(row.home, row.id)));
+    record.landed = mergeRows(record.landed, previous.landed, logbookTaskIdentityKey);
+    record.reports = mergeRows(record.reports, previous.reports, logbookTaskIdentityKey).filter((row) => !record.landed.some((landed) => logbookTaskIdentityKey(landed) === logbookTaskIdentityKey(row)));
     record.decisions = mergeRows(record.decisions, previous.decisions, decisionIdentityKey);
     record.open = record.open || previous.open;
   }

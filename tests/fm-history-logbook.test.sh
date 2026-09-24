@@ -350,16 +350,25 @@ test_first_later_day_closes_the_previous_logbook() {
   path="$HOME_DIR/data/history/days/$previous.logbook.json"
   jq -n --arg date "$previous" '
     {schema:"fm-logbook.v1",date:$date,tz:"Europe/Berlin",closed:false,generated:"2026-01-01T00:00:00.000Z",
-      landed:[{id:"prior-landed",project:null,title:"Prior day result",kind:"ship",mode:"no-mistakes",via:"local",pr_url:null,home:"main",order:1}],
-      reports:[],decisions:[{id:"prior-repaired",project:null,title:"Prior decision",mode:"repaired",at:"2026-01-01T00:00:00Z",words:"Legacy repaired answer",digest:"legacy",home:"main",order:1}],
-      open:{running:0,waiting_on_you:0,ids:[]}}
+      landed:[
+        {id:"prior-landed",project:null,title:"Prior day result",kind:"ship",mode:"no-mistakes",via:"pull_request",pr_url:"https://github.com/acme/repo/pull/1",home:"main",order:1},
+        {id:"shared",project:null,title:"Main shared result",kind:"ship",mode:"no-mistakes",via:"local",pr_url:null,home:"main",order:2},
+        {id:"shared",project:null,title:"Mate shared result",kind:"ship",mode:"no-mistakes",via:"local",pr_url:null,home:"legacy-mate",order:3}
+      ], reports:[], decisions:[
+        {id:"shared",project:null,title:"Main decision",mode:"answered",at:"2026-01-01T00:00:00Z",words:"Main answer",digest:"main",home:"main",order:1},
+        {id:"shared",project:null,title:"Mate decision",mode:"answered",at:"2026-01-01T00:01:00Z",words:"Mate answer",digest:"mate",home:"legacy-mate",order:2},
+        {id:"prior-repaired",project:null,title:"Prior repaired decision",mode:"repaired",at:"2026-01-01T00:02:00Z",words:"Legacy repaired answer",digest:"legacy",home:"main",order:3}
+      ], open:{running:0,waiting_on_you:0,ids:[]}}
   ' > "$path"
   chmod 600 "$path"
   run_history logbook --date "$today" >/dev/null
   jq -e --arg date "$previous" '
     .date == $date and .closed == true and .landed[0].id == "prior-landed"
-    and .landed[0].project == "unclassified" and .highlight == {id:"prior-landed",by:"rule",confidence:null}
-    and (.decisions | length) == 0
+    and .landed[0].project == "repo" and .highlight == {id:"prior-landed",by:"rule",confidence:null}
+    and ([.landed[].id] | sort) == ["legacy-mate/shared","main/shared","prior-landed"]
+    and ([.decisions[].id] | sort) == ["legacy-mate/shared","main/shared"]
+    and ([.landed[].id] | unique | length) == (.landed | length)
+    and ([.decisions[].id] | unique | length) == (.decisions | length)
   ' "$path" >/dev/null || fail "closing a legacy Logbook did not normalize it"
   assert_contains "$(<"$HOME_DIR/data/history/days/$previous.md")" '## Logbook' 'freezing yesterday did not refresh its readable page'
   assert_present "$HOME_DIR/data/history/days/$today.logbook.json" 'the quiet current day did not write its daily JSON'
