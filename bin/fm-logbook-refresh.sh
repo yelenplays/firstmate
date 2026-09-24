@@ -5,10 +5,9 @@
 # have hard time bounds and never affect the caller's success. The optional
 # $FM_HOME/config/deck-path contains one absolute path to a Deck checkout.
 # When the optional one-line $FM_HOME/config/deck-launchd-label names the Deck's
-# launchd job, a successful `launchctl kickstart gui/<uid>/<label>` is the
-# refresh, so it runs with the job's own environment and publish settings.
-# Otherwise, or when the kickstart fails, the checkout's deploy/refresh.sh runs
-# directly with FM_DECK_ROOT and FM_DECK_FIRSTMATE_ROOT (this home) set.
+# launchd job, request a refresh with its environment and publish settings, then
+# run the checkout's deploy/refresh.sh directly to ensure this entry is included.
+# The direct hook receives FM_DECK_ROOT and FM_DECK_FIRSTMATE_ROOT (this home).
 #
 # Environment: FM_HOME, FM_DATA_OVERRIDE, FM_STATE_OVERRIDE, FM_CONFIG_OVERRIDE,
 # FM_ROOT_OVERRIDE, FM_LOGBOOK_TIMEOUT, FM_DECK_REFRESH_TIMEOUT.
@@ -50,8 +49,7 @@ IFS= read -r extra_line < <(tail -n +2 "$config_file") || true
 [ -z "${extra_line:-}" ] || exit 0
 [ -d "$deck_path" ] && [ ! -L "$deck_path" ] || exit 0
 
-# Prefer the Deck's own scheduled job: it carries the environment and publish
-# settings a real refresh needs, and launchd runs only one copy at a time.
+# Also request the Deck's scheduled job, which carries the publish settings.
 label_file="$CONFIG_DIR/deck-launchd-label"
 if [ -f "$label_file" ] && [ ! -L "$label_file" ] && command -v launchctl >/dev/null 2>&1; then
   IFS= read -r label < "$label_file" || [ -n "${label:-}" ] || label=
@@ -59,7 +57,7 @@ if [ -f "$label_file" ] && [ ! -L "$label_file" ] && command -v launchctl >/dev/
     ''|*[!A-Za-z0-9._-]*) ;;
     *)
       fm_run_timed "$DECK_REFRESH_TIMEOUT" launchctl kickstart "gui/$(id -u)/$label" \
-        >/dev/null 2>&1 && exit 0
+        >/dev/null 2>&1 || true
       ;;
   esac
 fi

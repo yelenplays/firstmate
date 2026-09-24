@@ -81,7 +81,10 @@ EOF
 test_kickstarts_configured_launchd_job() {
   fresh_home
   mkdir -p "$DECK_DIR/deploy" "$TMP_ROOT/bin"
-  printf '#!/bin/sh\nexit 9\n' > "$DECK_DIR/deploy/refresh.sh"
+  cat > "$DECK_DIR/deploy/refresh.sh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s %s %s\n' "$1" "$FM_DECK_FIRSTMATE_ROOT" "$FM_DECK_ROOT" >> "$FM_TEST_REFRESH_LOG"
+EOF
   chmod +x "$DECK_DIR/deploy/refresh.sh"
   cat > "$TMP_ROOT/bin/launchctl" <<'EOF'
 #!/bin/sh
@@ -90,11 +93,14 @@ EOF
   chmod +x "$TMP_ROOT/bin/launchctl"
   printf '%s\n' "$DECK_DIR" > "$HOME_DIR/config/deck-path"
   printf '%s\n' example.fm-deck > "$HOME_DIR/config/deck-launchd-label"
-  PATH="$TMP_ROOT/bin:$PATH" FM_TEST_LAUNCHCTL_LOG="$TMP_ROOT/launchctl.log" run_refresh \
+  PATH="$TMP_ROOT/bin:$PATH" FM_TEST_LAUNCHCTL_LOG="$TMP_ROOT/launchctl.log" \
+    FM_TEST_REFRESH_LOG="$TMP_ROOT/refresh.log" run_refresh \
     || fail 'kickstart path returned failure'
   [ "$(cat "$TMP_ROOT/launchctl.log" 2>/dev/null)" = "kickstart gui/$(id -u)/example.fm-deck" ] \
     || fail 'configured Deck launchd job was not kickstarted'
-  pass 'a configured Deck launchd job is kickstarted instead of the bare hook'
+  [ "$(cat "$TMP_ROOT/refresh.log" 2>/dev/null)" = "work-landed $HOME_DIR $DECK_DIR" ] \
+    || fail 'direct refresh did not follow successful kickstart'
+  pass 'successful kickstart is followed by a direct refresh'
 }
 
 test_generates_logbook_and_calls_configured_deck
