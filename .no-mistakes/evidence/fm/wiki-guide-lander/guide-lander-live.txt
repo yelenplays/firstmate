@@ -1,0 +1,17 @@
+$ bin/fm-guide-lander.sh pending
+/Users/yelen/.no-mistakes/evidence/01M3AA4WMNPXEY7BJFGWXTEK7R/guide-lander-fixture/home	task-bulk	open	/Users/yelen/.no-mistakes/evidence/01M3AA4WMNPXEY7BJFGWXTEK7R/guide-lander-fixture/wikis/OpenWiki	ja	bulk
+/Users/yelen/.no-mistakes/evidence/01M3AA4WMNPXEY7BJFGWXTEK7R/guide-lander-fixture/home	task-private	private	/Users/yelen/.no-mistakes/evidence/01M3AA4WMNPXEY7BJFGWXTEK7R/guide-lander-fixture/wikis/PrivateWiki	nein	private
+$ bin/fm-guide-lander.sh mark-filed <home> task-bulk abcdef1234567
+guide-lander: filed /Users/yelen/.no-mistakes/evidence/01M3AA4WMNPXEY7BJFGWXTEK7R/guide-lander-fixture/home/task-bulk at abcdef1234567
+$ persisted receipt
+commit: abcdef1234567
+filed: 2026-09-24T18:29:26Z
+$ pending after filing
+/Users/yelen/.no-mistakes/evidence/01M3AA4WMNPXEY7BJFGWXTEK7R/guide-lander-fixture/home	task-private	private	/Users/yelen/.no-mistakes/evidence/01M3AA4WMNPXEY7BJFGWXTEK7R/guide-lander-fixture/wikis/PrivateWiki	nein	private
+$ adversarial empty no-guide reason
+guide-lander: invalid draft /Users/yelen/.no-mistakes/evidence/01M3AA4WMNPXEY7BJFGWXTEK7R/guide-lander-fixture/home/data/task-empty/guide.md: no-guide reason is empty
+/Users/yelen/.no-mistakes/evidence/01M3AA4WMNPXEY7BJFGWXTEK7R/guide-lander-fixture/home	task-empty	-	-	-	invalid
+/Users/yelen/.no-mistakes/evidence/01M3AA4WMNPXEY7BJFGWXTEK7R/guide-lander-fixture/home	task-private	private	/Users/yelen/.no-mistakes/evidence/01M3AA4WMNPXEY7BJFGWXTEK7R/guide-lander-fixture/wikis/PrivateWiki	nein	private
+$ empty-reason mark-filed exit
+guide-lander: draft /Users/yelen/.no-mistakes/evidence/01M3AA4WMNPXEY7BJFGWXTEK7R/guide-lander-fixture/home/data/task-empty/guide.md is invalid: no-guide reason is empty
+exit=2
