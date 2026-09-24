@@ -24,7 +24,7 @@
 # schema, id, title, project, home, kind, mode, completion, via, pr_url,
 # report_path, local_note and digest-verified decisions. The daily JSON is
 # `fm-logbook.v1` with schema, date, tz, closed, generated, landed, reports,
-# decisions, and open. The generated `index.md` lists page paths/titles.
+# decisions, open, and highlight. The generated `index.md` lists page paths/titles.
 # `state/.history-cursor` is `fm-history-cursor.v1` with schema, transcript,
 # dev, ino, offset, pending {id, day, time}, and last assistant token usage;
 # `.history.lock` holds only the owner pid. `state/jev-history-find.jsonl`
