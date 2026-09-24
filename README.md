@@ -91,6 +91,8 @@ Then launch one of the co-primary harnesses; AGENTS.md takes over from there:
 
 ```sh
 claude
+# or, to steer it from your phone once config/claude-remote-control opts in
+bin/fm-claude-primary.sh
 ```
 
 **Grok**
@@ -117,6 +119,7 @@ FM_OMP_HARNESS=omp omp
 
 Start `omp` with this checkout as its working directory: it auto-discovers the tracked `.omp/extensions/*.ts` files with no trust dialog, and naming them with `-e` as well would load each twice.
 
+[Claude primary Remote Control](docs/configuration.md#claude-primary-remote-control-configclaude-remote-control) owns that opt-in and the one-time claude.ai login and phone pairing it needs.
 For Grok, `--trust` is needed once per clone so project hooks and the turn-end guard load; `/hooks-trust` inside Grok works too.
 For a manually launched Pi primary, approve the project trust prompt once per clone so the tracked `.pi/extensions/*.ts` files auto-load; fresh Pi worker worktrees are trusted automatically by spawn, as documented in the [Pi harness reference](.agents/skills/harness-adapters/references/harness/pi.md).
 The `/calm` toggle on Pi, and on Claude Code behind its default-off early-access function-hooks flag, hides supported transcript chrome, including canonically classified Firstmate operational user rows, and uses a Calm-only animated working boat during active runs while preserving all model context and session data.

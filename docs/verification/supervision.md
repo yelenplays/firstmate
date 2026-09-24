@@ -557,6 +557,28 @@ tests/fm-claude-stop-autoarm.test.sh
 tests/fm-turnend-guard.test.sh
 ```
 
+## Claude primary Remote Control
+
+The Remote Control bridge and Stop-hook auto-arm were verified on 2026-09-24 with a Claude primary launched through `bin/fm-claude-primary.sh` and `config/claude-remote-control` set to `on`, using Claude Code 2.1.282 on macOS arm64 and tmux 3.7c in a throwaway firstmate home on a private tmux socket signed in to a claude.ai Pro account.
+
+```sh
+claude --version
+FM_CLAUDE_REMOTE_CONTROL_LIVE_E2E=1 tests/fm-claude-remote-control-live-e2e.test.sh
+```
+
+Observed output:
+
+```text
+2.1.282 (Claude Code)
+harness: claude 2.1.282 (Claude Code)
+ok - claude primary: the launcher started claude with --remote-control and the bridge came up
+ok - claude primary: the Stop-hook auto-arm arms a watcher and rewakes the session with a real wake
+ok - Claude 2.1.282 (Claude Code) with --remote-control proved the Stop-hook auto-arm under Remote Control
+```
+
+Claude Code records the bridge in the session transcript as a `bridge_status` system entry reading `/remote-control is active`.
+The same build's workspace-trust dialog preselected `No, exit` for a fresh non-home folder, so the guard selects the trusting option explicitly.
+
 ## Wedge-alarm channels
 
 The two real notification channels were bounded manually on 2026-07-10 on macOS 26.5.2 with Herdr 0.7.3.
