@@ -108,7 +108,18 @@ EOF
     || fail 'failed-kickstart fallback returned failure'
   [ "$(cat "$TMP_ROOT/refresh.log" 2>/dev/null)" = "work-landed $HOME_DIR $DECK_DIR" ] \
     || fail 'failed kickstart did not fall back to direct refresh'
-  pass 'successful kickstart avoids direct refresh; failure falls back'
+
+  : > "$TMP_ROOT/launchctl.log"
+  : > "$TMP_ROOT/refresh.log"
+  printf '%s\n%s\n' example.fm-deck other.fm-deck > "$HOME_DIR/config/deck-launchd-label"
+  PATH="$TMP_ROOT/bin:$PATH" FM_TEST_LAUNCHCTL_LOG="$TMP_ROOT/launchctl.log" \
+    FM_TEST_REFRESH_LOG="$TMP_ROOT/refresh.log" run_refresh \
+    || fail 'multi-line-label fallback returned failure'
+  [ ! -s "$TMP_ROOT/launchctl.log" ] \
+    || fail 'multi-line label kickstarted a job'
+  [ "$(cat "$TMP_ROOT/refresh.log" 2>/dev/null)" = "work-landed $HOME_DIR $DECK_DIR" ] \
+    || fail 'multi-line label did not fall back to direct refresh'
+  pass 'successful kickstart avoids direct refresh; invalid labels fall back'
 }
 
 test_generates_logbook_and_calls_configured_deck

@@ -51,6 +51,10 @@ IFS= read -r extra_line < <(tail -n +2 "$config_file") || true
 label_file="$CONFIG_DIR/deck-launchd-label"
 if [ -f "$label_file" ] && [ ! -L "$label_file" ] && command -v launchctl >/dev/null 2>&1; then
   IFS= read -r label < "$label_file" || [ -n "${label:-}" ] || label=
+  extra_label_line=
+  if IFS= read -r extra_label_line < <(tail -n +2 "$label_file") || [ -n "$extra_label_line" ]; then
+    label=
+  fi
   case "${label:-}" in
     ''|*[!A-Za-z0-9._-]*) ;;
     *)
