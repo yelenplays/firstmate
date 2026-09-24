@@ -105,7 +105,7 @@ EOF
 
 run_control() {
   env FM_HOME="$HOME_DIR" HERDR_SESSION="$SESSION" FM_SPAWN_NO_GUARD=1 \
-    FM_CONTROL_POLL=0.2 FM_CONTROL_EXIT_WAIT=2 \
+    FM_CONTROL_POLL=0.2 FM_CONTROL_EXIT_WAIT=2 FM_CONTROL_COMPOSER_WAIT=2 \
     "$ROOT/bin/fm-control.sh" "$@" 2>&1
 }
 
@@ -313,7 +313,13 @@ pass "real herdr: a stale registration no longer blocks relaunch, and the endpoi
 # recognized composer chrome. exit's composer-empty guard (bin/fm-control.sh)
 # therefore refuses before ever typing the exit command, rather than typing it
 # into a live agent that ignores it and reporting a stop that did not happen.
-start_agent_process
+# Clear the screen and exec the agent from the same typed line, so no shell
+# prompt row survives: a prompt such as starship's `❯` echoing the typed
+# command reads as a bare composer holding text rather than no composer.
+fm_backend_herdr_send_text_line "$SESSION:$PANE_ID" "clear; exec $AGENT_Q 900" \
+  || fail "could not start the agent-named foreground process in the task pane"
+wait_process_state agent 50 \
+  || version_fail "a real agent-named foreground process reads '$(fm_backend_herdr_pane_process_state "$SESSION" "$PANE_ID")' rather than 'agent' through pane process-info"
 herdr pane report-agent "$PANE_ID" --source fm-control-smoke --agent fm-control-smoke-agent \
   --state idle --session "$SESSION" >/dev/null 2>&1 \
   || fail "could not re-register the live agent on the task pane"

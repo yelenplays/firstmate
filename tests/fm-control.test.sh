@@ -154,6 +154,13 @@ case "${1:-}" in
     done
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
+    # pane-next replaces pane once pane-settle-after captures have been read,
+    # modelling a composer whose verdict settles only after the agent does.
+    if [ -f "$D/pane-next" ] && [ -f "$D/pane-settle-after" ]; then
+      n=$(( $(cat "$D/captures" 2>/dev/null || echo 0) + 1 ))
+      printf '%s' "$n" > "$D/captures"
+      [ "$n" -le "$(cat "$D/pane-settle-after")" ] || mv -f "$D/pane-next" "$D/pane"
+    fi
     if [ -f "$D/pane" ]; then cat "$D/pane"; else printf '╭────╮\n│    │\n╰────╯\n'; fi
     exit 0 ;;
   list-windows)
@@ -223,6 +230,7 @@ run_control() {
   env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
     FM_CONTROL_POLL=0.01 FM_CONTROL_SETTLE_WAIT=0.05 \
     FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
+    FM_CONTROL_COMPOSER_WAIT="${FM_CONTROL_COMPOSER_WAIT:-0.05}" \
     FM_FAKE_MUSE_LOG="${FM_FAKE_MUSE_LOG:-}" \
     FM_FAKE_MUSE_DISAPPEAR_BEFORE_ACK="${FM_FAKE_MUSE_DISAPPEAR_BEFORE_ACK:-}" \
     FM_FAKE_INTERRUPT_STOPS_AGENT="${FM_FAKE_INTERRUPT_STOPS_AGENT:-}" \
@@ -909,6 +917,43 @@ test_unproven_composer_guards_preserve_drafts() {
   pass "fm-control: pending and unproven composers preserve drafts and other harnesses stay untouched"
 }
 
+test_unknown_composer_settles_before_exit() {
+  local dir out rc
+  # A Pi on Herdr reads `unknown` while it unwinds an interrupted turn; exit
+  # must wait for the composer to prove empty instead of refusing on one read.
+  dir=$(new_case settle-pi)
+  add_task "$dir" t1 pi
+  alive_as "$dir" pi
+  printf 'unrecognized menu\n' > "$dir/fake/pane"
+  printf '╭────╮\n│    │\n╰────╯\n' > "$dir/fake/pane-next"
+  printf '3' > "$dir/fake/pane-settle-after"
+  out=$(FM_CONTROL_COMPOSER_WAIT=5 run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "an unknown composer that settles empty should allow exit"$'\n'"$out"
+  [ "$(literals "$dir")" = /quit ] || fail "a settled empty composer should receive /quit, got: $(literals "$dir")"
+  [ "$(cat "$dir/fake/captures")" -gt 3 ] || fail "exit should have re-read the composer until it settled"
+  # A composer that settles into a draft still refuses and types nothing.
+  dir=$(new_case settle-pending)
+  add_task "$dir" t1 pi
+  alive_as "$dir" pi
+  printf 'unrecognized menu\n' > "$dir/fake/pane"
+  printf '╭─────────╮\n│ draft   │\n╰─────────╯\n' > "$dir/fake/pane-next"
+  printf '2' > "$dir/fake/pane-settle-after"
+  out=$(FM_CONTROL_COMPOSER_WAIT=5 run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "a composer that settles into a draft must refuse"$'\n'"$out"
+  assert_contains "$out" "visibly holds pending text" "the refusal should report the settled draft"
+  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "a settled draft must receive no lifecycle input"
+  # A composer that never settles refuses once the bounded wait is spent.
+  dir=$(new_case settle-never)
+  add_task "$dir" t1 pi
+  alive_as "$dir" pi
+  printf 'unrecognized menu\n' > "$dir/fake/pane"
+  out=$(FM_CONTROL_COMPOSER_WAIT=0.1 run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "a composer that never settles must refuse"$'\n'"$out"
+  assert_contains "$out" "still 'unknown' after 0.1s" "the refusal should name the spent settle wait"
+  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "an unsettled composer must receive no lifecycle input"
+  pass "fm-control exit: an unknown composer is re-read until it settles, and only a proven empty one is typed into"
+}
+
 # --- 6. marker non-regression -----------------------------------------------
 
 test_secondmate_control_command_carries_no_marker() {
@@ -976,6 +1021,7 @@ test_harness_lookup_drains_producer() (
 test_harness_lookup_drains_producer || exit 1
 test_grok_limit_menu_refuses_without_verified_quit_keys
 test_unproven_composer_guards_preserve_drafts
+test_unknown_composer_settles_before_exit
 test_exit_types_each_harness_verified_command
 test_interrupt_sends_each_harness_verified_key
 test_opencode_interrupts_twice_and_others_once

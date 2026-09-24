@@ -104,6 +104,31 @@ if command -v pi >/dev/null 2>&1; then
     pass "live Pi $mode $VERSION: empty, multiline pending refusal, verified exit, idempotence"
     CHECKED=$((CHECKED + 1))
   done
+  # An interrupted online turn: Herdr keeps Pi's agent_status at working while
+  # the aborted request unwinds, so the composer reads unknown for a while even
+  # though it is empty. Exit must wait for it to settle rather than refuse.
+  start_case aborted pi 'pi --no-session'
+  wait_composer empty
+  lab pane send-text "$PANE" 'Write four hundred words about ropes. Use no tools.' >/dev/null
+  sleep 0.5
+  lab pane send-keys "$PANE" Enter >/dev/null
+  i=0
+  native=''
+  while [ "$i" -lt 60 ]; do
+    native=$(lab agent get "$PANE" 2>/dev/null | jq -r '.result.agent.agent_status // empty')
+    [ "$native" != working ] || break
+    i=$((i + 1)); sleep 0.5
+  done
+  [ "$native" = working ] || fail "Pi never started its turn (agent_status '$native') [$VERSION; $HERDR_VERSION]"
+  sleep 2
+  lab pane send-keys "$PANE" Escape >/dev/null
+  printf '# Pi composer right after the interrupt: %s (native %s)\n' \
+    "$(fm_backend_composer_state herdr "$TARGET")" \
+    "$(lab agent get "$PANE" 2>/dev/null | jq -r '.result.agent.agent_status // empty')"
+  control aborted exit || fail "Pi exit refused after an interrupted turn [$VERSION; $HERDR_VERSION]"
+  [ "$(fm_backend_agent_state herdr "$TARGET")" = dead ] || fail "Pi exit after an interrupted turn lacked death proof"
+  pass "live Pi $VERSION: exit waits out the post-interrupt unknown composer and stops the agent"
+  CHECKED=$((CHECKED + 1))
 else
   printf '# pi absent; Pi composer not verified\n'
 fi

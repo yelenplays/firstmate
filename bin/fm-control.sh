@@ -31,7 +31,9 @@
 #              busy, then submits the harness's exit command only into a proven
 #              empty composer, and never when a draft is pending or its text
 #              sits in a container whose geometry is unproven. An `unknown`
-#              composer with no readable draft may instead use the
+#              composer is re-read for a bounded settle window first (a Pi on
+#              Herdr reads unknown while it unwinds an interrupted turn). An
+#              `unknown` composer with no readable draft may instead use the
 #              adapter's verified non-typing quit keys (Grok: double Ctrl+Q).
 #              Postcondition: the recovery-grade classifier reports the agent gone.
 #              Already-stopped is success (idempotent).
@@ -95,6 +97,8 @@
 #   FM_CONTROL_POLL              poll interval for postcondition waits (0.5)
 #   FM_CONTROL_SETTLE_WAIT       adapter acknowledgement wait after interrupt (5)
 #   FM_CONTROL_EXIT_WAIT         alive->dead wait after the exit command (30)
+#   FM_CONTROL_COMPOSER_WAIT     wait for an `unknown` composer to settle
+#                                before exit refuses (60)
 #   FM_CONTROL_LAUNCH_WAIT       dead->alive wait after a relaunch (90)
 #   FM_CONTROL_EXIT_RETRIES      Enter retries for the exit command (3)
 set -eu
@@ -146,6 +150,7 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 POLL=${FM_CONTROL_POLL:-0.5}
 SETTLE_WAIT=${FM_CONTROL_SETTLE_WAIT:-5}
 EXIT_WAIT=${FM_CONTROL_EXIT_WAIT:-30}
+COMPOSER_WAIT=${FM_CONTROL_COMPOSER_WAIT:-60}
 LAUNCH_WAIT=${FM_CONTROL_LAUNCH_WAIT:-90}
 EXIT_RETRIES=${FM_CONTROL_EXIT_RETRIES:-3}
 
@@ -446,6 +451,32 @@ do_interrupt() {
   printf '%s cancel=%s' "$proof" "$cancel"
 }
 
+composer_state_now() {
+  local verdict
+  verdict=$(fm_backend_composer_state "$BACKEND" "$T" "$LABEL" 2>/dev/null) \
+    || verdict=unknown
+  printf '%s' "$verdict"
+}
+
+# wait_composer_settled: poll while the composer reads `unknown`, bounded by
+# COMPOSER_WAIT, and print the first decided verdict or the final `unknown`.
+# An `unknown` read can be transient rather than unproven geometry: a Pi agent
+# on Herdr keeps reporting agent_status=working for up to about 30s after an
+# interrupt while its aborted request unwinds, and Pi's composer is only proven
+# empty for an idle or done Pi. Waiting grants no new authority - only the
+# classifier's own positive verdict is ever acted on.
+wait_composer_settled() {
+  local verdict started=$SECONDS elapsed
+  while :; do
+    verdict=$(composer_state_now)
+    [ "$verdict" = unknown ] || break
+    elapsed=$((SECONDS - started))
+    awk -v e="$elapsed" -v t="$COMPOSER_WAIT" 'BEGIN{exit !(e < t)}' || break
+    sleep "$POLL"
+  done
+  printf '%s' "$verdict"
+}
+
 retire_busy_incarnation() {
   if [ -f "$STATE/$ID.busy-gen" ]; then
     "$SCRIPT_DIR/fm-busy-event.sh" retire "$STATE" "$ID" --current-gen >/dev/null 2>&1 || true
@@ -486,17 +517,22 @@ do_exit() {
       ;;
   esac
   cmd=$(fm_control_exit_command "$HARNESS")
-  composer_state=$(fm_backend_composer_state "$BACKEND" "$T" "$LABEL" 2>/dev/null) \
-    || composer_state=unknown
+  composer_state=$(composer_state_now)
+  if [ "$composer_state" = unknown ]; then
+    fallback_key=$(fm_control_exit_fallback_key "$HARNESS") || fallback_key=''
+    if [ -z "$fallback_key" ] || ! fm_control_backend_supports_key "$BACKEND" "$fallback_key"; then
+      fallback_key=''
+      composer_state=$(wait_composer_settled)
+    fi
+  fi
   case "$composer_state" in
     empty) ;;
     pending|pending-unproven)
       die "task $ID's composer visibly holds pending text; refusing to type the $cmd exit command because it would concatenate onto that text. Clear or submit the pending text, then retry '$VERB'"
       ;;
     unknown)
-      fallback_key=$(fm_control_exit_fallback_key "$HARNESS") || fallback_key=''
-      if [ -z "$fallback_key" ] || ! fm_control_backend_supports_key "$BACKEND" "$fallback_key"; then
-        die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
+      if [ -z "$fallback_key" ]; then
+        die "task $ID's composer state is still '$composer_state' after ${COMPOSER_WAIT}s, not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
       fi
       ;;
     *)
