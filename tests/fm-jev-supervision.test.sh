@@ -29,8 +29,8 @@ BASE_PATH=$PATH
 TS_KEY='ts-test-key-not-for-argv'
 mkdir -p "$HOME_DIR/state" "$LOG"
 
-# The fake curl records argv/body/header and replays FAKE_CURL_RESPONSE, exactly
-# the fixture tests/fm-jev-queue-triage.test.sh uses; no case touches the network.
+# The fake curl records argv/body/header and replays FAKE_CURL_RESPONSE; no case
+# touches the network.
 unset FAKE_CURL_HANG
 cat > "$FAKEBIN/curl" <<'SH'
 #!/usr/bin/env bash

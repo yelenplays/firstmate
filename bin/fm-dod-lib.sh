@@ -184,6 +184,20 @@ fm_brief_task_heading_present() {  # <file> <heading>
   printf '%s\n' "$task" | fm_brief_heading_parse - "$2" present >/dev/null
 }
 
+# The spawn-path brief preflight verdict (bin/fm-jev-brief-preflight.sh) from
+# the structural facts it reads: worker kind plus Task, Definition of done,
+# Captain's intent, and Firstmate spec presence as true/false. Prints
+# missing_acceptance exactly when the Definition of done is missing and
+# need_human otherwise, because no structural fact can prove a brief complete.
+# This reproduces the Jev answers recorded on a 32-case grid over these
+# facts, so the rule replaced that model call without changing a verdict.
+fm_brief_preflight_verdict() {  # <kind> <has_task> <has_dod> <has_intent> <has_spec>
+  case "$3" in
+    false) printf '%s\n' missing_acceptance ;;
+    *) printf '%s\n' need_human ;;
+  esac
+}
+
 fm_brief_marked_captain_words() {  # <task-body>
   printf '%s\n' "$1" | awk '
     match($0, /^[[:space:]]*(\[captain\]|Captain('\''s (words|ask|intent))?:)[[:space:]]*/) {

@@ -1956,18 +1956,6 @@ EOF
   return "$rc"
 }
 
-# Advisory Jev next-work signal. At most one bounded subprocess per due
-# heartbeat, including absorbed ones, so the helper has a real recurring caller.
-# It runs inside this cycle's shared Jev budget and breaker
-# (fm_jev_supervision_queue_triage in bin/fm-classify-lib.sh), so it is skipped
-# once the breaker has tripped and never holds the loop past the remaining
-# budget. Failure never fails the watcher and never dispatches.
-# FM_JEV_QUEUE_TRIAGE_BIN is a test override. Contract:
-# bin/fm-jev-queue-triage.sh; docs/configuration.md "Jev queue triage".
-jev_queue_triage_on_heartbeat() {
-  fm_jev_supervision_queue_triage "${FM_JEV_QUEUE_TRIAGE_BIN:-$SCRIPT_DIR/fm-jev-queue-triage.sh}" "$STATE"
-}
-
 # Cheap heartbeat fleet-scan (the always-on twin of the daemon's catch-all). 0 if
 # any status log carries a captain-relevant event past the position already
 # surfaced to firstmate (.hb-surfaced-<task>). It walks every log rather than only
@@ -2949,7 +2937,6 @@ EOF
   hb=$(( HEARTBEAT * (1 << streak) ))
   [ "$hb" -gt "$HEARTBEAT_MAX" ] && hb=$HEARTBEAT_MAX
   if [ "$(age_of "$STATE/.last-heartbeat")" -ge "$hb" ]; then
-    jev_queue_triage_on_heartbeat
     # Triage: in always-on mode a heartbeat is benign unless the cheap fleet-scan
     # turns up a captain-relevant status the per-wake path missed. Absorb the
     # no-change case (advance the schedule and back off exactly as wake() would,
