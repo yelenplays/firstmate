@@ -1,0 +1,18 @@
+ok - usage requires --brief and --task and refuses a path-like id
+ok - the deterministic rule reproduces Jev's 32 recorded grid answers
+ok - every reachable grid row gives Jev's recorded verdict through the script
+ok - a brief with a definition of done records need_human silently and offline
+ok - a missing definition of done warns, records, and never blocks
+ok - off and unrecognized delivery metadata skip the check
+ok - the record carries structural facts only
+ok - spawn records the deterministic verdict and still proceeds
+ok - existing structural brief refusals still fire before the preflight
+ok - populated generated ship and scout briefs record need_human through spawn
+ok - --help prints usage and a bad argument exits 2
+ok - an empty backlog prints nothing
+ok - readiness requires cleared blockers, a passed time gate, and no captain hold
+ok - a dependent becomes ready once its blocker is done
+ok - a long ready set names five ids and counts the rest
+ok - a missing backlog prints nothing and exits 0
+ok - the drain prints its own home's ready line only on a heartbeat row
+ok - a hung backlog read is bounded and never blocks the drain
