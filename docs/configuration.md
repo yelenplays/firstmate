@@ -774,9 +774,9 @@ Coverage lives in [`tests/fm-jev-supervision.test.sh`](../tests/fm-jev-supervisi
 ## Brief preflight (FM_JEV_BRIEF_PREFLIGHT)
 
 `bin/fm-spawn.sh` runs [`bin/fm-jev-brief-preflight.sh`](../bin/fm-jev-brief-preflight.sh) for ship and scout briefs after its structural brief refusals and before any endpoint exists.
-The check is a local deterministic rule over the brief's structure: the worker kind, the delivery modes, and whether the Task, Definition of done, Captain's intent, and Firstmate spec sections are present.
+The check reads the worker kind, delivery metadata, and whether the Task, Definition of done, Captain's intent, and Firstmate spec sections are present.
 It makes no model or network call, and the brief's text never leaves the machine.
-The verdict is `missing_acceptance` exactly when the Definition of done is missing, otherwise `need_human`, because structure alone cannot prove a brief complete.
+After valid delivery metadata, the verdict depends only on the Definition of done: `missing_acceptance` when that section is missing, otherwise `need_human`, because structure alone cannot prove a brief complete.
 That rule reproduces the answers Jev gave on every combination of those facts, which is why the Jev call was retired; the `jev` name and variable stay for compatibility.
 Default `FM_JEV_BRIEF_PREFLIGHT` is `shadow`: each verdict appends the record described in the [script header](../bin/fm-jev-brief-preflight.sh) and the spawn continues.
 `missing_acceptance` prints the missing element on stderr; `need_human` stays silent.
