@@ -774,7 +774,6 @@ tests/fm-jev-compaction.test.sh 638
 tests/fm-jev-done-verify.test.sh 38035
 tests/fm-jev-intake-match.test.sh 17464
 tests/fm-jev-lib.test.sh 1005
-tests/fm-jev-queue-triage.test.sh 17375
 tests/fm-jev-retrieval-miss.test.sh 1363
 tests/fm-jev-skill-select.test.sh 77991
 tests/fm-jev-supervision.test.sh 6220
@@ -819,6 +818,7 @@ tests/fm-procevent-when.test.sh 23805
 tests/fm-procevent.test.sh 221745
 tests/fm-project-origin.test.sh 136
 tests/fm-public-followup.test.sh 153508
+tests/fm-queue-ready.test.sh 9693
 tests/fm-quota-array-dispatch-live-e2e.test.sh 71
 tests/fm-quota-choose.test.sh 1484
 tests/fm-remote-backlog-handoff.test.sh 73123

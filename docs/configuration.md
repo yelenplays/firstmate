@@ -712,21 +712,14 @@ A Jev outage or selector failure never refuses or stalls spawn past a short boun
 The [script header](../bin/fm-jev-skill-select.sh) owns invocation flags, live selection and cache behavior, overlay injection, and live-load refusal.
 Behavioral coverage lives in [selector tests](../tests/fm-jev-skill-select.test.sh) and [spawn integration tests](../tests/fm-spawn-jev-skill-live.test.sh); these do not establish usefulness or latency in a natural launch cohort.
 
-## Jev queue triage (heartbeat)
+## Queue readiness (heartbeat)
 
-`bin/fm-jev-queue-triage.sh` is an advisory next-work signal.
-The watcher is the only production caller and runs it at most once per due heartbeat, including absorbed heartbeats.
-With a nonempty ready set, a configured Jev API key enables requests automatically; there is no separate queue-triage opt-in flag.
-It never dispatches a task, never clears a hold, never auto-transitions backlog state, and never overrides a dependency or a time gate.
-The ready set is this home only: task ids, titles, kinds, repos, blockers, and hold kind.
-A captain-held item, a hold reason, a private report, and any other home's queue never enter Jev state.
-An empty ready set makes no model call.
-A low-confidence or failed answer is recorded without a recommendation.
-`bin/fm-wake-drain.sh` prints the latest recommendation only when presenting a heartbeat row.
-The [script header](../bin/fm-jev-queue-triage.sh) owns flags, record paths and schema, payload sanitization and limits, the Choice questions and confidence rule, and the skip/off/failure exits.
-Backlog collection uses two sequential listings with a five-second timeout each.
-The heartbeat call runs inside the watcher cycle's shared Jev budget and breaker (see "Jev supervision triage" below), so its model request is bounded by that budget rather than the caller library's default HTTP timeout, it is skipped once the breaker has tripped, and a timeout or failed answer trips the breaker for the rest of the cycle.
-Regression coverage lives in [`tests/fm-jev-queue-triage.test.sh`](../tests/fm-jev-queue-triage.test.sh).
+When `bin/fm-wake-drain.sh` presents a heartbeat row, it prints one advisory `QUEUE READY` line naming the backlog items ready to dispatch, and nothing when none are.
+[`bin/fm-queue-ready.sh`](../bin/fm-queue-ready.sh) decides readiness from structured backlog fields only: every blocker cleared, no active hold (a hold whose `--until` date has arrived no longer counts, which is the time gate), and neither a captain hold nor a captain-kind item.
+It makes no model or network call; it replaced an earlier Jev question that never produced a pick.
+The line is advisory: it never dispatches a task, never clears a hold, and never changes backlog state.
+The backlog read is bounded by `FM_QUEUE_READY_TIMEOUT` (default 5 seconds), and a failed or slow read prints nothing rather than delaying the drain.
+The [script header](../bin/fm-queue-ready.sh) owns the exact rule and line format; regression coverage lives in [`tests/fm-queue-ready.test.sh`](../tests/fm-queue-ready.test.sh).
 
 ## Jev intake match
 
@@ -761,7 +754,7 @@ The watcher and the away-mode daemon ask Jev two narrow advisory questions over 
 Both roles are additive and fail closed: a missing key, a helper failure, a timeout, or a malformed answer leaves the deterministic verdict untouched, and a valid answer can only add a surface or defer a structural false positive.
 [`bin/fm-jev-status-triage.sh`](../bin/fm-jev-status-triage.sh) reads one status line on stdin and prints `escalate` only when the `captain_relevant` Noul is at least 0.5.
 Only lines no declared verb explains are ever offered - free-text progress plus `note:` and `resolved:` - capped at `FM_JEV_SPAN_TRIAGE_MAX` (default 8) consults per status span; `working:`/`done:`/`blocked:`/`failed:`/`needs-decision:`/`paused:`/`captain-held:` lines are never sent to the model.
-One `FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS` (default 6) wall-clock budget is shared by every Jev call in each watcher or daemon cycle - status triage, the wedge check, and the watcher's heartbeat queue triage - and resets at the next cycle.
+One `FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS` (default 6) wall-clock budget is shared by every Jev call in each watcher or daemon cycle - status triage and the wedge check - and resets at the next cycle.
 Each call's HTTP bound is clipped to what the budget still allows, so a cycle never runs past it.
 After the first Jev timeout or error, Jev is skipped for the rest of that cycle and deterministic surfacing or escalation remains in force.
 An escalation surfaces the line marked `(jev-escalated)` as an advisory surface event; it never enters the needs-decision fold.

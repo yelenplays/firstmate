@@ -52,8 +52,7 @@
 # callers place it: the escalation boundary. Neither can downgrade a declared
 # verb, neither replaces a deterministic check, and any helper failure, timeout,
 # or invalid answer returns nonzero so the caller's existing behavior stands.
-# Every Jev call in one watcher or daemon cycle - these two plus the watcher's
-# heartbeat queue triage (fm_jev_supervision_queue_triage) - shares one
+# Every Jev call in one watcher or daemon cycle - these two - shares one
 # wall-clock budget and one circuit breaker (fm_jev_supervision_cycle_reset).
 
 # Directory of this library, used to locate the sibling fm-crew-state.sh reader.
@@ -2084,31 +2083,6 @@ _fm_jev_supervision_consult() {  # <helper> <payload> <output-var> [helper-arg..
     return 1
   fi
   printf -v "$output_var" '%s' "$response"
-}
-
-# The watcher's advisory heartbeat queue triage (bin/fm-jev-queue-triage.sh),
-# admitted into the same cycle budget and breaker as the consults below. The
-# helper always exits 0 on an evaluation failure, so a timeout of the wrapper,
-# a nonzero exit, or an "error" snapshot trips the breaker. Never fails its
-# caller: the helper is advisory and dispatches nothing.
-fm_jev_supervision_queue_triage() {  # <helper> <state-dir>
-  local helper=$1 state=$2 started finished rc=0 snapshot_status
-  [ -f "$helper" ] || return 0
-  _fm_jev_supervision_cycle_prepare || return 0
-  started=$(_fm_jev_supervision_now_ms)
-  FM_HOME="${FM_HOME:-}" FM_STATE_OVERRIDE="$state" \
-    JEV_TIMEOUT="$_FM_JEV_SUPERVISION_CYCLE_CALL_HTTP_SECS" \
-    fm_run_timed "$_FM_JEV_SUPERVISION_CYCLE_CALL_TIMEOUT_SECS" "$helper" --heartbeat \
-    </dev/null >/dev/null 2>&1 || rc=$?
-  finished=$(_fm_jev_supervision_now_ms)
-  _fm_jev_supervision_cycle_charge "$started" "$finished"
-  if [ "$rc" -ne 0 ]; then
-    _FM_JEV_SUPERVISION_CYCLE_FAILED=1
-    return 0
-  fi
-  snapshot_status=$(jq -r '.status // empty' "$state/jev-queue-triage.json" 2>/dev/null || true)
-  [ "$snapshot_status" != error ] || _FM_JEV_SUPERVISION_CYCLE_FAILED=1
-  return 0
 }
 
 # 0 when <status-line> is eligible for the escalation-only Jev consult: a
