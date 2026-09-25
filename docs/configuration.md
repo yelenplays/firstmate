@@ -831,6 +831,7 @@ A home runs the filing as a daily batch:
    If that Opus-low profile is unavailable, leave private drafts pending rather than routing them elsewhere.
 3. Each filing task writes its drafts into the vault through that vault's clone and delivery path.
 4. After a draft lands, firstmate runs `bin/fm-guide-lander.sh mark-filed <home> <task-id> <vault-commit>`, which writes `data/<task-id>/guide.filed` so the draft is filed once.
+Both commands refuse a symlinked task directory or draft: `pending` skips it with a notice and `mark-filed` exits non-zero without writing.
 
 The daily schedule itself is home-local operator setup, not tracked code.
 

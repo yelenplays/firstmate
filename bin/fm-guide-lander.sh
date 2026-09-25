@@ -25,14 +25,16 @@
 #     invalid     the header does not parse; <target> is `-` and a notice on
 #                 stderr names the reason
 #   Remote secondmate homes and unreadable local homes are skipped with a
-#   notice on stderr. Rows are sorted by home, then task id.
+#   notice on stderr, as is a symlinked task directory or draft. Rows are
+#   sorted by home, then task id.
 #
 # mark-filed <home> <task-id> <vault-commit>
 #   Writes data/<task-id>/guide.filed in <home> with the vault commit and a UTC
 #   timestamp, so `pending` stops listing the draft. <home> must be this home
 #   or a registered local secondmate home; <vault-commit> is a 7-40 character
 #   hex commit id. A draft that already has a receipt is left unchanged and
-#   reported as already filed. A `no guide:` or invalid draft is refused.
+#   reported as already filed. A `no guide:` or invalid draft, a symlinked task
+#   directory, or a symlinked draft is refused.
 #
 # Unconfigured: with no wikis root (bin/fm-wiki-lib.sh fm_wiki_root), both
 # commands print `guide-lander: no wikis root configured` on stderr and exit 0.
@@ -121,9 +123,14 @@ cmd_pending() {
   estate="$root/routing/estate.json"
   homes | while IFS=$'\t' read -r home data; do
     for draft in "$data"/*/guide.md; do
-      [ -f "$draft" ] && [ ! -L "$draft" ] || continue
+      [ -e "$draft" ] || [ -L "$draft" ] || continue
       dir=${draft%/guide.md}
       id=${dir##*/}
+      if [ -L "$dir" ] || [ -L "$draft" ]; then
+        note "skipping $draft: symlinked task directory or draft"
+        continue
+      fi
+      [ -f "$draft" ] || continue
       [ -e "$dir/guide.filed" ] && continue
       if ! fm_wiki_guide_header "$draft"; then
         note "invalid draft $draft: $FM_WIKI_GUIDE_ERROR"
@@ -160,6 +167,9 @@ cmd_mark_filed() {
   done < <(homes 2>/dev/null)
   [ -n "$found" ] || die "home $want is neither this home nor a registered local secondmate home"
   dir="$found/$id"
+  if [ -L "$dir" ] || [ -L "$dir/guide.md" ]; then
+    die "refusing $dir: symlinked task directory or draft"
+  fi
   [ -f "$dir/guide.md" ] && [ ! -L "$dir/guide.md" ] || die "no guide draft at $dir/guide.md"
   receipt="$dir/guide.filed"
   if [ -e "$receipt" ]; then
