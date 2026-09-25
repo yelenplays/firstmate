@@ -778,22 +778,19 @@ When a model call is made for any other case - a secondmate home, a secondmate t
 `fm_jev_supervision_free_text_ok` and `fm_jev_supervision_state` in [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) own that rule and the exact facts.
 Coverage lives in [`tests/fm-jev-supervision.test.sh`](../tests/fm-jev-supervision.test.sh), [`tests/fm-watch-triage.test.sh`](../tests/fm-watch-triage.test.sh), and [`tests/fm-daemon.test.sh`](../tests/fm-daemon.test.sh).
 
-## Jev brief preflight (FM_JEV_BRIEF_PREFLIGHT)
+## Brief preflight (FM_JEV_BRIEF_PREFLIGHT)
 
 `bin/fm-spawn.sh` runs [`bin/fm-jev-brief-preflight.sh`](../bin/fm-jev-brief-preflight.sh) for ship and scout briefs after its structural brief refusals and before any endpoint exists.
-Jev receives only a fixed completeness query, the validated worker kind and delivery modes, and section-presence booleans.
-It never receives the `# Task` or `# Definition of done` bodies.
-This structural metadata cannot establish semantic completeness or consistent constraints; when it cannot establish an answer, Jev is instructed to choose `need_human`.
-It never receives captain-private records, another home's data, page content, excerpts, conflict lines, or any key.
-One Choice over `{complete, missing_acceptance, missing_constraints, ambiguous_scope, need_human}` plus confidence.
-Default `FM_JEV_BRIEF_PREFLIGHT` is `shadow`: attempted calls append the record described in the [script header](../bin/fm-jev-brief-preflight.sh) and still spawn.
-A high-confidence defect prints the exact missing element on stderr; `complete`, low confidence, a Jev failure, and an absent key stay silent and never refuse launch.
-`FM_JEV_BRIEF_PREFLIGHT=off`, an absent key, unrecognized delivery metadata, or failed compaction skips the call and writes nothing.
+The check is a local deterministic rule over the brief's structure: the worker kind, the delivery modes, and whether the Task, Definition of done, Captain's intent, and Firstmate spec sections are present.
+It makes no model or network call, and the brief's text never leaves the machine.
+The verdict is `missing_acceptance` exactly when the Definition of done is missing, otherwise `need_human`, because structure alone cannot prove a brief complete.
+That rule reproduces the answers Jev gave on every combination of those facts, which is why the Jev call was retired; the `jev` name and variable stay for compatibility.
+Default `FM_JEV_BRIEF_PREFLIGHT` is `shadow`: each verdict appends the record described in the [script header](../bin/fm-jev-brief-preflight.sh) and the spawn continues.
+`missing_acceptance` prints the missing element on stderr; `need_human` stays silent.
+`FM_JEV_BRIEF_PREFLIGHT=off` or unrecognized delivery metadata skips the check and writes nothing.
 This gate never blocks a spawn.
 Leftover placeholders, an empty Task, a half-filled intent/spec pair, and a Captain-addressed intent line remain `fm-spawn.sh`'s structural refusals.
-The HTTP call goes through [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh).
-This gate defaults `JEV_TIMEOUT` to 5 seconds when unset so an outage cannot stall launch; an explicit `JEV_TIMEOUT` still wins.
-The script header owns flags, the JSONL schema, and the 0.7 confidence floor (`JEV_CONFIDENCE_FLOOR`).
+[`bin/fm-dod-lib.sh`](../bin/fm-dod-lib.sh)'s `fm_brief_preflight_verdict` owns the rule, and regression coverage lives in [`tests/fm-jev-brief-preflight.test.sh`](../tests/fm-jev-brief-preflight.test.sh).
 
 ## Wiki engine ask (config/wiki-engine, config/wiki-catalog)
 
@@ -1466,7 +1463,7 @@ JEV_ROUTE=              # optional library and typed-dispatch route; bin/fm-jev.
 JEV_MODEL=              # optional Jev model override (same section)
 JEV_URL=                # optional library and typed-dispatch POST URL, used verbatim; ignored by bin/fm-jev.sh
 JEV_BASE=               # optional library and typed-dispatch TypeSafe origin; ignored by bin/fm-jev.sh
-JEV_TIMEOUT=25          # optional Jev HTTP timeout in seconds; default 25 (same section); brief preflight uses 5 when this is unset (docs/configuration.md "Jev brief preflight"), and supervision triage uses FM_JEV_SUPERVISION_TIMEOUT_SECS, default 3 (docs/configuration.md "Jev supervision triage")
+JEV_TIMEOUT=25          # optional Jev HTTP timeout in seconds; default 25 (same section); supervision triage uses FM_JEV_SUPERVISION_TIMEOUT_SECS, default 3 (docs/configuration.md "Jev supervision triage")
 FM_JEV_SUPERVISION_TIMEOUT_SECS=3  # fallback per-call bound for supervision consults when JEV_TIMEOUT is unset or invalid; see "Jev supervision triage"
 FM_JEV_SPAN_TRIAGE_MAX=8  # status-line Jev consult cap per span; see "Jev supervision triage"
 FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS=6  # shared Jev-call wall-clock budget per watcher or daemon cycle; see "Jev supervision triage"
@@ -1478,7 +1475,7 @@ FM_MEMORY_DIR=          # memory store directory; else config/memory-dir, else $
 FM_OV_HOME=             # OpenViking home override for migration/retire scripts; default ~/.openviking (docs/memory.md)
 FM_JEV_TOOL_GATE=shadow # remainder Jev tool-gate after arm-command policy; live needs this plus two opt-in files; hard-ship is a do-not (docs/configuration.md "Jev remainder tool-gate")
 FM_JEV_SKILL_SELECT=shadow # skill selection mode; activation and safe-query requirements: "Jev skill selector" above
-FM_JEV_BRIEF_PREFLIGHT=shadow # spawn-path Jev brief preflight; off skips; never blocks launch (docs/configuration.md "Jev brief preflight")
+FM_JEV_BRIEF_PREFLIGHT=shadow # spawn-path deterministic brief preflight; off skips; never blocks launch (docs/configuration.md "Brief preflight")
 FMX_DISCORD_REPLY_MAX_CHARS=1900   # Discord reply per-message split budget; values below 50 clamp to 50, values above 2000 reset to 1900
 FMX_X_THREAD_MAX=25     # maximum messages in one auto-split reply thread
 FMX_FOLLOWUP_MAX_AGE_SECS=604800   # local window for posting Relay completion follow-ups (7 days)

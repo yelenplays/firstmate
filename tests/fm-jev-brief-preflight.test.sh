@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
-# Behavior tests for bin/fm-jev-brief-preflight.sh and its spawn-path caller.
-#
-# Drives the public argv and environment interface with a fake curl on PATH
-# that records argv, the request body it read from stdin, and the header it
-# read from file descriptor 3. Spawn cases stop before any endpoint exists:
-# delivery checks and this preflight run ahead of backend creation, and a
-# fake tmux that exits non-zero backstops cases that are meant to get past
-# them. No case touches the network.
+# Behavior tests for bin/fm-jev-brief-preflight.sh, its deterministic rule
+# (fm_brief_preflight_verdict in bin/fm-dod-lib.sh), and its spawn caller.
+# A recording fake curl on PATH proves no case makes a network call, even with
+# a Jev key configured.
 set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=bin/fm-dod-lib.sh
+. "$ROOT/bin/fm-dod-lib.sh"
 
 TOOL="$ROOT/bin/fm-jev-brief-preflight.sh"
 SPAWN="$ROOT/bin/fm-spawn.sh"
@@ -20,7 +18,6 @@ HOME_DIR="$TMP_ROOT/home"
 FAKEBIN=$(fm_fakebin "$TMP_ROOT")
 LOG="$TMP_ROOT/log"
 BRIEF="$TMP_ROOT/brief.md"
-RESPONSE="$TMP_ROOT/response.json"
 BASE_PATH=$PATH
 TS_KEY='ts-test-key-not-for-argv'
 TASK_ID='pager-off-by-one'
@@ -32,83 +29,48 @@ unset TYPESAFE_API_KEY OPENROUTER_API_KEY TYPESAFE_API_KEY_PRIVATE \
 
 cat > "$FAKEBIN/curl" <<'SH'
 #!/usr/bin/env bash
-set -u
-if [ -n "${TYPESAFE_API_KEY+x}" ] || [ -n "${TYPESAFE_API_KEY_PRIVATE+x}" ] \
-  || [ -n "${OPENROUTER_API_KEY+x}" ] || [ -n "${OPENROUTER_API_KEY_PRIVATE+x}" ]; then
-  printf 'curl:secret-present\n' >> "${CHILD_ENV_LOG:?}"
-else
-  printf 'curl:clean\n' >> "${CHILD_ENV_LOG:?}"
-fi
-out=''
-while [ $# -gt 0 ]; do
-  case "$1" in
-    -o) out=$2; shift 2 ;;
-    *) printf '%s\n' "$1" >> "${FAKE_CURL_LOG:?}/argv"; shift ;;
-  esac
-done
-cat > "$FAKE_CURL_LOG/body"
-cat /dev/fd/3 > "$FAKE_CURL_LOG/header" 2>/dev/null || printf 'fd3 unreadable\n' > "$FAKE_CURL_LOG/header"
-if [ "${FAKE_CURL_FAIL:-0}" = 1 ]; then
-  exit 7
-fi
-cp "${FAKE_CURL_RESPONSE:?}" "$out"
-printf '%s' "${FAKE_CURL_HTTP:-200}"
+printf '%s\n' "$*" >> "${FAKE_CURL_LOG:?}/argv"
+exit 7
 SH
 chmod +x "$FAKEBIN/curl"
+export FAKE_CURL_LOG="$LOG"
 
-write_complete_brief() {
-  cat > "$BRIEF" <<'MD'
-You are a crewmate.
-
-# Task
-## Captain's intent
-Fix the off-by-one in pager.sh line 40 so one page is returned per call.
-
-## Firstmate spec
-Change only pager.sh.
-Do not refactor the caller.
-Add a regression test that fails before the fix and passes after.
-
-# Definition of done
-Delivery contract: mode=direct-PR
-The pager returns one page per call.
-tests/pager.test.sh is green.
-The PR is open.
-
-# Setup
-TYPESAFE_API_KEY=super-secret-should-not-leave
-See data/captain.md and /Users/yelen/github/firstmate/state/other-task.status
-MD
-}
-
-write_response() {  # <choice> [confidence]
-  local choice=$1
-  local conf=${2:-0.86}
-  local p_complete=0.02 p_acc=0.02 p_con=0.02 p_amb=0.02 p_hum=0.02
-  case "$choice" in
-    complete) p_complete=0.92 ;;
-    missing_acceptance) p_acc=0.92 ;;
-    missing_constraints) p_con=0.92 ;;
-    ambiguous_scope) p_amb=0.92 ;;
-    need_human) p_hum=0.92 ;;
-  esac
-  cat > "$RESPONSE" <<JSON
-{ "model": "jev-1.13.0",
-  "answers": { "brief": { "type": "choice", "choice": "$choice", "confidence": $conf,
-    "probabilities": {
-      "complete": $p_complete,
-      "missing_acceptance": $p_acc,
-      "missing_constraints": $p_con,
-      "ambiguous_scope": $p_amb,
-      "need_human": $p_hum
-    } } },
-  "usage": { "input_tokens": 40, "output_tokens": 12 } }
-JSON
-}
-
-export FAKE_CURL_LOG="$LOG" FAKE_CURL_RESPONSE="$RESPONSE" CHILD_ENV_LOG="$LOG/child-env"
-write_complete_brief
-write_response complete
+# Jev's recorded answers on the full grid of structural facts the preflight
+# reads: kind, has_task, has_definition_of_done, has_captain_intent,
+# has_firstmate_spec. Jev answered missing_acceptance on all 16 rows without a
+# definition of done and need_human on all 16 rows with one.
+GRID='ship|false|false|false|false|missing_acceptance
+ship|false|false|false|true|missing_acceptance
+ship|false|false|true|false|missing_acceptance
+ship|false|false|true|true|missing_acceptance
+ship|false|true|false|false|need_human
+ship|false|true|false|true|need_human
+ship|false|true|true|false|need_human
+ship|false|true|true|true|need_human
+ship|true|false|false|false|missing_acceptance
+ship|true|false|false|true|missing_acceptance
+ship|true|false|true|false|missing_acceptance
+ship|true|false|true|true|missing_acceptance
+ship|true|true|false|false|need_human
+ship|true|true|false|true|need_human
+ship|true|true|true|false|need_human
+ship|true|true|true|true|need_human
+scout|false|false|false|false|missing_acceptance
+scout|false|false|false|true|missing_acceptance
+scout|false|false|true|false|missing_acceptance
+scout|false|false|true|true|missing_acceptance
+scout|false|true|false|false|need_human
+scout|false|true|false|true|need_human
+scout|false|true|true|false|need_human
+scout|false|true|true|true|need_human
+scout|true|false|false|false|missing_acceptance
+scout|true|false|false|true|missing_acceptance
+scout|true|false|true|false|missing_acceptance
+scout|true|false|true|true|missing_acceptance
+scout|true|true|false|false|need_human
+scout|true|true|false|true|need_human
+scout|true|true|true|false|need_human
+scout|true|true|true|true|need_human'
 
 reset_log() {
   rm -rf "$LOG"
@@ -119,7 +81,8 @@ record_path() {
   printf '%s' "$HOME_DIR/state/${1:-$TASK_ID}.jev-brief-preflight.jsonl"
 }
 
-# run_preflight <exit-var> <out-var> <err-var> [args...]
+# Every run carries a Jev key so a regression back to a model call would reach
+# the recording fake curl.
 run_preflight() {
   local __exit=$1 __out=$2 __err=$3
   shift 3
@@ -128,13 +91,30 @@ run_preflight() {
   reset_log
   rm -f "$(record_path)"
   _code=0
-  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" \
-    FAKE_CURL_HTTP="${FAKE_CURL_HTTP:-200}" FAKE_CURL_FAIL="${FAKE_CURL_FAIL:-0}" \
+  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY=$TS_KEY \
     "$TOOL" "$@" 2> "$_errfile") || _code=$?
   printf -v "$__exit" '%s' "$_code"
   printf -v "$__out" '%s' "$_out"
   printf -v "$__err" '%s' "$(cat "$_errfile")"
-  unset FAKE_CURL_HTTP FAKE_CURL_FAIL
+}
+
+# write_grid_brief <has_task> <has_dod> <has_intent> <has_spec>
+# Writes a brief with exactly the requested structure. Intent and spec live
+# under # Task, so they are reachable only when has_task is true.
+write_grid_brief() {
+  local has_task=$1 has_dod=$2 has_intent=$3 has_spec=$4
+  {
+    printf 'You are a crewmate.\n\n'
+    if [ "$has_task" = true ]; then
+      printf '# Task\n'
+      if [ "$has_intent" = true ]; then printf "## Captain's intent\nFix the pager.\n\n"; fi
+      if [ "$has_spec" = true ]; then printf '## Firstmate spec\nChange only pager.sh.\n\n'; fi
+      printf 'Fix the off-by-one in pager.sh.\n\n'
+    fi
+    if [ "$has_dod" = true ]; then
+      printf '# Definition of done\nDelivery contract: mode=direct-PR\nThe pager returns one page per call.\n'
+    fi
+  } > "$BRIEF"
 }
 
 make_spawn_home() {  # <name>
@@ -150,12 +130,17 @@ make_spawn_home() {  # <name>
   printf '%s\n' "$home|$projects/proj|$fakebin"
 }
 
-write_spawn_brief() {  # <home> <id> <intent> <spec>
-  local home=$1 id=$2 intent=$3 spec=$4
+write_spawn_brief() {  # <home> <id> <intent> <spec> [dod]
+  local home=$1 id=$2 intent=$3 spec=$4 dod=${5:-yes}
   mkdir -p "$home/data/$id"
   {
-    printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\n%s\n\n## Firstmate spec\n%s\n\n# Definition of done\nDelivery contract: mode=direct-PR\nThe change is observable and tests cover it.\n' \
+    printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\n%s\n\n## Firstmate spec\n%s\n\n' \
       "$intent" "$spec"
+    if [ "$dod" = yes ]; then
+      printf '# Definition of done\nDelivery contract: mode=direct-PR\nThe change is observable and tests cover it.\n'
+    else
+      printf '# Notes\nDelivery contract: mode=direct-PR\n'
+    fi
   } > "$home/data/$id/brief.md"
 }
 
@@ -163,8 +148,7 @@ run_spawn() {  # <home> <fakebin> <spawn-args...>
   local home=$1 fakebin=$2
   shift 2
   reset_log
-  FAKE_CURL_LOG="$LOG" FAKE_CURL_RESPONSE="$RESPONSE" CHILD_ENV_LOG="$LOG/child-env" \
-    FAKE_CURL_HTTP="${FAKE_CURL_HTTP:-200}" FAKE_CURL_FAIL="${FAKE_CURL_FAIL:-0}" \
+  FAKE_CURL_LOG="$LOG" TYPESAFE_API_KEY=$TS_KEY \
     FM_ROOT_OVERRIDE='' FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROJECTS_OVERRIDE="$TMP_ROOT/projects-unused" FM_CONFIG_OVERRIDE="$home/config" \
@@ -184,204 +168,138 @@ test_usage_requires_brief_and_task() {
   pass "usage requires --brief and --task and refuses a path-like id"
 }
 
-test_complete_is_silent_and_records() {
-  local code out err line body
-  write_complete_brief
-  write_response complete 0.88
-  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID" \
-    --kind ship --mode direct-PR
-  expect_code 0 "$code" "complete preflight exits 0"
-  [ -z "$out" ] || fail "complete must be silent on stdout, got '$out'"
-  assert_not_contains "$err" 'warning: brief preflight' "complete must not warn"
-  assert_present "$(record_path)" "complete must write a record"
-  line=$(cat "$(record_path)")
-  assert_contains "$line" '"purpose":"brief-preflight"' "record names the purpose"
-  assert_contains "$line" '"verdict":"complete"' "record stores complete"
-  assert_contains "$line" '"block":false' "complete never blocks"
-  assert_contains "$line" '"shadow":true' "complete stays shadow"
-  assert_contains "$line" '"surfaced":false' "complete is not surfaced"
-  body=$(cat "$LOG/body")
-  jq -e '.state == {
-    query: "Check worker brief structural completeness",
-    kind: "ship", delivery_mode: "direct-PR", recorded_delivery: "direct-PR",
-    has_task: true, has_definition_of_done: true,
-    has_captain_intent: true, has_firstmate_spec: true
-  }' "$LOG/body" >/dev/null || fail "request contains only the query and structural metadata"
-  jq -e '.route == "typesafe" and .model == "jev-latest" and .http == "200"
-    and (.latency_ms | type == "number" and . >= 0)' "$(record_path)" >/dev/null \
-    || fail "successful call retains transport evidence"
-  assert_not_contains "$body" 'super-secret-should-not-leave' "Setup secrets stay out of state"
-  assert_not_contains "$body" 'data/captain.md' "captain-private records stay out of state"
-  assert_not_contains "$body" 'other-task.status' "another task's records stay out of state"
-  assert_not_contains "$body" "$TS_KEY" "the API key is not in the request body"
-  assert_contains "$(cat "$LOG/child-env")" 'curl:clean' "curl child env has no key"
-  assert_contains "$(cat "$LOG/header")" "Bearer $TS_KEY" "key reaches curl only via fd 3"
-  pass "a complete brief is silent, recorded, and sends only the query and structural metadata"
+test_rule_matches_recorded_jev_grid() {
+  local kind task dod intent spec expected got rows=0
+  while IFS='|' read -r kind task dod intent spec expected; do
+    [ -n "$kind" ] || continue
+    got=$(fm_brief_preflight_verdict "$kind" "$task" "$dod" "$intent" "$spec")
+    assert_equals "$expected" "$got" \
+      "kind=$kind task=$task dod=$dod intent=$intent spec=$spec matches Jev"
+    rows=$((rows + 1))
+  done <<<"$GRID"
+  assert_equals 32 "$rows" "the grid covers all 32 combinations"
+  pass "the deterministic rule reproduces Jev's 32 recorded grid answers"
 }
 
-test_each_defect_class_is_reported() {
-  local code out err line choice missing
-  write_complete_brief
-  while IFS='|' read -r choice missing; do
-    [ -n "$choice" ] || continue
-    write_response "$choice" 0.84
-    TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID" \
-      --kind ship --mode direct-PR
-    expect_code 0 "$code" "$choice exits 0"
-    assert_contains "$err" "warning: brief preflight:" "$choice prints a warning"
-    assert_contains "$err" "$missing" "$choice names the missing element"
-    assert_contains "$err" "spawn continues" "$choice does not claim a refusal"
-    line=$(cat "$(record_path)")
-    assert_contains "$line" "\"verdict\":\"$choice\"" "$choice is recorded"
-    assert_contains "$line" '"block":false' "$choice never blocks"
-    assert_contains "$line" '"surfaced":true' "$choice is surfaced"
-  done <<'ROWS'
-missing_acceptance|acceptance criteria or definition of done
-missing_constraints|constraints or out-of-scope boundary
-ambiguous_scope|unambiguous observable outcome
-need_human|human review of brief completeness
-ROWS
-  pass "each defect class is reported with the missing element and still exits 0"
+test_reachable_grid_through_the_script() {
+  local kind task dod intent spec expected code out err rows=0
+  while IFS='|' read -r kind task dod intent spec expected; do
+    [ -n "$kind" ] || continue
+    if [ "$task" = false ] && { [ "$intent" = true ] || [ "$spec" = true ]; }; then
+      continue
+    fi
+    write_grid_brief "$task" "$dod" "$intent" "$spec"
+    run_preflight code out err --brief "$BRIEF" --task "$TASK_ID" --kind "$kind"
+    expect_code 0 "$code" "grid row exits 0"
+    jq -e --arg verdict "$expected" --arg kind "$kind" \
+      '.verdict == $verdict and .kind == $kind and .block == false
+       and .shadow == true and .rule == "deterministic"' \
+      "$(record_path)" >/dev/null \
+      || fail "kind=$kind task=$task dod=$dod intent=$intent spec=$spec expected $expected: $(cat "$(record_path)")"
+    if [ "$expected" = missing_acceptance ]; then
+      assert_contains "$err" 'is missing acceptance criteria or definition of done' "$expected warns"
+    else
+      assert_equals '' "$err" "$expected stays silent"
+    fi
+    assert_absent "$LOG/argv" "grid row makes no network call"
+    rows=$((rows + 1))
+  done <<<"$GRID"
+  assert_equals 20 "$rows" "every structurally reachable grid row ran"
+  pass "every reachable grid row gives Jev's recorded verdict through the script"
 }
 
-test_low_confidence_is_not_surfaced() {
-  local code out err line
-  write_complete_brief
-  write_response missing_acceptance 0.4
-  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID" \
-    --kind ship --mode direct-PR
-  expect_code 0 "$code" "low confidence exits 0"
-  assert_not_contains "$err" 'warning: brief preflight' "low confidence stays silent"
-  line=$(cat "$(record_path)")
-  assert_contains "$line" '"verdict":"missing_acceptance"' "low confidence still records the choice"
-  assert_contains "$line" '"surfaced":false' "low confidence is not surfaced"
-  assert_contains "$line" '"block":false' "low confidence never blocks"
-  pass "low confidence records without surfacing or blocking"
-}
-
-test_jev_failure_skips_without_blocking() {
-  local code out err line
-  write_complete_brief
-  write_response complete
-  FAKE_CURL_FAIL=1 TYPESAFE_API_KEY=$TS_KEY run_preflight code out err \
-    --brief "$BRIEF" --task "$TASK_ID" --kind ship --mode direct-PR
-  expect_code 0 "$code" "transport failure exits 0"
-  assert_not_contains "$err" 'warning: brief preflight' "failure stays silent"
-  line=$(cat "$(record_path)")
-  assert_contains "$line" '"verdict":"skipped"' "failure records skipped"
-  assert_contains "$line" '"block":false' "failure never blocks"
-  jq -e '.route == "typesafe" and .model == "jev-latest" and .http == "000"
-    and (.latency_ms | type == "number") and .decide_code == 1' "$(record_path)" >/dev/null \
-    || fail "failed call retains transport evidence"
-  pass "a Jev failure skips without blocking"
-}
-
-test_absent_key_and_off_skip_curl() {
+test_complete_brief_is_silent_and_records_need_human() {
   local code out err
-  write_complete_brief
-  write_response complete
+  write_grid_brief true true true true
+  run_preflight code out err --brief "$BRIEF" --task "$TASK_ID" --kind ship --mode direct-PR
+  expect_code 0 "$code" "complete preflight exits 0"
+  [ -z "$out" ] || fail "preflight must be silent on stdout, got '$out'"
+  assert_equals '' "$err" "need_human stays silent"
+  jq -e '. == {
+    purpose: "brief-preflight", task: "pager-off-by-one", kind: "ship",
+    mode: "direct-PR", verdict: "need_human", missing: "", surfaced: false,
+    shadow: true, block: false, rule: "deterministic"
+  }' "$(record_path)" >/dev/null || fail "record shape: $(cat "$(record_path)")"
+  assert_absent "$LOG/argv" "a configured key still makes no network call"
+  pass "a brief with a definition of done records need_human silently and offline"
+}
+
+test_missing_dod_warns_and_records() {
+  local code out err
+  write_grid_brief true false true true
   run_preflight code out err --brief "$BRIEF" --task "$TASK_ID" --kind ship
-  expect_code 0 "$code" "absent key exits 0"
-  assert_absent "$(record_path)" "absent key writes no record"
-  assert_absent "$LOG/argv" "absent key never calls curl"
-  FM_JEV_BRIEF_PREFLIGHT=off TYPESAFE_API_KEY=$TS_KEY run_preflight code out err \
-    --brief "$BRIEF" --task "$TASK_ID" --kind ship --mode direct-PR
+  expect_code 0 "$code" "missing definition of done exits 0"
+  assert_contains "$err" "warning: brief preflight: $BRIEF is missing acceptance criteria or definition of done (missing_acceptance); spawn continues" \
+    "the warning names the missing element"
+  jq -e '.verdict == "missing_acceptance" and .surfaced == true and .block == false
+    and .missing == "acceptance criteria or definition of done"' \
+    "$(record_path)" >/dev/null || fail "missing DoD record: $(cat "$(record_path)")"
+  pass "a missing definition of done warns, records, and never blocks"
+}
+
+test_off_and_unrecognized_metadata_write_nothing() {
+  local code out err
+  write_grid_brief true false true true
+  FM_JEV_BRIEF_PREFLIGHT=off run_preflight code out err --brief "$BRIEF" --task "$TASK_ID" --kind ship
   expect_code 0 "$code" "off exits 0"
   assert_absent "$(record_path)" "off writes no record"
-  assert_absent "$LOG/argv" "off never calls curl"
-  pass "absent key and FM_JEV_BRIEF_PREFLIGHT=off skip curl and write nothing"
+  assert_equals '' "$err" "off is silent"
+  run_preflight code out err --brief "$BRIEF" --task "$TASK_ID" --mode private-content
+  expect_code 0 "$code" "unrecognized mode exits 0"
+  assert_absent "$(record_path)" "unrecognized mode writes no record"
+  printf '# Task\nFix it.\n# Definition of done\nDelivery contract: mode=weird\n' > "$BRIEF"
+  run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
+  assert_absent "$(record_path)" "unrecognized recorded delivery writes no record"
+  pass "off and unrecognized delivery metadata skip the check"
 }
 
-test_spawn_complete_brief_passes_silently() {
-  local rec home proj fakebin out line
-  rec=$(make_spawn_home complete)
-  IFS='|' read -r home proj fakebin <<EOF
-$rec
-EOF
+test_record_keeps_brief_content_local() {
+  local code out err
+  printf '# Task\nGH_TOKEN=secret private page content\n# Definition of done\nDelivery contract: mode=direct-PR\n' > "$BRIEF"
+  run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
+  assert_not_contains "$(cat "$(record_path)")" 'secret' "brief text never enters the record"
+  assert_not_contains "$(cat "$(record_path)")" 'private page content' "page content never enters the record"
+  pass "the record carries structural facts only"
+}
+
+test_spawn_records_and_proceeds() {
+  local rec home proj fakebin out
+  rec=$(make_spawn_home spawn)
+  IFS='|' read -r home proj fakebin <<<"$rec"
   write_spawn_brief "$home" complete-ship \
     "Fix the pager off-by-one on line 40." \
     "Change only pager.sh. Do not refactor the caller."
-  write_response complete 0.9
-  out=$(TYPESAFE_API_KEY=$TS_KEY run_spawn "$home" "$fakebin" complete-ship "$proj" claude \
-    --mode direct-PR --yolo off)
-  assert_not_contains "$out" 'warning: brief preflight' "complete spawn is silent about Jev"
+  out=$(run_spawn "$home" "$fakebin" complete-ship "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" 'warning: brief preflight' "complete spawn is silent"
   assert_not_contains "$out" 'still contains {TASK}' "complete spawn is not a structural refusal"
-  line=$(cat "$home/state/complete-ship.jev-brief-preflight.jsonl")
-  assert_contains "$line" '"verdict":"complete"' "spawn wrote a complete record"
-  assert_contains "$line" '"block":false' "spawn record never blocks"
-  pass "spawn of a complete brief records silently and still proceeds"
-}
+  jq -e '.verdict == "need_human" and .block == false' \
+    "$home/state/complete-ship.jev-brief-preflight.jsonl" >/dev/null \
+    || fail "spawn must write a need_human record: $out"
 
-test_spawn_reports_each_defect_and_still_proceeds() {
-  local rec home proj fakebin out line choice missing id
-  rec=$(make_spawn_home defects)
-  IFS='|' read -r home proj fakebin <<EOF
-$rec
-EOF
-  while IFS='|' read -r choice missing; do
-    [ -n "$choice" ] || continue
-    id="defect-$choice"
-    write_spawn_brief "$home" "$id" \
-      "Do the work described in the Task." \
-      "Keep the change local."
-    write_response "$choice" 0.83
-    out=$(TYPESAFE_API_KEY=$TS_KEY run_spawn "$home" "$fakebin" "$id" "$proj" claude \
-      --mode direct-PR --yolo off)
-    assert_contains "$out" "warning: brief preflight:" "$choice spawn warns"
-    assert_contains "$out" "$missing" "$choice spawn names the missing element"
-    assert_contains "$out" "spawn continues" "$choice spawn does not refuse"
-    assert_not_contains "$out" 'still contains {TASK}' "$choice is not a structural refusal"
-    line=$(cat "$home/state/$id.jev-brief-preflight.jsonl")
-    assert_contains "$line" "\"verdict\":\"$choice\"" "$choice spawn recorded the verdict"
-    assert_contains "$line" '"block":false' "$choice spawn never blocks"
-  done <<'ROWS'
-missing_acceptance|acceptance criteria or definition of done
-missing_constraints|constraints or out-of-scope boundary
-ambiguous_scope|unambiguous observable outcome
-need_human|human review of brief completeness
-ROWS
-  pass "spawn reports each defect class and still proceeds past the brief checks"
-}
-
-test_spawn_jev_failure_does_not_change_outcome() {
-  local rec home proj fakebin out line
-  rec=$(make_spawn_home fail)
-  IFS='|' read -r home proj fakebin <<EOF
-$rec
-EOF
-  write_spawn_brief "$home" fail-ship \
-    "Fix the pager off-by-one on line 40." \
-    "Change only pager.sh."
-  write_response complete
-  out=$(FAKE_CURL_FAIL=1 TYPESAFE_API_KEY=$TS_KEY run_spawn "$home" "$fakebin" fail-ship "$proj" claude \
-    --mode direct-PR --yolo off)
-  assert_not_contains "$out" 'warning: brief preflight' "failed Jev stays invisible"
-  assert_not_contains "$out" 'still contains {TASK}' "failed Jev is not a structural refusal"
-  line=$(cat "$home/state/fail-ship.jev-brief-preflight.jsonl")
-  assert_contains "$line" '"verdict":"skipped"' "failed Jev records skipped"
-  assert_contains "$line" '"block":false' "failed Jev never blocks"
-  pass "a Jev failure does not alter the spawn outcome"
+  write_spawn_brief "$home" no-dod-ship "Fix the pager." "Change only pager.sh." no
+  out=$(run_spawn "$home" "$fakebin" no-dod-ship "$proj" claude --mode direct-PR --yolo off)
+  assert_contains "$out" 'is missing acceptance criteria or definition of done' "missing DoD spawn warns"
+  assert_contains "$out" 'spawn continues' "missing DoD spawn does not refuse"
+  jq -e '.verdict == "missing_acceptance" and .block == false' \
+    "$home/state/no-dod-ship.jev-brief-preflight.jsonl" >/dev/null \
+    || fail "spawn must write a missing_acceptance record: $out"
+  assert_absent "$LOG/argv" "spawn preflight makes no network call"
+  pass "spawn records the deterministic verdict and still proceeds"
 }
 
 test_spawn_structural_refusals_still_fire() {
-  local rec home proj fakebin out status
+  local rec home proj fakebin out status content
   rec=$(make_spawn_home structural)
-  IFS='|' read -r home proj fakebin <<EOF
-$rec
-EOF
-  write_response complete 0.9
-
+  IFS='|' read -r home proj fakebin <<<"$rec"
   FM_HOME="$home" "$BRIEF_TOOL" unfilled-ship proj --mode direct-PR >/dev/null 2>&1 \
     || fail "unfilled ship brief should still scaffold"
-  out=$(TYPESAFE_API_KEY=$TS_KEY run_spawn "$home" "$fakebin" unfilled-ship "$proj" claude \
-    --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" unfilled-ship "$proj" claude --mode direct-PR --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "unfilled ship spawn should exit non-zero"
   assert_contains "$out" "still contains {TASK} or {FIRSTMATE_SPEC}" \
     "unfilled ship spawn still names leftover placeholders"
-  assert_absent "$LOG/argv" "structural placeholder refusal never calls Jev"
   assert_absent "$home/state/unfilled-ship.jev-brief-preflight.jsonl" \
-    "structural placeholder refusal writes no Jev record"
+    "structural placeholder refusal writes no preflight record"
   assert_absent "$home/state/unfilled-ship.meta" "unfilled ship spawn wrote task metadata"
 
   FM_HOME="$home" "$BRIEF_TOOL" empty-ship proj --mode direct-PR >/dev/null 2>&1 \
@@ -390,73 +308,32 @@ EOF
   content=${content//'{TASK}'/}
   content=${content//'{FIRSTMATE_SPEC}'/}
   printf '%s\n' "$content" > "$home/data/empty-ship/brief.md"
-  reset_log
-  out=$(TYPESAFE_API_KEY=$TS_KEY run_spawn "$home" "$fakebin" empty-ship "$proj" claude \
-    --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" empty-ship "$proj" claude --mode direct-PR --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "empty Task subsections should exit non-zero"
   assert_contains "$out" "must contain nonempty ## Captain's intent and ## Firstmate spec" \
     "empty Task subsections are still rejected"
-  assert_absent "$LOG/argv" "empty-subsection refusal never calls Jev"
   assert_absent "$home/state/empty-ship.jev-brief-preflight.jsonl" \
-    "empty-subsection refusal writes no Jev record"
+    "empty-subsection refusal writes no preflight record"
 
   mkdir -p "$home/data/address-ship"
-  cat > "$home/data/address-ship/brief.md" <<'EOF'
-# Task
-## Captain's intent
-Captain, fix the pager.
-
-## Firstmate spec
-Change only pager.sh.
-
-# Definition of done
-Delivery contract: mode=direct-PR
-EOF
-  reset_log
-  out=$(TYPESAFE_API_KEY=$TS_KEY run_spawn "$home" "$fakebin" address-ship "$proj" claude \
-    --mode direct-PR --yolo off)
+  printf "# Task\n## Captain's intent\nCaptain, fix the pager.\n\n## Firstmate spec\nChange only pager.sh.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n" \
+    > "$home/data/address-ship/brief.md"
+  out=$(run_spawn "$home" "$fakebin" address-ship "$proj" claude --mode direct-PR --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "Captain-addressed intent should exit non-zero"
   assert_contains "$out" "has an operator-address line" \
     "Captain-addressed intent is still refused"
-  assert_absent "$LOG/argv" "address-line refusal never calls Jev"
   assert_absent "$home/state/address-ship.jev-brief-preflight.jsonl" \
-    "address-line refusal writes no Jev record"
-  pass "existing structural brief refusals still fire and never call Jev"
+    "address-line refusal writes no preflight record"
+  pass "existing structural brief refusals still fire before the preflight"
 }
 
-test_body_content_stays_local() {
-  local code out err content section
-  write_response complete
-  for section in Task 'Definition of done' Setup; do
-    for content in '```' '~~~' '> Quoted page excerpt' '<<<<<<< HEAD' '=======' '>>>>>>> branch' '||||||| base' '    Indented excerpt' '"Inline page excerpt"'; do
-      printf '# %s\n%s\nprivate page content\nGH_TOKEN=secret\n' "$section" "$content" > "$BRIEF"
-      TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
-      expect_code 0 "$code" "body content does not block metadata-only preflight"
-      assert_present "$LOG/body" "metadata-only request still reaches Jev"
-      jq -e '.state == {
-        query: "Check worker brief structural completeness",
-        kind: "", delivery_mode: "", recorded_delivery: "",
-        has_task: ($section == "Task"), has_definition_of_done: ($section == "Definition of done"),
-        has_captain_intent: false, has_firstmate_spec: false
-      }' --arg section "$section" "$LOG/body" >/dev/null || fail "brief content entered request state"
-      assert_not_contains "$(cat "$LOG/body")" 'private page content' "page content stays local"
-      assert_not_contains "$(cat "$LOG/body")" 'GH_TOKEN=secret' "secrets stay local"
-      assert_equals '' "$err" "complete metadata verdict is silent"
-    done
-  done
-  pass "quoted, fenced, indented, and conflict bodies never enter request state"
-}
-
-test_spawn_generated_briefs_reach_jev() {
+test_spawn_generated_briefs_record_need_human() {
   local rec home proj fakebin out content kind id mode
   local -a args
   rec=$(make_spawn_home generated)
-  IFS='|' read -r home proj fakebin <<EOF
-$rec
-EOF
-  write_response complete
+  IFS='|' read -r home proj fakebin <<<"$rec"
   for mode in direct-PR local-only no-mistakes scout; do
     id="generated-$mode"
     kind=ship
@@ -472,82 +349,23 @@ EOF
     content=${content//'{FIRSTMATE_SPEC}'/Change only pager.sh and add a regression test.}
     printf '%s\n' "$content" > "$home/data/$id/brief.md"
     if [ "$kind" = ship ]; then args+=(--yolo off); fi
-    out=$(TYPESAFE_API_KEY=$TS_KEY run_spawn "$home" "$fakebin" "$id" "$proj" claude "${args[@]}")
-    assert_present "$LOG/body" "$id must reach Jev through spawn: $out"
-    jq -e --arg kind "$kind" --arg mode "$mode" '.state == {
-      query: "Check worker brief structural completeness",
-      kind: $kind,
-      delivery_mode: (if $kind == "scout" then "" else $mode end),
-      recorded_delivery: (if $kind == "scout" then "" else $mode end),
-      has_task: true, has_definition_of_done: true,
-      has_captain_intent: true, has_firstmate_spec: true
-    }' "$LOG/body" >/dev/null || fail "$id request must contain only structural metadata"
-    jq -e '.verdict == "complete" and .block == false and .http == "200"' \
-      "$home/state/$id.jev-brief-preflight.jsonl" >/dev/null || fail "$id must record the call"
-    assert_not_contains "$out" 'warning: brief preflight' "$id complete verdict stays silent"
+    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude "${args[@]}")
+    jq -e --arg kind "$kind" '.verdict == "need_human" and .kind == $kind and .block == false' \
+      "$home/state/$id.jev-brief-preflight.jsonl" >/dev/null \
+      || fail "$id must record need_human: $out"
+    assert_not_contains "$out" 'warning: brief preflight' "$id stays silent"
+    assert_absent "$LOG/argv" "$id makes no network call"
   done
-  pass "populated generated ship and scout briefs reach Jev through spawn"
-}
-
-test_compaction_failure_skips_call() {
-  local code out err
-  write_complete_brief
-  JEV_STATE_MAX_BYTES=1 TYPESAFE_API_KEY=$TS_KEY run_preflight code out err \
-    --brief "$BRIEF" --task "$TASK_ID"
-  expect_code 0 "$code" "compaction refusal does not block"
-  assert_absent "$LOG/body" "compaction refusal never calls Jev"
-  assert_absent "$(record_path)" "compaction refusal writes no call record"
-  assert_equals '' "$err" "compaction refusal is silent"
-  pass "compaction failure never bypasses the safe-input boundary"
-}
-
-test_timeout_configuration() {
-  local code out err
-  write_complete_brief
-  write_response complete
-  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
-  assert_equals 5 "$(awk '/^--max-time$/ {getline; print}' "$LOG/argv")" "default timeout is five seconds"
-  printf 'JEV_TIMEOUT=1\n' > "$HOME_DIR/.env"
-  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
-  assert_equals 1 "$(awk '/^--max-time$/ {getline; print}' "$LOG/argv")" "dotenv timeout is honored"
-  JEV_TIMEOUT=2 TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
-  assert_equals 2 "$(awk '/^--max-time$/ {getline; print}' "$LOG/argv")" "environment timeout takes precedence"
-  rm -f "$HOME_DIR/.env"
-  pass "timeout honors environment and dotenv before the local default"
-}
-
-test_metadata_does_not_forward_content() {
-  local code out err
-  printf '# Task\nFix the off-by-one.\n# Definition of done\nGH_TOKEN=secret\nUnmarked page excerpt\n' > "$BRIEF"
-  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
-  jq -e '.state == {
-    query: "Check worker brief structural completeness",
-    kind: "", delivery_mode: "", recorded_delivery: "",
-    has_task: true, has_definition_of_done: true,
-    has_captain_intent: false, has_firstmate_spec: false
-  }' "$LOG/body" >/dev/null || fail "raw content must stay local"
-  assert_not_contains "$(cat "$LOG/body")" 'off-by-one' "task body stays local"
-  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID" --mode private-content
-  assert_absent "$LOG/body" "unrecognized metadata cannot carry arbitrary content"
-  printf '# Task\n \n' > "$BRIEF"
-  TYPESAFE_API_KEY=$TS_KEY run_preflight code out err --brief "$BRIEF" --task "$TASK_ID"
-  jq -e '.state.has_task == false and .state.has_definition_of_done == false' \
-    "$LOG/body" >/dev/null || fail "absent content is represented structurally"
-  pass "raw bodies and unrecognized metadata never enter the request"
+  pass "populated generated ship and scout briefs record need_human through spawn"
 }
 
 test_usage_requires_brief_and_task
-test_complete_is_silent_and_records
-test_each_defect_class_is_reported
-test_low_confidence_is_not_surfaced
-test_jev_failure_skips_without_blocking
-test_absent_key_and_off_skip_curl
-test_spawn_complete_brief_passes_silently
-test_spawn_reports_each_defect_and_still_proceeds
-test_spawn_jev_failure_does_not_change_outcome
+test_rule_matches_recorded_jev_grid
+test_reachable_grid_through_the_script
+test_complete_brief_is_silent_and_records_need_human
+test_missing_dod_warns_and_records
+test_off_and_unrecognized_metadata_write_nothing
+test_record_keeps_brief_content_local
+test_spawn_records_and_proceeds
 test_spawn_structural_refusals_still_fire
-test_body_content_stays_local
-test_spawn_generated_briefs_reach_jev
-test_compaction_failure_skips_call
-test_timeout_configuration
-test_metadata_does_not_forward_content
+test_spawn_generated_briefs_record_need_human
