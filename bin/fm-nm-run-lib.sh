@@ -77,6 +77,35 @@ fm_nm_field() {  # <toon-output> <key>
   printf '%s\n' "$1" | sed -n "s/^[[:space:]]*$2:[[:space:]]*\(.*\)/\1/p" | head -1
 }
 
+# Scalar nested under branch_sync in captured `axi status` output.
+fm_nm_branch_sync_nested() {  # <toon-output> <key>...
+  local output=$1
+  shift
+  printf '%s\n' "$output" | awk -v wanted="$*" '
+    function trim(s) { sub(/^[[:space:]]+/, "", s); sub(/[[:space:]]+$/, "", s); return s }
+    /^[[:space:]]*[^[:space:]#][^:]*:/ {
+      indent = match($0, /[^ ]/) - 1
+      line = substr($0, indent + 1)
+      split(line, part, ":")
+      key = trim(part[1])
+      value = trim(substr(line, length(part[1]) + 2))
+      while (depth > 0 && levels[depth] >= indent) depth--
+      if (key == "branch_sync" && value == "") {
+        depth = 1; levels[depth] = indent; keys[depth] = key
+        next
+      }
+      if (depth > 0 && value != "") {
+        chain = keys[1]
+        for (i = 2; i <= depth; i++) chain = chain " " keys[i]
+        if (chain " " key == "branch_sync " wanted) { print value; exit }
+      }
+      if (depth > 0 && value == "") {
+        depth++; levels[depth] = indent; keys[depth] = key
+      }
+    }
+  '
+}
+
 # Full commit sha for sha-ish $2 as seen from worktree $1's own object store;
 # empty when the object is absent or ambiguous. Read-only: never fetches,
 # never moves refs or custody.

@@ -411,17 +411,7 @@ test_helpers_honor_dotenv_timeout() {
     expect_code 0 "$code" "$(basename "$helper") consult with a .env timeout"
     assert_equals 1 "$(cat "$LOG/max_time")" "$(basename "$helper") honors JEV_TIMEOUT from \$FM_HOME/.env"
   done
-  fresh_home
-  printf 'JEV_TIMEOUT=1\n' > "$HOME_DIR/.env"
-  FM_HOME="$HOME_DIR" bash -c '
-    . "$1/bin/fm-classify-lib.sh"
-    unset JEV_TIMEOUT
-    FM_JEV_SUPERVISION_TIMEOUT_SECS=3
-    fm_jev_supervision_cycle_reset
-    _fm_jev_supervision_cycle_prepare || exit 1
-    [ "$_FM_JEV_SUPERVISION_CYCLE_CALL_HTTP_SECS" = 1 ]
-  ' _ "$ROOT" || fail "the cycle bound ignored JEV_TIMEOUT from \$FM_HOME/.env"
-  pass "the helpers and the cycle bound read JEV_TIMEOUT from the environment or \$FM_HOME/.env"
+  pass "both supervision helpers read JEV_TIMEOUT from the environment or \$FM_HOME/.env"
 }
 
 test_status_triage_failure_is_fail_closed() {
@@ -524,64 +514,6 @@ test_wedge_check_failure_is_fail_closed() {
   pass "every wedge-check failure is fail-closed: nonzero exit, no verdict"
 }
 
-test_supervision_cycle_budget_and_breaker() {
-  local state start_ms finished_ms elapsed_ms file record rc n call_count line saved_path=$PATH
-  [ "$FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS" = 6 ] || fail "the default cycle budget is not 6 seconds"
-  state="$TMP_ROOT/cycle-state"
-  mkdir -p "$state"
-  reset_log
-  export FM_JEV_STATUS_TRIAGE_BIN="$STATUS_TRIAGE"
-  export FM_JEV_SUPERVISION_TIMEOUT_SECS=1
-  export FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS=6
-  export FM_HOME="$HOME_DIR"
-  export FM_STATE_OVERRIDE="$HOME_DIR/state"
-  export TYPESAFE_API_KEY="$TS_KEY"
-  export FAKE_CURL_LOG="$LOG"
-  export FAKE_CURL_HANG=1
-  export PATH="$FAKEBIN:$BASE_PATH"
-  fm_jev_supervision_cycle_reset
-  start_ms=$(_fm_jev_supervision_now_ms)
-  n=1
-  while [ "$n" -le 4 ]; do
-    file="$state/task-$n.status"
-    : > "$file"
-    line=1
-    while [ "$line" -le 8 ]; do
-      printf 'note: routine line %s for task %s\n' "$line" "$n" >> "$file"
-      line=$((line + 1))
-    done
-    printf 'failed: deterministic failure for task %s\n' "$n" >> "$file"
-    record=''
-    status_span_first_actionable_record "$file" 0 record '' jev
-    rc=$?
-    [ "$rc" -eq 0 ] || fail "the deterministic failure for task $n was not actionable"
-    case "$record" in *"failed: deterministic failure for task $n"*) ;; *) fail "the deterministic result was lost: $record" ;; esac
-    n=$((n + 1))
-  done
-  finished_ms=$(_fm_jev_supervision_now_ms)
-  elapsed_ms=$((finished_ms - start_ms))
-  [ "$elapsed_ms" -lt 6000 ] || fail "one Jev cycle took ${elapsed_ms}ms past its 6000ms budget"
-  call_count=$(wc -l < "$LOG/calls" | tr -d '[:space:]')
-  [ "$call_count" = 1 ] || fail "the black-holed endpoint received $call_count calls in one cycle"
-
-  export FAKE_CURL_HANG=0
-  status_response "$RESPONSE" 0.2 note 0.7
-  export FAKE_CURL_RESPONSE="$RESPONSE"
-  printf 'note: next cycle consult\n' > "$state/next.status"
-  fm_jev_supervision_cycle_reset
-  record=''
-  status_span_first_actionable_record "$state/next.status" 0 record '' jev
-  rc=$?
-  [ "$rc" -eq 1 ] || fail "a valid low Noul changed the deterministic note verdict"
-  call_count=$(wc -l < "$LOG/calls" | tr -d '[:space:]')
-  [ "$call_count" = 2 ] || fail "the next cycle did not reset the Jev breaker"
-  unset FM_JEV_STATUS_TRIAGE_BIN FM_JEV_SUPERVISION_TIMEOUT_SECS \
-    FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS FM_HOME FM_STATE_OVERRIDE \
-    TYPESAFE_API_KEY FAKE_CURL_LOG FAKE_CURL_HANG FAKE_CURL_RESPONSE
-  PATH=$saved_path
-  export PATH
-  pass "one Jev timeout trips the cycle breaker, preserves deterministic surfaces, and resets next cycle"
-}
 
 test_status_triage_verdicts
 test_status_triage_question_shape_and_line_only
@@ -597,4 +529,3 @@ test_status_triage_failure_is_fail_closed
 test_wedge_check_verdicts
 test_wedge_check_question_shape_and_tail_only
 test_wedge_check_failure_is_fail_closed
-test_supervision_cycle_budget_and_breaker

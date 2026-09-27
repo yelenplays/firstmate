@@ -283,7 +283,7 @@ fm_lint_worker() {  # <manifest> <output-dir> <shard-index>
     trap 'fm_lint_worker_stop; exit 143' TERM
     FM_LINT_WORKER_ARGS=(--norc)
     if [ "${FM_LINT_INTERNAL_FOLLOW_SOURCES:-1}" -eq 1 ]; then
-      FM_LINT_WORKER_ARGS+=(--external-sources)
+      FM_LINT_WORKER_ARGS+=(--external-sources -P tests)
     fi
     if [ -n "${FM_LINT_INTERNAL_EXCLUDE:-}" ]; then
       FM_LINT_WORKER_ARGS+=(--exclude="$FM_LINT_INTERNAL_EXCLUDE")
