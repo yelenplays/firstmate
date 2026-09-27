@@ -129,7 +129,19 @@
       "audience": "agent-runtime"
     },
     {
+      "path": ".agents/skills/browser-steps/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
       "path": ".agents/skills/captain-hold-lifecycle/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/competitive-landscape/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/competitor-analysis/SKILL.md",
       "audience": "agent-runtime"
     },
     {
@@ -229,6 +241,58 @@
       "audience": "agent-runtime"
     },
     {
+      "path": ".agents/skills/i-have-adhd/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/i-have-adhd/UPSTREAM.md",
+      "audience": "maintainer-architecture"
+    },
+    {
+      "path": ".agents/skills/keyword-clustering/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/keyword-research/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/link-prospecting/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/local-seo/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/orchestrated-delivery/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/orchestrated-delivery/agents/fm-orchestrated-explorer.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/orchestrated-delivery/agents/fm-orchestrated-integrator.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/orchestrated-delivery/agents/fm-orchestrated-researcher.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/orchestrated-delivery/agents/fm-orchestrated-reviewer.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/orchestrated-delivery/agents/fm-orchestrated-tester.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/orchestrated-delivery/agents/fm-orchestrated-worker.md",
+      "audience": "agent-runtime"
+    },
+    {
       "path": ".agents/skills/process-event-sources/SKILL.md",
       "audience": "agent-runtime"
     },
@@ -246,6 +310,22 @@
     },
     {
       "path": ".agents/skills/secondmate-provisioning/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/seo-audit/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/seo-coach/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/seo-project-setup/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/simple-issue-description/SKILL.md",
       "audience": "agent-runtime"
     },
     {
@@ -385,8 +465,16 @@
       "audience": "operator-current"
     },
     {
+      "path": "docs/jev-compaction.md",
+      "audience": "operator-current"
+    },
+    {
       "path": "docs/jev-guards.md",
       "audience": "maintainer-architecture"
+    },
+    {
+      "path": "docs/memory.md",
+      "audience": "operator-current"
     },
     {
       "path": "docs/orca-backend.md",
@@ -489,6 +577,10 @@
       "audience": "maintainer-verification"
     },
     {
+      "path": "docs/verification/matt-pocock-runtime-reach.md",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": "docs/verification/muse.md",
       "audience": "maintainer-verification"
     },
@@ -527,6 +619,10 @@
     {
       "path": "docs/voice-relay.md",
       "audience": "operator-current"
+    },
+    {
+      "path": "docs/wake-triage-follow-up.md",
+      "audience": "maintainer-architecture"
     },
     {
       "path": "docs/watcher-continuity.md",

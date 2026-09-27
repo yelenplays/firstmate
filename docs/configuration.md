@@ -9,8 +9,8 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), and [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) |
-| Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [Claude primary Remote Control](#claude-primary-remote-control-configclaude-remote-control), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), and [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) |
+| Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), [memory store](#memory-store-configmemory-dir), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), and [Calm preference](#calm-preference-configcalm) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
 | Per-run overrides and tuning | [Environment variables](#environment-variables) |
@@ -624,6 +624,12 @@ The file is created lazily on first learning and follows the internal [`stow` sk
 
 There is no shared learnings file by captain decision.
 
+## Memory store (config/memory-dir)
+
+`bin/fm-memory.sh` resolves the memory store directory from `FM_MEMORY_DIR` first, then the first non-comment, non-blank line of the local, gitignored `config/memory-dir`, then `$FM_HOME/data/memories`.
+The config file is read under `FM_CONFIG_OVERRIDE` when set, otherwise `$FM_HOME/config`.
+Use an absolute or caller-relative directory path; the helper's header owns exact command and record mechanics, while [Memory store](memory.md) documents the operator contract.
+
 ## Startup memory budget (config/startup-memory-budget)
 
 `config/startup-memory-budget` is the primary-authoritative per-home allowance for the startup prompt-memory surface: `data/captain.md`, `data/captain-shared.md`, and `data/learnings.md` together.
@@ -821,6 +827,25 @@ The diagnostic names the accepted values; Firstmate never falls back to a permis
 The file is a captain-wide safety preference, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract; a secondmate's own Claude crewmates then launch on the same posture.
 
 The [Claude adapter reference](../.agents/skills/harness-adapters/references/harness/claude.md) records the verified shape of both launches and which once-per-machine dialog each one can meet.
+
+## Claude primary Remote Control (config/claude-remote-control)
+
+The optional local, gitignored `config/claude-remote-control` lets the captain steer a Claude Code primary from a phone or another browser through Claude Code's native Remote Control.
+Only `bin/fm-claude-primary.sh` reads it, so it changes nothing for plain `claude`, another harness, or worker launches.
+Only the first non-empty, non-comment line counts: absent or `off` launches plain Claude Code, and `on` launches `claude --remote-control firstmate`.
+Any other value or an unreadable file refuses to launch and names the accepted values.
+Arguments after the launcher pass through unchanged, and the home-local setting is not inherited into secondmate homes.
+
+Remote Control keeps the session running on this machine and bridges it to claude.ai; anyone signed in to the same claude.ai account can type into the primary, which may run with permission prompts bypassed, so treat that account login as access to this machine.
+Firstmate does not handle login or phone pairing.
+Sign in on this Mac with `/login` using a claude.ai Pro, Max, Team, or Enterprise account, accept the workspace trust dialog, and have a Team or Enterprise Owner enable Remote Control in Claude Code admin settings.
+Then install the Claude app and sign in to the same account, write `on` to `config/claude-remote-control`, launch with `bin/fm-claude-primary.sh`, and open the session from the app's Code tab, its session URL, or the `/remote-control` QR code.
+The app's `/mobile` command displays the app-store QR code.
+
+Remote Control does not connect through Bedrock, Vertex, Foundry, a non-Anthropic `ANTHROPIC_BASE_URL`, or with `DISABLE_TELEMETRY`, `DO_NOT_TRACK`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, or `DISABLE_GROWTHBOOK` set; Claude still starts locally and shows the failure.
+Running `/remote-control` in an already-running primary enables it for that session only, without this file.
+Claude Code's [Remote Control documentation](https://code.claude.com/docs/en/remote-control) owns the service behavior.
+`FM_CLAUDE_REMOTE_CONTROL_LIVE_E2E=1 tests/fm-claude-remote-control-live-e2e.test.sh` verifies the bridge and Stop-hook auto-arm.
 
 ## Worker account pin (config/claude-account, config/pi-account)
 
