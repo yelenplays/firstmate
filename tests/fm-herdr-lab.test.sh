@@ -20,19 +20,16 @@ cat > "$FAKEBIN/herdr" <<'SH'
 set -eu
 printf '%s\n' "$*" >> "$FM_FAKE_HERDR_LOG"
 state=$FM_FAKE_HERDR_STATE
-# Like Herdr, only parse options BEFORE the agent-argument separator.
-# Ambient HERDR_SESSION is deliberately insufficient for explicit selection.
-session=default
-want_session=0
+# Herdr reads --session only as an option, so it must end the arguments or
+# sit immediately before the first -- delimiter.
+last=
 for arg in "$@"; do
   [ "$arg" != -- ] || break
-  if [ "$want_session" = 1 ]; then
-    session=$arg
-    want_session=0
-  elif [ "$arg" = --session ]; then
-    want_session=1
-  fi
+  previous=$last
+  last=$arg
 done
+[ "${previous:-}" = --session ] || { echo "fake herdr: missing --session before any -- delimiter" >&2; exit 90; }
+session=$last
 default_socket=$(cat "$state/default-socket")
 lab_state=absent
 [ ! -f "$state/$session" ] || lab_state=$(cat "$state/$session")
@@ -47,17 +44,6 @@ case "$1 ${2:-}" in
       jq -nc --arg socket "$default_socket" --arg name "$session" --argjson running "$running" \
         '{sessions:[{default:true,name:"default",running:true,socket_path:$socket},{default:false,name:$name,running:$running,socket_path:("/tmp/" + $name + ".sock")}]}'
     fi
-    ;;
-  "agent start")
-    printf '%s\n' "$session" > "$state/$session-agent"
-    after_separator=0
-    for arg in "$@"; do
-      if [ "$after_separator" = 1 ]; then
-        printf '%s\n' "$arg" >> "$state/agent-args"
-      elif [ "$arg" = -- ]; then
-        after_separator=1
-      fi
-    done
     ;;
   "server --session")
     if [ "${FM_FAKE_HERDR_SERVER_DELAY:-0}" != 0 ]; then
@@ -180,21 +166,37 @@ test_provision_run_and_guarded_teardown() {
   pass "fm-herdr-lab: provisioning, scoped calls, guarded teardown, and fleet tripwire are deterministic"
 }
 
-test_separator_keeps_explicit_lab_selection() {
-  local name="fm-lab-separator-$$" status=0
-  rm -f "$FAKE_STATE/agent-args" "$FAKE_STATE/default-agent"
-  # Exercise the public CLI, not source bytes or an assumption about argv order.
-  HERDR_SESSION=default run_with_fake "$ROOT/bin/fm-herdr-lab.sh" run "$name" \
-    agent start smoke --kind devin --pane w1:p1 -- --model swe-2-high \
-    --prompt-file '/path with spaces/brief.md' || fail "separator launch failed"
-  assert_present "$FAKE_STATE/$name-agent" "launch did not target the named lab"
-  assert_absent "$FAKE_STATE/default-agent" "launch escaped into default"
-  [ "$(printf '%s\n' --model swe-2-high --prompt-file '/path with spaces/brief.md')" = \
-    "$(cat "$FAKE_STATE/agent-args")" ] || fail "agent argv changed or swallowed session selection"
-  run_with_fake "$ROOT/bin/fm-herdr-lab.sh" run "$name" \
-    agent start smoke -- --session default >/dev/null 2>&1 || status=$?
-  expect_code 1 "$status" "caller session flag after separator must still be refused"
-  pass "fm-herdr-lab: separator preserves explicit lab selection and exact agent arguments"
+test_run_scopes_session_before_double_dash() {
+  local name="fm-lab-double-dash-$$" status=0 before after
+  : > "$FAKE_LOG"
+  run_with_fake fm_herdr_lab_provision "$name" || fail "double-dash fixture provision failed"
+
+  : > "$FAKE_LOG"
+  run_with_fake fm_herdr_lab_cli "$name" agent start probe --kind pi --pane w1:p1 >/dev/null \
+    || fail "run without a -- delimiter failed"
+  run_with_fake fm_herdr_lab_cli "$name" agent start probe --kind pi --pane w1:p1 \
+    -- --no-session -- --version >/dev/null || fail "run with a -- delimiter failed"
+  grep -Fx -- "agent start probe --kind pi --pane w1:p1 --session $name" "$FAKE_LOG" >/dev/null \
+    || fail "run without a -- delimiter did not append a trailing lab session"
+  grep -Fx -- "agent start probe --kind pi --pane w1:p1 --session $name -- --no-session -- --version" "$FAKE_LOG" >/dev/null \
+    || fail "run did not place the lab session before the first -- delimiter"
+
+  before=$(wc -l < "$FAKE_LOG")
+  run_with_fake fm_herdr_lab_cli "$name" agent start probe --kind pi --pane w1:p1 \
+    -- --session default >/dev/null 2>&1 || status=$?
+  expect_code 1 "$status" "a caller --session after the -- delimiter must be refused"
+  status=0
+  run_with_fake fm_herdr_lab_cli "$name" agent start probe --kind pi --pane w1:p1 \
+    --session=default -- --version >/dev/null 2>&1 || status=$?
+  expect_code 1 "$status" "a caller --session before the -- delimiter must be refused"
+  status=0
+  run_with_fake fm_herdr_lab_cli "$name" -- agent start probe --kind pi --pane w1:p1 >/dev/null 2>&1 || status=$?
+  expect_code 1 "$status" "a leading -- delimiter must be refused"
+  after=$(wc -l < "$FAKE_LOG")
+  [ "$before" = "$after" ] || fail "a refused double-dash run reached Herdr"
+
+  run_with_fake fm_herdr_lab_teardown "$name" || fail "double-dash fixture teardown failed"
+  pass "fm-herdr-lab: run keeps the lab session a Herdr option before any -- delimiter"
 }
 
 test_missing_tripwire_blocks_destruction() {
@@ -533,8 +535,8 @@ test_viewer_launcher_refuses_unsafe_arguments() {
 }
 
 test_refuses_unsafe_names
-test_separator_keeps_explicit_lab_selection
 test_provision_run_and_guarded_teardown
+test_run_scopes_session_before_double_dash
 test_missing_tripwire_blocks_destruction
 test_changed_default_trips_after_teardown
 test_stopped_owned_lab_can_reprovision

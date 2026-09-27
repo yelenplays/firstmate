@@ -17,10 +17,14 @@
 #     staying "in progress" forever
 #   - phase-aware single-flight: a covering worker is reused, while a later
 #     locked request supersedes an in-flight probe-only worker
+#   - a publish lock a live process holds past the budget ends the worker with a
+#     failed-rerun record instead of an unbounded wait
 set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=bin/fm-timeout-lib.sh
+. "$ROOT/bin/fm-timeout-lib.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-startup-network-tests)
 DRAIN="$ROOT/bin/fm-wake-drain.sh"
@@ -128,6 +132,36 @@ wait_for_startup_network_wake() {  # <home> [tenths]
     waited=$((waited + 1))
   done
   grep -Fq $'check\tstartup-network' "$home/state/.wake-queue" 2>/dev/null
+}
+
+# hold_publish_lock <home>: take the stage's publish lock from a separate live
+# process, the way a harvest wedged on a stalled stdout holds it, and print that
+# holder's pid. The holder keeps the pid the lock records, so the lock's
+# stale-owner recovery never reclaims it while the test runs.
+hold_publish_lock() {  # <home>
+  local lock="$1/state/.startup-network.lock" holder waited=0
+  FM_STATE_OVERRIDE="$1/state" FM_ROOT_OVERRIDE="$ROOT" bash -c '
+    . "$1/fm-wake-lib.sh"
+    fm_lock_try_acquire "$2" || exit 1
+    exec sleep 120' _ "$ROOT/bin" "$lock" >/dev/null 2>&1 </dev/null &
+  holder=$!
+  while [ "$(cat "$lock/pid" 2>/dev/null || true)" != "$holder" ] && [ "$waited" -lt 50 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  [ "$(cat "$lock/pid" 2>/dev/null || true)" = "$holder" ] \
+    || fail "could not hold the publish lock from a second process"
+  printf '%s' "$holder"
+}
+
+# await_pid_exit <pid> <tenths>: true when the process exits inside the bound.
+await_pid_exit() {  # <pid> <tenths>
+  local waited=0
+  while kill -0 "$1" 2>/dev/null && [ "$waited" -lt "$2" ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  ! kill -0 "$1" 2>/dev/null
 }
 
 # --- tests -------------------------------------------------------------------
@@ -677,8 +711,6 @@ EOF
     "the stage did not publish what the sweep recorded"
   assert_grep 'stage	network-checks' "$home/state/.startup-network.timings" \
     "the stage did not record its own bounded total"
-  assert_grep 'phase	inactive-reconcile' "$home/state/.startup-network.timings" \
-    "the stage did not time inactive-outcome reconciliation separately"
 
   report_out=$(run_stage "$home" "$root" report)
   assert_contains "$report_out" "sweep finding" "report stopped printing the sweep result"
@@ -747,8 +779,8 @@ GITHUB_TOKEN=ghp_supersecretvalue" \
   assert_grep 'unrecordable' "$home/state/.startup-network.timings" \
     "free text was silently dropped instead of being marked unrecordable"
   lines=$(grep -c . "$home/state/.startup-network.timings")
-  [ "$lines" -eq 3 ] \
-    || fail "the sweep, inactive-reconciliation, and stage timing records should be 3 lines, got $lines"
+  [ "$lines" -eq 2 ] \
+    || fail "one sweep record plus the stage total should be 2 lines, got $lines"
 
   # The step itself is still measured - only its untrustworthy label is refused,
   # so a sweep that mislabels itself still shows up as time spent.
@@ -761,266 +793,73 @@ GITHUB_TOKEN=ghp_supersecretvalue" \
   pass "fm-startup-network: the timing artifact cannot carry a command line or forge records"
 }
 
-# act_first_status <home> <generation> <locked>: a running stage record.
-act_first_status() {
-  printf 'state=running\npid=%s\nstarted=%s\nlocked=%s\nphases=probe,sweeps\ngeneration=%s\nlock_pid=\n' \
-    "$$" "$(date +%s)" "$3" "$2" > "$1/state/.startup-network.status"
-}
-
-act_first_drain() {
-  printf '1790000000\t7\tsignal\ttask-y.status\tneeds-decision: pick a library\n'
-  printf '1790000001\t8\tsignal\ttask-z.status\tblocked: waiting on a key\n'
-}
-
-test_act_first_input_is_generation_scoped_and_persisted_early() {
-  local rec home root log expected actual
-  rec=$(new_world act-first-input)
+# A live holder of the publish lock used to keep the worker spinning for as long
+# as the lock stayed held - hours, when a harvest wedged on a stalled stdout -
+# with every result discarded at the end. Both the wait before the sweeps and
+# the publication wait after them must give up inside the worker's own budget,
+# record the failure the way `report` already reads a failed stage, and wake.
+test_a_held_publish_lock_cannot_keep_the_worker_alive_past_its_budget() {
+  local rec home root log holder began took rc report worker waited
+  rec=$(new_world held-lock)
   IFS='|' read -r home root log <<EOF
 $rec
 EOF
-  printf 'TYPESAFE_API_KEY=ts-test-key\n' > "$home/.env"
-  act_first_status "$home" g-reemit 0
-  act_first_drain | run_stage "$home" "$root" act-first-input
-  [ ! -e "$home/state/.startup-network.act-first-input" ] \
-    || fail "a run with no waiting ranking still got the drain output"
-  printf 'g-older\n' > "$home/state/.startup-network.act-first-waiting"
-  act_first_drain | run_stage "$home" "$root" act-first-input
-  [ ! -e "$home/state/.startup-network.act-first-input" ] \
-    || fail "a ranking waiting for another generation received this one's drain output"
-  act_first_status "$home" g-locked 1
-  printf 'g-locked\n' > "$home/state/.startup-network.act-first-launched"
-  printf 'g-locked\n' > "$home/state/.startup-network.act-first-waiting"
-  expected=$(act_first_drain)
-  act_first_drain | run_stage "$home" "$root" act-first-input
-  [ "$(head -n 1 "$home/state/.startup-network.act-first-input" 2>/dev/null)" = "generation=g-locked" ] \
-    || fail "the drain output was not persisted for its active generation"
-  actual=$(tail -n +2 "$home/state/.startup-network.act-first-input")
-  [ "$actual" = "$expected" ] || fail "the persisted drain output changed"$'\n'"$actual"
-  pass "fm-startup-network: drain input persists for its locked generation"
-}
 
-test_act_first_rank_uses_the_home_timeout_and_wakes_once() {
-  local rec home root log calls rank_pid waited
-  rec=$(new_world act-first-rank)
-  IFS='|' read -r home root log <<EOF
-$rec
-EOF
-  calls="${root%/root}/curl"
-  mkdir -p "$calls"
-  ln -sf "$(command -v jq)" "$root/bin/jq"
-  cat > "$root/bin/curl" <<SH
-#!/usr/bin/env bash
-out=''
-while [ \$# -gt 0 ]; do
-  case "\$1" in -o) out=\$2; shift 2 ;; *) printf '%s\n' "\$1" >> '$calls/argv'; shift ;; esac
-done
-cat > /dev/null
-sleep 11
-printf '%s' '{"answers":{"first":{"type":"choice","choice":"i2","confidence":0.8,"probabilities":{"i1":0.2,"i2":0.8}}}}' > "\$out"
-printf '200'
-SH
-  chmod +x "$root/bin/curl"
-  printf 'TYPESAFE_API_KEY=ts-test-key\nJEV_TIMEOUT=12\n' > "$home/.env"
-  act_first_status "$home" g-rank 1
-  (unset JEV_TIMEOUT; run_stage "$home" "$root" act-first-rank --generation g-rank) &
-  rank_pid=$!
+  # Before the sweeps: the lock is held before the worker even registers.
+  holder=$(hold_publish_lock "$home")
+  began=$(date +%s)
+  rc=0
+  fm_run_timed 15 env PATH="$root/bin:$PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$root" \
+    FM_STARTUP_NETWORK_TIMEOUT=2 FM_SESSION_START_TIMEOUT=2 FM_FAKE_BOOTSTRAP_LOG="$log" \
+    "$root/bin/fm-startup-network.sh" run --locked 0 >/dev/null 2>&1 || rc=$?
+  took=$(( $(date +%s) - began ))
+  [ "$rc" -ne 124 ] || fail "the worker was still waiting on the held publish lock 15s past a 2s budget"
+  [ "$rc" -ne 0 ] || fail "the worker reported success without ever taking the publish lock"
+  [ "$took" -le 6 ] || fail "the worker took ${took}s to give up on a 2s budget"
+  [ ! -f "$log" ] || fail "the sweeps ran even though the worker could not register itself"
+  [ "$(sed -n 's/^state=//p' "$home/state/.startup-network.status")" = failed ] \
+    || fail "a worker that gave up on the lock did not record a failed stage"
+  report=$(run_stage "$home" "$root" report)
+  assert_contains "$report" "still held by pid $holder" \
+    "the failed record did not name the process holding the lock: $report"
+  assert_contains "$report" "fm-startup-network.sh run --locked 0" \
+    "the failed record did not say how to rerun the stage"
+  assert_grep 'check	startup-network' "$home/state/.wake-queue" \
+    "a worker that gave up on the lock did not surface to the agent"
+  kill "$holder" 2>/dev/null || true
+  await_pid_exit "$holder" 50 || fail "could not release the first lock holder"
+
+  # After the sweeps: the worker registers and sweeps freely, then finds the
+  # lock held when it comes to publish. What the sweeps produced must survive.
+  rm -f "$home/state/.wake-queue" "$log"
+  FM_FAKE_BOOTSTRAP_LOG="$log" FM_FAKE_BOOTSTRAP_SLEEP=2 FM_FAKE_BOOTSTRAP_OUT='PROBE_RAN' \
+    FM_STARTUP_NETWORK_TIMEOUT=10 FM_SESSION_START_TIMEOUT=2 \
+    run_stage "$home" "$root" start --locked 0 --harvest-pid 999999999
+  await_worker_record "$home"
+  worker=$(sed -n 's/^pid=//p' "$home/state/.startup-network.status")
   waited=0
-  while [ "$(cat "$home/state/.startup-network.act-first-waiting" 2>/dev/null)" != g-rank ] \
-    && [ "$waited" -lt 100 ]; do
+  while [ ! -f "$log" ] && [ "$waited" -lt 50 ]; do
     sleep 0.1
     waited=$((waited + 1))
   done
-  [ "$(cat "$home/state/.startup-network.act-first-waiting" 2>/dev/null)" = g-rank ] \
-    || fail "the ranker did not register its wait"
-  act_first_drain | run_stage "$home" "$root" act-first-input
-  wait "$rank_pid"
-  grep -A1 -x -- '--max-time' "$calls/argv" | grep -qx 12 \
-    || fail "the ranking ignored the home JEV_TIMEOUT: $(tr '\n' ' ' < "$calls/argv")"
-  assert_grep "1. wake signal task-z.status: blocked: waiting on a key (p=0.8)" \
-    "$home/state/.startup-network.act-first" "the ranking was not published"
-  [ "$(grep -c $'\tcheck\tact-first\t' "$home/state/.wake-queue")" = 1 ] \
-    || fail "the ranking did not raise exactly one act-first wake"
-  [ ! -e "$home/state/.startup-network.act-first-input" ] || fail "the consumed input was left behind"
-  [ ! -e "$home/state/.startup-network.act-first-waiting" ] || fail "the finished ranking still claimed to be waiting"
-  pass "fm-startup-network: the ranking honours a home timeout above ten seconds and wakes once"
-}
-
-test_late_act_first_input_restarts_an_expired_ranker_once() {
-  local rec home root log calls rank_pid waited count
-  rec=$(new_world act-first-late-input)
-  IFS='|' read -r home root log <<EOF
-$rec
-EOF
-  calls="$home/curl-calls"
-  mkdir -p "$calls"
-  ln -sf "$(command -v jq)" "$root/bin/jq"
-  cat > "$root/bin/sleep" <<SH
-#!/usr/bin/env bash
-if [ "\${1:-}" = 0.1 ]; then
-  : > '$home/sleep-seen'
-  /bin/sleep 0.001
-else
-  exec /bin/sleep "\$@"
-fi
-SH
-  chmod +x "$root/bin/sleep"
-  cat > "$root/bin/curl" <<SH
-#!/usr/bin/env bash
-out=''
-while [ \$# -gt 0 ]; do
-  case "\$1" in -o) out=\$2; shift 2 ;; *) shift ;; esac
-done
-cat > /dev/null
-printf 'call\\n' >> '$calls/count'
-printf '%s' '{"answers":{"first":{"type":"choice","choice":"i1","confidence":0.8,"probabilities":{"i1":0.8,"i2":0.2}}}}' > "\$out"
-printf '200'
-SH
-  chmod +x "$root/bin/curl"
-  printf 'TYPESAFE_API_KEY=ts-test-key\n' > "$home/.env"
-  act_first_status "$home" g-late 1
-  (run_stage "$home" "$root" act-first-rank --generation g-late) &
-  rank_pid=$!
-  wait "$rank_pid"
-  assert_present "$home/sleep-seen" "the primary ranker never entered its bounded input wait"
-  [ ! -e "$home/state/.startup-network.act-first-waiting" ] \
-    || fail "the expired ranker retained its waiting marker"
-  [ ! -e "$home/state/.startup-network.act-first-launched" ] \
-    || fail "the expired ranker retained its launch marker"
-
-  act_first_drain | run_stage "$home" "$root" act-first-input
-  act_first_drain | run_stage "$home" "$root" act-first-input
-  waited=0
-  while [ ! -s "$home/state/.startup-network.act-first" ] && [ "$waited" -lt 100 ]; do
-    sleep 0.1
-    waited=$((waited + 1))
-  done
-  assert_present "$home/state/.startup-network.act-first" "the late handoff did not produce a ranking"
-  [ "$(head -n 1 "$home/state/.startup-network.act-first")" = generation=g-late ] \
-    || fail "the late ranking was published for the wrong generation"
-  count=$(grep -c . "$calls/count")
-  [ "$count" -eq 1 ] || fail "duplicate handoffs started $count rankers"
-  waited=0
-  while ! grep -q $'\tcheck\tact-first\t' "$home/state/.wake-queue" 2>/dev/null \
-    && [ "$waited" -lt 100 ]; do
-    sleep 0.1
-    waited=$((waited + 1))
-  done
-  [ "$(grep -c $'\tcheck\tact-first\t' "$home/state/.wake-queue")" -eq 1 ] \
-    || fail "the late ranking did not raise exactly one wake"
-  [ ! -e "$home/state/.startup-network.act-first-input" ] || fail "the late input was not consumed"
-  pass "fm-startup-network: late input starts one ranker after the bounded wait expires"
-}
-
-test_act_first_rank_drops_a_result_after_its_generation_changes() {
-  local rec home root log rank_pid waited report_out
-  rec=$(new_world act-first-stale-rank)
-  IFS='|' read -r home root log <<EOF
-$rec
-EOF
-  mkdir -p "$root/bin"
-  ln -sf "$(command -v jq)" "$root/bin/jq"
-  cat > "$root/bin/curl" <<'SH'
-#!/usr/bin/env bash
-out=
-while [ $# -gt 0 ]; do
-  case "$1" in
-    -o) out=$2; shift 2 ;;
-    *) shift ;;
-  esac
-done
-cat > /dev/null
-: > "${FAKE_CURL_STARTED:?}"
-while [ ! -e "${FAKE_CURL_RELEASE:?}" ]; do sleep 0.05; done
-printf '%s' '{"answers":{"first":{"type":"choice","choice":"i2","confidence":0.8,"probabilities":{"i1":0.2,"i2":0.8}}}}' > "$out"
-printf '200'
-SH
-  chmod +x "$root/bin/curl"
-  printf 'TYPESAFE_API_KEY=ts-test-key\n' > "$home/.env"
-  act_first_status "$home" g-stale 1
-  (FAKE_CURL_STARTED="$home/curl-started" FAKE_CURL_RELEASE="$home/curl-release" \
-    run_stage "$home" "$root" act-first-rank --generation g-stale) &
-  rank_pid=$!
-  waited=0
-  while [ ! -e "$home/state/.startup-network.act-first-waiting" ] && [ "$waited" -lt 100 ]; do
-    sleep 0.1
-    waited=$((waited + 1))
-  done
-  act_first_drain | run_stage "$home" "$root" act-first-input
-  waited=0
-  while [ ! -e "$home/curl-started" ] && [ "$waited" -lt 100 ]; do
-    sleep 0.1
-    waited=$((waited + 1))
-  done
-  [ -e "$home/curl-started" ] || fail "the stale ranking never reached Jev"
-  act_first_status "$home" g-current 1
-  : > "$home/curl-release"
-  wait "$rank_pid"
-  [ ! -e "$home/state/.startup-network.act-first" ] \
-    || fail "a result from the superseded generation was published"
-  if grep -Fq $'\tcheck\tact-first\t' "$home/state/.wake-queue" 2>/dev/null; then
-    fail "a result from the superseded generation raised a wake"
-  fi
-  report_out=$(run_stage "$home" "$root" report)
-  assert_not_contains "$report_out" "ACT FIRST" "report showed a ranking from another generation"
-  pass "fm-startup-network: a late ranking cannot publish or wake after supersession"
-}
-
-test_timed_out_ranker_preserves_newer_generation_state() {
-  local rec home root log rank_pid waited input_body
-  rec=$(new_world act-first-generation-race)
-  IFS='|' read -r home root log <<EOF
-$rec
-EOF
-  printf 'TYPESAFE_API_KEY=ts-test-key\n' > "$home/.env"
-  act_first_status "$home" g-old 1
-  (run_stage "$home" "$root" act-first-rank --generation g-old) &
-  rank_pid=$!
-  waited=0
-  while [ "$(cat "$home/state/.startup-network.act-first-waiting" 2>/dev/null)" != g-old ] \
-    && [ "$waited" -lt 100 ]; do
-    sleep 0.1
-    waited=$((waited + 1))
-  done
-  [ "$(cat "$home/state/.startup-network.act-first-waiting" 2>/dev/null)" = g-old ] \
-    || fail "the older ranker did not register its wait"
-  act_first_status "$home" g-new 1
-  printf 'g-new\n' > "$home/state/.startup-network.act-first-waiting"
-  act_first_drain | run_stage "$home" "$root" act-first-input
-  wait "$rank_pid"
-  [ "$(cat "$home/state/.startup-network.act-first-waiting" 2>/dev/null)" = g-new ] \
-    || fail "the timed-out older ranker removed the newer generation's marker"
-  [ "$(head -n 1 "$home/state/.startup-network.act-first-input" 2>/dev/null)" = "generation=g-new" ] \
-    || fail "the newer generation's input was removed or replaced"
-  input_body=$(tail -n +2 "$home/state/.startup-network.act-first-input")
-  [ "$input_body" = "$(act_first_drain)" ] || fail "the newer generation's drain was changed"
-  pass "fm-startup-network: an older timeout preserves newer marker and input"
-}
-
-test_report_omits_a_ranking_from_another_generation() {
-  local rec home root log report_out
-  rec=$(new_world act-first-stale-report)
-  IFS='|' read -r home root log <<EOF
-$rec
-EOF
-  act_first_status "$home" g-current 1
-  printf 'generation=g-old\n1. stale ranking\n' > "$home/state/.startup-network.act-first"
-  report_out=$(run_stage "$home" "$root" report)
-  assert_not_contains "$report_out" "ACT FIRST" "report rendered a stale generation heading"
-  assert_not_contains "$report_out" "stale ranking" "report rendered stale ranking items"
-  printf 'generation=g-current\n1. current ranking\n' > "$home/state/.startup-network.act-first"
-  report_out=$(run_stage "$home" "$root" report)
-  assert_contains "$report_out" "ACT FIRST" "report omitted the current generation ranking"
-  assert_contains "$report_out" "1. current ranking" "report omitted the current ranking item"
-  pass "fm-startup-network: report renders only the matching generation ranking"
+  [ -f "$log" ] || fail "the detached worker never started its sweep"
+  holder=$(hold_publish_lock "$home")
+  await_pid_exit "$worker" 100 \
+    || fail "the worker was still alive 10s after its sweep finished against a held publish lock (2s delivery budget)"
+  [ "$(sed -n 's/^state=//p' "$home/state/.startup-network.status")" = failed ] \
+    || fail "a worker that could not publish did not record a failed stage"
+  report=$(run_stage "$home" "$root" report)
+  assert_contains "$report" "PROBE_RAN" \
+    "the sweep output was discarded when publication found the lock held: $report"
+  assert_contains "$report" "still held by pid $holder" \
+    "the unpublished result did not name the process holding the lock"
+  assert_grep 'check	startup-network' "$home/state/.wake-queue" \
+    "a result that could not be published under the lock did not surface to the agent"
+  kill "$holder" 2>/dev/null || true
+  pass "fm-startup-network: a held publish lock ends the worker inside its budget with a failed-rerun record"
 }
 
 test_wait_fails_without_a_published_stage
-test_act_first_input_is_generation_scoped_and_persisted_early
-test_act_first_rank_uses_the_home_timeout_and_wakes_once
-test_late_act_first_input_restarts_an_expired_ranker_once
-test_act_first_rank_drops_a_result_after_its_generation_changes
-test_timed_out_ranker_preserves_newer_generation_state
-test_report_omits_a_ranking_from_another_generation
 test_start_returns_without_holding_the_callers_stdout
 test_harvest_acknowledgement_suppresses_the_wake_and_no_claim_produces_it
 test_a_claimant_crash_after_publish_still_queues_the_wake
@@ -1040,4 +879,5 @@ test_records_share_one_origin_so_offsets_form_a_timeline
 test_timings_are_published_and_only_the_on_demand_report_prints_them
 test_a_bounded_run_still_publishes_the_timings_it_managed_to_record
 test_the_timing_artifact_cannot_carry_a_command_line_or_forge_records
+test_a_held_publish_lock_cannot_keep_the_worker_alive_past_its_budget
 echo "# fm-startup-network.test.sh: all assertions passed"

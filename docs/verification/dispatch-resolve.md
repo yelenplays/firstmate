@@ -34,8 +34,7 @@ Briefs: 15 real briefs from this home's recent work plus 10 synthetic ones writt
 | API errors | 0 |
 
 Of the five disagreements, one was a wrong hand label (the brief quoted the bug-fix rule's wording verbatim), three were real briefs the model read as the approval-gated design rule at 0.66 to 0.86 confidence and escalated by design, each of which the captain had in fact dispatched at the strongest-reasoning class, and one was a synthetic tweak that came back ambiguous at 0.41 confidence and was handed back to firstmate.
-A lean request that asked only the rule Choice matched the full request (rule, profile, and status) on all 25 briefs, so rule matching remains one question with every gate in code.
-The shipped tool now also asks the effort Choice in that same request.
+A lean request that asks only the rule Choice matched the full request (rule, profile, and status) on all 25 briefs, which is why the shipped tool asks one question and keeps every gate in code.
 That table records the 2026-09-16 run with the captain-authored none option.
 A second live run on 2026-09-17 used the same 25 briefs, held one quota snapshot constant through a fake `quota-axi`, and exercised a copy of this branch with the shipped neutral `No listed rule applies to this task.` option and option-free interface.
 
@@ -54,50 +53,50 @@ The maximum latency was one outlier; the next slowest request was 309 ms.
 The differing clear result was a synthetic small tweak that matched the simple-bug-fix rule at 0.90 and selected `cursor-grok-4.6-medium` instead of the hand-labeled `cursor-grok-4.6-high`: the tweak exemption removed from the none-option text belongs in that rule's own `when` text.
 Two default-labeled briefs became ambiguous.
 
-## Margin gate and rule precedence calibration
+## Task sections and per-rule confidence floors
 
-Run 2026-09-22 on the TypeSafe route, model `jev-latest`, compact intent state, with the home's 13-rule file (14 options with the neutral none option), 56 live requests in total.
-The labeled set is 14 real briefs from the firstmate home, screened for private personal data, each labeled with the rule or rules a supervisor would accept; 6 predate the captain's-intent brief section and are sent as the first 800 characters of the whole brief.
-Every live row came from `bin/fm-dispatch-replay.sh run --cases <cases> --out <jsonl> --max-calls 14 --rules <candidate>`, once with the home's rules unchanged and three times with candidate `beats`, and every table below from `bin/fm-dispatch-replay.sh score --margin <list> <jsonl>...`.
+Run 2026-09-23 against `jev-latest` (answering as `jev-1.13.0`), comparing the resolver before this change (whole brief as state) with the resolver after it (only `## Captain's intent` and `## Firstmate spec`).
+Each fixture brief was scaffolded with `bin/fm-brief.sh` (ship `--mode no-mistakes` or `--scout`), its two placeholders filled, and both resolvers run on the same file against the same rules.
 
-Home rules unchanged, 14 rows:
+Generic rules: a hardest-tier rule that requires the brief itself to call the work unusually difficult or high-risk and excludes routine builds, ports, and installers; routine feature, port, or installer builds; bug fixes with a stated root cause; trivial mechanical edits; and read-only investigations or audits.
+Sixteen fixtures: ten clear-cut briefs (two per rule) and six borderline ones (a large port with signed installers, an installer after a broken upgrade, a large file split, a table migration, an unexplained slowdown, and a retry policy).
 
-```console
-  gate: confidence>=0.6 ambiguous=9 pass=5 wrong=0
-  gate: margin>=0.25 ambiguous=4 pass=10 wrong=1
-  gate: margin>=0.3 ambiguous=4 pass=10 wrong=1
-  gate: margin>=0.4 ambiguous=6 pass=8 wrong=0
-```
+| Measure | Whole brief | Task sections |
+| --- | --- | --- |
+| Top rule matched the label | 16 of 16 | 16 of 16 |
+| Input tokens per ship brief | 4,327 to 4,379 | 583 to 624 |
+| Input tokens per scout brief | 2,861 to 2,874 | 584 to 597 |
+| Borderline top-rule confidence below 0.99 | 0.77 split, 0.72 slowdown | 0.59 split, 0.70 slowdown |
 
-The one wrong pick at every margin below 0.4 is a short build brief answered with the none option at margin 0.35 and derived confidence 0.59.
+The top rule matched the label on 16 of 16 fixtures under both shapes, so on these generic briefs the change did not improve routing accuracy.
+Every clear-cut fixture answered at probability 0.99 or 1.0 under both shapes, so the scaffold boilerplate neither caused nor prevented a wrong pick.
+The one routing difference is a regression: the large-file-split fixture went from clear (confidence 0.77, probability 0.82 on its labeled routine-build rule) to `ambiguous` (confidence 0.59, probability 0.66, the rest going to the neutral option), just under the 0.6 floor.
+The gain that holds across the set is size: about 4,350 input tokens down to about 600 per ship brief.
 
-The three `beats` variants pooled, 42 rows:
+### A routine port the hardest tier over-claims
 
-```console
-  gate: confidence>=0.6 ambiguous=15 pass=27 wrong=0
-  gate: margin>=0.15 ambiguous=5 pass=37 wrong=2
-  gate: margin>=0.2 ambiguous=8 pass=34 wrong=1
-  gate: margin>=0.25 ambiguous=9 pass=33 wrong=0
-  gate: margin>=0.3 ambiguous=12 pass=30 wrong=0
-```
+Run 2026-09-23 against `jev-latest` (answering as `jev-1.13.0`).
+The brief was a generic scaffolded ship brief for a routine port of a macOS-only capture helper to Windows plus a Windows installer, described as a straightforward port, with a long never-do-X safety list in its spec.
+The rules were the same generic five-rule set with two changes: a loosely worded top-tier rule ("Large or hard engineering work that needs the strongest model, such as a multi-platform build or anything where a mistake is costly.") and the routine rule broadened to "Implementation where the worker must design parts of the solution itself within an existing codebase."
+The task-sections row is the shape this change sends: the two task sections, with no kind line because it is a ship brief.
 
-0.4 is the lowest tested threshold with no wrong pick under unchanged rules, which is why it is the default.
-0.25 is the lowest threshold with no wrong pick across the pooled precedence rows, so it becomes valid only once `beats` are applied and a replay re-verifies it at `wrong=0`.
-The best variant, the conditional `beats` proposed for rules 8 through 13, measured 2 of 14 ambiguous at 0.25 with no wrong pick; both remaining rows are short German briefs split between a rule and the none option.
-Margins moved by up to 0.17 between variants on a brief whose contested pair neither variant's `beats` named, so one run per brief cannot certify a threshold finer than that.
+| Shape | Runs | Input tokens | Top-tier rule probability | Confidence | Implementation rule probability |
+| --- | --- | --- | --- | --- | --- |
+| Whole brief | 3 | 4,436 | 0.90 to 0.93 | 0.87 to 0.92 | 0.07 to 0.10 |
+| Task sections | 5 | 670 | 0.88 to 0.91 | 0.84 to 0.89 | 0.09 to 0.12 |
 
-The 41-row shadow history recorded under the home rules, scored without a network call:
+Extraction does not prevent the top-tier pick; a loosely worded rule is matched from the task text alone.
+With `min_confidence: 0.95` declared on the top-tier rule, the task-sections shape returned `ambiguous` in 3 of 3 runs, because the pick's probability was below its floor and no other option cleared its own floor.
+Additionally declaring `min_confidence: 0.05` on the implementation rule returned a `fallback:` line to that rule in 3 of 3 runs.
 
-```console
-$ bin/fm-dispatch-replay.sh score --margin 0.25,0.3,0.45 state/jev-dispatch-shadow.jsonl
-replay-score: rows=41 labeled=0 skipped=0
-  gate: confidence>=0.6 ambiguous=18 pass=23 wrong=0
-  gate: margin>=0.25 ambiguous=11 pass=30 wrong=0
-  gate: margin>=0.3 ambiguous=12 pass=29 wrong=0
-  gate: margin>=0.45 ambiguous=15 pass=26 wrong=0
-```
+Two scaffolded scout briefs (592 and 605 input tokens, sent with the `Brief kind: scout (report only)` line) matched the investigation rule at probability 1.0 in 4 of 4 runs.
+A free-form brief with neither task section (561 input tokens, sent whole with no kind line) matched the trivial-edit rule at probability 1.0.
 
-The history carries no brief identity, so it measures the ambiguous rate only; the gate changes no pick, since the clear rule is always the most probable option.
+Negative finding: an intermediate variant that also sent `Brief kind: ship, mode=no-mistakes` moved the same routine port brief to the top-tier rule at probability 0.96 to 0.97 in 7 of 7 runs, above a 0.95 floor.
+The delivery mode is the same on most ship briefs and says nothing about difficulty, so it is deliberately not sent.
+
+These live runs cover the scout line, the free-form whole-brief fallback, the ship-brief package, the top-tier floor turning the pick `ambiguous`, and the fallback to a runner-up.
+The remaining behavior is covered only by the offline tests below: a fenced heading inside a section, the boundaries of the global 0.6 confidence check with no declared floors, the probability-based floor examples, the tie case, and rejection of an out-of-range `min_confidence`.
 
 ## Offline behavior
 
@@ -107,11 +106,9 @@ It proves the absent key (environment and `.env`) prints one stderr line, nothin
 It proves absent, default-only, and empty-rules files return `no rules to match` without a model or quota request, while a broken rules-file symlink exits 2 as unreadable.
 It proves the documented starter configuration resolves its Pi default through the declared Claude provider, a `.env` key turns the tool on, and the environment wins over it.
 It proves the key is absent from child environments, never appears on `curl` argv, and arrives only as the bearer header on the descriptor.
-It proves the request uses the default TypeSafe endpoint, model, and 25-second timeout, that `JEV_URL` is used verbatim without appending `/v1/systemone`, and that model, URL, and timeout overrides come from the environment or `.env`.
-It proves the request carries the project, brief, the rule Choice with one option per rule plus the fixed neutral none option, and the effort Choice, and never carries `why`, `use`, or quota.
-It proves the clear, margin-gated ambiguous with candidate evidence (inclusive threshold, a low derived confidence still clearing on a wide margin, `FM_JEV_DISPATCH_MARGIN` from the environment then `.env`, and invalid values refused before any request), a returned rule choice below the probability leader remaining ambiguous with candidate evidence and no profile line, `beats` tie-break sentences on both options with an unchanged question when no rule declares them, escalate (approval with candidate evidence, unverifiable rule floor, tie, nothing rankable), known rule-floor fall-through, known and unverifiable profile-floor evidence, explicit-provider and provider-ID enforcement, authoritative Agy and explicit-provider Gemini routing, partial providers, eligible unranked candidates and their clear-result note, concrete quota vetoes and profile-floor shortfalls taking precedence over uncertainty, account-wide quota veto, limiting-bound ranking, missing-curl and quota-axi failures, HTTP 429 and 500, transport failure, malformed usage, zero-mass or malformed probabilities or confidence, malformed or duplicate profile, invalid selector, removed-option rejection, and out-of-range rule ID paths behave as the contract states, with configuration errors exiting 2 before any network call.
-It proves malformed `beats` (empty, out of range, self, fractional, duplicate target, empty `when`, unconditional mutual, and cycles of three or more rules including conditional edges) exit 2 before any request, while conditional pairs and non-cyclic chains remain accepted.
-`tests/fm-dispatch-replay.test.sh` drives the replay harness through the real resolver with a queued fake transport: one call per case, a hard budget that stops before the call that would exceed it, candidate rules that leave the home's rules unchanged, output alias and writability checks before live requests, and resolver failure and opt-out propagation; it also proves the resolver's shadow log is forced off and the offline score compares both gates and counts wrong labeled picks.
+It proves the request uses the fixed endpoint and model, carries only the project, the brief's task sections read by the shared brief-heading parser with a scout line only for a scout brief and never a ship brief's delivery mode (or the whole brief when it has neither section), and rule Choice with one option per rule plus the fixed neutral none option, and never carries `why`, `use`, or quota.
+It proves a declared `min_confidence` is checked against the rule's own probability both as the pick and as a runner-up, a picked rule below it falls to the most probable runner-up that clears its floor, is `ambiguous` when none does or two tie, and that a file without declared floors keeps the global 0.6 floor on confidence unchanged.
+It proves the clear, fixed-floor ambiguous with candidate evidence, escalate (approval with candidate evidence, unverifiable rule floor, tie, nothing rankable), known rule-floor fall-through, known and unverifiable profile-floor evidence, explicit-provider and provider-ID enforcement, authoritative Agy and explicit-provider Gemini routing, partial providers, eligible unranked candidates and their clear-result note, concrete quota vetoes and profile-floor shortfalls taking precedence over uncertainty, account-wide quota veto, limiting-bound ranking, schema-6 account-row binding with schema-5 compatibility, missing-curl and quota-axi failures, HTTP 429 and 500, transport failure, malformed usage, zero-mass or malformed probabilities or confidence, malformed or duplicate profile, invalid selector, removed-option rejection, and out-of-range rule ID paths behave as the contract states, with configuration errors exiting 2 before any network call.
 `tests/fm-bootstrap.test.sh` proves bootstrap ignores resolver-only fields without the typed key, validates each malformed shape when the environment or home `.env` activates typed resolution, and prevents an environment-provided key from reaching child processes.
 
 ```console

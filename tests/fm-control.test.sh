@@ -35,35 +35,7 @@ mkdir -p "$TMP_ROOT"
 TMP_ROOT=$(cd "$TMP_ROOT" && pwd)
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
-VERIFIED_HARNESSES="claude codex opencode pi pi-signed grok kimi cursor muse omp"
-
-test_harness_lookup_consumes_catalog() (
-  # A catalog larger than a pipe buffer makes an early reader close observable
-  # without depending on process scheduling or a particular OS pipe capacity.
-  # shellcheck disable=SC2329 # Called by the sourced harness lookup.
-  fm_control_harnesses() {
-    local i
-    printf 'claude\n'
-    for ((i=0; i<20000; i++)); do
-      printf 'codex\n' || return 1
-    done
-    printf 'devin\n'
-    printf 'complete\n' > "$TMP_ROOT/catalog-complete"
-  }
-  local candidate out rc expected
-  for candidate in claude devin unknown; do
-    rm -f "$TMP_ROOT/catalog-complete"
-    out=$(fm_control_harness_supported "$candidate" 2>&1); rc=$?
-    expected=0
-    [ "$candidate" != unknown ] || expected=1
-    [ "$rc" -eq "$expected" ] || fail "wrong harness verdict for $candidate: $rc"
-    [ -z "$out" ] || fail "harness lookup emitted diagnostics: $out"
-    [ -f "$TMP_ROOT/catalog-complete" ] || fail "harness lookup interrupted its catalog producer"
-  done
-  pass "harness lookup consumes the catalog for early, late, and absent matches"
-)
-
-test_harness_lookup_consumes_catalog || exit 1
+VERIFIED_HARNESSES="claude codex opencode pi pi-signed grok kimi cursor muse omp devin"
 
 # The expectation table, written out independently of the implementation so a
 # silent change to either side shows up here. The fourth field is the composer
@@ -77,6 +49,7 @@ verified_adapter_contract() {  # <harness> -> exit command, interrupt key, repea
     pi) printf '/quit\tEscape\t1\t\n' ;;
     pi-signed) printf '/quit\tEscape\t1\t\n' ;;
     omp) printf '/quit\tEscape\t1\t\n' ;;
+    devin) printf '/quit\tEscape\t2\t\n' ;;
     grok) printf '/exit\tC-c\t1\t\n' ;;
     kimi) printf '/exit\tEscape\t1\t\n' ;;
     cursor) printf '/exit\tEscape\t1\t\n' ;;
@@ -96,6 +69,14 @@ verified_adapter_contract() {  # <harness> -> exit command, interrupt key, repea
 #   keys     every named key send, one per line.
 #   pane     optional capture-pane override, for an adapter whose busy verdict
 #            is read from the rendered tail.
+#   key-times  every named key with its wall-clock send time.
+#   devin    optional Devin screen model, which capture-pane renders as the
+#            rows devin 3000.11.1 draws: `running`, `armed`, `cancelled`,
+#            `idle`, `primed`, or `picker`. Escape moves running->armed (the
+#            `esc again` hint), armed->cancelled, primed (an idle agent whose
+#            last Escape was a moment ago) ->picker, and picker->idle unless
+#            FM_FAKE_DEVIN_PICKER_STUCK is set. Real sleeps apply while it
+#            exists, so key-times carry the true gap between presses.
 # Two transitions make it a lifecycle model rather than a recorder: a literal
 # that is the harness's exit command flips `command` to a shell (the agent
 # stopped), and a literal carrying a launch brief flips it to the value in
@@ -108,6 +89,30 @@ make_tmux_stub() {  # <dir> -> echoes fakebin dir
 #!/usr/bin/env bash
 set -u
 D=$FM_FAKE_DIR
+# The rows devin 3000.11.1 renders for each modelled screen (live capture).
+devin_screen() {  # <running|armed|cancelled|idle|picker>
+  # The idle placeholder is dark truecolor text, as Devin draws it.
+  local composer=$'❭ \e[38;2;124;124;124mAsk Devin to build features, fix bugs, or work on your code\e[0m'
+  case "$1" in
+    running|armed)
+      printf ' ○ Running command\n │ $ sleep 30\n'
+      if [ "$1" = armed ]; then
+        printf '⢀⣀ Running tools · 6s (esc again to interrupt)\n'
+      else
+        printf '⢀⡄ Running tools · 6s (esc twice to interrupt)\n'
+      fi
+      composer='❭ Guide Devin while it works'
+      ;;
+    cancelled) printf ' ✗ Canceled due to user interrupt\n ✱ Canceled. What should Devin do?\n' ;;
+    idle) printf ' done\n' ;;
+    picker)
+      printf ' done\nRevert to step:\n────\n/ Type to search\n────\n❭ Step 1\n  Append the line...\n'
+      printf 'type search · ↑↓ select · ↵ revert · esc cancel\n'
+      return 0
+      ;;
+  esac
+  printf '──── (bypass permissions on) ─\n%s\n────\nSWE-2 Medium\n' "$composer"
+}
 case "${1:-}" in
   send-keys)
     shift
@@ -127,10 +132,19 @@ case "${1:-}" in
         printf 'zsh' > "$D/command"
       fi
       case "$payload" in
-        *'encode launch-brief'*) cat "$D/becomes" > "$D/command" ;;
+        *'encode launch-brief'* | *'Firstmate operational input waiting: read'*) cat "$D/becomes" > "$D/command" ;;
       esac
     else
       printf '%s\n' "$payload" >> "$D/keys"
+      printf '%s %s\n' "$(perl -MTime::HiRes=time -e 'printf "%.3f", time')" "$payload" >> "$D/key-times"
+      if [ "$payload" = Escape ] && [ -f "$D/devin" ]; then
+        case "$(cat "$D/devin")" in
+          running) printf armed > "$D/devin" ;;
+          armed) printf cancelled > "$D/devin" ;;
+          primed) printf picker > "$D/devin" ;;
+          picker) [ -n "${FM_FAKE_DEVIN_PICKER_STUCK:-}" ] || printf idle > "$D/devin" ;;
+        esac
+      fi
       if [ -n "${FM_FAKE_INTERRUPT_STOPS_AGENT:-}" ] \
          && { [ "$payload" = Escape ] || [ "$payload" = C-c ]; }; then
         printf 'zsh' > "$D/command"
@@ -147,21 +161,21 @@ case "${1:-}" in
   display-message)
     for a in "$@"; do
       case "$a" in
-        *cursor_y*) printf '1\n'; exit 0 ;;
+        *cursor_y*)
+          # A modelled Devin screen parks the cursor on its composer row.
+          if [ -f "$D/devin" ]; then
+            devin_screen "$(cat "$D/devin")" | awk '/^❭ /{ print NR - 1; exit }'
+          else
+            printf '1\n'
+          fi
+          exit 0 ;;
         *pane_current_command*) cat "$D/command"; printf '\n'; exit 0 ;;
         *pane_current_path*) cat "$D/cwd"; printf '\n'; exit 0 ;;
       esac
     done
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
-    # pane-next replaces pane once pane-settle-after captures have been read,
-    # modelling a composer whose verdict settles only after the agent does.
-    if [ -f "$D/pane-next" ] && [ -f "$D/pane-settle-after" ]; then
-      n=$(( $(cat "$D/captures" 2>/dev/null || echo 0) + 1 ))
-      printf '%s' "$n" > "$D/captures"
-      [ "$n" -le "$(cat "$D/pane-settle-after")" ] || mv -f "$D/pane-next" "$D/pane"
-    fi
-    if [ -f "$D/pane" ]; then cat "$D/pane"; else printf '╭────╮\n│    │\n╰────╯\n'; fi
+    if [ -f "$D/devin" ]; then devin_screen "$(cat "$D/devin")"; elif [ -f "$D/pane" ]; then cat "$D/pane"; else printf '╭────╮\n│    │\n╰────╯\n'; fi
     exit 0 ;;
   list-windows)
     if [ -f "$D/windows" ]; then cat "$D/windows"; fi
@@ -172,6 +186,7 @@ SH
   chmod +x "$fb/tmux"
   cat > "$fb/sleep" <<'SH'
 #!/usr/bin/env bash
+if [ -f "$FM_FAKE_DIR/devin" ]; then exec /bin/sleep "$@"; fi
 if [ -n "${FM_FAKE_MUSE_DISAPPEAR_BEFORE_ACK:-}" ] \
    && [ -e "$FM_FAKE_DIR/muse-ack-pending" ]; then
   rm -f "$FM_FAKE_DIR/muse-ack-pending"
@@ -230,10 +245,10 @@ run_control() {
   env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
     FM_CONTROL_POLL=0.01 FM_CONTROL_SETTLE_WAIT=0.05 \
     FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
-    FM_CONTROL_COMPOSER_WAIT="${FM_CONTROL_COMPOSER_WAIT:-0.05}" \
     FM_FAKE_MUSE_LOG="${FM_FAKE_MUSE_LOG:-}" \
     FM_FAKE_MUSE_DISAPPEAR_BEFORE_ACK="${FM_FAKE_MUSE_DISAPPEAR_BEFORE_ACK:-}" \
     FM_FAKE_INTERRUPT_STOPS_AGENT="${FM_FAKE_INTERRUPT_STOPS_AGENT:-}" \
+    FM_FAKE_DEVIN_PICKER_STUCK="${FM_FAKE_DEVIN_PICKER_STUCK:-}" \
     "$CONTROL" "$@" 2>&1
 }
 
@@ -278,6 +293,8 @@ test_interrupt_sends_each_harness_verified_key() {
   for harness in $VERIFIED_HARNESSES; do
     dir=$(new_case "int-$harness")
     add_task "$dir" t1 "$harness"
+    # Devin sends its second press only onto a running turn.
+    [ "$harness" != devin ] || printf running > "$dir/fake/devin"
     if [ "$harness" = cursor ]; then
       alive_as "$dir" cursor-agent
     else
@@ -297,6 +314,97 @@ test_interrupt_sends_each_harness_verified_key() {
   pass "fm-control interrupt: every verified harness gets its own verified key and repeat count"
 }
 
+devin_as() {  # <case-dir> <screen>
+  alive_as "$1" devin
+  printf '%s' "$2" > "$1/fake/devin"
+}
+
+# Seconds between the first two named keys sent.
+first_key_gap() {  # <case-dir>
+  awk 'NR == 1 { a = $1 } NR == 2 { printf "%.3f", $1 - a; exit }' "$1/fake/key-times"
+}
+
+test_devin_interrupt_invalidates_busy() {
+  local dir out gap
+  dir=$(new_case devin-busy)
+  add_task "$dir" t1 devin
+  devin_as "$dir" running
+  "$ROOT/bin/fm-busy-event.sh" arm "$dir/home/state" t1 >/dev/null
+  out=$(run_control "$dir" t1 interrupt) || fail "Devin interrupt failed: $out"
+  assert_contains "$out" 'cancel=unconfirmed' 'Devin cancellation must not claim semantic confirmation'
+  assert_grep 'state=unknown source=fm-interrupt' "$dir/home/state/t1.busy-state" 'cancelled Devin turn stayed busy'
+  [ "$(cat "$dir/fake/devin")" = cancelled ] || fail "the second press should have cancelled the armed turn"
+  gap=$(first_key_gap "$dir")
+  awk -v g="$gap" 'BEGIN{exit !(g >= 0.5)}' \
+    || fail "Devin's second Escape came ${gap}s after the first; under 0.5s a turn ending between them pairs into the revert picker"
+  pass "fm-control Devin interrupt: second press only after the armed hint, then busy invalidated without fabricating idle"
+}
+
+# The revert-picker hazard: on an idle Devin a fast double Escape opens the
+# /revert picker, where Enter reverts file changes. A turn that ended just
+# before the interrupt must get exactly one Escape and keep its busy record.
+test_devin_idle_interrupt_sends_one_press() {
+  local dir out before
+  dir=$(new_case devin-idle)
+  add_task "$dir" t1 devin
+  devin_as "$dir" idle
+  "$ROOT/bin/fm-busy-event.sh" arm "$dir/home/state" t1 >/dev/null
+  before=$(cat "$dir/home/state/t1.busy-state")
+  out=$(run_control "$dir" t1 interrupt) || fail "an idle Devin interrupt should still deliver: $out"
+  [ "$(keys_sent "$dir")" = Escape ] \
+    || fail "an idle Devin must receive exactly one Escape, never the pair that opens its revert picker, got: $(keys_sent "$dir")"
+  assert_contains "$out" 'cancel=not-running' 'an unarmed Devin interrupt must say no running turn was cancelled'
+  [ "$(cat "$dir/home/state/t1.busy-state")" = "$before" ] \
+    || fail "an interrupt that cancelled nothing must not rewrite Devin's busy record"
+  [ "$(cat "$dir/fake/devin")" = idle ] || fail "the idle Devin screen changed: $(cat "$dir/fake/devin")"
+  pass "fm-control Devin interrupt: an idle agent gets one Escape and reports not-running"
+}
+
+test_devin_exit_after_turn_ended_types_quit_once() {
+  local dir out rc
+  dir=$(new_case devin-exit-race)
+  add_task "$dir" t1 devin
+  devin_as "$dir" idle
+  "$ROOT/bin/fm-busy-event.sh" arm "$dir/home/state" t1 >/dev/null
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "exiting a Devin whose turn already ended should succeed"$'\n'"$out"
+  [ "$(keys_sent "$dir")" = Escape ] \
+    || fail "exit on a Devin whose turn already ended must send one Escape, got: $(keys_sent "$dir")"
+  [ "$(literals "$dir")" = /quit ] || fail "exit should type /quit once, got: $(literals "$dir")"
+  pass "fm-control Devin exit: a busy record whose turn already ended never opens the revert picker"
+}
+
+test_devin_interrupt_dismisses_revert_picker() {
+  local dir out
+  dir=$(new_case devin-picker)
+  add_task "$dir" t1 devin
+  devin_as "$dir" primed
+  out=$(run_control "$dir" t1 interrupt) || fail "a Devin interrupt that opened the picker should close it: $out"
+  assert_contains "$out" 'cancel=not-running revert-picker=dismissed' 'the dismissed picker should be reported'
+  [ "$(cat "$dir/fake/devin")" = idle ] || fail "the revert picker was left open: $(cat "$dir/fake/devin")"
+  [ -z "$(literals "$dir")" ] || fail "nothing may be typed into the revert picker, got: $(literals "$dir")"
+  ! grep -qx Enter "$dir/fake/keys" || fail "Enter reverts in the picker and must never be sent"
+  pass "fm-control Devin interrupt: a revert picker a press opened is closed with Escape, never Enter"
+}
+
+test_devin_stuck_picker_refuses_and_exit_types_nothing() {
+  local dir out rc
+  dir=$(new_case devin-stuck)
+  add_task "$dir" t1 devin
+  devin_as "$dir" primed
+  out=$(FM_FAKE_DEVIN_PICKER_STUCK=1 run_control "$dir" t1 interrupt); rc=$?
+  expect_code 1 "$rc" "a revert picker that will not close must fail the interrupt"$'\n'"$out"
+  assert_contains "$out" 'never Enter' 'the refusal should warn against Enter'
+  dir=$(new_case devin-exit-picker)
+  add_task "$dir" t1 devin
+  devin_as "$dir" picker
+  out=$(FM_FAKE_DEVIN_PICKER_STUCK=1 run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "exit must refuse while the revert picker is open"$'\n'"$out"
+  [ -z "$(literals "$dir")" ] || fail "exit typed into the revert picker: $(literals "$dir")"
+  ! grep -qx Enter "$dir/fake/keys" || fail "exit pressed Enter in the revert picker"
+  pass "fm-control Devin: an open revert picker refuses every typed command"
+}
+
 # A recorded harness can carry a raw launch command's basename, so the tables
 # are reached through one prefix rule rather than an exact string match.
 test_harness_family_resolution() {
@@ -304,7 +412,7 @@ test_harness_family_resolution() {
   for pair in claude:claude claude-latest:claude codex:codex codex-cli:codex \
       opencode:opencode grok:grok grok-2:grok kimi:kimi cursor:cursor \
       cursor-agent:cursor muse:muse muse-bin-0.1.0:muse pi:pi \
-      pi-signed:pi-signed omp:omp; do
+      pi-signed:pi-signed omp:omp devin:devin; do
     recorded=${pair%%:*}
     want=${pair#*:}
     got=$(fm_control_harness_family "$recorded") \
@@ -392,13 +500,6 @@ test_backend_key_capability_matrix() {
       fm_control_backend_supports_key "$backend" "$key" \
         || fail "$backend should be able to deliver $key"
     done
-  done
-  fm_control_backend_supports_key herdr C-q \
-    || fail "herdr has the live-verified Grok quit key"
-  for backend in tmux orca zellij cmux; do
-    if fm_control_backend_supports_key "$backend" C-q; then
-      fail "$backend must not claim the unverified Grok quit key"
-    fi
   done
   fm_control_backend_supports_key orca Escape \
     && fail "orca's terminal API has no Escape and must not claim it"
@@ -677,15 +778,23 @@ test_already_stopped_exit_is_idempotent() {
   pass "fm-control exit: an already-stopped agent is idempotent success with no bytes sent"
 }
 
-test_missing_endpoint_refuses() {
+test_missing_tmux_endpoint_refuses_rather_than_claiming_a_stop() {
   local dir out rc
   dir=$(new_case gone)
   add_task "$dir" t1 claude
   : > "$dir/fake/windows"
   out=$(run_control "$dir" t1 exit); rc=$?
-  expect_code 1 "$rc" "a missing endpoint should refuse"
-  assert_contains "$out" "recorded endpoint is gone" "the refusal should name the missing endpoint"
-  pass "fm-control exit: a vanished endpoint refuses instead of silently succeeding"
+  # `missing` on tmux is not a finding about the endpoint. A task record carries
+  # no socket identity for it, and any inventory describes only the tmux server
+  # this process addresses, so a window that is merely on a server this seat
+  # cannot reach is indistinguishable from one that was destroyed. exit refuses
+  # rather than claim a stop it cannot see, and sends nothing to an address it
+  # cannot trust. Reclaim of a destroyed endpoint is Herdr-only
+  # (docs/agent-control.md "Reclaiming a task whose endpoint is gone").
+  expect_code 1 "$rc" "a tmux endpoint whose absence cannot be proven must refuse"
+  assert_not_contains "$out" "endpoint-gone" "exit must not report a stop it could not prove"
+  [ -z "$(literals "$dir")" ] || fail "nothing may be sent into an endpoint exit cannot trust"
+  pass "fm-control exit: an unprovable tmux endpoint refuses instead of claiming the agent stopped"
 }
 
 test_interrupt_refuses_when_no_agent_runs() {
@@ -876,84 +985,6 @@ test_grok_idle_footer_does_not_confirm_cancellation() {
   pass "fm-control interrupt: grok's idle footer does not confirm cancellation"
 }
 
-test_grok_limit_menu_refuses_without_verified_quit_keys() {
-  local dir out rc
-  dir=$(new_case grok-limit)
-  add_task "$dir" t1 grok
-  alive_as "$dir" grok
-  cp "$ROOT/tests/fixtures/composer/grok-weekly-limit.ansi" "$dir/fake/pane"
-  out=$(run_control "$dir" t1 exit); rc=$?
-  expect_code 1 "$rc" "a backend without a verified quit key must refuse the Grok limit menu"$'\n'"$out"
-  assert_contains "$out" "not proven empty" "the refusal should name the unproven composer"
-  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "an unverified quit key must send no bytes"
-  pass "fm-control: the Grok limit menu on tmux refuses without typing or an unverified quit key"
-}
-
-test_unproven_composer_guards_preserve_drafts() {
-  local dir out rc
-  dir=$(new_case pending-grok)
-  add_task "$dir" t1 grok
-  alive_as "$dir" grok
-  printf '╭─────────╮\n│ draft   │\n╰─────────╯\n' > "$dir/fake/pane"
-  out=$(run_control "$dir" t1 exit); rc=$?
-  expect_code 1 "$rc" "Grok draft must be preserved"
-  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "pending draft must receive no lifecycle input"
-  dir=$(new_case unproven-grok)
-  add_task "$dir" t1 grok
-  alive_as "$dir" grok
-  printf '╭──────────╮\n│ > draft │\n╰──────────╯\n' > "$dir/fake/pane"
-  out=$(run_control "$dir" t1 exit); rc=$?
-  expect_code 1 "$rc" "Grok text in an unproven-geometry composer must be preserved"
-  assert_contains "$out" "visibly holds pending text" \
-    "the refusal should report the unproven draft"
-  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "pending-unproven draft must receive no lifecycle input"
-  dir=$(new_case unknown-pi)
-  add_task "$dir" t1 pi
-  alive_as "$dir" pi
-  printf 'unrecognized menu\n' > "$dir/fake/pane"
-  out=$(run_control "$dir" t1 exit); rc=$?
-  expect_code 1 "$rc" "Pi must not inherit Grok quit keys"
-  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "other harness unknown composer must remain untouched"
-  pass "fm-control: pending and unproven composers preserve drafts and other harnesses stay untouched"
-}
-
-test_unknown_composer_settles_before_exit() {
-  local dir out rc
-  # A Pi on Herdr reads `unknown` while it unwinds an interrupted turn; exit
-  # must wait for the composer to prove empty instead of refusing on one read.
-  dir=$(new_case settle-pi)
-  add_task "$dir" t1 pi
-  alive_as "$dir" pi
-  printf 'unrecognized menu\n' > "$dir/fake/pane"
-  printf '╭────╮\n│    │\n╰────╯\n' > "$dir/fake/pane-next"
-  printf '3' > "$dir/fake/pane-settle-after"
-  out=$(FM_CONTROL_COMPOSER_WAIT=5 run_control "$dir" t1 exit); rc=$?
-  expect_code 0 "$rc" "an unknown composer that settles empty should allow exit"$'\n'"$out"
-  [ "$(literals "$dir")" = /quit ] || fail "a settled empty composer should receive /quit, got: $(literals "$dir")"
-  [ "$(cat "$dir/fake/captures")" -gt 3 ] || fail "exit should have re-read the composer until it settled"
-  # A composer that settles into a draft still refuses and types nothing.
-  dir=$(new_case settle-pending)
-  add_task "$dir" t1 pi
-  alive_as "$dir" pi
-  printf 'unrecognized menu\n' > "$dir/fake/pane"
-  printf '╭─────────╮\n│ draft   │\n╰─────────╯\n' > "$dir/fake/pane-next"
-  printf '2' > "$dir/fake/pane-settle-after"
-  out=$(FM_CONTROL_COMPOSER_WAIT=5 run_control "$dir" t1 exit); rc=$?
-  expect_code 1 "$rc" "a composer that settles into a draft must refuse"$'\n'"$out"
-  assert_contains "$out" "visibly holds pending text" "the refusal should report the settled draft"
-  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "a settled draft must receive no lifecycle input"
-  # A composer that never settles refuses once the bounded wait is spent.
-  dir=$(new_case settle-never)
-  add_task "$dir" t1 pi
-  alive_as "$dir" pi
-  printf 'unrecognized menu\n' > "$dir/fake/pane"
-  out=$(FM_CONTROL_COMPOSER_WAIT=0.1 run_control "$dir" t1 exit); rc=$?
-  expect_code 1 "$rc" "a composer that never settles must refuse"$'\n'"$out"
-  assert_contains "$out" "still 'unknown' after 0.1s" "the refusal should name the spent settle wait"
-  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "an unsettled composer must receive no lifecycle input"
-  pass "fm-control exit: an unknown composer is re-read until it settles, and only a proven empty one is typed into"
-}
-
 # --- 6. marker non-regression -----------------------------------------------
 
 test_secondmate_control_command_carries_no_marker() {
@@ -1000,33 +1031,54 @@ test_fm_send_still_marks_the_same_secondmate_task() {
   pass "fm-control's arrival leaves fm-send's from-firstmate marking untouched"
 }
 
-test_harness_lookup_drains_producer() (
-  # Exceed pipe capacity so an early match cannot hide a closed reader behind
-  # buffering. Wait for the producer to prove it completed without SIGPIPE.
-  # shellcheck disable=SC2329 # Called by the imported harness lookup.
-  fm_control_harnesses() {
-    awk 'BEGIN { print "claude"; for (i = 0; i < 65536; i++) print "codex" }'
-  }
-  fm_control_harness_supported claude || fail "first harness was not supported"
-  wait "$!" || fail "harness lookup closed its producer pipe early"
-  fm_control_harness_supported codex || fail "later harness was not supported"
-  wait "$!" || fail "later match closed its producer pipe early"
-  if fm_control_harness_supported unknown; then
-    fail "unknown harness was supported"
-  fi
-  wait "$!" || fail "unknown harness lookup did not drain its producer"
-  pass "harness lookup drains its producer for matches and misses"
-)
+# Only an adapter whose runtime records an exact per-pane agent session has a
+# relaunch resume form, and only a reference its OWN agent reported may be
+# handed to it: resuming another adapter's reference would inject that agent's
+# conversation into this launch. Every other pair must print nothing so the
+# relaunch stays a fresh session exactly as it does today.
+test_relaunch_resume_flag_is_per_adapter_and_reference_owner() {
+  local got harness label want
+  # (harness | registered agent label | expected flag) lines, written out
+  # independently of the implementation.
+  local cases='pi|pi|--session
+pi-signed|pi|--session
+pi||
+pi-signed||
+pi|codex|
+pi-signed|claude|
+claude|claude|
+codex|codex|
+opencode|opencode|
+omp|omp|
+grok|grok|
+kimi|kimi|
+cursor|cursor|
+muse|muse|
+rovo|rovo|
+agy|agy|'
+  while IFS='|' read -r harness label want; do
+    [ -n "$harness" ] || continue
+    got=$(fm_control_relaunch_resume_flag "$harness" "$label") \
+      || fail "the resume-flag lookup must never fail; it did for '$harness'/'$label'"
+    [ "$got" = "$want" ] \
+      || fail "$harness with a '$label' registration should print '$want', got '$got'"
+  done <<EOF
+$cases
+EOF
+  pass "fm-control-lib: only a runtime's own recorded session has a relaunch resume form"
+}
 
-test_harness_lookup_drains_producer || exit 1
-test_grok_limit_menu_refuses_without_verified_quit_keys
-test_unproven_composer_guards_preserve_drafts
-test_unknown_composer_settles_before_exit
 test_exit_types_each_harness_verified_command
 test_interrupt_sends_each_harness_verified_key
+test_devin_interrupt_invalidates_busy
+test_devin_idle_interrupt_sends_one_press
+test_devin_exit_after_turn_ended_types_quit_once
+test_devin_interrupt_dismisses_revert_picker
+test_devin_stuck_picker_refuses_and_exit_types_nothing
 test_opencode_interrupts_twice_and_others_once
 test_unverified_harness_is_refused
 test_harness_family_resolution
+test_relaunch_resume_flag_is_per_adapter_and_reference_owner
 test_prefixed_recorded_harness_reaches_each_control_verb
 test_backend_key_capability_matrix
 test_harness_kind_capability
@@ -1043,7 +1095,7 @@ test_verb_allowlist_is_closed
 test_resume_is_refused_with_its_reason
 test_relaunch_only_flags_are_rejected_on_other_verbs
 test_already_stopped_exit_is_idempotent
-test_missing_endpoint_refuses
+test_missing_tmux_endpoint_refuses_rather_than_claiming_a_stop
 test_interrupt_refuses_when_no_agent_runs
 test_ambiguous_endpoint_refuses
 test_busy_agent_is_interrupted_before_the_exit_command

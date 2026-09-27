@@ -317,7 +317,7 @@ last_nonempty_line() {  # <file>
 # snapshot without limit. Remote secondmate endpoint liveness is never read here.
 # A local read that hits the bound folds to state unknown.
 crew_state_json() {  # <id> [<captured-meta>] [<captured-status>]
-  local id=$1 captured_meta=${2:-} captured_status=${3:-} raw rest state source detail sep
+  local id=$1 captured_meta=${2:-} captured_status=${3:-} raw rest state source detail sep captured_raw
   raw=$(
     fm_run_timed "$FM_SNAPSHOT_CREW_STATE_TIMEOUT" \
       env FM_ROOT_OVERRIDE="$FM_ROOT" \
@@ -346,25 +346,37 @@ crew_state_json() {  # <id> [<captured-meta>] [<captured-status>]
       esac
       ;;
   esac
+  # The snapshot owns one captured status observation. Preserve a captured
+  # working event when the worker read is otherwise an idle historical fallback;
+  # never re-read the live status path after this point.
+  if [ "$state" = unknown ] && [ "$source" = status-log ] && [ -n "$captured_status" ]; then
+    captured_raw=$(last_nonempty_line "$captured_status" || true)
+    [ "$(status_line_verb "$captured_raw")" = working ] && state=working
+  fi
   jq -n --arg raw "$raw" --arg state "$state" --arg source "$source" --arg detail "$detail" \
     '{state:$state,source:$source,detail:$detail,raw:$raw}'
 }
 
 status_event_json() {  # <observed-status-log> [<contract-path>]
-  local log=$1 path=${2:-$1} present=0 raw='' verb='' note=''
+  local log=$1 path=${2:-$1} present=0 raw='' verb='' note='' epoch=null age=null
   if [ -f "$log" ]; then
     present=1
     raw=$(last_nonempty_line "$log" || true)
     verb=$(status_line_verb "$raw")
     note=$(status_line_note "$raw")
+    epoch=$(status_line_at_epoch "$raw") || epoch=null
+    if [ "$epoch" != null ] && [ "$epoch" -le "$SNAPSHOT_EPOCH" ]; then
+      age=$((SNAPSHOT_EPOCH - epoch))
+    fi
   fi
   jq -n \
     --arg path "$path" \
     --arg raw "$raw" \
     --arg verb "$verb" \
     --arg note "$note" \
+    --argjson age "$age" \
     --argjson present "$(bool_json "$present")" \
-    '{path:$path,present:$present,kind:"event_history",last_event:{state:$verb,note:$note,raw:$raw}}'
+    '{path:$path,present:$present,kind:"event_history",last_event:{state:$verb,note:$note,raw:$raw,age_seconds:$age}}'
 }
 
 first_pr_url_in_file() {  # <file>
@@ -744,7 +756,7 @@ prefetch_task_current_states() {
 }
 
 task_json_lines() {
-  local meta original_meta id kind harness mode yolo project worktree home projects spawn_gen backend target status_log report_path
+  local meta original_meta id kind harness mode yolo branch project worktree home projects spawn_gen backend target status_log report_path
   local remote_host remote_root current_file endpoint_file observation_line index=0
   local pr pr_source event_json current_json endpoint_exists agent_alive meta_json status_json report_json worktree_json home_json
   local last_event_raw current_state current_source pending_decision blocked_event report_present=0 pr_from_status
@@ -760,6 +772,7 @@ task_json_lines() {
     harness=$(meta_value "$meta" harness)
     mode=$(meta_value "$meta" mode)
     yolo=$(meta_value "$meta" yolo)
+    branch=$(meta_value "$meta" branch)
     project=$(meta_value "$meta" project)
     worktree=$(meta_value "$meta" worktree)
     home=$(meta_value "$meta" home)
@@ -861,6 +874,7 @@ task_json_lines() {
       --arg harness "$harness" \
       --arg mode "$mode" \
       --arg yolo "$yolo" \
+      --arg branch "$branch" \
       --arg project "$project" \
       --arg worktree "$worktree" \
       --arg home "$home" \
@@ -893,6 +907,7 @@ task_json_lines() {
         harness:($harness // ""),
         mode:($mode // ""),
         yolo:($yolo // ""),
+        branch:($branch | if . == "" then null else . end),
         project:($project // ""),
         spawn_gen:($spawn_gen | if . == "" then null else . end),
         backend:$backend,
@@ -1772,11 +1787,12 @@ secondmate_current_json() {  # <parent-tasks-json-file> <output-file>
     activity_scan=$(bounded_parent_activities_json "$status_observation_file")
     activities=$(printf '%s' "$activity_scan" | jq -c '.records')
     decisions=$(printf '%s' "$task" | jq -c '.hints.open_decisions // []')
+    event_age=$(printf '%s' "$task" | jq -r '.paths.status_log.last_event.age_seconds // "null"')
     event_epoch=$(file_mtime_epoch "$status_observation_file")
-    event_age=null
+    observed_age=null
     if [ -n "$event_epoch" ]; then
-      event_age=$((SNAPSHOT_EPOCH - event_epoch))
-      [ "$event_age" -lt 0 ] && event_age=0
+      observed_age=$((SNAPSHOT_EPOCH - event_epoch))
+      [ "$observed_age" -lt 0 ] && observed_age=0
     fi
 
     reason=$registry_error
@@ -1909,7 +1925,7 @@ secondmate_current_json() {  # <parent-tasks-json-file> <output-file>
         --arg id "$id" --arg home "$home" --arg host "$host" --argjson remote "$remote" --arg reason "$reason" --arg observed "$SNAPSHOT_NOW" \
         --arg spawn_gen "$sampled_spawn_gen" \
         --arg provenance "$provenance" --arg freshness "$freshness" --arg event_raw "$event_raw" --arg event_note "$event_note" \
-        --argjson registered "$registered" --argjson event_age "$event_age" --argjson activities "$activities" --argjson activity_scan "$activity_scan" \
+        --argjson registered "$registered" --argjson event_age "$event_age" --argjson observed_age "$observed_age" --argjson activities "$activities" --argjson activity_scan "$activity_scan" \
         --argjson decisions "$decisions" --argjson terminal "$terminal" --slurpfile summary "$summary_file" --argjson summary_sampled "$summary_sampled" '
         ($summary[0]) as $summary
         |
@@ -1918,7 +1934,7 @@ secondmate_current_json() {  # <parent-tasks-json-file> <output-file>
          current:{state:"unknown",reason:(if $summary_sampled then "structured home state invalid: " + ($summary.reason // "unknown reason") else $reason end)},invalidity:null,
          reconcile_inventory:(if $summary_sampled then $summary.invalidity else null end),
          provenance:{selected:$provenance,structured_home:($home | if . == "" then null else . end),parent_event_role:"fallback-only-not-current"},
-         freshness:{status:$freshness,observed_at:$observed,age_seconds:$event_age},
+         freshness:{status:$freshness,observed_at:$observed,age_seconds:$observed_age},
          active_children:[],decisions_open:[],holds:[],queued:[],landed:[],endpoints:[],counts:{active_children:0,decisions_open:0,holds:0,queued:0,landed:0,endpoints:0},omitted:[],
          parent_event:{raw:$event_raw,note:$event_note,age_seconds:$event_age,open_activities:$activities,open_decisions:$decisions,activity_scan:$activity_scan},
          terminal_evidence:$terminal,contradiction:false}' >> "$records_file" || return 1

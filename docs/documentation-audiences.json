@@ -129,19 +129,7 @@
       "audience": "agent-runtime"
     },
     {
-      "path": ".agents/skills/browser-steps/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
       "path": ".agents/skills/captain-hold-lifecycle/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/competitive-landscape/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/competitor-analysis/SKILL.md",
       "audience": "agent-runtime"
     },
     {
@@ -241,58 +229,6 @@
       "audience": "agent-runtime"
     },
     {
-      "path": ".agents/skills/i-have-adhd/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/i-have-adhd/UPSTREAM.md",
-      "audience": "maintainer-architecture"
-    },
-    {
-      "path": ".agents/skills/keyword-clustering/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/keyword-research/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/link-prospecting/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/local-seo/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/orchestrated-delivery/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/orchestrated-delivery/agents/fm-orchestrated-explorer.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/orchestrated-delivery/agents/fm-orchestrated-integrator.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/orchestrated-delivery/agents/fm-orchestrated-researcher.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/orchestrated-delivery/agents/fm-orchestrated-reviewer.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/orchestrated-delivery/agents/fm-orchestrated-tester.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/orchestrated-delivery/agents/fm-orchestrated-worker.md",
-      "audience": "agent-runtime"
-    },
-    {
       "path": ".agents/skills/process-event-sources/SKILL.md",
       "audience": "agent-runtime"
     },
@@ -310,22 +246,6 @@
     },
     {
       "path": ".agents/skills/secondmate-provisioning/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/seo-audit/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/seo-coach/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/seo-project-setup/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/simple-issue-description/SKILL.md",
       "audience": "agent-runtime"
     },
     {
@@ -445,20 +365,28 @@
       "audience": "maintainer-verification"
     },
     {
+      "path": "docs/gerrit-change-watch.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "docs/gerrit-forge-integration.md",
+      "audience": "maintainer-architecture"
+    },
+    {
       "path": "docs/gitlab-merge-watch.md",
       "audience": "maintainer-verification"
+    },
+    {
+      "path": "docs/fleet-ledger.md",
+      "audience": "operator-current"
     },
     {
       "path": "docs/herdr-backend.md",
       "audience": "operator-current"
     },
     {
-      "path": "docs/jev-compaction.md",
-      "audience": "operator-current"
-    },
-    {
-      "path": "docs/memory.md",
-      "audience": "operator-current"
+      "path": "docs/jev-guards.md",
+      "audience": "maintainer-architecture"
     },
     {
       "path": "docs/orca-backend.md",
@@ -517,8 +445,16 @@
       "audience": "agent-runtime"
     },
     {
+      "path": "docs/supervision-protocols/supervision-host.md",
+      "audience": "agent-runtime"
+    },
+    {
       "path": "docs/supervision-protocols/unknown.md",
       "audience": "agent-runtime"
+    },
+    {
+      "path": "docs/supervision-host.md",
+      "audience": "maintainer-architecture"
     },
     {
       "path": "docs/tmux-backend.md",
@@ -537,6 +473,10 @@
       "audience": "maintainer-verification"
     },
     {
+      "path": "docs/verification/devin.md",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": "docs/verification/dispatch-auth.md",
       "audience": "maintainer-verification"
     },
@@ -546,10 +486,6 @@
     },
     {
       "path": "docs/verification/lint-option-a.md",
-      "audience": "maintainer-verification"
-    },
-    {
-      "path": "docs/verification/matt-pocock-runtime-reach.md",
       "audience": "maintainer-verification"
     },
     {
@@ -593,10 +529,6 @@
       "audience": "operator-current"
     },
     {
-      "path": "docs/wake-triage-follow-up.md",
-      "audience": "maintainer-architecture"
-    },
-    {
       "path": "docs/watcher-continuity.md",
       "audience": "operator-current"
     },
@@ -615,6 +547,34 @@
     {
       "path": "tests/captures/no-mistakes-v1.70.1/README.md",
       "audience": "maintainer-verification"
+    },
+    {
+      "path": ".agents/skills/agent-skill-trigger-index/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/away-quiet-supervision/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/operational-home-layout/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/scout-completion/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/session-start-recovery/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/ship-landing/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/validation-supervision/SKILL.md",
+      "audience": "agent-runtime"
     }
   ]
 }

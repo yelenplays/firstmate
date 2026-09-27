@@ -22,8 +22,6 @@
 #                 "BOOTSTRAP_INFO: nudged fm-<id> with '<message>'",
 #                 "SECONDMATE_LIVENESS: secondmate <id>: skipped: <reason>|respawn failed after <cause>: <reason>",
 #                 "SECONDMATE_HANDOFF: secondmate <id>: pending delivery: <n> item(s)",
-#                 "BROWSER_BRIDGES: <what the orphaned chrome-devtools-axi
-#                 bridge sweep reaped, reported, or refused>",
 #                 "FMX: X mode on ..." or "FMX: X mode off ...".
 #          When a RUNNING secondmate home is fast-forwarded, its target is
 #          firstmate's own current default-branch commit. A local worktree uses
@@ -88,11 +86,6 @@
 #          refresh relays any completed fm-fleet-sync.sh output before the
 #          aggregate timeout skip line with timeout and elapsed seconds.
 #          Set FM_FLEET_PRUNE=0 to skip branch pruning during that refresh.
-#          Remote secondmate operations are individually bounded: routine
-#          operations use 8 seconds, while full inherited-config convergence
-#          gets 30 seconds for its multiple remote transfers. Timeout reports
-#          the affected operation and lets the sweep continue, while timing
-#          records identify liveness and convergence.
 #          BACKLOG_RECONCILE lines report what backlog_record_reconcile could not
 #          settle in THIS home. Every ordinary dispatch and completion now moves
 #          the backlog row inside the script that moves the task's record
@@ -108,33 +101,18 @@
 #          The `code-root <file>` variant is a detect-only local check that runs
 #          even in a read-only session; detect_code_root_backlog_fork owns what
 #          it reports.
-#          The browser bridge sweep (bin/fm-browser-bridge-sweep-lib.sh) reaps
-#          chrome-devtools-axi bridge trees whose owning task is proven dead -
-#          the bridge is detached and has no parent-liveness check, so a task
-#          that ends without a signal leaves bridge, mcp, and Chrome running.
-#          Every reap names the process group, age, and profile dir first, and
-#          the tree's --user-data-dir profile directories are removed only under
-#          the sweep library's removable rules; anything else is reported and
-#          left. A bridge with a live owner, an unproven owner, or no
-#          firstmate attribution is never touched, and
-#          stale bridge pid files are removed once their recorded pid is dead
-#          or reused. Its detect-only mode reports the same findings without
-#          reaping.
-#          Set FM_BOOTSTRAP_DETECT_ONLY=1 to skip the eight MUTATING sweeps
+#          Set FM_BOOTSTRAP_DETECT_ONLY=1 to skip the six MUTATING sweeps
 #          (backlog_record_reconcile, secondmate_sync,
 #          secondmate_liveness_sweep, secondmate_handoff_resume, x_mode_setup,
-#          fm_browser_bridge_sweep, fleet_sync,
-#          fm_watch_orphan_state_sweep) while still
+#          fleet_sync) while still
 #          printing every read-only detect line
 #          above; the TANGLE line switches to advisory-only wording with no
-#          checkout command, and the browser bridge sweep still runs its
-#          read-only detection and reports what it found. Used by
+#          checkout command. Used by
 #          fm-session-start.sh's read-only path when another live session holds
 #          the fleet lock, so a second concurrent session never race-mutates
 #          secondmate homes, pending handoff outboxes and receiver wakes,
-#          X-mode artifacts, project clones, orphaned bridge trees, or repair
-#          instructions.
-#          Unset/0 (the default) runs all eight sweeps - this flag is purely
+#          X-mode artifacts, project clones, or repair instructions.
+#          Unset/0 (the default) runs all six sweeps - this flag is purely
 #          additive.
 #          Set FM_BOOTSTRAP_NETWORK to split this run by whether a step talks to
 #          the network, so a session start can print its digest from local reads
@@ -147,8 +125,8 @@
 #                 secondmate_handoff_resume, and fleet_sync.
 #            only - ONLY those network steps and nothing else. No tool detection,
 #                 no version floors, no tangle check, no backlog
-#                 reconciliation, no x_mode_setup, no browser bridge sweep:
-#                 those already ran on the local pass.
+#                 reconciliation, no x_mode_setup: those already ran on the
+#                 local pass.
 #          FM_BOOTSTRAP_DETECT_ONLY composes with it unchanged, so `only` plus
 #          detect-only is the read-only `gh auth status` probe on its own.
 #          bin/fm-startup-network.sh owns the deferral: it runs the `only` phase
@@ -209,11 +187,6 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-config-inherit-lib.sh"
 # shellcheck source=bin/fm-secondmate-nudge-lib.sh disable=SC1091
 . "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
-# The watcher marker lifecycle owner: the locked startup sweep retires
-# orphaned per-window/per-task supervision bookkeeping after the backlog
-# reconcile settles which task records are live.
-# shellcheck source=bin/fm-watch-state-lib.sh disable=SC1091
-. "$SCRIPT_DIR/fm-watch-state-lib.sh"
 # shellcheck source=bin/fm-startup-memory-budget-lib.sh disable=SC1091
 . "$SCRIPT_DIR/fm-startup-memory-budget-lib.sh"
 # shellcheck source=bin/fm-x-lib.sh disable=SC1091
@@ -222,17 +195,15 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-backend.sh"
 # shellcheck source=bin/fm-remote-readiness-lib.sh disable=SC1091
 . "$SCRIPT_DIR/fm-remote-readiness-lib.sh"
-# shellcheck source=bin/fm-browser-bridge-sweep-lib.sh disable=SC1091
-. "$SCRIPT_DIR/fm-browser-bridge-sweep-lib.sh"
+# Shared secondmate endpoint probe + guarded relaunch; the watcher's poll tick
+# drives the same library so session start and ordinary supervision recover
+# from identical evidence through an identical path.
+# shellcheck source=/dev/null # Analyzed separately as a canonical lint root.
+. "$SCRIPT_DIR/fm-secondmate-liveness-lib.sh"
 # fm-timing-lib.sh is inert unless FM_TIMING_LOG names a file, which only the
 # deferred network stage sets, so an ordinary bootstrap run records nothing.
 # shellcheck source=bin/fm-timing-lib.sh disable=SC1091
 . "$SCRIPT_DIR/fm-timing-lib.sh"
-# shellcheck source=bin/fm-timeout-lib.sh disable=SC1091
-. "$SCRIPT_DIR/fm-timeout-lib.sh"
-
-REMOTE_SYNC_OPERATION_TIMEOUT=8
-REMOTE_SYNC_INHERITANCE_TIMEOUT=30
 
 # Network-phase selection (see the header). An unrecognized value resolves to
 # `all` so a malformed override runs every step rather than silently dropping a
@@ -622,38 +593,15 @@ secondmate_sync() {
   # "move on to the next secondmate".
   secondmate_sync_remote_one() {  # <id> <home> <remote-host>
     local id=$1 _home=$2 remote_host=$3
-    local sync_out sync_rc inherit_out inherit_rc nudge_needed remote_marker remote_pending converged out remote_lock remote_generation operation_started nudge_rc lock_rc
+    local sync_out sync_rc inherit_out nudge_needed remote_marker remote_pending converged out remote_lock remote_generation
     remote_lock=$(fm_remote_inherit_transaction_lock_path "$STATE" "$id" 2>/dev/null || true)
-    operation_started=$(fm_timing_now_ms)
-    if [ -z "$remote_lock" ]; then
-      lock_rc=1
-    elif fm_lock_acquire_wait_bounded "$remote_lock" "$REMOTE_SYNC_OPERATION_TIMEOUT"; then
-      lock_rc=0
-    else
-      lock_rc=$?
-    fi
-    fm_timing_record remote-operation inheritance-lock "$operation_started" "$id@$remote_host"
-    if [ "$lock_rc" -ne 0 ]; then
-      if [ "$lock_rc" -eq 124 ]; then
-        echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance lock timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host"
-      else
-        echo "SECONDMATE_SYNC: secondmate $id: skipped: cannot lock remote inheritance transaction"
-      fi
+    if [ -z "$remote_lock" ] || ! fm_lock_acquire_wait "$remote_lock"; then
+      echo "NUDGE_SECONDMATES: secondmate $id: send failed: cannot lock remote inheritance transaction"
       return 0
     fi
-    operation_started=$(fm_timing_now_ms)
-    lock_rc=0
-    if fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" "$SCRIPT_DIR/fm-procevent-remote-reply.sh" arm "$id" >/dev/null 2>&1; then
-      :
-    else
-      lock_rc=$?
-      if [ "$lock_rc" -eq 124 ]; then
-        echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote reply registration timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host"
-      else
-        echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote reply source could not be registered"
-      fi
+    if ! "$SCRIPT_DIR/fm-procevent-remote-reply.sh" arm "$id" >/dev/null 2>&1; then
+      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote reply source could not be registered"
     fi
-    fm_timing_record remote-operation reply-registration "$operation_started" "$id@$remote_host"
     remote_generation=$(fm_remote_inherit_generation_next "$STATE" "$id" 2>/dev/null || true)
     if [ -z "$remote_generation" ]; then
       echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance generation could not be published"
@@ -671,53 +619,30 @@ secondmate_sync() {
     fi
     nudge_needed=0
     converged=1
-    operation_started=$(fm_timing_now_ms)
-    if sync_out=$(fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" \
-      "$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh sync "$id" \
+    if sync_out=$("$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh sync "$id" \
       "$primary_head" < /dev/null 2>&1); then
       case "$sync_out" in synced:*) nudge_needed=1 ;; esac
     else
       sync_rc=$?
-      if [ "$sync_rc" -eq 124 ]; then
-        echo "SECONDMATE_SYNC: secondmate $id: skipped: remote tracked-file sync timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host"
-      else
-        echo "SECONDMATE_SYNC: secondmate $id: skipped: remote tracked-file sync failed on $remote_host: $(remote_sync_failure_reason "$sync_rc" "$sync_out")"
-      fi
+      echo "SECONDMATE_SYNC: secondmate $id: skipped: remote tracked-file sync failed on $remote_host: $(remote_sync_failure_reason "$sync_rc" "$sync_out")"
       converged=0
     fi
-    fm_timing_record remote-operation tracked-sync "$operation_started" "$id@$remote_host"
-    operation_started=$(fm_timing_now_ms)
-    if inherit_out=$(fm_run_timed "$REMOTE_SYNC_INHERITANCE_TIMEOUT" \
-      env FM_CONFIG_INHERIT_LIVE=1 \
+    if inherit_out=$(FM_CONFIG_INHERIT_LIVE=1 \
       "$SCRIPT_DIR/fm-remote-inherit-push.sh" "$id" "$remote_generation" 2>&1); then
       if printf '%s\n' "$inherit_out" | grep -Eq '^(pushed|removed):'; then nudge_needed=1; fi
     else
-      inherit_rc=$?
-      if [ "$inherit_rc" -eq 124 ]; then
-        echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance timed out after ${REMOTE_SYNC_INHERITANCE_TIMEOUT}s on $remote_host"
-      else
-        echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance failed on $remote_host: $(first_line "$inherit_out")"
-      fi
+      echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance failed on $remote_host: $(remote_inherit_failure_reason "$inherit_out")"
       converged=0
     fi
-    fm_timing_record remote-operation inheritance-push "$operation_started" "$id@$remote_host"
     [ "$remote_pending" -eq 0 ] || nudge_needed=1
     if [ "$converged" -eq 1 ] && [ "$nudge_needed" -eq 1 ]; then
-      operation_started=$(fm_timing_now_ms)
-      if out=$(fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" \
-        env FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" FM_STATE_OVERRIDE="$STATE" \
+      if out=$(FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" FM_STATE_OVERRIDE="$STATE" \
         "$SCRIPT_DIR/fm-send.sh" "fm-$id" "$REMOTE_SECOND_MATE_NUDGE_MESSAGE" 2>&1); then
         rm -f "$remote_marker"
         [ "${FM_BOOTSTRAP_VERBOSE_FACTS:-0}" != 1 ] || echo "BOOTSTRAP_INFO: nudged remote fm-$id after convergence"
       else
-        nudge_rc=$?
-        if [ "$nudge_rc" -eq 124 ]; then
-          echo "NUDGE_SECONDMATES: secondmate $id: send timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host"
-        else
-          echo "NUDGE_SECONDMATES: secondmate $id: send failed: $(first_line "$out")"
-        fi
+        echo "NUDGE_SECONDMATES: secondmate $id: send failed: $(first_line "$out")"
       fi
-      fm_timing_record remote-operation reread-nudge "$operation_started" "$id@$remote_host"
     elif [ "$converged" -eq 1 ]; then
       rm -f "$remote_marker"
     fi
@@ -764,7 +689,8 @@ report_relaunch() {  # <id> <cause> <where>
 }
 
 secondmate_liveness_sweep() {
-  # Idempotent secondmate liveness guarantee - SESSION START ONLY. The detailed
+  # Idempotent secondmate liveness guarantee at session start; the watcher's
+  # secondmate_liveness_tick owns the same guarantee mid-session. The detailed
   # state machine and its only recovery-authorizing states are owned by
   # fm_backend_agent_state. A missing tmux pane is not enough: tmux must prove
   # the window or session absent. This preserves duplicate prevention for
@@ -773,8 +699,8 @@ secondmate_liveness_sweep() {
   # lacked.
   # A meta with no window remains owned by secondmate-provisioning recovery.
   # Secondmate homes never contain kind=secondmate meta, so this is naturally a
-  # primary-only no-op there. Mid-session liveness remains explicitly out of
-  # scope and requires a separate periodic signal.
+  # primary-only no-op there. The probe/relaunch mechanics live in
+  # bin/fm-secondmate-liveness-lib.sh; this sweep keeps the reporting.
   [ -d "$STATE" ] || return 0
   local meta id remote_host label __fm_timing_stamp parallel=0
   SECONDMATE_RESPAWNED_IDS=""
@@ -811,149 +737,36 @@ secondmate_liveness_one_timed() {  # <meta> <id> <label>
 # timed; every `return` here was a `continue` in the loop and means exactly the
 # same thing - move on to the next secondmate. Respawned ids are recorded through
 # secondmate_note_respawned so a concurrent sweep can collect them after wait.
+# Probe classification, kill, and spawn live in fm-secondmate-liveness-lib.sh;
+# this function keeps this sweep's exact reporting.
 secondmate_liveness_one() {  # <meta> <id>
   local meta=$1 id=$2
-  local window harness backend target agent_state out cause remote_host remote_rc readiness_reason route_out remote_backend operation_started
-  window=$(fm_meta_get "$meta" window)
-  [ -n "$window" ] || return 0
-  harness=$(fm_meta_get "$meta" harness)
-  remote_host=$(fm_meta_get "$meta" remote_host)
-  if [ -n "$remote_host" ]; then
-    remote_rc=0
-    fm_remote_readiness_ensure "$SCRIPT_DIR" "$id" "$REMOTE_SYNC_OPERATION_TIMEOUT" "$id@$remote_host" || remote_rc=$?
-    if [ "$remote_rc" -eq 255 ]; then
-      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote host unavailable or endpoint state unknown; route preserved on $remote_host"
-      return 0
-    fi
-    if [ "$remote_rc" -eq 124 ]; then
-      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote readiness timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host; route preserved"
-      return 0
-    fi
-    if [ "$remote_rc" -ne 0 ]; then
-      readiness_reason=$(printf '%s\n' "$FM_REMOTE_READINESS_OUT" \
-        | awk '/^check [^=]+=(fixable|human):|^action:|^error:/ { print; exit }')
-      [ -n "$readiness_reason" ] || readiness_reason=$(first_line "$FM_REMOTE_READINESS_OUT")
-      [ -n "$readiness_reason" ] || readiness_reason="unknown readiness failure"
-      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote readiness failed on $remote_host: $readiness_reason"
-      return 0
-    fi
-    operation_started=$(fm_timing_now_ms)
-    if out=$(fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" \
-      "$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null); then
-      remote_rc=0
-    else
-      remote_rc=$?
-    fi
-    fm_timing_record remote-operation endpoint-state "$operation_started" "$id@$remote_host"
-    if [ "$remote_rc" -eq 124 ]; then
-      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote endpoint probe timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host; route preserved"
-      return 0
-    fi
-    if [ "$remote_rc" -eq 255 ]; then
-      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote host unavailable or endpoint state unknown; route preserved on $remote_host"
-      return 0
-    fi
-    if [ "$remote_rc" -ne 0 ]; then
-      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote endpoint probe unreadable on $remote_host"
-      return 0
-    fi
-    agent_state=$(printf '%s\n' "$out" | tail -1)
-    case "$agent_state" in
-      alive)
-        operation_started=$(fm_timing_now_ms)
-        if route_out=$(fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" \
-          "$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh route "$id" < /dev/null 2>/dev/null); then
-          remote_rc=0
-        else
-          remote_rc=$?
-        fi
-        fm_timing_record remote-operation endpoint-route "$operation_started" "$id@$remote_host"
-        if [ "$remote_rc" -eq 124 ]; then
-          echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote endpoint route timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host; route preserved"
-          return 0
-        fi
-        if [ "$remote_rc" -eq 255 ]; then
-          echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote host unavailable or endpoint route unknown; route preserved on $remote_host"
-          return 0
-        fi
-        if [ "$remote_rc" -ne 0 ]; then
-          echo "SECONDMATE_LIVENESS: secondmate $id: skipped: alive remote endpoint route is unreadable on $remote_host; inspect and migrate or retire it explicitly"
-          return 0
-        fi
-        remote_backend=$(printf '%s\n' "$route_out" | sed -n 's/^backend=//p' | tail -1)
-        if [ "$remote_backend" != herdr ]; then
-          echo "SECONDMATE_LIVENESS: secondmate $id: skipped: alive remote endpoint is recorded on backend '${remote_backend:-missing}'; migrate or retire it explicitly"
-          return 0
-        fi
-        [ "${FM_BOOTSTRAP_VERBOSE_FACTS:-0}" != 1 ] || echo "BOOTSTRAP_INFO: remote secondmate $id already live (host=$remote_host)"
-        ;;
-      dead|missing)
-        cause="remote endpoint $agent_state on its configured host"
-        operation_started=$(fm_timing_now_ms)
-        if out=$(fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" \
-          env FM_SPAWN_NO_GUARD=1 "$FM_ROOT/bin/fm-spawn.sh" "$id" --secondmate 2>&1); then
-          secondmate_note_respawned "$id"
-          report_relaunch "$id" "$cause" "host=$remote_host"
-        else
-          remote_rc=$?
-          if [ "$remote_rc" -eq 124 ]; then
-            echo "SECONDMATE_LIVENESS: secondmate $id: respawn timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s; completion is unknown on $remote_host, reconcile before retrying"
-          else
-            echo "SECONDMATE_LIVENESS: secondmate $id: respawn failed after $cause: $(first_line "$out")"
-          fi
-        fi
-        fm_timing_record remote-operation endpoint-relaunch "$operation_started" "$id@$remote_host"
-        ;;
-      ambiguous|unreadable|unverified)
-        echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote endpoint state is $agent_state on $remote_host"
-        ;;
-      *) echo "SECONDMATE_LIVENESS: secondmate $id: skipped: remote endpoint returned an invalid state" ;;
-    esac
+  if ! fm_secondmate_liveness_lock "$id"; then
+    echo "SECONDMATE_LIVENESS: secondmate $id: skipped: another liveness check is already in progress"
     return 0
   fi
-  backend=$(fm_backend_of_meta "$meta")
-  target=$(fm_backend_target_of_meta "$meta")
-  [ -n "$target" ] || target="$window"
-  agent_state=$(fm_backend_agent_state "$backend" "$target" 2>/dev/null) || agent_state=unreadable
-  case "$harness" in
-    claude|codex|opencode|pi|pi-signed|grok|kimi|omp) ;;
-    *)
-      case "$agent_state" in dead|missing) agent_state=unverified-harness ;; esac
+  fm_secondmate_liveness_probe "$meta" "$id" full
+  case "$FM_SM_LIVE_STATUS" in
+    silent)
       ;;
-  esac
-  case "$agent_state" in
     alive)
-      if [ "${FM_BOOTSTRAP_VERBOSE_FACTS:-0}" = 1 ]; then
-        echo "BOOTSTRAP_INFO: secondmate $id already live (backend=$backend)"
-      fi
+      [ "${FM_BOOTSTRAP_VERBOSE_FACTS:-0}" != 1 ] || echo "BOOTSTRAP_INFO: $FM_SM_LIVE_LINE"
       ;;
-    dead|missing)
-      if [ "$agent_state" = dead ]; then
-        cause="confirmed agent absence on existing endpoint"
-        fm_backend_kill "$backend" "$target" 2>/dev/null || true
-      else
-        cause="recorded endpoint confidently missing"
-      fi
-      if out=$(FM_SPAWN_NO_GUARD=1 "$FM_ROOT/bin/fm-spawn.sh" "$id" --secondmate 2>&1); then
+    relaunchable)
+      if fm_secondmate_liveness_relaunch "$meta" "$id"; then
         secondmate_note_respawned "$id"
-        report_relaunch "$id" "$cause" "backend=$backend"
+        report_relaunch "$id" "$FM_SM_LIVE_CAUSE" "$FM_SM_LIVE_WHERE"
+      elif [ "$FM_SM_LIVE_STATUS" = skipped ]; then
+        echo "SECONDMATE_LIVENESS: secondmate $id: skipped: $FM_SM_LIVE_REASON"
       else
-        echo "SECONDMATE_LIVENESS: secondmate $id: respawn failed after $cause: $(first_line "$out")"
+        echo "SECONDMATE_LIVENESS: secondmate $id: respawn failed after $FM_SM_LIVE_CAUSE: $(first_line "$FM_SM_LIVE_OUT")"
       fi
       ;;
-    ambiguous)
-      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: existing endpoint has ambiguous agent process (backend=$backend)"
-      ;;
-    unreadable)
-      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: endpoint probe unreadable (backend=$backend)"
-      ;;
-    unverified-harness)
-      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: recorded harness '$harness' is unverified for recovery (backend=$backend)"
-      ;;
-    *)
-      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: agent recovery classifier unverified (backend=$backend)"
+    skipped)
+      echo "SECONDMATE_LIVENESS: secondmate $id: skipped: $FM_SM_LIVE_REASON"
       ;;
   esac
+  fm_secondmate_liveness_unlock "$id"
   return 0
 }
 
@@ -1029,7 +842,7 @@ NO_MISTAKES_MIN=1.46.0
 # tasks-axi feature probes are an independent defense-in-depth concern, not part
 # of its floor.
 GH_AXI_MIN=0.1.29
-LAVISH_AXI_MIN=0.1.46
+LAVISH_AXI_MIN=0.1.77
 
 treehouse_supports_lease() {
   treehouse get --help 2>&1 | grep -Eq '(^|[^[:alnum:]_-])--lease([^[:alnum:]_-]|$)'
@@ -1249,7 +1062,7 @@ crew_dispatch_validate() {
       elif $h == "pi" or $h == "pi-signed" or $h == "omp" then (["low","medium","high","xhigh","max"] | index($e))
       elif $h == "muse" then (["low","medium","high","xhigh","max"] | index($e))
       elif $h == "rovo" then (["low","medium","high","max"] | index($e))
-      elif $h == "opencode" or $h == "kimi" or $h == "cursor" or $h == "devin" then false
+      elif $h == "opencode" or $h == "kimi" or $h == "cursor" then false
       else true
       end;
     def profiles($value):
@@ -1275,59 +1088,6 @@ crew_dispatch_validate() {
           then (provider_id($f.provider) | not)
           else ($f | has("provider"))
           end);
-    # Rule precedence: bin/fm-dispatch-resolve.sh renders each beats entry as
-    # tie-break sentences in its question and refuses a malformed one.
-    def beats_bad($self; $count):
-      (type != "array") or (length == 0)
-      or any(.[]; (type != "object")
-        or ((.rule | type) != "number") or (.rule != (.rule | floor))
-        or (.rule < 1) or (.rule > $count) or (.rule == $self)
-        or (has("when") and ((.when | type) != "string" or (.when | length) == 0)))
-      or ((map(.rule) | length) != (map(.rule) | unique | length));
-    def mutual_unconditional($rs):
-      [range(0; $rs | length) as $i | ($rs[$i] | if type == "object" then (.beats // []) else [] end)
-        | if type == "array" then .[] else empty end
-        | select(type == "object" and (has("when") | not)) | [$i + 1, .rule]] as $e
-      | any($e[]; . as [$w, $l] | ($e | index([[$l, $w]])) != null);
-    def beats_edges($rs):
-      [range(0; $rs | length) as $i
-        | ($rs[$i] | if type == "object" then (.beats // []) else [] end)
-        | if type == "array" then .[] else empty end
-        | select(type == "object" and (.rule | type) == "number" and .rule == (.rule | floor))
-        | [$i + 1, .rule]];
-    def visit_beats($edges; $state; $node):
-      ($state | .seen += [$node] | .active += [$node]) as $entered
-      | reduce ([$edges[] | select(.[0] == $node) | .[1]] | unique | sort)[] as $next
-          ($entered;
-           if .cycle != null then .
-           else
-             (.active | index($next)) as $active_index
-             | if $active_index != null then
-                 if (.active | length) - $active_index >= 3 then
-                   .cycle = (.active[$active_index:] + [$next])
-                 else . end
-               elif (.seen | index($next)) != null then .
-               else visit_beats($edges; .; $next)
-               end
-           end)
-      | .active = .active[:-1];
-    def beats_cycle($rs):
-      if ($rs | type) != "array" then null
-      else
-        beats_edges($rs) as $edges
-        | reduce range(1; ($rs | length) + 1) as $node
-            ({seen: [], active: [], cycle: null};
-             if .cycle != null or (.seen | index($node)) != null then .
-             else visit_beats($edges; .; $node)
-             end)
-        | .cycle
-      end;
-    def beats_cycle_error($rs):
-      beats_cycle($rs) as $cycle
-      | if $cycle == null then null
-        else "beats must not form a cycle of three or more rules: "
-          + ($cycle | map("rule_\(.)") | join(" -> "))
-        end;
     def malformed_profile_floors($items):
       ($items | any(has("floor") and floor_bad(.floor; false)));
     def bad_efforts:
@@ -1338,8 +1098,7 @@ crew_dispatch_validate() {
       | map(select(. as $p | effort_ok($p.h; $p.m; $p.e) | not))
       | map("\(.h):\(.e)")
       | unique;
-    (if $typed then beats_cycle_error(.rules // []) else null end) as $beats_cycle_error
-    | if type != "object" then "top-level value must be an object"
+    if type != "object" then "top-level value must be an object"
     elif has("rules") and (.rules | type) != "array" then "rules must be an array"
     elif [(.rules // [])[]? | select(type != "object")] | length > 0 then "each rule must be an object"
     elif [(.rules // [])[]? | select((.when? | type) != "string" or (.when | length) == 0)] | length > 0 then "each rule needs non-empty when"
@@ -1354,9 +1113,7 @@ crew_dispatch_validate() {
     elif $typed and malformed_profile_floors([(.rules // [])[]? | profiles(.use?)[]?]) then "use profile floor needs scope and min_percent 0..100"
     elif $typed and ([(.rules // [])[]? | select(has("approval") and .approval != "captain")] | length > 0) then "approval must be \"captain\" when present"
     elif $typed and ([(.rules // [])[]? | select(has("floor") and floor_bad(.floor; true))] | length > 0) then "rule floor needs scope, min_percent 0..100, and provider matching ^[a-z0-9]+(-[a-z0-9]+)*\\z"
-    elif $typed and ((.rules // []) as $rs | any(range(0; $rs | length); . as $i | ($rs[$i] | type) == "object" and ($rs[$i] | has("beats")) and ($rs[$i].beats | beats_bad($i + 1; $rs | length)))) then "beats must be a non-empty array of {rule, when?} naming other rules by 1-based number, each at most once, with when a non-empty string when present"
-    elif $typed and mutual_unconditional(.rules // []) then "two rules must not beat each other unconditionally; give at least one of the pair a when condition"
-    elif $typed and $beats_cycle_error != null then $beats_cycle_error
+    elif $typed and ([(.rules // [])[]? | select(has("min_confidence") and ((.min_confidence | type) != "number" or .min_confidence < 0 or .min_confidence > 1))] | length > 0) then "min_confidence must be a number from 0 through 1 when present"
     elif [(.rules // [])[]? | select(has("select") and ((.select? | type) != "string" or (.select | length) == 0))] | length > 0 then "select must be a non-empty string"
     elif [(.rules // [])[]? | .select? // empty | select(. != "quota-balanced")] | length > 0 then
       "unknown select: " + ([ (.rules // [])[]? | .select? // empty | select(. != "quota-balanced") ] | unique | join(", "))
@@ -1617,18 +1374,6 @@ if [ "${FM_BOOTSTRAP_DETECT_ONLY:-0}" != 1 ] && local_phase; then
       exit 1
     fi
   fi
-  # With the live task-record set settled, retire the watcher supervision
-  # bookkeeping no live meta or task owns - the residue an interrupted
-  # teardown or a torn-down worker leaves behind, which is what a reused
-  # endpoint could otherwise inherit.
-  if BOOTSTRAP_WATCH_SWEEP_COUNT=$(fm_watch_orphan_state_sweep "$STATE"); then
-    if [ "${FM_BOOTSTRAP_VERBOSE_FACTS:-0}" = 1 ] && [ "$BOOTSTRAP_WATCH_SWEEP_COUNT" -gt 0 ]; then
-      echo "BOOTSTRAP_INFO: retired $BOOTSTRAP_WATCH_SWEEP_COUNT orphaned watcher state marker(s)"
-    fi
-  else
-    echo "error: bootstrap could not retire orphaned watcher state in $STATE" >&2
-    exit 1
-  fi
 fi
 
 # Local detection: presence, version floors, and configuration. Nothing here
@@ -1831,11 +1576,6 @@ if [ "${FM_BOOTSTRAP_DETECT_ONLY:-0}" != 1 ]; then
   fi
   # x_mode_setup writes local Relay artifacts only and never leaves the machine.
   local_phase && x_mode_setup
-  # The browser bridge sweep is local-only: it reads this account's process
-  # table, reaps chrome-devtools-axi bridge trees whose owning task is proven
-  # dead, and removes their browser profile dirs. Lock-gated like every
-  # mutating sweep; read-only session starts only report what it found.
-  local_phase && fm_browser_bridge_sweep mutate "$STATE" "$DATA/secondmates.md"
   # Adopt existing durable contribution links without making a network call.
   # Detection-only startup must never publish a check registration.
   if local_phase && command -v jq >/dev/null 2>&1 \
@@ -1848,10 +1588,6 @@ if [ "${FM_BOOTSTRAP_DETECT_ONLY:-0}" != 1 ]; then
     cat "$fleet_sync_out"
     rm -f "$fleet_sync_out"
   fi
-else
-  # Read-only session: the browser bridge sweep still runs its detection and
-  # reports orphans and stale pid files, but reaps and removes nothing.
-  local_phase && fm_browser_bridge_sweep report "$STATE" "$DATA/secondmates.md"
 fi
 local_phase && secondmate_handoff_detect
 exit 0

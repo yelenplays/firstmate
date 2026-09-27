@@ -182,6 +182,11 @@ test_fixture_snapshot_json() {
       and (.actions.watch | contains("do not routinely fm-peek"))
   ' >/dev/null || fail "secondmate return-channel guidance missing"
   printf '%s' "$out" | jq -e '
+    .tasks[] | select(.id == "secondmate-task")
+    | .paths.status_log.last_event
+    | has("age_seconds") and .age_seconds == null
+  ' >/dev/null || fail "legacy event must have an explicit unknown age"
+  printf '%s' "$out" | jq -e '
     .tasks[] | select(.id == "cmux-task")
     | .backend == "cmux"
       and .paths.worktree.present == false
@@ -194,7 +199,60 @@ test_fixture_snapshot_json() {
     .backlog.records[] | select(.id == "done-task")
     | .state == "done" and .pr_url == "https://github.com/kunchenguid/firstmate/pull/7"
   ' >/dev/null || fail "done backlog PR row missing"
-  pass "fixture snapshot covers task rows, backlog rows, pointers, and stable ordering"
+
+  local line expected_age before after emitted epoch observed
+  printf 'secondmate-task\n' > "$home/secondmate-home/.fm-secondmate-home"
+  printf 'schema=fm-secondmate-parent.v1\nroute=local\nparent_home=%s\n' "$home" \
+    > "$home/secondmate-home/.fm-secondmate-parent"
+  before=$(date +%s)
+  FM_HOME="$home/secondmate-home" "$ROOT/bin/fm-secondmate-report.sh" \
+    'done' 0123456789abcdef 'audit complete' || fail "parent report failed"
+  after=$(date +%s)
+  emitted=$(tail -1 "$home/state/secondmate-task.status")
+  # shellcheck source=bin/fm-classify-lib.sh
+  . "$ROOT/bin/fm-classify-lib.sh"
+  epoch=$(status_line_at_epoch "$emitted") || fail "new parent report has unknown time"
+  [ "$epoch" -ge "$before" ] && [ "$epoch" -le "$after" ] \
+    || fail "parent report did not record emission time"
+  for line in "$emitted" 'working: legacy' 'working [at=1700000000]: timed' \
+    'working [at=1700000200]: future' 'working [at=oops]: malformed'; do
+    printf '%s\n\n' "$line" > "$home/state/secondmate-task.status"
+    # Deliberately unrelated file age must never substitute for event age.
+    touch -t 202001010000 "$home/state/secondmate-task.status"
+    expected_age=null; observed=1700000100
+    case "$line" in
+      "$emitted") expected_age=100; observed=$((epoch + 100)) ;;
+      *1700000000*) expected_age=100 ;;
+    esac
+    out=$(PATH="$fakebin:$PATH" FM_HOME="$home" FM_SNAPSHOT_NOW_EPOCH=$observed "$SNAPSHOT" --json)
+    printf '%s' "$out" | jq -e --argjson age "$expected_age" '
+      .tasks[] | select(.id == "secondmate-task")
+      | .paths.status_log.last_event
+      | has("age_seconds") and .age_seconds == $age
+        and (has("emitted_at_epoch") | not)
+    ' >/dev/null || fail "event age came from something other than the record: $line"
+    # parent_event age is the emission age; freshness is how old this snapshot's
+    # own observation of the file is, so the 2020 mtime must show up there and
+    # only there.
+    printf '%s' "$out" | jq -e --argjson age "$expected_age" '
+      .secondmate_current.records[] | select(.id == "secondmate-task")
+      | .current.state == "unknown"
+        and .parent_event.age_seconds == $age
+        and (.parent_event | has("emitted_at_epoch") | not)
+        and (.freshness.age_seconds | type) == "number"
+        and .freshness.age_seconds > 100000000
+    ' >/dev/null || fail "fallback confused event age, observation freshness, and current state: $line"
+    if [ "${FM_TEST_EVIDENCE:-0}" = 1 ]; then
+      printf '$ touch -t 202001010000 %s\n' "$home/state/secondmate-task.status"
+      printf '$ FM_HOME=%s FM_SNAPSHOT_NOW_EPOCH=%s bin/fm-fleet-snapshot.sh --json\n' "$home" "$observed"
+      printf '%s' "$out" | jq '{
+        last_event: (.tasks[] | select(.id == "secondmate-task") | .paths.status_log.last_event),
+        secondmate: (.secondmate_current.records[] | select(.id == "secondmate-task")
+          | {current, parent_event, freshness})
+      }'
+    fi
+  done
+  pass "fixture snapshot covers task rows, backlog rows, pointers, stable ordering, and emission-time event age"
 }
 
 # R1 owner contract: main_inventory discloses orphan in-flight and unstructured
@@ -522,8 +580,6 @@ test_backlog_tasks_axi_forms_and_overrides() {
 - [x] done-bracket-pr - Done Bracket PR - <https://github.com/kunchenguid/firstmate/pull/43> (repo: gamma, merged 2026-07-12) (kind: ship)
 - [x] reported-comma - Reported Scout data/reported-comma/report.md (repo: gamma, reported 2026-07-10) (kind: scout)
 - [x] done-note - Done Note local main (repo: delta, done 2026-07-11) (kind: ship)
-- [x] done-marker - Done Marker local main (repo: delta, done 2026-07-11) (kind: ship)
-  Resolution recorded by fm-captain-hold.
 EOF
   printf '# Bold Scout\n' > "$data/bold-task/report.md"
   fm_write_meta "$home/state/bold-task.meta" \
@@ -623,10 +679,6 @@ EOF
       and .done == "2026-07-11"
       and .completion == {verb:"done",date:"2026-07-11"}
   ' >/dev/null || fail "done closure metadata did not parse"
-  printf '%s' "$out" | jq -e '
-    .backlog.records[] | select(.id == "done-marker")
-    | .local_note == "local main" and .body_lines == ["Resolution recorded by fm-captain-hold."]
-  ' >/dev/null || fail 'captain-authored marker text was treated as a resolution record'
   printf '%s' "$out" | jq -e --arg data "$data" '
     .tasks[] | select(.id == "bold-task")
     | .backlog.id == "bold-task"
@@ -1003,36 +1055,6 @@ test_parked_scout_decision_stays_pending() {
   pass "a scout still parked at a decision stays pending (terminal clear does not over-fire)"
 }
 
-test_secondmate_summary_omits_landed_delivery_mode() {
-  local home fakebin out encoded
-  home=$(make_home summary-landed-mode)
-  cat > "$home/data/backlog.md" <<'EOF'
-## In flight
-
-## Queued
-
-## Done
-- [x] mate-ship - A secondmate ship https://github.com/acme/sample/pull/12 (repo: sample) (kind: ship) (merged 2026-09-23)
-EOF
-  fm_write_meta "$home/state/mate-ship.meta" \
-    "kind=ship" \
-    "mode=direct-PR"
-  fakebin=$(make_fakebin "$home")
-  out=$(PATH="$fakebin:$PATH" FM_HOME="$home" "$SNAPSHOT" --secondmate-home-summary)
-  printf '%s' "$out" | jq -e '
-    any(.landed[]; .id == "mate-ship" and .kind == "ship" and (has("mode") | not))
-  ' >/dev/null || fail "secondmate landed summary included an unrequested delivery mode: $out"
-  rm -f "$home/state/mate-ship.meta"
-  mkdir -p "$home/data/history/tasks"
-  encoded=$(jq -nc '{schema:"fm-history-task.v1",id:"mate-ship",mode:"local-only"}' | base64 | tr -d '\n')
-  printf '<!-- fm-history:task:v1 %s -->\n' "$encoded" > "$home/data/history/tasks/mate-ship.md"
-  out=$(PATH="$fakebin:$PATH" FM_HOME="$home" "$SNAPSHOT" --secondmate-home-summary)
-  printf '%s' "$out" | jq -e '
-    any(.landed[]; .id == "mate-ship" and (has("mode") | not))
-  ' >/dev/null || fail "secondmate landed summary read delivery mode from a task card: $out"
-  pass "secondmate landed snapshots contain no delivery-mode projection"
-}
-
 # Home-summary validity treats persistent secondmates as registered homes, not
 # in-flight children. They have no backlog rows, so they must not produce
 # unowned_current or terminal_in_flight. Ordinary crew/ship metas still do.
@@ -1144,7 +1166,6 @@ test_open_decision_transfers_to_captain_hold
 test_open_decision_clears_on_keyed_resolution
 test_completed_scout_report_is_pointer_not_pending
 test_parked_scout_decision_stays_pending
-test_secondmate_summary_omits_landed_delivery_mode
 test_scout_reports_include_teardown_reports
 test_backlog_tasks_axi_forms_and_overrides
 test_view_renders_snapshot

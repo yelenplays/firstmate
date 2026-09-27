@@ -26,11 +26,6 @@ if [ -n "${FM_TEST_LIB_SOURCED:-}" ]; then
 fi
 FM_TEST_LIB_SOURCED=1
 
-# Direct `bash tests/...` entry points need the same boundary as the runner.
-# Do this before any fixture or production helper can read inherited routing.
-# shellcheck source=tests/environment.sh
-. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
-fm_test_sanitize_environment
 # Pin the fixture umask. Firstmate's state-root and process-event contracts
 # refuse group- or world-writable state directories, and a permissive ambient
 # umask (e.g. 0002) makes every `mkdir state` fixture fail that contract before
@@ -51,6 +46,11 @@ umask 022
 # the boundary against the real hazard is unaffected. tests/fm-gate-refuse.test.sh
 # strips this to verify real refusal.
 export FM_GATE_REFUSE_BYPASS=1
+
+# Arms the test-only seams bin/ scripts expose (e.g. fm-afk-launch.sh's
+# FM_TEST_HARNESS harness pin). Normal primary launches do not arm it, so a
+# leaked harness pin alone stays inert outside a suite.
+export FM_TEST_SEAM=1
 
 # Clear the task-worker marker bin/fm-spawn.sh exports into ship and scout
 # panes. This suite builds git-init fixture repositories whose primary checkout
@@ -156,6 +156,47 @@ fm_test_reap_procevent_homes() {
   rm -f "$FM_TEST_PROCEVENT_REGISTRY"
 }
 
+# --- armed watcher reaping ----------------------------------------------------
+#
+# A real bin/fm-watch.sh a suite arms for a temporary home is a long-lived
+# process that outlives the test on its own; only stopping the exact watcher the
+# home's lock names ends it. Registration goes through a `$$`-keyed registry
+# file for the same reason the runners above do. The reap is scoped to each
+# tracked state directory: it reads the home that watcher recorded in its own
+# lock and drives the arm's home-scoped --stop against it, which identity-checks
+# the pid before signalling, so it never matches on a script or process name and
+# never reaches another home's watcher. A tracked state directory a test already
+# deleted has no lock and is skipped; that watcher exits on its own home-gone
+# check within one poll.
+
+FM_TEST_WATCHER_REGISTRY=$(mktemp "${TMPDIR:-/tmp}/.fm-test-watcher.$$.XXXXXX") || return 1
+
+fm_test_track_watcher_state() {  # <state-dir>
+  [ -n "${1:-}" ] || return 1
+  printf '%s\n' "$1" >> "$FM_TEST_WATCHER_REGISTRY"
+}
+
+fm_test_reap_watchers() {
+  local state lock_home seen=$'\n'
+  [ -f "$FM_TEST_WATCHER_REGISTRY" ] || return 0
+  while IFS= read -r state; do
+    [ -n "$state" ] || continue
+    case "$seen" in *$'\n'"$state"$'\n'*) continue ;; esac
+    seen+="$state"$'\n'
+    [ -f "$state/.watch.lock/pid" ] || continue
+    # A fixture that fabricates a lock naming this test process (the
+    # drain-liveness assertion writes $$ with the runner's own identity) is not
+    # an armed watcher. Stopping it would signal the runner, and the suite's
+    # TERM trap re-enters this reap, looping forever. Never reap our own pid.
+    [ "$(cat "$state/.watch.lock/pid" 2>/dev/null || true)" != "$$" ] || continue
+    lock_home=$(cat "$state/.watch.lock/fm-home" 2>/dev/null || true)
+    [ -n "$lock_home" ] || continue
+    FM_HOME="$lock_home" FM_STATE_OVERRIDE="$state" \
+      "$ROOT/bin/fm-watch-arm.sh" --stop >/dev/null 2>&1 || true
+  done < "$FM_TEST_WATCHER_REGISTRY"
+  rm -f "$FM_TEST_WATCHER_REGISTRY"
+}
+
 # Ceiling on how long a fixture's blocking stub may keep polling. A stub that
 # waits for a trigger file by re-running `sleep` is a high-frequency source of
 # process spawns, and one that outlives its test - because the test was killed
@@ -166,15 +207,26 @@ fm_test_reap_procevent_homes() {
 FM_TEST_STUB_MAX_BLOCK_SECONDS=${FM_TEST_STUB_MAX_BLOCK_SECONDS:-120}
 export FM_TEST_STUB_MAX_BLOCK_SECONDS
 
+# Remove a fixture tree even when it holds a read-only directory, such as the
+# spawn-owned state/<id>.git-hooks strip directory.
+fm_test_remove_tree() {
+  local dir=$1
+  if [ -d "$dir" ] && [ ! -L "$dir" ]; then
+    find "$dir" -type d -exec chmod u+rwx {} + 2>/dev/null || true
+  fi
+  rm -rf "$dir"
+}
+
 fm_test_cleanup() {
   local d
+  fm_test_reap_watchers
   fm_test_reap_procevent_homes
   for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"; do
-    [ -n "$d" ] && rm -rf "$d"
+    [ -n "$d" ] && fm_test_remove_tree "$d"
   done
   if [ -f "$FM_TEST_CLEANUP_REGISTRY" ]; then
     while IFS= read -r d; do
-      [ -n "$d" ] && rm -rf "$d"
+      [ -n "$d" ] && fm_test_remove_tree "$d"
     done < "$FM_TEST_CLEANUP_REGISTRY"
     rm -f "$FM_TEST_CLEANUP_REGISTRY"
   fi
@@ -228,10 +280,7 @@ fm_test_reap_orphans() {
     mtime=$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null) || continue
     [ $((now - mtime)) -ge "$FM_TEST_ORPHAN_MAX_AGE_SECONDS" ] || continue
     dir=$(dirname "$marker")
-    if [ -d "$dir" ] && [ ! -L "$dir" ]; then
-      find "$dir" -type d -exec chmod u+rwx {} + 2>/dev/null || true
-    fi
-    rm -rf "$dir"
+    fm_test_remove_tree "$dir"
   done
 }
 
@@ -351,36 +400,6 @@ fm_fakebin() {
   local dir=$1 fakebin="$1/fakebin"
   mkdir -p "$fakebin"
   printf '%s\n' "$fakebin"
-}
-
-# fm_install_jev_stubs: verdict-driven stand-ins for the two bounded Jev
-# supervision helpers (bin/fm-jev-status-triage.sh, bin/fm-jev-wedge-check.sh),
-# written as <fakebin>/jev-status-stub and <fakebin>/jev-wedge-stub. Each
-# appends its stdin to $FM_JEV_STUB_DIR/<name>.stdin and its argv to
-# $FM_JEV_STUB_DIR/<name>.args so a case can assert what the consult saw, then
-# prints $FM_JEV_STUB_<NAME>_VERDICT when it is exactly `escalate` or
-# `suppress`; any other value (or unset) exits 1 with no verdict - the
-# fail-closed helper shape.
-fm_install_jev_stubs() {  # <fakebin>
-  local fakebin=$1 name upper
-  mkdir -p "$fakebin"
-  for name in status wedge; do
-    upper=$(printf '%s' "$name" | tr '[:lower:]' '[:upper:]')
-    cat > "$fakebin/jev-$name-stub" <<SH
-#!/usr/bin/env bash
-if [ -n "\${FM_JEV_STUB_DIR:-}" ]; then
-  cat >> "\$FM_JEV_STUB_DIR/$name.stdin"; printf '\\n' >> "\$FM_JEV_STUB_DIR/$name.stdin"
-  printf '%s\\n' "\$*" >> "\$FM_JEV_STUB_DIR/$name.args"
-else
-  cat >/dev/null
-fi
-case "\${FM_JEV_STUB_${upper}_VERDICT:-}" in
-  escalate|suppress) printf '%s\\n' "\$FM_JEV_STUB_${upper}_VERDICT"; exit 0 ;;
-  *) exit 1 ;;
-esac
-SH
-    chmod +x "$fakebin/jev-$name-stub"
-  done
 }
 
 fm_fake_exit0() {
@@ -545,24 +564,14 @@ fm_git_worktree() {
 # --- state/<id>.meta writers ------------------------------------------------
 
 # fm_write_meta <file> <key=val> ...: write the given key=val lines to a meta
-# file (truncating any prior content). When the fields record a window, the
-# matching .window-owner-<key> claim is written first - fm-spawn.sh claims the
-# endpoint before it publishes the record, so a fixture meta always arrives
-# with its owner already bound, and only a test that explicitly removes the
-# claim afterwards can model pre-owner-era residue.
+# file (truncating any prior content).
 fm_write_meta() {
-  local file=$1 kv dir task window key
+  local file=$1 kv
   shift
   : > "$file"
   for kv in "$@"; do
     printf '%s\n' "$kv" >> "$file"
-    case "$kv" in window=?*) [ -z "${window:-}" ] && window=${kv#window=} ;; esac
   done
-  if [ -n "${window:-}" ]; then
-    dir=$(dirname "$file"); task=${file##*/}; task=${task%.meta}
-    key=$(printf '%s' "$window" | tr ':/.' '___')
-    printf '%s' "$task" > "$dir/.window-owner-$key"
-  fi
 }
 
 # fm_write_secondmate_meta <file> <home> [window] [projects] [harness]: write the

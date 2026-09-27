@@ -885,12 +885,12 @@ test_grok_adapter_missing_jq_and_no_supervision_allow() {
 # rather than deduplicate it (docs/subagent-guard.md "Known residual gap").
 # It is asserted to stay unguarded so the exception cannot be closed silently.
 test_tracked_claude_entries_inert_under_grok() {
-  local dir cmd script target guarded=0 unguarded=0 input
+  local dir cmd script target guarded=0 unguarded=0
   command -v jq >/dev/null 2>&1 || fail "test host must provide jq"
   dir="$TMP_ROOT/claude-entries-grok-inert"
   mkdir -p "$dir/bin"
-  for script in fm-turnend-guard.sh fm-claude-stop-autoarm.sh fm-sessionstart-run.sh fm-history.sh \
-    fm-arm-pretool-check.sh fm-cd-pretool-check.sh fm-subagent-pretool-check.sh; do
+  for script in fm-turnend-guard.sh fm-claude-stop-autoarm.sh fm-sessionstart-run.sh \
+    fm-arm-pretool-check.sh fm-cd-pretool-check.sh fm-subagent-pretool-check.sh fm-host-mirror.sh; do
     printf '#!/usr/bin/env bash\nprintf ran >> %q\n' "$dir/invoked" > "$dir/bin/$script"
     chmod +x "$dir/bin/$script"
   done
@@ -898,9 +898,7 @@ test_tracked_claude_entries_inert_under_grok() {
   # Runs one tracked command string and reports whether it reached its script.
   ran_under() {
     rm -f "$dir/invoked"
-    input=''
-    [ "$target" != fm-history.sh ] || input=$(jq -nc --arg transcript "$dir/transcript.jsonl" '{transcript_path:$transcript}')
-    printf '%s' "$input" | env "$@" CLAUDE_PROJECT_DIR="$dir" bash -c "$cmd" >/dev/null 2>&1
+    env "$@" CLAUDE_PROJECT_DIR="$dir" bash -c "$cmd" </dev/null >/dev/null 2>&1
     [ -e "$dir/invoked" ]
   }
 

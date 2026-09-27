@@ -22,7 +22,7 @@
 # Usage:
 #   fm-captain-hold.sh hold <task-id> --reason <reason> \
 #     [--title <title>] [--repo <repo>] [--origin <origin-id>] [--until YYYY-MM-DD]
-#   fm-captain-hold.sh answer <task-id> --decision-file <path> [--release [--execute]]
+#   fm-captain-hold.sh answer <task-id> --decision-file <path> [--release]
 #   fm-captain-hold.sh answers [<legacy-origin> | --any-origin] --source <provenance>   (keyed answers on stdin)
 #   fm-captain-hold.sh reconcile-requests --source-id <source-id> --source <provenance>   (task ids on stdin)
 #   fm-captain-hold.sh bind <source-id> [<legacy-origin> | --any-origin]
@@ -40,12 +40,18 @@
 # task first when no work item exists to hold (--title required to create; the
 # optional --origin records provenance in the new task's body and supplies the
 # default repo from that origin's metadata). Prefer holding the work item the
-# question gates over minting a new row. The command records a UTC `Captain
-# hold set:` timestamp in the task body: repeating an active hold preserves the
-# existing timestamp, while re-holding released work starts a new lifecycle.
-# A task already closed is refused rather than reopened. `--until` records the
-# captain's own deferral date through `tasks-axi hold --until`, so a "revisit
-# later" answer is stored as a date instead of a live card.
+# question gates over minting a new row. Creating a missing row uses
+# `tasks-axi add --kind captain`: that kind is backlog metadata, and the Beads
+# adapter maps it to native issue type `task`. Captain holds have no due
+# semantics (`--until` is the optional hold deferral), so the create waives
+# Beads `due.required` through `BD_DUE_REQUIRED` rather than inventing a due
+# date or registering a `types.custom` captain issue type. The command records
+# a UTC `Captain hold set:` timestamp in the task body: repeating an active
+# hold preserves the existing timestamp, while re-holding released work starts
+# a new lifecycle. A task already closed is refused rather than reopened.
+# `--until` records the captain's own deferral date through `tasks-axi hold
+# --until`, so a "revisit later" answer is stored as a date instead of a live
+# card.
 #
 # `answer` records the captain's exact words and resolves the call in the same
 # act. It requires a non-empty captain decision file of at most 8192 bytes and
@@ -64,10 +70,6 @@
 # answered captain call. A hold that expired by date (`--until` in the past) is
 # still answerable: the surviving hold annotations, not tasks-axi's live
 # `held:` bit, prove the captain owned it.
-#
-# --execute is an explicit firstmate attestation that this release authorizes
-# implementation; it registers fm-task-execution's obligation before releasing
-# the hold. A plain release, negative answer, or prose is never such authority.
 #
 # ONE KEYED-ANSWER INTAKE, FED BY EVERY CHANNEL.
 # "A keyed answer resolves its matching captain-held task" is a single
@@ -503,14 +505,9 @@ closed_answer_replay_mode_compatible() {  # <mode> <task-body>
 # and carries verified evidence; every other mode carries what the captain said.
 resolution_block() {  # <mode>
   local label='Captain decision:'
-  local resolved_at=${FM_CAPTAIN_HOLD_NOW:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}
-  case "$resolved_at" in
-    [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z) : ;;
-    *) fail "FM_CAPTAIN_HOLD_NOW must be a UTC YYYY-MM-DDTHH:MM:SSZ timestamp" ;;
-  esac
   [ "$1" != reconciled ] || label='Reconciliation evidence:'
-  printf 'Resolution recorded by fm-captain-hold.\nDecision digest: %s\nResolution mode: %s\nResolved: %s\n\n%s\n%s\n' \
-    "$DECISION_DIGEST" "$1" "$resolved_at" "$label" "$DECISION_TEXT"
+  printf 'Resolution recorded by fm-captain-hold.\nDecision digest: %s\nResolution mode: %s\n\n%s\n%s\n' \
+    "$DECISION_DIGEST" "$1" "$label" "$DECISION_TEXT"
 }
 
 # Durable state of one captain call: an active captain hold (annotations
@@ -873,11 +870,14 @@ command_hold() {
     [ -n "$repo" ] || repo=firstmate
     validate_one_line repo "$repo"
     [ -z "$origin" ] || body=$(printf 'Origin: %s' "$origin")
+    # tasks-axi add never passes --due. Beads due.required would refuse this
+    # create, and captain holds have no due semantics, so waive it for this
+    # call only. --kind captain stays metadata; Beads native type is task.
     if [ -n "$body" ]; then
-      tasks_axi add "$id" "$title" --kind captain --repo "$repo" --body "$body" >/dev/null \
+      BD_DUE_REQUIRED=false tasks_axi add "$id" "$title" --kind captain --repo "$repo" --body "$body" >/dev/null \
         || fail "could not create task $id"
     else
-      tasks_axi add "$id" "$title" --kind captain --repo "$repo" >/dev/null \
+      BD_DUE_REQUIRED=false tasks_axi add "$id" "$title" --kind captain --repo "$repo" >/dev/null \
         || fail "could not create task $id"
     fi
   fi
@@ -995,19 +995,17 @@ remove_interrupted_answer_stamp() {  # <task-id>
 }
 
 command_answer() {
-  local id=${1:-} decision_file='' release=0 execute=0 show state hold_kind body outcome recorded_mode occurrence
+  local id=${1:-} decision_file='' release=0 show state hold_kind body outcome recorded_mode occurrence
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
   shift
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --decision-file) shift; decision_file=${1:-} ;;
       --release) release=1 ;;
-      --execute) execute=1 ;;
       *) usage >&2; exit 2 ;;
     esac
     shift
   done
-  [ "$execute" = 0 ] || [ "$release" = 1 ] || fail '--execute requires --release'
   validate_slug task-id "$id"
   load_decision "$decision_file"
   acquire_task_control_lock "$id"
@@ -1074,9 +1072,6 @@ command_answer() {
         answered|routed) [ "$release" = 0 ] || fail "task $id records this answer as a close; retry without --release" ;;
         *) fail "task $id records this resolution with mode ${recorded_mode:-unknown}; it is not a captain-answer replay" ;;
       esac
-      if [ "$execute" = 1 ]; then
-        FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" approve "$id" --basis captain-approved || return 1
-      fi
       if ! close_answered "$id" "$release"; then
         fail "could not close answered captain-held task $id"
       fi
@@ -1086,9 +1081,6 @@ command_answer() {
       return 0
     fi
     write_resolution_record "$id" "$outcome" "$body"
-    if [ "$execute" = 1 ]; then
-      FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" approve "$id" --basis captain-approved || return 1
-    fi
     if ! close_answered "$id" "$release"; then
       fail "could not close answered captain-held task $id"
     fi
@@ -1109,9 +1101,6 @@ command_answer() {
       || fail "task $id records a different captain decision with mode ${recorded_mode:-unknown}"
     [ "$recorded_mode" = released ] && [ "$release" = 1 ] \
       || fail "task $id records this answer with mode ${recorded_mode:-unknown}; replay requires matching --release"
-    if [ "$execute" = 1 ]; then
-      FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" approve "$id" --basis captain-approved || return 1
-    fi
     remove_interrupted_answer_stamp "$id"
     publish_parent_resolution_then_retire "$id" $((occurrence - 1)) released
     printf 'released: %s\n' "$id"
@@ -1632,7 +1621,7 @@ reconcile_note() {
 }
 
 command_complete() {
-  local origin=${1:-} meta previous='' supplied='' keys='' entry key status_file open has_meta=0 transfer_rc resolved
+  local origin=${1:-} meta previous='' supplied='' keys='' entry key status_file open has_meta=0 transfer_rc transfers=() resolved
   local resolved_how attested_by_prefix=''
   [ "$#" -ge 2 ] || { usage >&2; exit 2; }
   validate_slug origin-id "$origin"
@@ -1690,20 +1679,22 @@ EOF
 
     # Transfer every still-open status decision to the durable captain-held
     # inventory so the live status fold does not duplicate the same Captain's
-    # Call item. The transfer line is this home's own bookkeeping close,
-    # written by the turn that just reviewed the inventory, so it uses the
-    # guarded self-announced append (bin/fm-wake-lib.sh) and does not wake this
-    # same session; an append failure still fails this command loudly.
+    # Call item. The transfer lines are this home's own bookkeeping closes,
+    # written by the turn that just reviewed the inventory, so they go through
+    # ONE guarded self-announced append (bin/fm-wake-lib.sh) and do not wake
+    # this same session; an append failure still fails this command loudly.
     if [ -n "$keys" ]; then
       while IFS=$'\t' read -r key _verb _summary; do
         [ -n "$key" ] || continue
-        transfer_rc=0
-        fm_wake_status_append_self_announced "$STATE" "$status_file" \
-          "captain-held [key=$key]: tracked by $keys" || transfer_rc=$?
-        [ "$transfer_rc" -ne 2 ] || fail "cannot append the captain-held transfer for $origin/$key"
+        transfers+=("captain-held [key=$key]: tracked by $keys")
       done <<EOF
 $open
 EOF
+      if [ "${#transfers[@]}" -gt 0 ]; then
+        transfer_rc=0
+        fm_wake_status_append_self_announced "$STATE" "$status_file" "${transfers[@]}" || transfer_rc=$?
+        [ "$transfer_rc" -ne 2 ] || fail "cannot append the captain-held transfer for $origin"
+      fi
     fi
   fi
   printf 'complete: %s captain-call inventory reviewed%s%s\n' "$origin" "${keys:+ ($keys)}" \
@@ -1934,11 +1925,7 @@ command_open() {  # <task-id> [--identity] [--distinguish-absent]
 
 case "${1:-}" in
   hold) shift; command_hold "$@" ;;
-  answer)
-    shift
-    command_answer "$@" || exit $?
-    "$SCRIPT_DIR/fm-logbook-refresh.sh" >/dev/null 2>&1 || true
-    ;;
+  answer) shift; command_answer "$@" ;;
   answers) shift; command_answers "$@" ;;
   reconcile-requests) shift; command_reconcile_requests "$@" ;;
   bind) shift; command_bind "$@" ;;
