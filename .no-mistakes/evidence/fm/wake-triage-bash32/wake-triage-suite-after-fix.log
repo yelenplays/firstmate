@@ -1,0 +1,18 @@
+ok - terminal and parked tasks are never auto-acknowledged
+ok - classification metadata must contain unique, well-formed fields
+ok - status annotations use exact keys and leading event verbs
+ok - clean routine drains remain manual; extra notices remain visible
+ok - invalid identity and secondmate rows are actionable without guessing
+ok - open decisions, declared pauses, and captain holds prevent auto-ack
+ok - all-routine rows remain manual, including while away mode is active
+ok - triage completes with no recovered pending files under system bash
+ok - branch handling remains delegated to the existing drain contract
+ok - stale reason variants and non-proof state sources stay actionable
+ok - ambiguous hold results and unread informational status remain actionable
+ok - malformed queue rows remain visible and prevent auto-ack
+ok - dedupe-hidden rows remain actionable and visible
+ok - signals terminate triage before acknowledgement and retain pending output
+ok - interrupted triage output survives and is replayed before manual acknowledgement
+ok - Claude instruction renderer exposes the triage interface
+tests/fm-wake-triage.test.sh: line 433: shellcheck: command not found
+not ok - shellcheck reported an issue
