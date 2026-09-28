@@ -83,7 +83,7 @@ command -v jq >/dev/null 2>&1 || die "jq required"
 replay_default_margin() {
   local v=${FM_JEV_DISPATCH_MARGIN:-}
   [ -n "$v" ] || v=$(fmx_env_get FM_JEV_DISPATCH_MARGIN "$FM_HOME/.env")
-  [ -n "$v" ] || v=$(awk -F= '/^DEFAULT_MARGIN=/ { print $2; exit }' "$RESOLVER")
+  [ -n "$v" ] || v=0.4
   printf '%s' "$v"
 }
 

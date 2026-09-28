@@ -37,7 +37,16 @@ run_history() {
 }
 
 run_test_axi() {
-  FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" "$ROOT/bin/fm-tasks-axi.sh" "$@"
+  local task_id='' start_after=0 arg
+  local -a args=()
+  if [ "${1:-}" = add ]; then task_id=${2:-}; fi
+  for arg in "$@"; do
+    if [ "$arg" = --start ]; then start_after=1; else args+=("$arg"); fi
+  done
+  FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" "$ROOT/bin/fm-tasks-axi.sh" "${args[@]}" || return
+  if [ "$start_after" = 1 ]; then
+    FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" "$ROOT/bin/fm-tasks-axi.sh" start "$task_id"
+  fi
 }
 
 run_test_captain() {
@@ -223,9 +232,7 @@ test_task_cards_are_written_once_and_indexed() {
   local card index meta_line encoded metadata
   fresh_home
   mkdir -p "$HOME_DIR/data/task-card"
-  run_history_axi() {
-    FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" "$ROOT/bin/fm-tasks-axi.sh" "$@"
-  }
+  run_history_axi() { run_test_axi "$@"; }
   run_history_axi add task-card 'A completed project task' --kind ship --repo sample-project --start >/dev/null
   run_history_axi "done" task-card --pr 'https://github.com/acme/sample-project/pull/22' >/dev/null
   cat > "$HOME_DIR/data/task-card/brief.md" <<'EOF'

@@ -93,7 +93,8 @@
 # to the forge binding, so it prints even when the forge token is malformed;
 # every path that reads the forge binding (default, --forge, and spawn's
 # forge-agreement check) still refuses.
-# Usage: fm-project-mode.sh [--raw|--branch-prefix|--forge] <project-name>
+# --wikis prints the comma-separated wiki names from a project's registered [wiki: ...] token, one name per line.
+# Usage: fm-project-mode.sh [--raw|--branch-prefix|--forge|--wikis] <project-name>
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -104,10 +105,12 @@ REG="$DATA/projects.md"
 RAW=0
 BRANCH_PREFIX_QUERY=0
 WANT_FORGE=0
+WANT_WIKIS=0
 case "${1:-}" in
   --raw) RAW=1; shift ;;
   --branch-prefix) BRANCH_PREFIX_QUERY=1; shift ;;
   --forge) WANT_FORGE=1; shift ;;
+  --wikis) WANT_WIKIS=1; shift ;;
 esac
 NAME=${1:?usage: fm-project-mode.sh [--raw|--branch-prefix|--forge] <project-name>}
 
@@ -125,7 +128,7 @@ fi
 # token, so an empty value survives the split), or nothing if the project is
 # absent. Every other token beside the mode is ignored, exactly as before either
 # annotation existed.
-parsed=$(awk -v n="$NAME" '
+parsed=$(awk -v n="$NAME" -v listwikis="$WANT_WIKIS" '
   function dist(x, y,   i, j, lx, ly, d, c, v) {
     lx = length(x); ly = length(y);
     for (i=0; i<=lx; i++) d[i,0] = i;
@@ -148,12 +151,35 @@ parsed=$(awk -v n="$NAME" '
     prefix = "- " n; plen = length(prefix);
     if (substr($0, 1, plen) != prefix) next
     after = substr($0, plen + 1);
+    if (listwikis) {
+      if (match(after, /\[wiki: [^]]*\]/)) {
+        list = substr(after, RSTART, RLENGTH)
+        sub(/^\[wiki: /, "", list)
+        sub(/\]$/, "", list)
+        count = split(list, values, ",")
+        for (i = 1; i <= count; i++) {
+          value = values[i]
+          sub(/^[[:space:]]+/, "", value)
+          sub(/[[:space:]]+$/, "", value)
+          if (value != "") print value
+        }
+      }
+      exit
+    }
     if (after != "" && substr(after, 1, 2) != " [" && substr(after, 1, 3) != " - ") next
     mode="no-mistakes"; yolo="off"; branch="fm/"; forge="none";
     if (substr(after, 1, 2) == " [") {
       s="";
       nk = split(after, rest, " ");
       for (i=1; i<=nk; i++) { s = s (s==""?"":" ") rest[i]; if (rest[i] ~ /\]$/) break }
+      if (s ~ /^\[wiki:/) {
+        print "posture", "no-mistakes", "off", "none", "fm/"
+        exit
+      }
+      if (s ~ /^\[wiki:/) {
+        print "posture", "no-mistakes", "off", "none", "fm/"
+        exit
+      }
       gsub(/^\[|\]$/, "", s);           # strip the surrounding brackets
       k = split(s, a, " ");
       # Tokens are order-independent: +yolo, branch=<prefix>, and forge=<value>
@@ -162,6 +188,7 @@ parsed=$(awk -v n="$NAME" '
       # spelling), and the first token left over is the mode.
       mode_set = 0
       for (j=1; j<=k; j++) {
+        if (a[j] ~ /^wiki:/) continue
         if (a[j]=="+yolo") { yolo="on"; continue }
         if (a[j] ~ /^branch=/) { branch = substr(a[j], 8); continue }
         if (a[j] ~ /^forge=/) { forge = a[j]; continue }
@@ -180,6 +207,11 @@ parsed=$(awk -v n="$NAME" '
     print "posture", mode, yolo, forge, branch; exit
   }
 ' "$REG")
+
+if [ "$WANT_WIKIS" -eq 1 ]; then
+  [ -n "$parsed" ] && printf '%s\n' "$parsed"
+  exit 0
+fi
 
 if [ -z "$parsed" ]; then
   echo "warn: project \"$NAME\" not in registry; defaulting to no-mistakes off" >&2

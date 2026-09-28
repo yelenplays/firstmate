@@ -210,6 +210,7 @@ FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
+CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 
 # shellcheck source=bin/fm-classify-lib.sh
 # shellcheck disable=SC1091
@@ -1407,6 +1408,9 @@ publish_parent_resolution_then_retire() {  # <task-id> <occurrence> <note>
     fail "could not publish the answered captain-held task $id to its parent"
   fi
   reconcile_request_retire "$id"
+  TZ=Europe/Berlin FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" \
+    FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" FM_ROOT_OVERRIDE="$FM_ROOT" \
+    "$SCRIPT_DIR/fm-logbook-refresh.sh" >/dev/null 2>&1 || true
 }
 
 command_reconcile_requests() {

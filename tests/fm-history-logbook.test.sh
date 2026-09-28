@@ -32,8 +32,18 @@ EOF
 }
 
 run_axi() {
+  local task_id='' start_after=0 arg
+  local -a args=()
+  if [ "${1:-}" = add ]; then task_id=${2:-}; fi
+  for arg in "$@"; do
+    if [ "$arg" = --start ]; then start_after=1; else args+=("$arg"); fi
+  done
   TZ=Europe/Berlin FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" \
-    "$ROOT/bin/fm-tasks-axi.sh" "$@"
+    "$ROOT/bin/fm-tasks-axi.sh" "${args[@]}" || return
+  if [ "$start_after" = 1 ]; then
+    TZ=Europe/Berlin FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" \
+      "$ROOT/bin/fm-tasks-axi.sh" start "$task_id"
+  fi
 }
 
 run_history() {

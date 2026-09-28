@@ -194,18 +194,13 @@ INBOX="$STATE/x-inbox"
 # refuse to store at all if the sanitizer cannot run. A hit is a security event,
 # not a parse miss: record it on the object so the one drain that reads this
 # mention surfaces it exactly once.
-SANITIZED=
-fm_operational_input_sanitize_json "$(cat "$BODY_FILE" 2>/dev/null)" SANITIZED
-SANITIZE_RC=$?
-case "$SANITIZE_RC" in
-  0) ;;
-  1)
-    SANITIZED=$(printf '%s' "$SANITIZED" | jq -c '. + {fm_provenance_sanitized: true}' 2>/dev/null) \
-      || { emit_error_once "cannot sanitize mention"; exit 0; }
-    [ -n "$SANITIZED" ] || { emit_error_once "cannot sanitize mention"; exit 0; }
-    ;;
-  *) emit_error_once "cannot sanitize mention"; exit 0 ;;
-esac
+SANITIZED=$(jq -c '
+  def has_mark: [.. | strings | select(contains("\u2063"))] | length > 0;
+  . as $original
+  | (walk(if type == "string" then gsub("\\[fm-from-firstmate\\]"; "") | gsub("\u2063"; "") else . end)) as $clean
+  | if ($original | has_mark) then $clean + {fm_provenance_sanitized: true} else $clean end
+' "$BODY_FILE" 2>/dev/null) || { emit_error_once "cannot sanitize mention"; exit 0; }
+[ -n "$SANITIZED" ] || { emit_error_once "cannot sanitize mention"; exit 0; }
 
 # Stash the full mention object atomically so a concurrent reader never sees a
 # half-written file.

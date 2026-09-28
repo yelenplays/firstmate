@@ -469,7 +469,8 @@ FM_COMPOSER_SHELL_PROMPT_GLYPHS=$(printf '%s\n' '>' '$' '%' '#')
 # fix bugs, or work on your code` as dim text after its `❭` glyph (verified
 # live, devin 3000.11.1). FM_COMPOSER_IDLE_RE overrides for an unverified harness;
 # matching is case-insensitive.
-FM_COMPOSER_IDLE_RE_DEFAULT='^Type a message\.\.\.$|^Ask anything(\.\.\.|…)|^Plan, search, build anything$|^Add a follow-up$|^Ask Devin to build features, fix bugs, or work on your code$'
+FM_COMPOSER_IDLE_RE_DEFAULT='^Type a message\.\.\.$|^Ask anything(\.\.\.|…)|^Plan, search, build anything$|^Add a follow-up$'
+FM_COMPOSER_DEVIN_IDLE_RE_DEFAULT='^Ask Devin to build features, fix bugs, or work on your code$|^Guide Devin while it works$|^Press Enter to send queued messages now$'
 
 # Opencode draws a mode/model footer line INSIDE its left-bar composer
 # ("Build · GPT-5.5 Fast OpenAI · high"). It is composer furniture, not typed
@@ -659,9 +660,12 @@ fm_composer_idle_matches() {
 # Content and plain_content are normalized and re-trimmed on entry, so the
 # verdict never depends on which whitespace alphabet the calling adapter
 # trimmed with.
-fm_composer_classify_content() {  # <bordered> <content> [idle_re] [idle_case] [plain_content] [placeholder-position] [styled]
+fm_composer_classify_content() {  # <bordered> <content> [idle_re] [idle_case] [plain_content] [placeholder-position] [styled] [harness]
   local bordered=$1 idle_re=${3:-} idle_case=${4:-sensitive} content plain_content glyph=''
-  local placeholder_position=${6:-0} styled=${7:-1} idle_collision=0
+  local placeholder_position=${6:-0} styled=${7:-1} harness=${8:-${FM_COMPOSER_HARNESS:-}} idle_collision=0
+  if [ "$harness" = devin ]; then
+    idle_re=${idle_re:+$idle_re|}$FM_COMPOSER_DEVIN_IDLE_RE_DEFAULT
+  fi
   content=$2
   fm_composer_normalize_trim_var content
   plain_content=${5:-$2}
@@ -686,6 +690,10 @@ fm_composer_classify_content() {  # <bordered> <content> [idle_re] [idle_case] [
   fi
   fm_composer_normalize_trim_var content
   [ -n "$content" ] || { printf 'empty'; return 0; }
+  if [ "$harness" = devin ] \
+    && fm_composer_idle_matches "$content" "$FM_COMPOSER_DEVIN_IDLE_RE_DEFAULT" "$idle_case"; then
+    printf 'empty'; return 0
+  fi
   fm_composer_idle_matches "$content" "$idle_re" "$idle_case" && idle_collision=1
   # Ghost stripping can leave a REMNANT of an idle placeholder rather than
   # emptying it, because a terminal draws the cell under its cursor in reverse
@@ -1612,9 +1620,15 @@ EOF
   printf '%s\n' "$joined" | LC_ALL=C awk '{$1=$1; printf "%s", $0}'
 }
 
-fm_composer_classify_screen() {  # <caps> <screen> [cursor_row] [identity]
+fm_composer_classify_screen() {  # <caps> <screen> [cursor_row] [identity] [harness]
   local caps=$1 screen=$2 cy=${3:-} identity=${4:-}
-  local styled=0 cursor=0 has_identity=0 kv plain
+  local harness=${5:-${identity%%$'\t'*}}
+  local FM_COMPOSER_HARNESS=$harness
+  local FM_COMPOSER_IDLE_RE=${FM_COMPOSER_IDLE_RE:-$FM_COMPOSER_IDLE_RE_DEFAULT}
+  local styled=0 cursor=0 has_identity=0 kv plain raw devin_content
+  case "$harness" in
+    devin) FM_COMPOSER_IDLE_RE="$FM_COMPOSER_IDLE_RE|$FM_COMPOSER_DEVIN_IDLE_RE_DEFAULT" ;;
+  esac
   while IFS= read -r kv; do
     case "$kv" in
       styled=1) styled=1 ;;
@@ -1688,6 +1702,20 @@ EOF
   # rules layered on (a live pi composer pair below the generic candidate
   # proves that candidate stale).
   if ! _fm_composer_select_cursorless "$plain"; then
+    if [ "$harness" = devin ] && [ "$FM_COMPOSER_SCAN_BARE_ROW" -ge 0 ]; then
+      raw=$(_fm_composer_screen_row "$FM_COMPOSER_SCAN_BARE_ROW" "$screen")
+      devin_content=$(_fm_composer_row_content "$raw" "$styled")
+      _fm_composer_bare_row_strip_furniture_var devin_content
+      glyph=''
+      if fm_composer_leading_prompt_glyph_var glyph "$devin_content"; then
+        devin_content=${devin_content#*"$glyph"}
+        fm_composer_normalize_trim_var devin_content
+      fi
+      if fm_composer_idle_matches "$devin_content" "$FM_COMPOSER_DEVIN_IDLE_RE_DEFAULT" insensitive; then
+        printf 'empty'
+        return 0
+      fi
+    fi
     printf 'unknown'
     return 0
   fi

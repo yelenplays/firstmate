@@ -133,6 +133,17 @@ print_branch_held_notice() {
     "$held" "${seqs:-unknown}"
 }
 
+print_queue_ready_line() { # <presented rows>
+  local rows=$1 bound line
+  [ -n "$rows" ] || return 0
+  printf '%s\n' "$rows" | awk -F '\t' '$3 == "heartbeat" { found=1 } END { exit !found }' || return 0
+  bound=${FM_QUEUE_READY_TIMEOUT:-5}
+  case "$bound" in ''|*[!0-9]*|0) bound=5 ;; esac
+  line=$(fm_run_timed "$bound" env FM_HOME="$(dirname "$STATE")" "$SCRIPT_DIR/fm-queue-ready.sh" 2>/dev/null | head -n 1) || return 0
+  [ -n "$line" ] || return 0
+  printf '%s\n' "$line" || return 1
+}
+
 write_rows_file_locked() { # <target> <source>
   local target=$1 source=$2
   if [ ! -s "$source" ]; then
@@ -229,6 +240,37 @@ esac
 # Never let a guard hiccup change the drain's exit status.
 assert_watcher_liveness() {
   "$SCRIPT_DIR/fm-guard.sh" || true
+}
+
+record_history_batch() {
+  local history_data_override=${FM_DATA_OVERRIDE:-$FM_HOME/data}
+  [ -n "$RAW_ROWS" ] || return 0
+  DRAIN_TMP=$(mktemp "$STATE/.history-wake-batch.XXXXXX") || {
+    printf 'wake drain: could not stage the history record for the presented wake batch\n' >&2
+    return 1
+  }
+  if ! printf '%s\n' "$RAW_ROWS" > "$DRAIN_TMP" \
+    || ! FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" \
+      FM_DATA_OVERRIDE="$history_data_override" FM_STATE_OVERRIDE="$STATE" \
+      "$SCRIPT_DIR/fm-history.sh" wakes --rows-file "$DRAIN_TMP" \
+        --ack-through "$ACK_THROUGH" --actor "$ACTOR" >/dev/null; then
+    rm -f -- "$DRAIN_TMP"
+    DRAIN_TMP=
+    printf 'wake drain: could not journal the presented wake batch\n' >&2
+    return 1
+  fi
+  rm -f -- "$DRAIN_TMP"
+  DRAIN_TMP=
+}
+
+record_history_acknowledgement() {
+  local history_data_override=${FM_DATA_OVERRIDE:-$FM_HOME/data}
+  if ! FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" \
+    FM_DATA_OVERRIDE="$history_data_override" FM_STATE_OVERRIDE="$STATE" \
+    "$SCRIPT_DIR/fm-history.sh" wake-ack "$ACK_THROUGH" "$ACK_REMOVED" "$ACTOR" >/dev/null; then
+    printf 'wake drain: could not journal the wake acknowledgement\n' >&2
+    return 1
+  fi
 }
 
 # Mark presentation-stage inactive terminal outcomes only after the handling
@@ -889,6 +931,7 @@ if [ -n "$ACK_THROUGH" ]; then
     }
   fi
   ACK_REMOVED=$(( $(awk 'END { print NR }' "$FM_WAKE_QUEUE") - $(awk 'END { print NR }' "$DRAIN_TMP") ))
+  record_history_acknowledgement || exit 1
   if [ ! -s "$DRAIN_TMP" ]; then
     fm_recovery_marker_ack "$RECOVERY_MARKER" "$ACK_GENERATION"
     RECOVERY_ACK_STATUS=$?
@@ -1027,6 +1070,7 @@ RAW_ROWS=$(fm_wake_print_deduped "$DRAIN_VIEW_TMP") || exit "$?"
 rm -f -- "$DRAIN_VIEW_TMP" || exit 1
 DRAIN_VIEW_TMP=
 ACK_THROUGH=$(printf '%s\n' "$RAW_ROWS" | awk -F '\t' '$2 ~ /^[0-9]+$/ && $2 > max { max=$2 } END { print max + 0 }') || exit 1
+record_history_batch || exit 1
 case "${FM_WAKE_DRAIN_TEST_DELAY_BEFORE_COMMIT:-0}" in
   0) ;;
   ''|*[!0-9]*) ;;
@@ -1047,6 +1091,7 @@ printf 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --a
   "$ACK_THROUGH" "${RECOVERY_MARKER_TOKEN##*:}" >&2
 
 (print_status_presentation "$RAW_ROWS") || true
+print_queue_ready_line "$RAW_ROWS" || true
 print_branch_outcomes_section || BRANCH_OUTCOMES_RC=1
 assert_watcher_liveness
 exit "$BRANCH_OUTCOMES_RC"
