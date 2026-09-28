@@ -27,6 +27,8 @@ mkdir -p "$STATE" || exit 1
 shopt -s nullglob
 recovered=("$STATE"/.wake-triage.pending.*)
 recovered_count=${#recovered[@]}
+# Under `set -u`, bash 3.2 (the stock macOS /bin/bash) treats "${recovered[@]}" on an empty array as an unbound-variable error.
+# Every expansion of `recovered` in this script therefore uses the ${recovered[@]+...} guard.
 for f in ${recovered[@]+"${recovered[@]}"}; do
   [ -f "$f" ] && [ ! -L "$f" ] || { echo "wake triage: unsafe recovered output" >&2; exit 1; }
 done
