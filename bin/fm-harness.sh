@@ -451,29 +451,41 @@ resolve_crew() {
   if [ -z "$crew" ] || [ "$crew" = "default" ]; then detect_own; else echo "$crew"; fi
 }
 
-# Print the first non-empty, non-comment line of config/secondmate-harness
-# (leading/trailing whitespace trimmed), or nothing when the file is absent or
-# holds only blank/comment lines.
+# Print the first non-empty, non-comment line from the per-id pin when present,
+# otherwise the shared pin. A per-id default/empty file defers to the shared pin.
 secondmate_line() {
-  local line
+  local id=${1:-} file line
+  if [ -n "$id" ]; then
+    case "$id" in ''|*[!A-Za-z0-9._-]*) echo "error: invalid secondmate id: $id" >&2; return 2 ;; esac
+    file="$CONFIG/secondmate-harness.d/$id"
+    if [ -f "$file" ]; then
+      line=$(first_secondmate_line "$file") || return
+      if [ -n "$line" ]; then
+        case "${line%%[[:space:]]*}" in default) ;; *) printf '%s\n' "$line"; return 0 ;; esac
+      fi
+    fi
+  fi
   [ -f "$CONFIG/secondmate-harness" ] || return 0
+  first_secondmate_line "$CONFIG/secondmate-harness"
+}
+
+first_secondmate_line() {
+  local file=$1 line
   while IFS= read -r line || [ -n "$line" ]; do
     line="${line#"${line%%[![:space:]]*}"}"
     line="${line%"${line##*[![:space:]]}"}"
     [ -n "$line" ] || continue
-    case "$line" in
-      '#'*) continue ;;
-    esac
+    case "$line" in '#'*) continue ;; esac
     printf '%s\n' "$line"
     return 0
-  done < "$CONFIG/secondmate-harness"
+  done < "$file"
 }
 
 # Print the 1-based whitespace-separated token (1=harness, 2=model, 3=effort) of
 # the resolved secondmate_line, or nothing if the line or that field is absent.
 secondmate_field() {
-  local idx=$1 line
-  line=$(secondmate_line)
+  local idx=$1 id=${2:-} line
+  line=$(secondmate_line "$id") || return
   [ -n "$line" ] || return 0
   # shellcheck disable=SC2086  # deliberate word-splitting: tokenizing the line into fields
   set -- $line
@@ -492,7 +504,7 @@ secondmate_field() {
 # setting and is never inherited downstream - secondmates do not spawn secondmates.
 resolve_secondmate() {
   local sm
-  sm=$(secondmate_field 1)
+  sm=$(secondmate_field 1 "${1:-}") || return
   if [ -z "$sm" ] || [ "$sm" = "default" ]; then sm=$(resolve_crew) || exit; fi
   echo "$sm"
 }
@@ -501,19 +513,19 @@ resolve_secondmate() {
 # empty when the harness token is absent/"default" (harness-only file, same as
 # today) or when no model token is present.
 resolve_secondmate_model() {
-  local sm
-  sm=$(secondmate_field 1)
+  local id=${1:-} sm
+  sm=$(secondmate_field 1 "$id") || return
   [ -n "$sm" ] && [ "$sm" != "default" ] || return 0
-  secondmate_field 2
+  secondmate_field 2 "$id"
 }
 
 # Print the optional effort token (3rd field) from config/secondmate-harness,
 # the same way.
 resolve_secondmate_effort() {
-  local sm
-  sm=$(secondmate_field 1)
+  local id=${1:-} sm
+  sm=$(secondmate_field 1 "$id") || return
   [ -n "$sm" ] && [ "$sm" != "default" ] || return 0
-  secondmate_field 3
+  secondmate_field 3 "$id"
 }
 
 validate_native_effort() {
@@ -548,8 +560,8 @@ case "${1:-}" in
     harness_ancestry_descent "$descent_pid" ${1+"$@"}
     ;;
   crew) resolve_crew ;;
-  secondmate) resolve_secondmate ;;
-  secondmate-model) resolve_secondmate_model ;;
-  secondmate-effort) resolve_secondmate_effort ;;
+  secondmate) resolve_secondmate "${2:-}" ;;
+  secondmate-model) resolve_secondmate_model "${2:-}" ;;
+  secondmate-effort) resolve_secondmate_effort "${2:-}" ;;
   *) detect_own ;;
 esac

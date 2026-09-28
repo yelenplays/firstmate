@@ -342,7 +342,7 @@ try {
   const pid = readFileSync(`${home}/state/.watch.lock/pid`, "utf8").trim();
   process.kill(Number(pid), 0);
 } finally {
-  await handlers.get("session_shutdown")?.();
+  await handlers.get("session_shutdown")?.({ reason: "shutdown" });
 }
 EOF
     )
