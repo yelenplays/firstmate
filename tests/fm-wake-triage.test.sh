@@ -249,6 +249,21 @@ test_happy_path_and_afk() {
   pass 'all-routine rows remain manual, including while away mode is active'
 }
 
+test_empty_recovered_array_under_system_bash() {
+  local dir out
+  dir=$(make_case empty-recovered)
+  install_crew_stub "$dir"
+  install_hold_stub "$dir"
+  out=$(PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" \
+    FM_CREW_STATE_BIN="$dir/fakebin/fm-crew-state.sh" \
+    FM_CAPTAIN_HOLD_BIN="$dir/fakebin/fm-captain-hold.sh" \
+    FM_ROOT_OVERRIDE="$dir" /bin/bash "$TRIAGE") || fail 'triage failed with no recovered pending files under /bin/bash'
+  assert_contains "$out" 'WAKE TRIAGE:' 'triage did not complete its empty-recovery pass'
+  set -- "$dir/state"/.wake-triage.pending.*
+  [ ! -e "$1" ] || fail 'unexpected pending output remained'
+  pass 'triage completes with no recovered pending files under system bash'
+}
+
 test_branch_actor_delegates_to_drain() {
   local dir out
   dir=$(make_case branch); install_crew_stub "$dir"; install_hold_stub "$dir"
@@ -420,6 +435,7 @@ test_ack_gate_with_and_without_extra_notice
 test_shape_identity_and_secondmate_fail_closed
 test_open_decisions_pauses_holds_and_execution_are_actionable
 test_happy_path_and_afk
+test_empty_recovered_array_under_system_bash
 test_branch_actor_delegates_to_drain
 test_reason_specific_and_nonproof_failures
 test_unread_note_and_captain_hold_exit_codes
