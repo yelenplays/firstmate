@@ -40,11 +40,20 @@ SH
 }
 
 run_triage() {
-  local dir=$1
-  PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" \
-    FM_CREW_STATE_BIN="$dir/fakebin/fm-crew-state.sh" \
-    FM_CAPTAIN_HOLD_BIN="$dir/fakebin/fm-captain-hold.sh" \
-    FM_ROOT_OVERRIDE="$dir" "$TRIAGE"
+  local dir=$1 interpreter=${2:-}
+  local PATH="$PATH" FM_HOME FM_STATE_OVERRIDE FM_CREW_STATE_BIN FM_CAPTAIN_HOLD_BIN FM_ROOT_OVERRIDE
+  PATH="$dir/fakebin:$PATH"
+  FM_HOME="$dir"
+  FM_STATE_OVERRIDE="$dir/state"
+  FM_CREW_STATE_BIN="$dir/fakebin/fm-crew-state.sh"
+  FM_CAPTAIN_HOLD_BIN="$dir/fakebin/fm-captain-hold.sh"
+  FM_ROOT_OVERRIDE="$dir"
+  export PATH FM_HOME FM_STATE_OVERRIDE FM_CREW_STATE_BIN FM_CAPTAIN_HOLD_BIN FM_ROOT_OVERRIDE
+  if [ -n "$interpreter" ]; then
+    "$interpreter" "$TRIAGE"
+  else
+    "$TRIAGE"
+  fi
 }
 
 seed_fresh_watcher() {
@@ -254,10 +263,7 @@ test_empty_recovered_array_under_system_bash() {
   dir=$(make_case empty-recovered)
   install_crew_stub "$dir"
   install_hold_stub "$dir"
-  out=$(PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" \
-    FM_CREW_STATE_BIN="$dir/fakebin/fm-crew-state.sh" \
-    FM_CAPTAIN_HOLD_BIN="$dir/fakebin/fm-captain-hold.sh" \
-    FM_ROOT_OVERRIDE="$dir" /bin/bash "$TRIAGE") || fail 'triage failed with no recovered pending files under /bin/bash'
+  out=$(run_triage "$dir" /bin/bash) || fail 'triage failed with no recovered pending files under /bin/bash'
   assert_contains "$out" 'WAKE TRIAGE:' 'triage did not complete its empty-recovery pass'
   set -- "$dir/state"/.wake-triage.pending.*
   [ ! -e "$1" ] || fail 'unexpected pending output remained'

@@ -26,10 +26,9 @@ ACTOR=$(fm_lease_actor) || exit 2
 mkdir -p "$STATE" || exit 1
 shopt -s nullglob
 recovered=("$STATE"/.wake-triage.pending.*)
-recovered_count=0
+recovered_count=${#recovered[@]}
 for f in ${recovered[@]+"${recovered[@]}"}; do
   [ -f "$f" ] && [ ! -L "$f" ] || { echo "wake triage: unsafe recovered output" >&2; exit 1; }
-  recovered_count=$((recovered_count + 1))
 done
 
 pending="$STATE/.wake-triage.pending.$(date +%s).$$"
