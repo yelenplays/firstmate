@@ -725,6 +725,17 @@ A remote route adds `host:` and `root:` before the existing fields and places th
 Use `fm-home-seed.sh validate` to check the complete operational registry contract documented by the command itself.
 The main first mate routes by reading those scopes with judgment; the project list is provisioning data, not exclusive ownership.
 
+### Advisory mate-routing trial
+
+`bin/fm-jev-mate-shadow.sh suggest <task-id> --public-summary '<reviewed public task summary>'` records a Jev suggestion without routing work.
+It runs only for an explicitly public summary and scope strings individually approved by copying the exact `scope:` values from `data/secondmates.md` into a private `config/jev-mate-public-scopes.json` object keyed by mate id.
+The approval is invalidated when a scope changes, and restricted or unapproved scopes are not offered to Jev.
+Review the task summary and every scope manually before approval: the deterministic privacy veto rejects known private terms and obvious credentials, but cannot establish that arbitrary free text is safe.
+The command logs a skipped result without calling Jev when the summary is unsafe, no scope is eligible, or neither Jev key is configured.
+Its [script header](../bin/fm-jev-mate-shadow.sh) owns the record fields and threshold.
+After deciding normally, record the actual destination with `bin/fm-jev-mate-shadow.sh actual <task-id> <mate-id|main>` and inspect aggregate outcomes with `bin/fm-jev-mate-shadow.sh compare`.
+The comparison uses the latest suggestion and label per task; no suggestion, confidence, or comparison authorizes a handoff.
+
 ### Provision a local home
 
 Use `fm-home-seed.sh <id> - {<project>...|--no-projects}` to lease a fresh local firstmate worktree for the secondmate home.
