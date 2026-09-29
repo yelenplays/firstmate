@@ -913,14 +913,20 @@ test_abandoned_claim_reclaim_reaps_dead_steal_without_nesting() {
   FM_STATE_OVERRIDE="$dir/state" bash -c '
     . "$1"
     fm_lock_try_create "$2" || exit 7
+    echo ready > "$3"
     exec sleep 30
-  ' _ "$dir/bin/fm-wake-lib.sh" "$dir/state/.claude-autoarm.lock.steal" >/dev/null 2>&1 &
+  ' _ "$dir/bin/fm-wake-lib.sh" "$dir/state/.claude-autoarm.lock.steal" "$dir/state/steal-ready" >/dev/null 2>&1 &
   holder=$!
   i=0
-  while [ "$i" -lt 50 ] && [ ! -s "$dir/state/.claude-autoarm.lock.steal/pid" ]; do
+  # Publication of pid precedes the link's successful claim. Kill only once
+  # the holder has completed fm_lock_try_create, not in its live claim window.
+  while [ "$i" -lt 250 ] && [ ! -s "$dir/state/steal-ready" ]; do
     sleep 0.02
     i=$((i + 1))
   done
+  [ "$i" -lt 250 ] || fail "fixture did not finish claiming the steal mutex"
+  [ "$(cat "$dir/state/.claude-autoarm.lock.steal/pid" 2>/dev/null || true)" = "$holder" ] \
+    || fail "fixture steal mutex does not name its holder"
   kill -KILL "$holder" 2>/dev/null || true
   wait "$holder" 2>/dev/null || true
   assert_present "$dir/state/.claude-autoarm.lock.steal" "fixture did not leave a dead-owner steal mutex"
