@@ -43,13 +43,18 @@ Devin emits no lifecycle hook for cancellation either, so after an armed interru
 Devin's double Escape also opens its `/revert` picker on an idle agent, where Enter reverts file changes, so its second press is sent only after the first renders a running turn's armed hint and never sooner than the adapter's press gap.
 An interrupt whose first press shows no running turn stops there and reports `cancel=not-running`, leaving busy state untouched; a picker a mistimed press opened is closed with one Escape and reported as `revert-picker=dismissed`, and `exit` refuses to type into an open picker.
 [`bin/fm-control-lib.sh`](../bin/fm-control-lib.sh) owns the arm signal, press gap, and picker signal.
+Claude exposes no lifecycle acknowledgement for a manual interrupt, so delivery succeeds with `cancel=unconfirmed`; its current turn state is read from `claude agents --json` when available, with the adapter-owned hook record as fallback.
 muse's session log records `terminal=cancelled` for the interrupted run, so the control plane reports `cancel=confirmed` only after observing that exact acknowledgement.
 
 An interrupt is not complete until the composer is empty.
 muse is the one verified adapter that restores the cancelled prompt back into its composer as real text, so its interrupt key is followed by a Ctrl+U clear; without it the next submitted line - including this plane's own exit command - would concatenate onto the restored prompt and submit both as one line.
 The clear is refused before anything is sent when the recorded backend cannot deliver it.
 
-`exit` reads the composer's state before typing the exit command and requires the exact `empty` verdict; a `pending` verdict refuses by naming the pending text, and any other verdict (`unknown`, `pending-unproven`, or an unreadable read) refuses as not proven empty, matching the fail-safe contract every other consumer that can overwrite composer input follows.
+`exit` requires the exact `empty` composer verdict before typing an exit command and refuses when a draft is visibly pending or when real text sits in a container whose geometry cannot be proven (`pending-unproven`).
+An `unknown` composer - no readable draft and no proven geometry - can use only an adapter-owned non-typing quit fallback from `bin/fm-control-lib.sh`.
+Absent that capability, `exit` re-reads the composer for a bounded settle window (`FM_CONTROL_COMPOSER_WAIT`) and acts only on a later decided verdict, because `unknown` can be transient: a Pi on Herdr keeps reporting a working turn for up to about 30 seconds after an interrupt, and Pi's composer is proven empty only for an idle Pi.
+A composer still `unknown` after that window refuses without typing, and every other verdict refuses as well.
+Both paths retain the same agent-gone postcondition, including when reached through `relaunch`.
 
 **Teardown and discard are not verbs and will not become verbs.**
 `exit` stops an agent and preserves everything else.
@@ -66,7 +71,7 @@ A relaunch does take one session reference when the endpoint's own runtime recor
 
 1. **Resolve the profile.**
    An explicit `--harness`, `--model`, or `--effort` wins.
-   Otherwise a `kind=secondmate` task re-resolves its durable `config/secondmate-harness` pin, including that file's optional model and effort tokens, exactly as every other respawn does - so setting the pin and relaunching is the ordinary way to move a secondmate's runtime.
+   Otherwise a `kind=secondmate` task re-resolves its durable secondmate pin - its own `config/secondmate-harness.d/<id>` line when present, else `config/secondmate-harness` - including the optional model and effort tokens, exactly as every other respawn does - so setting the pin and relaunching is the ordinary way to move a secondmate's runtime.
    A ship or scout keeps the harness already recorded for it, because that harness comes from firstmate's dispatch-profile judgment at intake and must not be silently re-read from configuration.
    A recorded raw-command basename that differs from its resolved adapter cannot reproduce the command actually running, so relaunch refuses before the checkpoint unless the caller passes an explicit `--harness` to choose the replacement runtime deliberately.
    A harness change resets model and effort unless they are named too, because a model chosen for one adapter does not transfer to another.
@@ -175,13 +180,15 @@ The worktree and the task's records are unaffected either way.
 
 Backend capability comes from each adapter's real surface, not from a policy choice.
 
-| Backend | Escape | Enter | Ctrl+C | Ctrl+U | Recovery-grade agent state |
-| --- | --- | --- | --- | --- | --- |
-| tmux | yes | yes | yes | yes | yes |
-| herdr | yes | yes | yes | yes | yes |
-| zellij | yes | yes | yes | yes | no |
-| cmux | yes | yes | yes | yes | no |
-| orca | no | yes | yes | no | no |
+| Backend | Escape | Enter | Ctrl+C | Ctrl+U | Ctrl+Q | Recovery-grade agent state |
+| --- | --- | --- | --- | --- | --- | --- |
+| tmux | yes | yes | yes | yes | no | yes |
+| herdr | yes | yes | yes | yes | yes | yes |
+| zellij | yes | yes | yes | yes | no | no |
+| cmux | yes | yes | yes | yes | no | no |
+| orca | no | yes | yes | no | no | no |
+
+Ctrl+Q is Grok's non-typing quit fallback, and only Herdr carries the live verification record for the real quit sequence; tmux has no such evidence, so it refuses an unproven Grok composer without sending the key.
 
 Per-harness interrupt keys, repeat counts, composer clears, exit commands, and supported task kinds live in `bin/fm-control-lib.sh` and are exercised for every verified harness by `tests/fm-control.test.sh`, with adapters outside its lane pinning their control mechanics in their own harness suites.
 The empirical basis for each adapter's value is the `harness-adapters` skill's verification record for that adapter.
@@ -191,3 +198,4 @@ The empirical basis for each adapter's value is the `harness-adapters` skill's v
 - `tests/fm-control.test.sh` - the adapter contract for its verified-harness lane (adapters outside the lane pin their control mechanics in their own harness suites), the backend capability matrix, exact-id scoping, the closed verb list, the busy, idle, dead, and idempotent lifecycle cases, and marker non-regression, all against a stubbed session provider.
 - `tests/fm-control-relaunch.test.sh` - the relaunch transaction: identity preservation, harness switching, the progress note, checkpoint refusals, rollback after a failed launch, and the endpoint-absence proof both verbs share - the Herdr reclaim of a destroyed endpoint, and tmux refusing one it cannot prove absent.
 - `tests/fm-control-herdr-smoke.test.sh` - the second state-verified backend against the real herdr binary, on an isolated throwaway lab session.
+- `tests/fm-control-composer-live-e2e.test.sh` - real Pi composer/draft safety and Grok quota-menu recovery on an isolated Herdr lab; [runtime verification](verification/runtime-backends.md#pi-composer-and-grok-quota-menu-recovery) records the refresh command and observed limits.

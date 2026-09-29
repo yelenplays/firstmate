@@ -34,8 +34,15 @@
 #              otherwise reports `cancel=not-running` having sent one press.
 #   exit       Stop the agent, preserving its terminal endpoint, worktree, and
 #              every uncommitted change. Interrupts first when the task reads
-#              busy, then submits the harness's exit command. Postcondition:
-#              the backend's recovery-grade classifier reports the agent gone.
+#              busy, then submits the harness's exit command only into a proven
+#              empty composer, and never when a draft is pending or its text
+#              sits in a container whose geometry is unproven. An `unknown`
+#              composer is re-read for a bounded settle window first (a Pi on
+#              Herdr reads unknown while it unwinds an interrupted turn). An
+#              `unknown` composer with no readable draft may instead use the
+#              adapter's verified non-typing quit keys (Grok: double Ctrl+Q).
+#              Postcondition: the recovery-grade classifier reports the agent gone.
+#              Already-stopped is success (idempotent).
 #              Already-stopped is success (idempotent). An endpoint that reads
 #              `missing` is put through the control plane's per-backend absence
 #              proof (fm_control_endpoint_absence_verdict) before anything is
@@ -66,8 +73,9 @@
 #              it refuses.
 #              An explicit `default` model or effort clears that
 #              axis for the replacement. With no explicit axis, a secondmate
-#              re-resolves its durable config/secondmate-harness pin (harness
-#              plus its optional model and effort tokens) exactly as any other
+#              re-resolves its durable secondmate pin (its own
+#              config/secondmate-harness.d/<id> line, else config/secondmate-harness:
+#              harness plus optional model and effort tokens) exactly as any other
 #              respawn does, while a ship or scout keeps the exact adapter
 #              already recorded for it.
 #              A prefixed raw-command basename cannot reconstruct its launch
@@ -127,6 +135,8 @@
 #   FM_CONTROL_ARM_WAIT          wait for an armed interrupt's rendered proof
 #                                after the press gap (1.5)
 #   FM_CONTROL_EXIT_WAIT         alive->dead wait after the exit command (30)
+#   FM_CONTROL_COMPOSER_WAIT     wait for an `unknown` composer to settle
+#                                before exit refuses (60)
 #   FM_CONTROL_LAUNCH_WAIT       dead->alive wait after a relaunch (90)
 #   FM_CONTROL_EXIT_RETRIES      Enter retries for the exit command (3)
 set -eu
@@ -181,6 +191,7 @@ POLL=${FM_CONTROL_POLL:-0.5}
 SETTLE_WAIT=${FM_CONTROL_SETTLE_WAIT:-5}
 ARM_WAIT=${FM_CONTROL_ARM_WAIT:-1.5}
 EXIT_WAIT=${FM_CONTROL_EXIT_WAIT:-30}
+COMPOSER_WAIT=${FM_CONTROL_COMPOSER_WAIT:-60}
 LAUNCH_WAIT=${FM_CONTROL_LAUNCH_WAIT:-90}
 EXIT_RETRIES=${FM_CONTROL_EXIT_RETRIES:-3}
 
@@ -548,6 +559,32 @@ do_interrupt() {
   printf '%s cancel=%s' "$proof" "$cancel"
 }
 
+composer_state_now() {
+  local verdict
+  verdict=$(fm_backend_composer_state "$BACKEND" "$T" "$LABEL" 2>/dev/null) \
+    || verdict=unknown
+  printf '%s' "$verdict"
+}
+
+# wait_composer_settled: poll while the composer reads `unknown`, bounded by
+# COMPOSER_WAIT, and print the first decided verdict or the final `unknown`.
+# An `unknown` read can be transient rather than unproven geometry: a Pi agent
+# on Herdr keeps reporting agent_status=working for up to about 30s after an
+# interrupt while its aborted request unwinds, and Pi's composer is only proven
+# empty for an idle or done Pi. Waiting grants no new authority - only the
+# classifier's own positive verdict is ever acted on.
+wait_composer_settled() {
+  local verdict started=$SECONDS elapsed
+  while :; do
+    verdict=$(composer_state_now)
+    [ "$verdict" = unknown ] || break
+    elapsed=$((SECONDS - started))
+    awk -v e="$elapsed" -v t="$COMPOSER_WAIT" 'BEGIN{exit !(e < t)}' || break
+    sleep "$POLL"
+  done
+  printf '%s' "$verdict"
+}
+
 retire_busy_incarnation() {
   if [ -f "$STATE/$ID.busy-gen" ]; then
     "$SCRIPT_DIR/fm-busy-event.sh" retire "$STATE" "$ID" --current-gen >/dev/null 2>&1 || true
@@ -558,6 +595,7 @@ retire_busy_incarnation() {
 # `already-stopped`, `endpoint-gone`, or `stopped`.
 do_exit() {
   local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed
+  local fallback_key='' repeat i=0 exit_input=exit-command
   require_state_verified_backend exit
   state=$(agent_state)
   case "$state" in
@@ -624,29 +662,52 @@ do_exit() {
   if [ -n "$hazard" ] && rendered_matches "$hazard"; then
     die "task $ID shows the $HARNESS revert picker, where typed text becomes a search and Enter reverts file changes; refusing to type the $cmd exit command. Close it with $(fm_control_interrupt_key "$HARNESS"), never Enter, then retry '$VERB'"
   fi
-  composer_state=$(fm_backend_composer_state "$BACKEND" "$T" "$LABEL" 2>/dev/null) \
-    || composer_state=unknown
+  composer_state=$(composer_state_now)
+  if [ "$composer_state" = unknown ]; then
+    fallback_key=$(fm_control_exit_fallback_key "$HARNESS") || fallback_key=''
+    if [ -z "$fallback_key" ] || ! fm_control_backend_supports_key "$BACKEND" "$fallback_key"; then
+      fallback_key=''
+      composer_state=$(wait_composer_settled)
+    fi
+  fi
   case "$composer_state" in
     empty) ;;
-    pending)
+    pending|pending-unproven)
       die "task $ID's composer visibly holds pending text; refusing to type the $cmd exit command because it would concatenate onto that text. Clear or submit the pending text, then retry '$VERB'"
+      ;;
+    unknown)
+      if [ -z "$fallback_key" ]; then
+        die "task $ID's composer state is still '$composer_state' after ${COMPOSER_WAIT}s, not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
+      fi
       ;;
     *)
       die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
       ;;
   esac
-  # The submit verdict is NOT the postcondition here: a successful exit command
-  # destroys the composer the verdict is read from, so a post-exit read can
-  # legitimately report anything. Only a hard transport failure aborts; the
-  # authoritative proof is the agent-state wait below. The retried Enter still
-  # matters, because a slash command opens a completion popup on some TUIs that
-  # swallows the first Enter.
-  verdict=$(fm_backend_send_text_submit "$BACKEND" "$T" "$cmd" "$EXIT_RETRIES" "$POLL" 1.2 "$LABEL") \
-    || die "the exit command could not be sent to task $ID on $BACKEND"
-  [ "$verdict" != send-failed ] \
-    || die "the exit command could not be sent to task $ID on $BACKEND"
+  if [ -n "$fallback_key" ]; then
+    repeat=$(fm_control_exit_fallback_repeat "$HARNESS")
+    exit_input=exit-keys
+    # No composer input, Enter, clearing, or sleep between the quit keys.
+    # A slow or ignored pair is never success without the ordinary death proof.
+    while [ "$i" -lt "$repeat" ]; do
+      fm_backend_send_key "$BACKEND" "$T" "$fallback_key" "$LABEL" \
+        || die "non-typing quit key $fallback_key was not delivered to task $ID on $BACKEND; exit is unconfirmed"
+      i=$((i + 1))
+    done
+  else
+    # The submit verdict is NOT the postcondition here: a successful exit command
+    # destroys the composer the verdict is read from, so a post-exit read can
+    # legitimately report anything. Only a hard transport failure aborts; the
+    # authoritative proof is the agent-state wait below. The retried Enter still
+    # matters, because a slash command opens a completion popup on some TUIs that
+    # swallows the first Enter.
+    verdict=$(fm_backend_send_text_submit "$BACKEND" "$T" "$cmd" "$EXIT_RETRIES" "$POLL" 1.2 "$LABEL") \
+      || die "the exit command could not be sent to task $ID on $BACKEND"
+    [ "$verdict" != send-failed ] \
+      || die "the exit command could not be sent to task $ID on $BACKEND"
+  fi
   state=$(wait_agent_state "$EXIT_WAIT" dead) || {
-    die "exit-delivered $ID interrupt=$interrupt_result exit-command=delivered agent-state=$state exit=unconfirmed; the agent did not stop within ${EXIT_WAIT}s"
+    die "exit-delivered $ID interrupt=$interrupt_result $exit_input=delivered agent-state=$state exit=unconfirmed; the agent did not stop within ${EXIT_WAIT}s"
   }
   # The incarnation is over: retire its busy wiring so no stale record or
   # orphaned generation survives the agent that produced it.

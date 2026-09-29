@@ -131,6 +131,43 @@ zsh
 A persistent parent shell waiting for a child remained reported as the parent process, while a shell that directly execed a simple command changed identity with the process itself.
 Pi and pi-signed 0.82.0 were reverified on 2026-07-27 through real isolated `fm-spawn.sh` launches.
 
+### Orchestrated Pi role definitions
+
+Verified on 2026-09-10 with Pi 0.85.1, tmux 3.7c, and pi-interactive-subagents commit `c3e8b53c0754ae5ccc19fdab5a7481ec039bc2f7`.
+The contract and definition links are owned by [orchestrated-delivery](../../.agents/skills/orchestrated-delivery/SKILL.md); the provisioner's help owns installation mechanics.
+Refresh the credentialed proof with an external temporary fixture parent:
+
+```sh
+FM_PI_ROLE_AGENTS_LIVE=1 TMPDIR="$fixture_parent" nix shell nixpkgs#tmux -c bin/fm-test-run.sh tests/fm-pi-role-agents-live-e2e.test.sh
+```
+
+Current roster definitions declare no `thinking`.
+A refresh now inherits the fixture parent effort through a per-call `model` suffix rather than printing per-role thinking pins.
+The 2026-09-10 live run proved six-role discovery and execution on tmux with the per-role thinking pins that run recorded:
+
+```text
+ok - pi tester: openai-codex/gpt-5.6-luna thinking=max global standalone live
+ok - pi researcher: openai-codex/gpt-5.6-luna thinking=high global standalone live
+ok - pi explorer: openai-codex/gpt-5.6-luna thinking=max global standalone live
+ok - pi worker: openai-codex/gpt-5.6-luna thinking=max global standalone live
+ok - pi reviewer: openai-codex/gpt-6-astra thinking=xhigh global standalone live
+ok - pi integrator: openai-codex/gpt-6-astra thinking=xhigh global standalone live
+ok - pi: six completed roles; fresh reviewer; no project trust or project changes
+absent: pi-signed
+ok - roster live proof passed for 1 installed Pi-family harness(es)
+```
+
+A real Astra orchestrator in an unrelated git worktree discovered the globally provisioned roles and spawned each through the installed package.
+The guard checks discovery, launch snapshots, actual assistant model identities, thinking-level session events, and shell-tool session metadata for every completed child.
+Each session was standalone, with no inherited parent-session pointer or parent-context canary; no trust decision or project resource was written, and no trust acknowledgement was sent.
+`tests/fm-pi-role-agents.test.sh` covers provisioning, upgrades, conflicts, and concurrent installs; `tests/fm-spawn-dispatch-profile.test.sh` executes both Pi-family emitted launch commands with fake executables and proves provisioning precedes launch in the worker's actual config directory.
+The signed wrapper was absent, so its live proof remains unverified rather than inferred from the portable test.
+
+Applicability review: the new launch prefix is shared by tmux, Herdr, Zellij, Orca, and cmux before their existing literal-submit adapters, and applies to Pi and pi-signed for ships, scouts, secondmates, and relaunches.
+The proof above exercises tmux, not a claim of new sub-agent support on another backend: this installed sub-agent package still requires its orchestrator to be inside tmux.
+No other primary harness or worker adapter gains role provisioning, and no backend lifecycle changes.
+Pi fresh-worker trust registration is documented in the [Pi harness reference](../../.agents/skills/harness-adapters/references/harness/pi.md).
+
 ### Agent liveness name sources
 
 The earlier record that every harness is observed under its own `#{pane_current_command}` no longer holds and has been replaced by the per-harness evidence below.
@@ -699,7 +736,7 @@ ok - zellij (zellij 0.44.0): unrelated pane change never confirms delivery (verd
 ok - live composer-matrix guard verified 8 live surface(s)
 ```
 
-All six installed harnesses' real idle composers reached a proven `empty` (Claude auto-updated to 2.1.227 between the audit and this rerun, so the shipped classifier is proven against the newer release as well), including Pi through the tmux foreground-process identity probe, Grok through the titled-bottom-border tolerance, and OpenCode through the left-bar shape; Codex and OpenCode first parked on vendor update-available modals that the strict classifier correctly refused until the guard's single non-submitting Escape dismissed them.
+All six installed harnesses' real idle composers reached a proven `empty` (Claude auto-updated to 2.1.227 between the audit and this rerun, so the shipped classifier is proven against the newer release as well), including Pi through the tmux foreground-process identity probe, Grok through the titled-bottom-border tolerance, and OpenCode through the left-bar shape; Codex and OpenCode first parked on vendor update-available modals that the strict classifier correctly refused until the guard dismissed them with non-submitting Escapes, one per changed screen and never a real trust prompt.
 The strict blank-row posture held live (a blank shell row deferred injection), and a zellij pane changing for reasons unrelated to submission never confirmed a delivery, replacing the retired content-diff heuristic's false positive.
 Kimi was not installed on the verification machine; its bordered shape is pinned by the portable byte-capture regressions in `tests/fm-composer-lib.test.sh`, which also carry the other five adapters' capability profiles for every harness under both a UTF-8 locale and `LC_ALL=C`.
 This guard is the refresh command after an upgrade to any matrix-covered harness; rerun it and update the versions above rather than trusting this table across releases.
@@ -709,6 +746,16 @@ The classifier now accepts only that exact three-column overhang (`FM_COMPOSER_G
 Grok was not installed on the verification machine for this 2026-09-14 change, so the live guard still owes a refresh against the current release rather than treating the portable capture as current live evidence; the three-column width is not live-verified and may need adjustment if Grok's title rendering changes or scales with title length.
 This closes only #3436's idle-composer-misclassification symptom (Grok/Herdr composer read `unknown` instead of `empty`, blocking away-mode injection). The issue's second symptom - a leftover watcher never yielding and never being taken over or refused at AFK start - is unrelated to composer classification and is tracked separately in #2270, where #3436's reproduction serves as corroborating evidence.
 Cursor is deliberately outside this cursor-anchored empty-composer matrix because its terminal cursor is parked outside the composer; tmux's Cursor-specific, process-identity-gated cursorless fallback is covered by the [Cursor Agent CLI](#cursor-agent-cli) section's separate live evidence and drift guard.
+
+### 2026-09-22 Pi 0.87.1 token-first footer through Herdr
+
+Verified a read-only Pi 0.87.1 pane capture with Herdr 0.9.0 using `herdr pane read <pane> --source visible --format ansi`.
+The captured idle footer was `↑121k ↓37k R9.5M $0.069 (sub) 55.2%/272k (auto) (openai-codex) gpt-6-luna • max`.
+A second captured idle footer omitted the R-count cell: `↑35k ↓6 $0.000 (sub) 12.8%/272k (auto) (openai-codex) gpt-6-astra • low`.
+Before the fix, the first captured screen classified as `unknown` because its footer begins with token counts rather than a dollar cost.
+`tests/fm-composer-lib.test.sh` proves both captures are empty for an idle Pi, typed content stays pending, and an unrecognized token-first prefix stays unknown; `tests/fm-backend-herdr.test.sh` proves the Herdr adapter returns empty after one native Pi identity probe for each capture.
+No Herdr lifecycle operation was run, so this record does not claim a live stop or restart.
+`FM_COMPOSER_MATRIX_LIVE=1 tests/fm-composer-matrix-live-e2e.test.sh` refreshes the installed-harness live matrix; this cursorless Herdr footer variant is refreshed from a live read-only capture and the two fixture-backed suites above.
 
 `zellij action dump-screen --pane-id <id> --ansi` was verified at zellij 0.44.0 to preserve ANSI styling (real Claude Code rendered inside a zellij pane dumped `ESC[m` `❯` U+00A0 for its idle composer row), which is the capability the zellij composer classifier reads.
 
@@ -1065,6 +1112,7 @@ The CLI matrix was checked directly:
 | Viewport capture | `herdr pane read <pane> --source visible` | Verified on 2026-09-17 against Herdr 0.8.0 (protocol 19): `herdr pane read --help` documents `--source <SOURCE>` with `[possible values: visible, recent, recent-unwrapped, detection]`; `--source visible` exited 0 and returned 51 lines (the viewport) while `--source recent --lines 200` returned 200. This is the viewport-only read behind `fm_backend_herdr_visible_capture`, which Kimi's trust-dialog gate requires. |
 | Styled viewport capture | `herdr pane read <pane> --source visible --format ansi` | Verified on 2026-09-26 against Herdr 0.9.0 with Claude Code 2.1.283: the flag pair exited 0 and returned the viewport with SGR attributes intact, which is the styled read behind `fm_backend_herdr_visible_capture_ansi` that ghost/placeholder stripping needs (see "Claude exit behind the slash-command popup" below). |
 | Native state | `herdr agent get <pane>` | Working and done transitions were visible on some harnesses; live Claude Code 2.1.236 on Herdr 0.8.0 kept `agent_status=idle` for an entire landed turn, including a multi-second tool call, so submit confirmation falls through to the shared composer verdict. Native `busy` remains positive activity evidence, while native `idle` cannot close a turn and the adapter's semantic lifecycle decides worker state. |
+| Native state | `herdr agent get <pane>` | Working and done transitions were visible on some harnesses; live Claude Code 2.1.236 on Herdr 0.8.0 kept `agent_status=idle` for an entire landed turn, including a multi-second tool call, so submit confirmation falls through to the shared composer verdict. Native `busy` remains positive activity evidence, while native `idle` cannot close a turn. |
 | Restart | guarded named-session stop then start | Workspace, tab, pane, and labels persisted; the agent process and registration did not. |
 | Close | `herdr pane close <pane> --session <name>` | The exact one-pane task tab closed; closing a final tab could remove the workspace. |
 
@@ -1503,7 +1551,7 @@ ok - forced teardown retains a nested secondmate home and its grandchild's Herdr
 Real captures verified these active distinctions:
 
 - Claude and Codex use bare `❯` and `›` agent composers.
-- Pi uses content between complete separator rows and requires exact native Pi identity.
+- Pi uses complete separator rows or the footer-qualified Zen rail and requires exact native Pi identity, with current evidence under [Pi composer and Grok quota-menu recovery](#pi-composer-and-grok-quota-menu-recovery).
 - Dim or faint suggestion text is ghost content, while normally styled text is pending input.
 - Grok dark truecolor placeholders are ghost content, while bright truecolor typed input remains pending.
 - A bare shell prompt has no safe agent-composer container and is unknown.
@@ -1578,6 +1626,46 @@ Refresh that live pair after every Herdr upgrade. Observed 2026-09-10 on Herdr 0
 ok - agent get distinguishes leftover-shell (dead/no-agent) from live idle Pi
 ok - pane get agent_status lag cannot keep an exited occupant classified alive
 ```
+
+### Pi composer and Grok quota-menu recovery
+
+Verified 2026-09-19 on macOS with Herdr 0.9.0, Pi 0.85.1, pi-zen 0.1.2, and Grok 1.0.34 (3736acbc8658).
+The configured Pi editor draws a `┃` rail because pi-zen's `applyRail` replaces the horizontal frame; launching the same Pi with `--no-extensions` restores the separator pair.
+The rail was observed both detached at 120 columns and with the lab viewer attached at a narrower width, so this is an extension-dependent layout, not a Pi version or pane-size change.
+Stock Pi's zero-token footer begins with `$0.000`, which previously invalidated its separator pair as a lower shell prompt.
+The captured fixtures in `tests/fixtures/composer/` and `tests/fm-composer-lib.test.sh` pin both structures, native identity requirements, draft preservation, and the Grok limit menu's unchanged `unknown` verdict.
+
+Refresh with the real quota-limited account to require the blocked-recovery case:
+
+```sh
+FM_CONTROL_COMPOSER_LIVE=1 FM_CONTROL_GROK_REQUIRE_LIMIT=1 \
+  bin/fm-test-run.sh tests/fm-control-composer-live-e2e.test.sh
+```
+
+Observed result lines:
+
+```text
+ok - live Pi configured 0.85.1: empty, multiline pending refusal, verified exit, idempotence
+ok - live Pi stock 0.85.1: empty, multiline pending refusal, verified exit, idempotence
+ok - live Grok grok 1.0.34 (3736acbc8658): real weekly-limit menu replaced by Pi without human input; dirty work preserved
+```
+
+Refreshed 2026-09-24 on macOS with Herdr 0.9.0, Pi 0.87.1, and Grok 1.0.41 (4220f3b224a6), whose account did not expose its quota menu.
+The added aborted-turn case submits a real online Pi prompt, interrupts it with Escape, and reads the composer immediately: it reported `unknown` with Herdr's native Pi status still `working`, and `fm-control.sh exit` then waited for the composer to settle and stopped the agent.
+In the same lab, a streamed turn kept native `working` for 20 to 30 seconds after Escape and a tool-call abort for about 2 seconds, which is the basis for exit's composer settle window.
+
+```text
+ok - live Pi configured 0.87.1: empty, multiline pending refusal, verified exit, idempotence
+ok - live Pi stock 0.87.1: empty, multiline pending refusal, verified exit, idempotence
+# Pi composer right after the interrupt: unknown (native working)
+ok - live Pi 0.87.1: exit waits out the post-interrupt unknown composer and stops the agent
+```
+
+The test reaches the actual `fm-control.sh relaunch` transaction, proves the replacement alive on the same endpoint, and checks that both the branch head and uncommitted file survive.
+Every Herdr call goes through `fm-herdr-lab.sh`, whose teardown verifies that the default session remained unchanged.
+Without `FM_CONTROL_GROK_REQUIRE_LIMIT=1`, an account that does not expose its quota menu reports the missing live coverage explicitly.
+The non-typing quit fallback is Herdr-only: this refresh did not run the real Grok quit sequence on tmux, so tmux keeps its prior behavior and refuses an unproven Grok composer without sending Ctrl+Q. `tests/fm-control.test.sh` and `tests/fm-control-relaunch.test.sh` pin that tmux refusal and the draft-preserving guards; Herdr's real sequence is the live case above.
+The existing shared-classifier and Herdr backend suites passed without changing other harness expectations; Zellij, Orca, and cmux retain their refusal of stop-proving verbs and gain no quit-key capability.
 
 ### Endpoint recovery classification
 
@@ -1904,6 +1992,37 @@ The host-tool sequence was:
 Observed guarantee: a Desktop-owned thread can write Firstmate lifecycle files when the prompt provides an authorized absolute path, and create, send, read, and archive work at the Desktop host-tool layer.
 The missing guarantee remains a supported shell-callable bridge that lets Firstmate perform those operations against the same visible Desktop endpoint.
 App-server partial methods and raw socket experiments do not satisfy that bridge contract.
+
+## Devin CLI
+
+Verified 2026-09-10 on Devin `3000.10.21 (611c1cba)` and Herdr `0.9.0`, protocol `22`, with `swe-2-high`.
+The [adapter skill](../../.agents/skills/harness-adapters/references/harness/devin.md) owns operational limits; `bin/fm-devin-lib.sh` owns direct launch mechanics.
+Refresh the credentialed proof with:
+
+```sh
+FM_DEVIN_LIVE=1 bash tests/fm-devin-live-e2e.test.sh
+```
+
+The guard provisions a named lab through `fm-herdr-lab.sh`, mediates even nested Firstmate Herdr calls through that helper, and verifies its default-session tripwire on cleanup.
+It uses actual Devin tool execution to verify ancestry detection, a real `fm-send` follow-up receipt, native busy/idle observations, `fm-control` interruption and exit, and the complete same-task `fm-spawn --relaunch` path.
+Observed output includes:
+
+```text
+state: working · source: pane · harness busy (herdr-native)
+interrupt-delivered probe harness=devin backend=herdr verified=agent-alive cancel=unconfirmed
+```
+
+Tool ancestry contained exact native `devin` processes, no Devin identity marker, and an inherited `PI_CODING_AGENT` before launch sanitization.
+Direct `agent get <pane>` identified `devin` without an `interactive_ready` field, while native `agent start` responses included that field.
+Double Escape produced `Canceled. What should Devin do?` and an empty composer; a follow-up was accepted, but tool-subprocess cancellation is not claimed.
+The portable guard is `tests/fm-devin-harness.test.sh`, and `tests/fm-herdr-lab.test.sh` proves explicit session selection survives a `--` separator without changing agent arguments.
+The native named-agent startup race is a separate follow-up, not a prerequisite for the verified direct path.
+
+Refreshed 2026-09-22 on the same versions, against the stopped `wiki-ingest-router-design` scout pane `default:w9B:p2` (`swe-2-max`).
+A stopped Devin worker reports `agent_status=done` while its TUI keeps animating a `Thinking · Nm (esc twice to interrupt)` footer and a `── N queued ──` banner over `❭ Press Enter to send queued messages now`.
+A healthy idle pane is static at `❭ Ask Devin to build features, fix bugs, or work on your code`, and a working pane reports `agent_status=working`.
+The wedged pane's capture hash therefore never stabilizes, which is why stable-hash stale detection cannot see the stop and the watcher keys the stopped-worker signature on native idle plus continued churn instead.
+The queue-flush prompt is empty-composer furniture: the wedged pane later drained its four queued steering messages on its own and returned to the static idle composer.
 
 ## Cursor Agent CLI
 
@@ -2325,7 +2444,7 @@ The evidence below was produced on 2026-09-05 against omp 18.1.11 (`~/.local/bin
 
 `ps -o comm=` reports the bare name `omp` for the agent process, from both its `!` bash path and the model's bash tool, so identity is the anchored name; `ompd` and `comp` never match.
 omp publishes no harness marker: `PI_CODING_AGENT` is absent from the binary, and the default profile sets neither `PI_CODING_AGENT_DIR` nor `OMP_PROFILE` in the process environment.
-`FM_OMP_HARNESS=omp` is Firstmate's own launch marker and wins over an inherited `CLAUDECODE` only under a real omp ancestor; `tests/fm-omp-harness.test.sh` pins both directions with real processes.
+`FM_OMP_HARNESS=omp` is Firstmate's own launch marker and wins over an inherited `CLAUDECODE` only under a real omp ancestor; `tests/fm-omp-harness.test.sh` pins the ancestor direction with real processes, and pins the leaked-marker direction against a harness-free ancestry chain supplied by a fake `ps`, so the verification host's own process tree cannot decide a case that is only about the marker.
 
 ### Composer
 

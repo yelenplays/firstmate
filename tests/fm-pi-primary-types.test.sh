@@ -17,7 +17,6 @@ fi
 if [ ! -d "$PI_PACKAGE_DIR/node_modules/typebox" ] || \
    [ ! -d "$PI_PACKAGE_DIR/node_modules/@earendil-works/pi-ai" ] || \
    [ ! -d "$PI_PACKAGE_DIR/node_modules/@earendil-works/pi-tui" ] || \
-   [ ! -d "$PI_PACKAGE_DIR/node_modules/@earendil-works/pi-ai" ] || \
    [ ! -d "$PI_PACKAGE_DIR/node_modules/@types/node" ]; then
   echo "not ok - installed Pi package is missing pi-tui, pi-ai, typebox, or Node declarations" >&2
   exit 1
@@ -50,7 +49,6 @@ cp "$ROOT/.pi/extensions/lib/fm-operational-input.ts" "$TMP_ROOT/lib/fm-operatio
 ln -s "$PI_PACKAGE_DIR" "$TMP_ROOT/node_modules/@earendil-works/pi-coding-agent"
 ln -s "$PI_PACKAGE_DIR/node_modules/@earendil-works/pi-ai" "$TMP_ROOT/node_modules/@earendil-works/pi-ai"
 ln -s "$PI_PACKAGE_DIR/node_modules/@earendil-works/pi-tui" "$TMP_ROOT/node_modules/@earendil-works/pi-tui"
-ln -s "$PI_PACKAGE_DIR/node_modules/@earendil-works/pi-ai" "$TMP_ROOT/node_modules/@earendil-works/pi-ai"
 ln -s "$PI_PACKAGE_DIR/node_modules/typebox" "$TMP_ROOT/node_modules/typebox"
 ln -s "$PI_PACKAGE_DIR/node_modules/@types/node" "$TMP_ROOT/node_modules/@types/node"
 

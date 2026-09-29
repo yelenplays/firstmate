@@ -56,7 +56,10 @@
 #     an explicit unknown value because their endpoint liveness belongs to
 #     supervision rather than this snapshot path.
 #     paths.status_log.last_event is historical wake-event data only, never
-#     current state.
+#     current state. age_seconds is null when the emission time is unknown;
+#     fm-classify-lib.sh owns the optional emission-time field, and only the
+#     age derived from it is published here. A future event time leaves that age
+#     unknown rather than clamped to zero.
 #     hints.open_decisions is the keyed open-decision set returned by
 #     fm-classify-lib.sh's authoritative status_open_decisions fold and reconciled
 #     against current_state; hints.pending_decision and hints.blocked_event are
@@ -77,6 +80,10 @@
 #     each home with explicit provenance, freshness, endpoint evidence, and unknown
 #     failure reasons. Parent status and bounded terminal evidence are historical,
 #     untrusted supplements only and never override readable structured-home facts.
+#     parent_event carries age_seconds from the task's paths.status_log.last_event
+#     above. An unreadable-home fallback reports freshness.age_seconds from the
+#     observed status file's mtime instead: freshness is how fresh this snapshot's
+#     own observation is, never when a worker emitted the event.
 #     Each structured-home record carries active_children, decisions_open, holds,
 #     queued, landed, endpoints, counts, and omitted. provenance.summary_source
 #     distinguishes "local-ledger", "remote-ledger", and "remote-ledger-cache";
@@ -317,7 +324,7 @@ last_nonempty_line() {  # <file>
 # snapshot without limit. Remote secondmate endpoint liveness is never read here.
 # A local read that hits the bound folds to state unknown.
 crew_state_json() {  # <id> [<captured-meta>] [<captured-status>]
-  local id=$1 captured_meta=${2:-} captured_status=${3:-} raw rest state source detail sep captured_raw
+  local id=$1 captured_meta=${2:-} captured_status=${3:-} raw rest state source detail sep
   raw=$(
     fm_run_timed "$FM_SNAPSHOT_CREW_STATE_TIMEOUT" \
       env FM_ROOT_OVERRIDE="$FM_ROOT" \
@@ -346,13 +353,6 @@ crew_state_json() {  # <id> [<captured-meta>] [<captured-status>]
       esac
       ;;
   esac
-  # The snapshot owns one captured status observation. Preserve a captured
-  # working event when the worker read is otherwise an idle historical fallback;
-  # never re-read the live status path after this point.
-  if [ "$state" = unknown ] && [ "$source" = status-log ] && [ -n "$captured_status" ]; then
-    captured_raw=$(last_nonempty_line "$captured_status" || true)
-    [ "$(status_line_verb "$captured_raw")" = working ] && state=working
-  fi
   jq -n --arg raw "$raw" --arg state "$state" --arg source "$source" --arg detail "$detail" \
     '{state:$state,source:$source,detail:$detail,raw:$raw}'
 }
@@ -756,7 +756,7 @@ prefetch_task_current_states() {
 }
 
 task_json_lines() {
-  local meta original_meta id kind harness mode yolo branch project worktree home projects spawn_gen backend target status_log report_path
+  local meta original_meta id kind harness mode yolo project worktree home projects spawn_gen backend target status_log report_path
   local remote_host remote_root current_file endpoint_file observation_line index=0
   local pr pr_source event_json current_json endpoint_exists agent_alive meta_json status_json report_json worktree_json home_json
   local last_event_raw current_state current_source pending_decision blocked_event report_present=0 pr_from_status
@@ -772,12 +772,12 @@ task_json_lines() {
     harness=$(meta_value "$meta" harness)
     mode=$(meta_value "$meta" mode)
     yolo=$(meta_value "$meta" yolo)
-    branch=$(meta_value "$meta" branch)
     project=$(meta_value "$meta" project)
     worktree=$(meta_value "$meta" worktree)
     home=$(meta_value "$meta" home)
     projects=$(meta_value "$meta" projects)
     spawn_gen=$(meta_value "$meta" spawn_gen)
+    branch=$(meta_value "$meta" branch)
     remote_host=$(meta_value "$meta" remote_host)
     remote_root=$(meta_value "$meta" remote_root)
     if [ -n "$remote_host" ]; then
@@ -1732,7 +1732,7 @@ parent_evidence_reconciliation_json() {  # <summary-json-file> <activities-json>
 
 secondmate_current_json() {  # <parent-tasks-json-file> <output-file>
   local tasks_file=$1 output_file=$2 registry_file union_file records_file rows total_registered total shown truncated
-  local row id home host remote registered registry_error task sampled_spawn_gen status_file status_observation_file event_raw event_note event_epoch event_age
+  local row id home host remote registered registry_error task sampled_spawn_gen status_file status_observation_file event_raw event_note event_age observed_epoch observed_age
   local activity_scan activities decisions reconciliation provenance freshness reason summary_file summary_sampled summary_valid summary_invalidity state terminal terminal_contradiction contradiction
   local summary_source summary_age summary_observed summary_freshness cache_path collection_status collection_slot summary_index=0
   local seen_homes=''
@@ -1788,10 +1788,10 @@ secondmate_current_json() {  # <parent-tasks-json-file> <output-file>
     activities=$(printf '%s' "$activity_scan" | jq -c '.records')
     decisions=$(printf '%s' "$task" | jq -c '.hints.open_decisions // []')
     event_age=$(printf '%s' "$task" | jq -r '.paths.status_log.last_event.age_seconds // "null"')
-    event_epoch=$(file_mtime_epoch "$status_observation_file")
+    observed_epoch=$(file_mtime_epoch "$status_observation_file")
     observed_age=null
-    if [ -n "$event_epoch" ]; then
-      observed_age=$((SNAPSHOT_EPOCH - event_epoch))
+    if [ -n "$observed_epoch" ]; then
+      observed_age=$((SNAPSHOT_EPOCH - observed_epoch))
       [ "$observed_age" -lt 0 ] && observed_age=0
     fi
 

@@ -117,7 +117,9 @@ case "${1:-}" in
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
     [ -z "${FM_FAKE_COMPOSER_READ_FAIL:-}" ] || exit 1
-    if [ -s "$D/composer" ]; then
+    if [ -f "$D/capture" ]; then
+      cat "$D/capture"
+    elif [ -s "$D/composer" ]; then
       printf '╭────╮\n│ %s  │\n╰────╯\n' "$(cat "$D/composer")"
     else
       printf '╭────╮\n│    │\n╰────╯\n'
@@ -240,7 +242,7 @@ run_control() {  # <case-dir> <args...>
     PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
     HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' \
     FM_SPAWN_NO_GUARD=1 GROK_HOME="$dir/grokhome" \
-    FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
+    FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_COMPOSER_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
     FM_REAL_GIT="${FM_REAL_GIT:-}" FM_FAKE_GIT_FAILURE="${FM_FAKE_GIT_FAILURE:-}" \
     FM_REAL_MV="${FM_REAL_MV:-}" FM_FAKE_COMPLETE_JOURNAL_MV_FAIL="${FM_FAKE_COMPLETE_JOURNAL_MV_FAIL:-}" \
     FM_FAKE_META_PUBLISH_MV_FAIL="${FM_FAKE_META_PUBLISH_MV_FAIL:-}" \
@@ -364,6 +366,26 @@ SH
 
 # --- 1. same-harness relaunch -----------------------------------------------
 
+test_blocked_grok_relaunch_refuses_without_verified_quit_keys() {
+  local dir out rc before
+  dir=$(new_case grok-limit)
+  add_ship_task "$dir" t1 grok
+  printf grok > "$dir/fake/command"
+  cp "$ROOT/tests/fixtures/composer/grok-weekly-limit.ansi" "$dir/fake/capture"
+  printf 'uncommitted work\n' > "$dir/wt/draft.txt"
+  before=$(git -C "$dir/wt" rev-parse HEAD)
+  out=$(run_control "$dir" t1 relaunch --harness claude --note 'Continue the preserved work after the quota limit.'); rc=$?
+  expect_code 1 "$rc" "blocked Grok on tmux has no verified quit key and must refuse"$'\n'"$out"
+  assert_no_grep "C-q" "$dir/fake/keys" "an unverified quit key must not be sent"
+  if grep -Eq '^/(exit|quit)$' "$dir/fake/literal"; then fail "blocked relaunch must never type into the menu"; fi
+  [ "$(cat "$dir/fake/command")" = grok ] || fail "a refused relaunch must leave the old agent running"
+  [ "$(git -C "$dir/wt" rev-parse HEAD)" = "$before" ] || fail "relaunch must preserve the branch"
+  [ "$(cat "$dir/wt/draft.txt")" = 'uncommitted work' ] || fail "relaunch must preserve uncommitted work"
+  pass "fm-control relaunch: blocked Grok on tmux refuses and preserves work without typing"
+}
+
+test_blocked_grok_relaunch_refuses_without_verified_quit_keys
+
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint() {
   local dir out rc gen_before gen_after
   dir=$(new_case same rl1)
@@ -425,6 +447,27 @@ test_relaunch_refuses_before_exit_when_the_composer_state_is_unproven() {
   assert_no_grep "/exit" "$dir/fake/literal" \
     "the exit command must not be typed when the composer state is not proven empty"
   pass "fm-control relaunch: an unreadable composer fails safe before the exit command is typed"
+}
+
+test_relaunch_refuses_before_exit_when_the_composer_geometry_is_unproven() {
+  local dir out rc
+  dir=$(new_case unproven-draft rl45)
+  add_ship_task "$dir" rl45 grok
+  printf grok > "$dir/fake/command"
+  printf '╭──────────╮\n│ > draft │\n╰──────────╯\n' > "$dir/fake/capture"
+
+  out=$(run_control "$dir" rl45 relaunch --note "preserve the unproven draft"); rc=$?
+
+  expect_code 1 "$rc" "a relaunch must refuse before typing an exit command when a draft sits in unproven geometry"
+  assert_contains "$out" "visibly holds pending text" \
+    "the refusal should report the draft rather than reach for Grok's non-typing quit keys"
+  [ "$(cat "$dir/fake/command")" = grok ] \
+    || fail "a pending-unproven refusal must leave the old agent running"
+  assert_no_grep "/exit" "$dir/fake/literal" \
+    "the exit command must not be concatenated onto an unproven draft"
+  assert_no_grep "C-q" "$dir/fake/keys" \
+    "an unproven draft must not be discarded through the non-typing quit keys"
+  pass "fm-control relaunch: a draft in unproven geometry refuses instead of discarding it"
 }
 
 test_relaunch_from_linked_home_preserves_recorded_worktree() {
@@ -934,6 +977,43 @@ test_secondmate_relaunch_picks_up_the_configured_harness_pin() {
     || fail "the configured effort token should come with the pin"
   assert_not_contains "$out" "not a verified harness" "codex is a verified harness"
   pass "fm-control relaunch: a secondmate relaunch re-resolves its durable configured harness pin"
+}
+
+test_secondmate_relaunch_picks_up_its_per_id_pin() {
+  local dir home out rc
+  dir=$(new_case smperid sm8)
+  home="$dir/home"
+  mkdir -p "$home/config/secondmate-harness.d" "$home/data/sm8"
+  printf 'codex some-model medium\n' > "$home/config/secondmate-harness"
+  printf 'codex other-model high\n' > "$home/config/secondmate-harness.d/sm8"
+  printf '# secondmate brief\n' > "$home/data/sm8/brief.md"
+  fm_git_worktree "$dir/proj" "$dir/smhome" sm-branch
+  mkdir -p "$dir/smhome/state" "$dir/smhome/data" "$dir/smhome/bin"
+  printf 'sm8\n' > "$dir/smhome/.fm-secondmate-home"
+  printf '# agents\n' > "$dir/smhome/AGENTS.md"
+  {
+    echo "window=fmses:fm-sm8"
+    echo "endpoint_task_id=sm8"
+    echo "worktree=$dir/smhome"
+    echo "project=$dir/smhome"
+    echo "harness=claude"
+    echo "kind=secondmate"
+    echo "mode=secondmate"
+    echo "yolo=off"
+    echo "model=default"
+    echo "effort=default"
+    echo "home=$dir/smhome"
+  } > "$home/state/sm8.meta"
+  printf '%s\n' "fm-sm8" > "$dir/fake/windows"
+  printf '%s' "$dir/smhome" > "$dir/fake/cwd"
+  printf 'codex' > "$dir/fake/becomes"
+  out=$(run_control "$dir" sm8 relaunch); rc=$?
+  expect_code 0 "$rc" "a per-id pinned secondmate should relaunch"$'\n'"$out"
+  [ "$(journal_field "$dir" sm8 to_model)" = other-model ] \
+    || fail "the per-id model should beat the shared pin, got '$(journal_field "$dir" sm8 to_model)'"
+  [ "$(journal_field "$dir" sm8 to_effort)" = high ] \
+    || fail "the per-id effort should beat the shared pin, got '$(journal_field "$dir" sm8 to_effort)'"
+  pass "fm-control relaunch: a secondmate relaunch re-resolves its own per-id pin ahead of the shared one"
 }
 
 test_secondmate_relaunch_ignores_invalid_configured_effort_before_stop() {
@@ -2388,6 +2468,7 @@ test_relaunch_moves_a_drifted_item_back_in_flight() {
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint
 test_relaunch_refuses_before_exit_when_the_composer_holds_pending_text
 test_relaunch_refuses_before_exit_when_the_composer_state_is_unproven
+test_relaunch_refuses_before_exit_when_the_composer_geometry_is_unproven
 test_relaunch_from_linked_home_preserves_recorded_worktree
 test_relaunch_preserves_durable_task_metadata
 test_relaunch_serializes_concurrent_durable_metadata_publication
@@ -2408,6 +2489,7 @@ test_prior_harness_turnend_registry_entry_is_cleared
 test_wiring_removal_failure_refuses_before_replacement_arm
 test_turnend_auth_paths_are_owned_by_the_control_adapter
 test_secondmate_relaunch_picks_up_the_configured_harness_pin
+test_secondmate_relaunch_picks_up_its_per_id_pin
 test_secondmate_relaunch_ignores_invalid_configured_effort_before_stop
 test_secondmate_relaunch_onto_a_crewmate_only_adapter_refuses_before_stop
 test_explicit_secondmate_harness_ignores_configured_profile_axes

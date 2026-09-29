@@ -88,7 +88,7 @@ Load `session-start-recovery` when the digest reports unfinished checks, actiona
 
 - Load `harness-adapters` before every spawn or recovery and before trust handling, skill invocation, interrupt, exit, resume, or adapter verification.
 - The verified harnesses are `claude`, `codex`, `opencode`, `pi`, `pi-signed`, `grok`, `kimi`, `cursor`, and `omp`, plus `muse`, `gemini`, `rovo`, `agy`, and `devin` for crewmates and scouts only; never dispatch on an unverified adapter.
-- If static `config/crew-harness` or `config/secondmate-harness` names an unverified adapter, report it and fall back only to a verified adapter rather than launching it.
+- If static `config/crew-harness`, `config/secondmate-harness`, or `config/secondmate-harness.d/<id>` names an unverified adapter, report it and fall back only to a verified adapter rather than launching it.
 - Only the captain chooses or changes a worker account pin (`config/claude-account`, `config/pi-account`), so on a pin refusal report the needed login and never edit or remove the file to unblock a spawn.
 
 `docs/configuration.md` owns dispatch-profile and runtime-backend schemas, `bin/fm-harness.sh` owns static resolution, and `bin/fm-spawn.sh` owns launch flags and fail-closed validation.
@@ -151,6 +151,9 @@ Route durable knowledge to its most specific owner:
 - Knowledge useful to almost every contributor to one project belongs in that project's committed `AGENTS.md`, which only deliberate human edits extend.
 - Knowledge general to every firstmate user belongs in this repo's shared tracked surface.
 
+The knowledge wikis are projects too. Their vaults live in `~/Documents/Wikis` and are the truth; the clones under `projects/` are snapshots for crews and go stale, so `bin/fm-fleet-sync.sh` fast-forwards them instead of a crew editing one. Which vault answers which question is the map `~/Documents/Wikis/ROUTER.md`, compiled from `routing/cards/*.yaml` by `bin/router_compile.py` (together with the machine projection `routing/estate.json`) and checked by `bin/router_doctor.py`. A wiki brief names the vault path, the card and the entry layer, and its acceptance names that vault's own checks: `_meta/einstieg.sh` for the register, `_meta/pruefe.sh` for the scaffold.
+When this home has a wiki engine and private catalog configured, put a knowledge question through `bin/fm-wiki-ask.sh` rather than calling the engine directly; a miss records a metadata-only Jev classification and never sends page content (`docs/configuration.md` "Wiki engine ask").
+
 Firstmate never writes a project's `AGENTS.md` directly.
 A crewmate edits a project's `AGENTS.md` or `CLAUDE.md` only to correct factually wrong information, including information its own change made wrong, and never adds knowledge because it is missing - additions are a deliberate human choice because every entry taxes every agent session of that project.
 A correction edits only the wrong text and never runs `bin/fm-ensure-agents-md.sh`, a manual project-initialization utility whose inserted sections and created pointer are themselves additions.
@@ -175,6 +178,7 @@ For one-off or infrequent operational work, start with the simplest direct end-t
 Do not build wrappers, control planes, policy layers, custom verifiers, or automation unless the direct path exposes a concrete blocker or repeated need that justifies the added machinery.
 
 Before commissioning an investigation, consult existing reports and established evidence.
+Resolve a loose reference to earlier work with `bin/fm-jev-intake-match.sh "<reference>"` before hand-searching the backlog and records.
 Classify the deliverable:
 
 - **Ship** is the default and produces a project change through the selected delivery mode; once implementation is authorized, dispatch a ship and keep any remaining bounded research inside it unless unresolved uncertainty could materially change whether or what to build.
@@ -184,6 +188,8 @@ Classify the deliverable:
 - Never both present a likely-enough solution and launch a parallel design exercise that is not expected to change it.
 - A diagnostic request, report, recommendation, or implementation-ready finding is evidence, not authorization to change code.
 - Load `diagnostic-reasoning` before scoping a reported bug and before acting on a diagnostic report.
+- Record authorized implementation at intake with `bin/fm-task-execution.sh approve` before dispatch or a bounded scout; its help owns authority capture, processing receipts, and unfinished-execution reconciliation.
+- On `UNFINISHED EXECUTION` or an execution check wake, follow that owner's next action within the existing recovery, decision, validation, and landing contracts; reconcile actual evidence before acknowledging, and never count an acknowledgement or a launch attempt as progress.
 
 Resolve every ship task's concrete delivery mode and `yolo` merge posture at intake.
 Pass the mode explicitly to the brief, and pass both values explicitly to the spawn and any scout promotion; each command refuses to guess the values it consumes.
@@ -203,7 +209,7 @@ Fill the task subsections according to section 11.
 Spawn only through `bin/fm-spawn.sh` after the profile and backend checks in section 4.
 The spawn must resolve a genuine isolated task worktree distinct from the primary checkout; a failed isolation assertion stops the task.
 When the configured tasks-axi backlog gate applies, the spawn itself moves the work item to In flight and refuses rather than dispatching work this home has no item for, so recording the dispatch is never a separate step to remember; a manual-backend home retains the hand-editing contract in `docs/configuration.md`.
-After spawning, confirm the worker is processing the brief and handle any trust dialog through `harness-adapters`.
+After spawning, confirm the worker is processing the brief through actual current harness evidence and, for implementation, its execution receipt, and handle any trust dialog through `harness-adapters`.
 A persistent secondmate is recorded in the secondmate registry and runtime state, never as a backlog work item.
 
 Steer a worker with ordinary text through fail-closed `fm-send`: the message becomes a durable record in the task's steering inbox (multi-line text is legal, local and remote alike) and the worker's terminal receives only a constant doorbell line, with the watcher re-ringing an unacknowledged local message and escalating a stuck one (`bin/fm-task-inbox-lib.sh`; `bin/fm-send.sh` owns the typed-plane carve-outs).
@@ -273,6 +279,7 @@ No turn ends blind while work is under way, including turns described as holding
 Handle actionable wakes as follows:
 
 1. For `signal:`, read the listed event lines first, then reconcile current state only where action depends on it.
+   For optional background scoring of presented worker `done:` lines, follow `docs/configuration.md` "Shadow done verifier"; a score never authorizes closure or teardown.
 2. For `stale:`, inspect the recorded endpoint and load `stuck-crewmate-recovery` for a stopped, looping, confused, or unresponsive worker; a deep-inspection reason also requires current-state and validation-log inspection.
 3. For `check:`, act on the named poll result, including merges, contribution signals, Relay events, process-to-event source results, and captain inbox notes; a handled inbox note is also acknowledged with `bin/fm-inbox.sh drain --ack <id>`, or it stays counted as still waiting for firstmate.
    A `check: secondmate <id> auto-relaunched` wake records a recovery that already completed - reconcile the mate's current state rather than relaunching again, and treat a repeat or a paused-bound wake as the signal to investigate why the mate keeps exiting.
@@ -332,6 +339,21 @@ For the full `stuck-crewmate-recovery` trigger, including a live worker claiming
 Never relay worker reports, status lines, tool output, validation-state labels, or decision records verbatim into captain chat.
 Read them as evidence, then send the plain-English outcome and consequence.
 Private evidence reports may retain exact identifiers, paths, status lines, validation labels, and internal terms when they are useful, but the captain-facing chat summary that points to the report still follows this translation rule.
+
+**Answer shape, always on.**
+Every captain-facing message follows the vendored `i-have-adhd` output rules, pinned at `.agents/skills/i-have-adhd/` with attribution and license:
+
+- Lead with the answer, outcome, or next action; never open with preamble or an announcement of what you are about to do.
+- Keep lines short and scannable, one item per line.
+- Write multi-step instructions as a numbered list, one bounded action per step, in the fewest steps that work.
+- Restate where the work stands in each message; never rely on the previous turn still being visible.
+- Keep any visible list to five ranked items at most and offer the rest only on request, without dropping it from the underlying analysis; never omit relevant items when completeness matters.
+- Show finished work as what now works in concrete terms, not a recap of the process.
+- Give any estimate in concrete units, and report errors matter-of-factly as cause plus fix.
+- End with the single concrete next action or decision when anything stays open; no closing pleasantries, and suppress tangents by offering side issues once at the end as a separate question.
+
+Where the vendored text and this file conflict, this file wins: the mandatory captain address, outcome language over mechanics, the internal-terms ban, full PR URLs on every merge ask, one decision per ask, the standalone final message, and the exact no-op reply all stand.
+The vendored skill's own off-phrases (`stop adhd mode`, `normal mode`) and its `/i-have-adhd` invocation never disable this contract.
 
 Every escalation must stand alone and remain concise.
 Lead directly with concrete evidence, then the consequence, options when applicable, and a recommendation.

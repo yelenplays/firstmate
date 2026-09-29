@@ -26,6 +26,11 @@ if [ -n "${FM_TEST_LIB_SOURCED:-}" ]; then
 fi
 FM_TEST_LIB_SOURCED=1
 
+# Direct `bash tests/...` entry points need the same boundary as the runner.
+# Do this before any fixture or production helper can read inherited routing.
+# shellcheck source=tests/environment.sh
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # Pin the fixture umask. Firstmate's state-root and process-event contracts
 # refuse group- or world-writable state directories, and a permissive ambient
 # umask (e.g. 0002) makes every `mkdir state` fixture fail that contract before
@@ -402,6 +407,36 @@ fm_fakebin() {
   printf '%s\n' "$fakebin"
 }
 
+# fm_install_jev_stubs: verdict-driven stand-ins for the two bounded Jev
+# supervision helpers (bin/fm-jev-status-triage.sh, bin/fm-jev-wedge-check.sh),
+# written as <fakebin>/jev-status-stub and <fakebin>/jev-wedge-stub. Each
+# appends its stdin to $FM_JEV_STUB_DIR/<name>.stdin and its argv to
+# $FM_JEV_STUB_DIR/<name>.args so a case can assert what the consult saw, then
+# prints $FM_JEV_STUB_<NAME>_VERDICT when it is exactly `escalate` or
+# `suppress`; any other value (or unset) exits 1 with no verdict - the
+# fail-closed helper shape.
+fm_install_jev_stubs() {  # <fakebin>
+  local fakebin=$1 name upper
+  mkdir -p "$fakebin"
+  for name in status wedge; do
+    upper=$(printf '%s' "$name" | tr '[:lower:]' '[:upper:]')
+    cat > "$fakebin/jev-$name-stub" <<SH
+#!/usr/bin/env bash
+if [ -n "\${FM_JEV_STUB_DIR:-}" ]; then
+  cat >> "\$FM_JEV_STUB_DIR/$name.stdin"; printf '\\n' >> "\$FM_JEV_STUB_DIR/$name.stdin"
+  printf '%s\\n' "\$*" >> "\$FM_JEV_STUB_DIR/$name.args"
+else
+  cat >/dev/null
+fi
+case "\${FM_JEV_STUB_${upper}_VERDICT:-}" in
+  escalate|suppress) printf '%s\\n' "\$FM_JEV_STUB_${upper}_VERDICT"; exit 0 ;;
+  *) exit 1 ;;
+esac
+SH
+    chmod +x "$fakebin/jev-$name-stub"
+  done
+}
+
 fm_fake_exit0() {
   local fakebin=$1 tool
   shift
@@ -564,14 +599,24 @@ fm_git_worktree() {
 # --- state/<id>.meta writers ------------------------------------------------
 
 # fm_write_meta <file> <key=val> ...: write the given key=val lines to a meta
-# file (truncating any prior content).
+# file (truncating any prior content). When the fields record a window, the
+# matching .window-owner-<key> claim is written first - fm-spawn.sh claims the
+# endpoint before it publishes the record, so a fixture meta always arrives
+# with its owner already bound, and only a test that explicitly removes the
+# claim afterwards can model pre-owner-era residue.
 fm_write_meta() {
-  local file=$1 kv
+  local file=$1 kv dir task window key
   shift
   : > "$file"
   for kv in "$@"; do
     printf '%s\n' "$kv" >> "$file"
+    case "$kv" in window=?*) [ -z "${window:-}" ] && window=${kv#window=} ;; esac
   done
+  if [ -n "${window:-}" ]; then
+    dir=$(dirname "$file"); task=${file##*/}; task=${task%.meta}
+    key=$(printf '%s' "$window" | tr ':/.' '___')
+    printf '%s' "$task" > "$dir/.window-owner-$key"
+  fi
 }
 
 # fm_write_secondmate_meta <file> <home> [window] [projects] [harness]: write the

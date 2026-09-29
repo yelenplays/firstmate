@@ -148,6 +148,8 @@ A failed confirmation is never swallowed.
 The adapter waits at most one readiness timeout per attempt.
 If the successor is not ready in that time, the adapter sends TERM and waits a bounded retirement confirmation before the next lock-verified exponential retry.
 
+If the arm owner instead proves that the exact recovery generation was already acknowledged and no queue rows remain, Pi and OpenCode skip the obsolete follow-up without retrying or stopping the successor; `bin/fm-watch-arm.sh` owns that terminal confirmation result.
+An empty queue alone, missing or malformed recovery evidence, a different generation, or an unverified successor never authorizes suppression.
 If the unready arm does not retire within that bound, the adapter keeps ownership, starts no overlapping retry, and delivers the typed fallback immediately.
 When that retained arm later closes, its actual close is classified as a new supervised event without replaying the earlier fallback.
 After the configured retry bound is exhausted, the adapter delivers the original wake with a typed continuity-restoration failure, even if every successor arm hung without reporting readiness.
@@ -458,6 +460,7 @@ It checks that a newly appended keyed decision is classified without rereading e
 
 ### Claude auto-arm and turn-end guard
 
+`tests/fm-watch-recovery-loop.test.sh` covers the once-per-generation announcement bound with the real Pi extension against a refused handling handshake, the real acknowledgement-before-delivery race and its pending/new-work counterfactuals, and a handling successor that must surface a real crew event instead of going blind.
 `tests/fm-subagent-pretool-check.test.sh` proves Claude retains only the non-status Bash seatbelts.
 
 `tests/fm-claude-stop-autoarm.test.sh` covers:

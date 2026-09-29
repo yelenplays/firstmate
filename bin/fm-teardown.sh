@@ -342,6 +342,10 @@ unset _teardown_source
 . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
 # shellcheck source=bin/fm-backend.sh
 . "$SCRIPT_DIR/fm-backend.sh"
+# The watcher marker lifecycle owner: teardown retires the task's per-window
+# and per-task supervision bookkeeping with the rest of its runtime state.
+# shellcheck source=bin/fm-watch-state-lib.sh
+. "$SCRIPT_DIR/fm-watch-state-lib.sh"
 # shellcheck source=bin/fm-control-lib.sh
 . "$SCRIPT_DIR/fm-control-lib.sh"
 # shellcheck source=bin/fm-lock-lib.sh
@@ -952,6 +956,7 @@ pending_replies_cleanup_for_task() {
       [ -z "$corr" ] || [ "$corr" = "$base" ] || exit 1
       rm -f -- "./.delivery-confirmed-$base" "$rec" || exit 1
     done
+    exit 0
   )
 }
 
@@ -1052,6 +1057,8 @@ remote_secondmate_teardown() {
   mv -f -- "$tmp" "$SECONDMATE_REG"
   [ ! -e "$CONFIG/fleet-ledger" ] || FM_HOME=$FM_HOME FM_STATE_OVERRIDE=$STATE FM_CONFIG_OVERRIDE=$CONFIG "$SCRIPT_DIR/fm-fleet-ledger.sh" cleaned_up "$ID" || true
   status_retire_presentation_task "$STATE" "$ID" || return 1
+  fm_watch_retire_task_state "$STATE" "$ID" || return 1
+  fm_watch_retire_window_state "$STATE" "$(fm_backend_target_of_meta "$META")" "$ID" || return 1
   fm_backlog_atomic_transition remove "$STATE/$ID.meta" "task record" "$STATE" || return 1
   rm -f -- "$STATE/$ID.turn-ended" "$STATE/$ID.progress" \
     "$STATE/.secondmate-relaunch-$ID" "$STATE/.secondmate-relaunch-bound-$ID"
@@ -1687,13 +1694,6 @@ inspectable_git_worktree() {
   git -C "$top" rev-parse --git-dir >/dev/null 2>&1
 }
 
-canonical_existing_dir() {
-  local target=$1
-  [ -n "$target" ] || return 1
-  [ -d "$target" ] || return 1
-  ( cd "$target" && pwd -P )
-}
-
 retry_wait_secs_is_valid() {
   [[ "$1" =~ ^([0-9]+([.][0-9]*)?|[.][0-9]+)$ ]]
 }
@@ -1731,7 +1731,7 @@ worktree_git_lock_path() {
   case "$lock" in
     /*) printf '%s\n' "$lock" ;;
     *)
-      abs_dir=$(canonical_existing_dir "$dir") || return 1
+      abs_dir=$(fm_canonical_existing_dir "$dir") || return 1
       printf '%s/%s\n' "$abs_dir" "$lock"
       ;;
   esac
@@ -2266,11 +2266,11 @@ require_orca_worktree_path_match() {
     echo "REFUSED: cannot resolve Orca worktree id $worktree_id to a path; preserving metadata." >&2
     return 1
   }
-  inspected_abs=$(canonical_existing_dir "$inspected") || {
+  inspected_abs=$(fm_canonical_existing_dir "$inspected") || {
     echo "REFUSED: cannot canonicalize inspected worktree ${inspected:-<missing>}; preserving metadata." >&2
     return 1
   }
-  resolved_abs=$(canonical_existing_dir "$resolved") || {
+  resolved_abs=$(fm_canonical_existing_dir "$resolved") || {
     echo "REFUSED: Orca worktree id $worktree_id resolved to uninspectable path ${resolved:-<missing>}; preserving metadata." >&2
     return 1
   }
@@ -2294,81 +2294,26 @@ require_orca_worktree_path_match_if_present() {
 teardown_live_slot_path() {
   [ "$KIND" != secondmate ] || return 1
   fm_treehouse_pool_slot "$PROJ" "$WT" || return 1
-  canonical_existing_dir "$WT"
+  fm_canonical_existing_dir "$WT"
 }
 
-collect_local_firstmate_states() {
-  local record_state=$1 root home reg line child known existing i=0
-  local -a homes
-  TREEHOUSE_OWNER_STATES=("$record_state")
-  root=$(fm_firstmate_root_home "$FM_HOME") || {
-    echo "REFUSED: cannot resolve the root Firstmate home; nothing was changed" >&2
-    return 1
-  }
-  homes=("$root")
-  while [ "$i" -lt "${#homes[@]}" ]; do
-    home=${homes[$i]}
-    i=$((i + 1))
-    known=0
-    for existing in "${TREEHOUSE_OWNER_STATES[@]}"; do
-      [ "$existing" != "$home/state" ] || known=1
-    done
-    [ "$known" = 1 ] || TREEHOUSE_OWNER_STATES+=("$home/state")
-    reg="$home/data/secondmates.md"
-    [ ! -e "$reg" ] && [ ! -L "$reg" ] && continue
-    [ -f "$reg" ] && [ ! -L "$reg" ] || {
-      echo "REFUSED: local Firstmate registry is unsafe at $reg; nothing was changed" >&2
-      return 1
-    }
-    while IFS= read -r line || [ -n "$line" ]; do
-      case "$line" in
-        "- "*)
-          secondmate_registry_parse_line "$line" || {
-            echo "REFUSED: malformed local Firstmate registry entry in $reg; nothing was changed" >&2
-            return 1
-          }
-          [ "$SECONDMATE_REGISTRY_REMOTE" -eq 0 ] || continue
-          child=$(canonical_existing_dir "$SECONDMATE_REGISTRY_HOME") || {
-            echo "REFUSED: registered local Firstmate home is unavailable: $SECONDMATE_REGISTRY_HOME; nothing was changed" >&2
-            return 1
-          }
-          known=0
-          for existing in "${homes[@]}"; do
-            [ "$existing" != "$child" ] || known=1
-          done
-          [ "$known" = 1 ] || homes+=("$child")
-          ;;
-      esac
-    done < "$reg"
-  done
-}
-
+# No other task record in any local Firstmate home may name this record's live
+# slot in its worktree= or home=. bin/fm-wake-lib.sh owns the home enumeration
+# and the record scan; this wrapper only shapes teardown's refusal.
 require_exclusive_worktree_slot_record() {
   local record_meta=$1 record_id=$2 record_state=$3 worktree=$4
-  local slot state_dir other other_id field other_path other_slot
-  slot=$(canonical_existing_dir "$worktree") || return 0
-  collect_local_firstmate_states "$record_state" || return 1
-  for state_dir in "${TREEHOUSE_OWNER_STATES[@]}"; do
-    for other in "$state_dir"/*.meta; do
-      [ -f "$other" ] && [ ! -L "$other" ] || continue
-      # Identity, not spelling: the same record reached through a differently
-      # resolved state dir (e.g. a symlinked $FM_HOME) is still this record. A
-      # differently named hardlink is another task's record, so the name must
-      # match too.
-      [ "${other##*/}" = "${record_meta##*/}" ] && [ "$other" -ef "$record_meta" ] && continue
-      other_id=$(basename "$other" .meta)
-      for field in worktree home; do
-        other_path=$(fm_meta_get "$other" "$field")
-        [ -n "$other_path" ] || continue
-        other_slot=$(canonical_existing_dir "$other_path") || continue
-        [ "$other_slot" = "$slot" ] || continue
-        echo "REFUSED: task $record_id's recorded worktree $slot is also task $other_id's recorded $field." >&2
-        echo "Returning that pool slot would kill $other_id's processes and reset its copy, so nothing was changed - not even with --force." >&2
-        echo "Reconcile whichever record is wrong (bin/fm-crew-state.sh $record_id; bin/fm-crew-state.sh $other_id), then re-run teardown." >&2
-        return 1
-      done
-    done
-  done
+  local slot conflict other_id field
+  slot=$(fm_canonical_existing_dir "$worktree") || return 0
+  fm_collect_local_firstmate_states "$record_state" "nothing was changed" || return 1
+  conflict=$(fm_task_record_conflicts_on_path "$slot" "$record_meta") || return 1
+  conflict=${conflict%%$'\n'*}
+  [ -n "$conflict" ] || return 0
+  other_id=$(printf '%s' "$conflict" | cut -f1)
+  field=$(printf '%s' "$conflict" | cut -f2)
+  echo "REFUSED: task $record_id's recorded worktree $slot is also task $other_id's recorded $field." >&2
+  echo "Returning that pool slot would kill $other_id's processes and reset its copy, so nothing was changed - not even with --force." >&2
+  echo "Reconcile whichever record is wrong (bin/fm-crew-state.sh $record_id; bin/fm-crew-state.sh $other_id), then re-run teardown." >&2
+  return 1
 }
 
 require_exclusive_task_worktree_slot() {
@@ -3283,6 +3228,11 @@ cleanup_firstmate_home_children() {
     fi
     retire_busy_state "$sub_state" "$child_id" "$child_busy_gen" || return 1
     status_retire_presentation_task "$sub_state" "$child_id" || return 1
+    if [ -d "$sub_state" ]; then
+      case "$child_kind" in
+        ship|scout|task) rm -f -- "$sub_state/$child_id.execution" "$sub_state/.$child_id.execution-notified" ;;
+      esac
+    fi
     fm_wake_queue_prune_task "$sub_state" "$child_id" "$child_t" 2>/dev/null || true
     fm_backlog_atomic_transition remove "$sub_state/$child_id.meta" "task record" "$sub_state" || return 1
     rm -f "$sub_state/$child_id.turn-ended" "$sub_state/$child_id.progress" \
@@ -3747,8 +3697,14 @@ retire_busy_state "$STATE" "$ID" "$BUSY_GEN" || exit 1
 # retired so its last lines are captured; off costs one file test.
 [ ! -e "$CONFIG/fleet-ledger" ] || FM_HOME=$FM_HOME FM_STATE_OVERRIDE=$STATE FM_CONFIG_OVERRIDE=$CONFIG "$SCRIPT_DIR/fm-fleet-ledger.sh" cleaned_up "$ID" || true
 status_retire_presentation_task "$STATE" "$ID" || exit 1
+# The endpoint this task recorded is dead and its task-scoped supervision is
+# over: retire the watcher's per-window and per-task bookkeeping now, so a
+# successor claiming the same endpoint can never inherit this worker's stale
+# counters or escalation count.
+fm_watch_retire_task_state "$STATE" "$ID" || exit 1
+fm_watch_retire_window_state "$STATE" "$T" "$ID" || exit 1
 fm_wake_queue_prune_task "$STATE" "$ID" "$T" 2>/dev/null || true
-rm -f "$STATE/$ID.turn-ended" "$STATE/$ID.progress" \
+rm -f "$STATE/$ID.turn-ended" "$(fm_wake_signal_seen_path "$STATE" "$STATE/$ID.turn-ended")" "$STATE/$ID.progress" \
   "$STATE/$ID.pi-ext.ts" "$STATE/$ID.omp-ext.ts" "$STATE/$ID.grok-turnend-token" \
   "$STATE/$ID.kimi-turnend-token" "$STATE/$ID.muse-session" \
   "$STATE/$ID.muse-session-current" "$STATE/$ID.cursor-session" \
@@ -3757,6 +3713,22 @@ rm -f "$STATE/$ID.turn-ended" "$STATE/$ID.progress" \
   "$STATE/$ID.reconcile-nudged" "$STATE/$ID.gemini-settings.json" "$STATE/$ID.devin-config.json" \
   "$STATE/.$ID.branch-outcome-index" \
   "$STATE/.secondmate-relaunch-$ID" "$STATE/.secondmate-relaunch-bound-$ID"
+if [ -d "$STATE" ]; then
+  case "$KIND" in
+    ship|scout|task) rm -f -- "$STATE/$ID.execution" "$STATE/.$ID.execution-notified" ;;
+  esac
+fi
+# Preserve the finished-task record while its brief, status log, and backlog
+# row are still available; the history command is idempotent if cleanup retries.
+if [ "$KIND" != secondmate ]; then
+  HISTORY_TASK_ARGS=("$ID")
+  if [ "$BACKLOG_TRANSITION" = close ]; then HISTORY_TASK_ARGS+=(--completed); fi
+  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
+    "$SCRIPT_DIR/fm-history.sh" task "${HISTORY_TASK_ARGS[@]}" || {
+      echo "error: $ID's private task-history card could not be written; retaining the remaining task records for retry" >&2
+      exit 1
+    }
+fi
 # The steering inbox (bin/fm-task-inbox-lib.sh) is runtime state for the
 # retired endpoint; teardown only runs after landing is confirmed, so any
 # leftover unhandled steer here is moot rather than unlanded work.
@@ -3804,6 +3776,10 @@ fi
 # state directory. Do not let the side-band refresh recreate that retired home.
 if [ -d "$STATE" ]; then
   "$SCRIPT_DIR/fm-home-summary-refresh.sh" --best-effort || true
+fi
+if [ "$KIND" != secondmate ]; then
+  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
+    "$SCRIPT_DIR/fm-logbook-refresh.sh" >/dev/null 2>&1 || true
 fi
 if [ "$TEARDOWN_LEGACY_ACCEPTED" = 1 ]; then
   echo "teardown $ID complete (window ${T:-none}, worktree $WT, legacy record accepted without spawn_gen: endpoint $TEARDOWN_LEGACY_ENDPOINT, incarnation $TEARDOWN_META_SPAWN_GEN)"

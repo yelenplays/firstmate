@@ -235,6 +235,18 @@ fm_control_exit_command() {  # <harness>
   esac
 }
 
+# Non-typing fallback for an unreadable composer. Grok's double Ctrl+Q quits
+# even from its weekly-limit picker; never substitute a typed command there.
+# The pair must arrive within 1000ms; fm-control still verifies agent death.
+# Other harnesses have no verified non-typing fallback.
+fm_control_exit_fallback_key() {  # <harness>
+  case "${1-}" in grok) printf 'C-q' ;; *) return 1 ;; esac
+}
+
+fm_control_exit_fallback_repeat() {  # <harness>
+  case "${1-}" in grok) printf '2' ;; *) return 1 ;; esac
+}
+
 # The launch argument that makes a RELAUNCH of <harness> RESUME an exact agent
 # session instead of starting a fresh one, printed only when <registered-agent>
 # is the label that session reference belongs to; nothing otherwise.
@@ -278,6 +290,9 @@ fm_control_relaunch_resume_flag() {  # <harness> <registered-agent>
 # Ctrl+U (bin/backends/orca.sh's fm_backend_orca_send_key).
 fm_control_backend_supports_key() {  # <backend> <key>
   local backend=${1-} key=${2-}
+  case "$backend:$key" in
+    herdr:C-q) return 0 ;;
+  esac
   case "$backend" in
     tmux|herdr|zellij|cmux)
       case "$key" in Escape|Enter|C-c|C-u) return 0 ;; esac

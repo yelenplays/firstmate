@@ -45,7 +45,7 @@ Only `FM_PI_HARNESS=pi-signed` at the launch boundary together with `PI_CODING_A
 omp publishes no marker of its own; `FM_OMP_HARNESS=omp` is Firstmate's launch marker and the anchored process name `omp` is its ancestry evidence, as `references/harness/omp.md` records.
 `../../../bin/fm-spawn.sh` owns worker marker establishment, while the README launch command owns the signed-primary boundary.
 `../../../bin/fm-harness.sh crew` resolves `config/crew-harness`, where absent or `default` means firstmate's own harness.
-`../../../bin/fm-harness.sh secondmate` resolves `config/secondmate-harness` -> `config/crew-harness` -> firstmate's own harness.
+`../../../bin/fm-harness.sh secondmate [<id>]` resolves `config/secondmate-harness.d/<id>` (when an id is given) -> `config/secondmate-harness` -> `config/crew-harness` -> firstmate's own harness.
 `../../../bin/fm-spawn.sh` re-resolves on every spawn, and an explicit per-spawn argument wins for that spawn.
 A new adapter's verified marker and command name must land in `../../../bin/fm-harness.sh`.
 
@@ -91,6 +91,7 @@ A new tool remains undispatchable until the `verify` plan, its harness entry, ev
     "grok": "references/harness/grok.md",
     "kimi": "references/harness/kimi.md",
     "cursor": "references/harness/cursor.md",
+    "devin": "references/harness/devin.md",
     "gemini": "references/harness/gemini.md",
     "muse": "references/harness/muse.md",
     "rovo": "references/harness/rovo.md",

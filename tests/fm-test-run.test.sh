@@ -92,6 +92,7 @@ init_changed_fixture_repo() {
   local repo=$1 script
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$repo/bin/fm-test-run.sh"
+  cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
   chmod +x "$repo/bin/fm-test-run.sh"
   for script in \
@@ -188,6 +189,7 @@ init_primary_and_linked_worktree() {
     mkdir -p "$tree/bin" "$tree/tests"
     cp "$RUNNER" "$tree/bin/fm-test-run.sh"
     cp "$ROOT/tests/git-config-helpers.sh" "$tree/tests/"
+    cp "$ROOT/tests/environment.sh" "$tree/tests/environment.sh"
     chmod +x "$tree/bin/fm-test-run.sh"
     cat >"$tree/tests/probe.test.sh" <<PROBE
 #!/usr/bin/env bash
@@ -513,6 +515,7 @@ PY
   mkdir -p "$timeout_repo/bin" "$timeout_repo/tests"
   cp "$RUNNER" "$timeout_repo/bin/fm-test-run.sh"
   cp "$ROOT/tests/git-config-helpers.sh" "$timeout_repo/tests/"
+  cp "$ROOT/tests/environment.sh" "$timeout_repo/tests/environment.sh"
   cat >"$timeout_repo/bin/fm-timeout-lib.sh" <<'SH'
 fm_run_timed() {
   [ "$1" -eq 1500 ] || return 99
@@ -665,6 +668,7 @@ test_family_proofs_run_in_separate_concurrent_phases() {
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$repo/bin/fm-test-run.sh"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
+  cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   cp "$ROOT/bin/fm-timeout-lib.sh" "$repo/bin/fm-timeout-lib.sh"
   chmod +x "$repo/bin/fm-test-run.sh"
   for script in \
@@ -1050,48 +1054,52 @@ test_list_scheduled_non_lane_selections_use_serial_weights() {
 }
 
 test_portable_shard_union_and_coverage_guard() {
-  local s1 s2 proven serial herdr all_count union_count overlap out lane
+  local s1 s2 s3 proven serial herdr all_count union_count overlap out lane lanes
   s1=$("$RUNNER" --list --lane portable-parallel-1)
   s2=$("$RUNNER" --list --lane portable-parallel-2)
+  s3=$("$RUNNER" --list --lane portable-parallel-3)
   proven=$("$RUNNER" --list --proven-isolated)
   serial=$("$RUNNER" --list --lane portable-serial)
   herdr=$("$RUNNER" --list --family real-herdr-gated)
-  [ -n "$s1" ] && [ -n "$s2" ] || fail "portable parallel shards must be non-empty"
+  [ -n "$s1" ] && [ -n "$s2" ] && [ -n "$s3" ] \
+    || fail "portable parallel shards must be non-empty"
+  lanes=$("$RUNNER" --list-lanes)
+  for lane in portable-parallel-1 portable-parallel-2 portable-parallel-3; do
+    printf '%s\n' "$lanes" | grep -Fxq "$lane" || fail "$lane must be listed"
+  done
   # Shards disjoint.
-  overlap=$(comm -12 <(printf '%s\n' "$s1" | LC_ALL=C sort) <(printf '%s\n' "$s2" | LC_ALL=C sort) || true)
+  overlap=$(printf '%s\n' "$s1" "$s2" "$s3" | LC_ALL=C sort | uniq -d || true)
   [ -z "$overlap" ] || fail "portable parallel shards overlap: $overlap"
   # Union of shards equals proven-isolated.
-  [ "$(printf '%s\n' "$s1" "$s2" | LC_ALL=C sort -u)" = \
+  [ "$(printf '%s\n' "$s1" "$s2" "$s3" | LC_ALL=C sort -u)" = \
     "$(printf '%s\n' "$proven" | LC_ALL=C sort -u)" ] \
     || fail "shard union must equal proven-isolated set"
   # No herdr in portable lanes.
-  printf '%s\n' "$s1" "$s2" "$serial" | grep -Fq 'tests/fm-backend-herdr-smoke.test.sh' \
+  printf '%s\n' "$s1" "$s2" "$s3" "$serial" | grep -Fq 'tests/fm-backend-herdr-smoke.test.sh' \
     && fail "portable lanes must not include real-herdr-gated smoke"
   printf '%s\n' "$herdr" | grep -Fq 'tests/fm-backend-herdr-smoke.test.sh' \
     || fail "herdr family must include smoke"
   out=$("$RUNNER" --check-coverage)
   assert_contains "$out" "FM_TEST_COVERAGE ok" "coverage guard success marker"
   all_count=$("$RUNNER" --list --all | wc -l | tr -d ' ')
-  union_count=$(printf '%s\n' "$s1" "$s2" "$serial" "$herdr" | LC_ALL=C sort -u | wc -l | tr -d ' ')
+  union_count=$(printf '%s\n' "$s1" "$s2" "$s3" "$serial" "$herdr" | LC_ALL=C sort -u | wc -l | tr -d ' ')
   [ "$union_count" = "$all_count" ] \
     || fail "union of lanes ($union_count) must equal --all ($all_count)"
-  # No duplicates across the four partitions.
-  [ "$(printf '%s\n' "$s1" "$s2" "$serial" "$herdr" | LC_ALL=C sort | uniq -d | wc -l | tr -d ' ')" = "0" ] \
+  # No duplicates across the five partitions.
+  [ "$(printf '%s\n' "$s1" "$s2" "$s3" "$serial" "$herdr" | LC_ALL=C sort | uniq -d | wc -l | tr -d ' ')" = "0" ] \
     || fail "lanes must not duplicate scripts"
   # LPT execution order, asserted against the runner's own measured schedule
   # rather than against a script name: naming the current longest script here is
   # what let the recorded lane duration go stale unnoticed in the first place.
-  for lane in portable-parallel-1 portable-parallel-2; do
+  for lane in portable-parallel-1 portable-parallel-2 portable-parallel-3; do
     [ "$("$RUNNER" --list --lane "$lane")" = "$("$RUNNER" --list-scheduled --lane "$lane")" ] \
       || fail "$lane membership must be stored longest-measured-first"
   done
   pass "portable shard union, disjointness, and coverage guard hold"
 }
 
-# The two parallel lanes are only "duration-balanced" while every member has a
-# measured hint and the packing over those hints stays even. Both halves went
-# unchecked until one lane grew past its CI job cap and was cancelled on every
-# run, so assert them through the guard's own reported numbers.
+# The portable parallel lanes are only "duration-balanced" while every member
+# has a measured hint and the packed estimate stays below seven minutes.
 test_portable_parallel_lanes_stay_duration_balanced() {
   local out max imbalance unhinted
   out=$("$RUNNER" --check-coverage)
@@ -1103,11 +1111,12 @@ test_portable_parallel_lanes_stay_duration_balanced() {
   [ "$unhinted" = "0" ] \
     || fail "$unhinted proven-isolated scripts have no measured parallel hint, so the lanes are packed on a guess"
   [ "$max" -gt 0 ] || fail "parallel_max_ms must be a positive packed duration, got $max"
+  [ "$max" -lt 420000 ] || fail "parallel_max_ms must stay below seven minutes, got $max"
   # 5% of the worst lane: wide enough that one script's growth does not trip it,
   # narrow enough that a lopsided partition cannot call itself balanced.
   [ "$((imbalance * 20))" -le "$max" ] \
     || fail "parallel lanes differ by ${imbalance}ms against a ${max}ms worst lane, more than 5%"
-  pass "portable parallel lanes are fully hinted and packed within 5% of each other"
+  pass "portable parallel lanes stay fully hinted, below seven minutes, and within 5% of each other"
 }
 
 test_portable_serial_shards_partition_the_serial_lane() {
@@ -1293,6 +1302,7 @@ test_unmapped_new_test_never_inherits_family_concurrency() {
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$repo/bin/fm-test-run.sh"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
+  cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   chmod +x "$repo/bin/fm-test-run.sh"
   # Two members of the proven residual family, plus a test basename the family
   # map has never seen - the shape of any test added tomorrow.
@@ -1411,6 +1421,7 @@ test_per_script_timeout_bounds_a_hang() {
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$runner"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
+  cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   cp "$ROOT/bin/fm-timeout-lib.sh" "$repo/bin/fm-timeout-lib.sh"
   grandchild_pid="$tmp/grandchild.pid"
   cat >"$repo/$hang" <<'SH'
@@ -1478,6 +1489,7 @@ test_changed_bound_gives_slow_watcher_suites_headroom() {
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$repo/bin/fm-test-run.sh"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
+  cp "$ROOT/tests/environment.sh" "$repo/tests/"
   cat >"$repo/bin/fm-timeout-lib.sh" <<'SH'
 fm_run_timed() {
   printf '%s\n' "$1" >bound-secs
@@ -1516,6 +1528,7 @@ test_max_wall_ms_is_a_result_not_advice() {
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$runner"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
+  cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   cat >"$repo/$fast" <<'SH'
 #!/usr/bin/env bash
 sleep 1
@@ -1580,6 +1593,7 @@ test_jobs_parallel_scheduler_and_failure_propagation() {
   d=tests/fm-supervision-instructions.test.sh
   mkdir -p "$repo/bin" "$repo/tests" "$evidence" "$fake_bin"
   cp "$RUNNER" "$runner"
+  cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
   cat >"$fake_bin/stat" <<'SH'
 #!/usr/bin/env bash
@@ -1777,6 +1791,43 @@ assert len(doc["scripts"])==3
   pass "aggregate-json merges lane timing artifacts"
 }
 
+test_operational_environment_is_cleared_at_every_entry() {
+  local temp repo hostile jobs output
+  temp=$(fm_test_tmproot fm-test-environment)
+  repo="$temp/repo"; hostile="$temp/hostile"
+  mkdir -p "$repo/bin" "$repo/tests" "$hostile"
+  printf 'preserve this synthetic operational home\n' > "$hostile/sentinel"
+  cp "$RUNNER" "$repo/bin/fm-test-run.sh"
+  cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
+  cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
+  cat > "$repo/tests/fm-brief.test.sh" <<'SH'
+#!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
+for name in FM_HOME FM_STATE_OVERRIDE FM_DATA_OVERRIDE FM_ROOT_OVERRIDE FM_PROJECTS_OVERRIDE FM_CONFIG_OVERRIDE FM_BACKEND FM_SESSION_START_STAGE_FILE; do
+  if printenv "$name" >/dev/null; then echo "leaked operational route: $name"; exit 1; fi
+done
+printf 'sanitized test environment\n'
+SH
+  chmod +x "$repo/tests/fm-brief.test.sh"
+  for jobs in 1 2; do
+    output=$(FM_HOME="$hostile" FM_STATE_OVERRIDE="$hostile" FM_DATA_OVERRIDE="$hostile" \
+      FM_ROOT_OVERRIDE="$hostile" FM_PROJECTS_OVERRIDE="$hostile" FM_CONFIG_OVERRIDE="$hostile" FM_BACKEND=herdr \
+      FM_SESSION_START_STAGE_FILE="$hostile/sentinel" \
+      "$repo/bin/fm-test-run.sh" --jobs "$jobs" tests/fm-brief.test.sh) || fail "runner did not sanitize jobs=$jobs: $output"
+    assert_contains "$output" 'sanitized test environment' 'environment test did not execute'
+  done
+  output=$(FM_HOME="$hostile" FM_STATE_OVERRIDE="$hostile" FM_DATA_OVERRIDE="$hostile" \
+    FM_ROOT_OVERRIDE="$hostile" FM_PROJECTS_OVERRIDE="$hostile" FM_CONFIG_OVERRIDE="$hostile" FM_BACKEND=herdr \
+    FM_SESSION_START_STAGE_FILE="$hostile/sentinel" \
+    bash "$repo/tests/fm-brief.test.sh") || fail 'direct test entry leaked an operational route'
+  assert_contains "$output" 'sanitized test environment' 'direct environment test did not execute'
+  [ "$(find "$hostile" -type f | wc -l | tr -d ' ')" = 1 ] || fail 'hostile synthetic home acquired artifacts'
+  assert_grep 'preserve this synthetic operational home' "$hostile/sentinel" 'hostile synthetic home changed'
+  pass 'serial, parallel and direct test entries clear inherited operational routes and startup child markers'
+}
+
+test_operational_environment_is_cleared_at_every_entry
 test_list_all_exact_suite_coverage
 test_family_selection
 test_single_script_selection

@@ -9,8 +9,8 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [Claude primary Remote Control](#claude-primary-remote-control-configclaude-remote-control), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), and [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) |
-| Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), [memory store](#memory-store-configmemory-dir), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), and [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) |
+| Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), and [Calm preference](#calm-preference-configcalm) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
 | Per-run overrides and tuning | [Environment variables](#environment-variables) |
@@ -96,9 +96,13 @@ Each effective `FM_HOME` contains private operational directories.
 
 `projects/` holds local project clones.
 Firstmate reads these clones, but changes them only through the narrow guarded and concrete captain-approved exceptions in `AGENTS.md`.
+`data/` holds durable private fleet records such as the project and secondmate registries, captain preferences, optional shared captain preferences, learnings, backlog, briefs, scout reports, saved browser routes under `data/browser-routes/`, and explicitly installed content-addressed extension packages under `data/extensions/packages/`.
+`data/history/` stores this home's private conversation journal, task cards, and daily Logbooks; `bin/fm-history.sh` owns their formats, capture, search, and daily-generation behavior.
+`state/.history-cursor` tracks incremental transcript capture and the latest available token usage for compaction journaling; `state/jev-history-find.jsonl` keeps metadata-only Jev search records.
 Untracked files and directories whose names begin with `scratchpad` are also gitignored, so temporary scratch does not make porcelain-based secondmate sync guards treat a home as dirty.
 
 ### Format and lifecycle references
+`bin/fm-task-execution.sh --help` owns private `state/<id>.execution` approval and processing records, their reminder cadence, and the unfinished-action view that survives notification acknowledgement and restart.
 
 - `bin/fm-spawn.sh` owns the base task-metadata fields it emits, while the runtime-backend section below owns backend-specific fields and selector interpretation.
 
@@ -127,6 +131,15 @@ Untracked files and directories whose names begin with `scratchpad` are also git
 The shared orchestrator behavior lives in [`AGENTS.md`](../AGENTS.md).
 Edit it like any prompt when the fleet is empty.
 While tasks are in flight, dispatch shared-repo edits to a crewmate.
+
+## Private Deck checkout (config/deck-path)
+
+When a private Firstmate Deck checkout is available, the optional one-line `$FM_HOME/config/deck-path` file may name its absolute path.
+After a successful non-secondmate task teardown or a successful captain `answer`, `bin/fm-logbook-refresh.sh` regenerates the daily Logbook and refreshes the Deck.
+When the optional one-line `$FM_HOME/config/deck-launchd-label` names the Deck's scheduled launchd job, a successful kickstart lets that job rebuild and publish with its own settings.
+If the job is already running, its 30-minute timer is the backstop.
+If no usable label is configured or kickstart fails, the checkout's `deploy/refresh.sh work-landed` hook runs directly with this home as the Deck's Firstmate root.
+Missing or invalid configuration skips the Deck refresh, and both operations are bounded best-effort work that cannot fail teardown or answer.
 
 ## Calm preference (config/calm)
 
@@ -158,6 +171,45 @@ The Pi extension reloads this preference on every Pi `session_start`, including 
 The Claude Code mod reloads it on every `session.start`, including same-process session replacement.
 It also loads the preference lazily before any row that can draw ahead of that event, including during `claude --continue` restoration.
 This preference is local to each Firstmate home and is not part of secondmate inherited configuration.
+
+## Hermes Agent access (config/hermes-agent.env)
+
+The tracked Pi extension `.pi/extensions/fm-hermes-agent.ts` registers `hermes_read` and `hermes_run` in a trusted Firstmate checkout without requiring live configuration at startup.
+`bin/fm-hermes-agent.mjs` is the single owner of configuration parsing, the HTTP allowlist, bounds, bearer handling, action enablement, response redaction, and private audit records.
+An unconfigured tool call stops before network access and tells the operator to create `$FM_HOME/config/hermes-agent.env` with mode `0600` after the local tunnel is ready.
+The operator separately owns a loopback-only tunnel at `127.0.0.1:4861`; Firstmate receives no remote host, SSH account, SSH key, SSH command, tunnel lifecycle control, or public endpoint.
+The configuration is inert data with these two required keys and one optional key:
+
+```text
+HERMES_API_BASE_URL=http://127.0.0.1:4861
+HERMES_API_SERVER_KEY=<existing Hermes API Server key>
+HERMES_API_ACTIONS_ENABLED=false
+```
+
+`HERMES_API_BASE_URL` must be exactly the shown loopback URL, and `HERMES_API_SERVER_KEY` must be non-empty.
+`HERMES_API_ACTIONS_ENABLED` is optional and defaults to `false`; set it to `true` only after the captain has authorized Firstmate to submit Hermes runs through this connection.
+The parser rejects unknown or duplicate keys, shell syntax, links, non-owner files, any mode other than `0600`, oversized values, and every non-loopback or alternate URL.
+Do not export the bearer key, pass it on a command line, paste it into chat, or put it in a tracked file.
+This file is home-local and is not part of secondmate inherited configuration.
+The extension gives the transport child only its operational home and a minimal runtime environment, while the transport reads the key directly from the private file.
+
+`hermes_read` exposes only public health, authenticated detailed health, capabilities, models, bounded session metadata, one session, explicitly gated message history, status or events for one named run, skills, and toolsets.
+Message history requires `privateContent=true` on that exact call and remains private even though the operation is read-only.
+`hermes_run` exposes only `POST /v1/runs`, binds the Hermes session to the Firstmate task identity, derives its idempotency key internally, requires the non-secret `captain-approved` or `operator-approved` authorization basis, and never retries an action automatically.
+No tool exposes arbitrary URLs, methods, paths, headers, tokens, session mutation, jobs, approvals, stop, delete, fork, or patch.
+Hermes prompts retain the remote agent's full tool power, so enabling actions does not make a run harmless or read-only.
+
+Each schema-valid operation, including one refused by configuration, action policy, or transport, writes safe metadata to mode-`0600` `state/hermes-agent-audit.jsonl` using the mode-`0600` local salt at `state/.hermes-agent-audit-salt` for run and session identifier hashes.
+The audit records time, salted Firstmate task identity, named operation and endpoint template, HTTP status, duration, response bytes, salted subject hash, private-content classification, and the action authorization basis.
+It never records bearer tokens, cookies, prompts, responses, titles, message text, hostnames, remote infrastructure, or raw run and session identifiers.
+
+Run the offline contract suite with:
+
+```sh
+tests/fm-hermes-agent.test.sh
+```
+
+The suite uses a local fake HTTP server on the pinned loopback port and never authenticates to or submits work to a live Hermes Agent.
 
 ## Pi supervision branch
 
@@ -624,12 +676,6 @@ The file is created lazily on first learning and follows the internal [`stow` sk
 
 There is no shared learnings file by captain decision.
 
-## Memory store (config/memory-dir)
-
-`bin/fm-memory.sh` resolves the memory store directory from `FM_MEMORY_DIR` first, then the first non-comment, non-blank line of the local, gitignored `config/memory-dir`, then `$FM_HOME/data/memories`.
-The config file is read under `FM_CONFIG_OVERRIDE` when set, otherwise `$FM_HOME/config`.
-Use an absolute or caller-relative directory path; the helper's header owns exact command and record mechanics, while [Memory store](memory.md) documents the operator contract.
-
 ## Startup memory budget (config/startup-memory-budget)
 
 `config/startup-memory-budget` is the primary-authoritative per-home allowance for the startup prompt-memory surface: `data/captain.md`, `data/captain-shared.md`, and `data/learnings.md` together.
@@ -727,6 +773,8 @@ On Zellij, cmux, and Orca a typed-plane Cursor send (a harness-native invocation
 
 muse is verified for crewmate and scout launches ONLY, and `fm-spawn.sh` refuses it for a secondmate, because muse ships no usable hook surface for a primary session's turn-end supervision; [`docs/verification/muse.md`](verification/muse.md) owns that evidence.
 muse also needs a worker-reachable credential before spawning, and the portable fleet path is the `<config>/muse/auth.json` credential stored by `muse login`, because a caller-only `META_API_KEY` does not cross a long-lived backend daemon.
+Devin is verified for crewmates and scouts on Herdr only; primary, secondmate, and other-backend launches remain unsupported.
+Its direct pane launch retains native Herdr state without depending on native named-agent startup; [runtime verification](verification/runtime-backends.md#devin-cli) owns the empirical evidence and known limits.
 
 gemini is likewise refused for secondmates because it has no primary supervision protocol; [its adapter reference](../.agents/skills/harness-adapters/references/harness/gemini.md) owns the credential precondition, canonical-launch wiring, and raw-launch limitations.
 rovo is likewise verified for crewmate and scout launches ONLY, refused for a secondmate for the same reason - no turn-end hook and no primary supervision protocol; [`docs/verification/rovo.md`](verification/rovo.md) owns that evidence, including the OAuth token's silent background refresh from a stored refresh token and both tmux and herdr pane liveness (herdr placement is verified live, with a Herdr-side agent-detection gap left open for recovery classification).
@@ -775,9 +823,17 @@ Changing this pin affects the next secondmate spawn or control-plane relaunch; t
 
 ### Per-launch overrides and inherited defaults
 
+`fm-harness.sh secondmate-model` and `fm-harness.sh secondmate-effort` expose the optional tokens from the pin line governing that secondmate; `config/crew-harness` remains a bare adapter-name file.
+`config/secondmate-harness.d/<id>` is an optional local, gitignored per-secondmate pin in the same format, parsed by the same code, that replaces `config/secondmate-harness` for the secondmate with that id only.
+When its harness token is absent or `default`, or the file holds only comments, that id keeps the shared pin; otherwise its whole line governs, so a per-id harness never borrows the shared line's model or effort.
+`fm-harness.sh secondmate`, `secondmate-model`, and `secondmate-effort` take an optional secondmate id to apply it, and without an id they print the shared resolution exactly as before.
+Every local secondmate launch path resolves it by id: `fm-spawn.sh --secondmate`, `fm-control.sh relaunch`, the startup liveness relaunch, and the `/updatefirstmate` restart pass; a remote route honors it too, because the primary resolves the pin and passes the profile to the host explicitly.
+For a config-resolved secondmate harness, the per-id pin replaces the shared pin.
+Changing a pin affects the next secondmate spawn, control-plane relaunch, liveness recovery, or `/updatefirstmate` restart; the relaunch profile rules are owned by [`docs/agent-control.md`](agent-control.md#transactional-relaunch).
 An explicit harness argument to `fm-spawn.sh` still overrides either config file for that spawn only.
 An explicit `--model` or `--effort` overrides the matching token from `config/secondmate-harness`; for a local route, an explicit harness or raw launch command starts with clean model and effort defaults unless those flags are also passed.
 
+An explicit `--model` or `--effort` overrides the matching token from the governing secondmate pin; for a local route, an explicit harness or raw launch command starts with clean model and effort defaults unless those flags are also passed.
 Remote secondmate routes accept verified harness adapters only and reject raw launch commands.
 When `config/crew-dispatch.json` exists, crewmate and scout spawns require an explicit resolved harness instead of automatically falling back to `config/crew-harness`.
 
@@ -788,6 +844,7 @@ Those inherited values are defaults and rules only; `fm-spawn` still permits a c
 
 ### Installed hooks and launch details
 
+`config/secondmate-harness` and `config/secondmate-harness.d/` are not inherited because secondmates do not launch secondmates.
 For grok, `fm-spawn.sh` installs one firstmate-owned global turn-end hook under `$GROK_HOME/hooks/`, or `~/.grok/hooks/` when `GROK_HOME` is unset, and drops a per-task `.fm-grok-turnend` pointer in the worktree, with teardown removing the task token and pointer.
 For Kimi crews, `fm-spawn.sh` runs `fm-kimi-turnend-hook.sh install`, drops a per-task `.fm-kimi-turnend` pointer in the worktree, and records the matching private registry token for teardown.
 
@@ -831,21 +888,30 @@ The [Claude adapter reference](../.agents/skills/harness-adapters/references/har
 ## Claude primary Remote Control (config/claude-remote-control)
 
 The optional local, gitignored `config/claude-remote-control` lets the captain steer a Claude Code primary from a phone or another browser through Claude Code's native Remote Control.
-Only `bin/fm-claude-primary.sh` reads it, so it changes nothing for plain `claude`, another harness, or worker launches.
-Only the first non-empty, non-comment line counts: absent or `off` launches plain Claude Code, and `on` launches `claude --remote-control firstmate`.
-Any other value or an unreadable file refuses to launch and names the accepted values.
-Arguments after the launcher pass through unchanged, and the home-local setting is not inherited into secondmate homes.
+It is read only by `bin/fm-claude-primary.sh`, the launcher for a Claude primary, so it changes nothing for a primary started with plain `claude` or on another harness, and nothing for crewmates, scouts, or secondmates.
+Only the first non-empty, non-comment line counts:
 
-Remote Control keeps the session running on this machine and bridges it to claude.ai; anyone signed in to the same claude.ai account can type into the primary, which may run with permission prompts bypassed, so treat that account login as access to this machine.
-Firstmate does not handle login or phone pairing.
-Sign in on this Mac with `/login` using a claude.ai Pro, Max, Team, or Enterprise account, accept the workspace trust dialog, and have a Team or Enterprise Owner enable Remote Control in Claude Code admin settings.
-Then install the Claude app and sign in to the same account, write `on` to `config/claude-remote-control`, launch with `bin/fm-claude-primary.sh`, and open the session from the app's Code tab, its session URL, or the `/remote-control` QR code.
-The app's `/mobile` command displays the app-store QR code.
+- absent or `off` launches plain `claude`, exactly like typing it by hand.
+- `on` launches `claude --remote-control firstmate`.
+Any other value, or an unreadable file, refuses to launch and names the accepted values.
+Arguments after the launcher pass through to `claude`, so a relaunch is the same command plus `--continue` or `--resume <id>`.
+The file is home-local and not inherited into secondmate homes.
 
-Remote Control does not connect through Bedrock, Vertex, Foundry, a non-Anthropic `ANTHROPIC_BASE_URL`, or with `DISABLE_TELEMETRY`, `DO_NOT_TRACK`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, or `DISABLE_GROWTHBOOK` set; Claude still starts locally and shows the failure.
-Running `/remote-control` in an already-running primary enables it for that session only, without this file.
-Claude Code's [Remote Control documentation](https://code.claude.com/docs/en/remote-control) owns the service behavior.
-`FM_CLAUDE_REMOTE_CONTROL_LIVE_E2E=1 tests/fm-claude-remote-control-live-e2e.test.sh` verifies the bridge and Stop-hook auto-arm.
+Remote Control keeps the session running on this machine and only bridges it to claude.ai; `FM_CLAUDE_REMOTE_CONTROL_LIVE_E2E=1 tests/fm-claude-remote-control-live-e2e.test.sh` verifies the bridge and Stop-hook auto-arm, and [the supervision verification record](verification/supervision.md#claude-primary-remote-control) holds its latest result.
+Anyone signed in to the same claude.ai account can then type into the primary, which may run with permission prompts bypassed, so treat that account's login as access to this machine.
+
+Firstmate never handles the claude.ai login or the phone pairing.
+The captain sets them up once:
+
+1. On the Mac, run `claude` in this checkout, use `/login` to sign in with a claude.ai Pro, Max, Team, or Enterprise account (API keys are not supported), and accept the workspace trust dialog.
+2. On Team or Enterprise, have an Owner enable Remote Control in the Claude Code admin settings.
+3. Install the Claude app on the phone and sign in to the same account; `/mobile` inside Claude Code shows a QR code for the app store.
+4. Write `on` into `config/claude-remote-control` and start the primary with `bin/fm-claude-primary.sh`, plus any flags you normally pass to `claude`.
+5. Open the session from the app's Code tab, the session URL Claude Code posts, or the QR code `/remote-control` shows, and accept Remote Control's one-time confirmation if Claude Code asks for it.
+
+Remote Control does not connect through Bedrock, Vertex, Foundry, a non-Anthropic `ANTHROPIC_BASE_URL`, or with `DISABLE_TELEMETRY`, `DO_NOT_TRACK`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, or `DISABLE_GROWTHBOOK` set; the session still starts locally and shows the failure.
+`/remote-control` inside an already-running primary turns it on for that session only, without this file.
+Claude Code's [Remote Control documentation](https://code.claude.com/docs/en/remote-control) owns the product behavior.
 
 ## Worker account pin (config/claude-account, config/pi-account)
 
@@ -1016,6 +1082,8 @@ Firstmate resolves the rule's profile object or array under `AGENTS.md` section 
 
 **Contract owners**
 
+Firstmate matches those rules with judgment, or through the opt-in [typed dispatch resolver](#typed-dispatch-resolution-env-typesafe_api_key) when that path is on, then resolves the profile object or array under the operating contract in `AGENTS.md` section 4 and `quota-array-dispatch`, and passes only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`.
+Secondmate spawns are exempt and still resolve through their per-id pin when present, otherwise `config/secondmate-harness` and its optional model and effort tokens.
 This section is the single owner of the canonical schema and its per-field semantics.
 `AGENTS.md` section 4 owns the always-loaded dispatch intake boundary, and `quota-array-dispatch` owns the completion-aware profile-array selection procedure.
 
@@ -1027,6 +1095,7 @@ This section is the single owner of the canonical schema and its per-field seman
       "approval": "captain",
       "min_confidence": 0.85,
       "floor": { "scope": "<quota-axi scope>", "min_percent": 20, "provider": "<quota-axi provider>" },
+      "beats": [ { "rule": 2, "when": "<optional condition under which this rule wins>" } ],
       "use": [
         { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "provider": "<optional quota-axi provider>", "floor": { "scope": "<quota-axi scope>", "min_percent": 50 } }
       ],
@@ -1052,6 +1121,7 @@ This section is the single owner of the canonical schema and its per-field seman
 **Fields applied only by typed resolution**
 
 Rule `approval`, `min_confidence`, and `floor`, and profile `provider` and `floor` are optional declarations that only [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; without that opt-in they are inert, and firstmate's own intake reads them as ordinary hints.
+Rule `approval`, `floor`, and `beats`, and profile `provider` and `floor` are optional declarations that only [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; without that opt-in they are inert, and firstmate's own intake reads them as ordinary hints.
 The resolver supplies the fixed neutral Choice option `No listed rule applies to this task.` for work that matches no listed rule.
 
 - `approval` accepts only `"captain"` and means a task the rule matches is never dispatched from the tool's answer alone.
@@ -1069,9 +1139,13 @@ Set it high when a wrong pick is costly and low when the rule is a safe runner-u
 
 **Provider identifiers and mappings**
 
+Rule `beats` is a non-empty array of `{rule, when}` entries that declares precedence between overlapping rules: `rule` is another rule's 1-based position (the `rule_N` number the resolver prints), each named at most once, and the optional non-empty `when` limits the win to that condition.
+The resolver renders every entry as a tie-break sentence on both rules' options, so precedence reaches the model as text rather than as a post-hoc override; two rules may beat each other only when at least one of the pair carries a `when`, which is how a real fault line such as findings versus a code change is expressed in both directions. Precedence cycles of three or more distinct rules are rejected even when some edges have `when` conditions; conditional two-rule pairs remain allowed.
+Because `rule` is positional, reordering `rules` requires renumbering every `beats` entry.
 A profile `provider` optionally names the quota-axi provider family whose rows apply to that profile; when present, profile and rule-floor provider IDs must match the strict whole-string pattern `^[a-z0-9]+(-[a-z0-9]+)*\z`.
 Bootstrap validates resolver-only `approval`, `min_confidence`, `floor`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
 
+Bootstrap validates resolver-only `approval`, `floor`, `beats`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
 Typed resolution additively recognizes `gemini` because AGENTS.md section 4 verifies it for crewmate and scout dispatch.
 
 | Harness | Provider declaration on the opted-in resolver path |
@@ -1110,6 +1184,7 @@ See [`docs/examples/crew-dispatch.json`](examples/crew-dispatch.json) for a star
 
 **Inheritance**
 
+While typed resolution is active, malformed `approval`, `floor`, `beats`, and present `provider` declarations receive the same diagnostic; without the key those inert declarations preserve the pre-existing bootstrap behavior.
 Secondmate homes inherit this file from the primary, so a secondmate's own crewmates apply the same dispatch profile behavior.
 
 ## Typed dispatch resolution (.env TYPESAFE_API_KEY)
@@ -1117,6 +1192,7 @@ Secondmate homes inherit this file from the primary, so a secondmate's own crewm
 `bin/fm-dispatch-resolve.sh` resolves one concrete crewmate or scout profile from a written brief with typesafe.ai's System One model (Jev), so the rule match that firstmate otherwise reasons out in its own context becomes one short tool turn.
 It is off unless `TYPESAFE_API_KEY` is non-empty in the calling environment or the home's gitignored `.env` holds a `TYPESAFE_API_KEY=` line; the environment wins, matching the Relay and mail-plane contracts, and the Relay accessor in `bin/fm-env-lib.sh` reads the line.
 
+It is off unless `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY` is non-empty in the calling environment or the home's gitignored `.env` holds the same name; the environment wins, matching the Relay and mail-plane contracts, and the Relay accessor in `bin/fm-env-lib.sh` reads the line.
 Off means one `dispatch-resolve: off` line on stderr, nothing on stdout, exit 0, and no network call, so firstmate dispatches exactly as it does without the tool.
 This section is the single owner of the tool's operator contract; the script header owns its exact flags and output lines, and "Crew dispatch profiles" above owns the declared rule and profile fields it applies.
 
@@ -1161,6 +1237,23 @@ That one diagnostic names the list line number at most and never prints the list
 
 **Missing or invalid rules**
 
+When on and at least one rule exists, the tool sends the project name plus either the whole brief or a compact 400-800 character intent summary as state and asks the rule Choice whose options are every rule's `when`, extended by any `beats` tie-break sentences, plus the fixed neutral option for no matching rule, together with the effort Choice; the model never sees quota, catalogs, `why`, `use`, approvals, or credentials.
+The HTTP call goes through [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh): TypeSafe `/v1/systemone` when a TypeSafe key is present, or OpenRouter `/api/alpha/decisions` when `OPENROUTER_API_KEY` is set and `TYPESAFE_API_KEY` is not, or when `JEV_ROUTE=openrouter`.
+This section is the single owner of the Jev HTTP override names: each is read from the process environment first, else from `$FM_HOME/.env` via `fmx_env_get`, and the environment wins.
+`JEV_ROUTE` is `openrouter` or `typesafe`.
+`JEV_MODEL` replaces the route default (`jev-latest` on TypeSafe, `typesafe/jev-1.13` on OpenRouter).
+`JEV_TIMEOUT` is a positive integer second budget (default 25).
+`JEV_URL` is a complete POST URL used verbatim; nothing is appended to it, so an OpenRouter URL must not pick up `/v1/systemone`.
+`JEV_BASE` is a TypeSafe-shaped origin used only on the TypeSafe route when `JEV_URL` is unset; the default `/v1/systemone` path is appended to it.
+OpenRouter never receives that path from `JEV_BASE`.
+Every profile whose harness lacks one authoritative quota-axi provider family must declare `provider` on the live rules file; the resolver refuses that file before any request (see "Crew dispatch profiles" above).
+Pi profiles on `xai/grok-4.6` declare `provider: grok` because quota-axi families are never `xai`.
+`FM_JEV_DISPATCH_COMPACT` is read from the process environment first, else from `$FM_HOME/.env` via `fmx_env_get`, and the environment wins.
+A truthy value sends the compact intent summary instead of the whole brief, and that compact form is the default on the OpenRouter route when both are unset.
+`FM_JEV_DISPATCH_EXTRA=1` adds log-only Choice questions for home `{main,agency,lay,frontend,zimmer}` (criteria from `data/secondmates.md` when readable) and deliverable `{ship,scout,neither}`; those answers are never auto-routing authority.
+Presence of gitignored `config/jev-dispatch-shadow`, or `FM_JEV_DISPATCH_SHADOW=1`, logs the Jev pick next to the resolved spawn axes into `state/jev-dispatch-shadow.jsonl` and does not add spawn authority beyond today's optional `clear` profile line.
+`FM_JEV_DISPATCH_SHADOW=0` turns that log off even when the config flag is present.
+A captain pin, `yolo` posture, and selected delivery mode still win over any `clear` profile.
 An absent rules file, a default-only file, or `rules: []` returns the non-clear reason `no rules to match` without a model or quota request, leaving firstmate's existing routing in control; an existing but unreadable or malformed rules file, including a broken symlink, remains an actionable exit 2 configuration error.
 
 **Checks performed after the answer**
@@ -1212,9 +1305,17 @@ Every result above exits 0.
 
 **Firstmate retains the dispatch decision**
 
+Everything after the answer runs in code: the top-2 margin gate, the matched rule's `approval` and `floor`, each candidate's `provider` and `floor`, every applicable account-wide and model/product row from one `quota-axi --json` snapshot, the spend ledger's predicted burn for the assessed effort class (`bin/fm-spend-ledger.py predict`), and the numeric `spendPriority` argmax over candidates using each candidate's limiting row.
+The same Jev response carries a second typed Choice classifying the reasoning effort the brief itself needs (`low|medium|high|xhigh|max`); a profile's declared `effort` is the ceiling that assessment may not exceed, the undeclared ceiling is `xhigh` so `max` always needs an explicit declaration, and a missing or malformed effort answer falls back to the declared effort with the fallback disclosed on the `effort:` line.
+A candidate on an effort-capable harness that cannot supply the assessed class is refused before quota gates; a harness without an effort knob keeps the class as a disclosed, unenforced note and emits no `--effort` flag for it.
+A candidate whose predicted burn exceeds its tightest applicable remaining percent (calibrated through the window's observed `tokensPerPoint`) is refused with the prediction named in the reason, and so is one whose predicted duration exceeds the window's usable runway seconds; an all-refused `escalate` names the predicted burn.
+Missing or unreadable ledger evidence never fabricates a limit: the candidate keeps its rank and its line shows `pred=unknown`.
+The result is one of `clear` (a `profile:` line ready for `fm-spawn.sh`), `ambiguous` (the returned choice is not the most probable option or the top-2 margin is below the threshold), `escalate` (an approval-gated rule, unverifiable rule floor, nothing rankable, or a genuine tie), or `error` (API, network, malformed response metadata, rendering, or quota-axi failure), and every one of them exits 0.
+Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, an invalid `FM_JEV_DISPATCH_MARGIN`, or missing `jq`, each reported and never selected around.
 The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; `AGENTS.md` section 4 owns what firstmate does with each outcome.
 By accepted design, a `clear` result does not enforce catalog/authentication, reasoning-class, or completion-runway gates.
 
+By accepted design, a `clear` result does not enforce catalog/authentication gates; reasoning-class ceilings and completion-runway gates are enforced above.
 Firstmate passes its profile line unless it states a reason to override, such as the brief's reasoning class or an eligible-unranked-candidate note; every non-clear result returns to the full existing intake.
 
 **Key handling and fixed settings**
@@ -1223,7 +1324,234 @@ Firstmate passes its profile line unless it states a reason to override, such as
 - The resolver sends the key to `curl` only as a header read from a file descriptor, never on argv, and nothing prints, logs, or writes it.
 - The resolver fixes the endpoint at `https://api.typesafe.ai`, model at `jev-latest`, default confidence floor at 0.6, and request timeout at 5 seconds; `TYPESAFE_API_KEY` is its only resolver-specific environment setting.
 
+The resolver and bootstrap copy an environment-provided key into a non-exported private variable and unset `TYPESAFE_API_KEY` and `OPENROUTER_API_KEY` before launching child processes, so the secret is absent from child environments.
+Keys reach `curl` only through `bin/fm-jev-lib.sh` as an Authorization header read from a file descriptor, never on argv, and nothing prints, logs, or writes them.
+The rule answer clears only when its returned choice equals the most probable option and its top-2 probability margin, the most probable option's probability minus the runner-up's, reaches `FM_JEV_DISPATCH_MARGIN`, read from the process environment first, else from `$FM_HOME/.env` via `fmx_env_get`, as a number in (0, 1] with default 0.4. A non-winning choice is ambiguous with a reason naming both choices; a below-threshold margin names the margin, threshold, and both contenders.
+The derived Choice confidence, `(n x peak - 1) / (n - 1)` over n options, is still printed and logged but no longer gates, because it silently raises the effective bar as rules are added (at 14 options a 0.6 floor needs a 0.643 peak), while the margin measures the same two-horse race at any option count.
+The 0.4 default is calibrated for rules without `beats`: it is the lowest tested threshold that made no wrong pick on the labeled replay under unchanged rules, where every lower tested value cleared one wrong pick at margin 0.35 that the old 0.6 floor held back.
+A lower value such as 0.25 is valid only after `beats` are applied to the home's rules and re-verified at `wrong=0` with `bin/fm-dispatch-replay.sh`, which replays labeled briefs under a hard call budget through the resolver with a candidate rules file and scores recorded answers from its output or the shadow log under any threshold without a network call; recalibrate with it after changing rules or `beats`, and keep private personal data out of replayed briefs.
+Route, URL, model, and timeout follow the override names above, with TypeSafe defaulting to `jev-latest` at `https://api.typesafe.ai/v1/systemone` and OpenRouter to `typesafe/jev-1.13` at `https://openrouter.ai/api/alpha/decisions`.
 The live rule-match evidence is recorded in [`verification/dispatch-resolve.md`](verification/dispatch-resolve.md).
+
+## Jev caller library (.env TYPESAFE_API_KEY / OPENROUTER_API_KEY)
+
+Shadow features that ask TypeSafe Jev share [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) instead of each rolling a client.
+It is a sourceable library, not a user CLI; the script header owns route selection, models, key handling, helpers, and exact failure codes.
+Set `TYPESAFE_API_KEY` for the TypeSafe route, or `OPENROUTER_API_KEY` for OpenRouter when that is the only key or when `JEV_ROUTE=openrouter`.
+Typed dispatch resolution above uses this library for the HTTP call and owns the `JEV_ROUTE`, `JEV_MODEL`, `JEV_URL`, `JEV_BASE`, and `JEV_TIMEOUT` names.
+
+## Jev worker command (bin/fm-jev.sh)
+
+[`bin/fm-jev.sh`](../bin/fm-jev.sh) is the one Jev command firstmate and every worker call for closed-set judgments; the Jev-first rule in every ship and scout brief names it by absolute path.
+It reuses the caller library above and pins its route and URL to TypeSafe production, regardless of `OPENROUTER_API_KEY`, `JEV_ROUTE`, `JEV_URL`, or `JEV_BASE`.
+It resolves `TYPESAFE_API_KEY` from the process environment, then `$FM_HOME/.env`, then the `.env` of the firstmate home that owns the command checkout.
+For pooled worktrees, it finds that home through `git rev-parse --git-common-dir`; `.env` values use the shared `fmx_env_get` accessor.
+Its `--help` is its whole interface, flags follow the command, and the header owns the privacy refusal, escalation floor, output, and exit codes.
+Callers must pass only task facts and never personal data or private-vault content; refusing obvious secrets, email addresses, and phone numbers is only a safety net, not a general personal-data detector.
+Standard ship and scout launches, plus Devin launches, carry the spawning home's absolute path as `FM_HOME` and clear inherited provider keys; raw launch commands remain unchanged.
+The key itself is not added to the launch command or environment, so standard spawned workers must resolve `TYPESAFE_API_KEY` from the firstmate home `.env`; an environment-only key intentionally does not cross that launch boundary.
+Each call appends a metadata-only record, without the working directory, state, or question text, to that home's `state/jev-calls.jsonl`.
+Crew workers run as the operator's same OS user and have full file access; they are not sandboxed and can read files available to that user.
+
+## Jev remainder tool-gate (FM_JEV_TOOL_GATE)
+
+`bin/fm-jev-tool-gate.sh` may shadow-log a Jev Choice `{allow, deny, need_human}` only after `bin/fm-arm-command-policy.mjs` allows a command.
+A deterministic deny never reaches Jev.
+Default `FM_JEV_TOOL_GATE` is `shadow`: append `$FM_HOME/state/jev-tool-gate.jsonl` and still allow.
+Live Jev deny/allow stays off.
+Do not hard-ship live remainder deny into watcher-arm or PreToolUse paths; that is a do-not.
+Live mode requires `FM_JEV_TOOL_GATE=live` plus both local gitignored presence files `config/jev-tool-gate-live` and `config/jev-tool-gate-live-ack`, and still cannot override a deterministic deny.
+The script header owns flags, log schema, and mode resolution.
+The thin hook point is documented in [`docs/arm-pretool-check.md`](arm-pretool-check.md).
+
+## Shadow done verifier
+
+[`bin/fm-jev-done-verify.sh`](../bin/fm-jev-done-verify.sh) is a log-only helper the wake drain invokes after successfully presenting a worker `done:` line on a ship or scout.
+It asks Jev one Choice (`evidenced`, `not_evidenced`, `need_human`) plus a strength Score, using the 0.7 confidence floor from the Jev caller library.
+It sends the done line, and any acceptance, report, or PR input, only for a ship or scout task of the firstmate repository verified from the primary home - the same outbound data boundary as "Jev supervision triage" below.
+This boundary is deliberate: per the captain's privacy decision, other projects' task text (done lines, acceptance, reports, and PR input) must not go to Jev.
+With a configured key, every other task makes no model call and records `payload: withheld` with a `skipped` verdict.
+`need_human` is required because a currently healthy system is not evidence the claimed repair happened.
+Each call appends one JSONL record in the effective state directory, honoring `FM_STATE_OVERRIDE`.
+The helper never tears down a task, never writes `resolved` or `done` on the worker's behalf, and never reopens work from its score.
+The drain starts the helper in the background after presentation so the done line is never delayed, and skips the call without writing a deduplication record when neither `TYPESAFE_API_KEY` nor `OPENROUTER_API_KEY` resolves to a nonempty value in the environment or `$FM_HOME/.env`.
+Scoring uses only done events actually emitted by the annotation or outcome-backstop paths after successful presentation; an event merely present in the captured span is not sufficient.
+Before scoring and deduplication, the drain strips trailing carriage returns and replaces remaining tabs and carriage returns with spaces, preserving trailing spaces and leaving worker status bytes unchanged.
+It skips a completion whose normalized text already appears in that task's JSONL log; per-task serialization covers the duplicate check through log append in the same effective state directory, including overlapping drains.
+The background record may not exist yet when firstmate handles the wake; the drain discards the helper's stdout and does not display its risk annotation automatically.
+Automatic calls supply only the task ID and done line, without the optional acceptance, report, or PR inputs.
+The script header owns flags, output lines, exit codes, and the log path and schema.
+Behavioral regressions in [`tests/fm-jev-done-verify.test.sh`](../tests/fm-jev-done-verify.test.sh) use fake transport to exercise presentation selection, concurrent deduplication, whitespace normalization, state overrides, empty credentials, and both sides of the data boundary.
+
+## Jev skill selector (FM_JEV_SKILL_SELECT)
+
+`bin/fm-jev-skill-select.sh` provides a once-per-launch shadow comparison, not a per-prompt router.
+Default `FM_JEV_SKILL_SELECT` is `shadow`: `bin/fm-spawn.sh` runs the comparison for ships and scouts only when an authored safe query exists, writes a fresh per-launch case under `state/jev-skill-shadow/cases/`, and never changes the launch overlay or worker behavior.
+Shadow mode uses the complete code-enumerated eligible public roster with real descriptions, then conditionally makes one detail request over the top three candidates and one Noul per candidate.
+It recommends at most one optional skill only when the relevant Choice and that candidate's Noul each reach 0.8; errors, timeouts, invalid answers, and ambiguity recommend nothing.
+The shadow record contains a local experiment ID, roster and request hashes, the pinned resolved model, decisions, probabilities, latency, token totals, comparison labels, and outcome metadata.
+Both state and criteria use only authored P0/P1 requests and approved public skill content; raw briefs, page bodies, private instructions, career data, mail, traces, unpublished names, and credentials are excluded.
+Before collection, review the installed public skills for that boundary and put their full-file SHA-256 digests in the JSON array `config/jev-skill-public.json`.
+Approval is content-specific: changed files require renewed review; punctuation, Markdown headings, and public documentation links are preserved rather than treated as private content.
+Shadow catalog roots are always restricted to the enumerated public installation locations, including `~/.pi/agent/skills`, under the same digest approval.
+All eligible approved installed skills are offered regardless of ordering; mandatory and supervisor-only skills remain outside this optional suggestion.
+The model is pinned to `jev-1.13.0` on TypeSafe and `typesafe/jev-1.13` on OpenRouter for the experiment, while the existing `bin/fm-jev-lib.sh` route and caller remain the transport owner.
+Before spawning, write the authored safe query to `data/<id>/jev-skill-query.txt` under the active Firstmate home.
+A missing, unreadable, or blank query file skips the shadow call entirely; raw captain text and legacy brief bodies are never fallback queries.
+The shadow supervisor bounds the complete selector to 5.7 seconds with time reserved for recording within the six-second launch envelope; each HTTP call retains its four-second ceiling.
+Timeouts preserve the latest completed decision and usage, and latency measures the whole selector operation including roster preparation.
+Each shadow call requires its originating worker `--launch-id`, including relaunches; reusing that ID supports offline review without credentials or a query.
+Spawn uses its existing `spawn_gen` as the case filename, `experiment_id`, and review `--launch-id`, and appends that ID to `data/<task-id>/jev-skill-launches` before attempting the comparison.
+That task-local history retains the association across relaunches; skipped attempts can have no case file.
+Collection stops automatically at 20 reserved cases, including failures; concurrent reservations share that limit.
+Do not manufacture launches or claim production value before sufficient natural volume exists.
+Review each case against the unassisted agent's actual required skill loading, without changing the worker or persisting its raw trace, using `--launch-id <id> --comparison-label <label>` with the selector's required harness and task arguments.
+Use `correct` when both found the useful skill, `caught` for a genuinely useful skill missed by the agent, `missed` when only the agent found the useful skill, `no-fit` when neither needed one, and add `irrelevant` for an extra high-confidence irrelevant suggestion.
+Pass overlapping outcomes together as comma-separated labels, such as `--comparison-label missed,irrelevant` when the agent found a useful skill and the shadow suggested an irrelevant one.
+Coverage and irrelevant suggestions are counted independently; each reviewed case needs exactly one coverage label (`correct`, `caught`, `missed`, or `no-fit`), so `irrelevant` alone leaves coverage review pending.
+Use `incorrect` for a materially wrong high-confidence recommendation, `p2-exposure` for any P2 in a captured request, `launch-changed` for any altered launch behavior or removed mandatory/supervisor skill, and `roster-omission` for relevant installed skills omitted by ordering or truncation.
+Those four safety labels immediately and permanently stop collection; inspect requests in a controlled development capture without adding request bodies to persisted experiment records.
+`unlabeled` and `unknown` leave review pending; labeling an existing case atomically persists the comparison and recomputes `state/jev-skill-shadow/evaluation.json`.
+After 20 cases, the evaluation stops or requires redesign if useful coverage is no better (`caught <= missed`), fewer than two useful misses were caught with any extra wrong pick, irrelevant suggestions exceed one, timeouts or invalid responses exceed one, or nearest-rank combined p95 is at least 2000 ms.
+Even a passing evaluation cannot start case 21: continuing or redesigning requires a separately authorized experiment, not clearing this checkpoint.
+Live load remains separately opt-in: it requires `FM_JEV_SKILL_SELECT=live`, the gitignored presence file `config/jev-skill-select-live`, and a nonblank safe query in `data/<id>/jev-skill-query.txt`.
+Project skills for live load are discovered from the resolved worker worktree after its freshness step; Codex launches also discover `$CODEX_HOME/skills`, defaulting to `~/.codex/skills` when `CODEX_HOME` is unset or empty.
+Live offers every collected skill id, describing a skill by its front-matter description only when that file's SHA-256 digest is listed in `config/jev-skill-public.json` and offering every other skill by id alone, so no unapproved description reaches Jev.
+With live inputs present, a clear selection is appended to that private launch overlay in the harness's skill-invocation form (`/<skill>`, `$<skill>` on Codex, or the skill id when the runtime has no verified slash form).
+`live_loaded` records verified instructions in the launch overlay, not confirmation that the worker executed them; selected skill files must be readable before injection.
+Choice `none`, an uncertain or error status, a Jev outage, and any write or verify failure leave `live_loaded` false and leave the overlay identical to a spawn that never called Jev.
+A Jev outage or selector failure never refuses or stalls spawn past a short bound.
+The [script header](../bin/fm-jev-skill-select.sh) owns invocation flags, live selection and cache behavior, overlay injection, and live-load refusal.
+Behavioral coverage lives in [selector tests](../tests/fm-jev-skill-select.test.sh) and [spawn integration tests](../tests/fm-spawn-jev-skill-live.test.sh); these do not establish usefulness or latency in a natural launch cohort.
+
+## Queue readiness (heartbeat)
+
+When `bin/fm-wake-drain.sh` presents a heartbeat row, it prints one advisory `QUEUE READY` line naming the backlog items ready to dispatch, and nothing when none are.
+[`bin/fm-queue-ready.sh`](../bin/fm-queue-ready.sh) decides readiness from structured backlog fields only: every blocker cleared, no active hold (a hold whose `--until` date has arrived no longer counts, which is the time gate), and neither a captain hold nor a captain-kind item.
+It makes no model or network call; it replaced an earlier Jev question that never produced a pick.
+The line is advisory: it never dispatches a task, never clears a hold, and never changes backlog state.
+The backlog read is bounded by `FM_QUEUE_READY_TIMEOUT` (default 5 seconds), and a failed or slow read prints nothing rather than delaying the drain.
+The [script header](../bin/fm-queue-ready.sh) owns the exact rule and line format; regression coverage lives in [`tests/fm-queue-ready.test.sh`](../tests/fm-queue-ready.test.sh).
+
+## Jev intake match
+
+[`bin/fm-jev-intake-match.sh`](../bin/fm-jev-intake-match.sh) resolves a loose positional captain reference, such as "the wiki plan I had in one prompt", to the backlog items and `data/<id>/` records it most likely means; stdin is not an input mode.
+It builds a bounded candidate list without a model call and asks Jev one Choice over candidate ids.
+Exactly this reaches Jev: the reference itself (one line of at most 300 characters; longer or multi-line input is refused), and each candidate's id, title, and backlog state.
+Report, brief, and task bodies never do, and the local call log keeps only the reference's length and SHA-256, never its text.
+For each displayed candidate backed by a `data/<id>/` record, backlog tasks whose body names that record are listed under the ranking, found locally without another Jev question.
+If either backlog listing fails, the output names the failed source and skips Jev rather than treating an incomplete candidate set as empty.
+Probability maps may name only offered candidate ids and the `none?` sentinel; an unknown key makes Jev use the validated single-pick fallback.
+A Jev ranking prints only candidates with positive probability; zero-probability candidates are omitted.
+If a valid map gives no positive mass to an offered candidate, such as putting all mass on `none?`, the output uses a keyword ranking with `fallback=no-candidate-probability`.
+With no key, a failed call, a `none` answer, or confidence below the library floor, it says so and prints a plain keyword ranking instead.
+It is advisory and never opens, dispatches, or edits anything.
+The [script header](../bin/fm-jev-intake-match.sh) owns candidate selection, limits, the output shape, and the log schema; regression coverage lives in [`tests/fm-jev-intake-match.test.sh`](../tests/fm-jev-intake-match.test.sh).
+
+## Jev act-first ranking (session start)
+
+On the locked path, `bin/fm-session-start.sh` prints at most five ACT FIRST lines right after the wake queue: a local priority view drawn from the wake-drain output and current live-task status tails, with no model or network call.
+[`bin/fm-jev-act-first.sh`](../bin/fm-jev-act-first.sh)'s header owns item selection, deduplication, ordering, and limits, including the drain's one-shot `UNREAD STATUS` lines; selected lines are compacted before a Jev request.
+The deferred startup network stage ranks the same drain output, with live-task status tails read when the ranker runs, using one Jev call off the digest's blocking path; its separate publication never delays the network-check result.
+If the ranker's fixed 20-second input wait expires before the drain arrives, the later handoff starts one detached ranker for that generation; generation markers prevent duplicate launches.
+When the ranking has at least one item it raises one `check: act-first` wake, and `bin/fm-startup-network.sh report` prints it; no items, no key, or a Jev error stays silent.
+Task-level status-pointer wakes, including coalesced path lists, are omitted when a detailed decision, outcome, unread status item, or live failed/blocked status tail for that task is present.
+Without a configured key the ranking is skipped and nothing is sent.
+Both lists are advisory: every presented wake still needs handling and acknowledgement.
+[`bin/fm-startup-network.sh`](../bin/fm-startup-network.sh)'s header owns the deferred step, its fixed 20-second input-handoff wait, and the detached Jev request's effective `JEV_TIMEOUT` plus 3-second cleanup margin; regression coverage lives in [`tests/fm-startup-network.test.sh`](../tests/fm-startup-network.test.sh), [`tests/fm-jev-act-first.test.sh`](../tests/fm-jev-act-first.test.sh), and [`tests/fm-session-start.test.sh`](../tests/fm-session-start.test.sh).
+
+## Jev supervision triage
+
+The watcher and the away-mode daemon ask Jev two narrow advisory questions over the existing [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) binding; each helper's header records the corpus calibration behind the 0.5 Noul floor.
+Both roles are additive and fail closed: a missing key, a helper failure, a timeout, or a malformed answer leaves the deterministic verdict untouched, and a valid answer can only add a surface or defer a structural false positive.
+[`bin/fm-jev-status-triage.sh`](../bin/fm-jev-status-triage.sh) reads one status line on stdin and prints `escalate` only when the `captain_relevant` Noul is at least 0.5.
+Only lines no declared verb explains are ever offered - free-text progress plus `note:` and `resolved:` - capped at `FM_JEV_SPAN_TRIAGE_MAX` (default 8) consults per status span; `working:`/`done:`/`blocked:`/`failed:`/`needs-decision:`/`paused:`/`captain-held:` lines are never sent to the model.
+One `FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS` (default 6) wall-clock budget is shared by every Jev call in each watcher or daemon cycle - status triage and the wedge check - and resets at the next cycle.
+Each call's HTTP bound is clipped to what the budget still allows, so a cycle never runs past it.
+After the first Jev timeout or error, Jev is skipped for the rest of that cycle and deterministic surfacing or escalation remains in force.
+An escalation surfaces the line marked `(jev-escalated)` as an advisory surface event; it never enters the needs-decision fold.
+[`bin/fm-jev-wedge-check.sh`](../bin/fm-jev-wedge-check.sh) reads one captured pane tail on stdin and prints `suppress` only when the `stuck` Noul is below the floor, which defers the structural wedge escalation on the shared bounded resurface cadence; a Noul at or above the floor escalates at once, and every other outcome keeps the incumbent escalation.
+The wedge consult runs only when the structural checks leave an escalation due: after the watcher has checked declared waits, worktree writes, dead endpoints, and no-mistakes run liveness, or at the daemon's stale-persistence recheck after its run-liveness check; it never runs per poll.
+The watcher's busy-turn-bound path deliberately supplies no pane tail and skips Jev, so a busy-looking pane cannot suppress the hung-foreground escalation this bound exists to catch.
+Each call is bounded by a positive-integer `JEV_TIMEOUT` from the environment or `$FM_HOME/.env` when set, otherwise `FM_JEV_SUPERVISION_TIMEOUT_SECS` (default 3 seconds), plus a short wrapper margin.
+Each consultation that reaches the Jev request appends one JSONL audit record under the state directory (`jev-status-triage.jsonl`, `jev-wedge-check.jsonl`).
+
+Outbound data boundary.
+Status text and pane text leave the home only for a ship or scout task whose `project=` resolves to the code root, or whose resolved Git common directory matches the code root's, supervised from the primary home (no `.fm-secondmate-home` marker). `remote.origin.url` is not accepted as project identity.
+That free text is size-capped (the first 4000 characters of a status line, the last 4000 of a pane tail) and secret-stripped by `fm_jev_compact_state` before it is sent, and its audit record keeps a short redacted excerpt.
+When a model call is made for any other case - a secondmate home, a secondmate task, another project such as a wiki, website, or vault, or a task whose eligibility cannot be established - it sends structured facts only: the status verb when it is a known Firstmate verb (any other leading token becomes `other`), character and line counts, and fixed-vocabulary signal flags, never the text itself, and its audit record carries no excerpt.
+`fm_jev_supervision_free_text_ok` and `fm_jev_supervision_state` in [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) own that rule and the exact facts.
+Coverage lives in [`tests/fm-jev-supervision.test.sh`](../tests/fm-jev-supervision.test.sh), [`tests/fm-watch-triage.test.sh`](../tests/fm-watch-triage.test.sh), and [`tests/fm-daemon.test.sh`](../tests/fm-daemon.test.sh).
+
+## Brief preflight (FM_JEV_BRIEF_PREFLIGHT)
+
+`bin/fm-spawn.sh` runs [`bin/fm-jev-brief-preflight.sh`](../bin/fm-jev-brief-preflight.sh) for ship and scout briefs after its structural brief refusals and before any endpoint exists.
+The check reads the worker kind, delivery metadata, and whether the Task, Definition of done, Captain's intent, and Firstmate spec sections are present.
+It makes no model or network call, and the brief's text never leaves the machine.
+After valid delivery metadata, the verdict depends only on the Definition of done: `missing_acceptance` when that section is missing, otherwise `need_human`, because structure alone cannot prove a brief complete.
+That rule reproduces the answers Jev gave on every combination of those facts, which is why the Jev call was retired; the `jev` name and variable stay for compatibility.
+Default `FM_JEV_BRIEF_PREFLIGHT` is `shadow`: each verdict appends the record described in the [script header](../bin/fm-jev-brief-preflight.sh) and the spawn continues.
+`missing_acceptance` prints the missing element on stderr; `need_human` stays silent.
+`FM_JEV_BRIEF_PREFLIGHT=off` or unrecognized delivery metadata skips the check and writes nothing.
+This gate never blocks a spawn.
+Leftover placeholders, an empty Task, a half-filled intent/spec pair, and a Captain-addressed intent line remain `fm-spawn.sh`'s structural refusals.
+[`bin/fm-dod-lib.sh`](../bin/fm-dod-lib.sh)'s `fm_brief_preflight_verdict` owns the rule, and regression coverage lives in [`tests/fm-jev-brief-preflight.test.sh`](../tests/fm-jev-brief-preflight.test.sh).
+
+## Wiki engine ask (config/wiki-engine, config/wiki-catalog)
+
+[`bin/fm-wiki-ask.sh`](../bin/fm-wiki-ask.sh) is the config-gated firstmate path that puts one knowledge question to a locally installed `wiki-tool` engine.
+This section is the single owner of that operator contract; the script header owns flags, unconfigured messages, and the miss-classifier call.
+It is not a second wiki engine and does not vendor wiki-tool.
+
+`FM_WIKI_ENGINE` or gitignored `config/wiki-engine` names the executable path or command, and `FM_WIKI_CATALOG` or gitignored `config/wiki-catalog` names the private catalog JSON; the environment wins, and each file is the first non-comment non-blank line.
+Those files are home-local and are not part of secondmate inherited configuration.
+If either setting is absent, the tool reports that it is unconfigured without querying the engine or Jev; a configured but unusable engine or catalog is an error (exact diagnostics and exit codes are owned by the script header).
+
+The engine's envelope is printed unchanged; eligible misses receive a shadow classification through [`bin/fm-jev-retrieval-miss.sh`](../bin/fm-jev-retrieval-miss.sh), whose header owns the metadata allowlist, content guard, verdicts, confidence handling, and log schema.
+Captain consent for this path: the query string may be sent to Jev; page bodies, excerpts, and conflict lines never may.
+The classifier never retries the engine, never enables embeddings or OpenViking, and never writes a wiki vault, catalog, or engine config.
+Classification results remain in the helper's local log rather than being added to the engine envelope.
+
+## Wiki context in briefs (config/wikis-root)
+
+This section is the single owner of the opt-in wiki integration for ship and scout briefs; [`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh)'s header owns the parser, the rendered wording, and the guide marker.
+`FM_WIKIS_ROOT` or gitignored `config/wikis-root` names a directory holding `routing/estate.json`; the environment wins, the file's first non-comment non-blank line is used, and a leading `~/` expands to `$HOME`.
+With neither set, or with a directory that lacks `routing/estate.json`, briefs carry no wiki sections and cleanup checks nothing, so the feature is inert until configured.
+`config/wikis-root` is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract; a home where the path does not resolve renders no wiki sections.
+
+A project's backing wikis come from its `data/projects.md` row: an optional `[wiki: A, B]` bracket directly after the mode bracket, or directly after the name when the row has none, lists vault names or card ids separated by commas, and names may contain spaces ([`bin/fm-project-mode.sh`](../bin/fm-project-mode.sh) `--wikis` prints them).
+The token never changes the registered delivery posture.
+
+When configured, `bin/fm-brief.sh` adds a `# Wiki context` section resolved against `estate.json`'s `vaults[]`: each named vault with its path, card id, digest, entry page, and budget class, read cheapest first - digest, then entry page, then at most three further pages.
+The vault's `cloud` flag bounds what the worker may open: `ja` gets that full ladder, `nur-digest` gets the digest only, and `nein` or `modus` `pointer` is named only with an instruction not to open it; any page with `private: true` is always skipped.
+When `<wikis-root>/ProjektWiki/wiki/<project>/<project>.md` exists it is named first.
+A missing token or unreadable estate gets a fallback line pointing at the routing cards; unresolved names are listed with the same guidance while other resolved wikis still render, and none of these conditions fails the scaffold.
+
+The same configuration adds a `# Wiki guide` step: before reporting done, the worker writes a topic-named guide draft with its GitHub prior-art findings to `data/<task-id>/guide.md` in the firstmate home, or `no guide: <reason>`, and never writes into a vault; a separate lander files the draft.
+`bin/fm-teardown.sh` refuses cleanup of a ship or scout task whose brief carries the guide marker while that file is absent; briefs without the marker are unaffected, and `--force` skips the check.
+The draft opens with `target: <vault name or card id>`, `topic: <kebab-slug>`, and `action: new` or `action: update <page path>` lines ([`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) owns the parse); the vault's cloud flag is always looked up in the estate, never taken from the draft.
+
+[`bin/fm-guide-lander.sh`](../bin/fm-guide-lander.sh) collects drafts for filing, and its header owns the row format and receipt.
+`pending` scans this home and every local secondmate home in `data/secondmates.md`, skipping remote homes with a notice, and lists each unfiled draft that is not `no guide:` with its resolved vault, cloud flag, and lane.
+The lane is `bulk` only for a vault whose estate `cloud` is `ja` outside `pointer` modus; `nur-digest`, `nein`, `pointer`, and any other value land in `private`, and a private vault never goes to the bulk lane.
+Unresolved targets and unparseable headers are listed as their own lanes for firstmate to correct by hand.
+A home runs the filing as a daily batch:
+
+1. Firstmate runs `bin/fm-guide-lander.sh pending`.
+2. It dispatches one filing task per non-empty lane: the bulk lane to SWE-2 for token-heavy page writing; the private lane only to the profile the home designates for private vault content, which is Opus at low effort.
+   Never route private drafts to the bulk profile, SWE-2, Space Bunny, Jev, or any third-party tool.
+   If that Opus-low profile is unavailable, leave private drafts pending rather than routing them elsewhere.
+3. Each filing task writes its drafts into the vault through that vault's clone and delivery path.
+4. After a draft lands, firstmate runs `bin/fm-guide-lander.sh mark-filed <home> <task-id> <vault-commit>`, which writes `data/<task-id>/guide.filed` so the draft is filed once.
+
+The daily schedule itself is home-local operator setup, not tracked code.
+
+## Memory store (config/memory-dir)
+
+Durable memory is plain markdown searched by a light BM25 index; [`docs/memory.md`](memory.md) owns the store contract, the OpenViking migration, and the retirement of the old server.
+The store lives at `FM_MEMORY_DIR`, else the first non-comment non-blank line of gitignored `config/memory-dir` (under `FM_CONFIG_OVERRIDE` when set), else `$FM_HOME/data/memories`.
+The file is home-local and not part of secondmate inherited configuration.
+[`bin/fm-memory.sh`](../bin/fm-memory.sh) is the store/recall command surface, [`bin/fm-memory-migrate.sh`](../bin/fm-memory-migrate.sh) the verified export path, and [`bin/fm-openviking-retire.sh`](../bin/fm-openviking-retire.sh) the reversible server stop.
 
 ## Toolchain
 
@@ -1537,6 +1865,7 @@ It is often absent today: the relay currently sends it only for Discord reply ch
 Consumers must treat it as strictly optional, tolerate unknown or missing fields, and treat `unavailable: true` as a gap rather than content.
 The `fmx-respond` skill owns how firstmate uses the chain to resolve references.
 
+Every string in that object first passes the ingress sanitizer owned by `bin/fm-operational-input.sh`, which removes Firstmate's own operational-provenance bytes so an external body cannot assert internal provenance; a mention that carried them is stored with `fm_provenance_sanitized: true`, and a poll that cannot run the sanitizer stores nothing and reports `x-mode-error cannot sanitize mention`.
 The mention and its chain entries may also carry attached media as image or file URLs, in fields such as `images` and `attachments`, either as bare URL strings or as objects with a `url`; a mention whose own media is empty can still have screenshots on its `thread_starter` entry.
 The poll preserves those URLs in the stashed object and never downloads them, so nothing is fetched on the polling path: the responding agent retrieves and views the media with its own tools when it handles the mention.
 
@@ -2250,6 +2579,27 @@ The two read files use different parsing rules:
 
 `FM_VOICE_RELAY` and `FM_VOICE_PYTHON` belong to the laptop rather than to a home, so they have no config file: `bin/fm-voice-client.py` requires the relay path as a flag or that variable and carries no default path.
 
+## Spend ceilings (config/spend-ceilings.json)
+
+`config/spend-ceilings.json` is an optional local, gitignored file that bounds token spend per task and per fleet window; absent or empty means no ceilings and nothing is armed.
+The measurement is `bin/fm-spend-ledger.py`, which rebuilds per-task totals from the workers' own Pi session logs (including nested subagent transcripts) into `state/<id>.spend`, plus fleet-level `state/spend-rollup.json` and `state/spend-model.json`.
+The enforcement is the `spend` process-event adapter (`bin/fm-procevent-spend.sh`), armed best-effort at every ship/scout spawn: an unconfigured or malformed file arms nothing and never fails a launch.
+
+```json
+{
+  "pollIntervalSeconds": 120,
+  "taskCeilingTokens": 50000000,
+  "fleetWindow": { "hours": 168, "ceilingTokens": 400000000, "family": "codex" }
+}
+```
+
+- `taskCeilingTokens` (positive integer, optional): each spawned Pi or pi-signed ship or scout gets a `spend-task-<id>` source polling the task's ledger total; a crossed ceiling captures a terminal result whose autohandle delivers `fm-control.sh <id> exit`, records `state/<id>.spend-stop` keyed on the task's `spawn_gen` (a relaunched incarnation is governed again), and reports through a `state/<id>.status` line that wakes firstmate. A failed stop is recorded and left unhandled so the ordinary check wake still carries the crossing. Other harnesses are unmeasured by the ledger and are not armed.
+- `fleetWindow` (object, optional): one shared `spend-fleet` source fires once per window when fleet spend in the trailing `hours` (default 168) reaches `ceilingTokens`; `family` (optional) scopes the sum to one ledger family such as `codex`, `deepseek`, or `grok`, absent means all lanes. The capture is report-only - it stays unhandled so the check wake reaches firstmate - and `state/spend-fleet-fired.json` suppresses a re-fire inside the same window.
+- `pollIntervalSeconds` (positive number, optional): poll cadence for both sources, default 120.
+
+A task source retires itself quietly when the task record disappears (`gone`) or the current incarnation already has a stop marker (`stopped`); five consecutive unreadable ledger answers end the watch with an `error` capture instead of polling forever.
+An empty or partial task total is unknown spend, not zero, so the poller keeps waiting rather than treating it as under-ceiling.
+
 ## Environment variables
 
 Runtime tuning via environment variables (defaults shown):
@@ -2264,6 +2614,7 @@ FM_CONFIG_OVERRIDE=      # alternate config dir, mainly for tests
 FM_PROC_ROOT_OVERRIDE=   # alternate /proc root for Linux process-identity reads in fm-wake-lib.sh and fm-teardown.sh, mainly for tests
 FM_BACKEND=             # optional runtime backend override for new spawns; tmux/herdr/zellij/orca/cmux support ship/scout spawns, codex-app is not accepted
 FM_TRACE_CONTEXT=       # optional trace-context override; see "Trace context propagation"
+FM_WIKIS_ROOT=          # optional wikis root override; see "Wiki context in briefs"
 FM_TASK_ID=             # internal task-worker marker fm-spawn.sh exports into ship and scout panes, never set by hand; bin/fm-test-run.sh refuses to execute in the repository primary checkout while it is set
 HERDR_SESSION=default  # herdr-only: named session for normal backend ops; not enough for destructive cleanup (docs/herdr-backend.md)
 FM_BACKEND_HERDR_SUBMIT_POLLS=6  # herdr-only: agent-state samples spread across each Enter attempt's budget when confirming a submit (docs/herdr-backend.md "Current transport behavior")
@@ -2277,6 +2628,8 @@ FM_BACKLOG_ROW_TIMEOUT_SECS=10   # seconds bounding each backlog row read (bin/f
 FM_BOOTSTRAP_DETECT_ONLY=0   # internal/read-only session-start mode: skip bootstrap's mutating sweeps and print advisory TANGLE wording
 FM_BOOTSTRAP_NETWORK=all   # internal session-start phase split: all, skip (local steps only), or only (network steps only); see bin/fm-bootstrap.sh
 FM_STARTUP_NETWORK_TIMEOUT=120   # seconds bounding the deferred inactive-outcome scan plus network checks, including the lock waits the worker makes before them; hitting it prints an actionable NETWORK_CHECKS line, and a lock a live process still holds at the deadline ends the worker with a failed-rerun record (publication and delivery are bounded by FM_SESSION_START_TIMEOUT the same way)
+FM_CHROME_AXI_STATE_DIR=   # test hook: chrome-devtools-axi state-dir override for the bootstrap orphaned browser bridge sweep (bin/fm-browser-bridge-sweep-lib.sh); default ~/.chrome-devtools-axi
+FM_BROWSER_BRIDGE_PROC_TABLE=   # test hook: file holding the tab-separated process table the bootstrap orphaned browser bridge sweep scans instead of the live process table
 FM_TASKS_AXI_COMPATIBLE=   # internal one-hop handoff of an already-computed tasks-axi compatibility verdict (0 or 1); consumed when bin/fm-tasks-axi-lib.sh is sourced
 FM_GUARD_READ_ONLY=0    # internal/read-only guard mode: keep alarms but suppress drain, supervision repair, and checkout repair commands
 FM_GUARD_CONTINUE_LINE='This is a supervision warning only; the guarded operation WILL still run.'   # banner continuation line; fm-send.sh overrides it to name the requested message specifically
@@ -2331,7 +2684,25 @@ FMX_RELAY_URL=https://myfirstmate.io   # optional Relay endpoint override, mainl
 FMX_ENV_FILE=           # optional alternate .env file for direct Relay client invocations; bootstrap still checks $FM_HOME/.env
 FMX_DRY_RUN=            # truthy previews Relay replies and dismissals to state/x-outbox/ without posting or requiring a token
 FMX_X_REPLY_MAX_CHARS=280   # X reply per-message split budget; values below 50 clamp to 50
-TYPESAFE_API_KEY=       # typed dispatch resolution opt-in, from the environment or .env; absent means bin/fm-dispatch-resolve.sh is off (docs/configuration.md "Typed dispatch resolution")
+TYPESAFE_API_KEY=       # typed dispatch resolution opt-in; TypeSafe key for bin/fm-jev-lib.sh and optional env source for bin/fm-jev.sh (otherwise $FM_HOME/.env, then the owning checkout's .env)
+OPENROUTER_API_KEY=     # optional OpenRouter Jev route for typed dispatch and bin/fm-jev-lib.sh; unused by bin/fm-jev.sh
+JEV_ROUTE=              # optional library and typed-dispatch route; bin/fm-jev.sh always uses TypeSafe
+JEV_MODEL=              # optional Jev model override (same section)
+JEV_URL=                # optional library and typed-dispatch POST URL, used verbatim; ignored by bin/fm-jev.sh
+JEV_BASE=               # optional library and typed-dispatch TypeSafe origin; ignored by bin/fm-jev.sh
+JEV_TIMEOUT=25          # optional Jev HTTP timeout in seconds; default 25 (same section); supervision triage uses FM_JEV_SUPERVISION_TIMEOUT_SECS, default 3 (docs/configuration.md "Jev supervision triage")
+FM_JEV_SUPERVISION_TIMEOUT_SECS=3  # fallback per-call bound for supervision consults when JEV_TIMEOUT is unset or invalid; see "Jev supervision triage"
+FM_JEV_SPAN_TRIAGE_MAX=8  # status-line Jev consult cap per span; see "Jev supervision triage"
+FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS=6  # shared Jev-call wall-clock budget per watcher or daemon cycle; see "Jev supervision triage"
+FM_JEV_DISPATCH_SHADOW= # 1 logs the Jev dispatch pick to state/jev-dispatch-shadow.jsonl; 0 overrides config/jev-dispatch-shadow off (docs/configuration.md "Typed dispatch resolution")
+FM_JEV_DISPATCH_MARGIN= # optional typed-dispatch top-2 margin threshold; default and calibration: docs/configuration.md "Typed dispatch resolution"
+FM_WIKI_ENGINE=         # wiki-tool executable path or command; else config/wiki-engine (docs/configuration.md "Wiki engine ask")
+FM_WIKI_CATALOG=        # private wiki-tool catalog JSON path; else config/wiki-catalog (docs/configuration.md "Wiki engine ask")
+FM_MEMORY_DIR=          # memory store directory; else config/memory-dir, else $FM_HOME/data/memories (docs/configuration.md "Memory store")
+FM_OV_HOME=             # OpenViking home override for migration/retire scripts; default ~/.openviking (docs/memory.md)
+FM_JEV_TOOL_GATE=shadow # remainder Jev tool-gate after arm-command policy; live needs this plus two opt-in files; hard-ship is a do-not (docs/configuration.md "Jev remainder tool-gate")
+FM_JEV_SKILL_SELECT=shadow # skill selection mode; activation and safe-query requirements: "Jev skill selector" above
+FM_JEV_BRIEF_PREFLIGHT=shadow # spawn-path deterministic brief preflight; off skips; never blocks launch (docs/configuration.md "Brief preflight")
 FMX_DISCORD_REPLY_MAX_CHARS=1900   # Discord reply per-message split budget; values below 50 clamp to 50, values above 2000 reset to 1900
 FMX_X_THREAD_MAX=25     # maximum messages in one auto-split reply thread
 FMX_FOLLOWUP_MAX_AGE_SECS=604800   # local window for posting Relay completion follow-ups (7 days)
@@ -2368,6 +2739,10 @@ FM_SECONDMATE_LIVENESS_SECS=60   # seconds between watcher probes of each regist
 FM_SECONDMATE_LIVENESS_TIMEOUT=120   # seconds bounding one watcher-driven relaunch, so a wedged spawn cannot stall the poll; zero or invalid values use 120
 FM_SECONDMATE_LIVENESS_MAX_ATTEMPTS=3   # automatic relaunch attempts allowed per mate inside the window before the watcher parks auto-relaunch behind state/.secondmate-relaunch-bound-<id> and escalates once; a later live probe clears the marker and restores the full attempt budget (the ledger keeps its history behind a `rearmed` row); zero or invalid values use 3
 FM_SECONDMATE_LIVENESS_WINDOW_SECS=3600   # window the relaunch bound counts state/.secondmate-relaunch-<id> attempt lines over; the file is also the durable per-mate relaunch record; zero or invalid values use 3600
+FM_STALE_ESCALATE_SECS=240         # idle seconds before a provably-working stale pane escalates, unless that pane's own worker declared a wait that has not elapsed, which takes the FM_PAUSE_RESURFACE_SECS recheck below instead, or the pane's recorded run step is still inside its FM_BUSY_TURN_MAX_SECS bound below, which holds the escalation and re-arms the idle timer like the sibling deferrals so the at-threshold probes stay on the once-per-interval cadence instead of every poll - a healthy long silent foreground step (an in-flight sleep-based status poll, a long command with a static pane) is not a wedge, and a genuinely wedged step still escalates within one stale interval of that bound crossing - or the task's attributed no-mistakes run proves execution (the same rule applies to the away-mode daemon; details: docs/architecture.md, Event-driven supervision); stale panes whose crew is not provably working surface immediately unless admitted directly to the declared-wait cadence, while a live idle declared wait still surfaces once before that cadence bounds repeats; at that same escalation moment a recovery-grade agent-state probe (docs/architecture.md owns that dead-record contract) reports a pane whose endpoint is proven `dead` or `missing` once and stops re-escalating it while it stays that way
+FM_BUSY_TURN_MAX_SECS=3600         # maximum age of the recorded step's anchor before the same wedge escalation used for a provably-working non-busy stale takes over; the anchor is evidence every harness produces - the completed-turn marker, else the spawn record - with a native-harness .progress marker only freshening it where one is emitted (bin/fm-watch.sh owns marker selection), so a harness that never writes .progress stays bounded by its completed-turn or spawn age; the same bound also holds an idle-looking pane's FM_STALE_ESCALATE_SECS escalation while the recorded step is still inside it, and it bounds the recorded herdr+devin stopped-worker signature, a natively idle worker whose still-rendering pane never forms a stable hash; inspection-only, never an automatic interrupt or restart; a declared external wait or attended verified captain-held transfer takes the FM_PAUSE_RESURFACE_SECS recheck below instead
+FM_PAUSE_RESURFACE_SECS=14400      # four hours between bounded rechecks of a declared external wait or verified captain-held transfer, and between repeated new-hash stale alarms for an ordinary crew task with an open backlog captain call; a structured until time can make an external-wait recheck occur sooner but cannot extend this bound; this includes a live idle pane after its first inconclusive stale wake, a provably-working pane whose own unelapsed declared wait defers its FM_STALE_ESCALATE_SECS escalation, and a live busy pane past FM_BUSY_TURN_MAX_SECS; it also caps quiet no-mistakes process/daemon evidence and the watcher's run-liveness deferral re-surface interval (details: docs/architecture.md, Event-driven supervision); the away-mode daemon uses the same setting and ages its declared-wait window against the crew's own latest status line rather than pane busy state; a captain-held transfer is never rechecked while the away-posture record exists
+FM_SECONDMATE_WAKE_STALL_SECS=180  # minimum interval with no change of the oldest actionable foreign wake-queue row (it advances as the mate drains, and a queue reprovisioned under the same task id starts a fresh interval at whatever sequence it restarts) before an endpoint-recorded local secondmate produces one durable parent wake-loop-stall notification for that no-progress episode; a mate that is provably inside an active turn (a working verdict) does not escalate until that same no-progress interval reaches FM_BUSY_TURN_MAX_SECS above, declared external-wait pause rows are excluded, and zero or invalid values use 180
 FM_WEDGE_DEMAND_INSPECT_COUNT=3    # consecutive provably-working stale escalations on the same unchanged pane before demand-deep-inspection is added
 FM_WORKTREE_WRITE_PRUNE='.git node_modules .venv venv __pycache__ .mypy_cache .pytest_cache .ruff_cache .tox target dist build .next .cache vendor'   # directory names the wedge detector's task-worktree write probe skips; the default keeps .git out so a supervisor's own read-only git command can never look like crew progress; set it to the empty string to prune nothing, which widens the probe to the whole depth-bounded tree rather than disabling it
 FM_WORKTREE_WRITE_MAXDEPTH=6       # depth that same probe walks below the recorded worktree; it runs only at the moment a wedge escalation would otherwise fire, never on every poll; no probe knob applies to a secondmate, whose recorded worktree is a provisioned home the probe skips entirely
@@ -2386,6 +2761,7 @@ FM_BUSY_REGEX=          # optional override for rendered delivery guards and Gro
 FM_COMPOSER_IDLE_RE=    # optional fleet-wide idle-placeholder regex override (bin/fm-composer-lib.sh); a match alone does not prove emptiness because shape-specific position and ANSI de-emphasis safety gates still apply
 FM_COMPOSER_CAPTURE_LINES=20   # fleet-wide bound for tail-capture composer reads; it no longer bounds the adapter composer state/content reads on tmux or herdr, which supply their bounded visible pane instead, while the cmux, orca, and Zellij adapters use this small window so stale scrollback banners stay out of the candidate set; it still bounds the shared inbox composer read (bin/fm-task-inbox-lib.sh) on every backend, and on herdr it also floors how many Ctrl+U presses a refused leftover may take
 FM_COMPOSER_PI_MAX_LINES=8     # fleet-wide: maximum rows admitted between Pi's identity-corroborated separator pair; taller or ambiguous candidates stay unknown
+FM_COMPOSER_PI_MAX_LINES=8     # fleet-wide: maximum rows admitted in Pi's composer region - between its identity-corroborated separator pair or in the Zen-rail block; taller or ambiguous candidates stay unknown
 FM_COMPOSER_GHOST_LUMA_MAX=128   # fleet-wide: max perceived luminance (0.299R+0.587G+0.114B, 0-255) for a TRUECOLOR foreground to count as de-emphasised ghost/placeholder text and be stripped; dim/faint (SGR 2) is stripped regardless. Assumes a dark terminal theme (bin/fm-composer-lib.sh's fm_composer_strip_ghost, used by styled tmux, herdr, and Zellij reads)
 GROK_HOME=              # optional Grok config home for firstmate's global grok turn-end hook; defaults to ~/.grok
 FM_SEND_RETRIES=3       # fm-send typed-plane Enter-retry attempts after typing the line once; agy typed targets use a longer per-harness default owned by bin/fm-send.sh

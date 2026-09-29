@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # Behavior tests for per-task GOTMPDIR support (fm-gotmp).
 #
 # fm-spawn gives each task a temp root /tmp/fm-<id>/ with Go's build temp nested at
@@ -50,6 +52,13 @@ make_fake_root() {
   mkdir -p "$fake/bin/backends" "$fake/state" "$fake/data"
   # Symlink the REAL teardown so the test exercises actual code, not a copy.
   ln -s "$TEARDOWN" "$fake/bin/fm-teardown.sh"
+  # History is unrelated to this tasktmp cleanup contract; keep this fake root's
+  # required teardown side effect inert.
+  cat > "$fake/bin/fm-history.sh" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+  chmod +x "$fake/bin/fm-history.sh"
   # fm-backend.sh is real, while its adapter is stubbed so this temp-cleanup
   # test cannot depend on or mutate a host tmux server. Teardown still refuses
   # unless every sibling the real tmux adapter sources is present.
@@ -75,7 +84,12 @@ SH
   # fm-timeout-lib.sh: the shared hard bound fm-classify-lib.sh sources for the
   # wedge detector's bounded worktree write probe.
   ln -s "$ROOT/bin/fm-timeout-lib.sh" "$fake/bin/fm-timeout-lib.sh"
+  # fm-jev-lib.sh: fm-classify-lib.sh sources it for the Jev supervision bound.
+  ln -s "$ROOT/bin/fm-jev-lib.sh" "$fake/bin/fm-jev-lib.sh"
   ln -s "$ROOT/bin/fm-wake-lib.sh" "$fake/bin/fm-wake-lib.sh"
+  # fm-watch-state-lib.sh: teardown sources it for the watcher-state retire
+  # calls; missing it fails the whole script at source time.
+  ln -s "$ROOT/bin/fm-watch-state-lib.sh" "$fake/bin/fm-watch-state-lib.sh"
   # fm-gate-refuse-lib.sh: teardown sources it before any fleet mutation.
   ln -s "$ROOT/bin/fm-gate-refuse-lib.sh" "$fake/bin/fm-gate-refuse-lib.sh"
   # fm-pr-lib.sh: teardown uses its canonical task-ID validator for poll cleanup.
@@ -160,6 +174,12 @@ test_teardown_skips_gracefully_without_tasktmp() {
   local fake="$TMP_ROOT/$id-root"
   mkdir -p "$fake/bin/backends" "$fake/state" "$fake/data"
   ln -s "$TEARDOWN" "$fake/bin/fm-teardown.sh"
+  # This fake root exercises only the legacy tasktmp path, not history storage.
+  cat > "$fake/bin/fm-history.sh" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+  chmod +x "$fake/bin/fm-history.sh"
   ln -s "$ROOT/bin/fm-backend.sh" "$fake/bin/fm-backend.sh"
   cat > "$fake/bin/backends/tmux.sh" <<'SH'
 fm_backend_tmux_kill() { return 0; }
@@ -179,7 +199,12 @@ SH
   # fm-timeout-lib.sh: the shared hard bound fm-classify-lib.sh sources for the
   # wedge detector's bounded worktree write probe.
   ln -s "$ROOT/bin/fm-timeout-lib.sh" "$fake/bin/fm-timeout-lib.sh"
+  # fm-jev-lib.sh: fm-classify-lib.sh sources it for the Jev supervision bound.
+  ln -s "$ROOT/bin/fm-jev-lib.sh" "$fake/bin/fm-jev-lib.sh"
   ln -s "$ROOT/bin/fm-wake-lib.sh" "$fake/bin/fm-wake-lib.sh"
+  # fm-watch-state-lib.sh: teardown sources it for the watcher-state retire
+  # calls; missing it fails the whole script at source time.
+  ln -s "$ROOT/bin/fm-watch-state-lib.sh" "$fake/bin/fm-watch-state-lib.sh"
   # fm-gate-refuse-lib.sh: teardown sources it before any fleet mutation.
   ln -s "$ROOT/bin/fm-gate-refuse-lib.sh" "$fake/bin/fm-gate-refuse-lib.sh"
   # fm-pr-lib.sh: teardown uses its canonical task-ID validator for poll cleanup.

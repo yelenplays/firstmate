@@ -50,9 +50,13 @@
 #     routine is escalated.
 #   - Bounded wedge latency: a stale pane without a declared wait is escalated
 #     only after it has been idle for STALE_ESCALATE_SECS
-#     (configurable), rechecked once. A wedged crewmate is therefore detected
-#     within STALE_ESCALATE_SECS + a tick, never lost. A declared wait - either a
-#     paused: external wait or a verified captain-held transfer, per
+#     (configurable), rechecked once; one whose own task's no-mistakes run is
+#     demonstrably executing (fm-classify-lib.sh's crew_nm_run_progressing) is
+#     deferred by re-arming the marker instead, so a run that stops proving
+#     execution still escalates within one interval. A wedged crewmate is
+#     therefore detected within STALE_ESCALATE_SECS + a tick, never lost. A
+#     declared wait - either a paused: external wait or a verified captain-held
+#     transfer, per
 #     fm-classify-lib.sh's combined predicate - instead gets its own longer
 #     PAUSE_RESURFACE_SECS recheck, never a wedge escalation, whether its pane
 #     reads idle or busy; only a status append that stops declaring the wait
@@ -200,6 +204,11 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 # (fm_busy_classify).
 # shellcheck source=bin/fm-busy-lib.sh
 . "$FM_DAEMON_DIR/fm-busy-lib.sh"
+
+# The ONE watcher marker-key derivation, shared with the watcher whose
+# .paused-*/.stale-* window files this daemon reads and clears.
+# shellcheck source=bin/fm-watch-state-lib.sh
+. "$FM_DAEMON_DIR/fm-watch-state-lib.sh"
 
 # --- tunables ---------------------------------------------------------------
 # Supervisor backends this daemon knows how to inject into today. zellij, orca,
@@ -367,14 +376,17 @@ _collapse_newlines() {  # <text>
 # field for "self" is informational (logged); for "escalate" it is the pre-read
 # summary firstmate would otherwise have to re-read.
 
-classify_signal() {  # <reason-after-colon> <state>
-  local reason=$1 state=$2 f last event record rest endpoint ident rc distilled="" rel="" seen_rel="" task sig marker
+classify_signal() {  # <reason-after-colon> <state> [<output-var>]
+  local reason=$1 state=$2 output_var=${3-} classified_decision f last event record rest endpoint ident rc distilled="" rel="" seen_rel="" task sig marker
   for f in $reason; do
     case "$f" in *.status) ;; *) continue ;; esac
     [ -e "$f" ] || [ -L "$f" ] || continue
     task=$(basename "$f"); task="${task%.status}"
-    record=$(status_span_first_actionable_record "$f" \
-      "$(status_seen_offset "$state" "$task")")
+    # `jev` opts the span into the escalation-only status consult (declared
+    # verbs are never offered; a helper failure leaves the bash verdict).
+    record=''
+    status_span_first_actionable_record "$f" \
+      "$(status_seen_offset "$state" "$task")" record '' jev
     rc=$?
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
     if [ "$rc" -eq 2 ]; then
@@ -409,14 +421,15 @@ classify_signal() {  # <reason-after-colon> <state>
   # strip a trailing " | " separator so the distilled line is clean
   distilled="${distilled% | }"
   if [ -n "$rel" ]; then
-    printf 'escalate|%s' "$distilled"
+    classified_decision="escalate|$distilled"
   elif [ -n "$seen_rel" ]; then
     # Already escalated by the per-wake path or the catch-all scan; self-handle
     # to avoid a duplicate entry in the digest.
-    printf 'self|signal already escalated (catch-all scan): %s' "$distilled"
+    classified_decision="self|signal already escalated (catch-all scan): $distilled"
   else
-    printf 'self|routine signal: %s' "$distilled"
+    classified_decision="self|routine signal: $distilled"
   fi
+  if [ -n "$output_var" ]; then printf -v "$output_var" '%s' "$classified_decision"; else printf '%s' "$classified_decision"; fi
 }
 
 # classify_stale decides the WAKE itself (one-shot per distinct hash). On a
@@ -426,8 +439,9 @@ classify_stale() {  # <window> <state> [<span-record> <span-status>]
   local win=$1 state=$2 record=${3-} rc=${4-} task last declared event rest
   task=$(window_to_task "$win" "$state")
   if [ -z "$rc" ]; then
-    record=$(status_span_first_actionable_record "$state/$task.status" \
-      "$(status_seen_offset "$state" "$task")")
+    record=''
+    status_span_first_actionable_record "$state/$task.status" \
+      "$(status_seen_offset "$state" "$task")" record '' jev
     rc=$?
   fi
   last=$(last_status_line "$state/$task.status")
@@ -519,13 +533,17 @@ unknown_wake_acknowledge_flushed() {  # <state> <buffer>
 }
 
 # --- stale marker + escalation buffer (stateful, but via explicit state dir) -
-# Marker:   state/.subsuper-stale-<key>   contains the epoch first seen idle.
+# Marker:   state/.subsuper-stale-<key>   contains the epoch first seen idle,
+#           re-armed by a run-liveness deferral so the wedge window restarts.
 # Buffer:   state/.subsuper-escalations    one distilled line per escalation.
 # Seen:     state/.subsuper-seen-status-<task>  last reported file signature and
 #           classified byte offset, so failures and events do not re-fire while
 #           unread bytes remain recoverable.
 
-_stale_key() { printf '%s' "$1" | tr ':/.' '___'; }
+# The marker-key derivation lives in bin/fm-watch-state-lib.sh
+# (fm_watch_state_key) - the same owner the watcher binds and retires by, so
+# this daemon's per-task and per-window keys can never drift from that cleanup.
+_stale_key() { fm_watch_state_key "$1"; }
 
 stale_marker_record() {  # <window> <state>  — create if absent
   local win=$1 state=$2 key marker
@@ -537,7 +555,9 @@ stale_marker_record() {  # <window> <state>  — create if absent
 stale_marker_remove() {  # <window> <state>
   local win=$1 state=$2 key
   key=$(_stale_key "$(window_to_task "$win" "$state")")
-  rm -f "$state/.subsuper-stale-$key"
+  # The Jev-suppression chain dies with the stale marker it belongs to, so a
+  # suppressed-then-resumed pane never inherits suppression age.
+  rm -f "$state/.subsuper-stale-$key" "$state/.subsuper-jevsupp-$key"
 }
 
 # Pause marker: state/.subsuper-paused-<key> holds the epoch a declared wait (a
@@ -566,10 +586,13 @@ clear_pause_tracking() {  # <window> <state>
   key=$(_stale_key "$task")
   watcher_key=$(_stale_key "$win")
   rm -f "$state/.subsuper-paused-$key" "$state/.subsuper-pause-until-due-$key" "$state/.subsuper-stale-$key" \
+    "$state/.subsuper-jevsupp-$key" \
     "$state/.paused-$watcher_key" "$state/.paused-rechecked-$watcher_key" "$state/.paused-resurfaced-$watcher_key" \
     "$state/.stale-$watcher_key" "$state/.stale-since-$watcher_key" "$state/.wedge-escalations-$watcher_key" \
     "$state/.writing-since-$watcher_key" "$state/.writing-resurfaced-$watcher_key" \
-    "$state/.waiting-resurfaced-$watcher_key"
+    "$state/.nmrun-since-$watcher_key" "$state/.nmrun-resurfaced-$watcher_key" \
+    "$state/.waiting-resurfaced-$watcher_key" \
+    "$state/.jevsupp-since-$watcher_key" "$state/.jevsupp-resurfaced-$watcher_key"
 }
 
 reconcile_pause_tracking() {  # <window> <state> <last-status-line>
@@ -732,13 +755,18 @@ task_window_harness() {  # <window> <state>
 # fm_busy_verdict_working accepts is working, so a turn parked on a prompt
 # answer surfaces: unknown semantic state never becomes busy and never becomes a
 # silent idle, so a stale pane whose state cannot be proven surfaces.
+# The captured pane tail is published in FM_STALE_TAIL40 so the wedge
+# boundary's Jev second opinion reads the SAME pane the busy verdict saw
+# instead of paying for a second capture.
 stale_window_is_busy() {  # <window> <state>
   local win=$1 state=$2 backend harness label task tail40 verdict
+  FM_STALE_TAIL40=''
   backend=$(task_window_backend "$win" "$state")
   harness=$(task_window_harness "$win" "$state")
   task=$(window_to_task "$win" "$state")
   label="fm-$task"
   tail40=$(fm_backend_capture "$backend" "$win" 40 "$label" 2>/dev/null) || return 2
+  FM_STALE_TAIL40=$tail40
   verdict=$(fm_busy_classify "$backend" "$win" "$harness" "$task" "$state" "$tail40")
   fm_busy_verdict_working "$verdict"
 }
@@ -1180,7 +1208,9 @@ _oldest_line_age() {  # <buf> -> seconds since the oldest buffered item first ar
 #     attempt one normal delivery; if it cannot confirm, raise the wedge alarm.
 #     Never silently defer forever.
 #  2) stale recheck: for each pending stale marker past STALE_ESCALATE_SECS,
-#     re-peek the pane; still idle -> escalate (wedge); resumed -> clear marker.
+#     re-peek the pane; still idle -> defer while the task's no-mistakes run is
+#     demonstrably executing (re-arming the marker), else escalate (wedge);
+#     resumed -> clear marker.
 #  2b) pause re-surface: for each declared-wait marker past PAUSE_RESURFACE_SECS,
 #     re-peek; gone -> clear; still declaring the wait, on an idle OR a busy pane
 #     -> escalate a recheck digest naming which human the wait is on, and reset
@@ -1188,7 +1218,7 @@ _oldest_line_age() {  # <buf> -> seconds since the oldest buffered item first ar
 #  3) heartbeat scan: every HEARTBEAT_SCAN_SECS, grep state/*.status for a
 #     captain-relevant line the per-wake classifier missed and escalate it.
 housekeeping() {  # <state>
-  local state=$1 now due f key task win marker age last max_defer oldest pause_secs marker_epoch until bounded_until pause_reason
+  local state=$1 now due f key task win marker age last max_defer oldest pause_secs marker_epoch until bounded_until pause_reason run_id jsf jts jage
   now=$(_now)
   migrate_watcher_pause_markers "$state"
 
@@ -1231,7 +1261,7 @@ housekeeping() {  # <state>
     win=$(window_for_task "$key" "$state" 2>/dev/null || true)
     if [ -z "$win" ]; then
       # Window gone (task torn down): drop the marker, nothing to escalate.
-      rm -f "$marker"; continue
+      rm -f "$marker" "$state/.subsuper-jevsupp-$key"; continue
     fi
     task=$(window_to_task "$win" "$state")
     last=$(status_declared_wait_line "$state/$task.status")
@@ -1243,11 +1273,41 @@ housekeeping() {  # <state>
     [ "$age" -ge "${FM_STALE_ESCALATE_SECS:-$STALE_ESCALATE_SECS_DEFAULT}" ] || continue
     stale_window_is_busy "$win" "$state"
     case "$?" in
-      0) rm -f "$marker" ;;
-      2) rm -f "$marker" ;;
-      *) if escalate_add "$state" "stale persisted ${age}s (possible wedge): $win"; then
-           stale_marker_remove "$win" "$state"
-         fi ;;
+      0) rm -f "$marker" "$state/.subsuper-jevsupp-$key" ;;
+      2) rm -f "$marker" "$state/.subsuper-jevsupp-$key" ;;
+      *)
+        # Preserve the stronger no-mistakes execution evidence before asking
+        # Jev for a second opinion. Both checks are threshold-only; Jev can only
+        # defer the structural escalation, never replace it on failure.
+        if run_id=$(crew_nm_run_progressing "$task" "$state" "$marker"); then
+          rm -f "$state/.subsuper-jevsupp-$key"
+          _now > "$marker"
+          log "stale deferral: $win (its no-mistakes run $run_id is still executing, idle ${age}s)"
+        elif [ -n "${FM_STALE_TAIL40:-}" ] && wedge_jev_suppress "$FM_STALE_TAIL40" "$task" "$state"; then
+          # Bound a Jev suppression: a pane that stays quiet through a full
+          # re-surface interval still escalates for inspection. A marker whose
+          # timestamp is missing or malformed (an interrupted write) cannot
+          # prove the suppression is young, so it reads as expired and
+          # escalates rather than aborting housekeeping.
+          jsf="$state/.subsuper-jevsupp-$key"
+          [ -e "$jsf" ] || _now > "$jsf"
+          jts=$(cat "$jsf" 2>/dev/null || true)
+          case "$jts" in
+            ''|*[!0-9]*|??????????????????*) jage=${FM_PAUSE_RESURFACE_SECS:-$FM_PAUSE_RESURFACE_SECS_DEFAULT} ;;
+            *) jage=$(( now - 10#$jts )) ;;
+          esac
+          case "$jage" in ''|*[!0-9-]*) jage=$FM_PAUSE_RESURFACE_SECS_DEFAULT ;; esac
+          if [ "$jage" -ge "${FM_PAUSE_RESURFACE_SECS:-$FM_PAUSE_RESURFACE_SECS_DEFAULT}" ]; then
+            if escalate_add "$state" "stale persisted ${age}s (Jev reads no wedge, suppressed for ${jage}s; inspect anyway): $win"; then
+              stale_marker_remove "$win" "$state"
+            fi
+          else
+            _now > "$marker"
+            log "stale wedge suppressed by Jev pane-tail read (idle ${age}s): $win"
+          fi
+        elif escalate_add "$state" "stale persisted ${age}s (possible wedge): $win"; then
+          stale_marker_remove "$win" "$state"
+        fi ;;
     esac
   done
 
@@ -1346,8 +1406,9 @@ housekeeping() {  # <state>
     for f in "$state"/*.status; do
       [ -e "$f" ] || [ -L "$f" ] || continue
       task=$(basename "$f"); task="${task%.status}"
-      record=$(status_span_first_actionable_record "$f" \
-        "$(status_seen_offset "$state" "$task")")
+      record=''
+      status_span_first_actionable_record "$f" \
+        "$(status_seen_offset "$state" "$task")" record '' jev
       rc=$?
       if [ "$rc" -eq 2 ]; then
         ident=$(status_observed_signature "$f")
@@ -1555,13 +1616,14 @@ handle_wake() {  # <reason> <state>
                 needs-decision:*) arg="${reason#needs-decision: }" ;;
                 *) arg="${reason#signal: }" ;;
               esac
-              decision=$(FM_STATUS_SPAN_ENDPOINT_FILE="$capture" classify_signal "$arg" "$state") ;;
+              FM_STATUS_SPAN_ENDPOINT_FILE="$capture" classify_signal "$arg" "$state" decision ;;
     stale:*)  kind=stale; arg="${reason#stale: }"; stale_detail="${arg#"$arg"}"
               case "$arg" in *" ("*) stale_detail="${arg#*" ("}"; arg="${arg%% \(*}" ;; esac
               task=$(window_to_task "$arg" "$state")
               if [ -n "$task" ]; then
-                span_record=$(status_span_first_actionable_record "$state/$task.status" \
-                  "$(status_seen_offset "$state" "$task")")
+                span_record=''
+                status_span_first_actionable_record "$state/$task.status" \
+                  "$(status_seen_offset "$state" "$task")" span_record '' jev
                 span_rc=$?
                 case "$span_rc" in
                   0|1)
@@ -1907,6 +1969,7 @@ fm_super_main() {
 
   local rc reason
   while true; do
+    fm_jev_supervision_cycle_reset
     # --- pane-gone guard (preserved) ---------------------------------------
     # With the #29 watcher's enqueue-before-suppress, a wake is no longer
     # swallowed by running the watcher with no injection target. We still back

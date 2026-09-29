@@ -126,3 +126,20 @@ if out=$(fm_test_run_spawn "$home" "$wt" "$fakebin" devin-sm "$proj" --secondmat
 then fail 'Devin secondmate launch accepted'; fi
 assert_contains "$out" 'crewmate/scout adapter only' 'wrong secondmate refusal'
 pass "scout launch carries Fusion, autonomy, typed brief and hooks; effort recorded only"
+
+# The fork's launch helpers kept on the upstream adapter: the installer's
+# ~/.local/bin/devin launcher is found when PATH lacks it, and --permission-mode
+# accepts only Devin's documented vocabulary.
+# shellcheck source=bin/fm-devin-lib.sh
+. "$ROOT/bin/fm-devin-lib.sh"
+mkdir -p "$TMP_ROOT/fallback-home/.local/bin"
+printf '#!/bin/sh\n' > "$TMP_ROOT/fallback-home/.local/bin/devin"
+chmod +x "$TMP_ROOT/fallback-home/.local/bin/devin"
+out=$(HOME="$TMP_ROOT/fallback-home" PATH=/usr/bin:/bin fm_devin_resolve_binary) || fail 'installer launcher not found'
+case "$out" in */.local/bin/devin) ;; *) fail "fallback resolved to $out" ;; esac
+! HOME="$TMP_ROOT/empty-home" PATH=/usr/bin:/bin fm_devin_resolve_binary 2>/dev/null || fail 'missing binary accepted'
+for mode in auto accept-edits smart dangerous; do
+  fm_devin_permission_valid "$mode" || fail "documented permission mode refused: $mode"
+done
+! fm_devin_permission_valid invented || fail 'unknown permission mode accepted'
+pass "Devin binary fallback and permission-mode vocabulary"

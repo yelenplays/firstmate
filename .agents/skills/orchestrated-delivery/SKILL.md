@@ -59,7 +59,7 @@ These definitions do not declare `thinking`.
 The package appends thinking to the model at launch, so pass `model` as `<that definition's model>:<task effort>` and keep the definition's model pin.
 Read the class from this crewmate's `effort=` metadata; use it only when it is one of `low`, `medium`, `high`, `xhigh`, or `max`, otherwise omit the suffix rather than inventing `max`.
 Keep the roster pins intact; a changed installed package still requires checking the effective loadout rather than assuming its behavior.
-The live six-role provisioning guard is `tests/fm-pi-role-agents-live-e2e.test.sh`.
+[Runtime verification](../../../docs/verification/runtime-backends.md#orchestrated-pi-role-definitions) records the live six-role proof and its refresh command.
 
 ## Spawn and carry the handoff
 

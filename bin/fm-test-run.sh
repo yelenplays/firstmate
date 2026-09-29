@@ -71,7 +71,7 @@
 #   --per-script-timeout-secs N
 #                   terminate a script that runs longer than N seconds and
 #                   record it as exit 124 (0 disables, the default). The
-#                   --changed applies 900s automatically: no real script
+#                   --changed applies 1500s automatically: no measured script
 #                   approaches it, so it only converts a HUNG
 #                   script into a bounded failure. --max-wall-ms is checked
 #                   after the run and so cannot catch a hang on its own.
@@ -184,13 +184,16 @@ MAX_WALL_MS=
 PER_SCRIPT_TIMEOUT_SECS=0
 # Bound applied automatically on the automatic --changed path, derived from
 # measured healthy runtimes with margin rather than picked: the slowest measured
-# behavior test is the 341s Herdr presentation E2E, and the slowest script in a
-# runner-file changed selection is tests/fm-calm-pi-extension.test.sh at 77s
-# once its Chrome reap terminates. 900s leaves roughly 2.6x headroom over the
-# slowest real script, so this can only ever fire on a script that is genuinely
-# stuck. It is a guard, not a speed control: a HUNG script becomes a bounded
-# failure instead of an unbounded suite, which is the shape that silently
-# outruns a caller's invocation budget.
+# script is tests/fm-watch-triage.test.sh in the watcher-wake-lock family, at
+# about 434s alone and about 698s under CI load (the hint table below records
+# that loaded figure), and the slowest script in a runner-file changed selection
+# is tests/fm-calm-pi-extension.test.sh at 77s once its Chrome reap terminates.
+# 1500s keeps every measured script under the bound with roughly 2.1x headroom
+# over the slowest loaded measurement, and it stays under the 30-minute normal
+# CI tier so a wedged script fails here, with its output, before the job cap
+# cancels the lane. It is a guard, not a speed control: a HUNG script becomes a
+# bounded failure instead of an unbounded suite, which is the shape that
+# silently outruns a caller's invocation budget.
 CHANGED_DEFAULT_TIMEOUT_SECS=1500
 
 # How many separate-runner shards the portable serial remainder splits into.
@@ -202,9 +205,9 @@ PORTABLE_SERIAL_SHARDS=9
 # overloads the shard it lands in.
 PORTABLE_SERIAL_DEFAULT_WEIGHT_MS=27000
 
-# Maximum modeled execution time for a portable parallel shard, below ten
+# Maximum modeled execution time for a portable parallel shard, below seven
 # minutes to leave room for CI setup under the existing ten-minute job tripwire.
-PORTABLE_PARALLEL_MAX_WEIGHT_MS=600000
+PORTABLE_PARALLEL_MAX_WEIGHT_MS=420000
 
 # Largest share of the serial lane allowed to run on the default weight above.
 # Hints are what keep the shards balanced, so once too much of the lane is
@@ -281,12 +284,12 @@ family_for_basename() {
   case "$1" in
     fm-arm-pretool-check.test.sh|fm-ask-user-authority.test.sh|\
     fm-bearings-board.test.sh|\
-    fm-brief.test.sh|fm-vendor-auth-probe.test.sh|\
+    fm-brief.test.sh|fm-dod-lib.test.sh|fm-vendor-auth-probe.test.sh|\
     fm-calm-pi-extension.test.sh|fm-cd-pretool-check.test.sh|\
     fm-classify-decision-key.test.sh|\
     fm-composer-ghost.test.sh|fm-composer-lib.test.sh|\
     fm-crew-state.test.sh|fm-captain-hold-lifecycle.test.sh|\
-    fm-documentation-audiences.test.sh|fm-ensure-agents-md.test.sh|fm-grok-harness.test.sh|\
+    fm-documentation-audiences.test.sh|fm-ensure-agents-md.test.sh|fm-forge-detect.test.sh|fm-grok-harness.test.sh|\
     fm-harness-precedence.test.sh|\
     fm-hermes-agent.test.sh|fm-kimi-harness.test.sh|fm-muse-harness.test.sh|fm-devin-harness.test.sh|fm-rovo-harness.test.sh|fm-agy-harness.test.sh|fm-omp-harness.test.sh|fm-herdr-lab.test.sh|fm-lint.test.sh|\
     fm-lint-workflows.test.sh|fm-matt-pointers.test.sh|\
@@ -296,6 +299,7 @@ family_for_basename() {
     fm-send-popup-settle.test.sh|fm-send-settle.test.sh|\
     fm-skill-path.test.sh|fm-subagent-pretool-check.test.sh|\
     fm-supervision-instructions.test.sh|fm-task-delivery.test.sh|\
+    fm-timeout-lib.test.sh|\
     fm-tmux-submit-busy.test.sh|fm-trace-context-lib.test.sh|\
     fm-transition-lib.test.sh|\
     fm-test-run.test.sh|fm-test-isolation-proof.test.sh)
@@ -332,7 +336,7 @@ family_for_basename() {
     fm-remote-secondmate-trace-context.test.sh|\
     fm-secondmate-harness.test.sh|fm-secondmate-lifecycle-e2e.test.sh|\
     fm-secondmate-liveness.test.sh|fm-secondmate-reconcile.test.sh|\
-    fm-secondmate-restart.test.sh|\
+    fm-secondmate-restart.test.sh|fm-remote-secondmate-relaunch.test.sh|\
     fm-secondmate-safety.test.sh|fm-secondmate-sync.test.sh|\
     fm-startup-memory-budget.test.sh|fm-stow-cascade.test.sh|\
     fm-send-secondmate-marker.test.sh|fm-shared-captain-inheritance.test.sh)
@@ -358,17 +362,21 @@ family_for_basename() {
     fm-cursor-primary-live-e2e.test.sh|\
     fm-grok-stop-live-e2e.test.sh|fm-harness-adapter-instructions-live-e2e.test.sh|\
     fm-harness-liveness-drift-live-e2e.test.sh|\
-    fm-muse-signals-live-e2e.test.sh|fm-devin-live-e2e.test.sh|fm-rovo-signals-live-e2e.test.sh|fm-agy-signals-live-e2e.test.sh|\
+    fm-devin-signals-live-e2e.test.sh|fm-muse-signals-live-e2e.test.sh|fm-devin-live-e2e.test.sh|fm-rovo-signals-live-e2e.test.sh|fm-agy-signals-live-e2e.test.sh|\
+    fm-launch-prompt-signals-live-e2e.test.sh|\
     fm-herdr-version-floor-live-e2e.test.sh|\
     fm-herdr-pi-stale-registration-live-e2e.test.sh|\
+    fm-worker-account-live-e2e.test.sh|\
     fm-opencode-primary-live-e2e.test.sh|fm-pi-branch-live-e2e.test.sh|\
     fm-pi-branch-responsiveness-live-e2e.test.sh|\
     fm-pi-primary-live-e2e.test.sh|fm-pi-role-agents-live-e2e.test.sh|fm-pi-codex-native.test.sh|fm-omp-primary-live-e2e.test.sh|\
     fm-pr-state-live-e2e.test.sh|\
     fm-sessionstart-hook-live-e2e.test.sh|fm-sessionstart-instruction-refresh-live-e2e.test.sh|\
+    fm-supervision-host-live-e2e.test.sh|fm-host-mirror-live-e2e.test.sh|\
     fm-quota-array-dispatch-live-e2e.test.sh|fm-send-secondmate-marker-herdr-e2e.test.sh|\
     fm-send-inbox-doorbell-live-e2e.test.sh|\
     fm-calm-claude-mod-plugin.test.sh|fm-calm-claude-mod-live-e2e.test.sh|\
+    fm-calm-pi-queue-retention-live-e2e.test.sh|\
     fm-herdr-submit-confirm-live-e2e.test.sh)
       printf '%s\n' live-harness-optin
       ;;
@@ -378,7 +386,11 @@ family_for_basename() {
     fm-herdr-session-cleanup.test.sh|fm-send-resolve-key.test.sh|fm-send-strict.test.sh|\
     fm-send-inbox.test.sh|fm-spawn-batch.test.sh|\
     fm-spawn-dispatch-profile.test.sh|fm-claude-trust.test.sh|\
+    fm-worker-account.test.sh|\
+    fm-git-strip-ai-trailers.test.sh|\
     fm-trace-context-spawn.test.sh|fm-spawn-worktree-settle.test.sh|\
+    fm-spawn-compact-adviser-disable.test.sh|\
+    fm-spawn-compact-adviser-disable-remote.test.sh|\
     fm-teardown-endpoint-safety.test.sh)
       printf '%s\n' backend-dispatch
       ;;
@@ -387,7 +399,8 @@ family_for_basename() {
     fm-review-diff.test.sh|fm-teardown.test.sh|fm-x-mode.test.sh)
       printf '%s\n' pr-forge
       ;;
-    fm-afk-contract.test.sh|fm-afk-inject-e2e.test.sh|fm-afk-return.test.sh)
+    fm-afk-contract.test.sh|fm-afk-inject-e2e.test.sh|fm-afk-return.test.sh|\
+    fm-supervision-host.test.sh|fm-host-mirror.test.sh)
       printf '%s\n' afk
       ;;
     fm-bearings-board-render.test.sh|fm-bearings-snapshot.test.sh|fm-contributions.test.sh|\
@@ -553,7 +566,6 @@ portable_parallel_lane_weight() {
 list_portable_parallel_1() {
   cat <<'EOF'
 tests/fm-captain-hold-lifecycle.test.sh
-tests/fm-pr-merge.test.sh
 tests/fm-grok-harness.test.sh
 tests/fm-pi-primary-types.test.sh
 tests/fm-composer-ghost.test.sh
@@ -566,22 +578,15 @@ EOF
 list_portable_parallel_2() {
   cat <<'EOF'
 tests/fm-lint.test.sh
-tests/fm-test-run.test.sh
 tests/fm-crew-state.test.sh
 tests/fm-arm-pretool-check.test.sh
 tests/fm-x-mode.test.sh
 tests/fm-backend-herdr.test.sh
-tests/fm-herdr-lab.test.sh
 tests/fm-cd-pretool-check.test.sh
-tests/fm-composer-lib.test.sh
-tests/fm-brief.test.sh
 tests/fm-send-popup-settle.test.sh
-tests/fm-send-strict.test.sh
 tests/fm-review-diff.test.sh
 tests/fm-spawn-batch.test.sh
-tests/fm-tmux-submit-busy.test.sh
 tests/fm-send-settle.test.sh
-tests/fm-ensure-agents-md.test.sh
 EOF
 }
 
@@ -753,11 +758,13 @@ tests/fm-devin-live-e2e.test.sh 48
 tests/fm-dispatch-replay.test.sh 1337
 tests/fm-dispatch-resolve.test.sh 4397
 tests/fm-documentation-audiences.test.sh 847
+tests/fm-dod-lib.test.sh 4000
 tests/fm-extension-binding.test.sh 9053
 tests/fm-fleet-snapshot-view.test.sh 17465
 tests/fm-history.test.sh 5760
 tests/fm-history-logbook.test.sh 13530
 tests/fm-fleet-sync.test.sh 35983
+tests/fm-forge-detect.test.sh 160
 tests/fm-gate-refuse.test.sh 5328
 tests/fm-gemini-harness.test.sh 938
 tests/fm-gitignore-config.test.sh 58
@@ -875,6 +882,8 @@ tests/fm-stat-shadowing.test.sh 48
 tests/fm-stow-cascade.test.sh 3022
 tests/fm-subagent-pretool-check.test.sh 949
 tests/fm-supervision-events.test.sh 659
+tests/fm-supervision-host-live-e2e.test.sh 50
+tests/fm-supervision-host.test.sh 41512
 tests/fm-tangle-guard.test.sh 7470
 tests/fm-task-delivery.test.sh 19784
 tests/fm-task-inbox.test.sh 30004
@@ -884,6 +893,7 @@ tests/fm-teardown.test.sh 145174
 tests/fm-test-fixture-cleanup.test.sh 937
 tests/fm-test-fixtures.test.sh 1562
 tests/fm-test-isolation-proof.test.sh 2692
+tests/fm-timeout-lib.test.sh 8541
 tests/fm-tmux-agent-liveness.test.sh 1953
 tests/fm-tool-update-check.test.sh 13832
 tests/fm-trace-context-lib.test.sh 227
@@ -1065,8 +1075,8 @@ select_lane() {
 
 run_coverage_guard() {
   local tmp missing extra a b shard unhinted serial_total
-  local p1_ms p1_unhinted p2_ms p2_unhinted
-  local parallel_max_ms parallel_min_ms parallel_imbalance_ms
+  local p1_ms p1_unhinted p2_ms p2_unhinted p3_ms p3_unhinted
+  local parallel_max_ms parallel_min_ms parallel_imbalance_ms lane_ms
   local -a saved_scripts=()
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-coverage.XXXXXX")
 
@@ -1083,9 +1093,13 @@ run_coverage_guard() {
     fi
   done
 
-  # The legacy third lane aliases work that is now partitioned into the two
-  # required shards. Check the union for coverage, not duplicate compatibility
-  # aliases.
+  cat "$tmp/s1" "$tmp/s2" "$tmp/s3" | LC_ALL=C sort | uniq -d >"$tmp/shard_dups"
+  if [ -s "$tmp/shard_dups" ]; then
+    log "coverage guard: portable parallel shards share scripts:"
+    cat "$tmp/shard_dups" >&2
+    rm -rf "$tmp"
+    return 1
+  fi
   cat "$tmp/s1" "$tmp/s2" "$tmp/s3" | LC_ALL=C sort -u >"$tmp/shards_union"
   missing=$(comm -23 "$tmp/proven" "$tmp/shards_union" || true)
   extra=$(comm -13 "$tmp/proven" "$tmp/shards_union" || true)
@@ -1204,16 +1218,16 @@ run_coverage_guard() {
   # header for the distinction between packed weights and measured job time.
   read -r p1_ms p1_unhinted <<<"$(list_portable_parallel_1 | portable_parallel_lane_weight)"
   read -r p2_ms p2_unhinted <<<"$(list_portable_parallel_2 | portable_parallel_lane_weight)"
-  # The production portable split has two required parallel shards. The legacy
-  # third lane remains listed for compatibility, but its contents are now folded
-  # into the two owned shards above so the behavior contract has one partition.
+  read -r p3_ms p3_unhinted <<<"$(list_portable_parallel_3 | portable_parallel_lane_weight)"
   parallel_max_ms=$p1_ms
   parallel_min_ms=$p1_ms
-  [ "$p2_ms" -le "$parallel_max_ms" ] || parallel_max_ms=$p2_ms
-  [ "$p2_ms" -ge "$parallel_min_ms" ] || parallel_min_ms=$p2_ms
+  for lane_ms in "$p2_ms" "$p3_ms"; do
+    [ "$lane_ms" -le "$parallel_max_ms" ] || parallel_max_ms=$lane_ms
+    [ "$lane_ms" -ge "$parallel_min_ms" ] || parallel_min_ms=$lane_ms
+  done
   parallel_imbalance_ms=$((parallel_max_ms - parallel_min_ms))
   if [ "$parallel_max_ms" -ge "$PORTABLE_PARALLEL_MAX_WEIGHT_MS" ]; then
-    log "coverage guard: largest portable parallel packed estimate ${parallel_max_ms}ms reaches the configured limit (${PORTABLE_PARALLEL_MAX_WEIGHT_MS}ms)"
+    log "coverage guard: largest portable parallel packed estimate ${parallel_max_ms}ms reaches the seven-minute limit (${PORTABLE_PARALLEL_MAX_WEIGHT_MS}ms)"
     rm -rf "$tmp"
     return 1
   fi
@@ -1223,7 +1237,7 @@ run_coverage_guard() {
     "$(wc -l <"$tmp/shards_union" | tr -d ' ')" \
     "$parallel_max_ms" \
     "$parallel_imbalance_ms" \
-    "$((p1_unhinted + p2_unhinted))" \
+    "$((p1_unhinted + p2_unhinted + p3_unhinted))" \
     "$(wc -l <"$tmp/serial" | tr -d ' ')" \
     "$PORTABLE_SERIAL_SHARDS" \
     "$unhinted" \
@@ -1500,6 +1514,14 @@ families_for_changed_path() {
       printf '%s\n' afk
       printf '%s\n' real-herdr-gated
       ;;
+    bin/fm-supervision-host.sh|bin/fm-supervision-engine-lib.sh|\
+    bin/fm-branch-report.sh|bin/fm-branch-dispatch.mjs)
+      # The supervision host and its parts: its own suite and live guard, plus
+      # the Claude Stop hook that runs it.
+      printf '%s\n' afk
+      printf '%s\n' "__script__:fm-claude-stop-autoarm.test.sh"
+      printf '%s\n' live-harness-optin
+      ;;
     bin/fm-supervisor-target-lib.sh)
       printf '%s\n' watcher-wake-lock
       printf '%s\n' real-herdr-gated
@@ -1576,6 +1598,7 @@ families_for_changed_path() {
       printf '%s\n' __script__:fm-watch-recovery-loop.test.sh
       printf '%s\n' __script__:fm-wake-queue.test.sh
       printf '%s\n' __script__:fm-pi-primary-types.test.sh
+      printf '%s\n' __script__:fm-supervision-host.test.sh
       # Whether an arriving outcome still lets the captain type is a fact only
       # a real Pi TUI can answer, so the live guards are selected too.
       printf '%s\n' live-harness-optin
@@ -1698,7 +1721,7 @@ families_for_changed_path() {
     bin/fm-captain-hold.sh|bin/fm-decision-hold.sh|bin/fm-supervision*|bin/fm-transition-lib.sh|\
     bin/fm-tmux-lib.sh|bin/fm-marker-lib.sh|bin/fm-operational-input.sh|bin/fm-tasks-axi-lib.sh|\
     bin/fm-vendor-auth-probe.sh|\
-    bin/fm-primary-scope-lib.sh|bin/fm-project-mode.sh|bin/fm-promote.sh|\
+    bin/fm-primary-scope-lib.sh|bin/fm-project-mode.sh|bin/fm-forge-detect.sh|bin/fm-promote.sh|\
     bin/fm-ff-lib.sh|bin/fm-gotmp*|bin/*pretool*)
       printf '%s\n' pure-contract-unit
       ;;
@@ -1710,10 +1733,10 @@ families_for_changed_path() {
       printf '%s\n' pure-contract-unit
       printf '%s\n' live-harness-optin
       ;;
-    .agents/skills/*/SKILL.md|.agents/skills/*/LICENSE|.agents/skills/*/UPSTREAM.md|.agents/skills/*|.pi/skills/*|.claude/skills/*|.grok/*|.omp/*|.opencode/*|.cursor/*|.codex/*)
+    .agents/skills/*/SKILL.md)
       printf '%s\n' pure-contract-unit
       ;;
-    .github/workflows/ci.yml|.no-mistakes.yaml|skills-lock.json)
+    .github/workflows/ci.yml|.no-mistakes.yaml)
       printf '%s\n' pure-contract-unit
       printf '%s\n' real-herdr-gated
       ;;
@@ -2507,10 +2530,8 @@ run_script_bounded() {  # <script> <out> <stream> <id>
   # shellcheck source=tests/git-config-helpers.sh
   . "$ROOT/tests/git-config-helpers.sh" || return
   # shellcheck source=tests/environment.sh
-  if [ -r "$ROOT/tests/environment.sh" ]; then
-    . "$ROOT/tests/environment.sh" || return
-    fm_test_sanitize_environment
-  fi
+  . "$ROOT/tests/environment.sh" || return
+  fm_test_sanitize_environment
   local rc
   : "$id"
   set +e
@@ -2674,10 +2695,8 @@ else
       export TMPDIR="$work/tmp"
       export TMP="$work/tmp"
       # shellcheck source=tests/environment.sh
-      if [ -r "$ROOT/tests/environment.sh" ]; then
-        . "$ROOT/tests/environment.sh"
-        fm_test_sanitize_environment
-      fi
+      . "$ROOT/tests/environment.sh"
+      fm_test_sanitize_environment
       cd "$ROOT" || exit 1
       begin_ms=$(now_ms)
       set +e

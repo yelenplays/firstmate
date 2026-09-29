@@ -246,7 +246,7 @@ run_restart() {  # <case-dir> <args...>
   env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
     FM_SPAWN_NO_GUARD=1 FM_SECONDMATE_PERSIST_POLL=1 \
     FM_SECONDMATE_PERSIST_WAIT="${FM_TEST_PERSIST_WAIT:-30}" \
-    FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
+    FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_COMPOSER_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
     FM_SSH_BIN="${FM_TEST_SSH_BIN:-ssh}" \
     "$RESTART" "$@" 2>&1
 }
@@ -565,6 +565,34 @@ test_local_restart_uses_the_home_pin_and_reports_what_ran() {
   pass "T8 a local restart re-resolves this home's pin and reports the runtime that came up"
 }
 
+test_restart_honors_per_id_pins_local_and_remote() {
+  local dir out rc relaunch_line
+  dir=$(new_case perid-local)
+  add_local_mate "$dir" sm1
+  arm_answer "$dir" sm1
+  mkdir -p "$dir/home/config/secondmate-harness.d"
+  printf 'claude\n' > "$dir/home/config/secondmate-harness"
+  printf 'codex\n' > "$dir/home/config/secondmate-harness.d/sm1"
+  printf 'codex' > "$dir/fake/becomes"
+  out=$(run_restart "$dir" sm1); rc=$?
+  expect_code 0 "$rc" "a per-id pinned local restart should succeed"$'\n'"$out"
+  assert_contains "$out" "restarted: sm1 (codex)" "a local restart should land on the mate's own per-id pin"
+
+  dir=$(new_case perid-remote)
+  setup_remote_case "$dir" sm2 ok
+  export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm2.status"
+  mkdir -p "$dir/home/config/secondmate-harness.d"
+  printf 'codex big-model medium\n' > "$dir/home/config/secondmate-harness"
+  printf 'codex big-model high\n' > "$dir/home/config/secondmate-harness.d/sm2"
+  out=$(run_restart "$dir" sm2); rc=$?
+  unset FM_FAKE_ANSWER_STATUS
+  expect_code 0 "$rc" "a per-id pinned remote restart should succeed"$'\n'"$out"
+  relaunch_line=$(grep '^fm-remote-secondmate-control.sh relaunch' "$dir/ssh.log" | head -1)
+  [ "$relaunch_line" = "fm-remote-secondmate-control.sh relaunch sm2 codex big-model high" ] \
+    || fail "the remote relaunch did not carry the parent's per-id pin: $relaunch_line"
+  pass "T8b local and remote restarts resolve the mate's own per-id pin ahead of the shared one"
+}
+
 test_native_ultra_restart_keeps_local_and_remote_profiles() {
   local dir out rc relaunch_line
   dir=$(new_case native-local)
@@ -855,6 +883,7 @@ test_unprovable_runtime_falls_back
 test_unknown_mate_is_accounted_for
 test_refused_restart_falls_back_without_claiming_a_reload
 test_local_restart_uses_the_home_pin_and_reports_what_ran
+test_restart_honors_per_id_pins_local_and_remote
 test_native_ultra_restart_keeps_local_and_remote_profiles
 test_remote_mate_restarts_over_the_transport_hop
 test_unreachable_host_is_reported_unknown

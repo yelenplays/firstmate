@@ -68,7 +68,7 @@ record_valid() {
     and (.attempt_gen | type == "string")
   ' "$1" >/dev/null 2>&1
 }
-read_backlog() { "$SCRIPT_DIR/fm-fleet-snapshot.sh" --contribution-input | jq -c '.backlog'; }
+read_backlog() { "$SCRIPT_DIR/fm-fleet-snapshot.sh" --backlog-json; }
 row() { printf '%s' "$BACKLOG_JSON" | jq -c --arg id "$1" '[.records[] | select(.structured and .id == $id)] | if length == 1 then .[0] else null end'; }
 
 scan_one() {

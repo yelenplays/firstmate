@@ -1281,7 +1281,7 @@ fm_task_set_lock_path() {  # <state-dir>
 # the walk at the current home, which is the correct answer rather than an
 # error: the parent lives on another machine, so its filesystem can neither hold
 # nor be observed by a lock taken here, and a remote-seeded home is itself the
-# top of the local tree that bin/fm-teardown.sh's collect_local_firstmate_states
+# top of the local tree that fm_collect_local_firstmate_states below
 # enumerates (that walk already skips remote registry entries for the same
 # reason). Refusing a remote binding instead made every operation anchored here
 # fail closed inside a remote secondmate home and its local descendants.
@@ -1341,6 +1341,50 @@ fm_treehouse_project_lock_path() {  # <project-dir>
   hash=$(printf '%s' "$identity" | git hash-object --stdin 2>/dev/null) || return 1
   [ -d "$root/state" ] || return 1
   printf '%s/.treehouse-project-%s.lock\n' "$root/state" "$hash"
+}
+
+# Truth path of a clone whose Treehouse pool is rooted in its origin repository.
+# Treehouse keys a pool by the origin URL, or by the repository path when there
+# is no origin (verified against Treehouse v2.0.0 on 2026-09-22: the pool
+# ~/.treehouse/Wikis-899784 served both ~/Documents/Wikis, which has no remote,
+# and the fleet clone projects/Wikis, whose origin is that plain path). Such a
+# clone therefore shares one pool with its origin repository, and a slot that
+# repository created is a worktree of it rather than of the clone. Prints the
+# origin repository's path and succeeds only when <project-dir> has a plain
+# absolute-path origin naming a non-bare repository root with no origin of its
+# own, and that repository already has a linked worktree in a Treehouse pool
+# (the same <pool>/<slot>/<repo> layout fm_treehouse_pool_slot requires).
+# A file:// origin, a bare origin, or an origin with its own remote keys a
+# separate pool; an origin with no pool slot leaves the pool the clone's own.
+fm_treehouse_pool_origin_root() {  # <project-dir>
+  local project=$1 origin origin_real top top_real line wt wt_real
+  [ -d "$project" ] || return 1
+  origin=$(git -C "$project" remote get-url origin 2>/dev/null) || return 1
+  case "$origin" in
+    /*) ;;
+    *) return 1 ;;
+  esac
+  origin_real=$(CDPATH='' cd -- "$origin" 2>/dev/null && pwd -P) || return 1
+  [ "$(git -C "$origin_real" rev-parse --is-bare-repository 2>/dev/null)" = false ] || return 1
+  top=$(git -C "$origin_real" rev-parse --show-toplevel 2>/dev/null) || return 1
+  top_real=$(CDPATH='' cd -- "$top" 2>/dev/null && pwd -P) || return 1
+  [ "$top_real" = "$origin_real" ] || return 1
+  if git -C "$origin_real" remote get-url origin >/dev/null 2>&1; then
+    return 1
+  fi
+  while IFS= read -r line; do
+    case "$line" in
+      'worktree '*) wt=${line#worktree } ;;
+      *) continue ;;
+    esac
+    wt_real=$(CDPATH='' cd -- "$wt" 2>/dev/null && pwd -P) || continue
+    [ "$wt_real" != "$origin_real" ] || continue
+    if fm_treehouse_pool_slot "$origin_real" "$wt_real"; then
+      printf '%s\n' "$origin_real"
+      return 0
+    fi
+  done < <(git -C "$origin_real" worktree list --porcelain 2>/dev/null)
+  return 1
 }
 
 # A Treehouse slot has the managed pool's fixed <pool>/<slot>/<repo> layout.
@@ -1456,6 +1500,140 @@ fm_treehouse_slot_owner_release() {  # <worktree> <task-id>
   [ "$FM_TREEHOUSE_SLOT_OWNER" = mine ] || return 0
   marker=$(fm_treehouse_slot_owner_marker "$worktree") || return 0
   rm -f "$marker" 2>/dev/null || true
+}
+
+# --- Live-path ownership scan over every local home's task records ----------
+#
+# A Treehouse pool slot is reused across tasks and across HOMES: the slot
+# allocation lock is anchored in the local root home, so the task holding a
+# slot may be recorded in any local Firstmate home. Proving a live path
+# unowned therefore scans every local home's task records, not only the
+# caller's own. bin/fm-teardown.sh refuses to return a slot another record
+# still names; bin/fm-spawn.sh refuses to launch a worker into one.
+#
+# A state/<id>.meta record is the fleet's durable ownership proof: it is
+# published at spawn and removed at teardown, so a record naming the path IS
+# the living task's claim on it. A record whose own path no longer resolves is
+# skipped - it cannot name the slot that was just handed out.
+
+# Canonical form of a directory that must already exist; anything else fails.
+fm_canonical_existing_dir() {  # <path>
+  local target=$1
+  [ -n "$target" ] || return 1
+  [ -d "$target" ] || return 1
+  (CDPATH='' cd -- "$target" 2>/dev/null && pwd -P)
+}
+
+# Canonicalize a file path through its parent directory. The file itself cannot
+# be entered, so a meta file reached through a symlinked or /tmp-prefixed state
+# dir keeps its spelled prefix while the canonical enumeration of the same state
+# dir does not; comparing the two spellings only works when both are canonical.
+# The parent must exist and resolve.
+fm_canonical_file_path() {  # <path>
+  local target=$1 dir base
+  [ -n "$target" ] || return 1
+  dir=$(dirname "$target") || return 1
+  base=$(basename "$target") || return 1
+  dir=$(CDPATH='' cd -- "$dir" 2>/dev/null && pwd -P) || return 1
+  printf '%s/%s\n' "$dir" "$base"
+}
+
+# Fill FM_FIRSTMATE_LOCAL_STATES with every local Firstmate home's state
+# directory, own first: the local root home plus each registered local
+# descendant, walked breadth-first through the secondmates.md registry chain.
+# Remote entries are skipped - their records live on another machine and
+# cannot claim a slot here. <abort-note> tails each refusal line so the caller
+# names its own stop instead of inheriting another's.
+FM_FIRSTMATE_LOCAL_STATES=()
+fm_collect_local_firstmate_states() {  # <own-state-dir> [abort-note]
+  local record_state=$1 note=${2:-nothing was changed}
+  local root home reg line child known existing i=0 own_state home_state
+  local -a homes
+  # The own state dir is enumerated once, under the same canonical spelling the
+  # root walk below uses. A non-canonical caller spelling (a symlinked or
+  # /tmp-prefixed home) would otherwise enumerate the same directory twice, so
+  # the caller's own record could be seen under a spelling its exclusion does
+  # not cover and reported as its own holder.
+  own_state=$(fm_canonical_existing_dir "$record_state") || own_state=$record_state
+  FM_FIRSTMATE_LOCAL_STATES=("$own_state")
+  root=$(fm_firstmate_root_home "$FM_HOME") || {
+    echo "REFUSED: cannot resolve the root Firstmate home; $note" >&2
+    return 1
+  }
+  homes=("$root")
+  while [ "$i" -lt "${#homes[@]}" ]; do
+    home=${homes[$i]}
+    i=$((i + 1))
+    known=0
+    home_state=$(fm_canonical_existing_dir "$home/state") || home_state="$home/state"
+    for existing in "${FM_FIRSTMATE_LOCAL_STATES[@]}"; do
+      [ "$existing" != "$home_state" ] || known=1
+    done
+    [ "$known" = 1 ] || FM_FIRSTMATE_LOCAL_STATES+=("$home_state")
+    reg="$home/data/secondmates.md"
+    [ ! -e "$reg" ] && [ ! -L "$reg" ] && continue
+    [ -f "$reg" ] && [ ! -L "$reg" ] || {
+      echo "REFUSED: local Firstmate registry is unsafe at $reg; $note" >&2
+      return 1
+    }
+    if ! command -v secondmate_registry_parse_line >/dev/null 2>&1; then
+      # shellcheck source=bin/fm-secondmate-registry-lib.sh
+      . "$FM_WAKE_LIB_DIR/fm-secondmate-registry-lib.sh"
+    fi
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in
+        "- "*)
+          secondmate_registry_parse_line "$line" || {
+            echo "REFUSED: malformed local Firstmate registry entry in $reg; $note" >&2
+            return 1
+          }
+          [ "$SECONDMATE_REGISTRY_REMOTE" -eq 0 ] || continue
+          child=$(fm_canonical_existing_dir "$SECONDMATE_REGISTRY_HOME") || {
+            echo "REFUSED: registered local Firstmate home is unavailable: $SECONDMATE_REGISTRY_HOME; $note" >&2
+            return 1
+          }
+          known=0
+          for existing in "${homes[@]}"; do
+            [ "$existing" != "$child" ] || known=1
+          done
+          [ "$known" = 1 ] || homes+=("$child")
+          ;;
+      esac
+    done < "$reg"
+  done
+}
+
+# Print one "<task-id>\t<field>\t<meta-file>" line per local task record whose
+# worktree= or home= field resolves to <canonical-path>, the same evidence of
+# ownership fm_collect_local_firstmate_states gathered. <exclude-meta> skips
+# the caller's own record; pass an empty value for none.
+fm_task_record_conflicts_on_path() {  # <canonical-path> [exclude-meta]
+  local slot=$1 exclude=${2:-} state_dir other_meta other_id field other_path other_slot
+  command -v fm_meta_get >/dev/null 2>&1 || {
+    # shellcheck source=bin/fm-backend.sh
+    . "$FM_WAKE_LIB_DIR/fm-backend.sh"
+  }
+  if [ -n "$exclude" ]; then
+    exclude=$(fm_canonical_file_path "$exclude" 2>/dev/null) || exclude=$2
+  fi
+  for state_dir in "${FM_FIRSTMATE_LOCAL_STATES[@]+"${FM_FIRSTMATE_LOCAL_STATES[@]}"}"; do
+    for other_meta in "$state_dir"/*.meta; do
+      [ -f "$other_meta" ] && [ ! -L "$other_meta" ] || continue
+      [ "$other_meta" != "$exclude" ] || continue
+      # Identity, not spelling: the same record reached through a differently
+      # resolved state dir is still this record. A differently named hardlink
+      # is another task's record, so the name must match too.
+      [ -n "$exclude" ] && [ "${other_meta##*/}" = "${exclude##*/}" ] && [ "$other_meta" -ef "$exclude" ] && continue
+      other_id=$(basename "$other_meta" .meta)
+      for field in worktree home; do
+        other_path=$(fm_meta_get "$other_meta" "$field")
+        [ -n "$other_path" ] || continue
+        other_slot=$(fm_canonical_existing_dir "$other_path") || continue
+        [ "$other_slot" = "$slot" ] || continue
+        printf '%s\t%s\t%s\n' "$other_id" "$field" "$other_meta"
+      done
+    done
+  done
 }
 
 fm_failure_episode_reset() {
@@ -2116,6 +2294,19 @@ fm_wake_queue_prune_task() {  # <state> <task-id> [target]
   fm_lock_release "$lock"
 }
 
+# Collapse genuine repeats in first-seen order, keeping the freshest row of each
+# group. What forms a group is deliberately not uniform across kinds:
+#   heartbeat - one group for the whole drain; the payload is a constant.
+#   signal, stale - grouped by kind and key. Their payload is a pointer (the
+#     status files that changed, the window that went quiet), and the agent
+#     re-reads the live source, so the newest pointer is the whole story.
+#   check - grouped by kind, key AND payload, because a check's payload IS the
+#     deliverable and its key is only the channel that produced it. Two mentions
+#     arriving on one relay poll share a key while carrying different request
+#     ids, so grouping those by key alone silently dropped the earlier event in
+#     favour of the later one - a suppression vector reachable with no attacker.
+#     Identical repeats of one check result still collapse, so this cannot grow
+#     the queue on a check that keeps reporting the same thing.
 fm_wake_print_deduped() {
   local file=$1
   awk -F '\t' '
@@ -2123,6 +2314,12 @@ fm_wake_print_deduped() {
       dedupe = $3 SUBSEP $4
       if ($3 == "heartbeat") {
         dedupe = "heartbeat"
+      } else if ($3 == "check") {
+        payload = $5
+        for (i = 6; i <= NF; i++) {
+          payload = payload FS $i
+        }
+        dedupe = dedupe SUBSEP payload
       }
       if (!(dedupe in seen)) {
         order[++count] = dedupe
@@ -2544,8 +2741,9 @@ fm_wake_latest_event() {  # <validated-status-path> <tail-byte-cap>
 # raw queue consumption and released the append lock.
 fm_wake_print_annotations() {  # <deduped-raw-rows> [<presentation-snapshot>]
   local rows=$1 snapshot=${2:-} manifest status_key mode path prefix line task endpoint
-  local snapshot_task snapshot_endpoint _snapshot_ident offset last_event event_line
+  local snapshot_task snapshot_endpoint _snapshot_ident offset last_event event_line raw_event_line
   local LC_ALL=C
+  FM_WAKE_ANNOTATION_DONE_EVENTS=
 
   manifest=$(fm_wake_annotation_manifest "$rows" | awk -F '\t' '
     {
@@ -2609,6 +2807,7 @@ EOF
     last_event=$FM_WAKE_EVENT_LINE
     while IFS= read -r event_line || [ -n "$event_line" ]; do
       [ -n "$event_line" ] || continue
+      raw_event_line=$event_line
       event_line=$(printf '%s' "$event_line" | LC_ALL=C tr '\t\r' '  ')
       prefix="wake annotation: latest wake-EVENT observed at drain, not current state"
       if [ "$event_line" != "$last_event" ]; then
@@ -2619,6 +2818,10 @@ EOF
       fi
       line="$prefix: $status_key: $event_line"
       printf '%s\n' "$line" || return 1
+      if [ "$(status_line_verb "$event_line")" = 'done' ]; then
+        FM_WAKE_ANNOTATION_DONE_EVENTS="$FM_WAKE_ANNOTATION_DONE_EVENTS${status_key%.status}$(printf '\t')$raw_event_line
+"
+      fi
     done <<EOF
 $FM_WAKE_UNREAD_LINES
 EOF

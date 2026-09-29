@@ -418,6 +418,7 @@ The other half is processing, because a blocker, a decision, or a ready PR needs
 3. Main closes it only by calling `fm_branch_processed` with the highest sequence the request listed.
    That call advances a processed marker, which `bin/fm-branch-outcome.sh` keeps separately from the read cursor and never moves past it or backwards.
 
+Stage one remains the deterministic bash filter; when Jev credentials are configured, it may also make only the bounded status and wedge consultations documented in [configuration.md](configuration.md#jev-supervision-triage), and routine outcomes are still absorbed before Pi's branch turn.
 A lower listed captain sequence is accepted only as a partial acknowledgement and leaves every newer captain sequence open.
 
 Nothing else advances that marker.

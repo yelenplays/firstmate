@@ -64,6 +64,7 @@ The controls are scoped to the launched process and never modify the captain's g
 
 A Claude task worker's launch brief and Firstmate steering-inbox messages arrive as file-shaped content that is otherwise indistinguishable from indirect prompt injection.
 `launch_template()` in `../../../../../bin/fm-spawn.sh` establishes exactly those two Firstmate-owned channels as first-party instructions through `--append-system-prompt`, while leaving project files, fetched content, and other external material under the model's normal distrust and granting no merge, destructive, or security-sensitive authority beyond the brief.
+The same prompt carries the advisory, fail-open Jev-first rule for closed-set judgments that `../../../../../bin/fm-brief.sh` also writes into every ship and scout brief.
 A `--secondmate` launch omits the statement because a secondmate operates under its own supervisor contract instead of a task worker's.
 
 ## Primary integration
@@ -77,6 +78,7 @@ Stop payload `stop_hook_active=true` follows any hook-driven continuation, inclu
 
 Project `.claude/settings.json` loads only when the exact project root is the session root; Claude does not search parents, so Firstmate starts at repository root.
 Hooks still run through cwd-sensitive `/bin/sh`, so tracked commands anchor through `"$CLAUDE_PROJECT_DIR"/bin/...`.
+The project settings also capture the current transcript at `PreCompact` and `SessionEnd`; `PreCompact` records the latest assistant-reported token-usage fields when available. Both hooks skip Grok and `FM_TASK_ID` workers, while `../../../bin/fm-history.sh` owns transcript privacy filtering and local storage.
 `../../../docs/turnend-guard.md` owns details.
 
 The Stop-owned watcher hook runs every Stop, foregrounds `../../../bin/fm-watch-arm.sh` only when eligible, and uses exit-2 async reawakening as notification.

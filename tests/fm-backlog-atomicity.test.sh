@@ -419,6 +419,28 @@ test_fm_tasks_axi_gnu_timeout_forces_termination_of_a_sigterm_ignoring_child() {
   pass "fm_tasks_axi's GNU timeout kills a child that ignores SIGTERM after one further bound"
 }
 
+test_fm_tasks_axi_fallback_kills_the_childs_process_group() {
+  local case_dir fb out rc=0 started
+  case_dir=$(make_home fm-tasks-axi-group)
+  # The stub leaves a live grandchild behind when its leader dies. GNU
+  # timeout signals the child's whole process group; a leader-only kill
+  # lets the orphan keep this capture's pipe open, and the bounded call
+  # still outlives its bound. The orphan's own short sleep is what turns
+  # that regression into a fast elapsed-time failure instead of a hang.
+  fb=$(make_fallback_bin "$case_dir" '#!/bin/bash
+sleep 20 &
+exec sleep 300')
+  started=$SECONDS
+  out=$(run_bounded_fm_tasks_axi "$fb" 2 show never-answers) || rc=$?
+  [ "$rc" -eq 124 ] \
+    || fail "the perl watchdog fallback did not report the grouped call as timed out (rc=$rc, out=$out)"
+  [ $((SECONDS - started)) -ge 2 ] \
+    || fail "the perl watchdog fallback fired before the bound elapsed"
+  [ $((SECONDS - started)) -lt 15 ] \
+    || fail "the perl watchdog killed only the leader and left a pipe-holding orphan behind (${SECONDS}s)"
+  pass "fm_tasks_axi's perl watchdog signals the child's whole process group like GNU timeout"
+}
+
 change_row_on_second_show() {  # <case-dir> <done|rm>
   local case_dir=$1 action=$2 real
   real=$(command -v tasks-axi)
@@ -3064,6 +3086,7 @@ test_fm_tasks_axi_fallback_bounds_the_call_without_a_timeout_binary
 test_fm_tasks_axi_fallback_passes_the_child_status_and_output_through
 test_fm_tasks_axi_fails_closed_when_nothing_can_bound_the_call
 test_fm_tasks_axi_gnu_timeout_forces_termination_of_a_sigterm_ignoring_child
+test_fm_tasks_axi_fallback_kills_the_childs_process_group
 test_dispatch_interruption_during_kimi_readiness_fails_before_commit
 test_dispatch_does_not_resurrect_a_row_closed_after_preflight
 test_dispatch_fails_when_its_row_vanishes_after_preflight

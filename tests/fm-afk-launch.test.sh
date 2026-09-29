@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-afk-launch.test.sh - the script-owned, backend-aware away-daemon
 # launch (bin/fm-afk-launch.sh) and the away-mode stale-artifact lifecycle fixes
 # (bin/fm-afk-start.sh). Two layers:

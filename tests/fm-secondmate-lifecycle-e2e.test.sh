@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-secondmate-lifecycle-e2e.test.sh - the happy-path secondmate operator
 # flow, end to end, against one shared world:
 #

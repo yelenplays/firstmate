@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-wake-queue.test.sh - wake-queue losslessness (the queue safety matrix):
 # concurrent append/drain, bounded structural enrichment and presentation-lock
 # waits, interruption safety, signal catch-up while no watcher runs, stale/check enqueue-before-suppressor
@@ -11,7 +13,29 @@ set -u
 # shellcheck source=tests/wake-helpers.sh
 . "$(dirname "${BASH_SOURCE[0]}")/wake-helpers.sh"
 
-WATCH="$ROOT/bin/fm-watch.sh"
+REAL_WATCH="$ROOT/bin/fm-watch.sh"
+# Same spawn-claim ordering model as fm-watch-triage.test.sh: a window any
+# recorded meta names is already owned when the watcher binds, so a fixture's
+# seeded markers survive the first bind.
+WATCH=watch_under_test
+watch_under_test() {
+  local meta task window key
+  if [ -n "${FM_STATE_OVERRIDE:-}" ]; then
+    for meta in "$FM_STATE_OVERRIDE"/*.meta; do
+      [ -e "$meta" ] || continue
+      task=${meta##*/}; task=${task%.meta}
+      window=$(sed -n 's/^window=\(..*\)/\1/p' "$meta" | head -1)
+      [ -n "$window" ] || continue
+      key=$(printf '%s' "$window" | tr ':/.' '___')
+      [ -e "$FM_STATE_OVERRIDE/.window-owner-$key" ] \
+        || printf '%s' "$task" > "$FM_STATE_OVERRIDE/.window-owner-$key"
+    done
+  fi
+  # exec: the backgrounded function must BE the watcher process - running it
+  # as a child would leave tests reaping a subshell pid while the real watcher
+  # survives orphaned, still holding .watch.lock for the next launch.
+  exec "$REAL_WATCH" "$@"
+}
 DRAIN="$ROOT/bin/fm-wake-drain.sh"
 GRANT="$ROOT/bin/fm-wake-grant.sh"
 GUARD="$ROOT/bin/fm-guard.sh"
@@ -227,6 +251,36 @@ test_drain_dedupes_obvious_duplicates() {
   pass "drain collapses obvious duplicate heartbeat and signal records"
 }
 
+# Named regression: same-key collapse used to keep only the LAST row, so an
+# earlier urgent check result was silently dropped in favour of a later routine
+# one sharing its key - a suppression vector reachable with no attacker at all.
+# A check's key is only the channel that produced it; its payload is the
+# deliverable, so two distinct results on one channel must both survive.
+test_drain_keeps_distinct_check_results_on_one_key() {
+  local dir state out check_file count
+  dir=$(make_case distinct-checks)
+  state="$dir/state"
+  out="$dir/drain.out"
+  check_file="$state/x-watch.check.sh"
+  append_wake "$state" check "$check_file" "check: $check_file: x-mention req-urgent" \
+    || fail "first mention wake append failed"
+  append_wake "$state" check "$check_file" "check: $check_file: x-mention req-routine" \
+    || fail "second mention wake append failed"
+  append_wake "$state" check "$check_file" "check: $check_file: x-mention req-routine" \
+    || fail "repeat mention wake append failed"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "distinct-check drain failed"
+
+  count=$(awk -F '\t' 'NF == 5 && $3 == "check" { count++ } END { print count + 0 }' "$out")
+  [ "$count" -eq 2 ] || fail "expected 2 distinct check records, got $count"$'\n'"$(cat "$out")"
+  grep -F 'x-mention req-urgent' "$out" >/dev/null \
+    || fail "the earlier check result was dropped in favour of a later one sharing its key"
+  grep -F 'x-mention req-routine' "$out" >/dev/null \
+    || fail "the later check result was lost"
+  [ "$(awk -F '\t' '$3 == "check" { print $5 }' "$out" | head -1)" = "check: $check_file: x-mention req-urgent" ] \
+    || fail "distinct check results lost their first-seen ordering"
+  pass "drain keeps every distinct check result on one key and still collapses repeats"
+}
+
 # Run one watcher leg of the foreign-stall case at fake time <now>. Each leg
 # waits on what the watcher observably did, never on a wall-clock budget: a
 # loaded machine can take seconds to reach the first poll, and a leg cut off
@@ -269,7 +323,6 @@ foreign_stall_watch_leg() {  # <dir> <leg> <now> [observation]
     [ ! -e "$stall" ] || fail "watcher leg $leg left the prior episode's stall marker in place"
   fi
 }
-
 test_secondmate_foreign_queue_stall_tracks_progress_and_alerts_once() {
   local dir state sub fakebin out row_before row_after stall_count real_date
   dir=$(make_case secondmate-foreign-stall)
@@ -1181,7 +1234,7 @@ test_drain_asserts_watcher_liveness() {
   mkdir "$state/.watch.lock"
   printf '%s\n' "$$" > "$state/.watch.lock/pid"
   printf '%s\n' "$dir" > "$state/.watch.lock/fm-home"
-  printf '%s\n' "$WATCH" > "$state/.watch.lock/watcher-path"
+  printf '%s\n' "$REAL_WATCH" > "$state/.watch.lock/watcher-path"
   printf '%s\n' "$identity" > "$state/.watch.lock/pid-identity"
   touch "$state/.last-watcher-beat"
   FM_HOME="$dir" FM_STATE_OVERRIDE="$state" FM_GUARD_GRACE=300 "$DRAIN" >/dev/null 2> "$err" \
@@ -2927,12 +2980,17 @@ SH
 run_liveness_leg() {
   local dir=$1 tag=$2
   shift 2
-  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_ROOT_OVERRIDE="$ROOT" \
-    FM_STATE_OVERRIDE="$dir/state" FM_CREW_STATE_BIN="$dir/fakebin/fm-crew-state.sh" \
-    TMUX='' FM_BACKEND=tmux \
-    FM_TMUX_CALL_LOG="$dir/tmux.log" FM_SECONDMATE_LIVENESS_SECS=1 \
-    FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
-    "$@" "$WATCH" > "$dir/watch-$tag.out" 2> "$dir/watch-$tag.err" &
+  # $WATCH is a shell function that execs the watcher, so env(1) cannot run it;
+  # a subshell exports the leg's environment and becomes the watcher process.
+  (
+    export PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_ROOT_OVERRIDE="$ROOT" \
+      FM_STATE_OVERRIDE="$dir/state" FM_CREW_STATE_BIN="$dir/fakebin/fm-crew-state.sh" \
+      TMUX='' FM_BACKEND=tmux \
+      FM_TMUX_CALL_LOG="$dir/tmux.log" FM_SECONDMATE_LIVENESS_SECS=1 \
+      FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999
+    for assignment in "$@"; do export "${assignment?}"; done
+    "$WATCH"
+  ) > "$dir/watch-$tag.out" 2> "$dir/watch-$tag.err" &
   LIVENESS_PID=$!
 }
 
@@ -3375,6 +3433,7 @@ test_not_working_stale_enqueue_before_suppressor
 test_check_output_is_queued
 test_atomic_double_drain
 test_drain_dedupes_obvious_duplicates
+test_drain_keeps_distinct_check_results_on_one_key
 test_drain_asserts_watcher_liveness
 test_structural_signal_enrichment_preserves_raw_rows
 test_enrichment_preserves_all_unread_lines_and_status_file_failures

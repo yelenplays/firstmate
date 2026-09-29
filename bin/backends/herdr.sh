@@ -377,8 +377,7 @@ fm_backend_herdr_workspace_label() {
 # once ANY other herdr server is already bound on the machine - queries
 # silently fall back to whatever server IS running (the wrong one) instead of
 # routing to the requested session or refusing. The `--session <name>` global
-# flag (verified in both leading and trailing position; trailing used here to
-# keep every call site a minimal, append-only diff) always routes correctly,
+# flag (before any -- agent separator, otherwise trailing) routes correctly,
 # including starting a genuinely separate, isolated server process. The env
 # var is kept alongside it - harmless, self-documenting, and forward-
 # compatible if a future herdr build honors it. Never used by
@@ -1225,7 +1224,6 @@ fm_backend_herdr_emptying_close_plan() {  # <session> <pane-id> <workspace-id> <
       return 0
       ;;
   esac
-  shell_pid=
   if [ "$r" -lt "$a" ] && [ "$a" -lt $((len - 1)) ]; then
     # The doomed workspace sits before the focused one, where the pane-death
     # path would land focus on the focused workspace's right neighbor.
@@ -1272,20 +1270,11 @@ fm_backend_herdr_emptying_close_plan() {  # <session> <pane-id> <workspace-id> <
         and ([.result.workspaces[] | select(.focused == true) | .workspace_id] == [$focused])
       ' >/dev/null 2>&1; then
       echo "warning: herdr presentation cleanup could not move the doomed workspace behind the focused one; closing without the focus-safe removal path" >&2
-      # A transport-level connection failure means the proof was not reached by
-      # the mover and is still useful as bounded evidence; scripted or malformed
-      # mover failures remain a plain-close fallback with no extra probe.
-      if [ "$move_status" -eq 2 ]; then
-        shell_pid=$(fm_backend_herdr_pane_idle_shell_pid "$session" "$pane_id" 2>/dev/null || true)
-      fi
       printf 'plain\n'
       return 0
     fi
   fi
-  if [ -z "$shell_pid" ]; then
-    shell_pid=$(fm_backend_herdr_pane_idle_shell_pid "$session" "$pane_id" 2>/dev/null || true)
-  fi
-  if [ -n "$shell_pid" ]; then
+  if shell_pid=$(fm_backend_herdr_pane_idle_shell_pid "$session" "$pane_id"); then
     printf 'death %s\n' "$shell_pid"
   else
     printf 'plain\n'
@@ -3081,6 +3070,7 @@ fm_backend_herdr_normalize_key() {  # <key>
     # C-u clears a composer line. fm-send.sh's muse interrupt path needs it to
     # drop the prompt muse restores into the composer after Escape.
     C-u|c-u|ctrl+u|Ctrl+U) printf 'ctrl+u' ;;
+    C-q|c-q|ctrl+q|Ctrl+Q) printf 'ctrl+q' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -3166,8 +3156,17 @@ fm_backend_herdr_composer_identity() {  # <target> -> "<agent>\t<status>"
 # herdr, the plain capture degrades the descriptor to styled=0 rather than
 # letting ghost text be misread as typed input. Identity is fetched lazily,
 # only when the classifier reports the verdict depends on it (a pi separator
-# pair below every other candidate), preserving this adapter's original
-# consult-only-when-needed behavior.
+# pair below every other candidate) or when an unhinted read came back
+# unknown: the probe's agent name is then the classifier's harness hint, the
+# only way this adapter can know which harness-specific composer shapes are
+# legal here. The generic contract's optional argument is an expected label,
+# not a harness - callers pass the task label through it, so a positional
+# harness argument would read that label as a harness name and disable every
+# harness-owned rule (the 2026-09-22 stopped-Devin incident: the real Devin
+# composer stayed `unknown` and exit/relaunch refused to touch it).
+# FM_COMPOSER_HARNESS stays the explicit override for a caller that does know
+# the harness; today only Devin's bare `❭` row plus closing rule consumes the
+# hint, so a probed claude/pi/codex agent classifies identically to no hint.
 # The capture is the FULL VISIBLE VIEWPORT, never a bounded tail: an overlay
 # a harness renders between the composer and the pane bottom - Claude Code's
 # slash-command popup is the verified shape (2.1.283, ~19 menu rows) - pushes
@@ -3177,8 +3176,8 @@ fm_backend_herdr_composer_identity() {  # <target> -> "<agent>\t<status>"
 # equally defeat this state read's pre-submit concat guard. The composer is
 # by definition inside the viewport, and `--source visible` needs none of the
 # small-N --lines workaround.
-fm_backend_herdr_composer_state() {  # <target> -> empty|pending|pending-unproven|unknown
-  local target=$1 cap caps verdict identity
+fm_backend_herdr_composer_state() {  # <target> [expected-label] -> empty|pending|pending-unproven|unknown
+  local target=$1 harness=${FM_COMPOSER_HARNESS:-} cap caps verdict identity
   fm_backend_herdr_parse_target "$target" || { printf 'unknown'; return 0; }
   if cap=$(fm_backend_herdr_visible_capture_ansi "$target" 2>/dev/null); then
     caps=$(printf 'styled=1\ncursor=0\nidentity=1')
@@ -3188,12 +3187,15 @@ fm_backend_herdr_composer_state() {  # <target> -> empty|pending|pending-unprove
     printf 'unknown'
     return 0
   fi
-  verdict=$(fm_composer_classify_screen "$caps" "$cap")
-  if [ "$verdict" = need-identity ]; then
+  verdict=$(fm_composer_classify_screen "$caps" "$cap" '' '' "$harness")
+  if [ "$verdict" = need-identity ] || { [ -z "$harness" ] && [ "$verdict" = unknown ]; }; then
     if ! identity=$(fm_backend_herdr_composer_identity "$target" 2>/dev/null) || [ -z "$identity" ]; then
       identity='probe-absent'
     fi
-    verdict=$(fm_composer_classify_screen "$caps" "$cap" '' "$identity")
+    if [ -z "$harness" ] && [ "$identity" != probe-absent ]; then
+      harness=${identity%%$'\t'*}
+    fi
+    verdict=$(fm_composer_classify_screen "$caps" "$cap" '' "$identity" "$harness")
     [ "$verdict" != need-identity ] || verdict=unknown
   fi
   printf '%s' "$verdict"

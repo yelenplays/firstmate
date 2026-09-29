@@ -12,6 +12,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-sessionstart-run.sh` | Route a native session-open hook to the full digest, a context re-emit, or the nudge |
 | `fm-operational-input.sh` | Construct and parse the canonical cross-language operational-input protocol |
 | `fm-bootstrap.sh`        | Detect toolchain and fleet problems, run the locked session-start sweeps, and install approved tools |
+| `fm-browser-bridge-sweep-lib.sh` | Reap orphaned chrome-devtools-axi bridge trees whose owning task is proven dead, and remove their temporary-root browser profiles |
+| `fm-browser.sh` | Run one isolated browser action or a saved, verified browser route in a named session |
 | `fm-startup-network.sh`  | Run session start's network checks and inactive-outcome scan off its blocking path, retaining reports and durable findings |
 | `fm-fleet-sync.sh`       | Refresh project clones with safe fast-forwards, self-heals, `STUCK:` reports, branch pruning, and bounded recovery from an orphaned `.git/packed-refs.lock` |
 | `fm-fleet-snapshot.sh`   | Print structured fleet snapshot JSON and refresh only its parent-side remote-ledger cache (schema `fm-fleet-snapshot.v1`) |
@@ -36,6 +38,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-brief.sh`            | Scaffold ship (explicit `--mode`, plus the project's registered `--forge`), scout, secondmate-charter, and Herdr-lab briefs, with Captain's intent and Firstmate spec subsections on ship/scout |
 | [`fm-dod-lib.sh`](../bin/fm-dod-lib.sh) | Own ship/scout worker role scope, ship definitions of done, the named-head reachability gate on ship `done:` acceptance, and the no-mistakes `--intent` contract |
 | `fm-brief-heading-lib.sh` | Single owner of reading a brief's sections, shared by the `--intent` contract, spawn and promotion validation, and `fm-dispatch-resolve.sh` |
+| `fm-decision-record.sh`  | Record a captain decision's question, options, and recommendation as typed data the /bearings board consumes verbatim |
 | `fm-herdr-lab.sh`        | Provision and guardedly operate an isolated, never-default Herdr lab session         |
 | `fm-herdr-lab-viewer.py` | The pty engine behind `fm-herdr-lab.sh viewer`: one real foreground Herdr client on a non-zero window grid |
 | `fm-lab-home.sh`         | Mint disposable lab homes and manage their isolated tmux socket directories       |
@@ -43,6 +46,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-install-treehouse.sh`| Install CI's exact-version Treehouse pin for real-Herdr E2E that needs spawn worktrees |
 | `fm-herdr-ci-cleanup.sh` | Snapshot and tear down only job-owned `fm-lab-*` sessions in the Herdr CI lane       |
 | `fm-test-run.sh`         | Behavior-test runner: selection, portable lanes, bounded concurrency, budgets, coverage guard, timing/JSON; refuses to execute in the repository primary checkout when `FM_TASK_ID` marks a task worker |
+| `fm-hermes-agent.mjs`    | Own the allowlisted Hermes Agent loopback transport and credential boundary |
 | `fm-test-isolation-proof.sh` | Concurrent isolation harness and portable candidate set owner |
 | `fm-ensure-agents-md.sh` | Manually initialize project agent-memory files (see the helper's header and help) |
 | `fm-guard.sh`            | Warn on primary-checkout tangles, main-session pending wakes, and unhealthy supervision |
@@ -54,6 +58,23 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-kimi-turnend-hook.sh` | Surgically install or remove Kimi's guarded global crew turn-end hook                |
 | `fm-arm-pretool-check.sh` | Stable PreToolUse transport for the watcher-arm command policy (docs/arm-pretool-check.md) |
 | `fm-arm-command-policy.mjs` | Semantic owner of the watcher-arm PreToolUse policy (docs/arm-pretool-check.md)   |
+| `fm-jev-tool-gate.sh` | Remainder Jev Choice after a deterministic arm-policy allow; shadow-log default (docs/arm-pretool-check.md) |
+| `fm-jev.sh` | Compact typed judgments for closed-set decisions ([configuration](configuration.md)) |
+| `fm-jev-skill-select.sh` | Suggest optional skills ([configuration](configuration.md#jev-skill-selector-fm_jev_skill_select)) |
+| `fm-jev-intake-match.sh` | Match positional free-text captain references to backlog items and task records, keyword fallback ([configuration](configuration.md#jev-intake-match)) |
+| `fm-jev-act-first.sh` | ACT FIRST priority list of the session-start digest's actionable items, and its deferred Jev ranking ([configuration](configuration.md#jev-act-first-ranking-session-start)) |
+| `fm-queue-ready.sh` | Advisory heartbeat line of dispatch-ready backlog items from structured fields ([configuration](configuration.md#queue-readiness-heartbeat)) |
+| `fm-jev-brief-preflight.sh` | Advisory deterministic spawn-path brief check ([configuration](configuration.md#brief-preflight-fm_jev_brief_preflight)) |
+| `fm-dispatch-replay.sh` | Replay labeled dispatch briefs under a live call budget and score recorded choices offline ([configuration](configuration.md#typed-dispatch-resolution-env-typesafe_api_key)) |
+| `fm-jev-done-verify.sh` | Log-only shadow score of a worker done line; drain-invoked, never closes or tears down (docs/configuration.md) |
+| `fm-jev-retrieval-miss.sh` | Metadata-only Jev miss classifier; refuses excerpts and conflict lines (docs/configuration.md) |
+| `fm-wiki-ask.sh` | Config-gated wiki-tool ask; classifies no-match and missing-source only (docs/configuration.md) |
+| `fm-memory.sh` | Plain-markdown memory store: remember, BM25 recall, list, reindex (docs/memory.md) |
+| [`fm-history.sh`](../bin/fm-history.sh) | Capture and search the private conversation journal and generate task cards and daily Logbooks ([configuration](configuration.md#operational-home-layout-and-state)) |
+| [`fm-logbook-refresh.sh`](../bin/fm-logbook-refresh.sh) | Best-effort Logbook generation and configured Deck refresh ([configuration](configuration.md#private-deck-checkout-configdeck-path)) |
+| `fm-memory-bm25.mjs` | BM25 index and query engine behind fm-memory.sh; owns the index format and staleness rule |
+| `fm-memory-migrate.sh` | Verified OpenViking-workspace export into the markdown store plus archive (docs/memory.md) |
+| `fm-openviking-retire.sh` | Reversibly stop the OpenViking launchd agent and rotate its logs (docs/memory.md) |
 | `fm-subagent-pretool-check.sh` | Primary-home delegation-shape PreToolUse guard (docs/subagent-guard.md) |
 | `fm-supervision-instructions.sh` | Render the session-start primary-harness supervision block or the one-line repair instruction |
 | `fm-home-seed.sh`        | Transactionally provision a local secondmate home and maintain `data/secondmates.md` |
@@ -88,9 +109,12 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-procevent-quota.sh`  | Wake Firstmate when tracked quota drops below a threshold, is exhausted, or cannot be polled |
 | `fm-procevent-when.sh`   | Fire a trust-bound deterministic action at most once when its registered condition holds, then wake with the outcome |
 | `fm-gate-refuse-lib.sh`  | Shared gate-context lifecycle boundary for real and lab homes                      |
+| `fm-procevent-spend.sh`  | Enforce optional per-task and fleet-window token ceilings against the spend ledger |
+| `fm-spend-ledger.py`     | Rebuild per-task and fleet token totals from workers' Pi session logs, and predict dispatch burn |
 | `fm-watch-arm.sh`        | Verified home-scoped watcher arm wrapper with loud cycle endings and bounded lifecycle ledger |
 | `fm-watch-checkpoint.sh` | Run one bounded foreground watcher checkpoint for Codex-style supervision            |
 | `fm-watch.sh`            | Singleton-safe watcher: absorb benign wakes, detect stalled local-secondmate wake queues, and exit on actionable ones |
+| `fm-watch-state-lib.sh`  | The ONE owner of the watcher marker-key derivation and the per-window/per-task supervision state retirement that spawn, teardown, and the locked session-start sweep call |
 | `fm-inactive-reconcile.sh` | Reconcile long-inactive direct crewmate terminal outcomes without forge access |
 | `fm-afk-contract.sh`     | Own the away-posture record: schema, the captain's away words verbatim, read-back, entry announcement, archive, and cross-subsystem authority lock |
 | `fm-afk-start.sh`        | Run the common sourceable away-mode daemon entry in the foreground                      |
@@ -101,7 +125,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-crew-state.sh`       | Print one deterministic current-state line for a crew                                |
 | `fm-nm-run-lib.sh`       | Single owner of shared no-mistakes run-attribution primitives and rules             |
 | `fm-tangle-lib.sh`       | Shared default-branch resolution and primary-checkout tangle classification          |
-| `fm-timeout-lib.sh`      | Single owner of hard-bounded command execution and its fallback watchdog |
+| `fm-timeout-lib.sh`      | Shared owner of hard-bounded command execution and its fallback watchdog |
 | `fm-timing-lib.sh`       | Single owner of the deferred network stage's per-step elapsed-time records, inert unless a run asks for them |
 | `fm-supervision-lib.sh`  | Shared in-flight-work-without-fresh-watcher-beacon predicate                         |
 | `fm-ff-lib.sh`           | Shared guarded fast-forward/reconcile helper for origin pulls and secondmate syncs, with durable divergence markers |
@@ -114,6 +138,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-quota-choose.sh`     | Choose the first candidate with known positive quota from an ordered harness:model list |
 | `fm-vendor-auth-probe.sh`| Run one hard-bounded, non-destructive authentication probe of a named vendor CLI and report the fact |
 | `fm-wake-drain.sh`       | Present and acknowledge the current actor's claimed wake rows alongside status, outcome-backstop, decision, divergence, supervision-host outcome, recovery, and supervision checks |
+| `fm-wake-triage.sh`      | Drain and classify queued wakes as ACT NOW or ROUTINE; acknowledgement remains manual |
 | `fm-wake-grant.sh`       | Serialize Pi supervision-branch wake-row claim activation, publication, release, and deactivation |
 | `fm-wake-lib.sh`         | Shared durable wake queue, recovery generations, portable locks, and watcher identity/health helpers |
 | `fm-classify-lib.sh`     | Shared wake classification, durable keyed-decision folds and scans, unread status selection, home-owned status-append ranges, and bounded latest-event snapshots |

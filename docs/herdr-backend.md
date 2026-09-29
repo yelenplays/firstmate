@@ -514,7 +514,7 @@ Workspace and tab ids support verification and cleanup but are not inferred from
 ### Named server and session routing
 
 The adapter starts and polls a named server before workspace, tab, pane, or agent calls.
-Every Herdr invocation goes through `fm_backend_herdr_cli`, which sets the environment and passes an explicit trailing `--session <name>`.
+Every Herdr invocation goes through `fm_backend_herdr_cli`, which sets the environment and passes an explicit `--session <name>` before any agent-argument separator.
 An environment variable alone is not reliable when another Herdr server is running.
 
 When the selected named server is not running, the adapter launches it without these inherited values:
@@ -612,6 +612,7 @@ The adapter's own composer reads are exempt because they read the visible viewpo
 Herdr's native agent state can read idle while a harness waits on its own long foreground tool.
 The shared crew-state path therefore accepts a native `busy` as evidence of activity.
 It never accepts a native `idle` as evidence that a worker has stopped; the task's own semantic busy state (`bin/fm-busy-lib.sh`) decides that.
+The shared crew-state path therefore accepts a native `busy` as evidence of activity but never a native `idle` as evidence that a worker has stopped, except for Devin: it arms no semantic writer, so its native `idle`, `done`, or `blocked` is its only worker-state source and is read as `idle herdr-native` (the contract owner is `bin/fm-busy-lib.sh`, and [architecture.md](architecture.md#busy-state-is-semantic-per-adapter) owns its boundaries).
 A human-blocked permission dialog has no busy banner and still surfaces.
 
 ## Composer and injection safety
@@ -629,8 +630,10 @@ It hands the visible pane's ANSI viewport plus Herdr's capability facts to the f
 
 A blocked Pi is parked on an interactive prompt, so its blank composer region is a menu's and not a free composer's.
 That state defers instead of proving emptiness.
+The adapter is a thin capture: it hands a bounded ANSI tail plus Herdr's capability facts to the fleet-wide classifier in `bin/fm-composer-lib.sh`, which owns bordered boxes, bare agent-glyph rows, OpenCode's left bar, and Pi's separator and Zen-rail regions.
+Pi emptiness requires native Pi identity and idle/done state; its footer-qualified fallback accepts cost-first and token-count-first status lines, with exact footer and composer-structure guards in that classifier.
 A working Pi, pending middle row, missing identity, incomplete separator pair, or over-tall candidate remains unknown or pending.
-Identity stays a lazy second read, consulted only when a separator pair could change the verdict.
+Identity stays a lazy second read, consulted when a recognized Pi region could change the verdict, or when an unhinted read came back `unknown` and the probed agent name can supply the missing harness hint.
 
 ### Placeholder and ghost text
 
@@ -817,6 +820,7 @@ The helper:
 - Refuses caller-supplied session flags and server/session lifecycle subcommands.
 - Performs destructive stop/delete only through its guarded lifecycle actions.
 
+It provisions only non-default names beginning with `fm-lab-`, selects the session explicitly before any `--` separator in allowed task commands, refuses caller-supplied session flags and server/session lifecycle subcommands, and performs destructive stop/delete only through its guarded lifecycle actions.
 Immediately before every destructive call it re-queries the named session and refuses empty, missing, literal `default`, or `default:true` identities.
 Its before/after tripwire requires the live default-session snapshot to remain byte-identical.
 

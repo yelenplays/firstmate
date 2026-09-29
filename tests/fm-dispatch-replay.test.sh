@@ -105,6 +105,16 @@ run_tool_with_tmpdir() {  # <tmpdir> <out-var> <err-var> [args...]
   printf -v "$__err" '%s' "$(cat "$TMP_ROOT/stderr")"
 }
 
+run_tool_with_margin() {  # <margin> <out-var> <err-var> [args...]
+  local margin=$1 __out=$2 __err=$3 _out
+  shift 3
+  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_SPEND_LEDGER="$LEDGER_STUB" \
+    TYPESAFE_API_KEY="$KEY" FM_JEV_DISPATCH_MARGIN="$margin" "$TOOL" "$@" 2> "$TMP_ROOT/stderr")
+  code=$?
+  printf -v "$__out" '%s' "$_out"
+  printf -v "$__err" '%s' "$(cat "$TMP_ROOT/stderr")"
+}
+
 run_tool_without_key() {  # <out-var> <err-var> [args...]
   local __out=$1 __err=$2 _out
   shift 2
@@ -131,9 +141,9 @@ assert_present "$QUEUE/3.json" "the budget-stopped case never reaches the transp
 assert_equals '{"case":"diagnose","project":"pager","expected":["rule_1"],"status":"clear","rule":"rule_1","confidence":0.6,"probabilities":{"rule_1":0.7,"rule_2":0.2,"default":0.1},"reason":null}' \
   "$(jq -c 'select(.case == "diagnose") | del(.brief)' "$RESULT")" "run records the answer, label, and probabilities"
 assert_equals "$TMP_ROOT/briefs/diagnose.md" "$(jq -r 'select(.case == "diagnose") | .brief' "$RESULT")" "relative brief paths resolve against the cases file"
-assert_equals '{"case":"build","project":"","expected":["rule_2","default"],"status":"ambiguous","rule":"rule_2","reason":"confidence 0.3 below floor 0.6"}' \
+assert_equals '{"case":"build","project":"","expected":["rule_2","default"],"status":"ambiguous","rule":"rule_2","reason":"top-2 margin 0.15 below 0.4 (rule_2 vs rule_1)"}' \
   "$(jq -c 'select(.case == "build") | {case, project, expected, status, rule, reason}' "$RESULT")" "run keeps the resolver's own gate verdict and reason"
-assert_contains "$(cat "$BODIES/1.body")" 'CANDIDATE investigation work.' "run replays the candidate rules file"
+assert_contains "$(cat "$BODIES/1.body")" 'CANDIDATE investigation work. Tie-break: when rule_2 also fits and the deliverable is findings, choose this option over rule_2.' "run replays the candidate rules file"
 assert_not_contains "$(cat "$BODIES/1.body")" 'HOME-RULE-ONE' "the home's rules are not replayed when a candidate is given"
 assert_equals "$(cat "$TMP_ROOT/home-rules.before")" "$(cat "$HOME_DIR/config/crew-dispatch.json")" "run never touches the home rules file"
 assert_absent "$HOME_DIR/state/jev-dispatch-shadow.jsonl" "run forces the resolver's shadow log off"
@@ -173,10 +183,17 @@ assert_contains "$err" "--out conflicts with --rules file: $CANDIDATE" "the cand
 assert_equals "$(cat "$CANDIDATE_BEFORE_ALIAS")" "$(cat "$CANDIDATE")" "the candidate rules file is unchanged"
 assert_present "$QUEUE/3.json" "a candidate-rules output alias never reaches the transport"
 
+BAD_MARGIN_OUT="$TMP_ROOT/bad-margin.jsonl"
+run_tool_with_margin invalid out err run --cases "$CASES" --out "$BAD_MARGIN_OUT" --max-calls 1 --rules "$CANDIDATE"
+expect_code 2 "$code" "a resolver configuration failure stops replay"
+assert_contains "$err" 'FM_JEV_DISPATCH_MARGIN must be a number in (0, 1]' "the resolver configuration error is relayed"
+assert_equals 0 "$(wc -l < "$BAD_MARGIN_OUT" | tr -d ' ')" "a resolver configuration failure is not written as a row"
+assert_present "$QUEUE/3.json" "a resolver configuration failure never reaches the transport"
+
 OFF_OUT="$TMP_ROOT/off.jsonl"
 run_tool_without_key out err run --cases "$CASES" --out "$OFF_OUT" --max-calls 1
 expect_code 2 "$code" "an opt-out resolver stops replay"
-assert_contains "$err" 'dispatch-resolve: off (TYPESAFE_API_KEY absent from the environment and' "the opt-out cause is relayed"
+assert_contains "$err" 'dispatch-resolve: off (TYPESAFE_API_KEY and OPENROUTER_API_KEY absent from the environment and' "the opt-out cause is relayed"
 assert_equals 0 "$(wc -l < "$OFF_OUT" | tr -d ' ')" "an opt-out outcome is not written as a generic row"
 assert_present "$QUEUE/3.json" "an opt-out replay never reaches the transport"
 

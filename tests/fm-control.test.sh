@@ -37,6 +37,34 @@ trap 'rm -rf "$TMP_ROOT"' EXIT
 
 VERIFIED_HARNESSES="claude codex opencode pi pi-signed grok kimi cursor muse omp devin"
 
+test_harness_lookup_consumes_catalog() (
+  # A catalog larger than a pipe buffer makes an early reader close observable
+  # without depending on process scheduling or a particular OS pipe capacity.
+  # shellcheck disable=SC2329 # Called by the sourced harness lookup.
+  fm_control_harnesses() {
+    local i
+    printf 'claude\n'
+    for ((i=0; i<20000; i++)); do
+      printf 'codex\n' || return 1
+    done
+    printf 'devin\n'
+    printf 'complete\n' > "$TMP_ROOT/catalog-complete"
+  }
+  local candidate out rc expected
+  for candidate in claude devin unknown; do
+    rm -f "$TMP_ROOT/catalog-complete"
+    out=$(fm_control_harness_supported "$candidate" 2>&1); rc=$?
+    expected=0
+    [ "$candidate" != unknown ] || expected=1
+    [ "$rc" -eq "$expected" ] || fail "wrong harness verdict for $candidate: $rc"
+    [ -z "$out" ] || fail "harness lookup emitted diagnostics: $out"
+    [ -f "$TMP_ROOT/catalog-complete" ] || fail "harness lookup interrupted its catalog producer"
+  done
+  pass "harness lookup consumes the catalog for early, late, and absent matches"
+)
+
+test_harness_lookup_consumes_catalog || exit 1
+
 # The expectation table, written out independently of the implementation so a
 # silent change to either side shows up here. The fourth field is the composer
 # clear that must FOLLOW the interrupt key, empty for every adapter that leaves
@@ -175,6 +203,13 @@ case "${1:-}" in
     done
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
+    # pane-next replaces pane once pane-settle-after captures have been read,
+    # modelling a composer whose verdict settles only after the agent does.
+    if [ -f "$D/pane-next" ] && [ -f "$D/pane-settle-after" ]; then
+      n=$(( $(cat "$D/captures" 2>/dev/null || echo 0) + 1 ))
+      printf '%s' "$n" > "$D/captures"
+      [ "$n" -le "$(cat "$D/pane-settle-after")" ] || mv -f "$D/pane-next" "$D/pane"
+    fi
     if [ -f "$D/devin" ]; then devin_screen "$(cat "$D/devin")"; elif [ -f "$D/pane" ]; then cat "$D/pane"; else printf '╭────╮\n│    │\n╰────╯\n'; fi
     exit 0 ;;
   list-windows)
@@ -245,6 +280,7 @@ run_control() {
   env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
     FM_CONTROL_POLL=0.01 FM_CONTROL_SETTLE_WAIT=0.05 \
     FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
+    FM_CONTROL_COMPOSER_WAIT="${FM_CONTROL_COMPOSER_WAIT:-0.05}" \
     FM_FAKE_MUSE_LOG="${FM_FAKE_MUSE_LOG:-}" \
     FM_FAKE_MUSE_DISAPPEAR_BEFORE_ACK="${FM_FAKE_MUSE_DISAPPEAR_BEFORE_ACK:-}" \
     FM_FAKE_INTERRUPT_STOPS_AGENT="${FM_FAKE_INTERRUPT_STOPS_AGENT:-}" \
@@ -500,6 +536,13 @@ test_backend_key_capability_matrix() {
       fm_control_backend_supports_key "$backend" "$key" \
         || fail "$backend should be able to deliver $key"
     done
+  done
+  fm_control_backend_supports_key herdr C-q \
+    || fail "herdr has the live-verified Grok quit key"
+  for backend in tmux orca zellij cmux; do
+    if fm_control_backend_supports_key "$backend" C-q; then
+      fail "$backend must not claim the unverified Grok quit key"
+    fi
   done
   fm_control_backend_supports_key orca Escape \
     && fail "orca's terminal API has no Escape and must not claim it"
@@ -985,6 +1028,84 @@ test_grok_idle_footer_does_not_confirm_cancellation() {
   pass "fm-control interrupt: grok's idle footer does not confirm cancellation"
 }
 
+test_grok_limit_menu_refuses_without_verified_quit_keys() {
+  local dir out rc
+  dir=$(new_case grok-limit)
+  add_task "$dir" t1 grok
+  alive_as "$dir" grok
+  cp "$ROOT/tests/fixtures/composer/grok-weekly-limit.ansi" "$dir/fake/pane"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "a backend without a verified quit key must refuse the Grok limit menu"$'\n'"$out"
+  assert_contains "$out" "not proven empty" "the refusal should name the unproven composer"
+  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "an unverified quit key must send no bytes"
+  pass "fm-control: the Grok limit menu on tmux refuses without typing or an unverified quit key"
+}
+
+test_unproven_composer_guards_preserve_drafts() {
+  local dir out rc
+  dir=$(new_case pending-grok)
+  add_task "$dir" t1 grok
+  alive_as "$dir" grok
+  printf '╭─────────╮\n│ draft   │\n╰─────────╯\n' > "$dir/fake/pane"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "Grok draft must be preserved"
+  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "pending draft must receive no lifecycle input"
+  dir=$(new_case unproven-grok)
+  add_task "$dir" t1 grok
+  alive_as "$dir" grok
+  printf '╭──────────╮\n│ > draft │\n╰──────────╯\n' > "$dir/fake/pane"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "Grok text in an unproven-geometry composer must be preserved"
+  assert_contains "$out" "visibly holds pending text" \
+    "the refusal should report the unproven draft"
+  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "pending-unproven draft must receive no lifecycle input"
+  dir=$(new_case unknown-pi)
+  add_task "$dir" t1 pi
+  alive_as "$dir" pi
+  printf 'unrecognized menu\n' > "$dir/fake/pane"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "Pi must not inherit Grok quit keys"
+  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "other harness unknown composer must remain untouched"
+  pass "fm-control: pending and unproven composers preserve drafts and other harnesses stay untouched"
+}
+
+test_unknown_composer_settles_before_exit() {
+  local dir out rc
+  # A Pi on Herdr reads `unknown` while it unwinds an interrupted turn; exit
+  # must wait for the composer to prove empty instead of refusing on one read.
+  dir=$(new_case settle-pi)
+  add_task "$dir" t1 pi
+  alive_as "$dir" pi
+  printf 'unrecognized menu\n' > "$dir/fake/pane"
+  printf '╭────╮\n│    │\n╰────╯\n' > "$dir/fake/pane-next"
+  printf '3' > "$dir/fake/pane-settle-after"
+  out=$(FM_CONTROL_COMPOSER_WAIT=5 run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "an unknown composer that settles empty should allow exit"$'\n'"$out"
+  [ "$(literals "$dir")" = /quit ] || fail "a settled empty composer should receive /quit, got: $(literals "$dir")"
+  [ "$(cat "$dir/fake/captures")" -gt 3 ] || fail "exit should have re-read the composer until it settled"
+  # A composer that settles into a draft still refuses and types nothing.
+  dir=$(new_case settle-pending)
+  add_task "$dir" t1 pi
+  alive_as "$dir" pi
+  printf 'unrecognized menu\n' > "$dir/fake/pane"
+  printf '╭─────────╮\n│ draft   │\n╰─────────╯\n' > "$dir/fake/pane-next"
+  printf '2' > "$dir/fake/pane-settle-after"
+  out=$(FM_CONTROL_COMPOSER_WAIT=5 run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "a composer that settles into a draft must refuse"$'\n'"$out"
+  assert_contains "$out" "visibly holds pending text" "the refusal should report the settled draft"
+  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "a settled draft must receive no lifecycle input"
+  # A composer that never settles refuses once the bounded wait is spent.
+  dir=$(new_case settle-never)
+  add_task "$dir" t1 pi
+  alive_as "$dir" pi
+  printf 'unrecognized menu\n' > "$dir/fake/pane"
+  out=$(FM_CONTROL_COMPOSER_WAIT=0.1 run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "a composer that never settles must refuse"$'\n'"$out"
+  assert_contains "$out" "still 'unknown' after 0.1s" "the refusal should name the spent settle wait"
+  [ -z "$(literals "$dir")$(keys_sent "$dir")" ] || fail "an unsettled composer must receive no lifecycle input"
+  pass "fm-control exit: an unknown composer is re-read until it settles, and only a proven empty one is typed into"
+}
+
 # --- 6. marker non-regression -----------------------------------------------
 
 test_secondmate_control_command_carries_no_marker() {
@@ -1031,6 +1152,28 @@ test_fm_send_still_marks_the_same_secondmate_task() {
   pass "fm-control's arrival leaves fm-send's from-firstmate marking untouched"
 }
 
+test_harness_lookup_drains_producer() (
+  # Exceed pipe capacity so an early match cannot hide a closed reader behind
+  # buffering. Wait for the producer to prove it completed without SIGPIPE.
+  # shellcheck disable=SC2329 # Called by the imported harness lookup.
+  fm_control_harnesses() {
+    awk 'BEGIN { print "claude"; for (i = 0; i < 65536; i++) print "codex" }'
+  }
+  fm_control_harness_supported claude || fail "first harness was not supported"
+  wait "$!" || fail "harness lookup closed its producer pipe early"
+  fm_control_harness_supported codex || fail "later harness was not supported"
+  wait "$!" || fail "later match closed its producer pipe early"
+  if fm_control_harness_supported unknown; then
+    fail "unknown harness was supported"
+  fi
+  wait "$!" || fail "unknown harness lookup did not drain its producer"
+  pass "harness lookup drains its producer for matches and misses"
+)
+
+test_harness_lookup_drains_producer || exit 1
+test_grok_limit_menu_refuses_without_verified_quit_keys
+test_unproven_composer_guards_preserve_drafts
+test_unknown_composer_settles_before_exit
 # Only an adapter whose runtime records an exact per-pane agent session has a
 # relaunch resume form, and only a reference its OWN agent reported may be
 # handed to it: resuming another adapter's reference would inject that agent's

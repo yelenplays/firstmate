@@ -3,9 +3,10 @@
 # optionally acknowledge handled records,
 # annotate every unread line for validated signal status keys, surface unread
 # informational status lines, latest captain-facing statuses not covered by a
-# newer branch outcome, OPEN DECISIONS, captain-call record divergence, and on
-# a supervision-host home the supervision session's new and unprocessed
-# outcomes (BRANCH OUTCOMES), then assert liveness.
+# newer branch outcome, OPEN DECISIONS, captain-call record divergence, the
+# advisory queue-ready line on a heartbeat row, and on a supervision-host home
+# the supervision session's new and unprocessed outcomes (BRANCH OUTCOMES),
+# then assert liveness.
 #
 # Keep sequence-bound row consumption independent from generation-bound episode
 # retirement; docs/watcher-continuity.md owns the recovery contract.
@@ -24,6 +25,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
 # shellcheck source=bin/fm-lease-lib.sh
 . "$SCRIPT_DIR/fm-lease-lib.sh"
+# shellcheck source=bin/fm-env-lib.sh
+. "$SCRIPT_DIR/fm-env-lib.sh"
 # shellcheck source=bin/fm-supervision-engine-lib.sh
 . "$SCRIPT_DIR/fm-supervision-engine-lib.sh"
 
@@ -131,17 +134,6 @@ print_branch_held_notice() {
       "$ELIGIBLE_ROWS_FILE")
   printf 'WAKE ROWS HELD BY SUPERVISION BRANCH: %s queued row(s) (%s) are granted to the live supervision branch, which presents and acknowledges them.\n' \
     "$held" "${seqs:-unknown}"
-}
-
-print_queue_ready_line() { # <presented rows>
-  local rows=$1 bound line
-  [ -n "$rows" ] || return 0
-  printf '%s\n' "$rows" | awk -F '\t' '$3 == "heartbeat" { found=1 } END { exit !found }' || return 0
-  bound=${FM_QUEUE_READY_TIMEOUT:-5}
-  case "$bound" in ''|*[!0-9]*|0) bound=5 ;; esac
-  line=$(fm_run_timed "$bound" env FM_HOME="$(dirname "$STATE")" "$SCRIPT_DIR/fm-queue-ready.sh" 2>/dev/null | head -n 1) || return 0
-  [ -n "$line" ] || return 0
-  printf '%s\n' "$line" || return 1
 }
 
 write_rows_file_locked() { # <target> <source>
@@ -353,6 +345,8 @@ EOF
 print_status_outcome_backstop_section() {  # <task-and-endpoint-snapshot>
   local snapshot=$1 task endpoint ident event event_endpoint line verb key receipt store lock ready
   local output='' used=0 shown=0 omitted=0 bytes item_bytes=220 global_bytes=4000 rc=0
+  local done_events=
+  STATUS_OUTCOME_BACKSTOP_DONE_EVENTS=
   [ "$ACTOR" = main ] || return 0
 
   store="$STATE/branch-outcomes.jsonl"
@@ -420,6 +414,10 @@ print_status_outcome_backstop_section() {  # <task-and-endpoint-snapshot>
     fi
     output="$output$line
 "
+    if [ "$verb" = 'done' ]; then
+      done_events="$done_events$task$(printf '\t')$event
+"
+    fi
     STATUS_OUTCOME_BACKSTOP_ACKNOWLEDGED="$STATUS_OUTCOME_BACKSTOP_ACKNOWLEDGED$task$(printf '\t')$event_endpoint
 "
     used=$((used + bytes))
@@ -441,6 +439,7 @@ EOF
   if [ "$omitted" -gt 0 ]; then
     printf 'STATUS OUTCOME BACKSTOP: %d more omitted (byte cap)\n' "$omitted" || return 1
   fi
+  STATUS_OUTCOME_BACKSTOP_DONE_EVENTS=$done_events
 }
 
 # Print still-unread informational status lines (note: answers and pending-reply
@@ -794,9 +793,67 @@ print_status_sections() {
   rm -f -- "$prepared"
 }
 
+# One advisory next-work line, only when this drain is presenting a heartbeat:
+# the ready items by their structured backlog fields, never a dispatch.
+# Bounded like the divergence guard above, and silent when nothing is ready or
+# the backlog cannot be read. bin/fm-queue-ready.sh owns the readiness rule;
+# FM_QUEUE_READY_TIMEOUT overrides the positive whole-second bound (default 5).
+print_queue_ready_line() {
+  local rows=$1 bound line
+  [ -n "$rows" ] || return 0
+  printf '%s\n' "$rows" | awk -F '\t' '$3 == "heartbeat" { found=1 } END { exit !found }' || return 0
+  bound=${FM_QUEUE_READY_TIMEOUT:-5}
+  case "$bound" in ''|*[!0-9]*|0) bound=5 ;; esac
+  # The backlog read belongs to the home that owns this state directory, so a
+  # drain over a fixture or foreign state directory never reads another backlog.
+  line=$(fm_run_timed "$bound" env FM_HOME="$(dirname "$STATE")" "$SCRIPT_DIR/fm-queue-ready.sh" 2>/dev/null | head -n 1) || return 0
+  [ -n "$line" ] || return 0
+  printf '%s\n' "$line" || return 1
+}
+
+# Shadow-score a newly presented worker `done:` line. Log-only: never closes,
+# never tears down, never delays the drain's already-printed presentation.
+# Absent keys skip the call so fixture drains without a Jev opt-in stay inert.
+jev_done_keys_present() {
+  local envf
+  if [ -n "${TYPESAFE_API_KEY:-}" ] || [ -n "${OPENROUTER_API_KEY:-}" ]; then
+    return 0
+  fi
+  envf="${FM_HOME:-}/.env"
+  [ -n "$(fmx_env_get TYPESAFE_API_KEY "$envf")" ] \
+    || [ -n "$(fmx_env_get OPENROUTER_API_KEY "$envf")" ]
+}
+
+shadow_jev_done_verify() {
+  local events=$1 record task line jsonl home lock
+  [ -n "$events" ] || return 0
+  jev_done_keys_present || return 0
+  home=${FM_HOME:-$(dirname "$STATE")}
+  while IFS= read -r record; do
+    task=${record%%$'\t'*}
+    line=${record#*$'\t'}
+    [ -n "$task" ] || continue
+    while [[ "$line" == *$'\r' ]]; do line=${line%$'\r'}; done
+    line=$(printf '%s' "$line" | LC_ALL=C tr '\t\r' '  ')
+    jsonl="$STATE/${task}.jev-done.jsonl"
+    lock="$STATE/.${task}.jev-done.lock"
+    (
+      trap 'fm_lock_release "$lock"' EXIT
+      trap 'exit 143' TERM INT
+      fm_lock_acquire_wait "$lock" || exit 0
+      if [ -f "$jsonl" ] && jq -ne --arg l "$line" 'any(inputs; .done_line == $l)' "$jsonl" >/dev/null 2>&1; then
+        exit 0
+      fi
+      FM_HOME="$home" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-jev-done-verify.sh" "$task" --done-line "$line" || true
+    ) >/dev/null 2>&1 &
+    disown $! 2>/dev/null || true
+  done <<< "$events"
+}
+
 print_status_presentation() {  # [<deduped-raw-rows>]
   local rows=${1:-} lock="$STATE/.status-presentation-lock" snapshot annotation_manifest fully_presented='' rc=0
   local lock_rc holder_pid
+  local FM_WAKE_ANNOTATION_DONE_EVENTS='' STATUS_OUTCOME_BACKSTOP_DONE_EVENTS=''
   if fm_lock_acquire_wait_bounded "$lock" "$PRESENTATION_LOCK_TIMEOUT"; then
     :
   else
@@ -823,6 +880,18 @@ print_status_presentation() {  # [<deduped-raw-rows>]
   fi
   if [ "$rc" -eq 0 ] && [ -n "$snapshot" ]; then print_status_sections "$snapshot" "$fully_presented" || rc=1; fi
   fm_lock_release "$lock"
+  if [ "$rc" -eq 0 ] && [ -n "$snapshot" ]; then shadow_jev_done_verify "$FM_WAKE_ANNOTATION_DONE_EVENTS$STATUS_OUTCOME_BACKSTOP_DONE_EVENTS" || true; fi
+  # Execution obligations outlive queue acknowledgement and status presentation.
+  # Always reconcile them, including an empty queue and a missing task endpoint.
+  local execution
+  if execution=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" scan); then
+    if [ -n "$execution" ]; then
+      printf 'UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):\n%s\n' "$execution"
+    fi
+  else
+    printf 'UNFINISHED EXECUTION: reconciliation unavailable; obligations retained\n' >&2
+    rc=1
+  fi
   return "$rc"
 }
 
@@ -1070,15 +1139,11 @@ RAW_ROWS=$(fm_wake_print_deduped "$DRAIN_VIEW_TMP") || exit "$?"
 rm -f -- "$DRAIN_VIEW_TMP" || exit 1
 DRAIN_VIEW_TMP=
 ACK_THROUGH=$(printf '%s\n' "$RAW_ROWS" | awk -F '\t' '$2 ~ /^[0-9]+$/ && $2 > max { max=$2 } END { print max + 0 }') || exit 1
-record_history_batch || exit 1
 case "${FM_WAKE_DRAIN_TEST_DELAY_BEFORE_COMMIT:-0}" in
   0) ;;
   ''|*[!0-9]*) ;;
   *) sleep "$FM_WAKE_DRAIN_TEST_DELAY_BEFORE_COMMIT" ;;
 esac
-if [ -n "$RAW_ROWS" ]; then
-  printf '%s\n' "$RAW_ROWS" || exit "$?"
-fi
 fm_recovery_marker_snapshot "$RECOVERY_MARKER" || exit 1
 RECOVERY_MARKER_TOKEN=$FM_RECOVERY_MARKER_TOKEN
 case "$RECOVERY_MARKER_TOKEN" in
@@ -1087,11 +1152,15 @@ case "$RECOVERY_MARKER_TOKEN" in
 esac
 fm_lock_release "$FM_WAKE_QUEUE_LOCK"
 DRAIN_LOCK_HELD=false
+record_history_batch || exit 1
+if [ -n "$RAW_ROWS" ]; then
+  printf '%s\n' "$RAW_ROWS" || exit "$?"
+  print_queue_ready_line "$RAW_ROWS" || true
+fi
 printf 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through %s --recovery-generation %s\n' \
   "$ACK_THROUGH" "${RECOVERY_MARKER_TOKEN##*:}" >&2
 
 (print_status_presentation "$RAW_ROWS") || true
-print_queue_ready_line "$RAW_ROWS" || true
 print_branch_outcomes_section || BRANCH_OUTCOMES_RC=1
 assert_watcher_liveness
 exit "$BRANCH_OUTCOMES_RC"

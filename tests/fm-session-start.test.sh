@@ -29,12 +29,18 @@
 #     network result surfaces exactly once (inline or as a wake, never both), a
 #     read-only session declares the checks it skipped, and the tasks-axi
 #     compatibility verdict is paid for once per session start
+#   - ACT FIRST: a local priority list after the wake queue; the deferred Jev
+#     ranking never delays the network result and raises exactly one wake
 set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 # shellcheck source=tests/wake-helpers.sh
 . "$(dirname "${BASH_SOURCE[0]}")/wake-helpers.sh"
+
+# The digest's ACT FIRST ranking reads Jev keys from the environment first; the
+# cases that exercise it supply a key through the test home's .env instead.
+unset TYPESAFE_API_KEY OPENROUTER_API_KEY JEV_ROUTE JEV_URL JEV_BASE
 
 SESSION_START="$ROOT/bin/fm-session-start.sh"
 BASE_PATH=${FM_TEST_BASE_PATH:-/usr/bin:/bin:/usr/sbin:/sbin}
@@ -1626,7 +1632,8 @@ $rec
 EOF
   make_fake_toolchain "$fakebin"
   make_fake_ps_claude "$fakebin"
-  rm -f "$fakebin/node"
+  rm -f "$fakebin/node" "$fakebin/chrome-devtools-axi"
+  ln -s "$(command -v node)" "$fakebin/node"
 
   printf 'needs-decision: pick a library\n' > "$home/state/task-z.status"
   append_wake "$home/state" signal task-z.status "needs-decision: pick a library"
@@ -1636,12 +1643,137 @@ EOF
   # fm-lock.sh's own exact success text.
   assert_contains "$out" "lock acquired: harness pid" "fm-lock.sh's real output did not appear (composition, not reimplementation)"
   # fm-bootstrap.sh's own exact MISSING-tool line format.
-  assert_contains "$out" "MISSING: node (install:" "fm-bootstrap.sh's real detect line did not appear verbatim"
+  assert_contains "$out" "MISSING: chrome-devtools-axi (install:" "fm-bootstrap.sh's real detect line did not appear verbatim"
   # fm-wake-drain.sh's real drained record (raw tab-separated queue line).
   assert_contains "$out" "$(printf 'signal\ttask-z.status\tneeds-decision: pick a library')" "fm-wake-drain.sh's real drained record did not appear"
   assert_contains "$out" "wake annotation: latest wake-EVENT observed at drain, not current state: task-z.status: needs-decision: pick a library" "fm-session-start.sh did not preserve the drain's separate annotation line"
 
   pass "fm-session-start.sh composes the real fm-lock.sh, fm-bootstrap.sh, and fm-wake-drain.sh output verbatim"
+}
+
+# install_fake_jev_curl <fakebin> <log-dir> <sleep-seconds>: a curl that records
+# the Jev request and when it started, sleeps, then answers the ACT FIRST Choice
+# with the second offered item on top. jq is linked in because the digest runs
+# on a minimal PATH.
+install_fake_jev_curl() {
+  local fakebin=$1 log=$2 delay=$3
+  mkdir -p "$log"
+  ln -sf "$(command -v jq)" "$fakebin/jq"
+  cat > "$fakebin/curl" <<SH
+#!/usr/bin/env bash
+out=''
+while [ \$# -gt 0 ]; do
+  case "\$1" in -o) out=\$2; shift 2 ;; *) shift ;; esac
+done
+date +%s > '$log/started'
+cat > '$log/body'
+sleep $delay
+touch '$log/finished'
+printf '%s' '{"answers":{"first":{"type":"choice","choice":"i2","confidence":0.8,"probabilities":{"i1":0.2,"i2":0.8}}}}' > "\$out"
+printf '200'
+SH
+  chmod +x "$fakebin/curl"
+}
+
+# make_act_first_world <name> <curl-delay>: a locked world with a Jev key, the
+# recording fake curl, and two presented wakes whose status logs are live. Runs
+# pin FM_FAKE_HARNESS_PID so the lock has a stable owner and the deferred stage
+# starts.
+make_act_first_world() {
+  local name=$1 delay=$2 rec
+  rec=$(new_world "$name")
+  IFS='|' read -r AF_ROOT AF_HOME AF_FAKEBIN <<EOF
+$rec
+EOF
+  make_fake_toolchain "$AF_FAKEBIN"
+  make_fake_ps_claude "$AF_FAKEBIN"
+  AF_LOG="${AF_ROOT%/root}/jev"
+  install_fake_jev_curl "$AF_FAKEBIN" "$AF_LOG" "$delay"
+  printf 'TYPESAFE_API_KEY=ts-act-first-test\n' > "$AF_HOME/.env"
+  printf 'needs-decision: pick a library\n' > "$AF_HOME/state/task-y.status"
+  printf 'blocked: waiting on a key\n' > "$AF_HOME/state/task-z.status"
+  append_wake "$AF_HOME/state" signal task-y.status "needs-decision: pick a library"
+  append_wake "$AF_HOME/state" signal task-z.status "blocked: waiting on a key"
+}
+
+test_act_first_lists_presented_items_without_a_network_call() {
+  local out wake act supervision section
+  make_act_first_world act-first-local 8
+
+  out=$(FM_FAKE_HARNESS_PID=$$ run_session_start "$AF_HOME" "$AF_ROOT" "$AF_FAKEBIN:$BASE_PATH")
+
+  [ ! -e "$AF_LOG/finished" ] || fail "the digest waited for the Jev call to finish"
+  assert_contains "$out" "ACT FIRST (priority order: open decisions, unfinished execution, failures and blockers, then wakes" \
+    "the ACT FIRST section did not print"
+  section=$(printf '%s\n' "$out" | awk '/^ACT FIRST/ { p = 1; next } p && /^(=|SUPERVISION)/ { exit } p')
+  assert_contains "$section" "1. decision task-y needs-decision: pick a library" \
+    "open decisions were not listed first"$'\n'"$section"
+  assert_contains "$section" "2. decision task-z blocked: waiting on a key" \
+    "the second decision was not listed"$'\n'"$section"
+  [ "$(printf '%s\n' "$section" | grep -c '^[0-9]\. ')" -eq 2 ] \
+    || fail "each task's wake repeated its open decision"$'\n'"$section"
+  assert_not_contains "$section" "(p=" "the digest printed a model ranking"
+  wake=$(printf '%s\n' "$out" | grep -n '^WAKE QUEUE$' | cut -d: -f1)
+  act=$(printf '%s\n' "$out" | grep -n '^ACT FIRST' | cut -d: -f1)
+  supervision=$(printf '%s\n' "$out" | grep -n '^SUPERVISION OPERATING INSTRUCTIONS' | cut -d: -f1)
+  [ -n "$wake" ] && [ -n "$act" ] && [ -n "$supervision" ] && [ "$wake" -lt "$act" ] && [ "$act" -lt "$supervision" ] \
+    || fail "ACT FIRST was not between the wake queue and the supervision block (wake=$wake act=$act supervision=$supervision)"
+  wait_for_network_stage "$AF_HOME" "$AF_ROOT" 60 || fail "the deferred stage never finished"
+  pass "session start: ACT FIRST lists presented items in priority order without waiting on Jev"
+}
+
+# wait_for_file <path> <seconds>: poll until the file exists.
+wait_for_file() {
+  local path=$1 limit=$2 waited=0
+  while [ ! -e "$path" ] && [ "$waited" -lt "$((limit * 10))" ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  [ -e "$path" ]
+}
+
+test_act_first_network_result_never_waits_for_the_ranking() {
+  local report
+  # Slower than the sweeps, yet inside the ranking's own 10-second bound.
+  make_act_first_world act-first-slow 7
+
+  (unset HERDR_ENV; FM_FAKE_HARNESS_PID=$$ run_session_start "$AF_HOME" "$AF_ROOT" "$AF_FAKEBIN:$BASE_PATH" >/dev/null)
+
+  wait_for_network_stage "$AF_HOME" "$AF_ROOT" 15 || fail "the network result waited for the slow ranking"
+  [ ! -e "$AF_LOG/finished" ] || fail "the network result was published only after the Jev call finished"
+  report=$(network_stage_report "$AF_HOME" "$AF_ROOT")
+  assert_not_contains "$report" "ACT FIRST" "the ranking was published before its Jev call could finish"
+  wait_for_file "$AF_HOME/state/.startup-network.act-first" 30 || fail "the slow ranking never published"
+  pass "session start: the network result publishes without waiting for a slow Jev ranking"
+}
+
+test_act_first_ranking_with_items_raises_exactly_one_wake() {
+  local report wakes waited
+  make_act_first_world act-first-deferred 0
+
+  (unset HERDR_ENV; FM_FAKE_HARNESS_PID=$$ run_session_start "$AF_HOME" "$AF_ROOT" "$AF_FAKEBIN:$BASE_PATH" >/dev/null)
+
+  wait_for_file "$AF_HOME/state/.startup-network.act-first" 45 || fail "the ranking never published"
+  wait_for_network_stage "$AF_HOME" "$AF_ROOT" 60 || fail "the deferred stage never finished"
+  # The wake follows the published ranking; wait for the ranking process to
+  # finish (it no longer claims to be waiting and has queued its wake).
+  waited=0
+  while ! grep -q $'\tcheck\tact-first\t' "$AF_HOME/state/.wake-queue" 2>/dev/null && [ "$waited" -lt 100 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  sleep 1
+  wakes=$(grep -c $'\tcheck\tact-first\t' "$AF_HOME/state/.wake-queue" 2>/dev/null)
+  [ "$wakes" = 1 ] || fail "the ranking raised $wakes act-first wakes, want exactly one"$'\n'"$(cat "$AF_HOME/state/.wake-queue")"
+  assert_no_grep $'check\tstartup-network' "$AF_HOME/state/.wake-queue" \
+    "the ranking made the network result raise its own wake"
+  report=$(network_stage_report "$AF_HOME" "$AF_ROOT")
+  assert_contains "$report" "1. decision task-z blocked: waiting on a key (p=0.8)" \
+    "report did not show Jev's ranking"$'\n'"$report"
+  jq -e '.state | contains("decision task-y needs-decision: pick a library")' "$AF_LOG/body" >/dev/null \
+    || fail "the ranking did not use this session start's presented items"
+  [ ! -e "$AF_HOME/state/.startup-network.act-first-input" ] || fail "the consumed ranking input was left behind"
+  pass "session start: a ranking with items publishes separately and raises exactly one wake"
 }
 
 test_branch_outcome_replay_respects_captain_barrier_and_lease_sweep() {
@@ -2194,7 +2326,8 @@ EOF
     _ "$ROOT/bin/fm-timeout-lib.sh")
   [ "$mechanism" = bash ] || fail "the forced pure-Bash timeout fixture selected '$mechanism'"
 
-  out=$(FM_TIMEOUT_MECHANISM_OVERRIDE=bash FM_SESSION_START_TIMEOUT=3 FM_STARTUP_NETWORK_TIMEOUT=2 \
+  out=$(FM_FAKE_HARNESS_PID="$SESSION_START_TEST_HARNESS_PID" \
+    FM_TIMEOUT_MECHANISM_OVERRIDE=bash FM_SESSION_START_TIMEOUT=3 FM_STARTUP_NETWORK_TIMEOUT=2 \
     run_session_start "$home" "$root" "$fakebin:$BASE_PATH") || status=$?
 
   expect_code 0 "$status" "a truncated session start must still exit 0 so the session can open"
@@ -2216,8 +2349,11 @@ EOF
   # deferred network stage's own - because a truncated digest must not kill work
   # it was never waiting for. So the guarantee asserted here is the one that
   # actually matters: once BOTH deadlines have passed, nothing hung is left.
+  # A stable fake harness above must actually start the independent worker;
+  # otherwise this used to spend 30 seconds waiting for a nonexistent record.
+  assert_present "$home/state/.startup-network.status" "the independent network bound was not exercised"
   FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_STARTUP_NETWORK_TIMEOUT=2 \
-    "$ROOT/bin/fm-startup-network.sh" wait 30 >/dev/null || true
+    "$ROOT/bin/fm-startup-network.sh" wait 5 >/dev/null || fail "the independent network bound did not finish"
   sleep 1
   stray=$(pgrep -f "$fakebin/git" 2>/dev/null | wc -l | tr -d ' ')
   [ "$stray" -eq 0 ] || fail "the runtime bound left $stray hung subprocess(es) behind"
@@ -2228,6 +2364,30 @@ EOF
   expect_code 137 "$status" "pure-Bash natural command exit 137"
 
   pass "the pure-Bash watchdog bounds session start, kills its hung grandchild, and emits the truncation contract"
+}
+
+test_runtime_bound_with_inherited_startup_marker() {
+  local marker="$TMP_ROOT/inherited-stage" output="$TMP_ROOT/inherited-stage-output" status=0
+  printf 'preserve the parent startup breadcrumb\n' > "$marker"
+  # Start a real test entry with the leaked child marker, not a mocked timeout.
+  # The independent outer bound makes a regression fail instead of hanging CI;
+  # when the marker leaks, the fake git remains in this isolated process group.
+  perl -e '
+    my $pid = fork;
+    die "fork failed" unless defined $pid;
+    if (!$pid) { setpgrp(0, 0); exec @ARGV }
+    local $SIG{ALRM} = sub { kill "KILL", -$pid; waitpid $pid, 0; exit 99 };
+    alarm 15;
+    waitpid $pid, 0;
+    exit($? >> 8);
+  ' env FM_SESSION_START_STAGE_FILE="$marker" \
+    bash "${BASH_SOURCE[0]}" --hanging-git-only > "$output" 2>&1 || status=$?
+  cat "$output"
+  expect_code 0 "$status" "hanging-git test under an inherited startup marker (99 means the outer safety bound fired)"
+  [ "$(cat "$marker")" = 'preserve the parent startup breadcrumb' ] \
+    || fail "the test overwrote its parent's startup breadcrumb"
+  assert_grep 'ok - the pure-Bash watchdog bounds session start' "$output" "the hanging-git case did not execute"
+  pass "an inherited startup child marker cannot disable the test deadline or overwrite the parent breadcrumb"
 }
 
 test_portable_timeout_escalates_term_resistant_process() {
@@ -2350,7 +2510,7 @@ SH
 # --- context re-emit (--reemit) ----------------------------------------------
 
 test_reemit_skips_startup_sweeps_but_keeps_the_wake_drain() {
-  local rec root home fakebin network_report reemit sequence generation
+  local rec root home fakebin network_report reemit sequence generation transcript capture_output node_path recent_output
   rec=$(new_world reemit)
   IFS='|' read -r root home fakebin <<EOF
 $rec
@@ -2368,6 +2528,24 @@ EOF
   network_report=$(network_stage_report "$home" "$root")
   assert_contains "$network_report" "SECONDMATE_LIVENESS" \
     "the full startup fixture did not exercise a mutating sweep"
+
+  transcript="$TMP_ROOT/reemit-history.jsonl"
+  jq -nc '{type:"user",origin:"human",uuid:"reemit-captain-1",timestamp:"2026-09-22T22:30:00Z",message:{content:"Words retained for the next compact."}}' > "$transcript"
+  jq -nc '{type:"assistant",uuid:"reemit-firstmate-1",timestamp:"2026-09-22T22:30:05Z",message:{content:"The compact can recover this reply.",stop_reason:"end_turn"}}' >> "$transcript"
+  capture_output=$(TZ=Europe/Berlin FM_HOME="$home" FM_ROOT_OVERRIDE="$root" \
+    FM_DATA_OVERRIDE="$home/data" FM_STATE_OVERRIDE="$home/state" \
+    "$ROOT/bin/fm-history.sh" capture --transcript "$transcript") \
+    || fail "history capture failed before context re-emit: $capture_output"
+  assert_contains "$capture_output" 'captured 1 captain message(s) and 1 final reply/replies' \
+    'history capture did not record the re-emit fixture conversation'
+  node_path=$(command -v node)
+  rm -f "$fakebin/node"
+  ln -s "$node_path" "$fakebin/node"
+  recent_output=$(PATH="$fakebin:$BASE_PATH" TZ=Europe/Berlin FM_HOME="$home" \
+    FM_ROOT_OVERRIDE="$root" FM_DATA_OVERRIDE="$home/data" FM_STATE_OVERRIDE="$home/state" \
+    "$ROOT/bin/fm-history.sh" recent --n 5)
+  assert_contains "$recent_output" 'Words retained for the next compact.' \
+    'the fixture did not make the captured captain words available to recent'
 
   append_wake "$home/state" signal task-r "done: queued after the re-emit too" || fail "seed second wake failed"
   reemit=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_FAKE_HARNESS_PID=$$ PATH="$fakebin:$BASE_PATH" \
@@ -2387,6 +2565,9 @@ EOF
   [ ! -s "$home/state/.wake-queue" ] || fail "--reemit acknowledgement left queued wakes behind"
   assert_contains "$reemit" "CONTEXT" "--reemit dropped the context digest"
   assert_contains "$reemit" "FLEET STATE" "--reemit dropped the fleet-state digest"
+  assert_contains "$reemit" "RECENT CAPTAIN WORDS" "--reemit dropped its bounded history section"
+  assert_contains "$reemit" "Words retained for the next compact." "--reemit did not recover the captain's exact words"
+  assert_contains "$reemit" "The compact can recover this reply." "--reemit did not recover its final reply"
   assert_contains "$reemit" "NEXT STEP" "--reemit dropped the closing reminder"
 
   pass "--reemit reprints the digest without repeating startup's mutating sweeps and still drains queued wakes"
@@ -2948,6 +3129,14 @@ EOF
   pass "session start rejects Pi loaded markers from previous sessions"
 }
 
+# Focused reproductions; the normal suite runs the inherited-marker regression,
+# which executes every assertion in the underlying hanging-git case as well.
+case "${1:-}" in
+  --hanging-git-only) test_runtime_bound_truncates_loudly_and_exits_zero; exit $? ;;
+  --inherited-hanging-git-only) test_runtime_bound_with_inherited_startup_marker; exit $? ;;
+  --reemit-only) test_reemit_skips_startup_sweeps_but_keeps_the_wake_drain; exit $? ;;
+esac
+
 test_context_digest_absent_empty_present
 test_lock_refusal_read_only_path
 test_lock_write_failure_read_only_path
@@ -2978,6 +3167,9 @@ test_endpoint_bound_rejects_padded_zero
 test_perl_timeout_fallback_reports_signal_death_nonzero
 test_abnormal_digest_death_banners_and_exits_zero
 test_composition_invokes_real_scripts
+test_act_first_lists_presented_items_without_a_network_call
+test_act_first_network_result_never_waits_for_the_ranking
+test_act_first_ranking_with_items_raises_exactly_one_wake
 test_branch_outcome_replay_respects_captain_barrier_and_lease_sweep
 test_non_pi_session_start_leaves_branch_state_untouched
 test_backlog_compact_tasks_axi_omits_bodies_and_keeps_metadata
@@ -2998,7 +3190,7 @@ test_omp_supervision_block_and_diagnostic
 test_omp_diagnostic_accepts_prelock_loaded_marker
 test_pi_diagnostic_rejects_missing_turnend_guard_marker
 test_pi_diagnostic_rejects_previous_session_loaded_marker
-test_runtime_bound_truncates_loudly_and_exits_zero
+test_runtime_bound_with_inherited_startup_marker
 test_portable_timeout_escalates_term_resistant_process
 test_runtime_bound_leaves_a_healthy_digest_untouched
 test_runtime_bound_leaves_harness_ancestry_headroom

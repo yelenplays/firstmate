@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-daemon.test.sh - supervise-daemon classifiers, the captain-relevant
 # status-phrase matrix (a product contract), escalation batching/dedupe,
 # decision-owned queued-row suppression, afk presence-gating, and the
@@ -25,6 +27,13 @@ fi
 TMP_ROOT=$(fm_test_tmproot fm-daemon-tests)
 FM_DAEMON_PRIMARY_HARNESS=claude
 export FM_DAEMON_PRIMARY_HARNESS
+
+# Jev supervision consults default off in this file: both helper seams point at
+# absent paths so no case can spawn the real helper (which would read
+# $FM_HOME/.env for a live key and reach the network). Cases exercising the
+# seams pass their own stub binaries per call.
+export FM_JEV_STATUS_TRIAGE_BIN="$TMP_ROOT/jev-absent-status-helper"
+export FM_JEV_WEDGE_CHECK_BIN="$TMP_ROOT/jev-absent-wedge-helper"
 
 # What the pinned claude primary received: each typed line, with every
 # record-backed doorbell followed by the envelope its record holds.
@@ -775,6 +784,157 @@ test_stale_diagnostic_wedge_survives_busy_housekeeping() {
   pass "enriched stale wedges bypass status absorption except under a declared wait, without disturbing busy workers"
 }
 
+# --- Jev supervision consults -----------------------------------------------
+# The away-mode half of the two advisory roles (the watcher side and the seam
+# mechanics live in tests/fm-watch-triage.test.sh; the helpers themselves in
+# tests/fm-jev-supervision.test.sh). classify_signal/classify_stale opt their
+# status spans into the escalation-only consult, and the stale-persistence
+# boundary takes the wedge second opinion on the pane tail stale_window_is_busy
+# already captured. Stubs stand in for the helpers; the file-level export above
+# points both seams at absent paths everywhere else.
+
+
+test_daemon_signal_jev_consult() {
+  local dir state fakebin out
+  dir=$(make_supercase jev-signal); state="$dir/state"; fakebin="$dir/fakebin"
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  printf 'working: on it\nnote: the deploy window closes at 5\n' > "$state/task.status"
+
+  # An escalate verdict surfaces the line through the ordinary escalate digest,
+  # carrying the advisory marker.
+  out=$(FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_STATUS_VERDICT=escalate \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    FM_STATE_OVERRIDE="$state" classify_signal "$state/task.status" "$state")
+  case "$out" in
+    escalate\|*jev-escalated*) ;;
+    *) fail "a Jev-escalated note: line did not escalate in away mode: $out" ;;
+  esac
+  grep -F 'note: the deploy' "$dir/jevstub/status.stdin" >/dev/null \
+    || fail "the away-mode consult did not see the note: line"
+  grep -F 'working: on it' "$dir/jevstub/status.stdin" >/dev/null \
+    && fail "a declared working: line reached the away-mode consult"
+
+  # A low Noul and a helper failure both keep the incumbent routine absorb.
+  out=$(FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_STATUS_VERDICT=suppress \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    FM_STATE_OVERRIDE="$state" classify_signal "$state/task.status" "$state")
+  case "$out" in
+    self\|*) ;;
+    *) fail "a suppressed note: line escalated in away mode: $out" ;;
+  esac
+  out=$(FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_STATUS_VERDICT=fail \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    FM_STATE_OVERRIDE="$state" classify_signal "$state/task.status" "$state")
+  case "$out" in
+    self\|*) ;;
+    *) fail "a helper failure escalated a note: line in away mode: $out" ;;
+  esac
+  pass "away-mode signal triage surfaces in-scope lines only on an escalate verdict"
+}
+
+# The stale-persistence boundary: when the structural recheck is about to
+# escalate a quiet pane, the wedge second opinion runs on the pane tail the busy
+# probe already captured. A valid low Noul re-arms the marker and defers the
+# escalation; escalate, failure, and an aged-out suppression chain all keep the
+# incumbent escalation.
+test_daemon_wedge_jev_boundary() {
+  local dir state fakebin task win pane key
+  dir=$(make_supercase jev-wedge); state="$dir/state"; fakebin="$dir/fakebin"
+  task=jevwedge-w1; win="sess:fm-$task"; pane="$dir/pane.txt"
+  key=$(printf '%s' "$task" | tr ':/.' '___')
+  fm_write_meta "$state/$task.meta" "window=$win" "backend=tmux"
+  printf 'working: building\n' > "$state/$task.status"
+  printf 'Working...\n' > "$pane"
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+
+  # suppress: no escalation, the stale marker is re-armed for another window,
+  # and the bounded suppression chain opens.
+  (
+    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+      FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 \
+      FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=suppress \
+      housekeeping "$state"
+  )
+  [ ! -s "$state/.subsuper-escalations" ] \
+    || fail "a suppressed daemon wedge escalated: $(cat "$state/.subsuper-escalations")"
+  [ -e "$state/.subsuper-stale-$key" ] \
+    || fail "a suppressed daemon wedge dropped its stale marker"
+  [ -e "$state/.subsuper-jevsupp-$key" ] \
+    || fail "a suppressed daemon wedge did not open its suppression chain"
+  grep -F 'Working...' "$dir/jevstub/wedge.stdin" >/dev/null \
+    || fail "the daemon wedge consult did not see the captured pane tail"
+
+  # escalate: the incumbent escalation fires and the marker is cleared. The
+  # suppression above re-armed the marker, so age it past the bound again.
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+  (
+    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+      FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 \
+      FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=escalate \
+      housekeeping "$state"
+  )
+  grep -F 'possible wedge' "$state/.subsuper-escalations" >/dev/null \
+    || fail "an escalate verdict did not escalate the daemon wedge: $(cat "$state/.subsuper-escalations" 2>/dev/null)"
+  [ ! -e "$state/.subsuper-stale-$key" ] \
+    || fail "an escalated daemon wedge kept its stale marker"
+  [ ! -e "$state/.subsuper-jevsupp-$key" ] \
+    || fail "an escalated daemon wedge kept its suppression marker"
+
+  # helper failure: identical incumbent escalation.
+  : > "$state/.subsuper-escalations"
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+  (
+    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+      FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 \
+      FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=fail \
+      housekeeping "$state"
+  )
+  grep -F 'possible wedge' "$state/.subsuper-escalations" >/dev/null \
+    || fail "a helper failure swallowed the daemon wedge escalation: $(cat "$state/.subsuper-escalations" 2>/dev/null)"
+
+  # The suppression is bounded: once the chain is older than
+  # PAUSE_RESURFACE_SECS the pane escalates anyway, naming the suppression.
+  : > "$state/.subsuper-escalations"
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-jevsupp-$key"
+  (
+    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+      FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 FM_PAUSE_RESURFACE_SECS=60 \
+      FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=suppress \
+      housekeeping "$state"
+  )
+  grep -F 'suppressed for' "$state/.subsuper-escalations" >/dev/null \
+    || fail "an aged-out Jev suppression did not escalate: $(cat "$state/.subsuper-escalations" 2>/dev/null)"
+  [ ! -e "$state/.subsuper-stale-$key" ] \
+    || fail "an aged-out suppression kept its stale marker"
+
+  # An interrupted write can leave the suppression marker present but empty or
+  # garbled. It cannot prove the suppression is young, so the pane escalates
+  # for inspection instead of housekeeping aborting under set -u.
+  for garbage in '' 'not-a-time'; do
+    : > "$state/.subsuper-escalations"
+    echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+    printf '%s' "$garbage" > "$state/.subsuper-jevsupp-$key"
+    (
+      set -u
+      PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+        FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 \
+        FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+        FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=suppress \
+        housekeeping "$state"
+    ) || fail "housekeeping failed on a suppression marker holding '$garbage'"
+    grep -F 'suppressed for' "$state/.subsuper-escalations" >/dev/null \
+      || fail "a suppression marker holding '$garbage' did not escalate: $(cat "$state/.subsuper-escalations" 2>/dev/null)"
+  done
+  pass "the daemon wedge boundary suppresses on a valid low Noul and escalates on every other outcome, bounded"
+}
+
+
 # The second half of issue #3149. The watcher's wedge timer emits an enriched
 # "idle Ns, possible wedge, escalation N" reason for any pane it reads as frozen -
 # including one whose crew has a CURRENT declared wait, because the watcher's own
@@ -1155,7 +1315,7 @@ test_housekeeping_paused_resumed_cleared() {
 # on the very next tick, so the window restarted forever and the wait never matured
 # into its one recheck. Away mode makes that terminal: the watcher hands a busy
 # declared wait to the daemon exactly once per declaration (bin/fm-watch.sh's
-# busy_turn_bound_check), so this recheck is the only thing left that can re-surface
+# bound_stall_check), so this recheck is the only thing left that can re-surface
 # the pane at all. Both declaration forms take the same 2b arm, so both are pinned.
 test_housekeeping_busy_declared_wait_matures_its_window() {
   local case_name dir state fakebin task win pane key gen tick age escalations digest
@@ -1382,6 +1542,107 @@ test_housekeeping_persistent_stale_escalates() {
   [ -s "$state/.subsuper-escalations" ] || fail "persistent stale was not escalated"
   [ ! -e "$state/.subsuper-stale-$key" ] || fail "stale marker not cleared after escalation"
   pass "persistent stale escalates after threshold and clears its marker"
+}
+
+# The away-mode supervisor applies the same run-liveness rule as the watcher: a
+# stale pane whose task's no-mistakes run is demonstrably executing is progress,
+# not a wedge, so housekeeping re-arms its stale marker instead of escalating.
+# Once nothing proves the run, the unchanged schedule escalates it as before.
+test_housekeeping_run_liveness_defers_then_escalates() {
+  local dir state fakebin win pane key wt nmhome age run_head
+  dir=$(make_supercase stale-nmrun)
+  state="$dir/state"; fakebin="$dir/fakebin"
+  win="sess:fm-nmrun-w9"; pane="$dir/pane.txt"
+  wt="$dir/wt"; nmhome="$dir/nmhome"
+  mkdir -p "$wt" "$nmhome/logs/01NMRUN01"
+  git -C "$wt" init -q
+  git -C "$wt" checkout -qb fm/nmrun-task
+  git -C "$wt" -c user.name=test -c user.email=test@example.invalid commit --allow-empty -qm initial
+  run_head=$(git -C "$wt" rev-parse HEAD)
+  fm_write_meta "$state/nmrun-w9.meta" "window=$win" "worktree=$wt" "kind=ship"
+  printf 'working: validating\n' > "$state/nmrun-w9.status"
+  printf 'idle prompt $\n' > "$pane"
+  key=$(printf '%s' "nmrun-w9" | tr ':/.' '___')
+  cat > "$fakebin/no-mistakes" <<'SH'
+#!/usr/bin/env bash
+set -u
+read_field() {
+  local value
+  value=$(sed -n "s/^[[:space:]]*$1:[[:space:]]*//p" "$2" | head -1)
+  case "$value" in \"*\") value=${value#\"}; value=${value%\"} ;; esac
+  printf '%s' "$value"
+}
+case "${1:-}" in
+  axi)
+    if [ "${2:-}" = status ]; then
+      cat "${FM_FAKE_NM_AXI_STATUS:?}"
+      exit 0
+    elif [ -z "${2:-}" ]; then
+      file=${FM_FAKE_NM_AXI_STATUS:?}
+      printf 'count: 1 of 1 total\nruns[1]{id,branch,status,head,pr}:\n  "%s","%s","%s","%s",""\n' \
+        "$(read_field id "$file")" "$(read_field branch "$file")" \
+        "$(read_field status "$file")" "$(read_field head "$file")"
+      exit 0
+    fi ;;
+  daemon)
+    if [ "${2:-}" = status ]; then printf '  daemon running (pid 1)\n'; exit 0; fi ;;
+esac
+exit 1
+SH
+  chmod +x "$fakebin/no-mistakes"
+  cat > "$dir/quiet-ci.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  ci,running,4h28m,4h28m,"quiet 3h ago: log: CI checks running","",starting
+TOON
+  cat > "$dir/quiet-over-bound.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  ci,running,4h28m,4h28m,"quiet 4h1m ago: log: CI checks running","",starting
+TOON
+  cat > "$dir/dead.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"quiet 3h ago: log: stalled","$(dead_pid)",1
+TOON
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+    FM_STATE_OVERRIDE="$state" FM_STALE_ESCALATE_SECS=240 NM_HOME="$nmhome" \
+    FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" housekeeping "$state"
+  [ ! -s "$state/.subsuper-escalations" ] || fail "away-mode escalated while the run demonstrably executes at three hours quiet"
+  [ -e "$state/.subsuper-stale-$key" ] || fail "run-liveness deferral did not keep the stale marker"
+  age=$(( $(date +%s) - $(cat "$state/.subsuper-stale-$key") ))
+  [ "$age" -lt 120 ] || fail "run-liveness deferral did not re-arm the stale marker"
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+    FM_STATE_OVERRIDE="$state" FM_STALE_ESCALATE_SECS=240 NM_HOME="$nmhome" \
+    FM_FAKE_NM_AXI_STATUS="$dir/quiet-over-bound.toon" housekeeping "$state"
+  [ -s "$state/.subsuper-escalations" ] || fail "away-mode did not escalate a daemon-executed run quiet past four hours"
+  grep -F "possible wedge" "$state/.subsuper-escalations" >/dev/null \
+    || fail "quiet-over-bound away-mode escalation was not labeled a possible wedge"
+  [ ! -e "$state/.subsuper-stale-$key" ] || fail "quiet-over-bound stale marker was not cleared after escalation"
+  : > "$state/.subsuper-escalations"
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+    FM_STATE_OVERRIDE="$state" FM_STALE_ESCALATE_SECS=240 NM_HOME="$nmhome" \
+    FM_FAKE_NM_AXI_STATUS="$dir/dead.toon" housekeeping "$state"
+  [ -s "$state/.subsuper-escalations" ] || fail "away-mode did not escalate once nothing proves the run"
+  grep -F "possible wedge" "$state/.subsuper-escalations" >/dev/null \
+    || fail "away-mode escalation was not labeled a possible wedge"
+  [ ! -e "$state/.subsuper-stale-$key" ] || fail "away-mode wedge marker was not cleared after escalation"
+  pass "away-mode defers a three-hour quiet run, then escalates after the quiet bound or without evidence"
 }
 
 test_housekeeping_resumed_stale_cleared() {
@@ -3125,6 +3386,8 @@ test_unknown_wake_ack_suppresses_handled_identity
 test_unknown_wake_ack_failure_still_clears_delivered_digest
 test_stale_transient_self_records_marker
 test_stale_diagnostic_wedge_survives_busy_housekeeping
+test_daemon_signal_jev_consult
+test_daemon_wedge_jev_boundary
 test_enriched_wedge_under_declared_wait_uses_pause_cadence
 test_stale_terminal_escalates
 test_stale_actionable_wait_escalates_and_keeps_pause_cadence
@@ -3138,6 +3401,7 @@ test_housekeeping_migrates_watcher_pause_marker
 test_housekeeping_migrates_watcher_unpaused_marker_to_clear
 test_housekeeping_seeds_pause_marker_from_status
 test_housekeeping_persistent_stale_escalates
+test_housekeeping_run_liveness_defers_then_escalates
 test_housekeeping_resumed_stale_cleared
 test_housekeeping_paused_resurfaces_and_resets
 test_housekeeping_captain_held_resurfaces_and_resets

@@ -86,7 +86,7 @@ jobs:
       - name: Prove complete regression partition
         run: bin/fm-test-run.sh --check-coverage
 
-  # Two duration-balanced portable parallel shards of the Phase 2 proven-isolated
+  # Three duration-balanced portable parallel shards of the Phase 2 proven-isolated
   # set only. Composition owner: bin/fm-test-run.sh (docs/fm-test-portable-shards.md).
   tests-portable-parallel-1:
     name: Behavior portable parallel 1
@@ -168,6 +168,44 @@ jobs:
         with:
           name: fm-test-timing-portable-parallel-2
           path: ${{ runner.temp }}/fm-test/fm-test-timing-portable-parallel-2.json
+          if-no-files-found: warn
+
+  tests-portable-parallel-3:
+    name: Behavior portable parallel 3
+    runs-on: ubuntu-latest
+    # Normal tier (see the timeout policy above).
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install pinned ShellCheck
+        run: |
+          set -eu
+          bin/fm-install-shellcheck.sh "$RUNNER_TEMP/bin"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Install pinned actionlint
+        run: |
+          set -eu
+          bin/fm-install-actionlint.sh "$RUNNER_TEMP/bin"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Install tasks-axi
+        run: |
+          set -eu
+          npm install -g tasks-axi
+          tasks-axi --version
+      - name: Run portable parallel shard 3
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/fm-test"
+          bin/fm-test-run.sh --lane portable-parallel-3 \
+            --json "$RUNNER_TEMP/fm-test/fm-test-timing-portable-parallel-3.json"
+      - name: Upload shard 3 timing artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fm-test-timing-portable-parallel-3
+          path: ${{ runner.temp }}/fm-test/fm-test-timing-portable-parallel-3.json
           if-no-files-found: warn
 
   # Required portable serial remainder: watcher, lock, AFK, tmux, daemon,
@@ -377,6 +415,7 @@ jobs:
     needs:
       - tests-portable-parallel-1
       - tests-portable-parallel-2
+      - tests-portable-parallel-3
       - tests-portable-serial
       - tests-herdr
     if: always()
@@ -446,8 +485,8 @@ jobs:
           snapshot_output=$(/bin/bash tests/fm-fleet-snapshot-view.test.sh)
           printf '%s\n' "$snapshot_output"
           snapshot_count=$(printf '%s\n' "$snapshot_output" | grep -c '^ok - ')
-          [ "$snapshot_count" -eq 18 ] || {
-            echo "::error::expected 18 snapshot/fleet-view tests, got $snapshot_count"
+          [ "$snapshot_count" -eq 19 ] || {
+            echo "::error::expected 19 snapshot/fleet-view tests, got $snapshot_count"
             exit 1
           }
 

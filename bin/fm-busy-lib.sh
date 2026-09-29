@@ -46,13 +46,18 @@
 #   fm-recovery      a documented recovery reset after relaunch
 # Classifier-only sources (never written into a record):
 #   endpoint-gone, herdr-native, grok-regex, rovo-regex, agy-regex, muse-session-log,
-#   cursor-transcript, missing, malformed, gen-mismatch, source-mismatch,
-#   kimi-unverified, codex-unverified, capture-failed, no-target, launch-prompt
+#   cursor-transcript, claude-agents, claude-needs-input, missing, malformed,
+#   gen-mismatch, source-mismatch, kimi-unverified, codex-unverified,
+#   capture-failed, no-target, launch-prompt
 #
 # Classification (fm_busy_classify): busy | idle | unknown | dead, always
 # with the producing source as the second token. Precedence:
 #   1. dead endpoint (fm_busy_classify_live only) -> dead endpoint-gone
 #   2. standalone Kimi before verification       -> unknown kimi-unverified
+#   2a. Claude's own session list (`claude agents --json`) when it names
+#      exactly one live session in the task worktree -> busy|idle
+#      claude-agents, or busy claude-needs-input while that session waits on
+#      a prompt answer; no usable answer falls through to the hook record
 #   3. a valid, gen-matching, source-trusted record -> its state and source,
 #      UNLESS the record is still the untouched seed fm-spawn wrote at arm
 #      time (state=busy source=fm-spawn - no adapter hook has posted since
@@ -115,6 +120,17 @@
 # cleared. See fm_busy_cursor_turn_state for the fold. Cursor's rendered
 # `ctrl+c to stop` footer is deliberately not a state source here.
 #
+# The claude-agents pull source is semantic, not rendered: Claude Code keeps a
+# per-process session registry that `claude agents --json` prints with a
+# turn-level status of busy, idle, or waiting (a permission or question prompt
+# holds the open turn). It tracks turns, not generation, so a long foreground
+# tool call reads busy, and a crashed process drops out of the list. It is
+# read before the claude-hook record because a lost or late hook leaves that
+# record wrong until the next hook fires, while the vendor list is current.
+# Absence is never evidence of anything - a pending trust dialog, a starting
+# session, or an older CLI all list nothing - so every non-answer falls back
+# to the unchanged hook-record path. See fm_busy_claude_agents_status.
+#
 # Codex negotiation (fm_busy_codex_appserver_observable,
 # fm_busy_codex_hooks_verified): the approved contract prefers Codex's
 # app-server turn lifecycle with capability negotiation, and sanctions its
@@ -160,6 +176,10 @@ fm_busy_kimi_verified() {
 # but an interactive TUI worker neither starts nor attaches to the
 # app-server daemon, and `codex app-server daemon start` refuses outside the
 # managed standalone install, so no client can observe a pane worker's turns.
+# codex-cli 0.155.1 (live, 2026-09-24): unchanged. `codex agents` browses only
+# sessions on that same daemon, `codex app-server daemon start` still refuses
+# with "managed standalone Codex install not found" on a Homebrew install, and
+# a pane worker still does not attach, so `codex agents` cannot see it either.
 fm_busy_codex_appserver_observable() {
   return 1
 }
@@ -185,8 +205,19 @@ fm_busy_codex_semantic_source() {
   fm_busy_codex_appserver_observable || fm_busy_codex_hooks_verified
 }
 
-# Read Claude Code's own session list for exactly one task worktree session.
-# Any missing, ambiguous, malformed, or undocumented result falls back to hooks.
+# fm_busy_claude_agents_status: Claude Code's own turn status for this task's
+# session, read from `claude agents --json`. Prints busy, idle, or waiting and
+# returns 0 only when exactly one live entry (a pid plus a string status) has
+# the task's recorded worktree as its cwd and that status is one of the three
+# known values. Every other outcome returns 1 so the caller falls back: no
+# task meta or worktree, no claude or jq on PATH, a CLI that lacks the
+# subcommand or does not answer within FM_BUSY_CLAUDE_AGENTS_TIMEOUT seconds,
+# output that is not a JSON array, no matching entry, several matching
+# entries, or a status this version does not document. The background-only
+# `state` field is deliberately ignored: a finished --bg session was observed
+# reporting state=blocked beside status=idle. FM_CLAUDE_AGENTS_BIN names the
+# CLI (default claude); pointing it at a non-executable path such as
+# /dev/null disables the source, which is how tests stay hermetic.
 fm_busy_claude_agents_status() {  # <state-dir> <id>
   local bin=${FM_CLAUDE_AGENTS_BIN:-claude} meta worktree phys json status
   local bound=${FM_BUSY_CLAUDE_AGENTS_TIMEOUT:-5}
@@ -211,10 +242,18 @@ fm_busy_claude_agents_status() {  # <state-dir> <id>
           and (.status | type) == "string") ]
       | if length == 1 then .[0].status else empty end
     end' 2>/dev/null) || return 1
-  case "$status" in busy|idle|waiting) printf '%s' "$status" ;; *) return 1 ;; esac
+  case "$status" in
+    busy|idle|waiting) printf '%s' "$status" ;;
+    *) return 1 ;;
+  esac
 }
 
-# A prompt-waiting Claude turn is not proof of productive work.
+# fm_busy_verdict_working: 0 iff a classification proves the worker is making
+# progress on its own - a busy verdict that is not a turn parked on a prompt
+# answer. The stale paths use it to decide what to absorb, so a Claude worker
+# waiting on a permission or question prompt surfaces instead of being
+# absorbed as busy, while control paths that need "a turn is open" (interrupt
+# before exit) still see busy.
 fm_busy_verdict_working() {  # <verdict>
   case "${1:-}" in
     'busy claude-needs-input') return 1 ;;
@@ -1072,6 +1111,9 @@ fm_busy_classify() {  # <backend> <target> <harness> <id> <state-dir> [tail40]
       fi
       ;;
     claude*)
+      # Semantic, on demand: Claude's own session list (see the source note
+      # above). Only a definite answer returns here; anything else keeps the
+      # hook-record path below exactly as it was.
       case "$(fm_busy_claude_agents_status "$state" "$id" 2>/dev/null)" in
         busy) printf 'busy claude-agents'; return 0 ;;
         waiting) printf 'busy claude-needs-input'; return 0 ;;
@@ -1123,11 +1165,22 @@ fm_busy_classify() {  # <backend> <target> <harness> <id> <state-dir> [tail40]
   # No record at all. A native herdr busy verdict is semantic enough to trust
   # for BUSY (streaming means a turn is running); native idle is narrower
   # than turn state (a long foreground tool call reads idle) and stays
-  # unknown here.
+  # unknown here. Devin is the one exception: it arms no semantic writer, so
+  # herdr's native agent-state is its ONLY source, and idle|done|blocked is the
+  # agent itself reporting no turn in flight (verified live: a working Devin
+  # reports agent_status=working; the stopped wiki-ingest-router-design pane
+  # reported done while its footer kept animating). Reporting that as idle -
+  # not unknown - is what lets a stopped Devin read stopped instead of
+  # "harness state unavailable" forever; it never claims work is running, and
+  # every consumer that distinguishes the two already treats idle as not busy.
   if [ "$backend" = herdr ] && command -v fm_backend_busy_state >/dev/null 2>&1; then
     native=$(fm_backend_busy_state "$backend" "$target" 2>/dev/null || true)
     if [ "$native" = busy ]; then
       printf 'busy herdr-native'
+      return 0
+    fi
+    if [ "$native" = idle ] && [ "$harness" = devin ]; then
+      printf 'idle herdr-native'
       return 0
     fi
   fi
@@ -1249,10 +1302,10 @@ fm_busy_classify_meta() {  # <meta-file> <id> <state-dir> [tail40]
 }
 
 # fm_busy_is_busy: boolean view for callers that only gate on provable
-# activity. 0 iff the classification verdict is exactly busy; idle, unknown,
-# and dead all return 1, so an unknown can never be silently promoted to
-# either boolean pole - callers that must distinguish idle from unknown read
-# the full classification instead.
+# activity. 0 iff fm_busy_verdict_working accepts the classification; a turn
+# parked on a prompt answer, idle, unknown, and dead all return 1, so an
+# unknown can never be silently promoted to either boolean pole - callers that
+# must distinguish idle from unknown read the full classification instead.
 fm_busy_is_busy() {  # <backend> <target> <harness> <id> <state-dir> [tail40]
   local verdict
   verdict=$(fm_busy_classify "$@")

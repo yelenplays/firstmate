@@ -84,6 +84,19 @@
 # restating the rule.
 # Every heredoc here stays outside a command substitution: `VAR=$(cat <<EOF ...)`
 # breaks parsing of the whole file on Bash 3.2 (tests/fm-brief.test.sh).
+# fm_jev_first_rule owns the advisory, fail-open Jev-first rule for closed-set
+# judgments. bin/fm-brief.sh renders it as rule 8 in every ship and scout brief,
+# and bin/fm-spawn.sh appends the identical sentences to a Claude task worker's
+# system prompt, so the carriers cannot drift. It names bin/fm-jev.sh by the
+# absolute path of the firstmate checkout this library runs from, so workers
+# can call it from any directory.
+fm_jev_first_rule() {
+  local cmd quoted_cmd
+  cmd="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-jev.sh"
+  quoted_cmd=$(printf '%s' "$cmd" | sed "s/'/'\\\\''/g")
+  printf '%s\n' "For a closed-set judgment - picking one of options you can list, a yes/no check, or a score against levels you can write down - prefer one batched typed Jev call through '$quoted_cmd' (its --help is the whole interface); when it exits non-zero - an escalation, a missing key, or an endpoint that does not answer - use your own judgment and never block on it."' The state you pass carries only the minimal facts the judgment needs - never secrets, credentials, API keys, or tokens, never wiki page bodies, excerpts, or private-vault content, and when in doubt leave the fact out and use your own judgment. Deterministic operations such as grep, builds, tests, file moves, and doctor runs stay in code, because Jev has no filesystem or tools.'
+}
+
 # fm_brief_worker_role owns the ship/scout role scope. bin/fm-spawn.sh is its one
 # emitter, supplying it first in every ship/scout launch brief and never to a
 # secondmate charter. It names the one task-owned steering inbox without
@@ -182,6 +195,20 @@ fm_brief_task_placeholders_present() {  # <file>
 # line inside a ``` or ~~~ fenced block, or indented four spaces or a tab as an
 # indented example, is never a marked line, so a fenced `Captain:` sample cannot
 # pass the provenance gate as the ship contract's intent (issue 3608).
+# The spawn-path brief preflight verdict (bin/fm-jev-brief-preflight.sh) from
+# the structural facts it reads: worker kind plus Task, Definition of done,
+# Captain's intent, and Firstmate spec presence as true/false. Prints
+# missing_acceptance exactly when the Definition of done is missing and
+# need_human otherwise, because no structural fact can prove a brief complete.
+# This reproduces the Jev answers recorded on a 32-case grid over these
+# facts, so the rule replaced that model call without changing a verdict.
+fm_brief_preflight_verdict() {  # <kind> <has_task> <has_dod> <has_intent> <has_spec>
+  case "$3" in
+    false) printf '%s\n' missing_acceptance ;;
+    *) printf '%s\n' need_human ;;
+  esac
+}
+
 fm_brief_marked_captain_words() {  # <task-body>
   printf '%s\n' "$1" | awk '
     {
@@ -228,15 +255,6 @@ The Definition of done's rule that `--intent` must be self-sufficient still gove
 ## Captain intent authorized for --intent
 EOF
   printf '%s\n' "$1"
-}
-
-# The spawn-path brief preflight is deterministic and shadow-only.
-# Missing Definition of done maps to missing_acceptance; every other structural shape needs human review.
-fm_brief_preflight_verdict() {  # <kind> <has_task> <has_dod> <has_intent> <has_spec>
-  case "$3" in
-    false) printf '%s\n' missing_acceptance ;;
-    *) printf '%s\n' need_human ;;
-  esac
 }
 
 # Accept the current two-subsection contract only when both bodies have content;

@@ -86,6 +86,13 @@ new_case() {
   : > "$CASE/launch.log"
 }
 
+# next_worktree <name>: a fresh copy for a further successful launch in the
+# same case; spawn refuses a copy an earlier task's record still holds.
+next_worktree() {
+  WT="$CASE/wt-$1"
+  git -C "$PROJ" worktree add --quiet -b "wt-${CASE##*/}-$1" "$WT"
+}
+
 # signed_in_claude_root <dir>: a Claude config root holding a stored login.
 signed_in_claude_root() {
   mkdir -p "$1"
@@ -296,6 +303,7 @@ test_pi_extension_provider_and_old_pi_fall_back_to_the_model_listing() {
   expect_code 1 "$rc" "a Pi without auth check must match the provider column exactly"
   assert_refused_before_launch "$id-old-near" "$out" "no model listed for provider openai-codex"
   printf 'openai-codex  gpt-5  128K\n' > "$CASE/pi-work/listed"
+  next_worktree old
   out=$(spawn_ship "$id-old" --model openai-codex/gpt-5); rc=$?
   expect_code 0 "$rc" "a Pi without auth check should launch when the root lists the provider: $out"
   pass "extension providers and a Pi without auth check fall back to an exact model-listing match"
@@ -309,6 +317,7 @@ test_a_pin_governs_only_its_own_runner() {
   out=$(spawn_ship "$id-codex"); rc=$?
   expect_code 0 "$rc" "a codex spawn must ignore a Claude pin: $out"
   assert_not_contains "$out" "account=" "a codex spawn must not report a Claude pin"
+  next_worktree pi
   out=$(spawn_ship "$id-pi" --harness pi --model gpt-5.5); rc=$?
   expect_code 0 "$rc" "a Pi spawn must ignore a Claude pin: $out"
   assert_absent "$CASE/claude-checks" "no Claude sign-in check may run for another runner"

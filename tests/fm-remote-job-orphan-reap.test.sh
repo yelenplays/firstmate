@@ -106,6 +106,19 @@ pid_is_numeric() {
   case "$1" in ''|*[!0-9]*) return 1 ;; esac
 }
 
+wait_recorded_worker_pid() { # <state-root> [<pid-to-exclude>]
+  local state=$1 previous=${2-} pid deadline=$((SECONDS + 10))
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    pid=$(cat "$state/worker.pid" 2>/dev/null || true)
+    if pid_is_numeric "$pid" && [ "$pid" != "$previous" ] && alive "$pid"; then
+      printf '%s\n' "$pid"
+      return 0
+    fi
+    sleep 0.1
+  done
+  return 1
+}
+
 # start_worker <remote-root> <account-home> <state-root>: start the worker
 # through the shared library start path and echo the supervisor pid.
 start_worker() {
@@ -138,8 +151,8 @@ build_remote_root "$CASE1/remote-root"
 WORKER=$(start_worker "$CASE1/remote-root" "$CASE1/account" "$CASE1/remote-jobs") ||
   fail "could not start the fixture remote job worker"
 track "$WORKER"
-wait_child "$WORKER" 10 || fail "the fixture worker never started its serving child"
-SERVE=$(pgrep -P "$WORKER" | head -n 1)
+SERVE=$(wait_recorded_worker_pid "$CASE1/remote-jobs") \
+  || fail "the fixture worker never recorded its serving child"
 
 [ "$(pgid_of "$WORKER")" = "$WORKER" ] ||
   fail "the started worker is not its own process group leader, so its tree cannot be signalled as one group"
@@ -160,7 +173,8 @@ rm -rf "$CASE1/remote-jobs"
 kill -KILL "$SERVE" 2>/dev/null || true
 wait_gone "$SERVE" 10 || fail "the recorded serving child did not stop"
 alive "$WORKER" || fail "the fixture supervisor did not survive a lone child kill, so this case no longer covers the leak"
-wait_child "$WORKER" 15 || fail "the supervisor did not respawn after its recorded child pid was killed"
+SURVIVOR=$(wait_recorded_worker_pid "$CASE1/remote-jobs" "$SERVE") \
+  || fail "the supervisor did not record a replacement serving child"
 pass "removing the state root and killing the recorded worker pid leaves the tree running, orphaned"
 
 # A worker whose code root is intact is never a reap candidate, which is what
@@ -171,7 +185,8 @@ alive "$WORKER" || fail "the reaper stopped a worker whose code root still exist
 pass "a worker whose code root still exists is never reaped"
 
 # Prune the code root the way a returned worktree does.
-SURVIVOR=$(pgrep -P "$WORKER" | head -n 1)
+SURVIVOR=$(wait_recorded_worker_pid "$CASE1/remote-jobs") \
+  || fail "the healthy worker has no recorded serving pid before code-root pruning"
 rm -rf "$CASE1/remote-root"
 wait_gone "$WORKER" 60 || fail "the worker survived its code root being pruned"
 wait_gone "$SURVIVOR" 60 || fail "a serving child outlived the abandoned supervisor"

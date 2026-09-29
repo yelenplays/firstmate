@@ -582,7 +582,6 @@ export default function (pi: ExtensionAPI) {
 
   function confirmHandlingDelivery(recovery: { generation: string; watcherPid: string }): {
     ok: boolean;
-    handled?: boolean;
     detail: string;
   } {
     try {
@@ -596,7 +595,6 @@ export default function (pi: ExtensionAPI) {
         },
       );
       if (result.status === 0) return { ok: true, detail: "" };
-      if (result.status === 4) return { ok: true, handled: true, detail: "" };
       const stderr = (result.stderr || "").trim();
       return {
         ok: false,
@@ -633,7 +631,6 @@ export default function (pi: ExtensionAPI) {
     if (!generationIsLive(owner)) return false;
     if (recovery) {
       const confirmed = confirmHandlingDeliveryWithRetry(owner, recovery);
-      if (confirmed.handled) return true;
       if (!confirmed.ok) {
         const watcherPid = recovery.watcherPid;
         if (!pidAlive(watcherPid)) {

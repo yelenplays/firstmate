@@ -311,6 +311,8 @@ if ! mv "$BRIEF_REPLACEMENT" "$SCOUT_BRIEF"; then
   exit 1
 fi
 BRIEF_REPLACEMENT=
+# Promotion is a new implementation handoff, not evidence the scout is coding.
+EXECUTION_TOKEN=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" attempt "$ID") || exit 1
 
 TMP="$STATE/.$ID.meta.promote.${BASHPID:-$$}"
 grep -v -e '^kind=' -e '^mode=' -e '^yolo=' -e '^branch=' "$META" > "$TMP"
@@ -335,6 +337,11 @@ META_LOCK_HELD=0
 HOME_Q=$(printf '%q' "$FM_HOME")
 INSTRUCTIONS_Q=$(printf '%q' "$INSTRUCTIONS")
 echo "promoted $ID to ship mode=$MODE yolo=$YOLO$PROMOTE_FORGE_WORDS (teardown protection restored)"
+if [ -n "$EXECUTION_TOKEN" ]; then
+  printf 'include in the ship instructions; execute in the worker copy: FM_HOME=%q %q started %q %q\n' \
+    "$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" "$ID" "$EXECUTION_TOKEN"
+  echo 'implementation processing remains unconfirmed until that receipt'
+fi
 echo "wrote ship instructions for mode=$MODE$PROMOTE_FORGE_WORDS: $INSTRUCTIONS"
 echo "next: FM_HOME=$HOME_Q bin/fm-send.sh fm-$ID \"\$(cat $INSTRUCTIONS_Q)\""
 

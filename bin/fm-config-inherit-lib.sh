@@ -23,6 +23,9 @@
 # Primary config/claude-permission-mode is a captain-wide safety preference
 # (bypass or auto for every claude launch), so it flows down too and a
 # secondmate's own claude crewmates launch on the same permission posture.
+# Primary config/wikis-root flows down too, so a secondmate's own ship and scout
+# briefs carry the same wiki context and guide step (bin/fm-wiki-lib.sh); a
+# remote home where that path does not resolve simply renders no wiki sections.
 # Primary config/keep-ai-trailers is a home-wide commit-attribution choice, so
 # a secondmate's own crewmates keep AI co-author trailers too.
 # It also pushes
@@ -54,7 +57,7 @@
 # Extensible by design: FM_INHERITABLE_CONFIG is the single declared list of
 # config-dir-relative items the primary propagates. Add an item there and every
 # convergence point inherits it - no other change needed. config/secondmate-harness
-# is deliberately NOT in the list: it is the primary's own setting for launching
+# and its per-id config/secondmate-harness.d/ pins are deliberately NOT in the list: it is the primary's own setting for launching
 # secondmates, and a secondmate never spawns secondmates, so it must not flow
 # downstream.
 #

@@ -19,8 +19,9 @@
 # standalone with unchanged default behavior - other flows (fm-bootstrap.sh
 # install <tools> after consent, /updatefirstmate, the afk daemon, existing
 # tests) still call them directly. The one seam this script needed -
-# bootstrap running its detect-only diagnostics without its six mutating
-# sweeps - is an opt-in FM_BOOTSTRAP_DETECT_ONLY=1 flag on fm-bootstrap.sh
+# bootstrap running its detect-only diagnostics without its mutating
+# sweeps (fm-bootstrap.sh's header is the single owner of that enumeration) -
+# is an opt-in FM_BOOTSTRAP_DETECT_ONLY=1 flag on fm-bootstrap.sh
 # itself (default unset/0 = unchanged behavior), not a fork.
 #
 # ORDERING, and why LOCK now runs before BOOTSTRAP (the old AGENTS.md order
@@ -30,15 +31,15 @@
 #                       mutating step runs.
 #   2. bootstrap      - home-local stale Herdr projection cleanup runs only
 #                       when this session actually holds the lock. Detect-only
-#                       diagnostics always run. Bootstrap's six MUTATING sweeps
-#                       (same-home backlog reconciliation,
-#                       secondmate convergence, secondmate liveness, pending remote
-#                       handoff retry, X-mode artifact writes, fleet sync) also run only when
-#                       locked; the four network sweeps run in the deferred
-#                       stage rather than this synchronous bootstrap section.
+#                       diagnostics always run. Bootstrap's own header owns the
+#                       MUTATING-sweep enumeration; those sweeps also run only
+#                       when locked, and the four network ones run in the
+#                       deferred stage rather than this synchronous bootstrap
+#                       section.
 #   3. wake-drain     - presents durable wakes and advances recovery handling
 #                       state, so it only runs when locked. The local bounded
 #                       inactive-outcome startup scan runs in the deferred worker.
+#                       An optional ACT FIRST priority list follows it (note below).
 #   4. supervision-instructions - the one emitted operating block for the
 #                       detected primary harness.
 #   5. read-once contract - the do-not-re-read contract covering every source
@@ -67,6 +68,15 @@
 # startup can name exactly which of them never ran - and the parent banners
 # EVERY nonzero child exit, not only the bound: a child that dies or is killed
 # mid-stage must never truncate the digest silently.
+#
+# ACT FIRST: on the locked path, after the wake queue, the --local mode of
+# bin/fm-jev-act-first.sh prints a bounded priority view from the drain output
+# and current live-task status tails, without a model or network call. That
+# same drain output is handed to the deferred network stage, which ranks it
+# with Jev and current status tails in a separate publication and wake
+# (bin/fm-startup-network.sh owns that step). The helper header owns item
+# selection and ordering; neither list replaces handling and acknowledging
+# every presented wake.
 #
 # NO NETWORK ON THE BLOCKING PATH. This digest runs on a session-open hook that
 # blocks session initialization, so anything it waits for is time the captain
@@ -128,8 +138,10 @@
 # and all of which are safe to compute without verified lock ownership.
 # It deliberately skips the network-only GitHub-auth probe because a read-only
 # session has no dispatch, spawn, steer, or merge action for that verdict to gate.
-# Only projection cleanup, the six bootstrap mutating sweeps, and wake-queue
-# presentation are skipped.
+# Only projection cleanup, the mutating half of bootstrap's sweeps (enumerated
+# in fm-bootstrap.sh's header), and wake-queue presentation are skipped; the
+# browser bridge sweep still runs its read-only detection and reports what it
+# found.
 # The context and fleet-state digests
 # below are always read-only, so they run unconditionally in both modes.
 #
@@ -204,11 +216,11 @@
 #   --reemit  This process ALREADY took the helm at its own startup and has
 #             only lost its context (a /clear or a compaction). Skip the
 #             mutating sweeps that startup already reconciled - the stale Herdr
-#             projection cleanup and bootstrap's six mutating sweeps (fleet
-#             sync, same-home backlog reconciliation, secondmate convergence and
-#             liveness, pending remote handoff retry, X-mode
-#             artifact writes) - and
-#             re-emit the rest. Wake-queue presentation is NOT skipped: queued
+#             projection cleanup and bootstrap's mutating sweeps (enumerated in
+#             fm-bootstrap.sh's header) - and re-emit the rest.
+#             The context digest also restores a bounded slice of up to five
+#             captured captain turns and their paired final replies when available.
+#             Wake-queue presentation is NOT skipped: queued
 #             records are this turn's work queue, they arrived after startup,
 #             and a session that owns the lock is exactly the session that must
 #             handle and acknowledge them. Lock acquisition still runs, because
@@ -667,7 +679,8 @@ if [ "$REEMIT" -eq 1 ]; then
   printf 'context. Lock ownership is re-verified and the durable records below are\n'
   printf 'reprinted, but the sweeps startup already reconciled - project clone refresh,\n'
   printf 'secondmate convergence and liveness, pending remote handoff\n'
-  printf 'retry, X-mode artifact writes, and stale Herdr child cleanup - are NOT repeated.\n'
+  printf 'retry, X-mode artifact writes, orphaned browser bridge reaping, orphaned\n'
+  printf 'watcher state cleanup, and stale Herdr child cleanup - are NOT repeated.\n'
   printf 'Queued wakes ARE still drained: they arrived after startup and are this turn work.\n'
 else
   section "SESSION START - $FM_HOME"
@@ -688,7 +701,8 @@ if [ "$LOCK_RC" -ne 0 ]; then
     printf '●  %s\n' "$LOCK_OUT"
     printf '●  Skipping every mutating step: stale Herdr child cleanup,\n'
     printf '●  secondmate convergence, secondmate liveness, pending remote handoff retry,\n'
-    printf '●  X-mode artifacts, fleet sync, and wake-queue drain. Detect-only bootstrap\n'
+    printf '●  X-mode artifacts, fleet sync, orphaned browser bridge reaping, orphaned\n'
+    printf '●  watcher state cleanup, and wake-queue drain. Detect-only bootstrap\n'
     printf '●  diagnostics and the rest of this read-only-safe digest still ran below.\n'
     printf '●  Operate read-only until this resolves - do not spawn, steer, merge, or\n'
     printf '●  otherwise mutate fleet state from this session.\n'
@@ -790,6 +804,22 @@ else
     printf '%s\n' "$DRAIN_OUT"
   else
     printf '(no queued wakes)\n'
+  fi
+  # ACT FIRST: the local priority list of items already in this digest, plus
+  # the hand-off of the same drain output to the deferred stage's Jev ranking
+  # (see this file's ACT FIRST note). Neither makes a network call here.
+  ACT_FIRST_INPUT=$(mktemp "$STATE/.act-first-input.XXXXXX" 2>/dev/null) || ACT_FIRST_INPUT=
+  if [ -n "$ACT_FIRST_INPUT" ]; then
+    printf '%s\n' "$DRAIN_OUT" > "$ACT_FIRST_INPUT"
+    ACT_FIRST_OUT=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-jev-act-first.sh" \
+      --local --drain-file "$ACT_FIRST_INPUT" --status-dir "$STATE" 2>/dev/null </dev/null) || ACT_FIRST_OUT=
+    FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-startup-network.sh" act-first-input \
+      < "$ACT_FIRST_INPUT" >/dev/null 2>&1 || true
+    rm -f "$ACT_FIRST_INPUT"
+    if [ -n "$ACT_FIRST_OUT" ]; then
+      subsection "ACT FIRST (priority order: open decisions, unfinished execution, failures and blockers, then wakes; handle and acknowledge every item regardless)"
+      printf '%s\n' "$ACT_FIRST_OUT" | head -n 5
+    fi
   fi
 fi
 
@@ -1004,6 +1034,15 @@ print_file_or_absent "$DATA/secondmates.md" "data/secondmates.md"
 print_file_or_absent "$DATA/captain.md" "data/captain.md"
 print_file_or_absent "$DATA/captain-shared.md" "data/captain-shared.md (shared, main-authoritative, read-only in secondmate homes)"
 print_file_or_absent "$DATA/learnings.md" "data/learnings.md"
+
+if [ "$REEMIT" -eq 1 ]; then
+  section "RECENT CAPTAIN WORDS"
+  if HISTORY_RECENT=$("$SCRIPT_DIR/fm-history.sh" recent --n 5 2>/dev/null); then
+    printf '%s\n' "$HISTORY_RECENT"
+  else
+    printf 'History could not be read from %s/history; retrieve it with bin/fm-history.sh find <query>.\n' "$DATA"
+  fi
+fi
 
 # --- 9. closing reminder -----------------------------------------------
 stage next-step

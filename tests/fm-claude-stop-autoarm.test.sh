@@ -418,7 +418,8 @@ test_actionable_close_rewakes_with_reason() {
   expect_code 2 "$status" "an actionable arm close must exit 2 so Claude rewakes"
   assert_contains "$out" "firstmate watcher wake" "rewake must carry the wake banner"
   assert_contains "$out" "stale: fixture-win actionable" "rewake must carry the arm's reason line"
-  assert_contains "$out" "bin/fm-wake-drain.sh" "rewake must direct the drain-first protocol"
+  assert_contains "$out" "bin/fm-wake-drain.sh" "rewake must retain the plain-drain fallback"
+  assert_contains "$out" "bin/fm-wake-triage.sh" "rewake must direct the triage-first protocol"
   assert_contains "$out" "do NOT run bin/fm-watch-arm.sh" "rewake must forbid a duplicate model re-arm"
   [ "$(epoch_outcome "$dir")" = rewake ] || fail "epoch must record outcome=rewake, got: $(epoch_outcome "$dir")"
   [ "$(epoch_field "$dir" session_pid)" = "$(cat "$dir/state/.lock")" ] \
@@ -1483,7 +1484,7 @@ test_plain_arm_banner_keeps_its_wake_line_cap() {
   expected=$(
     printf 'firstmate watcher wake - one supervision event needs a handling turn now.\n'
     for i in 1 2 3 4 5 6 7 8; do printf 'stale: fixture-%s actionable\n' "$i"; done
-    printf 'Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.\n'
+    printf 'Run bin/fm-wake-triage.sh first (fallback: bin/fm-wake-drain.sh), handle every ACT NOW item, then run its WAKE_ACK_REQUIRED command unless it printed WAKE_ACKED. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.\n'
   )
   [ "$out" = "$expected" ] || fail "the plain-arm rewake banner changed:"$'\n'"$out"
   pass "auto-arm: without the host the rewake banner is unchanged, eight wake lines at most"

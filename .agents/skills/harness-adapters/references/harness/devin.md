@@ -8,6 +8,8 @@ The router owns the crewmate/scout-only boundary; primary and secondmate integra
 
 | Fact | Value |
 |---|---|
+| Binary | Stable `devin` from `PATH`, falling back to `~/.local/bin/devin` (`fm_devin_resolve_binary` in `../../../bin/fm-devin-lib.sh`), without pinning the versioned symlink target. |
+| Permissions | `--permission-mode` defaults to `dangerous` for unattended tool use and is recorded as `permission_mode=` and retained on a same-harness relaunch; explicit `auto`, `accept-edits`, and `smart` can stop for approval, and a permission wait must not be interpreted as progress. |
 | Busy state | Native `UserPromptSubmit` opens, `Stop` closes normal completion, and `SessionEnd` closes shutdown through the generation-bound writer; `../../../bin/fm-busy-lib.sh` owns trust. |
 | Exit command | `/quit`, with the shared slash-command settle before Enter; prints `devin -r <session-id>`. |
 | Interrupt | One Esc, then a second only after the running turn renders `esc again to interrupt` and at least 0.5 seconds later; no restored draft and no clear key. An idle agent gets one press and `cancel=not-running`, because a fast idle pair opens the `/revert` picker, where Enter reverts file changes. |

@@ -3692,8 +3692,10 @@ test_normalize_key() {
     [ "$(fm_backend_herdr_normalize_key Escape)" = escape ] || exit 1
     [ "$(fm_backend_herdr_normalize_key C-c)" = ctrl+c ] || exit 1
     [ "$(fm_backend_herdr_normalize_key ctrl+c)" = ctrl+c ] || exit 1
+    [ "$(fm_backend_herdr_normalize_key C-q)" = ctrl+q ] || exit 1
+    [ "$(fm_backend_herdr_normalize_key Ctrl+Q)" = ctrl+q ] || exit 1
   ) || fail "fm_backend_herdr_normalize_key did not map firstmate's key vocabulary to herdr's verified names"
-  pass "fm_backend_herdr_normalize_key: Enter/Escape/C-c map to herdr's verified enter/escape/ctrl+c"
+  pass "fm_backend_herdr_normalize_key: Enter/Escape/C-c/C-q map to Herdr key names"
 }
 
 # --- capture / send_key / kill / current_path --------------------------------
@@ -3970,6 +3972,38 @@ test_composer_state_pi_separator_idle_is_empty() {
   pass "fm_backend_herdr_composer_state: a native idle Pi separator composer reads empty"
 }
 
+# Pi 0.87.1's live idle footer now puts token counts before its context-window
+# metrics, instead of beginning with a dollar-denominated cost.
+test_composer_state_pi_token_first_footer_idle_is_empty() {
+  local dir log resp fb out calls
+  dir="$TMP_ROOT/composer-pi-token-first-idle"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  cp "$ROOT/tests/fixtures/composer/pi-0.87.1-token-first-idle.ansi" "$resp/1.out"
+  printf '{"result":{"agent":{"agent":"pi","agent_status":"idle"}}}\n' > "$resp/2.out"
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2' "$ROOT" )
+  [ "$out" = empty ] || fail "a live Pi 0.87.1 token-first idle footer should read empty, got '$out'"
+  calls=$(grep -c $'\x1f''agent'$'\x1f''get' "$log")
+  [ "$calls" -eq 1 ] || fail "token-first Pi footer recognition must corroborate identity exactly once, made $calls agent calls"
+  pass "fm_backend_herdr_composer_state: captured Pi 0.87.1 token-first idle footer reads empty"
+}
+
+# Live Pi 0.87.1 capture: token counts and cost precede the metrics, but there
+# is no R-count cell. Herdr must recognize this footer without skipping identity.
+test_composer_state_pi_token_first_footer_without_r_idle_is_empty() {
+  local dir log resp fb out calls
+  dir="$TMP_ROOT/composer-pi-token-first-no-r-idle"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  cp "$ROOT/tests/fixtures/composer/pi-0.87.1-token-first-no-r-idle.ansi" "$resp/1.out"
+  printf '{"result":{"agent":{"agent":"pi","agent_status":"idle"}}}\n' > "$resp/2.out"
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2' "$ROOT" )
+  [ "$out" = empty ] || fail "a live Pi 0.87.1 token-first footer without an R-count cell should read empty, got '$out'"
+  calls=$(grep -c $'\x1f''agent'$'\x1f''get' "$log")
+  [ "$calls" -eq 1 ] || fail "token-first Pi footer without R must corroborate identity exactly once, made $calls agent calls"
+  pass "fm_backend_herdr_composer_state: captured Pi 0.87.1 token-first footer without R reads empty"
+}
+
 test_composer_state_pi_dollar_status_footer_is_empty() {
   # `$0.000 (sub) 5.4%/272k (auto)` at column 0 made herdr composer_state
   # unknown, so exit and relaunch refused on an otherwise idle Pi pane.
@@ -4055,6 +4089,99 @@ test_composer_state_pi_separator_requires_safe_native_identity() {
     [ "$out" = unknown ] || fail "unsafe Pi separator case '$case_id' must remain unknown, got '$out'"
   done
   pass "fm_backend_herdr_composer_state: Pi separators never authorize working, non-Pi, unreadable, or over-tall targets"
+}
+
+# Regression coverage for the 2026-09-22 stopped-Devin incident
+# (wiki-ingest-router-design, herdr pane w9B:p2). The generic contract's
+# optional argument is an expected label - fm-control.sh passes the task label
+# through it - but this adapter bound that slot as a harness hint, so a call
+# that named the task disabled every Devin-owned composer rule and the real
+# Devin composer read `unknown` through every caller, blocking fm-send,
+# fm-control interrupt/exit, and relaunch alike. The harness hint now comes
+# from the native `agent get` probe whenever the first pass cannot decide.
+
+test_composer_state_devin_reads_through_expected_label_contract() {
+  local dir log resp fb out calls
+  dir="$TMP_ROOT/composer-devin-label"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  # The live stopped Devin pane's composer region: a bare `❭` row closed by
+  # one solid rule - the same shape the Pi staleness safeguard guards.
+  printf '%s\n' \
+    ' ✱ Did you know' \
+    '   Type while the agent works to queue messages; press Enter on an empty input to send them now' \
+    '' \
+    '─────────────────────────────────────────────────── (bypass permissions on) ─' \
+    '❭ Ask Devin to build features, fix bugs, or work on your code' \
+    '─────────────────────────────────────────────────────────────────────────' \
+    'SWE-2 Max                                                 Context: 111k / 262k tokens (42%)' > "$resp/1.out"
+  printf '{"result":{"agent":{"agent":"devin","agent_status":"done"}}}\n' > "$resp/2.out"
+  fb=$(make_herdr_fakebin "$dir")
+  # Called through the generic dispatch exactly as fm-control calls it: the
+  # task label sits in the expected-label slot, never a harness name.
+  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    bash -c '. "$0/bin/fm-backend.sh"; fm_backend_composer_state herdr default:w9B:p2 fm-wiki-ingest-router-design' "$ROOT" )
+  [ "$out" = empty ] || fail "an idle Devin composer through the expected-label caller path must read empty, got '$out'"
+  calls=$(grep -c $'\x1f''agent'$'\x1f''get' "$log")
+  [ "$calls" -eq 1 ] || fail "the Devin composer must corroborate harness identity exactly once, made $calls agent calls"
+  pass "fm_backend_herdr_composer_state: a Devin idle composer reads empty through the generic expected-label contract"
+}
+
+test_composer_state_devin_queue_flush_prompt_is_empty() {
+  local dir log resp fb out
+  dir="$TMP_ROOT/composer-devin-queue"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  # The same pane mid-wedge: an animating Thinking footer, a `── 4 queued ──`
+  # banner, and Devin's queue-flush prompt - all empty-composer furniture.
+  printf '%s\n' \
+    ' ⣀ Thinking · 26m 39s (esc twice to interrupt)' \
+    '── 4 queued ─────────────────────────────────────────────────────────────' \
+    '❭ Press Enter to send queued messages now' \
+    '─────────────────────────────────────────────────────────────────────────' \
+    'SWE-2 Max                                                 Context: 111k / 262k tokens (42%)' > "$resp/1.out"
+  printf '{"result":{"agent":{"agent":"devin","agent_status":"done"}}}\n' > "$resp/2.out"
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w9B:p2 fm-wiki-ingest-router-design' "$ROOT" )
+  [ "$out" = empty ] || fail "Devin's queue-flush composer must read empty, got '$out'"
+  pass "fm_backend_herdr_composer_state: the queue-flush Devin composer reads empty"
+}
+
+test_composer_state_devin_typed_text_is_pending() {
+  local dir log resp fb out
+  dir="$TMP_ROOT/composer-devin-pending"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  printf '%s\n' \
+    '─────────────────────────────────────────────────── (bypass permissions on) ─' \
+    '❭ split the router into route/policy/filePlan' \
+    '─────────────────────────────────────────────────────────────────────────' \
+    'SWE-2 Max                                                 Context: 111k / 262k tokens (42%)' > "$resp/1.out"
+  printf '{"result":{"agent":{"agent":"devin","agent_status":"idle"}}}\n' > "$resp/2.out"
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w9B:p2 some-task-label' "$ROOT" )
+  [ "$out" = pending ] || fail "typed text in a Devin composer must read pending, got '$out'"
+  pass "fm_backend_herdr_composer_state: real Devin composer text reads pending"
+}
+
+# The identity probe scopes Devin's shape exception to Devin panes: the very
+# same screen on a non-Devin agent keeps the Pi staleness safeguard and stays
+# unknown, and an unreadable probe can never invent a harness hint.
+test_composer_state_devin_shape_never_leaks_to_other_agents() {
+  local dir log resp fb out case_id
+  for case_id in claude unreadable; do
+    dir="$TMP_ROOT/composer-devin-shape-$case_id"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+    printf '%s\n' \
+      '─────────────────────────────────────────────────── (bypass permissions on) ─' \
+      '❭ Ask Devin to build features, fix bugs, or work on your code' \
+      '─────────────────────────────────────────────────────────────────────────' \
+      'SWE-2 Max                                                 Context: 111k / 262k tokens (42%)' > "$resp/1.out"
+    case "$case_id" in
+      claude)     printf '{"result":{"agent":{"agent":"claude","agent_status":"done"}}}\n' > "$resp/2.out" ;;
+      unreadable) printf '1\n' > "$resp/2.exit" ;;
+    esac
+    fb=$(make_herdr_fakebin "$dir")
+    out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+      bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2 some-task' "$ROOT" )
+    [ "$out" = unknown ] || fail "a Devin-shaped screen on '$case_id' identity must stay unknown, got '$out'"
+  done
+  pass "fm_backend_herdr_composer_state: the Devin shape exception never leaks past a probed non-Devin identity"
 }
 
 # --- composer_state: unbordered (bare) composer rows -------------------------
@@ -5892,10 +6019,16 @@ test_composer_state_unknown_on_capture_failure
 test_composer_state_unknown_when_no_composer_row_found
 test_composer_state_pi_parked_prompt_is_not_empty
 test_composer_state_pi_separator_idle_is_empty
+test_composer_state_pi_token_first_footer_idle_is_empty
+test_composer_state_pi_token_first_footer_without_r_idle_is_empty
 test_composer_state_pi_dollar_status_footer_is_empty
 test_composer_state_pi_separator_real_text_is_pending
 test_composer_state_pi_incomplete_separator_below_stale_generic_is_unknown
 test_composer_state_pi_separator_requires_safe_native_identity
+test_composer_state_devin_reads_through_expected_label_contract
+test_composer_state_devin_queue_flush_prompt_is_empty
+test_composer_state_devin_typed_text_is_pending
+test_composer_state_devin_shape_never_leaks_to_other_agents
 test_composer_state_claude_unbordered_prompt_is_empty
 test_composer_state_claude_unbordered_prompt_is_pending
 test_composer_state_bare_prompt_below_stale_bordered_banner_wins

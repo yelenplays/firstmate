@@ -469,12 +469,12 @@
       "audience": "operator-current"
     },
     {
-      "path": "docs/jev-guards.md",
-      "audience": "maintainer-architecture"
-    },
-    {
       "path": "docs/memory.md",
       "audience": "operator-current"
+    },
+    {
+      "path": "docs/jev-guards.md",
+      "audience": "maintainer-architecture"
     },
     {
       "path": "docs/orca-backend.md",

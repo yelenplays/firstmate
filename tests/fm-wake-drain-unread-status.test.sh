@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-wake-drain-unread-status.test.sh - drain must surface every still-
 # unread informational status line since the last presentation, not only the
 # newest line. This is a portable tests/ regression: the drain decides WHICH

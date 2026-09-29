@@ -27,7 +27,7 @@
 # A missing, malformed, identity-mismatched, or past-end classified position reads
 # from byte 0, preferring a bounded duplicate over a lost event.
 #
-# There are four documented exceptions. The absorb classification
+# There are six documented exceptions. The absorb classification
 # (crew_absorb_class and its working/paused wrappers) is NOT a pure status-file
 # read: it reuses bin/fm-crew-state.sh, which may make a bounded no-mistakes call,
 # to decide whether a crew that just stopped its turn or went stale is working,
@@ -42,7 +42,21 @@
 # can treat this home's own bookkeeping bytes as already owned.
 # crew_worktree_written_since reads the task's meta file and walks a bounded slice
 # of its worktree instead of a status file, so callers run it only at the moment
-# they would otherwise escalate.
+# they would otherwise escalate. crew_nm_run_progressing checks
+# the task's attributed no-mistakes run through bounded CLI and log reads, so
+# callers hold it to the same only-at-escalation budget. Another exception is
+# the pair of Jev consult wrappers near the bottom of this file
+# (status_line_jev_escalates, wedge_jev_suppress): each spawns a bounded helper
+# subprocess that can make one short TypeSafe Jev call. The status consult runs
+# only inside status_span_first_actionable_record when a caller opts in with
+# the literal `jev` fifth argument, only for a line the deterministic contract
+# did not accept and status_line_jev_in_scope admits, and only
+# FM_JEV_SPAN_TRIAGE_MAX times per span. The wedge consult runs only where its
+# callers place it: the escalation boundary. Neither can downgrade a declared
+# verb, neither replaces a deterministic check, and any helper failure, timeout,
+# or invalid answer returns nonzero so the caller's existing behavior stands.
+# Every Jev call in one watcher or daemon cycle - these two - shares one
+# wall-clock budget and one circuit breaker (fm_jev_supervision_cycle_reset).
 
 # Directory of this library, used to locate the sibling fm-crew-state.sh reader.
 # Resolved at source time from BASH_SOURCE so it works whether sourced by a
@@ -64,6 +78,30 @@ case $- in *u*) _fm_classify_nounset=on ;; *) _fm_classify_nounset=off ;; esac
 # shellcheck source=bin/fm-timeout-lib.sh
 # shellcheck disable=SC1091
 . "$_FM_CLASSIFY_LIB_DIR/fm-timeout-lib.sh"
+[ "$_fm_classify_nounset" = on ] || set +u
+unset _fm_classify_nounset
+
+# crew_nm_run_progressing below reads the run's own execution evidence through
+# the shared no-mistakes run primitives (bounded CLI call, TOON field readers,
+# active_steps parsing). bin/fm-nm-run-lib.sh is their one owner; it is plain
+# function definitions, so the same nounset courtesy applies.
+case $- in *u*) _fm_classify_nounset=on ;; *) _fm_classify_nounset=off ;; esac
+# shellcheck source=bin/fm-nm-run-lib.sh
+# shellcheck disable=SC1091
+. "$_FM_CLASSIFY_LIB_DIR/fm-nm-run-lib.sh"
+[ "$_fm_classify_nounset" = on ] || set +u
+unset _fm_classify_nounset
+
+# The bounded Jev consults near the bottom of this file resolve their per-call
+# HTTP bound through bin/fm-jev-lib.sh (fm_jev_supervision_timeout), the same
+# answer the helpers read. The library is plain definitions plus constants.
+# It is a canonical lint root in its own right, and only its functions are used
+# here. Keep it an analysis boundary: this library is re-sourced through the
+# wake and pending-reply graphs, and following it from every copy exceeds the
+# bounded CI lint worker while adding no uncovered file.
+case $- in *u*) _fm_classify_nounset=on ;; *) _fm_classify_nounset=off ;; esac
+# shellcheck source=/dev/null
+. "$_FM_CLASSIFY_LIB_DIR/fm-jev-lib.sh"
 [ "$_fm_classify_nounset" = on ] || set +u
 unset _fm_classify_nounset
 
@@ -2289,9 +2327,11 @@ _fm_status_open_decision_origins() {  # <status-file> [<kind>]
   printf '%s' "$origins"
 }
 
-status_span_first_actionable_record() {  # <status-file> <start-offset> [record-var] [needs-decision-var]
-  local f=$1 start=${2:-0} output_var=${3-} needs_var=${4-} size ident cur_ident scratch chunk_file result
+status_span_first_actionable_record() {  # <status-file> <start-offset> [record-var] [needs-decision-var] [jev]
+  local f=$1 start=${2:-0} output_var=${3-} needs_var=${4-} jev_arg=${5-} size ident cur_ident scratch chunk_file result
   local line verb key origins='' folded=0 rc=1 failed=0 line_number=0 live_line='' events='' _line _key _fm_span_needs_decision=0
+  local jev_triage=0 jev_calls=0 jev_flagged=0
+  [ "$jev_arg" = jev ] && jev_triage=1
   [ -e "$f" ] || { [ -L "$f" ] && return 2; return 1; }
   [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 2
   ident=$(_fm_open_decisions_file_ident "$f") || return 2
@@ -2329,7 +2369,27 @@ status_span_first_actionable_record() {  # <status-file> <start-offset> [record-
       _fm_span_needs_decision=1
       continue
     fi
-    status_is_captain_relevant "$line" || continue
+    if ! status_is_captain_relevant "$line"; then
+      # Escalation-only Jev consult, opt-in per caller (<arg5> = jev). Only a
+      # line the deterministic contract did NOT accept is offered, and only
+      # note:/resolved:/nonstandard/verb-less lines are even eligible inside
+      # status_line_jev_in_scope - a declared working/paused/captain-held or
+      # terminal verb can never be re-litigated by the model. The consult is
+      # capped per span call; past the cap, or on any helper failure, the bash
+      # verdict stands unchanged. A Jev-escalated line is advisory surface
+      # only: it never enters the decision fold below.
+      jev_flagged=0
+      if [ "$jev_triage" -eq 1 ] && [ "$jev_calls" -lt "$FM_JEV_SPAN_TRIAGE_MAX" ] \
+        && status_line_jev_in_scope "$line"; then
+        jev_calls=$((jev_calls + 1))
+        status_line_jev_escalates "$line" "$f" && jev_flagged=1
+      fi
+      [ "$jev_flagged" -eq 1 ] || continue
+      [ -n "$events" ] && events="${events} ; "
+      events="${events}${line} (jev-escalated)"
+      rc=0
+      continue
+    fi
     verb=$(status_line_verb "$line")
     case "$verb" in
       needs-decision|blocked)
@@ -2400,6 +2460,176 @@ status_span_has_actionable() {  # <status-file> <start-offset>
   status_span_first_actionable_record "$1" "${2:-0}" > /dev/null
 }
 
+# --- bounded Jev consults (the fifth documented exception above) ------------
+# Escalation-only Jev status triage and a second-opinion wedge read, both over
+# the existing bin/fm-jev-lib.sh binding, both additive: they can surface or
+# defer where the deterministic contract already stands, and any failure
+# returns nonzero so the caller's existing behavior is the fallback. Evidence
+# and the 0.5 Noul floor: data/jev-supervision-triage-v1/report.md.
+#
+# FM_JEV_STATUS_TRIAGE_BIN and FM_JEV_WEDGE_CHECK_BIN point at the helpers; the
+# defaults are the sibling scripts and tests substitute stubs. FM_HOME and
+# FM_STATE_OVERRIDE are passed through so the helper's JSONL lands in the
+# caller's home.
+FM_JEV_STATUS_TRIAGE_BIN="${FM_JEV_STATUS_TRIAGE_BIN:-$_FM_CLASSIFY_LIB_DIR/fm-jev-status-triage.sh}"
+FM_JEV_WEDGE_CHECK_BIN="${FM_JEV_WEDGE_CHECK_BIN:-$_FM_CLASSIFY_LIB_DIR/fm-jev-wedge-check.sh}"
+
+# Cap on Jev consults inside one status_span_first_actionable_record call.
+# Spans hold the newly appended lines - usually one or two - so the cap only
+# bites when a caller reclassifies a long log from byte 0; past it the bash
+# verdict stands for the rest of the span.
+FM_JEV_SPAN_TRIAGE_MAX=${FM_JEV_SPAN_TRIAGE_MAX:-8}
+FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS=${FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS:-6}
+
+# Margin, in seconds, between one consult's HTTP bound and the subprocess
+# bound wrapped around the whole helper, so a stall before curl - a hung
+# state-dir write, a blocked fork - cannot stall the supervision loop either.
+_FM_JEV_SUPERVISION_WRAP_MARGIN_SECS=2
+
+_fm_jev_supervision_now_ms() {
+  local raw sec frac
+  raw=${EPOCHREALTIME:-}
+  case "$raw" in
+    *[0-9][.,][0-9]*)
+      sec=${raw%%[.,]*}
+      frac=${raw#*[.,]}
+      frac="${frac}000"
+      frac=${frac:0:3}
+      case "$sec$frac" in
+        ''|*[!0-9]*) ;;
+        *) printf '%s\n' "$((sec * 1000 + 10#$frac))"; return 0 ;;
+      esac
+      ;;
+  esac
+  sec=$(date +%s 2>/dev/null || printf '0')
+  case "$sec" in ''|*[!0-9]*) sec=0 ;; esac
+  printf '%s\n' "$((sec * 1000))"
+}
+
+fm_jev_supervision_cycle_reset() {
+  local budget=$FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS
+  case "$budget" in ''|*[!0-9]*|0|??????????*) budget=6 ;; esac
+  budget=$((10#$budget))
+  [ "$budget" -gt 0 ] || budget=6
+  FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS=$budget
+  _FM_JEV_SUPERVISION_CYCLE_BUDGET_MS=$((budget * 1000))
+  _FM_JEV_SUPERVISION_CYCLE_USED_MS=0
+  _FM_JEV_SUPERVISION_CYCLE_FAILED=0
+  case "${EPOCHREALTIME:-}" in *[0-9][.,][0-9]*) _FM_JEV_SUPERVISION_CYCLE_COARSE_CLOCK=0 ;; *) _FM_JEV_SUPERVISION_CYCLE_COARSE_CLOCK=1 ;; esac
+}
+
+# Admit one more consult into the current cycle, or refuse (1) once the breaker
+# has tripped or too little budget remains for even a one-second call. Sets the
+# consult's HTTP bound (the helper's JEV_TIMEOUT) to the configured supervision
+# timeout clipped to what the budget still allows, and its subprocess bound to
+# that plus the wrap margin, so the whole consult always fits the remainder.
+_fm_jev_supervision_cycle_prepare() {
+  local remaining_ms available_secs http
+  [ -n "${_FM_JEV_SUPERVISION_CYCLE_BUDGET_MS:-}" ] || fm_jev_supervision_cycle_reset
+  [ "${_FM_JEV_SUPERVISION_CYCLE_FAILED:-0}" -eq 0 ] || return 1
+  remaining_ms=$((_FM_JEV_SUPERVISION_CYCLE_BUDGET_MS - _FM_JEV_SUPERVISION_CYCLE_USED_MS))
+  available_secs=$(((remaining_ms - _FM_JEV_SUPERVISION_WRAP_MARGIN_SECS * 1000) / 1000))
+  if [ "$available_secs" -le 0 ]; then
+    _FM_JEV_SUPERVISION_CYCLE_FAILED=1
+    return 1
+  fi
+  http=$(fm_jev_supervision_timeout)
+  [ "$http" -le "$available_secs" ] || http=$available_secs
+  _FM_JEV_SUPERVISION_CYCLE_CALL_HTTP_SECS=$http
+  _FM_JEV_SUPERVISION_CYCLE_CALL_TIMEOUT_SECS=$((http + _FM_JEV_SUPERVISION_WRAP_MARGIN_SECS))
+}
+
+_fm_jev_supervision_cycle_charge() {
+  local started=$1 finished=$2 elapsed_ms
+  elapsed_ms=$((finished - started))
+  [ "$elapsed_ms" -ge 0 ] || elapsed_ms=0
+  if [ "${_FM_JEV_SUPERVISION_CYCLE_COARSE_CLOCK:-1}" -eq 1 ]; then
+    elapsed_ms=$((elapsed_ms + 1000))
+  fi
+  _FM_JEV_SUPERVISION_CYCLE_USED_MS=$((_FM_JEV_SUPERVISION_CYCLE_USED_MS + elapsed_ms))
+}
+
+_fm_jev_supervision_consult() {  # <helper> <payload> <output-var> [helper-arg...]
+  local helper=$1 payload=$2 output_var=$3 started finished response rc=0
+  shift 3
+  [ -f "$helper" ] || return 1
+  _fm_jev_supervision_cycle_prepare || return 1
+  started=$(_fm_jev_supervision_now_ms)
+  response=$(printf '%s' "$payload" | FM_HOME="${FM_HOME:-}" FM_STATE_OVERRIDE="${FM_STATE_OVERRIDE:-}" \
+    JEV_TIMEOUT="$_FM_JEV_SUPERVISION_CYCLE_CALL_HTTP_SECS" \
+    fm_run_timed "$_FM_JEV_SUPERVISION_CYCLE_CALL_TIMEOUT_SECS" "$helper" "$@" 2>/dev/null) || rc=$?
+  finished=$(_fm_jev_supervision_now_ms)
+  _fm_jev_supervision_cycle_charge "$started" "$finished"
+  if [ "$rc" -ne 0 ]; then
+    _FM_JEV_SUPERVISION_CYCLE_FAILED=1
+    return 1
+  fi
+  printf -v "$output_var" '%s' "$response"
+}
+
+# 0 when <status-line> is eligible for the escalation-only Jev consult: a
+# note:/resolved: declaration, an unrecognized verb, or a verb-less free-text
+# line. Declared verbs are never offered to the model: the terminal set is
+# already captain-relevant, and working/paused/captain-held declarations are
+# absorb contracts a model read must not overturn. This is the gate that keeps
+# the consult "nur dort, wo kein erkanntes Verb greift" plus the two named
+# nonterminal verbs.
+status_line_jev_in_scope() {  # <status-line>
+  local line=$1 verb
+  [ -n "$line" ] || return 1
+  status_line_verb "$line" verb
+  case "$verb" in
+    working|done|needs-decision|blocked|failed|\
+"${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}"|\
+"${FM_CLASSIFY_CAPTAIN_HELD_VERB:-$FM_CLASSIFY_CAPTAIN_HELD_VERB_DEFAULT}")
+      return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+# 0 when Jev's captain_relevant Noul on <status-line> says escalate. 1 for
+# every other outcome - a valid low Noul, a helper error or timeout, a missing
+# helper, an invalid answer - so the caller's deterministic verdict stands.
+# The declared-verb gate runs first, so a direct caller can never accidentally
+# offer a terminal or absorb-declared line to the model.
+# <status-file> names the task and its state directory for the helper's data
+# boundary (fm_jev_supervision_free_text_ok in bin/fm-jev-lib.sh); without it
+# the helper sends structured facts only.
+status_line_jev_escalates() {  # <status-line> [<status-file>]
+  local line=$1 file=${2-} verdict task dir
+  local -a args=()
+  status_line_jev_in_scope "$line" || return 1
+  if [ -n "$file" ]; then
+    task=${file##*/}
+    task=${task%.status}
+    dir=${file%/*}
+    [ "$dir" != "$file" ] || dir=.
+    [ -z "$task" ] || args=(--task "$task" --state-dir "$dir")
+  fi
+  _fm_jev_supervision_consult "$FM_JEV_STATUS_TRIAGE_BIN" "$line" verdict ${args[@]+"${args[@]}"} || return 1
+  [ "$verdict" = escalate ]
+}
+
+# 0 when Jev's stuck Noul on <pane-tail> reads the pane as NOT wedged - the
+# second opinion that suppresses a structural false positive at the wedge
+# escalation boundary. 1 for every other outcome, including an escalate
+# verdict, a missing helper, and any failure - so the boundary's structural
+# escalation always stands as the fallback.
+# <task> and <state-dir> feed the helper's data boundary exactly as for the
+# status consult; without them the helper sends structured facts only.
+wedge_jev_suppress() {  # <pane-tail> [<task> <state-dir>]
+  local tail=$1 task=${2-} dir=${3-} verdict
+  local -a args=()
+  [ -n "$tail" ] || return 1
+  if [ -n "$task" ] && [ -n "$dir" ]; then
+    args=(--task "$task" --state-dir "$dir")
+  fi
+  _fm_jev_supervision_consult "$FM_JEV_WEDGE_CHECK_BIN" "$tail" verdict ${args[@]+"${args[@]}"} || return 1
+  [ "$verdict" = suppress ]
+}
+
+fm_jev_supervision_cycle_reset
+
 # Classify WHY an idle/stale crew MIGHT be safely absorbed instead of surfaced,
 # from bin/fm-crew-state.sh's one authoritative current-state line
 # ("state: <s> · source: <src> · <detail>"). Prints exactly one token:
@@ -2416,10 +2646,12 @@ status_span_has_actionable() {  # <status-file> <start-offset>
 # NOT a pure read: fm-crew-state.sh may make a bounded no-mistakes call, so callers
 # run it only on no-verb signal and first-sighting stale paths, never every wake.
 # FM_CREW_STATE_BIN lets tests stub the verdict.
-crew_absorb_class() {  # <id>
-  local id=$1 line state src
+crew_absorb_class() {  # <id> [captured crew-state line] [captured=1]
+  local id=$1 line=${2:-} captured=${3:-0} state src
   [ -n "$id" ] || { printf 'none'; return; }
-  line=$("$FM_CREW_STATE_BIN" "$id" 2>/dev/null) || true
+  if [ "$captured" != 1 ]; then
+    line=$("$FM_CREW_STATE_BIN" "$id" 2>/dev/null) || true
+  fi
   case "$line" in state:*) ;; *) printf 'none'; return ;; esac
   state=${line#state: }; state=${state%% *}
   if [ "$state" = paused ]; then printf 'paused'; return; fi
@@ -2586,6 +2818,124 @@ crew_worktree_written_since() {  # <id> <state> <anchor-file>
       -type f -newer "$anchor" -print -quit 2>/dev/null || true)
   fi
   [ -n "$hit" ]
+}
+
+# Prints <id>'s no-mistakes run id and returns 0 when the run attributed to the
+# task's branch and code identity is demonstrably EXECUTING: positive activity,
+# process, or log evidence from the run itself, never the pane. This is the
+# wedge detector's fourth liveness input and the one that sees work the other
+# three cannot: a crew handed to `axi run` produces no pane output, no worktree
+# writes in its own checkout, and often no fresh status line for the whole
+# validation, so pane quietness alone must never escalate while the run proves
+# execution.
+#
+# Execution evidence, any one of which is sufficient:
+#   - an active step has parseable, non-quiet last_activity, or a parseable
+#     quiet age below FM_PAUSE_RESURFACE_SECS and a live agent/daemon executor;
+#   - a file under NM_HOME/logs/<run-id>/ was written since <anchor-file>.
+# A parked approval gate, mismatched run identity, or malformed activity is not
+# execution evidence; relative NM_HOME resolves from the recorded worktree.
+# Callers must reach this only when they are otherwise about to escalate,
+# never on every poll: each call is bounded `axi status` and `axi` overview
+# reads plus, for a daemon-executed step, one bounded `daemon status`.
+crew_nm_run_progressing() {  # <id> <state> <anchor-file>
+  local id=$1 state=$2 anchor=$3 wt kind branch out rbranch rhead rid steps
+  local overview selection selected_id selected_status runs_list runs_limit
+  local pid activity activity_age quiet_bound daemon_up nm_home logdir hit row
+  [ -n "$id" ] || return 1
+  [ -f "$anchor" ] || return 1
+  command -v no-mistakes >/dev/null 2>&1 || return 1
+  wt=$(grep '^worktree=' "$state/$id.meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+  [ -n "$wt" ] && [ -d "$wt" ] || return 1
+  kind=$(grep '^kind=' "$state/$id.meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+  [ "${kind:-ship}" = ship ] || return 1
+  branch=$(git -C "$wt" symbolic-ref --quiet --short HEAD 2>/dev/null) || return 1
+  [ -n "$branch" ] || return 1
+  out=$(fm_nm_run_checked "$wt" 10 axi status) || return 1
+  [ -n "$out" ] || return 1
+  rbranch=$(fm_nm_strip_quotes "$(fm_nm_field "$out" branch)")
+  [ "$rbranch" = "$branch" ] || return 1
+  fm_nm_run_is_active "$out" || return 1
+  rid=$(fm_nm_strip_quotes "$(fm_nm_field "$out" id)")
+  [ -n "$rid" ] || return 1
+  rhead=$(fm_nm_strip_quotes "$(fm_nm_field "$out" head)")
+  overview=$(fm_nm_run_checked "$wt" 10 axi) || return 1
+  selection=$(fm_nm_select_run "$branch" "$overview" "$wt")
+  case "$selection" in
+    selected\|*)
+      IFS='|' read -r _ selected_id selected_status _ <<< "$selection"
+      [ "$selected_id" = "$rid" ] || return 1
+      [ "$(fm_nm_run_status_class "$selected_status")" = live ] || return 1
+      if ! fm_nm_head_equals_worktree "$wt" "$rhead" \
+        && ! fm_nm_run_is_pipeline_owned_active "$out"; then return 1; fi
+      ;;
+    unavailable)
+      [ "$(fm_nm_run_status_class "$(fm_nm_strip_quotes "$(fm_nm_field "$out" status)")")" = live ] || return 1
+      [ -n "$rhead" ] || return 1
+      runs_limit=${FM_CREW_STATE_RUNS_LIMIT:-200}
+      case "$runs_limit" in ''|*[!0-9]*) runs_limit=200 ;; esac
+      while [ "${runs_limit#0}" != "$runs_limit" ]; do runs_limit=${runs_limit#0}; done
+      [ -n "$runs_limit" ] || runs_limit=200
+      [ "${#runs_limit}" -le 9 ] || runs_limit=200
+      runs_list=$(fm_nm_run "$wt" 10 runs --limit "$runs_limit")
+      selected_status=$(fm_nm_runs_status_for_worktree "$wt" "$branch" "$runs_list" "$rhead")
+      [ "$(fm_nm_run_status_class "$selected_status")" = live ] || return 1
+      if ! fm_nm_head_equals_worktree "$wt" "$rhead" \
+        && [ -n "$(fm_nm_resolve_commit "$wt" "$rhead")" ]; then return 1; fi
+      ;;
+    *) return 1 ;;
+  esac
+  steps=$(fm_nm_active_steps_evidence "$out")
+  fm_nm_run_is_gate_parked "$out" "$steps" && return 1
+  if [ -n "$steps" ]; then
+    quiet_bound=${FM_PAUSE_RESURFACE_SECS:-$FM_PAUSE_RESURFACE_SECS_DEFAULT}
+    case "$quiet_bound" in ''|*[!0-9]*) quiet_bound=$FM_PAUSE_RESURFACE_SECS_DEFAULT ;; esac
+    while [ "${quiet_bound#0}" != "$quiet_bound" ]; do quiet_bound=${quiet_bound#0}; done
+    [ -n "$quiet_bound" ] || quiet_bound=0
+    case "$quiet_bound" in 0) quiet_bound=$FM_PAUSE_RESURFACE_SECS_DEFAULT ;; esac
+    [ "${#quiet_bound}" -le 9 ] || quiet_bound=$FM_PAUSE_RESURFACE_SECS_DEFAULT
+    quiet_bound=$((quiet_bound + 0))
+    daemon_up=''
+    while IFS= read -r row; do
+      pid=${row%%$'\t'*}
+      activity=${row#*$'\t'}
+      activity=${activity%%$'\t'*}
+      activity_age=$(fm_nm_activity_age_secs "$activity" "$quiet_bound") || continue
+      case "$activity" in
+        quiet\ *) [ "$activity_age" -lt "$quiet_bound" ] || continue ;;
+        *) printf '%s' "$rid"; return 0 ;;
+      esac
+      case "$pid" in
+        ''|*[!0-9]*)
+          if [ -z "$daemon_up" ]; then
+            if fm_nm_daemon_running "$wt" 10; then
+              daemon_up=1
+            else
+              daemon_up=0
+            fi
+          fi
+          [ "$daemon_up" = 1 ] && { printf '%s' "$rid"; return 0; }
+          ;;
+        *)
+          if kill -0 "$pid" 2>/dev/null; then
+            case "$(ps -p "$pid" -o stat= 2>/dev/null)" in
+              Z*) ;;
+              *) printf '%s' "$rid"; return 0 ;;
+            esac
+          fi
+          ;;
+      esac
+    done <<EOF
+$steps
+EOF
+  fi
+  nm_home=${NM_HOME:-$HOME/.no-mistakes}
+  case "$nm_home" in /*) ;; *) nm_home=$wt/$nm_home ;; esac
+  logdir=$nm_home/logs/$rid
+  [ -d "$logdir" ] || return 1
+  hit=$(fm_run_timed 10 find "$logdir" -type f -name '*.log' -newer "$anchor" -print -quit 2>/dev/null || true)
+  [ -n "$hit" ] || return 1
+  printf '%s' "$rid"
 }
 
 # 0 (benign/absorb) if EVERY task referenced by a no-verb "signal:" wake is provably

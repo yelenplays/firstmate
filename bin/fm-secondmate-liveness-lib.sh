@@ -111,6 +111,23 @@ fm_secondmate_liveness_recent_attempts() {  # <id> <window-secs>
     "$ledger" 2>/dev/null
 }
 
+# One remote operation of the probe. When the caller sets
+# REMOTE_SYNC_OPERATION_TIMEOUT (bin/fm-bootstrap.sh's deferred network stage)
+# the call is bounded by fm_run_timed and 124 means the bound fired; the call
+# is also timed when fm-timing-lib.sh is loaded and FM_TIMING_LOG is set.
+fm_sm_live_remote_op() {  # <timing-label> <id> <remote-host> <command...>
+  local label=$1 id=$2 host=$3 started='' rc=0
+  shift 3
+  if command -v fm_timing_now_ms >/dev/null 2>&1; then started=$(fm_timing_now_ms); fi
+  if [ -n "${REMOTE_SYNC_OPERATION_TIMEOUT:-}" ]; then
+    fm_run_timed "$REMOTE_SYNC_OPERATION_TIMEOUT" "$@" || rc=$?
+  else
+    "$@" || rc=$?
+  fi
+  [ -z "$started" ] || fm_timing_record remote-operation "$label" "$started" "$id@$host"
+  return "$rc"
+}
+
 # fm_secondmate_liveness_probe <meta> <id> <full|poll>
 #
 # Read-only probe of one registered secondmate's recorded endpoint. Populates:
@@ -141,9 +158,13 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
   if [ -n "$remote_host" ]; then
     if [ "$mode" = full ]; then
       remote_rc=0
-      fm_remote_readiness_ensure "$FM_SM_LIVE_LIB_DIR" "$id" || remote_rc=$?
+      fm_remote_readiness_ensure "$FM_SM_LIVE_LIB_DIR" "$id" "${REMOTE_SYNC_OPERATION_TIMEOUT:-}" "$id@$remote_host" || remote_rc=$?
       if [ "$remote_rc" -eq 255 ]; then
         FM_SM_LIVE_REASON="remote host unavailable or endpoint state unknown; route preserved on $remote_host"
+        return 0
+      fi
+      if [ "$remote_rc" -eq 124 ]; then
+        FM_SM_LIVE_REASON="remote readiness timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host; route preserved"
         return 0
       fi
       if [ "$remote_rc" -ne 0 ]; then
@@ -155,10 +176,15 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
         return 0
       fi
     fi
-    if out=$("$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null); then
+    if out=$(fm_sm_live_remote_op endpoint-state "$id" "$remote_host" \
+      "$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null); then
       remote_rc=0
     else
       remote_rc=$?
+    fi
+    if [ "$remote_rc" -eq 124 ]; then
+      FM_SM_LIVE_REASON="remote endpoint probe timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host; route preserved"
+      return 0
     fi
     if [ "$remote_rc" -eq 255 ]; then
       FM_SM_LIVE_REASON="remote host unavailable or endpoint state unknown; route preserved on $remote_host"
@@ -173,10 +199,15 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
     case "$agent_state" in
       alive)
         if [ "$mode" = full ]; then
-          if route_out=$("$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh route "$id" < /dev/null 2>/dev/null); then
+          if route_out=$(fm_sm_live_remote_op endpoint-route "$id" "$remote_host" \
+            "$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh route "$id" < /dev/null 2>/dev/null); then
             remote_rc=0
           else
             remote_rc=$?
+          fi
+          if [ "$remote_rc" -eq 124 ]; then
+            FM_SM_LIVE_REASON="remote endpoint route timed out after ${REMOTE_SYNC_OPERATION_TIMEOUT}s on $remote_host; route preserved"
+            return 0
           fi
           if [ "$remote_rc" -eq 255 ]; then
             FM_SM_LIVE_REASON="remote host unavailable or endpoint route unknown; route preserved on $remote_host"

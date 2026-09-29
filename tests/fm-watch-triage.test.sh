@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
+fm_test_sanitize_environment
 # tests/fm-watch-triage.test.sh - the always-on wake triage built into
 # bin/fm-watch.sh and the shared classifier (bin/fm-classify-lib.sh). The watcher
 # now absorbs the benign majority of wakes in bash and exits ONLY on an actionable
@@ -22,10 +24,42 @@ set -u
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-classify-lib.sh"
 
-WATCH="$ROOT/bin/fm-watch.sh"
+REAL_WATCH="$ROOT/bin/fm-watch.sh"
+# Every fixture launch models production's spawn-claim ordering: fm-spawn.sh
+# writes .window-owner-<key> before it publishes the task's meta, so a window
+# any recorded meta names is already owned when the watcher binds. A fixture's
+# seeded markers then represent the live task's own state and survive the
+# first bind, which retires only keys whose owner record is missing
+# (pre-owner-era residue) or names another task.
+WATCH=watch_under_test
+watch_under_test() {
+  local meta task window key
+  if [ -n "${FM_STATE_OVERRIDE:-}" ]; then
+    for meta in "$FM_STATE_OVERRIDE"/*.meta; do
+      [ -e "$meta" ] || continue
+      task=${meta##*/}; task=${task%.meta}
+      window=$(sed -n 's/^window=\(..*\)/\1/p' "$meta" | head -1)
+      [ -n "$window" ] || continue
+      key=$(printf '%s' "$window" | tr ':/.' '___')
+      [ -e "$FM_STATE_OVERRIDE/.window-owner-$key" ] \
+        || printf '%s' "$task" > "$FM_STATE_OVERRIDE/.window-owner-$key"
+    done
+  fi
+  # exec: the backgrounded function must BE the watcher process - running it
+  # as a child would leave tests reaping a subshell pid while the real watcher
+  # survives orphaned, still holding .watch.lock for the next launch.
+  exec "$REAL_WATCH" "$@"
+}
 DRAIN="$ROOT/bin/fm-wake-drain.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-watch-triage-tests)
+
+# Jev supervision consults default off in this file: both helper seams point at
+# absent paths so no bare "$WATCH" launch can spawn the real helper (which would
+# read $FM_HOME/.env for a live key and reach the network). Cases exercising the
+# seams pass their own stub binaries per call.
+export FM_JEV_STATUS_TRIAGE_BIN="$TMP_ROOT/jev-absent-status-helper"
+export FM_JEV_WEDGE_CHECK_BIN="$TMP_ROOT/jev-absent-wedge-helper"
 
 ack_stopped_cycle() {  # <state>
   local state=$1 err sequence generation
@@ -44,12 +78,30 @@ ack_stopped_cycle() {  # <state>
 # points at the case's hermetic fake fm-crew-state.sh (installed by make_case) so the
 # absorb-only-when-provably-working triage reads a canned verdict; a test fixes that
 # verdict via FM_FAKE_CREW_STATE in its environment before calling watch_bg.
-watch_bg() {  # <state> <fakebin> <out> [extra env assignments...]
+watch_bg() {  # <state> <fakebin> <out> [env <assignment>...]
   local state=$1 fakebin=$2 out=$3
   shift 3
-  PATH="$fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
-    FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
-    FM_SECONDMATE_LIVENESS_SECS=99999999 "$@" "$WATCH" > "$out" &
+  # $WATCH is a shell function, which env cannot run, so extra assignments are
+  # exported in the backgrounded subshell after the defaults they override.
+  [ "${1:-}" != env ] || shift
+  # Jev supervision consults: default both helper seams to a fail-closed stub so
+  # no case can reach the real helper (which would read $FM_HOME/.env for a live
+  # key and hit the network). A case overrides per-invocation via "$@" env.
+  [ -f "$fakebin/jev-off.sh" ] || {
+    printf '#!/usr/bin/env bash\nexit 1\n' > "$fakebin/jev-off.sh"
+    chmod +x "$fakebin/jev-off.sh"
+  }
+  (
+    for assignment in "PATH=$fakebin:$PATH" "FM_STATE_OVERRIDE=$state" \
+      "FM_CREW_STATE_BIN=$fakebin/fm-crew-state.sh" \
+      "FM_JEV_STATUS_TRIAGE_BIN=${FM_JEV_STATUS_TRIAGE_BIN:-$fakebin/jev-off.sh}" \
+      "FM_JEV_WEDGE_CHECK_BIN=${FM_JEV_WEDGE_CHECK_BIN:-$fakebin/jev-off.sh}" \
+      FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+      FM_SECONDMATE_LIVENESS_SECS=99999999 "$@"; do
+      export "${assignment?}"
+    done
+    "$WATCH" > "$out"
+  ) &
 }
 
 # Wait up to <limit> 0.1s ticks while <pid> stays alive; 0 if still alive, 1 if it died.
@@ -682,6 +734,405 @@ test_crew_worktree_written_since_classifier() {
   crew_worktree_written_since d "$state" "$anchor" \
     || fail "a source directory named state was hidden from the write probe"
   pass "crew_worktree_written_since: real writes are evidence; no worktree, no anchor, quiet trees, .git churn and a mate's own home are not"
+}
+
+# crew_nm_run_progressing: the wedge detector's run-liveness input. A stale
+# pane whose crew's no-mistakes run is demonstrably executing - a live process
+# for it, or its step logs still growing under NM_HOME/logs/<run-id>/ - is
+# progress, not a wedge; a run with neither still escalates. Every negative
+# outcome must report "no evidence" so the caller keeps its existing schedule:
+# no recorded worktree, a kind that never validates, a foreign or terminal run
+# record, a dead agent pid, a dead daemon behind a daemon-executed step, and a
+# log dir nothing has written since the quiet window opened.
+test_crew_nm_run_progressing_classifier() {
+  local dir state fakebin wt anchor nmhome relative_nmhome run_head descendant_head
+  dir=$(make_case classify-nm-run); state="$dir/state"; fakebin="$dir/fakebin"
+  wt="$dir/wt"; anchor="$state/anchor"; nmhome="$dir/nmhome"
+  relative_nmhome=.nm-home
+  mkdir -p "$wt"
+  git -C "$wt" init -q
+  git -C "$wt" checkout -qb fm/nmrun-task
+  git -C "$wt" -c user.name=test -c user.email=test@example.invalid commit --allow-empty -qm initial
+  run_head=$(git -C "$wt" rev-parse HEAD)
+  git -C "$wt" -c user.name=test -c user.email=test@example.invalid commit --allow-empty -qm descendant
+  descendant_head=$(git -C "$wt" rev-parse HEAD)
+  git -C "$wt" reset --hard -q "$run_head"
+  mkdir -p "$nmhome/logs/01NMRUN01"
+  : > "$anchor"
+  set_mtime "$(( $(date +%s) - 500 ))" "$anchor"
+  cat > "$fakebin/no-mistakes" <<'SH'
+#!/usr/bin/env bash
+set -u
+read_field() {
+  local value
+  value=$(sed -n "s/^[[:space:]]*$1:[[:space:]]*//p" "$2" | head -1)
+  case "$value" in \"*\") value=${value#\"}; value=${value%\"} ;; esac
+  printf '%s' "$value"
+}
+case "${1:-}" in
+  axi)
+    if [ "${2:-}" = status ]; then
+      cat "${FM_FAKE_NM_AXI_STATUS:?FM_FAKE_NM_AXI_STATUS unset}"
+      exit "${FM_FAKE_NM_AXI_RC:-0}"
+    elif [ -z "${2:-}" ]; then
+      if [ -n "${FM_FAKE_NM_AXI_OVERVIEW:-}" ]; then
+        cat "$FM_FAKE_NM_AXI_OVERVIEW"
+      else
+        file=${FM_FAKE_NM_AXI_STATUS:?FM_FAKE_NM_AXI_STATUS unset}
+        printf 'count: 1 of 1 total\nruns[1]{id,branch,status,head,pr}:\n  "%s","%s","%s","%s",""\n' \
+          "$(read_field id "$file")" "$(read_field branch "$file")" \
+          "$(read_field status "$file")" "$(read_field head "$file")"
+      fi
+      exit 0
+    fi ;;
+  runs)
+    if [ -n "${FM_FAKE_NM_RUNS:-}" ]; then
+      cat "$FM_FAKE_NM_RUNS"
+      exit 0
+    fi ;;
+  daemon)
+    if [ "${2:-}" = status ]; then
+      if [ "${FM_FAKE_NM_DAEMON_DOWN:-0}" = 1 ]; then
+        printf '  daemon not running\n'
+      else
+        printf '  daemon running (pid %s)\n' "$$"
+      fi
+      exit 0
+    fi ;;
+esac
+exit 1
+SH
+  chmod +x "$fakebin/no-mistakes"
+  cat > "$dir/quiet-ci.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  ci,running,4h28m,4h28m,"quiet 3h ago: log: CI checks running","",starting
+TOON
+  cat > "$dir/quiet-over-bound.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  ci,running,4h28m,4h28m,"quiet 4h1m ago: log: CI checks running","",starting
+TOON
+  cat > "$dir/dead-agent.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"quiet 3h ago: log: review stalled","$(dead_pid)",1
+TOON
+  cat > "$dir/live-agent.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"quiet 3h ago: log: reviewing","$$",1
+TOON
+  cat > "$dir/live-agent-over-bound.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"quiet 4h1m ago: log: reviewing","$$",1
+TOON
+  cat > "$dir/malformed-activity.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"age unknown","$$",1
+TOON
+  cat > "$dir/fresh-activity.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  ci,running,4h28m,4h28m,"2s ago: log: checking","",starting
+TOON
+  cat > "$dir/transition.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[0]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+TOON
+  cat > "$dir/parked.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[0]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+gate:
+  step: test
+  status: awaiting_approval
+TOON
+  cat > "$dir/fix-review.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+state: fix_review
+active_steps[0]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+TOON
+  cat > "$dir/scalar-gate.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[0]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+gate: review
+TOON
+  cat > "$dir/step-fix-review.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,active_for,status,last_activity,agent_pid}:
+  test,1,fix_review,"2s ago: log: waiting","$$"
+TOON
+  cat > "$dir/wrong-head.toon" <<'TOON'
+run:
+  id: "01NMRUN01"
+  branch: fm/nmrun-task
+  status: running
+  head: deadbeef
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"quiet 3h ago: log: reviewing","$$",1
+TOON
+  cat > "$dir/descendant-head.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: fm/nmrun-task
+  status: running
+  head: "$descendant_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"quiet 3h ago: log: reviewing","$$",1
+TOON
+  cat > "$dir/newer-run-overview.toon" <<TOON
+count: 1 of 1 total
+runs[1]{id,branch,status,head,pr}:
+  "01NMRUN02","fm/nmrun-task","running","$run_head",""
+TOON
+  cat > "$dir/competing-runs-overview.toon" <<TOON
+count: 2 of 2 total
+runs[2]{id,branch,status,head,pr}:
+  "01NMRUN01","fm/nmrun-task","running","$run_head",""
+  "01NMRUN02","fm/nmrun-task","running","$run_head",""
+TOON
+  : > "$dir/legacy-overview.toon"
+  cat > "$dir/legacy-running-runs.txt" <<TOON
+running fm/nmrun-task $run_head 2026-08-10 10:00
+TOON
+  cat > "$dir/legacy-pipeline.toon" <<'TOON'
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: deadbeef
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  ci,running,4h28m,4h28m,"quiet 3h ago: log: CI checks running","",starting
+TOON
+  cat > "$dir/legacy-pipeline-runs.txt" <<TOON
+running fm/nmrun-task deadbeef 2026-08-10 10:01
+failed fm/nmrun-task $run_head 2026-08-10 10:00
+TOON
+  cat > "$dir/legacy-unanchored-runs.txt" <<TOON
+running fm/nmrun-task deadbeef 2026-08-10 10:01
+TOON
+  cat > "$dir/legacy-descendant-runs.txt" <<TOON
+running fm/nmrun-task $descendant_head 2026-08-10 10:01
+TOON
+  cat > "$dir/legacy-conflicting-runs.txt" <<TOON
+failed fm/nmrun-task $run_head 2026-08-10 10:01
+running fm/nmrun-task $run_head 2026-08-10 10:00
+TOON
+  cat > "$dir/legacy-active-anchor-runs.txt" <<TOON
+running fm/nmrun-task deadbeef 2026-08-10 10:02
+running fm/nmrun-task $run_head 2026-08-10 10:01
+TOON
+  cat > "$dir/legacy-matching-competing-runs.txt" <<TOON
+running fm/nmrun-task $run_head 2026-08-10 10:02
+running fm/nmrun-task $run_head 2026-08-10 10:01
+TOON
+  cat > "$dir/pipeline-owned.toon" <<'TOON'
+run:
+  id: "01NMRUN01"
+  branch: fm/nmrun-task
+  status: running
+  head: deadbeef
+branch_sync:
+  state: pipeline_owned
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"quiet 3h ago: log: reviewing","$$",1
+TOON
+  cat > "$dir/terminal.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: failed
+  outcome: "failed"
+  head: "$run_head"
+TOON
+  cat > "$dir/foreign.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/someone-else"
+  status: running
+  head: "$run_head"
+TOON
+
+  printf 'window=test:fm-a\nkind=ship\nworktree=%s\n' "$wt" > "$state/a.meta"
+  printf 'window=test:fm-nowt\nkind=ship\n' > "$state/nowt.meta"
+  printf 'window=test:fm-scout\nkind=scout\nworktree=%s\n' "$wt" > "$state/scout.meta"
+  export NM_HOME="$nmhome"
+
+  # Absence of evidence never suppresses the caller's escalation.
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
+    crew_nm_run_progressing "" "$state" "$anchor" || fail "an empty id reported run evidence"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
+    crew_nm_run_progressing nowt "$state" "$anchor" || fail "a task with no recorded worktree reported run evidence"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
+    crew_nm_run_progressing scout "$state" "$anchor" || fail "a scout reported run evidence"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
+    crew_nm_run_progressing a "$state" "$state/absent-anchor" || fail "a missing anchor reported run evidence"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/foreign.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" || fail "another branch's run counted as this task's evidence"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/terminal.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" || fail "a terminal run counted as executing evidence"
+
+  # The captured replacement-run shape still defers at three hours of quiet.
+  set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/ci.log"
+  [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
+      crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
+    || fail "a daemon-executed three-hour quiet ci step did not prove the run executing"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-over-bound.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a responsive daemon counted after four hours of quiet activity"
+  # With the daemon itself down, the same record is a stale ledger row, not a
+  # running process - and no log has grown, so nothing proves execution.
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" FM_FAKE_NM_DAEMON_DOWN=1 \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a daemon-executed step still counted after the daemon probe failed"
+  # Fresh in-flight step activity the pipeline has not marked quiet is
+  # execution evidence on its own.
+  [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/fresh-activity.toon" \
+      crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
+    || fail "fresh step activity did not prove the run executing"
+  # A live agent process behind a quiet in-flight step is execution evidence
+  # even with no fresh activity.
+  [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/live-agent.toon" \
+      crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
+    || fail "a live agent pid at three hours of quiet did not prove the run executing"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/live-agent-over-bound.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a live agent pid counted after four hours of quiet activity"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/malformed-activity.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "an unparseable last_activity field counted as execution evidence"
+  # Between steps the step log is the witness: written since the pane went
+  # quiet, the run is still producing output.
+  : > "$nmhome/logs/01NMRUN01/review.log"
+  mkdir -p "$wt/$relative_nmhome/logs/01NMRUN01"
+  : > "$wt/$relative_nmhome/logs/01NMRUN01/review.log"
+  [ "$(NM_HOME="$relative_nmhome" PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/transition.toon" \
+      crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
+    || fail "a relative NM_HOME log written inside the quiet window did not prove execution"
+  : > "$nmhome/logs/01NMRUN01/review.log"
+  PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/parked.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    && fail "an awaiting-approval run counted fresh log writes as execution evidence"
+  PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/fix-review.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    && fail "a fix_review run counted fresh log writes as execution evidence"
+  PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/scalar-gate.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    && fail "a scalar-gated run counted fresh log writes as execution evidence"
+  PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/step-fix-review.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    && fail "a fix_review step counted fresh log writes as execution evidence"
+  PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/wrong-head.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    && fail "a run with a foreign head counted as this task's execution evidence"
+  PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/descendant-head.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    && fail "a descendant-head run without pipeline custody counted as this task's execution evidence"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/live-agent.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/newer-run-overview.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a different newest same-branch run failed to displace the queried older run"
+  [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
+      FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+      FM_FAKE_NM_RUNS="$dir/legacy-running-runs.txt" \
+      crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
+    || fail "a matching legacy run ledger did not prove an active server-side check"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+    FM_FAKE_NM_RUNS="$dir/legacy-conflicting-runs.txt" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a newer terminal ledger row did not reject legacy run attribution"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/legacy-pipeline.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+    FM_FAKE_NM_RUNS="$dir/legacy-active-anchor-runs.txt" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a competing active ledger row made the legacy continuation ambiguous"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+    FM_FAKE_NM_RUNS="$dir/legacy-matching-competing-runs.txt" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a live ledger row was attributed despite a competing active run"
+  [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/legacy-pipeline.toon" \
+      FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+      FM_FAKE_NM_RUNS="$dir/legacy-pipeline-runs.txt" \
+      crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
+    || fail "an anchored pipeline continuation did not prove legacy run progress"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/legacy-pipeline.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+    FM_FAKE_NM_RUNS="$dir/legacy-unanchored-runs.txt" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "an unanchored pipeline continuation proved legacy run progress"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/descendant-head.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/legacy-overview.toon" \
+    FM_FAKE_NM_RUNS="$dir/legacy-descendant-runs.txt" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a resolved descendant head proved legacy run progress"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/quiet-ci.toon" \
+    FM_FAKE_NM_AXI_OVERVIEW="$dir/competing-runs-overview.toon" \
+    FM_FAKE_NM_RUNS="$dir/legacy-running-runs.txt" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "an ambiguous overview fell back to coarse legacy attribution"
+  [ "$(PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/pipeline-owned.toon" \
+      crew_nm_run_progressing a "$state" "$anchor")" = "01NMRUN01" ] \
+    || fail "an active pipeline-owned continuation did not bind its run"
+  # The genuine wedge: record still says running, but the agent pid is dead,
+  # activity went quiet, and no log has grown - escalate as before.
+  set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/review.log"
+  ! PATH="$fakebin:$PATH" FM_FAKE_NM_AXI_STATUS="$dir/dead-agent.toon" \
+    crew_nm_run_progressing a "$state" "$anchor" \
+    || fail "a dead pid plus frozen logs still counted as a running validation"
+  unset NM_HOME
+  pass "crew_nm_run_progressing: live pid, live daemon-step, or growing run logs prove execution; every negative outcome reports none"
 }
 
 # FM_WORKTREE_WRITE_PRUNE is a skip list, so clearing it skips nothing and is the
@@ -2331,8 +2782,10 @@ test_stale_terminal_status_overridden_by_active_run() {
   ack_stopped_cycle "$state" || fail "could not acknowledge the intentional phase-A watcher stop"
 
   # Phase B: backdate the idle timer past the threshold; the run genuinely
-  # wedges and the next poll escalates exactly like the non-terminal case.
+  # wedges - its recorded step's anchors stop advancing too - and the next
+  # poll escalates exactly like the non-terminal case.
   echo $(( $(date +%s) - 500 )) > "$state/.stale-since-$key"
+  touch -t 200001010000 "$state/validating.meta"
   : > "$out"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
@@ -2384,8 +2837,11 @@ test_nonterminal_stale_provably_working_absorbed_then_escalated() {
   ack_stopped_cycle "$state" || fail "could not acknowledge the intentional phase-A watcher stop"
 
   # Phase B: backdate the idle timer past the threshold; the next run escalates.
-  # (The subsequent-sight timer path does not re-read the crew state.)
+  # (The subsequent-sight timer path does not re-read the crew state.) A wedged
+  # step's recorded anchors have stopped advancing too, so the spawn record is
+  # aged past the completed-turn bound.
   echo $(( $(date +%s) - 500 )) > "$state/.stale-since-$key"
+  touch -t 200001010000 "$state/quiet.meta"
   : > "$out"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
@@ -2437,6 +2893,284 @@ test_nonterminal_stale_not_working_surfaced() {
   FM_STATE_OVERRIDE="$state" "$DRAIN" > "$drain_out" 2>/dev/null || fail "drain after the immediate stale failed"
   grep "$(printf '\tstale\t')" "$drain_out" | grep -F "$window" >/dev/null || fail "immediate stale wake was not queued"
   pass "a not-provably-working non-terminal stale is surfaced immediately (never left to wait out the timer)"
+}
+
+# --- non-terminal stale, crew's no-mistakes run demonstrably executing -------
+# Regression for the false-alarm chain the captain reported on the cleanup
+# task: repeated possible-wedge escalations against a crew whose no-mistakes
+# validation ran server-side the whole time, purely because the pane stayed
+# quiet. Past the wedge threshold the at-threshold probes now consult the RUN's
+# own evidence - a live process for it, or its step logs still growing under
+# NM_HOME/logs/<run-id>/ - and defer; a run with neither still escalates on the
+# unchanged schedule. The fake no-mistakes below answers `axi status` from
+# fixture files and `daemon status` from an env return code; NM_HOME points the
+# log evidence at a fixture run directory.
+
+test_nonterminal_stale_live_nm_run_defers_then_escalates_when_run_dies() {
+  local dir state fakebin out drain_out capture_file window key pane_hash sig pid wt nmhome since back run_head
+  dir=$(make_case nm-run-live); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; drain_out="$dir/drain.out"; capture_file="$dir/pane.txt"
+  window="test:fm-nmrun"
+  printf 'idle while the pipeline validates' > "$capture_file"
+  wt="$dir/wt"
+  mkdir -p "$wt"
+  git -C "$wt" init -q
+  git -C "$wt" checkout -qb fm/nmrun-task
+  git -C "$wt" -c user.name=test -c user.email=test@example.invalid commit --allow-empty -qm initial
+  run_head=$(git -C "$wt" rev-parse HEAD)
+  printf 'window=%s\nkind=ship\nworktree=%s\n' "$window" "$wt" > "$state/nmrun.meta"
+  printf 'working: validating\n' > "$state/nmrun.status"
+  sig=$(seen_sig "$state/nmrun.status"); printf '%s' "$sig" > "$state/.seen-nmrun_status"
+  key=$(printf '%s' "$window" | tr ':/.' '___')
+  pane_hash=$(hash_text 'idle while the pipeline validates')
+  printf '%s' "$pane_hash" > "$state/.hash-$key"
+  printf '1\n' > "$state/.count-$key"
+  # The stale hash was already absorbed once as provably-working: seed the
+  # suppressor and a wedge timer already past the escalation threshold, and age
+  # the spawn record past the turn bound so the step-age hold does not pre-empt
+  # the at-threshold probes this test exercises.
+  printf '%s' "$pane_hash" > "$state/.stale-$key"
+  set_mtime "$(( $(date +%s) - 7200 ))" "$state/nmrun.meta"
+  cat > "$fakebin/no-mistakes" <<'SH'
+#!/usr/bin/env bash
+set -u
+read_field() {
+  local value
+  value=$(sed -n "s/^[[:space:]]*$1:[[:space:]]*//p" "$2" | head -1)
+  case "$value" in \"*\") value=${value#\"}; value=${value%\"} ;; esac
+  printf '%s' "$value"
+}
+case "${1:-}" in
+  axi)
+    if [ "${2:-}" = status ]; then
+      cat "${FM_FAKE_NM_AXI_STATUS:?FM_FAKE_NM_AXI_STATUS unset}"
+      exit "${FM_FAKE_NM_AXI_RC:-0}"
+    elif [ -z "${2:-}" ]; then
+      file=${FM_FAKE_NM_AXI_STATUS:?FM_FAKE_NM_AXI_STATUS unset}
+      printf 'count: 1 of 1 total\nruns[1]{id,branch,status,head,pr}:\n  "%s","%s","%s","%s",""\n' \
+        "$(read_field id "$file")" "$(read_field branch "$file")" \
+        "$(read_field status "$file")" "$(read_field head "$file")"
+      exit 0
+    fi ;;
+  daemon)
+    if [ "${2:-}" = status ]; then
+      if [ "${FM_FAKE_NM_DAEMON_DOWN:-0}" = 1 ]; then
+        printf '  daemon not running\n'
+      else
+        printf '  daemon running (pid %s)\n' "$$"
+      fi
+      exit 0
+    fi ;;
+esac
+exit 1
+SH
+  chmod +x "$fakebin/no-mistakes"
+  nmhome="$dir/nmhome"; mkdir -p "$nmhome/logs/01NMRUN01"
+  # The replacement-run shape remains executing evidence at three hours quiet.
+  cat > "$dir/axi-quiet-ci.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  ci,running,4h28m,4h28m,"quiet 3h ago: log: CI checks running","",starting
+TOON
+  cat > "$dir/axi-quiet-over-bound.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  ci,running,4h28m,4h28m,"quiet 4h1m ago: log: CI checks running","",starting
+TOON
+  # A run between steps: nothing in flight, but its step log was just written.
+  cat > "$dir/axi-transition.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[0]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+TOON
+  # A wedged run: the record still says running, but the agent pid is dead and
+  # its last activity went quiet.
+  cat > "$dir/axi-dead.toon" <<TOON
+run:
+  id: "01NMRUN01"
+  branch: "fm/nmrun-task"
+  status: running
+  head: "$run_head"
+active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+  review,running,4h28m,4h28m,"quiet 3h ago: log: review stalled","$(dead_pid)",1
+TOON
+  export FM_FAKE_CREW_STATE='state: working · source: run-step · ci running'
+
+  back=$(( $(date +%s) - 500 ))
+  echo "$back" > "$state/.stale-since-$key"
+  set_mtime "$back" "$state/.stale-since-$key"
+  printf 'source changed\n' > "$wt/src.c"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_STALE_ESCALATE_SECS=240 FM_PAUSE_RESURFACE_SECS=14400 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  if ! wait_poll_cycle "$state" "$pid"; then
+    reap "$pid"; fail "the write-evidence phase did not defer the stale pane: $(cat "$out")"
+  fi
+  [ ! -s "$out" ] || { reap "$pid"; fail "the write-evidence phase unexpectedly surfaced a wake"; }
+  [ -e "$state/.writing-since-$key" ] || { reap "$pid"; fail "the write deferral did not start its chain"; }
+  reap "$pid"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the write-evidence watcher stop"
+
+  set_mtime "$(( $(date +%s) - 600 ))" "$wt/src.c"
+  back=$(( $(date +%s) - 500 ))
+  echo "$back" > "$state/.stale-since-$key"
+  set_mtime "$back" "$state/.stale-since-$key"
+  set_mtime "$(( $(date +%s) - 14500 ))" "$state/.writing-since-$key"
+  : > "$nmhome/logs/01NMRUN01/ci.log"
+  set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/ci.log"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    NM_HOME="$nmhome" FM_FAKE_NM_AXI_STATUS="$dir/axi-quiet-ci.toon" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_STALE_ESCALATE_SECS=240 FM_PAUSE_RESURFACE_SECS=14400 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_for_exit "$pid" 100 || fail "switching from write evidence reset the existing deferral cadence"
+  grep -F "its no-mistakes run 01NMRUN01 is still executing" "$out" >/dev/null \
+    || fail "the evidence-switch recheck did not identify the executing run"
+  grep -F "possible wedge" "$out" >/dev/null && fail "the evidence-switch recheck was mislabeled a possible wedge"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the evidence-switch recheck"
+
+  # Phase A: the timer is past the threshold, but the run is demonstrably
+  # executing (a daemon-executed ci step, its own log deliberately stale), so
+  # the escalation defers instead of firing: no wake, the idle timer re-arms,
+  # and the deferral chain is recorded.
+  back=$(( $(date +%s) - 500 ))
+  echo "$back" > "$state/.stale-since-$key"
+  set_mtime "$back" "$state/.stale-since-$key"
+  : > "$nmhome/logs/01NMRUN01/ci.log"
+  set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/ci.log"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    NM_HOME="$nmhome" FM_FAKE_NM_AXI_STATUS="$dir/axi-quiet-ci.toon" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  if ! wait_poll_cycle "$state" "$pid"; then
+    reap "$pid"; fail "watcher escalated a stale pane whose no-mistakes run is still executing: $(cat "$out")"
+  fi
+  [ ! -s "$out" ] || fail "executing-run stale printed a wake during the run deferral: $(cat "$out")"
+  [ ! -s "$state/.wake-queue" ] || fail "executing-run stale enqueued a wake"
+  [ -s "$state/.nmrun-since-$key" ] || fail "run deferral did not record its chain"
+  since=$(cat "$state/.stale-since-$key")
+  [ $(( $(date +%s) - since )) -lt 120 ] || fail "run deferral did not re-arm the idle timer"
+  reap "$pid"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the phase-A watcher stop"
+
+  # Phase B: no step is in flight at all, but the run's own log dir was written
+  # since the quiet window opened - still executing evidence, still a deferral.
+  back=$(( $(date +%s) - 500 ))
+  echo "$back" > "$state/.stale-since-$key"
+  set_mtime "$back" "$state/.stale-since-$key"
+  : > "$nmhome/logs/01NMRUN01/review.log"
+  : > "$out"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    NM_HOME="$nmhome" FM_FAKE_NM_AXI_STATUS="$dir/axi-transition.toon" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  if ! wait_poll_cycle "$state" "$pid"; then
+    reap "$pid"; fail "watcher escalated a stale pane whose run logs are still growing: $(cat "$out")"
+  fi
+  [ ! -s "$out" ] || fail "log-growing run stale printed a wake during the deferral"
+  [ ! -s "$state/.wake-queue" ] || fail "log-growing run stale enqueued a wake"
+  reap "$pid"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the phase-B watcher stop"
+
+  # Phase C: a responsive daemon no longer proves progress past the quiet-age bound.
+  back=$(( $(date +%s) - 500 ))
+  echo "$back" > "$state/.stale-since-$key"
+  set_mtime "$back" "$state/.stale-since-$key"
+  set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/ci.log"
+  set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/review.log"
+  : > "$out"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    NM_HOME="$nmhome" FM_FAKE_NM_AXI_STATUS="$dir/axi-quiet-over-bound.toon" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_for_exit "$pid" 100 || fail "watcher did not escalate a daemon-executed run quiet past four hours"
+  grep -F "possible wedge" "$out" >/dev/null || fail "quiet-over-bound run was not flagged as a possible wedge"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the phase-C watcher stop"
+
+  # Phase D: the run record still claims running, but the agent pid is dead,
+  # activity went quiet, and no log has grown since the pane went idle -
+  # nothing proves execution, so the wedge escalates on the unchanged schedule.
+  back=$(( $(date +%s) - 500 ))
+  echo "$back" > "$state/.stale-since-$key"
+  set_mtime "$back" "$state/.stale-since-$key"
+  set_mtime "$(( $(date +%s) - 600 ))" "$nmhome/logs/01NMRUN01/review.log"
+  : > "$out"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    NM_HOME="$nmhome" FM_FAKE_NM_AXI_STATUS="$dir/axi-dead.toon" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_for_exit "$pid" 100 || fail "watcher did not escalate a stale pane whose run shows no execution evidence"
+  grep -F "stale: $window" "$out" >/dev/null || fail "escalation did not print a stale wake"
+  grep -F "possible wedge" "$out" >/dev/null || fail "escalation did not flag a possible wedge"
+  [ ! -e "$state/.stale-since-$key" ] || fail "stale-since timer was not cleared after escalation"
+  [ ! -e "$state/.nmrun-since-$key" ] || fail "run-deferral chain outlived the escalation it deferred"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$drain_out" 2>/dev/null || fail "drain after the wedge escalation failed"
+  grep "$(printf '\tstale\t')" "$drain_out" | grep -F "$window" >/dev/null || fail "wedge escalation was not queued"
+  unset FM_FAKE_CREW_STATE
+  pass "a stale pane defers while its no-mistakes run demonstrably executes, and still escalates once nothing proves it"
+}
+
+test_recovery_generation_honors_termination() {
+  local dir
+  dir=$(make_case recovery-generation-term)
+  # Interrupt generation minting while the recovery lock is held. A pair of
+  # command substitutions in one assignment caused Bash 5.2 to parse the TERM
+  # trap with the wrong parser state and silently continue instead of exiting.
+  python3 - "$BASH" "$ROOT/bin/fm-wake-lib.sh" "$dir/state" <<'PY' || fail "recovery generation lost termination"
+import os
+import signal
+import subprocess
+import sys
+
+script = r'''
+export FM_STATE_OVERRIDE=$2
+. "$1"
+marker="$STATE/.watcher-down"
+trap 'fm_lock_release "$marker.lock"' EXIT
+trap 'exit 143' TERM
+set -T
+trap 'if [ "${FUNCNAME[0]:-}" = fm_current_pid ] &&
+         [ -n "${FM_LOCK_OWNER_DIR:-}" ] && [ ! -e "$STATE/interrupted" ]; then
+        : > "$STATE/interrupted"
+        kill -TERM "$$"
+      fi' DEBUG
+fm_recovery_marker_publish "$marker" downtime
+printf 'continued after TERM\n'
+'''
+p = subprocess.Popen([sys.argv[1], "-c", script, "_", *sys.argv[2:]],
+                     start_new_session=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+try:
+    out, err = p.communicate(timeout=10)
+except subprocess.TimeoutExpired:
+    os.killpg(p.pid, signal.SIGKILL)
+    p.communicate()
+    raise SystemExit("recovery publication hung after TERM")
+if p.returncode != 143 or out or err:
+    raise SystemExit(f"termination rc={p.returncode}, stdout={out!r}, stderr={err!r}")
+if not os.path.exists(os.path.join(sys.argv[3], "interrupted")):
+    raise SystemExit("fixture did not send TERM while holding the recovery lock")
+if os.path.lexists(os.path.join(sys.argv[3], ".watcher-down.lock")):
+    raise SystemExit("termination left the recovery lock held")
+PY
+  pass "termination during recovery generation exits and releases the lock without parser errors"
 }
 
 # --- non-terminal stale, crew DECLARED a pause: absorbed, re-surfaced on a long
@@ -2974,12 +3708,20 @@ test_live_paused_until_controls_recheck_time() {
 # in), which is how the dead-endpoint cases below reach `dead` and `missing`.
 wedge_threshold_round() {  # <state> <fakebin> <out> <capture> <window> <verdict> <exit|absorb>
   local state=$1 fakebin=$2 out=$3 capture=$4 window=$5 verdict=$6 mode=$7 pid cycles=0
+  [ -f "$fakebin/jev-off.sh" ] || {
+    printf '#!/usr/bin/env bash\nexit 1\n' > "$fakebin/jev-off.sh"
+    chmod +x "$fakebin/jev-off.sh"
+  }
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
     FM_CONFIG_OVERRIDE="$(dirname "$state")/config" \
     FM_FAKE_TMUX_CURRENT_COMMAND="${FM_TEST_PANE_COMMAND-grok}" \
     FM_FAKE_TMUX_WINDOWS="${FM_TEST_TMUX_WINDOWS-}" FM_FAKE_CREW_STATE="$verdict" \
     FM_WATCH_HANDLING_SUCCESSOR=1 \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_JEV_STATUS_TRIAGE_BIN="${FM_JEV_STATUS_TRIAGE_BIN:-$fakebin/jev-off.sh}" \
+    FM_JEV_WEDGE_CHECK_BIN="${FM_JEV_WEDGE_CHECK_BIN:-$fakebin/jev-off.sh}" \
+    FM_JEV_STUB_DIR="${FM_JEV_STUB_DIR:-}" \
+    FM_JEV_STUB_WEDGE_VERDICT="${FM_JEV_STUB_WEDGE_VERDICT:-}" \
     FM_PAUSE_RESURFACE_SECS="${FM_TEST_PAUSE_RESURFACE:-999}" FM_STALE_ESCALATE_SECS="${FM_TEST_STALE_ESCALATE:-1}" \
     FM_POLL=1 FM_SIGNAL_GRACE=1 \
     FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" >> "$out" &
@@ -3013,6 +3755,11 @@ wedge_threshold_fixture() {  # <name> <status-log> <status-age-secs> [<wedge-tim
   text='waiting at the gate'
   printf '%s' "$text" > "$dir/pane.txt"
   printf 'window=%s\nkind=ship\nharness=grok\nbackend=tmux\n' "$window" > "$state/wedge.meta"
+  # The recorded step this lane is on has long since stopped advancing: an
+  # at-threshold pane escalates only once its step's own completed-turn bound
+  # has also crossed, so a lane that lives at the wedge threshold starts with
+  # an over-age spawn record as its turn anchor.
+  touch -t 200001010000 "$state/wedge.meta"
   printf '%s\n' "$log" > "$statusf"
   back=$(( $(date +%s) - age ))
   set_mtime "$back" "$statusf"
@@ -3600,7 +4347,7 @@ run_malformed_wait_record_round() {  # <name> <evidence-body>
       wedge_timer_check "test:fm-wedge" "$FM_STATE_OVERRIDE/.stale-since-test_fm-wedge" \
         "non-terminal stale" "$FM_STATE_OVERRIDE/.wedge-escalations-test_fm-wedge" wedge \
         malformed-record-pane
-    ' _ "$WATCH" "$body" > "$out" 2>&1 \
+    ' _ "$REAL_WATCH" "$body" > "$out" 2>&1 \
     || fail "the wedge timer failed on a malformed wait record ($name): $(cat "$out")"
   MALFORMED_STATE=$state
 }
@@ -3638,6 +4385,325 @@ test_wedge_defer_refuses_a_half_filled_wait_record() {
   assert_malformed_record_kept_the_ladder "$MALFORMED_STATE" "a wait record with a surplus field"
 
   pass "a wait record missing a field the recheck must print, or carrying one it must not, is refused and the lane escalates exactly as it would have"
+}
+
+
+# --- Jev supervision consults --------------------------------------------------
+# The two captain-approved advisory roles (evidence and the 0.5 Noul floor:
+# data/jev-supervision-triage-v1/report.md): an escalation-only status-line
+# consult that runs only where no declared verb answers, and a wedge second
+# opinion consulted exactly at the structural escalation boundary. Both are
+# fail-closed - a missing helper, a failure, or a malformed verdict leaves the
+# incumbent verdict untouched. The helpers' own contract is covered in
+# tests/fm-jev-supervision.test.sh; the seams below run verdict stubs so no case
+# can reach a live endpoint.
+
+
+# The scope gate is the whole "nur dort, wo kein erkanntes Verb greift" contract:
+# every declared verb keeps its deterministic handling and is never offered to
+# the model, while the progress/freestyle family plus the advisory-note verbs
+# note:/resolved: are exactly the corpus the evidence measured.
+test_jev_status_consult_scope() {
+  local line
+  for line in \
+    'working: still on it' \
+    'done: shipped' \
+    'needs-decision: pick a lane' \
+    'blocked: waiting on CI' \
+    'failed: red build' \
+    'paused: out for lunch' \
+    'captain-held: which retention window wins'
+  do
+    status_line_jev_in_scope "$line" \
+      && fail "a declared line was offered to the Jev consult: $line"
+  done
+  for line in \
+    'note: quota is nearly spent' \
+    'resolved: retried and green now' \
+    'progress: 80% through the matrix' \
+    'still grinding through the test matrix' \
+    'halfway there, no blockers'
+  do
+    status_line_jev_in_scope "$line" \
+      || fail "a non-declared line was withheld from the Jev consult: $line"
+  done
+  status_line_jev_in_scope '' && fail "an empty line was offered to the consult"
+  pass "the status consult admits exactly the declared-verb gap: note:, resolved:, nonstandard verbs, and free text"
+}
+
+# The verdict mapping is deliberately one-sided: only a clean `escalate` print
+# surfaces the line, and every other helper outcome - suppress, a failure, a
+# missing helper - leaves the deterministic absorb standing.
+test_jev_status_escalate_mapping() {
+  local dir fakebin line='note: the deploy window closes at 5'
+  fm_jev_supervision_cycle_reset
+  dir=$(mktemp -d "$TMP_ROOT/jev-status-map.XXXXXX")
+  fakebin="$dir/bin"; mkdir -p "$fakebin"; fm_install_jev_stubs "$fakebin"
+
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=escalate \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_line_jev_escalates "$line" \
+    || fail "an escalate verdict did not escalate"
+  grep -F 'note: the deploy window closes at 5' "$dir/status.stdin" >/dev/null \
+    || fail "the status consult did not receive the line on stdin"
+
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=suppress \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_line_jev_escalates "$line" \
+    && fail "a suppress verdict escalated"
+
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=fail \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_line_jev_escalates "$line" \
+    && fail "a helper failure escalated"
+
+  FM_JEV_STATUS_TRIAGE_BIN="$fakebin/absent-helper" \
+    status_line_jev_escalates "$line" \
+    && fail "a missing helper escalated"
+
+  # A declared verb never reaches the helper at all, so it can never be
+  # re-litigated or downgraded by a model read.
+  : > "$dir/status.stdin"
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=escalate \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_line_jev_escalates 'done: shipped' \
+    && fail "a done: line escalated through the consult"
+  [ ! -s "$dir/status.stdin" ] \
+    || fail "a declared-verb line reached the consult helper"
+  pass "the status consult escalates only on a clean escalate verdict and never sees a declared verb"
+}
+
+# The span opt-in: `jev` as the fifth argument consults the helper on eligible
+# lines the deterministic contract declined; without it (or on helper failure)
+# the same span stays absorbed. A Jev-escalated line is marked advisory and
+# never feeds the needs-decision fold.
+test_status_span_jev_optin() {
+  local dir fakebin f rec='' needs=''
+  fm_jev_supervision_cycle_reset
+  dir=$(mktemp -d "$TMP_ROOT/jev-span.XXXXXX")
+  fakebin="$dir/bin"; mkdir -p "$fakebin"; fm_install_jev_stubs "$fakebin"
+  f="$dir/task.status"
+  printf 'working: on it\nnote: the deploy window closes at 5\n' > "$f"
+
+  # No opt-in: the incumbent absorb stands, helper or no helper.
+  status_span_first_actionable_record "$f" 0 rec needs \
+    && fail "a note: line surfaced without the jev opt-in"
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=escalate \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_span_first_actionable_record "$f" 0 rec needs \
+    && fail "a note: line surfaced without the jev opt-in even with an escalating helper"
+
+  # Opt-in + escalate verdict: the line surfaces, marked as a Jev call.
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=escalate \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_span_first_actionable_record "$f" 0 rec needs jev \
+    || fail "a Jev-escalated note: line did not surface"
+  case "$rec" in
+    *'note: the deploy window closes at 5 (jev-escalated)'*) ;;
+    *) fail "the Jev-escalated surface lost its advisory marker: $rec" ;;
+  esac
+  [ "$needs" = 0 ] \
+    || fail "a Jev-escalated line entered the needs-decision fold: $needs"
+  grep -F 'note: the deploy' "$dir/status.stdin" >/dev/null \
+    || fail "the note: line was not offered to the consult"
+  grep -F 'working: on it' "$dir/status.stdin" >/dev/null \
+    && fail "a declared working: line reached the consult"
+
+  # A suppress verdict and a helper failure both keep the incumbent absorb.
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=suppress \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_span_first_actionable_record "$f" 0 rec needs jev \
+    && fail "a suppressed note: line surfaced"
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=fail \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_span_first_actionable_record "$f" 0 rec needs jev \
+    && fail "a helper failure surfaced a note: line"
+  FM_JEV_STATUS_TRIAGE_BIN="$fakebin/absent" \
+    status_span_first_actionable_record "$f" 0 rec needs jev \
+    && fail "a missing helper surfaced a note: line"
+
+  # The declared terminal verb still surfaces through the deterministic path and
+  # is never shown to the model. A span of only declared verbs pays no consult.
+  printf 'working: on it\ndone: shipped\n' > "$f"
+  : > "$dir/status.stdin"
+  FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=escalate \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_span_first_actionable_record "$f" 0 rec needs jev \
+    || fail "a done: line stopped surfacing under the jev opt-in"
+  case "$rec" in *'done: shipped'*) ;; *) fail "the done: event was lost: $rec" ;; esac
+  [ ! -s "$dir/status.stdin" ] \
+    || fail "a span with declared verbs only still consulted the helper"
+  pass "the jev opt-in surfaces note:/resolved:/freestyle lines only on escalate, and declared verbs never reach the helper"
+}
+
+# The per-span cap: a caller reclassifying a long log from byte 0 must not pay
+# one model call per line. Past FM_JEV_SPAN_TRIAGE_MAX the bash verdict stands
+# for the rest of the span.
+test_status_span_jev_cap() {
+  local dir fakebin f rec='' n
+  fm_jev_supervision_cycle_reset
+  dir=$(mktemp -d "$TMP_ROOT/jev-cap.XXXXXX")
+  fakebin="$dir/bin"; mkdir -p "$fakebin"; fm_install_jev_stubs "$fakebin"
+  f="$dir/task.status"
+  n=1; while [ "$n" -le 10 ]; do printf 'note: free-text line %s\n' "$n" >> "$f"; n=$((n + 1)); done
+  FM_JEV_SPAN_TRIAGE_MAX=2 \
+    FM_JEV_STUB_DIR="$dir" FM_JEV_STUB_STATUS_VERDICT=suppress \
+    FM_JEV_STATUS_TRIAGE_BIN="$fakebin/jev-status-stub" \
+    status_span_first_actionable_record "$f" 0 rec '' jev \
+    && fail "a fully-suppressed span surfaced"
+  [ "$(wc -l < "$dir/status.stdin" | tr -d ' ')" = 2 ] \
+    || fail "the span paid $(wc -l < "$dir/status.stdin" | tr -d ' ') consults, past the cap of 2"
+  pass "the status consult is capped per span - past the cap the deterministic verdict stands"
+}
+
+# The wedge second opinion at the boundary, end to end. A provably-working lane
+# whose pane never changes crosses the idle bound every STALE_ESCALATE_SECS;
+# today that is a certain structural escalation. With a valid low stuck Noul
+# the consult defers it like the other boundary deferrals: no wake, no counted
+# escalation, a bounded suppression chain, and the pane tail the caller already
+# captured is the state the helper saw.
+test_wedge_jev_low_noul_suppresses_the_boundary() {
+  local dir state fakebin out capture window key n
+  dir=$(wedge_threshold_fixture jev-suppress 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  # Pre-arm the idle timer past the bound so the first round already sits at the
+  # escalation boundary.
+  printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
+
+  n=1
+  while [ "$n" -le 3 ]; do
+    FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=suppress \
+      wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+        'state: working · source: run-step · ci running' absorb \
+      || fail "a suppressed wedge boundary escalated at round $n: $(cat "$out")"
+    n=$((n + 1))
+  done
+  [ "$(wedge_stale_wakes "$state" "$window")" -eq 0 ] \
+    || fail "a suppressed wedge boundary queued a wake: $(cat "$state/.wake-queue")"
+  [ ! -e "$state/.wedge-escalations-$key" ] \
+    || fail "a suppression counted an escalation: $(cat "$state/.wedge-escalations-$key")"
+  [ -e "$state/.jevsupp-since-$key" ] \
+    || fail "the suppression did not open its bounded chain marker"
+  grep -F 'waiting at the gate' "$dir/jevstub/wedge.stdin" >/dev/null \
+    || fail "the wedge consult did not see the captured pane tail: $(cat "$dir/jevstub/wedge.stdin" 2>/dev/null)"
+  grep -F 'jev pane-tail read: not stuck' "$state/.watch-triage.log" >/dev/null \
+    || fail "the suppression was not recorded in the triage log: $(cat "$state/.watch-triage.log")"
+  pass "a valid low stuck Noul suppresses the structural wedge escalation on a bounded cadence"
+}
+
+# Every other helper outcome leaves the boundary exactly where the structural
+# rule put it: an escalate verdict escalates at once, and a helper failure
+# escalates the same way - the fallback is the incumbent behavior, not silence.
+test_wedge_jev_escalate_and_failure_keep_the_boundary() {
+  local dir state fakebin out capture window key
+  dir=$(wedge_threshold_fixture jev-escalate 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
+
+  FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+    FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=escalate \
+    wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+      'state: working · source: run-step · ci running' exit \
+    || fail "an escalate verdict at the wedge boundary did not escalate: $(cat "$out")"
+  [ "$(wedge_stale_wakes "$state" "$window")" -ge 1 ] \
+    || fail "an escalate verdict at the wedge boundary queued no wake: $(cat "$state/.wake-queue")"
+
+  dir=$(wedge_threshold_fixture jev-fail 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
+  FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+    FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=fail \
+    wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+      'state: working · source: run-step · ci running' exit \
+    || fail "a helper failure at the wedge boundary swallowed the escalation: $(cat "$out")"
+  [ "$(wedge_stale_wakes "$state" "$window")" -ge 1 ] \
+    || fail "a helper failure at the wedge boundary queued no wake: $(cat "$state/.wake-queue")"
+
+  # And without the env override the fail-closed default stub keeps the same
+  # boundary - exactly today's behavior.
+  dir=$(wedge_threshold_fixture jev-off 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
+  wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+    'state: working · source: run-step · ci running' exit \
+    || fail "the default fail-closed stub changed the wedge boundary: $(cat "$out")"
+  pass "escalate verdicts and every helper failure keep the incumbent wedge escalation"
+}
+
+# The consult pays only at the boundary: below the idle bound a pane is absorbed
+# by the timer itself and the helper is never invoked.
+test_wedge_jev_consult_only_at_the_boundary() {
+  local dir state fakebin out capture window key n
+  dir=$(wedge_threshold_fixture jev-below 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+
+  n=1
+  while [ "$n" -le 3 ]; do
+    FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=suppress \
+      FM_TEST_STALE_ESCALATE=999 \
+      wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+        'state: working · source: run-step · ci running' absorb \
+      || fail "a below-boundary pane escalated at round $n: $(cat "$out")"
+    n=$((n + 1))
+  done
+  [ ! -e "$dir/jevstub/wedge.stdin" ] \
+    || fail "a below-boundary pane paid a Jev consult"
+  pass "the wedge second opinion runs only at the escalation boundary, never per poll"
+}
+
+test_jev_suppression_chain_resets_after_activity() {
+  local dir state fakebin out capture window key old quiet_hash marker_time
+  dir=$(wedge_threshold_fixture jev-chain-reset 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  old=$(( $(date +%s) - 1200 ))
+  printf '%s' "$old" > "$state/.jevsupp-since-$key"
+  set_mtime "$old" "$state/.jevsupp-since-$key"
+  : > "$state/.jevsupp-resurfaced-$key"
+  set_mtime "$old" "$state/.jevsupp-resurfaced-$key"
+
+  printf 'Ctrl+c:cancel\n' > "$capture"
+  FM_BUSY_TURN_MAX_SECS=999999999 wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+    'state: working · source: run-step · ci running' absorb \
+    || fail "the busy activity reset did not complete: $(cat "$out")"
+  for marker in .jevsupp-since- .jevsupp-resurfaced-; do
+    [ ! -e "$state/$marker$key" ] || fail "busy activity retained the old Jev marker $marker$key"
+  done
+
+  printf 'waiting at the gate' > "$capture"
+  FM_BUSY_TURN_MAX_SECS=1 FM_TEST_STALE_ESCALATE=999 \
+    wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+      'state: working · source: run-step · ci running' absorb \
+    || fail "the new quiet pane did not settle before its wedge interval: $(cat "$out")"
+  [ -s "$state/.stale-since-$key" ] || fail "the quiet episode did not start a fresh wedge timer"
+
+  quiet_hash=$(hash_text 'waiting at the gate')
+  [ "$(cat "$state/.hash-$key")" = "$quiet_hash" ] \
+    || fail "the returning quiet pane did not retain its stable hash"
+  : > "$out"
+  printf '%s' "$old" > "$state/.stale-since-$key"
+  FM_BUSY_TURN_MAX_SECS=1 FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+    FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=suppress \
+    wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+      'state: working · source: run-step · ci running' absorb \
+    || fail "a fresh Jev suppression inherited and immediately spent the old chain: $(cat "$out")"
+  [ "$(wedge_stale_wakes "$state" "$window")" -eq 0 ] \
+    || fail "the new quiet episode immediately re-surfaced on the old Jev throttle"
+  marker_time=$(file_mtime "$state/.jevsupp-since-$key")
+  [ "$marker_time" -gt "$old" ] || fail "the new Jev suppression reused the old chain timestamp"
+  [ ! -e "$state/.jevsupp-resurfaced-$key" ] \
+    || fail "the first Jev suppression in a new quiet episode spent the old re-surface throttle"
+  pass "busy activity clears Jev suppression age and throttle before the next quiet episode"
 }
 
 
@@ -4454,6 +5520,7 @@ test_paused_authoritative_working_preserves_wedge_timer() {
   printf 'working: resumed after the release landed\n' >> "$state/paused-working.status"
   sig=$(seen_sig "$state/paused-working.status"); printf '%s' "$sig" > "$state/.seen-paused-working_status"
   echo $(( $(date +%s) - 500 )) > "$state/.stale-since-$key"
+  touch -t 200001010000 "$state/paused-working.meta"
   : > "$out"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
     FM_WATCH_HANDLING_SUCCESSOR=1 \
@@ -4491,6 +5558,9 @@ test_wedge_escalation_marks_demand_deep_inspection_after_threshold() {
   pane_hash=$(hash_text "idle building output")
   printf '%s' "$pane_hash" > "$state/.hash-$key"
   printf '1\n' > "$state/.count-$key"
+  # A pane that wedge-escalates is on a step whose recorded anchors stopped
+  # advancing: age the spawn record, the completed-turn bound's anchor.
+  touch -t 200001010000 "$state/wedged.meta"
   # The crew's pipeline is actively running: a static pane is normal (waiting on CI).
   export FM_FAKE_CREW_STATE='state: working · source: run-step · validating (running)'
 
@@ -5454,8 +6524,10 @@ test_wedge_escalation_deferred_while_worktree_is_written() {
   ack_stopped_cycle "$state" || fail "could not acknowledge the intentional phase-A watcher stop"
 
   # Phase B: same fixture, same quiet pane, but nothing written during this idle
-  # window (the crew really is stalled). The unchanged schedule must still fire.
+  # window and the step's recorded anchors just as stalled (the crew really is
+  # wedged, not mid-step). The unchanged schedule must still fire.
   set_mtime "$(( $(date +%s) - 900 ))" "$wt/src/main.c"
+  touch -t 200001010000 "$state/writing.meta"
   echo "$back" > "$state/.stale-since-$key"
   set_mtime "$back" "$state/.stale-since-$key"
   : > "$out"
@@ -6543,6 +7615,549 @@ test_paused_until_that_passed_is_rechecked_before_the_cadence() {
   pass "a declared wait whose until time has passed is rechecked at once, then held to the cadence"
 }
 
+# --- endpoint reuse: a successor never inherits its predecessor's state ------
+# The 2026-09 phantom wedge incidents: watcher bookkeeping under state/ is
+# keyed by the recorded endpoint target (.hash-/.count-/.stale-/.stale-since-/
+# .wedge-escalations-/pause/write/wait/churn/dead markers, all under the one
+# fm_watch_state_key derivation), and nothing ever retired it. A window handed
+# to a new task resolved to the NEW task id while the OLD worker's counters,
+# stale-since mark, and escalation count still sat under the same key - so the
+# first stable-hash sight classified the successor inside the predecessor's
+# escalation timeline and fired "possible wedge, escalation N" on a provably
+# healthy worker. fm_watch_window_bind in bin/fm-watch-state-lib.sh now owns
+# the per-endpoint owner record: a changed or absent owner retires every
+# window-keyed marker before the stale scan reads it. Detection semantics are
+# unchanged: the successor's own fresh counters still classify, absorb, and
+# escalate exactly as before.
+
+test_reused_window_retires_predecessor_state() {
+  local dir state fakebin out capture_file window key pane_hash sig pid seeded_since marker
+  dir=$(make_case reused-window); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture_file="$dir/pane.txt"
+  window="test:fm-reused"
+  printf 'waiting on ci, no output' > "$capture_file"
+  printf 'window=%s\nkind=ship\n' "$window" > "$state/reused.meta"
+  printf 'working: running the long migration step\n' > "$state/reused.status"
+  sig=$(seen_sig "$state/reused.status"); printf '%s' "$sig" > "$state/.seen-reused_status"
+  key=$(printf '%s' "$window" | tr ':/.' '___')
+  pane_hash=$(hash_text "waiting on ci, no output")
+
+  # The predecessor task's residue under this same key, exactly as an
+  # interrupted teardown leaves it: a stable-hash record deep into its wedge
+  # timeline, two escalations already counted, a backdated stale-since mark,
+  # stale pause/write/churn/dead bookkeeping, and the predecessor's own owner
+  # record - which is what proves to the bind that this residue is not the
+  # successor's own not-yet-claimed state.
+  printf 'old-worker' > "$state/.window-owner-$key"
+  printf '%s' "$pane_hash" > "$state/.hash-$key"
+  printf '7\n' > "$state/.count-$key"
+  printf '%s' "$pane_hash" > "$state/.stale-$key"
+  seeded_since=$(( $(date +%s) - 500 ))
+  printf '%s\n' "$seeded_since" > "$state/.stale-since-$key"
+  printf '2\n' > "$state/.wedge-escalations-$key"
+  : > "$state/.paused-$key"
+  : > "$state/.paused-rechecked-$key"
+  : > "$state/.writing-since-$key"
+  : > "$state/.writing-resurfaced-$key"
+  : > "$state/.waiting-resurfaced-$key"
+  : > "$state/.jevsupp-since-$key"
+  : > "$state/.jevsupp-resurfaced-$key"
+  : > "$state/.churn-since-$key"
+  : > "$state/.dead-reported-$key"
+  # Task-keyed markers belong to the predecessor's task lifecycle, not to the
+  # endpoint: the endpoint bind must not clear them (teardown and the startup
+  # sweep own them), and they must never leak into the successor's pane path.
+  printf '1\n' > "$state/.subsuper-stale-old-worker"
+  : > "$state/.secondmate-wake-stall-old-worker"
+
+  # The successor is provably working: a long silent tool step on a healthy
+  # worker - the exact pane the phantom alarms fired on.
+  export FM_FAKE_CREW_STATE='state: working · source: run-step · validating (running)'
+
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  # The successor's own stale classification takes three sightings of the same
+  # hash (record, count 1, count 2) before pause_state_class absorbs it as
+  # provably working and starts ITS wedge timer. Wait for that fresh
+  # .stale-since- - the bind retired the seeded (backdated) one, so the file
+  # can only appear from a new classification.
+  if ! wait_poll_cycle "$state" "$pid" || ! wait_numeric_file "$state/.stale-since-$key" 80; then
+    reap "$pid"
+    fail "a reused endpoint never reached a fresh stale classification: $(cat "$out")"
+  fi
+  # One more full poll: the fresh timer now runs through wedge_timer_check and
+  # must stay absorbed, where the inherited (backdated) timer would have
+  # escalated past FM_STALE_ESCALATE_SECS on its very first round.
+  if ! wait_poll_cycle "$state" "$pid"; then
+    reap "$pid"
+    fail "a successor on a reused endpoint escalated inside its predecessor's wedge timeline: $(cat "$out")"
+  fi
+  grep -F "possible wedge" "$out" >/dev/null \
+    && { reap "$pid"; fail "a successor on a reused endpoint escalated inside its predecessor's wedge timeline: $(cat "$out")"; }
+  [ "$(cat "$state/.window-owner-$key" 2>/dev/null || true)" = reused ] \
+    || { reap "$pid"; fail "the endpoint bind did not record the successor as owner"; }
+  [ ! -e "$state/.wedge-escalations-$key" ] \
+    || { reap "$pid"; fail "the successor inherited the predecessor's wedge-escalation count"; }
+  [ "$(cat "$state/.stale-since-$key")" -gt "$seeded_since" ] \
+    || { reap "$pid"; fail "the stale-since mark is the predecessor's backdated timer, not a fresh classification"; }
+  for marker in .paused- .paused-rechecked- .writing-since- .writing-resurfaced- \
+      .waiting-resurfaced- .jevsupp-since- .jevsupp-resurfaced- \
+      .churn-since- .dead-reported-; do
+    [ ! -e "$state/$marker$key" ] \
+      || { reap "$pid"; fail "the successor inherited the predecessor's $marker marker"; }
+  done
+  [ -e "$state/.subsuper-stale-old-worker" ] && [ -e "$state/.secondmate-wake-stall-old-worker" ] \
+    || { reap "$pid"; fail "the endpoint bind cleared task-keyed markers owned by another task"; }
+  reap "$pid"
+  unset FM_FAKE_CREW_STATE
+  pass "a successor on a reused endpoint starts clean: no inherited counters, timer, or escalation count"
+}
+
+test_watch_state_lib_retire_bind_and_owner() {
+  local dir state w key marker
+  dir=$(make_case watch-state-lib); state="$dir/state"
+  w="test:fm-lib"
+  # shellcheck source=bin/fm-watch-state-lib.sh
+  . "$ROOT/bin/fm-watch-state-lib.sh"
+  key=$(fm_watch_state_key "$w")
+  [ "$key" = "test_fm-lib" ] || fail "fm_watch_state_key derivation drifted: $key"
+
+  # Retire removes every window-keyed family, including the owner record.
+  for marker in .stale-since- .paused-rechecked- .paused-resurfaced- .writing-since- \
+      .writing-resurfaced- .waiting-resurfaced- .jevsupp-since- .jevsupp-resurfaced- \
+      .wedge-escalations- .churn-since- \
+      .dead-reported- .window-owner- .count- .hash- .paused- .stale-; do
+    : > "$state/$marker$key"
+  done
+  fm_watch_retire_window_state "$state" "$w" || fail "fm_watch_retire_window_state failed"
+  for marker in .stale-since- .paused-rechecked- .paused-resurfaced- .writing-since- \
+      .writing-resurfaced- .waiting-resurfaced- .jevsupp-since- .jevsupp-resurfaced- \
+      .wedge-escalations- .churn-since- \
+      .dead-reported- .window-owner- .count- .hash- .paused- .stale-; do
+    [ ! -e "$state/$marker$key" ] || fail "fm_watch_retire_window_state left $marker$key"
+  done
+
+  # Bind: only the task the owner record names keeps the key's markers. An
+  # unclaimed key is foreign - legacy residue, or a predecessor whose record
+  # did not survive - so a first bind retires it and records the owner; the
+  # same owner is then a pure no-op; a different owner retires again.
+  : > "$state/.wedge-escalations-$key"; printf '3\n' > "$state/.count-$key"
+  fm_watch_window_bind "$state" "$w" task-a || fail "first bind failed"
+  [ "$(cat "$state/.window-owner-$key")" = task-a ] || fail "the first bind did not record task-a"
+  [ ! -e "$state/.wedge-escalations-$key" ] && [ ! -e "$state/.count-$key" ] \
+    || fail "a first bind adopted ownerless residue instead of retiring it"
+  : > "$state/.wedge-escalations-$key"; printf '3\n' > "$state/.count-$key"
+  fm_watch_window_bind "$state" "$w" task-a || fail "same-owner bind failed"
+  [ -e "$state/.wedge-escalations-$key" ] && [ "$(cat "$state/.count-$key")" = 3 ] \
+    || fail "a same-owner bind cleared live state it must preserve"
+  fm_watch_window_bind "$state" "$w" task-b || fail "owner-change bind failed"
+  [ "$(cat "$state/.window-owner-$key")" = task-b ] || fail "the owner change did not record task-b"
+  [ ! -e "$state/.wedge-escalations-$key" ] && [ ! -e "$state/.count-$key" ] \
+    || fail "an owner change did not retire the predecessor's markers"
+
+  # Task retirement removes the per-incarnation turn anchors and the
+  # task-keyed supervision markers only: the status-paired families belong to
+  # status_retire_presentation_task.
+  touch "$state/task-a.turn-ended" "$state/task-a.progress" "$state/.seen-task-a_turn-ended" \
+    "$state/.subsuper-stale-task-a" "$state/.subsuper-paused-task-a" \
+    "$state/.subsuper-pause-until-due-task-a" "$state/.subsuper-jevsupp-task-a" \
+    "$state/.secondmate-wake-stall-task-a" "$state/.secondmate-wake-progress-task-a"
+  mkdir -p "$state/.secondmate-wake-stall-receipts/task-a"
+  touch "$state/task-a.status" "$state/.seen-task-a_status"
+  fm_watch_retire_task_state "$state" task-a || fail "fm_watch_retire_task_state failed"
+  for marker in task-a.turn-ended task-a.progress .seen-task-a_turn-ended \
+      .subsuper-stale-task-a .subsuper-paused-task-a .subsuper-pause-until-due-task-a \
+      .subsuper-jevsupp-task-a \
+      .secondmate-wake-stall-task-a .secondmate-wake-progress-task-a; do
+    [ ! -e "$state/$marker" ] || fail "fm_watch_retire_task_state left $marker"
+  done
+  [ ! -d "$state/.secondmate-wake-stall-receipts/task-a" ] \
+    || fail "fm_watch_retire_task_state left the receipts dir"
+  [ -e "$state/task-a.status" ] && [ -e "$state/.seen-task-a_status" ] \
+    || fail "fm_watch_retire_task_state touched status-presentation state it does not own"
+  pass "the state library retires window and task markers and binds each endpoint to its owner"
+}
+
+# Distinct endpoints collide on the flattened key space: sess:fm-a.b and
+# sess:fm-a_b both derive sess_fm-a_b, so two live tasks share one marker set.
+# A bind for the colliding sibling must treat the recorded owner as a live
+# sharer - leaving the shared set and its owner record untouched - or the two
+# tasks would thrash-retire each other's counters and throttle markers every
+# poll (window-bind-thrash-on-colliding-live-keys).
+test_colliding_live_keys_share_marker_set() {
+  local dir state key
+  dir=$(make_case key-collision); state="$dir/state"
+  printf 'window=sess:fm-a.b\nkind=ship\n' > "$state/task-a.meta"
+  printf 'window=sess:fm-a_b\nkind=ship\n' > "$state/task-b.meta"
+  key="sess_fm-a_b"
+  printf '4\n' > "$state/.count-$key"
+  : > "$state/.stale-since-$key"
+  printf '2\n' > "$state/.wedge-escalations-$key"
+  printf 'task-a' > "$state/.window-owner-$key"
+
+  # The sibling's bind must not wipe the shared set nor re-point a live owner.
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1/bin/fm-backend.sh"
+    . "$1/bin/fm-watch-state-lib.sh"
+    fm_watch_window_bind "$2" "sess:fm-a_b" task-b
+  ' _ "$ROOT" "$state" || fail "the colliding sibling bind failed"
+  [ "$(cat "$state/.count-$key")" = 4 ] || fail "the colliding bind wiped the shared count"
+  [ -e "$state/.stale-since-$key" ] || fail "the colliding bind wiped the shared timer"
+  [ "$(cat "$state/.wedge-escalations-$key")" = 2 ] \
+    || fail "the colliding bind wiped the shared escalation count"
+  [ "$(cat "$state/.window-owner-$key")" = task-a ] \
+    || fail "the colliding bind re-pointed a live owner's record"
+
+  # task-a's own bind stays a same-owner no-op on the shared set.
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1/bin/fm-backend.sh"
+    . "$1/bin/fm-watch-state-lib.sh"
+    fm_watch_window_bind "$2" "sess:fm-a.b" task-a
+  ' _ "$ROOT" "$state" || fail "the recorded owner's bind failed"
+  [ "$(cat "$state/.count-$key")" = 4 ] && [ -e "$state/.stale-since-$key" ] \
+    || fail "the recorded owner's bind touched the shared set"
+
+  # A dead owner record under a still-shared key is re-pointed at a live
+  # claimant without wiping the shared set.
+  printf 'stale-owner' > "$state/.window-owner-$key"
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1/bin/fm-backend.sh"
+    . "$1/bin/fm-watch-state-lib.sh"
+    fm_watch_window_bind "$2" "sess:fm-a_b" task-b
+  ' _ "$ROOT" "$state" || fail "the dead-owner re-point bind failed"
+  [ "$(cat "$state/.count-$key")" = 4 ] || fail "a still-shared set was wiped with the dead record"
+  [ "$(cat "$state/.window-owner-$key")" = task-b ] \
+    || fail "a dead owner record was not re-pointed at a live claimant"
+
+  # Once no live task shares the key the residue retires as before.
+  rm -f "$state/task-a.meta"
+  printf 'stale-owner' > "$state/.window-owner-$key"
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1/bin/fm-backend.sh"
+    . "$1/bin/fm-watch-state-lib.sh"
+    fm_watch_window_bind "$2" "sess:fm-a_b" task-b
+  ' _ "$ROOT" "$state" || fail "the unshared bind failed"
+  [ "$(cat "$state/.window-owner-$key")" = task-b ] || fail "the unshared bind did not claim the key"
+  [ ! -e "$state/.count-$key" ] && [ ! -e "$state/.stale-since-$key" ] \
+    && [ ! -e "$state/.wedge-escalations-$key" ] \
+    || fail "the unshared residue was not retired"
+  pass "colliding live endpoints share one marker set without thrash, and residue still retires once unshared"
+}
+
+# Task ids collide on the same lossy derivation: v2.ship and v2_ship both
+# encode to v2_ship, so their .subsuper-* episode markers and the turn-end
+# .seen- name are shared. Retiring one must leave the sibling's live markers
+# - and the shared seen marker its turn-end dedup needs - untouched, while
+# still removing the acting task's own raw-id anchors
+# (task-key-collision-deletes-sibling-markers).
+test_colliding_task_keys_share_subsuper_markers() {
+  local dir state
+  dir=$(make_case task-key-collision); state="$dir/state"
+  printf 'window=sess:one\nkind=ship\n' > "$state/v2.ship.meta"
+  printf 'window=sess:two\nkind=ship\n' > "$state/v2_ship.meta"
+  touch "$state/.subsuper-stale-v2_ship" "$state/.subsuper-paused-v2_ship" \
+    "$state/.subsuper-pause-until-due-v2_ship" "$state/.subsuper-jevsupp-v2_ship" \
+    "$state/.seen-v2_ship_turn-ended" \
+    "$state/v2.ship.turn-ended" "$state/v2.ship.progress" "$state/v2_ship.turn-ended"
+
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1/bin/fm-backend.sh"
+    . "$1/bin/fm-watch-state-lib.sh"
+    fm_watch_retire_task_state "$2" "v2.ship"
+  ' _ "$ROOT" "$state" || fail "the task retire under a key collision failed"
+  for marker in .subsuper-stale-v2_ship .subsuper-paused-v2_ship \
+      .subsuper-pause-until-due-v2_ship .subsuper-jevsupp-v2_ship \
+      .seen-v2_ship_turn-ended; do
+    [ -e "$state/$marker" ] || fail "the retire deleted the colliding sibling's shared $marker"
+  done
+  [ ! -e "$state/v2.ship.turn-ended" ] && [ ! -e "$state/v2.ship.progress" ] \
+    || fail "the retire kept the acting task's own turn anchors"
+  [ -e "$state/v2_ship.turn-ended" ] || fail "the retire touched the sibling's raw turn-ended"
+
+  # Once no live task shares the encoding the markers retire with the last id.
+  rm -f "$state/v2_ship.meta"
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1/bin/fm-backend.sh"
+    . "$1/bin/fm-watch-state-lib.sh"
+    fm_watch_retire_task_state "$2" "v2.ship"
+  ' _ "$ROOT" "$state" || fail "the unshared task retire failed"
+  for marker in .subsuper-stale-v2_ship .subsuper-paused-v2_ship \
+      .subsuper-pause-until-due-v2_ship .subsuper-jevsupp-v2_ship \
+      .seen-v2_ship_turn-ended; do
+    [ ! -e "$state/$marker" ] || fail "the unshared retire left $marker"
+  done
+  pass "colliding task ids share their encoded episode markers, and the last id retires them"
+}
+
+# The pre-owner era: nothing ever wrote .window-owner-* before the bind was
+# introduced, so a live home carries a predecessor's endpoint markers under a
+# key with no owner record at all. The bind must treat that key as foreign and
+# retire the residue, never adopt it into the new task's timeline: the bind's
+# old no-owner branch claimed the key and left a backdated stale-since timer
+# and a wedge count in place, which is exactly how a successor inherited an
+# escalation.
+test_unowned_legacy_residue_never_adopted() {
+  local dir state w key seeded_since marker
+  dir=$(make_case unowned-residue); state="$dir/state"
+  w="test:fm-legacy"
+  # shellcheck source=bin/fm-watch-state-lib.sh
+  . "$ROOT/bin/fm-watch-state-lib.sh"
+  key=$(fm_watch_state_key "$w")
+
+  printf 'legacy-hash' > "$state/.hash-$key"
+  printf 'legacy-hash' > "$state/.stale-$key"
+  seeded_since=$(( $(date +%s) - 500 ))
+  printf '%s\n' "$seeded_since" > "$state/.stale-since-$key"
+  printf '2\n' > "$state/.wedge-escalations-$key"
+  printf '7\n' > "$state/.count-$key"
+  : > "$state/.paused-$key"
+  [ ! -e "$state/.window-owner-$key" ] || fail "fixture unexpectedly has an owner record"
+
+  fm_watch_window_bind "$state" "$w" successor || fail "the bind failed"
+  [ "$(cat "$state/.window-owner-$key")" = successor ] \
+    || fail "the bind did not record the new task as owner"
+  [ ! -e "$state/.stale-since-$key" ] \
+    || fail "the unowned backdated stale-since timer was inherited"
+  for marker in .hash- .stale- .wedge-escalations- .count- .paused-; do
+    [ ! -e "$state/$marker$key" ] \
+      || fail "the bind adopted ownerless $marker residue instead of retiring it"
+  done
+  pass "a window whose markers carry no owner record is foreign residue the bind retires, never adopts"
+}
+
+test_watch_orphan_state_sweep() {
+  local dir state live_key ghost_key removed
+  dir=$(make_case watch-sweep); state="$dir/state"
+  live_key="test_fm-live"; ghost_key="test_fm-ghost"
+
+  # One live task: its meta records the live endpoint, so every marker keyed
+  # by it must survive the sweep.
+  printf 'window=test:fm-live\nkind=ship\n' > "$state/live.meta"
+  printf 'working: on it\n' > "$state/live.status"
+  touch "$state/live.turn-ended" "$state/live.progress"
+  for marker in .hash- .count- .stale-since- .stale- .wedge-escalations- \
+      .paused- .writing-since- .churn-since- .jevsupp-since- .jevsupp-resurfaced- \
+      .window-owner-; do
+    : > "$state/$marker$live_key"
+  done
+  touch "$state/.subsuper-stale-live" "$state/.subsuper-jevsupp-live" \
+    "$state/.secondmate-wake-stall-live"
+  touch "$state/.seen-live_status" "$state/.seen-live_turn-ended"
+  touch "$state/.hb-surfaced-live" "$state/.subsuper-seen-status-live"
+
+  # A deliberately kept orphan log: its task is gone but the log survives as a
+  # digest input, so its status-paired markers must survive with it - removing
+  # them would replay the whole file as fresh on the next scan.
+  printf 'done: finished earlier\n' > "$state/gone.status"
+  touch "$state/.seen-gone_status" "$state/.hb-surfaced-gone" \
+    "$state/.subsuper-seen-status-gone" "$state/.gone.open-decisions-cursor"
+
+  # True residue: a dead window key, dead tasks, dead signal files, and seen
+  # markers whose signal file is gone.
+  for marker in .hash- .count- .stale-since- .stale- .wedge-escalations- \
+      .paused- .paused-rechecked- .paused-resurfaced- .writing-since- \
+      .writing-resurfaced- .waiting-resurfaced- .jevsupp-since- .jevsupp-resurfaced- \
+      .churn-since- .dead-reported- \
+      .window-owner-; do
+    : > "$state/$marker$ghost_key"
+  done
+  touch "$state/.subsuper-stale-dead" "$state/.subsuper-paused-dead" \
+    "$state/.subsuper-pause-until-due-dead" "$state/.subsuper-jevsupp-dead"
+  touch "$state/.secondmate-wake-stall-deadmate" "$state/.secondmate-wake-progress-deadmate"
+  mkdir -p "$state/.secondmate-wake-stall-receipts/deadmate"
+  touch "$state/dead.turn-ended" "$state/dead.progress"
+  touch "$state/.seen-dead_status" "$state/.seen-dead_turn-ended"
+  touch "$state/.hb-surfaced-dead" "$state/.subsuper-seen-status-dead" \
+    "$state/.dead.open-decisions-cursor"
+
+  removed=$(
+    FM_STATE_OVERRIDE="$state" bash -c '
+      . "$1/bin/fm-backend.sh"
+      . "$1/bin/fm-watch-state-lib.sh"
+      fm_watch_orphan_state_sweep "$2"
+    ' _ "$ROOT" "$state"
+  ) || fail "the orphan sweep failed"
+  case "$removed" in ''|*[!0-9]*) fail "the sweep printed no removal count: $removed" ;; esac
+  [ "$removed" -gt 0 ] || fail "the sweep reported 0 removals with residue present"
+
+  for marker in .hash- .count- .stale-since- .stale- .wedge-escalations- \
+      .paused- .paused-rechecked- .paused-resurfaced- .writing-since- \
+      .writing-resurfaced- .waiting-resurfaced- .jevsupp-since- .jevsupp-resurfaced- \
+      .churn-since- .dead-reported- \
+      .window-owner-; do
+    [ ! -e "$state/$marker$ghost_key" ] || fail "the sweep left orphaned $marker$ghost_key"
+  done
+  for marker in .subsuper-stale-dead .subsuper-paused-dead .subsuper-pause-until-due-dead \
+      .subsuper-jevsupp-dead \
+      .secondmate-wake-stall-deadmate .secondmate-wake-progress-deadmate \
+      .seen-dead_status .seen-dead_turn-ended .hb-surfaced-dead \
+      .subsuper-seen-status-dead .dead.open-decisions-cursor \
+      dead.turn-ended dead.progress; do
+    [ ! -e "$state/$marker" ] || fail "the sweep left orphaned $marker"
+  done
+  [ ! -d "$state/.secondmate-wake-stall-receipts/deadmate" ] \
+    || fail "the sweep left the dead task's receipts dir"
+
+  for marker in .hash- .count- .stale-since- .stale- .wedge-escalations- \
+      .paused- .writing-since- .churn-since- .jevsupp-since- .jevsupp-resurfaced- \
+      .window-owner-; do
+    [ -e "$state/$marker$live_key" ] || fail "the sweep removed live-endpoint $marker$live_key"
+  done
+  for marker in .subsuper-stale-live .subsuper-jevsupp-live \
+      .secondmate-wake-stall-live \
+      .seen-live_status .seen-live_turn-ended .hb-surfaced-live \
+      .subsuper-seen-status-live live.turn-ended live.progress live.status live.meta \
+      .seen-gone_status .hb-surfaced-gone .subsuper-seen-status-gone \
+      .gone.open-decisions-cursor gone.status; do
+    [ -e "$state/$marker" ] || fail "the sweep removed still-owned $marker"
+  done
+  pass "the startup sweep removes only watcher state no live record or surviving log owns"
+}
+
+# --- long silent step: the recorded turn bound outranks the idle threshold ---
+# The 2026-09-21 memory-store-plain-files incident: a healthy worker polling
+# its pipeline with a foreground `sleep 240; no-mistakes axi status` produced a
+# static, non-busy pane for the whole in-flight command. The provably-working
+# absorb started a wedge timer, FM_STALE_ESCALATE_SECS fired at 240s, and the
+# same pane wedge-escalated three times in a row to demand-deep-inspection -
+# while the recorded step was demonstrably still advancing. A busy-looking
+# pane in the same situation never escalates inside BUSY_TURN_MAX_SECS
+# (busy_turn_over_age); the idle-looking one now gets that same bound: the
+# idle threshold must not fire while the recorded run step is still inside
+# its completed-turn bound, and it fires the moment the bound crosses.
+
+test_stale_escalation_holds_while_recorded_step_advances() {
+  local dir state fakebin out capture_file window key pane_hash sig pid
+  dir=$(make_case sleep-poll); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture_file="$dir/pane.txt"; window="test:fm-pollwait"
+  printf 'sleep 240 && no-mistakes axi status' > "$capture_file"
+  printf 'window=%s\nkind=ship\n' "$window" > "$state/pollwait.meta"
+  printf 'working: polling the pipeline\n' > "$state/pollwait.status"
+  sig=$(seen_sig "$state/pollwait.status"); printf '%s' "$sig" > "$state/.seen-pollwait_status"
+  key=$(printf '%s' "$window" | tr ':/.' '___')
+  pane_hash=$(hash_text "sleep 240 && no-mistakes axi status")
+  # The pane is deep into the wedge timeline for THIS task: stable hash,
+  # recorded stale classification, and a timer already past the threshold -
+  # the exact state the incident pane was in when it escalated.
+  printf 'pollwait' > "$state/.window-owner-$key"
+  printf '%s' "$pane_hash" > "$state/.hash-$key"
+  printf '1\n' > "$state/.count-$key"
+  printf '%s' "$pane_hash" > "$state/.stale-$key"
+  echo $(( $(date +%s) - 500 )) > "$state/.stale-since-$key"
+  # The run step is still advancing: the turn's recorded anchor is old (the
+  # task started long ago) but native activity was observed a moment ago -
+  # the in-flight sleep's own progress touch.
+  touch -t 200001010000 "$state/pollwait.meta"
+  touch "$state/pollwait.progress"
+  export FM_FAKE_CREW_STATE='state: working · source: run-step · validating (running)'
+
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_BUSY_TURN_MAX_SECS=3600 FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  if ! wait_poll_cycle "$state" "$pid"; then
+    reap "$pid"; fail "a worker polling its run inside the turn bound was wedge-escalated: $(cat "$out")"
+  fi
+  grep -F "possible wedge" "$out" >/dev/null \
+    && { reap "$pid"; fail "a worker polling its run inside the turn bound was wedge-escalated: $(cat "$out")"; }
+  [ ! -e "$state/.wedge-escalations-$key" ] \
+    || { reap "$pid"; fail "a worker inside the turn bound counted a wedge escalation"; }
+  # The hold re-arms the idle timer like the sibling deferrals: the probes
+  # above run once per stale interval while the pane sits at threshold
+  # instead of on every poll, so the timer is fresh, not still aged.
+  [ "$(cat "$state/.stale-since-$key")" -gt $(( $(date +%s) - 400 )) ] \
+    || { reap "$pid"; fail "the held deferral left the at-threshold probes unbounded instead of re-arming"; }
+  reap "$pid"
+  ack_stopped_cycle "$state" || fail "could not settle the held-deferral watcher's recovery state"
+
+  # The step stops advancing: progress and every other anchor are old, so the
+  # same pane, same hash escalates once the idle interval has re-accumulated
+  # past the threshold - genuine wedge detection keeps its semantics after
+  # the recorded step's bound crosses.
+  touch -t 200001010000 "$state/pollwait.progress"
+  echo $(( $(date +%s) - 300 )) > "$state/.stale-since-$key"
+  : > "$out"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_BUSY_TURN_MAX_SECS=3600 FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_for_exit "$pid" 100 || fail "a pane whose recorded step stopped advancing did not wedge-escalate"
+  grep -F "possible wedge, escalation 1" "$out" >/dev/null \
+    || fail "the crossed-bound escalation did not flag a possible wedge: $(cat "$out")"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the crossed-bound escalation"
+  unset FM_FAKE_CREW_STATE
+  pass "a long silent poll holds the idle threshold while its recorded step advances, then escalates once it stops"
+}
+
+# A harness that never writes .progress at all (every harness except pi today):
+# the hold must rest on the anchor every harness produces - the completed-turn
+# marker, else the spawn record - never on a pi-only file, or a genuinely
+# wedged worker on such a harness would outlast the bound undetected, and a
+# healthy silent step would still escalate inside it.
+test_stale_escalation_holds_without_progress_marker() {
+  local dir state fakebin out capture_file window key pane_hash sig pid
+  dir=$(make_case sleep-poll-noprogress); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture_file="$dir/pane.txt"; window="test:fm-noprog"
+  printf 'sleep 240 && run-status' > "$capture_file"
+  printf 'window=%s\nkind=ship\n' "$window" > "$state/noprog.meta"
+  printf 'working: polling the run\n' > "$state/noprog.status"
+  sig=$(seen_sig "$state/noprog.status"); printf '%s' "$sig" > "$state/.seen-noprog_status"
+  key=$(printf '%s' "$window" | tr ':/.' '___')
+  pane_hash=$(hash_text "sleep 240 && run-status")
+  # Same deep wedge timeline as the incident pane: stable hash, recorded
+  # classification, and a timer already past the escalation threshold.
+  printf 'noprog' > "$state/.window-owner-$key"
+  printf '%s' "$pane_hash" > "$state/.hash-$key"
+  printf '1\n' > "$state/.count-$key"
+  printf '%s' "$pane_hash" > "$state/.stale-$key"
+  echo $(( $(date +%s) - 500 )) > "$state/.stale-since-$key"
+  # No .progress file exists anywhere in this fixture. The every-harness
+  # anchor is the completed-turn marker, still fresh inside the bound; the
+  # spawn record underneath it is old and never what the age rests on.
+  touch -t 200001010000 "$state/noprog.meta"
+  touch "$state/noprog.turn-ended"
+  [ ! -e "$state/noprog.progress" ] || fail "fixture unexpectedly has a progress marker"
+  export FM_FAKE_CREW_STATE='state: working · source: run-step · validating (running)'
+
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_BUSY_TURN_MAX_SECS=3600 FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  if ! wait_poll_cycle "$state" "$pid"; then
+    reap "$pid"; fail "a no-progress-harness worker inside the turn bound was wedge-escalated: $(cat "$out")"
+  fi
+  grep -F "possible wedge" "$out" >/dev/null \
+    && { reap "$pid"; fail "a no-progress-harness worker inside the turn bound was wedge-escalated: $(cat "$out")"; }
+  [ ! -e "$state/.wedge-escalations-$key" ] \
+    || { reap "$pid"; fail "a no-progress-harness worker inside the turn bound counted a wedge escalation"; }
+  reap "$pid"
+  ack_stopped_cycle "$state" || fail "could not settle the no-progress watcher's recovery state"
+
+  # The completed-turn anchor crosses the bound: same pane, same hash
+  # escalates once the idle interval has re-accumulated past the threshold -
+  # genuine wedge detection keeps its semantics on a harness that never
+  # writes .progress.
+  touch -t 200001010000 "$state/noprog.turn-ended"
+  echo $(( $(date +%s) - 300 )) > "$state/.stale-since-$key"
+  : > "$out"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_BUSY_TURN_MAX_SECS=3600 FM_STALE_ESCALATE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_for_exit "$pid" 100 || fail "a no-progress-harness pane whose turn anchor crossed the bound did not wedge-escalate"
+  grep -F "possible wedge, escalation 1" "$out" >/dev/null \
+    || fail "the no-progress-harness escalation did not flag a possible wedge: $(cat "$out")"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the no-progress escalation"
+  unset FM_FAKE_CREW_STATE
+  pass "the hold rests on the every-harness turn anchor, so a harness with no .progress marker still defers and still detects"
+}
+
 # CI's stock macOS Bash lane sets FM_TEST_ONLY to run just the bash-3.2
 # churn-deferral regression. The rest of this file is not a 3.2 snapshot suite.
 if [ -n "${FM_TEST_ONLY:-}" ]; then
@@ -6562,6 +8177,7 @@ test_crew_is_provably_working_classifier
 test_status_is_paused_classifier
 test_crew_absorb_class_classifier
 test_crew_worktree_written_since_classifier
+test_crew_nm_run_progressing_classifier
 test_empty_write_prune_widens_the_probe
 test_empty_write_prune_from_the_environment_widens_the_probe
 test_worktree_write_probe_is_wall_clock_bounded
@@ -6637,6 +8253,8 @@ test_busy_declared_pause_is_rechecked_not_wedge_escalated
 test_afk_busy_declared_pause_hands_off_plain_stale
 test_afk_busy_declared_pause_ticking_pane_hands_off_once
 test_nonterminal_stale_not_working_surfaced
+test_nonterminal_stale_live_nm_run_defers_then_escalates_when_run_dies
+test_recovery_generation_honors_termination
 test_nonterminal_stale_paused_absorbed_then_resurfaced
 test_exited_declared_pause_is_bounded_but_live_gate_surfaces
 test_own_work_wait_keeps_first_alert_then_long_cadence
@@ -6646,6 +8264,14 @@ test_live_paused_until_controls_recheck_time
 test_wedge_threshold_defers_to_a_declared_wait_under_a_working_verdict
 test_wedge_threshold_keeps_a_wait_past_a_default_key_answer
 test_wedge_threshold_recheck_names_the_captain_for_a_held_lane
+test_jev_status_consult_scope
+test_jev_status_escalate_mapping
+test_status_span_jev_optin
+test_status_span_jev_cap
+test_wedge_jev_low_noul_suppresses_the_boundary
+test_wedge_jev_escalate_and_failure_keep_the_boundary
+test_wedge_jev_consult_only_at_the_boundary
+test_jev_suppression_chain_resets_after_activity
 test_wedge_threshold_defers_to_a_parked_gate_awaiting_a_human
 test_wedge_threshold_parked_gate_needs_an_unanswered_decision
 test_wedge_threshold_parked_gate_is_off_until_armed
@@ -6690,3 +8316,11 @@ test_afk_one_shot_never_hands_off_captain_held_under_away_record
 test_paused_until_near_future_is_quiet_before_the_cadence
 test_paused_until_wrong_year_is_bounded_by_the_cadence
 test_paused_until_that_passed_is_rechecked_before_the_cadence
+test_reused_window_retires_predecessor_state
+test_watch_state_lib_retire_bind_and_owner
+test_colliding_live_keys_share_marker_set
+test_colliding_task_keys_share_subsuper_markers
+test_unowned_legacy_residue_never_adopted
+test_watch_orphan_state_sweep
+test_stale_escalation_holds_while_recorded_step_advances
+test_stale_escalation_holds_without_progress_marker
