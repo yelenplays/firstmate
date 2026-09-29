@@ -2122,6 +2122,36 @@ ${context.command}
     return stockOutcomesPreviewLines ?? undefined;
   };
 
+  // Pi's stock fallback started showing tool arguments after the original
+  // Calm renderer was written. Probe that behavior instead of pinning a Pi
+  // version: this self-rendering shell must still match stock when Calm is off.
+  let stockOutcomesShowsArgs: boolean | undefined;
+  const stockShowsOutcomesArgs = (): boolean => {
+    if (stockOutcomesShowsArgs !== undefined) return stockOutcomesShowsArgs;
+    const definition: ToolDefinition = {
+      name: "fm_branch_outcomes",
+      label: "Read supervision branch outcomes",
+      description: "Probe Pi's stock tool call",
+      parameters: Type.Object({ recent: Type.Optional(Type.Number()) }),
+      execute: async () => ({ content: [], details: undefined }),
+    };
+    try {
+      const probe = new ToolExecutionComponent(
+        definition.name,
+        "fm-outcomes-args-probe",
+        { recent: 2 },
+        { showImages: false },
+        definition,
+        { requestRender() {} } as ConstructorParameters<typeof ToolExecutionComponent>[5],
+        root,
+      );
+      stockOutcomesShowsArgs = probe.render(4096).join("\n").includes("recent=2");
+    } catch {
+      stockOutcomesShowsArgs = false;
+    }
+    return stockOutcomesShowsArgs;
+  };
+
   type OutcomesToolShellState = {
     shell?: Box;
     call?: Text;
@@ -2156,11 +2186,17 @@ ${context.command}
       recent: Type.Optional(Type.Number({ description: "How many most-recent outcomes to read (default 20)" })),
     }),
     renderShell: "self",
-    renderCall: (_args, theme, context) => {
+    renderCall: (args, theme, context) => {
       if (calmPresentation.stockExportRendering) throw new Error("Use Pi stock export rendering");
       if (calmHides("assistant-tool-call")) return new Container();
       const shellState = context.state as OutcomesToolShellState;
-      shellState.call = new Text(theme.fg("toolTitle", theme.bold("fm_branch_outcomes")), 0, 0);
+      let title = theme.fg("toolTitle", theme.bold("fm_branch_outcomes"));
+      if (stockShowsOutcomesArgs() && args.recent !== undefined) {
+        title += context.expanded
+          ? `\n${theme.fg("muted", `  recent: ${JSON.stringify(args.recent)}`)}`
+          : ` ${theme.fg("muted", `recent=${JSON.stringify(args.recent)}`)}`;
+      }
+      shellState.call = new Text(title, 0, 0);
       return refreshOutcomesToolShell(shellState, theme, context);
     },
     renderResult: (result, options, theme, context) => {
