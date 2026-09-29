@@ -73,6 +73,12 @@ if jq -c '.state' "$TEST_JEV_REQUEST" | grep -Eq 'FehlerWiki|github|/pull/|priva
 jq -e '.verdict == "pass" and .merge_authority == false and .probability == 0.8' "$HOME_DIR/state/jev-pr-verdict.jsonl" >/dev/null || fail 'advisory was not recorded'
 pass 'carded PR receives probability and reasons with metadata-only state'
 
+mkdir -p "$TMP_ROOT/override-state"
+FM_STATE_OVERRIDE="$TMP_ROOT/override-state" run_case "$URL" >/dev/null || fail 'state override advisory failed'
+[ -s "$TMP_ROOT/override-state/jev-pr-verdict.jsonl" ] || fail 'verdict log ignored FM_STATE_OVERRIDE'
+pass 'verdict log follows the effective state directory'
+unset FM_STATE_OVERRIDE
+
 export TEST_FILES='2|true|false|true|false'
 out=$(run_case "$URL") || fail 'restricted-path advisory failed'
 case "$out" in *'concerns (local rule; Jev pass p=0.8); restricted path category;'*) ;; *) fail 'deterministic restriction did not override model pass'; esac
@@ -92,6 +98,9 @@ case "$out" in *'concerns (p=0.7); Jev flagged a metadata concern not explained 
 export TEST_JEV_RESPONSE='{"answers":{"advisory":{"type":"choice","choice":"pass","probabilities":{"pass":0.9,"concerns":0.9}}}}'
 out=$(run_case "$URL") || fail 'invalid response failed'
 [ -z "$out" ] || fail 'invalid distribution must produce no advisory'
+export TEST_JEV_RESPONSE='{"answers":{"advisory":{"type":"choice","choice":"pass","probabilities":{"pass":0.6,"concerns":0.2,"unexpected":0.2}}}}'
+out=$(run_case "$URL") || fail 'unexpected-label response failed'
+[ -z "$out" ] || fail 'unexpected probability labels must produce no advisory'
 unset TEST_JEV_RESPONSE
 pass 'model concerns are attributed and invalid distributions skip'
 

@@ -111,6 +111,7 @@ response=$(fm_jev_decide "$summary" "$questions" 2>/dev/null) || exit 0
 answer=$(printf '%s' "$response" | jq -er '.answers.advisory | select(.type == "choice") | .choice | select(. == "pass" or . == "concerns")' 2>/dev/null) || exit 0
 prob=$(printf '%s' "$response" | jq -er --arg a "$answer" '.answers.advisory.probabilities[$a] | select(type == "number" and . >= 0 and . <= 1)' 2>/dev/null) || exit 0
 probs=$(printf '%s' "$response" | jq -ce '.answers.advisory.probabilities' 2>/dev/null) || exit 0
+printf '%s' "$probs" | jq -e 'keys == ["concerns", "pass"]' >/dev/null 2>&1 || exit 0
 fm_jev_probabilities_sum_ok "$probs" || exit 0
 # An inconsistent answer or a tie is not an advisory verdict.
 printf '%s' "$probs" | jq -e --arg a "$answer" '.[$a] > ([to_entries[] | select(.key != $a) | .value] | max)' >/dev/null 2>&1 || exit 0
@@ -146,8 +147,9 @@ record=$(jq -nc --arg url "$url" --arg head "$head" --arg verdict "$answer" \
     jev_choice:$model_choice,jev_probability:$model_probability,
     deterministic_override:$override,reasons:$reasons,
     response_model:$model,merge_authority:false}') || exit 0
-if [ -d "$FM_HOME/state" ] && [ ! -L "$FM_HOME/state" ]; then
-  fm_jev_log_call "$record" "$FM_HOME/state/jev-pr-verdict.jsonl" >/dev/null 2>&1 || true
+state_dir=${FM_STATE_OVERRIDE:-$FM_HOME/state}
+if [ -d "$state_dir" ] && [ ! -L "$state_dir" ]; then
+  fm_jev_log_call "$record" "$state_dir/jev-pr-verdict.jsonl" >/dev/null 2>&1 || true
 fi
 if [ "$override" = true ]; then
   printf 'PR advisory for %s: concerns (local rule; Jev %s p=%s); %s. Human merge decision required.\n' \
