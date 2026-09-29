@@ -1526,12 +1526,14 @@ cmd_find() {
         json=$(jq -nc --arg ts "$now" --arg hash "$hash" --arg choice "${choice:-}" \
           --arg confidence "${confidence:-}" --arg ranking "$ranking" --arg fallback "$fallback" \
           --arg route "${FM_JEV_LAST_ROUTE:-}" --arg http "${FM_JEV_LAST_HTTP:-}" \
+          --arg response_model "$(fm_jev_response_model "$response")" \
           --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" --argjson candidates "$offer" \
           --argjson code "$code" '{purpose:"history-find", advisory:true,
             query_sha256:$hash, candidates:[$candidates[].id],
             choice:(if $choice == "" then null else $choice end),
             confidence:(try ($confidence|tonumber) catch null), ranking:$ranking,
             fallback:$fallback, route:$route, http:$http,
+            response_model:(if $response_model == "" then null else $response_model end),
             latency_ms:(try ($latency|tonumber) catch null), decide_code:$code, ts:$ts}') || json=
         [ -z "$json" ] || log_jev_find "$json"
       else

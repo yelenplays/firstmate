@@ -132,8 +132,8 @@ test_jev_ranking_sends_only_ids_and_titles() {
     "$HOME_DIR/state/jev-intake-match.jsonl" >/dev/null || fail "the call was not logged"
   jq -e 'select(.reference_chars == 43 and (.reference_sha256 | test("^[0-9a-f]{64}$")) and (has("reference") | not))' \
     "$HOME_DIR/state/jev-intake-match.jsonl" >/dev/null || fail "the log did not keep only the reference length and hash"
-  jq -e 'select(.route == "typesafe" and .http == "200" and (.latency_ms | type) == "number")' \
-    "$HOME_DIR/state/jev-intake-match.jsonl" >/dev/null || fail "the call route and timing were not logged"
+  jq -e 'select(.route == "typesafe" and .response_model == "jev-1.13.0" and .http == "200" and (.latency_ms | type) == "number")' \
+    "$HOME_DIR/state/jev-intake-match.jsonl" >/dev/null || fail "the call route, answering model, and timing were not logged"
   assert_no_grep "get our wiki plan" "$HOME_DIR/state/jev-intake-match.jsonl" "the log stored the reference text"
   pass "a clear Jev answer ranks by probabilities and sends only ids and titles"
 }

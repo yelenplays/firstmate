@@ -179,6 +179,7 @@ LOG_PAYLOAD=$(jq -n \
   --arg error "$ERROR" \
   --arg route "${FM_JEV_LAST_ROUTE:-}" \
   --arg model "${FM_JEV_LAST_MODEL:-}" \
+  --arg response_model "$(fm_jev_response_model "$RESP")" \
   --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" \
   '{
     event: "jev-tool-gate",
@@ -191,6 +192,7 @@ LOG_PAYLOAD=$(jq -n \
     error: (if $error == "" then null else $error end),
     route: (if $route == "" then null else $route end),
     model: (if $model == "" then null else $model end),
+    response_model: (if $response_model == "" then null else $response_model end),
     latency_ms: (if $latency == "" then null else ($latency | tonumber? // $latency) end)
   }' 2>/dev/null) || LOG_PAYLOAD=""
 

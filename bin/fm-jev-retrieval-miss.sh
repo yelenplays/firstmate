@@ -36,7 +36,7 @@
 #
 # Log: one JSONL object appended to $FM_HOME/state/jev-retrieval-miss.jsonl.
 # Records the query and allowlisted retrieval metadata, verdict, confidence,
-# sent/refused flags, route, HTTP code (000 for a transport error), latency_ms,
+# sent/refused flags, route, response_model, HTTP code (000 for a transport error), latency_ms,
 # decide_code, and shadow=true, retry=false, config_write=false.
 # Missing keys skip classification without sending, but still log the query.
 # Secrets follow fm_jev_log_call redaction. This script does not roll its
@@ -160,6 +160,7 @@ emit_log() {
     --arg verdict "$verdict" \
     --arg confidence "$confidence" \
     --arg sent "$sent" \
+    --arg response_model "$(fm_jev_response_model "$response")" \
     --arg route "${FM_JEV_LAST_ROUTE:-}" \
     --arg http "${FM_JEV_LAST_HTTP:-}" \
     --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" \
@@ -177,6 +178,7 @@ emit_log() {
       sent: ($sent == "yes"),
       refused: ($verdict == "refused"),
       route: $route,
+      response_model: (if $response_model == "" then null else $response_model end),
       http: $http,
       latency_ms: (try ($latency | tonumber) catch null),
       decide_code: $decide_code,

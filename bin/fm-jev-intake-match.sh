@@ -72,7 +72,8 @@
 # ${FM_STATE_OVERRIDE:-$FM_HOME/state}/jev-intake-match.jsonl with
 # purpose=intake-match, advisory=true, the reference's length and SHA-256 (the
 # reference text itself is never stored), offered ids, choice, confidence,
-# ranked ids, ranking, fallback, route, http, latency_ms, decide_code, and ts.
+# ranked ids, ranking, fallback, route, response_model, http, latency_ms,
+# decide_code, and ts.
 # Secrets follow fm_jev_log_call redaction.
 #
 # Environment: FM_HOME, FM_DATA_OVERRIDE (the data directory, as
@@ -490,6 +491,7 @@ payload=$(jq -nc \
   --arg confidence "$confidence" \
   --arg ranking "$ranking" \
   --arg fallback "$fallback" \
+  --arg response_model "$(fm_jev_response_model "$response")" \
   --arg route "${FM_JEV_LAST_ROUTE:-}" \
   --arg http "${FM_JEV_LAST_HTTP:-}" \
   --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" \
@@ -508,6 +510,7 @@ payload=$(jq -nc \
     ranking: $ranking,
     fallback: $fallback,
     route: $route,
+    response_model: (if $response_model == "" then null else $response_model end),
     http: $http,
     latency_ms: (try ($latency | tonumber) catch null),
     decide_code: $decide_code,

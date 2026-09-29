@@ -50,7 +50,8 @@
 # Log: one JSONL object per attempted call appended to
 # ${FM_STATE_OVERRIDE:-$FM_HOME/state}/jev-act-first.jsonl with
 # purpose=act-first, advisory=true, item_count, offered item kinds, choice,
-# confidence, ranked item keys, route, http, latency_ms, decide_code, ts.
+# confidence, ranked item keys, route, response_model, http, latency_ms,
+# decide_code, ts.
 # Secrets follow fm_jev_log_call redaction.
 #
 # Environment: FM_HOME, FM_STATE_OVERRIDE, plus the Jev library keys and
@@ -350,6 +351,7 @@ payload=$(jq -nc \
   --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf unknown)" \
   --arg choice "$choice" \
   --arg confidence "$confidence" \
+  --arg response_model "$(fm_jev_response_model "$response")" \
   --arg route "${FM_JEV_LAST_ROUTE:-}" \
   --arg http "${FM_JEV_LAST_HTTP:-}" \
   --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" \
@@ -365,6 +367,7 @@ payload=$(jq -nc \
     confidence: (try ($confidence | tonumber) catch null),
     ranked_keys: $ranked,
     route: $route,
+    response_model: (if $response_model == "" then null else $response_model end),
     http: $http,
     latency_ms: (try ($latency | tonumber) catch null),
     decide_code: $decide_code,

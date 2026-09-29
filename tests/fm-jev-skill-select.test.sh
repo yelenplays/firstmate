@@ -649,7 +649,7 @@ test_route_specific_pins() {
   local code out err variant expected
   for variant in typesafe fallback explicit configured; do
     fresh_home
-    expected=typesafe/jev-1.13
+    expected=typesafe/jev-1.13-20260917
     case "$variant" in
       typesafe)
         expected=jev-1.13.0

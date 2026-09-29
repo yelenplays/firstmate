@@ -257,6 +257,71 @@ EOF
   printf '%s\n' "$1"
 }
 
+# fm_brief_touches_decisions owns the deterministic test for whether a ship or
+# scout task touches Jev, decision models, or the Decisions API. It reads only
+# the brief's `# Task` body, because every scaffold's own rules name Jev through
+# fm_jev_first_rule, and matches a fixed term list case-insensitively: Jev as a
+# word, Firstmate fm_jev_ helper identifiers and fm-jev script names,
+# decision model(s), decision call(s), the Decisions API, the openrouter-
+# decisions skill, the /api/alpha/decisions and /v1/systemone endpoints, and
+# the kev-4b and solar-decide model names. Bare
+# "decision" never matches, since a status verb such as needs-decision is not
+# a decision-model call.
+fm_brief_touches_decisions() {  # <file>
+  fm_brief_heading_body "$1" "# Task" | awk '
+    {
+      line = tolower($0)
+      if (line ~ /(^|[^a-z0-9_])jev([^a-z0-9_]|$)/ ||
+          line ~ /(^|[^a-z0-9])fm_jev_[a-z0-9_]+/ ||
+          line ~ /(^|[^a-z0-9])fm-jev([a-z0-9-]|$)/ ||
+          line ~ /decision[- ]?(models?|calls?)([^a-z0-9_]|$)/ ||
+          line ~ /decisions?[- ]api/ ||
+          line ~ /openrouter-decisions|api\/alpha\/decisions|v1\/systemone|kev-4b|solar-decide/) {
+        found = 1
+        exit
+      }
+    }
+    END { exit !found }
+  '
+}
+
+# Print the installed openrouter-decisions SKILL.md path, first match in the
+# shared ~/.agents/skills install, then each harness skill root, then this
+# checkout's .agents/skills; fail when none is installed.
+fm_decisions_skill_path() {
+  local root candidate
+  root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  for candidate in \
+    "${HOME:-}/.agents/skills/openrouter-decisions/SKILL.md" \
+    "${HOME:-}/.claude/skills/openrouter-decisions/SKILL.md" \
+    "${HOME:-}/.codex/skills/openrouter-decisions/SKILL.md" \
+    "${HOME:-}/.pi/agent/skills/openrouter-decisions/SKILL.md" \
+    "$root/.agents/skills/openrouter-decisions/SKILL.md"; do
+    if [ -r "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# bin/fm-spawn.sh renders this section into a ship or scout launch brief when
+# fm_brief_touches_decisions holds and the skill is installed, before the
+# no-mistakes intent overlay, which must stay last. It prints nothing and
+# fails otherwise, so a task that does not touch decision calls, or a machine
+# without the skill, launches unchanged.
+fm_brief_decisions_skill_overlay() {  # <file>
+  local skill
+  fm_brief_touches_decisions "$1" || return 1
+  skill=$(fm_decisions_skill_path) || return 1
+  cat <<'EOF'
+
+# Decision-model skill
+This task touches Jev, decision models, or the Decisions API.
+EOF
+  printf "Before designing, changing, or probing any decision call, read and follow the \`openrouter-decisions\` skill at \`%s\`: it owns the Decisions API request and response rules, the choice of primitive, model pinning, gating thresholds, and probing.\n" "$skill"
+}
+
 # Accept the current two-subsection contract only when both bodies have content;
 # briefs predating that contract remain valid when their # Task body has content.
 fm_brief_task_content_valid() {  # <file>

@@ -111,6 +111,7 @@ log_call() {
     --arg noul "$noul" \
     --arg verb_choice "$verb_choice" \
     --arg verb_confidence "$verb_confidence" \
+    --arg response_model "$(fm_jev_response_model "$response")" \
     --arg route "${FM_JEV_LAST_ROUTE:-}" \
     --arg http "${FM_JEV_LAST_HTTP:-}" \
     --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" \
@@ -130,6 +131,7 @@ log_call() {
       line_chars: $chars,
       line_excerpt: (if $excerpt == "" then null else $excerpt end),
       route: $route,
+      response_model: (if $response_model == "" then null else $response_model end),
       http: $http,
       latency_ms: (try ($latency | tonumber) catch null),
       decide_code: $decide_code,
