@@ -1,0 +1,3 @@
+command: env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY FM_HOME=<worktree> FM_WIKI_ROOT=<missing fixture> bash bin/fm-jev-pr-verdict.sh https://github.com/yelen-wikis/FehlerWiki/pull/7
+stdout: (<empty>)
+exit: 0
