@@ -1344,6 +1344,7 @@ Typed dispatch resolution above uses this library for the HTTP call and owns the
 ## Jev worker command (bin/fm-jev.sh)
 
 [`bin/fm-jev.sh`](../bin/fm-jev.sh) is the one Jev command firstmate and every worker call for closed-set judgments; the Jev-first rule in every ship and scout brief names it by absolute path.
+For ship and scout tasks that mention Jev or decision calls, `bin/fm-spawn.sh` adds an instruction to read the installed `openrouter-decisions` skill before the intent contract; tasks that do not match, or machines without the skill, launch without that addition.
 It reuses the caller library above and pins its route and URL to TypeSafe production, regardless of `OPENROUTER_API_KEY`, `JEV_ROUTE`, `JEV_URL`, or `JEV_BASE`.
 It resolves `TYPESAFE_API_KEY` from the process environment, then `$FM_HOME/.env`, then the `.env` of the firstmate home that owns the command checkout.
 For pooled worktrees, it finds that home through `git rev-parse --git-common-dir`; `.env` values use the shared `fmx_env_get` accessor.
