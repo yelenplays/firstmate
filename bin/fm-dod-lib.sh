@@ -261,9 +261,10 @@ EOF
 # scout task touches Jev, decision models, or the Decisions API. It reads only
 # the brief's `# Task` body, because every scaffold's own rules name Jev through
 # fm_jev_first_rule, and matches a fixed term list case-insensitively: Jev as a
-# word (so fm-jev-lib.sh counts), decision model(s), decision call(s), the
-# Decisions API, the openrouter-decisions skill, the /api/alpha/decisions and
-# /v1/systemone endpoints, and the kev-4b and solar-decide model names. Bare
+# word, Firstmate fm_jev_ helper identifiers and fm-jev script names,
+# decision model(s), decision call(s), the Decisions API, the openrouter-
+# decisions skill, the /api/alpha/decisions and /v1/systemone endpoints, and
+# the kev-4b and solar-decide model names. Bare
 # "decision" never matches, since a status verb such as needs-decision is not
 # a decision-model call.
 fm_brief_touches_decisions() {  # <file>
@@ -271,6 +272,8 @@ fm_brief_touches_decisions() {  # <file>
     {
       line = tolower($0)
       if (line ~ /(^|[^a-z0-9_])jev([^a-z0-9_]|$)/ ||
+          line ~ /(^|[^a-z0-9])fm_jev_[a-z0-9_]+/ ||
+          line ~ /(^|[^a-z0-9])fm-jev([a-z0-9-]|$)/ ||
           line ~ /decision[- ]?(models?|calls?)([^a-z0-9_]|$)/ ||
           line ~ /decisions?[- ]api/ ||
           line ~ /openrouter-decisions|api\/alpha\/decisions|v1\/systemone|kev-4b|solar-decide/) {

@@ -925,8 +925,9 @@ EOF
   assert_no_grep '# Decision-model skill' "$home/data/$id/launch-brief.md" \
     "a machine without the skill got a section pointing at nothing"
 
-  for term in 'Tune Jev thresholds.' "Update fm-jev-status-triage.sh." 'Pick a decision model.' \
-    'Add a decision call.' 'Use the Decisions API.' 'Load openrouter-decisions.' \
+  for term in 'Tune Jev thresholds.' "Update fm-jev-status-triage.sh." \
+    'Replace the fm_jev_decide call.' 'Update bin/fm-jev-status-triage.sh.' \
+    'Pick a decision model.' 'Add a decision call.' 'Use the Decisions API.' 'Load openrouter-decisions.' \
     'POST /api/alpha/decisions.' 'Call /v1/systemone.' 'Try kev-4b.' 'Try solar-decide.'; do
     printf '# Task\n%s\n\n# Rules\nnone\n' "$term" > "$TMP_ROOT/decisions-skill/term.md"
     bash -c '. "$1/bin/fm-dod-lib.sh"; fm_brief_touches_decisions "$2"' _ "$ROOT" "$TMP_ROOT/decisions-skill/term.md" \
