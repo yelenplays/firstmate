@@ -94,9 +94,11 @@ Inputs held behind a running compaction stay there until Pi sends them after com
 
 Outside Pi's same-name built-in override collision described in [Pi compatibility](#pi-compatibility) below, Calm changes presentation only.
 Calm's built-in wrappers preserve Pi's execution behavior.
+With Calm off, the `fm_branch_outcomes` call and result presentation follow the installed Pi stock renderer, including whether arguments appear and how results collapse or expand.
 Input delivery, ordering, model context, session storage, diagnostics, and `/export` and `/share` operation remain unchanged.
 Every hidden Firstmate input remains available to the model and in serialized session data and exported artifacts.
-Legacy operational custom messages remain in session data and Pi's sidebar tree, although the main HTML transcript may omit them.
+Legacy operational custom messages remain in session data and Pi's sidebar tree.
+Depending on Pi's export renderer, the main HTML transcript may omit them or include them as `hook-message-hidden` rows hidden by the default stylesheet; they must not enter the visible conversation.
 Toggling Calm off restores ordinary rendering, and `Ctrl+O` expansion state is preserved.
 
 ### What stays visible on Pi
