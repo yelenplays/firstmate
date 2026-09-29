@@ -1366,6 +1366,13 @@ Live mode requires `FM_JEV_TOOL_GATE=live` plus both local gitignored presence f
 The script header owns flags, log schema, and mode resolution.
 The thin hook point is documented in [`docs/arm-pretool-check.md`](arm-pretool-check.md).
 
+## Advisory wiki PR verdict
+
+[`bin/fm-jev-pr-verdict.sh`](../bin/fm-jev-pr-verdict.sh) supplies an optional metadata-only Jev annotation for review-ready shared-wiki GitHub PRs.
+`fm-pr-check.sh` runs it best-effort after GitHub PR registration; it can also be run directly when preparing a review ask.
+The ship-landing skill owns when to include it in the captain's review ask; the script header owns admission, privacy and record mechanics.
+It skips silently without a configured Jev key or a share-safe routing card, does not certify private-page content or required checks, and does not change merge authority.
+
 ## Shadow done verifier
 
 [`bin/fm-jev-done-verify.sh`](../bin/fm-jev-done-verify.sh) is a log-only helper the wake drain invokes after successfully presenting a worker `done:` line on a ship or scout.

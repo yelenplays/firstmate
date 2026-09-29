@@ -1,6 +1,6 @@
 ---
 name: ship-landing
-description: Load when a ship reports a PR or ready branch, when deciding or monitoring landing, and before task cleanup.
+description: Load when a ship reports a PR or ready branch, when handling a review-ready shared-wiki PR, when deciding or monitoring landing, and before task cleanup.
 user-invocable: false
 metadata:
   internal: true
@@ -15,6 +15,9 @@ That blocked reading is the gate working, not a stuck worker, so steer the worke
 A direct-PR worker pushes that commit to its PR branch, and a local-only worker commits it on its ship branch.
 A no-mistakes worker re-validates it with /no-mistakes so the pipeline stays the one publisher; it never pushes from its copy.
 In no-mistakes mode the earlier `done [at=<epoch>]: {summary}` is the pipeline handoff and is not gated.
+For a review-ready shared-wiki GitHub PR, use the current advisory printed by `bin/fm-pr-check.sh` at registration or run `bin/fm-jev-pr-verdict.sh <PR URL>` before the review ask, including external contributions without a spawned task.
+If it prints an advisory, include the pass/concerns verdict, its labelled Jev probability and reasons beside the full PR URL; if it prints nothing, proceed without a Jev claim.
+Its metadata-only judgment does not certify privacy or required checks and never grants or blocks a merge; the captain's merge decision and the existing merge rules remain unchanged.
 Tell the captain the PR's full `https://...` URL copied from the worker's ready line, the resolved checks-green crew-state line, or the task's `pr=` metadata, a concise outcome summary, and the no-mistakes risk level when applicable.
 A captain instruction to merge is explicit authority; `yolo` is the only standing routine merge authority.
 For any custom `state/<id>.check.sh` you write yourself, keep it an ordinary single-link mode-`0700` file, print one line only when firstmate should wake, print nothing otherwise, finish before `FM_CHECK_TIMEOUT`, then bind its current bytes with `bin/fm-check-register.sh <id>` before the watcher may execute it.

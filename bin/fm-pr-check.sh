@@ -17,6 +17,8 @@
 # draft state does not refuse, matching how the head read below is optional.
 # bin/fm-pr-merge.sh records through this script with FM_PR_CHECK_MERGE=1 and
 # skips this refusal, because its own merge-time draft refusal is authoritative.
+# For eligible shared-wiki GitHub PRs, an optional metadata-only Jev advisory
+# is printed after registration. It never influences merge monitoring or policy.
 # Usage: fm-pr-check.sh <task-id> <pr-url>
 set -eu
 
@@ -248,3 +250,8 @@ case "$READY_RC" in
   *) printf 'actionable: PR %s is registered but its ready line did not reach the parent channel (rc=%s)\n' "$URL" "$READY_RC" >&2 ;;
 esac
 printf 'armed: state/%s.check.sh\n' "$ID"
+# An optional wiki-only annotation accompanies registration, never its merge
+# monitor or authority. No key or an ineligible card yields no output.
+if [ "$PROVIDER" = github ] && [ "${FM_PR_CHECK_MERGE:-}" != 1 ]; then
+  "$SCRIPT_DIR/fm-jev-pr-verdict.sh" "$URL" || true
+fi
