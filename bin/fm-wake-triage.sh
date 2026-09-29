@@ -27,7 +27,11 @@ mkdir -p "$STATE" || exit 1
 shopt -s nullglob
 recovered=("$STATE"/.wake-triage.pending.*)
 recovered_count=${#recovered[@]}
-for f in "${recovered[@]}"; do [ -f "$f" ] && [ ! -L "$f" ] || { echo "wake triage: unsafe recovered output" >&2; exit 1; }; done
+# Under `set -u`, bash 3.2 (the stock macOS /bin/bash) treats "${recovered[@]}" on an empty array as an unbound-variable error.
+# Every expansion of `recovered` in this script therefore uses the ${recovered[@]+...} guard.
+for f in ${recovered[@]+"${recovered[@]}"}; do
+  [ -f "$f" ] && [ ! -L "$f" ] || { echo "wake triage: unsafe recovered output" >&2; exit 1; }
+done
 
 pending="$STATE/.wake-triage.pending.$(date +%s).$$"
 [ ! -e "$pending" ] && [ ! -L "$pending" ] || { echo "wake triage: pending output collision" >&2; exit 1; }
@@ -169,7 +173,7 @@ rendered="$work/rendered"
   fi
   if [ "$recovered_count" -gt 0 ]; then
     printf 'RECOVERED DRAIN OUTPUT (an earlier triage was interrupted; act on all of it):\n'
-    for f in "${recovered[@]}"; do cat "$f"; done
+    for f in ${recovered[@]+"${recovered[@]}"}; do cat "$f"; done
   fi
   printf 'DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):\n'
   sed '/^WAKE_ACK_REQUIRED:/d' "$out"
@@ -195,7 +199,7 @@ rendered="$work/rendered"
 cat "$rendered" || exit 1
 mv -f -- "$pending" "$STATE/.wake-triage.last" || { echo 'wake triage: could not commit drain output' >&2; exit 1; }
 out="$STATE/.wake-triage.last"
-for f in "${recovered[@]}"; do rm -f -- "$f" || exit 1; done
+for f in ${recovered[@]+"${recovered[@]}"}; do rm -f -- "$f" || exit 1; done
 
 if [ "$DRAIN_CODE" -ne 0 ]; then exit "$DRAIN_CODE"; fi
 sed -n '/^WAKE_ACK_REQUIRED:/p' "$STATE/.wake-triage.last" | tail -1
