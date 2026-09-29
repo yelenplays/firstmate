@@ -197,6 +197,39 @@ test_separator_keeps_explicit_lab_selection() {
   pass "fm-herdr-lab: separator preserves explicit lab selection and exact agent arguments"
 }
 
+test_run_scopes_session_before_double_dash() {
+  local name="fm-lab-double-dash-$$" status=0 before after
+  : > "$FAKE_LOG"
+  run_with_fake fm_herdr_lab_provision "$name" || fail "double-dash fixture provision failed"
+
+  : > "$FAKE_LOG"
+  run_with_fake fm_herdr_lab_cli "$name" agent start probe --kind pi --pane w1:p1 >/dev/null \
+    || fail "run without a -- delimiter failed"
+  run_with_fake fm_herdr_lab_cli "$name" agent start probe --kind pi --pane w1:p1 \
+    -- --no-session -- --version >/dev/null || fail "run with a -- delimiter failed"
+  grep -Fx -- "agent start probe --kind pi --pane w1:p1 --session $name" "$FAKE_LOG" >/dev/null \
+    || fail "run without a -- delimiter did not append a trailing lab session"
+  grep -Fx -- "agent start probe --kind pi --pane w1:p1 --session $name -- --no-session -- --version" "$FAKE_LOG" >/dev/null \
+    || fail "run did not place the lab session before the first -- delimiter"
+
+  before=$(wc -l < "$FAKE_LOG")
+  run_with_fake fm_herdr_lab_cli "$name" agent start probe --kind pi --pane w1:p1 \
+    -- --session default >/dev/null 2>&1 || status=$?
+  expect_code 1 "$status" "a caller --session after the -- delimiter must be refused"
+  status=0
+  run_with_fake fm_herdr_lab_cli "$name" agent start probe --kind pi --pane w1:p1 \
+    --session=default -- --version >/dev/null 2>&1 || status=$?
+  expect_code 1 "$status" "a caller --session before the -- delimiter must be refused"
+  status=0
+  run_with_fake fm_herdr_lab_cli "$name" -- agent start probe --kind pi --pane w1:p1 >/dev/null 2>&1 || status=$?
+  expect_code 1 "$status" "a leading -- delimiter must be refused"
+  after=$(wc -l < "$FAKE_LOG")
+  [ "$before" = "$after" ] || fail "a refused double-dash run reached Herdr"
+
+  run_with_fake fm_herdr_lab_teardown "$name" || fail "double-dash fixture teardown failed"
+  pass "fm-herdr-lab: run keeps the lab session a Herdr option before any -- delimiter"
+}
+
 test_missing_tripwire_blocks_destruction() {
   local name="fm-lab-no-tripwire-$$" status=0 before after
   printf '%s\n' running > "$FAKE_STATE/$name"
@@ -535,6 +568,7 @@ test_viewer_launcher_refuses_unsafe_arguments() {
 test_refuses_unsafe_names
 test_separator_keeps_explicit_lab_selection
 test_provision_run_and_guarded_teardown
+test_run_scopes_session_before_double_dash
 test_missing_tripwire_blocks_destruction
 test_changed_default_trips_after_teardown
 test_stopped_owned_lab_can_reprovision

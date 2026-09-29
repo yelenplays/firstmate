@@ -162,8 +162,8 @@ replay_run() {
   done
   : >> "$out" || die "could not append to $out"
   if [ -n "$rules" ]; then
-    REPLAY_CFG_DIR=$(mktemp -d) || die "mktemp failed"
-    trap replay_cleanup EXIT
+    REPLAY_CFG_DIR=$(mktemp -d "${TMPDIR:-/tmp}/fm-dispatch-replay.XXXXXX") || die "mktemp failed"
+    trap 'replay_cleanup' EXIT
     cp "$rules" "$REPLAY_CFG_DIR/crew-dispatch.json" || die "could not stage rules file"
   fi
   for ((case_index = 0; case_index < ${#case_ids[@]}; case_index++)); do

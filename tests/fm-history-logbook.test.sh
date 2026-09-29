@@ -32,8 +32,18 @@ EOF
 }
 
 run_axi() {
+  local task_id='' start_after=0 arg
+  local -a args=()
+  if [ "${1:-}" = add ]; then task_id=${2:-}; fi
+  for arg in "$@"; do
+    if [ "$arg" = --start ]; then start_after=1; else args+=("$arg"); fi
+  done
   TZ=Europe/Berlin FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" \
-    "$ROOT/bin/fm-tasks-axi.sh" "$@"
+    "$ROOT/bin/fm-tasks-axi.sh" "${args[@]}" || return
+  if [ "$start_after" = 1 ]; then
+    TZ=Europe/Berlin FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" \
+      "$ROOT/bin/fm-tasks-axi.sh" start "$task_id"
+  fi
 }
 
 run_history() {
@@ -393,11 +403,15 @@ test_secondmate_landed_rows_reach_the_logbook() {
 EOF
   url='https://github.com/acme/sample-repo/pull/52'
   TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
-    "$ROOT/bin/fm-tasks-axi.sh" add mate-landed 'A secondmate landed task' --kind ship --repo sample-repo --start >/dev/null
+    "$ROOT/bin/fm-tasks-axi.sh" add mate-landed 'A secondmate landed task' --kind ship --repo sample-repo >/dev/null
+  TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
+    "$ROOT/bin/fm-tasks-axi.sh" start mate-landed >/dev/null
   TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
     "$ROOT/bin/fm-tasks-axi.sh" "done" mate-landed --pr "$url" >/dev/null
   TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
-    "$ROOT/bin/fm-tasks-axi.sh" add mate-unclassified 'A secondmate task without project metadata' --kind ship --start >/dev/null
+    "$ROOT/bin/fm-tasks-axi.sh" add mate-unclassified 'A secondmate task without project metadata' --kind ship >/dev/null
+  TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
+    "$ROOT/bin/fm-tasks-axi.sh" start mate-unclassified >/dev/null
   TZ=Europe/Berlin FM_HOME="$mate" FM_DATA_OVERRIDE="$mate/data" \
     "$ROOT/bin/fm-tasks-axi.sh" "done" mate-unclassified --note 'local main' >/dev/null
   printf '%s\n' "- registered-mate - Delegated work (home: $mate; scope: landed work; projects: sample-repo; added $today)" \

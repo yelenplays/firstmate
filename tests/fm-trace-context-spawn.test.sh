@@ -79,7 +79,11 @@ case "${1:-}" in
           -t) skip_next=1; continue ;;
           -l) continue ;;
           Enter|C-m) continue ;;
-          *) printf '%s\n' "$a" >> "$FM_FAKE_LAUNCH_LOG" ;;
+          *)
+            case "$a" in
+              ". '"*"'") staged=${a#". '"}; staged=${staged%"'"}; [ ! -f "$staged" ] || a=$(cat "$staged") ;;
+            esac
+            printf '%s\n' "$a" >> "$FM_FAKE_LAUNCH_LOG" ;;
         esac
       done
     fi
@@ -206,6 +210,8 @@ run_two_level() {
   printf '# Firstmate\n' > "$sm/AGENTS.md"
   printf 'sm-%s\n' "$name" > "$sm/.fm-secondmate-home"
   printf 'charter\n' > "$sm/data/charter.md"
+  git -C "$sm" init -q -b main
+  printf '%s\n' 'projects/' 'state/' 'data/' 'config/' '.no-mistakes/' > "$sm/.gitignore"
 
   # Spawn 1: the primary launches the secondmate; capture what it injects.
   sm_id="sm-$name"
@@ -389,6 +395,7 @@ test_duplicate_secondmate_spawn_does_not_converge_trace_context() {
   printf '# Firstmate\n' > "$sm/AGENTS.md"
   printf '%s\n' "$id" > "$sm/.fm-secondmate-home"
   printf 'charter\n' > "$sm/data/charter.md"
+  git -C "$sm" init -q -b main
   fake=$(make_spawn_fakebin "$base/fake")
 
   # A claude secondmate spawn pre-registers workspace trust for the HOME it
@@ -595,7 +602,7 @@ test_secondmate_carrier_and_snapshot_share_one_decision() {
 }
 
 test_spawn_processing_receipt_is_executable_not_optimistic() {
-  local rec out rc command receipt
+  local rec out rc command receipt envelope
   command -v tasks-axi >/dev/null || { echo 'skip: tasks-axi not found'; return; }
   rec=$(make_spawn_case execution-receipt)
   read_case_record "$rec"
@@ -614,7 +621,11 @@ SH
   command=$(tail -1 "$LAUNCH_LOG")
   (cd "$WT_DIR" && FM_RECEIVED_PROMPT="$HOME_DIR/received" PATH="$FAKEBIN_DIR:$PATH" bash -c "$command") || fail 'generated launch did not deliver instructions'
   # Reading the fake tool's received argv tests generated delivery, not source.
-  receipt=$(grep '^`FM_HOME=' "$HOME_DIR/received" | tr -d '\140')
+  # The argv carries only the typed launch-brief pointer, so follow it to the
+  # delivered envelope that holds the instructions.
+  envelope=$(sed -n "s/.*read '\([^']*\.msg\)'.*/\1/p" "$HOME_DIR/received" | head -1)
+  [ -f "$envelope" ] || fail 'the delivered prompt named no launch-brief envelope'
+  receipt=$(grep '^`FM_HOME=' "$envelope" | tr -d '\140')
   [ -n "$receipt" ] || fail 'no executable receipt in the actual delivered prompt'
   (cd "$WT_DIR" && bash -c "$receipt") || fail 'worker receipt from delivered prompt failed'
   FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$CASE_ID" || fail 'actual worker acknowledgement not recorded'
