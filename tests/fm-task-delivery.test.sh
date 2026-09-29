@@ -877,6 +877,70 @@ EOF
 
 # Exercise the serialized input a worker is told to pass to no-mistakes, not
 # just the presence of words somewhere in its much larger launch brief.
+# A task that touches Jev or decision calls gets the openrouter-decisions skill
+# named in its launch brief, ahead of the intent overlay that must stay last;
+# every other task, and a machine without the skill, launches unchanged.
+test_launch_brief_names_decisions_skill_for_decision_tasks() {
+  local rec home proj fakebin userhome bare id brief skill_line intent_line authorized term
+  rec=$(make_home decisions-skill)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  userhome="$TMP_ROOT/decisions-skill/userhome"
+  bare="$TMP_ROOT/decisions-skill/barehome"
+  mkdir -p "$userhome/.agents/skills/openrouter-decisions" "$bare"
+  printf '%s\n' '# OpenRouter Decisions' > "$userhome/.agents/skills/openrouter-decisions/SKILL.md"
+
+  id=decisions-touch
+  write_brief "$home" "$id" no-mistakes
+  printf '# Task\n## Captain'"'"'s intent\nPin the answering model.\n\n## Firstmate spec\nChange the default in bin/fm-jev-lib.sh.\n\n# Definition of done\nDelivery contract: mode=no-mistakes\n' \
+    > "$home/data/$id/brief.md"
+  HOME="$userhome" run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off >/dev/null
+  brief="$home/data/$id/launch-brief.md"
+  assert_present "$brief" "decision task did not render a launch brief"
+  assert_grep '# Decision-model skill' "$brief" "a Jev task did not get the decision-model skill section"
+  assert_grep "$userhome/.agents/skills/openrouter-decisions/SKILL.md" "$brief" \
+    "the skill section did not name the installed SKILL.md"
+  skill_line=$(grep -n '^# Decision-model skill$' "$brief" | cut -d: -f1)
+  intent_line=$(grep -n '^# Current no-mistakes intent contract$' "$brief" | cut -d: -f1)
+  [ "$skill_line" -lt "$intent_line" ] || fail "the skill section must precede the intent overlay"
+  authorized=$(awk '$0 == "## Captain intent authorized for --intent" { emit=1; next } emit { print }' "$brief")
+  [ "$authorized" = 'Pin the answering model.' ] || fail "the skill section leaked into authorized intent: $authorized"
+
+  id=decisions-untouched
+  write_brief "$home" "$id" no-mistakes
+  printf '# Task\n## Captain'"'"'s intent\nFix the needs-decision status wording.\n\n## Firstmate spec\nKeep the decision record format.\n\n# Rules\n8. Prefer one typed Jev call for closed-set judgments.\n\n# Definition of done\nDelivery contract: mode=no-mistakes\n' \
+    > "$home/data/$id/brief.md"
+  HOME="$userhome" run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off >/dev/null
+  assert_present "$home/data/$id/launch-brief.md" "unrelated task did not render a launch brief"
+  assert_no_grep '# Decision-model skill' "$home/data/$id/launch-brief.md" \
+    "a task that only mentions Jev outside its Task got the skill section"
+
+  id=decisions-no-skill
+  write_brief "$home" "$id" direct-PR
+  printf '# Task\n## Captain'"'"'s intent\nCompare decision models.\n\n## Firstmate spec\nProbe the Decisions API.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  HOME="$bare" run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off >/dev/null
+  assert_present "$home/data/$id/launch-brief.md" "no-skill task did not render a launch brief"
+  assert_no_grep '# Decision-model skill' "$home/data/$id/launch-brief.md" \
+    "a machine without the skill got a section pointing at nothing"
+
+  for term in 'Tune Jev thresholds.' "Update fm-jev-status-triage.sh." 'Pick a decision model.' \
+    'Add a decision call.' 'Use the Decisions API.' 'Load openrouter-decisions.' \
+    'POST /api/alpha/decisions.' 'Call /v1/systemone.' 'Try kev-4b.' 'Try solar-decide.'; do
+    printf '# Task\n%s\n\n# Rules\nnone\n' "$term" > "$TMP_ROOT/decisions-skill/term.md"
+    bash -c '. "$1/bin/fm-dod-lib.sh"; fm_brief_touches_decisions "$2"' _ "$ROOT" "$TMP_ROOT/decisions-skill/term.md" \
+      || fail "the decision-task detector missed: $term"
+  done
+  for term in 'Report needs-decision cleanly.' 'Record the decision.' 'Rejevaluate nothing.' 'Use a typesafe schema.'; do
+    printf '# Task\n%s\n\n# Rules\n8. Prefer one typed Jev call.\n' "$term" > "$TMP_ROOT/decisions-skill/term.md"
+    if bash -c '. "$1/bin/fm-dod-lib.sh"; fm_brief_touches_decisions "$2"' _ "$ROOT" "$TMP_ROOT/decisions-skill/term.md"; then
+      fail "the decision-task detector matched an unrelated task: $term"
+    fi
+  done
+  pass "launch briefs name the decisions skill only for tasks that touch decision calls"
+}
+
 # No live model or pipeline is needed: spawn publishes this exact input before
 # the fixture backend refuses to create an endpoint.
 test_authorized_intent_keeps_words_without_composed_address() {
@@ -1636,5 +1700,6 @@ test_spawn_notices_a_ship_branch_against_the_registry_prefix
 test_spawn_refuses_a_registry_forge_it_cannot_read
 test_promotion_carries_the_forge_binding
 test_spawn_and_promote_require_filled_task_subsections
+test_launch_brief_names_decisions_skill_for_decision_tasks
 test_project_mode_resolves_branch_prefix
 echo "# all fm-task-delivery tests passed"

@@ -43,7 +43,10 @@
 #   Ship/scout launches always put fm-dod-lib.sh's current worker role scope
 #   first in the private launch-brief overlay, including the exact task-owned
 #   steering inbox. This never rewrites a project's instruction files or a
-#   secondmate's charter.
+#   secondmate's charter. When the brief's Task touches Jev, decision models,
+#   or the Decisions API and the openrouter-decisions skill is installed, the
+#   overlay also names that skill before the intent contract
+#   (fm_brief_decisions_skill_overlay in bin/fm-dod-lib.sh owns the test).
 #   After that overlay is published, a live Jev skill selection may append the
 #   chosen skills to the same launch-brief (bin/fm-jev-skill-select.sh --overlay).
 #   Live load needs FM_JEV_SKILL_SELECT=live, config/jev-skill-select-live,
@@ -3168,6 +3171,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
     fm_brief_worker_role "$STATE" "$ID" &&
       printf '\n' &&
       cat "$SOURCE_BRIEF" &&
+      { fm_brief_decisions_skill_overlay "$SOURCE_BRIEF" || true; } &&
       if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
         fm_brief_intent_overlay "$CAPTAIN_INTENT"
       fi
