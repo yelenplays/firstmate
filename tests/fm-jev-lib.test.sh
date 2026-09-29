@@ -186,6 +186,36 @@ test_jev_model_override() {
   pass "JEV_MODEL overrides the route default"
 }
 
+test_jev_model_override_pin_warnings() {
+  local code out err
+  unset OPENROUTER_API_KEY JEV_ROUTE
+  TYPESAFE_API_KEY=$TS_KEY JEV_MODEL=jev-1.13.0 run_decide code out err
+  expect_code 0 "$code" "route-pinned model override succeeds"
+  assert_equals '' "$err" "the route's own pinned model override is silent"
+  assert_equals "$FM_JEV_TYPESAFE_MODEL" "$(jq -r .model "$LOG/body")" \
+    "the TypeSafe route keeps its pinned model override"
+
+  TYPESAFE_API_KEY=$TS_KEY JEV_MODEL=jev-1.14-20261001 run_decide code out err
+  expect_code 0 "$code" "dated model override succeeds"
+  assert_equals '' "$err" "a dated pin override is silent"
+  assert_equals 'jev-1.14-20261001' "$(jq -r .model "$LOG/body")" \
+    "the dated TypeSafe override is still used"
+
+  unset TYPESAFE_API_KEY
+  OPENROUTER_API_KEY=$OR_KEY JEV_ROUTE=openrouter JEV_MODEL=typesafe/jev-1.13-20260917 \
+    run_decide code out err
+  expect_code 0 "$code" "OpenRouter route-pinned model override succeeds"
+  assert_equals '' "$err" "the OpenRouter route's own pinned model override is silent"
+
+  OPENROUTER_API_KEY=$OR_KEY JEV_ROUTE=openrouter JEV_MODEL=jev-latest run_decide code out err
+  expect_code 0 "$code" "unpinned alias override still succeeds"
+  assert_contains "$err" "JEV_MODEL override 'jev-latest' is not a dated pin" \
+    "an unpinned alias override warns with its model name"
+  assert_equals 'jev-latest' "$(jq -r .model "$LOG/body")" \
+    "the unpinned alias override is still used"
+  pass "JEV_MODEL warns on unpinned overrides while honoring them"
+}
+
 test_jev_url_is_used_verbatim() {
   local code out err argv
   unset OPENROUTER_API_KEY JEV_ROUTE JEV_MODEL JEV_BASE
@@ -515,6 +545,7 @@ test_auto_state_detection_remains_for_library_callers
 test_typesafe_wins_when_both_keys_present
 test_jev_route_openrouter_overrides_typesafe_key
 test_jev_model_override
+test_jev_model_override_pin_warnings
 test_jev_url_is_used_verbatim
 test_jev_base_appends_typesafe_path
 test_jev_url_wins_over_jev_base

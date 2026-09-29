@@ -1241,7 +1241,7 @@ When on and at least one rule exists, the tool sends the project name plus eithe
 The HTTP call goes through [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh): TypeSafe `/v1/systemone` when a TypeSafe key is present, or OpenRouter `/api/alpha/decisions` when `OPENROUTER_API_KEY` is set and `TYPESAFE_API_KEY` is not, or when `JEV_ROUTE=openrouter`.
 This section is the single owner of the Jev HTTP override names: each is read from the process environment first, else from `$FM_HOME/.env` via `fmx_env_get`, and the environment wins.
 `JEV_ROUTE` is `openrouter` or `typesafe`.
-`JEV_MODEL` replaces the route default, a pinned versioned build owned by `bin/fm-jev-lib.sh` (`jev-1.13.0` on TypeSafe, `typesafe/jev-1.13-20260917` on OpenRouter), never a moving alias such as `jev-latest`, so answers cannot shift without a deliberate change there.
+`JEV_MODEL` replaces the route default, a pinned versioned build owned by `bin/fm-jev-lib.sh` (`jev-1.13.0` on TypeSafe, `typesafe/jev-1.13-20260917` on OpenRouter). Overrides should be dated pins ending in `-YYYYMMDD`; an unpinned override is still honored but prints one warning to stderr naming the model. Either route's own pinned default is also silent when explicitly set.
 Callers that already record a call's result add `response_model`, the exact build the response names.
 `JEV_TIMEOUT` is a positive integer second budget (default 25).
 `JEV_URL` is a complete POST URL used verbatim; nothing is appended to it, so an OpenRouter URL must not pick up `/v1/systemone`.

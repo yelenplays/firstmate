@@ -16,6 +16,8 @@
 #   Both defaults are versioned builds, never a moving alias such as
 #   jev-latest, so answers cannot shift without a change here; this file is
 #   the one owner of the pins, and callers never name a model of their own.
+#   An explicit JEV_MODEL override should be a dated pin; any unpinned override
+#   is honored but warns once on stderr.
 #   JEV_ROUTE=openrouter selects OpenRouter even when a TypeSafe key is also
 #   present. JEV_ROUTE=typesafe requires a TypeSafe key. With JEV_ROUTE unset,
 #   a TypeSafe key wins; otherwise a present OpenRouter key is used. Each key,
@@ -190,7 +192,7 @@ _fm_jev_state_max() {
 # Resolve route into _fm_jev_route, _fm_jev_url, _fm_jev_model, _fm_jev_key.
 # The key variable is local to the caller of this function (fm_jev_decide).
 _fm_jev_resolve_route() {
-  local typesafe_key openrouter_key home route
+  local typesafe_key openrouter_key home route configured_model pinned_model
   typesafe_key=${TYPESAFE_API_KEY_PRIVATE:-${TYPESAFE_API_KEY:-}}
   openrouter_key=${OPENROUTER_API_KEY_PRIVATE:-${OPENROUTER_API_KEY:-}}
   home=$(_fm_jev_home)
@@ -233,12 +235,19 @@ _fm_jev_resolve_route() {
   esac
   if [ "$_fm_jev_route" = openrouter ]; then
     _fm_jev_key=$openrouter_key
-    _fm_jev_model=$(_fm_jev_cfg JEV_MODEL)
-    [ -n "$_fm_jev_model" ] || _fm_jev_model=$FM_JEV_OPENROUTER_MODEL
+    pinned_model=$FM_JEV_OPENROUTER_MODEL
   else
     _fm_jev_key=$typesafe_key
-    _fm_jev_model=$(_fm_jev_cfg JEV_MODEL)
-    [ -n "$_fm_jev_model" ] || _fm_jev_model=$FM_JEV_TYPESAFE_MODEL
+    pinned_model=$FM_JEV_TYPESAFE_MODEL
+  fi
+  configured_model=$(_fm_jev_cfg JEV_MODEL)
+  if [ -n "$configured_model" ]; then
+    _fm_jev_model=$configured_model
+    if [ "$_fm_jev_model" != "$pinned_model" ] && [[ ! "$_fm_jev_model" =~ -[0-9]{8}$ ]]; then
+      _fm_jev_err "JEV_MODEL override '$configured_model' is not a dated pin; use a dated build or the route's pinned model"
+    fi
+  else
+    _fm_jev_model=$pinned_model
   fi
   _fm_jev_url=$(_fm_jev_cfg JEV_URL)
   if [ -z "$_fm_jev_url" ]; then
