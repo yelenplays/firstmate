@@ -110,7 +110,7 @@ jobs:
       - name: Install tasks-axi
         run: |
           set -eu
-          npm install -g tasks-axi
+          npm install -g tasks-axi@0.2.6
           tasks-axi --version
       - name: Install the Pi package for the Pi extension tests
         run: |
@@ -154,7 +154,7 @@ jobs:
       - name: Install tasks-axi
         run: |
           set -eu
-          npm install -g tasks-axi
+          npm install -g tasks-axi@0.2.6
           tasks-axi --version
       - name: Run portable parallel shard 2
         run: |
@@ -192,7 +192,7 @@ jobs:
       - name: Install tasks-axi
         run: |
           set -eu
-          npm install -g tasks-axi
+          npm install -g tasks-axi@0.2.6
           tasks-axi --version
       - name: Run portable parallel shard 3
         run: |
@@ -249,7 +249,7 @@ jobs:
       - name: Install tasks-axi for backlog-handoff delegation
         run: |
           set -eu
-          npm install -g tasks-axi
+          npm install -g tasks-axi@0.2.6
           tasks-axi --version
       # The Pi extension tests read the installed Pi package's own types and
       # runtime, so without it they gate-skip and pass silently. It is a public
