@@ -394,7 +394,7 @@ family_for_basename() {
     fm-teardown-endpoint-safety.test.sh)
       printf '%s\n' backend-dispatch
       ;;
-    fm-check-unregister.test.sh|fm-pr-check-security.test.sh|fm-pr-merge.test.sh|\
+    fm-check-unregister.test.sh|fm-pr-check-security.test.sh|fm-jev-pr-verdict.test.sh|fm-pr-merge.test.sh|\
     fm-pr-reviewers.test.sh|fm-pr-state.test.sh|\
     fm-review-diff.test.sh|fm-teardown.test.sh|fm-x-mode.test.sh)
       printf '%s\n' pr-forge
@@ -789,6 +789,7 @@ tests/fm-jev-compaction.test.sh 638
 tests/fm-jev-done-verify.test.sh 38035
 tests/fm-jev-intake-match.test.sh 17464
 tests/fm-jev-lib.test.sh 1005
+tests/fm-jev-pr-verdict.test.sh 1800
 tests/fm-jev-retrieval-miss.test.sh 1363
 tests/fm-jev-skill-select.test.sh 77991
 tests/fm-jev-supervision.test.sh 6220
@@ -1571,6 +1572,9 @@ families_for_changed_path() {
       ;;
     bin/fm-jev-done-verify.sh)
       printf '%s\n' "__script__:fm-jev-done-verify.test.sh"
+      ;;
+    bin/fm-jev-pr-verdict.sh)
+      printf '%s\n' "__script__:fm-jev-pr-verdict.test.sh"
       ;;
     bin/fm-jev-retrieval-miss.sh)
       printf '%s\n' "__script__:fm-jev-retrieval-miss.test.sh"
