@@ -1241,7 +1241,8 @@ When on and at least one rule exists, the tool sends the project name plus eithe
 The HTTP call goes through [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh): TypeSafe `/v1/systemone` when a TypeSafe key is present, or OpenRouter `/api/alpha/decisions` when `OPENROUTER_API_KEY` is set and `TYPESAFE_API_KEY` is not, or when `JEV_ROUTE=openrouter`.
 This section is the single owner of the Jev HTTP override names: each is read from the process environment first, else from `$FM_HOME/.env` via `fmx_env_get`, and the environment wins.
 `JEV_ROUTE` is `openrouter` or `typesafe`.
-`JEV_MODEL` replaces the route default (`jev-latest` on TypeSafe, `typesafe/jev-1.13` on OpenRouter).
+`JEV_MODEL` replaces the route default, a pinned versioned build owned by `bin/fm-jev-lib.sh` (`jev-1.13.0` on TypeSafe, `typesafe/jev-1.13-20260917` on OpenRouter), never a moving alias such as `jev-latest`, so answers cannot shift without a deliberate change there.
+Callers that already record a call's result add `response_model`, the exact build the response names.
 `JEV_TIMEOUT` is a positive integer second budget (default 25).
 `JEV_URL` is a complete POST URL used verbatim; nothing is appended to it, so an OpenRouter URL must not pick up `/v1/systemone`.
 `JEV_BASE` is a TypeSafe-shaped origin used only on the TypeSafe route when `JEV_URL` is unset; the default `/v1/systemone` path is appended to it.
@@ -1322,7 +1323,7 @@ Firstmate passes its profile line unless it states a reason to override, such as
 
 - The resolver and bootstrap copy an environment-provided key into a non-exported private variable and unset `TYPESAFE_API_KEY` before launching child processes, so the secret is absent from child environments.
 - The resolver sends the key to `curl` only as a header read from a file descriptor, never on argv, and nothing prints, logs, or writes it.
-- The resolver fixes the endpoint at `https://api.typesafe.ai`, model at `jev-latest`, default confidence floor at 0.6, and request timeout at 5 seconds; `TYPESAFE_API_KEY` is its only resolver-specific environment setting.
+- The resolver fixes the endpoint at `https://api.typesafe.ai`, model at the pinned route default above, default confidence floor at 0.6, and request timeout at 5 seconds; `TYPESAFE_API_KEY` is its only resolver-specific environment setting.
 
 The resolver and bootstrap copy an environment-provided key into a non-exported private variable and unset `TYPESAFE_API_KEY` and `OPENROUTER_API_KEY` before launching child processes, so the secret is absent from child environments.
 Keys reach `curl` only through `bin/fm-jev-lib.sh` as an Authorization header read from a file descriptor, never on argv, and nothing prints, logs, or writes them.
@@ -1330,7 +1331,7 @@ The rule answer clears only when its returned choice equals the most probable op
 The derived Choice confidence, `(n x peak - 1) / (n - 1)` over n options, is still printed and logged but no longer gates, because it silently raises the effective bar as rules are added (at 14 options a 0.6 floor needs a 0.643 peak), while the margin measures the same two-horse race at any option count.
 The 0.4 default is calibrated for rules without `beats`: it is the lowest tested threshold that made no wrong pick on the labeled replay under unchanged rules, where every lower tested value cleared one wrong pick at margin 0.35 that the old 0.6 floor held back.
 A lower value such as 0.25 is valid only after `beats` are applied to the home's rules and re-verified at `wrong=0` with `bin/fm-dispatch-replay.sh`, which replays labeled briefs under a hard call budget through the resolver with a candidate rules file and scores recorded answers from its output or the shadow log under any threshold without a network call; recalibrate with it after changing rules or `beats`, and keep private personal data out of replayed briefs.
-Route, URL, model, and timeout follow the override names above, with TypeSafe defaulting to `jev-latest` at `https://api.typesafe.ai/v1/systemone` and OpenRouter to `typesafe/jev-1.13` at `https://openrouter.ai/api/alpha/decisions`.
+Route, URL, model, and timeout follow the override names above, with the pinned models above at `https://api.typesafe.ai/v1/systemone` on TypeSafe and `https://openrouter.ai/api/alpha/decisions` on OpenRouter.
 The live rule-match evidence is recorded in [`verification/dispatch-resolve.md`](verification/dispatch-resolve.md).
 
 ## Jev caller library (.env TYPESAFE_API_KEY / OPENROUTER_API_KEY)
@@ -1395,7 +1396,7 @@ Before collection, review the installed public skills for that boundary and put 
 Approval is content-specific: changed files require renewed review; punctuation, Markdown headings, and public documentation links are preserved rather than treated as private content.
 Shadow catalog roots are always restricted to the enumerated public installation locations, including `~/.pi/agent/skills`, under the same digest approval.
 All eligible approved installed skills are offered regardless of ordering; mandatory and supervisor-only skills remain outside this optional suggestion.
-The model is pinned to `jev-1.13.0` on TypeSafe and `typesafe/jev-1.13` on OpenRouter for the experiment, while the existing `bin/fm-jev-lib.sh` route and caller remain the transport owner.
+The model is the route's pinned default from `bin/fm-jev-lib.sh`, which remains the transport owner, and the experiment ignores `JEV_MODEL` so its cases stay comparable.
 Before spawning, write the authored safe query to `data/<id>/jev-skill-query.txt` under the active Firstmate home.
 A missing, unreadable, or blank query file skips the shadow call entirely; raw captain text and legacy brief bodies are never fallback queries.
 The shadow supervisor bounds the complete selector to 5.7 seconds with time reserved for recording within the six-second launch envelope; each HTTP call retains its four-second ceiling.

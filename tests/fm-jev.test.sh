@@ -961,12 +961,12 @@ test_privacy_guard_screens_checkout_env_without_fm_home() {
 test_log_records_metadata_only() {
   local code out err line
   rm -f "$HOME_DIR/state/jev-calls.jsonl"
-  respond '{"answers":{"yes":{"noul":0.97}},"usage":{"input_tokens":274,"output_tokens":20}}'
+  respond '{"model":"jev-1.13.0-build","answers":{"yes":{"noul":0.97}},"usage":{"input_tokens":274,"output_tokens":20}}'
   run_jev code out err yes "secret-free state text" "Unique question text?"
   line=$(tail -n 1 "$HOME_DIR/state/jev-calls.jsonl")
-  assert_equals "$(printf '%s' "$line" | jq -c '{purpose, http, usage, questions, escalated, exit}')" \
-    '{"purpose":"worker-cli","http":"200","usage":{"in":274,"out":20},"questions":1,"escalated":0,"exit":0}' \
-    "the call is logged with usage and outcome"
+  assert_equals "$(printf '%s' "$line" | jq -c '{purpose, model, response_model, http, usage, questions, escalated, exit}')" \
+    '{"purpose":"worker-cli","model":"jev-1.13.0","response_model":"jev-1.13.0-build","http":"200","usage":{"in":274,"out":20},"questions":1,"escalated":0,"exit":0}' \
+    "the call is logged with the pinned request model, the answering build, usage, and outcome"
   assert_not_contains "$line" "secret-free state text" "the log never holds the state"
   assert_not_contains "$line" "Unique question text" "the log never holds the question"
   assert_not_contains "$line" "$KEY" "the log never holds the key"

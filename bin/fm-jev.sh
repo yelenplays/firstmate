@@ -35,7 +35,7 @@
 # probability.
 #
 # Log: every attempted call appends one metadata-only record (purpose
-# worker-cli, route, model, http, latency, usage in/out token counts - named
+# worker-cli, route, requested model, response_model (the build that answered), http, latency, usage in/out token counts - named
 # so fm_jev_log_call's token-key redaction leaves them readable - question count,
 # escalations, exit code; never the working directory, state, or question text) through
 # fm_jev_log_call to the chosen home's state/jev-calls.jsonl. A log failure
@@ -254,6 +254,7 @@ log_call() {
   payload=$(jq -nc \
     --arg route "${FM_JEV_LAST_ROUTE:-}" \
     --arg model "${FM_JEV_LAST_MODEL:-}" \
+    --arg response_model "$(fm_jev_response_model "$response")" \
     --arg http "${FM_JEV_LAST_HTTP:-}" \
     --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" \
     --argjson questions "$(printf '%s' "$NORM" | jq '.questions | length')" \
@@ -264,6 +265,7 @@ log_call() {
       purpose: "worker-cli",
       route: $route,
       model: $model,
+      response_model: (if $response_model == "" then null else $response_model end),
       http: $http,
       latency_ms: (try ($latency | tonumber) catch null),
       usage: {

@@ -74,7 +74,7 @@ DEFAULT_MAX=3
 CHOICE_OPTIONS_MAX=255
 CHOICE_SKILLS_MAX=$((CHOICE_OPTIONS_MAX - 2))
 DESCRIPTION_MAX=400
-SHADOW_MODEL=jev-1.13.0
+SHADOW_MODEL=''
 SHADOW_STATE_MAX=30000
 LIVE_CONFIRM="${FM_JEV_SKILL_SELECT_LIVE_CONFIRM:-$FM_HOME/config/jev-skill-select-live}"
 MODE=${FM_JEV_SKILL_SELECT:-shadow}
@@ -340,9 +340,10 @@ run_shadow() {
     off_without_keys
   fi
   _fm_jev_resolve_route || exit 0
+  # The experiment ignores JEV_MODEL; bin/fm-jev-lib.sh owns each route's pin.
   case "$_fm_jev_route" in
-    openrouter) SHADOW_MODEL=typesafe/jev-1.13 ;;
-    typesafe) SHADOW_MODEL=jev-1.13.0 ;;
+    openrouter) SHADOW_MODEL=$FM_JEV_OPENROUTER_MODEL ;;
+    typesafe) SHADOW_MODEL=$FM_JEV_TYPESAFE_MODEL ;;
   esac
   [ -n "$SUMMARY" ] || { printf 'jev-skill-select: shadow skipped (no authored safe query)\n' >&2; exit 0; }
   shadow_safe_text "$SUMMARY" || { printf 'jev-skill-select: shadow skipped (query outside P0/P1 allowlist)\n' >&2; exit 0; }
@@ -688,7 +689,9 @@ if [ "$DECIDE_CODE" -ne 0 ]; then
 fi
 
 fm_jev_log_call "$(jq -nc --arg purpose skill-select --arg task "$TASK_ID" --arg harness "$HARNESS" \
-  '{purpose:$purpose,task:$task,harness:$harness}')" >/dev/null 2>&1 || true
+  --arg response_model "$(fm_jev_response_model "$RESPONSE")" \
+  '{purpose:$purpose,task:$task,harness:$harness,
+    response_model:(if $response_model == "" then null else $response_model end)}')" >/dev/null 2>&1 || true
 
 # Every Choice must be well formed before any of them is trusted.
 while IFS= read -r key; do

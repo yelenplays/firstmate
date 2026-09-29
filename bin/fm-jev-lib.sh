@@ -9,9 +9,13 @@
 #
 # Dual route (resolved at each fm_jev_decide call):
 #   - TypeSafe POST https://api.typesafe.ai/v1/systemone with TYPESAFE_API_KEY,
-#     model jev-latest unless JEV_MODEL is set.
+#     pinned model FM_JEV_TYPESAFE_MODEL unless JEV_MODEL is set.
 #   - OpenRouter POST https://openrouter.ai/api/alpha/decisions with
-#     OPENROUTER_API_KEY, model typesafe/jev-1.13 unless JEV_MODEL is set.
+#     OPENROUTER_API_KEY, pinned model FM_JEV_OPENROUTER_MODEL unless JEV_MODEL
+#     is set.
+#   Both defaults are versioned builds, never a moving alias such as
+#   jev-latest, so answers cannot shift without a change here; this file is
+#   the one owner of the pins, and callers never name a model of their own.
 #   JEV_ROUTE=openrouter selects OpenRouter even when a TypeSafe key is also
 #   present. JEV_ROUTE=typesafe requires a TypeSafe key. With JEV_ROUTE unset,
 #   a TypeSafe key wins; otherwise a present OpenRouter key is used. Each key,
@@ -40,6 +44,10 @@
 #     non-200 response. Sets FM_JEV_LAST_ROUTE, FM_JEV_LAST_URL,
 #     FM_JEV_LAST_MODEL, FM_JEV_LAST_HTTP, and FM_JEV_LAST_LATENCY_MS on every
 #     attempted call (empty HTTP/latency when the call never reached curl).
+#   fm_jev_response_model <response-json>
+#     Prints the response's `model` string, the exact build that answered, or
+#     nothing when absent. Callers that record a call's result log it as
+#     response_model next to the answer.
 #   fm_jev_key_configured
 #     Succeeds when either API key is present in the process environment or
 #     $FM_HOME/.env; it does not validate JEV_ROUTE and never reaches the network.
@@ -116,8 +124,9 @@ FM_JEV_TYPESAFE_BASE='https://api.typesafe.ai'
 FM_JEV_TYPESAFE_PATH='/v1/systemone'
 FM_JEV_TYPESAFE_URL="${FM_JEV_TYPESAFE_BASE}${FM_JEV_TYPESAFE_PATH}"
 FM_JEV_OPENROUTER_URL='https://openrouter.ai/api/alpha/decisions'
-FM_JEV_TYPESAFE_MODEL='jev-latest'
-FM_JEV_OPENROUTER_MODEL='typesafe/jev-1.13'
+# Pinned versioned builds; changing either is a deliberate, re-probed change.
+FM_JEV_TYPESAFE_MODEL='jev-1.13.0'
+FM_JEV_OPENROUTER_MODEL='typesafe/jev-1.13-20260917'
 FM_JEV_CONFIDENCE_FLOOR=0.7
 FM_JEV_STATE_MAX_BYTES=8192
 FM_JEV_TIMEOUT=25
@@ -321,6 +330,10 @@ fm_jev_decide() {
   cat "$resp_file"
   rm -f "$resp_file"
   return 0
+}
+
+fm_jev_response_model() {
+  printf '%s' "${1:-}" | jq -r 'if type == "object" and (.model | type) == "string" then .model else empty end' 2>/dev/null || true
 }
 
 fm_jev_key_configured() {

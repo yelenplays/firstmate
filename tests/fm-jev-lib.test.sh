@@ -115,7 +115,7 @@ test_openrouter_only_uses_openrouter_url_and_bearer() {
   assert_contains "$argv" '@/dev/fd/3' "the header is read from a file descriptor"
   assert_equals "Authorization: Bearer $OR_KEY" "$(cat "$LOG/header")" "curl receives the OpenRouter bearer header on fd 3"
   assert_equals 'curl:clean' "$(cat "$LOG/child-env")" "the API key is absent from the curl environment"
-  assert_contains "$(cat "$LOG/body")" '"model": "typesafe/jev-1.13"' "OpenRouter default model is typesafe/jev-1.13"
+  assert_contains "$(cat "$LOG/body")" '"model": "typesafe/jev-1.13-20260917"' "OpenRouter default model is the pinned typesafe/jev-1.13-20260917"
   jq -e --arg state "$STATE" '.state == $state and (.questions | type) == "object"' "$LOG/body" >/dev/null \
     || fail "OpenRouter body must send state string and questions object"
   assert_contains "$out" '"choice": "a"' "successful decide prints the JSON response"
@@ -133,7 +133,7 @@ test_typesafe_only_uses_typesafe_url() {
   assert_not_contains "$argv" "$TS_KEY" "the TypeSafe key never appears on curl argv"
   assert_equals "Authorization: Bearer $TS_KEY" "$(cat "$LOG/header")" "curl receives the TypeSafe bearer header on fd 3"
   assert_equals 'curl:clean' "$(cat "$LOG/child-env")" "the API key is absent from the curl environment"
-  assert_contains "$(cat "$LOG/body")" '"model": "jev-latest"' "TypeSafe default model is jev-latest"
+  assert_contains "$(cat "$LOG/body")" '"model": "jev-1.13.0"' "TypeSafe default model is the pinned jev-1.13.0"
   pass "with only TYPESAFE_API_KEY, decide uses the TypeSafe URL and bearer header"
 }
 
@@ -487,6 +487,17 @@ test_log_call_writes_jsonl_without_secrets() {
   pass "log helper writes one JSONL line and keeps secrets out of it"
 }
 
+test_response_model_names_the_answering_build() {
+  assert_equals 'typesafe/jev-1.13-20260917' \
+    "$(fm_jev_response_model '{"model":"typesafe/jev-1.13-20260917","answers":{}}')" \
+    "the response model string is returned verbatim"
+  assert_equals '' "$(fm_jev_response_model '{"answers":{}}')" "a response without a model yields nothing"
+  assert_equals '' "$(fm_jev_response_model '{"model":7}')" "a non-string model yields nothing"
+  assert_equals '' "$(fm_jev_response_model 'not json')" "a non-JSON response yields nothing"
+  assert_equals '' "$(fm_jev_response_model '')" "an empty response yields nothing"
+  pass "response-model helper names the exact build that answered"
+}
+
 test_default_log_path() {
   local line
   rm -f "$HOME_DIR/state/jev-calls.jsonl"
@@ -522,4 +533,5 @@ test_confidence_floor
 test_probabilities_sum
 test_compact_state_strips_secrets_and_refuses_oversized
 test_log_call_writes_jsonl_without_secrets
+test_response_model_names_the_answering_build
 test_default_log_path

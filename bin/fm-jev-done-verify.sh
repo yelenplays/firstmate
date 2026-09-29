@@ -226,6 +226,7 @@ log_payload=$(jq -nc \
   --arg annotate "$annotate" \
   --arg done_line "$done_line" \
   --arg payload "$payload_mode" \
+  --arg response_model "$(fm_jev_response_model "$response")" \
   --arg route "${FM_JEV_LAST_ROUTE:-}" \
   --arg http "${FM_JEV_LAST_HTTP:-}" \
   --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" \
@@ -240,6 +241,7 @@ log_payload=$(jq -nc \
     done_line: $done_line,
     payload: $payload,
     route: $route,
+    response_model: (if $response_model == "" then null else $response_model end),
     http: $http,
     latency_ms: (try ($latency | tonumber) catch null),
     decide_code: $decide_code,

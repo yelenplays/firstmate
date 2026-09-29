@@ -918,12 +918,14 @@ if fm_dispatch_shadow_on; then
   SHADOW_PATH="$FM_HOME/state/jev-dispatch-shadow.jsonl"
   SHADOW=$(jq -nc --argjson result "$RESULT" --arg route "${FM_JEV_LAST_ROUTE:-}" \
     --arg url "${FM_JEV_LAST_URL:-}" --arg model "${FM_JEV_LAST_MODEL:-}" \
+    --arg response_model "$(fm_jev_response_model "$(cat "$RESP_FILE" 2>/dev/null)")" \
     --arg project "$PROJECT" --argjson extra "$EXTRA_LOG" \
     --arg compact "$(if fm_dispatch_compact_on; then printf 1; else printf 0; fi)" '{
       purpose: "dispatch-shadow",
       route: $route,
       url: $url,
       model: $model,
+      response_model: (if $response_model == "" then null else $response_model end),
       project: $project,
       compact: ($compact == "1"),
       status: $result.status,
