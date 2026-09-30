@@ -58,7 +58,7 @@
 # process runs under an enforced envelope: a wall deadline
 # (FM_LINT_ROOT_SECONDS, default 1200), a terminate-then-kill cleanup grace
 # (FM_LINT_ROOT_GRACE, default 5), and a per-process address-space limit
-# (FM_LINT_ROOT_MEMORY_KIB, default 14680064 = 14 GiB of virtual address
+# (FM_LINT_ROOT_MEMORY_KIB, default 20971520 = 20 GiB of virtual address
 # space per analysis process). The sizing rationale and RSS reduction threshold
 # live beside ROOT_MEMORY_KIB below. This is not a resident-memory ceiling;
 # check aggregate runner RSS in CI. The watchdog uses the shared
@@ -877,11 +877,11 @@ fi
 # ShellCheck process, unbounded, for local developer lint.
 ROOT_SECONDS=${FM_LINT_ROOT_SECONDS:-1200}
 ROOT_GRACE=${FM_LINT_ROOT_GRACE:-5}
-# 14 GiB of virtual address space per analysis process. ulimit -v caps
+# 20 GiB of virtual address space per analysis process. ulimit -v caps
 # address space, not resident memory; ShellCheck's GHC runtime reserves about
-# a third of that space, leaving ~9.3 GiB usable heap per root. The 12 GiB
-# limit still exhausted the heap on tests/fm-pending-reply.test.sh at 8.0 GiB
-# peak RSS. CI runs one root per lint job and sets FM_LINT_JOBS=1, so one
+# a third of that space, leaving ~13.3 GiB usable heap per root. The 14 GiB
+# limit exhausted the heap on bin/fm-teardown.sh at ~9.3 GiB RSS on the Linux
+# runner. CI runs one root per lint job and sets FM_LINT_JOBS=1, so one
 # process at a time can use the larger envelope while retaining runner
 # headroom. Local lint defaults to two workers; use FM_LINT_JOBS=1 on smaller
 # local machines. A root that exceeds its cap fails by name.
@@ -889,7 +889,7 @@ ROOT_GRACE=${FM_LINT_ROOT_GRACE:-5}
 # the cap. The roots sidecar records each root's peak RSS; roots peaking
 # above about 3 GiB resident are reduction candidates,
 # bin/fm-pending-reply-lib.sh first (its separate dedup fix is PR 5753).
-ROOT_MEMORY_KIB=${FM_LINT_ROOT_MEMORY_KIB:-14680064}
+ROOT_MEMORY_KIB=${FM_LINT_ROOT_MEMORY_KIB:-20971520}
 for bound_pair in \
   "FM_LINT_ROOT_SECONDS=$ROOT_SECONDS" \
   "FM_LINT_ROOT_GRACE=$ROOT_GRACE" \
