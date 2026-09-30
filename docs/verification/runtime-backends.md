@@ -754,6 +754,9 @@ The captured idle footer was `↑121k ↓37k R9.5M $0.069 (sub) 55.2%/272k (auto
 A second captured idle footer omitted the R-count cell: `↑35k ↓6 $0.000 (sub) 12.8%/272k (auto) (openai-codex) gpt-6-astra • low`.
 Before the fix, the first captured screen classified as `unknown` because its footer begins with token counts rather than a dollar cost.
 `tests/fm-composer-lib.test.sh` proves both captures are empty for an idle Pi, typed content stays pending, and an unrecognized token-first prefix stays unknown; `tests/fm-backend-herdr.test.sh` proves the Herdr adapter returns empty after one native Pi identity probe for each capture.
+On 2026-09-30 an idle Pi 0.87.1 pane on Herdr (openai-codex gpt-6-sol) showed the footer `↑807k ↓35k R24M CH99.7% $6.691 (sub) 78.0%/272k (auto) (openai-codex) gpt-6-sol • high`, and guarded relaunch and second-mate restart refused it because the screen classified as `unknown`.
+Pi 0.87.1's `dist/modes/interactive/components/footer.js` emits its stats cells in the order `↑` input, `↓` output, `R` cache read, `W` cache write, `CH<n>%` cache-hit rate, then cost, and the classifier had accepted neither the `W` nor the `CH` cell.
+That capture was relayed as plain text, so `tests/fixtures/composer/pi-0.87.1-cache-hit-idle.ansi` carries its footer and cwd text inside the ANSI escapes of the 2026-09-22 styled capture above; `tests/fm-composer-lib.test.sh` also feeds the plain rows, with and without a `W` cell, and proves idle is empty, typed text stays pending, a blocked Pi stays unknown, and a shell prompt or blank row in place of the rail stays unknown.
 No Herdr lifecycle operation was run, so this record does not claim a live stop or restart.
 `FM_COMPOSER_MATRIX_LIVE=1 tests/fm-composer-matrix-live-e2e.test.sh` refreshes the installed-harness live matrix; this cursorless Herdr footer variant is refreshed from a live read-only capture and the two fixture-backed suites above.
 

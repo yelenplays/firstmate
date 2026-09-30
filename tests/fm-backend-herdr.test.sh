@@ -4004,6 +4004,23 @@ test_composer_state_pi_token_first_footer_without_r_idle_is_empty() {
   pass "fm_backend_herdr_composer_state: captured Pi 0.87.1 token-first footer without R reads empty"
 }
 
+# Live Pi 0.87.1 footer once caching has run: a cache-hit-rate cell (CH<n>%)
+# sits between the R-count and the cost. Relaunch and restart refused this idle
+# pane as unknown until the classifier learned that cell.
+test_composer_state_pi_cache_hit_footer_idle_is_empty() {
+  local dir log resp fb out calls
+  dir="$TMP_ROOT/composer-pi-cache-hit-idle"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  cp "$ROOT/tests/fixtures/composer/pi-0.87.1-cache-hit-idle.ansi" "$resp/1.out"
+  printf '{"result":{"agent":{"agent":"pi","agent_status":"idle"}}}\n' > "$resp/2.out"
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2' "$ROOT" )
+  [ "$out" = empty ] || fail "a live Pi 0.87.1 footer with a cache-hit cell should read empty, got '$out'"
+  calls=$(grep -c $'\x1f''agent'$'\x1f''get' "$log")
+  [ "$calls" -eq 1 ] || fail "cache-hit Pi footer recognition must corroborate identity exactly once, made $calls agent calls"
+  pass "fm_backend_herdr_composer_state: captured Pi 0.87.1 cache-hit footer reads empty"
+}
+
 test_composer_state_pi_dollar_status_footer_is_empty() {
   # `$0.000 (sub) 5.4%/272k (auto)` at column 0 made herdr composer_state
   # unknown, so exit and relaunch refused on an otherwise idle Pi pane.
@@ -6021,6 +6038,7 @@ test_composer_state_pi_parked_prompt_is_not_empty
 test_composer_state_pi_separator_idle_is_empty
 test_composer_state_pi_token_first_footer_idle_is_empty
 test_composer_state_pi_token_first_footer_without_r_idle_is_empty
+test_composer_state_pi_cache_hit_footer_idle_is_empty
 test_composer_state_pi_dollar_status_footer_is_empty
 test_composer_state_pi_separator_real_text_is_pending
 test_composer_state_pi_incomplete_separator_below_stale_generic_is_unknown
