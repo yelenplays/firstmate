@@ -90,6 +90,7 @@ SH
   # fm-watch-state-lib.sh: teardown sources it for the watcher-state retire
   # calls; missing it fails the whole script at source time.
   ln -s "$ROOT/bin/fm-watch-state-lib.sh" "$fake/bin/fm-watch-state-lib.sh"
+  ln -s "$ROOT/bin/fm-path-lib.sh" "$fake/bin/fm-path-lib.sh"
   # fm-gate-refuse-lib.sh: teardown sources it before any fleet mutation.
   ln -s "$ROOT/bin/fm-gate-refuse-lib.sh" "$fake/bin/fm-gate-refuse-lib.sh"
   # fm-pr-lib.sh: teardown uses its canonical task-ID validator for poll cleanup.
@@ -205,6 +206,7 @@ SH
   # fm-watch-state-lib.sh: teardown sources it for the watcher-state retire
   # calls; missing it fails the whole script at source time.
   ln -s "$ROOT/bin/fm-watch-state-lib.sh" "$fake/bin/fm-watch-state-lib.sh"
+  ln -s "$ROOT/bin/fm-path-lib.sh" "$fake/bin/fm-path-lib.sh"
   # fm-gate-refuse-lib.sh: teardown sources it before any fleet mutation.
   ln -s "$ROOT/bin/fm-gate-refuse-lib.sh" "$fake/bin/fm-gate-refuse-lib.sh"
   # fm-pr-lib.sh: teardown uses its canonical task-ID validator for poll cleanup.

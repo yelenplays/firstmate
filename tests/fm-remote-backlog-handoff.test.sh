@@ -53,7 +53,7 @@ printf 'fixture\n' > "$REMOTE_ROOT/AGENTS.md"
 cp "$ROOT/bin/fm-remote-entrypoint.sh" "$ROOT/bin/fm-remote-job-lib.sh" \
   "$ROOT/bin/fm-remote-job-worker.sh" "$ROOT/bin/fm-remote-file.sh" \
   "$ROOT/bin/fm-backlog-receive.sh" "$ROOT/bin/fm-tasks-axi-lib.sh" \
-  "$ROOT/bin/fm-wake-lib.sh" "$REMOTE_ROOT/bin/"
+  "$ROOT/bin/fm-wake-lib.sh" "$ROOT/bin/fm-path-lib.sh" "$REMOTE_ROOT/bin/"
 # Execution handoff uses the same tracked command transport and shared parser.
 cp "$ROOT/bin/"*.sh "$REMOTE_ROOT/bin/"
 ln -s "$(command -v jq)" "$REMOTE_ROOT/bin/jq"
