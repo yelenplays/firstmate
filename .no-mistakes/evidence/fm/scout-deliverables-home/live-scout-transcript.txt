@@ -1,0 +1,60 @@
+/home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln
+🌳 Setting up worktree...
+🌳 Leased worktree at /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln/projects/sample/.treehouse/sample-3c822b/1/sample. Run 'treehouse return /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln/projects/sample/.treehouse/sample-3c822b/1/sample' to release it.
+Real Treehouse lease: /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln/projects/sample/.treehouse/sample-3c822b/1/sample
+scaffolded: /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln/data/named-results/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+Worker named-results exit: 0
+brief.md
+report.html
+report.md
+results.csv
+Persisted CSV contains the requested sorted rows a=1, b=2.
+complete: named-results captain-call inventory reviewed
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.pi/extensions/fm-primary-turnend-guard.ts -e /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A new version of treehouse is available: v2.0.1 → v3.1.0
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+wrote data/history/tasks/named-results.md
+teardown named-results complete (window primary:fm-named-results, worktree /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln/projects/sample/.treehouse/sample-3c822b/1/sample)
+Backlog: named-results just finished (config/backlog-backend selects manual editing). Update /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln/data/backlog.md - move named-results to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
+After real teardown: durable output hashes unchanged; scratch-notes.txt absent; task metadata retired.
+efe0d287b15f50531d266b20eb4afcde6549787c7220473aab5f760f2231549b  report.md
+ba015248d8180c00c870f0f63ade2a834db3057c092571861e85a5bd38f2411c  results.csv
+367d6e1ccd6956de11904f696c6b8eefece588cf4466e851dbb85434a218fe74  report.html
+A new version of treehouse is available: v2.0.1 → v3.1.0
+Run "treehouse update" to update
+
+1     available    /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln/projects/sample/.treehouse/sample-3c822b/1/sample
+A new version of treehouse is available: v2.0.1 → v3.1.0
+Run "treehouse update" to update
+
+🌳 Setting up worktree...
+🌳 Leased worktree at /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln/projects/sample/.treehouse/sample-3c822b/1/sample. Run 'treehouse return /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln/projects/sample/.treehouse/sample-3c822b/1/sample' to release it.
+scaffolded: /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln/data/report-only/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+Worker report-only exit: 0
+brief.md
+report.md
+complete: report-only captain-call inventory reviewed
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+A new version of treehouse is available: v2.0.1 → v3.1.0
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+wrote data/history/tasks/report-only.md
+teardown report-only complete (window primary:fm-report-only, worktree /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln/projects/sample/.treehouse/sample-3c822b/1/sample)
+Backlog: report-only just finished (config/backlog-backend selects manual editing). Update /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln/data/backlog.md - move report-only to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
+After real teardown: durable output hashes unchanged; scratch-notes.txt absent; task metadata retired.
+c6b5f60472710410ad60fc2ee380515db05dbe7d86f04967cc776ab27391a98a  report.md
+A new version of treehouse is available: v2.0.1 → v3.1.0
+Run "treehouse update" to update
+
+1     available    /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.FkmYln/projects/sample/.treehouse/sample-3c822b/1/sample

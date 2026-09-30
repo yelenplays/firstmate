@@ -1,0 +1,40 @@
+/home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.X224oa
+🌳 Setting up worktree...
+🌳 Leased worktree at /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.X224oa/projects/sample/.treehouse/sample-e8a56a/1/sample. Run 'treehouse return /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.X224oa/projects/sample/.treehouse/sample-e8a56a/1/sample' to release it.
+scaffolded: /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.X224oa/data/guard-results/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+Cleanup with worktree-only report returned exit 1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.X224oa
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.pi/extensions/fm-primary-turnend-guard.ts -e /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: scout task guard-results has no report at /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.X224oa/data/guard-results/report.md.
+The report is the work product. Have the crewmate write it, or use --force after explicit discard approval.
+Refusal preserved the leased worktree, scratch files, result CSV and task metadata.
+Cleanup without completion attestation returned exit 1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.X224oa
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-captain-hold: origin guard-results has no completed captain-call inventory
+REFUSED: scout task guard-results has not passed the captain-call completion gate.
+Inventory its report and any visual review through bin/fm-captain-hold.sh before teardown.
+complete: guard-results captain-call inventory reviewed
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.X224oa
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+A new version of treehouse is available: v2.0.1 → v3.1.0
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+wrote data/history/tasks/guard-results.md
+teardown guard-results complete (window primary:fm-guard-results, worktree /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.X224oa/projects/sample/.treehouse/sample-e8a56a/1/sample)
+Backlog: guard-results just finished (config/backlog-backend selects manual editing). Update /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.X224oa/data/backlog.md - move guard-results to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
+After satisfying both guards: all scratch files removed; durable report, CSV and unrelated sibling file byte-identical.
+e566aac3087c08a5a2a8b747b2e9785e524aa41266383d189886f0d1be769aea  guard-results/report.md
+c10f4f128f912dfa47612b5cec6b262a967117143fe13bdd5cc00dc02a886e71  guard-results/results.csv
+ff81c4d81204708b4c78d6b9207f18aac05e33a760b26e09a8334b579b747d2d  sibling-task/keep.txt
+A new version of treehouse is available: v2.0.1 → v3.1.0
+Run "treehouse update" to update
+
+1     available    /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S127624K7E1983CMN24HA5/.l.X224oa/projects/sample/.treehouse/sample-e8a56a/1/sample

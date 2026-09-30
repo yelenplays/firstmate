@@ -1,0 +1,6 @@
+The task is finished: `measurements.csv` has **2 data rows** plus a header row, and the values add up to **3** (`b,2` + `a,1`).
+
+- **Report:** `report.md` is in `.l.FkmYln/data/report-only/`, and it's the only deliverable there. It lists the commands I ran and their output, with file:line references.
+- **Scratch file:** the calculations are in `scratch-notes.txt` in the task worktree, which gets discarded at teardown.
+- **Completion check:** the captain-hold completion check passed with `--none` because nothing is waiting on the captain.
+- **Status:** the `done` line has been added to `state/report-only.status`.

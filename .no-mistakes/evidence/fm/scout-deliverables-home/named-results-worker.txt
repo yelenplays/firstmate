@@ -1,0 +1,9 @@
+I sorted `measurements.csv` by item and put all three requested files in `.l.FkmYln/data/named-results/`. I checked that each file is there.
+
+The input has two rows in the wrong order (`b,2` then `a,1`). The values themselves are fine: no duplicates, no missing values, and nothing that isn't a number. Sorting only swaps the two rows, and each item keeps its value.
+
+- **`results.csv`**: the header, then `a,1` and `b,2`.
+- **`report.html`**: a table with the same two rows.
+- **`report.md`**: what I did, the input and output side by side, the command I used, and a recommendation that nothing needs to ship.
+
+`scratch-notes.txt` stays in the worktree only, since it isn't a deliverable, and I made no PDF. The completion check passed, with no questions left for the captain (`complete named-results --none`). The `done` status line is in the status file.
