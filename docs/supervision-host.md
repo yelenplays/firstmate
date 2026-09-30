@@ -37,11 +37,6 @@ Today it runs beside a Claude, Cursor, OpenCode, omp, Grok, or Codex primary: aw
 - Pi keeps its in-process branch whatever the file says, and no Pi engine is built.
 - Kimi has no primary supervision protocol, so it has no arm owner to run the host.
 
-### Not yet on the host
-
-Attended supervision beside a Codex primary, running the host by default on the other five primaries, and the daemon's retirement are later steps of the same design.
-Until they land, their current behavior stays as described in their own owners.
-
 ## Components and their owners
 
 | Component | Owner | Role |
