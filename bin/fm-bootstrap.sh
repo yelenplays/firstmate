@@ -12,6 +12,7 @@
 #                 "STARTUP_MEMORY_BUDGET: invalid config/startup-memory-budget - <reason>",
 #                 "CREW_DISPATCH: invalid config/crew-dispatch.json - <reason>",
 #                 "FLEET_SYNC: <repo>: skipped|recovered|STUCK: <detail>",
+#                 "WIKI_SYNC: <missing|invalid|stale|failed|needs human|push blocked>",
 #                 "HOME_SUMMARY: <ledger never published|not republished since
 #                 <stamp>>; <n> failed attempt(s) ... last: <recorded failure>",
 #                 "BACKLOG_RECONCILE: <id>: <what this home could not reconcile>",
@@ -241,6 +242,8 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-timing-lib.sh"
 # shellcheck source=bin/fm-timeout-lib.sh disable=SC1091
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
+# shellcheck source=bin/fm-wiki-lib.sh disable=SC1091
+. "$SCRIPT_DIR/fm-wiki-lib.sh"
 
 REMOTE_SYNC_OPERATION_TIMEOUT=8
 REMOTE_SYNC_INHERITANCE_TIMEOUT=30
@@ -1627,6 +1630,51 @@ detect_local_config() {
   fi
   detect_code_root_backlog_fork
   detect_home_summary_publication
+  detect_wiki_sync_health
+}
+
+# A local-only read of the unattended wiki-sync record. The interval is 15
+# minutes by default; FM_WIKI_SYNC_INTERVAL_SECONDS may set a positive integer
+# up to one day. The warning begins only after two intervals have elapsed.
+detect_wiki_sync_health() {
+  local wiki_root record interval reason
+  wiki_root=$(fm_wiki_root "$CONFIG" 2>/dev/null) || return 0
+  [ -d "$wiki_root" ] || return 0
+  record="${XDG_STATE_HOME:-$HOME/.local/state}/wiki-sync/status.json"
+  if [ ! -f "$record" ]; then
+    echo 'WIKI_SYNC: status record missing'
+    return 0
+  fi
+  interval=${FM_WIKI_SYNC_INTERVAL_SECONDS:-900}
+  case "$interval" in ''|*[!0-9]*) interval=900 ;; esac
+  if [ "${#interval}" -gt 5 ]; then interval=900; fi
+  interval=$((10#$interval))
+  if [ "$interval" -lt 1 ] || [ "$interval" -gt 86400 ]; then interval=900; fi
+  # Reject malformed records rather than trusting a partial or unexpected
+  # producer version. Emit only the first vault name, stripped of controls and
+  # bounded so untrusted record strings cannot forge additional diagnostics.
+  reason=$(jq -r --argjson interval "$interval" '
+    def entries_ok: type == "array" and all(.[]; type == "string");
+    def first_vault: .[0] | split(":")[0] | gsub("[\u0000-\u001f\u007f]"; " ") | .[:60];
+    if type != "object" or .version != 1 or
+       (.finished_at | type) != "string" or
+       (.mode | type) != "string" or
+       (.exit | type) != "number" or .exit < 0 or (.exit % 1) != 0 or
+       (.pushed | entries_ok | not) or (.pulled | entries_ok | not) or
+       (.needs_human | entries_ok | not) or (.push_blocked | entries_ok | not)
+    then "invalid status record"
+    else
+      (.finished_at | try fromdateiso8601 catch null) as $finished |
+      if $finished == null or $finished > now + 60 then "invalid finish time"
+      elif (.push_blocked | length) > 0 or (.needs_human | length) > 0 then
+        ([if (.push_blocked | length) > 0 then "push blocked: " + (.push_blocked | first_vault) else empty end,
+          if (.needs_human | length) > 0 then "needs human: " + (.needs_human | first_vault) else empty end] | join("; "))
+      elif .exit != 0 then "sync failed (exit " + (.exit | tostring) + ")"
+      elif now - $finished > 2 * $interval then "status older than two sync intervals"
+      else empty end
+    end
+  ' "$record" 2>/dev/null) || reason='invalid status record'
+  [ -z "$reason" ] || printf 'WIKI_SYNC: %s\n' "$reason"
 }
 
 # Shadow-backlog check. When this home's data directory is not the code root's,
