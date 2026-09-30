@@ -1,0 +1,9 @@
+$ bin/fm-bootstrap.sh [configured wiki family, no record]
+WIKI_SYNC: status record missing
+$ bin/fm-bootstrap.sh [fresh successful record]
+$ bin/fm-bootstrap.sh [record older than two default intervals]
+WIKI_SYNC: status older than two sync intervals
+$ bin/fm-bootstrap.sh [failed record]
+WIKI_SYNC: sync failed (exit 2)
+$ bin/fm-bootstrap.sh [network-only phase]
+$ bin/fm-bootstrap.sh [no configured wiki family]
