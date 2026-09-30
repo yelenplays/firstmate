@@ -1035,7 +1035,7 @@ test_pi_captured_footer_and_zen_rail() {
   local cap screen variant out identity tilde no_dollar old_metrics new_metrics
   tilde='~'
   cap=$'styled=1\ncursor=0\nidentity=1\nrows=40'
-  for variant in pi-zen-idle pi-stock-idle pi-0.87.1-token-first-idle pi-0.87.1-token-first-no-r-idle; do
+  for variant in pi-zen-idle pi-stock-idle pi-0.87.1-token-first-idle pi-0.87.1-token-first-no-r-idle pi-0.87.1-cache-hit-idle; do
     screen=$(cat "$ROOT/tests/fixtures/composer/$variant.ansi")
     out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
     [ "$out" = empty ] || fail "$variant captured live idle must be empty, got $out"
@@ -1051,10 +1051,10 @@ test_pi_captured_footer_and_zen_rail() {
     [ "$out" = unknown ] || fail "$variant without identity must stay unknown"
     out=$(fm_composer_classify_screen "$cap" "$screen"$'\n$ echo hi' '' $'pi\tidle')
     [ "$out" = unknown ] || fail "lower shell must invalidate $variant"
-    if [ "$variant" = pi-0.87.1-token-first-no-r-idle ]; then
+    if [ "$variant" = pi-0.87.1-token-first-no-r-idle ] || [ "$variant" = pi-0.87.1-cache-hit-idle ]; then
       screen=${screen/┃/┃draft}
       out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
-      [ "$out" = pending ] || fail "typed text with no R-count cell must remain pending, got '$out'"
+      [ "$out" = pending ] || fail "$variant typed text must remain pending, got '$out'"
     fi
   done
   screen=$(cat "$ROOT/tests/fixtures/composer/pi-zen-idle.ansi")
@@ -1094,6 +1094,39 @@ test_pi_captured_footer_and_zen_rail() {
 }
 
 test_pi_captured_footer_and_zen_rail
+
+# The plain-text capture of an idle Pi 0.87.1 pane whose footer carries cache
+# write and cache-hit cells. Only the complete rail over the footer proves the
+# composer: typed text stays pending, and a bare shell prompt or blank row in
+# place of the rail stays unknown.
+test_pi_cache_hit_footer_plain_capture() {
+  local cap screen out path footer rail tilde dollar
+  cap=$'styled=1\ncursor=0\nidentity=1\nrows=40'
+  tilde='~'
+  dollar='$'
+  path="${tilde}/.treehouse/lay-distribution-site-bbf1e1/2/lay-distribution-site (fm/lay-scroll-story-v1)"
+  footer="↑807k ↓35k R24M CH99.7% ${dollar}6.691 (sub) 78.0%/272k (auto)                                                          (openai-codex) gpt-6-sol • high"
+  for footer in "$footer" "${footer/R24M/R24M W1.2k}"; do
+    for rail in '┃' '┃ '; do
+      screen=$(printf '%s\n' ' 770542c, and ran the authorized recovery.' ' relaunch.' '' "$rail" "$path" "$footer")
+      out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
+      [ "$out" = empty ] || fail "idle Pi cache-hit footer capture must be empty, got '$out' for '$footer'"
+      out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tblocked')
+      [ "$out" = unknown ] || fail "a blocked Pi must never prove the cache-hit composer, got '$out'"
+    done
+    screen=$(printf '%s\n' '' '┃ draft reply' "$path" "$footer")
+    out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
+    [ "$out" = pending ] || fail "typed text over a cache-hit footer must stay pending, got '$out'"
+    for rail in '$ ' '% ' ''; do
+      screen=$(printf '%s\n' '' "$rail" "$path" "$footer")
+      out=$(fm_composer_classify_screen "$cap" "$screen" '' $'pi\tidle')
+      [ "$out" = unknown ] || fail "a shell prompt or blank row '$rail' over a cache-hit footer must stay unknown, got '$out'"
+    done
+  done
+  pass "Pi cache-hit footer capture reads empty only over a complete rail and keeps pending and unreadable input"
+}
+
+test_pi_cache_hit_footer_plain_capture
 
 test_pi_footer_rule_fragment_never_proves_empty() {
   local cap screen out rule24 rule10 footer path tilde dollar
