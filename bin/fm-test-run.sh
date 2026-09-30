@@ -130,7 +130,7 @@
 # parallel_unhinted (the number of members missing a parallel hint).
 # These sums exclude unhinted members and are estimates, not measured job wall
 # times. Missing parallel hints are reported without failing this guard.
-# The guard refuses a largest packed estimate at or above seven minutes.
+# The guard refuses a largest packed estimate at or above eight minutes.
 #
 # portable-serial stays strictly serial. Its CI shards (portable-serial-<k>of<n>)
 # split it across separate runners, so two of its stateful scripts still never
@@ -211,9 +211,10 @@ PORTABLE_SERIAL_DEFAULT_WEIGHT_MS=45000
 # modeled serial shard above this target; refresh hints or rebalance instead.
 PORTABLE_SERIAL_MAX_WEIGHT_MS=1200000
 
-# Maximum modeled execution time for a portable parallel shard, below seven
-# minutes to leave room for CI setup under the existing ten-minute job tripwire.
-PORTABLE_PARALLEL_MAX_WEIGHT_MS=420000
+# Maximum modeled execution time for a portable parallel shard, below eight
+# minutes. A packing target, not a timeout: the parallel jobs use the normal
+# CI timeout tier (docs/fm-test-portable-shards.md "Timeouts").
+PORTABLE_PARALLEL_MAX_WEIGHT_MS=480000
 
 # Largest share of the serial lane allowed to run on the default weight above.
 # Hints are what keep the shards balanced, so once too much of the lane is
@@ -1275,7 +1276,7 @@ run_coverage_guard() {
   done
   parallel_imbalance_ms=$((parallel_max_ms - parallel_min_ms))
   if [ "$parallel_max_ms" -ge "$PORTABLE_PARALLEL_MAX_WEIGHT_MS" ]; then
-    log "coverage guard: largest portable parallel packed estimate ${parallel_max_ms}ms reaches the seven-minute limit (${PORTABLE_PARALLEL_MAX_WEIGHT_MS}ms)"
+    log "coverage guard: largest portable parallel packed estimate ${parallel_max_ms}ms reaches the eight-minute limit (${PORTABLE_PARALLEL_MAX_WEIGHT_MS}ms)"
     rm -rf "$tmp"
     return 1
   fi

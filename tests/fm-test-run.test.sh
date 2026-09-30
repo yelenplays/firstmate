@@ -1099,7 +1099,7 @@ test_portable_shard_union_and_coverage_guard() {
 }
 
 # The portable parallel lanes are only "duration-balanced" while every member
-# has a measured hint and the packed estimate stays below seven minutes.
+# has a measured hint and the packed estimate stays below eight minutes.
 test_portable_parallel_lanes_stay_duration_balanced() {
   local out max imbalance unhinted
   out=$("$RUNNER" --check-coverage)
@@ -1111,12 +1111,12 @@ test_portable_parallel_lanes_stay_duration_balanced() {
   [ "$unhinted" = "0" ] \
     || fail "$unhinted proven-isolated scripts have no measured parallel hint, so the lanes are packed on a guess"
   [ "$max" -gt 0 ] || fail "parallel_max_ms must be a positive packed duration, got $max"
-  [ "$max" -lt 420000 ] || fail "parallel_max_ms must stay below seven minutes, got $max"
+  [ "$max" -lt 480000 ] || fail "parallel_max_ms must stay below eight minutes, got $max"
   # 5% of the worst lane: wide enough that one script's growth does not trip it,
   # narrow enough that a lopsided partition cannot call itself balanced.
   [ "$((imbalance * 20))" -le "$max" ] \
     || fail "parallel lanes differ by ${imbalance}ms against a ${max}ms worst lane, more than 5%"
-  pass "portable parallel lanes stay fully hinted, below seven minutes, and within 5% of each other"
+  pass "portable parallel lanes stay fully hinted, below eight minutes, and within 5% of each other"
 }
 
 test_portable_serial_shards_partition_the_serial_lane() {
