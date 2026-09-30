@@ -1035,6 +1035,20 @@ test_scout_and_secondmate_scaffold() {
   assert_present "$brief" "scout brief was not scaffolded"
   assert_grep "SCOUT task" "$brief" "scout brief must declare itself a scout task"
   assert_grep "report.md" "$brief" "scout brief must point at the report deliverable"
+  # shellcheck disable=SC2016 # Literal backticks match the generated brief text.
+  assert_grep 'Write `report.html`, `report.pdf`' "$brief" "scout brief must preserve named visual result files"
+  assert_grep 'every additional result file explicitly named' "$brief" "scout brief must preserve explicitly named result files"
+  assert_grep 'each additional named result file exist under' "$brief" "scout brief must verify durable result output before completion"
+  # Exercise the public output location the generated contract gives workers.
+  # These files stand in for report generation in the disposable worktree.
+  mkdir -p "$BRIEF_HOME/data/brief-scout-q6"
+  printf '%s\n' report > "$BRIEF_HOME/data/brief-scout-q6/report.md"
+  printf '%s\n' html > "$BRIEF_HOME/data/brief-scout-q6/report.html"
+  printf '%s\n' pdf > "$BRIEF_HOME/data/brief-scout-q6/report.pdf"
+  rm -rf "$TMP_ROOT/disposable-scout-worktree"
+  assert_present "$BRIEF_HOME/data/brief-scout-q6/report.md" "scout report was not written to the durable home"
+  assert_present "$BRIEF_HOME/data/brief-scout-q6/report.html" "scout HTML result was not written to the durable home"
+  assert_present "$BRIEF_HOME/data/brief-scout-q6/report.pdf" "scout PDF result was not written to the durable home"
   assert_grep "## Captain's intent" "$brief" "scout brief missing Captain's intent subsection"
   assert_grep "## Firstmate spec" "$brief" "scout brief missing Firstmate spec subsection"
   assert_grep "{FIRSTMATE_SPEC}" "$brief" "scout brief missing the spec placeholder"
