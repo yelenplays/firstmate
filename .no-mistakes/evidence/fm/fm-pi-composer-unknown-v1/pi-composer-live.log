@@ -1,0 +1,8 @@
+stopped configured harness=pi backend=herdr endpoint=fm-lab-control-composer-39542-31504:w1:p1 worktree=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-control-composer.udBrHu/worktree
+ok - live Pi configured 0.87.1: empty, multiline pending refusal, verified exit, idempotence
+stopped stock harness=pi backend=herdr endpoint=fm-lab-control-composer-39542-31504:w2:p1 worktree=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-control-composer.udBrHu/worktree
+ok - live Pi stock 0.87.1: empty, multiline pending refusal, verified exit, idempotence
+# Pi composer right after the interrupt: unknown (native working)
+stopped aborted harness=pi backend=herdr endpoint=fm-lab-control-composer-39542-31504:w3:p1 worktree=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-control-composer.udBrHu/worktree
+ok - live Pi 0.87.1: exit waits out the post-interrupt unknown composer and stops the agent
+# Grok grok 1.0.41 (4220f3b224a6) [stable]: real quota menu unavailable; fallback not verified on this account
