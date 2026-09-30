@@ -300,6 +300,28 @@ test_gnu_timeout_kills_a_term_ignoring_command_after_the_grace() {
   pass "fm_exec_timed's GNU timeout fallback kills a TERM-ignoring command once the grace has passed"
 }
 
+test_bash_32_exec_timed_does_not_require_bashpid() {
+  local bash32='' candidate version out rc=0
+  for candidate in bash3.2 /bin/bash; do
+    candidate=$(command -v "$candidate" 2>/dev/null || true)
+    [ -x "$candidate" ] || continue
+    version=$("$candidate" --version 2>&1 | head -1)
+    case "$version" in
+      *'version 3.2'*) bash32=$candidate; break ;;
+    esac
+  done
+  if [ -z "$bash32" ]; then
+    pass 'Bash 3.2 regression (skipped: Bash 3.2 is not available on this host)'
+    return 0
+  fi
+  out=$("$bash32" -u -c '
+    . "$1/bin/fm-timeout-lib.sh"
+    ( fm_exec_timed 5 1 true )
+  ' _ "$ROOT" 2>&1) || rc=$?
+  [ "$rc" -eq 0 ] || fail "Bash 3.2 fm_exec_timed failed without BASHPID (rc=$rc: $out)"
+  pass 'Bash 3.2 fm_exec_timed runs without BASHPID'
+}
+
 test_timed_out_names_exactly_the_bound_statuses() {
   local status verdict
   for status in 124 137 0 1 125 127 143 ''; do
@@ -341,4 +363,5 @@ test_perl_is_preferred_over_timeout
 test_refuses_rather_than_running_unbounded
 test_rejects_malformed_bounds_before_running_anything
 test_gnu_timeout_kills_a_term_ignoring_command_after_the_grace
+test_bash_32_exec_timed_does_not_require_bashpid
 test_timed_out_names_exactly_the_bound_statuses
