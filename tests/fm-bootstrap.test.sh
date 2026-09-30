@@ -1245,7 +1245,63 @@ ROWS
   pass "bootstrap gates resolver fields and additive harnesses on the typed key"
 }
 
+# A configured wiki family is the only owner of this optional local warning.
+# Exercise the actual bootstrap entry point without a network or a real wiki.
+test_wiki_sync_status_diagnostic() {
+  local dir fakebin record out fresh old
+  dir="$TMP_ROOT/wiki-sync-health"
+  mkdir -p "$dir/home/config" "$dir/wiki/routing" "$dir/xdg/wiki-sync"
+  printf '%s\n' manual > "$dir/home/config/backlog-backend"
+  printf '%s\n' "$dir/wiki" > "$dir/home/config/wikis-root"
+  printf '%s\n' '{}' > "$dir/wiki/routing/estate.json"
+  fakebin=$(make_fake_toolchain "$dir")
+  add_real_jq "$fakebin"
+  record="$dir/xdg/wiki-sync/status.json"
+  wiki_bootstrap() {
+    PATH="$fakebin:$BASE_PATH" FM_HOME="$dir/home" FM_ROOT_OVERRIDE="$dir/home" \
+      XDG_STATE_HOME="$dir/xdg" FM_FAKE_TREEHOUSE_LEASE_HELP=1 \
+      FM_BOOTSTRAP_NETWORK="${FM_BOOTSTRAP_NETWORK:-skip}" FM_BOOTSTRAP_DETECT_ONLY=1 \
+      "$ROOT/bin/fm-bootstrap.sh"
+  }
+  out=$(wiki_bootstrap)
+  [ "$out" = 'WIKI_SYNC: status record missing' ] || fail "missing wiki record: $out"
+  out=$(FM_BOOTSTRAP_NETWORK=only wiki_bootstrap)
+  [ -z "$out" ] || fail "network-only bootstrap should not repeat missing record: $out"
+  fresh=$(jq -n 'now | todateiso8601')
+  old=$(jq -n 'now - 1801 | todateiso8601')
+  printf '{"version":1,"finished_at":%s,"mode":"auto","exit":0,"pushed":[],"pulled":[],"needs_human":[],"push_blocked":[]}\n' "$fresh" > "$record"
+  out=$(wiki_bootstrap)
+  [ -z "$out" ] || fail "healthy wiki sync should be silent: $out"
+  out=$(FM_BOOTSTRAP_NETWORK=only wiki_bootstrap)
+  [ -z "$out" ] || fail "wiki sync warning should be local-only: $out"
+  printf '{"version":1,"finished_at":%s,"mode":"auto","exit":0,"pushed":[],"pulled":[],"needs_human":[],"push_blocked":[]}\n' "$old" > "$record"
+  out=$(wiki_bootstrap)
+  [ "$out" = 'WIKI_SYNC: status older than two sync intervals' ] || fail "stale wiki sync: $out"
+  out=$(FM_WIKI_SYNC_INTERVAL_SECONDS=1800 wiki_bootstrap)
+  [ -z "$out" ] || fail "custom interval should keep record fresh: $out"
+  printf '{"version":1,"finished_at":%s,"mode":"auto","exit":2,"pushed":[],"pulled":[],"needs_human":[],"push_blocked":[]}\n' "$fresh" > "$record"
+  out=$(wiki_bootstrap)
+  [ "$out" = 'WIKI_SYNC: sync failed (exit 2)' ] || fail "failed wiki sync: $out"
+  printf '{"version":1,"finished_at":%s,"mode":"auto","exit":0,"pushed":[],"pulled":[],"needs_human":["TwitchWiki: fetch failed"],"push_blocked":[]}\n' "$fresh" > "$record"
+  out=$(wiki_bootstrap)
+  [ "$out" = 'WIKI_SYNC: needs human: TwitchWiki' ] || fail "human intervention: $out"
+  printf '{"version":1,"finished_at":%s,"mode":"auto","exit":0,"pushed":[],"pulled":[],"needs_human":[],"push_blocked":["BrandingWiki: bad marker"]}\n' "$fresh" > "$record"
+  out=$(wiki_bootstrap)
+  [ "$out" = 'WIKI_SYNC: push blocked: BrandingWiki' ] || fail "blocked wiki push: $out"
+  printf '{"version":1,"finished_at":%s,"mode":"auto","exit":1,"pushed":[],"pulled":[],"needs_human":["TwitchWiki: fetch failed"],"push_blocked":["BrandingWiki: bad marker"]}\n' "$fresh" > "$record"
+  out=$(wiki_bootstrap)
+  [ "$out" = 'WIKI_SYNC: push blocked: BrandingWiki; needs human: TwitchWiki' ] || fail "both vault findings: $out"
+  printf '{"version":1' > "$record"
+  out=$(wiki_bootstrap)
+  [ "$out" = 'WIKI_SYNC: invalid status record' ] || fail "partial wiki record: $out"
+  rm -f "$dir/wiki/routing/estate.json"
+  out=$(wiki_bootstrap)
+  [ -z "$out" ] || fail "no configured wiki family should stay silent: $out"
+  pass "bootstrap reads local wiki sync health only for configured wiki families"
+}
+
 test_bootstrap_reporting
+test_wiki_sync_status_diagnostic
 test_no_mistakes_min_version
 test_gh_axi_min_version
 test_lavish_axi_min_version
