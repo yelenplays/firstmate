@@ -1,0 +1,66 @@
+$ bash bin/fm-lab-home.sh create /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/.timeout-live.lb1ea6ne/lab
+{"stdout": "/home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/.timeout-live.lb1ea6ne/lab\n", "stderr": "", "status": 0, "elapsed_s": 0.007}
+
+SCENARIO: Real backlog mutation/list through bounded consumer with BASHPID absent
+$ bash bin/fm-tasks-axi.sh add timeout-proof Portable bounded task --kind ship --repo timeout-lab
+{"stdout": "ok: added timeout-proof (ship, repo timeout-lab) -> Queued\ntask:\n  id: timeout-proof\n  title: Portable bounded task\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: ship\n  repo: timeout-lab\n  priority: \"-\"\n  created: 2026-09-30\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"\"\nhelp[2]:\n  - Run `tasks-axi start timeout-proof` to move it to in flight\n  - Run `tasks-axi block timeout-proof --by <other>` to record a dependency\n", "stderr": "", "status": 0, "elapsed_s": 0.063}
+$ bash -u -c unset BASHPID
+. "$1/bin/fm-tasks-axi-lib.sh"
+. "$1/bin/fm-backlog-transition-lib.sh"
+fm_backlog_row_list "$2/data"
+fm_backlog_start "$2/data" timeout-proof || exit $?
+fm_backlog_row_list "$2/data" --state in_flight
+ _ /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7 /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/.timeout-live.lb1ea6ne/lab
+{"stdout": "count: 1\ntasks[1]{id,state,kind,repo,title}:\n  timeout-proof,queued,ship,timeout-lab,Portable bounded task\nhelp[2]:\n  - Run `tasks-axi show <id> --file=/home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/.timeout-live.lb1ea6ne/lab/data/backlog.md` for full notes on a task\n  - Run `tasks-axi ready --file=/home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/.timeout-live.lb1ea6ne/lab/data/backlog.md` to see unblocked queued work\ncount: 1\ntasks[1]{id,state,kind,repo,title}:\n  timeout-proof,in_flight,ship,timeout-lab,Portable bounded task\nhelp[1]:\n  - Run `tasks-axi show <id> --file=/home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/.timeout-live.lb1ea6ne/lab/data/backlog.md` for full notes on a task\n", "stderr": "", "status": 0, "elapsed_s": 0.263}
+$ bash bin/fm-tasks-axi.sh show timeout-proof --full
+{"stdout": "task:\n  id: timeout-proof\n  title: Portable bounded task\n  state: in_flight\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: ship\n  repo: timeout-lab\n  priority: \"-\"\n  created: 2026-09-30\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"\"\n", "stderr": "", "status": 0, "elapsed_s": 0.063}
+
+SCENARIO: Missing BASHPID preserves output, status, and exec identity
+$ bash -u -c . "$1"
+probe() {
+  printf '%s' "$BASHPID" > "$2"
+  unset BASHPID
+  fm_exec_timed 5 1 bash -c 'printf "command_parent=%s\n" "$PPID"; echo portable-stderr >&2; exit 7'
+}
+case "$3" in direct) probe "$@";; subshell) (probe "$@");; esac
+ _ /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/bin/fm-timeout-lib.sh /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/.timeout-live.lb1ea6ne/direct-caller direct
+{"stdout": "command_parent=3258150\n", "stderr": "portable-stderr\n", "status": 7, "elapsed_s": 0.061}
+direct: original caller pid=3258150; command_parent=3258150
+$ bash -u -c . "$1"
+probe() {
+  printf '%s' "$BASHPID" > "$2"
+  unset BASHPID
+  fm_exec_timed 5 1 bash -c 'printf "command_parent=%s\n" "$PPID"; echo portable-stderr >&2; exit 7'
+}
+case "$3" in direct) probe "$@";; subshell) (probe "$@");; esac
+ _ /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/bin/fm-timeout-lib.sh /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/.timeout-live.lb1ea6ne/subshell-caller subshell
+{"stdout": "command_parent=3258182\n", "stderr": "portable-stderr\n", "status": 7, "elapsed_s": 0.073}
+subshell: original caller pid=3258182; command_parent=3258182
+
+SCENARIO: Missing BASHPID still kills TERM-resistant process group after deadline/grace
+$ bash -u -c unset BASHPID; . "$1"; fm_exec_timed 1 1 bash -c "$2" _ "$3" _ /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/bin/fm-timeout-lib.sh trap '' TERM
+sleep 30 &
+echo "$$ $!" > "$1"
+wait
+ /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/.timeout-live.lb1ea6ne/deadline-pids
+{"stdout": "", "stderr": "", "status": 124, "elapsed_s": 2.016}
+reaped child pid=3258311 status=9
+process pid=3258307 is absent
+process pid=3258311 is absent
+
+SCENARIO: Owner dies before watchdog startup; missing BASHPID must not adopt new parent as owner
+$ bash -u -c . "$1"
+unset BASHPID
+(
+  sleep 0.3
+  fm_exec_timed 30 1 bash -c 'trap "" TERM; echo $$ > "$1"; exec sleep 30' _ "$2"
+) >/dev/null 2>&1 &
+echo "watchdog=$!"
+exit 0
+ _ /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/bin/fm-timeout-lib.sh /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/.timeout-live.lb1ea6ne/startup-child
+{"stdout": "watchdog=3260234\n", "stderr": "", "status": 0, "elapsed_s": 0.004}
+reaped child pid=3260234 status=35072
+process pid=3260234 is absent
+process pid=3260512 is absent
+
+All real-process probes completed; disposable home removed on exit.

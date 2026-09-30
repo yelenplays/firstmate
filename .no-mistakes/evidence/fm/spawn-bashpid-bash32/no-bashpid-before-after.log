@@ -1,0 +1,8 @@
+
+LIBRARY /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/.timeout-regression.DEz8QB/base.sh
+/home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/.timeout-regression.DEz8QB/base.sh: line 227: BASHPID: unbound variable
+exit_status=1
+
+LIBRARY /home/marco/.no-mistakes/worktrees/596146266ea5/01M3S04H65YKP92MK1W93YZZM7/bin/fm-timeout-lib.sh
+bounded-command-started
+exit_status=7
