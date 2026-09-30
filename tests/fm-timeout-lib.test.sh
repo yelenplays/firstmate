@@ -300,6 +300,42 @@ test_gnu_timeout_kills_a_term_ignoring_command_after_the_grace() {
   pass "fm_exec_timed's GNU timeout fallback kills a TERM-ignoring command once the grace has passed"
 }
 
+# Exercise the compatibility branch on modern Bash too: unsetting BASHPID
+# removes its special behavior for this shell, without pretending to run 3.2.
+# Both calling frames must still be replaced, and preserve output and status.
+test_exec_timed_without_bashpid_preserves_exec_and_status() {
+  local dir mode out rc caller parent
+  dir="$TMP_ROOT/no-bashpid"
+  mkdir -p "$dir"
+  for mode in direct subshell; do
+    rc=0
+    out=$(bash -u -c '
+      . "$1/bin/fm-timeout-lib.sh"
+      probe() {
+        printf "%s\n" "$BASHPID" > "$2/caller"
+        unset BASHPID
+        fm_exec_timed 5 1 bash -c '\''
+          printf "%s\n" "$PPID" > "$1/parent"
+          echo portable-stdout
+          echo portable-stderr >&2
+          exit 7
+        '\'' _ "$2"
+      }
+      case "$3" in
+        direct) probe "$@" ;;
+        subshell) ( probe "$@" ) ;;
+      esac
+    ' _ "$ROOT" "$dir" "$mode" 2>&1) || rc=$?
+    [ "$rc" -eq 7 ] || fail "missing BASHPID lost the command status in $mode (rc=$rc: $out)"
+    assert_contains "$out" portable-stdout "missing BASHPID lost stdout in $mode"
+    assert_contains "$out" portable-stderr "missing BASHPID lost stderr in $mode"
+    caller=$(cat "$dir/caller")
+    parent=$(cat "$dir/parent")
+    [ "$caller" = "$parent" ] || fail "missing BASHPID wrapped caller $caller with $parent in $mode"
+  done
+  pass 'fm_exec_timed without BASHPID preserves exec, output and status in direct and subshell calls'
+}
+
 test_bash_32_exec_timed_does_not_require_bashpid() {
   local bash32='' candidate version out rc=0
   for candidate in bash3.2 /bin/bash; do
@@ -363,5 +399,6 @@ test_perl_is_preferred_over_timeout
 test_refuses_rather_than_running_unbounded
 test_rejects_malformed_bounds_before_running_anything
 test_gnu_timeout_kills_a_term_ignoring_command_after_the_grace
+test_exec_timed_without_bashpid_preserves_exec_and_status
 test_bash_32_exec_timed_does_not_require_bashpid
 test_timed_out_names_exactly_the_bound_statuses
