@@ -574,12 +574,12 @@ This is a SCOUT task: the deliverable is a written report, not a PR.
 The worktree is your laboratory - install, run, edit, and make scratch commits freely; all of it is discarded at teardown.
 The durable result directory is \`$DATA/$ID/\` in the Firstmate home and survives worktree cleanup.
 Write \`report.md\` there, not only in the worktree.
-Write \`report.html\`, \`report.pdf\`, and every additional result file explicitly named by the task there as well, or copy each one there before reporting done.
+Write every additional result file explicitly named by the task there as well, including \`report.html\` or \`report.pdf\` only when requested, or copy each one there before reporting done.
 Do not treat an unlisted file in the disposable worktree as a deliverable.
 
 # Rules
 1. Never push to any remote and never open a PR.
-2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.
+2. Stay inside this worktree; the only files you may write outside it are \`report.md\` and the task's explicitly named result files under \`$DATA/$ID/\`, plus the status file below.
 3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
 4. Report status by appending one line:
    \`$STATUS_APPEND\`

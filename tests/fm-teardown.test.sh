@@ -984,6 +984,44 @@ test_local_only_merged_to_local_main_allows() {
   pass "teardown retires execution obligations for ships, scouts, and tasks"
 }
 
+test_scout_teardown_preserves_named_deliverables() {
+  local case_dir file rc
+  case_dir=$(make_case scout-deliverables)
+  write_meta "$case_dir" local-only scout
+  printf '%s\n' manual > "$case_dir/config/backlog-backend"
+  FM_HOME="$case_dir" "$ROOT/bin/fm-brief.sh" task-x1 sample --scout >/dev/null \
+    || fail "scout deliverables: brief generation failed"
+  for file in report.md report.html report.pdf results.csv; do
+    printf 'durable scout output: %s\n' "$file" > "$case_dir/wt/$file"
+    cp "$case_dir/wt/$file" "$case_dir/data/task-x1/$file"
+  done
+  printf '%s\n' scratch > "$case_dir/wt/scratch.txt"
+  FM_HOME="$case_dir" "$ROOT/bin/fm-captain-hold.sh" complete task-x1 --none >/dev/null \
+    || fail "scout deliverables: completion attestation failed"
+  cat > "$case_dir/fakebin/treehouse" <<'SH'
+#!/usr/bin/env bash
+set -eu
+[ "$#" -eq 3 ] && [ "$1" = return ] && [ "$2" = --force ]
+[ "$3" = "$FM_SCOUT_TEST_WORKTREE" ]
+git -C "$3" reset --hard HEAD >/dev/null
+git -C "$3" clean -fdx >/dev/null
+SH
+  rc=0
+  FM_SCOUT_TEST_WORKTREE="$case_dir/wt" run_teardown "$case_dir" \
+    > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  [ "$rc" -eq 0 ] \
+    || fail "scout deliverables: teardown failed: $(<"$case_dir/stderr")"
+  assert_absent "$case_dir/state/task-x1.meta" "scout deliverables: teardown retained runtime metadata"
+  assert_absent "$case_dir/wt/scratch.txt" "scout deliverables: cleanup left scratch output behind"
+  for file in report.md report.html report.pdf results.csv; do
+    assert_absent "$case_dir/wt/$file" "scout deliverables: cleanup left $file in the worktree"
+    assert_present "$case_dir/data/task-x1/$file" "scout deliverables: cleanup deleted durable $file"
+    [ "$(<"$case_dir/data/task-x1/$file")" = "durable scout output: $file" ] \
+      || fail "scout deliverables: cleanup changed durable $file"
+  done
+  pass "scout teardown discards scratch output and preserves named durable deliverables"
+}
+
 test_no_mistakes_origin_remote_allows() {
   local case_dir rc
   case_dir=$(make_case nm-origin)
@@ -4402,6 +4440,11 @@ test_retained_sources_still_reach_the_ordinary_refusal() {
     "retained-sources: the ordinary refusal was replaced"
   pass "present required sources still reach the ordinary teardown refusal"
 }
+
+test_scout_teardown_preserves_named_deliverables
+if [ "${1:-}" = --scout-deliverables ]; then
+  exit 0
+fi
 
 test_missing_startup_source_refuses_before_cleanup
 test_unreadable_startup_source_refuses_before_cleanup
