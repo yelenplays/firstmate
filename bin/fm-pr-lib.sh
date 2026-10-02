@@ -95,6 +95,109 @@ FM_PR_RETIRE_RECEIPT_IDENTITY=
 FM_PR_RECORD_STATE=
 FM_PR_RECORD_MERGED=
 FM_PR_POLL_RETIREMENT_REJECTED=
+FM_PR_LIB_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd) || FM_PR_LIB_ROOT=
+
+# GitHub account per owner.
+# The optional captain-private config/gh-account-by-owner maps a GitHub owner
+# to the gh account whose token runs every gh call addressed to that owner;
+# docs/configuration.md "GitHub account per owner" owns the format.
+# fm_gh_run derives the owner from the call's own arguments, and
+# fm_gh_owner_run takes it explicitly. Both set GH_TOKEN only in the
+# environment of that one command, never in an argument, file, or log. With no
+# file or no matching line the command runs exactly as before; a mapped owner
+# whose account has no token, or an unreadable or malformed file, refuses with
+# an "fm-gh-account:" error rather than running under another account.
+
+fm_gh_account_map_file() {
+  printf '%s\n' "${FM_CONFIG_OVERRIDE:-${FM_HOME:-$FM_PR_LIB_ROOT}/config}/gh-account-by-owner"
+}
+
+fm_gh_owner_from_args() {  # <command-args...> -> lowercase owner of the first GitHub reference
+  local arg ref owner want_repo=0
+  for arg in "$@"; do
+    if [ "$want_repo" -eq 1 ]; then
+      want_repo=0
+      ref=${arg#https://github.com/}
+    else
+      case "$arg" in
+        -R|--repo) want_repo=1; continue ;;
+        --repo=*) ref=${arg#--repo=}; ref=${ref#https://github.com/} ;;
+        https://github.com/*) ref=${arg#https://github.com/} ;;
+        /repos/*) ref=${arg#/repos/} ;;
+        repos/*) ref=${arg#repos/} ;;
+        git@github.com:*) ref=${arg#git@github.com:} ;;
+        *) continue ;;
+      esac
+    fi
+    owner=${ref%%/*}
+    [ -n "$owner" ] && [ "$owner" != "$ref" ] || continue
+    printf '%s\n' "$owner" | tr '[:upper:]' '[:lower:]'
+    return 0
+  done
+  return 1
+}
+
+fm_gh_account_for_owner() {  # <owner> -> account; 0 mapped, 1 unmapped, 2 unusable map
+  local owner file line key account extra found=''
+  owner=$(printf '%s\n' "$1" | tr '[:upper:]' '[:lower:]')
+  file=$(fm_gh_account_map_file)
+  [ -e "$file" ] || [ -L "$file" ] || return 1
+  if [ ! -f "$file" ] || [ ! -r "$file" ]; then
+    echo "fm-gh-account: $file is not a readable file; no gh call runs until it is fixed or removed" >&2
+    return 2
+  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    line=${line%%#*}
+    key='' account='' extra=''
+    read -r key account extra <<LINE || true
+$line
+LINE
+    [ -n "$key" ] || continue
+    if [ -z "$account" ] || [ -n "$extra" ]; then
+      echo "fm-gh-account: malformed line in $file (expected 'owner account'): $line" >&2
+      return 2
+    fi
+    case "$key$account" in
+      *[!A-Za-z0-9-]*)
+        echo "fm-gh-account: invalid owner or account name in $file: $line" >&2
+        return 2
+        ;;
+    esac
+    [ "$(printf '%s\n' "$key" | tr '[:upper:]' '[:lower:]')" = "$owner" ] || continue
+    if [ -n "$found" ] && [ "$found" != "$account" ]; then
+      echo "fm-gh-account: owner $owner is mapped to both $found and $account in $file" >&2
+      return 2
+    fi
+    found=$account
+  done < "$file"
+  [ -n "$found" ] || return 1
+  printf '%s\n' "$found"
+}
+
+fm_gh_owner_run() {  # <owner> <command> [args...]
+  local owner=$1 account token rc=0
+  shift
+  [ -n "$owner" ] || { "$@"; return; }
+  account=$(fm_gh_account_for_owner "$owner") || rc=$?
+  case "$rc" in
+    0) ;;
+    1) "$@"; return ;;
+    *) return 1 ;;
+  esac
+  # An ambient token would answer for every --user, so the lookup ignores it.
+  if ! token=$(env -u GH_TOKEN -u GITHUB_TOKEN gh auth token --hostname github.com --user "$account" 2>/dev/null) \
+    || [ -z "$token" ]; then
+    echo "fm-gh-account: GitHub owner $owner is mapped to account $account, but gh has no token for $account on github.com; log $account in with 'gh auth login --hostname github.com'" >&2
+    return 1
+  fi
+  GH_TOKEN=$token "$@"
+}
+
+fm_gh_run() {  # <command> [args...]; the owner comes from the first GitHub reference in the arguments
+  local owner
+  owner=$(fm_gh_owner_from_args "$@") || owner=
+  fm_gh_owner_run "$owner" "$@"
+}
 
 fm_task_id_path_safe() {
   local id=${1-}
@@ -918,7 +1021,7 @@ fm_pr_github_read_record_with_gh() {  # <owner> <repo> <number>
   FM_PR_RECORD_MERGED=
 
   # shellcheck disable=SC2016  # GraphQL variables are literal query syntax.
-  if ! fields=$(gh api graphql \
+  if ! fields=$(fm_gh_owner_run "$owner" gh api graphql \
     -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state merged}}}' \
     -F "owner=$owner" -F "repo=$repo" -F "number=$number" \
     --jq '.data.repository.pullRequest | "state=" + (.state // ""), "merged=" + (.merged | tostring)' \
@@ -953,7 +1056,7 @@ fm_pr_github_read_record_with_gh_axi() {  # <owner> <repo> <number>
   local owner=$1 repo=$2 number=$3 output state
   FM_PR_RECORD_STATE=
   FM_PR_RECORD_MERGED=
-  if ! output=$(gh-axi pr view "$number" --repo "$owner/$repo" 2>/dev/null); then
+  if ! output=$(fm_gh_owner_run "$owner" gh-axi pr view "$number" --repo "$owner/$repo" 2>/dev/null); then
     return 1
   fi
   if ! state=$(printf '%s\n' "$output" | awk '

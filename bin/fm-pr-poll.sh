@@ -65,7 +65,17 @@ case "$provider" in
       .|..|*[!A-Za-z0-9._-]*) exit 0 ;;
     esac
     [ "$url" = "https://github.com/$owner/$repo/pull/$number" ] || exit 0
-    state=$(gh pr view "$url" --json state -q .state 2>/dev/null) || exit 0
+    # The validated watcher run uses the shared per-owner account helper; a
+    # copy without it next to it stays silent if an account map exists.
+    lib="${BASH_SOURCE[0]%/*}/fm-pr-lib.sh"
+    if [ -f "$lib" ]; then
+      # shellcheck source=bin/fm-pr-lib.sh
+      . "$lib" || exit 0
+      state=$(fm_gh_owner_run "$owner" gh pr view "$url" --json state -q .state 2>/dev/null) || exit 0
+    else
+      [ ! -e "${FM_CONFIG_OVERRIDE:-${FM_HOME:-.}/config}/gh-account-by-owner" ] || exit 0
+      state=$(gh pr view "$url" --json state -q .state 2>/dev/null) || exit 0
+    fi
     [ "$state" = MERGED ] && printf '%s\n' merged
     ;;
   gitlab)
