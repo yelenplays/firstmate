@@ -1422,9 +1422,9 @@ For a team project's PR, pass `--team` to `decide <PR URL>`; for a team project'
 The [`ship-landing`](../.agents/skills/ship-landing/SKILL.md) skill owns when firstmate runs it and records its own decision next to it.
 Every evidence field is filled from a verified fact, or says `MISSING`, or says `N/A:` with the facts behind it, and a head or base that moves during collection refuses the decision.
 Review evidence, AI families and exact-head confirmations come from the cross-family review tool; the gate keeps no second copy of them.
-Data boundary: per the captain's decision for this gate, its evidence, including PR text and commit subjects, goes to Jev for every project except the private vaults.
+Data boundary: per the captain's decision for this gate, its evidence, including PR text and commit subjects, goes to Jev only for eligible projects; private vaults and other targets excluded by the privacy filter are never sent.
 That is a scoped exception to the boundary under "Shadow done verifier" above, which still holds for every other Jev feature.
-The privacy filter runs before any evidence is printed or sent: a `cloud: nein` or `cloud: nur-digest` card, a vault without a card, a change touching a `private: true` page, or routing cards that cannot be read keep the merge out of Jev, and it merges as today.
+The privacy filter runs before any evidence is printed or sent: a `cloud: nein` or `cloud: nur-digest` card, any card with `modus: pointer` (pointer vaults load no content), a vault without a card, a change touching a `private: true` page, or routing cards that cannot be read keep the merge out of Jev, and it merges as today.
 Card fields are read at decision time; there is no hardcoded vault list.
 Free text is secret-stripped by `fm_jev_compact_state` and size-capped before it is sent.
 `state/jev-merge.jsonl` holds the gate, comparison and outcome records with an input hash and no raw evidence text; disagreements with firstmate and reverted merges become private eval cases.
