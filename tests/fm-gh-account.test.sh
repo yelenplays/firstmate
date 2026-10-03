@@ -111,8 +111,67 @@ after=unset" "token reaches only the one command, for path, --repo and ssh-remot
   pass "the token is scoped to the one call"
 }
 
+test_root_override_resolves_the_account_map() {
+  printf 'SlashpipeCoding Slashpipe\n' > "$HOME_DIR/config/gh-account-by-owner"
+  RUN_STATUS=0
+  : > "$CALLS"
+  RUN_OUT=$(env -u GH_TOKEN -u FM_HOME FM_ROOT_OVERRIDE="$HOME_DIR" PATH="$FAKEBIN:$PATH" \
+    "$SCRIPT" https://github.com/SlashpipeCoding/tool/pull/7 2>&1) || RUN_STATUS=$?
+  assert_equals "$RUN_STATUS" 0 "legacy whole-root mode must still read the pull request: $RUN_OUT"
+  assert_grep "$TOKEN_SLASHPIPE pr view" "$CALLS" "FM_ROOT_OVERRIDE must resolve the account map"
+  pass "the legacy whole-root override resolves the account map"
+}
+
+test_remote_url_forms_select_the_mapped_account() {
+  printf 'SlashpipeCoding Slashpipe\n' > "$HOME_DIR/config/gh-account-by-owner"
+  local form out
+  for form in ssh credentialed scp repo-flag; do
+    case "$form" in
+      ssh) set -- ssh://git@github.com/SlashpipeCoding/tool.git ;;
+      credentialed) set -- https://auth@github.com/SlashpipeCoding/tool ;;
+      scp) set -- git@github.com:SlashpipeCoding/tool.git ;;
+      repo-flag) set -- --repo git@github.com:SlashpipeCoding/tool ;;
+    esac
+    # shellcheck disable=SC2016  # The inner script expands its own variables.
+    out=$(env -u GH_TOKEN FM_HOME="$HOME_DIR" PATH="$FAKEBIN:$PATH" bash -c '
+      . "$1/bin/fm-pr-lib.sh"
+      shift
+      fm_gh_run sh -c "printf \"%s\\n\" \"\$GH_TOKEN\"" "$@"' _ "$ROOT" "$@")
+    assert_equals "$TOKEN_SLASHPIPE" "$out" "$form remote form must run as the mapped account"
+  done
+  pass "ssh, credentialed, scp and --repo remote forms select the mapped account"
+}
+
+test_sidecar_map_path_follows_its_own_home() {
+  printf 'SlashpipeCoding Slashpipe\n' > "$HOME_DIR/config/gh-account-by-owner"
+  local side="$HOME_DIR/state" sidebin="$TMP_ROOT/sidebin" out
+  mkdir -p "$side" "$sidebin"
+  cp "$ROOT/bin/fm-pr-poll.sh" "$side/task-a.check.sh"
+  printf '%s\n%s\n%s\n%s\n%s\n' \
+    github https://github.com/o/r/pull/1 github.com o/r 1 > "$side/task-a.pr-poll"
+  cat > "$sidebin/gh" <<'SH'
+#!/usr/bin/env bash
+case "$1 ${2-}" in
+  'pr view') printf 'MERGED\n' ;;
+  *) printf 'unexpected gh call: %s\n' "$*" >&2; exit 1 ;;
+esac
+SH
+  chmod +x "$sidebin/gh"
+  out=$(cd "$ROOT" && env -u GH_TOKEN -u FM_HOME -u FM_ROOT_OVERRIDE -u FM_CONFIG_OVERRIDE \
+    PATH="$sidebin:$PATH" bash "$side/task-a.check.sh")
+  [ -z "$out" ] || fail "a sidecar beside its home's account map must stay silent: $out"
+  rm -f "$HOME_DIR/config/gh-account-by-owner"
+  out=$(cd "$ROOT" && env -u GH_TOKEN -u FM_HOME -u FM_ROOT_OVERRIDE -u FM_CONFIG_OVERRIDE \
+    PATH="$sidebin:$PATH" bash "$side/task-a.check.sh")
+  [ "$out" = merged ] || fail "a sidecar with no account map must report the merged state: $out"
+  pass "the no-lib sidecar resolves its account map from its own home"
+}
+
 test_absent_map_keeps_the_ambient_account
 test_mapped_owner_uses_its_account_token
 test_missing_token_refuses_without_fallback
 test_malformed_map_refuses
 test_token_stays_inside_the_one_call
+test_root_override_resolves_the_account_map
+test_remote_url_forms_select_the_mapped_account
+test_sidecar_map_path_follows_its_own_home

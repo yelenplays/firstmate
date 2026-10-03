@@ -109,7 +109,7 @@ FM_PR_LIB_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd) || F
 # an "fm-gh-account:" error rather than running under another account.
 
 fm_gh_account_map_file() {
-  printf '%s\n' "${FM_CONFIG_OVERRIDE:-${FM_HOME:-$FM_PR_LIB_ROOT}/config}/gh-account-by-owner"
+  printf '%s\n' "${FM_CONFIG_OVERRIDE:-${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_PR_LIB_ROOT}}/config}/gh-account-by-owner"
 }
 
 fm_gh_owner_from_args() {  # <command-args...> -> lowercase owner of the first GitHub reference
@@ -117,18 +117,35 @@ fm_gh_owner_from_args() {  # <command-args...> -> lowercase owner of the first G
   for arg in "$@"; do
     if [ "$want_repo" -eq 1 ]; then
       want_repo=0
-      ref=${arg#https://github.com/}
+      ref=$arg
     else
       case "$arg" in
         -R|--repo) want_repo=1; continue ;;
-        --repo=*) ref=${arg#--repo=}; ref=${ref#https://github.com/} ;;
-        https://github.com/*) ref=${arg#https://github.com/} ;;
+        --repo=*) ref=${arg#--repo=} ;;
+        http://*|https://*|ssh://*|git://*|git@*:*) ref=$arg ;;
         /repos/*) ref=${arg#/repos/} ;;
         repos/*) ref=${arg#repos/} ;;
-        git@github.com:*) ref=${arg#git@github.com:} ;;
         *) continue ;;
       esac
     fi
+    # A remote URL carries a scheme and maybe userinfo; only a github.com
+    # address is a GitHub reference, while a bare owner/repo passes through.
+    case "$ref" in
+      *://*)
+        ref=${ref#*://}
+        case "$ref" in *@*) ref=${ref##*@} ;; esac
+        case "$ref" in
+          github.com/*) ref=${ref#github.com/} ;;
+          *) continue ;;
+        esac
+        ;;
+      git@*)
+        case "$ref" in
+          git@github.com:*) ref=${ref#git@github.com:} ;;
+          *) continue ;;
+        esac
+        ;;
+    esac
     owner=${ref%%/*}
     [ -n "$owner" ] && [ "$owner" != "$ref" ] || continue
     printf '%s\n' "$owner" | tr '[:upper:]' '[:lower:]'

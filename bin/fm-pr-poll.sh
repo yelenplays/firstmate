@@ -73,7 +73,8 @@ case "$provider" in
       . "$lib" || exit 0
       state=$(fm_gh_owner_run "$owner" gh pr view "$url" --json state -q .state 2>/dev/null) || exit 0
     else
-      [ ! -e "${FM_CONFIG_OVERRIDE:-${FM_HOME:-.}/config}/gh-account-by-owner" ] || exit 0
+      map_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd) || exit 0
+      [ ! -e "${FM_CONFIG_OVERRIDE:-${FM_HOME:-${FM_ROOT_OVERRIDE:-$map_root}}/config}/gh-account-by-owner" ] || exit 0
       state=$(gh pr view "$url" --json state -q .state 2>/dev/null) || exit 0
     fi
     [ "$state" = MERGED ] && printf '%s\n' merged
