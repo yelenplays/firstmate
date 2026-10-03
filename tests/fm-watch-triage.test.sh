@@ -566,6 +566,7 @@ test_unrecognized_status_prefix_is_visible() {
   status_is_captain_relevant 'merged' || fail "legacy merged free-text stopped being captain-relevant"
 
   (
+    # shellcheck disable=SC2030 # This override is intentionally scoped to the subshell.
     export FM_CLASSIFY_PAUSED_VERB=holding
     printf 'holding: for the upstream release\n' > "$state/renamed-pause.status"
     status_is_paused "$(last_status_line "$state/renamed-pause.status")" \

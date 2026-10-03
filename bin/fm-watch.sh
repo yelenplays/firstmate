@@ -1668,8 +1668,8 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
         wedge_jev_mark_warned "$task" "$STATE" "$WEDGE_JEV_CLASS" 1
         rm -f "$since_file"
         clear_write_tracking "$(fm_watch_state_key "$win")"
-        wake "$reason"
         [ -z "$wedge_lock" ] || fm_lock_release "$wedge_lock"
+        wake "$reason"
       fi
       ;;
   esac

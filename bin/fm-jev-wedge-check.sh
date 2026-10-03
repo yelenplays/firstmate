@@ -190,6 +190,7 @@ if [ -n "$mark_class" ] || { [ "$want_class" -eq 1 ] && [ -n "$task_id" ] && [ -
     if [ "$lock_held" -eq 1 ]; then
       [ -d "$wedge_lock" ] || fail "the caller's wedge lock is not held"
     else
+      # shellcheck source=bin/fm-wake-lib.sh
       FM_STATE_OVERRIDE="$task_state_dir" . "$SCRIPT_DIR/fm-wake-lib.sh"
       if [ -n "$mark_class" ]; then
         fm_lock_acquire_wait "$wedge_lock"
