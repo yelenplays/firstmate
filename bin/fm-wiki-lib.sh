@@ -303,7 +303,7 @@ fm_wiki_change_private() {  # <config-dir> <project-dir> <project-name> <base> <
     FM_WIKI_PRIVATE_REASON="vault $name: its card has cloud: ${cloud:-unset}"
     return 0
   fi
-  if ! files=$(git -C "$proj" diff --name-only "$base" "$head" 2>/dev/null); then
+  if ! files=$(git -C "$proj" diff --name-only --no-renames "$base" "$head" 2>/dev/null); then
     FM_WIKI_PRIVATE_REASON="vault $name: the changed pages between $base and $head cannot be listed"
     return 0
   fi

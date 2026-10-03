@@ -221,6 +221,10 @@ test_collect_refuses_reports_not_bound_to_the_head() {
   other=$(git -C "$PROJ" rev-parse main)
   add_reviewer "$rid" pi openai-codex/gpt-6-luna openai
   request "$rid" review
+  printf 'confirm %s\n' "$HEAD_SHA" > "$HOME_DIR/data/$rid/report.md"
+  out=$(collect "$rid") || fail "collect failed: $out"
+  assert_contains "$out" "accepted=no" "a confirmation-only report was accepted as a review"
+  assert_contains "$out" "head declaration and an explicit Verdict" "the missing review contract is named"
   printf 'reviewed head %s\nVerdict: PASS\n' "$other" > "$HOME_DIR/data/$rid/report.md"
   out=$(collect "$rid") || fail "collect failed: $out"
   assert_contains "$out" "accepted=no" "a review of another commit was accepted"
@@ -236,7 +240,7 @@ test_collect_refuses_reports_not_bound_to_the_head() {
   out=$(collect "$rid") || fail "collect failed: $out"
   assert_contains "$out" "accepted=no" "a same-family reviewer was accepted"
   assert_contains "$out" "not provably different" "the family clash is named"
-  [ "$(wc -l < "$HOME_DIR/data/$TASK/cross-review.jsonl" | tr -d ' ')" = 4 ] || fail "every collect must append one record"
+  [ "$(wc -l < "$HOME_DIR/data/$TASK/cross-review.jsonl" | tr -d ' ')" = 5 ] || fail "every collect must append one record"
   out=$(xr status "$TASK" <&-) || fail "status failed: $out"
   assert_contains "$out" "independent_review=missing" "the latest record decides, and it was refused"
   pass "collect accepts a report only when it declares exactly the requested head from another family"
@@ -320,6 +324,33 @@ vault_case() {
   printf '%s\n' "$wikis" > "$HOME_DIR/config/wikis-root"
 }
 
+test_private_page_rename_stays_private() {
+  local out wikis
+  new_case vault-private-rename direct-PR claude claude-opus-5-5 anthropic
+  git -C "$PROJ" checkout -q main
+  mkdir -p "$PROJ/_meta"
+  printf '#!/bin/sh\n' > "$PROJ/_meta/pruefe.sh"
+  printf -- '---\nprivate: true\n---\nsecret\n' > "$PROJ/secret.md"
+  git -C "$PROJ" add _meta/pruefe.sh secret.md
+  git -C "$PROJ" commit -qm 'add private page and vault scaffold'
+  git -C "$PROJ" checkout -q "fm/$TASK"
+  git -C "$PROJ" reset --hard -q main
+  git -C "$PROJ" mv secret.md public.md
+  printf -- '---\ntitle: public\n---\npublic\n' > "$PROJ/public.md"
+  git -C "$PROJ" add public.md
+  git -C "$PROJ" commit -qm 'rename private page as public'
+  HEAD_SHA=$(git -C "$PROJ" rev-parse HEAD)
+  git -C "$PROJ" checkout -q main
+  wikis="$CASE/wikis"
+  mkdir -p "$wikis/routing"
+  printf '{"vaults":[{"wiki":"proj","id":"proj","cloud":"ja"}]}\n' > "$wikis/routing/estate.json"
+  printf '%s\n' "$wikis" > "$HOME_DIR/config/wikis-root"
+  out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
+  assert_equals none "$(field "$out" action)" "renaming a private page must stay on the private path"
+  assert_contains "$(field "$out" reason)" "secret.md" "the old private path is named"
+  pass "renaming a private page cannot expose it to a reviewer"
+}
+
 test_private_vault_change_gets_no_new_reviewer() {
   local out
   new_case vault-private-card direct-PR claude claude-opus-5-5 anthropic
@@ -372,5 +403,6 @@ test_confirm_is_bound_to_the_exact_sha
 test_reviewer_chain_skips_the_builder_family
 test_unknown_builder_family_escalates
 test_record_without_family_resolves_from_harness
+test_private_page_rename_stays_private
 test_private_vault_change_gets_no_new_reviewer
 test_usage_errors

@@ -669,7 +669,7 @@ verdict_word() {  # <word...>
 
 cmd_collect() {
   local rid req r_task r_head r_kind rmeta r_fam r_fam_src report lines candidates cand_count
-  local verdicts=() verdict confirm_line=0 accepted=false reason='' l w file sum
+  local verdicts=() verdict confirm_line=0 review_line=0 explicit_verdict=0 accepted=false reason='' l w file sum
   [ "$#" -eq 2 ] || usage_die "usage: fm-cross-review.sh collect <task-id> <reviewer-id>"
   load_task "$1"
   rid=$2
@@ -705,7 +705,11 @@ cmd_collect() {
       [ "$(printf '%s' "$l" | awk '{ print tolower($2) }')" != "$r_head" ] || confirm_line=1
       continue
     fi
+    if printf '%s\n' "$l" | grep -Eiq '^(reviewed[[:space:]]+)?(head|candidate([_ ]sha)?|sha|commit)[[:space:]]*[:=]?[[:space:]]*[0-9a-f]{40}\.?$'; then
+      review_line=1
+    fi
     if printf '%s\n' "$l" | grep -Eiq '^verdict[[:space:]]*[:=-]'; then
+      explicit_verdict=1
       w=$(printf '%s\n' "$l" | sed -E 's/^[Vv][Ee][Rr][Dd][Ii][Cc][Tt][[:space:]]*[:=-][[:space:]]*//' | awk '{ print $1 }' | tr -d '.,;:()')
       verdicts+=("$(verdict_word "$w")")
     fi
@@ -727,6 +731,8 @@ EOF
     reason="the report declares $candidates, not the requested head $r_head"
   elif ! fm_ai_family_disjoint "$B_FAM" "$r_fam"; then
     reason="the reviewer family $r_fam is not provably different from the builder's $B_FAM"
+  elif [ "$r_kind" = review ] && { [ "$review_line" != 1 ] || [ "$explicit_verdict" != 1 ]; }; then
+    reason="a review needs a head declaration and an explicit Verdict line"
   elif [ "$r_kind" = confirm ] && [ "$confirm_line" != 1 ] && [ "$verdict" = failure ]; then
     reason="the reviewer did not confirm $r_head: its verdict is $verdict"
   elif [ "$r_kind" = confirm ] && [ "$confirm_line" != 1 ]; then
