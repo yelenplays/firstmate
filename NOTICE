@@ -1,0 +1,11 @@
+Firstmate is licensed under the MIT License (see LICENSE).
+
+It includes material from third parties, which keeps its own licence:
+
+- agent-stack (https://github.com/korallis/agent-stack), Apache License 2.0,
+  Copyright 2026 The agent-stack authors. bin/fm-credguard-read.mjs and
+  bin/fm-credguard-install.mjs are adapted from its system/credguard-read-hook
+  and system/credguard-read-install (commit e6189320c266), and the deny and allow
+  tables in tests/fm-credguard-read.test.sh are adapted from its
+  test/credguard-read.test.js. Each adapted file states its changes in its
+  header. The licence text is in LICENSES/Apache-2.0.

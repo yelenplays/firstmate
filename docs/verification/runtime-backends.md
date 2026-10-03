@@ -2486,3 +2486,32 @@ A throwaway scout was spawned through `bin/fm-spawn.sh --scout --harness omp --m
 6. `bin/fm-control.sh <id> exit` stopped the agent and `bin/fm-teardown.sh` returned the worktree and closed the item.
 
 `FM_OMP_LIVE_E2E=1 tests/fm-omp-primary-live-e2e.test.sh` refreshes the primary evidence; the worker path above is refreshed by repeating the scout dispatch after any omp upgrade.
+
+## Credential read guard
+
+`docs/credguard.md` owns the contract; this records the live evidence for each harness's hook payload and refusal path.
+Each harness got one real prompt asking it to `cat` and read a fake `.env`, with the guard wired for that invocation only, and had to show the guard's refusal without the fake value.
+
+```sh
+FM_CREDGUARD_LIVE=1 FM_CREDGUARD_LIVE_OMP_MODEL=gpt-6-astra bin/fm-test-run.sh tests/fm-credguard-live-e2e.test.sh
+```
+
+Output of the 2026-10-03 run on macOS (node v26.10.0); omp ran in a second invocation with the model override because its default model had no quota:
+
+```text
+ok - claude (2.1.288 (Claude Code)): cat of a credential file refused, value never shown
+ok - codex (codex-cli 0.160.0): cat of a credential file refused, value never shown
+ok - devin (devin 3000.11.3 (9c803229faa4)): cat of a credential file refused, value never shown
+ok - pi (0.87.1): cat of a credential file refused, value never shown
+ok - omp (omp/18.2.8): cat of a credential file refused, value never shown
+```
+
+Payload shapes observed with a logging hook on the same versions:
+
+- Claude: `{tool_name: Bash|Read|Grep, tool_input: {command | file_path | pattern, path, output_mode}, cwd}`; the deny is a stdout `permissionDecision: deny` object, and both `Bash` and `Read` refusals reached the model.
+- Codex: `tool_name: Bash` with `tool_input.command`; exit 2 with the reason on stderr blocks, shown as `Command blocked by PreToolUse hook`.
+- Devin: `tool_name` `exec` (`command`), `read` (`file_path`), `grep` (`pattern`, `path`), with no `cwd` field; exit 2 shows as `Tool rejected`, for both `exec` and `read`.
+- Pi and omp: the `tool_call` event carries `toolName` `bash` or `read`, `input.command` or a relative `input.path`, and `ctx.cwd`; returning `{block: true, reason}` blocks.
+
+The installer's Codex `trusted_hash` matched the hash Codex itself recorded for 12 of 13 existing hooks on the same host (`~/.codex/hooks.json` and a project `.codex/hooks.json`), so the algorithm reproduces Codex's own; the one non-matching record, a PostToolUse hook, was not investigated further.
+Grok 1.0.44 and Kimi 2.0.2 are installed but were not signed in, so their wiring follows their documented hook formats and is not live-verified.

@@ -393,6 +393,10 @@
       "audience": "maintainer-architecture"
     },
     {
+      "path": "docs/credguard.md",
+      "audience": "operator-current"
+    },
+    {
       "path": "docs/cmux-backend.md",
       "audience": "operator-current"
     },
