@@ -488,6 +488,40 @@ test_local_witness_failure_reverts() {
   pass "fm-post-merge: a witness failure on a local landing reverts it with one new commit"
 }
 
+test_post_merge_resumes_durable_local_revert() {
+  local out report revert_sha
+  make_local_world pm-local-durable
+  out=$(pm arm "$W_ID" --witness http://localhost:4321 2>&1) || fail "arm refused a local landing: $out"
+  merge_local --revert "$W_ID" >/dev/null 2>&1 || fail "the simulated interrupted revert failed"
+  revert_sha=$(git -C "$L_PROJ" rev-parse main)
+  report="$TMP_ROOT/pm-local-durable/report.md"
+  printf 'witness-verdict: fail %s feature page is blank\n' "$L_FIX" > "$report"
+  out=$(pm witness-result "$report" "$W_ID" 2>&1) || fail "advance did not resume from the durable local revert: $out"
+  assert_contains "$out" "by $revert_sha" "advance did not use the durable revert marker"
+  assert_equals "$revert_sha" "$(git -C "$L_PROJ" rev-parse main)" "advance created a second revert commit"
+  pass "fm-post-merge: retry resumes from a durable local revert marker"
+}
+
+test_interrupted_local_revert_is_idempotent() {
+  local out report base revert_sha
+  make_local_world pm-local-retry
+  base=$(git -C "$L_PROJ" rev-parse main~1)
+  out=$(pm arm "$W_ID" --witness http://localhost:4321 2>&1) || fail "arm refused a local landing: $out"
+  merge_local --revert "$W_ID" >/dev/null 2>&1 || fail "the simulated interrupted revert failed"
+  revert_sha=$(git -C "$L_PROJ" rev-parse main)
+  grep -v '^local_reverted=' "$W_HOME/state/$W_ID.meta" > "$W_FAKE/meta" \
+    && mv "$W_FAKE/meta" "$W_HOME/state/$W_ID.meta"
+  report="$TMP_ROOT/pm-local-retry/report.md"
+  printf 'witness-verdict: fail %s feature page is blank\n' "$L_FIX" > "$report"
+  out=$(pm witness-result "$report" "$W_ID" 2>&1) || fail "advance did not recover the interrupted local revert: $out"
+  assert_contains "$out" "by $revert_sha" "advance did not report the already-landed revert"
+  assert_equals "$revert_sha" "$(git -C "$L_PROJ" rev-parse main)" "retry created a second revert commit"
+  assert_grep "local_reverted=$revert_sha" "$W_HOME/state/$W_ID.meta" "retry did not durably record the landed revert"
+  assert_absent "$L_PROJ/feature.txt" "retry restored the broken file"
+  assert_equals "$L_FIX" "$(git -C "$L_PROJ" rev-parse main~1)" "retry rewrote the landing history"
+  pass "fm-post-merge: retry records an interrupted local revert without applying it again"
+}
+
 # The local revert refuses whatever the local merge refuses.
 test_local_revert_keeps_every_merge_guard() {
   local out head
@@ -551,4 +585,6 @@ test_witness_result_needs_exactly_one_verdict
 test_arm_refusals_and_rearm
 test_record_from_an_earlier_incarnation_is_ignored
 test_local_witness_failure_reverts
+test_post_merge_resumes_durable_local_revert
+test_interrupted_local_revert_is_idempotent
 test_local_revert_keeps_every_merge_guard

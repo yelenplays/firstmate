@@ -153,6 +153,22 @@ commit_id_valid() {
   [ "${#1}" -eq 40 ] || [ "${#1}" -eq 64 ]
 }
 
+find_recorded_revert() {
+  local commits commit subject body
+  commits=$(git -C "$PROJ" rev-list --reverse "$LANDED_AFTER..$DEFAULT") || return 2
+  while IFS= read -r commit; do
+    [ -n "$commit" ] || continue
+    subject=$(git -C "$PROJ" show -s --format=%s "$commit") || return 2
+    body=$(git -C "$PROJ" show -s --format=%b "$commit") || return 2
+    if [ "$subject" = "Revert local landing of $BRANCH" ] \
+      && [ "$body" = "This reverts $LANDED_BEFORE..$LANDED_AFTER (task $ID)." ]; then
+      printf '%s\n' "$commit"
+      return 0
+    fi
+  done <<< "$commits"
+  return 1
+}
+
 # Rewrite the task meta with <key>=<value> replacing any earlier value. Runs
 # under the meta lock while the control lock is still held, the same
 # control-then-meta order bin/fm-pr-merge.sh uses.
@@ -228,6 +244,20 @@ case "$hold_status" in
     ;;
 esac
 if [ "$REVERT" = 1 ]; then
+  if already_reverted=$(find_recorded_revert); then
+    if ! record_meta_value local_reverted "$already_reverted"; then
+      echo "error: local landing $LANDED was already reverted by $already_reverted, but local_reverted= could not be recorded in the task meta" >&2
+      exit 1
+    fi
+    echo "recovered local revert of $LANDED on local $DEFAULT in $PROJ with $already_reverted"
+    exit 0
+  else
+    search_status=$?
+    if [ "$search_status" -ne 1 ]; then
+      echo "error: could not inspect local $DEFAULT history for an existing revert of $LANDED in $PROJ; refusing to revert again" >&2
+      exit 1
+    fi
+  fi
   revert_status=0
   git -C "$PROJ" revert --no-commit "$LANDED_BEFORE..$LANDED_AFTER" >/dev/null 2>&1 || revert_status=$?
   if [ "$revert_status" -eq 0 ]; then
@@ -246,7 +276,8 @@ if [ "$REVERT" = 1 ]; then
   fi
   after=$(git -C "$PROJ" rev-parse "$DEFAULT")
   if ! record_meta_value local_reverted "$after"; then
-    echo "actionable: reverted $LANDED on local $DEFAULT in $PROJ with $after, but local_reverted= could not be recorded in the task meta" >&2
+    echo "error: reverted $LANDED on local $DEFAULT in $PROJ with $after, but local_reverted= could not be recorded in the task meta" >&2
+    exit 1
   fi
   fm_lock_release "$MERGE_CONTROL_LOCK" || true
   MERGE_CONTROL_LOCK=
