@@ -1218,7 +1218,7 @@ _oldest_line_age() {  # <buf> -> seconds since the oldest buffered item first ar
 #  3) heartbeat scan: every HEARTBEAT_SCAN_SECS, grep state/*.status for a
 #     captain-relevant line the per-wake classifier missed and escalate it.
 housekeeping() {  # <state>
-  local state=$1 now due f key task win marker age last max_defer oldest pause_secs marker_epoch until bounded_until pause_reason run_id jsf jts jage
+  local state=$1 now due f key task win marker age last max_defer oldest pause_secs marker_epoch until bounded_until pause_reason run_id jsf jts jage wedge_lock
   now=$(_now)
   migrate_watcher_pause_markers "$state"
 
@@ -1283,11 +1283,19 @@ housekeeping() {  # <state>
         # failure.
         WEDGE_JEV_VERDICT=
         WEDGE_JEV_CLASS=
+        wedge_lock=
+        if [ -n "${FM_STALE_TAIL40:-}" ]; then
+          wedge_lock=$(wedge_jev_lock_path "$task" "$state") || continue
+          if ! fm_lock_try_acquire "$wedge_lock"; then
+            log "stale wedge deferred: another wedge check owns task $task"
+            continue
+          fi
+        fi
         if run_id=$(crew_nm_run_progressing "$task" "$state" "$marker"); then
           rm -f "$state/.subsuper-jevsupp-$key"
           _now > "$marker"
           log "stale deferral: $win (its no-mistakes run $run_id is still executing, idle ${age}s)"
-        elif [ -n "${FM_STALE_TAIL40:-}" ] && wedge_jev_consult "$FM_STALE_TAIL40" "$task" "$state" "$age" \
+        elif [ -n "${FM_STALE_TAIL40:-}" ] && wedge_jev_consult "$FM_STALE_TAIL40" "$task" "$state" "$age" 1 \
           && [ "$WEDGE_JEV_VERDICT" = held ]; then
           # Same task, same stuck class, already warned inside the helper's
           # warning window: re-arm instead of repeating the warning.
@@ -1317,8 +1325,10 @@ housekeeping() {  # <state>
           fi
         elif escalate_add "$state" "stale persisted ${age}s (possible wedge${WEDGE_JEV_CLASS:+, Jev reads $WEDGE_JEV_CLASS}): $win"; then
           stale_marker_remove "$win" "$state"
-          wedge_jev_mark_warned "$task" "$state" "$WEDGE_JEV_CLASS"
-        fi ;;
+          wedge_jev_mark_warned "$task" "$state" "$WEDGE_JEV_CLASS" 1
+        fi
+        [ -z "$wedge_lock" ] || fm_lock_release "$wedge_lock"
+        ;;
     esac
   done
 

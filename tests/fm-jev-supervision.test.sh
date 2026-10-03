@@ -692,6 +692,22 @@ test_wedge_check_warning_window() {
   pass "at most one warning per hour per task and stuck class, recorded only by the caller after its wake"
 }
 
+test_wedge_warning_updates_serialize() {
+  local ledger p1 p2
+  fresh_home
+  ledger="$HOME_DIR/state/wtask.jev-wedge-warned"
+  FM_HOME="$HOME_DIR" "$WEDGE_CHECK" --mark-warned looping --task wtask --state-dir "$HOME_DIR/state" < /dev/null &
+  p1=$!
+  FM_HOME="$HOME_DIR" "$WEDGE_CHECK" --mark-warned stalled --task wtask --state-dir "$HOME_DIR/state" < /dev/null &
+  p2=$!
+  wait "$p1" || fail "the first serialized mark-warned failed"
+  wait "$p2" || fail "the second serialized mark-warned failed"
+  grep -q '^looping ' "$ledger" || fail "the first concurrent class was lost: $(cat "$ledger")"
+  grep -q '^stalled ' "$ledger" || fail "the second concurrent class was lost: $(cat "$ledger")"
+  [ ! -e "$HOME_DIR/state/wtask.jev-wedge.lock" ] || fail "the completed updates left the per-task lock behind"
+  pass "concurrent mark-warned updates serialize without losing either class"
+}
+
 test_wedge_check_idle_fact_and_redaction() {
   local code out _err token
   fresh_home
@@ -765,5 +781,6 @@ test_wedge_check_failure_is_fail_closed
 test_supervision_cycle_budget_and_breaker
 test_wedge_check_reports_stuck_classes
 test_wedge_check_warning_window
+test_wedge_warning_updates_serialize
 test_wedge_check_idle_fact_and_redaction
 test_wedge_consult_call_budget

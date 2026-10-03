@@ -2634,6 +2634,13 @@ status_line_jev_escalates() {  # <status-line> [<status-file>]
 # budget. Past it the structural escalation stands without a second opinion.
 FM_JEV_WEDGE_CYCLE_MAX_CALLS=${FM_JEV_WEDGE_CYCLE_MAX_CALLS:-10}
 
+wedge_jev_lock_path() {  # <task> <state-dir>
+  local task=$1 dir=$2
+  [ -n "$task" ] && [ -n "$dir" ] || return 1
+  case "$task" in */*|.*) return 1 ;; esac
+  printf '%s/%s.jev-wedge.lock' "$dir" "$task"
+}
+
 # Jev's second opinion on <pane-tail> at the wedge escalation boundary. 0 with
 # WEDGE_JEV_VERDICT set to suppress, escalate, or held and WEDGE_JEV_CLASS set
 # to the helper's stuck class (bin/fm-jev-wedge-check.sh owns both
@@ -2645,8 +2652,8 @@ FM_JEV_WEDGE_CYCLE_MAX_CALLS=${FM_JEV_WEDGE_CYCLE_MAX_CALLS:-10}
 # status consult and key its warning window; without them the helper sends
 # structured facts only and never holds. <idle-secs>, when known, is passed
 # as one more fact.
-wedge_jev_consult() {  # <pane-tail> [<task> <state-dir> [<idle-secs>]]
-  local tail=$1 task=${2-} dir=${3-} idle=${4-} out max
+wedge_jev_consult() {  # <pane-tail> [<task> <state-dir> [<idle-secs> [lock-held]]]
+  local tail=$1 task=${2-} dir=${3-} idle=${4-} lock_held=${5-} out max
   local -a args=(--class)
   WEDGE_JEV_VERDICT=
   WEDGE_JEV_CLASS=
@@ -2656,6 +2663,7 @@ wedge_jev_consult() {  # <pane-tail> [<task> <state-dir> [<idle-secs>]]
   [ "${_FM_JEV_WEDGE_CYCLE_CALLS:-0}" -lt "$((10#$max))" ] || return 1
   if [ -n "$task" ] && [ -n "$dir" ]; then
     args+=(--task "$task" --state-dir "$dir")
+    [ "$lock_held" != 1 ] || args+=(--lock-held)
   fi
   case "$idle" in ''|*[!0-9]*|??????????*) ;; *) args+=(--idle-secs "$idle") ;; esac
   _FM_JEV_WEDGE_CYCLE_CALLS=$((${_FM_JEV_WEDGE_CYCLE_CALLS:-0} + 1))
@@ -2676,13 +2684,14 @@ wedge_jev_consult() {  # <pane-tail> [<task> <state-dir> [<idle-secs>]]
 # the helper holds the next same-class escalation inside its warning window.
 # Callers run it only after their wake or escalation record is written.
 # Best effort: a failed write only means the next warning is not held.
-wedge_jev_mark_warned() {  # <task> <state-dir> <class>
-  local task=$1 dir=$2 class=$3
+wedge_jev_mark_warned() {  # <task> <state-dir> <class> [lock-held]
+  local task=$1 dir=$2 class=$3 lock_held=${4-}
   [ -n "$task" ] && [ -n "$dir" ] && [ -n "$class" ] || return 0
   [ -f "$FM_JEV_WEDGE_CHECK_BIN" ] || return 0
+  local -a args=(--mark-warned "$class" --task "$task" --state-dir "$dir")
+  [ "$lock_held" != 1 ] || args+=(--lock-held)
   FM_HOME="${FM_HOME:-}" FM_STATE_OVERRIDE="${FM_STATE_OVERRIDE:-}" \
-    "$FM_JEV_WEDGE_CHECK_BIN" --mark-warned "$class" --task "$task" --state-dir "$dir" \
-    < /dev/null > /dev/null 2>&1 || true
+    "$FM_JEV_WEDGE_CHECK_BIN" "${args[@]}" < /dev/null > /dev/null 2>&1 || true
 }
 
 # 0 when Jev's stuck Noul on <pane-tail> reads the pane as NOT wedged - the

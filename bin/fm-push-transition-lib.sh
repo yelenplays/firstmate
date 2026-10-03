@@ -105,6 +105,10 @@ wake() {
   else
     output_status=1
   fi
+  if [ -n "${FM_WATCH_WEDGE_LOCK_HELD:-}" ]; then
+    fm_lock_release "$FM_WATCH_WEDGE_LOCK_HELD"
+    FM_WATCH_WEDGE_LOCK_HELD=
+  fi
   if [ -n "$FM_WAKE_POST_OUTPUT_ACTION" ]; then
     "$FM_WAKE_POST_OUTPUT_ACTION" "$output_status" || true
   fi

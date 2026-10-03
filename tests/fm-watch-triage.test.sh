@@ -4655,13 +4655,47 @@ test_wedge_jev_escalation_names_the_stuck_class() {
     || fail "a classed escalate verdict did not escalate: $(cat "$out")"
   [ "$(wedge_stale_wakes "$state" "$window")" -ge 1 ] \
     || fail "a classed escalate verdict queued no wake: $(cat "$state/.wake-queue")"
+  [ ! -e "$state/wedge.jev-wedge.lock" ] || fail "the wake exit left the per-task wedge lock held"
   grep -F 'possible wedge, Jev reads looping, escalation 1' "$state/.wake-queue" >/dev/null \
     || fail "the wake reason does not name the stuck class: $(cat "$state/.wake-queue")"
-  grep -F -- "--class --task wedge --state-dir $state --idle-secs" "$dir/jevstub/wedge.args" >/dev/null \
+  grep -F -- "--class --task wedge --state-dir $state --lock-held --idle-secs" "$dir/jevstub/wedge.args" >/dev/null \
     || fail "the consult did not ask for the class with the task and idle age: $(cat "$dir/jevstub/wedge.args")"
   grep -F -- "--mark-warned looping --task wedge --state-dir $state" "$dir/jevstub/wedge.args" >/dev/null \
     || fail "the warning was not recorded after the wake: $(cat "$dir/jevstub/wedge.args")"
   pass "a wedge escalation names Jev's stuck class and records the warning after its wake"
+}
+
+test_wedge_jev_lock_contention_leaves_the_alarm_pending() {
+  local dir state fakebin out capture window key ready release holder
+  dir=$(wedge_threshold_fixture jev-lock-contention 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
+  ready="$dir/lock-ready"; release="$dir/lock-release"
+  bash -c '
+    . "$1"
+    fm_lock_try_acquire "$2" || exit 1
+    : > "$3"
+    while [ ! -e "$4" ]; do sleep 0.02; done
+    fm_lock_release "$2"
+  ' _ "$ROOT/bin/fm-wake-lib.sh" "$state/wedge.jev-wedge.lock" "$ready" "$release" &
+  holder=$!
+  local waited=0
+  while [ ! -e "$ready" ] && [ "$waited" -lt 100 ]; do sleep 0.02; waited=$((waited + 1)); done
+  [ -e "$ready" ] || { kill "$holder" 2>/dev/null || true; fail "the competing wedge lock was not acquired"; }
+
+  FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" FM_JEV_STUB_DIR="$dir/jevstub" \
+    wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+      'state: working · source: run-step · ci running' absorb \
+    || { : > "$release"; wait "$holder" || true; fail "the watcher failed while wedge handling was contended"; }
+  : > "$release"
+  wait "$holder" || fail "the competing wedge lock holder failed"
+  [ -e "$state/.stale-since-$key" ] || fail "lock contention discarded the wedge timer"
+  [ ! -e "$state/.wedge-escalations-$key" ] || fail "lock contention counted an escalation"
+  [ "$(wedge_stale_wakes "$state" "$window")" -eq 0 ] || fail "lock contention emitted a warning"
+  [ ! -e "$dir/jevstub/wedge.args" ] || fail "the watcher consulted Jev while another path owned the lock"
+  pass "watcher lock contention leaves the timer pending without a warning or escalation"
 }
 
 # A held verdict - the same task and class already warned inside the helper's
@@ -8390,6 +8424,7 @@ test_status_span_jev_cap
 test_wedge_jev_low_noul_suppresses_the_boundary
 test_wedge_jev_escalate_and_failure_keep_the_boundary
 test_wedge_jev_escalation_names_the_stuck_class
+test_wedge_jev_lock_contention_leaves_the_alarm_pending
 test_wedge_jev_held_repeat_does_not_wake
 test_wedge_jev_consult_only_at_the_boundary
 test_jev_suppression_chain_resets_after_activity

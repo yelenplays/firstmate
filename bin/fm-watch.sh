@@ -176,6 +176,7 @@ FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+FM_WATCH_WEDGE_LOCK_HELD=
 mkdir -p "$STATE"
 # A home that never existed (a state-only test fixture) is not a home that
 # disappeared, so the per-poll home-gone exit below applies only when it did.
@@ -1574,7 +1575,7 @@ wedge_dead_record() {  # <window> <since-file> <triage-label> <idle-age> <pane-h
 # Callers without a relevant pane tail pass an empty argument and skip the
 # consult.
 wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-file> <task> <pane-hash> [<pane-tail>]
-  local win=$1 since_file=$2 label=$3 escalation_file=$4 task=$5 hash=$6 tail=${7-} since age n reason evidence run_id jev_note
+  local win=$1 since_file=$2 label=$3 escalation_file=$4 task=$5 hash=$6 tail=${7-} since age n reason evidence run_id jev_note wedge_lock
   since=$(cat "$since_file" 2>/dev/null || true)
   case "$since" in
     ''|*[!0-9]*)
@@ -1624,13 +1625,23 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
         # execution evidence is absent. Both are bounded and threshold-only.
         WEDGE_JEV_VERDICT=
         WEDGE_JEV_CLASS=
+        wedge_lock=
+        if [ -n "$tail" ]; then
+          wedge_lock=$(wedge_jev_lock_path "$task" "$STATE") || return 0
+          if ! fm_lock_try_acquire "$wedge_lock"; then
+            triage_log "absorbed $label escalation deferred: another wedge check owns task $task"
+            return 0
+          fi
+        fi
         if run_id=$(crew_nm_run_progressing "$task" "$STATE" "$since_file"); then
           wedge_defer_nm_run "$win" "$since_file" "$label" "$age" "$run_id"
+          [ -z "$wedge_lock" ] || fm_lock_release "$wedge_lock"
           return 0
-        elif [ -n "$tail" ] && wedge_jev_consult "$tail" "$task" "$STATE" "$age"; then
+        elif [ -n "$tail" ] && wedge_jev_consult "$tail" "$task" "$STATE" "$age" 1; then
           case "$WEDGE_JEV_VERDICT" in
             suppress)
               wedge_defer_jev "$win" "$since_file" "$label" "$age"
+              fm_lock_release "$wedge_lock"
               return 0
               ;;
             held)
@@ -1638,6 +1649,7 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
               # helper's warning window: re-arm instead of repeating it.
               date +%s > "$since_file"
               triage_log "absorbed $label escalation held: Jev still reads ${WEDGE_JEV_CLASS:-unclear}, already warned within the window (idle ${age}s): $win"
+              fm_lock_release "$wedge_lock"
               return 0
               ;;
           esac
@@ -1650,11 +1662,17 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
         if [ "$n" -ge "$FM_WEDGE_DEMAND_INSPECT_COUNT" ]; then
           reason="stale: $win (idle ${age}s, possible wedge${jev_note}, escalation $n, demand-deep-inspection: same pane has wedge-escalated $n times in a row - do not re-absorb on the run-step/pane state alone)"
         fi
-        fm_wake_append stale "$win" "$reason" || exit 1
-        wedge_jev_mark_warned "$task" "$STATE" "$WEDGE_JEV_CLASS"
+        if ! fm_wake_append stale "$win" "$reason"; then
+          [ -z "$wedge_lock" ] || fm_lock_release "$wedge_lock"
+          exit 1
+        fi
+        wedge_jev_mark_warned "$task" "$STATE" "$WEDGE_JEV_CLASS" 1
         rm -f "$since_file"
         clear_write_tracking "$(fm_watch_state_key "$win")"
+        FM_WATCH_WEDGE_LOCK_HELD=$wedge_lock
         wake "$reason"
+        [ -z "$wedge_lock" ] || fm_lock_release "$wedge_lock"
+        FM_WATCH_WEDGE_LOCK_HELD=
       fi
       ;;
   esac

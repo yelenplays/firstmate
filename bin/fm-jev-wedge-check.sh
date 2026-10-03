@@ -104,6 +104,7 @@ task_state_dir=
 want_class=0
 idle_secs=
 mark_class=
+lock_held=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -h|--help)
@@ -134,6 +135,10 @@ while [ $# -gt 0 ]; do
       [ $# -ge 2 ] || die "--mark-warned needs a class"
       mark_class=$2
       shift 2
+      ;;
+    --lock-held)
+      lock_held=1
+      shift
       ;;
     *)
       die "unexpected argument: $1"
@@ -170,6 +175,31 @@ warned_recently() {  # <class>
   now=$(date +%s)
   [ $((now - 10#$at)) -lt "$window" ] && [ $((now - 10#$at)) -ge 0 ]
 }
+
+if [ "$lock_held" -eq 1 ] && [ -z "$mark_class" ] && [ "$want_class" -ne 1 ]; then
+  die "--lock-held requires --class or --mark-warned"
+fi
+
+wedge_lock=
+if [ -n "$mark_class" ] || { [ "$want_class" -eq 1 ] && [ -n "$task_id" ] && [ -n "$task_state_dir" ]; }; then
+  ledger=$(warn_ledger) || {
+    [ -z "$mark_class" ] || die "--class/--mark-warned needs a valid task and state directory"
+  }
+  if [ -n "$ledger" ]; then
+    wedge_lock="$task_state_dir/$task_id.jev-wedge.lock"
+    if [ "$lock_held" -eq 1 ]; then
+      [ -d "$wedge_lock" ] || fail "the caller's wedge lock is not held"
+    else
+      FM_STATE_OVERRIDE="$task_state_dir" . "$SCRIPT_DIR/fm-wake-lib.sh"
+      if [ -n "$mark_class" ]; then
+        fm_lock_acquire_wait "$wedge_lock"
+      else
+        fm_lock_try_acquire "$wedge_lock" || fail "another wedge decision owns this task"
+      fi
+      trap 'fm_lock_release "$wedge_lock"' EXIT
+    fi
+  fi
+fi
 
 if [ -n "$mark_class" ]; then
   wedge_class_known "$mark_class" || die "unknown class: $mark_class"

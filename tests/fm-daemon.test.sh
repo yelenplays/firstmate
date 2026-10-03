@@ -935,6 +935,45 @@ test_daemon_wedge_jev_boundary() {
 }
 
 
+test_daemon_wedge_lock_contention_leaves_stale_marker() {
+  local dir state fakebin task win pane key ready release holder waited=0
+  dir=$(make_supercase jev-wedge-lock-contention); state="$dir/state"; fakebin="$dir/fakebin"
+  task=jevwedge-lock; win="sess:fm-$task"; pane="$dir/pane.txt"
+  key=$(printf '%s' "$task" | tr ':/.' '___')
+  fm_write_meta "$state/$task.meta" "window=$win" "backend=tmux"
+  printf 'working: building\n' > "$state/$task.status"
+  printf 'Working...\n' > "$pane"
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+  ready="$dir/lock-ready"; release="$dir/lock-release"
+  bash -c '
+    . "$1"
+    fm_lock_try_acquire "$2" || exit 1
+    : > "$3"
+    while [ ! -e "$4" ]; do sleep 0.02; done
+    fm_lock_release "$2"
+  ' _ "$ROOT/bin/fm-wake-lib.sh" "$state/$task.jev-wedge.lock" "$ready" "$release" &
+  holder=$!
+  while [ ! -e "$ready" ] && [ "$waited" -lt 100 ]; do sleep 0.02; waited=$((waited + 1)); done
+  [ -e "$ready" ] || { kill "$holder" 2>/dev/null || true; fail "the competing daemon wedge lock was not acquired"; }
+  (
+    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+      FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 \
+      FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=escalate \
+      . "$ROOT/bin/fm-wake-lib.sh"
+    stale_window_is_busy() { FM_STALE_TAIL40='Working...'; return 1; }
+    crew_nm_run_progressing() { return 1; }
+    housekeeping "$state"
+  )
+  : > "$release"
+  wait "$holder" || fail "the competing daemon wedge lock holder failed"
+  [ -e "$state/.subsuper-stale-$key" ] || fail "lock contention discarded the daemon stale marker"
+  [ ! -s "$state/.subsuper-escalations" ] || fail "lock contention buffered an escalation"
+  [ ! -e "$dir/jevstub/wedge.args" ] || fail "the daemon consulted Jev while another path owned the lock"
+  pass "daemon lock contention leaves the stale marker pending without escalation"
+}
+
 # The daemon boundary carries Jev's stuck class: an escalate names it in the
 # escalation and records the warning only after the escalation is buffered; a
 # held repeat (same task and class inside the helper's window) re-arms the
@@ -3463,6 +3502,7 @@ test_stale_transient_self_records_marker
 test_stale_diagnostic_wedge_survives_busy_housekeeping
 test_daemon_signal_jev_consult
 test_daemon_wedge_jev_boundary
+test_daemon_wedge_lock_contention_leaves_stale_marker
 test_daemon_wedge_jev_class_and_hold
 test_enriched_wedge_under_declared_wait_uses_pause_cadence
 test_stale_terminal_escalates
