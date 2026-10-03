@@ -1422,6 +1422,24 @@ Automatic calls supply only the task ID and done line, without the optional acce
 The script header owns flags, output lines, exit codes, and the log path and schema.
 Behavioral regressions in [`tests/fm-jev-done-verify.test.sh`](../tests/fm-jev-done-verify.test.sh) use fake transport to exercise presentation selection, concurrent deduplication, whitespace normalization, state overrides, empty credentials, and both sides of the data boundary.
 
+## Jev merge gate (shadow)
+
+[`bin/fm-jev-merge-gate.sh`](../bin/fm-jev-merge-gate.sh) collects exact-head merge evidence for a GitHub PR or a local-only landing and asks Jev one Choice, `merge` or `hold`, with code-owned confidence bands.
+It runs in shadow: firstmate decides and merges exactly as before, and nothing reads its verdict as merge authority.
+For a team project's PR, pass `--team` to `decide <PR URL>`; for a team project's local landing, pass `--team` to `decide --task <id>` so a missing QA proof is not labelled N/A.
+The [`ship-landing`](../.agents/skills/ship-landing/SKILL.md) skill owns when firstmate runs it and records its own decision next to it.
+Every evidence field is filled from a verified fact, or says `MISSING`, or says `N/A:` with the facts behind it, and a head or base that moves during collection refuses the decision.
+Review evidence, AI families and exact-head confirmations come from the cross-family review tool; the gate keeps no second copy of them.
+Data boundary: per the captain's decision for this gate, its evidence, including PR text and commit subjects, goes to Jev only for eligible projects; private vaults and other targets excluded by the privacy filter are never sent.
+That is a scoped exception to the boundary under "Shadow done verifier" above, which still holds for every other Jev feature.
+The privacy filter runs before any evidence is printed or sent: a `cloud: nein` or `cloud: nur-digest` card, any card with `modus: pointer` (pointer vaults load no content), a vault without a card, a change touching a `private: true` page, or routing cards that cannot be read keep the merge out of Jev, and it merges as today.
+Card fields are read at decision time; there is no hardcoded vault list.
+Free text is secret-stripped by `fm_jev_compact_state` and size-capped before it is sent.
+`state/jev-merge.jsonl` holds the gate, comparison and outcome records with an input hash and no raw evidence text; disagreements with firstmate and reverted merges become private eval cases.
+Optional gitignored `config/jev-merge-gate-deploy` states each project's deploy effect and rollback, one `<project> | <deploy effect> | <rollback>` line per project.
+The script header owns subcommands, the evidence list, the privacy rules, bands, exit codes, the log schema and the eval harness.
+Behavioral regressions live in [`tests/fm-jev-merge-gate.test.sh`](../tests/fm-jev-merge-gate.test.sh).
+
 ## Jev skill selector (FM_JEV_SKILL_SELECT)
 
 `bin/fm-jev-skill-select.sh` provides a once-per-launch shadow comparison, not a per-prompt router.
