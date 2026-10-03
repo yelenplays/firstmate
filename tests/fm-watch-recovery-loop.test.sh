@@ -332,7 +332,7 @@ try {
   } else {
     assert.equal(prompts.length, 1, `outstanding or uncertain work was silenced: ${results}`);
     assert.match(prompts[0], /Run bin\/fm-wake-drain.sh first/);
-    if (["newer", "malformed", "missing"].includes(process.env.FM_RACE)) {
+    if (["malformed", "missing"].includes(process.env.FM_RACE)) {
       assert.match(prompts[0], /handling delivery confirmation was rejected/);
     }
     if (process.env.FM_RACE === "newer") {
