@@ -236,10 +236,15 @@ rc=0; out=$(gate decide "$URL" 2>/dev/null) || rc=$?
 printf '%s' "$out" | jq -e '.evidence.reviewer_family == "openai" and .evidence.builder_family == "anthropic" and (.evidence.pipeline | test("completed"))' >/dev/null ||
   fail 'review evidence not read from the cross-family review tool'
 reset_case
-export TEST_XR="$(jq -c '.independent_review.family = .builder.family' <<<"$XR_OK")"
+TEST_XR="$(jq -c '.independent_review.family = .builder.family' <<<"$XR_OK")"
+export TEST_XR
 rc=0; out=$(gate decide "$URL" 2>/dev/null) || rc=$?
-[ "$rc" = 1 ] && printf '%s' "$out" | jq -e '.problems | any(test("reviewer family is missing or matches"))' >/dev/null ||
+if [ "$rc" = 1 ]; then
+  printf '%s' "$out" | jq -e '.problems | any(test("reviewer family is missing or matches"))' >/dev/null ||
+    fail "same-family independent review must hold, got $rc: $out"
+else
   fail "same-family independent review must hold, got $rc: $out"
+fi
 reset_case
 export TEST_XR="$XR_OK" TEST_JEV_RESPONSE='{"id":"req-2","model":"jev-1.13.0","answers":{"decision":{"type":"choice","choice":"merge","confidence":0.5}}}'
 rc=0; gate decide "$URL" >/dev/null 2>&1 || rc=$?
@@ -254,12 +259,17 @@ TEST_XR=$(jq -c --arg h "$H1" '.confirm = {sha: $h, family: "openai", reviewer: 
 rc=0; gate decide "$URL" >/dev/null 2>&1 || rc=$?
 [ "$rc" = 0 ] || fail "review-band merge with a cross-family exact-head confirm must merge, got $rc"
 reset_case
-export TEST_XR="$(jq -c --arg secret 'ghp_abcdefghijklmnopqrstuvwxyz0123456789' '.pipeline_review.run = $secret' <<<"$XR_OK")"
+TEST_XR="$(jq -c --arg secret 'ghp_abcdefghijklmnopqrstuvwxyz0123456789' '.pipeline_review.run = $secret' <<<"$XR_OK")"
+export TEST_XR
 mkdir -p "$HOME_DIR/data/app-task/proof"
 printf '%s\n' '---' 'artifact_type: artifact ghp_abcdefghijklmnopqrstuvwxyz0123456789' 'verdict: PASS' "candidate_sha: $H1" '---' > "$HOME_DIR/data/app-task/proof/brb-$H1.md"
 rc=0; out=$(gate decide "$URL" --team 2>/dev/null) || rc=$?
-[ "$rc" = 1 ] && printf '%s' "$out" | jq -e '.problems | any(test("proof artifact is not a QA artifact"))' >/dev/null ||
+if [ "$rc" = 1 ]; then
+  printf '%s' "$out" | jq -e '.problems | any(test("proof artifact is not a QA artifact"))' >/dev/null ||
+    fail "a non-QA proof must not satisfy QA, got $rc: $out"
+else
   fail "a non-QA proof must not satisfy QA, got $rc: $out"
+fi
 ! grep -q 'ghp_abcdefghijklmnopqrstuvwxyz0123456789' "$TEST_JEV_REQUEST" || fail 'pipeline secret reached Jev'
 printf '%s' "$out" | jq -e '(.input.review | contains("ghp_") | not) and (.evidence.qa | contains("artifact_type=artifact"))' >/dev/null ||
   fail 'redacted pipeline or QA evidence was not represented correctly'
