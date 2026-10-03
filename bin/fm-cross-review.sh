@@ -476,6 +476,19 @@ cmd_status() {
 
 # ---- plan --------------------------------------------------------------------
 
+private_change() {  # <head>, decision-time vault exclusion for plan and brief
+  local head=$1 base_ref base
+  [ -n "$T_PROJ" ] && [ -d "$T_PROJ" ] || return 1
+  if base_ref=$(default_base_ref) && base=$(git -C "$T_PROJ" merge-base "$base_ref" "$head" 2>/dev/null); then
+    fm_wiki_change_private "$CONFIG" "$T_PROJ" "$(basename "$T_PROJ")" "$base" "$head"
+  elif [ -e "$T_PROJ/_meta/pruefe.sh" ] || [ -e "$T_PROJ/_meta/einstieg.sh" ]; then
+    FM_WIKI_PRIVATE_REASON="vault $(basename "$T_PROJ") change base cannot be read, so it cannot be cleared for a new reviewer"
+    return 0
+  else
+    return 1
+  fi
+}
+
 reviewer_candidates() {
   local file="$CONFIG/cross-review-reviewers" line h m e _
   if [ -f "$file" ]; then
@@ -513,16 +526,9 @@ cmd_plan() {
   gather "$head" "$run"
   record_families
   printf 'task=%s\nhead=%s\nbuilder_family=%s\n' "$TASK" "$HEAD_SHA" "$B_FAM"
-  if [ -n "$T_PROJ" ] && [ -d "$T_PROJ" ]; then
-    if base_ref=$(default_base_ref) && base=$(git -C "$T_PROJ" merge-base "$base_ref" "$HEAD_SHA" 2>/dev/null); then
-      if fm_wiki_change_private "$CONFIG" "$T_PROJ" "$(basename "$T_PROJ")" "$base" "$HEAD_SHA"; then
-        printf 'action=none\nreason=private path: %s; no new reviewer sees this change\n' "$FM_WIKI_PRIVATE_REASON"
-        return 0
-      fi
-    elif [ -e "$T_PROJ/_meta/pruefe.sh" ] || [ -e "$T_PROJ/_meta/einstieg.sh" ]; then
-      printf 'action=none\nreason=private path: vault %s change base cannot be read, so it cannot be cleared for a new reviewer\n' "$(basename "$T_PROJ")"
-      return 0
-    fi
+  if private_change "$HEAD_SHA"; then
+    printf 'action=none\nreason=private path: %s; no new reviewer sees this change\n' "$FM_WIKI_PRIVATE_REASON"
+    return 0
   fi
   if [ "$want" = review ] && [ "$I_STATE" = present ]; then
     printf 'action=none\nreason=%s\n' "$I_DETAIL"
@@ -584,6 +590,9 @@ cmd_brief() {
   sha_valid "$head" || usage_die "--head must be a full 40-character lowercase sha"
   [ -n "$T_PROJ" ] && [ -d "$T_PROJ" ] || die "task $TASK has no readable project"
   base_ref=$(default_base_ref) || die "cannot determine the default branch of $T_PROJ"
+  if private_change "$head"; then
+    die "private path: $FM_WIKI_PRIVATE_REASON; refusing to scaffold a reviewer"
+  fi
   if [ -n "$T_PR" ] && fm_pr_url_parse "$T_PR" && [ "$FM_PR_PROVIDER" = github ]; then
     pr_number=$FM_PR_NUMBER
     subject="pull request $T_PR"

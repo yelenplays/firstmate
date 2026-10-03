@@ -327,6 +327,13 @@ test_private_vault_change_gets_no_new_reviewer() {
   out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
   assert_equals none "$(field "$out" action)" "a cloud: nein vault must get no new reviewer"
   assert_contains "$(field "$out" reason)" "cloud: nein" "reason"
+  if out=$(xr brief "$TASK" "$TASK-xr-${HEAD_SHA:0:8}" --head "$HEAD_SHA" 2>&1 <&-); then
+    fail "brief created reviewer instructions for a cloud: nein vault: $out"
+  fi
+  assert_contains "$out" "private path" "brief refusal names the private path"
+  assert_contains "$out" "cloud: nein" "brief refusal names the card reason"
+  assert_absent "$HOME_DIR/data/$TASK-xr-${HEAD_SHA:0:8}/brief.md" "brief wrote reviewer instructions for a private vault"
+  assert_absent "$HOME_DIR/data/$TASK-xr-${HEAD_SHA:0:8}/cross-review-request" "brief wrote a request record for a private vault"
   new_case vault-private-page direct-PR claude claude-opus-5-5 anthropic
   vault_case ja 'private: true'
   out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
