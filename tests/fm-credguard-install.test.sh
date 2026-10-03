@@ -162,6 +162,37 @@ test_install_keeps_other_hooks() {
   pass "install wires every harness, keeps every other hook, and backs up each changed file"
 }
 
+test_whole_file_conflicts_are_preserved() {
+  local surface h file before
+  for surface in grok pi omp; do
+    h=$(new_home "$surface-conflict" "$surface")
+    case "$surface" in
+      grok)
+        file="$h/.grok/hooks/fm-credguard-read.json"
+        mkdir -p "$(dirname "$file")"
+        printf '%s\n' '{"hooks":{"PreToolUse":[]},"userSetting":"preserve"}' > "$file"
+        ;;
+      pi)
+        file="$h/.pi/agent/extensions/fm-credguard-read.ts"
+        mkdir -p "$(dirname "$file")"
+        printf '%s\n' '// user-owned Pi extension' 'export default {};' > "$file"
+        ;;
+      omp)
+        file="$h/.omp/agent/extensions/fm-credguard-read.ts"
+        mkdir -p "$(dirname "$file")"
+        printf '%s\n' '// user-owned OMP extension' 'export default {};' > "$file"
+        ;;
+    esac
+    before=$(cksum "$file")
+    install_in "$h" --harness "$surface"
+    expect_code 1 "$RC" "$surface conflict reports missing coverage"
+    assert_contains "$OUT" "$surface:" "$surface conflict is reported"
+    assert_contains "$OUT" "uncovered and left unchanged" "$surface conflict is explicitly uncovered"
+    assert_equals "$before" "$(cksum "$file")" "$surface user-owned file is untouched"
+  done
+  pass "Grok, Pi, and OMP unowned hook files remain untouched and uncovered"
+}
+
 test_active_worker_surfaces_deny_secret_prints() {
   local h cursor_cmd gemini_cmd out
   h=$(new_home active-surfaces opencode cursor-agent gemini)
@@ -281,6 +312,7 @@ test_linked_worktree_refused() {
 
 test_check_changes_nothing
 test_install_keeps_other_hooks
+test_whole_file_conflicts_are_preserved
 test_active_worker_surfaces_deny_secret_prints
 test_install_is_idempotent
 test_new_hook_path_replaces_old_handler
