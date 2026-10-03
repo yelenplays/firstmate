@@ -1098,14 +1098,8 @@ test_late_owner_keeps_failure_episode_suppressed() {
   pass 'a late owner does not restart a shared forge failure episode'
 }
 
-test_account_error_is_scoped_to_the_current_observation() {
-  # One poll observes two URLs: a pull request whose core read succeeds while
-  # its parallel reads refuse with an account error, then an issue whose own
-  # read fails for an unrelated reason. The issue must record its own failure,
-  # never the pull request's account text left in error files it did not open.
-  local home out
-  home=$(new_home account-error-scope)
-  forge_home "$home"
+install_account_refusal_gh() { # home: the PR core read succeeds, its parallel reads refuse with an account error
+  local home=$1
   cat > "$home/fakebin/gh" <<'SH'
 #!/usr/bin/env bash
 case "$*" in
@@ -1123,6 +1117,17 @@ case "$*" in
 esac
 SH
   chmod +x "$home/fakebin/gh"
+}
+
+test_account_error_is_scoped_to_the_current_observation() {
+  # One poll observes two URLs: a pull request whose core read succeeds while
+  # its parallel reads refuse with an account error, then an issue whose own
+  # read fails for an unrelated reason. The issue must record its own failure,
+  # never the pull request's account text left in error files it did not open.
+  local home out
+  home=$(new_home account-error-scope)
+  forge_home "$home"
+  install_account_refusal_gh "$home"
   printf -- '- [ ] filed - Measured defect https://github.com/o/r/issues/9 (repo: sample) (kind: ship)\n' \
     >> "$home/data/backlog.md"
   # An odd epoch bucket rotates the sorted URLs so the pull request is
@@ -1140,8 +1145,34 @@ contributions: observation unavailable for https://github.com/o/r/issues/9" ] \
   pass 'an account error is scoped to the observation whose error files wrote it'
 }
 
+test_account_error_is_not_inherited_by_a_non_github_observation() {
+  # The next URL is a GitLab merge request, so observe() returns at its URL
+  # guard before any forge call. That path must still clear the previous
+  # observation's error files, or the durable error recorded for the merge
+  # request becomes the pull request's account text.
+  local home out
+  home=$(new_home account-error-non-github)
+  forge_home "$home"
+  install_account_refusal_gh "$home"
+  printf -- '- [ ] mirrored - Mirror MR https://gitlab.com/o/r/-/merge_requests/2 (repo: sample) (kind: ship)\n' \
+    >> "$home/data/backlog.md"
+  # The default clock's even epoch bucket keeps the sorted URL order, so the
+  # pull request is observed first and its error files exist afterwards.
+  out=$(with_home "$home" "$ROOT/bin/fm-contributions.sh" poll) \
+    || fail 'poll across github and gitlab contributions failed'
+  [ "$out" = "contributions: observation unavailable for https://github.com/o/r/pull/8
+contributions: observation unavailable for https://gitlab.com/o/r/-/merge_requests/2" ] \
+    || fail "both failing observations must wake in observation order: $out"
+  jq -e '.records[0].error == "simulated token refusal"' "$home/data/delivery/contributions.json" >/dev/null \
+    || fail "a pull request must record its own background account refusal: $(cat "$home/data/delivery/contributions.json")"
+  jq -e '.records[0].error == "forge observation unavailable or changed during read"' \
+    "$home/data/mirrored/contributions.json" >/dev/null \
+    || fail "a non-github observation must not inherit a github account error: $(cat "$home/data/mirrored/contributions.json")"
+  pass 'a non-github observation never inherits a github account error'
+}
+
 failures=0
-for test_name in test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_verdict_actor_values_are_discoverable test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_interrupted_multi_owner_poll_settles_every_owner test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed test_account_error_is_scoped_to_the_current_observation; do
+for test_name in test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_verdict_actor_values_are_discoverable test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_interrupted_multi_owner_poll_settles_every_owner test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed test_account_error_is_scoped_to_the_current_observation test_account_error_is_not_inherited_by_a_non_github_observation; do
   ( "$test_name" ) || failures=$((failures + 1))
 done
 [ "$failures" -eq 0 ] || fail "$failures contribution regressions"
