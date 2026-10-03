@@ -247,13 +247,16 @@ if [ "$cmd" = pick ]; then
     lead "Jev input could not be safely compacted"
     exit 0
   }
-  jq -e 'type == "array" and all(.[]; (.id | type) == "string" and (.text | type) == "string")' \
-    <<<"$safe_candidates" >/dev/null 2>&1 \
-    && jq -e --argjson raw "$candidates" 'map(.id) == ($raw | map(.id))' \
-      <<<"$safe_candidates" >/dev/null 2>&1 || {
-        lead "Jev input could not be safely compacted"
-        exit 0
-      }
+  if ! jq -e 'type == "array" and all(.[]; (.id | type) == "string" and (.text | type) == "string")' \
+    <<<"$safe_candidates" >/dev/null 2>&1; then
+    lead "Jev input could not be safely compacted"
+    exit 0
+  fi
+  if ! jq -e --argjson raw "$candidates" 'map(.id) == ($raw | map(.id))' \
+    <<<"$safe_candidates" >/dev/null 2>&1; then
+    lead "Jev input could not be safely compacted"
+    exit 0
+  fi
   state=$(jq -nc --arg task "$safe_task" --arg role "$safe_role" --argjson c "$safe_candidates" \
     '{task: $task, role: $role, seats: $c}') || fail "could not build the state"
   questions=$(jq -nc --argjson c "$safe_candidates" '{
