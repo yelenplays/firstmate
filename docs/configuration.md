@@ -1399,7 +1399,8 @@ It skips silently without a configured Jev key or a share-safe routing card, doe
 
 [`bin/fm-jev-model-proposal.sh`](../bin/fm-jev-model-proposal.sh) asks Jev, once per role, which candidate model fits that role's work, and writes the answers as a Markdown proposal under `data/model-proposals/`.
 Each rule in `config/crew-dispatch.json` is a role, and an evidence file the caller curates supplies the candidate models, their capability and benchmark evidence, their billing class, and any extra roles such as secondmate pins.
-The proposal lists each role's current models, every candidate's probability and billing class, Jev's pick, confidence and band, and a local request id that matches the call record in `state/jev-model-proposal.jsonl`.
+The proposal lists each role's current models, every candidate's probability and billing class, Jev's pick, confidence and band, and a local request id for each call.
+When call logging is available, the request id is also recorded in `jev-model-proposal.jsonl` under the effective state directory (`$FM_STATE_OVERRIDE` or `$FM_HOME/state`).
 It never edits `config/` or any dispatch profile, and every switch it proposes needs the captain's yes before anyone changes a profile.
 Any candidate billed to usage credits, such as Fable, is named in a billing notice at the top of the proposal.
 The script header owns the evidence format, what Jev receives, the band thresholds, and the exit codes.
