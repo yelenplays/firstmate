@@ -279,7 +279,8 @@ commit_verdict() {  # <sha> <since-epoch> <grace>
         case "$conclusion" in
           success|neutral) good=$((good + 1)) ;;
           failure|timed_out|startup_failure) red="${red:+$red,}$name" ;;
-          *) ;;
+          cancelled|skipped|stale) ;;
+          *) pending=$((pending + 1)) ;;
         esac
         ;;
       *) pending=$((pending + 1)) ;;

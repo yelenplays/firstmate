@@ -329,6 +329,28 @@ test_unrelated_recovered_revert_is_refused() {
   pass "fm-post-merge: recovery refuses a prefixed PR that does not name the recorded merge"
 }
 
+test_unknown_completed_check_conclusions_wait() {
+  local out
+  make_pr_world pm-action-main on
+  pm arm "$W_ID" --grace 0 >/dev/null 2>&1 || fail "arm refused"
+  printf '{"check_runs":[{"name":"build","status":"completed","conclusion":"success"},{"name":"approval","status":"completed","conclusion":"action_required"}]}\n' \
+    > "$W_FAKE/checks-$MERGE_SHA.json"
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed on action_required: $out"
+  assert_contains "$out" "waiting: checks on merge commit" "action_required beside a successful check was treated as green"
+  assert_equals checks "$(record_field phase)" "the merge watch did not remain open"
+
+  make_pr_world pm-action-revert on
+  pm arm "$W_ID" --grace 0 >/dev/null 2>&1 || fail "arm refused"
+  set_checks "$MERGE_SHA" build completed failure
+  printf '{"check_runs":[{"name":"build","status":"completed","conclusion":"success"},{"name":"approval","status":"completed","conclusion":"action_required"}]}\n' \
+    > "$W_FAKE/checks-$REVERT_SHA.json"
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed on action_required revert: $out"
+  assert_contains "$out" "waiting: checks on the revert $REVERT_URL" "action_required on the revert was treated as green"
+  assert_absent "$W_FAKE/merges" "the revert with action_required was merged"
+  assert_equals reverting "$(record_field phase)" "the revert watch did not remain open"
+  pass "fm-post-merge: action_required never yields a green verdict"
+}
+
 test_revert_without_green_checks_is_held() {
   local out
   make_pr_world pm-none on
@@ -518,6 +540,7 @@ test_revert_refused_by_github_blocks
 test_yolo_off_asks_before_merging_the_revert
 test_interrupted_revert_is_adopted
 test_unrelated_recovered_revert_is_refused
+test_unknown_completed_check_conclusions_wait
 test_revert_without_green_checks_is_held
 test_witness_result_needs_exactly_one_verdict
 test_arm_refusals_and_rearm
