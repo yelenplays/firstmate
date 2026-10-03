@@ -1,0 +1,11 @@
+{
+  "mode": "shadow",
+  "streak": 0,
+  "streak_to_live": 20,
+  "live_ready": false,
+  "comparisons": 1,
+  "agreements": 0,
+  "disagreements": 0,
+  "not_comparable": 1,
+  "last_disagreement_at": null
+}
