@@ -92,7 +92,7 @@ Each effective `FM_HOME` contains private operational directories.
 - Private secondmate config-reread generations with their retry and quarantine state.
 - Per-task steering-inbox records under `state/<id>.inbox/` (`bin/fm-task-inbox-lib.sh`).
 - Parent-owned secondmate pending-reply records under `state/pending-replies/` (`bin/fm-pending-reply-lib.sh`).
-- Per-task post-merge watch records at `state/<id>.post-merge` (`bin/fm-post-merge-lib.sh`), whose reverted outcomes are appended to `state/jev-merge.jsonl`. Missing or non-green checks hold for captain review; if recovery finds a `revert-<number>-` PR opened before its URL was recorded, the watch records it as `revert_candidate` and blocks instead of adopting or merging it.
+- Per-task post-merge watch records at `state/<id>.post-merge` (`bin/fm-post-merge-lib.sh`), with reverted outcomes appended to `state/jev-merge.jsonl`.
 
 `config/` holds local gitignored operating choices, including explicit extension bindings under `config/extensions.d/`.
 
