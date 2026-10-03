@@ -93,6 +93,21 @@ FM_STATE_OVERRIDE="$TMP_ROOT/config-alias/override-state" run_tool --evidence "$
   || fail 'a config-backed state override must refuse before calls or writes'
 pass 'a config-backed state override refuses through a symlinked path'
 
+NO_CONFIG_HOME="$TMP_ROOT/no-config-home"
+mkdir -p "$NO_CONFIG_HOME"
+for target in "$NO_CONFIG_HOME/config/proposal.md" "$NO_CONFIG_HOME/config/new/nested/proposal.md"; do
+  FM_HOME="$NO_CONFIG_HOME" run_tool --evidence "$TMP_ROOT/evidence.json" --out "$target" >/dev/null 2>&1 \
+    && fail "an output into an absent config tree must refuse: $target"
+  [ ! -e "$NO_CONFIG_HOME/config" ] || fail 'refusing an absent config target must not create config/'
+done
+FM_HOME="$NO_CONFIG_HOME" FM_STATE_OVERRIDE="$NO_CONFIG_HOME/config" run_tool \
+  --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/no-config-out/proposal.md" >/dev/null 2>&1 \
+  && fail 'a state override into an absent config tree must refuse'
+[ ! -e "$NO_CONFIG_HOME/config" ] && [ ! -e "$TMP_ROOT/no-config-out" ] \
+  || fail 'absent config paths must be refused before any directories are created'
+[ -z "$(find "$TEST_REQUESTS" -type f)" ] || fail 'protected absent paths must refuse before any Jev call'
+pass 'absent config and state paths are guarded before creating directories'
+
 path=$(run_tool --evidence "$TMP_ROOT/evidence.json") || fail 'happy-path proposal failed'
 case "$path" in "$HOME_DIR/data/model-proposals/"*.md) ;; *) fail "default proposal path is wrong: $path" ;; esac
 [ -s "$path" ] || fail 'proposal file is empty'

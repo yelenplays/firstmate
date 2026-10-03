@@ -190,24 +190,33 @@ roles=$(jq -c --argjson rules "$dispatch_roles" --argjson max "$FM_MODEL_PROPOSA
 
 fm_jev_key_configured || die "no Jev key configured (TYPESAFE_API_KEY or OPENROUTER_API_KEY); nothing sent, no proposal written"
 
+state_dir=${FM_STATE_OVERRIDE:-$FM_HOME/state}
+log_path="$state_dir/jev-model-proposal.jsonl"
+config_path=$(real_path "$FM_HOME/config")
+state_path=$(real_path "$FM_HOME/state")
+state_dir_real=$(real_path "$state_dir")
+case "$state_dir_real/jev-model-proposal.jsonl/" in
+  "$config_path"/*) die "refusing to write under $FM_HOME/config: a proposal never changes configuration" ;;
+esac
+
 # --- output path ------------------------------------------------------------
 if [ -z "$OUT" ]; then
   OUT="$FM_HOME/data/model-proposals/$(date -u +%Y%m%dT%H%M%SZ).md"
 fi
 out_dir=$(dirname "$OUT")
-config_real=$(real_dir "$FM_HOME/config" || true)
-if [ -n "$config_real" ]; then
-  case "$(real_path "$out_dir")/$(basename "$OUT")/" in
-    "$config_real"/*) die "refusing to write under $FM_HOME/config: a proposal never changes configuration" ;;
+out_real=$(real_path "$OUT")
+for protected in "$config_path" "$state_path"; do
+  case "$out_real/" in
+    "$protected/"*) die "refusing to write under protected path $protected" ;;
   esac
-fi
-mkdir -p "$out_dir" 2>/dev/null || die "could not create $out_dir"
-out_real="$(real_dir "$out_dir")/$(basename "$OUT")"
+done
 for guarded in "$EVIDENCE" "$DISPATCH"; do
   if [ -e "$guarded" ] && [ "$out_real" = "$(real_dir "$(dirname "$guarded")")/$(basename "$guarded")" ]; then
     die "refusing to overwrite the input file $guarded"
   fi
 done
+mkdir -p "$out_dir" 2>/dev/null || die "could not create $out_dir"
+out_real="$(real_dir "$out_dir")/$(basename "$OUT")"
 
 # --- one Jev call per role ----------------------------------------------------
 new_request_id() {
@@ -217,14 +226,6 @@ new_request_id() {
   printf '%s' "$id"
 }
 
-state_dir=${FM_STATE_OVERRIDE:-$FM_HOME/state}
-log_path="$state_dir/jev-model-proposal.jsonl"
-state_dir_real=$(real_dir "$state_dir" || true)
-if [ -n "$config_real" ] && [ -n "$state_dir_real" ]; then
-  case "$state_dir_real/jev-model-proposal.jsonl/" in
-    "$config_real"/*) die "refusing to write under $FM_HOME/config: a proposal never changes configuration" ;;
-  esac
-fi
 candidates=$(jq -c '.candidates' "$EVIDENCE")
 questions=$(jq -c --arg untrusted "$FM_MODEL_PROPOSAL_UNTRUSTED" '
   {model: {type: "choice",
