@@ -1,0 +1,13 @@
+Firstmate is licensed under the MIT License (see LICENSE).
+
+It includes material from third parties, which keeps its own licence:
+
+- agent-stack (https://github.com/korallis/agent-stack), Apache License 2.0,
+  Copyright 2026 The agent-stack authors. The licence text is in
+  licenses/agent-stack-LICENSE.
+  - bin/fm-jev-merge-gate.sh is adapted from its orchestration/merge-evidence.js
+    and the review.merge_gate v4 decision in config/decisions.yaml, rewritten in
+    bash and jq for Firstmate.
+  - The agent-stack-* cases in tests/fixtures/jev-merge-gate/cases.jsonl are
+    copied from its test/fixtures/merge-gate-tests-first/, wrapped with a label
+    and an eval set.
