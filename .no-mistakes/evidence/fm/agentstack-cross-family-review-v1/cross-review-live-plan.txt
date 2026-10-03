@@ -1,0 +1,9 @@
+$ FM_HOME=<isolated> bin/fm-cross-review.sh plan task-live
+task=task-live
+head=e06e0559b3425c749acf9fce53ef4b2ff3211812
+builder_family=openai
+action=escalate
+reason=no catalog-proven reviewer family differs from the builder's openai
+xai/grok-4.5
+xai/grok-4.6
+xai/grok-4.7
