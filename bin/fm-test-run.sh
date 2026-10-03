@@ -816,6 +816,7 @@ tests/fm-jev-compaction.test.sh 638
 tests/fm-jev-done-verify.test.sh 38035
 tests/fm-jev-intake-match.test.sh 17464
 tests/fm-jev-lib.test.sh 1005
+tests/fm-jev-model-proposal.test.sh 1565
 tests/fm-jev-pr-verdict.test.sh 1800
 tests/fm-jev-retrieval-miss.test.sh 1363
 tests/fm-jev-skill-select.test.sh 77991
@@ -1646,6 +1647,9 @@ families_for_changed_path() {
       ;;
     bin/fm-jev-pr-verdict.sh)
       printf '%s\n' "__script__:fm-jev-pr-verdict.test.sh"
+      ;;
+    bin/fm-jev-model-proposal.sh)
+      printf '%s\n' "__script__:fm-jev-model-proposal.test.sh"
       ;;
     bin/fm-jev-retrieval-miss.sh)
       printf '%s\n' "__script__:fm-jev-retrieval-miss.test.sh"

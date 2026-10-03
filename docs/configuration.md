@@ -1618,6 +1618,15 @@ It skips silently without a configured Jev key or a share-safe routing card, doe
 Set `FM_JEV_ASK_USER_FLOOR` (default 0.75) to configure its confidence floor.
 The script header owns its decision and privacy boundaries, inputs, outputs, exit codes, and log schema.
 
+## Jev model proposals
+
+[`bin/fm-jev-model-proposal.sh`](../bin/fm-jev-model-proposal.sh) asks Jev, once per role, which candidate model fits that role's work, and writes the answers as a Markdown proposal under `data/model-proposals/`.
+Each rule in `config/crew-dispatch.json` is a role, and an evidence file the caller curates supplies the candidate models, their capability and benchmark evidence, their billing class, and any extra roles such as secondmate pins.
+The proposal lists each role's current models, every candidate's probability and billing class, Jev's pick, confidence and band, and a local request id that matches the call record in `state/jev-model-proposal.jsonl`.
+It never edits `config/` or any dispatch profile, and every switch it proposes needs the captain's yes before anyone changes a profile.
+Any candidate billed to usage credits, such as Fable, is named in a billing notice at the top of the proposal.
+The script header owns the evidence format, what Jev receives, the band thresholds, and the exit codes.
+
 ## Shadow done verifier
 
 [`bin/fm-jev-done-verify.sh`](../bin/fm-jev-done-verify.sh) is a log-only helper the wake drain invokes after successfully presenting a worker `done:` line on a ship or scout.
