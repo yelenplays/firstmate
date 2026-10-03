@@ -37,6 +37,19 @@
 #   FM_WIKI_GUIDE_TARGET, FM_WIKI_GUIDE_TOPIC, and FM_WIKI_GUIDE_ACTION set.
 #   Anything else gives kind `invalid` with FM_WIKI_GUIDE_ERROR naming why and
 #   returns 1. A cloud flag in the draft is never read; the lander looks it up.
+# fm_wiki_change_private <config-dir> <project-dir> <project-name> <base> <head>
+#   The one owner of "this change must stay on the private path": no Jev call,
+#   no added third-party reviewer, nothing of its content sent anywhere new.
+#   Returns 0 (private) and sets FM_WIKI_PRIVATE_REASON when the project is a
+#   vault (its clone carries the vault scaffold `_meta/pruefe.sh` or
+#   `_meta/einstieg.sh`) and either its routing card's cloud field, read now
+#   from the estate, is anything other than `ja` - `nein`, `nur-digest`, an
+#   unknown value, no matching card, or an unreadable estate - or any Markdown
+#   file the change touches carries `private: true` in its front matter at
+#   <base> or at <head>, or the changed files cannot be listed. Returns 1 for a
+#   project that is not a vault and for a cloud-`ja` vault change that touches
+#   no private page. It reads card fields at call time and never a hardcoded
+#   vault list.
 
 FM_WIKI_GUIDE_MARKER='Wiki guide contract: required'
 FM_WIKI_MAX_PAGES=3
@@ -45,6 +58,8 @@ FM_WIKI_GUIDE_TARGET=
 FM_WIKI_GUIDE_TOPIC=
 FM_WIKI_GUIDE_ACTION=
 FM_WIKI_GUIDE_ERROR=
+# Set by fm_wiki_change_private when it reports a change private.
+FM_WIKI_PRIVATE_REASON=
 
 fm_wiki_registry_names() {
   local reg=$1 name=$2
@@ -258,4 +273,48 @@ fm_wiki_guide_header() {
   FM_WIKI_GUIDE_TOPIC=$topic
   FM_WIKI_GUIDE_ACTION=$action
   return 0
+}
+
+fm_wiki_md_front_private() {  # <repo> <rev> <path>
+  git -C "$1" show "$2:$3" 2>/dev/null | awk '
+    NR == 1 { if ($0 != "---") exit 1; next }
+    $0 == "---" { exit 1 }
+    /^private:[ \t]*(true|"true"|yes)[ \t]*$/ { found = 1; exit 0 }
+    END { exit found ? 0 : 1 }
+  '
+}
+
+# shellcheck disable=SC2034 # FM_WIKI_PRIVATE_REASON: output global, read by the sourcing caller.
+fm_wiki_change_private() {  # <config-dir> <project-dir> <project-name> <base> <head>
+  local config=$1 proj=$2 name=$3 base=$4 head=$5 root row cloud files f
+  FM_WIKI_PRIVATE_REASON=
+  [ -e "$proj/_meta/pruefe.sh" ] || [ -e "$proj/_meta/einstieg.sh" ] || return 1
+  if ! root=$(fm_wiki_root "$config"); then
+    FM_WIKI_PRIVATE_REASON="vault $name: no readable wikis root, so its card cannot be read"
+    return 0
+  fi
+  row=$(fm_wiki_estate_row "$root/routing/estate.json" "$name")
+  if [ -z "$row" ]; then
+    FM_WIKI_PRIVATE_REASON="vault $name: no readable routing card matches it"
+    return 0
+  fi
+  cloud=$(printf '%s' "$row" | awk -F '\037' '{ print $6 }')
+  if [ "$cloud" != ja ]; then
+    FM_WIKI_PRIVATE_REASON="vault $name: its card has cloud: ${cloud:-unset}"
+    return 0
+  fi
+  if ! files=$(git -C "$proj" diff --name-only "$base" "$head" 2>/dev/null); then
+    FM_WIKI_PRIVATE_REASON="vault $name: the changed pages between $base and $head cannot be listed"
+    return 0
+  fi
+  while IFS= read -r f; do
+    case "$f" in *.md|*.markdown) ;; *) continue ;; esac
+    if fm_wiki_md_front_private "$proj" "$head" "$f" || fm_wiki_md_front_private "$proj" "$base" "$f"; then
+      FM_WIKI_PRIVATE_REASON="vault $name: the change touches $f, a page marked private: true"
+      return 0
+    fi
+  done <<EOF_FILES
+$files
+EOF_FILES
+  return 1
 }

@@ -404,6 +404,7 @@ family_for_basename() {
       printf '%s\n' backend-dispatch
       ;;
     fm-check-unregister.test.sh|fm-pr-check-security.test.sh|fm-jev-pr-verdict.test.sh|fm-pr-merge.test.sh|\
+    fm-ai-family-lib.test.sh|fm-cross-review.test.sh|\
     fm-pr-reviewers.test.sh|fm-pr-state.test.sh|\
     fm-review-diff.test.sh|fm-teardown.test.sh|fm-x-mode.test.sh)
       printf '%s\n' pr-forge
@@ -1844,7 +1845,7 @@ families_for_changed_path() {
     tests/*)
       printf '%s\n' "__unmapped__:$path"
       ;;
-    README.md|LICENSE|assets/*|docs/*|.gitignore)
+    README.md|LICENSE|LICENSES/*|NOTICE|assets/*|docs/*|.gitignore)
       ;;
     *)
       if [ -e "$path" ]; then
