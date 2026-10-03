@@ -74,9 +74,20 @@ fm_ai_family_catalog_provider() {  # <harness> <model-id> [<provider>]
 # shellcheck disable=SC2034 # FM_AI_FAMILY*: output globals, read by the sourcing caller.
 fm_ai_family_resolve() {  # <harness> [<model>]
   local harness=$1 model=${2:-} provider id fam
-  case "$model" in default|-) model= ;; esac
   FM_AI_FAMILY=unknown
   FM_AI_FAMILY_SOURCE=
+  if [ "$harness" = claude ] && [ "$model" = default ]; then
+    FM_AI_FAMILY=anthropic
+    FM_AI_FAMILY_SOURCE="Claude Code default model catalog is Anthropic"
+    return 0
+  fi
+  case "$harness:$model" in codex:gpt-*)
+    FM_AI_FAMILY=openai
+    FM_AI_FAMILY_SOURCE="Codex CLI model catalog identifies OpenAI for $model"
+    return 0
+    ;;
+  esac
+  case "$model" in default|-) model= ;; esac
   case "$harness" in
     pi|pi-signed)
       if [ -z "$model" ]; then

@@ -19,6 +19,7 @@ openai-codex  gpt-6-luna   400K     128K     yes       yes
 opencode-go   gpt-6-luna   400K     128K     yes       yes
 openai-codex  gpt-6-astra  400K     128K     yes       yes
 xai           grok-5       256K     64K      yes       yes
+xai           grok-4.7     500K     500K     yes       yes
 EOF
 
 # The fake no-mistakes answers from the case's captured status and stats, in
@@ -339,7 +340,7 @@ test_reviewer_chain_skips_the_builder_family() {
   out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
   assert_equals pi "$(field "$out" reviewer_harness)" "the fixed catalog-backed reviewer is selected"
   assert_equals xai "$(field "$out" reviewer_family)" "the same-family candidate is skipped"
-  assert_equals xai/grok-5 "$(field "$out" reviewer_model)" "the fixed chain advances to its next disjoint family"
+  assert_equals xai/grok-4.7 "$(field "$out" reviewer_model)" "the fixed chain advances to its next disjoint family"
   pass "the fixed reviewer chain skips candidates from the builder family"
 }
 

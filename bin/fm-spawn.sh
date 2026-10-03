@@ -5164,7 +5164,7 @@ preserve_relaunch_meta() {
 # (bin/fm-ai-family-lib.sh owns the resolution). A relaunch can change the
 # harness or model, so the recorded set keeps every family that has driven the
 # task: an independent reviewer must differ from all of them.
-fm_ai_family_resolve "$HARNESS" "${MODEL:-}"
+fm_ai_family_resolve "$HARNESS" "${MODEL:-default}"
 SPAWN_AI_FAMILY=$FM_AI_FAMILY
 SPAWN_AI_FAMILY_SOURCE=$FM_AI_FAMILY_SOURCE
 if [ "$RELAUNCH" -eq 1 ]; then

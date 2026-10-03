@@ -33,6 +33,7 @@ test_harness_names_do_not_prove_family() {
     assert_equals unknown "$(resolve "$h")" "harness '$h' alone cannot prove its model family"
     assert_equals unknown "$(resolve "$h" claude-opus-5-5)" "a model name cannot prove the family for harness '$h'"
   done
+  assert_equals anthropic "$(resolve claude default)" "Claude Code's default catalog identifies its native Anthropic model"
   pass "a harness or model name alone never proves the AI family"
 }
 
