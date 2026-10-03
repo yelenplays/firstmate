@@ -101,6 +101,35 @@ real_dir() {
   (cd "$1" 2>/dev/null && pwd -P)
 }
 
+real_path() {
+  local path=$1 suffix='' component resolved
+  case "$path" in /*) ;; *) path="$PWD/$path" ;; esac
+  while [ ! -d "$path" ]; do
+    component=$(basename "$path")
+    suffix="/$component$suffix"
+    path=$(dirname "$path")
+  done
+  resolved=$(real_dir "$path")
+  suffix=${suffix#/}
+  while [ -n "$suffix" ]; do
+    component=${suffix%%/*}
+    suffix=${suffix#*/}
+    [ "$component" = "$suffix" ] && suffix=''
+    case "$component" in
+      ''|.) ;;
+      ..) resolved=$(dirname "$resolved") ;;
+      *)
+        if [ -d "$resolved/$component" ]; then
+          resolved=$(real_dir "$resolved/$component")
+        else
+          resolved="$resolved/$component"
+        fi
+        ;;
+    esac
+  done
+  printf '%s' "$resolved"
+}
+
 EVIDENCE='' DISPATCH="$FM_HOME/config/crew-dispatch.json" OUT=''
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -166,12 +195,14 @@ if [ -z "$OUT" ]; then
   OUT="$FM_HOME/data/model-proposals/$(date -u +%Y%m%dT%H%M%SZ).md"
 fi
 out_dir=$(dirname "$OUT")
-mkdir -p "$out_dir" 2>/dev/null || die "could not create $out_dir"
-out_real="$(real_dir "$out_dir")/$(basename "$OUT")"
 config_real=$(real_dir "$FM_HOME/config" || true)
 if [ -n "$config_real" ]; then
-  case "$out_real/" in "$config_real"/*) die "refusing to write under $FM_HOME/config: a proposal never changes configuration" ;; esac
+  case "$(real_path "$out_dir")/$(basename "$OUT")/" in
+    "$config_real"/*) die "refusing to write under $FM_HOME/config: a proposal never changes configuration" ;;
+  esac
 fi
+mkdir -p "$out_dir" 2>/dev/null || die "could not create $out_dir"
+out_real="$(real_dir "$out_dir")/$(basename "$OUT")"
 for guarded in "$EVIDENCE" "$DISPATCH"; do
   if [ -e "$guarded" ] && [ "$out_real" = "$(real_dir "$(dirname "$guarded")")/$(basename "$guarded")" ]; then
     die "refusing to overwrite the input file $guarded"
