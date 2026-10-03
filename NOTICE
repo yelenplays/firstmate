@@ -1,0 +1,9 @@
+Firstmate
+Copyright (c) 2026 Kun Chen, under the MIT License (see LICENSE).
+
+It includes material adapted from third parties, which keeps its own licence:
+
+- agent-stack (https://github.com/korallis/agent-stack), Copyright 2026 The agent-stack authors,
+  Apache License 2.0 (see LICENSES/Apache-2.0).
+  bin/fm-jev-model-proposal.sh adapts its intake.specialist decision and band thresholds
+  (config/decisions.yaml) into a per-role model proposal generator.

@@ -98,7 +98,7 @@ Each effective `FM_HOME` contains private operational directories.
 Firstmate reads these clones, but changes them only through the narrow guarded and concrete captain-approved exceptions in `AGENTS.md`.
 `data/` holds durable private fleet records such as the project and secondmate registries, captain preferences, optional shared captain preferences, learnings, backlog, briefs, scout reports, saved browser routes under `data/browser-routes/`, and explicitly installed content-addressed extension packages under `data/extensions/packages/`.
 `data/history/` stores this home's private conversation journal, task cards, and daily Logbooks; `bin/fm-history.sh` owns their formats, capture, search, and daily-generation behavior.
-`state/.history-cursor` tracks incremental transcript capture and the latest available token usage for compaction journaling; `state/jev-history-find.jsonl` keeps metadata-only Jev search records.
+`state/.history-cursor` tracks incremental transcript capture and the latest available token usage for compaction journaling; `state/jev-history-find.jsonl` keeps metadata-only Jev search records; `state/jev-model-proposal.jsonl` keeps metadata-only Jev model-proposal call records.
 Untracked files and directories whose names begin with `scratchpad` are also gitignored, so temporary scratch does not make porcelain-based secondmate sync guards treat a home as dirty.
 
 ### Format and lifecycle references
@@ -1402,6 +1402,16 @@ The thin hook point is documented in [`docs/arm-pretool-check.md`](arm-pretool-c
 `fm-pr-check.sh` runs it best-effort after GitHub PR registration; it can also be run directly when preparing a review ask.
 The ship-landing skill owns when to include it in the captain's review ask; the script header owns admission, privacy and record mechanics.
 It skips silently without a configured Jev key or a share-safe routing card, does not certify private-page content or required checks, and does not change merge authority.
+
+## Jev model proposals
+
+[`bin/fm-jev-model-proposal.sh`](../bin/fm-jev-model-proposal.sh) asks Jev, once per role, which candidate model fits that role's work, and writes the answers as a Markdown proposal under `data/model-proposals/`.
+Each rule in `config/crew-dispatch.json` is a role, and an evidence file the caller curates supplies the candidate models, their capability and benchmark evidence, their billing class, and any extra roles such as secondmate pins.
+The proposal lists each role's current models, every candidate's probability and billing class, Jev's pick, confidence and band, and a local request id for each call.
+When call logging is available, the request id is also recorded in `jev-model-proposal.jsonl` under the effective state directory (`$FM_STATE_OVERRIDE` or `$FM_HOME/state`).
+It never edits `config/` or any dispatch profile, and every switch it proposes needs the captain's yes before anyone changes a profile.
+Any candidate billed to usage credits, such as Fable, is named in a billing notice at the top of the proposal.
+The script header owns the evidence format, what Jev receives, the band thresholds, and the exit codes.
 
 ## Shadow done verifier
 
