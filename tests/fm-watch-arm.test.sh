@@ -1505,7 +1505,7 @@ test_handling_delivered_accepts_already_acked_generation() {
   esac
   FM_HOME="$home" FM_STATE_OVERRIDE="$state" "$WATCH_ARM" --handling-delivered "$generation" \
     --watcher-pid "$pid"
-  expect_code 0 "$?" "an already-acknowledged confirmation must succeed as a no-op"
+  expect_code 4 "$?" "an already-acknowledged confirmation must succeed as a no-op"
   FM_HOME="$home" FM_STATE_OVERRIDE="$state" "$WATCH_ARM" --handling-delivered "superseded.0.deadbeef" \
     --watcher-pid "$pid" 2>/dev/null
   expect_code 3 "$?" "a superseded generation must stay rejected"

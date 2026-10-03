@@ -518,7 +518,7 @@ if [ "$mode" = handling-delivered ]; then
   handling_status=0
   fm_recovery_marker_begin_handling "$STATE/.watcher-down" "$handling_generation" || handling_status=$?
   if [ "$handling_status" -ne 0 ] \
-    && [ -f "$FM_WAKE_QUEUE" ] && [ ! -L "$FM_WAKE_QUEUE" ] && [ ! -s "$FM_WAKE_QUEUE" ] \
+    && { [ ! -e "$FM_WAKE_QUEUE" ] || { [ -f "$FM_WAKE_QUEUE" ] && [ ! -L "$FM_WAKE_QUEUE" ] && [ ! -s "$FM_WAKE_QUEUE" ]; }; } \
     && fm_recovery_marker_snapshot "$STATE/.watcher-down"; then
     case "$FM_RECOVERY_MARKER_TOKEN" in
       "acked:handling:$handling_generation"|"acked:downtime:$handling_generation") handling_status=4 ;;
