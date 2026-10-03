@@ -948,6 +948,34 @@ SH
   pass "teardown closes a landed Gerrit task with its change URL as a note and a GitHub task with --pr"
 }
 
+# A landed change whose post-merge watch is still open is not confirmed, so
+# cleanup refuses before touching anything; once the watch reverted it, cleanup
+# proceeds but returns the item to Queued instead of closing it.
+test_teardown_follows_the_post_merge_watch() {
+  local case_dir out rc=0
+  case_dir=$(make_case post-merge-watch)
+  write_meta "$case_dir" no-mistakes ship
+  printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
+  seed_backlog_in_flight "$case_dir"
+  printf 'version=fm-post-merge-v1\ntask=task-x1\nspawn_gen=teardown-test-task-x1\nphase=checks\n' \
+    > "$case_dir/state/task-x1.post-merge"
+
+  out=$(run_teardown "$case_dir" 2>&1) || rc=$?
+  expect_code 1 "$rc" "teardown under an open post-merge watch"
+  assert_contains "$out" "post-merge watch for task-x1 is still in phase 'checks'" \
+    "teardown did not name the open post-merge watch"
+  assert_present "$case_dir/wt" "a refused teardown removed the worktree"
+  [ "$(backlog_row_state "$case_dir")" = in_flight ] \
+    || fail "a refused teardown moved the backlog item: $(backlog_row_state "$case_dir")"
+
+  printf 'phase=reverted\n' >> "$case_dir/state/task-x1.post-merge"
+  out=$(run_teardown "$case_dir" 2>&1) || fail "teardown after a revert failed: $out"
+  [ "$(backlog_row_state "$case_dir")" = queued ] \
+    || fail "teardown closed a reverted task instead of queueing it: $(backlog_row_state "$case_dir")"
+  assert_absent "$case_dir/state/task-x1.post-merge" "teardown left the finished post-merge record behind"
+  pass "teardown waits for an open post-merge watch and keeps a reverted task queued"
+}
+
 test_teardown_manual_backend_leaves_the_backlog_to_the_operator() {
   local case_dir out backlog_path
   case_dir=$(make_case tasks-axi-manual-optout)
@@ -4763,6 +4791,7 @@ test_local_only_fork_remote_allows
 test_teardown_retires_watcher_state
 test_teardown_closes_the_backlog_item_itself
 test_teardown_closes_a_gerrit_task_with_its_change_url_as_a_note
+test_teardown_follows_the_post_merge_watch
 test_teardown_manual_backend_leaves_the_backlog_to_the_operator
 test_local_only_truly_unpushed_refuses
 test_local_only_merged_to_local_main_allows

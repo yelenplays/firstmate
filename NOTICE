@@ -12,3 +12,9 @@ It includes material adapted from third parties, which keeps its own licence:
   sha on a line of its own outside quotes and code blocks, and the latest record
   decides. Changes: rebuilt in Bash on Firstmate task records, with families read
   from each harness's model catalog instead of seat names.
+  - bin/fm-post-merge.sh adapts its witness practice from
+    rig/template/witness-slice/SPEC.md: a fresh agent that built none of the
+    change uses it and keeps what it saw as evidence.
+  - bin/fm-witness-login.sh adapts its typed-by-name test credentials from
+    docs/REFERENCE.md ("Test credentials"), rewritten as a wrapper around
+    chrome-devtools-axi.

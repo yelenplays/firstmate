@@ -41,6 +41,9 @@
 # lift the deferral (it authorizes discarding unlanded WORK, never the
 # captain's question), and bin/fm-captain-hold.sh answer stays the only act
 # that closes the call.
+# A task with a post-merge watch is refused while the watch is open and retained
+# (returned to Queued) after the watch reverted its landing;
+# bin/fm-post-merge-lib.sh owns that rule.
 # REFUSES if the worktree holds work that has not LANDED, because cleanup
 # hard-resets/removes the worktree and kills its processes. Work has landed when it is
 # reachable from any remote-tracking branch (a fork counts as a remote, so
@@ -375,6 +378,8 @@ unset _teardown_source
 . "$SCRIPT_DIR/fm-gate-refuse-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
+# shellcheck source=bin/fm-post-merge-lib.sh
+. "$SCRIPT_DIR/fm-post-merge-lib.sh"
 # shellcheck source=bin/fm-public-followup-lib.sh
 . "$SCRIPT_DIR/fm-public-followup-lib.sh"
 # shellcheck source=bin/fm-secondmate-registry-lib.sh
@@ -633,9 +638,15 @@ if [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
   fi
   [ "$TEARDOWN_LEGACY_PENDING" = 1 ] || TEARDOWN_META_SPAWN_GEN=$FM_BACKLOG_META_SPAWN_GEN
 fi
+# A watched landing is not confirmed until its post-merge watch ends, and a
+# reverted one returns to the queue; bin/fm-post-merge-lib.sh owns both rules.
+if ! fm_post_merge_teardown_transition "$STATE" "$ID" "$META"; then
+  echo "error: task $ID cannot be torn down yet: $FM_POST_MERGE_TEARDOWN_ERROR" >&2
+  exit 1
+fi
 # Cleanup never closes a captain call (see the header). Asked here, before any
 # destructive step, so "cannot tell" can refuse while everything is intact.
-TEARDOWN_BACKLOG_TRANSITION=close
+TEARDOWN_BACKLOG_TRANSITION=$FM_POST_MERGE_TEARDOWN
 if [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
   TEARDOWN_CAPTAIN_OPEN_STATUS=0
   TEARDOWN_CAPTAIN_OPEN_OUT=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
@@ -3846,6 +3857,7 @@ else
 fi
 fm_lock_release "$META_LOCK"
 META_LOCK_HELD=0
+rm -f -- "$(fm_post_merge_record_path "$STATE" "$ID")"
 if [ "$KIND" != scout ] && [ "$KIND" != secondmate ] && [ "$MODE" != local-only ]; then
   "$FM_ROOT/bin/fm-fleet-sync.sh" "$PROJ" || true
 fi
