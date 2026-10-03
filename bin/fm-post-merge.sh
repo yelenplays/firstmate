@@ -269,9 +269,17 @@ commit_verdict() {  # <sha> <since-epoch> <grace>
   VERDICT=
   VERDICT_NAMES=
   runs=$(gh api --hostname "$FM_PR_HOST" "repos/$FM_PR_PATH/commits/$sha/check-runs?per_page=100" --paginate \
-    --jq '.check_runs[] | [.name, .status, (.conclusion // "")] | @tsv' 2>/dev/null) || return 1
+    --jq '.check_runs[] | {name, status, conclusion, started_at, completed_at, id}' 2>/dev/null) || return 1
+  runs=$(printf '%s\n' "$runs" | jq -sr '
+    group_by(.name) | map(max_by([(.completed_at // .started_at // .created_at // ""), (.id // 0)]))[] |
+    [.name, .status, (.conclusion // "")] | @tsv
+  ') || return 1
   statuses=$(gh api --hostname "$FM_PR_HOST" "repos/$FM_PR_PATH/commits/$sha/status" \
-    --jq '.statuses[] | [.context, .state] | @tsv' 2>/dev/null) || return 1
+    --jq '.statuses[] | {context, state, created_at, updated_at, id}' 2>/dev/null) || return 1
+  statuses=$(printf '%s\n' "$statuses" | jq -sr '
+    group_by(.context) | map(max_by([(.updated_at // .created_at // ""), (.id // 0)]))[] |
+    [.context, .state] | @tsv
+  ') || return 1
   while IFS=$'\t' read -r name status conclusion; do
     [ -n "$name" ] || continue
     case "$status" in

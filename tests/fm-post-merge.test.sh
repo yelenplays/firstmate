@@ -329,6 +329,21 @@ test_unrelated_recovered_revert_is_refused() {
   pass "fm-post-merge: recovery refuses a prefixed PR that does not name the recorded merge"
 }
 
+test_latest_check_result_wins() {
+  local out
+  make_pr_world pm-rerun on
+  pm arm "$W_ID" --grace 0 >/dev/null 2>&1 || fail "arm refused"
+  printf '{"check_runs":[{"name":"build","status":"completed","conclusion":"failure","started_at":"2026-01-01T00:00:00Z","completed_at":"2026-01-01T00:01:00Z","id":1},{"name":"build","status":"completed","conclusion":"success","started_at":"2026-01-01T00:02:00Z","completed_at":"2026-01-01T00:03:00Z","id":2}]}\n' \
+    > "$W_FAKE/checks-$MERGE_SHA.json"
+  printf '{"statuses":[{"context":"deploy","state":"failure","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:01:00Z","id":1},{"context":"deploy","state":"success","created_at":"2026-01-01T00:02:00Z","updated_at":"2026-01-01T00:03:00Z","id":2}]}\n' \
+    > "$W_FAKE/status-$MERGE_SHA.json"
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed after successful reruns: $out"
+  assert_contains "$out" "clear: checks on" "older failed check results overrode newer successes"
+  assert_equals clear "$(record_field phase)" "the latest green results did not clear the watch"
+  assert_absent "$W_FAKE/merges" "an older failed result triggered an automatic revert"
+  pass "fm-post-merge: latest check and status results override earlier failures"
+}
+
 test_unknown_completed_check_conclusions_wait() {
   local out
   make_pr_world pm-action-main on
@@ -540,6 +555,7 @@ test_revert_refused_by_github_blocks
 test_yolo_off_asks_before_merging_the_revert
 test_interrupted_revert_is_adopted
 test_unrelated_recovered_revert_is_refused
+test_latest_check_result_wins
 test_unknown_completed_check_conclusions_wait
 test_revert_without_green_checks_is_held
 test_witness_result_needs_exactly_one_verdict
