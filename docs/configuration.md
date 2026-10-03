@@ -1418,6 +1418,7 @@ Behavioral regressions in [`tests/fm-jev-done-verify.test.sh`](../tests/fm-jev-d
 
 [`bin/fm-jev-merge-gate.sh`](../bin/fm-jev-merge-gate.sh) collects exact-head merge evidence for a GitHub PR or a local-only landing and asks Jev one Choice, `merge` or `hold`, with code-owned confidence bands.
 It runs in shadow: firstmate decides and merges exactly as before, and nothing reads its verdict as merge authority.
+For a team project's PR, pass `--team` to `decide <PR URL>`; for a team project's local landing, pass `--team` to `decide --task <id>` so a missing QA proof is not labelled N/A.
 The [`ship-landing`](../.agents/skills/ship-landing/SKILL.md) skill owns when firstmate runs it and records its own decision next to it.
 Every evidence field is filled from a verified fact, or says `MISSING`, or says `N/A:` with the facts behind it, and a head or base that moves during collection refuses the decision.
 Review evidence, AI families and exact-head confirmations come from the cross-family review tool; the gate keeps no second copy of them.

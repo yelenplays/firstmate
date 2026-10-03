@@ -35,7 +35,9 @@
 #                      production on Cloudflare Pages"); wins over the config
 #   --rollback <text>  how to undo the merge; wins over the config
 #   --team             the project has an agent team, so a QA proof for the
-#                      exact head is required instead of N/A
+#                      exact head is required instead of N/A; pass this on
+#                      every PR or local-landing evidence/decide command
+#                      for a team project
 #
 # evidence collects and prints {eligibility, evidence, input} and calls nothing.
 # decide also asks Jev and prints {eligibility, evidence, input, problems,
@@ -871,7 +873,7 @@ _cross_review() {
 
 _assemble() {
   local notes xr='' tests qa proof scope blast change deploy rollback cfg cfg_deploy='' cfg_rollback=''
-  local review_line pipeline_line qa_line tests_line limits ci verdict stale
+  local review_line pipeline_line qa_line tests_line limits ci verdict stale pipeline_safe qa_safe
   notes=$(_notes)
   tests=$(printf '%s\n' "$notes" | jq -cs --arg h "$HEAD_SHA" '[.[] | select(.kind == "tests" and .head == $h)] | last // empty')
   stale=$(printf '%s\n' "$notes" | jq -rs --arg h "$HEAD_SHA" '[.[] | select(.head != $h and .kind == "tests") | .head[0:12]] | unique | join(", ")')
@@ -895,11 +897,22 @@ _assemble() {
       verdict=$(printf '%s' "$xr" | jq -r '.independent_review.verdict // ""')
       review_line="independent review on $HEAD_SHA: verdict ${verdict:-unknown} from the $(printf '%s' "$xr" | jq -r '.independent_review.source // "unknown"') review, reviewer family ${REVIEWER_FAMILY:-unknown}, builder family ${BUILDER_FAMILY:-unknown}"
       case "$verdict" in success|completed) ;; *) _problem review-not-pass "the independent review verdict is ${verdict:-unknown}" ;; esac
+      if ! printf '%s' "$xr" | jq -e '
+        (.builder.family | type == "string" and test("^[a-z0-9,-]{1,120}$")) and
+        (.independent_review.family | type == "string" and test("^[a-z0-9,-]{1,120}$")) and
+        .builder.family != .independent_review.family' >/dev/null; then
+        _problem review-family "the independent reviewer family is missing or matches the builder family"
+      fi
     else
       review_line=$(_redact "$(printf '%s' "$xr" | jq -r '.independent_review // "MISSING: no independent review reported"')" 600)
       _problem review-missing "no independent review from another family for this head"
     fi
-    if printf '%s' "$xr" | jq -e '.confirm | type == "object"' >/dev/null; then CONFIRMED=true; fi
+    if printf '%s' "$xr" | jq -e --arg h "$HEAD_SHA" '
+      .confirm | type == "object" and .sha == $h and
+      (.family | type == "string" and test("^[a-z0-9,-]{1,120}$"))' >/dev/null &&
+      [ "$(printf '%s' "$xr" | jq -r '.confirm.family')" != "$BUILDER_FAMILY" ]; then
+      CONFIRMED=true
+    fi
   fi
   [[ "$BUILDER_FAMILY" =~ ^[a-z0-9,-]{1,120}$ ]] || BUILDER_FAMILY=
   [[ "$REVIEWER_FAMILY" =~ ^[a-z0-9,-]{1,120}$ ]] || REVIEWER_FAMILY=
@@ -932,6 +945,7 @@ _assemble() {
     qa=$(awk 'NR == 1 && !/^---/ { exit } NR > 1 && /^---/ { exit } NR > 1 { print }' "$proof" |
       awk -F': *' '$1 == "artifact_type" || $1 == "verdict" || $1 == "candidate_sha" { gsub(/["\047\r]/, "", $2); printf "%s=%s ", $1, $2 }')
     qa_line="bug-review-board proof brb-$HEAD_SHA.md: ${qa% }"
+    case " $qa " in *" artifact_type=qa "*) ;; *) _problem qa-artifact-type "the proof artifact is not a QA artifact" ;; esac
     case " $qa " in *" verdict=PASS "*) ;; *) _problem qa-not-pass "the QA verdict for this head is not PASS" ;; esac
     case " $qa " in *" candidate_sha=$HEAD_SHA "*) ;; *) _problem qa-stale "the QA proof names another candidate than this head" ;; esac
   elif [ "$OPT_TEAM" = true ]; then
@@ -996,6 +1010,8 @@ _assemble() {
   fi
 
   ci=$(_redact "$CI_LINE" "$FM_MERGE_GATE_FIELD_MAX")
+  pipeline_safe=$(_redact "$pipeline_line" "$FM_MERGE_GATE_FIELD_MAX")
+  qa_safe=$(_redact "$qa_line" "$FM_MERGE_GATE_FIELD_MAX")
   limits="target branch $BASE_REF at $BASE_SHA; head branch $HEAD_REF
 $MERGE_LINE
 delivery mode: ${MODE:-unknown}
@@ -1017,8 +1033,8 @@ rollback: $rollback"
 $scope
 $blast" \
     --arg review "$(_redact "$review_line" "$FM_MERGE_GATE_FIELD_MAX")
-$pipeline_line
-$qa_line" \
+$pipeline_safe
+$qa_safe" \
     --arg ci "$ci" --arg limits "$(fm_jev_compact_state "$limits" 2>/dev/null || printf 'MISSING: limits over the size limit')" \
     '{pr: $pr, head: $head, base: $base, change: $change, review: $review, ci: $ci, limits: $limits}')
 }
@@ -1269,7 +1285,7 @@ _add_case() {  # <input-sha> <expect> <source> <gate-decision>
 }
 
 cmd_record() {
-  local gate effective agreement streak prev sha decision reason=null
+  local gate effective agreement streak prev sha decision reason=null prior request_id
   _parse_target record "$@"
   fm_pr_head_valid "$OPT_HEAD" || die "--head must be a full commit sha"
   case "$OPT_FIRSTMATE" in merge|hold) ;; *) die "--firstmate must be merge or hold" ;; esac
@@ -1280,6 +1296,15 @@ cmd_record() {
   decision=$(printf '%s' "$gate" | jq -r '.decision // empty' 2>/dev/null)
   effective=$(printf '%s' "$gate" | jq -r '.effective // empty' 2>/dev/null)
   sha=$(printf '%s' "$gate" | jq -r '.input_sha256 // empty' 2>/dev/null)
+  request_id=$(printf '%s' "$gate" | jq -r '.request_id // empty' 2>/dev/null)
+  if [ -n "$request_id" ] && [ -f "$LOG" ]; then
+    prior=$(jq -Rc --arg t "$TARGET" --arg h "$OPT_HEAD" --arg rid "$request_id" \
+      'fromjson? | select(.kind == "comparison" and .target == $t and .head == $h and .gate_request_id == $rid)' "$LOG" 2>/dev/null | tail -1)
+    if [ -n "$prior" ]; then
+      printf '%s' "$prior" | jq -c '. + {duplicate: true} | {agreement, streak, streak_to_live, gate_decision, note, duplicate}'
+      return 0
+    fi
+  fi
   if [ -z "$gate" ]; then
     agreement=null; streak=$prev; reason='"no gate decision on this head"'
   elif [ "$(printf '%s' "$gate" | jq -r '.stubbed // false')" = true ] || [ -z "$effective" ]; then
@@ -1291,12 +1316,13 @@ cmd_record() {
     _add_case "$sha" "$OPT_FIRSTMATE" disagreement "$decision" || reason='"disagreement; its input was no longer stored"'
   fi
   _log "$(jq -nc --arg ts "$(fm_jev_iso_now)" --arg mode "$FM_MERGE_GATE_MODE" --arg project "$PROJECT" --arg target "$TARGET" \
-    --arg task "$TASK" --arg head "$OPT_HEAD" --arg fm "$OPT_FIRSTMATE" --arg gd "$decision" --arg ge "$effective" \
+    --arg task "$TASK" --arg head "$OPT_HEAD" --arg fm "$OPT_FIRSTMATE" --arg gd "$decision" --arg ge "$effective" --arg rid "$request_id" \
     --argjson agreement "$agreement" --argjson streak "$streak" --argjson reason "$reason" --arg sha "$sha" \
     --argjson need "$FM_MERGE_GATE_STREAK_TO_LIVE" \
     '{ts: $ts, kind: "comparison", mode: $mode, project: $project, target: $target, task: (if $task == "" then null else $task end),
       head: $head, firstmate: $fm, outcome: (if $fm == "merge" then "merged" else "held" end),
       gate_decision: (if $gd == "" then null else $gd end), gate_effective: (if $ge == "" then null else $ge end),
+      gate_request_id: (if $rid == "" then null else $rid end),
       agreement: $agreement, streak: $streak, streak_to_live: $need, note: $reason,
       input_sha256: (if $sha == "" then null else $sha end)}')"
   jq -nc --argjson agreement "$agreement" --argjson streak "$streak" --argjson need "$FM_MERGE_GATE_STREAK_TO_LIVE" \

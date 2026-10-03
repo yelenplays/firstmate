@@ -236,12 +236,36 @@ rc=0; out=$(gate decide "$URL" 2>/dev/null) || rc=$?
 printf '%s' "$out" | jq -e '.evidence.reviewer_family == "openai" and .evidence.builder_family == "anthropic" and (.evidence.pipeline | test("completed"))' >/dev/null ||
   fail 'review evidence not read from the cross-family review tool'
 reset_case
+export TEST_XR="$(jq -c '.independent_review.family = .builder.family' <<<"$XR_OK")"
+rc=0; out=$(gate decide "$URL" 2>/dev/null) || rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | jq -e '.problems | any(test("reviewer family is missing or matches"))' >/dev/null ||
+  fail "same-family independent review must hold, got $rc: $out"
+reset_case
 export TEST_XR="$XR_OK" TEST_JEV_RESPONSE='{"id":"req-2","model":"jev-1.13.0","answers":{"decision":{"type":"choice","choice":"merge","confidence":0.5}}}'
 rc=0; gate decide "$URL" >/dev/null 2>&1 || rc=$?
 [ "$rc" = 3 ] || fail "review-band merge without confirm must need a confirm (exit 3), got $rc"
-TEST_XR=$(jq -c '.confirm = {sha: "x", family: "openai", reviewer: "r"}' <<<"$XR_OK")
+TEST_XR=$(jq -c --arg h "$H1" '.confirm = {sha: "x", family: "openai", reviewer: "r"}' <<<"$XR_OK")
 rc=0; gate decide "$URL" >/dev/null 2>&1 || rc=$?
-[ "$rc" = 0 ] || fail "review-band merge with a cross-family confirm must merge, got $rc"
+[ "$rc" = 3 ] || fail "a confirmation for another head must not merge, got $rc"
+TEST_XR=$(jq -c --arg h "$H1" '.confirm = {sha: $h, family: "anthropic", reviewer: "r"}' <<<"$XR_OK")
+rc=0; gate decide "$URL" >/dev/null 2>&1 || rc=$?
+[ "$rc" = 3 ] || fail "a same-family confirmation must not merge, got $rc"
+TEST_XR=$(jq -c --arg h "$H1" '.confirm = {sha: $h, family: "openai", reviewer: "r"}' <<<"$XR_OK")
+rc=0; gate decide "$URL" >/dev/null 2>&1 || rc=$?
+[ "$rc" = 0 ] || fail "review-band merge with a cross-family exact-head confirm must merge, got $rc"
+reset_case
+export TEST_XR="$(jq -c --arg secret 'ghp_abcdefghijklmnopqrstuvwxyz0123456789' '.pipeline_review.run = $secret' <<<"$XR_OK")"
+mkdir -p "$HOME_DIR/data/app-task/proof"
+printf '%s\n' '---' 'artifact_type: artifact ghp_abcdefghijklmnopqrstuvwxyz0123456789' 'verdict: PASS' "candidate_sha: $H1" '---' > "$HOME_DIR/data/app-task/proof/brb-$H1.md"
+rc=0; out=$(gate decide "$URL" --team 2>/dev/null) || rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | jq -e '.problems | any(test("proof artifact is not a QA artifact"))' >/dev/null ||
+  fail "a non-QA proof must not satisfy QA, got $rc: $out"
+! grep -q 'ghp_abcdefghijklmnopqrstuvwxyz0123456789' "$TEST_JEV_REQUEST" || fail 'pipeline secret reached Jev'
+printf '%s' "$out" | jq -e '(.input.review | contains("ghp_") | not) and (.evidence.qa | contains("artifact_type=artifact"))' >/dev/null ||
+  fail 'redacted pipeline or QA evidence was not represented correctly'
+printf '%s\n' '---' 'artifact_type: qa' 'verdict: PASS' "candidate_sha: $H1" '---' > "$HOME_DIR/data/app-task/proof/brb-$H1.md"
+rc=0; out=$(gate decide "$URL" --team 2>/dev/null) || rc=$?
+[ "$rc" = 0 ] || fail "a matching QA artifact must satisfy the QA gate, got $rc"
 reset_case
 export TEST_XR="$XR_OK" TEST_JEV_RESPONSE='{"model":"jev-1.13.0","answers":{"decision":{"type":"choice","choice":"merge"}}}'
 rc=0; gate decide "$URL" >/dev/null 2>&1 || rc=$?
@@ -277,6 +301,9 @@ export TEST_XR="$XR_OK"
 gate decide "$URL" >/dev/null 2>&1
 out=$(gate record "$URL" --head "$H1" --firstmate merge) || fail 'record failed'
 printf '%s' "$out" | jq -e '.agreement == true and .streak == 1' >/dev/null || fail "agreement not counted: $out"
+out=$(gate record "$URL" --head "$H1" --firstmate merge) || fail 'duplicate record failed'
+printf '%s' "$out" | jq -e '.agreement == true and .streak == 1 and .duplicate == true' >/dev/null || fail "duplicate agreement counted again: $out"
+[ "$(jq -s '[.[] | select(.kind == "comparison")] | length' "$LOG")" = 1 ] || fail 'a duplicate record appended another comparison'
 reset_case
 export TEST_XR="$XR_OK" TEST_JEV_RESPONSE='{"id":"req-3","model":"jev-1.13.0","answers":{"decision":{"type":"choice","choice":"hold","confidence":0.7}}}'
 gate decide "$URL" >/dev/null 2>&1
