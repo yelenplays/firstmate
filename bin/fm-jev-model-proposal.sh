@@ -186,12 +186,14 @@ new_request_id() {
   printf '%s' "$id"
 }
 
-sha256() {
-  if command -v sha256sum >/dev/null 2>&1; then sha256sum | cut -d' ' -f1; else shasum -a 256 | cut -d' ' -f1; fi
-}
-
 state_dir=${FM_STATE_OVERRIDE:-$FM_HOME/state}
 log_path="$state_dir/jev-model-proposal.jsonl"
+state_dir_real=$(real_dir "$state_dir" || true)
+if [ -n "$config_real" ] && [ -n "$state_dir_real" ]; then
+  case "$state_dir_real/jev-model-proposal.jsonl/" in
+    "$config_real"/*) die "refusing to write under $FM_HOME/config: a proposal never changes configuration" ;;
+  esac
+fi
 candidates=$(jq -c '.candidates' "$EVIDENCE")
 questions=$(jq -c --arg untrusted "$FM_MODEL_PROPOSAL_UNTRUSTED" '
   {model: {type: "choice",
