@@ -160,24 +160,49 @@ else
 fi
 
 questions=$(jq -nc '{
+  task: "the worker task id",
+  done: "the worker'"'"'s done line - the claim being checked",
+  acceptance: "what the task had to achieve, or (none) when no acceptance was supplied",
+  pr: "the pull request link, or (none)",
+  report: "the start of the worker'"'"'s report, (none), (omitted), or (unreadable: <path>)",
+  note: "a standing reminder about repair claims"
+} as $read | {
   claim: {
     type: "choice",
-    instructions: "Is the worker done-line evidenced against acceptance? Healthy now is not repaired. Use need_human when a human must inspect or the claim is not decidable from this evidence.",
+    instructions: {
+      question: "Is the worker'"'"'s done line evidenced against the task'"'"'s acceptance?",
+      context: "A fleet supervisor scores worker done lines in shadow; the verdict only annotates the record and never closes or reopens a task.",
+      how_to_read_the_state: $read,
+      weigh_most: "Evidence that exists apart from the claim itself - acceptance it can be checked against, a PR, a report - over the confidence of the done line'"'"'s wording. A system that is healthy now is not proof that the claimed repair happened."
+    },
     criteria: {
-      evidenced: "The supplied evidence supports the done claim against acceptance.",
-      not_evidenced: "The done claim is not supported by the supplied evidence.",
-      need_human: "A human must inspect. Healthy now is not proof of repair, or the supplied evidence cannot decide the claim."
+      evidenced: {what: "The supplied evidence supports the done claim against acceptance", signals: [
+        "acceptance is supplied and the done line, PR, or report covers each part of it",
+        "the report or PR shows the result itself, not only a statement that it exists"],
+        not_for: "a confident done line with no acceptance or independent evidence to check it against"},
+      not_evidenced: {what: "The supplied evidence does not support the done claim", signals: [
+        "the report or PR contradicts the claim",
+        "a part of the acceptance is missing from the done line and the evidence",
+        "the done line itself admits unfinished, skipped, or failed work"]},
+      need_human: {what: "A human must inspect because this evidence cannot decide the claim", signals: [
+        "acceptance is (none), so there is nothing to check the claim against",
+        "the claim and the evidence could both be true without the work being done",
+        "a repair or health claim backed only by the system being healthy now",
+        "the report is unreadable or omitted"]}
     }
   },
   strength: {
     type: "score",
-    instructions: "How strongly does the supplied evidence support that verdict?",
+    instructions: {
+      question: "How strongly does the supplied evidence support that verdict?",
+      how_to_read_the_state: $read
+    },
     criteria: [
-      "Guess: the evidence barely bears on the verdict.",
-      "Weak: the evidence leans toward the verdict but leaves it open.",
-      "Moderate: the evidence supports the verdict with notable gaps.",
-      "Strong: the evidence supports the verdict with only minor gaps.",
-      "Clear: the evidence plainly matches or plainly contradicts the claim."
+      {summary: "Guess: the evidence barely bears on the verdict", signals: ["only the done line'"'"'s own wording"]},
+      {summary: "Weak: the evidence leans toward the verdict but leaves it open", signals: ["one indirect hint, such as a PR link with nothing about acceptance"]},
+      {summary: "Moderate: the evidence supports the verdict with notable gaps", signals: ["some acceptance parts covered, others unaddressed"]},
+      {summary: "Strong: the evidence supports the verdict with only minor gaps", signals: ["acceptance and evidence line up apart from a detail"]},
+      {summary: "Clear: the evidence plainly matches or plainly contradicts the claim", signals: ["every acceptance part is matched, or the evidence directly contradicts the claim"]}
     ]
   }
 }') || die "jq is required"

@@ -122,7 +122,7 @@ test_jev_ranking_sends_only_ids_and_titles() {
     "the runner-up backlog item was not second with its state"$'\n'"$out"
   jq -e '.questions.match.type == "choice" and (.questions.match.criteria | has("none?"))' "$LOG/body" >/dev/null \
     || fail "the request was not one Choice with a no-candidate option"
-  jq -e '.questions.match.criteria["wiki-layer-plan-v1"] | contains("Wiki layer: verdict")' "$LOG/body" >/dev/null \
+  jq -e '.questions.match.criteria["wiki-layer-plan-v1"].what | contains("Wiki layer: verdict")' "$LOG/body" >/dev/null \
     || fail "the record title did not reach the criteria"
   jq -e '.state | contains("get our wiki plan")' "$LOG/body" >/dev/null || fail "the reference did not reach state"
   assert_no_grep "$BODY_MARKER" "$LOG/body" "a file body reached the request"
@@ -213,11 +213,11 @@ test_candidate_id_none_does_not_collide_with_no_match_choice() {
   expect_code 0 "$code" "the candidate named none should remain selectable"
   assert_contains "$out" "ranking: jev" "the real none candidate was treated as the sentinel"$'\n'"$out"
   assert_contains "$out" "    1. none confidence=0.9" "the candidate named none was not selected"$'\n'"$out"
-  jq -e '.questions.match.criteria["none"] | contains("None is a real backlog item")' "$LOG/body" >/dev/null \
+  jq -e '.questions.match.criteria["none"].what | contains("None is a real backlog item")' "$LOG/body" >/dev/null \
     || fail "the real none candidate was overwritten in the Choice criteria"
-  jq -e '.questions.match.criteria["none_"] | contains("Another none-like item")' "$LOG/body" >/dev/null \
+  jq -e '.questions.match.criteria["none_"].what | contains("Another none-like item")' "$LOG/body" >/dev/null \
     || fail "the candidate id none_ was overwritten in the Choice criteria"
-  jq -e '.questions.match.criteria["none?"] == "No candidate is the record the captain means."' "$LOG/body" >/dev/null \
+  jq -e '.questions.match.criteria["none?"].what == "No candidate is the record the captain means"' "$LOG/body" >/dev/null \
     || fail "the no-match sentinel collided with a valid candidate id"
   pass "a candidate id of none no longer collides with the no-match choice"
 }

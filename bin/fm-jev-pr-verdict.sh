@@ -105,8 +105,29 @@ summary=$(jq -nc --arg tier "$tier" --argjson paths "$count" \
     tooling_path_category:$tooling, reported_checks:$checks, pending_checks:$pending,
     unsuccessful_checks:$failing}') || exit 0
 questions=$(jq -nc '{advisory:{type:"choice",
-  instructions:"Given only the bounded metadata in state, is this PR ready to bring to the human reviewer as a metadata pass, or should the review ask flag concerns? This is not merge approval and does not verify private-page content. Restricted and generated path categories, missing, pending or unsuccessful checks are concerns.",
-  criteria:{pass:"No reported metadata concern; human still inspects content, required checks and privacy before merging.", concerns:"A restricted/generated category, absent/incomplete/unsuccessful checks, or another metadata concern needs explicit human attention."}}}') || exit 0
+  instructions:{
+    question:"Is this PR a metadata pass to bring to the human reviewer, or should the review ask flag concerns?",
+    context:"An advisory read of a wiki PR before Firstmate asks the human to review it. It is not merge approval and cannot verify private-page content.",
+    how_to_read_the_state:{
+      tier:"the vault'"'"'s sharing tier",
+      changed_file_count:"how many files the PR changes",
+      restricted_path_category:"true when a changed path sits under raw/ or private/",
+      generated_path_category:"true when a generated register, index, digest, or llms.txt file changed",
+      prose_path_category:"true when Markdown pages changed",
+      tooling_path_category:"true when scripts changed",
+      reported_checks:"how many check runs reported on the PR head",
+      pending_checks:"check runs not completed yet",
+      unsuccessful_checks:"completed check runs that did not succeed"},
+    weigh_most:"The restricted and generated categories and the check counts; ordinary prose or tooling changes are not concerns by themselves."},
+  criteria:{
+    pass:{what:"No metadata concern; the human still inspects content, required checks, and privacy before merging",
+      signals:["restricted_path_category and generated_path_category are false",
+        "reported_checks is above zero with no pending or unsuccessful checks"]},
+    concerns:{what:"A metadata concern needs explicit human attention",
+      signals:["restricted_path_category or generated_path_category is true",
+        "reported_checks is zero",
+        "pending_checks or unsuccessful_checks is above zero"],
+      not_for:"a PR that only changes prose or tooling pages with all checks reported and successful"}}}}') || exit 0
 response=$(fm_jev_decide "$summary" "$questions" 2>/dev/null) || exit 0
 answer=$(printf '%s' "$response" | jq -er '.answers.advisory | select(.type == "choice") | .choice | select(. == "pass" or . == "concerns")' 2>/dev/null) || exit 0
 prob=$(printf '%s' "$response" | jq -er --arg a "$answer" '.answers.advisory.probabilities[$a] | select(type == "number" and . >= 0 and . <= 1)' 2>/dev/null) || exit 0

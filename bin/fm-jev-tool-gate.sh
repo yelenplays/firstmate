@@ -141,7 +141,33 @@ else
   _fm_jev_tool_gate_fail_open
 fi
 
-QUESTIONS='{"gate":{"type":"choice","instructions":"Should this already-allowlisted command proceed?","criteria":{"allow":"Safe to run as submitted","deny":"Must not run","need_human":"A human should review before running"}}}'
+QUESTIONS=$(jq -nc '{gate: {
+  type: "choice",
+  instructions: {
+    question: "Should this already-allowlisted shell command proceed?",
+    context: "An agent submitted this command and the deterministic command policy already allowed it; this is a second look at what the policy cannot see.",
+    how_to_read_the_state: "The state is the command line exactly as submitted, with secrets scrubbed.",
+    weigh_most: "What the command does to data, history, credentials, and shared systems, and whether that can be undone."
+  },
+  criteria: {
+    allow: {what: "Safe to run as submitted", signals: [
+      "reads, searches, lists, or inspects",
+      "builds, lints, or runs tests",
+      "edits or commits inside the agent'"'"'s own working copy",
+      "a change that is easy to undo"]},
+    deny: {what: "Must not run", signals: [
+      "destroys data with no way back, such as recursive deletes of a home or root path",
+      "pipes a downloaded script into a shell",
+      "sends secrets, keys, or credential files to a remote host",
+      "rewrites shared history, such as a force push to a default branch"]},
+    need_human: {what: "A human should review before running", signals: [
+      "publishes, merges, deploys, or releases",
+      "deletes or overwrites something outside the working copy that may still be needed",
+      "changes shared infrastructure, accounts, or permissions",
+      "stops processes or services other agents may rely on"],
+      not_for: "a routine read or test run that only looks unfamiliar"}
+  }
+}}') || _fm_jev_tool_gate_fail_open
 
 RESP=""
 DECIDE_CODE=0

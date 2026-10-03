@@ -430,13 +430,13 @@ PYTHON
   expect_code 0 "$code" "live full-roster select succeeds: $err"
   jq -e '.questions.skill.criteria | length == 105' "$LOG/body" >/dev/null \
     || fail "live must offer all 103 installed skills plus none and search_external"
-  jq -e '.questions.skill.criteria.unreviewed == "Installed skill unreviewed"' "$LOG/body" >/dev/null \
+  jq -e '.questions.skill.criteria.unreviewed.what == "Installed skill unreviewed"' "$LOG/body" >/dev/null \
     || fail "a skill outside config/jev-skill-public.json must stay offered with id-only text"
   assert_not_contains "$(cat "$LOG/body")" 'Unreviewed local notes' \
     "an unapproved skill description must never reach Jev"
-  jq -e '.questions.skill.criteria["typesafe-ai"] == "Build AI-powered software with TypeSafe typed questions."' "$LOG/body" >/dev/null \
+  jq -e '.questions.skill.criteria["typesafe-ai"].what == "Build AI-powered software with TypeSafe typed questions."' "$LOG/body" >/dev/null \
     || fail "live candidate must carry the flattened front-matter description"
-  jq -e '.questions.skill.criteria["skill-001"] == "Handle workflow 001."' "$LOG/body" >/dev/null \
+  jq -e '.questions.skill.criteria["skill-001"].what == "Handle workflow 001."' "$LOG/body" >/dev/null \
     || fail "every live candidate must carry its own description"
   jq -e '.status == "clear" and .primary == "typesafe-ai" and .catalog_truncated == false
       and (.skills | index("typesafe-ai") != null) and .live_loaded == false' \
@@ -481,8 +481,8 @@ PYTHON
     || fail "260 skills must split into Choices of 253 and 7 skills, each within the 255-option ceiling"
   jq -e '[.questions[] | .criteria | keys[] | select(. != "none" and . != "search_external")] | length == 260' "$LOG/body" >/dev/null \
     || fail "every installed skill must be enumerated exactly once"
-  jq -e '.questions.skill.criteria["bare-1"] == "Installed skill bare-1"
-      and .questions.skill_2.criteria["skill-256"] == "Handle workflow 256."' "$LOG/body" >/dev/null \
+  jq -e '.questions.skill.criteria["bare-1"].what == "Installed skill bare-1"
+      and .questions.skill_2.criteria["skill-256"].what == "Handle workflow 256."' "$LOG/body" >/dev/null \
     || fail "undescribed skills must stay offered with id-only text"
   jq -e '.status == "clear" and .primary == "skill-256" and .confidence == 0.85
       and .skills[0:2] == ["skill-256", "skill-010"] and .catalog_truncated == false' \

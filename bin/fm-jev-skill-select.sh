@@ -359,7 +359,16 @@ run_shadow() {
     exit 0
   fi
   questions=$(jq -n --argjson roster "$roster_json" '
-    {skill:{type:"choice",instructions:"Choose the one installed public skill whose documented purpose best satisfies the safe request. Choose none when no skill specifically fits.",criteria:(($roster | map({key:.id,value:.description}) | from_entries) + {none:"No optional skill specifically fits the safe request."})}}
+    {skill:{type:"choice",
+      instructions:{
+        question:"Which one installed public skill best satisfies the safe request?",
+        context:"A worker is starting a task; loading one fitting skill gives it a documented procedure. This trial is advisory.",
+        how_to_read_the_state:{request:"an authored, privacy-safe summary of the task",runtime:"the worker'"'"'s coding tool",worker_role:"always worker"},
+        weigh_most:"Whether a skill'"'"'s documented purpose specifically covers what the request asks for, not a shared word or a general topic."},
+      criteria:(($roster | map({key:.id,value:{what:.description}}) | from_entries)
+        + {none:{what:"No optional skill specifically fits the safe request",
+          signals:["a trivial edit the request already spells out","no skill'"'"'s purpose covers the request'"'"'s work"],
+          not_for:"a request that one skill'"'"'s purpose covers in other words"}})}}
   ') || exit 0
   shadow_write_record pending "$LAUNCH_ID" "$roster_hash" "$request_hash" "$SHADOW_MODEL" \
     '{}' 0 '{"input_tokens":0,"output_tokens":0}' "$COMPARISON_LABEL" pending >/dev/null
@@ -595,12 +604,27 @@ QUESTIONS=$(jq -n --argjson candidates "$CANDIDATES_JSON" --argjson size "$CHOIC
       key: (if .key == 0 then "skill" else "skill_\(.key + 1)" end),
       value: {
         type: "choice",
-        instructions: ("Once for this worker session, pick the single most useful installed skill to load. Prefer none when the brief is enough. Prefer search_external only when a missing skill would materially help."
-          + (if $n > 1 then " This question lists part \(.key + 1) of \($n) of the installed skills; answer none when no skill in this part fits." else "" end)),
-        criteria: ((.value | map({key: .id, value: .description}) | from_entries)
+        instructions: ({
+          question: "Which single installed skill is most useful to load once for this worker session?",
+          context: "Loading a skill adds its documented procedure to the worker'"'"'s context for the whole session, so an unneeded skill costs context.",
+          how_to_read_the_state: {
+            harness: "the worker'"'"'s coding tool",
+            task_id: "the task id",
+            summary: "a short summary of the task, or (none)",
+            installed_skills: "every installed skill id"
+          },
+          weigh_most: "Whether a skill'"'"'s documented purpose specifically covers the task'"'"'s work.",
+          caveat: ("Prefer none when the brief is enough. Prefer search_external only when a missing skill would materially help."
+            + (if $n > 1 then " This question lists part \(.key + 1) of \($n) of the installed skills; answer none when no skill in this part fits." else "" end))
+        }),
+        criteria: ((.value | map({key: .id, value: {what: .description}}) | from_entries)
           + {
-              none: "Load no extra skill this session.",
-              search_external: "A useful skill is missing from the installed list."
+              none: {what: "Load no extra skill this session", signals: [
+                "the brief already spells out a small or routine change",
+                "no installed skill'"'"'s purpose covers the task"]},
+              search_external: {what: "A useful skill is missing from the installed list", signals: [
+                "the task needs a specialised procedure no installed skill documents"],
+                not_for: "a task an installed skill covers or a routine change"}
             })
       }
     }]

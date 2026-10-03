@@ -419,13 +419,26 @@ state=$(fm_jev_compact_state "$(printf "Captain reference: %s\nCandidates are th
 }
 none_choice='none?'
 criteria=$(jq -c --arg none "$none_choice" '
-  (map({key: .id, value: ((if .title == "" then .id else .title end) + " (backlog: " + .state + ")")}) | from_entries)
-  + {($none): "No candidate is the record the captain means."}
+  (map({key: .id, value: {
+    what: (if .title == "" then .id else .title end),
+    signals: ["backlog state: " + .state]
+  }}) | from_entries)
+  + {($none): {
+    what: "No candidate is the record the captain means",
+    signals: ["the reference names work that no candidate'"'"'s id or title covers"],
+    not_for: "a candidate that names the same work in other words"
+  }}
 ' <<<"$offered") || { emit_keyword error ''; exit 0; }
 questions=$(jq -nc --argjson c "$criteria" '{
   match: {
     type: "choice",
-    instructions: "Pick the backlog item or task record the captain reference most likely means. Judge by id and title only. Pick the no-candidate option when no candidate fits.",
+    instructions: {
+      question: "Which backlog item or task record does the captain'"'"'s reference most likely mean?",
+      context: "The captain referred loosely to earlier work; the supervisor wants to find that record instead of searching by hand. The answer only ranks candidates and changes nothing.",
+      how_to_read_the_state: "The state holds the captain'"'"'s one-line reference. Each candidate is offered by its id with its title and backlog state; record bodies are not sent.",
+      weigh_most: "Whether the reference and the candidate name the same piece of work, by subject, project, and purpose, not by a single shared word.",
+      caveat: "The reference may be paraphrased, in German, or use other words than the title; when no candidate names the same work, pick the no-candidate option."
+    },
     criteria: $c
   }
 }') || { emit_keyword error ''; exit 0; }
