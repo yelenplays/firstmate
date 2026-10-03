@@ -34,7 +34,7 @@ W_ID=
 # pr-<n>.json for `gh pr view`, checks-<sha>.json and status-<sha>.json for the
 # commit check endpoints (both empty when absent), and pr-list.json for
 # `gh pr list`. The revert mutation opens pull request 8 on revert-7-feature
-# with head $REVERT_SHA, or fails when graphql-fail exists.
+# with head $REVERT_SHA and a message naming $MERGE_SHA, or fails when graphql-fail exists.
 write_fake_gh() {  # <fakebin>
   cat > "$1/gh" <<'EOF'
 #!/usr/bin/env bash
@@ -59,7 +59,8 @@ case "$1 ${2:-}" in
     ;;
   "api graphql")
     [ ! -e "$d/graphql-fail" ] || { echo "GraphQL: revert refused" >&2; exit 1; }
-    printf '{"state":"OPEN","headRefOid":"%s"}\n' "$FAKE_REVERT_SHA" > "$d/pr-8.json"
+    printf '{"state":"OPEN","headRefOid":"%s","commits":[{"messageHeadline":"Revert change","messageBody":"This reverts commit %s."}]}\n' \
+      "$FAKE_REVERT_SHA" "$FAKE_MERGE_SHA" > "$d/pr-8.json"
     printf '[{"url":"%s","headRefName":"revert-7-feature"}]\n' "$FAKE_REVERT_URL" > "$d/pr-list.json"
     printf '%s\n' "$FAKE_REVERT_URL"
     ;;
@@ -116,9 +117,21 @@ run_tasks() {
   FM_HOME="$W_HOME" "$ROOT/bin/fm-tasks-axi.sh" "$@"
 }
 
-pm() {
+pm_raw() {
   FM_HOME="$W_HOME" PATH="$W_BIN:$PATH" FAKE_GH_DIR="$W_FAKE" FM_PR_MERGE_BIN="$W_BIN/fake-pr-merge" \
-    FAKE_REVERT_SHA="$REVERT_SHA" FAKE_REVERT_URL="$REVERT_URL" "$PM" "$@"
+    FAKE_REVERT_SHA="$REVERT_SHA" FAKE_REVERT_URL="$REVERT_URL" FAKE_MERGE_SHA="$MERGE_SHA" "$PM" "$@"
+}
+
+pm() {
+  local -a args=("$@")
+  if [ "${args[0]:-}" = arm ] && [ "${PM_TEST_RAW_ARM:-0}" != 1 ]; then
+    case " ${args[*]} " in
+      *\ --witness\ *|*\ --no-witness\ *) ;;
+      *) args+=(--no-witness "not a live-site or team project") ;;
+    esac
+  fi
+  FM_HOME="$W_HOME" PATH="$W_BIN:$PATH" FAKE_GH_DIR="$W_FAKE" FM_PR_MERGE_BIN="$W_BIN/fake-pr-merge" \
+    FAKE_REVERT_SHA="$REVERT_SHA" FAKE_REVERT_URL="$REVERT_URL" FAKE_MERGE_SHA="$MERGE_SHA" "$PM" "${args[@]}"
 }
 
 set_checks() {  # <sha> <name> <status> <conclusion>
@@ -222,7 +235,8 @@ test_green_without_witness_is_clear() {
   out=$(pm advance "$W_ID" 2>&1) || fail "advance failed on green checks: $out"
   assert_contains "$out" "clear: checks on" "green checks with no witness were not clear"
   assert_equals close "$(teardown_rule)" "cleanup would not close a confirmed landing"
-  assert_absent "$W_HOME/state/jev-merge.jsonl" "a clean landing was logged as an outcome"
+  assert_contains "$(cat "$W_HOME/state/jev-merge.jsonl")" '"outcome":"witness-waived"' "the no-witness decision was not audited"
+  assert_contains "$(cat "$W_HOME/state/jev-merge.jsonl")" '"reason":"not a live-site or team project"' "the no-witness reason was not recorded"
   assert_equals "## In flight" "$(backlog_section_of "$W_ID")" "a clean landing moved the backlog item"
   pass "fm-post-merge: green checks with no witness confirm the landing"
 }
@@ -297,6 +311,37 @@ test_interrupted_revert_is_adopted() {
   pass "fm-post-merge: a revert opened by an interrupted run is found and reused"
 }
 
+test_unrelated_recovered_revert_is_refused() {
+  local out
+  make_pr_world pm-unrelated on
+  pm arm "$W_ID" --grace 0 >/dev/null 2>&1 || fail "arm refused"
+  set_checks "$MERGE_SHA" build completed failure
+  set_checks "$REVERT_SHA" build queued ""
+  pm advance "$W_ID" >/dev/null 2>&1 || fail "could not start revert"
+  grep -v '^revert_pr=' "$W_HOME/state/$W_ID.post-merge" > "$W_FAKE/rec" && cat "$W_FAKE/rec" > "$W_HOME/state/$W_ID.post-merge"
+  set_checks "$REVERT_SHA" build completed success
+  printf '[{"url":"%s","headRefName":"revert-7-unrelated"}]\n' "$REVERT_URL" > "$W_FAKE/pr-list.json"
+  printf '{"state":"OPEN","headRefOid":"%s","commits":[{"messageHeadline":"unrelated change","messageBody":"not a revert"}]}\n' \
+    "$REVERT_SHA" > "$W_FAKE/pr-8.json"
+  out=$(pm advance "$W_ID" 2>&1) && fail "an unrelated PR with a revert branch prefix was adopted: $out"
+  assert_contains "$out" "refusing to adopt $REVERT_URL" "the unrelated candidate was not identified"
+  assert_absent "$W_FAKE/merges" "the unrelated candidate was merged"
+  pass "fm-post-merge: recovery refuses a prefixed PR that does not name the recorded merge"
+}
+
+test_revert_without_green_checks_is_held() {
+  local out
+  make_pr_world pm-none on
+  pm arm "$W_ID" --grace 0 >/dev/null 2>&1 || fail "arm refused"
+  set_checks "$MERGE_SHA" build completed failure
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed: $out"
+  assert_contains "$out" "blocked: the revert $REVERT_URL has no green checks (none)" "a revert with no checks was not held"
+  assert_contains "$out" "notify: $PR_URL broke main" "the captain was not notified about missing green checks"
+  assert_absent "$W_FAKE/merges" "a revert without green checks was merged"
+  assert_equals blocked "$(record_field phase)" "a revert without green checks did not remain blocked"
+  pass "fm-post-merge: missing revert checks never count as green"
+}
+
 test_witness_result_needs_exactly_one_verdict() {
   local out report
   make_pr_world pm-verdicts on
@@ -321,8 +366,15 @@ test_witness_result_needs_exactly_one_verdict() {
 test_arm_refusals_and_rearm() {
   local out
   make_pr_world pm-arm on
+  out=$(pm_raw arm "$W_ID" 2>&1) && fail "arm accepted a missing witness disposition: $out"
+  assert_contains "$out" "choose exactly one" "arm did not require a witness disposition"
+  out=$(pm arm "$W_ID" --no-witness "not a live-site project" --witness https://widget.example.com 2>&1) \
+    && fail "arm accepted both witness dispositions: $out"
+  assert_contains "$out" "choose exactly one" "arm did not reject conflicting witness dispositions"
+  out=$(pm arm "$W_ID" --no-witness " " 2>&1) && fail "arm accepted an empty no-witness reason: $out"
+  assert_contains "$out" "needs a reason" "an empty no-witness reason was not refused"
   printf '{"state":"OPEN","headRefOid":"%s","id":"PR_node7"}\n' "$HEAD_SHA" > "$W_FAKE/pr-7.json"
-  out=$(pm arm "$W_ID" 2>&1) && fail "arm accepted an unmerged pull request: $out"
+  out=$(pm_raw arm "$W_ID" --no-witness "not a live-site project" 2>&1) && fail "arm accepted an unmerged pull request: $out"
   assert_contains "$out" "is not merged" "an unmerged pull request was not named"
   assert_absent "$W_HOME/state/$W_ID.post-merge" "a refused arm left a record"
   printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s","baseRefName":"main","id":"PR_node7","title":"t"}\n' \
@@ -465,6 +517,8 @@ test_red_revert_checks_block
 test_revert_refused_by_github_blocks
 test_yolo_off_asks_before_merging_the_revert
 test_interrupted_revert_is_adopted
+test_unrelated_recovered_revert_is_refused
+test_revert_without_green_checks_is_held
 test_witness_result_needs_exactly_one_verdict
 test_arm_refusals_and_rearm
 test_record_from_an_earlier_incarnation_is_ignored
