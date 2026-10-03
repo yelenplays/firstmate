@@ -1662,8 +1662,13 @@ for (const { name, actual } of rows) {
 async function assertStockHtmlRendering(command, submitData) {
   editorText = command;
   terminalInputHandler(submitData);
+  const resolveTool = (name) => tools.find((tool) => tool.name === name);
   const htmlRenderer = createToolHtmlRenderer({
-    getToolDefinition: (name) => tools.find((tool) => tool.name === name),
+    getToolDefinition: resolveTool,
+    getToolRenderers: (name) => {
+      const tool = resolveTool(name);
+      return tool ? { renderCall: tool.renderCall, renderResult: tool.renderResult } : undefined;
+    },
     theme,
     cwd: process.cwd(),
   });
@@ -1695,6 +1700,10 @@ editorText = "/export remapped.html";
 terminalInputHandler("\r");
 const unmatchedRenderer = createToolHtmlRenderer({
   getToolDefinition: (name) => tools.find((tool) => tool.name === name),
+  getToolRenderers: (name) => {
+    const tool = tools.find((candidate) => candidate.name === name);
+    return tool ? { renderCall: tool.renderCall, renderResult: tool.renderResult } : undefined;
+  },
   theme,
   cwd: process.cwd(),
 });
