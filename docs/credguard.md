@@ -43,7 +43,7 @@ Every refusal points the worker at this command.
 
 ## Install
 
-Run the installer from the primary checkout, not a task worktree, because a worktree is deleted at cleanup and the hook path would vanish:
+Run the installer from the primary checkout so its default hook path remains available after task-worktree cleanup, or pass `--hook` with a durable executable path:
 
 ```sh
 bin/fm-credguard-install.mjs            # wire every installed harness
@@ -85,4 +85,4 @@ The installer lists these on every run so none is skipped silently:
 
 - `tests/fm-credguard-read.test.sh` pins the deny and allow tables, every runtime's output contract, key-names-only mode, the local list, and the never-block-on-error rule.
 - `tests/fm-credguard-install.test.sh` pins idempotency, preserved hooks, backups, symlink write-through, malformed-config refusal, active OpenCode/Cursor/Gemini denial behavior, the absent and uncovered report, and the linked-worktree refusal.
-- `FM_CREDGUARD_LIVE=1 bin/fm-test-run.sh tests/fm-credguard-live-e2e.test.sh` drives every installed harness for real and refreshes the live evidence.
+- `FM_CREDGUARD_LIVE=1 bin/fm-test-run.sh tests/fm-credguard-live-e2e.test.sh` drives the default live-probe harnesses for real and refreshes their evidence; set `FM_CREDGUARD_LIVE_HARNESSES` to select supported alternatives.
