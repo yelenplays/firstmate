@@ -997,18 +997,27 @@ A remote secondmate is launched on its host from its own home's configuration, s
 ## GitHub account per owner (config/gh-account-by-owner)
 
 A home signed in to several GitHub accounts, such as a company account and a personal one, can choose which account Firstmate's own GitHub reads, checks, and merges use for each repository owner.
-The map is opt-in and private: with no file, every call runs on gh's active account exactly as before.
+The map is opt-in and private: with no file or no matching owner, calls retain their existing authentication, including ambient `GH_TOKEN` or `GITHUB_TOKEN` overrides.
 
-Each line is `owner account`, for example `SlashpipeCoding Slashpipe`, where the owner is the GitHub user or organization in the repository URL and the account is a login already added with `gh auth login --hostname github.com`.
+Each line is `owner account`, where the owner is the GitHub user or organization in the repository URL and the account is a login already added with `gh auth login --hostname github.com`.
+For example, to route company repositories and repositories owned by your personal account separately:
+
+```text
+SlashpipeCoding Slashpipe
+MarcoGC3 MarcoGC3
+```
+
+List every owner you want routed; there is no wildcard or default-account entry.
+Names may contain only ASCII letters, digits, and hyphens.
 Owner names match case-insensitively; blank lines and text after `#` are ignored.
 
 For a mapped owner, Firstmate reads that account's token with `gh auth token --hostname github.com --user <account>` and passes it as `GH_TOKEN` to that one gh or gh-axi call only.
 The active account is never switched, and the token is never printed, logged, written to a file, or placed in a command argument.
 This covers PR merges, merge checks and merge watching, PR state and reviewer reads, cleanup's merge check, the bearings PR list, the wiki PR verdict, and the background contribution watch, so the watch keeps seeing an owner's PRs while another account stays active.
-Worker-issued pushes and pull requests use the project clone's own remote credentials and are not routed by this map.
+Worker-issued pushes and pull requests are not routed by this map: Git pushes retain the clone's configured Git authentication, and worker GitHub CLI calls retain their own CLI authentication.
 
-A mapped owner whose account has no token, a line that is not exactly two names, or one owner mapped to two accounts refuses with an `fm-gh-account:` error naming the fix; Firstmate never retries under another account.
-A contribution watch records that error on the affected entry.
+An unreadable map, malformed names or lines, conflicting accounts for the requested owner, or a mapped account without a token stops the routed call rather than retrying under another account.
+The helper emits an `fm-gh-account:` diagnostic; some callers suppress it, while a contribution watch records it on the affected entry.
 GitHub Enterprise hosts, GitLab, and Gerrit are not covered.
 The map is not inherited into secondmate homes; a secondmate that needs it keeps its own file.
 

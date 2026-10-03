@@ -98,15 +98,9 @@ FM_PR_POLL_RETIREMENT_REJECTED=
 FM_PR_LIB_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd) || FM_PR_LIB_ROOT=
 
 # GitHub account per owner.
-# The optional captain-private config/gh-account-by-owner maps a GitHub owner
-# to the gh account whose token runs every gh call addressed to that owner;
-# docs/configuration.md "GitHub account per owner" owns the format.
-# fm_gh_run derives the owner from the call's own arguments, and
-# fm_gh_owner_run takes it explicitly. Both set GH_TOKEN only in the
-# environment of that one command, never in an argument, file, or log. With no
-# file or no matching line the command runs exactly as before; a mapped owner
-# whose account has no token, or an unreadable or malformed file, refuses with
-# an "fm-gh-account:" error rather than running under another account.
+# docs/configuration.md "GitHub account per owner" owns configuration,
+# routing scope, and failure behavior for callers using these helpers.
+# Keep tokens in the command environment, never in arguments, files, or logs.
 
 fm_gh_account_map_file() {
   printf '%s\n' "${FM_CONFIG_OVERRIDE:-${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_PR_LIB_ROOT}}/config}/gh-account-by-owner"
