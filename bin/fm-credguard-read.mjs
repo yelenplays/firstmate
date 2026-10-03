@@ -264,7 +264,7 @@ function lex(src) {
   // a backslash escape), so a `bash -c "…"` string can be expanded the way the parent expands it.
   const segs = []; let seg = newSeg(), word = null, quotedAll = true, mask = "", i = 0;
   const heredocs = [];
-  const endWord = () => { if (word !== null) { if (seg.pendingRedir) { seg.redirs.push({ op: seg.pendingRedir, target: word }); seg.pendingRedir = null; } else seg.words.push({ text: word, sq: quotedAll, mask }); } word = null; quotedAll = true; mask = ""; };
+  const endWord = () => { if (word !== null) { if (seg.pendingRedir) { seg.redirs.push({ op: seg.pendingRedir, target: word, sq: quotedAll, mask }); seg.pendingRedir = null; } else seg.words.push({ text: word, sq: quotedAll, mask }); } word = null; quotedAll = true; mask = ""; };
   const endSeg = (o) => { endWord(); if (seg.words.length || seg.redirs.length) segs.push(seg); seg = newSeg(o); };
   const add = (s, single = false, m = null) => { word = (word ?? "") + s; mask += m ?? (single ? "1" : "0").repeat(s.length); if (!single) quotedAll = false; };
   const sub = (open, close) => {   // returns the inner text of a balanced $( ... ) / <( ... )
@@ -285,15 +285,15 @@ function lex(src) {
     if (c === "\n") {
       endSeg(); i++;
       while (heredocs.length) {   // skip each pending heredoc body up to its delimiter line
-        const { delim, strip, expands } = heredocs.shift(), body = [];
+        const { delim, strip, expands, redir } = heredocs.shift(), body = [];
         while (i < src.length) {
           const nl = src.indexOf("\n", i), line = src.slice(i, nl < 0 ? src.length : nl);
           i = nl < 0 ? src.length : nl + 1;
           if ((strip ? line.replace(/^\t+/, "") : line) === delim) break;
           body.push(line);
         }
-        // An unquoted delimiter (<<EOF) makes the shell run the body's command substitutions; <<'EOF' is literal.
-        if (expands) for (const inner of substitutions(body.join("\n"))) segs.push(...substSegs(inner));
+        redir.body = body.join("\n");
+        if (expands) for (const inner of substitutions(redir.body)) segs.push(...substSegs(inner));
       }
       continue;
     }
@@ -355,7 +355,9 @@ function lex(src) {
         i += 2; let strip = false; if (src[i] === "-") { strip = true; i++; }
         while (src[i] === " ") i++;
         let d = ""; while (i < src.length && !/[\s;|&<>]/.test(src[i])) d += src[i++];
-        heredocs.push({ delim: d.replace(/['"\\]/g, ""), strip, expands: !/['"\\]/.test(d) }); continue;
+        const expands = !/['"\\]/.test(d), redir = { op: strip ? "<<-" : "<<", target: d.replace(/['"\\]/g, ""), expands, body: "" };
+        seg.redirs.push(redir);
+        heredocs.push({ delim: redir.target, strip, expands, redir }); continue;
       }
       let op = c; i++;
       if (src[i] === ">" || src[i] === "|") { op += src[i] === ">" ? ">" : ""; i++; }
@@ -482,6 +484,15 @@ function envDump(verb, args, seg, ctx, commandIndex) {
 
 // Pure: why this shell command would print a protected file or an environment, or null.
 const ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/;
+function hasVariableExpansion(text, mask = "") {
+  for (const match of String(text).matchAll(/\$[{A-Za-z_]/g)) {
+    if (mask && mask[match.index] === "1") continue;
+    let slashes = 0;
+    for (let i = match.index - 1; !mask && i >= 0 && text[i] === "\\"; i--) slashes++;
+    if (slashes % 2 === 0) return true;
+  }
+  return false;
+}
 function bashVerdict(command, ctx, depth = 0) {
   // State the command changes as it runs: the directories it may be in (every cd/pushd/env -C target is added and
   // none is dropped, so a subshell, popd or cd - can't hide one), dotglob, its own variables (each a list of possible
@@ -668,6 +679,10 @@ function bashVerdict(command, ctx, depth = 0) {
     }
     const pa = parseArgs(verb, args);
     const quietOrInPlace = pa.quiet || pa.inplace;
+    if (sourced && PRINT.has(verb) && !quietOrInPlace && seg.redirs.some((r) =>
+      (r.op === "<<<" && hasVariableExpansion(r.target, r.mask))
+      || ((r.op === "<<" || r.op === "<<-") && r.expands && hasVariableExpansion(r.body))))
+      return { why: `${verb} prints a sourced variable from ${sourced.path}`, hit: sourced };
     if (verb === "tee" && seg.redirs.some((r) => r.op === "<" && protectedPath(r.target, ctx)))
       for (const a of args.filter((x) => !/^-/.test(x))) for (const t of resolveAll(a)) ctx.tainted.add(t);
     // < file into something that prints its input (tee included: it copies its input to the terminal), or $(< file).
