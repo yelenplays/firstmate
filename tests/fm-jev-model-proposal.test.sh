@@ -51,7 +51,9 @@ export FM_HOME="$HOME_DIR" TEST_REQUESTS="$TMP_ROOT/requests"
 unset TYPESAFE_API_KEY OPENROUTER_API_KEY JEV_ROUTE JEV_MODEL JEV_URL JEV_BASE FM_STATE_OVERRIDE TEST_THIRD
 run_tool() { PATH="$BIN:$PATH" bash "$TOOL" "$@"; }
 config_sum() { find "$HOME_DIR/config" -type f -exec cat {} + | cksum; }
+config_tree_sum() { find "$HOME_DIR/config" -print | sort | cksum; }
 CONFIG_BEFORE=$(config_sum)
+CONFIG_TREE_BEFORE=$(config_tree_sum)
 
 run_tool --help | grep -q 'never changes a model' || fail '--help does not print the interface'
 pass '--help prints the interface'
@@ -79,8 +81,11 @@ run_tool --evidence "$TMP_ROOT/evidence.json" --dispatch "$TMP_ROOT/bad-dispatch
 pass 'invalid evidence or dispatch input refuses before any call'
 
 run_tool --evidence "$TMP_ROOT/evidence.json" --out "$HOME_DIR/config/proposal.md" >/dev/null 2>&1 && fail 'an output under config/ must refuse'
+run_tool --evidence "$TMP_ROOT/evidence.json" --out "$HOME_DIR/config/new/nested/proposal.md" >/dev/null 2>&1 && fail 'a nested output under config/ must refuse'
+[ ! -e "$HOME_DIR/config/new" ] || fail 'refusing a nested config output must not create directories'
 run_tool --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/evidence.json" >/dev/null 2>&1 && fail 'overwriting the evidence file must refuse'
-[ -z "$(find "$TEST_REQUESTS" -type f)" ] && [ "$(config_sum)" = "$CONFIG_BEFORE" ] || fail 'refused outputs must send and change nothing'
+[ -z "$(find "$TEST_REQUESTS" -type f)" ] && [ "$(config_sum)" = "$CONFIG_BEFORE" ] \
+  && [ "$(config_tree_sum)" = "$CONFIG_TREE_BEFORE" ] || fail 'refused outputs must send and change nothing'
 pass 'an output under config/ or on an input file refuses'
 
 FM_STATE_OVERRIDE="$TMP_ROOT/config-alias/override-state" run_tool --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/should-not-write.md" >/dev/null 2>&1 && fail 'a state override under config/ must refuse'
