@@ -1580,14 +1580,14 @@ The daily schedule itself is home-local operator setup, not tracked code.
 
 ## Cross-family review
 
-Every task's exact head is reviewed by an AI family other than the one that built it; [`bin/fm-cross-review.sh`](../bin/fm-cross-review.sh)'s header owns the evidence rules, subcommands, record formats, and exit codes, and [`bin/fm-ai-family-lib.sh`](../bin/fm-ai-family-lib.sh) owns how a harness and model resolve to a family.
+Every in-scope task's exact head is reviewed by an AI family other than the one that built it; [`bin/fm-cross-review.sh`](../bin/fm-cross-review.sh)'s header owns the evidence rules, subcommands, record formats, and exit codes, and [`bin/fm-ai-family-lib.sh`](../bin/fm-ai-family-lib.sh) owns how a harness and model resolve to a family.
 A family is the model maker, proven by a row in the harness's authoritative catalog for the exact resolved model; a harness or model name alone never establishes it, so missing or ambiguous catalog evidence resolves to `unknown`.
 `bin/fm-spawn.sh` records the builder's family as `ai_family=` in the task record, keeping every family that has driven the task across relaunches.
 A no-mistakes pipeline review of the exact head counts when the agent that ran it resolves to a family disjoint from the builder's; otherwise, and always for direct-PR and local-only work, firstmate spawns a one-shot reviewer scout from another family, which also gives the `confirm <head-sha>` an unsure merge decision needs.
-A change to a vault with a private card or a `private: true` page never gets a new reviewer and stays on its existing path.
+Vault changes excluded by `fm_wiki_change_private` in [`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) never get a new reviewer and stay on their existing path.
 An unknown builder family, or no candidate from another family, is reported for the captain to decide rather than guessed.
 
-The fixed candidate chain is `pi openai-codex/gpt-6-luna high`, then `pi xai/grok-5 high`; Firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
+The fixed candidate chain is `pi openai-codex/gpt-6-luna high`, then `pi xai/grok-4.7 high`; Firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
 
 ## Memory store (config/memory-dir)
 
