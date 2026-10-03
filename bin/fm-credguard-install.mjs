@@ -328,8 +328,17 @@ function main(argv, env = process.env) {
   let missing = 0;
   const say = (status, msg) => { process.stdout.write(`${status} ${msg}\n`); if (status === "--") missing++; };
 
-  if (!fs.existsSync(hook)) say("--", `guard hook not found at ${hook}`);
-  else say("ok", `guard hook at ${hook}`);
+  let hookError = null;
+  try {
+    if (!fs.statSync(hook).isFile()) hookError = `guard hook is not a file at ${hook}`;
+    else {
+      fs.accessSync(hook, fs.constants.X_OK);
+      say("ok", `guard hook at ${hook}`);
+    }
+  } catch {
+    hookError = fs.existsSync(hook) ? `guard hook is not executable at ${hook}` : `guard hook not found at ${hook}`;
+  }
+  if (hookError) { say("--", hookError); return 1; }
 
   const steps = [
     ["claude", "claude", () => jsonSettings(path.join(env.CLAUDE_CONFIG_DIR || path.join(home, ".claude"), "settings.json"), "Bash|Read|Grep", hookCommand(hook, "claude"), check, "claude")],

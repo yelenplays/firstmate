@@ -439,12 +439,19 @@ function parseArgs(verb, args) {
 // segment) would print environment VALUES, or null. Names alone are fine: compgen -e, `${NAME:+set}`.
 const SECRET_NAME = /(KEY|TOKEN|SECRET|PASSW|PASSPHRASE|AUTH|CRED|COOKIE|SESSION|PRIVATE|SIGN|BEARER|DSN|DATABASE_URL|CONN(ECTION)?_?STR)/i;
 const ENVIRON = /(^|\/)proc\/[^/\s]+\/environ\b/;
-function envDump(verb, args, seg) {
+function envDump(verb, args, seg, ctx, commandIndex) {
+  const expandedArg = (i) => {
+    const word = seg?.words?.[commandIndex + 1 + i];
+    return word ? parentExpand(word.text, word.mask, ctx) : [args[i]];
+  };
   const words = [verb, ...args, ...(seg?.redirs || []).map((r) => r.target)];
   if (words.some((w) => ENVIRON.test(w)) && !["ls", "test", "[", "stat"].includes(verb)) return "it reads a process's environment from /proc/*/environ";
   const operands = args.filter((a) => !/^[-+]/.test(a));
-  if (verb === "printenv") return operands.length === 0 ? "printenv with no name prints the whole environment"
-    : operands.some((n) => SECRET_NAME.test(n)) ? `printenv prints ${operands.find((n) => SECRET_NAME.test(n))}, a secret-like variable` : null;
+  if (verb === "printenv") {
+    const names = args.flatMap((a, i) => /^[-+]/.test(a) ? [] : expandedArg(i));
+    return names.length === 0 ? "printenv with no name prints the whole environment"
+      : names.some((n) => SECRET_NAME.test(n)) ? `printenv prints ${names.find((n) => SECRET_NAME.test(n))}, a secret-like variable` : null;
+  }
   if (verb === "set" && args.length === 0) return "set with no arguments prints every variable";
   if (verb === "export" && (args.length === 0 || (args.includes("-p") && !operands.length))) return "export -p prints every exported variable";
   if (verb === "declare" || verb === "typeset") {
@@ -452,7 +459,8 @@ function envDump(verb, args, seg) {
     if (!operands.length && args.some((a) => /^-[a-zA-Z]*[xp]/.test(a))) return `${verb} ${args.join(" ")} prints the variables with their values`;
     if (args.some((a) => /^-[a-zA-Z]*p/.test(a)) && operands.some((n) => SECRET_NAME.test(n))) return `${verb} -p prints ${operands.find((n) => SECRET_NAME.test(n))}, a secret-like variable`;
   }
-  if (verb === "launchctl" && args[0] === "getenv" && args.slice(1).some((n) => SECRET_NAME.test(n))) return `launchctl getenv prints ${args.find((n, i) => i > 0 && SECRET_NAME.test(n))}, a secret-like variable`;
+  const launchctlNames = args.slice(1).flatMap((_, i) => expandedArg(i + 1));
+  if (verb === "launchctl" && args[0] === "getenv" && launchctlNames.some((n) => SECRET_NAME.test(n))) return `launchctl getenv prints ${launchctlNames.find((n) => SECRET_NAME.test(n))}, a secret-like variable`;
   if (verb === "ps") {
     // BSD-style option words (no dash) with e show each process's environment (ps e, eww, auxe); -E too. -e (dashed,
     // "every process") does not.
@@ -576,7 +584,7 @@ function bashVerdict(command, ctx, depth = 0) {
     const childCtx = (extra = {}) => ({ ...ctx, ...extra, vars: new Map([...ctx.vars, ...(ctx.childEnv || [])]), childEnv: null });
     const verb = path.basename(words[k] || ""), args = words.slice(k + 1);
     const hitIn = (list) => { for (const w of list) { const h = protectedPath(w, ctx); if (h) return h; } return null; };
-    const dump = envDump(verb, args, seg);
+    const dump = envDump(verb, args, seg, ctx, k);
     if (dump) return { env: true, why: dump };
     if (verb === "cd" || verb === "pushd") { const t = args.find((a) => !/^-/.test(a) && !/^\+\d/.test(a)); addDirs(t === undefined ? ctx.home : t); continue; }
     if (verb === "popd") continue;   // every directory the command visited stays a candidate

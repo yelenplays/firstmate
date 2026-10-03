@@ -146,8 +146,6 @@ test_install_keeps_other_hooks() {
   assert_equals "PreToolUse" "$(toml_eval "$h/.kimi-code/config.toml" 's["hooks"][1]["event"]')" "kimi guard event"
 
   assert_contains "$(json_eval "$h/.grok/hooks/fm-credguard-read.json" 's.hooks.PreToolUse[0].hooks[0].command')" "--runtime grok" "grok hook file"
-  assert_grep "$T/hook/fm-credguard-read.mjs" "$h/.pi/agent/extensions/fm-credguard-read.ts" "pi extension names the hook"
-  assert_grep '"omp"' "$h/.omp/agent/extensions/fm-credguard-read.ts" "omp extension names its runtime"
   assert_equals "cursor-stop" "$(json_eval "$h/.cursor/hooks.json" 's.hooks.stop[0].command')" "cursor keeps other hook"
   assert_equals "cursor-other" "$(json_eval "$h/.cursor/hooks.json" 's.hooks.preToolUse[0].command')" "cursor keeps other pre-tool hook"
   assert_equals "Shell" "$(json_eval "$h/.cursor/hooks.json" 's.hooks.preToolUse[1].matcher')" "cursor guard matcher"
@@ -212,6 +210,48 @@ test_active_worker_surfaces_deny_secret_prints() {
   out=$(PLUGIN="$h/.config/opencode/plugins/fm-credguard-read.js" SECRET="$h/.env" node --input-type=module -e 'import {pathToFileURL} from "node:url"; const m=await import(pathToFileURL(process.env.PLUGIN)); const h=await m.FirstmateCredentialReadGuard(); try { await h["tool.execute.before"]({tool:"bash"},{args:{command:`cat ${process.env.SECRET}`}}); process.exit(1); } catch (e) { console.log(e.message); }') || fail "OpenCode plugin failed to block"
   assert_contains "$out" "firstmate credential guard: blocked" "OpenCode blocks the secret print"
   pass "OpenCode plugin, Cursor preToolUse, and Gemini BeforeTool block secret prints"
+}
+
+test_pi_omp_extensions_block_and_allow() {
+  local h out
+  h=$(new_home pi-omp pi omp)
+  install_in "$h" --harness pi,omp
+  expect_code 0 "$RC" "install Pi and OMP extensions: $OUT"
+  printf 'SYNTHETIC_SECRET=value\n' > "$h/.env"
+  out=$(HOME="$h" PI_EXT="$h/.pi/agent/extensions/fm-credguard-read.ts" OMP_EXT="$h/.omp/agent/extensions/fm-credguard-read.ts" node --input-type=module -e '
+    import { pathToFileURL } from "node:url";
+    process.chdir(process.env.HOME);
+    for (const key of ["PI_EXT", "OMP_EXT"]) {
+      const mod = await import(pathToFileURL(process.env[key]).href);
+      let hook;
+      mod.default({ on: (event, callback) => { if (event === "tool_call") hook = callback; } });
+      const denied = await hook({ toolName: "bash", input: { command: "cat .env" } }, { cwd: process.env.HOME });
+      if (!denied?.block) throw new Error(`${key} did not block a secret read`);
+      const allowed = await hook({ toolName: "bash", input: { command: "echo safe" } }, { cwd: process.env.HOME });
+      if (allowed?.block) throw new Error(`${key} blocked an ordinary command`);
+    }
+    console.log("Pi and OMP block secret reads and allow ordinary commands");
+  ') || fail "generated extension behavior failed: $out"
+  assert_equals "Pi and OMP block secret reads and allow ordinary commands" "$out" "extension tool_call behavior"
+  pass "generated Pi and OMP extensions block secrets and allow safe calls"
+}
+
+test_invalid_hook_prevents_all_config_writes() {
+  local h badhook before state
+  for state in missing non-executable; do
+    h=$(new_home "invalid-hook-$state" "${HARNESSES[@]}")
+    badhook="$T/$state/fm-credguard-read.mjs"
+    mkdir -p "$(dirname "$badhook")"
+    if [ "$state" = non-executable ]; then printf '#!/bin/sh\nexit 0\n' > "$badhook"; chmod 644 "$badhook"; fi
+    before=$(fingerprint "$h")
+    OUT=$(env -i HOME="$h" PATH="$h/fakebin:$TOOLS:/usr/bin:/bin" "$INSTALL" --hook "$badhook" 2>&1)
+    RC=$?
+    expect_code 1 "$RC" "$state hook refuses installation"
+    assert_contains "$OUT" "guard hook" "$state hook failure is reported"
+    assert_equals "$before" "$(fingerprint "$h")" "$state hook leaves all harness configs untouched"
+    [ ! -e "$h/.claude" ] && [ ! -e "$h/.codex" ] && [ ! -e "$h/.grok" ] && [ ! -e "$h/.pi" ] || fail "$state hook created a harness config"
+  done
+  pass "missing and non-executable hooks prevent all config writes"
 }
 
 test_install_is_idempotent() {
@@ -314,6 +354,8 @@ test_check_changes_nothing
 test_install_keeps_other_hooks
 test_whole_file_conflicts_are_preserved
 test_active_worker_surfaces_deny_secret_prints
+test_pi_omp_extensions_block_and_allow
+test_invalid_hook_prevents_all_config_writes
 test_install_is_idempotent
 test_new_hook_path_replaces_old_handler
 test_symlinked_config_written_through
