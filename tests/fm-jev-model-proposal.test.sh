@@ -7,7 +7,8 @@ TOOL="$ROOT/bin/fm-jev-model-proposal.sh"
 TMP_ROOT=$(fm_test_tmproot fm-jev-model-proposal)
 HOME_DIR="$TMP_ROOT/home"
 BIN="$TMP_ROOT/bin"
-mkdir -p "$HOME_DIR/state" "$HOME_DIR/config" "$HOME_DIR/data" "$BIN" "$TMP_ROOT/requests"
+mkdir -p "$HOME_DIR/state" "$HOME_DIR/config/override-state" "$HOME_DIR/data" "$BIN" "$TMP_ROOT/requests"
+ln -s "$HOME_DIR/config" "$TMP_ROOT/config-alias"
 
 cat > "$HOME_DIR/config/crew-dispatch.json" <<'JSON'
 {"rules": [
@@ -81,6 +82,11 @@ run_tool --evidence "$TMP_ROOT/evidence.json" --out "$HOME_DIR/config/proposal.m
 run_tool --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/evidence.json" >/dev/null 2>&1 && fail 'overwriting the evidence file must refuse'
 [ -z "$(find "$TEST_REQUESTS" -type f)" ] && [ "$(config_sum)" = "$CONFIG_BEFORE" ] || fail 'refused outputs must send and change nothing'
 pass 'an output under config/ or on an input file refuses'
+
+FM_STATE_OVERRIDE="$TMP_ROOT/config-alias/override-state" run_tool --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/should-not-write.md" >/dev/null 2>&1 && fail 'a state override under config/ must refuse'
+[ -z "$(find "$TEST_REQUESTS" -type f)" ] && [ "$(config_sum)" = "$CONFIG_BEFORE" ] && [ ! -e "$TMP_ROOT/should-not-write.md" ] \
+  || fail 'a config-backed state override must refuse before calls or writes'
+pass 'a config-backed state override refuses through a symlinked path'
 
 path=$(run_tool --evidence "$TMP_ROOT/evidence.json") || fail 'happy-path proposal failed'
 case "$path" in "$HOME_DIR/data/model-proposals/"*.md) ;; *) fail "default proposal path is wrong: $path" ;; esac
