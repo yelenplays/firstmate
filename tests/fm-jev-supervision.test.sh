@@ -583,6 +583,171 @@ test_supervision_cycle_budget_and_breaker() {
   pass "one Jev timeout trips the cycle breaker, preserves deterministic surfaces, and resets next cycle"
 }
 
+# wedge_class_response <out-file> <noul> <class> <class-confidence>
+#   a wedge answer that also carries the stuck-class Choice.
+wedge_class_response() {
+  local f=$1
+  shift
+  cat > "$f" <<JSON
+{ "model": "jev-1.13.0",
+  "answers": {
+    "state": { "type": "choice", "choice": "genuinely_stuck", "confidence": 0.7,
+      "probabilities": { "idle_finished": 0.1, "working_busy": 0.2, "genuinely_stuck": 0.7 } },
+    "verdict": { "type": "choice", "choice": "$2", "confidence": $3 },
+    "stuck": { "type": "noul", "noul": $1 }
+  },
+  "usage": { "input_tokens": 40, "output_tokens": 12 } }
+JSON
+}
+
+test_wedge_check_reports_stuck_classes() {
+  local code out _err body
+  fresh_home
+  printf 'npm test\nnpm test\nnpm test\n$ \n' > "$STDIN_FILE"
+
+  wedge_class_response "$RESPONSE" 0.7 looping 0.72
+  run_helper "$WEDGE_CHECK" code out _err --class
+  expect_code 0 "$code" "a classed escalate exits 0"
+  assert_equals 'escalate looping' "$out" "an act-band class follows the verdict"
+  body=$(cat "$LOG/body")
+  for class in progressing looping rate_limited stalled unclear; do
+    assert_contains "$body" "\"$class\"" "the request offers the $class class"
+  done
+
+  wedge_class_response "$RESPONSE" 0.7 rate_limited 0.4
+  run_helper "$WEDGE_CHECK" code out _err --class
+  assert_equals 'escalate rate_limited' "$out" "a review-band class still labels the warning"
+
+  wedge_class_response "$RESPONSE" 0.7 stalled 0.2
+  run_helper "$WEDGE_CHECK" code out _err --class
+  assert_equals 'escalate unclear' "$out" "a class below the review band reads as unclear"
+
+  wedge_class_response "$RESPONSE" 0.7 bogus 0.9
+  run_helper "$WEDGE_CHECK" code out _err --class
+  assert_equals 'escalate unclear' "$out" "an unknown class reads as unclear"
+
+  wedge_response "$RESPONSE" 0.7 genuinely_stuck 0.7
+  run_helper "$WEDGE_CHECK" code out _err --class
+  expect_code 0 "$code" "a missing class never fails the call"
+  assert_equals 'escalate unclear' "$out" "a missing class reads as unclear"
+
+  wedge_class_response "$RESPONSE" 0.2 progressing 0.8
+  run_helper "$WEDGE_CHECK" code out _err --class
+  assert_equals 'suppress progressing' "$out" "the Noul alone still gates suppress"
+
+  wedge_class_response "$RESPONSE" 0.7 looping 0.72
+  run_helper "$WEDGE_CHECK" code out _err
+  assert_equals escalate "$out" "without --class the one-word verdict contract is unchanged"
+  jq -e 'select(.class != null) | .class == "looping" and .band == "act" and .class_confidence == 0.72' \
+    "$HOME_DIR/state/jev-wedge-check.jsonl" >/dev/null \
+    || fail "the JSONL record does not carry the class and band: $(tail -1 "$HOME_DIR/state/jev-wedge-check.jsonl")"
+  pass "the wedge check reports progressing, looping, rate_limited, stalled, and unclear without changing its gate"
+}
+
+test_wedge_check_warning_window() {
+  local code out _err ledger args
+  fresh_home
+  printf 'error: 429 rate_limit_error\n$ \n' > "$STDIN_FILE"
+  args=(--class --task wtask --state-dir "$HOME_DIR/state")
+  ledger="$HOME_DIR/state/wtask.jev-wedge-warned"
+
+  wedge_class_response "$RESPONSE" 0.8 rate_limited 0.8
+  run_helper "$WEDGE_CHECK" code out _err "${args[@]}"
+  assert_equals 'escalate rate_limited' "$out" "the first warning escalates"
+  [ ! -e "$ledger" ] || fail "a verdict alone recorded a warning before any wake went out"
+
+  code=0
+  FM_HOME="$HOME_DIR" "$WEDGE_CHECK" --mark-warned rate_limited --task wtask --state-dir "$HOME_DIR/state" \
+    < /dev/null || code=$?
+  expect_code 0 "$code" "marking a warning exits 0"
+  run_helper "$WEDGE_CHECK" code out _err "${args[@]}"
+  assert_equals 'held rate_limited' "$out" "the same class inside the hour is held"
+  jq -e 'select(.status == "held")' "$HOME_DIR/state/jev-wedge-check.jsonl" >/dev/null \
+    || fail "the held verdict is not in the audit log"
+
+  wedge_class_response "$RESPONSE" 0.8 stalled 0.8
+  run_helper "$WEDGE_CHECK" code out _err "${args[@]}"
+  assert_equals 'escalate stalled' "$out" "a different class escalates at once"
+
+  wedge_class_response "$RESPONSE" 0.8 rate_limited 0.8
+  run_helper "$WEDGE_CHECK" code out _err --class --task other --state-dir "$HOME_DIR/state"
+  assert_equals 'escalate rate_limited' "$out" "another task is not held by this task's warning"
+  run_helper "$WEDGE_CHECK" code out _err --task wtask --state-dir "$HOME_DIR/state"
+  assert_equals escalate "$out" "without --class nothing is held"
+  FM_JEV_WEDGE_WARN_EVERY_SECS=0 run_helper "$WEDGE_CHECK" code out _err "${args[@]}"
+  assert_equals 'escalate rate_limited' "$out" "a zero window turns the hold off"
+
+  printf 'rate_limited %s\n' "$(( $(date +%s) - 3700 ))" > "$ledger"
+  run_helper "$WEDGE_CHECK" code out _err "${args[@]}"
+  assert_equals 'escalate rate_limited' "$out" "a warning older than the window no longer holds"
+
+  FM_HOME="$HOME_DIR" "$WEDGE_CHECK" --mark-warned stalled --task wtask --state-dir "$HOME_DIR/state" < /dev/null
+  FM_HOME="$HOME_DIR" "$WEDGE_CHECK" --mark-warned stalled --task wtask --state-dir "$HOME_DIR/state" < /dev/null
+  [ "$(grep -c '^stalled ' "$ledger")" = 1 ] || fail "the ledger repeats a class: $(cat "$ledger")"
+  grep -q '^rate_limited ' "$ledger" || fail "marking one class dropped another: $(cat "$ledger")"
+  code=0
+  FM_HOME="$HOME_DIR" "$WEDGE_CHECK" --mark-warned bogus --task wtask --state-dir "$HOME_DIR/state" \
+    < /dev/null 2>/dev/null || code=$?
+  expect_code 2 "$code" "an unknown class is a usage error"
+  pass "at most one warning per hour per task and stuck class, recorded only by the caller after its wake"
+}
+
+test_wedge_check_idle_fact_and_redaction() {
+  local code out _err token
+  fresh_home
+  printf 'Retrying the request now\nRetrying the request now\nRetrying the request now\n$ \n' > "$STDIN_FILE"
+  wedge_class_response "$RESPONSE" 0.7 looping 0.7
+  run_helper "$WEDGE_CHECK" code out _err --idle-secs 600
+  jq -e '.state.idle_secs == 600 and .state.repeated_line_max == 3 and (.state | tostring | contains("Retrying") | not)' \
+    "$LOG/body" >/dev/null || fail "the structured state lacks the idle age or repeat count: $(cat "$LOG/body")"
+
+  token='a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0'
+  write_task_meta fmtask ship "$ROOT"
+  printf 'pushing with %s\nusing token abcdefghij0123456789xyz\n$ \n' "$token" > "$STDIN_FILE"
+  run_helper "$WEDGE_CHECK" code out _err "${FREE_TEXT_ARGS[@]}" --idle-secs 600
+  jq -e --arg t "$token" '.state | type == "string" and startswith("Supervisor facts: the pane has been idle for 600s")
+      and (contains($t) | not) and (contains("abcdefghij0123456789xyz") | not) and contains("[redacted]")' \
+    "$LOG/body" >/dev/null || fail "free-text state leaked a long token or lost the idle fact: $(cat "$LOG/body")"
+
+  printf '%9000s' '' | tr ' ' 'y' > "$STDIN_FILE"
+  run_helper "$WEDGE_CHECK" code out _err "${FREE_TEXT_ARGS[@]}" --idle-secs 600
+  jq -e '.state | length <= 4000' "$LOG/body" >/dev/null \
+    || fail "the idle fact pushed the free-text state past its cap"
+  pass "the wedge check adds the idle age, counts repeats without text, and masks long tokens"
+}
+
+test_wedge_consult_call_budget() {
+  local stubdir rc n
+  stubdir="$TMP_ROOT/wedge-budget"
+  rm -rf "$stubdir"; mkdir -p "$stubdir"
+  fm_install_jev_stubs "$stubdir"
+  export FM_JEV_WEDGE_CHECK_BIN="$stubdir/jev-wedge-stub" FM_JEV_STUB_DIR="$stubdir" \
+    FM_JEV_STUB_WEDGE_VERDICT=escalate FM_JEV_STUB_WEDGE_CLASS=stalled FM_JEV_WEDGE_CYCLE_MAX_CALLS=2
+  # The earlier cycle-budget case unsets the shared budget; restore its default.
+  FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS=6
+  fm_jev_supervision_cycle_reset
+  n=1
+  while [ "$n" -le 3 ]; do
+    rc=0
+    wedge_jev_consult "pane $n" task-a "$TMP_ROOT" 300 || rc=$?
+    case "$n" in
+      3) [ "$rc" -eq 1 ] && [ -z "$WEDGE_JEV_VERDICT" ] || fail "the third consult ran past the call budget" ;;
+      *) [ "$rc" -eq 0 ] && [ "$WEDGE_JEV_VERDICT $WEDGE_JEV_CLASS" = 'escalate stalled' ] \
+           || fail "consult $n did not report escalate stalled: $WEDGE_JEV_VERDICT $WEDGE_JEV_CLASS" ;;
+    esac
+    n=$((n + 1))
+  done
+  [ "$(wc -l < "$stubdir/wedge.args" | tr -d ' ')" = 2 ] || fail "the budget did not stop the helper call"
+  fm_jev_supervision_cycle_reset
+  wedge_jev_consult "pane again" task-a "$TMP_ROOT" || fail "the next cycle did not reset the call budget"
+  FM_JEV_STUB_WEDGE_VERDICT=suppress
+  wedge_jev_suppress "pane quiet" task-a "$TMP_ROOT" || fail "wedge_jev_suppress lost the suppress answer"
+  FM_JEV_STUB_WEDGE_VERDICT=held
+  ! wedge_jev_suppress "pane held" task-a "$TMP_ROOT" || fail "wedge_jev_suppress read held as suppress"
+  unset FM_JEV_WEDGE_CHECK_BIN FM_JEV_STUB_DIR FM_JEV_STUB_WEDGE_VERDICT FM_JEV_STUB_WEDGE_CLASS FM_JEV_WEDGE_CYCLE_MAX_CALLS
+  pass "the wedge consult spends at most its per-cycle call budget and resets next cycle"
+}
+
 test_status_triage_verdicts
 test_status_triage_question_shape_and_line_only
 test_status_triage_redacts_credentials
@@ -598,3 +763,7 @@ test_wedge_check_verdicts
 test_wedge_check_question_shape_and_tail_only
 test_wedge_check_failure_is_fail_closed
 test_supervision_cycle_budget_and_breaker
+test_wedge_check_reports_stuck_classes
+test_wedge_check_warning_window
+test_wedge_check_idle_fact_and_redaction
+test_wedge_consult_call_budget

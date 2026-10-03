@@ -935,6 +935,51 @@ test_daemon_wedge_jev_boundary() {
 }
 
 
+# The daemon boundary carries Jev's stuck class: an escalate names it in the
+# escalation and records the warning only after the escalation is buffered; a
+# held repeat (same task and class inside the helper's window) re-arms the
+# stale marker without escalating or recording anything.
+test_daemon_wedge_jev_class_and_hold() {
+  local dir state fakebin task win pane key
+  dir=$(make_supercase jev-wedge-class); state="$dir/state"; fakebin="$dir/fakebin"
+  task=jevwedge-c1; win="sess:fm-$task"; pane="$dir/pane.txt"
+  key=$(printf '%s' "$task" | tr ':/.' '___')
+  fm_write_meta "$state/$task.meta" "window=$win" "backend=tmux"
+  printf 'working: building\n' > "$state/$task.status"
+  printf 'Working...\n' > "$pane"
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+  (
+    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+      FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 \
+      FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=held FM_JEV_STUB_WEDGE_CLASS=stalled \
+      housekeeping "$state"
+  )
+  [ ! -s "$state/.subsuper-escalations" ] \
+    || fail "a held daemon wedge escalated: $(cat "$state/.subsuper-escalations")"
+  [ -e "$state/.subsuper-stale-$key" ] || fail "a held daemon wedge dropped its stale marker"
+  ! grep -F -- '--mark-warned' "$dir/jevstub/wedge.args" >/dev/null \
+    || fail "a held daemon wedge recorded a warning"
+  grep -F -- '--class' "$dir/jevstub/wedge.args" >/dev/null \
+    || fail "the daemon consult did not ask for the stuck class: $(cat "$dir/jevstub/wedge.args")"
+
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+  (
+    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+      FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 \
+      FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=escalate FM_JEV_STUB_WEDGE_CLASS=looping \
+      housekeeping "$state"
+  )
+  grep -F 'possible wedge, Jev reads looping' "$state/.subsuper-escalations" >/dev/null \
+    || fail "the daemon escalation does not name the stuck class: $(cat "$state/.subsuper-escalations" 2>/dev/null)"
+  grep -F -- "--mark-warned looping --task $task --state-dir $state" "$dir/jevstub/wedge.args" >/dev/null \
+    || fail "the daemon did not record the warning after escalating: $(cat "$dir/jevstub/wedge.args")"
+  pass "the daemon wedge boundary names the stuck class and holds a same-class repeat"
+}
+
 # The second half of issue #3149. The watcher's wedge timer emits an enriched
 # "idle Ns, possible wedge, escalation N" reason for any pane it reads as frozen -
 # including one whose crew has a CURRENT declared wait, because the watcher's own
@@ -3418,6 +3463,7 @@ test_stale_transient_self_records_marker
 test_stale_diagnostic_wedge_survives_busy_housekeeping
 test_daemon_signal_jev_consult
 test_daemon_wedge_jev_boundary
+test_daemon_wedge_jev_class_and_hold
 test_enriched_wedge_under_declared_wait_uses_pause_cadence
 test_stale_terminal_escalates
 test_stale_actionable_wait_escalates_and_keeps_pause_cadence

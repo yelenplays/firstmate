@@ -94,9 +94,11 @@
 #     Prints the Jev state for one supervision consult. With free-text 1 it is
 #     the size-capped text (FM_JEV_SUPERVISION_FREE_TEXT_MAX_CHARS, first chars
 #     of a status line, last chars of a pane tail) run through
-#     fm_jev_compact_state. With free-text 0 it is a JSON object of
-#     structured facts only - verb, counts, and fixed-vocabulary signal flags -
-#     and carries no text from the input.
+#     fm_jev_compact_state; a pane tail also masks every 32+ character opaque
+#     token and any bare "token <value>". With free-text 0 it is a JSON object
+#     of structured facts only - verb, counts (for a pane tail, also how often
+#     its most repeated line recurs), and fixed-vocabulary signal flags - and
+#     carries no text from the input.
 #
 # Environment (library-specific):
 #   TYPESAFE_API_KEY, OPENROUTER_API_KEY, JEV_ROUTE, JEV_MODEL, JEV_URL,
@@ -752,7 +754,7 @@ _fm_jev_signal() {  # <lowered-text> <extended-regex>
 }
 
 fm_jev_supervision_state() {  # <status-line|pane-tail> <text> <free-text:0|1>
-  local kind=$1 text=$2 free=$3 max lower verb last_line lines words
+  local kind=$1 text=$2 free=$3 max lower verb last_line lines words repeated
   command -v jq >/dev/null 2>&1 || { _fm_jev_err "jq required"; return 2; }
   max=$FM_JEV_SUPERVISION_FREE_TEXT_MAX_CHARS
   if [ "$free" = 1 ]; then
@@ -762,6 +764,37 @@ fm_jev_supervision_state() {  # <status-line|pane-tail> <text> <free-text:0|1>
         *) text=${text:0:$max} ;;
       esac
     fi
+    case "$kind" in
+      pane-tail)
+        # A screen also masks every long opaque token (32+ characters mixing
+        # letters and digits) and a bare "token <value>", which the shared
+        # scrub leaves alone so commit shas survive in other payloads. Adapted
+        # from korallis/agent-stack orchestration/redact.js (Apache-2.0, see
+        # NOTICE).
+        fm_jev_compact_state "$text" | awk '
+          { if (NR > 1) buf = buf "\n"; buf = buf $0 }
+          END {
+            out = ""
+            while (match(buf, /[A-Za-z0-9_-]+/)) {
+              word = substr(buf, RSTART, RLENGTH)
+              out = out substr(buf, 1, RSTART - 1)
+              out = out ((length(word) >= 32 && word ~ /[0-9]/ && word ~ /[A-Za-z]/) ? "[redacted]" : word)
+              buf = substr(buf, RSTART + RLENGTH)
+            }
+            buf = out buf
+            out = ""
+            while (match(buf, /[Tt][Oo][Kk][Ee][Nn][[:space:]]+[A-Za-z0-9._-]+/)) {
+              word = substr(buf, RSTART, RLENGTH)
+              value = word; sub(/^[Tt][Oo][Kk][Ee][Nn][[:space:]]+/, "", value)
+              out = out substr(buf, 1, RSTART - 1)
+              out = out ((length(value) >= 16) ? substr(word, 1, 5) " [redacted]" : word)
+              buf = substr(buf, RSTART + RLENGTH)
+            }
+            printf "%s", out buf
+          }'
+        return "${PIPESTATUS[0]}"
+        ;;
+    esac
     fm_jev_compact_state "$text"
     return
   fi
@@ -795,9 +828,17 @@ fm_jev_supervision_state() {  # <status-line|pane-tail> <text> <free-text:0|1>
     pane-tail)
       lines=$(printf '%s\n' "$text" | awk 'NF { n++ } END { print n + 0 }')
       last_line=$(printf '%s\n' "$lower" | awk 'NF { l = $0 } END { print l }')
+      # The count, never the text, of the most repeated wordy line (six or more
+      # letters, so box rules and separators never count).
+      repeated=$(printf '%s\n' "$text" | awk '
+        { line = $0; gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+          letters = line; gsub(/[^A-Za-z]/, "", letters)
+          if (length(letters) >= 6 && ++seen[line] > max) max = seen[line] }
+        END { print max + 0 }')
       jq -nc \
         --argjson chars "${#text}" \
         --argjson lines "${lines:-0}" \
+        --argjson repeated "${repeated:-0}" \
         --argjson prompt "$(_fm_jev_signal "$lower" '\(y/n\)|\[y/n\]|press enter|continue\?|do you want|approve|allow')" \
         --argjson quota "$(_fm_jev_signal "$lower" 'rate limit|usage limit|quota|429|credits')" \
         --argjson error "$(_fm_jev_signal "$lower" 'error|traceback|panic|exception|fatal|failed')" \
@@ -806,7 +847,7 @@ fm_jev_supervision_state() {  # <status-line|pane-tail> <text> <free-text:0|1>
         --argjson finished "$(_fm_jev_signal "$lower" 'done|finished|complete|all tests pass')" \
         --argjson shell "$(_fm_jev_signal "$last_line" '[$%>#][[:space:]]*$')" \
         '{payload: "structured", note: "Structured facts only; the pane text is withheld by the Firstmate data boundary.",
-          kind: "pane-tail", chars: $chars, nonblank_lines: $lines,
+          kind: "pane-tail", chars: $chars, nonblank_lines: $lines, repeated_line_max: $repeated,
           signals: {prompt_waiting: $prompt, quota_or_rate_limit: $quota, error_text: $error,
             permission_prompt: $permission, busy_indicator: $busy, completion_text: $finished,
             shell_prompt_last_line: $shell}}'

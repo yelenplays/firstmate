@@ -3722,6 +3722,7 @@ wedge_threshold_round() {  # <state> <fakebin> <out> <capture> <window> <verdict
     FM_JEV_WEDGE_CHECK_BIN="${FM_JEV_WEDGE_CHECK_BIN:-$fakebin/jev-off.sh}" \
     FM_JEV_STUB_DIR="${FM_JEV_STUB_DIR:-}" \
     FM_JEV_STUB_WEDGE_VERDICT="${FM_JEV_STUB_WEDGE_VERDICT:-}" \
+    FM_JEV_STUB_WEDGE_CLASS="${FM_JEV_STUB_WEDGE_CLASS:-}" \
     FM_PAUSE_RESURFACE_SECS="${FM_TEST_PAUSE_RESURFACE:-999}" FM_STALE_ESCALATE_SECS="${FM_TEST_STALE_ESCALATE:-1}" \
     FM_POLL=1 FM_SIGNAL_GRACE=1 \
     FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" >> "$out" &
@@ -4634,6 +4635,64 @@ test_wedge_jev_escalate_and_failure_keep_the_boundary() {
     'state: working · source: run-step · ci running' exit \
     || fail "the default fail-closed stub changed the wedge boundary: $(cat "$out")"
   pass "escalate verdicts and every helper failure keep the incumbent wedge escalation"
+}
+
+# An escalate verdict carries Jev's stuck class into the wake reason, and the
+# warning is recorded with the helper only after the wake is queued, keyed by
+# the task, so the helper's hourly window can hold the next same-class repeat.
+test_wedge_jev_escalation_names_the_stuck_class() {
+  local dir state fakebin out capture window key
+  dir=$(wedge_threshold_fixture jev-class 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
+
+  FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+    FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=escalate FM_JEV_STUB_WEDGE_CLASS=looping \
+    wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+      'state: working · source: run-step · ci running' exit \
+    || fail "a classed escalate verdict did not escalate: $(cat "$out")"
+  [ "$(wedge_stale_wakes "$state" "$window")" -ge 1 ] \
+    || fail "a classed escalate verdict queued no wake: $(cat "$state/.wake-queue")"
+  grep -F 'possible wedge, Jev reads looping, escalation 1' "$state/.wake-queue" >/dev/null \
+    || fail "the wake reason does not name the stuck class: $(cat "$state/.wake-queue")"
+  grep -F -- "--class --task wedge --state-dir $state --idle-secs" "$dir/jevstub/wedge.args" >/dev/null \
+    || fail "the consult did not ask for the class with the task and idle age: $(cat "$dir/jevstub/wedge.args")"
+  grep -F -- "--mark-warned looping --task wedge --state-dir $state" "$dir/jevstub/wedge.args" >/dev/null \
+    || fail "the warning was not recorded after the wake: $(cat "$dir/jevstub/wedge.args")"
+  pass "a wedge escalation names Jev's stuck class and records the warning after its wake"
+}
+
+# A held verdict - the same task and class already warned inside the helper's
+# window - re-arms the idle timer like the other boundary deferrals: no wake, no
+# counted escalation, no warning recorded, and a triage-log line saying why.
+test_wedge_jev_held_repeat_does_not_wake() {
+  local dir state fakebin out capture window key n
+  dir=$(wedge_threshold_fixture jev-held 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  printf '%s' "$(( $(date +%s) - 120 ))" > "$state/.stale-since-$key"
+
+  n=1
+  while [ "$n" -le 3 ]; do
+    FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=held FM_JEV_STUB_WEDGE_CLASS=rate_limited \
+      wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+        'state: working · source: run-step · ci running' absorb \
+      || fail "a held repeat escalated at round $n: $(cat "$out")"
+    n=$((n + 1))
+  done
+  [ "$(wedge_stale_wakes "$state" "$window")" -eq 0 ] \
+    || fail "a held repeat queued a wake: $(cat "$state/.wake-queue")"
+  [ ! -e "$state/.wedge-escalations-$key" ] \
+    || fail "a held repeat counted an escalation: $(cat "$state/.wedge-escalations-$key")"
+  ! grep -F -- '--mark-warned' "$dir/jevstub/wedge.args" >/dev/null \
+    || fail "a held repeat recorded a warning that never went out"
+  grep -F 'escalation held: Jev still reads rate_limited' "$state/.watch-triage.log" >/dev/null \
+    || fail "the hold was not recorded in the triage log: $(cat "$state/.watch-triage.log")"
+  pass "a same-class repeat inside the warning window re-arms instead of waking"
 }
 
 # The consult pays only at the boundary: below the idle bound a pane is absorbed
@@ -8330,6 +8389,8 @@ test_status_span_jev_optin
 test_status_span_jev_cap
 test_wedge_jev_low_noul_suppresses_the_boundary
 test_wedge_jev_escalate_and_failure_keep_the_boundary
+test_wedge_jev_escalation_names_the_stuck_class
+test_wedge_jev_held_repeat_does_not_wake
 test_wedge_jev_consult_only_at_the_boundary
 test_jev_suppression_chain_resets_after_activity
 test_wedge_threshold_defers_to_a_parked_gate_awaiting_a_human

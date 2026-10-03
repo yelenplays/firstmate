@@ -1278,12 +1278,22 @@ housekeeping() {  # <state>
       *)
         # Preserve the stronger no-mistakes execution evidence before asking
         # Jev for a second opinion. Both checks are threshold-only; Jev can only
-        # defer the structural escalation, never replace it on failure.
+        # defer the structural escalation (suppress, or held for a stuck class
+        # already warned inside the window) or label it, never replace it on
+        # failure.
+        WEDGE_JEV_VERDICT=
+        WEDGE_JEV_CLASS=
         if run_id=$(crew_nm_run_progressing "$task" "$state" "$marker"); then
           rm -f "$state/.subsuper-jevsupp-$key"
           _now > "$marker"
           log "stale deferral: $win (its no-mistakes run $run_id is still executing, idle ${age}s)"
-        elif [ -n "${FM_STALE_TAIL40:-}" ] && wedge_jev_suppress "$FM_STALE_TAIL40" "$task" "$state"; then
+        elif [ -n "${FM_STALE_TAIL40:-}" ] && wedge_jev_consult "$FM_STALE_TAIL40" "$task" "$state" "$age" \
+          && [ "$WEDGE_JEV_VERDICT" = held ]; then
+          # Same task, same stuck class, already warned inside the helper's
+          # warning window: re-arm instead of repeating the warning.
+          _now > "$marker"
+          log "stale wedge held: Jev still reads ${WEDGE_JEV_CLASS:-unclear}, already warned within the window (idle ${age}s): $win"
+        elif [ "$WEDGE_JEV_VERDICT" = suppress ]; then
           # Bound a Jev suppression: a pane that stays quiet through a full
           # re-surface interval still escalates for inspection. A marker whose
           # timestamp is missing or malformed (an interrupted write) cannot
@@ -1305,8 +1315,9 @@ housekeeping() {  # <state>
             _now > "$marker"
             log "stale wedge suppressed by Jev pane-tail read (idle ${age}s): $win"
           fi
-        elif escalate_add "$state" "stale persisted ${age}s (possible wedge): $win"; then
+        elif escalate_add "$state" "stale persisted ${age}s (possible wedge${WEDGE_JEV_CLASS:+, Jev reads $WEDGE_JEV_CLASS}): $win"; then
           stale_marker_remove "$win" "$state"
+          wedge_jev_mark_warned "$task" "$state" "$WEDGE_JEV_CLASS"
         fi ;;
     esac
   done

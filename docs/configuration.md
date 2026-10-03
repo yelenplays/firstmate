@@ -1504,15 +1504,29 @@ An escalation surfaces the line marked `(jev-escalated)` as an advisory surface 
 [`bin/fm-jev-wedge-check.sh`](../bin/fm-jev-wedge-check.sh) reads one captured pane tail on stdin and prints `suppress` only when the `stuck` Noul is below the floor, which defers the structural wedge escalation on the shared bounded resurface cadence; a Noul at or above the floor escalates at once, and every other outcome keeps the incumbent escalation.
 The wedge consult runs only when the structural checks leave an escalation due: after the watcher has checked declared waits, worktree writes, dead endpoints, and no-mistakes run liveness, or at the daemon's stale-persistence recheck after its run-liveness check; it never runs per poll.
 The watcher's busy-turn-bound path deliberately supplies no pane tail and skips Jev, so a busy-looking pane cannot suppress the hung-foreground escalation this bound exists to catch.
+The same wedge call also classifies the pane as `progressing`, `looping`, `rate_limited`, `stalled`, or `unclear`, and an escalation names that class in its wake reason (`Jev reads looping`); the class only labels the warning and never interrupts, relaunches, or reroutes a worker.
+At most one such warning per task and class goes out per `FM_JEV_WEDGE_WARN_EVERY_SECS` (default 3600, `0` turns the window off): a repeat of the same class inside the window re-arms the idle timer instead of waking firstmate again, a different class escalates at once, and an escalation with no Jev answer is never held.
+The warning is recorded only after its wake is written, and the per-task ledger is retired with the task.
+`FM_JEV_WEDGE_CYCLE_MAX_CALLS` (default 10) caps wedge calls per watcher or daemon cycle on top of the shared wall-clock budget; past it the structural escalation stands without a second opinion.
 Each call is bounded by a positive-integer `JEV_TIMEOUT` from the environment or `$FM_HOME/.env` when set, otherwise `FM_JEV_SUPERVISION_TIMEOUT_SECS` (default 3 seconds), plus a short wrapper margin.
 Each consultation that reaches the Jev request appends one JSONL audit record under the state directory (`jev-status-triage.jsonl`, `jev-wedge-check.jsonl`).
 
 Outbound data boundary.
 Status text and pane text leave the home only for a ship or scout task whose `project=` resolves to the code root, or whose resolved Git common directory matches the code root's, supervised from the primary home (no `.fm-secondmate-home` marker). `remote.origin.url` is not accepted as project identity.
-That free text is size-capped (the first 4000 characters of a status line, the last 4000 of a pane tail) and secret-stripped by `fm_jev_compact_state` before it is sent, and its audit record keeps a short redacted excerpt.
+That free text is size-capped (the first 4000 characters of a status line, the last 4000 of a pane tail) and secret-stripped by `fm_jev_compact_state` before it is sent; a pane tail also loses every long opaque token, and its audit record keeps a short redacted excerpt.
 When a model call is made for any other case - a secondmate home, a secondmate task, another project such as a wiki, website, or vault, or a task whose eligibility cannot be established - it sends structured facts only: the status verb when it is a known Firstmate verb (any other leading token becomes `other`), character and line counts, and fixed-vocabulary signal flags, never the text itself, and its audit record carries no excerpt.
 `fm_jev_supervision_free_text_ok` and `fm_jev_supervision_state` in [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) own that rule and the exact facts.
 Coverage lives in [`tests/fm-jev-supervision.test.sh`](../tests/fm-jev-supervision.test.sh), [`tests/fm-watch-triage.test.sh`](../tests/fm-watch-triage.test.sh), and [`tests/fm-daemon.test.sh`](../tests/fm-daemon.test.sh).
+
+## Seat picking for teams (config/seat-pick)
+
+[`bin/fm-seat-pick.sh`](../bin/fm-seat-pick.sh) picks a running, idle seat for a piece of team work and plans moving work off seats that cannot take it.
+It exists for role-split teams and stays off unless the local, gitignored presence flag `config/seat-pick` exists or `FM_SEAT_PICK=1` is set; `FM_SEAT_PICK=0` forces it off, and off means exit 3 with no network call.
+Today's one-worker-per-task dispatch never calls it; [`bin/fm-dispatch-resolve.sh`](../bin/fm-dispatch-resolve.sh) remains the owner of choosing a harness and model before a spawn.
+Code owns capacity: only a seat that runs, is idle, holds no open work, can be served, and sits below the context wall is ever offered, and Jev weighs fit and load notes among those.
+An act-band answer dispatches; anything else, including a missing key or a Jev error, hands the choice to the team lead, so a caller never blocks on the model.
+Reroute planning is deterministic and report-only: it never moves work itself.
+The script header owns the seat and row schema, the bands, the reroute rules, and the outbound data boundary; coverage lives in [`tests/fm-seat-pick.test.sh`](../tests/fm-seat-pick.test.sh).
 
 ## Brief preflight (FM_JEV_BRIEF_PREFLIGHT)
 

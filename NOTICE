@@ -1,0 +1,15 @@
+Firstmate
+Copyright (c) Firstmate contributors
+
+Firstmate is licensed under the MIT License (see LICENSE).
+
+It includes material adapted from third parties, which keeps its own licence:
+
+- agent-stack (https://github.com/korallis/agent-stack), Copyright 2026 The agent-stack authors,
+  Apache License, Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
+  Adapted, not copied verbatim, with each adapted file crediting its source in its header:
+  - bin/fm-jev-wedge-check.sh: stuck classes, bands, and the hourly warning window, from
+    orchestration/stuck.js and the seat.stuck decision in config/decisions.yaml.
+  - bin/fm-jev-lib.sh: pane-tail long-token redaction, from orchestration/redact.js.
+  - bin/fm-seat-pick.sh: seat candidates, seat picking, and reroute planning, from
+    orchestration/pickseat.js, orchestration/reroute.js, and the intake.seat decision.
