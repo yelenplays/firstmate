@@ -67,6 +67,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-queue-ready.sh` | Advisory heartbeat line of dispatch-ready backlog items from structured fields ([configuration](configuration.md#queue-readiness-heartbeat)) |
 | `fm-jev-brief-preflight.sh` | Advisory deterministic spawn-path brief check ([configuration](configuration.md#brief-preflight-fm_jev_brief_preflight)) |
 | `fm-jev-pr-verdict.sh` | Metadata-only advisory for review-ready shared-wiki GitHub PRs ([configuration](configuration.md#advisory-wiki-pr-verdict)) |
+| `fm-jev-model-proposal.sh` | Per-role Jev model proposal from curated evidence; never edits config ([configuration](configuration.md#jev-model-proposals)) |
 | `fm-dispatch-replay.sh` | Replay labeled dispatch briefs under a live call budget and score recorded choices offline ([configuration](configuration.md#typed-dispatch-resolution-env-typesafe_api_key)) |
 | `fm-jev-done-verify.sh` | Log-only shadow score of a worker done line; drain-invoked, never closes or tears down (docs/configuration.md) |
 | `fm-jev-retrieval-miss.sh` | Metadata-only Jev miss classifier; refuses excerpts and conflict lines (docs/configuration.md) |
