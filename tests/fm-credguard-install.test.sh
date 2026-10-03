@@ -18,7 +18,7 @@ command -v node >/dev/null 2>&1 || { pass "node not installed, skipping"; exit 0
 command -v git >/dev/null 2>&1 || { pass "git not installed, skipping"; exit 0; }
 
 T=$(fm_test_tmproot fm-credguard-install) || fail "could not create a temp root"
-HARNESSES=(claude codex devin kimi grok pi omp)
+HARNESSES=(claude codex devin kimi grok pi omp opencode cursor-agent gemini)
 
 # A PATH with exactly the tools the installer needs plus one stub per harness.
 TOOLS="$T/tools"
@@ -93,10 +93,14 @@ command = "keep-me"
 EOF
   printf '{"permissions":{"deny":["Read(**/.env)"]},"hooks":{"PreToolUse":[{"matcher":"exec","hooks":[{"type":"command","command":"devin-other"}]}]}}\n' > "$h/.config/devin/config.json"
   printf 'default_model = "k2"\n\n[[hooks]]\nevent = "Stop"\ncommand = "kimi-stop"\n' > "$h/.kimi-code/config.toml"
+  mkdir -p "$h/.cursor" "$h/.gemini" "$h/.config/opencode/plugins"
+  printf '{"version":1,"hooks":{"stop":[{"type":"command","command":"cursor-stop"}],"preToolUse":[{"matcher":"Shell","type":"command","command":"cursor-other"}]}}\n' > "$h/.cursor/hooks.json"
+  printf '{"context":{"fileName":"GEMINI.md"},"hooks":{"BeforeTool":[{"matcher":"run_shell_command","hooks":[{"name":"gemini-other","type":"command","command":"gemini-other"}]}]}}\n' > "$h/.gemini/settings.json"
+  printf 'export const Existing = true;\n' > "$h/.config/opencode/plugins/other.js"
 }
 
 mkdir -p "$T/hook"
-printf '#!/bin/sh\nexit 0\n' > "$T/hook/fm-credguard-read.mjs"
+printf '#!/bin/sh\nexec node "%s/bin/fm-credguard-read.mjs" "$@"\n' "$ROOT" > "$T/hook/fm-credguard-read.mjs"
 chmod +x "$T/hook/fm-credguard-read.mjs"
 
 # --- cases -------------------------------------------------------------------
@@ -144,11 +148,39 @@ test_install_keeps_other_hooks() {
   assert_contains "$(json_eval "$h/.grok/hooks/fm-credguard-read.json" 's.hooks.PreToolUse[0].hooks[0].command')" "--runtime grok" "grok hook file"
   assert_grep "$T/hook/fm-credguard-read.mjs" "$h/.pi/agent/extensions/fm-credguard-read.ts" "pi extension names the hook"
   assert_grep '"omp"' "$h/.omp/agent/extensions/fm-credguard-read.ts" "omp extension names its runtime"
+  assert_equals "cursor-stop" "$(json_eval "$h/.cursor/hooks.json" 's.hooks.stop[0].command')" "cursor keeps other hook"
+  assert_equals "cursor-other" "$(json_eval "$h/.cursor/hooks.json" 's.hooks.preToolUse[0].command')" "cursor keeps other pre-tool hook"
+  assert_equals "Shell" "$(json_eval "$h/.cursor/hooks.json" 's.hooks.preToolUse[1].matcher')" "cursor guard matcher"
+  assert_equals "gemini-other" "$(json_eval "$h/.gemini/settings.json" 's.hooks.BeforeTool[0].hooks[0].command')" "gemini keeps other BeforeTool hook"
+  assert_equals "GEMINI.md" "$(json_eval "$h/.gemini/settings.json" 's.context.fileName')" "gemini keeps settings"
+  assert_equals "export const Existing = true;" "$(<"$h/.config/opencode/plugins/other.js")" "opencode leaves unrelated plugin untouched"
+  [ -f "$h/.config/opencode/plugins/fm-credguard-read.js" ] || fail "OpenCode plugin not installed"
 
-  for f in .claude/settings.json .codex/config.toml .config/devin/config.json .kimi-code/config.toml; do
+  for f in .claude/settings.json .codex/config.toml .config/devin/config.json .kimi-code/config.toml .cursor/hooks.json .gemini/settings.json; do
     compgen -G "$h/$f.bak-credguard-*" >/dev/null || fail "no backup for $f"
   done
   pass "install wires every harness, keeps every other hook, and backs up each changed file"
+}
+
+test_active_worker_surfaces_deny_secret_prints() {
+  local h cursor_cmd gemini_cmd out
+  h=$(new_home active-surfaces opencode cursor-agent gemini)
+  seed_configs "$h"
+  install_in "$h" --harness opencode,cursor,gemini
+  expect_code 0 "$RC" "install active hook surfaces: $OUT"
+  printf 'SYNTHETIC_SECRET=value\n' > "$h/.env"
+
+  cursor_cmd=$(json_eval "$h/.cursor/hooks.json" 's.hooks.preToolUse.find(x => x.command.includes("--runtime cursor")).command')
+  out=$(printf '{"tool_name":"Shell","tool_input":{"command":"cat %s"}}' "$h/.env" | HOME="$h" sh -c "$cursor_cmd") || fail "Cursor hook command failed: $out"
+  assert_equals "deny" "$(printf '%s' "$out" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).permission))')" "Cursor blocks the secret print"
+
+  gemini_cmd=$(json_eval "$h/.gemini/settings.json" 's.hooks.BeforeTool.find(g => g.hooks.some(x => x.command.includes("--runtime gemini"))).hooks[0].command')
+  out=$(printf '{"tool_name":"run_shell_command","tool_input":{"command":"cat %s"}}' "$h/.env" | HOME="$h" sh -c "$gemini_cmd") || fail "Gemini hook command failed: $out"
+  assert_equals "deny" "$(printf '%s' "$out" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).decision))')" "Gemini blocks the secret print"
+
+  out=$(PLUGIN="$h/.config/opencode/plugins/fm-credguard-read.js" SECRET="$h/.env" node --input-type=module -e 'import {pathToFileURL} from "node:url"; const m=await import(pathToFileURL(process.env.PLUGIN)); const h=await m.FirstmateCredentialReadGuard(); try { await h["tool.execute.before"]({tool:"bash"},{args:{command:`cat ${process.env.SECRET}`}}); process.exit(1); } catch (e) { console.log(e.message); }') || fail "OpenCode plugin failed to block"
+  assert_contains "$out" "firstmate credential guard: blocked" "OpenCode blocks the secret print"
+  pass "OpenCode plugin, Cursor preToolUse, and Gemini BeforeTool block secret prints"
 }
 
 test_install_is_idempotent() {
@@ -172,6 +204,8 @@ test_install_is_idempotent() {
 test_new_hook_path_replaces_old_handler() {
   local h
   h=$(new_home moved claude)
+  mkdir -p "$h/.claude"
+  printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"node ./scripts/fm-credguard-read.mjs-audit"}]}]}}' > "$h/.claude/settings.json"
   install_in "$h"
   expect_code 0 "$RC" "first install"
   mkdir -p "$T/hook2"
@@ -179,9 +213,10 @@ test_new_hook_path_replaces_old_handler() {
   OUT=$(env -i HOME="$h" PATH="$h/fakebin:$TOOLS:/usr/bin:/bin" "$INSTALL" --hook "$T/hook2/fm-credguard-read.mjs" 2>&1)
   RC=$?
   expect_code 0 "$RC" "install with a moved hook"
-  assert_equals "1" "$(json_eval "$h/.claude/settings.json" 's.hooks.PreToolUse.length')" "one guard group remains"
-  assert_contains "$(json_eval "$h/.claude/settings.json" 's.hooks.PreToolUse[0].hooks[0].command')" "/hook2/" "the guard points at the new hook"
-  pass "a moved hook replaces the old guard handler instead of adding a second"
+  assert_equals "2" "$(json_eval "$h/.claude/settings.json" 's.hooks.PreToolUse.length')" "the look-alike group and one guard group remain"
+  assert_contains "$(json_eval "$h/.claude/settings.json" 's.hooks.PreToolUse.find(g => g.hooks.some(h => h.command.includes("--runtime claude"))).hooks[0].command')" "/hook2/" "the guard points at the new hook"
+  assert_equals "node ./scripts/fm-credguard-read.mjs-audit" "$(json_eval "$h/.claude/settings.json" 's.hooks.PreToolUse[0].hooks[0].command')" "look-alike command remains untouched"
+  pass "a moved hook replaces only the owned guard and preserves look-alikes"
 }
 
 test_symlinked_config_written_through() {
@@ -216,10 +251,10 @@ test_absent_and_uncovered_reported() {
   h=$(new_home bare)
   install_in "$h"
   expect_code 0 "$RC" "install with no harness installed"
-  for name in "${HARNESSES[@]}"; do
+  for name in claude codex devin kimi grok pi omp opencode cursor gemini; do
     assert_contains "$OUT" "absent $name: not installed" "$name reported absent"
   done
-  for name in "codex crewmate and scout launches" muse agy rovo opencode cursor gemini; do
+  for name in "codex crewmate and scout launches" muse agy rovo; do
     assert_contains "$OUT" "uncovered $name:" "$name reported uncovered"
   done
   [ ! -e "$h/.claude" ] && [ ! -e "$h/.grok" ] && [ ! -e "$h/.pi" ] || fail "an absent harness got a config"
@@ -246,6 +281,7 @@ test_linked_worktree_refused() {
 
 test_check_changes_nothing
 test_install_keeps_other_hooks
+test_active_worker_surfaces_deny_secret_prints
 test_install_is_idempotent
 test_new_hook_path_replaces_old_handler
 test_symlinked_config_written_through

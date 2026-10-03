@@ -162,13 +162,25 @@ test_claude_json_deny() {
 
 test_exit2_runtimes_deny() {
   local rt
-  for rt in codex devin kimi pi omp; do
+  for rt in codex devin kimi pi omp opencode; do
     run_guard "$rt" '{"tool_name":"Bash","tool_input":{"command":"cat .env"},"cwd":"/work/app"}'
     expect_code 2 "$RC" "$rt deny exit"
     assert_equals "" "$OUT" "$rt deny writes nothing to stdout"
     assert_contains "$ERR" "firstmate credential guard: blocked" "$rt deny reason on stderr"
   done
-  pass "codex, devin, kimi, pi, omp: deny is exit 2 with the reason on stderr"
+  pass "codex, devin, kimi, pi, omp, opencode: deny is exit 2 with the reason on stderr"
+}
+
+test_cursor_and_gemini_json_denies() {
+  run_guard cursor '{"tool_name":"Shell","tool_input":{"command":"cat .env"},"cwd":"/work/app"}'
+  expect_code 0 "$RC" "cursor deny exit"
+  assert_contains "$OUT" '"permission":"deny"' "Cursor receives its own deny response"
+  assert_equals "" "$ERR" "Cursor deny writes nothing to stderr"
+  run_guard gemini '{"tool_name":"run_shell_command","tool_input":{"command":"cat .env"},"cwd":"/work/app"}'
+  expect_code 0 "$RC" "Gemini deny exit"
+  assert_contains "$OUT" '"decision":"deny"' "Gemini receives a BeforeTool deny response"
+  assert_equals "" "$ERR" "Gemini deny writes nothing to stderr"
+  pass "Cursor and Gemini receive native JSON deny responses"
 }
 
 test_grok_deny() {
@@ -181,7 +193,7 @@ test_grok_deny() {
 
 test_allow_is_silent() {
   local rt
-  for rt in claude codex devin kimi grok pi omp; do
+  for rt in claude codex devin kimi grok pi omp opencode cursor gemini; do
     run_guard "$rt" '{"tool_name":"Bash","tool_input":{"command":"npm test"},"cwd":"/work/app"}'
     expect_code 0 "$RC" "$rt allow exit"
     assert_equals "" "$OUT$ERR" "$rt allow is silent"
@@ -236,6 +248,7 @@ test_local_list_reaches_cli() {
 test_decision_tables
 test_claude_json_deny
 test_exit2_runtimes_deny
+test_cursor_and_gemini_json_denies
 test_grok_deny
 test_allow_is_silent
 test_never_blocks_on_own_error

@@ -66,8 +66,11 @@ A worker account pin uses another Claude or Pi config root, so run it again with
 | grok | `${GROK_HOME:-~/.grok}/hooks/fm-credguard-read.json`; global hooks are always trusted | shell |
 | pi | `${PI_CODING_AGENT_DIR:-~/.pi/agent}/extensions/fm-credguard-read.ts`, auto-discovered | shell, file read |
 | omp | `~/.omp/agent/extensions/fm-credguard-read.ts`, auto-discovered | shell, file read |
+| OpenCode | `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/fm-credguard-read.js`, `tool.execute.before` | shell, file read, content search |
+| Cursor | `~/.cursor/hooks.json` `preToolUse` hook matching `Shell` | shell |
+| Gemini CLI | `${GEMINI_CLI_SYSTEM_SETTINGS_PATH:-~/.gemini/settings.json}` `BeforeTool` hook | shell, file read, content search |
 
-Claude, Codex, Devin, Pi, and omp are live-verified; Grok and Kimi are wired from their documented hook formats but not yet live-verified.
+Claude, Codex, Devin, Pi, and omp are live-verified; Grok, Kimi, OpenCode, Cursor, and Gemini CLI are wired from their hook formats but not yet live-verified.
 [`docs/verification/runtime-backends.md`](verification/runtime-backends.md#credential-read-guard) holds the dated evidence.
 
 ## Uncovered harnesses
@@ -77,10 +80,9 @@ The installer lists these on every run so none is skipped silently:
 - Codex crewmate and scout launches: `bin/fm-spawn.sh` starts them with `--disable hooks`, so no hook runs; Codex secondmates and interactive sessions are covered.
 - muse and agy: no hook or plugin surface.
 - rovo: its event hooks cannot refuse a tool call.
-- opencode, cursor, and gemini: each has a hook or plugin surface, but no live-verified guard wiring yet.
 
 ## Verification
 
 - `tests/fm-credguard-read.test.sh` pins the deny and allow tables, every runtime's output contract, key-names-only mode, the local list, and the never-block-on-error rule.
-- `tests/fm-credguard-install.test.sh` pins idempotency, preserved hooks, backups, symlink write-through, malformed-config refusal, the absent and uncovered report, and the linked-worktree refusal.
+- `tests/fm-credguard-install.test.sh` pins idempotency, preserved hooks, backups, symlink write-through, malformed-config refusal, active OpenCode/Cursor/Gemini denial behavior, the absent and uncovered report, and the linked-worktree refusal.
 - `FM_CREDGUARD_LIVE=1 bin/fm-test-run.sh tests/fm-credguard-live-e2e.test.sh` drives every installed harness for real and refreshes the live evidence.

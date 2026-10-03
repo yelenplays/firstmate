@@ -16,7 +16,7 @@
 // path lists; case-insensitive matching on macOS; firstmate deny wording.
 //
 // Usage:
-//   fm-credguard-read.mjs --runtime <claude|codex|devin|kimi|grok|pi|omp>
+//   fm-credguard-read.mjs --runtime <claude|codex|devin|kimi|grok|pi|omp|opencode|cursor|gemini>
 //       Read one hook payload (JSON) on stdin and allow or deny it.
 //   fm-credguard-read.mjs --keys <file>...
 //       Key-names-only mode: print NAME for each NAME=value line of a
@@ -782,7 +782,7 @@ function decide(runtime, input, { home = os.homedir(), pats = patterns(process.e
   ].join("\n") };
 }
 
-const RUNTIMES = new Set(["claude", "codex", "devin", "kimi", "grok", "pi", "omp"]);
+const RUNTIMES = new Set(["claude", "codex", "devin", "kimi", "grok", "pi", "omp", "opencode", "cursor", "gemini"]);
 
 function main(argv) {
   if (argv[0] === "-h" || argv[0] === "--help") {
@@ -800,12 +800,20 @@ function main(argv) {
     return rc;
   }
   const runtime = argv[0] === "--runtime" ? argv[1] : null;
-  if (!RUNTIMES.has(runtime)) { process.stderr.write("usage: fm-credguard-read.mjs --runtime <claude|codex|devin|kimi|grok|pi|omp> | --keys <file>...\n"); return 2; }
+  if (!RUNTIMES.has(runtime)) { process.stderr.write("usage: fm-credguard-read.mjs --runtime <claude|codex|devin|kimi|grok|pi|omp|opencode|cursor|gemini> | --keys <file>...\n"); return 2; }
   let d;
   try { d = decide(runtime, JSON.parse(fs.readFileSync(0, "utf8"))); } catch { return 0; }   // never deny on our own error
   if (!d.deny) return 0;
   if (runtime === "claude") {
     process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: d.reason } }));
+    return 0;
+  }
+  if (runtime === "cursor") {
+    process.stdout.write(JSON.stringify({ permission: "deny", user_message: d.reason }));
+    return 0;
+  }
+  if (runtime === "gemini") {
+    process.stdout.write(JSON.stringify({ decision: "deny", reason: d.reason }));
     return 0;
   }
   if (runtime === "grok") process.stdout.write(JSON.stringify({ decision: "deny", reason: d.reason }));
