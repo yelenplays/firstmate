@@ -188,8 +188,8 @@ fm_watch_retire_task_state() {  # <state-dir> <task-id>
   local state=$1 task=$2 enc wedge_lock
   [ -n "$task" ] || return 0
   if ! declare -F fm_lock_acquire_wait >/dev/null 2>&1; then
-    local FM_STATE_OVERRIDE=$state STATE=$state
-    . "$(dirname "${BASH_SOURCE[0]}")/fm-wake-lib.sh"
+    # shellcheck source=bin/fm-wake-lib.sh
+    FM_STATE_OVERRIDE="$state" STATE="$state" . "$(dirname "${BASH_SOURCE[0]}")/fm-wake-lib.sh"
   fi
   wedge_lock="$state/$task.jev-wedge.lock"
   fm_lock_acquire_wait "$wedge_lock" || return 1

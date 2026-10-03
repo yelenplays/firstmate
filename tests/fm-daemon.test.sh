@@ -15,10 +15,6 @@ set -u
 
 DAEMON="$ROOT/bin/fm-supervise-daemon.sh"
 AFK_START="$ROOT/bin/fm-afk-start.sh"
-# The daemon loads these shared lock primitives before housekeeping in its
-# normal entry path; unit calls to housekeeping need the same runtime contract.
-# shellcheck source=bin/fm-wake-lib.sh
-. "$ROOT/bin/fm-wake-lib.sh"
 # Source the daemon's pure functions once. Its main loop is skipped under sourcing
 # via a BASH_SOURCE guard, so only classify_*/housekeeping/escalate_*/afk_* and the
 # pane/submit helpers become defined.
@@ -940,41 +936,41 @@ test_daemon_wedge_jev_boundary() {
 
 
 test_daemon_wedge_lock_contention_leaves_stale_marker() {
-  local dir state fakebin task win pane key ready release holder waited=0
-  dir=$(make_supercase jev-wedge-lock-contention); state="$dir/state"; fakebin="$dir/fakebin"
-  task=jevwedge-lock; win="sess:fm-$task"; pane="$dir/pane.txt"
-  key=$(printf '%s' "$task" | tr ':/.' '___')
-  fm_write_meta "$state/$task.meta" "window=$win" "backend=tmux"
-  printf 'working: building\n' > "$state/$task.status"
+  local fixture_root state_dir fakebin task win pane task_key ready release holder waited=0
+  fixture_root=$(make_supercase jev-wedge-lock-contention); state_dir="$fixture_root/state"; fakebin="$fixture_root/fakebin"
+  task=jevwedge-lock; win="sess:fm-$task"; pane="$fixture_root/pane.txt"
+  task_key=$(printf '%s' "$task" | tr ':/.' '___')
+  fm_write_meta "$state_dir/$task.meta" "window=$win" "backend=tmux"
+  printf 'working: building\n' > "$state_dir/$task.status"
   printf 'Working...\n' > "$pane"
-  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
-  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
-  ready="$dir/lock-ready"; release="$dir/lock-release"
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$fixture_root/jevstub"
+  echo $(( $(date +%s) - 500 )) > "$state_dir/.subsuper-stale-$task_key"
+  ready="$fixture_root/lock-ready"; release="$fixture_root/lock-release"
   bash -c '
     . "$1"
     fm_lock_try_acquire "$2" || exit 1
     : > "$3"
     while [ ! -e "$4" ]; do sleep 0.02; done
     fm_lock_release "$2"
-  ' _ "$ROOT/bin/fm-wake-lib.sh" "$state/$task.jev-wedge.lock" "$ready" "$release" &
+  ' _ "$ROOT/bin/fm-wake-lib.sh" "$state_dir/$task.jev-wedge.lock" "$ready" "$release" &
   holder=$!
   while [ ! -e "$ready" ] && [ "$waited" -lt 100 ]; do sleep 0.02; waited=$((waited + 1)); done
   [ -e "$ready" ] || { kill "$holder" 2>/dev/null || true; fail "the competing daemon wedge lock was not acquired"; }
   (
     PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
-      FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 \
+      FM_STATE_OVERRIDE="$state_dir" FM_ESCALATE_BATCH_SECS=999999 \
       FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
-      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=escalate \
+      FM_JEV_STUB_DIR="$fixture_root/jevstub" FM_JEV_STUB_WEDGE_VERDICT=escalate \
       . "$ROOT/bin/fm-wake-lib.sh"
     stale_window_is_busy() { FM_STALE_TAIL40='Working...'; return 1; }
     crew_nm_run_progressing() { return 1; }
-    housekeeping "$state"
-  )
+    housekeeping "$state_dir"
+    [ -e "$state_dir/.subsuper-stale-$task_key" ] || fail "lock contention discarded the daemon stale marker"
+    [ ! -s "$state_dir/.subsuper-escalations" ] || fail "lock contention buffered an escalation"
+    [ ! -e "$fixture_root/jevstub/wedge.args" ] || fail "the daemon consulted Jev while another path owned the lock"
+  ) || fail "daemon housekeeping failed under wedge-lock contention"
   : > "$release"
   wait "$holder" || fail "the competing daemon wedge lock holder failed"
-  [ -e "$state/.subsuper-stale-$key" ] || fail "lock contention discarded the daemon stale marker"
-  [ ! -s "$state/.subsuper-escalations" ] || fail "lock contention buffered an escalation"
-  [ ! -e "$dir/jevstub/wedge.args" ] || fail "the daemon consulted Jev while another path owned the lock"
   pass "daemon lock contention leaves the stale marker pending without escalation"
 }
 
@@ -1974,7 +1970,8 @@ test_record_doorbell_detection() {
     || fail "a doorbell for this home's own record was not detected as an injection"
   should_exit_afk "$state" "$doorbell" \
     && fail "a doorbell for this home's own record exited afk"
-  fm_operational_record_write "$other" away-supervisor "Supervisor escalate: done" stray \
+  stray=$(printf '%s' "Supervisor escalate: done" | FM_STATE_OVERRIDE="$other" \
+    "$ROOT/bin/fm-operational-input.sh" record away-supervisor) \
     || fail "could not publish another home's record"
   should_exit_afk "$state" "$stray" \
     || fail "a doorbell naming another home's record kept afk"
@@ -2316,7 +2313,7 @@ test_should_exit_afk_when_afk_inactive() {
 
 test_strip_injection_marker() {
   local encoded stripped
-  fm_operational_input_encode away-supervisor "Supervisor escalate: done" encoded \
+  encoded=$(printf '%s' "Supervisor escalate: done" | "$ROOT/bin/fm-operational-input.sh" encode away-supervisor) \
     || fail "could not encode current away fixture"
   stripped=$(strip_injection_marker "$encoded")
   [ "$stripped" = "Supervisor escalate: done" ] \
@@ -3161,14 +3158,15 @@ SH
 }
 
 test_wedge_alarm_shutdown_stops_active_notifier_group() {
-  local dir child_file pid child
+  local dir pid_file child_file pid child
   dir=$(make_wedge_case wedge-shutdown)
-  child_file="$dir/notifier-child"
+  pid_file="$dir/notifier-pid"; child_file="$dir/notifier-child"
   (
     set -m
-    sh -c 'sleep 30 & printf "%s" "$!" > "$1"; wait' sh "$child_file" &
-    pid=$!
+    sh -c 'printf "%s" "$$" > "$1"; sleep 30 & printf "%s" "$!" > "$2"; wait' \
+      sh "$pid_file" "$child_file" &
     while [ ! -s "$child_file" ]; do sleep 0.05; done
+    pid=$(cat "$pid_file")
     child=$(cat "$child_file")
     WEDGE_ALARM_NOTIFIER_PID=$pid
     wedge_alarm_stop_active_notifier

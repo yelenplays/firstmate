@@ -176,7 +176,6 @@ FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
-FM_WATCH_WEDGE_LOCK_HELD=
 mkdir -p "$STATE"
 # A home that never existed (a state-only test fixture) is not a home that
 # disappeared, so the per-poll home-gone exit below applies only when it did.
@@ -1669,10 +1668,8 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
         wedge_jev_mark_warned "$task" "$STATE" "$WEDGE_JEV_CLASS" 1
         rm -f "$since_file"
         clear_write_tracking "$(fm_watch_state_key "$win")"
-        FM_WATCH_WEDGE_LOCK_HELD=$wedge_lock
         wake "$reason"
         [ -z "$wedge_lock" ] || fm_lock_release "$wedge_lock"
-        FM_WATCH_WEDGE_LOCK_HELD=
       fi
       ;;
   esac
