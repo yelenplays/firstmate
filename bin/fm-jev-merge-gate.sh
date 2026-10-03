@@ -303,6 +303,7 @@ _privacy_cards() {
         PRIV_CARDS="$PRIV_CARDS${PRIV_CARDS:+,}$(basename "$card" .yaml)"
         cloud=$(_card_field "$card" cloud)
         modus=$(_card_field "$card" modus)
+        # Pointer vaults load no content.
         if [ "$cloud" != ja ] || [ "$modus" = pointer ]; then
           bad=1
         fi
@@ -983,7 +984,7 @@ _assemble() {
   elif [ -n "$cfg_rollback" ]; then
     rollback=$(_redact "$cfg_rollback" 400)
   else
-    rollback="not stated (proposed default: revert the merge commit on $BASE_REF)"
+    rollback="MISSING: no rollback procedure supplied or configured"
   fi
 
   if [ "$TARGET_KIND" = pr ]; then

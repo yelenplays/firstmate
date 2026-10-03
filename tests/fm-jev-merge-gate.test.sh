@@ -159,6 +159,8 @@ printf '%s' "$out" | jq -e '
   and (.evidence.independent_review | startswith("MISSING:"))
   and (.evidence.qa | startswith("N/A:"))
   and (.evidence.deploy_effect | startswith("MISSING:"))
+  and (.evidence.rollback | startswith("MISSING:"))
+  and (.input.limits | test("rollback: MISSING: no rollback procedure supplied or configured"))
   and (.evidence.required_checks | test("test=pass"))
   and (.evidence.scope | startswith("scope (from the diff): code change"))
   and .decision.decided_by == "jev" and .decision.band == "act" and .outcome.decision == "hold"' >/dev/null ||
