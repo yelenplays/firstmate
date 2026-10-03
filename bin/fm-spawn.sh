@@ -684,6 +684,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
 # shellcheck source=bin/fm-worker-account-lib.sh
 . "$SCRIPT_DIR/fm-worker-account-lib.sh"
+# shellcheck source=bin/fm-ai-family-lib.sh
+. "$SCRIPT_DIR/fm-ai-family-lib.sh"
 # Fail closed before any fleet mutation: a no-mistakes gate agent must never spawn
 # a direct report (see bin/fm-gate-refuse-lib.sh).
 fm_refuse_if_gate_agent
@@ -5183,12 +5185,33 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp model effort permission_mode account account_provider busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp model effort ai_family ai_family_source permission_mode account account_provider busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
   ' "$RELAUNCH_META"
 }
+# The AI family that drives this task, from the harness's own catalog
+# (bin/fm-ai-family-lib.sh owns the resolution). A relaunch can change the
+# harness or model, so the recorded set keeps every family that has driven the
+# task: an independent reviewer must differ from all of them.
+fm_ai_family_resolve "$HARNESS" "${MODEL:-default}"
+SPAWN_AI_FAMILY=$FM_AI_FAMILY
+SPAWN_AI_FAMILY_SOURCE=$FM_AI_FAMILY_SOURCE
+if [ "$RELAUNCH" -eq 1 ]; then
+  spawn_prev_family=$(sed -n 's/^ai_family=//p' "$RELAUNCH_META" | tail -1)
+  if [ -z "$spawn_prev_family" ]; then
+    # A record written before families were recorded still names the
+    # incarnation's harness and model, which resolve the same way.
+    fm_ai_family_resolve "$(sed -n 's/^harness=//p' "$RELAUNCH_META" | tail -1)" \
+      "$(sed -n 's/^model=//p' "$RELAUNCH_META" | tail -1)"
+    spawn_prev_family=$FM_AI_FAMILY
+  fi
+  if [ "$spawn_prev_family" != "$SPAWN_AI_FAMILY" ]; then
+    SPAWN_AI_FAMILY=$(fm_ai_family_union "$spawn_prev_family" "$SPAWN_AI_FAMILY")
+    SPAWN_AI_FAMILY_SOURCE="$SPAWN_AI_FAMILY_SOURCE; earlier incarnations: $spawn_prev_family"
+  fi
+fi
 {
   echo "window=$META_WINDOW"
   echo "endpoint_task_id=$ID"
@@ -5202,6 +5225,8 @@ preserve_relaunch_meta() {
   echo "tasktmp=$TASK_TMP"
   echo "model=${MODEL:-default}"
   echo "effort=${EFFORT:-default}"
+  echo "ai_family=$SPAWN_AI_FAMILY"
+  echo "ai_family_source=$SPAWN_AI_FAMILY_SOURCE"
   # The worker account pin, only when this home declares one, so an unpinned
   # task record stays byte-identical.
   [ -z "$WORKER_ACCOUNT" ] || echo "account=$WORKER_ACCOUNT_DECLARED"

@@ -13,6 +13,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), and [Calm preference](#calm-preference-configcalm) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
+| Who reviews finished work | [Cross-family review](#cross-family-review) |
 | Per-run overrides and tuning | [Environment variables](#environment-variables) |
 
 ## FM_HOME
@@ -1584,6 +1585,17 @@ A home runs the filing as a daily batch:
 4. After a draft lands, firstmate runs `bin/fm-guide-lander.sh mark-filed <home> <task-id> <vault-commit>`, which writes `data/<task-id>/guide.filed` so the draft is filed once.
 
 The daily schedule itself is home-local operator setup, not tracked code.
+
+## Cross-family review
+
+Every in-scope task's exact head is reviewed by an AI family other than the one that built it; [`bin/fm-cross-review.sh`](../bin/fm-cross-review.sh)'s header owns the evidence rules, subcommands, record formats, and exit codes, and [`bin/fm-ai-family-lib.sh`](../bin/fm-ai-family-lib.sh) owns how a harness and model resolve to a family.
+A family is the model maker, proven by a row in the harness's authoritative catalog for the exact resolved model; a harness or model name alone never establishes it, so missing or ambiguous catalog evidence resolves to `unknown`.
+`bin/fm-spawn.sh` records the builder's family as `ai_family=` in the task record, keeping every family that has driven the task across relaunches.
+A no-mistakes pipeline review of the exact head counts when the agent that ran it resolves to a family disjoint from the builder's; otherwise, and always for direct-PR and local-only work, firstmate spawns a one-shot reviewer scout from another family, which also gives the `confirm <head-sha>` an unsure merge decision needs.
+Vault changes excluded by `fm_wiki_change_private` in [`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) never get a new reviewer and stay on their existing path.
+An unknown builder family, or no candidate from another family, is reported for the captain to decide rather than guessed.
+
+The fixed candidate chain is `pi openai-codex/gpt-6-luna high`, then `pi xai/grok-4.7 high`; Firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
 
 ## Memory store (config/memory-dir)
 
