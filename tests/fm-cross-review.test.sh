@@ -216,6 +216,44 @@ test_direct_pr_gets_a_head_bound_review() {
   pass "a direct-PR task gets a one-shot review bound to its head"
 }
 
+install_fake_gh() {
+  cat > "$FAKEBIN/gh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FM_TEST_GH_LOG"
+[ "$1 $2" = "pr view" ] || exit 91
+printf '%s\n' "$FM_TEST_GH_HEAD"
+SH
+  chmod +x "$FAKEBIN/gh"
+}
+
+test_github_pr_without_recorded_head_reads_forge_head() {
+  local out gh_log url
+  new_case github-head direct-PR claude claude-opus-5-5 anthropic
+  gh_log="$CASE/gh.log"
+  url=https://github.com/example/project/pull/17
+  printf 'pr=%s\n' "$url" >> "$HOME_DIR/state/$TASK.meta"
+  install_fake_gh
+  out=$(FM_TEST_GH_HEAD="$HEAD_SHA" FM_TEST_GH_LOG="$gh_log" xr plan "$TASK" <&-) \
+    || fail "plan failed: $out"
+  assert_contains "$out" "head=$HEAD_SHA" "plan must bind to the forge's exact PR head"
+  assert_equals "pr view $url --json headRefOid -q .headRefOid" "$(<"$gh_log")" "the exact GitHub head field was queried"
+  pass "a GitHub PR without pr_head reads and binds its exact forge head"
+}
+
+test_non_github_pr_without_recorded_head_requires_explicit_sha() {
+  local out url=https://gitlab.example.invalid/group/project/-/merge_requests/17 gh_log
+  new_case gitlab-head direct-PR claude claude-opus-5-5 anthropic
+  gh_log="$CASE/gh.log"
+  printf 'pr=%s\n' "$url" >> "$HOME_DIR/state/$TASK.meta"
+  install_fake_gh
+  if out=$(FM_TEST_GH_HEAD="$HEAD_SHA" FM_TEST_GH_LOG="$gh_log" xr plan "$TASK" 2>&1 <&-); then
+    fail "a GitLab PR without an exact head unexpectedly planned: $out"
+  fi
+  assert_contains "$out" "records a gitlab PR without pr_head; pass --head <sha>" "the unsupported forge path explains how to supply the head"
+  [ ! -e "$gh_log" ] || fail "the GitHub CLI was called for a GitLab merge request"
+  pass "a non-GitHub PR without pr_head refuses until its exact sha is supplied"
+}
+
 test_collect_refuses_reports_not_bound_to_the_head() {
   local out rid=xr-r1 other
   new_case collect-refuse direct-PR claude claude-opus-5-5 anthropic
@@ -397,6 +435,8 @@ test_cross_family_pipeline_review_counts
 test_pipeline_provider_read_from_the_state_database
 test_pipeline_review_of_another_head_does_not_count
 test_direct_pr_gets_a_head_bound_review
+test_github_pr_without_recorded_head_reads_forge_head
+test_non_github_pr_without_recorded_head_requires_explicit_sha
 test_collect_refuses_reports_not_bound_to_the_head
 test_confirm_is_bound_to_the_exact_sha
 test_reviewer_chain_skips_the_builder_family
