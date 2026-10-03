@@ -649,14 +649,17 @@ advance_reverting_pr() {
 
 advance_reverting_local() {
   local out status=0 sha
-  out=$("$SCRIPT_DIR/fm-merge-local.sh" --revert "$ID" 2>&1) || status=$?
-  if [ "$status" -ne 0 ]; then
-    printf '%s\n' "$out" >&2
-    echo "error: the local revert of $(rget landed) was refused; fix what it names and run bin/fm-post-merge.sh advance $ID again" >&2
-    exit 1
-  fi
   sha=$(meta_get local_reverted)
-  [ -n "$sha" ] || sha=${out##* with }
+  if [ -z "$sha" ]; then
+    out=$("$SCRIPT_DIR/fm-merge-local.sh" --revert "$ID" 2>&1) || status=$?
+    sha=$(meta_get local_reverted)
+    if [ "$status" -ne 0 ] && [ -z "$sha" ]; then
+      printf '%s\n' "$out" >&2
+      echo "error: the local revert of $(rget landed) was refused; fix what it names and run bin/fm-post-merge.sh advance $ID again" >&2
+      exit 1
+    fi
+  fi
+  [ -n "$sha" ] || die "the local revert of $(rget landed) finished without recording local_reverted"
   rset "revert=$sha"
   finish_reverted
 }
