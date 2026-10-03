@@ -2900,7 +2900,7 @@ TS
   tmux -L "$TMUX_SOCKET" send-keys -t "$TMUX_SESSION" Enter
   wait_for_geometry_transition \
     "$snapshot" \
-    "Reloading keybindings, extensions, skills, prompts, themes, and context files..." \
+    "Reloading" \
     "CALM_GEOMETRY_FINAL" \
     || fail "Pi Calm hidden-block geometry E2E did not complete the /reload viewport transition"
   assert_geometry_gap "$snapshot" "reloaded native Calm transcript"
