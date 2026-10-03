@@ -52,7 +52,7 @@
 #                 approval: <what>         the revert is green but the task's
 #                                          merge posture is not yolo, so its
 #                                          merge needs the captain's word
-#                 blocked: <what>          the revert cannot proceed on its own
+#                 blocked: <what>          a check or the revert cannot proceed on its own
 #                 reverted: <what>         the revert landed
 #                 notify: <one line>       relay to the captain as written
 # checks        Print the verdict of the checks the current phase waits on: the
@@ -82,15 +82,18 @@
 # what cleanup does with each phase: it refuses while the watch is open and
 # returns the backlog item to Queued after a revert.
 #
-# Check verdicts: a check run that failed, timed out, or failed to start, or a
-# commit status of failure or error, is red; any check still queued or running
-# is pending; otherwise one or more successful checks is green, and no checks,
-# or only cancelled, skipped, or stale ones, is none once the grace period has
-# passed. Red wins over pending, because a failed run is final.
+# Check verdicts use only the latest run per check name and latest commit
+# status per context. A check run that failed, timed out, or failed to start, or
+# a commit status of failure or error, is red; any check still queued or running
+# is pending; otherwise one or more successful checks is green. No checks, or
+# only cancelled, skipped, or stale ones after the grace period, is none and
+# blocks for captain review. Red wins over pending, because a failed run is final.
 #
 # A PR revert uses GitHub's revertPullRequest mutation, so nothing is written
-# to the project locally; a revert pull request a crashed run already opened is
-# found by its revert-<number>- branch and reused. It is merged through
+# to the project locally. If a run is interrupted after opening its revert but
+# before recording its URL, a matching revert-<number>- PR is recorded as a
+# candidate and the watch blocks for captain review; it is never adopted or
+# merged automatically. A newly opened revert is merged through
 # bin/fm-pr-merge.sh, which re-checks that every check is green at the exact
 # head, only when the task's recorded merge posture is yolo=on; otherwise
 # advance stops at approval. Red or non-green checks on the revert, or a
@@ -111,7 +114,7 @@
 # merge_commit, landed, branch, merged_at, grace, witness,
 # no_witness_reason, phase, checks, red_checks, witness_verdict,
 # witness_reason, witness_report, cause,
-# revert_pr, revert_opened_at, revert, note.
+# revert_pr, revert_candidate, revert_opened_at, revert, note.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -270,16 +273,20 @@ commit_verdict() {  # <sha> <since-epoch> <grace>
   VERDICT_NAMES=
   runs=$(gh api --hostname "$FM_PR_HOST" "repos/$FM_PR_PATH/commits/$sha/check-runs?per_page=100" --paginate \
     --jq '.check_runs[] | {name, status, conclusion, started_at, completed_at, id}' 2>/dev/null) || return 1
-  runs=$(printf '%s\n' "$runs" | jq -sr '
-    group_by(.name) | map(max_by([(.completed_at // .started_at // .created_at // ""), (.id // 0)]))[] |
-    [.name, .status, (.conclusion // "")] | @tsv
-  ') || return 1
+  if [ -n "$runs" ]; then
+    runs=$(printf '%s\n' "$runs" | jq -sr '
+      group_by(.name) | map(max_by([(.completed_at // .started_at // .created_at // ""), (.id // 0)]))[] |
+      [.name, .status, (.conclusion // "")] | @tsv
+    ') || return 1
+  fi
   statuses=$(gh api --hostname "$FM_PR_HOST" "repos/$FM_PR_PATH/commits/$sha/status" \
     --jq '.statuses[] | {context, state, created_at, updated_at, id}' 2>/dev/null) || return 1
-  statuses=$(printf '%s\n' "$statuses" | jq -sr '
-    group_by(.context) | map(max_by([(.updated_at // .created_at // ""), (.id // 0)]))[] |
-    [.context, .state] | @tsv
-  ') || return 1
+  if [ -n "$statuses" ]; then
+    statuses=$(printf '%s\n' "$statuses" | jq -sr '
+      group_by(.context) | map(max_by([(.updated_at // .created_at // ""), (.id // 0)]))[] |
+      [.context, .state] | @tsv
+    ') || return 1
+  fi
   while IFS=$'\t' read -r name status conclusion; do
     [ -n "$name" ] || continue
     case "$status" in
@@ -545,52 +552,48 @@ finish_reverted() {
   echo "cleanup: run bin/fm-teardown.sh $ID when its worker is done; cleanup keeps the item Queued"
 }
 
-# Open the revert pull request, or adopt the one an interrupted run opened.
+# Open a new revert pull request; never adopt a candidate after interruption.
 ensure_revert_pr() {
-  local number url body recovered=0
+  local number url body
   [ -z "$(rget revert_pr)" ] || return 0
   number=$FM_PR_NUMBER
   url=$(gh pr list -R "$FM_PR_HOST/$FM_PR_PATH" --state all --limit 100 --json url,headRefName \
     --jq ".[] | select(.headRefName | startswith(\"revert-$number-\")) | .url" 2>/dev/null | head -1) || url=
-  [ -z "$url" ] || recovered=1
-  if [ -z "$url" ]; then
-    body="Automatic revert of $(rget pr) (merge commit $(rget merge_commit)): $(revert_cause_text "$(rget base)")."
-    # shellcheck disable=SC2016  # $id and $body are GraphQL variables, not shell.
-    url=$(gh api graphql --hostname "$FM_PR_HOST" \
-      -f query='mutation($id: ID!, $body: String!) { revertPullRequest(input: {pullRequestId: $id, body: $body}) { revertPullRequest { url } } }' \
-      -f id="$(rget pr_node)" -f body="$body" \
-      --jq '.data.revertPullRequest.revertPullRequest.url' 2>&1) || {
-      echo "blocked: GitHub refused to open a revert of $(rget pr): $url"
-      echo "notify: $(rget pr) broke $(rget base) ($(revert_cause_text "$(rget base)")), and GitHub refused to open its revert, so the broken change is still live and needs you."
-      rset phase=blocked "note=revert could not be opened"
-      exit 0
-    }
+  if [ -n "$url" ]; then
+    rset phase=blocked "revert_candidate=$url" "note=interrupted revert candidate needs captain review"
+    echo "blocked: found $url while recovering the revert of $(rget pr); it was not adopted or merged"
+    echo "notify: $(rget pr) broke $(rget base) ($(revert_cause_text "$(rget base)")); existing revert candidate $url needs captain review."
+    return 2
   fi
+  body="Automatic revert of $(rget pr) (merge commit $(rget merge_commit)): $(revert_cause_text "$(rget base)")."
+  # shellcheck disable=SC2016  # $id and $body are GraphQL variables, not shell.
+  url=$(gh api graphql --hostname "$FM_PR_HOST" \
+    -f query='mutation($id: ID!, $body: String!) { revertPullRequest(input: {pullRequestId: $id, body: $body}) { revertPullRequest { url } } }' \
+    -f id="$(rget pr_node)" -f body="$body" \
+    --jq '.data.revertPullRequest.revertPullRequest.url' 2>&1) || {
+    echo "blocked: GitHub refused to open a revert of $(rget pr): $url"
+    echo "notify: $(rget pr) broke $(rget base) ($(revert_cause_text "$(rget base)")), and GitHub refused to open its revert, so the broken change is still live and needs you."
+    rset phase=blocked "note=revert could not be opened"
+    exit 0
+  }
   fm_pr_url_parse "$url" && [ "$FM_PR_PROVIDER" = github ] || die "GitHub returned an unexpected revert URL '$url'"
   parse_record_pr
-  if [ "$recovered" = 1 ]; then
-    verify_revert_pr "$url" || die "refusing to adopt $url: it does not identify a revert of merge commit $(rget merge_commit)"
-  fi
   rset "revert_pr=$url" "revert_opened_at=$(now)"
   echo "reverting: opened $url to revert $(rget pr)"
-}
-
-verify_revert_pr() {  # <url>
-  local url=$1 json message merge
-  merge=$(rget merge_commit)
-  [ -n "$merge" ] || return 1
-  json=$(gh pr view "$url" --json commits 2>/dev/null) || return 1
-  message=$(printf '%s' "$json" | jq -r '(.commits[-1] // {}) | [.messageHeadline // "", .messageBody // ""] | join("\\n")' 2>/dev/null) || return 1
-  printf '%s' "$message" | grep -Fq "$merge"
 }
 
 advance_reverting_pr() {
   local out status=0 grace
   need_gh
   parse_record_pr
-  ensure_revert_pr
+  if ensure_revert_pr; then
+    :
+  else
+    status=$?
+    [ "$status" -eq 2 ] && return 0
+    die "could not prepare a revert pull request for $(rget pr)"
+  fi
   read_revert_pr || die "could not read $(rget revert_pr) from GitHub"
-  verify_revert_pr "$(rget revert_pr)" || die "refusing to proceed with $(rget revert_pr): it does not identify a revert of merge commit $(rget merge_commit)"
   case "$REVERT_STATE" in
     MERGED)
       rset "revert=$(rget revert_pr)"
@@ -688,15 +691,21 @@ cmd_advance() {
           rset checks=red "red_checks=$VERDICT_NAMES"
           start_revert checks-red
           ;;
-        *)
-          rset "checks=$VERDICT"
+        none)
+          retire_watch pm
+          rset checks=none phase=blocked "note=merge checks are not green (none)"
+          echo "blocked: checks on merge commit $(short "$(rget merge_commit)") on $(rget base) are not green (none)"
+          echo "notify: $(rget pr) has no green checks on $(rget base); the merge is held for captain review."
+          ;;
+        green)
+          rset checks=green
           retire_watch pm
           if [ -n "$(rget witness)" ]; then
             rset phase=witness
-            echo "witness: checks on $(short "$(rget merge_commit)") are $VERDICT; a witness must use $(rget witness) - fill its instructions from bin/fm-post-merge.sh witness-task $ID"
+            echo "witness: checks on $(short "$(rget merge_commit)") are green; a witness must use $(rget witness) - fill its instructions from bin/fm-post-merge.sh witness-task $ID"
           else
             rset phase=clear
-            echo "clear: checks on $(short "$(rget merge_commit)") on $(rget base) are $VERDICT; cleanup may proceed"
+            echo "clear: checks on $(short "$(rget merge_commit)") on $(rget base) are green; cleanup may proceed"
           fi
           ;;
       esac
