@@ -23,6 +23,7 @@ TOKEN_PRIVATE=tok-private-secret
 cat > "$FAKEBIN/gh" <<SH
 #!/usr/bin/env bash
 if [ "\$1 \$2" = "auth token" ]; then
+  sleep "\${FAKE_AUTH_DELAY:-0}"
   [ -z "\${GH_TOKEN-}" ] || { echo "ambient token leaked into the lookup" >&2; exit 9; }
   case "\$*" in
     *"--user Slashpipe"*) printf '%s\n' "$TOKEN_SLASHPIPE" ;;
@@ -167,6 +168,34 @@ SH
   pass "the no-lib sidecar resolves its account map from its own home"
 }
 
+test_bounded_account_calls() {
+  printf 'SlashpipeCoding Slashpipe\n' > "$HOME_DIR/config/gh-account-by-owner"
+  local out status=0
+  out=$(env -u GH_TOKEN FM_HOME="$HOME_DIR" PATH="$FAKEBIN:$PATH" bash -c '
+    . "$1/bin/fm-pr-lib.sh"
+    . "$1/bin/fm-timeout-lib.sh"
+    fm_gh_run_timed 5 sh -c '\''printf "%s" "$GH_TOKEN"'\'' repos/SlashpipeCoding/tool
+  ' _ "$ROOT") || fail 'bounded mapped call failed'
+  assert_equals "$out" "$TOKEN_SLASHPIPE" 'bounded call must preserve account routing'
+  : > "$CALLS"
+  out=$(env -u GH_TOKEN FM_HOME="$HOME_DIR" PATH="$FAKEBIN:$PATH" FAKE_AUTH_DELAY=3 bash -c '
+    . "$1/bin/fm-pr-lib.sh"
+    . "$1/bin/fm-timeout-lib.sh"
+    fm_gh_run_timed 1 gh pr view https://github.com/SlashpipeCoding/tool/pull/7
+  ' _ "$ROOT" 2>&1) || status=$?
+  assert_equals "$status" 124 "credential lookup must share the deadline: $out"
+  [ ! -s "$CALLS" ] || fail 'timed-out credentials must not reach the forge'
+  status=0
+  out=$(env -u GH_TOKEN FM_HOME="$HOME_DIR" PATH="$FAKEBIN:$PATH" bash -c '
+    . "$1/bin/fm-pr-lib.sh"
+    . "$1/bin/fm-timeout-lib.sh"
+    fm_gh_run_timed 1 sh -c "sleep 3" repos/SlashpipeCoding/tool
+  ' _ "$ROOT" 2>&1) || status=$?
+  assert_equals "$status" 124 "forge execution must retain its deadline: $out"
+  pass 'bounded account calls include both credential lookup and forge execution'
+}
+
+test_bounded_account_calls
 test_absent_map_keeps_the_ambient_account
 test_mapped_owner_uses_its_account_token
 test_missing_token_refuses_without_fallback
