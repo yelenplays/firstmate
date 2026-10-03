@@ -240,6 +240,21 @@ test_github_pr_without_recorded_head_reads_forge_head() {
   pass "a GitHub PR without pr_head reads and binds its exact forge head"
 }
 
+test_github_pr_refreshes_a_recorded_head() {
+  local out gh_log url fresh_head
+  new_case github-stale-head direct-PR claude claude-opus-5-5 anthropic
+  gh_log="$CASE/gh.log"
+  url=https://github.com/example/project/pull/18
+  fresh_head=$(git -C "$PROJ" rev-parse main)
+  printf 'pr=%s\npr_head=%s\n' "$url" "$HEAD_SHA" >> "$HOME_DIR/state/$TASK.meta"
+  install_fake_gh
+  out=$(FM_TEST_GH_HEAD="$fresh_head" FM_TEST_GH_LOG="$gh_log" xr plan "$TASK" <&-) \
+    || fail "plan failed: $out"
+  assert_equals "$fresh_head" "$(field "$out" head)" "the live forge head replaces the stale recorded pr_head"
+  assert_equals "pr view $url --json headRefOid -q .headRefOid" "$(<"$gh_log")" "the current GitHub head was queried"
+  pass "GitHub planning refreshes stale recorded PR heads"
+}
+
 test_non_github_pr_without_recorded_head_requires_explicit_sha() {
   local out url=https://gitlab.example.invalid/group/project/-/merge_requests/17 gh_log
   new_case gitlab-head direct-PR claude claude-opus-5-5 anthropic
@@ -264,6 +279,10 @@ test_collect_refuses_reports_not_bound_to_the_head() {
   out=$(collect "$rid") || fail "collect failed: $out"
   assert_contains "$out" "accepted=no" "a confirmation-only report was accepted as a review"
   assert_contains "$out" "head declaration and an explicit Verdict" "the missing review contract is named"
+  printf 'reviewed head %s\nVerdict: MAYBE\n' "$HEAD_SHA" > "$HOME_DIR/data/$rid/report.md"
+  out=$(collect "$rid") || fail "collect failed: $out"
+  assert_contains "$out" "accepted=no" "an unrecognized review verdict was accepted"
+  assert_contains "$out" "recognized PASS or FAIL" "the unrecognized verdict is named"
   printf 'reviewed head %s\nVerdict: PASS\n' "$other" > "$HOME_DIR/data/$rid/report.md"
   out=$(collect "$rid") || fail "collect failed: $out"
   assert_contains "$out" "accepted=no" "a review of another commit was accepted"
@@ -279,7 +298,7 @@ test_collect_refuses_reports_not_bound_to_the_head() {
   out=$(collect "$rid") || fail "collect failed: $out"
   assert_contains "$out" "accepted=no" "a same-family reviewer was accepted"
   assert_contains "$out" "not provably different" "the family clash is named"
-  [ "$(wc -l < "$HOME_DIR/data/$TASK/cross-review.jsonl" | tr -d ' ')" = 5 ] || fail "every collect must append one record"
+  [ "$(wc -l < "$HOME_DIR/data/$TASK/cross-review.jsonl" | tr -d ' ')" = 6 ] || fail "every collect must append one record"
   out=$(xr status "$TASK" <&-) || fail "status failed: $out"
   assert_contains "$out" "independent_review=missing" "the latest record decides, and it was refused"
   pass "collect accepts a report only when it declares exactly the requested head from another family"
@@ -436,6 +455,7 @@ test_pipeline_provider_read_from_the_state_database
 test_pipeline_review_of_another_head_does_not_count
 test_direct_pr_gets_a_head_bound_review
 test_github_pr_without_recorded_head_reads_forge_head
+test_github_pr_refreshes_a_recorded_head
 test_non_github_pr_without_recorded_head_requires_explicit_sha
 test_collect_refuses_reports_not_bound_to_the_head
 test_confirm_is_bound_to_the_exact_sha

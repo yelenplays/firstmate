@@ -160,19 +160,21 @@ resolve_head() {  # <explicit-head-or-empty>
     return 0
   fi
   if [ -n "$T_PR" ]; then
+    fm_pr_url_parse "$T_PR" || die "task $TASK records an invalid PR URL; pass --head <sha>"
+    if [ "$FM_PR_PROVIDER" = github ]; then
+      command -v gh >/dev/null 2>&1 || die "cannot refresh the head of GitHub PR $T_PR because gh is unavailable; pass --head <sha>"
+      h=$(gh pr view "$T_PR" --json headRefOid -q .headRefOid 2>/dev/null) \
+        || die "cannot refresh the head of GitHub PR $T_PR; pass --head <sha>"
+      sha_valid "$h" || die "GitHub PR $T_PR returned no exact head sha; pass --head <sha>"
+      printf '%s\n' "$h"
+      return 0
+    fi
     if [ -n "$T_PR_HEAD" ]; then
       sha_valid "$T_PR_HEAD" || die "task $TASK records PR $T_PR with an invalid pr_head; pass --head <sha>"
       printf '%s\n' "$T_PR_HEAD"
       return 0
     fi
-    fm_pr_url_parse "$T_PR" || die "task $TASK records an invalid PR URL; pass --head <sha>"
-    [ "$FM_PR_PROVIDER" = github ] || die "task $TASK records a $FM_PR_PROVIDER PR without pr_head; pass --head <sha>"
-    command -v gh >/dev/null 2>&1 || die "cannot read the head of GitHub PR $T_PR because gh is unavailable; pass --head <sha>"
-    h=$(gh pr view "$T_PR" --json headRefOid -q .headRefOid 2>/dev/null) \
-      || die "cannot read the head of GitHub PR $T_PR; pass --head <sha>"
-    sha_valid "$h" || die "GitHub PR $T_PR returned no exact head sha; pass --head <sha>"
-    printf '%s\n' "$h"
-    return 0
+    die "task $TASK records a $FM_PR_PROVIDER PR without pr_head; pass --head <sha>"
   fi
   [ -n "$T_PROJ" ] && [ -d "$T_PROJ" ] || die "task $TASK has no readable project to read its branch head from; pass --head"
   h=$(git -C "$T_PROJ" rev-parse --verify --quiet "refs/heads/$T_BRANCH^{commit}" 2>/dev/null) \
@@ -731,6 +733,8 @@ EOF
     reason="the reviewer family $r_fam is not provably different from the builder's $B_FAM"
   elif [ "$r_kind" = review ] && { [ "$review_line" != 1 ] || [ "$explicit_verdict" != 1 ]; }; then
     reason="a review needs a head declaration and an explicit Verdict line"
+  elif [ "$r_kind" = review ] && { [ "$verdict" = unclear ] || printf '%s\n' "${verdicts[@]}" | grep -qx unknown; }; then
+    reason="a review needs a recognized PASS or FAIL verdict"
   elif [ "$r_kind" = confirm ] && [ "$confirm_line" != 1 ] && [ "$verdict" = failure ]; then
     reason="the reviewer did not confirm $r_head: its verdict is $verdict"
   elif [ "$r_kind" = confirm ] && [ "$confirm_line" != 1 ]; then
