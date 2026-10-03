@@ -284,7 +284,7 @@ for ((i = 0; i < n_roles; i++)); do
   if [ -d "$state_dir" ] && [ ! -L "$state_dir" ]; then
     fm_jev_log_call "$(jq -nc --argjson r "$result" --arg at "$(fm_jev_iso_now)" --arg out "$out_real" \
       --arg route "${FM_JEV_LAST_ROUTE:-}" --arg model "$route_model" --arg http "${FM_JEV_LAST_HTTP:-}" \
-      --arg hash "$(printf '%s' "$state" | sha256)" '
+      --arg hash "$(if command -v shasum >/dev/null 2>&1; then printf '%s' "$state" | shasum -a 256 | awk '{print $1}'; else printf '%s' "$state" | sha256sum | awk '{print $1}'; fi)" '
       {purpose: "model-proposal", at: $at, request_id: $r.request_id, provider_id: ($r.provider_id // ""),
        role: $r.id, choice: ($r.choice // null), probabilities: ($r.probabilities // null),
        confidence: ($r.confidence // null), band: ($r.band // null), error: ($r.error // null),
