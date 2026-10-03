@@ -27,7 +27,7 @@ A captain instruction to merge is explicit authority; `yolo` is the only standin
 For any custom `state/<id>.check.sh` you write yourself, keep it an ordinary single-link mode-`0700` file, print one line only when firstmate should wake, print nothing otherwise, finish before `FM_CHECK_TIMEOUT`, then bind its current bytes with `bin/fm-check-register.sh <id>` before the watcher may execute it.
 Retire a custom check only through `bin/fm-check-unregister.sh <id>` (or `bin/fm-teardown.sh` for a spawned task); never hand-compose an `rm` with `$STATE`/`$ID`.
 
-After a merge the Jev merge gate approved, run `bin/fm-post-merge.sh arm <id>` before cleanup, adding `--witness <production URL>` on a live-site project; its header owns the phases, the witness, and the revert rules.
+After a merge the Jev merge gate approved, run `bin/fm-post-merge.sh arm <id>` before cleanup. Pass `--witness <production URL>` for a live-site or team project; otherwise pass `--no-witness <reason>`. Its header owns the phases, the witness, and the revert rules.
 On every wake for that watch run `bin/fm-post-merge.sh advance <id>` and relay a `notify:` line to the captain as written; an `approval:` line is a merge ask for the revert, and a `blocked:` line is a blocker.
 A `witness:` line means dispatching a fresh scout that built none of the change, its `## Firstmate spec` filled from `bin/fm-post-merge.sh witness-task <id>...` (one per merge on a live-site project, one per wave of task ids on a team project), then recording its report with `witness-result`.
 Cleanup refuses while that watch is open and keeps a reverted task queued.

@@ -17,7 +17,7 @@
 # NOTICE.
 #
 # Usage:
-#   fm-post-merge.sh arm <task-id> [--witness <url>] [--grace <secs>]
+#   fm-post-merge.sh arm <task-id> (--witness <url>|--no-witness <reason>) [--grace <secs>]
 #   fm-post-merge.sh advance <task-id>
 #   fm-post-merge.sh checks <task-id> [--settled]
 #   fm-post-merge.sh witness-task <task-id>...
@@ -29,16 +29,17 @@
 #               but local-only) needs its recorded pr= to be a merged GitHub
 #               pull request; the merge commit, head, and base are read live
 #               from GitHub. A local-only task needs the local_landed= range
-#               bin/fm-merge-local.sh records. --witness names the URL a
-#               witness must use the change at (the production URL for a
-#               live-site project); without it no witness is required.
+#               bin/fm-merge-local.sh records. Exactly one of --witness or
+#               --no-witness is required. --witness names the URL a witness
+#               must use; --no-witness records why none is required.
 #               --grace is how long a merge commit with no checks at all is
 #               still treated as pending, because checks can take a while to
 #               appear (default 600). For a PR task, arm registers the wait on
 #               the merge commit's checks as a condition->action watch
 #               (bin/fm-procevent-when.sh) named pm-<task-id>, so firstmate is
 #               woken once they settle. A local landing has no forge checks and
-#               starts at the witness phase, or clear when none is required.
+#               starts at the witness phase, or clear when an explicit
+#               --no-witness disposition was recorded.
 #               Re-arming the same merge is a no-op; a new merge of the same
 #               task replaces a finished record and refuses an open one.
 # advance       Take the one deterministic step the record and the live state
@@ -92,8 +93,8 @@
 # found by its revert-<number>- branch and reused. It is merged through
 # bin/fm-pr-merge.sh, which re-checks that every check is green at the exact
 # head, only when the task's recorded merge posture is yolo=on; otherwise
-# advance stops at approval. Red checks on the revert, or a revert closed
-# without merging, block. Only GitHub pull requests and local landings are
+# advance stops at approval. Red or non-green checks on the revert, or a
+# revert closed without merging, block. Only GitHub pull requests and local landings are
 # supported; arm refuses anything else.
 # A local revert is bin/fm-merge-local.sh --revert, which runs every guard the
 # local merge runs.
@@ -107,8 +108,9 @@
 #
 # The record lives at state/<task-id>.post-merge (bin/fm-post-merge-lib.sh).
 # Fields: version, task, spawn_gen, kind (pr|local), project, pr, head, base,
-# merge_commit, landed, branch, merged_at, grace, witness, phase, checks,
-# red_checks, witness_verdict, witness_reason, witness_report, cause,
+# merge_commit, landed, branch, merged_at, grace, witness,
+# no_witness_reason, phase, checks, red_checks, witness_verdict,
+# witness_reason, witness_report, cause,
 # revert_pr, revert_opened_at, revert, note.
 set -u
 
@@ -378,13 +380,15 @@ cmd_checks() {
 }
 
 cmd_arm() {
-  local witness='' grace=600 kind mode pr url json state merge head base node title landed gen phase old_phase
+  local witness='' no_witness_reason='' witness_choice='' grace=600 kind mode pr url json state merge head base node title landed gen phase old_phase
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
   load_task "$1"
   shift
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --witness)
+        [ -z "$witness_choice" ] || die "choose exactly one of --witness or --no-witness"
+        witness_choice=witness
         [ "$#" -ge 2 ] || die "--witness needs a URL"
         case "$2" in
           http://*|https://*) witness=$2 ;;
@@ -393,6 +397,14 @@ cmd_arm() {
         case "$witness" in
           *[[:space:]]*) die "--witness URL must not contain whitespace" ;;
         esac
+        shift 2
+        ;;
+      --no-witness)
+        [ -z "$witness_choice" ] || die "choose exactly one of --witness or --no-witness"
+        witness_choice=no-witness
+        [ "$#" -ge 2 ] && [ -n "$(printf '%s' "${2:-}" | tr -d '[:space:]')" ] || die "--no-witness needs a reason"
+        case "$2" in *$'\n'*) die "--no-witness reason must be one line" ;; esac
+        no_witness_reason=$(printf '%s' "$2" | tr '\t' ' ')
         shift 2
         ;;
       --grace)
@@ -404,6 +416,7 @@ cmd_arm() {
       *) usage >&2; exit 2 ;;
     esac
   done
+  [ -n "$witness_choice" ] || die "choose exactly one of --witness <url> or --no-witness <reason>"
   [ -f "$META" ] && [ ! -L "$META" ] || die "no task meta for $ID"
   mode=$(meta_get mode)
   gen=$(meta_get spawn_gen)
@@ -451,17 +464,33 @@ cmd_arm() {
     phase=checks
     rset version=fm-post-merge-v1 "task=$ID" "spawn_gen=$gen" kind=pr "project=$(meta_get project)" \
       "pr=$url" "pr_node=$node" "pr_title=$title" "head=$head" "base=$base" "merge_commit=$merge" \
-      "branch=$(meta_get branch)" "merged_at=$(now)" "grace=$grace" "witness=$witness" "phase=$phase"
+      "branch=$(meta_get branch)" "merged_at=$(now)" "grace=$grace" "witness=$witness" \
+      "no_witness_reason=$no_witness_reason" "phase=$phase"
     arm_watch pm || true
   else
     if [ -n "$witness" ]; then phase=witness; else phase=clear; fi
     rset version=fm-post-merge-v1 "task=$ID" "spawn_gen=$gen" kind=local "project=$(meta_get project)" \
       "landed=$landed" "head=$head" "merge_commit=$merge" "branch=$(meta_get branch)" \
-      "merged_at=$(now)" "grace=$grace" "witness=$witness" "phase=$phase"
+      "merged_at=$(now)" "grace=$grace" "witness=$witness" \
+      "no_witness_reason=$no_witness_reason" "phase=$phase"
   fi
+  if [ "$witness_choice" = no-witness ]; then log_no_witness "$no_witness_reason"; fi
   echo "armed: post-merge watch for $ID on $(short "$merge") (phase $phase)"
   [ "$phase" != witness ] || echo "witness: a witness must use $witness; fill its instructions from bin/fm-post-merge.sh witness-task $ID"
   [ "$phase" != clear ] || echo "clear: no checks or witness to wait on for $ID's local landing; cleanup may proceed"
+}
+
+log_no_witness() {
+  local reason=$1 log="$STATE/jev-merge.jsonl" line
+  command -v jq >/dev/null 2>&1 || die "jq is required to audit a no-witness decision"
+  line=$(jq -cn --arg ts "$(now)" --arg task "$ID" --arg project "$(basename "$(rget project)")" \
+    --arg kind "$(rget kind)" --arg pr "$(rget pr)" --arg branch "$(rget branch)" \
+    --arg head "$(rget head)" --arg base "$(rget base)" --arg merge "$(rget merge_commit)" \
+    --arg reason "$reason" \
+    '{ts: ($ts | tonumber), event: "post-merge", outcome: "witness-waived", task: $task,
+      project: $project, kind: $kind, pr: $pr, branch: $branch, head: $head, base: $base,
+      merge_commit: $merge, reason: $reason}') || die "could not compose the no-witness audit row"
+  printf '%s\n' "$line" >> "$log" || die "could not append the no-witness audit row to $log"
 }
 
 # What the revert is for, in plain words, from the record.
@@ -509,11 +538,12 @@ finish_reverted() {
 
 # Open the revert pull request, or adopt the one an interrupted run opened.
 ensure_revert_pr() {
-  local number url body
+  local number url body recovered=0
   [ -z "$(rget revert_pr)" ] || return 0
   number=$FM_PR_NUMBER
   url=$(gh pr list -R "$FM_PR_HOST/$FM_PR_PATH" --state all --limit 100 --json url,headRefName \
     --jq ".[] | select(.headRefName | startswith(\"revert-$number-\")) | .url" 2>/dev/null | head -1) || url=
+  [ -z "$url" ] || recovered=1
   if [ -z "$url" ]; then
     body="Automatic revert of $(rget pr) (merge commit $(rget merge_commit)): $(revert_cause_text "$(rget base)")."
     # shellcheck disable=SC2016  # $id and $body are GraphQL variables, not shell.
@@ -529,8 +559,20 @@ ensure_revert_pr() {
   fi
   fm_pr_url_parse "$url" && [ "$FM_PR_PROVIDER" = github ] || die "GitHub returned an unexpected revert URL '$url'"
   parse_record_pr
+  if [ "$recovered" = 1 ]; then
+    verify_revert_pr "$url" || die "refusing to adopt $url: it does not identify a revert of merge commit $(rget merge_commit)"
+  fi
   rset "revert_pr=$url" "revert_opened_at=$(now)"
   echo "reverting: opened $url to revert $(rget pr)"
+}
+
+verify_revert_pr() {  # <url>
+  local url=$1 json message merge
+  merge=$(rget merge_commit)
+  [ -n "$merge" ] || return 1
+  json=$(gh pr view "$url" --json commits 2>/dev/null) || return 1
+  message=$(printf '%s' "$json" | jq -r '(.commits[-1] // {}) | [.messageHeadline // "", .messageBody // ""] | join("\\n")' 2>/dev/null) || return 1
+  printf '%s' "$message" | grep -Fq "$merge"
 }
 
 advance_reverting_pr() {
@@ -539,6 +581,7 @@ advance_reverting_pr() {
   parse_record_pr
   ensure_revert_pr
   read_revert_pr || die "could not read $(rget revert_pr) from GitHub"
+  verify_revert_pr "$(rget revert_pr)" || die "refusing to proceed with $(rget revert_pr): it does not identify a revert of merge commit $(rget merge_commit)"
   case "$REVERT_STATE" in
     MERGED)
       rset "revert=$(rget revert_pr)"
@@ -568,6 +611,14 @@ advance_reverting_pr() {
       echo "notify: $(rget pr) broke $(rget base) ($(revert_cause_text "$(rget base)")), and its revert $(rget revert_pr) has red checks ($VERDICT_NAMES), so the broken change is still live and needs you."
       return 0
       ;;
+    none)
+      retire_watch pmr
+      rset phase=blocked "note=revert checks are not green (none)"
+      echo "blocked: the revert $(rget revert_pr) has no green checks (none)"
+      echo "notify: $(rget pr) broke $(rget base) ($(revert_cause_text "$(rget base)")), and its revert $(rget revert_pr) has no green checks, so the broken change is still live and needs you."
+      return 0
+      ;;
+    green) ;;
   esac
   retire_watch pmr
   if [ "$(meta_get yolo)" != on ]; then
