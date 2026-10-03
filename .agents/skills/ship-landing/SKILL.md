@@ -31,7 +31,7 @@ For any custom `state/<id>.check.sh` you write yourself, keep it an ordinary sin
 Retire a custom check only through `bin/fm-check-unregister.sh <id>` (or `bin/fm-teardown.sh` for a spawned task); never hand-compose an `rm` with `$STATE`/`$ID`.
 
 Post-merge watching is armed manually after a merge the Jev merge gate approved: run `bin/fm-post-merge.sh arm <id>` before cleanup. This remains manual until the merge-rule change wires it into both `bin/fm-pr-merge.sh` and `bin/fm-merge-local.sh`. Pass `--witness <production URL>` for a live-site or team project; otherwise pass `--no-witness <reason>`. Its header owns the phases, the witness, and the revert rules.
-On every wake for that watch run `bin/fm-post-merge.sh advance <id>` and relay a `notify:` line to the captain as written; an `approval:` line is a merge ask for the revert, and a `blocked:` line is a blocker.
+On every wake for that watch run `bin/fm-post-merge.sh advance <id>` and relay a `notify:` line to the captain as written; an `approval:` line is a merge ask for the revert, and a `blocked:` line is a blocker. If recovery finds a `revert-<number>-` PR opened before the watch recorded its URL, it records the candidate and blocks for captain review; never adopt or merge that candidate automatically.
 A `witness:` line means dispatching a fresh scout that built none of the change, its `## Firstmate spec` filled from `bin/fm-post-merge.sh witness-task <id>...` (one per merge on a live-site project, one per wave of task ids on a team project), then recording its report with `witness-result`.
 Cleanup refuses while that watch is open and keeps a reverted task queued.
 

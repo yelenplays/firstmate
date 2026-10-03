@@ -247,12 +247,15 @@ test_no_checks_wait_for_grace() {
   pm arm "$W_ID" >/dev/null 2>&1 || fail "arm refused a merged pull request"
   out=$(pm checks "$W_ID" 2>&1) || fail "checks failed: $out"
   assert_contains "$out" "checks pending" "a commit with no checks yet was not pending inside the grace period"
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed inside the grace period: $out"
+  assert_contains "$out" "waiting: checks on merge commit" "empty API results did not remain pending during grace"
   make_pr_world pm-nograce on
   pm arm "$W_ID" --grace 0 >/dev/null 2>&1 || fail "arm refused --grace 0"
   out=$(pm advance "$W_ID" 2>&1) || fail "advance failed with no checks after the grace period: $out"
-  assert_contains "$out" "clear: checks on" "no checks after the grace period did not confirm the landing"
-  assert_contains "$out" "are none" "the verdict did not say there were no checks"
-  pass "fm-post-merge: a merge commit with no checks waits out the grace period, then confirms"
+  assert_contains "$out" "blocked: checks on merge commit" "no checks after the grace period did not hold for review"
+  assert_contains "$out" "notify: $PR_URL has no green checks" "missing checks were not escalated to the captain"
+  assert_equals blocked "$(record_field phase)" "missing checks did not hold the watch"
+  pass "fm-post-merge: empty check APIs wait through grace then hold without green checks"
 }
 
 test_red_revert_checks_block() {
@@ -295,38 +298,25 @@ test_yolo_off_asks_before_merging_the_revert() {
   pass "fm-post-merge: without yolo the green revert waits for approval"
 }
 
-test_interrupted_revert_is_adopted() {
+test_interrupted_revert_candidate_blocks_for_captain() {
   local out
-  make_pr_world pm-adopt on
+  make_pr_world pm-interrupted on
   pm arm "$W_ID" >/dev/null 2>&1 || fail "arm refused a merged pull request"
   set_checks "$MERGE_SHA" build completed failure
   set_checks "$REVERT_SHA" build queued ""
   pm advance "$W_ID" >/dev/null 2>&1 || fail "advance failed"
-  # A run that crashed after GitHub opened the revert but before the record kept it.
   grep -v '^revert_pr=' "$W_HOME/state/$W_ID.post-merge" > "$W_FAKE/rec" && cat "$W_FAKE/rec" > "$W_HOME/state/$W_ID.post-merge"
-  : > "$W_FAKE/graphql-fail"
+  printf '[{"url":"%s","headRefName":"revert-7-feature"}]\n' "$REVERT_URL" > "$W_FAKE/pr-list.json"
+  printf '{"state":"OPEN","headRefOid":"%s","commits":[{"messageHeadline":"unrelated change","messageBody":"This mentions %s but is not the automatic revert."}]}\n' \
+    "$REVERT_SHA" "$MERGE_SHA" > "$W_FAKE/pr-8.json"
   set_checks "$REVERT_SHA" build completed success
-  out=$(pm advance "$W_ID" 2>&1) || fail "advance did not adopt the open revert: $out"
-  assert_contains "$out" "reverted: $PR_URL by $REVERT_URL" "the revert opened by the interrupted run was not reused"
-  pass "fm-post-merge: a revert opened by an interrupted run is found and reused"
-}
-
-test_unrelated_recovered_revert_is_refused() {
-  local out
-  make_pr_world pm-unrelated on
-  pm arm "$W_ID" --grace 0 >/dev/null 2>&1 || fail "arm refused"
-  set_checks "$MERGE_SHA" build completed failure
-  set_checks "$REVERT_SHA" build queued ""
-  pm advance "$W_ID" >/dev/null 2>&1 || fail "could not start revert"
-  grep -v '^revert_pr=' "$W_HOME/state/$W_ID.post-merge" > "$W_FAKE/rec" && cat "$W_FAKE/rec" > "$W_HOME/state/$W_ID.post-merge"
-  set_checks "$REVERT_SHA" build completed success
-  printf '[{"url":"%s","headRefName":"revert-7-unrelated"}]\n' "$REVERT_URL" > "$W_FAKE/pr-list.json"
-  printf '{"state":"OPEN","headRefOid":"%s","commits":[{"messageHeadline":"unrelated change","messageBody":"not a revert"}]}\n' \
-    "$REVERT_SHA" > "$W_FAKE/pr-8.json"
-  out=$(pm advance "$W_ID" 2>&1) && fail "an unrelated PR with a revert branch prefix was adopted: $out"
-  assert_contains "$out" "refusing to adopt $REVERT_URL" "the unrelated candidate was not identified"
-  assert_absent "$W_FAKE/merges" "the unrelated candidate was merged"
-  pass "fm-post-merge: recovery refuses a prefixed PR that does not name the recorded merge"
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed to hold on the interrupted candidate: $out"
+  assert_contains "$out" "blocked: found $REVERT_URL" "the candidate did not block recovery"
+  assert_contains "$out" "notify: $PR_URL broke main" "the captain was not notified about the candidate"
+  assert_equals "$REVERT_URL" "$(record_field revert_candidate)" "the candidate URL was not recorded"
+  assert_equals blocked "$(record_field phase)" "the interrupted candidate did not hold the watch"
+  assert_absent "$W_FAKE/merges" "the candidate was merged automatically"
+  pass "fm-post-merge: recovery records a candidate and holds for captain review"
 }
 
 test_latest_check_result_wins() {
@@ -553,8 +543,7 @@ test_no_checks_wait_for_grace
 test_red_revert_checks_block
 test_revert_refused_by_github_blocks
 test_yolo_off_asks_before_merging_the_revert
-test_interrupted_revert_is_adopted
-test_unrelated_recovered_revert_is_refused
+test_interrupted_revert_candidate_blocks_for_captain
 test_latest_check_result_wins
 test_unknown_completed_check_conclusions_wait
 test_revert_without_green_checks_is_held
