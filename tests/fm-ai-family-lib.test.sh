@@ -27,15 +27,13 @@ resolve() {  # <harness> [<model>] -> "<family>"
   printf '%s\n' "$FM_AI_FAMILY"
 }
 
-test_single_maker_harnesses() {
-  assert_equals anthropic "$(resolve claude claude-opus-5-5)" "claude"
-  assert_equals anthropic "$(resolve claude)" "claude without a model"
-  assert_equals openai "$(resolve codex gpt-5)" "codex"
-  assert_equals xai "$(resolve grok)" "grok"
-  assert_equals moonshot "$(resolve kimi)" "kimi"
-  assert_equals google "$(resolve gemini)" "gemini"
-  assert_equals meta "$(resolve muse)" "muse"
-  pass "single-maker harness catalogs name their maker"
+test_harness_names_do_not_prove_family() {
+  local h
+  for h in claude codex grok kimi gemini muse; do
+    assert_equals unknown "$(resolve "$h")" "harness '$h' alone cannot prove its model family"
+    assert_equals unknown "$(resolve "$h" claude-opus-5-5)" "a model name cannot prove the family for harness '$h'"
+  done
+  pass "a harness or model name alone never proves the AI family"
 }
 
 test_multi_maker_harnesses_are_unknown() {
@@ -49,16 +47,16 @@ test_multi_maker_harnesses_are_unknown() {
 }
 
 test_provider_qualified_models() {
-  assert_equals openai "$(resolve pi openai-codex/gpt-6-luna)" "pi openai-codex"
-  assert_equals openai "$(resolve pi codex-native/gpt-6-astra)" "pi codex-native"
-  assert_equals openai "$(resolve pi-signed openai-codex/gpt-6-luna)" "pi-signed openai-codex"
-  assert_equals anthropic "$(resolve opencode anthropic/claude-opus-5-5)" "opencode anthropic"
-  assert_equals xai "$(resolve omp xai/grok-5)" "omp xai"
-  assert_equals moonshot "$(resolve pi kimi-coding/kimi-k3)" "pi kimi-coding"
+  assert_equals openai "$(FM_AI_FAMILY_PI_CATALOG=$CATALOG resolve pi openai-codex/gpt-6-luna)" "pi catalog row openai-codex"
+  assert_equals unknown "$(FM_AI_FAMILY_PI_CATALOG=$CATALOG resolve pi codex-native/gpt-6-astra)" "a provider not listing this model is refused"
+  assert_equals openai "$(FM_AI_FAMILY_PI_CATALOG=$CATALOG resolve pi-signed openai-codex/gpt-6-luna)" "pi-signed catalog row openai-codex"
+  assert_equals unknown "$(FM_AI_FAMILY_PI_CATALOG=$CATALOG resolve opencode anthropic/claude-opus-5-5)" "opencode has no catalog evidence"
+  assert_equals unknown "$(FM_AI_FAMILY_PI_CATALOG=$CATALOG resolve omp xai/grok-5)" "omp has no catalog evidence"
+  assert_equals moonshot "$(FM_AI_FAMILY_PI_CATALOG=$CATALOG resolve pi kimi-coding/kimi-k3)" "the exact kimi-coding catalog row proves Moonshot"
   assert_equals unknown "$(resolve pi openrouter/anthropic/claude-x)" "openrouter is a gateway"
   assert_equals unknown "$(resolve pi opencode-go/gpt-6-luna)" "opencode-go is a gateway"
-  fm_ai_family_resolve pi openai-codex/gpt-6-luna
-  assert_contains "$FM_AI_FAMILY_SOURCE" "provider openai-codex serves model gpt-6-luna" "source names the catalog provider"
+  FM_AI_FAMILY_PI_CATALOG=$CATALOG fm_ai_family_resolve pi openai-codex/gpt-6-luna
+  assert_contains "$FM_AI_FAMILY_SOURCE" "provider openai-codex lists model gpt-6-luna" "source names the matching catalog row"
   pass "a provider-qualified model resolves through its catalog provider key"
 }
 
@@ -70,7 +68,7 @@ test_unqualified_models_read_the_catalog() {
   assert_equals unknown "$(resolve pi)" "pi with no model"
   assert_equals unknown "$(resolve pi default)" "pi with the default model"
   FM_AI_FAMILY_PI_CATALOG=$CATALOG fm_ai_family_resolve pi gpt-6-luna
-  assert_contains "$FM_AI_FAMILY_SOURCE" "does not list model gpt-6-luna under exactly one provider" "ambiguity is explained"
+  assert_contains "$FM_AI_FAMILY_SOURCE" "does not list model gpt-6-luna under exactly one matching provider" "ambiguity is explained"
   pass "an unqualified pi model resolves only when exactly one catalog provider lists it"
 }
 
@@ -98,7 +96,7 @@ test_union_and_disjoint() {
   pass "family sets are disjoint only when both are fully known and share no maker"
 }
 
-test_single_maker_harnesses
+test_harness_names_do_not_prove_family
 test_multi_maker_harnesses_are_unknown
 test_provider_qualified_models
 test_unqualified_models_read_the_catalog

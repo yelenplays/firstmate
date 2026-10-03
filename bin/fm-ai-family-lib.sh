@@ -8,22 +8,11 @@
 # deepseek, zai), never a harness, an account, or a quota provider: one
 # harness can serve several makers, and two harnesses can serve one maker.
 #
-# The family is read from the harness's own catalog, never inferred from a model
-# or seat name:
-#   - A harness whose catalog serves exactly one maker's models names that maker
-#     (claude, codex, grok, kimi, gemini, muse).
-#   - A harness whose catalog is keyed by provider (pi, pi-signed, omp,
-#     opencode) names the provider in the catalog row itself. A model given as
-#     `<provider>/<id>` carries that catalog provider key verbatim (it is the
-#     launch's provider selector). An unqualified id is looked up in the
-#     harness's live catalog (fm_ai_family_catalog_provider below), and resolves
-#     only when exactly one provider row lists it.
-#   - A catalog provider key maps to a maker only when that provider serves one
-#     maker. A gateway that serves several makers (openrouter, opencode-go,
-#     github-copilot, amazon-bedrock, and every key not listed below) resolves
-#     to `unknown`, because nothing in its catalog row proves the maker.
-#   - Every other harness (cursor, devin, rovo, agy, and anything unlisted)
-#     serves several makers without naming one per model, so it is `unknown`.
+# The family is read from the harness's authoritative model catalog, never
+# inferred from the harness, model, or seat name. A family is known only when a
+# catalog row identifies one provider for the exact resolved model, and that
+# provider serves one maker. A gateway that serves several makers resolves to
+# `unknown`, because its catalog row does not prove the model maker.
 # `unknown` is a verdict, not a failure: a caller that needs two families to
 # differ must treat `unknown` as "independence cannot be proven".
 #
@@ -60,8 +49,8 @@ fm_ai_family_of_provider() {  # <catalog-provider-key>
 # lists the id. FM_AI_FAMILY_PI_CATALOG may name a file holding a captured
 # `pi --list-models` listing, used instead of running the CLI (tests and callers
 # that already hold a listing).
-fm_ai_family_catalog_provider() {  # <harness> <model-id>
-  local harness=$1 model=$2 listing providers count
+fm_ai_family_catalog_provider() {  # <harness> <model-id> [<provider>]
+  local harness=$1 model=$2 expected=${3:-} listing providers count
   case "$harness" in
     pi|pi-signed)
       if [ -n "${FM_AI_FAMILY_PI_CATALOG:-}" ]; then
@@ -70,7 +59,7 @@ fm_ai_family_catalog_provider() {  # <harness> <model-id>
         command -v pi >/dev/null 2>&1 || return 1
         listing=$(fm_run_timed "${FM_AI_FAMILY_CATALOG_TIMEOUT:-20}" pi --list-models 2>/dev/null) || return 1
       fi
-      providers=$(printf '%s\n' "$listing" | awk -v m="$model" 'NR > 1 && $2 == m { print $1 }' | sort -u)
+      providers=$(printf '%s\n' "$listing" | awk -v m="$model" -v p="$expected" 'NR > 1 && $2 == m && (p == "" || $1 == p) { print $1 }' | sort -u)
       ;;
     *) return 1 ;;
   esac
@@ -89,15 +78,9 @@ fm_ai_family_resolve() {  # <harness> [<model>]
   FM_AI_FAMILY=unknown
   FM_AI_FAMILY_SOURCE=
   case "$harness" in
-    claude) FM_AI_FAMILY=anthropic; FM_AI_FAMILY_SOURCE="claude catalog serves only Anthropic models" ;;
-    codex) FM_AI_FAMILY=openai; FM_AI_FAMILY_SOURCE="codex catalog serves only OpenAI models" ;;
-    grok) FM_AI_FAMILY=xai; FM_AI_FAMILY_SOURCE="grok catalog serves only xAI models" ;;
-    kimi) FM_AI_FAMILY=moonshot; FM_AI_FAMILY_SOURCE="kimi catalog serves only Moonshot models" ;;
-    gemini) FM_AI_FAMILY=google; FM_AI_FAMILY_SOURCE="gemini catalog serves only Google models" ;;
-    muse) FM_AI_FAMILY=meta; FM_AI_FAMILY_SOURCE="muse catalog serves only Meta models" ;;
-    pi|pi-signed|omp|opencode)
+    pi|pi-signed)
       if [ -z "$model" ]; then
-        FM_AI_FAMILY_SOURCE="$harness serves several makers and no model was recorded"
+        FM_AI_FAMILY_SOURCE="$harness has no resolved model to match in its catalog"
         return 0
       fi
       case "$model" in
@@ -107,20 +90,21 @@ fm_ai_family_resolve() {  # <harness> [<model>]
           ;;
         *)
           id=$model
-          provider=$(fm_ai_family_catalog_provider "$harness" "$model") || {
-            FM_AI_FAMILY_SOURCE="$harness catalog does not list model $model under exactly one provider"
-            return 0
-          }
+          provider=
           ;;
       esac
+      provider=$(fm_ai_family_catalog_provider "$harness" "$id" "$provider") || {
+        FM_AI_FAMILY_SOURCE="$harness catalog does not list model $id under exactly one matching provider"
+        return 0
+      }
       if fam=$(fm_ai_family_of_provider "$provider"); then
         FM_AI_FAMILY=$fam
-        FM_AI_FAMILY_SOURCE="$harness catalog provider $provider serves model $id"
+        FM_AI_FAMILY_SOURCE="$harness catalog provider $provider lists model $id"
       else
         FM_AI_FAMILY_SOURCE="$harness catalog provider $provider serves several makers"
       fi
       ;;
-    *) FM_AI_FAMILY_SOURCE="${harness:-unnamed} harness catalog names no maker per model" ;;
+    *) FM_AI_FAMILY_SOURCE="${harness:-unnamed} catalog does not prove a maker for model ${model:-unknown}" ;;
   esac
   return 0
 }

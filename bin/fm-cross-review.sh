@@ -44,11 +44,9 @@
 #     for the exact-head confirmation an unsure merge decision needs instead of
 #     a review. A private vault change (bin/fm-wiki-lib.sh
 #     fm_wiki_change_private) always gets action=none: it stays on today's path
-#     and no new reviewer sees it. Candidates come from
-#     config/cross-review-reviewers (one `<harness> <model> <effort>` per line,
-#     `#` comments), else the built-in chain `pi openai-codex/gpt-6-luna high`
-#     then `claude claude-opus-5-5 high`; the first whose family is known and
-#     disjoint from the builder's wins.
+#     and no new reviewer sees it. The fixed candidate chain is
+#     `pi openai-codex/gpt-6-luna high`, `pi xai/grok-5 high`; the first whose
+#     family is proven by its catalog and disjoint from the builder's wins.
 #   fm-cross-review.sh brief <task-id> <reviewer-id> --head <sha> [--confirm]
 #     Scaffold the reviewer's scout instructions with bin/fm-brief.sh --scout,
 #     fill them for this exact head, and write the request record
@@ -490,18 +488,8 @@ private_change() {  # <head>, decision-time vault exclusion for plan and brief
 }
 
 reviewer_candidates() {
-  local file="$CONFIG/cross-review-reviewers" line h m e _
-  if [ -f "$file" ]; then
-    while IFS= read -r line || [ -n "$line" ]; do
-      line=${line%%#*}
-      read -r h m e _ <<<"$line" || true
-      [ -n "${h:-}" ] && [ -n "${m:-}" ] || continue
-      printf '%s %s %s\n' "$h" "$m" "${e:-default}"
-    done < "$file"
-    return 0
-  fi
   printf 'pi openai-codex/gpt-6-luna high\n'
-  printf 'claude claude-opus-5-5 high\n'
+  printf 'pi xai/grok-5 high\n'
 }
 
 reviewer_id_for() {  # <tag> <head>
@@ -555,7 +543,7 @@ cmd_plan() {
 $(reviewer_candidates)
 EOF
   if [ -z "$chosen" ]; then
-    printf 'action=escalate\nreason=no configured reviewer resolves to a family other than the builder'"'"'s %s\n' "$B_FAM"
+    printf 'action=escalate\nreason=no catalog-proven reviewer family differs from the builder'"'"'s %s\n' "$B_FAM"
     return 0
   fi
   read -r h m e f <<<"$chosen"
