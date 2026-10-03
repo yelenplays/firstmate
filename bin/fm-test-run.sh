@@ -699,8 +699,8 @@ list_portable_serial() {
 # the version-specific host and native-Windows exceptions documented there.
 # The live browser-step test uses its successful CI capability-skip sample; the
 # offline test has a conservative initial estimate pending a full CI sample.
-# The history suites use local green samples until their first CI timing
-# artifacts are available; replace those at the next refresh. These are balance
+# The history and seat-pick suites use local green samples until their first
+# CI timing artifacts are available; replace those at the next refresh. These are balance
 # hints only: the shard partition stays complete and disjoint whatever they say,
 # so a stale hint costs balance rather than coverage. That doc owns the refresh
 # procedure.
@@ -877,6 +877,7 @@ tests/fm-remote-secondmate-trace-context.test.sh 74870
 tests/fm-remote-transport-lanes.test.sh 66089
 tests/fm-rovo-harness.test.sh 15691
 tests/fm-rovo-signals-live-e2e.test.sh 52
+tests/fm-seat-pick.test.sh 3000
 tests/fm-secondmate-harness.test.sh 188187
 tests/fm-secondmate-lifecycle-e2e.test.sh 11268
 tests/fm-secondmate-liveness.test.sh 24564

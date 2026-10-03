@@ -46,7 +46,7 @@
 # the task's attributed no-mistakes run through bounded CLI and log reads, so
 # callers hold it to the same only-at-escalation budget. Another exception is
 # the pair of Jev consult wrappers near the bottom of this file
-# (status_line_jev_escalates, wedge_jev_suppress): each spawns a bounded helper
+# (status_line_jev_escalates, wedge_jev_consult): each spawns a bounded helper
 # subprocess that can make one short TypeSafe Jev call. The status consult runs
 # only inside status_span_first_actionable_record when a caller opts in with
 # the literal `jev` fifth argument, only for a line the deterministic contract
@@ -56,7 +56,8 @@
 # verb, neither replaces a deterministic check, and any helper failure, timeout,
 # or invalid answer returns nonzero so the caller's existing behavior stands.
 # Every Jev call in one watcher or daemon cycle - these two - shares one
-# wall-clock budget and one circuit breaker (fm_jev_supervision_cycle_reset).
+# wall-clock budget and one circuit breaker (fm_jev_supervision_cycle_reset),
+# and the wedge consult also has its own call-count budget per cycle.
 
 # Directory of this library, used to locate the sibling fm-crew-state.sh reader.
 # Resolved at source time from BASH_SOURCE so it works whether sourced by a
@@ -2580,6 +2581,7 @@ fm_jev_supervision_cycle_reset() {
   _FM_JEV_SUPERVISION_CYCLE_BUDGET_MS=$((budget * 1000))
   _FM_JEV_SUPERVISION_CYCLE_USED_MS=0
   _FM_JEV_SUPERVISION_CYCLE_FAILED=0
+  _FM_JEV_WEDGE_CYCLE_CALLS=0
   case "${EPOCHREALTIME:-}" in *[0-9][.,][0-9]*) _FM_JEV_SUPERVISION_CYCLE_COARSE_CLOCK=0 ;; *) _FM_JEV_SUPERVISION_CYCLE_COARSE_CLOCK=1 ;; esac
 }
 
@@ -2675,22 +2677,80 @@ status_line_jev_escalates() {  # <status-line> [<status-file>]
   [ "$verdict" = escalate ]
 }
 
+# The per-run Jev call budget for the wedge consult: at most this many
+# wedge-check calls between two fm_jev_supervision_cycle_reset calls (one
+# watcher run, one daemon housekeeping pass), on top of the shared wall-clock
+# budget. Past it the structural escalation stands without a second opinion.
+FM_JEV_WEDGE_CYCLE_MAX_CALLS=${FM_JEV_WEDGE_CYCLE_MAX_CALLS:-10}
+
+wedge_jev_lock_path() {  # <task> <state-dir>
+  local task=$1 dir=$2
+  [ -n "$task" ] && [ -n "$dir" ] || return 1
+  case "$task" in */*|.*) return 1 ;; esac
+  printf '%s/%s.jev-wedge.lock' "$dir" "$task"
+}
+
+# Jev's second opinion on <pane-tail> at the wedge escalation boundary. 0 with
+# WEDGE_JEV_VERDICT set to suppress, escalate, or held and WEDGE_JEV_CLASS set
+# to the helper's stuck class (bin/fm-jev-wedge-check.sh owns both
+# vocabularies and the hourly warning window behind held); 1 for a spent call
+# budget, a missing helper, or any failure, with both variables empty, so the
+# boundary's structural escalation always stands as the fallback. The class
+# only labels the warning: nothing here acts on a worker.
+# <task> and <state-dir> feed the helper's data boundary exactly as for the
+# status consult and key its warning window; without them the helper sends
+# structured facts only and never holds. <idle-secs>, when known, is passed
+# as one more fact.
+wedge_jev_consult() {  # <pane-tail> [<task> <state-dir> [<idle-secs> [lock-held]]]
+  local tail=$1 task=${2-} dir=${3-} idle=${4-} lock_held=${5-} out max
+  local -a args=(--class)
+  WEDGE_JEV_VERDICT=
+  WEDGE_JEV_CLASS=
+  [ -n "$tail" ] || return 1
+  max=$FM_JEV_WEDGE_CYCLE_MAX_CALLS
+  case "$max" in ''|*[!0-9]*|??????????*) max=10 ;; esac
+  [ "${_FM_JEV_WEDGE_CYCLE_CALLS:-0}" -lt "$((10#$max))" ] || return 1
+  if [ -n "$task" ] && [ -n "$dir" ]; then
+    args+=(--task "$task" --state-dir "$dir")
+    [ "$lock_held" != 1 ] || args+=(--lock-held)
+  fi
+  case "$idle" in ''|*[!0-9]*|??????????*) ;; *) args+=(--idle-secs "$idle") ;; esac
+  _FM_JEV_WEDGE_CYCLE_CALLS=$((${_FM_JEV_WEDGE_CYCLE_CALLS:-0} + 1))
+  _fm_jev_supervision_consult "$FM_JEV_WEDGE_CHECK_BIN" "$tail" out "${args[@]}" || return 1
+  out=${out%%$'\n'*}
+  case "${out%% *}" in
+    suppress|escalate|held) WEDGE_JEV_VERDICT=${out%% *} ;;
+    *) return 1 ;;
+  esac
+  case "$out" in
+    *" "*) WEDGE_JEV_CLASS=${out#* } ;;
+  esac
+  case "$WEDGE_JEV_CLASS" in ''|*[!a-z_]*) WEDGE_JEV_CLASS= ;; esac
+  return 0
+}
+
+# Record that a warning labelled <class> for <task> was durably surfaced, so
+# the helper holds the next same-class escalation inside its warning window.
+# Callers run it only after their wake or escalation record is written.
+# Best effort: a failed write only means the next warning is not held.
+wedge_jev_mark_warned() {  # <task> <state-dir> <class> [lock-held]
+  local task=$1 dir=$2 class=$3 lock_held=${4-}
+  [ -n "$task" ] && [ -n "$dir" ] && [ -n "$class" ] || return 0
+  [ -f "$FM_JEV_WEDGE_CHECK_BIN" ] || return 0
+  local -a args=(--mark-warned "$class" --task "$task" --state-dir "$dir")
+  [ "$lock_held" != 1 ] || args+=(--lock-held)
+  FM_HOME="${FM_HOME:-}" FM_STATE_OVERRIDE="${FM_STATE_OVERRIDE:-}" \
+    "$FM_JEV_WEDGE_CHECK_BIN" "${args[@]}" < /dev/null > /dev/null 2>&1 || true
+}
+
 # 0 when Jev's stuck Noul on <pane-tail> reads the pane as NOT wedged - the
 # second opinion that suppresses a structural false positive at the wedge
-# escalation boundary. 1 for every other outcome, including an escalate
-# verdict, a missing helper, and any failure - so the boundary's structural
-# escalation always stands as the fallback.
-# <task> and <state-dir> feed the helper's data boundary exactly as for the
-# status consult; without them the helper sends structured facts only.
+# escalation boundary. 1 for every other outcome, including an escalate or
+# held verdict, a missing helper, and any failure. Kept for callers that need
+# only the suppress answer; wedge_jev_consult owns the call.
 wedge_jev_suppress() {  # <pane-tail> [<task> <state-dir>]
-  local tail=$1 task=${2-} dir=${3-} verdict
-  local -a args=()
-  [ -n "$tail" ] || return 1
-  if [ -n "$task" ] && [ -n "$dir" ]; then
-    args=(--task "$task" --state-dir "$dir")
-  fi
-  _fm_jev_supervision_consult "$FM_JEV_WEDGE_CHECK_BIN" "$tail" verdict ${args[@]+"${args[@]}"} || return 1
-  [ "$verdict" = suppress ]
+  wedge_jev_consult "$@" || return 1
+  [ "$WEDGE_JEV_VERDICT" = suppress ]
 }
 
 fm_jev_supervision_cycle_reset

@@ -1585,13 +1585,16 @@ wedge_dead_record() {  # <window> <since-file> <triage-label> <idle-age> <pane-h
 # otherwise alarm pays for a backend read.
 # The no-mistakes run-liveness probe (crew_nm_run_progressing) runs in the same
 # at-threshold branch, after the recorded-step bound, as the strongest and most
-# expensive positive evidence. The Jev second opinion (wedge_jev_suppress) then
+# expensive positive evidence. The Jev second opinion (wedge_jev_consult) then
 # runs on the already-captured pane tail, only when a structural escalation is
-# otherwise imminent. A valid "not stuck" Noul defers; every failure or
-# non-suppress verdict preserves escalation. Callers without a relevant pane
-# tail pass an empty argument and skip the consult.
+# otherwise imminent. A valid "not stuck" Noul defers; a held verdict (the same
+# stuck class already warned inside the helper's window) re-arms the timer;
+# an escalate verdict labels the wake with Jev's stuck class and records the
+# warning after the wake is written; every failure preserves escalation.
+# Callers without a relevant pane tail pass an empty argument and skip the
+# consult.
 wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-file> <task> <pane-hash> [<pane-tail>]
-  local win=$1 since_file=$2 label=$3 escalation_file=$4 task=$5 hash=$6 tail=${7-} since age n reason evidence run_id
+  local win=$1 since_file=$2 label=$3 escalation_file=$4 task=$5 hash=$6 tail=${7-} since age n reason evidence run_id jev_note wedge_lock
   since=$(cat "$since_file" 2>/dev/null || true)
   case "$since" in
     ''|*[!0-9]*)
@@ -1639,22 +1642,53 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
         # without weakening the no-evidence escalation path. A proven active
         # run defers first; Jev gets a second opinion only if that stronger
         # execution evidence is absent. Both are bounded and threshold-only.
+        WEDGE_JEV_VERDICT=
+        WEDGE_JEV_CLASS=
+        wedge_lock=
+        if [ -n "$tail" ]; then
+          wedge_lock=$(wedge_jev_lock_path "$task" "$STATE") || return 0
+          if ! fm_lock_try_acquire "$wedge_lock"; then
+            triage_log "absorbed $label escalation deferred: another wedge check owns task $task"
+            return 0
+          fi
+        fi
         if run_id=$(crew_nm_run_progressing "$task" "$STATE" "$since_file"); then
           wedge_defer_nm_run "$win" "$since_file" "$label" "$age" "$run_id"
+          [ -z "$wedge_lock" ] || fm_lock_release "$wedge_lock"
           return 0
-        elif [ -n "$tail" ] && wedge_jev_suppress "$tail" "$task" "$STATE"; then
-          wedge_defer_jev "$win" "$since_file" "$label" "$age"
-          return 0
+        elif [ -n "$tail" ] && wedge_jev_consult "$tail" "$task" "$STATE" "$age" 1; then
+          case "$WEDGE_JEV_VERDICT" in
+            suppress)
+              wedge_defer_jev "$win" "$since_file" "$label" "$age"
+              fm_lock_release "$wedge_lock"
+              return 0
+              ;;
+            held)
+              # Same task, same stuck class, already warned inside the
+              # helper's warning window: re-arm instead of repeating it.
+              date +%s > "$since_file"
+              triage_log "absorbed $label escalation held: Jev still reads ${WEDGE_JEV_CLASS:-unclear}, already warned within the window (idle ${age}s): $win"
+              fm_lock_release "$wedge_lock"
+              return 0
+              ;;
+          esac
         fi
         n=$(( $(cat "$escalation_file" 2>/dev/null || echo 0) + 1 ))
         echo "$n" > "$escalation_file"
-        reason="stale: $win (idle ${age}s, possible wedge, escalation $n)"
+        jev_note=
+        [ -z "$WEDGE_JEV_CLASS" ] || jev_note=", Jev reads ${WEDGE_JEV_CLASS}"
+        reason="stale: $win (idle ${age}s, possible wedge${jev_note}, escalation $n)"
         if [ "$n" -ge "$FM_WEDGE_DEMAND_INSPECT_COUNT" ]; then
-          reason="stale: $win (idle ${age}s, possible wedge, escalation $n, demand-deep-inspection: same pane has wedge-escalated $n times in a row - do not re-absorb on the run-step/pane state alone)"
+          reason="stale: $win (idle ${age}s, possible wedge${jev_note}, escalation $n, demand-deep-inspection: same pane has wedge-escalated $n times in a row - do not re-absorb on the run-step/pane state alone)"
         fi
-        fm_wake_append stale "$win" "$reason" || exit 1
+        if ! fm_wake_append stale "$win" "$reason"; then
+          [ -z "$wedge_lock" ] || fm_lock_release "$wedge_lock"
+          exit 1
+        fi
+        wedge_jev_mark_warned "$task" "$STATE" "$WEDGE_JEV_CLASS" 1
         rm -f "$since_file"
         clear_write_tracking "$(fm_watch_state_key "$win")"
+        [ -z "$wedge_lock" ] || fm_lock_release "$wedge_lock"
         wake "$reason"
       fi
       ;;
