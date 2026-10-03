@@ -161,10 +161,26 @@ test_pick_data_boundary() {
   body=$(cat "$LOG/body")
   jq -e '.state.task | contains("TASKMARK") and (contains("sk-or-abcdefghijklmnop0123") | not) and (length <= 300)' \
     <<<"$body" >/dev/null || fail "the task text was not capped and scrubbed before sending: $body"
+  jq -n --slurpfile seats "$SEATS" '$seats[0] | map(if .seat == "b-claude-1" then .note = "finished sk-or-abcdefghijklmnop0123" else . end)' > "$TMP_ROOT/secret-note-seats.json"
+  SEAT_STDIN="$TMP_ROOT/secret-note-seats.json" run_seat code out -- pick --role builder --task 'TASKMARK ordinary task'
+  body=$(cat "$LOG/body")
+  jq -e '[.state.seats[].text, (.questions.seat.criteria[])] | all(contains("sk-or-abcdefghijklmnop0123") | not)' \
+    <<<"$body" >/dev/null || fail "a candidate note escaped redaction in the Jev request: $body"
+  local secret_role='builder api_key=sk-or-abcdefghijklmnop0123'
+  jq --arg role "$secret_role" 'map(.role = $role)' "$SEATS" > "$TMP_ROOT/secret-role-seats.json"
+  SEAT_STDIN="$TMP_ROOT/secret-role-seats.json" run_seat code out -- pick --role "$secret_role" --task 'ordinary task'
+  body=$(cat "$LOG/body")
+  jq -e '(.state.role | contains("sk-or-abcdefghijklmnop0123") | not) and
+    ([.state, .questions] | tostring | contains("sk-or-abcdefghijklmnop0123") | not)' \
+    <<<"$body" >/dev/null || fail "the role escaped redaction in the Jev request: $body"
+  run_seat code out JEV_STATE_MAX_BYTES=1 -- pick --role builder --task 'ordinary task'
+  jq -e '.action == "lead-decides" and (.reason | contains("safely compacted"))' <<<"$out" >/dev/null \
+    || fail "a compacting failure did not fail closed: $out"
+  [ ! -e "$LOG/calls" ] || fail "uncompacted Jev input reached the network"
   assert_present "$HOME_DIR/state/jev-seat-pick.jsonl" "every attempted pick appends an audit record"
   ! grep -F 'TASKMARK' "$HOME_DIR/state/jev-seat-pick.jsonl" >/dev/null \
     || fail "the audit record kept the task text"
-  jq -e '.purpose == "seat-pick" and .choice == "b-codex-1" and .band == "act" and .candidates == 2' \
+  jq -se 'any(.[]; .purpose == "seat-pick" and .choice == "b-codex-1" and .band == "act" and .candidates == 2)' \
     "$HOME_DIR/state/jev-seat-pick.jsonl" >/dev/null \
     || fail "the audit record lacks the decision fields: $(cat "$HOME_DIR/state/jev-seat-pick.jsonl")"
   pass "a pick sends a capped, scrubbed task summary and audits without the task text"
