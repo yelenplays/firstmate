@@ -272,6 +272,27 @@ test_install_is_idempotent() {
   pass "install is idempotent and --check then passes"
 }
 
+test_grok_reinstall_preserves_siblings() {
+  local h file
+  h=$(new_home grok-reinstall grok)
+  install_in "$h" --harness grok
+  expect_code 0 "$RC" "first Grok install"
+  file="$h/.grok/hooks/fm-credguard-read.json"
+  node -e '
+    const fs = require("node:fs"), f = process.argv[1], s = JSON.parse(fs.readFileSync(f, "utf8"));
+    s.userSetting = "keep-this";
+    s.hooks.PreToolUse[0].groupSetting = "also-keep";
+    s.hooks.PreToolUse.push({ matcher: "UserTool", hooks: [{ type: "command", command: "user-hook" }] });
+    fs.writeFileSync(f, JSON.stringify(s, null, 2) + "\n");
+  ' "$file"
+  install_in "$h" --harness grok
+  expect_code 0 "$RC" "Grok reinstall with sibling configuration"
+  assert_equals "keep-this" "$(json_eval "$file" 's.userSetting')" "Grok preserves unrelated settings"
+  assert_equals "also-keep" "$(json_eval "$file" 's.hooks.PreToolUse[0].groupSetting')" "Grok preserves guard group metadata"
+  assert_equals "user-hook" "$(json_eval "$file" 's.hooks.PreToolUse[1].hooks[0].command')" "Grok preserves sibling handlers"
+  pass "Grok reinstall preserves sibling handlers and settings"
+}
+
 test_new_hook_path_replaces_old_handler() {
   local h
   h=$(new_home moved claude)
@@ -357,6 +378,7 @@ test_active_worker_surfaces_deny_secret_prints
 test_pi_omp_extensions_block_and_allow
 test_invalid_hook_prevents_all_config_writes
 test_install_is_idempotent
+test_grok_reinstall_preserves_siblings
 test_new_hook_path_replaces_old_handler
 test_symlinked_config_written_through
 test_malformed_json_refused
