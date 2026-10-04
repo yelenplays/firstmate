@@ -240,6 +240,7 @@ run_hook_pi() {  # <root> [args...]
 # was won in the test environment.
 FULL_BANNER="SESSION START - "
 REEMIT_BANNER="SESSION START (CONTEXT RE-EMIT) - "
+COMPACT_REEMIT_BANNER="SESSION START (CONTEXT RE-EMIT, COMPACT) - "
 
 test_run_startup_runs_the_full_digest() {
   local root="$TMP_ROOT/run-startup" out status=0
@@ -266,9 +267,21 @@ test_run_clear_and_compact_reemit() {
     status=0
     out=$(run_hook "$root" --source "$source" </dev/null) || status=$?
     expect_code 0 "$status" "run wrapper $source"
-    assert_contains "$out" "$REEMIT_BANNER$root" "$source did not re-emit the digest"
-    assert_contains "$out" "are NOT repeated" "$source did not report the skipped startup sweeps"
-    assert_contains "$out" "Queued wakes ARE still drained" "$source did not preserve the wake-queue drain"
+    if [ "$source" = compact ]; then
+      assert_contains "$out" "$COMPACT_REEMIT_BANNER$root" "$source did not re-emit the compact digest"
+    else
+      assert_contains "$out" "$REEMIT_BANNER$root" "$source did not re-emit the digest"
+    fi
+    if [ "$source" = compact ]; then
+      assert_contains "$out" "not repeated" "$source did not report the skipped startup sweeps"
+    else
+      assert_contains "$out" "are NOT repeated" "$source did not report the skipped startup sweeps"
+    fi
+    if [ "$source" = compact ]; then
+      assert_contains "$out" "queued wakes are drained below" "$source did not preserve the wake-queue drain"
+    else
+      assert_contains "$out" "Queued wakes ARE still drained" "$source did not preserve the wake-queue drain"
+    fi
     assert_not_contains "$out" "FIRSTMATE_OP" "a $source open also emitted the nudge instruction"
   done
   pass "run wrapper: clear and compact re-emit the digest without repeating startup sweeps"
@@ -984,7 +997,7 @@ test_run_reads_source_from_the_hook_payload() {
   out=$(printf '{"session_id":"s1","hook_event_name":"SessionStart","source":"compact"}' |
     run_hook "$root") || status=$?
   expect_code 0 "$status" "run wrapper payload compact"
-  assert_contains "$out" "$REEMIT_BANNER$root" "a compact hook payload was not routed to a re-emit"
+  assert_contains "$out" "$COMPACT_REEMIT_BANNER$root" "a compact hook payload was not routed to a compact re-emit"
 
   # A fresh root, because the compact case above legitimately took the lock and
   # an owned lock is exactly when the nudge is supposed to stay silent.
