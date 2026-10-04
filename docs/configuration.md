@@ -1342,7 +1342,7 @@ When the picked rule declares its own floor but its probability falls below it, 
 1. Find the most probable other option that clears its own floor: the rule's `min_confidence`, or 0.6 otherwise.
 2. Print a `fallback:` line naming both floors and resolve that rule as though it had been picked.
 
-No qualifying option, or two equally probable qualifying options, produces `ambiguous`.
+No qualifying option, or two equally probable qualifying options, makes the rule answer `ambiguous`; see the runoff below for how the final outcome is settled.
 
 **Candidate eligibility and evidence**
 
@@ -1387,7 +1387,6 @@ The same Jev response carries a second typed Choice classifying the reasoning ef
 A candidate on an effort-capable harness that cannot supply the assessed class is refused before quota gates; a harness without an effort knob keeps the class as a disclosed, unenforced note and emits no `--effort` flag for it.
 A candidate whose predicted burn exceeds its tightest applicable remaining percent (calibrated through the window's observed `tokensPerPoint`) is refused with the prediction named in the reason, and so is one whose predicted duration exceeds the window's usable runway seconds; an all-refused `escalate` names the predicted burn.
 Missing or unreadable ledger evidence never fabricates a limit: the candidate keeps its rank and its line shows `pred=unknown`.
-The result is one of `clear` (a `profile:` line ready for `fm-spawn.sh`), `picked` (an ambiguous answer the runoff settled, with a `profile:` line), `ambiguous` (the returned choice is not the most probable option or the top-2 margin is below the threshold, and no runoff settled it), `escalate` (an approval-gated rule, unverifiable rule floor, nothing rankable, or a genuine tie), or `error` (API, network, malformed response metadata, rendering, or quota-axi failure), and every one of them exits 0.
 Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, an invalid `FM_JEV_DISPATCH_MARGIN`, or missing `jq`, each reported and never selected around.
 The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; `AGENTS.md` section 4 owns what firstmate does with each outcome.
 By accepted design, a printed profile line does not enforce catalog/authentication gates; reasoning-class ceilings and completion-runway gates are enforced above.
