@@ -64,6 +64,8 @@ META="$STATE/$ID.meta"
 
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+# shellcheck source=bin/fm-post-merge-lib.sh
+. "$SCRIPT_DIR/fm-post-merge-lib.sh"
 "$FM_ROOT/bin/fm-guard.sh" || true
 # Role partition: landing local-only work is MAIN-owned; the Pi supervision
 # branch reports readiness and never lands (contract: bin/fm-lease-lib.sh;
@@ -284,9 +286,25 @@ if [ "$REVERT" = 1 ]; then
   echo "reverted local landing $LANDED of $BRANCH on local $DEFAULT in $PROJ with $after"
   exit 0
 fi
+if [ -n "$(meta_value post_merge_watch_required)" ]; then
+  echo "error: task $ID has a pending post-merge watch; retry bin/fm-post-merge.sh arm $ID instead of merging again" >&2
+  exit 1
+fi
+if [ "$(git -C "$PROJ" rev-parse "$BRANCH")" != "$before" ]; then
+  fm_post_merge_watch_required_set "$STATE" "$META" pending || {
+    echo "error: could not persist the post-merge watch marker; refusing to merge" >&2
+    exit 1
+  }
+fi
 merge_status=0
 git -C "$PROJ" merge --ff-only "$BRANCH" >/dev/null || merge_status=$?
 if [ "$merge_status" -ne 0 ]; then
+  if [ -n "$(meta_value post_merge_watch_required)" ]; then
+    fm_post_merge_watch_required_set "$STATE" "$META" '' || {
+      echo "error: local merge failed and its watch marker could not be cleared; retry bin/fm-post-merge.sh arm $ID only if the landing occurred" >&2
+      exit 1
+    }
+  fi
   fm_lock_release "$MERGE_CONTROL_LOCK" || true
   MERGE_CONTROL_LOCK=
   exit "$merge_status"
@@ -299,20 +317,15 @@ fm_lock_release "$MERGE_CONTROL_LOCK" || true
 MERGE_CONTROL_LOCK=
 # Opt-in fleet activity ledger (docs/fleet-ledger.md); off costs one file test.
 [ ! -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/fleet-ledger" ] || FM_HOME=$FM_HOME FM_STATE_OVERRIDE=$STATE "$SCRIPT_DIR/fm-fleet-ledger.sh" merged "$ID" local || true
-witness_target=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-project-mode.sh" --witness "$(basename "$PROJ")") || {
-  echo "actionable: landed $BRANCH but could not read the registered witness target; arm bin/fm-post-merge.sh for $ID before cleanup" >&2
+if [ "$after" = "$before" ]; then
+  echo "merged $BRANCH into local $DEFAULT ($(git -C "$PROJ" rev-parse --short "$before") -> $(git -C "$PROJ" rev-parse --short "$after")) in $PROJ"
   exit 0
-}
-if [ -n "$witness_target" ]; then
-  arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" --witness "$witness_target" 2>&1) || {
-    echo "actionable: landed $BRANCH but post-merge watch could not be armed for $ID: $arm_out" >&2
-    exit 0
-  }
-else
-  arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" --no-witness 'project has no registered witness target' 2>&1) || {
-    echo "actionable: landed $BRANCH but post-merge watch could not be armed for $ID: $arm_out" >&2
-    exit 0
-  }
 fi
+arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" 2>&1) || {
+  echo "error: landed $BRANCH but post-merge watch could not be armed: $arm_out" >&2
+  printf 'retry: FM_HOME=%q FM_STATE_OVERRIDE=%q %q arm %q\n' \
+    "$FM_HOME" "$STATE" "$SCRIPT_DIR/fm-post-merge.sh" "$ID" >&2
+  exit 1
+}
 printf '%s\n' "$arm_out"
 echo "merged $BRANCH into local $DEFAULT ($(git -C "$PROJ" rev-parse --short "$before") -> $(git -C "$PROJ" rev-parse --short "$after")) in $PROJ"

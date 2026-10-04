@@ -445,6 +445,9 @@ cmd_arm() {
     fi
     witness=$registered_witness
     witness_choice=witness
+  elif [ -n "$(meta_get post_merge_watch_required)" ] && [ -z "$witness_choice" ]; then
+    witness_choice=no-witness
+    no_witness_reason='project has no registered witness target'
   fi
   [ -n "$witness_choice" ] || die "choose exactly one of --witness <url> or --no-witness <reason>"
   mode=$(meta_get mode)
@@ -480,6 +483,7 @@ cmd_arm() {
   if record_present && [ "$(rget spawn_gen)" = "$gen" ]; then
     old_phase=$(rget phase)
     if [ "$(rget merge_commit)" = "$merge" ]; then
+      fm_post_merge_watch_required_set "$STATE" "$META" '' || die "watch for $ID exists but its pending marker could not be cleared; retry bin/fm-post-merge.sh arm $ID"
       echo "armed: post-merge watch for $ID on $(short "$merge") is already in phase $old_phase"
       exit 0
     fi
@@ -503,6 +507,7 @@ cmd_arm() {
       "merged_at=$(now)" "grace=$grace" "witness=$witness" \
       "no_witness_reason=$no_witness_reason" "phase=$phase"
   fi
+  fm_post_merge_watch_required_set "$STATE" "$META" '' || die "watch for $ID was recorded but its pending marker could not be cleared; retry bin/fm-post-merge.sh arm $ID"
   if [ "$witness_choice" = no-witness ]; then log_no_witness "$no_witness_reason"; fi
   echo "armed: post-merge watch for $ID on $(short "$merge") (phase $phase)"
   [ "$phase" != witness ] || echo "witness: a witness must use $witness; fill its instructions from bin/fm-post-merge.sh witness-task $ID"
