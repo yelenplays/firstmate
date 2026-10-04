@@ -1,0 +1,40 @@
+{
+  "eligibility": {
+    "eligible": true,
+    "reason": "not-a-vault"
+  },
+  "evidence": {
+    "head": "4f541c77171e5c733237319e6a0501fc47d5817a",
+    "base": "5c846aae39c877768a460feeb4fac65ec96ec7cf",
+    "required_checks": "base main has no required checks; observed on exact head 4f541c77171e5c733237319e6a0501fc47d5817a: Behavior portable parallel 1=success, Behavior portable parallel 2=success, Behavior portable parallel 3=success, Behavior portable serial 1=success, Behavior portable serial 2=success, Behavior portable serial 3=success, Behavior portable serial 4=success, Behavior portable serial 5=success, Behavior portable serial 6=success, Behavior portable serial 7=success, Behavior portable serial 8=success, Behavior portable serial 9=success, Behavior tests (Herdr)=success, Behavior timing aggregate=success, Lint 1=success, Lint 2=success, PR must be raised via no-mistakes=failure, Repo invariants=success, Stock macOS Bash snapshot compatibility=success, Test coverage guard=success; NOT passing: PR must be raised via no-mistakes (failure)",
+    "pipeline": "MISSING: the delivery mode is not recorded, so the pipeline result cannot be placed",
+    "independent_review": "MISSING: no task record is bound to this target, so no independent review can be read",
+    "builder_family": "MISSING: builder family not recorded in the task record",
+    "reviewer_family": "MISSING: no reviewer family for this head",
+    "qa": "N/A: no agent team serves firstmate; QA proofs apply to team projects only",
+    "tests": "N/A: a pull request's tests run as its checks (see required_checks)",
+    "change": "feat: add Jev merge gate in shadow mode. Adopt korallis/agent-stack (https://github.com/korallis/agent-stack, Apache-2.0) into Firstmate, rebuilt on the Mac in this repo's idiom with his code and docs as the spec. This task is one item of the plan agreed in a grill on 2026-10-03. Original ask: \"Oh I think we should copy everything from him and combine it with our workflow. His Jev deciding is great! I want Jev to decide merges alone as well. Let's grill a lot from it.\" Decisions agreed in the grill: Original ask: \"Oh I think we should copy everything from him and combine it with our workflow. His Jev deciding is great! I want Jev to decide merges alone as well. Let's grill a lot from it.\" 1. When Jev is confident (act band), it merges alone. When Jev is unsure, a reviewer from a different AI family than the builder confirms the exact commit and then it merges. Without that confirmation i",
+    "scope": "scope (from the diff): code change, 6 non-test path(s): .agents/skills/ship-landing/SKILL.md, NOTICE, bin/fm-jev-merge-gate.sh, docs/configuration.md, docs/scripts.md, licenses/agent-stack-LICENSE (plus 2 test path(s))",
+    "blast_radius": "blast radius (from the diff): 8 path(s), +2107/-0 lines; 5 added, 0 removed, 0 renamed; areas: docs (2), tests (2), (root) (1), .agents (1), bin (1), licenses (1); flags: none",
+    "mergeability": "state: OPEN; mergeable: CONFLICTING; merge state: DIRTY; draft: false",
+    "deploy_effect": "MISSING: not stated (fact: no workflow on main runs on push and mentions deploying; an external host may still deploy on merge)",
+    "rollback": "MISSING: no rollback procedure supplied or configured"
+  },
+  "input": {
+    "pr": "yelenplays/firstmate#100",
+    "head": "4f541c77171e5c733237319e6a0501fc47d5817a",
+    "base": "5c846aae39c877768a460feeb4fac65ec96ec7cf",
+    "change": "feat: add Jev merge gate in shadow mode. Adopt korallis/agent-stack (https://github.com/korallis/agent-stack, Apache-2.0) into Firstmate, rebuilt on the Mac in this repo's idiom with his code and docs as the spec. This task is one item of the plan agreed in a grill on 2026-10-03. Original ask: \"Oh I think we should copy everything from him and combine it with our workflow. His Jev deciding is great! I want Jev to decide merges alone as well. Let's grill a lot from it.\" Decisions agreed in the grill: Original ask: \"Oh I think we should copy everything from him and combine it with our workflow. His Jev deciding is great! I want Jev to decide merges alone as well. Let's grill a lot from it.\" 1. When Jev is confident (act band), it merges alone. When Jev is unsure, a reviewer from a different AI family than the builder confirms the exact commit and then it merges. Without that confirmation i\nscope (from the diff): code change, 6 non-test path(s): .agents/skills/ship-landing/SKILL.md, NOTICE, bin/fm-jev-merge-gate.sh, docs/configuration.md, docs/scripts.md, licenses/agent-stack-LICENSE (plus 2 test path(s))\nblast radius (from the diff): 8 path(s), +2107/-0 lines; 5 added, 0 removed, 0 renamed; areas: docs (2), tests (2), (root) (1), .agents (1), bin (1), licenses (1); flags: none",
+    "review": "MISSING: no task record is bound to this target, so no independent review can be read\nMISSING: the delivery mode is not recorded, so the pipeline result cannot be placed\nN/A: no agent team serves firstmate; QA proofs apply to team projects only",
+    "ci": "base main has no required checks; observed on exact head 4f541c77171e5c733237319e6a0501fc47d5817a: Behavior portable parallel 1=success, Behavior portable parallel 2=success, Behavior portable parallel 3=success, Behavior portable serial 1=success, Behavior portable serial 2=success, Behavior portable serial 3=success, Behavior portable serial 4=success, Behavior portable serial 5=success, Behavior portable serial 6=success, Behavior portable serial 7=success, Behavior portable serial 8=success, Behavior portable serial 9=success, Behavior tests (Herdr)=success, Behavior timing aggregate=success, Lint 1=success, Lint 2=success, PR must be raised via no-mistakes=failure, Repo invariants=success, Stock macOS Bash snapshot compatibility=success, Test coverage guard=success; NOT passing: PR must be raised via no-mistakes (failure)",
+    "limits": "target branch main at 5c846aae39c877768a460feeb4fac65ec96ec7cf; head branch fm/agentstack-jev-merge-gate-v1\nstate: OPEN; mergeable: CONFLICTING; merge state: DIRTY; draft: false\ndelivery mode: unknown\ndeploy effect: MISSING: not stated (fact: no workflow on main runs on push and mentions deploying; an external host may still deploy on merge)\nrollback: MISSING: no rollback procedure supplied or configured"
+  },
+  "problems": [
+    "checks on this head not passing: PR must be raised via no-mistakes",
+    "no task record, so no independent review",
+    "the delivery mode is unknown",
+    "GitHub mergeable: CONFLICTING",
+    "the branch has merge conflicts"
+  ],
+  "escalations": []
+}
