@@ -1603,10 +1603,10 @@ The vault's `cloud` flag bounds what the worker may open: `ja` gets that full la
 When `<wikis-root>/ProjektWiki/wiki/<project>/<project>.md` exists it is named first.
 A missing token or unreadable estate gets a fallback line pointing at the routing cards; unresolved names are listed with the same guidance while other resolved wikis still render, and none of these conditions fails the scaffold.
 
-Independent of wiki configuration, every ship and scout brief carries a `# Prior art` step: a short timebox before building that checks past reports and task records (`bin/fm-jev-intake-match.sh`), the matching wiki (routing cards or `bin/fm-wiki-ask.sh`, bounded by the cloud flag), and GitHub (`ketch code`, `gh-axi`), with findings recorded in the task's guide.
-The step is skippable for a trivial fix with a stated reason, and an unavailable source is noted and skipped rather than waited on; a secondmate charter does not carry it.
+Independent of wiki configuration, every ship and scout brief carries a `# Prior art` step: a short timebox before building that checks past reports and task records (`bin/fm-jev-intake-match.sh`), the matching wiki (routing cards or `bin/fm-wiki-ask.sh`, bounded by the cloud flag), and GitHub (`ketch code`, `gh-axi`). Ship findings go in the task's guide; scout findings go in a `Prior art` section of the already-required `report.md`, not a new guide deliverable.
+The step is skippable for a trivial fix with a stated reason in the same destination, and an unavailable source is noted there and skipped rather than waited on; a secondmate charter does not carry it.
 
-The same configuration adds a `# Wiki guide` step: before reporting done, the worker writes a topic-named guide draft with its GitHub prior-art findings to `data/<task-id>/guide.md` in the firstmate home, or `no guide: <reason>`, and never writes into a vault; a separate lander files the draft.
+The same configuration adds a `# Wiki guide` step: before reporting done, the worker writes a topic-named guide draft with reusable task knowledge and useful sources to `data/<task-id>/guide.md` in the firstmate home, or `no guide: <reason>`, and never writes into a vault; a separate lander files the draft.
 `bin/fm-teardown.sh` refuses cleanup of a ship or scout task whose brief carries the guide marker while that file is absent; briefs without the marker are unaffected, and `--force` skips the check.
 The draft opens with `target: <vault name or card id>`, `topic: <kebab-slug>`, and `action: new` or `action: update <page path>` lines ([`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) owns the parse); the vault's cloud flag is always looked up in the estate, never taken from the draft.
 

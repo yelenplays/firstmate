@@ -84,7 +84,7 @@
 # from the project's registry wiki token and a "# Wiki guide" step whose marker
 # bin/fm-teardown.sh enforces; bin/fm-wiki-lib.sh owns both.
 # Every ship and scout brief also carries a bounded, skippable "# Prior art" step
-# (past reports, wikis, GitHub) whose findings go into the task's guide.
+# (past reports, wikis, GitHub); findings go in the ship guide or scout report.
 # Both crewmate scaffolds carry one shared rule against administering the
 # infrastructure every lane shares - the no-mistakes daemon and the worktree pool
 # their own slot came from - so ship and scout cannot drift apart. A secondmate
@@ -588,16 +588,23 @@ IFS= read -r -d '' SHARED_INFRA_RULE <<'EOF' || true
 EOF
 SHARED_INFRA_RULE=${SHARED_INFRA_RULE%$'\n'}
 
-# One shared prior-art step keeps ship and scout briefs identical. It is bounded
-# and skippable, and an unavailable source never blocks the task.
+# Share prior-art checks between ship and scout, but keep findings within each
+# brief's existing deliverable boundary.
+if [ "$KIND" = scout ]; then
+  PRIOR_ART_DESTINATION="Record findings in a 'Prior art' section of \`report.md\`, with links, each marked adopt, adapt, or reject. Do not create or use a guide for prior-art findings."
+  PRIOR_ART_SKIP_DESTINATION="A trivial fix may skip this step with a one-line stated reason in \`report.md\`; a source that is missing, unconfigured, or not answering is noted there and skipped, never waited on."
+else
+  PRIOR_ART_DESTINATION="Record what you found in the task's guide with links, each marked adopt, adapt, or reject."
+  PRIOR_ART_SKIP_DESTINATION="A trivial fix may skip this step with a one-line stated reason in the guide; a source that is missing, unconfigured, or not answering is noted there and skipped, never waited on."
+fi
 IFS= read -r -d '' PRIOR_ART_SECTION <<EOF || true
 # Prior art
 Before you build, spend a short timebox (about ten minutes) checking what already exists, then continue; never let this block the task.
 1. Past work: \`$FM_ROOT/bin/fm-jev-intake-match.sh "<one-line description of this task>"\` for earlier reports and task records, then read any \`data/<id>/report.md\` it names.
 2. Wikis: pick the matching vault from the routing cards, or run \`$FM_ROOT/bin/fm-wiki-ask.sh "<question>"\` where an engine is configured; respect each vault's cloud flag and never open a private one.
 3. GitHub: \`ketch code "<symbol or idea>"\` and \`gh-axi\` search for existing implementations, issues, and PRs.
-Record what you found in the task's guide with links, each marked adopt, adapt, or reject.
-A trivial fix may skip this step with a one-line stated reason in the guide; a source that is missing, unconfigured, or not answering is noted there and skipped, never waited on.
+$PRIOR_ART_DESTINATION
+$PRIOR_ART_SKIP_DESTINATION
 EOF
 PRIOR_ART_SECTION=${PRIOR_ART_SECTION%$'\n'}
 

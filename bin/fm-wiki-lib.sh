@@ -200,7 +200,7 @@ Before you append \`done:\`, write a guide draft to \`$guide\`; you may write th
 Never write into a wiki vault yourself; a lander files the draft later.
 Name the guide by its topic, not by this task, and check the target vault's entry page for an existing guide on that topic first so you update it rather than duplicate it.
 Open the file with exactly these three header lines, before any other text: \`target: <vault name or card id>\`, \`topic: <kebab-case-slug>\`, and \`action: new\` or \`action: update <existing page path>\`; the lander looks up the vault's cloud flag itself.
-Then write the body: how it works, what we did, what worked, pitfalls, sources, and the GitHub prior-art findings you checked, each marked adopt, adapt, or reject with why.
+Then write the body: how it works, what we did, what worked, pitfalls, and useful sources.
 A trivial task may write a single line to add to an existing guide; a task with truly nothing reusable writes \`no guide: <reason>\`.
 Cleanup refuses while this file is absent.
 EOF

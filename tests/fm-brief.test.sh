@@ -979,7 +979,7 @@ test_ship_and_scout_carry_advisory_jev_rule() {
   pass "fm-brief.sh: ship and scout scaffolds carry the advisory Jev-first rule"
 }
 
-test_ship_and_scout_carry_bounded_prior_art_step() {
+test_ship_and_scout_prior_art_uses_authorized_deliverable() {
   local home kind id brief
   home="$TMP_ROOT/prior-art-home"
   mkdir -p "$home/data"
@@ -993,16 +993,14 @@ test_ship_and_scout_carry_bounded_prior_art_step() {
     fi
     brief="$home/data/$id/brief.md"
     assert_grep "# Prior art" "$brief" "$kind brief has no prior-art section"
-    assert_grep "$ROOT/bin/fm-jev-intake-match.sh" "$brief" "$kind brief did not name the past-work matcher"
-    assert_grep "$ROOT/bin/fm-wiki-ask.sh" "$brief" "$kind brief did not name the wiki ask path"
-    assert_grep "ketch code" "$brief" "$kind brief did not name GitHub prior-art search"
-    assert_grep "gh-axi" "$brief" "$kind brief did not name gh-axi search"
-    assert_grep "timebox" "$brief" "$kind brief did not bound the prior-art step"
-    assert_grep "may skip this step with a one-line stated reason" "$brief" "$kind brief did not keep the step skippable"
-    assert_grep "never waited on" "$brief" "$kind brief let an unavailable source block"
-    assert_grep "adopt, adapt, or reject" "$brief" "$kind brief did not route findings to the guide"
+    if [ "$kind" = scout ]; then
+      assert_grep "Record findings in a 'Prior art' section of" "$brief" "scout prior-art output is not its report"
+      assert_grep "Do not create or use a guide for prior-art findings" "$brief" "scout prior-art creates an unauthorized guide deliverable"
+    else
+      assert_grep "Record what you found in the task's guide" "$brief" "$kind prior-art output is not the task guide"
+    fi
   done
-  pass "fm-brief.sh: ship and scout scaffolds carry the bounded, skippable prior-art step"
+  pass "fm-brief.sh: prior-art findings use each brief's authorized deliverable"
 }
 
 test_scout_and_secondmate_load_decision_hold_policy() {
@@ -1479,7 +1477,7 @@ test_secondmate_directory_paths_are_absolute_and_output_is_stable
 test_pause_verb_override_renders_all_brief_scaffolds
 test_ship_and_scout_teach_validation_round_pause
 test_ship_and_scout_carry_advisory_jev_rule
-test_ship_and_scout_carry_bounded_prior_art_step
+test_ship_and_scout_prior_art_uses_authorized_deliverable
 test_scout_and_secondmate_load_decision_hold_policy
 test_scout_and_secondmate_scaffold
 test_scout_lavish_line_follows_presentation_floor
