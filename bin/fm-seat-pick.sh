@@ -50,7 +50,9 @@
 #   team). Every attempted call appends one JSONL record without the task text:
 #     ${FM_STATE_OVERRIDE:-$FM_HOME/state}/jev-seat-pick.jsonl
 #
-# reroute: deterministic, plan only - it never moves anything. stdin is
+# reroute: deterministic, plan only - it never moves anything. The team
+#   dispatch from plan item 8 will apply the plan; nothing applies it until
+#   then. stdin is
 #   { seats: [...], rows: [...], moved: [<row id>...] } where a row is
 #   { id, state, destination, role, updated, tags, author_family,
 #     exclude_families } (role is required only when the seat is gone)
