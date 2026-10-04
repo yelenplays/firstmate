@@ -99,7 +99,7 @@ Each effective `FM_HOME` contains private operational directories.
 Firstmate reads these clones, but changes them only through the narrow guarded and concrete captain-approved exceptions in `AGENTS.md`.
 `data/` holds durable private fleet records such as the project and secondmate registries, captain preferences, optional shared captain preferences, learnings, backlog, briefs, scout reports, saved browser routes under `data/browser-routes/`, and explicitly installed content-addressed extension packages under `data/extensions/packages/`.
 `data/history/` stores this home's private conversation journal, task cards, and daily Logbooks; `bin/fm-history.sh` owns their formats, capture, search, and daily-generation behavior.
-`state/.history-cursor` tracks incremental transcript capture and the latest available token usage for compaction journaling; `state/jev-history-find.jsonl` keeps metadata-only Jev search records.
+`state/.history-cursor` tracks incremental transcript capture and the latest available token usage for compaction journaling; `state/jev-history-find.jsonl` keeps metadata-only Jev search records, whose outbound candidate fields are owned by the [`fm-history.sh` header](../bin/fm-history.sh).
 Untracked files and directories whose names begin with `scratchpad` are also gitignored, so temporary scratch does not make porcelain-based secondmate sync guards treat a home as dirty.
 
 ### Format and lifecycle references
@@ -1451,6 +1451,13 @@ The background record may not exist yet when firstmate handles the wake; the dra
 Automatic calls supply only the task ID and done line, without the optional acceptance, report, or PR inputs.
 The script header owns flags, output lines, exit codes, and the log path and schema.
 Behavioral regressions in [`tests/fm-jev-done-verify.test.sh`](../tests/fm-jev-done-verify.test.sh) use fake transport to exercise presentation selection, concurrent deduplication, whitespace normalization, state overrides, empty credentials, and both sides of the data boundary.
+
+## Jev merge gate (shadow)
+
+[`bin/fm-jev-merge-gate.sh`](../bin/fm-jev-merge-gate.sh) compares Jev's exact-head merge assessment with firstmate's decision for GitHub PRs and local-only landings.
+It is shadow-only: firstmate continues to decide and merge as before, and the gate never grants or blocks merge authority.
+The script header and `--help` own its evidence, privacy, team-QA, deploy configuration, logging, and eval contracts; the [`ship-landing`](../.agents/skills/ship-landing/SKILL.md) skill owns when operators run and record the gate.
+See [`tests/fm-jev-merge-gate.test.sh`](../tests/fm-jev-merge-gate.test.sh) for behavioral regression coverage.
 
 ## Jev skill selector (FM_JEV_SKILL_SELECT)
 

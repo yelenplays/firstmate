@@ -177,6 +177,7 @@ test_shadow_default_writes_json_not_status() {
   assert_contains "$(cat "$LOG/body")" '"none"' "Choice includes none"
   assert_contains "$(cat "$LOG/body")" 'Find and explain pager workflows.' "Choice includes the real skill description"
   assert_equals $'curl:clean\ncurl:clean' "$(cat "$LOG/child-env")" "the API key is absent from the curl environment"
+  jq -e '.questions.skill.criteria.pager.what == "Find and explain pager workflows." and .questions.skill.criteria.pager.signals == ["the safe request asks for work covered by: Find and explain pager workflows."]' "$LOG/first-body" >/dev/null || fail "shadow candidate scorecard signals must derive from its description"
   jq -e '.questions.fit_pager.criteria | keys == ["false", "true"]' "$LOG/body" >/dev/null || fail "Noul wire criteria"
   jq -e '.state.candidates | any(.id == "pager" and (.evidence | contains("Use pager workflows.")))' "$LOG/body" >/dev/null || fail "independent questions need procedure evidence"
   pass "default shadow writes JSON, skips status, and does not load skills"
@@ -430,14 +431,14 @@ PYTHON
   expect_code 0 "$code" "live full-roster select succeeds: $err"
   jq -e '.questions.skill.criteria | length == 105' "$LOG/body" >/dev/null \
     || fail "live must offer all 103 installed skills plus none and search_external"
-  jq -e '.questions.skill.criteria.unreviewed == "Installed skill unreviewed"' "$LOG/body" >/dev/null \
+  jq -e '.questions.skill.criteria.unreviewed.what == "Installed skill unreviewed"' "$LOG/body" >/dev/null \
     || fail "a skill outside config/jev-skill-public.json must stay offered with id-only text"
   assert_not_contains "$(cat "$LOG/body")" 'Unreviewed local notes' \
     "an unapproved skill description must never reach Jev"
-  jq -e '.questions.skill.criteria["typesafe-ai"] == "Build AI-powered software with TypeSafe typed questions."' "$LOG/body" >/dev/null \
+  jq -e '.questions.skill.criteria["typesafe-ai"].what == "Build AI-powered software with TypeSafe typed questions."' "$LOG/body" >/dev/null \
     || fail "live candidate must carry the flattened front-matter description"
-  jq -e '.questions.skill.criteria["skill-001"] == "Handle workflow 001."' "$LOG/body" >/dev/null \
-    || fail "every live candidate must carry its own description"
+  jq -e '.questions.skill.criteria["skill-001"].what == "Handle workflow 001." and .questions.skill.criteria["skill-001"].signals == ["the task needs the procedure described by: Handle workflow 001."]' "$LOG/body" >/dev/null \
+    || fail "every live candidate must carry its description-derived signal"
   jq -e '.status == "clear" and .primary == "typesafe-ai" and .catalog_truncated == false
       and (.skills | index("typesafe-ai") != null) and .live_loaded == false' \
     "$HOME_DIR/state/t-live-roster.jev-skills.json" >/dev/null \
@@ -481,8 +482,8 @@ PYTHON
     || fail "260 skills must split into Choices of 253 and 7 skills, each within the 255-option ceiling"
   jq -e '[.questions[] | .criteria | keys[] | select(. != "none" and . != "search_external")] | length == 260' "$LOG/body" >/dev/null \
     || fail "every installed skill must be enumerated exactly once"
-  jq -e '.questions.skill.criteria["bare-1"] == "Installed skill bare-1"
-      and .questions.skill_2.criteria["skill-256"] == "Handle workflow 256."' "$LOG/body" >/dev/null \
+  jq -e '.questions.skill.criteria["bare-1"].what == "Installed skill bare-1"
+      and .questions.skill_2.criteria["skill-256"].what == "Handle workflow 256."' "$LOG/body" >/dev/null \
     || fail "undescribed skills must stay offered with id-only text"
   jq -e '.status == "clear" and .primary == "skill-256" and .confidence == 0.85
       and .skills[0:2] == ["skill-256", "skill-010"] and .catalog_truncated == false' \
