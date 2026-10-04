@@ -168,6 +168,7 @@ SH
   pass "the no-lib sidecar resolves its account map from its own home"
 }
 
+# shellcheck disable=SC2016 # The inner script expands its own variables.
 test_bounded_account_calls() {
   printf 'SlashpipeCoding Slashpipe\n' > "$HOME_DIR/config/gh-account-by-owner"
   local out status=0
