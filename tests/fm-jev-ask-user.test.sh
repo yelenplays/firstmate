@@ -188,6 +188,47 @@ test_escalates_contact_data_before_jev() {
   pass "fm-jev-ask-user: email and phone data are refused before Jev"
 }
 
+test_escalates_incomplete_contract_and_steers() {
+  local code out section
+  for section in intent spec; do
+    world
+    if [ "$section" = intent ]; then
+      cat > "$HOME_DIR/data/t1/brief.md" <<'EOF'
+# Task
+## Captain's intent
+
+## Firstmate spec
+- Fix bin/parse.sh and add a regression test.
+EOF
+    else
+      cat > "$HOME_DIR/data/t1/brief.md" <<'EOF'
+# Task
+## Captain's intent
+Make the parser keep every field.
+
+## Firstmate spec
+EOF
+    fi
+    answer in-scope-fix 0.99 in-scope-fix 0.99
+    run code out t1 "$GATE" --round 1
+    assert_equals "$code" 2 "a brief missing its $section escalates"
+    assert_contains "$out" "ESCALATE $GATE no-contract" "an incomplete contract is named"
+    assert_equals "$(calls)" 0 "an incomplete contract never reaches Jev"
+    assert_absent "$LOG/send-args" "an incomplete contract never answers the gate"
+  done
+
+  world
+  printf 'schema=fm-task-inbox.v1\nat=2026-10-04T20:03:00Z\nsteer without separator\n' \
+    > "$HOME_DIR/state/t1.inbox/002.msg"
+  answer in-scope-fix 0.99 in-scope-fix 0.99
+  run code out t1 "$GATE" --round 1
+  assert_equals "$code" 2 "a steer record without its separator escalates"
+  assert_contains "$out" "ESCALATE $GATE steer-record" "the malformed steer is named"
+  assert_equals "$(calls)" 0 "a partial steer history never reaches Jev"
+  assert_absent "$LOG/send-args" "a partial steer history never answers the gate"
+  pass "fm-jev-ask-user: incomplete contracts and steer records escalate"
+}
+
 test_escalates_low_confidence() {
   local code out
   world
@@ -370,6 +411,7 @@ test_send_failure_reports_error() {
 test_act_sends_jev_decision_with_resolve_key
 test_security_screen_escalates_cross_tenant_finding
 test_escalates_contact_data_before_jev
+test_escalates_incomplete_contract_and_steers
 test_escalates_low_confidence
 test_escalates_out_of_scope_class
 test_escalates_jev_errors

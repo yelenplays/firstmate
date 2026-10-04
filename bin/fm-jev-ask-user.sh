@@ -207,7 +207,8 @@ fm_jev_key_configured || escalate jev-unavailable "no Jev key is configured"
 BRIEF="$FM_HOME/data/$TASK/brief.md"
 INTENT=$(fm_brief_task_heading_body "$BRIEF" "## Captain's intent")
 SPEC=$(fm_brief_task_heading_body "$BRIEF" "## Firstmate spec")
-[ -n "$INTENT$SPEC" ] || escalate no-contract "the brief has no Captain's intent or Firstmate spec to judge scope against"
+[ -n "$INTENT" ] && [ -n "$SPEC" ] \
+  || escalate no-contract "the brief needs both Captain's intent and Firstmate spec to judge scope against"
 STEERS=
 # Sequence numbers are unique across the inbox and handled/, so one sort
 # restores send order.
@@ -223,7 +224,8 @@ inbox_records() {
 }
 n=0
 while IFS= read -r record; do
-  body=$(fm_task_inbox_body "$record") || continue
+  body=$(fm_task_inbox_body "$record") \
+    || escalate steer-record "a steer record cannot be read or lacks its separator; the accepted contract is incomplete"
   n=$((n + 1))
   STEERS="${STEERS}[$n] $body"$'\n'
 done < <(inbox_records)
