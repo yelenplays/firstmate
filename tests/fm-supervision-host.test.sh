@@ -2893,11 +2893,10 @@ test_superseded_host_leaves_the_owner_untouched() {
 
 # Every case builds its own home under $TMP_ROOT and shares no other state, and
 # each waits on real watcher polls, so the suite is wall-clock bound rather than
-# CPU bound: run at most FM_SUPERVISION_HOST_TEST_JOBS cases at once (default 3)
-# and replay their output in the order they were queued. A case that fails still
-# lets the rest finish, so one CI run reports every failure.
-CASE_JOBS=${FM_SUPERVISION_HOST_TEST_JOBS:-3}
-case "$CASE_JOBS" in '' | *[!0-9]* | 0) CASE_JOBS=1 ;; esac
+# CPU bound: run at most three cases at once and replay their output in the
+# order they were queued. A case that fails still lets the rest finish, so one
+# CI run reports every failure.
+CASE_JOBS=3
 QUEUED_CASES=()
 queue_case() { QUEUED_CASES+=("$1"); }
 
