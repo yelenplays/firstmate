@@ -55,7 +55,7 @@ done
 # line. Unprojected API results can expose private content and clone tokens.
 api_scalar() { # endpoint jq-expression
   local out
-  out=$(gh-axi api "$1" --jq "$2" 2>/dev/null) || return 1
+  out=$(fm_gh_run gh-axi api "$1" --jq "$2" 2>/dev/null) || return 1
   printf '%s\n' "$out" | awk '
     /^api_response:$/ { response++ ; next }
     /^  body: / { n++; value=substr($0, 9); next }

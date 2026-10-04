@@ -28,6 +28,8 @@
 #   clear, compact          `--reemit` digest only when this lock owner recorded
 #                           a completed full startup; otherwise a full digest,
 #                           so a startup killed mid-sweep is finished first
+#                           A compact re-emit is the slim digest (bin/fm-session-start.sh --full
+#                           prints the whole report).
 #   resume, reload, fork    delegate to the nudge wrapper. Prior context is
 #                           restored on these, so re-running is redundant when
 #                           this process still holds the lock (the nudge stays

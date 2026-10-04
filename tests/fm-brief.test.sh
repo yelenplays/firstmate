@@ -1043,6 +1043,12 @@ test_scout_and_secondmate_scaffold() {
   assert_present "$brief" "scout brief was not scaffolded"
   assert_grep "SCOUT task" "$brief" "scout brief must declare itself a scout task"
   assert_grep "report.md" "$brief" "scout brief must point at the report deliverable"
+  # shellcheck disable=SC2016 # Literal backticks match the generated brief text.
+  assert_grep 'including `report.html` or `report.pdf` only when requested' "$brief" "scout brief must preserve visual result files only when requested"
+  assert_grep 'every additional result file explicitly named' "$brief" "scout brief must preserve explicitly named result files"
+  assert_grep 'each additional named result file exist under' "$brief" "scout brief must verify durable result output before completion"
+  assert_grep "the only files you may write outside it are \`report.md\` and the task's explicitly named result files under \`$BRIEF_HOME/data/brief-scout-q6/\`, plus the status file below" "$brief" \
+    "scout write boundary must authorize named deliverables only in its durable directory"
   assert_grep "## Captain's intent" "$brief" "scout brief missing Captain's intent subsection"
   assert_grep "## Firstmate spec" "$brief" "scout brief missing Firstmate spec subsection"
   assert_grep "{FIRSTMATE_SPEC}" "$brief" "scout brief missing the spec placeholder"

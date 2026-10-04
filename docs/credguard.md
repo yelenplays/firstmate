@@ -3,7 +3,7 @@
 This document is the human-readable contract for the credential read guard.
 `bin/fm-credguard-read.mjs` is the single decision owner and the hook entry point for every wired harness.
 `bin/fm-credguard-install.mjs` owns wiring it into each harness's user-level hook surface.
-Both are ported from [korallis/agent-stack](https://github.com/korallis/agent-stack) (`system/credguard-read-hook` and `system/credguard-read-install`) under the Apache License 2.0; see [`NOTICE`](../NOTICE) and [`LICENSES/Apache-2.0`](../LICENSES/Apache-2.0).
+Both are ported from [korallis/agent-stack](https://github.com/korallis/agent-stack) (`system/credguard-read-hook` and `system/credguard-read-install`) under the Apache License 2.0; see [`NOTICE`](../NOTICE) and [`LICENSES/agent-stack-Apache-2.0`](../LICENSES/agent-stack-Apache-2.0).
 
 ## Purpose and boundary
 

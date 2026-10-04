@@ -10,6 +10,7 @@ metadata:
 
 A completed scout must leave a self-contained report before its scratch worktree can be discarded; read and relay its findings, record the report as the Done artifact, and re-evaluate the queue.
 A report may recommend implementation but does not authorize it.
+A cross-family reviewer scout, whose data directory holds `cross-review-request`, is collected with `bin/fm-cross-review.sh collect <task-id> <reviewer-id>` before its cleanup, because its family is read from its own record; relay a failing verdict with the reviewed task, not as a separate investigation.
 Before treating the investigation or any visual review as complete, load `captain-hold-lifecycle`; teardown enforces that shared completion gate.
 When a scout's deliverable is a visual artifact the captain will iterate on, keep it alive and follow the crew-hosted Lavish board contract in `docs/configuration.md` rather than arming or polling the board from firstmate.
 When implementation is separately authorized, promote the existing scout through `bin/fm-promote.sh` rather than creating a duplicate task.

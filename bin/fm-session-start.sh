@@ -8,8 +8,10 @@
 # data/captain.md, data/captain-shared.md, data/learnings.md, then run
 # fm-lock.sh, fm-wake-drain.sh, then read data/backlog.md, every state/*.meta,
 # and every state/*.status.
-# Every one of those reads is UNCONDITIONAL at every session start, so they
-# belong in a script, not in N agent turns.
+# Every one of those reads is unconditional on a fresh start and ordinary
+# re-emit, so they belong in a script, not in N agent turns. A compact-source
+# re-emit keeps the action-critical digest and omits bulky sources that can be
+# read on demand; --full restores the complete report.
 #
 # COMPOSITION, NOT DUPLICATION: this script calls fm-lock.sh, fm-bootstrap.sh,
 # fm-wake-drain.sh, and fm-startup-network.sh as real subprocesses and prints
@@ -47,22 +49,28 @@
 #                       detected primary harness.
 #   5. read-once contract - the do-not-re-read contract covering every source
 #                       represented by the two digests below.
-#   6. fleet digest   - a compact data/backlog.md identity/metadata listing,
-#                       every state/*.meta, a bounded state/*.status tail,
-#                       the away posture (state/.afk-contract and the legacy
-#                       state/.afk daemon flag), and a cheap per-task
-#                       endpoint-liveness read, each bounded and crash-
-#                       isolated so one task's read can never abort the
-#                       digest: read-only, always runs. The per-task reads
-#                       run serially, so with a wedged backend the stage's
-#                       ceiling is tasks x the per-read bound
-#                       (FM_SESSION_START_ENDPOINT_TIMEOUT, default 10s) and
-#                       can itself reach the digest's runtime bound.
+#   6. fleet digest   - on a full digest, a compact data/backlog.md
+#                       identity/metadata listing, every state/*.meta, a
+#                       bounded state/*.status tail, the away posture
+#                       (state/.afk-contract and the legacy state/.afk daemon
+#                       flag), and a cheap per-task endpoint-liveness read.
+#                       A slim compact re-emit omits the backlog, meta bodies,
+#                       status tails, and orphan status logs, but keeps the
+#                       away posture and one identity/endpoint/last-status line
+#                       per live task. These local sections are read-only; the
+#                       per-task reads are bounded and crash-isolated so one
+#                       cannot abort the digest. They run serially, so with a
+#                       wedged backend the stage's ceiling is tasks x the
+#                       per-read bound (FM_SESSION_START_ENDPOINT_TIMEOUT,
+#                       default 10s) and can itself reach the digest bound.
 #   7. network checks - the result of the deferred network stage started back at
 #                       step 1, harvested WITHOUT waiting for it.
-#   8. context digest - data/projects.md, data/secondmates.md, data/captain.md,
-#                       data/captain-shared.md, data/learnings.md: read-only,
-#                       always safe, always runs.
+#   8. context digest - on a full digest, data/projects.md,
+#                       data/secondmates.md, data/captain.md,
+#                       data/captain-shared.md, and data/learnings.md. A slim
+#                       compact re-emit names these sources and the command to
+#                       print the full report instead of reading their bodies.
+#                       This stage is always read-only.
 #   9. closing reminder - prints the context-specific watcher next step; this
 #                       script points back to the emitted harness supervision
 #                       block and deliberately never arms the watcher itself.
@@ -210,9 +218,11 @@
 # Hosts without timeout, gtimeout, or perl use the shared pure-Bash watchdog, so
 # the digest never runs without the same hard bound and process-group cleanup.
 #
-# Usage: fm-session-start.sh [--reemit] [--source <source>]
-#   Prints the full ordered digest to stdout and always exits 0: this is a
-#   reporting command, not a gate. A lock refusal is reported as a loud
+# Usage: fm-session-start.sh [--reemit] [--source <source>] [--full]
+#   Prints the ordered digest to stdout and always exits 0: this is a
+#   reporting command, not a gate. Compact-source re-emits are slim unless
+#   --full is supplied; all other runs print the full digest. A lock refusal
+#   is reported as a loud
 #   banner inline, never a silent failure or a non-zero exit that would make
 #   an agent skip the rest of the digest.
 #
@@ -232,6 +242,18 @@
 #             same-session Claude id as its own, so the re-emit proceeds, while
 #             a lock another live session took meanwhile still produces the
 #             ordinary read-only path.
+#
+#   --full    Print the complete digest even for a compact re-emit. A compact
+#             re-emit (--reemit --source compact) prints a SLIM digest by
+#             default: the lock line, bootstrap diagnostics, the wake queue with
+#             its WAKE_ACK_REQUIRED line (and the OPEN DECISIONS, UNREAD STATUS,
+#             and UNFINISHED EXECUTION sections the drain adds), the emitted
+#             supervision block, one line per live task, the away posture,
+#             public commitments, network checks, and the recent captain words.
+#             It drops only what one command re-derives: the compact backlog,
+#             every state/*.meta body, status tails, orphan status logs, and the
+#             curated CONTEXT files. This flag prints all of them. Every other
+#             source, and a fresh start, is always the full digest.
 #
 #   --source  The native session-open source, supplied only by
 #             fm-sessionstart-run.sh. A genuine `startup` that owns the active
@@ -257,10 +279,15 @@ AGENTS_BASELINE_FILE="$STATE/.session-start-agents-baseline"
 
 REEMIT=0
 SESSION_SOURCE=
+FULL=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --reemit)
       REEMIT=1
+      shift
+      ;;
+    --full)
+      FULL=1
       shift
       ;;
     --source)
@@ -277,11 +304,17 @@ while [ "$#" -gt 0 ]; do
       ;;
     *)
       printf 'fm-session-start: unknown argument: %s\n' "$1" >&2
-      printf 'usage: fm-session-start.sh [--reemit] [--source <source>]\n' >&2
+      printf 'usage: fm-session-start.sh [--reemit] [--source <source>] [--full]\n' >&2
       exit 2
       ;;
   esac
 done
+
+# A compact re-emit is slim unless the full report is asked for (see --full).
+SLIM=0
+[ "$REEMIT" -eq 1 ] && [ "$SESSION_SOURCE" = compact ] && [ "$FULL" -eq 0 ] && SLIM=1
+FULL_ARG=
+[ "$FULL" -eq 0 ] || FULL_ARG=--full
 
 # --- 0. runtime bound ---------------------------------------------------------
 # The ordered stage list is the contract behind the truncation banner: the child
@@ -316,20 +349,20 @@ if [ -z "${FM_SESSION_START_STAGE_FILE:-}" ]; then
     if [ -n "$SESSION_SOURCE" ]; then
       fm_run_timed "$SESSION_START_BUDGET" \
         env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-        "$SCRIPT_DIR/fm-session-start.sh" --reemit --source "$SESSION_SOURCE"
+        "$SCRIPT_DIR/fm-session-start.sh" --reemit --source "$SESSION_SOURCE" $FULL_ARG
     else
       fm_run_timed "$SESSION_START_BUDGET" \
         env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-        "$SCRIPT_DIR/fm-session-start.sh" --reemit
+        "$SCRIPT_DIR/fm-session-start.sh" --reemit $FULL_ARG
     fi
   elif [ -n "$SESSION_SOURCE" ]; then
     fm_run_timed "$SESSION_START_BUDGET" \
       env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-      "$SCRIPT_DIR/fm-session-start.sh" --source "$SESSION_SOURCE"
+      "$SCRIPT_DIR/fm-session-start.sh" --source "$SESSION_SOURCE" $FULL_ARG
   else
     fm_run_timed "$SESSION_START_BUDGET" \
       env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-      "$SCRIPT_DIR/fm-session-start.sh"
+      "$SCRIPT_DIR/fm-session-start.sh" $FULL_ARG
   fi
   SESSION_START_RC=$?
   # ANY nonzero child exit is a truncation: the banner contract promises that
@@ -601,6 +634,35 @@ fm_session_start_endpoint_read() {  # <backend> <target> [expected-label]
   ' _ "$SCRIPT_DIR/fm-backend.sh" "$backend" "$target" "$label"
 }
 
+# One line per live task for the slim compact digest: identity, endpoint verdict,
+# and the last status line. Same bounded, crash-isolated endpoint read as the
+# full digest; everything else in the meta file is one `cat` away.
+print_slim_task_line() {  # <id> <meta-file>
+  local id=$1 meta=$2 window target backend rc=0 endpoint last status
+  window=$(fm_meta_get "$meta" window)
+  target=$(fm_backend_target_of_meta "$meta")
+  if [ -z "$window" ]; then
+    endpoint='unknown (no window recorded)'
+  else
+    backend=$(fm_backend_of_meta "$meta")
+    fm_session_start_endpoint_read "$backend" "${target:-$window}" "fm-$id" || rc=$?
+    if [ "$rc" -eq 0 ]; then
+      endpoint="alive ($backend)"
+    elif [ "$rc" -eq 124 ] || [ "$rc" -ge 128 ]; then
+      endpoint="error ($backend, read died or hit its ${ENDPOINT_TIMEOUT}s bound)"
+    else
+      endpoint="dead ($backend)"
+    fi
+  fi
+  status="$STATE/$id.status"
+  if [ -f "$status" ] && [ -n "$(tail -n 1 "$status")" ]; then
+    last=$(fm_cap_line "$(tail -n 1 "$status")")
+  else
+    last='(no status yet)'
+  fi
+  printf '%s: endpoint %s; last status (event history, not current state): %s\n' "$id" "$endpoint" "$last"
+}
+
 hash_file_sha256() {
   local file=$1 digest
   [ -f "$file" ] || return 1
@@ -678,7 +740,13 @@ if [ "$REEMIT" -eq 0 ] && [ "$SESSION_SOURCE" = startup ]; then
   AGENTS_START_HASH=$(hash_file_sha256 "$FM_ROOT/AGENTS.md" 2>/dev/null || true)
 fi
 
-if [ "$REEMIT" -eq 1 ]; then
+if [ "$SLIM" -eq 1 ]; then
+  section "SESSION START (CONTEXT RE-EMIT, COMPACT) - $FM_HOME"
+  printf 'This session already holds the helm and only lost its context to a compaction.\n'
+  printf 'Lock ownership is re-verified and queued wakes are drained below; startup sweeps are\n'
+  printf 'not repeated. This is the SLIM digest: backlog, task metadata, status tails and curated\n'
+  printf 'context are omitted and print on demand (see READ-ONCE CONTRACT).\n'
+elif [ "$REEMIT" -eq 1 ]; then
   section "SESSION START (CONTEXT RE-EMIT) - $FM_HOME"
   printf 'This session already took the helm at its own startup and has only lost its\n'
   printf 'context. Lock ownership is re-verified and the durable records below are\n'
@@ -885,6 +953,18 @@ fi
 # a stage that never ran, which the truncation banner names by stage.
 stage read-once
 section "READ-ONCE CONTRACT"
+if [ "$SLIM" -eq 1 ]; then
+  cat <<EOF
+This compact digest carries only what needs action now: the lock line, bootstrap
+diagnostics, queued wakes with their acknowledgement line, the supervision block,
+one line per live task, the away posture, network checks, and the recent captain words.
+Nothing it omitted was lost; print the full report once, only if this turn needs it:
+  $SCRIPT_DIR/fm-session-start.sh --reemit --source compact --full
+Or read a single source: bin/fm-tasks-axi.sh list (backlog), state/<id>.meta and
+state/<id>.status (one task), data/captain.md, data/learnings.md, data/projects.md.
+A STARTUP TRUNCATED banner still names any stage that never ran.
+EOF
+else
 cat <<'EOF'
 Everything below is printed in full for this session start: every state/*.meta,
 a compact data/backlog.md listing, a bounded tail of every state/*.status,
@@ -907,13 +987,14 @@ Go to a source directly only when:
   - or a STARTUP TRUNCATED banner named the stage that would have printed it, in
     which case that stage's sources were never emitted and must be reconciled.
 EOF
+fi
 
 # --- 6. fleet-state digest ---------------------------------------------
 # Before CONTEXT: see this file's ORDERING note. Live fleet identity is what a
 # truncated tail must never take.
 stage fleet-state
 section "FLEET STATE"
-print_backlog_compact "$DATA/backlog.md" "data/backlog.md"
+[ "$SLIM" -eq 1 ] || print_backlog_compact "$DATA/backlog.md" "data/backlog.md"
 
 subsection "Work under way (state/*.meta)"
 META_FOUND=0
@@ -921,6 +1002,10 @@ for meta in "$STATE"/*.meta; do
   [ -f "$meta" ] || continue
   META_FOUND=1
   id=$(basename "$meta" .meta)
+  if [ "$SLIM" -eq 1 ]; then
+    print_slim_task_line "$id" "$meta"
+    continue
+  fi
   printf '\n--- %s ---\n' "$id"
   cat "$meta"
 
@@ -960,6 +1045,11 @@ for status in "$STATE"/*.status; do
   [ -f "$status" ] || continue
   id=$(basename "$status" .status)
   [ -f "$STATE/$id.meta" ] && continue
+  if [ "$SLIM" -eq 1 ]; then
+    ORPHAN_STATUS_FOUND=1
+    printf '%s: no .meta; last status: %s\n' "$id" "$(fm_cap_line "$(tail -n 1 "$status")")"
+    continue
+  fi
   ORPHAN_STATUS_FOUND=1
   printf '\n--- %s ---\n' "$id"
   print_status_tail "$status"
@@ -1042,11 +1132,17 @@ fi
 # take (see this file's ORDERING note).
 stage context
 section "CONTEXT"
+if [ "$SLIM" -eq 1 ]; then
+  printf 'omitted from the compact digest: data/projects.md, data/secondmates.md, data/captain.md,\n'
+  printf 'data/captain-shared.md, data/learnings.md. Read one when this turn needs it, or print all\n'
+  printf 'of them with: %s/fm-session-start.sh --reemit --source compact --full\n' "$SCRIPT_DIR"
+else
 print_file_or_absent "$DATA/projects.md" "data/projects.md"
 print_file_or_absent "$DATA/secondmates.md" "data/secondmates.md"
 print_file_or_absent "$DATA/captain.md" "data/captain.md"
 print_file_or_absent "$DATA/captain-shared.md" "data/captain-shared.md (shared, main-authoritative, read-only in secondmate homes)"
 print_file_or_absent "$DATA/learnings.md" "data/learnings.md"
+fi
 
 if [ "$REEMIT" -eq 1 ]; then
   section "RECENT CAPTAIN WORDS"

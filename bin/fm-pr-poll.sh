@@ -65,7 +65,18 @@ case "$provider" in
       .|..|*[!A-Za-z0-9._-]*) exit 0 ;;
     esac
     [ "$url" = "https://github.com/$owner/$repo/pull/$number" ] || exit 0
-    state=$(gh pr view "$url" --json state -q .state 2>/dev/null) || exit 0
+    # The validated watcher run uses the shared per-owner account helper; a
+    # copy without it next to it stays silent if an account map exists.
+    lib="${BASH_SOURCE[0]%/*}/fm-pr-lib.sh"
+    if [ -f "$lib" ]; then
+      # shellcheck source=bin/fm-pr-lib.sh
+      . "$lib" || exit 0
+      state=$(fm_gh_owner_run "$owner" gh pr view "$url" --json state -q .state 2>/dev/null) || exit 0
+    else
+      map_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd) || exit 0
+      [ ! -e "${FM_CONFIG_OVERRIDE:-${FM_HOME:-${FM_ROOT_OVERRIDE:-$map_root}}/config}/gh-account-by-owner" ] || exit 0
+      state=$(gh pr view "$url" --json state -q .state 2>/dev/null) || exit 0
+    fi
     [ "$state" = MERGED ] && printf '%s\n' merged
     ;;
   gitlab)
@@ -81,20 +92,20 @@ case "$provider" in
     # A GitLab project sits under at least one group at no fixed depth, and
     # GitLab reserves the "-" segment as its route separator.
     rest=$path
-    segments=0
+    segment_count=0
     while [ -n "$rest" ]; do
       case "$rest" in
-        */*) segment=${rest%%/*}; rest=${rest#*/} ;;
-        *) segment=$rest; rest= ;;
+        */*) part=${rest%%/*}; rest=${rest#*/} ;;
+        *) part=$rest; rest= ;;
       esac
-      segments=$((segments + 1))
-      [ "$segments" -le 20 ] || exit 0
-      [ "${#segment}" -ge 1 ] && [ "${#segment}" -le 255 ] || exit 0
-      case "$segment" in
+      segment_count=$((segment_count + 1))
+      [ "$segment_count" -le 20 ] || exit 0
+      [ "${#part}" -ge 1 ] && [ "${#part}" -le 255 ] || exit 0
+      case "$part" in
         .|..|-*|*.git|*.atom|*[!A-Za-z0-9._-]*) exit 0 ;;
       esac
     done
-    [ "$segments" -ge 2 ] || exit 0
+    [ "$segment_count" -ge 2 ] || exit 0
     [ "$url" = "https://$host/$path/-/merge_requests/$number" ] || exit 0
     # glab resolves the instance from the project URL passed to -R, so the host
     # comes from the validated record rather than glab's configured default.
@@ -122,20 +133,20 @@ case "$provider" in
     # group, so one segment is canonical here where GitLab needs two, and Gerrit
     # reserves no route segment inside it.
     rest=$path
-    segments=0
+    segment_count=0
     while [ -n "$rest" ]; do
       case "$rest" in
-        */*) segment=${rest%%/*}; rest=${rest#*/} ;;
-        *) segment=$rest; rest= ;;
+        */*) part=${rest%%/*}; rest=${rest#*/} ;;
+        *) part=$rest; rest= ;;
       esac
-      segments=$((segments + 1))
-      [ "$segments" -le 20 ] || exit 0
-      [ "${#segment}" -ge 1 ] && [ "${#segment}" -le 255 ] || exit 0
-      case "$segment" in
+      segment_count=$((segment_count + 1))
+      [ "$segment_count" -le 20 ] || exit 0
+      [ "${#part}" -ge 1 ] && [ "${#part}" -le 255 ] || exit 0
+      case "$part" in
         .|..|-*|*.git|*[!A-Za-z0-9._-]*) exit 0 ;;
       esac
     done
-    [ "$segments" -ge 1 ] || exit 0
+    [ "$segment_count" -ge 1 ] || exit 0
     [ "$url" = "https://$host/c/$path/+/$number" ] || exit 0
     # gerrit-axi resolves its server from the current directory's origin remote
     # first, and the watcher runs in no repository, so the host must be passed

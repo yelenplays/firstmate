@@ -1659,11 +1659,13 @@ for (const { name, actual } of rows) {
     throw new Error(`${name} was not hidden before export rendering`);
   }
 }
-async function assertStockHtmlRendering(command, submitData) {
-  editorText = command;
-  terminalInputHandler(submitData);
+// Pi 1.0.0 resolves export HTML through getToolDefinition. Pi 1.0.1 renamed that
+// dependency to getToolRenderers and ignores the old key, so a fixture that
+// passes only the old key reports every tool as missing. Supply both; each
+// release reads the key it knows and renders the same wrapped definitions.
+function createInstalledToolHtmlRenderer() {
   const resolveTool = (name) => tools.find((tool) => tool.name === name);
-  const htmlRenderer = createToolHtmlRenderer({
+  return createToolHtmlRenderer({
     getToolDefinition: resolveTool,
     getToolRenderers: (name) => {
       const tool = resolveTool(name);
@@ -1672,6 +1674,11 @@ async function assertStockHtmlRendering(command, submitData) {
     theme,
     cwd: process.cwd(),
   });
+}
+async function assertStockHtmlRendering(command, submitData) {
+  editorText = command;
+  terminalInputHandler(submitData);
+  const htmlRenderer = createInstalledToolHtmlRenderer();
   const exportCases = [
     ...cases.filter(([toolName]) => toolName === "grep" || toolName === "find"),
     ["fm_watch_arm_pi", watchArgs, watchResult],
@@ -1698,15 +1705,7 @@ await assertStockHtmlRendering("/export calm.html", "\r");
 getKeybindings().setUserBindings({ "tui.input.submit": "alt+s" });
 editorText = "/export remapped.html";
 terminalInputHandler("\r");
-const unmatchedRenderer = createToolHtmlRenderer({
-  getToolDefinition: (name) => tools.find((tool) => tool.name === name),
-  getToolRenderers: (name) => {
-    const tool = tools.find((candidate) => candidate.name === name);
-    return tool ? { renderCall: tool.renderCall, renderResult: tool.renderResult } : undefined;
-  },
-  theme,
-  cwd: process.cwd(),
-});
+const unmatchedRenderer = createInstalledToolHtmlRenderer();
 if (unmatchedRenderer.renderCall("unmatched-submit", "grep", { pattern: "alpha", path: "." })) {
   throw new Error("ordinary non-submit input activated HTML export rendering");
 }
