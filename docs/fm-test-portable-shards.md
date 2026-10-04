@@ -44,9 +44,7 @@ Each of the 24 proven-isolated candidates has three successful per-script sample
 
 ## Parallel lanes
 
-The two parallel lanes use longest-processing-time assignment over those hints, with the Pi typecheck pinned to the job that installs its prerequisite.
-[`bin/fm-test-run.sh`](../bin/fm-test-run.sh) holds the duration values in `portable_parallel_weight_hints` and the ordered memberships and lane-specific prerequisite constraints beside `list_portable_parallel_1` and `list_portable_parallel_2`.
-Read the derived packing estimates with that runner's `--check-coverage`; its header and `--help` own the output fields and the selection-specific `--list-scheduled` weight rules.
+Read the derived packing estimates with `bin/fm-test-run.sh --check-coverage`; its header and `--help` own the output fields and the selection-specific `--list-scheduled` weight rules.
 The largest individual hint sets a lower bound on the estimated duration of any split, regardless of how evenly the remaining work is assigned.
 The CI cap follows the timeout policy in [Timeouts](#timeouts) below.
 Three parallel lanes use deterministic longest-processing-time assignment over the per-script maxima.
@@ -65,7 +63,6 @@ The target was seven minutes until upstream's 2026-09-30 hint refresh, whose lon
 [`tests/fm-test-run.test.sh`](../tests/fm-test-run.test.sh) verifies that all three lanes are fully hinted, below eight minutes, and within five percent of each other.
 The largest individual hint is 347610 ms for `tests/fm-captain-hold-lifecycle.test.sh`, which is the indivisible floor for a three-way split.
 These estimates do not guarantee job wall time if a script outgrows its observed samples.
-The ten-minute CI cap and its rationale remain owned by [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 
 Refresh `portable_parallel_weight_hints` with the slowest successful `duration_ms` per script from several recent runs where all parallel jobs completed:
 
