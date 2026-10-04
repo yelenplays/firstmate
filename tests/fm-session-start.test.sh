@@ -2610,6 +2610,44 @@ EOF
   pass "--reemit reprints the digest without repeating startup's mutating sweeps and still drains queued wakes"
 }
 
+test_theme_section_follows_config_theme() {
+  local rec root home fakebin out slim theme_section
+  rec=$(new_world theme-section)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+
+  out=$(FM_FAKE_HARNESS_PID=$$ run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_not_contains "$out" "THEME" "the built-in default must print no THEME section"
+  assert_not_contains "$out" "fm-theme" "the built-in default must print no theme warning"
+
+  printf 'ny-trenches\n' > "$home/config/theme"
+  rm -f "$home/state/.session-start-complete"
+  out=$(FM_FAKE_HARNESS_PID=$$ run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  theme_section=$(printf '%s\n' "$out" | awk '/^THEME$/{flag=1;next}/^NEXT STEP$/{flag=0}flag')
+  assert_contains "$theme_section" "Theme pack: ny-trenches" "a fresh start must print the selected pack"
+  assert_contains "$theme_section" "N E W   Y O R K" "a fresh start must print the pack banner"
+  assert_contains "$theme_section" "working -> on the block" "a fresh start must print the status words"
+
+  slim=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_FAKE_HARNESS_PID=$$ PATH="$fakebin:$BASE_PATH" \
+    env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT \
+    "$SESSION_START" --reemit --source compact)
+  assert_contains "$slim" "Theme pack: ny-trenches" "a compact re-emit must keep the chat voice"
+  assert_not_contains "$slim" "N E W   Y O R K" "a compact re-emit must not repeat the banner"
+
+  printf 'no-such-theme\n' > "$home/config/theme"
+  out=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_FAKE_HARNESS_PID=$$ PATH="$fakebin:$BASE_PATH" \
+    env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT \
+    "$SESSION_START" --reemit --source compact)
+  assert_equals 1 "$(printf '%s\n' "$out" | grep -c "fm-theme: unknown theme 'no-such-theme'")" \
+    "an unknown theme must surface exactly one warning line"
+  assert_not_contains "$out" "Theme pack:" "an unknown theme must fall back to the built-in voice"
+
+  pass "the THEME section follows config/theme: absent by default, banner on a fresh start, one warning when unknown"
+}
+
 test_compact_reemit_is_slim_and_full_flag_restores_the_report() {
   local rec root home fakebin slim full sequence
   rec=$(new_world compact-slim)
@@ -3307,6 +3345,7 @@ test_runtime_bound_leaves_a_healthy_digest_untouched
 test_runtime_bound_leaves_harness_ancestry_headroom
 test_reemit_skips_startup_sweeps_but_keeps_the_wake_drain
 test_compact_reemit_is_slim_and_full_flag_restores_the_report
+test_theme_section_follows_config_theme
 test_agents_baseline_stays_at_true_start_and_reemits_on_every_drifted_pi_compact
 test_read_only_pi_compact_refreshes_against_its_own_session_identity
 test_codex_unreachable_reset_sources_do_not_claim_instruction_refresh

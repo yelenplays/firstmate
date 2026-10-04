@@ -816,6 +816,27 @@ test_view_renders_snapshot() {
   pass "fleet view renders the snapshot without secondmate peek guidance"
 }
 
+test_view_renders_theme_status_words() {
+  local home fakebin view err
+  home=$(make_home view-theme)
+  write_fixture "$home"
+  fakebin=$(make_fakebin "$home")
+  printf 'ny-trenches\n' > "$home/config/theme"
+  view=$(PATH="$fakebin:$PATH" FM_HOME="$home" "$VIEW")
+  assert_contains "$view" "| ship-task | on the block (working) / pane | ship | alpha | tmux | present |" \
+    "a theme pack should show its display word beside the canonical state"
+  PATH="$fakebin:$PATH" FM_HOME="$home" "$VIEW" --json | jq -e '[.tasks[] | select(.id == "ship-task")][0].current_state.state == "working"' >/dev/null \
+    || fail "the JSON snapshot must keep the canonical state word"
+
+  printf 'no-such-theme\n' > "$home/config/theme"
+  err="$home/view.err"
+  view=$(PATH="$fakebin:$PATH" FM_HOME="$home" "$VIEW" 2>"$err")
+  assert_contains "$view" "| ship-task | working / pane | ship | alpha | tmux | present |" \
+    "an unknown theme should fall back to the canonical words"
+  assert_equals 1 "$(wc -l < "$err" | tr -d ' ')" "an unknown theme should warn exactly once"
+  pass "fleet view shows theme status words for display only and falls back safely"
+}
+
 test_view_renders_dead_secondmate_agent_status() {
   local home fakebin view
   home=$(make_home dead-secondmate)
@@ -1206,4 +1227,5 @@ test_secondmate_summary_omits_landed_delivery_mode
 test_scout_reports_include_teardown_reports
 test_backlog_tasks_axi_forms_and_overrides
 test_view_renders_snapshot
+test_view_renders_theme_status_words
 test_view_renders_dead_secondmate_agent_status

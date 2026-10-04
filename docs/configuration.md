@@ -11,7 +11,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
 | Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), and [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
-| Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), and [Calm preference](#calm-preference-configcalm) |
+| Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), [Calm preference](#calm-preference-configcalm), and [theme pack](#theme-pack-configtheme) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
 | Who reviews finished work | [Cross-family review](#cross-family-review) |
 | Slack updates and replies | [Slack bridge](#slack-bridge-configslack-bridge) |
@@ -173,6 +173,54 @@ The Pi extension reloads this preference on every Pi `session_start`, including 
 The Claude Code mod reloads it on every `session.start`, including same-process session replacement.
 It also loads the preference lazily before any row that can draw ahead of that event, including during `claude --continue` restoration.
 This preference is local to each Firstmate home and is not part of secondmate inherited configuration.
+
+## Theme pack (config/theme)
+
+A theme pack restyles what the captain sees without touching how Firstmate works.
+The optional, gitignored one-line `config/theme` names a pack tracked under `themes/<name>/` in the code root.
+`bin/fm-theme.sh` resolves the setting, renders every themed surface, and its header owns the pack file format and subcommands.
+
+### What a pack changes
+
+| Surface | Effect |
+| --- | --- |
+| Private captain chat | The pack's voice guidance, address word, exact no-op reply, and names replace the default "captain" address, nautical seasoning, `Captain, shipshape.`, and chat vocabulary. |
+| Session-start digest | A `THEME` section prints that guidance on every digest, plus the pack's banner on a fresh start for the first captain-facing reply. |
+| Human fleet view | `bin/fm-fleet-view.sh` shows the pack's word beside each canonical worker state, for example `on the block (working)`. |
+
+Everything else stays as it is.
+Status files, status prefixes, protocol lines, script interfaces, JSON snapshots, skill names, and file names keep their canonical words.
+Every `AGENTS.md` rule keeps its substance, including the internal-term translation rules, the answer shape, and the ban on direct address in non-chat artifacts.
+Public replies, Slack bridge posts, and anything else another person can read keep the default voice.
+A pack's voice guidance must keep straight bad news and must forbid slurs and real threats.
+
+### Values and default
+
+| Value or file state | Result |
+| --- | --- |
+| Absent, empty, `nautical`, or `default` | The built-in nautical voice; no themed surface renders, so every output is unchanged. |
+| The name of a tracked pack | That pack. |
+| Any other name | The built-in voice, with one warning line from `bin/fm-theme.sh` and in the digest's `THEME` section. |
+
+`bin/fm-theme.sh set <name>` validates the name before writing the file, and `bin/fm-theme.sh set off` removes it.
+A change takes effect at the next session start; `bin/fm-theme.sh show` prints the active pack for a session already running.
+`bin/fm-theme.sh list` names the built-in default and every tracked pack.
+
+### Tracked packs
+
+| Pack | Style |
+| --- | --- |
+| `ny-trenches` | New York drill voice: the captain is the OG, firstmate is the plug, workers are the squad, scouts are lookouts, second mates are lieutenants, and a finished PR is a drop; a skyline banner and themed status words. |
+
+### Add a pack
+
+1. Create `themes/<name>/theme.conf`, where `<name>` uses lowercase letters, digits, and dashes.
+2. Add optional `themes/<name>/voice.md` guidance and `themes/<name>/banner.txt` art, and classify both in [`docs/documentation-audiences.json`](documentation-audiences.json) as `agent-runtime`.
+3. Check the rendering with `bin/fm-theme.sh show` after `bin/fm-theme.sh set <name>`.
+
+### Inheritance
+
+`config/theme` is inherited into secondmate homes under the primary-authoritative contract owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md), so every home renders the same pack.
 
 ## Hermes Agent access (config/hermes-agent.env)
 
