@@ -19,7 +19,7 @@ JSON
 cat > "$TMP_ROOT/evidence.json" <<'JSON'
 {"as_of": "2026-10-03", "sources": ["agent-stack REFERENCE.md"],
  "candidates": [
-  {"id": "opus", "harness": "claude", "model": "claude-opus-5-5", "provider": "claude", "billing": "subscription", "evidence": "strong long-horizon orchestration and review"},
+  {"id": "opus", "harness": "claude", "model": "claude-opus-5-5", "billing": "subscription", "evidence": "strong long-horizon orchestration and review"},
   {"id": "sonnet", "harness": "claude", "model": "claude-sonnet-5-5", "provider": "claude", "billing": "subscription", "evidence": "fast well-scoped implementation and UI work"},
   {"id": "fable", "harness": "claude", "model": "claude-fable-5-1", "provider": "claude", "billing": "usage-credits", "evidence": "planning and architecture"}
  ],

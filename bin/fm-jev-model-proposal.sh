@@ -24,14 +24,15 @@
 #     "sources": ["where the evidence came from", ...],      optional, never sent
 #     "candidates": [
 #       {"id": "opus", "harness": "claude", "model": "claude-opus-5-5",
-#        "provider": "claude", "billing": "subscription",
+#        "billing": "subscription",
 #        "evidence": "capability and benchmark facts for this model"}
 #     ],
 #     "roles": [{"id": "secondmate", "job": "what the role does",
 #                "current": ["pi/openai-codex/gpt-6-luna"]}]  optional
 #   }
 #   Candidate ids match [a-z0-9][a-z0-9._-]* (at most 48 characters), are
-#   unique, and are not none_fit; there are 2 to 20 candidates. `model` is the
+#   unique, and are not none_fit; there are 2 to 20 candidates. `provider` is
+#   optional and unused. `model` is the
 #   exact name the harness's own catalog uses, so it compares equal to a
 #   dispatch profile's `model`. `billing` is one of subscription,
 #   usage-credits, free, or metered. A Fable model must be marked
@@ -169,7 +170,7 @@ invalid=$(jq -r '
   elif any(.candidates[]; type != "object") then "every candidate must be an object"
   elif any(.candidates[]; (.id | idok | not) or .id == "none_fit") then "a candidate id is malformed or reserved"
   elif ([.candidates[].id] | length) != ([.candidates[].id] | unique | length) then "candidate ids must be unique"
-  elif any(.candidates[]; (.harness | text | not) or (.model | text | not) or (.provider | text | not)) then "every candidate needs harness, model, and provider"
+  elif any(.candidates[]; (.harness | text | not) or (.model | text | not)) then "every candidate needs harness and model"
   elif any(.candidates[]; .billing as $b | ["subscription", "usage-credits", "free", "metered"] | index($b) | not) then "billing must be subscription, usage-credits, free, or metered"
   elif any(.candidates[]; ((.id + " " + .model) | test("fable"; "i")) and .billing != "usage-credits") then "a Fable model must be marked billing usage-credits"
   elif any(.candidates[]; (.evidence | text | not) or (.evidence | length) > 400) then "every candidate needs evidence of at most 400 characters"
