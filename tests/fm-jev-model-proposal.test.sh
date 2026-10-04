@@ -92,7 +92,8 @@ for forbidden in \
   'planning, architecture and design decisions' \
   'persistent domain supervisor' \
   'claude-fable-5-1' \
-  'strong long-horizon orchestration and review'; do
+  'strong long-horizon orchestration and review' \
+  'jev-1.13.0'; do
   printf '# ignored\n  %s  \n' "$forbidden" > "$NEVER_SEND"
   out=$(run_tool --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/never-send.md" 2>&1); rc=$?
   [ "$rc" -eq 2 ] || fail "never-send match must refuse before calls: $rc $out"

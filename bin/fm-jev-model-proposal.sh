@@ -281,6 +281,9 @@ new_request_id() {
 }
 
 candidates=$(jq -c '.candidates' "$EVIDENCE")
+fm_jev_proposal_before_send() {
+  fm_never_send_check "$FM_HOME/config/dispatch-never-send" "$1" "request text"
+}
 questions=$(jq -c --arg untrusted "$FM_MODEL_PROPOSAL_UNTRUSTED" '
   {model: {type: "choice",
     instructions: ($untrusted + " Which listed model is best suited to own the work described in `role.job`? Judge from each candidate'"'"'s capability and benchmark evidence for that kind of work, not from price or availability."),
@@ -318,7 +321,10 @@ for ((i = 0; i < n_roles; i++)); do
   # reach this shell for the proposal header and the call log.
   if [ -z "$compact" ]; then
     error='state too large or not sendable'
-  elif ! fm_jev_decide "$compact" "$questions" > "$resp_file" 2>/dev/null; then
+  elif ! fm_jev_decide "$compact" "$questions" --before-send fm_jev_proposal_before_send > "$resp_file" 2>/dev/null; then
+    if [ "${FM_JEV_LAST_REQUEST_REJECTED:-}" = 1 ]; then
+      die "$FM_NEVER_SEND_ERROR"
+    fi
     error="Jev call failed (http ${FM_JEV_LAST_HTTP:-none})"
   else
     response=$(cat "$resp_file")
