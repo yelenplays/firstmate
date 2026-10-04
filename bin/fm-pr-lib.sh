@@ -213,6 +213,7 @@ fm_gh_run() {  # <command> [args...]; the owner comes from the first GitHub refe
 fm_gh_run_timed() {
   local seconds=$1
   shift
+  # shellcheck disable=SC2016 # Positional parameters expand in the child shell.
   fm_run_timed "$seconds" bash -c '. "$1"; shift; fm_gh_run "$@"' \
     _ "$FM_PR_LIB_ROOT/bin/fm-pr-lib.sh" "$@"
 }

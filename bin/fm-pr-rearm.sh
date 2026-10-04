@@ -23,6 +23,7 @@ rearm_one() (
   publish="$STATE/.pr-poll-publish-$id.lock"
   control_held=0
   publish_held=0
+  # shellcheck disable=SC2329 # Invoked by the EXIT trap.
   cleanup() {
     fm_pr_poll_cleanup
     [ "$publish_held" = 0 ] || fm_lock_release "$publish" || true
