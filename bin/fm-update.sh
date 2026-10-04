@@ -103,6 +103,9 @@ if [ "$FF_STATUS" = "updated" ]; then
   # this test suite uses to point fm-update.sh at a fixture checkout).
   FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" "$SCRIPT_DIR/fm-procevent-when.sh" rebind-all || true
 fi
+if [ "$FF_STATUS" = updated ] || [ "$FF_STATUS" = current ]; then
+  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_ROOT_OVERRIDE="$FM_ROOT" bash "$SCRIPT_DIR/fm-pr-rearm.sh"
+fi
 
 # --- secondmates -----------------------------------------------------------
 # Every live secondmate this pass leaves on origin's tip is restarted, whether it
@@ -168,7 +171,10 @@ fm_ff_after_secondmate_settled() {  # <id> <home> <window> <status> <instr>
   if [ "${4:-}" = "updated" ] && [ -x "$2/bin/fm-procevent-when.sh" ]; then
     FM_HOME="$2" FM_ROOT_OVERRIDE="$2" "$2/bin/fm-procevent-when.sh" rebind-all || true
   fi
-  claim_settled_secondmate "$1"
+  if [ -f "$2/bin/fm-pr-rearm.sh" ]; then
+    FM_HOME="$2" FM_STATE_OVERRIDE="$2/state" FM_ROOT_OVERRIDE="$2" bash "$2/bin/fm-pr-rearm.sh"
+  fi
+  [ -z "$3" ] || claim_settled_secondmate "$1"
 }
 
 # Live direct reports first: state/<id>.meta with kind=secondmate carries the
