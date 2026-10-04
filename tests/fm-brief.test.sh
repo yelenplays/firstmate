@@ -995,7 +995,7 @@ test_ship_and_scout_prior_art_uses_authorized_deliverable() {
     assert_grep "# Prior art" "$brief" "$kind brief has no prior-art section"
     assert_grep "<neutral project label> <two-to-five neutral topic words>" "$brief" "$kind prior-art matcher reference is not constrained"
     assert_grep "never include personal data, a person's name, email address, or secrets" "$brief" "$kind prior-art matcher privacy rule is missing"
-    assert_grep "rg -ilF --no-ignore --glob 'report.md' --glob 'guide.md'" "$brief" "$kind analogous-work search is missing"
+    assert_grep "rg -ilF --no-ignore --glob 'report.md' --glob 'guide.md' -e '<topic-word-1>' -e '<topic-word-2>'" "$brief" "$kind analogous-work search is missing"
     assert_grep "$home/data\" | head -5" "$brief" "$kind analogous-work search is not limited to this home and five hits"
     if [ "$kind" = scout ]; then
       assert_grep "$home/data/$id/report.md" "$brief" "scout prior-art output is not its guide report"
