@@ -225,10 +225,6 @@ if [ -z "$OUT" ]; then
 fi
 out_dir=$(dirname "$OUT")
 out_parent_expected=$(resolved_path "$out_dir") || die "could not resolve the output directory"
-out_parent_anchor=$out_parent_expected
-while [ ! -d "$out_parent_anchor" ]; do
-  out_parent_anchor=$(dirname "$out_parent_anchor")
-done
 out_real="$out_parent_expected/$(basename "$OUT")"
 out_target=$(resolved_path "$out_real") || die "could not resolve the output target"
 for protected in "$config_path" "$state_path"; do
@@ -245,28 +241,49 @@ for guarded in "$EVIDENCE" "$DISPATCH"; do
     fi
   fi
 done
-mkdir -p "$out_dir" 2>/dev/null || die "could not create $out_dir"
+# Create the output directory one level at a time and remember exactly which
+# levels this run made, so a refusal below removes only those and never a
+# directory that already existed, config/ and state/ included.
+created_dirs=()
+make_out_dir() {
+  local dir=$1 prefix='' component rest
+  case "$dir" in /*) ;; *) dir="$PWD/$dir" ;; esac
+  rest=${dir#/}
+  while [ -n "$rest" ]; do
+    component=${rest%%/*}
+    if [ "$component" = "$rest" ]; then rest=''; else rest=${rest#*/}; fi
+    [ -n "$component" ] || continue
+    prefix="$prefix/$component"
+    if [ ! -e "$prefix" ] && [ ! -L "$prefix" ]; then
+      mkdir "$prefix" 2>/dev/null || return 1
+      created_dirs+=("$prefix")
+    fi
+  done
+  [ -d "$dir" ]
+}
+remove_created_dirs() {
+  local i dir real
+  for ((i = ${#created_dirs[@]} - 1; i >= 0; i--)); do
+    dir=${created_dirs[$i]}
+    real=$(real_dir "$dir") || continue
+    [ "$real" = "$config_path" ] || [ "$real" = "$state_path" ] && continue
+    rmdir "$dir" 2>/dev/null || break
+  done
+}
+make_out_dir "$out_dir" || { remove_created_dirs; die "could not create $out_dir"; }
 out_parent_real=$(real_dir "$out_dir") || die "could not resolve the output directory"
 out_real="$out_parent_real/$(basename "$OUT")"
 out_target=$(resolved_path "$out_real") || die "could not resolve the output target"
 for protected in "$config_path" "$state_path"; do
   case "$out_parent_real/" in
     "$protected/"*)
-      cleanup_dir=$out_parent_real
-      while [ "$cleanup_dir" != "$out_parent_anchor" ] && [ "$cleanup_dir" != / ]; do
-        rmdir "$cleanup_dir" 2>/dev/null || break
-        cleanup_dir=$(dirname "$cleanup_dir")
-      done
+      remove_created_dirs
       die "refusing to write under protected path $protected"
       ;;
   esac
   case "$out_target/" in
     "$protected/"*)
-      cleanup_dir=$out_parent_real
-      while [ "$cleanup_dir" != "$out_parent_anchor" ] && [ "$cleanup_dir" != / ]; do
-        rmdir "$cleanup_dir" 2>/dev/null || break
-        cleanup_dir=$(dirname "$cleanup_dir")
-      done
+      remove_created_dirs
       die "refusing to write under protected path $protected"
       ;;
   esac

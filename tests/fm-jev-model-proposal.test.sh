@@ -176,6 +176,19 @@ FM_HOME="$NO_CONFIG_HOME" FM_STATE_OVERRIDE="$NO_CONFIG_HOME/config" run_tool \
 [ -z "$(find "$TEST_REQUESTS" -type f)" ] || fail 'protected absent paths must refuse before any Jev call'
 pass 'absent config and state paths are guarded before creating directories'
 
+EMPTY_CONFIG_HOME="$TMP_ROOT/empty-config-home"
+mkdir -p "$EMPTY_CONFIG_HOME/config"
+ln -s "$TMP_ROOT" "$TMP_ROOT/root-alias"
+ln -s "$EMPTY_CONFIG_HOME/config/newdir" "$TMP_ROOT/empty-config-link"
+for target in "$TMP_ROOT/empty-config-link/proposal.md" "$TMP_ROOT/empty-config-link/a/proposal.md" "$TMP_ROOT/root-alias/empty-config-link/a/b/proposal.md"; do
+  FM_HOME="$EMPTY_CONFIG_HOME" run_tool --evidence "$TMP_ROOT/evidence.json" --out "$target" >/dev/null 2>&1 \
+    && fail "an output through a link into an empty config/ must refuse: $target"
+  [ -d "$EMPTY_CONFIG_HOME/config" ] || fail 'refusing an output must never remove an existing empty config/'
+  [ -z "$(ls -A "$EMPTY_CONFIG_HOME/config")" ] || fail 'refusing an output must leave config/ empty'
+done
+[ -z "$(find "$TEST_REQUESTS" -type f)" ] || fail 'a refused output must refuse before any Jev call'
+pass 'a refused output never removes an existing empty config/'
+
 path=$(run_tool --evidence "$TMP_ROOT/evidence.json") || fail 'happy-path proposal failed'
 case "$path" in "$HOME_DIR/data/model-proposals/"*.md) ;; *) fail "default proposal path is wrong: $path" ;; esac
 [ -s "$path" ] || fail 'proposal file is empty'
