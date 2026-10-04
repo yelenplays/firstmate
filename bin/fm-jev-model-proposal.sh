@@ -130,6 +130,17 @@ real_path() {
   printf '%s' "$resolved"
 }
 
+real_input_path() {
+  local path=$1 target
+  path=$(real_path "$path")
+  while [ -L "$path" ]; do
+    target=$(readlink "$path") || return 1
+    case "$target" in /*) path=$target ;; *) path="$(dirname "$path")/$target" ;; esac
+    path=$(real_path "$path")
+  done
+  printf '%s' "$path"
+}
+
 EVIDENCE='' DISPATCH="$FM_HOME/config/crew-dispatch.json" OUT=''
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -211,7 +222,7 @@ for protected in "$config_path" "$state_path"; do
   esac
 done
 for guarded in "$EVIDENCE" "$DISPATCH"; do
-  if [ -e "$guarded" ] && [ "$out_real" = "$(real_dir "$(dirname "$guarded")")/$(basename "$guarded")" ]; then
+  if [ -e "$guarded" ] && [ "$out_real" = "$(real_input_path "$guarded")" ]; then
     die "refusing to overwrite the input file $guarded"
   fi
 done

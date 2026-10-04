@@ -84,9 +84,21 @@ run_tool --evidence "$TMP_ROOT/evidence.json" --out "$HOME_DIR/config/proposal.m
 run_tool --evidence "$TMP_ROOT/evidence.json" --out "$HOME_DIR/config/new/nested/proposal.md" >/dev/null 2>&1 && fail 'a nested output under config/ must refuse'
 [ ! -e "$HOME_DIR/config/new" ] || fail 'refusing a nested config output must not create directories'
 run_tool --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/evidence.json" >/dev/null 2>&1 && fail 'overwriting the evidence file must refuse'
+cp "$TMP_ROOT/evidence.json" "$TMP_ROOT/evidence-target.json"
+ln -s "$TMP_ROOT/evidence-target.json" "$TMP_ROOT/evidence-link.json"
+evidence_before=$(cksum < "$TMP_ROOT/evidence-target.json")
+run_tool --evidence "$TMP_ROOT/evidence-link.json" --out "$TMP_ROOT/evidence-target.json" >/dev/null 2>&1 \
+  && fail 'overwriting the evidence symlink target must refuse'
+[ "$(cksum < "$TMP_ROOT/evidence-target.json")" = "$evidence_before" ] || fail 'evidence symlink target changed'
+cp "$HOME_DIR/config/crew-dispatch.json" "$TMP_ROOT/dispatch-target.json"
+ln -s "$TMP_ROOT/dispatch-target.json" "$TMP_ROOT/dispatch-link.json"
+dispatch_before=$(cksum < "$TMP_ROOT/dispatch-target.json")
+run_tool --evidence "$TMP_ROOT/evidence.json" --dispatch "$TMP_ROOT/dispatch-link.json" \
+  --out "$TMP_ROOT/dispatch-target.json" >/dev/null 2>&1 && fail 'overwriting the dispatch symlink target must refuse'
+[ "$(cksum < "$TMP_ROOT/dispatch-target.json")" = "$dispatch_before" ] || fail 'dispatch symlink target changed'
 [ -z "$(find "$TEST_REQUESTS" -type f)" ] && [ "$(config_sum)" = "$CONFIG_BEFORE" ] \
   && [ "$(config_tree_sum)" = "$CONFIG_TREE_BEFORE" ] || fail 'refused outputs must send and change nothing'
-pass 'an output under config/ or on an input file refuses'
+pass 'outputs under config/ or on either input, including symlink targets, refuse'
 
 FM_STATE_OVERRIDE="$TMP_ROOT/config-alias/override-state" run_tool --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/should-not-write.md" >/dev/null 2>&1 && fail 'a state override under config/ must refuse'
 [ -z "$(find "$TEST_REQUESTS" -type f)" ] && [ "$(config_sum)" = "$CONFIG_BEFORE" ] && [ ! -e "$TMP_ROOT/should-not-write.md" ] \
