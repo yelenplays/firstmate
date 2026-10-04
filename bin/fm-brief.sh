@@ -83,6 +83,8 @@
 # briefs"), ship and scout briefs also carry a "# Wiki context" section built
 # from the project's registry wiki token and a "# Wiki guide" step whose marker
 # bin/fm-teardown.sh enforces; bin/fm-wiki-lib.sh owns both.
+# Every ship and scout brief also carries a bounded, skippable "# Prior art" step
+# (past reports, wikis, GitHub); findings go in the ship guide or scout report guide.
 # Both crewmate scaffolds carry one shared rule against administering the
 # infrastructure every lane shares - the no-mistakes daemon and the worktree pool
 # their own slot came from - so ship and scout cannot drift apart. A secondmate
@@ -586,6 +588,27 @@ IFS= read -r -d '' SHARED_INFRA_RULE <<'EOF' || true
 EOF
 SHARED_INFRA_RULE=${SHARED_INFRA_RULE%$'\n'}
 
+# Share prior-art checks between ship and scout, but keep findings within each
+# brief's existing deliverable boundary.
+if [ "$KIND" = scout ]; then
+  PRIOR_ART_DESTINATION="Record findings in a 'Prior art' section of \`$DATA/$ID/report.md\`; this report is the scout's guide, not a new deliverable."
+  PRIOR_ART_SKIP_DESTINATION="A trivial fix may skip this step with a one-line stated reason in that section; a source that is missing, unconfigured, or not answering is noted there and skipped, never waited on."
+else
+  PRIOR_ART_DESTINATION="Record findings in the task's guide at \`$DATA/$ID/guide.md\`."
+  PRIOR_ART_SKIP_DESTINATION="A trivial fix may skip this step with a one-line stated reason in that guide; a source that is missing, unconfigured, or not answering is noted there and skipped, never waited on."
+fi
+IFS= read -r -d '' PRIOR_ART_SECTION <<EOF || true
+# Prior art
+Before you build, spend a short timebox (about ten minutes) checking what already exists, then continue; never let this block the task.
+1. Same work: run \`$FM_ROOT/bin/fm-jev-intake-match.sh "<neutral project label> <two-to-five neutral topic words>"\` for earlier reports and task records, then read any \`data/<id>/report.md\` it names. Send only that short neutral reference to Jev; never include personal data, a person's name, email address, or secrets.
+2. Analogous past work: search this home's reports and guides with \`rg -ilF --no-ignore --glob 'report.md' --glob 'guide.md' -e '<topic-word-1>' -e '<topic-word-2>' "$FM_HOME/data" | head -5\`; add one \`-e '<topic-word>'\` for each remaining topic word (two to five total), so terms match independently. Then skim up to five hits. No matches is fine; continue.
+3. Wikis: pick the matching vault from the routing cards, or run \`$FM_ROOT/bin/fm-wiki-ask.sh "<question>"\` where an engine is configured; respect each vault's cloud flag and never open a private one.
+4. GitHub: \`ketch code "<symbol or idea>"\` and \`gh-axi\` search for existing implementations, issues, and PRs.
+$PRIOR_ART_DESTINATION
+$PRIOR_ART_SKIP_DESTINATION
+EOF
+PRIOR_ART_SECTION=${PRIOR_ART_SECTION%$'\n'}
+
 if [ "$KIND" = scout ]; then
 if "$SCRIPT_DIR/fm-bootstrap.sh" lavish-compatible >/dev/null 2>&1; then
   LAVISH_LINE='If your deliverable is a visual artifact the captain will review and iterate on, use the lavish-axi rule: arm your board with bin/fm-procevent-lavish.sh arm <artifact.html> --for <task-id>; never run lavish-axi poll yourself. Re-arm with the reply after each nonterminal round to acknowledge it, route the board feedback through your steering inbox, write needs-decision [key=board-review] with the live board URL when the captain owes a decision, and stop at session_ended or an empty End without re-arming - acknowledge that final round with bin/fm-procevent.sh handled <source-id> <sequence> to conclude and retire your board.'
@@ -631,7 +654,9 @@ $CREWMATE_PAUSE_INSTRUCTIONS
 $SHARED_INFRA_RULE
 8. $(fm_jev_first_rule)
 
-$WAIT_BLOCK$INBOX_SECTION$WIKI_GUIDE_SECTION
+$WAIT_BLOCK$INBOX_SECTION
+
+$PRIOR_ART_SECTION$WIKI_GUIDE_SECTION
 
 # Definition of done
 Write your findings to \`$DATA/$ID/report.md\` and put every explicitly named result file in that same durable directory before reporting done.
@@ -717,7 +742,9 @@ $WAIT_BLOCK$INBOX_SECTION
 
 # Project memory
 A project's \`AGENTS.md\` or \`CLAUDE.md\` is loaded into every agent session in that project, so edit it only to correct information that is factually wrong - including information your own change made wrong - and never to add knowledge because it is missing.
-A correction edits only the wrong text: do not run \`$FM_ROOT/bin/fm-ensure-agents-md.sh\`, create either file, or add sections, headings, or pointers alongside it.$WIKI_GUIDE_SECTION
+A correction edits only the wrong text: do not run \`$FM_ROOT/bin/fm-ensure-agents-md.sh\`, create either file, or add sections, headings, or pointers alongside it.
+
+$PRIOR_ART_SECTION$WIKI_GUIDE_SECTION
 
 $DOD
 EOF

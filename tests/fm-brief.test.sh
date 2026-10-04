@@ -979,6 +979,34 @@ test_ship_and_scout_carry_advisory_jev_rule() {
   pass "fm-brief.sh: ship and scout scaffolds carry the advisory Jev-first rule"
 }
 
+test_ship_and_scout_prior_art_uses_authorized_deliverable() {
+  local home kind id brief
+  home="$TMP_ROOT/prior-art-home"
+  mkdir -p "$home/data"
+
+  for kind in no-mistakes direct-PR local-only scout; do
+    id="brief-prior-art-$kind"
+    if [ "$kind" = scout ]; then
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" firstmate --scout >/dev/null 2>&1
+    else
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" firstmate --mode "$kind" >/dev/null 2>&1
+    fi
+    brief="$home/data/$id/brief.md"
+    assert_grep "# Prior art" "$brief" "$kind brief has no prior-art section"
+    assert_grep "<neutral project label> <two-to-five neutral topic words>" "$brief" "$kind prior-art matcher reference is not constrained"
+    assert_grep "never include personal data, a person's name, email address, or secrets" "$brief" "$kind prior-art matcher privacy rule is missing"
+    assert_grep "rg -ilF --no-ignore --glob 'report.md' --glob 'guide.md' -e '<topic-word-1>' -e '<topic-word-2>'" "$brief" "$kind analogous-work search is missing"
+    assert_grep "$home/data\" | head -5" "$brief" "$kind analogous-work search is not limited to this home and five hits"
+    if [ "$kind" = scout ]; then
+      assert_grep "$home/data/$id/report.md" "$brief" "scout prior-art output is not its guide report"
+      assert_grep "this report is the scout's guide, not a new deliverable" "$brief" "scout prior-art destination is not identified as its guide"
+    else
+      assert_grep "$home/data/$id/guide.md" "$brief" "$kind prior-art output is not the task guide"
+    fi
+  done
+  pass "fm-brief.sh: prior-art findings use each brief's authorized deliverable"
+}
+
 test_scout_and_secondmate_load_decision_hold_policy() {
   local home scout charter
   home="$TMP_ROOT/decision-policy-home"
@@ -1453,6 +1481,7 @@ test_secondmate_directory_paths_are_absolute_and_output_is_stable
 test_pause_verb_override_renders_all_brief_scaffolds
 test_ship_and_scout_teach_validation_round_pause
 test_ship_and_scout_carry_advisory_jev_rule
+test_ship_and_scout_prior_art_uses_authorized_deliverable
 test_scout_and_secondmate_load_decision_hold_policy
 test_scout_and_secondmate_scaffold
 test_scout_lavish_line_follows_presentation_floor
