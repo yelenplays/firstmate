@@ -270,26 +270,125 @@ VERDICT_NAMES=
 LIVE_MERGE_SHA=
 LIVE_MERGE_HEAD=
 LIVE_MERGE_BASE=
+REQUIRED_CONTEXTS=[]
+github_read_required_contexts() {
+  local base=$1 branch_path branch_json rules_json classic ruleset api_err api_err_text
+  REQUIRED_CONTEXTS=[]
+  [ -n "$base" ] || return 1
+  branch_path=$(printf '%s' "$base" | jq -sRr '@uri') || return 1
+  branch_json=$(fm_gh_owner_run "$FM_PR_OWNER" gh api --hostname "$FM_PR_HOST" \
+    "repos/$FM_PR_PATH/branches/$branch_path" 2>/dev/null) || return 1
+  classic=$(printf '%s' "$branch_json" | jq -c '
+    if type != "object" or (.protected | type) != "boolean" then error("invalid branch response")
+    elif .protected == false then []
+    elif (.protection.required_status_checks | type) != "object" then error("invalid branch protection")
+    else .protection.required_status_checks as $checks
+      | [ (($checks.checks // [])[] | {context, app_id}),
+          (($checks.contexts // [])[] | {context: ., app_id: null}) ]
+      | map(if (.context | type) == "string" and (.context | length) > 0
+              and (.app_id == null or (.app_id | type) == "number")
+            then . else error("invalid required check") end)
+      | map(if .app_id == -1 then .app_id = null else . end)
+    end' 2>/dev/null) || return 1
+  api_err=$(mktemp "${TMPDIR:-/tmp}/fm-post-merge-rules.XXXXXX") || return 1
+  if ! rules_json=$(fm_gh_owner_run "$FM_PR_OWNER" gh api --hostname "$FM_PR_HOST" --paginate \
+    "repos/$FM_PR_PATH/rules/branches/$branch_path" 2>"$api_err"); then
+    api_err_text=$(cat "$api_err" 2>/dev/null)
+    rm -f "$api_err"
+    case "$api_err_text" in
+      *"Upgrade to GitHub Pro or make this repository public"*) ruleset='[]' ;;
+      *) return 1 ;;
+    esac
+  else
+    rm -f "$api_err"
+    ruleset=$(printf '%s' "$rules_json" | jq -c '
+    if type != "array" then error("invalid rules response")
+    else [ .[] | if type != "object" then error("invalid rule") else . end
+      | select(.type == "required_status_checks")
+      | if (.parameters.required_status_checks | type) != "array" then error("invalid required check rule")
+        else .parameters.required_status_checks[] end
+      | if (.context | type) == "string" and (.context | length) > 0
+           and (.integration_id == null or (.integration_id | type) == "number")
+        then {context, app_id: .integration_id} else error("invalid required check rule") end
+      | if .app_id == -1 then .app_id = null else . end ]
+    end' 2>/dev/null) || return 1
+  fi
+  REQUIRED_CONTEXTS=$(jq -cn --argjson classic "$classic" --argjson ruleset "$ruleset" '
+    ($classic + $ruleset) | unique_by([.context, .app_id]) | group_by(.context)
+    | map(if any(.[]; .app_id != null) then map(select(.app_id != null)) else . end) | add // []') || return 1
+}
+
+required_check_states() {  # <requirements-json> <run-rows-json> <status-rows-json>
+  jq -nr --argjson required "$1" --argjson runs "$2" --argjson statuses "$3" '
+    def latest_runs: group_by([.name, (.app_id // -1)])
+      | map(max_by([(.completed_at // .started_at // .created_at // ""), (.id // 0)]));
+    def latest_statuses: group_by(.context)
+      | map(max_by([(.updated_at // .created_at // ""), (.id // 0)]));
+    [ $required[] as $requirement
+      | ($runs | latest_runs | map(select(.name == $requirement.context
+          and ($requirement.app_id == null or .app_id == $requirement.app_id)))) as $check_runs
+      | ($statuses | latest_statuses | map(select($requirement.app_id == null
+          and .context == $requirement.context))) as $contexts
+      | if (($check_runs | length) + ($contexts | length)) == 0 then
+          {context: $requirement.context, state: "missing"}
+        elif (any($check_runs[]; .status == "completed"
+              and (.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "startup_failure"))
+              or any($contexts[]; .state == "failure" or .state == "error")) then
+          {context: $requirement.context, state: "red"}
+        elif (any($check_runs[]; .status == "completed"
+              and (.conclusion == "success" or .conclusion == "neutral"))
+              or any($contexts[]; .state == "success")) then
+          {context: $requirement.context, state: "green"}
+        elif any($check_runs[]; .status != "completed")
+              or any($check_runs[]; .status == "completed"
+                and (.conclusion != "cancelled" and .conclusion != "skipped" and .conclusion != "stale"))
+              or any($contexts[]; .state != "failure" and .state != "error" and .state != "success") then
+          {context: $requirement.context, state: "pending"}
+        else
+          {context: $requirement.context, state: "not_green"}
+        end
+    ][] | [.context, .state] | @tsv
+  ' 2>/dev/null
+}
+
 commit_verdict() {  # <sha> <since-epoch> <grace>
-  local sha=$1 since=$2 grace=$3 runs statuses name status conclusion state
+  local sha=$1 since=$2 grace=$3 run_rows status_rows runs statuses name status conclusion state
+  local required_states required_json status_json required_not_green='' required_red=''
   local red='' pending=0 good=0
   VERDICT=
   VERDICT_NAMES=
-  runs=$(gh api --hostname "$FM_PR_HOST" "repos/$FM_PR_PATH/commits/$sha/check-runs?per_page=100" --paginate \
-    --jq '.check_runs[] | {name, status, conclusion, started_at, completed_at, id}' 2>/dev/null) || return 1
-  if [ -n "$runs" ]; then
-    runs=$(printf '%s\n' "$runs" | jq -sr '
+  run_rows=$(gh api --hostname "$FM_PR_HOST" "repos/$FM_PR_PATH/commits/$sha/check-runs?per_page=100" --paginate \
+    --jq '.check_runs[] | {name, status, conclusion, started_at, completed_at, id, app_id: (.app.id // null)}' 2>/dev/null) || return 1
+  status_rows=$(gh api --hostname "$FM_PR_HOST" "repos/$FM_PR_PATH/commits/$sha/status" \
+    --jq '.statuses[] | {context, state, created_at, updated_at, id}' 2>/dev/null) || return 1
+  github_read_required_contexts "$(rget base)" || return 1
+  required_json=$(printf '%s\n' "$run_rows" | jq -sc '.') || return 1
+  status_json=$(printf '%s\n' "$status_rows" | jq -sc '.') || return 1
+  required_states=$(required_check_states "$REQUIRED_CONTEXTS" "$required_json" "$status_json") || return 1
+  while IFS=$'\t' read -r name state; do
+    case "$state" in
+      missing|not_green) required_not_green="${required_not_green:+$required_not_green,}$name" ;;
+      red) required_red="${required_red:+$required_red,}$name" ;;
+    esac
+  done <<EOF
+$required_states
+EOF
+  [ -z "$required_red" ] || red=$required_red
+  if [ -n "$run_rows" ]; then
+    runs=$(printf '%s\n' "$run_rows" | jq -sr '
       group_by(.name) | map(max_by([(.completed_at // .started_at // .created_at // ""), (.id // 0)]))[] |
       [.name, .status, (.conclusion // "")] | @tsv
     ') || return 1
+  else
+    runs=
   fi
-  statuses=$(gh api --hostname "$FM_PR_HOST" "repos/$FM_PR_PATH/commits/$sha/status" \
-    --jq '.statuses[] | {context, state, created_at, updated_at, id}' 2>/dev/null) || return 1
-  if [ -n "$statuses" ]; then
-    statuses=$(printf '%s\n' "$statuses" | jq -sr '
+  if [ -n "$status_rows" ]; then
+    statuses=$(printf '%s\n' "$status_rows" | jq -sr '
       group_by(.context) | map(max_by([(.updated_at // .created_at // ""), (.id // 0)]))[] |
       [.context, .state] | @tsv
     ') || return 1
+  else
+    statuses=
   fi
   while IFS=$'\t' read -r name status conclusion; do
     [ -n "$name" ] || continue
@@ -297,7 +396,9 @@ commit_verdict() {  # <sha> <since-epoch> <grace>
       completed)
         case "$conclusion" in
           success|neutral) good=$((good + 1)) ;;
-          failure|timed_out|startup_failure) red="${red:+$red,}$name" ;;
+          failure|timed_out|startup_failure)
+            case ",$red," in *",$name,"*) ;; *) red="${red:+$red,}$name" ;; esac
+            ;;
           cancelled|skipped|stale) ;;
           *) pending=$((pending + 1)) ;;
         esac
@@ -311,7 +412,9 @@ EOF
     [ -n "$name" ] || continue
     case "$state" in
       success) good=$((good + 1)) ;;
-      failure|error) red="${red:+$red,}$name" ;;
+      failure|error)
+        case ",$red," in *",$name,"*) ;; *) red="${red:+$red,}$name" ;; esac
+        ;;
       *) pending=$((pending + 1)) ;;
     esac
   done <<EOF
@@ -322,6 +425,9 @@ EOF
     VERDICT_NAMES=$red
   elif [ "$pending" -gt 0 ]; then
     VERDICT=pending
+  elif [ -n "$required_not_green" ]; then
+    VERDICT_NAMES=$required_not_green
+    if [ "$(( $(now) - since ))" -lt "$grace" ]; then VERDICT=pending; else VERDICT=none; fi
   elif [ "$good" -gt 0 ]; then
     VERDICT=green
   elif [ "$(( $(now) - since ))" -lt "$grace" ]; then
@@ -540,6 +646,11 @@ cmd_arm() {
   lock_record
   if record_present && [ "$(rget spawn_gen)" = "$gen" ]; then
     old_phase=$(rget phase)
+    if [ "$(rget kind)" = pr ] && [ "$old_phase" = checks ] \
+      && [ -z "$(rget merge_commit)" ] && [ "$(rget pr)" = "$url" ] \
+      && [ "$state" = MERGED ] && [ -n "$merge" ]; then
+      rset "head=$head" "base=$base" "merge_commit=$merge" "merged_at=$merged_at"
+    fi
     if [ "$(rget merge_commit)" = "$merge" ]; then
       if [ "$(rget kind)" = pr ] && [ "$old_phase" = checks ]; then
         arm_watch pm || die "could not arm the post-merge checks watch for $ID; retry bin/fm-post-merge.sh arm $ID"

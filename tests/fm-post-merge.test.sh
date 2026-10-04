@@ -65,16 +65,33 @@ case "$1 ${2:-}" in
     printf '%s\n' "$FAKE_REVERT_URL"
     ;;
   "api --hostname")
-    path=$4
-    sha=${path#*/commits/}
-    sha=${sha%%/*}
+    path=
+    for arg in "$@"; do case "$arg" in repos/*) path=$arg ;; esac; done
     case "$path" in
-      */check-runs*) f="$d/checks-$sha.json"; empty='{"check_runs":[]}' ;;
-      */status) f="$d/status-$sha.json"; empty='{"statuses":[]}' ;;
+      */rules/branches/*) f="$d/rules-main.json" ;;
+      */branches/*) f="$d/branch-main.json" ;;
+      */commits/*/check-runs*)
+        sha=${path#*/commits/}
+        sha=${sha%%/*}
+        f="$d/checks-$sha.json"
+        empty='{"check_runs":[]}'
+        ;;
+      */commits/*/status)
+        sha=${path#*/commits/}
+        sha=${sha%%/*}
+        f="$d/status-$sha.json"
+        empty='{"statuses":[]}'
+        ;;
       *) echo "unexpected api path $path" >&2; exit 1 ;;
     esac
-    [ -f "$f" ] || printf '%s\n' "$empty" > "$f"
-    jq -r "$(jq_arg "$@")" "$f"
+    if [ -f "$f" ]; then
+      case "$path" in
+        */branches/*|*/rules/branches/*) cat "$f" ;;
+        *) jq -r "$(jq_arg "$@")" "$f" ;;
+      esac
+    else
+      printf '%s\n' "${empty:-[]}"
+    fi
     ;;
   *) echo "unexpected gh call: $*" >&2; exit 1 ;;
 esac
@@ -107,6 +124,8 @@ make_pr_world() {  # <name> <yolo>
     branch=feature spawn_gen=1 "pr=$PR_URL"
   printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s","baseRefName":"main","id":"PR_node7","title":"Add the widget"}\n' \
     "$MERGE_SHA" "$HEAD_SHA" > "$W_FAKE/pr-7.json"
+  printf '{"name":"main","protected":false}\n' > "$W_FAKE/branch-main.json"
+  printf '[]\n' > "$W_FAKE/rules-main.json"
   printf '## In flight\n\n## Queued\n\n## Done\n' > "$W_HOME/data/backlog.md"
   run_tasks add "$W_ID" "Add the widget" --kind ship --repo widget >/dev/null \
     || fail "could not seed the backlog item for $W_ID"
@@ -139,6 +158,18 @@ set_checks() {  # <sha> <name> <status> <conclusion>
     "$( [ -n "$4" ] && printf '"%s"' "$4" || printf null)" > "$W_FAKE/checks-$1.json"
 }
 
+set_required_check() {  # <context>
+  jq -cn --arg context "$1" \
+    '{name:"main",protected:true,protection:{required_status_checks:{contexts:[$context],checks:[]}}}' \
+    > "$W_FAKE/branch-main.json"
+}
+
+set_required_ruleset() {  # <context>
+  jq -cn --arg context "$1" \
+    '[{type:"required_status_checks",parameters:{required_status_checks:[{context:$context,integration_id:null}]}}]' \
+    > "$W_FAKE/rules-main.json"
+}
+
 record_field() {  # <key>
   grep "^$1=" "$W_HOME/state/$W_ID.post-merge" | tail -1 | cut -d= -f2-
 }
@@ -156,6 +187,7 @@ teardown_rule() {
 test_red_merge_checks_revert_on_green() {
   local out
   make_pr_world pm-red on
+  set_required_check build
   out=$(pm arm "$W_ID" 2>&1) || fail "arm refused a merged pull request: $out"
   assert_contains "$out" "phase checks" "arm did not start by watching the merge commit's checks"
   assert_present "$W_HOME/state/when/when-pm-$W_ID.spec" "arm did not register the wait on the merge commit's checks"
@@ -195,6 +227,59 @@ test_red_merge_checks_revert_on_green() {
   out=$(pm advance "$W_ID" 2>&1) || fail "advance after the revert failed: $out"
   assert_equals 1 "$(wc -l < "$W_FAKE/merges" | tr -d ' ')" "a second advance merged again"
   pass "fm-post-merge: red checks on a merge open a revert that merges once its own checks are green"
+}
+
+test_missing_required_check_blocks_merge_watch() {
+  local out
+  make_pr_world pm-required-missing on
+  set_required_ruleset validate
+  out=$(pm arm "$W_ID" --grace 0 2>&1) || fail "arm refused a merged pull request: $out"
+  set_checks "$MERGE_SHA" optional completed success
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed on a missing required check: $out"
+  assert_contains "$out" "not green (none)" "a non-required success hid the missing required check"
+  assert_equals blocked "$(record_field phase)" "cleanup could proceed without the required check"
+  assert_equals refuse: "$(teardown_rule | cut -d' ' -f1)" "cleanup did not refuse a missing required check"
+  pass "fm-post-merge: a non-required success cannot satisfy a missing required check"
+}
+
+test_all_required_merge_checks_green() {
+  local out
+  make_pr_world pm-required-green on
+  set_required_check validate
+  out=$(pm arm "$W_ID" --grace 0 2>&1) || fail "arm refused a merged pull request: $out"
+  set_checks "$MERGE_SHA" validate completed success
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed with all required checks green: $out"
+  assert_contains "$out" "clear: checks on" "all required green checks did not clear the watch"
+  assert_equals clear "$(record_field phase)" "all required green checks did not clear the record"
+  pass "fm-post-merge: all required checks green permits the merge watch to clear"
+}
+
+test_missing_required_revert_check_blocks_merge() {
+  local out
+  make_pr_world pm-revert-required-missing on
+  set_required_ruleset validate
+  out=$(pm arm "$W_ID" --grace 0 2>&1) || fail "arm refused a merged pull request: $out"
+  set_checks "$MERGE_SHA" build completed failure
+  set_checks "$REVERT_SHA" optional completed success
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed while checking the revert: $out"
+  assert_contains "$out" "no green checks" "a non-required revert success hid the missing required check"
+  assert_equals blocked "$(record_field phase)" "the revert merged without its required check"
+  assert_absent "$W_FAKE/merges" "a revert merged without its required check"
+  pass "fm-post-merge: a non-required revert success cannot satisfy a missing required check"
+}
+
+test_all_required_revert_checks_green() {
+  local out
+  make_pr_world pm-revert-required-green on
+  set_required_check validate
+  out=$(pm arm "$W_ID" --grace 0 2>&1) || fail "arm refused a merged pull request: $out"
+  set_checks "$MERGE_SHA" build completed failure
+  set_checks "$REVERT_SHA" validate completed success
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed with all required revert checks green: $out"
+  assert_contains "$out" "reverted: $PR_URL by $REVERT_URL" "the revert with all required checks green did not complete"
+  assert_equals reverted "$(record_field phase)" "the required-green revert did not finish"
+  assert_equals "$W_ID $REVERT_URL" "$(cat "$W_FAKE/merges")" "the green required-check revert was not merged"
+  pass "fm-post-merge: a revert advances when all required checks are green"
 }
 
 test_witness_failure_reverts() {
@@ -409,6 +494,34 @@ test_witness_result_needs_exactly_one_verdict() {
   out=$(pm witness-result "$report" "$W_ID" 2>&1) || fail "a single pass verdict was refused: $out"
   assert_contains "$out" "clear: the witness passed" "a pass verdict did not confirm the landing"
   pass "fm-post-merge: a witness report needs exactly one verdict bound to the full merge commit"
+}
+
+test_queued_record_retries_after_merge() {
+  local out
+  make_pr_world pm-queued-retry on
+  printf 'post_merge_watch_required=pending\n' >> "$W_HOME/state/$W_ID.meta"
+  printf '{"state":"OPEN","isInMergeQueue":true,"mergeCommit":null,"headRefOid":"%s","baseRefName":"main","id":"PR_node7","title":"Add the widget"}\n' \
+    "$HEAD_SHA" > "$W_FAKE/pr-7.json"
+  mkdir -p "$W_HOME/state/procevent"
+  printf 'collision\n' > "$W_HOME/state/procevent/when-pm-$W_ID.source"
+  chmod 600 "$W_HOME/state/procevent/when-pm-$W_ID.source"
+  out=$(pm arm "$W_ID" 2>&1) && fail "a scheduler collision was reported as an armed queued watch: $out"
+  assert_contains "$out" 'could not arm the post-merge checks watch' "the queued scheduler failure was not surfaced"
+  assert_equals '' "$(record_field merge_commit)" "the queued record unexpectedly had a merge commit"
+  assert_grep 'post_merge_watch_required=pending' "$W_HOME/state/$W_ID.meta" "the failed queued handoff cleared its marker"
+
+  printf '{"state":"MERGED","isInMergeQueue":false,"mergeCommit":{"oid":"%s"},"headRefOid":"%s","baseRefName":"main","id":"PR_node7","title":"Add the widget"}\n' \
+    "$MERGE_SHA" "$HEAD_SHA" > "$W_FAKE/pr-7.json"
+  rm -f "$W_HOME/state/procevent/when-pm-$W_ID.source"
+  out=$(pm arm "$W_ID" 2>&1) || fail "the queued record could not recover after merge: $out"
+  assert_equals "$MERGE_SHA" "$(record_field merge_commit)" "retry did not bind the merged commit to the same record"
+  assert_no_grep 'post_merge_watch_required=' "$W_HOME/state/$W_ID.meta" "successful scheduler retry did not clear the marker"
+  assert_present "$W_HOME/state/when/when-pm-$W_ID.spec" "retry did not register the merge-check scheduler"
+  set_checks "$MERGE_SHA" build completed success
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed after recovered watch: $out"
+  assert_contains "$out" 'clear: checks on' "the recovered watch did not complete after checks went green"
+  assert_equals close "$(teardown_rule)" "cleanup remained blocked after the recovered watch completed"
+  pass "fm-post-merge: a queued watch retry adopts its merge and restores scheduler coverage"
 }
 
 test_scheduler_arm_failure_is_retryable() {
@@ -675,6 +788,10 @@ test_local_revert_keeps_every_merge_guard() {
 }
 
 test_red_merge_checks_revert_on_green
+test_missing_required_check_blocks_merge_watch
+test_all_required_merge_checks_green
+test_missing_required_revert_check_blocks_merge
+test_all_required_revert_checks_green
 test_witness_failure_reverts
 test_registered_witness_cannot_be_waived_or_lost
 test_green_without_witness_is_clear
@@ -687,6 +804,7 @@ test_latest_check_result_wins
 test_unknown_completed_check_conclusions_wait
 test_revert_without_green_checks_is_held
 test_witness_result_needs_exactly_one_verdict
+test_queued_record_retries_after_merge
 test_arm_refusals_and_rearm
 test_scheduler_arm_failure_is_retryable
 test_record_from_an_earlier_incarnation_is_ignored
