@@ -78,6 +78,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_HOME=${FM_HOME:-$(cd "$SCRIPT_DIR/.." && pwd)}
 # shellcheck source=bin/fm-jev-lib.sh
 . "$SCRIPT_DIR/fm-jev-lib.sh"
+# shellcheck source=bin/fm-never-send-lib.sh
+. "$SCRIPT_DIR/fm-never-send-lib.sh"
 
 # Bands copied from intake.specialist v2 (act 0.55, review 0.3). A too-low act
 # floor proposes switches Jev barely prefers; a too-high one hides real leads.
@@ -250,21 +252,35 @@ questions=$(jq -c --arg untrusted "$FM_MODEL_PROPOSAL_UNTRUSTED" '
                + {none_fit: "No listed model is suited to the work in `role.job`."})}}
 ' <<<"$candidates")
 expected_keys=$(jq -c '[.[].id, "none_fit"] | sort' <<<"$candidates")
+compact_states='[]'
+n_roles=$(jq 'length' <<<"$roles")
+for ((i = 0; i < n_roles; i++)); do
+  role=$(jq -c --argjson i "$i" '.[$i]' <<<"$roles")
+  state=$(jq -c --argjson role "$role" '{role: {job: $role.job}, candidates: (map({key: .id, value: {model, evidence}}) | from_entries)}' <<<"$candidates")
+  if compact=$(fm_jev_compact_state "$state" 2>/dev/null) && jq -e 'type == "object"' >/dev/null 2>&1 <<<"$compact"; then
+    request=$(jq -nc --argjson state "$compact" --argjson questions "$questions" '{state: $state, questions: $questions}')
+    fm_never_send_check "$FM_HOME/config/dispatch-never-send" "$request" "request text" \
+      || die "$FM_NEVER_SEND_ERROR"
+    compact_states=$(jq -c --argjson compact "$compact" '. + [$compact]' <<<"$compact_states")
+  else
+    compact_states=$(jq -c '. + [null]' <<<"$compact_states")
+  fi
+done
 resp_file=$(mktemp) || die "mktemp failed" 1
 trap 'rm -f "$resp_file"' EXIT
 results='[]'
 failed=0
 route_model=''
-n_roles=$(jq 'length' <<<"$roles")
 for ((i = 0; i < n_roles; i++)); do
   role=$(jq -c --argjson i "$i" '.[$i]' <<<"$roles")
   request_id=$(new_request_id)
   state=$(jq -c --argjson role "$role" '{role: {job: $role.job}, candidates: (map({key: .id, value: {model, evidence}}) | from_entries)}' <<<"$candidates")
   result=$(jq -nc --argjson role "$role" --arg rid "$request_id" '$role + {request_id: $rid}')
+  compact=$(jq -r --argjson i "$i" '.[$i] | if . == null then "" else tojson end' <<<"$compact_states")
   error=''
   # Not a command substitution: fm_jev_decide's FM_JEV_LAST_* globals must
   # reach this shell for the proposal header and the call log.
-  if ! compact=$(fm_jev_compact_state "$state" 2>/dev/null) || ! jq -e 'type == "object"' >/dev/null 2>&1 <<<"$compact"; then
+  if [ -z "$compact" ]; then
     error='state too large or not sendable'
   elif ! fm_jev_decide "$compact" "$questions" > "$resp_file" 2>/dev/null; then
     error="Jev call failed (http ${FM_JEV_LAST_HTTP:-none})"

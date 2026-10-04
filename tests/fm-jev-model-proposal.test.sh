@@ -80,6 +80,30 @@ run_tool --evidence "$TMP_ROOT/evidence.json" --dispatch "$TMP_ROOT/bad-dispatch
 [ -z "$(find "$TEST_REQUESTS" -type f)" ] || fail 'invalid input must send nothing'
 pass 'invalid evidence or dispatch input refuses before any call'
 
+NEVER_SEND="$HOME_DIR/config/dispatch-never-send"
+for forbidden in \
+  'planning, architecture and design decisions' \
+  'persistent domain supervisor' \
+  'claude-fable-5-1' \
+  'strong long-horizon orchestration and review'; do
+  printf '# ignored\n  %s  \n' "$forbidden" > "$NEVER_SEND"
+  out=$(run_tool --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/never-send.md" 2>&1); rc=$?
+  [ "$rc" -eq 2 ] || fail "never-send match must refuse before calls: $rc $out"
+  case "$out" in *'request text matches '*"$NEVER_SEND"*'line 2'*) ;; *) fail "never-send refusal did not identify only the list line: $out" ;; esac
+  case "$out" in *"$forbidden"*) fail 'never-send refusal exposed the matched value' ;; esac
+  [ -z "$(find "$TEST_REQUESTS" -type f)" ] && [ ! -e "$TMP_ROOT/never-send.md" ] \
+    || fail 'a blocked request must send nothing and write no proposal'
+done
+chmod 000 "$NEVER_SEND"
+out=$(run_tool --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/unreadable-list.md" 2>&1); rc=$?
+chmod 600 "$NEVER_SEND"
+[ "$rc" -eq 2 ] || fail "an unreadable never-send list must refuse: $rc $out"
+case "$out" in *'dispatch-never-send is not a readable regular file'*) ;; *) fail "unreadable list refusal missing: $out" ;; esac
+[ -z "$(find "$TEST_REQUESTS" -type f)" ] && [ ! -e "$TMP_ROOT/unreadable-list.md" ] \
+  || fail 'an unreadable never-send list must send nothing and write no proposal'
+rm -f "$NEVER_SEND"
+pass 'never-send blocks every request field and unreadable lists before any call'
+
 run_tool --evidence "$TMP_ROOT/evidence.json" --out "$HOME_DIR/config/proposal.md" >/dev/null 2>&1 && fail 'an output under config/ must refuse'
 run_tool --evidence "$TMP_ROOT/evidence.json" --out "$HOME_DIR/config/new/nested/proposal.md" >/dev/null 2>&1 && fail 'a nested output under config/ must refuse'
 [ ! -e "$HOME_DIR/config/new" ] || fail 'refusing a nested config output must not create directories'
