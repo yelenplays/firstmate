@@ -448,9 +448,9 @@ function envDump(verb, args, seg, ctx, commandIndex) {
   };
   const words = [verb, ...args, ...(seg?.redirs || []).map((r) => r.target)];
   if (words.some((w) => ENVIRON.test(w)) && !["ls", "test", "[", "stat"].includes(verb)) return "it reads a process's environment from /proc/*/environ";
-  const operands = args.filter((a) => !/^[-+]/.test(a));
+  const operands = args.flatMap((a, i) => /^[-+]/.test(a) ? [] : expandedArg(i));
   if (verb === "printenv") {
-    const names = args.flatMap((a, i) => /^[-+]/.test(a) ? [] : expandedArg(i));
+    const names = operands;
     return names.length === 0 ? "printenv with no name prints the whole environment"
       : names.some((n) => SECRET_NAME.test(n)) ? `printenv prints ${names.find((n) => SECRET_NAME.test(n))}, a secret-like variable` : null;
   }
