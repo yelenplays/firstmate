@@ -61,6 +61,11 @@
 # local secondmate), this script best-effort runs that home's own
 # fm-procevent-when.sh rebind-all to republish those bindings against the new
 # bytes; a failure there is swallowed rather than failing the update.
+# Updated and already-current homes also refresh registered merge watches
+# through fm-pr-rearm.sh, including local homes without a live endpoint;
+# remote homes refresh through fm-remote-secondmate-control.sh. Unlike the
+# best-effort action rebind, a merge-watch refresh failure is reported as an
+# error. tests/fm-update.test.sh covers local update continuity and tamper refusal.
 #
 # Usage: fm-update.sh [--help]
 set -eu
@@ -159,8 +164,8 @@ claim_settled_secondmate() {  # <id>
   fi
 }
 
-# bin/fm-ff-lib.sh calls this for each local home it left AT the base with a live
-# endpoint - status "updated" or "current" alike. A skipped home never gets here.
+# bin/fm-ff-lib.sh calls this for each local home it left AT the base, with or
+# without a live endpoint. Its settled-state hook contract owns eligibility.
 fm_ff_after_secondmate_settled() {  # <id> <home> <window> <status> <instr>
   # Same bin/-changed-out-from-under-a-watch problem as the primary home
   # above, for a local secondmate's own worktree; "current" means bin/ did

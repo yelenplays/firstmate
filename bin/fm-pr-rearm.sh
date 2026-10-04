@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# Refresh existing registered merge watches after a poll-template update.
+# Usage: bash bin/fm-pr-rearm.sh
+# Uses FM_STATE_OVERRIDE, otherwise FM_HOME/state (FM_ROOT_OVERRIDE or this
+# checkout supplies the default home). No registration means no watch is armed.
+# A stale watch must still authenticate against its registered script before
+# the shared prepare/publish boundary replaces it with the current template;
+# this preserves tamper refusal rather than blessing arbitrary check scripts.
+# Current watches are left unchanged. Failures name the task and return nonzero.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
