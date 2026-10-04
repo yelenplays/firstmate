@@ -1,0 +1,6 @@
+Scenario: real CLI blocks a never-send match before Jev
+  exit=2
+fm-jev-model-proposal: request text matches /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M448DHCTQ3HZ5MBKN331TCF3/.jev-live.EOAIY2/home/config/dispatch-never-send line 1
+proposal_exists=no
+call_log_exists=no
+config_files=crew-dispatch.json dispatch-never-send 

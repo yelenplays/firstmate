@@ -1,0 +1,5 @@
+command: FM_HOME=<isolated fixture> TYPESAFE_API_KEY=<non-credential test value> bash bin/fm-jev-model-proposal.sh --evidence <fixture> --out <fixture>/proposal.md
+exit: 2
+fm-jev-model-proposal: request text matches /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M448DHCTQ3HZ5MBKN331TCF3/.test-live-jev-proposal/home/config/dispatch-never-send line 1
+config unchanged: yes
+proposal written: no
