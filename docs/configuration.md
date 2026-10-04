@@ -1563,7 +1563,7 @@ It exists for role-split teams and stays off unless the local, gitignored presen
 Today's one-worker-per-task dispatch never calls it; [`bin/fm-dispatch-resolve.sh`](../bin/fm-dispatch-resolve.sh) remains the owner of choosing a harness and model before a spawn.
 Code owns capacity: only a seat that runs, is idle, can be served, and sits below the context wall is ever offered; idle seats with assigned open work remain eligible, and Jev weighs fit and load notes while preferring a free seat only when equally suitable.
 An act-band answer dispatches; anything else, including a missing key or a Jev error, hands the choice to the team lead, so a caller never blocks on the model.
-Reroute planning is deterministic and report-only: it never moves work itself. The team dispatch from plan item 8 will apply the plan; nothing applies it until then. Old in-progress rows can move off gone or non-running seats; rows on live seats, including seats at the context wall, stay protected.
+Reroute planning is deterministic and report-only: it never moves work itself. The team dispatch from plan item 8 will apply the plan; nothing applies it until then. Old in-progress rows can move off gone or non-running seats, and off a running but unavailable seat when idle; rows on other live seats, including seats at the context wall, stay protected.
 The script header owns the seat and row schema, the bands, the reroute rules, and the outbound data boundary; coverage lives in [`tests/fm-seat-pick.test.sh`](../tests/fm-seat-pick.test.sh).
 
 ## Brief preflight (FM_JEV_BRIEF_PREFLIGHT)
