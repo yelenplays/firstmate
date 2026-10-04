@@ -1949,8 +1949,9 @@ Every post is top-level; without a bot that also keeps the bridge out of threads
 
 Each delivered captain message records its reply route, the channel and thread it came from, in `state/slack-bridge/routes`.
 With a bot, `bin/fm-inbox.sh reply <note-id> <text>` on a `slack-captain` note also posts that reply back through the bot: into the same thread for a thread reply, and into the DM for a DM.
-`bin/fm-slack-bridge.sh send-reply <note-id>` performs that post, exactly once per note, recorded in `state/slack-bridge/replied`.
-If the post fails, the reply stays recorded, `reply` exits 3, and `send-reply` retries it.
+`bin/fm-slack-bridge.sh send-reply <note-id>` adds a trailing `[fm-reply:<note-id>]` marker to the bot message and records it in `state/slack-bridge/replied`.
+Before posting, it checks the destination DM or thread for that marker; if Slack accepted a post but its response was lost, the retry finds the existing bot message and records it rather than posting a duplicate.
+If the check or post fails, the reply stays recorded, `reply` exits 3, and `send-reply` can be retried.
 Without a bot, a reply stays local and its output is unchanged.
 `bin/fm-slack-bridge.sh verify` checks a bot setup: the token, one test post per channel, and a DM to the captain to answer.
 

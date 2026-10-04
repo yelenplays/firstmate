@@ -36,8 +36,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-const VALID_ACTIONS = new Set(["post", "read", "verify"]);
-const PAGE_LIMIT = 10;
+const VALID_ACTIONS = new Set(["post", "find-reply", "read", "verify"]);
 
 function die(code, message) {
   process.stderr.write(`fm-slack-bot: ${message}\n`);
@@ -126,12 +125,11 @@ function client(token) {
 async function paged(call, method, args, key) {
   const all = [];
   let cursor;
-  for (let page = 0; page < PAGE_LIMIT; page += 1) {
+  do {
     const data = await call(method, { ...args, limit: 200, cursor });
     all.push(...(Array.isArray(data[key]) ? data[key] : []));
     cursor = data.response_metadata && data.response_metadata.next_cursor;
-    if (!cursor) break;
-  }
+  } while (cursor);
   return all;
 }
 
@@ -174,6 +172,24 @@ async function actionPost(call, req) {
   });
   if (!validChannel(data.channel) || !validTs(data.ts)) throw new SlackError("chat.postMessage", "unexpected_response");
   process.stdout.write(`posted ${data.channel} ${data.ts}\n`);
+}
+
+async function actionFindReply(call, req) {
+  const marker = typeof req.marker_b64 === "string" && /^[A-Za-z0-9+/=]+$/.test(req.marker_b64)
+    ? Buffer.from(req.marker_b64, "base64").toString("utf-8")
+    : "";
+  const markerId = marker.startsWith("[fm-reply:") && marker.endsWith("]")
+    ? marker.slice("[fm-reply:".length, -1)
+    : "";
+  if (!validChannel(req.channel)) die(2, "find-reply needs a channel id");
+  if (req.thread !== "-" && !validTs(req.thread)) die(2, "find-reply needs a thread ts or '-'");
+  if (!/^[A-Za-z0-9._-]+$/.test(markerId)) die(2, "find-reply needs a reply marker");
+  const messages = req.thread === "-"
+    ? await paged(call, "conversations.history", { channel: req.channel, limit: 200 }, "messages")
+    : await paged(call, "conversations.replies", { channel: req.channel, ts: req.thread }, "messages");
+  const found = messages.find((message) => (message.bot_id || message.subtype === "bot_message") && String(message.text || "").includes(marker));
+  if (found && validTs(found.ts)) process.stdout.write(`found ${req.channel} ${found.ts}\n`);
+  else process.stdout.write("not-found\n");
 }
 
 async function actionRead(call, req) {
@@ -234,7 +250,7 @@ async function actionVerify(call, req) {
 
 async function main() {
   const action = process.argv[2];
-  if (!VALID_ACTIONS.has(action) || process.argv.length !== 3) die(2, "usage: fm-slack-bot.mjs post|read|verify < request.json");
+  if (!VALID_ACTIONS.has(action) || process.argv.length !== 3) die(2, "usage: fm-slack-bot.mjs post|find-reply|read|verify < request.json");
   let req;
   try {
     req = JSON.parse(readFileSync(0, "utf-8"));
@@ -247,6 +263,7 @@ async function main() {
   const call = client(keychainToken(req.keychain));
   try {
     if (action === "post") await actionPost(call, req);
+    else if (action === "find-reply") await actionFindReply(call, req);
     else if (action === "read") await actionRead(call, req);
     else await actionVerify(call, req);
   } catch (err) {

@@ -281,8 +281,7 @@ bot_run() {  # <seconds> <action> <request-json>
   return 0
 }
 
-# Post as the bot. chat.postMessage is not idempotent, so a lost answer is
-# reported rather than retried into a duplicate message.
+# Post as the bot.
 BOT_CHANNEL=
 BOT_TS=
 bot_post() {  # <channel-id> <text> [thread-ts]
@@ -695,7 +694,16 @@ action_send_reply() {
   [ -f "$reply" ] || die "no reply is recorded for note $id; record it with fm-inbox.sh reply"
   body=$(awk 'found { print; next } /^--$/ { found = 1 }' "$reply")
   [ -n "${body//[[:space:]]/}" ] || die "the recorded reply for note $id is empty"
-  bot_post "$channel" "$body" "$thread" || die "the Slack bot could not post the reply to $id: $BOT_ERROR"
+  local marker="[fm-reply:$id]" found
+  bot_run 30 find-reply "{\"keychain\":\"$CFG_BOT\",\"channel\":\"$channel\",\"thread\":\"${thread:--}\",\"marker_b64\":\"$(b64_line "$marker")\"}" || die "the Slack bot could not check for an existing reply to $id: $BOT_ERROR"
+  found=$(printf '%s\n' "$BOT_OUT" | sed -n 's/^found \([CGD][A-Z0-9]*\) \([0-9]\{10\}\.[0-9]\{6\}\)$/\1 \2/p' | sed -n 1p)
+  if [ -n "$found" ]; then
+    printf 'v1\t%s\t%s\t%s\n' "$id" "${found%% *}" "${found#* }" >> "$REPLIED" \
+      || die "found the reply to $id but could not record it in $REPLIED"
+    printf 'slack: reply to %s already posted (%s)\n' "$id" "$found"
+    return 0
+  fi
+  bot_post "$channel" "$body $marker" "$thread" || die "the Slack bot could not post the reply to $id: $BOT_ERROR"
   printf 'v1\t%s\t%s\t%s\n' "$id" "$BOT_CHANNEL" "$BOT_TS" >> "$REPLIED" \
     || die "posted the reply to $id as $BOT_CHANNEL $BOT_TS but could not record it in $REPLIED"
   # A top-level DM answer is a new thread the captain may reply in.

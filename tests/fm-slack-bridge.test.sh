@@ -365,6 +365,7 @@ import http from "node:http";
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 const [control, ready, token] = process.argv.slice(2);
 const counters = new Map();
+const accepted = new Map();
 const server = http.createServer((req, res) => {
   const chunks = [];
   req.on("data", (c) => chunks.push(c));
@@ -384,16 +385,32 @@ const server = http.createServer((req, res) => {
       if ((fixture.notInChannel || []).includes(params.channel)) return reply({ ok: false, error: "not_in_channel" });
       const n = (counters.get(home) || 0) + 1;
       counters.set(home, n);
-      return reply({ ok: true, channel: params.channel, ts: `1791140500.${String(n).padStart(6, "0")}` });
+      const message = { ts: `1791140500.${String(n).padStart(6, "0")}`, user: "U0BOTYELEN", bot_id: "B0YELEN001", text: params.text, thread_ts: params.thread_ts };
+      if (!accepted.has(home)) accepted.set(home, []);
+      accepted.get(home).push({ channel: params.channel, message });
+      if (fixture.losePostResponseOnce) {
+        fixture.losePostResponseOnce = false;
+        writeFileSync(fixturePath, JSON.stringify(fixture));
+        req.socket.destroy();
+        return;
+      }
+      return reply({ ok: true, channel: params.channel, ts: message.ts });
     }
     if (method === "conversations.history") {
-      const all = (fixture.history || {})[params.channel] || [];
+      const all = [...((fixture.history || {})[params.channel] || []), ...(accepted.get(home) || []).filter((x) => x.channel === params.channel).map((x) => x.message)];
       const oldest = Number(params.oldest || 0);
       const keep = all.filter((m) => (params.inclusive === "true" ? Number(m.ts) >= oldest : Number(m.ts) > oldest));
-      return reply({ ok: true, messages: keep, has_more: false });
+      const offset = Number(params.cursor || 0);
+      const messages = keep.slice(offset, offset + 200);
+      return reply({ ok: true, messages, response_metadata: offset + 200 < keep.length ? { next_cursor: String(offset + 200) } : { next_cursor: "" } });
     }
     if (method === "conversations.replies") {
-      return reply({ ok: true, messages: (fixture.threads || {})[`${params.channel}:${params.ts}`] || [] });
+      const seeded = (fixture.threads || {})[`${params.channel}:${params.ts}`] || [];
+      const posted = (accepted.get(home) || []).filter((x) => x.channel === params.channel && x.message.thread_ts === params.ts).map((x) => x.message);
+      const all = [...seeded, ...posted];
+      const offset = Number(params.cursor || 0);
+      const messages = all.slice(offset, offset + 200);
+      return reply({ ok: true, messages, response_metadata: offset + 200 < all.length ? { next_cursor: String(offset + 200) } : { next_cursor: "" } });
     }
     return reply({ ok: false, error: "unknown_method" });
   });
@@ -576,6 +593,40 @@ test_reply_without_bot_stays_local() {
   pass "fm-slack-bridge: without a bot a reply stays local"
 }
 
+test_bot_reads_past_ten_pages() {
+  local home out count
+  home=$(make_bot_home bot-pages)
+  node -e 'const fs=require("fs"); const messages=Array.from({length:2201},(_,i)=>({ts:`179114${String(i).padStart(4,"0")}.000001`,user:"U0CAPTAIN1",text:`message-${i}`})); fs.writeFileSync(process.argv[1],JSON.stringify({history:{C0HANDOFF1:messages}}));' "$home/bot-fixture.json"
+  out=$(printf '{"keychain":"%s","history":[{"channel":"C0HANDOFF1","oldest":"1791140000.000000"}]}\n' "$BOT_SERVICE" | \
+    env FM_SLACK_BOT_API_BASE="$BOT_API" FM_HOME="$home" PATH="$home/fakebin:$PATH" \
+    node "$ROOT/bin/fm-slack-bot.mjs" read 2>&1) || fail "a paged bot read must succeed: $out"
+  count=$(printf '%s\n' "$out" | awk -F '\t' '$1 == "message" { n++ } END { print n+0 }')
+  assert_equals 2201 "$count" "the read returns every page, not only the first ten"
+  pass "fm-slack-bridge: bot reads continue until pagination is complete"
+}
+
+test_lost_reply_response_is_found_before_retry() {
+  local home note id out rc
+  home=$(make_bot_home bot-lost-reply)
+  write_bot_config "$home"
+  bot_bridge "$home" arm >/dev/null 2>&1 || fail "bot arm must succeed"
+  write_bot_fixture "$home"
+  bot_bridge "$home" check >/dev/null 2>&1 || fail "bot check must succeed"
+  note=$(grep -l '^source=slack-captain$' "$home/state/inbox"/*.note | head -n 1)
+  id=$(sed -n 's/^id=//p' "$note")
+  printf '{"losePostResponseOnce":true}\n' > "$home/bot-fixture.json"
+  rc=0
+  bot_inbox "$home" reply "$id" "accepted but response lost" >/dev/null 2>&1 || rc=$?
+  expect_code 3 "$rc" "the ambiguous initial post is reported as failed"
+  rc=0
+  out=$(bot_bridge "$home" send-reply "$id" 2>&1) || rc=$?
+  expect_code 0 "$rc" "the retry recognizes Slack's accepted post"
+  assert_contains "$out" "already posted" "the retry records the existing reply"
+  assert_equals 1 "$(posted_requests "$home" | grep -c .)" "the retry does not post a duplicate"
+  assert_grep $'v1\t'"$id"$'\tD0DMCAPT01\t1791140500.000001' "$home/state/slack-bridge/replied" "the accepted reply is durably marked"
+  pass "fm-slack-bridge: an ambiguous post is found before retry"
+}
+
 test_bot_failures_are_safe() {
   local home out rc
   home=$(make_bot_home bot-fail)
@@ -653,6 +704,8 @@ test_invalid_config_is_reported
 test_bot_posts_instead_of_slack_axi
 test_bot_delivers_only_the_captain_and_replies_back
 test_reply_without_bot_stays_local
+test_bot_reads_past_ten_pages
+test_lost_reply_response_is_found_before_retry
 test_bot_failures_are_safe
 test_bot_verify_round_trip
 test_manifest_has_name_and_minimal_scopes
