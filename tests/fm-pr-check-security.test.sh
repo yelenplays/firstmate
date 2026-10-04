@@ -164,6 +164,10 @@ case "${1:-} ${2:-}" in
         printf '%s\n' "{\"headRefOid\":\"${FM_TEST_GH_HEAD:-0123456789abcdef0123456789abcdef01234567}\",\"reviewDecision\":\"APPROVED\"}"
         exit 0
         ;;
+      *mergeCommit*)
+        printf '%s\n' '{"state":"MERGED","mergeCommit":{"oid":"1111111111111111111111111111111111111111"},"headRefOid":"0123456789abcdef0123456789abcdef01234567","baseRefName":"main","id":"PR_fixture","title":"fixture"}'
+        exit 0
+        ;;
     esac
     ;;
   "pr merge")
@@ -3065,6 +3069,10 @@ test_authority_retirement_preserves_replacement() {
 #!/usr/bin/env bash
 export FM_ROOT_OVERRIDE="$dir/root" FM_TEST_GUARD_LOG="$dir/guard.log"
 "$PR_CHECK" task-a "$url_b" >/dev/null
+# This test isolates poll-replacement authority from the separate post-merge
+# handoff; retire the queued fixture's marker before simulating another merge.
+awk '!/^post_merge_watch_required=/' "$dir/home/state/task-a.meta" > "$dir/home/state/task-a.meta.next"
+mv "$dir/home/state/task-a.meta.next" "$dir/home/state/task-a.meta"
 (
   FM_TEST_GH_GRAPHQL_STATE=OPEN FM_TEST_GH_GRAPHQL_MERGED=false \\
   FM_TEST_GH_GRAPHQL_QUEUED=true \\
