@@ -29,8 +29,10 @@
 #
 # Otherwise one typed Jev call through bin/fm-jev-lib.sh sends the contract
 # and snapshot as state and asks a scope choice plus a separate yes/no risk
-# question per finding. It acts only when every finding answers in-scope-fix with a unique top probability that
-# matches the choice and a confidence at or above FM_JEV_ASK_USER_FLOOR
+# question per finding. A scope answer must have type exactly "choice"; missing
+# or other types are Jev errors. It acts only when every finding answers
+# in-scope-fix with a unique top probability that matches the choice and a
+# confidence at or above FM_JEV_ASK_USER_FLOOR
 # (default 0.75; the reported confidence, else the top-two margin). Any other
 # answer, a transport failure, or a malformed response escalates; there is no
 # fallback to another judge.
