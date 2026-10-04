@@ -70,6 +70,7 @@ state/               runtime records and signals; gitignored
   <id>.turn-ended    touched by turn-end hooks
   <id>.progress      touched for observed native-harness activity inside one Pi turn; bin/fm-busy-event.sh owns its generation binding and bin/fm-watch.sh reads it beside turn-ended for the busy-age bound only, never as a completed turn
   <id>.jev-wedge-warned   per-task Jev wedge-check warning ledger, one "<class> <epoch>" line per stuck class, behind the hourly warning window; bin/fm-jev-wedge-check.sh owns it; retired with the task
+  <id>.jev-wedge.lock     per-task watcher/daemon lock for Jev wedge decisions; see docs/configuration.md "Jev supervision triage"
   <id>.busy-state <id>.busy-gen   semantic busy-state record (one line, atomically replaced) and its per-incarnation gen sidecar; bin/fm-busy-event.sh is the only writer and bin/fm-busy-lib.sh owns the record format and classification; arming again replaces the previous incarnation so late events carrying its gen are rejected as stale; removed by retire and teardown
   <id>.grok-turnend-token   firstmate-owned grok hook registry token for the task; removed by teardown
   <id>.kimi-turnend-token   firstmate-owned Kimi hook registry token for the task; removed by teardown
