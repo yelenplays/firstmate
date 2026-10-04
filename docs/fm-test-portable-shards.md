@@ -42,6 +42,13 @@ The cancelled PR run [35774219507](https://github.com/yelenplays/firstmate/actio
 Each of the 24 proven-isolated candidates has three successful per-script samples across these six artifacts.
 `portable_parallel_weight_hints` retains the slowest completed sample for each script, which is a packing input and not an upper bound on future durations.
 
+For current serial singleton-isolation evidence, successful Ubuntu CI run [37164082939](https://github.com/yelenplays/firstmate/actions/runs/37164082939) provides these per-script measurements in its `fm-test-timing-aggregate` artifact:
+
+- `tests/fm-supervision-host.test.sh`: `duration_ms=1417414` (23m37s), `exit=0`.
+- `tests/fm-watch-triage.test.sh`: `duration_ms=1231514` (20m32s), `exit=0`.
+
+These measurements support singleton isolation and the serial timeout tier; they are not a refresh of the older packing hint table or evidence that the modeled twenty-minute budget bounds current runtime.
+
 ## Parallel lanes
 
 Read the derived packing estimates with `bin/fm-test-run.sh --check-coverage`; its header and `--help` own the output fields and the selection-specific `--list-scheduled` weight rules.
