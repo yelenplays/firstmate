@@ -9,7 +9,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), and [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), and [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), and [Calm preference](#calm-preference-configcalm) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
@@ -993,6 +993,35 @@ Pins are not inherited into secondmate homes: a local secondmate agent launches 
 A remote secondmate is launched on its host from its own home's configuration, so create the file in that remote home.
 
 [`bin/fm-worker-account-lib.sh`](../bin/fm-worker-account-lib.sh) owns parsing, the sign-in check, and the full list of credentials a Claude launch unsets; [runtime backend verification](verification/runtime-backends.md#worker-account-pin-sign-in-check) records the check against the real runners.
+
+## GitHub account per owner (config/gh-account-by-owner)
+
+A home signed in to several GitHub accounts, such as a company account and a personal one, can choose which account Firstmate's own GitHub reads, checks, and merges use for each repository owner.
+The map is opt-in and private: with no file or no matching owner, calls retain their existing authentication, including ambient `GH_TOKEN` or `GITHUB_TOKEN` overrides.
+
+Each line is `owner account`, where the owner is the GitHub user or organization in the repository URL and the account is a login already added with `gh auth login --hostname github.com`.
+For example, to route company repositories and repositories owned by your personal account separately:
+
+```text
+SlashpipeCoding Slashpipe
+MarcoGC3 MarcoGC3
+```
+
+List every owner you want routed; there is no wildcard or default-account entry.
+Names may contain only ASCII letters, digits, and hyphens.
+Owner names match case-insensitively; blank lines and text after `#` are ignored.
+
+For a mapped owner, Firstmate reads that account's token with `gh auth token --hostname github.com --user <account>` and passes it as `GH_TOKEN` to that one gh or gh-axi call only.
+The active account is never switched, and the token is never printed, logged, written to a file, or placed in a command argument.
+This covers PR merges, merge checks and merge watching, PR state and reviewer reads, cleanup's merge check, the bearings PR list, the wiki PR verdict, and the background contribution watch, so the watch keeps seeing an owner's PRs while another account stays active.
+Worker-issued pushes and pull requests are not routed by this map: Git pushes retain the clone's configured Git authentication, and worker GitHub CLI calls retain their own CLI authentication.
+
+An unreadable map, malformed names or lines, conflicting accounts for the requested owner, or a mapped account without a token stops the routed call rather than retrying under another account.
+The helper emits an `fm-gh-account:` diagnostic; some callers suppress it, while a contribution watch records it on the affected entry.
+GitHub Enterprise hosts, GitLab, and Gerrit are not covered.
+The map is not inherited into secondmate homes; a secondmate that needs it keeps its own file.
+
+[`bin/fm-pr-lib.sh`](../bin/fm-pr-lib.sh) owns the parsing and the per-call helper.
 
 ## Lavish server address (config/lavish-axi-host)
 

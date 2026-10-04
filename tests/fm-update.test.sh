@@ -556,6 +556,57 @@ test_primary_update_rebinds_local_watch() {
   pass "T12 a self-update rebinds a locally armed watch on the primary"
 }
 
+test_update_refreshes_merge_watches() (
+  local w home url id out before after
+  w=$(new_world merge-watches)
+  cp -R "$ROOT/bin/." "$w/seed/bin/"
+  printf 'state/\n' > "$w/seed/.gitignore"
+  printf '\n' >> "$w/seed/bin/fm-pr-poll.sh"
+  git -C "$w/seed" add bin .gitignore
+  git -C "$w/seed" commit -qm old-poll
+  git -C "$w/seed" push -q origin main
+  git -C "$w/main" pull -q --ff-only
+  add_sm "$w" live
+  add_sm "$w" idle
+  rm "$w/home/state/idle.meta"
+  printf -- '- idle - idle mate (home: %s/idle; scope: things; projects: p; added 2026-06-23)\n' "$w" > "$w/home/data/secondmates.md"
+  . "$ROOT/bin/fm-pr-lib.sh"
+  for home in "$w/home" "$w/live" "$w/idle"; do
+    mkdir -p "$home/state"
+    for url in https://github.com/org/repo/pull/1 https://gitlab.example/org/repo/-/merge_requests/2 https://review.example/c/repo/+/3; do
+      fm_pr_url_parse "$url" || fail "fixture URL rejected"
+      id=$FM_PR_PROVIDER
+      printf 'kind=ship\npr=%s\n' "$url" > "$home/state/$id.meta"
+      chmod 600 "$home/state/$id.meta"
+      fm_pr_poll_prepare "$home/state" "$id" "$FM_PR_PROVIDER" "$FM_PR_URL" \
+        "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" "$w/main/bin/fm-pr-poll.sh" || fail "prepare old watch"
+      fm_pr_poll_publish_prepared || fail "publish old watch"
+      fm_pr_poll_artifacts_valid "$home/state" "$id" "$ROOT/bin/fm-pr-poll.sh" \
+        && fail "old watch unexpectedly accepts new template"
+    done
+  done
+  cp "$ROOT/bin/fm-pr-poll.sh" "$w/seed/bin/fm-pr-poll.sh"
+  git -C "$w/seed" add bin/fm-pr-poll.sh
+  git -C "$w/seed" commit -qm new-poll
+  git -C "$w/seed" push -q origin main
+  out=$(run_update "$w") || fail "merge-watch update failed"
+  assert_contains "$out" 'firstmate: updated' 'primary update ran'
+  for home in "$w/home" "$w/live" "$w/idle"; do
+    for id in github gitlab gerrit; do
+      fm_pr_poll_artifacts_valid "$home/state" "$id" "$ROOT/bin/fm-pr-poll.sh" \
+        || fail "updated $home/$id watch rejected"
+    done
+  done
+  before=$(fm_pr_file_identity "$w/home/state/github.check.sh")
+  run_update "$w" >/dev/null || fail "already-current update failed"
+  after=$(fm_pr_file_identity "$w/home/state/github.check.sh")
+  [ "$before" = "$after" ] || fail "current watch unnecessarily republished"
+  printf '\n' >> "$w/home/state/github.check.sh"
+  run_update "$w" >/dev/null && fail "tampered watch accepted by update"
+  pass 'merge watches survive updates across providers and local homes; tampering stays refused'
+)
+
+test_update_refreshes_merge_watches || exit 1
 test_updates_main_and_secondmate
 test_reread_gate_is_instruction_only
 test_bin_only_advance_restarts

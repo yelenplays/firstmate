@@ -207,7 +207,8 @@ forge() {
   # The budget, not the forge, refused this read.
   [ "$remaining" -gt 0 ] || { BUDGET_EXHAUSTED=1; : > "$TMP/budget-exhausted"; return 1; }
   [ "$remaining" -le 5 ] || remaining=5
-  fm_run_timed "$remaining" env GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1 \
+  # The owner's mapped account answers the read without switching the active one.
+  fm_gh_run_timed "$remaining" env GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1 \
     gh "$@" 2> "$forge_err" || rc=$?
   # A kill at the read bound or the deadline is budget refusal too; only the
   # forge's own nonzero exit is unavailable evidence.
@@ -233,10 +234,10 @@ wait_forges() { # background forge pids from one independent read wave
 
 observe() { # canonical GitHub URL -> normalized JSON
   local url=$1 part number kind endpoint head after label
+  rm -f -- "$TMP/budget-exhausted" "$TMP/forge-unavailable" "$TMP"/*.err
   case "$url" in https://github.com/*) ;; *) return 1 ;; esac
   part=${url#https://github.com/}; number=${part##*/}; part=${part%/*}; kind=${part##*/}; part=${part%/*}
   case "$kind" in pull) endpoint="repos/$part/pulls/$number" ;; issues) endpoint="repos/$part/issues/$number" ;; *) return 1 ;; esac
-  rm -f -- "$TMP/budget-exhausted" "$TMP/forge-unavailable"
   BUDGET_EXHAUSTED=0
   forge api "$endpoint" > "$TMP/core.json" || return 1
   jq -e '(.state == "open" or .state == "closed") and (.user.login | type == "string")' "$TMP/core.json" >/dev/null || return 1
@@ -409,6 +410,9 @@ poll() {
             pending:(($old.pending // []) + [$events[] | select(.token as $t | ($old.seen // [] | index($t)) == null)] | unique_by(.token))}' > "$TMP/row.json"
       else
         error='forge observation unavailable or changed during read'
+        # A missing account token names its own fix instead of the generic cause.
+        account_error=$(grep -h '^fm-gh-account: ' "$TMP"/*.err 2>/dev/null | head -1) || account_error=
+        [ -z "$account_error" ] || error=${account_error#fm-gh-account: }
         jq --arg now "$NOW" --arg error "$error" '.checked_at=$now | .error=$error' "$old" > "$TMP/row.json"
       fi
       write_record "$task" "$TMP/row.json"
