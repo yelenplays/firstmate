@@ -157,6 +157,16 @@ run_pr_merge() {  # <home> <id> <url>
     FM_TEST_GH_AXI_LOG="$home/gh-axi.log" "$ROOT/bin/fm-pr-merge.sh" "$@"
 }
 
+complete_watch_fixture() {  # <home> <task-id>
+  local home=$1 id=$2 meta="$1/state/$2.meta" generation
+  generation=$(sed -n 's/^spawn_gen=//p' "$meta")
+  [ -n "$generation" ] || fail "watch fixture has no task incarnation"
+  printf 'version=fm-post-merge-v1\ntask=%s\nspawn_gen=%s\nphase=clear\n' \
+    "$id" "$generation" > "$home/state/$id.post-merge"
+  chmod 0600 "$home/state/$id.post-merge"
+  awk '!/^post_merge_watch_required=/' "$meta" > "$meta.next" && mv "$meta.next" "$meta"
+}
+
 wait_for_test_file() {  # <path> <pid>
   local path=$1 pid=$2 i=0
   while [ "$i" -lt 500 ]; do
@@ -3972,6 +3982,7 @@ test_released_merge_passes_the_entrypoint_and_lands() {
     "the approved merge remained captain-held after its release"
   run_pr_merge "$home" "$id" "$pr" > "$home/merge.out" 2> "$home/merge.err" \
     || fail "the released merge was refused: $(cat "$home/merge.err")"
+  complete_watch_fixture "$home" "$id"
   PATH="$home/fakebin:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" "$TEARDOWN" "$id" --force \

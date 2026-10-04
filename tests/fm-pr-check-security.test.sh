@@ -329,6 +329,16 @@ run_merge_entry() {
     "$PR_MERGE" "$@"
 }
 
+# Cleanup cases below isolate task-ID handling; model their already-confirmed watch explicitly.
+complete_watch_fixture() {  # <dir> <task-id>
+  local dir=$1 id=$2 meta="$1/home/state/$2.meta" generation
+  generation=$(sed -n 's/^spawn_gen=//p' "$meta")
+  printf 'version=fm-post-merge-v1\ntask=%s\nspawn_gen=%s\nphase=clear\n' \
+    "$id" "$generation" > "$dir/home/state/$id.post-merge"
+  chmod 0600 "$dir/home/state/$id.post-merge"
+  awk '!/^post_merge_watch_required=/' "$meta" > "$meta.next" && mv "$meta.next" "$meta"
+}
+
 # shellcheck disable=SC2016 # Literal rejected URL bytes are parser test data.
 INVALID_URLS=(
   'https://gitlab.com/single/-/merge_requests/1'
@@ -823,6 +833,7 @@ exit 0
 SH
   chmod 0700 "$dir/fakebin/tmux"
   touch "$dir/home/state/.last-watcher-beat"
+  complete_watch_fixture "$dir" Task_A.1
   FM_HOME="$dir/home" FM_ROOT_OVERRIDE="$ROOT" PATH="$dir/fakebin:$BASE_PATH" \
     "$TEARDOWN" Task_A.1 --force > "$dir/teardown.out" 2> "$dir/teardown.err" \
     || fail "safe lifecycle-compatible task ID could not be torn down"
@@ -837,7 +848,7 @@ SH
       "worktree=$dir/wt" \
       "project=$dir/project" \
       'kind=ship' \
-      'mode=local-only'
+      'mode=no-mistakes'
     cat > "$dir/fakebin/tmux" <<'SH'
 #!/usr/bin/env bash
 exit 0
@@ -862,10 +873,11 @@ SH
       || fail "path-safe legacy task ID could not link an X request"
     run_merge_entry "$dir" "$id" https://github.com/o/r/pull/4 \
       > "$dir/merge.out" 2> "$dir/merge.err" \
-      || fail "path-safe legacy task ID could not use the PR merge flow"
+      || fail "path-safe legacy task ID could not use the PR merge flow: $(cat "$dir/merge.err")"
     fm_pr_poll_artifacts_valid "$dir/home/state" "$id" "$POLL" \
       || fail "path-safe legacy task ID did not publish an authenticated poll"
     rm -rf "$dir/wt"
+    complete_watch_fixture "$dir" "$id"
     FM_HOME="$dir/home" FM_ROOT_OVERRIDE="$ROOT" PATH="$dir/fakebin:$BASE_PATH" \
       "$TEARDOWN" "$id" --force > "$dir/teardown.out" 2> "$dir/teardown.err" \
       || fail "legacy path-safe task ID could not be torn down"
