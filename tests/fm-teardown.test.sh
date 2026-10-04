@@ -872,13 +872,15 @@ test_remote_teardown_retires_watcher_state() {
 }
 
 test_teardown_closes_the_backlog_item_itself() {
-  local case_dir out today
+  local case_dir out today_before today_after
   case_dir=$(make_case tasks-axi-close)
   write_meta "$case_dir" no-mistakes ship
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
 
+  today_before=$(date +%Y-%m-%d)
   out=$(run_teardown "$case_dir") || fail "teardown failed with a real backlog"
+  today_after=$(date +%Y-%m-%d)
   [ "$(backlog_row_state "$case_dir")" = "done" ] \
     || fail "teardown returned success while its backlog item was still open: $(backlog_row_state "$case_dir")"
   assert_grep 'https://github.com/example/repo/pull/7' "$case_dir/data/backlog.md" \
@@ -887,11 +889,15 @@ test_teardown_closes_the_backlog_item_itself() {
     "a landed close left its pending-close record behind"
   assert_present "$case_dir/data/history/tasks/task-x1.md" \
     "successful cleanup did not preserve the task's private history card"
-  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
-  assert_present "$case_dir/data/history/days/$today.logbook.json" \
-    "successful cleanup did not regenerate today's Logbook"
-  jq -e 'any(.landed[]; .id == "task-x1")' "$case_dir/data/history/days/$today.logbook.json" >/dev/null \
-    || fail "successful cleanup did not add the landed task to today's Logbook"
+  if jq -e 'any(.landed[]; .id == "task-x1")' \
+      "$case_dir/data/history/days/$today_before.logbook.json" >/dev/null 2>&1; then
+    :
+  elif [ "$today_after" != "$today_before" ] && jq -e 'any(.landed[]; .id == "task-x1")' \
+      "$case_dir/data/history/days/$today_after.logbook.json" >/dev/null 2>&1; then
+    :
+  else
+    fail "successful cleanup did not add the landed task to a generation-day Logbook"
+  fi
   assert_grep "## Captain's intent" "$case_dir/data/history/tasks/task-x1.md" \
     "the task card did not preserve an explicit Captain's intent section"
   printf '%s\n' "$out" | grep -F 'bin/fm-tasks-axi.sh ready' >/dev/null \
