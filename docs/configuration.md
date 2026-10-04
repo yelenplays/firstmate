@@ -198,9 +198,9 @@ A pack's voice guidance must keep straight bad news and must forbid slurs and re
 
 | Value or file state | Result |
 | --- | --- |
-| Absent, empty, `nautical`, or `default` | The built-in nautical voice; no themed surface renders, so every output is unchanged. |
+| Absent, empty, or `off` | The built-in nautical voice; no themed surface renders, so every output is unchanged. |
 | The name of a tracked pack | That pack. |
-| Any other name | The built-in voice, with one warning line from `bin/fm-theme.sh` and in the digest's `THEME` section. |
+| Any other name, including `nautical` or `default` | The built-in voice, with one warning line from `bin/fm-theme.sh` and in the digest's `THEME` section. |
 
 `bin/fm-theme.sh set <name>` validates the name before writing the file, and `bin/fm-theme.sh set off` removes it.
 A change takes effect at the next session start; `bin/fm-theme.sh show` prints the active pack for a session already running.

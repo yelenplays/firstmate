@@ -3,7 +3,7 @@
 # resolver and renderer.
 #
 # Coverage:
-#   - the built-in default (absent, empty, `nautical`, `default`) renders no
+#   - the built-in default (absent, empty, or `off`) renders no
 #     themed surface: canonical status words, an empty status map, no banner,
 #     and no digest
 #   - the tracked ny-trenches pack renders its banner, address, no-op reply,
@@ -37,7 +37,7 @@ theme() {  # <config-dir> <args...>
 
 test_default_renders_nothing_themed() {
   local config value state
-  for value in ABSENT '' nautical default; do
+  for value in ABSENT '' off; do
     config=$(new_config "default-$value")
     [ "$value" = ABSENT ] || printf '%s\n' "$value" > "$config/theme"
     assert_equals nautical "$(theme "$config" current 2>&1)" "default [$value] current"
@@ -100,7 +100,7 @@ test_ny_trenches_renders_banner_and_status_words() {
 
 test_unknown_theme_falls_back_with_one_warning() {
   local config value out err lines
-  for value in bogus '../themes/ny-trenches' 'Ny-Trenches' 'ny trenches'; do
+  for value in bogus '../themes/ny-trenches' 'Ny-Trenches' 'ny trenches' 'ny -trenches' nautical default; do
     config=$(new_config "unknown-$RANDOM")
     printf '%s\n' "$value" > "$config/theme"
     err="$config/err"
@@ -120,6 +120,14 @@ test_unknown_theme_falls_back_with_one_warning() {
     assert_contains "$out" "fm-theme: unknown theme" "unknown [$value] digest carries the warning"
   done
   pass "an unknown theme falls back to the default with one warning line"
+}
+
+test_trimmed_theme_name_resolves() {
+  local config
+  config=$(new_config trimmed)
+  printf ' \t ny-trenches \t\n' > "$config/theme"
+  assert_equals ny-trenches "$(theme "$config" current)" "surrounding whitespace is trimmed"
+  pass "theme selection trims only surrounding whitespace"
 }
 
 test_set_validates_and_off_removes() {
@@ -153,6 +161,7 @@ test_theme_is_inherited_by_secondmates() {
 test_default_renders_nothing_themed
 test_ny_trenches_renders_banner_and_status_words
 test_unknown_theme_falls_back_with_one_warning
+test_trimmed_theme_name_resolves
 test_set_validates_and_off_removes
 test_theme_is_inherited_by_secondmates
 

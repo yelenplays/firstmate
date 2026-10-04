@@ -11,8 +11,8 @@
 # SELECTION: the one-line, gitignored $FM_HOME/config/theme names a pack
 # (FM_CONFIG_OVERRIDE selects the config directory directly, as elsewhere).
 # Packs are tracked under <code root>/themes/<name>/ next to this script, so a
-# pack ships with the code that renders it. An absent, empty, `nautical`, or
-# `default` setting selects the built-in nautical behavior, which renders
+# pack ships with the code that renders it. An absent or empty setting, or
+# `off`, selects the built-in nautical behavior, which renders
 # nothing here, so every caller's default output stays byte-identical to a home
 # with no theme support at all.
 #
@@ -42,8 +42,8 @@
 # Usage:
 #   fm-theme.sh current            resolved pack name, or `nautical`
 #   fm-theme.sh list               the built-in default and every tracked pack
-#   fm-theme.sh set <name>|off     validate and write config/theme (`off`,
-#                                  `nautical`, and `default` remove it)
+#   fm-theme.sh set <name>|off     validate and write config/theme (`off`
+#                                  removes it)
 #   fm-theme.sh banner             the banner (colored only on a TTY without
 #                                  NO_COLOR); nothing for the default
 #   fm-theme.sh status <state>     display word for a canonical state
@@ -69,7 +69,7 @@ usage() {
 
 builtin_name() {
   case "$1" in
-    ''|nautical|default) return 0 ;;
+    '') return 0 ;;
   esac
   return 1
 }
@@ -95,7 +95,8 @@ configured_name() {
   local line=
   [ -f "$THEME_FILE" ] || return 0
   IFS= read -r line < "$THEME_FILE" || true
-  line=${line//[[:space:]]/}
+  line=${line#"${line%%[![:space:]]*}"}
+  line=${line%"${line##*[![:space:]]}"}
   printf '%s' "$line"
 }
 
@@ -106,7 +107,7 @@ resolve() {
   THEME=
   WARNING=
   name=$(configured_name)
-  builtin_name "$name" && return 0
+  { [ "$name" = off ] || builtin_name "$name"; } && return 0
   if pack_present "$name"; then
     THEME=$name
     return 0
