@@ -137,6 +137,16 @@ FM_STATE_OVERRIDE="$TMP_ROOT/config-alias/override-state" run_tool --evidence "$
   || fail 'a config-backed state override must refuse before calls or writes'
 pass 'a config-backed state override refuses through a symlinked path'
 
+printf 'dispatch stays intact\n' > "$HOME_DIR/config/log-target"
+ln -s ../config/log-target "$HOME_DIR/state/jev-model-proposal.jsonl"
+config_before_log=$(config_sum)
+out=$(run_tool --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/config-log.md" 2>&1); rc=$?
+[ "$rc" -eq 2 ] || fail "a call log symlink into config/ must refuse: $rc $out"
+[ -z "$(find "$TEST_REQUESTS" -type f)" ] && [ ! -e "$TMP_ROOT/config-log.md" ] \
+  && [ "$(config_sum)" = "$config_before_log" ] || fail 'a config-backed log must refuse before requests or writes'
+rm "$HOME_DIR/state/jev-model-proposal.jsonl" "$HOME_DIR/config/log-target"
+pass 'a call log symlink into config/ refuses before any Jev call'
+
 NO_CONFIG_HOME="$TMP_ROOT/no-config-home"
 mkdir -p "$NO_CONFIG_HOME"
 for target in "$NO_CONFIG_HOME/config/proposal.md" "$NO_CONFIG_HOME/config/new/nested/proposal.md"; do
@@ -202,3 +212,15 @@ TEST_THIRD='{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"
 grep -q 'Jev: no answer (Jev answer was malformed).' "$out_file" || fail 'a malformed answer must be named in the proposal'
 grep -qF "switch to \`claude/claude-fable-5-1\`" "$out_file" || fail 'a malformed answer must still write the other roles'
 pass 'a malformed answer for one role still writes the proposal and exits 1'
+
+rm -f "$TEST_REQUESTS"/*.json
+out_file="$TMP_ROOT/out/out-of-range-confidence.md"
+TEST_THIRD='{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","confidence":1.2,"probabilities":{"opus":0.6,"sonnet":0.3,"fable":0.1,"none_fit":0}}}}' \
+  run_tool --evidence "$TMP_ROOT/evidence.json" --out "$out_file" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] || fail "out-of-range confidence must make that role malformed, got $rc"
+grep -q '## secondmate' "$out_file" || fail 'the other roles should still appear in the proposal'
+grep -A8 '^## secondmate$' "$out_file" | grep -q 'Jev: no answer (Jev answer was malformed).' \
+  || fail 'out-of-range confidence must not be used for a role answer'
+grep -A8 '^## secondmate$' "$out_file" | grep -q 'Proposal: none.' \
+  || fail 'out-of-range confidence must not create a switch proposal'
+pass 'out-of-range confidence is rejected for that role'

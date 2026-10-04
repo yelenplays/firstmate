@@ -209,8 +209,12 @@ log_path="$state_dir/jev-model-proposal.jsonl"
 config_path=$(real_path "$FM_HOME/config")
 state_path=$(real_path "$FM_HOME/state")
 state_dir_real=$(real_path "$state_dir")
+log_target=$(resolved_path "$log_path") || die "could not resolve the call log path"
 case "$state_dir_real/jev-model-proposal.jsonl/" in
   "$config_path"/*) die "refusing to write under $FM_HOME/config: a proposal never changes configuration" ;;
+esac
+case "$log_target/" in
+  "$config_path/"*) die "refusing to write under $FM_HOME/config: a proposal never changes configuration" ;;
 esac
 
 # --- output path ------------------------------------------------------------
@@ -292,7 +296,8 @@ for ((i = 0; i < n_roles; i++)); do
       | select(type == "object" and .type == "choice")
       | select((.probabilities | type) == "object" and (.probabilities | keys) == $keys)
       | select(.choice as $c | $keys | index($c))
-      | {choice, probabilities, confidence: (if (.confidence | type) == "number" then .confidence else null end)}
+      | select((has("confidence") | not) or ((.confidence | type) == "number" and .confidence >= 0 and .confidence <= 1))
+      | {choice, probabilities, confidence: (if has("confidence") then .confidence else null end)}
     ' <<<"$response" 2>/dev/null)
     if [ -z "$answer" ] || ! fm_jev_probabilities_sum_ok "$(jq -c '.probabilities' <<<"$answer")"; then
       error='Jev answer was malformed'
