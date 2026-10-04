@@ -12,9 +12,6 @@ command -v node >/dev/null 2>&1 || { echo "skip: node not found"; exit 0; }
 TMP_ROOT=$(fm_test_tmproot fm-logbook-refresh)
 HOME_DIR="$TMP_ROOT/home"
 DECK_DIR="$TMP_ROOT/deck"
-# The helper names the day by the machine's local date, so the expectation must
-# use the same clock zone; a pinned zone fails whenever it is a different day.
-TODAY=$(date +%Y-%m-%d)
 
 fail() { echo "not ok: $*" >&2; exit 1; }
 pass() { echo "ok: $*"; }
@@ -39,6 +36,7 @@ run_refresh() {
 }
 
 test_generates_logbook_and_calls_configured_deck() {
+  local date_before date_after
   fresh_home
   mkdir -p "$DECK_DIR/deploy"
   cat > "$DECK_DIR/deploy/refresh.sh" <<'EOF'
@@ -49,20 +47,27 @@ printf '%s %s %s\n' "$1" "$FM_DECK_FIRSTMATE_ROOT" "$FM_DECK_ROOT" >> "$FM_TEST_
 EOF
   chmod +x "$DECK_DIR/deploy/refresh.sh"
   printf '%s\n' "$DECK_DIR" > "$HOME_DIR/config/deck-path"
+  date_before=$(date +%Y-%m-%d)
   FM_TEST_REFRESH_LOG="$TMP_ROOT/refresh.log" run_refresh \
     || fail 'best-effort helper returned failure'
-  [ -f "$HOME_DIR/data/history/days/$TODAY.logbook.json" ] \
-    || fail "helper did not generate today's Logbook"
+  date_after=$(date +%Y-%m-%d)
+  [ -f "$HOME_DIR/data/history/days/$date_before.logbook.json" ] \
+    || [ -f "$HOME_DIR/data/history/days/$date_after.logbook.json" ] \
+    || fail "helper did not generate a Logbook for the generation day"
   [ "$(cat "$TMP_ROOT/refresh.log" 2>/dev/null)" = "work-landed $HOME_DIR $DECK_DIR" ] \
     || fail 'configured Deck refresh hook did not run with work-landed and its roots'
   pass 'generation precedes a configured Deck refresh hook'
 }
 
 test_missing_deck_configuration_is_silent() {
+  local date_before date_after output
   fresh_home
+  date_before=$(date +%Y-%m-%d)
   output=$(run_refresh 2>&1) || fail 'missing optional Deck config changed the caller result'
+  date_after=$(date +%Y-%m-%d)
   [ -z "$output" ] || fail "missing optional Deck config was not silent: $output"
-  [ -f "$HOME_DIR/data/history/days/$TODAY.logbook.json" ] \
+  [ -f "$HOME_DIR/data/history/days/$date_before.logbook.json" ] \
+    || [ -f "$HOME_DIR/data/history/days/$date_after.logbook.json" ] \
     || fail 'missing Deck config also skipped local Logbook generation'
   pass 'missing Deck configuration skips only the publish refresh'
 }
