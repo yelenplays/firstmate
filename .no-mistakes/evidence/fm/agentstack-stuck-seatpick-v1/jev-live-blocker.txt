@@ -1,0 +1,10 @@
+## Live Jev wedge-check attempt (credential unavailable)
+command: bin/fm-jev-wedge-check.sh --class --task synthetic --state-dir <evidence-state> (synthetic tail on stdin; no API key)
+jev-wedge-check: off (no TYPESAFE_API_KEY or OPENROUTER_API_KEY)
+exit=1
+
+## Live Jev seat-pick attempt (credential unavailable)
+
+command: FM_SEAT_PICK=1 bin/fm-seat-pick.sh pick --role builder --task "fix the auth flow" (synthetic candidate seats; no API key)
+{"action":"lead-decides","seat":null,"band":"none","confidence":null,"reason":"Jev is off (no TYPESAFE_API_KEY or OPENROUTER_API_KEY)"}
+

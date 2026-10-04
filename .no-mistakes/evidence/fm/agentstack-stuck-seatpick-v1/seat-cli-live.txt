@@ -1,0 +1,11 @@
+## Live seat candidate CLI
+command: FM_SEAT_PICK=1 bin/fm-seat-pick.sh candidates --role builder
+input: 3 seats (idle free, idle with open work + load note, busy)
+[{"id":"free","text":"free: codex seat, idle, 0 open work"},{"id":"loaded","text":"loaded: claude seat, idle, 1 open work; load note: queued API fix"}]
+
+## Live reroute planner CLI
+
+command: FM_SEAT_PICK=1 bin/fm-seat-pick.sh reroute --now 1000000
+
+input: old in-progress row on dead seat, live replacement available
+{"moves":[{"id":"task-1","from":"dead","to":"replacement","why":"dead is not running","note":"rerouted after 16666 min: dead is not running; dead -> replacement (codex); dead may have partial work in its branch"}]}
