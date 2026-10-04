@@ -124,8 +124,21 @@ while [ $# -gt 0 ]; do
     *) printf '%s\n' "$1" >> "${FAKE_CURL_LOG:?}/argv"; shift ;;
   esac
 done
-cat > "$FAKE_CURL_LOG/body"
+body=$(cat)
+printf 'call\n' >> "$FAKE_CURL_LOG/calls"
 cat /dev/fd/3 > "$FAKE_CURL_LOG/header" 2>/dev/null || printf 'fd3 unreadable\n' > "$FAKE_CURL_LOG/header"
+# A runoff request (it asks the `pick` Choice) is recorded and answered on its
+# own, so the rule request's body stays inspectable after a runoff follows it.
+if printf '%s' "$body" | jq -e '.questions.pick' >/dev/null 2>&1; then
+  printf '%s' "$body" > "$FAKE_CURL_LOG/pick-body"
+  if [ "${FAKE_CURL_PICK_FAIL:-0}" = 1 ]; then
+    exit 7
+  fi
+  cp "${FAKE_CURL_PICK_RESPONSE:-${FAKE_CURL_RESPONSE:?}}" "$out"
+  printf '%s' "${FAKE_CURL_PICK_HTTP:-200}"
+  exit 0
+fi
+printf '%s' "$body" > "$FAKE_CURL_LOG/body"
 if [ -n "${FAKE_CURL_MUTATE_SOURCE:-}" ]; then
   cp "$FAKE_CURL_MUTATE_SOURCE" "${FAKE_CURL_MUTATE_TARGET:?}"
 fi
@@ -458,6 +471,126 @@ assert_contains "$out" 'candidate: pi:openai-codex/gpt-5.6-sol' "a non-winning c
 assert_not_contains "$out" '  profile:' "a non-winning choice emits no profile line"
 pass "ambiguous: a choice below the probability leader hands the decision back"
 
+# --- runoff: a typed Jev pick settles an ambiguous answer among its contenders ---
+PICK_RESPONSE="$TMP_ROOT/pick-response.json"
+write_pick_response() {  # <path> <choice> <probabilities-json> [type]
+  cat > "$1" <<JSON
+{ "model": "jev-1.13.0",
+  "answers": { "pick": { "type": "${4:-choice}", "choice": "$2", "confidence": 0.8, "probabilities": $3 } },
+  "usage": { "input_tokens": 400, "output_tokens": 20 } }
+JSON
+}
+NARROW='{ "rule_1": 0.02, "rule_2": 0.30, "rule_3": 0.02, "rule_4": 0.41, "default": 0.25 }'
+reset_log
+write_response "$RESPONSE" rule_4 0.26 "$NARROW"
+write_pick_response "$PICK_RESPONSE" rule_4 '{ "rule_4": 0.86, "rule_2": 0.14 }'
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF" --project pager
+expect_code 0 "$code" "a settled runoff exits 0"
+assert_contains "$out" '  status: picked' "a settled runoff reports picked"
+assert_contains "$out" '  reason: top-2 margin 0.11 below 0.4 (rule_4 vs rule_2)' "picked keeps the reason the rule answer was ambiguous"
+assert_contains "$out" '  pick: rule_4 (rule_4) over rule_2 by jev runoff   p=0.86 margin=0.72' "the pick line names the winner, the loser, and the evidence"
+assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "the winner's quota-ranked profile is emitted"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(high ceiling)' "the winner's candidates stay accounted for"
+assert_equals '2' "$(grep -c . "$LOG/calls")" "a runoff spends exactly one more call"
+assert_equals $'curl:clean\nquota-axi:clean\ncurl:clean' "$(cat "$LOG/child-env")" "the key stays out of every child environment across both calls"
+pick_body=$(cat "$LOG/pick-body")
+assert_equals '["pick"]' "$(jq -c '.questions | keys' <<<"$pick_body")" "the runoff asks one pick Choice"
+assert_equals '["rule_2","rule_4"]' "$(jq -c '.questions.pick.criteria | keys' <<<"$pick_body")" "only the contenders are offered, keyed by rule"
+assert_equals 'A simple bug fix with a stated root cause.' "$(jq -r '.questions.pick.criteria.rule_4' <<<"$pick_body")" "a contender is worded with its own rule criterion"
+assert_equals "$(jq -c .state "$LOG/body")" "$(jq -c .state <<<"$pick_body")" "the runoff reuses the rule request's state"
+assert_not_contains "$pick_body" 'cursor-grok' "use profiles never leave the machine in a runoff"
+assert_not_contains "$pick_body" 'SECRET-WHY-TEXT' "why text never leaves the machine in a runoff"
+assert_not_contains "$pick_body" 'spendPriority' "quota never leaves the machine in a runoff"
+assert_not_contains "$(cat "$LOG/argv")" "$KEY" "the key never appears on curl argv in a runoff"
+pass "runoff: a decisive pick among clearing contenders emits the winner's profile"
+
+reset_log
+write_pick_response "$PICK_RESPONSE" rule_2 '{ "rule_4": 0.2, "rule_2": 0.8 }'
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
+assert_contains "$out" '  status: picked' "the runoff may pick the rule answer's runner-up"
+assert_contains "$out" "  profile: --harness 'pi' --model 'openai-codex/gpt-5.6-sol'" "the runner-up's own quota-ranked profile is emitted"
+assert_contains "$out" 'candidate: codex:gpt-5.6-sol' "the runner-up's candidates replace the rule answer's"
+assert_not_contains "$out" 'candidate: claude:sonnet' "the losing contender's candidates are not presented as the answer"
+pass "runoff: the pick can overturn the rule answer's own choice"
+
+for undecided in 'rule_4|{ "rule_4": 0.6, "rule_2": 0.4 }|runoff margin 0.2 below 0.4 (rule_4 vs rule_2)' \
+                 'rule_2|{ "rule_4": 0.9, "rule_2": 0.1 }|runoff choice rule_2 is not the most probable option rule_4'; do
+  IFS='|' read -r pick_choice pick_probs pick_reason <<<"$undecided"
+  reset_log
+  write_pick_response "$PICK_RESPONSE" "$pick_choice" "$pick_probs"
+  TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
+  assert_contains "$out" '  status: ambiguous' "an undecided runoff stays ambiguous: $pick_reason"
+  assert_contains "$out" "  pick: undecided ($pick_reason)" "the pick line names why the runoff did not settle"
+  assert_not_contains "$out" '  profile:' "an undecided runoff emits no profile line: $pick_reason"
+done
+reset_log
+write_pick_response "$PICK_RESPONSE" rule_4 '{ "rule_4": 0.9, "default": 0.1 }'
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
+assert_contains "$out" '  pick: error (response is not a runoff Choice answer)' "a runoff answer over the wrong options is refused"
+assert_not_contains "$out" '  profile:' "a malformed runoff answer emits no profile line"
+reset_log
+write_pick_response "$PICK_RESPONSE" rule_4 '{ "rule_4": 0.86, "rule_2": 0.14 }' text
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
+assert_contains "$out" '  status: ambiguous' "a text-typed pick cannot settle the runoff"
+assert_contains "$out" '  pick: error (response is not a runoff Choice answer)' "a text-typed pick is reported as malformed"
+assert_not_contains "$out" '  profile:' "a text-typed pick emits no profile line"
+reset_log
+jq 'del(.answers.pick.confidence)' "$PICK_RESPONSE" > "$TMP_ROOT/pick-missing-confidence.json"
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE="$TMP_ROOT/pick-missing-confidence.json" run code out err "$BRIEF"
+assert_contains "$out" '  status: ambiguous' "a pick without confidence cannot settle the runoff"
+assert_contains "$out" '  pick: error (response is not a runoff Choice answer)' "a pick without confidence is reported as malformed"
+assert_not_contains "$out" '  profile:' "a pick without confidence emits no profile line"
+reset_log
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE FAKE_CURL_PICK_HTTP=500 run code out err "$BRIEF"
+assert_contains "$out" '  status: ambiguous' "a failed runoff call stays ambiguous"
+assert_contains "$out" '  pick: error (http 500 after' "a failed runoff call names the HTTP status"
+reset_log
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_FAIL=1 run code out err "$BRIEF"
+assert_contains "$out" '  pick: error (' "a runoff transport failure stays ambiguous"
+assert_not_contains "$out" '  profile:' "a runoff transport failure emits no profile line"
+pass "runoff: a narrow, non-winning, malformed, or failed pick hands the decision back"
+
+reset_log
+write_response "$RESPONSE" rule_4 0.26 '{ "rule_1": 0.02, "rule_2": 0.02, "rule_3": 0.30, "rule_4": 0.41, "default": 0.25 }'
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
+assert_contains "$out" '  status: ambiguous' "a captain-approval contender keeps the answer ambiguous"
+assert_contains "$out" "  pick: skipped (rule_3 would not clear: rule requires the captain's explicit approval before dispatch)" "the approval rule is named as the reason no runoff ran"
+assert_equals '1' "$(grep -c . "$LOG/calls")" "no runoff call is made past a captain-approval contender"
+assert_not_contains "$out" '  profile:' "a captain-approval contender emits no profile line"
+pass "runoff: a contender that would not clear, such as a captain-approval rule, skips the runoff"
+
+reset_log
+jq '.default = { "harness": "cursor", "model": "cursor-grok-4.6-medium" }' "$BASE_RULES" > "$RULES"
+write_response "$RESPONSE" rule_4 0.46 '{ "rule_1": 0.09, "rule_2": 0.08, "rule_3": 0.08, "rule_4": 0.57, "default": 0.18 }'
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
+assert_contains "$out" '  status: picked' "contenders that land on one profile settle without a runoff call"
+assert_contains "$out" '  pick: rule_4, default settle on the same profile (no runoff call)' "the agreeing contenders are named"
+assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "the shared profile is emitted"
+assert_equals '1' "$(grep -c . "$LOG/calls")" "agreeing contenders need no second call"
+cp "$BASE_RULES" "$RULES"
+pass "runoff: contenders that settle on the same profile need no call"
+
+reset_log
+write_response "$RESPONSE" rule_4 0.26 "$NARROW"
+write_pick_response "$PICK_RESPONSE" rule_4 '{ "rule_4": 0.86, "rule_2": 0.14 }'
+printf '%s\n' 'plausibly fits' > "$HOME_DIR/config/dispatch-never-send"
+reset_log
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
+assert_contains "$out" "  pick: skipped (brief text matches $HOME_DIR/config/dispatch-never-send line 1; nothing sent)" "the never-send list also guards the runoff request"
+assert_absent "$LOG/pick-body" "a withheld runoff request never reaches curl"
+assert_not_contains "$out" '  profile:' "a withheld runoff emits no profile line"
+rm -f "$HOME_DIR/config/dispatch-never-send"
+reset_log
+rm -f "$HOME_DIR/state/jev-dispatch-shadow.jsonl"
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE FM_JEV_DISPATCH_SHADOW=1 run code out err "$BRIEF" --project pager
+line=$(cat "$HOME_DIR/state/jev-dispatch-shadow.jsonl")
+assert_equals 'picked' "$(jq -r .status <<<"$line")" "the shadow log records a picked status"
+assert_equals '{"state":"settled","rules":["rule_4"],"choice":"rule_4","probabilities":{"rule_4":0.86,"rule_2":0.14},"margin":0.72}' "$(jq -c .pick <<<"$line")" "the shadow log records the runoff evidence"
+assert_equals 'cursor' "$(jq -r .profile.harness <<<"$line")" "the shadow log records the picked profile"
+rm -f "$HOME_DIR/state/jev-dispatch-shadow.jsonl"
+write_response "$RESPONSE" rule_4 0.9
+pass "runoff: the never-send list and shadow log cover the runoff"
+
 # --- the margin gate is invariant to option count and configurable ---------------
 reset_log
 write_response "$RESPONSE" rule_4 0.46 '{ "rule_1": 0.09, "rule_2": 0.08, "rule_3": 0.08, "rule_4": 0.57, "default": 0.18 }'
@@ -553,6 +686,20 @@ assert_contains "$out" '  status: ambiguous' "no runner-up clearing its own floo
 assert_contains "$out" '  reason: rule_2 probability 0.76 below its floor 0.9; no other option clears its own floor' "the undeclared default keeps the global floor as a runner-up"
 assert_not_contains "$out" '  fallback:' "no fallback is reported when none is taken"
 assert_not_contains "$out" '  profile:' "ambiguous per-rule floor emits no profile"
+write_pick_response "$PICK_RESPONSE" rule_2 '{ "rule_2": 0.85, "default": 0.15 }'
+reset_log
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
+assert_contains "$out" '  pick: undecided (runoff choice rule_2 probability 0.85 below its floor 0.9)' "a runoff pick must clear the rule's own declared floor"
+assert_not_contains "$out" '  profile:' "a runoff pick below its rule's floor emits no profile"
+write_pick_response "$PICK_RESPONSE" rule_2 '{ "rule_2": 0.95, "default": 0.05 }'
+reset_log
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
+assert_contains "$out" '  status: picked' "a runoff pick at or above its rule's declared floor settles"
+assert_contains "$out" "  profile: --harness 'pi' --model 'openai-codex/gpt-5.6-sol'" "the floored rule's profile is emitted once its floor is met"
+write_pick_response "$PICK_RESPONSE" rule_9 '{ "rule_2": 0.95, "default": 0.05 }'
+reset_log
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
+assert_contains "$out" '  pick: error (response is not a runoff Choice answer)' "a runoff choice outside the offered options is refused"
 
 jq '.rules[0].min_confidence = 0.1' "$FLOOR_RULES" > "$RULES"
 reset_log

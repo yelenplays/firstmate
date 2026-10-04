@@ -1295,6 +1295,7 @@ Before the request is sent, every string in it is checked: the project name, the
 A match stops the request: the resolver behaves exactly as when it is off, printing one `dispatch-resolve: off (...; nothing sent)` line on stderr and nothing on stdout, making no network or quota call, and exiting 0, so firstmate dispatches through its existing intake.
 A list that is present but not a readable regular file also stops the request the same way rather than sending unchecked text.
 That one diagnostic names the list line number at most and never prints the listed value or the matching text.
+The runoff request described under "Runoff on an ambiguous answer" below is checked the same way; a match there sends nothing and only leaves the answer `ambiguous`.
 
 **Missing or invalid rules**
 
@@ -1313,9 +1314,9 @@ Pi profiles on `xai/grok-4.6` declare `provider: grok` because quota-axi familie
 `FM_JEV_DISPATCH_COMPACT` is read from the process environment first, else from `$FM_HOME/.env` via `fmx_env_get`, and the environment wins.
 A truthy value sends the compact intent summary instead of the whole brief, and that compact form is the default on the OpenRouter route when both are unset.
 `FM_JEV_DISPATCH_EXTRA=1` adds log-only Choice questions for home `{main,agency,lay,frontend,zimmer}` (criteria from `data/secondmates.md` when readable) and deliverable `{ship,scout,neither}`; those answers are never auto-routing authority.
-Presence of gitignored `config/jev-dispatch-shadow`, or `FM_JEV_DISPATCH_SHADOW=1`, logs the Jev pick next to the resolved spawn axes into `state/jev-dispatch-shadow.jsonl` and does not add spawn authority beyond today's optional `clear` profile line.
+Presence of gitignored `config/jev-dispatch-shadow`, or `FM_JEV_DISPATCH_SHADOW=1`, logs the Jev pick next to the resolved spawn axes into `state/jev-dispatch-shadow.jsonl` and does not add spawn authority beyond the `profile:` line the resolver itself prints.
 `FM_JEV_DISPATCH_SHADOW=0` turns that log off even when the config flag is present.
-A captain pin, `yolo` posture, and selected delivery mode still win over any `clear` profile.
+A captain pin, `yolo` posture, and selected delivery mode still win over any printed profile, `clear` or `picked`.
 An absent rules file, a default-only file, or `rules: []` returns the non-clear reason `no rules to match` without a model or quota request, leaving firstmate's existing routing in control; an existing but unreadable or malformed rules file, including a broken symlink, remains an actionable exit 2 configuration error.
 
 **Checks performed after the answer**
@@ -1342,7 +1343,7 @@ When the picked rule declares its own floor but its probability falls below it, 
 1. Find the most probable other option that clears its own floor: the rule's `min_confidence`, or 0.6 otherwise.
 2. Print a `fallback:` line naming both floors and resolve that rule as though it had been picked.
 
-No qualifying option, or two equally probable qualifying options, produces `ambiguous`.
+No qualifying option, or two equally probable qualifying options, makes the rule answer `ambiguous`; see the runoff below for how the final outcome is settled.
 
 **Candidate eligibility and evidence**
 
@@ -1355,7 +1356,8 @@ No qualifying option, or two equally probable qualifying options, produces `ambi
 | Result | Meaning |
 | --- | --- |
 | `clear` | A `profile:` line ready for `fm-spawn.sh`. |
-| `ambiguous` | Confidence below the floor with no runner-up taken. |
+| `picked` | The rule answer missed its gate and the runoff below settled it; a `profile:` line ready for `fm-spawn.sh`. |
+| `ambiguous` | The rule answer missed its gate and no runoff settled it; no profile line. |
 | `escalate` | An approval-gated rule, unverifiable rule floor, nothing rankable, or a genuine tie. |
 | `error` | API, network, malformed response metadata, rendering, or quota-axi failure. |
 
@@ -1365,6 +1367,20 @@ Every result above exits 0.
 - Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, or missing `jq`, each reported and never selected around.
 - Missing `curl` is a normal structured `error` outcome with exit 0 so firstmate uses today's routing.
 
+**Runoff on an ambiguous answer**
+
+An `ambiguous` rule answer gets one runoff before it reaches firstmate, so a close race between rules is settled by a typed Jev pick rather than by hand.
+The contenders are the picked option and the two most probable options, and each settles in code exactly as a cleared answer would: the same approval, floor, provider, effort, burn, and `spendPriority` gates choose its one concrete profile.
+If any contender would not clear - a captain-approval rule, an unverifiable rule floor, nothing rankable, or a genuine tie - the runoff is skipped, because a pick between them could bypass a gate that belongs to the captain or to `quota-array-dispatch`.
+Contenders that settle on the same concrete profile collapse into one option, and when only one remains its profile is taken without another call.
+Otherwise the resolver sends one more request on the same state with one `pick` Choice whose options are the remaining contenders, keyed by rule and worded with the same criteria, tie-break sentences included, that the rule Choice sent; the model still never sees `use`, `why`, quota, or approvals.
+The pick settles only when its returned choice is its most probable option and its top-2 margin reaches the same `FM_JEV_DISPATCH_MARGIN`.
+An option whose rules declare `min_confidence` instead settles only when its runoff probability reaches the strictest of those floors, so a runoff never dispatches a rule more loosely than the rule answer would.
+A settled pick makes the result `picked`, with a `pick:` line naming the winner and its evidence, the winner's candidates, and its `profile:` line.
+A narrow, non-winning, malformed, failed, or never-send-withheld runoff leaves the result `ambiguous` with a `pick:` line naming why and no profile line.
+`bin/fm-dispatch-replay.sh` uses the resolver's internal replay mode, so each replayed case spends one call and records the rule answer itself; normal resolver invocations run the runoff whenever it is eligible.
+The shadow log records the runoff outcome in a `pick` field beside the status and profile.
+
 **Firstmate retains the dispatch decision**
 
 Everything after the answer runs in code: the top-2 margin gate, the matched rule's `approval` and `floor`, each candidate's `provider` and `floor`, every applicable account-wide and model/product row from one `quota-axi --json` snapshot, the spend ledger's predicted burn for the assessed effort class (`bin/fm-spend-ledger.py predict`), and the numeric `spendPriority` argmax over candidates using each candidate's limiting row.
@@ -1372,13 +1388,10 @@ The same Jev response carries a second typed Choice classifying the reasoning ef
 A candidate on an effort-capable harness that cannot supply the assessed class is refused before quota gates; a harness without an effort knob keeps the class as a disclosed, unenforced note and emits no `--effort` flag for it.
 A candidate whose predicted burn exceeds its tightest applicable remaining percent (calibrated through the window's observed `tokensPerPoint`) is refused with the prediction named in the reason, and so is one whose predicted duration exceeds the window's usable runway seconds; an all-refused `escalate` names the predicted burn.
 Missing or unreadable ledger evidence never fabricates a limit: the candidate keeps its rank and its line shows `pred=unknown`.
-The result is one of `clear` (a `profile:` line ready for `fm-spawn.sh`), `ambiguous` (the returned choice is not the most probable option or the top-2 margin is below the threshold), `escalate` (an approval-gated rule, unverifiable rule floor, nothing rankable, or a genuine tie), or `error` (API, network, malformed response metadata, rendering, or quota-axi failure), and every one of them exits 0.
 Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, an invalid `FM_JEV_DISPATCH_MARGIN`, or missing `jq`, each reported and never selected around.
 The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; `AGENTS.md` section 4 owns what firstmate does with each outcome.
-By accepted design, a `clear` result does not enforce catalog/authentication, reasoning-class, or completion-runway gates.
-
-By accepted design, a `clear` result does not enforce catalog/authentication gates; reasoning-class ceilings and completion-runway gates are enforced above.
-Firstmate passes its profile line unless it states a reason to override, such as the brief's reasoning class or an eligible-unranked-candidate note; every non-clear result returns to the full existing intake.
+By accepted design, a printed profile line does not enforce catalog/authentication gates; reasoning-class ceilings and completion-runway gates are enforced above.
+Firstmate passes a printed profile line to `fm-spawn.sh` without hand-picking; the only overrides are the captain rules `AGENTS.md` section 4 names, and every result without a profile line returns to the full existing intake.
 
 **Key handling and fixed settings**
 
