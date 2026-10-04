@@ -5,10 +5,17 @@ It includes material adapted from third parties, which keeps its own licence:
 
 - agent-stack (https://github.com/korallis/agent-stack), Copyright 2026 The
   agent-stack authors, Apache License 2.0 (see
-  LICENSES/agent-stack-Apache-2.0). bin/fm-cross-review.sh adapts the review
-  evidence rules of its orchestration/merge-evidence.js, as of commit
-  e6189320c26676fd9ad6158cb53f13edfbab26c0: a review counts only from a model
-  family other than the author's, only when it declares exactly the full head
-  sha on a line of its own outside quotes and code blocks, and the latest record
-  decides. Changes: rebuilt in Bash on Firstmate task records, with families read
-  from each harness's model catalog instead of seat names.
+  LICENSES/agent-stack-Apache-2.0).
+  - bin/fm-cross-review.sh adapts the review evidence rules of its
+    orchestration/merge-evidence.js, as of commit
+    e6189320c26676fd9ad6158cb53f13edfbab26c0: a review counts only from a model
+    family other than the author's, only when it declares exactly the full head
+    sha on a line of its own outside quotes and code blocks, and the latest
+    record decides. Changes: rebuilt in Bash on Firstmate task records, with
+    families read from each harness's model catalog instead of seat names.
+  - bin/fm-jev-merge-gate.sh is adapted from its orchestration/merge-evidence.js
+    and the review.merge_gate v4 decision in config/decisions.yaml, rewritten in
+    bash and jq for Firstmate.
+  - The agent-stack-* cases in tests/fixtures/jev-merge-gate/cases.jsonl are
+    copied from its test/fixtures/merge-gate-tests-first/, wrapped with a label
+    and an eval set.

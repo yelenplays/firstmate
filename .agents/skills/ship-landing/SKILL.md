@@ -24,6 +24,9 @@ When an unsure merge decision needs a confirmation, the same path runs with `pla
 This review is evidence for the merge decision and changes no merge rule above.
 Tell the captain the PR's full `https://...` URL copied from the worker's ready line, the resolved checks-green crew-state line, or the task's `pr=` metadata, a concise outcome summary, and the no-mistakes risk level when applicable.
 A captain instruction to merge is explicit authority; `yolo` is the only standing routine merge authority.
+Before deciding a PR merge, run `bin/fm-jev-merge-gate.sh decide <PR URL>`; for a team project's PR, pass `--team` (`decide <PR URL> --team`). For a local-only landing, run `bin/fm-jev-merge-gate.sh decide --task <id>`; for a team project's landing, pass `--team` (`decide --task <id> --team`). Then decide exactly as you would without the shadow gate.
+Once decided, record your decision with `bin/fm-jev-merge-gate.sh record <PR URL | --task <id>> --head <sha> --firstmate merge|hold`, and after a merge `outcome ... merged`.
+The gate is shadow only: its verdict never grants, blocks or delays a merge, a kept-out or failed run needs no follow-up, and it is never named to the captain as a merge reason.
 For any custom `state/<id>.check.sh` you write yourself, keep it an ordinary single-link mode-`0700` file, print one line only when firstmate should wake, print nothing otherwise, finish before `FM_CHECK_TIMEOUT`, then bind its current bytes with `bin/fm-check-register.sh <id>` before the watcher may execute it.
 Retire a custom check only through `bin/fm-check-unregister.sh <id>` (or `bin/fm-teardown.sh` for a spawned task); never hand-compose an `rm` with `$STATE`/`$ID`.
 

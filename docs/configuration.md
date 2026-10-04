@@ -1452,6 +1452,13 @@ Automatic calls supply only the task ID and done line, without the optional acce
 The script header owns flags, output lines, exit codes, and the log path and schema.
 Behavioral regressions in [`tests/fm-jev-done-verify.test.sh`](../tests/fm-jev-done-verify.test.sh) use fake transport to exercise presentation selection, concurrent deduplication, whitespace normalization, state overrides, empty credentials, and both sides of the data boundary.
 
+## Jev merge gate (shadow)
+
+[`bin/fm-jev-merge-gate.sh`](../bin/fm-jev-merge-gate.sh) compares Jev's exact-head merge assessment with firstmate's decision for GitHub PRs and local-only landings.
+It is shadow-only: firstmate continues to decide and merge as before, and the gate never grants or blocks merge authority.
+The script header and `--help` own its evidence, privacy, team-QA, deploy configuration, logging, and eval contracts; the [`ship-landing`](../.agents/skills/ship-landing/SKILL.md) skill owns when operators run and record the gate.
+See [`tests/fm-jev-merge-gate.test.sh`](../tests/fm-jev-merge-gate.test.sh) for behavioral regression coverage.
+
 ## Jev skill selector (FM_JEV_SKILL_SELECT)
 
 `bin/fm-jev-skill-select.sh` provides a once-per-launch shadow comparison, not a per-prompt router.
