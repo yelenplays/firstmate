@@ -241,9 +241,6 @@ arm_watch() {  # <prefix>
   out=$("$SCRIPT_DIR/fm-procevent-when.sh" arm "$name" --interval 60 --stable 1 --deadline 21600 \
     --condition "$SELF" checks "$ID" --settled --action "$SELF" checks "$ID" 2>&1) || status=$?
   if [ "$status" -ne 0 ]; then
-    case "$out" in
-      *"already exists"*) return 0 ;;
-    esac
     echo "warning: could not arm the wait $name: $out; run bin/fm-post-merge.sh advance $ID again to retry" >&2
     return 1
   fi
@@ -483,6 +480,9 @@ cmd_arm() {
   if record_present && [ "$(rget spawn_gen)" = "$gen" ]; then
     old_phase=$(rget phase)
     if [ "$(rget merge_commit)" = "$merge" ]; then
+      if [ "$(rget kind)" = pr ] && [ "$old_phase" = checks ]; then
+        arm_watch pm || die "could not arm the post-merge checks watch for $ID; retry bin/fm-post-merge.sh arm $ID"
+      fi
       fm_post_merge_watch_required_set "$STATE" "$META" '' || die "watch for $ID exists but its pending marker could not be cleared; retry bin/fm-post-merge.sh arm $ID"
       echo "armed: post-merge watch for $ID on $(short "$merge") is already in phase $old_phase"
       exit 0
@@ -499,7 +499,7 @@ cmd_arm() {
       "pr=$url" "pr_node=$node" "pr_title=$title" "head=$head" "base=$base" "merge_commit=$merge" \
       "branch=$(meta_get branch)" "merged_at=$(now)" "grace=$grace" "witness=$witness" \
       "no_witness_reason=$no_witness_reason" "phase=$phase"
-    arm_watch pm || true
+    arm_watch pm || die "could not arm the post-merge checks watch for $ID; retry bin/fm-post-merge.sh arm $ID"
   else
     if [ -n "$witness" ]; then phase=witness; else phase=clear; fi
     rset version=fm-post-merge-v1 "task=$ID" "spawn_gen=$gen" kind=local "project=$(meta_get project)" \
@@ -630,7 +630,7 @@ advance_reverting_pr() {
   commit_verdict "$REVERT_HEAD" "$(rget revert_opened_at)" "${grace:-600}" || die "could not read the checks on $(rget revert_pr)"
   case "$VERDICT" in
     pending)
-      arm_watch pmr || true
+      arm_watch pmr || die "could not re-arm the revert checks watch for $ID; retry bin/fm-post-merge.sh advance $ID"
       echo "waiting: checks on the revert $(rget revert_pr) are still running"
       return 0
       ;;
@@ -706,7 +706,7 @@ cmd_advance() {
       [ "$status" -eq 0 ] || die "could not read the checks on $ID's merge commit"
       case "$VERDICT" in
         pending)
-          arm_watch pm || true
+          arm_watch pm || die "could not re-arm the post-merge checks watch for $ID; retry bin/fm-post-merge.sh advance $ID"
           echo "waiting: checks on merge commit $(short "$(rget merge_commit)") on $(rget base) are still running"
           ;;
         red)
