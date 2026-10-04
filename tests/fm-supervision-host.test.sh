@@ -2901,7 +2901,7 @@ QUEUED_CASES=()
 queue_case() { QUEUED_CASES+=("$1"); }
 
 run_queued_cases() {
-  local n=${#QUEUED_CASES[@]} i=0 started=0 live=0 pid failed=0 case_pids=() active=()
+  local n=${#QUEUED_CASES[@]} i=0 live=0 pid failed=0 case_pids=() active=()
   local alive
   while [ "$i" -lt "$n" ]; do
     live=0
@@ -2921,6 +2921,7 @@ run_queued_cases() {
       # Subshell traps start empty: stop only the homes this case made, and
       # never the suite-wide temp root the parent still owns.
       HOMES_FILE="$TMP_ROOT/homes.$i"
+      # shellcheck disable=SC2329 # invoked indirectly by the EXIT trap below.
       case_cleanup() {
         local h
         while IFS= read -r h; do
