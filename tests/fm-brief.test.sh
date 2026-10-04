@@ -979,6 +979,32 @@ test_ship_and_scout_carry_advisory_jev_rule() {
   pass "fm-brief.sh: ship and scout scaffolds carry the advisory Jev-first rule"
 }
 
+test_ship_and_scout_carry_bounded_prior_art_step() {
+  local home kind id brief
+  home="$TMP_ROOT/prior-art-home"
+  mkdir -p "$home/data"
+
+  for kind in no-mistakes direct-PR local-only scout; do
+    id="brief-prior-art-$kind"
+    if [ "$kind" = scout ]; then
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" firstmate --scout >/dev/null 2>&1
+    else
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" firstmate --mode "$kind" >/dev/null 2>&1
+    fi
+    brief="$home/data/$id/brief.md"
+    assert_grep "# Prior art" "$brief" "$kind brief has no prior-art section"
+    assert_grep "$ROOT/bin/fm-jev-intake-match.sh" "$brief" "$kind brief did not name the past-work matcher"
+    assert_grep "$ROOT/bin/fm-wiki-ask.sh" "$brief" "$kind brief did not name the wiki ask path"
+    assert_grep "ketch code" "$brief" "$kind brief did not name GitHub prior-art search"
+    assert_grep "gh-axi" "$brief" "$kind brief did not name gh-axi search"
+    assert_grep "timebox" "$brief" "$kind brief did not bound the prior-art step"
+    assert_grep "may skip this step with a one-line stated reason" "$brief" "$kind brief did not keep the step skippable"
+    assert_grep "never waited on" "$brief" "$kind brief let an unavailable source block"
+    assert_grep "adopt, adapt, or reject" "$brief" "$kind brief did not route findings to the guide"
+  done
+  pass "fm-brief.sh: ship and scout scaffolds carry the bounded, skippable prior-art step"
+}
+
 test_scout_and_secondmate_load_decision_hold_policy() {
   local home scout charter
   home="$TMP_ROOT/decision-policy-home"
@@ -1453,6 +1479,7 @@ test_secondmate_directory_paths_are_absolute_and_output_is_stable
 test_pause_verb_override_renders_all_brief_scaffolds
 test_ship_and_scout_teach_validation_round_pause
 test_ship_and_scout_carry_advisory_jev_rule
+test_ship_and_scout_carry_bounded_prior_art_step
 test_scout_and_secondmate_load_decision_hold_policy
 test_scout_and_secondmate_scaffold
 test_scout_lavish_line_follows_presentation_floor
