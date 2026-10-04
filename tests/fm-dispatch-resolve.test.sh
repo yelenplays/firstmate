@@ -473,10 +473,10 @@ pass "ambiguous: a choice below the probability leader hands the decision back"
 
 # --- runoff: a typed Jev pick settles an ambiguous answer among its contenders ---
 PICK_RESPONSE="$TMP_ROOT/pick-response.json"
-write_pick_response() {  # <path> <choice> <probabilities-json>
+write_pick_response() {  # <path> <choice> <probabilities-json> [type]
   cat > "$1" <<JSON
 { "model": "jev-1.13.0",
-  "answers": { "pick": { "type": "choice", "choice": "$2", "confidence": 0.8, "probabilities": $3 } },
+  "answers": { "pick": { "type": "${4:-choice}", "choice": "$2", "confidence": 0.8, "probabilities": $3 } },
   "usage": { "input_tokens": 400, "output_tokens": 20 } }
 JSON
 }
@@ -528,6 +528,12 @@ write_pick_response "$PICK_RESPONSE" rule_4 '{ "rule_4": 0.9, "default": 0.1 }'
 TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
 assert_contains "$out" '  pick: error (response is not a runoff Choice answer)' "a runoff answer over the wrong options is refused"
 assert_not_contains "$out" '  profile:' "a malformed runoff answer emits no profile line"
+reset_log
+write_pick_response "$PICK_RESPONSE" rule_4 '{ "rule_4": 0.86, "rule_2": 0.14 }' text
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
+assert_contains "$out" '  status: ambiguous' "a text-typed pick cannot settle the runoff"
+assert_contains "$out" '  pick: error (response is not a runoff Choice answer)' "a text-typed pick is reported as malformed"
+assert_not_contains "$out" '  profile:' "a text-typed pick emits no profile line"
 reset_log
 TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE FAKE_CURL_PICK_HTTP=500 run code out err "$BRIEF"
 assert_contains "$out" '  status: ambiguous' "a failed runoff call stays ambiguous"

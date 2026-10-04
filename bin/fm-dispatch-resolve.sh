@@ -651,6 +651,7 @@ if [ "$EXTRA" -eq 1 ]; then
 fi
 jq -e --slurpfile rules "$RULES" '
     (($rules[0].rules | to_entries | map("rule_" + ((.key + 1) | tostring))) + ["default"] | sort) as $choices |
+    .answers.rule.type == "choice" and
     (.answers.rule.choice | type) == "string" and
     (.answers.rule.confidence | type) == "number" and
     .answers.rule.confidence >= 0 and .answers.rule.confidence <= 1 and
@@ -1038,7 +1039,7 @@ case "$RUNOFF_STATE" in
         PICK=$(jq -c --argjson questions "$PICK_QUESTIONS" --argjson result "$RESULT" --arg margin "$MARGIN" --argjson lat "$PICK_LAT" "$FM_JEV_CHOICE_TOP2_JQ"'
           ($questions.pick.criteria | keys | sort) as $keys |
           (.answers.pick // null) as $p |
-          if ($p | type) == "object" and ($p.choice | type) == "string" and ($keys | index($p.choice)) != null and
+          if ($p | type) == "object" and $p.type == "choice" and ($p.choice | type) == "string" and ($keys | index($p.choice)) != null and
              (($p.probabilities | type) == "object") and (($p.probabilities | keys | sort) == $keys) and
              all($p.probabilities[]; type == "number" and . >= 0 and . <= 1) and
              (($p.probabilities | [.[]] | add) as $t | $t >= 0.99 and $t <= 1.01)
