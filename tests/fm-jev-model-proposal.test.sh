@@ -203,7 +203,6 @@ for want in \
   'keep `claude-sonnet-5-5`, Jev agrees with the current pick.' \
   'none; Jev leans to `claude-opus-5-5` below the act band.' \
   '- Current: claude/claude-opus-5-5/medium' \
-  '(provider gen-dec-1)' \
   '| fable | claude | claude-fable-5-1 | usage-credits | 85% |'; do
   case "$P" in *"$want"*) ;; *) fail "proposal is missing: $want" ;; esac
 done

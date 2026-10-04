@@ -435,7 +435,7 @@ jq -r --argjson results "$results" --arg at "$(fm_jev_iso_now)" --arg route "${F
                          elif $r.band == "review" and $pick then "none; Jev leans to `\($pick.model)` below the act band."
                          else "none; Jev is unsure or no candidate fits." end)"
         end),
-       "- Request id: \($r.request_id)\(if ($r.provider_id // "") != "" then " (provider \($r.provider_id))" else "" end)",
+       "- Request id: \($r.request_id)",
        "",
        "| Candidate | Harness | Model | Billing | p |",
        "|---|---|---|---|---|",

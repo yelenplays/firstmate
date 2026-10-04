@@ -961,8 +961,8 @@ case "$RUNOFF_STATE" in
       }}') || emit_error "could not build runoff question"
     PICK_REQUEST=$(jq -nc --argjson state "$STATE" --argjson questions "$PICK_QUESTIONS" '{state: $state, questions: $questions}') \
       || emit_error "could not build runoff request"
-    if ! never_send_scan "$PICK_REQUEST"; then
-      runoff_note "$(jq -nc --arg why "$NEVER_SEND_WHY" '{state: "skipped", reason: ($why + "; nothing sent")}')"
+    if ! fm_never_send_check "$NEVER_SEND_PATH" "$PICK_REQUEST" "brief text"; then
+      runoff_note "$(jq -nc --arg why "$FM_NEVER_SEND_ERROR" '{state: "skipped", reason: ($why + "; nothing sent")}')"
     else
       PICK_FILE=$(mktemp) || emit_error "mktemp failed"
       trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE" "$PICK_FILE"' EXIT
