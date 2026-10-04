@@ -2,9 +2,9 @@
 # Merge a task's PR or MR after recording pr= and any available pr_head= through
 # bin/fm-pr-check.sh, so teardown can verify landed work after squash merges.
 # The full canonical URL is parsed by bin/fm-pr-lib.sh. A GitHub pull request is
-# addressed through gh by the derived owner and repository; a GitLab merge
-# request is addressed through glab by the project URL rebuilt from the parsed
-# host and path, so any instance works and no host is hardcoded. A Gerrit change
+# addressed through gh by the derived owner and repository; GitLab merge
+# requests are refused because post-merge watching is not implemented for them.
+# A Gerrit change
 # is refused outright: that adapter is read-only, and the refusal at the parse
 # below owns why.
 #
@@ -80,21 +80,9 @@
 # command's own output, marked as the forge's text and kept apart from this
 # script's verdict, including the refusal for an outcome that cannot be read;
 # a merge command that failed keeps its original error surfaced raw and first.
-# GitLab adds no method flag at all: its merge method is the project's own
-# setting, which the merge API applies, and imposing squash there would override
-# that convention rather than mirror the GitHub default.
-#
-# A GitLab merge is refused unless every pre-merge condition holds, each read
-# live at merge time rather than taken from recorded metadata: the merge request
-# is open, detailed_merge_status is mergeable, has_conflicts is false,
-# blocking_discussions_resolved is true, and the head pipeline succeeded at the
-# exact current head commit. Every failing condition is reported, not just the
-# first. The verified head is then passed to glab as --sha, so a push that lands
-# between that read and the merge fails the merge instead of landing commits
-# nothing verified. A recorded pr_head that disagrees with the live head is
-# reported rather than trusted, because a rebase moves the head and leaves the
-# recorded value stale. Reading that state needs glab and jq, and either one
-# absent stops the merge before any state is recorded.
+# GitLab merge requests receive the same live pre-merge verification, but are
+# refused after a green preflight because this post-merge watcher does not yet
+# support GitLab. No watch-required marker or forge merge is created for them.
 #
 # Before either forge merge, the task's existing per-task control lock
 # serializes the captain-hold check through the forge command. A still-held or
@@ -137,10 +125,8 @@
 #
 # Usage: fm-pr-merge.sh <task-id> <pr-url> [--attended-override] [--allow-red <check-name>] [--allow-missing <check-name>] [-- <extra forge merge args>]
 #
-# On GitLab, this script confirms the MR is actually merged before reporting it;
-# an auto-merge-queued or unconfirmed request leaves the poll armed and records
-# no landed outcome. bin/fm-merge-outcome-lib.sh owns a confirmed merge's
-# destination, normal-case deduplication, and at-least-once recovery.
+# bin/fm-merge-outcome-lib.sh owns a confirmed GitHub merge's destination,
+# normal-case deduplication, and at-least-once recovery.
 # A landed merge whose outcome cannot be written is reported loudly rather than
 # misreported as a failed merge.
 set -eu
@@ -1313,24 +1299,6 @@ github_report_unmerged_outcome() {
   github_report_queue_rules
 }
 
-gitlab_confirm_merged() {
-  local json state
-  if ! json=$(GITLAB_HOST="$FM_PR_HOST" glab mr view "$PR_NUMBER" \
-    -R "$PROJECT_URL" -F json 2>/dev/null) || [ -z "$json" ]; then
-    printf 'actionable: GitLab accepted the merge request for %s but its landed state could not be confirmed; the merge poll remains armed\n' \
-      "$URL" >&2
-    return 2
-  fi
-  if ! state=$(printf '%s' "$json" | jq -r \
-    'if type == "object" and (.state | type == "string") then .state else error("invalid state") end' \
-    2>/dev/null); then
-    printf 'actionable: GitLab accepted the merge request for %s but its landed state could not be confirmed; the merge poll remains armed\n' \
-      "$URL" >&2
-    return 2
-  fi
-  [ "$state" = merged ]
-}
-
 # Record before either forge call. This arms the merge poll without claiming a
 # landed outcome, so even a provider read failure after a real merge cannot
 # leave teardown without the PR identity it needs to verify the result.
@@ -1340,6 +1308,15 @@ require_current_away_authority || away_status=$?
 require_recorded_pr_identity || exit 1
 record_pr_metadata || exit 1
 require_released_captain_hold || exit 1
+POST_MERGE_REVERT=false
+post_merge_record=$(fm_post_merge_record_path "$STATE" "$ID")
+if [ -f "$post_merge_record" ] && [ ! -L "$post_merge_record" ] \
+  && [ "$(fm_post_merge_record_get "$post_merge_record" version)" = fm-post-merge-v1 ] \
+  && [ "$(fm_post_merge_record_get "$post_merge_record" kind)" = pr ] \
+  && [ "$(fm_post_merge_record_get "$post_merge_record" phase)" = reverting ] \
+  && [ "$(fm_post_merge_record_get "$post_merge_record" revert_pr)" = "$URL" ]; then
+  POST_MERGE_REVERT=true
+fi
 if [ -n "$(fm_post_merge_record_get "$META" post_merge_watch_required)" ]; then
   echo "error: task $ID has a pending post-merge watch; retry bin/fm-post-merge.sh arm $ID instead of merging again" >&2
   exit 1
@@ -1393,10 +1370,12 @@ case "$PROVIDER" in
     require_current_away_authority || away_status=$?
     [ "$away_status" -eq 0 ] || exit "$away_status"
     refuse_github_queue_while_away || exit 2
-    fm_post_merge_watch_required_set "$STATE" "$META" pending || {
-      echo "error: could not persist the post-merge watch marker; refusing to merge" >&2
-      exit 1
-    }
+    if [ "$POST_MERGE_REVERT" != true ]; then
+      fm_post_merge_watch_required_set "$STATE" "$META" pending || {
+        echo "error: could not persist the post-merge watch marker; refusing to merge" >&2
+        exit 1
+      }
+    fi
     merge_status=0
     merge_output=$(fm_gh_owner_run "$PR_OWNER" gh pr merge "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" \
       --match-head-commit "$FM_PR_MERGE_HEAD" \
@@ -1446,47 +1425,8 @@ case "$PROVIDER" in
     ;;
   gitlab)
     gitlab_verify_mergeable || exit 1
-    # --sha binds the merge to the head this run verified, so a push that lands
-    # in between is refused by GitLab instead of merged unverified. --yes only
-    # skips the interactive confirmation, which no supervised run can answer;
-    # the conditions above are what authorize the merge.
-    # The away record is locked first, so this last presence and authority read
-    # and the forge command below share one live-owner critical section.
-    hold_away_record_for_merge || exit 1
-    away_status=0
-    require_current_away_authority || away_status=$?
-    [ "$away_status" -eq 0 ] || exit "$away_status"
-    merge_status=0
-    gitlab_merge_args=()
-    if [ "$FM_PR_AWAY_POSTURE" = true ]; then
-      gitlab_merge_args=(--auto-merge=false)
-    fi
-    fm_post_merge_watch_required_set "$STATE" "$META" pending || {
-      echo "error: could not persist the post-merge watch marker; refusing to merge" >&2
-      exit 1
-    }
-    GITLAB_HOST="$FM_PR_HOST" glab mr merge "$PR_NUMBER" -R "$PROJECT_URL" \
-      --sha "$FM_PR_MERGE_HEAD" --yes "$@" "${gitlab_merge_args[@]+"${gitlab_merge_args[@]}"}" || merge_status=$?
-    if [ "$merge_status" -ne 0 ]; then
-      fm_afk_contract_lock_release || true
-      fm_lock_release "$MERGE_CONTROL_LOCK" || true
-      MERGE_CONTROL_LOCK=
-      exit "$merge_status"
-    fi
-    persist_accepted_merge_authority || exit 1
-    fm_afk_contract_lock_release || true
-    fm_lock_release "$MERGE_CONTROL_LOCK" || true
-    MERGE_CONTROL_LOCK=
-    gitlab_confirm_rc=0
-    gitlab_confirm_merged || gitlab_confirm_rc=$?
-    if [ "$gitlab_confirm_rc" -eq 1 ]; then
-      fm_post_merge_watch_required_set "$STATE" "$META" '' || {
-        echo "error: $URL is not merged and its post-merge marker could not be cleared" >&2
-        exit 1
-      }
-      exit 0
-    fi
-    [ "$gitlab_confirm_rc" -eq 0 ] || exit 0
+    echo "error: GitLab merge requests cannot be merged through firstmate until post-merge watching is supported; use a supported GitHub PR or local landing" >&2
+    exit 2
     ;;
   *)
     echo "error: invalid PR merge request" >&2
@@ -1494,8 +1434,8 @@ case "$PROVIDER" in
     ;;
 esac
 
-# Reached only after the forge confirmed the merge landed: set -e exits on a
-# refused or failed merge above, and a queued forge merge exits without an
+# Reached only after GitHub confirmed the merge landed: set -e exits on a
+# refused or failed merge above, and a queued merge exits without an
 # outcome while its existing poll remains armed.
 outcome_rc=0
 fm_merge_outcome_report "$FM_HOME" "$STATE" "$ID" "$URL" self \
@@ -1510,10 +1450,14 @@ case "$outcome_rc" in
     printf 'actionable: merged %s but could not record the outcome for supervision\n' "$URL" >&2
     ;;
 esac
-arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" 2>&1) || {
-  printf 'error: merged %s but post-merge watch could not be armed: %s\n' "$URL" "$arm_out" >&2
-  printf 'retry: FM_HOME=%q FM_STATE_OVERRIDE=%q %q arm %q\n' \
-    "$FM_HOME" "$STATE" "$SCRIPT_DIR/fm-post-merge.sh" "$ID" >&2
-  exit 1
-}
-printf '%s\n' "$arm_out"
+if [ "$POST_MERGE_REVERT" = true ]; then
+  printf 'revert merged: %s\n' "$URL"
+else
+  arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" 2>&1) || {
+    printf 'error: merged %s but post-merge watch could not be armed: %s\n' "$URL" "$arm_out" >&2
+    printf 'retry: FM_HOME=%q FM_STATE_OVERRIDE=%q %q arm %q\n' \
+      "$FM_HOME" "$STATE" "$SCRIPT_DIR/fm-post-merge.sh" "$ID" >&2
+    exit 1
+  }
+  printf '%s\n' "$arm_out"
+fi

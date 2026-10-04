@@ -408,6 +408,46 @@ test_witness_result_needs_exactly_one_verdict() {
   pass "fm-post-merge: a witness report needs exactly one verdict bound to the full merge commit"
 }
 
+test_scheduler_arm_failure_is_retryable() {
+  local out
+  make_pr_world pm-scheduler-failure on
+  printf 'post_merge_watch_required=pending\n' >> "$W_HOME/state/$W_ID.meta"
+  mkdir -p "$W_HOME/state/procevent"
+  printf 'collision\n' > "$W_HOME/state/procevent/when-pm-$W_ID.source"
+  chmod 600 "$W_HOME/state/procevent/when-pm-$W_ID.source"
+  out=$(pm arm "$W_ID" 2>&1) && fail "a scheduler collision was reported as an armed watch: $out"
+  assert_contains "$out" 'could not arm the post-merge checks watch' "the scheduler failure was not surfaced"
+  assert_grep 'post_merge_watch_required=pending' "$W_HOME/state/$W_ID.meta" "a failed scheduler arm cleared the handoff marker"
+  assert_equals checks "$(record_field phase)" "the failed initial arm lost its retryable watch record"
+  rm -f "$W_HOME/state/procevent/when-pm-$W_ID.source"
+  out=$(pm arm "$W_ID" 2>&1) || fail "retrying the same merge did not re-arm the scheduler: $out"
+  assert_no_grep 'post_merge_watch_required=' "$W_HOME/state/$W_ID.meta" "successful retry did not clear the marker"
+
+  FM_HOME="$W_HOME" FM_STATE_OVERRIDE="$W_HOME/state" "$ROOT/bin/fm-procevent-when.sh" retire "pm-$W_ID" >/dev/null 2>&1 || fail "could not retire the test watch"
+  printf 'collision\n' > "$W_HOME/state/procevent/when-pm-$W_ID.source"
+  chmod 600 "$W_HOME/state/procevent/when-pm-$W_ID.source"
+  set_checks "$MERGE_SHA" build in_progress ''
+  out=$(pm advance "$W_ID" 2>&1) && fail "a failed pending-check re-arm reported waiting: $out"
+  assert_contains "$out" 'could not re-arm the post-merge checks watch' "the pending-check re-arm failure was hidden"
+  rm -f "$W_HOME/state/procevent/when-pm-$W_ID.source"
+  out=$(pm advance "$W_ID" 2>&1) || fail "pending-check re-arm retry failed: $out"
+  assert_contains "$out" 'waiting: checks on merge commit' "successful pending-check re-arm did not resume waiting"
+
+  set_checks "$MERGE_SHA" build completed failure
+  set_checks "$REVERT_SHA" build queued ''
+  out=$(pm advance "$W_ID" 2>&1) || fail "red checks did not open a revert: $out"
+  FM_HOME="$W_HOME" FM_STATE_OVERRIDE="$W_HOME/state" "$ROOT/bin/fm-procevent-when.sh" retire "pmr-$W_ID" >/dev/null 2>&1 || fail "could not retire the test revert watch"
+  printf 'collision\n' > "$W_HOME/state/procevent/when-pmr-$W_ID.source"
+  chmod 600 "$W_HOME/state/procevent/when-pmr-$W_ID.source"
+  set_checks "$REVERT_SHA" build in_progress ''
+  out=$(pm advance "$W_ID" 2>&1) && fail "a failed revert-check re-arm reported waiting: $out"
+  assert_contains "$out" 'could not re-arm the revert checks watch' "the revert-check re-arm failure was hidden"
+  rm -f "$W_HOME/state/procevent/when-pmr-$W_ID.source"
+  out=$(pm advance "$W_ID" 2>&1) || fail "revert-check re-arm retry failed: $out"
+  assert_contains "$out" 'waiting: checks on the revert' "successful revert-check re-arm did not resume waiting"
+  pass "fm-post-merge: scheduler arm failures stay retryable across initial, merge, and revert checks"
+}
+
 test_arm_refusals_and_rearm() {
   local out
   make_pr_world pm-arm on
@@ -645,6 +685,7 @@ test_unknown_completed_check_conclusions_wait
 test_revert_without_green_checks_is_held
 test_witness_result_needs_exactly_one_verdict
 test_arm_refusals_and_rearm
+test_scheduler_arm_failure_is_retryable
 test_record_from_an_earlier_incarnation_is_ignored
 test_local_arm_failure_keeps_marker_for_retry
 test_local_watch_marker_without_record_blocks_teardown
