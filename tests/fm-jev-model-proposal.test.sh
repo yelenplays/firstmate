@@ -329,6 +329,7 @@ out_file="$TMP_ROOT/out/object-use-current.md"
 TEST_THIRD='{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"luna","confidence":0.9,"probabilities":{"luna":0.9,"opus":0.1,"none_fit":0}}}}' \
   run_tool --evidence "$TMP_ROOT/current-model-evidence.json" --dispatch "$TMP_ROOT/object-use-dispatch.json" \
     --out "$out_file" >/dev/null 2>&1 || fail 'a single-object dispatch use proposal failed'
+# shellcheck disable=SC2016 # Literal backticks from the Markdown proposal.
 grep -qF 'keep `gpt-6-luna`, Jev agrees with the current pick.' "$out_file" \
   || fail 'a single-object dispatch use must not recommend switching to its current model'
 grep -qF -- '- Current: openai-codex/gpt-6-luna/high' "$out_file" \
