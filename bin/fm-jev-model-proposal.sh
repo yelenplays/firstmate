@@ -130,7 +130,7 @@ real_path() {
   printf '%s' "$resolved"
 }
 
-real_input_path() {
+resolved_path() {
   local path=$1 target
   path=$(real_path "$path")
   while [ -L "$path" ]; do
@@ -216,14 +216,19 @@ if [ -z "$OUT" ]; then
 fi
 out_dir=$(dirname "$OUT")
 out_real=$(real_path "$OUT")
+out_target=$(resolved_path "$OUT")
 for protected in "$config_path" "$state_path"; do
   case "$out_real/" in
     "$protected/"*) die "refusing to write under protected path $protected" ;;
   esac
 done
 for guarded in "$EVIDENCE" "$DISPATCH"; do
-  if [ -e "$guarded" ] && [ "$out_real" = "$(real_input_path "$guarded")" ]; then
-    die "refusing to overwrite the input file $guarded"
+  if [ -e "$guarded" ] || [ -L "$guarded" ]; then
+    guarded_path=$(real_path "$guarded")
+    guarded_target=$(resolved_path "$guarded")
+    if [ "$out_real" = "$guarded_path" ] || [ "$out_target" = "$guarded_target" ]; then
+      die "refusing to overwrite the input file $guarded"
+    fi
   fi
 done
 mkdir -p "$out_dir" 2>/dev/null || die "could not create $out_dir"

@@ -90,12 +90,20 @@ evidence_before=$(cksum < "$TMP_ROOT/evidence-target.json")
 run_tool --evidence "$TMP_ROOT/evidence-link.json" --out "$TMP_ROOT/evidence-target.json" >/dev/null 2>&1 \
   && fail 'overwriting the evidence symlink target must refuse'
 [ "$(cksum < "$TMP_ROOT/evidence-target.json")" = "$evidence_before" ] || fail 'evidence symlink target changed'
+run_tool --evidence "$TMP_ROOT/evidence-link.json" --out "$TMP_ROOT/evidence-link.json" >/dev/null 2>&1 \
+  && fail 'overwriting the evidence symlink path must refuse'
+[ -L "$TMP_ROOT/evidence-link.json" ] && [ "$(cksum < "$TMP_ROOT/evidence-target.json")" = "$evidence_before" ] \
+  || fail 'evidence symlink path or target changed'
 cp "$HOME_DIR/config/crew-dispatch.json" "$TMP_ROOT/dispatch-target.json"
 ln -s "$TMP_ROOT/dispatch-target.json" "$TMP_ROOT/dispatch-link.json"
 dispatch_before=$(cksum < "$TMP_ROOT/dispatch-target.json")
 run_tool --evidence "$TMP_ROOT/evidence.json" --dispatch "$TMP_ROOT/dispatch-link.json" \
   --out "$TMP_ROOT/dispatch-target.json" >/dev/null 2>&1 && fail 'overwriting the dispatch symlink target must refuse'
 [ "$(cksum < "$TMP_ROOT/dispatch-target.json")" = "$dispatch_before" ] || fail 'dispatch symlink target changed'
+run_tool --evidence "$TMP_ROOT/evidence.json" --dispatch "$TMP_ROOT/dispatch-link.json" \
+  --out "$TMP_ROOT/dispatch-link.json" >/dev/null 2>&1 && fail 'overwriting the dispatch symlink path must refuse'
+[ -L "$TMP_ROOT/dispatch-link.json" ] && [ "$(cksum < "$TMP_ROOT/dispatch-target.json")" = "$dispatch_before" ] \
+  || fail 'dispatch symlink path or target changed'
 [ -z "$(find "$TEST_REQUESTS" -type f)" ] && [ "$(config_sum)" = "$CONFIG_BEFORE" ] \
   && [ "$(config_tree_sum)" = "$CONFIG_TREE_BEFORE" ] || fail 'refused outputs must send and change nothing'
 pass 'outputs under config/ or on either input, including symlink targets, refuse'
