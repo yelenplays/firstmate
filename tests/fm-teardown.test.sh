@@ -872,13 +872,15 @@ test_remote_teardown_retires_watcher_state() {
 }
 
 test_teardown_closes_the_backlog_item_itself() {
-  local case_dir out today
+  local case_dir out today_before today_after
   case_dir=$(make_case tasks-axi-close)
   write_meta "$case_dir" no-mistakes ship
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
 
+  today_before=$(date +%Y-%m-%d)
   out=$(run_teardown "$case_dir") || fail "teardown failed with a real backlog"
+  today_after=$(date +%Y-%m-%d)
   [ "$(backlog_row_state "$case_dir")" = "done" ] \
     || fail "teardown returned success while its backlog item was still open: $(backlog_row_state "$case_dir")"
   assert_grep 'https://github.com/example/repo/pull/7' "$case_dir/data/backlog.md" \
@@ -887,11 +889,15 @@ test_teardown_closes_the_backlog_item_itself() {
     "a landed close left its pending-close record behind"
   assert_present "$case_dir/data/history/tasks/task-x1.md" \
     "successful cleanup did not preserve the task's private history card"
-  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
-  assert_present "$case_dir/data/history/days/$today.logbook.json" \
-    "successful cleanup did not regenerate today's Logbook"
-  jq -e 'any(.landed[]; .id == "task-x1")' "$case_dir/data/history/days/$today.logbook.json" >/dev/null \
-    || fail "successful cleanup did not add the landed task to today's Logbook"
+  if jq -e 'any(.landed[]; .id == "task-x1")' \
+      "$case_dir/data/history/days/$today_before.logbook.json" >/dev/null 2>&1; then
+    :
+  elif [ "$today_after" != "$today_before" ] && jq -e 'any(.landed[]; .id == "task-x1")' \
+      "$case_dir/data/history/days/$today_after.logbook.json" >/dev/null 2>&1; then
+    :
+  else
+    fail "successful cleanup did not add the landed task to a generation-day Logbook"
+  fi
   assert_grep "## Captain's intent" "$case_dir/data/history/tasks/task-x1.md" \
     "the task card did not preserve an explicit Captain's intent section"
   printf '%s\n' "$out" | grep -F 'bin/fm-tasks-axi.sh ready' >/dev/null \
@@ -901,6 +907,51 @@ test_teardown_closes_the_backlog_item_itself() {
   printf '%s\n' "$out" | grep -F 'Run tasks-axi done' >/dev/null \
     && fail "teardown still asked a later turn to close the item it already closed: $out"
   pass "teardown closes its own backlog item before reporting success"
+}
+
+test_teardown_closes_a_gerrit_task_with_its_change_url_as_a_note() {
+  local case_dir out real_tasks_axi gerrit_url=https://gerrit.example.com/c/project/+/12345
+  case_dir=$(make_case tasks-axi-close-gerrit)
+  write_meta "$case_dir" no-mistakes ship
+  printf 'pr=%s\n' "$gerrit_url" >> "$case_dir/state/task-x1.meta"
+  seed_backlog_in_flight "$case_dir"
+  # Pin the refusal tasks-axi applies to a --pr link that is not a canonical
+  # GitHub pull request, so this case keeps reproducing whatever the installed
+  # release accepts.
+  real_tasks_axi=$(command -v tasks-axi)
+  cat > "$case_dir/fakebin/tasks-axi" <<SH
+#!/usr/bin/env bash
+previous=
+for arg in "\$@"; do
+  if [ "\$previous" = --pr ] && ! [[ "\$arg" =~ ^https://github\.com/[^/]+/[^/]+/pull/[0-9]+\$ ]]; then
+    echo "error: \"Task pr link must be a canonical pull request URL\""
+    exit 1
+  fi
+  previous=\$arg
+done
+exec "$real_tasks_axi" "\$@"
+SH
+  chmod +x "$case_dir/fakebin/tasks-axi"
+
+  out=$(run_teardown "$case_dir" 2>&1) || fail "teardown of a landed Gerrit task failed: $out"
+  [ "$(backlog_row_state "$case_dir")" = "done" ] \
+    || fail "teardown left a landed Gerrit task's backlog item at $(backlog_row_state "$case_dir"): $out"
+  tasks-axi show task-x1 --file "$case_dir/data/backlog.md" --full \
+    | grep -F "body: \"Gerrit change $gerrit_url\"" >/dev/null \
+    || fail "closed Gerrit backlog item did not record its change URL as a note"
+  assert_absent "$case_dir/state/task-x1.backlog-close" \
+    "a landed Gerrit close left its pending-close record behind"
+
+  case_dir=$(make_case tasks-axi-close-github-under-refusal)
+  write_meta "$case_dir" no-mistakes ship
+  printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
+  seed_backlog_in_flight "$case_dir"
+  cp "$TMP_ROOT/tasks-axi-close-gerrit/fakebin/tasks-axi" "$case_dir/fakebin/tasks-axi"
+  out=$(run_teardown "$case_dir" 2>&1) || fail "teardown of a landed GitHub task failed: $out"
+  tasks-axi show task-x1 --file "$case_dir/data/backlog.md" \
+    | grep -F 'links: "pr:https://github.com/example/repo/pull/7"' >/dev/null \
+    || fail "a GitHub pull request no longer closed as the item's pr link"
+  pass "teardown closes a landed Gerrit task with its change URL as a note and a GitHub task with --pr"
 }
 
 test_teardown_manual_backend_leaves_the_backlog_to_the_operator() {
@@ -982,6 +1033,44 @@ test_local_only_merged_to_local_main_allows() {
     assert_absent "$case_dir/state/.task-x1.execution-notified" "$kind retained execution reminder marker"
   done
   pass "teardown retires execution obligations for ships, scouts, and tasks"
+}
+
+test_scout_teardown_preserves_named_deliverables() {
+  local case_dir file rc
+  case_dir=$(make_case scout-deliverables)
+  write_meta "$case_dir" local-only scout
+  printf '%s\n' manual > "$case_dir/config/backlog-backend"
+  FM_HOME="$case_dir" "$ROOT/bin/fm-brief.sh" task-x1 sample --scout >/dev/null \
+    || fail "scout deliverables: brief generation failed"
+  for file in report.md report.html report.pdf results.csv; do
+    printf 'durable scout output: %s\n' "$file" > "$case_dir/wt/$file"
+    cp "$case_dir/wt/$file" "$case_dir/data/task-x1/$file"
+  done
+  printf '%s\n' scratch > "$case_dir/wt/scratch.txt"
+  FM_HOME="$case_dir" "$ROOT/bin/fm-captain-hold.sh" complete task-x1 --none >/dev/null \
+    || fail "scout deliverables: completion attestation failed"
+  cat > "$case_dir/fakebin/treehouse" <<'SH'
+#!/usr/bin/env bash
+set -eu
+[ "$#" -eq 3 ] && [ "$1" = return ] && [ "$2" = --force ]
+[ "$3" = "$FM_SCOUT_TEST_WORKTREE" ]
+git -C "$3" reset --hard HEAD >/dev/null
+git -C "$3" clean -fdx >/dev/null
+SH
+  rc=0
+  FM_SCOUT_TEST_WORKTREE="$case_dir/wt" run_teardown "$case_dir" \
+    > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  [ "$rc" -eq 0 ] \
+    || fail "scout deliverables: teardown failed: $(<"$case_dir/stderr")"
+  assert_absent "$case_dir/state/task-x1.meta" "scout deliverables: teardown retained runtime metadata"
+  assert_absent "$case_dir/wt/scratch.txt" "scout deliverables: cleanup left scratch output behind"
+  for file in report.md report.html report.pdf results.csv; do
+    assert_absent "$case_dir/wt/$file" "scout deliverables: cleanup left $file in the worktree"
+    assert_present "$case_dir/data/task-x1/$file" "scout deliverables: cleanup deleted durable $file"
+    [ "$(<"$case_dir/data/task-x1/$file")" = "durable scout output: $file" ] \
+      || fail "scout deliverables: cleanup changed durable $file"
+  done
+  pass "scout teardown discards scratch output and preserves named durable deliverables"
 }
 
 test_no_mistakes_origin_remote_allows() {
@@ -1368,6 +1457,76 @@ test_dirty_worktree_refuses() {
   grep -q "uncommitted changes" "$case_dir/stderr" || fail "dirty-wt: refusal did not cite uncommitted changes"
   assert_present "$case_dir/state/task-x1.execution" 'refused cleanup lost execution obligation'
   pass "dirty worktree is refused even when its committed work has landed (dirty always wins)"
+}
+
+assert_dirty_diagnostic() {
+  local kind=$1 mode=$2 case_dir rc before n
+  case_dir=$(make_case "dirty-$kind-$mode")
+  write_meta "$case_dir" "$mode" ship
+  wt_commit_file "$case_dir" feature.txt hello
+  # Exercise both dirty refusal sites: remote-reachable work and local-only
+  # work merged into local main but absent from every remote.
+  if [ "$mode" = local-only ]; then
+    git -C "$case_dir/project" merge -q --ff-only fm/task-x1
+  else
+    git -C "$case_dir/wt" push -q origin fm/task-x1
+  fi
+  if [ "$kind" != untracked ]; then
+    printf '%s\n' 'uncommitted edit' > "$case_dir/wt/feature.txt"
+    # Cover index edits as well as unstaged edits.
+    [ "$mode" != local-only ] || git -C "$case_dir/wt" add feature.txt
+  fi
+  if [ "$kind" != tracked ]; then
+    mkdir "$case_dir/wt/00 proof scratch"
+    printf '%s\n' 'manual server log' > "$case_dir/wt/00 proof scratch/server.log"
+    for n in 01 02 03 04 05 06 07 08 09 10 11; do
+      touch "$case_dir/wt/$n-scratch.txt"
+    done
+    # Preserve the existing exemptions without counting them as leftovers.
+    mkdir "$case_dir/wt/.claude"
+    touch "$case_dir/wt/.claude/settings.local.json" "$case_dir/wt/.fm-grok-turnend"
+  fi
+  before=$(git -C "$case_dir/wt" status --porcelain)
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 1 "$rc" "$kind/$mode: dirty teardown must still refuse"
+  grep -q REFUSED "$case_dir/stderr" || fail "$kind/$mode: no refusal"
+  if [ "$kind" = untracked ]; then
+    grep -Fq 'uncommitted changes present (untracked-only leftovers)' "$case_dir/stderr" \
+      || fail "$kind/$mode: missing untracked-only classification"
+    ! grep -q 'includes tracked edits' "$case_dir/stderr" || fail "$kind/$mode: misclassified as tracked"
+  else
+    grep -Fq 'uncommitted changes present (includes tracked edits)' "$case_dir/stderr" \
+      || fail "$kind/$mode: missing tracked-edit classification"
+    ! grep -q 'untracked-only' "$case_dir/stderr" || fail "$kind/$mode: misclassified as untracked-only"
+  fi
+  if [ "$kind" != tracked ]; then
+    grep -Fq '00 proof scratch/' "$case_dir/stderr" || fail "$kind/$mode: scratch folder not named"
+    grep -Fxq '  09-scratch.txt' "$case_dir/stderr" || fail "$kind/$mode: tenth path missing"
+    ! grep -q '10-scratch.txt\|11-scratch.txt\|\.claude/\|\.fm-grok-turnend' "$case_dir/stderr" \
+      || fail "$kind/$mode: path list exceeded its bound or included exempt files"
+    grep -Fq 'additional untracked paths omitted' "$case_dir/stderr" || fail "$kind/$mode: no truncation notice"
+  else
+    ! grep -q 'untracked paths' "$case_dir/stderr" || fail "$kind/$mode: invented untracked paths"
+  fi
+  [ -f "$case_dir/state/task-x1.meta" ] || fail "$kind/$mode: task metadata removed"
+  [ "$before" = "$(git -C "$case_dir/wt" status --porcelain)" ] || fail "$kind/$mode: worktree changed"
+  pass "$kind/$mode: dirty refusal classifies leftovers and preserves work"
+}
+
+test_untracked_only_refusal_diagnostic() {
+  assert_dirty_diagnostic untracked no-mistakes
+  assert_dirty_diagnostic untracked local-only
+}
+
+test_tracked_edit_refusal_diagnostic() {
+  assert_dirty_diagnostic tracked no-mistakes
+  assert_dirty_diagnostic tracked local-only
+}
+
+test_mixed_refusal_diagnostic() {
+  assert_dirty_diagnostic mixed no-mistakes
+  assert_dirty_diagnostic mixed local-only
 }
 
 test_gh_error_and_content_absent_refuses() {
@@ -4589,6 +4748,11 @@ test_retained_sources_still_reach_the_ordinary_refusal() {
   pass "present required sources still reach the ordinary teardown refusal"
 }
 
+test_scout_teardown_preserves_named_deliverables
+if [ "${1:-}" = --scout-deliverables ]; then
+  exit 0
+fi
+
 test_missing_startup_source_refuses_before_cleanup
 test_unreadable_startup_source_refuses_before_cleanup
 test_missing_adapter_sibling_refuses_before_cleanup
@@ -4604,6 +4768,7 @@ fi
 test_local_only_fork_remote_allows
 test_teardown_retires_watcher_state
 test_teardown_closes_the_backlog_item_itself
+test_teardown_closes_a_gerrit_task_with_its_change_url_as_a_note
 test_teardown_manual_backend_leaves_the_backlog_to_the_operator
 test_local_only_truly_unpushed_refuses
 test_local_only_merged_to_local_main_allows
@@ -4647,6 +4812,9 @@ test_pr_check_records_remote_head_when_local_lags
 test_content_in_default_fallback_allows
 test_content_fallback_refreshes_stale_origin_ref
 test_dirty_worktree_refuses
+test_untracked_only_refusal_diagnostic
+test_tracked_edit_refusal_diagnostic
+test_mixed_refusal_diagnostic
 test_gh_error_and_content_absent_refuses
 test_legacy_record_without_the_flag_refuses
 test_windowless_legacy_record_with_gone_worktree_tears_down

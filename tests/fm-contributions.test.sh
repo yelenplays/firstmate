@@ -299,6 +299,32 @@ test_verdict_retains_judged_head() {
   pass 'recorded judgment keeps its exact head and is stale immediately on a published replacement'
 }
 
+test_verdict_actor_values_are_discoverable() {
+  local home help out actor
+  home=$(new_home verdict-actors)
+  forge_home "$home"
+  with_home "$home" "$ROOT/bin/fm-pr-check.sh" delivery https://github.com/o/r/pull/8 >/dev/null \
+    || fail 'could not register delivery before judging its head'
+  help=$("$ROOT/bin/fm-contributions.sh" --help) || fail 'verdict help did not print'
+  out=$(with_home "$home" "$ROOT/bin/fm-contributions.sh" verdict delivery https://github.com/o/r/pull/8 "$HEAD_A" \
+    https://github.com/o/r/pull/8#issuecomment-99 bogus 'no such actor' 2>&1) \
+    && fail 'an unknown actor was accepted'
+  [ "$(printf '%s\n' "$help" | sed -n '/^  fm-contributions.sh verdict /p')" = \
+    '  fm-contributions.sh verdict <task> <url> <judged-head> <source-url> <captain|fleet|maintainer|nobody> <summary>' ] \
+    || fail "help usage does not name exactly the accepted actors: $help"
+  [ "$(printf '%s\n' "$help" | sed -n '/^actor is exactly one of /p')" = \
+    'actor is exactly one of captain, fleet, maintainer or nobody; any other value' ] \
+    || fail "help explanation does not name exactly the accepted actors: $help"
+  [ "$out" = "fm-contributions: invalid required actor 'bogus'; expected one of: captain, fleet, maintainer, nobody" ] \
+    || fail "refusal does not name exactly the accepted actors: $out"
+  for actor in captain fleet maintainer nobody; do
+    with_home "$home" "$ROOT/bin/fm-contributions.sh" verdict delivery https://github.com/o/r/pull/8 "$HEAD_A" \
+      https://github.com/o/r/pull/8#issuecomment-99 "$actor" 'documented actor' >/dev/null \
+      || fail "documented actor $actor was refused"
+  done
+  pass 'verdict help and refusal name exactly the actors the command accepts'
+}
+
 test_observed_replacement_refreshes_verdict() {
   local home
   home=$(new_home observed-replacement)
@@ -606,17 +632,24 @@ set -eu
 printf '%s\n' "$*" >> "$FORGE/calls"
 fault=$(cat "$FORGE/fault" 2>/dev/null || true)
 case "$fault" in latency) sleep "${FORGE_LATENCY:-2}" ;; esac
+# Concurrent forge callers each advance one shared clock. Truncating it in
+# place races with the other callers and the fake date: an interleaved write
+# can publish a half-written value (or the 6 an emptied read computes), and a
+# caller then evaluates DEADLINE against torn arithmetic. Publish every new
+# value by rename so each reader always sees one complete old-or-new clock.
+clock_bump() {
+  local tmp
+  tmp=$(mktemp "$FORGE/clock.XXXXXX")
+  printf '%s\n' "$(( $(cat "$FORGE/clock") + $1 ))" > "$tmp"
+  mv -f "$tmp" "$FORGE/clock"
+}
 case "$fault:$*" in
   # Advance once before the parallel read wave; its readers share this clock.
-  reserve:'api repos/o/r/issues/9')
-    printf '%s\n' "$(( $(cat "$FORGE/clock") + 6 ))" > "$FORGE/clock" ;;
+  reserve:'api repos/o/r/issues/9') clock_bump 6 ;;
   slow-wave:'api repos/o/r/pulls/8') sleep 3 ;;
   slow-wave:'api repos/o/r/pulls/8/reviews?'*) sleep 6 ;;
-  exhaust:'api repos/o/r/issues/8/comments?'*)
-    printf '%s\n' "$(( $(cat "$FORGE/clock") + 100 ))" > "$FORGE/clock" ;;
-  fail-late:'api repos/o/r/pulls/8/reviews?'*)
-    printf '%s\n' "$(( $(cat "$FORGE/clock") + 100 ))" > "$FORGE/clock"
-    printf 'HTTP 502\n' >&2; exit 1 ;;
+  exhaust:'api repos/o/r/issues/8/comments?'*) clock_bump 100 ;;
+  fail-late:'api repos/o/r/pulls/8/reviews?'*) clock_bump 100; printf 'HTTP 502\n' >&2; exit 1 ;;
   fail:'api repos/o/r/pulls/8/reviews?'*) printf 'HTTP 502\n' >&2; exit 1 ;;
   down:*) printf 'HTTP 502\n' >&2; exit 1 ;;
   hang:'api repos/o/r/pulls/8') sleep 4 ;;
@@ -1065,8 +1098,81 @@ test_late_owner_keeps_failure_episode_suppressed() {
   pass 'a late owner does not restart a shared forge failure episode'
 }
 
+install_account_refusal_gh() { # home: the PR core read succeeds, its parallel reads refuse with an account error
+  local home=$1
+  cat > "$home/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+case "$*" in
+  'api repos/o/r/pulls/8')
+    jq -n --arg head "$HEAD_A" '{state:"open",user:{login:"author"},head:{sha:$head},draft:false,mergeable:true,merged_at:null}' ;;
+  'api repos/o/r/pulls/8/'*|'api repos/o/r/issues/8/'*|'api repos/o/r/commits/'*|'api repos/o/r')
+    printf 'fm-gh-account: simulated token refusal\n' >&2
+    exit 1 ;;
+  'api repos/o/r/issues/9')
+    printf 'HTTP 502\n' >&2
+    exit 1 ;;
+  *)
+    printf 'unexpected gh fixture call: %s\n' "$*" >&2
+    exit 1 ;;
+esac
+SH
+  chmod +x "$home/fakebin/gh"
+}
+
+test_account_error_is_scoped_to_the_current_observation() {
+  # One poll observes two URLs: a pull request whose core read succeeds while
+  # its parallel reads refuse with an account error, then an issue whose own
+  # read fails for an unrelated reason. The issue must record its own failure,
+  # never the pull request's account text left in error files it did not open.
+  local home out
+  home=$(new_home account-error-scope)
+  forge_home "$home"
+  install_account_refusal_gh "$home"
+  printf -- '- [ ] filed - Measured defect https://github.com/o/r/issues/9 (repo: sample) (kind: ship)\n' \
+    >> "$home/data/backlog.md"
+  # An odd epoch bucket rotates the sorted URLs so the pull request is
+  # observed first and its error files exist when the issue is observed.
+  out=$(with_home "$home" env FM_CONTRIBUTIONS_NOW=2026-09-16T08:05:00Z \
+    "$ROOT/bin/fm-contributions.sh" poll) || fail 'poll with a mid-run account refusal failed'
+  [ "$out" = "contributions: observation unavailable for https://github.com/o/r/pull/8
+contributions: observation unavailable for https://github.com/o/r/issues/9" ] \
+    || fail "both failing observations must wake in observation order: $out"
+  jq -e '.records[0].error == "simulated token refusal"' "$home/data/delivery/contributions.json" >/dev/null \
+    || fail "a pull request must record its own background account refusal: $(cat "$home/data/delivery/contributions.json")"
+  jq -e '.records[0].error == "forge observation unavailable or changed during read"' \
+    "$home/data/filed/contributions.json" >/dev/null \
+    || fail "an issue must not inherit an earlier pull request's account error: $(cat "$home/data/filed/contributions.json")"
+  pass 'an account error is scoped to the observation whose error files wrote it'
+}
+
+test_account_error_is_not_inherited_by_a_non_github_observation() {
+  # The next URL is a GitLab merge request, so observe() returns at its URL
+  # guard before any forge call. That path must still clear the previous
+  # observation's error files, or the durable error recorded for the merge
+  # request becomes the pull request's account text.
+  local home out
+  home=$(new_home account-error-non-github)
+  forge_home "$home"
+  install_account_refusal_gh "$home"
+  printf -- '- [ ] mirrored - Mirror MR https://gitlab.com/o/r/-/merge_requests/2 (repo: sample) (kind: ship)\n' \
+    >> "$home/data/backlog.md"
+  # The default clock's even epoch bucket keeps the sorted URL order, so the
+  # pull request is observed first and its error files exist afterwards.
+  out=$(with_home "$home" "$ROOT/bin/fm-contributions.sh" poll) \
+    || fail 'poll across github and gitlab contributions failed'
+  [ "$out" = "contributions: observation unavailable for https://github.com/o/r/pull/8
+contributions: observation unavailable for https://gitlab.com/o/r/-/merge_requests/2" ] \
+    || fail "both failing observations must wake in observation order: $out"
+  jq -e '.records[0].error == "simulated token refusal"' "$home/data/delivery/contributions.json" >/dev/null \
+    || fail "a pull request must record its own background account refusal: $(cat "$home/data/delivery/contributions.json")"
+  jq -e '.records[0].error == "forge observation unavailable or changed during read"' \
+    "$home/data/mirrored/contributions.json" >/dev/null \
+    || fail "a non-github observation must not inherit a github account error: $(cat "$home/data/mirrored/contributions.json")"
+  pass 'a non-github observation never inherits a github account error'
+}
+
 failures=0
-for test_name in test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_interrupted_multi_owner_poll_settles_every_owner test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed; do
+for test_name in test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_verdict_actor_values_are_discoverable test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_interrupted_multi_owner_poll_settles_every_owner test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed test_account_error_is_scoped_to_the_current_observation test_account_error_is_not_inherited_by_a_non_github_observation; do
   ( "$test_name" ) || failures=$((failures + 1))
 done
 [ "$failures" -eq 0 ] || fail "$failures contribution regressions"

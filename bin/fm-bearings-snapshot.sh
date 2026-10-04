@@ -98,6 +98,9 @@ FLEET="$SCRIPT_DIR/fm-fleet-snapshot.sh"
 # shellcheck source=bin/fm-timeout-lib.sh
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
+# shellcheck source=bin/fm-pr-lib.sh
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/fm-pr-lib.sh"  # fm_gh_run: the per-owner GitHub account
 # shellcheck source=bin/fm-landed-lib.sh
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/fm-landed-lib.sh"  # FM_LANDED_JQ_DEFS: the shared landed selector
@@ -259,7 +262,7 @@ repo_slug() {  # <url>
 # Bounded gh call; prints stdout, non-zero on timeout/failure. gh only.
 # bin/fm-timeout-lib.sh owns the bound itself.
 gh_bounded() {  # <args...>
-  fm_run_timed "$FM_BEARINGS_PR_TIMEOUT" \
+  fm_gh_run_timed "$FM_BEARINGS_PR_TIMEOUT" \
     env GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1 gh "$@"
 }
 
