@@ -14,7 +14,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), and [Calm preference](#calm-preference-configcalm) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
 | Who reviews finished work | [Cross-family review](#cross-family-review) |
-| Slack updates and replies | [Slack bridge](#slack-bridge-configslack-bridge) and [check cadence](#check-cadence-configcheck-interval) |
+| Slack updates and replies | [Slack bridge](#slack-bridge-configslack-bridge) |
 | Per-run overrides and tuning | [Environment variables](#environment-variables) |
 
 ## FM_HOME
@@ -1860,7 +1860,7 @@ A later poll retries that fetch and, on success, surfaces the real sender and su
 **Arm unattended polling**
 
 A home that wants mail polled unattended arms the standing check in the live home: `bin/fm-mail-check.sh arm`.
-Arming writes `state/mail.check.sh` and registers it with the watcher's slow-check cadence (`FM_CHECK_INTERVAL`), so the plane's `poll` runs on its own: new mail still surfaces as `check: mail <uid>` wakes from the poll, and the standing check itself also prints a line (and the watcher turns that line into a wake) unless the poll is a proven no-op.
+Arming writes `state/mail.check.sh` and registers it with the watcher's slow-check cadence (`FM_CHECK_INTERVAL`), so the plane's `poll` runs on its own: new mail still surfaces as `check: mail <uid>` wakes from the poll, and the standing check itself also prints a line (and the watcher turns that line into a wake) unless the poll is a proven no-op. A registered check can use `state/<id>.check-every` for a private 10-to-3600-second cadence; without it, the global sweep applies, and a private cadence never changes that sweep.
 
 Same-line silence is only for a proven no-op: a successful poll with no new mail, or a repeated identical pre-wake failure that cannot have queued mail.
 A fail-closed poll that already queued a wake, and a timeout, always print so the watcher wakes to drain it.
@@ -1894,6 +1894,8 @@ handoff-channel=#fm-handoff
 captain-user=U0123ABCDEF
 # optional, 1..30, default 7; how many days a post's thread is read for replies
 watch-days=7
+# optional, 10..3600 seconds; bridge-only poll cadence (recommend 60)
+poll-seconds=60
 ```
 
 `slack-axi channels --match <name>` shows a channel's id, and `slack-axi members <channel>` shows each member's user id.
@@ -1916,21 +1918,14 @@ Every post is top-level, because the bridge posts as the logged-in account and t
 **Receiving**
 
 A home that wants replies polled arms the standing check in the live home: `bin/fm-slack-bridge.sh arm`.
-Arming writes `state/slack-bridge.check.sh`, registers it with the watcher's slow-check cadence, and starts the handoff channel at the arming time so older history is not replayed.
+Arming writes `state/slack-bridge.check.sh`, registers it with the watcher, and starts the handoff channel at the arming time so older history is not replayed. By default the bridge follows the global `FM_CHECK_INTERVAL` slow-check cadence; optional `poll-seconds` gives this check its own cadence from 10 to 3600 seconds without changing merge-poll or other check schedules. The bridge records that setting in `state/slack-bridge.check-every`; invalid or duplicate values are refused.
 Each poll delivers every new accepted message exactly once through `bin/fm-inbox.sh note --request-id slack-<channel>-<ts>` with source `slack-captain` or `slack-request`, which writes the durable note and its single `check` wake; a repeated poll, or one that lost its local delivered record, replays that request id instead of adding a note or wake.
 A poll that delivered anything prints one line so the watcher wakes firstmate, a failing poll prints one line only when its diagnostic changes, and a quiet poll prints nothing.
 `FM_SLACK_BRIDGE_BUDGET` (default 20, valid 5..25) bounds one poll and is cut down to fit `FM_CHECK_TIMEOUT`.
 `bin/fm-slack-bridge.sh disarm` removes the standing check and keeps the records.
 
-Replies arrive within one check interval while supervision is running; for the bridge's minute-or-two reply time, set the home's [check cadence](#check-cadence-configcheck-interval) to `60`.
+Replies arrive within one poll interval while supervision is running; set `poll-seconds=60` for the bridge's minute-or-two reply time. Unset uses the global `FM_CHECK_INTERVAL` (default 300 seconds). Per-check cadence is local to that check and never moves the global sweep timestamp.
 Polling happens only while a watcher runs, so a message sent while no work is under way waits for the next supervised session.
-
-## Check cadence (config/check-interval)
-
-The watcher runs its slow checks (merge polls, registered custom checks such as the mail and Slack bridge polls, Relay dispatch) every `FM_CHECK_INTERVAL` seconds.
-When that variable is unset, the watcher reads the home's optional `config/check-interval`: one whole number from 10 to 3600; anything else is ignored and the default of 300 applies.
-The watcher reads it at start, so a change applies from the next watcher run, and a shorter cadence runs every check more often, including authenticated merge polls.
-
 ## Relay (.env)
 
 Relay lets a firstmate instance answer public mentions and act on normal reversible mention requests through firstmate's normal lifecycle.
@@ -2803,7 +2798,7 @@ FM_HEARTBEAT=600        # base seconds between heartbeat scans; no-change heartb
 FM_HEARTBEAT_MAX=7200   # heartbeat backoff cap
 FM_INACTIVE_RECONCILE_SECS=900  # 60..1800-second watcher cadence and inactivity threshold; locked session start also requests an immediate scan in the deferred worker
 FM_INACTIVE_RECONCILE_BUDGET_SECS=10  # 1..30-second scan deadline; wedged-scan kill backstop follows one second later
-FM_CHECK_INTERVAL=300   # seconds between slow checks (authenticated merge polls, custom checks, or Relay dispatch); unset falls back to config/check-interval, then 300
+FM_CHECK_INTERVAL=300   # seconds between global slow checks (authenticated merge polls, custom checks, or Relay dispatch); per-check state/<id>.check-every overrides only that check
 FM_TASK_INBOX_GRACE_SECS=90   # seconds an unhandled steering-inbox message may sit before the watcher attempts doorbell delivery on an idle pane; also the minimum spacing between attempts
 FM_TASK_INBOX_RING_MAX=3      # watcher delivery attempts without an acknowledgement before the task surfaces as a stale wake for recovery
 FM_TASK_INBOX_BUSY_MAX=2      # consecutive busy-deferred due polls before a stuck-busy stale wake; 1..999999999, at most 9 decimal digits, otherwise 2; policy: bin/fm-task-inbox-lib.sh

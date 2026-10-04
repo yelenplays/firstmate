@@ -288,6 +288,36 @@ test_unverified_slack_axi_keeps_inbound_off() {
   pass "fm-slack-bridge: unverified slack-axi keeps inbound off with one report"
 }
 
+test_poll_cadence_state_and_validation() {
+  local home out rc value
+  home=$(make_home poll-cadence)
+  write_config "$home"
+  printf 'poll-seconds=60\n' >> "$home/config/slack-bridge"
+  bridge "$home" arm >/dev/null 2>&1 || fail "arm with poll-seconds must succeed"
+  assert_equals "60" "$(cat "$home/state/slack-bridge.check-every")" "arm writes the Slack poll cadence"
+  write_config "$home"
+  bridge "$home" check >/dev/null 2>&1 || fail "check without poll-seconds must succeed"
+  assert_absent "$home/state/slack-bridge.check-every" "check removes an unset Slack poll cadence"
+  bridge "$home" disarm >/dev/null 2>&1 || fail "disarm must succeed"
+  assert_absent "$home/state/slack-bridge.check-every" "disarm removes the Slack poll cadence"
+
+  for value in 5 abc ' 60' '60 '; do
+    write_config "$home"
+    printf 'poll-seconds=%s\n' "$value" >> "$home/config/slack-bridge"
+    rc=0
+    out=$(bridge "$home" arm 2>&1) || rc=$?
+    expect_code 1 "$rc" "invalid poll-seconds '$value' is refused"
+    assert_contains "$out" "poll-seconds" "invalid poll-seconds '$value' reports its key"
+  done
+  write_config "$home"
+  printf 'poll-seconds=60\npoll-seconds=60\n' >> "$home/config/slack-bridge"
+  rc=0
+  out=$(bridge "$home" arm 2>&1) || rc=$?
+  expect_code 1 "$rc" "duplicate poll-seconds lines are refused"
+  assert_contains "$out" "poll-seconds" "duplicate poll-seconds reports its key"
+  pass "fm-slack-bridge: poll cadence state and validation"
+}
+
 test_invalid_config_is_reported() {
   local home out rc=0
   home=$(make_home badconfig)
@@ -305,4 +335,5 @@ test_post_sends_and_records
 test_captain_reply_delivered_once_and_others_ignored
 test_macOS_base64_fallback_decodes_inbound_fields
 test_unverified_slack_axi_keeps_inbound_off
+test_poll_cadence_state_and_validation
 test_invalid_config_is_reported

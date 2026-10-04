@@ -67,6 +67,7 @@ REPORT_RECORD="$BRIDGE_STATE/last-report"
 CHECK_ID=slack-bridge
 CHECK_SHIM="$STATE/$CHECK_ID.check.sh"
 CHECK_TRUST="$STATE/$CHECK_ID.check-trust"
+CHECK_EVERY="$STATE/$CHECK_ID.check-every"
 READER="$SCRIPT_DIR/fm-slack-read.mjs"
 INBOX_BIN="$SCRIPT_DIR/fm-inbox.sh"
 REGISTER_BIN="$SCRIPT_DIR/fm-check-register.sh"
@@ -112,6 +113,8 @@ CFG_DECISIONS=
 CFG_HANDOFF=
 CFG_CAPTAIN=
 CFG_WATCH_DAYS=7
+CFG_POLL_SECONDS=
+CFG_POLL_SEEN=0
 CFG_ERROR=
 
 valid_channel_ref() {
@@ -126,7 +129,6 @@ config_load() {
   while IFS= read -r line || [ -n "$line" ]; do
     # Comments are whole lines only, because channel names start with "#".
     line=${line#"${line%%[![:space:]]*}"}
-    line=${line%"${line##*[![:space:]]}"}
     case "$line" in ''|'#'*) continue ;; esac
     case "$line" in
       *=*) ;;
@@ -135,13 +137,17 @@ config_load() {
     key=${line%%=*}
     value=${line#*=}
     key=${key%"${key##*[![:space:]]}"}
-    value=${value#"${value%%[![:space:]]*}"}
     case "$key" in
-      report-channel) CFG_REPORT=$value ;;
-      decisions-channel) CFG_DECISIONS=$value ;;
-      handoff-channel) CFG_HANDOFF=$value ;;
-      captain-user) CFG_CAPTAIN=$value ;;
-      watch-days) CFG_WATCH_DAYS=$value ;;
+      report-channel) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_REPORT=$value ;;
+      decisions-channel) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_DECISIONS=$value ;;
+      handoff-channel) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_HANDOFF=$value ;;
+      captain-user) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_CAPTAIN=$value ;;
+      watch-days) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_WATCH_DAYS=$value ;;
+      poll-seconds)
+        [ "$CFG_POLL_SEEN" -eq 0 ] || { CFG_ERROR="config/slack-bridge poll-seconds must appear only once"; return 0; }
+        CFG_POLL_SEEN=1
+        CFG_POLL_SECONDS=$value
+        ;;
       *) CFG_ERROR="config/slack-bridge has an unknown key: $key"; return 0 ;;
     esac
   done < "$CONFIG_FILE"
@@ -155,6 +161,11 @@ config_load() {
     CFG_ERROR="config/slack-bridge needs captain-user as a Slack user id (U...)"
   elif ! [[ "$CFG_WATCH_DAYS" =~ ^[0-9]+$ ]] || [ "$CFG_WATCH_DAYS" -lt 1 ] || [ "$CFG_WATCH_DAYS" -gt 30 ]; then
     CFG_ERROR="config/slack-bridge watch-days must be a whole number from 1 to 30"
+  elif [ "$CFG_POLL_SEEN" -eq 1 ] \
+    && { ! [[ "$CFG_POLL_SECONDS" =~ ^[1-9][0-9]*$ ]] \
+      || [ "${#CFG_POLL_SECONDS}" -gt 4 ] \
+      || [ "$CFG_POLL_SECONDS" -lt 10 ] || [ "$CFG_POLL_SECONDS" -gt 3600 ]; }; then
+    CFG_ERROR="config/slack-bridge poll-seconds must be a whole number from 10 to 3600 without padding"
   fi
   return 0
 }
@@ -163,6 +174,19 @@ state_prepare() {
   mkdir -p "$STATE" || return 1
   [ -d "$BRIDGE_STATE" ] || (umask 077; mkdir -p "$BRIDGE_STATE") || return 1
   [ ! -L "$BRIDGE_STATE" ]
+}
+
+check_every_sync() {
+  local tmp
+  if [ "$CFG_POLL_SEEN" -eq 0 ]; then
+    rm -f -- "$CHECK_EVERY"
+    return 0
+  fi
+  tmp=$(umask 077; mktemp "$STATE/.slack-bridge.check-every.XXXXXX" 2>/dev/null) || return 1
+  if ! printf '%s\n' "$CFG_POLL_SECONDS" > "$tmp" || ! mv -f -- "$tmp" "$CHECK_EVERY"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
 }
 
 # Slack ts handles: slack-axi prints the dotless form, the API takes the dotted.
@@ -328,12 +352,14 @@ action_check() {
   local now window_start budget request handoff_id cursor rc out line errf
   local kind channel parent ts user bot subtype text_b64 name_b64 text name summary rid body
   local captain=0 requests=0 failed=0 max_handoff=
-  config_load || return 0
+  config_load || { rm -f -- "$CHECK_EVERY"; return 0; }
   state_prepare || { report_problem "cannot prepare $BRIDGE_STATE"; return 0; }
   if [ -n "$CFG_ERROR" ]; then
+    rm -f -- "$CHECK_EVERY"
     report_problem "$CFG_ERROR"
     return 0
   fi
+  check_every_sync || { report_problem "cannot update $CHECK_EVERY"; return 0; }
   if ! command -v node >/dev/null 2>&1; then
     report_problem "node is not installed, so inbound Slack replies stay off"
     return 0
@@ -499,8 +525,12 @@ shim_write() {
 action_arm() {
   local home
   config_load || die "config/slack-bridge is absent; write it first (docs/configuration.md \"Slack bridge\")"
-  [ -z "$CFG_ERROR" ] || die "$CFG_ERROR"
+  if [ -n "$CFG_ERROR" ]; then
+    rm -f -- "$CHECK_EVERY"
+    die "$CFG_ERROR"
+  fi
   state_prepare || die "cannot prepare $BRIDGE_STATE"
+  check_every_sync || die "cannot update $CHECK_EVERY"
   case "$FM_HOME" in
     /*) home=$FM_HOME ;;
     *) home=$(CDPATH='' cd -- "$FM_HOME" 2>/dev/null && pwd -P) || die "cannot resolve FM_HOME $FM_HOME" ;;
@@ -522,7 +552,7 @@ action_arm() {
 }
 
 action_disarm() {
-  rm -f -- "$CHECK_SHIM" "$CHECK_TRUST"
+  rm -f -- "$CHECK_SHIM" "$CHECK_TRUST" "$CHECK_EVERY"
   printf 'disarmed: state/%s.check.sh\n' "$CHECK_ID"
 }
 
