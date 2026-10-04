@@ -18,7 +18,8 @@
 # $FM_HOME/state.
 #
 # `find` searches pages locally through fm-memory.sh. If Jev is configured, it
-# receives the query and bounded page ids/titles only, never page contents.
+# receives bounded page ids, dates, kinds, and titles in rank order only, never
+# the query or page contents.
 # `days/<date>.md` stores transcript, wake-batch, compaction, and Logbook records;
 # `tasks/<id>.md` is create-once and embeds `fm-history-task.v1` metadata:
 # schema, id, title, project, home, kind, mode, completion, via, pr_url,
@@ -1486,8 +1487,15 @@ cmd_find() {
       questions=$(printf '%s' "$offer" | jq -c '
         {match: {
           type: "choice",
-          instructions: "Choose from the locally BM25-ranked pages using only their page id, date, kind, and title. The original query and page contents are unavailable. Pick none? when metadata does not support a choice.",
-          criteria: (reduce .[] as $row ({}; .[$row.id] = ([$row.kind, ($row.date // "undated"), $row.title] | join(" - "))) + {"none?": "No offered history page fits from its metadata."})
+          instructions: {
+            question: "Which offered history page is the best match for the hidden query?",
+            context: "A local keyword search over the fleet'"'"'s history journal ranked these pages for a query; this pick reranks them. The original query and page contents are unavailable.",
+            how_to_read_the_state: "`candidates` lists the pages in keyword-rank order, best first; each has an id, a date (day pages only), a kind (day or task), and a title.",
+            weigh_most: "Agreement between the top-ranked pages'"'"' titles about one subject; with no such agreement, keep the keyword order.",
+            caveat: "Pick none? when the metadata does not support a choice."
+          },
+          criteria: (reduce .[] as $row ({}; .[$row.id] = {what: (if ($row.title // "") == "" then $row.id else $row.title end), signals: ["kind: " + $row.kind, "date: " + ($row.date // "undated")]})
+            + {"none?": {what: "No offered history page fits from its metadata", signals: ["the titles share no subject"]}})
         }}
       ') || questions=
       response_file=$(mktemp "${TMPDIR:-/tmp}/fm-history-jev-response.XXXXXX" 2>/dev/null) || response_file=

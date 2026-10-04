@@ -159,7 +159,7 @@ test_evidenced_logs_without_annotate_or_close() {
   assert_contains "$body" '"not_evidenced"' "questions include not_evidenced"
   assert_contains "$body" '"evidenced"' "questions include evidenced"
   assert_contains "$body" '"type": "score"' "questions include a strength score"
-  assert_contains "$body" 'Healthy now is not repaired' "state/instructions carry the HacksonClark note"
+  assert_contains "$body" 'healthy now is not proof that the claimed repair happened' "state/instructions carry the HacksonClark note"
   assert_not_contains "$body" "$TS_KEY" "key is absent from the request body"
   pass "evidenced at floor logs shadow-only and offers need_human"
 }
@@ -176,11 +176,12 @@ test_strength_score_uses_documented_criteria_shape() {
     .questions.strength
     | .type == "score"
       and (.criteria | type == "array" and length >= 2 and length <= 10)
-      and all(.criteria[]; type == "string" and length > 0)
+      and all(.criteria[]; (.summary | type == "string" and length > 0)
+        and (.signals | type == "array" and length > 0))
       and (has("min") | not) and (has("max") | not)
   ' >/dev/null || fail "strength Score must send an ordered criteria array of 2-10 levels and no min/max"
   printf '%s' "$body" | jq -e '
-    .questions.strength.criteria | (.[0] | startswith("Guess")) and (.[-1] | startswith("Clear"))
+    .questions.strength.criteria | (.[0].summary | startswith("Guess")) and (.[-1].summary | startswith("Clear"))
   ' >/dev/null || fail "strength levels must run weakest to strongest"
   assert_contains "$out" 'strength: 0.9' "level index 3.6 of 0..4 prints as 0.9"
   line=$(cat "$HOME_DIR/state/${TASK_ID}.jev-done.jsonl")
