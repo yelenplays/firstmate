@@ -61,8 +61,9 @@
 #   - pending for --minutes (default 20, at least 5), or for 5 minutes when
 #     its seat is running but unavailable with back_at unknown or 30+ minutes
 #     away;
-#   - in progress off a gone or non-running seat, or off an idle seat that is
-#     running but unavailable; live seats at their context wall stay protected.
+#   - in progress only off a gone or non-running seat; every running seat,
+#     including an idle, unavailable seat or one at its context wall, stays
+#     protected.
 #   Never moved: rows for human@ or owner@, rows tagged human, owner,
 #   human-decision, owner-decision, or decision:owner, and rows already in
 #   moved. The new seat is a candidate of the old seat's role, not the old
