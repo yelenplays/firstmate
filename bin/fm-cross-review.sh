@@ -10,8 +10,7 @@
 # of its own, and the latest record decides - are rebuilt here on task records
 # instead of seat names.
 #
-# Families come from bin/fm-ai-family-lib.sh, which reads each harness's own
-# catalog and never infers a family from a name. The builder's families are the
+# Family resolution is owned by bin/fm-ai-family-lib.sh. The builder's families are the
 # task record's `ai_family=` set written by bin/fm-spawn.sh (every family that
 # has driven the task); a record from before that field existed resolves its
 # recorded harness and model the same way.

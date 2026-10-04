@@ -5191,8 +5191,8 @@ preserve_relaunch_meta() {
     !($1 in owned)
   ' "$RELAUNCH_META"
 }
-# The AI family that drives this task, from the harness's own catalog
-# (bin/fm-ai-family-lib.sh owns the resolution). A relaunch can change the
+# bin/fm-ai-family-lib.sh owns resolution of the AI family driving this task.
+# A relaunch can change the
 # harness or model, so the recorded set keeps every family that has driven the
 # task: an independent reviewer must differ from all of them.
 fm_ai_family_resolve "$HARNESS" "${MODEL:-default}"
