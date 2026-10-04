@@ -678,16 +678,27 @@ test_bot_verify_round_trip() {
   pass "fm-slack-bridge: verify proves the bot, both channels, and the DM"
 }
 
+assert_manifest_semantics() {  # <yaml> <expected-name> <private-channel-scope:0|1>
+  ruby -e '
+    require "yaml"
+    manifest = YAML.safe_load(STDIN.read)
+    name, private = ARGV
+    expected_scopes = ["chat:write", "channels:history", "im:history", "im:write"]
+    expected_scopes << "groups:history" if private == "1"
+    abort "manifest name mismatch" unless manifest.dig("display_information", "name") == name
+    abort "bot display name mismatch" unless manifest.dig("features", "bot_user", "display_name") == name
+    abort "messages tab must be enabled" unless manifest.dig("features", "app_home", "messages_tab_enabled") == true
+    scopes = manifest.dig("oauth_config", "scopes", "bot")
+    abort "bot scopes mismatch" unless scopes.is_a?(Array) && scopes.sort == expected_scopes.sort && scopes.uniq == scopes
+  ' "$2" "$3" <<< "$1"
+}
+
 test_manifest_has_name_and_minimal_scopes() {
-  local out rc scopes
+  local out rc
   out=$("$BRIDGE" manifest --name "Yelen's Firstmate" 2>&1) || fail "manifest must succeed: $out"
-  assert_contains "$out" "name: \"Yelen's Firstmate\"" "the app is named by --name"
-  assert_contains "$out" "display_name: \"Yelen's Firstmate\"" "the bot is named by --name"
-  assert_contains "$out" "messages_tab_enabled: true" "people can DM the bot"
-  scopes=$(printf '%s\n' "$out" | sed -n 's/^      - //p' | tr '\n' ' ')
-  assert_equals "chat:write channels:history im:history im:write " "$scopes" "the manifest asks only for the bot transport's scopes"
-  out=$("$BRIDGE" manifest --name "Marco's Firstmate" --private-channels 2>&1) || fail "private manifest must succeed"
-  assert_contains "$out" "- groups:history" "--private-channels adds private-channel history"
+  assert_manifest_semantics "$out" "Yelen's Firstmate" 0 || fail "the standard manifest has incorrect semantic fields"
+  out=$("$BRIDGE" manifest --name "Marco's Firstmate" --private-channels 2>&1) || fail "private manifest must succeed: $out"
+  assert_manifest_semantics "$out" "Marco's Firstmate" 1 || fail "the private manifest has incorrect semantic fields"
   rc=0
   "$BRIDGE" manifest --name "$(printf 'x%.0s' $(seq 1 36))" >/dev/null 2>&1 || rc=$?
   expect_code 2 "$rc" "a name longer than Slack allows is refused"
