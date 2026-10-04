@@ -2626,7 +2626,7 @@ EOF
   FM_FAKE_HARNESS_PID=$$ run_session_start "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null
 
   append_wake "$home/state" signal task-a "done: queued after the compact" || fail "seed second wake failed"
-  slim=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_FAKE_HARNESS_PID=$$ PATH="$fakebin:$BASE_PATH" \
+  slim=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_FAKE_HARNESS_PID=$$ FM_SESSION_START_FULL=1 PATH="$fakebin:$BASE_PATH" \
     env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT \
     "$SESSION_START" --reemit --source compact)
   assert_contains "$slim" "SESSION START (CONTEXT RE-EMIT, COMPACT) - $home" "compact re-emit did not label itself slim"

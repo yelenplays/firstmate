@@ -242,9 +242,8 @@
 #             public commitments, network checks, and the recent captain words.
 #             It drops only what one command re-derives: the compact backlog,
 #             every state/*.meta body, status tails, orphan status logs, and the
-#             curated CONTEXT files. This flag (or FM_SESSION_START_FULL=1)
-#             prints all of them. Every other source, and a fresh start, is
-#             always the full digest.
+#             curated CONTEXT files. This flag prints all of them. Every other
+#             source, and a fresh start, is always the full digest.
 #
 #   --source  The native session-open source, supplied only by
 #             fm-sessionstart-run.sh. A genuine `startup` that owns the active
@@ -271,7 +270,6 @@ AGENTS_BASELINE_FILE="$STATE/.session-start-agents-baseline"
 REEMIT=0
 SESSION_SOURCE=
 FULL=0
-[ "${FM_SESSION_START_FULL:-0}" = 1 ] && FULL=1
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --reemit)
@@ -303,10 +301,10 @@ while [ "$#" -gt 0 ]; do
 done
 
 # A compact re-emit is slim unless the full report is asked for (see --full).
-# The flag travels to the bounded child through the environment.
 SLIM=0
 [ "$REEMIT" -eq 1 ] && [ "$SESSION_SOURCE" = compact ] && [ "$FULL" -eq 0 ] && SLIM=1
-[ "$FULL" -eq 0 ] || export FM_SESSION_START_FULL=1
+FULL_ARG=
+[ "$FULL" -eq 0 ] || FULL_ARG=--full
 
 # --- 0. runtime bound ---------------------------------------------------------
 # The ordered stage list is the contract behind the truncation banner: the child
@@ -341,20 +339,20 @@ if [ -z "${FM_SESSION_START_STAGE_FILE:-}" ]; then
     if [ -n "$SESSION_SOURCE" ]; then
       fm_run_timed "$SESSION_START_BUDGET" \
         env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-        "$SCRIPT_DIR/fm-session-start.sh" --reemit --source "$SESSION_SOURCE"
+        "$SCRIPT_DIR/fm-session-start.sh" --reemit --source "$SESSION_SOURCE" $FULL_ARG
     else
       fm_run_timed "$SESSION_START_BUDGET" \
         env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-        "$SCRIPT_DIR/fm-session-start.sh" --reemit
+        "$SCRIPT_DIR/fm-session-start.sh" --reemit $FULL_ARG
     fi
   elif [ -n "$SESSION_SOURCE" ]; then
     fm_run_timed "$SESSION_START_BUDGET" \
       env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-      "$SCRIPT_DIR/fm-session-start.sh" --source "$SESSION_SOURCE"
+      "$SCRIPT_DIR/fm-session-start.sh" --source "$SESSION_SOURCE" $FULL_ARG
   else
     fm_run_timed "$SESSION_START_BUDGET" \
       env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-      "$SCRIPT_DIR/fm-session-start.sh"
+      "$SCRIPT_DIR/fm-session-start.sh" $FULL_ARG
   fi
   SESSION_START_RC=$?
   # ANY nonzero child exit is a truncation: the banner contract promises that
