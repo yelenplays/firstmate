@@ -1439,7 +1439,9 @@ It skips silently without a configured Jev key or a share-safe routing card, doe
 [`bin/fm-jev-ask-user.sh`](../bin/fm-jev-ask-user.sh) is the live Jev step of the [`ask-user-authority`](../.agents/skills/ask-user-authority/SKILL.md) procedure, which owns when firstmate runs it and what each outcome obliges.
 It sends a task's accepted contract (the brief's Captain's intent and Firstmate spec plus every steer) and the worker's verbatim findings snapshot to Jev in one typed call, and answers the gate through `bin/fm-send.sh --resolve-key` only when every finding is a confident in-scope fix.
 `FM_JEV_ASK_USER_FLOOR` (default 0.75) is the confidence floor; every lower or split verdict, Jev error, and missing key escalates to the captain with no fallback.
-A wiki vault project, a gate past review round 3, and a finding naming a security, credential, destructive, irreversible, or data-loss concern escalate before any request leaves the machine.
+A separate typed risk screen also escalates if any finding's `p_yes` is above 0.2 or the response is malformed; it does not replace the deterministic screen for security, credential, destructive, irreversible, or data-loss wording.
+A wiki vault project, a gate past review round 3, and a finding matched by that deterministic screen escalate before any request leaves the machine.
+The caller library's privacy screen refuses secret-shaped values, email addresses, and phone numbers in the outbound contract and findings; those refusals escalate without sending.
 It calls the caller library directly rather than `bin/fm-jev.sh` because a typical accepted contract is larger than that command's 4096-byte combined input cap; the library's state cap still bounds the call, and an oversized contract escalates rather than being truncated.
 Each run appends one metadata-only record, never contract or finding text, to `state/jev-ask-user.jsonl`; the script header owns inputs, classes, output, exit codes, and the record schema.
 
