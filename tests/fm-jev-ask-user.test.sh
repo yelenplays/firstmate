@@ -52,9 +52,11 @@ answer() {
       | map({(.): (if . == $c then (1 + 3 * ($conf | tonumber)) / 4 else (1 - ($conf | tonumber)) / 4 end)}) | add;
     $ARGS.positional as $a
     | {model: "jev-1.13.0",
-       answers: ([range(0; $a | length; 2) as $i
+       answers: (([range(0; $a | length; 2) as $i
          | {("f\($i / 2 + 1)"): {type: "choice", choice: $a[$i], confidence: ($a[$i + 1] | tonumber),
-             probabilities: probs($a[$i]; $a[$i + 1])}}] | add),
+             probabilities: probs($a[$i]; $a[$i + 1])}}] | add)
+         + {s1: {type: "noul", noul: 0.01},
+            s2: {type: "noul", noul: 0.01}}),
        usage: {input_tokens: 900, output_tokens: 12}}' "$@" > "$RESPONSE"
 }
 
@@ -146,7 +148,8 @@ test_act_sends_jev_decision_with_resolve_key() {
   assert_contains "$(jq -r .state "$LOG/body")" "[1] Also keep empty trailing fields." "Jev sees the steers"
   assert_contains "$(jq -r .state "$LOG/body")" "No test covers a final line" "Jev sees the findings verbatim"
   assert_not_contains "$(jq -r .state "$LOG/body")" "Boilerplate that never reaches Jev" "Jev never sees the brief boilerplate"
-  assert_equals "$(jq -c '.questions | keys' "$LOG/body")" '["f1","f2"]' "one question per finding"
+  assert_equals "$(jq -c '.questions | keys' "$LOG/body")" '["f1","f2","s1","s2"]' "each finding gets a scope and security question"
+  assert_equals "$(jq -r '.questions.s1.type' "$LOG/body")" noul "security screen uses a typed yes/no question"
   assert_equals "$(jq -c '.questions.f1.criteria | keys' "$LOG/body")" \
     '["destructive-or-security","expands-contract","in-scope-fix","unsettled-call"]' \
     "each question offers the ask-user-authority classes"
@@ -156,16 +159,33 @@ test_act_sends_jev_decision_with_resolve_key() {
   pass "fm-jev-ask-user: a confident in-scope verdict answers the gate through fm-send"
 }
 
-test_dry_run_prints_without_sending() {
+test_security_screen_escalates_cross_tenant_finding() {
   local code out
   world
-  answer in-scope-fix 0.92 in-scope-fix 0.88
-  run code out t1 "$GATE" --round 2 --dry-run
-  assert_equals "$code" 0 "dry-run still reports the decision"
-  assert_contains "$out" "round 2" "dry-run prints the message"
-  assert_absent "$LOG/send-args" "dry-run sends nothing"
-  assert_equals "$(last_log | jq -c '[.outcome, .sent, .dry_run]')" '["act",null,true]' "dry-run is logged as unsent"
-  pass "fm-jev-ask-user: --dry-run prints the decision without sending"
+  sed -i.bak "s/The parser drops the last field/Tenant A can retrieve tenant B's draft/" "$FINDINGS"
+  answer in-scope-fix 0.99 in-scope-fix 0.99
+  jq '.answers.s1.noul = 0.91' "$RESPONSE" > "$TMP_ROOT/high-risk.json" && mv "$TMP_ROOT/high-risk.json" "$RESPONSE"
+  run code out t1 "$GATE" --round 1
+  assert_equals "$code" 2 "a high security-screen probability escalates"
+  assert_contains "$out" "ESCALATE $GATE jev-security" "the security screen owns the escalation"
+  assert_absent "$LOG/send-args" "the security-sensitive finding never answers the gate"
+  assert_equals "$(calls)" 1 "the security screen is asked before any decision is sent"
+  pass "fm-jev-ask-user: cross-tenant security findings escalate"
+}
+
+test_escalates_contact_data_before_jev() {
+  local code out
+  for contact in 'reach person@example.com' 'call 555-123-4567'; do
+    world
+    printf 'schema=fm-task-inbox.v1\nat=2026-10-04T20:02:00Z\n--\n%s\n' "$contact" > "$HOME_DIR/state/t1.inbox/002.msg"
+    answer in-scope-fix 0.99 in-scope-fix 0.99
+    run code out t1 "$GATE" --round 1
+    assert_equals "$code" 2 "personal contact data escalates instead of leaving the machine"
+    assert_contains "$out" "ESCALATE $GATE privacy" "the shared Jev privacy boundary refuses contact data"
+    assert_equals "$(calls)" 0 "contact data is screened before any Jev call"
+    assert_absent "$LOG/send-args" "contact data never answers the gate"
+  done
+  pass "fm-jev-ask-user: email and phone data are refused before Jev"
 }
 
 test_escalates_low_confidence() {
@@ -207,12 +227,12 @@ test_escalates_jev_errors() {
   assert_absent "$LOG/send-args" "a failed call never answers the gate"
   assert_equals "$(last_log | jq -c '[.code, .http]')" '["jev-error","500"]' "the failed call is logged"
 
-  printf '{"model":"jev-1.13.0","answers":{"f1":{"type":"choice","choice":"in-scope-fix","confidence":0.9}}}\n' > "$RESPONSE"
+  printf '{"model":"jev-1.13.0","answers":{"f1":{"type":"choice","choice":"in-scope-fix","confidence":0.9},"s1":{"type":"noul","noul":0.01},"s2":{"type":"noul","noul":0.01}}}\n' > "$RESPONSE"
   run code out t1 "$GATE" --round 1
   assert_equals "$code" 2 "a response missing a finding's answer escalates"
   assert_contains "$out" "jev-error" "a malformed answer is a Jev error"
 
-  printf '{"model":"jev-1.13.0","answers":{"f1":{"type":"choice","choice":"in-scope-fix","confidence":0.9,"probabilities":{"in-scope-fix":0.4,"expands-contract":0.4,"unsettled-call":0.1,"destructive-or-security":0.1}},"f2":{"type":"choice","choice":"in-scope-fix","confidence":0.9,"probabilities":{"in-scope-fix":0.97,"expands-contract":0.01,"unsettled-call":0.01,"destructive-or-security":0.01}}}}\n' > "$RESPONSE"
+  printf '{"model":"jev-1.13.0","answers":{"f1":{"type":"choice","choice":"in-scope-fix","confidence":0.9,"probabilities":{"in-scope-fix":0.4,"expands-contract":0.4,"unsettled-call":0.1,"destructive-or-security":0.1}},"f2":{"type":"choice","choice":"in-scope-fix","confidence":0.9,"probabilities":{"in-scope-fix":0.97,"expands-contract":0.01,"unsettled-call":0.01,"destructive-or-security":0.01}},"s1":{"type":"noul","noul":0.01},"s2":{"type":"noul","noul":0.01}}}\n' > "$RESPONSE"
   run code out t1 "$GATE" --round 1
   assert_equals "$code" 2 "a split top probability escalates even with a high reported confidence"
   assert_absent "$LOG/send-args" "a split answer never answers the gate"
@@ -326,7 +346,8 @@ test_send_failure_reports_error() {
 }
 
 test_act_sends_jev_decision_with_resolve_key
-test_dry_run_prints_without_sending
+test_security_screen_escalates_cross_tenant_finding
+test_escalates_contact_data_before_jev
 test_escalates_low_confidence
 test_escalates_out_of_scope_class
 test_escalates_jev_errors
