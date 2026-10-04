@@ -1,0 +1,71 @@
+=== Real CLI: reject missing mapped credentials even with ambient token ===
+fm-gh-account: GitHub owner SlashpipeCoding is mapped to account Slashpipe, but gh has no token for Slashpipe on github.com; log Slashpipe in with 'gh auth login --hostname github.com'
+fm-pr-state: could not read https://github.com/SlashpipeCoding/disposable/pull/1
+exit=2
+fm-gh-account: GitHub owner MarcoGC3 is mapped to account MarcoGC3, but gh has no token for MarcoGC3 on github.com; log MarcoGC3 in with 'gh auth login --hostname github.com'
+fm-pr-state: could not read https://github.com/MarcoGC3/disposable/pull/1
+exit=2
+=== Real CLI: reject malformed and conflicting account mapping ===
+fm-gh-account: malformed line in /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M423CM0VE1STQASC1P5E1P90/.test-phase-tmp/live/home/config/gh-account-by-owner (expected 'owner account'): SlashpipeCoding Slashpipe extra
+fm-pr-state: could not read https://github.com/SlashpipeCoding/disposable/pull/1
+exit=2
+fm-gh-account: owner slashpipecoding is mapped to both Slashpipe and MarcoGC3 in /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M423CM0VE1STQASC1P5E1P90/.test-phase-tmp/live/home/config/gh-account-by-owner
+fm-pr-state: could not read https://github.com/SlashpipeCoding/disposable/pull/1
+exit=2
+=== Real observer: repeated missing-account observations remain visibly unavailable ===
+poll=1
+contributions: observation unavailable for https://github.com/SlashpipeCoding/disposable/pull/1
+{
+  "schema": "fm-contributions.v1",
+  "task": "company",
+  "records": [
+    {
+      "url": "https://github.com/SlashpipeCoding/disposable/pull/1",
+      "error": "GitHub owner slashpipecoding is mapped to account Slashpipe, but gh has no token for Slashpipe on github.com; log Slashpipe in with 'gh auth login --hostname github.com'",
+      "observation": null
+    }
+  ]
+}
+poll=2
+{
+  "schema": "fm-contributions.v1",
+  "task": "company",
+  "records": [
+    {
+      "url": "https://github.com/SlashpipeCoding/disposable/pull/1",
+      "error": "GitHub owner slashpipecoding is mapped to account Slashpipe, but gh has no token for Slashpipe on github.com; log Slashpipe in with 'gh auth login --hostname github.com'",
+      "observation": null
+    }
+  ]
+}
+Isolated GitHub configuration files: 0
+=== Real local update: authenticated merge watches survive template upgrade ===
+github: old registration rejected against new template before update
+gitlab: old registration rejected against new template before update
+gerrit: old registration rejected against new template before update
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  3 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+firstmate: updated b50e0ae..1afb6af (instructions changed: bin)
+no watches registered
+reread-firstmate: yes
+restart-secondmates: none
+nudge-secondmates: none
+github: registration accepted after update
+gitlab: registration accepted after update
+gerrit: registration accepted after update
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+firstmate: already current
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+Already-current update preserved the valid check identity
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+firstmate: already current
+error: could not refresh merge watch github
+Tampered check: update exit=1
+Tampered check remains unauthenticated; registration boundary was not weakened
