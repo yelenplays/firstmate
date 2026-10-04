@@ -1484,3 +1484,20 @@ case "$outcome_rc" in
     printf 'actionable: merged %s but could not record the outcome for supervision\n' "$URL" >&2
     ;;
 esac
+project_name=$(basename "$(grep '^project=' "$META" | tail -1 | cut -d= -f2-)")
+witness_target=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-project-mode.sh" --witness "$project_name") || {
+  printf 'actionable: merged %s but could not read the registered witness target; arm bin/fm-post-merge.sh for %s before cleanup\n' "$URL" "$ID" >&2
+  exit 0
+}
+if [ -n "$witness_target" ]; then
+  arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" --witness "$witness_target" 2>&1) || {
+    printf 'actionable: merged %s but post-merge watch could not be armed for %s: %s\n' "$URL" "$ID" "$arm_out" >&2
+    exit 0
+  }
+else
+  arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" --no-witness 'project has no registered witness target' 2>&1) || {
+    printf 'actionable: merged %s but post-merge watch could not be armed for %s: %s\n' "$URL" "$ID" "$arm_out" >&2
+    exit 0
+  }
+fi
+printf '%s\n' "$arm_out"

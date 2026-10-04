@@ -227,6 +227,24 @@ test_witness_failure_reverts() {
   pass "fm-post-merge: a witness failure on a landed change takes the same revert path"
 }
 
+test_registered_witness_cannot_be_waived_or_lost() {
+  local out
+  make_pr_world pm-eligible on
+  printf '%s\n' '- widget [no-mistakes witness=https://widget.example.com] - live product' > "$W_HOME/data/projects.md"
+  out=$(pm_raw arm "$W_ID" --no-witness 'skip' 2>&1) && fail "an eligible project accepted --no-witness: $out"
+  assert_contains "$out" 'requires its registered witness' "the refusal did not name the project policy"
+  out=$(pm_raw arm "$W_ID" 2>&1) || fail "the registered witness target was not selected: $out"
+  assert_equals https://widget.example.com "$(record_field witness)" "the record did not bind the registered target"
+  grep -v '^witness=' "$W_HOME/state/$W_ID.post-merge" > "$W_FAKE/record"
+  printf 'witness=\n' >> "$W_FAKE/record"
+  mv "$W_FAKE/record" "$W_HOME/state/$W_ID.post-merge"
+  set_checks "$MERGE_SHA" build completed success
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed on green checks: $out"
+  assert_contains "$out" 'requires a witness' "green checks cleared an eligible project without a recorded witness"
+  assert_equals blocked "$(record_field phase)" "the missing required witness did not block cleanup"
+  pass "fm-post-merge: project registration prevents witness waiver and missing witness clear"
+}
+
 test_green_without_witness_is_clear() {
   local out
   make_pr_world pm-clear on
@@ -445,6 +463,7 @@ make_local_world() {  # <name>
   mkdir -p "$W_HOME/state" "$W_HOME/data" "$W_HOME/config" "$W_FAKE" "$W_BIN"
   fm_test_track_procevent_home "$W_HOME"
   write_fake_gh "$W_BIN"
+  printf '%s\n' '- proj [local-only witness=http://localhost:4321] - staged local project' > "$W_HOME/data/projects.md"
   fm_git_init_commit "$L_PROJ"
   git -C "$L_PROJ" checkout -qb "fm/$W_ID"
   printf 'broken\n' > "$L_PROJ/feature.txt"
@@ -458,6 +477,7 @@ make_local_world() {  # <name>
     || run_tasks add "$W_ID" "Add the feature" --kind ship >/dev/null || fail "could not seed the backlog item"
   run_tasks start "$W_ID" >/dev/null 2>&1 || true
   out=$(FM_HOME="$W_HOME" "$MERGE_LOCAL" "$W_ID" 2>&1) || fail "the local merge failed: $out"
+  assert_present "$W_HOME/state/$W_ID.post-merge" "the local merge did not arm its post-merge watch"
 }
 
 merge_local() {
@@ -470,7 +490,8 @@ test_local_witness_failure_reverts() {
   base=$(git -C "$L_PROJ" rev-parse main~1)
   assert_grep "local_landed=$base..$L_FIX" "$W_HOME/state/$W_ID.meta" "the local merge did not record the landed range"
   out=$(pm arm "$W_ID" --witness http://localhost:4321 2>&1) || fail "arm refused a local landing: $out"
-  assert_contains "$out" "witness: a witness must use http://localhost:4321" "a local landing with a witness did not ask for one"
+  assert_contains "$out" "already in phase witness" "the automatic local watch did not require its registered witness"
+  assert_equals http://localhost:4321 "$(record_field witness)" "the automatic local watch did not bind its registered witness target"
   report="$TMP_ROOT/pm-local/report.md"
   printf 'witness-verdict: fail %s feature page is blank\n' "$L_FIX" > "$report"
   out=$(pm witness-result "$report" "$W_ID" 2>&1) || fail "the local witness failure did not revert: $out"
@@ -572,6 +593,7 @@ test_local_revert_keeps_every_merge_guard() {
 
 test_red_merge_checks_revert_on_green
 test_witness_failure_reverts
+test_registered_witness_cannot_be_waived_or_lost
 test_green_without_witness_is_clear
 test_no_checks_wait_for_grace
 test_red_revert_checks_block

@@ -196,6 +196,12 @@ case "${1:-} ${2:-}" in
         fi
         exit 0
         ;;
+      *mergeCommit*)
+        head=$(cat "$FM_TEST_GH_HEAD")
+        printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s","baseRefName":"main","id":"PR_node","title":"test merge"}\n' \
+          "$head" "$head"
+        exit 0
+        ;;
       *headRefOid*)
         cat "$FM_TEST_GH_HEAD"
         exit 0
@@ -2436,7 +2442,8 @@ test_absent_backlog_still_merges() {
   assert_no_grep 'held for the captain' "$case_dir/stderr" \
     "absent-backlog-merges: an absent backlog was read as a captain hold"
   assert_logged_gh_merge "$case_dir" 61 example/repo --squash
-  pass "fm-pr-merge proceeds when the home carries no backlog at all"
+  assert_present "$case_dir/state/task-x1.post-merge" "a confirmed PR merge did not arm its post-merge watch"
+  pass "fm-pr-merge proceeds and arms a post-merge watch without a backlog"
 }
 
 test_unreadable_backlog_refuses_the_merge() {

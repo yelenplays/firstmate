@@ -213,6 +213,16 @@ tests/fm-hermes-agent.test.sh
 
 The suite uses a local fake HTTP server on the pinned loopback port and never authenticates to or submits work to a live Hermes Agent.
 
+## Post-merge witness target (data/projects.md)
+
+Live-site and team project rows register the URL a fresh post-merge witness must use with a `witness=<http(s) URL>` token inside the existing mode bracket, for example:
+
+```text
+- widget [no-mistakes +yolo witness=https://widget.example.com] - production site
+```
+
+`bin/fm-project-mode.sh --witness <project-name>` returns that URL. Both merge entrypoints use it to arm a witness watch; callers cannot waive a registered witness with `--no-witness`, and a watch with a missing required target cannot clear after green checks. Projects without the token remain eligible for the audited `--no-witness <reason>` disposition.
+
 ## Witness logins (config/witness-logins.env)
 
 A post-merge witness (`bin/fm-post-merge.sh witness-task`) that must sign in to the product it checks types its logins by name through `bin/fm-witness-login.sh`, which is the single owner of reading this file, filling a field, and redacting values from the browser tool's output.
