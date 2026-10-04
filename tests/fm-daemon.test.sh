@@ -1058,6 +1058,48 @@ test_daemon_wedge_lock_contention_leaves_stale_marker() {
   pass "daemon lock contention leaves the stale marker pending without escalation"
 }
 
+# An acknowledged escalation is not a surfaced warning: keep its stale marker
+# and do not consume the class warning window, so a later appended escalation
+# of that class can still be surfaced.
+test_daemon_acknowledged_wedge_does_not_mark_warned() {
+  local dir state fakebin task win pane key
+  dir=$(make_supercase jev-wedge-acknowledged); state="$dir/state"; fakebin="$dir/fakebin"
+  task=jevwedge-ack; win="sess:fm-$task"; pane="$dir/pane.txt"
+  key=$(printf '%s' "$task" | tr ':/.' '___')
+  fm_write_meta "$state/$task.meta" "window=$win" "backend=tmux"
+  printf 'working: building\n' > "$state/$task.status"
+  printf 'Working...\n' > "$pane"
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  printf '%s\n' 'unknown wake: already acknowledged' > "$state/.subsuper-unknown-acked"
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+
+  (
+    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+      FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 \
+      FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=escalate FM_JEV_STUB_WEDGE_CLASS=stalled
+    unknown_wake_line() { printf 'unknown wake: already acknowledged'; }
+    housekeeping "$state"
+  ) || fail "daemon housekeeping failed for acknowledged wedge escalation"
+  [ -e "$state/.subsuper-stale-$key" ] || fail "acknowledged wedge escalation cleared its stale marker"
+  [ ! -e "$state/$task.jev-wedge-warned" ] || fail "acknowledged wedge escalation marked the class warned"
+  [ ! -s "$state/.subsuper-escalations" ] || fail "acknowledged wedge escalation was appended unexpectedly"
+
+  echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
+  (
+    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+      FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 \
+      FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=escalate FM_JEV_STUB_WEDGE_CLASS=stalled \
+      housekeeping "$state"
+  ) || fail "daemon housekeeping failed on subsequent same-class wedge"
+  grep -F 'possible wedge, Jev reads stalled' "$state/.subsuper-escalations" >/dev/null \
+    || fail "subsequent same-class wedge did not escalate: $(cat "$state/.subsuper-escalations" 2>/dev/null)"
+  grep -F -- "--mark-warned stalled --task $task --state-dir $state" "$dir/jevstub/wedge.args" >/dev/null \
+    || fail "the appended subsequent warning was not recorded"
+  pass "an acknowledged wedge leaves the stale marker and warning window available"
+}
+
 # The daemon boundary carries Jev's stuck class: an escalate names it in the
 # escalation and records the warning only after the escalation is buffered; a
 # held repeat (same task and class inside the helper's window) re-arms the
@@ -3589,6 +3631,7 @@ test_stale_diagnostic_wedge_survives_busy_housekeeping
 test_daemon_signal_jev_consult
 test_daemon_wedge_jev_boundary
 test_daemon_wedge_lock_contention_leaves_stale_marker
+test_daemon_acknowledged_wedge_does_not_mark_warned
 test_daemon_wedge_jev_class_and_hold
 test_enriched_wedge_under_declared_wait_uses_pause_cadence
 test_stale_terminal_escalates

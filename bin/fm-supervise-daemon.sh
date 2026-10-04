@@ -777,12 +777,14 @@ stale_window_is_busy() {  # <window> <state>
 
 escalate_add() {  # <state> <distilled-item>
   local state=$1 item=$2 buf line
+  ESCALATE_APPENDED=0
   if line=$(unknown_wake_line "$item"); then
     unknown_wake_acknowledged "$state" "$line" && return 0
   fi
   buf="$state/.subsuper-escalations"
   [ -s "$buf" ] || _now > "${buf}.since"
-  printf '%s\n' "$item" >> "$buf"
+  printf '%s\n' "$item" >> "$buf" || return 1
+  ESCALATE_APPENDED=1
 }
 
 # _utf8_prefix: the longest prefix of <text> that fits in <max-bytes> bytes
@@ -1328,8 +1330,12 @@ housekeeping() {  # <state>
             log "stale wedge suppressed by Jev pane-tail read (idle ${age}s): $win"
           fi
         elif escalate_add "$state" "stale persisted ${age}s (possible wedge${WEDGE_JEV_CLASS:+, Jev reads $WEDGE_JEV_CLASS}): $win"; then
-          stale_marker_remove "$win" "$state"
-          wedge_jev_mark_warned "$task" "$state" "$WEDGE_JEV_CLASS" 1
+          if [ "$ESCALATE_APPENDED" = 1 ]; then
+            stale_marker_remove "$win" "$state"
+            wedge_jev_mark_warned "$task" "$state" "$WEDGE_JEV_CLASS" 1
+          else
+            _now > "$marker"
+          fi
         fi
         [ -z "$wedge_lock" ] || fm_lock_release "$wedge_lock"
         ;;
