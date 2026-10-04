@@ -33,6 +33,7 @@ fm_never_send_check() {
         ;;
       1) ;;
       *)
+        # shellcheck disable=SC2034 # Read by sourcing callers after the check returns.
         FM_NEVER_SEND_ERROR="could not check the request text against $list_path line $n"
         return 1
         ;;
