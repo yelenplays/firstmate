@@ -1,0 +1,50 @@
+ok - --help prints the interface
+ok - no key sends and writes nothing
+ok - invalid evidence or dispatch input refuses before any call
+ok - never-send blocks every request field and unreadable lists before any call
+ok - outputs under config/ or on either input, including symlink targets, refuse
+ok - a config-backed state override refuses through a symlinked path
+ok - absent config and state paths are guarded before creating directories
+ok - proposal names current models, picks, bands, billing, and the Fable credit notice
+ok - every role has its own request id, matched in the call log without the state text
+ok - Jev sees only the job and candidate evidence, on the pinned model, and config/ is unchanged
+ok - a malformed answer for one role still writes the proposal and exits 1
+ok - absent key is off: one stderr line, exit 0, no network call
+ok - TYPESAFE_API_KEY= in .env activates the tool; environment and config overrides work
+ok - clear: one rule Choice request, key on the fd header only, spendPriority argmax over every candidate
+ok - never-send list withholds the request on a match or a bad list, and never prints the value
+ok - rules snapshots and shell quoting preserve the profile protocol
+ok - no-rule fallback, Agy, Gemini, and documented configurations resolve
+ok - ambiguous: a narrow top-2 margin hands the decision back
+ok - ambiguous: a choice below the probability leader hands the decision back
+ok - margin gate: option-count invariant, inclusive threshold, environment then .env, invalid values refused
+ok - beats: tie-break sentences, conditional pairs, non-cyclic chains, and no-beats behavior
+ok - per-rule confidence floors fall to the most probable runner-up that clears its own floor
+ok - only the brief's task sections and scout tag reach the model, with a whole-brief fallback
+ok - escalate: a rule declared approval: captain never yields a profile
+ok - rule floor: known shortfall falls through while unavailable evidence escalates
+ok - declared provider and profile floor evidence are applied in code
+ok - nonnumeric spendPriority evidence is never ranked
+ok - partial and missing quota evidence remain eligible but unranked
+ok - provider-wide and exact quota rows combine into one limiting candidate
+ok - default: no rule matched resolves among the default profiles
+ok - tie: equal spendPriority never breaks by array order
+ok - no rankable candidate: the tool escalates instead of guessing
+ok - native Codex binds to codex-home before default, independently of Pi accounts and row order
+ok - Pi native adapters bind to codex-home with existing fallbacks and schema 5 compatibility
+ok - schema 6: each candidate binds to its account row; schema 5 is unchanged
+ok - quota evidence comes from one quota-axi --json read, and its failure is an error outcome
+ok - API, transport, and response failures are error outcomes with exit 0
+ok - configuration errors exit 2 before any network call
+ok - OpenRouter path and URL/model/timeout overrides are covered by fake curl
+ok - compact state sends project plus intent, never credentials
+ok - shadow flag logs without changing spawn output
+ok - extra questions are log-only
+ok - effort classifier: a lower assessed class replaces the declared ceiling value
+ok - effort classifier: declared effort is a ceiling that max cannot cross
+ok - effort classifier: ceiling, harness fit, and the declared fallback are all enforced
+ok - cost-aware ranking: predicted burn refuses a candidate that cannot fit
+ok - cost-aware ranking: an all-refused escalate names the predicted burn
+ok - cost-aware ranking: a runway shorter than predicted duration refuses the candidate
+ok - cost-aware ranking: absent ledger evidence stays disclosed and never blocks
+# all fm-dispatch-resolve tests passed
