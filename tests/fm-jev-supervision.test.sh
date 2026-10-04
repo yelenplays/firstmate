@@ -626,6 +626,10 @@ test_wedge_check_reports_stuck_classes() {
   run_helper "$WEDGE_CHECK" code out _err --class
   assert_equals 'escalate unclear' "$out" "an unknown class reads as unclear"
 
+  wedge_class_response "$RESPONSE" 0.7 '*' 0.9
+  run_helper "$WEDGE_CHECK" code out _err --class
+  assert_equals 'escalate unclear' "$out" "a wildcard-shaped class reads as unclear"
+
   wedge_response "$RESPONSE" 0.7 genuinely_stuck 0.7
   run_helper "$WEDGE_CHECK" code out _err --class
   expect_code 0 "$code" "a missing class never fails the call"
@@ -689,6 +693,11 @@ test_wedge_check_warning_window() {
   FM_HOME="$HOME_DIR" "$WEDGE_CHECK" --mark-warned bogus --task wtask --state-dir "$HOME_DIR/state" \
     < /dev/null 2>/dev/null || code=$?
   expect_code 2 "$code" "an unknown class is a usage error"
+  code=0
+  FM_HOME="$HOME_DIR" "$WEDGE_CHECK" --mark-warned '*' --task wtask --state-dir "$HOME_DIR/state" \
+    < /dev/null 2>/dev/null || code=$?
+  expect_code 2 "$code" "a wildcard-shaped class is a usage error"
+  ! grep -q '^\* ' "$ledger" || fail "the wildcard-shaped class was recorded: $(cat "$ledger")"
   pass "at most one warning per hour per task and stuck class, recorded only by the caller after its wake"
 }
 
