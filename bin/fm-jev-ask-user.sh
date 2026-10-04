@@ -303,7 +303,7 @@ if ! jq -e 'all(.[]; .valid and .p_yes <= 0.2)' >/dev/null <<<"$SECURITY_SCREEN"
 fi
 
 # One object per finding: {id, choice, confidence, valid}. valid is false for a
-# missing, mistyped, or internally inconsistent answer.
+# missing answer, a type other than "choice", or an internally inconsistent one.
 ANSWERS=$(jq -c --arg ids "$IDS" '
   . as $resp
   | ["in-scope-fix", "expands-contract", "unsettled-call", "destructive-or-security"] as $offered
@@ -320,7 +320,7 @@ ANSWERS=$(jq -c --arg ids "$IDS" '
     | (if $p_ok and $choice != null then ($p[$choice] // -1) else -1 end) as $choice_p
     | {id: $id, choice: $choice,
        confidence: (if $conf == null then null else (($conf * 100 | round) / 100) end),
-       valid: ($p_ok and ($offered | index($choice)) != null
+       valid: ($a.type == "choice" and $p_ok and ($offered | index($choice)) != null
          and $choice_p == $sorted[0] and $sorted[0] != $sorted[1] and $conf != null)}]
 ' <<<"$RESPONSE" 2>/dev/null) || {
   ANSWERS='[]'

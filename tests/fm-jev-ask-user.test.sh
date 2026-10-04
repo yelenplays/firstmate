@@ -243,6 +243,20 @@ test_escalates_jev_errors() {
   pass "fm-jev-ask-user: Jev errors and missing keys escalate with no fallback"
 }
 
+test_escalates_wrong_or_missing_answer_type() {
+  local code out mutation
+  for mutation in '.answers.f1.type = "score"' 'del(.answers.f1.type)'; do
+    world
+    answer in-scope-fix 0.95 in-scope-fix 0.95
+    jq "$mutation" "$RESPONSE" > "$TMP_ROOT/typed.json" && mv "$TMP_ROOT/typed.json" "$RESPONSE"
+    run code out t1 "$GATE" --round 1
+    assert_equals "$code" 2 "an answer whose type is not choice escalates ($mutation)"
+    assert_contains "$out" "ESCALATE $GATE jev-error" "a mistyped answer is a Jev error ($mutation)"
+    assert_absent "$LOG/send-args" "a mistyped answer never answers the gate ($mutation)"
+  done
+  pass "fm-jev-ask-user: a wrong or missing answer type escalates even with valid probabilities"
+}
+
 test_always_escalate_classes_skip_jev() {
   local code out
   world
@@ -351,6 +365,7 @@ test_escalates_contact_data_before_jev
 test_escalates_low_confidence
 test_escalates_out_of_scope_class
 test_escalates_jev_errors
+test_escalates_wrong_or_missing_answer_type
 test_always_escalate_classes_skip_jev
 test_escalates_oversized_or_secret_contract
 test_record_errors_refuse
