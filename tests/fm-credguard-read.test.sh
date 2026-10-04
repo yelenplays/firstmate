@@ -50,7 +50,7 @@ for (const c of [
   'bash -c "cat .env"', "sh -c 'head .env'", "eval cat .env", "sudo cat /etc/app/.env", "FOO=1 cat .env", "timeout 5 cat .env",
   "source .env && echo $DATABASE_URL", "source .env; cat <<< \"$DATABASE_URL\"", "source .env; head <<< \"$TOKEN\"", "source .env; tee <<< \"$TOKEN\"",
   "source .env; cat <<EOF\n$DATABASE_URL\nEOF", "source .env; head <<EOF\n$TOKEN\nEOF", "source .env; tail <<EOF\n$TOKEN\nEOF",
-  ". ./.env; printenv", "set -a; . .env; set +a; env", "source .env; export -p", 
+  ". ./.env; printenv", "set -a; . .env; set +a; env", "source .env; export -p",
   "source .env && printf '%s' \"$TOKEN\"", "cd /tmp && cat .env | grep URL", "export $(grep -v '^#' .env | xargs)",
   "grep -e URL .env", "grep -A 2 URL .env",
   "(cat .env)", "( head .env )", "{ cat .env; }", "if cat .env; then :; fi", 'bash --noprofile --norc -lc "cat .env"',
@@ -78,7 +78,7 @@ for (const c of [
   "source .env; set -e; true", "grep -- .env README.md",
   "cat <<'EOF'\n$(cat .env)\nEOF", "echo 'do not cat .env'", "grep -rn 'runtime-url' docs/",
   "node scripts/migrate.js", "cat src/app.ts", "cat package.json | jq .scripts", "sed -n '/.env/p' docs/setup.md",
-  "cat ~/.ssh/id_ed25519.pub", "printenv PATH", "N=PATH; printenv \"$N\"", "ps aux", "ps -ef", "compgen -e", "launchctl getenv PATH", "N=PATH; launchctl getenv \"$N\"", 
+  "cat ~/.ssh/id_ed25519.pub", "printenv PATH", "N=PATH; printenv \"$N\"", "ps aux", "ps -ef", "compgen -e", "launchctl getenv PATH", "N=PATH; launchctl getenv \"$N\"",
   `${process.env.GUARD} --keys .env`,
 ]) want(`allow ${JSON.stringify(c)}`, bash(c), false);
 
