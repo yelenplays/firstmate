@@ -267,6 +267,9 @@ parse_record_pr() {
 # and VERDICT_NAMES (the red checks, comma-separated). Returns 1 on a read error.
 VERDICT=
 VERDICT_NAMES=
+LIVE_MERGE_SHA=
+LIVE_MERGE_HEAD=
+LIVE_MERGE_BASE=
 commit_verdict() {  # <sha> <since-epoch> <grace>
   local sha=$1 since=$2 grace=$3 runs statuses name status conclusion state
   local red='' pending=0 good=0
@@ -343,14 +346,41 @@ read_revert_pr() {
 # The checks the current phase waits on. Sets VERDICT; returns 1 on a read
 # error, 3 when the phase waits on no checks.
 phase_verdict() {
-  local phase grace
+  local phase grace merge json state queued head base
+  LIVE_MERGE_SHA=
+  LIVE_MERGE_HEAD=
+  LIVE_MERGE_BASE=
   phase=$(rget phase)
   grace=$(rget grace)
   case "$phase" in
     checks)
       need_gh
       parse_record_pr
-      commit_verdict "$(rget merge_commit)" "$(rget merged_at)" "${grace:-600}"
+      merge=$(rget merge_commit)
+      if [ -z "$merge" ]; then
+        json=$(gh pr view "$(rget pr)" --json state,isInMergeQueue,mergeCommit,headRefOid,baseRefName 2>/dev/null) || return 1
+        state=$(printf '%s' "$json" | jq -r '.state // ""') || return 1
+        queued=$(printf '%s' "$json" | jq -r '.isInMergeQueue // false') || return 1
+        case "$state:$queued" in
+          OPEN:true)
+            VERDICT=pending
+            VERDICT_NAMES=
+            return 0
+            ;;
+          MERGED:*) ;;
+          *) VERDICT=none; VERDICT_NAMES=; return 0 ;;
+        esac
+        merge=$(printf '%s' "$json" | jq -r '.mergeCommit.oid // ""') || return 1
+        head=$(printf '%s' "$json" | jq -r '.headRefOid // ""') || return 1
+        base=$(printf '%s' "$json" | jq -r '.baseRefName // ""') || return 1
+        fm_pr_head_valid "$merge" && [ -n "$base" ] || return 1
+        LIVE_MERGE_SHA=$merge
+        LIVE_MERGE_HEAD=$head
+        LIVE_MERGE_BASE=$base
+        commit_verdict "$merge" "$(now)" "${grace:-600}"
+      else
+        commit_verdict "$merge" "$(rget merged_at)" "${grace:-600}"
+      fi
       ;;
     reverting)
       [ "$(rget kind)" = pr ] && [ -n "$(rget revert_pr)" ] || return 3
@@ -364,8 +394,24 @@ phase_verdict() {
   esac
 }
 
+persist_live_merge() {
+  local release=0
+  [ -n "$LIVE_MERGE_SHA" ] || return 0
+  if [ "$RECORD_LOCK_HELD" != 1 ]; then
+    lock_record
+    release=1
+  fi
+  if record_present && [ "$(rget phase)" = checks ] && [ -z "$(rget merge_commit)" ]; then
+    rset "head=$LIVE_MERGE_HEAD" "base=$LIVE_MERGE_BASE" "merge_commit=$LIVE_MERGE_SHA" "merged_at=$(now)"
+  fi
+  if [ "$release" = 1 ]; then
+    fm_lock_release "$RECORD_LOCK" || die "could not unlock the post-merge record for $ID"
+    RECORD_LOCK_HELD=0
+  fi
+}
+
 cmd_checks() {
-  local settled=0 status=0 target
+  local settled=0 status=0 target merge
   DIE_STATUS=2
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
   load_task "$1"
@@ -385,8 +431,13 @@ cmd_checks() {
       exit 2
       ;;
   esac
+  persist_live_merge || die "could not record the merge commit for $ID's post-merge watch"
   case "$(rget phase)" in
-    checks) target="merge commit $(short "$(rget merge_commit)") on $(rget base)" ;;
+    checks)
+      merge=$(rget merge_commit)
+      [ -n "$merge" ] || merge=$LIVE_MERGE_SHA
+      if [ -n "$merge" ]; then target="merge commit $(short "$merge") on $(rget base)"; else target="queued pull request $(rget pr)"; fi
+      ;;
     *) target="revert $(rget revert_pr)" ;;
   esac
   echo "post-merge $ID: $target checks $VERDICT${VERDICT_NAMES:+: $VERDICT_NAMES}"
@@ -397,7 +448,7 @@ cmd_checks() {
 }
 
 cmd_arm() {
-  local witness='' registered_witness='' no_witness_reason='' witness_choice='' grace=600 kind mode pr url json state merge head base node title landed gen phase old_phase
+  local witness='' registered_witness='' no_witness_reason='' witness_choice='' grace=600 kind mode pr url json state queued merge head base node title landed gen phase old_phase merged_at
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
   load_task "$1"
   shift
@@ -464,16 +515,26 @@ cmd_arm() {
     [ "$FM_PR_PROVIDER" = github ] || die "the post-merge watch supports GitHub pull requests and local landings; $pr is not one, so watch it by hand"
     url=$FM_PR_URL
     need_gh
-    json=$(gh pr view "$url" --json state,mergeCommit,headRefOid,baseRefName,id,title 2>/dev/null) \
+    json=$(gh pr view "$url" --json state,isInMergeQueue,mergeCommit,headRefOid,baseRefName,id,title 2>/dev/null) \
       || die "could not read $url from GitHub"
     state=$(printf '%s' "$json" | jq -r '.state // ""')
-    [ "$state" = MERGED ] || die "$url is not merged (state ${state:-unknown}); arm only after the merge"
+    queued=$(printf '%s' "$json" | jq -r '.isInMergeQueue // false')
     merge=$(printf '%s' "$json" | jq -r '.mergeCommit.oid // ""')
     head=$(printf '%s' "$json" | jq -r '.headRefOid // ""')
     base=$(printf '%s' "$json" | jq -r '.baseRefName // ""')
     node=$(printf '%s' "$json" | jq -r '.id // ""')
     title=$(printf '%s' "$json" | jq -r '.title // ""' | tr '\n\t' '  ')
-    fm_pr_head_valid "$merge" || die "GitHub reported no merge commit for $url"
+    case "$state:$queued" in
+      MERGED:*)
+        fm_pr_head_valid "$merge" || die "GitHub reported no merge commit for $url"
+        merged_at=$(now)
+        ;;
+      OPEN:true)
+        fm_pr_head_valid "$head" || die "GitHub reported no head commit for queued pull request $url"
+        merged_at=
+        ;;
+      *) die "$url is not merged or queued (state ${state:-unknown}); arm only after merge acceptance" ;;
+    esac
     [ -n "$node" ] || die "GitHub reported no node id for $url"
   fi
   lock_record
@@ -497,7 +558,7 @@ cmd_arm() {
     phase=checks
     rset version=fm-post-merge-v1 "task=$ID" "spawn_gen=$gen" kind=pr "project=$(meta_get project)" \
       "pr=$url" "pr_node=$node" "pr_title=$title" "head=$head" "base=$base" "merge_commit=$merge" \
-      "branch=$(meta_get branch)" "merged_at=$(now)" "grace=$grace" "witness=$witness" \
+      "branch=$(meta_get branch)" "merged_at=$merged_at" "grace=$grace" "witness=$witness" \
       "no_witness_reason=$no_witness_reason" "phase=$phase"
     arm_watch pm || die "could not arm the post-merge checks watch for $ID; retry bin/fm-post-merge.sh arm $ID"
   else
@@ -509,7 +570,11 @@ cmd_arm() {
   fi
   fm_post_merge_watch_required_set "$STATE" "$META" '' || die "watch for $ID was recorded but its pending marker could not be cleared; retry bin/fm-post-merge.sh arm $ID"
   if [ "$witness_choice" = no-witness ]; then log_no_witness "$no_witness_reason"; fi
-  echo "armed: post-merge watch for $ID on $(short "$merge") (phase $phase)"
+  if [ -n "$merge" ]; then
+    echo "armed: post-merge watch for $ID on $(short "$merge") (phase $phase)"
+  else
+    echo "armed: post-merge watch for queued $url (phase $phase)"
+  fi
   [ "$phase" != witness ] || echo "witness: a witness must use $witness; fill its instructions from bin/fm-post-merge.sh witness-task $ID"
   [ "$phase" != clear ] || echo "clear: no checks or witness to wait on for $ID's local landing; cleanup may proceed"
 }
@@ -704,10 +769,15 @@ cmd_advance() {
     checks)
       phase_verdict || status=$?
       [ "$status" -eq 0 ] || die "could not read the checks on $ID's merge commit"
+      persist_live_merge || die "could not record the merge commit for $ID's post-merge watch"
       case "$VERDICT" in
         pending)
           arm_watch pm || die "could not re-arm the post-merge checks watch for $ID; retry bin/fm-post-merge.sh advance $ID"
-          echo "waiting: checks on merge commit $(short "$(rget merge_commit)") on $(rget base) are still running"
+          if [ -n "$(rget merge_commit)" ]; then
+            echo "waiting: checks on merge commit $(short "$(rget merge_commit)") on $(rget base) are still running"
+          else
+            echo "waiting: pull request $(rget pr) remains in GitHub's merge queue"
+          fi
           ;;
         red)
           rset checks=red "red_checks=$VERDICT_NAMES"
@@ -715,9 +785,15 @@ cmd_advance() {
           ;;
         none)
           retire_watch pm
-          rset checks=none phase=blocked "note=merge checks are not green (none)"
-          echo "blocked: checks on merge commit $(short "$(rget merge_commit)") on $(rget base) are not green (none)"
-          echo "notify: $(rget pr) has no green checks on $(rget base); the merge is held for captain review."
+          if [ -z "$(rget merge_commit)" ]; then
+            rset checks=none phase=blocked "note=queued pull request is no longer queued or merged"
+            echo "blocked: $(rget pr) left the merge queue without a confirmed merge"
+            echo "notify: $(rget pr) left the merge queue without a confirmed merge; the watch is held for captain review."
+          else
+            rset checks=none phase=blocked "note=merge checks are not green (none)"
+            echo "blocked: checks on merge commit $(short "$(rget merge_commit)") on $(rget base) are not green (none)"
+            echo "notify: $(rget pr) has no green checks on $(rget base); the merge is held for captain review."
+          fi
           ;;
         green)
           rset checks=green

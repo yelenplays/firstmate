@@ -1322,6 +1322,17 @@ if [ -n "$(fm_post_merge_record_get "$META" post_merge_watch_required)" ]; then
   exit 1
 fi
 
+arm_post_merge_watch() {
+  local outcome=$1 arm_out
+  arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" 2>&1) || {
+    printf 'error: %s %s but post-merge watch could not be armed: %s\n' "$outcome" "$URL" "$arm_out" >&2
+    printf 'retry: FM_HOME=%q FM_STATE_OVERRIDE=%q %q arm %q\n' \
+      "$FM_HOME" "$STATE" "$SCRIPT_DIR/fm-post-merge.sh" "$ID" >&2
+    return 1
+  }
+  printf '%s\n' "$arm_out"
+}
+
 # Accepted confused-agent-grade limitation, as in bin/fm-lease-lib.sh, not an
 # oversight: if this lock-owning shell dies while its gh or glab child lives,
 # stale-owner recovery can release the record for archive or replacement and
@@ -1392,7 +1403,18 @@ case "$PROVIDER" in
       MERGE_CONTROL_LOCK=
       [ -z "$merge_output" ] || printf '%s\n' "$merge_output" >&2
       if github_read_outcome; then
-        if [ "$FM_PR_GITHUB_MERGED" != true ] && [ "$FM_PR_GITHUB_QUEUED" != true ]; then
+        if [ "$FM_PR_GITHUB_QUEUED" = true ]; then
+          [ "$POST_MERGE_REVERT" != true ] || {
+            echo "error: revert $URL entered the merge queue but is not merged; retry bin/fm-post-merge.sh advance $ID after it lands" >&2
+            exit 1
+          }
+          FM_PR_GITHUB_MERGE_ACCEPTED=true
+          persist_accepted_merge_authority || exit 1
+          printf 'verified: %s is queued (state=%s, merged=%s, isInMergeQueue=%s)\n' \
+            "$URL" "$FM_PR_GITHUB_STATE" "$FM_PR_GITHUB_MERGED" "$FM_PR_GITHUB_QUEUED"
+          arm_post_merge_watch queued || exit 1
+          exit 0
+        elif [ "$FM_PR_GITHUB_MERGED" != true ]; then
           fm_post_merge_watch_required_set "$STATE" "$META" '' || true
           github_report_unmerged_outcome
         else
@@ -1410,8 +1432,13 @@ case "$PROVIDER" in
       printf 'verified: %s is merged (state=%s, merged=%s, isInMergeQueue=%s)\n' \
         "$URL" "$FM_PR_GITHUB_STATE" "$FM_PR_GITHUB_MERGED" "$FM_PR_GITHUB_QUEUED"
     elif [ "$FM_PR_GITHUB_QUEUED" = true ]; then
+      [ "$POST_MERGE_REVERT" != true ] || {
+        echo "error: revert $URL entered the merge queue but is not merged; retry bin/fm-post-merge.sh advance $ID after it lands" >&2
+        exit 1
+      }
       printf 'verified: %s is queued (state=%s, merged=%s, isInMergeQueue=%s)\n' \
         "$URL" "$FM_PR_GITHUB_STATE" "$FM_PR_GITHUB_MERGED" "$FM_PR_GITHUB_QUEUED"
+      arm_post_merge_watch queued || exit 1
       exit 0
     else
       fm_post_merge_watch_required_set "$STATE" "$META" '' || {
@@ -1453,11 +1480,5 @@ esac
 if [ "$POST_MERGE_REVERT" = true ]; then
   printf 'revert merged: %s\n' "$URL"
 else
-  arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" 2>&1) || {
-    printf 'error: merged %s but post-merge watch could not be armed: %s\n' "$URL" "$arm_out" >&2
-    printf 'retry: FM_HOME=%q FM_STATE_OVERRIDE=%q %q arm %q\n' \
-      "$FM_HOME" "$STATE" "$SCRIPT_DIR/fm-post-merge.sh" "$ID" >&2
-    exit 1
-  }
-  printf '%s\n' "$arm_out"
+  arm_post_merge_watch merged || exit 1
 fi

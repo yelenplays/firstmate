@@ -197,9 +197,13 @@ case "${1:-} ${2:-}" in
         exit 0
         ;;
       *mergeCommit*)
-        head=$(cat "$FM_TEST_GH_HEAD")
-        printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s","baseRefName":"main","id":"PR_node","title":"test merge"}\n' \
-          "$head" "$head"
+        if [ -n "${FM_TEST_GH_POSTMERGE_PR_JSON:-}" ] && [ -f "$FM_TEST_GH_POSTMERGE_PR_JSON" ]; then
+          cat "$FM_TEST_GH_POSTMERGE_PR_JSON"
+        else
+          head=$(cat "$FM_TEST_GH_HEAD")
+          printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s","baseRefName":"main","id":"PR_node","title":"test merge"}\n' \
+            "$head" "$head"
+        fi
         exit 0
         ;;
       *headRefOid*)
@@ -1389,28 +1393,98 @@ test_github_closed_unqueued_outcome_omits_retry_flags() {
 }
 
 test_github_queued_outcome_is_verified() {
-  local case_dir rc
+  local case_dir rc url merge_sha head out
   case_dir=$(make_case github-verified-queued)
   mkdir -p "$case_dir/wt"
-  add_gh_mocks "$case_dir" 3030303030303030303030303030303030303030
+  head=3030303030303030303030303030303030303030
+  merge_sha=4040404040404040404040404040404040404040
+  url=https://github.com/example/repo/pull/53
+  add_gh_mocks "$case_dir" "$head"
   write_github_outcome "$case_dir" OPEN false true master
+  printf '{"state":"OPEN","isInMergeQueue":true,"mergeCommit":null,"headRefOid":"%s","baseRefName":"main","id":"PR_node","title":"queued change"}\n' \
+    "$head" > "$case_dir/postmerge-pr.json"
   : > "$case_dir/gh-axi.log"
   : > "$case_dir/gh.log"
 
   set +e
-  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/53 --attended-override -- --auto --merge \
+  FM_TEST_GH_POSTMERGE_PR_JSON="$case_dir/postmerge-pr.json" run_pr_merge "$case_dir" task-x1 "$url" --attended-override -- --auto --merge \
     > "$case_dir/stdout" 2> "$case_dir/stderr"
   rc=$?
   set -e
 
   expect_code 0 "$rc" "github-verified-queued: a queued PR should succeed"
-  assert_grep 'verified: https://github.com/example/repo/pull/53 is queued' \
-    "$case_dir/stdout" "github-verified-queued: success was not reported as queued"
-  assert_no_grep 'merged:' "$case_dir/stdout" \
-    "github-verified-queued: the forge CLI's unverified merged report leaked through"
-  assert_grep 'pr=https://github.com/example/repo/pull/53' "$case_dir/state/task-x1.meta" \
+  assert_grep "verified: $url is queued" "$case_dir/stdout" \
+    "github-verified-queued: success was not reported as queued"
+  assert_grep 'armed: post-merge watch for queued' "$case_dir/stdout" \
+    "github-verified-queued: the queued PR did not arm its watch"
+  assert_grep "pr=$url" "$case_dir/state/task-x1.meta" \
     "github-verified-queued: the queued PR was not recorded for teardown"
-  pass "fm-pr-merge accepts and accurately reports a GitHub merge-queue entry"
+  assert_present "$case_dir/state/when/when-pm-task-x1.spec" \
+    "github-verified-queued: the scheduler wait was not registered"
+
+  out=$(FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$case_dir/home" FM_STATE_OVERRIDE="$case_dir/state" \
+    PATH="$case_dir/fakebin:$PATH" FM_TEST_GH_LOG="$case_dir/gh.log" \
+    FM_TEST_GH_POSTMERGE_PR_JSON="$case_dir/postmerge-pr.json" \
+    "$ROOT/bin/fm-post-merge.sh" advance task-x1 2>&1) \
+    || fail "github-verified-queued: advancing while queued failed: $out"
+  assert_contains "$out" 'remains in GitHub' "github-verified-queued: the watcher did not wait on the queue"
+  assert_present "$case_dir/state/task-x1.post-merge" \
+    "github-verified-queued: the watcher dropped its durable record"
+
+  printf '{"state":"MERGED","isInMergeQueue":false,"mergeCommit":{"oid":"%s"},"headRefOid":"%s","baseRefName":"main","id":"PR_node","title":"queued change"}\n' \
+    "$merge_sha" "$head" > "$case_dir/postmerge-pr.json"
+  printf '%s\n' "$merge_sha" > "$case_dir/github-head"
+  printf '{"check_runs":[]}' > "$case_dir/github-runs.json"
+  set +e
+  out=$(FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$case_dir/home" FM_STATE_OVERRIDE="$case_dir/state" \
+    PATH="$case_dir/fakebin:$PATH" FM_TEST_GH_LOG="$case_dir/gh.log" \
+    FM_TEST_GH_HEAD="$case_dir/github-head" FM_TEST_GH_RUNS="$case_dir/github-runs.json" \
+    FM_TEST_GH_RULES="$case_dir/github-rules" FM_TEST_GH_POSTMERGE_PR_JSON="$case_dir/postmerge-pr.json" \
+    "$ROOT/bin/fm-post-merge.sh" checks task-x1 --settled 2>&1)
+  rc=$?
+  set -e
+  expect_code 1 "$rc" "github-verified-queued: empty checks should stay pending during grace"
+  assert_grep "merge_commit=$merge_sha" "$case_dir/state/task-x1.post-merge" \
+    "github-verified-queued: scheduler condition did not durably bind the landed merge"
+
+  printf '{"check_runs":[{"name":"ci","status":"in_progress","conclusion":null}]}' > "$case_dir/github-runs.json"
+  out=$(FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$case_dir/home" FM_STATE_OVERRIDE="$case_dir/state" \
+    PATH="$case_dir/fakebin:$PATH" FM_TEST_GH_LOG="$case_dir/gh.log" \
+    FM_TEST_GH_HEAD="$case_dir/github-head" FM_TEST_GH_RUNS="$case_dir/github-runs.json" \
+    FM_TEST_GH_RULES="$case_dir/github-rules" FM_TEST_GH_POSTMERGE_PR_JSON="$case_dir/postmerge-pr.json" \
+    "$ROOT/bin/fm-post-merge.sh" advance task-x1 2>&1) \
+    || fail "github-verified-queued: advancing after the merge failed: $out"
+  assert_contains "$out" "waiting: checks on merge commit ${merge_sha:0:12}" \
+    "github-verified-queued: the watch did not advance to the merge commit's checks"
+  assert_grep "merge_commit=$merge_sha" "$case_dir/state/task-x1.post-merge" \
+    "github-verified-queued: the watch did not bind the eventual merge commit"
+  pass "fm-pr-merge arms queued PRs and follows them through merge-commit checks"
+}
+
+test_github_nonzero_queued_outcome_arms_watch() {
+  local case_dir rc head url
+  case_dir=$(make_case github-nonzero-queued)
+  mkdir -p "$case_dir/wt"
+  head=4545454545454545454545454545454545454545
+  url=https://github.com/example/repo/pull/45
+  add_gh_mocks_merge_fails "$case_dir" "$head"
+  write_github_outcome "$case_dir" OPEN false true main
+  printf '{"state":"OPEN","isInMergeQueue":true,"mergeCommit":null,"headRefOid":"%s","baseRefName":"main","id":"PR_node","title":"queued change"}\n' \
+    "$head" > "$case_dir/postmerge-pr.json"
+  : > "$case_dir/gh-axi.log"
+
+  set +e
+  FM_TEST_GH_POSTMERGE_PR_JSON="$case_dir/postmerge-pr.json" run_pr_merge "$case_dir" task-x1 "$url" --attended-override -- --auto --merge \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 0 "$rc" "github-nonzero-queued: a proven queued request should be accepted"
+  assert_present "$case_dir/state/when/when-pm-task-x1.spec" \
+    "github-nonzero-queued: the nonzero merge command's queued PR was not watched"
+  assert_no_grep 'post_merge_watch_required=' "$case_dir/state/task-x1.meta" \
+    "github-nonzero-queued: successful arm did not clear the watch marker"
+  pass "fm-pr-merge arms a queued PR even when the merge command exits nonzero"
 }
 
 test_github_queue_required_refusal_names_retry_flags() {
@@ -2404,6 +2478,7 @@ test_github_without_gh_failed_read_keeps_bookkeeping
 test_github_merged_outcome_is_verified
 test_github_verified_merge_requires_poll_recording
 test_github_queued_outcome_is_verified
+test_github_nonzero_queued_outcome_arms_watch
 test_github_queue_required_refusal_names_retry_flags
 test_extra_merge_args_forwarded
 test_missing_meta_refuses_before_merge
