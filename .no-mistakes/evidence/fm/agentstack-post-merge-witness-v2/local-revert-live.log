@@ -1,0 +1,4 @@
+ok - fm-merge-local: failed watch handoff remains blocked until arm retry succeeds
+ok - fm-merge-local: an interrupted handoff marker prevents cleanup
+ok - fm-post-merge: a witness failure on a local landing reverts it with one new commit
+ok - fm-merge-local: the revert refuses everything the merge refuses and leaves a conflict untouched
