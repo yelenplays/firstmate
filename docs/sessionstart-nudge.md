@@ -117,6 +117,7 @@ The requested session start remains idempotent.
 - Which work a re-emit skips.
 - Its true-start AGENTS.md baseline.
 - Its supported stale-instruction refresh pairs.
+- Which sections a compact re-emit prints slim, and the `--full` flag that restores the whole report.
 
 The `bin/fm-session-start.sh` header is the single owner of those mechanics.
 
