@@ -8,22 +8,33 @@
 #   fm-slack-bridge.sh check
 #   fm-slack-bridge.sh arm
 #   fm-slack-bridge.sh disarm
+#   fm-slack-bridge.sh send-reply <note-id>
+#   fm-slack-bridge.sh verify
+#   fm-slack-bridge.sh manifest [--name <app-name>] [--private-channels]
 #   fm-slack-bridge.sh --help
 #
-# Out: `post` sends one captain-facing message through slack-axi (draft, then
-# `draft send`), to the report channel for `report` (finished PRs, merge asks,
-# merge results) or the decisions channel for `decision` (a decision with its
-# recommendation). It appends the posted channel id and message ts to
-# state/slack-bridge/posts, which is the only set of threads `check` reads.
-# Every post is top-level: the bridge never replies inside a thread, because it
-# posts as the logged-in account, and that account's thread replies are what
-# counts as captain input.
+# Two transports. Without `bot-keychain-service` in the config the bridge posts
+# and reads as whichever account slack-axi is logged in as. With it, the home
+# has its own Slack app (for example "Yelen's Firstmate"): bin/fm-slack-bot.mjs
+# posts and reads as that bot, with the bot token read from the macOS Keychain
+# item of that service name, and the person can also DM the bot.
+#
+# Out: `post` sends one captain-facing message to the report channel for
+# `report` (finished PRs, merge asks, merge results) or the decisions channel
+# for `decision` (a decision with its recommendation), through slack-axi (draft,
+# then `draft send`) or the bot. It appends the posted channel id and message ts
+# to state/slack-bridge/posts, which is the only set of threads `check` reads.
+# Every post is top-level. Without a bot the bridge never replies inside a
+# thread, because it posts as the logged-in account, and that account's thread
+# replies are what counts as captain input; a bot's own messages never count.
 #
 # In: `check` reads the replies in the threads of bridge posts from the last
 # `watch-days` days, plus new top-level messages in the handoff channel, through
-# bin/fm-slack-read.mjs, which returns each author's Slack user id. A thread
-# reply becomes captain input only when its author id equals `captain-user`
-# exactly; replies from anyone else are ignored. A handoff-channel message from
+# bin/fm-slack-read.mjs (or the bot), which returns each author's Slack user id.
+# With a bot it also reads new top-level messages in the bot's DM with
+# `captain-user`. A thread reply or DM becomes captain input only when its
+# author id equals `captain-user` exactly; anyone else's message, and every bot
+# message, including another person's bot, is ignored. A handoff-channel message from
 # anyone but the captain becomes a request note that names its sender and says
 # it is not captain authority. Each accepted message is delivered exactly once
 # through `fm-inbox.sh note --request-id slack-<channel>-<ts>` (source
@@ -32,20 +43,36 @@
 # wake, so a crash between delivery and the local delivered record is healed by
 # the next poll rather than duplicated. A poll that delivered anything prints
 # one line so the watcher wakes firstmate; a failing poll prints one line only
-# when its diagnostic changed; otherwise `check` is silent.
+# when its diagnostic changed; otherwise `check` is silent. Each delivered
+# captain message also records its reply route (channel and thread) in
+# state/slack-bridge/routes.
+#
+# Back: `send-reply <note-id>` posts the reply that `fm-inbox.sh reply` recorded
+# for a slack-captain note back through the bot, into the same thread, or into
+# the DM for a DM note, exactly once (state/slack-bridge/replied).
+# `fm-inbox.sh reply` runs it itself; without a bot it does nothing and prints
+# nothing, so the reply stays local as before.
+#
+# `verify` proves a bot setup end to end: it checks the token, posts one test
+# message to each configured channel, and DMs `captain-user` a greeting to
+# answer. `manifest` prints the Slack app manifest a person pastes into "Create
+# an app -> From a manifest", with the app and bot named by --name and only the
+# scopes the bot transport uses.
 #
 # Slack text is input like a typed captain message and nothing more: it never
 # bypasses merge guards, holds, or the destructive and security boundaries.
 #
 # `arm` writes state/slack-bridge.check.sh and binds its bytes with
 # fm-check-register.sh, so the watcher runs `check` on its slow-check cadence,
-# and starts the handoff channel at "now" so old history is not replayed.
+# and starts the handoff channel, and with a bot the DM, at "now" so old history
+# is not replayed.
 # `disarm` removes the shim and its trust binding and keeps the records.
 #
 # The bridge is off while config/slack-bridge is absent: `post` prints one
 # `slack bridge off` line and exits 0, and `check` is silent. docs/configuration.md
-# "Slack bridge" owns the config schema. The bridge uses whichever account
-# slack-axi is logged in as and never reads, prints, stores, or logs a token.
+# "Slack bridge" owns the config schema. The bridge never prints, stores, or
+# logs a token: the slack-axi transport never reads one, and the bot transport
+# reads the bot token from the Keychain only inside bin/fm-slack-bot.mjs.
 #
 # Environment: FM_HOME, FM_STATE_OVERRIDE, FM_CONFIG_OVERRIDE, FM_CHECK_TIMEOUT
 # (default 30, the watcher's per-check bound), FM_SLACK_BRIDGE_BUDGET (default
@@ -63,12 +90,17 @@ BRIDGE_STATE="$STATE/slack-bridge"
 POSTS="$BRIDGE_STATE/posts"
 DELIVERED="$BRIDGE_STATE/delivered"
 HANDOFF_CURSOR="$BRIDGE_STATE/handoff-cursor"
+DM_CURSOR="$BRIDGE_STATE/dm-cursor"
+ROUTES="$BRIDGE_STATE/routes"
+REPLIED="$BRIDGE_STATE/replied"
+INBOX_DIR="$STATE/inbox"
 REPORT_RECORD="$BRIDGE_STATE/last-report"
 CHECK_ID=slack-bridge
 CHECK_SHIM="$STATE/$CHECK_ID.check.sh"
 CHECK_TRUST="$STATE/$CHECK_ID.check-trust"
 CHECK_EVERY="$STATE/$CHECK_ID.check-every"
 READER="$SCRIPT_DIR/fm-slack-read.mjs"
+BOT="$SCRIPT_DIR/fm-slack-bot.mjs"
 INBOX_BIN="$SCRIPT_DIR/fm-inbox.sh"
 REGISTER_BIN="$SCRIPT_DIR/fm-check-register.sh"
 MAX_LINE=240
@@ -88,9 +120,12 @@ Usage:
   fm-slack-bridge.sh post report   [--url <https-url>] [--] <text>...   post a PR, merge ask, or result
   fm-slack-bridge.sh post decision [--url <https-url>] [--] <text>...   post a decision with its recommendation
   fm-slack-bridge.sh post <kind> [--url <https-url>] -                   text from stdin
-  fm-slack-bridge.sh check     deliver new captain thread replies and handoff requests to the captain inbox
+  fm-slack-bridge.sh check     deliver new captain thread replies, bot DMs, and handoff requests to the captain inbox
   fm-slack-bridge.sh arm       write and register state/slack-bridge.check.sh
   fm-slack-bridge.sh disarm    remove the check shim and its trust binding
+  fm-slack-bridge.sh send-reply <note-id>   post the recorded reply to a slack-captain note back through the bot
+  fm-slack-bridge.sh verify    bot setup check: token, one test post per channel, and a DM to answer
+  fm-slack-bridge.sh manifest [--name <app-name>] [--private-channels]   print the Slack app manifest for a bot
   fm-slack-bridge.sh --help    print this help
 
 Configuration: config/slack-bridge (docs/configuration.md "Slack bridge").
@@ -112,13 +147,18 @@ CFG_REPORT=
 CFG_DECISIONS=
 CFG_HANDOFF=
 CFG_CAPTAIN=
+CFG_BOT=
 CFG_WATCH_DAYS=7
 CFG_POLL_SECONDS=
 CFG_POLL_SEEN=0
 CFG_ERROR=
 
+valid_channel_id() {
+  [[ "$1" =~ ^[CG][A-Z0-9]{2,}$ ]]
+}
+
 valid_channel_ref() {
-  [[ "$1" =~ ^[CG][A-Z0-9]{2,}$ ]] || [[ "$1" =~ ^#[a-z0-9][a-z0-9._-]{0,79}$ ]]
+  valid_channel_id "$1" || [[ "$1" =~ ^#[a-z0-9][a-z0-9._-]{0,79}$ ]]
 }
 
 # Returns 1 when the bridge is off (no config file); 0 otherwise, with
@@ -142,6 +182,12 @@ config_load() {
       decisions-channel) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_DECISIONS=$value ;;
       handoff-channel) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_HANDOFF=$value ;;
       captain-user) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_CAPTAIN=$value ;;
+      bot-keychain-service)
+        value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}
+        [[ "$value" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] \
+          || { CFG_ERROR="config/slack-bridge bot-keychain-service must be a Keychain service name (letters, digits, dot, dash, underscore)"; return 0; }
+        CFG_BOT=$value
+        ;;
       watch-days) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_WATCH_DAYS=$value ;;
       poll-seconds)
         [ "$CFG_POLL_SEEN" -eq 0 ] || { CFG_ERROR="config/slack-bridge poll-seconds must appear only once"; return 0; }
@@ -159,6 +205,9 @@ config_load() {
     CFG_ERROR="config/slack-bridge handoff-channel must be a channel id or #name"
   elif ! [[ "$CFG_CAPTAIN" =~ ^[UW][A-Z0-9]{2,}$ ]]; then
     CFG_ERROR="config/slack-bridge needs captain-user as a Slack user id (U...)"
+  elif [ -n "$CFG_BOT" ] && { ! valid_channel_id "$CFG_REPORT" || ! valid_channel_id "$CFG_DECISIONS" \
+    || { [ -n "$CFG_HANDOFF" ] && ! valid_channel_id "$CFG_HANDOFF"; }; }; then
+    CFG_ERROR="config/slack-bridge with a bot needs every channel as a channel id (C...), because the bot has no scope to look up #names"
   elif ! [[ "$CFG_WATCH_DAYS" =~ ^[0-9]+$ ]] || [ "$CFG_WATCH_DAYS" -lt 1 ] || [ "$CFG_WATCH_DAYS" -gt 30 ]; then
     CFG_ERROR="config/slack-bridge watch-days must be a whole number from 1 to 30"
   elif [ "$CFG_POLL_SEEN" -eq 1 ] \
@@ -201,6 +250,61 @@ ts_int() { printf '%s\n' "${1/./}"; }
 
 one_line() { printf '%s' "$1" | tr '\t\r\n' '   ' | cut -c1-"${2:-100}"; }
 
+# ------------------------------------------------------------------ bot
+
+b64_line() { printf '%s' "$1" | base64 | tr -d '\n'; }
+
+# Run one bin/fm-slack-bot.mjs action on a JSON request. 0 with its stdout in
+# BOT_OUT; otherwise 1 with the helper's one-line reason in BOT_ERROR, which
+# never carries a token because the helper reports bare Slack error codes only.
+BOT_OUT=
+BOT_ERROR=
+bot_run() {  # <seconds> <action> <request-json>
+  local errf rc=0
+  BOT_OUT=
+  BOT_ERROR=
+  command -v node >/dev/null 2>&1 || { BOT_ERROR="node is not installed, so the Slack bot transport is off"; return 1; }
+  errf=$(umask 077; mktemp "$BRIDGE_STATE/.bot-err.XXXXXX" 2>/dev/null) \
+    || { BOT_ERROR="cannot create a scratch file in $BRIDGE_STATE"; return 1; }
+  BOT_OUT=$(printf '%s' "$3" | fm_run_timed "$1" node "$BOT" "$2" 2>"$errf") || rc=$?
+  BOT_ERROR=$(sed -n 's/^fm-slack-bot: //p' "$errf" | sed -n 1p)
+  rm -f -- "$errf"
+  if [ "$rc" -eq 124 ]; then
+    BOT_ERROR="the Slack bot call did not finish within ${1}s"
+    return 1
+  fi
+  if [ "$rc" -ne 0 ]; then
+    BOT_ERROR=${BOT_ERROR:-the Slack bot call failed (rc=$rc)}
+    return 1
+  fi
+  BOT_ERROR=
+  return 0
+}
+
+# Post as the bot. chat.postMessage is not idempotent, so a lost answer is
+# reported rather than retried into a duplicate message.
+BOT_CHANNEL=
+BOT_TS=
+bot_post() {  # <channel-id> <text> [thread-ts]
+  local thread=${3:-} request posted
+  BOT_CHANNEL=
+  BOT_TS=
+  request="{\"keychain\":\"$CFG_BOT\",\"channel\":\"$1\",\"text_b64\":\"$(b64_line "$2")\""
+  [ -z "$thread" ] || request="$request,\"thread\":\"$thread\""
+  bot_run 30 post "$request}" || return 1
+  posted=$(printf '%s\n' "$BOT_OUT" | sed -n 's/^posted \([CGD][A-Z0-9]*\) \([0-9]\{10\}\.[0-9]\{6\}\)$/\1 \2/p' | sed -n 1p)
+  if [ -z "$posted" ]; then
+    BOT_ERROR="the Slack bot did not confirm the post"
+    return 1
+  fi
+  BOT_CHANNEL=${posted%% *}
+  BOT_TS=${posted#* }
+}
+
+record_post() {  # <channel-id> <ts> <kind> <text>
+  printf 'v1\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$(now_epoch)" "$(one_line "$4" 100)" >> "$POSTS"
+}
+
 # ----------------------------------------------------------------- post
 
 # slack-axi draft drops every argument that starts with "-", so a text that
@@ -241,11 +345,18 @@ action_post() {
     return 0
   fi
   [ -z "$CFG_ERROR" ] || die "$CFG_ERROR"
-  command -v slack-axi >/dev/null 2>&1 || die "slack-axi is not installed on PATH"
+  [ -n "$CFG_BOT" ] || command -v slack-axi >/dev/null 2>&1 || die "slack-axi is not installed on PATH"
   state_prepare || die "cannot prepare $BRIDGE_STATE"
   [ -z "$url" ] || text="$text"$'\n'"$url"
-  case "$text" in -*) text="$ZWSP$text" ;; esac
   if [ "$kind" = report ]; then channel=$CFG_REPORT; else channel=$CFG_DECISIONS; fi
+  if [ -n "$CFG_BOT" ]; then
+    bot_post "$channel" "$text" || die "the Slack bot could not post to $channel: $BOT_ERROR"
+    record_post "$BOT_CHANNEL" "$BOT_TS" "$kind" "$text" \
+      || die "posted $BOT_CHANNEL $BOT_TS but could not record it in $POSTS"
+    printf 'posted %s %s %s\n' "$kind" "$BOT_CHANNEL" "$BOT_TS"
+    return 0
+  fi
+  case "$text" in -*) text="$ZWSP$text" ;; esac
 
   rc=0
   out=$(fm_run_timed 30 slack-axi draft "$channel" "$text" 2>&1) || rc=$?
@@ -268,7 +379,7 @@ action_post() {
     slack-axi draft discard "$draft" >/dev/null 2>&1 || true
     die "slack-axi did not confirm the post to $channel (rc=$rc): $(one_line "$sent" 160)"
   fi
-  printf 'v1\t%s\t%s\t%s\t%s\t%s\n' "$channel_id" "$ts" "$kind" "$(now_epoch)" "$(one_line "$text" 100)" >> "$POSTS" \
+  record_post "$channel_id" "$ts" "$kind" "$text" \
     || die "posted $channel_id $ts but could not record it in $POSTS"
   printf 'posted %s %s %s\n' "$kind" "$channel_id" "$ts"
 }
@@ -348,10 +459,26 @@ deliver() {  # <request-id> <source> <body>
   [ "$rc" -eq 0 ]
 }
 
+# Remember where a delivered captain message came from, so `send-reply` can
+# answer in the same DM or thread. One line per request id.
+route_record() {  # <request-id> <channel> <thread-ts|->
+  if [ -f "$ROUTES" ] && awk -F '\t' -v r="$1" '$1 == "v1" && $2 == r { f = 1 } END { exit !f }' "$ROUTES"; then
+    return 0
+  fi
+  printf 'v1\t%s\t%s\t%s\n' "$1" "$2" "$3" >> "$ROUTES"
+}
+
+# A captain message is routed first, then delivered, so a delivered note
+# always has its reply route. 0 delivered, 1 not delivered yet.
+deliver_captain() {  # <request-id> <channel> <thread-ts|-> <body>
+  route_record "$1" "$2" "$3" || return 1
+  deliver "$1" slack-captain "$4"
+}
+
 action_check() {
-  local now window_start budget request handoff_id cursor rc out line errf
+  local now window_start budget request handoff_id cursor dm_cursor rc out line errf reader prefix
   local kind channel parent ts user bot subtype text_b64 name_b64 text name summary rid body
-  local captain=0 requests=0 failed=0 max_handoff=
+  local captain=0 requests=0 failed=0 max_handoff='' max_dm=''
   config_load || { rm -f -- "$CHECK_EVERY"; return 0; }
   state_prepare || { report_problem "cannot prepare $BRIDGE_STATE"; return 0; }
   if [ -n "$CFG_ERROR" ]; then
@@ -396,7 +523,17 @@ action_check() {
     fi
   fi
 
-  [ -n "$thread_lines" ] || [ -n "$handoff_id" ] || { report_write "" || true; return 0; }
+  dm_cursor=
+  if [ -n "$CFG_BOT" ]; then
+    [ -f "$DM_CURSOR" ] && dm_cursor=$(sed -n 1p "$DM_CURSOR")
+    if ! [[ "$dm_cursor" =~ ^[0-9]{10}\.[0-9]{6}$ ]]; then
+      # First poll without an armed DM cursor: start at now, never replay history.
+      printf '%s.000000\n' "$now" > "$DM_CURSOR" || true
+      dm_cursor=
+    fi
+  fi
+
+  [ -n "$thread_lines" ] || [ -n "$handoff_id" ] || [ -n "$dm_cursor" ] || { report_write "" || true; return 0; }
 
   request=$(
     printf '{"threads":['
@@ -407,13 +544,25 @@ action_check() {
     }'
     printf '],"history":['
     [ -z "$handoff_id" ] || printf '{"channel":"%s","oldest":"%s"}' "$handoff_id" "$cursor"
-    printf ']}\n'
+    printf ']'
+    if [ -n "$CFG_BOT" ]; then
+      printf ',"keychain":"%s"' "$CFG_BOT"
+      [ -z "$dm_cursor" ] || printf ',"dm":{"user":"%s","oldest":"%s"}' "$CFG_CAPTAIN" "$dm_cursor"
+    fi
+    printf '}\n'
   )
+  if [ -n "$CFG_BOT" ]; then
+    reader=("$BOT" read)
+    prefix=fm-slack-bot
+  else
+    reader=("$READER")
+    prefix=fm-slack-read
+  fi
   budget=$(budget_secs)
   errf=$(umask 077; mktemp "$BRIDGE_STATE/.read-err.XXXXXX") || { report_problem "cannot create a scratch file in $BRIDGE_STATE"; return 0; }
   rc=0
-  out=$(printf '%s' "$request" | fm_run_timed "$budget" node "$READER" 2>"$errf") || rc=$?
-  line=$(sed -n 's/^fm-slack-read: //p' "$errf" | sed -n 1p)
+  out=$(printf '%s' "$request" | fm_run_timed "$budget" node "${reader[@]}" 2>"$errf") || rc=$?
+  line=$(sed -n "s/^$prefix: //p" "$errf" | sed -n 1p)
   rm -f -- "$errf"
   if [ "$rc" -eq 124 ]; then
     report_problem "Slack read did not finish within the ${budget}s budget"
@@ -425,14 +574,20 @@ action_check() {
   fi
 
   while IFS=$'\t' read -r kind channel parent ts user bot subtype text_b64 name_b64; do
-    case "$kind" in reply|message) ;; *) continue ;; esac
+    case "$kind" in reply|message|dm) ;; *) continue ;; esac
     [[ "$ts" =~ ^[0-9]{10}\.[0-9]{6}$ ]] || continue
+    [[ "$channel" =~ ^[CGD][A-Z0-9]{2,}$ ]] || continue
     if [ "$kind" = message ]; then
       if [ -z "$max_handoff" ] || [ "$(ts_int "$ts")" -gt "$(ts_int "$max_handoff")" ]; then
         max_handoff=$ts
       fi
+    elif [ "$kind" = dm ]; then
+      if [ -z "$max_dm" ] || [ "$(ts_int "$ts")" -gt "$(ts_int "$max_dm")" ]; then
+        max_dm=$ts
+      fi
     fi
-    # Only human messages count; joins, renames, and bot posts never do.
+    # Only human messages count; joins, renames, and bot posts (this home's
+    # own bot and anyone else's) never do.
     [ "$bot" = 0 ] || continue
     case "$subtype" in -|thread_broadcast|file_share) ;; *) continue ;; esac
     [[ "$user" =~ ^[UW][A-Z0-9]+$ ]] || continue
@@ -446,7 +601,16 @@ action_check() {
         '$1 == "v1" && $2 == c && $3 == t { print $4 ": " $6; exit }' "$POSTS")
       [ -n "$summary" ] || summary="bridge post $parent"
       body="[slack] captain reply in thread of $summary (channel $channel, reply ts $ts):"$'\n'"$text"
-      if deliver "$rid" slack-captain "$body"; then
+      if deliver_captain "$rid" "$channel" "$parent" "$body"; then
+        printf '%s\t%s\n' "$channel" "$ts" >> "$DELIVERED"
+        captain=$((captain + 1))
+      else
+        failed=$((failed + 1))
+      fi
+    elif [ "$kind" = dm ]; then
+      [ "$user" = "$CFG_CAPTAIN" ] || continue
+      body="[slack] captain DM to this home's bot (channel $channel, ts $ts):"$'\n'"$text"
+      if deliver_captain "$rid" "$channel" - "$body"; then
         printf '%s\t%s\n' "$channel" "$ts" >> "$DELIVERED"
         captain=$((captain + 1))
       else
@@ -473,6 +637,9 @@ EOF
   if [ -n "$handoff_id" ] && [ "$failed" -eq 0 ] && [ -n "$max_handoff" ]; then
     printf '%s\n' "$max_handoff" > "$HANDOFF_CURSOR" || true
   fi
+  if [ -n "$dm_cursor" ] && [ "$failed" -eq 0 ] && [ -n "$max_dm" ]; then
+    printf '%s\n' "$max_dm" > "$DM_CURSOR" || true
+  fi
   if [ "$failed" -gt 0 ]; then
     report_problem "$failed Slack message(s) could not be delivered to the captain inbox; the next poll retries"
   else
@@ -482,6 +649,143 @@ EOF
     printf 'slack: delivered %s captain reply(s) and %s handoff request(s) to the captain inbox\n' "$captain" "$requests"
   fi
   return 0
+}
+
+# ---------------------------------------------------------- send-reply
+
+note_header() {  # <note-file> <key>
+  sed -n "/^--\$/q; s/^$2=//p" "$1" | sed -n 1p
+}
+
+action_send_reply() {
+  local id=${1:-} note rid source route channel thread reply body done_line
+  [ "$#" -eq 1 ] || { printf 'fm-slack-bridge: usage: send-reply <note-id>\n' >&2; exit 2; }
+  [[ "$id" =~ ^[A-Za-z0-9._-]+$ ]] && [[ "$id" != *..* ]] || { printf 'fm-slack-bridge: invalid note id\n' >&2; exit 2; }
+  # Without a bot the reply stays local, exactly as before the bot existed.
+  config_load || return 0
+  [ -z "$CFG_ERROR" ] || die "$CFG_ERROR"
+  [ -n "$CFG_BOT" ] || return 0
+  state_prepare || die "cannot prepare $BRIDGE_STATE"
+  if [ -f "$INBOX_DIR/$id.note" ]; then
+    note=$INBOX_DIR/$id.note
+  elif [ -f "$INBOX_DIR/handled/$id.note" ]; then
+    note=$INBOX_DIR/handled/$id.note
+  else
+    die "no such note: $id"
+  fi
+  source=$(note_header "$note" source)
+  [ "$source" = slack-captain ] || die "note $id did not come from the captain on Slack (source ${source:-unknown})"
+  rid=$(note_header "$note" request_id)
+  route=
+  [ -f "$ROUTES" ] && route=$(awk -F '\t' -v r="$rid" '$1 == "v1" && $2 == r { print $3 "\t" $4; exit }' "$ROUTES")
+  [ -n "$rid" ] && [ -n "$route" ] || die "no Slack reply route is recorded for note $id"
+  channel=${route%%$'\t'*}
+  thread=${route#*$'\t'}
+  [[ "$channel" =~ ^[CGD][A-Z0-9]{2,}$ ]] || die "the Slack reply route for note $id is malformed"
+  [ "$thread" = - ] || [[ "$thread" =~ ^[0-9]{10}\.[0-9]{6}$ ]] || die "the Slack reply route for note $id is malformed"
+  [ "$thread" != - ] || thread=
+  if [ -f "$REPLIED" ]; then
+    done_line=$(awk -F '\t' -v n="$id" '$1 == "v1" && $2 == n { print $3 " " $4; exit }' "$REPLIED")
+    if [ -n "$done_line" ]; then
+      printf 'slack: reply to %s already posted (%s)\n' "$id" "$done_line"
+      return 0
+    fi
+  fi
+  reply=$INBOX_DIR/.replies/$id
+  [ -f "$reply" ] || die "no reply is recorded for note $id; record it with fm-inbox.sh reply"
+  body=$(awk 'found { print; next } /^--$/ { found = 1 }' "$reply")
+  [ -n "${body//[[:space:]]/}" ] || die "the recorded reply for note $id is empty"
+  bot_post "$channel" "$body" "$thread" || die "the Slack bot could not post the reply to $id: $BOT_ERROR"
+  printf 'v1\t%s\t%s\t%s\n' "$id" "$BOT_CHANNEL" "$BOT_TS" >> "$REPLIED" \
+    || die "posted the reply to $id as $BOT_CHANNEL $BOT_TS but could not record it in $REPLIED"
+  # A top-level DM answer is a new thread the captain may reply in.
+  [ -n "$thread" ] || record_post "$BOT_CHANNEL" "$BOT_TS" reply "$body" || true
+  printf 'slack: reply to %s posted %s %s\n' "$id" "$BOT_CHANNEL" "$BOT_TS"
+}
+
+# -------------------------------------------------------- verify/manifest
+
+action_verify() {
+  local fields bot_user team dm channel
+  config_load || die "config/slack-bridge is absent; write it first (docs/configuration.md \"Slack bridge\")"
+  [ -z "$CFG_ERROR" ] || die "$CFG_ERROR"
+  [ -n "$CFG_BOT" ] || die "verify checks a bot, and config/slack-bridge names none (bot-keychain-service)"
+  state_prepare || die "cannot prepare $BRIDGE_STATE"
+  bot_run 30 verify "{\"keychain\":\"$CFG_BOT\",\"user\":\"$CFG_CAPTAIN\"}" || die "$BOT_ERROR"
+  fields=$(printf '%s\n' "$BOT_OUT" | sed -n 's/^bot\t//p' | sed -n 1p)
+  IFS=$'\t' read -r bot_user team dm <<EOF
+$fields
+EOF
+  [[ "${dm:-}" =~ ^D[A-Z0-9]{2,}$ ]] || die "the Slack bot did not return a DM channel with $CFG_CAPTAIN"
+  printf 'bot: %s in team %s\n' "$bot_user" "$team"
+  # A DM cursor that starts now means the greeting's answer is the first new DM.
+  [ -s "$DM_CURSOR" ] || printf '%s.000000\n' "$(now_epoch)" > "$DM_CURSOR" || die "cannot write $DM_CURSOR"
+  for channel in "$CFG_REPORT" "$CFG_DECISIONS"; do
+    bot_post "$channel" "Firstmate bot check: this home can post here." \
+      || die "the Slack bot could not post to $channel: $BOT_ERROR (invite the bot to the channel)"
+    printf 'posted test %s %s\n' "$BOT_CHANNEL" "$BOT_TS"
+  done
+  bot_post "$dm" "Firstmate bot check: reply to this DM and the answer reaches your firstmate." \
+    || die "the Slack bot could not DM $CFG_CAPTAIN: $BOT_ERROR"
+  record_post "$BOT_CHANNEL" "$BOT_TS" verify "Firstmate bot check DM" || true
+  printf 'posted dm %s %s\n' "$BOT_CHANNEL" "$BOT_TS"
+}
+
+# YAML double-quoted scalar.
+yaml_quote() {
+  local v=${1//\\/\\\\}
+  printf '"%s"' "${v//\"/\\\"}"
+}
+
+action_manifest() {
+  local name="Firstmate" private=0 bot_name
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --name)
+        [ "$#" -ge 2 ] || { printf 'fm-slack-bridge: --name needs a value\n' >&2; exit 2; }
+        name=$2
+        shift 2
+        ;;
+      --private-channels) private=1; shift ;;
+      *) printf 'fm-slack-bridge: unknown manifest option: %s\n' "$1" >&2; exit 2 ;;
+    esac
+  done
+  # Slack caps an app name at 35 characters.
+  if [ "${#name}" -lt 1 ] || [ "${#name}" -gt 35 ] || [[ "$name" =~ [[:cntrl:]] ]] \
+    || [ -z "${name//[[:space:]]/}" ]; then
+    printf 'fm-slack-bridge: --name must be 1 to 35 printable characters\n' >&2
+    exit 2
+  fi
+  bot_name=$(yaml_quote "$name")
+  cat <<EOF
+# Slack app manifest for one firstmate home's bot (bin/fm-slack-bridge.sh manifest).
+# Paste into https://api.slack.com/apps -> Create New App -> From a manifest.
+display_information:
+  name: $bot_name
+  description: "Firstmate reports, decisions, and replies for one person's home"
+features:
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: $bot_name
+    always_online: false
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - channels:history
+EOF
+  [ "$private" -eq 0 ] || printf '      - groups:history\n'
+  cat <<'EOF'
+      - im:history
+      - im:write
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
+EOF
 }
 
 # ------------------------------------------------------------ arm/disarm
@@ -538,6 +842,9 @@ action_arm() {
   if [ -n "$CFG_HANDOFF" ] && [ ! -s "$HANDOFF_CURSOR" ]; then
     printf '%s.000000\n' "$(now_epoch)" > "$HANDOFF_CURSOR" || die "cannot write $HANDOFF_CURSOR"
   fi
+  if [ -n "$CFG_BOT" ] && [ ! -s "$DM_CURSOR" ]; then
+    printf '%s.000000\n' "$(now_epoch)" > "$DM_CURSOR" || die "cannot write $DM_CURSOR"
+  fi
   # A shim without a matching trust binding makes the watcher wake on every
   # cycle, so any failure here removes the shim rather than leaving it unbound.
   if ! shim_write "$(shim_content "$home")"; then
@@ -561,6 +868,9 @@ case "${1:-}" in
   check) action_check ;;
   arm) action_arm ;;
   disarm) action_disarm ;;
+  send-reply) shift; action_send_reply "$@" ;;
+  verify) action_verify ;;
+  manifest) shift; action_manifest "$@" ;;
   -h|--help|help) usage ;;
   '') usage >&2; exit 2 ;;
   *) printf 'fm-slack-bridge: unknown action: %s\n' "$1" >&2; usage >&2; exit 2 ;;
