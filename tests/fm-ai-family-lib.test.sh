@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Behavioral tests for bin/fm-ai-family-lib.sh: which AI family (model maker)
-# a harness and model resolve to, read from the harness catalog and never from
-# a name.
+# a harness and model resolve to, read from the harness catalog or its
+# documented native model surface, never from a name alone.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -31,10 +31,26 @@ test_harness_names_do_not_prove_family() {
   local h
   for h in claude codex grok kimi gemini muse; do
     assert_equals unknown "$(resolve "$h")" "harness '$h' alone cannot prove its model family"
-    assert_equals unknown "$(resolve "$h" claude-opus-5-5)" "a model name cannot prove the family for harness '$h'"
+    if [ "$h" != claude ]; then
+      assert_equals unknown "$(resolve "$h" claude-opus-5-5)" "a model name cannot prove the family for harness '$h'"
+    fi
   done
   assert_equals anthropic "$(resolve claude default)" "Claude Code's default catalog identifies its native Anthropic model"
   pass "a harness or model name alone never proves the AI family"
+}
+
+test_claude_native_models() {
+  local model
+  for model in claude-opus-5-5 claude-sonnet-5-5 claude-haiku-4-5-20251001 claude-fable-5-1 opus sonnet haiku fable default; do
+    assert_equals anthropic "$(resolve claude "$model")" "Claude Code native model $model"
+  done
+  for model in gpt-6-luna anthropic/claude-opus-5-5 claude-not-a-model claude-opus- claude-opus-5-other; do
+    assert_equals unknown "$(resolve claude "$model")" "not a documented Claude model shape: $model"
+  done
+  fm_ai_family_resolve claude claude-opus-5-5
+  assert_contains "$FM_AI_FAMILY_SOURCE" "Claude Code" "source identifies the native catalog"
+  assert_contains "$FM_AI_FAMILY_SOURCE" "claude-opus-5-5" "source identifies the resolved model"
+  pass "Claude Code native full model names and aliases identify Anthropic"
 }
 
 test_multi_maker_harnesses_are_unknown() {
@@ -91,6 +107,8 @@ test_union_and_disjoint() {
   fm_ai_family_disjoint anthropic openai || fail "anthropic and openai are disjoint"
   fm_ai_family_disjoint anthropic,xai openai || fail "a known set without overlap is disjoint"
   ! fm_ai_family_disjoint anthropic,openai openai || fail "an overlapping set is not disjoint"
+  ! fm_ai_family_disjoint anthropic anthropic || fail "the same maker is not disjoint"
+  ! fm_ai_family_disjoint anthropic,anthropic anthropic || fail "duplicated overlapping makers are not disjoint"
   ! fm_ai_family_disjoint anthropic unknown || fail "unknown never proves a different family"
   ! fm_ai_family_disjoint unknown,openai anthropic || fail "a set containing unknown is not provably disjoint"
   ! fm_ai_family_disjoint '' openai || fail "an empty set is not provably disjoint"
@@ -98,6 +116,7 @@ test_union_and_disjoint() {
 }
 
 test_harness_names_do_not_prove_family
+test_claude_native_models
 test_multi_maker_harnesses_are_unknown
 test_provider_qualified_models
 test_unqualified_models_read_the_catalog

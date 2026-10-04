@@ -8,10 +8,13 @@
 # deepseek, zai), never a harness, an account, or a quota provider: one
 # harness can serve several makers, and two harnesses can serve one maker.
 #
-# The family is read from the harness's authoritative model catalog, never
-# inferred from the harness, model, or seat name. A family is known only when a
-# catalog row identifies one provider for the exact resolved model, and that
-# provider serves one maker. A gateway that serves several makers resolves to
+# The family is read from the harness's authoritative model catalog or its
+# documented native model surface, never from a harness, model, or seat name
+# alone. Claude Code's --help documents native aliases and full model names;
+# its Claude model ids and aliases identify Anthropic, as Codex's gpt-* ids
+# identify OpenAI. Otherwise a catalog row must identify one provider for the
+# exact resolved model, and that provider must serve one maker.
+# A gateway that serves several makers resolves to
 # `unknown`, because its catalog row does not prove the model maker.
 # `unknown` is a verdict, not a failure: a caller that needs two families to
 # differ must treat `unknown` as "independence cannot be proven".
@@ -76,10 +79,24 @@ fm_ai_family_resolve() {  # <harness> [<model>]
   local harness=$1 model=${2:-} provider id fam
   FM_AI_FAMILY=unknown
   FM_AI_FAMILY_SOURCE=
-  if [ "$harness" = claude ] && [ "$model" = default ]; then
-    FM_AI_FAMILY=anthropic
-    FM_AI_FAMILY_SOURCE="Claude Code default model catalog is Anthropic"
-    return 0
+  if [ "$harness" = claude ]; then
+    case "$model" in
+      default)
+        FM_AI_FAMILY=anthropic
+        FM_AI_FAMILY_SOURCE="Claude Code default model catalog is Anthropic"
+        return 0
+        ;;
+      opus|sonnet|haiku|fable)
+        FM_AI_FAMILY=anthropic
+        FM_AI_FAMILY_SOURCE="Claude Code native model catalog (--help aliases) identifies Anthropic for $model"
+        return 0
+        ;;
+    esac
+    if [[ "$model" =~ ^claude-(opus|sonnet|haiku|fable)-[0-9]+(-[0-9]+)*$ ]]; then
+      FM_AI_FAMILY=anthropic
+      FM_AI_FAMILY_SOURCE="Claude Code native model catalog (--help full names) identifies Anthropic for $model"
+      return 0
+    fi
   fi
   case "$harness:$model" in codex:gpt-*)
     FM_AI_FAMILY=openai
