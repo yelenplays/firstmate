@@ -456,6 +456,14 @@ glab_merge_line() {
   grep -F ' mr merge ' "$1" || true
 }
 
+run_pm_arm() {
+  local case_dir=$1 id=$2
+  FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$case_dir/home" FM_STATE_OVERRIDE="$case_dir/state" \
+    PATH="$case_dir/fakebin:$PATH" FM_TEST_GH_LOG="$case_dir/gh.log" \
+    FM_TEST_GH_HEAD="$case_dir/github-head" FM_TEST_GH_VIEW_JSON="$case_dir/github-view.json" \
+    FAKE_GH_DIR="$case_dir/fakebin" "$ROOT/bin/fm-post-merge.sh" arm "$id"
+}
+
 run_pr_merge() {
   local case_dir=$1 rc; shift
   FM_ROOT_OVERRIDE="$ROOT" \
@@ -2424,6 +2432,40 @@ test_gitlab_missing_tool_refuses_before_recording
 # held and the merge must proceed; a backlog that EXISTS but cannot be read may
 # hide a live hold, so that one must refuse. The two states are distinct and
 # only the second is a refusal.
+test_arm_failure_keeps_pr_merge_watch_marker_for_retry() {
+  local case_dir rc out decision
+  case_dir=$(make_case pr-watch-arm-failure)
+  add_gh_mocks "$case_dir" 6161616161616161616161616161616161616161
+  printf '%s\n' '- project [no-mistakes witness=invalid] - live product' > "$case_dir/home/data/projects.md"
+  set +e
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 >"$case_dir/stdout" 2>"$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 1 "$rc" "pr-watch-arm-failure: merge did not fail when its watch could not arm"
+  assert_logged_gh_merge "$case_dir" 61 example/repo --squash
+  assert_grep 'post_merge_watch_required=pending' "$case_dir/state/task-x1.meta" "the failed handoff dropped its marker"
+  assert_grep 'retry: FM_HOME=' "$case_dir/stderr" "the failure omitted its retry environment"
+  assert_grep 'fm-post-merge.sh arm task-x1' "$case_dir/stderr" "the failure omitted its retry command"
+  decision=$(bash -c '. "$1"; if fm_post_merge_teardown_transition "$2" task-x1 "$3"; then echo "$FM_POST_MERGE_TEARDOWN"; else echo "refuse: $FM_POST_MERGE_TEARDOWN_ERROR"; fi' \
+    _ "$ROOT/bin/fm-post-merge-lib.sh" "$case_dir/state" "$case_dir/state/task-x1.meta")
+  assert_contains "$decision" 'pending post-merge watch marker' "teardown accepted a missing watch"
+  printf '%s\n' '- project [no-mistakes witness=https://example.test] - live product' > "$case_dir/home/data/projects.md"
+  out=$(run_pm_arm "$case_dir" task-x1 2>&1) || fail "retry did not arm the PR watch: $out"
+  assert_present "$case_dir/state/task-x1.post-merge" "retry did not create the watch"
+  assert_no_grep 'post_merge_watch_required=' "$case_dir/state/task-x1.meta" "retry did not clear the marker after recording the watch"
+  pass "fm-pr-merge: failed watch handoff stays blocked until the exact arm retry succeeds"
+}
+
+test_pr_watch_marker_without_record_blocks_teardown() {
+  local case_dir decision
+  case_dir=$(make_case pr-watch-interrupted)
+  printf 'post_merge_watch_required=pending\n' >> "$case_dir/state/task-x1.meta"
+  decision=$(bash -c '. "$1"; if fm_post_merge_teardown_transition "$2" task-x1 "$3"; then echo "$FM_POST_MERGE_TEARDOWN"; else echo "refuse: $FM_POST_MERGE_TEARDOWN_ERROR"; fi' \
+    _ "$ROOT/bin/fm-post-merge-lib.sh" "$case_dir/state" "$case_dir/state/task-x1.meta")
+  assert_contains "$decision" 'pending post-merge watch marker' "teardown accepted an interrupted PR handoff"
+  pass "fm-pr-merge: an interrupted handoff marker prevents cleanup"
+}
+
 test_absent_backlog_still_merges() {
   local case_dir rc
   case_dir=$(make_case absent-backlog-merges)
@@ -3851,6 +3893,8 @@ test_queued_github_merge_leaves_the_poll_armed
 test_distinct_merged_prs_keep_distinct_wakes
 test_uncommitted_marker_retry_is_never_silent
 test_secondmate_without_parent_binding_is_loud
+test_arm_failure_keeps_pr_merge_watch_marker_for_retry
+test_pr_watch_marker_without_record_blocks_teardown
 test_absent_backlog_still_merges
 test_unreadable_backlog_refuses_the_merge
 test_unreadable_backend_config_refuses_the_merge

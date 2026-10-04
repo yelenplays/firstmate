@@ -450,10 +450,12 @@ test_record_from_an_earlier_incarnation_is_ignored() {
 
 L_PROJ=
 L_FIX=
+L_MERGE_RC=0
+L_MERGE_OUT=
 
 # A local-only task whose branch adds a broken file, merged through the real
 # fm-merge-local.sh. Sets W_HOME, W_ID, L_PROJ, and L_FIX.
-make_local_world() {  # <name>
+make_local_world() {  # <name> [fail-arm]
   local dir="$TMP_ROOT/$1" out
   W_ID=$1
   W_HOME="$dir/home"
@@ -463,7 +465,11 @@ make_local_world() {  # <name>
   mkdir -p "$W_HOME/state" "$W_HOME/data" "$W_HOME/config" "$W_FAKE" "$W_BIN"
   fm_test_track_procevent_home "$W_HOME"
   write_fake_gh "$W_BIN"
-  printf '%s\n' '- proj [local-only witness=http://localhost:4321] - staged local project' > "$W_HOME/data/projects.md"
+  if [ "${2:-}" = fail-arm ]; then
+    printf '%s\n' '- proj [local-only witness=invalid] - staged local project' > "$W_HOME/data/projects.md"
+  else
+    printf '%s\n' '- proj [local-only witness=http://localhost:4321] - staged local project' > "$W_HOME/data/projects.md"
+  fi
   fm_git_init_commit "$L_PROJ"
   git -C "$L_PROJ" checkout -qb "fm/$W_ID"
   printf 'broken\n' > "$L_PROJ/feature.txt"
@@ -476,12 +482,46 @@ make_local_world() {  # <name>
   run_tasks add "$W_ID" "Add the feature" --kind ship --start >/dev/null 2>&1 \
     || run_tasks add "$W_ID" "Add the feature" --kind ship >/dev/null || fail "could not seed the backlog item"
   run_tasks start "$W_ID" >/dev/null 2>&1 || true
-  out=$(FM_HOME="$W_HOME" "$MERGE_LOCAL" "$W_ID" 2>&1) || fail "the local merge failed: $out"
-  assert_present "$W_HOME/state/$W_ID.post-merge" "the local merge did not arm its post-merge watch"
+  L_MERGE_RC=0
+  if out=$(FM_HOME="$W_HOME" "$MERGE_LOCAL" "$W_ID" 2>&1); then
+    L_MERGE_OUT=$out
+  else
+    L_MERGE_RC=$?
+    L_MERGE_OUT=$out
+  fi
+  if [ "${2:-}" != fail-arm ]; then
+    [ "$L_MERGE_RC" -eq 0 ] || fail "the local merge failed: $L_MERGE_OUT"
+    assert_present "$W_HOME/state/$W_ID.post-merge" "the local merge did not arm its post-merge watch"
+  fi
 }
 
 merge_local() {
   FM_HOME="$W_HOME" "$MERGE_LOCAL" "$@"
+}
+
+test_local_arm_failure_keeps_marker_for_retry() {
+  local out decision
+  make_local_world pm-local-arm-failure fail-arm
+  assert_equals 1 "$L_MERGE_RC" "the local landing returned success when watch arming failed"
+  assert_contains "$L_MERGE_OUT" 'landed fm/pm-local-arm-failure but post-merge watch could not be armed' "the local failure did not identify the failed handoff"
+  assert_contains "$L_MERGE_OUT" 'retry: FM_HOME=' "the local failure omitted its exact retry command"
+  assert_grep 'post_merge_watch_required=pending' "$W_HOME/state/$W_ID.meta" "the local failed handoff dropped its marker"
+  assert_absent "$W_HOME/state/$W_ID.post-merge" "the deliberately failed arm created a watch"
+  decision=$(teardown_rule)
+  assert_contains "$decision" 'pending post-merge watch marker' "teardown accepted a failed local handoff"
+  printf '%s\n' '- proj [local-only witness=http://localhost:4321] - staged local project' > "$W_HOME/data/projects.md"
+  out=$(pm_raw arm "$W_ID" 2>&1) || fail "retry did not arm the local watch: $out"
+  assert_present "$W_HOME/state/$W_ID.post-merge" "retry did not create the local watch"
+  assert_no_grep 'post_merge_watch_required=' "$W_HOME/state/$W_ID.meta" "retry did not clear the marker after recording the watch"
+  pass "fm-merge-local: failed watch handoff remains blocked until arm retry succeeds"
+}
+
+test_local_watch_marker_without_record_blocks_teardown() {
+  make_local_world pm-local-interrupted
+  rm -f "$W_HOME/state/$W_ID.post-merge"
+  printf 'post_merge_watch_required=pending\n' >> "$W_HOME/state/$W_ID.meta"
+  assert_contains "$(teardown_rule)" 'pending post-merge watch marker' "teardown accepted an interrupted local handoff"
+  pass "fm-merge-local: an interrupted handoff marker prevents cleanup"
 }
 
 test_local_witness_failure_reverts() {
@@ -606,6 +646,8 @@ test_revert_without_green_checks_is_held
 test_witness_result_needs_exactly_one_verdict
 test_arm_refusals_and_rearm
 test_record_from_an_earlier_incarnation_is_ignored
+test_local_arm_failure_keeps_marker_for_retry
+test_local_watch_marker_without_record_blocks_teardown
 test_local_witness_failure_reverts
 test_post_merge_resumes_durable_local_revert
 test_interrupted_local_revert_is_idempotent

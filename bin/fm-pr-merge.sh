@@ -373,6 +373,8 @@ META="$STATE/$ID.meta"
 
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+# shellcheck source=bin/fm-post-merge-lib.sh
+. "$SCRIPT_DIR/fm-post-merge-lib.sh"
 # Role partition: merging is MAIN-owned while attended; the Pi supervision
 # branch reports the green PR and never merges (contract: bin/fm-lease-lib.sh;
 # no-op in homes without a branch actor). While the away-posture record exists
@@ -1338,6 +1340,10 @@ require_current_away_authority || away_status=$?
 require_recorded_pr_identity || exit 1
 record_pr_metadata || exit 1
 require_released_captain_hold || exit 1
+if [ -n "$(fm_post_merge_record_get "$META" post_merge_watch_required)" ]; then
+  echo "error: task $ID has a pending post-merge watch; retry bin/fm-post-merge.sh arm $ID instead of merging again" >&2
+  exit 1
+fi
 
 # Accepted confused-agent-grade limitation, as in bin/fm-lease-lib.sh, not an
 # oversight: if this lock-owning shell dies while its gh or glab child lives,
@@ -1387,6 +1393,10 @@ case "$PROVIDER" in
     require_current_away_authority || away_status=$?
     [ "$away_status" -eq 0 ] || exit "$away_status"
     refuse_github_queue_while_away || exit 2
+    fm_post_merge_watch_required_set "$STATE" "$META" pending || {
+      echo "error: could not persist the post-merge watch marker; refusing to merge" >&2
+      exit 1
+    }
     merge_status=0
     merge_output=$(fm_gh_owner_run "$PR_OWNER" gh pr merge "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" \
       --match-head-commit "$FM_PR_MERGE_HEAD" \
@@ -1404,6 +1414,7 @@ case "$PROVIDER" in
       [ -z "$merge_output" ] || printf '%s\n' "$merge_output" >&2
       if github_read_outcome; then
         if [ "$FM_PR_GITHUB_MERGED" != true ] && [ "$FM_PR_GITHUB_QUEUED" != true ]; then
+          fm_post_merge_watch_required_set "$STATE" "$META" '' || true
           github_report_unmerged_outcome
         else
           printf 'actionable: the merge command for %s failed, but the pull request reads back as state=%s, merged=%s, isInMergeQueue=%s\n' \
@@ -1424,6 +1435,10 @@ case "$PROVIDER" in
         "$URL" "$FM_PR_GITHUB_STATE" "$FM_PR_GITHUB_MERGED" "$FM_PR_GITHUB_QUEUED"
       exit 0
     else
+      fm_post_merge_watch_required_set "$STATE" "$META" '' || {
+        echo "error: $URL is not merged and its post-merge marker could not be cleared" >&2
+        exit 1
+      }
       github_report_forge_output "$merge_output"
       github_report_unmerged_outcome
       exit 1
@@ -1446,6 +1461,10 @@ case "$PROVIDER" in
     if [ "$FM_PR_AWAY_POSTURE" = true ]; then
       gitlab_merge_args=(--auto-merge=false)
     fi
+    fm_post_merge_watch_required_set "$STATE" "$META" pending || {
+      echo "error: could not persist the post-merge watch marker; refusing to merge" >&2
+      exit 1
+    }
     GITLAB_HOST="$FM_PR_HOST" glab mr merge "$PR_NUMBER" -R "$PROJECT_URL" \
       --sha "$FM_PR_MERGE_HEAD" --yes "$@" "${gitlab_merge_args[@]+"${gitlab_merge_args[@]}"}" || merge_status=$?
     if [ "$merge_status" -ne 0 ]; then
@@ -1460,6 +1479,13 @@ case "$PROVIDER" in
     MERGE_CONTROL_LOCK=
     gitlab_confirm_rc=0
     gitlab_confirm_merged || gitlab_confirm_rc=$?
+    if [ "$gitlab_confirm_rc" -eq 1 ]; then
+      fm_post_merge_watch_required_set "$STATE" "$META" '' || {
+        echo "error: $URL is not merged and its post-merge marker could not be cleared" >&2
+        exit 1
+      }
+      exit 0
+    fi
     [ "$gitlab_confirm_rc" -eq 0 ] || exit 0
     ;;
   *)
@@ -1484,20 +1510,10 @@ case "$outcome_rc" in
     printf 'actionable: merged %s but could not record the outcome for supervision\n' "$URL" >&2
     ;;
 esac
-project_name=$(basename "$(grep '^project=' "$META" | tail -1 | cut -d= -f2-)")
-witness_target=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-project-mode.sh" --witness "$project_name") || {
-  printf 'actionable: merged %s but could not read the registered witness target; arm bin/fm-post-merge.sh for %s before cleanup\n' "$URL" "$ID" >&2
-  exit 0
+arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" 2>&1) || {
+  printf 'error: merged %s but post-merge watch could not be armed: %s\n' "$URL" "$arm_out" >&2
+  printf 'retry: FM_HOME=%q FM_STATE_OVERRIDE=%q %q arm %q\n' \
+    "$FM_HOME" "$STATE" "$SCRIPT_DIR/fm-post-merge.sh" "$ID" >&2
+  exit 1
 }
-if [ -n "$witness_target" ]; then
-  arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" --witness "$witness_target" 2>&1) || {
-    printf 'actionable: merged %s but post-merge watch could not be armed for %s: %s\n' "$URL" "$ID" "$arm_out" >&2
-    exit 0
-  }
-else
-  arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" --no-witness 'project has no registered witness target' 2>&1) || {
-    printf 'actionable: merged %s but post-merge watch could not be armed for %s: %s\n' "$URL" "$ID" "$arm_out" >&2
-    exit 0
-  }
-fi
 printf '%s\n' "$arm_out"
