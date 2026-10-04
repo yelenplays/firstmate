@@ -9,7 +9,7 @@
 #   fm-slack-bridge.sh arm
 #   fm-slack-bridge.sh disarm
 #   fm-slack-bridge.sh send-reply <note-id>
-#   fm-slack-bridge.sh verify
+#   fm-slack-bridge.sh verify    (manual setup only; never run by the watcher)
 #   fm-slack-bridge.sh manifest [--name <app-name>] [--private-channels]
 #   fm-slack-bridge.sh --help
 #
@@ -53,9 +53,11 @@
 # `fm-inbox.sh reply` runs it itself; without a bot it does nothing and prints
 # nothing, so the reply stays local as before.
 #
-# `verify` proves a bot setup end to end: it checks the token, posts one test
-# message to each configured channel, and DMs `captain-user` a greeting to
-# answer. `manifest` prints the Slack app manifest a person pastes into "Create
+# `verify` is only for a human to invoke explicitly during setup; `check`,
+# `arm`, the watcher, and other automation never call it. It checks the token,
+# posts one clearly labeled setup test to each configured channel, and DMs
+# `captain-user` a labeled setup test to answer; the posts can be ignored or
+# deleted. `manifest` prints the Slack app manifest a person pastes into "Create
 # an app -> From a manifest", with the app and bot named by --name and only the
 # scopes the bot transport uses.
 #
@@ -124,7 +126,7 @@ Usage:
   fm-slack-bridge.sh arm       write and register state/slack-bridge.check.sh
   fm-slack-bridge.sh disarm    remove the check shim and its trust binding
   fm-slack-bridge.sh send-reply <note-id>   post the recorded reply to a slack-captain note back through the bot
-  fm-slack-bridge.sh verify    bot setup check: token, one test post per channel, and a DM to answer
+  fm-slack-bridge.sh verify    manual setup only; posts labeled setup tests (never run by automation)
   fm-slack-bridge.sh manifest [--name <app-name>] [--private-channels]   print the Slack app manifest for a bot
   fm-slack-bridge.sh --help    print this help
 
@@ -729,13 +731,13 @@ EOF
   # A DM cursor that starts now means the greeting's answer is the first new DM.
   [ -s "$DM_CURSOR" ] || printf '%s.000000\n' "$(now_epoch)" > "$DM_CURSOR" || die "cannot write $DM_CURSOR"
   for channel in "$CFG_REPORT" "$CFG_DECISIONS"; do
-    bot_post "$channel" "Firstmate bot check: this home can post here." \
+    bot_post "$channel" "Setup test from firstmate: bot channel check (one-time setup test; ignore or delete)." \
       || die "the Slack bot could not post to $channel: $BOT_ERROR (invite the bot to the channel)"
     printf 'posted test %s %s\n' "$BOT_CHANNEL" "$BOT_TS"
   done
-  bot_post "$dm" "Firstmate bot check: reply to this DM and the answer reaches your firstmate." \
+  bot_post "$dm" "Setup test from firstmate: reply to this one-time setup test to confirm the DM round trip; ignore or delete afterward." \
     || die "the Slack bot could not DM $CFG_CAPTAIN: $BOT_ERROR"
-  record_post "$BOT_CHANNEL" "$BOT_TS" verify "Firstmate bot check DM" || true
+  record_post "$BOT_CHANNEL" "$BOT_TS" verify "Setup test from firstmate: DM round trip" || true
   printf 'posted dm %s %s\n' "$BOT_CHANNEL" "$BOT_TS"
 }
 

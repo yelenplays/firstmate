@@ -1953,7 +1953,7 @@ With a bot, `bin/fm-inbox.sh reply <note-id> <text>` on a `slack-captain` note a
 Before posting, it checks the destination DM or thread for that marker; if Slack accepted a post but its response was lost, the retry finds the existing bot message and records it rather than posting a duplicate.
 If the check or post fails, the reply stays recorded, `reply` exits 3, and `send-reply` can be retried.
 Without a bot, a reply stays local and its output is unchanged.
-`bin/fm-slack-bridge.sh verify` checks a bot setup: the token, one test post per channel, and a DM to the captain to answer.
+`bin/fm-slack-bridge.sh verify` is a manual setup command only; `check`, `arm`, the watcher, and other automation never invoke it. It checks the bot token and posts clearly labeled one-time setup tests to both channels and the captain's DM. These messages can be ignored or deleted; reply to the DM to confirm the round trip.
 
 **Receiving**
 

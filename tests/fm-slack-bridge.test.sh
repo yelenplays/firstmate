@@ -667,6 +667,9 @@ test_bot_verify_round_trip() {
   assert_contains "$out" "posted test C0REPORT01" "verify posts to the report channel"
   assert_contains "$out" "posted test C0DECIDE01" "verify posts to the decisions channel"
   assert_contains "$out" "posted dm D0DMCAPT01" "verify DMs the captain"
+  assert_contains "$(posted_requests "$home")" "C0REPORT01 - Setup test from firstmate: bot channel check (one-time setup test; ignore or delete)." "the report post is labeled for setup"
+  assert_contains "$(posted_requests "$home")" "C0DECIDE01 - Setup test from firstmate: bot channel check (one-time setup test; ignore or delete)." "the decisions post is labeled for setup"
+  assert_contains "$(posted_requests "$home")" "D0DMCAPT01 - Setup test from firstmate: reply to this one-time setup test to confirm the DM round trip; ignore or delete afterward." "the DM is labeled for setup"
   assert_grep $'\tD0DMCAPT01\t1791140500.000003\tverify\t' "$home/state/slack-bridge/posts" "the greeting DM is watched for thread replies"
   printf '{"notInChannel":["C0DECIDE01"]}\n' > "$home/bot-fixture.json"
   rc=0
