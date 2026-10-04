@@ -994,10 +994,10 @@ test_ship_and_scout_prior_art_uses_authorized_deliverable() {
     brief="$home/data/$id/brief.md"
     assert_grep "# Prior art" "$brief" "$kind brief has no prior-art section"
     if [ "$kind" = scout ]; then
-      assert_grep "Record findings in a 'Prior art' section of" "$brief" "scout prior-art output is not its report"
-      assert_grep "Do not create or use a guide for prior-art findings" "$brief" "scout prior-art creates an unauthorized guide deliverable"
+      assert_grep "$home/data/$id/report.md" "$brief" "scout prior-art output is not its guide report"
+      assert_grep "this report is the scout's guide, not a new deliverable" "$brief" "scout prior-art destination is not identified as its guide"
     else
-      assert_grep "Record what you found in the task's guide" "$brief" "$kind prior-art output is not the task guide"
+      assert_grep "$home/data/$id/guide.md" "$brief" "$kind prior-art output is not the task guide"
     fi
   done
   pass "fm-brief.sh: prior-art findings use each brief's authorized deliverable"

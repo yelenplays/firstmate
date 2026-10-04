@@ -84,7 +84,7 @@
 # from the project's registry wiki token and a "# Wiki guide" step whose marker
 # bin/fm-teardown.sh enforces; bin/fm-wiki-lib.sh owns both.
 # Every ship and scout brief also carries a bounded, skippable "# Prior art" step
-# (past reports, wikis, GitHub); findings go in the ship guide or scout report.
+# (past reports, wikis, GitHub); findings go in the ship guide or scout report guide.
 # Both crewmate scaffolds carry one shared rule against administering the
 # infrastructure every lane shares - the no-mistakes daemon and the worktree pool
 # their own slot came from - so ship and scout cannot drift apart. A secondmate
@@ -591,11 +591,11 @@ SHARED_INFRA_RULE=${SHARED_INFRA_RULE%$'\n'}
 # Share prior-art checks between ship and scout, but keep findings within each
 # brief's existing deliverable boundary.
 if [ "$KIND" = scout ]; then
-  PRIOR_ART_DESTINATION="Record findings in a 'Prior art' section of \`report.md\`, with links, each marked adopt, adapt, or reject. Do not create or use a guide for prior-art findings."
-  PRIOR_ART_SKIP_DESTINATION="A trivial fix may skip this step with a one-line stated reason in \`report.md\`; a source that is missing, unconfigured, or not answering is noted there and skipped, never waited on."
+  PRIOR_ART_DESTINATION="Record findings in a 'Prior art' section of \`$DATA/$ID/report.md\`; this report is the scout's guide, not a new deliverable."
+  PRIOR_ART_SKIP_DESTINATION="A trivial fix may skip this step with a one-line stated reason in that section; a source that is missing, unconfigured, or not answering is noted there and skipped, never waited on."
 else
-  PRIOR_ART_DESTINATION="Record what you found in the task's guide with links, each marked adopt, adapt, or reject."
-  PRIOR_ART_SKIP_DESTINATION="A trivial fix may skip this step with a one-line stated reason in the guide; a source that is missing, unconfigured, or not answering is noted there and skipped, never waited on."
+  PRIOR_ART_DESTINATION="Record findings in the task's guide at \`$DATA/$ID/guide.md\`."
+  PRIOR_ART_SKIP_DESTINATION="A trivial fix may skip this step with a one-line stated reason in that guide; a source that is missing, unconfigured, or not answering is noted there and skipped, never waited on."
 fi
 IFS= read -r -d '' PRIOR_ART_SECTION <<EOF || true
 # Prior art
