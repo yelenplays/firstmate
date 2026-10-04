@@ -579,6 +579,7 @@ test_merge_failure_propagates_after_recording() {
   case_dir=$(make_case merge-fails)
   mkdir -p "$case_dir/wt"
   add_gh_mocks_merge_fails "$case_dir"
+  write_github_outcome "$case_dir" OPEN false false main
   : > "$case_dir/gh-axi.log"
 
   set +e
@@ -1259,16 +1260,43 @@ test_github_failed_merge_names_an_observed_landed_state() {
   rc=$?
   set -e
 
-  expect_code 1 "$rc" "github-failed-merge-actually-landed: the forge failure must still fail the wrapper"
+  expect_code 0 "$rc" "github-failed-merge-actually-landed: a confirmed merge should succeed"
   assert_grep 'error: pr merge failed' "$case_dir/stderr" \
-    "github-failed-merge-actually-landed: the original forge error was masked"
-  assert_grep 'state=MERGED, merged=true, isInMergeQueue=false' "$case_dir/stderr" \
-    "github-failed-merge-actually-landed: the observed landed state was never named"
-  assert_no_grep 'verified: ' "$case_dir/stdout" \
-    "github-failed-merge-actually-landed: a failed merge command was reported as verified"
+    "github-failed-merge-actually-landed: the forge diagnostic was lost"
+  assert_grep 'verified: https://github.com/example/repo/pull/64 is merged' "$case_dir/stdout" \
+    "github-failed-merge-actually-landed: the confirmed merge was not reported"
+  assert_present "$case_dir/state/task-x1.post-merge" \
+    "github-failed-merge-actually-landed: the confirmed merge did not arm its post-merge watch"
+  assert_no_grep 'post_merge_watch_required=' "$case_dir/state/task-x1.meta" \
+    "github-failed-merge-actually-landed: successful watch arming left its pending marker"
   assert_grep 'pr=https://github.com/example/repo/pull/64' "$case_dir/state/task-x1.meta" \
     "github-failed-merge-actually-landed: the landed PR lost its reference"
-  pass "fm-pr-merge names a landed state hiding behind a failed GitHub merge command"
+  pass "fm-pr-merge arms the watch when a failed merge command nevertheless landed"
+}
+
+test_github_failed_merge_landed_watch_arm_failure_keeps_retry() {
+  local case_dir rc
+  case_dir=$(make_case github-failed-merge-landed-watch-arm-failure)
+  add_gh_mocks_merge_fails "$case_dir"
+  write_github_outcome "$case_dir" MERGED true false main
+  printf '%s\n' '- project [no-mistakes witness=invalid] - live product' > "$case_dir/home/data/projects.md"
+
+  set +e
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/65 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "github-failed-merge-landed-watch-arm-failure: failed handoff should remain retryable"
+  assert_grep 'retry: FM_HOME=' "$case_dir/stderr" \
+    "github-failed-merge-landed-watch-arm-failure: arm failure omitted retry environment"
+  assert_grep 'fm-post-merge.sh arm task-x1' "$case_dir/stderr" \
+    "github-failed-merge-landed-watch-arm-failure: arm failure omitted retry command"
+  assert_grep 'post_merge_watch_required=pending' "$case_dir/state/task-x1.meta" \
+    "github-failed-merge-landed-watch-arm-failure: failed handoff cleared its marker"
+  assert_absent "$case_dir/state/task-x1.post-merge" \
+    "github-failed-merge-landed-watch-arm-failure: invalid witness unexpectedly armed the watch"
+  pass "fm-pr-merge prints the watch retry after a confirmed merge cannot arm"
 }
 
 test_github_without_gh_still_uses_gh_axi_merge() {
@@ -2473,6 +2501,7 @@ test_github_failed_merge_never_claims_armed_auto_merge
 test_github_failed_merge_with_queue_flags_never_claims_acceptance
 test_github_failed_gh_read_falls_back_to_gh_axi
 test_github_failed_merge_names_an_observed_landed_state
+test_github_failed_merge_landed_watch_arm_failure_keeps_retry
 test_github_without_gh_still_uses_gh_axi_merge
 test_github_without_gh_failed_read_keeps_bookkeeping
 test_github_merged_outcome_is_verified

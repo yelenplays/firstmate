@@ -1388,6 +1388,7 @@ case "$PROVIDER" in
       }
     fi
     merge_status=0
+    merge_outcome_read=false
     merge_output=$(fm_gh_owner_run "$PR_OWNER" gh pr merge "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" \
       --match-head-commit "$FM_PR_MERGE_HEAD" \
       "${merge_args[@]+"${merge_args[@]}"}" "$@" 2>&1) || merge_status=$?
@@ -1418,13 +1419,15 @@ case "$PROVIDER" in
           fm_post_merge_watch_required_set "$STATE" "$META" '' || true
           github_report_unmerged_outcome
         else
-          printf 'actionable: the merge command for %s failed, but the pull request reads back as state=%s, merged=%s, isInMergeQueue=%s\n' \
-            "$URL" "$FM_PR_GITHUB_STATE" "$FM_PR_GITHUB_MERGED" "$FM_PR_GITHUB_QUEUED" >&2
+          FM_PR_GITHUB_MERGE_ACCEPTED=true
+          persist_accepted_merge_authority || exit 1
+          merge_outcome_read=true
+          merge_status=0
         fi
       fi
-      exit "$merge_status"
+      [ "$merge_status" -eq 0 ] || exit "$merge_status"
     fi
-    if ! github_read_outcome; then
+    if [ "$merge_outcome_read" != true ] && ! github_read_outcome; then
       github_report_forge_output "$merge_output"
       exit 1
     fi
