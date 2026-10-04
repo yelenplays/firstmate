@@ -365,7 +365,7 @@ run_shadow() {
         context:"A worker is starting a task; loading one fitting skill gives it a documented procedure. This trial is advisory.",
         how_to_read_the_state:{request:"an authored, privacy-safe summary of the task",runtime:"the worker'"'"'s coding tool",worker_role:"always worker"},
         weigh_most:"Whether a skill'"'"'s documented purpose specifically covers what the request asks for, not a shared word or a general topic."},
-      criteria:(($roster | map({key:.id,value:{what:.description}}) | from_entries)
+      criteria:(($roster | map({key:.id,value:{what:.description,signals:["the safe request asks for work covered by: " + .description]}}) | from_entries)
         + {none:{what:"No optional skill specifically fits the safe request",
           signals:["a trivial edit the request already spells out","no skill'"'"'s purpose covers the request'"'"'s work"],
           not_for:"a request that one skill'"'"'s purpose covers in other words"}})}}
@@ -617,7 +617,7 @@ QUESTIONS=$(jq -n --argjson candidates "$CANDIDATES_JSON" --argjson size "$CHOIC
           caveat: ("Prefer none when the brief is enough. Prefer search_external only when a missing skill would materially help."
             + (if $n > 1 then " This question lists part \(.key + 1) of \($n) of the installed skills; answer none when no skill in this part fits." else "" end))
         }),
-        criteria: ((.value | map({key: .id, value: {what: .description}}) | from_entries)
+        criteria: ((.value | map({key: .id, value: {what: .description, signals: ["the task needs the procedure described by: " + .description]}}) | from_entries)
           + {
               none: {what: "Load no extra skill this session", signals: [
                 "the brief already spells out a small or routine change",

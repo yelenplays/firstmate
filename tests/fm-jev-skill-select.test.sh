@@ -177,6 +177,7 @@ test_shadow_default_writes_json_not_status() {
   assert_contains "$(cat "$LOG/body")" '"none"' "Choice includes none"
   assert_contains "$(cat "$LOG/body")" 'Find and explain pager workflows.' "Choice includes the real skill description"
   assert_equals $'curl:clean\ncurl:clean' "$(cat "$LOG/child-env")" "the API key is absent from the curl environment"
+  jq -e '.questions.skill.criteria.pager.what == "Find and explain pager workflows." and .questions.skill.criteria.pager.signals == ["the safe request asks for work covered by: Find and explain pager workflows."]' "$LOG/first-body" >/dev/null || fail "shadow candidate scorecard signals must derive from its description"
   jq -e '.questions.fit_pager.criteria | keys == ["false", "true"]' "$LOG/body" >/dev/null || fail "Noul wire criteria"
   jq -e '.state.candidates | any(.id == "pager" and (.evidence | contains("Use pager workflows.")))' "$LOG/body" >/dev/null || fail "independent questions need procedure evidence"
   pass "default shadow writes JSON, skips status, and does not load skills"
@@ -436,8 +437,8 @@ PYTHON
     "an unapproved skill description must never reach Jev"
   jq -e '.questions.skill.criteria["typesafe-ai"].what == "Build AI-powered software with TypeSafe typed questions."' "$LOG/body" >/dev/null \
     || fail "live candidate must carry the flattened front-matter description"
-  jq -e '.questions.skill.criteria["skill-001"].what == "Handle workflow 001."' "$LOG/body" >/dev/null \
-    || fail "every live candidate must carry its own description"
+  jq -e '.questions.skill.criteria["skill-001"].what == "Handle workflow 001." and .questions.skill.criteria["skill-001"].signals == ["the task needs the procedure described by: Handle workflow 001."]' "$LOG/body" >/dev/null \
+    || fail "every live candidate must carry its description-derived signal"
   jq -e '.status == "clear" and .primary == "typesafe-ai" and .catalog_truncated == false
       and (.skills | index("typesafe-ai") != null) and .live_loaded == false' \
     "$HOME_DIR/state/t-live-roster.jev-skills.json" >/dev/null \

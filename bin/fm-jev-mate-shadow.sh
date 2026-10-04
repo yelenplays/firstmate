@@ -97,7 +97,7 @@ suggest() {
   probability=null
   model=''
   if [ -z "$reason" ]; then
-    opts=$(jq -cn --argjson entries "$entries" '($entries | map_values({what: .})) + {none: {
+    opts=$(jq -cn --argjson entries "$entries" '($entries | with_entries(.value |= {what: ., signals: ["the task concerns work described by: " + .]})) + {none: {
       what: "No approved second mate fits the task",
       signals: ["the task'"'"'s intent falls outside every scope", "the task summary is empty"],
       not_for: "a task that one scope covers in other words"}}')
