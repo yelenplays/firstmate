@@ -230,7 +230,10 @@ test_witness_failure_reverts() {
 test_registered_witness_cannot_be_waived_or_lost() {
   local out
   make_pr_world pm-eligible on
-  printf '%s\n' '- widget [no-mistakes witness=https://widget.example.com] - live product' > "$W_HOME/data/projects.md"
+  printf '%s\n' '- widget [no-mistakes branch= witness=https://widget.example.com] - live product' > "$W_HOME/data/projects.md"
+  out=$(FM_HOME="$W_HOME" "$ROOT/bin/fm-project-mode.sh" --witness widget 2>&1) \
+    || fail "project mode refused the registered witness: $out"
+  assert_equals https://widget.example.com "$out" "the empty branch field shifted the registered witness"
   out=$(pm_raw arm "$W_ID" --no-witness 'skip' 2>&1) && fail "an eligible project accepted --no-witness: $out"
   assert_contains "$out" 'requires its registered witness' "the refusal did not name the project policy"
   out=$(pm_raw arm "$W_ID" 2>&1) || fail "the registered witness target was not selected: $out"

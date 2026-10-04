@@ -189,16 +189,14 @@ parsed=$(awk -v n="$NAME" '
         if (a[j] ~ /^[^=]+=/) {
           key = substr(a[j], 1, index(a[j], "=") - 1);
           e = dist(key, "forge");
-          if (e >= 1 && e <= 2) print "near", a[j];
+          if (e >= 1 && e <= 2) printf "near\034%s\n", a[j];
           if (mode_set == 0) { mode = a[j]; mode_set = 1 }
           continue
         }
         if (a[j] != "" && mode_set == 0) { mode = a[j]; mode_set = 1 }
       }
     }
-    # branch is printed LAST: an empty branch= override must survive as an
-    # empty final field, which only holds when nothing follows it.
-    print "posture", mode, yolo, forge, branch, witness; exit
+    printf "posture\034%s\034%s\034%s\034%s\034%s\n", mode, yolo, forge, branch, witness; exit
   }
 ' "$REG")
 
@@ -210,19 +208,16 @@ if [ -z "$parsed" ]; then
   exit 0
 fi
 
-posture=
-while IFS=' ' read -r kind rest; do
+while IFS=$'\034' read -r kind row_mode row_yolo row_forge row_branch row_witness; do
   case "$kind" in
-    near) echo "warn: ignoring \"$rest\" registered for $NAME in $REG; it is not a forge binding, and the forge binding is spelled forge=gerrit" >&2 ;;
-    posture) posture=$rest ;;
+    near) echo "warn: ignoring \"$row_mode\" registered for $NAME in $REG; it is not a forge binding, and the forge binding is spelled forge=gerrit" >&2 ;;
+    posture)
+      mode=$row_mode; yolo=$row_yolo; rest_forge=$row_forge
+      branch=$row_branch; registered_witness=$row_witness
+      ;;
   esac
 done <<EOF
 $parsed
-EOF
-while IFS=' ' read -r m y f b witness; do
-  mode=$m; yolo=$y; rest_forge=$f; branch=$b; registered_witness=$witness
-done <<EOF
-$posture
 EOF
 forge=${rest_forge:-none}
 case "$mode" in
