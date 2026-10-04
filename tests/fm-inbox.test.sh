@@ -544,3 +544,19 @@ run_inbox "$home" drain --ack "$did" >/dev/null || fail "drain --ack failed"
 assert_absent "$home/state/inbox/$did.note" "acked note leaves pending"
 assert_present "$home/state/inbox/handled/$did.note" "acked note is in handled"
 pass "drain --ack still moves the note to handled"
+
+# --- note --source labels where a note came from ----------------------------
+
+home=$(make_home source-label)
+labeled=$(run_inbox "$home" note --request-id src-1 --source slack-captain --json "merge") \
+  || fail "a labeled note should be queued"
+assert_equals "slack-captain" "$(run_inbox "$home" receipts --all-pending | python3 -c 'import json,sys
+print(json.load(sys.stdin)["pending"][0]["source"])')" "the note records its source label"
+assert_contains "$labeled" '"outcome":"created"' "a labeled note is created once"
+run_inbox "$home" note "plain" >/dev/null || fail "an unlabeled note should be queued"
+assert_equals "1" "$(grep -lx 'source=text' "$home/state/inbox"/*.note | wc -l | tr -d ' ')" "an unlabeled note keeps the text source"
+bad_source=$(run_inbox "$home" note --source 'Slack Captain' "nope" 2>&1) \
+  && fail "an invalid source label must be refused"
+assert_contains "$bad_source" "invalid source label" "the refusal names the bad label"
+assert_equals "2" "$(count_notes "$home")" "a refused label writes no note"
+pass "note --source records a validated source label"

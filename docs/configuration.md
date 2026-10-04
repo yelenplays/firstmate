@@ -14,6 +14,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), and [Calm preference](#calm-preference-configcalm) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
 | Who reviews finished work | [Cross-family review](#cross-family-review) |
+| Slack updates and replies | [Slack bridge](#slack-bridge-configslack-bridge) and [check cadence](#check-cadence-configcheck-interval) |
 | Per-run overrides and tuning | [Environment variables](#environment-variables) |
 
 ## FM_HOME
@@ -1867,6 +1868,69 @@ A fail-closed poll that already queued a wake, and a timeout, always print so th
 `FM_MAIL_CHECK_BUDGET` (default 15, valid 5..25) bounds one standing poll and is cut down to fit `FM_CHECK_TIMEOUT`.
 `bin/fm-mail-check.sh disarm` removes the standing check.
 
+## Slack bridge (config/slack-bridge)
+
+The Slack bridge (`bin/fm-slack-bridge.sh`) lets the captain follow and answer this home from Slack.
+Out, firstmate posts captain-facing outcomes: finished PRs, merge asks, and merge results to the report channel, and decisions with a recommendation to the decisions channel.
+In, the captain's reply in the thread of a bridge post reaches firstmate as a captain inbox note, so replying `merge` in Slack works like typing it.
+
+**Activation and accounts**
+
+The bridge is off while `config/slack-bridge` is absent: `post` prints one `slack bridge off` line and exits 0, and `check` stays silent.
+It uses `slack-axi` and whichever account `slack-axi` is logged in as, with no Slack app, scope, or token of its own, and it never reads, prints, stores, or logs a token.
+Each home brings its own `slack-axi` login and its own config, so another person's firstmate runs the same bridge against their own account and channels.
+
+This section is the single owner of the config schema.
+The file holds one `key=value` per line, and a line starting with `#` is a comment; a comment never follows a value on the same line, because channel names start with `#`.
+
+```sh
+# finished PRs, merge asks, merge results; a #name or channel id
+report-channel=#fm-reports
+# decisions with a recommendation; a #name or channel id
+decisions-channel=#fm-decisions
+# optional; other people's requests to this fleet
+handoff-channel=#fm-handoff
+# the Slack user id whose thread replies count as the captain's word
+captain-user=U0123ABCDEF
+# optional, 1..30, default 7; how many days a post's thread is read for replies
+watch-days=7
+```
+
+`slack-axi channels --match <name>` shows a channel's id, and `slack-axi members <channel>` shows each member's user id.
+
+**Who counts as the captain**
+
+A thread reply is captain input only when its Slack author id equals `captain-user` exactly; a display name never counts, because any member can copy one.
+Replies from anyone else, bot messages, and joins or other system messages are never delivered.
+A top-level message in the handoff channel from anyone but the captain is delivered as a request note that names its sender and says it is not captain authority; the captain's own handoff-channel messages are requests to other fleets and are not delivered here.
+Slack text is input like any typed captain message and nothing more: it never bypasses merge guards, holds, or the destructive, irreversible, and security-sensitive boundaries.
+
+`slack-axi`'s command line shows authors only by display name, so `bin/fm-slack-read.mjs` reads author ids through `slack-axi`'s own installed client in-process.
+It runs only against a `slack-axi` version and module shape it lists as verified; anything else keeps inbound off and reports one line naming the found version, while posting keeps working.
+
+**Posting**
+
+`bin/fm-slack-bridge.sh post report|decision [--url <https-url>] <text>` drafts the message, sends it with `slack-axi draft send`, and records the channel id and message ts in `state/slack-bridge/posts`.
+Every post is top-level, because the bridge posts as the logged-in account and that account's thread replies are what counts as captain input.
+
+**Receiving**
+
+A home that wants replies polled arms the standing check in the live home: `bin/fm-slack-bridge.sh arm`.
+Arming writes `state/slack-bridge.check.sh`, registers it with the watcher's slow-check cadence, and starts the handoff channel at the arming time so older history is not replayed.
+Each poll delivers every new accepted message exactly once through `bin/fm-inbox.sh note --request-id slack-<channel>-<ts>` with source `slack-captain` or `slack-request`, which writes the durable note and its single `check` wake; a repeated poll, or one that lost its local delivered record, replays that request id instead of adding a note or wake.
+A poll that delivered anything prints one line so the watcher wakes firstmate, a failing poll prints one line only when its diagnostic changes, and a quiet poll prints nothing.
+`FM_SLACK_BRIDGE_BUDGET` (default 20, valid 5..25) bounds one poll and is cut down to fit `FM_CHECK_TIMEOUT`.
+`bin/fm-slack-bridge.sh disarm` removes the standing check and keeps the records.
+
+Replies arrive within one check interval while supervision is running; for the bridge's minute-or-two reply time, set the home's [check cadence](#check-cadence-configcheck-interval) to `60`.
+Polling happens only while a watcher runs, so a message sent while no work is under way waits for the next supervised session.
+
+## Check cadence (config/check-interval)
+
+The watcher runs its slow checks (merge polls, registered custom checks such as the mail and Slack bridge polls, Relay dispatch) every `FM_CHECK_INTERVAL` seconds.
+When that variable is unset, the watcher reads the home's optional `config/check-interval`: one whole number from 10 to 3600; anything else is ignored and the default of 300 applies.
+The watcher reads it at start, so a change applies from the next watcher run, and a shorter cadence runs every check more often, including authenticated merge polls.
+
 ## Relay (.env)
 
 Relay lets a firstmate instance answer public mentions and act on normal reversible mention requests through firstmate's normal lifecycle.
@@ -2739,7 +2803,7 @@ FM_HEARTBEAT=600        # base seconds between heartbeat scans; no-change heartb
 FM_HEARTBEAT_MAX=7200   # heartbeat backoff cap
 FM_INACTIVE_RECONCILE_SECS=900  # 60..1800-second watcher cadence and inactivity threshold; locked session start also requests an immediate scan in the deferred worker
 FM_INACTIVE_RECONCILE_BUDGET_SECS=10  # 1..30-second scan deadline; wedged-scan kill backstop follows one second later
-FM_CHECK_INTERVAL=300   # seconds between slow checks (authenticated merge polls, custom checks, or Relay dispatch)
+FM_CHECK_INTERVAL=300   # seconds between slow checks (authenticated merge polls, custom checks, or Relay dispatch); unset falls back to config/check-interval, then 300
 FM_TASK_INBOX_GRACE_SECS=90   # seconds an unhandled steering-inbox message may sit before the watcher attempts doorbell delivery on an idle pane; also the minimum spacing between attempts
 FM_TASK_INBOX_RING_MAX=3      # watcher delivery attempts without an acknowledgement before the task surfaces as a stale wake for recovery
 FM_TASK_INBOX_BUSY_MAX=2      # consecutive busy-deferred due polls before a stuck-busy stale wake; 1..999999999, at most 9 decimal digits, otherwise 2; policy: bin/fm-task-inbox-lib.sh
@@ -2747,6 +2811,8 @@ FM_CHECK_TIMEOUT=30     # seconds allowed per slow check script
 FM_MAIL_CHECK_BUDGET=15   # seconds allowed for one standing mail poll; valid 5..25, cut to fit FM_CHECK_TIMEOUT
 FM_MAIL_POLL_MAX_WAKES=20   # per-poll wake cap for a mail poll; valid 1..200, keeps a flood from flooding firstmate
 FM_MAIL_TIMEOUT=20   # mail-plane IMAP/SMTP socket timeout in seconds; invalid or non-positive values become 20
+FM_SLACK_BRIDGE_BUDGET=20   # seconds allowed for one Slack bridge poll; valid 5..25, cut to fit FM_CHECK_TIMEOUT
+FM_SLACK_BRIDGE_NOW=        # test override for the Slack bridge clock
 FM_TOOL_UPDATE_INTERVAL=900   # seconds between watched-tool probe sweeps; 0 probes on every run, other values must be 60..86400
 FM_TOOL_UPDATE_PROBE_SECS=5   # 1..30 seconds allowed for one version or git probe
 FM_TOOL_UPDATE_BUDGET_SECS=20   # 1..120 seconds allowed for a whole watched-tool sweep; cut to fit FM_CHECK_TIMEOUT, and the cut is reported

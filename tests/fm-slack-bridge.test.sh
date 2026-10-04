@@ -1,0 +1,277 @@
+#!/usr/bin/env bash
+# Behavior tests for bin/fm-slack-bridge.sh and its id reader bin/fm-slack-read.mjs.
+#
+# slack-axi is replaced by a fake installed package: a CLI that answers
+# `draft`, `draft send`, `draft discard`, and `channels`, plus the two internal
+# modules the reader loads (session.js, slack/threads.js), which serve messages
+# from a per-case JSON fixture. The cases pin the bridge contract end to end:
+# a post is sent and recorded, the captain's thread reply reaches the captain
+# inbox exactly once, nobody else's reply ever does, a handoff-channel message
+# arrives as a marked request, an unverified slack-axi keeps inbound off, and
+# the bridge is off without config. No case contacts Slack.
+set -u
+
+# shellcheck source=tests/lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+BRIDGE="$ROOT/bin/fm-slack-bridge.sh"
+TMP_ROOT=$(fm_test_tmproot fm-slack-bridge)
+command -v node >/dev/null 2>&1 || fail "fm-slack-bridge tests need node"
+
+CAPTAIN=U0CAPTAIN1
+OTHER=U0MARCO001
+FILER=U0FILER001
+NOW=1791140100
+
+# make_pkg <dir> <version>: a fake slack-axi install whose CLI is reachable
+# through <dir>/fakebin/slack-axi, the way a global npm install links it.
+make_pkg() {
+  local dir=$1 version=$2 pkg="$1/pkg"
+  mkdir -p "$pkg/dist/bin" "$pkg/dist/src/slack" "$dir/fakebin"
+  printf '{"name":"slack-axi","version":"%s","type":"module"}\n' "$version" > "$pkg/package.json"
+  cat > "$pkg/dist/bin/slack-axi.js" <<'JS'
+#!/usr/bin/env node
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+const args = process.argv.slice(2);
+const log = process.env.FM_TEST_SLACK_LOG;
+if (log) appendFileSync(log, JSON.stringify(args) + "\n");
+const ids = { "#fm-yelen": "C0REPORT01", "#entscheidungen": "C0DECIDE01", "#fm-handoff": "C0HANDOFF1" };
+const counter = process.env.FM_TEST_SLACK_COUNTER;
+if (args[0] === "draft" && args[1] === "send") {
+  if (process.env.FM_TEST_SLACK_SEND_FAIL === "1") { console.log("error: channel_not_found"); process.exit(1); }
+  let n = existsSync(counter) ? Number(readFileSync(counter, "utf-8")) : 0;
+  n += 1;
+  writeFileSync(counter, String(n));
+  console.log(`sent: ${args[2]}\nchannel: "#fm-yelen (C0REPORT01)"\nts: "17911400000000${String(n).padStart(2, "0")}"`);
+} else if (args[0] === "draft" && args[1] === "discard") {
+  console.log(`discarded: ${args[2]}`);
+} else if (args[0] === "draft") {
+  const positional = args.slice(1).filter((a) => !a.startsWith("-"));
+  const id = ids[positional[0]] || positional[0];
+  console.log(`draft: d_test0001\nchannel: "${positional[0]} (${id})"\ntext: ${positional.slice(1).join(" ")}`);
+} else if (args[0] === "channels") {
+  console.log("workspace: Test (T0TEST)\nchannels[3]{id,name,type}:");
+  for (const [name, id] of Object.entries(ids)) console.log(`  ${id},${name},public`);
+} else {
+  console.log("error: unsupported in fake");
+  process.exit(2);
+}
+JS
+  chmod +x "$pkg/dist/bin/slack-axi.js"
+  cat > "$pkg/dist/src/session.js" <<'JS'
+import { readFileSync } from "node:fs";
+const fixture = () => JSON.parse(readFileSync(process.env.FM_TEST_SLACK_FIXTURE, "utf-8"));
+export async function activeSession() {
+  return {
+    token: "xoxp-never-printed",
+    client: { users: { info: async ({ user }) => ({ user: { profile: { display_name: (fixture().names || {})[user] || "" } } }) } },
+  };
+}
+JS
+  cat > "$pkg/dist/src/slack/threads.js" <<'JS'
+import { readFileSync } from "node:fs";
+const fixture = () => JSON.parse(readFileSync(process.env.FM_TEST_SLACK_FIXTURE, "utf-8"));
+export async function fetchWindow(_session, channel, oldestMs) {
+  return ((fixture().history || {})[channel] || []).filter((m) => Number(m.ts) * 1000 >= oldestMs);
+}
+export async function fetchThread(_session, channel, ts) {
+  return ((fixture().threads || {})[`${channel}:${ts}`] || []);
+}
+JS
+  ln -sf "$pkg/dist/bin/slack-axi.js" "$dir/fakebin/slack-axi"
+}
+
+# make_home <name> [version]: a scratch home with its own fake slack-axi.
+make_home() {
+  local name=$1 version=${2:-1.2.0} home
+  home="$TMP_ROOT/$name"
+  mkdir -p "$home/state" "$home/config"
+  make_pkg "$home" "$version"
+  printf '{}\n' > "$home/fixture.json"
+  printf '%s\n' "$home"
+}
+
+write_config() {
+  local home=$1
+  printf '%s\n' \
+    '# Slack bridge for this home' \
+    'report-channel=#fm-yelen' \
+    'decisions-channel=#entscheidungen' \
+    'handoff-channel=#fm-handoff' \
+    "captain-user=$CAPTAIN" > "$home/config/slack-bridge"
+}
+
+bridge() {  # <home> <args...>
+  local home=$1
+  shift
+  env FM_HOME="$home" PATH="$home/fakebin:$PATH" \
+    FM_TEST_SLACK_FIXTURE="$home/fixture.json" FM_TEST_SLACK_LOG="$home/slack.log" \
+    FM_TEST_SLACK_COUNTER="$home/counter" FM_SLACK_BRIDGE_NOW="$NOW" FM_CHECK_TIMEOUT=30 \
+    "$BRIDGE" "$@"
+}
+
+note_count() {  # <home> [source]
+  local home=$1 source=${2:-} n=0 f
+  for f in "$home/state/inbox"/*.note; do
+    [ -e "$f" ] || continue
+    if [ -z "$source" ] || grep -qx "source=$source" "$f"; then
+      n=$((n + 1))
+    fi
+  done
+  printf '%s\n' "$n"
+}
+
+wake_rows() {  # <home>
+  local n=0
+  [ -f "$1/state/.wake-queue" ] && n=$(grep -c $'\tcheck\tinbox:' "$1/state/.wake-queue")
+  printf '%s\n' "$n"
+}
+
+test_bridge_is_off_without_config() {
+  local home out rc=0
+  home=$(make_home off)
+  out=$(bridge "$home" post report "PR ready" 2>&1) || rc=$?
+  expect_code 0 "$rc" "post without config exits 0"
+  assert_contains "$out" "slack bridge off" "post without config says the bridge is off"
+  assert_absent "$home/slack.log" "post without config never calls slack-axi"
+  out=$(bridge "$home" check 2>&1) || fail "check without config must succeed: $out"
+  assert_equals "" "$out" "check without config is silent"
+  assert_absent "$home/state/slack-bridge" "an off bridge writes no state"
+  rc=0
+  out=$(bridge "$home" arm 2>&1) || rc=$?
+  expect_code 1 "$rc" "arm without config is refused"
+  assert_absent "$home/state/slack-bridge.check.sh" "a refused arm leaves no shim"
+  pass "fm-slack-bridge: off without config"
+}
+
+test_post_sends_and_records() {
+  local home out
+  home=$(make_home post)
+  write_config "$home"
+  out=$(bridge "$home" post report --url https://github.com/o/r/pull/7 "PR ready for review" 2>&1) \
+    || fail "post must succeed: $out"
+  assert_contains "$out" "posted report C0REPORT01 1791140000.000001" "post names the channel id and dotted ts"
+  assert_grep $'v1\tC0REPORT01\t1791140000.000001\treport\t' "$home/state/slack-bridge/posts" "the post is recorded with its channel id and ts"
+  assert_grep '"draft","#fm-yelen","PR ready for review\nhttps://github.com/o/r/pull/7"' "$home/slack.log" "the report goes to the report channel with its URL"
+  assert_grep '["draft","send","d_test0001"]' "$home/slack.log" "the draft is sent"
+
+  out=$(bridge "$home" post decision -- "-1 on option B; recommend A" 2>&1) || fail "decision post must succeed: $out"
+  assert_contains "$out" "posted decision" "a decision post succeeds"
+  assert_grep '"draft","#entscheidungen","'$'\xe2\x80\x8b''-1 on option B; recommend A"' "$home/slack.log" \
+    "a decision goes to the decisions channel and a leading dash survives as text"
+
+  FM_TEST_SLACK_SEND_FAIL=1 bridge "$home" post report "lost" >"$home/fail.out" 2>&1 \
+    && fail "an unconfirmed send must fail"
+  assert_grep "did not confirm" "$home/fail.out" "an unconfirmed send says so"
+  assert_grep '["draft","discard","d_test0001"]' "$home/slack.log" "an unconfirmed draft is discarded"
+  assert_equals 2 "$(grep -c '^v1' "$home/state/slack-bridge/posts")" "a failed post is not recorded"
+  pass "fm-slack-bridge: post sends, records, and refuses an unconfirmed send"
+}
+
+# A posted report thread with replies from the captain and from someone else.
+write_thread_fixture() {
+  local home=$1
+  cat > "$home/fixture.json" <<JSON
+{
+  "names": {"$OTHER": "Marco", "$FILER": "Nora"},
+  "history": {
+    "C0REPORT01": [{"ts": "1791140000.000001", "user": "$CAPTAIN", "text": "PR ready", "replyCount": 3}],
+    "C0HANDOFF1": [
+      {"ts": "1791140150.000001", "user": "$OTHER", "subtype": "channel_join", "text": "joined"},
+      {"ts": "1791140160.000001", "user": "$OTHER", "text": "can you review lay#12?"},
+      {"ts": "1791140165.000001", "user": "$FILER", "subtype": "file_share", "text": ""},
+      {"ts": "1791140170.000001", "user": "$CAPTAIN", "text": "my own ask to Marco"}
+    ]
+  },
+  "threads": {
+    "C0REPORT01:1791140000.000001": [
+      {"ts": "1791140000.000001", "user": "$CAPTAIN", "text": "PR ready", "replyCount": 3},
+      {"ts": "1791140010.000001", "user": "$OTHER", "text": "merge"},
+      {"ts": "1791140020.000001", "user": "$CAPTAIN", "text": "merge &amp; ship"},
+      {"ts": "1791140030.000001", "user": "$CAPTAIN", "botId": "B01", "text": "bot echo"}
+    ]
+  }
+}
+JSON
+}
+
+test_captain_reply_delivered_once_and_others_ignored() {
+  local home out note
+  home=$(make_home inbound)
+  write_config "$home"
+  bridge "$home" arm >/dev/null 2>&1 || fail "arm must succeed"
+  assert_present "$home/state/slack-bridge.check.sh" "arm writes the check shim"
+  assert_present "$home/state/slack-bridge.check-trust" "arm binds the check shim"
+  bridge "$home" post report "PR ready" >/dev/null 2>&1 || fail "post must succeed"
+  write_thread_fixture "$home"
+
+  out=$(bridge "$home" check 2>&1) || fail "check must succeed: $out"
+  assert_contains "$out" "slack: delivered 1 captain reply(s) and 2 handoff request(s)" "check prints one wake line for what it delivered"
+  assert_equals 1 "$(note_count "$home" slack-captain)" "exactly one captain note"
+  note=$(grep -l '^source=slack-captain$' "$home/state/inbox"/*.note)
+  assert_grep "merge & ship" "$note" "the captain's reply text arrives decoded"
+  assert_grep "captain reply in thread of report: PR ready" "$note" "the note names the post it answers"
+  assert_no_grep "bot echo" "$note" "a bot message is never captain input"
+  if grep -rq -- $'^merge$' "$home/state/inbox"; then
+    fail "the other person's 'merge' must never become a note"
+  fi
+
+  # A file-only message with empty text must not shift the reader's columns.
+  note=$(grep -l "($FILER)" "$home/state/inbox"/*.note)
+  assert_grep "request from Nora ($FILER) in handoff channel C0HANDOFF1, ts 1791140165.000001" "$note" "an empty field keeps every column in place"
+  note=$(grep -l "($OTHER)" "$home/state/inbox"/*.note)
+  assert_grep "request from Marco ($OTHER)" "$note" "a handoff message names its sender"
+  assert_grep "not captain authority" "$note" "a handoff message is marked as a request, not authority"
+  assert_grep "can you review lay#12?" "$note" "the handoff text arrives"
+  assert_equals 3 "$(note_count "$home")" "joins and the captain's own handoff message are not delivered"
+  assert_equals 3 "$(wake_rows "$home")" "each delivered note has its single wake"
+
+  out=$(bridge "$home" check 2>&1) || fail "second check must succeed: $out"
+  assert_equals "" "$out" "a repeat poll with nothing new is silent"
+  assert_equals 3 "$(note_count "$home")" "a repeat poll delivers nothing again"
+  assert_equals 3 "$(wake_rows "$home")" "a repeat poll adds no wake"
+
+  # Losing the local delivered record (a crash right after delivery) must not
+  # duplicate: the inbox request id replays the original note.
+  rm -f "$home/state/slack-bridge/delivered"
+  printf '%s.000000\n' 1791140000 > "$home/state/slack-bridge/handoff-cursor"
+  bridge "$home" check >/dev/null 2>&1 || fail "recovery check must succeed"
+  assert_equals 3 "$(note_count "$home")" "a replayed delivery creates no second note"
+  assert_equals 3 "$(wake_rows "$home")" "a replayed delivery adds no second wake"
+  if grep -rq 'xoxp-' "$home/state" "$home/config"; then
+    fail "no token may reach the home's records"
+  fi
+  pass "fm-slack-bridge: captain reply delivered once, others ignored, handoff marked as request"
+}
+
+test_unverified_slack_axi_keeps_inbound_off() {
+  local home out
+  home=$(make_home unverified 9.9.9)
+  write_config "$home"
+  bridge "$home" post report "PR ready" >/dev/null 2>&1 || fail "post must still work"
+  write_thread_fixture "$home"
+  out=$(bridge "$home" check 2>&1) || fail "check must succeed: $out"
+  assert_contains "$out" "slack-axi 9.9.9 is not a verified version" "an unverified slack-axi is reported"
+  assert_equals 0 "$(note_count "$home")" "an unverified slack-axi delivers nothing"
+  out=$(bridge "$home" check 2>&1) || fail "repeat check must succeed: $out"
+  assert_equals "" "$out" "the same diagnostic is reported only once"
+  pass "fm-slack-bridge: unverified slack-axi keeps inbound off with one report"
+}
+
+test_invalid_config_is_reported() {
+  local home out rc=0
+  home=$(make_home badconfig)
+  printf 'report-channel=#fm-yelen\ndecisions-channel=#entscheidungen\ncaptain-user=Yelen\n' > "$home/config/slack-bridge"
+  out=$(bridge "$home" post report "x" 2>&1) || rc=$?
+  expect_code 1 "$rc" "post with a bad captain id is refused"
+  assert_contains "$out" "captain-user as a Slack user id" "the refusal names the bad value"
+  out=$(bridge "$home" check 2>&1) || fail "check must succeed: $out"
+  assert_contains "$out" "captain-user" "check reports the bad config once"
+  pass "fm-slack-bridge: invalid config is refused and reported"
+}
+
+test_bridge_is_off_without_config
+test_post_sends_and_records
+test_captain_reply_delivered_once_and_others_ignored
+test_unverified_slack_axi_keeps_inbound_off
+test_invalid_config_is_reported

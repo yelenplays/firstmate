@@ -293,7 +293,18 @@ WATCHER_STALE_GRACE=${FM_WATCHER_STALE_GRACE:-${FM_GUARD_GRACE:-$(fm_poll_derive
 WATCHER_STALL_BOUND=$(fm_watcher_stall_bound "$POLL")
 HEARTBEAT=${FM_HEARTBEAT:-600}        # base seconds between heartbeat scans
 HEARTBEAT_MAX=${FM_HEARTBEAT_MAX:-7200}  # heartbeat backoff cap
-CHECK_INTERVAL=${FM_CHECK_INTERVAL:-300}  # seconds between *.check.sh sweeps
+# Seconds between *.check.sh sweeps: FM_CHECK_INTERVAL wins, then the home's
+# optional config/check-interval (a whole number 10..3600, anything else is
+# ignored), then 300. docs/configuration.md "Check cadence" owns the contract.
+CHECK_INTERVAL=${FM_CHECK_INTERVAL:-}
+if [ -z "$CHECK_INTERVAL" ] && [ -f "$CONFIG/check-interval" ]; then
+  CHECK_INTERVAL=$(tr -d '[:space:]' < "$CONFIG/check-interval" 2>/dev/null)
+  case "$CHECK_INTERVAL" in
+    ''|*[!0-9]*|0*) CHECK_INTERVAL= ;;
+    *) { [ "$CHECK_INTERVAL" -ge 10 ] && [ "$CHECK_INTERVAL" -le 3600 ]; } || CHECK_INTERVAL= ;;
+  esac
+fi
+CHECK_INTERVAL=${CHECK_INTERVAL:-300}
 CHECK_TIMEOUT=${FM_CHECK_TIMEOUT:-30}     # seconds allowed per *.check.sh
 HOME_SUMMARY_INTERVAL=${FM_HOME_SUMMARY_INTERVAL:-300}
 case "$HOME_SUMMARY_INTERVAL" in
