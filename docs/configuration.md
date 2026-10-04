@@ -1934,7 +1934,7 @@ A quiet poll prints nothing.
 
 The bridge reads each post's thread for replies only during the configured `watch-days` window (default 7 days, maximum 30 days).
 A reply after that window is not delivered.
-If an ask is still open after the window, repost it with `bin/fm-slack-bridge.sh post report <text>` so the captain can answer the new message.
+If an ask is still open after the window, repost it with the same kind (`report` or `decision`) using `bin/fm-slack-bridge.sh post <kind> <text>` so the captain can answer the new message.
 Replies arrive within one poll interval while supervision is running.
 Set `poll-seconds=60` for the bridge's minute-or-two reply time.
 When unset, the bridge uses the global `FM_CHECK_INTERVAL` (default 300 seconds).
