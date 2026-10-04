@@ -1539,7 +1539,7 @@ Both lists are advisory: every presented wake still needs handling and acknowled
 ## Jev supervision triage
 
 The watcher and the away-mode daemon ask Jev narrowly scoped advisory questions over the existing [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) binding; each helper's header records the corpus calibration behind the 0.5 Noul floor.
-Both roles are additive and fail closed: a missing key, a helper failure, a timeout, or a malformed answer leaves the deterministic verdict untouched, and a valid answer can only add a surface or defer a structural false positive.
+Both roles are additive and fail closed: a missing key, a helper failure, a timeout, or a malformed answer leaves the deterministic verdict untouched, and a valid answer can add a surface, defer a structural false positive, or label a wedge escalation.
 [`bin/fm-jev-status-triage.sh`](../bin/fm-jev-status-triage.sh) reads one status line on stdin and prints `escalate` only when the `captain_relevant` Noul is at least 0.5.
 Only lines no declared verb explains are ever offered - free-text progress plus `note:` and `resolved:` - capped at `FM_JEV_SPAN_TRIAGE_MAX` (default 8) consults per status span; `working:`/`done:`/`blocked:`/`failed:`/`needs-decision:`/`paused:`/`captain-held:` lines are never sent to the model.
 One `FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS` (default 6) wall-clock budget is shared by every Jev call in each watcher or daemon cycle - status triage and the wedge check - and resets at the next cycle.
