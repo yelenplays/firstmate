@@ -93,7 +93,9 @@ case "$1 $2" in
     case "$path" in
       */rules/branches/*) printf '%s\n' "${TEST_RULES:-[]}" ;;
       */branches/*)
-        if [ -n "${TEST_REQUIRED:-}" ]; then
+        if [ "${TEST_NULL_REQUIRED:-0}" = 1 ]; then
+          printf '%s\n' '{"protected":true,"protection":{"required_status_checks":null}}'
+        elif [ -n "${TEST_REQUIRED:-}" ]; then
           jq -nc --argjson required "$TEST_REQUIRED" '{protected:true,protection:{required_status_checks:{contexts:$required,checks:[]}}}'
         else printf '%s\n' '{"protected":false}'; fi ;;
       */pulls/7/files*) printf '[%s]\n' "$TEST_FILES" ;;
@@ -139,7 +141,7 @@ LOG="$HOME_DIR/state/jev-merge.jsonl"
 URL=https://github.com/acme/app/pull/7
 reset_case() {
   rm -f "$TEST_JEV_REQUEST" "$TMP_ROOT/views" "$TEST_GH_LOG"
-  unset TEST_MOVE_AFTER TEST_VAULT TEST_JEV_RESPONSE TEST_RUNS TEST_MERGEABLE TEST_BODY TEST_XR TEST_REQUIRED TEST_RULES FM_MERGE_GATE_STUB
+  unset TEST_MOVE_AFTER TEST_VAULT TEST_JEV_RESPONSE TEST_RUNS TEST_MERGEABLE TEST_BODY TEST_XR TEST_REQUIRED TEST_NULL_REQUIRED TEST_RULES FM_MERGE_GATE_STUB
   export TEST_CHECKS="$GREEN" TEST_REQUIRED='["test","lint"]' TEST_FILES="$FILES_CODE"
 }
 write_meta() {  # <task> <mode> [extra lines]
@@ -189,6 +191,12 @@ printf '%s' "$out" | jq -e '.evidence.required_checks | test("no required checks
 export TEST_RUNS='[]'
 out=$(gate evidence "$URL" 2>/dev/null)
 printf '%s' "$out" | jq -e '.problems | any(test("no check ran"))' >/dev/null || fail 'no checks at all must be a gate problem'
+reset_case
+unset TEST_REQUIRED
+export TEST_NULL_REQUIRED=1 TEST_CHECKS='' TEST_RUNS='[{"id":1,"name":"build","status":"completed","conclusion":"success"}]'
+out=$(gate evidence "$URL" 2>/dev/null) || fail 'protected branch with no classic checks was rejected'
+printf '%s' "$out" | jq -e '.evidence.required_checks | test("no required checks; observed on exact head .*: build=success; all pass")' >/dev/null ||
+  fail "null classic requirements did not use exact-head checks: $(printf '%s' "$out" | jq -r .evidence.required_checks)"
 pass 'checks fall back to the exact head and evidence never calls Jev'
 
 # 3. Privacy: a cloud: nein or nur-digest card, a vault without a card, a

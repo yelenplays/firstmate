@@ -683,6 +683,7 @@ _pr_checks() {
   if [ -z "$branch_json" ] || ! required=$(printf '%s' "$branch_json" | jq -c '
     if type != "object" or (.protected | type) != "boolean" then error("unreadable branch")
     elif .protected == false then []
+    elif .protection.required_status_checks == null then []
     elif (.protection.required_status_checks | type) != "object"
       or ((.protection.required_status_checks.checks // []) | type) != "array"
       or ((.protection.required_status_checks.contexts // []) | type) != "array"
