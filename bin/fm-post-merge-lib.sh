@@ -66,7 +66,7 @@ fm_post_merge_watch_required_set() {  # <state> <meta> <value>; empty removes th
 # FM_POST_MERGE_TEARDOWN_ERROR and returns 1 when cleanup must refuse.
 # shellcheck disable=SC2034  # Both results are read by bin/fm-teardown.sh.
 fm_post_merge_teardown_transition() {  # <state> <id> <meta>
-  local state=$1 id=$2 meta=$3 record phase record_gen meta_gen= watch_required=
+  local state=$1 id=$2 meta=$3 record phase record_gen meta_gen='' watch_required=''
   FM_POST_MERGE_TEARDOWN=close
   FM_POST_MERGE_TEARDOWN_ERROR=
   record=$(fm_post_merge_record_path "$state" "$id")
