@@ -18,7 +18,8 @@
 #        fm-brief.sh <task-id> <repo-name> --scout [--herdr-lab]
 #        fm-brief.sh <task-id> --secondmate {<project>...|--no-projects}
 #   --scout writes the scout contract instead: the deliverable is a report at
-#   data/<task-id>/report.md (no branch, no push, no PR) and the worktree is scratch.
+#   data/<task-id>/report.md plus any explicitly named result files (no branch,
+#   no push, no PR) and the worktree is scratch.
 #   It offers the Lavish review loop only when `fm-bootstrap.sh lavish-compatible`
 #   confirms the legacy board-compatibility floor; otherwise it asks for a text report.
 #   --secondmate writes a persistent secondmate charter. The project list
@@ -602,11 +603,14 @@ $HERDR_SECTION$WIKI_CONTEXT_SECTION
 You are in a disposable git worktree of $REPO, at a detached HEAD on a clean default branch.
 This is a SCOUT task: the deliverable is a written report, not a PR.
 The worktree is your laboratory - install, run, edit, and make scratch commits freely; all of it is discarded at teardown.
-The report is the only thing that survives, so anything worth keeping must be in it.
+The durable result directory is \`$DATA/$ID/\` in the Firstmate home and survives worktree cleanup.
+Write \`report.md\` there, not only in the worktree.
+Write every additional result file explicitly named by the task there as well, including \`report.html\` or \`report.pdf\` only when requested, or copy each one there before reporting done.
+Do not treat an unlisted file in the disposable worktree as a deliverable.
 
 # Rules
 1. Never push to any remote and never open a PR.
-2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.
+2. Stay inside this worktree; the only files you may write outside it are \`report.md\` and the task's explicitly named result files under \`$DATA/$ID/\`, plus the status file below.
 3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
 4. Report status by appending one line:
    \`$STATUS_APPEND\`
@@ -630,8 +634,9 @@ $SHARED_INFRA_RULE
 $WAIT_BLOCK$INBOX_SECTION$WIKI_GUIDE_SECTION
 
 # Definition of done
-Write your findings to \`$DATA/$ID/report.md\`.
+Write your findings to \`$DATA/$ID/report.md\` and put every explicitly named result file in that same durable directory before reporting done.
 The report must stand alone: what you did, what you found, the evidence (commands run, output, file:line references), and what you recommend.
+Before the final status line, verify that \`report.md\`, any requested \`report.html\` or \`report.pdf\`, and each additional named result file exist under \`$DATA/$ID/\`.
 $LAVISH_LINE
 Before reporting done, read and follow \`$FM_ROOT/.agents/skills/captain-hold-lifecycle/SKILL.md\` and pass its shared completion gate for the report and any visual review.
 When the report is complete, append \`done [at=<epoch>]: {one-line conclusion}\` to the status file and stop.

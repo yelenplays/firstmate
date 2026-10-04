@@ -70,9 +70,11 @@
 # branch (firstmate performs that merge after configured approval) as a fallback
 # for the common case where there is no remote at all.
 # Scout tasks (kind=scout in meta) carve out of that check: their worktree is
-# declared scratch and the report at data/<task-id>/report.md is the work
-# product. Teardown proceeds only once the report exists and the shared
-# unresolved-decision completion gate verifies its captain-held inventory.
+# declared scratch and the durable result directory at data/<task-id>/ is the
+# work product, including report.md and any explicitly named result files.
+# Teardown proceeds only once report.md exists and the shared unresolved-decision
+# completion gate verifies its captain-held inventory; the durable result
+# directory is retained after the scratch worktree is cleaned up.
 # Ship and scout tasks whose brief carries bin/fm-wiki-lib.sh's wiki guide
 # marker line additionally refuse while data/<task-id>/guide.md is absent;
 # briefs without the marker (wikis unconfigured, or scaffolded earlier) are
