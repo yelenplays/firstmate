@@ -39,9 +39,9 @@ req="$TEST_REQUESTS/$n.json"
 cat > "$req"
 job=$(jq -r '.state.role.job' "$req")
 case "$job" in
-  planning*) body='{"id":"gen-dec-1","model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"fable","confidence":0.8,"probabilities":{"opus":0.1,"sonnet":0.05,"fable":0.85,"none_fit":0}}}}' ;;
-  well-scoped*) body='{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"sonnet","confidence":0.9,"probabilities":{"opus":0.05,"sonnet":0.95,"fable":0,"none_fit":0}}}}' ;;
-  *) body=${TEST_THIRD:-'{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","confidence":0.4,"probabilities":{"opus":0.6,"sonnet":0.3,"fable":0.1,"none_fit":0}}}}'} ;;
+  planning*) body='{"id":"gen-dec-1","model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"fable","confidence":0.85,"probabilities":{"opus":0.1,"sonnet":0.05,"fable":0.85,"none_fit":0}}}}' ;;
+  well-scoped*) body='{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"sonnet","confidence":0.95,"probabilities":{"opus":0.05,"sonnet":0.95,"fable":0,"none_fit":0}}}}' ;;
+  *) body=${TEST_THIRD:-'{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","confidence":0.4,"probabilities":{"opus":0.4,"sonnet":0.3,"fable":0.3,"none_fit":0}}}}'} ;;
 esac
 printf '%s' "$body" > "$out"
 printf 200
@@ -77,8 +77,15 @@ jq '.candidates[1].id = "none_fit"' "$TMP_ROOT/evidence.json" > "$TMP_ROOT/reser
 run_tool --evidence "$TMP_ROOT/reserved.json" >/dev/null 2>&1 && fail 'the reserved none_fit id must refuse'
 printf '{"rules": "nope"}' > "$TMP_ROOT/bad-dispatch.json"
 run_tool --evidence "$TMP_ROOT/evidence.json" --dispatch "$TMP_ROOT/bad-dispatch.json" >/dev/null 2>&1 && fail 'a malformed dispatch file must refuse'
-[ -z "$(find "$TEST_REQUESTS" -type f)" ] || fail 'invalid input must send nothing'
-pass 'invalid evidence or dispatch input refuses before any call'
+long_job=$(printf '%601s' '' | tr ' ' x)
+jq --arg job "$long_job" '.rules[0].when = $job' "$HOME_DIR/config/crew-dispatch.json" > "$TMP_ROOT/long-dispatch.json"
+out=$(run_tool --evidence "$TMP_ROOT/evidence.json" --dispatch "$TMP_ROOT/long-dispatch.json" 2>&1); rc=$?
+case "$rc:$out" in 2:*'role rule-1 job exceeds 600 characters'*) ;; *) fail "an oversized dispatch role must be named and refused: $rc $out" ;; esac
+jq --arg job "$long_job" '.roles[0].job = $job' "$TMP_ROOT/evidence.json" > "$TMP_ROOT/long-evidence-role.json"
+out=$(run_tool --evidence "$TMP_ROOT/long-evidence-role.json" 2>&1); rc=$?
+case "$rc:$out" in 2:*'role secondmate job exceeds 600 characters'*) ;; *) fail "an oversized evidence role must be named and refused: $rc $out" ;; esac
+[ -z "$(find "$TEST_REQUESTS" -type f)" ] || fail 'invalid or oversized jobs must send nothing'
+pass 'invalid input and oversized roles from both sources refuse before any call'
 
 NEVER_SEND="$HOME_DIR/config/dispatch-never-send"
 for forbidden in \
@@ -230,3 +237,17 @@ grep -A8 '^## secondmate$' "$out_file" | grep -q 'Jev: no answer (Jev answer was
 grep -A8 '^## secondmate$' "$out_file" | grep -q 'Proposal: none.' \
   || fail 'out-of-range confidence must not create a switch proposal'
 pass 'out-of-range confidence is rejected for that role'
+
+for response in \
+  '{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","confidence":0.2,"probabilities":{"opus":0.2,"sonnet":0.6,"fable":0.2,"none_fit":0}}}}' \
+  '{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","confidence":0.8,"probabilities":{"opus":0.6,"sonnet":0.3,"fable":0.1,"none_fit":0}}}}'; do
+  rm -f "$TEST_REQUESTS"/*.json
+  out_file="$TMP_ROOT/out/inconsistent-answer.md"
+  TEST_THIRD="$response" run_tool --evidence "$TMP_ROOT/evidence.json" --out "$out_file" >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 1 ] || fail "an inconsistent Jev answer must be malformed, got $rc"
+  grep -A8 '^## secondmate$' "$out_file" | grep -q 'Jev: no answer (Jev answer was malformed).' \
+    || fail 'a non-maximal choice or mismatched confidence must be rejected'
+  grep -A8 '^## secondmate$' "$out_file" | grep -q 'Proposal: none.' \
+    || fail 'an inconsistent answer must not create a proposal'
+done
+pass 'non-maximal choices and mismatched confidence are rejected'

@@ -185,22 +185,24 @@ invalid=$(jq -r '
 # --- roles ------------------------------------------------------------------
 dispatch_roles='[]'
 if [ -e "$DISPATCH" ] || [ -L "$DISPATCH" ]; then
-  dispatch_roles=$(jq -c --argjson max "$FM_MODEL_PROPOSAL_JOB_MAX" '
+  dispatch_roles=$(jq -c '
     if type != "object" or (.rules | type) != "array" then error("rules must be an array") else . end
     | [.rules | to_entries[]
        | .value as $r
        | if ($r | type) != "object" or ($r.when | type) != "string" or ($r.when | length) == 0
          then error("rule \(.key + 1) has no when") else . end
        | {id: "rule-\(.key + 1)",
-          job: ($r.when | gsub("\\s+"; " ") | .[0:$max]),
+          job: ($r.when | gsub("\\s+"; " ")),
           current: [($r.use // [])[] | select(type == "object")
                     | [.harness, .model, .effort] | map(select(type == "string" and . != "")) | join("/")]}]
   ' "$DISPATCH" 2>/dev/null) || die "dispatch profile file $DISPATCH is malformed"
 fi
-roles=$(jq -c --argjson rules "$dispatch_roles" --argjson max "$FM_MODEL_PROPOSAL_JOB_MAX" '
-  $rules + [(.roles // [])[] | {id, job: (.job | gsub("\\s+"; " ") | .[0:$max]), current: (.current // [])}]
+roles=$(jq -c --argjson rules "$dispatch_roles" '
+  $rules + [(.roles // [])[] | {id, job: (.job | gsub("\\s+"; " ")), current: (.current // [])}]
 ' "$EVIDENCE") || die "could not build the role list"
 [ "$(jq 'length' <<<"$roles")" -gt 0 ] || die "no roles: $DISPATCH has no rules and the evidence file lists no roles"
+oversized_role=$(jq -r --argjson max "$FM_MODEL_PROPOSAL_JOB_MAX" '[.[] | select((.job | length) > $max) | .id][0] // empty' <<<"$roles")
+[ -z "$oversized_role" ] || die "role $oversized_role job exceeds $FM_MODEL_PROPOSAL_JOB_MAX characters"
 
 fm_jev_key_configured || die "no Jev key configured (TYPESAFE_API_KEY or OPENROUTER_API_KEY); nothing sent, no proposal written"
 
@@ -328,14 +330,18 @@ for ((i = 0; i < n_roles; i++)); do
       | select((has("confidence") | not) or ((.confidence | type) == "number" and .confidence >= 0 and .confidence <= 1))
       | {choice, probabilities, confidence: (if has("confidence") then .confidence else null end)}
     ' <<<"$response" 2>/dev/null)
-    if [ -z "$answer" ] || ! fm_jev_probabilities_sum_ok "$(jq -c '.probabilities' <<<"$answer")"; then
+    if [ -z "$answer" ] || ! fm_jev_probabilities_sum_ok "$(jq -c '.probabilities' <<<"$answer")" \
+      || ! jq -e '.probabilities[.choice] as $chosen
+        | all(.probabilities[]; . <= $chosen)
+          and (if .confidence == null then true else (.confidence * 100 | round) == ($chosen * 100 | round) end)' \
+        >/dev/null 2>&1 <<<"$answer"; then
       error='Jev answer was malformed'
     else
       route_model=$(fm_jev_response_model "$response")
       result=$(jq -c --argjson a "$answer" --argjson act "$FM_MODEL_PROPOSAL_ACT" --argjson review "$FM_MODEL_PROPOSAL_REVIEW" \
         --arg provider_id "$(jq -r 'if (.id | type) == "string" then .id else "" end' <<<"$response")" '
         . + $a + {provider_id: $provider_id}
-        | (if .confidence != null then .confidence else .probabilities[.choice] end) as $c
+        | .probabilities[.choice] as $c
         | . + {band: (if .choice == "none_fit" then "uncertain"
                       elif $c >= $act then "act"
                       elif $c >= $review then "review"
