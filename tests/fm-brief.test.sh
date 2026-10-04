@@ -993,6 +993,8 @@ test_ship_and_scout_prior_art_uses_authorized_deliverable() {
     fi
     brief="$home/data/$id/brief.md"
     assert_grep "# Prior art" "$brief" "$kind brief has no prior-art section"
+    assert_grep "<neutral project label> <two-to-five neutral topic words>" "$brief" "$kind prior-art matcher reference is not constrained"
+    assert_grep "never include personal data, a person's name, email address, or secrets" "$brief" "$kind prior-art matcher privacy rule is missing"
     if [ "$kind" = scout ]; then
       assert_grep "$home/data/$id/report.md" "$brief" "scout prior-art output is not its guide report"
       assert_grep "this report is the scout's guide, not a new deliverable" "$brief" "scout prior-art destination is not identified as its guide"

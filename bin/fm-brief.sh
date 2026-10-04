@@ -600,7 +600,7 @@ fi
 IFS= read -r -d '' PRIOR_ART_SECTION <<EOF || true
 # Prior art
 Before you build, spend a short timebox (about ten minutes) checking what already exists, then continue; never let this block the task.
-1. Past work: \`$FM_ROOT/bin/fm-jev-intake-match.sh "<one-line description of this task>"\` for earlier reports and task records, then read any \`data/<id>/report.md\` it names.
+1. Past work: run \`$FM_ROOT/bin/fm-jev-intake-match.sh "<neutral project label> <two-to-five neutral topic words>"\` for earlier reports and task records, then read any \`data/<id>/report.md\` it names. Send only that short neutral reference to Jev; never include personal data, a person's name, email address, or secrets.
 2. Wikis: pick the matching vault from the routing cards, or run \`$FM_ROOT/bin/fm-wiki-ask.sh "<question>"\` where an engine is configured; respect each vault's cloud flag and never open a private one.
 3. GitHub: \`ketch code "<symbol or idea>"\` and \`gh-axi\` search for existing implementations, issues, and PRs.
 $PRIOR_ART_DESTINATION
