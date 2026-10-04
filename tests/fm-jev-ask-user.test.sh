@@ -248,6 +248,21 @@ test_escalates_unorderable_steers() {
   pass "fm-jev-ask-user: unorderable and unreadable steer records escalate"
 }
 
+test_escalates_symlinked_steer() {
+  local code out marker=UNRELATED_LINKED_STEER_CONTENT
+  world
+  printf '%s\n' "$marker" > "$TMP_ROOT/unrelated-steer.txt"
+  ln -s "$TMP_ROOT/unrelated-steer.txt" "$HOME_DIR/state/t1.inbox/handled/002.msg"
+  answer in-scope-fix 0.99 in-scope-fix 0.99
+  run code out t1 "$GATE" --round 1
+  assert_equals "$code" 2 "a symlink to a readable file escalates"
+  assert_contains "$out" "ESCALATE $GATE steer-record" "the symlink is refused as a steer record"
+  assert_equals "$(calls)" 0 "linked file contents never reach Jev"
+  assert_absent "$LOG/body" "no Jev request contains linked file content"
+  assert_absent "$LOG/send-args" "a symlinked steer never answers the gate"
+  pass "fm-jev-ask-user: symlinked steer records are refused"
+}
+
 test_escalates_low_confidence() {
   local code out
   world
@@ -432,6 +447,7 @@ test_security_screen_escalates_cross_tenant_finding
 test_escalates_contact_data_before_jev
 test_escalates_incomplete_contract_and_steers
 test_escalates_unorderable_steers
+test_escalates_symlinked_steer
 test_escalates_low_confidence
 test_escalates_out_of_scope_class
 test_escalates_jev_errors

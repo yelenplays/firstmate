@@ -217,7 +217,7 @@ inbox_records() {
   for dir in "$(fm_task_inbox_handled_dir "$STATE" "$TASK")" "$(fm_task_inbox_dir "$STATE" "$TASK")"; do
     for f in "$dir"/*.msg; do
       [ -e "$f" ] || [ -L "$f" ] || continue
-      if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+      if [ -L "$f" ] || [ ! -f "$f" ] || [ ! -r "$f" ]; then
         printf '0\tINVALID\t%s\n' "$f"
         continue
       fi
