@@ -68,6 +68,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-jev-act-first.sh` | ACT FIRST priority list of the session-start digest's actionable items, and its deferred Jev ranking ([configuration](configuration.md#jev-act-first-ranking-session-start)) |
 | `fm-queue-ready.sh` | Advisory heartbeat line of dispatch-ready backlog items from structured fields ([configuration](configuration.md#queue-readiness-heartbeat)) |
 | `fm-jev-brief-preflight.sh` | Advisory deterministic spawn-path brief check ([configuration](configuration.md#brief-preflight-fm_jev_brief_preflight)) |
+| `fm-jev-ask-user.sh` | Jev decides a no-mistakes ask-user gate first; answers confident in-scope fixes through `fm-send --resolve-key`, escalates everything else ([configuration](configuration.md#jev-ask-user-gate-fm_jev_ask_user_floor)) |
 | `fm-jev-pr-verdict.sh` | Metadata-only advisory for review-ready shared-wiki GitHub PRs ([configuration](configuration.md#advisory-wiki-pr-verdict)) |
 | `fm-jev-merge-gate.sh` | Collect exact-head merge evidence and compare Jev's shadow decision with firstmate's ([configuration](configuration.md#jev-merge-gate-shadow)) |
 | `fm-dispatch-replay.sh` | Replay labeled dispatch briefs under a live call budget and score recorded choices offline ([configuration](configuration.md#typed-dispatch-resolution-env-typesafe_api_key)) |

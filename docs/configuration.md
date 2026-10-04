@@ -1434,6 +1434,15 @@ The thin hook point is documented in [`docs/arm-pretool-check.md`](arm-pretool-c
 The ship-landing skill owns when to include it in the captain's review ask; the script header owns admission, privacy and record mechanics.
 It skips silently without a configured Jev key or a share-safe routing card, does not certify private-page content or required checks, and does not change merge authority.
 
+## Jev ask-user gate (FM_JEV_ASK_USER_FLOOR)
+
+[`bin/fm-jev-ask-user.sh`](../bin/fm-jev-ask-user.sh) is the live Jev step of the [`ask-user-authority`](../.agents/skills/ask-user-authority/SKILL.md) procedure, which owns when firstmate runs it and what each outcome obliges.
+It sends a task's accepted contract (the brief's Captain's intent and Firstmate spec plus every steer) and the worker's verbatim findings snapshot to Jev in one typed call, and answers the gate through `bin/fm-send.sh --resolve-key` only when every finding is a confident in-scope fix.
+`FM_JEV_ASK_USER_FLOOR` (default 0.75) is the confidence floor; every lower or split verdict, Jev error, and missing key escalates to the captain with no fallback.
+A wiki vault project, a gate past review round 3, and a finding naming a security, credential, destructive, irreversible, or data-loss concern escalate before any request leaves the machine.
+It calls the caller library directly rather than `bin/fm-jev.sh` because a typical accepted contract is larger than that command's 4096-byte combined input cap; the library's state cap still bounds the call, and an oversized contract escalates rather than being truncated.
+Each run appends one metadata-only record, never contract or finding text, to `state/jev-ask-user.jsonl`; the script header owns inputs, classes, output, exit codes, and the record schema.
+
 ## Shadow done verifier
 
 [`bin/fm-jev-done-verify.sh`](../bin/fm-jev-done-verify.sh) is a log-only helper the wake drain invokes after successfully presenting a worker `done:` line on a ship or scout.
