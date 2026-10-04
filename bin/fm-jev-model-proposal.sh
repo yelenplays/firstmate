@@ -281,6 +281,7 @@ new_request_id() {
 }
 
 candidates=$(jq -c '.candidates' "$EVIDENCE")
+# shellcheck disable=SC2329 # Invoked indirectly by fm_jev_decide as its before-send validator.
 fm_jev_proposal_before_send() {
   fm_never_send_check "$FM_HOME/config/dispatch-never-send" "$1" "request text"
 }
