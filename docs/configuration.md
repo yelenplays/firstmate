@@ -1461,6 +1461,7 @@ A match stops the request: the resolver behaves exactly as when it is off, print
 A list that is present but not a readable regular file also stops the request the same way rather than sending unchecked text.
 That one diagnostic names the list line number at most and never prints the listed value or the matching text.
 The runoff request described under "Runoff on an ambiguous answer" below is checked the same way; a match there sends nothing and only leaves the answer `ambiguous`.
+The model-proposal generator also screens its outbound Jev requests against this list; see [Jev model proposals](#jev-model-proposals).
 
 **Missing or invalid rules**
 
