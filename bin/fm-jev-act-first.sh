@@ -35,9 +35,10 @@
 # Fewer than two items makes no call: there is nothing to rank.
 #
 # What Jev sees (one Choice call through bin/fm-jev-lib.sh): the items above,
-# each sanitized by fm_jev_compact_state, as criteria keyed i1..iN. The Choice
-# probabilities are the ranking; malformed probabilities fall back to the
-# single pick. No status log body, brief, report, or backlog body is sent.
+# each sanitized by fm_jev_compact_state, as criteria keyed i1..iN whose one
+# signal names the item kind. The Choice probabilities are the ranking;
+# malformed probabilities fall back to the single pick. No status log body,
+# brief, report, or backlog body is sent.
 #
 # Output (stdout): at most five lines. --local prints `<rank>. <item>` in the
 # priority order above whenever there are at least two items. Otherwise, only
@@ -307,11 +308,24 @@ fi
 fm_jev_key_configured || exit 0
 
 state=$(fm_jev_compact_state "$(jq -r '"Actionable items a Firstmate supervisor sees at session start:", (.[] | "\(.key): \(.text)")' <<<"$items")") || exit 0
-questions=$(jq -nc --argjson c "$(jq -c 'map({key: .key, value: .text}) | from_entries' <<<"$items")" '{
+questions=$(jq -nc --argjson items "$items" '{
+  decision: "an open captain decision",
+  outcome: "a worker outcome that still needs handling",
+  divergence: "two records of one captain call disagree",
+  execution: "approved work that has not finished executing",
+  unread: "a status line not yet read",
+  status: "the worker'"'"'s newest status is a failure or blocker",
+  wake: "a raw notification record"
+} as $kind | {
   first: {
     type: "choice",
-    instructions: "Which item should the supervisor act on first? Rank by urgency and by how much other work waits on it: an open captain decision, a failure, or a blocker before routine progress and heartbeat wakes.",
-    criteria: $c
+    instructions: {
+      question: "Which item should the supervisor act on first?",
+      context: "A fleet supervisor starts a session and sees these actionable items; it handles one at a time, so the first pick should be the one whose delay costs most.",
+      how_to_read_the_state: "Each line is one item, `key: text`; the text starts with the item kind (decision, status outcome, record divergence, execution, unread status, status, or wake) and is size-capped with secrets scrubbed.",
+      weigh_most: "Urgency and how much other work waits on the item: an open captain decision, a failure, or a blocker comes before routine progress and heartbeat notifications."
+    },
+    criteria: ($items | map({key: .key, value: {what: .text, signals: [$kind[.kind]]}}) | from_entries)
   }
 }') || exit 0
 

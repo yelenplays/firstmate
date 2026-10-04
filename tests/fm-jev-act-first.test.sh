@@ -120,13 +120,13 @@ test_ranks_collected_items() {
     "the live task's failed status tail was not offered"$'\n'"$out"
   jq -e '.questions.first.type == "choice" and (.questions.first.criteria | length) == 7' "$LOG/body" >/dev/null \
     || fail "the request was not one Choice over the seven items"
-  jq -e '[.questions.first.criteria[]] | any(startswith("wake signal ship-a.status: working"))' "$LOG/body" >/dev/null \
+  jq -e '[.questions.first.criteria[].what] | any(startswith("wake signal ship-a.status: working"))' "$LOG/body" >/dev/null \
     || fail "a raw wake record was not offered"
-  jq -e '[.questions.first.criteria[]] | any(contains("captain requested keep the API stable"))' "$LOG/body" >/dev/null \
+  jq -e '[.questions.first.criteria[].what] | any(contains("captain requested keep the API stable"))' "$LOG/body" >/dev/null \
     || fail "the unread status note was not sanitized and offered"
-  jq -e '[.questions.first.criteria[]] | any(contains("pending-reply-resolved: task=ship-b"))' "$LOG/body" >/dev/null \
+  jq -e '[.questions.first.criteria[].what] | any(contains("pending-reply-resolved: task=ship-b"))' "$LOG/body" >/dev/null \
     || fail "the unread pending-reply resolution was not sanitized and offered"
-  jq -e '[.questions.first.criteria[]] | all(test("gone task|WAKE_ACK") | not)' "$LOG/body" >/dev/null \
+  jq -e '[.questions.first.criteria[].what] | all(test("gone task|WAKE_ACK") | not)' "$LOG/body" >/dev/null \
     || fail "a dead task's status or the ack line was offered"
   assert_no_grep "$TS_KEY" "$LOG/argv" "the key reached curl argv"
   assert_grep "Bearer $TS_KEY" "$LOG/header" "the key did not travel on fd 3"

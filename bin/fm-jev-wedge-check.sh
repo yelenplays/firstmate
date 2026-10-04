@@ -150,22 +150,56 @@ state=$(fm_jev_supervision_state pane-tail "$tail_text" "$free_text") || fail "c
 excerpt=
 [ "$free_text" -eq 0 ] || excerpt=$(printf '%s' "$state" | head -c 200)
 
-# The exact question pair the evidence corpus measured (jev-panes.sh in the
-# report directory): a state Choice for the audit trail, and the stuck Noul
-# that gates the verdict.
+# The question pair the evidence corpus measured (jev-panes.sh in the report
+# directory), as scorecards: a state Choice for the audit trail, and the stuck
+# Noul that gates the verdict.
 questions=$(jq -nc '{
+  free_text: "The state is the last lines of the pane, size-capped and with secrets scrubbed; the newest output is at the bottom.",
+  structured: "When `payload` is structured the pane text is withheld: `chars` and `nonblank_lines` give its size, and `signals` are keyword flags computed from it - a waiting prompt, quota or rate-limit text, error text, a permission prompt, a busy indicator, completion text, and whether the last line is a bare shell prompt."
+} as $read | [
+  "a dialog, a Yes/No question, or a numbered menu waiting for a key",
+  "a usage-limit, quota, or permission wall",
+  "the same failed command repeating",
+  "a turn that ended mid-task: the worker said what it would do next and then stopped at an empty prompt"
+] as $stuck_signals | {
   state: {
     type: "choice",
-    instructions: "You see the tail of a terminal pane running an autonomous coding worker under a fleet supervisor. Classify the worker state the pane shows. Judge only this pane content.",
+    instructions: {
+      question: "What state is the autonomous coding worker in this terminal pane in?",
+      context: "A fleet supervisor watches worker panes; a pane that stopped changing may be a stuck worker, a busy one, or one at rest.",
+      how_to_read_the_state: $read,
+      weigh_most: "The bottom of the pane, which shows what the worker is doing now; judge only this pane content."
+    },
     criteria: {
-      genuinely_stuck: "The worker cannot make progress without intervention: it sits on a blocking dialog or quota/permission wall, is dead with unfinished work, loops the same failed action, or ended its turn mid-task with no resolution in sight.",
-      working_busy: "The worker is actively producing: running tools, thinking, writing, or mid-turn with evidence of motion.",
-      idle_finished: "The worker is at rest in an expected way: turn or task complete, declared wait, awaiting routing, or the endpoint simply holds no agent."
+      genuinely_stuck: {what: "The worker cannot make progress without intervention", signals: $stuck_signals,
+        not_for: "a pane that no longer exists or holds no agent, a dashboard or tool screen, or a worker resting after finished work"},
+      working_busy: {what: "The worker is actively producing", signals: [
+        "a spinner or elapsed-time counter, thinking, running tools, writing a file",
+        "mid-turn output that is still moving"]},
+      idle_finished: {what: "The worker is at rest in an expected way", signals: [
+        "turn or task complete, a summary delivered",
+        "a declared wait or awaiting routing",
+        "an idle input prompt after finished work",
+        "the pane was not found or holds no agent"]}
     }
   },
   stuck: {
     type: "noul",
-    instructions: "Is this pane tail evidence of a genuinely stuck worker that a supervisor should escalate as a possible wedge right now? Yes only when the pane shows the worker cannot proceed without intervention - a blocking prompt, quota or permission wall, dead endpoint with unfinished work, or a turn that ended mid-task. A quiet pane mid-thought, a finished task, a declared wait, or an idle-but-healthy worker is not stuck."
+    instructions: {
+      question: "Should the supervisor escalate this worker as a possible wedge right now?",
+      context: "Escalating interrupts the captain, so it is only for a worker that cannot proceed without intervention.",
+      how_to_read_the_state: $read,
+      weigh_most: "Whether the bottom of the pane shows a wall the worker cannot pass on its own."
+    },
+    criteria: {
+      "true": {what: "A genuinely stuck worker", signals: $stuck_signals},
+      "false": {what: "Not stuck", signals: [
+        "a quiet pane mid-thought or mid-tool",
+        "a finished task",
+        "a declared wait",
+        "an idle but healthy worker",
+        "a pane that was not found or holds no agent"]}
+    }
   }
 }') || fail "jq is required"
 

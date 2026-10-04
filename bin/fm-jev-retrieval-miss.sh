@@ -221,12 +221,35 @@ fi
 questions=$(jq -nc '{
   miss: {
     type: "choice",
-    instructions: "Why did this retrieval miss? Use only the query and retrieval metadata. Never recommend a retry, enabling embeddings, or a config write. Prefer need_human when the metadata cannot decide.",
+    instructions: {
+      question: "Why did this wiki retrieval miss?",
+      context: "A knowledge question to the captain'"'"'s wiki engine found no answer; this shadow verdict only labels the miss and changes nothing.",
+      how_to_read_the_state: {
+        query: "the question as asked",
+        retrieval_status: "the retrieval layer status, such as disabled, or the engine status when that is absent",
+        mode: "how the engine searched, such as full-corpus-bm25 keyword search",
+        pages_searched: "how many candidate pages were read; 0 means no wiki matched at all",
+        embeddings_enabled: "1 when dense embeddings are consented and on",
+        openviking_enabled: "1 when the OpenViking memory index is consented and on"
+      },
+      weigh_most: "The query'"'"'s wording and topic against the search mode and pages_searched.",
+      caveat: "Use only this metadata. Never recommend a retry, enabling embeddings, or a config write. Prefer need_human when the metadata cannot decide."
+    },
     criteria: {
-      true_miss: "The consented corpus should not contain an answer to this query.",
-      vocab_divergence: "The corpus likely has the fact under different wording, the eval_semantic shape.",
-      consent_blocked: "Dense embeddings or OpenViking look relevant but are not enabled.",
-      need_human: "A human must inspect; the metadata cannot decide."
+      true_miss: {what: "The consented corpus should not contain an answer", signals: [
+        "the topic is outside what a personal knowledge wiki would hold",
+        "no wiki matched and the query is precise"]},
+      vocab_divergence: {what: "The corpus likely has the fact under different wording", signals: [
+        "pages were searched in a matching area but none answered",
+        "the query uses colloquial words, synonyms, or another language than the likely page"],
+        not_for: "a miss where dense embeddings or OpenViking are off and a meaning-based search would likely find it"},
+      consent_blocked: {what: "Dense embeddings or OpenViking look relevant but are not enabled", signals: [
+        "embeddings_enabled or openviking_enabled is 0",
+        "the search was keyword-only",
+        "the query asks by meaning or paraphrase rather than exact terms"]},
+      need_human: {what: "A human must inspect; the metadata cannot decide", signals: [
+        "the query is vague or could fit several readings",
+        "the metadata points two ways"]}
     }
   }
 }') || die "jq is required"

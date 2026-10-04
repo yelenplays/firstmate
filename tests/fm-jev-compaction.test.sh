@@ -148,9 +148,10 @@ jq -se '
     .questions.keep_value
     | .type == "score"
       and (.criteria | type == "array" and length >= 2 and length <= 10)
-      and all(.criteria[]; type == "string" and length > 0)
-      and (.criteria[0] | startswith("Safe to park"))
-      and (.criteria[-1] | startswith("Must keep"))
+      and all(.criteria[]; (.summary | type == "string" and length > 0)
+        and (.signals | type == "array" and length > 0))
+      and (.criteria[0].summary | startswith("Safe to park"))
+      and (.criteria[-1].summary | startswith("Must keep"))
       and (has("min") | not) and (has("max") | not))
 ' "$BODIES" >/dev/null || fail "keep_value Score must send ordered park -> keep criteria and no min/max"
 jev_parked="$(jq -rs 'map("\(.id)=\(.keep_value)") | join(",")' "$PARK4/index.jsonl")"

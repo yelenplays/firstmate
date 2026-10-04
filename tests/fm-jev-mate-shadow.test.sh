@@ -55,7 +55,7 @@ expect_skipped() { # <task-id> <summary> <reason>
 write_answer docs 0.91 0.09
 out=$(run_tool suggest docs-task --public-summary 'Update the public installation guide') || fail 'suggest failed'
 assert_equals docs "$out" 'strong choice accepted'
-jq -e '.state.task_summary=="Update the public installation guide" and (.state.mate_scopes | has("docs") and has("site") and (has("private") | not)) and (.questions.mate.criteria | has("private") | not) and (has("task_id") | not)' "$PAYLOAD" >/dev/null || fail 'outbound privacy or scope shape violated'
+jq -e '.state.task_summary=="Update the public installation guide" and (.state.mate_scopes | has("docs") and has("site") and (has("private") | not)) and (.questions.mate.criteria | has("private") | not) and (.questions.mate.criteria.docs.what == "Public documentation and reference guides." and .questions.mate.criteria.docs.signals == ["the task concerns work described by: Public documentation and reference guides."]) and (.questions.mate.criteria.site.what == "Public website pages and accessibility." and .questions.mate.criteria.site.signals == ["the task concerns work described by: Public website pages and accessibility."]) and (has("task_id") | not)' "$PAYLOAD" >/dev/null || fail 'outbound privacy or scope scorecard violated'
 jq -e '.event=="suggest" and .task_id=="docs-task" and .suggested=="docs" and .probability==0.91 and .response_model=="typesafe/jev-1.13-20260917"' "$LOG" >/dev/null || fail 'suggestion not recorded'
 pass 'approved scopes only; returned build and probability recorded'
 

@@ -99,7 +99,18 @@ fm_jev_compaction_score_jev() {
   if ! compact="$(fm_jev_compact_state "$state")"; then
     compact="$state"
   fi
-  questions='{"keep_value":{"type":"score","instructions":"How much does the live prompt still need this crew-harness trace segment, versus parking it on disk?","criteria":["Safe to park: noise or output nothing later relies on.","Probably parkable: low value and unlikely to be needed again.","Uncertain: it might be referenced again.","Probably keep: the live prompt likely still needs it.","Must keep: the live prompt depends on it."]}}'
+  questions='{"keep_value":{"type":"score",
+    "instructions":{
+      "question":"How much does the live prompt still need this crew-harness trace segment, versus parking it on disk?",
+      "context":"A coding agent'"'"'s conversation trace is trimmed to save context; a parked segment is copied to disk and left out of the live prompt, so it is recoverable but no longer seen.",
+      "how_to_read_the_state":"The state is one trace segment as a JSON object: its id, its role (user, assistant, or tool), and its content.",
+      "weigh_most":"Whether later work would need this exact content - the task'"'"'s own ask, decisions, findings, and current file contents - over how long or recent it is."},
+    "criteria":[
+      {"summary":"Safe to park: noise or output nothing later relies on","signals":["install, download, or progress logs","passing test runs and routine command output","repeated or superseded output"]},
+      {"summary":"Probably parkable: low value and unlikely to be needed again","signals":["a long exploratory listing or search result already acted on","a debug dump whose conclusion was already stated"]},
+      {"summary":"Uncertain: it might be referenced again","signals":["file contents or tool output whose role in the task is unclear"]},
+      {"summary":"Probably keep: the live prompt likely still needs it","signals":["a finding, diagnosis, or plan the agent stated","an error message not yet resolved","contents of a file the agent is still editing"]},
+      {"summary":"Must keep: the live prompt depends on it","signals":["the user'"'"'s task, ask, or constraints","a decision or instruction later steps must follow"]}]}}'
   resp="$(fm_jev_decide "$compact" "$questions")" || return 1
   score="$(printf '%s' "$resp" | jq -r --argjson q "$questions" '
     (($q.keep_value.criteria | length) - 1) as $top
