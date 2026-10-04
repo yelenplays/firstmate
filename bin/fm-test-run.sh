@@ -995,10 +995,12 @@ portable_serial_weight_for() {
   printf '%s\n' "$PORTABLE_SERIAL_DEFAULT_WEIGHT_MS"
 }
 
-# Longest-processing-time assignment of the serial remainder to
-# PORTABLE_SERIAL_SHARDS bins, printing "<shard>\t<script>" for every script.
+# Reserve singleton shards for the two indivisible slow suites; pack the rest
+# longest-processing-time into the remaining PORTABLE_SERIAL_SHARDS bins.
+# The singleton reservations use current CI evidence rather than stale weights
+# (docs/fm-test-portable-shards.md). Print "<shard>\t<script>" for every script.
 # Deterministic: candidates are ordered by hint descending then path, and ties
-# between equally loaded bins always take the lowest bin index.
+# between equally loaded bins always take the lowest available bin index.
 portable_serial_assignments() {
   local ms script i best best_load
   local -a loads=()
@@ -1009,17 +1011,23 @@ portable_serial_assignments() {
   done
   while IFS=$'\t' read -r ms script; do
     [ -n "$script" ] || continue
-    best=1
-    best_load=${loads[1]}
-    i=2
-    while [ "$i" -le "$PORTABLE_SERIAL_SHARDS" ]; do
-      if [ "${loads[i]}" -lt "$best_load" ]; then
-        best_load=${loads[i]}
-        best=$i
-      fi
-      i=$((i + 1))
-    done
-    loads[best]=$((best_load + ms))
+    case "$script" in
+      tests/fm-watch-triage.test.sh) best=1 ;;
+      tests/fm-supervision-host.test.sh) best=2 ;;
+      *)
+        best=3
+        best_load=${loads[3]}
+        i=4
+        while [ "$i" -le "$PORTABLE_SERIAL_SHARDS" ]; do
+          if [ "${loads[i]}" -lt "$best_load" ]; then
+            best_load=${loads[i]}
+            best=$i
+          fi
+          i=$((i + 1))
+        done
+        ;;
+    esac
+    loads[best]=$((loads[best] + ms))
     printf '%s\t%s\n' "$best" "$script"
   done < <(
     while IFS= read -r script; do

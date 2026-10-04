@@ -42,13 +42,18 @@ The cancelled PR run [35774219507](https://github.com/yelenplays/firstmate/actio
 Each of the 24 proven-isolated candidates has three successful per-script samples across these six artifacts.
 `portable_parallel_weight_hints` retains the slowest completed sample for each script, which is a packing input and not an upper bound on future durations.
 
+For current serial singleton-isolation evidence, successful Ubuntu CI run [37164082939](https://github.com/yelenplays/firstmate/actions/runs/37164082939) provides these per-script measurements in its `fm-test-timing-aggregate` artifact:
+
+- `tests/fm-supervision-host.test.sh`: `duration_ms=1417414` (23m37s), `exit=0`.
+- `tests/fm-watch-triage.test.sh`: `duration_ms=1231514` (20m32s), `exit=0`.
+
+These measurements support singleton isolation and the serial timeout tier; they are not a refresh of the older packing hint table or evidence that the modeled twenty-minute budget bounds current runtime.
+
 ## Parallel lanes
 
-The two parallel lanes use longest-processing-time assignment over those hints, with the Pi typecheck pinned to the job that installs its prerequisite.
-[`bin/fm-test-run.sh`](../bin/fm-test-run.sh) holds the duration values in `portable_parallel_weight_hints` and the ordered memberships and lane-specific prerequisite constraints beside `list_portable_parallel_1` and `list_portable_parallel_2`.
-Read the derived packing estimates with that runner's `--check-coverage`; its header and `--help` own the output fields and the selection-specific `--list-scheduled` weight rules.
+Read the derived packing estimates with `bin/fm-test-run.sh --check-coverage`; its header and `--help` own the output fields and the selection-specific `--list-scheduled` weight rules.
 The largest individual hint sets a lower bound on the estimated duration of any split, regardless of how evenly the remaining work is assigned.
-The CI cap follows the three-tier timeout policy in [Timeouts](#timeouts) below.
+The CI cap follows the timeout policy in [Timeouts](#timeouts) below.
 Three parallel lanes use deterministic longest-processing-time assignment over the per-script maxima.
 [`bin/fm-test-run.sh`](../bin/fm-test-run.sh) owns the duration values in `portable_parallel_weight_hints` and the ordered memberships beside `list_portable_parallel_1`, `list_portable_parallel_2`, and `list_portable_parallel_3`.
 Shard 1 retains `tests/fm-pi-primary-types.test.sh` because its CI job installs the Pi package required by that test.
@@ -65,7 +70,6 @@ The target was seven minutes until upstream's 2026-09-30 hint refresh, whose lon
 [`tests/fm-test-run.test.sh`](../tests/fm-test-run.test.sh) verifies that all three lanes are fully hinted, below eight minutes, and within five percent of each other.
 The largest individual hint is 347610 ms for `tests/fm-captain-hold-lifecycle.test.sh`, which is the indivisible floor for a three-way split.
 These estimates do not guarantee job wall time if a script outgrows its observed samples.
-The ten-minute CI cap and its rationale remain owned by [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 
 Refresh `portable_parallel_weight_hints` with the slowest successful `duration_ms` per script from several recent runs where all parallel jobs completed:
 
@@ -104,7 +108,11 @@ Each shard is still strictly serial in itself, and separate runners mean no two 
 `bin/fm-test-run.sh` owns `n` and refuses any lane whose `of<n>` disagrees with it.
 `.github/workflows/ci.yml` derives the same `n` from `strategy.job-total` rather than a literal, so changing the shard count in either file without the other fails the lane loudly instead of leaving part of the required suite unrun.
 
-Assignment is longest-processing-time bin packing over per-script duration hints embedded in `bin/fm-test-run.sh`.
+Shards 1 and 2 are reserved for `tests/fm-watch-triage.test.sh` and `tests/fm-supervision-host.test.sh`, respectively, with no other scripts on either runner.
+The remaining shards use longest-processing-time bin packing over per-script duration hints embedded in `bin/fm-test-run.sh`.
+Recent successful Ubuntu CI measurements put those two indivisible suites above twenty minutes, so a whole-script split cannot meet the packing target for every shard.
+The singleton reservations keep unrelated work off their critical paths even when their older baseline hints understate current runtime.
+The coverage guard still enforces the twenty-minute modeled budget against those baseline hints; it does not claim that current singleton durations fit that budget.
 [Verification inputs](#verification-inputs) owns the measurement provenance and exceptions.
 A script with no hint gets the conservative `PORTABLE_SERIAL_DEFAULT_WEIGHT_MS` default.
 Hints only affect balance: the coverage guard keeps the partition complete and disjoint whatever they say, so a stale hint costs a slower shard rather than lost coverage.
@@ -118,7 +126,7 @@ These provisional values are balance inputs only and are not presented as CI evi
 `bin/fm-test-run.sh` owns the per-shard packing, so its `--check-coverage` output is the current account of lane size and coverage rather than a copied inventory.
 Its header and `--help` own the modeled-budget check and output fields; read the current estimates from `--check-coverage` instead of retaining copied lane sums here.
 [`tests/fm-test-run.test.sh`](../tests/fm-test-run.test.sh), in `test_portable_serial_packing_budget_boundary`, verifies acceptance exactly at the budget and refusal one millisecond above it through the executable runner.
-The longest script, `tests/fm-watch-triage.test.sh`, is the indivisible floor for this layout.
+The longer of the two singleton scripts is the indivisible floor for this layout.
 The estimates use per-file maxima from different runs, not measured rebalanced jobs or an end-to-end latency guarantee.
 The baseline watch-triage samples range from 944375 to 1074843 ms, while each observed completed portable job adds at most 30 seconds beyond its summed scripts in these runs.
 Even so, maxima from five runs do not establish a P95 or guarantee future headroom.
@@ -175,16 +183,18 @@ The workflow retains per-PR supersession without cancelling main pushes or chang
 
 ## Timeouts
 
-CI job timeouts follow one three-tier policy, so the workflow reads as a policy rather than as a collection of per-job numbers.
+CI job timeouts follow one four-tier policy, so the workflow reads as a policy rather than as a collection of per-job numbers.
 Every tier is a hang tripwire with headroom above the healthy duration, never a packing estimate or a runtime target.
-A lane that reaches its tier bound needs investigation and a distribution or runtime fix, not a larger timeout to fit the same work.
+A lane that reaches its tier bound needs investigation and a distribution or runtime fix.
+When an indivisible serial suite exceeds the normal packing target, singleton isolation plus the serial tier provides headroom without changing test content or unrelated jobs.
 
 | Tier | Jobs | Bound | Rationale |
 |---|---|---|---|
 | Fast | coverage guard, repo invariants, timing aggregate | 5 minutes | Seconds-long local work, so the tripwire only catches a hung runner. |
-| Normal | lint partitions, portable parallel shards, portable serial shards, macOS stock Bash | 30 minutes, one value shared by every job in the tier | One shared hang tripwire keeps every ordinary test and lint lane on the same policy instead of allowing per-lane packing estimates or one-off caps to set the bound. |
+| Normal | lint partitions, portable parallel shards, macOS stock Bash | 30 minutes, one value shared by every job in the tier | Ordinary jobs retain their existing shared hang tripwire. |
+| Serial | portable serial shards | 45 minutes, one value shared by every serial shard | Singleton suites exceed twenty minutes by themselves; this bound leaves headroom without skipping tests or increasing unrelated job limits. |
 | Heavy | Herdr | family-run step 20 minutes under a 75-minute job-level last-resort backstop | Healthy runs finish in about 7-10 minutes, so the step tripwire fails a wedged suite while the `always()` cleanup and timing upload still run, and the job cap only catches a hang outside that step. |
 
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) holds the executable values and names each job's tier beside its `timeout-minutes`.
-[`tests/fm-ci-workflow.test.sh`](../tests/fm-ci-workflow.test.sh) holds the policy against the parsed workflow: every job belongs to exactly one tier, the workflow carries exactly three distinct job-level values, the fast tier stays within 5-10 minutes, the normal jobs share one 30-minute budget, and the Herdr family-run step is the 20-minute tripwire below its job backstop with an `always()` teardown after it.
+[`tests/fm-ci-workflow.test.sh`](../tests/fm-ci-workflow.test.sh) holds the policy against the parsed workflow: every job belongs to exactly one tier, the workflow carries exactly four distinct job-level values, the fast tier stays within 5-10 minutes, the normal jobs share one 30-minute budget, the serial shards share one 45-minute budget, and the Herdr family-run step is the 20-minute tripwire below its job backstop with an `always()` teardown after it.
 A passing coverage guard does not establish a healthy job duration; refresh the healthy figures above from the lanes' uploaded timing artifacts.
