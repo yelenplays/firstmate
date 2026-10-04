@@ -9,10 +9,11 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), and [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), and [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), and [Calm preference](#calm-preference-configcalm) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
+| Who reviews finished work | [Cross-family review](#cross-family-review) |
 | Per-run overrides and tuning | [Environment variables](#environment-variables) |
 
 ## FM_HOME
@@ -993,6 +994,35 @@ A remote secondmate is launched on its host from its own home's configuration, s
 
 [`bin/fm-worker-account-lib.sh`](../bin/fm-worker-account-lib.sh) owns parsing, the sign-in check, and the full list of credentials a Claude launch unsets; [runtime backend verification](verification/runtime-backends.md#worker-account-pin-sign-in-check) records the check against the real runners.
 
+## GitHub account per owner (config/gh-account-by-owner)
+
+A home signed in to several GitHub accounts, such as a company account and a personal one, can choose which account Firstmate's own GitHub reads, checks, and merges use for each repository owner.
+The map is opt-in and private: with no file or no matching owner, calls retain their existing authentication, including ambient `GH_TOKEN` or `GITHUB_TOKEN` overrides.
+
+Each line is `owner account`, where the owner is the GitHub user or organization in the repository URL and the account is a login already added with `gh auth login --hostname github.com`.
+For example, to route company repositories and repositories owned by your personal account separately:
+
+```text
+SlashpipeCoding Slashpipe
+MarcoGC3 MarcoGC3
+```
+
+List every owner you want routed; there is no wildcard or default-account entry.
+Names may contain only ASCII letters, digits, and hyphens.
+Owner names match case-insensitively; blank lines and text after `#` are ignored.
+
+For a mapped owner, Firstmate reads that account's token with `gh auth token --hostname github.com --user <account>` and passes it as `GH_TOKEN` to that one gh or gh-axi call only.
+The active account is never switched, and the token is never printed, logged, written to a file, or placed in a command argument.
+This covers PR merges, merge checks and merge watching, PR state and reviewer reads, cleanup's merge check, the bearings PR list, the wiki PR verdict, and the background contribution watch, so the watch keeps seeing an owner's PRs while another account stays active.
+Worker-issued pushes and pull requests are not routed by this map: Git pushes retain the clone's configured Git authentication, and worker GitHub CLI calls retain their own CLI authentication.
+
+An unreadable map, malformed names or lines, conflicting accounts for the requested owner, or a mapped account without a token stops the routed call rather than retrying under another account.
+The helper emits an `fm-gh-account:` diagnostic; some callers suppress it, while a contribution watch records it on the affected entry.
+GitHub Enterprise hosts, GitLab, and Gerrit are not covered.
+The map is not inherited into secondmate homes; a secondmate that needs it keeps its own file.
+
+[`bin/fm-pr-lib.sh`](../bin/fm-pr-lib.sh) owns the parsing and the per-call helper.
+
 ## Lavish server address (config/lavish-axi-host)
 
 The optional local, gitignored `config/lavish-axi-host` contains one non-empty address without whitespace for the per-machine Lavish server.
@@ -1600,8 +1630,19 @@ A home runs the filing as a daily batch:
    If that Opus-low profile is unavailable, leave private drafts pending rather than routing them elsewhere.
 3. Each filing task writes its drafts into the vault through that vault's clone and delivery path.
 4. After a draft lands, firstmate runs `bin/fm-guide-lander.sh mark-filed <home> <task-id> <vault-commit>`, which writes `data/<task-id>/guide.filed` so the draft is filed once.
+Both commands refuse a symlinked task directory or draft: `pending` skips it with a notice and `mark-filed` exits non-zero without writing.
 
 The daily schedule itself is home-local operator setup, not tracked code.
+
+## Cross-family review
+
+Every in-scope task's exact head is reviewed by an AI family other than the one that built it; [`bin/fm-cross-review.sh`](../bin/fm-cross-review.sh)'s header owns the evidence rules, subcommands, record formats, and exit codes, and [`bin/fm-ai-family-lib.sh`](../bin/fm-ai-family-lib.sh) owns how a harness and model resolve to a family.
+`bin/fm-spawn.sh` records the builder's family as `ai_family=` in the task record, keeping every family that has driven the task across relaunches.
+A no-mistakes pipeline review of the exact head counts when the agent that ran it resolves to a family disjoint from the builder's; otherwise, and always for direct-PR and local-only work, firstmate spawns a one-shot reviewer scout from another family, which also gives the `confirm <head-sha>` an unsure merge decision needs.
+Vault changes excluded by `fm_wiki_change_private` in [`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) never get a new reviewer and stay on their existing path.
+An unknown builder family, or no candidate from another family, is reported for the captain to decide rather than guessed.
+
+The fixed candidate chain is `pi openai-codex/gpt-6-luna high`, then `pi xai/grok-4.7 high`; Firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
 
 ## Memory store (config/memory-dir)
 
@@ -2712,6 +2753,7 @@ FM_INACTIVE_RECONCILE_BUDGET_SECS=10  # 1..30-second scan deadline; wedged-scan 
 FM_CHECK_INTERVAL=300   # seconds between slow checks (authenticated merge polls, custom checks, or Relay dispatch)
 FM_TASK_INBOX_GRACE_SECS=90   # seconds an unhandled steering-inbox message may sit before the watcher attempts doorbell delivery on an idle pane; also the minimum spacing between attempts
 FM_TASK_INBOX_RING_MAX=3      # watcher delivery attempts without an acknowledgement before the task surfaces as a stale wake for recovery
+FM_TASK_INBOX_BUSY_MAX=2      # consecutive busy-deferred due polls before a stuck-busy stale wake; 1..999999999, at most 9 decimal digits, otherwise 2; policy: bin/fm-task-inbox-lib.sh
 FM_CHECK_TIMEOUT=30     # seconds allowed per slow check script
 FM_MAIL_CHECK_BUDGET=15   # seconds allowed for one standing mail poll; valid 5..25, cut to fit FM_CHECK_TIMEOUT
 FM_MAIL_POLL_MAX_WAKES=20   # per-poll wake cap for a mail poll; valid 1..200, keeps a flood from flooding firstmate

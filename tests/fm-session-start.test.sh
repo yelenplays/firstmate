@@ -2610,6 +2610,49 @@ EOF
   pass "--reemit reprints the digest without repeating startup's mutating sweeps and still drains queued wakes"
 }
 
+test_compact_reemit_is_slim_and_full_flag_restores_the_report() {
+  local rec root home fakebin slim full sequence
+  rec=$(new_world compact-slim)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  make_fake_tmux "$fakebin" "fm-sess:live"
+  printf 'window=fm-sess:live\nkind=ship\nMETA_BULK_MARKER=1\n' > "$home/state/task-a.meta"
+  printf 'working: older step\nworking: newest step\n' > "$home/state/task-a.status"
+  printf 'CAPTAIN_PREF_MARKER\n' > "$home/data/captain.md"
+  append_wake "$home/state" signal task-a "done: queued for the compact" || fail "seed wake failed"
+  FM_FAKE_HARNESS_PID=$$ run_session_start "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null
+
+  append_wake "$home/state" signal task-a "done: queued after the compact" || fail "seed second wake failed"
+  slim=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_FAKE_HARNESS_PID=$$ PATH="$fakebin:$BASE_PATH" \
+    env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT \
+    "$SESSION_START" --reemit --source compact)
+  assert_contains "$slim" "SESSION START (CONTEXT RE-EMIT, COMPACT) - $home" "compact re-emit did not label itself slim"
+  assert_contains "$slim" "LOCK" "slim digest dropped the lock line"
+  assert_contains "$slim" "done: queued after the compact" "slim digest dropped the queued wake"
+  sequence=$(printf '%s\n' "$slim" | sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through \([0-9][0-9]*\) --recovery-generation [A-Za-z0-9._-][A-Za-z0-9._-]*$/\1/p' | tail -1)
+  [ -n "$sequence" ] || fail "slim digest omitted the generation-bound wake acknowledgement"
+  assert_contains "$slim" "task-a: endpoint alive" "slim digest dropped the live-task line"
+  assert_contains "$slim" "newest step" "slim digest dropped the task's last status line"
+  assert_not_contains "$slim" "older step" "slim digest printed a status tail"
+  assert_not_contains "$slim" "META_BULK_MARKER" "slim digest dumped a meta file"
+  assert_not_contains "$slim" "CAPTAIN_PREF_MARKER" "slim digest dumped the curated context"
+  assert_contains "$slim" "--reemit --source compact --full" "slim digest did not point at the full report"
+  assert_contains "$slim" "NEXT STEP" "slim digest dropped the closing reminder"
+
+  full=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_FAKE_HARNESS_PID=$$ PATH="$fakebin:$BASE_PATH" \
+    env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT \
+    "$SESSION_START" --reemit --source compact --full)
+  assert_contains "$full" "SESSION START (CONTEXT RE-EMIT) - $home" "--full did not restore the full re-emit"
+  assert_contains "$full" "META_BULK_MARKER" "--full omitted the meta files"
+  assert_contains "$full" "CAPTAIN_PREF_MARKER" "--full omitted the curated context"
+  [ "${#slim}" -lt "${#full}" ] || fail "the slim digest was not smaller than the full one"
+
+  pass "a compact re-emit prints the slim digest and --full restores the whole report"
+}
+
 test_agents_baseline_stays_at_true_start_and_reemits_on_every_drifted_pi_compact() {
   local rec root home fakebin startup compact_equal compact_first compact_second clear_out resume_out reset_out baseline baseline_after expected_hash refresh_line bootstrap_line
   rec=$(new_world agents-refresh)
@@ -3263,6 +3306,7 @@ test_portable_timeout_escalates_term_resistant_process
 test_runtime_bound_leaves_a_healthy_digest_untouched
 test_runtime_bound_leaves_harness_ancestry_headroom
 test_reemit_skips_startup_sweeps_but_keeps_the_wake_drain
+test_compact_reemit_is_slim_and_full_flag_restores_the_report
 test_agents_baseline_stays_at_true_start_and_reemits_on_every_drifted_pi_compact
 test_read_only_pi_compact_refreshes_against_its_own_session_identity
 test_codex_unreachable_reset_sources_do_not_claim_instruction_refresh

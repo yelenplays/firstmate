@@ -222,6 +222,7 @@ test_no_profile_keeps_claude_profile_defaults() {
   expect_code 0 "$status" "claude spawn without profile flags should succeed"
   assert_contains "$out" "spawned $id harness=claude" "spawn did not report claude"
   assert_meta_profile "$HOME_DIR/state/$id.meta" claude default default
+  assert_grep "ai_family=anthropic" "$HOME_DIR/state/$id.meta" "a claude builder was not recorded as the anthropic family"
 
   launch=$(cat "$LAUNCH_LOG")
   expected=$(claude_expected_launch "$launch" "$HOME_DIR" "$id" --dangerously-skip-permissions)
@@ -523,6 +524,7 @@ test_active_dispatch_profile_allows_explicit_harness() {
   expect_code 0 "$status" "explicit harness should satisfy active dispatch-profile requirement"
   assert_contains "$out" "spawned $id harness=codex" "spawn did not report explicit codex harness"
   assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
+  assert_grep "ai_family=openai" "$HOME_DIR/state/$id.meta" "a codex builder was not recorded as the openai family"
   launch=$(cat "$LAUNCH_LOG")
   assert_contains "$launch" "codex --model 'gpt-5' -c 'model_reasoning_effort=\"high\"' --dangerously-bypass-approvals-and-sandbox" \
     "explicit harness launch did not thread model and effort"
