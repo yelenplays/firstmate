@@ -202,6 +202,66 @@ SH
   pass "registered custom check output is queued before cadence suppression"
 }
 
+test_own_cadence_runs_without_moving_global_sweep() {
+  local dir state fakebin out own ordinary global_mtime own_mtime
+  dir=$(make_case own-check-cadence)
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  out="$dir/watch.out"
+  own="$state/own.check.sh"
+  ordinary="$state/ordinary.check.sh"
+  printf '#!/usr/bin/env bash\nprintf "own cadence ran\\n"\n' > "$own"
+  printf '#!/usr/bin/env bash\nprintf "ordinary ran\\n" > "%s"\n' "$dir/ordinary-ran" > "$ordinary"
+  chmod 0700 "$own" "$ordinary"
+  FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" own >/dev/null \
+    || fail "could not register own-cadence check"
+  FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" ordinary >/dev/null \
+    || fail "could not register ordinary check"
+  printf '10\n' > "$state/own.check-every"
+  touch "$state/.last-check" "$state/.last-check-own"
+  fm_touch_epoch "$(( $(date +%s) - 20 ))" "$state/.last-check-own"
+  own_mtime=$(stall_watch_beat_epoch "$state/.last-check-own")
+  global_mtime=$(stall_watch_beat_epoch "$state/.last-check")
+
+  PATH="$fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=300 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  wait_for_exit "$!" 40 || fail "watcher did not run the due own-cadence check"
+  grep -F "check: $own: own cadence ran" "$out" >/dev/null || fail "own-cadence check did not wake"
+  [ ! -e "$dir/ordinary-ran" ] || fail "ordinary check ran during an own-cadence-only pass"
+  [ "$(stall_watch_beat_epoch "$state/.last-check")" = "$global_mtime" ] \
+    || fail "own-cadence wake changed the global sweep timestamp"
+  [ "$(stall_watch_beat_epoch "$state/.last-check-own")" -gt "$own_mtime" ] \
+    || fail "own-cadence check did not update its own timestamp"
+  pass "own cadence runs independently without moving the global sweep"
+}
+
+test_invalid_own_cadence_waits_for_global_sweep() {
+  local dir state fakebin out check_file pid
+  dir=$(make_case invalid-own-cadence)
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  out="$dir/watch.out"
+  check_file="$state/cadence.check.sh"
+  printf '#!/usr/bin/env bash\nprintf "invalid cadence ran\\n"\n' > "$check_file"
+  chmod 0700 "$check_file"
+  FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" cadence >/dev/null \
+    || fail "could not register invalid-cadence check"
+  printf '10\n20\n' > "$state/cadence.check-every"
+  touch "$state/.last-check"
+  fm_touch_epoch "$(( $(date +%s) - 20 ))" "$state/.last-check-cadence"
+  : > "$out"
+  PATH="$fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=300 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  sleep 3
+  kill -TERM "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  if grep -F "invalid cadence ran" "$out" >/dev/null; then
+    fail "a malformed own-cadence value ran before the global sweep"
+  fi
+  pass "invalid own cadence falls back to the global sweep"
+}
+
 test_atomic_double_drain() {
   local dir state out1 out2 count1 count2 sequence generation leftover
   dir=$(make_case double-drain)
@@ -3506,6 +3566,8 @@ test_signal_catchup_without_running_watcher
 test_stale_enqueue_before_suppressor
 test_not_working_stale_enqueue_before_suppressor
 test_check_output_is_queued
+test_own_cadence_runs_without_moving_global_sweep
+test_invalid_own_cadence_waits_for_global_sweep
 test_atomic_double_drain
 test_drain_dedupes_obvious_duplicates
 test_drain_keeps_distinct_check_results_on_one_key
