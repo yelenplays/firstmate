@@ -535,6 +535,12 @@ assert_contains "$out" '  status: ambiguous' "a text-typed pick cannot settle th
 assert_contains "$out" '  pick: error (response is not a runoff Choice answer)' "a text-typed pick is reported as malformed"
 assert_not_contains "$out" '  profile:' "a text-typed pick emits no profile line"
 reset_log
+jq 'del(.answers.pick.confidence)' "$PICK_RESPONSE" > "$TMP_ROOT/pick-missing-confidence.json"
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE="$TMP_ROOT/pick-missing-confidence.json" run code out err "$BRIEF"
+assert_contains "$out" '  status: ambiguous' "a pick without confidence cannot settle the runoff"
+assert_contains "$out" '  pick: error (response is not a runoff Choice answer)' "a pick without confidence is reported as malformed"
+assert_not_contains "$out" '  profile:' "a pick without confidence emits no profile line"
+reset_log
 TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE FAKE_CURL_PICK_HTTP=500 run code out err "$BRIEF"
 assert_contains "$out" '  status: ambiguous' "a failed runoff call stays ambiguous"
 assert_contains "$out" '  pick: error (http 500 after' "a failed runoff call names the HTTP status"

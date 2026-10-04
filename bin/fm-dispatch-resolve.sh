@@ -1040,6 +1040,7 @@ case "$RUNOFF_STATE" in
           ($questions.pick.criteria | keys | sort) as $keys |
           (.answers.pick // null) as $p |
           if ($p | type) == "object" and $p.type == "choice" and ($p.choice | type) == "string" and ($keys | index($p.choice)) != null and
+             (($p.confidence | type) == "number") and ($p.confidence >= 0) and ($p.confidence <= 1) and
              (($p.probabilities | type) == "object") and (($p.probabilities | keys | sort) == $keys) and
              all($p.probabilities[]; type == "number" and . >= 0 and . <= 1) and
              (($p.probabilities | [.[]] | add) as $t | $t >= 0.99 and $t <= 1.01)
