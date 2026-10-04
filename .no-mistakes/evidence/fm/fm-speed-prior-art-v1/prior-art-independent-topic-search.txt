@@ -1,0 +1,4 @@
+Fixture terms: branch rollback sync
+Matched past reports/guides:
+/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-prior-art-yf5jVd/data/task-b/guide.md
+/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-prior-art-yf5jVd/data/task-a/report.md
