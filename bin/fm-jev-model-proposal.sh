@@ -222,10 +222,15 @@ if [ -z "$OUT" ]; then
   OUT="$FM_HOME/data/model-proposals/$(date -u +%Y%m%dT%H%M%SZ).md"
 fi
 out_dir=$(dirname "$OUT")
-out_real=$(real_path "$OUT")
-out_target=$(resolved_path "$OUT")
+out_parent_expected=$(resolved_path "$out_dir") || die "could not resolve the output directory"
+out_parent_anchor=$out_parent_expected
+while [ ! -d "$out_parent_anchor" ]; do
+  out_parent_anchor=$(dirname "$out_parent_anchor")
+done
+out_real="$out_parent_expected/$(basename "$OUT")"
+out_target=$(resolved_path "$out_real") || die "could not resolve the output target"
 for protected in "$config_path" "$state_path"; do
-  case "$out_real/" in
+  case "$out_parent_expected/" in
     "$protected/"*) die "refusing to write under protected path $protected" ;;
   esac
 done
@@ -239,7 +244,31 @@ for guarded in "$EVIDENCE" "$DISPATCH"; do
   fi
 done
 mkdir -p "$out_dir" 2>/dev/null || die "could not create $out_dir"
-out_real="$(real_dir "$out_dir")/$(basename "$OUT")"
+out_parent_real=$(real_dir "$out_dir") || die "could not resolve the output directory"
+out_real="$out_parent_real/$(basename "$OUT")"
+out_target=$(resolved_path "$out_real") || die "could not resolve the output target"
+for protected in "$config_path" "$state_path"; do
+  case "$out_parent_real/" in
+    "$protected/"*)
+      cleanup_dir=$out_parent_real
+      while [ "$cleanup_dir" != "$out_parent_anchor" ] && [ "$cleanup_dir" != / ]; do
+        rmdir "$cleanup_dir" 2>/dev/null || break
+        cleanup_dir=$(dirname "$cleanup_dir")
+      done
+      die "refusing to write under protected path $protected"
+      ;;
+  esac
+  case "$out_target/" in
+    "$protected/"*)
+      cleanup_dir=$out_parent_real
+      while [ "$cleanup_dir" != "$out_parent_anchor" ] && [ "$cleanup_dir" != / ]; do
+        rmdir "$cleanup_dir" 2>/dev/null || break
+        cleanup_dir=$(dirname "$cleanup_dir")
+      done
+      die "refusing to write under protected path $protected"
+      ;;
+  esac
+done
 
 # --- one Jev call per role ----------------------------------------------------
 new_request_id() {

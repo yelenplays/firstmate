@@ -107,6 +107,12 @@ pass 'never-send blocks every request field and unreadable lists before any call
 run_tool --evidence "$TMP_ROOT/evidence.json" --out "$HOME_DIR/config/proposal.md" >/dev/null 2>&1 && fail 'an output under config/ must refuse'
 run_tool --evidence "$TMP_ROOT/evidence.json" --out "$HOME_DIR/config/new/nested/proposal.md" >/dev/null 2>&1 && fail 'a nested output under config/ must refuse'
 [ ! -e "$HOME_DIR/config/new" ] || fail 'refusing a nested config output must not create directories'
+ln -s "$HOME_DIR/config/newdir" "$TMP_ROOT/config-link"
+config_tree_before_link=$(config_tree_sum)
+run_tool --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/config-link/proposal.md" >/dev/null 2>&1 \
+  && fail 'an output through a symlink into a missing config directory must refuse'
+[ ! -e "$HOME_DIR/config/newdir" ] && [ "$(config_tree_sum)" = "$config_tree_before_link" ] \
+  || fail 'refusing a symlinked config output must not create config directories'
 run_tool --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/evidence.json" >/dev/null 2>&1 && fail 'overwriting the evidence file must refuse'
 cp "$TMP_ROOT/evidence.json" "$TMP_ROOT/evidence-target.json"
 ln -s "$TMP_ROOT/evidence-target.json" "$TMP_ROOT/evidence-link.json"
