@@ -299,4 +299,20 @@ fm_lock_release "$MERGE_CONTROL_LOCK" || true
 MERGE_CONTROL_LOCK=
 # Opt-in fleet activity ledger (docs/fleet-ledger.md); off costs one file test.
 [ ! -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/fleet-ledger" ] || FM_HOME=$FM_HOME FM_STATE_OVERRIDE=$STATE "$SCRIPT_DIR/fm-fleet-ledger.sh" merged "$ID" local || true
+witness_target=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-project-mode.sh" --witness "$(basename "$PROJ")") || {
+  echo "actionable: landed $BRANCH but could not read the registered witness target; arm bin/fm-post-merge.sh for $ID before cleanup" >&2
+  exit 0
+}
+if [ -n "$witness_target" ]; then
+  arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" --witness "$witness_target" 2>&1) || {
+    echo "actionable: landed $BRANCH but post-merge watch could not be armed for $ID: $arm_out" >&2
+    exit 0
+  }
+else
+  arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" --no-witness 'project has no registered witness target' 2>&1) || {
+    echo "actionable: landed $BRANCH but post-merge watch could not be armed for $ID: $arm_out" >&2
+    exit 0
+  }
+fi
+printf '%s\n' "$arm_out"
 echo "merged $BRANCH into local $DEFAULT ($(git -C "$PROJ" rev-parse --short "$before") -> $(git -C "$PROJ" rev-parse --short "$after")) in $PROJ"

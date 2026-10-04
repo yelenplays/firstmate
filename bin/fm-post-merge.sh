@@ -176,6 +176,10 @@ meta_get() {  # <key>
   fm_post_merge_record_get "$META" "$1"
 }
 
+project_witness_target() {
+  "$SCRIPT_DIR/fm-project-mode.sh" --witness "$(basename "$(meta_get project)")"
+}
+
 rget() {  # <key>
   fm_post_merge_record_get "$RECORD" "$1"
 }
@@ -396,7 +400,7 @@ cmd_checks() {
 }
 
 cmd_arm() {
-  local witness='' no_witness_reason='' witness_choice='' grace=600 kind mode pr url json state merge head base node title landed gen phase old_phase
+  local witness='' registered_witness='' no_witness_reason='' witness_choice='' grace=600 kind mode pr url json state merge head base node title landed gen phase old_phase
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
   load_task "$1"
   shift
@@ -432,8 +436,17 @@ cmd_arm() {
       *) usage >&2; exit 2 ;;
     esac
   done
-  [ -n "$witness_choice" ] || die "choose exactly one of --witness <url> or --no-witness <reason>"
   [ -f "$META" ] && [ ! -L "$META" ] || die "no task meta for $ID"
+  registered_witness=$(project_witness_target) || die "could not read the project's registered witness target"
+  if [ -n "$registered_witness" ]; then
+    [ "$witness_choice" != no-witness ] || die "$(basename "$(meta_get project)") requires its registered witness at $registered_witness; --no-witness is refused"
+    if [ -n "$witness" ] && [ "$witness" != "$registered_witness" ]; then
+      die "$(basename "$(meta_get project)") requires its registered witness at $registered_witness"
+    fi
+    witness=$registered_witness
+    witness_choice=witness
+  fi
+  [ -n "$witness_choice" ] || die "choose exactly one of --witness <url> or --no-witness <reason>"
   mode=$(meta_get mode)
   gen=$(meta_get spawn_gen)
   if [ "$mode" = local-only ]; then
@@ -675,11 +688,12 @@ start_revert() {  # <cause>
 }
 
 cmd_advance() {
-  local phase status=0
+  local phase status=0 required_witness
   [ "$#" -eq 1 ] || { usage >&2; exit 2; }
   load_task "$1"
   lock_record
   record_present || die "no post-merge watch for $ID"
+  required_witness=$(project_witness_target) || die "could not read the project's registered witness target"
   phase=$(rget phase)
   case "$phase" in
     checks)
@@ -706,6 +720,9 @@ cmd_advance() {
           if [ -n "$(rget witness)" ]; then
             rset phase=witness
             echo "witness: checks on $(short "$(rget merge_commit)") are green; a witness must use $(rget witness) - fill its instructions from bin/fm-post-merge.sh witness-task $ID"
+          elif [ -n "$required_witness" ]; then
+            rset phase=blocked "note=project requires a witness but the watch has no witness target"
+            echo "blocked: $(basename "$(rget project)") requires a witness; no witness target is recorded"
           else
             rset phase=clear
             echo "clear: checks on $(short "$(rget merge_commit)") on $(rget base) are green; cleanup may proceed"
@@ -714,6 +731,11 @@ cmd_advance() {
       esac
       ;;
     witness)
+      [ -n "$(rget witness)" ] || {
+        rset phase=blocked "note=project requires a witness but the watch has no witness target"
+        echo "blocked: $(basename "$(rget project)") requires a witness; no witness target is recorded"
+        return 0
+      }
       case "$(rget witness_verdict)" in
         pass)
           rset phase=clear
