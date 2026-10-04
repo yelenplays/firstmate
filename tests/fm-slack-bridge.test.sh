@@ -244,6 +244,36 @@ test_captain_reply_delivered_once_and_others_ignored() {
   pass "fm-slack-bridge: captain reply delivered once, others ignored, handoff marked as request"
 }
 
+test_macOS_base64_fallback_decodes_inbound_fields() {
+  local home real_base64 out note
+  home=$(make_home darwin-base64)
+  write_config "$home"
+  bridge "$home" arm >/dev/null 2>&1 || fail "arm must succeed"
+  bridge "$home" post report "PR ready" >/dev/null 2>&1 || fail "post must succeed"
+  write_thread_fixture "$home"
+  real_base64=$(command -v base64)
+  mkdir -p "$home/macbin"
+  cat > "$home/macbin/base64" <<SH
+#!/usr/bin/env bash
+case "\${1:-}" in
+  --decode) exit 1 ;;
+  -D) shift; exec "$real_base64" --decode "\$@" ;;
+  *) exec "$real_base64" "\$@" ;;
+esac
+SH
+  chmod +x "$home/macbin/base64"
+  out=$(env FM_HOME="$home" PATH="$home/macbin:$home/fakebin:$PATH" \
+    FM_TEST_SLACK_FIXTURE="$home/fixture.json" FM_TEST_SLACK_LOG="$home/slack.log" \
+    FM_TEST_SLACK_COUNTER="$home/counter" FM_SLACK_BRIDGE_NOW="$NOW" FM_CHECK_TIMEOUT=30 \
+    "$BRIDGE" check 2>&1) || fail "check with macOS base64 must succeed: $out"
+  assert_contains "$out" "delivered 1 captain reply(s) and 2 handoff request(s)" "the -D fallback delivers inbound messages"
+  note=$(grep -l '^source=slack-captain$' "$home/state/inbox"/*.note)
+  assert_grep "merge & ship" "$note" "captain reply text decodes with base64 -D"
+  note=$(grep -l "($OTHER)" "$home/state/inbox"/*.note)
+  assert_grep "request from Marco ($OTHER)" "$note" "handoff sender name decodes with base64 -D"
+  pass "fm-slack-bridge: macOS base64 fallback decodes inbound fields"
+}
+
 test_unverified_slack_axi_keeps_inbound_off() {
   local home out
   home=$(make_home unverified 9.9.9)
@@ -273,5 +303,6 @@ test_invalid_config_is_reported() {
 test_bridge_is_off_without_config
 test_post_sends_and_records
 test_captain_reply_delivered_once_and_others_ignored
+test_macOS_base64_fallback_decodes_inbound_fields
 test_unverified_slack_axi_keeps_inbound_off
 test_invalid_config_is_reported

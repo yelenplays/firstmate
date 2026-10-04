@@ -312,7 +312,8 @@ delivered_has() {  # <channel> <ts>
 # The reader writes "-" for an empty value so no tab-separated column is empty.
 b64_decode() {
   [ "$1" != - ] || return 0
-  printf '%s' "$1" | base64 --decode 2>/dev/null
+  printf '%s' "$1" | base64 --decode 2>/dev/null && return 0
+  printf '%s' "$1" | base64 -D 2>/dev/null
 }
 
 # Deliver one message through the captain inbox. 0 delivered (or already
