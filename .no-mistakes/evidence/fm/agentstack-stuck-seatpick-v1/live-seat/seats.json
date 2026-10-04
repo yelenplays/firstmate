@@ -1,0 +1,1 @@
+[{"seat":"builder-live","role":"builder","family":"codex","running":true,"idle":true,"open_work":1,"available":true,"context":42,"quality":0.8,"note":"one queued fix"},{"seat":"builder-busy","role":"builder","family":"claude","running":true,"idle":false,"open_work":0}]

@@ -1,0 +1,6 @@
+$ FM_HOME=<isolated> FM_CONFIG_OVERRIDE=<isolated>/config bin/fm-seat-pick.sh candidates --role builder
+[{"id":"builder-live","text":"builder-live: codex seat, idle, 1 open work, quality 0.8; load note: one queued fix"}]
+$ FM_HOME=<isolated> FM_CONFIG_OVERRIDE=<isolated>/config FM_SEAT_PICK=1 bin/fm-seat-pick.sh reroute --now 1000000 --minutes 20
+{"seats":[{"seat":"dead-builder","role":"builder","family":"claude","running":false},{"seat":"live-builder","role":"builder","family":"codex","running":true,"idle":true,"open_work":0,"available":true,"quality":0.9}],"rows":[{"id":"old-dead","state":"in-progress","destination":"dead-builder","updated":0},{"id":"live-protected","state":"in-progress","destination":"live-builder","updated":0}],"moved":[]}
+[{"id":"builder-live","text":"builder-live: codex seat, idle, 1 open work, quality 0.8; load note: one queued fix"}]
+{"moves":[{"id":"old-dead","from":"dead-builder","to":"live-builder","why":"dead-builder is not running","note":"rerouted after 16666 min: dead-builder is not running; dead-builder -> live-builder (codex); dead-builder may have partial work in its branch"}]}
