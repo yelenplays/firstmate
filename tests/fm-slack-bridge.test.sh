@@ -394,6 +394,9 @@ const server = http.createServer((req, res) => {
         req.socket.destroy();
         return;
       }
+      if (fixture.delayPostMs) {
+        return setTimeout(() => reply({ ok: true, channel: params.channel, ts: message.ts }), Number(fixture.delayPostMs));
+      }
       return reply({ ok: true, channel: params.channel, ts: message.ts });
     }
     if (method === "conversations.history") {
@@ -624,7 +627,35 @@ test_lost_reply_response_is_found_before_retry() {
   assert_contains "$out" "already posted" "the retry records the existing reply"
   assert_equals 1 "$(posted_requests "$home" | grep -c .)" "the retry does not post a duplicate"
   assert_grep $'v1\t'"$id"$'\tD0DMCAPT01\t1791140500.000001' "$home/state/slack-bridge/replied" "the accepted reply is durably marked"
+  node -e '
+    const fs=require("fs");
+    const rows=fs.readFileSync(process.argv[1],"utf8").trim().split("\n").map(JSON.parse);
+    if (!rows.some(r => r.method === "conversations.history" && r.params.channel === "D0DMCAPT01" && r.params.oldest === "1791140200.000001" && r.params.inclusive === "true")) process.exit(1);
+  ' "$home/bot-requests.jsonl" || fail "DM duplicate lookup must start at the incoming DM timestamp"
   pass "fm-slack-bridge: an ambiguous post is found before retry"
+}
+
+test_concurrent_send_reply_is_serialized() {
+  local home note id p1 p2 rc1 rc2
+  home=$(make_bot_home bot-concurrent-reply)
+  write_bot_config "$home"
+  bot_bridge "$home" arm >/dev/null 2>&1 || fail "bot arm must succeed"
+  write_bot_fixture "$home"
+  bot_bridge "$home" check >/dev/null 2>&1 || fail "bot check must succeed"
+  note=$(grep -l '^source=slack-captain$' "$home/state/inbox"/*.note | head -n 1)
+  id=$(sed -n 's/^id=//p' "$note")
+  mkdir -p "$home/state/inbox/.replies"
+  printf 'id=%s\n--\nconcurrent answer\n' "$id" > "$home/state/inbox/.replies/$id"
+  node -e 'const fs=require("fs");const p=process.argv[1];const f=JSON.parse(fs.readFileSync(p,"utf8"));f.delayPostMs=250;fs.writeFileSync(p,JSON.stringify(f));' "$home/bot-fixture.json"
+  bot_bridge "$home" send-reply "$id" >"$home/reply-one.out" 2>&1 & p1=$!
+  bot_bridge "$home" send-reply "$id" >"$home/reply-two.out" 2>&1 & p2=$!
+  rc1=0; wait "$p1" || rc1=$?
+  rc2=0; wait "$p2" || rc2=$?
+  expect_code 0 "$rc1" "the first concurrent send succeeds"
+  expect_code 0 "$rc2" "the waiting send sees the posted reply"
+  assert_equals 1 "$(posted_requests "$home" | grep -c .)" "concurrent send-reply calls produce one Slack post"
+  assert_contains "$(cat "$home/reply-one.out" "$home/reply-two.out")" "already posted" "the waiting caller observes the existing reply"
+  pass "fm-slack-bridge: concurrent reply attempts serialize"
 }
 
 test_bot_failures_are_safe() {
@@ -720,6 +751,7 @@ test_bot_delivers_only_the_captain_and_replies_back
 test_reply_without_bot_stays_local
 test_bot_reads_past_ten_pages
 test_lost_reply_response_is_found_before_retry
+test_concurrent_send_reply_is_serialized
 test_bot_failures_are_safe
 test_bot_verify_round_trip
 test_manifest_has_name_and_minimal_scopes

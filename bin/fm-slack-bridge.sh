@@ -97,6 +97,7 @@ ROUTES="$BRIDGE_STATE/routes"
 REPLIED="$BRIDGE_STATE/replied"
 INBOX_DIR="$STATE/inbox"
 REPORT_RECORD="$BRIDGE_STATE/last-report"
+SEND_REPLY_LOCK=
 CHECK_ID=slack-bridge
 CHECK_SHIM="$STATE/$CHECK_ID.check.sh"
 CHECK_TRUST="$STATE/$CHECK_ID.check-trust"
@@ -659,7 +660,7 @@ note_header() {  # <note-file> <key>
 }
 
 action_send_reply() {
-  local id=${1:-} note rid source route channel thread reply body done_line
+  local id=${1:-} note rid source route channel thread reply body done_line oldest
   [ "$#" -eq 1 ] || { printf 'fm-slack-bridge: usage: send-reply <note-id>\n' >&2; exit 2; }
   [[ "$id" =~ ^[A-Za-z0-9._-]+$ ]] && [[ "$id" != *..* ]] || { printf 'fm-slack-bridge: invalid note id\n' >&2; exit 2; }
   # Without a bot the reply stays local, exactly as before the bot existed.
@@ -684,7 +685,22 @@ action_send_reply() {
   thread=${route#*$'\t'}
   [[ "$channel" =~ ^[CGD][A-Z0-9]{2,}$ ]] || die "the Slack reply route for note $id is malformed"
   [ "$thread" = - ] || [[ "$thread" =~ ^[0-9]{10}\.[0-9]{6}$ ]] || die "the Slack reply route for note $id is malformed"
-  [ "$thread" != - ] || thread=
+  if [ "$thread" = - ]; then
+    thread=
+    [[ "$channel" == D* ]] && [[ "$rid" =~ ^slack-${channel}-([0-9]{10}\.[0-9]{6})$ ]] \
+      || die "the DM reply route for note $id is malformed"
+    oldest=${BASH_REMATCH[1]}
+  else
+    oldest=$thread
+  fi
+  reply=$INBOX_DIR/.replies/$id
+  [ -f "$reply" ] || die "no reply is recorded for note $id; record it with fm-inbox.sh reply"
+  body=$(awk 'found { print; next } /^--$/ { found = 1 }' "$reply")
+  [ -n "${body//[[:space:]]/}" ] || die "the recorded reply for note $id is empty"
+  . "$SCRIPT_DIR/fm-wake-lib.sh"
+  SEND_REPLY_LOCK="$BRIDGE_STATE/.send-reply-$id.lock"
+  fm_lock_acquire_wait "$SEND_REPLY_LOCK" || die "could not acquire the Slack reply lock for note $id"
+  trap 'fm_lock_release "$SEND_REPLY_LOCK"' EXIT
   if [ -f "$REPLIED" ]; then
     done_line=$(awk -F '\t' -v n="$id" '$1 == "v1" && $2 == n { print $3 " " $4; exit }' "$REPLIED")
     if [ -n "$done_line" ]; then
@@ -692,12 +708,8 @@ action_send_reply() {
       return 0
     fi
   fi
-  reply=$INBOX_DIR/.replies/$id
-  [ -f "$reply" ] || die "no reply is recorded for note $id; record it with fm-inbox.sh reply"
-  body=$(awk 'found { print; next } /^--$/ { found = 1 }' "$reply")
-  [ -n "${body//[[:space:]]/}" ] || die "the recorded reply for note $id is empty"
   local marker="[fm-reply:$id]" found
-  bot_run 30 find-reply "{\"keychain\":\"$CFG_BOT\",\"channel\":\"$channel\",\"thread\":\"${thread:--}\",\"marker_b64\":\"$(b64_line "$marker")\"}" || die "the Slack bot could not check for an existing reply to $id: $BOT_ERROR"
+  bot_run 30 find-reply "{\"keychain\":\"$CFG_BOT\",\"channel\":\"$channel\",\"thread\":\"${thread:--}\",\"oldest\":\"$oldest\",\"marker_b64\":\"$(b64_line "$marker")\"}" || die "the Slack bot could not check for an existing reply to $id: $BOT_ERROR"
   found=$(printf '%s\n' "$BOT_OUT" | sed -n 's/^found \([CGD][A-Z0-9]*\) \([0-9]\{10\}\.[0-9]\{6\}\)$/\1 \2/p' | sed -n 1p)
   if [ -n "$found" ]; then
     printf 'v1\t%s\t%s\t%s\n' "$id" "${found%% *}" "${found#* }" >> "$REPLIED" \
