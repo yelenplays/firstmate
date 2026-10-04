@@ -229,6 +229,25 @@ EOF
   pass "fm-jev-ask-user: incomplete contracts and steer records escalate"
 }
 
+test_escalates_unorderable_steers() {
+  local code out kind
+  for kind in nonnumeric broken-link; do
+    world
+    if [ "$kind" = nonnumeric ]; then
+      printf 'schema=fm-task-inbox.v1\nat=2026-10-04T20:04:00Z\n--\nUnorderable steer.\n' > "$HOME_DIR/state/t1.inbox/handled/bad.msg"
+    else
+      ln -s "$HOME_DIR/state/t1.inbox/missing.msg" "$HOME_DIR/state/t1.inbox/handled/002.msg"
+    fi
+    answer in-scope-fix 0.99 in-scope-fix 0.99
+    run code out t1 "$GATE" --round 1
+    assert_equals "$code" 2 "a $kind steer record escalates"
+    assert_contains "$out" "ESCALATE $GATE steer-record" "an invalid steer record is named"
+    assert_equals "$(calls)" 0 "invalid steer records never reach Jev"
+    assert_absent "$LOG/send-args" "invalid steer records never answer the gate"
+  done
+  pass "fm-jev-ask-user: unorderable and unreadable steer records escalate"
+}
+
 test_escalates_low_confidence() {
   local code out
   world
@@ -412,6 +431,7 @@ test_act_sends_jev_decision_with_resolve_key
 test_security_screen_escalates_cross_tenant_finding
 test_escalates_contact_data_before_jev
 test_escalates_incomplete_contract_and_steers
+test_escalates_unorderable_steers
 test_escalates_low_confidence
 test_escalates_out_of_scope_class
 test_escalates_jev_errors

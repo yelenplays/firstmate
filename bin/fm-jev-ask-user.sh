@@ -216,14 +216,23 @@ inbox_records() {
   local dir f seq
   for dir in "$(fm_task_inbox_handled_dir "$STATE" "$TASK")" "$(fm_task_inbox_dir "$STATE" "$TASK")"; do
     for f in "$dir"/*.msg; do
-      [ -f "$f" ] || continue
-      seq=$(fm_task_inbox_seq_of "$(basename "$f")") || continue
-      printf '%010d %s\n' "$seq" "$f"
+      [ -e "$f" ] || [ -L "$f" ] || continue
+      if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+        printf '0\tINVALID\t%s\n' "$f"
+        continue
+      fi
+      seq=$(fm_task_inbox_seq_of "$(basename "$f")") || {
+        printf '0\tINVALID\t%s\n' "$f"
+        continue
+      }
+      printf '%s\tOK\t%s\n' "$seq" "$f"
     done
-  done | LC_ALL=C sort | cut -d' ' -f2-
+  done | LC_ALL=C sort -t "$(printf '\t')" -k1,1n -k2,2
 }
 n=0
-while IFS= read -r record; do
+while IFS=$'\t' read -r seq kind record; do
+  [ "$kind" != INVALID ] \
+    || escalate steer-record "a steer record cannot be ordered or read as a regular file; the accepted contract is incomplete"
   body=$(fm_task_inbox_body "$record") \
     || escalate steer-record "a steer record cannot be read or lacks its separator; the accepted contract is incomplete"
   n=$((n + 1))
