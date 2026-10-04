@@ -887,7 +887,8 @@ test_teardown_closes_the_backlog_item_itself() {
     "a landed close left its pending-close record behind"
   assert_present "$case_dir/data/history/tasks/task-x1.md" \
     "successful cleanup did not preserve the task's private history card"
-  today=$(TZ=Europe/Berlin date +%Y-%m-%d)
+  # The Logbook day is the machine's local date, not a fixed zone's.
+  today=$(date +%Y-%m-%d)
   assert_present "$case_dir/data/history/days/$today.logbook.json" \
     "successful cleanup did not regenerate today's Logbook"
   jq -e 'any(.landed[]; .id == "task-x1")' "$case_dir/data/history/days/$today.logbook.json" >/dev/null \

@@ -12,7 +12,9 @@ command -v node >/dev/null 2>&1 || { echo "skip: node not found"; exit 0; }
 TMP_ROOT=$(fm_test_tmproot fm-logbook-refresh)
 HOME_DIR="$TMP_ROOT/home"
 DECK_DIR="$TMP_ROOT/deck"
-TODAY=$(TZ=Europe/Berlin date +%Y-%m-%d)
+# The helper names the day by the machine's local date, so the expectation must
+# use the same clock zone; a pinned zone fails whenever it is a different day.
+TODAY=$(date +%Y-%m-%d)
 
 fail() { echo "not ok: $*" >&2; exit 1; }
 pass() { echo "ok: $*"; }
