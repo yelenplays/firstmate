@@ -147,7 +147,8 @@ assert_contains "$(cat "$BODIES/1.body")" 'CANDIDATE investigation work. Tie-bre
 assert_not_contains "$(cat "$BODIES/1.body")" 'HOME-RULE-ONE' "the home's rules are not replayed when a candidate is given"
 assert_equals "$(cat "$TMP_ROOT/home-rules.before")" "$(cat "$HOME_DIR/config/crew-dispatch.json")" "run never touches the home rules file"
 assert_absent "$HOME_DIR/state/jev-dispatch-shadow.jsonl" "run forces the resolver's shadow log off"
-pass "run: one resolver call per case under a hard budget, candidate rules, no shadow log"
+assert_absent "$BODIES/3.body" "run forces the resolver's runoff pick off, so an ambiguous case spends one call"
+pass "run: one resolver call per case under a hard budget, candidate rules, no shadow log, no runoff"
 
 # --- run: validate output before live calls and propagate resolver failures --
 MISSING_PARENT_OUT="$TMP_ROOT/missing-parent/out.jsonl"
