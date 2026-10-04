@@ -253,6 +253,21 @@ grep -A8 '^## secondmate$' "$out_file" | grep -q 'Proposal: none.' \
 pass 'out-of-range confidence is rejected for that role'
 
 for response in \
+  '{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","probabilities":{"opus":0.4,"sonnet":0.3,"fable":0.3,"none_fit":0}}}}' \
+  '{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","confidence":null,"probabilities":{"opus":0.4,"sonnet":0.3,"fable":0.3,"none_fit":0}}}}'; do
+  rm -f "$TEST_REQUESTS"/*.json
+  out_file="$TMP_ROOT/out/missing-confidence.md"
+  TEST_THIRD="$response" run_tool --evidence "$TMP_ROOT/evidence.json" --out "$out_file" >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 1 ] || fail "missing or null confidence must make that role unusable, got $rc"
+  grep -A8 '^## secondmate$' "$out_file" | grep -q 'Jev: no answer (Jev answer was malformed).' \
+    || fail 'missing or null confidence must not be used for a role answer'
+  grep -A8 '^## secondmate$' "$out_file" | grep -q 'Proposal: none.' \
+    || fail 'missing or null confidence must not create a switch proposal'
+  if grep -A8 '^## secondmate$' "$out_file" | grep -q 'confidence=n/a'; then fail 'an unusable answer must not render confidence=n/a'; fi
+done
+pass 'missing and null confidence are rejected for that role'
+
+for response in \
   '{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","confidence":0.2,"probabilities":{"opus":0.2,"sonnet":0.6,"fable":0.2,"none_fit":0}}}}' \
   '{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","confidence":0.8,"probabilities":{"opus":0.3,"sonnet":0.6,"fable":0.1,"none_fit":0}}}}'; do
   rm -f "$TEST_REQUESTS"/*.json
@@ -306,3 +321,16 @@ TEST_THIRD='{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"
 grep -q 'keep `openai-codex/gpt-6-luna`, Jev agrees with the current pick.' "$out_file" \
   || fail 'a harness/model/effort current entry whose model holds a slash must not recommend a switch'
 pass 'dispatch-style harness/model/effort entries are recognized as current'
+
+cat > "$TMP_ROOT/object-use-dispatch.json" <<'JSON'
+{"rules":[{"when":"coding tasks","use":{"harness":"openai-codex","model":"gpt-6-luna","effort":"high"}}]}
+JSON
+out_file="$TMP_ROOT/out/object-use-current.md"
+TEST_THIRD='{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"luna","confidence":0.9,"probabilities":{"luna":0.9,"opus":0.1,"none_fit":0}}}}' \
+  run_tool --evidence "$TMP_ROOT/current-model-evidence.json" --dispatch "$TMP_ROOT/object-use-dispatch.json" \
+    --out "$out_file" >/dev/null 2>&1 || fail 'a single-object dispatch use proposal failed'
+grep -qF 'keep `gpt-6-luna`, Jev agrees with the current pick.' "$out_file" \
+  || fail 'a single-object dispatch use must not recommend switching to its current model'
+grep -qF -- '- Current: openai-codex/gpt-6-luna/high' "$out_file" \
+  || fail 'a single-object dispatch use must be listed as current'
+pass 'single-object dispatch use is normalized as current'

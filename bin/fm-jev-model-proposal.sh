@@ -194,7 +194,9 @@ if [ -e "$DISPATCH" ] || [ -L "$DISPATCH" ]; then
          then error("rule \(.key + 1) has no when") else . end
        | {id: "rule-\(.key + 1)",
           job: ($r.when | gsub("\\s+"; " ")),
-          current: [($r.use // [])[] | select(type == "object")
+          current: [($r.use // []) as $use
+                    | (if ($use | type) == "object" then [$use] else $use end)[]
+                    | select(type == "object")
                     | [.harness, .model, .effort] | map(select(type == "string" and . != "")) | join("/")]}]
   ' "$DISPATCH" 2>/dev/null) || die "dispatch profile file $DISPATCH is malformed"
 fi
@@ -352,8 +354,8 @@ for ((i = 0; i < n_roles; i++)); do
       | select(type == "object" and .type == "choice")
       | select((.probabilities | type) == "object" and (.probabilities | keys) == $keys)
       | select(.choice as $c | $keys | index($c))
-      | select((has("confidence") | not) or ((.confidence | type) == "number" and .confidence >= 0 and .confidence <= 1))
-      | {choice, probabilities, confidence: (if has("confidence") then .confidence else null end)}
+      | select((.confidence | type) == "number" and .confidence >= 0 and .confidence <= 1)
+      | {choice, probabilities, confidence}
     ' <<<"$response" 2>/dev/null)
     if [ -z "$answer" ] || ! fm_jev_probabilities_sum_ok "$(jq -c '.probabilities' <<<"$answer")" \
       || ! jq -e '.probabilities[.choice] as $chosen
@@ -396,7 +398,7 @@ trap 'rm -f "$resp_file" "$tmp_out"' EXIT
 jq -r --argjson results "$results" --arg at "$(fm_jev_iso_now)" --arg route "${FM_JEV_LAST_ROUTE:-}" \
   --arg model "$route_model" --arg evidence "$(basename "$EVIDENCE")" '
   def pct: (. * 100 | round | tostring) + "%";
-  def num: if . == null then "n/a" else (. * 100 | round / 100 | tostring) end;
+  def num: (. * 100 | round / 100 | tostring);
   def current_model($value; $harness; $model):
     ($value | split("/")) as $parts
     | ($value == "\($harness)/\($model)"
