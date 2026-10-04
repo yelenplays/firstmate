@@ -219,7 +219,7 @@ if [ "$cmd" = pick ]; then
     local payload
     payload=$(jq -nc \
       --arg ts "$(fm_jev_iso_now)" --arg status "$1" --arg choice "$2" --arg band "$3" \
-      --arg conf "$4" --argjson code "$5" --arg role "$role" \
+      --arg conf "$4" --argjson code "$5" --arg role "$safe_role" \
       --argjson n "$(jq 'length' <<<"$candidates")" \
       --arg hash "$(printf '%s' "$state" | cksum | awk '{print $1}')" \
       --arg route "${FM_JEV_LAST_ROUTE:-}" --arg http "${FM_JEV_LAST_HTTP:-}" \

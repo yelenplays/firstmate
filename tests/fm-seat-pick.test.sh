@@ -182,6 +182,8 @@ test_pick_data_boundary() {
   assert_present "$HOME_DIR/state/jev-seat-pick.jsonl" "every attempted pick appends an audit record"
   ! grep -F 'TASKMARK' "$HOME_DIR/state/jev-seat-pick.jsonl" >/dev/null \
     || fail "the audit record kept the task text"
+  ! grep -F 'sk-or-abcdefghijklmnop0123' "$HOME_DIR/state/jev-seat-pick.jsonl" >/dev/null \
+    || fail "the audit record kept the secret-looking role"
   jq -se 'any(.[]; .purpose == "seat-pick" and .choice == "b-codex-1" and .band == "act" and .candidates >= 3)' \
     "$HOME_DIR/state/jev-seat-pick.jsonl" >/dev/null \
     || fail "the audit record lacks the decision fields: $(cat "$HOME_DIR/state/jev-seat-pick.jsonl")"
