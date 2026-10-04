@@ -59,6 +59,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-kimi-turnend-hook.sh` | Surgically install or remove Kimi's guarded global crew turn-end hook                |
 | `fm-arm-pretool-check.sh` | Stable PreToolUse transport for the watcher-arm command policy (docs/arm-pretool-check.md) |
 | `fm-arm-command-policy.mjs` | Semantic owner of the watcher-arm PreToolUse policy (docs/arm-pretool-check.md)   |
+| `fm-credguard-read.mjs` | Credential read guard: refuse a worker tool call that would print a credential file or environment; `--keys` lists key names only (docs/credguard.md) |
+| `fm-credguard-install.mjs` | Wire the credential read guard into every installed worker harness, idempotently (docs/credguard.md) |
 | `fm-jev-tool-gate.sh` | Remainder Jev Choice after a deterministic arm-policy allow; shadow-log default (docs/arm-pretool-check.md) |
 | `fm-jev.sh` | Compact typed judgments for closed-set decisions ([configuration](configuration.md)) |
 | `fm-jev-skill-select.sh` | Suggest optional skills ([configuration](configuration.md#jev-skill-selector-fm_jev_skill_select)) |
