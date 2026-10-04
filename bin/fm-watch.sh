@@ -1651,14 +1651,14 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
           fi
         fi
         if run_id=$(crew_nm_run_progressing "$task" "$STATE" "$since_file"); then
-          wedge_defer_nm_run "$win" "$since_file" "$label" "$age" "$run_id"
           [ -z "$wedge_lock" ] || fm_lock_release "$wedge_lock"
+          wedge_defer_nm_run "$win" "$since_file" "$label" "$age" "$run_id"
           return 0
         elif [ -n "$tail" ] && wedge_jev_consult "$tail" "$task" "$STATE" "$age" 1; then
           case "$WEDGE_JEV_VERDICT" in
             suppress)
-              wedge_defer_jev "$win" "$since_file" "$label" "$age"
               fm_lock_release "$wedge_lock"
+              wedge_defer_jev "$win" "$since_file" "$label" "$age"
               return 0
               ;;
             held)

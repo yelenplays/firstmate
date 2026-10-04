@@ -4596,6 +4596,27 @@ test_wedge_jev_low_noul_suppresses_the_boundary() {
   pass "a valid low stuck Noul suppresses the structural wedge escalation on a bounded cadence"
 }
 
+test_wedge_jev_deferral_releases_lock_before_resurfacing_wake() {
+  local dir state fakebin out capture window key
+  dir=$(wedge_threshold_fixture jev-deferral-wake 'working: quiet' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  window="test:fm-wedge"; key=$(printf '%s' "$window" | tr ':/.' '___')
+  fm_install_jev_stubs "$fakebin"; mkdir -p "$dir/jevstub"
+  printf '%s' "$(( $(date +%s) - 10 ))" > "$state/.jevsupp-since-$key"
+
+  FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
+    FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=suppress \
+    FM_TEST_PAUSE_RESURFACE=1 \
+    wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" \
+      'state: working · source: run-step · ci running' exit \
+    || fail "a resurfacable Jev deferral did not wake: $(cat "$out")"
+  [ "$(wedge_stale_wakes "$state" "$window")" -eq 1 ] \
+    || fail "the Jev deferral did not queue its resurface wake: $(cat "$state/.wake-queue" 2>/dev/null)"
+  [ ! -e "$state/wedge.jev-wedge.lock" ] \
+    || fail "the deferral resurface wake left the per-task wedge lock held"
+  pass "a Jev deferral releases its task lock before a resurface wake exits"
+}
+
 # Every other helper outcome leaves the boundary exactly where the structural
 # rule put it: an escalate verdict escalates at once, and a helper failure
 # escalates the same way - the fallback is the incumbent behavior, not silence.
@@ -8423,6 +8444,7 @@ test_jev_status_escalate_mapping
 test_status_span_jev_optin
 test_status_span_jev_cap
 test_wedge_jev_low_noul_suppresses_the_boundary
+test_wedge_jev_deferral_releases_lock_before_resurfacing_wake
 test_wedge_jev_escalate_and_failure_keep_the_boundary
 test_wedge_jev_escalation_names_the_stuck_class
 test_wedge_jev_lock_contention_leaves_the_alarm_pending
