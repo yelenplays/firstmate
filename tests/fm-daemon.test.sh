@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# The fake PATH overrides below invoke sourced shell functions, so `env` would
+# run a subprocess instead and change test behavior. Keep these scoped PATH
+# assignments for the function calls.
+# shellcheck disable=SC2030,SC2031
 . "$(dirname "${BASH_SOURCE[0]}")/environment.sh"
 fm_test_sanitize_environment
 # tests/fm-daemon.test.sh - supervise-daemon classifiers, the captain-relevant
