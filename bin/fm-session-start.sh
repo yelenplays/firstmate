@@ -8,8 +8,10 @@
 # data/captain.md, data/captain-shared.md, data/learnings.md, then run
 # fm-lock.sh, fm-wake-drain.sh, then read data/backlog.md, every state/*.meta,
 # and every state/*.status.
-# Every one of those reads is UNCONDITIONAL at every session start, so they
-# belong in a script, not in N agent turns.
+# Every one of those reads is unconditional on a fresh start and ordinary
+# re-emit, so they belong in a script, not in N agent turns. A compact-source
+# re-emit keeps the action-critical digest and omits bulky sources that can be
+# read on demand; --full restores the complete report.
 #
 # COMPOSITION, NOT DUPLICATION: this script calls fm-lock.sh, fm-bootstrap.sh,
 # fm-wake-drain.sh, and fm-startup-network.sh as real subprocesses and prints
@@ -47,22 +49,28 @@
 #                       detected primary harness.
 #   5. read-once contract - the do-not-re-read contract covering every source
 #                       represented by the two digests below.
-#   6. fleet digest   - a compact data/backlog.md identity/metadata listing,
-#                       every state/*.meta, a bounded state/*.status tail,
-#                       the away posture (state/.afk-contract and the legacy
-#                       state/.afk daemon flag), and a cheap per-task
-#                       endpoint-liveness read, each bounded and crash-
-#                       isolated so one task's read can never abort the
-#                       digest: read-only, always runs. The per-task reads
-#                       run serially, so with a wedged backend the stage's
-#                       ceiling is tasks x the per-read bound
-#                       (FM_SESSION_START_ENDPOINT_TIMEOUT, default 10s) and
-#                       can itself reach the digest's runtime bound.
+#   6. fleet digest   - on a full digest, a compact data/backlog.md
+#                       identity/metadata listing, every state/*.meta, a
+#                       bounded state/*.status tail, the away posture
+#                       (state/.afk-contract and the legacy state/.afk daemon
+#                       flag), and a cheap per-task endpoint-liveness read.
+#                       A slim compact re-emit omits the backlog, meta bodies,
+#                       status tails, and orphan status logs, but keeps the
+#                       away posture and one identity/endpoint/last-status line
+#                       per live task. These local sections are read-only; the
+#                       per-task reads are bounded and crash-isolated so one
+#                       cannot abort the digest. They run serially, so with a
+#                       wedged backend the stage's ceiling is tasks x the
+#                       per-read bound (FM_SESSION_START_ENDPOINT_TIMEOUT,
+#                       default 10s) and can itself reach the digest bound.
 #   7. network checks - the result of the deferred network stage started back at
 #                       step 1, harvested WITHOUT waiting for it.
-#   8. context digest - data/projects.md, data/secondmates.md, data/captain.md,
-#                       data/captain-shared.md, data/learnings.md: read-only,
-#                       always safe, always runs.
+#   8. context digest - on a full digest, data/projects.md,
+#                       data/secondmates.md, data/captain.md,
+#                       data/captain-shared.md, and data/learnings.md. A slim
+#                       compact re-emit names these sources and the command to
+#                       print the full report instead of reading their bodies.
+#                       This stage is always read-only.
 #   9. closing reminder - prints the context-specific watcher next step; this
 #                       script points back to the emitted harness supervision
 #                       block and deliberately never arms the watcher itself.
@@ -211,8 +219,10 @@
 # the digest never runs without the same hard bound and process-group cleanup.
 #
 # Usage: fm-session-start.sh [--reemit] [--source <source>] [--full]
-#   Prints the full ordered digest to stdout and always exits 0: this is a
-#   reporting command, not a gate. A lock refusal is reported as a loud
+#   Prints the ordered digest to stdout and always exits 0: this is a
+#   reporting command, not a gate. Compact-source re-emits are slim unless
+#   --full is supplied; all other runs print the full digest. A lock refusal
+#   is reported as a loud
 #   banner inline, never a silent failure or a non-zero exit that would make
 #   an agent skip the rest of the digest.
 #
