@@ -336,6 +336,7 @@ fm_jev_decide() {
   if [ -n "$before_send" ]; then
     declare -F "$before_send" >/dev/null 2>&1 || { _fm_jev_err "request validator is not a function"; return 2; }
     if ! "$before_send" "$request"; then
+      # shellcheck disable=SC2034 # Read by sourcing callers after fm_jev_decide returns.
       FM_JEV_LAST_REQUEST_REJECTED=1
       return 2
     fi
