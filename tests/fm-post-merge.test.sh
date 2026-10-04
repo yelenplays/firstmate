@@ -242,6 +242,26 @@ test_missing_required_check_blocks_merge_watch() {
   pass "fm-post-merge: a non-required success cannot satisfy a missing required check"
 }
 
+test_null_required_checks_are_empty_and_malformed_protection_fails() {
+  local out
+  make_pr_world pm-required-null on
+  printf '{"name":"main","protected":true,"protection":{"required_status_checks":null}}\n' > "$W_FAKE/branch-main.json"
+  out=$(pm arm "$W_ID" --grace 0 2>&1) || fail "arm refused a merged pull request: $out"
+  set_checks "$MERGE_SHA" build completed success
+  out=$(pm advance "$W_ID" 2>&1) || fail "null required checks blocked the watch: $out"
+  assert_contains "$out" "clear: checks on" "null required checks did not behave as an empty list"
+  assert_equals clear "$(record_field phase)" "null required checks did not clear the watch"
+
+  make_pr_world pm-required-malformed on
+  printf '{"name":"main","protected":true,"protection":{"required_status_checks":"invalid"}}\n' > "$W_FAKE/branch-main.json"
+  pm arm "$W_ID" --grace 0 >/dev/null 2>&1 || fail "arm refused a merged pull request"
+  set_checks "$MERGE_SHA" build completed success
+  out=$(pm advance "$W_ID" 2>&1) && fail "malformed branch protection was accepted: $out"
+  assert_contains "$out" "could not read the checks" "malformed branch protection did not fail safely"
+  assert_equals checks "$(record_field phase)" "malformed branch protection moved the watch"
+  pass "fm-post-merge: null required checks are empty and malformed protection fails closed"
+}
+
 test_all_required_merge_checks_green() {
   local out
   make_pr_world pm-required-green on
@@ -380,6 +400,26 @@ test_red_revert_checks_block() {
   pass "fm-post-merge: a revert with red checks stops and is relayed instead of merged"
 }
 
+test_reverted_audit_append_failure_keeps_watch_retryable() {
+  local out log
+  make_pr_world pm-audit-append on
+  log="$W_HOME/state/jev-merge.jsonl"
+  pm arm "$W_ID" >/dev/null 2>&1 || fail "arm refused a merged pull request"
+  set_checks "$MERGE_SHA" build completed failure
+  set_checks "$REVERT_SHA" build completed success
+  rm -f "$log"
+  mkdir "$log"
+  out=$(pm advance "$W_ID" 2>&1) && fail "audit append failure was reported as reverted: $out"
+  assert_contains "$out" "could not record the reverted outcome" "audit failure was not reported"
+  assert_equals reverting "$(record_field phase)" "audit failure allowed the watch to become reverted"
+  assert_equals refuse: "$(teardown_rule | cut -d' ' -f1)" "cleanup proceeded without the reverted audit row"
+  rmdir "$log" || fail "could not restore the audit-log path for retry"
+  out=$(pm advance "$W_ID" 2>&1) || fail "retry after audit recovery failed: $out"
+  assert_equals reverted "$(record_field phase)" "successful audit retry did not finish the watch"
+  assert_contains "$(jq -c 'select(.event == "post-merge")' "$log")" '"outcome":"reverted"' "retry did not append the reverted outcome"
+  pass "fm-post-merge: failed reverted audit append keeps the watch retryable"
+}
+
 test_revert_refused_by_github_blocks() {
   local out
   make_pr_world pm-refused on
@@ -423,6 +463,21 @@ test_interrupted_revert_candidate_blocks_for_captain() {
   assert_equals blocked "$(record_field phase)" "the interrupted candidate did not hold the watch"
   assert_absent "$W_FAKE/merges" "the candidate was merged automatically"
   pass "fm-post-merge: recovery records a candidate and holds for captain review"
+}
+
+test_newer_failed_run_beats_older_long_running_success() {
+  local out
+  make_pr_world pm-newest-by-created on
+  set_required_check build
+  pm arm "$W_ID" --grace 0 >/dev/null 2>&1 || fail "arm refused"
+  printf '{"check_runs":[{"name":"build","status":"completed","conclusion":"success","created_at":"2026-01-01T10:00:00Z","started_at":"2026-01-01T10:01:00Z","completed_at":"2026-01-01T10:30:00Z","id":41},{"name":"build","status":"completed","conclusion":"failure","created_at":"2026-01-01T10:20:00Z","started_at":"2026-01-01T10:20:00Z","completed_at":"2026-01-01T10:25:00Z","id":42}]}' \
+    > "$W_FAKE/checks-$MERGE_SHA.json"
+  set_checks "$REVERT_SHA" build in_progress ""
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed on newer failed run: $out"
+  assert_contains "$out" "reverting: opened $REVERT_URL" "an older long-running success masked the newer failure"
+  assert_equals reverting "$(record_field phase)" "the newer failed check did not initiate a revert"
+  assert_absent "$W_FAKE/merges" "the stale success allowed a green decision"
+  pass "fm-post-merge: newer failed run beats older long-running success"
 }
 
 test_latest_check_result_wins() {
@@ -790,6 +845,7 @@ test_local_revert_keeps_every_merge_guard() {
 test_red_merge_checks_revert_on_green
 test_missing_required_check_blocks_merge_watch
 test_all_required_merge_checks_green
+test_null_required_checks_are_empty_and_malformed_protection_fails
 test_missing_required_revert_check_blocks_merge
 test_all_required_revert_checks_green
 test_witness_failure_reverts
@@ -797,9 +853,11 @@ test_registered_witness_cannot_be_waived_or_lost
 test_green_without_witness_is_clear
 test_no_checks_wait_for_grace
 test_red_revert_checks_block
+test_reverted_audit_append_failure_keeps_watch_retryable
 test_revert_refused_by_github_blocks
 test_yolo_off_asks_before_merging_the_revert
 test_interrupted_revert_candidate_blocks_for_captain
+test_newer_failed_run_beats_older_long_running_success
 test_latest_check_result_wins
 test_unknown_completed_check_conclusions_wait
 test_revert_without_green_checks_is_held

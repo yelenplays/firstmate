@@ -10,7 +10,8 @@
 # broken, firstmate opens a revert of the merge and merges it on green checks
 # without asking Jev, sends the captain one line with both links, reopens the
 # task, and marks the merge-gate log entry reverted. A revert is never itself
-# watched or gated: it restores the earlier state.
+# watched or gated: it restores the earlier state. Local-only landings are
+# exempt from remote default-branch check watching.
 # The witness practice is adapted from korallis/agent-stack (Apache-2.0,
 # https://github.com/korallis/agent-stack, rig/template/witness-slice/SPEC.md):
 # a fresh agent, logins typed by name, and what it saw kept as evidence; see
@@ -281,6 +282,9 @@ github_read_required_contexts() {
   classic=$(printf '%s' "$branch_json" | jq -c '
     if type != "object" or (.protected | type) != "boolean" then error("invalid branch response")
     elif .protected == false then []
+    elif (.protection | type) != "object" then error("invalid branch protection")
+    elif (.protection | has("required_status_checks") | not) then error("invalid branch protection")
+    elif .protection.required_status_checks == null then []
     elif (.protection.required_status_checks | type) != "object" then error("invalid branch protection")
     else .protection.required_status_checks as $checks
       | [ (($checks.checks // [])[] | {context, app_id}),
@@ -321,7 +325,7 @@ github_read_required_contexts() {
 required_check_states() {  # <requirements-json> <run-rows-json> <status-rows-json>
   jq -nr --argjson required "$1" --argjson runs "$2" --argjson statuses "$3" '
     def latest_runs: group_by([.name, (.app_id // -1)])
-      | map(max_by([(.completed_at // .started_at // .created_at // ""), (.id // 0)]));
+      | map(max_by([(.created_at // ""), (.id // 0)]));
     def latest_statuses: group_by(.context)
       | map(max_by([(.updated_at // .created_at // ""), (.id // 0)]));
     [ $required[] as $requirement
@@ -358,7 +362,7 @@ commit_verdict() {  # <sha> <since-epoch> <grace>
   VERDICT=
   VERDICT_NAMES=
   run_rows=$(gh api --hostname "$FM_PR_HOST" "repos/$FM_PR_PATH/commits/$sha/check-runs?per_page=100" --paginate \
-    --jq '.check_runs[] | {name, status, conclusion, started_at, completed_at, id, app_id: (.app.id // null)}' 2>/dev/null) || return 1
+    --jq '.check_runs[] | {name, status, conclusion, created_at, started_at, completed_at, id, app_id: (.app.id // null)}' 2>/dev/null) || return 1
   status_rows=$(gh api --hostname "$FM_PR_HOST" "repos/$FM_PR_PATH/commits/$sha/status" \
     --jq '.statuses[] | {context, state, created_at, updated_at, id}' 2>/dev/null) || return 1
   github_read_required_contexts "$(rget base)" || return 1
@@ -376,7 +380,7 @@ EOF
   [ -z "$required_red" ] || red=$required_red
   if [ -n "$run_rows" ]; then
     runs=$(printf '%s\n' "$run_rows" | jq -sr '
-      group_by(.name) | map(max_by([(.completed_at // .started_at // .created_at // ""), (.id // 0)]))[] |
+      group_by([.name, (.app_id // -1)]) | map(max_by([(.created_at // ""), (.id // 0)]))[] |
       [.name, .status, (.conclusion // "")] | @tsv
     ') || return 1
   else
@@ -714,23 +718,23 @@ revert_cause_text() {
 
 log_reverted() {
   local log="$STATE/jev-merge.jsonl" line
-  command -v jq >/dev/null 2>&1 || { echo "warning: jq is unavailable; the reverted outcome was not logged to $log" >&2; return 0; }
+  command -v jq >/dev/null 2>&1 || { echo "warning: jq is unavailable; the reverted outcome was not logged to $log" >&2; return 1; }
   line=$(jq -cn --arg ts "$(now)" --arg task "$ID" --arg project "$(basename "$(rget project)")" \
     --arg kind "$(rget kind)" --arg pr "$(rget pr)" --arg branch "$(rget branch)" --arg head "$(rget head)" \
     --arg base "$(rget base)" --arg merge "$(rget merge_commit)" --arg revert "$(rget revert)" \
     --arg cause "$(rget cause)" \
     '{ts: ($ts | tonumber), event: "post-merge", outcome: "reverted", task: $task, project: $project,
       kind: $kind, pr: $pr, branch: $branch, head: $head, base: $base, merge_commit: $merge,
-      revert: $revert, cause: $cause}') || { echo "warning: the reverted outcome could not be composed for $log" >&2; return 0; }
-  printf '%s\n' "$line" >> "$log" || echo "warning: the reverted outcome could not be appended to $log" >&2
+      revert: $revert, cause: $cause}') || { echo "warning: the reverted outcome could not be composed for $log" >&2; return 1; }
+  printf '%s\n' "$line" >> "$log" || { echo "warning: the reverted outcome could not be appended to $log" >&2; return 1; }
 }
 
 finish_reverted() {
   local reason notify reopen_out
+  log_reverted || die "could not record the reverted outcome in $STATE/jev-merge.jsonl; retry bin/fm-post-merge.sh advance $ID"
   rset phase=reverted "reverted_at=$(now)"
   retire_watch pm
   retire_watch pmr
-  log_reverted
   if ! reopen_out=$("$SCRIPT_DIR/fm-tasks-axi.sh" reopen "$ID" 2>&1); then
     echo "warning: the backlog item $ID could not be reopened ($reopen_out); cleanup returns it to Queued, or reopen it by hand" >&2
   fi

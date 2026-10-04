@@ -221,7 +221,7 @@ Live-site and team project rows register the URL a fresh post-merge witness must
 - widget [no-mistakes +yolo witness=https://widget.example.com] - production site
 ```
 
-`bin/fm-project-mode.sh --witness <project-name>` returns that URL. Both merge entrypoints use it to arm a witness watch; callers cannot waive a registered witness with `--no-witness`, and a watch with a missing required target cannot clear after green checks. Projects without the token remain eligible for the audited `--no-witness <reason>` disposition.
+`bin/fm-project-mode.sh --witness <project-name>` returns that URL. Both merge entrypoints use it to arm a witness watch; callers cannot waive a registered witness with `--no-witness`, and a watch with a missing required target cannot clear after green checks. Projects without the token remain eligible for the audited `--no-witness <reason>` disposition. Local-only landings have no remote default-branch checks and are exempt from that check watch.
 
 ## Witness logins (config/witness-logins.env)
 
