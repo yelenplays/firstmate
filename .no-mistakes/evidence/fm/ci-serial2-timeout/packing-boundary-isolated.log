@@ -1,0 +1,8 @@
+base attempt=1 exit=timeout-45s
+FM_TEST_COVERAGE ok total=292 parallel=24 parallel_max_ms=445444 parallel_imbalance_ms=19 parallel_unhinted=0 serial=252 serial_shards=9 serial_unhinted=8 serial_max_ms=1200000 serial_budget_ms=1200000 herdr=16
+base attempt=2 exit=timeout-45s
+FM_TEST_COVERAGE ok total=292 parallel=24 parallel_max_ms=445444 parallel_imbalance_ms=19 parallel_unhinted=0 serial=252 serial_shards=9 serial_unhinted=8 serial_max_ms=1200000 serial_budget_ms=1200000 herdr=16
+target attempt=1 exit=timeout-45s
+FM_TEST_COVERAGE ok total=292 parallel=24 parallel_max_ms=445444 parallel_imbalance_ms=19 parallel_unhinted=0 serial=252 serial_shards=9 serial_unhinted=8 serial_max_ms=1200000 serial_budget_ms=1200000 herdr=16
+target attempt=2 exit=timeout-45s
+FM_TEST_COVERAGE ok total=292 parallel=24 parallel_max_ms=445444 parallel_imbalance_ms=19 parallel_unhinted=0 serial=252 serial_shards=9 serial_unhinted=8 serial_max_ms=1200000 serial_budget_ms=1200000 herdr=16
