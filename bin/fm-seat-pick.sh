@@ -342,8 +342,7 @@ jq -c --argjson now "$now" --argjson minutes "$minutes" --argjson wall "$wall" \
         | ((($now - ($r.updated // 0)) / 60) | floor) as $age
         | blocked($s) as $why
         | if $why == null then .
-          elif ($r.state == "in-progress" and $s != null and $s.running == true
-                and ($wait == null or $s.idle != true)) then .
+          elif ($r.state == "in-progress" and $s != null and $s.running == true) then .
           elif $age < ($wait // $minutes) then .
           elif (($s.role // $r.role // "") == "") then
             .moves += [{id: $r.id, from: $r.destination, to: null, why: $why,

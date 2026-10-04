@@ -222,19 +222,20 @@ test_reroute_plan() {
       {id: "q15", state: "pending", destination: "b-codex-1", updated: 0},
       {id: "q16", state: "pending", destination: "b-dead", updated: 0},
       {id: "q17", state: "in-progress", destination: "b-wall", updated: 0},
-      {id: "q18", state: "in-progress", destination: "b-gone", role: "builder", updated: 0}],
+      {id: "q18", state: "in-progress", destination: "b-gone", role: "builder", updated: 0},
+      {id: "q19", state: "pending", destination: "b-cool", updated: 999000}],
     moved: ["q16"]}' > "$plan"
   SEAT_STDIN=$plan run_seat code out -- reroute --now 1000000
   expect_code 0 "$code" "a reroute plan exits 0"
   jq -e '.moves | map(select(.id == "q1")) | .[0] | .to == "b-codex-1" and .why == "b-dead is not running"' <<<"$out" >/dev/null \
     || fail "a long-pending row on a dead seat did not move to the best free seat: $out"
-  jq -e '.moves | map(select(.id == "q2")) | .[0] | .to == "b-claude-1" and (.note | contains("partial work"))' <<<"$out" >/dev/null \
-    || fail "a claimed row on an idle unservable seat did not move after 5 minutes: $out"
-  jq -e '.moves | map(select(.id == "q3")) | .[0] | .to == "b-extra" and (.why | contains("not running"))' <<<"$out" >/dev/null \
+  jq -e '.moves | map(select(.id == "q3")) | .[0] | .to == "b-claude-1" and (.why | contains("not running")) and (.note | contains("partial work"))' <<<"$out" >/dev/null \
     || fail "an aged in-progress row on a dead seat was not rerouted: $out"
-  jq -e '.moves | map(select(.id == "q18")) | .[0] | .to == "b-final" and (.why | contains("gone"))' <<<"$out" >/dev/null \
+  jq -e '.moves | map(select(.id == "q18")) | .[0] | .to == "b-extra" and (.why | contains("gone"))' <<<"$out" >/dev/null \
     || fail "an aged in-progress row on a gone seat was not rerouted by its recorded role: $out"
-  jq -e '[.moves[].id] | (index("q4") == null) and (index("q5") == null)
+  jq -e '.moves | map(select(.id == "q19")) | .[0] | .to == "b-final" and .why == "b-cool cannot be served now"' <<<"$out" >/dev/null \
+    || fail "a pending row on an unservable seat with no return time did not move after 5 minutes: $out"
+  jq -e '[.moves[].id] | (index("q2") == null) and (index("q4") == null) and (index("q5") == null)
       and (index("q6") == null) and (index("q12") == null) and (index("q13") == null)
       and (index("q14") == null) and (index("q15") == null) and (index("q16") == null)
       and (index("q17") == null)' <<<"$out" >/dev/null \
@@ -249,7 +250,7 @@ test_reroute_plan() {
     || fail "a row on a seat without a role was moved: $out"
   jq -e '.moves | map(select(.id == "q11")) | .[0] | .to == null' <<<"$out" >/dev/null \
     || fail "one free seat took two rows in one pass: $out"
-  pass "reroute plans moves off dead or unservable seats, keeps constraints, and never moves human or settled rows"
+  pass "reroute plans moves off dead or unservable seats, keeps in-progress rows on running seats, keeps constraints, and never moves human or settled rows"
 }
 
 test_usage_errors() {
