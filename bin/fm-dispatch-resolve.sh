@@ -113,9 +113,6 @@
 #   Jev pick to state/jev-dispatch-shadow.jsonl and does not add spawn
 #   authority beyond today's optional clear-profile use.
 #   FM_JEV_DISPATCH_EXTRA=1 adds log-only home and deliverable questions.
-#   FM_JEV_DISPATCH_PICK (environment first, else .env; on by default) set to
-#   0, off, false, or no turns the runoff off, so an ambiguous answer spends
-#   exactly one call; bin/fm-dispatch-replay.sh forces it off.
 #   FM_JEV_DISPATCH_MARGIN configures the clear gate; docs/configuration.md
 #   "Typed dispatch resolution" owns its source, range, default, and calibration.
 #   FM_JEV_DISPATCH_COMPACT is read from the process environment first, else
@@ -215,19 +212,6 @@ fm_dispatch_compact_on() {
   [ "$(fm_dispatch_route)" = openrouter ]
 }
 
-# The runoff pick on an ambiguous answer is on by default; a falsy
-# FM_JEV_DISPATCH_PICK (environment first, else .env) turns it off.
-fm_dispatch_pick_on() {
-  local v=${FM_JEV_DISPATCH_PICK:-}
-  if [ -z "$v" ]; then
-    v=$(fmx_env_get FM_JEV_DISPATCH_PICK "$FM_HOME/.env")
-  fi
-  case "$v" in
-    0|off|false|no) return 1 ;;
-    *) return 0 ;;
-  esac
-}
-
 fm_dispatch_margin() {
   local v=${FM_JEV_DISPATCH_MARGIN:-}
   if [ -z "$v" ]; then
@@ -294,11 +278,12 @@ fm_dispatch_home_criteria() {
   printf '%s' "$json"
 }
 
-BRIEF='' PROJECT='' RULES_PATH="$CONFIG/crew-dispatch.json" RULES=''
+BRIEF='' PROJECT='' RULES_PATH="$CONFIG/crew-dispatch.json" RULES='' REPLAY=0
 NEVER_SEND_PATH="$CONFIG/dispatch-never-send"
 while [ $# -gt 0 ]; do
   case "$1" in
     --project) [ $# -ge 2 ] || die "--project needs a value"; PROJECT=$2; shift 2 ;;
+    --replay) REPLAY=1; shift ;;
     -h|--help) usage; exit 0 ;;
     -*) die "unknown flag $1" ;;
     *) [ -z "$BRIEF" ] || die "one brief file only"; BRIEF=$1; shift ;;
@@ -996,7 +981,7 @@ runoff_settle() {  # <option-key> <pick-json>: the chosen contender becomes the 
     || emit_error "runoff merge failed"
 }
 RUNOFF_STATE=$(jq -r 'if .status == "ambiguous" then (.runoff.state // "") else "" end' <<<"$RESULT") || RUNOFF_STATE=''
-if [ -n "$RUNOFF_STATE" ] && ! fm_dispatch_pick_on; then
+if [ -n "$RUNOFF_STATE" ] && [ "$REPLAY" -eq 1 ]; then
   RESULT=$(jq -c 'del(.runoff)' <<<"$RESULT") || emit_error "runoff merge failed"
   RUNOFF_STATE=''
 fi

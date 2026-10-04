@@ -137,7 +137,7 @@ expect_code 0 "$code" "run exits 0"
 assert_equals 'replay-run: calls=2 written=2 stopped=budget' "$out" "run stops before the call that would exceed the budget"
 assert_contains "$err" 'case diagnose: clear rule_1' "run reports each case on stderr"
 assert_equals 2 "$(wc -l < "$RESULT" | tr -d ' ')" "run writes one line per call"
-assert_present "$QUEUE/3.json" "the budget-stopped case never reaches the transport"
+assert_present "$QUEUE/3.json" "the ambiguous replay case makes no extra runoff request"
 assert_equals '{"case":"diagnose","project":"pager","expected":["rule_1"],"status":"clear","rule":"rule_1","confidence":0.6,"probabilities":{"rule_1":0.7,"rule_2":0.2,"default":0.1},"reason":null}' \
   "$(jq -c 'select(.case == "diagnose") | del(.brief)' "$RESULT")" "run records the answer, label, and probabilities"
 assert_equals "$TMP_ROOT/briefs/diagnose.md" "$(jq -r 'select(.case == "diagnose") | .brief' "$RESULT")" "relative brief paths resolve against the cases file"

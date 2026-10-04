@@ -573,18 +573,6 @@ pass "runoff: contenders that settle on the same profile need no call"
 reset_log
 write_response "$RESPONSE" rule_4 0.26 "$NARROW"
 write_pick_response "$PICK_RESPONSE" rule_4 '{ "rule_4": 0.86, "rule_2": 0.14 }'
-TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE FM_JEV_DISPATCH_PICK=0 run code out err "$BRIEF"
-assert_contains "$out" '  status: ambiguous' "FM_JEV_DISPATCH_PICK=0 keeps the answer ambiguous"
-assert_not_contains "$out" '  pick:' "FM_JEV_DISPATCH_PICK=0 prints no pick line"
-assert_equals '1' "$(grep -c . "$LOG/calls")" "FM_JEV_DISPATCH_PICK=0 makes no runoff call"
-printf '%s\n' 'FM_JEV_DISPATCH_PICK=off' > "$HOME_DIR/.env"
-reset_log
-TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
-assert_not_contains "$out" '  pick:' "FM_JEV_DISPATCH_PICK=off in .env turns the runoff off"
-reset_log
-TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE FM_JEV_DISPATCH_PICK=1 run code out err "$BRIEF"
-assert_contains "$out" '  status: picked' "the environment wins over .env for the runoff switch"
-rm -f "$HOME_DIR/.env"
 printf '%s\n' 'plausibly fits' > "$HOME_DIR/config/dispatch-never-send"
 reset_log
 TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
@@ -601,7 +589,7 @@ assert_equals '{"state":"settled","rules":["rule_4"],"choice":"rule_4","probabil
 assert_equals 'cursor' "$(jq -r .profile.harness <<<"$line")" "the shadow log records the picked profile"
 rm -f "$HOME_DIR/state/jev-dispatch-shadow.jsonl"
 write_response "$RESPONSE" rule_4 0.9
-pass "runoff: the switch, the never-send list, and the shadow log cover the runoff"
+pass "runoff: the never-send list and shadow log cover the runoff"
 
 # --- the margin gate is invariant to option count and configurable ---------------
 reset_log

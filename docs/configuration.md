@@ -1377,8 +1377,7 @@ The pick settles only when its returned choice is its most probable option and i
 An option whose rules declare `min_confidence` instead settles only when its runoff probability reaches the strictest of those floors, so a runoff never dispatches a rule more loosely than the rule answer would.
 A settled pick makes the result `picked`, with a `pick:` line naming the winner and its evidence, the winner's candidates, and its `profile:` line.
 A narrow, non-winning, malformed, failed, or never-send-withheld runoff leaves the result `ambiguous` with a `pick:` line naming why and no profile line.
-The runoff is on by default; `FM_JEV_DISPATCH_PICK` set to `0`, `off`, `false`, or `no`, read from the process environment first, else from `$FM_HOME/.env` via `fmx_env_get`, turns it off.
-`bin/fm-dispatch-replay.sh` always turns it off, so each replayed case spends one call and records the rule answer itself.
+`bin/fm-dispatch-replay.sh` uses the resolver's internal replay mode, so each replayed case spends one call and records the rule answer itself; normal resolver invocations run the runoff whenever it is eligible.
 The shadow log records the runoff outcome in a `pick` field beside the status and profile.
 
 **Firstmate retains the dispatch decision**
