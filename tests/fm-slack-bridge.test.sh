@@ -658,6 +658,23 @@ test_concurrent_send_reply_is_serialized() {
   pass "fm-slack-bridge: concurrent reply attempts serialize"
 }
 
+test_other_bot_marker_does_not_confirm_reply() {
+  local home note id out
+  home=$(make_bot_home bot-other-marker)
+  write_bot_config "$home"
+  bot_bridge "$home" arm >/dev/null 2>&1 || fail "bot arm must succeed"
+  write_bot_fixture "$home"
+  bot_bridge "$home" check >/dev/null 2>&1 || fail "bot check must succeed"
+  note=$(grep -l '^source=slack-captain$' "$home/state/inbox"/*.note | head -n 1)
+  id=$(sed -n 's/^id=//p' "$note")
+  node -e 'const fs=require("fs");const p=process.argv[1],id=process.argv[2];const f=JSON.parse(fs.readFileSync(p,"utf8"));f.history.D0DMCAPT01.push({ts:"1791140300.000001",user:"U0MARCOBOT",bot_id:"B0MARCO001",text:`quoted [fm-reply:${id}]`});fs.writeFileSync(p,JSON.stringify(f));' "$home/bot-fixture.json" "$id"
+  out=$(bot_inbox "$home" reply "$id" "actual firstmate response" 2>&1) || fail "reply must post when only another bot carries the marker: $out"
+  case "$out" in *"already posted"*) fail "another bot's marker must not confirm this home's reply" ;; esac
+  assert_contains "$out" "slack: reply to $id posted D0DMCAPT01" "the authenticated bot's reply is posted"
+  assert_equals 1 "$(posted_requests "$home" | grep -c .)" "the other bot's marker does not suppress the post"
+  pass "fm-slack-bridge: only this home's bot can satisfy a reply marker"
+}
+
 test_bot_failures_are_safe() {
   local home out rc
   home=$(make_bot_home bot-fail)
@@ -752,6 +769,7 @@ test_reply_without_bot_stays_local
 test_bot_reads_past_ten_pages
 test_lost_reply_response_is_found_before_retry
 test_concurrent_send_reply_is_serialized
+test_other_bot_marker_does_not_confirm_reply
 test_bot_failures_are_safe
 test_bot_verify_round_trip
 test_manifest_has_name_and_minimal_scopes

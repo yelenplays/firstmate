@@ -185,10 +185,12 @@ async function actionFindReply(call, req) {
   if (req.thread !== "-" && !validTs(req.thread)) die(2, "find-reply needs a thread ts or '-'");
   if (!validTs(req.oldest)) die(2, "find-reply needs the incoming message ts");
   if (!/^[A-Za-z0-9._-]+$/.test(markerId)) die(2, "find-reply needs a reply marker");
+  const auth = await call("auth.test", {});
+  if (!validUser(auth.user_id)) throw new SlackError("auth.test", "unexpected_bot_user");
   const messages = req.thread === "-"
     ? await paged(call, "conversations.history", { channel: req.channel, oldest: req.oldest, inclusive: true }, "messages")
     : await paged(call, "conversations.replies", { channel: req.channel, ts: req.thread }, "messages");
-  const found = messages.find((message) => (message.bot_id || message.subtype === "bot_message") && String(message.text || "").includes(marker));
+  const found = messages.find((message) => message.user === auth.user_id && (message.bot_id || message.subtype === "bot_message") && String(message.text || "").includes(marker));
   if (found && validTs(found.ts)) process.stdout.write(`found ${req.channel} ${found.ts}\n`);
   else process.stdout.write("not-found\n");
 }
