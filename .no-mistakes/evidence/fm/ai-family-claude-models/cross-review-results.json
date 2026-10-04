@@ -1,0 +1,835 @@
+[
+  {
+    "name": "baseline-claude-opus-5-5",
+    "model": "claude-opus-5-5",
+    "harness": "claude",
+    "baseline": true,
+    "record": {
+      "at": "2026-10-04T14:29:55Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "unknown",
+      "family_source": "claude catalog does not prove a maker for model claude-opus-5-5",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": false,
+      "reason": "the reviewer family unknown is not provably different from the builder's openai",
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": "MISSING: the latest one-shot record for f1646332e6b26f6a043866ac095f1a6da8c8f3ff (reviewer reviewer) does not count: the reviewer family unknown is not provably different from the builder's openai",
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "accept-claude-opus-5-5",
+    "model": "claude-opus-5-5",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:29:56Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "anthropic",
+      "family_source": "Claude Code native model catalog (--help full names) identifies Anthropic for claude-opus-5-5",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": true,
+      "reason": null,
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": {
+        "source": "one-shot",
+        "family": "anthropic",
+        "verdict": "success",
+        "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+        "reviewer": "reviewer",
+        "detail": "one-shot review by reviewer (anthropic) declares head f1646332e6b26f6a043866ac095f1a6da8c8f3ff with verdict success; the builder is openai"
+      },
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "baseline-claude-sonnet-5-5",
+    "model": "claude-sonnet-5-5",
+    "harness": "claude",
+    "baseline": true,
+    "record": {
+      "at": "2026-10-04T14:29:56Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "unknown",
+      "family_source": "claude catalog does not prove a maker for model claude-sonnet-5-5",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": false,
+      "reason": "the reviewer family unknown is not provably different from the builder's openai",
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": "MISSING: the latest one-shot record for f1646332e6b26f6a043866ac095f1a6da8c8f3ff (reviewer reviewer) does not count: the reviewer family unknown is not provably different from the builder's openai",
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "accept-claude-sonnet-5-5",
+    "model": "claude-sonnet-5-5",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:29:57Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "anthropic",
+      "family_source": "Claude Code native model catalog (--help full names) identifies Anthropic for claude-sonnet-5-5",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": true,
+      "reason": null,
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": {
+        "source": "one-shot",
+        "family": "anthropic",
+        "verdict": "success",
+        "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+        "reviewer": "reviewer",
+        "detail": "one-shot review by reviewer (anthropic) declares head f1646332e6b26f6a043866ac095f1a6da8c8f3ff with verdict success; the builder is openai"
+      },
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "accept-claude-haiku-4-5-20251001",
+    "model": "claude-haiku-4-5-20251001",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:29:57Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "anthropic",
+      "family_source": "Claude Code native model catalog (--help full names) identifies Anthropic for claude-haiku-4-5-20251001",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": true,
+      "reason": null,
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": {
+        "source": "one-shot",
+        "family": "anthropic",
+        "verdict": "success",
+        "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+        "reviewer": "reviewer",
+        "detail": "one-shot review by reviewer (anthropic) declares head f1646332e6b26f6a043866ac095f1a6da8c8f3ff with verdict success; the builder is openai"
+      },
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "accept-claude-fable-5-1",
+    "model": "claude-fable-5-1",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:29:58Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "anthropic",
+      "family_source": "Claude Code native model catalog (--help full names) identifies Anthropic for claude-fable-5-1",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": true,
+      "reason": null,
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": {
+        "source": "one-shot",
+        "family": "anthropic",
+        "verdict": "success",
+        "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+        "reviewer": "reviewer",
+        "detail": "one-shot review by reviewer (anthropic) declares head f1646332e6b26f6a043866ac095f1a6da8c8f3ff with verdict success; the builder is openai"
+      },
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "accept-opus",
+    "model": "opus",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:29:59Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "anthropic",
+      "family_source": "Claude Code native model catalog (--help aliases) identifies Anthropic for opus",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": true,
+      "reason": null,
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": {
+        "source": "one-shot",
+        "family": "anthropic",
+        "verdict": "success",
+        "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+        "reviewer": "reviewer",
+        "detail": "one-shot review by reviewer (anthropic) declares head f1646332e6b26f6a043866ac095f1a6da8c8f3ff with verdict success; the builder is openai"
+      },
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "accept-sonnet",
+    "model": "sonnet",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:29:59Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "anthropic",
+      "family_source": "Claude Code native model catalog (--help aliases) identifies Anthropic for sonnet",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": true,
+      "reason": null,
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": {
+        "source": "one-shot",
+        "family": "anthropic",
+        "verdict": "success",
+        "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+        "reviewer": "reviewer",
+        "detail": "one-shot review by reviewer (anthropic) declares head f1646332e6b26f6a043866ac095f1a6da8c8f3ff with verdict success; the builder is openai"
+      },
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "accept-haiku",
+    "model": "haiku",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:00Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "anthropic",
+      "family_source": "Claude Code native model catalog (--help aliases) identifies Anthropic for haiku",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": true,
+      "reason": null,
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": {
+        "source": "one-shot",
+        "family": "anthropic",
+        "verdict": "success",
+        "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+        "reviewer": "reviewer",
+        "detail": "one-shot review by reviewer (anthropic) declares head f1646332e6b26f6a043866ac095f1a6da8c8f3ff with verdict success; the builder is openai"
+      },
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "accept-fable",
+    "model": "fable",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:01Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "anthropic",
+      "family_source": "Claude Code native model catalog (--help aliases) identifies Anthropic for fable",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": true,
+      "reason": null,
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": {
+        "source": "one-shot",
+        "family": "anthropic",
+        "verdict": "success",
+        "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+        "reviewer": "reviewer",
+        "detail": "one-shot review by reviewer (anthropic) declares head f1646332e6b26f6a043866ac095f1a6da8c8f3ff with verdict success; the builder is openai"
+      },
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "accept-default",
+    "model": "default",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:01Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "anthropic",
+      "family_source": "Claude Code default model catalog is Anthropic",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": true,
+      "reason": null,
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": {
+        "source": "one-shot",
+        "family": "anthropic",
+        "verdict": "success",
+        "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+        "reviewer": "reviewer",
+        "detail": "one-shot review by reviewer (anthropic) declares head f1646332e6b26f6a043866ac095f1a6da8c8f3ff with verdict success; the builder is openai"
+      },
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "unknown-0",
+    "model": "gpt-6-luna",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:02Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "unknown",
+      "family_source": "claude catalog does not prove a maker for model gpt-6-luna",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": false,
+      "reason": "the reviewer family unknown is not provably different from the builder's openai",
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": "MISSING: the latest one-shot record for f1646332e6b26f6a043866ac095f1a6da8c8f3ff (reviewer reviewer) does not count: the reviewer family unknown is not provably different from the builder's openai",
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "unknown-1",
+    "model": "anthropic/claude-opus-5-5",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:02Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "unknown",
+      "family_source": "claude catalog does not prove a maker for model anthropic/claude-opus-5-5",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": false,
+      "reason": "the reviewer family unknown is not provably different from the builder's openai",
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": "MISSING: the latest one-shot record for f1646332e6b26f6a043866ac095f1a6da8c8f3ff (reviewer reviewer) does not count: the reviewer family unknown is not provably different from the builder's openai",
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "unknown-2",
+    "model": "claude-not-a-model",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:03Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "unknown",
+      "family_source": "claude catalog does not prove a maker for model claude-not-a-model",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": false,
+      "reason": "the reviewer family unknown is not provably different from the builder's openai",
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": "MISSING: the latest one-shot record for f1646332e6b26f6a043866ac095f1a6da8c8f3ff (reviewer reviewer) does not count: the reviewer family unknown is not provably different from the builder's openai",
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "unknown-3",
+    "model": "claude-opus-",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:03Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "unknown",
+      "family_source": "claude catalog does not prove a maker for model claude-opus-",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": false,
+      "reason": "the reviewer family unknown is not provably different from the builder's openai",
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": "MISSING: the latest one-shot record for f1646332e6b26f6a043866ac095f1a6da8c8f3ff (reviewer reviewer) does not count: the reviewer family unknown is not provably different from the builder's openai",
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "unknown-4",
+    "model": "claude-opus-5-other",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:04Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "unknown",
+      "family_source": "claude catalog does not prove a maker for model claude-opus-5-other",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": false,
+      "reason": "the reviewer family unknown is not provably different from the builder's openai",
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": "MISSING: the latest one-shot record for f1646332e6b26f6a043866ac095f1a6da8c8f3ff (reviewer reviewer) does not count: the reviewer family unknown is not provably different from the builder's openai",
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "unknown-5",
+    "model": "",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:04Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "unknown",
+      "family_source": "claude catalog does not prove a maker for model unknown",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": false,
+      "reason": "the reviewer family unknown is not provably different from the builder's openai",
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": "MISSING: the latest one-shot record for f1646332e6b26f6a043866ac095f1a6da8c8f3ff (reviewer reviewer) does not count: the reviewer family unknown is not provably different from the builder's openai",
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "wrong-harness",
+    "model": "claude-opus-5-5",
+    "harness": "cursor",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:04Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "unknown",
+      "family_source": "cursor catalog does not prove a maker for model claude-opus-5-5",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": false,
+      "reason": "the reviewer family unknown is not provably different from the builder's openai",
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": "MISSING: the latest one-shot record for f1646332e6b26f6a043866ac095f1a6da8c8f3ff (reviewer reviewer) does not count: the reviewer family unknown is not provably different from the builder's openai",
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "same-family",
+    "model": "claude-opus-5-5",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:05Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "anthropic",
+      "family_source": "Claude Code native model catalog (--help full names) identifies Anthropic for claude-opus-5-5",
+      "builder_family": "anthropic",
+      "verdict": "success",
+      "accepted": false,
+      "reason": "the reviewer family anthropic is not provably different from the builder's anthropic",
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "anthropic",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": "MISSING: the latest one-shot record for f1646332e6b26f6a043866ac095f1a6da8c8f3ff (reviewer reviewer) does not count: the reviewer family anthropic is not provably different from the builder's anthropic",
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "overlapping-builder-set",
+    "model": "claude-sonnet-5-5",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:05Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "anthropic",
+      "family_source": "Claude Code native model catalog (--help full names) identifies Anthropic for claude-sonnet-5-5",
+      "builder_family": "anthropic,openai",
+      "verdict": "success",
+      "accepted": false,
+      "reason": "the reviewer family anthropic is not provably different from the builder's anthropic,openai",
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "anthropic,openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": "MISSING: the latest one-shot record for f1646332e6b26f6a043866ac095f1a6da8c8f3ff (reviewer reviewer) does not count: the reviewer family anthropic is not provably different from the builder's anthropic,openai",
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "unknown-builder",
+    "model": "claude-opus-5-5",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:05Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f1646332e6b26f6a043866ac095f1a6da8c8f3ff"
+      ],
+      "family": "anthropic",
+      "family_source": "Claude Code native model catalog (--help full names) identifies Anthropic for claude-opus-5-5",
+      "builder_family": "unknown",
+      "verdict": "success",
+      "accepted": false,
+      "reason": "the reviewer family anthropic is not provably different from the builder's unknown",
+      "report_sha256": "c8b9a79438acbd3fccbe056c8b78056b6dcb657a0cc7034555836bf8516a2884"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "unknown",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": "MISSING: the latest one-shot record for f1646332e6b26f6a043866ac095f1a6da8c8f3ff (reviewer reviewer) does not count: the reviewer family anthropic is not provably different from the builder's unknown",
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  },
+  {
+    "name": "wrong-head",
+    "model": "claude-opus-5-5",
+    "harness": "claude",
+    "baseline": false,
+    "record": {
+      "at": "2026-10-04T14:30:06Z",
+      "task": "task",
+      "reviewer": "reviewer",
+      "kind": "review",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "declared": [
+        "f0bf94d9791e13ec6aa9bb8b49d474536f95ec91"
+      ],
+      "family": "anthropic",
+      "family_source": "Claude Code native model catalog (--help full names) identifies Anthropic for claude-opus-5-5",
+      "builder_family": "openai",
+      "verdict": "success",
+      "accepted": false,
+      "reason": "the report declares f0bf94d9791e13ec6aa9bb8b49d474536f95ec91, not the requested head f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "report_sha256": "6acf71f747993d61bd165e6cedd8b83fbfe6f99c2e143dd1cb968ee5848451a4"
+    },
+    "status": {
+      "task": "task",
+      "head": "f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "mode": "direct-PR",
+      "builder": {
+        "family": "openai",
+        "source": "disposable builder input"
+      },
+      "pipeline_review": "N/A: direct-PR mode runs no pipeline review",
+      "independent_review": "MISSING: the latest one-shot record for f1646332e6b26f6a043866ac095f1a6da8c8f3ff (reviewer reviewer) does not count: the report declares f0bf94d9791e13ec6aa9bb8b49d474536f95ec91, not the requested head f1646332e6b26f6a043866ac095f1a6da8c8f3ff",
+      "confirm": "MISSING: no confirm f1646332e6b26f6a043866ac095f1a6da8c8f3ff is recorded"
+    }
+  }
+]
