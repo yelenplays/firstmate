@@ -49,9 +49,10 @@
 #   text and refuses a state over JEV_STATE_MAX_BYTES. The caller must keep
 #   private-vault content and personal data out of the evidence file.
 #
-# Gate (code, from intake.specialist v2): the answer's confidence, or the
-#   chosen option's probability when no confidence is reported, gives the
-#   band. none_fit is always uncertain.
+# Gate (code, from intake.specialist v2): the chosen option's probability
+#   gives the band, and the chosen option must be the most probable one. Jev's
+#   own confidence is calibrated separately, may differ from that probability,
+#   and is reported as is when it lies in 0..1. none_fit is always uncertain.
 #     act       >= 0.55  proposal: switch to the pick, or keep it when it is
 #                        already a current model
 #     review    >= 0.30  lean only, no switch proposed
@@ -356,8 +357,7 @@ for ((i = 0; i < n_roles; i++)); do
     ' <<<"$response" 2>/dev/null)
     if [ -z "$answer" ] || ! fm_jev_probabilities_sum_ok "$(jq -c '.probabilities' <<<"$answer")" \
       || ! jq -e '.probabilities[.choice] as $chosen
-        | all(.probabilities[]; . <= $chosen)
-          and (if .confidence == null then true else (.confidence * 100 | round) == ($chosen * 100 | round) end)' \
+        | all(.probabilities[]; . <= $chosen)' \
         >/dev/null 2>&1 <<<"$answer"; then
       error='Jev answer was malformed'
     else
@@ -397,6 +397,11 @@ jq -r --argjson results "$results" --arg at "$(fm_jev_iso_now)" --arg route "${F
   --arg model "$route_model" --arg evidence "$(basename "$EVIDENCE")" '
   def pct: (. * 100 | round | tostring) + "%";
   def num: if . == null then "n/a" else (. * 100 | round / 100 | tostring) end;
+  def current_model($value; $harness; $model):
+    ($value | split("/")) as $parts
+    | ($value == "\($harness)/\($model)"
+       or ($value | startswith("\($harness)/\($model)/"))
+       or ($parts[1] == $harness and $parts[2] == $model));
   (.candidates | map({key: .id, value: .}) | from_entries) as $c
   | [.candidates[] | select(.billing == "usage-credits")] as $credits
   | "# Jev model proposal \($at)",
@@ -422,7 +427,7 @@ jq -r --argjson results "$results" --arg at "$(fm_jev_iso_now)" --arg route "${F
           "- Proposal: none."
         else
           "- Jev: \(if $pick then "`\($pick.id)` (\($pick.harness)/\($pick.model), billing \($pick.billing))" else "none_fit" end), p=\($r.probabilities[$r.choice] | num), confidence=\($r.confidence | num), band \($r.band).",
-          (([$r.current[] | select($pick != null and (startswith("\($pick.harness)/\($pick.model)/") or . == "\($pick.harness)/\($pick.model)"))] | length) > 0) as $current
+          (([$r.current[] | select($pick != null and current_model(.; $pick.harness; $pick.model))] | length) > 0) as $current
           | "- Proposal: \(if $r.band == "act" and $pick and $current then "keep `\($pick.model)`, Jev agrees with the current pick."
                          elif $r.band == "act" and $pick then "switch to `\($pick.harness)/\($pick.model)`\(if $pick.billing == "usage-credits" then " (bills usage credits)" else "" end); needs the captain'"'"'s yes."
                          elif $r.band == "review" and $pick then "none; Jev leans to `\($pick.model)` below the act band."

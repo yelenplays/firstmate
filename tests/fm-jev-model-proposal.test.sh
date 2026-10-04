@@ -254,14 +254,55 @@ pass 'out-of-range confidence is rejected for that role'
 
 for response in \
   '{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","confidence":0.2,"probabilities":{"opus":0.2,"sonnet":0.6,"fable":0.2,"none_fit":0}}}}' \
-  '{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","confidence":0.8,"probabilities":{"opus":0.6,"sonnet":0.3,"fable":0.1,"none_fit":0}}}}'; do
+  '{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","confidence":0.8,"probabilities":{"opus":0.3,"sonnet":0.6,"fable":0.1,"none_fit":0}}}}'; do
   rm -f "$TEST_REQUESTS"/*.json
   out_file="$TMP_ROOT/out/inconsistent-answer.md"
   TEST_THIRD="$response" run_tool --evidence "$TMP_ROOT/evidence.json" --out "$out_file" >/dev/null 2>&1; rc=$?
   [ "$rc" -eq 1 ] || fail "an inconsistent Jev answer must be malformed, got $rc"
   grep -A8 '^## secondmate$' "$out_file" | grep -q 'Jev: no answer (Jev answer was malformed).' \
-    || fail 'a non-maximal choice or mismatched confidence must be rejected'
+    || fail 'a non-maximal choice must be rejected'
   grep -A8 '^## secondmate$' "$out_file" | grep -q 'Proposal: none.' \
     || fail 'an inconsistent answer must not create a proposal'
 done
 pass 'non-maximal choices and mismatched confidence are rejected'
+
+# Live Jev answers carry a separately calibrated confidence a few points off
+# the chosen probability; the band follows the probability.
+rm -f "$TEST_REQUESTS"/*.json
+out_file="$TMP_ROOT/out/calibrated-confidence.md"
+TEST_THIRD='{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","confidence":0.93,"probabilities":{"opus":0.95,"sonnet":0.05,"fable":0,"none_fit":0}}}}' \
+  run_tool --evidence "$TMP_ROOT/evidence.json" --out "$out_file" >/dev/null 2>&1 || fail 'a calibrated confidence must not make the answer malformed'
+grep -A8 '^## secondmate$' "$out_file" | grep -q 'p=0.95, confidence=0.93, band act.' \
+  || fail 'a calibrated confidence must be reported with the probability-derived band'
+pass 'a confidence that differs from the probability is accepted'
+
+cat > "$TMP_ROOT/current-model-evidence.json" <<'JSON'
+{"as_of":"2026-10-03","candidates":[
+  {"id":"luna","harness":"openai-codex","model":"gpt-6-luna","billing":"subscription","evidence":"strong coding model"},
+  {"id":"opus","harness":"claude","model":"claude-opus-5-5","billing":"subscription","evidence":"general reasoning model"}
+],"roles":[{"id":"codex-role","job":"coding tasks","current":["pi/openai-codex/gpt-6-luna"]}]}
+JSON
+printf '{"rules":[]}' > "$TMP_ROOT/empty-dispatch.json"
+out_file="$TMP_ROOT/out/current-model.md"
+TEST_THIRD='{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"luna","confidence":0.9,"probabilities":{"luna":0.9,"opus":0.1,"none_fit":0}}}}' \
+  run_tool --evidence "$TMP_ROOT/current-model-evidence.json" --dispatch "$TMP_ROOT/empty-dispatch.json" \
+    --out "$out_file" >/dev/null 2>&1 || fail 'the documented current model proposal failed'
+# shellcheck disable=SC2016 # Literal backticks from the Markdown proposal.
+grep -q 'keep `gpt-6-luna`, Jev agrees with the current pick.' "$out_file" \
+  || fail 'the documented family/provider/model current entry must not recommend a switch'
+pass 'documented family/provider/model entries are recognized as current'
+
+cat > "$TMP_ROOT/dispatch-current-evidence.json" <<'JSON'
+{"as_of":"2026-10-03","candidates":[
+  {"id":"luna","harness":"pi","model":"openai-codex/gpt-6-luna","billing":"subscription","evidence":"strong coding model"},
+  {"id":"opus","harness":"claude","model":"claude-opus-5-5","billing":"subscription","evidence":"general reasoning model"}
+],"roles":[{"id":"pi-role","job":"coding tasks","current":["pi/openai-codex/gpt-6-luna/high"]}]}
+JSON
+out_file="$TMP_ROOT/out/dispatch-current.md"
+TEST_THIRD='{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"luna","confidence":0.9,"probabilities":{"luna":0.9,"opus":0.1,"none_fit":0}}}}' \
+  run_tool --evidence "$TMP_ROOT/dispatch-current-evidence.json" --dispatch "$TMP_ROOT/empty-dispatch.json" \
+    --out "$out_file" >/dev/null 2>&1 || fail 'the dispatch-style current model proposal failed'
+# shellcheck disable=SC2016 # Literal backticks from the Markdown proposal.
+grep -q 'keep `openai-codex/gpt-6-luna`, Jev agrees with the current pick.' "$out_file" \
+  || fail 'a harness/model/effort current entry whose model holds a slash must not recommend a switch'
+pass 'dispatch-style harness/model/effort entries are recognized as current'
