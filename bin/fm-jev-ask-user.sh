@@ -304,7 +304,7 @@ fi
 
 # One object per finding: {id, choice, confidence, valid}. valid is false for a
 # missing answer, a type other than "choice", or an internally inconsistent one.
-ANSWERS=$(jq -c --arg ids "$IDS" '
+ANSWERS=$(jq -c --arg ids "$IDS" --argjson floor "$FLOOR" '
   . as $resp
   | ["in-scope-fix", "expands-contract", "unsettled-call", "destructive-or-security"] as $offered
   | [$ids | split(",") | to_entries[] | .value as $id | ($resp.answers["f\(.key + 1)"] // {}) as $a
@@ -320,6 +320,7 @@ ANSWERS=$(jq -c --arg ids "$IDS" '
     | (if $p_ok and $choice != null then ($p[$choice] // -1) else -1 end) as $choice_p
     | {id: $id, choice: $choice,
        confidence: (if $conf == null then null else (($conf * 100 | round) / 100) end),
+       meets_floor: ($conf != null and $conf >= $floor),
        valid: ($a.type == "choice" and $p_ok and ($offered | index($choice)) != null
          and $choice_p == $sorted[0] and $sorted[0] != $sorted[1] and $conf != null)}]
 ' <<<"$RESPONSE" 2>/dev/null) || {
@@ -333,7 +334,7 @@ fi
 if ! jq -e 'all(.[]; .choice == "in-scope-fix")' >/dev/null <<<"$ANSWERS"; then
   escalate jev-class "Jev placed a finding outside a plain in-scope fix ($SUMMARY)"
 fi
-if ! jq -e --argjson floor "$FLOOR" 'all(.[]; .confidence >= $floor)' >/dev/null <<<"$ANSWERS"; then
+if ! jq -e 'all(.[]; .meets_floor)' >/dev/null <<<"$ANSWERS"; then
   escalate jev-low-confidence "Jev was below the $FLOOR confidence floor ($SUMMARY)"
 fi
 

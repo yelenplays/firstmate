@@ -198,7 +198,15 @@ test_escalates_low_confidence() {
   assert_absent "$LOG/send-args" "a low-confidence verdict never answers the gate"
   assert_equals "$(last_log | jq -c '[.outcome, .code, .jev_called]')" '["escalate","jev-low-confidence",true]' \
     "the escalation is logged"
-  pass "fm-jev-ask-user: low confidence escalates to the captain"
+
+  world
+  answer in-scope-fix 0.92 in-scope-fix 0.746
+  run code out t1 "$GATE" --round 1
+  assert_equals "$code" 2 "raw confidence just below the floor escalates"
+  assert_contains "$out" "ESCALATE $GATE jev-low-confidence" "rounding cannot lift raw confidence over the floor"
+  assert_contains "$out" "F2=in-scope-fix@0.75" "the displayed confidence remains rounded"
+  assert_absent "$LOG/send-args" "a rounded display never authorizes a below-floor answer"
+  pass "fm-jev-ask-user: confidence below the floor escalates to the captain"
 }
 
 test_escalates_out_of_scope_class() {
