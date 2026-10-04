@@ -87,9 +87,15 @@ case "$1 $2" in
     printf '%s\n' "$TEST_CHECKS"
     jq -e 'all(.[]; .bucket == "pass")' <<<"$TEST_CHECKS" >/dev/null || exit 1
     ;;
-  "api "*)
-    path=$2
+  api*)
+    path=
+    for arg in "${args[@]}"; do case "$arg" in repos/*) path=$arg ;; esac; done
     case "$path" in
+      */rules/branches/*) printf '%s\n' "${TEST_RULES:-[]}" ;;
+      */branches/*)
+        if [ -n "${TEST_REQUIRED:-}" ]; then
+          jq -nc --argjson required "$TEST_REQUIRED" '{protected:true,protection:{required_status_checks:{contexts:$required,checks:[]}}}'
+        else printf '%s\n' '{"protected":false}'; fi ;;
       */pulls/7/files*) printf '[%s]\n' "$TEST_FILES" ;;
       */check-runs*) printf '[{"check_runs":%s}]\n' "${TEST_RUNS:-[]}" ;;
       */statuses*) printf '[[]]\n' ;;
@@ -133,8 +139,8 @@ LOG="$HOME_DIR/state/jev-merge.jsonl"
 URL=https://github.com/acme/app/pull/7
 reset_case() {
   rm -f "$TEST_JEV_REQUEST" "$TMP_ROOT/views" "$TEST_GH_LOG"
-  unset TEST_MOVE_AFTER TEST_VAULT TEST_JEV_RESPONSE TEST_RUNS TEST_MERGEABLE TEST_BODY TEST_XR FM_MERGE_GATE_STUB
-  export TEST_CHECKS="$GREEN" TEST_FILES="$FILES_CODE"
+  unset TEST_MOVE_AFTER TEST_VAULT TEST_JEV_RESPONSE TEST_RUNS TEST_MERGEABLE TEST_BODY TEST_XR TEST_REQUIRED TEST_RULES FM_MERGE_GATE_STUB
+  export TEST_CHECKS="$GREEN" TEST_REQUIRED='["test","lint"]' TEST_FILES="$FILES_CODE"
 }
 write_meta() {  # <task> <mode> [extra lines]
   local t=$1 m=$2
@@ -174,6 +180,7 @@ pass 'decide prints {input, decision} with every field filled, MISSING or N/A, a
 
 # 2. Without a required check, what ran on the exact head is reported.
 reset_case
+unset TEST_REQUIRED
 export TEST_CHECKS='' TEST_RUNS='[{"id":1,"name":"build","status":"completed","conclusion":"success"}]'
 out=$(gate evidence "$URL" 2>/dev/null) || fail 'evidence without required checks failed'
 printf '%s' "$out" | jq -e '.evidence.required_checks | test("no required checks; observed on exact head '"$H1"': build=success; all pass")' >/dev/null ||
@@ -288,6 +295,16 @@ reset_case
 export TEST_XR="$XR_OK" TEST_CHECKS='[{"name":"test","state":"FAILURE","bucket":"fail"}]'
 rc=0; gate decide "$URL" >/dev/null 2>&1 || rc=$?
 [ "$rc" = 1 ] || fail "a red required check must hold, got $rc"
+reset_case
+export TEST_REQUIRED='["ci-a","ci-b"]' TEST_CHECKS='[{"name":"ci-a","state":"SUCCESS","bucket":"pass"}]'
+rc=0; out=$(gate evidence "$URL" 2>/dev/null) || rc=$?
+[ "$rc" = 0 ] || fail "partial required-check evidence collection failed, got $rc"
+printf '%s' "$out" | jq -e '.evidence.required_checks | contains("NOT reported: ci-b")' >/dev/null ||
+  fail "an unreported required check was not identified: $(printf '%s' "$out" | jq -r .evidence.required_checks)"
+rc=0; out=$(gate decide "$URL" 2>/dev/null) || rc=$?
+[ "$rc" = 1 ] || fail "an unreported required check must hold, got $rc"
+printf '%s' "$out" | jq -e '.problems | any(test("required checks have not reported: ci-b"))' >/dev/null ||
+  fail "the missing required check was not a gate problem: $out"
 reset_case
 export TEST_XR="$XR_OK" TEST_MERGEABLE=UNKNOWN
 rc=0; gate decide "$URL" >/dev/null 2>&1 || rc=$?

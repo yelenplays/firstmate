@@ -677,7 +677,39 @@ _pr_private_pages() {
 }
 
 _pr_checks() {
-  local out rc=0 own=$FM_MERGE_GATE_CONTEXT pages statuses runs observed
+  local out rc=0 own=$FM_MERGE_GATE_CONTEXT pages statuses runs observed branch_path branch_json rules_json required rules missing
+  branch_path=$(printf '%s' "$BASE_REF" | jq -sRr @uri)
+  branch_json=$(_gh api "repos/$REPO_NWO/branches/$branch_path") || branch_json=
+  if [ -z "$branch_json" ] || ! required=$(printf '%s' "$branch_json" | jq -c '
+    if type != "object" or (.protected | type) != "boolean" then error("unreadable branch")
+    elif .protected == false then []
+    elif (.protection.required_status_checks | type) != "object"
+      or ((.protection.required_status_checks.checks // []) | type) != "array"
+      or ((.protection.required_status_checks.contexts // []) | type) != "array"
+      or any(.protection.required_status_checks.checks[]?; (.context | type) != "string" or (.context | length) == 0)
+      or any(.protection.required_status_checks.contexts[]?; type != "string" or length == 0)
+    then error("unreadable protection")
+    else .protection.required_status_checks
+      | [(.checks // [])[]?.context, (.contexts // [])[]?]
+    end' 2>/dev/null); then
+    CI_LINE="MISSING: required checks for base $BASE_REF could not be read"
+    _problem checks-unreadable "branch protection requirements could not be read"
+    return 0
+  fi
+  rules_json=$(_gh api --paginate "repos/$REPO_NWO/rules/branches/$branch_path") || rules_json=
+  if [ -z "$rules_json" ] || ! rules=$(printf '%s' "$rules_json" | jq -c '
+    if type != "array"
+      or any(.[]; type != "object" or (.type == "required_status_checks"
+        and ((.parameters.required_status_checks | type) != "array"
+          or any(.parameters.required_status_checks[]?; (.context | type) != "string" or (.context | length) == 0))))
+    then error("unreadable rules")
+    else [ .[] | select(.type == "required_status_checks") | .parameters.required_status_checks[] | .context ]
+    end' 2>/dev/null); then
+    CI_LINE="MISSING: required checks for base $BASE_REF could not be read"
+    _problem checks-unreadable "branch rules requirements could not be read"
+    return 0
+  fi
+  required=$(jq -cn --argjson a "$required" --argjson b "$rules" --arg own "$own" '$a + $b | unique | map(select(. != $own))')
   out=$(_gh pr checks "$PR_NUMBER" -R "$REPO_NWO" --required --json name,state,bucket) || rc=$?
   if printf '%s' "$out" | jq -e 'type == "array"' >/dev/null 2>&1; then
     out=$(printf '%s' "$out" | jq -c --arg own "$own" '[.[] | select(.name != $own)]')
@@ -688,10 +720,14 @@ _pr_checks() {
     _problem checks-unreadable "the required checks could not be read (gh exit $rc)"
     return 0
   fi
-  if [ "$(printf '%s' "$out" | jq 'length')" -gt 0 ]; then
-    CI_LINE=$(printf '%s' "$out" | jq -r --arg h "$HEAD_SHA" '
+  if [ "$(printf '%s' "$required" | jq 'length')" -gt 0 ]; then
+    missing=$(printf '%s' "$out" | jq -r --argjson required "$required" '$required - ([.[] | .name] | unique) | join(", ")')
+    CI_LINE=$(printf '%s' "$out" | jq -r --arg h "$HEAD_SHA" --argjson required "$required" --arg missing "$missing" '
       [.[] | select(.bucket != "pass")] as $bad
-      | "\(length) required check(s) on \($h): \([.[] | "\(.name)=\(.bucket)"] | join(", "))\(if ($bad | length) > 0 then "; NOT passing: \([$bad[].name] | join(", "))" else "; all pass" end)"')
+      | "\($required | length) required check(s) on \($h): \([.[] | "\(.name)=\(.bucket)"] | join(", "))\(if $missing != "" then "; NOT reported: \($missing)" elif ($bad | length) > 0 then "; NOT passing: \([$bad[].name] | join(", "))" else "; all pass" end)"')
+    if [ -n "$missing" ]; then
+      _problem checks-not-reported "required checks have not reported: $missing"
+    fi
     if printf '%s' "$out" | jq -e 'any(.[]; .bucket != "pass")' >/dev/null; then
       _problem checks-not-green "required checks not passing: $(printf '%s' "$out" | jq -r '[.[] | select(.bucket != "pass") | .name] | join(", ")')"
     fi
