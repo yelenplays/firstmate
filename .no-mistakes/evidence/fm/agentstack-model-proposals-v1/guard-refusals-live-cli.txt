@@ -1,0 +1,8 @@
+Unsafe config destination: exit=2
+fm-jev-model-proposal: refusing to write under protected path /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-proposal-guards.nIjuQs/home/config
+Never-send preflight: exit=2
+fm-jev-model-proposal: request text matches /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-proposal-guards.nIjuQs/home/config/dispatch-never-send line 1
+dispatch-before=2069464436 42 /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-proposal-guards.nIjuQs/home/config/crew-dispatch.json
+dispatch-after=2069464436 42 /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-proposal-guards.nIjuQs/home/config/crew-dispatch.json
+proposal-files-created=no
+isolated dummy credential supplied only to reach pre-network guards

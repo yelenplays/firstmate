@@ -1,0 +1,6 @@
+$ env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY FM_HOME=<isolated-home> bash bin/fm-jev-model-proposal.sh --evidence <fixture>
+exit=2
+stdout:
+stderr:
+fm-jev-model-proposal: no Jev key configured (TYPESAFE_API_KEY or OPENROUTER_API_KEY); nothing sent, no proposal written
+proposal-created=no
