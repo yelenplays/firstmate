@@ -44,7 +44,7 @@ cat > "$SEATS" <<'JSON'
 [{"seat":"b-claude-1","role":"builder","family":"claude","running":true,"idle":true,"open_work":0,"quality":0.8,"note":"finished a CSS slice"},
  {"seat":"b-codex-1","role":"builder","family":"codex","running":true,"idle":true,"open_work":0,"quality":0.9},
  {"seat":"b-codex-2","role":"builder","family":"codex","running":true,"idle":false,"open_work":0},
- {"seat":"b-codex-3","role":"builder","family":"codex","running":true,"idle":true,"open_work":1},
+ {"seat":"b-codex-3","role":"builder","family":"codex","running":true,"idle":true,"open_work":1,"note":"one queued fix"},
  {"seat":"b-kimi-1","role":"builder","family":"kimi","running":false,"idle":true,"open_work":0},
  {"seat":"b-grok-1","role":"builder","family":"grok","running":true,"idle":true,"open_work":0,"available":false},
  {"seat":"b-grok-2","role":"builder","family":"grok","running":true,"idle":true,"open_work":0,"context":98},
@@ -95,10 +95,12 @@ test_candidates_are_code_owned() {
   : > "$HOME_DIR/config/seat-pick"
   run_seat code out -- candidates --role builder
   expect_code 0 "$code" "candidates exits 0"
-  assert_equals 'b-claude-1,b-codex-1' "$(jq -r 'map(.id) | join(",")' <<<"$out")" \
-    "only running, idle, free, servable seats below the wall are candidates"
+  assert_equals 'b-claude-1,b-codex-1,b-codex-3' "$(jq -r 'map(.id) | join(",")' <<<"$out")" \
+    "running idle seats with or without open work are candidates"
   jq -e '.[0].text | contains("load note: finished a CSS slice") and contains("quality 0.8")' <<<"$out" >/dev/null \
     || fail "the candidate text lacks the load note or quality: $out"
+  jq -e '.[] | select(.id == "b-codex-3") | .text | contains("1 open work") and contains("load note: one queued fix")' <<<"$out" >/dev/null \
+    || fail "the idle seat's open work and load note were not represented: $out"
   run_seat code out -- candidates --role builder --exclude-family codex
   assert_equals 'b-claude-1' "$(jq -r 'map(.id) | join(",")' <<<"$out")" "an excluded family is filtered in code"
   run_seat code out FM_SEAT_CONTEXT_WALL=99 -- candidates --role builder
@@ -145,7 +147,7 @@ test_pick_bands_and_fallbacks() {
   [ ! -e "$LOG/calls" ] || fail "a keyless pick reached the network"
 
   run_seat code out -- pick --role designer --task 'draw a logo'
-  jq -e '.action == "lead-decides" and (.reason | contains("no idle designer seat"))' <<<"$out" >/dev/null \
+  jq -e '.action == "lead-decides" and (.reason | contains("no eligible idle designer seat"))' <<<"$out" >/dev/null \
     || fail "no candidate did not fall back to the lead: $out"
   [ ! -e "$LOG/calls" ] || fail "a pick with no candidate reached the network"
   pass "act dispatches a listed seat; every other answer or failure hands the choice to the lead"
@@ -180,7 +182,7 @@ test_pick_data_boundary() {
   assert_present "$HOME_DIR/state/jev-seat-pick.jsonl" "every attempted pick appends an audit record"
   ! grep -F 'TASKMARK' "$HOME_DIR/state/jev-seat-pick.jsonl" >/dev/null \
     || fail "the audit record kept the task text"
-  jq -se 'any(.[]; .purpose == "seat-pick" and .choice == "b-codex-1" and .band == "act" and .candidates == 2)' \
+  jq -se 'any(.[]; .purpose == "seat-pick" and .choice == "b-codex-1" and .band == "act" and .candidates >= 3)' \
     "$HOME_DIR/state/jev-seat-pick.jsonl" >/dev/null \
     || fail "the audit record lacks the decision fields: $(cat "$HOME_DIR/state/jev-seat-pick.jsonl")"
   pass "a pick sends a capped, scrubbed task summary and audits without the task text"
@@ -196,6 +198,10 @@ test_reroute_plan() {
       {seat: "b-cool", role: "builder", family: "claude", running: true, idle: true, available: false},
       {seat: "b-cool-soon", role: "builder", family: "claude", running: true, idle: true, available: false, back_at: 1000600},
       {seat: "b-busy-out", role: "builder", family: "claude", running: true, idle: false, available: false},
+      {seat: "b-wall", role: "builder", family: "claude", running: true, idle: true, available: true, context: 98},
+      {seat: "b-extra", role: "builder", family: "grok", running: true, idle: true, available: true, quality: 0.7},
+      {seat: "b-final", role: "builder", family: "kimi", running: true, idle: true, available: true, quality: 0.6},
+      {seat: "b-last", role: "builder", family: "llama", running: true, idle: true, available: true, quality: 0.5},
       {seat: "r-dead", role: "reviewer", family: "claude", running: false},
       {seat: "x-dead", family: "claude", running: false}]),
     rows: [
@@ -205,16 +211,18 @@ test_reroute_plan() {
       {id: "q4", state: "pending", destination: "human@team", updated: 0},
       {id: "q5", state: "pending", destination: "b-dead", updated: 0, tags: ["owner-decision"]},
       {id: "q6", state: "pending", destination: "b-dead", updated: 999990},
-      {id: "q7", state: "pending", destination: "b-dead", updated: 0, exclude_families: ["claude", "codex"]},
+      {id: "q7", state: "pending", destination: "b-dead", updated: 0, exclude_families: ["claude", "codex", "grok", "kimi", "llama"]},
       {id: "q8", state: "pending", destination: "r-dead", updated: 0},
       {id: "q9", state: "pending", destination: "r-dead", updated: 0, author_family: "grok"},
       {id: "q10", state: "pending", destination: "x-dead", updated: 0},
-      {id: "q11", state: "pending", destination: "b-dead", updated: 0},
+      {id: "q11", state: "pending", destination: "b-dead", updated: 0, exclude_families: ["claude", "codex", "grok", "kimi", "llama"]},
       {id: "q12", state: "in-progress", destination: "b-busy-out", updated: 0},
       {id: "q13", state: "pending", destination: "b-cool-soon", updated: 999000},
       {id: "q14", state: "done", destination: "b-dead", updated: 0},
       {id: "q15", state: "pending", destination: "b-codex-1", updated: 0},
-      {id: "q16", state: "pending", destination: "b-dead", updated: 0}],
+      {id: "q16", state: "pending", destination: "b-dead", updated: 0},
+      {id: "q17", state: "in-progress", destination: "b-wall", updated: 0},
+      {id: "q18", state: "in-progress", destination: "b-gone", role: "builder", updated: 0}],
     moved: ["q16"]}' > "$plan"
   SEAT_STDIN=$plan run_seat code out -- reroute --now 1000000
   expect_code 0 "$code" "a reroute plan exits 0"
@@ -222,11 +230,16 @@ test_reroute_plan() {
     || fail "a long-pending row on a dead seat did not move to the best free seat: $out"
   jq -e '.moves | map(select(.id == "q2")) | .[0] | .to == "b-claude-1" and (.note | contains("partial work"))' <<<"$out" >/dev/null \
     || fail "a claimed row on an idle unservable seat did not move after 5 minutes: $out"
-  jq -e '[.moves[].id] | (index("q3") == null) and (index("q4") == null) and (index("q5") == null)
+  jq -e '.moves | map(select(.id == "q3")) | .[0] | .to == "b-extra" and (.why | contains("not running"))' <<<"$out" >/dev/null \
+    || fail "an aged in-progress row on a dead seat was not rerouted: $out"
+  jq -e '.moves | map(select(.id == "q18")) | .[0] | .to == "b-final" and (.why | contains("gone"))' <<<"$out" >/dev/null \
+    || fail "an aged in-progress row on a gone seat was not rerouted by its recorded role: $out"
+  jq -e '[.moves[].id] | (index("q4") == null) and (index("q5") == null)
       and (index("q6") == null) and (index("q12") == null) and (index("q13") == null)
-      and (index("q14") == null) and (index("q15") == null) and (index("q16") == null)' <<<"$out" >/dev/null \
-    || fail "a row that must stay put was planned: $out"
-  jq -e '.moves | map(select(.id == "q7")) | .[0] | .to == null and (.note | contains("outside claude, codex"))' <<<"$out" >/dev/null \
+      and (index("q14") == null) and (index("q15") == null) and (index("q16") == null)
+      and (index("q17") == null)' <<<"$out" >/dev/null \
+    || fail "a protected or settled row was planned: $out"
+  jq -e '.moves | map(select(.id == "q7")) | .[0] | .to == null and (.note | contains("outside claude, codex, grok, kimi, llama"))' <<<"$out" >/dev/null \
     || fail "an excluded-family row was not left for the lead: $out"
   jq -e '.moves | map(select(.id == "q8")) | .[0] | .to == null and (.note | contains("author family"))' <<<"$out" >/dev/null \
     || fail "a review row without its author family was moved: $out"

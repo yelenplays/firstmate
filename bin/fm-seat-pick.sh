@@ -27,10 +27,12 @@
 #   score; note is an optional one-line load note; back_at is the epoch when
 #   an unservable seat is expected to be served again, if known.
 #
-# candidates: code owns capacity. A candidate runs, is idle, holds no open
-#   work, is available, sits below the context wall (FM_SEAT_CONTEXT_WALL,
-#   default 97), has the role, and is outside every --exclude-family. Prints
-#   a JSON array of {id, text} - the only seat facts Jev ever sees.
+# candidates: code owns capacity. A candidate runs, is idle (regardless of
+#   assigned open work), is available, sits below the context wall
+#   (FM_SEAT_CONTEXT_WALL, default 97), has the role, and is outside every
+#   --exclude-family. Its open-work count and load note inform Jev, who prefers
+#   a free seat only when equally suitable. Prints {id, text} - the only seat
+#   facts Jev ever sees.
 #
 # pick: one Jev Choice through bin/fm-jev-lib.sh over the candidates plus
 #   none_fit, weighing fit first and then load. Prints one JSON object:
@@ -50,14 +52,15 @@
 #
 # reroute: deterministic, plan only - it never moves anything. stdin is
 #   { seats: [...], rows: [...], moved: [<row id>...] } where a row is
-#   { id, state, destination, updated, tags, author_family, exclude_families }
+#   { id, state, destination, role, updated, tags, author_family,
+#     exclude_families } (role is required only when the seat is gone)
 #   (state pending or in-progress; updated is an epoch). A row moves when its
 #   seat is gone, not running, unavailable, or at its context wall, and:
 #   - pending for --minutes (default 20, at least 5), or for 5 minutes when
 #     its seat is running but unavailable with back_at unknown or 30+ minutes
 #     away;
-#   - in progress only off an idle seat that is running but unavailable (a
-#     dead seat or a full context has its own recovery).
+#   - in progress off a gone or non-running seat, or off an idle seat that is
+#     running but unavailable; live seats at their context wall stay protected.
 #   Never moved: rows for human@ or owner@, rows tagged human, owner,
 #   human-decision, owner-decision, or decision:owner, and rows already in
 #   moved. The new seat is a candidate of the old seat's role, not the old
@@ -173,11 +176,11 @@ CANDIDATES_JQ='
 def note_text: (.note // "") | tostring | gsub("[\\r\\n\\t]+"; " ") | .[0:120];
 def is_candidate($role; $exclude; $wall):
   .role == $role and .running == true and .idle == true
-  and ((.open_work // 0) == 0) and (.available != false)
+  and (.available != false)
   and ((.context == null) or (.context < $wall))
   and ((.family // "") as $f | ($exclude | index($f)) == null);
 def seat_text:
-  "\(.seat): \(.family // "unknown") seat, idle, no open work"
+  "\(.seat): \(.family // "unknown") seat, idle, \(.open_work // 0) open work"
   + (if (.quality | type) == "number" then ", quality \(.quality * 100 | round / 100)" else "" end)
   + (if note_text != "" then "; load note: \(note_text)" else "" end);
 '
@@ -227,7 +230,7 @@ if [ "$cmd" = pick ]; then
   }
 
   if [ "$(jq 'length' <<<"$candidates")" -eq 0 ]; then
-    lead "no idle $role seat without open work is available"
+    lead "no eligible idle $role seat is available"
     exit 0
   fi
   if ! fm_jev_key_configured; then
@@ -336,23 +339,25 @@ jq -c --argjson now "$now" --argjson minutes "$minutes" --argjson wall "$wall" \
         | ((($now - ($r.updated // 0)) / 60) | floor) as $age
         | blocked($s) as $why
         | if $why == null then .
-          elif ($r.state == "in-progress" and ($wait == null or $s.idle != true)) then .
+          elif ($r.state == "in-progress" and $s != null and $s.running == true
+                and ($wait == null or $s.idle != true)) then .
           elif $age < ($wait // $minutes) then .
-          elif ($s == null or ($s.role // "") == "") then
+          elif (($s.role // $r.role // "") == "") then
             .moves += [{id: $r.id, from: $r.destination, to: null, why: $why,
               note: "no role known for this seat: left for the lead"}]
-          elif ($s.role == "reviewer" and (($r.author_family // "") == "")) then
+          elif (($s.role // $r.role) == "reviewer" and (($r.author_family // "") == "")) then
             .moves += [{id: $r.id, from: $r.destination, to: null, why: $why,
               note: "a review whose author family is not on the row: left for the lead"}]
           else
-            (($r.exclude_families // []) + (if $s.role == "reviewer" then [$r.author_family] else [] end)) as $ex
+            (($r.exclude_families // []) + (if ($s.role // $r.role) == "reviewer" then [$r.author_family] else [] end)) as $ex
+            | ($s.role // $r.role) as $role
             | .taken as $taken
             | ($seats | map(select(.seat as $n | $n != $s.seat and (($taken | index($n)) == null)
-                  and is_candidate($s.role; $ex; $wall)))
+                  and is_candidate($role; $ex; $wall)))
                 | sort_by([-(.quality // 0), .seat]) | first) as $to
             | if $to == null then
                 .moves += [{id: $r.id, from: $r.destination, to: null, why: $why,
-                  note: ("no free \($s.role) seat" + (if ($ex | length) > 0 then " outside \($ex | join(", "))" else "" end) + ": left for the lead")}]
+                  note: ("no free \($role) seat" + (if ($ex | length) > 0 then " outside \($ex | join(", "))" else "" end) + ": left for the lead")}]
               else
                 .taken += [$to.seat]
                 | .moves += [{id: $r.id, from: $r.destination, to: $to.seat, why: $why,

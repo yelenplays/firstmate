@@ -1561,9 +1561,9 @@ Coverage lives in [`tests/fm-jev-supervision.test.sh`](../tests/fm-jev-supervisi
 [`bin/fm-seat-pick.sh`](../bin/fm-seat-pick.sh) picks a running, idle seat for a piece of team work and plans moving work off seats that cannot take it.
 It exists for role-split teams and stays off unless the local, gitignored presence flag `config/seat-pick` exists or `FM_SEAT_PICK=1` is set; `FM_SEAT_PICK=0` forces it off, and off means exit 3 with no network call.
 Today's one-worker-per-task dispatch never calls it; [`bin/fm-dispatch-resolve.sh`](../bin/fm-dispatch-resolve.sh) remains the owner of choosing a harness and model before a spawn.
-Code owns capacity: only a seat that runs, is idle, holds no open work, can be served, and sits below the context wall is ever offered, and Jev weighs fit and load notes among those.
+Code owns capacity: only a seat that runs, is idle, can be served, and sits below the context wall is ever offered; idle seats with assigned open work remain eligible, and Jev weighs fit and load notes while preferring a free seat only when equally suitable.
 An act-band answer dispatches; anything else, including a missing key or a Jev error, hands the choice to the team lead, so a caller never blocks on the model.
-Reroute planning is deterministic and report-only: it never moves work itself.
+Reroute planning is deterministic and report-only: it never moves work itself. Old in-progress rows can move off gone or non-running seats; rows on live seats, including seats at the context wall, stay protected.
 The script header owns the seat and row schema, the bands, the reroute rules, and the outbound data boundary; coverage lives in [`tests/fm-seat-pick.test.sh`](../tests/fm-seat-pick.test.sh).
 
 ## Brief preflight (FM_JEV_BRIEF_PREFLIGHT)
