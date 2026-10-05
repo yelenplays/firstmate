@@ -58,12 +58,12 @@ _fm_relaunch_common_dir() {  # <dir>
 }
 
 # A comparable key for an origin URL: host/path with the scheme, userinfo,
-# port, trailing slash, and .git suffix removed, and the host lowercased.
-# GitHub paths are case-insensitive, so a github.com path is lowercased too;
-# no other forge's path is assumed to be. A local path or file: URL keys on
-# its physical location when it exists.
+# default port, trailing slash, and .git suffix removed, and the host lowercased.
+# Non-default ports remain part of the key. GitHub paths are case-insensitive,
+# so a github.com path is lowercased too; no other forge's path is assumed to
+# be. A local path or file: URL keys on its physical location when it exists.
 fm_relaunch_origin_key() {  # <url>
-  local url=${1-} host path rest
+  local url=${1-} host path rest scheme authority port default_port
   case "$url" in
     file://*)
       path=${url#file://}
@@ -75,14 +75,40 @@ fm_relaunch_origin_key() {  # <url>
       return 0
       ;;
     *://*)
+      scheme=${url%%://*}
+      scheme=$(printf '%s' "$scheme" | tr '[:upper:]' '[:lower:]')
       rest=${url#*://}
-      host=${rest%%/*}
-      path=${rest#"$host"}
-      host=${host##*@}
-      case "$host" in
-        '['*) host=${host%%']'*}']' ;;
-        *) host=${host%%:*} ;;
+      authority=${rest%%/*}
+      path=${rest#"$authority"}
+      authority=${authority##*@}
+      case "$authority" in
+        '['*']':*)
+          host=${authority%%']'*}']'
+          port=${authority#"]"}
+          port=${port#:}
+          ;;
+        '['*']')
+          host=$authority
+          port=
+          ;;
+        *:*)
+          host=${authority%%:*}
+          port=${authority#*:}
+          ;;
+        *)
+          host=$authority
+          port=
+          ;;
       esac
+      case "$scheme" in
+        https) default_port=443 ;;
+        http) default_port=80 ;;
+        ssh) default_port=22 ;;
+        git) default_port=9418 ;;
+        *) default_port= ;;
+      esac
+      [ "$port" != "$default_port" ] || port=
+      [ -z "$port" ] || host="$host:$port"
       ;;
     *:*)
       host=${url%%:*}

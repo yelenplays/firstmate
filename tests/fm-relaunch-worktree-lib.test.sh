@@ -25,7 +25,16 @@ test_origin_keys_compare_one_repository_across_spellings() {
   key_of https://github.com/Lay-Distribution/Site.git github.com/lay-distribution/site
   key_of git@github.com:Lay-Distribution/Site github.com/lay-distribution/site
   key_of ssh://git@GitHub.com:22/lay-distribution/site.git/ github.com/lay-distribution/site
+  key_of https://gitlab.example.com:443/Group/Project.git gitlab.example.com/Group/Project
+  key_of http://gitlab.example.com:80/Group/Project.git gitlab.example.com/Group/Project
+  key_of ssh://git@gitlab.example.com:22/Group/Project.git gitlab.example.com/Group/Project
+  key_of git://gitlab.example.com:9418/Group/Project.git gitlab.example.com/Group/Project
+  key_of https://git.example.com:8443/org/repo git.example.com:8443/org/repo
+  key_of https://git.example.com:9443/org/repo git.example.com:9443/org/repo
   key_of https://user@gitlab.example.com/Group/Sub/Project.git gitlab.example.com/Group/Sub/Project
+  if fm_relaunch_origin_same_repository https://git.example.com:8443/org/repo https://git.example.com:9443/org/repo; then
+    fail "different non-default service ports must not compare as one repository"
+  fi
   fm_relaunch_origin_same_repository https://github.com/Owner/Repo.git git@github.com:owner/repo \
     || fail "two spellings of one GitHub address must be one repository: $FM_RELAUNCH_WORKTREE_ERROR"
   if fm_relaunch_origin_same_repository https://gitlab.example.com/Group/Project.git https://gitlab.example.com/group/project.git; then
