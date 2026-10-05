@@ -101,11 +101,12 @@ Nothing printed means the item is empty or missing: go back to the stop point.
 [agent] When `slack-axi` is logged in to the same workspace:
 
 ```sh
-slack-axi channels --match <channel-name>
-slack-axi user @<person's-handle>
+slack-axi channels --match "reports"
+slack-axi members C0123REPORT
 ```
 
-The first column of `channels` is the channel id; `user` prints the member id (`U...`).
+Replace `reports` with a distinctive part of the channel name and use the matching channel id in the `members` command.
+The first column of `channels` is the channel id; `members` shows member ids (`U...`) so the agent can identify the person's exact id.
 
 [you] Fallback when no `slack-axi` login exists:
 
