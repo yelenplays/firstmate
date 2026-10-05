@@ -400,7 +400,9 @@ const server = http.createServer((req, res) => {
       return reply({ ok: true, channel: params.channel, ts: message.ts });
     }
     if (method === "conversations.history") {
-      const all = [...((fixture.history || {})[params.channel] || []), ...(accepted.get(home) || []).filter((x) => x.channel === params.channel).map((x) => x.message)];
+      const failAt = (fixture.failHistoryAt || {})[params.channel];
+      if (failAt !== undefined && failAt === String(params.cursor || "")) return reply({ ok: false, error: "ratelimited" });
+      const all =[...((fixture.history || {})[params.channel] || []), ...(accepted.get(home) || []).filter((x) => x.channel === params.channel).map((x) => x.message)];
       const oldest = Number(params.oldest || 0);
       const keep = all.filter((m) => (params.inclusive === "true" ? Number(m.ts) >= oldest : Number(m.ts) > oldest));
       const offset = Number(params.cursor || 0);
@@ -644,6 +646,33 @@ test_bot_reads_past_ten_pages() {
   pass "fm-slack-bridge: bot reads continue until pagination is complete"
 }
 
+test_dm_overflow_never_skips_unread_history() {
+  local home out
+  home=$(make_bot_home bot-dm-overflow)
+  write_bot_config "$home"
+  bot_bridge "$home" arm >/dev/null 2>&1 || fail "bot arm must succeed"
+  # 2,201 DMs served newest-first like Slack: the oldest captain DM sits on
+  # page twelve, past the old ten-page limit, and every message between is a
+  # bot post so only the two captain DMs become notes.
+  node -e 'const fs=require("fs"); const n=2201; const dm=Array.from({length:n},(_,i)=>{const ts=String(1791150000-i)+".000001"; if (i===0) return {ts,user:"U0CAPTAIN1",text:"newest captain DM"}; if (i===n-1) return {ts,user:"U0CAPTAIN1",text:"oldest captain DM on page twelve"}; return {ts,user:"U0BOTYELEN",bot_id:"B0YELEN001",text:"bot "+i};}); fs.writeFileSync(process.argv[1],JSON.stringify({history:{D0DMCAPT01:dm},failHistoryAt:{D0DMCAPT01:"2200"}}));' "$home/bot-fixture.json"
+
+  out=$(bot_bridge "$home" check 2>&1) || fail "a bot check with a failed DM page must still exit cleanly: $out"
+  assert_contains "$out" "conversations.history failed: ratelimited" "a failed DM page is reported, not treated as success"
+  assert_equals "$NOW.000000" "$(cat "$home/state/slack-bridge/dm-cursor")" "a failed DM page never advances the cursor past unread history"
+  assert_equals 0 "$(note_count "$home")" "nothing is delivered from an incomplete DM read"
+
+  node -e 'const fs=require("fs"); const p=process.argv[1]; const f=JSON.parse(fs.readFileSync(p,"utf8")); delete f.failHistoryAt; fs.writeFileSync(p,JSON.stringify(f));' "$home/bot-fixture.json"
+  out=$(bot_bridge "$home" check 2>&1) || fail "the retried bot check must succeed: $out"
+  assert_contains "$out" "slack: delivered 2 captain reply(s)" "the retry delivers both captain DMs"
+  grep -rq "oldest captain DM on page twelve" "$home/state/inbox" || fail "the DM past ten pages is delivered"
+  grep -rq "newest captain DM" "$home/state/inbox" || fail "the newest DM is delivered"
+  assert_equals "1791150000.000001" "$(cat "$home/state/slack-bridge/dm-cursor")" "the cursor advances only to the newest delivered DM"
+  out=$(bot_bridge "$home" check 2>&1) || fail "a repeat bot check must succeed: $out"
+  assert_equals 2 "$(note_count "$home")" "a repeat poll delivers nothing again"
+  assert_no_token "$home" "$out"
+  pass "fm-slack-bridge: a DM backlog past ten pages is read completely, and a failed page keeps the cursor"
+}
+
 test_lost_reply_response_is_found_before_retry() {
   local home note id out rc
   home=$(make_bot_home bot-lost-reply)
@@ -805,6 +834,7 @@ test_bot_delivers_only_the_captain_and_replies_back
 test_independent_bot_homes_deliver_only_their_captains
 test_reply_without_bot_stays_local
 test_bot_reads_past_ten_pages
+test_dm_overflow_never_skips_unread_history
 test_lost_reply_response_is_found_before_retry
 test_concurrent_send_reply_is_serialized
 test_other_bot_marker_does_not_confirm_reply
