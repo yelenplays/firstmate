@@ -752,16 +752,22 @@ finish_reverted() {
 
 # Open a new revert pull request; never adopt a candidate after interruption.
 ensure_revert_pr() {
-  local number url body listing
+  local number url body listing head_ref revert_branch
   [ -z "$(rget revert_pr)" ] || return 0
   number=$FM_PR_NUMBER
   # A revert is opened only once GitHub has positively answered that no
-  # earlier one exists; a listing error is not an empty listing.
-  listing=$(gh pr list -R "$FM_PR_HOST/$FM_PR_PATH" --state all --limit 100 --json url,headRefName 2>/dev/null) \
+  # earlier one exists; a listing error is not an empty listing. GitHub names
+  # a revert's branch revert-<number>-<head branch>, so ask for exactly that
+  # branch rather than scanning a window of recent pull requests.
+  head_ref=$(gh pr view "$(rget pr)" --json headRefName 2>/dev/null | jq -r '.headRefName // ""' 2>/dev/null) || head_ref=
+  [ -n "$head_ref" ] \
+    || die "could not read the head branch of $(rget pr) to check for an earlier revert; retry bin/fm-post-merge.sh advance $ID"
+  revert_branch="revert-$number-$head_ref"
+  listing=$(gh pr list -R "$FM_PR_HOST/$FM_PR_PATH" --head "$revert_branch" --state all --json url,headRefName 2>/dev/null) \
     || die "could not list pull requests to check for an earlier revert of $(rget pr); retry bin/fm-post-merge.sh advance $ID"
-  url=$(printf '%s' "$listing" | jq -r --arg prefix "revert-$number-" '
+  url=$(printf '%s' "$listing" | jq -r --arg branch "$revert_branch" '
     if type != "array" then error("pull request listing is not an array")
-    else [ .[] | select((.headRefName // "") | startswith($prefix)) | .url ] | first // "" end' 2>/dev/null) \
+    else [ .[] | select(.headRefName == $branch) | .url ] | first // "" end' 2>/dev/null) \
     || die "could not read the pull request listing while checking for an earlier revert of $(rget pr); retry bin/fm-post-merge.sh advance $ID"
   if [ -n "$url" ]; then
     rset phase=blocked "revert_candidate=$url" "note=interrupted revert candidate needs captain review"

@@ -33,7 +33,8 @@ W_ID=
 # A fake gh serving pull requests and checks from files under $FAKE_GH_DIR:
 # pr-<n>.json for `gh pr view`, checks-<sha>.json and status-<sha>.json for the
 # commit check endpoints (both empty when absent), and pr-list.json for
-# `gh pr list` (which fails while pr-list-fail exists). The revert mutation opens pull request 8 on revert-7-feature
+# `gh pr list` (newest first, filtered by --head and cut to --limit, default 30,
+# as gh does; it fails while pr-list-fail exists). The revert mutation opens pull request 8 on revert-7-feature
 # with head $REVERT_SHA and a message naming $MERGE_SHA, or fails when graphql-fail exists.
 write_fake_gh() {  # <fakebin>
   cat > "$1/gh" <<'EOF'
@@ -56,7 +57,17 @@ case "$1 ${2:-}" in
   "pr list")
     [ ! -e "$d/pr-list-fail" ] || { echo "HTTP 502: listing unavailable" >&2; exit 1; }
     [ -f "$d/pr-list.json" ] || echo '[]' > "$d/pr-list.json"
-    jq -r "$(jq_arg "$@")" "$d/pr-list.json"
+    head='' limit=30
+    set -- "$@" --
+    while [ "$1" != -- ]; do
+      case "$1" in
+        --head) head=$2; shift ;;
+        --limit) limit=$2; shift ;;
+      esac
+      shift
+    done
+    jq -c --arg head "$head" --argjson limit "$limit" \
+      '[ .[] | select($head == "" or .headRefName == $head) ] | .[:$limit]' "$d/pr-list.json"
     ;;
   "api graphql")
     [ ! -e "$d/graphql-fail" ] || { echo "GraphQL: revert refused" >&2; exit 1; }
@@ -123,7 +134,7 @@ make_pr_world() {  # <name> <yolo>
   write_fake_gh "$W_BIN"
   fm_write_meta "$W_HOME/state/$W_ID.meta" "project=$dir/widget" mode=no-mistakes "yolo=$2" \
     branch=feature spawn_gen=1 "pr=$PR_URL"
-  printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s","baseRefName":"main","id":"PR_node7","title":"Add the widget"}\n' \
+  printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s","baseRefName":"main","headRefName":"feature","id":"PR_node7","title":"Add the widget"}\n' \
     "$MERGE_SHA" "$HEAD_SHA" > "$W_FAKE/pr-7.json"
   printf '{"name":"main","protected":false}\n' > "$W_FAKE/branch-main.json"
   printf '[]\n' > "$W_FAKE/rules-main.json"
@@ -486,6 +497,23 @@ test_failed_revert_listing_never_opens_a_duplicate() {
   assert_contains "$out" "blocked: found $REVERT_URL" "the recovered listing did not find the earlier revert"
   assert_equals "$opened" "$(grep -c '^api graphql' "$W_FAKE/calls")" "the recovered listing opened a second revert"
   pass "fm-post-merge: a failed revert listing never opens a duplicate revert"
+}
+
+test_earlier_revert_beyond_recent_pull_requests_is_found() {
+  local out
+  make_pr_world pm-old-revert on
+  pm arm "$W_ID" >/dev/null 2>&1 || fail "arm refused a merged pull request"
+  set_checks "$MERGE_SHA" build completed failure
+  # 150 newer unrelated pull requests come first, so the earlier revert is
+  # beyond any window of recent results.
+  jq -n --arg url "$REVERT_URL" '
+    [ range(1; 151) | {url: "https://github.com/acme/widget/pull/\(1000 + .)", headRefName: "topic-\(.)"} ]
+    + [ {url: $url, headRefName: "revert-7-feature"} ]' > "$W_FAKE/pr-list.json"
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed to hold on the earlier revert: $out"
+  assert_contains "$out" "blocked: found $REVERT_URL" "an earlier revert beyond the recent pull requests was missed"
+  assert_equals 0 "$(grep -c '^api graphql' "$W_FAKE/calls")" "a duplicate revert was opened"
+  assert_equals blocked "$(record_field phase)" "the earlier revert did not hold the watch"
+  pass "fm-post-merge: an earlier revert beyond the recent pull requests is found by its branch"
 }
 
 test_newer_failed_run_beats_older_long_running_success() {
@@ -881,6 +909,7 @@ test_revert_refused_by_github_blocks
 test_yolo_off_asks_before_merging_the_revert
 test_interrupted_revert_candidate_blocks_for_captain
 test_failed_revert_listing_never_opens_a_duplicate
+test_earlier_revert_beyond_recent_pull_requests_is_found
 test_newer_failed_run_beats_older_long_running_success
 test_latest_check_result_wins
 test_unknown_completed_check_conclusions_wait
