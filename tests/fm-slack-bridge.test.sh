@@ -634,6 +634,7 @@ test_reply_without_bot_stays_local() {
 test_bot_reads_past_ten_pages() {
   local home out count
   home=$(make_bot_home bot-pages)
+  # shellcheck disable=SC2016
   node -e 'const fs=require("fs"); const messages=Array.from({length:2201},(_,i)=>({ts:`179114${String(i).padStart(4,"0")}.000001`,user:"U0CAPTAIN1",text:`message-${i}`})); fs.writeFileSync(process.argv[1],JSON.stringify({history:{C0HANDOFF1:messages}}));' "$home/bot-fixture.json"
   out=$(printf '{"keychain":"%s","history":[{"channel":"C0HANDOFF1","oldest":"1791140000.000000"}]}\n' "$BOT_SERVICE" | \
     env FM_SLACK_BOT_API_BASE="$BOT_API" FM_HOME="$home" PATH="$home/fakebin:$PATH" \
@@ -702,6 +703,7 @@ test_other_bot_marker_does_not_confirm_reply() {
   bot_bridge "$home" check >/dev/null 2>&1 || fail "bot check must succeed"
   note=$(grep -l '^source=slack-captain$' "$home/state/inbox"/*.note | head -n 1)
   id=$(sed -n 's/^id=//p' "$note")
+  # shellcheck disable=SC2016
   node -e 'const fs=require("fs");const p=process.argv[1],id=process.argv[2];const f=JSON.parse(fs.readFileSync(p,"utf8"));f.history.D0DMCAPT01.push({ts:"1791140300.000001",user:"U0MARCOBOT",bot_id:"B0MARCO001",text:`quoted [fm-reply:${id}]`});fs.writeFileSync(p,JSON.stringify(f));' "$home/bot-fixture.json" "$id"
   out=$(bot_inbox "$home" reply "$id" "actual firstmate response" 2>&1) || fail "reply must post when only another bot carries the marker: $out"
   case "$out" in *"already posted"*) fail "another bot's marker must not confirm this home's reply" ;; esac
