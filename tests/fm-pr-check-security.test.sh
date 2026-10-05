@@ -3027,7 +3027,7 @@ test_teardown_cannot_race_authority_consumption() {
     "worktree=$dir/wt" \
     "project=$dir/project" \
     'kind=ship' \
-    'mode=local-only' \
+    'mode=no-mistakes' \
     'yolo=on'
   write_away_record "$dir"
   run_check_entry "$dir" task-a "$url" >/dev/null 2> "$dir/seed.err" \

@@ -1468,6 +1468,7 @@ test_github_queued_outcome_is_verified() {
     PATH="$case_dir/fakebin:$PATH" FM_TEST_GH_LOG="$case_dir/gh.log" \
     FM_TEST_GH_HEAD="$case_dir/github-head" FM_TEST_GH_RUNS="$case_dir/github-runs.json" \
     FM_TEST_GH_RULES="$case_dir/github-rules" FM_TEST_GH_POSTMERGE_PR_JSON="$case_dir/postmerge-pr.json" \
+    FM_TEST_GH_BRANCH="$case_dir/github-branch.json" FM_TEST_GH_REQUIRED_RULES="$case_dir/github-required-rules.json" \
     "$ROOT/bin/fm-post-merge.sh" checks task-x1 --settled 2>&1)
   rc=$?
   set -e
@@ -1480,6 +1481,7 @@ test_github_queued_outcome_is_verified() {
     PATH="$case_dir/fakebin:$PATH" FM_TEST_GH_LOG="$case_dir/gh.log" \
     FM_TEST_GH_HEAD="$case_dir/github-head" FM_TEST_GH_RUNS="$case_dir/github-runs.json" \
     FM_TEST_GH_RULES="$case_dir/github-rules" FM_TEST_GH_POSTMERGE_PR_JSON="$case_dir/postmerge-pr.json" \
+    FM_TEST_GH_BRANCH="$case_dir/github-branch.json" FM_TEST_GH_REQUIRED_RULES="$case_dir/github-required-rules.json" \
     "$ROOT/bin/fm-post-merge.sh" advance task-x1 2>&1) \
     || fail "github-verified-queued: advancing after the merge failed: $out"
   assert_contains "$out" "waiting: checks on merge commit ${merge_sha:0:12}" \
@@ -2254,6 +2256,7 @@ test_failed_merge_reports_nothing() {
   local case_dir rc
   case_dir=$(make_home_case failed-merge-silent remote)
   add_gh_mocks_merge_fails "$case_dir"
+  write_github_outcome "$case_dir" OPEN false false main
   : >"$case_dir/gh-axi.log"
 
   set +e
