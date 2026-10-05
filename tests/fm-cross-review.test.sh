@@ -6,6 +6,8 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=bin/fm-pr-lib.sh
+. "$ROOT/bin/fm-pr-lib.sh"
 
 SCRIPT="$ROOT/bin/fm-cross-review.sh"
 TMP_ROOT=$(fm_test_tmproot fm-cross-review-tests)
@@ -434,6 +436,38 @@ test_private_vault_change_gets_no_new_reviewer() {
   pass "a private vault change stays on today's path and no new reviewer sees it"
 }
 
+# fm_pr_metadata_identity_parse treats any key after pr= other than pr_head=
+# and the x_* fields as invalid, so recording review families after an armed
+# PR's identity block made the watcher reject its merge poll as unauthenticated
+# and fm-pr-rearm.sh could not refresh it.
+test_recording_families_keeps_an_armed_pr_poll_valid() {
+  local out url=https://github.com/example/project/pull/19 rid=xr-r9 state poll
+  new_case armed-pr no-mistakes claude claude-opus-5-5 anthropic
+  state="$HOME_DIR/state"
+  poll="$ROOT/bin/fm-pr-poll.sh"
+  printf 'pr=%s\npr_head=%s\n' "$url" "$HEAD_SHA" >> "$state/$TASK.meta"
+  fm_pr_poll_prepare "$state" "$TASK" github "$url" github.com example/project 19 "$poll" \
+    || fail "could not prepare the PR poll fixture"
+  fm_pr_poll_publish_prepared || fail "could not publish the PR poll fixture"
+  fm_pr_poll_artifacts_valid "$state" "$TASK" "$poll" || fail "the PR poll fixture did not authenticate"
+  install_fake_gh
+  nm_run "$HEAD_SHA" completed pi gpt-6-astra
+  out=$(FM_TEST_GH_HEAD="$HEAD_SHA" FM_TEST_GH_LOG="$CASE/gh.log" xr plan "$TASK" <&-) || fail "plan failed: $out"
+  out=$(FM_TEST_GH_HEAD="$HEAD_SHA" FM_TEST_GH_LOG="$CASE/gh.log" xr status "$TASK" <&-) || fail "status failed: $out"
+  assert_grep "pipeline_review_family=openai" "$state/$TASK.meta" "the pipeline family was not recorded"
+  assert_grep "independent_review_source=pipeline" "$state/$TASK.meta" "the independent review was not recorded"
+  add_reviewer "$rid" xai xai/grok-5 xai
+  request "$rid" review
+  printf 'reviewed head %s\nVerdict: PASS\n' "$HEAD_SHA" > "$HOME_DIR/data/$rid/report.md"
+  out=$(collect "$rid") || fail "collect failed: $out"
+  assert_contains "$out" "accepted=yes" "the one-shot review was not accepted"
+  assert_grep "independent_review_source=one-shot" "$state/$TASK.meta" "the one-shot review was not recorded"
+  fm_pr_poll_artifacts_valid "$state" "$TASK" "$poll" \
+    || fail "recording review families invalidated the armed PR poll"
+  out=$(FM_STATE_OVERRIDE="$state" bash "$ROOT/bin/fm-pr-rearm.sh" 2>&1) || fail "fm-pr-rearm.sh failed: $out"
+  pass "recording review families keeps an armed PR poll authenticating"
+}
+
 test_usage_errors() {
   local out status
   new_case usage direct-PR claude claude-opus-5-5 anthropic
@@ -465,4 +499,5 @@ test_unknown_builder_family_escalates
 test_record_without_family_resolves_from_harness
 test_private_page_rename_stays_private
 test_private_vault_change_gets_no_new_reviewer
+test_recording_families_keeps_an_armed_pr_poll_valid
 test_usage_errors

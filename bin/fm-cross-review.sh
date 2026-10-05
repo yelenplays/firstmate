@@ -197,9 +197,13 @@ default_base_ref() {
   return 1
 }
 
-# Write review fields into the task record under its meta lock.
+# Write review fields into the task record under its meta lock. The fields go
+# just before a pr= line, never after it: fm-pr-check.sh keeps pr= and its
+# identity block (pr_head= and the x_* fields fm_pr_metadata_identity_parse
+# allows after it) LAST, and that parser rejects any other key following pr=,
+# so appending there would leave an armed merge poll unauthenticated.
 record_meta() {  # <key=value>...
-  local lock tmp kv key line keys=' '
+  local lock tmp kv key line keys=' ' placed=0
   lock=$(fm_meta_lock_path "$META") || return 1
   fm_lock_acquire_wait "$lock" || return 1
   if [ ! -f "$META" ] || [ -L "$META" ]; then
@@ -213,9 +217,13 @@ record_meta() {  # <key=value>...
     while IFS= read -r line || [ -n "$line" ]; do
       key=${line%%=*}
       case "$keys" in *" $key "*) continue ;; esac
+      if [ "$key" = pr ] && [ "$placed" = 0 ]; then
+        for kv in "$@"; do printf '%s\n' "$kv"; done
+        placed=1
+      fi
       printf '%s\n' "$line"
     done < "$META"
-    for kv in "$@"; do printf '%s\n' "$kv"; done
+    [ "$placed" = 1 ] || for kv in "$@"; do printf '%s\n' "$kv"; done
   } > "$tmp" || ! mv -f -- "$tmp" "$META"; then
     rm -f -- "$tmp"
     fm_lock_release "$lock" || true
