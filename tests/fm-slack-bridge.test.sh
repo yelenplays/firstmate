@@ -872,6 +872,29 @@ test_bot_delivers_captain_mentions_only() {
   pass "fm-slack-bridge: a bot delivers only the captain's own tags, once, and answers in a thread"
 }
 
+test_old_top_level_mention_survives_watch_window() {
+  local home out note
+  home=$(make_bot_home bot-old-mention)
+  write_bot_config "$home"
+  printf 'watch-days=1\n' >> "$home/config/slack-bridge"
+  bot_bridge "$home" arm >/dev/null 2>&1 || fail "bot arm must succeed"
+  printf '1790000000.000000\n' > "$home/state/slack-bridge/mention-cursor"
+  cat > "$home/bot-fixture.json" <<JSON
+{"history":{"C0REPORT01":[
+  {"ts":"1790000010.000001","user":"$CAPTAIN","text":"<@U0BOTYELEN> recover this old request"},
+  {"ts":"1791140090.000001","user":"$CAPTAIN","text":"newer untagged activity"}
+]}}
+JSON
+
+  out=$(bot_bridge "$home" check 2>&1) || fail "checking an old mention must succeed: $out"
+  assert_contains "$out" "slack: delivered 1 captain reply(s)" "the old top-level mention is delivered despite being outside watch-days"
+  assert_equals 1 "$(note_count "$home" slack-captain)" "only the tagged old message becomes a captain note"
+  note=$(grep -l "ts 1790000010.000001" "$home/state/inbox"/*.note)
+  assert_line 'recover this old request' "$note" "the old mention text is preserved without its tag"
+  assert_equals "1791140090.000001" "$(cat "$home/state/slack-bridge/mention-cursor")" "the cursor advances after scanning the recoverable backlog"
+  pass "fm-slack-bridge: top-level mentions survive the thread-discovery window"
+}
+
 test_tagged_reply_on_bridge_post_is_delivered_once() {
   local home out note
   home=$(make_bot_home bot-mention-bridge-thread)
@@ -953,5 +976,6 @@ test_other_bot_marker_does_not_confirm_reply
 test_bot_failures_are_safe
 test_bot_verify_round_trip
 test_bot_delivers_captain_mentions_only
+test_old_top_level_mention_survives_watch_window
 test_tagged_reply_on_bridge_post_is_delivered_once
 test_manifest_has_name_and_minimal_scopes

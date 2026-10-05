@@ -266,14 +266,18 @@ async function actionRead(call, req) {
     for (const channel of new Set(mentions.channels)) {
       const read = threads.find((t) => t.channel === channel);
       const watched = new Set(read ? read.parents : []);
-      const top = await paged(call, "conversations.history", { channel, oldest: mentions.since }, "messages");
+      const top = await paged(call, "conversations.history", { channel, oldest: mentions.oldest }, "messages");
       for (const m of top) {
         if (!validTs(m.ts)) continue;
         seen(m.ts);
-        seen(m.latest_reply);
         // A reply also sent to the channel answers in its own thread.
         const thread = validTs(m.thread_ts) && m.thread_ts !== m.ts ? m.thread_ts : "-";
         if (after(m.ts) && mentionsSelf(m)) out.push(record("mention", channel, thread, m));
+      }
+      const discovery = await paged(call, "conversations.history", { channel, oldest: mentions.since }, "messages");
+      for (const m of discovery) {
+        if (!validTs(m.ts)) continue;
+        seen(m.latest_reply);
         if (!(m.reply_count > 0) || !after(m.latest_reply) || watched.has(m.ts)) continue;
         const all = await paged(call, "conversations.replies", { channel, ts: m.ts }, "messages");
         for (const r of all) {
