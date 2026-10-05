@@ -809,6 +809,7 @@ tests/fm-inactive-reconcile.test.sh 60823
 tests/fm-inbox.test.sh 6062
 tests/fm-jev-mem-guard.test.sh 336
 tests/fm-jev-act-first.test.sh 5426
+tests/fm-jev-ask-user.test.sh 7400
 tests/fm-jev-brief-preflight.test.sh 10209
 tests/fm-jev-compaction.test.sh 638
 tests/fm-jev-done-verify.test.sh 38035
@@ -1636,6 +1637,9 @@ families_for_changed_path() {
       ;;
     bin/fm-jev-done-verify.sh)
       printf '%s\n' "__script__:fm-jev-done-verify.test.sh"
+      ;;
+    bin/fm-jev-ask-user.sh)
+      printf '%s\n' "__script__:fm-jev-ask-user.test.sh"
       ;;
     bin/fm-jev-pr-verdict.sh)
       printf '%s\n' "__script__:fm-jev-pr-verdict.test.sh"

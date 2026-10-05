@@ -1447,6 +1447,12 @@ The thin hook point is documented in [`docs/arm-pretool-check.md`](arm-pretool-c
 The ship-landing skill owns when to include it in the captain's review ask; the script header owns admission, privacy and record mechanics.
 It skips silently without a configured Jev key or a share-safe routing card, does not certify private-page content or required checks, and does not change merge authority.
 
+## Jev ask-user gate (FM_JEV_ASK_USER_FLOOR)
+
+[`bin/fm-jev-ask-user.sh`](../bin/fm-jev-ask-user.sh) is the live Jev step of the [`ask-user-authority`](../.agents/skills/ask-user-authority/SKILL.md) procedure, which owns when firstmate runs it and what each outcome obliges.
+Set `FM_JEV_ASK_USER_FLOOR` (default 0.75) to configure its confidence floor.
+The script header owns its decision and privacy boundaries, inputs, outputs, exit codes, and log schema.
+
 ## Shadow done verifier
 
 [`bin/fm-jev-done-verify.sh`](../bin/fm-jev-done-verify.sh) is a log-only helper the wake drain invokes after successfully presenting a worker `done:` line on a ship or scout.
