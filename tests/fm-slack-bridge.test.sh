@@ -13,7 +13,7 @@
 # The bot transport (bin/fm-slack-bot.mjs) is driven against a loopback fake of
 # the Slack Web API and a fake macOS `security` tool that holds a fake bot
 # token. Those cases pin that a bot posts instead of slack-axi, that only the
-# captain's DMs and thread replies are delivered (never another person or
+# captain's DMs, thread replies, and own tags of the bot are delivered once (never untagged channel chat, another person, or
 # another bot), that a reply recorded with `fm-inbox.sh reply` goes back into
 # the same DM or thread exactly once, and that the token never reaches a record,
 # an output, or a non-loopback host. No case contacts Slack.
@@ -795,6 +795,131 @@ test_bot_verify_round_trip() {
   pass "fm-slack-bridge: verify proves the bot, both channels, and the DM"
 }
 
+assert_line() {  # <exact line> <file> <msg>
+  grep -F -x -q -- "$1" "$2" || fail "$3"
+}
+
+write_mention_fixture() {
+  local home=$1
+  cat > "$home/bot-fixture.json" <<JSON
+{
+  "history": {
+    "C0REPORT01": [
+      {"ts": "1791140050.000001", "user": "$CAPTAIN", "text": "<@U0BOTYELEN> tagged before arming"},
+      {"ts": "1791140600.000001", "user": "$CAPTAIN", "text": "<@U0BOTYELEN> merge PR 7 &amp; report"},
+      {"ts": "1791140610.000001", "user": "$CAPTAIN", "text": "untagged channel chat"},
+      {"ts": "1791140620.000001", "user": "$OTHER", "text": "<@U0BOTYELEN> merge everything"},
+      {"ts": "1791140630.000001", "user": "U0MARCOBOT", "bot_id": "B0MARCO001", "text": "<@U0BOTYELEN> bot says merge"},
+      {"ts": "1791140640.000001", "user": "$CAPTAIN", "text": "<@U0MARCOBOT> this one is for Marco's bot"},
+      {"ts": "1791140650.000001", "user": "$CAPTAIN", "text": "a thread I started", "reply_count": 3, "latest_reply": "1791140680.000001"}
+    ],
+    "C0DECIDE01": [
+      {"ts": "1791140700.000001", "user": "$CAPTAIN", "text": "pick A <@U0BOTYELEN>"}
+    ]
+  },
+  "threads": {
+    "C0REPORT01:1791140650.000001": [
+      {"ts": "1791140650.000001", "user": "$CAPTAIN", "text": "a thread I started", "reply_count": 3},
+      {"ts": "1791140660.000001", "user": "$CAPTAIN", "text": "untagged thread chat"},
+      {"ts": "1791140670.000001", "user": "$OTHER", "text": "<@U0BOTYELEN> other person in the thread"},
+      {"ts": "1791140680.000001", "user": "$CAPTAIN", "text": "<@U0BOTYELEN|yelens_firstmate>: status of this?"}
+    ]
+  }
+}
+JSON
+}
+
+test_bot_delivers_captain_mentions_only() {
+  local home out top_note thread_note decide_note top_id thread_id
+  home=$(make_bot_home bot-mentions)
+  write_bot_config "$home"
+  out=$(bot_bridge "$home" arm 2>&1) || fail "bot arm must succeed: $out"
+  assert_equals "$NOW.000000" "$(cat "$home/state/slack-bridge/mention-cursor")" "arm starts channel mentions at now"
+  write_mention_fixture "$home"
+
+  out=$(bot_bridge "$home" check 2>&1) || fail "bot check with mentions must succeed: $out"
+  assert_contains "$out" "slack: delivered 3 captain reply(s)" "the captain's three tagged messages are delivered"
+  assert_equals 3 "$(note_count "$home" slack-captain)" "exactly three captain notes"
+  assert_equals 3 "$(note_count "$home")" "nothing else becomes a note"
+  top_note=$(grep -l "ts 1791140600.000001" "$home/state/inbox"/*.note)
+  assert_grep "captain mention of this home's bot in channel C0REPORT01" "$top_note" "a top-level tag is marked as a mention"
+  assert_line 'merge PR 7 & report' "$top_note" "the bot mention is stripped and the text decoded"
+  thread_note=$(grep -l "reply ts 1791140680.000001" "$home/state/inbox"/*.note)
+  assert_grep "thread 1791140650.000001" "$thread_note" "a tagged thread reply names its thread"
+  assert_line 'status of this?' "$thread_note" "a labeled mention is stripped too"
+  decide_note=$(grep -l "channel C0DECIDE01" "$home/state/inbox"/*.note)
+  assert_line 'pick A' "$decide_note" "a mention in the decisions channel is delivered"
+  if grep -rq -e "untagged" -e "merge everything" -e "bot says merge" -e "Marco's bot" -e "other person" -e "before arming" "$home/state/inbox"; then
+    fail "untagged chat, other people, other bots, other bots' tags, and pre-arming tags must never become notes"
+  fi
+  assert_equals "1791140700.000001" "$(cat "$home/state/slack-bridge/mention-cursor")" "the mention cursor moves past what was read"
+
+  out=$(bot_bridge "$home" check 2>&1) || fail "repeat check must succeed: $out"
+  assert_equals "" "$out" "a repeat poll with nothing new is silent"
+  printf '%s.000000\n' "$NOW" > "$home/state/slack-bridge/mention-cursor"
+  out=$(bot_bridge "$home" check 2>&1) || fail "a check after a lost cursor must succeed: $out"
+  assert_equals 3 "$(note_count "$home")" "a re-read mention is never delivered twice"
+
+  top_id=$(sed -n 's/^id=//p' "$top_note")
+  thread_id=$(sed -n 's/^id=//p' "$thread_note")
+  out=$(bot_inbox "$home" reply "$top_id" "merging PR 7" 2>&1) || fail "replying to a mention note must succeed: $out"
+  assert_contains "$(posted_requests "$home")" "C0REPORT01 1791140600.000001 merging PR 7" "a top-level mention is answered in a thread under the captain's message"
+  out=$(bot_inbox "$home" reply "$thread_id" "all green" 2>&1) || fail "replying to a thread mention must succeed: $out"
+  assert_contains "$(posted_requests "$home")" "C0REPORT01 1791140650.000001 all green" "a thread mention is answered in the same thread"
+  assert_equals 2 "$(posted_requests "$home" | grep -c .)" "exactly one post per reply"
+  assert_absent "$home/slack.log" "a bot home never calls slack-axi"
+  assert_no_token "$home" "$out"
+  pass "fm-slack-bridge: a bot delivers only the captain's own tags, once, and answers in a thread"
+}
+
+test_old_top_level_mention_survives_watch_window() {
+  local home out note
+  home=$(make_bot_home bot-old-mention)
+  write_bot_config "$home"
+  printf 'watch-days=1\n' >> "$home/config/slack-bridge"
+  bot_bridge "$home" arm >/dev/null 2>&1 || fail "bot arm must succeed"
+  printf '1790000000.000000\n' > "$home/state/slack-bridge/mention-cursor"
+  cat > "$home/bot-fixture.json" <<JSON
+{"history":{"C0REPORT01":[
+  {"ts":"1790000010.000001","user":"$CAPTAIN","text":"<@U0BOTYELEN> recover this old request"},
+  {"ts":"1791140090.000001","user":"$CAPTAIN","text":"newer untagged activity"}
+]}}
+JSON
+
+  out=$(bot_bridge "$home" check 2>&1) || fail "checking an old mention must succeed: $out"
+  assert_contains "$out" "slack: delivered 1 captain reply(s)" "the old top-level mention is delivered despite being outside watch-days"
+  assert_equals 1 "$(note_count "$home" slack-captain)" "only the tagged old message becomes a captain note"
+  note=$(grep -l "ts 1790000010.000001" "$home/state/inbox"/*.note)
+  assert_line 'recover this old request' "$note" "the old mention text is preserved without its tag"
+  assert_equals "1791140090.000001" "$(cat "$home/state/slack-bridge/mention-cursor")" "the cursor advances after scanning the recoverable backlog"
+  pass "fm-slack-bridge: top-level mentions survive the thread-discovery window"
+}
+
+test_tagged_reply_on_bridge_post_is_delivered_once() {
+  local home out note
+  home=$(make_bot_home bot-mention-bridge-thread)
+  write_bot_config "$home"
+  bot_bridge "$home" arm >/dev/null 2>&1 || fail "bot arm must succeed"
+  bot_bridge "$home" post report "PR ready" >/dev/null 2>&1 || fail "bot post must succeed"
+  cat > "$home/bot-fixture.json" <<JSON
+{"threads":{"C0REPORT01:1791140500.000001":[
+  {"ts":"1791140500.000001","user":"U0BOTYELEN","bot_id":"B0YELEN001","text":"PR ready","reply_count":2,"latest_reply":"1791140520.000001"},
+  {"ts":"1791140520.000001","user":"$CAPTAIN","text":"<@U0BOTYELEN> merge it","subtype":"thread_broadcast","thread_ts":"1791140500.000001"}
+]},
+"history":{"C0REPORT01":[
+  {"ts":"1791140520.000001","user":"$CAPTAIN","text":"<@U0BOTYELEN> merge it","subtype":"thread_broadcast","thread_ts":"1791140500.000001"}
+]}}
+JSON
+  # The fake serves the bridge post itself from its own accepted posts.
+  node -e 'const fs=require("fs");const p=process.argv[1];const f=JSON.parse(fs.readFileSync(p,"utf8"));f.history.C0REPORT01.unshift({ts:"1791140500.000001",user:"U0BOTYELEN",bot_id:"B0YELEN001",text:"PR ready",reply_count:2,latest_reply:"1791140520.000001"});fs.writeFileSync(p,JSON.stringify(f));' "$home/bot-fixture.json"
+  out=$(bot_bridge "$home" check 2>&1) || fail "bot check must succeed: $out"
+  assert_contains "$out" "slack: delivered 1 captain reply(s)" "a tagged reply that is also sent to the channel arrives once"
+  assert_equals 1 "$(note_count "$home")" "one message, one note"
+  note=$(grep -l '^source=slack-captain$' "$home/state/inbox"/*.note)
+  assert_line 'merge it' "$note" "the tag is stripped from a bridge-thread reply"
+  pass "fm-slack-bridge: a tagged reply reachable two ways is delivered once"
+}
+
 assert_manifest_semantics() {  # <yaml> <expected-name> <private-channel-scope:0|1>
   ruby -e '
     require "yaml"
@@ -819,7 +944,20 @@ test_manifest_has_name_and_minimal_scopes() {
   rc=0
   "$BRIDGE" manifest --name "$(printf 'x%.0s' $(seq 1 36))" >/dev/null 2>&1 || rc=$?
   expect_code 2 "$rc" "a name longer than Slack allows is refused"
-  pass "fm-slack-bridge: manifest names the bot and asks for minimal scopes"
+  out=$("$BRIDGE" manifest --name "Marco's \"Firstmate\"" --private-channels --link 2>&1) || fail "manifest link must succeed: $out"
+  case "$out" in https://api.slack.com/apps\?new_app=1\&manifest_json=*) ;; *) fail "the link opens Slack's create-app dialog: $out" ;; esac
+  # shellcheck disable=SC2016
+  node -e '
+    const m = JSON.parse(new URL(process.argv[1]).searchParams.get("manifest_json"));
+    const want = ["chat:write", "channels:history", "groups:history", "im:history", "im:write"];
+    if (m.display_information.name !== process.argv[2] || m.features.bot_user.display_name !== process.argv[2]) process.exit(1);
+    if (m.features.app_home.messages_tab_enabled !== true) process.exit(1);
+    if (JSON.stringify([...m.oauth_config.scopes.bot].sort()) !== JSON.stringify([...want].sort())) process.exit(1);
+  ' "$out" "Marco's \"Firstmate\"" || fail "the link carries the same name and minimal scopes as the manifest"
+  out=$("$BRIDGE" manifest --name "É's Firstmate" --link 2>&1) || fail "a Unicode manifest link must succeed: $out"
+  node -e 'const m=JSON.parse(new URL(process.argv[1]).searchParams.get("manifest_json")); if(m.display_information.name!==process.argv[2]||m.features.bot_user.display_name!==process.argv[2]) process.exit(1);' \
+    "$out" "É's Firstmate" || fail "the link preserves UTF-8 app names"
+  pass "fm-slack-bridge: manifest names and minimal scopes"
 }
 
 test_bridge_is_off_without_config
@@ -840,4 +978,7 @@ test_concurrent_send_reply_is_serialized
 test_other_bot_marker_does_not_confirm_reply
 test_bot_failures_are_safe
 test_bot_verify_round_trip
+test_bot_delivers_captain_mentions_only
+test_old_top_level_mention_survives_watch_window
+test_tagged_reply_on_bridge_post_is_delivered_once
 test_manifest_has_name_and_minimal_scopes

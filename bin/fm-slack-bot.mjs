@@ -21,11 +21,18 @@
 //           -> posted <channel> <ts>
 //   read    {"keychain":"svc","threads":[{"channel":"C..","parents":["<ts>",..]}],
 //            "history":[{"channel":"C..","oldest":"<ts>"}],
-//            "dm":{"user":"U..","oldest":"<ts>"}?}
+//            "dm":{"user":"U..","oldest":"<ts>"}?,
+//            "mentions":{"channels":["C..",..],"oldest":"<ts>","since":"<ts>"}?}
 //           -> the same records as bin/fm-slack-read.mjs, plus
 //              dm <dm-channel> - <ts> <user|-> <bot:0|1> <subtype|-> <text-b64>
 //              for each new top-level message in the bot's DM with that user,
-//              then `done`
+//              mention <channel> <thread-ts|-> <ts> <user|-> <bot:0|1> <subtype|-> <text-b64>
+//              for each message newer than `oldest` that mentions this bot,
+//              top-level or in a thread whose parent is newer than `since`
+//              (threads already listed in `threads` are left to that read),
+//              `mark <ts>` with the newest message or thread reply seen there,
+//              then `done`. With mentions, every record's text has this bot's
+//              own <@id> mention removed.
 //   verify  {"keychain":"svc","user":"U.."}
 //           -> bot <bot-user-id> <team-id> <dm-channel>
 // Exit codes: 0 ok, 1 Slack call failed, 2 usage, 3 no usable token.
@@ -143,10 +150,23 @@ function decodeEntities(text) {
 const b64 = (s) => (s ? Buffer.from(s, "utf-8").toString("base64") : "-");
 const field = (s) => (s && /^[A-Za-z0-9_.-]+$/.test(s) ? s : "-");
 
+// Set once a read knows its own bot user id, so a "@bot ..." message arrives
+// as the words addressed to the bot.
+let selfMention = null;
+
+function mentionsSelf(msg) {
+  return selfMention !== null && typeof msg.text === "string" && new RegExp(selfMention.source).test(msg.text);
+}
+
+function stripSelf(text) {
+  if (selfMention === null) return text;
+  return text.replace(selfMention, "").replace(/[ \t]{2,}/g, " ").replace(/^[\s,:]+/, "").trim();
+}
+
 function record(kind, channel, parent, msg, extra = []) {
   const bot = msg.bot_id || msg.subtype === "bot_message" ? "1" : "0";
   const user = validUser(msg.user) ? msg.user : "-";
-  const cols = [kind, channel, parent, msg.ts, user, bot, field(msg.subtype), b64(decodeEntities(msg.text || "")), ...extra];
+  const cols = [kind, channel, parent, msg.ts, user, bot, field(msg.subtype), b64(decodeEntities(stripSelf(msg.text || ""))), ...extra];
   return `${cols.join("\t")}\n`;
 }
 
@@ -206,6 +226,15 @@ async function actionRead(call, req) {
   }
   const dm = req.dm;
   if (dm !== undefined && dm !== null && (!validUser(dm.user) || !validTs(dm.oldest))) die(2, "invalid dm entry");
+  const mentions = req.mentions;
+  if (mentions !== undefined && mentions !== null
+    && (!Array.isArray(mentions.channels) || !mentions.channels.every(validChannel)
+      || !validTs(mentions.oldest) || !validTs(mentions.since))) die(2, "invalid mentions entry");
+  if (mentions) {
+    const auth = await call("auth.test", {});
+    if (!validUser(auth.user_id)) throw new SlackError("auth.test", "unexpected_bot_user");
+    selfMention = new RegExp(`<@${auth.user_id}(?:\\|[^>]*)?>`, "g");
+  }
 
   const out = [];
   for (const t of threads) {
@@ -229,6 +258,35 @@ async function actionRead(call, req) {
       // Without users:read the bot cannot look up names; the bridge names the id.
       out.push(record("message", h.channel, "-", m, ["-"]));
     }
+  }
+  if (mentions) {
+    const after = (ts) => validTs(ts) && Number(ts) > Number(mentions.oldest);
+    let mark = null;
+    const seen = (ts) => { if (after(ts) && (mark === null || Number(ts) > Number(mark))) mark = ts; };
+    for (const channel of new Set(mentions.channels)) {
+      const read = threads.find((t) => t.channel === channel);
+      const watched = new Set(read ? read.parents : []);
+      const top = await paged(call, "conversations.history", { channel, oldest: mentions.oldest }, "messages");
+      for (const m of top) {
+        if (!validTs(m.ts)) continue;
+        seen(m.ts);
+        // A reply also sent to the channel answers in its own thread.
+        const thread = validTs(m.thread_ts) && m.thread_ts !== m.ts ? m.thread_ts : "-";
+        if (after(m.ts) && mentionsSelf(m)) out.push(record("mention", channel, thread, m));
+      }
+      const discovery = await paged(call, "conversations.history", { channel, oldest: mentions.since }, "messages");
+      for (const m of discovery) {
+        if (!validTs(m.ts)) continue;
+        seen(m.latest_reply);
+        if (!(m.reply_count > 0) || !after(m.latest_reply) || watched.has(m.ts)) continue;
+        const all = await paged(call, "conversations.replies", { channel, ts: m.ts }, "messages");
+        for (const r of all) {
+          if (r.ts === m.ts || !after(r.ts) || !mentionsSelf(r)) continue;
+          out.push(record("mention", channel, m.ts, r));
+        }
+      }
+    }
+    if (mark !== null) out.push(`mark\t${mark}\n`);
   }
   if (dm) {
     const channel = await openDm(call, dm.user);
