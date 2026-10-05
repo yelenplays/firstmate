@@ -954,7 +954,10 @@ test_manifest_has_name_and_minimal_scopes() {
     if (m.features.app_home.messages_tab_enabled !== true) process.exit(1);
     if (JSON.stringify([...m.oauth_config.scopes.bot].sort()) !== JSON.stringify([...want].sort())) process.exit(1);
   ' "$out" "Marco's \"Firstmate\"" || fail "the link carries the same name and minimal scopes as the manifest"
-  pass "fm-slack-bridge: manifest names the bot and asks for minimal scopes"
+  out=$("$BRIDGE" manifest --name "É's Firstmate" --link 2>&1) || fail "a Unicode manifest link must succeed: $out"
+  node -e 'const m=JSON.parse(new URL(process.argv[1]).searchParams.get("manifest_json")); if(m.display_information.name!==process.argv[2]||m.features.bot_user.display_name!==process.argv[2]) process.exit(1);' \
+    "$out" "É's Firstmate" || fail "the link preserves UTF-8 app names"
+  pass "fm-slack-bridge: manifest names and minimal scopes"
 }
 
 test_bridge_is_off_without_config

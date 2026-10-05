@@ -813,6 +813,7 @@ json_quote() {
 # Percent-encode every byte outside the URL-safe set.
 url_encode() {
   local s=$1 out='' c i
+  local LC_ALL=C
   for ((i = 0; i < ${#s}; i++)); do
     c=${s:i:1}
     case "$c" in
