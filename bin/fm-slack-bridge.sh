@@ -697,6 +697,7 @@ action_send_reply() {
   [ -f "$reply" ] || die "no reply is recorded for note $id; record it with fm-inbox.sh reply"
   body=$(awk 'found { print; next } /^--$/ { found = 1 }' "$reply")
   [ -n "${body//[[:space:]]/}" ] || die "the recorded reply for note $id is empty"
+  # shellcheck source=bin/fm-wake-lib.sh
   . "$SCRIPT_DIR/fm-wake-lib.sh"
   SEND_REPLY_LOCK="$BRIDGE_STATE/.send-reply-$id.lock"
   fm_lock_acquire_wait "$SEND_REPLY_LOCK" || die "could not acquire the Slack reply lock for note $id"
