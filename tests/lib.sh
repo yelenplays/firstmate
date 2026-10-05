@@ -417,9 +417,11 @@ fm_fakebin() {
 # written as <fakebin>/jev-status-stub and <fakebin>/jev-wedge-stub. Each
 # appends its stdin to $FM_JEV_STUB_DIR/<name>.stdin and its argv to
 # $FM_JEV_STUB_DIR/<name>.args so a case can assert what the consult saw, then
-# prints $FM_JEV_STUB_<NAME>_VERDICT when it is exactly `escalate` or
-# `suppress`; any other value (or unset) exits 1 with no verdict - the
-# fail-closed helper shape.
+# prints $FM_JEV_STUB_<NAME>_VERDICT when it is exactly `escalate`,
+# `suppress`, or `held`; any other value (or unset) exits 1 with no verdict -
+# the fail-closed helper shape. When called with --class and
+# $FM_JEV_STUB_<NAME>_CLASS is set, the class follows the verdict after one
+# space, as bin/fm-jev-wedge-check.sh --class prints it.
 fm_install_jev_stubs() {  # <fakebin>
   local fakebin=$1 name upper
   mkdir -p "$fakebin"
@@ -434,7 +436,12 @@ else
   cat >/dev/null
 fi
 case "\${FM_JEV_STUB_${upper}_VERDICT:-}" in
-  escalate|suppress) printf '%s\\n' "\$FM_JEV_STUB_${upper}_VERDICT"; exit 0 ;;
+  escalate|suppress|held)
+    case " \$* " in
+      *" --class "*) [ -z "\${FM_JEV_STUB_${upper}_CLASS:-}" ] \\
+        || { printf '%s %s\\n' "\$FM_JEV_STUB_${upper}_VERDICT" "\$FM_JEV_STUB_${upper}_CLASS"; exit 0; } ;;
+    esac
+    printf '%s\\n' "\$FM_JEV_STUB_${upper}_VERDICT"; exit 0 ;;
   *) exit 1 ;;
 esac
 SH

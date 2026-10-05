@@ -168,6 +168,9 @@ set -u
 FM_DAEMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$FM_DAEMON_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
+# Load portable lock primitives before sourceable housekeeping can acquire one.
+# shellcheck source=bin/fm-wake-lib.sh
+FM_STATE_OVERRIDE="${FM_STATE_OVERRIDE:-$FM_HOME/state}" . "$FM_DAEMON_DIR/fm-wake-lib.sh"
 
 # Shared tmux pane primitives for supervisor injection (busy/composer detection
 # + verify-retry submit). Sourced at top level so BOTH the executed daemon and
@@ -774,12 +777,14 @@ stale_window_is_busy() {  # <window> <state>
 
 escalate_add() {  # <state> <distilled-item>
   local state=$1 item=$2 buf line
+  ESCALATE_APPENDED=0
   if line=$(unknown_wake_line "$item"); then
     unknown_wake_acknowledged "$state" "$line" && return 0
   fi
   buf="$state/.subsuper-escalations"
   [ -s "$buf" ] || _now > "${buf}.since"
-  printf '%s\n' "$item" >> "$buf"
+  printf '%s\n' "$item" >> "$buf" || return 1
+  ESCALATE_APPENDED=1
 }
 
 # _utf8_prefix: the longest prefix of <text> that fits in <max-bytes> bytes
@@ -1219,7 +1224,7 @@ _oldest_line_age() {  # <buf> -> seconds since the oldest buffered item first ar
 #  3) heartbeat scan: every HEARTBEAT_SCAN_SECS, run the catch-all status scan in
 #     the block below and escalate what it finds; that block owns its file set.
 housekeeping() {  # <state>
-  local state=$1 now due f key task win marker age last max_defer oldest pause_secs marker_epoch until bounded_until pause_reason run_id jsf jts jage
+  local state=$1 now due f key task win marker age last max_defer oldest pause_secs marker_epoch until bounded_until pause_reason run_id jsf jts jage wedge_lock
   now=$(_now)
   migrate_watcher_pause_markers "$state"
 
@@ -1279,12 +1284,30 @@ housekeeping() {  # <state>
       *)
         # Preserve the stronger no-mistakes execution evidence before asking
         # Jev for a second opinion. Both checks are threshold-only; Jev can only
-        # defer the structural escalation, never replace it on failure.
+        # defer the structural escalation (suppress, or held for a stuck class
+        # already warned inside the window) or label it, never replace it on
+        # failure.
+        WEDGE_JEV_VERDICT=
+        WEDGE_JEV_CLASS=
+        wedge_lock=
+        if [ -n "${FM_STALE_TAIL40:-}" ]; then
+          wedge_lock=$(wedge_jev_lock_path "$task" "$state") || continue
+          if ! fm_lock_try_acquire "$wedge_lock"; then
+            log "stale wedge deferred: another wedge check owns task $task"
+            continue
+          fi
+        fi
         if run_id=$(crew_nm_run_progressing "$task" "$state" "$marker"); then
           rm -f "$state/.subsuper-jevsupp-$key"
           _now > "$marker"
           log "stale deferral: $win (its no-mistakes run $run_id is still executing, idle ${age}s)"
-        elif [ -n "${FM_STALE_TAIL40:-}" ] && wedge_jev_suppress "$FM_STALE_TAIL40" "$task" "$state"; then
+        elif [ -n "${FM_STALE_TAIL40:-}" ] && wedge_jev_consult "$FM_STALE_TAIL40" "$task" "$state" "$age" 1 \
+          && [ "$WEDGE_JEV_VERDICT" = held ]; then
+          # Same task, same stuck class, already warned inside the helper's
+          # warning window: re-arm instead of repeating the warning.
+          _now > "$marker"
+          log "stale wedge held: Jev still reads ${WEDGE_JEV_CLASS:-unclear}, already warned within the window (idle ${age}s): $win"
+        elif [ "$WEDGE_JEV_VERDICT" = suppress ]; then
           # Bound a Jev suppression: a pane that stays quiet through a full
           # re-surface interval still escalates for inspection. A marker whose
           # timestamp is missing or malformed (an interrupted write) cannot
@@ -1306,9 +1329,16 @@ housekeeping() {  # <state>
             _now > "$marker"
             log "stale wedge suppressed by Jev pane-tail read (idle ${age}s): $win"
           fi
-        elif escalate_add "$state" "stale persisted ${age}s (possible wedge): $win"; then
-          stale_marker_remove "$win" "$state"
-        fi ;;
+        elif escalate_add "$state" "stale persisted ${age}s (possible wedge${WEDGE_JEV_CLASS:+, Jev reads $WEDGE_JEV_CLASS}): $win"; then
+          if [ "$ESCALATE_APPENDED" = 1 ]; then
+            stale_marker_remove "$win" "$state"
+            wedge_jev_mark_warned "$task" "$state" "$WEDGE_JEV_CLASS" 1
+          else
+            _now > "$marker"
+          fi
+        fi
+        [ -z "$wedge_lock" ] || fm_lock_release "$wedge_lock"
+        ;;
     esac
   done
 
@@ -1812,11 +1842,6 @@ fm_super_main() {
   local STATE
   STATE="$(_state_root)"
   mkdir -p "$STATE"
-
-  # Source the portable lock helpers (works on macOS where flock is absent).
-  # Export FM_STATE_OVERRIDE so the lib resolves the same state dir.
-  # shellcheck source=bin/fm-wake-lib.sh
-  FM_STATE_OVERRIDE="$STATE" . "$FM_DAEMON_DIR/fm-wake-lib.sh"
 
   local WATCH="$FM_DAEMON_DIR/fm-watch.sh"
   local LOG="$STATE/.supervise-daemon.log"

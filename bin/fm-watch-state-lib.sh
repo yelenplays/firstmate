@@ -172,9 +172,14 @@ EOF
 # the turn-end's .seen- signature marker - busy_turn_over_age reads those
 # mtimes as the recorded-step age, and a relaunched incarnation must never
 # start its clock from a predecessor's stale anchor), the sub-supervisor's
-# per-task stale/pause episode markers, and the parent-side secondmate
-# wake-stall trackers. The raw-id files belong to this task alone and always
-# go. The .subsuper-* families and the turn-end's .seen- name are all derived
+# per-task stale/pause episode markers, the Jev wedge-check warning ledger
+# (a fresh incarnation must not inherit its predecessor's held warnings).
+# Retirement removes the ledger without the wedge lock so spawn and teardown
+# cannot wait on a concurrent warning check. A check already in flight may
+# recreate it; for a reused id this can hold the same-class warning for one
+# window. The parent-side secondmate wake-stall trackers. The raw-id files
+# belong to this task alone and always go. The .subsuper-* families and the
+# turn-end's .seen- name are all derived
 # through lossy flattening, so while a live sibling task's id encodes to the
 # same key they are shared state left untouched - removing them would reset
 # that sibling's declared-wait epoch or make its next turn-end replay.
@@ -187,10 +192,11 @@ fm_watch_retire_task_state() {  # <state-dir> <task-id>
   [ -n "$task" ] || return 0
   enc=$(fm_watch_state_key "$task")
   rm -f -- "$state/$task.turn-ended" "$state/$task.progress" \
-    "$state/.secondmate-wake-stall-$task" "$state/.secondmate-wake-progress-$task" \
-    || return 1
-  if [ -d "$state/.secondmate-wake-stall-receipts/$task" ]; then
-    rm -rf -- "$state/.secondmate-wake-stall-receipts/$task" || return 1
+    "$state/$task.jev-wedge-warned" \
+    "$state/.secondmate-wake-stall-$task" "$state/.secondmate-wake-progress-$task" || return 1
+  if [ -d "$state/.secondmate-wake-stall-receipts/$task" ] \
+    && ! rm -rf -- "$state/.secondmate-wake-stall-receipts/$task"; then
+    return 1
   fi
   if [ -z "$(fm_watch_task_key_live_sharer "$state" "$enc" "$task" || true)" ]; then
     rm -f -- "$state/.seen-$(printf '%s' "$task.turn-ended" | tr '.' '_')" \

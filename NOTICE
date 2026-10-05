@@ -6,6 +6,11 @@ It includes material adapted from third parties, which keeps its own licence:
 - agent-stack (https://github.com/korallis/agent-stack), Copyright 2026 The
   agent-stack authors, Apache License 2.0 (see
   LICENSES/agent-stack-Apache-2.0).
+  - bin/fm-jev-wedge-check.sh: stuck classes, bands, and the hourly warning window, from
+    orchestration/stuck.js and the seat.stuck decision in config/decisions.yaml.
+  - bin/fm-jev-lib.sh: pane-tail long-token redaction, from orchestration/redact.js.
+  - bin/fm-seat-pick.sh: seat candidates, seat picking, and reroute planning, from
+    orchestration/pickseat.js, orchestration/reroute.js, and the intake.seat decision.
   - bin/fm-cross-review.sh adapts the review evidence rules of its
     orchestration/merge-evidence.js, as of commit
     e6189320c26676fd9ad6158cb53f13edfbab26c0: a review counts only from a model

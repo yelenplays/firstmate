@@ -67,6 +67,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-jev-skill-select.sh` | Suggest optional skills ([configuration](configuration.md#jev-skill-selector-fm_jev_skill_select)) |
 | `fm-jev-intake-match.sh` | Match positional free-text captain references to backlog items and task records, keyword fallback ([configuration](configuration.md#jev-intake-match)) |
 | `fm-jev-act-first.sh` | ACT FIRST priority list of the session-start digest's actionable items, and its deferred Jev ranking ([configuration](configuration.md#jev-act-first-ranking-session-start)) |
+| `fm-jev-wedge-check.sh` | Bounded Jev second opinion and stuck-class label at the structural wedge boundary ([configuration](configuration.md#jev-supervision-triage)) |
+| `fm-seat-pick.sh` | Opt-in team seat selection and deterministic reroute planning ([configuration](configuration.md#seat-picking-for-teams-configseat-pick)) |
 | `fm-queue-ready.sh` | Advisory heartbeat line of dispatch-ready backlog items from structured fields ([configuration](configuration.md#queue-readiness-heartbeat)) |
 | `fm-jev-brief-preflight.sh` | Advisory deterministic spawn-path brief check ([configuration](configuration.md#brief-preflight-fm_jev_brief_preflight)) |
 | `fm-jev-ask-user.sh` | Jev decides a no-mistakes ask-user gate first; answers confident in-scope fixes through `fm-send --resolve-key`, escalates everything else ([configuration](configuration.md#jev-ask-user-gate-fm_jev_ask_user_floor)) |
