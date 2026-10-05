@@ -1954,7 +1954,7 @@ With a bot, `bin/fm-inbox.sh reply <note-id> <text>` on a `slack-captain` note a
 Before posting, it checks the destination DM or thread for that marker; if Slack accepted a post but its response was lost, the retry finds the existing bot message and records it rather than posting a duplicate.
 If the check or post fails, the reply stays recorded, `reply` exits 3, and `send-reply` can be retried.
 Without a bot, a reply stays local and its output is unchanged.
-`bin/fm-slack-bridge.sh verify` is a manual setup command only; `check`, `arm`, the watcher, and other automation never invoke it. It checks the bot token and posts clearly labeled one-time setup tests to both channels and the captain's DM. These messages can be ignored or deleted; reply to the DM to confirm the round trip.
+`bin/fm-slack-bridge.sh verify` is a manual setup command only; `check`, `arm`, the watcher, and other automation never invoke it. It checks the bot token and posts clearly labeled one-time setup tests to both channels and the captain's DM; these can be ignored or deleted. See [Slack bot setup](slack-bot.md) for the setup steps.
 
 **Receiving**
 
@@ -1967,6 +1967,7 @@ The bridge records that setting in `state/slack-bridge.check-every`.
 Invalid or duplicate values are refused.
 Each poll delivers every new accepted message exactly once through `bin/fm-inbox.sh note --request-id slack-<channel>-<ts>` with source `slack-captain` (thread replies and bot DMs) or `slack-request`, which writes the durable note and its single `check` wake.
 A repeated poll, or one that lost its local delivered record, replays that request id instead of adding a note or wake.
+Bot DM history is paged to completion before its cursor advances; a failed read or delivery leaves the cursor in place so unread messages are retried.
 A poll that delivered anything prints one line so the watcher wakes firstmate.
 A failing poll prints one line only when its diagnostic changes.
 A quiet poll prints nothing.

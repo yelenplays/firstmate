@@ -70,8 +70,8 @@ bin/fm-slack-bridge.sh arm
 bin/fm-slack-bridge.sh verify
 ```
 
-`verify` is a manual setup command: only run it when a person explicitly chooses to test the setup. `arm`, `check`, the watcher, and other automation never invoke it.
-It checks the token and sends one clearly labeled one-time setup test to each channel and to you by DM; these messages can be ignored or deleted. Reply to the DM to confirm the round trip.
+`verify` is a manual setup command; its effects and automation boundary are documented in [Slack bridge](configuration.md#slack-bridge-configslack-bridge).
+It sends the one-time setup tests described there. Reply to the DM to confirm the round trip.
 It prints `bot: <bot id> in team <team id>`, one `posted test` line per channel, and one `posted dm` line.
 A `not_in_channel` failure means the bot still needs an invite to that channel.
 
