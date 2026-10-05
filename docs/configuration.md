@@ -1945,7 +1945,7 @@ A fail-closed poll that already queued a wake, and a timeout, always print so th
 The Slack bridge (`bin/fm-slack-bridge.sh`) lets the captain follow and answer this home from Slack.
 Out, firstmate posts captain-facing outcomes: finished PRs, merge asks, and merge results to the report channel, and decisions with a recommendation to the decisions channel.
 In, the captain's reply in the thread of a bridge post reaches firstmate as a captain inbox note, so replying `merge` in Slack works like typing it.
-With an optional bot, the home has its own Slack app, such as "Yelen's Firstmate": firstmate posts as the bot, the captain can also DM the bot, and firstmate's answers go back into the same DM or thread.
+With an optional bot, the home has its own Slack app, such as "Yelen's Firstmate": firstmate posts as the bot, the captain can also DM the bot or tag it in the report or decisions channel, and firstmate's answers go back into the same DM or thread.
 
 **Activation and accounts**
 
@@ -1982,6 +1982,8 @@ With `bot-keychain-service`, every channel must be a channel id, because the bot
 
 A thread reply is captain input only when its Slack author id equals `captain-user` exactly; a display name never counts, because any member can copy one.
 With a bot, a new top-level message in the bot's DM with `captain-user` is captain input under the same exact-id rule.
+With a bot, a new message in the report or decisions channel that mentions this home's bot (`<@bot-user-id>`), top-level or as a thread reply under any message from the `watch-days` window, is captain input under the same exact-id rule, with that mention removed from the delivered text.
+Untagged channel messages, and tags of any other bot or person, are never delivered; a message reachable both as a bridge-thread reply and as a tag is delivered once.
 Replies from anyone else, every bot message (this home's bot and anyone else's), and joins or other system messages are never delivered.
 A top-level message in the handoff channel from anyone but the captain is delivered as a request note that names its sender and says it is not captain authority; the captain's own handoff-channel messages are requests to other fleets and are not delivered here.
 Slack text is input like any typed captain message and nothing more: it never bypasses merge guards, holds, or the destructive, irreversible, and security-sensitive boundaries.
@@ -1998,7 +2000,7 @@ Every post is top-level; without a bot that also keeps the bridge out of threads
 **Replying**
 
 Each delivered captain message records its reply route, the channel and thread it came from, in `state/slack-bridge/routes`.
-With a bot, `bin/fm-inbox.sh reply <note-id> <text>` on a `slack-captain` note also posts that reply back through the bot: into the same thread for a thread reply, and into the DM for a DM.
+With a bot, `bin/fm-inbox.sh reply <note-id> <text>` on a `slack-captain` note also posts that reply back through the bot: into the same thread for a thread reply or a tag inside a thread, into a thread under the captain's message for a top-level tag, and into the DM for a DM.
 `bin/fm-slack-bridge.sh send-reply <note-id>` adds a trailing `[fm-reply:<note-id>]` marker to the bot message and records it in `state/slack-bridge/replied`.
 Before posting, it checks the destination DM or thread for that marker; if Slack accepted a post but its response was lost, the retry finds the existing bot message and records it rather than posting a duplicate.
 If the check or post fails, the reply stays recorded, `reply` exits 3, and `send-reply` can be retried.
@@ -2009,12 +2011,12 @@ Without a bot, a reply stays local and its output is unchanged.
 
 A home that wants replies polled arms the standing check in the live home: `bin/fm-slack-bridge.sh arm`.
 Arming writes `state/slack-bridge.check.sh` and registers it with the watcher.
-It starts the handoff channel, and with a bot the DM, at the arming time so older history is not replayed.
+It starts the handoff channel, and with a bot the DM and channel mentions, at the arming time so older history is not replayed.
 By default, the bridge follows the global `FM_CHECK_INTERVAL` slow-check cadence.
 Optional `poll-seconds` gives this check its own cadence from 10 to 3600 seconds without changing merge-poll or other check schedules.
 The bridge records that setting in `state/slack-bridge.check-every`.
 Invalid or duplicate values are refused.
-Each poll delivers every new accepted message exactly once through `bin/fm-inbox.sh note --request-id slack-<channel>-<ts>` with source `slack-captain` (thread replies and bot DMs) or `slack-request`, which writes the durable note and its single `check` wake.
+Each poll delivers every new accepted message exactly once through `bin/fm-inbox.sh note --request-id slack-<channel>-<ts>` with source `slack-captain` (thread replies, bot DMs, and bot mentions) or `slack-request`, which writes the durable note and its single `check` wake.
 A repeated poll, or one that lost its local delivered record, replays that request id instead of adding a note or wake.
 Bot DM history is paged to completion before its cursor advances; a failed read or delivery leaves the cursor in place so unread messages are retried.
 A poll that delivered anything prints one line so the watcher wakes firstmate.

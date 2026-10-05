@@ -10,7 +10,7 @@
 #   fm-slack-bridge.sh disarm
 #   fm-slack-bridge.sh send-reply <note-id>
 #   fm-slack-bridge.sh verify    (manual setup only; never run by the watcher)
-#   fm-slack-bridge.sh manifest [--name <app-name>] [--private-channels]
+#   fm-slack-bridge.sh manifest [--name <app-name>] [--private-channels] [--link]
 #   fm-slack-bridge.sh --help
 #
 # Two transports. Without `bot-keychain-service` in the config the bridge posts
@@ -32,7 +32,10 @@
 # `watch-days` days, plus new top-level messages in the handoff channel, through
 # bin/fm-slack-read.mjs (or the bot), which returns each author's Slack user id.
 # With a bot it also reads new top-level messages in the bot's DM with
-# `captain-user`. A thread reply or DM becomes captain input only when its
+# `captain-user`, and new messages in the report and decisions channels that
+# mention the bot (`@bot ...`), top-level or in a thread, with that mention
+# removed from the delivered text; untagged channel chat is never read as
+# input. A thread reply, DM, or mention becomes captain input only when its
 # author id equals `captain-user` exactly; anyone else's message, and every bot
 # message, including another person's bot, is ignored. A handoff-channel message from
 # anyone but the captain becomes a request note that names its sender and says
@@ -48,8 +51,9 @@
 # state/slack-bridge/routes.
 #
 # Back: `send-reply <note-id>` posts the reply that `fm-inbox.sh reply` recorded
-# for a slack-captain note back through the bot, into the same thread, or into
-# the DM for a DM note, exactly once (state/slack-bridge/replied).
+# for a slack-captain note back through the bot, into the same thread, into the
+# DM for a DM note, or into a thread under the captain's message for a
+# top-level mention, exactly once (state/slack-bridge/replied).
 # `fm-inbox.sh reply` runs it itself; without a bot it does nothing and prints
 # nothing, so the reply stays local as before.
 #
@@ -59,15 +63,17 @@
 # `captain-user` a labeled setup test to answer; the posts can be ignored or
 # deleted. `manifest` prints the Slack app manifest a person pastes into "Create
 # an app -> From a manifest", with the app and bot named by --name and only the
-# scopes the bot transport uses.
+# scopes the bot transport uses; `manifest --link` prints the same manifest as
+# one https://api.slack.com/apps?new_app=1&manifest_json=... link that opens
+# Slack's create-app dialog prefilled.
 #
 # Slack text is input like a typed captain message and nothing more: it never
 # bypasses merge guards, holds, or the destructive and security boundaries.
 #
 # `arm` writes state/slack-bridge.check.sh and binds its bytes with
 # fm-check-register.sh, so the watcher runs `check` on its slow-check cadence,
-# and starts the handoff channel, and with a bot the DM, at "now" so old history
-# is not replayed.
+# and starts the handoff channel, and with a bot the DM and channel mentions, at
+# "now" so old history is not replayed.
 # `disarm` removes the shim and its trust binding and keeps the records.
 #
 # The bridge is off while config/slack-bridge is absent: `post` prints one
@@ -93,6 +99,7 @@ POSTS="$BRIDGE_STATE/posts"
 DELIVERED="$BRIDGE_STATE/delivered"
 HANDOFF_CURSOR="$BRIDGE_STATE/handoff-cursor"
 DM_CURSOR="$BRIDGE_STATE/dm-cursor"
+MENTION_CURSOR="$BRIDGE_STATE/mention-cursor"
 ROUTES="$BRIDGE_STATE/routes"
 REPLIED="$BRIDGE_STATE/replied"
 INBOX_DIR="$STATE/inbox"
@@ -123,12 +130,13 @@ Usage:
   fm-slack-bridge.sh post report   [--url <https-url>] [--] <text>...   post a PR, merge ask, or result
   fm-slack-bridge.sh post decision [--url <https-url>] [--] <text>...   post a decision with its recommendation
   fm-slack-bridge.sh post <kind> [--url <https-url>] -                   text from stdin
-  fm-slack-bridge.sh check     deliver new captain thread replies, bot DMs, and handoff requests to the captain inbox
+  fm-slack-bridge.sh check     deliver new captain thread replies, bot DMs and mentions, and handoff requests to the captain inbox
   fm-slack-bridge.sh arm       write and register state/slack-bridge.check.sh
   fm-slack-bridge.sh disarm    remove the check shim and its trust binding
   fm-slack-bridge.sh send-reply <note-id>   post the recorded reply to a slack-captain note back through the bot
   fm-slack-bridge.sh verify    manual setup only; posts labeled setup tests (never run by automation)
-  fm-slack-bridge.sh manifest [--name <app-name>] [--private-channels]   print the Slack app manifest for a bot
+  fm-slack-bridge.sh manifest [--name <app-name>] [--private-channels] [--link]
+                               print the Slack app manifest for a bot, or with --link a prefilled create-app link
   fm-slack-bridge.sh --help    print this help
 
 Configuration: config/slack-bridge (docs/configuration.md "Slack bridge").
@@ -480,7 +488,7 @@ deliver_captain() {  # <request-id> <channel> <thread-ts|-> <body>
 action_check() {
   local now window_start budget request handoff_id cursor dm_cursor rc out line errf reader prefix
   local kind channel parent ts user bot subtype text_b64 name_b64 text name summary rid body
-  local captain=0 requests=0 failed=0 max_handoff='' max_dm=''
+  local captain=0 requests=0 failed=0 max_handoff='' max_dm='' mention_cursor mention_mark='' mention_channels
   config_load || { rm -f -- "$CHECK_EVERY"; return 0; }
   state_prepare || { report_problem "cannot prepare $BRIDGE_STATE"; return 0; }
   if [ -n "$CFG_ERROR" ]; then
@@ -526,6 +534,7 @@ action_check() {
   fi
 
   dm_cursor=
+  mention_cursor=
   if [ -n "$CFG_BOT" ]; then
     [ -f "$DM_CURSOR" ] && dm_cursor=$(sed -n 1p "$DM_CURSOR")
     if ! [[ "$dm_cursor" =~ ^[0-9]{10}\.[0-9]{6}$ ]]; then
@@ -533,9 +542,18 @@ action_check() {
       printf '%s.000000\n' "$now" > "$DM_CURSOR" || true
       dm_cursor=
     fi
+    [ -f "$MENTION_CURSOR" ] && mention_cursor=$(sed -n 1p "$MENTION_CURSOR")
+    if ! [[ "$mention_cursor" =~ ^[0-9]{10}\.[0-9]{6}$ ]]; then
+      # Mentions start at now the same way.
+      printf '%s.000000\n' "$now" > "$MENTION_CURSOR" || true
+      mention_cursor=
+    fi
   fi
+  mention_channels=$CFG_REPORT
+  [ "$CFG_DECISIONS" = "$CFG_REPORT" ] || mention_channels="$mention_channels $CFG_DECISIONS"
 
-  [ -n "$thread_lines" ] || [ -n "$handoff_id" ] || [ -n "$dm_cursor" ] || { report_write "" || true; return 0; }
+  [ -n "$thread_lines" ] || [ -n "$handoff_id" ] || [ -n "$dm_cursor" ] || [ -n "$mention_cursor" ] \
+    || { report_write "" || true; return 0; }
 
   request=$(
     printf '{"threads":['
@@ -550,6 +568,9 @@ action_check() {
     if [ -n "$CFG_BOT" ]; then
       printf ',"keychain":"%s"' "$CFG_BOT"
       [ -z "$dm_cursor" ] || printf ',"dm":{"user":"%s","oldest":"%s"}' "$CFG_CAPTAIN" "$dm_cursor"
+      # Threads under any message from the watch window are read for mentions.
+      [ -z "$mention_cursor" ] || printf ',"mentions":{"channels":["%s"],"oldest":"%s","since":"%s.000000"}' \
+        "${mention_channels// /\",\"}" "$mention_cursor" "$window_start"
     fi
     printf '}\n'
   )
@@ -576,7 +597,11 @@ action_check() {
   fi
 
   while IFS=$'\t' read -r kind channel parent ts user bot subtype text_b64 name_b64; do
-    case "$kind" in reply|message|dm) ;; *) continue ;; esac
+    if [ "$kind" = mark ]; then
+      [[ "$channel" =~ ^[0-9]{10}\.[0-9]{6}$ ]] && mention_mark=$channel
+      continue
+    fi
+    case "$kind" in reply|message|dm|mention) ;; *) continue ;; esac
     [[ "$ts" =~ ^[0-9]{10}\.[0-9]{6}$ ]] || continue
     [[ "$channel" =~ ^[CGD][A-Z0-9]{2,}$ ]] || continue
     if [ "$kind" = message ]; then
@@ -603,6 +628,22 @@ action_check() {
         '$1 == "v1" && $2 == c && $3 == t { print $4 ": " $6; exit }' "$POSTS")
       [ -n "$summary" ] || summary="bridge post $parent"
       body="[slack] captain reply in thread of $summary (channel $channel, reply ts $ts):"$'\n'"$text"
+      if deliver_captain "$rid" "$channel" "$parent" "$body"; then
+        printf '%s\t%s\n' "$channel" "$ts" >> "$DELIVERED"
+        captain=$((captain + 1))
+      else
+        failed=$((failed + 1))
+      fi
+    elif [ "$kind" = mention ]; then
+      [ "$user" = "$CFG_CAPTAIN" ] || continue
+      [ "$parent" = - ] || [[ "$parent" =~ ^[0-9]{10}\.[0-9]{6}$ ]] || continue
+      if [ "$parent" = - ]; then
+        body="[slack] captain mention of this home's bot in channel $channel (ts $ts):"$'\n'"$text"
+        # The answer goes into a thread under the captain's own message.
+        parent=$ts
+      else
+        body="[slack] captain mention of this home's bot in a thread of channel $channel (thread $parent, reply ts $ts):"$'\n'"$text"
+      fi
       if deliver_captain "$rid" "$channel" "$parent" "$body"; then
         printf '%s\t%s\n' "$channel" "$ts" >> "$DELIVERED"
         captain=$((captain + 1))
@@ -641,6 +682,9 @@ EOF
   fi
   if [ -n "$dm_cursor" ] && [ "$failed" -eq 0 ] && [ -n "$max_dm" ]; then
     printf '%s\n' "$max_dm" > "$DM_CURSOR" || true
+  fi
+  if [ -n "$mention_cursor" ] && [ "$failed" -eq 0 ] && [ -n "$mention_mark" ]; then
+    printf '%s\n' "$mention_mark" > "$MENTION_CURSOR" || true
   fi
   if [ "$failed" -gt 0 ]; then
     report_problem "$failed Slack message(s) could not be delivered to the captain inbox; the next poll retries"
@@ -760,8 +804,27 @@ yaml_quote() {
   printf '"%s"' "${v//\"/\\\"}"
 }
 
+# JSON string, for a name already limited to printable characters.
+json_quote() {
+  local v=${1//\\/\\\\}
+  printf '"%s"' "${v//\"/\\\"}"
+}
+
+# Percent-encode every byte outside the URL-safe set.
+url_encode() {
+  local s=$1 out='' c i
+  for ((i = 0; i < ${#s}; i++)); do
+    c=${s:i:1}
+    case "$c" in
+      [A-Za-z0-9._~-]) out+=$c ;;
+      *) out+=$(printf '%%%02X' "'$c") ;;
+    esac
+  done
+  printf '%s\n' "$out"
+}
+
 action_manifest() {
-  local name="Firstmate" private=0 bot_name
+  local name="Firstmate" private=0 link=0 bot_name json scopes
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --name)
@@ -770,6 +833,7 @@ action_manifest() {
         shift 2
         ;;
       --private-channels) private=1; shift ;;
+      --link) link=1; shift ;;
       *) printf 'fm-slack-bridge: unknown manifest option: %s\n' "$1" >&2; exit 2 ;;
     esac
   done
@@ -778,6 +842,20 @@ action_manifest() {
     || [ -z "${name//[[:space:]]/}" ]; then
     printf 'fm-slack-bridge: --name must be 1 to 35 printable characters\n' >&2
     exit 2
+  fi
+  if [ "$link" -eq 1 ]; then
+    # Slack's create-app dialog takes the same manifest as JSON in the URL.
+    bot_name=$(json_quote "$name")
+    scopes='"chat:write","channels:history"'
+    [ "$private" -eq 0 ] || scopes="$scopes"',"groups:history"'
+    scopes="$scopes"',"im:history","im:write"'
+    json='{"display_information":{"name":'"$bot_name"',"description":"Firstmate reports, decisions, and replies for one person'"'"'s home"},'
+    json+='"features":{"app_home":{"home_tab_enabled":false,"messages_tab_enabled":true,"messages_tab_read_only_enabled":false},'
+    json+='"bot_user":{"display_name":'"$bot_name"',"always_online":false}},'
+    json+='"oauth_config":{"scopes":{"bot":['"$scopes"']}},'
+    json+='"settings":{"org_deploy_enabled":false,"socket_mode_enabled":false,"token_rotation_enabled":false}}'
+    printf 'https://api.slack.com/apps?new_app=1&manifest_json=%s\n' "$(url_encode "$json")"
+    return 0
   fi
   bot_name=$(yaml_quote "$name")
   cat <<EOF
@@ -867,6 +945,9 @@ action_arm() {
   fi
   if [ -n "$CFG_BOT" ] && [ ! -s "$DM_CURSOR" ]; then
     printf '%s.000000\n' "$(now_epoch)" > "$DM_CURSOR" || die "cannot write $DM_CURSOR"
+  fi
+  if [ -n "$CFG_BOT" ] && [ ! -s "$MENTION_CURSOR" ]; then
+    printf '%s.000000\n' "$(now_epoch)" > "$MENTION_CURSOR" || die "cannot write $MENTION_CURSOR"
   fi
   # A shim without a matching trust binding makes the watcher wake on every
   # cycle, so any failure here removes the shim rather than leaving it unbound.
