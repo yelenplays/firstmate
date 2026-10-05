@@ -1,0 +1,30 @@
+
+Rendered fleet view (ny-trenches):
+# Fleet View
+
+Schema: fm-fleet-snapshot.v1
+Home: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-fleet-snapshot.GlckPj/view-theme
+
+## Under Way
+| ID | Current | Kind | Repo/Project | Backend | Endpoint | Artifact | Path | Watch / return channel |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| active-decision | need the OG (parked) / status-log | ship | alpha | tmux | present | - | /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-fleet-snapshot.GlckPj/view-theme/projects/alpha-worktree | bin/fm-peek.sh fm-active-decision |
+| cmux-task | unknown / none | ship | alpha | cmux | absent | - | /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-fleet-snapshot.GlckPj/view-theme/projects/missing-cmux (absent) | bin/fm-peek.sh fm-cmux-task |
+| scout-task | unknown / pane | scout | alpha | tmux | present | /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-fleet-snapshot.GlckPj/view-theme/data/scout-task/report.md | /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-fleet-snapshot.GlckPj/view-theme/projects/scout-worktree | bin/fm-peek.sh fm-scout-task |
+| secondmate-task | on the block (working) / status-log | secondmate | /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-fleet-snapshot.GlckPj/view-theme/secondmate-home | tmux | present / alive | - | /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-fleet-snapshot.GlckPj/view-theme/secondmate-home | bin/fm-send.sh fm-secondmate-task '<request>' - read status/doc return channel; do not routinely fm-peek a secondmate for answers |
+| ship-task | on the block (working) / pane | ship | alpha | tmux | present | https://github.com/kunchenguid/firstmate/pull/9 | /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-fleet-snapshot.GlckPj/view-theme/projects/alpha-worktree | bin/fm-peek.sh fm-ship-task |
+
+## Queued
+| ID | Title | Repo | Kind | Blocked By | Artifact |
+| --- | --- | --- | --- | --- | --- |
+| queued-task | Queued Task | alpha | ship | ship-task | - |
+| - | handoff note without canonical syntax | - | - | - | - |
+
+## Done
+| ID | Title | Repo | Kind | Blocked By | Artifact |
+| --- | --- | --- | --- | --- | --- |
+| done-task | Done Task | alpha | ship | - | https://github.com/kunchenguid/firstmate/pull/7 |
+
+## Secondmates
+For kind=secondmate, bearings selects validated structured state from that registered home; parent events and bounded terminal evidence are fallback-only supplements and never current-state authority.
+ok - fleet view shows theme status words for display only and falls back safely

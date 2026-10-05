@@ -1,0 +1,9 @@
+$ config/theme = "ny -trenches" (adversarial embedded whitespace)
+$ bin/fm-theme.sh status working
+working
+$ bin/fm-theme.sh status-map
+{}
+
+$ stderr (one fallback warning)
+fm-theme: unknown theme 'ny -trenches' in config/theme; using the built-in nautical default
+fm-theme: unknown theme 'ny -trenches' in config/theme; using the built-in nautical default

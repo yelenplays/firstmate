@@ -1,0 +1,35 @@
+$ bin/fm-theme.sh set ny-trenches
+theme: ny-trenches
+
+$ bin/fm-theme.sh current
+ny-trenches
+
+$ bin/fm-theme.sh banner
+                             |
+                            /_\
+                            |=|           /\
+               _            |=|          /  \             _
+      __      | |    ____   |=|    __   |====|    __     | |    ___
+     |::| __  | |   |::::|  |=|   |::|  |::::|   |::|    | |   |:::|
+     |::||::| | |   |::::|  |=|   |::|  |::::|   |::| __ | |   |:::|
+  ___|::||::|_| |___|::::|__|=|___|::|__|::::|___|::||::|| |___|:::|___
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      N E W   Y O R K   T R E N C H E S   //   the plug is on the block
+
+$ bin/fm-theme.sh status working
+on the block
+
+$ bin/fm-theme.sh status done
+dropped
+
+$ bin/fm-theme.sh status parked
+need the OG
+
+$ bin/fm-theme.sh status-map
+{"working":"on the block","done":"dropped","parked":"need the OG","blocked":"jammed up","paused":"laying low","failed":"took an L"}
+
+$ bin/fm-theme.sh set off
+theme: nautical (built-in default)
+
+$ bin/fm-theme.sh current
+nautical
