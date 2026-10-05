@@ -435,11 +435,11 @@ BOT_API="http://127.0.0.1:$(cat "$BOT_READY")/"
 # $BOT_SERVICE, and whose slack-axi logs any call so a bot home can prove it
 # never used it.
 make_bot_home() {
-  local home
+  local home service=${2:-$BOT_SERVICE}
   home=$(make_home "$1")
   cat > "$home/fakebin/security" <<SH
 #!/usr/bin/env bash
-[ "\$1" = find-generic-password ] && [ "\$2" = -s ] && [ "\$3" = "$BOT_SERVICE" ] && [ "\$4" = -w ] || exit 44
+[ "\$1" = find-generic-password ] && [ "\$2" = -s ] && [ "\$3" = "$service" ] && [ "\$4" = -w ] || exit 44
 printf '%s\n' "$BOT_TOKEN"
 SH
   chmod +x "$home/fakebin/security"
@@ -448,12 +448,12 @@ SH
 }
 
 write_bot_config() {
-  local home=$1
+  local home=$1 captain=${2:-$CAPTAIN} service=${3:-$BOT_SERVICE}
   printf '%s\n' \
     'report-channel=C0REPORT01' \
     'decisions-channel=C0DECIDE01' \
-    "captain-user=$CAPTAIN" \
-    "bot-keychain-service=$BOT_SERVICE" > "$home/config/slack-bridge"
+    "captain-user=$captain" \
+    "bot-keychain-service=$service" > "$home/config/slack-bridge"
 }
 
 bot_bridge() {  # <home> <args...>
@@ -575,6 +575,41 @@ test_bot_delivers_only_the_captain_and_replies_back() {
   assert_absent "$home/slack.log" "a bot home never calls slack-axi"
   assert_no_token "$home" "$out"
   pass "fm-slack-bridge: a bot delivers only the captain's DMs and thread replies, and replies go back once"
+}
+
+test_independent_bot_homes_deliver_only_their_captains() {
+  local yelen marco yelen_service=firstmate-yelen-bot marco_service=firstmate-marco-bot out
+  yelen=$(make_bot_home independent-yelen "$yelen_service")
+  marco=$(make_bot_home independent-marco "$marco_service")
+  write_bot_config "$yelen" U0CAPTAIN1 "$yelen_service"
+  write_bot_config "$marco" U0MARCO001 "$marco_service"
+
+  printf '%s\n' "$yelen" > "$BOT_CONTROL"
+  bot_bridge "$yelen" arm >/dev/null 2>&1 || fail "Yelen's bot arm must succeed"
+  cat > "$yelen/bot-fixture.json" <<'JSON'
+{"history":{"D0DMCAPT01":[{"ts":"1791140200.000001","user":"U0CAPTAIN1","text":"Yelen private DM"},{"ts":"1791140210.000001","user":"U0MARCO001","text":"Marco private DM"},{"ts":"1791140220.000001","user":"U0OTHERBOT","bot_id":"B0OTHER001","text":"other bot DM"}]}}
+JSON
+  out=$(bot_bridge "$yelen" check 2>&1) || fail "Yelen's bot check must succeed: $out"
+  assert_equals 1 "$(note_count "$yelen" slack-captain)" "Yelen's home receives only Yelen's DM"
+  assert_grep "Yelen private DM" "$yelen/state/inbox/"*.note "Yelen's DM stays in Yelen's home"
+  if grep -rq -e "Marco private DM" -e "other bot DM" "$yelen/state/inbox"; then fail "Yelen's home must ignore Marco and other-bot DMs"; fi
+  assert_grep 'captain-user=U0CAPTAIN1' "$yelen/config/slack-bridge" "Yelen's captain is configured independently"
+  assert_grep "bot-keychain-service=$yelen_service" "$yelen/config/slack-bridge" "Yelen's bot uses its own Keychain service"
+
+  printf '%s\n' "$marco" > "$BOT_CONTROL"
+  bot_bridge "$marco" arm >/dev/null 2>&1 || fail "Marco's bot arm must succeed"
+  cat > "$marco/bot-fixture.json" <<'JSON'
+{"history":{"D0DMOTHER1":[{"ts":"1791140200.000001","user":"U0MARCO001","text":"Marco private DM"},{"ts":"1791140210.000001","user":"U0CAPTAIN1","text":"Yelen private DM"},{"ts":"1791140220.000001","user":"U0OTHERBOT","bot_id":"B0OTHER001","text":"other bot DM"}]}}
+JSON
+  out=$(bot_bridge "$marco" check 2>&1) || fail "Marco's bot check must succeed: $out"
+  assert_equals 1 "$(note_count "$marco" slack-captain)" "Marco's home receives only Marco's DM"
+  assert_grep "Marco private DM" "$marco/state/inbox/"*.note "Marco's DM stays in Marco's home"
+  if grep -rq -e "Yelen private DM" -e "other bot DM" "$marco/state/inbox"; then fail "Marco's home must ignore Yelen and other-bot DMs"; fi
+  assert_grep 'captain-user=U0MARCO001' "$marco/config/slack-bridge" "Marco's captain is configured independently"
+  assert_grep "bot-keychain-service=$marco_service" "$marco/config/slack-bridge" "Marco's bot uses its own Keychain service"
+  assert_no_token "$yelen" "$out"
+  assert_no_token "$marco" "$out"
+  pass "fm-slack-bridge: independent homes deliver only their own captain DMs"
 }
 
 test_reply_without_bot_stays_local() {
@@ -765,6 +800,7 @@ test_poll_cadence_state_and_validation
 test_invalid_config_is_reported
 test_bot_posts_instead_of_slack_axi
 test_bot_delivers_only_the_captain_and_replies_back
+test_independent_bot_homes_deliver_only_their_captains
 test_reply_without_bot_stays_local
 test_bot_reads_past_ten_pages
 test_lost_reply_response_is_found_before_retry
