@@ -13,7 +13,9 @@
 #   call to --out: {case, brief, project, expected, status, rule, confidence,
 #   probabilities, reason}. Every call spends one live Jev request under the
 #   resolver's own opt-in gate and settings; the resolver's shadow log is
-#   forced off so a replay never writes $FM_HOME/state/jev-dispatch-shadow.jsonl.
+#   forced off so a replay never writes $FM_HOME/state/jev-dispatch-shadow.jsonl,
+#   and its internal replay mode suppresses the runoff request so each case
+#   spends exactly one call and records the rule answer itself.
 #   --rules replays a candidate rules file without touching the home's
 #   config/crew-dispatch.json (it becomes the only file in a private
 #   FM_CONFIG_OVERRIDE directory). Before the first call, --out is append-opened
@@ -178,10 +180,10 @@ replay_run() {
     calls=$((calls + 1))
     resolver_stderr=$(mktemp) || die "mktemp failed"
     if [ -n "$REPLAY_CFG_DIR" ]; then
-      text=$(FM_HOME="$FM_HOME" FM_JEV_DISPATCH_SHADOW=0 FM_CONFIG_OVERRIDE="$REPLAY_CFG_DIR" "$RESOLVER" "$brief" --project "$project" 2>"$resolver_stderr")
+      text=$(FM_HOME="$FM_HOME" FM_JEV_DISPATCH_SHADOW=0 FM_CONFIG_OVERRIDE="$REPLAY_CFG_DIR" "$RESOLVER" --replay "$brief" --project "$project" 2>"$resolver_stderr")
       resolver_status=$?
     else
-      text=$(FM_HOME="$FM_HOME" FM_JEV_DISPATCH_SHADOW=0 "$RESOLVER" "$brief" --project "$project" 2>"$resolver_stderr")
+      text=$(FM_HOME="$FM_HOME" FM_JEV_DISPATCH_SHADOW=0 "$RESOLVER" --replay "$brief" --project "$project" 2>"$resolver_stderr")
       resolver_status=$?
     fi
     if [ "$resolver_status" -ne 0 ] || grep -Fq 'dispatch-resolve: off' "$resolver_stderr"; then

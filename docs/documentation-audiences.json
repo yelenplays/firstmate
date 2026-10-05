@@ -25,6 +25,7 @@
   ],
   "readmeSetupTargets": [
     "docs/configuration.md",
+    "docs/credguard.md",
     "docs/wedge-alarm.md",
     "docs/tmux-backend.md",
     "docs/herdr-backend.md",
@@ -391,6 +392,10 @@
     {
       "path": "docs/cd-guard.md",
       "audience": "maintainer-architecture"
+    },
+    {
+      "path": "docs/credguard.md",
+      "audience": "operator-current"
     },
     {
       "path": "docs/cmux-backend.md",

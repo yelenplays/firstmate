@@ -20,8 +20,8 @@
 #           fleet work and must not become fleet work.
 #
 # Usage:
-#   fm-inbox.sh note [--request-id <id>] [--json] [--] <text>...
-#   fm-inbox.sh note [--request-id <id>] [--json] -   (body from stdin)
+#   fm-inbox.sh note [--request-id <id>] [--source <label>] [--json] [--] <text>...
+#   fm-inbox.sh note [--request-id <id>] [--source <label>] [--json] -   (body from stdin)
 #   fm-inbox.sh announce [--json] <id>
 #   fm-inbox.sh reply [--json] <id> <text>... | reply [--json] <id> -
 #   fm-inbox.sh receipts [--after <cursor>] [--all-pending] [--all-handled] [--all-replies]
@@ -47,6 +47,10 @@
 # the duplicate wake this contract exists to remove. Notes written from here on
 # carry `announce_marker=1`, which is what makes a missing marker mean "not
 # announced" rather than "not known". Receipts report that state as null.
+# `note --source` records where a note came from in its `source=` header
+# (default `text`; 1-32 characters, a-z0-9 and dash, starting with a letter).
+# bin/fm-slack-bridge.sh uses `slack-captain` for the captain's own Slack
+# thread replies and `slack-request` for handoff requests from other people.
 # A note body is text, not options: only the flags above are parsed, anything
 # else starting with `--` begins the body, and `--` ends option parsing.
 # Human `note`/`list`/`drain` output and exit conventions stay as they were when
@@ -470,24 +474,31 @@ queue_note() {
 }
 
 cmd_note() {
-  local body json=0 request_id=""
+  local body json=0 request_id="" source=text
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --json) json=1; shift ;;
+      --source)
+        [ "$#" -ge 2 ] || die "usage: fm-inbox.sh note [--request-id <id>] [--source <label>] [--json] [--] <text>... (or: note -)"
+        source=$2
+        [[ "$source" =~ ^[a-z][a-z0-9-]{0,31}$ ]] \
+          || die "invalid source label (use 1-32 characters: a-z0-9-, starting with a letter)"
+        shift 2
+        ;;
       --request-id)
-        [ "$#" -ge 2 ] || die "usage: fm-inbox.sh note [--request-id <id>] [--json] [--] <text>... (or: note -)"
+        [ "$#" -ge 2 ] || die "usage: fm-inbox.sh note [--request-id <id>] [--source <label>] [--json] [--] <text>... (or: note -)"
         request_id=$2
         valid_request_id "$request_id" \
           || die "invalid request id (use 1-128 characters: A-Za-z0-9._:-)"
         shift 2
         ;;
       --) shift; break ;;
-      -h|--help) die "usage: fm-inbox.sh note [--request-id <id>] [--json] [--] <text>... (or: note -)" ;;
+      -h|--help) die "usage: fm-inbox.sh note [--request-id <id>] [--source <label>] [--json] [--] <text>... (or: note -)" ;;
       *) break ;;
     esac
   done
   if [ "$#" -eq 0 ]; then
-    die "usage: fm-inbox.sh note [--request-id <id>] [--json] [--] <text>... (or: note -)"
+    die "usage: fm-inbox.sh note [--request-id <id>] [--source <label>] [--json] [--] <text>... (or: note -)"
   elif [ "$1" = "-" ]; then
     [ "$#" -eq 1 ] || die "usage: fm-inbox.sh note [--request-id <id>] [--json] -"
     body=$(cat; printf .)
@@ -495,7 +506,7 @@ cmd_note() {
   else
     body="$*"
   fi
-  queue_note text "$body" "" "$request_id" "$json"
+  queue_note "$source" "$body" "" "$request_id" "$json"
 }
 
 cmd_announce() {

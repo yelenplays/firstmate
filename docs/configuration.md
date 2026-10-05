@@ -14,6 +14,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), and [Calm preference](#calm-preference-configcalm) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
 | Who reviews finished work | [Cross-family review](#cross-family-review) |
+| Slack updates and replies | [Slack bridge](#slack-bridge-configslack-bridge) |
 | Per-run overrides and tuning | [Environment variables](#environment-variables) |
 
 ## FM_HOME
@@ -1320,6 +1321,7 @@ Before the request is sent, every string in it is checked: the project name, the
 A match stops the request: the resolver behaves exactly as when it is off, printing one `dispatch-resolve: off (...; nothing sent)` line on stderr and nothing on stdout, making no network or quota call, and exiting 0, so firstmate dispatches through its existing intake.
 A list that is present but not a readable regular file also stops the request the same way rather than sending unchecked text.
 That one diagnostic names the list line number at most and never prints the listed value or the matching text.
+The runoff request described under "Runoff on an ambiguous answer" below is checked the same way; a match there sends nothing and only leaves the answer `ambiguous`.
 
 **Missing or invalid rules**
 
@@ -1338,9 +1340,9 @@ Pi profiles on `xai/grok-4.6` declare `provider: grok` because quota-axi familie
 `FM_JEV_DISPATCH_COMPACT` is read from the process environment first, else from `$FM_HOME/.env` via `fmx_env_get`, and the environment wins.
 A truthy value sends the compact intent summary instead of the whole brief, and that compact form is the default on the OpenRouter route when both are unset.
 `FM_JEV_DISPATCH_EXTRA=1` adds log-only Choice questions for home `{main,agency,lay,frontend,zimmer}` (criteria from `data/secondmates.md` when readable) and deliverable `{ship,scout,neither}`; those answers are never auto-routing authority.
-Presence of gitignored `config/jev-dispatch-shadow`, or `FM_JEV_DISPATCH_SHADOW=1`, logs the Jev pick next to the resolved spawn axes into `state/jev-dispatch-shadow.jsonl` and does not add spawn authority beyond today's optional `clear` profile line.
+Presence of gitignored `config/jev-dispatch-shadow`, or `FM_JEV_DISPATCH_SHADOW=1`, logs the Jev pick next to the resolved spawn axes into `state/jev-dispatch-shadow.jsonl` and does not add spawn authority beyond the `profile:` line the resolver itself prints.
 `FM_JEV_DISPATCH_SHADOW=0` turns that log off even when the config flag is present.
-A captain pin, `yolo` posture, and selected delivery mode still win over any `clear` profile.
+A captain pin, `yolo` posture, and selected delivery mode still win over any printed profile, `clear` or `picked`.
 An absent rules file, a default-only file, or `rules: []` returns the non-clear reason `no rules to match` without a model or quota request, leaving firstmate's existing routing in control; an existing but unreadable or malformed rules file, including a broken symlink, remains an actionable exit 2 configuration error.
 
 **Checks performed after the answer**
@@ -1367,7 +1369,7 @@ When the picked rule declares its own floor but its probability falls below it, 
 1. Find the most probable other option that clears its own floor: the rule's `min_confidence`, or 0.6 otherwise.
 2. Print a `fallback:` line naming both floors and resolve that rule as though it had been picked.
 
-No qualifying option, or two equally probable qualifying options, produces `ambiguous`.
+No qualifying option, or two equally probable qualifying options, makes the rule answer `ambiguous`; see the runoff below for how the final outcome is settled.
 
 **Candidate eligibility and evidence**
 
@@ -1380,7 +1382,8 @@ No qualifying option, or two equally probable qualifying options, produces `ambi
 | Result | Meaning |
 | --- | --- |
 | `clear` | A `profile:` line ready for `fm-spawn.sh`. |
-| `ambiguous` | Confidence below the floor with no runner-up taken. |
+| `picked` | The rule answer missed its gate and the runoff below settled it; a `profile:` line ready for `fm-spawn.sh`. |
+| `ambiguous` | The rule answer missed its gate and no runoff settled it; no profile line. |
 | `escalate` | An approval-gated rule, unverifiable rule floor, nothing rankable, or a genuine tie. |
 | `error` | API, network, malformed response metadata, rendering, or quota-axi failure. |
 
@@ -1390,6 +1393,20 @@ Every result above exits 0.
 - Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, or missing `jq`, each reported and never selected around.
 - Missing `curl` is a normal structured `error` outcome with exit 0 so firstmate uses today's routing.
 
+**Runoff on an ambiguous answer**
+
+An `ambiguous` rule answer gets one runoff before it reaches firstmate, so a close race between rules is settled by a typed Jev pick rather than by hand.
+The contenders are the picked option and the two most probable options, and each settles in code exactly as a cleared answer would: the same approval, floor, provider, effort, burn, and `spendPriority` gates choose its one concrete profile.
+If any contender would not clear - a captain-approval rule, an unverifiable rule floor, nothing rankable, or a genuine tie - the runoff is skipped, because a pick between them could bypass a gate that belongs to the captain or to `quota-array-dispatch`.
+Contenders that settle on the same concrete profile collapse into one option, and when only one remains its profile is taken without another call.
+Otherwise the resolver sends one more request on the same state with one `pick` Choice whose options are the remaining contenders, keyed by rule and worded with the same criteria, tie-break sentences included, that the rule Choice sent; the model still never sees `use`, `why`, quota, or approvals.
+The pick settles only when its returned choice is its most probable option and its top-2 margin reaches the same `FM_JEV_DISPATCH_MARGIN`.
+An option whose rules declare `min_confidence` instead settles only when its runoff probability reaches the strictest of those floors, so a runoff never dispatches a rule more loosely than the rule answer would.
+A settled pick makes the result `picked`, with a `pick:` line naming the winner and its evidence, the winner's candidates, and its `profile:` line.
+A narrow, non-winning, malformed, failed, or never-send-withheld runoff leaves the result `ambiguous` with a `pick:` line naming why and no profile line.
+`bin/fm-dispatch-replay.sh` uses the resolver's internal replay mode, so each replayed case spends one call and records the rule answer itself; normal resolver invocations run the runoff whenever it is eligible.
+The shadow log records the runoff outcome in a `pick` field beside the status and profile.
+
 **Firstmate retains the dispatch decision**
 
 Everything after the answer runs in code: the top-2 margin gate, the matched rule's `approval` and `floor`, each candidate's `provider` and `floor`, every applicable account-wide and model/product row from one `quota-axi --json` snapshot, the spend ledger's predicted burn for the assessed effort class (`bin/fm-spend-ledger.py predict`), and the numeric `spendPriority` argmax over candidates using each candidate's limiting row.
@@ -1397,13 +1414,10 @@ The same Jev response carries a second typed Choice classifying the reasoning ef
 A candidate on an effort-capable harness that cannot supply the assessed class is refused before quota gates; a harness without an effort knob keeps the class as a disclosed, unenforced note and emits no `--effort` flag for it.
 A candidate whose predicted burn exceeds its tightest applicable remaining percent (calibrated through the window's observed `tokensPerPoint`) is refused with the prediction named in the reason, and so is one whose predicted duration exceeds the window's usable runway seconds; an all-refused `escalate` names the predicted burn.
 Missing or unreadable ledger evidence never fabricates a limit: the candidate keeps its rank and its line shows `pred=unknown`.
-The result is one of `clear` (a `profile:` line ready for `fm-spawn.sh`), `ambiguous` (the returned choice is not the most probable option or the top-2 margin is below the threshold), `escalate` (an approval-gated rule, unverifiable rule floor, nothing rankable, or a genuine tie), or `error` (API, network, malformed response metadata, rendering, or quota-axi failure), and every one of them exits 0.
 Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, an invalid `FM_JEV_DISPATCH_MARGIN`, or missing `jq`, each reported and never selected around.
 The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; `AGENTS.md` section 4 owns what firstmate does with each outcome.
-By accepted design, a `clear` result does not enforce catalog/authentication, reasoning-class, or completion-runway gates.
-
-By accepted design, a `clear` result does not enforce catalog/authentication gates; reasoning-class ceilings and completion-runway gates are enforced above.
-Firstmate passes its profile line unless it states a reason to override, such as the brief's reasoning class or an eligible-unranked-candidate note; every non-clear result returns to the full existing intake.
+By accepted design, a printed profile line does not enforce catalog/authentication gates; reasoning-class ceilings and completion-runway gates are enforced above.
+Firstmate passes a printed profile line to `fm-spawn.sh` without hand-picking; the only overrides are the captain rules `AGENTS.md` section 4 names, and every result without a profile line returns to the full existing intake.
 
 **Key handling and fixed settings**
 
@@ -1458,6 +1472,12 @@ The thin hook point is documented in [`docs/arm-pretool-check.md`](arm-pretool-c
 `fm-pr-check.sh` runs it best-effort after GitHub PR registration; it can also be run directly when preparing a review ask.
 The ship-landing skill owns when to include it in the captain's review ask; the script header owns admission, privacy and record mechanics.
 It skips silently without a configured Jev key or a share-safe routing card, does not certify private-page content or required checks, and does not change merge authority.
+
+## Jev ask-user gate (FM_JEV_ASK_USER_FLOOR)
+
+[`bin/fm-jev-ask-user.sh`](../bin/fm-jev-ask-user.sh) is the live Jev step of the [`ask-user-authority`](../.agents/skills/ask-user-authority/SKILL.md) procedure, which owns when firstmate runs it and what each outcome obliges.
+Set `FM_JEV_ASK_USER_FLOOR` (default 0.75) to configure its confidence floor.
+The script header owns its decision and privacy boundaries, inputs, outputs, exit codes, and log schema.
 
 ## Shadow done verifier
 
@@ -1629,7 +1649,10 @@ The vault's `cloud` flag bounds what the worker may open: `ja` gets that full la
 When `<wikis-root>/ProjektWiki/wiki/<project>/<project>.md` exists it is named first.
 A missing token or unreadable estate gets a fallback line pointing at the routing cards; unresolved names are listed with the same guidance while other resolved wikis still render, and none of these conditions fails the scaffold.
 
-The same configuration adds a `# Wiki guide` step: before reporting done, the worker writes a topic-named guide draft with its GitHub prior-art findings to `data/<task-id>/guide.md` in the firstmate home, or `no guide: <reason>`, and never writes into a vault; a separate lander files the draft.
+Independent of wiki configuration, every ship and scout brief carries a `# Prior art` step: a short timebox before building that checks same-work records with `bin/fm-jev-intake-match.sh`, analogous past reports and guides with a local `rg --no-ignore` search using one pattern per topic word (capped at five hits), the matching wiki (routing cards or `bin/fm-wiki-ask.sh`, bounded by the cloud flag), and GitHub (`ketch code`, `gh-axi`). For the matcher, workers send Jev only a short neutral project/topic reference, never personal data, names, email addresses, or secrets. Ship findings go in the task guide at `data/<task-id>/guide.md`; scout findings go in a `Prior art` section of `data/<task-id>/report.md`, which serves as the scout's guide.
+The step is skippable for a trivial fix with a stated reason in the same destination, and an unavailable source is noted there and skipped rather than waited on; a secondmate charter does not carry it.
+
+The same configuration adds a `# Wiki guide` step: before reporting done, the worker writes a topic-named guide draft with reusable task knowledge and useful sources to `data/<task-id>/guide.md` in the firstmate home, or `no guide: <reason>`, and never writes into a vault; a separate lander files the draft.
 `bin/fm-teardown.sh` refuses cleanup of a ship or scout task whose brief carries the guide marker while that file is absent; briefs without the marker are unaffected, and `--force` skips the check.
 The draft opens with `target: <vault name or card id>`, `topic: <kebab-slug>`, and `action: new` or `action: update <page path>` lines ([`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) owns the parse); the vault's cloud flag is always looked up in the estate, never taken from the draft.
 
@@ -1886,12 +1909,86 @@ A later poll retries that fetch and, on success, surfaces the real sender and su
 
 A home that wants mail polled unattended arms the standing check in the live home: `bin/fm-mail-check.sh arm`.
 Arming writes `state/mail.check.sh` and registers it with the watcher's slow-check cadence (`FM_CHECK_INTERVAL`), so the plane's `poll` runs on its own: new mail still surfaces as `check: mail <uid>` wakes from the poll, and the standing check itself also prints a line (and the watcher turns that line into a wake) unless the poll is a proven no-op.
+A registered check can use `state/<id>.check-every` for a private 10-to-3600-second cadence; without it, the global sweep applies, and a private cadence never changes that sweep.
 
 Same-line silence is only for a proven no-op: a successful poll with no new mail, or a repeated identical pre-wake failure that cannot have queued mail.
 A fail-closed poll that already queued a wake, and a timeout, always print so the watcher wakes to drain it.
 
 `FM_MAIL_CHECK_BUDGET` (default 15, valid 5..25) bounds one standing poll and is cut down to fit `FM_CHECK_TIMEOUT`.
 `bin/fm-mail-check.sh disarm` removes the standing check.
+
+## Slack bridge (config/slack-bridge)
+
+The Slack bridge (`bin/fm-slack-bridge.sh`) lets the captain follow and answer this home from Slack.
+Out, firstmate posts captain-facing outcomes: finished PRs, merge asks, and merge results to the report channel, and decisions with a recommendation to the decisions channel.
+In, the captain's reply in the thread of a bridge post reaches firstmate as a captain inbox note, so replying `merge` in Slack works like typing it.
+
+**Activation and accounts**
+
+The bridge is off while `config/slack-bridge` is absent: `post` prints one `slack bridge off` line and exits 0, and `check` stays silent.
+It uses `slack-axi` and whichever account `slack-axi` is logged in as, with no Slack app, scope, or token of its own, and it never reads, prints, stores, or logs a token.
+Each home brings its own `slack-axi` login and its own config, so another person's firstmate runs the same bridge against their own account and channels.
+
+This section is the single owner of the config schema.
+The file holds one `key=value` per line, and a line starting with `#` is a comment; a comment never follows a value on the same line, because channel names start with `#`.
+
+```sh
+# finished PRs, merge asks, merge results; a #name or channel id
+report-channel=#fm-reports
+# decisions with a recommendation; a #name or channel id
+decisions-channel=#fm-decisions
+# optional; other people's requests to this fleet
+handoff-channel=#fm-handoff
+# the Slack user id whose thread replies count as the captain's word
+captain-user=U0123ABCDEF
+# optional, 1..30, default 7; how many days a post's thread is read for replies
+watch-days=7
+# optional, 10..3600 seconds; bridge-only poll cadence (recommend 60)
+poll-seconds=60
+```
+
+`slack-axi channels --match <name>` shows a channel's id, and `slack-axi members <channel>` shows each member's user id.
+
+**Who counts as the captain**
+
+A thread reply is captain input only when its Slack author id equals `captain-user` exactly; a display name never counts, because any member can copy one.
+Replies from anyone else, bot messages, and joins or other system messages are never delivered.
+A top-level message in the handoff channel from anyone but the captain is delivered as a request note that names its sender and says it is not captain authority; the captain's own handoff-channel messages are requests to other fleets and are not delivered here.
+Slack text is input like any typed captain message and nothing more: it never bypasses merge guards, holds, or the destructive, irreversible, and security-sensitive boundaries.
+
+`slack-axi`'s command line shows authors only by display name, so `bin/fm-slack-read.mjs` reads author ids through `slack-axi`'s own installed client in-process.
+It runs only against a `slack-axi` version and module shape it lists as verified; anything else keeps inbound off and reports one line naming the found version, while posting keeps working.
+
+**Posting**
+
+`bin/fm-slack-bridge.sh post report|decision [--url <https-url>] <text>` drafts the message, sends it with `slack-axi draft send`, and records the channel id and message ts in `state/slack-bridge/posts`.
+Every post is top-level, because the bridge posts as the logged-in account and that account's thread replies are what counts as captain input.
+
+**Receiving**
+
+A home that wants replies polled arms the standing check in the live home: `bin/fm-slack-bridge.sh arm`.
+Arming writes `state/slack-bridge.check.sh` and registers it with the watcher.
+It starts the handoff channel at the arming time so older history is not replayed.
+By default, the bridge follows the global `FM_CHECK_INTERVAL` slow-check cadence.
+Optional `poll-seconds` gives this check its own cadence from 10 to 3600 seconds without changing merge-poll or other check schedules.
+The bridge records that setting in `state/slack-bridge.check-every`.
+Invalid or duplicate values are refused.
+Each poll delivers every new accepted message exactly once through `bin/fm-inbox.sh note --request-id slack-<channel>-<ts>` with source `slack-captain` or `slack-request`, which writes the durable note and its single `check` wake.
+A repeated poll, or one that lost its local delivered record, replays that request id instead of adding a note or wake.
+A poll that delivered anything prints one line so the watcher wakes firstmate.
+A failing poll prints one line only when its diagnostic changes.
+A quiet poll prints nothing.
+`FM_SLACK_BRIDGE_BUDGET` (default 20, valid 5..25) bounds one poll and is cut down to fit `FM_CHECK_TIMEOUT`.
+`bin/fm-slack-bridge.sh disarm` removes the standing check and keeps the records.
+
+The bridge reads each post's thread for replies only during the configured `watch-days` window (default 7 days, maximum 30 days).
+A reply after that window is not delivered.
+If an ask is still open after the window, repost it with the same kind (`report` or `decision`) using `bin/fm-slack-bridge.sh post <kind> <text>` so the captain can answer the new message.
+Replies arrive within one poll interval while supervision is running.
+Set `poll-seconds=60` for the bridge's minute-or-two reply time.
+When unset, the bridge uses the global `FM_CHECK_INTERVAL` (default 300 seconds).
+Per-check cadence is local to that check and never moves the global sweep timestamp.
+Polling happens only while a watcher runs, so a message sent while no work is under way waits for the next supervised session.
 
 ## Relay (.env)
 
@@ -2765,7 +2862,7 @@ FM_HEARTBEAT=600        # base seconds between heartbeat scans; no-change heartb
 FM_HEARTBEAT_MAX=7200   # heartbeat backoff cap
 FM_INACTIVE_RECONCILE_SECS=900  # 60..1800-second watcher cadence and inactivity threshold; locked session start also requests an immediate scan in the deferred worker
 FM_INACTIVE_RECONCILE_BUDGET_SECS=10  # 1..30-second scan deadline; wedged-scan kill backstop follows one second later
-FM_CHECK_INTERVAL=300   # seconds between slow checks (authenticated merge polls, custom checks, or Relay dispatch)
+FM_CHECK_INTERVAL=300   # seconds between global slow checks (authenticated merge polls, custom checks, or Relay dispatch); per-check state/<id>.check-every overrides only that check
 FM_TASK_INBOX_GRACE_SECS=90   # seconds an unhandled steering-inbox message may sit before the watcher attempts doorbell delivery on an idle pane; also the minimum spacing between attempts
 FM_TASK_INBOX_RING_MAX=3      # watcher delivery attempts without an acknowledgement before the task surfaces as a stale wake for recovery
 FM_TASK_INBOX_BUSY_MAX=2      # consecutive busy-deferred due polls before a stuck-busy stale wake; 1..999999999, at most 9 decimal digits, otherwise 2; policy: bin/fm-task-inbox-lib.sh
@@ -2773,6 +2870,8 @@ FM_CHECK_TIMEOUT=30     # seconds allowed per slow check script
 FM_MAIL_CHECK_BUDGET=15   # seconds allowed for one standing mail poll; valid 5..25, cut to fit FM_CHECK_TIMEOUT
 FM_MAIL_POLL_MAX_WAKES=20   # per-poll wake cap for a mail poll; valid 1..200, keeps a flood from flooding firstmate
 FM_MAIL_TIMEOUT=20   # mail-plane IMAP/SMTP socket timeout in seconds; invalid or non-positive values become 20
+FM_SLACK_BRIDGE_BUDGET=20   # seconds allowed for one Slack bridge poll; valid 5..25, cut to fit FM_CHECK_TIMEOUT
+FM_SLACK_BRIDGE_NOW=        # test override for the Slack bridge clock
 FM_TOOL_UPDATE_INTERVAL=900   # seconds between watched-tool probe sweeps; 0 probes on every run, other values must be 60..86400
 FM_TOOL_UPDATE_PROBE_SECS=5   # 1..30 seconds allowed for one version or git probe
 FM_TOOL_UPDATE_BUDGET_SECS=20   # 1..120 seconds allowed for a whole watched-tool sweep; cut to fit FM_CHECK_TIMEOUT, and the cut is reported

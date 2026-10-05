@@ -293,7 +293,8 @@ WATCHER_STALE_GRACE=${FM_WATCHER_STALE_GRACE:-${FM_GUARD_GRACE:-$(fm_poll_derive
 WATCHER_STALL_BOUND=$(fm_watcher_stall_bound "$POLL")
 HEARTBEAT=${FM_HEARTBEAT:-600}        # base seconds between heartbeat scans
 HEARTBEAT_MAX=${FM_HEARTBEAT_MAX:-7200}  # heartbeat backoff cap
-CHECK_INTERVAL=${FM_CHECK_INTERVAL:-300}  # seconds between *.check.sh sweeps
+# Global slow-check cadence; per-check overrides use state/<id>.check-every.
+CHECK_INTERVAL=${FM_CHECK_INTERVAL:-300}
 CHECK_TIMEOUT=${FM_CHECK_TIMEOUT:-30}     # seconds allowed per *.check.sh
 HOME_SUMMARY_INTERVAL=${FM_HOME_SUMMARY_INTERVAL:-300}
 case "$HOME_SUMMARY_INTERVAL" in
@@ -2115,6 +2116,23 @@ age_of() {  # seconds since file mtime; "due immediately" if missing
   echo $(( now - m ))
 }
 
+check_interval_for_id() {
+  local value
+  value=$(cat "$STATE/$1.check-every" 2>/dev/null) || return 1
+  [[ "$value" =~ ^[1-9][0-9]*$ ]] || return 1
+  [ "${#value}" -le 4 ] || return 1
+  [ "$value" -ge 10 ] && [ "$value" -le 3600 ] || return 1
+  printf '%s\n' "$value"
+}
+
+mark_check_run() {
+  if [ "$2" -eq 1 ]; then
+    touch "$STATE/.last-check-$1"
+  else
+    touch "$STATE/.last-check"
+  fi
+}
+
 # Layer 2 + 3 signal scan: status files and turn-end markers.
 # Each file is compared against its persisted reported signature in .seen-* rather
 # than mtime-vs-a-startup-touch, so signals that land while no watcher is running
@@ -2943,18 +2961,35 @@ while :; do
     wake "check: execution reconciliation unavailable"
   fi
 
-  # Slow per-task checks (firstmate writes these, e.g. a merged-PR poll).
-  # Time-based via .last-check mtime so the cadence survives watcher restarts.
-  # Evaluated BEFORE the signal scan: wake() exits the cycle, so a check placed
-  # after the signal scan would be starved whenever a chatty sibling crewmate
-  # keeps producing signals - the slow poll (e.g. merge detection) would then
-  # never run until the fleet went quiet. Checks are due only every
-  # CHECK_INTERVAL, so most cycles skip this block and fall straight through.
-  if [ "$(age_of "$STATE/.last-check")" -ge "$CHECK_INTERVAL" ]; then
+  # Slow per-task checks run before the signal scan so chatty signals cannot
+  # starve them. Per-check cadence markers survive watcher restarts.
+  global_check_due=0
+  [ "$(age_of "$STATE/.last-check")" -ge "$CHECK_INTERVAL" ] && global_check_due=1
+  own_check_due=0
+  for cadence_check in "$STATE"/*.check.sh; do
+    [ -e "$cadence_check" ] || continue
+    cadence_id=$(basename "$cadence_check" .check.sh)
+    cadence_interval=$(check_interval_for_id "$cadence_id") || continue
+    if [ "$(age_of "$STATE/.last-check-$cadence_id")" -ge "$cadence_interval" ]; then
+      own_check_due=1
+      break
+    fi
+  done
+  if [ "$global_check_due" -eq 1 ] || [ "$own_check_due" -eq 1 ]; then
     rejected_checks=
+    rejected_global_checks=
     contribution_check_output=
     for c in "$STATE"/*.check.sh; do
       [ -e "$c" ] || continue
+      id=$(basename "$c" .check.sh)
+      own_interval=$(check_interval_for_id "$id") || own_interval=
+      own_cadence=0
+      if [ -n "$own_interval" ]; then
+        own_cadence=1
+        [ "$(age_of "$STATE/.last-check-$id")" -ge "$own_interval" ] || continue
+      elif [ "$global_check_due" -ne 1 ]; then
+        continue
+      fi
       is_pr_poll=0
       if [ "$(basename "$c")" = x-watch.check.sh ]; then
         if fmx_poll_shim_valid "$c" "$FM_HOME" "$FM_ROOT" \
@@ -2963,6 +2998,11 @@ while :; do
           out=$FM_CHECK_RESULT
         else
           rejected_checks="$rejected_checks $c"
+          if [ "$own_cadence" -eq 1 ]; then
+            touch "$STATE/.last-check-$id"
+          else
+            rejected_global_checks="$rejected_global_checks $c"
+          fi
           continue
         fi
       else
@@ -2994,6 +3034,11 @@ while :; do
         else
           fm_custom_check_snapshot_cleanup
           rejected_checks="$rejected_checks $c"
+          if [ "$own_cadence" -eq 1 ]; then
+            touch "$STATE/.last-check-$id"
+          else
+            rejected_global_checks="$rejected_global_checks $c"
+          fi
           continue
         fi
       fi
@@ -3014,6 +3059,7 @@ EOF
           if [ -n "$contribution_check_diagnostics" ]; then
             out=${contribution_check_diagnostics%$'\n'}
           elif [ -n "$contribution_check_output" ]; then
+            [ "$own_cadence" -eq 0 ] || touch "$STATE/.last-check-$id"
             continue
           fi
         fi
@@ -3026,7 +3072,7 @@ EOF
             # outcome and no wake; bin/fm-pr-check.sh refuses to arm another.
             retire_merged_pr_poll "$id"
             pr_poll_control_release || exit 1
-            touch "$STATE/.last-check"
+            mark_check_run "$id" "$own_cadence"
             triage_log "retired a merge poll armed on secondmate $id without reporting an outcome"
             continue
           fi
@@ -3052,7 +3098,7 @@ EOF
           fi
           retire_merged_pr_poll "$id"
           pr_poll_control_release || exit 1
-          touch "$STATE/.last-check"
+          mark_check_run "$id" "$own_cadence"
           if [ "$FM_MERGE_OUTCOME_ALREADY_RECORDED" = true ]; then
             triage_log "absorbed duplicate merged PR poll result for $id"
             continue
@@ -3061,18 +3107,21 @@ EOF
         fi
         pr_poll_control_release || exit 1
         fm_wake_append check "$c" "$reason" || exit 1
-        touch "$STATE/.last-check"
+        mark_check_run "$id" "$own_cadence"
         wake "$reason"
       fi
       pr_poll_control_release || exit 1
+      if [ "$own_cadence" -eq 1 ]; then
+        touch "$STATE/.last-check-$id"
+      fi
     done
     if [ -n "$rejected_checks" ]; then
       reason="check: rejected unauthenticated state checks:$rejected_checks"
       fm_wake_append check unauthenticated-state-checks "$reason" || exit 1
-      touch "$STATE/.last-check"
+      [ -z "$rejected_global_checks" ] || touch "$STATE/.last-check"
       wake "$reason"
     fi
-    touch "$STATE/.last-check"
+    [ "$global_check_due" -eq 0 ] || touch "$STATE/.last-check"
     if [ -n "$contribution_check_output" ]; then
       wake "$contribution_check_output"
     fi

@@ -54,6 +54,19 @@
 #   keeps today's rank and its line shows pred=unknown.
 #   FM_SPEND_LEDGER overrides the ledger path (tests).
 #
+# Runoff on ambiguous: the picked option and the top two by probability each
+#   settle as though they had cleared (same gates, same spendPriority argmax).
+#   When every contender settles on a concrete profile, contenders that share
+#   one profile collapse, a single remaining profile is taken with no call, and
+#   otherwise one more POST asks a typed `pick` Choice keyed by rule and worded
+#   with the same criteria the rule Choice sent, on the same state. The pick
+#   clears on the same top-2 margin gate, or on an option's strictest declared
+#   min_confidence instead, and makes the answer `picked`. Any
+#   contender that would not clear (captain approval, unverifiable floor,
+#   nothing rankable, tie) skips the runoff, and a narrow, non-winning,
+#   malformed, failed, or never-send-withheld pick leaves it `ambiguous`.
+#   The model still never sees `use`, `why`, quota, or approvals.
+#
 # Never-send check: when the optional $FM_HOME/config/dispatch-never-send list
 #   exists, every string value of the built request is checked against it
 #   before the POST. Each non-blank, non-# line is a literal matched
@@ -63,20 +76,26 @@
 #   "dispatch-resolve: off (...; nothing sent)" line on stderr naming at most
 #   the list line number, never its value, prints nothing on stdout, and exits
 #   0 with no network or quota call, exactly like the absent-key off path.
+#   The runoff request is checked the same way; a match there sends nothing
+#   and only leaves the answer ambiguous with a `pick: skipped` line.
 #
 # Output (stdout, TOON-style block):
 #   dispatch-resolve:
-#     status: clear | ambiguous | escalate | error
+#     status: clear | picked | ambiguous | escalate | error
 #     model/latency_ms/tokens, rule (when excerpt) and confidence, probabilities
 #     effort: <assessed class> (jev confidence=.. | declared | declared fallback (classifier <why>))
 #     fallback: <runner-up rule taken when the picked rule missed its own declared floor>
 #     reason: <why the status is not clear; an all-refused escalate names the predicted burn>
+#     pick: <rule> (<rules>) over <rules> by jev runoff   p=.. margin=..  (picked)
+#           <rules> settle on the same profile (no runoff call)           (picked)
+#           skipped|undecided|error (<why>)                               (ambiguous)
 #     candidate: <harness>:<model> provider=.. effort=<class>(<ceiling> ceiling) scope=.. remaining=..%
 #       spendPriority=.. runway=.. pred=~<tokens>tok/<seconds>s | pred=unknown
 #       -> eligible | eligible, unranked: <reason> | not eligible: <reason>
-#     profile: --harness <h> [--model <m>] [--effort <e>]     (status clear only; effort is the assessed class)
-#   clear     -> pass the profile line to fm-spawn.sh unless you state a reason to override
-#   ambiguous -> choice is not the most probable option or the top-2 margin is below threshold; decide as today from the probabilities
+#     profile: --harness <h> [--model <m>] [--effort <e>]     (status clear or picked only; effort is the assessed class)
+#   clear     -> pass the profile line to fm-spawn.sh (AGENTS.md section 4 owns the only overrides)
+#   picked    -> the rule answer was ambiguous and the runoff settled it; pass the profile line the same way
+#   ambiguous -> choice is not the most probable option or the top-2 margin is below threshold, and no runoff settled it; decide as today from the probabilities
 #   escalate  -> the rule requires captain approval, no candidate is rankable, or a genuine tie
 #   error     -> API, network, response, or quota-axi failure; decide as today
 #   Every outcome exits 0 so an intake is never blocked by this tool.
@@ -259,11 +278,12 @@ fm_dispatch_home_criteria() {
   printf '%s' "$json"
 }
 
-BRIEF='' PROJECT='' RULES_PATH="$CONFIG/crew-dispatch.json" RULES=''
+BRIEF='' PROJECT='' RULES_PATH="$CONFIG/crew-dispatch.json" RULES='' REPLAY=0
 NEVER_SEND_PATH="$CONFIG/dispatch-never-send"
 while [ $# -gt 0 ]; do
   case "$1" in
     --project) [ $# -ge 2 ] || die "--project needs a value"; PROJECT=$2; shift 2 ;;
+    --replay) REPLAY=1; shift ;;
     -h|--help) usage; exit 0 ;;
     -*) die "unknown flag $1" ;;
     *) [ -z "$BRIEF" ] || die "one brief file only"; BRIEF=$1; shift ;;
@@ -459,19 +479,28 @@ never_send_off() {
   exit 0
 }
 
-# Checks every string the request carries, so no text reaches the network
+# Checks every string a request carries, so no text reaches the network
 # unchecked. grep's own stderr is discarded because it can echo the pattern.
-never_send_check() {
-  local list value n=0 rc
+# Returns 1 with the reason in NEVER_SEND_WHY, naming at most a line number.
+NEVER_SEND_WHY=''
+never_send_scan() {
+  local request=$1 list value n=0 rc
+  NEVER_SEND_WHY=''
   [ -e "$NEVER_SEND_PATH" ] || [ -L "$NEVER_SEND_PATH" ] || return 0
-  { [ -f "$NEVER_SEND_PATH" ] && [ -r "$NEVER_SEND_PATH" ]; } \
-    || never_send_off "$NEVER_SEND_PATH is not a readable regular file"
+  if ! { [ -f "$NEVER_SEND_PATH" ] && [ -r "$NEVER_SEND_PATH" ]; }; then
+    NEVER_SEND_WHY="$NEVER_SEND_PATH is not a readable regular file"
+    return 1
+  fi
   # Collapse whitespace runs on both sides so a value the brief wraps across
   # lines or spaces differently still matches
-  jq -r '.. | strings | gsub("\\s+"; " ")' <<<"$REQUEST" > "$SEND_TEXT" 2>/dev/null \
-    || never_send_off "could not extract the request text to check"
-  list=$(jq -Rr 'gsub("\\s+"; " ")' "$NEVER_SEND_PATH" 2>/dev/null) \
-    || never_send_off "could not read $NEVER_SEND_PATH"
+  if ! jq -r '.. | strings | gsub("\\s+"; " ")' <<<"$request" > "$SEND_TEXT" 2>/dev/null; then
+    NEVER_SEND_WHY="could not extract the request text to check"
+    return 1
+  fi
+  if ! list=$(jq -Rr 'gsub("\\s+"; " ")' "$NEVER_SEND_PATH" 2>/dev/null); then
+    NEVER_SEND_WHY="could not read $NEVER_SEND_PATH"
+    return 1
+  fi
   while IFS= read -r value; do
     n=$((n + 1))
     value=${value# }
@@ -481,11 +510,15 @@ never_send_check() {
     esac
     grep -qiF -e "$value" "$SEND_TEXT" 2>/dev/null; rc=$?
     case "$rc" in
-      0) never_send_off "brief text matches $NEVER_SEND_PATH line $n" ;;
+      0) NEVER_SEND_WHY="brief text matches $NEVER_SEND_PATH line $n"; return 1 ;;
       1) ;;
-      *) never_send_off "could not check the request text against $NEVER_SEND_PATH line $n" ;;
+      *) NEVER_SEND_WHY="could not check the request text against $NEVER_SEND_PATH line $n"; return 1 ;;
     esac
   done <<<"$list"
+  return 0
+}
+never_send_check() {
+  never_send_scan "$REQUEST" || never_send_off "$NEVER_SEND_WHY"
 }
 
 # Send Jev only the task-specific sections bin/fm-brief.sh scaffolds, plus a
@@ -603,6 +636,7 @@ if [ "$EXTRA" -eq 1 ]; then
 fi
 jq -e --slurpfile rules "$RULES" '
     (($rules[0].rules | to_entries | map("rule_" + ((.key + 1) | tostring))) + ["default"] | sort) as $choices |
+    .answers.rule.type == "choice" and
     (.answers.rule.choice | type) == "string" and
     (.answers.rule.confidence | type) == "number" and
     .answers.rule.confidence >= 0 and .answers.rule.confidence <= 1 and
@@ -830,19 +864,77 @@ RESULT=$(jq -n --arg margin "$MARGIN" --arg floor "$CONFIDENCE_FLOOR" --argjson 
      else {below: true, to: $ok[0].key, p: $ok[0].value, to_floor: confidence_floor($ok[0].key)} end
    end) as $fb |
   (if $fb.to then $fb.to else $picked end) as $choice |
-  (rule_at($choice)) as $rule |
-  (if $rule == null then "none" else floor_state($rule.floor; $rule.floor.provider; "") end) as $rule_floor_state |
-  (if $choice != "default" and $rule == null then []
-   elif $rule == null then profiles($cfg.default // null)
-   else profiles($rule.use)
-   end) as $answer_use |
-  (if $choice != "default" and $rule == null then {invalid: "rule \($choice) is not in the rules file"}
-   elif $rule == null then {source: "default", use: profiles($cfg.default // null), note: "no rule matched"}
-   elif ($rule.approval // "") == "captain" then {source: $choice, escalate: "rule requires the captain'"'"'s explicit approval before dispatch"}
-   elif $rule_floor_state == "unknown" then {source: $choice, escalate: "rule \($choice) floor \($rule.floor.provider)/\($rule.floor.scope) is unverifiable"}
-   elif $rule_floor_state == "below"
-     then {source: "default", use: profiles($cfg.default // null), note: "rule \($choice) floor \($rule.floor.scope) below \($rule.floor.min_percent)%: fall through to default"}
-   else {source: $choice, use: profiles($rule.use), note: "rule matched"} end) as $sel |
+  def answer_use($c):
+    if $c != "default" and rule_at($c) == null then []
+    elif rule_at($c) == null then profiles($cfg.default // null)
+    else profiles(rule_at($c).use)
+    end;
+  def selection($c):
+    (rule_at($c)) as $rule |
+    (if $rule == null then "none" else floor_state($rule.floor; $rule.floor.provider; "") end) as $rule_floor_state |
+    if $c != "default" and $rule == null then {invalid: "rule \($c) is not in the rules file"}
+    elif $rule == null then {source: "default", use: profiles($cfg.default // null), note: "no rule matched"}
+    elif ($rule.approval // "") == "captain" then {source: $c, escalate: "rule requires the captain'"'"'s explicit approval before dispatch"}
+    elif $rule_floor_state == "unknown" then {source: $c, escalate: "rule \($c) floor \($rule.floor.provider)/\($rule.floor.scope) is unverifiable"}
+    elif $rule_floor_state == "below"
+      then {source: "default", use: profiles($cfg.default // null), note: "rule \($c) floor \($rule.floor.scope) below \($rule.floor.min_percent)%: fall through to default"}
+    else {source: $c, use: profiles($rule.use), note: "rule matched"} end;
+  # What the gates and the spendPriority argmax make of one rule answer, as
+  # though it had cleared the rule gate. The main answer and every runoff
+  # contender go through this one definition.
+  def settle($c):
+    (selection($c)) as $sel |
+    if $sel.invalid then {status: "error", reason: $sel.invalid}
+    elif $sel.escalate then {status: "escalate", reason: $sel.escalate, candidates: (answer_use($c) | map(assess(.)))}
+    elif ($sel.use | length) == 0 then {status: "escalate", reason: "no profiles configured for \($sel.source)", note: $sel.note, candidates: []}
+    else
+      ($sel.use | map(assess(.))) as $cands |
+      ([$cands[] | select(.eligible and ((.unranked // false) | not))]) as $elig |
+      ([$cands[] | select(.unranked)]) as $unranked |
+      ([$cands[] | select(.pred != null) | .pred.tokens] | if length > 0 then min else null end) as $min_pred |
+      if ($elig | length) == 0 then
+        {status: "escalate",
+         reason: ("no rankable eligible candidate" +
+           (if $min_pred != null then " (predicted burn ~\(fmt_tokens($min_pred)) tokens at \($jev_effort // "declared") effort)" else "" end)),
+         note: $sel.note, candidates: $cands}
+      else
+        ($elig | max_by(.spendPriority)) as $best |
+        ([$elig[] | select(.spendPriority == $best.spendPriority)] | length) as $ties |
+        if $ties > 1 then {status: "escalate", reason: "genuine spendPriority tie", note: $sel.note, candidates: $cands}
+        else {status: "clear", note: $sel.note, candidates: $cands, chosen: $best}
+          + (if ($unranked | length) > 0 then
+               {unranked_note: "\($unranked | length) eligible candidate(s) unranked (\([$unranked[].provider] | unique | join(", ")))"}
+             else {} end)
+        end
+      end
+    end;
+  def emitted_effort($c):
+    if $c.effort_emit == false then ($c.profile.effort // null)
+    else ($c.effort // $c.profile.effort // null) end;
+  # The runoff for an ambiguous answer: the picked option and the top two by
+  # probability each settle on their own quota-ranked profile. Any contender
+  # that would not clear (a captain-approval rule, an unverifiable floor,
+  # nothing rankable, a tie) leaves the decision with firstmate; contenders
+  # that land on the same concrete profile collapse into one option, which
+  # carries the strictest min_confidence its rules declare as its `floor`.
+  def runoff:
+    (reduce ([$picked, $top2.first, $top2.second][] | select(. != null)) as $x
+      ([]; if any(.[]; . == $x) then . else . + [$x] end)) as $cs |
+    [$cs[] | {option: ., settled: settle(.)}] as $rows |
+    ([$rows[] | select(.settled.status != "clear")] | first) as $bad |
+    if $bad != null then
+      {state: "skipped", reason: "\($bad.option) would not clear: \($bad.settled.reason // $bad.settled.status)"}
+    else
+      (reduce $rows[] as $r ([];
+        ([$r.settled.chosen.profile.harness, ($r.settled.chosen.profile.model // null), emitted_effort($r.settled.chosen)]) as $k |
+        (map(.k == $k) | index(true)) as $i |
+        (if declared_confidence($r.option) then [rule_at($r.option).min_confidence] else [] end) as $f |
+        if $i == null then . + [{k: $k, key: $r.option, rules: [$r.option], floors: $f, settled: $r.settled}]
+        else .[$i].rules += [$r.option] | .[$i].floors += $f end)) as $groups |
+      ($groups | map(del(.k) | .floor = (.floors | max) | del(.floors))) as $options |
+      if ($options | length) == 1 then {state: "agreed", options: $options}
+      else {state: "ask", options: $options} end
+    end;
   def when_of($c): (if rule_at($c) == null then $none_criterion else rule_at($c).when end | .[0:60]);
   {
     model: $r.model, latency_ms: $lat, tokens: ($r.usage // null),
@@ -853,41 +945,113 @@ RESULT=$(jq -n --arg margin "$MARGIN" --arg floor "$CONFIDENCE_FLOOR" --argjson 
   }
   + (if $fb.to then {fallback: "\($choice) (\(when_of($choice))) probability \($fb.p) clears its floor \($fb.to_floor); \($picked) probability \($a.probabilities[$picked]) is below its floor \($picked_floor)"} else {} end)
   as $ev |
-  if $sel.invalid then $ev + {status: "error", reason: $sel.invalid}
+  (settle($choice)) as $settled |
+  (answer_use($choice) | map(assess(.))) as $answer_cands |
+  if $settled.status == "error" then $ev + $settled
   elif $fb.below and ($fb.to | not) then
-    $ev + {status: "ambiguous", reason: "\($picked) probability \($a.probabilities[$picked]) below its floor \($picked_floor); \($fb.why)", candidates: ($answer_use | map(assess(.)))}
+    $ev + {status: "ambiguous", reason: "\($picked) probability \($a.probabilities[$picked]) below its floor \($picked_floor); \($fb.why)", candidates: $answer_cands, runoff: runoff}
   # A declared min_confidence replaces the top-2 gates for its own rule,
   # exactly as it replaces the global floor upstream, so they judge only a pick
   # that declares no floor of its own.
   elif (declared_confidence($picked) | not) and $choice != $top2.first then
-    $ev + {status: "ambiguous", reason: "choice \($choice) is not the most probable option \($top2.first)", candidates: ($answer_use | map(assess(.)))}
+    $ev + {status: "ambiguous", reason: "choice \($choice) is not the most probable option \($top2.first)", candidates: $answer_cands, runoff: runoff}
   # The 1e-9 tolerance is intentional: two-decimal gaps such as 0.7 - 0.3 compute just below the threshold in binary floating point.
   elif (declared_confidence($picked) | not) and ($top2.raw_margin + 1e-9) < ($margin | tonumber) then
-    $ev + {status: "ambiguous", reason: "top-2 margin \($top2.margin) below \($margin) (\($top2.first) vs \($top2.second))", candidates: ($answer_use | map(assess(.)))}
-  elif $sel.escalate then
-    $ev + {status: "escalate", reason: $sel.escalate, candidates: ($answer_use | map(assess(.)))}
-  elif ($sel.use | length) == 0 then $ev + {status: "escalate", reason: "no profiles configured for \($sel.source)", note: $sel.note, candidates: []}
-  else
-    ($sel.use | map(assess(.))) as $cands |
-    ([$cands[] | select(.eligible and ((.unranked // false) | not))]) as $elig |
-    ([$cands[] | select(.unranked)]) as $unranked |
-    ([$cands[] | select(.pred != null) | .pred.tokens] | if length > 0 then min else null end) as $min_pred |
-    if ($elig | length) == 0 then
-      $ev + {status: "escalate",
-             reason: ("no rankable eligible candidate" +
-               (if $min_pred != null then " (predicted burn ~\(fmt_tokens($min_pred)) tokens at \($jev_effort // "declared") effort)" else "" end)),
-             note: $sel.note, candidates: $cands}
-    else
-      ($elig | max_by(.spendPriority)) as $best |
-      ([$elig[] | select(.spendPriority == $best.spendPriority)] | length) as $ties |
-      if $ties > 1 then $ev + {status: "escalate", reason: "genuine spendPriority tie", note: $sel.note, candidates: $cands}
-      else $ev + {status: "clear", note: $sel.note, candidates: $cands, chosen: $best}
-        + (if ($unranked | length) > 0 then
-             {unranked_note: "\($unranked | length) eligible candidate(s) unranked (\([$unranked[].provider] | unique | join(", ")))"}
-           else {} end)
-      end
-    end
+    $ev + {status: "ambiguous", reason: "top-2 margin \($top2.margin) below \($margin) (\($top2.first) vs \($top2.second))", candidates: $answer_cands, runoff: runoff}
+  else $ev + $settled
   end') || emit_error "resolution failed"
+
+# ---- runoff: one typed Jev pick among the contenders of an ambiguous answer ----
+# The question offers only contenders that each settled on a concrete profile
+# above, keyed by rule and worded with the same criteria the rule Choice sent,
+# so the model still never sees `use`, `why`, quota, or approvals. Code gates
+# the answer on the same top-2 margin, or on an option's declared floor;
+# anything short of that leaves the answer ambiguous and the decision with
+# firstmate.
+runoff_note() {  # <pick-json>: merge a non-settling outcome into RESULT
+  RESULT=$(jq -c --argjson pick "$1" '. + {pick: $pick} | del(.runoff)' <<<"$RESULT") || emit_error "runoff merge failed"
+}
+runoff_settle() {  # <option-key> <pick-json>: the chosen contender becomes the answer
+  RESULT=$(jq -c --arg key "$1" --argjson pick "$2" '
+    (.runoff.options[] | select(.key == $key) | .settled) as $s
+    | (.runoff.options[] | select(.key == $key) | .rules) as $rules
+    | del(.runoff) + {status: "picked", pick: ($pick + {rules: $rules}), candidates: $s.candidates, chosen: $s.chosen}
+      + (if $s.note then {note: $s.note} else {} end)
+      + (if $s.unranked_note then {unranked_note: $s.unranked_note} else {} end)' <<<"$RESULT") \
+    || emit_error "runoff merge failed"
+}
+RUNOFF_STATE=$(jq -r 'if .status == "ambiguous" then (.runoff.state // "") else "" end' <<<"$RESULT") || RUNOFF_STATE=''
+if [ -n "$RUNOFF_STATE" ] && [ "$REPLAY" -eq 1 ]; then
+  RESULT=$(jq -c 'del(.runoff)' <<<"$RESULT") || emit_error "runoff merge failed"
+  RUNOFF_STATE=''
+fi
+case "$RUNOFF_STATE" in
+  skipped)
+    runoff_note "$(jq -c '{state: "skipped", reason: .runoff.reason}' <<<"$RESULT")"
+    ;;
+  agreed)
+    runoff_settle "$(jq -r '.runoff.options[0].key' <<<"$RESULT")" \
+      "$(jq -c '{state: "agreed", rules: .runoff.options[0].rules}' <<<"$RESULT")"
+    ;;
+  ask)
+    PICK_QUESTIONS=$(jq -nc --argjson result "$RESULT" --argjson questions "$QUESTIONS" '
+      {pick: {
+        type: "choice",
+        instructions: "More than one dispatch rule plausibly fits `task` (read `task.brief` and `task.project`). Which ONE option fits it best? Each option is the matching condition of one or more rules; pick the option whose condition the task meets most directly, following any Tie-break sentences.",
+        criteria: ($result.runoff.options | map({key: .key, value: ([.rules[] as $r | $questions.rule.criteria[$r]] | join(" Or: "))}) | from_entries)
+      }}') || emit_error "could not build runoff question"
+    PICK_REQUEST=$(jq -nc --argjson state "$STATE" --argjson questions "$PICK_QUESTIONS" '{state: $state, questions: $questions}') \
+      || emit_error "could not build runoff request"
+    if ! never_send_scan "$PICK_REQUEST"; then
+      runoff_note "$(jq -nc --arg why "$NEVER_SEND_WHY" '{state: "skipped", reason: ($why + "; nothing sent")}')"
+    else
+      PICK_FILE=$(mktemp) || emit_error "mktemp failed"
+      trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$SEND_TEXT" "$PREDICT_FILE" "$PICK_FILE"' EXIT
+      [ -n "$TYPESAFE_API_KEY_PRIVATE" ] && TYPESAFE_API_KEY=$TYPESAFE_API_KEY_PRIVATE
+      [ -n "$OPENROUTER_API_KEY_PRIVATE" ] && OPENROUTER_API_KEY=$OPENROUTER_API_KEY_PRIVATE
+      PICK_ERR=0
+      fm_jev_decide "$STATE" "$PICK_QUESTIONS" > "$PICK_FILE" || PICK_ERR=$?
+      unset TYPESAFE_API_KEY OPENROUTER_API_KEY
+      PICK_LAT=${FM_JEV_LAST_LATENCY_MS:-0}
+      PICK_HTTP=${FM_JEV_LAST_HTTP:-000}
+      if [ "$PICK_ERR" -ne 0 ]; then
+        if [ -n "$PICK_HTTP" ] && [ "$PICK_HTTP" != 200 ]; then
+          runoff_note "$(jq -nc --arg why "http $PICK_HTTP after ${PICK_LAT} ms" '{state: "error", reason: $why}')"
+        else
+          runoff_note '{"state":"error","reason":"jev caller failed"}'
+        fi
+      else
+        PICK=$(jq -c --argjson questions "$PICK_QUESTIONS" --argjson result "$RESULT" --arg margin "$MARGIN" --argjson lat "$PICK_LAT" "$FM_JEV_CHOICE_TOP2_JQ"'
+          ($questions.pick.criteria | keys | sort) as $keys |
+          (.answers.pick // null) as $p |
+          if ($p | type) == "object" and $p.type == "choice" and ($p.choice | type) == "string" and ($keys | index($p.choice)) != null and
+             (($p.confidence | type) == "number") and ($p.confidence >= 0) and ($p.confidence <= 1) and
+             (($p.probabilities | type) == "object") and (($p.probabilities | keys | sort) == $keys) and
+             all($p.probabilities[]; type == "number" and . >= 0 and . <= 1) and
+             (($p.probabilities | [.[]] | add) as $t | $t >= 0.99 and $t <= 1.01)
+          then
+            ($p.probabilities | jev_choice_top2) as $t2 |
+            ([$result.runoff.options[] | select(.key == $p.choice) | .floor] | first) as $floor |
+            {choice: $p.choice, probabilities: $p.probabilities, margin: $t2.margin, latency_ms: $lat}
+            # A declared min_confidence replaces the top-2 gates for its own
+            # option, exactly as it does for the rule answer.
+            + (if $floor != null then
+                 (if $p.probabilities[$p.choice] >= $floor then {state: "settled", over: [$keys[] | select(. != $p.choice)]}
+                  else {state: "undecided", reason: "runoff choice \($p.choice) probability \($p.probabilities[$p.choice]) below its floor \($floor)"} end)
+               elif $p.choice != $t2.first then {state: "undecided", reason: "runoff choice \($p.choice) is not the most probable option \($t2.first)"}
+               elif ($t2.raw_margin + 1e-9) < ($margin | tonumber) then {state: "undecided", reason: "runoff margin \($t2.margin) below \($margin) (\($t2.first) vs \($t2.second))"}
+               else {state: "settled", over: [$keys[] | select(. != $p.choice)]} end)
+          else {state: "error", reason: "response is not a runoff Choice answer"} end' "$PICK_FILE" 2>/dev/null) \
+          || PICK='{"state":"error","reason":"response is not a runoff Choice answer"}'
+        if [ "$(jq -r .state <<<"$PICK")" = settled ]; then
+          runoff_settle "$(jq -r .choice <<<"$PICK")" "$PICK"
+        else
+          runoff_note "$PICK"
+        fi
+      fi
+    fi
+    ;;
+esac
 
 TEXT=$(jq -r '
   def flat: tostring | gsub("[\t\r\n]"; " ");
@@ -901,6 +1065,10 @@ TEXT=$(jq -r '
   "  effort: \(show(.effort.choice)) (\(if .effort.source == "jev" then "jev confidence=\(show(.effort.confidence))" elif .effort.source == "declared" then "declared" else "declared fallback (classifier \(.effort.source))" end))",
   (if .fallback then "  fallback: \(.fallback | flat)" else empty end),
   (if .reason then "  reason: \(.reason | flat)" else empty end),
+  (if .pick == null then empty
+   elif .pick.state == "settled" then "  pick: \(.pick.choice | flat) (\(.pick.rules | map(flat) | join("+"))) over \(.pick.over | map(flat) | join(", ")) by jev runoff   p=\(.pick.probabilities[.pick.choice] | flat) margin=\(.pick.margin | flat)"
+   elif .pick.state == "agreed" then "  pick: \(.pick.rules | map(flat) | join(", ")) settle on the same profile (no runoff call)"
+   else "  pick: \(.pick.state | flat) (\(show(.pick.reason)))" end),
   (if .note then "  note: \(.note | flat)" else empty end),
   (if .unranked_note then "  note: \(.unranked_note | flat)" else empty end),
   (.candidates[]? | "  candidate: \(.profile.harness | flat):\(show(.profile.model))"
@@ -935,6 +1103,7 @@ if fm_dispatch_shadow_on; then
       confidence: $result.confidence,
       probabilities: $result.probabilities,
       profile: (if $result.chosen then $result.chosen.profile else null end),
+      pick: (if $result.pick then ($result.pick | {state, rules, choice, probabilities, margin, reason} | with_entries(select(.value != null))) else null end),
       extra: $extra
     }') || SHADOW=''
   if [ -n "$SHADOW" ]; then

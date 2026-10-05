@@ -52,6 +52,7 @@ config/watched-tools.json  optional list of the tools this home depends on, read
 config/wikis-root  optional wikis root that adds a wiki-context section and a guide step to ship and scout briefs; LOCAL, gitignored; inherited by secondmate homes; see docs/configuration.md "Wiki context in briefs"
 config/memory-dir  optional memory-store path override; LOCAL, gitignored, and not inherited; see docs/memory.md
 config/x-mode.env    generated Relay watcher cadence; LOCAL, gitignored; source before arming watcher when present
+config/slack-bridge  optional Slack bridge channels and captain user id; LOCAL, gitignored, not inherited; absent keeps the bridge off; see docs/configuration.md "Slack bridge"
 data/                personal fleet records; LOCAL, gitignored as a whole
   backlog.md         task queue, dependencies, history
   captain.md         this home's domain-local captain preferences and working style; LOCAL, gitignored, canonical even if harness memory mirrors it, and updated with inspect-then-update
@@ -99,6 +100,11 @@ state/               runtime records and signals; gitignored
   tool-updates.check.sh  generated watched-tool update poll shim and its .check-trust binding; present only after bin/fm-tool-update-check.sh arm; its report record .tool-updates is what keeps one pending update from being reported on every poll
   mail.check.sh      generated received-mail poll shim and its .check-trust binding; present only after bin/fm-mail-check.sh arm; report record .mail-check (mail schema: docs/configuration.md "Mail plane")
   .mail-seen .mail-woken .mail-retry .mail-retry-pos .mail-turn .mail-seen.lock  mail-plane poll cursor, emission journal, transient-fetch retry set, retry-scan position, contended-slot turn flag, and overlapping-poll lock; written only by bin/fm-mail.sh (mail schema: docs/configuration.md "Mail plane")
+  slack-bridge.check.sh  generated Slack bridge poll shim and its .check-trust binding; present only after bin/fm-slack-bridge.sh arm
+  slack-bridge.check-every optional per-check cadence written by bin/fm-slack-bridge.sh from poll-seconds; valid values 10..3600; absent follows FM_CHECK_INTERVAL
+  .last-check           global slow-check sweep timestamp; per-check schedules must not advance it
+  .last-check-<id>      last-run timestamp for a registered check with a valid state/<id>.check-every
+  slack-bridge/      Slack bridge records: posts (channel id and ts of every bridge post), delivered, handoff-cursor, last-report; written only by bin/fm-slack-bridge.sh (docs/configuration.md "Slack bridge")
   pending-replies/   parent-owned secondmate pending-reply records (correlation id, delivery vs reply, recovery, escalation); fm-pending-reply-lib.sh
   procevent/         registered process-to-event sources, one private record per canonical source id; written only by bin/fm-procevent.sh, and their presence alone keeps supervision required (`process-event-sources` skill)
   procevent-inbox/   private captured results and their durable handled-acknowledgement markers; source output lives here and never in an event line

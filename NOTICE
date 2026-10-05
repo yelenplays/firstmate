@@ -25,3 +25,8 @@ It includes material adapted from third parties, which keeps its own licence:
   - bin/fm-witness-login.sh adapts its typed-by-name test credentials from
     docs/REFERENCE.md ("Test credentials"), rewritten as a wrapper around
     chrome-devtools-axi.
+  - bin/fm-credguard-read.mjs and bin/fm-credguard-install.mjs are adapted from
+    its system/credguard-read-hook and system/credguard-read-install, as of the
+    same commit, and the deny and allow tables in tests/fm-credguard-read.test.sh
+    are adapted from its test/credguard-read.test.js. Each adapted file states
+    its changes in its header.
