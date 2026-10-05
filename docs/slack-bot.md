@@ -13,7 +13,7 @@ Setup takes about ten minutes.
 - A Mac with the firstmate home you want the bot to serve, and `node` on `PATH`.
 - A Slack workspace where you may create and install an app; some workspaces need an admin to approve the install.
 - Your own Slack member id: open your profile, choose the three-dot menu, and pick "Copy member ID" (it starts with `U`).
-- The id of each channel the bot posts to: open the channel name, and the id (starting with `C`) is at the bottom of the About tab.
+- The id of each channel the bot posts to: open the channel name, and the id (starting with `C` for public channels or `G` for private channels) is at the bottom of the About tab.
   A bot has no scope to look up channels by `#name`, so a bot setup needs channel ids.
 
 ## 1. Create the Slack app

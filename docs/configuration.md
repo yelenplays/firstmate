@@ -1937,8 +1937,9 @@ Replies from anyone else, every bot message (this home's bot and anyone else's),
 A top-level message in the handoff channel from anyone but the captain is delivered as a request note that names its sender and says it is not captain authority; the captain's own handoff-channel messages are requests to other fleets and are not delivered here.
 Slack text is input like any typed captain message and nothing more: it never bypasses merge guards, holds, or the destructive, irreversible, and security-sensitive boundaries.
 
-`slack-axi`'s command line shows authors only by display name, so `bin/fm-slack-read.mjs` reads author ids through `slack-axi`'s own installed client in-process.
+Without a bot, `slack-axi`'s command line shows authors only by display name, so `bin/fm-slack-read.mjs` reads author ids through `slack-axi`'s own installed client in-process.
 It runs only against a `slack-axi` version and module shape it lists as verified; anything else keeps inbound off and reports one line naming the found version, while posting keeps working.
+With a bot configured, `bin/fm-slack-bot.mjs` reads author ids from the Slack Web API instead.
 
 **Posting**
 
