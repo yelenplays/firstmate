@@ -78,6 +78,7 @@ A relaunch does take one session reference when the endpoint's own runtime recor
    A Claude or Pi replacement must also pass the home's [worker account pin](configuration.md#worker-account-pin-configclaude-account-configpi-account), so a pin that no longer resolves or is signed out refuses before the old agent stops.
 2. **Safe checkpoint.**
    The recorded worktree must exist and be a worktree root; its head and dirty state are recorded.
+   For a ship or scout, a worktree that hangs off another clone of the recorded project's repository - a task carried over from another home - is relaunched as it is only when that clone's origin is the same repository (a GitHub transfer or rename counts) and, for a ship, the worktree is still on the task's branch; otherwise relaunch refuses before the old agent stops, and it never moves or re-homes the copy ([`bin/fm-relaunch-worktree-lib.sh`](../bin/fm-relaunch-worktree-lib.sh) owns that proof).
    For a `kind=secondmate` task, the home's identity marker must match and its child records must be readable, so a relaunch can never strand child work behind an unreadable home.
    A secondmate's own crewmates run in their own endpoints and outlive its relaunch; the relaunched secondmate reconciles them from its home's durable records at startup.
 3. **Record the note.**
