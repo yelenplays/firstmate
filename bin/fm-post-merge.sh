@@ -752,11 +752,17 @@ finish_reverted() {
 
 # Open a new revert pull request; never adopt a candidate after interruption.
 ensure_revert_pr() {
-  local number url body
+  local number url body listing
   [ -z "$(rget revert_pr)" ] || return 0
   number=$FM_PR_NUMBER
-  url=$(gh pr list -R "$FM_PR_HOST/$FM_PR_PATH" --state all --limit 100 --json url,headRefName \
-    --jq ".[] | select(.headRefName | startswith(\"revert-$number-\")) | .url" 2>/dev/null | head -1) || url=
+  # A revert is opened only once GitHub has positively answered that no
+  # earlier one exists; a listing error is not an empty listing.
+  listing=$(gh pr list -R "$FM_PR_HOST/$FM_PR_PATH" --state all --limit 100 --json url,headRefName 2>/dev/null) \
+    || die "could not list pull requests to check for an earlier revert of $(rget pr); retry bin/fm-post-merge.sh advance $ID"
+  url=$(printf '%s' "$listing" | jq -r --arg prefix "revert-$number-" '
+    if type != "array" then error("pull request listing is not an array")
+    else [ .[] | select((.headRefName // "") | startswith($prefix)) | .url ] | first // "" end' 2>/dev/null) \
+    || die "could not read the pull request listing while checking for an earlier revert of $(rget pr); retry bin/fm-post-merge.sh advance $ID"
   if [ -n "$url" ]; then
     rset phase=blocked "revert_candidate=$url" "note=interrupted revert candidate needs captain review"
     echo "blocked: found $url while recovering the revert of $(rget pr); it was not adopted or merged"

@@ -33,7 +33,7 @@ W_ID=
 # A fake gh serving pull requests and checks from files under $FAKE_GH_DIR:
 # pr-<n>.json for `gh pr view`, checks-<sha>.json and status-<sha>.json for the
 # commit check endpoints (both empty when absent), and pr-list.json for
-# `gh pr list`. The revert mutation opens pull request 8 on revert-7-feature
+# `gh pr list` (which fails while pr-list-fail exists). The revert mutation opens pull request 8 on revert-7-feature
 # with head $REVERT_SHA and a message naming $MERGE_SHA, or fails when graphql-fail exists.
 write_fake_gh() {  # <fakebin>
   cat > "$1/gh" <<'EOF'
@@ -54,6 +54,7 @@ case "$1 ${2:-}" in
     cat "$f"
     ;;
   "pr list")
+    [ ! -e "$d/pr-list-fail" ] || { echo "HTTP 502: listing unavailable" >&2; exit 1; }
     [ -f "$d/pr-list.json" ] || echo '[]' > "$d/pr-list.json"
     jq -r "$(jq_arg "$@")" "$d/pr-list.json"
     ;;
@@ -465,6 +466,28 @@ test_interrupted_revert_candidate_blocks_for_captain() {
   pass "fm-post-merge: recovery records a candidate and holds for captain review"
 }
 
+test_failed_revert_listing_never_opens_a_duplicate() {
+  local out opened
+  make_pr_world pm-listing-fails on
+  pm arm "$W_ID" >/dev/null 2>&1 || fail "arm refused a merged pull request"
+  set_checks "$MERGE_SHA" build completed failure
+  set_checks "$REVERT_SHA" build queued ""
+  pm advance "$W_ID" >/dev/null 2>&1 || fail "advance failed"
+  grep -v '^revert_pr=' "$W_HOME/state/$W_ID.post-merge" > "$W_FAKE/rec" && cat "$W_FAKE/rec" > "$W_HOME/state/$W_ID.post-merge"
+  opened=$(grep -c '^api graphql' "$W_FAKE/calls")
+  : > "$W_FAKE/pr-list-fail"
+  out=$(pm advance "$W_ID" 2>&1) && fail "a failed revert listing was treated as no earlier revert: $out"
+  assert_contains "$out" "could not list pull requests to check for an earlier revert of $PR_URL" "the listing failure was not reported"
+  assert_equals "$opened" "$(grep -c '^api graphql' "$W_FAKE/calls")" "a failed listing opened a second revert"
+  assert_equals reverting "$(record_field phase)" "a failed listing moved the watch out of reverting"
+  assert_equals "" "$(record_field revert_pr)" "a failed listing recorded a revert"
+  rm -f "$W_FAKE/pr-list-fail"
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance after the listing recovered failed: $out"
+  assert_contains "$out" "blocked: found $REVERT_URL" "the recovered listing did not find the earlier revert"
+  assert_equals "$opened" "$(grep -c '^api graphql' "$W_FAKE/calls")" "the recovered listing opened a second revert"
+  pass "fm-post-merge: a failed revert listing never opens a duplicate revert"
+}
+
 test_newer_failed_run_beats_older_long_running_success() {
   local out
   make_pr_world pm-newest-by-created on
@@ -857,6 +880,7 @@ test_reverted_audit_append_failure_keeps_watch_retryable
 test_revert_refused_by_github_blocks
 test_yolo_off_asks_before_merging_the_revert
 test_interrupted_revert_candidate_blocks_for_captain
+test_failed_revert_listing_never_opens_a_duplicate
 test_newer_failed_run_beats_older_long_running_success
 test_latest_check_result_wins
 test_unknown_completed_check_conclusions_wait
