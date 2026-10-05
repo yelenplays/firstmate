@@ -126,16 +126,17 @@ That it survived being invisible says how rarely it varies, not where it belongs
 
 ### The hinge: pre-publication versus post-publication
 
-Firstmate has no forge property for GitLab.
-Historically, `bin/fm-pr-lib.sh` derived the provider from the merge-request URL *after the fact* and handed it to `glab` for artifact operations; the current `bin/fm-pr-merge.sh` refuses GitLab merges until post-merge watching is supported ([architecture.md](architecture.md) owns that current boundary).
-The URL is still available only after publication, so GitLab remains an example of a post-publication forge signal.
+Firstmate has no forge property for GitLab and has never needed one.
+`bin/fm-pr-lib.sh` derives the provider from the merge-request URL *after the fact*, tagging the stored identity with it, and the work is handed to `glab`; workers create the artifact with the vendor CLI, and `bin/fm-pr-merge.sh` merges through that same CLI.
+Firstmate owns none of the mechanics.
+Every forge decision it makes, it makes with the URL already in hand.
 
 Gerrit breaks that in exactly one way.
 The forge must be known **before** anything is published, because there is no pull request to open.
 A worker cannot be told "push your branch and open a pull request, and we will work out the forge from the URL afterwards": the instruction it needs differs before any URL exists, between a push to `refs/for/<branch>` and a push followed by a `gh-axi` call.
 
 That is the whole of what a `forge=` annotation buys: **a pre-publication signal, where GitLab only ever needed a post-publication one.**
-The URL still supplies GitLab's provider-tagged identity for merge-request polling and state reads, but Firstmate currently refuses GitLab merges because it cannot post-watch their outcome ([architecture.md](architecture.md)).
+Everything downstream of publication - watching, reading state, reporting - continues to work off the provider tag derived from the URL, exactly as it does for GitLab, because by then the URL exists.
 
 ### How the forge is known: detected, then proposed for confirmation
 
@@ -239,8 +240,9 @@ Only the tool half could be changed by writing code, and it guards the tool's ow
 
 ## 5. Where responsibility sits: Firstmate or the forge tool
 
-Start from the division that has historically applied to GitLab artifact creation and reads: Firstmate parses the published URL and delegates provider-specific mechanics to the vendor CLI.
-The current merge boundary is narrower: GitLab merges are refused until post-merge watching is supported, as described in [architecture.md](architecture.md).
+Start from the division that already works.
+For GitLab, Firstmate knows which tool and calls it, the tool knows the forge, and Firstmate owns none of the mechanics.
+Not the artifact's creation, not its URL shape beyond parsing it back into an identity, not the merge command.
 The forge property Firstmate carries for GitLab is no property at all, only a tag read off a URL.
 
 The question this raises for Gerrit is whether the stack-versus-squash glue belongs on the same side of that line.

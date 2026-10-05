@@ -1870,6 +1870,40 @@ test_gitlab_url_resolves_and_merges() {
   pass "fm-pr-merge merges a GitLab merge request through glab instead of refusing it"
 }
 
+# GitLab has no post-merge watch yet: a merge request must still merge, be
+# confirmed landed, and leave nothing that would hold its cleanup open.
+test_gitlab_merge_skips_post_merge_watch() {
+  local case_dir rc merge_line decision
+  case_dir=$(make_gitlab_case gitlab-no-post-merge-watch)
+  mkdir -p "$case_dir/home"
+
+  set +e
+  FM_TEST_HOME="$case_dir/home" run_pr_merge "$case_dir" task-x1 "$MR_URL" \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 0 "$rc" "gitlab-no-post-merge-watch: a GitLab merge request should merge"
+  merge_line=$(glab_merge_line "$case_dir/glab.log")
+  [ "$merge_line" = "GITLAB_HOST=$MR_HOST mr merge 7 -R $MR_PROJECT_URL --sha $MR_HEAD --yes" ] \
+    || fail "gitlab-no-post-merge-watch: unexpected merge invocation: '$merge_line'"
+  [ "$(grep -c -F ' mr view 7 ' "$case_dir/glab.log")" -ge 2 ] \
+    || fail "gitlab-no-post-merge-watch: the landed state was never read back after the merge"
+  assert_grep "$MR_URL" "$case_dir/state/.wake-queue" \
+    "gitlab-no-post-merge-watch: the confirmed merge left no durable landed record"
+  assert_absent "$case_dir/state/task-x1.post-merge" \
+    "gitlab-no-post-merge-watch: a GitLab merge created a post-merge watch record"
+  assert_absent "$case_dir/state/when/when-pm-task-x1.spec" \
+    "gitlab-no-post-merge-watch: a GitLab merge registered a post-merge wait"
+  assert_no_grep 'post_merge_watch_required=' "$case_dir/state/task-x1.meta" \
+    "gitlab-no-post-merge-watch: a GitLab merge left a watch-required marker"
+  decision=$(bash -c '. "$1"; if fm_post_merge_teardown_transition "$2" task-x1 "$3"; then echo "$FM_POST_MERGE_TEARDOWN"; else echo "refuse: $FM_POST_MERGE_TEARDOWN_ERROR"; fi' \
+    _ "$ROOT/bin/fm-post-merge-lib.sh" "$case_dir/state" "$case_dir/state/task-x1.meta")
+  [ "$decision" = close ] \
+    || fail "gitlab-no-post-merge-watch: cleanup did not proceed after the merge: $decision"
+  pass "fm-pr-merge merges and confirms a GitLab merge request with no post-merge watch"
+}
+
 test_gitlab_host_comes_from_the_url() {
   local case_dir rc host path project_url url
   host=gl.self-hosted.example
@@ -2275,23 +2309,23 @@ test_failed_merge_reports_nothing() {
 
 test_gitlab_refusal_reports_nothing() {
   local case_dir rc
-  case_dir=$(make_gitlab_case gitlab-refusal-silent)
+  case_dir=$(make_gitlab_case gitlab-refusal-silent state=merged)
+  mkdir -p "$case_dir/home"
+  printf '%s\n' mate-x >"$case_dir/home/.fm-secondmate-home"
+  printf 'schema=fm-secondmate-parent.v1\nroute=remote\n' >"$case_dir/home/.fm-secondmate-parent"
 
   set +e
-  run_pr_merge "$case_dir" task-x1 "$MR_URL" \
+  FM_TEST_HOME="$case_dir/home" run_pr_merge "$case_dir" task-x1 "$MR_URL" \
     >"$case_dir/stdout" 2>"$case_dir/stderr"
   rc=$?
   set -e
 
-  expect_code 2 "$rc" "gitlab-refusal-silent: unsupported GitLab merge should exit non-zero"
-  assert_grep 'cannot be merged through firstmate until post-merge watching is supported' \
-    "$case_dir/stderr" "the refusal did not explain the unsupported watch path"
-  assert_absent "$case_dir/state/task-x1.post-merge" "GitLab refusal created a watch record"
-  assert_no_grep 'post_merge_watch_required=' "$case_dir/state/task-x1.meta" "GitLab refusal left a stuck marker"
-  assert_no_grep 'mr merge' "$case_dir/glab.log" "GitLab refusal invoked the forge merge"
-  assert_absent "$case_dir/state/parent-replies.status" \
-    "gitlab-refusal-silent: a refused merge request was reported upward"
-  pass "GitLab merge refusal leaves no marker, watch, forge call, or landed report"
+  expect_code 1 "$rc" "gitlab-refusal-silent: a refused GitLab merge should exit non-zero"
+  # Registration succeeds before the later GitLab pre-merge refusal, so the
+  # PR-ready fact is expected; only a merged outcome would be false.
+  assert_no_grep 'merged-task-x1' "$case_dir/state/parent-replies.status" \
+    "gitlab-refusal-silent: a refused merge request was reported as landed"
+  pass "a GitLab merge refused before the forge call reports no outcome"
 }
 
 test_gitlab_merge_reports_upward() {
@@ -2522,7 +2556,18 @@ test_explicit_merge_method_not_overridden
 test_method_equals_merge_method_not_overridden
 test_parses_pr_url_for_gh_axi
 test_github_still_forwards_sha_arg
-test_gitlab_refusal_reports_nothing
+test_gitlab_url_resolves_and_merges
+test_gitlab_merge_skips_post_merge_watch
+test_gitlab_host_comes_from_the_url
+test_gitlab_imposes_no_merge_method
+test_gitlab_extra_args_forwarded
+test_gitlab_merge_failure_propagates
+test_gitlab_each_condition_refuses_independently
+test_gitlab_reports_every_failing_condition
+test_gitlab_stale_recorded_head_is_reported
+test_gitlab_unreadable_state_refuses
+test_gitlab_invalid_head_refuses
+test_gitlab_missing_tool_refuses_before_recording
 
 # The merge gate asks whether the task is still held for the captain. A home
 # that carries no backlog records no captain calls at all, so nothing can be
@@ -3314,7 +3359,7 @@ test_away_branch_refuses_when_record_archived_during_preflight() {
 }
 
 test_away_posture_refuses_asynchronous_merge_paths() {
-  local case_dir rc url head
+  local case_dir rc url head merge_line
   head=abababababababababababababababababababab
   url=https://github.com/example/repo/pull/89
 
@@ -3373,21 +3418,17 @@ test_away_posture_refuses_asynchronous_merge_paths() {
   [ -z "$(glab_merge_line "$case_dir/glab.log")" ] \
     || fail "away-gitlab-configured: glab received a configured asynchronous merge"
 
-  case_dir=$(make_gitlab_case away-gitlab-unsupported)
+  case_dir=$(make_gitlab_case away-gitlab-sync)
   write_away_record "$case_dir" --words 'merge task-x1 when green'
-  set +e
   run_pr_merge "$case_dir" task-x1 "$MR_URL" \
-    > "$case_dir/stdout" 2> "$case_dir/stderr"
-  rc=$?
-  set -e
-  expect_code 2 "$rc" "away-gitlab-unsupported: GitLab merge should refuse without post-merge support"
-  assert_grep 'post-merge watching is supported' "$case_dir/stderr" \
-    "away-gitlab-unsupported: refusal did not explain the missing watcher"
-  assert_no_grep 'post_merge_watch_required=' "$case_dir/state/task-x1.meta" \
-    "away-gitlab-unsupported: refusal left a watch marker"
-  [ -z "$(glab_merge_line "$case_dir/glab.log")" ] \
-    || fail "away-gitlab-unsupported: glab received a merge"
-  pass "away posture permits immediate GitHub merges but GitLab stays refused without its watcher"
+    > "$case_dir/stdout" 2> "$case_dir/stderr" \
+    || fail "away-gitlab-sync: an immediate merge under the record should succeed"
+  merge_line=$(glab_merge_line "$case_dir/glab.log")
+  case "$merge_line" in
+    *" --auto-merge=false") ;;
+    *) fail "away-gitlab-sync: the final glab flag did not force an immediate merge: '$merge_line'" ;;
+  esac
+  pass "away posture permits immediate merges but refuses every asynchronous path"
 }
 
 test_away_record_does_not_bypass_red_or_identity() {
@@ -4006,9 +4047,13 @@ test_allow_missing_follows_the_allow_red_rules() {
   pass "fm-pr-merge --allow-missing is single use, attended-only, and GitHub-only like --allow-red"
 }
 
+test_gitlab_head_override_args_refuse_before_recording
 test_secondmate_merge_reports_upward_once
 test_secondmate_merge_reports_on_the_local_route
+test_gitlab_merge_reports_upward
+test_queued_gitlab_merge_leaves_the_poll_armed
 test_failed_merge_reports_nothing
+test_gitlab_refusal_reports_nothing
 test_main_home_merge_leaves_a_durable_wake
 test_queued_github_merge_leaves_the_poll_armed
 test_distinct_merged_prs_keep_distinct_wakes
