@@ -1078,24 +1078,26 @@ test_daemon_acknowledged_wedge_does_not_mark_warned() {
   echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
 
   (
-    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+    export PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
       FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 \
       FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
       FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=escalate FM_JEV_STUB_WEDGE_CLASS=stalled
     unknown_wake_line() { printf 'unknown wake: already acknowledged'; }
     housekeeping "$state"
   ) || fail "daemon housekeeping failed for acknowledged wedge escalation"
+  [ -s "$dir/jevstub/wedge.args" ] && [ -s "$dir/jevstub/wedge.stdin" ] \
+    || fail "acknowledged wedge path did not consult the Jev stub"
   [ -e "$state/.subsuper-stale-$key" ] || fail "acknowledged wedge escalation cleared its stale marker"
   [ ! -e "$state/$task.jev-wedge-warned" ] || fail "acknowledged wedge escalation marked the class warned"
   [ ! -s "$state/.subsuper-escalations" ] || fail "acknowledged wedge escalation was appended unexpectedly"
 
   echo $(( $(date +%s) - 500 )) > "$state/.subsuper-stale-$key"
   (
-    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+    export PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
       FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 \
       FM_JEV_WEDGE_CHECK_BIN="$fakebin/jev-wedge-stub" \
-      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=escalate FM_JEV_STUB_WEDGE_CLASS=stalled \
-      housekeeping "$state"
+      FM_JEV_STUB_DIR="$dir/jevstub" FM_JEV_STUB_WEDGE_VERDICT=escalate FM_JEV_STUB_WEDGE_CLASS=stalled
+    housekeeping "$state"
   ) || fail "daemon housekeeping failed on subsequent same-class wedge"
   grep -F 'possible wedge, Jev reads stalled' "$state/.subsuper-escalations" >/dev/null \
     || fail "subsequent same-class wedge did not escalate: $(cat "$state/.subsuper-escalations" 2>/dev/null)"

@@ -7891,7 +7891,7 @@ test_reused_window_retires_predecessor_state() {
 }
 
 test_watch_state_lib_retire_bind_and_owner() {
-  local dir state w key marker
+  local dir state w key marker retire_pid waited
   dir=$(make_case watch-state-lib); state="$dir/state"
   w="test:fm-lib"
   # shellcheck source=bin/fm-watch-state-lib.sh
@@ -7935,14 +7935,26 @@ test_watch_state_lib_retire_bind_and_owner() {
   # Task retirement removes the per-incarnation turn anchors and the
   # task-keyed supervision markers only: the status-paired families belong to
   # status_retire_presentation_task.
-  touch "$state/task-a.turn-ended" "$state/task-a.progress" "$state/.seen-task-a_turn-ended" \
-    "$state/.subsuper-stale-task-a" "$state/.subsuper-paused-task-a" \
+  touch "$state/task-a.turn-ended" "$state/task-a.progress" "$state/task-a.jev-wedge-warned" \
+    "$state/.seen-task-a_turn-ended" "$state/.subsuper-stale-task-a" "$state/.subsuper-paused-task-a" \
     "$state/.subsuper-pause-until-due-task-a" "$state/.subsuper-jevsupp-task-a" \
     "$state/.secondmate-wake-stall-task-a" "$state/.secondmate-wake-progress-task-a"
-  mkdir -p "$state/.secondmate-wake-stall-receipts/task-a"
+  mkdir -p "$state/.secondmate-wake-stall-receipts/task-a" "$state/task-a.jev-wedge.lock"
   touch "$state/task-a.status" "$state/.seen-task-a_status"
-  fm_watch_retire_task_state "$state" task-a || fail "fm_watch_retire_task_state failed"
-  for marker in task-a.turn-ended task-a.progress .seen-task-a_turn-ended \
+  ( fm_watch_retire_task_state "$state" task-a && : > "$state/task-a-retired" ) &
+  retire_pid=$!
+  waited=0
+  while [ ! -e "$state/task-a-retired" ] && [ "$waited" -lt 100 ]; do
+    sleep 0.02
+    waited=$((waited + 1))
+  done
+  if [ ! -e "$state/task-a-retired" ]; then
+    kill "$retire_pid" 2>/dev/null || true
+    wait "$retire_pid" 2>/dev/null || true
+    fail "task retirement blocked on the wedge lock"
+  fi
+  wait "$retire_pid" || fail "fm_watch_retire_task_state failed"
+  for marker in task-a.turn-ended task-a.progress task-a.jev-wedge-warned .seen-task-a_turn-ended \
       .subsuper-stale-task-a .subsuper-paused-task-a .subsuper-pause-until-due-task-a \
       .subsuper-jevsupp-task-a \
       .secondmate-wake-stall-task-a .secondmate-wake-progress-task-a; do

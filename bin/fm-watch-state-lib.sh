@@ -173,10 +173,13 @@ EOF
 # mtimes as the recorded-step age, and a relaunched incarnation must never
 # start its clock from a predecessor's stale anchor), the sub-supervisor's
 # per-task stale/pause episode markers, the Jev wedge-check warning ledger
-# (a fresh incarnation must not inherit its predecessor's held warnings), and
-# the parent-side secondmate
-# wake-stall trackers. The raw-id files belong to this task alone and always
-# go. The .subsuper-* families and the turn-end's .seen- name are all derived
+# (a fresh incarnation must not inherit its predecessor's held warnings).
+# Retirement removes the ledger without the wedge lock so spawn and teardown
+# cannot wait on a concurrent warning check. A check already in flight may
+# recreate it; for a reused id this can hold the same-class warning for one
+# window. The parent-side secondmate wake-stall trackers. The raw-id files
+# belong to this task alone and always go. The .subsuper-* families and the
+# turn-end's .seen- name are all derived
 # through lossy flattening, so while a live sibling task's id encodes to the
 # same key they are shared state left untouched - removing them would reset
 # that sibling's declared-wait epoch or make its next turn-end replay.
@@ -185,35 +188,21 @@ EOF
 # outlives one incarnation. Safe at both teardown (task gone) and spawn
 # (fresh incarnation of a reused id or claimed endpoint).
 fm_watch_retire_task_state() {  # <state-dir> <task-id>
-  local state=$1 task=$2 enc wedge_lock
+  local state=$1 task=$2 enc
   [ -n "$task" ] || return 0
-  if ! declare -F fm_lock_acquire_wait >/dev/null 2>&1; then
-    # shellcheck source=bin/fm-wake-lib.sh
-    FM_STATE_OVERRIDE="$state" STATE="$state" . "$(dirname "${BASH_SOURCE[0]}")/fm-wake-lib.sh"
-  fi
-  wedge_lock="$state/$task.jev-wedge.lock"
-  fm_lock_acquire_wait "$wedge_lock" || return 1
   enc=$(fm_watch_state_key "$task")
-  if ! rm -f -- "$state/$task.turn-ended" "$state/$task.progress" \
+  rm -f -- "$state/$task.turn-ended" "$state/$task.progress" \
     "$state/$task.jev-wedge-warned" \
-    "$state/.secondmate-wake-stall-$task" "$state/.secondmate-wake-progress-$task"; then
-    fm_lock_release "$wedge_lock" || true
-    return 1
-  fi
+    "$state/.secondmate-wake-stall-$task" "$state/.secondmate-wake-progress-$task" || return 1
   if [ -d "$state/.secondmate-wake-stall-receipts/$task" ] \
     && ! rm -rf -- "$state/.secondmate-wake-stall-receipts/$task"; then
-    fm_lock_release "$wedge_lock" || true
     return 1
   fi
   if [ -z "$(fm_watch_task_key_live_sharer "$state" "$enc" "$task" || true)" ]; then
-    if ! rm -f -- "$state/.seen-$(printf '%s' "$task.turn-ended" | tr '.' '_')" \
+    rm -f -- "$state/.seen-$(printf '%s' "$task.turn-ended" | tr '.' '_')" \
       "$state/.subsuper-stale-$enc" "$state/.subsuper-paused-$enc" \
-      "$state/.subsuper-pause-until-due-$enc" "$state/.subsuper-jevsupp-$enc"; then
-      fm_lock_release "$wedge_lock" || true
-      return 1
-    fi
+      "$state/.subsuper-pause-until-due-$enc" "$state/.subsuper-jevsupp-$enc" || return 1
   fi
-  fm_lock_release "$wedge_lock"
 }
 
 # Write an owner record atomically. A reader that caught a partial owner line
