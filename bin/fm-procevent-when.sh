@@ -134,6 +134,38 @@ positive_number() {
   [ "$n" != 0 ] && [[ ! "$n" =~ ^0+(\.0+)?$ ]]
 }
 
+existing_arm_matches() {  # <source-id>; called from cmd_arm's dynamic scope
+  local sid=$1 source reg device action_path action_hash expected actual i
+  reg=$(fm_procevent_registry_dir "$STATE")
+  source="$reg/$sid.source"
+  [ -f "$source" ] && [ ! -L "$source" ] || return 1
+  [ ! -e "$(fired_file "$sid")" ] && [ ! -L "$(fired_file "$sid")" ] || return 1
+  device=$(fm_pr_file_device "$reg") || return 1
+  fm_pr_private_file_valid "$source" 600 "$device" || return 1
+  expected=$(printf 'adapter=when\nargc=3\nargv:\n%s\nrun\n%s' "$SCRIPT_DIR/fm-procevent-when.sh" "$sid")
+  actual=$(< "$source") || return 1
+  [ "$actual" = "$expected" ] || return 1
+  action_path=$(action_executable "${act[0]}") || return 1
+  action_hash=$(fm_pr_sha256 "$action_path") || return 1
+  spec_load "$sid" || return 1
+  [ "$SPEC_INTERVAL" = "$interval" ] && [ "$SPEC_STABLE" = "$stable" ] \
+    && [ "$SPEC_DEADLINE" = "$deadline" ] \
+    && [ "$SPEC_CONDITION_TIMEOUT" = "$condition_timeout" ] \
+    && [ "$SPEC_ACTION_TIMEOUT" = "$action_timeout" ] \
+    && [ "$SPEC_ERROR_BUDGET" = "$error_budget" ] \
+    && [ "$SPEC_ACTION_SHA256" = "$action_hash" ] || return 1
+  [ "${#COND_ARGV[@]}" -eq "${#cond[@]}" ] \
+    && [ "${#ACT_ARGV[@]}" -eq "${#act[@]}" ] || return 1
+  [ "${ACT_ARGV[0]}" = "$action_path" ] || return 1
+  for ((i=0; i<${#cond[@]}; i++)); do
+    [ "${COND_ARGV[$i]}" = "${cond[$i]}" ] || return 1
+  done
+  for ((i=1; i<${#act[@]}; i++)); do
+    [ "${ACT_ARGV[$i]}" = "${act[$i]}" ] || return 1
+  done
+  [ "$(fm_procevent_pending "$STATE" | grep -c "/$sid\." || true)" -eq 0 ]
+}
+
 action_executable() {  # <argv-zero>: print the executable's absolute path
   local command=$1 found dir base
   case "$command" in
@@ -192,6 +224,12 @@ cmd_arm() {
   for leftover in "$(spec_file "$sid")" "$(trust_file "$sid")" "$(fired_file "$sid")" \
     "$(fm_procevent_registry_dir "$STATE")/$sid.source"; do
     if [ -e "$leftover" ] || [ -L "$leftover" ]; then
+      if existing_arm_matches "$sid"; then
+        fm_procevent_source_lock_release "$sid"
+        trap - EXIT
+        printf 'armed: %s (existing registration matches)\n' "$sid"
+        return 0
+      fi
       die "watch already exists or left state behind: $leftover (retire it first)"
     fi
   done

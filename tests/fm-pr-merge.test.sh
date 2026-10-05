@@ -196,6 +196,16 @@ case "${1:-} ${2:-}" in
         fi
         exit 0
         ;;
+      *mergeCommit*)
+        if [ -n "${FM_TEST_GH_POSTMERGE_PR_JSON:-}" ] && [ -f "$FM_TEST_GH_POSTMERGE_PR_JSON" ]; then
+          cat "$FM_TEST_GH_POSTMERGE_PR_JSON"
+        else
+          head=$(cat "$FM_TEST_GH_HEAD")
+          printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s","baseRefName":"main","id":"PR_node","title":"test merge"}\n' \
+            "$head" "$head"
+        fi
+        exit 0
+        ;;
       *headRefOid*)
         cat "$FM_TEST_GH_HEAD"
         exit 0
@@ -450,6 +460,14 @@ glab_merge_line() {
   grep -F ' mr merge ' "$1" || true
 }
 
+run_pm_arm() {
+  local case_dir=$1 id=$2
+  FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$case_dir/home" FM_STATE_OVERRIDE="$case_dir/state" \
+    PATH="$case_dir/fakebin:$PATH" FM_TEST_GH_LOG="$case_dir/gh.log" \
+    FM_TEST_GH_HEAD="$case_dir/github-head" FM_TEST_GH_VIEW_JSON="$case_dir/github-view.json" \
+    FAKE_GH_DIR="$case_dir/fakebin" "$ROOT/bin/fm-post-merge.sh" arm "$id"
+}
+
 run_pr_merge() {
   local case_dir=$1 rc; shift
   FM_ROOT_OVERRIDE="$ROOT" \
@@ -561,6 +579,7 @@ test_merge_failure_propagates_after_recording() {
   case_dir=$(make_case merge-fails)
   mkdir -p "$case_dir/wt"
   add_gh_mocks_merge_fails "$case_dir"
+  write_github_outcome "$case_dir" OPEN false false main
   : > "$case_dir/gh-axi.log"
 
   set +e
@@ -1241,16 +1260,43 @@ test_github_failed_merge_names_an_observed_landed_state() {
   rc=$?
   set -e
 
-  expect_code 1 "$rc" "github-failed-merge-actually-landed: the forge failure must still fail the wrapper"
+  expect_code 0 "$rc" "github-failed-merge-actually-landed: a confirmed merge should succeed"
   assert_grep 'error: pr merge failed' "$case_dir/stderr" \
-    "github-failed-merge-actually-landed: the original forge error was masked"
-  assert_grep 'state=MERGED, merged=true, isInMergeQueue=false' "$case_dir/stderr" \
-    "github-failed-merge-actually-landed: the observed landed state was never named"
-  assert_no_grep 'verified: ' "$case_dir/stdout" \
-    "github-failed-merge-actually-landed: a failed merge command was reported as verified"
+    "github-failed-merge-actually-landed: the forge diagnostic was lost"
+  assert_grep 'verified: https://github.com/example/repo/pull/64 is merged' "$case_dir/stdout" \
+    "github-failed-merge-actually-landed: the confirmed merge was not reported"
+  assert_present "$case_dir/state/task-x1.post-merge" \
+    "github-failed-merge-actually-landed: the confirmed merge did not arm its post-merge watch"
+  assert_no_grep 'post_merge_watch_required=' "$case_dir/state/task-x1.meta" \
+    "github-failed-merge-actually-landed: successful watch arming left its pending marker"
   assert_grep 'pr=https://github.com/example/repo/pull/64' "$case_dir/state/task-x1.meta" \
     "github-failed-merge-actually-landed: the landed PR lost its reference"
-  pass "fm-pr-merge names a landed state hiding behind a failed GitHub merge command"
+  pass "fm-pr-merge arms the watch when a failed merge command nevertheless landed"
+}
+
+test_github_failed_merge_landed_watch_arm_failure_keeps_retry() {
+  local case_dir rc
+  case_dir=$(make_case github-failed-merge-landed-watch-arm-failure)
+  add_gh_mocks_merge_fails "$case_dir"
+  write_github_outcome "$case_dir" MERGED true false main
+  printf '%s\n' '- project [no-mistakes witness=invalid] - live product' > "$case_dir/home/data/projects.md"
+
+  set +e
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/65 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "github-failed-merge-landed-watch-arm-failure: failed handoff should remain retryable"
+  assert_grep 'retry: FM_HOME=' "$case_dir/stderr" \
+    "github-failed-merge-landed-watch-arm-failure: arm failure omitted retry environment"
+  assert_grep 'fm-post-merge.sh arm task-x1' "$case_dir/stderr" \
+    "github-failed-merge-landed-watch-arm-failure: arm failure omitted retry command"
+  assert_grep 'post_merge_watch_required=pending' "$case_dir/state/task-x1.meta" \
+    "github-failed-merge-landed-watch-arm-failure: failed handoff cleared its marker"
+  assert_absent "$case_dir/state/task-x1.post-merge" \
+    "github-failed-merge-landed-watch-arm-failure: invalid witness unexpectedly armed the watch"
+  pass "fm-pr-merge prints the watch retry after a confirmed merge cannot arm"
 }
 
 test_github_without_gh_still_uses_gh_axi_merge() {
@@ -1375,28 +1421,100 @@ test_github_closed_unqueued_outcome_omits_retry_flags() {
 }
 
 test_github_queued_outcome_is_verified() {
-  local case_dir rc
+  local case_dir rc url merge_sha head out
   case_dir=$(make_case github-verified-queued)
   mkdir -p "$case_dir/wt"
-  add_gh_mocks "$case_dir" 3030303030303030303030303030303030303030
+  head=3030303030303030303030303030303030303030
+  merge_sha=4040404040404040404040404040404040404040
+  url=https://github.com/example/repo/pull/53
+  add_gh_mocks "$case_dir" "$head"
   write_github_outcome "$case_dir" OPEN false true master
+  printf '{"state":"OPEN","isInMergeQueue":true,"mergeCommit":null,"headRefOid":"%s","baseRefName":"main","id":"PR_node","title":"queued change"}\n' \
+    "$head" > "$case_dir/postmerge-pr.json"
   : > "$case_dir/gh-axi.log"
   : > "$case_dir/gh.log"
 
   set +e
-  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/53 --attended-override -- --auto --merge \
+  FM_TEST_GH_POSTMERGE_PR_JSON="$case_dir/postmerge-pr.json" run_pr_merge "$case_dir" task-x1 "$url" --attended-override -- --auto --merge \
     > "$case_dir/stdout" 2> "$case_dir/stderr"
   rc=$?
   set -e
 
   expect_code 0 "$rc" "github-verified-queued: a queued PR should succeed"
-  assert_grep 'verified: https://github.com/example/repo/pull/53 is queued' \
-    "$case_dir/stdout" "github-verified-queued: success was not reported as queued"
-  assert_no_grep 'merged:' "$case_dir/stdout" \
-    "github-verified-queued: the forge CLI's unverified merged report leaked through"
-  assert_grep 'pr=https://github.com/example/repo/pull/53' "$case_dir/state/task-x1.meta" \
+  assert_grep "verified: $url is queued" "$case_dir/stdout" \
+    "github-verified-queued: success was not reported as queued"
+  assert_grep 'armed: post-merge watch for queued' "$case_dir/stdout" \
+    "github-verified-queued: the queued PR did not arm its watch"
+  assert_grep "pr=$url" "$case_dir/state/task-x1.meta" \
     "github-verified-queued: the queued PR was not recorded for teardown"
-  pass "fm-pr-merge accepts and accurately reports a GitHub merge-queue entry"
+  assert_present "$case_dir/state/when/when-pm-task-x1.spec" \
+    "github-verified-queued: the scheduler wait was not registered"
+
+  out=$(FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$case_dir/home" FM_STATE_OVERRIDE="$case_dir/state" \
+    PATH="$case_dir/fakebin:$PATH" FM_TEST_GH_LOG="$case_dir/gh.log" \
+    FM_TEST_GH_POSTMERGE_PR_JSON="$case_dir/postmerge-pr.json" \
+    "$ROOT/bin/fm-post-merge.sh" advance task-x1 2>&1) \
+    || fail "github-verified-queued: advancing while queued failed: $out"
+  assert_contains "$out" 'remains in GitHub' "github-verified-queued: the watcher did not wait on the queue"
+  assert_present "$case_dir/state/task-x1.post-merge" \
+    "github-verified-queued: the watcher dropped its durable record"
+
+  printf '{"state":"MERGED","isInMergeQueue":false,"mergeCommit":{"oid":"%s"},"headRefOid":"%s","baseRefName":"main","id":"PR_node","title":"queued change"}\n' \
+    "$merge_sha" "$head" > "$case_dir/postmerge-pr.json"
+  printf '%s\n' "$merge_sha" > "$case_dir/github-head"
+  printf '{"check_runs":[]}' > "$case_dir/github-runs.json"
+  set +e
+  out=$(FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$case_dir/home" FM_STATE_OVERRIDE="$case_dir/state" \
+    PATH="$case_dir/fakebin:$PATH" FM_TEST_GH_LOG="$case_dir/gh.log" \
+    FM_TEST_GH_HEAD="$case_dir/github-head" FM_TEST_GH_RUNS="$case_dir/github-runs.json" \
+    FM_TEST_GH_RULES="$case_dir/github-rules" FM_TEST_GH_POSTMERGE_PR_JSON="$case_dir/postmerge-pr.json" \
+    FM_TEST_GH_BRANCH="$case_dir/github-branch.json" FM_TEST_GH_REQUIRED_RULES="$case_dir/github-required-rules.json" \
+    "$ROOT/bin/fm-post-merge.sh" checks task-x1 --settled 2>&1)
+  rc=$?
+  set -e
+  expect_code 1 "$rc" "github-verified-queued: empty checks should stay pending during grace"
+  assert_grep "merge_commit=$merge_sha" "$case_dir/state/task-x1.post-merge" \
+    "github-verified-queued: scheduler condition did not durably bind the landed merge"
+
+  printf '{"check_runs":[{"name":"ci","status":"in_progress","conclusion":null}]}' > "$case_dir/github-runs.json"
+  out=$(FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$case_dir/home" FM_STATE_OVERRIDE="$case_dir/state" \
+    PATH="$case_dir/fakebin:$PATH" FM_TEST_GH_LOG="$case_dir/gh.log" \
+    FM_TEST_GH_HEAD="$case_dir/github-head" FM_TEST_GH_RUNS="$case_dir/github-runs.json" \
+    FM_TEST_GH_RULES="$case_dir/github-rules" FM_TEST_GH_POSTMERGE_PR_JSON="$case_dir/postmerge-pr.json" \
+    FM_TEST_GH_BRANCH="$case_dir/github-branch.json" FM_TEST_GH_REQUIRED_RULES="$case_dir/github-required-rules.json" \
+    "$ROOT/bin/fm-post-merge.sh" advance task-x1 2>&1) \
+    || fail "github-verified-queued: advancing after the merge failed: $out"
+  assert_contains "$out" "waiting: checks on merge commit ${merge_sha:0:12}" \
+    "github-verified-queued: the watch did not advance to the merge commit's checks"
+  assert_grep "merge_commit=$merge_sha" "$case_dir/state/task-x1.post-merge" \
+    "github-verified-queued: the watch did not bind the eventual merge commit"
+  pass "fm-pr-merge arms queued PRs and follows them through merge-commit checks"
+}
+
+test_github_nonzero_queued_outcome_arms_watch() {
+  local case_dir rc head url
+  case_dir=$(make_case github-nonzero-queued)
+  mkdir -p "$case_dir/wt"
+  head=4545454545454545454545454545454545454545
+  url=https://github.com/example/repo/pull/45
+  add_gh_mocks_merge_fails "$case_dir" "$head"
+  write_github_outcome "$case_dir" OPEN false true main
+  printf '{"state":"OPEN","isInMergeQueue":true,"mergeCommit":null,"headRefOid":"%s","baseRefName":"main","id":"PR_node","title":"queued change"}\n' \
+    "$head" > "$case_dir/postmerge-pr.json"
+  : > "$case_dir/gh-axi.log"
+
+  set +e
+  FM_TEST_GH_POSTMERGE_PR_JSON="$case_dir/postmerge-pr.json" run_pr_merge "$case_dir" task-x1 "$url" --attended-override -- --auto --merge \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 0 "$rc" "github-nonzero-queued: a proven queued request should be accepted"
+  assert_present "$case_dir/state/when/when-pm-task-x1.spec" \
+    "github-nonzero-queued: the nonzero merge command's queued PR was not watched"
+  assert_no_grep 'post_merge_watch_required=' "$case_dir/state/task-x1.meta" \
+    "github-nonzero-queued: successful arm did not clear the watch marker"
+  pass "fm-pr-merge arms a queued PR even when the merge command exits nonzero"
 }
 
 test_github_queue_required_refusal_names_retry_flags() {
@@ -1750,6 +1868,40 @@ test_gitlab_url_resolves_and_merges() {
     "gitlab-merges: the verified head was not reported"
   [ ! -s "$case_dir/gh-axi.log" ] || fail "gitlab-merges: a merge request reached the GitHub CLI"
   pass "fm-pr-merge merges a GitLab merge request through glab instead of refusing it"
+}
+
+# GitLab has no post-merge watch yet: a merge request must still merge, be
+# confirmed landed, and leave nothing that would hold its cleanup open.
+test_gitlab_merge_skips_post_merge_watch() {
+  local case_dir rc merge_line decision
+  case_dir=$(make_gitlab_case gitlab-no-post-merge-watch)
+  mkdir -p "$case_dir/home"
+
+  set +e
+  FM_TEST_HOME="$case_dir/home" run_pr_merge "$case_dir" task-x1 "$MR_URL" \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 0 "$rc" "gitlab-no-post-merge-watch: a GitLab merge request should merge"
+  merge_line=$(glab_merge_line "$case_dir/glab.log")
+  [ "$merge_line" = "GITLAB_HOST=$MR_HOST mr merge 7 -R $MR_PROJECT_URL --sha $MR_HEAD --yes" ] \
+    || fail "gitlab-no-post-merge-watch: unexpected merge invocation: '$merge_line'"
+  [ "$(grep -c -F ' mr view 7 ' "$case_dir/glab.log")" -ge 2 ] \
+    || fail "gitlab-no-post-merge-watch: the landed state was never read back after the merge"
+  assert_grep "$MR_URL" "$case_dir/state/.wake-queue" \
+    "gitlab-no-post-merge-watch: the confirmed merge left no durable landed record"
+  assert_absent "$case_dir/state/task-x1.post-merge" \
+    "gitlab-no-post-merge-watch: a GitLab merge created a post-merge watch record"
+  assert_absent "$case_dir/state/when/when-pm-task-x1.spec" \
+    "gitlab-no-post-merge-watch: a GitLab merge registered a post-merge wait"
+  assert_no_grep 'post_merge_watch_required=' "$case_dir/state/task-x1.meta" \
+    "gitlab-no-post-merge-watch: a GitLab merge left a watch-required marker"
+  decision=$(bash -c '. "$1"; if fm_post_merge_teardown_transition "$2" task-x1 "$3"; then echo "$FM_POST_MERGE_TEARDOWN"; else echo "refuse: $FM_POST_MERGE_TEARDOWN_ERROR"; fi' \
+    _ "$ROOT/bin/fm-post-merge-lib.sh" "$case_dir/state" "$case_dir/state/task-x1.meta")
+  [ "$decision" = close ] \
+    || fail "gitlab-no-post-merge-watch: cleanup did not proceed after the merge: $decision"
+  pass "fm-pr-merge merges and confirms a GitLab merge request with no post-merge watch"
 }
 
 test_gitlab_host_comes_from_the_url() {
@@ -2138,6 +2290,7 @@ test_failed_merge_reports_nothing() {
   local case_dir rc
   case_dir=$(make_home_case failed-merge-silent remote)
   add_gh_mocks_merge_fails "$case_dir"
+  write_github_outcome "$case_dir" OPEN false false main
   : >"$case_dir/gh-axi.log"
 
   set +e
@@ -2385,11 +2538,13 @@ test_github_failed_merge_never_claims_armed_auto_merge
 test_github_failed_merge_with_queue_flags_never_claims_acceptance
 test_github_failed_gh_read_falls_back_to_gh_axi
 test_github_failed_merge_names_an_observed_landed_state
+test_github_failed_merge_landed_watch_arm_failure_keeps_retry
 test_github_without_gh_still_uses_gh_axi_merge
 test_github_without_gh_failed_read_keeps_bookkeeping
 test_github_merged_outcome_is_verified
 test_github_verified_merge_requires_poll_recording
 test_github_queued_outcome_is_verified
+test_github_nonzero_queued_outcome_arms_watch
 test_github_queue_required_refusal_names_retry_flags
 test_extra_merge_args_forwarded
 test_missing_meta_refuses_before_merge
@@ -2402,6 +2557,7 @@ test_method_equals_merge_method_not_overridden
 test_parses_pr_url_for_gh_axi
 test_github_still_forwards_sha_arg
 test_gitlab_url_resolves_and_merges
+test_gitlab_merge_skips_post_merge_watch
 test_gitlab_host_comes_from_the_url
 test_gitlab_imposes_no_merge_method
 test_gitlab_extra_args_forwarded
@@ -2418,6 +2574,64 @@ test_gitlab_missing_tool_refuses_before_recording
 # held and the merge must proceed; a backlog that EXISTS but cannot be read may
 # hide a live hold, so that one must refuse. The two states are distinct and
 # only the second is a refusal.
+test_revert_merge_skips_post_merge_watch() {
+  local case_dir head url
+  case_dir=$(make_case revert-no-new-watch)
+  head=6464646464646464646464646464646464646464
+  url=https://github.com/example/repo/pull/64
+  add_gh_mocks "$case_dir" "$head"
+  cat > "$case_dir/state/task-x1.post-merge" <<EOF
+version=fm-post-merge-v1
+task=task-x1
+kind=pr
+phase=reverting
+merge_commit=1111111111111111111111111111111111111111
+revert_pr=$url
+EOF
+
+  run_pr_merge "$case_dir" task-x1 "$url" >"$case_dir/stdout" 2>"$case_dir/stderr" \
+    || fail "the confirmed revert merge was treated as an ordinary merge"
+  assert_logged_gh_merge "$case_dir" 64 example/repo --squash
+  assert_grep 'phase=reverting' "$case_dir/state/task-x1.post-merge" "the revert's owning watch was changed"
+  assert_no_grep 'post_merge_watch_required=' "$case_dir/state/task-x1.meta" "the revert created a new handoff marker"
+  assert_absent "$case_dir/state/when/when-pm-task-x1.spec" "the revert merge armed a new post-merge watch"
+  pass "fm-pr-merge confirms a revert without arming another post-merge watch"
+}
+
+test_arm_failure_keeps_pr_merge_watch_marker_for_retry() {
+  local case_dir rc out decision
+  case_dir=$(make_case pr-watch-arm-failure)
+  add_gh_mocks "$case_dir" 6161616161616161616161616161616161616161
+  printf '%s\n' '- project [no-mistakes witness=invalid] - live product' > "$case_dir/home/data/projects.md"
+  set +e
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 >"$case_dir/stdout" 2>"$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 1 "$rc" "pr-watch-arm-failure: merge did not fail when its watch could not arm"
+  assert_logged_gh_merge "$case_dir" 61 example/repo --squash
+  assert_grep 'post_merge_watch_required=pending' "$case_dir/state/task-x1.meta" "the failed handoff dropped its marker"
+  assert_grep 'retry: FM_HOME=' "$case_dir/stderr" "the failure omitted its retry environment"
+  assert_grep 'fm-post-merge.sh arm task-x1' "$case_dir/stderr" "the failure omitted its retry command"
+  decision=$(bash -c '. "$1"; if fm_post_merge_teardown_transition "$2" task-x1 "$3"; then echo "$FM_POST_MERGE_TEARDOWN"; else echo "refuse: $FM_POST_MERGE_TEARDOWN_ERROR"; fi' \
+    _ "$ROOT/bin/fm-post-merge-lib.sh" "$case_dir/state" "$case_dir/state/task-x1.meta")
+  assert_contains "$decision" 'pending post-merge watch marker' "teardown accepted a missing watch"
+  printf '%s\n' '- project [no-mistakes witness=https://example.test] - live product' > "$case_dir/home/data/projects.md"
+  out=$(run_pm_arm "$case_dir" task-x1 2>&1) || fail "retry did not arm the PR watch: $out"
+  assert_present "$case_dir/state/task-x1.post-merge" "retry did not create the watch"
+  assert_no_grep 'post_merge_watch_required=' "$case_dir/state/task-x1.meta" "retry did not clear the marker after recording the watch"
+  pass "fm-pr-merge: failed watch handoff stays blocked until the exact arm retry succeeds"
+}
+
+test_pr_watch_marker_without_record_blocks_teardown() {
+  local case_dir decision
+  case_dir=$(make_case pr-watch-interrupted)
+  printf 'post_merge_watch_required=pending\n' >> "$case_dir/state/task-x1.meta"
+  decision=$(bash -c '. "$1"; if fm_post_merge_teardown_transition "$2" task-x1 "$3"; then echo "$FM_POST_MERGE_TEARDOWN"; else echo "refuse: $FM_POST_MERGE_TEARDOWN_ERROR"; fi' \
+    _ "$ROOT/bin/fm-post-merge-lib.sh" "$case_dir/state" "$case_dir/state/task-x1.meta")
+  assert_contains "$decision" 'pending post-merge watch marker' "teardown accepted an interrupted PR handoff"
+  pass "fm-pr-merge: an interrupted handoff marker prevents cleanup"
+}
+
 test_absent_backlog_still_merges() {
   local case_dir rc
   case_dir=$(make_case absent-backlog-merges)
@@ -2436,7 +2650,8 @@ test_absent_backlog_still_merges() {
   assert_no_grep 'held for the captain' "$case_dir/stderr" \
     "absent-backlog-merges: an absent backlog was read as a captain hold"
   assert_logged_gh_merge "$case_dir" 61 example/repo --squash
-  pass "fm-pr-merge proceeds when the home carries no backlog at all"
+  assert_present "$case_dir/state/task-x1.post-merge" "a confirmed PR merge did not arm its post-merge watch"
+  pass "fm-pr-merge proceeds and arms a post-merge watch without a backlog"
 }
 
 test_unreadable_backlog_refuses_the_merge() {
@@ -3844,6 +4059,9 @@ test_queued_github_merge_leaves_the_poll_armed
 test_distinct_merged_prs_keep_distinct_wakes
 test_uncommitted_marker_retry_is_never_silent
 test_secondmate_without_parent_binding_is_loud
+test_arm_failure_keeps_pr_merge_watch_marker_for_retry
+test_pr_watch_marker_without_record_blocks_teardown
+test_revert_merge_skips_post_merge_watch
 test_absent_backlog_still_merges
 test_unreadable_backlog_refuses_the_merge
 test_unreadable_backend_config_refuses_the_merge

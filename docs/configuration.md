@@ -93,6 +93,7 @@ Each effective `FM_HOME` contains private operational directories.
 - Private secondmate config-reread generations with their retry and quarantine state.
 - Per-task steering-inbox records under `state/<id>.inbox/` (`bin/fm-task-inbox-lib.sh`).
 - Parent-owned secondmate pending-reply records under `state/pending-replies/` (`bin/fm-pending-reply-lib.sh`).
+- Per-task post-merge watch records at `state/<id>.post-merge` and pending handoff markers in task metadata (`bin/fm-post-merge-lib.sh`); reverted outcomes are appended to `state/jev-merge.jsonl`.
 
 `config/` holds local gitignored operating choices, including explicit extension bindings under `config/extensions.d/`.
 
@@ -261,6 +262,31 @@ tests/fm-hermes-agent.test.sh
 ```
 
 The suite uses a local fake HTTP server on the pinned loopback port and never authenticates to or submits work to a live Hermes Agent.
+
+## Post-merge witness target (data/projects.md)
+
+Live-site and team project rows register the URL a fresh post-merge witness must use with a `witness=<http(s) URL>` token inside the existing mode bracket, for example:
+
+```text
+- widget [no-mistakes +yolo witness=https://widget.example.com] - production site
+```
+
+`bin/fm-project-mode.sh --witness <project-name>` returns that URL. Both merge entrypoints use it to arm a witness watch; callers cannot waive a registered witness with `--no-witness`, and a watch with a missing required target cannot clear after green checks. Projects without the token remain eligible for the audited `--no-witness <reason>` disposition. Local-only landings have no remote default-branch checks and are exempt from that check watch.
+
+## Witness logins (config/witness-logins.env)
+
+A post-merge witness (`bin/fm-post-merge.sh witness-task`) that must sign in to the product it checks types its logins by name through `bin/fm-witness-login.sh`, which is the single owner of reading this file, filling a field, and redacting values from the browser tool's output.
+The file is optional, home-local, and never tracked; without it a witness has no logins and reports a step that needs one as not confirmed.
+It holds one `NAME=value` line per login, where the name is upper case letters, digits, and underscores starting with a letter:
+
+```text
+SHOP_ADMIN_EMAIL=witness@example.com
+SHOP_ADMIN_PASSWORD=<test account password>
+```
+
+It must be a regular file owned by the operator with mode `0600`; anything else is refused.
+Use test accounts only, never a real customer's login.
+The witness learns only the names, and every value is shown back to it as `<secret>NAME</secret>`.
 
 ## Pi supervision branch
 

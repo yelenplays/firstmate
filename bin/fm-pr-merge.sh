@@ -95,6 +95,9 @@
 # reported rather than trusted, because a rebase moves the head and leaves the
 # recorded value stale. Reading that state needs glab and jq, and either one
 # absent stops the merge before any state is recorded.
+# A GitHub merge arms bin/fm-post-merge.sh's watch; a GitLab merge has no
+# post-merge watch yet, so it never sets the watch-required marker and is
+# confirmed landed only by the read below.
 #
 # Before either forge merge, the task's existing per-task control lock
 # serializes the captain-hold check through the forge command. A still-held or
@@ -373,6 +376,8 @@ META="$STATE/$ID.meta"
 
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+# shellcheck source=bin/fm-post-merge-lib.sh
+. "$SCRIPT_DIR/fm-post-merge-lib.sh"
 # Role partition: merging is MAIN-owned while attended; the Pi supervision
 # branch reports the green PR and never merges (contract: bin/fm-lease-lib.sh;
 # no-op in homes without a branch actor). While the away-posture record exists
@@ -1338,6 +1343,30 @@ require_current_away_authority || away_status=$?
 require_recorded_pr_identity || exit 1
 record_pr_metadata || exit 1
 require_released_captain_hold || exit 1
+POST_MERGE_REVERT=false
+post_merge_record=$(fm_post_merge_record_path "$STATE" "$ID")
+if [ -f "$post_merge_record" ] && [ ! -L "$post_merge_record" ] \
+  && [ "$(fm_post_merge_record_get "$post_merge_record" version)" = fm-post-merge-v1 ] \
+  && [ "$(fm_post_merge_record_get "$post_merge_record" kind)" = pr ] \
+  && [ "$(fm_post_merge_record_get "$post_merge_record" phase)" = reverting ] \
+  && [ "$(fm_post_merge_record_get "$post_merge_record" revert_pr)" = "$URL" ]; then
+  POST_MERGE_REVERT=true
+fi
+if [ -n "$(fm_post_merge_record_get "$META" post_merge_watch_required)" ]; then
+  echo "error: task $ID has a pending post-merge watch; retry bin/fm-post-merge.sh arm $ID instead of merging again" >&2
+  exit 1
+fi
+
+arm_post_merge_watch() {
+  local outcome=$1 arm_out
+  arm_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-post-merge.sh" arm "$ID" 2>&1) || {
+    printf 'error: %s %s but post-merge watch could not be armed: %s\n' "$outcome" "$URL" "$arm_out" >&2
+    printf 'retry: FM_HOME=%q FM_STATE_OVERRIDE=%q %q arm %q\n' \
+      "$FM_HOME" "$STATE" "$SCRIPT_DIR/fm-post-merge.sh" "$ID" >&2
+    return 1
+  }
+  printf '%s\n' "$arm_out"
+}
 
 # Accepted confused-agent-grade limitation, as in bin/fm-lease-lib.sh, not an
 # oversight: if this lock-owning shell dies while its gh or glab child lives,
@@ -1387,7 +1416,14 @@ case "$PROVIDER" in
     require_current_away_authority || away_status=$?
     [ "$away_status" -eq 0 ] || exit "$away_status"
     refuse_github_queue_while_away || exit 2
+    if [ "$POST_MERGE_REVERT" != true ]; then
+      fm_post_merge_watch_required_set "$STATE" "$META" pending || {
+        echo "error: could not persist the post-merge watch marker; refusing to merge" >&2
+        exit 1
+      }
+    fi
     merge_status=0
+    merge_outcome_read=false
     merge_output=$(fm_gh_owner_run "$PR_OWNER" gh pr merge "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" \
       --match-head-commit "$FM_PR_MERGE_HEAD" \
       "${merge_args[@]+"${merge_args[@]}"}" "$@" 2>&1) || merge_status=$?
@@ -1403,16 +1439,30 @@ case "$PROVIDER" in
       MERGE_CONTROL_LOCK=
       [ -z "$merge_output" ] || printf '%s\n' "$merge_output" >&2
       if github_read_outcome; then
-        if [ "$FM_PR_GITHUB_MERGED" != true ] && [ "$FM_PR_GITHUB_QUEUED" != true ]; then
+        if [ "$FM_PR_GITHUB_QUEUED" = true ]; then
+          [ "$POST_MERGE_REVERT" != true ] || {
+            echo "error: revert $URL entered the merge queue but is not merged; retry bin/fm-post-merge.sh advance $ID after it lands" >&2
+            exit 1
+          }
+          FM_PR_GITHUB_MERGE_ACCEPTED=true
+          persist_accepted_merge_authority || exit 1
+          printf 'verified: %s is queued (state=%s, merged=%s, isInMergeQueue=%s)\n' \
+            "$URL" "$FM_PR_GITHUB_STATE" "$FM_PR_GITHUB_MERGED" "$FM_PR_GITHUB_QUEUED"
+          arm_post_merge_watch queued || exit 1
+          exit 0
+        elif [ "$FM_PR_GITHUB_MERGED" != true ]; then
+          fm_post_merge_watch_required_set "$STATE" "$META" '' || true
           github_report_unmerged_outcome
         else
-          printf 'actionable: the merge command for %s failed, but the pull request reads back as state=%s, merged=%s, isInMergeQueue=%s\n' \
-            "$URL" "$FM_PR_GITHUB_STATE" "$FM_PR_GITHUB_MERGED" "$FM_PR_GITHUB_QUEUED" >&2
+          FM_PR_GITHUB_MERGE_ACCEPTED=true
+          persist_accepted_merge_authority || exit 1
+          merge_outcome_read=true
+          merge_status=0
         fi
       fi
-      exit "$merge_status"
+      [ "$merge_status" -eq 0 ] || exit "$merge_status"
     fi
-    if ! github_read_outcome; then
+    if [ "$merge_outcome_read" != true ] && ! github_read_outcome; then
       github_report_forge_output "$merge_output"
       exit 1
     fi
@@ -1420,10 +1470,19 @@ case "$PROVIDER" in
       printf 'verified: %s is merged (state=%s, merged=%s, isInMergeQueue=%s)\n' \
         "$URL" "$FM_PR_GITHUB_STATE" "$FM_PR_GITHUB_MERGED" "$FM_PR_GITHUB_QUEUED"
     elif [ "$FM_PR_GITHUB_QUEUED" = true ]; then
+      [ "$POST_MERGE_REVERT" != true ] || {
+        echo "error: revert $URL entered the merge queue but is not merged; retry bin/fm-post-merge.sh advance $ID after it lands" >&2
+        exit 1
+      }
       printf 'verified: %s is queued (state=%s, merged=%s, isInMergeQueue=%s)\n' \
         "$URL" "$FM_PR_GITHUB_STATE" "$FM_PR_GITHUB_MERGED" "$FM_PR_GITHUB_QUEUED"
+      arm_post_merge_watch queued || exit 1
       exit 0
     else
+      fm_post_merge_watch_required_set "$STATE" "$META" '' || {
+        echo "error: $URL is not merged and its post-merge marker could not be cleared" >&2
+        exit 1
+      }
       github_report_forge_output "$merge_output"
       github_report_unmerged_outcome
       exit 1
@@ -1484,3 +1543,9 @@ case "$outcome_rc" in
     printf 'actionable: merged %s but could not record the outcome for supervision\n' "$URL" >&2
     ;;
 esac
+if [ "$POST_MERGE_REVERT" = true ]; then
+  printf 'revert merged: %s\n' "$URL"
+elif [ "$PROVIDER" = github ]; then
+  # GitLab has no post-merge watch yet; its confirmed merge ends here.
+  arm_post_merge_watch merged || exit 1
+fi

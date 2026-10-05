@@ -117,6 +117,9 @@ case "${1:-} ${2:-}" in
       *statusCheckRollup*)
         printf '%s\n' '{"state":"OPEN","isDraft":false,"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","headRefOid":"1111111111111111111111111111111111111111","baseRefName":"main","statusCheckRollup":[{"__typename":"CheckRun","name":"ci","status":"COMPLETED","conclusion":"SUCCESS"}]}'
         ;;
+      *mergeCommit*)
+        printf '%s\n' '{"state":"MERGED","mergeCommit":{"oid":"2222222222222222222222222222222222222222"},"headRefOid":"1111111111111111111111111111111111111111","baseRefName":"main","id":"PR_fixture","title":"fixture"}'
+        ;;
       *headRefOid*) printf '%s\n' 1111111111111111111111111111111111111111 ;;
     esac
     ;;
@@ -152,6 +155,16 @@ run_pr_merge() {  # <home> <id> <url>
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" FM_TEST_GH_LOG="$home/gh.log" \
     FM_TEST_GH_AXI_LOG="$home/gh-axi.log" "$ROOT/bin/fm-pr-merge.sh" "$@"
+}
+
+complete_watch_fixture() {  # <home> <task-id>
+  local home=$1 id=$2 meta="$1/state/$2.meta" generation
+  generation=$(sed -n 's/^spawn_gen=//p' "$meta")
+  [ -n "$generation" ] || fail "watch fixture has no task incarnation"
+  printf 'version=fm-post-merge-v1\ntask=%s\nspawn_gen=%s\nphase=clear\n' \
+    "$id" "$generation" > "$home/state/$id.post-merge"
+  chmod 0600 "$home/state/$id.post-merge"
+  awk '!/^post_merge_watch_required=/' "$meta" > "$meta.next" && mv "$meta.next" "$meta"
 }
 
 wait_for_test_file() {  # <path> <pid>
@@ -3881,7 +3894,7 @@ SH
   local_release="$local_home/local-validation-release"
   cat > "$local_home/fakebin/git" <<'SH'
 #!/usr/bin/env bash
-if [ "$*" = "-C ${FM_TEST_RACE_REPO:-} rev-parse --short main" ]; then
+if [ "$*" = "-C ${FM_TEST_RACE_REPO:-} rev-parse main" ]; then
   output=$("$FM_TEST_REAL_GIT" "$@") || exit $?
   : > "$FM_TEST_RACE_READY"
   while [ ! -e "$FM_TEST_RACE_RELEASE" ]; do sleep 0.01; done
@@ -3969,6 +3982,7 @@ test_released_merge_passes_the_entrypoint_and_lands() {
     "the approved merge remained captain-held after its release"
   run_pr_merge "$home" "$id" "$pr" > "$home/merge.out" 2> "$home/merge.err" \
     || fail "the released merge was refused: $(cat "$home/merge.err")"
+  complete_watch_fixture "$home" "$id"
   PATH="$home/fakebin:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" "$TEARDOWN" "$id" --force \
