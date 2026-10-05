@@ -676,6 +676,14 @@
     {
       "path": ".agents/skills/validation-supervision/SKILL.md",
       "audience": "agent-runtime"
+    },
+    {
+      "path": "themes/ny-trenches/banner.txt",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": "themes/ny-trenches/voice.md",
+      "audience": "agent-runtime"
     }
   ]
 }

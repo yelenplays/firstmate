@@ -444,7 +444,7 @@ family_for_basename() {
     fm-project-origin.test.sh|fm-public-followup.test.sh|fm-quota-choose.test.sh|\
     fm-remote-entrypoint.test.sh|fm-remote-secondmate-parent-binding.test.sh|\
     fm-send-remote-delivery.test.sh|fm-spawn-pool-base-freshen.test.sh|\
-    fm-test-fixture-cleanup.test.sh|fm-test-fixtures.test.sh|\
+    fm-test-fixture-cleanup.test.sh|fm-test-fixtures.test.sh|fm-theme.test.sh|\
     fm-voice-relay.test.sh|fm-wake-drain-open-decisions-cursor.test.sh|\
     fm-wake-drain-open-decisions.test.sh|fm-wake-drain-outcome-backstop.test.sh)
       printf '%s\n' standalone
@@ -929,6 +929,7 @@ tests/fm-teardown.test.sh 202132
 tests/fm-test-fixture-cleanup.test.sh 866
 tests/fm-test-fixtures.test.sh 1802
 tests/fm-test-isolation-proof.test.sh 2866
+tests/fm-theme.test.sh 2870
 tests/fm-timeout-lib.test.sh 10750
 tests/fm-tmux-agent-liveness.test.sh 3770
 tests/fm-tool-update-check.test.sh 14383
@@ -1650,6 +1651,13 @@ families_for_changed_path() {
       ;;
     bin/fm-wiki-ask.sh)
       printf '%s\n' "__script__:fm-wiki-ask.test.sh"
+      ;;
+    bin/fm-theme.sh|themes/*)
+      # The theme resolver and its packs render into the session-start digest
+      # and the human fleet view, so both consumers' suites re-run with it.
+      printf '%s\n' "__script__:fm-theme.test.sh"
+      printf '%s\n' "__script__:fm-session-start.test.sh"
+      printf '%s\n' "__script__:fm-fleet-snapshot-view.test.sh"
       ;;
     bin/fm-env-lib.sh)
       # The one .env accessor, sourced by bin/fm-x-lib.sh (Relay token) and

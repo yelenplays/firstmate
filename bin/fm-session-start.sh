@@ -70,6 +70,10 @@
 #                       data/captain-shared.md, and data/learnings.md. A slim
 #                       compact re-emit names these sources and the command to
 #                       print the full report instead of reading their bodies.
+#                       When config/theme selects a theme pack, a THEME section
+#                       follows with the pack's chat voice (bin/fm-theme.sh
+#                       digest), plus its banner on a fresh start; the built-in
+#                       default prints no THEME section at all.
 #                       This stage is always read-only.
 #   9. closing reminder - prints the context-specific watcher next step; this
 #                       script points back to the emitted harness supervision
@@ -1142,6 +1146,17 @@ print_file_or_absent "$DATA/secondmates.md" "data/secondmates.md"
 print_file_or_absent "$DATA/captain.md" "data/captain.md"
 print_file_or_absent "$DATA/captain-shared.md" "data/captain-shared.md (shared, main-authoritative, read-only in secondmate homes)"
 print_file_or_absent "$DATA/learnings.md" "data/learnings.md"
+fi
+
+# The chat voice applies on every digest, slim or full; the banner belongs to a
+# fresh start only. bin/fm-theme.sh owns resolution and its one-line fallback.
+THEME_BANNER_ARG=
+[ "$REEMIT" -eq 1 ] || THEME_BANNER_ARG=--banner
+THEME_DIGEST=$(FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" \
+  "$SCRIPT_DIR/fm-theme.sh" digest $THEME_BANNER_ARG 2>/dev/null || true)
+if [ -n "$THEME_DIGEST" ]; then
+  section "THEME"
+  printf '%s\n' "$THEME_DIGEST"
 fi
 
 if [ "$REEMIT" -eq 1 ]; then

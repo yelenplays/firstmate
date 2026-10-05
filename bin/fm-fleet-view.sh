@@ -28,8 +28,16 @@ command -v jq >/dev/null 2>&1 || { echo "fm-fleet-view: jq not found" >&2; exit 
 
 SNAPSHOT=$("$SCRIPT_DIR/fm-fleet-snapshot.sh" --json) || exit $?
 
-printf '%s\n' "$SNAPSHOT" | jq -r '
+# Display-only status words from the active theme pack (bin/fm-theme.sh); the
+# built-in default maps nothing, so the view keeps its canonical words.
+STATUS_WORDS=$("$SCRIPT_DIR/fm-theme.sh" status-map) || STATUS_WORDS='{}'
+printf '%s\n' "$STATUS_WORDS" | jq -e 'type == "object"' >/dev/null 2>&1 || STATUS_WORDS='{}'
+
+printf '%s\n' "$SNAPSHOT" | jq -r --argjson words "$STATUS_WORDS" '
   def dash($v): if $v == null or $v == "" then "-" else $v end;
+  def state_word($s):
+    if ($s | type) == "string" and ($words[$s] // "") != "" then "\($words[$s]) (\($s))"
+    else $s end;
   def endpoint_exists($t):
     if $t.endpoint.exists == null then "unknown"
     elif $t.endpoint.exists then "present"
@@ -51,7 +59,7 @@ printf '%s\n' "$SNAPSHOT" | jq -r '
     if $t.kind == "secondmate" then "\($t.actions.send) - \($t.actions.watch)"
     else $t.actions.watch end;
   def task_row($t):
-    "| \($t.id) | \($t.current_state.state) / \($t.current_state.source) | \($t.kind) | \(dash($t.backlog.repo // $t.project)) | \($t.backend) | \(endpoint_of($t)) | \(artifact($t)) | \(path_of($t)) | \(action_of($t)) |";
+    "| \($t.id) | \(state_word($t.current_state.state)) / \($t.current_state.source) | \($t.kind) | \(dash($t.backlog.repo // $t.project)) | \($t.backend) | \(endpoint_of($t)) | \(artifact($t)) | \(path_of($t)) | \(action_of($t)) |";
   def blocker($r):
     if ($r.blocked_by // "") == "" then "-"
     elif ($r.blocked_reason // "") == "" then $r.blocked_by
