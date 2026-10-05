@@ -32,7 +32,8 @@
     "docs/zellij-backend.md",
     "docs/orca-backend.md",
     "docs/cmux-backend.md",
-    "docs/remote-secondmates.md"
+    "docs/remote-secondmates.md",
+    "docs/slack-bot.md"
   ],
   "requiredOwnerPointers": [
     {
@@ -503,6 +504,10 @@
     },
     {
       "path": "docs/sessionstart-nudge.md",
+      "audience": "operator-current"
+    },
+    {
+      "path": "docs/slack-bot.md",
       "audience": "operator-current"
     },
     {

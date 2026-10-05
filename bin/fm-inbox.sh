@@ -50,7 +50,8 @@
 # `note --source` records where a note came from in its `source=` header
 # (default `text`; 1-32 characters, a-z0-9 and dash, starting with a letter).
 # bin/fm-slack-bridge.sh uses `slack-captain` for the captain's own Slack
-# thread replies and `slack-request` for handoff requests from other people.
+# thread replies and bot DMs, and `slack-request` for handoff requests from
+# other people.
 # A note body is text, not options: only the flags above are parsed, anything
 # else starting with `--` begins the body, and `--` ends option parsing.
 # Human `note`/`list`/`drain` output and exit conventions stay as they were when
@@ -65,7 +66,10 @@
 # `reply` is how the primary publishes its actual answer against a note id.
 # Each reply is stamped with a durable per-home sequence, so the receipts cursor
 # is a strict total order and two replies recorded in the same second are both
-# readable. One reply per note: a second one is refused.
+# readable. One reply per note: a second one is refused. A reply to a
+# `slack-captain` note is also posted back into its Slack DM or thread when the
+# home runs a Slack bot (bin/fm-slack-bridge.sh send-reply); if that post fails
+# the reply stays recorded and `reply` exits 3.
 # `ready` is the read-only primary-readiness projection (lock, wake-consumer
 # health, away posture, observation time). It never acquires the session lock
 # and never infers liveness from a lock file, a session, or a pane.
@@ -659,6 +663,16 @@ sys.stdout.write("\n")
 PY
   else
     printf 'replied %s\n' "$id"
+  fi
+  # A slack-captain note's answer also goes back to Slack through the home's
+  # bot, when it has one; without a bot the bridge does nothing and prints
+  # nothing. The reply above is durable either way, so a failed post exits 3
+  # and `fm-slack-bridge.sh send-reply <id>` retries it.
+  if [ "$(sed -n '/^--$/q; s/^source=//p' "$path" | sed -n 1p)" = slack-captain ]; then
+    if ! FM_HOME="$FM_HOME" "$SELF_DIR/fm-slack-bridge.sh" send-reply "$id" >&2; then
+      printf 'fm-inbox: reply %s is recorded but was not posted to Slack; retry with fm-slack-bridge.sh send-reply %s\n' "$id" "$id" >&2
+      exit 3
+    fi
   fi
 }
 

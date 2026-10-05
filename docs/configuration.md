@@ -1945,12 +1945,15 @@ A fail-closed poll that already queued a wake, and a timeout, always print so th
 The Slack bridge (`bin/fm-slack-bridge.sh`) lets the captain follow and answer this home from Slack.
 Out, firstmate posts captain-facing outcomes: finished PRs, merge asks, and merge results to the report channel, and decisions with a recommendation to the decisions channel.
 In, the captain's reply in the thread of a bridge post reaches firstmate as a captain inbox note, so replying `merge` in Slack works like typing it.
+With an optional bot, the home has its own Slack app, such as "Yelen's Firstmate": firstmate posts as the bot, the captain can also DM the bot, and firstmate's answers go back into the same DM or thread.
 
 **Activation and accounts**
 
 The bridge is off while `config/slack-bridge` is absent: `post` prints one `slack bridge off` line and exits 0, and `check` stays silent.
-It uses `slack-axi` and whichever account `slack-axi` is logged in as, with no Slack app, scope, or token of its own, and it never reads, prints, stores, or logs a token.
-Each home brings its own `slack-axi` login and its own config, so another person's firstmate runs the same bridge against their own account and channels.
+Without `bot-keychain-service`, it uses `slack-axi` and whichever account `slack-axi` is logged in as, with no Slack app, scope, or token of its own, and it never reads a token.
+With `bot-keychain-service`, `bin/fm-slack-bot.mjs` posts and reads as the home's bot through the Slack Web API, with the bot token read from the macOS Keychain item of that service name; [Slack bot setup](slack-bot.md) is the end-to-end setup path, including the app manifest.
+Either way the bridge never prints, stores, or logs a token.
+Each home brings its own `slack-axi` login or bot and its own config, so another person's firstmate runs the same bridge against their own account or bot and channels.
 
 This section is the single owner of the config schema.
 The file holds one `key=value` per line, and a line starting with `#` is a comment; a comment never follows a value on the same line, because channel names start with `#`.
@@ -1968,36 +1971,52 @@ captain-user=U0123ABCDEF
 watch-days=7
 # optional, 10..3600 seconds; bridge-only poll cadence (recommend 60)
 poll-seconds=60
+# optional; the Keychain service name holding this home's bot token (xoxb-...)
+bot-keychain-service=firstmate-slack-bot
 ```
 
 `slack-axi channels --match <name>` shows a channel's id, and `slack-axi members <channel>` shows each member's user id.
+With `bot-keychain-service`, every channel must be a channel id, because the bot has no scope to look up `#names`.
 
 **Who counts as the captain**
 
 A thread reply is captain input only when its Slack author id equals `captain-user` exactly; a display name never counts, because any member can copy one.
-Replies from anyone else, bot messages, and joins or other system messages are never delivered.
+With a bot, a new top-level message in the bot's DM with `captain-user` is captain input under the same exact-id rule.
+Replies from anyone else, every bot message (this home's bot and anyone else's), and joins or other system messages are never delivered.
 A top-level message in the handoff channel from anyone but the captain is delivered as a request note that names its sender and says it is not captain authority; the captain's own handoff-channel messages are requests to other fleets and are not delivered here.
 Slack text is input like any typed captain message and nothing more: it never bypasses merge guards, holds, or the destructive, irreversible, and security-sensitive boundaries.
 
-`slack-axi`'s command line shows authors only by display name, so `bin/fm-slack-read.mjs` reads author ids through `slack-axi`'s own installed client in-process.
+Without a bot, `slack-axi`'s command line shows authors only by display name, so `bin/fm-slack-read.mjs` reads author ids through `slack-axi`'s own installed client in-process.
 It runs only against a `slack-axi` version and module shape it lists as verified; anything else keeps inbound off and reports one line naming the found version, while posting keeps working.
+With a bot configured, `bin/fm-slack-bot.mjs` reads author ids from the Slack Web API instead.
 
 **Posting**
 
-`bin/fm-slack-bridge.sh post report|decision [--url <https-url>] <text>` drafts the message, sends it with `slack-axi draft send`, and records the channel id and message ts in `state/slack-bridge/posts`.
-Every post is top-level, because the bridge posts as the logged-in account and that account's thread replies are what counts as captain input.
+`bin/fm-slack-bridge.sh post report|decision [--url <https-url>] <text>` sends the message, as a `slack-axi` draft it then sends or as the bot, and records the channel id and message ts in `state/slack-bridge/posts`.
+Every post is top-level; without a bot that also keeps the bridge out of threads, because the logged-in account's thread replies are what counts as captain input.
+
+**Replying**
+
+Each delivered captain message records its reply route, the channel and thread it came from, in `state/slack-bridge/routes`.
+With a bot, `bin/fm-inbox.sh reply <note-id> <text>` on a `slack-captain` note also posts that reply back through the bot: into the same thread for a thread reply, and into the DM for a DM.
+`bin/fm-slack-bridge.sh send-reply <note-id>` adds a trailing `[fm-reply:<note-id>]` marker to the bot message and records it in `state/slack-bridge/replied`.
+Before posting, it checks the destination DM or thread for that marker; if Slack accepted a post but its response was lost, the retry finds the existing bot message and records it rather than posting a duplicate.
+If the check or post fails, the reply stays recorded, `reply` exits 3, and `send-reply` can be retried.
+Without a bot, a reply stays local and its output is unchanged.
+`bin/fm-slack-bridge.sh verify` is a manual setup command only; `check`, `arm`, the watcher, and other automation never invoke it. It checks the bot token and posts clearly labeled one-time setup tests to both channels and the captain's DM; these can be ignored or deleted. See [Slack bot setup](slack-bot.md) for the setup steps.
 
 **Receiving**
 
 A home that wants replies polled arms the standing check in the live home: `bin/fm-slack-bridge.sh arm`.
 Arming writes `state/slack-bridge.check.sh` and registers it with the watcher.
-It starts the handoff channel at the arming time so older history is not replayed.
+It starts the handoff channel, and with a bot the DM, at the arming time so older history is not replayed.
 By default, the bridge follows the global `FM_CHECK_INTERVAL` slow-check cadence.
 Optional `poll-seconds` gives this check its own cadence from 10 to 3600 seconds without changing merge-poll or other check schedules.
 The bridge records that setting in `state/slack-bridge.check-every`.
 Invalid or duplicate values are refused.
-Each poll delivers every new accepted message exactly once through `bin/fm-inbox.sh note --request-id slack-<channel>-<ts>` with source `slack-captain` or `slack-request`, which writes the durable note and its single `check` wake.
+Each poll delivers every new accepted message exactly once through `bin/fm-inbox.sh note --request-id slack-<channel>-<ts>` with source `slack-captain` (thread replies and bot DMs) or `slack-request`, which writes the durable note and its single `check` wake.
 A repeated poll, or one that lost its local delivered record, replays that request id instead of adding a note or wake.
+Bot DM history is paged to completion before its cursor advances; a failed read or delivery leaves the cursor in place so unread messages are retried.
 A poll that delivered anything prints one line so the watcher wakes firstmate.
 A failing poll prints one line only when its diagnostic changes.
 A quiet poll prints nothing.
