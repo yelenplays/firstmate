@@ -34,8 +34,8 @@
 #                                  to color the banner on a TTY only
 #                 term.<name>      chat vocabulary, e.g. term.captain = the OG
 #                 status.<state>   display word for one canonical worker state:
-#                                  working, done, needs-decision, blocked,
-#                                  paused, or failed
+#                                  working, done, parked, blocked, paused,
+#                                  or failed
 #   voice.md    optional. Voice guidance for private captain chat and team-chat
 #               messages; public Relay replies to strangers stay default.
 #   banner.txt  optional. Plain-text banner for a fresh session start.
@@ -62,7 +62,7 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 THEME_FILE="$CONFIG/theme"
 
-STATUS_STATES='working done needs-decision blocked paused failed'
+STATUS_STATES='working done parked blocked paused failed'
 
 usage() {
   sed -n '/^# Usage:$/,/^set -u$/p' "$SCRIPT_DIR/fm-theme.sh" | sed 's/^# \{0,1\}//; $d'

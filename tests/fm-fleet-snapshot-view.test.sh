@@ -820,11 +820,26 @@ test_view_renders_theme_status_words() {
   local home fakebin view err
   home=$(make_home view-theme)
   write_fixture "$home"
+  fm_write_meta "$home/state/active-decision.meta" \
+    "window=firstmate:fm-active-decision" \
+    "worktree=$home/projects/alpha-worktree" \
+    "project=alpha" \
+    "harness=claude" \
+    "kind=ship" \
+    "mode=ship"
+  record_claude_idle "$home/state" active-decision
+  printf 'needs-decision: choose an API shape\n' > "$home/state/active-decision.status"
   fakebin=$(make_fakebin "$home")
+  view=$(PATH="$fakebin:$PATH" FM_HOME="$home" "$VIEW")
+  assert_contains "$view" "| active-decision | parked / status-log | ship | alpha |" \
+    "the default fleet view should keep the canonical parked state"
+
   printf 'ny-trenches\n' > "$home/config/theme"
   view=$(PATH="$fakebin:$PATH" FM_HOME="$home" "$VIEW")
   assert_contains "$view" "| ship-task | on the block (working) / pane | ship | alpha | tmux | present |" \
     "a theme pack should show its display word beside the canonical state"
+  assert_contains "$view" "| active-decision | need the OG (parked) / status-log | ship | alpha |" \
+    "the fleet view should theme a parked decision state"
   PATH="$fakebin:$PATH" FM_HOME="$home" "$VIEW" --json | jq -e '[.tasks[] | select(.id == "ship-task")][0].current_state.state == "working"' >/dev/null \
     || fail "the JSON snapshot must keep the canonical state word"
 

@@ -186,7 +186,7 @@ The optional, gitignored one-line `config/theme` names a pack tracked under `the
 | --- | --- |
 | Captain-facing team chat | The pack's voice guidance, address word, exact no-op reply, and names replace the default "captain" address, nautical seasoning, `Captain, shipshape.`, and chat vocabulary in private captain chat, Slack bridge posts, and Slack bot DMs. |
 | Session-start digest | A `THEME` section prints that guidance on every digest, plus the pack's banner on a fresh start for the first captain-facing reply. |
-| Human fleet view | `bin/fm-fleet-view.sh` shows the pack's word beside each canonical worker state, for example `on the block (working)`. |
+| Human fleet view | `bin/fm-fleet-view.sh` shows the pack's word beside each canonical worker state, for example `on the block (working)` or `need the OG (parked)` for a pending decision. |
 
 Everything else stays as it is.
 Status files, status prefixes, protocol lines, script interfaces, JSON snapshots, skill names, and file names keep their canonical words.

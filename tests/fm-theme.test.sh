@@ -63,12 +63,13 @@ test_ny_trenches_renders_banner_and_status_words() {
 
   assert_equals 'on the block' "$(theme "$config" status working)" "ny working word"
   assert_equals 'dropped' "$(theme "$config" status 'done')" "ny done word"
-  assert_equals 'need the OG' "$(theme "$config" status needs-decision)" "ny decision word"
-  assert_equals 'parked' "$(theme "$config" status parked)" "an unmapped state keeps its canonical word"
+  assert_equals 'need the OG' "$(theme "$config" status parked)" "ny decision word uses the canonical parked state"
+  assert_equals 'needs-decision' "$(theme "$config" status needs-decision)" "an event verb is not a canonical display state"
 
   map=$(theme "$config" status-map)
   printf '%s\n' "$map" | jq -e '
-    .working == "on the block" and .done == "dropped" and .["needs-decision"] == "need the OG"
+    .working == "on the block" and .done == "dropped" and .parked == "need the OG"
+      and (has("needs-decision") | not)
   ' >/dev/null || fail "ny status map is wrong: $map"
 
   out=$(theme "$config" banner)
