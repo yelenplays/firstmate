@@ -674,6 +674,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 . "$SCRIPT_DIR/fm-devin-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
+# shellcheck source=bin/fm-relaunch-worktree-lib.sh
+. "$SCRIPT_DIR/fm-relaunch-worktree-lib.sh"
 # shellcheck source=bin/fm-dod-lib.sh
 . "$SCRIPT_DIR/fm-dod-lib.sh"
 # shellcheck source=bin/fm-trace-context-lib.sh
@@ -1762,6 +1764,8 @@ RAW_LAUNCH=0
 # validation teardown uses, so a malformed, ambiguous, or foreign record
 # refuses here exactly as it refuses there.
 RELAUNCH_PRIOR_HARNESS=
+# The clone that owns the recorded worktree; empty outside a relaunch.
+RELAUNCH_WT_OWNER=
 # 1 when the recorded endpoint is authoritatively gone and this relaunch must
 # create a fresh one for the task rather than adopt its recorded address.
 RELAUNCH_REBIND=0
@@ -1885,6 +1889,14 @@ if [ "$RELAUNCH" -eq 1 ]; then
       echo "error: task $ID has no recorded project; refusing to relaunch" >&2
       exit 1
     }
+    # The recorded worktree may hang off another clone of the same repository
+    # (bin/fm-relaunch-worktree-lib.sh owns that proof). It is relaunched as it
+    # is, and only per-worktree registrations name the clone that owns it.
+    fm_relaunch_worktree_owner "$KIND" "$PROJ" "$RELAUNCH_WT" "${BRANCH:-}" || {
+      echo "error: task $ID cannot be relaunched in its recorded worktree: $FM_RELAUNCH_WORKTREE_ERROR" >&2
+      exit 1
+    }
+    RELAUNCH_WT_OWNER=$FM_RELAUNCH_WORKTREE_OWNER
   fi
   if [ "$BACKEND" = herdr ]; then
     # fm-spawn uses HERDR_PANE_ID for the TASK's pane, while the herdr adapter
@@ -4628,7 +4640,7 @@ claude*)
   if [ "$KIND" = secondmate ]; then
     spawn_trust_args=(--secondmate-home "$PROJ_ABS" "$ID")
   else
-    spawn_trust_args=("$WT" "$PROJ_ABS")
+    spawn_trust_args=("$WT" "${RELAUNCH_WT_OWNER:-$PROJ_ABS}")
   fi
   if ! "$FM_ROOT/bin/fm-claude-trust.sh" "${spawn_trust_args[@]}" >/dev/null; then
     echo "error: could not pre-register Claude workspace trust for $WT; refusing to launch a claude worker that would wedge on the trust dialog; inspect window $T" >&2
@@ -4671,7 +4683,7 @@ pi | pi-signed)
   ;;
 agy)
   if [ "$KIND" != secondmate ]; then
-    if "$FM_ROOT/bin/fm-agy-trust.sh" "$WT" "$PROJ_ABS" >/dev/null; then
+    if "$FM_ROOT/bin/fm-agy-trust.sh" "$WT" "${RELAUNCH_WT_OWNER:-$PROJ_ABS}" >/dev/null; then
       AGY_TRUST_PREREGISTERED=1
     else
       echo "warning: could not pre-register agy workspace trust for $WT; the launch will answer the folder-trust dialog in window $T instead" >&2

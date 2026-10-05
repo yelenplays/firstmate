@@ -509,6 +509,136 @@ test_relaunch_from_linked_home_preserves_recorded_worktree() {
   pass "fm-control relaunch: a linked spawning home preserves committed and unfinished work in the recorded copy"
 }
 
+# add_foreign_clone_ship_task <case-dir> <id>: a claude ship task whose
+# recorded worktree is a linked worktree of ANOTHER clone of the project's
+# repository - a task carried over from a different home - on the task's own
+# branch, with a committed and an uncommitted change on it.
+add_foreign_clone_ship_task() {
+  local dir=$1 id=$2 origin
+  add_ship_task "$dir" "$id" claude
+  origin=$(git -C "$dir/proj" remote get-url origin)
+  git clone --quiet "$origin" "$dir/other-clone"
+  git -C "$dir/other-clone" worktree add --quiet -b "fm/$id" "$dir/foreign-wt"
+  printf 'committed task work\n' > "$dir/foreign-wt/task.txt"
+  git -C "$dir/foreign-wt" add task.txt
+  git -C "$dir/foreign-wt" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm task-work
+  printf 'unfinished task work\n' >> "$dir/foreign-wt/task.txt"
+  sed "s|^worktree=.*|worktree=$dir/foreign-wt|" "$dir/home/state/$id.meta" > "$dir/foreign.meta"
+  printf 'branch=fm/%s\n' "$id" >> "$dir/foreign.meta"
+  mv "$dir/foreign.meta" "$dir/home/state/$id.meta"
+  printf '%s' "$dir/foreign-wt" > "$dir/fake/cwd"
+}
+
+# make_gh_node_stub <case-dir>: `gh api repos/<owner>/<repo>` answers the node
+# id listed for that lowercased owner/repo in fake/gh-nodes, and fails for any
+# repository it does not list.
+make_gh_node_stub() {
+  cat > "$1/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+[ "${1:-}" = api ] || exit 1
+repo=$(printf '%s' "${2#repos/}" | tr '[:upper:]' '[:lower:]')
+node=$(awk -v r="$repo" '$1 == r { print $2 }' "$FM_FAKE_DIR/gh-nodes" 2>/dev/null)
+[ -n "$node" ] || { echo "gh: Not Found (HTTP 404)" >&2; exit 1; }
+printf '%s\n' "$node"
+SH
+  chmod +x "$1/fakebin/gh"
+}
+
+trusted_projects() {  # <case-dir>
+  node -e 'const f=process.argv[1];const fs=require("node:fs");const j=fs.existsSync(f)?JSON.parse(fs.readFileSync(f,"utf8")):{};for(const [k,v] of Object.entries(j.projects||{})){if(v&&v.hasTrustDialogAccepted===true)console.log(k);}' "$1/user-home/.claude.json"
+}
+
+assert_foreign_relaunch_refused_before_stop() {  # <case-dir> <id> <head> <rc> <out> <expect-substring> <label>
+  local dir=$1 id=$2 head=$3 rc=$4 out=$5 want=$6 label=$7
+  expect_code 1 "$rc" "$label"$'\n'"$out"
+  assert_contains "$out" "$want" "$label: the refusal should name the concrete reason"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "$label: the old agent must still be running"
+  assert_no_grep "/exit" "$dir/fake/literal" "$label: a refusal must come before the old agent is stopped"
+  [ ! -e "$dir/home/state/$id.control-relaunch" ] || fail "$label: a pre-stop refusal must not open a transaction"
+  [ "$(git -C "$dir/foreign-wt" rev-parse HEAD)" = "$head" ] || fail "$label: the branch must be untouched"
+  assert_grep 'unfinished task work' "$dir/foreign-wt/task.txt" "$label: uncommitted work must be untouched"
+}
+
+test_relaunch_resumes_a_worktree_of_another_clone_of_the_same_repository() {
+  local dir out rc head other_real
+  dir=$(new_case foreign-clone rl80)
+  add_foreign_clone_ship_task "$dir" rl80
+  head=$(git -C "$dir/foreign-wt" rev-parse HEAD)
+  other_real=$(cd "$dir/other-clone" && pwd -P)
+
+  out=$(run_control "$dir" rl80 relaunch --note "continue in the carried-over copy"); rc=$?
+  expect_code 0 "$rc" "a worktree of another clone of the same repository should relaunch as it is"$'\n'"$out"
+  [ "$(meta_field "$dir" rl80 worktree)" = "$dir/foreign-wt" ] || fail "relaunch must keep the recorded worktree"
+  [ "$(meta_field "$dir" rl80 project)" = "$dir/proj" ] || fail "relaunch must keep the recorded project"
+  [ "$(meta_field "$dir" rl80 branch)" = fm/rl80 ] || fail "relaunch must keep the recorded branch"
+  [ "$(git -C "$dir/foreign-wt" rev-parse HEAD)" = "$head" ] || fail "relaunch must preserve committed task work"
+  [ "$(git -C "$dir/foreign-wt" symbolic-ref --short HEAD)" = fm/rl80 ] || fail "relaunch must leave the worktree on its branch"
+  assert_grep 'unfinished task work' "$dir/foreign-wt/task.txt" "relaunch must preserve uncommitted task work"
+  [ "$(git -C "$dir/foreign-wt" rev-parse --path-format=absolute --git-common-dir)" = "$other_real/.git" ] \
+    || fail "relaunch must not move the worktree into another clone"
+  [ "$(journal_field "$dir" rl80 worktree_clone)" = "$other_real" ] \
+    || fail "the checkpoint should record the clone that owns the worktree"
+  trusted_projects "$dir" | grep -qxF "$other_real" \
+    || fail "Claude trust must name the clone that owns the worktree; got: $(trusted_projects "$dir" | tr '\n' ' ')"
+  assert_grep "Firstmate operational input waiting: read" "$dir/fake/literal" "the replacement should have been launched"
+  pass "fm-control relaunch: a worktree of another clone of the same repository relaunches as it is"
+}
+
+test_relaunch_refuses_a_worktree_of_a_clone_of_another_repository() {
+  local dir out rc head
+  dir=$(new_case foreign-repo rl81)
+  add_foreign_clone_ship_task "$dir" rl81
+  head=$(git -C "$dir/foreign-wt" rev-parse HEAD)
+  fm_git_init_commit "$dir/unrelated"
+  fm_git_add_origin "$dir/unrelated" "$dir/unrelated.origin.git"
+  git -C "$dir/other-clone" remote set-url origin "$(git -C "$dir/unrelated" remote get-url origin)"
+
+  out=$(run_control "$dir" rl81 relaunch --note "continue"); rc=$?
+  assert_foreign_relaunch_refused_before_stop "$dir" rl81 "$head" "$rc" "$out" \
+    "are different repositories" "a worktree whose clone has another origin"
+  out=$(printf 'zsh' > "$dir/fake/command"; run_spawn "$dir" rl81 --relaunch); rc=$?
+  expect_code 1 "$rc" "fm-spawn --relaunch must refuse the same worktree on its own"$'\n'"$out"
+  assert_contains "$out" "are different repositories" "fm-spawn --relaunch should name the concrete reason"
+  [ "$(git -C "$dir/foreign-wt" rev-parse HEAD)" = "$head" ] || fail "fm-spawn --relaunch must leave the branch untouched"
+  pass "fm-control relaunch: a worktree of a clone of another repository refuses before the agent stops"
+}
+
+test_relaunch_refuses_a_foreign_clone_worktree_off_its_branch() {
+  local dir out rc head
+  dir=$(new_case foreign-branch rl82)
+  add_foreign_clone_ship_task "$dir" rl82
+  git -C "$dir/foreign-wt" checkout -q -b elsewhere
+  head=$(git -C "$dir/foreign-wt" rev-parse HEAD)
+
+  out=$(run_control "$dir" rl82 relaunch --note "continue"); rc=$?
+  assert_foreign_relaunch_refused_before_stop "$dir" rl82 "$head" "$rc" "$out" \
+    "is on 'elsewhere' rather than the task's branch 'fm/rl82'" "a foreign-clone worktree off the task branch"
+  [ "$(git -C "$dir/foreign-wt" symbolic-ref --short HEAD)" = elsewhere ] || fail "a refusal must not switch branches"
+  pass "fm-control relaunch: a foreign-clone worktree that left the task branch refuses before the agent stops"
+}
+
+test_relaunch_follows_a_transferred_github_repository() {
+  local dir out rc head
+  dir=$(new_case foreign-transfer rl83)
+  add_foreign_clone_ship_task "$dir" rl83
+  head=$(git -C "$dir/foreign-wt" rev-parse HEAD)
+  make_gh_node_stub "$dir"
+  git -C "$dir/proj" remote set-url origin https://github.com/old-owner/site.git
+  git -C "$dir/other-clone" remote set-url origin git@github.com:New-Org/Site
+  printf '%s\n' 'old-owner/site R_other' 'new-org/site R_site' > "$dir/fake/gh-nodes"
+
+  out=$(run_control "$dir" rl83 relaunch --note "continue"); rc=$?
+  assert_foreign_relaunch_refused_before_stop "$dir" rl83 "$head" "$rc" "$out" \
+    "are different GitHub repositories" "two distinct GitHub repositories"
+
+  printf '%s\n' 'old-owner/site R_site' 'new-org/site R_site' > "$dir/fake/gh-nodes"
+  out=$(run_control "$dir" rl83 relaunch --note "continue after the transfer"); rc=$?
+  expect_code 0 "$rc" "an origin GitHub resolves to the transferred repository should relaunch"$'\n'"$out"
+  [ "$(git -C "$dir/foreign-wt" rev-parse HEAD)" = "$head" ] || fail "relaunch must preserve committed task work"
+  [ "$(meta_field "$dir" rl83 project)" = "$dir/proj" ] || fail "relaunch must keep the recorded project"
+  pass "fm-control relaunch: a foreign-clone worktree follows a transferred GitHub repository and refuses a different one"
+}
+
 test_relaunch_preserves_durable_task_metadata() {
   local dir out rc
   dir=$(new_case durable-meta rl19)
@@ -2471,6 +2601,10 @@ test_relaunch_refuses_before_exit_when_the_composer_holds_pending_text
 test_relaunch_refuses_before_exit_when_the_composer_state_is_unproven
 test_relaunch_refuses_before_exit_when_the_composer_geometry_is_unproven
 test_relaunch_from_linked_home_preserves_recorded_worktree
+test_relaunch_resumes_a_worktree_of_another_clone_of_the_same_repository
+test_relaunch_refuses_a_worktree_of_a_clone_of_another_repository
+test_relaunch_refuses_a_foreign_clone_worktree_off_its_branch
+test_relaunch_follows_a_transferred_github_repository
 test_relaunch_preserves_durable_task_metadata
 test_relaunch_serializes_concurrent_durable_metadata_publication
 test_disabled_relaunch_clears_prior_trace_context

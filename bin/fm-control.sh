@@ -88,6 +88,10 @@
 #              inherits the local copy but none of the conversation; a
 #              secondmate reconciles its own home's records at startup, so its
 #              standing charter is never rewritten.
+#              A recorded worktree that belongs to another clone of the same
+#              repository is relaunched as it is, never moved; one that cannot be
+#              proven so refuses before the old agent stops
+#              (bin/fm-relaunch-worktree-lib.sh owns that proof).
 #              Records a durable checkpoint and that note, exits the old agent,
 #              then delegates the launch to its single owner,
 #              bin/fm-spawn.sh --relaunch. A failure before publication keeps
@@ -182,6 +186,8 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-control-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
+# shellcheck source=bin/fm-relaunch-worktree-lib.sh
+. "$SCRIPT_DIR/fm-relaunch-worktree-lib.sh"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 # shellcheck source=bin/fm-worker-account-lib.sh
@@ -927,7 +933,7 @@ resolve_relaunch_profile() {
 # refuses outright when any of it cannot be established.
 CHECKPOINT_LINES=()
 safe_checkpoint() {
-  local wt_real wt_top wt_top_real head head_ref head_ref_status status_output dirty children marker child_meta
+  local wt_real wt_top wt_top_real head head_ref head_ref_status status_output dirty children marker child_meta branch
   CHECKPOINT_LINES=()
   [ -n "$WT" ] || die "task $ID has no recorded worktree; refusing to relaunch without a recorded local copy to preserve"
   [ -d "$WT" ] || die "task $ID's recorded worktree $WT is missing; refusing to relaunch and lose track of its work"
@@ -959,6 +965,18 @@ safe_checkpoint() {
     dirty=no
   fi
   CHECKPOINT_LINES+=("worktree_head=$head" "worktree_dirty=$dirty")
+  if [ "$KIND" != secondmate ]; then
+    # The launch owner ties the recorded worktree to the recorded project
+    # (bin/fm-relaunch-worktree-lib.sh owns which clone may own it). Asking the
+    # same question here keeps a worktree it would refuse on the pre-stop side
+    # of the transaction, where nothing has changed yet.
+    branch=$(fm_meta_get "$META" branch)
+    [ -n "$branch" ] || branch="fm/$ID"
+    fm_relaunch_worktree_owner "$KIND" "$(fm_meta_get "$META" project)" "$WT" "$branch" \
+      || die "task $ID cannot be relaunched in its recorded worktree: $FM_RELAUNCH_WORKTREE_ERROR"
+    [ "$FM_RELAUNCH_WORKTREE_OWNER" = "$(fm_meta_get "$META" project)" ] \
+      || CHECKPOINT_LINES+=("worktree_clone=$FM_RELAUNCH_WORKTREE_OWNER")
+  fi
   if [ "$KIND" = secondmate ]; then
     # A secondmate's own crewmates outlive its relaunch: they run in their own
     # endpoints, and the relaunched secondmate reconciles them from its home's
