@@ -87,7 +87,9 @@ test_ny_trenches_renders_banner_and_status_words() {
   assert_contains "$out" "second-mate -> a lieutenant" "digest maps second mates"
   assert_contains "$out" "finished-pr -> a drop" "digest maps a finished PR"
   assert_contains "$out" "working -> on the block" "digest lists the working word"
-  assert_contains "$out" "public replies, Slack posts, and non-chat artifacts keep the" "digest states the chat-only boundary"
+  assert_contains "$out" "private captain chat, Slack bridge posts, and Slack bot DMs" "digest includes team chat in the theme scope"
+  assert_contains "$out" "Public Relay replies" "digest preserves the public-reply exception"
+  assert_contains "$out" "non-chat artifacts keep" "digest keeps non-chat artifacts unthemed"
   assert_contains "$out" "No slurs" "digest carries the voice floor"
   assert_not_contains "$out" $'\033' "the digest must carry no terminal escapes"
 

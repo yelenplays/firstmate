@@ -2,11 +2,11 @@
 # fm-theme.sh - resolve and render the optional theme pack for a Firstmate home.
 #
 # A theme pack changes only what the captain sees: the voice of private captain
-# chat, the names used there, a session-start banner, and display-only status
-# words in human views. It never changes status files, protocol prefixes,
-# script interfaces, skill names, or any safety rule. docs/configuration.md
-# "Theme pack (config/theme)" owns the setting, the pack format, and the
-# chat-only boundary; this header owns the mechanics.
+# chat, Slack bridge posts, and Slack bot DMs; the names used in chat; a
+# session-start banner; and display-only status words in human views. It never
+# changes status files, protocol prefixes, script interfaces, skill names, or
+# any safety rule. docs/configuration.md "Theme pack (config/theme)" owns the
+# setting, the pack format, and the chat boundary; this header owns the mechanics.
 #
 # SELECTION: the one-line, gitignored $FM_HOME/config/theme names a pack
 # (FM_CONFIG_OVERRIDE selects the config directory directly, as elsewhere).
@@ -36,7 +36,8 @@
 #                 status.<state>   display word for one canonical worker state:
 #                                  working, done, needs-decision, blocked,
 #                                  paused, or failed
-#   voice.md    optional. Voice guidance for private captain chat.
+#   voice.md    optional. Voice guidance for private captain chat and team-chat
+#               messages; public Relay replies to strangers stay default.
 #   banner.txt  optional. Plain-text banner for a fresh session start.
 #
 # Usage:
@@ -213,10 +214,11 @@ print_digest() {  # <with-banner: 0|1>
   [ -z "$value" ] || printf ' - %s' "$value"
   printf '\n'
   cat <<EOF
-This pack restyles private captain chat only, as AGENTS.md's opening address
-rules and docs/configuration.md "Theme pack (config/theme)" bound it. Every rule
-keeps its substance; public replies, Slack posts, and non-chat artifacts keep the
-default.
+This pack restyles private captain chat, Slack bridge posts, and Slack bot DMs,
+as AGENTS.md's opening address rules and docs/configuration.md "Theme pack
+(config/theme)" bound it. Every rule keeps its substance. Public Relay replies
+to strangers on X and Discord mentions keep the default; non-chat artifacts keep
+the default and never carry direct address.
 It is printed in full here; do not re-read themes/$THEME/ this session.
 EOF
   if [ "$with_banner" -eq 1 ] && [ -s "$THEMES_DIR/$THEME/banner.txt" ]; then

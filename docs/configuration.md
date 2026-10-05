@@ -184,14 +184,15 @@ The optional, gitignored one-line `config/theme` names a pack tracked under `the
 
 | Surface | Effect |
 | --- | --- |
-| Private captain chat | The pack's voice guidance, address word, exact no-op reply, and names replace the default "captain" address, nautical seasoning, `Captain, shipshape.`, and chat vocabulary. |
+| Captain-facing team chat | The pack's voice guidance, address word, exact no-op reply, and names replace the default "captain" address, nautical seasoning, `Captain, shipshape.`, and chat vocabulary in private captain chat, Slack bridge posts, and Slack bot DMs. |
 | Session-start digest | A `THEME` section prints that guidance on every digest, plus the pack's banner on a fresh start for the first captain-facing reply. |
 | Human fleet view | `bin/fm-fleet-view.sh` shows the pack's word beside each canonical worker state, for example `on the block (working)`. |
 
 Everything else stays as it is.
 Status files, status prefixes, protocol lines, script interfaces, JSON snapshots, skill names, and file names keep their canonical words.
 Every `AGENTS.md` rule keeps its substance, including the internal-term translation rules, the answer shape, and the ban on direct address in non-chat artifacts.
-Public replies, Slack bridge posts, and anything else another person can read keep the default voice.
+Public Relay replies to strangers on X and Discord mentions stay in the default voice; Slack bridge posts and Slack bot DMs use the theme voice.
+Non-chat artifacts keep the default voice and never carry a direct address.
 A pack's voice guidance must keep straight bad news and must forbid slurs and real threats.
 
 ### Values and default
