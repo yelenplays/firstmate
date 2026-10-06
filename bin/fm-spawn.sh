@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Spawn a direct report: a crewmate in a treehouse or Orca worktree, or a
 # secondmate in its isolated firstmate home.
-# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--backend <name>]
-#        fm-spawn.sh <task-id> <project-dir> --scout [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--backend <name>]
+# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--route-override <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--backend <name>]
+#        fm-spawn.sh <task-id> <project-dir> --scout [--route-override <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--backend <name>]
 #        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--backend <name>] --secondmate
 #   --mode and --yolo are this task's delivery contract, REQUIRED for every ship
 #   spawn and refused on --scout and --secondmate spawns. Firstmate resolves both
@@ -22,6 +22,11 @@
 #   ship or scout spawn also refuses leftover `{TASK}` / `{FIRSTMATE_SPEC}`
 #   placeholders, an empty Task, an incomplete pair of Task subsections, or a
 #   `## Captain's intent` line opening with a Captain label or address.
+#   A fresh ship or scout first passes bin/fm-home-route.sh check, which owns
+#   the intake home-route rule and refuses a task routed to a second mate or not
+#   yet routed; --route-override '<captain|blocker>: <reason>' spawns anyway for
+#   that one task and is logged there. It is refused on relaunch, secondmate,
+#   and batch spawns.
 #   For the optional bin/fm-jev-brief-preflight.sh check, see the operator
 #   contract in docs/configuration.md "Brief preflight".
 #   Every ship or scout spawn renders `launch-brief.md`; for a no-mistakes ship
@@ -706,6 +711,8 @@ MODE=
 YOLO=
 BRANCH_PREFIX=fm/
 TRACEPARENT_ARG=
+ROUTE_OVERRIDE=
+ROUTE_OVERRIDE_SET=0
 HARNESS_SET=0
 MODEL_SET=0
 EFFORT_SET=0
@@ -762,6 +769,10 @@ for a in "$@"; do
       TRACEPARENT_ARG=$a
       TRACEPARENT_SET=1
       ;;
+    route-override)
+      ROUTE_OVERRIDE=$a
+      ROUTE_OVERRIDE_SET=1
+      ;;
     *)
       echo "error: internal parser state for --$want_value" >&2
       exit 1
@@ -790,7 +801,7 @@ for a in "$@"; do
     MODEL=${a#--model=}
     MODEL_SET=1
     ;;
-  --permission-mode) want_value=permission-mode ;;
+  --permission-mode) want_value="permission-mode" ;;
   --permission-mode=*)
     PERMISSION_MODE=${a#--permission-mode=}
     PERMISSION_MODE_SET=1
@@ -824,6 +835,11 @@ for a in "$@"; do
   --traceparent=*)
     TRACEPARENT_ARG=${a#--traceparent=}
     TRACEPARENT_SET=1
+    ;;
+  --route-override) want_value="route-override" ;;
+  --route-override=*)
+    ROUTE_OVERRIDE=${a#--route-override=}
+    ROUTE_OVERRIDE_SET=1
     ;;
   *) POS+=("$a") ;;
   esac
@@ -860,6 +876,14 @@ done
   echo "error: --traceparent requires a non-empty value" >&2
   exit 1
 }
+# A home-route override is one task's recorded exception, so it is refused
+# wherever it could not bind to exactly one fresh ship or scout.
+if [ "$ROUTE_OVERRIDE_SET" -eq 1 ]; then
+  if [ -z "$ROUTE_OVERRIDE" ] || [ "$KIND" = secondmate ] || [ "$RELAUNCH" -eq 1 ]; then
+    echo "error: --route-override needs a reason and applies only to a fresh ship or scout spawn" >&2
+    exit 1
+  fi
+fi
 if [ "$PERMISSION_MODE_SET" -eq 1 ] && ! fm_devin_permission_valid "$PERMISSION_MODE"; then
   echo "error: --permission-mode must be auto, accept-edits, smart, or dangerous" >&2
   exit 1
@@ -1533,6 +1557,10 @@ fi
 if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in */*) false ;; *) true ;; esac then
   if [ "$KIND" != secondmate ] && [ -z "$HARNESS_ARG" ] && [ -f "$CONFIG/crew-dispatch.json" ]; then
     echo "error: config/crew-dispatch.json is active - pass an explicit harness resolved from the dispatch rules (the consultation backstop, so the rules are never silently skipped)." >&2
+    exit 1
+  fi
+  if [ "$ROUTE_OVERRIDE_SET" -eq 1 ]; then
+    echo "error: --route-override is one task's exception; spawn that task on its own" >&2
     exit 1
   fi
   rc=0
@@ -3734,6 +3762,17 @@ herdr_projection_existing_meta_allows_flat() { # <meta>
     ;;
   esac
 }
+
+# Home-route gate (bin/fm-home-route.sh owns the rule): a fresh ship or scout
+# whose recorded intake route names a second mate, or that has no route yet,
+# stops here before any endpoint, worktree, or record exists.
+if [ "$RELAUNCH" -eq 0 ] && { [ "$KIND" = ship ] || [ "$KIND" = scout ]; }; then
+  if [ "$ROUTE_OVERRIDE_SET" -eq 1 ]; then
+    FM_HOME="$FM_HOME" "$FM_ROOT/bin/fm-home-route.sh" check "$ID" "$PROJ_ABS" --override "$ROUTE_OVERRIDE" || exit 1
+  else
+    FM_HOME="$FM_HOME" "$FM_ROOT/bin/fm-home-route.sh" check "$ID" "$PROJ_ABS" || exit 1
+  fi
+fi
 
 # Backlog preflight (bin/fm-backlog-transition-lib.sh). This spawn is about to
 # become the sole owner of the row's In-flight transition, so prove the row is
