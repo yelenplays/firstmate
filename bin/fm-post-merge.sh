@@ -273,7 +273,7 @@ read_merge_pr() {  # <url>
   # shellcheck disable=SC2016  # GraphQL variables are literal query syntax.
   json=$(gh api graphql --hostname "$FM_PR_HOST" \
     -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}' \
-    -F "owner=$FM_PR_OWNER" -F "repo=$FM_PR_REPO" -F "number=$FM_PR_NUMBER" \
+    -f "owner=$FM_PR_OWNER" -f "repo=$FM_PR_REPO" -F "number=$FM_PR_NUMBER" \
     2>/dev/null) || return 1
   printf '%s' "$json" | jq -e -c '
     if (.data.repository.pullRequest? | type) == "object" then

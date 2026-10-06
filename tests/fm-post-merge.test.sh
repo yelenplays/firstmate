@@ -85,6 +85,19 @@ case "$1 ${2:-}" in
       esac
     done
     if [[ "$query" == *'pullRequest(number:'* ]]; then
+      field_mode=
+      for arg in "$@"; do
+        case "$arg" in
+          -f|-F) field_mode=$arg ;;
+          owner=*|repo=*)
+            value=${arg#*=}
+            if [ "$field_mode" = -F ] && [[ "$value" =~ ^([0-9]+|true|false|null)$ ]]; then
+              echo 'GraphQL: expected String variable' >&2
+              exit 1
+            fi
+            ;;
+        esac
+      done
       jq -c '{data:{repository:{pullRequest:.}}}' "$d/pr-7.json"
       exit 0
     fi
@@ -621,17 +634,20 @@ test_witness_result_needs_exactly_one_verdict() {
 }
 
 test_merge_queue_field_is_graphql_compatible() {
-  local out
-  make_pr_world pm-queue-graphql on
-  printf '{"state":"OPEN","isInMergeQueue":true,"mergeCommit":null,"headRefOid":"%s","baseRefName":"main","id":"PR_node7","title":"Add the widget"}\n' \
-    "$HEAD_SHA" > "$W_FAKE/pr-7.json"
-  out=$(pm arm "$W_ID" 2>&1) || fail "arm refused a queued pull request when gh rejects the JSON field: $out"
-  assert_contains "$out" "armed: post-merge watch for queued $PR_URL" "arm did not read the queued PR state through GraphQL"
-  assert_equals "" "$(record_field merge_commit)" "arm recorded a merge commit for a queued pull request"
-  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed while the pull request remained queued: $out"
-  assert_contains "$out" "waiting: pull request $PR_URL remains in GitHub's merge queue" "advance did not read the queued PR state through GraphQL"
-  assert_equals checks "$(record_field phase)" "advance did not keep the queued watch open"
-  pass "fm-post-merge: arm and advance read merge-queue state through GraphQL when gh rejects the JSON field"
+  local out name PR_URL
+  for name in widget 2026 true false null; do
+    PR_URL="https://github.com/$name/$name/pull/7"
+    make_pr_world "pm-queue-graphql-$name" on
+    printf '{"state":"OPEN","isInMergeQueue":true,"mergeCommit":null,"headRefOid":"%s","baseRefName":"main","id":"PR_node7","title":"Add the widget"}\n' \
+      "$HEAD_SHA" > "$W_FAKE/pr-7.json"
+    out=$(pm arm "$W_ID" 2>&1) || fail "arm refused a queued pull request when gh rejects the JSON field: $out"
+    assert_contains "$out" "armed: post-merge watch for queued $PR_URL" "arm did not read the queued PR state through GraphQL"
+    assert_equals "" "$(record_field merge_commit)" "arm recorded a merge commit for a queued pull request"
+    out=$(pm advance "$W_ID" 2>&1) || fail "advance failed while the pull request remained queued: $out"
+    assert_contains "$out" "waiting: pull request $PR_URL remains in GitHub's merge queue" "advance did not read the queued PR state through GraphQL"
+    assert_equals checks "$(record_field phase)" "advance did not keep the queued watch open"
+  done
+  pass "fm-post-merge: arm and advance preserve string identities and read merge-queue state through GraphQL"
 }
 
 test_queued_record_retries_after_merge() {
