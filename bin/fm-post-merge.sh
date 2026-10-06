@@ -26,10 +26,12 @@
 #   fm-post-merge.sh status <task-id>
 #   fm-post-merge.sh close <task-id> --reason <text>
 #
-# arm           Run right after the merge, before cleanup. A PR task (any mode
+# arm           Run after merge acceptance, before cleanup. A PR task (any mode
 #               but local-only) needs its recorded pr= to be a merged GitHub
-#               pull request; the merge commit, head, and base are read live
-#               from GitHub. A local-only task needs the local_landed= range
+#               pull request or an open one in GitHub's merge queue. Queued
+#               watches wait for the merge before checking its commit; the
+#               merge commit, head, and base are read live from GitHub.
+#               A local-only task needs the local_landed= range
 #               bin/fm-merge-local.sh records. Exactly one of --witness or
 #               --no-witness is required. --witness names the URL a witness
 #               must use; --no-witness records why none is required.
@@ -265,8 +267,8 @@ parse_record_pr() {
 }
 
 # Read the live GitHub pull request fields used by the post-merge watch.
-# GraphQL supplies isInMergeQueue because newer gh versions removed it from
-# the pull-request --json field set.
+# Use GraphQL for isInMergeQueue rather than relying on gh pr view --json
+# exposing that field.
 read_merge_pr() {  # <url>
   local url=$1 json
   fm_pr_url_parse "$url" && [ "$FM_PR_PROVIDER" = github ] || return 1
