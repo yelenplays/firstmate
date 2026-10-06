@@ -1977,14 +1977,18 @@ secondmate_landed_from_current_json() {  # <secondmate-current-json-file> <outpu
 }
 
 scout_report_lines() {
+  local report id
   if [ ! -d "$DATA" ]; then
     jq -n '[]'
     return 0
   fi
-  # One jq for every report: the id is the report's parent directory name.
   LC_ALL=C find "$DATA" -mindepth 2 -maxdepth 2 -type f -name report.md -print \
     | sort \
-    | jq -R -n '[inputs | {id: (split("/") | .[-2]), path: .}] | sort_by(.id)'
+    | while IFS= read -r report; do
+      id=$(basename "$(dirname "$report")")
+      jq -n --arg id "$id" --arg path "$report" '{id:$id,path:$path}'
+    done \
+    | jq -s 'sort_by(.id)'
 }
 
 BACKLOG_JSON=$(backlog_json) || { echo "fm-fleet-snapshot: backlog read failed" >&2; exit 1; }
