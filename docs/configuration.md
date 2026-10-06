@@ -814,18 +814,19 @@ A remote route adds `host:` and `root:` before the existing fields and places th
 [`remote-secondmates.md`](remote-secondmates.md) owns current remote setup, operation, and safety behavior.
 
 Use `fm-home-seed.sh validate` to check the complete operational registry contract documented by the command itself.
-The main first mate routes by reading those scopes with judgment; the project list is provisioning data, not exclusive ownership.
+The project list is provisioning data, not exclusive ownership; the home router below reads the scopes.
 
-### Advisory mate-routing trial
+### Home router
 
-`bin/fm-jev-mate-shadow.sh suggest <task-id> --public-summary '<reviewed public task summary>'` records a Jev suggestion without routing work.
-It runs only for an explicitly public summary and scope strings individually approved by copying the exact `scope:` values from `data/secondmates.md` into a private `config/jev-mate-public-scopes.json` object keyed by mate id.
-The approval is invalidated when a scope changes, and restricted or unapproved scopes are not offered to Jev.
+`bin/fm-home-route.sh decide <task-id> --project <name> --public-summary '<reviewed public task summary>'` decides at intake, in the primary home, whether main, one secondmate, or a lead secondmate plus consulted secondmates owns a new ship or scout task.
+It asks Jev only about mates whose exact `scope:` value from `data/secondmates.md` is copied into a private `config/jev-mate-public-scopes.json` object keyed by mate id; a changed scope drops out until it is approved again.
 Review the task summary and every scope manually before approval: the deterministic privacy veto rejects known private terms and obvious credentials, but cannot establish that arbitrary free text is safe.
-The command logs a skipped result without calling Jev when the summary is unsafe, no scope is eligible, or neither Jev key is configured.
-Its [script header](../bin/fm-jev-mate-shadow.sh) owns the record fields and threshold.
-After deciding normally, record the actual destination with `bin/fm-jev-mate-shadow.sh actual <task-id> <mate-id|main>` and inspect aggregate outcomes with `bin/fm-jev-mate-shadow.sh compare`.
-The comparison uses the latest suggestion and label per task; no suggestion, confidence, or comparison authorizes a handoff.
+A `local-only` project always routes main without a call.
+An unsafe summary, a missing key, a low-confidence answer, or an endpoint that does not answer records `judgment-needed`; firstmate then records its own call with `bin/fm-home-route.sh judge`, which is accepted only over such a record.
+The presence of the approval file switches enforcement on: `bin/fm-spawn.sh` then refuses a fresh ship or scout that has no route, a `judgment-needed` route, or a secondmate route, naming the `decide`, `judge`, or `bin/fm-backlog-handoff.sh` command to run next.
+`--route-override 'captain: <redirect>'` or `--route-override 'blocker: <concrete blocker>'` on that spawn proceeds anyway and is logged.
+Every decision, judgment, spawn check, and override is appended to `state/home-route.jsonl`, and `bin/fm-home-route.sh review` summarises it for accuracy review.
+Its [script header](../bin/fm-home-route.sh) owns the record fields and the thresholds with the probe results behind them.
 
 ### Provision a local home
 
