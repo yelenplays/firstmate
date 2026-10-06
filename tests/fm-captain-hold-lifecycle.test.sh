@@ -117,14 +117,17 @@ case "${1:-} ${2:-}" in
       *statusCheckRollup*)
         printf '%s\n' '{"state":"OPEN","isDraft":false,"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","headRefOid":"1111111111111111111111111111111111111111","baseRefName":"main","statusCheckRollup":[{"__typename":"CheckRun","name":"ci","status":"COMPLETED","conclusion":"SUCCESS"}]}'
         ;;
-      *mergeCommit*)
-        printf '%s\n' '{"state":"MERGED","mergeCommit":{"oid":"2222222222222222222222222222222222222222"},"headRefOid":"1111111111111111111111111111111111111111","baseRefName":"main","id":"PR_fixture","title":"fixture"}'
-        ;;
       *headRefOid*) printf '%s\n' 1111111111111111111111111111111111111111 ;;
     esac
     ;;
   "pr merge") printf 'merged:\n  number: %s\n  status: ok\n' "${3:-}" ;;
   "api graphql")
+    case " $* " in
+      *mergeCommit*)
+        printf '%s\n' '{"data":{"repository":{"pullRequest":{"state":"MERGED","mergeCommit":{"oid":"2222222222222222222222222222222222222222"},"headRefOid":"1111111111111111111111111111111111111111","baseRefName":"main","id":"PR_fixture","title":"fixture"}}}}'
+        exit 0
+        ;;
+    esac
     printf '%s\n' 'state=MERGED' 'merged=true' 'queued=false' 'base=main'
     ;;
   "api --paginate")
