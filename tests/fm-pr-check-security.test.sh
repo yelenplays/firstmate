@@ -143,6 +143,12 @@ SH
 printf '%s\n' "$*" >> "$FM_TEST_GH_LOG"
 case "${1:-} ${2:-}" in
   "api graphql")
+    case " $* " in
+      *mergeCommit*)
+        printf '%s\n' '{"data":{"repository":{"pullRequest":{"state":"MERGED","mergeCommit":{"oid":"1111111111111111111111111111111111111111"},"headRefOid":"0123456789abcdef0123456789abcdef01234567","baseRefName":"main","id":"PR_fixture","title":"fixture"}}}}'
+        exit 0
+        ;;
+    esac
     printf '%s\n' \
       "state=${FM_TEST_GH_GRAPHQL_STATE:-MERGED}" \
       "merged=${FM_TEST_GH_GRAPHQL_MERGED:-true}" \
@@ -162,10 +168,6 @@ case "${1:-} ${2:-}" in
         ;;
       *headRefOid,reviewDecision*)
         printf '%s\n' "{\"headRefOid\":\"${FM_TEST_GH_HEAD:-0123456789abcdef0123456789abcdef01234567}\",\"reviewDecision\":\"APPROVED\"}"
-        exit 0
-        ;;
-      *mergeCommit*)
-        printf '%s\n' '{"state":"MERGED","mergeCommit":{"oid":"1111111111111111111111111111111111111111"},"headRefOid":"0123456789abcdef0123456789abcdef01234567","baseRefName":"main","id":"PR_fixture","title":"fixture"}'
         exit 0
         ;;
     esac

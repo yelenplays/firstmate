@@ -196,16 +196,6 @@ case "${1:-} ${2:-}" in
         fi
         exit 0
         ;;
-      *mergeCommit*)
-        if [ -n "${FM_TEST_GH_POSTMERGE_PR_JSON:-}" ] && [ -f "$FM_TEST_GH_POSTMERGE_PR_JSON" ]; then
-          cat "$FM_TEST_GH_POSTMERGE_PR_JSON"
-        else
-          head=$(cat "$FM_TEST_GH_HEAD")
-          printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s","baseRefName":"main","id":"PR_node","title":"test merge"}\n' \
-            "$head" "$head"
-        fi
-        exit 0
-        ;;
       *headRefOid*)
         cat "$FM_TEST_GH_HEAD"
         exit 0
@@ -243,6 +233,18 @@ case "${1:-} ${2:-}" in
     exit "$merge_rc"
     ;;
   "api graphql")
+    case " $* " in
+      *mergeCommit*)
+        if [ -n "${FM_TEST_GH_POSTMERGE_PR_JSON:-}" ] && [ -f "$FM_TEST_GH_POSTMERGE_PR_JSON" ]; then
+          jq -c '{data:{repository:{pullRequest:.}}}' "$FM_TEST_GH_POSTMERGE_PR_JSON"
+        else
+          head=$(cat "$FM_TEST_GH_HEAD")
+          printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s","baseRefName":"main","id":"PR_node","title":"test merge"}\n' \
+            "$head" "$head" | jq -c '{data:{repository:{pullRequest:.}}}'
+        fi
+        exit 0
+        ;;
+    esac
     if [ -f "${FM_TEST_GH_GRAPHQL_FAIL:-}" ]; then
       echo 'error: could not reach the GitHub API' >&2
       exit 1
