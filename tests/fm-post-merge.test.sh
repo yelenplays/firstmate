@@ -728,6 +728,11 @@ test_arm_refusals_and_rearm() {
   assert_contains "$out" "choose exactly one" "arm did not reject conflicting witness dispositions"
   out=$(pm arm "$W_ID" --no-witness " " 2>&1) && fail "arm accepted an empty no-witness reason: $out"
   assert_contains "$out" "needs a reason" "an empty no-witness reason was not refused"
+  mv "$W_FAKE/pr-7.json" "$W_FAKE/pr-7.json.hidden"
+  out=$(pm arm "$W_ID" 2>&1) && fail "arm accepted a pull request GitHub could not read: $out"
+  assert_contains "$out" "could not read $PR_URL from GitHub" "an unreadable pull request was not refused plainly"
+  assert_absent "$W_HOME/state/$W_ID.post-merge" "an unreadable pull request left a record"
+  mv "$W_FAKE/pr-7.json.hidden" "$W_FAKE/pr-7.json"
   printf '{"state":"OPEN","headRefOid":"%s","id":"PR_node7"}\n' "$HEAD_SHA" > "$W_FAKE/pr-7.json"
   out=$(pm_raw arm "$W_ID" --no-witness "not a live-site project" 2>&1) && fail "arm accepted an unmerged pull request: $out"
   assert_contains "$out" "is not merged" "an unmerged pull request was not named"
@@ -741,7 +746,7 @@ test_arm_refusals_and_rearm() {
   rm -f "$W_HOME/state/$W_ID.post-merge"
   out=$(pm arm "$W_ID" 2>&1) && fail "arm accepted a non-GitHub pull request: $out"
   assert_contains "$out" "supports GitHub pull requests and local landings" "a non-GitHub forge was not refused plainly"
-  pass "fm-post-merge: arm refuses an unmerged or non-GitHub pull request and re-arming is a no-op"
+  pass "fm-post-merge: arm refuses an unreadable, unmerged, or non-GitHub pull request and re-arming is a no-op"
 }
 
 test_record_from_an_earlier_incarnation_is_ignored() {
