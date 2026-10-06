@@ -801,7 +801,7 @@ for a in "$@"; do
     MODEL=${a#--model=}
     MODEL_SET=1
     ;;
-  --permission-mode) want_value=permission-mode ;;
+  --permission-mode) want_value="permission-mode" ;;
   --permission-mode=*)
     PERMISSION_MODE=${a#--permission-mode=}
     PERMISSION_MODE_SET=1
@@ -836,7 +836,7 @@ for a in "$@"; do
     TRACEPARENT_ARG=${a#--traceparent=}
     TRACEPARENT_SET=1
     ;;
-  --route-override) want_value=route-override ;;
+  --route-override) want_value="route-override" ;;
   --route-override=*)
     ROUTE_OVERRIDE=${a#--route-override=}
     ROUTE_OVERRIDE_SET=1
