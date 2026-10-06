@@ -264,6 +264,26 @@ parse_record_pr() {
     || die "the post-merge record for $ID names no GitHub pull request"
 }
 
+# Read the live GitHub pull request fields used by the post-merge watch.
+# GraphQL supplies isInMergeQueue because newer gh versions removed it from
+# the pull-request --json field set.
+read_merge_pr() {  # <url>
+  local url=$1 json
+  fm_pr_url_parse "$url" && [ "$FM_PR_PROVIDER" = github ] || return 1
+  # shellcheck disable=SC2016  # GraphQL variables are literal query syntax.
+  json=$(gh api graphql --hostname "$FM_PR_HOST" \
+    -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}' \
+    -F "owner=$FM_PR_OWNER" -F "repo=$FM_PR_REPO" -F "number=$FM_PR_NUMBER" \
+    2>/dev/null) || return 1
+  printf '%s' "$json" | jq -e -c '
+    if (.data.repository.pullRequest? | type) == "object" then
+      .data.repository.pullRequest
+    else
+      error("missing pull request")
+    end
+  ' 2>/dev/null
+}
+
 # Verdict of one commit's checks on GitHub. Sets VERDICT (green|red|pending|none)
 # and VERDICT_NAMES (the red checks, comma-separated). Returns 1 on a read error.
 VERDICT=
@@ -468,7 +488,7 @@ phase_verdict() {
       parse_record_pr
       merge=$(rget merge_commit)
       if [ -z "$merge" ]; then
-        json=$(gh pr view "$(rget pr)" --json state,isInMergeQueue,mergeCommit,headRefOid,baseRefName 2>/dev/null) || return 1
+        json=$(read_merge_pr "$(rget pr)") || return 1
         state=$(printf '%s' "$json" | jq -r '.state // ""') || return 1
         queued=$(printf '%s' "$json" | jq -r '.isInMergeQueue // false') || return 1
         case "$state:$queued" in
@@ -625,7 +645,7 @@ cmd_arm() {
     [ "$FM_PR_PROVIDER" = github ] || die "the post-merge watch supports GitHub pull requests and local landings; $pr is not one, so watch it by hand"
     url=$FM_PR_URL
     need_gh
-    json=$(gh pr view "$url" --json state,isInMergeQueue,mergeCommit,headRefOid,baseRefName,id,title 2>/dev/null) \
+    json=$(read_merge_pr "$url") \
       || die "could not read $url from GitHub"
     state=$(printf '%s' "$json" | jq -r '.state // ""')
     queued=$(printf '%s' "$json" | jq -r '.isInMergeQueue // false')

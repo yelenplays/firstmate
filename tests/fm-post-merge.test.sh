@@ -50,6 +50,14 @@ jq_arg() {
 }
 case "$1 ${2:-}" in
   "pr view")
+    for arg in "$@"; do
+      case "$arg" in
+        *isInMergeQueue*)
+          echo "Unknown JSON field: isInMergeQueue" >&2
+          exit 1
+          ;;
+      esac
+    done
     f="$d/pr-${3##*/}.json"
     [ -f "$f" ] || { echo "no such pull request" >&2; exit 1; }
     cat "$f"
@@ -70,6 +78,16 @@ case "$1 ${2:-}" in
       '[ .[] | select($head == "" or .headRefName == $head) ] | .[:$limit]' "$d/pr-list.json"
     ;;
   "api graphql")
+    query=
+    for arg in "$@"; do
+      case "$arg" in
+        query=*) query=${arg#query=} ;;
+      esac
+    done
+    if [[ "$query" == *'pullRequest(number:'* ]]; then
+      jq -c '{data:{repository:{pullRequest:.}}}' "$d/pr-7.json"
+      exit 0
+    fi
     [ ! -e "$d/graphql-fail" ] || { echo "GraphQL: revert refused" >&2; exit 1; }
     printf '{"state":"OPEN","headRefOid":"%s","commits":[{"messageHeadline":"Revert change","messageBody":"This reverts commit %s."}]}\n' \
       "$FAKE_REVERT_SHA" "$FAKE_MERGE_SHA" > "$d/pr-8.json"
@@ -485,17 +503,17 @@ test_failed_revert_listing_never_opens_a_duplicate() {
   set_checks "$REVERT_SHA" build queued ""
   pm advance "$W_ID" >/dev/null 2>&1 || fail "advance failed"
   grep -v '^revert_pr=' "$W_HOME/state/$W_ID.post-merge" > "$W_FAKE/rec" && cat "$W_FAKE/rec" > "$W_HOME/state/$W_ID.post-merge"
-  opened=$(grep -c '^api graphql' "$W_FAKE/calls")
+  opened=$(grep -c 'revertPullRequest' "$W_FAKE/calls")
   : > "$W_FAKE/pr-list-fail"
   out=$(pm advance "$W_ID" 2>&1) && fail "a failed revert listing was treated as no earlier revert: $out"
   assert_contains "$out" "could not list pull requests to check for an earlier revert of $PR_URL" "the listing failure was not reported"
-  assert_equals "$opened" "$(grep -c '^api graphql' "$W_FAKE/calls")" "a failed listing opened a second revert"
+  assert_equals "$opened" "$(grep -c 'revertPullRequest' "$W_FAKE/calls")" "a failed listing opened a second revert"
   assert_equals reverting "$(record_field phase)" "a failed listing moved the watch out of reverting"
   assert_equals "" "$(record_field revert_pr)" "a failed listing recorded a revert"
   rm -f "$W_FAKE/pr-list-fail"
   out=$(pm advance "$W_ID" 2>&1) || fail "advance after the listing recovered failed: $out"
   assert_contains "$out" "blocked: found $REVERT_URL" "the recovered listing did not find the earlier revert"
-  assert_equals "$opened" "$(grep -c '^api graphql' "$W_FAKE/calls")" "the recovered listing opened a second revert"
+  assert_equals "$opened" "$(grep -c 'revertPullRequest' "$W_FAKE/calls")" "the recovered listing opened a second revert"
   pass "fm-post-merge: a failed revert listing never opens a duplicate revert"
 }
 
@@ -511,7 +529,7 @@ test_earlier_revert_beyond_recent_pull_requests_is_found() {
     + [ {url: $url, headRefName: "revert-7-feature"} ]' > "$W_FAKE/pr-list.json"
   out=$(pm advance "$W_ID" 2>&1) || fail "advance failed to hold on the earlier revert: $out"
   assert_contains "$out" "blocked: found $REVERT_URL" "an earlier revert beyond the recent pull requests was missed"
-  assert_equals 0 "$(grep -c '^api graphql' "$W_FAKE/calls")" "a duplicate revert was opened"
+  assert_equals 0 "$(grep -c 'revertPullRequest' "$W_FAKE/calls")" "a duplicate revert was opened"
   assert_equals blocked "$(record_field phase)" "the earlier revert did not hold the watch"
   pass "fm-post-merge: an earlier revert beyond the recent pull requests is found by its branch"
 }
@@ -600,6 +618,20 @@ test_witness_result_needs_exactly_one_verdict() {
   out=$(pm witness-result "$report" "$W_ID" 2>&1) || fail "a single pass verdict was refused: $out"
   assert_contains "$out" "clear: the witness passed" "a pass verdict did not confirm the landing"
   pass "fm-post-merge: a witness report needs exactly one verdict bound to the full merge commit"
+}
+
+test_merge_queue_field_is_graphql_compatible() {
+  local out
+  make_pr_world pm-queue-graphql on
+  printf '{"state":"OPEN","isInMergeQueue":true,"mergeCommit":null,"headRefOid":"%s","baseRefName":"main","id":"PR_node7","title":"Add the widget"}\n' \
+    "$HEAD_SHA" > "$W_FAKE/pr-7.json"
+  out=$(pm arm "$W_ID" 2>&1) || fail "arm refused a queued pull request when gh rejects the JSON field: $out"
+  assert_contains "$out" "armed: post-merge watch for queued $PR_URL" "arm did not read the queued PR state through GraphQL"
+  assert_equals "" "$(record_field merge_commit)" "arm recorded a merge commit for a queued pull request"
+  out=$(pm advance "$W_ID" 2>&1) || fail "advance failed while the pull request remained queued: $out"
+  assert_contains "$out" "waiting: pull request $PR_URL remains in GitHub's merge queue" "advance did not read the queued PR state through GraphQL"
+  assert_equals checks "$(record_field phase)" "advance did not keep the queued watch open"
+  pass "fm-post-merge: arm and advance read merge-queue state through GraphQL when gh rejects the JSON field"
 }
 
 test_queued_record_retries_after_merge() {
@@ -915,6 +947,7 @@ test_latest_check_result_wins
 test_unknown_completed_check_conclusions_wait
 test_revert_without_green_checks_is_held
 test_witness_result_needs_exactly_one_verdict
+test_merge_queue_field_is_graphql_compatible
 test_queued_record_retries_after_merge
 test_arm_refusals_and_rearm
 test_scheduler_arm_failure_is_retryable
