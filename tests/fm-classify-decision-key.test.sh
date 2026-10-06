@@ -561,3 +561,48 @@ test_declared_wait_survives_answers_past_the_event_window() {
 test_keyless_wait_survives_stated_default_retraction
 test_declared_wait_survives_answers_past_the_event_window
 test_bare_prose_cannot_open_or_close_a_decision
+
+# The note, key, drop, and per-line fold readers take an optional out-var so the
+# folds run without a subshell per status line. Assigned and printed forms must
+# agree byte for byte (including the trailing-newline stripping a "$(...)"
+# capture applies), and an out-var that shares a name with the caller's own
+# fold variables must land in the caller's variable.
+test_out_var_forms_match_printed_forms() {
+  local line note key open printed rc_p rc_v set
+  local lines=(
+    'needs-decision [at=1791000000] [key=a]: pick A or B   '
+    'needs-decision: [key=c] head key'
+    'needs-decision: [key=bad slug] nope'
+    'blocked [key=b] colonless'
+    'working [at=10:30]: start'
+    'blocked [key=pending-reply-y]: pending-reply-missed: lost'
+    'resolved [key=a]: done'
+    'prose without a verb'
+    ''
+  )
+  for line in "${lines[@]}"; do
+    note='-'; status_line_note "$line" note
+    [ "$note" = "$(status_line_note "$line")" ] \
+      || fail "status_line_note out-var differs for '$line': '$note'"
+    printed=$(_fm_decision_key "$line" phase); rc_p=$?
+    key='-'; _fm_decision_key "$line" phase key; rc_v=$?
+    [ "$rc_p" = "$rc_v" ] || fail "_fm_decision_key status differs for '$line': $rc_p vs $rc_v"
+    [ "$rc_v" -ne 0 ] || [ "$key" = "$printed" ] \
+      || fail "_fm_decision_key out-var differs for '$line': '$key' vs '$printed'"
+  done
+  set=$'a\tneeds-decision\tone\nb\tblocked\ttwo\n'
+  open='-'; _fm_decision_drop "$set" a open
+  [ "$open" = "$(_fm_decision_drop "$set" a)" ] && [ "$open" = $'b\tblocked\ttwo' ] \
+    || fail "_fm_decision_drop out-var differs: '$open'"
+  open=''
+  for line in "${lines[@]}"; do
+    printed=$(_fm_decision_fold_line "$open" "$line" resolved captain-held ship)
+    _fm_decision_fold_line "$open" "$line" resolved captain-held ship open
+    [ "$open" = "$printed" ] || fail "_fm_decision_fold_line out-var differs after '$line'"
+  done
+  [ "$open" = $'c\tneeds-decision\thead key\nb\tblocked\tblocked [key=b] colonless\npending-reply-y\tblocked\tpending-reply-missed: lost' ] \
+    || fail "the out-var fold left an unexpected open set: '$open'"
+  pass "out-var readers and the per-line fold assign exactly what their printed forms print"
+}
+
+test_out_var_forms_match_printed_forms
