@@ -1,0 +1,250 @@
+[
+  {
+    "mode": "queued",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "widget",
+        "repo": "widget"
+      }
+    }
+  },
+  {
+    "mode": "queued",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "widget",
+        "repo": "widget"
+      }
+    }
+  },
+  {
+    "mode": "queued",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "2026",
+        "repo": "2026"
+      }
+    }
+  },
+  {
+    "mode": "queued",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "2026",
+        "repo": "2026"
+      }
+    }
+  },
+  {
+    "mode": "queued",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "true",
+        "repo": "true"
+      }
+    }
+  },
+  {
+    "mode": "queued",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "true",
+        "repo": "true"
+      }
+    }
+  },
+  {
+    "mode": "queued",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "false",
+        "repo": "false"
+      }
+    }
+  },
+  {
+    "mode": "queued",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "false",
+        "repo": "false"
+      }
+    }
+  },
+  {
+    "mode": "queued",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "null",
+        "repo": "null"
+      }
+    }
+  },
+  {
+    "mode": "queued",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "null",
+        "repo": "null"
+      }
+    }
+  },
+  {
+    "mode": "merged",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "widget",
+        "repo": "widget"
+      }
+    }
+  },
+  {
+    "mode": "merged",
+    "path": "/repos/widget/widget/commits/1111111111111111111111111111111111111111/check-runs?per_page=100"
+  },
+  {
+    "mode": "merged",
+    "path": "/repos/widget/widget/commits/1111111111111111111111111111111111111111/status"
+  },
+  {
+    "mode": "merged",
+    "path": "/repos/widget/widget/branches/main"
+  },
+  {
+    "mode": "merged",
+    "path": "/repos/widget/widget/rules/branches/main?per_page=100"
+  },
+  {
+    "mode": "merged",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "acme",
+        "repo": "widget"
+      }
+    }
+  },
+  {
+    "mode": "merged",
+    "path": "/repos/acme/widget/commits/1111111111111111111111111111111111111111/check-runs?per_page=100"
+  },
+  {
+    "mode": "merged",
+    "path": "/repos/acme/widget/commits/1111111111111111111111111111111111111111/status"
+  },
+  {
+    "mode": "merged",
+    "path": "/repos/acme/widget/branches/main"
+  },
+  {
+    "mode": "merged",
+    "path": "/repos/acme/widget/rules/branches/main?per_page=100"
+  },
+  {
+    "mode": "unqueued",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "acme",
+        "repo": "widget"
+      }
+    }
+  },
+  {
+    "mode": "closed",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "acme",
+        "repo": "widget"
+      }
+    }
+  },
+  {
+    "mode": "null",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "acme",
+        "repo": "widget"
+      }
+    }
+  },
+  {
+    "mode": "error",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "acme",
+        "repo": "widget"
+      }
+    }
+  },
+  {
+    "mode": "null",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "2026",
+        "repo": "2026"
+      }
+    }
+  },
+  {
+    "mode": "queued",
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state isInMergeQueue mergeCommit{oid} headRefOid baseRefName id title}}}",
+      "variables": {
+        "number": 7,
+        "owner": "2026",
+        "repo": "2026"
+      }
+    }
+  }
+]

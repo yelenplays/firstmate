@@ -1,0 +1,33 @@
+ok - fm-post-merge: red checks on a merge open a revert that merges once its own checks are green
+ok - fm-post-merge: a non-required success cannot satisfy a missing required check
+ok - fm-post-merge: all required checks green permits the merge watch to clear
+ok - fm-post-merge: null required checks are empty and malformed protection fails closed
+ok - fm-post-merge: a non-required revert success cannot satisfy a missing required check
+ok - fm-post-merge: a revert advances when all required checks are green
+ok - fm-post-merge: a witness failure on a landed change takes the same revert path
+ok - fm-post-merge: project registration prevents witness waiver and missing witness clear
+ok - fm-post-merge: green checks with no witness confirm the landing
+ok - fm-post-merge: empty check APIs wait through grace then hold without green checks
+ok - fm-post-merge: a revert with red checks stops and is relayed instead of merged
+ok - fm-post-merge: failed reverted audit append keeps the watch retryable
+ok - fm-post-merge: a revert GitHub refuses to open stops and is relayed
+ok - fm-post-merge: without yolo the green revert waits for approval
+ok - fm-post-merge: recovery records a candidate and holds for captain review
+ok - fm-post-merge: a failed revert listing never opens a duplicate revert
+ok - fm-post-merge: an earlier revert beyond the recent pull requests is found by its branch
+ok - fm-post-merge: newer failed run beats older long-running success
+ok - fm-post-merge: latest check and status results override earlier failures
+ok - fm-post-merge: action_required never yields a green verdict
+ok - fm-post-merge: missing revert checks never count as green
+ok - fm-post-merge: a witness report needs exactly one verdict bound to the full merge commit
+ok - fm-post-merge: arm and advance preserve string identities and read merge-queue state through GraphQL
+ok - fm-post-merge: a queued watch retry adopts its merge and restores scheduler coverage
+ok - fm-post-merge: arm refuses an unmerged or non-GitHub pull request and re-arming is a no-op
+ok - fm-post-merge: scheduler arm failures stay retryable across initial, merge, and revert checks
+ok - fm-post-merge: cleanup ignores an earlier incarnation's record and refuses an unreadable one
+ok - fm-merge-local: failed watch handoff remains blocked until arm retry succeeds
+ok - fm-merge-local: an interrupted handoff marker prevents cleanup
+ok - fm-post-merge: a witness failure on a local landing reverts it with one new commit
+ok - fm-post-merge: retry resumes from a durable local revert marker
+ok - fm-post-merge: retry records an interrupted local revert without applying it again
+ok - fm-merge-local: the revert refuses everything the merge refuses and leaves a conflict untouched

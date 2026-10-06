@@ -1,0 +1,194 @@
+$ gh --version
+gh version 2.102.0 (2026-09-30)
+https://github.com/cli/cli/releases/tag/v2.102.0
+exit=0
+
+$ gh pr view https://github.com/acme/widget/pull/7 --json state,isInMergeQueue,mergeCommit
+Unknown JSON field: "isInMergeQueue"
+Available fields:
+  additions
+  assignees
+  author
+  autoMergeRequest
+  baseRefName
+  baseRefOid
+  body
+  changedFiles
+  closed
+  closedAt
+  closingIssuesReferences
+  comments
+  commits
+  createdAt
+  deletions
+  files
+  fullDatabaseId
+  headRefName
+  headRefOid
+  headRepository
+  headRepositoryOwner
+  id
+  isCrossRepository
+  isDraft
+  labels
+  latestReviews
+  maintainerCanModify
+  mergeCommit
+  mergeStateStatus
+  mergeable
+  mergedAt
+  mergedBy
+  milestone
+  number
+  potentialMergeCommit
+  projectCards
+  projectItems
+  reactionGroups
+  reviewDecision
+  reviewRequests
+  reviews
+  state
+  statusCheckRollup
+  title
+  updatedAt
+  url
+exit=1
+
+$ bin/fm-post-merge.sh arm queue-widget --no-witness disposable API lab
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+armed: post-merge watch for queued https://github.com/widget/widget/pull/7 (phase checks)
+exit=0
+
+$ bin/fm-post-merge.sh advance queue-widget
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+waiting: pull request https://github.com/widget/widget/pull/7 remains in GitHub's merge queue
+exit=0
+
+$ bin/fm-post-merge.sh arm queue-2026 --no-witness disposable API lab
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+armed: post-merge watch for queued https://github.com/2026/2026/pull/7 (phase checks)
+exit=0
+
+$ bin/fm-post-merge.sh advance queue-2026
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+waiting: pull request https://github.com/2026/2026/pull/7 remains in GitHub's merge queue
+exit=0
+
+$ bin/fm-post-merge.sh arm queue-true --no-witness disposable API lab
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+armed: post-merge watch for queued https://github.com/true/true/pull/7 (phase checks)
+exit=0
+
+$ bin/fm-post-merge.sh advance queue-true
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+waiting: pull request https://github.com/true/true/pull/7 remains in GitHub's merge queue
+exit=0
+
+$ bin/fm-post-merge.sh arm queue-false --no-witness disposable API lab
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+armed: post-merge watch for queued https://github.com/false/false/pull/7 (phase checks)
+exit=0
+
+$ bin/fm-post-merge.sh advance queue-false
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+waiting: pull request https://github.com/false/false/pull/7 remains in GitHub's merge queue
+exit=0
+
+$ bin/fm-post-merge.sh arm queue-null --no-witness disposable API lab
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+armed: post-merge watch for queued https://github.com/null/null/pull/7 (phase checks)
+exit=0
+
+$ bin/fm-post-merge.sh advance queue-null
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+waiting: pull request https://github.com/null/null/pull/7 remains in GitHub's merge queue
+exit=0
+
+$ bin/fm-post-merge.sh advance queue-widget
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+clear: checks on 111111111111 on main are green; cleanup may proceed
+exit=0
+
+$ bin/fm-post-merge.sh status queue-widget
+version=fm-post-merge-v1
+task=queue-widget
+spawn_gen=1
+kind=pr
+project=/Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/widget
+pr=https://github.com/widget/widget/pull/7
+pr_node=PR_lab7
+pr_title=Lab change 
+branch=feature
+grace=600
+witness=
+no_witness_reason=disposable API lab
+head=3333333333333333333333333333333333333333
+base=main
+merge_commit=1111111111111111111111111111111111111111
+merged_at=1791277369
+checks=green
+phase=clear
+exit=0
+
+$ bin/fm-post-merge.sh arm merged --no-witness disposable API lab
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+armed: post-merge watch for merged on 111111111111 (phase checks)
+exit=0
+
+$ bin/fm-post-merge.sh advance merged
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+clear: checks on 111111111111 on main are green; cleanup may proceed
+exit=0
+
+$ bin/fm-post-merge.sh status merged
+version=fm-post-merge-v1
+task=merged
+spawn_gen=1
+kind=pr
+project=/Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/widget
+pr=https://github.com/acme/widget/pull/7
+pr_node=PR_lab7
+pr_title=Lab change 
+head=3333333333333333333333333333333333333333
+base=main
+merge_commit=1111111111111111111111111111111111111111
+branch=feature
+merged_at=1791277369
+grace=600
+witness=
+no_witness_reason=disposable API lab
+checks=green
+phase=clear
+exit=0
+
+$ bin/fm-post-merge.sh arm unqueued --no-witness disposable API lab
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+error: https://github.com/acme/widget/pull/7 is not merged or queued (state OPEN); arm only after merge acceptance
+exit=1
+
+$ bin/fm-post-merge.sh arm closed --no-witness disposable API lab
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+error: https://github.com/acme/widget/pull/7 is not merged or queued (state CLOSED); arm only after merge acceptance
+exit=1
+
+$ bin/fm-post-merge.sh arm null --no-witness disposable API lab
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+error: could not read https://github.com/acme/widget/pull/7 from GitHub
+exit=1
+
+$ bin/fm-post-merge.sh arm error --no-witness disposable API lab
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+error: could not read https://github.com/acme/widget/pull/7 from GitHub
+exit=1
+
+$ bin/fm-post-merge.sh advance queue-2026
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+error: could not read the checks on queue-2026's merge commit
+exit=1
+
+$ bin/fm-post-merge.sh advance queue-2026
+warn: no registry at /Users/marcocadornini/.no-mistakes/worktrees/55f61e227019/01M486HA14GEWR00GPK5EXZHZ0/.test-post-merge/home/data/projects.md; defaulting widget to no-mistakes off
+waiting: pull request https://github.com/2026/2026/pull/7 remains in GitHub's merge queue
+exit=0
+
+All disposable API scenarios completed. Real gh and real Firstmate CLI; no production requests or mutations.
