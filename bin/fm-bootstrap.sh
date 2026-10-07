@@ -1182,6 +1182,8 @@ crew_dispatch_validate() {
     def malformed_optional_fields($items):
       ($items | any(has("model") and (((.model | type) != "string") or (.model | length) == 0)))
       or ($items | any(has("effort") and (((.effort | type) != "string") or (.effort | length) == 0)))
+      or ($items | any(has("effort_min") and (((.effort_min | type) != "string") or (.effort_min | length) == 0)))
+      or ($items | any(has("effort_max") and (((.effort_max | type) != "string") or (.effort_max | length) == 0)))
       or ($typed and ($items | any(has("provider") and (provider_id(.provider) | not))));
     # A quota floor, on a rule or a profile: bin/fm-dispatch-resolve.sh applies
     # it in code against one quota-axi row, so scope and min_percent must be
@@ -1247,11 +1249,22 @@ crew_dispatch_validate() {
         else "beats must not form a cycle of three or more rules: "
           + ($cycle | map("rule_\(.)") | join(" -> "))
         end;
+    # An effort range (bin/fm-dispatch-resolve.sh clamps into it): effort is
+    # its default, and effort_min <= effort <= effort_max.
+    def effort_rank($e): (["low","medium","high","xhigh","max","ultra"] | index($e));
+    def range_bad($items):
+      $items | any((has("effort_min") or has("effort_max")) and (
+        (has("effort") | not)
+        or effort_rank(.effort) == null
+        or effort_rank(.effort_min // .effort) == null
+        or effort_rank(.effort_max // .effort) == null
+        or effort_rank(.effort_min // .effort) > effort_rank(.effort)
+        or effort_rank(.effort) > effort_rank(.effort_max // .effort)));
     def malformed_profile_floors($items):
       ($items | any(has("floor") and floor_bad(.floor; false)));
     def bad_efforts:
       configured_profiles
-      | map({h: .harness, m: .model, e: .effort})
+      | map({h: .harness, m: .model, e: (.effort, .effort_min, .effort_max)})
       | map(select(.e != null))
       | map(select((.h | type) == "string" and verified(.h)))
       | map(select(. as $p | effort_ok($p.h; $p.m; $p.e) | not))
@@ -1270,6 +1283,7 @@ crew_dispatch_validate() {
       if $typed then "use profile model and effort must be non-empty strings, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"
       else "use profile model and effort must be non-empty strings when present"
       end
+    elif range_bad([(.rules // [])[]? | profiles(.use?)[]?]) then "use profile effort_min and effort_max need effort, and effort_min <= effort <= effort_max on low < medium < high < xhigh < max < ultra"
     elif $typed and malformed_profile_floors([(.rules // [])[]? | profiles(.use?)[]?]) then "use profile floor needs scope and min_percent 0..100"
     elif $typed and (configured_profiles | any(type == "object" and has("overflow") and ((.overflow | type) != "boolean"))) then "profile overflow must be true or false when present"
     elif $typed and (configured_profiles | any(. as $p | type == "object" and has("effort_floor") and (
@@ -1295,6 +1309,7 @@ crew_dispatch_validate() {
       if $typed then "default profile model and effort must be non-empty strings, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"
       else "default profile model and effort must be non-empty strings when present"
       end
+    elif has("default") and range_bad([profiles(.default)[]?]) then "default profile effort_min and effort_max need effort, and effort_min <= effort <= effort_max on low < medium < high < xhigh < max < ultra"
     elif $typed and has("default") and malformed_profile_floors([profiles(.default)[]?]) then "default profile floor needs scope and min_percent 0..100"
     else
       (configured_profiles
@@ -1319,7 +1334,10 @@ crew_dispatch_validate() {
       + (if ($p.model? != null) then "/" + ($p.model | tostring)
          elif ($p.effort? != null) then "/default"
          else "" end)
-      + (if ($p.effort? != null) then "/" + ($p.effort | tostring) else "" end);
+      + (if ($p.effort? != null) then "/" + ($p.effort | tostring) else "" end)
+      + (if ($p.effort_min? != null or $p.effort_max? != null)
+         then "(" + (($p.effort_min // $p.effort) | tostring) + ".." + (($p.effort_max // $p.effort) | tostring) + ")"
+         else "" end);
     def profile_set($value; $selector):
       if ($value | type) == "array" then
         (($selector // "quota-balanced") + "[" + ([$value[] | profile(.)] | join(", ")) + "]")

@@ -1197,6 +1197,11 @@ default array profile without harness is flagged^{"default":[{"model":"gpt-5.5"}
 default array malformed effort is flagged^{"default":[{"harness":"codex","effort":3}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - default profile model and effort must be non-empty strings, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\z when present
 default profile floor without min_percent is flagged^{"default":[{"harness":"codex","floor":{"scope":"all_models"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - default profile floor needs scope and min_percent 0..100
 default profile floor provider override is flagged^{"default":{"harness":"codex","floor":{"scope":"all_models","min_percent":50,"provider":"claude"}}}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - default profile floor needs scope and min_percent 0..100
+effort range is accepted^{"rules":[{"when":"fast work","use":{"harness":"claude","model":"claude-haiku-5-5","effort":"high","effort_min":"low","effort_max":"xhigh"}}],"default":{"harness":"claude","effort":"medium","effort_max":"high"}}^empty^
+effort range without effort is flagged^{"rules":[{"when":"fast work","use":{"harness":"claude","effort_min":"low"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - use profile effort_min and effort_max need effort, and effort_min <= effort <= effort_max on low < medium < high < xhigh < max < ultra
+inverted effort range is flagged^{"rules":[{"when":"fast work","use":{"harness":"claude","effort":"medium","effort_max":"low"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - use profile effort_min and effort_max need effort, and effort_min <= effort <= effort_max on low < medium < high < xhigh < max < ultra
+inverted default effort range is flagged^{"default":{"harness":"claude","effort":"medium","effort_min":"high"}}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - default profile effort_min and effort_max need effort, and effort_min <= effort <= effort_max on low < medium < high < xhigh < max < ultra
+unsupported effort range bound is flagged^{"rules":[{"when":"agy work","use":{"harness":"agy","effort":"medium","effort_max":"xhigh"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - invalid effort: agy:xhigh
 ROWS
 
   local location shape invalid
