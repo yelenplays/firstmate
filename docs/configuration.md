@@ -1368,7 +1368,7 @@ Set it high when a wrong pick is costly and low when the rule is a safe runner-u
 
 - A rule `floor` names the quota-axi `provider` and `scope` whose `effectivePercentRemaining` must be at least `min_percent` for the rule's profiles to apply.
 - A provider-only rule floor on an expanded provider binds to its `default` account row.
-- An absent or unknown row or unmeasured provider makes the floor unverifiable and escalates without authorizing default routing.
+- An absent or unknown row or unmeasured provider makes the floor unverifiable; it never authorizes default routing, so the last resort picks inside the rule (under `--typed-only` it escalates).
 - A known percentage below the floor makes the tool resolve among `default` profiles instead.
 
 **Provider identifiers and mappings**
