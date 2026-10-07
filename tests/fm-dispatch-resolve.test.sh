@@ -2012,6 +2012,18 @@ assert_contains "$out" '  profile: ' "chain: a quota-axi failure still yields a 
 assert_contains "$out" '  last_resort: ' "chain: the last resort is disclosed"
 pass "chain: missing quota evidence never stops routing"
 
+# An unverifiable rule floor never authorizes the default: the last resort
+# picks inside the decided rule instead.
+NOFLOOR_QUOTA="$TMP_ROOT/nofloor-quota.json"
+jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability) |= map(select(.scope != "model:fable"))' "$QUOTA" > "$NOFLOOR_QUOTA"
+reset_log
+write_response "$RESPONSE" rule_1 0.97 '{ "rule_1": 0.96, "rule_2": 0.01, "rule_3": 0.01, "rule_4": 0.01, "default": 0.01 }'
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$NOFLOOR_QUOTA" FAKE_BACKUP_ANSWER='{"rule":"rule_1","effort":"high"}' run_chain code out err "$BRIEF"
+assert_contains "$out" '  decided: rule_1 by typed' "chain: an unverifiable floor keeps the decided rule"
+assert_contains "$out" "  profile: --harness 'claude' --model 'fable'" "chain: the last resort picks inside the rule, not the default"
+assert_contains "$out" '  last_resort: ' "chain: the last resort is disclosed for an unverifiable floor"
+pass "chain: an unverifiable rule floor takes the last resort inside its rule"
+
 # An assessed effort above a rule's range is clamped, not refused.
 reset_log
 write_response_effort "$RESPONSE" rule_4 0.9 max
