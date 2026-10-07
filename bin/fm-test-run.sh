@@ -435,7 +435,7 @@ family_for_basename() {
     fm-busy-state.test.sh|fm-classify-corr-token.test.sh|\
     fm-claude-primary.test.sh|\
     fm-claude-stop-autoarm.test.sh|fm-cursor-harness.test.sh|\
-    fm-dispatch-resolve.test.sh|fm-dispatch-replay.test.sh|\
+    fm-dispatch-resolve.test.sh|fm-dispatch-replay.test.sh|fm-dispatch-selftest.test.sh|\
     fm-jev-done-verify.test.sh|fm-jev-retrieval-miss.test.sh|fm-wiki-ask.test.sh|\
     fm-extension-binding.test.sh|fm-gitignore-config.test.sh|\
     fm-no-mistakes-required.test.sh|fm-peek-remote.test.sh|\
@@ -776,6 +776,7 @@ tests/fm-devin-signals-live-e2e.test.sh 49
 tests/fm-devin-live-e2e.test.sh 48
 tests/fm-dispatch-replay.test.sh 1337
 tests/fm-dispatch-resolve.test.sh 10051
+tests/fm-dispatch-selftest.test.sh 46000
 tests/fm-documentation-audiences.test.sh 1301
 tests/fm-dod-lib.test.sh 2035
 tests/fm-extension-binding.test.sh 11105
@@ -1635,6 +1636,16 @@ families_for_changed_path() {
     bin/fm-dispatch-resolve.sh)
       printf '%s\n' "__script__:fm-dispatch-resolve.test.sh"
       printf '%s\n' "__script__:fm-dispatch-replay.test.sh"
+      printf '%s\n' "__script__:fm-dispatch-selftest.test.sh"
+      ;;
+    bin/fm-dispatch-selftest.sh)
+      printf '%s\n' "__script__:fm-dispatch-selftest.test.sh"
+      ;;
+    bin/fm-backup-judge-lib.sh)
+      # The backup judge behind both typed routers.
+      printf '%s\n' "__script__:fm-dispatch-resolve.test.sh"
+      printf '%s\n' "__script__:fm-home-route.test.sh"
+      printf '%s\n' "__script__:fm-dispatch-selftest.test.sh"
       ;;
     bin/fm-dispatch-replay.sh)
       printf '%s\n' "__script__:fm-dispatch-replay.test.sh"
