@@ -37,25 +37,16 @@
 #   and an expanded provider with no row for the candidate is unmeasured,
 #   never blocked), the spend ledger's predicted burn for the assessed class
 #   (bin/fm-spend-ledger.py predict), and the spendPriority argmax over the
-#   eligible candidates, after holding back any profile declared
-#   `overflow: true` until every primary has concrete Claude quota-shortfall
-#   evidence, never non-quota ineligibility (or a scout brief). The model never
-#   sees quota, catalogs, approvals,
-#   confidence floors, `why`, or `use`. With no rules, it returns a non-clear
+#   eligible candidates after applying the overflow contract owned by
+#   docs/configuration.md "Overflow profiles". The model never sees quota,
+#   catalogs, approvals, confidence floors, `why`, or `use`.
+#   With no rules, it returns a non-clear
 #   result so firstmate keeps using the existing intake.
 #   docs/configuration.md "Crew dispatch profiles" owns the declared fields and
 #   "Typed dispatch resolution" owns this tool's operator contract.
 #
-# Effort is dynamic, not static: a profile's declared `effort` is the ceiling
-#   Jev may not exceed (xhigh when undeclared, so max always needs an explicit
-#   declaration), and the emitted --effort is the assessed class, raised to
-#   the profile's optional `effort_floor` when the class is lower. A missing or
-#   malformed effort answer falls back to the declared effort and says so.
-#   A candidate that cannot supply the assessed class fails fit before quota
-#   gates; one whose predicted burn exceeds the tightest applicable remaining
-#   percent or usable runway is refused with the prediction named in the
-#   reason. Missing ledger evidence never fabricates a limit: the candidate
-#   keeps today's rank and its line shows pred=unknown.
+# Effort ceilings, floors, classifier fallback, and predicted-burn gates are
+#   owned by docs/configuration.md "Firstmate retains the dispatch decision".
 #   FM_SPEND_LEDGER overrides the ledger path (tests).
 #
 # Runoff on ambiguous: the picked option and the top two by probability each
@@ -96,7 +87,7 @@
 #     candidate: <harness>:<model> provider=.. effort=<class>(<ceiling> ceiling) scope=.. remaining=..%
 #       spendPriority=.. runway=.. pred=~<tokens>tok/<seconds>s | pred=unknown
 #       -> eligible | eligible, unranked: <reason> | not eligible: <reason>
-#     profile: --harness <h> [--model <m>] [--effort <e>]     (status clear or picked only; effort is the assessed class)
+#     profile: --harness <h> [--model <m>] [--effort <e>]     (status clear or picked only; effort is the resolved class)
 #   clear     -> pass the profile line to fm-spawn.sh (AGENTS.md section 4 owns the only overrides)
 #   picked    -> the rule answer was ambiguous and the runoff settled it; pass the profile line the same way
 #   ambiguous -> choice is not the most probable option or the top-2 margin is below threshold, and no runoff settled it; decide as today from the probabilities
@@ -798,11 +789,8 @@ RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$
          spendPriority: $limiting.selection.spendPriority, runway: $limiting.runway.status, eligible: true, reason: "ok"}
       end
     end;
-  # The declared effort is a ceiling, not a floor: the assessed class
-  # may be lower, never higher. An undeclared ceiling is xhigh - max and ultra
-  # therefore always need an explicit declaration. A candidate that cannot
-  # supply the assessed class fails fit before any quota evidence is read.
-  # An optional `effort_floor` raises a lower assessed class to the floor.
+  # Resolve effort once so launch, runoff identity, and burn prediction cannot
+  # disagree when a floor raises an assessed or classifier-fallback value.
   def resolve_effort($c):
     ($c.effort // null) as $declared |
     (if $declared == null then "xhigh" else $declared end) as $ceiling |

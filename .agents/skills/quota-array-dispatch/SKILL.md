@@ -111,8 +111,7 @@ Do not invent a generic percentage floor, and honor an explicit captain floor fo
 
 ## Overflow profiles
 
-Before ranking, apply the array's `overflow` declarations as [`docs/configuration.md`](../../../docs/configuration.md) "Overflow profiles" defines them; non-quota ineligibility never activates overflow.
-Rank only the set that rule leaves; never let an overflow profile win on `spendPriority` while a primary still lasts.
+Before ranking, apply the array's `overflow` declarations under [the configuration contract](../../../docs/configuration.md#overflow-profiles).
 
 ## Rank by spendPriority
 

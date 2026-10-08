@@ -69,6 +69,8 @@
 #                    (default openai-codex/gpt-6.1-sol, high), launched
 #                    after the mate and worker so its first turn end arms
 #                    supervision. up then sends one harmless probe prompt.
+#                    Pi Sol runs at high even with explicit --model or --effort;
+#                    other Pi models default to medium unless --effort is set.
 #
 # Readiness checks (check prints "ok <name>: ..." or "fail <name>: ..."):
 #   primary       window main is alive, in the lab home, which is a primary
@@ -192,8 +194,10 @@ window_id() {
   esac
   window=$(sed -n 's/^window=//p' "$LAB/state/$name.meta" 2>/dev/null)
   [ -z "$window" ] || name=${window#*:}
-  lab_tmux list-windows -t firstmate -F "#{window_name}$(printf '\t')#{window_id}" 2>/dev/null \
-    | awk -F '\t' -v n="$name" '$1 == n { print $2; exit }'
+  # tmux 3.7c sanitizes literal tabs in -F output to underscores. These owned
+  # lab window names cannot contain a pipe, so use a printable delimiter.
+  lab_tmux list-windows -t firstmate -F '#{window_name}|#{window_id}' 2>/dev/null \
+    | awk -F '|' -v n="$name" '$1 == n { print $2; exit }'
 }
 
 window_field() {  # <name> <format>

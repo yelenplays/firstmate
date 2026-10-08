@@ -43,9 +43,9 @@
 #     for the exact-head confirmation an unsure merge decision needs instead of
 #     a review. A private vault change (bin/fm-wiki-lib.sh
 #     fm_wiki_change_private) always gets action=none: it stays on today's path
-#     and no new reviewer sees it. The fixed candidate chain is
-#     `pi openai-codex/gpt-6.1-sol high`, `claude claude-opus-5-5 high`; the first whose
-#     family is proven by its catalog and disjoint from the builder's wins.
+#     and no new reviewer sees it. docs/configuration.md "Cross-family review"
+#     owns the fixed candidate-chain policy; the first candidate whose family
+#     is proven by its catalog and disjoint from the builder's wins.
 #   fm-cross-review.sh brief <task-id> <reviewer-id> --head <sha> [--confirm]
 #     Scaffold the reviewer's scout instructions with bin/fm-brief.sh --scout,
 #     fill them for this exact head, and write the request record
