@@ -44,7 +44,12 @@ for role, model in roles.items():
     text = path(role).read_text()
     front = dict(line.split(": ", 1) for line in text.split("---\n")[1].splitlines())
     assert front["name"] == f"fm-orchestrated-{role}"
-    assert front["model"] == model
+    if role in ("worker", "explorer", "researcher", "tester"):
+        selected_model, selected_effort = front["model"].rsplit(":", 1)
+        assert selected_model == model
+        assert selected_effort == "medium", "Opus default must cap higher parent effort"
+    else:
+        assert front["model"] == model
     assert "thinking" not in front
     assert front["session-mode"] == "standalone"
     assert front["auto-exit"] == "true"

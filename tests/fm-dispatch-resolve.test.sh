@@ -1703,6 +1703,33 @@ TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRI
 assert_not_contains "$out" '  profile:' "an overflow-only array cannot activate without primaries"
 pass "overflow: every primary must have quota evidence without a non-quota rejection"
 
+for location in use default; do
+  for scope in model:other product:other; do
+    for floor_runway in projected_exhaustion exhausted_now; do
+      jq --arg location "$location" --arg scope "$scope" '
+        .rules[0].use[0].floor = {scope:$scope,min_percent:20} |
+        if $location == "default" then .default = .rules[0].use else . end
+      ' "$OVERFLOW_RULES" > "$RULES"
+      overflow_quota "$OVERFLOW_QUOTA" projected_exhaustion through_reset
+      jq --arg scope "$scope" --arg runway "$floor_runway" '
+        (.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability) +=
+          [{scope:$scope,status:"known",effectivePercentRemaining:0,
+            runway:{status:$runway},selection:{spendPriority:0.1}}]
+      ' "$OVERFLOW_QUOTA" > "$TMP_ROOT/q.json" && mv "$TMP_ROOT/q.json" "$OVERFLOW_QUOTA"
+      choice=rule_1
+      probabilities=$OVERFLOW_RESPONSE
+      if [ "$location" = default ]; then choice=default; probabilities='{"rule_1":0.03,"default":0.97}'; fi
+      write_response "$RESPONSE" "$choice" 0.97 "$probabilities"
+      reset_log
+      TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
+      assert_contains "$out" '  status: escalate' "$location floor rejection never activates overflow"
+      assert_contains "$out" "not eligible: profile floor $scope below 20%" "the actual non-quota rejection is preserved"
+      assert_not_contains "$out" '  profile:' "$location zero-percent $floor_runway display fields do not authorize Sol"
+    done
+  done
+done
+pass "overflow: depleted non-applicable floor scopes never authorize a fallback"
+
 cp "$OVERFLOW_RULES" "$RULES"
 overflow_quota "$OVERFLOW_QUOTA" exhausted_now through_reset
 jq '.rules[0].use[1].effort_floor = "high"' "$OVERFLOW_RULES" > "$RULES"

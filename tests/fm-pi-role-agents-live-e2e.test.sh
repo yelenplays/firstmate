@@ -28,6 +28,7 @@ roles = {"explorer": "anthropic/claude-opus-5-5", "researcher": "anthropic/claud
          "worker": "anthropic/claude-opus-5-5", "tester": "anthropic/claude-opus-5-5",
          "reviewer": "openai-codex/gpt-6-astra", "integrator": "openai-codex/gpt-6-astra"}
 parent_thinking = "xhigh"
+opus_roles = {"explorer", "researcher", "worker", "tester"}
 assert shutil.which("tmux"), "tmux is required"
 assert shutil.which("pi"), "pi is required, including for children of pi-signed"
 assert extension.is_file(), f"installed sub-agent package not found: {extension}"
@@ -101,13 +102,17 @@ for harness in ("pi", "pi-signed"):
                    "No other work, writes, model switches, or configuration changes.")
         channel = "roster-complete"
         canary = "PARENT_CONTEXT_CANARY_not_for_any_child"
-        model_pins = ", ".join(f"{role}={model}:{parent_thinking}" for role, model in roles.items())
+        model_pins = ", ".join(f"{role}={model}:{parent_thinking}" for role, model in roles.items()
+                               if role not in opus_roles)
         prompt = (f"You are the orchestrator of a bounded roster runtime smoke. {canary}. "
                   "This canary belongs only to your context; do not include it in any handoff. "
                   "Call subagents_list once. Then spawn ALL six roles one at a time, awaiting each "
                   "automatically delivered completion before the next: " + ", ".join(roles) + ". "
                   "Each call must use agent='fm-orchestrated-ROLE', name='proof-ROLE', "
-                  f"cwd={worktree}, model as pinned here ({model_pins}), and this exact task text: {json.dumps(handoff)}. "
+                  f"cwd={worktree}, and this exact task text: {json.dumps(handoff)}. "
+                  "For explorer, researcher, worker, and tester OMIT the model argument so their default cap applies "
+                  "despite your xhigh effort. For reviewer and integrator use model as pinned here: "
+                  f"{model_pins}. "
                   "Do not poll, read session logs, alter files, or perform other tasks. "
                   "Use fresh subagent calls, never subagent_message. Do not claim completion from acknowledgements. "
                   f"After receiving all six results, run bash command `tmux wait-for -S {channel}`. "
@@ -135,7 +140,10 @@ for harness in ("pi", "pi-signed"):
             assert {c["arguments"]["agent"] for c in launches} == {f"fm-orchestrated-{r}" for r in roles}
             for call in launches:
                 role = call["arguments"]["agent"].removeprefix("fm-orchestrated-")
-                assert call["arguments"]["model"] == f"{roles[role]}:{parent_thinking}"
+                if role in opus_roles:
+                    assert "model" not in call["arguments"], "the default effort cap must be exercised"
+                else:
+                    assert call["arguments"]["model"] == f"{roles[role]}:{parent_thinking}"
             assert not calls(parent_msgs, "subagent_message"), "a session was resumed"
             discovery = [m for m in parent_msgs if m.get("toolName") == "subagents_list"]
             assert len(discovery) == 1
@@ -149,12 +157,13 @@ for harness in ("pi", "pi-signed"):
                 loadout = json.loads(Path(str(child) + ".loadout.json").read_text())
                 role = loadout["agent"].removeprefix("fm-orchestrated-")
                 provider, model = roles[role].split("/", 1)
-                thinking = parent_thinking
+                thinking = "medium" if role in opus_roles else parent_thinking
                 assert role not in seen
                 seen.add(role)
                 definition = discovered[f"fm-orchestrated-{role}"]
                 assert definition["source"] == "global"
-                assert definition["model"] == roles[role]
+                expected_default = roles[role] + (":medium" if role in opus_roles else "")
+                assert definition["model"] == expected_default
                 assert not definition.get("thinking") and definition["sessionMode"] == "standalone"
                 assert loadout["model"] == f"{roles[role]}:{thinking}"
                 assert not loadout.get("thinking")

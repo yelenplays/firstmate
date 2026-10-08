@@ -1,7 +1,7 @@
 ---
 name: fm-orchestrated-worker
 description: Implement the orchestrator's accepted change and return revision-bound evidence.
-model: anthropic/claude-opus-5-5
+model: anthropic/claude-opus-5-5:medium
 tools: read, write, edit, bash, grep, find, ls
 session-mode: standalone
 system-prompt: append

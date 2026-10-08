@@ -1,7 +1,7 @@
 ---
 name: fm-orchestrated-researcher
 description: Resolve named external knowledge gaps with primary-source evidence.
-model: anthropic/claude-opus-5-5
+model: anthropic/claude-opus-5-5:medium
 tools: read, bash, grep, find, ls, web_search, web_fetch
 session-mode: standalone
 system-prompt: append

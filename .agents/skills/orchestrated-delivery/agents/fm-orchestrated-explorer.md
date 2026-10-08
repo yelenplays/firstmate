@@ -1,7 +1,7 @@
 ---
 name: fm-orchestrated-explorer
 description: Map the requested repository unknowns without changing the project.
-model: anthropic/claude-opus-5-5
+model: anthropic/claude-opus-5-5:medium
 tools: read, bash, grep, find, ls
 session-mode: standalone
 system-prompt: append
