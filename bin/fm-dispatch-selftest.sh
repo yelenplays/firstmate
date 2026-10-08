@@ -37,9 +37,11 @@
 #
 # `check` is the watcher check the nightly run rides on. It stays silent
 #   except for one line naming the failing samples after a run that failed,
-#   reported once per run. When no run has started since the most recent
-#   FM_DISPATCH_SELFTEST_HOUR:00 local time (default 3, 0..23) and none is
-#   running, it launches `run --record` detached (nohup, its own process
+#   reported once per run. If the rules+samples digest differs from the last
+#   successful recorded run, it launches `run --record` immediately; otherwise
+#   it waits until no run has started since the most recent
+#   FM_DISPATCH_SELFTEST_HOUR:00 local time (default 3, 0..23).
+#   It launches the run detached (nohup, its own process
 #   group, stdio closed) and returns at once, so it always fits the watcher's
 #   per-check bound. A run that died before recording is reported as failed.
 #   Missing rules or samples files produce an ordinary failure report.
@@ -51,8 +53,9 @@
 #   removes the cadence file; results under state/dispatch-selftest/ stay.
 #
 # State: state/dispatch-selftest/result.json (started, finished, state
-#   running|done, exit, pass, fail, failing, summary, reported) and
-#   state/dispatch-selftest/last.out (the last recorded run's full output).
+#   running|done, exit, pass, fail, failing, summary, reported),
+#   state/dispatch-selftest/passed.sha256 (the last successful rules+samples
+#   digest), and state/dispatch-selftest/last.out (the last recorded output).
 #   docs/configuration.md "Typed dispatch resolution" owns the operator view.
 set -u
 
@@ -67,6 +70,7 @@ CHECK_EVERY="$STATE/$CHECK_ID.check-every"
 RESULT_DIR="$STATE/dispatch-selftest"
 RESULT="$RESULT_DIR/result.json"
 LAST_OUT="$RESULT_DIR/last.out"
+PASSED_HASH="$RESULT_DIR/passed.sha256"
 LOCK="$RESULT_DIR/running"
 MIN_PER_RULE=3
 NO_RECORD='{}'
@@ -108,13 +112,20 @@ action_run() {
       *) die_usage "unknown run argument: $1" ;;
     esac
   done
-  local out rc=0
+  local out rc=0 started_hash finished_hash
   if [ "$record" -eq 1 ]; then
     mkdir -p "$RESULT_DIR" || exit 2
+    started_hash=$(inputs_hash "$rules" "$samples") || started_hash=''
     record_write "$(jq -cn --argjson at "$(date +%s)" '{started: $at, state: "running"}')"
     out=$(run_samples "$rules" "$samples") || rc=$?
     printf '%s\n' "$out" > "$LAST_OUT.tmp.$$" && mv -f "$LAST_OUT.tmp.$$" "$LAST_OUT"
     record_finish "$rc" "$out"
+    if [ "$rc" -eq 0 ] && [ -n "$started_hash" ] \
+      && [ "$rules" = "$CONFIG_DIR/crew-dispatch.json" ] \
+      && [ "$samples" = "$CONFIG_DIR/dispatch-samples.json" ]; then
+      finished_hash=$(inputs_hash "$rules" "$samples") || finished_hash=''
+      [ "$started_hash" != "$finished_hash" ] || record_passed_hash "$started_hash"
+    fi
     printf '%s\n' "$out"
     return "$rc"
   fi
@@ -190,6 +201,38 @@ record_write() {
 
 record_read() { jq -ce 'select(type == "object")' "$RESULT" 2>/dev/null; }
 
+sha256_file() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" 2>/dev/null | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" 2>/dev/null | awk '{print $1}'
+  else
+    return 1
+  fi
+}
+
+inputs_hash() { # <rules> <samples>
+  local rules_hash samples_hash
+  rules_hash=$(sha256_file "$1") || return 1
+  samples_hash=$(sha256_file "$2") || return 1
+  if command -v shasum >/dev/null 2>&1; then
+    printf '%s\n%s\n' "$rules_hash" "$samples_hash" | shasum -a 256 2>/dev/null | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    printf '%s\n%s\n' "$rules_hash" "$samples_hash" | sha256sum 2>/dev/null | awk '{print $1}'
+  else
+    return 1
+  fi
+}
+
+record_passed_hash() { # <hash>
+  local tmp
+  tmp=$(umask 077; mktemp "$RESULT_DIR/.passed.sha256.XXXXXX") || return 1
+  if ! printf '%s\n' "$1" > "$tmp" || ! mv -f -- "$tmp" "$PASSED_HASH"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+}
+
 record_finish() { # <exit> <output>
   local started summary failing
   started=$(record_read | jq -r '.started // empty') || started=''
@@ -221,7 +264,7 @@ lock_live() {
 }
 
 action_check() {
-  local hour=${FM_DISPATCH_SELFTEST_HOUR:-3} record started slot state
+  local hour=${FM_DISPATCH_SELFTEST_HOUR:-3} record started slot state current_hash passed_hash changed=0
   case "$hour" in ''|*[!0-9]*) hour=3 ;; esac
   [ "$hour" -le 23 ] || hour=3
   mkdir -p "$RESULT_DIR" 2>/dev/null || return 0
@@ -244,8 +287,17 @@ action_check() {
     return 0
   fi
   started=$(jq -r '.started // 0' <<<"${record:-$NO_RECORD}")
+  if [ -f "$CONFIG_DIR/crew-dispatch.json" ] && [ -f "$CONFIG_DIR/dispatch-samples.json" ]; then
+    current_hash=$(inputs_hash "$CONFIG_DIR/crew-dispatch.json" "$CONFIG_DIR/dispatch-samples.json") || current_hash=''
+    passed_hash=$(cat "$PASSED_HASH" 2>/dev/null) || passed_hash=''
+    [ -n "$current_hash" ] && [ "$current_hash" = "$passed_hash" ] || changed=1
+  else
+    changed=1
+  fi
   slot=$(last_slot "$hour") || return 0
-  [ "$started" -lt "$slot" ] || return 0
+  if [ "$changed" -eq 0 ] && [ "$started" -ge "$slot" ]; then
+    return 0
+  fi
   mkdir "$LOCK" 2>/dev/null || return 0
   local monitor_was_on=0 pid
   case $- in *m*) monitor_was_on=1 ;; esac

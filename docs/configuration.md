@@ -1640,7 +1640,9 @@ The tracked synthetic fixture in [`tests/fixtures/dispatch-selftest/`](../tests/
 
 A locked `bin/fm-session-start.sh` automatically arms the nightly check whenever `config/dispatch-samples.json` exists.
 Repeated session starts preserve the existing check registration, and `bin/fm-dispatch-selftest.sh arm` remains available for manual recovery.
-Once a day after `FM_DISPATCH_SELFTEST_HOUR` (local hour, default 3), the watcher check starts a detached run.
+After a recorded pass, the check stores a SHA-256 digest of the rules and samples in `state/dispatch-selftest/passed.sha256`.
+When either file changes, the next watcher check starts a live run immediately instead of waiting for the nightly hour, unless a run is already active.
+An unchanged passing digest does not trigger another immediate run, while the nightly run remains on its existing cadence.
 A missing samples or rules file, or a failed routing sample, becomes an ordinary `check:` notification, with the full output in `state/dispatch-selftest/last.out`.
 `bin/fm-dispatch-selftest.sh disarm` retires the check; the script header owns the exact records.
 
