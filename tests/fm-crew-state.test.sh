@@ -2378,37 +2378,6 @@ test_unpushed_ship_done_is_blocked() {
   pass "unpushed ship done: is current-state blocked"
 }
 
-# A Sonnet or Haiku ship whose commits add a test file is not current-state
-# done at its handoff: it reads blocked with the files named, so firstmate
-# steers the worker to drop them before the pipeline or PR.
-test_test_banned_handoff_with_tests_is_blocked() {
-  reset_fakes
-  local d out
-  d=$(new_case test-ban-done)
-  make_repo_on_branch "$d/wt" fm/test-ban
-  mkdir -p "$d/wt/tests"
-  printf 'unit\n' > "$d/wt/tests/parser.test.sh"
-  git -C "$d/wt" add tests && git -C "$d/wt" commit -q -m 'fix with its own test'
-  make_fakebin "$d" >/dev/null
-  fm_write_meta "$d/state/test-ban.meta" \
-    "window=fm:fm-test-ban" "worktree=$d/wt" "project=$d/wt" \
-    "kind=ship" "mode=no-mistakes" "harness=claude" "model=claude-sonnet-5-5" \
-    "test_ban_model=claude-sonnet-5-5"
-  printf 'done: parser fixed\n' > "$d/state/test-ban.status"
-  FM_FAKE_AXI_STATUS=""
-  FM_FAKE_RUNS_LIST=""
-  FM_FAKE_BUSY=0
-  arm_idle_record "$d/state" test-ban
-  out=$(run_crew_state "$d" test-ban)
-  assert_contains "$out" "state: blocked" "test-banned handoff with a test file must not read as done"
-  assert_contains "$out" "tests/parser.test.sh" "refusal must name the test file"
-
-  git -C "$d/wt" rm -q tests/parser.test.sh && git -C "$d/wt" commit -q -m 'drop the test'
-  out=$(run_crew_state "$d" test-ban)
-  assert_contains "$out" "state: done" "a handoff without test files reads done again"
-  pass "test-banned handoff done with test files is current-state blocked"
-}
-
 # Fleet snapshot hands crew-state a captured meta copy outside state/. The
 # poll's merge marker stays in the live state dir, so a squash-merged PR whose
 # branch fleet sync pruned still reads done there.
@@ -5816,7 +5785,6 @@ test_terminal_run_without_live_sibling_is_unchanged
 test_coarse_run_does_not_probe_other_branch_ci_log_for_ready_status
 test_other_branch_run_ignored
 test_unpushed_ship_done_is_blocked
-test_test_banned_handoff_with_tests_is_blocked
 test_merged_pr_reads_done_under_captured_meta
 test_no_mistakes_prevalidation_done_stays_done
 test_moved_remote_branch_without_named_head_is_blocked
