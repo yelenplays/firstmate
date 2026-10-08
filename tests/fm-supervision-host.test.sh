@@ -1088,6 +1088,9 @@ test_attended_close_with_unidentified_main_session_passes_to_main() {
 # Change the task immediately before the second offer computation, rather
 # than racing the successor startup. The first offer accepts the close; the
 # turn-boundary offer must see the new main-owned decision.
+# The successor is already live then, so it closes on that decision within one
+# poll and exits: the queue the turn judged is kept in offer-queue, and the
+# successor is proven by the decision row it queues, never by a liveness poll.
 turn_main_only_at_second_offer() {  # <home>
   local real_node
   real_node=$(command -v node)
@@ -1099,6 +1102,7 @@ case "\$*" in
     count=\$((count + 1))
     printf '%s\n' "\$count" > "\$FM_HOME/offer-count"
     if [ "\$count" -eq 2 ]; then
+      cp "\$FM_HOME/state/.wake-queue" "\$FM_HOME/offer-queue"
       printf 'needs-decision [at=%s]: which export format?\n' "\$(date +%s)" >> "\$FM_HOME/state/demo.status"
     fi ;;
 esac
@@ -1106,6 +1110,7 @@ exec "$real_node" "\$@"
 SH
   chmod +x "$1/fakebin/node"
 }
+successor_queued_decision() { grep -q '	needs-decision: ' "$1/state/.wake-queue" 2>/dev/null; }
 
 test_attended_close_that_turns_main_only_before_its_turn_passes_to_main() {
   local home
@@ -1121,14 +1126,19 @@ test_attended_close_that_turns_main_only_before_its_turn_passes_to_main() {
   assert_no_re '^supervision-host' "$home/host.out" "the close must reach main exactly as the arm printed it"
   [ "$(engine_calls "$home")" -eq 0 ] || fail "turns-main-only: the engine ran on a stale offer"
   assert_grep 'demo.status' "$home/state/.wake-queue" "the wake must stay queued for main"
-  local pi_offer
+  # Pi judges the queue the turn judged, beside the status log that now holds
+  # the decision.
+  local pi_offer pi_state="$home/pi-state"
+  mkdir -p "$pi_state"
+  cp "$home/state/demo.meta" "$home/state/demo.status" "$pi_state/"
+  cp "$home/offer-queue" "$pi_state/.wake-queue"
   pi_offer=$(node --input-type=module -e '
     const dispatch = await import(process.argv[1]);
     console.log(dispatch.branchOfferForWake(process.argv[2], process.argv[3], false).eligible);
-  ' "$ROOT/.pi/extensions/lib/fm-branch-dispatch.ts" "$home/state" "signal: $home/state/demo.status")
+  ' "$ROOT/.pi/extensions/lib/fm-branch-dispatch.ts" "$pi_state" "signal: $home/state/demo.status")
   [ "$pi_offer" = true ] || fail "the host-only transition veto changed Pi's existing offer rule"
   assert_re '	pass-through	attended	main-only	signal:' "$home/state/.supervision-host.log" "the ledger must record why the close went to main"
-  watcher_live "$home" || fail "the pass-through left no successor watcher"
+  wait_until 150 successor_queued_decision "$home" || fail "the pass-through left no successor watcher to wake main on the decision"
   pass "host: an attended close whose task turns main-only before its turn still reaches main unchanged"
 }
 
@@ -1392,7 +1402,8 @@ test_claude_stop_hook_delivers_a_close_that_turns_main_only_at_its_turn() {
   [ "$(cat "$home/offer-count" 2>/dev/null)" -ge 2 ] || fail "fixture: the close was not accepted before it turned main-only"
   [ "$(engine_calls "$home")" -eq 0 ] || fail "hook turns-main-only: the engine ran on a stale offer"
   assert_rewoke_main "$home" "hook turns-main-only"
-  watcher_live "$home" || fail "hook turns-main-only: the pass-through left no successor watcher"
+  wait_until 150 successor_queued_decision "$home" \
+    || fail "hook turns-main-only: the pass-through left no successor watcher to wake main on the decision"
   pass "host+hook: a close that turns main-only at its turn rewakes main and keeps its successor watcher"
 }
 

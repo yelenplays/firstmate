@@ -63,8 +63,12 @@
 # Every turn that starts attended meets that rule again at its start, so a
 # close accepted away whose turn starts attended (the captain returned in
 # between) or an attended close whose task turned main-only while the
-# successor started reaches main exactly as the arm printed it, and that
-# successor cycle stays running.
+# successor started reaches main exactly as the arm printed it without the
+# host stopping the successor. The successor may already have queued the new
+# decision and exited by that hand-back; a still-live pid is not required
+# (tests/fm-supervision-host.test.sh pins the queued decision). The host returns
+# the confirmed handling handoff to downtime so the arm owner can deliver
+# the close to main.
 # A close the engine takes is handled in one order: it starts and verifies the
 # successor watcher cycle and confirms the handling handoff (the order
 # docs/watcher-continuity.md owns), computes the rows the branch may claim in
@@ -1131,8 +1135,8 @@ while :; do
   HANDLE_RC=$?
   if [ "$HANDLE_RC" -eq 2 ]; then
     log_line "pass-through	attended	$ATTENDED_WHY	$(printf '%s\n' "$REASON" | head -n 1)"
-    # The successor this turn already started and confirmed stays up. Retiring
-    # it is what left no watcher after a close that became main-only.
+    # Preserve the successor's opportunity to queue the new decision; it may
+    # already have closed on that decision before this hand-back.
     detach_successor
     # Main handles this close after all, so hand back the downtime the handoff
     # above consumed: the re-arm owner delivers the close only while the

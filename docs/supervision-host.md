@@ -102,9 +102,8 @@ Only an away record is away: no record, or the record daemon-backed quiet mode w
 
 The host asks the Pi branch's offer rule (`branchOfferForWake`, through `bin/fm-branch-dispatch.mjs offer`) whether the branch may take the close.
 So a close reaches main off Pi exactly when it would on Pi: a check trigger, a decision-owned signal or stale trigger, and a scan that is unsafe or holds nothing for the branch stay main's.
-On that main-only pass-through the host starts the successor watcher cycle and leaves it running, then prints the close unchanged.
-It leaves the watcher's recovery marker reading downtime, confirming no handling handoff, because the re-arm owner delivers a close to main only while that marker reads downtime.
-The session's next park without `--restart` requests a take-over to restore a single host-owned arm; the [host header](../bin/fm-supervision-host.sh) owns successor persistence and cleanup, and the [arm header](../bin/fm-watch-arm.sh) owns take-over eligibility and fallback.
+On that main-only pass-through the host prints the close unchanged; the [host header](../bin/fm-supervision-host.sh) owns successor continuity, the downtime hand-back required for delivery, and the next park's take-over request.
+The [arm header](../bin/fm-watch-arm.sh) owns take-over eligibility and fallback.
 OpenCode and omp still launch the host with `--restart`, which takes precedence over recorded take-over and lacks its acknowledgement-preserving handover; changing that first-cycle path remains a follow-up.
 The host-off Claude Stop hook's detached handling successor is also unchanged; see [Claude handling successor](watcher-continuity.md#claude-handling-successor).
 It also passes the close through unchanged, with no added line, when any of these holds (`fm_supervision_host_attended_ready` in `bin/fm-supervision-engine-lib.sh` owns the list):
@@ -125,7 +124,7 @@ The engine turn runs beside a captain who is present, so its guarded actions tak
 ### Away
 
 Every close goes to the engine; captain outcomes remain in the store until the return drain presents them (see [Captain outcomes](#captain-outcomes)).
-Every turn that starts attended meets the attended rule again at its start, and the offer's scan is the scope the turn claims: a close accepted away whose turn starts attended, because the captain returned in between, or an attended close whose task turned main-only (a decision appeared) while the successor started, reaches main unchanged and leaves that successor cycle running, with the handoff that turn had confirmed handed back to downtime.
+Every turn that starts attended meets the attended rule again at its start, and the offer's scan is the scope the turn claims: a close accepted away whose turn starts attended, because the captain returned in between, or an attended close whose task turned main-only (a decision appeared) while the successor started, follows the [main-only pass-through](#attended).
 A captain who leaves while an attended turn runs turns its captain outcomes into away outcomes: they wait for the return too.
 
 ### Quiet mode
@@ -161,7 +160,7 @@ On each actionable close the engine takes, the host runs these steps:
    The engine drains, handles, reports through `bin/fm-branch-report.sh`, and acknowledges, exactly as the Pi branch does.
 4. It releases the branch's leases and grant, whether or not the wake was handled.
 5. It parks on the successor only for a handled wake.
-   A main-only pass-through is not a park: the host exits after leaving that cycle running, as [Attended](#attended) describes.
+   A main-only pass-through follows [Attended](#attended) instead.
 
 The host counts the wake handled only when all three hold:
 
