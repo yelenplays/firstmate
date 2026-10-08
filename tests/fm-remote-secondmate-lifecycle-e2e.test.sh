@@ -1570,7 +1570,8 @@ wait_on_ssh_progress "$spawn_retirement_pid" "remote respawn never reached its b
 remote_env "$ROOT/bin/fm-teardown.sh" ios > "$TMP_ROOT/teardown-serialized.out" 2>&1 &
 teardown_pid=$!
 sleep 0.2
-kill -0 "$teardown_pid" 2>/dev/null || fail "remote retirement bypassed an active remote respawn"
+kill -0 "$teardown_pid" 2>/dev/null \
+  || fail "remote retirement bypassed an active remote respawn: $(cat "$TMP_ROOT/teardown-serialized.out")"
 assert_present "$REMOTE_HOME" "remote retirement removed the home during an active remote respawn"
 touch "$TMP_ROOT/launch.release"
 if ! wait "$spawn_retirement_pid"; then
@@ -1578,7 +1579,8 @@ if ! wait "$spawn_retirement_pid"; then
   fail "serialized remote respawn failed"
 fi
 sleep 0.2
-kill -0 "$teardown_pid" 2>/dev/null || fail "remote retirement bypassed an active backlog handoff"
+kill -0 "$teardown_pid" 2>/dev/null \
+  || fail "remote retirement bypassed an active backlog handoff: $(cat "$TMP_ROOT/teardown-serialized.out")"
 touch "$TMP_ROOT/handoff.release"
 wait "$handoff_holder_pid" || fail "handoff lock holder failed to release"
 if ! wait "$teardown_pid"; then
