@@ -103,6 +103,7 @@ Firstmate reads these clones, but changes them only through the narrow guarded a
 `data/` holds durable private fleet records such as the project and secondmate registries, captain preferences, optional shared captain preferences, learnings, backlog, briefs, scout reports, saved browser routes under `data/browser-routes/`, and explicitly installed content-addressed extension packages under `data/extensions/packages/`.
 `data/history/` stores this home's private conversation journal, task cards, and daily Logbooks; `bin/fm-history.sh` owns their formats, capture, search, and daily-generation behavior.
 `state/.history-cursor` tracks incremental transcript capture and the latest available token usage for compaction journaling; `state/jev-history-find.jsonl` keeps metadata-only Jev search records, whose outbound candidate fields are owned by the [`fm-history.sh` header](../bin/fm-history.sh).
+For model-proposal records, see [Jev model proposals](#jev-model-proposals).
 Untracked files and directories whose names begin with `scratchpad` are also gitignored, so temporary scratch does not make porcelain-based secondmate sync guards treat a home as dirty.
 
 ### Format and lifecycle references
@@ -1477,6 +1478,7 @@ A match stops the request: the resolver behaves exactly as when it is off, print
 A list that is present but not a readable regular file also stops the request the same way rather than sending unchecked text.
 That one diagnostic names the list line number at most and never prints the listed value or the matching text.
 The runoff request described under "Runoff on an ambiguous answer" below is checked the same way; a match there sends nothing and only leaves the answer `ambiguous`.
+The model-proposal generator also screens its outbound Jev requests against this list; see [Jev model proposals](#jev-model-proposals).
 
 **Missing or invalid rules**
 
@@ -1580,10 +1582,6 @@ Firstmate passes a printed profile line to `fm-spawn.sh` without hand-picking; t
 
 **Key handling and fixed settings**
 
-- The resolver and bootstrap copy an environment-provided key into a non-exported private variable and unset `TYPESAFE_API_KEY` before launching child processes, so the secret is absent from child environments.
-- The resolver sends the key to `curl` only as a header read from a file descriptor, never on argv, and nothing prints, logs, or writes it.
-- The resolver fixes the endpoint at `https://api.typesafe.ai`, model at the pinned route default above, default confidence floor at 0.6, and request timeout at 5 seconds; `TYPESAFE_API_KEY` is its only resolver-specific environment setting.
-
 The resolver and bootstrap copy an environment-provided key into a non-exported private variable and unset `TYPESAFE_API_KEY` and `OPENROUTER_API_KEY` before launching child processes, so the secret is absent from child environments.
 Keys reach `curl` only through `bin/fm-jev-lib.sh` as an Authorization header read from a file descriptor, never on argv, and nothing prints, logs, or writes them.
 The rule answer clears only when its returned choice equals the most probable option and its top-2 probability margin, the most probable option's probability minus the runner-up's, reaches `FM_JEV_DISPATCH_MARGIN`, read from the process environment first, else from `$FM_HOME/.env` via `fmx_env_get`, as a number in (0, 1] with default 0.4. A non-winning choice is ambiguous with a reason naming both choices; a below-threshold margin names the margin, threshold, and both contenders.
@@ -1637,6 +1635,16 @@ It skips silently without a configured Jev key or a share-safe routing card, doe
 [`bin/fm-jev-ask-user.sh`](../bin/fm-jev-ask-user.sh) is the live Jev step of the [`ask-user-authority`](../.agents/skills/ask-user-authority/SKILL.md) procedure, which owns when firstmate runs it and what each outcome obliges.
 Set `FM_JEV_ASK_USER_FLOOR` (default 0.75) to configure its confidence floor.
 The script header owns its decision and privacy boundaries, inputs, outputs, exit codes, and log schema.
+
+## Jev model proposals
+
+[`bin/fm-jev-model-proposal.sh`](../bin/fm-jev-model-proposal.sh) asks Jev which candidate model fits each role's work and writes a Markdown proposal, by default under `data/model-proposals/`.
+Each rule in `config/crew-dispatch.json` is a role, and an evidence file the caller curates supplies the candidate models, their capability and benchmark evidence, their billing class, and any extra roles such as secondmate pins.
+The proposal lists each role's current models, every candidate's probability and billing class, Jev's pick, confidence and band, and a local request id for each call.
+The [script header](../bin/fm-jev-model-proposal.sh) owns invocation, input validation, evidence and current-model formats, outbound privacy and never-send checks, answer bands, output and call-log schemas, and exit codes.
+It never edits `config/` or any dispatch profile, and every switch it proposes needs the captain's yes before anyone changes a profile.
+Any candidate billed to usage credits, such as Fable, is named in a billing notice at the top of the proposal.
+Regression coverage lives in [`tests/fm-jev-model-proposal.test.sh`](../tests/fm-jev-model-proposal.test.sh).
 
 ## Shadow done verifier
 

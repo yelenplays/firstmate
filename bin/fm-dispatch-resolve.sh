@@ -142,6 +142,8 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 . "$SCRIPT_DIR/fm-timing-lib.sh"
 # shellcheck source=bin/fm-brief-heading-lib.sh
 . "$SCRIPT_DIR/fm-brief-heading-lib.sh"
+# shellcheck source=bin/fm-never-send-lib.sh
+. "$SCRIPT_DIR/fm-never-send-lib.sh"
 
 DEFAULT_MARGIN=0.4
 # Only the floor an undeclared runner-up must clear when a rule's own declared
@@ -477,54 +479,11 @@ fi
 RESP_FILE=$(mktemp) || die "mktemp failed"
 QUOTA=$(mktemp) || { rm -f "$RESP_FILE"; die "mktemp failed"; }
 TASK_TEXT=$(mktemp) || { rm -f "$RESP_FILE" "$QUOTA"; die "mktemp failed"; }
-SEND_TEXT=$(mktemp) || { rm -f "$RESP_FILE" "$QUOTA" "$TASK_TEXT"; die "mktemp failed"; }
-trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$SEND_TEXT"' EXIT
+trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT"' EXIT
 
-never_send_off() {
-  echo "dispatch-resolve: off ($1; nothing sent)" >&2
-  exit 0
-}
-
-# Checks every string a request carries, so no text reaches the network
-# unchecked. grep's own stderr is discarded because it can echo the pattern.
-# Returns 1 with the reason in NEVER_SEND_WHY, naming at most a line number.
-NEVER_SEND_WHY=''
-never_send_scan() {
-  local request=$1 list value n=0 rc
-  NEVER_SEND_WHY=''
-  [ -e "$NEVER_SEND_PATH" ] || [ -L "$NEVER_SEND_PATH" ] || return 0
-  if ! { [ -f "$NEVER_SEND_PATH" ] && [ -r "$NEVER_SEND_PATH" ]; }; then
-    NEVER_SEND_WHY="$NEVER_SEND_PATH is not a readable regular file"
-    return 1
-  fi
-  # Collapse whitespace runs on both sides so a value the brief wraps across
-  # lines or spaces differently still matches
-  if ! jq -r '.. | strings | gsub("\\s+"; " ")' <<<"$request" > "$SEND_TEXT" 2>/dev/null; then
-    NEVER_SEND_WHY="could not extract the request text to check"
-    return 1
-  fi
-  if ! list=$(jq -Rr 'gsub("\\s+"; " ")' "$NEVER_SEND_PATH" 2>/dev/null); then
-    NEVER_SEND_WHY="could not read $NEVER_SEND_PATH"
-    return 1
-  fi
-  while IFS= read -r value; do
-    n=$((n + 1))
-    value=${value# }
-    value=${value% }
-    case "$value" in
-      ''|'#'*) continue ;;
-    esac
-    grep -qiF -e "$value" "$SEND_TEXT" 2>/dev/null; rc=$?
-    case "$rc" in
-      0) NEVER_SEND_WHY="brief text matches $NEVER_SEND_PATH line $n"; return 1 ;;
-      1) ;;
-      *) NEVER_SEND_WHY="could not check the request text against $NEVER_SEND_PATH line $n"; return 1 ;;
-    esac
-  done <<<"$list"
-  return 0
-}
 never_send_check() {
-  never_send_scan "$REQUEST" || never_send_off "$NEVER_SEND_WHY"
+  fm_never_send_check "$NEVER_SEND_PATH" "$REQUEST" "brief text" \
+    || { echo "dispatch-resolve: off ($FM_NEVER_SEND_ERROR; nothing sent)" >&2; exit 0; }
 }
 
 # Send Jev only the task-specific sections bin/fm-brief.sh scaffolds, plus a
@@ -681,8 +640,8 @@ fm_quota_json_valid < "$QUOTA" || emit_error "quota-axi --json returned an inval
 # ---- spend prediction: one ledger pass over the same quota snapshot ----------
 # bin/fm-spend-ledger.py owns the measurement; absent or unreadable output
 # leaves every burn gate inert and shows pred=unknown on the candidate lines.
-PREDICT_FILE=$(mktemp) || { rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$SEND_TEXT"; die "mktemp failed"; }
-trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$SEND_TEXT" "$PREDICT_FILE"' EXIT
+PREDICT_FILE=$(mktemp) || { rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT"; die "mktemp failed"; }
+trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE"' EXIT
 SPEND_LEDGER=${FM_SPEND_LEDGER:-$SCRIPT_DIR/fm-spend-ledger.py}
 if [ -x "$SPEND_LEDGER" ]; then
   FM_HOME="$FM_HOME" "$SPEND_LEDGER" predict --quota "$QUOTA" > "$PREDICT_FILE" 2>/dev/null \
@@ -1033,11 +992,11 @@ case "$RUNOFF_STATE" in
       }}') || emit_error "could not build runoff question"
     PICK_REQUEST=$(jq -nc --argjson state "$STATE" --argjson questions "$PICK_QUESTIONS" '{state: $state, questions: $questions}') \
       || emit_error "could not build runoff request"
-    if ! never_send_scan "$PICK_REQUEST"; then
-      runoff_note "$(jq -nc --arg why "$NEVER_SEND_WHY" '{state: "skipped", reason: ($why + "; nothing sent")}')"
+    if ! fm_never_send_check "$NEVER_SEND_PATH" "$PICK_REQUEST" "brief text"; then
+      runoff_note "$(jq -nc --arg why "$FM_NEVER_SEND_ERROR" '{state: "skipped", reason: ($why + "; nothing sent")}')"
     else
       PICK_FILE=$(mktemp) || emit_error "mktemp failed"
-      trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$SEND_TEXT" "$PREDICT_FILE" "$PICK_FILE"' EXIT
+      trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE" "$PICK_FILE"' EXIT
       [ -n "$TYPESAFE_API_KEY_PRIVATE" ] && TYPESAFE_API_KEY=$TYPESAFE_API_KEY_PRIVATE
       [ -n "$OPENROUTER_API_KEY_PRIVATE" ] && OPENROUTER_API_KEY=$OPENROUTER_API_KEY_PRIVATE
       PICK_ERR=0

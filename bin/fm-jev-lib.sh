@@ -36,16 +36,21 @@
 # child environment. Nothing prints, logs, or writes the key.
 #
 # Public helpers:
-#   fm_jev_decide <state> <questions-json> [--string]
+#   fm_jev_decide <state> <questions-json> [--string] [--before-send <function>]
 #     POST {model, state, questions}. By default, <state> is a JSON object or
 #     array when the argument parses as one, otherwise a string; --string
-#     forces a JSON string. <questions-json> is a JSON object. Prints the full
-#     JSON response on stdout. Non-zero on
-#     hard failure: 2 for usage/config (missing args, missing key, missing
-#     jq/curl, questions not a JSON object), 1 for transport or a non-JSON /
-#     non-200 response. Sets FM_JEV_LAST_ROUTE, FM_JEV_LAST_URL,
-#     FM_JEV_LAST_MODEL, FM_JEV_LAST_HTTP, and FM_JEV_LAST_LATENCY_MS on every
-#     attempted call (empty HTTP/latency when the call never reached curl).
+#     forces a JSON string. <questions-json> is a JSON object. An optional
+#     --before-send shell function receives the complete assembled request as
+#     one JSON argument, including the resolved model, before transport.
+#     A non-zero result refuses the request without calling curl, returns 2,
+#     and sets FM_JEV_LAST_REQUEST_REJECTED=1 (reset to empty on every call).
+#     Prints the full JSON response on stdout. Non-zero on hard failure:
+#     2 for usage/config (missing args, missing key, missing jq/curl, questions
+#     not a JSON object, invalid validator) or validator refusal; 1 for
+#     transport or a non-JSON / non-200 response. Sets FM_JEV_LAST_ROUTE,
+#     FM_JEV_LAST_URL, FM_JEV_LAST_MODEL, FM_JEV_LAST_HTTP, and
+#     FM_JEV_LAST_LATENCY_MS on every attempted call (empty HTTP/latency when
+#     the call never reached curl).
 #   fm_jev_response_model <response-json>
 #     Prints the response's `model` string, the exact build that answered, or
 #     nothing when absent. Callers that record a call's result log it as
@@ -267,7 +272,7 @@ _fm_jev_resolve_route() {
 }
 
 fm_jev_decide() {
-  local state questions request resp_file http t0 t1 timeout state_mode
+  local state questions request resp_file http t0 t1 timeout state_mode before_send
   local _fm_jev_route _fm_jev_url _fm_jev_model _fm_jev_key
   export -n TYPESAFE_API_KEY OPENROUTER_API_KEY TYPESAFE_API_KEY_PRIVATE OPENROUTER_API_KEY_PRIVATE 2>/dev/null || true
   FM_JEV_LAST_ROUTE=''
@@ -275,20 +280,36 @@ fm_jev_decide() {
   FM_JEV_LAST_MODEL=''
   FM_JEV_LAST_HTTP=''
   FM_JEV_LAST_LATENCY_MS=''
-  if [ $# -lt 2 ] || [ $# -gt 3 ]; then
-    _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string]"
+  FM_JEV_LAST_REQUEST_REJECTED=''
+  if [ $# -lt 2 ]; then
+    _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string] [--before-send <function>]"
     return 2
   fi
   state=$1
   questions=$2
+  shift 2
   state_mode=auto
-  if [ $# -eq 3 ]; then
-    if [ "$3" != --string ]; then
-      _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string]"
-      return 2
-    fi
-    state_mode=string
-  fi
+  before_send=''
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --string)
+        state_mode=string
+        shift
+        ;;
+      --before-send)
+        if [ "$#" -lt 2 ] || [ -n "$before_send" ]; then
+          _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string] [--before-send <function>]"
+          return 2
+        fi
+        before_send=$2
+        shift 2
+        ;;
+      *)
+        _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string] [--before-send <function>]"
+        return 2
+        ;;
+    esac
+  done
   command -v jq >/dev/null 2>&1 || { _fm_jev_err "jq required"; return 2; }
   command -v curl >/dev/null 2>&1 || { _fm_jev_err "curl not installed"; return 2; }
   printf '%s' "$questions" | jq -e 'type == "object"' >/dev/null 2>&1 || {
@@ -314,6 +335,14 @@ fm_jev_decide() {
       _fm_jev_err "could not build request"
       return 2
     }
+  fi
+  if [ -n "$before_send" ]; then
+    declare -F "$before_send" >/dev/null 2>&1 || { _fm_jev_err "request validator is not a function"; return 2; }
+    if ! "$before_send" "$request"; then
+      # shellcheck disable=SC2034 # Read by sourcing callers after fm_jev_decide returns.
+      FM_JEV_LAST_REQUEST_REJECTED=1
+      return 2
+    fi
   fi
   resp_file=$(mktemp) || { _fm_jev_err "mktemp failed"; return 2; }
   timeout=$(_fm_jev_timeout)

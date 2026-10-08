@@ -21,6 +21,8 @@ It includes material adapted from third parties, which keeps its own licence:
   - bin/fm-jev-merge-gate.sh is adapted from its orchestration/merge-evidence.js
     and the review.merge_gate v4 decision in config/decisions.yaml, rewritten in
     bash and jq for Firstmate.
+  - bin/fm-jev-model-proposal.sh adapts its intake.specialist decision and band
+    thresholds (config/decisions.yaml) into a per-role model proposal generator.
   - The agent-stack-* cases in tests/fixtures/jev-merge-gate/cases.jsonl are
     copied from its test/fixtures/merge-gate-tests-first/, wrapped with a label
     and an eval set.
