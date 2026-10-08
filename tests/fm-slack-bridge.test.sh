@@ -993,6 +993,17 @@ test_structured_post_layouts() {
     ok(!p.text.replace(/<https:[^>]*>/g, "").includes("https://"));
   ' || fail "a decision has a header, bold question, marked options, labelled PR link, and reply footer: $out"
 
+  out=$("$BRIDGE" post decision --dry-run --project firstmate --title '*urgent*' \
+    --context 'keep _this_ literal ~too~ `please`' --option a='*approve*' \
+    --url https://example.com/x --url-label '*open*' 2>&1) || fail "mrkdwn markers must render literally: $out"
+  check_payload "$out" '
+    ok(blockText.includes("*\\*urgent\\**"));
+    ok(blockText.includes("keep \\_this\\_ literal \\~too\\~ \\`please\\`"));
+    ok(blockText.includes("◻️ *a* · \\*approve\\*"));
+    ok(blockText.includes("|\\*open\\*"));
+    ok(!blockText.includes("**urgent**"));
+  ' || fail "user mrkdwn markers stay literal across structured fields: $out"
+
   out=$("$BRIDGE" post ready --dry-run --project firstmate --title "Slack posts are readable" \
     --option merge="Merge it" --option hold="Hold for review" --recommend merge \
     --url https://github.com/o/firstmate/pull/127 2>&1) || fail "a ready post must render: $out"

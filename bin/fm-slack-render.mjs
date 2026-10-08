@@ -63,8 +63,9 @@ function decode(value, name) {
 // One line: collapse every run of whitespace, so a field never breaks the layout.
 const oneLine = (s) => s.replace(/\s+/g, " ").trim();
 
-// Slack mrkdwn treats only these three as control characters.
-const escape = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// Escape Slack entities and formatting markers before adding intentional mrkdwn.
+const escape = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/[*_~`]/g, (character) => `\\${character}`);
 
 function linkLabel(url) {
   const m = /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/(pull|issues)\/([0-9]+)(?:[/?#]\S*)?$/.exec(url);
