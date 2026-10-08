@@ -1,0 +1,5 @@
+ok - exact six role pins, fresh sessions, no project resources, read-only check and idempotent install
+ok - default global discovery path and unrelated profiles preserved
+ok - intact installed definitions converge across code roots
+ok - edited, unowned, symlink, hardlink and directory conflicts preserve all files
+ok - concurrent provisioning converges

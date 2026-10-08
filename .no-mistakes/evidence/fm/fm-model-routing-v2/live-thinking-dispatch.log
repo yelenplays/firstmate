@@ -1,0 +1,12 @@
+$ bin/fm-dispatch-resolve.sh <live-thinking-dispatch-brief> --project pagination-lab
+exit=0
+dispatch-resolve:
+  status: clear
+  model: typesafe/jev-1.13-20260917   latency_ms: 594   tokens: 673/86
+  rule: rule_1 (Implement a small, fully specified non-frontend backend fix )   confidence: 1
+  probabilities: default=0 rule_1=1
+  effort: low (jev confidence=0.87)
+  note: rule matched
+  candidate: claude:claude-opus-5-5  provider=claude  effort=medium(medium ceiling)  scope=all_models  remaining=48%  spendPriority=-1.5032  runway=projected_exhaustion  pred=unknown  -> eligible
+  candidate: pi:openai-codex/gpt-6.1-sol  provider=codex  effort=high(high ceiling)  scope=all_models  remaining=77%  spendPriority=-0.5185  runway=projected_exhaustion  pred=unknown  -> not eligible: overflow only: a scout brief never overflows
+  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'medium'

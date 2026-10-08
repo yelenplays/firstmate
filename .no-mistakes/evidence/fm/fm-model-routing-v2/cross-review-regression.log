@@ -1,0 +1,17 @@
+ok - a same-family pipeline review triggers a one-shot reviewer from another family
+ok - a pipeline review from another family counts as the independent review
+ok - the pipeline reviewer's provider is read from the no-mistakes state database
+ok - a pipeline review counts only for the exact head with a completed review step
+ok - a direct-PR task gets a one-shot review bound to its head
+ok - a GitHub PR without pr_head reads and binds its exact forge head
+ok - GitHub planning refreshes stale recorded PR heads
+ok - a non-GitHub PR without pr_head refuses until its exact sha is supplied
+ok - collect accepts a report only when it declares exactly the requested head from another family
+ok - a confirmation names the exact sha and verifies for no other
+ok - the fixed reviewer chain skips candidates from the builder family
+ok - an unknown builder family escalates instead of guessing a reviewer
+ok - a task record without ai_family resolves its recorded harness and model
+ok - renaming a private page cannot expose it to a reviewer
+ok - a private vault change stays on today's path and no new reviewer sees it
+ok - recording review families keeps an armed PR poll authenticating
+ok - usage errors exit 2 and missing records exit 1

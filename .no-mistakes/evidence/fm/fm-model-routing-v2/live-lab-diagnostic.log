@@ -1,0 +1,284 @@
++ set -u
+++ dirname tests/fm-live-lab-up-mate.test.sh
++ . tests/fixtures.sh
++++ dirname tests/fixtures.sh
+++ . tests/lib.sh
++++ '[' -n '' ']'
++++ FM_TEST_LIB_SOURCED=1
+++++ dirname tests/lib.sh
++++ . tests/environment.sh
++++ fm_test_sanitize_environment
++++ unset FM_HOME FM_STATE_OVERRIDE FM_DATA_OVERRIDE FM_ROOT_OVERRIDE FM_PROJECTS_OVERRIDE FM_CONFIG_OVERRIDE FM_BACKEND FM_SESSION_START_STAGE_FILE PI_CODING_AGENT_DIR TYPESAFE_API_KEY OPENROUTER_API_KEY TYPESAFE_API_KEY_PRIVATE OPENROUTER_API_KEY_PRIVATE JEV_ROUTE JEV_MODEL JEV_URL JEV_BASE JEV_TIMEOUT FM_JEV_DISPATCH_SHADOW FM_JEV_DISPATCH_EXTRA FM_JEV_DISPATCH_COMPACT FM_JEV_STATUS_TRIAGE_BIN FM_JEV_WEDGE_CHECK_BIN FM_JEV_SUPERVISION_TIMEOUT_SECS FM_JEV_SPAN_TRIAGE_MAX FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS FM_WIKI_ENGINE FM_WIKI_CATALOG FM_MEMORY_DIR FM_OV_HOME
++++ FM_BROWSER_BRIDGE_PROC_TABLE=/dev/null
++++ FM_CHROME_AXI_STATE_DIR=/dev/null
++++ FM_CLAUDE_AGENTS_BIN=/dev/null
++++ export FM_BROWSER_BRIDGE_PROC_TABLE FM_CHROME_AXI_STATE_DIR FM_CLAUDE_AGENTS_BIN
++++ umask 022
+++++ dirname tests/lib.sh
++++ . tests/git-config-helpers.sh
+++++ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+++++ GIT_CONFIG_GLOBAL=/dev/null
+++++ GIT_CONFIG_NOSYSTEM=1
++++ export FM_GATE_REFUSE_BYPASS=1
++++ FM_GATE_REFUSE_BYPASS=1
++++ export FM_TEST_SEAM=1
++++ FM_TEST_SEAM=1
++++ unset FM_TASK_ID
++++ unset TASKS_AXI_FILE TASKS_AXI_BACKEND
++++++ dirname tests/lib.sh
+++++ cd tests/..
+++++ pwd
++++ ROOT=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N
+++++ fm_test_tmpdir
+++++ local base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp physical
+++++ base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
+++++ '[' -n /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp ']'
+++++ case "$base" in
++++++ CDPATH=
++++++ cd -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
++++++ pwd -P
+++++ physical=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
+++++ base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
+++++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.git ']'
+++++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
++++ FM_TEST_TMPDIR=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
++++ FM_TEST_CLEANUP_DIRS=()
+++++ mktemp /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.fm-test-cleanup.93918.XXXXXX
++++ FM_TEST_CLEANUP_REGISTRY=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.fm-test-cleanup.93918.rTSlJA
+++++ fm_test_pid_identity 93918
+++++ local pid=93918
+++++ FM_STATE_OVERRIDE=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
+++++ bash -c '. "$1"; fm_pid_identity "$2"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/bin/fm-wake-lib.sh 93918
++++ FM_TEST_OWNER_IDENTITY='Thu Oct  8 22:00:04 2026     bash -x tests/fm-live-lab-up-mate.test.sh'
+++++ mktemp /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.fm-test-procevent.93918.XXXXXX
++++ FM_TEST_PROCEVENT_REGISTRY=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.fm-test-procevent.93918.URf0Pj
+++++ mktemp /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.fm-test-watcher.93918.XXXXXX
++++ FM_TEST_WATCHER_REGISTRY=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.fm-test-watcher.93918.bn3gQm
++++ FM_TEST_STUB_MAX_BLOCK_SECONDS=120
++++ export FM_TEST_STUB_MAX_BLOCK_SECONDS
++++ trap fm_test_cleanup EXIT
++++ trap 'fm_test_cleanup; exit 130' INT
++++ trap 'fm_test_cleanup; exit 143' TERM
++++ trap 'fm_test_cleanup; exit 129' HUP
++++ trap 'fm_test_cleanup; exit 131' QUIT
++++ FM_TEST_ORPHAN_MAX_AGE_SECONDS=3600
++++ '[' 0 '!=' 1 ']'
++++ fm_test_reap_orphans
++++ local marker dir mtime now owner_pid owner_identity current_identity
+++++ date +%s
++++ now=1791489604
++++ for marker in "$FM_TEST_TMPDIR"/fm-*/.fm-test-fixture
++++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.bWn2Nx/.fm-test-fixture ']'
+++++ sed -n 1p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.bWn2Nx/.fm-test-fixture
++++ owner_pid=18544
+++++ sed -n '2,$p' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.bWn2Nx/.fm-test-fixture
++++ owner_identity='Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh'
++++ case "$owner_pid" in
+++++ fm_test_pid_identity 18544
++++ current_identity=
++++ current_identity=
++++ '[' -n 'Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh' ']'
++++ '[' '' = 'Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh' ']'
+++++ stat -c %Y /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.bWn2Nx/.fm-test-fixture
+++++ stat -f %m /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.bWn2Nx/.fm-test-fixture
++++ mtime=1791489495
++++ '[' 109 -ge 3600 ']'
++++ continue
++++ for marker in "$FM_TEST_TMPDIR"/fm-*/.fm-test-fixture
++++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.eoYHno/.fm-test-fixture ']'
+++++ sed -n 1p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.eoYHno/.fm-test-fixture
++++ owner_pid=18544
+++++ sed -n '2,$p' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.eoYHno/.fm-test-fixture
++++ owner_identity='Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh'
++++ case "$owner_pid" in
+++++ fm_test_pid_identity 18544
++++ current_identity=
++++ current_identity=
++++ '[' -n 'Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh' ']'
++++ '[' '' = 'Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh' ']'
+++++ stat -c %Y /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.eoYHno/.fm-test-fixture
+++++ stat -f %m /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.eoYHno/.fm-test-fixture
++++ mtime=1791489487
++++ '[' 117 -ge 3600 ']'
++++ continue
++++ for marker in "$FM_TEST_TMPDIR"/fm-*/.fm-test-fixture
++++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.TQrDB1/.fm-test-fixture ']'
+++++ sed -n 1p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.TQrDB1/.fm-test-fixture
++++ owner_pid=18544
+++++ sed -n '2,$p' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.TQrDB1/.fm-test-fixture
++++ owner_identity='Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh'
++++ case "$owner_pid" in
+++++ fm_test_pid_identity 18544
++++ current_identity=
++++ current_identity=
++++ '[' -n 'Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh' ']'
++++ '[' '' = 'Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh' ']'
+++++ stat -c %Y /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.TQrDB1/.fm-test-fixture
+++++ stat -f %m /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.TQrDB1/.fm-test-fixture
++++ mtime=1791489433
++++ '[' 171 -ge 3600 ']'
++++ continue
++++ for marker in "$FM_TEST_TMPDIR"/fm-*/.fm-test-fixture
++++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.VDeomW/.fm-test-fixture ']'
+++++ sed -n 1p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.VDeomW/.fm-test-fixture
++++ owner_pid=18544
+++++ sed -n '2,$p' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.VDeomW/.fm-test-fixture
++++ owner_identity='Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh'
++++ case "$owner_pid" in
+++++ fm_test_pid_identity 18544
++++ current_identity=
++++ current_identity=
++++ '[' -n 'Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh' ']'
++++ '[' '' = 'Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh' ']'
+++++ stat -c %Y /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.VDeomW/.fm-test-fixture
+++++ stat -f %m /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.VDeomW/.fm-test-fixture
++++ mtime=1791489491
++++ '[' 113 -ge 3600 ']'
++++ continue
++++ for marker in "$FM_TEST_TMPDIR"/fm-*/.fm-test-fixture
++++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.y4GIaY/.fm-test-fixture ']'
+++++ sed -n 1p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.y4GIaY/.fm-test-fixture
++++ owner_pid=18544
+++++ sed -n '2,$p' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.y4GIaY/.fm-test-fixture
++++ owner_identity='Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh'
++++ case "$owner_pid" in
+++++ fm_test_pid_identity 18544
++++ current_identity=
++++ current_identity=
++++ '[' -n 'Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh' ']'
++++ '[' '' = 'Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh' ']'
+++++ stat -c %Y /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.y4GIaY/.fm-test-fixture
+++++ stat -f %m /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-base-path-sans.y4GIaY/.fm-test-fixture
++++ mtime=1791489498
++++ '[' 106 -ge 3600 ']'
++++ continue
++++ for marker in "$FM_TEST_TMPDIR"/fm-*/.fm-test-fixture
++++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-bootstrap-tests.Oy4n2A/.fm-test-fixture ']'
+++++ sed -n 1p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-bootstrap-tests.Oy4n2A/.fm-test-fixture
++++ owner_pid=18544
+++++ sed -n '2,$p' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-bootstrap-tests.Oy4n2A/.fm-test-fixture
++++ owner_identity='Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh'
++++ case "$owner_pid" in
+++++ fm_test_pid_identity 18544
++++ current_identity=
++++ current_identity=
++++ '[' -n 'Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh' ']'
++++ '[' '' = 'Thu Oct  8 21:55:58 2026     bash tests/fm-bootstrap.test.sh' ']'
+++++ stat -c %Y /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-bootstrap-tests.Oy4n2A/.fm-test-fixture
+++++ stat -f %m /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-bootstrap-tests.Oy4n2A/.fm-test-fixture
++++ mtime=1791489358
++++ '[' 246 -ge 3600 ']'
++++ continue
+++ '[' -n '' ']'
+++ FM_TEST_FIXTURES_SOURCED=1
+++ export FM_TEST_NO_MISTAKES_VERSION=1.46.0
+++ FM_TEST_NO_MISTAKES_VERSION=1.46.0
+++ export 'FM_TEST_NO_MISTAKES_FAKE_VERSION=no-mistakes version v1.46.0 (fake)'
+++ FM_TEST_NO_MISTAKES_FAKE_VERSION='no-mistakes version v1.46.0 (fake)'
+++ export 'FM_TEST_NO_MISTAKES_FAKE_VERSION_TS=no-mistakes version v1.46.0 (fake) 2026-06-27T00:02:18Z'
+++ FM_TEST_NO_MISTAKES_FAKE_VERSION_TS='no-mistakes version v1.46.0 (fake) 2026-06-27T00:02:18Z'
+++ export FM_TEST_GH_AXI_VERSION=0.1.29
+++ FM_TEST_GH_AXI_VERSION=0.1.29
++ command -v tmux
+++ fm_test_tmproot fm-live-up-mate
+++ local prefix=fm-live-up-mate root tmp_base
++++ fm_test_tmpdir
++++ local base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp physical
++++ base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
++++ '[' -n /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp ']'
++++ case "$base" in
+++++ CDPATH=
+++++ cd -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
+++++ pwd -P
++++ physical=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
++++ base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
++++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.git ']'
++++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
+++ tmp_base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
+++ tmp_base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp
++++ mktemp -d /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.XXXXXX
+++ root=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw
++++ cd -P -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw
++++ pwd -P
+++ root=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw
+++ printf '%s\n%s\n' 93918 'Thu Oct  8 22:00:04 2026     bash -x tests/fm-live-lab-up-mate.test.sh'
+++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw
+++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw
++ TMP_ROOT=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw
++ export HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/user
++ HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/user
++ mkdir -p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/user/.pi/agent /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/user/.treehouse /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source/bin /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/fakebin
++ printf '{}\n'
++ unset CLAUDE_CONFIG_DIR TMUX
++ cp -R /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/bin/. /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source/bin/
++ cp /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/AGENTS.md /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source/AGENTS.md
++ cat
++ cat
++ cat
++ cat
++ chmod +x /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source/bin/fm-home-seed.sh /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source/bin/fm-spawn.sh /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/fakebin/claude /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/fakebin/pi
++ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source init -q -b main
++ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source add -A
++ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source -c user.name=t -c user.email=t@example.invalid commit -qm stub
++ trap cleanup_labs EXIT
++ for mode in off on
++ lab=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off
++ host=claude
++ '[' off = off ']'
++ host=off
+++ PATH=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/fakebin:/Users/yelen/.pi/agent/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/yelen/.local/bin:/Users/yelen/.headroom/bin:/Users/yelen/.bun/bin:/run/current-system/sw/bin:/etc/profiles/per-user/yelen/bin:/Users/yelen/.kimi-code/bin:/Library/Frameworks/Python.framework/Versions/3.13/bin:/Users/yelen/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Users/yelen/go/bin:/Users/yelen/.cargo/bin:/Users/yelen/bin:/usr/local/sbin
+++ SHELL=/bin/sh
+++ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/bin/fm-live-lab.sh up --harness claude --mate --supervision-host off --source /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source --timeout 0 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off
++ out=$'lab: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off (tear down with: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/bin/fm-live-lab.sh down /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off)\ntree: 6abb70916379debcecfe8408470c9bac0060dee6 from /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source\nfm-live-lab: cannot record lab process: missing or invalid PID \'\''
++ rc=1
++ expect_code 1 1 'unanswered probe leaves the off mate lab for inspection'
++ local expected=1 actual=1 'label=unanswered probe leaves the off mate lab for inspection'
++ '[' 1 = 1 ']'
++ assert_not_contains $'lab: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off (tear down with: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/bin/fm-live-lab.sh down /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off)\ntree: 6abb70916379debcecfe8408470c9bac0060dee6 from /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source\nfm-live-lab: cannot record lab process: missing or invalid PID \'\'' 'HOST_OFF: unbound variable' 'up off sets mate readiness state'
++ case "$1" in
++ :
++ assert_contains $'lab: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off (tear down with: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/bin/fm-live-lab.sh down /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off)\ntree: 6abb70916379debcecfe8408470c9bac0060dee6 from /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source\nfm-live-lab: cannot record lab process: missing or invalid PID \'\'' 'ok mate:' 'up off checks the launched mate'
++ case "$1" in
++ fail $'up off checks the launched mate (missing: \'ok mate:\')\n--- output ---\nlab: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off (tear down with: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/bin/fm-live-lab.sh down /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off)\ntree: 6abb70916379debcecfe8408470c9bac0060dee6 from /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source\nfm-live-lab: cannot record lab process: missing or invalid PID \'\''
++ printf 'not ok - %s\n' $'up off checks the launched mate (missing: \'ok mate:\')\n--- output ---\nlab: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off (tear down with: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/bin/fm-live-lab.sh down /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off)\ntree: 6abb70916379debcecfe8408470c9bac0060dee6 from /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source\nfm-live-lab: cannot record lab process: missing or invalid PID \'\''
+not ok - up off checks the launched mate (missing: 'ok mate:')
+--- output ---
+lab: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off (tear down with: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/bin/fm-live-lab.sh down /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off)
+tree: 6abb70916379debcecfe8408470c9bac0060dee6 from /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/source
+fm-live-lab: cannot record lab process: missing or invalid PID ''
++ exit 1
++ cleanup_labs
++ local root
++ for root in "$TMP_ROOT"/lab-*
++ '[' -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off/.fm-live-lab ']'
++ PATH=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/fakebin:/Users/yelen/.pi/agent/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/yelen/.local/bin:/Users/yelen/.headroom/bin:/Users/yelen/.bun/bin:/run/current-system/sw/bin:/etc/profiles/per-user/yelen/bin:/Users/yelen/.kimi-code/bin:/Library/Frameworks/Python.framework/Versions/3.13/bin:/Users/yelen/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Users/yelen/go/bin:/Users/yelen/.cargo/bin:/Users/yelen/bin:/usr/local/sbin
++ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/bin/fm-live-lab.sh down /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw/lab-off
++ fm_test_cleanup
++ local d
++ fm_test_reap_watchers
++ local state lock_home $'seen=\n'
++ '[' -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.fm-test-watcher.93918.bn3gQm ']'
++ IFS=
++ read -r state
++ rm -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.fm-test-watcher.93918.bn3gQm
++ fm_test_reap_procevent_homes
++ local home claim_root $'seen=\n'
++ '[' -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.fm-test-procevent.93918.URf0Pj ']'
++ IFS=$'\t'
++ read -r home claim_root
++ rm -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.fm-test-procevent.93918.URf0Pj
++ for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"
++ '[' -n '' ']'
++ '[' -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.fm-test-cleanup.93918.rTSlJA ']'
++ IFS=
++ read -r d
++ '[' -n /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw ']'
++ fm_test_remove_tree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw
++ local dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw
++ '[' -d /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw ']'
++ '[' '!' -L /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw ']'
++ find /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw -type d -exec chmod u+rwx '{}' +
++ rm -rf /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.98jQOw
++ IFS=
++ read -r d
++ rm -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/.fm-test-cleanup.93918.rTSlJA

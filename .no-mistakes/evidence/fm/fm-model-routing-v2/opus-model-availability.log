@@ -1,0 +1,5 @@
+No models matching "claude-opus-5-5"
+provider      model                   context  max-out  thinking  images
+openai-codex  gpt-6.1-sol             272K     128K     yes       yes   
+openrouter    openai/gpt-6.1-sol      1.1M     128K     yes       yes   
+openrouter    openai/gpt-6.1-sol-pro  1.1M     128K     yes       yes   

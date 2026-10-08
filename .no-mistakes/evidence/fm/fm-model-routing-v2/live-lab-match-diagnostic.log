@@ -1,0 +1,10 @@
+not ok - up off checks the launched mate (missing: 'ok mate:')
+--- output ---
+lab: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.7ivJXH/lab-off (tear down with: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/bin/fm-live-lab.sh down /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.7ivJXH/lab-off)
+tree: de9ea3193cd9ff2479b2f7d2ed1c38614b50c8d3 from /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/fm-live-up-mate.7ivJXH/source
+lab @0 59365
+fm-labecb7fc1abf37-mate @1 59980
+DIAGNOSTIC wanted=<fm-labecb7fc1abf37-mate> socket=</tmp/fml.Zq7E7U>
+lab_@0
+fm-labecb7fc1abf37-mate_@1
+fm-live-lab: cannot record lab process: missing or invalid PID ''

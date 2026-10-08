@@ -1,0 +1,28 @@
+Cross-family review selection through the real installed catalog, without fake catalog or no-mistakes commands.
+$ bin/fm-cross-review.sh plan claude-builder --head 3fc53e14bc57c094964d2931658f48341de72d68
+task=claude-builder
+head=3fc53e14bc57c094964d2931658f48341de72d68
+builder_family=anthropic
+action=spawn-reviewer
+kind=review
+reason=no one-shot review is recorded for 3fc53e14bc57c094964d2931658f48341de72d68, and direct-PR mode runs no pipeline review
+reviewer_id=claude-builder-xr-3fc53e14
+reviewer_harness=pi
+reviewer_model=openai-codex/gpt-6.1-sol
+reviewer_effort=high
+reviewer_family=openai
+
+$ bin/fm-cross-review.sh plan sol-builder --head 3fc53e14bc57c094964d2931658f48341de72d68
+task=sol-builder
+head=3fc53e14bc57c094964d2931658f48341de72d68
+builder_family=openai
+action=spawn-reviewer
+kind=review
+reason=no one-shot review is recorded for 3fc53e14bc57c094964d2931658f48341de72d68, and direct-PR mode runs no pipeline review
+reviewer_id=sol-builder-xr-3fc53e14
+reviewer_harness=claude
+reviewer_model=claude-opus-5-5
+reviewer_effort=high
+reviewer_family=anthropic
+
+PASS: Claude task selects Sol high; OpenAI task selects Opus high; neither selects Luna.

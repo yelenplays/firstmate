@@ -1,0 +1,5 @@
+ok - up --mate with supervision host off reaches readiness
+ok - up --mate with supervision host on reaches readiness
+ok - up launches Sol default at high effort
+ok - up launches Sol explicit at high effort
+ok - up launches Sol bare at high effort

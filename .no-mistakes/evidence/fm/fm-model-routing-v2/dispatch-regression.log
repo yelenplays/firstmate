@@ -1,0 +1,58 @@
+ok - absent key is off: one stderr line, exit 0, no network call
+ok - TYPESAFE_API_KEY= in .env activates the tool; environment and config overrides work
+ok - clear: one rule Choice request, key on the fd header only, spendPriority argmax over every candidate
+ok - never-send list withholds the request on a match or a bad list, and never prints the value
+ok - rules snapshots and shell quoting preserve the profile protocol
+ok - no-rule fallback, Agy, Gemini, and documented configurations resolve
+ok - ambiguous: a narrow top-2 margin hands the decision back
+ok - ambiguous: a choice below the probability leader hands the decision back
+ok - runoff: a decisive pick among clearing contenders emits the winner's profile
+ok - runoff: the pick can overturn the rule answer's own choice
+ok - runoff: a narrow, non-winning, malformed, or failed pick hands the decision back
+ok - runoff: a contender that would not clear, such as a captain-approval rule, skips the runoff
+ok - runoff: contenders that settle on the same profile need no call
+ok - runoff: the never-send list and shadow log cover the runoff
+ok - margin gate: option-count invariant, inclusive threshold, environment then .env, invalid values refused
+ok - beats: tie-break sentences, conditional pairs, non-cyclic chains, and no-beats behavior
+ok - per-rule confidence floors fall to the most probable runner-up that clears its own floor
+ok - only the brief's task sections and scout tag reach the model, with a whole-brief fallback
+ok - escalate: a rule declared approval: captain never yields a profile
+ok - rule floor: known shortfall falls through while unavailable evidence escalates
+ok - declared provider and profile floor evidence are applied in code
+ok - nonnumeric spendPriority evidence is never ranked
+ok - partial and missing quota evidence remain eligible but unranked
+ok - provider-wide and exact quota rows combine into one limiting candidate
+ok - default: no rule matched resolves among the default profiles
+ok - tie: equal spendPriority never breaks by array order
+ok - no rankable candidate: the tool escalates instead of guessing
+ok - native Codex binds to codex-home before default, independently of Pi accounts and row order
+ok - Pi native adapters bind to codex-home with existing fallbacks and schema 5 compatibility
+ok - schema 6: each candidate binds to its account row; schema 5 is unchanged
+ok - quota evidence comes from one quota-axi --json read, and its failure is an error outcome
+ok - API, transport, and response failures are error outcomes with exit 0
+ok - configuration errors exit 2 before any network call
+ok - OpenRouter path and URL/model/timeout overrides are covered by fake curl
+ok - compact state sends project plus intent, never credentials
+ok - shadow flag logs without changing spawn output
+ok - extra questions are log-only
+ok - effort classifier: a lower assessed class replaces the declared ceiling value
+ok - effort classifier: declared effort is a ceiling that max cannot cross
+ok - effort classifier: ceiling, harness fit, and the declared fallback are all enforced
+ok - cost-aware ranking: predicted burn refuses a candidate that cannot fit
+ok - cost-aware ranking: an all-refused escalate names the predicted burn
+ok - cost-aware ranking: a runway shorter than predicted duration refuses the candidate
+ok - cost-aware ranking: absent ledger evidence stays disclosed and never blocks
+ok - overflow: a candidate marked overflow stays out while the primary's quota lasts
+ok - overflow: the overflow candidate takes the work once every primary is projected to run out before reset
+ok - overflow: a scout brief never overflows
+ok - overflow: a short primary keeps the work when the overflow candidate cannot take it
+ok - overflow: an exhausted primary overflows
+ok - overflow: a zero-percent primary overflows
+ok - overflow: ceiling, harness, floor, and burn failures never activate overflow
+ok - overflow: every primary must have quota evidence without a non-quota rejection
+ok - overflow: depleted non-applicable floor scopes never authorize a fallback
+ok - effort floor: an overflowed Sol runs at its floor, never the lower assessed class
+ok - overflow: a non-boolean overflow declaration is refused
+ok - profile validation: all use and default forms reject malformed or unenforceable floors and overflow
+ok - effort floor: fallback and assessed values are floored for rules and defaults
+# all fm-dispatch-resolve tests passed

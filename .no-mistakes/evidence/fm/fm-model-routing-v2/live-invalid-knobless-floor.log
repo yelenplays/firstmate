@@ -1,0 +1,3 @@
+$ bin/fm-dispatch-resolve.sh <live-invalid-knobless-floor-brief> --project pagination-lab
+exit=2
+error: malformed rules file: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EEVTA6P75XKHXGVFWEGV3N/.test-phase-tmp/routing.wwmjkfqg/config/crew-dispatch.json - profile effort_floor must be low, medium, high, xhigh, or max and not above the profile effort, supported by an effort-capable harness and model

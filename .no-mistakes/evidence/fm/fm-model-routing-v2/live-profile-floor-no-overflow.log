@@ -1,0 +1,12 @@
+$ bin/fm-dispatch-resolve.sh <live-profile-floor-no-overflow-brief> --project pagination-lab
+exit=0
+dispatch-resolve:
+  status: escalate
+  model: typesafe/jev-1.13-20260917   latency_ms: 324   tokens: 673/86
+  rule: rule_1 (Implement a small, fully specified non-frontend backend fix )   confidence: 1
+  probabilities: rule_1=1 default=0
+  effort: low (jev confidence=0.87)
+  reason: no rankable eligible candidate
+  note: rule matched
+  candidate: claude:claude-opus-5-5  provider=claude  effort=medium(medium ceiling)  scope=model:fable  remaining=48%  spendPriority=-  runway=projected_exhaustion  -> not eligible: profile floor model:fable below 100%
+  candidate: pi:openai-codex/gpt-6.1-sol  provider=codex  effort=high(high ceiling)  scope=all_models  remaining=77%  spendPriority=-0.5185  runway=projected_exhaustion  pred=unknown  -> not eligible: overflow only: not every primary has concrete Claude quota-shortfall evidence
