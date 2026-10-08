@@ -2124,7 +2124,25 @@ With a bot configured, `bin/fm-slack-bot.mjs` reads author ids from the Slack We
 
 **Posting**
 
-`bin/fm-slack-bridge.sh post report|decision [--url <https-url>] <text>` sends the message, as a `slack-axi` draft it then sends or as the bot, and records the channel id and message ts in `state/slack-bridge/posts`.
+Firstmate posts one item per message in the structured form, which lays the post out for reading at a glance:
+
+```sh
+bin/fm-slack-bridge.sh post decision --project "Gmail Swipe" \
+  --title "Ship swipe-to-archive now, or wait for the undo bar?" \
+  --context "Undo bar is half done; the gesture alone is tested." \
+  --option a="Ship the gesture now" --option b="Wait and ship both" --recommend a \
+  --url https://github.com/o/gmail-swipe/pull/11
+```
+
+The kind picks the layout and channel: `decision` goes to the decisions channel, while `ready` (a PR ready for review or a merge ask), `merged` (a merge result), and `report` (anything else) go to the report channel.
+Each post shows a header with the kind and project, the title in bold, at most two context lines, the options with the recommended one marked, the link, and a "Reply in thread" footer naming the option keys; a `merged` post is one compact line pair.
+A `--url` is always a labelled link, `PR #<n>` for a GitHub pull request or `--url-label` otherwise, never a raw URL.
+`bin/fm-slack-render.mjs` owns the layouts and their limits.
+With a bot the post is Block Kit with a plain-text fallback; through `slack-axi` it is that fallback, Slack formatting with the same layout.
+Answers stay thread replies, DMs, and mentions; there are no buttons, because the bot has no Socket Mode connection or public request URL.
+`--dry-run` prints the Slack payload as JSON and posts nothing.
+The free-text form, `post report|decision [--url <https-url>] <text>`, still works for older callers.
+Every post is sent as a `slack-axi` draft it then sends or as the bot, and its channel id and message ts are recorded in `state/slack-bridge/posts`.
 Every post is top-level; without a bot that also keeps the bridge out of threads, because the logged-in account's thread replies are what counts as captain input.
 
 **Replying**
@@ -2157,7 +2175,7 @@ A quiet poll prints nothing.
 
 The bridge reads each post's thread for replies only during the configured `watch-days` window (default 7 days, maximum 30 days).
 A reply after that window is not delivered.
-If an ask is still open after the window, repost it with the same kind (`report` or `decision`) using `bin/fm-slack-bridge.sh post <kind> <text>` so the captain can answer the new message.
+If an ask is still open after the window, repost it with the same kind using `bin/fm-slack-bridge.sh post <kind>` so the captain can answer the new message.
 Replies arrive within one poll interval while supervision is running.
 Set `poll-seconds=60` for the bridge's minute-or-two reply time.
 When unset, the bridge uses the global `FM_CHECK_INTERVAL` (default 300 seconds).

@@ -160,7 +160,8 @@ test_post_sends_and_records() {
     || fail "post must succeed: $out"
   assert_contains "$out" "posted report C0REPORT01 1791140000.000001" "post names the channel id and dotted ts"
   assert_grep $'v1\tC0REPORT01\t1791140000.000001\treport\t' "$home/state/slack-bridge/posts" "the post is recorded with its channel id and ts"
-  assert_grep '"draft","#fm-yelen","PR ready for review\nhttps://github.com/o/r/pull/7"' "$home/slack.log" "the report goes to the report channel with its URL"
+  assert_grep '"draft","#fm-yelen","PR ready for review\n🔗 <https://github.com/o/r/pull/7|PR #7>"' "$home/slack.log" \
+    "the report goes to the report channel with its URL as a labelled link"
   assert_grep '["draft","send","d_test0001"]' "$home/slack.log" "the draft is sent"
 
   out=$(bridge "$home" post decision -- "-1 on option B; recommend A" 2>&1) || fail "decision post must succeed: $out"
@@ -501,8 +502,8 @@ test_bot_posts_instead_of_slack_axi() {
     || fail "bot post must succeed: $out"
   assert_contains "$out" "posted report C0REPORT01 1791140500.000001" "the bot post names the channel id and ts"
   assert_grep $'v1\tC0REPORT01\t1791140500.000001\treport\t' "$home/state/slack-bridge/posts" "the bot post is recorded"
-  assert_contains "$(posted_requests "$home")" "C0REPORT01 - PR ready for review"$'\n'"https://github.com/o/r/pull/7" \
-    "the bot posts the text and URL top-level in the report channel"
+  assert_contains "$(posted_requests "$home")" "C0REPORT01 - PR ready for review"$'\n'"🔗 <https://github.com/o/r/pull/7|PR #7>" \
+    "the bot posts the text and labelled link top-level in the report channel"
   out=$(bot_bridge "$home" post decision -- "-1 on option B; recommend A" 2>&1) || fail "bot decision post must succeed: $out"
   assert_contains "$(posted_requests "$home")" "C0DECIDE01 - -1 on option B; recommend A" "a bot needs no leading-dash workaround"
   assert_absent "$home/slack.log" "a bot home never calls slack-axi"
@@ -960,6 +961,132 @@ test_manifest_has_name_and_minimal_scopes() {
   pass "fm-slack-bridge: manifest names and minimal scopes"
 }
 
+# check_payload <json> <node-assertion-body>: run JS assertions against one
+# rendered Slack payload {text, blocks}; a false assertion exits non-zero.
+check_payload() {
+  node -e '
+    const p = JSON.parse(process.argv[1]);
+    const ok = (c) => { if (!c) process.exit(1); };
+    const block = (type) => (p.blocks || []).filter((b) => b.type === type);
+    const blockText = (p.blocks || []).map((b) => (b.text && b.text.text) || (b.elements || []).map((e) => e.text).join(" ")).join("\n");
+    '"$2" "$1"
+}
+
+test_structured_post_layouts() {
+  local out
+  out=$("$BRIDGE" post decision --dry-run --project "Gmail Swipe" \
+    --title "Ship the gesture now or with the undo bar?" \
+    --context "Undo bar is half done." --context "Gesture alone is tested & green." \
+    --option a="Ship gesture now" --option b="Wait for both" --recommend a \
+    --url https://github.com/o/gmail-swipe/pull/11 2>&1) || fail "a structured decision must render without config: $out"
+  check_payload "$out" '
+    ok(block("header").length === 1 && block("header")[0].text.text === "🧭 Decision · Gmail Swipe");
+    ok(blockText.includes("*Ship the gesture now or with the undo bar?*"));
+    ok(blockText.includes("Gesture alone is tested &amp; green."));
+    ok(blockText.includes("➡️ *a* · Ship gesture now  _(recommended)_"));
+    ok(blockText.includes("◻️ *b* · Wait for both"));
+    ok(blockText.includes("<https://github.com/o/gmail-swipe/pull/11|PR #11>"));
+    ok(block("context")[0].elements[0].text === "Reply in thread: a / b");
+    ok(p.text.startsWith("*🧭 Decision · Gmail Swipe*\n*Ship the gesture now or with the undo bar?*"));
+    ok(p.text.includes("➡️ *a* · Ship gesture now"));
+    ok(p.text.endsWith("_Reply in thread: a / b_"));
+    ok(!p.text.replace(/<https:[^>]*>/g, "").includes("https://"));
+  ' || fail "a decision has a header, bold question, marked options, labelled PR link, and reply footer: $out"
+
+  out=$("$BRIDGE" post ready --dry-run --project firstmate --title "Slack posts are readable" \
+    --option merge="Merge it" --option hold="Hold for review" --recommend merge \
+    --url https://github.com/o/firstmate/pull/127 2>&1) || fail "a ready post must render: $out"
+  check_payload "$out" '
+    ok(block("header")[0].text.text === "🔀 Ready for review · firstmate");
+    ok(blockText.includes("<https://github.com/o/firstmate/pull/127|PR #127>"));
+    ok(block("context")[0].elements[0].text === "Reply in thread: merge / hold");
+  ' || fail "a ready post has its own header, link, and merge footer: $out"
+
+  out=$("$BRIDGE" post merged --dry-run --project firstmate --title "Slack posts are readable" \
+    --url https://example.com/x --url-label "the change" 2>&1) || fail "a merged post must render: $out"
+  check_payload "$out" '
+    ok(p.blocks.length === 1 && block("section").length === 1);
+    ok(p.text === "✅ *Merged* · firstmate\n*Slack posts are readable*  🔗 <https://example.com/x|the change>");
+  ' || fail "a merged post is one compact section with a labelled link: $out"
+
+  out=$("$BRIDGE" post report --dry-run "plain words" 2>&1) || fail "free text must still render: $out"
+  check_payload "$out" 'ok(p.text === "plain words" && p.blocks === null);' \
+    || fail "the free-text form posts its text as written: $out"
+  pass "fm-slack-bridge: structured decision, ready, merged, and free-text layouts"
+}
+
+test_structured_post_refuses_bad_input() {
+  local args rc
+  local -a words
+  while IFS= read -r args; do
+    rc=0
+    eval "words=($args)"
+    "$BRIDGE" post "${words[0]}" --dry-run "${words[@]:1}" >/dev/null 2>&1 || rc=$?
+    assert_equals 2 "$rc" "post refuses: $args"
+  done <<'CASES'
+decision --title q --context 1 --context 2 --context 3
+decision --title q --option a=x --recommend b
+decision --title q --option a=x --option a=y
+decision --title q --option ax
+decision --title q extra free text
+decision --project p "free text"
+ready "free text"
+merged --title q --option a=x
+decision --title q --url http://example.com
+CASES
+  pass "fm-slack-bridge: structured posts refuse a third context line, unknown or duplicate options, mixed forms, and bad links"
+}
+
+test_structured_post_through_slack_axi_uses_the_fallback() {
+  local home out
+  home=$(make_home structured-axi)
+  write_config "$home"
+  out=$(bridge "$home" post decision --project lay --title "Pick the hero image?" \
+    --option a=Sunset --option b=Studio --recommend b 2>&1) || fail "a structured slack-axi post must succeed: $out"
+  assert_contains "$out" "posted decision" "the structured post is sent"
+  node -e '
+    const fs = require("fs");
+    const draft = fs.readFileSync(process.argv[1], "utf-8").split("\n").filter(Boolean).map(JSON.parse).find((a) => a[0] === "draft" && a[1] === "#entscheidungen");
+    if (!draft || draft[2] !== "*🧭 Decision · lay*\n*Pick the hero image?*\n◻️ *a* · Sunset\n➡️ *b* · Studio  _(recommended)_\n_Reply in thread: a / b_") process.exit(1);
+  ' "$home/slack.log" || fail "slack-axi posts the mrkdwn fallback to the decisions channel"
+  assert_grep $'\tdecision\t' "$home/state/slack-bridge/posts" "the structured post is recorded"
+  pass "fm-slack-bridge: slack-axi posts the structured layout as its mrkdwn fallback"
+}
+
+test_bot_structured_post_sends_blocks_and_keeps_thread_replies() {
+  local home out note
+  home=$(make_bot_home bot-structured)
+  write_bot_config "$home"
+  out=$(bot_bridge "$home" arm 2>&1) || fail "bot arm must succeed: $out"
+  out=$(bot_bridge "$home" post ready --project firstmate --title "Slack posts are readable" \
+    --option merge="Merge it" --option hold="Hold" --recommend merge \
+    --url https://github.com/o/firstmate/pull/127 2>&1) || fail "a structured bot post must succeed: $out"
+  assert_contains "$out" "posted ready C0REPORT01 1791140500.000001" "a ready post goes to the report channel"
+  # shellcheck disable=SC2016 # JavaScript, not shell
+  node -e '
+    const fs = require("fs");
+    const r = fs.readFileSync(process.argv[1], "utf-8").split("\n").filter(Boolean).map(JSON.parse).find((x) => x.method === "chat.postMessage");
+    const blocks = JSON.parse(r.params.blocks);
+    if (blocks[0].type !== "header" || blocks[0].text.text !== "🔀 Ready for review · firstmate") process.exit(1);
+    if (!r.params.text.startsWith("*🔀 Ready for review · firstmate*")) process.exit(1);
+    if (r.params.unfurl_links !== "false") process.exit(1);
+  ' "$home/bot-requests.jsonl" || fail "the bot sends Block Kit blocks with the fallback text"
+  cat > "$home/bot-fixture.json" <<JSON
+{"history":{"C0REPORT01":[{"ts":"1791140500.000001","user":"U0BOTYELEN","bot_id":"B0YELEN001","text":"ready","reply_count":2}]},
+ "threads":{"C0REPORT01:1791140500.000001":[
+   {"ts":"1791140500.000001","user":"U0BOTYELEN","bot_id":"B0YELEN001","text":"ready","reply_count":2},
+   {"ts":"1791140510.000001","user":"$OTHER","text":"hold"},
+   {"ts":"1791140520.000001","user":"$CAPTAIN","text":"merge"}]}}
+JSON
+  out=$(bot_bridge "$home" check 2>&1) || fail "bot check must succeed: $out"
+  assert_equals 1 "$(note_count "$home" slack-captain)" "only the captain's thread reply on a structured post is delivered"
+  note=$(grep -l "captain reply in thread of ready: firstmate: Slack posts are readable (" "$home/state/inbox"/*.note) \
+    || fail "the delivered reply names the post it answers by project and title"
+  grep -qx merge "$note" || fail "the captain's answer arrives as typed"
+  assert_no_token "$home" "$out"
+  pass "fm-slack-bridge: a bot sends structured posts as blocks and their thread replies still arrive"
+}
+
 test_bridge_is_off_without_config
 test_post_sends_and_records
 test_captain_reply_delivered_once_and_others_ignored
@@ -982,3 +1109,7 @@ test_bot_delivers_captain_mentions_only
 test_old_top_level_mention_survives_watch_window
 test_tagged_reply_on_bridge_post_is_delivered_once
 test_manifest_has_name_and_minimal_scopes
+test_structured_post_layouts
+test_structured_post_refuses_bad_input
+test_structured_post_through_slack_axi_uses_the_fallback
+test_bot_structured_post_sends_blocks_and_keeps_thread_replies

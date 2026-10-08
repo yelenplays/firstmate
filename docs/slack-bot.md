@@ -182,8 +182,8 @@ What the bot posts where:
 
 | Post | Channel |
 | --- | --- |
-| Finished PRs, merge asks, and merge results | Report channel, top-level |
-| Decisions with a recommendation | Decisions channel, top-level |
+| Finished PRs, merge asks, and merge results, one per post | Report channel, top-level |
+| Decisions with a recommendation, one per post | Decisions channel, top-level |
 | Answers to your DM | The DM |
 | Answers to a thread reply or a tag | That thread |
 
