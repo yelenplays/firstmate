@@ -4646,6 +4646,16 @@ SH
   pass "marked hold reasons round-trip through public reads, fleet, startup, and return without changing other fields"
 }
 
+if [ "${1:-}" = --scout-completion ]; then
+  test_uninventoried_report_decision_refuses_completion
+  test_completion_gate_attests_and_transfers
+  test_none_inventory_and_resolved_prose_do_not_create_holds
+  test_terminal_single_owner_status_decision_does_not_block_empty_inventory
+  test_teardown_never_closes_a_captain_held_task
+  test_teardown_retains_captain_calls_in_a_relocated_backlog
+  exit 0
+fi
+
 test_hold_reason_round_trips_awkward_characters
 test_hold_origins_precede_backend_holds
 test_historical_self_inventory_has_workable_repair

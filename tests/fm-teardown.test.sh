@@ -1068,6 +1068,92 @@ test_local_only_merged_to_local_main_allows() {
   pass "teardown retires execution obligations for ships, scouts, and tasks"
 }
 
+test_scout_empty_cleanup_is_one_call() {
+  local case_dir rc=0
+  case_dir=$(make_case scout-empty)
+  write_meta "$case_dir" local-only scout
+  seed_backlog_in_flight "$case_dir" scout
+  mkdir -p "$case_dir/data/task-x1"
+  printf '# Review report\nNo changes requested.\n' > "$case_dir/data/task-x1/report.md"
+  printf 'Wiki guide contract: required\n' > "$case_dir/data/task-x1/brief.md"
+  # One flag attests the reviewed empty surface and no-guide outcome.
+  run_teardown "$case_dir" --scout-complete > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "empty scout cleanup should finish in one call: $(<"$case_dir/stderr")"
+  assert_absent "$case_dir/state/task-x1.meta" 'empty scout runtime was retained'
+  assert_equals 'done' "$(backlog_row_state "$case_dir")" 'empty scout backlog item was not completed'
+  assert_grep 'data/task-x1/report.md' "$case_dir/data/backlog.md" 'scout report artifact was not recorded'
+  assert_present "$case_dir/data/task-x1/report.md" 'empty scout report was lost'
+  assert_grep 'no guide:' "$case_dir/data/task-x1/guide.md" 'automatic no-guide reason was not recorded'
+  pass 'a scout with a report and no outstanding calls completes in one cleanup call'
+}
+
+test_scout_resolved_inventory_completes_in_one_call() {
+  local case_dir rc=0
+  case_dir=$(make_case scout-resolved)
+  write_meta "$case_dir" local-only scout
+  seed_backlog_in_flight "$case_dir" scout
+  mkdir -p "$case_dir/data/task-x1"
+  printf '# Review report\n' > "$case_dir/data/task-x1/report.md"
+  printf 'Wiki guide contract: required\n' > "$case_dir/data/task-x1/brief.md"
+  FM_HOME="$case_dir" "$ROOT/bin/fm-captain-hold.sh" hold review-call --title 'Review choice' --reason 'Choice needed' --origin task-x1 >/dev/null || fail 'could not create review call'
+  FM_HOME="$case_dir" "$ROOT/bin/fm-captain-hold.sh" complete task-x1 review-call >/dev/null || fail 'could not record review inventory'
+  # Outstanding inventoried calls must refuse the one-call path too.
+  run_teardown "$case_dir" --scout-complete > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 1 "$rc" 'one-call cleanup ignored an open inventoried call'
+  assert_absent "$case_dir/data/task-x1/guide.md" 'refusal wrote a no-guide record'
+  printf 'Choose the existing route.\n' > "$case_dir/answer.txt"
+  FM_HOME="$case_dir" "$ROOT/bin/fm-captain-hold.sh" answer review-call --decision-file "$case_dir/answer.txt" >/dev/null || fail 'could not record review answer'
+  printf 'blocked [key=old-review]: waiting for choice\nresolved [key=old-review]: choice recorded\ndone: review complete\n' > "$case_dir/state/task-x1.status"
+  # Existing authored guides are preserved, not replaced by automatic prose.
+  printf 'no guide: reviewed; no reusable lesson.\n' > "$case_dir/data/task-x1/guide.md"
+  rc=0
+  run_teardown "$case_dir" --scout-complete > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "resolved scout could not finish in one call: $(<"$case_dir/stderr")"
+  assert_grep 'no guide: reviewed; no reusable lesson.' "$case_dir/data/task-x1/guide.md" 'cleanup overwrote the authored guide'
+  pass 'resolved inventories and closed blocked keys permit one-call completion without overwriting guides'
+}
+
+test_scout_complete_never_relaxes_force_or_ship_safety() {
+  local case_dir kind rc
+  for kind in ship scout; do
+    case_dir=$(make_case "scout-flag-$kind")
+    write_meta "$case_dir" local-only "$kind"
+    cp "$case_dir/state/task-x1.meta" "$case_dir/original.meta"
+    rc=0
+    run_teardown "$case_dir" --scout-complete --force > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    expect_code 1 "$rc" 'one-call scout completion accepted forced or non-scout cleanup'
+    cmp -s "$case_dir/original.meta" "$case_dir/state/task-x1.meta" || fail 'invalid one-call flag mutated metadata'
+    assert_present "$case_dir/wt/.git" 'invalid one-call flag discarded the isolated copy'
+  done
+  pass 'one-call scout completion cannot bypass discard authority or ship safety'
+}
+
+test_scout_outstanding_cleanup_still_refuses() {
+  local case_dir rc variant
+  for variant in missing-report blocked inventory origin-hold; do
+    case_dir=$(make_case "scout-outstanding-$variant")
+    write_meta "$case_dir" local-only scout
+    seed_backlog_in_flight "$case_dir" scout
+    mkdir -p "$case_dir/data/task-x1"
+    printf '# Review report\n' > "$case_dir/data/task-x1/report.md"
+    case "$variant" in
+      missing-report) rm "$case_dir/data/task-x1/report.md" ;;
+      blocked) printf 'blocked [key=review]: unresolved question\n' > "$case_dir/state/task-x1.status" ;;
+      inventory) printf 'decisions_reviewed=1\ndecision_keys=missing-call\n' >> "$case_dir/state/task-x1.meta" ;;
+      origin-hold)
+        FM_HOME="$case_dir" "$ROOT/bin/fm-captain-hold.sh" hold review-call --title 'Review choice' --reason 'Choice needed' --origin task-x1 >/dev/null || fail 'could not create origin hold'
+        ;;
+    esac
+    rc=0
+    run_teardown "$case_dir" --scout-complete > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    expect_code 1 "$rc" "outstanding $variant scout was cleaned up"
+    assert_grep 'REFUSED: scout task task-x1' "$case_dir/stderr" 'existing scout refusal message was lost'
+    assert_present "$case_dir/state/task-x1.meta" 'refusal lost scout metadata'
+    assert_absent "$case_dir/data/task-x1/guide.md" 'refusal invented a no-guide record'
+  done
+  pass 'missing reports, blocked keys, unresolved inventory and unrecorded origin calls still refuse'
+}
+
 test_scout_teardown_preserves_named_deliverables() {
   local case_dir file rc
   case_dir=$(make_case scout-deliverables)
@@ -4926,6 +5012,10 @@ test_retained_sources_still_reach_the_ordinary_refusal() {
   pass "present required sources still reach the ordinary teardown refusal"
 }
 
+test_scout_empty_cleanup_is_one_call
+test_scout_resolved_inventory_completes_in_one_call
+test_scout_complete_never_relaxes_force_or_ship_safety
+test_scout_outstanding_cleanup_still_refuses
 test_scout_teardown_preserves_named_deliverables
 if [ "${1:-}" = --scout-deliverables ]; then
   exit 0

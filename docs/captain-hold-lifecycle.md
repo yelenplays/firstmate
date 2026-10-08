@@ -121,7 +121,8 @@ The event names the reviewed inventory.
 ### Checking before scout teardown (`verify`)
 
 Scout teardown calls the read-only `verify` subcommand after checking for the report and before removing any source state.
-`verify` checks three things:
+The empty-scout exception is owned by `bin/fm-captain-hold.sh --help` (`verify --allow-empty`) and `bin/fm-teardown.sh --help`.
+Nonempty inventories retain three checks:
 
 - The recorded attestation exists.
 - Every recorded inventory entry still passes the [completion inventory checks](#recording-a-reviewed-inventory-complete).
@@ -524,7 +525,7 @@ The suite does not test the accepted merge-to-cleanup re-hold window or asynchro
 ### Completion and verification
 
 - A report-only unresolved captain call refuses `--none` completion before teardown can erase the source.
-- Non-forced scout teardown always requires the durable inventory verification.
+- Non-forced scout teardown requires durable inventory verification, including the mechanical empty-set path exercised by `tests/fm-teardown.test.sh --scout-deliverables`.
 - The recorded-answer guard holds: a bare `tasks-axi done` close fails `verify` until `answer` records the captain's word, and an ordinary finished task cannot be dressed up as an answered call.
 
 ### Answers, stamps, and deferral

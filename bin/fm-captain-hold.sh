@@ -29,7 +29,7 @@
 #   fm-captain-hold.sh unbind <source-id>
 #   fm-captain-hold.sh binding <source-id>
 #   fm-captain-hold.sh complete <origin-id> (--none | <task-id>...)
-#   fm-captain-hold.sh verify <origin-id>
+#   fm-captain-hold.sh verify <origin-id> [--allow-empty]
 #   fm-captain-hold.sh open <task-id> [--identity] [--distinguish-absent]
 #   fm-captain-hold.sh diverged
 #   fm-captain-hold.sh reconcile list
@@ -155,6 +155,11 @@
 # erase a source before this gate has succeeded: every recorded inventory
 # entry must still satisfy the same durability and origin checks as `complete`,
 # and no keyed status decision may be open.
+# Scout teardown's explicit --scout-complete may use `verify --allow-empty`:
+# it mechanically checks for a report, no open inventory entries, no open
+# status decisions and no associated captain-held backlog calls. The caller's
+# review attestation belongs to teardown's flag, never to this read-only predicate.
+# Default verify retains the ordinary reviewed/durability requirements.
 # Metadata compatibility: the attestation keeps the historical
 # `decisions_reviewed=1` and `decision_keys=` keys, and an inventory entry that
 # names no existing task resolves through the legacy `<origin>-decision-<entry>`
@@ -1841,15 +1846,66 @@ EOF
 }
 
 command_verify() {
-  local origin=${1:-} meta reviewed keys entry key open resolved
-  [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+  local origin=${1:-} meta reviewed keys entry key open resolved allow_empty=0 ids id show stored outstanding='' data listing count open_rc origin_id stored_id
+  if [ "$#" -eq 2 ] && [ "$2" = --allow-empty ]; then
+    allow_empty=1
+  elif [ "$#" -ne 1 ]; then
+    usage >&2; exit 2
+  fi
   validate_slug origin-id "$origin"
   meta="$STATE/$origin.meta"
   [ -f "$meta" ] || fail "origin metadata is absent: $meta"
   require_tasks_axi
   reviewed=$(meta_value "$meta" decisions_reviewed)
-  [ "$reviewed" = 1 ] || fail "origin $origin has no completed captain-call inventory"
   keys=$(meta_value "$meta" decision_keys)
+  if [ "$allow_empty" = 1 ]; then
+    [ -f "$DATA/$origin/report.md" ] || fail "origin $origin has no report"
+    if [ -n "$keys" ]; then
+      [ "$reviewed" = 1 ] || fail "origin $origin has no completed captain-call inventory"
+      while IFS= read -r entry; do
+        [ -n "$entry" ] || continue
+        resolved=$(verify_entry_durable "$origin" "$entry") || exit $?
+        id=${resolved%% *}
+        open_rc=0
+        command_open "$id" || open_rc=$?
+        [ "$open_rc" = 1 ] || fail "origin $origin still has an open or unreadable captain-call inventory entry $entry"
+      done <<EOF
+$(printf '%s\n' "$keys" | tr ',' '\n')
+EOF
+    fi
+    open=$(status_open_decisions "$STATE/$origin.status")
+    # Read the configured backlog backend, never the markdown-only snapshot:
+    # an empty markdown shadow says nothing about captain calls in Beads.
+    data=$(fm_backlog_data_absolute "$DATA") || fail 'cannot resolve captain-call inventory'
+    origin_id=$(task_identity "$origin") || exit $?
+    listing=$(fm_backlog_row_list "$data") || fail 'cannot verify empty captain-call inventory'
+    ids=$(printf '%s\n' "$listing" | awk -F, '/^  [A-Za-z0-9._-]+,/ {id=$1; sub(/^ +/, "", id); print id}')
+    count=$(printf '%s\n' "$listing" | sed -n 's/^count: \([0-9][0-9]*\)$/\1/p')
+    case "$count" in ''|*[!0-9]*) fail 'captain-call listing is unreadable or truncated' ;; esac
+    [ "$count" = "$(printf '%s\n' "$ids" | awk 'NF {n++} END {print n+0}')" ] \
+      || fail 'captain-call listing is incomplete'
+    while IFS= read -r id; do
+      [ -n "$id" ] || continue
+      task_show "$id" || fail "cannot read captain-held task $id"
+      show=$TASK_SHOW_OUTPUT
+      [ "$(show_field "$show" state)" != 'done' ] || continue
+      [ "$(show_field_value "$show" hold_kind)" = captain ] || continue
+      stored=$(body_hold_origin "$(decode_shown_value "$(show_field "$show" body)")")
+      stored_id=''
+      [ -z "$stored" ] || stored_id=$(task_identity "$stored") || exit $?
+      if [ "$id" = "$origin_id" ] || [ "$stored_id" = "$origin_id" ]; then
+        outstanding=$id; break
+      fi
+      case "$id" in "$origin-decision-"*|"$origin_id-decision-"*) outstanding=$id; break ;; esac
+    done <<EOF
+$ids
+EOF
+    [ -z "$open" ] || fail "origin $origin still has open captain decisions in its status stream"
+    [ -z "$outstanding" ] || fail "origin $origin still has captain-held tasks: $outstanding"
+    printf 'verified-empty: %s captain-call inventory\n' "$origin"
+    return 0
+  fi
+  [ "$reviewed" = 1 ] || fail "origin $origin has no completed captain-call inventory"
   if [ -n "$keys" ]; then
     while IFS= read -r entry; do
       [ -n "$entry" ] || continue

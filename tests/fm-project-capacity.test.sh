@@ -210,6 +210,43 @@ test_undeclared_capacity_keeps_dispatch_uncapped() {
   pass "a project with no declared capacity keeps today's uncapped dispatch"
 }
 
+test_workerless_records_do_not_occupy_capacity() {
+  local case_dir home out rc=0
+  case_dir=$(make_case workerless task-c task-d)
+  home="$case_dir/home"
+  declare_capacity "$home" 'project 1'
+  fm_write_meta "$home/state/captain-call.meta" "kind=captain" "project=$case_dir/project" 'window=stale-nonworker-target'
+  fm_write_meta "$home/state/queued-task.meta" "kind=task" "project=$case_dir/project" 'window='
+  out=$(spawn_ship "$case_dir" task-c) || rc=$?
+  expect_code 0 "$rc" "workerless records consumed capacity: $out"
+  assert_present "$home/state/captain-call.meta" 'admission removed a captain record'
+  rc=0
+  out=$(spawn_ship "$case_dir" task-d "$case_dir/unused") || rc=$?
+  expect_code "$DEFER_EXIT" "$rc" "the new real worker did not consume capacity: $out"
+  assert_contains "$out" '1 already hold a place (task-c)' 'workerless records were counted with the real worker'
+  pass 'captain holds and endpoint-free task records do not occupy worker capacity'
+}
+
+test_all_recorded_backend_targets_hold_capacity() {
+  local case_dir home backend out rc=0
+  case_dir=$(make_case backend-targets task-c)
+  home="$case_dir/home"
+  for backend in tmux herdr zellij cmux orca; do
+    fm_write_meta "$home/state/worker-$backend.meta" "kind=task" "project=$case_dir/project" "backend=$backend"
+    if [ "$backend" = orca ]; then
+      printf 'terminal=orca-terminal\nwindow=\n' >> "$home/state/worker-$backend.meta"
+    else
+      printf 'window=%s-endpoint\n' "$backend" >> "$home/state/worker-$backend.meta"
+    fi
+  done
+  declare_capacity "$home" 'project 5'
+  out=$(spawn_ship "$case_dir" task-c "$case_dir/unused") || rc=$?
+  expect_code "$DEFER_EXIT" "$rc" "recorded backend workers did not occupy capacity: $out"
+  assert_contains "$out" '5 already hold a place' 'one of the backend target shapes was skipped'
+  assert_contains "$out" 'worker-orca' 'Orca terminal without a window was skipped'
+  pass 'all supported backend target shapes occupy capacity without runtime-dependent probes'
+}
+
 test_available_capacity_admits_the_worker() {
   local case_dir home out rc=0
   case_dir=$(make_case available task-c)
@@ -625,6 +662,8 @@ SH
 }
 
 test_undeclared_capacity_keeps_dispatch_uncapped
+test_workerless_records_do_not_occupy_capacity
+test_all_recorded_backend_targets_hold_capacity
 test_available_capacity_admits_the_worker
 test_exhausted_capacity_defers_without_leaving_anything_behind
 test_spaced_project_name_is_declared

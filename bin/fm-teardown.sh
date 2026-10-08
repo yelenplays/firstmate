@@ -80,7 +80,10 @@
 # work product, including report.md and any explicitly named result files.
 # Teardown proceeds only once report.md exists and the shared unresolved-decision
 # completion gate verifies its captain-held inventory; the durable result
-# directory is retained after the scratch worktree is cleaned up.
+# directory is retained after the scratch worktree is cleaned up. The explicit
+# --scout-complete path combines the caller's no-outstanding-calls attestation,
+# empty-inventory check and missing no-guide record in one cleanup call.
+# Default teardown retains the separate semantic-review requirement.
 # Ship and scout tasks whose brief carries bin/fm-wiki-lib.sh's wiki guide
 # marker line additionally refuse while data/<task-id>/guide.md is absent;
 # briefs without the marker (wikis unconfigured, or scaffolded earlier) are
@@ -188,7 +191,14 @@
 # leased home releases its durable treehouse lease so the pool slot is freed,
 # never left leased forever. If the treehouse return fails, teardown leaves the
 # leased home and state in place instead of hiding a still-held lease.
-# Usage: fm-teardown.sh <task-id> [--force] [--legacy-record]
+# Usage: fm-teardown.sh <task-id> [--force] [--legacy-record] [--scout-complete]
+#   --scout-complete attests that the caller reviewed the complete report and
+#   visual review, nothing needs a captain call, and no reusable wiki guide is
+#   owed unless one already exists. For a scout only, with no --force: requires
+#   the report, no open inventory entries, no open status decisions and no
+#   associated captain-held calls; then records a missing no-guide reason
+#   and cleans up.
+#   Any outstanding record still refuses. Report prose is never parsed.
 #   --force skips ordinary-task dirty and landed-work checks, skips scout report
 #   checks, and discards secondmate child work for kind=secondmate. Only use it
 #   when the captain has explicitly said to discard the work.
@@ -404,12 +414,14 @@ if [ "$#" -lt 1 ] || ! fm_task_id_path_safe "$1"; then
 fi
 ID=$1
 FORCE=
+SCOUT_COMPLETE=0
 LEGACY_RECORD_GIVEN=0
 shift
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --force) FORCE=--force ;;
     --legacy-record) LEGACY_RECORD_GIVEN=1 ;;
+    --scout-complete) SCOUT_COMPLETE=1 ;;
     *)
       echo "error: invalid teardown request" >&2
       exit 2
@@ -1172,6 +1184,10 @@ ORCA_PATH_MATCH_VERIFIED=0
 CLEANUP_RECOVERY=$TEARDOWN_CLEANUP_RECOVERY
 
 KIND=$TEARDOWN_META_KIND
+if [ "$SCOUT_COMPLETE" = 1 ] && { [ "$KIND" != scout ] || [ "$FORCE" = --force ]; }; then
+  echo 'REFUSED: --scout-complete requires a scout without --force.' >&2
+  exit 1
+fi
 EXPECTED_TREEHOUSE_PROJECT_LOCK=
 if [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ] \
    && fm_treehouse_pool_slot "$PROJ" "$WT"; then
@@ -3378,6 +3394,7 @@ if [ "$KIND" = secondmate ] && [ "$FORCE" = "--force" ]; then
   cleanup_firstmate_home_children "$HOME_PATH" || exit $?
 fi
 
+SCOUT_EMPTY=0
 if [ "$KIND" = scout ] && [ "$FORCE" != "--force" ]; then
   REPORT="$DATA/$ID/report.md"
   if [ ! -f "$REPORT" ]; then
@@ -3385,12 +3402,21 @@ if [ "$KIND" = scout ] && [ "$FORCE" != "--force" ]; then
     echo "The report is the work product. Have the crewmate write it, or use --force after explicit discard approval." >&2
     exit 1
   fi
-  if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
-      FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-captain-hold.sh" verify "$ID" >/dev/null; then
+  SCOUT_VERIFY_ARGS=("$ID")
+  [ "$SCOUT_COMPLETE" != 1 ] || SCOUT_VERIFY_ARGS+=(--allow-empty)
+  if ! SCOUT_VERIFICATION=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
+      FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-captain-hold.sh" verify "${SCOUT_VERIFY_ARGS[@]}"); then
     echo "REFUSED: scout task $ID has not passed the captain-call completion gate." >&2
     echo "Inventory its report and any visual review through bin/fm-captain-hold.sh before teardown." >&2
     exit 1
   fi
+  case "$SCOUT_VERIFICATION" in verified-empty:*) SCOUT_EMPTY=1 ;; esac
+fi
+
+if [ "$SCOUT_EMPTY" = 1 ] && [ -f "$DATA/$ID/brief.md" ] &&
+    grep -qxF 'Wiki guide contract: required' "$DATA/$ID/brief.md" &&
+    [ ! -e "$DATA/$ID/guide.md" ] && [ ! -L "$DATA/$ID/guide.md" ]; then
+  (set -C; printf 'no guide: scout completion caller attested no reusable guide is owed; report retained.\n' > "$DATA/$ID/guide.md") || exit 1
 fi
 
 if { [ "$KIND" = ship ] || [ "$KIND" = scout ]; } && [ "$FORCE" != "--force" ] &&
