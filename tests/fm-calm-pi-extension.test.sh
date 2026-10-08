@@ -2764,8 +2764,13 @@ import {
   fauxToolCall,
 } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { appendFileSync } from "node:fs";
 
 export default function (pi: ExtensionAPI): void {
+  pi.on("session_start", () => {
+    const marker = process.env.CALM_GEOMETRY_SESSION_START_MARKER;
+    if (marker) appendFileSync(marker, "started\n");
+  });
   const faux = createFauxCore({
     api: "calm-geometry-e2e-api",
     provider: "calm-geometry-e2e",
@@ -2817,7 +2822,7 @@ TS
     local session_arg=$1
     tmux -L "$TMUX_SOCKET" kill-session -t "$TMUX_SESSION" 2>/dev/null || true
     tmux -L "$TMUX_SOCKET" new-session -d -s "$TMUX_SESSION" -x 100 -y 44 \
-      "cd '$project' && env FM_HOME='$home' PI_CODING_AGENT_DIR='$config' PI_OFFLINE=1 pi $PI_TUI_MODE_ARGS --approve --no-context-files --no-prompt-templates --no-extensions -e ./.pi/extensions/fm-calm.ts -e ./geometry-provider.ts $session_arg; rc=\$?; printf '\nPI_EXIT=%s\n' \"\$rc\"; sleep 20"
+      "cd '$project' && env FM_HOME='$home' PI_CODING_AGENT_DIR='$config' PI_OFFLINE=1 CALM_GEOMETRY_SESSION_START_MARKER='$project/session-starts' pi $PI_TUI_MODE_ARGS --approve --no-context-files --no-prompt-templates --no-extensions -e ./.pi/extensions/fm-calm.ts -e ./geometry-provider.ts $session_arg; rc=\$?; printf '\nPI_EXIT=%s\n' \"\$rc\"; sleep 20"
   }
 
   capture_geometry_viewport() {
@@ -2836,18 +2841,18 @@ TS
     return 1
   }
 
-  # Pi's "Reloading..." box is a single intermediate frame, so no polling
-  # interval can be guaranteed to sample it on a loaded machine. Wait instead
-  # for the durable status row Pi appends to the transcript once the reload has
-  # completed and the chat has been rebuilt: it is absent before the reload and
-  # never appears when the reload fails.
+  # The final response remains in the transcript before and after /reload, so
+  # its presence cannot prove the viewport was rebuilt. The provider appends a
+  # durable marker from session_start; wait for a new marker before checking the
+  # reloaded transcript geometry.
   wait_for_geometry_reload() {
-    local file=$1 reloaded_text=$2 final_text=$3 attempt=0
+    local file=$1 marker=$2 previous_starts=$3 final_text=$4 attempt=0 starts
     while [ "$attempt" -lt 600 ]; do
-      capture_geometry_viewport "$file" || true
-      if grep -Fq "$reloaded_text" "$file" 2>/dev/null &&
-        grep -Fq "$final_text" "$file" 2>/dev/null; then
-        return 0
+      starts=$(wc -l < "$marker" 2>/dev/null | tr -d '[:space:]')
+      if [ "${starts:-0}" -gt "$previous_starts" ]; then
+        sleep 0.2
+        capture_geometry_viewport "$file" || true
+        grep -Fq "$final_text" "$file" 2>/dev/null && return 0
       fi
       sleep 0.01
       attempt=$((attempt + 1))
@@ -2899,13 +2904,15 @@ TS
   grep -Fq 'tool result one' "$session_file" \
     || fail "Calm removed hidden tool results from persisted history"
 
+  reload_starts=$(wc -l < "$project/session-starts" 2>/dev/null | tr -d '[:space:]')
   tmux -L "$TMUX_SOCKET" send-keys -t "$TMUX_SESSION" -l '/reload'
   tmux -L "$TMUX_SOCKET" send-keys -t "$TMUX_SESSION" Enter
   wait_for_geometry_reload \
     "$snapshot" \
-    "Reloading" \
+    "$project/session-starts" \
+    "${reload_starts:-0}" \
     "CALM_GEOMETRY_FINAL" \
-    || fail "Pi Calm hidden-block geometry E2E did not complete the /reload viewport transition"
+    || fail "Pi Calm hidden-block geometry E2E did not observe a rebuilt /reload session"
   assert_geometry_gap "$snapshot" "reloaded native Calm transcript"
 
   tmux -L "$TMUX_SOCKET" send-keys -t "$TMUX_SESSION" C-t

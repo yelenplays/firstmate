@@ -1379,7 +1379,7 @@ PATH="$HERDR_ORIGINAL_PATH" "$HERDR_LAB_HELPER" provision "$HERDR_LAB_SESSION" \
   || fail "could not reprovision the isolated session for resume lock-refuse"
 
 LOCK_REFUSE_READY="$TMP_ROOT/lock-refuse-ready"
-LOCK_REFUSE_HOLD_SECONDS=15
+LOCK_REFUSE_HOLD_SECONDS=60
 LOCK_REFUSE_PATH=$(session_presentation_lock_path) \
   || fail "could not resolve session lock for resume lock-refuse"
 ROOT="$ROOT" READY="$LOCK_REFUSE_READY" HOLD="$LOCK_REFUSE_HOLD_SECONDS" LOCK="$LOCK_REFUSE_PATH" bash -c '
@@ -1435,7 +1435,7 @@ PATH="$HERDR_ORIGINAL_PATH" "$HERDR_LAB_HELPER" provision "$HERDR_LAB_SESSION" \
   || fail "could not reprovision the isolated session for resume lock-wait"
 
 LOCK_WAIT_READY="$TMP_ROOT/lock-wait-ready"
-LOCK_WAIT_HOLD_SECONDS=30
+LOCK_WAIT_HOLD_SECONDS=60
 LOCK_WAIT_PATH=$(session_presentation_lock_path) \
   || fail "could not resolve session lock for resume lock-wait"
 ROOT="$ROOT" READY="$LOCK_WAIT_READY" HOLD="$LOCK_WAIT_HOLD_SECONDS" LOCK="$LOCK_WAIT_PATH" bash -c '
