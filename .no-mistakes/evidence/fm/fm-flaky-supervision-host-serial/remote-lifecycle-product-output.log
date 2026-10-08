@@ -1,0 +1,30 @@
+
+--- appeared-provision.out ---
+error: remote home appeared while it was being provisioned
+
+--- provision-one.out ---
+provisioned: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-remote-secondmate-e2e.dULc54/concurrent-home projects=0
+
+--- provision-two.out ---
+provisioned: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-remote-secondmate-e2e.dULc54/concurrent-home projects=0
+
+--- race-provision.out ---
+provisioned: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-remote-secondmate-e2e.dULc54/raced-home projects=0
+
+--- seed-fail.out ---
+error: remote provisioning failed; registry restored
+
+--- seed-keep.out ---
+error: remote job worker did not report ready after startup
+error: remote provisioning failed; registry restored
+
+--- dev.firstmate.remote-job.log ---
+remote-job-worker: cannot acquire supervisor ownership
+remote-job-worker: cannot acquire supervisor ownership
+
+--- ssh.count ---
+4
+
+--- doctor.log ---
+provision-block-fail -
+normal -

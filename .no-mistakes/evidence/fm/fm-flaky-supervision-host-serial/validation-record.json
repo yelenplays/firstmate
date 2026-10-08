@@ -1,0 +1,19 @@
+{
+  "scope": "Test-only changes; no production files changed. All executions used fixtures or isolated test-helper probes, not a live authenticated primary or remote host.",
+  "supervision_selection": [
+    "test_attended_close_that_turns_main_only_before_its_turn_passes_to_main",
+    "test_claude_stop_hook_delivers_a_close_that_turns_main_only_at_its_turn"
+  ],
+  "supervision_method": "Temporary test entry points retained the original suite's setup, functions, concurrency runner and cleanup, but queued only the two changed cases. Baseline used the test at 7b13c4619924ead2dc442c0305fbaee2cb4a3a5d against unchanged production code. Diagnostic cleanup recorded actual host/hook output, status, wake queues and ledger before stopping each home. Delayed variants inserted sleep 3 before the direct case's Pi offer assertion and after the hook case's main-rewake assertion, allowing the real successor watcher to publish its decision and exit.",
+  "ordinary_repeats": {"shell": "bash 5.3.9", "baseline": "5/5 passed", "target": "5/5 passed"},
+  "delayed_repeats": {"shell": "/bin/bash 3.2.57", "baseline": "3/3 failed both cases: racing Pi offer and dead successor PID", "target": "3/3 passed both cases"},
+  "remote_attempts": [
+    "FM_TEST_SKIP_ORPHAN_REAP=1 bash tests/fm-remote-secondmate-lifecycle-e2e.test.sh",
+    "FM_TEST_SKIP_ORPHAN_REAP=1 bash tests/.validation-remote.sh (same test with product-output capture during cleanup)",
+    "FM_TEST_SKIP_ORPHAN_REAP=1 /bin/bash tests/.validation-remote.sh"
+  ],
+  "remote_result": "All attempts stopped at serialized successful seed before the changed waits or retirement assertions. Product output: remote job worker did not report ready after startup. Worker log: cannot acquire supervisor ownership. The Linux worker supervisor requires flock; command -v flock returned 1. No package installation, host filesystem search or tool substitution was performed.",
+  "ssh_waiter_method": "Executed the changed wait_on_ssh_progress definition in an isolated temporary Bash entry point. A child advanced a count every two seconds for seventeen steps before creating the completion marker; separate probes used an exited child and a live child with no SSH progress (stall bound reduced to one second). Assertions checked elapsed time, observable completion and return codes, not source strings.",
+  "ssh_waiter_results": {"progress": "completed after 35 seconds, beyond the removed 30-second total bound", "exited_child": "returned 2 promptly", "stalled_child": "returned 1 with stall diagnostic"},
+  "cleanup": "Temporary test entry points removed; per-test fixture teardown ran. No intentional source edits retained. No full repository suite, linter, formatter, static analyzer, live fleet lifecycle, pipeline control, push, PR or CI phase was run."
+}

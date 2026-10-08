@@ -1,0 +1,26 @@
+
+CASE HOME: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.wzMsQX/hook-turns-main-only
+
+--- hook.out ---
+
+--- hook.err ---
+firstmate watcher wake - one supervision event needs a handling turn now.
+signal: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.wzMsQX/hook-turns-main-only/state/demo.status
+Run bin/fm-wake-triage.sh first (fallback: bin/fm-wake-drain.sh), handle every ACT NOW item, then run its WAKE_ACK_REQUIRED command unless it printed WAKE_ACKED. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+
+--- hook.rc ---
+2
+
+--- state/demo.status ---
+working [at=1791482015]: step one
+needs-decision [at=1791482018]: which export format?
+
+--- state/.wake-queue ---
+1791482016	1	signal	demo.status	signal: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.wzMsQX/hook-turns-main-only/state/demo.status
+1791482016	2	signal	demo.status	signal: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.wzMsQX/hook-turns-main-only/state/demo.status
+1791482020	3	signal	demo.status	needs-decision: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.wzMsQX/hook-turns-main-only/state/demo.status
+1791482020	4	signal	demo.status	needs-decision: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.wzMsQX/hook-turns-main-only/state/demo.status
+
+--- state/.supervision-host.log ---
+1791482015	start	gen=host-56572-1791482014	primary=claude
+1791482018	pass-through	attended	main-only	signal: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.wzMsQX/hook-turns-main-only/state/demo.status

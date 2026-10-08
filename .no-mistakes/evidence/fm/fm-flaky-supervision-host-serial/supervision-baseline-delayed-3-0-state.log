@@ -1,0 +1,23 @@
+
+CASE HOME: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.mhjCvK/attended-turns-main-only
+
+--- host.out ---
+watcher: started pid=77284 (beacon fresh)
+signal: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.mhjCvK/attended-turns-main-only/state/demo.status
+
+--- host.rc ---
+0
+
+--- state/demo.status ---
+working [at=1791482023]: step one
+needs-decision [at=1791482026]: which export format?
+
+--- state/.wake-queue ---
+1791482024	1	signal	demo.status	signal: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.mhjCvK/attended-turns-main-only/state/demo.status
+1791482024	2	signal	demo.status	signal: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.mhjCvK/attended-turns-main-only/state/demo.status
+1791482028	3	signal	demo.status	needs-decision: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.mhjCvK/attended-turns-main-only/state/demo.status
+1791482028	4	signal	demo.status	needs-decision: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.mhjCvK/attended-turns-main-only/state/demo.status
+
+--- state/.supervision-host.log ---
+1791482023	start	gen=host-76592-1791482022	primary=claude
+1791482027	pass-through	attended	main-only	signal: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.mhjCvK/attended-turns-main-only/state/demo.status

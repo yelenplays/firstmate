@@ -1,0 +1,6 @@
+(node:7362) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4E9NVSJGKHWGDZEDVB00CKV/.pi/extensions/lib/fm-branch-dispatch.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/yelen/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ok - host: an attended close whose task turns main-only before its turn still reaches main unchanged
+ok - host+hook: a close that turns main-only at its turn rewakes main and keeps its successor watcher
