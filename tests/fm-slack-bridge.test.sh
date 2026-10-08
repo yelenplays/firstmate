@@ -1028,7 +1028,36 @@ CASES
     });
     if (result.status !== 2 || !result.stderr.includes("a decision with options needs --recommend")) process.exit(1);
   ' "$ROOT/bin/fm-slack-render.mjs" || fail "the renderer refuses a decision with options but no recommendation"
-  pass "fm-slack-bridge: structured posts refuse invalid inputs and decisions without recommendations"
+
+  local amp200 amp150 amp300 long_text url rc
+  amp200=$(printf '%200s' '' | tr ' ' '&')
+  amp150=$(printf '%150s' '' | tr ' ' '&')
+  amp300=$(printf '%300s' '' | tr ' ' '&')
+  rc=0
+  bridge "$home" post decision --title q --option "a=$amp200" --option "b=$amp200" \
+    --option "c=$amp200" --option "d=$amp200" --recommend a >/dev/null 2>&1 || rc=$?
+  assert_equals 2 "$rc" "escaped options exceeding a section limit are refused"
+  rc=0
+  bridge "$home" post report --title "$amp150" --context "$amp300" --context "$amp300" \
+    >/dev/null 2>&1 || rc=$?
+  assert_equals 2 "$rc" "an escaped summary exceeding a section limit is refused"
+  rc=0
+  bridge "$home" post merged --title "$amp150" --context "$amp300" --context "$amp300" \
+    >/dev/null 2>&1 || rc=$?
+  assert_equals 2 "$rc" "an oversized merged section is refused"
+  url="https://$(printf '%3000s' '' | tr ' ' 'a')"
+  rc=0
+  bridge "$home" post report --title q --url "$url" >/dev/null 2>&1 || rc=$?
+  assert_equals 2 "$rc" "an oversized link section is refused"
+  rc=0
+  bridge "$home" post decision --title "$amp150" --context "$amp200" \
+    --option "a=$amp200" --option "b=$amp200" --recommend a >/dev/null 2>&1 || rc=$?
+  assert_equals 2 "$rc" "a combined fallback exceeding the message limit is refused"
+  long_text=$(printf '%3001s' '' | tr ' ' x)
+  rc=0
+  bridge "$home" post report "$long_text" >/dev/null 2>&1 || rc=$?
+  assert_equals 2 "$rc" "an oversized free-text fallback is refused"
+  pass "fm-slack-bridge: structured posts refuse invalid and oversized rendered messages"
 }
 
 test_structured_post_through_slack_axi_uses_the_fallback() {

@@ -84,8 +84,16 @@ function link(spec) {
 function renderFreeText(spec, text) {
   const l = link(spec);
   const body = l ? `${text}\n🔗 ${l}` : text;
-  if (body.length > MAX_TEXT) die(`text must be at most ${MAX_TEXT} characters`);
   return { text: body, blocks: null };
+}
+
+function validateMessageLength(out) {
+  for (const block of out.blocks ?? []) {
+    if (block.type === "section" && block.text.text.length > MAX_TEXT) {
+      die(`section text must be at most ${MAX_TEXT} characters`);
+    }
+  }
+  if (out.text.length > MAX_TEXT) die(`fallback text must be at most ${MAX_TEXT} characters`);
 }
 
 function renderStructured(spec, kind) {
@@ -154,13 +162,17 @@ function render(spec) {
   const hasText = spec.text_b64 !== undefined;
   const hasTitle = spec.title_b64 !== undefined;
   if (hasText === hasTitle) die("a spec needs exactly one of text_b64 or title_b64");
+  let out;
   if (hasText) {
     if (kind === "ready" || kind === "merged") die(`a ${kind} post needs the structured form (a title)`);
     const text = decode(spec.text_b64, "text_b64");
     if (!text.trim()) die("text must not be empty");
-    return renderFreeText(spec, text);
+    out = renderFreeText(spec, text);
+  } else {
+    out = renderStructured(spec, kind);
   }
-  return renderStructured(spec, kind);
+  validateMessageLength(out);
+  return out;
 }
 
 function main() {
