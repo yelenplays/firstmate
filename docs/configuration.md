@@ -1453,8 +1453,9 @@ If every candidate is refused, the resolver tries eligible candidates from the c
 If the default lane is refused too, the `last_resort:` line names both refusal reasons and the final declared-order choice.
 A captain-approval rule remains the one no-profile outcome.
 A request that cannot reach any stage falls to the first default profile, `decided: static by default`.
-The `decided:` line names the rule and stage, and the `typed:` and `backup:` lines say why an earlier stage did not decide.
-Each answer appends one metadata-only record (status, stage, rule, effort and any clamp, profile, reasons, never the brief) to `state/dispatch-resolve.jsonl`.
+The `decided:` line names the stage and the lane whose profile answers, and the `typed:` and `backup:` lines say why an earlier stage did not decide.
+When a floor shortfall or an all-refused rule moves the answer to the default lane, `decided:` names that lane and a `matched:` line names the rule whose profiles were not used.
+Each answer appends one metadata-only record (status, stage, lane, any differing matched rule, effort and any clamp, profile, reasons, never the brief) to `state/dispatch-resolve.jsonl`.
 
 The backup judge is [`bin/fm-backup-judge-lib.sh`](../bin/fm-backup-judge-lib.sh): the local `claude` CLI on `claude-haiku-5-5`, called with a JSON schema whose enums are exactly the offered options, so an answer outside them is rejected rather than guessed around.
 It runs from an empty temporary directory with no settings, MCP servers, tools, or session persistence, reads the prompt on stdin, never receives the typed-call keys, and uses the CLI's own login.
@@ -1620,7 +1621,7 @@ The live rule-match evidence is recorded in [`verification/dispatch-resolve.md`]
 **Routing selftest (config/dispatch-samples.json)**
 
 `bin/fm-dispatch-selftest.sh run` routes a fixed set of sample tasks through the resolver and prints one PASS or FAIL line per sample.
-A sample passes when the resolver's `decided:` line names its expected rule and the run answers it with a profile, or with the escalation an approval rule requires.
+A sample passes when the resolver's `decided:` line names its expected rule as the lane actually used and the run answers it with a profile, or with the escalation an approval rule requires, so a floor shortfall onto the default lane fails its samples.
 Every rule needs at least three samples, so a rule added without samples fails the run.
 Run it before any routing change lands: a changed rules file, a changed model, or a changed resolver.
 

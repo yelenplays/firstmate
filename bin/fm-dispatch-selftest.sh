@@ -12,8 +12,10 @@
 # `run` routes every sample through bin/fm-dispatch-resolve.sh against the
 #   rules file (default $FM_HOME/config/crew-dispatch.json) and prints one
 #   PASS or FAIL line per sample plus a summary. A sample passes when the
-#   resolver names the expected rule on its `decided:` line and answers it:
-#   a `profile:` line, or the escalation a captain-approval rule requires.
+#   resolver names the expected rule on its `decided:` line, which carries the
+#   lane actually used rather than a rule that fell through to another lane,
+#   and answers it: a `profile:` line, or the escalation a captain-approval
+#   rule requires.
 #   Coverage is part of the proof: every rule needs at least three samples, so
 #   a new rule without samples fails the run. Exit 0 when every sample passes
 #   and coverage holds, 1 otherwise, 2 for a usage or input error (missing or
@@ -162,9 +164,14 @@ run_samples() { # <rules> <samples>
   trap "rm -rf '$work'" RETURN
   mkdir -p "$work/home/state" "$work/config" || return 2
   cp "$rules" "$work/config/crew-dispatch.json" || return 2
-  if [ -e "$CONFIG_DIR/dispatch-never-send" ]; then
+  # A present list, including a dangling symlink, is a privacy boundary: copy
+  # it only as a readable regular file and refuse the run otherwise, as the
+  # resolver itself withholds every request in that case.
+  if [ -e "$CONFIG_DIR/dispatch-never-send" ] || [ -L "$CONFIG_DIR/dispatch-never-send" ]; then
+    { [ -f "$CONFIG_DIR/dispatch-never-send" ] && [ -r "$CONFIG_DIR/dispatch-never-send" ]; } \
+      || { printf 'error: dispatch-never-send list is not a readable regular file; nothing sent\n'; return 2; }
     cp "$CONFIG_DIR/dispatch-never-send" "$work/config/dispatch-never-send" 2>/dev/null \
-      || { printf 'error: dispatch-never-send list is not readable\n'; return 2; }
+      || { printf 'error: dispatch-never-send list is not readable; nothing sent\n'; return 2; }
   fi
   [ ! -f "$FM_HOME/.env" ] || ln -s "$FM_HOME/.env" "$work/home/.env"
   n=$(jq '.samples | length' "$samples")

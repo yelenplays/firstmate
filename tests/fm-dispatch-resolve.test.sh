@@ -1928,7 +1928,10 @@ write_response "$RESPONSE" rule_4 0.26 '{ "rule_1": 0.02, "rule_2": 0.30, "rule_
 FAKE_CURL_PICK_FAIL=1 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_ANSWER='{"rule":"rule_1","effort":"high"}' run_chain code out err "$BRIEF"
 expect_code 0 "$code" "chain: ambiguous typed answer still exits 0"
 assert_contains "$out" '  status: backup' "chain: the backup decided"
-assert_contains "$out" '  decided: rule_1 by backup' "chain: the backup's rule is named"
+assert_contains "$out" '  decided: default by backup' "chain: a floor shortfall names the default lane actually used"
+assert_contains "$out" '  matched: rule_1 (its profiles were not used)' "chain: the matched rule stays visible"
+assert_not_contains "$out" '  decided: rule_1 by backup' "chain: the matched rule is never reported as the lane"
+assert_contains "$(tail -n 1 "$DISPATCH_LOG")" '"rule":"default","matched_rule":"rule_1"' "chain: the dispatch log records the lane and the matched rule"
 assert_contains "$out" '  backup: rule_1 effort=high' "chain: the backup answer is summarized"
 assert_contains "$out" "note: rule rule_1 floor model:fable below 20%: fall through to default" "chain: the backup's rule keeps its quota floor"
 assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" "chain: the backup's rule yields a profile through the ordinary gates"
@@ -2022,6 +2025,7 @@ reset_log
 write_response "$RESPONSE" rule_4 0.9
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$QUOTA" run_chain code out err "$BRIEF"
 assert_contains "$out" '  decided: default by default' "all-refused rule: eligible default lane is named"
+assert_contains "$out" '  matched: rule_4 (its profiles were not used)' "all-refused rule: the refused matched rule is named"
 assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" "all-refused rule: eligible default profile is emitted"
 assert_contains "$out" 'last_resort: ' "all-refused rule: the default-lane rescue is disclosed"
 assert_contains "$out" 'eligible default lane used' "all-refused rule: the refusal and default transition are named"
@@ -2033,6 +2037,7 @@ reset_log
 write_response "$RESPONSE" rule_4 0.9
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$ALL_REFUSED_DEFAULT_QUOTA" run_chain code out err "$BRIEF"
 assert_contains "$out" '  decided: rule_4 by typed' "all-refused defaults: original decision remains named"
+assert_not_contains "$out" '  matched: ' "all-refused defaults: the lane used is the matched rule"
 assert_contains "$out" "  profile: --harness 'claude' --model 'fable'" "all-refused defaults: first declared original profile answers"
 assert_contains "$out" 'default candidates refused:' "all-refused defaults: default refusal is disclosed"
 assert_contains "$out" 'every candidate refused' "all-refused defaults: the final choice is identified as last resort"

@@ -33,6 +33,7 @@ while [ $# -gt 0 ]; do
   case "$1" in -o) out=$2; shift 2 ;; *) shift ;; esac
 done
 body=$(cat)
+[ -z "${FAKE_CALL_LOG:-}" ] || printf 'typed\n' >> "$FAKE_CALL_LOG"
 [ -z "${FAKE_TYPED_DELAY:-}" ] || sleep "$FAKE_TYPED_DELAY"
 cat /dev/fd/3 >/dev/null 2>&1 || true
 [ "${FAKE_TYPED_DOWN:-0}" = 1 ] && exit 7
@@ -56,6 +57,7 @@ cat > "$FAKEBIN/fake-claude" <<'SH'
 #!/usr/bin/env bash
 set -u
 prompt=$(cat)
+[ -z "${FAKE_CALL_LOG:-}" ] || printf 'backup\n' >> "$FAKE_CALL_LOG"
 [ "${FAKE_BACKUP_DOWN:-0}" = 1 ] && exit 1
 expect=$(jq -r --arg p "$prompt" '[.samples[] | select(.brief as $s | $p | contains($s)) | .expect] | first // "default"' "$FAKE_SAMPLES")
 jq -nc --arg r "$expect" '{type: "result", is_error: false, structured_output: {rule: $r, effort: "high"}, modelUsage: {"claude-haiku-5-5": {}}}'
@@ -103,6 +105,36 @@ assert_contains "$out" 'PASS fast-2 expect=rule_5 decided=rule_5 by=typed status
 assert_not_contains "$out" 'FAIL ' "typed: no sample fails"
 assert_equals 0 "$(find "$HOME_DIR/state" -type f | wc -l | tr -d ' ')" "typed: a run writes nothing into the home"
 pass "run: the typed stage routes every sample"
+
+# --- a never-send list that is not a readable regular file sends nothing --------
+# A dangling symlink is a present privacy list the resolver withholds on; the
+# selftest must refuse rather than drop it and send every sample.
+CALLS="$TMP_ROOT/calls.log"
+ln -s "$TMP_ROOT/missing-never-send" "$HOME_DIR/config/dispatch-never-send"
+: > "$CALLS"
+FAKE_CALL_LOG="$CALLS" run_selftest code out run --rules "$RULES" --samples "$SAMPLES"
+expect_code 2 "$code" "never-send: a dangling list refuses the run"
+assert_contains "$out" 'dispatch-never-send list is not a readable regular file; nothing sent' "never-send: names the refusal"
+assert_equals 0 "$(wc -l < "$CALLS" | tr -d ' ')" "never-send: no judge received a sample"
+rm "$HOME_DIR/config/dispatch-never-send"
+mkdir "$HOME_DIR/config/dispatch-never-send"
+FAKE_CALL_LOG="$CALLS" run_selftest code out run --rules "$RULES" --samples "$SAMPLES"
+expect_code 2 "$code" "never-send: a directory list refuses the run"
+assert_equals 0 "$(wc -l < "$CALLS" | tr -d ' ')" "never-send: a directory list sends nothing"
+rmdir "$HOME_DIR/config/dispatch-never-send"
+pass "run: an unreadable never-send list refuses before any sample is sent"
+
+# --- a matched rule whose floor falls through to the default lane fails --------
+# The resolver routes those samples on the default profile, so the matched rule
+# is not the lane they would dispatch on and the sample must not pass.
+FLOOR_RULES="$TMP_ROOT/floor-rules.json"
+jq '.rules[0].floor = {provider: "claude", scope: "all_models", min_percent: 90}' "$RULES" > "$FLOOR_RULES"
+run_selftest code out run --rules "$FLOOR_RULES" --samples "$SAMPLES"
+expect_code 1 "$code" "floor: a fall-through to the default lane fails the run"
+assert_contains "$out" 'FAIL think-1 expect=rule_1 decided=default by=typed status=clear' "floor: the sample names the lane actually used"
+assert_not_contains "$out" 'PASS think-' "floor: no fall-through sample passes"
+assert_contains "$out" 'PASS fast-2 expect=rule_5 decided=rule_5 by=typed' "floor: rules without a shortfall still pass"
+pass "run: a floor fall-through to the default lane is a failure, not a pass"
 
 # --- typed call down: the backup judge answers every sample ---------------------
 FAKE_TYPED_DOWN=1 run_selftest code out run --rules "$RULES" --samples "$SAMPLES"

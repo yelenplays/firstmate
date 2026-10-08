@@ -113,7 +113,8 @@
 # Output (stdout, TOON-style block):
 #   dispatch-resolve:
 #     status: clear | picked | backup | fallback | ambiguous | escalate | error
-#     decided: <rule> by typed|backup|default             (chain only)
+#     decided: <lane> by typed|backup|default             (chain only; the rule whose profile was used)
+#     matched: <rule> (its profiles were not used)        (chain only; a floor shortfall or refusal moved it to another lane)
 #     typed: <why the typed stage did not decide>         (chain only)
 #     backup: <rule> effort=<e> (<model>, <ms> ms) | failed (<why>) | skipped (<why>)
 #     model/latency_ms/tokens, rule (when excerpt) and confidence, probabilities
@@ -1079,7 +1080,8 @@ RESOLVE_JQ="$FM_QUOTA_ROW_JQ"'
     else {source: $c, use: profiles($rule.use), note: "rule matched"} end;
   # What the gates and the spendPriority argmax make of one rule answer, as
   # though it had cleared the rule gate. The main answer and every runoff
-  # contender go through this one definition.
+  # contender go through this one definition. `lane` is the rule whose
+  # profiles were assessed, which a floor shortfall moves to the default.
   def settle($c):
     (selection($c)) as $sel |
     if $sel.invalid then {status: "error", reason: $sel.invalid}
@@ -1106,7 +1108,8 @@ RESOLVE_JQ="$FM_QUOTA_ROW_JQ"'
              else {} end)
         end
       end
-    end;
+    end
+    | if $sel.invalid then . else . + {lane: $sel.source} end;
   def emitted_effort($c):
     if $c.effort_emit == false then ($c.profile.effort // null)
     else ($c.effort // $c.profile.effort // null) end;
@@ -1215,7 +1218,8 @@ last_resort() {  # <stage> <effort-json>: settles the decided lane or its defaul
       rm -f "$default_file"
       default_eligible=$(jq -r '(.approval != true) and ((.status != "escalate") or (.reason == "genuine spendPriority tie" or .reason == "no rankable eligible candidate")) and any(.candidates[]?; .eligible == true)' <<<"$default_result")
       if [ "$default_eligible" = true ]; then
-        RESULT=$default_result
+        RESULT=$(jq -c --argjson original "$original" '.decided_rule = ($original.decided_rule // $original.rule)' <<<"$default_result") \
+          || { RESULT=$original; return 1; }
         note="rule $original_rule candidates refused: $original_reasons; eligible default lane used"
         last_resort_pick "$note" || { RESULT=$original; return 1; }
         DECIDED_BY=default
@@ -1276,7 +1280,7 @@ if [ "$TYPED_OK" -eq 1 ]; then
     RESULT=$(jq -c --arg key "$1" --argjson pick "$2" '
       (.runoff.options[] | select(.key == $key) | .settled) as $s
       | (.runoff.options[] | select(.key == $key) | .rules) as $rules
-      | del(.runoff) + {status: "picked", decided_rule: $key, pick: ($pick + {rules: $rules}), candidates: $s.candidates, chosen: $s.chosen}
+      | del(.runoff) + {status: "picked", decided_rule: $key, lane: ($s.lane // $key), pick: ($pick + {rules: $rules}), candidates: $s.candidates, chosen: $s.chosen}
         + (if $s.note then {note: $s.note} else {} end)
         + (if $s.unranked_note then {unranked_note: $s.unranked_note} else {} end)' <<<"$RESULT") \
       || emit_error "runoff merge failed"
@@ -1433,7 +1437,8 @@ TEXT=$(jq -r '
   def shell_arg: flat | @sh;
   "dispatch-resolve:",
   "  status: \(.status | flat)",
-  (if .chain then "  decided: \((.decided_rule // .rule) | flat) by \(.chain.decided_by | flat)" else empty end),
+  (if .chain then "  decided: \((.lane // .decided_rule // .rule) | flat) by \(.chain.decided_by | flat)" else empty end),
+  (if .chain and .lane and .lane != (.decided_rule // .rule) then "  matched: \((.decided_rule // .rule) | flat) (its profiles were not used)" else empty end),
   (if .chain.typed then "  typed: \(.chain.typed | flat)" else empty end),
   (if .chain.backup then "  backup: \(.chain.backup | flat)" else empty end),
   "  model: \(show(.model))   latency_ms: \(show(.latency_ms))   tokens: \(show(.tokens.input_tokens))/\(show(.tokens.output_tokens))",
@@ -1491,7 +1496,8 @@ if fm_dispatch_shadow_on; then
   fi
 fi
 dispatch_log "$(jq -c '{
-    status, decided_by: (.chain.decided_by // null), rule: (.decided_rule // .rule),
+    status, decided_by: (.chain.decided_by // null), rule: (.lane // .decided_rule // .rule),
+    matched_rule: (if .lane and .lane != (.decided_rule // .rule) then (.decided_rule // .rule) else null end),
     typed: (.chain.typed // null), backup: (.chain.backup // null),
     effort: {assessed: (.effort.choice // null), source: (.effort.source // null),
              emitted: (if .chosen then (if .chosen.effort_emit == false then (.chosen.profile.effort // null) else (.chosen.effort // .chosen.profile.effort // null) end) else null end),
