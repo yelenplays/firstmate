@@ -1584,4 +1584,81 @@ assert_contains "$out" 'pred=unknown' "missing prediction evidence is disclosed,
 assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "quota ranking stands when prediction is unavailable"
 pass "cost-aware ranking: absent ledger evidence stays disclosed and never blocks"
 
+# Overflow: a profile marked overflow is held out of the ranking while a
+# primary candidate's quota lasts through its reset, and takes the work once
+# every primary is projected to run out first. A scout brief never overflows.
+OVERFLOW_RULES="$TMP_ROOT/overflow-rules.json"
+cat > "$OVERFLOW_RULES" <<'JSON'
+{
+  "rules": [
+    {
+      "when": "Building and thinking work.",
+      "use": [
+        { "harness": "claude", "model": "claude-opus-5-5", "effort": "medium" },
+        { "harness": "pi", "model": "openai-codex/gpt-6.1-sol", "effort": "high", "provider": "codex", "overflow": true }
+      ]
+    }
+  ],
+  "default": { "harness": "claude", "model": "claude-opus-5-5", "effort": "medium" }
+}
+JSON
+cp "$OVERFLOW_RULES" "$RULES"
+overflow_quota() {  # <path> <claude runway> <codex runway>
+  jq --arg c "$2" --arg x "$3" '
+    (.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability) |= map(select(.scope == "all_models") | .runway.status = $c)
+    | (.providers[] | select(.provider == "codex") | .quotaSemantics.effectiveAvailability[0]) |= (.runway.status = $x | .selection.spendPriority = 0.6)
+  ' "$QUOTA" > "$1"
+}
+OVERFLOW_QUOTA="$TMP_ROOT/overflow-quota.json"
+OVERFLOW_RESPONSE='{ "rule_1": 0.97, "default": 0.03 }'
+SOL_PROFILE="  profile: --harness 'pi' --model 'openai-codex/gpt-6.1-sol' --effort 'high'"
+OPUS_PROFILE="  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'medium'"
+
+overflow_quota "$OVERFLOW_QUOTA" through_reset through_reset
+reset_log
+write_response "$RESPONSE" rule_1 0.97 "$OVERFLOW_RESPONSE"
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
+assert_contains "$out" '  status: clear' "a primary that lasts through reset clears"
+assert_contains "$out" "$OPUS_PROFILE" "the primary wins even when the overflow candidate has the higher spendPriority"
+assert_contains "$out" "not eligible: overflow only: a primary candidate's quota lasts through its reset" "the held overflow candidate is accounted for"
+pass "overflow: a candidate marked overflow stays out while the primary's quota lasts"
+
+overflow_quota "$OVERFLOW_QUOTA" projected_exhaustion through_reset
+reset_log
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
+assert_contains "$out" '  status: clear' "an overflowing rule clears"
+assert_contains "$out" "$SOL_PROFILE" "the overflow candidate takes the work when the primary runs out before reset"
+assert_contains "$out" 'not eligible: overflowed: quota projected to run out before reset at all_models' "the primary's line names why it was passed over"
+pass "overflow: the overflow candidate takes the work once every primary is projected to run out before reset"
+
+SCOUT_OVERFLOW_BRIEF="$TMP_ROOT/scout-overflow-brief.md"
+{ cat "$BRIEF"; printf '%s\n' 'This is a SCOUT task: the deliverable is a written report, not a PR.'; } > "$SCOUT_OVERFLOW_BRIEF"
+reset_log
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$SCOUT_OVERFLOW_BRIEF"
+assert_contains "$out" "$OPUS_PROFILE" "a scout brief stays on the primary even when it runs short"
+assert_contains "$out" 'not eligible: overflow only: a scout brief never overflows' "the scout hold is accounted for"
+pass "overflow: a scout brief never overflows"
+
+overflow_quota "$OVERFLOW_QUOTA" projected_exhaustion exhausted_now
+reset_log
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
+assert_contains "$out" "$OPUS_PROFILE" "a short primary keeps the work when no overflow candidate is rankable"
+assert_not_contains "$out" 'overflowed:' "the primary is not passed over for an ineligible overflow candidate"
+pass "overflow: a short primary keeps the work when the overflow candidate cannot take it"
+
+overflow_quota "$OVERFLOW_QUOTA" exhausted_now through_reset
+reset_log
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
+assert_contains "$out" "$SOL_PROFILE" "an exhausted primary overflows"
+assert_contains "$out" 'not eligible: runway exhausted_now at all_models' "the exhausted primary keeps its own reason"
+pass "overflow: an exhausted primary overflows"
+
+jq '.rules[0].use[1].overflow = "yes"' "$OVERFLOW_RULES" > "$RULES"
+reset_log
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
+expect_code 2 "$code" "a non-boolean overflow is a configuration error"
+assert_contains "$err" 'profile overflow must be true or false when present' "the malformed overflow is named"
+pass "overflow: a non-boolean overflow declaration is refused"
+cp "$BASE_RULES" "$RULES"
+
 printf '# all fm-dispatch-resolve tests passed\n'

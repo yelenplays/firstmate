@@ -20,6 +20,7 @@ provider      model        context  max-out  thinking  images
 openai-codex  gpt-6-luna   400K     128K     yes       yes
 opencode-go   gpt-6-luna   400K     128K     yes       yes
 openai-codex  gpt-6-astra  400K     128K     yes       yes
+openai-codex  gpt-6.1-sol  272K     128K     yes       yes
 xai           grok-5       256K     64K      yes       yes
 xai           grok-4.7     500K     500K     yes       yes
 EOF
@@ -197,6 +198,8 @@ test_direct_pr_gets_a_head_bound_review() {
   assert_contains "$out" "pipeline_review=n/a" "direct-PR runs no pipeline review"
   out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
   assert_equals spawn-reviewer "$(field "$out" action)" "direct-PR always needs a one-shot reviewer"
+  assert_equals openai-codex/gpt-6.1-sol "$(field "$out" reviewer_model)" "a Claude-built change goes to Sol 6.1 first"
+  assert_equals high "$(field "$out" reviewer_effort)" "the Sol reviewer runs at high effort"
   rid=$(field "$out" reviewer_id)
   out=$(xr brief "$TASK" "$rid" --head "$HEAD_SHA" <&-) || fail "brief failed: $out"
   brief="$HOME_DIR/data/$rid/brief.md"
@@ -206,7 +209,7 @@ test_direct_pr_gets_a_head_bound_review() {
   assert_no_grep "{TASK}" "$brief" "the intent placeholder was left unfilled"
   assert_no_grep "{FIRSTMATE_SPEC}" "$brief" "the spec placeholder was left unfilled"
   assert_grep "head=$HEAD_SHA" "$HOME_DIR/data/$rid/cross-review-request" "the request record names the head"
-  add_reviewer "$rid" pi openai-codex/gpt-6-luna openai
+  add_reviewer "$rid" pi openai-codex/gpt-6.1-sol openai
   printf '# Review\n\nreviewed head %s\n\nVerdict: PASS\n' "$HEAD_SHA" > "$HOME_DIR/data/$rid/report.md"
   out=$(collect "$rid") || fail "collect failed: $out"
   assert_contains "$out" "recorded accepted=yes" "a correct head-bound review was refused"
@@ -276,7 +279,7 @@ test_collect_refuses_reports_not_bound_to_the_head() {
   local out rid=xr-r1 other
   new_case collect-refuse direct-PR claude claude-opus-5-5 anthropic
   other=$(git -C "$PROJ" rev-parse main)
-  add_reviewer "$rid" pi openai-codex/gpt-6-luna openai
+  add_reviewer "$rid" pi openai-codex/gpt-6.1-sol openai
   request "$rid" review
   printf 'confirm %s\n' "$HEAD_SHA" > "$HOME_DIR/data/$rid/report.md"
   out=$(collect "$rid") || fail "collect failed: $out"
@@ -318,7 +321,7 @@ test_confirm_is_bound_to_the_exact_sha() {
   assert_equals "$TASK-xc-${HEAD_SHA:0:8}" "$rid" "confirm reviewer id"
   out=$(xr brief "$TASK" "$rid" --head "$HEAD_SHA" --confirm <&-) || fail "brief failed: $out"
   assert_grep "confirm $HEAD_SHA" "$HOME_DIR/data/$rid/brief.md" "the confirm line is in the instructions"
-  add_reviewer "$rid" pi openai-codex/gpt-6-luna openai
+  add_reviewer "$rid" pi openai-codex/gpt-6.1-sol openai
   printf 'reviewed head %s\nVerdict: HOLD\nThe tests are missing.\n' "$HEAD_SHA" > "$HOME_DIR/data/$rid/report.md"
   out=$(collect "$rid") || fail "collect failed: $out"
   assert_contains "$out" "accepted=no" "a hold was recorded as a confirmation"
@@ -338,7 +341,7 @@ test_confirm_is_bound_to_the_exact_sha() {
 
 test_reviewer_chain_skips_the_builder_family() {
   local out
-  new_case pi-builder direct-PR pi openai-codex/gpt-6-luna openai
+  new_case pi-builder direct-PR pi openai-codex/gpt-6.1-sol openai
   out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
   assert_equals pi "$(field "$out" reviewer_harness)" "the fixed catalog-backed reviewer is selected"
   assert_equals xai "$(field "$out" reviewer_family)" "the same-family candidate is skipped"

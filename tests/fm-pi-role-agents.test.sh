@@ -19,8 +19,8 @@ config = tmp / "custom config"
 project = tmp / "arbitrary-project"
 project.mkdir()
 env = {**os.environ, "HOME": str(home), "PI_CODING_AGENT_DIR": str(config)}
-roles = {"worker": "gpt-5.6-luna", "explorer": "gpt-5.6-luna",
-         "researcher": "gpt-5.6-luna", "tester": "gpt-5.6-luna",
+roles = {"worker": "gpt-6.1-sol", "explorer": "gpt-6.1-sol",
+         "researcher": "gpt-6.1-sol", "tester": "gpt-6.1-sol",
          "reviewer": "gpt-6-astra", "integrator": "gpt-6-astra"}
 
 

@@ -1,7 +1,7 @@
 ---
 name: fm-orchestrated-explorer
 description: Map the requested repository unknowns without changing the project.
-model: openai-codex/gpt-5.6-luna
+model: openai-codex/gpt-6.1-sol
 tools: read, bash, grep, find, ls
 session-mode: standalone
 system-prompt: append

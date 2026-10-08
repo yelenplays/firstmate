@@ -1,7 +1,7 @@
 ---
 name: fm-orchestrated-researcher
 description: Resolve named external knowledge gaps with primary-source evidence.
-model: openai-codex/gpt-5.6-luna
+model: openai-codex/gpt-6.1-sol
 tools: read, bash, grep, find, ls, web_search, web_fetch
 session-mode: standalone
 system-prompt: append

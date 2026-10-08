@@ -1323,7 +1323,7 @@ This section is the single owner of the canonical schema and its per-field seman
       "floor": { "scope": "<quota-axi scope>", "min_percent": 20, "provider": "<quota-axi provider>" },
       "beats": [ { "rule": 2, "when": "<optional condition under which this rule wins>" } ],
       "use": [
-        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "provider": "<optional quota-axi provider>", "floor": { "scope": "<quota-axi scope>", "min_percent": 50 } }
+        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "provider": "<optional quota-axi provider>", "floor": { "scope": "<quota-axi scope>", "min_percent": 50 }, "overflow": false }
       ],
       "why": "<optional rationale that helps firstmate choose>"
     }
@@ -1343,6 +1343,7 @@ This section is the single owner of the canonical schema and its per-field seman
 | `use` and optional top-level `default` | Accept one profile object or a non-empty array of profile objects; the single-object form remains fully backward-compatible. |
 | Profile `harness` | Required in every profile. |
 | Profile `model` and `effort`; rule `why` | Optional. |
+| Profile `overflow` | Optional boolean, default `false`; see "Overflow profiles" below. |
 
 **Fields applied only by typed resolution**
 
@@ -1371,7 +1372,7 @@ Because `rule` is positional, reordering `rules` requires renumbering every `bea
 A profile `provider` optionally names the quota-axi provider family whose rows apply to that profile; when present, profile and rule-floor provider IDs must match the strict whole-string pattern `^[a-z0-9]+(-[a-z0-9]+)*\z`.
 Bootstrap validates resolver-only `approval`, `min_confidence`, `floor`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
 
-Bootstrap validates resolver-only `approval`, `floor`, `beats`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
+Bootstrap validates resolver-only `approval`, `floor`, `beats`, `overflow`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
 Typed resolution additively recognizes `gemini` because AGENTS.md section 4 verifies it for crewmate and scout dispatch.
 
 | Harness | Provider declaration on the opted-in resolver path |
@@ -1385,6 +1386,22 @@ This single-provider table is separate from the frozen legacy mapping used by `f
 
 - A profile `floor` contains only `scope` and `min_percent`, always uses that profile's provider and matched account, and makes that one candidate ineligible below `min_percent` on the named scope.
 - An absent or unknown named row also makes the candidate unrankable and is reported as an unverifiable floor, not as a known shortfall.
+
+**Overflow profiles**
+
+A profile with `"overflow": true` is a quota overflow lane, not a peer of the array's other profiles.
+It is held out of the choice while any primary (non-overflow) profile in the same array is eligible and has no applicable quota row whose runway is projected to run out before its reset.
+Once every primary profile is ineligible or projected to run out before its reset, the overflow profiles that can be ranked take the work instead and are chosen among by the ordinary `quota-array-dispatch` procedure.
+If no overflow profile can be ranked, the primaries keep the work.
+Unknown runway on a primary is not evidence of a shortfall and keeps the primary.
+A scout brief never overflows: investigation, planning, design, and diagnosis deliverables stay on the primary profiles.
+Typed resolution applies this in code and names the held or passed-over profile on its candidate line; firstmate's own intake applies the same rule by hand.
+
+**Changing the routing table**
+
+The rules file is the captain's approved table from kind of work to model; the rule match only names the kind of work.
+Firstmate changes the table only through an evidence proposal the captain approves, at most once a month: current benchmarks, practitioner reports, and the home's own fix-round evidence, with the proposed diff.
+A model reserved for escalation stays out of every `use` array; firstmate dispatches it only as an explicit per-task captain override, or as the escalation the captain's standing rule names, such as after the strongest regular profile at high effort has already failed once on a hard problem.
 
 **Model, effort, and fallback behavior**
 
@@ -1833,7 +1850,7 @@ A no-mistakes pipeline review of the exact head counts when the agent that ran i
 Vault changes excluded by `fm_wiki_change_private` in [`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) never get a new reviewer and stay on their existing path.
 An unknown builder family, or no candidate from another family, is reported for the captain to decide rather than guessed.
 
-The fixed candidate chain is `pi openai-codex/gpt-6-luna high`, then `pi xai/grok-4.7 high`; Firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
+The fixed candidate chain is `pi openai-codex/gpt-6.1-sol high`, then `pi xai/grok-4.7 high`; Firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
 
 ## Memory store (config/memory-dir)
 

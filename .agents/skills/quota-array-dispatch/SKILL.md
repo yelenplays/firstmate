@@ -109,6 +109,11 @@ A high `spendPriority` on a nearly empty window that will exhaust soon must not 
 Unknown or unmeasurable runway stays eligible with disclosed uncertainty and is never assumed to pass.
 Do not invent a generic percentage floor, and honor an explicit captain floor for a candidate when one exists.
 
+## Overflow profiles
+
+Before ranking, apply the array's `overflow` declarations as [`docs/configuration.md`](../../../docs/configuration.md) "Overflow profiles" defines them: an overflow profile competes only after every primary profile is ineligible or projected to run out before its reset, never for a scout, and the primaries keep the work when no overflow profile can be ranked.
+Rank only the set that rule leaves; never let an overflow profile win on `spendPriority` while a primary still lasts.
+
 ## Rank by spendPriority
 
 Among candidates that pass all three gates, pick the highest known `spendPriority`.

@@ -37,7 +37,10 @@
 #   and an expanded provider with no row for the candidate is unmeasured,
 #   never blocked), the spend ledger's predicted burn for the assessed class
 #   (bin/fm-spend-ledger.py predict), and the spendPriority argmax over the
-#   eligible candidates. The model never sees quota, catalogs, approvals,
+#   eligible candidates, after holding back any profile declared
+#   `overflow: true` until every primary profile is ineligible or projected
+#   to run out before its reset (never for a scout brief). The model never
+#   sees quota, catalogs, approvals,
 #   confidence floors, `why`, or `use`. With no rules, it returns a non-clear
 #   result so firstmate keeps using the existing intake.
 #   docs/configuration.md "Crew dispatch profiles" owns the declared fields and
@@ -347,6 +350,7 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
     or ($p | has("effort") and ((.effort | type) != "string" or (.effort | length) == 0))
     or ($p | has("provider") and (provider_id(.provider) | not))
     or ($p | has("floor") and floor_bad(.floor; false));
+  def overflow_bad($p): ($p | type) == "object" and ($p | has("overflow")) and (($p.overflow | type) != "boolean");
   def beats_bad($self; $count):
     (type != "array") or (length == 0)
     or any(.[]; (type != "object")
@@ -415,6 +419,7 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
   elif mutual_unconditional(.rules // []) then "two rules must not beat each other unconditionally; give at least one of the pair a when condition"
   elif $beats_cycle_error != null then $beats_cycle_error
   elif any((.rules // [])[] | profiles(.use)[]; profile_bad(.)) then "each use profile needs harness; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"
+  elif any((.rules // [])[] | profiles(.use)[], profiles(.default // [])[]; overflow_bad(.)) then "profile overflow must be true or false when present"
   elif any((.rules // [])[]; duplicate_profiles(profiles(.use))) then "each rule use must not contain duplicate harness, model, and effort profiles"
   elif any((.rules // [])[] | profiles(.use)[]; (verified(.harness) | not)) then "each use profile must name a verified harness"
   elif any((.rules // [])[] | profiles(.use)[]; (effort_ok(.harness; .model; .effort) | not)) then "each use profile effort must be supported by its harness and model"
@@ -688,7 +693,9 @@ jq -e 'type == "object"' "$PREDICT_FILE" >/dev/null 2>&1 \
   || printf '{"status":"unavailable"}\n' > "$PREDICT_FILE"
 
 # ---- resolution: declared gates + quota evidence + argmax, all in jq ------------
-RESULT=$(jq -n --arg margin "$MARGIN" --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg none_criterion "$DEFAULT_WHEN" --argjson pmap "$PMAP" --argjson effort "$EFFORT_JSON" \
+IS_SCOUT=false
+[ -z "$(brief_kind)" ] || IS_SCOUT=true
+RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg none_criterion "$DEFAULT_WHEN" --argjson pmap "$PMAP" --argjson effort "$EFFORT_JSON" \
   --slurpfile resp "$RESP_FILE" --slurpfile rules "$RULES" --slurpfile quota "$QUOTA" --slurpfile predict "$PREDICT_FILE" "$FM_QUOTA_ROW_JQ"'
   '"$FM_JEV_CHOICE_TOP2_JQ"'
   ($resp[0]) as $r | ($rules[0]) as $cfg | ($quota[0]) as $q | ($r.answers.rule) as $a |
@@ -840,6 +847,28 @@ RESULT=$(jq -n --arg margin "$MARGIN" --arg floor "$CONFIDENCE_FLOOR" --argjson 
     else
       (evaluate($c) + {effort: $er.effort, ceiling: $er.ceiling, effort_source: $er.source}) | burn_gate(.)
     end;
+  # A profile declaring `overflow: true` is held out of the ranking while any
+  # primary (non-overflow) candidate is eligible with no applicable row whose
+  # runway is projected_exhaustion. Once every primary is ineligible or
+  # projected to run out before its reset, the rankable overflow candidates
+  # take the work instead. A scout brief never overflows. Unknown runway on a
+  # primary is not evidence of a shortfall, so it keeps the primary.
+  def is_overflow($c): ($c.profile.overflow // false) == true;
+  def runs_short($c): any(($c.bounds // [])[]; .runway == "projected_exhaustion");
+  def held_back($c; $why): $c + {eligible: false, unranked: false, reason: $why};
+  def apply_overflow($cands):
+    ([$cands[] | select(is_overflow(.) | not)]) as $prim |
+    ([$cands[] | select(is_overflow(.))]) as $spill |
+    if ($spill | length) == 0 then $cands
+    elif $scout then
+      $cands | map(if is_overflow(.) and .eligible then held_back(.; "overflow only: a scout brief never overflows") else . end)
+    elif any($prim[]; .eligible and (runs_short(.) | not)) then
+      $cands | map(if is_overflow(.) and .eligible then held_back(.; "overflow only: a primary candidate'"'"'s quota lasts through its reset") else . end)
+    elif any($spill[]; .eligible and ((.unranked // false) | not)) then
+      $cands | map(if (is_overflow(.) | not) and .eligible
+        then held_back(.; "overflowed: quota projected to run out before reset" + (if .scope then " at \(.scope)" else "" end))
+        else . end)
+    else $cands end;
   def rule_at($c):
     if ($c | test("^rule_[1-9][0-9]*$")) then
       ($c | ltrimstr("rule_") | tonumber) as $n |
@@ -888,7 +917,7 @@ RESULT=$(jq -n --arg margin "$MARGIN" --arg floor "$CONFIDENCE_FLOOR" --argjson 
     elif $sel.escalate then {status: "escalate", reason: $sel.escalate, candidates: (answer_use($c) | map(assess(.)))}
     elif ($sel.use | length) == 0 then {status: "escalate", reason: "no profiles configured for \($sel.source)", note: $sel.note, candidates: []}
     else
-      ($sel.use | map(assess(.))) as $cands |
+      ($sel.use | map(assess(.)) | apply_overflow(.)) as $cands |
       ([$cands[] | select(.eligible and ((.unranked // false) | not))]) as $elig |
       ([$cands[] | select(.unranked)]) as $unranked |
       ([$cands[] | select(.pred != null) | .pred.tokens] | if length > 0 then min else null end) as $min_pred |

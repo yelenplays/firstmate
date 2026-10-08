@@ -24,8 +24,8 @@ root = Path(sys.argv[1])
 real_config = Path(os.environ.get("PI_CODING_AGENT_DIR", str(Path.home() / ".pi/agent"))).expanduser()
 package = Path(os.environ.get("FM_PI_SUBAGENTS_PACKAGE", str(real_config / "git/github.com/amosblomqvist/pi-interactive-subagents")))
 extension = package / "pi-extension/subagents/index.ts"
-roles = {"explorer": "gpt-5.6-luna", "researcher": "gpt-5.6-luna",
-         "worker": "gpt-5.6-luna", "tester": "gpt-5.6-luna",
+roles = {"explorer": "gpt-6.1-sol", "researcher": "gpt-6.1-sol",
+         "worker": "gpt-6.1-sol", "tester": "gpt-6.1-sol",
          "reviewer": "gpt-6-astra", "integrator": "gpt-6-astra"}
 parent_thinking = "xhigh"
 assert shutil.which("tmux"), "tmux is required"

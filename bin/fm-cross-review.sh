@@ -44,7 +44,7 @@
 #     a review. A private vault change (bin/fm-wiki-lib.sh
 #     fm_wiki_change_private) always gets action=none: it stays on today's path
 #     and no new reviewer sees it. The fixed candidate chain is
-#     `pi openai-codex/gpt-6-luna high`, `pi xai/grok-4.7 high`; the first whose
+#     `pi openai-codex/gpt-6.1-sol high`, `pi xai/grok-4.7 high`; the first whose
 #     family is proven by its catalog and disjoint from the builder's wins.
 #   fm-cross-review.sh brief <task-id> <reviewer-id> --head <sha> [--confirm]
 #     Scaffold the reviewer's scout instructions with bin/fm-brief.sh --scout,
@@ -507,7 +507,7 @@ private_change() {  # <head>, decision-time vault exclusion for plan and brief
 }
 
 reviewer_candidates() {
-  printf 'pi openai-codex/gpt-6-luna high\n'
+  printf 'pi openai-codex/gpt-6.1-sol high\n'
   printf 'pi xai/grok-4.7 high\n'
 }
 

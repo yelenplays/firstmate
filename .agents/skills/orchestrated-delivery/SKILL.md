@@ -64,7 +64,7 @@ Keep the roster pins intact; a changed installed package still requires checking
 ## Spawn and carry the handoff
 
 After the support check passes, call `subagent` with the table's `agent` definition, a unique role-specific `name`, the absolute task-worktree `cwd`, and a self-contained `task`.
-For example, the Worker call shape is `subagent({agent: "fm-orchestrated-worker", name: "worker-implementation", cwd: taskWorktree, model: "openai-codex/gpt-5.6-luna:<task-effort>", task: handoff})`.
+For example, the Worker call shape is `subagent({agent: "fm-orchestrated-worker", name: "worker-implementation", cwd: taskWorktree, model: "openai-codex/gpt-6.1-sol:<task-effort>", task: handoff})`.
 The `model` argument carries that role's pinned model plus this task's effort; it is not a model substitution.
 The `name` labels a role and does not select its definition.
 Create the Reviewer with `fm-orchestrated-reviewer` and a fresh name on every review, never by resuming an earlier session; its definition selects `standalone`.
