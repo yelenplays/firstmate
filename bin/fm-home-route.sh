@@ -165,7 +165,7 @@ eligible_scopes() {
   done < "$REG"
   if [ "$(jq 'length' <<<"$entries")" -eq 0 ]; then REASON=no_eligible_public_scopes; return 1; fi
   if [ "$(jq 'length' <<<"$entries")" -ge 64 ]; then REASON=too_many_scopes; return 1; fi
-  printf '%s\n' "$entries"
+  ELIGIBLE_SCOPES=$entries
 }
 
 # Builds OPTS, STATE, and QUESTIONS for the eligible scopes in $1. Both judges
@@ -216,9 +216,9 @@ decide() {
     REASON=unsafe_summary
   elif ! public_text_ok "$project"; then
     REASON=unsafe_project
-  elif ! entries=$(eligible_scopes); then
+  elif ! eligible_scopes; then
     :
-  elif ! build_request "$entries" "$project" "$summary"; then
+  elif entries=$ELIGIBLE_SCOPES && ! build_request "$entries" "$project" "$summary"; then
     REASON=invalid_request
   elif ! fm_jev_key_configured; then
     REASON=no_key

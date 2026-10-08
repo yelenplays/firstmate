@@ -194,6 +194,25 @@ last_event | jq -e '.reason == "unsafe_summary" and .route == "main" and .source
 [ ! -s "$BACKUP_PROMPT" ] || fail 'private input reached the backup judge'
 pass 'missing key goes to the backup; private summaries reach neither judge'
 
+# Input failures before either judge still record a usable main-home route.
+: > "$PAYLOAD"
+mv "$APPROVAL" "$APPROVAL.off"
+out=$(run_tool decide missing-scopes --project lay-distribution-site --public-summary 'Update the site navigation') || fail 'missing-scopes decide failed'
+assert_contains "$out" 'route: main' 'missing public scopes route main'
+assert_contains "$out" 'decided: default' 'missing public scopes use the default'
+jq -e '.route == "main" and .source == "default" and (.route | length) > 0 and .reason == "no_public_scopes"' \
+  "$HOME_DIR/state/home-route/missing-scopes.json" >/dev/null || fail 'missing public scopes route not recorded'
+mv "$APPROVAL.off" "$APPROVAL"
+mv "$REG" "$REG.off"
+out=$(run_tool decide missing-registry --project lay-distribution-site --public-summary 'Update the site navigation') || fail 'missing-registry decide failed'
+assert_contains "$out" 'route: main' 'missing registry routes main'
+assert_contains "$out" 'decided: default' 'missing registry uses the default'
+jq -e '.route == "main" and .source == "default" and (.route | length) > 0 and .reason == "registry_unavailable"' \
+  "$HOME_DIR/state/home-route/missing-registry.json" >/dev/null || fail 'missing registry route not recorded'
+mv "$REG.off" "$REG"
+[ ! -s "$PAYLOAD" ] || fail 'unusable routing inputs reached the endpoint'
+pass 'missing scopes and registry record a non-empty default route'
+
 # A legacy judgment-needed record still refuses the spawn until judged.
 jq -n '{task_id: "legacy-task", project: "firstmate", route: "judgment-needed", lead: "", consult: [], source: "jev", probability: 0.6, reason: "abstained"}' > "$HOME_DIR/state/home-route/legacy-task.json"
 rc=0
@@ -222,7 +241,7 @@ pass 'missing records refuse; secondmate and unconfigured homes pass'
 
 out=$(run_tool review) || fail 'review failed'
 assert_contains "$out" 'overrides=1' 'review counts overrides'
-assert_contains "$out" 'typed_undecided_reasons: abstained=2 decision_unavailable=3 no_key=1 unsafe_summary=1' 'review groups the typed reasons'
+assert_contains "$out" 'typed_undecided_reasons: abstained=2 decision_unavailable=3 no_key=1 no_public_scopes=1 registry_unavailable=1 unsafe_summary=1' 'review groups the typed reasons'
 assert_contains "$out" 'backup_routed=4' 'review counts backup routes'
 assert_contains "$out" 'backup_failures: failed (fake-claude exited 1)=2' 'review groups backup failures'
 assert_contains "$out" 'override lay-faq: router said frontend+lay' 'review lists overrides'
