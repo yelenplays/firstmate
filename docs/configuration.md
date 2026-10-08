@@ -1850,7 +1850,7 @@ A no-mistakes pipeline review of the exact head counts when the agent that ran i
 Vault changes excluded by `fm_wiki_change_private` in [`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) never get a new reviewer and stay on their existing path.
 An unknown builder family, or no candidate from another family, is reported for the captain to decide rather than guessed.
 
-The fixed candidate chain is `pi openai-codex/gpt-6.1-sol high`, then `pi xai/grok-4.7 high`; Firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
+The fixed candidate chain is `pi openai-codex/gpt-6.1-sol high`, then `claude claude-opus-5-5 high`, so a Claude-built change goes to Sol and an OpenAI-built one to Opus; Firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
 
 ## Memory store (config/memory-dir)
 

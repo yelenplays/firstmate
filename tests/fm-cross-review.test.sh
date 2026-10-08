@@ -22,7 +22,6 @@ opencode-go   gpt-6-luna   400K     128K     yes       yes
 openai-codex  gpt-6-astra  400K     128K     yes       yes
 openai-codex  gpt-6.1-sol  272K     128K     yes       yes
 xai           grok-5       256K     64K      yes       yes
-xai           grok-4.7     500K     500K     yes       yes
 EOF
 
 # The fake no-mistakes answers from the case's captured status and stats, in
@@ -131,8 +130,8 @@ test_same_family_pipeline_review_needs_a_reviewer() {
   out=$(xr plan "$TASK" --head "$HEAD_SHA" <&-) || fail "plan failed: $out"
   assert_equals spawn-reviewer "$(field "$out" action)" "a same-family pipeline review needs a one-shot reviewer"
   assert_equals review "$(field "$out" kind)" "kind"
-  assert_equals pi "$(field "$out" reviewer_harness)" "first reviewer in the chain"
-  assert_equals xai "$(field "$out" reviewer_family)" "reviewer family"
+  assert_equals claude "$(field "$out" reviewer_harness)" "an OpenAI-built change goes to the Claude reviewer"
+  assert_equals anthropic "$(field "$out" reviewer_family)" "reviewer family"
   assert_equals "$TASK-xr-${HEAD_SHA:0:8}" "$(field "$out" reviewer_id)" "reviewer id is bound to the head"
   assert_grep "pipeline_review_family=openai" "$HOME_DIR/state/$TASK.meta" "the pipeline family was not recorded in the task record"
   pass "a same-family pipeline review triggers a one-shot reviewer from another family"
@@ -343,9 +342,10 @@ test_reviewer_chain_skips_the_builder_family() {
   local out
   new_case pi-builder direct-PR pi openai-codex/gpt-6.1-sol openai
   out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
-  assert_equals pi "$(field "$out" reviewer_harness)" "the fixed catalog-backed reviewer is selected"
-  assert_equals xai "$(field "$out" reviewer_family)" "the same-family candidate is skipped"
-  assert_equals xai/grok-4.7 "$(field "$out" reviewer_model)" "the fixed chain advances to its next disjoint family"
+  assert_equals claude "$(field "$out" reviewer_harness)" "the Claude reviewer is selected"
+  assert_equals anthropic "$(field "$out" reviewer_family)" "the same-family candidate is skipped"
+  assert_equals claude-opus-5-5 "$(field "$out" reviewer_model)" "the fixed chain advances to its next disjoint family"
+  assert_equals high "$(field "$out" reviewer_effort)" "the Opus reviewer runs at high effort"
   pass "the fixed reviewer chain skips candidates from the builder family"
 }
 
