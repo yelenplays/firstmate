@@ -1302,8 +1302,8 @@ Firstmate cannot see which part of a worker's life uses the resource, so the num
 ## Crew dispatch profiles (config/crew-dispatch.json)
 
 `config/crew-dispatch.json` is an optional local, gitignored file containing natural-language rules that firstmate reads before dispatching a crewmate or scout.
-Firstmate chooses the best matching rule with judgment; shell scripts do not match the natural-language rules.
-Firstmate resolves the rule's profile object or array under `AGENTS.md` section 4 and `quota-array-dispatch`, then passes only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`.
+The typed resolver matches natural-language rules through its typed and backup judges, then applies profile and quota gates in code.
+The typed resolver resolves the rule's profile object or array under its documented contract, then returns concrete `--harness`, `--model`, and `--effort` axes for `fm-spawn.sh`.
 
 **Spawn requirements**
 
@@ -1313,7 +1313,7 @@ Firstmate resolves the rule's profile object or array under `AGENTS.md` section 
 
 **Contract owners**
 
-Firstmate matches those rules with judgment, or through the opt-in [typed dispatch resolver](#typed-dispatch-resolution-env-typesafe_api_key) when that path is on, then resolves the profile object or array under the operating contract in `AGENTS.md` section 4 and `quota-array-dispatch`, and passes only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`.
+The resolver and firstmate's dispatch intake apply these rules, then resolve the profile object or array under the operating contract in `AGENTS.md` section 4 and `quota-array-dispatch`, and pass only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`.
 Secondmate spawns are exempt and still resolve through their per-id pin when present, otherwise `config/secondmate-harness` and its optional model and effort tokens.
 This section is the single owner of the canonical schema and its per-field semantics.
 `AGENTS.md` section 4 owns the always-loaded dispatch intake boundary, and `quota-array-dispatch` owns the completion-aware profile-array selection procedure.
@@ -1354,8 +1354,7 @@ This section is the single owner of the canonical schema and its per-field seman
 
 **Fields applied only by typed resolution**
 
-Rule `approval`, `min_confidence`, `floor`, and `beats`, and profile `provider`, `floor`, `overflow`, and `effort_floor` are optional declarations that [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code.
-Without that opt-in, no shell resolver enforces these fields; firstmate's own intake remains responsible for profile selection under the contracts above and below.
+Rule `approval`, `min_confidence`, `floor`, and `beats`, and profile `provider`, `floor`, `overflow`, and `effort_floor` are optional declarations that [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; firstmate's own intake reads them as ordinary hints.
 The resolver supplies the fixed neutral Choice option `No listed rule applies to this task.` for work that matches no listed rule.
 
 - `approval` accepts only `"captain"` and means a task the rule matches is never dispatched from the tool's answer alone.
@@ -1377,9 +1376,10 @@ Rule `beats` is a non-empty array of `{rule, when}` entries that declares preced
 The resolver renders every entry as a tie-break sentence on both rules' options, so precedence reaches the model as text rather than as a post-hoc override; two rules may beat each other only when at least one of the pair carries a `when`, which is how a real fault line such as findings versus a code change is expressed in both directions. Precedence cycles of three or more distinct rules are rejected even when some edges have `when` conditions; conditional two-rule pairs remain allowed.
 Because `rule` is positional, reordering `rules` requires renumbering every `beats` entry.
 A profile `provider` optionally names the quota-axi provider family whose rows apply to that profile; when present, profile and rule-floor provider IDs must match the strict whole-string pattern `^[a-z0-9]+(-[a-z0-9]+)*\z`.
+Bootstrap applies its additional checks for `approval`, `min_confidence`, `floor`, `beats`, `provider`, `overflow`, and `effort_floor` only when `TYPESAFE_API_KEY` is configured; the resolver's backup chain does not depend on that key.
 Typed resolution additively recognizes `gemini` because AGENTS.md section 4 verifies it for crewmate and scout dispatch.
 
-| Harness | Provider declaration on the opted-in resolver path |
+| Harness | Provider declaration required by the typed resolver |
 | --- | --- |
 | `claude`, `codex`, `grok`, `kimi`, `cursor`, `agy`, `muse` | The resolver has an authoritative single-provider mapping. |
 | Every other verified harness | Must declare `provider` explicitly; this includes multi-provider `pi`, `pi-signed`, `omp`, and `opencode`, and unmapped `gemini`, `rovo`, and `devin`; omission is an actionable configuration error before any request. |
@@ -1413,7 +1413,7 @@ A model reserved for escalation stays out of every `use` array; firstmate dispat
 - `ultra` is native-only: the model-aware validation contract and launch mapping are owned by `bin/fm-harness.sh validate-native-effort` and `bin/fm-spawn.sh` respectively.
 - Codex `max` is valid when the profile selects `gpt-5.6-luna`, whose installed catalog entry supports that reasoning level.
 - An omitted model means the selected harness uses its own default; omitted effort does likewise outside [typed effort resolution](#firstmate-retains-the-dispatch-decision).
-- On the typed path a profile's effort is a range: `effort` is its default and `effort_min` and `effort_max` its bounds, a bare `effort` is a one-level range, and an undeclared effort allows `low` through `xhigh`; firstmate's own intake reads the range as a hint.
+- A profile's typed-resolution effort is a range: `effort` is its default and `effort_min` and `effort_max` its bounds, a bare `effort` is a one-level range, and an undeclared effort allows `low` through `xhigh`; firstmate's own intake reads the range as a hint.
 - OpenCode receives the effort as its default `build` agent's `variant`, keyed to the resolved model, inside the `OPENCODE_CONFIG_CONTENT` JSON its launch already writes (the per-model reasoning-effort field of the config schema, verified on opencode 1.18.32); with no model resolved, the effort is recorded in task metadata but omitted from the launch.
 - Every profile array is an implicit quota-aware choice resolved through `quota-array-dispatch`.
 - If no dispatch rule fits, firstmate resolves `default` through the same object-or-array path before falling back to `config/crew-harness`.
@@ -1427,7 +1427,7 @@ See [`docs/examples/crew-dispatch.json`](examples/crew-dispatch.json) for a star
 - When the file exists, bootstrap validates it with `jq`.
 - Valid files stay silent by default; with `FM_BOOTSTRAP_VERBOSE_FACTS=1`, bootstrap emits `BOOTSTRAP_INFO: crew dispatch active config/crew-dispatch.json`, one `BOOTSTRAP_INFO:` fact per rule, and one fact for the optional default profile set.
 - Malformed JSON, malformed rules, an empty or malformed profile array, an unverified harness, an effort value or range bound unsupported by that harness, or an inverted or default-less effort range is reported as `CREW_DISPATCH: invalid config/crew-dispatch.json - ...`.
-- While typed resolution is active, bootstrap also validates rule `approval`, `min_confidence`, `floor`, and `beats`, and profile `provider`, `floor`, `overflow`, and `effort_floor`, in every `use` and top-level `default` object or array; malformed declarations receive the same diagnostic.
+- With `TYPESAFE_API_KEY` configured, bootstrap also validates rule `approval`, `min_confidence`, `floor`, and `beats`, and profile `provider`, `floor`, `overflow`, and `effort_floor`, in every `use` and top-level `default` object or array; malformed declarations receive the same diagnostic.
 - Without that opt-in, these fields preserve the pre-existing bootstrap validation behavior.
 - Missing `jq` is reported through the normal `MISSING: jq` install-consent flow.
 - While the file remains present, no crewmate or scout spawn may proceed without an explicit resolved harness; malformed configuration must be reported and corrected rather than selected around.
@@ -1464,7 +1464,7 @@ The [home router](#home-router) uses the same backup judge.
 
 The typed stage needs `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY` non-empty in the calling environment or in the home's gitignored `.env`; the environment wins, matching the Relay and mail-plane contracts, and the Relay accessor in `bin/fm-env-lib.sh` reads the line.
 Without a key the typed stage is skipped and the backup judge answers.
-`--typed-only`, which the replay tool implies, runs the typed stage alone with its historical outcomes: without a key that is one `dispatch-resolve: off` line on stderr, nothing on stdout, exit 0, and no network call.
+`--typed-only`, which the replay tool implies, runs the typed stage alone: without a key it prints one `dispatch-resolve: off` line on stderr, nothing on stdout, exits 0, and makes no network call.
 This section is the single owner of the tool's operator contract; the script header owns its exact flags and output lines, and "Crew dispatch profiles" above owns the declared rule and profile fields it applies.
 
 Rules come only from the effective home's `config/crew-dispatch.json`; `FM_CONFIG_OVERRIDE` selects the config directory for tests and specialized setup like the other scripts.
@@ -1475,11 +1475,11 @@ bin/fm-dispatch-resolve.sh data/<id>/brief.md --project <name>        # TOON blo
 
 **When firstmate invokes the resolver**
 
-Firstmate invokes the resolve path directly after writing the brief, without a preflight; the absent-key off line is handled exactly like every other non-clear outcome.
+Firstmate invokes the resolver directly after writing the brief, without a preflight; its backup and default stages handle skipped or undecided typed calls.
 
 **What the model receives**
 
-When on and at least one rule exists, the tool sends the project name and the brief's task-specific text as state and asks one Choice question whose options are every rule's `when` plus the fixed neutral option for no matching rule; the model never sees quota, catalogs, `why`, `use`, approvals, or confidence floors.
+The typed judge receives the project name and the brief's task-specific text as state and gets Choice options for every rule's `when` plus the fixed neutral option for no matching rule; the backup judge receives the same state and questions. Neither judge sees quota, catalogs, `why`, `use`, approvals, or confidence floors.
 The task-specific text is the brief's `## Captain's intent` and `## Firstmate spec` sections under `# Task` that `bin/fm-brief.sh` scaffolds, read by the same parser that feeds `fm-spawn.sh` validation and the no-mistakes `--intent` contract; a brief with neither section is sent whole.
 
 When the sections are sent from a scout brief, the line `Brief kind: scout (report only)` comes first, taken from the scaffold's scout contract line; ship briefs and briefs sent whole get no kind line.
@@ -1510,7 +1510,7 @@ The model-proposal generator also screens its outbound Jev requests against this
 
 **Missing or invalid rules**
 
-When on and at least one rule exists, the tool sends the project name plus either the whole brief or a compact 400-800 character intent summary as state and asks the rule Choice whose options are every rule's `when`, extended by any `beats` tie-break sentences, plus the fixed neutral option for no matching rule, together with the effort Choice; the model never sees quota, catalogs, `why`, `use`, approvals, or credentials.
+The typed request includes the project name and either the whole brief or a compact 400-800 character intent summary, plus the rule Choice (including any `beats` tie-break sentences) and effort Choice; neither judge sees quota, catalogs, `why`, `use`, approvals, or credentials.
 The HTTP call goes through [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh): TypeSafe `/v1/systemone` when a TypeSafe key is present, or OpenRouter `/api/alpha/decisions` when `OPENROUTER_API_KEY` is set and `TYPESAFE_API_KEY` is not, or when `JEV_ROUTE=openrouter`.
 This section is the single owner of the Jev HTTP override names: each is read from the process environment first, else from `$FM_HOME/.env` via `fmx_env_get`, and the environment wins.
 `JEV_ROUTE` is `openrouter` or `typesafe`.
@@ -1561,7 +1561,7 @@ No qualifying option, or two equally probable qualifying options, makes the rule
 
 - Any applicable `exhausted_now` row or known zero bound makes that candidate ineligible, and a known profile-floor shortfall does the same before unrelated quota uncertainty is considered.
 - Missing or nonnumeric `spendPriority` evidence is never ranked, and every candidate is printed beside its evidence or the reason it was not rankable, including on ambiguous and approval-gated outcomes that emit no profile.
-- On the opted-in path, duplicate concrete profiles with the same harness, model, and effort inside one rule or the default array are configuration errors rather than ties.
+- Duplicate concrete profiles with the same harness, model, and effort inside one rule or the default array are configuration errors rather than ties.
 
 **Outcomes and exit status**
 
@@ -1604,7 +1604,7 @@ The assessed class is clamped into the profile's declared effort range (see "Cre
 A missing, malformed, or low-confidence (below 0.5) effort answer falls back to the range default with the fallback disclosed on the `effort:` line.
 The profile's optional `effort_floor` raises the range's lower bound and any lower assessed or fallback value, including when no effort was declared, without exceeding the upper bound. The resolved value governs the launch, runoff identity, and predicted burn.
 A harness without an effort knob keeps the class as a disclosed, unenforced note and emits no `--effort` flag for it.
-A candidate whose predicted burn exceeds its tightest applicable remaining percent (calibrated through the window's observed `tokensPerPoint`) is refused with the prediction named in the reason, and so is one whose predicted duration exceeds the window's usable runway seconds; an all-refused `escalate` names the predicted burn.
+A candidate whose predicted burn exceeds its tightest applicable remaining percent (calibrated through the window's observed `tokensPerPoint`) is refused with the prediction named in the reason, and so is one whose predicted duration exceeds the window's usable runway seconds; if all candidates are refused, the resolver tries eligible default-lane candidates before its declared-candidate last resort.
 Missing or unreadable ledger evidence never fabricates a limit: the candidate keeps its rank and its line shows `pred=unknown`.
 Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, an invalid `FM_JEV_DISPATCH_MARGIN`, or missing `jq`, each reported and never selected around.
 The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; `AGENTS.md` section 4 owns what firstmate does with each outcome.
@@ -1615,11 +1615,6 @@ Firstmate passes a printed profile line to `fm-spawn.sh` without hand-picking; t
 
 The resolver and bootstrap copy an environment-provided key into a non-exported private variable and unset `TYPESAFE_API_KEY` and `OPENROUTER_API_KEY` before launching child processes, so the secret is absent from child environments.
 Keys reach `curl` only through `bin/fm-jev-lib.sh` as an Authorization header read from a file descriptor, never on argv, and nothing prints, logs, or writes them.
-The rule answer clears only when its returned choice equals the most probable option and its top-2 probability margin, the most probable option's probability minus the runner-up's, reaches `FM_JEV_DISPATCH_MARGIN`, read from the process environment first, else from `$FM_HOME/.env` via `fmx_env_get`, as a number in (0, 1] with default 0.4. A non-winning choice is ambiguous with a reason naming both choices; a below-threshold margin names the margin, threshold, and both contenders.
-The derived Choice confidence, `(n x peak - 1) / (n - 1)` over n options, is still printed and logged but no longer gates, because it silently raises the effective bar as rules are added (at 14 options a 0.6 floor needs a 0.643 peak), while the margin measures the same two-horse race at any option count.
-The 0.4 default is calibrated for rules without `beats`: it is the lowest tested threshold that made no wrong pick on the labeled replay under unchanged rules, where every lower tested value cleared one wrong pick at margin 0.35 that the old 0.6 floor held back.
-A lower value such as 0.25 is valid only after `beats` are applied to the home's rules and re-verified at `wrong=0` with `bin/fm-dispatch-replay.sh`, which replays labeled briefs under a hard call budget through the resolver with a candidate rules file and scores recorded answers from its output or the shadow log under any threshold without a network call; recalibrate with it after changing rules or `beats`, and keep private personal data out of replayed briefs.
-Route, URL, model, and timeout follow the override names above, with the pinned models above at `https://api.typesafe.ai/v1/systemone` on TypeSafe and `https://openrouter.ai/api/alpha/decisions` on OpenRouter.
 The live rule-match evidence is recorded in [`verification/dispatch-resolve.md`](verification/dispatch-resolve.md).
 
 **Routing selftest (config/dispatch-samples.json)**
@@ -3182,7 +3177,7 @@ FMX_RELAY_URL=https://myfirstmate.io   # optional Relay endpoint override, mainl
 FMX_ENV_FILE=           # optional alternate .env file for direct Relay client invocations; bootstrap still checks $FM_HOME/.env
 FMX_DRY_RUN=            # truthy previews Relay replies and dismissals to state/x-outbox/ without posting or requiring a token
 FMX_X_REPLY_MAX_CHARS=280   # X reply per-message split budget; values below 50 clamp to 50
-TYPESAFE_API_KEY=       # typed dispatch resolution opt-in; TypeSafe key for bin/fm-jev-lib.sh and optional env source for bin/fm-jev.sh (otherwise $FM_HOME/.env, then the owning checkout's .env)
+TYPESAFE_API_KEY=       # TypeSafe key for typed dispatch and bin/fm-jev-lib.sh; optional env source for bin/fm-jev.sh (otherwise $FM_HOME/.env, then the owning checkout's .env)
 OPENROUTER_API_KEY=     # optional OpenRouter Jev route for typed dispatch and bin/fm-jev-lib.sh; unused by bin/fm-jev.sh
 JEV_ROUTE=              # optional library and typed-dispatch route; bin/fm-jev.sh always uses TypeSafe
 JEV_MODEL=              # optional Jev model override (same section)
@@ -3194,6 +3189,8 @@ FM_JEV_SPAN_TRIAGE_MAX=8  # status-line Jev consult cap per span; see "Jev super
 FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS=6  # shared Jev-call wall-clock budget per watcher or daemon cycle; see "Jev supervision triage"
 FM_JEV_DISPATCH_SHADOW= # 1 logs the Jev dispatch pick to state/jev-dispatch-shadow.jsonl; 0 overrides config/jev-dispatch-shadow off (docs/configuration.md "Typed dispatch resolution")
 FM_JEV_DISPATCH_MARGIN= # optional typed-dispatch top-2 margin threshold; default and calibration: docs/configuration.md "Typed dispatch resolution"
+FM_BACKUP_JUDGE_TIMEOUT= # backup judge timeout in seconds (default 90)
+FM_BACKUP_JUDGE_CMD=     # backup judge test stub hook only
 FM_DISPATCH_SELFTEST_HOUR=3  # local hour after which the nightly routing selftest runs once a day (same section)
 FM_WIKI_ENGINE=         # wiki-tool executable path or command; else config/wiki-engine (docs/configuration.md "Wiki engine ask")
 FM_WIKI_CATALOG=        # private wiki-tool catalog JSON path; else config/wiki-catalog (docs/configuration.md "Wiki engine ask")

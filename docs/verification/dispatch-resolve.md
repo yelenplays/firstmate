@@ -2,7 +2,7 @@
 
 Audience: maintainer verification.
 
-This record supports the opt-in `bin/fm-dispatch-resolve.sh` contract owned by [`../configuration.md`](../configuration.md) ("Typed dispatch resolution") and the declared rule and profile fields owned there under "Crew dispatch profiles".
+This record supports the live `bin/fm-dispatch-resolve.sh` contract owned by [`../configuration.md`](../configuration.md) ("Typed dispatch resolution") and the declared rule and profile fields owned there under "Crew dispatch profiles".
 It records only facts that must be re-established when the typesafe.ai model, its API, or firstmate's dispatch rules change.
 Task chronology, the captain's rules, and the briefs themselves stay in the private scout report.
 
