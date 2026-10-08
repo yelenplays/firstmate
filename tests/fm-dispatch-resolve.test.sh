@@ -1620,7 +1620,7 @@ write_response "$RESPONSE" rule_1 0.97 "$OVERFLOW_RESPONSE"
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
 assert_contains "$out" '  status: clear' "a primary that lasts through reset clears"
 assert_contains "$out" "$OPUS_PROFILE" "the primary wins even when the overflow candidate has the higher spendPriority"
-assert_contains "$out" "not eligible: overflow only: a primary candidate's quota lasts through its reset" "the held overflow candidate is accounted for"
+assert_contains "$out" 'not eligible: overflow only: not every primary has concrete Claude quota-shortfall evidence' "the held overflow candidate is accounted for"
 pass "overflow: a candidate marked overflow stays out while the primary's quota lasts"
 
 overflow_quota "$OVERFLOW_QUOTA" projected_exhaustion through_reset
@@ -1653,6 +1653,58 @@ assert_contains "$out" "$SOL_PROFILE" "an exhausted primary overflows"
 assert_contains "$out" 'not eligible: runway exhausted_now at all_models' "the exhausted primary keeps its own reason"
 pass "overflow: an exhausted primary overflows"
 
+overflow_quota "$OVERFLOW_QUOTA" through_reset through_reset
+jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[0].effectivePercentRemaining) = 0' "$OVERFLOW_QUOTA" > "$TMP_ROOT/q.json" && mv "$TMP_ROOT/q.json" "$OVERFLOW_QUOTA"
+reset_log
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
+assert_contains "$out" "$SOL_PROFILE" "known zero remaining is quota-shortfall evidence even with stale runway"
+pass "overflow: a zero-percent primary overflows"
+
+for rejection in ceiling harness floor burn; do
+  overflow_quota "$OVERFLOW_QUOTA" through_reset through_reset
+  cp "$OVERFLOW_RULES" "$RULES"
+  write_response_effort "$RESPONSE" rule_1 0.97 high
+  jq --argjson p "$OVERFLOW_RESPONSE" '.answers.rule.probabilities = $p | .answers.effort.probabilities = {"low":0.05,"medium":0.05,"high":0.8,"xhigh":0.05,"max":0.05}' "$RESPONSE" > "$TMP_ROOT/r.json" && mv "$TMP_ROOT/r.json" "$RESPONSE"
+  ledger=$LEDGER_STUB
+  case "$rejection" in
+    ceiling) ;;
+    harness)
+      jq '.rules[0].use[0] = {"harness":"agy","provider":"claude"} | .rules[0].use[1].effort = "xhigh"' "$OVERFLOW_RULES" > "$RULES"
+      jq '.answers.effort.choice = "xhigh" | .answers.effort.probabilities = {"low":0.05,"medium":0.05,"high":0.05,"xhigh":0.8,"max":0.05}' "$RESPONSE" > "$TMP_ROOT/r.json" && mv "$TMP_ROOT/r.json" "$RESPONSE" ;;
+    floor)
+      jq '.rules[0].use[0].effort = "high" | .rules[0].use[0].floor = {"scope":"all_models","min_percent":90}' "$OVERFLOW_RULES" > "$RULES" ;;
+    burn)
+      jq '.rules[0].use[0].effort = "high"' "$OVERFLOW_RULES" > "$RULES"
+      ledger=$BURN_ALL ;;
+  esac
+  reset_log
+  TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$ledger" QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
+  assert_contains "$out" '  status: escalate' "non-quota $rejection rejection does not activate overflow"
+  assert_not_contains "$out" '  profile:' "non-quota $rejection rejection emits no overflow launch"
+done
+pass "overflow: ceiling, harness, floor, and burn failures never activate overflow"
+
+cp "$OVERFLOW_RULES" "$RULES"
+write_response "$RESPONSE" rule_1 0.97 "$OVERFLOW_RESPONSE"
+for runway in unknown through_reset; do
+  overflow_quota "$OVERFLOW_QUOTA" "$runway" through_reset
+  reset_log
+  TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
+  assert_contains "$out" "$OPUS_PROFILE" "a $runway primary does not overflow"
+done
+jq '.rules[0].use += [{"harness":"claude","model":"claude-haiku-4-5","effort":"medium","floor":{"scope":"all_models","min_percent":90}}]' "$OVERFLOW_RULES" > "$RULES"
+overflow_quota "$OVERFLOW_QUOTA" projected_exhaustion through_reset
+reset_log
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
+assert_contains "$out" "$OPUS_PROFILE" "a sibling primary rejected for a floor prevents overflow despite projected exhaustion"
+jq '.rules[0].use |= map(select(.overflow == true))' "$OVERFLOW_RULES" > "$RULES"
+reset_log
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
+assert_not_contains "$out" '  profile:' "an overflow-only array cannot activate without primaries"
+pass "overflow: every primary must have quota evidence without a non-quota rejection"
+
+cp "$OVERFLOW_RULES" "$RULES"
+overflow_quota "$OVERFLOW_QUOTA" exhausted_now through_reset
 jq '.rules[0].use[1].effort_floor = "high"' "$OVERFLOW_RULES" > "$RULES"
 reset_log
 write_response_effort "$RESPONSE" rule_1 0.97 medium
@@ -1674,6 +1726,53 @@ TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRI
 expect_code 2 "$code" "a non-boolean overflow is a configuration error"
 assert_contains "$err" 'profile overflow must be true or false when present' "the malformed overflow is named"
 pass "overflow: a non-boolean overflow declaration is refused"
+
+for location in use default; do
+  for shape in object array; do
+    for invalid in overflow-string floor-array floor-null floor-ceiling cursor kimi opencode devin gemini agy; do
+      jq --arg location "$location" --arg shape "$shape" --arg invalid "$invalid" '
+        {harness:"claude", effort:"high", effort_floor:"high"} |
+        (if $invalid == "overflow-string" then .overflow = "yes"
+         elif $invalid == "floor-array" then .effort_floor = ["high"]
+         elif $invalid == "floor-null" then .effort_floor = null
+         elif $invalid == "floor-ceiling" then .effort = "medium"
+         else .harness = $invalid | .provider = "claude" | del(.effort) |
+           if $invalid == "agy" then .effort_floor = "xhigh" else . end end) as $profile |
+        {rules:[{when:"Building.",use:{harness:"claude"}}]} |
+        if $location == "use" then .rules[0].use = (if $shape == "array" then [$profile] else $profile end)
+        else .default = (if $shape == "array" then [$profile] else $profile end) end
+      ' <<< '{}' > "$RULES"
+      reset_log
+      TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
+      expect_code 2 "$code" "$location $shape rejects $invalid"
+      assert_absent "$LOG/calls" "invalid profile is rejected before a model call"
+    done
+  done
+done
+pass "profile validation: all use and default forms reject malformed or unenforceable floors and overflow"
+
+for location in use default; do
+  for answer in absent malformed medium; do
+    jq --arg location "$location" '
+      .rules[0].use = {harness:"claude",model:"claude-opus-5-5",effort_floor:"high"} |
+      if $location == "default" then .default = .rules[0].use else . end
+    ' "$OVERFLOW_RULES" > "$RULES"
+    choice=rule_1
+    probabilities=$OVERFLOW_RESPONSE
+    if [ "$location" = default ]; then choice=default; probabilities='{"rule_1":0.03,"default":0.97}'; fi
+    write_response "$RESPONSE" "$choice" 0.97 "$probabilities"
+    case "$answer" in
+      malformed) effort_answer='{"type":"choice","choice":"invalid","confidence":0.9,"probabilities":{"invalid":1}}' ;;
+      medium) effort_answer='{"type":"choice","choice":"medium","confidence":0.9,"probabilities":{"low":0.05,"medium":0.8,"high":0.05,"xhigh":0.05,"max":0.05}}' ;;
+      absent) effort_answer=null ;;
+    esac
+    jq --argjson answer "$effort_answer" '.answers.effort = $answer' "$RESPONSE" > "$TMP_ROOT/r.json" && mv "$TMP_ROOT/r.json" "$RESPONSE"
+    reset_log
+    TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$QUOTA" run code out err "$BRIEF"
+    assert_contains "$out" "  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'high'" "$location enforces the floor with $answer effort and no declared ceiling"
+  done
+done
+pass "effort floor: fallback and assessed values are floored for rules and defaults"
 cp "$BASE_RULES" "$RULES"
 
 printf '# all fm-dispatch-resolve tests passed\n'

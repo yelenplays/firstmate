@@ -35,7 +35,13 @@ cat > "$TMP_ROOT/fakebin/claude" <<'SH'
 : > "$FM_HOME/state/.session-start-complete"
 exec sleep 45
 SH
-chmod +x "$TMP_ROOT/source/bin/"{fm-home-seed,fm-spawn}.sh "$TMP_ROOT/fakebin/claude"
+cat > "$TMP_ROOT/fakebin/pi" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$FM_HOME/primary-argv"
+: > "$FM_HOME/state/.session-start-complete"
+exec sleep 45
+SH
+chmod +x "$TMP_ROOT/source/bin/"{fm-home-seed,fm-spawn}.sh "$TMP_ROOT/fakebin/"{claude,pi}
 git -C "$TMP_ROOT/source" init -q -b main
 git -C "$TMP_ROOT/source" add -A
 git -C "$TMP_ROOT/source" -c user.name=t -c user.email=t@example.invalid commit -qm stub
@@ -66,4 +72,25 @@ for mode in off on; do
     assert_absent "$lab/mate/config/supervision-host-off" "on mate has no opt-out"
   fi
   pass "up --mate with supervision host $mode reaches readiness"
+done
+
+for selection in default explicit bare; do
+  lab="$TMP_ROOT/lab-sol-$selection"
+  args=()
+  case "$selection" in
+    explicit) args=(--model openai-codex/gpt-6.1-sol --effort low) ;;
+    bare) args=(--model gpt-6.1-sol --effort medium) ;;
+  esac
+  out=$(PATH="$TMP_ROOT/fakebin:$PATH" SHELL=/bin/sh "$ROOT/bin/fm-live-lab.sh" up --harness pi "${args[@]}" --source "$TMP_ROOT/source" --timeout 0 "$lab" 2>&1)
+  rc=$?
+  expect_code 1 "$rc" "unanswered probe leaves the Sol $selection lab for inspection"
+  python3 - "$lab/home/primary-argv" <<'PY'
+from pathlib import Path
+import sys
+argv = Path(sys.argv[1]).read_text().splitlines()
+assert argv[argv.index("--thinking") + 1] == "high", argv
+assert argv[argv.index("--model") + 1].split("/")[-1] == "gpt-6.1-sol", argv
+PY
+  [ "$?" -eq 0 ] || fail "Sol $selection did not launch at high effort"
+  pass "up launches Sol $selection at high effort"
 done

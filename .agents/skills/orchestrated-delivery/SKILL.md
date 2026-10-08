@@ -30,8 +30,10 @@ Firstmate supervises only the orchestrator endpoint and never tracks individual 
 | Reviewer | [`fm-orchestrated-reviewer`](agents/fm-orchestrated-reviewer.md) | Independently assess correctness and scope in a fresh context. |
 | Integrator | [`fm-orchestrated-integrator`](agents/fm-orchestrated-integrator.md) | Verify the final joined or landed result against the accepted criteria. |
 
-Each linked definition owns its exact model, tool allowlist, and fresh-session mode.
-Effort is this task's assessed class, not a per-role pin.
+Each linked definition owns its default model, tool allowlist, and fresh-session mode.
+Worker, Tester, Explorer, and Researcher default to Opus 5.5; only an authorized quota-overflow selection under [Overflow profiles](../../../docs/configuration.md#crew-dispatch-profiles) permits Worker or Tester to use Sol 6.1 for non-frontend building work.
+Explorer, Researcher, and frontend work stay on Opus.
+Effort is this task's assessed class, except every authorized Sol launch uses `high`.
 Use these role definitions, not the package's generic `worker`, `scout`, or `researcher` profiles.
 
 The orchestrator records the selected roles and the concrete coverage reason for each before spawning them.
@@ -56,16 +58,16 @@ Global discovery reaches arbitrary project worktrees without adding project-loca
 Existing project resources retain Pi's normal trust behavior; this provisioning does not approve them.
 The sub-agent package itself and tmux must already be installed.
 These definitions do not declare `thinking`.
-The package appends thinking to the model at launch, so pass `model` as `<that definition's model>:<task effort>` and keep the definition's model pin.
-Read the class from this crewmate's `effort=` metadata; use it only when it is one of `low`, `medium`, `high`, `xhigh`, or `max`, otherwise omit the suffix rather than inventing `max`.
-Keep the roster pins intact; a changed installed package still requires checking the effective loadout rather than assuming its behavior.
+The package appends thinking to the model at launch, so pass `model` as `<selected model>:<task effort>`; an authorized Sol overflow instead always passes `openai-codex/gpt-6.1-sol:high`.
+Read the class from this crewmate's `effort=` metadata; use it only when it is one of `low`, `medium`, `high`, `xhigh`, or `max`, otherwise omit the suffix rather than inventing `max`, except Sol still requires `high`.
+Keep the roster defaults unless the authorized quota-overflow selection applies; a changed installed package still requires checking the effective loadout rather than assuming its behavior.
 [Runtime verification](../../../docs/verification/runtime-backends.md#orchestrated-pi-role-definitions) records the live six-role proof and its refresh command.
 
 ## Spawn and carry the handoff
 
 After the support check passes, call `subagent` with the table's `agent` definition, a unique role-specific `name`, the absolute task-worktree `cwd`, and a self-contained `task`.
-For example, the Worker call shape is `subagent({agent: "fm-orchestrated-worker", name: "worker-implementation", cwd: taskWorktree, model: "openai-codex/gpt-6.1-sol:<task-effort>", task: handoff})`.
-The `model` argument carries that role's pinned model plus this task's effort; it is not a model substitution.
+For example, the default Worker call shape is `subagent({agent: "fm-orchestrated-worker", name: "worker-implementation", cwd: taskWorktree, model: "anthropic/claude-opus-5-5:<task-effort>", task: handoff})`.
+The `model` argument carries that role's default model plus this task's effort, or the authorized Sol overflow at `high`; never substitute Sol just because a primary failed a non-quota gate.
 The `name` labels a role and does not select its definition.
 Create the Reviewer with `fm-orchestrated-reviewer` and a fresh name on every review, never by resuming an earlier session; its definition selects `standalone`.
 The Reviewer must never be the agent that implemented the change under review.

@@ -1344,7 +1344,7 @@ This section is the single owner of the canonical schema and its per-field seman
 | Profile `harness` | Required in every profile. |
 | Profile `model` and `effort`; rule `why` | Optional. |
 | Profile `overflow` | Optional boolean, default `false`; see "Overflow profiles" below. |
-| Profile `effort_floor` | Optional `low`, `medium`, `high`, `xhigh`, or `max`, not above the profile's `effort`; typed resolution raises a lower assessed effort class to it, so that profile never runs below it. |
+| Profile `effort_floor` | Optional scalar `low`, `medium`, `high`, `xhigh`, or `max`, supported by an effort-capable harness and model and not above the profile's `effort` (ceiling `xhigh` when omitted); typed resolution enforces it on assessed and fallback effort alike. |
 
 **Fields applied only by typed resolution**
 
@@ -1391,8 +1391,9 @@ This single-provider table is separate from the frozen legacy mapping used by `f
 **Overflow profiles**
 
 A profile with `"overflow": true` is a quota overflow lane, not a peer of the array's other profiles.
-It is held out of the choice while any primary (non-overflow) profile in the same array is eligible and has no applicable quota row whose runway is projected to run out before its reset.
-Once every primary profile is ineligible or projected to run out before its reset, the overflow profiles that can be ranked take the work instead and are chosen among by the ordinary `quota-array-dispatch` procedure.
+It competes only when the array has primary (non-overflow) profiles and every primary has concrete Claude quota-shortfall evidence: an applicable row with runway `projected_exhaustion` or `exhausted_now`, or known 0% remaining.
+Non-quota ineligibility, including effort ceiling, harness fit, profile floor, or burn prediction, never activates overflow.
+When that quota condition holds, the overflow profiles that can be ranked take the work instead and are chosen among by the ordinary `quota-array-dispatch` procedure.
 If no overflow profile can be ranked, the primaries keep the work.
 Unknown runway on a primary is not evidence of a shortfall and keeps the primary.
 A scout brief never overflows: investigation, planning, design, and diagnosis deliverables stay on the primary profiles.

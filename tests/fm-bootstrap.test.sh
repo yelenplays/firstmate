@@ -1188,7 +1188,7 @@ profile floor provider override is flagged^{"rules":[{"when":"images","use":{"ha
 profile overflow true is accepted^{"rules":[{"when":"building","use":[{"harness":"claude","model":"claude-opus-5-5"},{"harness":"pi","model":"openai-codex/gpt-6.1-sol","provider":"codex","overflow":true}]}]}^empty^
 non-boolean profile overflow is flagged^{"rules":[{"when":"building","use":[{"harness":"claude"},{"harness":"codex","overflow":"yes"}]}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - profile overflow must be true or false when present
 profile effort floor at its effort is accepted^{"rules":[{"when":"building","use":[{"harness":"claude"},{"harness":"pi","model":"openai-codex/gpt-6.1-sol","provider":"codex","effort":"high","effort_floor":"high","overflow":true}]}]}^empty^
-profile effort floor above its effort is flagged^{"rules":[{"when":"building","use":[{"harness":"claude","effort":"medium","effort_floor":"high"}]}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - profile effort_floor must be low, medium, high, xhigh, or max and not above the profile effort
+profile effort floor above its effort is flagged^{"rules":[{"when":"building","use":[{"harness":"claude","effort":"medium","effort_floor":"high"}]}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - profile effort_floor must be low, medium, high, xhigh, or max and not above the profile effort, supported by an effort-capable harness and model
 unknown select is flagged^{"rules":[{"when":"big feature","use":[{"harness":"claude"},{"harness":"codex"}],"select":"mystery"}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - unknown select: mystery
 array profile codex max without Luna model is flagged^{"rules":[{"when":"big feature","use":[{"harness":"codex","effort":"max"}]}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - invalid effort: codex:max
 empty default array is flagged^{"default":[]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - default needs at least one profile
@@ -1198,6 +1198,40 @@ default array malformed effort is flagged^{"default":[{"harness":"codex","effort
 default profile floor without min_percent is flagged^{"default":[{"harness":"codex","floor":{"scope":"all_models"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - default profile floor needs scope and min_percent 0..100
 default profile floor provider override is flagged^{"default":{"harness":"codex","floor":{"scope":"all_models","min_percent":50,"provider":"claude"}}}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - default profile floor needs scope and min_percent 0..100
 ROWS
+
+  local location shape invalid
+  for location in use default; do
+    for shape in object array; do
+      for invalid in overflow-string floor-array floor-null floor-ceiling cursor kimi opencode devin gemini agy; do
+        n=$((n + 1))
+        case_dir="$TMP_ROOT/dispatch-$n"
+        mkdir -p "$case_dir/home/config"
+        printf '%s\n' manual > "$case_dir/home/config/backlog-backend"
+        jq --arg location "$location" --arg shape "$shape" --arg invalid "$invalid" '
+          {harness:"claude",effort:"high",effort_floor:"high"} |
+          (if $invalid == "overflow-string" then .overflow = "yes"
+           elif $invalid == "floor-array" then .effort_floor = ["high"]
+           elif $invalid == "floor-null" then .effort_floor = null
+           elif $invalid == "floor-ceiling" then .effort = "medium"
+           else .harness = $invalid | .provider = "claude" | del(.effort) |
+             if $invalid == "agy" then .effort_floor = "xhigh" else . end end) as $profile |
+          {rules:[{when:"Building.",use:{harness:"claude"}}]} |
+          if $location == "use" then .rules[0].use = (if $shape == "array" then [$profile] else $profile end)
+          else .default = (if $shape == "array" then [$profile] else $profile end) end
+        ' <<< '{}' > "$case_dir/home/config/crew-dispatch.json"
+        fakebin=$(make_fake_toolchain "$case_dir")
+        add_real_jq "$fakebin"
+        out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$case_dir/home" FM_ROOT_OVERRIDE="$case_dir/home" \
+          TYPESAFE_API_KEY=test-key FM_FAKE_TREEHOUSE_LEASE_HELP=1 "$ROOT/bin/fm-bootstrap.sh")
+        if [ "$invalid" = overflow-string ]; then
+          expect='CREW_DISPATCH: invalid config/crew-dispatch.json - profile overflow must be true or false when present'
+        else
+          expect='CREW_DISPATCH: invalid config/crew-dispatch.json - profile effort_floor must be low, medium, high, xhigh, or max and not above the profile effort, supported by an effort-capable harness and model'
+        fi
+        [ "$out" = "$expect" ] || fail "$location $shape $invalid: expected '$expect', got: $out"
+      done
+    done
+  done
 
   case_dir="$TMP_ROOT/dispatch-opt-in-gate"
   mkdir -p "$case_dir/home/config"

@@ -1,7 +1,7 @@
 ---
 name: fm-orchestrated-researcher
 description: Resolve named external knowledge gaps with primary-source evidence.
-model: openai-codex/gpt-6.1-sol
+model: anthropic/claude-opus-5-5
 tools: read, bash, grep, find, ls, web_search, web_fetch
 session-mode: standalone
 system-prompt: append

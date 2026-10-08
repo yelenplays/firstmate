@@ -66,7 +66,7 @@
 #                    exists; touch the gate and message the worker to resume.
 #   primary          window main: claude --setting-sources project,local
 #                    (default sonnet, medium, permission mode auto) or pi
-#                    (default openai-codex/gpt-6.1-sol, medium), launched
+#                    (default openai-codex/gpt-6.1-sol, high), launched
 #                    after the mate and worker so its first turn end arms
 #                    supervision. up then sends one harmless probe prompt.
 #
@@ -481,6 +481,7 @@ cmd_up() {
   HOST_OFF=no
   [ "$host_line" != off ] || HOST_OFF=yes
   [ -n "$model" ] || { [ "$harness" = claude ] && model=sonnet || model=openai-codex/gpt-6.1-sol; }
+  if [ "$harness" = pi ] && [ "${model##*/}" = gpt-6.1-sol ]; then effort=high; fi
   CLAUDE_DIR=${CLAUDE_CONFIG_DIR:-}
   case "$CLAUDE_DIR" in ''|/*) ;; *) die "CLAUDE_CONFIG_DIR must be an absolute path" ;; esac
   CLAUDE_STORE="${CLAUDE_DIR:-$HOME}/.claude.json"

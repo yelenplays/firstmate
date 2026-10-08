@@ -111,7 +111,7 @@ Do not invent a generic percentage floor, and honor an explicit captain floor fo
 
 ## Overflow profiles
 
-Before ranking, apply the array's `overflow` declarations as [`docs/configuration.md`](../../../docs/configuration.md) "Overflow profiles" defines them: an overflow profile competes only after every primary profile is ineligible or projected to run out before its reset, never for a scout, and the primaries keep the work when no overflow profile can be ranked.
+Before ranking, apply the array's `overflow` declarations as [`docs/configuration.md`](../../../docs/configuration.md) "Overflow profiles" defines them; non-quota ineligibility never activates overflow.
 Rank only the set that rule leaves; never let an overflow profile win on `spendPriority` while a primary still lasts.
 
 ## Rank by spendPriority
