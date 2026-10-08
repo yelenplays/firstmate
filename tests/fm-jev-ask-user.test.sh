@@ -442,9 +442,31 @@ test_send_failure_reports_error() {
   pass "fm-jev-ask-user: a failed send reports the undelivered decision"
 }
 
+test_ordinary_task_numbers_reach_jev() {
+  local code out
+  world
+  # The real pickup steer every worker receives carries an execution receipt
+  # id; briefs carry viewport lists, ranges, decimals, and prose such as
+  # "Keyboard pass:". None of them is a phone number or a secret.
+  printf 'schema=fm-task-inbox.v1\nat=2026-10-04T20:02:00Z\n--\n%s\n' \
+    'Pickup receipt: from your worktree run: FM_HOME=/home/fm /home/fm/bin/fm-task-execution.sh started t1 e1791449349.20521.20886 - then carry on.' \
+    > "$HOME_DIR/state/t1.inbox/handled/002.msg"
+  printf '%s\n' '# Task' "## Captain's intent" 'Make the parser keep every field.' '' '## Firstmate spec' \
+    '- Check 320/390/768/1440, lines 1028-1045, ISO 1600-3200, oklch(0.575 0.18 24).' \
+    '- Keyboard pass: every control reachable; Engpass: none; host 127.0.0.1:8081.' > "$HOME_DIR/data/t1/brief.md"
+  answer in-scope-fix 0.99 in-scope-fix 0.99
+  run code out t1 "$GATE" --round 1
+  assert_equals "$code" 0 "ordinary task numbers and prose do not trip the privacy screen"
+  assert_contains "$out" "ACT $GATE" "Jev decides the gate"
+  assert_contains "$(jq -r '.state' "$LOG/body")" 'e1791449349.20521.20886' "the receipt id is sent unchanged"
+  assert_contains "$(jq -r '.state' "$LOG/body")" '320/390/768/1440' "the viewport list is sent unchanged"
+  pass "fm-jev-ask-user: receipt ids, viewport lists, ranges, and prose reach Jev"
+}
+
 test_act_sends_jev_decision_with_resolve_key
 test_security_screen_escalates_cross_tenant_finding
 test_escalates_contact_data_before_jev
+test_ordinary_task_numbers_reach_jev
 test_escalates_incomplete_contract_and_steers
 test_escalates_unorderable_steers
 test_escalates_symlinked_steer

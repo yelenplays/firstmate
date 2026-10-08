@@ -562,7 +562,38 @@ test_curl_transport_failure
 test_missing_curl
 test_confidence_floor
 test_probabilities_sum
+test_compact_state_keeps_task_numbers_and_prose() {
+  local text out
+  # Number shapes and prose that real briefs and steers carry, none of them a
+  # phone number or a secret: each must pass both screens unchanged.
+  for text in 'started t1 e1791449349.20521.20886 - then carry on' \
+    'check 320/390/768/1440 and 195/390/1440' 'lines 1028-1045, 1080-1096' 'ISO 1600-3200 (300-3400 Hz)' \
+    'prefer 2024-2026 sources' 'resize 1440 900' 'oklch(0.575 0.18 24)' 'plan (17.07 - 31.07)' \
+    'modes 0700/0600' 'due 2026-09-22. (1) next' 'Korridor 4.500-8.000 EUR' 'host 127.0.0.1:8081' \
+    'version v1.2.3456789' 'External pass: re-check the pricing pages' 'Hero / Engpass: none' \
+    'Keyboard pass: every control reachable, focus visible'; do
+    out=$(fm_jev_compact_state "$text")
+    assert_equals "$out" "$text" "compact keeps ordinary task text: $text"
+    if fm_jev_has_sensitive_key "$text"; then
+      fail "ordinary task text is not a sensitive key: $text"
+    fi
+  done
+  # Real phone numbers and password keys stay caught.
+  for text in 'call 555-123-4567' 'Call +1 (212) 555-0199' 'Call 212 555 0199' '+49 15567 692971' \
+    '0170 1234567' '(0170) 1234567' '0201/123456' 'num 0170.123.4567' '01 23 45 67 89'; do
+    out=$(fm_jev_compact_state "$text")
+    assert_contains "$out" '[redacted]' "compact still redacts a phone number: $text"
+  done
+  for text in 'FM_MAIL_PASS=hunter2' 'pass: hunter2' '  pass: s3cret' 'mailPass: abc' 'db-pass = xyz' 'SMTP pass: hunter2'; do
+    fm_jev_has_sensitive_key "$text" || fail "a password key stays sensitive: $text"
+    out=$(fm_jev_compact_state "$text")
+    assert_not_contains "$out" 'hunter2' "compact still drops the password value: $text"
+  done
+  pass "compact-state keeps receipt ids, number lists, ranges, and prose while phones and password keys stay caught"
+}
+
 test_compact_state_strips_secrets_and_refuses_oversized
+test_compact_state_keeps_task_numbers_and_prose
 test_log_call_writes_jsonl_without_secrets
 test_response_model_names_the_answering_build
 test_default_log_path

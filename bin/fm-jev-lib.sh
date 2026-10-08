@@ -422,6 +422,25 @@ FM_JEV_CHOICE_TOP2_JQ='def jev_choice_top2:
   | {first: ($s[0].key // null), second: ($s[1].key // null), raw_margin: $raw_margin,
      margin: (($raw_margin * 10000 | round) / 10000)};'
 
+# One owner of the benign-key exception both key scans apply: a key whose
+# suffix is "pass" is sensitive only when its last segment is exactly pass
+# (FM_MAIL_PASS, db-pass, mailPass, a bare YAML pass:), so a word such as
+# Engpass is not; and a bare pass after a prose word, followed by prose words,
+# is a sentence such as "Keyboard pass: every control reachable", not a key.
+# Callers save RSTART and RLENGTH first, because match() here resets them.
+# shellcheck disable=SC2016 # an awk program, expanded by awk
+_FM_JEV_BENIGN_KEY_AWK='
+    function benign_key(key_name, normalized_key, boundary, prev_char, after,    last) {
+      if (normalized_key !~ /pass$/ || normalized_key ~ /(password|passwd)$/) return 0
+      last = key_name
+      sub(/^.*[-_.]/, "", last)
+      if (last ~ /[a-z]/ && match(last, /[A-Z][a-z]*$/) && RSTART > 1) last = substr(last, RSTART)
+      if (tolower(last) != "pass") return 1
+      return key_name == last && boundary ~ /[ \t]/ && prev_char ~ /[[:alpha:]]/ \
+        && after ~ /^[ \t]*[[:alpha:]][[:alpha:]-]*[ \t,;]+[[:alpha:]]/
+    }
+'
+
 fm_jev_has_sensitive_key() {
   local text
   if [ $# -ne 1 ]; then
@@ -429,7 +448,7 @@ fm_jev_has_sensitive_key() {
     return 2
   fi
   text=$1
-  printf '%s' "$text" | awk '
+  printf '%s' "$text" | awk "$_FM_JEV_BENIGN_KEY_AWK"'
     BEGIN {
       assignment_pattern = "(^|[^[:alnum:]_])([-[:alnum:]_.]+)[\042\047]?[ \t]*[:=]"
       sensitive_suffix_pattern = "(password|passwd|pwd|pass|secret|token|apikey|secretkey|accesskey|privatekey|clientsecret|auth|credential)$"
@@ -445,11 +464,15 @@ fm_jev_has_sensitive_key() {
         sub(/[\042\047]?[ \t]*[:=]$/, "", key_name)
         normalized_key = tolower(key_name)
         gsub(/[-_.]/, "", normalized_key)
-        if (normalized_key ~ sensitive_suffix_pattern) {
+        assignment_start = RSTART
+        assignment_end = RSTART + RLENGTH
+        if (normalized_key ~ sensitive_suffix_pattern \
+          && !benign_key(key_name, normalized_key, boundary, \
+            substr(remaining, assignment_start - 1, 1), substr(remaining, assignment_end))) {
           found = 1
           exit
         }
-        remaining = substr(remaining, RSTART + RLENGTH)
+        remaining = substr(remaining, assignment_end)
       }
     }
     END { exit(found ? 0 : 1) }
@@ -471,7 +494,57 @@ fm_jev_compact_state() {
     _fm_jev_err "state exceeds $max bytes"
     return 1
   fi
-  printf '%s' "$state" | awk '
+  printf '%s' "$state" | awk "$_FM_JEV_BENIGN_KEY_AWK"'
+    # Whether a separated digit run of seven or more digits reads as a phone
+    # number rather than a number shape that is common in task text: a phone
+    # starts with "+", "(" or a trunk "0", or has at least three digit groups.
+    # Never a phone: a dotted IPv4 address; a run led by an ISO date; a slash
+    # list whose groups are all three or four digits (viewport widths such as
+    # 320/390/768/1440, file modes such as 0700/0600); a list of decimals
+    # (oklch(0.575 0.18 24), 17.07 - 31.07); a range of grouped thousands
+    # (4.500-8.000). Runs joined by an inner parenthesis count piece by
+    # piece. A two-group run with no lead,
+    # such as a range (1600-3200, 2024-2026, lines 1028-1045), is no phone.
+    function phone_shaped(run,    rest, groups, slash_groups, short_slash_groups, count, i, tokens, decimal) {
+      if (run ~ /^[0-9][0-9]?[0-9]?[.][0-9][0-9]?[0-9]?[.][0-9][0-9]?[0-9]?[.][0-9][0-9]?[0-9]?$/) return 0
+      if (run ~ /^[0-9][0-9][0-9][0-9][-.\/][0-9][0-9]?[-.\/][0-9][0-9]?([^0-9]|$)/) return 0
+      if (run ~ /^[1-9][0-9]?[0-9]?([.,][0-9][0-9][0-9])+[ ]?-[ ]?[1-9][0-9]?[0-9]?([.,][0-9][0-9][0-9])+$/) return 0
+      if (index(run, "/")) {
+        slash_groups = split(run, groups, "/")
+        short_slash_groups = 0
+        for (i = 1; i <= slash_groups; i++) {
+          if (groups[i] ~ /^[0-9][0-9][0-9][0-9]?$/) short_slash_groups++
+        }
+        if (short_slash_groups == slash_groups) return 0
+      }
+      count = split(run, tokens, /[ \t]+/)
+      decimal = 0
+      for (i = 1; i <= count; i++) {
+        if (tokens[i] ~ /^[(]?[0-9]+[.][0-9]+[)]?$/) decimal = 1
+      }
+      if (decimal && count > 1) return 0
+      # Two runs joined by an inner parenthesis, such as 1600-3200 (300-3400,
+      # are judged piece by piece; a leading +country run stays whole.
+      if (run !~ /^[+]/ && match(run, /[0-9][ \t]*[(]/)) {
+        count = split(run, tokens, /[ \t]*[(][ \t]*/)
+        for (i = 1; i <= count; i++) {
+          rest = tokens[i]
+          sub(/[)].*$/, "", rest)
+          decimal = rest
+          gsub(/[^0-9]/, "", decimal)
+          if (length(decimal) >= 7 && phone_shaped(rest)) return 1
+        }
+        return 0
+      }
+      if (run ~ /^[+(0]/) return 1
+      rest = run
+      count = 0
+      while (match(rest, /[0-9]+/)) {
+        count++
+        rest = substr(rest, RSTART + RLENGTH)
+      }
+      return count >= 3
+    }
     function flow_value_end(text,    depth, active_quote, escaped, pos, character, expected_open, stack) {
       if (substr(text, 1, 1) != "{" && substr(text, 1, 1) != "[") return 0
       depth = 1
@@ -530,11 +603,22 @@ fm_jev_compact_state() {
         start = search_from + RSTART - 1
         match_length = RLENGTH
         phone = substr(tail, RSTART, match_length)
-        if (phone ~ /^[^[:alnum:]]/) phone = substr(phone, 2)
+        phone_start = start
+        if (phone ~ /^[^[:alnum:]]/) {
+          phone = substr(phone, 2)
+          phone_start++
+        }
         if (phone ~ /[^[:alnum:]]$/) phone = substr(phone, 1, length(phone) - 1)
+        phone_end = phone_start + length(phone) - 1
         digits = phone
         gsub(/[^0-9]/, "", digits)
-        if (length(digits) >= 7 && phone !~ date_pattern) {
+        # A digit run joined by a dot, dash, slash, or underscore to a letter
+        # or digit outside it is part of a larger token (a receipt id such as
+        # e1791449349.20521.20886, a version, a path), never a phone number.
+        glued = (phone_start > 2 && substr(buf, phone_start - 1, 1) ~ /[._\/-]/ \
+          && substr(buf, phone_start - 2, 1) ~ /[[:alnum:]]/) \
+          || (substr(buf, phone_end + 1, 1) ~ /[._\/-]/ && substr(buf, phone_end + 2, 1) ~ /[[:alnum:]]/)
+        if (length(digits) >= 7 && phone !~ date_pattern && !glued && phone_shaped(phone)) {
           buf = substr(buf, 1, start - 1) "[redacted]" substr(buf, start + match_length)
           search_from = start + 10
         } else {
@@ -562,7 +646,9 @@ fm_jev_compact_state() {
         sub(/[\042\047]?[ \t]*[:=][ \t]*$/, "", key_name)
         normalized_key = tolower(key_name)
         gsub(/[-_.]/, "", normalized_key)
-        if (normalized_key !~ sensitive_suffix_pattern) {
+        if (normalized_key !~ sensitive_suffix_pattern \
+          || benign_key(key_name, normalized_key, boundary, \
+            substr(buf, key_start - 1, 1), substr(buf, key_start + match_length))) {
           search_from = key_start + match_length
         } else {
           prefix = substr(buf, 1, key_start - 1)
