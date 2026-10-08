@@ -401,8 +401,9 @@
 #   allowlist the launch then runs under /bin/sh -c, so raw commands must be
 #   POSIX sh compatible there too. FM_WORKER_QOS=off, and any non-macOS host,
 #   leave the launch unwrapped; an unknown value refuses before any mutation.
-#   Every launch exports the resolved FM_WORKER_QOS, because a nested clamp
-#   replaces the outer one: the worker's own suites must re-apply the same class.
+#   On a host that can clamp, every launch also exports the resolved
+#   FM_WORKER_QOS, because a nested clamp replaces the outer one: the worker's
+#   own suites must keep the same class, including off.
 # Claude permission mode (config/claude-permission-mode):
 #   One token selecting the permission flag every claude launch (ship, scout,
 #   secondmate, and relaunch) carries. Absent or `bypass` keeps today's
@@ -658,6 +659,7 @@ fi
 if ! QOS_CLASS=$(fm_qos_class) || ! QOS_PREFIX=$(fm_qos_command_prefix); then
   exit 1
 fi
+QOS_HOST_CAPABLE=$(fm_qos_taskpolicy)
 # config/claude-permission-mode (header above): resolved once per spawn or
 # relaunch, before any mutation, so a malformed file refuses instead of
 # launching a worker on a permission posture the captain did not choose.
@@ -5859,13 +5861,13 @@ fi
 # launch and the launch-env-allowlist `env -i` wrapper.
 LAUNCH="export FM_TASK_INBOX=$(shell_quote "$STATE_REAL/$ID.inbox"); $LAUNCH"
 LAUNCH="export COMPACT_ADVISER_DISABLE=1; $LAUNCH"
-# A nested taskpolicy clamp replaces the outer one rather than stacking, so the
-# worker carries its resolved class down: a suite it runs then re-applies the
-# same class, or skips the re-exec when the launch clamp already applied it.
+# A nested taskpolicy clamp replaces the outer one rather than stacking, so on
+# a host that can clamp the worker carries its resolved class down: a suite it
+# runs then keeps the same class, including off, instead of its own default.
 if [ -n "$QOS_PREFIX" ]; then
   LAUNCH="export FM_WORKER_QOS=$QOS_CLASS FM_QOS_APPLIED=$QOS_CLASS; $LAUNCH"
-else
-  LAUNCH="export FM_WORKER_QOS=${QOS_CLASS:-off}; $LAUNCH"
+elif [ -n "$QOS_HOST_CAPABLE" ]; then
+  LAUNCH="export FM_WORKER_QOS=off; $LAUNCH"
 fi
 # When the live-harness gate has exported DISABLE_AUTOUPDATER into this spawn's
 # own environment, carry it into the launch command text so Claude Code's

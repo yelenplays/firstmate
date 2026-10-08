@@ -13,8 +13,8 @@ set -u
 . "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-qos)
-# tests/lib.sh pins FM_WORKER_QOS=off for host-independent launch shapes; every
-# case here chooses its own class explicitly.
+# tests/lib.sh presents a non-macOS host for host-independent launch shapes;
+# every case here chooses its own host and class explicitly.
 unset FM_WORKER_QOS FM_QOS_APPLIED FM_QOS_UNAME FM_QOS_TASKPOLICY
 
 # A stand-in taskpolicy that records its clamp and execs the program, which is
@@ -140,6 +140,25 @@ test_spawn_off_leaves_the_launch_unclamped() {
   pass "FM_WORKER_QOS=off launches unclamped and carries off to the worker's own suites"
 }
 
+test_spawn_on_a_host_without_the_clamp_is_unchanged() {
+  local rec out status seen fake log
+  rec=$(make_case linux linux-a1)
+  read_case "$rec"
+  fake="$TMP_ROOT/linux-taskpolicy"
+  log="$TMP_ROOT/linux-taskpolicy.log"
+  make_fake_taskpolicy "$fake" "$log"
+  out=$(FM_WORKER_QOS=background FM_QOS_UNAME=Linux FM_QOS_TASKPOLICY="$fake" \
+    run_case_spawn linux-a1 "$PROJ_DIR" --mode no-mistakes --yolo off)
+  status=$?
+  expect_code 0 "$status" "a non-macOS spawn should succeed: $out"
+  # shellcheck disable=SC2016 # expanded by the probe, not here
+  install_probe "$FAKEBIN_DIR" 'printf "%s %s\n" "${FM_WORKER_QOS-unset}" "${FM_QOS_APPLIED-unset}"'
+  seen=$(run_emitted_launch) || fail "non-macOS: the emitted launch failed to run"
+  [ ! -s "$log" ] || fail "a non-macOS launch must not run through the clamp, got: $(cat "$log")"
+  assert_equals "unset unset" "$seen" "a non-macOS launch should carry no CPU class at all"
+  pass "a host without the clamp launches exactly as before"
+}
+
 test_spawn_refuses_an_unknown_class() {
   local rec out status
   rec=$(make_case refuse refuse-a1)
@@ -214,6 +233,7 @@ test_class_resolution
 test_prefix_follows_the_host
 test_spawn_wraps_every_launch
 test_spawn_off_leaves_the_launch_unclamped
+test_spawn_on_a_host_without_the_clamp_is_unchanged
 test_spawn_refuses_an_unknown_class
 test_real_taskpolicy_clamps_the_agent
 test_runner_applies_the_class_once
