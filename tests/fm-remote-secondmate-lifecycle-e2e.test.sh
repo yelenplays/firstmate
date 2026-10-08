@@ -48,9 +48,33 @@ cleanup() {
     . "$ROOT/bin/fm-remote-job-lib.sh"
     fm_remote_job_stop_worker_tree "$worker_pid" || true
   fi
+  # Spawns leave read-only state/<id>.git-hooks strip dirs, as teardown knows.
+  find "$TMP_ROOT" -type d -name '*.git-hooks' -exec chmod u+w {} + 2>/dev/null || true
   rm -rf -- "$TMP_ROOT"
 }
 trap cleanup EXIT
+
+# A remote spawn pushes each inherited file as its own SSH job, so how long a
+# leg takes grows with the inherited set and the runner's speed. Bound a wait
+# on SSH progress instead: it stalls only when no SSH call starts for
+# SSH_STALL_SECS. Returns 0 once the condition holds, 2 if <pid> exits first.
+SSH_STALL_SECS=30
+wait_on_ssh_progress() {  # <pid> <stall-message> <condition...>
+  local pid=$1 msg=$2 last count since=$SECONDS
+  shift 2
+  last=$(cat "$SSH_COUNT" 2>/dev/null || echo 0)
+  until "$@"; do
+    kill -0 "$pid" 2>/dev/null || return 2
+    count=$(cat "$SSH_COUNT" 2>/dev/null || echo 0)
+    if [ "$count" != "$last" ]; then
+      last=$count
+      since=$SECONDS
+    elif [ $((SECONDS - since)) -ge "$SSH_STALL_SECS" ]; then
+      fail "$msg"
+    fi
+    sleep 0.02
+  done
+}
 
 # Materialize the current branch as the remote host's tracked code root. The
 # fixture is a real git repository because provisioning and guarded sync exercise
@@ -965,15 +989,10 @@ EOF
 FM_FAKE_SSH_MODE=inherit-block remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate \
   > "$TMP_ROOT/spawn-concurrent.out" 2>&1 &
 spawn_concurrent=$!
-spawn_inherit_wait=0
-# Earlier inherited files traverse the worker before captain-shared.md, so give
-# a loaded portable runner 30 seconds to reach this deliberately blocked write.
-while [ ! -f "$TMP_ROOT/inherit.entered" ]; do
-  kill -0 "$spawn_concurrent" 2>/dev/null || fail "remote spawn exited before its blocked inheritance write"
-  spawn_inherit_wait=$((spawn_inherit_wait + 1))
-  [ "$spawn_inherit_wait" -le 1500 ] || fail "remote spawn never reached its blocked inheritance write"
-  sleep 0.02
-done
+# Every earlier inherited file traverses the worker before captain-shared.md.
+wait_on_ssh_progress "$spawn_concurrent" "remote spawn never reached its blocked inheritance write" \
+  test -f "$TMP_ROOT/inherit.entered" \
+  || fail "remote spawn exited before its blocked inheritance write"
 cat > "$PARENT/data/captain-shared.md" <<'EOF'
 # Shared captain preferences
 This file is main-authoritative and maintained by the main firstmate.
@@ -1079,15 +1098,9 @@ EOF
 FM_FAKE_SSH_MODE=inherit-block remote_env "$ROOT/bin/fm-config-push.sh" \
   > "$TMP_ROOT/config-concurrent-first.out" 2>&1 &
 config_first=$!
-inherit_wait=0
-while [ ! -f "$TMP_ROOT/inherit.entered" ]; do
-  kill -0 "$config_first" 2>/dev/null || fail "first inheritance transaction exited before its blocked write"
-  inherit_wait=$((inherit_wait + 1))
-  # Match the earlier spawn/inheritance wait: a loaded portable runner can
-  # spend several seconds in the remote entrypoint before reaching this write.
-  [ "$inherit_wait" -le 1500 ] || fail "first inheritance transaction never reached its blocked write"
-  sleep 0.02
-done
+wait_on_ssh_progress "$config_first" "first inheritance transaction never reached its blocked write" \
+  test -f "$TMP_ROOT/inherit.entered" \
+  || fail "first inheritance transaction exited before its blocked write"
 cat > "$PARENT/data/captain-shared.md" <<'EOF'
 # Shared captain preferences
 This file is main-authoritative and maintained by the main firstmate.
@@ -1287,15 +1300,9 @@ FM_STATE_OVERRIDE="$WATCH_STATE" FM_SECONDMATE_LIVENESS_SECS=1 FM_POLL=1 \
   remote_env exec "$ROOT/bin/fm-watch.sh" \
   > "$TMP_ROOT/watch-liveness.out" 2> "$TMP_ROOT/watch-liveness.err" &
 watch_pid=$!
-watch_wait=0
-while kill -0 "$watch_pid" 2>/dev/null && [ "$watch_wait" -lt 1500 ]; do
-  sleep 0.02
-  watch_wait=$((watch_wait + 1))
-done
-if kill -0 "$watch_pid" 2>/dev/null; then
-  kill "$watch_pid" 2>/dev/null || true
-  fail "the watcher did not exit on its auto-relaunch wake within the bound"
-fi
+# The relaunch is a whole remote spawn; the watcher exits on its wake.
+wait_on_ssh_progress "$watch_pid" "the watcher did not exit on its auto-relaunch wake within the bound" false \
+  || [ "$?" -eq 2 ] || fail "the auto-relaunch wait ended unexpectedly"
 wait "$watch_pid" \
   || fail "the liveness watcher leg exited non-zero: $(cat "$TMP_ROOT/watch-liveness.err")"
 watch_pid=''
@@ -1556,15 +1563,10 @@ rm -f "$TMUX_STATE" "$TMP_ROOT/launch.entered" "$TMP_ROOT/launch.release"
 FM_FAKE_SSH_MODE=launch-block remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate \
   > "$TMP_ROOT/spawn-retirement.out" 2>&1 &
 spawn_retirement_pid=$!
-launch_wait=0
-# The respawn performs readiness and inheritance jobs before launch, so allow
-# the same 30-second loaded-runner bound as the earlier blocked worker path.
-while [ ! -f "$TMP_ROOT/launch.entered" ]; do
-  kill -0 "$spawn_retirement_pid" 2>/dev/null || fail "remote respawn exited before its blocked launch"
-  launch_wait=$((launch_wait + 1))
-  [ "$launch_wait" -le 1500 ] || fail "remote respawn never reached its blocked launch"
-  sleep 0.02
-done
+# The respawn performs readiness and inheritance jobs before launch.
+wait_on_ssh_progress "$spawn_retirement_pid" "remote respawn never reached its blocked launch" \
+  test -f "$TMP_ROOT/launch.entered" \
+  || fail "remote respawn exited before its blocked launch"
 remote_env "$ROOT/bin/fm-teardown.sh" ios > "$TMP_ROOT/teardown-serialized.out" 2>&1 &
 teardown_pid=$!
 sleep 0.2
