@@ -6,9 +6,8 @@
 // plain-text fallback) or through slack-axi (the fallback text alone, which is
 // itself Slack mrkdwn laid out the same way).
 //
-// Usage: fm-slack-render.mjs lines|json < spec.json
+// Usage: fm-slack-render.mjs lines < spec.json
 //   lines -> "text <base64>" and "blocks <base64 JSON array|->", one per line
-//   json  -> {"text":"...","blocks":[...]|null}, the Slack payload as one line
 // Exit codes: 0 ok, 2 invalid spec (one "fm-slack-render: <reason>" line).
 //
 // Spec, every free-text field UTF-8 and base64 so the shell never escapes JSON:
@@ -165,8 +164,7 @@ function render(spec) {
 }
 
 function main() {
-  const mode = process.argv[2];
-  if (!(mode === "lines" || mode === "json") || process.argv.length !== 3) die("usage: fm-slack-render.mjs lines|json < spec.json");
+  if (process.argv[2] !== "lines" || process.argv.length !== 3) die("usage: fm-slack-render.mjs lines < spec.json");
   let spec;
   try {
     spec = JSON.parse(readFileSync(0, "utf-8"));
@@ -174,10 +172,6 @@ function main() {
     die("expected a JSON spec on stdin");
   }
   const out = render(spec);
-  if (mode === "json") {
-    process.stdout.write(`${JSON.stringify({ text: out.text, blocks: out.blocks })}\n`);
-    return;
-  }
   const b64 = (s) => Buffer.from(s, "utf-8").toString("base64");
   process.stdout.write(`text ${b64(out.text)}\n`);
   process.stdout.write(`blocks ${out.blocks ? b64(JSON.stringify(out.blocks)) : "-"}\n`);

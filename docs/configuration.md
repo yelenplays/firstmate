@@ -2140,7 +2140,6 @@ A `--url` is always a labelled link, `PR #<n>` for a GitHub pull request or `--u
 `bin/fm-slack-render.mjs` owns the layouts and their limits.
 With a bot the post is Block Kit with a plain-text fallback; through `slack-axi` it is that fallback, Slack formatting with the same layout.
 Answers stay thread replies, DMs, and mentions; there are no buttons, because the bot has no Socket Mode connection or public request URL.
-`--dry-run` prints the Slack payload as JSON and posts nothing.
 The free-text form, `post report|decision [--url <https-url>] <text>`, still works for older callers.
 Every post is sent as a `slack-axi` draft it then sends or as the bot, and its channel id and message ts are recorded in `state/slack-bridge/posts`.
 Every post is top-level; without a bot that also keeps the bridge out of threads, because the logged-in account's thread replies are what counts as captain input.

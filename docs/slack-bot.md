@@ -73,6 +73,9 @@ Then copy the "Bot User OAuth Token" (it starts with `xoxb-`) for step 4 only; n
 
 Check: the person reports the token is copied.
 
+- Upload `assets/slack-bot-avatar.png` in Slack app settings under Basic Information > Display Information > App icon.
+- This is a square 1024x1024 PNG made for a small round avatar.
+
 ### 4. Store the token in the Keychain - [you], then [agent]
 
 The token lives only in the person's macOS login Keychain.

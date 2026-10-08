@@ -4,9 +4,9 @@
 # Usage:
 #   fm-slack-bridge.sh post <kind> --title <line> [--project <name>] [--context <line>]...
 #                      [--option <key>=<text>]... [--recommend <key>]
-#                      [--url <https-url> [--url-label <label>]] [--dry-run]
-#   fm-slack-bridge.sh post report|decision [--url <https-url>] [--dry-run] [--] <text>...
-#   fm-slack-bridge.sh post report|decision [--url <https-url>] [--dry-run] -   (text from stdin)
+#                      [--url <https-url> [--url-label <label>]]
+#   fm-slack-bridge.sh post report|decision [--url <https-url>] [--] <text>...
+#   fm-slack-bridge.sh post report|decision [--url <https-url>] -   (text from stdin)
 #   fm-slack-bridge.sh check
 #   fm-slack-bridge.sh arm
 #   fm-slack-bridge.sh disarm
@@ -31,8 +31,7 @@
 # Block Kit with a plain-text fallback; slack-axi posts the fallback, which is
 # Slack mrkdwn with the same layout. The free-text form (report or decision
 # with positional or stdin text) stays for old callers. --url becomes a
-# labelled link (GitHub PRs as "PR #<n>"), never a raw URL. --dry-run prints
-# the rendered Slack payload as JSON and posts nothing, config or not.
+# labelled link (GitHub PRs as "PR #<n>"), never a raw URL.
 # `post` appends the posted channel id and message ts
 # to state/slack-bridge/posts, which is the only set of threads `check` reads.
 # Every post is top-level. Without a bot the bridge never replies inside a
@@ -141,12 +140,11 @@ usage() {
 Usage:
   fm-slack-bridge.sh post <kind> --title <line> [--project <name>] [--context <line>]...
                      [--option <key>=<text>]... [--recommend <key>]
-                     [--url <https-url> [--url-label <label>]] [--dry-run]
+                     [--url <https-url> [--url-label <label>]]
                                post one item laid out for scanning; kind is decision (decisions
                                channel), ready (PR ready or merge ask), merged, or report;
-                               decisions with options need --recommend; at most two
-                               --context lines; --dry-run prints the Slack payload
-  fm-slack-bridge.sh post report|decision [--url <https-url>] [--dry-run] [--] <text>...
+                               decisions with options need --recommend; at most two --context lines
+  fm-slack-bridge.sh post report|decision [--url <https-url>] [--] <text>...
                                free-text form for old callers (- reads the text from stdin)
   fm-slack-bridge.sh check     deliver new captain thread replies, bot DMs and mentions, and handoff requests to the captain inbox
   fm-slack-bridge.sh arm       write and register state/slack-bridge.check.sh
@@ -346,17 +344,13 @@ ZWSP=$'\xe2\x80\x8b'
 # otherwise exits 2 with the renderer's reason.
 RENDER_TEXT=
 RENDER_BLOCKS_B64=
-render_post() {  # <spec-json> <lines|json>
+render_post() {  # <spec-json>
   local out rc=0 text_b64
   command -v node >/dev/null 2>&1 || die "node is not installed, so posts cannot be rendered"
-  out=$(printf '%s' "$1" | node "$RENDERER" "$2" 2>&1) || rc=$?
+  out=$(printf '%s' "$1" | node "$RENDERER" lines 2>&1) || rc=$?
   if [ "$rc" -ne 0 ]; then
     printf '%s\n' "$out" | sed -n 's/^fm-slack-render: /fm-slack-bridge: /p' | sed -n 1p >&2
     exit 2
-  fi
-  if [ "$2" = json ]; then
-    RENDER_TEXT=$out
-    return 0
   fi
   text_b64=$(printf '%s\n' "$out" | sed -n 's/^text \([A-Za-z0-9+/=]*\)$/\1/p' | sed -n 1p)
   RENDER_BLOCKS_B64=$(printf '%s\n' "$out" | sed -n 's/^blocks \([A-Za-z0-9+/=-]*\)$/\1/p' | sed -n 1p)
@@ -368,7 +362,7 @@ render_post() {  # <spec-json> <lines|json>
 json_b64() { printf '"%s"' "$(b64_line "$1")"; }
 
 action_post() {
-  local kind=${1:-} url="" url_label="" title="" project="" text="" dry_run=0 recommend=""
+  local kind=${1:-} url="" url_label="" title="" project="" text="" recommend=""
   local spec summary channel out draft channel_id sent ts rc item key
   local -a contexts=() option_keys=() option_texts=()
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
@@ -409,7 +403,6 @@ action_post() {
         esac
         shift 2
         ;;
-      --dry-run) dry_run=1; shift ;;
       --) shift; break ;;
       *) break ;;
     esac
@@ -464,11 +457,6 @@ action_post() {
   [ -z "$url" ] || spec="$spec,\"url_b64\":$(json_b64 "$url")"
   [ -z "$url_label" ] || spec="$spec,\"url_label_b64\":$(json_b64 "$url_label")"
   spec="$spec}"
-  if [ "$dry_run" -eq 1 ]; then
-    render_post "$spec" json
-    printf '%s\n' "$RENDER_TEXT"
-    return 0
-  fi
   if ! config_load; then
     printf 'slack bridge off: no config/slack-bridge\n'
     return 0
@@ -476,7 +464,7 @@ action_post() {
   [ -z "$CFG_ERROR" ] || die "$CFG_ERROR"
   [ -n "$CFG_BOT" ] || command -v slack-axi >/dev/null 2>&1 || die "slack-axi is not installed on PATH"
   state_prepare || die "cannot prepare $BRIDGE_STATE"
-  render_post "$spec" lines
+  render_post "$spec"
   text=$RENDER_TEXT
   if [ "$kind" = decision ]; then channel=$CFG_DECISIONS; else channel=$CFG_REPORT; fi
   if [ -n "$CFG_BOT" ]; then

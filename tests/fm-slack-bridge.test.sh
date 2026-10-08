@@ -961,78 +961,50 @@ test_manifest_has_name_and_minimal_scopes() {
   pass "fm-slack-bridge: manifest names and minimal scopes"
 }
 
-# check_payload <json> <node-assertion-body>: run JS assertions against one
-# rendered Slack payload {text, blocks}; a false assertion exits non-zero.
-check_payload() {
-  node -e '
-    const p = JSON.parse(process.argv[1]);
-    const ok = (c) => { if (!c) process.exit(1); };
-    const block = (type) => (p.blocks || []).filter((b) => b.type === type);
-    const blockText = (p.blocks || []).map((b) => (b.text && b.text.text) || (b.elements || []).map((e) => e.text).join(" ")).join("\n");
-    '"$2" "$1"
-}
-
 test_structured_post_layouts() {
-  local out
-  out=$("$BRIDGE" post decision --dry-run --project "Gmail Swipe" \
+  local home
+  home=$(make_home layouts)
+  write_config "$home"
+  bridge "$home" post decision --project "Gmail Swipe" \
     --title "Ship the gesture now or with the undo bar?" \
     --context "Undo bar is half done." --context "Gesture alone is tested & green." \
     --option a="Ship gesture now" --option b="Wait for both" --recommend a \
-    --url https://github.com/o/gmail-swipe/pull/11 2>&1) || fail "a structured decision must render without config: $out"
-  check_payload "$out" '
-    ok(block("header").length === 1 && block("header")[0].text.text === "🧭 Decision · Gmail Swipe");
-    ok(blockText.includes("*Ship the gesture now or with the undo bar?*"));
-    ok(blockText.includes("Gesture alone is tested &amp; green."));
-    ok(blockText.includes("➡️ *a* · Ship gesture now  _(recommended)_"));
-    ok(blockText.includes("◻️ *b* · Wait for both"));
-    ok(blockText.includes("<https://github.com/o/gmail-swipe/pull/11|PR #11>"));
-    ok(block("context")[0].elements[0].text === "Reply in thread: a / b");
-    ok(p.text.startsWith("*🧭 Decision · Gmail Swipe*\n*Ship the gesture now or with the undo bar?*"));
-    ok(p.text.includes("➡️ *a* · Ship gesture now"));
-    ok(p.text.endsWith("_Reply in thread: a / b_"));
-    ok(!p.text.replace(/<https:[^>]*>/g, "").includes("https://"));
-  ' || fail "a decision has a header, bold question, marked options, labelled PR link, and reply footer: $out"
-
-  out=$("$BRIDGE" post decision --dry-run --project firstmate --title '*urgent*' \
+    --url https://github.com/o/gmail-swipe/pull/11 >/dev/null 2>&1 || fail "a structured decision must post"
+  bridge "$home" post decision --project 'first*mate' --title '*urgent*' \
     --context 'keep _this_ literal ~too~ `please`' --option a='*approve*' --recommend a \
-    --url https://example.com/x --url-label '*open*' 2>&1) || fail "mrkdwn markers must render literally: $out"
-  check_payload "$out" '
-    ok(blockText.includes("*\\*urgent\\**"));
-    ok(blockText.includes("keep \\_this\\_ literal \\~too\\~ \\`please\\`"));
-    ok(blockText.includes("➡️ *a* · \\*approve\\*"));
-    ok(blockText.includes("|\\*open\\*"));
-    ok(!blockText.includes("**urgent**"));
-  ' || fail "user mrkdwn markers stay literal across structured fields: $out"
-
-  out=$("$BRIDGE" post ready --dry-run --project firstmate --title "Slack posts are readable" \
+    --url https://example.com/x --url-label '*open*' >/dev/null 2>&1 || fail "a decision with caller mrkdwn markers must post"
+  bridge "$home" post ready --project firstmate --title "Slack posts are readable" \
     --option merge="Merge it" --option hold="Hold for review" --recommend merge \
-    --url https://github.com/o/firstmate/pull/127 2>&1) || fail "a ready post must render: $out"
-  check_payload "$out" '
-    ok(block("header")[0].text.text === "🔀 Ready for review · firstmate");
-    ok(blockText.includes("<https://github.com/o/firstmate/pull/127|PR #127>"));
-    ok(block("context")[0].elements[0].text === "Reply in thread: merge / hold");
-  ' || fail "a ready post has its own header, link, and merge footer: $out"
-
-  out=$("$BRIDGE" post merged --dry-run --project firstmate --title "Slack posts are readable" \
-    --url https://example.com/x --url-label "the change" 2>&1) || fail "a merged post must render: $out"
-  check_payload "$out" '
-    ok(p.blocks.length === 1 && block("section").length === 1);
-    ok(p.text === "✅ *Merged* · firstmate\n*Slack posts are readable*  🔗 <https://example.com/x|the change>");
-  ' || fail "a merged post is one compact section with a labelled link: $out"
-
-  out=$("$BRIDGE" post report --dry-run "plain words" 2>&1) || fail "free text must still render: $out"
-  check_payload "$out" 'ok(p.text === "plain words" && p.blocks === null);' \
-    || fail "the free-text form posts its text as written: $out"
-  pass "fm-slack-bridge: structured decision, ready, merged, and free-text layouts"
+    --url https://github.com/o/firstmate/pull/127 >/dev/null 2>&1 || fail "a ready post must post"
+  bridge "$home" post merged --project firstmate --title "Slack posts are readable" \
+    --url https://example.com/x --url-label "the change" >/dev/null 2>&1 || fail "a merged post must post"
+  bridge "$home" post report "plain words" >/dev/null 2>&1 || fail "free text must still post"
+  node -e '
+    const fs = require("fs");
+    const drafts = fs.readFileSync(process.argv[1], "utf-8").split("\n").filter(Boolean).map(JSON.parse)
+      .filter((args) => args[0] === "draft");
+    const ok = (condition) => { if (!condition) process.exit(1); };
+    const decision = drafts.filter((args) => args[1] === "#entscheidungen").map((args) => args[2]);
+    const report = drafts.filter((args) => args[1] === "#fm-yelen").map((args) => args[2]);
+    ok(decision.length === 2 && report.length === 3);
+    ok(decision[0] === "*🧭 Decision · Gmail Swipe*\n*Ship the gesture now or with the undo bar?*\nUndo bar is half done.\nGesture alone is tested &amp; green.\n➡️ *a* · Ship gesture now  _(recommended)_\n◻️ *b* · Wait for both\n🔗 <https://github.com/o/gmail-swipe/pull/11|PR #11>\n_Reply in thread: a / b_");
+    ok(decision[1] === "*🧭 Decision · first\\*mate*\n*\\*urgent\\**\nkeep \\_this\\_ literal \\~too\\~ \\`please\\`\n➡️ *a* · \\*approve\\*  _(recommended)_\n🔗 <https://example.com/x|\\*open\\*>\n_Reply in thread: a_");
+    ok(report[0] === "*🔀 Ready for review · firstmate*\n*Slack posts are readable*\n➡️ *merge* · Merge it  _(recommended)_\n◻️ *hold* · Hold for review\n🔗 <https://github.com/o/firstmate/pull/127|PR #127>\n_Reply in thread: merge / hold_");
+    ok(report[1] === "✅ *Merged* · firstmate\n*Slack posts are readable*  🔗 <https://example.com/x|the change>");
+    ok(report[2] === "plain words");
+  ' "$home/slack.log" || fail "slack-axi drafts contain readable structured and free-text layouts with literal caller markers"
+  pass "fm-slack-bridge: slack-axi posts readable structured and free-text layouts"
 }
 
 test_structured_post_refuses_bad_input() {
-  local args rc
+  local home args rc
   local -a words
+  home=$(make_home invalid-structured)
+  write_config "$home"
   while IFS= read -r args; do
     rc=0
     eval "words=($args)"
-    "$BRIDGE" post "${words[0]}" --dry-run "${words[@]:1}" >/dev/null 2>&1 || rc=$?
+    bridge "$home" post "${words[0]}" "${words[@]:1}" >/dev/null 2>&1 || rc=$?
     assert_equals 2 "$rc" "post refuses: $args"
   done <<'CASES'
 decision --title q --context 1 --context 2 --context 3
@@ -1051,7 +1023,7 @@ CASES
     const spec = { kind: "decision", title_b64: Buffer.from("Q").toString("base64"), options: [
       { key: "a", text_b64: Buffer.from("A").toString("base64") },
     ] };
-    const result = spawnSync(process.execPath, [process.argv[1], "json"], {
+    const result = spawnSync(process.execPath, [process.argv[1], "lines"], {
       input: JSON.stringify(spec), encoding: "utf-8",
     });
     if (result.status !== 2 || !result.stderr.includes("a decision with options needs --recommend")) process.exit(1);
@@ -1084,6 +1056,9 @@ test_bot_structured_post_sends_blocks_and_keeps_thread_replies() {
     --option merge="Merge it" --option hold="Hold" --recommend merge \
     --url https://github.com/o/firstmate/pull/127 2>&1) || fail "a structured bot post must succeed: $out"
   assert_contains "$out" "posted ready C0REPORT01 1791140500.000001" "a ready post goes to the report channel"
+  out=$(bot_bridge "$home" post decision --project firstmate --title '*urgent*' \
+    --option a='*approve*' --recommend a 2>&1) || fail "a structured decision must post: $out"
+  assert_contains "$out" "posted decision C0DECIDE01 1791140500.000002" "a decision goes to the decisions channel"
   # shellcheck disable=SC2016 # JavaScript, not shell
   node -e '
     const fs = require("fs");
@@ -1091,6 +1066,12 @@ test_bot_structured_post_sends_blocks_and_keeps_thread_replies() {
     const blocks = JSON.parse(r.params.blocks);
     if (blocks[0].type !== "header" || blocks[0].text.text !== "🔀 Ready for review · firstmate") process.exit(1);
     if (!r.params.text.startsWith("*🔀 Ready for review · firstmate*")) process.exit(1);
+    const decision = fs.readFileSync(process.argv[1], "utf-8").split("\n").filter(Boolean).map(JSON.parse)
+      .find((x) => x.method === "chat.postMessage" && x.params.channel === "C0DECIDE01");
+    const decisionBlocks = JSON.parse(decision.params.blocks);
+    if (!decisionBlocks.some((b) => b.type === "section" && b.text.text.includes("*\\*urgent\\**"))) process.exit(1);
+    if (!decisionBlocks.some((b) => b.type === "section" && b.text.text.includes("➡️ *a* · \\*approve\\*"))) process.exit(1);
+    if (!decision.params.text.includes("*\\*urgent\\**")) process.exit(1);
     if (r.params.unfurl_links !== "false") process.exit(1);
   ' "$home/bot-requests.jsonl" || fail "the bot sends Block Kit blocks with the fallback text"
   cat > "$home/bot-fixture.json" <<JSON
