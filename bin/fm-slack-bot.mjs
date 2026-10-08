@@ -17,7 +17,7 @@
 //
 // Usage: fm-slack-bot.mjs <action> < request.json
 //   post    {"keychain":"svc","channel":"C..|D..","text_b64":"<UTF-8 text, base64>",
-//            "thread":"<ts>"?, "blocks_b64":"<Block Kit JSON list, base64>"?}
+//            "thread":"<ts>"?}
 //           -> posted <channel> <ts>
 //   read    {"keychain":"svc","threads":[{"channel":"C..","parents":["<ts>",..]}],
 //            "history":[{"channel":"C..","oldest":"<ts>"}],
@@ -184,25 +184,9 @@ async function actionPost(call, req) {
     : "";
   if (!text.trim()) die(2, "post needs text_b64");
   if (req.thread !== undefined && !validTs(req.thread)) die(2, "post thread must be a Slack ts");
-  // Optional Block Kit layout from bin/fm-slack-render.mjs; `text` stays the
-  // notification and fallback text.
-  let blocks;
-  if (req.blocks_b64 !== undefined) {
-    let parsed;
-    try {
-      parsed = typeof req.blocks_b64 === "string" && /^[A-Za-z0-9+/=]+$/.test(req.blocks_b64)
-        ? JSON.parse(Buffer.from(req.blocks_b64, "base64").toString("utf-8"))
-        : null;
-    } catch {
-      parsed = null;
-    }
-    if (!Array.isArray(parsed) || parsed.length === 0 || parsed.length > 50) die(2, "post blocks_b64 must be a base64 JSON list of 1-50 blocks");
-    blocks = JSON.stringify(parsed);
-  }
   const data = await call("chat.postMessage", {
     channel: req.channel,
     text,
-    blocks,
     thread_ts: req.thread,
     unfurl_links: false,
   });
