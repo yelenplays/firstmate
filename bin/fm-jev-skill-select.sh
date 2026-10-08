@@ -196,9 +196,11 @@ fm_jev_skill_file() {
 # Returns 0 only when every skill id is then present in that file.
 # A non-zero return leaves the caller's live_loaded false without failing spawn.
 overlay_apply_ok() {
-  local skills_json=$1 status=$2
-  local overlay_dir tmp heading count id skill_file
+  local skills_json=$1 status=$2 model=$3
+  local overlay_dir tmp heading count id skill_file effective_model
   [ "$MODE" = live ] || return 1
+  effective_model=$(_fm_jev_site_model skill-select 2>/dev/null) || return 1
+  [ -n "$model" ] && [ "$model" = "$effective_model" ] || return 1
   # Jev's pick reaches the worker only while this call site's eval score
   # clears the bar (bin/fm-jev-eval.sh); otherwise it stays a recorded advice.
   [ "$(fm_jev_site_mode skill-select)" = act ] || return 1
@@ -471,7 +473,8 @@ if [ -f "$OUT" ]; then
     skills_json=$(jq -c '.skills // []' "$OUT")
     rec_status=$(jq -r '.status // "error"' "$OUT")
     live_loaded=false
-    if overlay_apply_ok "$skills_json" "$rec_status"; then
+    rec_model=$(jq -r '.model // empty' "$OUT")
+    if overlay_apply_ok "$skills_json" "$rec_status" "$rec_model"; then
       live_loaded=true
     fi
     record_live_loaded "$live_loaded" true || true
@@ -654,6 +657,7 @@ write_record() {
     --arg harness "$HARNESS" \
     --arg summary "$SUMMARY" \
     --arg mode "$MODE" \
+    --arg model "$REQUEST_MODEL" \
     --arg status "$status" \
     --arg primary "$primary" \
     --arg reason "$reason" \
@@ -671,6 +675,7 @@ write_record() {
       harness: $harness,
       summary: $summary,
       mode: $mode,
+      model: $model,
       status: $status,
       primary: (if $primary == "" then null else $primary end),
       skills: $skills,
@@ -706,6 +711,7 @@ if [ -z "${TYPESAFE_API_KEY:-}" ] && [ -z "${OPENROUTER_API_KEY:-}" ]; then
   fi
 fi
 
+REQUEST_MODEL=$(_fm_jev_site_model skill-select 2>/dev/null) || REQUEST_MODEL=''
 DECIDE_ERR="$TMPDIR/decide.err"
 DECIDE_CODE=0
 RESPONSE=$(fm_jev_decide "$STATE" "$QUESTIONS" 2>"$DECIDE_ERR") || DECIDE_CODE=$?
@@ -816,7 +822,7 @@ if [ "$CHOICE" != none ] && [ "$CHOICE" != search_external ]; then
 fi
 
 LIVE_LOADED=false
-if overlay_apply_ok "$SKILLS_OUT" "$STATUS"; then
+if overlay_apply_ok "$SKILLS_OUT" "$STATUS" "$REQUEST_MODEL"; then
   LIVE_LOADED=true
 fi
 write_record "$STATUS" "$CHOICE" "$CONF_JSON" "$PROBS" "$SKILLS_OUT" "$REASON" false "$LIVE_LOADED"

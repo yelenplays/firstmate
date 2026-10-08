@@ -687,7 +687,7 @@ fm_jev_compact_state() {
       while (match(buf, email_pattern)) {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
-      phone_pattern = "(^|[^[:alnum:]])([+][0-9][0-9() ./-]*[0-9]|[0-9][0-9() ./-]*[-./() ][0-9() ./-]*[0-9])([^[:alnum:]]|$)"
+      phone_pattern = "(^|[^[:alnum:]+])([+][0-9][0-9() ./-]*[0-9]|[(][0-9]+[)][ ./-]*[0-9][0-9() ./-]*[0-9]|[0-9][0-9() ./-]*[-./() ][0-9() ./-]*[0-9])([^[:alnum:]+]|$)"
       date_pattern = "^([0-9][0-9][0-9][0-9][./ -][0-9][0-9]?[./ -][0-9][0-9]?|[0-9][0-9]?[./ -][0-9][0-9]?[./ -][0-9][0-9][0-9][0-9])([ Tt][0-9][0-9](:[0-9][0-9](:[0-9][0-9]([.][0-9]+)?)?)?([Zz]|[+-][0-9][0-9]:?[0-9][0-9])?)?$"
       search_from = 1
       while (search_from <= length(buf)) {
@@ -697,7 +697,7 @@ fm_jev_compact_state() {
         match_length = RLENGTH
         phone = substr(tail, RSTART, match_length)
         phone_start = start
-        if (phone ~ /^[^[:alnum:]]/) {
+        if (phone ~ /^[^0-9+]/ && phone !~ /^[(][0-9]+[)][ .\/-]*[0-9]/) {
           phone = substr(phone, 2)
           phone_start++
         }
@@ -714,6 +714,8 @@ fm_jev_compact_state() {
         if (length(digits) >= 7 && phone !~ date_pattern && !glued && phone_shaped(phone)) {
           buf = substr(buf, 1, start - 1) "[redacted]" substr(buf, start + match_length)
           search_from = start + 10
+        } else if (match(phone, /[(][0-9]+[)][ .\/-]*[0-9]/) && RSTART > 1) {
+          search_from = phone_start + RSTART - 1
         } else {
           search_from = start + match_length
         }
@@ -908,12 +910,6 @@ _fm_jev_site_model() {
     return
   fi
   _fm_jev_resolve_route || return
-  if [ "$site" = skill-select ]; then
-    case "$_fm_jev_route" in
-      openrouter) _fm_jev_model=$FM_JEV_OPENROUTER_MODEL ;;
-      typesafe) _fm_jev_model=$FM_JEV_TYPESAFE_MODEL ;;
-    esac
-  fi
   printf '%s' "$_fm_jev_model"
 }
 

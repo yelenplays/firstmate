@@ -344,6 +344,40 @@ EOF
   pass "cached skills are revalidated against currently readable files"
 }
 
+test_live_model_permission_covers_fresh_and_reused_picks() {
+  local code out err overlay custom_scores original_scores
+  fresh_home
+  : > "$HOME_DIR/config/jev-skill-select-live"
+  overlay="$HOME_DIR/data/t-model/launch-brief.md"
+  mkdir -p "$(dirname "$overlay")"
+  seed_overlay "$overlay"
+  original_scores=$FM_JEV_EVAL_SCORES
+  custom_scores="$TMP_ROOT/custom-scores.json"
+  jq '.sites["skill-select"].model = "jev-custom-20261001"' "$original_scores" > "$custom_scores"
+  FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY JEV_MODEL=jev-custom-20261001 run_select code out err \
+    --harness grok --task-id t-model --skills-dir "$SKILLS_DIR" --overlay "$overlay"
+  expect_code 0 "$code" "custom live selection remains advice without matching evidence"
+  jq -e '.model == "jev-custom-20261001" and .status == "clear" and .live_loaded == false' \
+    "$HOME_DIR/state/t-model.jev-skills.json" >/dev/null || fail "custom pick must remain unbound"
+  assert_no_grep '# Jev-selected skills' "$overlay" "unevaluated custom model must not inject"
+  FM_JEV_EVAL_SCORES="$custom_scores" FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY JEV_MODEL=jev-custom-20261001 \
+    run_select code out err --harness grok --task-id t-model --skills-dir "$SKILLS_DIR" --overlay "$overlay"
+  jq -e '.reused == true and .live_loaded == true' "$HOME_DIR/state/t-model.jev-skills.json" >/dev/null \
+    || fail "cached custom pick with matching evidence must inject"
+  assert_absent "$LOG/body" "cache reuse does not repeat the model request"
+  seed_overlay "$overlay"
+  FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY run_select code out err \
+    --harness grok --task-id t-model --skills-dir "$SKILLS_DIR" --overlay "$overlay"
+  jq -e '.reused == true and .live_loaded == false' "$HOME_DIR/state/t-model.jev-skills.json" >/dev/null \
+    || fail "cached custom pick cannot borrow pin permission after a model switch"
+  assert_no_grep '# Jev-selected skills' "$overlay" "model-switched cache must not inject"
+  FM_JEV_EVAL_SCORES="$custom_scores" FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY JEV_MODEL=jev-custom-20261001 \
+    run_select code out err --harness grok --task-id t-model-fresh --skills-dir "$SKILLS_DIR" --overlay "$overlay"
+  jq -e '.reused == false and .live_loaded == true' "$HOME_DIR/state/t-model-fresh.jev-skills.json" >/dev/null \
+    || fail "fresh custom pick with matching evidence must inject"
+  pass "live skill permission binds fresh and cached picks to their model"
+}
+
 test_shadow_overlay_does_not_change_launch() {
   local code out err overlay before
   fresh_home
@@ -742,6 +776,7 @@ test_live_without_confirm_refuses
 test_live_without_overlay_stays_unloaded
 test_live_overlay_advise_only_site_stays_unloaded
 test_live_overlay_sets_live_loaded
+test_live_model_permission_covers_fresh_and_reused_picks
 test_shadow_overlay_does_not_change_launch
 test_none_overlay_leaves_launch_unchanged
 test_jev_failure_does_not_rewrite_overlay

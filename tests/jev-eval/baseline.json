@@ -19,8 +19,8 @@
     },
     "compaction": {
       "cases": 28,
-      "agreement": 0.8929,
-      "dangerous_misses": 3
+      "agreement": 0.5,
+      "dangerous_misses": 11
     },
     "dispatch-resolve": {
       "cases": 70,

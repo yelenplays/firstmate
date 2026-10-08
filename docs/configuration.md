@@ -1753,11 +1753,13 @@ Merges, deletions, logins, and other destructive, irreversible, or security-sens
 `bin/fm-jev-eval.sh run` replays the committed cassettes with no key and no network; `--live` asks Jev for real, publishes `latest.json`, and archives the card under `state/jev-eval/runs/`; `--record` with `--live` also re-records the cassettes.
 `check-baseline` is the change guard: [`tests/fm-jev-eval.test.sh`](../tests/fm-jev-eval.test.sh) runs it in CI, so a change to a Jev call site, its prompt, or the pinned Jev build cannot ship until its cassettes are re-recorded and every site still holds its baseline.
 After an intended change, re-record the affected sites with `run --live --record --site <site>` and rewrite the baseline with `write-baseline`.
+The compaction set contains 28 public-safe segments from recorded Claude Code workers, independently labeled by Opus 5.5 rather than written by it.
+Each case records its transcript digest, row, block or excerpt, and labeling rationale; parking a `keep` segment is the dangerous direction.
 
 Arm the nightly run once per home with `bin/fm-jev-eval.sh arm`, which registers an hourly watcher check that starts at most one detached live run per `FM_JEV_EVAL_NIGHTLY_SECS` (default 72000) when a Jev key is configured; `disarm` retires it.
 The deliberate, captain-confirmed design is that the deterministic runner runs Jev on every test set and scores it exactly against gold on `run`, `check-baseline`, and `nightly` alike.
 Haiku 5.5 (`claude-haiku-5-5` through `claude -p`, `FM_JEV_EVAL_HAIKU_CMD` replaces the command) only writes the nightly summary and miss analysis next to the archived card; it never computes or changes a score.
-A site that acted before the run and is advise after it is a demotion: one note through `bin/fm-slack-bridge.sh post report` when `config/slack-bridge` exists, and one notice the watcher check prints once.
+A site that acted before live publication and is advise after it is a demotion, whether the run is manual or nightly: one note through `bin/fm-slack-bridge.sh post report` when `config/slack-bridge` exists, and one notice the watcher check prints once.
 `bin/fm-jev-eval.sh status` prints each site's latest score and current mode.
 The script header owns the case schema, adapter contract, scorecard fields, and exit codes.
 

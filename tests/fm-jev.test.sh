@@ -731,7 +731,8 @@ test_privacy_guard_refuses_before_sending() {
   assert_contains "$err" "personal data" "the spaced phone refusal identifies the privacy category"
   assert_absent "$LOG/body" "a space-grouped phone number is never sent"
 
-  for contact in 'Call +49 170.1234567' 'Call 0170 123.4567' 'Call (0170) 123.4567' 'Call 212 555.0199'; do
+  for contact in 'Call +49 170.1234567' '+49 1701234567' '(415) 5551234' \
+    '2026-10-08 +49 1701234567' '2026-10-08 (415) 5551234' 'Call 0170 123.4567' 'Call (0170) 123.4567' 'Call 212 555.0199'; do
     reset_log
     run_jev code out err yes "$contact" "Done?"
     assert_equals "$code" 1 "mixed-format phone data in state is refused"

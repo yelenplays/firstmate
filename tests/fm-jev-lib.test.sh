@@ -568,7 +568,7 @@ test_compact_state_keeps_task_numbers_and_prose() {
   # phone number or a secret: each must pass both screens unchanged.
   for text in 'started t1 e1791449349.20521.20886 - then carry on' \
     'check 320/390/768/1440 and 195/390/1440' 'lines 1028-1045, 1080-1096' 'ISO 1600-3200 (300-3400 Hz)' \
-    'prefer 2024-2026 sources' 'resize 1440 900' 'oklch(0.575 0.18 24)' 'plan (17.07 - 31.07)' \
+    'prefer 2024-2026 sources' '(1600-3200)' '(12) 34' 'resize 1440 900' 'oklch(0.575 0.18 24)' 'plan (17.07 - 31.07)' \
     'modes 0700/0600' 'due 2026-09-22. (1) next' 'Korridor 4.500-8.000 EUR' 'host 127.0.0.1:8081' \
     'version v1.2.3456789' 'External pass: re-check the pricing pages' 'Hero / Engpass: none' \
     'Keyboard pass: every control reachable, focus visible'; do
@@ -580,11 +580,15 @@ test_compact_state_keeps_task_numbers_and_prose() {
   done
   # Real phone numbers and password keys stay caught.
   for text in 'call 555-123-4567' 'Call +1 (212) 555-0199' 'Call 212 555 0199' '+49 15567 692971' \
-    'Call +49 170.1234567' 'Call 0170 123.4567' 'Call (0170) 123.4567' 'Call 212 555.0199' \
+    'Call +49 170.1234567' '+49 1701234567' '(415) 5551234' '(555-123-4567)' \
+    '2026-10-08 +49 1701234567' '2026-10-08 (415) 5551234' 'Call 0170 123.4567' 'Call (0170) 123.4567' 'Call 212 555.0199' \
     '0170 1234567' '(0170) 1234567' '0201/123456' 'num 0170.123.4567' '01 23 45 67 89'; do
     out=$(fm_jev_compact_state "$text")
     assert_contains "$out" '[redacted]' "compact still redacts a phone number: $text"
   done
+  out=$(fm_jev_compact_state '2026-10-08 (415) 5551234')
+  assert_contains "$out" '2026-10-08' "a preceding date is preserved"
+  assert_not_contains "$out" '5551234' "a phone after a date is fully redacted"
   for text in 'FM_MAIL_PASS=hunter2' 'pass: hunter2' '  pass: s3cret' 'mailPass: abc' 'db-pass = xyz' 'SMTP pass: hunter2'; do
     fm_jev_has_sensitive_key "$text" || fail "a password key stays sensitive: $text"
     out=$(fm_jev_compact_state "$text")

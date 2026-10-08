@@ -64,9 +64,9 @@
 # (default 72000, about a day) it starts a detached live run, then asks Haiku
 # (claude-haiku-5-5, FM_JEV_EVAL_HAIKU_CMD replaces the command) for the
 # scorecard narrative and a miss analysis in state/jev-eval/runs/. Scores always
-# come from this script, never from the model. A site that was act before the
-# run (by the act rule on the previous latest.json) and is advise after it is
-# a demotion: one Slack note through bin/fm-slack-bridge.sh post report when
+# come from this script, never from the model. Manual and nightly live
+# publication reports a site that was act on the previous latest.json and
+# is now advise as a demotion: one Slack note through bin/fm-slack-bridge.sh post report when
 # config/slack-bridge exists (FM_JEV_EVAL_SLACK_CMD replaces the bridge
 # command, a test seam), and one queued notice line. check is the watcher entry: it prints queued notices once,
 # then calls nightly. arm writes and registers state/jev-eval.check.sh on an
@@ -331,7 +331,7 @@ cmd_run() {
 
 # A partial live run updates only the sites it scored.
 merge_latest() {  # <scorecard>
-  local tmp
+  local tmp site was now demoted=()
   mkdir -p "$OUT"
   tmp=$(mktemp "$OUT/.latest.XXXXXX") || die "mktemp failed"
   if [ -f "$OUT/latest.json" ] && jq -e '.sites | type == "object"' "$OUT/latest.json" >/dev/null 2>&1; then
@@ -339,7 +339,16 @@ merge_latest() {  # <scorecard>
   else
     cp "$1" "$tmp"
   fi
-  mv -f "$tmp" "$OUT/latest.json"
+  while IFS= read -r site; do
+    jq -e --arg s "$site" '.sites[$s].acts == true' "$(sites_file)" >/dev/null || continue
+    was=$(FM_JEV_EVAL_SCORES=$OUT/latest.json fm_jev_site_mode "$site")
+    now=$(FM_JEV_EVAL_SCORES=$tmp fm_jev_site_mode "$site")
+    [ "$was" != act ] || [ "$now" != advise ] || demoted+=("$site")
+  done < <(jq -r '.sites | keys[]' "$1")
+  mv -f "$tmp" "$OUT/latest.json" || die "could not publish live evidence"
+  for site in "${demoted[@]}"; do
+    demote_note "$site" "$1"
+  done
 }
 
 cmd_check_baseline() {
@@ -450,26 +459,13 @@ cmd_nightly() {
 }
 
 nightly_foreground() {
-  local before card site was now report
-  before=$(mktemp "${TMPDIR:-/tmp}/fm-jev-eval-before.XXXXXX") || die "mktemp failed"
+  local card report
   card=$(mktemp "${TMPDIR:-/tmp}/fm-jev-eval-card.XXXXXX") || die "mktemp failed"
-  [ -f "$OUT/latest.json" ] && cp "$OUT/latest.json" "$before" || printf '{}' >"$before"
   # run --live archives the card under runs/ and publishes latest.json.
-  "$0" run --live --out "$card" >/dev/null || { rm -f "$before" "$card"; die "the live run failed"; }
-  mapfile -t sites < <(all_sites)
-  for site in "${sites[@]}"; do
-    was=advise
-    if jq -e --arg s "$site" '.sites[$s].acts == true' "$(sites_file)" >/dev/null; then
-      was=$(FM_JEV_EVAL_SCORES=$before fm_jev_site_mode "$site")
-    fi
-    now=$(jq -r --arg s "$site" '.sites[$s].mode // "advise"' "$card")
-    if [ "$was" = act ] && [ "$now" = advise ]; then
-      demote_note "$site" "$card"
-    fi
-  done
+  "$0" run --live --out "$card" >/dev/null || { rm -f "$card"; die "the live run failed"; }
   report=$OUT/runs/$(date +%Y%m%dT%H%M%S)-haiku.md
   haiku_report "$card" >"$report" 2>&1 || printf 'Haiku report unavailable.\n' >>"$report"
-  rm -f "$before" "$card"
+  rm -f "$card"
 }
 
 demote_note() {  # <site> <scorecard>

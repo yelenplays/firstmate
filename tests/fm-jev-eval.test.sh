@@ -253,7 +253,9 @@ test_model_evidence_matches_effective_requests() {
   scorecard "$card" true "$now" 20 1 0 worker-cli
   assert_equals act "$(JEV_ROUTE=openrouter OPENROUTER_API_KEY=fixture-key mode_of "$card" worker-cli)" "worker command always uses TypeSafe"
   scorecard "$card" true "$now" 20 1 0 skill-select
-  assert_equals act "$(JEV_MODEL=jev-custom-20261001 mode_of "$card" skill-select)" "skill selector always uses the route pin"
+  assert_equals advise "$(JEV_MODEL=jev-custom-20261001 mode_of "$card" skill-select)" "live skill selection overrides must earn their own permission"
+  scorecard "$card" true "$now" 20 1 0 skill-select jev-custom-20261001
+  assert_equals act "$(JEV_MODEL=jev-custom-20261001 mode_of "$card" skill-select)" "matching live skill model evidence earns act"
   rm -rf "$EVAL"
   write_eval "$EVAL"
   for variant in typesafe openrouter override configured; do
@@ -390,6 +392,28 @@ test_nightly_demotion_posts_one_note() {
   pass "a nightly demotion posts one Slack note, queues one notice, and keeps Haiku's report"
 }
 
+test_manual_demotion_posts_once_across_nightly() {
+  local home="$TMP_ROOT/home-manual"
+  rm -rf "$EVAL" "$home"
+  write_eval "$EVAL"
+  mkdir -p "$home/state/jev-eval" "$home/config" "$home/log"
+  : > "$home/config/slack-bridge"
+  scorecard "$home/state/jev-eval/latest.json" true "$(date +%s)" 20 1 0
+  jq -c 'if .id == "a1" or .id == "a2" then .input.answer = "act" else . end' "$EVAL/cases/alpha.jsonl" > "$EVAL/a.tmp"
+  mv "$EVAL/a.tmp" "$EVAL/cases/alpha.jsonl"
+  nightly_env "$home" "$EVAL" -- "$SUT" run --live --site alpha >/dev/null 2>&1 || fail "manual live run failed"
+  assert_equals advise "$(FM_HOME="$home" mode_of "$home/state/jev-eval/latest.json" alpha)" "manual publication demotes alpha"
+  assert_equals 1 "$(wc -l < "$home/log/slack" | tr -d ' ')" "manual publication posts one Slack note"
+  assert_contains "$(cat "$home/log/slack")" 'post report -- Jev alpha dropped to advise-only: agreement 0.9' "manual note names the below-bar score"
+  assert_equals 1 "$(wc -l < "$home/state/jev-eval/notices" | tr -d ' ')" "manual publication queues one notice"
+  assert_absent "$home/log/haiku-prompt" "manual scoring does not run Haiku"
+  nightly_env "$home" "$EVAL" -- "$SUT" run --live --site alpha >/dev/null 2>&1 || fail "repeat manual run failed"
+  nightly_env "$home" "$EVAL" -- "$SUT" nightly --foreground >/dev/null 2>&1 || fail "nightly after manual run failed"
+  assert_equals 1 "$(wc -l < "$home/log/slack" | tr -d ' ')" "repeat manual and nightly runs do not duplicate the demotion note"
+  assert_equals 1 "$(wc -l < "$home/state/jev-eval/notices" | tr -d ' ')" "repeat publications do not duplicate the notice"
+  pass "manual and nightly publication report each demotion once"
+}
+
 test_nightly_without_slack_bridge_only_queues() {
   local home="$TMP_ROOT/home-noslack"
   rm -rf "$EVAL" "$home"
@@ -467,6 +491,7 @@ test_usage_errors
 test_baseline_guard
 test_overlay_adds_private_cases_to_runs_only
 test_nightly_demotion_posts_one_note
+test_manual_demotion_posts_once_across_nightly
 test_nightly_without_slack_bridge_only_queues
 test_check_prints_notices_once_and_paces_nightly
 test_arm_and_disarm
