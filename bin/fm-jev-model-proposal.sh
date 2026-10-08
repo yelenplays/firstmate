@@ -239,6 +239,7 @@ out_dir=$(dirname "$OUT")
 out_parent_expected=$(resolved_path "$out_dir") || die "could not resolve the output directory"
 out_real="$out_parent_expected/$(basename "$OUT")"
 out_target=$(resolved_path "$out_real") || die "could not resolve the output target"
+[ ! -d "$out_target" ] || die "output target is a directory: $OUT; choose a proposal file"
 for protected in "$config_path" "$state_path"; do
   case "$out_parent_expected/" in
     "$protected/"*) die "refusing to write under protected path $protected" ;;
@@ -287,6 +288,7 @@ make_out_dir "$out_dir" || { remove_created_dirs; die "could not create $out_dir
 out_parent_real=$(real_dir "$out_dir") || die "could not resolve the output directory"
 out_real="$out_parent_real/$(basename "$OUT")"
 out_target=$(resolved_path "$out_real") || die "could not resolve the output target"
+[ ! -d "$out_target" ] || { remove_created_dirs; die "output target is a directory: $OUT; choose a proposal file"; }
 for protected in "$config_path" "$state_path"; do
   case "$out_parent_real/" in
     "$protected/"*)

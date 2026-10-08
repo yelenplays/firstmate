@@ -419,3 +419,27 @@ jq -se 'length == 2
 grep -qF 'Jev: route unknown, model unknown.' "$TMP_ROOT/out/compact.md" \
   || fail 'the proposal header must not reuse earlier call metadata for an unsent final role'
 pass 'an unsent role has empty call metadata after a successful role'
+
+ln -s "$HOME_DIR/data/model-proposals" "$TMP_ROOT/proposal-directory-link"
+data_tree_before=$(find "$HOME_DIR/data" -print | sort | cksum)
+data_files_before=$(find "$HOME_DIR/data" -type f -exec cksum {} + | sort | cksum)
+log_before=$(cksum < "$log")
+requests_before=$(find "$TEST_REQUESTS" -type f -exec cksum {} + | sort | cksum)
+for target in \
+  "$HOME_DIR/data/model-proposals" \
+  "$HOME_DIR/data/model-proposals/" \
+  "$TMP_ROOT/proposal-directory-link" \
+  "$TMP_ROOT/proposal-directory-link/" \
+  "$TMP_ROOT/directory-parent/new/." \
+  "$TMP_ROOT/directory-parent/new/.."; do
+  out=$(run_tool --evidence "$TMP_ROOT/evidence.json" --out "$target" 2>&1); rc=$?
+  case "$rc:$out" in 2:*'output target is a directory:'*'choose a proposal file'*) ;; *) fail "a directory output must refuse clearly: $target: $rc $out" ;; esac
+  [ "$(find "$HOME_DIR/data" -print | sort | cksum)" = "$data_tree_before" ] \
+    && [ "$(find "$HOME_DIR/data" -type f -exec cksum {} + | sort | cksum)" = "$data_files_before" ] \
+    && [ "$(cksum < "$log")" = "$log_before" ] \
+    && [ "$(find "$TEST_REQUESTS" -type f -exec cksum {} + | sort | cksum)" = "$requests_before" ] \
+    && [ ! -e "$TMP_ROOT/directory-parent" ] \
+    && [ -L "$TMP_ROOT/proposal-directory-link" ] \
+    || fail 'a directory output refusal must send no request and leave no output, log, or directory changes'
+done
+pass 'directory output targets and directory symlinks refuse before any call or persistent write'
