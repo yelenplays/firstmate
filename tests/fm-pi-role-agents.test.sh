@@ -19,9 +19,9 @@ config = tmp / "custom config"
 project = tmp / "arbitrary-project"
 project.mkdir()
 env = {**os.environ, "HOME": str(home), "PI_CODING_AGENT_DIR": str(config)}
-roles = {"worker": "gpt-5.6-luna", "explorer": "gpt-5.6-luna",
-         "researcher": "gpt-5.6-luna", "tester": "gpt-5.6-luna",
-         "reviewer": "gpt-6-astra", "integrator": "gpt-6-astra"}
+roles = {"worker": "anthropic/claude-opus-5-5", "explorer": "anthropic/claude-opus-5-5",
+         "researcher": "anthropic/claude-opus-5-5", "tester": "anthropic/claude-opus-5-5",
+         "reviewer": "openai-codex/gpt-6-astra", "integrator": "openai-codex/gpt-6-astra"}
 
 
 def run(*args, script=installer, environ=env, ok=True):
@@ -44,7 +44,12 @@ for role, model in roles.items():
     text = path(role).read_text()
     front = dict(line.split(": ", 1) for line in text.split("---\n")[1].splitlines())
     assert front["name"] == f"fm-orchestrated-{role}"
-    assert front["model"] == f"openai-codex/{model}"
+    if role in ("worker", "explorer", "researcher", "tester"):
+        selected_model, selected_effort = front["model"].rsplit(":", 1)
+        assert selected_model == model
+        assert selected_effort == "medium", "Opus default must cap higher parent effort"
+    else:
+        assert front["model"] == model
     assert "thinking" not in front
     assert front["session-mode"] == "standalone"
     assert front["auto-exit"] == "true"

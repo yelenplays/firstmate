@@ -1323,7 +1323,7 @@ This section is the single owner of the canonical schema and its per-field seman
       "floor": { "scope": "<quota-axi scope>", "min_percent": 20, "provider": "<quota-axi provider>" },
       "beats": [ { "rule": 2, "when": "<optional condition under which this rule wins>" } ],
       "use": [
-        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "provider": "<optional quota-axi provider>", "floor": { "scope": "<quota-axi scope>", "min_percent": 50 } }
+        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "provider": "<optional quota-axi provider>", "floor": { "scope": "<quota-axi scope>", "min_percent": 50 }, "effort_floor": "<optional, not above effort>", "overflow": false }
       ],
       "why": "<optional rationale that helps firstmate choose>"
     }
@@ -1343,11 +1343,13 @@ This section is the single owner of the canonical schema and its per-field seman
 | `use` and optional top-level `default` | Accept one profile object or a non-empty array of profile objects; the single-object form remains fully backward-compatible. |
 | Profile `harness` | Required in every profile. |
 | Profile `model` and `effort`; rule `why` | Optional. |
+| Profile `overflow` | Optional boolean, default `false`; see "Overflow profiles" below. |
+| Profile `effort_floor` | Optional scalar `low`, `medium`, `high`, `xhigh`, or `max`, supported by an effort-capable harness and model and not above the profile's `effort` (ceiling `xhigh` when omitted); see [typed effort resolution](#firstmate-retains-the-dispatch-decision) below. |
 
 **Fields applied only by typed resolution**
 
-Rule `approval`, `min_confidence`, and `floor`, and profile `provider` and `floor` are optional declarations that only [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; without that opt-in they are inert, and firstmate's own intake reads them as ordinary hints.
-Rule `approval`, `floor`, and `beats`, and profile `provider` and `floor` are optional declarations that only [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; without that opt-in they are inert, and firstmate's own intake reads them as ordinary hints.
+Rule `approval`, `min_confidence`, `floor`, and `beats`, and profile `provider`, `floor`, `overflow`, and `effort_floor` are optional declarations that [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code.
+Without that opt-in, no shell resolver enforces these fields; firstmate's own intake remains responsible for profile selection under the contracts above and below.
 The resolver supplies the fixed neutral Choice option `No listed rule applies to this task.` for work that matches no listed rule.
 
 - `approval` accepts only `"captain"` and means a task the rule matches is never dispatched from the tool's answer alone.
@@ -1369,9 +1371,6 @@ Rule `beats` is a non-empty array of `{rule, when}` entries that declares preced
 The resolver renders every entry as a tie-break sentence on both rules' options, so precedence reaches the model as text rather than as a post-hoc override; two rules may beat each other only when at least one of the pair carries a `when`, which is how a real fault line such as findings versus a code change is expressed in both directions. Precedence cycles of three or more distinct rules are rejected even when some edges have `when` conditions; conditional two-rule pairs remain allowed.
 Because `rule` is positional, reordering `rules` requires renumbering every `beats` entry.
 A profile `provider` optionally names the quota-axi provider family whose rows apply to that profile; when present, profile and rule-floor provider IDs must match the strict whole-string pattern `^[a-z0-9]+(-[a-z0-9]+)*\z`.
-Bootstrap validates resolver-only `approval`, `min_confidence`, `floor`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
-
-Bootstrap validates resolver-only `approval`, `floor`, `beats`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
 Typed resolution additively recognizes `gemini` because AGENTS.md section 4 verifies it for crewmate and scout dispatch.
 
 | Harness | Provider declaration on the opted-in resolver path |
@@ -1386,11 +1385,28 @@ This single-provider table is separate from the frozen legacy mapping used by `f
 - A profile `floor` contains only `scope` and `min_percent`, always uses that profile's provider and matched account, and makes that one candidate ineligible below `min_percent` on the named scope.
 - An absent or unknown named row also makes the candidate unrankable and is reported as an unverifiable floor, not as a known shortfall.
 
+### Overflow profiles
+
+A profile with `"overflow": true` is a quota overflow lane, not a peer of the array's other profiles.
+It competes only when the array has primary (non-overflow) profiles and every primary has concrete Claude quota-shortfall evidence: an applicable row with runway `projected_exhaustion` or `exhausted_now`, or known 0% remaining.
+Non-quota ineligibility, including effort ceiling, harness fit, profile floor, or burn prediction, never activates overflow.
+When that quota condition holds, the overflow profiles that can be ranked take the work instead and are chosen among by the ordinary `quota-array-dispatch` procedure.
+If no overflow profile can be ranked, the primaries remain subject to ordinary eligibility and ranking rather than being passed over for overflow.
+Unknown runway alone is not evidence of a shortfall; a known 0% applicable bound still qualifies.
+A scout brief never overflows: investigation, planning, design, and diagnosis deliverables stay on the primary profiles.
+Typed resolution applies this in code and names the held or passed-over profile on its candidate line; firstmate's own intake applies the same rule by hand.
+
+**Changing the routing table**
+
+The rules file is the captain's approved table from kind of work to model; the rule match only names the kind of work.
+Firstmate changes the table only through an evidence proposal the captain approves, at most once a month: current benchmarks, practitioner reports, and the home's own fix-round evidence, with the proposed diff.
+A model reserved for escalation stays out of every `use` array; firstmate dispatches it only as an explicit per-task captain override, or as the escalation the captain's standing rule names, such as after the strongest regular profile at high effort has already failed once on a hard problem.
+
 **Model, effort, and fallback behavior**
 
 - `ultra` is native-only: the model-aware validation contract and launch mapping are owned by `bin/fm-harness.sh validate-native-effort` and `bin/fm-spawn.sh` respectively.
 - Codex `max` is valid when the profile selects `gpt-5.6-luna`, whose installed catalog entry supports that reasoning level.
-- An omitted model or effort means the selected harness uses its own default for that axis.
+- An omitted model means the selected harness uses its own default; omitted effort does likewise outside [typed effort resolution](#firstmate-retains-the-dispatch-decision).
 - OpenCode receives the effort as its default `build` agent's `variant`, keyed to the resolved model, inside the `OPENCODE_CONFIG_CONTENT` JSON its launch already writes (the per-model reasoning-effort field of the config schema, verified on opencode 1.18.32); with no model resolved, the effort is recorded in task metadata but omitted from the launch.
 - Every profile array is an implicit quota-aware choice resolved through `quota-array-dispatch`.
 - If no dispatch rule fits, firstmate resolves `default` through the same object-or-array path before falling back to `config/crew-harness`.
@@ -1404,13 +1420,13 @@ See [`docs/examples/crew-dispatch.json`](examples/crew-dispatch.json) for a star
 - When the file exists, bootstrap validates it with `jq`.
 - Valid files stay silent by default; with `FM_BOOTSTRAP_VERBOSE_FACTS=1`, bootstrap emits `BOOTSTRAP_INFO: crew dispatch active config/crew-dispatch.json`, one `BOOTSTRAP_INFO:` fact per rule, and one fact for the optional default profile set.
 - Malformed JSON, malformed rules, an empty or malformed profile array, an unverified harness, or an effort value unsupported by that harness is reported as `CREW_DISPATCH: invalid config/crew-dispatch.json - ...`.
-- While typed resolution is active, malformed `approval`, `min_confidence`, `floor`, and present `provider` declarations receive the same diagnostic; without the key those inert declarations preserve the pre-existing bootstrap behavior.
+- While typed resolution is active, bootstrap also validates rule `approval`, `min_confidence`, `floor`, and `beats`, and profile `provider`, `floor`, `overflow`, and `effort_floor`, in every `use` and top-level `default` object or array; malformed declarations receive the same diagnostic.
+- Without that opt-in, these fields preserve the pre-existing bootstrap validation behavior.
 - Missing `jq` is reported through the normal `MISSING: jq` install-consent flow.
 - While the file remains present, no crewmate or scout spawn may proceed without an explicit resolved harness; malformed configuration must be reported and corrected rather than selected around.
 
 **Inheritance**
 
-While typed resolution is active, malformed `approval`, `floor`, `beats`, and present `provider` declarations receive the same diagnostic; without the key those inert declarations preserve the pre-existing bootstrap behavior.
 Secondmate homes inherit this file from the primary, so a secondmate's own crewmates apply the same dispatch profile behavior.
 
 ## Typed dispatch resolution (.env TYPESAFE_API_KEY)
@@ -1484,14 +1500,15 @@ Presence of gitignored `config/jev-dispatch-shadow`, or `FM_JEV_DISPATCH_SHADOW=
 A captain pin, `yolo` posture, and selected delivery mode still win over any printed profile, `clear` or `picked`.
 An absent rules file, a default-only file, or `rules: []` returns the non-clear reason `no rules to match` without a model or quota request, leaving firstmate's existing routing in control; an existing but unreadable or malformed rules file, including a broken symlink, remains an actionable exit 2 configuration error.
 
-**Checks performed after the answer**
+### Checks performed after the answer
 
 After the answer, code applies all remaining checks and ranking:
 
 - The confidence floor and the matched rule's `approval` and `floor`.
 - Each candidate's `provider` and `floor`.
 - Every applicable account-wide and model/product row from one `quota-axi --json` snapshot.
-- The numeric `spendPriority` argmax over candidates, using each candidate's limiting row.
+- [Effort and predicted-burn gates](#firstmate-retains-the-dispatch-decision).
+- [Overflow profile selection](#overflow-profiles) before the numeric `spendPriority` argmax over candidates, using each candidate's limiting row.
 
 The [shared quota library](../bin/fm-quota-axi-lib.sh) accepts schema 5 and schema 6 and implements the [account-matching contract](../.agents/skills/quota-array-dispatch/SKILL.md#1-eligibility).
 
@@ -1535,7 +1552,7 @@ Every result above exits 0.
 **Runoff on an ambiguous answer**
 
 An `ambiguous` rule answer gets one runoff before it reaches firstmate, so a close race between rules is settled by a typed Jev pick rather than by hand.
-The contenders are the picked option and the two most probable options, and each settles in code exactly as a cleared answer would: the same approval, floor, provider, effort, burn, and `spendPriority` gates choose its one concrete profile.
+The contenders are the picked option and the two most probable options, and each settles in code exactly as a cleared answer would under [the checks above](#checks-performed-after-the-answer).
 If any contender would not clear - a captain-approval rule, an unverifiable rule floor, nothing rankable, or a genuine tie - the runoff is skipped, because a pick between them could bypass a gate that belongs to the captain or to `quota-array-dispatch`.
 Contenders that settle on the same concrete profile collapse into one option, and when only one remains its profile is taken without another call.
 Otherwise the resolver sends one more request on the same state with one `pick` Choice whose options are the remaining contenders, keyed by rule and worded with the same criteria, tie-break sentences included, that the rule Choice sent; the model still never sees `use`, `why`, quota, or approvals.
@@ -1546,11 +1563,14 @@ A narrow, non-winning, malformed, failed, or never-send-withheld runoff leaves t
 `bin/fm-dispatch-replay.sh` uses the resolver's internal replay mode, so each replayed case spends one call and records the rule answer itself; normal resolver invocations run the runoff whenever it is eligible.
 The shadow log records the runoff outcome in a `pick` field beside the status and profile.
 
-**Firstmate retains the dispatch decision**
+### Firstmate retains the dispatch decision
 
-Everything after the answer runs in code: the top-2 margin gate, the matched rule's `approval` and `floor`, each candidate's `provider` and `floor`, every applicable account-wide and model/product row from one `quota-axi --json` snapshot, the spend ledger's predicted burn for the assessed effort class (`bin/fm-spend-ledger.py predict`), and the numeric `spendPriority` argmax over candidates using each candidate's limiting row.
-The same Jev response carries a second typed Choice classifying the reasoning effort the brief itself needs (`low|medium|high|xhigh|max`); a profile's declared `effort` is the ceiling that assessment may not exceed, the undeclared ceiling is `xhigh` so `max` always needs an explicit declaration, and a missing or malformed effort answer falls back to the declared effort with the fallback disclosed on the `effort:` line.
-A candidate on an effort-capable harness that cannot supply the assessed class is refused before quota gates; a harness without an effort knob keeps the class as a disclosed, unenforced note and emits no `--effort` flag for it.
+The [checks above](#checks-performed-after-the-answer) run in code after the answer.
+The same Jev response carries a second typed Choice classifying the reasoning effort the brief itself needs (`low|medium|high|xhigh|max`).
+A profile's declared `effort` is the ceiling that assessment may not exceed; the undeclared ceiling is `xhigh`, so `max` always needs an explicit declaration.
+A missing or malformed effort answer falls back to the declared effort, with that classifier fallback disclosed on the `effort:` line.
+The profile's optional `effort_floor` raises a lower assessed or fallback value to that floor, including when no effort was declared; the resolved value governs the launch, runoff identity, and predicted burn.
+A candidate on an effort-capable harness that cannot supply the resolved class is refused before quota gates; a harness without an effort knob keeps the class as a disclosed, unenforced note and emits no `--effort` flag for it.
 A candidate whose predicted burn exceeds its tightest applicable remaining percent (calibrated through the window's observed `tokensPerPoint`) is refused with the prediction named in the reason, and so is one whose predicted duration exceeds the window's usable runway seconds; an all-refused `escalate` names the predicted burn.
 Missing or unreadable ledger evidence never fabricates a limit: the candidate keeps its rank and its line shows `pred=unknown`.
 Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, an invalid `FM_JEV_DISPATCH_MARGIN`, or missing `jq`, each reported and never selected around.
@@ -1833,7 +1853,7 @@ A no-mistakes pipeline review of the exact head counts when the agent that ran i
 Vault changes excluded by `fm_wiki_change_private` in [`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) never get a new reviewer and stay on their existing path.
 An unknown builder family, or no candidate from another family, is reported for the captain to decide rather than guessed.
 
-The fixed candidate chain is `pi openai-codex/gpt-6-luna high`, then `pi xai/grok-4.7 high`; Firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
+The fixed candidate chain is `pi openai-codex/gpt-6.1-sol high`, then `claude claude-opus-5-5 high`, so a Claude-built change goes to Sol and an OpenAI-built one to Opus; Firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
 
 ## Memory store (config/memory-dir)
 

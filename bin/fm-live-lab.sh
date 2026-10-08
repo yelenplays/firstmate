@@ -66,9 +66,11 @@
 #                    exists; touch the gate and message the worker to resume.
 #   primary          window main: claude --setting-sources project,local
 #                    (default sonnet, medium, permission mode auto) or pi
-#                    (default openai-codex/gpt-6-luna, medium), launched
+#                    (default openai-codex/gpt-6.1-sol, high), launched
 #                    after the mate and worker so its first turn end arms
 #                    supervision. up then sends one harmless probe prompt.
+#                    Pi Sol runs at high even with explicit --model or --effort;
+#                    other Pi models default to medium unless --effort is set.
 #
 # Readiness checks (check prints "ok <name>: ..." or "fail <name>: ..."):
 #   primary       window main is alive, in the lab home, which is a primary
@@ -192,8 +194,10 @@ window_id() {
   esac
   window=$(sed -n 's/^window=//p' "$LAB/state/$name.meta" 2>/dev/null)
   [ -z "$window" ] || name=${window#*:}
-  lab_tmux list-windows -t firstmate -F "#{window_name}$(printf '\t')#{window_id}" 2>/dev/null \
-    | awk -F '\t' -v n="$name" '$1 == n { print $2; exit }'
+  # tmux 3.7c sanitizes literal tabs in -F output to underscores. These owned
+  # lab window names cannot contain a pipe, so use a printable delimiter.
+  lab_tmux list-windows -t firstmate -F '#{window_name}|#{window_id}' 2>/dev/null \
+    | awk -F '|' -v n="$name" '$1 == n { print $2; exit }'
 }
 
 window_field() {  # <name> <format>
@@ -480,7 +484,8 @@ cmd_up() {
   [ "$host_line" != __default__ ] || { [ "$harness" = claude ] && host_line=claude || host_line=none; }
   HOST_OFF=no
   [ "$host_line" != off ] || HOST_OFF=yes
-  [ -n "$model" ] || { [ "$harness" = claude ] && model=sonnet || model=openai-codex/gpt-6-luna; }
+  [ -n "$model" ] || { [ "$harness" = claude ] && model=sonnet || model=openai-codex/gpt-6.1-sol; }
+  if [ "$harness" = pi ] && [ "${model##*/}" = gpt-6.1-sol ]; then effort=high; fi
   CLAUDE_DIR=${CLAUDE_CONFIG_DIR:-}
   case "$CLAUDE_DIR" in ''|/*) ;; *) die "CLAUDE_CONFIG_DIR must be an absolute path" ;; esac
   CLAUDE_STORE="${CLAUDE_DIR:-$HOME}/.claude.json"

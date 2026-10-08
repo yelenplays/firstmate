@@ -109,6 +109,10 @@ A high `spendPriority` on a nearly empty window that will exhaust soon must not 
 Unknown or unmeasurable runway stays eligible with disclosed uncertainty and is never assumed to pass.
 Do not invent a generic percentage floor, and honor an explicit captain floor for a candidate when one exists.
 
+## Overflow profiles
+
+Before ranking, apply the array's `overflow` declarations under [the configuration contract](../../../docs/configuration.md#overflow-profiles).
+
 ## Rank by spendPriority
 
 Among candidates that pass all three gates, pick the highest known `spendPriority`.

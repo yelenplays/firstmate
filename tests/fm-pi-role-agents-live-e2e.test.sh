@@ -24,10 +24,11 @@ root = Path(sys.argv[1])
 real_config = Path(os.environ.get("PI_CODING_AGENT_DIR", str(Path.home() / ".pi/agent"))).expanduser()
 package = Path(os.environ.get("FM_PI_SUBAGENTS_PACKAGE", str(real_config / "git/github.com/amosblomqvist/pi-interactive-subagents")))
 extension = package / "pi-extension/subagents/index.ts"
-roles = {"explorer": "gpt-5.6-luna", "researcher": "gpt-5.6-luna",
-         "worker": "gpt-5.6-luna", "tester": "gpt-5.6-luna",
-         "reviewer": "gpt-6-astra", "integrator": "gpt-6-astra"}
+roles = {"explorer": "anthropic/claude-opus-5-5", "researcher": "anthropic/claude-opus-5-5",
+         "worker": "anthropic/claude-opus-5-5", "tester": "anthropic/claude-opus-5-5",
+         "reviewer": "openai-codex/gpt-6-astra", "integrator": "openai-codex/gpt-6-astra"}
 parent_thinking = "xhigh"
+opus_roles = {"explorer", "researcher", "worker", "tester"}
 assert shutil.which("tmux"), "tmux is required"
 assert shutil.which("pi"), "pi is required, including for children of pi-signed"
 assert extension.is_file(), f"installed sub-agent package not found: {extension}"
@@ -101,13 +102,17 @@ for harness in ("pi", "pi-signed"):
                    "No other work, writes, model switches, or configuration changes.")
         channel = "roster-complete"
         canary = "PARENT_CONTEXT_CANARY_not_for_any_child"
-        model_pins = ", ".join(f"{role}=openai-codex/{model}:{parent_thinking}" for role, model in roles.items())
+        model_pins = ", ".join(f"{role}={model}:{parent_thinking}" for role, model in roles.items()
+                               if role not in opus_roles)
         prompt = (f"You are the orchestrator of a bounded roster runtime smoke. {canary}. "
                   "This canary belongs only to your context; do not include it in any handoff. "
                   "Call subagents_list once. Then spawn ALL six roles one at a time, awaiting each "
                   "automatically delivered completion before the next: " + ", ".join(roles) + ". "
                   "Each call must use agent='fm-orchestrated-ROLE', name='proof-ROLE', "
-                  f"cwd={worktree}, model as pinned here ({model_pins}), and this exact task text: {json.dumps(handoff)}. "
+                  f"cwd={worktree}, and this exact task text: {json.dumps(handoff)}. "
+                  "For explorer, researcher, worker, and tester OMIT the model argument so their default cap applies "
+                  "despite your xhigh effort. For reviewer and integrator use model as pinned here: "
+                  f"{model_pins}. "
                   "Do not poll, read session logs, alter files, or perform other tasks. "
                   "Use fresh subagent calls, never subagent_message. Do not claim completion from acknowledgements. "
                   f"After receiving all six results, run bash command `tmux wait-for -S {channel}`. "
@@ -135,7 +140,10 @@ for harness in ("pi", "pi-signed"):
             assert {c["arguments"]["agent"] for c in launches} == {f"fm-orchestrated-{r}" for r in roles}
             for call in launches:
                 role = call["arguments"]["agent"].removeprefix("fm-orchestrated-")
-                assert call["arguments"]["model"] == f"openai-codex/{roles[role]}:{parent_thinking}"
+                if role in opus_roles:
+                    assert "model" not in call["arguments"], "the default effort cap must be exercised"
+                else:
+                    assert call["arguments"]["model"] == f"{roles[role]}:{parent_thinking}"
             assert not calls(parent_msgs, "subagent_message"), "a session was resumed"
             discovery = [m for m in parent_msgs if m.get("toolName") == "subagents_list"]
             assert len(discovery) == 1
@@ -148,24 +156,25 @@ for harness in ("pi", "pi-signed"):
                 msgs = messages(data)
                 loadout = json.loads(Path(str(child) + ".loadout.json").read_text())
                 role = loadout["agent"].removeprefix("fm-orchestrated-")
-                model = roles[role]
-                thinking = parent_thinking
+                provider, model = roles[role].split("/", 1)
+                thinking = "medium" if role in opus_roles else parent_thinking
                 assert role not in seen
                 seen.add(role)
                 definition = discovered[f"fm-orchestrated-{role}"]
                 assert definition["source"] == "global"
-                assert definition["model"] == f"openai-codex/{model}"
+                expected_default = roles[role] + (":medium" if role in opus_roles else "")
+                assert definition["model"] == expected_default
                 assert not definition.get("thinking") and definition["sessionMode"] == "standalone"
-                assert loadout["model"] == f"openai-codex/{model}:{thinking}"
+                assert loadout["model"] == f"{roles[role]}:{thinking}"
                 assert not loadout.get("thinking")
                 assert data[0]["cwd"] == str(worktree) and not data[0].get("parentSession")
                 assert canary not in child.read_text(), "parent context was copied"
                 model_events = [e for e in data if e["type"] == "model_change"]
                 effort_events = [e for e in data if e["type"] == "thinking_level_change"]
-                assert model_events and all(e["provider"] == "openai-codex" and e["modelId"] == model for e in model_events)
+                assert model_events and all(e["provider"] == provider and e["modelId"] == model for e in model_events)
                 assert effort_events and all(e["thinkingLevel"] == thinking for e in effort_events)
                 assistant = [m for m in msgs if m["role"] == "assistant"]
-                assert assistant and all(m["model"] == model and m["provider"] == "openai-codex" for m in assistant)
+                assert assistant and all(m["model"] == model and m["provider"] == provider for m in assistant)
                 assert assistant[-1]["stopReason"] == "stop", f"{role} did not finish successfully"
                 observed = []
                 for msg in msgs:
@@ -176,12 +185,12 @@ for harness in ("pi", "pi-signed"):
                                     observed.append(json.loads(line.removeprefix("FM_ROLE_OBSERVED ")))
                 assert len(observed) == 1, f"{role} has no unique shell identity evidence"
                 obs = observed[0]
-                assert obs["PI_PROVIDER"] == "openai-codex" and obs["PI_MODEL"] == model
+                assert obs["PI_PROVIDER"] == provider and obs["PI_MODEL"] == model
                 assert obs["PI_REASONING_LEVEL"] == thinking
                 assert obs["PI_SUBAGENT_AGENT"] == f"fm-orchestrated-{role}"
                 assert obs["PI_SESSION_ID"] == data[0]["id"]
                 assert Path(obs["PI_SESSION_FILE"]) == child and obs["cwd"] == str(worktree)
-                print(f"ok - {harness} {role}: openai-codex/{model} thinking={thinking} global standalone live", flush=True)
+                print(f"ok - {harness} {role}: {roles[role]} thinking={thinking} global standalone live", flush=True)
             assert seen == set(roles)
             assert not (config / "trust.json").exists(), "trust decision was saved"
             assert not (worktree / ".pi").exists(), "project resources were added"

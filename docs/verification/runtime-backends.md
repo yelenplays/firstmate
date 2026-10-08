@@ -142,7 +142,8 @@ FM_PI_ROLE_AGENTS_LIVE=1 TMPDIR="$fixture_parent" nix shell nixpkgs#tmux -c bin/
 ```
 
 Current roster definitions declare no `thinking`.
-A refresh now inherits the fixture parent effort through a per-call `model` suffix rather than printing per-role thinking pins.
+The refresh guard now exercises the four Opus roles' `:medium` defaults without overrides under an `xhigh` parent, while Reviewer and Integrator receive that parent's effort through per-call model suffixes.
+The current Opus default-cap launch remains live-unverified until that guard is rerun.
 The 2026-09-10 live run proved six-role discovery and execution on tmux with the per-role thinking pins that run recorded:
 
 ```text
