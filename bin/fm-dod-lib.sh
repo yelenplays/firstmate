@@ -783,12 +783,11 @@ fm_dod_named_head_reachable_outside_worktree() {  # <worktree> <project> <mode> 
 # covers, the launch section that tells the worker, the explicit captain
 # exception, what counts as a test file, and the done gate that enforces it.
 # bin/fm-spawn.sh records test_ban_model=<model> in state/<id>.meta for a ship or
-# scout whose resolved --model matches FM_TEST_BAN_MODEL_PATTERNS, plus
-# test_ban_exception=captain-test when the brief's `## Captain's intent` carries
-# a nonempty `### Captain-specified test` subsection, and appends
-# fm_test_ban_overlay to a banned ship's launch brief. bin/fm-promote.sh renders
-# the same section into a promoted ship's instructions and re-derives the
-# exception from the intent it carries. An unset or `default` model is not
+# scout whose resolved --model matches FM_TEST_BAN_MODEL_PATTERNS, plus one
+# test_ban_allowed=<path> record per path explicitly named under the
+# `### Captain-specified test` subsection. It appends fm_test_ban_overlay to a
+# banned ship or scout launch brief. bin/fm-promote.sh renders the same section
+# into a promoted ship's instructions and re-derives allowed paths from intent. An unset or `default` model is not
 # matched, because the harness default is not knowable at spawn.
 # fm_dod_accept_ship_done refuses a ship `done:` from a banned task whose commits
 # since the base add or modify a test file, naming the files. Under no-mistakes
@@ -815,12 +814,31 @@ fm_test_ban_model_applies() {  # <model>
   return 1
 }
 
-# 0 when a `## Captain's intent` body spells out a test under the exception
-# subsection with nonblank content.
-fm_test_ban_intent_has_exception() {  # <captain-intent-body>
-  local body
+# Prints test-file paths explicitly named in the captain test subsection.
+fm_test_ban_intent_allowed_paths() {  # <captain-intent-body>
+  local body line token path
   body=$(fm_brief_heading_parse - "$FM_TEST_BAN_EXCEPTION_HEADING" body <<<"${1:-}")
-  [ -n "$(printf '%s' "$body" | tr -d '[:space:]')" ]
+  while IFS= read -r line; do
+    for token in $line; do
+      token=${token#\`}; token=${token#\"}; token=${token#\'}
+      token=${token#\(}; token=${token#\[}; token=${token#\*}; token=${token#-}
+      token=${token%\`}; token=${token%\"}; token=${token%\'}
+      token=${token%\)}; token=${token%\]}; token=${token%:}; token=${token%,}
+      token=${token%;}; token=${token%.}; token=${token%!}
+      path=$token
+      case "$path" in ./*) path=${path#./} ;; esac
+      case "$path" in /*|../*|*/../*|*/..) continue ;; esac
+      if fm_test_ban_path_is_test "$path"; then printf '%s\n' "$path"; fi
+    done
+  done <<<"$body" | awk '!seen[$0]++'
+}
+
+fm_test_ban_path_allowed() {  # <path> <meta>
+  local path=$1 meta=$2 allowed
+  while IFS= read -r allowed; do
+    [ "$path" = "$allowed" ] && return 0
+  done < <(grep '^test_ban_allowed=' "$meta" 2>/dev/null | cut -d= -f2-)
+  return 1
 }
 
 # 0 when <path> is a test file the ban covers: anything under a tests/, test/,
@@ -843,22 +861,24 @@ fm_test_ban_path_is_test() {  # <path>
   return 1
 }
 
-# The launch section a banned worker receives. <exception> is 1 when the intent
-# carries the captain-specified test.
-fm_test_ban_overlay() {  # <model> <exception>
+# The launch section a banned worker receives. <allowed-paths> is newline-separated.
+fm_test_ban_overlay() {  # <model> <allowed-paths>
   cat <<EOF
 
 # No test authoring
 This worker runs on $1, a lane that does not write its own tests; this section supersedes any instruction in this brief, a promotion, or the project's own files that asks you to add or update tests.
 Create or modify no test files: no unit or integration tests, no test fixtures, and no snapshots.
 Running existing tests is fine, and an end-to-end test (a path or file name containing \`e2e\` or \`end-to-end\`) stays allowed.
-The only exception is a test case written out under a \`$FM_TEST_BAN_EXCEPTION_HEADING\` heading inside \`## Captain's intent\`: implement exactly that test as described and nothing more.
+Only test-file paths explicitly named under \`$FM_TEST_BAN_EXCEPTION_HEADING\` inside \`## Captain's intent\` are allowed; implement only those tests as described. A test description without a file path allows no test file.
 EOF
-  if [ "${2:-0}" = 1 ]; then
-    printf '%s\n' "This task's Captain's intent carries such a test, so the done check below is off for it; every other test file stays out."
+  local allowed
+  allowed=$(printf '%s' "${2:-}" | tr '\n' ' ' | sed 's/ $//')
+  if [ -n "$allowed" ]; then
+    printf 'Captain-authorized test path(s): %s. Every other test file remains prohibited.\n' "$allowed"
   else
-    printf '%s\n' "Before accepting your ship \`done:\`, firstmate checks your commits since the base for added or modified test files (under tests/, test/, __tests__/, spec/, or __snapshots__/, or named *.test.*, *_test.*, *.spec.*, test_*.py, or *.snap) and refuses the done while any remain, naming them; drop them from the branch and report done again."
+    printf '%s\n' "No test file paths are authorized by the captain."
   fi
+  printf '%s\n' "Before accepting your ship \`done:\`, firstmate checks commits since the base for added or modified test files outside those exact paths and refuses the done while any remain, naming them; drop them from the branch and report done again."
 }
 
 # The ref a ship's commits are measured against: origin/<base> for a named
@@ -900,17 +920,17 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>]
 }
 
 # 0 when this done: is one the test-authoring gate must check: a ship done: from
-# a task whose meta records test_ban_model= without test_ban_exception=, except
-# the no-mistakes CI-ready or published report.
-fm_test_ban_should_check() {  # <kind> <mode> <line> <meta>
+# a task whose meta records test_ban_model=. A forced pre-PR check also covers
+# the no-mistakes CI-ready line, without changing the crew-state handoff gate.
+fm_test_ban_should_check() {  # <kind> <mode> <line> <meta> [force]
   local note
   [ "$1" = ship ] || return 1
   [ "$(status_line_verb "$3")" = "done" ] || return 1
   [ -n "$4" ] && [ -f "$4" ] || return 1
   [ -n "$(fm_dod_meta_value "$4" test_ban_model)" ] || return 1
-  [ -z "$(fm_dod_meta_value "$4" test_ban_exception)" ] || return 1
   case "$2" in
     no-mistakes|'')
+      [ "${5:-0}" = 1 ] && return 0
       note=$(status_line_note "$3")
       ! fm_dod_note_reports_ci_ready "$note" && ! fm_dod_note_reports_published_change "$note" ;;
     *) return 0 ;;
@@ -919,9 +939,9 @@ fm_test_ban_should_check() {  # <kind> <mode> <line> <meta>
 
 # 0 when the test-authoring gate does not apply or finds no test files. 1 when
 # refused; stdout then holds a one-line reason naming the files.
-fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta>
-  local kind=$1 mode=$2 wt=$3 line=$4 meta=$5 files
-  fm_test_ban_should_check "$kind" "$mode" "$line" "$meta" || return 0
+fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
+  local kind=$1 mode=$2 wt=$3 line=$4 meta=$5 files rejected path
+  fm_test_ban_should_check "$kind" "$mode" "$line" "$meta" "${6:-0}" || return 0
   if [ -z "$wt" ] || [ ! -d "$wt" ] || ! git -C "$wt" rev-parse --git-dir >/dev/null 2>&1; then
     printf '%s\n' "test-file check cannot read the worker copy"
     return 1
@@ -931,8 +951,16 @@ fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta>
     return 1
   }
   [ -n "$files" ] || return 0
-  printf '%s\n' "no test authoring on $(fm_dod_meta_value "$meta" test_ban_model): the branch adds or modifies test files $(printf '%s' "$files" | tr '\n' ' ' | sed 's/ $//'); drop them and report done again"
-  return 1
+  rejected=
+  while IFS= read -r path; do
+    fm_test_ban_path_allowed "$path" "$meta" || rejected="${rejected}${path}\n"
+  done <<<"$files"
+  [ -z "$rejected" ] || {
+    rejected=$(printf '%b' "$rejected" | sed '/^$/d' | tr '\n' ' ' | sed 's/ $//')
+    printf '%s\n' "no test authoring on $(fm_dod_meta_value "$meta" test_ban_model): the branch adds or modifies unauthorized test files $rejected; drop them and report done again"
+    return 1
+  }
+  return 0
 }
 
 # 0 when <line> is not a ship done: to gate, when it names the task's recorded

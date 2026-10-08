@@ -1735,13 +1735,20 @@ EOF2
 
   id=test-ban-haiku-exception
   write_brief "$home" "$id" direct-PR
-  printf '# Task\n## Captain'"'"'s intent\nFix the parser.\n\n### Captain-specified test\nAssert parse("a=1") returns a single pair.\n\n## Firstmate spec\nKeep it small.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+  printf '# Task\n## Captain'"'"'s intent\nFix the parser.\n\n### Captain-specified test\nAdd tests/parser.test.js: assert parse("a=1") returns a single pair.\n\n## Firstmate spec\nKeep it small.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
     > "$home/data/$id/brief.md"
   run_spawn "$home" "$fakebin" "$id" "$proj" claude --model haiku --mode direct-PR --yolo off >/dev/null
   brief="$home/data/$id/launch-brief.md"
   assert_present "$brief" "Haiku ship did not render a launch brief"
   assert_grep '# No test authoring' "$brief" "Haiku ship did not get the No test authoring section"
-  assert_grep 'the done check below is off for it' "$brief" "the captain-specified test did not lift the done check"
+  assert_grep 'Captain-authorized test path(s): tests/parser.test.js' "$brief" "the authorized path was not named in the launch section"
+  id=test-ban-scout
+  write_brief "$home" "$id"
+  run_spawn "$home" "$fakebin" "$id" "$proj" claude --scout --model claude-haiku-5-5 >/dev/null
+  brief="$home/data/$id/launch-brief.md"
+  assert_present "$brief" "Haiku scout did not render a launch brief"
+  assert_grep '# No test authoring' "$brief" "Haiku scout did not get the No test authoring section"
+  assert_grep 'No test file paths are authorized by the captain' "$brief" "scout instruction did not forbid unspecified paths"
 
   id=test-ban-opus
   write_brief "$home" "$id" no-mistakes
@@ -1759,6 +1766,7 @@ test_promotion_keeps_the_test_ban() {
   mkdir -p "$home/state"
   meta="$home/state/promote-tb.meta"
   write_brief "$home" promote-tb
+  printf '# Task\n## Captain'"'"'s intent\nFix parser.\n\n### Captain-specified test\nAdd tests/parser.test.js: parse one pair.\n\n## Firstmate spec\nKeep the fix scoped.\n\n# Definition of done\n' > "$home/data/promote-tb/brief.md"
   printf 'window=fm-promote-tb\nkind=scout\nworktree=/tmp/wt\nmodel=claude-sonnet-5-5\ntest_ban_model=claude-sonnet-5-5\n' > "$meta"
   FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" promote-tb --mode direct-PR --yolo off >/dev/null 2>&1 \
     || fail "promotion of a test-banned scout failed"
@@ -1766,7 +1774,9 @@ test_promotion_keeps_the_test_ban() {
   assert_grep '# No test authoring' "$instructions" "promoted ship lost the No test authoring section"
   assert_no_grep 'turn that reproduction into a regression test' "$instructions" \
     "promoted ship was still told to write a regression test"
-  assert_no_grep '^test_ban_exception=' "$meta" "promotion recorded an exception the intent does not carry"
+  assert_grep 'test_ban_allowed=tests/parser.test.js' "$meta" "promotion did not persist the exact captain-authorized path"
+  assert_grep 'Captain-authorized test path(s): tests/parser.test.js' "$instructions" \
+    "promoted instructions did not name the exact authorized path"
 
   home="$TMP_ROOT/promote-test-open/home"
   mkdir -p "$home/state"

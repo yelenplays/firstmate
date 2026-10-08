@@ -494,15 +494,15 @@ test_test_ban_path_heuristic() {
   pass "test heuristic flags unit, integration, fixture and snapshot files and spares e2e"
 }
 
-test_test_ban_exception_needs_spelled_out_test() {
-  fm_test_ban_intent_has_exception "$(printf 'Fix it.\n\n### Captain-specified test\nAssert foo(2) returns 4.\n')" \
-    || fail "spelled-out captain test was not an exception"
-  if fm_test_ban_intent_has_exception "$(printf 'Fix it.\n\n### Captain-specified test\n\n')"; then
-    fail "empty captain test heading counted as an exception"
-  fi
-  if fm_test_ban_intent_has_exception "Fix it and add tests."; then
-    fail "intent without the heading counted as an exception"
-  fi
+test_test_ban_exception_requires_explicit_paths() {
+  [ "$(fm_test_ban_intent_allowed_paths "$(printf 'Fix it.\n\n### Captain-specified test\nAdd tests/foo.test.js: assert foo(2) returns 4.\n')")" = "tests/foo.test.js" ] \
+    || fail "captain test path was not captured exactly"
+  [ -z "$(fm_test_ban_intent_allowed_paths "$(printf 'Fix it.\n\n### Captain-specified test\nAssert foo(2) returns 4.\n')")" ] \
+    || fail "test description without a path authorized a test file"
+  [ -z "$(fm_test_ban_intent_allowed_paths "$(printf 'Fix it.\n\n### Captain-specified test\n\n')")" ] \
+    || fail "empty captain test heading authorized a test file"
+  [ -z "$(fm_test_ban_intent_allowed_paths 'Fix it and add tests.')" ] \
+    || fail "intent without the heading authorized a test file"
   pass "only a spelled-out captain test is the exception"
 }
 
@@ -544,9 +544,15 @@ test_test_ban_gate_refuses_added_tests() {
     *"no test authoring"*) fail "CI-ready done was test-checked against pipeline commits" ;;
   esac
 
-  printf 'kind=ship\nmode=no-mistakes\ntest_ban_model=claude-sonnet-5-5\ntest_ban_exception=captain-test\n' > "$meta"
+  printf 'kind=ship\nmode=no-mistakes\ntest_ban_model=claude-sonnet-5-5\ntest_ban_allowed=tests/fix.test.sh\n' > "$meta"
   accept_done ship no-mistakes "$wt" "$repo" 'done: fixed' "$TMP_ROOT" testban "$meta" \
-    || fail "captain-specified test exception was refused"
+    || fail "the exact captain-authorized test path was refused"
+  printf 'extra\n' > "$wt/tests/extra.test.sh"
+  git -C "$wt" add tests/extra.test.sh && git -C "$wt" commit -q -m unauthorized-test
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: fixed' "$TMP_ROOT" testban "$meta")
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "a test outside the captain-authorized path was accepted"
+  assert_contains "$reason" "tests/extra.test.sh" "refusal did not name the unauthorized sibling test"
   printf 'kind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\n' > "$meta"
   accept_done ship no-mistakes "$wt" "$repo" 'done: fixed' "$TMP_ROOT" testban "$meta" \
     || fail "an unbanned task was test-checked"
@@ -584,7 +590,7 @@ test_test_ban_gate_reads_the_named_base() {
 
 test_test_ban_model_list
 test_test_ban_path_heuristic
-test_test_ban_exception_needs_spelled_out_test
+test_test_ban_exception_requires_explicit_paths
 test_test_ban_gate_refuses_added_tests
 test_test_ban_gate_reads_the_named_base
 

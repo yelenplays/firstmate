@@ -240,16 +240,14 @@ fi
 # the --yes ban is the delivery hole this file used to leave open.
 INSTRUCTIONS="$DATA/$ID/ship-instructions.md"
 # A scout spawned on a test-banned model keeps that ban as a ship
-# (bin/fm-dod-lib.sh's test-authoring block); the captain exception is
-# re-derived from the intent the promoted ship carries.
+# (bin/fm-dod-lib.sh's test-authoring block); allowed paths are re-derived
+# from the intent the promoted ship carries.
 PROMOTE_TEST_BAN_MODEL=$(fm_dod_meta_value "$META" test_ban_model)
-PROMOTE_TEST_BAN_EXCEPTION=0
+PROMOTE_TEST_BAN_ALLOWED_PATHS=
 PROMOTE_REPRO_STEP="If you reproduced a bug, turn that reproduction into a regression test."
 if [ -n "$PROMOTE_TEST_BAN_MODEL" ]; then
   PROMOTE_REPRO_STEP="Do not turn a reproduction into a regression test; the No test authoring section governs test files."
-  if fm_test_ban_intent_has_exception "$INTENT_BODY"; then
-    PROMOTE_TEST_BAN_EXCEPTION=1
-  fi
+  PROMOTE_TEST_BAN_ALLOWED_PATHS=$(fm_test_ban_intent_allowed_paths "$INTENT_BODY")
 fi
 PROMOTION_ASK_USER_BLOCK=
 if [ "$MODE" = no-mistakes ]; then
@@ -307,7 +305,7 @@ $PROMOTION_SHIP_SPEC
 EOF
   promote_delivery_contract
   if [ -n "$PROMOTE_TEST_BAN_MODEL" ]; then
-    fm_test_ban_overlay "$PROMOTE_TEST_BAN_MODEL" "$PROMOTE_TEST_BAN_EXCEPTION"
+    fm_test_ban_overlay "$PROMOTE_TEST_BAN_MODEL" "$PROMOTE_TEST_BAN_ALLOWED_PATHS"
   fi
 } > "$TMP" || { echo "error: could not render ship instructions for mode=$MODE" >&2; exit 1; }
 mv "$TMP" "$INSTRUCTIONS"
@@ -344,13 +342,17 @@ BRIEF_REPLACEMENT=
 EXECUTION_TOKEN=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" attempt "$ID") || exit 1
 
 TMP="$STATE/.$ID.meta.promote.${BASHPID:-$$}"
-grep -v -e '^kind=' -e '^mode=' -e '^yolo=' -e '^branch=' -e '^test_ban_exception=' "$META" > "$TMP"
+grep -v -e '^kind=' -e '^mode=' -e '^yolo=' -e '^branch=' -e '^test_ban_allowed=' "$META" > "$TMP"
 {
   echo "kind=ship"
   echo "mode=$MODE"
   echo "yolo=$YOLO"
   echo "branch=$BRANCH"
-  [ "$PROMOTE_TEST_BAN_EXCEPTION" = 0 ] || echo "test_ban_exception=captain-test"
+  if [ -n "$PROMOTE_TEST_BAN_MODEL" ]; then
+    while IFS= read -r allowed_path; do
+      [ -z "$allowed_path" ] || echo "test_ban_allowed=$allowed_path"
+    done <<<"$PROMOTE_TEST_BAN_ALLOWED_PATHS"
+  fi
 } >> "$TMP"
 if ! fm_backlog_atomic_transition publish "$TMP" "$META" "task record" "$STATE"; then
   rm -f -- "$TMP"
