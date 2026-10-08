@@ -22,7 +22,7 @@
 # item of that service name, and the person can also DM the bot.
 #
 # Out: `post` sends one captain-facing message to the decisions channel for
-# `decision` (one decision with its recommendation), or to the report channel
+# `decision` (one decision; options require a recommendation), or to the report channel
 # for `ready` (a PR ready for review or a merge ask), `merged` (a merge result),
 # and `report` (anything else), through slack-axi (draft, then `draft send`) or
 # the bot. The structured form (--title and its companions) is what firstmate
@@ -144,7 +144,8 @@ Usage:
                      [--url <https-url> [--url-label <label>]] [--dry-run]
                                post one item laid out for scanning; kind is decision (decisions
                                channel), ready (PR ready or merge ask), merged, or report;
-                               at most two --context lines; --dry-run prints the Slack payload
+                               decisions with options need --recommend; at most two
+                               --context lines; --dry-run prints the Slack payload
   fm-slack-bridge.sh post report|decision [--url <https-url>] [--dry-run] [--] <text>...
                                free-text form for old callers (- reads the text from stdin)
   fm-slack-bridge.sh check     deliver new captain thread replies, bot DMs and mentions, and handoff requests to the captain inbox
@@ -434,6 +435,10 @@ action_post() {
         spec="$spec$(json_b64 "${contexts[$item]}")"
       done
       spec="$spec]"
+    fi
+    if [ "$kind" = decision ] && [ "${#option_keys[@]}" -gt 0 ] && [ -z "$recommend" ]; then
+      printf 'fm-slack-bridge: a decision with options needs --recommend\n' >&2
+      exit 2
     fi
     if [ "${#option_keys[@]}" -gt 0 ]; then
       spec="$spec,\"options\":["

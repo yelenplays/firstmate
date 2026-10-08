@@ -994,12 +994,12 @@ test_structured_post_layouts() {
   ' || fail "a decision has a header, bold question, marked options, labelled PR link, and reply footer: $out"
 
   out=$("$BRIDGE" post decision --dry-run --project firstmate --title '*urgent*' \
-    --context 'keep _this_ literal ~too~ `please`' --option a='*approve*' \
+    --context 'keep _this_ literal ~too~ `please`' --option a='*approve*' --recommend a \
     --url https://example.com/x --url-label '*open*' 2>&1) || fail "mrkdwn markers must render literally: $out"
   check_payload "$out" '
     ok(blockText.includes("*\\*urgent\\**"));
     ok(blockText.includes("keep \\_this\\_ literal \\~too\\~ \\`please\\`"));
-    ok(blockText.includes("◻️ *a* · \\*approve\\*"));
+    ok(blockText.includes("➡️ *a* · \\*approve\\*"));
     ok(blockText.includes("|\\*open\\*"));
     ok(!blockText.includes("**urgent**"));
   ' || fail "user mrkdwn markers stay literal across structured fields: $out"
@@ -1037,6 +1037,7 @@ test_structured_post_refuses_bad_input() {
   done <<'CASES'
 decision --title q --context 1 --context 2 --context 3
 decision --title q --option a=x --recommend b
+decision --title q --option a=x --option b=y
 decision --title q --option a=x --option a=y
 decision --title q --option ax
 decision --title q extra free text
@@ -1045,7 +1046,17 @@ ready "free text"
 merged --title q --option a=x
 decision --title q --url http://example.com
 CASES
-  pass "fm-slack-bridge: structured posts refuse a third context line, unknown or duplicate options, mixed forms, and bad links"
+  node -e '
+    const { spawnSync } = require("node:child_process");
+    const spec = { kind: "decision", title_b64: Buffer.from("Q").toString("base64"), options: [
+      { key: "a", text_b64: Buffer.from("A").toString("base64") },
+    ] };
+    const result = spawnSync(process.execPath, [process.argv[1], "json"], {
+      input: JSON.stringify(spec), encoding: "utf-8",
+    });
+    if (result.status !== 2 || !result.stderr.includes("a decision with options needs --recommend")) process.exit(1);
+  ' "$ROOT/bin/fm-slack-render.mjs" || fail "the renderer refuses a decision with options but no recommendation"
+  pass "fm-slack-bridge: structured posts refuse invalid inputs and decisions without recommendations"
 }
 
 test_structured_post_through_slack_axi_uses_the_fallback() {

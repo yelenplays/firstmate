@@ -114,6 +114,7 @@ function renderStructured(spec, kind) {
   if (new Set(keys).size !== keys.length) die("option keys must be unique");
   const recommend = spec.recommend === undefined || spec.recommend === null ? "" : spec.recommend;
   if (recommend && !keys.includes(recommend)) die("recommend must name one of the option keys");
+  if (kind === "decision" && options.length && !recommend) die("a decision with options needs --recommend");
   if (kind === "merged" && options.length) die("a merged post takes no options");
   const l = link(spec);
 
