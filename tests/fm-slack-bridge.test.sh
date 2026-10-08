@@ -947,7 +947,7 @@ test_manifest_has_name_and_minimal_scopes() {
   expect_code 2 "$rc" "a name longer than Slack allows is refused"
   out=$("$BRIDGE" manifest --name "Marco's \"Firstmate\"" --private-channels --link 2>&1) || fail "manifest link must succeed: $out"
   case "$out" in https://api.slack.com/apps\?new_app=1\&manifest_json=*) ;; *) fail "the link opens Slack's create-app dialog: $out" ;; esac
-  # shellcheck disable=SC2016
+  # shellcheck disable=SC2016 # literal mrkdwn markers / JavaScript, not shell
   node -e '
     const m = JSON.parse(new URL(process.argv[1]).searchParams.get("manifest_json"));
     const want = ["chat:write", "channels:history", "groups:history", "im:history", "im:write"];
@@ -970,6 +970,7 @@ test_structured_post_layouts() {
     --context "Undo bar is half done." --context "Gesture alone is tested & green." \
     --option a="Ship gesture now" --option b="Wait for both" --recommend a \
     --url https://github.com/o/gmail-swipe/pull/11 >/dev/null 2>&1 || fail "a structured decision must post"
+  # shellcheck disable=SC2016 # literal mrkdwn markers / JavaScript, not shell
   bridge "$home" post decision --project 'first*mate' --title '*urgent*' \
     --context 'keep _this_ literal ~too~ `please`' --option a='*approve*' --recommend a \
     --url https://example.com/x >/dev/null 2>&1 || fail "a decision with caller mrkdwn markers must post"
@@ -979,6 +980,7 @@ test_structured_post_layouts() {
   bridge "$home" post merged --project firstmate --title "Slack posts are readable" \
     --url https://github.com/o/firstmate/issues/15 >/dev/null 2>&1 || fail "a merged post must post"
   bridge "$home" post report "plain words" >/dev/null 2>&1 || fail "free text must still post"
+  # shellcheck disable=SC2016 # literal mrkdwn markers / JavaScript, not shell
   node -e '
     const fs = require("fs");
     const drafts = fs.readFileSync(process.argv[1], "utf-8").split("\n").filter(Boolean).map(JSON.parse)
