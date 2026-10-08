@@ -2073,7 +2073,7 @@ A fail-closed poll that already queued a wake, and a timeout, always print so th
 ## Slack bridge (config/slack-bridge)
 
 The Slack bridge (`bin/fm-slack-bridge.sh`) lets the captain follow and answer this home from Slack.
-Out, firstmate posts captain-facing outcomes: finished PRs, merge asks, and merge results to the report channel, and decisions with a recommendation to the decisions channel.
+Out, firstmate posts captain-facing outcomes: PRs ready for review, merge asks, and merge results to the report channel, and decisions to the decisions channel.
 In, the captain's reply in the thread of a bridge post reaches firstmate as a captain inbox note, so replying `merge` in Slack works like typing it.
 With an optional bot, the home has its own Slack app, such as "Yelen's Firstmate": firstmate posts as the bot, the captain can also DM the bot or tag it in the report or decisions channel, and firstmate's answers go back into the same DM or thread.
 
@@ -2089,9 +2089,9 @@ This section is the single owner of the config schema.
 The file holds one `key=value` per line, and a line starting with `#` is a comment; a comment never follows a value on the same line, because channel names start with `#`.
 
 ```sh
-# finished PRs, merge asks, merge results; a #name or channel id
+# PRs ready for review, merge asks, merge results; a #name or channel id
 report-channel=#fm-reports
-# decisions with a recommendation; a #name or channel id
+# decisions; a #name or channel id
 decisions-channel=#fm-decisions
 # optional; other people's requests to this fleet
 handoff-channel=#fm-handoff
@@ -2135,7 +2135,9 @@ bin/fm-slack-bridge.sh post decision --project "Gmail Swipe" \
 ```
 
 The kind picks the layout and channel: `decision` goes to the decisions channel, while `ready` (a PR ready for review or a merge ask), `merged` (a merge result), and `report` (anything else) go to the report channel.
-Each post shows a header with the kind and project, the title in bold, at most two context lines, the options with the recommended one marked, the link, and a "Reply in thread" footer naming the option keys; a `merged` post is one compact line pair. A structured `decision` with options must include `--recommend <key>` naming one of them; a yes/no decision without options does not need it.
+
+Each post shows a header with the kind and project, the title in bold, at most two context lines, the options with the recommended one marked, the link, and a "Reply in thread" footer naming the option keys; a `merged` post is one compact line pair.
+A structured `decision` with options must include `--recommend <key>` naming one of them; a yes/no decision without options does not need it.
 A `--url` is always a labelled link, `PR #<n>` for a GitHub pull request or `Open link` otherwise, never a raw URL.
 `bin/fm-slack-render.mjs` owns the layouts and their limits.
 With a bot the post is Block Kit with a plain-text fallback; through `slack-axi` it is that fallback, Slack formatting with the same layout.
@@ -2174,9 +2176,8 @@ A quiet poll prints nothing.
 
 The bridge reads each post's thread for replies only during the configured `watch-days` window (default 7 days, maximum 30 days).
 A reply after that window is not delivered.
-- If an ask is still open after the window, repost it as a new structured message.
-- Run `bin/fm-slack-bridge.sh post <kind> --title "<line>"` to create the new post.
-- For decisions with options, include each `--option <key>=<text>` and `--recommend <key>`.
+If an ask is still open after the window, repost it as a new structured message with `bin/fm-slack-bridge.sh post <kind> --title "<line>"`.
+For decisions with options, include each `--option <key>=<text>` and `--recommend <key>`.
 Replies arrive within one poll interval while supervision is running.
 Set `poll-seconds=60` for the bridge's minute-or-two reply time.
 When unset, the bridge uses the global `FM_CHECK_INTERVAL` (default 300 seconds).

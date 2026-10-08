@@ -181,14 +181,7 @@ What counts:
 - Each message is delivered once, even when it is reachable as both a thread reply and a tag.
 - Messages arrive within one poll interval (`poll-seconds`) while firstmate's supervision runs.
 
-What the bot posts where:
-
-| Post | Channel |
-| --- | --- |
-| Finished PRs, merge asks, and merge results, one per post | Report channel, top-level |
-| Decisions with a recommendation, one per post | Decisions channel, top-level |
-| Answers to your DM | The DM |
-| Answers to a thread reply or a tag | That thread |
+Posting kinds, channels, and layouts are owned by [Slack bridge configuration](configuration.md#slack-bridge-configslack-bridge).
 
 ## Two people, two bots
 
