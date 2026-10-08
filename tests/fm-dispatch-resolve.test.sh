@@ -191,7 +191,7 @@ reset_log() {
 run() {
   local __exit=$1 __out=$2 __err=$3 _out _code
   shift 3
-  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_BACKUP_JUDGE=off FM_SPEND_LEDGER="${FM_SPEND_LEDGER:-$LEDGER_STUB}" "$TOOL" --typed-only "$@" 2> "$TMP_ROOT/stderr")
+  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_SPEND_LEDGER="${FM_SPEND_LEDGER:-$LEDGER_STUB}" "$TOOL" --typed-only "$@" 2> "$TMP_ROOT/stderr")
   _code=$?
   printf -v "$__exit" '%s' "$_code"
   printf -v "$__out" '%s' "$_out"
@@ -201,7 +201,7 @@ run() {
 run_without_curl() {
   local __exit=$1 __out=$2 __err=$3 _out _code
   shift 3
-  _out=$(PATH="$NO_CURL_BIN" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY="$KEY" FM_BACKUP_JUDGE=off FM_SPEND_LEDGER="$LEDGER_STUB" "$TOOL" --typed-only "$@" 2> "$TMP_ROOT/stderr")
+  _out=$(PATH="$NO_CURL_BIN" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY="$KEY" FM_SPEND_LEDGER="$LEDGER_STUB" "$TOOL" --typed-only "$@" 2> "$TMP_ROOT/stderr")
   _code=$?
   printf -v "$__exit" '%s' "$_code"
   printf -v "$__out" '%s' "$_out"
@@ -1973,10 +1973,10 @@ FAKE_CURL_HTTP=500 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_ANSWER='{"rule":"rule_99","
 assert_contains "$out" '  backup: failed (answer is not a valid structured answer)' "chain: an off-menu backup answer is rejected"
 assert_contains "$out" '  status: fallback' "chain: an off-menu backup answer falls to the default"
 reset_log
-FAKE_CURL_HTTP=500 TYPESAFE_API_KEY=$KEY FM_BACKUP_JUDGE=off run_chain code out err "$BRIEF"
-assert_contains "$out" '  backup: failed (disabled)' "chain: a disabled backup is named"
-assert_contains "$out" '  status: fallback' "chain: a disabled backup falls to the default"
-pass "chain: a failed, invalid, or disabled backup falls to the default rule"
+FAKE_CURL_HTTP=500 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_FAIL=1 run_chain code out err "$BRIEF"
+assert_contains "$out" '  backup: failed (fake-claude exited 1)' "chain: a failing backup stub is named"
+assert_contains "$out" '  status: fallback' "chain: a failing backup stub falls to the default"
+pass "chain: a failed or invalid backup falls to the default rule"
 
 # The never-send list blocks both judges: no typed call, no backup call, and
 # the default answers.

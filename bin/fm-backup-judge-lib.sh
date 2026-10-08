@@ -20,11 +20,8 @@
 #       call. Never prints the state, the prompt, or the answer.
 #
 # Environment:
-#   FM_BACKUP_JUDGE           off|0|false|no disables the backup (reason
-#                             "disabled"); anything else, or unset, enables it.
 #   FM_BACKUP_JUDGE_CMD       the claude executable (default: claude). Tests
 #                             point it at a stub that speaks the same JSON.
-#   FM_BACKUP_JUDGE_MODEL     model id (default: claude-haiku-5-5).
 #   FM_BACKUP_JUDGE_TIMEOUT   whole-call bound in seconds, 1..600 (default 90).
 #
 # Isolation: the call runs from an empty temporary directory with no setting
@@ -45,13 +42,6 @@ FM_BACKUP_JUDGE_MODEL_USED=''
 # shellcheck disable=SC2034 # Output globals, read by the sourcing caller.
 FM_BACKUP_JUDGE_LATENCY_MS=0
 
-fm_backup_judge_enabled() {
-  case "${FM_BACKUP_JUDGE:-}" in
-    off|0|false|no) return 1 ;;
-  esac
-  return 0
-}
-
 fm_backup_judge_now_ms() {
   perl -MTime::HiRes=time -e 'printf "%d\n", time * 1000' 2>/dev/null || printf '%s000\n' "$(date +%s)"
 }
@@ -59,16 +49,12 @@ fm_backup_judge_now_ms() {
 # shellcheck disable=SC2034 # Sets the output globals above.
 fm_backup_judge() {
   local state=$1 questions=$2 answer_file=$3
-  local cmd=${FM_BACKUP_JUDGE_CMD:-claude} model=${FM_BACKUP_JUDGE_MODEL:-$FM_BACKUP_JUDGE_DEFAULT_MODEL}
+  local cmd=${FM_BACKUP_JUDGE_CMD:-claude} model=$FM_BACKUP_JUDGE_DEFAULT_MODEL
   local timeout=${FM_BACKUP_JUDGE_TIMEOUT:-90} dir prompt_file raw schema system rc start
   FM_BACKUP_JUDGE_WHY=''
   FM_BACKUP_JUDGE_MODEL_USED=''
   FM_BACKUP_JUDGE_LATENCY_MS=0
   : > "$answer_file" 2>/dev/null || { FM_BACKUP_JUDGE_WHY='answer file not writable'; return 1; }
-  if ! fm_backup_judge_enabled; then
-    FM_BACKUP_JUDGE_WHY=disabled
-    return 1
-  fi
   case "$timeout" in
     ''|0*|*[!0-9]*) FM_BACKUP_JUDGE_WHY='FM_BACKUP_JUDGE_TIMEOUT must be 1..600'; return 1 ;;
   esac

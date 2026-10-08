@@ -158,9 +158,8 @@
 #   from $FM_HOME/.env via fmx_env_get; the environment wins. A truthy value
 #   sends a 400-800 character intent summary instead of the whole brief
 #   (default on for the OpenRouter route when both are unset).
-#   FM_BACKUP_JUDGE, FM_BACKUP_JUDGE_CMD, FM_BACKUP_JUDGE_MODEL, and
-#   FM_BACKUP_JUDGE_TIMEOUT configure the backup judge
-#   (bin/fm-backup-judge-lib.sh owns them; FM_BACKUP_JUDGE=off disables it).
+#   FM_BACKUP_JUDGE_CMD selects the test stub and FM_BACKUP_JUDGE_TIMEOUT
+#   bounds the backup judge (bin/fm-backup-judge-lib.sh owns both).
 #
 # Authority: this tool never replaces the captain-approval gate or fm-spawn.sh
 #   validation; it publishes one inspectable answer plus every candidate's
@@ -1336,7 +1335,7 @@ if [ "$TYPED_ONLY" -eq 0 ] && [ -z "$DECIDED_BY" ]; then
     if [ -z "$BACKUP_QUESTIONS" ]; then
       BACKUP_LINE='failed (could not build the backup questions)'
     elif fm_backup_judge "$STATE" "$BACKUP_QUESTIONS" "$BACKUP_FILE"; then
-      BACKUP_MODEL=${FM_BACKUP_JUDGE_MODEL_USED:-${FM_BACKUP_JUDGE_MODEL:-$FM_BACKUP_JUDGE_DEFAULT_MODEL}}
+      BACKUP_MODEL=${FM_BACKUP_JUDGE_MODEL_USED:-$FM_BACKUP_JUDGE_DEFAULT_MODEL}
       BACKUP_RULE=$(jq -r '.rule' "$BACKUP_FILE")
       BACKUP_EFFORT=$(jq -r '.effort' "$BACKUP_FILE")
       BACKUP_LINE="$BACKUP_RULE effort=$BACKUP_EFFORT ($BACKUP_MODEL, ${FM_BACKUP_JUDGE_LATENCY_MS} ms)"

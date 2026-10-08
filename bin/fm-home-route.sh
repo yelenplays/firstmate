@@ -252,7 +252,7 @@ decide() {
     no_key | decision_unavailable | invalid_response | abstained)
       answer_file=$(mktemp "${TMPDIR:-/tmp}/fm-home-route-backup.XXXXXX") || answer_file=''
       if [ -n "$answer_file" ] && fm_backup_judge "$STATE" "$QUESTIONS" "$answer_file"; then
-        source=backup model="backup:${FM_BACKUP_JUDGE_MODEL_USED:-${FM_BACKUP_JUDGE_MODEL:-$FM_BACKUP_JUDGE_DEFAULT_MODEL}}" probability=null
+        source=backup model="backup:${FM_BACKUP_JUDGE_MODEL_USED:-$FM_BACKUP_JUDGE_DEFAULT_MODEL}" probability=null
         consult_p=$(jq -c 'with_entries(select(.key | startswith("consult_")) | {key: (.key | ltrimstr("consult_")), value: .value})' "$answer_file")
         mates=$(jq -r 'to_entries[] | select(.value == true) | .key' <<<"$consult_p")
         form_route "$(jq -r '.lead' "$answer_file")" "$mates"

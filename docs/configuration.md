@@ -1445,7 +1445,7 @@ Whenever the rules file parses and declares a rule or a default, it always print
 
 1. The typed stage is the Jev call described below; a `clear` or `picked` answer decides.
 2. When the typed stage is skipped, fails, cannot be reached, or stays ambiguous, the backup judge answers the same rule and effort questions on the same state, and its answer decides with status `backup`.
-3. When the backup fails or is disabled, the default stage resolves the configured `default` profiles (the first rule when no default is declared) with status `fallback`.
+3. When the backup fails, the default stage resolves the configured `default` profiles (the first rule when no default is declared) with status `fallback`.
 
 Each stage's answer settles through the same gates described below.
 When the decided rule leaves no rankable candidate - a quota floor, a refused burn, missing quota evidence, or a tie - a last resort picks inside that rule: the best-ranked eligible candidate, else the first eligible, else the first declared, in declared order on a tie, disclosed on a `last_resort:` line.
@@ -1457,7 +1457,7 @@ Each answer appends one metadata-only record (status, stage, rule, effort and an
 The backup judge is [`bin/fm-backup-judge-lib.sh`](../bin/fm-backup-judge-lib.sh): the local `claude` CLI on `claude-haiku-5-5`, called with a JSON schema whose enums are exactly the offered options, so an answer outside them is rejected rather than guessed around.
 It runs from an empty temporary directory with no settings, MCP servers, tools, or session persistence, reads the prompt on stdin, never receives the typed-call keys, and uses the CLI's own login.
 It sees exactly the typed call's state and questions and nothing more; a never-send match keeps the brief from both judges, and the default stage answers.
-`FM_BACKUP_JUDGE=off` disables it, and `FM_BACKUP_JUDGE_MODEL` and `FM_BACKUP_JUDGE_TIMEOUT` (seconds, default 90) tune it; the library header owns those settings.
+The backup model is fixed to `claude-haiku-5-5`; `FM_BACKUP_JUDGE_TIMEOUT` (seconds, default 90) bounds the call, and `FM_BACKUP_JUDGE_CMD` is reserved for test stubs.
 The [home router](#home-router) uses the same backup judge.
 
 The typed stage needs `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY` non-empty in the calling environment or in the home's gitignored `.env`; the environment wins, matching the Relay and mail-plane contracts, and the Relay accessor in `bin/fm-env-lib.sh` reads the line.
@@ -1640,10 +1640,10 @@ The tracked synthetic fixture in [`tests/fixtures/dispatch-selftest/`](../tests/
 
 A locked `bin/fm-session-start.sh` automatically arms the nightly check whenever `config/dispatch-samples.json` exists.
 Repeated session starts preserve the existing check registration, and `bin/fm-dispatch-selftest.sh arm` remains available for manual recovery.
-After a recorded pass, the check stores a SHA-256 digest of the rules and samples in `state/dispatch-selftest/passed.sha256`.
+The check stores the SHA-256 digest of the most recently attempted rules and samples in `state/dispatch-selftest/attempted.sha256`, including a distinct marker when either file is missing.
 When either file changes, the next watcher check starts a live run immediately instead of waiting for the nightly hour, unless a run is already active.
-An unchanged passing digest does not trigger another immediate run, while the nightly run remains on its existing cadence.
-A missing samples or rules file, or a failed routing sample, becomes an ordinary `check:` notification, with the full output in `state/dispatch-selftest/last.out`.
+A failed run alerts once for that attempt, and unchanged inputs wait for the nightly slot before another run; changed inputs trigger a new immediate attempt.
+A missing samples or rules file alerts once per missing-input attempt, updates `state/dispatch-selftest/last.out`, and is checked again on change or at the nightly slot.
 `bin/fm-dispatch-selftest.sh disarm` retires the check; the script header owns the exact records.
 
 ## Jev caller library (.env TYPESAFE_API_KEY / OPENROUTER_API_KEY)
@@ -3190,7 +3190,6 @@ FM_JEV_SPAN_TRIAGE_MAX=8  # status-line Jev consult cap per span; see "Jev super
 FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS=6  # shared Jev-call wall-clock budget per watcher or daemon cycle; see "Jev supervision triage"
 FM_JEV_DISPATCH_SHADOW= # 1 logs the Jev dispatch pick to state/jev-dispatch-shadow.jsonl; 0 overrides config/jev-dispatch-shadow off (docs/configuration.md "Typed dispatch resolution")
 FM_JEV_DISPATCH_MARGIN= # optional typed-dispatch top-2 margin threshold; default and calibration: docs/configuration.md "Typed dispatch resolution"
-FM_BACKUP_JUDGE=        # off disables the routing backup judge (claude CLI, Haiku 5.5); docs/configuration.md "Typed dispatch resolution"
 FM_DISPATCH_SELFTEST_HOUR=3  # local hour after which the nightly routing selftest runs once a day (same section)
 FM_WIKI_ENGINE=         # wiki-tool executable path or command; else config/wiki-engine (docs/configuration.md "Wiki engine ask")
 FM_WIKI_CATALOG=        # private wiki-tool catalog JSON path; else config/wiki-catalog (docs/configuration.md "Wiki engine ask")

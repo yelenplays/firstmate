@@ -187,11 +187,11 @@ test_hour=$(( (10#$(date '+%H') + 1) % 24 ))
 export FM_DISPATCH_SELFTEST_HOUR=$test_hour
 run_selftest code out run --record
 expect_code 0 "$code" "proof: the live sample set passes"
-passed_hash=$(cat "$HOME_DIR/state/dispatch-selftest/passed.sha256")
-[[ "$passed_hash" =~ ^[[:xdigit:]]{64}$ ]] || fail "proof: a successful recorded run did not save a SHA-256 digest"
+attempted_hash=$(cat "$HOME_DIR/state/dispatch-selftest/attempted.sha256")
+[[ "$attempted_hash" =~ ^[[:xdigit:]]{64}$ ]] || fail "proof: a recorded run did not save an attempted SHA-256 digest"
 started_before=$(jq -r '.started' "$HOME_DIR/state/dispatch-selftest/result.json")
 run_selftest code out check
-assert_equals '' "$out" "check: unchanged passed inputs do not run outside the nightly hour"
+assert_equals '' "$out" "check: unchanged attempted inputs do not run before the nightly slot"
 assert_equals "$started_before" "$(jq -r '.started' "$HOME_DIR/state/dispatch-selftest/result.json")" "check: unchanged inputs preserve the prior result"
 
 printf '\n' >> "$HOME_DIR/config/crew-dispatch.json"
@@ -199,29 +199,35 @@ run_selftest code out check
 assert_equals '' "$out" "check: a changed rules file starts an immediate run silently"
 wait_for_result
 jq -e '.exit == 0' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null || fail "check: the changed rules run did not pass"
-changed_hash=$(cat "$HOME_DIR/state/dispatch-selftest/passed.sha256")
-[ "$passed_hash" != "$changed_hash" ] || fail "check: the changed rules hash was not recorded"
+changed_hash=$(cat "$HOME_DIR/state/dispatch-selftest/attempted.sha256")
+[ "$attempted_hash" != "$changed_hash" ] || fail "check: the changed rules hash was not recorded"
 started_after_change=$(jq -r '.started' "$HOME_DIR/state/dispatch-selftest/result.json")
 run_selftest code out check
-assert_equals '' "$out" "check: the unchanged passed hash does not run again"
-assert_equals "$started_after_change" "$(jq -r '.started' "$HOME_DIR/state/dispatch-selftest/result.json")" "check: unchanged passed hash preserves the result"
+assert_equals '' "$out" "check: the unchanged attempted hash does not run again"
+assert_equals "$started_after_change" "$(jq -r '.started' "$HOME_DIR/state/dispatch-selftest/result.json")" "check: unchanged attempted hash preserves the result"
 pass "check: changed rules trigger an immediate proof and passing inputs stay quiet"
 
 # A failing changed input runs immediately and reports through the wake line.
-cp "$HOME_DIR/config/dispatch-samples.json" "$TMP_ROOT/passed-samples.json"
+cp "$HOME_DIR/config/dispatch-samples.json" "$TMP_ROOT/passing-samples.json"
 printf '\n' >> "$HOME_DIR/config/dispatch-samples.json"
 FAKE_TYPED_WRONG=impl-2 run_selftest code out check
 assert_equals '' "$out" "check: changed samples launch a run silently"
 wait_for_result
 jq -e '.exit == 1 and .reported == false' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null || fail "check: the changed-input failure was not recorded"
-cp "$TMP_ROOT/passed-samples.json" "$HOME_DIR/config/dispatch-samples.json"
 run_selftest code out check
 assert_contains "$out" 'dispatch selftest failed: selftest: 7 samples, 6 pass, 1 fail: impl-2 - misrouted: impl-2(rule_2->rule_1)' "check: the failure names the sample"
 assert_equals 1 "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" "check: the failure is one wake line"
+failed_started=$(jq -r '.started' "$HOME_DIR/state/dispatch-selftest/result.json")
 run_selftest code out check
-assert_equals '' "$out" "check: an alerted failure is not duplicated when inputs match the last pass"
-assert_contains "$(cat "$HOME_DIR/state/dispatch-selftest/last.out")" 'FAIL impl-2' "check: the full output is kept"
-pass "check: a failed changed-input proof alerts through one ordinary wake"
+assert_equals '' "$out" "check: the next unchanged poll neither reruns nor re-alerts"
+assert_equals "$failed_started" "$(jq -r '.started' "$HOME_DIR/state/dispatch-selftest/result.json")" "check: the failed attempt timestamp is retained"
+cp "$TMP_ROOT/passing-samples.json" "$HOME_DIR/config/dispatch-samples.json"
+run_selftest code out check
+assert_equals '' "$out" "check: changed inputs launch an immediate retry silently"
+wait_for_result
+jq -e '.exit == 0' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null || fail "check: the changed-input retry did not pass"
+assert_contains "$(cat "$HOME_DIR/state/dispatch-selftest/last.out")" 'PASS impl-2' "check: the successful retry output is retained"
+pass "check: failed attempts alert once until inputs change"
 
 # A run that died before recording is reported, not silently retried forever.
 jq -n --argjson at "$(date +%s)" '{started: $at, state: "running"}' > "$HOME_DIR/state/dispatch-selftest/result.json"
@@ -229,20 +235,30 @@ run_selftest code out check
 assert_contains "$out" 'dispatch selftest failed: the run stopped before it finished' "check: a dead run is reported"
 pass "check: a run that stopped early is reported"
 
-# The next scheduled slot re-runs; a passing run stays silent.
+# The nightly slot re-runs the unchanged attempted digest.
+nightly_hash=$(cat "$HOME_DIR/state/dispatch-selftest/attempted.sha256")
 jq '.started = 0' "$HOME_DIR/state/dispatch-selftest/result.json" > "$TMP_ROOT/r.json" && mv "$TMP_ROOT/r.json" "$HOME_DIR/state/dispatch-selftest/result.json"
 run_selftest code out check
 wait_for_result
-jq -e '.exit == 0' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null || fail "check: the re-run did not pass"
+jq -e '.exit == 0' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null || fail "check: the nightly re-run did not pass"
+assert_equals "$nightly_hash" "$(cat "$HOME_DIR/state/dispatch-selftest/attempted.sha256")" "check: nightly retry keeps the unchanged digest"
 run_selftest code out check
 assert_equals '' "$out" "check: a passing run is silent"
 pass "check: a passing scheduled run stays silent"
 
+missing_hash_before=$(cat "$HOME_DIR/state/dispatch-selftest/attempted.sha256")
 rm -f "$HOME_DIR/config/dispatch-samples.json"
 run_selftest code out check
-assert_contains "$out" 'dispatch selftest failed: samples file is missing' "check: an armed check alerts when samples disappear"
+assert_contains "$out" 'dispatch selftest failed: error: samples file is missing' "check: an armed check alerts when samples disappear"
 assert_equals 1 "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" "check: missing samples produce one wake line"
-pass "check: missing samples become an actionable wake line"
+missing_started=$(jq -r '.started' "$HOME_DIR/state/dispatch-selftest/result.json")
+missing_hash_after=$(cat "$HOME_DIR/state/dispatch-selftest/attempted.sha256")
+[ "$missing_hash_before" != "$missing_hash_after" ] || fail "check: the missing-samples marker was not recorded"
+assert_contains "$(cat "$HOME_DIR/state/dispatch-selftest/last.out")" 'error: samples file is missing' "check: missing input replaces stale output"
+run_selftest code out check
+assert_equals '' "$out" "check: an unchanged missing-samples poll neither reruns nor re-alerts"
+assert_equals "$missing_started" "$(jq -r '.started' "$HOME_DIR/state/dispatch-selftest/result.json")" "check: missing-input attempt timestamp is retained"
+pass "check: a missing samples file alerts once until change or nightly slot"
 
 run_selftest code out disarm
 expect_code 0 "$code" "disarm: succeeds"
