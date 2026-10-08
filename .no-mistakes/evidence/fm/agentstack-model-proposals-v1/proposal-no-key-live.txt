@@ -1,0 +1,3 @@
+fm-jev-model-proposal: no Jev key configured (TYPESAFE_API_KEY or OPENROUTER_API_KEY); nothing sent, no proposal written
+
+exit_code=2
