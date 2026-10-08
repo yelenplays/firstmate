@@ -2783,11 +2783,14 @@ signal_publish_release() {
   return "$rc"
 }
 
+# Serialize turn-end and status-log publication with teardown through the
+# task's metadata lock (docs/architecture.md): a signal captured before
+# teardown is dropped once its file is gone, so a closed task cannot present.
 signal_publish_filter() {
   local sf sig f task lock held acquired filtered=''
   while IFS=$(printf '\t') read -r sf sig f; do
     [ -n "$sf" ] || continue
-    if [[ "$f" == *.turn-ended ]]; then
+    if [[ "$f" == *.turn-ended || "$f" == *.status ]]; then
       task=${f##*/}
       task=${task%.*}
       lock=$(fm_meta_lock_path "$STATE/$task.meta") || return 1
