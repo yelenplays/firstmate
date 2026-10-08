@@ -1,0 +1,1 @@
+{"model":"jev-1.13.0","response":{"answers":{"miss":{"choice":"vocab_divergence","confidence":0.41,"probabilities":{"consent_blocked":0.07,"need_human":0.25,"true_miss":0.12,"vocab_divergence":0.56},"type":"choice"}},"model":"jev-1.13.0","usage":{"input_tokens":858,"output_tokens":61}}}

@@ -1467,7 +1467,7 @@ cmd_find() {
     [.documents[]?
       | select(.path | startswith("days/") or startswith("tasks/"))
       | {path, score, title}
-    ] | unique_by(.path) | .[:24]
+    ] | reduce .[] as $d ([]; if any(.[]; .path == $d.path) then . else . + [$d] end) | .[:24]
   ' 2>/dev/null) || die 'could not read local BM25 results'
   [ -n "$candidates" ] || candidates='[]'
   local count

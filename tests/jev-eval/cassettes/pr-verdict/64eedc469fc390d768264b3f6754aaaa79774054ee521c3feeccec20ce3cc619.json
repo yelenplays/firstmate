@@ -1,0 +1,1 @@
+{"model":"jev-1.13.0","response":{"answers":{"advisory":{"choice":"concerns","confidence":0.74,"probabilities":{"concerns":0.87,"pass":0.13},"type":"choice"}},"model":"jev-1.13.0","usage":{"input_tokens":757,"output_tokens":35}}}

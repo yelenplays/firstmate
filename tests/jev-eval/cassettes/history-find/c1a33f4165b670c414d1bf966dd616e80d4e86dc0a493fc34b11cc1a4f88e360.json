@@ -1,0 +1,1 @@
+{"model":"jev-1.13.0","response":{"answers":{"match":{"choice":"tasks/model-routing-research-v1","confidence":0.68,"probabilities":{"none?":0.05,"tasks/fm-routing-always-answers-v1":0.19,"tasks/model-routing-research-v1":0.76,"tasks/secondmate-per-id-profile-v1":0.0},"type":"choice"}},"model":"jev-1.13.0","usage":{"input_tokens":834,"output_tokens":78}}}

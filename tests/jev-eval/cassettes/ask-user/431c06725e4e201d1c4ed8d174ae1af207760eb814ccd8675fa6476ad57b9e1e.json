@@ -1,0 +1,1 @@
+{"model":"jev-1.13.0","response":{"answers":{"f1":{"choice":"expands-contract","confidence":0.19,"probabilities":{"destructive-or-security":0.0,"expands-contract":0.39,"in-scope-fix":0.32,"unsettled-call":0.29},"type":"choice"},"s1":{"noul":0.06,"type":"noul"}},"model":"jev-1.13.0","usage":{"input_tokens":1334,"output_tokens":83}}}

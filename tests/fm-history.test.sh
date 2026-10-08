@@ -97,6 +97,19 @@ test_capture_is_idempotent_and_uses_the_captains_local_day() {
   pass 'capture is idempotent, local-day keyed, and recoverable through recent and BM25 search'
 }
 
+test_find_keeps_keyword_rank_order() {
+  local output first
+  fresh_home
+  mkdir -p "$HOME_DIR/data/history/tasks"
+  printf '# Aardvark notes\n\nOne passing mention of the lantern rebuild.\n' > "$HOME_DIR/data/history/tasks/aaa-passing.md"
+  printf '# Lantern rebuild\n\nThe lantern rebuild plan: lantern rebuild steps, lantern rebuild risks.\n' > "$HOME_DIR/data/history/tasks/zzz-lantern-rebuild.md"
+  output=$(TYPESAFE_API_KEY='' OPENROUTER_API_KEY='' run_history find 'lantern rebuild')
+  first=$(printf '%s\n' "$output" | awk '$1 == "1." { print $2; exit }')
+  [ "$first" = data/history/tasks/zzz-lantern-rebuild.md ] \
+    || fail "find did not keep the keyword rank order (first: $first)"$'\n'"$output"
+  pass 'find lists candidates in keyword rank order, not path order'
+}
+
 test_jev_history_selection_never_receives_query_or_page_content() {
   local query='SILVER ORCHID private search phrase' transcript request output day
   fresh_home
@@ -358,6 +371,7 @@ test_wake_batches_and_acknowledgements_are_journaled() {
 }
 
 test_capture_is_idempotent_and_uses_the_captains_local_day
+test_find_keeps_keyword_rank_order
 test_jev_history_selection_never_receives_query_or_page_content
 test_pi_transcript_capture_keeps_captain_words_and_final_reply_only
 test_claude_compaction_and_session_end_hooks_capture_once

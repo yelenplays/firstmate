@@ -21,6 +21,8 @@ Invariants:
   - Swap with SwapTotal > 0 but no SwapFree line is reported as unknown and never
     classifies the verdict; a failed top-process listing degrades to an empty list.
   - Bounded sub-second execution (< 500ms).
+  - FM_JEV_MEM_GUARD_MEMINFO, when set, is read in place of /proc/meminfo so the
+    verdict can be checked against a fixture (tests/jev-eval/cases/mem-guard.jsonl).
   - Status is OK, WARNING, CRITICAL, or UNKNOWN; recommendation is diagnostic text
     for the operator, never a command.
 """
@@ -34,10 +36,10 @@ from typing import Any, Dict, List, Optional
 
 
 def read_meminfo() -> Dict[str, int]:
-    """Reads and parses /proc/meminfo in kB."""
+    """Reads and parses /proc/meminfo in kB (FM_JEV_MEM_GUARD_MEMINFO names another file, for tests)."""
     info: Dict[str, int] = {}
     try:
-        with open("/proc/meminfo", "r") as f:
+        with open(os.environ.get("FM_JEV_MEM_GUARD_MEMINFO") or "/proc/meminfo", "r") as f:
             for line in f:
                 parts = line.split(":")
                 if len(parts) == 2:

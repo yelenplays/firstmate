@@ -1,0 +1,1 @@
+{"model":"jev-1.13.0","response":{"answers":{"pick":{"choice":"captain-via-firstmate","confidence":0.72,"probabilities":{"captain-via-firstmate":0.86,"worker":0.14},"type":"choice"}},"model":"jev-1.13.0","usage":{"input_tokens":326,"output_tokens":43}}}
