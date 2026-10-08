@@ -15,8 +15,13 @@
 #   $FM_HOME/config/crew-dispatch.json) is one role, named rule-<n> in file
 #   order, with its `when` as the job and its `use` entries as the current
 #   models. A missing dispatch file contributes no roles; a malformed one is an
-#   error. The evidence file's optional `roles` array adds roles the dispatch
-#   file does not hold, such as secondmate pins or team seats.
+#   error. An existing file needs a `rules` array; each rule needs a nonblank
+#   `when` and `use` as a profile object or a nonempty array of profile objects.
+#   Each profile needs a nonblank string `harness`; optional `model` and `effort`
+#   must be strings. The evidence file's optional `roles` array adds roles the
+#   dispatch file does not hold, such as secondmate pins or team seats.
+#   Jobs from either source are whitespace-normalized and limited to 600
+#   characters; an oversized job refuses the run before any Jev call.
 #
 # Evidence file (JSON, curated by whoever asks for the proposal):
 #   {
@@ -39,20 +44,27 @@
 #   usage-credits, because Fable bills the account's usage credits outside the
 #   subscription; anything else refuses the whole file. `evidence` is at most
 #   400 characters. Role ids match the candidate id pattern and must not take
-#   the rule-<n> form.
+#   the rule-<n> form. Role `current` entries are strings in harness/model[/effort]
+#   form; family/provider/model[/effort] entries are also recognized.
 #
-# Jev call (one per role, through bin/fm-jev-lib.sh and its pinned model):
+# Jev call (at most one per role; bin/fm-jev-lib.sh owns route/model settings):
 #   state = {role: {job}, candidates: {<id>: {model, evidence}}}, and one
 #   choice question whose options are every candidate id plus none_fit. Price,
 #   billing, quota, harness, and the current pick stay in code and are never
 #   sent. The state passes fm_jev_compact_state, which strips secret-shaped
 #   text and refuses a state over JEV_STATE_MAX_BYTES. The caller must keep
 #   private-vault content and personal data out of the evidence file.
+#   Sendable role requests are screened before any call, and the complete
+#   request including Jev's model is checked again immediately before transport,
+#   against $FM_HOME/config/dispatch-never-send. docs/configuration.md
+#   "Never-send list" owns its matching rules; a refusal exits 2 with no proposal
+#   and a diagnostic that never includes the matched value.
 #
 # Gate (code, from intake.specialist v2): the chosen option's probability
 #   gives the band, and the chosen option must be the most probable one. Jev's
 #   own confidence is calibrated separately, may differ from that probability,
-#   and is reported as is when it lies in 0..1. none_fit is always uncertain.
+#   and must be a number in 0..1; missing, null, or out-of-range confidence makes
+#   that role's answer unusable. none_fit is always uncertain.
 #     act       >= 0.55  proposal: switch to the pick, or keep it when it is
 #                        already a current model
 #     review    >= 0.30  lean only, no switch proposed
@@ -64,16 +76,24 @@
 #   current models, every candidate with its billing class and probability,
 #   Jev's pick, confidence, band, and the local request id. A billing notice
 #   names every usage-credits candidate. Stdout prints the proposal path.
-#   A --out under $FM_HOME/config, or on the evidence or dispatch file, is
-#   refused: the proposal never touches configuration, and every switch needs
-#   the captain's yes before anyone edits a profile.
-#   Each call appends one record (request id, provider response id when the
-#   route returns one, role, answer, band, state hash; never the state text)
+#   --out must name a file, not a directory or a symlink to a directory.
+#   Output under $FM_HOME/config or $FM_HOME/state, or on either input file,
+#   is refused, including symlink targets. Output-directory creation follows
+#   the resolved destination, not lexical intermediate components.
+#   The proposal never touches configuration, and every switch needs the
+#   captain's yes before anyone edits a profile.
+#   Per-role metadata records (request id, provider response id for a usable
+#   answer, role, answer or error, band, route, response model, HTTP status,
+#   state hash, proposal path; never the state text) are appended best-effort
 #   to $FM_STATE_OVERRIDE or $FM_HOME/state, file jev-model-proposal.jsonl.
+#   Logging requires an existing non-symlink state directory; a call-log path
+#   resolving under $FM_HOME/config refuses the run. Roles rejected by
+#   compaction have empty route, HTTP status, and response model; malformed
+#   answers retain their own returned model when present.
 #
 # Exit: 0 proposal written with every role answered; 1 proposal written but at
 #   least one role got no usable answer, or a runtime failure; 2 usage,
-#   invalid input, or no Jev key configured (nothing written, nothing sent).
+#   invalid input, a never-send refusal, or no Jev key configured (no proposal).
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

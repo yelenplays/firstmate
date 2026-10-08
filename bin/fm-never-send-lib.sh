@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# Shared outbound check for dispatch and model proposals.
+# Usage: . bin/fm-never-send-lib.sh
+#   fm_never_send_check <list-path> <request-json> <description>
+# Returns 0 when allowed (including an absent list), or 1 on a match or check
+# failure, with a value-free diagnostic in FM_NEVER_SEND_ERROR.
+# docs/configuration.md "Never-send list" owns the list and matching contract.
+# Checker stderr is discarded because jq/grep errors can expose private text
+# or the literal pattern; callers choose their own refusal outcome.
 
 fm_never_send_check() {
   local list_path=$1 request=$2 description=$3

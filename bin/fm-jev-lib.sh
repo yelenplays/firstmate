@@ -40,14 +40,17 @@
 #     POST {model, state, questions}. By default, <state> is a JSON object or
 #     array when the argument parses as one, otherwise a string; --string
 #     forces a JSON string. <questions-json> is a JSON object. An optional
-#     --before-send function receives the assembled request before transport;
-#     a non-zero result refuses the request. Prints the full JSON response on
-#     stdout. Non-zero on
-#     hard failure: 2 for usage/config (missing args, missing key, missing
-#     jq/curl, questions not a JSON object), 1 for transport or a non-JSON /
-#     non-200 response. Sets FM_JEV_LAST_ROUTE, FM_JEV_LAST_URL,
-#     FM_JEV_LAST_MODEL, FM_JEV_LAST_HTTP, and FM_JEV_LAST_LATENCY_MS on every
-#     attempted call (empty HTTP/latency when the call never reached curl).
+#     --before-send shell function receives the complete assembled request as
+#     one JSON argument, including the resolved model, before transport.
+#     A non-zero result refuses the request without calling curl, returns 2,
+#     and sets FM_JEV_LAST_REQUEST_REJECTED=1 (reset to empty on every call).
+#     Prints the full JSON response on stdout. Non-zero on hard failure:
+#     2 for usage/config (missing args, missing key, missing jq/curl, questions
+#     not a JSON object, invalid validator) or validator refusal; 1 for
+#     transport or a non-JSON / non-200 response. Sets FM_JEV_LAST_ROUTE,
+#     FM_JEV_LAST_URL, FM_JEV_LAST_MODEL, FM_JEV_LAST_HTTP, and
+#     FM_JEV_LAST_LATENCY_MS on every attempted call (empty HTTP/latency when
+#     the call never reached curl).
 #   fm_jev_response_model <response-json>
 #     Prints the response's `model` string, the exact build that answered, or
 #     nothing when absent. Callers that record a call's result log it as
