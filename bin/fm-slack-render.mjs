@@ -16,7 +16,7 @@
 //    "title_b64":"..."?,                        structured form: one line
 //    "project_b64":"..."?, "context_b64":["..",".."]?,
 //    "options":[{"key":"a","text_b64":".."}]?, "recommend":"a"?,
-//    "url_b64":"..."?, "url_label_b64":"..."?}
+//    "url_b64":"..."?}
 // A spec has either text_b64 or title_b64, never both.
 //
 // Layouts (structured form): one item per message, scannable at a glance.
@@ -26,8 +26,8 @@
 //   ready     🔀 Ready for review · <project>, same shape as a decision
 //   report    📋 Report · <project>, same shape as a decision
 //   merged    ✅ Merged · <project>, one compact section
-// A link is always a labelled <url|label> link, never a raw URL in prose; a
-// GitHub pull request or issue URL is labelled "PR #<n>" or "Issue #<n>".
+// A link is always a labelled <url|label> link, never a raw URL in prose;
+// GitHub pull requests are labelled "PR #<n>" and other URLs "Open link".
 // The free-text form posts the text as written, with any link on its own line.
 // There are no interactive buttons: the bot has no Socket Mode or request URL,
 // so answers stay thread replies, DMs, and mentions.
@@ -67,18 +67,15 @@ const escape = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/
   .replace(/[*_~`]/g, (character) => `\\${character}`);
 
 function linkLabel(url) {
-  const m = /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/(pull|issues)\/([0-9]+)(?:[/?#]\S*)?$/.exec(url);
-  if (m) return `${m[1] === "pull" ? "PR" : "Issue"} #${m[2]}`;
-  return "Open link";
+  const m = /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pull\/([0-9]+)(?:[/?#]\S*)?$/.exec(url);
+  return m ? `PR #${m[1]}` : "Open link";
 }
 
 function link(spec) {
   const url = decode(spec.url_b64, "url_b64");
   if (!url) return "";
   if (!/^https:\/\/[^\s<>|]+$/.test(url)) die("url must be one https:// URL without spaces, <, >, or |");
-  const label = oneLine(decode(spec.url_label_b64, "url_label_b64")) || linkLabel(url);
-  if (label.length > 60) die("url label must be at most 60 characters");
-  return `<${url}|${escape(label).replace(/\|/g, "/")}>`;
+  return `<${url}|${linkLabel(url)}>`;
 }
 
 function renderFreeText(spec, text) {

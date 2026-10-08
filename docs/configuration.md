@@ -2136,7 +2136,7 @@ bin/fm-slack-bridge.sh post decision --project "Gmail Swipe" \
 
 The kind picks the layout and channel: `decision` goes to the decisions channel, while `ready` (a PR ready for review or a merge ask), `merged` (a merge result), and `report` (anything else) go to the report channel.
 Each post shows a header with the kind and project, the title in bold, at most two context lines, the options with the recommended one marked, the link, and a "Reply in thread" footer naming the option keys; a `merged` post is one compact line pair. A structured `decision` with options must include `--recommend <key>` naming one of them; a yes/no decision without options does not need it.
-A `--url` is always a labelled link, `PR #<n>` for a GitHub pull request or `--url-label` otherwise, never a raw URL.
+A `--url` is always a labelled link, `PR #<n>` for a GitHub pull request or `Open link` otherwise, never a raw URL.
 `bin/fm-slack-render.mjs` owns the layouts and their limits.
 With a bot the post is Block Kit with a plain-text fallback; through `slack-axi` it is that fallback, Slack formatting with the same layout.
 Answers stay thread replies, DMs, and mentions; there are no buttons, because the bot has no Socket Mode connection or public request URL.

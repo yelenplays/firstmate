@@ -972,12 +972,12 @@ test_structured_post_layouts() {
     --url https://github.com/o/gmail-swipe/pull/11 >/dev/null 2>&1 || fail "a structured decision must post"
   bridge "$home" post decision --project 'first*mate' --title '*urgent*' \
     --context 'keep _this_ literal ~too~ `please`' --option a='*approve*' --recommend a \
-    --url https://example.com/x --url-label '*open*' >/dev/null 2>&1 || fail "a decision with caller mrkdwn markers must post"
+    --url https://example.com/x >/dev/null 2>&1 || fail "a decision with caller mrkdwn markers must post"
   bridge "$home" post ready --project firstmate --title "Slack posts are readable" \
     --option merge="Merge it" --option hold="Hold for review" --recommend merge \
     --url https://github.com/o/firstmate/pull/127 >/dev/null 2>&1 || fail "a ready post must post"
   bridge "$home" post merged --project firstmate --title "Slack posts are readable" \
-    --url https://example.com/x --url-label "the change" >/dev/null 2>&1 || fail "a merged post must post"
+    --url https://github.com/o/firstmate/issues/15 >/dev/null 2>&1 || fail "a merged post must post"
   bridge "$home" post report "plain words" >/dev/null 2>&1 || fail "free text must still post"
   node -e '
     const fs = require("fs");
@@ -988,9 +988,9 @@ test_structured_post_layouts() {
     const report = drafts.filter((args) => args[1] === "#fm-yelen").map((args) => args[2]);
     ok(decision.length === 2 && report.length === 3);
     ok(decision[0] === "*🧭 Decision · Gmail Swipe*\n*Ship the gesture now or with the undo bar?*\nUndo bar is half done.\nGesture alone is tested &amp; green.\n➡️ *a* · Ship gesture now  _(recommended)_\n◻️ *b* · Wait for both\n🔗 <https://github.com/o/gmail-swipe/pull/11|PR #11>\n_Reply in thread: a / b_");
-    ok(decision[1] === "*🧭 Decision · first\\*mate*\n*\\*urgent\\**\nkeep \\_this\\_ literal \\~too\\~ \\`please\\`\n➡️ *a* · \\*approve\\*  _(recommended)_\n🔗 <https://example.com/x|\\*open\\*>\n_Reply in thread: a_");
+    ok(decision[1] === "*🧭 Decision · first\\*mate*\n*\\*urgent\\**\nkeep \\_this\\_ literal \\~too\\~ \\`please\\`\n➡️ *a* · \\*approve\\*  _(recommended)_\n🔗 <https://example.com/x|Open link>\n_Reply in thread: a_");
     ok(report[0] === "*🔀 Ready for review · firstmate*\n*Slack posts are readable*\n➡️ *merge* · Merge it  _(recommended)_\n◻️ *hold* · Hold for review\n🔗 <https://github.com/o/firstmate/pull/127|PR #127>\n_Reply in thread: merge / hold_");
-    ok(report[1] === "✅ *Merged* · firstmate\n*Slack posts are readable*  🔗 <https://example.com/x|the change>");
+    ok(report[1] === "✅ *Merged* · firstmate\n*Slack posts are readable*  🔗 <https://github.com/o/firstmate/issues/15|Open link>");
     ok(report[2] === "plain words");
   ' "$home/slack.log" || fail "slack-axi drafts contain readable structured and free-text layouts with literal caller markers"
   pass "fm-slack-bridge: slack-axi posts readable structured and free-text layouts"

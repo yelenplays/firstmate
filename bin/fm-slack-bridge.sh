@@ -4,7 +4,7 @@
 # Usage:
 #   fm-slack-bridge.sh post <kind> --title <line> [--project <name>] [--context <line>]...
 #                      [--option <key>=<text>]... [--recommend <key>]
-#                      [--url <https-url> [--url-label <label>]]
+#                      [--url <https-url>]
 #   fm-slack-bridge.sh post report|decision [--url <https-url>] [--] <text>...
 #   fm-slack-bridge.sh post report|decision [--url <https-url>] -   (text from stdin)
 #   fm-slack-bridge.sh check
@@ -140,7 +140,7 @@ usage() {
 Usage:
   fm-slack-bridge.sh post <kind> --title <line> [--project <name>] [--context <line>]...
                      [--option <key>=<text>]... [--recommend <key>]
-                     [--url <https-url> [--url-label <label>]]
+                     [--url <https-url>]
                                post one item laid out for scanning; kind is decision (decisions
                                channel), ready (PR ready or merge ask), merged, or report;
                                decisions with options need --recommend; at most two --context lines
@@ -362,7 +362,7 @@ render_post() {  # <spec-json>
 json_b64() { printf '"%s"' "$(b64_line "$1")"; }
 
 action_post() {
-  local kind=${1:-} url="" url_label="" title="" project="" text="" recommend=""
+  local kind=${1:-} url="" title="" project="" text="" recommend=""
   local spec summary channel out draft channel_id sent ts rc item key
   local -a contexts=() option_keys=() option_texts=()
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
@@ -373,14 +373,13 @@ action_post() {
   esac
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --url|--url-label|--title|--project|--context|--option|--recommend)
+      --url|--title|--project|--context|--option|--recommend)
         [ "$#" -ge 2 ] || { printf 'fm-slack-bridge: %s needs a value\n' "$1" >&2; exit 2; }
         case "$1" in
           --url)
             url=$2
             [[ "$url" =~ ^https://[^[:space:]]+$ ]] || { printf 'fm-slack-bridge: --url must be one https:// URL\n' >&2; exit 2; }
             ;;
-          --url-label) url_label=$2 ;;
           --title) title=$2 ;;
           --project) project=$2 ;;
           --context) contexts+=("$2") ;;
@@ -455,7 +454,6 @@ action_post() {
   # how a delivered thread reply says what it answers.
   if [ -n "$title" ]; then summary="${project:+$project: }$title"; else summary=$text; fi
   [ -z "$url" ] || spec="$spec,\"url_b64\":$(json_b64 "$url")"
-  [ -z "$url_label" ] || spec="$spec,\"url_label_b64\":$(json_b64 "$url_label")"
   spec="$spec}"
   if ! config_load; then
     printf 'slack bridge off: no config/slack-bridge\n'
