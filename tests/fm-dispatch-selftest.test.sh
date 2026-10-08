@@ -33,6 +33,7 @@ while [ $# -gt 0 ]; do
   case "$1" in -o) out=$2; shift 2 ;; *) shift ;; esac
 done
 body=$(cat)
+[ -z "${FAKE_REQUEST_LOG:-}" ] || printf '%s\n' "$body" >> "$FAKE_REQUEST_LOG"
 [ -z "${FAKE_CALL_LOG:-}" ] || printf 'typed\n' >> "$FAKE_CALL_LOG"
 [ -z "${FAKE_TYPED_DELAY:-}" ] || sleep "$FAKE_TYPED_DELAY"
 cat /dev/fd/3 >/dev/null 2>&1 || true
@@ -57,6 +58,7 @@ cat > "$FAKEBIN/fake-claude" <<'SH'
 #!/usr/bin/env bash
 set -u
 prompt=$(cat)
+[ -z "${FAKE_REQUEST_LOG:-}" ] || printf '%s\n' "$prompt" >> "$FAKE_REQUEST_LOG"
 [ -z "${FAKE_CALL_LOG:-}" ] || printf 'backup\n' >> "$FAKE_CALL_LOG"
 [ "${FAKE_BACKUP_DOWN:-0}" = 1 ] && exit 1
 expect=$(jq -r --arg p "$prompt" '[.samples[] | select(.brief as $s | $p | contains($s)) | .expect] | first // "default"' "$FAKE_SAMPLES")
@@ -66,6 +68,7 @@ chmod +x "$FAKEBIN/fake-claude"
 
 cat > "$FAKEBIN/quota-axi" <<'SH'
 #!/usr/bin/env bash
+if [ -n "${FAKE_QUOTA_FIXTURE:-}" ]; then cat "$FAKE_QUOTA_FIXTURE"; exit; fi
 cat <<'JSON'
 { "generatedAt": "2030-01-01T00:00:00Z", "schemaVersion": 5, "providers": [
   { "provider": "claude", "state": { "status": "fresh" }, "quotaSemantics": { "status": "known", "effectiveAvailability": [
@@ -80,7 +83,7 @@ run_selftest() { # <exit-var> <out-var> [args...]
   local __exit=$1 __out=$2 _out _code
   shift 2
   _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY=selftest-key FM_BACKUP_JUDGE_CMD=fake-claude \
-    FM_SPEND_LEDGER=/nonexistent "$TOOL" "$@" 2>&1)
+    FM_SPEND_LEDGER="${FM_SPEND_LEDGER:-/nonexistent}" "$TOOL" "$@" 2>&1)
   _code=$?
   printf -v "$__exit" '%s' "$_code"
   printf -v "$__out" '%s' "$_out"
@@ -135,6 +138,73 @@ assert_contains "$out" 'FAIL think-1 expect=rule_1 decided=default by=typed stat
 assert_not_contains "$out" 'PASS think-' "floor: no fall-through sample passes"
 assert_contains "$out" 'PASS fast-2 expect=rule_5 decided=rule_5 by=typed' "floor: rules without a shortfall still pass"
 pass "run: a floor fall-through to the default lane is a failure, not a pass"
+
+LEDGER="$ROOT/bin/fm-spend-ledger.py"
+LEDGER_SAMPLES="$TMP_ROOT/ledger-samples.json"
+LEDGER_RULES="$TMP_ROOT/ledger-rules.json"
+LEDGER_QUOTA="$TMP_ROOT/ledger-quota.json"
+LEDGER_SESSIONS="$TMP_ROOT/ledger-sessions"
+REQUESTS="$TMP_ROOT/prediction-requests"
+mkdir -p "$LEDGER_SESSIONS/--ledger-private--"
+python3 - "$HOME_DIR/state" "$LEDGER_SESSIONS/--ledger-private--/session.jsonl" "$LEDGER_QUOTA" <<'PY'
+import datetime
+import json
+import pathlib
+import sys
+import time
+now = int(time.time())
+start = now - 300
+iso = lambda epoch: datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).isoformat()
+pathlib.Path(sys.argv[1], "history.meta").write_text(f"worktree=/LEDGER_PRIVATE_MARKER\nspawn_gen=s{start-1}.1.test\nprivate=LEDGER_PRIVATE_MARKER\n")
+records = [
+    {"type": "session", "cwd": "/LEDGER_PRIVATE_MARKER", "id": "history", "timestamp": iso(start)},
+    {"type": "thinking_level_change", "thinkingLevel": "high", "timestamp": iso(start)},
+    {"type": "message", "timestamp": iso(start + 120), "message": {"role": "assistant", "provider": "openai-codex", "model": "gpt-5.6-sol", "content": "LEDGER_PRIVATE_MARKER", "usage": {"totalTokens": 100}}},
+]
+pathlib.Path(sys.argv[2]).write_text("".join(json.dumps(r) + "\n" for r in records))
+providers = []
+for provider, runway in [("claude", 60), ("codex", 600)]:
+    providers.append({"provider": provider, "state": {"status": "fresh"}, "windows": [{"kind": "weekly", "resetsAt": iso(now + 86400), "percentRemaining": 80}], "quotaSemantics": {"status": "known", "effectiveAvailability": [{"scope": "all_models", "status": "known", "effectivePercentRemaining": 80, "runway": {"status": "projected_exhaustion", "usableRunwaySeconds": runway}, "selection": {"spendPriority": 0.2}}]}})
+pathlib.Path(sys.argv[3]).write_text(json.dumps({"generatedAt": iso(now), "schemaVersion": 5, "providers": providers}))
+PY
+printf '%s\n' '{"rules":[{"when":"Implementation work.","use":{"harness":"claude","model":"opus","effort":"high"}}],"default":{"harness":"codex","model":"gpt-5.6-sol","effort":"high"}}' > "$LEDGER_RULES"
+jq -n '{samples: [range(1;4) | {id: ("burn-" + tostring), brief: "Update the public app navigation.", expect: "rule_1"}]}' > "$LEDGER_SAMPLES"
+"$LEDGER" --state "$HOME_DIR/state" --sessions-root "$LEDGER_SESSIONS" model >/dev/null
+cp -R "$HOME_DIR/state" "$TMP_ROOT/prediction-state-before"
+export FAKE_SAMPLES="$LEDGER_SAMPLES"
+: > "$REQUESTS"
+FM_SPEND_LEDGER="$LEDGER" FM_SPEND_SESSIONS="$LEDGER_SESSIONS" FAKE_QUOTA_FIXTURE="$LEDGER_QUOTA" FAKE_REQUEST_LOG="$REQUESTS" \
+  run_selftest code out run --rules "$LEDGER_RULES" --samples "$LEDGER_SAMPLES"
+expect_code 1 "$code" 'prediction: a live runway shortfall fails the direct selftest'
+assert_contains "$out" 'FAIL burn-1 expect=rule_1 decided=default by=default' 'prediction: fresh model refuses the expected lane'
+diff -r "$TMP_ROOT/prediction-state-before" "$HOME_DIR/state" >/dev/null || fail 'prediction: direct run changed live evidence'
+
+jq '.generatedAt = "2000-01-01T00:00:00Z" | .median = {} | .anyProvider = {}' "$HOME_DIR/state/spend-model.json" > "$TMP_ROOT/stale-model.json"
+cp "$TMP_ROOT/stale-model.json" "$HOME_DIR/state/spend-model.json"
+cp "$HOME_DIR/state/.spend-cache.json" "$TMP_ROOT/cache-before"
+FM_SPEND_LEDGER="$LEDGER" FM_SPEND_SESSIONS="$LEDGER_SESSIONS" FAKE_QUOTA_FIXTURE="$LEDGER_QUOTA" FAKE_REQUEST_LOG="$REQUESTS" FAKE_TYPED_DOWN=1 \
+  run_selftest code out run --rules "$LEDGER_RULES" --samples "$LEDGER_SAMPLES" --record
+expect_code 1 "$code" 'prediction: rebuilt evidence also fails the recorded backup run'
+assert_contains "$out" 'FAIL burn-1 expect=rule_1 decided=default by=default' 'prediction: stale model rebuild preserves the runway gate'
+jq -e '.exit == 1 and (.failing | contains("burn-1"))' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null || fail 'prediction: recorded failure lost the sample'
+cmp -s "$TMP_ROOT/stale-model.json" "$HOME_DIR/state/spend-model.json" || fail 'prediction: recorded run rewrote the live model'
+cmp -s "$TMP_ROOT/cache-before" "$HOME_DIR/state/.spend-cache.json" || fail 'prediction: recorded run rewrote the live cache'
+jq '(.providers[] | .quotaSemantics.effectiveAvailability[0].runway.usableRunwaySeconds) = 600 | (.providers[] | select(.provider == "codex") | .quotaSemantics.effectiveAvailability[0].effectivePercentRemaining) = 2' "$LEDGER_QUOTA" > "$TMP_ROOT/token-quota.json"
+jq '.rules[0].use = {harness: "codex", model: "gpt-5.6-sol", effort: "high"} | .default = {harness: "claude", model: "opus", effort: "high"}' "$LEDGER_RULES" > "$TMP_ROOT/token-rules.json"
+rm "$HOME_DIR/state/spend-model.json"
+FM_SPEND_LEDGER="$LEDGER" FM_SPEND_SESSIONS="$LEDGER_SESSIONS" FAKE_QUOTA_FIXTURE="$TMP_ROOT/token-quota.json" FAKE_REQUEST_LOG="$REQUESTS" \
+  run_selftest code out run --rules "$TMP_ROOT/token-rules.json" --samples "$LEDGER_SAMPLES"
+expect_code 1 "$code" 'prediction: calibrated token shortfalls also fail the selftest'
+assert_contains "$out" 'FAIL burn-1 expect=rule_1 decided=default by=default' 'prediction: token evidence refuses the expected lane'
+assert_absent "$HOME_DIR/state/spend-model.json" 'prediction: missing models are rebuilt without persistence'
+cmp -s "$TMP_ROOT/cache-before" "$HOME_DIR/state/.spend-cache.json" || fail 'prediction: token run rewrote the live cache'
+assert_not_contains "$(cat "$REQUESTS")" 'LEDGER_PRIVATE_MARKER' 'prediction: neither judge sees private prediction inputs'
+assert_not_contains "$(cat "$REQUESTS")" 'tokensPerPoint' 'prediction: neither judge sees prediction aggregates'
+assert_not_contains "$(cat "$REQUESTS")" 'usableRunwaySeconds' 'prediction: neither judge sees quota evidence'
+rm -rf "$HOME_DIR/state/dispatch-selftest"
+rm "$HOME_DIR/state/history.meta" "$HOME_DIR/state/.spend-cache.json"
+export FAKE_SAMPLES="$SAMPLES"
+pass 'selftests enforce live prediction gates without modifying or disclosing evidence'
 
 # --- typed call down: the backup judge answers every sample ---------------------
 FAKE_TYPED_DOWN=1 run_selftest code out run --rules "$RULES" --samples "$SAMPLES"

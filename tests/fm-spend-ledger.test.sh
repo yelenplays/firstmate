@@ -177,6 +177,14 @@ EOF
 BASE_RESET_EPOCH=$((NOW_EPOCH + 86400))
 RESETS=$(format_reset "$BASE_RESET_EPOCH")
 write_quota "$STATE/quota.json" "$RESETS"
+cp -R "$STATE" "$TMP_ROOT/read-only-before"
+READ_ONLY=$("$LEDGER" --state "$STATE" --sessions-root "$SESSIONS" predict --quota "$STATE/quota.json" --read-only)
+python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["median"]["codex"]["high"]["tokens"] == 3900; assert abs(d["providers"]["codex"]["tokensPerPoint"] - 3400/60) < 0.01' "$READ_ONLY" \
+  || fail 'read-only prediction lost the model or calibration'
+diff -r "$TMP_ROOT/read-only-before" "$STATE" >/dev/null || fail 'read-only prediction changed source state'
+"$LEDGER" --state "$TMP_ROOT/absent-state" --sessions-root "$SESSIONS" predict --quota "$STATE/quota.json" --read-only >/dev/null
+assert_absent "$TMP_ROOT/absent-state" 'read-only prediction does not create absent state'
+pass 'read-only prediction rebuilds evidence without changing source state'
 PREDICT=$("$LEDGER" --state "$STATE" --sessions-root "$SESSIONS" predict --quota "$STATE/quota.json")
 # The rolling window includes sessions S1 (3000 codex) + CHILD (400 codex)
 # and excludes the pre-spawn S0 (777); consumed=60 -> 3400/60 per point.

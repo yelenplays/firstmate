@@ -86,6 +86,20 @@ last_event | jq -e '.event == "decide" and .task_id == "lay-faq" and .route == "
   fail 'decision not logged'
 pass 'Lay site task routes to frontend with lay consulted, from approved scopes only'
 
+for extra in '{"type":"noul","noul":1}' '{"type":"choice","noul":1}' '{"type":"noul","noul":"yes"}'; do
+  write_answer frontend 0.98 0.79 0.62
+  jq --argjson extra "$extra" '.answers += {consult_ghost: $extra, consult_zimmer: {type: "noul", noul: 1}}' "$RESPONSE" > "$RESPONSE.tmp"
+  mv "$RESPONSE.tmp" "$RESPONSE"
+  out=$(run_tool decide extra-consults --project lay-distribution-site --public-summary 'Update the website FAQ') || fail 'extra-consults decide failed'
+  assert_contains "$out" 'route: frontend+lay' 'extra consult answers cannot add mates'
+  assert_contains "$out" 'decided: jev' 'valid requested answers still decide'
+  last_event | jq -e '.route == "frontend+lay" and .consult == ["lay"] and (.consult_probabilities | keys) == ["frontend", "lay"]' >/dev/null \
+    || fail 'unrequested consult evidence was logged'
+  jq -e '.route == "frontend+lay" and .consult == ["lay"]' "$HOME_DIR/state/home-route/extra-consults.json" >/dev/null \
+    || fail 'unrequested mates were recorded'
+done
+pass 'typed consult answers are projected onto eligible public scopes'
+
 rc=0
 out=$(run_tool check lay-faq "$TMP_ROOT/projects/lay-distribution-site" 2>&1) || rc=$?
 [ "$rc" -ne 0 ] || fail 'a main-home check allowed a task routed to a second mate'

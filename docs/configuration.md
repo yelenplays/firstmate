@@ -1633,7 +1633,7 @@ The home-local samples file is the optional, gitignored `config/dispatch-samples
 
 `brief` becomes the sample's captain's intent, an optional `spec` its firstmate spec, an optional `project` its project name, and `expect` is `rule_<n>` in the resolver's 1-based numbering or `default`.
 Keep samples synthetic or public: each one is sent to the same judges a real brief would reach.
-Each sample runs in an isolated home that shares only `.env`, so a run writes nothing into the home.
+Each sample runs in an isolated home that shares `.env` and receives only read-only prediction evidence from the home's spend ledger, so a run writes nothing into the home and neither judge receives spend records or task metadata.
 The tracked synthetic fixture in [`tests/fixtures/dispatch-selftest/`](../tests/fixtures/dispatch-selftest/) mirrors a seven-rule configuration with about thirty samples, and CI runs it offline with both judges stubbed.
 
 A locked `bin/fm-session-start.sh` automatically arms the nightly check whenever `config/dispatch-samples.json` exists.

@@ -195,11 +195,12 @@ build_request() {
 
 # Forms the route from a lead and the consulted mates ($2: newline list).
 form_route() {
-  local id
+  local id scopes=$3
   lead=$1 route=$1 consult='[]'
   [ "$lead" != main ] || return 0
   while IFS= read -r id; do
     [ -n "$id" ] && [ "$id" != "$lead" ] || continue
+    jq -e --arg id "$id" 'has($id)' <<<"$scopes" >/dev/null || continue
     consult=$(jq -c --arg id "$id" '. + [$id]' <<<"$consult")
   done <<<"$2"
   [ "$consult" = '[]' ] || route="$lead+$(jq -r 'join(",")' <<<"$consult")"
@@ -234,9 +235,9 @@ decide() {
       if ! fm_jev_choice_confidence_ok "$probability" "$LEAD_FLOOR"; then
         REASON=abstained
       else
-        consult_p=$(jq -c '.answers | with_entries(select(.key | startswith("consult_")) | {key: (.key | ltrimstr("consult_")), value: .value.noul})' <<<"$response")
+        consult_p=$(jq -c --argjson scopes "$entries" '.answers as $a | $scopes | with_entries(.value = $a["consult_" + .key].noul)' <<<"$response")
         mates=$(jq -r --argjson f "$CONSULT_FLOOR" 'to_entries[] | select(.value >= $f) | .key' <<<"$consult_p")
-        form_route "$choice" "$mates"
+        form_route "$choice" "$mates" "$entries"
       fi
     else
       REASON=invalid_response
@@ -255,7 +256,7 @@ decide() {
         source=backup model="backup:${FM_BACKUP_JUDGE_MODEL_USED:-$FM_BACKUP_JUDGE_DEFAULT_MODEL}" probability=null
         consult_p=$(jq -c 'with_entries(select(.key | startswith("consult_")) | {key: (.key | ltrimstr("consult_")), value: .value})' "$answer_file")
         mates=$(jq -r 'to_entries[] | select(.value == true) | .key' <<<"$consult_p")
-        form_route "$(jq -r '.lead' "$answer_file")" "$mates"
+        form_route "$(jq -r '.lead' "$answer_file")" "$mates" "$entries"
         backup="ok (${FM_BACKUP_JUDGE_LATENCY_MS} ms)"
       else
         backup="failed (${FM_BACKUP_JUDGE_WHY:-mktemp failed})"
@@ -266,7 +267,7 @@ decide() {
     esac
     if [ "$source" != backup ]; then
       source=default probability=null consult_p='{}'
-      form_route main ''
+      form_route main '' "$entries"
     fi
   fi
   append_event "$(event_json decide "$task" "$project" "$route" "$lead" "$consult" "$source" "$probability" "${model:-}" "$REASON" | jq -c --argjson cp "$consult_p" --arg backup "$backup" '. + {consult_probabilities: $cp} + (if $backup == "" then {} else {backup: $backup} end)')" || return 1

@@ -2031,6 +2031,34 @@ assert_contains "$out" 'last_resort: ' "all-refused rule: the default-lane rescu
 assert_contains "$out" 'eligible default lane used' "all-refused rule: the refusal and default transition are named"
 pass "chain: eligible default candidates follow an all-refused decided rule"
 
+UNRANKED_DEFAULT_RULES="$TMP_ROOT/unranked-default-rules.json"
+UNRANKED_DEFAULT_QUOTA="$TMP_ROOT/unranked-default-quota.json"
+jq '.default = {harness: "codex", model: "gpt-5.6-sol"}' "$ALL_REFUSED_RULES" > "$UNRANKED_DEFAULT_RULES"
+jq '.providers |= map(select(.provider != "codex"))' "$QUOTA" > "$UNRANKED_DEFAULT_QUOTA"
+cp "$UNRANKED_DEFAULT_RULES" "$RULES"
+for stage in typed backup; do
+  reset_log
+  http=200
+  [ "$stage" != backup ] || http=503
+  TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=$http FAKE_BACKUP_ANSWER='{"rule":"rule_4","effort":"high"}' \
+    FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$UNRANKED_DEFAULT_QUOTA" run_chain code out err "$BRIEF"
+  expect_code 0 "$code" "$stage unranked default: routing answers"
+  assert_contains "$out" '  decided: default by default' "$stage unranked default: eligible lane rescues the rule"
+  assert_contains "$out" "  profile: --harness 'codex' --model 'gpt-5.6-sol'" "$stage unranked default: profile is not the refused original"
+  assert_contains "$out" 'predicted burn ~' "$stage unranked default: the diagnostic includes burn evidence"
+  tail -n 1 "$DISPATCH_LOG" | jq -e '.rule == "default" and .matched_rule == "rule_4" and .profile.harness == "codex"' >/dev/null \
+    || fail "$stage unranked default: actual lane not logged"
+done
+pass "chain: diagnostic burn text cannot disqualify an eligible default"
+
+RESTRICTED_DEFAULT_RULES="$TMP_ROOT/restricted-default-rules.json"
+jq 'del(.default) | .rules[3].use[0].floor = {scope: "all_models", min_percent: 99}' "$ALL_REFUSED_RULES" > "$RESTRICTED_DEFAULT_RULES"
+cp "$RESTRICTED_DEFAULT_RULES" "$RULES"
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$MISSING_RULE_FLOOR" run_chain code out err "$BRIEF"
+assert_contains "$out" '  decided: rule_4 by typed' "restricted default: an unverifiable rule floor cannot rescue the rule"
+assert_contains "$out" "  profile: --harness 'claude' --model 'fable'" "restricted default: the original lane answers"
+cp "$ALL_REFUSED_RULES" "$RULES"
+
 ALL_REFUSED_DEFAULT_QUOTA="$TMP_ROOT/all-refused-default-quota.json"
 jq '(.providers[] | select(.provider == "claude" or .provider == "cursor") | .quotaSemantics.effectiveAvailability[] | select(.scope == "all_models") | .effectivePercentRemaining) = 0' "$QUOTA" > "$ALL_REFUSED_DEFAULT_QUOTA"
 reset_log

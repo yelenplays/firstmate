@@ -20,8 +20,9 @@
 #   a new rule without samples fails the run. Exit 0 when every sample passes
 #   and coverage holds, 1 otherwise, 2 for a usage or input error (missing or
 #   malformed rules or samples file). Each sample runs with an isolated
-#   FM_HOME (sharing only $FM_HOME/.env, for the typed-call keys) and an
-#   isolated config directory holding the rules file and, when the home has
+#   FM_HOME (sharing $FM_HOME/.env for the typed-call keys and read-only
+#   prediction evidence from the home) and an isolated config directory
+#   holding the rules file and, when the home has
 #   one, its dispatch-never-send list, so a run writes nothing into the home
 #   and turns on no shadow logging. With both judges unavailable, the default
 #   stage answers every sample and the run fails, which is the point: it
@@ -174,6 +175,11 @@ run_samples() { # <rules> <samples>
       || { printf 'error: dispatch-never-send list is not readable; nothing sent\n'; return 2; }
   fi
   [ ! -f "$FM_HOME/.env" ] || ln -s "$FM_HOME/.env" "$work/home/.env"
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf 'exec %q --state %q "$@" --read-only\n' "${FM_SPEND_LEDGER:-$SCRIPT_DIR/fm-spend-ledger.py}" "$STATE"
+  } > "$work/predict.sh"
+  chmod 0700 "$work/predict.sh" || return 2
   n=$(jq '.samples | length' "$samples")
   for ((i = 0; i < n; i++)); do
     id=$(jq -r --argjson i "$i" '.samples[$i].id' "$samples")
@@ -186,7 +192,7 @@ run_samples() { # <rules> <samples>
       [ -z "$spec" ] || printf '## Firstmate spec\n%s\n\n' "$spec"
     } > "$work/brief.md"
     rc=0
-    line=$(FM_HOME="$work/home" FM_CONFIG_OVERRIDE="$work/config" "$RESOLVER" "$work/brief.md" --project "$project" 2> "$work/stderr") || rc=$?
+    line=$(FM_HOME="$work/home" FM_CONFIG_OVERRIDE="$work/config" FM_SPEND_LEDGER="$work/predict.sh" "$RESOLVER" "$work/brief.md" --project "$project" 2> "$work/stderr") || rc=$?
     if [ "$rc" -eq 2 ]; then
       printf 'error: the resolver refused the rules: %s\n' "$(grep -m 1 . "$work/stderr" | tr -d '\r')"
       return 2

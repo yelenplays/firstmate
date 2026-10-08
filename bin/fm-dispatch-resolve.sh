@@ -1109,6 +1109,7 @@ RESOLVE_JQ="$FM_QUOTA_ROW_JQ"'
         end
       end
     end
+    | . + {selection_eligible: (($sel.invalid == null) and ($sel.escalate == null) and any(.candidates[]?; .eligible == true))}
     | if $sel.invalid then . else . + {lane: $sel.source} end;
   def emitted_effort($c):
     if $c.effort_emit == false then ($c.profile.effort // null)
@@ -1216,7 +1217,7 @@ last_resort() {  # <stage> <effort-json>: settles the decided lane or its defaul
       resolve_response "$default_file" "$effort" 0
       default_result=$RESULT
       rm -f "$default_file"
-      default_eligible=$(jq -r '(.approval != true) and ((.status != "escalate") or (.reason == "genuine spendPriority tie" or .reason == "no rankable eligible candidate")) and any(.candidates[]?; .eligible == true)' <<<"$default_result")
+      default_eligible=$(jq -r '.selection_eligible == true' <<<"$default_result")
       if [ "$default_eligible" = true ]; then
         RESULT=$(jq -c --argjson original "$original" '.decided_rule = ($original.decided_rule // $original.rule)' <<<"$default_result") \
           || { RESULT=$original; return 1; }
