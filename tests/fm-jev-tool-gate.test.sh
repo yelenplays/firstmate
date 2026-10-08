@@ -18,6 +18,10 @@ unset TYPESAFE_API_KEY OPENROUTER_API_KEY TYPESAFE_API_KEY_PRIVATE \
 TMP_ROOT=$(fm_test_tmproot fm-jev-tool-gate)
 HOME_DIR="$TMP_ROOT/home"
 FAKEBIN=$(fm_fakebin "$TMP_ROOT")
+# A passing eval scorecard lets live mode bind; the advise-only case points
+# this at a missing file.
+FM_JEV_EVAL_SCORES=$(fm_jev_act_scores "$TMP_ROOT")
+export FM_JEV_EVAL_SCORES
 LOG="$TMP_ROOT/curl-log"
 BASE_PATH=$PATH
 TS_KEY='ts-test-key-not-for-argv'
@@ -155,6 +159,24 @@ test_live_double_opt_in_applies_jev_deny() {
   pass "live mode with both opt-in files applies a Jev deny after allow"
 }
 
+test_live_advise_only_site_stays_shadow() {
+  local code err line
+  write_choice deny
+  mkdir -p "$HOME_DIR/config"
+  : > "$HOME_DIR/config/jev-tool-gate-live"
+  : > "$HOME_DIR/config/jev-tool-gate-live-ack"
+  rm -f "$HOME_DIR/state/jev-tool-gate.jsonl"
+  FM_JEV_EVAL_SCORES="$TMP_ROOT/no-scorecard.json" TYPESAFE_API_KEY=$TS_KEY FM_JEV_TOOL_GATE=live \
+    run_gate code err 'echo hello'
+  expect_code 0 "$code" "an advise-only site never applies a live Jev deny"
+  line=$(cat "$HOME_DIR/state/jev-tool-gate.jsonl")
+  assert_contains "$line" '"mode":"shadow"' "an advise-only live gate logs as shadow"
+  assert_contains "$line" '"site_mode":"advise"' "the log names the advise-only site mode"
+  assert_contains "$line" '"choice":"deny"' "Jev's deny is kept as advice"
+  rm -f "$HOME_DIR/config/jev-tool-gate-live" "$HOME_DIR/config/jev-tool-gate-live-ack"
+  pass "live mode on an advise-only site logs Jev's deny and still allows"
+}
+
 test_live_still_cannot_override_deterministic_deny() {
   local code err
   write_choice allow
@@ -176,4 +198,5 @@ test_allow_reaches_log
 test_shadow_jev_deny_still_allows
 test_live_without_both_files_stays_shadow
 test_live_double_opt_in_applies_jev_deny
+test_live_advise_only_site_stays_shadow
 test_live_still_cannot_override_deterministic_deny

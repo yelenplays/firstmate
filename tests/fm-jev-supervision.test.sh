@@ -28,6 +28,10 @@ LOG="$TMP_ROOT/log"
 BASE_PATH=$PATH
 TS_KEY='ts-test-key-not-for-argv'
 mkdir -p "$HOME_DIR/state" "$LOG"
+# A passing eval scorecard lets the wedge check's suppress read act; the
+# advise-only case points this at a missing file.
+FM_JEV_EVAL_SCORES=$(fm_jev_act_scores "$TMP_ROOT")
+export FM_JEV_EVAL_SCORES
 
 # The fake curl records argv/body/header and replays FAKE_CURL_RESPONSE; no case
 # touches the network.
@@ -473,6 +477,13 @@ test_wedge_check_verdicts() {
   run_helper "$WEDGE_CHECK" code out _err
   expect_code 0 "$code" "a low stuck Noul exits 0"
   assert_equals suppress "$out" "choice 0.74 stuck but noul 0.31 suppresses"
+
+  # Without a passing eval score the not-stuck read is advice: the escalation stands.
+  FM_JEV_EVAL_SCORES="$TMP_ROOT/no-scorecard.json" run_helper "$WEDGE_CHECK" code out _err
+  expect_code 0 "$code" "an advise-only low Noul exits 0"
+  assert_equals escalate "$out" "an advise-only site never suppresses"
+  tail -n 1 "$HOME_DIR/state/jev-wedge-check.jsonl" | jq -e '.status == "escalate" and .advised == "suppress"' >/dev/null \
+    || fail "the advise-only record does not carry Jev's suppress advice"
 
   wedge_response "$RESPONSE" 0.5 genuinely_stuck 0.6
   run_helper "$WEDGE_CHECK" code out _err

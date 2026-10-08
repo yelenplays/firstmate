@@ -30,7 +30,11 @@
 # unsafe summary or project, no approved scopes, an unreadable registry), the
 # task stays in the main home. The printed `decided:` line names the source
 # (jev, backup, default, local_only); `typed:` and `backup:` name why the
-# earlier stages did not decide. Firstmate may still record its own call with
+# earlier stages did not decide. While fm_jev_site_mode home-route says advise
+# (the call site's latest bin/fm-jev-eval.sh score has not cleared the bar), a
+# confident Jev route does not decide either: it is kept as advice (an
+# 'advice:' output line and record field), reason advise_only, and the backup
+# judge decides as above. Firstmate may still record its own call with
 # 'judge', accepted over a backup, default, earlier judgment, or legacy
 # judgment-needed record, never over a Jev or local-only route (a disagreeing
 # spawn uses fm-spawn.sh --route-override instead).
@@ -208,7 +212,7 @@ form_route() {
 
 decide() {
   local task=$1 project=$2 summary=$3 entries='' response model='' answer choice answer_file
-  local probability=null lead='' consult='[]' consult_p='{}' route='' source=jev backup='' mates
+  local probability=null lead='' consult='[]' consult_p='{}' route='' source=jev backup='' mates advice=''
   REASON='' OPTS='' STATE='' QUESTIONS=''
   [ ! -e "$SUB_HOME_MARKER" ] || invalid 'decide runs in the primary home; a secondmate home routes its own crews'
   if [ "$(project_mode "$project")" = local-only ]; then
@@ -238,6 +242,11 @@ decide() {
         consult_p=$(jq -c --argjson scopes "$entries" '.answers as $a | $scopes | with_entries(.value = $a["consult_" + .key].noul)' <<<"$response")
         mates=$(jq -r --argjson f "$CONSULT_FLOOR" 'to_entries[] | select(.value >= $f) | .key' <<<"$consult_p")
         form_route "$choice" "$mates" "$entries"
+        # Jev's route binds only while this call site's eval score clears the
+        # bar (bin/fm-jev-eval.sh); otherwise it is advice and the backup decides.
+        if [ "$(fm_jev_site_mode home-route)" != act ]; then
+          advice=$route REASON=advise_only
+        fi
       fi
     else
       REASON=invalid_response
@@ -250,7 +259,7 @@ decide() {
   # keep the task in the main home. Either way a route is recorded.
   if [ -n "$REASON" ]; then
     case "$REASON" in
-    no_key | decision_unavailable | invalid_response | abstained)
+    no_key | decision_unavailable | invalid_response | abstained | advise_only)
       answer_file=$(mktemp "${TMPDIR:-/tmp}/fm-home-route-backup.XXXXXX") || answer_file=''
       if [ -n "$answer_file" ] && fm_backup_judge "$STATE" "$QUESTIONS" "$answer_file"; then
         source=backup model="backup:${FM_BACKUP_JUDGE_MODEL_USED:-$FM_BACKUP_JUDGE_DEFAULT_MODEL}" probability=null
@@ -270,11 +279,12 @@ decide() {
       form_route main '' "$entries"
     fi
   fi
-  append_event "$(event_json decide "$task" "$project" "$route" "$lead" "$consult" "$source" "$probability" "${model:-}" "$REASON" | jq -c --argjson cp "$consult_p" --arg backup "$backup" '. + {consult_probabilities: $cp} + (if $backup == "" then {} else {backup: $backup} end)')" || return 1
-  write_record "$task" "$(jq -cn --arg at "$(fm_jev_iso_now)" --arg task "$task" --arg project "$project" --arg route "$route" --arg lead "$lead" --argjson consult "$consult" --arg source "$source" --argjson probability "$probability" --arg reason "$REASON" --arg backup "$backup" \
-    '{timestamp: $at, task_id: $task, project: $project, route: $route, lead: $lead, consult: $consult, source: $source, probability: $probability, reason: $reason} + (if $backup == "" then {} else {backup: $backup} end)')" || return 1
+  append_event "$(event_json decide "$task" "$project" "$route" "$lead" "$consult" "$source" "$probability" "${model:-}" "$REASON" | jq -c --argjson cp "$consult_p" --arg backup "$backup" --arg advice "$advice" '. + {consult_probabilities: $cp} + (if $backup == "" then {} else {backup: $backup} end) + (if $advice == "" then {} else {advice: $advice} end)')" || return 1
+  write_record "$task" "$(jq -cn --arg at "$(fm_jev_iso_now)" --arg task "$task" --arg project "$project" --arg route "$route" --arg lead "$lead" --argjson consult "$consult" --arg source "$source" --argjson probability "$probability" --arg reason "$REASON" --arg backup "$backup" --arg advice "$advice" \
+    '{timestamp: $at, task_id: $task, project: $project, route: $route, lead: $lead, consult: $consult, source: $source, probability: $probability, reason: $reason} + (if $backup == "" then {} else {backup: $backup} end) + (if $advice == "" then {} else {advice: $advice} end)')" || return 1
   printf 'route: %s\n' "$route"
   printf 'decided: %s\n' "$source"
+  [ -z "$advice" ] || printf 'advice: Jev suggests %s (advise-only: this call site'"'"'s eval score has not cleared the bar)\n' "$advice"
   [ -z "$REASON" ] || printf 'typed: %s\n' "$REASON"
   [ -z "$backup" ] || printf 'backup: %s\n' "$backup"
   case "$route" in

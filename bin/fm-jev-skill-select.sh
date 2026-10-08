@@ -50,7 +50,9 @@
 #   worker in that private overlay, using the harness's skill-invocation form
 #   (slash, dollar, or named-file). live_loaded is true only after those
 #   skill ids are verified in the overlay file. A missing overlay, Choice
-#   none, uncertain/error status, shadow mode, or any write/verify failure
+#   none, uncertain/error status, shadow mode, fm_jev_site_mode skill-select
+#   saying advise (the call site's latest bin/fm-jev-eval.sh score has not
+#   cleared the bar), or any write/verify failure
 #   leaves live_loaded false and does not change a worker launch that would
 #   otherwise proceed. This tool never blocks spawn: exit 0 for clear,
 #   uncertain, error, off, and reuse. Exit 2 for usage or a live request
@@ -197,6 +199,9 @@ overlay_apply_ok() {
   local skills_json=$1 status=$2
   local overlay_dir tmp heading count id skill_file
   [ "$MODE" = live ] || return 1
+  # Jev's pick reaches the worker only while this call site's eval score
+  # clears the bar (bin/fm-jev-eval.sh); otherwise it stays a recorded advice.
+  [ "$(fm_jev_site_mode skill-select)" = act ] || return 1
   [ -n "$OVERLAY" ] || return 1
   [ -f "$OVERLAY" ] && [ -w "$OVERLAY" ] || return 1
   [ "$status" = clear ] || return 1

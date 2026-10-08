@@ -111,6 +111,10 @@
 #       -> eligible | eligible, unranked: <reason> | not eligible: <reason>
 #     last_resort: <why the stage's own ranking could not choose>
 #     profile: --harness <h> [--model <m>] [--effort <e>]
+#     mode: advise (...) and advice: <same profile>   (instead of profile: on a
+#       clear or picked result, while fm_jev_site_mode dispatch-resolve says
+#       advise: the call site's latest bin/fm-jev-eval.sh score has not
+#       cleared the bar, so the pick is advice and firstmate decides as today)
 #   clear     -> the typed call decided; pass the profile line to fm-spawn.sh (AGENTS.md section 4 owns the only overrides)
 #   picked    -> the typed rule answer was ambiguous and the runoff settled it; pass the profile line the same way
 #   backup    -> the backup judge decided; pass the profile line the same way
@@ -1429,6 +1433,10 @@ if [ "$TYPED_ONLY" -eq 0 ]; then
     | if $quota != "" then .quota_note = $quota else . end' <<<"$RESULT") || emit_error "chain merge failed"
 fi
 
+# Jev's own profile (clear or picked) binds the spawn only while this call
+# site's eval score clears the bar (bin/fm-jev-eval.sh); otherwise it is
+# printed as advice.
+SITE_MODE=$(fm_jev_site_mode dispatch-resolve)
 TEXT=$(jq -r '
   def flat: tostring | gsub("[\t\r\n]"; " ");
   def show($value): ($value // "-") | flat;
@@ -1460,18 +1468,22 @@ TEXT=$(jq -r '
       + (if .pred then "  pred=~\(.pred.tokens | flat)tok/\(show(.pred.seconds))s" elif has("pred") then "  pred=unknown" else "" end)
       + (if (.bounds // [] | length) > 1 then "  bounds=" + ([.bounds[] | "\(.scope | flat):\(show(.pct))%/\((.runway // .status) | flat)"] | join(",")) else "" end)
       + "  -> " + (if .unranked then "eligible, unranked: \(.reason | flat): disclosed uncertainty" elif .eligible then "eligible" else "not eligible: \(.reason | flat)" end)),
-  (if .chosen then "  profile: --harness \(.chosen.profile.harness | shell_arg)"
+  (if .chosen then
+     ("--harness \(.chosen.profile.harness | shell_arg)"
       + (if .chosen.profile.model then " --model \(.chosen.profile.model | shell_arg)" else "" end)
       + (if .chosen.effort_emit == false then
            (if .chosen.profile.effort then " --effort \(.chosen.profile.effort | shell_arg)" else "" end)
          elif .chosen.effort then " --effort \(.chosen.effort | shell_arg)"
-         elif .chosen.profile.effort then " --effort \(.chosen.profile.effort | shell_arg)" else "" end) else empty end)' <<<"$RESULT") || emit_error "output rendering failed"
+         elif .chosen.profile.effort then " --effort \(.chosen.profile.effort | shell_arg)" else "" end)) as $profile
+     | if $mode == "act" or (.status != "clear" and .status != "picked") then "  profile: \($profile)"
+       else "  mode: advise (this call site'"'"'s eval score has not cleared the bar; decide as today)", "  advice: \($profile)" end
+   else empty end)' --arg mode "$SITE_MODE" <<<"$RESULT") || emit_error "output rendering failed"
 if fm_dispatch_shadow_on; then
   SHADOW_PATH="$FM_HOME/state/jev-dispatch-shadow.jsonl"
   SHADOW=$(jq -nc --argjson result "$RESULT" --arg route "${FM_JEV_LAST_ROUTE:-}" \
     --arg url "${FM_JEV_LAST_URL:-}" --arg model "${FM_JEV_LAST_MODEL:-}" \
     --arg response_model "$(fm_jev_response_model "$(cat "$RESP_FILE" 2>/dev/null)")" \
-    --arg project "$PROJECT" --argjson extra "$EXTRA_LOG" \
+    --arg project "$PROJECT" --argjson extra "$EXTRA_LOG" --arg mode "$SITE_MODE" \
     --arg compact "$(if fm_dispatch_compact_on; then printf 1; else printf 0; fi)" '{
       purpose: "dispatch-shadow",
       route: $route,
@@ -1482,6 +1494,7 @@ if fm_dispatch_shadow_on; then
       compact: ($compact == "1"),
       status: $result.status,
       decided_by: ($result.chain.decided_by // null),
+      mode: $mode,
       rule: $result.rule,
       confidence: $result.confidence,
       probabilities: $result.probabilities,

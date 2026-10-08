@@ -490,6 +490,20 @@ SH
   done
 }
 
+# fm_jev_act_scores <dir>: writes a final, fresh, passing eval scorecard for
+# every call site in tests/jev-eval/sites.json to <dir>/jev-act-scores.json and
+# prints its path. Export it as FM_JEV_EVAL_SCORES so a case exercises a site
+# whose Jev answer acts (bin/fm-jev-lib.sh fm_jev_site_mode); a scorecard path
+# that does not exist leaves every site advise-only.
+fm_jev_act_scores() {  # <dir>
+  local out="$1/jev-act-scores.json"
+  mkdir -p "$1"
+  jq --argjson now "$(date +%s)" '{final: true, generated_at: $now,
+    sites: (.sites | with_entries(.value = {cases: 100, agreement: 1, dangerous_misses: 0}))}' \
+    "$ROOT/tests/jev-eval/sites.json" > "$out" || return 1
+  printf '%s\n' "$out"
+}
+
 fm_fake_exit0() {
   local fakebin=$1 tool
   shift

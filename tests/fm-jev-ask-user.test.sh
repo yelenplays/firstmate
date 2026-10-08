@@ -18,6 +18,7 @@ RESPONSE="$TMP_ROOT/response.json"
 KEY='ts-ask-user-test-key-0123456789'
 GATE=nm-01M4TEST0000000000000000AB-review
 SUT="$ROOT/bin/fm-jev-ask-user.sh"
+ACT_SCORES=$(fm_jev_act_scores "$TMP_ROOT")
 
 cat > "$FAKEBIN/curl" <<'SH'
 #!/usr/bin/env bash
@@ -104,12 +105,13 @@ EOF
   mkdir -p "$LOG"
 }
 
-# run <exit-var> <out-var> [args...] - runs with the key and the fake sender.
+# run <exit-var> <out-var> [args...] - runs with the key, the fake sender, and
+# a passing eval scorecard, so the site may act (ASK_TEST_SCORES overrides it).
 run() {
   local __code=$1 __out=$2 __o="$TMP_ROOT/run.out" __c
   shift 2
   PATH="$FAKEBIN:$PATH" TYPESAFE_API_KEY="${ASK_TEST_KEY-$KEY}" FM_HOME="$HOME_DIR" \
-    FM_WIKIS_ROOT="$TMP_ROOT/no-wikis" FM_JEV_ASK_USER_SEND="$FAKEBIN/fake-send" \
+    FM_JEV_EVAL_SCORES="${ASK_TEST_SCORES-$ACT_SCORES}" FM_WIKIS_ROOT="$TMP_ROOT/no-wikis" FM_JEV_ASK_USER_SEND="$FAKEBIN/fake-send" \
     "$SUT" "$@" > "$__o" 2>&1
   __c=$?
   printf -v "$__code" '%s' "$__c"
@@ -157,6 +159,20 @@ test_act_sends_jev_decision_with_resolve_key() {
     '["ask-user-gate","act","decided",true,true,["F1","F2"]]' "the decision is logged as Jev's"
   assert_not_contains "$(cat "$HOME_DIR/state/jev-ask-user.jsonl")" "trailing newline" "the log carries no finding text"
   pass "fm-jev-ask-user: a confident in-scope verdict answers the gate through fm-send"
+}
+
+test_advise_only_site_escalates_with_jev_answer() {
+  local code out
+  world
+  answer in-scope-fix 0.92 in-scope-fix 0.88
+  ASK_TEST_SCORES="$TMP_ROOT/no-scorecard.json" run code out t1 "$GATE" --round 1
+  assert_equals "$code" 2 "without a passing eval score Jev's fix verdict goes to the captain"
+  assert_contains "$out" "ESCALATE $GATE advise-only: Jev would fix F1,F2" "the escalation carries Jev's answer"
+  assert_equals "$(calls)" 1 "Jev is still asked, so its answer is the advice"
+  assert_equals "$([ -f "$LOG/send-args" ] && echo sent || echo none)" none "nothing reaches the worker"
+  assert_equals "$(last_log | jq -c '[.outcome, .code, .jev_called]')" '["escalate","advise-only",true]' \
+    "the advise-only escalation is logged"
+  pass "fm-jev-ask-user: an advise-only site escalates with Jev's answer and sends nothing"
 }
 
 test_security_screen_escalates_cross_tenant_finding() {
@@ -464,6 +480,7 @@ test_ordinary_task_numbers_reach_jev() {
 }
 
 test_act_sends_jev_decision_with_resolve_key
+test_advise_only_site_escalates_with_jev_answer
 test_security_screen_escalates_cross_tenant_finding
 test_escalates_contact_data_before_jev
 test_ordinary_task_numbers_reach_jev

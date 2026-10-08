@@ -16,6 +16,10 @@ TOOL="$ROOT/bin/fm-dispatch-resolve.sh"
 TMP_ROOT=$(fm_test_tmproot fm-dispatch-resolve)
 HOME_DIR="$TMP_ROOT/home"
 FAKEBIN=$(fm_fakebin "$TMP_ROOT")
+# A passing eval scorecard lets the resolver's pick bind the spawn; the
+# advise-only case below points this at a missing file.
+FM_JEV_EVAL_SCORES=$(fm_jev_act_scores "$TMP_ROOT")
+export FM_JEV_EVAL_SCORES
 NO_CURL_BIN="$TMP_ROOT/no-curl-bin"
 LOG="$TMP_ROOT/log"
 BRIEF="$TMP_ROOT/brief.md"
@@ -241,6 +245,17 @@ TYPESAFE_API_KEY=$KEY FM_CONFIG_OVERRIDE="$OVERRIDE_CONFIG" run code out err "$B
 assert_contains "$out" '  status: clear' "FM_CONFIG_OVERRIDE selects the canonical rules directory"
 pass "TYPESAFE_API_KEY= in .env activates the tool; environment and config overrides work"
 
+# --- advise-only: the pick is advice until the eval score clears the bar ----
+reset_log
+write_response "$RESPONSE" rule_4 0.9
+FM_JEV_EVAL_SCORES="$TMP_ROOT/no-scorecard.json" TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project pager
+expect_code 0 "$code" "advise-only exits 0"
+assert_contains "$out" '  status: clear' "the match itself is still reported"
+assert_not_contains "$out" '  profile: ' "an advise-only site prints no profile line for fm-spawn"
+assert_contains "$out" "  mode: advise (this call site's eval score has not cleared the bar; decide as today)" "the mode says why"
+assert_contains "$out" "  advice: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "the pick is printed as advice"
+pass "an advise-only dispatch site shows its pick as advice and binds nothing"
+
 # --- clear: request shape, secret handling, argmax --------------------------
 reset_log
 write_response "$RESPONSE" rule_4 0.9
@@ -254,6 +269,7 @@ assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(r
 assert_contains "$out" 'candidate: kimi:kimi-code/k3  provider=kimi  pred=unknown  -> eligible, unranked: provider kimi unmeasured (unknown): disclosed uncertainty' "unmeasured provider stays listed as eligible and unranked"
 assert_contains "$out" '  note: 1 eligible candidate(s) unranked (kimi)' "clear results flag eligible unranked candidates once"
 assert_not_contains "$out" '--effort' "cursor profile without effort emits no --effort"
+assert_not_contains "$out" '  mode: advise' "a passing eval score prints no advise mode"
 argv=$(cat "$LOG/argv")
 assert_not_contains "$argv" "$KEY" "the key never appears on curl argv"
 assert_contains "$argv" 'https://api.typesafe.ai/v1/systemone' "the request uses the default typesafe.ai endpoint"

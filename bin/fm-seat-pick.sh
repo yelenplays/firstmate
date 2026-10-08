@@ -37,7 +37,10 @@
 # pick: one Jev Choice through bin/fm-jev-lib.sh over the candidates plus
 #   none_fit, weighing fit first and then load. Prints one JSON object:
 #     {action: "dispatch", seat, band, confidence}   act band (>= 0.55) on a
-#                                                    listed seat
+#                                                    listed seat, while
+#                                                    fm_jev_site_mode seat-pick
+#                                                    says act (else lead-decides
+#                                                    with that seat as advice)
 #     {action: "lead-decides", seat|null, band, confidence|null, reason}
 #   lead-decides means the team lead picks and records why; seat is Jev's
 #   suggestion when it named a listed one. No candidate, a missing key, or any
@@ -295,6 +298,13 @@ if [ "$cmd" = pick ]; then
   known=
   if [ -n "$choice" ] && jq -e --arg s "$choice" 'any(.[]; .id == $s)' <<<"$candidates" >/dev/null 2>&1; then
     known=$choice
+  fi
+  # A pick dispatches only while this call site's eval score clears the bar
+  # (bin/fm-jev-eval.sh); otherwise the act-band seat is the lead's advice.
+  if [ "$band" = act ] && [ -n "$known" ] && [ "$(fm_jev_site_mode seat-pick)" != act ]; then
+    log_pick lead-decides "$choice" "$band" "$conf" 0
+    lead "Jev $band, but this call site is advise-only until its eval score clears the bar: pick the seat yourself and record why" "$known" "$band" "$conf"
+    exit 0
   fi
   if [ "$band" = act ] && [ -n "$known" ]; then
     log_pick dispatch "$choice" "$band" "$conf" 0

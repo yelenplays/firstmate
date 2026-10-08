@@ -16,6 +16,9 @@ unset TYPESAFE_API_KEY OPENROUTER_API_KEY TYPESAFE_API_KEY_PRIVATE \
 TMP_ROOT=$(fm_test_tmproot fm-jev-skill-select)
 HOME_DIR="$TMP_ROOT/home"
 FAKEBIN=$(fm_fakebin "$TMP_ROOT")
+# A passing eval scorecard lets live skill selection reach the worker.
+FM_JEV_EVAL_SCORES=$(fm_jev_act_scores "$TMP_ROOT")
+export FM_JEV_EVAL_SCORES
 LOG="$TMP_ROOT/log"
 SKILLS_DIR="$TMP_ROOT/user-home/.agents/skills"
 BASE_PATH=$PATH
@@ -278,6 +281,23 @@ test_live_without_overlay_stays_unloaded() {
     || fail "live without --overlay must record live_loaded false"
   [ ! -e "$HOME_DIR/state/t-live2.launch" ] || fail "live must not write a sidecar launch file"
   pass "live plus confirm without --overlay only records a suggestion"
+}
+
+test_live_overlay_advise_only_site_stays_unloaded() {
+  local code out err overlay
+  fresh_home
+  : > "$HOME_DIR/config/jev-skill-select-live"
+  overlay="$HOME_DIR/data/t-advise/launch-brief.md"
+  mkdir -p "$(dirname "$overlay")"
+  seed_overlay "$overlay"
+  FM_JEV_EVAL_SCORES="$TMP_ROOT/no-scorecard.json" FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY \
+    run_select code out err --harness grok --task-id t-advise --skills-dir "$SKILLS_DIR" --overlay "$overlay"
+  expect_code 0 "$code" "an advise-only live select still exits 0"
+  jq -e '.mode == "live" and .live_loaded == false and .status == "clear" and (.skills | index("pager") != null)' \
+    "$HOME_DIR/state/t-advise.jev-skills.json" >/dev/null \
+    || fail "an advise-only site must record the pick with live_loaded false"
+  assert_no_grep '# Jev-selected skills' "$overlay" "an advise-only site must not inject skills"
+  pass "live overlay on an advise-only site records the pick and injects nothing"
 }
 
 test_live_overlay_sets_live_loaded() {
@@ -720,6 +740,7 @@ test_below_floor_is_uncertain
 test_missing_keys_are_off_without_curl
 test_live_without_confirm_refuses
 test_live_without_overlay_stays_unloaded
+test_live_overlay_advise_only_site_stays_unloaded
 test_live_overlay_sets_live_loaded
 test_shadow_overlay_does_not_change_launch
 test_none_overlay_leaves_launch_unchanged

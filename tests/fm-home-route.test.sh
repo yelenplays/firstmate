@@ -64,8 +64,11 @@ write_answer() { # <lead> <lead probability> <lay consult> <frontend consult>
       consult_lay: {type: "noul", noul: $lay},
       consult_frontend: {type: "noul", noul: $fe}}}' > "$RESPONSE"
 }
+# A passing eval scorecard lets Jev's route bind; ROUTE_TEST_SCORES overrides it.
+ACT_SCORES=$(fm_jev_act_scores "$TMP_ROOT")
 run_tool() {
   FM_HOME="$HOME_DIR" PATH="$FAKEBIN:$BASE_PATH" TYPESAFE_API_KEY=fixture-key JEV_URL=https://example.invalid/decision \
+    FM_JEV_EVAL_SCORES="${ROUTE_TEST_SCORES-$ACT_SCORES}" \
     FM_BACKUP_JUDGE_CMD=fake-claude /bin/bash "$TOOL" "$@"
 }
 last_event() { tail -n 1 "$LOG"; }
@@ -99,6 +102,23 @@ for extra in '{"type":"noul","noul":1}' '{"type":"choice","noul":1}' '{"type":"n
     || fail 'unrequested mates were recorded'
 done
 pass 'typed consult answers are projected onto eligible public scopes'
+
+# Without a passing eval score the same answer is advice and the backup decides.
+write_answer frontend 0.98 0.79 0.62
+out=$(ROUTE_TEST_SCORES="$TMP_ROOT/no-scorecard.json" FM_BACKUP_ANSWER='{"lead":"frontend","consult_lay":false,"consult_frontend":false}' \
+  run_tool decide lay-advise --project lay-distribution-site \
+  --public-summary 'Rewrite the FAQ page of the Lay Distribution marketing website') || fail 'advise decide failed'
+assert_contains "$out" 'route: frontend' 'an advise-only Jev route is decided by the backup'
+assert_contains "$out" 'decided: backup' 'the backup is named'
+assert_contains "$out" 'typed: advise_only' 'the typed reason names advise-only'
+assert_contains "$out" 'advice: Jev suggests frontend+lay' 'the Jev route is kept as advice'
+last_event | jq -e '.task_id == "lay-advise" and .route == "frontend" and .source == "backup" and .reason == "advise_only" and .advice == "frontend+lay"' >/dev/null ||
+  fail 'advise-only decision not logged with its advice'
+jq -e '.source == "backup" and .advice == "frontend+lay"' "$HOME_DIR/state/home-route/lay-advise.json" >/dev/null ||
+  fail 'advise-only record lost its advice'
+out=$(run_tool judge lay-advise --route frontend+lay --reason 'took the advice') || fail 'judge over an advise-only record failed'
+assert_contains "$out" 'route: frontend+lay' 'firstmate can accept the advice through judge'
+pass 'an advise-only home route keeps the Jev route as advice and the backup decides'
 
 rc=0
 out=$(run_tool check lay-faq "$TMP_ROOT/projects/lay-distribution-site" 2>&1) || rc=$?

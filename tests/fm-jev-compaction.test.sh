@@ -136,8 +136,12 @@ SH
 chmod +x "$FAKEBIN/curl"
 BODIES="$TMP/bodies.jsonl"
 PARK4="$TMP/park-jev"
+# A passing eval scorecard lets Jev's scores park (bin/fm-jev-lib.sh fm_jev_site_mode).
+ACT_SCORES="$TMP/act-scores.json"
+jq -n --argjson now "$(date +%s)" '{final: true, generated_at: $now,
+  sites: {compaction: {cases: 100, agreement: 1, dangerous_misses: 0}}}' > "$ACT_SCORES"
 PATH="$FAKEBIN:$PATH" FAKE_CURL_BODIES="$BODIES" TYPESAFE_API_KEY=test-key-not-real \
-  FM_JEV_COMPACTION=on "$SCRIPT" \
+  FM_JEV_EVAL_SCORES="$ACT_SCORES" FM_JEV_COMPACTION=on "$SCRIPT" \
   --task jev \
   --trace "$FIXTURE_TRACE" \
   --park-dir "$PARK4" \
@@ -157,5 +161,20 @@ jq -se '
 jev_parked="$(jq -rs 'map("\(.id)=\(.keep_value)") | join(",")' "$PARK4/index.jsonl")"
 [ "$jev_parked" = "s4=0.1,s5=0.1" ] || fail "Jev level 0.4 of 0..4 should park as 0.1, got $jev_parked"
 pass "keep_value Score sends documented criteria and normalizes the level index"
+
+# 7. Without a passing eval score Jev's scores are advice: nothing is parked,
+# the trace stays whole, and stderr names what Jev would have parked.
+PARK5="$TMP/park-advise"
+PATH="$FAKEBIN:$PATH" FAKE_CURL_BODIES="$BODIES" TYPESAFE_API_KEY=test-key-not-real \
+  FM_JEV_EVAL_SCORES="$TMP/no-scorecard.json" FM_JEV_COMPACTION=on "$SCRIPT" \
+  --task jev \
+  --trace "$FIXTURE_TRACE" \
+  --park-dir "$PARK5" \
+  --out "$TMP/from-advise.jsonl" 2> "$TMP/advise.err" || fail "advise-only compaction should succeed"
+[ ! -e "$PARK5" ] || fail "an advise-only site must park nothing"
+[ "$(jq -rs 'map(.id) | join(",")' "$TMP/from-advise.jsonl")" = "s1,s2,s3,s4,s5" ] || fail "advise-only should keep the whole trace"
+grep -q 'advise-only: Jev would park 2 segment(s) (s4 s5); trace kept whole' "$TMP/advise.err" \
+  || fail "advise-only should name the segments Jev would park, got: $(cat "$TMP/advise.err")"
+pass "an advise-only compaction keeps the trace whole and reports Jev's advice"
 
 printf 'all tests passed\n'

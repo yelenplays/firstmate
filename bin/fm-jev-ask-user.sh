@@ -35,7 +35,9 @@
 # confidence at or above FM_JEV_ASK_USER_FLOOR
 # (default 0.75; the reported confidence, else the top-two margin). Any other
 # answer, a transport failure, or a malformed response escalates; there is no
-# fallback to another judge.
+# fallback to another judge. Even then it acts only while
+# fm_jev_site_mode ask-user says act (bin/fm-jev-eval.sh owns the score);
+# otherwise it escalates advise-only with Jev's answer in the reason.
 #
 # On act it prints the decision and sends it to the worker through
 # `bin/fm-send.sh <task> --resolve-key <key>`, whose close note records that
@@ -349,6 +351,13 @@ if ! jq -e 'all(.[]; .choice == "in-scope-fix")' >/dev/null <<<"$ANSWERS"; then
 fi
 if ! jq -e 'all(.[]; .meets_floor)' >/dev/null <<<"$ANSWERS"; then
   escalate jev-low-confidence "Jev was below the $FLOOR confidence floor ($SUMMARY)"
+fi
+
+# --- autonomy -------------------------------------------------------------------
+# Jev acts here only while this call site's latest eval score clears the bar
+# (bin/fm-jev-eval.sh owns the score); otherwise its answer is advice.
+if [ "$(fm_jev_site_mode ask-user)" != act ]; then
+  escalate advise-only "Jev would fix $IDS ($SUMMARY), but this call site is advise-only until its eval score clears the bar"
 fi
 
 # --- act ------------------------------------------------------------------------

@@ -854,7 +854,7 @@ It asks Jev only about mates whose exact `scope:` value from `data/secondmates.m
 Review the task summary and every scope manually before approval: the deterministic privacy veto rejects known private terms and obvious credentials, but cannot establish that arbitrary free text is safe.
 A `local-only` project always routes main without a call.
 `decide` always records a route, and its `decided:` line names the stage that chose it.
-A missing key, a low-confidence answer, or an endpoint that does not answer goes to the [backup judge](#typed-dispatch-resolution-env-typesafe_api_key), which answers the same lead and consult questions on the same state.
+A missing key, a low-confidence answer, an endpoint that does not answer, or a route given while the home-route call site is advise-only (reason `advise_only`, the route kept as `advice`; see "Jev eval and per-site autonomy") goes to the [backup judge](#typed-dispatch-resolution-env-typesafe_api_key), which answers the same lead and consult questions on the same state.
 An unsafe summary or project, missing or unusable scopes or registry, or a backup that fails too keeps the task in the main home.
 Only eligible, approved scopes can appear as consulted mates, even if a typed response includes extra consult answers.
 Firstmate may still record its own call with `bin/fm-home-route.sh judge`, accepted over a backup, main-by-default, earlier judgment, or legacy `judgment-needed` record, but never over a Jev or local-only route.
@@ -1646,6 +1646,7 @@ No qualifying option, or two equally probable qualifying options, leaves the typ
 | `error` | Under `--typed-only` only: API, network, malformed response metadata, rendering, or quota-axi failure. |
 
 Every result above exits 0.
+While the dispatch call site is advise-only ("Jev eval and per-site autonomy" below), a `clear` or `picked` result prints `mode: advise` and the same profile as an `advice:` line instead of the `profile:` line, so it binds nothing.
 
 - Response probabilities must contain exactly every offered choice, use numeric values from 0 through 1, and sum to approximately 1 within 0.01.
 - Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, an invalid `FM_JEV_DISPATCH_MARGIN`, or missing `jq`, each reported and never selected around.
@@ -1723,6 +1724,40 @@ Shadow features that ask TypeSafe Jev share [`bin/fm-jev-lib.sh`](../bin/fm-jev-
 It is a sourceable library, not a user CLI; the script header owns route selection, models, key handling, helpers, and exact failure codes.
 Set `TYPESAFE_API_KEY` for the TypeSafe route, or `OPENROUTER_API_KEY` for OpenRouter when that is the only key or when `JEV_ROUTE=openrouter`.
 Typed dispatch resolution above uses this library for the HTTP call and owns the `JEV_ROUTE`, `JEV_MODEL`, `JEV_URL`, `JEV_BASE`, and `JEV_TIMEOUT` names.
+
+## Jev eval and per-site autonomy (bin/fm-jev-eval.sh)
+
+[`bin/fm-jev-eval.sh`](../bin/fm-jev-eval.sh) scores every Jev call site against its own gold test set and drives each site's act/advise mode from that score.
+The test sets live in [`tests/jev-eval/`](../tests/jev-eval/): `sites.json` names each call site, the script it runs, whether it acts on its own, its labels, and what a dangerous miss is; `cases/<site>.jsonl` holds the public-safe cases, `adapters/<site>.sh` runs the real script on one case in a scratch home, `cassettes/<site>/` holds the recorded Jev answers, and `baseline.json` holds the score those cassettes reproduce.
+Gold comes from the captain's recorded answers where they exist, from firstmate records next, and from Opus labels last; `gold_confirmed` in `sites.json` stays false until a human spot-checks the Opus labels, and no score is final before then.
+Private cases that cannot be public go in an overlay with the same shape under `$FM_HOME/data/jev-eval/` (`FM_JEV_EVAL_OVERLAY` overrides); live runs and the nightly score them with the public set, while the committed baseline never includes them.
+
+[`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) `fm_jev_site_mode <site>` is the one owner of the act rule.
+A site acts only when the latest scorecard (`$FM_HOME/state/jev-eval/latest.json`, `FM_JEV_EVAL_SCORES` overrides) is final, at most eight days old (`FM_JEV_EVAL_MAX_AGE_SECS`), and gives that site at least 20 cases, agreement with gold of at least 0.95, and zero dangerous misses.
+Anything else, including a missing scorecard, is advise, and the merge gate is always advise.
+An advise site still asks Jev and keeps the answer as advice:
+
+- the ask-user gate escalates `advise-only` with Jev's verdict in the reason and sends nothing to the worker;
+- dispatch resolution prints a `clear` or `picked` result as `mode: advise` and an `advice:` line instead of the `profile:` line, so firstmate decides as today;
+- the home router keeps a confident Jev route as `advice`, reason `advise_only`, and lets the backup judge decide, which firstmate can still override with `judge`;
+- the wedge check never suppresses a structural escalation and logs `advised: suppress`;
+- compaction parks nothing and names the segments Jev would have parked on stderr;
+- the live tool-gate runs as shadow and logs `site_mode: advise`;
+- the live skill selector records its pick but injects nothing;
+- seat picking hands its act-band seat to the lead as advice;
+- `bin/fm-jev.sh` prints a confident answer as `ESCALATE ... prior=<answer> advise-only` and exits 2, reading the scorecard of `FM_HOME`, else of the owning home.
+
+Merges, deletions, logins, and other destructive, irreversible, or security-sensitive actions stay with the human whatever a site scores.
+
+`bin/fm-jev-eval.sh run` replays the committed cassettes with no key and no network; `--live` asks Jev for real, publishes `latest.json`, and archives the card under `state/jev-eval/runs/`; `--record` with `--live` also re-records the cassettes.
+`check-baseline` is the change guard: [`tests/fm-jev-eval.test.sh`](../tests/fm-jev-eval.test.sh) runs it in CI, so a change to a Jev call site, its prompt, or the pinned Jev build cannot ship until its cassettes are re-recorded and every site still holds its baseline.
+After an intended change, re-record the affected sites with `run --live --record --site <site>` and rewrite the baseline with `write-baseline`.
+
+Arm the nightly run once per home with `bin/fm-jev-eval.sh arm`, which registers an hourly watcher check that starts at most one detached live run per `FM_JEV_EVAL_NIGHTLY_SECS` (default 72000) when a Jev key is configured; `disarm` retires it.
+After each nightly run Haiku (`claude-haiku-5-5` through `claude -p`, `FM_JEV_EVAL_HAIKU_CMD` replaces the command) writes a miss analysis next to the archived card; the scores always come from the script, never from the model.
+A site that acted before the run and is advise after it is a demotion: one note through `bin/fm-slack-bridge.sh post report` when `config/slack-bridge` exists, and one notice the watcher check prints once.
+`bin/fm-jev-eval.sh status` prints each site's latest score and current mode.
+The script header owns the case schema, adapter contract, scorecard fields, and exit codes.
 
 ## Jev worker command (bin/fm-jev.sh)
 
