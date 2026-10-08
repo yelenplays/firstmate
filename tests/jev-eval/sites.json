@@ -1,6 +1,6 @@
 {
   "schema": "fm-jev-eval-sites.v1",
-  "gold_confirmed": false,
+  "gold_confirmed": true,
   "sites": {
     "ask-user": {
       "script": "bin/fm-jev-ask-user.sh",
