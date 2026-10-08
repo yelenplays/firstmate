@@ -2704,6 +2704,44 @@ test_self_held_lock_reclaims_instead_of_deadlocking() {
   pass "an abandoned same-process lock hold is reclaimed; a parent's live hold is not"
 }
 
+# A holder killed between linking a lock and recording its pid leaves a pid-less
+# mid-acquire lock, which is fresh only for FM_LOCK_STALE_AFTER. Its age is a
+# wall-clock reading against the link's mtime, so a clock that reads earlier
+# than that mtime (a backward step, or the fake `date` a watcher fixture runs
+# under) gives a negative age. Negative must not read as fresh, or every
+# acquirer waits until the clock catches up - the foreign-stall watcher legs
+# hung on exactly this. A genuinely fresh pid-less lock still waits.
+test_future_dated_mid_acquire_lock_is_reclaimed() {
+  local dir state rc future
+  dir=$(make_case future-mid-acquire-lock)
+  state="$dir/state"
+  future=$(( $(date +%s) + 3600 ))
+  rc=0
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    for name in .future.lock .fresh.lock; do
+      lock="$2/$name"
+      fm_lock_acquire_wait "$lock" || exit 10
+      rm -f "$(readlink "$lock")/pid" || exit 11
+    done
+  ' _ "$ROOT/bin/fm-wake-lib.sh" "$state" || rc=$?
+  [ "$rc" -eq 0 ] || fail "mid-acquire lock fixture could not be built (rc=$rc)"
+  TZ=UTC touch -h -t "$(date -u -r "$future" +%Y%m%d%H%M.%S 2>/dev/null || date -u -d "@$future" +%Y%m%d%H%M.%S)" \
+    "$state/.future.lock" || fail "could not future-date the mid-acquire lock"
+  rc=0
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_lock_try_acquire "$2/.future.lock" || exit 20
+    fm_lock_release "$2/.future.lock"
+    fm_lock_try_acquire "$2/.fresh.lock" && exit 21
+    exit 0
+  ' _ "$ROOT/bin/fm-wake-lib.sh" "$state" || rc=$?
+  [ "$rc" -ne 20 ] || fail "a future-dated pid-less lock read as fresh instead of being reclaimed"
+  [ "$rc" -ne 21 ] || fail "a just-created pid-less lock was reclaimed inside its mid-acquire window"
+  [ "$rc" -eq 0 ] || fail "future-dated mid-acquire lock check failed (rc=$rc)"
+  pass "a pid-less lock dated ahead of the clock is reclaimed; a fresh one is not"
+}
+
 test_subshell_lock_ownership_without_bashpid() {
   local dir state rc
   dir=$(make_case subshell-lock-ownership)
@@ -3624,6 +3662,7 @@ SH
 }
 
 test_self_held_lock_reclaims_instead_of_deadlocking
+test_future_dated_mid_acquire_lock_is_reclaimed
 test_subshell_lock_ownership_without_bashpid
 test_bounded_lock_handoff_after_contention
 test_live_presentation_holder_is_deadlined_without_weakening_ack

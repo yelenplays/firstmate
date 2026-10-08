@@ -620,13 +620,19 @@ fm_lock_remove_path() {
   rmdir "$lockdir" 2>/dev/null
 }
 
+# A pid-less lock is fresh only while its age is in [0, stale). A negative age
+# means the clock reads earlier than the link's mtime (a backward step, or a
+# faked clock), and that cannot prove an acquirer is mid-claim: treating it as
+# fresh would leave a crash-orphaned lock blocking every acquirer until the
+# clock caught up.
 fm_lock_mid_acquire_is_fresh() {
-  local lockdir=$1 pid=$2 mid_acquire_stale
+  local lockdir=$1 pid=$2 mid_acquire_stale age
   case "$pid" in
     ''|*[!0-9]*)
       mid_acquire_stale=$FM_LOCK_STALE_AFTER
       [ "$mid_acquire_stale" -lt 2 ] && mid_acquire_stale=2
-      [ "$(fm_path_age "$lockdir")" -lt "$mid_acquire_stale" ]
+      age=$(fm_path_age "$lockdir")
+      [ "$age" -ge 0 ] && [ "$age" -lt "$mid_acquire_stale" ]
       return
       ;;
   esac
