@@ -33,6 +33,7 @@ while [ $# -gt 0 ]; do
   case "$1" in -o) out=$2; shift 2 ;; *) shift ;; esac
 done
 body=$(cat)
+[ -z "${FAKE_TYPED_DELAY:-}" ] || sleep "$FAKE_TYPED_DELAY"
 cat /dev/fd/3 >/dev/null 2>&1 || true
 [ "${FAKE_TYPED_DOWN:-0}" = 1 ] && exit 7
 brief=$(printf '%s' "$body" | jq -r '.state.task.brief // ""')
@@ -229,6 +230,28 @@ jq -e '.exit == 0' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null ||
 assert_contains "$(cat "$HOME_DIR/state/dispatch-selftest/last.out")" 'PASS impl-2' "check: the successful retry output is retained"
 pass "check: failed attempts alert once until inputs change"
 
+FAKE_TYPED_DELAY=0.15 PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY=selftest-key \
+  FM_BACKUP_JUDGE_CMD=fake-claude FM_SPEND_LEDGER=/nonexistent "$TOOL" run --record > "$TMP_ROOT/direct-run.out" 2>&1 &
+direct_pid=$!
+for ((i = 0; i < 100; i++)); do
+  if [ -d "$HOME_DIR/state/dispatch-selftest/running" ] \
+    && jq -e '.state == "running"' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.02
+done
+[ -d "$HOME_DIR/state/dispatch-selftest/running" ] || fail "run --record: no running marker was created"
+run_selftest code out run --record
+expect_code 1 "$code" "run --record: an overlapping recorded run is refused"
+assert_contains "$out" 'a recorded run is already active' "run --record: the active marker is respected"
+run_selftest code out check
+assert_equals '' "$out" "check: an active recorded run does not report a stopped run"
+jq -e '.state == "running"' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null || fail "check: an active recorded run was overwritten"
+wait "$direct_pid" || fail "run --record: direct recorded run failed"
+[ ! -d "$HOME_DIR/state/dispatch-selftest/running" ] || fail "run --record: its marker was not retired"
+jq -e '.state == "done" and .exit == 0' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null || fail "run --record: recorded pass was not preserved"
+pass "run --record shares the check lock and cannot be mistaken for a stopped run"
+
 # A run that died before recording is reported, not silently retried forever.
 jq -n --argjson at "$(date +%s)" '{started: $at, state: "running"}' > "$HOME_DIR/state/dispatch-selftest/result.json"
 run_selftest code out check
@@ -259,6 +282,45 @@ run_selftest code out check
 assert_equals '' "$out" "check: an unchanged missing-samples poll neither reruns nor re-alerts"
 assert_equals "$missing_started" "$(jq -r '.started' "$HOME_DIR/state/dispatch-selftest/result.json")" "check: missing-input attempt timestamp is retained"
 pass "check: a missing samples file alerts once until change or nightly slot"
+
+DIGEST_BIN="$TMP_ROOT/digest-bin"
+DIGEST_HOME="$TMP_ROOT/digest-home"
+DIGEST_RESOLVER="$TMP_ROOT/digest-resolver"
+cp -R "$ROOT/bin" "$DIGEST_BIN"
+mkdir -p "$DIGEST_HOME/config" "$DIGEST_HOME/state"
+printf '%s\n' '{"rules":[{"when":"Any task.","use":{"harness":"claude","model":"opus"}}]}' > "$DIGEST_HOME/config/crew-dispatch.json"
+printf '%s\n' '{"samples":[{"id":"one","brief":"task one","expect":"rule_1"},{"id":"two","brief":"task two","expect":"rule_1"},{"id":"three","brief":"task three","expect":"rule_1"}]}' > "$DIGEST_HOME/config/dispatch-samples.json"
+cat > "$DIGEST_RESOLVER" <<'SH'
+#!/usr/bin/env bash
+sleep 0.1
+printf '%s\n' '  status: clear' '  decided: rule_1 by typed' '  profile: --harness claude'
+SH
+chmod +x "$DIGEST_RESOLVER"
+digest_run() {
+  PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$DIGEST_HOME" FM_DISPATCH_RESOLVE_BIN="$DIGEST_RESOLVER" \
+    FM_DISPATCH_SELFTEST_HOUR="$test_hour" "$DIGEST_BIN/fm-dispatch-selftest.sh" "$@"
+}
+digest_run run --record >/dev/null || fail "digest proof: initial recorded run failed"
+digest_hash=$(cat "$DIGEST_HOME/state/dispatch-selftest/attempted.sha256")
+printf '\n' >> "$DIGEST_BIN/fm-dispatch-resolve.sh"
+digest_run check >/dev/null || fail "digest proof: resolver change check failed"
+for ((i = 0; i < 100; i++)); do
+  [ ! -d "$DIGEST_HOME/state/dispatch-selftest/running" ] \
+    && jq -e '.state == "done"' "$DIGEST_HOME/state/dispatch-selftest/result.json" >/dev/null 2>&1 && break
+  sleep 0.05
+done
+resolver_hash=$(cat "$DIGEST_HOME/state/dispatch-selftest/attempted.sha256")
+[ "$digest_hash" != "$resolver_hash" ] || fail "digest proof: resolver content change did not trigger a new attempt"
+printf '\n' >> "$DIGEST_BIN/fm-backup-judge-lib.sh"
+digest_run check >/dev/null || fail "digest proof: backup change check failed"
+for ((i = 0; i < 100; i++)); do
+  [ ! -d "$DIGEST_HOME/state/dispatch-selftest/running" ] \
+    && jq -e '.state == "done"' "$DIGEST_HOME/state/dispatch-selftest/result.json" >/dev/null 2>&1 && break
+  sleep 0.05
+done
+backup_hash=$(cat "$DIGEST_HOME/state/dispatch-selftest/attempted.sha256")
+[ "$resolver_hash" != "$backup_hash" ] || fail "digest proof: backup judge content change did not trigger a new attempt"
+pass "check: resolver and backup implementation changes trigger proof"
 
 run_selftest code out disarm
 expect_code 0 "$code" "disarm: succeeds"

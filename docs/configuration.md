@@ -1448,8 +1448,10 @@ Whenever the rules file parses and declares a rule or a default, it always print
 3. When the backup fails, the default stage resolves the configured `default` profiles (the first rule when no default is declared) with status `fallback`.
 
 Each stage's answer settles through the same gates described below.
-When the decided rule leaves no rankable candidate - a quota floor, a refused burn, missing quota evidence, or a tie - a last resort picks inside that rule: the best-ranked eligible candidate, else the first eligible, else the first declared, in declared order on a tie, disclosed on a `last_resort:` line.
-That declared-order choice is deliberate: an answer in the rule the captain wrote beats no answer.
+When a decided rule has no rankable candidate, the last resort picks its best-ranked eligible candidate, then its first eligible candidate, then its first declared candidate, in declared order on a tie.
+If every candidate is refused, the resolver tries eligible candidates from the configured default lane, or `rule_1` when no default is declared, before using the first declared candidate of the decided rule.
+If the default lane is refused too, the `last_resort:` line names both refusal reasons and the final declared-order choice.
+A captain-approval rule remains the one no-profile outcome.
 A request that cannot reach any stage falls to the first default profile, `decided: static by default`.
 The `decided:` line names the rule and stage, and the `typed:` and `backup:` lines say why an earlier stage did not decide.
 Each answer appends one metadata-only record (status, stage, rule, effort and any clamp, profile, reasons, never the brief) to `state/dispatch-resolve.jsonl`.
@@ -1639,9 +1641,11 @@ Each sample runs in an isolated home that shares only `.env`, so a run writes no
 The tracked synthetic fixture in [`tests/fixtures/dispatch-selftest/`](../tests/fixtures/dispatch-selftest/) mirrors a seven-rule configuration with about thirty samples, and CI runs it offline with both judges stubbed.
 
 A locked `bin/fm-session-start.sh` automatically arms the nightly check whenever `config/dispatch-samples.json` exists.
+When a locked session start finds `config/crew-dispatch.json` but no samples file, it alerts once and records `state/dispatch-selftest/missing-samples.alerted` until the samples return or the rules disappear.
 Repeated session starts preserve the existing check registration, and `bin/fm-dispatch-selftest.sh arm` remains available for manual recovery.
-The check stores the SHA-256 digest of the most recently attempted rules and samples in `state/dispatch-selftest/attempted.sha256`, including a distinct marker when either file is missing.
-When either file changes, the next watcher check starts a live run immediately instead of waiting for the nightly hour, unless a run is already active.
+The check stores the SHA-256 digest of the most recently attempted rules, samples, `bin/fm-dispatch-resolve.sh`, and `bin/fm-backup-judge-lib.sh` in `state/dispatch-selftest/attempted.sha256`, including distinct markers for missing or unreadable inputs.
+When any of those inputs changes, the next watcher check starts a live run immediately instead of waiting for the nightly hour, unless a run is already active.
+A direct `run --record` uses the same running marker, so a watcher does not report an overlapping recorded run as stopped.
 A failed run alerts once for that attempt, and unchanged inputs wait for the nightly slot before another run; changed inputs trigger a new immediate attempt.
 A missing samples or rules file alerts once per missing-input attempt, updates `state/dispatch-selftest/last.out`, and is checked again on change or at the nightly slot.
 `bin/fm-dispatch-selftest.sh disarm` retires the check; the script header owns the exact records.

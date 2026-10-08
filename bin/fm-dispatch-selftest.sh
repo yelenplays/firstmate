@@ -37,7 +37,8 @@
 #
 # `check` is the watcher check the nightly run rides on. It stays silent
 #   except for one failure line per attempted input digest. When the
-#   rules+samples digest differs from the last attempted digest, it launches
+#   rules+samples+resolver+backup digest differs from the last attempted
+#   digest, it launches
 #   `run --record` immediately; unchanged inputs wait until no run has started
 #   since the most recent FM_DISPATCH_SELFTEST_HOUR:00 local time (default 3,
 #   0..23), when the nightly run retries them.
@@ -56,7 +57,8 @@
 # State: state/dispatch-selftest/result.json (started, finished, state
 #   running|done, exit, pass, fail, failing, summary, reported),
 #   state/dispatch-selftest/attempted.sha256 (the last attempted rules+samples
-#   digest, including missing-file markers), and state/dispatch-selftest/last.out
+#   and routing-implementation digest, including missing-file markers), and
+#   state/dispatch-selftest/last.out
 #   (the last recorded output).
 #   docs/configuration.md "Typed dispatch resolution" owns the operator view.
 set -u
@@ -114,19 +116,32 @@ action_run() {
       *) die_usage "unknown run argument: $1" ;;
     esac
   done
-  local out rc=0 started_hash
+  local out rc=0 started_hash lock_owned=0
   if [ "$record" -eq 1 ]; then
     mkdir -p "$RESULT_DIR" || exit 2
+    if [ "${FM_DISPATCH_SELFTEST_LOCKED:-0}" = 1 ]; then
+      lock_live && [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$PPID" ] \
+        || { printf 'fm-dispatch-selftest: recorded run has no live check lock\n' >&2; return 2; }
+    else
+      lock_live && { printf 'fm-dispatch-selftest: a recorded run is already active\n' >&2; return 1; }
+      mkdir "$LOCK" 2>/dev/null || { printf 'fm-dispatch-selftest: a recorded run is already active\n' >&2; return 1; }
+      printf '%s\n' "$$" > "$LOCK/pid" || { rm -rf "$LOCK"; return 2; }
+      lock_owned=1
+    fi
     started_hash=''
     if [ "$rules" = "$CONFIG_DIR/crew-dispatch.json" ] \
       && [ "$samples" = "$CONFIG_DIR/dispatch-samples.json" ]; then
       started_hash=$(inputs_hash "$rules" "$samples") || started_hash=''
-      [ -z "$started_hash" ] || record_attempted_hash "$started_hash" || exit 2
+      if [ -n "$started_hash" ] && ! record_attempted_hash "$started_hash"; then
+        [ "$lock_owned" -eq 0 ] || rm -rf "$LOCK"
+        return 2
+      fi
     fi
     record_write "$(jq -cn --argjson at "$(date +%s)" '{started: $at, state: "running"}')"
     out=$(run_samples "$rules" "$samples") || rc=$?
     printf '%s\n' "$out" > "$LAST_OUT.tmp.$$" && mv -f "$LAST_OUT.tmp.$$" "$LAST_OUT"
     record_finish "$rc" "$out"
+    [ "$lock_owned" -eq 0 ] || rm -rf "$LOCK"
     printf '%s\n' "$out"
     return "$rc"
   fi
@@ -241,10 +256,12 @@ input_file_token() {
 }
 
 inputs_hash() { # <rules> <samples>
-  local rules_hash samples_hash
+  local rules_hash samples_hash resolver_hash backup_hash
   rules_hash=$(input_file_token "$1") || return 1
   samples_hash=$(input_file_token "$2") || return 1
-  printf '%s\n%s\n' "$rules_hash" "$samples_hash" | sha256_stdin
+  resolver_hash=$(input_file_token "$SCRIPT_DIR/fm-dispatch-resolve.sh") || return 1
+  backup_hash=$(input_file_token "$SCRIPT_DIR/fm-backup-judge-lib.sh") || return 1
+  printf '%s\n%s\n%s\n%s\n' "$rules_hash" "$samples_hash" "$resolver_hash" "$backup_hash" | sha256_stdin
 }
 
 record_attempted_hash() { # <hash>
@@ -351,7 +368,7 @@ action_check() {
   case $- in *m*) monitor_was_on=1 ;; esac
   set -m 2>/dev/null || true
   # shellcheck disable=SC2016  # Expanded by the detached shell.
-  nohup bash -c 'trap "rm -rf \"$1\"" EXIT; shift; "$@"' fm-dispatch-selftest "$LOCK" "$0" run --record >/dev/null 2>&1 </dev/null &
+  nohup bash -c 'trap "rm -rf \"$1\"" EXIT; printf "%s\\n" "$$" > "$1/pid"; shift; FM_DISPATCH_SELFTEST_LOCKED=1 "$@"' fm-dispatch-selftest "$LOCK" "$0" run --record >/dev/null 2>&1 </dev/null &
   pid=$!
   printf '%s\n' "$pid" > "$LOCK/pid" 2>/dev/null || true
   [ "$monitor_was_on" -eq 1 ] || set +m 2>/dev/null || true

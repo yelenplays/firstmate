@@ -800,6 +800,31 @@ EOF
   pass "session start auto-arms the routing check idempotently"
 }
 
+test_dispatch_selftest_missing_samples_alerts_once() {
+  local rec root home fakebin out marker
+  rec=$(new_world dispatch-selftest-missing-samples)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  printf '%s\n' '{"rules":[{"when":"Any task.","use":{"harness":"claude","model":"opus"}}]}' > "$home/config/crew-dispatch.json"
+  marker="$home/state/dispatch-selftest/missing-samples.alerted"
+
+  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" 'DISPATCH_SELFTEST: samples file missing' "session start did not alert about missing routing samples"
+  [ -f "$marker" ] || fail "session start did not record the missing-samples alert"
+
+  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_not_contains "$out" 'DISPATCH_SELFTEST: samples file missing' "session start repeated an unchanged missing-samples alert"
+
+  printf '%s\n' '{"samples":[{"id":"one","brief":"task one","expect":"rule_1"},{"id":"two","brief":"task two","expect":"rule_1"},{"id":"three","brief":"task three","expect":"rule_1"}]}' > "$home/config/dispatch-samples.json"
+  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  [ ! -e "$marker" ] || fail "session start retained the missing-samples alert after recovery"
+  [ -x "$home/state/dispatch-selftest.check.sh" ] || fail "session start did not auto-arm after samples appeared"
+  pass "session start alerts once for missing samples and resets after recovery"
+}
+
 # --- context digest: absent vs empty vs present -----------------------------
 
 test_context_digest_absent_empty_present() {
@@ -3310,6 +3335,7 @@ case "${1:-}" in
 esac
 
 test_dispatch_selftest_auto_arm_is_idempotent
+test_dispatch_selftest_missing_samples_alerts_once
 test_context_digest_absent_empty_present
 test_lock_refusal_read_only_path
 test_lock_write_failure_read_only_path

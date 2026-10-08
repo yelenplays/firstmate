@@ -2012,6 +2012,51 @@ assert_contains "$out" '  profile: ' "chain: a quota-axi failure still yields a 
 assert_contains "$out" '  last_resort: ' "chain: the last resort is disclosed"
 pass "chain: missing quota evidence never stops routing"
 
+ALL_REFUSED_RULES="$TMP_ROOT/all-refused-rule.json"
+jq '.rules[3].use = [
+  {"harness":"claude","model":"fable","floor":{"scope":"model:fable","min_percent":20}},
+  {"harness":"cursor","model":"cursor-grok-4.6-medium","floor":{"scope":"all_models","min_percent":99}}
+]' "$BASE_RULES" > "$ALL_REFUSED_RULES"
+cp "$ALL_REFUSED_RULES" "$RULES"
+reset_log
+write_response "$RESPONSE" rule_4 0.9
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$QUOTA" run_chain code out err "$BRIEF"
+assert_contains "$out" '  decided: default by default' "all-refused rule: eligible default lane is named"
+assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" "all-refused rule: eligible default profile is emitted"
+assert_contains "$out" 'last_resort: ' "all-refused rule: the default-lane rescue is disclosed"
+assert_contains "$out" 'eligible default lane used' "all-refused rule: the refusal and default transition are named"
+pass "chain: eligible default candidates follow an all-refused decided rule"
+
+ALL_REFUSED_DEFAULT_QUOTA="$TMP_ROOT/all-refused-default-quota.json"
+jq '(.providers[] | select(.provider == "claude" or .provider == "cursor") | .quotaSemantics.effectiveAvailability[] | select(.scope == "all_models") | .effectivePercentRemaining) = 0' "$QUOTA" > "$ALL_REFUSED_DEFAULT_QUOTA"
+reset_log
+write_response "$RESPONSE" rule_4 0.9
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$ALL_REFUSED_DEFAULT_QUOTA" run_chain code out err "$BRIEF"
+assert_contains "$out" '  decided: rule_4 by typed' "all-refused defaults: original decision remains named"
+assert_contains "$out" "  profile: --harness 'claude' --model 'fable'" "all-refused defaults: first declared original profile answers"
+assert_contains "$out" 'default candidates refused:' "all-refused defaults: default refusal is disclosed"
+assert_contains "$out" 'every candidate refused' "all-refused defaults: the final choice is identified as last resort"
+pass "chain: the original first profile answers only after default candidates refuse"
+
+reset_log
+FAKE_CURL_HTTP=500 FAKE_BACKUP_FAIL=1 TYPESAFE_API_KEY=$KEY \
+  QUOTA_AXI_FIXTURE="$ALL_REFUSED_DEFAULT_QUOTA" run_chain code out err "$BRIEF"
+assert_contains "$out" '  decided: default by default' "default all-refused: the default stage remains named"
+assert_contains "$out" "  profile: --harness 'claude' --model 'opus'" "default all-refused: the first declared default profile answers"
+assert_contains "$out" 'default candidates refused:' "default all-refused: refusal details are disclosed"
+pass "chain: a refused default stage names its final declared-order choice"
+
+APPROVAL_DEFAULT_RULES="$TMP_ROOT/approval-default-rule.json"
+jq '.rules[0].approval = "captain" | del(.default)' "$ALL_REFUSED_RULES" > "$APPROVAL_DEFAULT_RULES"
+cp "$APPROVAL_DEFAULT_RULES" "$RULES"
+reset_log
+write_response "$RESPONSE" rule_4 0.9
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$QUOTA" run_chain code out err "$BRIEF"
+assert_contains "$out" '  decided: rule_4 by typed' "approval default: the captain gate is not bypassed"
+assert_not_contains "$out" '  decided: rule_1 by default' "approval default: no profile is routed through the approval rule"
+pass "chain: the no-default fallback preserves captain approval"
+cp "$BASE_RULES" "$RULES"
+
 # An unverifiable rule floor never authorizes the default: the last resort
 # picks inside the decided rule instead.
 NOFLOOR_QUOTA="$TMP_ROOT/nofloor-quota.json"

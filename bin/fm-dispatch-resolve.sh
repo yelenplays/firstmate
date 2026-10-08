@@ -16,11 +16,12 @@
 #                 effort questions on the SAME state through the local claude
 #                 CLI (Haiku 5.5 by default) with schema-validated output. A
 #                 never-send match skips the backup too.
-#   3. default  - when the backup fails or is disabled, the configured
+#   3. default  - when the backup fails, the configured
 #                 `default` profiles (rule_1 when no default is declared).
 #   Each stage settles through the same gates below. A stage whose rule
 #   leaves no rankable candidate (floors, quota, ties, missing quota
-#   evidence) takes a last resort inside that rule: the best-ranked eligible
+#   evidence) first tries eligible candidates from the default lane when every
+#   candidate is refused; otherwise it takes the best-ranked eligible
 #   candidate, else the first eligible, else the first declared, in declared
 #   order on a tie, disclosed on a `last_resort:` line. A request that cannot
 #   reach any stage falls to the first default profile (status fallback,
@@ -1175,14 +1176,9 @@ one_hot_response() {  # <choice> <model-label> <path>
     || emit_error "could not build the $2 answer"
 }
 
-# The last resort inside a decided rule whose settle did not clear for a quota
-# reason (nothing rankable, a genuine tie, an unverifiable rule floor, every
-# candidate refused): the best-ranked eligible candidate in declared order,
-# else the first eligible one, else the first declared one. Approval never
-# reaches here.
-last_resort() {  # sets RESULT status fallback with a chosen candidate, or returns 1
-  local next
-  next=$(jq -c '
+last_resort_pick() {  # <additional-note>: sets RESULT with an eligible pick or the declared fallback
+  local note=${1:-} next
+  next=$(jq -c --arg note "$note" '
     (.candidates // []) as $c |
     ([$c[] | select(.eligible == true and ((.unranked // false) | not) and (.spendPriority | type) == "number")]) as $ranked |
     ([$c[] | select(.eligible == true)]) as $eligible |
@@ -1193,15 +1189,61 @@ last_resort() {  # sets RESULT status fallback with a chosen candidate, or retur
      elif ($c | length) > 0 then {pick: $c[0], why: "every candidate refused; first declared candidate"}
      else null end) as $lr |
     if $lr == null then error("no candidate")
-    else . + {status: "fallback", chosen: $lr.pick, last_resort: "\(.reason // .status): \($lr.why)"} end' <<<"$RESULT" 2>/dev/null) || return 1
+    else . + {status: "fallback", chosen: $lr.pick, last_resort: "\(.reason // .status): \($lr.why)" + (if $note == "" then "" else "; " + $note end)} end' <<<"$RESULT" 2>/dev/null) || return 1
   RESULT=$next
+}
+
+last_resort() {  # <stage> <effort-json>: settles the decided lane or its default
+  local stage=$1 effort=$2 original=$RESULT refused original_rule original_reasons default_choice default_file default_result default_eligible default_reasons note
+  refused=$(jq -r '(.candidates // []) as $c | (($c | length) > 0) and all($c[]; .eligible != true)' <<<"$RESULT")
+  if [ "$refused" = true ] && [ "$stage" != fallback ] \
+    && [ "$(jq -r '(.note // "") | contains("fall through to default")' <<<"$original")" = true ]; then
+    original_rule=$(jq -r '.rule // .decided_rule // "unknown"' <<<"$original")
+    original_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$original")
+    last_resort_pick "default lane candidates refused for $original_rule: $original_reasons; first declared candidate used"
+    return $?
+  fi
+  if [ "$refused" = true ] && [ "$stage" != fallback ]; then
+    original_rule=$(jq -r '.rule // .decided_rule // "unknown"' <<<"$original")
+    original_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$original")
+    if [ "$HAS_DEFAULT" = true ]; then default_choice=default; else default_choice=rule_1; fi
+    default_file=$(mktemp) || default_file=''
+    if [ -n "$default_file" ]; then
+      one_hot_response "$default_choice" default "$default_file"
+      resolve_response "$default_file" "$effort" 0
+      default_result=$RESULT
+      rm -f "$default_file"
+      default_eligible=$(jq -r '(.approval != true) and ((.status != "escalate") or (.reason == "genuine spendPriority tie" or .reason == "no rankable eligible candidate")) and any(.candidates[]?; .eligible == true)' <<<"$default_result")
+      if [ "$default_eligible" = true ]; then
+        RESULT=$default_result
+        note="rule $original_rule candidates refused: $original_reasons; eligible default lane used"
+        last_resort_pick "$note" || { RESULT=$original; return 1; }
+        DECIDED_BY=default
+        return 0
+      fi
+      default_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$default_result")
+    else
+      default_reasons='default lane could not be assessed'
+    fi
+    RESULT=$original
+    note="rule $original_rule candidates refused: $original_reasons; default candidates refused: ${default_reasons:-none}; first declared candidate used"
+    last_resort_pick "$note"
+    return $?
+  fi
+  if [ "$refused" = true ]; then
+    original_rule=$(jq -r '.rule // .decided_rule // "default"' <<<"$original")
+    original_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$original")
+    last_resort_pick "$original_rule candidates refused: $original_reasons; first declared candidate used"
+    return $?
+  fi
+  last_resort_pick
 }
 
 # Settles RESULT for a stage that has decided a rule. Returns 0 when RESULT now
 # carries a final answer (a profile, or a captain-approval escalate), 1 when it
 # has no candidate at all.
-settle_stage() {  # <ok-status>
-  local status approval
+settle_stage() {  # <ok-status> <effort-json>
+  local status approval effort=${2:-$EFFORT_JSON}
   status=$(jq -r '.status' <<<"$RESULT")
   approval=$(jq -r '.approval // false' <<<"$RESULT")
   case "$status" in
@@ -1213,7 +1255,7 @@ settle_stage() {  # <ok-status>
   if [ "$status" = escalate ] && [ "$approval" = true ]; then
     return 0
   fi
-  last_resort
+  last_resort "$1" "$effort"
 }
 
 # ---- the chain: typed, then the backup judge, then the default stage ----------
@@ -1316,8 +1358,8 @@ if [ "$TYPED_OK" -eq 1 ]; then
         TYPED_REASON="$TYPED_STATUS: $(jq -r '.reason // "-"' <<<"$RESULT")"
         ;;
       *)
-        if settle_stage clear; then
-          DECIDED_BY=typed
+        if settle_stage clear "$EFFORT_JSON"; then
+          DECIDED_BY=${DECIDED_BY:-typed}
         else
           TYPED_REASON="$TYPED_STATUS: $(jq -r '.reason // "-"' <<<"$RESULT")"
         fi
@@ -1344,8 +1386,8 @@ if [ "$TYPED_ONLY" -eq 0 ] && [ -z "$DECIDED_BY" ]; then
       BACKUP_EFFORT_JSON=$(jq -nc --arg e "$BACKUP_EFFORT" '{choice: $e, confidence: 1, source: "backup"}')
       resolve_response "$BACKUP_RESP" "$BACKUP_EFFORT_JSON" "${FM_BACKUP_JUDGE_LATENCY_MS:-0}"
       rm -f "$BACKUP_RESP"
-      if settle_stage backup; then
-        DECIDED_BY=backup
+      if settle_stage backup "$BACKUP_EFFORT_JSON"; then
+        DECIDED_BY=${DECIDED_BY:-backup}
       else
         BACKUP_LINE="$BACKUP_LINE; $BACKUP_RULE has no candidate"
       fi
@@ -1373,8 +1415,8 @@ if [ "$TYPED_ONLY" -eq 0 ] && [ -z "$DECIDED_BY" ]; then
   one_hot_response "$DEFAULT_CHOICE" default "$DEFAULT_RESP"
   resolve_response "$DEFAULT_RESP" "$DEFAULT_EFFORT_JSON" 0
   rm -f "$DEFAULT_RESP"
-  settle_stage fallback || emit_error "no candidate in the default stage"
-  DECIDED_BY=default
+  settle_stage fallback "$DEFAULT_EFFORT_JSON" || emit_error "no candidate in the default stage"
+  DECIDED_BY=${DECIDED_BY:-default}
 fi
 
 if [ "$TYPED_ONLY" -eq 0 ]; then
