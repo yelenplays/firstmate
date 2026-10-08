@@ -84,13 +84,12 @@ for selection in default explicit bare; do
   out=$(PATH="$TMP_ROOT/fakebin:$PATH" SHELL=/bin/sh "$ROOT/bin/fm-live-lab.sh" up --harness pi "${args[@]}" --source "$TMP_ROOT/source" --timeout 0 "$lab" 2>&1)
   rc=$?
   expect_code 1 "$rc" "unanswered probe leaves the Sol $selection lab for inspection"
-  python3 - "$lab/home/primary-argv" <<'PY'
+  python3 - "$lab/home/primary-argv" <<'PY' || fail "Sol $selection did not launch at high effort"
 from pathlib import Path
 import sys
 argv = Path(sys.argv[1]).read_text().splitlines()
 assert argv[argv.index("--thinking") + 1] == "high", argv
 assert argv[argv.index("--model") + 1].split("/")[-1] == "gpt-6.1-sol", argv
 PY
-  [ "$?" -eq 0 ] || fail "Sol $selection did not launch at high effort"
   pass "up launches Sol $selection at high effort"
 done
