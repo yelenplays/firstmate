@@ -40,7 +40,9 @@ cat > "$req"
 job=$(jq -r '.state.role.job' "$req")
 case "$job" in
   planning*) body='{"id":"gen-dec-1","model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"fable","confidence":0.85,"probabilities":{"opus":0.1,"sonnet":0.05,"fable":0.85,"none_fit":0}}}}' ;;
-  well-scoped*) body='{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"sonnet","confidence":0.95,"probabilities":{"opus":0.05,"sonnet":0.95,"fable":0,"none_fit":0}}}}' ;;
+  well-scoped*)
+    [ "${TEST_SECOND_TIMEOUT:-0}" = 1 ] && exit 28
+    body=${TEST_SECOND:-'{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"sonnet","confidence":0.95,"probabilities":{"opus":0.05,"sonnet":0.95,"fable":0,"none_fit":0}}}}'} ;;
   *) body=${TEST_THIRD:-'{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"opus","confidence":0.4,"probabilities":{"opus":0.4,"sonnet":0.3,"fable":0.3,"none_fit":0}}}}'} ;;
 esac
 printf '%s' "$body" > "$out"
@@ -48,7 +50,7 @@ printf 200
 SH
 chmod +x "$BIN/curl"
 export FM_HOME="$HOME_DIR" TEST_REQUESTS="$TMP_ROOT/requests"
-unset TYPESAFE_API_KEY OPENROUTER_API_KEY JEV_ROUTE JEV_MODEL JEV_URL JEV_BASE FM_STATE_OVERRIDE TEST_THIRD
+unset TYPESAFE_API_KEY OPENROUTER_API_KEY JEV_ROUTE JEV_MODEL JEV_URL JEV_BASE JEV_STATE_MAX_BYTES FM_STATE_OVERRIDE TEST_THIRD TEST_SECOND TEST_SECOND_TIMEOUT
 run_tool() { PATH="$BIN:$PATH" bash "$TOOL" "$@"; }
 config_sum() { find "$HOME_DIR/config" -type f -exec cat {} + | cksum; }
 config_tree_sum() { find "$HOME_DIR/config" -print | sort | cksum; }
@@ -77,6 +79,29 @@ jq '.candidates[1].id = "none_fit"' "$TMP_ROOT/evidence.json" > "$TMP_ROOT/reser
 run_tool --evidence "$TMP_ROOT/reserved.json" >/dev/null 2>&1 && fail 'the reserved none_fit id must refuse'
 printf '{"rules": "nope"}' > "$TMP_ROOT/bad-dispatch.json"
 run_tool --evidence "$TMP_ROOT/evidence.json" --dispatch "$TMP_ROOT/bad-dispatch.json" >/dev/null 2>&1 && fail 'a malformed dispatch file must refuse'
+for mutation in \
+  'del(.rules[0].use)' \
+  '.rules[0].use = null' \
+  '.rules[0].use = "claude"' \
+  '.rules[0].use = []' \
+  '.rules[0].use += [42]' \
+  '.rules[0].use[0].model = 42' \
+  '.rules[1].use[0].effort = false' \
+  '.rules[1].use[0].model = null' \
+  'del(.rules[1].use[0].harness)' \
+  '.rules[1].use[0].harness = "  "' \
+  '.rules[1].use = {harness: 42}' \
+  '.rules[1].use = {harness: "claude", model: 42}' \
+  '.rules[1].use = {harness: "claude", effort: null}' \
+  '.rules[1].when = " \t\n "'; do
+  jq "$mutation" "$HOME_DIR/config/crew-dispatch.json" > "$TMP_ROOT/bad-dispatch.json"
+  out=$(run_tool --evidence "$TMP_ROOT/evidence.json" --dispatch "$TMP_ROOT/bad-dispatch.json" \
+    --out "$TMP_ROOT/bad-dispatch-out/proposal.md" 2>&1); rc=$?
+  case "$rc:$out" in 2:*'dispatch profile file '*' is malformed'*) ;; *) fail "invalid consumed dispatch fields must refuse: $mutation: $rc $out" ;; esac
+  [ -z "$(find "$TEST_REQUESTS" -type f)" ] && [ ! -e "$TMP_ROOT/bad-dispatch-out" ] \
+    && [ ! -e "$HOME_DIR/state/jev-model-proposal.jsonl" ] || fail 'malformed dispatch profiles must send and write nothing'
+done
+pass 'malformed object and array dispatch profiles refuse before calls or writes'
 long_job=$(printf '%601s' '' | tr ' ' x)
 jq --arg job "$long_job" '.rules[0].when = $job' "$HOME_DIR/config/crew-dispatch.json" > "$TMP_ROOT/long-dispatch.json"
 out=$(run_tool --evidence "$TMP_ROOT/evidence.json" --dispatch "$TMP_ROOT/long-dispatch.json" 2>&1); rc=$?
@@ -334,3 +359,63 @@ grep -qF 'keep `gpt-6-luna`, Jev agrees with the current pick.' "$out_file" \
 grep -qF -- '- Current: openai-codex/gpt-6-luna/high' "$out_file" \
   || fail 'a single-object dispatch use must be listed as current'
 pass 'single-object dispatch use is normalized as current'
+
+for target in \
+  "$HOME_DIR/config/new/../../data/proposal.md" \
+  "$TMP_ROOT/config-alias/new/../../data/proposal.md" \
+  "$HOME_DIR/state/new/../../data/proposal.md"; do
+  config_tree_before=$(config_tree_sum)
+  rm -f "$HOME_DIR/data/proposal.md"
+  run_tool --evidence "$TMP_ROOT/evidence.json" --out "$target" >/dev/null 2>&1 \
+    || fail "a resolved data output must succeed without creating protected intermediate directories: $target"
+  [ -s "$HOME_DIR/data/proposal.md" ] && [ ! -e "$HOME_DIR/config/new" ] \
+    && [ ! -e "$HOME_DIR/state/new" ] && [ "$(config_tree_sum)" = "$config_tree_before" ] \
+    && [ "$(config_sum)" = "$CONFIG_BEFORE" ] || fail 'a traversal output must leave protected directories unchanged'
+done
+pass 'output creation follows the resolved destination without touching protected intermediate directories'
+
+printf '{"rules":[{"when":"planning tasks","use":{"harness":"claude"}}]}' > "$TMP_ROOT/default-model-dispatch.json"
+out_file="$TMP_ROOT/out/default-model.md"
+run_tool --evidence "$TMP_ROOT/evidence.json" --dispatch "$TMP_ROOT/default-model-dispatch.json" \
+  --out "$out_file" >/dev/null 2>&1 || fail 'profiles with omitted optional model and effort must remain valid'
+grep -qF -- '- Current: claude' "$out_file" || fail 'a harness-only profile must be listed as current'
+pass 'dispatch profiles may omit optional model and effort'
+
+metadata_state="$TMP_ROOT/metadata-state"
+mkdir "$metadata_state"
+metadata_log="$metadata_state/jev-model-proposal.jsonl"
+TEST_SECOND_TIMEOUT=1 FM_STATE_OVERRIDE="$metadata_state" run_tool --evidence "$TMP_ROOT/evidence.json" \
+  --out "$TMP_ROOT/out/timeout.md" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] || fail "a timeout for one role must write a partial proposal and exit 1, got $rc"
+jq -se 'length == 3
+  and (.[0] | .role == "rule-1" and .error == null and .response_model == "jev-1.13.0" and .http == "200")
+  and (.[1] | .role == "rule-2" and .error == "Jev call failed (http 000)" and .response_model == "" and .http == "000" and .route == "typesafe")
+  and (.[2] | .role == "secondmate" and .error == null and .response_model == "jev-1.13.0" and .http == "200")' \
+  "$metadata_log" >/dev/null || fail 'a timed-out role must not inherit the earlier response model or contaminate the next role'
+pass 'call metadata stays local to each role across a timeout'
+
+rm -f "$metadata_log"
+TEST_SECOND='{"model":"jev-other-build","answers":{}}' FM_STATE_OVERRIDE="$metadata_state" \
+  run_tool --evidence "$TMP_ROOT/evidence.json" --out "$TMP_ROOT/out/malformed-metadata.md" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] || fail "a malformed answer must exit 1, got $rc"
+jq -se 'length == 3
+  and (.[0] | .error == null and .response_model == "jev-1.13.0")
+  and (.[1] | .role == "rule-2" and .error == "Jev answer was malformed" and .response_model == "jev-other-build" and .http == "200" and .route == "typesafe")
+  and (.[2] | .error == null and .response_model == "jev-1.13.0")' "$metadata_log" >/dev/null \
+  || fail 'a malformed answer must log its own returned model rather than the previous role model'
+pass 'response model metadata is recorded independently of answer usability'
+
+rm -f "$metadata_log" "$TEST_REQUESTS"/*.json
+jq '.rules[1].when = ("x" * 600)' "$HOME_DIR/config/crew-dispatch.json" > "$TMP_ROOT/compact-dispatch.json"
+jq '.roles = []' "$TMP_ROOT/evidence.json" > "$TMP_ROOT/compact-evidence.json"
+JEV_STATE_MAX_BYTES=700 FM_STATE_OVERRIDE="$metadata_state" run_tool --evidence "$TMP_ROOT/compact-evidence.json" \
+  --dispatch "$TMP_ROOT/compact-dispatch.json" --out "$TMP_ROOT/out/compact.md" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] || fail "a compaction rejection must exit 1, got $rc"
+[ "$(find "$TEST_REQUESTS" -type f | wc -l | tr -d ' ')" -eq 1 ] || fail 'only the sendable role must make a request'
+jq -se 'length == 2
+  and (.[0] | .role == "rule-1" and .error == null and .response_model == "jev-1.13.0" and .http == "200" and .route == "typesafe")
+  and (.[1] | .role == "rule-2" and .error == "state too large or not sendable" and .response_model == "" and .http == "" and .route == "")' \
+  "$metadata_log" >/dev/null || fail 'an unsent role must not inherit route, HTTP status, or response model from an earlier call'
+grep -qF 'Jev: route unknown, model unknown.' "$TMP_ROOT/out/compact.md" \
+  || fail 'the proposal header must not reuse earlier call metadata for an unsent final role'
+pass 'an unsent role has empty call metadata after a successful role'

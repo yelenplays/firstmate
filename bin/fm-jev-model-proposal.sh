@@ -187,17 +187,26 @@ invalid=$(jq -r '
 dispatch_roles='[]'
 if [ -e "$DISPATCH" ] || [ -L "$DISPATCH" ]; then
   dispatch_roles=$(jq -c '
+    def text: type == "string" and (gsub("\\s"; "") | length) > 0;
+    def profile:
+      if type != "object" then false
+      else (.harness | text)
+        and (if has("model") then (.model | type) == "string" else true end)
+        and (if has("effort") then (.effort | type) == "string" else true end)
+      end;
     if type != "object" or (.rules | type) != "array" then error("rules must be an array") else . end
     | [.rules | to_entries[]
        | .value as $r
-       | if ($r | type) != "object" or ($r.when | type) != "string" or ($r.when | length) == 0
+       | if ($r | type) != "object" or ($r.when | text | not)
          then error("rule \(.key + 1) has no when") else . end
+       | (if ($r.use | type) == "object" then [$r.use] else $r.use end) as $use
+       | if ($use | type) != "array" then error("rule \(.key + 1) has invalid use")
+         elif ($use | length) == 0 or any($use[]; profile | not)
+         then error("rule \(.key + 1) has invalid profiles") else . end
        | {id: "rule-\(.key + 1)",
           job: ($r.when | gsub("\\s+"; " ")),
-          current: [($r.use // []) as $use
-                    | (if ($use | type) == "object" then [$use] else $use end)[]
-                    | select(type == "object")
-                    | [.harness, .model, .effort] | map(select(type == "string" and . != "")) | join("/")]}]
+          current: [$use[]
+                    | [.harness, .model, .effort] | map(select(. != null and . != "")) | join("/")]}]
   ' "$DISPATCH" 2>/dev/null) || die "dispatch profile file $DISPATCH is malformed"
 fi
 roles=$(jq -c --argjson rules "$dispatch_roles" '
@@ -250,7 +259,6 @@ done
 created_dirs=()
 make_out_dir() {
   local dir=$1 prefix='' component rest
-  case "$dir" in /*) ;; *) dir="$PWD/$dir" ;; esac
   rest=${dir#/}
   while [ -n "$rest" ]; do
     component=${rest%%/*}
@@ -273,6 +281,8 @@ remove_created_dirs() {
     rmdir "$dir" 2>/dev/null || break
   done
 }
+out_dir=$out_parent_expected
+OUT=$out_real
 make_out_dir "$out_dir" || { remove_created_dirs; die "could not create $out_dir"; }
 out_parent_real=$(real_dir "$out_dir") || die "could not resolve the output directory"
 out_real="$out_parent_real/$(basename "$OUT")"
@@ -330,8 +340,10 @@ resp_file=$(mktemp) || die "mktemp failed" 1
 trap 'rm -f "$resp_file"' EXIT
 results='[]'
 failed=0
-route_model=''
 for ((i = 0; i < n_roles; i++)); do
+  route_model=''
+  FM_JEV_LAST_ROUTE=''
+  FM_JEV_LAST_HTTP=''
   role=$(jq -c --argjson i "$i" '.[$i]' <<<"$roles")
   request_id=$(new_request_id)
   state=$(jq -c --argjson role "$role" '{role: {job: $role.job}, candidates: (map({key: .id, value: {model, evidence}}) | from_entries)}' <<<"$candidates")
@@ -349,6 +361,7 @@ for ((i = 0; i < n_roles; i++)); do
     error="Jev call failed (http ${FM_JEV_LAST_HTTP:-none})"
   else
     response=$(cat "$resp_file")
+    route_model=$(fm_jev_response_model "$response")
     answer=$(jq -c --argjson keys "$expected_keys" '
       .answers.model
       | select(type == "object" and .type == "choice")
@@ -363,7 +376,6 @@ for ((i = 0; i < n_roles; i++)); do
         >/dev/null 2>&1 <<<"$answer"; then
       error='Jev answer was malformed'
     else
-      route_model=$(fm_jev_response_model "$response")
       result=$(jq -c --argjson a "$answer" --argjson act "$FM_MODEL_PROPOSAL_ACT" --argjson review "$FM_MODEL_PROPOSAL_REVIEW" \
         --arg provider_id "$(jq -r 'if (.id | type) == "string" then .id else "" end' <<<"$response")" '
         . + $a + {provider_id: $provider_id}
