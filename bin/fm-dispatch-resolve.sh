@@ -1189,7 +1189,7 @@ last_resort_pick() {  # <additional-note>: sets RESULT with an eligible pick or 
      elif ($c | length) > 0 then {pick: $c[0], why: "every candidate refused; first declared candidate"}
      else null end) as $lr |
     if $lr == null then error("no candidate")
-    else . + {status: "fallback", chosen: $lr.pick, last_resort: "\(.reason // .status): \($lr.why)" + (if $note == "" then "" else "; " + $note end)} end' <<<"$RESULT" 2>/dev/null) || return 1
+    else . + {status: "fallback", chosen: $lr.pick, last_resort: ("\(.reason // .status): \($lr.why)" + (if $note == "" then "" else "; " + $note end))} end' <<<"$RESULT" 2>/dev/null) || return 1
   RESULT=$next
 }
 
