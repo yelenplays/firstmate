@@ -1733,7 +1733,8 @@ Gold comes from the captain's recorded answers where they exist, from firstmate 
 Private cases that cannot be public go in an overlay with the same shape under `$FM_HOME/data/jev-eval/` (`FM_JEV_EVAL_OVERLAY` overrides); live runs and the nightly score them with the public set, while the committed baseline never includes them.
 
 [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) `fm_jev_site_mode <site>` is the one owner of the act rule.
-A site acts only when the latest scorecard (`$FM_HOME/state/jev-eval/latest.json`, `FM_JEV_EVAL_SCORES` overrides) is final, at most eight days old (`FM_JEV_EVAL_MAX_AGE_SECS`), and gives that site at least 20 cases, agreement with gold of at least 0.95, and zero dangerous misses.
+A site acts only when its own evidence in the latest scorecard (`$FM_HOME/state/jev-eval/latest.json`, `FM_JEV_EVAL_SCORES` overrides) is final, at most eight days old (`FM_JEV_EVAL_MAX_AGE_SECS`), matches its effective request model, and gives that site at least 20 cases, agreement with gold of at least 0.95, and zero dangerous misses.
+A partial run preserves the freshness, finality, and model evidence of sites it does not score; old scorecards without per-site evidence remain advise-only.
 Anything else, including a missing scorecard, is advise, and the merge gate is always advise.
 An advise site still asks Jev and keeps the answer as advice:
 
@@ -1754,7 +1755,8 @@ Merges, deletions, logins, and other destructive, irreversible, or security-sens
 After an intended change, re-record the affected sites with `run --live --record --site <site>` and rewrite the baseline with `write-baseline`.
 
 Arm the nightly run once per home with `bin/fm-jev-eval.sh arm`, which registers an hourly watcher check that starts at most one detached live run per `FM_JEV_EVAL_NIGHTLY_SECS` (default 72000) when a Jev key is configured; `disarm` retires it.
-After each nightly run Haiku (`claude-haiku-5-5` through `claude -p`, `FM_JEV_EVAL_HAIKU_CMD` replaces the command) writes a miss analysis next to the archived card; the scores always come from the script, never from the model.
+The deliberate, captain-confirmed design is that the deterministic runner runs Jev on every test set and scores it exactly against gold on `run`, `check-baseline`, and `nightly` alike.
+Haiku 5.5 (`claude-haiku-5-5` through `claude -p`, `FM_JEV_EVAL_HAIKU_CMD` replaces the command) only writes the nightly summary and miss analysis next to the archived card; it never computes or changes a score.
 A site that acted before the run and is advise after it is a demotion: one note through `bin/fm-slack-bridge.sh post report` when `config/slack-bridge` exists, and one notice the watcher check prints once.
 `bin/fm-jev-eval.sh status` prints each site's latest score and current mode.
 The script header owns the case schema, adapter contract, scorecard fields, and exit codes.

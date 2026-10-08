@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # fm-jev-eval.sh - score every Jev call site against its gold test set and
 # drive each site's act/advise autonomy from that score.
+# Deliberate, captain-confirmed design: the deterministic runner runs Jev on
+# every test set and scores exactly against gold on run, check-baseline, and
+# nightly alike. Haiku 5.5 (claude-haiku-5-5) only writes the nightly summary
+# and miss analysis; it never computes or changes a score.
 #
 # Usage:
 #   fm-jev-eval.sh run [--live [--record]] [--site <site>]... [--jobs <n>] [--out <file>]
@@ -39,7 +43,9 @@
 # an error (replay-miss), because the request changed since it was recorded.
 # --live asks Jev for real, needs a key in the environment or $FM_HOME/.env,
 # and publishes the scorecard to $FM_HOME/state/jev-eval/latest.json, which is
-# what bin/fm-jev-lib.sh fm_jev_site_mode reads. --record (with --live) also
+# what bin/fm-jev-lib.sh fm_jev_site_mode reads. Each site holds its own
+# generated_at, final, and effective model; a partial run preserves omitted
+# sites evidence. --record (with --live) also
 # replaces the committed cassettes of every scored site. Each case runs under
 # FM_JEV_EVAL_CASE_TIMEOUT seconds (default 120) with an all-act scorecard, so
 # the score measures what the site would do on its own. A case agrees when the
@@ -143,28 +149,56 @@ run_one_case() {  # <site> <case-file> <work-dir> <result-file>
 
 # --- a scoring run ---------------------------------------------------------------
 summarize_site() {  # <site> <results-dir>
-  local site=$1 dir=$2
-  cat "$dir"/*.result 2>/dev/null | jq -s --arg site "$site" \
+  local site=$1 dir=$2 case_file expected=0
+  for case_file in "$dir"/*.case; do
+    [ -f "$case_file" ] || return 1
+    jq -e -s --slurpfile c "$case_file" '
+      length == 1 and (.[0] | type == "object")
+      and .[0].id == $c[0].id and .[0].gold == $c[0].gold
+      and (.[0].agree | type == "boolean") and (.[0].dangerous | type == "boolean")
+      and (.[0].error | type == "string")' "${case_file%.case}.result" >/dev/null || return 1
+    expected=$((expected + 1))
+  done
+  jq -e -s --argjson expected "$expected" \
     --argjson acts "$(jq --arg s "$site" '.sites[$s].acts == true' "$(sites_file)")" '
+    if length != $expected then error("incomplete case results") else
     {cases: length,
      agree: (map(select(.agree)) | length),
      agreement: (if length == 0 then 0 else ((map(select(.agree)) | length) / length * 10000 | round / 10000) end),
      dangerous_misses: (map(select(.dangerous)) | length),
      errors: (map(select(.error != "")) | length),
      acts: $acts,
-     misses: map(select(.agree | not) | {id, origin, gold, got, detail, error, dangerous, gold_source})}'
+     misses: map(select(.agree | not) | {id, origin, gold, got, detail, error, dangerous, gold_source})} end' "$dir"/*.result
 }
 
 score_run() {  # <live:0|1> <record:0|1> <jobs> <public-only:0|1> <out-file> <site>...
-  local live=$1 record=$2 jobs=$3 public_only=$4 out_file=$5 tmp site cases i act_scores model origin
+  local live=$1 record=$2 jobs=$3 public_only=$4 out_file=$5 tmp site cases i act_scores origin line model name value
+  local _fm_jev_route _fm_jev_url _fm_jev_model _fm_jev_key
   shift 5
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-jev-eval.XXXXXX") || die "mktemp failed"
   # shellcheck disable=SC2064 # Expand now: the trap must remove this run's dir.
   trap "rm -rf '$tmp'" EXIT
+  if [ "$live" = 1 ]; then
+    export_live_keys
+  else
+    export TYPESAFE_API_KEY=${TYPESAFE_API_KEY:-fm-jev-eval-replay}
+    export OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-fm-jev-eval-replay}
+  fi
+  _fm_jev_resolve_route || die "could not resolve the evaluation model"
+  export JEV_ROUTE=$_fm_jev_route
+  for name in JEV_MODEL JEV_URL JEV_BASE JEV_TIMEOUT; do
+    value=$(_fm_jev_cfg "$name")
+    [ -z "$value" ] || export "$name=$value"
+  done
   act_scores=$tmp/act-all.json
-  jq -n --argjson now "$(date +%s)" --slurpfile s "$(sites_file)" '
-    {final: true, generated_at: $now,
-     sites: ($s[0].sites | with_entries(.value = {cases: 1000000, agreement: 1, dangerous_misses: 0}))}' >"$act_scores"
+  printf '{"sites":{}}\n' >"$act_scores"
+  while IFS= read -r site; do
+    model=$(_fm_jev_site_model "$site") || die "could not resolve model for $site"
+    jq --arg s "$site" --arg model "$model" --argjson now "$(date +%s)" '
+      .sites[$s] = {final: true, generated_at: $now, model: $model,
+        cases: 1000000, agreement: 1, dangerous_misses: 0}' "$act_scores" >"$tmp/sc.next" \
+      && mv "$tmp/sc.next" "$act_scores" || die "could not build evaluation evidence"
+  done < <(all_sites)
   for site in "$@"; do
     [ -f "$EVAL_DIR/cases/$site.jsonl" ] || die "no test set $EVAL_DIR/cases/$site.jsonl"
     [ -f "$EVAL_DIR/adapters/$site.sh" ] || die "no adapter $EVAL_DIR/adapters/$site.sh"
@@ -181,6 +215,14 @@ score_run() {  # <live:0|1> <record:0|1> <jobs> <public-only:0|1> <out-file> <si
         [ -n "$line" ] || continue
         i=$((i + 1))
         printf '%s\n' "$line" >"$tmp/$site/$i.case"
+        jq -e -s '
+          length == 1 and (.[0] | type == "object")
+          and (.[0].id | type == "string" and length > 0)
+          and (.[0].input | type == "object")
+          and (.[0].gold | type == "string" and length > 0)
+          and (.[0].gold_source | type == "string" and length > 0)
+          and (.[0].dangerous_if | type == "array" and all(.[]; type == "string"))
+        ' "$tmp/$site/$i.case" >/dev/null 2>&1 || die "invalid case $origin/$site:$i"
         printf '%s\n' "$origin" >"$tmp/$site/$i.origin"
       done <"$cases"
     done
@@ -188,26 +230,32 @@ score_run() {  # <live:0|1> <record:0|1> <jobs> <public-only:0|1> <out-file> <si
   export FM_JEV_EVAL_SCORES=$act_scores FM_JEV_EVAL_LIVE=$live
   unset FM_JEV_EVAL_RECORD_ROOT
   if [ "$live" = 1 ]; then
-    export_live_keys
     [ "$record" = 0 ] || export FM_JEV_EVAL_RECORD_ROOT=$tmp/rec
   fi
   for site in "$@"; do
     find "$tmp/$site" -name '*.case' | LC_ALL=C sort |
-      xargs -P "$jobs" -I{} "$0" __case "$site" {} >/dev/null
+      xargs -P "$jobs" -I{} "$0" __case "$site" {} >/dev/null \
+      || die "case runner failed for $site"
+    summarize_site "$site" "$tmp/$site" >"$tmp/$site.json" || die "incomplete results for $site"
+    model=$(_fm_jev_site_model "$site") || die "could not resolve model for $site"
+    jq --arg model "$model" '.model = $model' "$tmp/$site.json" >"$tmp/sc.next" \
+      && mv "$tmp/sc.next" "$tmp/$site.json" || die "could not bind evaluation model"
   done
-  model=$FM_JEV_TYPESAFE_MODEL
   {
     printf '{"schema":"fm-jev-eval.v1","generated_at":%s,"run":"%s","model":"%s","final":%s,"bar":%s,"min_cases":%s,"sites":{' \
-      "$(date +%s)" "$([ "$live" = 1 ] && echo live || echo replay)" "$model" \
+      "$(date +%s)" "$([ "$live" = 1 ] && echo live || echo replay)" "$_fm_jev_model" \
       "$(jq '.gold_confirmed == true' "$(sites_file)")" "$FM_JEV_EVAL_BAR" "$FM_JEV_EVAL_MIN_CASES"
     local first=1
     for site in "$@"; do
       [ "$first" = 1 ] || printf ','
       first=0
-      printf '"%s":%s' "$site" "$(summarize_site "$site" "$tmp/$site")"
+      printf '"%s":%s' "$site" "$(cat "$tmp/$site.json")"
     done
     printf '}}\n'
   } | jq . >"$tmp/scorecard.json" || die "could not build the scorecard"
+  jq '. as $card | .sites |= map_values(. + {generated_at: $card.generated_at, final: $card.final})' \
+    "$tmp/scorecard.json" >"$tmp/sc.next" && mv "$tmp/sc.next" "$tmp/scorecard.json" \
+    || die "could not bind site evidence"
   # The one owner of the act rule decides each site's mode.
   for site in "$@"; do
     jq --arg s "$site" --arg m "$(FM_JEV_EVAL_SCORES=$tmp/scorecard.json FM_JEV_EVAL_MAX_AGE_SECS=$FM_JEV_EVAL_MAX_AGE_DEFAULT fm_jev_site_mode "$site")" \
@@ -351,13 +399,13 @@ cmd_status() {
     printf 'no scorecard yet: every site advises (run: fm-jev-eval.sh run --live)\n'
     return 0
   fi
-  jq -r '"scored \(.generated_at | todate) (\(.run)), final: \(.final)"' "$latest"
+  jq -r '"last run \(.generated_at | todate) (\(.run))"' "$latest"
   mapfile -t sites < <(all_sites)
   for site in "${sites[@]}"; do
     jq -r --arg s "$site" --arg m "$(fm_jev_site_mode "$site")" '
       .sites[$s] as $x |
       if $x == null then "\($s)\tnot scored\t\t\t\($m)"
-      else "\($s)\t\($x.cases) cases\tagreement \($x.agreement)\tdangerous \($x.dangerous_misses)\t\($m)" end' "$latest"
+      else "\($s)\t\($x.cases) cases\tagreement \($x.agreement)\tdangerous \($x.dangerous_misses)\tscored \($x.generated_at | if type == "number" then todate else "unknown" end)\tfinal \($x.final)\tmodel \($x.model)\t\($m)" end' "$latest"
   done | column -t -s $'\t'
 }
 

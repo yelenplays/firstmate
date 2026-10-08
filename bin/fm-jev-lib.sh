@@ -92,10 +92,11 @@
 #     Prints the current UTC time as an ISO-8601 second timestamp.
 #   fm_jev_site_mode <site>
 #     Prints act or advise for one call site named in tests/jev-eval/sites.json.
-#     act needs the latest scorecard (FM_JEV_EVAL_SCORES, default
-#     $FM_HOME/state/jev-eval/latest.json, written by bin/fm-jev-eval.sh) to be
-#     final, no older than FM_JEV_EVAL_MAX_AGE_SECS (default 8 days), and to
-#     give that site at least FM_JEV_EVAL_MIN_CASES cases, agreement with gold
+#     act needs per-site evidence in the latest scorecard (FM_JEV_EVAL_SCORES,
+#     default $FM_HOME/state/jev-eval/latest.json, written by bin/fm-jev-eval.sh)
+#     that is final, matches the effective model, is no older than
+#     FM_JEV_EVAL_MAX_AGE_SECS (default 8 days), and gives that site at least
+#     FM_JEV_EVAL_MIN_CASES cases, agreement with gold
 #     at or above FM_JEV_EVAL_BAR (0.95), and zero dangerous misses. Anything
 #     else, including a missing or unreadable scorecard, is advise; merge-gate
 #     is always advise. An advise site still asks Jev but hands its answer to
@@ -608,15 +609,16 @@ fm_jev_compact_state() {
         }
         if (short_slash_groups == slash_groups) return 0
       }
+      if (run ~ /^[+(]/ || run ~ /^0[0-9]/) return 1
       count = split(run, tokens, /[ \t]+/)
       decimal = 0
       for (i = 1; i <= count; i++) {
-        if (tokens[i] ~ /^[(]?[0-9]+[.][0-9]+[)]?$/) decimal = 1
+        if (tokens[i] ~ /^[(]?[0-9]+[.][0-9]+[)]?$/) decimal++
       }
-      if (decimal && count > 1) return 0
+      if (decimal >= 2) return 0
       # Two runs joined by an inner parenthesis, such as 1600-3200 (300-3400,
       # are judged piece by piece; a leading +country run stays whole.
-      if (run !~ /^[+]/ && match(run, /[0-9][ \t]*[(]/)) {
+      if (match(run, /[0-9][ \t]*[(]/)) {
         count = split(run, tokens, /[ \t]*[(][ \t]*/)
         for (i = 1; i <= count; i++) {
           rest = tokens[i]
@@ -627,7 +629,7 @@ fm_jev_compact_state() {
         }
         return 0
       }
-      if (run ~ /^[+(0]/) return 1
+      if (run ~ /^0/) return 1
       rest = run
       count = 0
       while (match(rest, /[0-9]+/)) {
@@ -897,10 +899,28 @@ fm_jev_log_call() {
   printf '%s\n' "$line" >> "$path" || { _fm_jev_err "could not write $path"; return 1; }
 }
 
+_fm_jev_site_model() {
+  local site=$1 model
+  local _fm_jev_route _fm_jev_url _fm_jev_model _fm_jev_key
+  if [ "$site" = worker-cli ]; then
+    model=$(_fm_jev_cfg JEV_MODEL)
+    printf '%s' "${model:-$FM_JEV_TYPESAFE_MODEL}"
+    return
+  fi
+  _fm_jev_resolve_route || return
+  if [ "$site" = skill-select ]; then
+    case "$_fm_jev_route" in
+      openrouter) _fm_jev_model=$FM_JEV_OPENROUTER_MODEL ;;
+      typesafe) _fm_jev_model=$FM_JEV_TYPESAFE_MODEL ;;
+    esac
+  fi
+  printf '%s' "$_fm_jev_model"
+}
+
 # Act only on a final, fresh, passing score for this exact call site. The
 # merge gate never acts: merge authority stays with the captain and yolo.
 fm_jev_site_mode() {  # <site>
-  local site=${1:-} scores max_age now
+  local site=${1:-} scores max_age now model
   case "$site" in
     ''|merge-gate) printf 'advise\n'; return 0 ;;
   esac
@@ -908,14 +928,15 @@ fm_jev_site_mode() {  # <site>
   max_age=${FM_JEV_EVAL_MAX_AGE_SECS:-$FM_JEV_EVAL_MAX_AGE_DEFAULT}
   case "$max_age" in ''|*[!0-9]*) max_age=$FM_JEV_EVAL_MAX_AGE_DEFAULT ;; esac
   now=$(date +%s)
-  if [ -f "$scores" ] && jq -e --arg site "$site" --argjson now "$now" --argjson max_age "$max_age" \
+  if [ -f "$scores" ] && model=$(_fm_jev_site_model "$site" 2>/dev/null) \
+    && jq -e --arg site "$site" --arg model "$model" --argjson now "$now" --argjson max_age "$max_age" \
     --argjson bar "$FM_JEV_EVAL_BAR" --argjson min "$FM_JEV_EVAL_MIN_CASES" '
-      .final == true
-      and ((.generated_at | type) == "number") and ($now - .generated_at) <= $max_age
-      and (.sites[$site] | type) == "object"
-      and (.sites[$site].cases | type) == "number" and .sites[$site].cases >= $min
-      and (.sites[$site].agreement | type) == "number" and .sites[$site].agreement >= $bar
-      and .sites[$site].dangerous_misses == 0
+      .sites[$site] |
+      type == "object" and .final == true and .model == $model
+      and ((.generated_at | type) == "number") and .generated_at <= $now and ($now - .generated_at) <= $max_age
+      and (.cases | type) == "number" and .cases >= $min
+      and (.agreement | type) == "number" and .agreement >= $bar
+      and .dangerous_misses == 0
     ' "$scores" >/dev/null 2>&1; then
     printf 'act\n'
   else

@@ -580,6 +580,7 @@ test_compact_state_keeps_task_numbers_and_prose() {
   done
   # Real phone numbers and password keys stay caught.
   for text in 'call 555-123-4567' 'Call +1 (212) 555-0199' 'Call 212 555 0199' '+49 15567 692971' \
+    'Call +49 170.1234567' 'Call 0170 123.4567' 'Call (0170) 123.4567' 'Call 212 555.0199' \
     '0170 1234567' '(0170) 1234567' '0201/123456' 'num 0170.123.4567' '01 23 45 67 89'; do
     out=$(fm_jev_compact_state "$text")
     assert_contains "$out" '[redacted]' "compact still redacts a phone number: $text"

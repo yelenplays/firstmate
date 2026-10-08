@@ -496,10 +496,12 @@ SH
 # whose Jev answer acts (bin/fm-jev-lib.sh fm_jev_site_mode); a scorecard path
 # that does not exist leaves every site advise-only.
 fm_jev_act_scores() {  # <dir>
-  local out="$1/jev-act-scores.json"
+  local out="$1/jev-act-scores.json" model
+  model=$(bash -c '. "$1/bin/fm-jev-lib.sh"; printf "%s" "$FM_JEV_TYPESAFE_MODEL"' -- "$ROOT")
   mkdir -p "$1"
-  jq --argjson now "$(date +%s)" '{final: true, generated_at: $now,
-    sites: (.sites | with_entries(.value = {cases: 100, agreement: 1, dangerous_misses: 0}))}' \
+  jq --arg model "$model" --argjson now "$(date +%s)" '{
+    sites: (.sites | with_entries(.value = {final: true, generated_at: $now, model: $model,
+      cases: 100, agreement: 1, dangerous_misses: 0}))}' \
     "$ROOT/tests/jev-eval/sites.json" > "$out" || return 1
   printf '%s\n' "$out"
 }

@@ -19,6 +19,9 @@ FAKEBIN=$(fm_fakebin "$TMP_ROOT")
 SUT="$ROOT/bin/fm-jev-eval.sh"
 EVAL="$TMP_ROOT/eval"
 unset TYPESAFE_API_KEY OPENROUTER_API_KEY FM_JEV_EVAL_SCORES FM_JEV_EVAL_DIR FM_JEV_EVAL_OVERLAY
+TYPESAFE_MODEL=$(bash -c '. "$1/bin/fm-jev-lib.sh"; printf "%s" "$FM_JEV_TYPESAFE_MODEL"' -- "$ROOT")
+OPENROUTER_MODEL=$(bash -c '. "$1/bin/fm-jev-lib.sh"; printf "%s" "$FM_JEV_OPENROUTER_MODEL"' -- "$ROOT")
+REAL_XARGS=$(command -v xargs)
 
 # case <id> <gold> <answer> [dangerous_if-json] - one synthetic case line. The
 # adapter prints <answer>; "fail" makes it exit nonzero and "miss" records a
@@ -64,12 +67,14 @@ SH
 # scorecard <file> <final> <generated_at> <cases> <agreement> <dangerous> [site]
 scorecard() {
   jq -n --argjson final "$2" --argjson at "$3" --argjson cases "$4" --argjson agreement "$5" \
-    --argjson dangerous "$6" --arg site "${7:-alpha}" \
-    '{final: $final, generated_at: $at, sites: {($site): {cases: $cases, agreement: $agreement, dangerous_misses: $dangerous}}}' > "$1"
+    --argjson dangerous "$6" --arg site "${7:-alpha}" --arg model "${8:-$TYPESAFE_MODEL}" \
+    '{sites: {($site): {final: $final, generated_at: $at, model: $model,
+      cases: $cases, agreement: $agreement, dangerous_misses: $dangerous}}}' > "$1"
 }
 
 mode_of() {  # <scorecard> <site>
-  FM_JEV_EVAL_SCORES=$1 "$SUT" mode "$2"
+  FM_HOME="${FM_HOME:-$TMP_ROOT/home-mode}" TYPESAFE_API_KEY=${TYPESAFE_API_KEY:-fixture-key-not-real} \
+    FM_JEV_EVAL_SCORES=$1 "$SUT" mode "$2"
 }
 
 test_site_mode_rule() {
@@ -95,6 +100,10 @@ test_site_mode_rule() {
   assert_equals advise "$(mode_of "$card" merge-gate)" "the merge gate never acts, whatever its score"
   scorecard "$card" true "$((now - 3600))" 20 1 0
   assert_equals advise "$(FM_JEV_EVAL_MAX_AGE_SECS=60 mode_of "$card" alpha)" "FM_JEV_EVAL_MAX_AGE_SECS tightens freshness"
+  scorecard "$card" true "$((now + 3600))" 20 1 0
+  assert_equals advise "$(mode_of "$card" alpha)" "future evidence is not fresh"
+  printf '{"final":true,"generated_at":%s,"model":"%s","sites":{"alpha":{"cases":20,"agreement":1,"dangerous_misses":0}}}\n' "$now" "$TYPESAFE_MODEL" > "$card"
+  assert_equals advise "$(mode_of "$card" alpha)" "global-only legacy evidence cannot authorize act"
   pass "fm_jev_site_mode acts only on a final, fresh, passing score with zero dangerous misses"
 }
 
@@ -136,6 +145,133 @@ SH
     || fail "the mode probe run failed"
   assert_equals 1 "$(jq -r '.sites.alpha.agreement' "$card")" "each case runs with its site in act, so the score measures what it would do alone"
   pass "every case runs under an all-act scorecard"
+}
+
+test_invalid_cases_and_internal_failures_never_publish() {
+  local home="$TMP_ROOT/home-invalid" card="$TMP_ROOT/invalid-card.json" kind origin out code
+  for origin in public overlay; do
+    for kind in malformed empty-object multi-object missing-gold; do
+      rm -rf "$EVAL" "$home"
+      write_eval "$EVAL"
+      mkdir -p "$home/state/jev-eval" "$home/overlay/cases"
+      scorecard "$home/state/jev-eval/latest.json" true 1 20 1 0
+      cp "$home/state/jev-eval/latest.json" "$home/before.json"
+      printf 'unchanged\n' > "$card"
+      case "$kind" in
+        malformed) out='not json' ;;
+        empty-object) out='{}' ;;
+        multi-object) out="$(case_line bad act act) $(case_line bad2 act act)" ;;
+        missing-gold) out=$(case_line bad act act | jq -c 'del(.gold)') ;;
+      esac
+      if [ "$origin" = public ]; then
+        printf '%s\n' "$out" >> "$EVAL/cases/alpha.jsonl"
+      else
+        printf '%s\n' "$out" > "$home/overlay/cases/alpha.jsonl"
+      fi
+      code=0
+      out=$(FM_HOME="$home" TYPESAFE_API_KEY=fixture-key-not-real FM_JEV_EVAL_DIR="$EVAL" \
+        FM_JEV_EVAL_OVERLAY="$home/overlay" "$SUT" run --live --site alpha --out "$card" 2>&1) || code=$?
+      expect_code 1 "$code" "invalid $origin $kind fails the run"
+      assert_contains "$out" 'invalid case' "invalid cases fail before dispatch"
+      assert_equals unchanged "$(cat "$card")" "failed validation publishes no output card"
+      cmp -s "$home/before.json" "$home/state/jev-eval/latest.json" || fail "invalid cases replaced live evidence"
+      assert_absent "$home/state/jev-eval/runs" "invalid cases archive no scorecard"
+    done
+  done
+  rm -rf "$EVAL" "$home"
+  write_eval "$EVAL"
+  mkdir -p "$home/state/jev-eval"
+  scorecard "$home/state/jev-eval/latest.json" true 1 20 1 0
+  cp "$home/state/jev-eval/latest.json" "$home/before.json"
+  cat > "$FAKEBIN/xargs" <<'SH'
+#!/usr/bin/env bash
+case "$BREAK_RESULTS" in
+  exit) exit 3 ;;
+esac
+cases=$(cat)
+printf '%s\n' "$cases" | "$REAL_XARGS" "$@" || exit $?
+result=${cases%%$'\n'*}
+result=${result%.case}.result
+case "$BREAK_RESULTS" in
+  empty) : > "$result" ;;
+  duplicate) cp "$result" "$result.copy"; cat "$result.copy" >> "$result" ;;
+esac
+SH
+  chmod +x "$FAKEBIN/xargs"
+  for kind in exit empty duplicate; do
+    printf 'unchanged\n' > "$card"
+    code=0
+    out=$(FM_HOME="$home" TYPESAFE_API_KEY=fixture-key-not-real FM_JEV_EVAL_DIR="$EVAL" \
+      FM_JEV_EVAL_OVERLAY="$home/no-overlay" BREAK_RESULTS="$kind" REAL_XARGS="$REAL_XARGS" \
+      PATH="$FAKEBIN:$PATH" "$SUT" run --live --site alpha --out "$card" 2>&1) || code=$?
+    expect_code 1 "$code" "internal $kind failure fails the run"
+    assert_equals unchanged "$(cat "$card")" "internal failures publish no output card"
+    cmp -s "$home/before.json" "$home/state/jev-eval/latest.json" || fail "internal failure replaced live evidence"
+  done
+  rm -f "$FAKEBIN/xargs"
+  pass "invalid cases and failed, missing, or duplicate results never publish scores"
+}
+
+test_partial_runs_preserve_site_evidence() {
+  local home="$TMP_ROOT/home-partial" card="$TMP_ROOT/partial.json" final at now
+  rm -rf "$EVAL" "$home"
+  write_eval "$EVAL"
+  mkdir -p "$home/state/jev-eval"
+  now=$(date +%s)
+  for final in true false; do
+    at=$now
+    [ "$final" = false ] || at=$((now - 9 * 86400))
+    scorecard "$home/state/jev-eval/latest.json" "$final" "$at" 20 1 0
+    jq '.sites.alpha' "$home/state/jev-eval/latest.json" > "$home/alpha-before.json"
+    FM_HOME="$home" TYPESAFE_API_KEY=fixture-key-not-real FM_JEV_EVAL_DIR="$EVAL" \
+      FM_JEV_EVAL_OVERLAY="$home/no-overlay" "$SUT" run --live --site beta --out "$card" >/dev/null 2>&1 || fail "partial run failed"
+    jq '.sites.alpha' "$home/state/jev-eval/latest.json" > "$home/alpha-after.json"
+    cmp -s "$home/alpha-before.json" "$home/alpha-after.json" || fail "partial run changed retained site evidence"
+    assert_equals advise "$(FM_HOME="$home" mode_of "$home/state/jev-eval/latest.json" alpha)" "unrelated runs cannot refresh or finalize alpha"
+  done
+  FM_HOME="$home" TYPESAFE_API_KEY=fixture-key-not-real FM_JEV_EVAL_DIR="$EVAL" \
+    FM_JEV_EVAL_OVERLAY="$home/no-overlay" "$SUT" run --live --site alpha --out "$card" >/dev/null 2>&1 || fail "alpha reevaluation failed"
+  assert_equals act "$(FM_HOME="$home" mode_of "$home/state/jev-eval/latest.json" alpha)" "reevaluating alpha can earn act"
+  pass "partial live runs preserve retained sites freshness and finality"
+}
+
+test_model_evidence_matches_effective_requests() {
+  local home="$TMP_ROOT/home-model" card="$TMP_ROOT/model.json" now variant expected
+  mkdir -p "$home"
+  now=$(date +%s)
+  scorecard "$card" true "$now" 20 1 0
+  assert_equals advise "$(JEV_MODEL=jev-custom-20261001 mode_of "$card" alpha)" "switching models loses act"
+  assert_equals advise "$(JEV_ROUTE=openrouter OPENROUTER_API_KEY=fixture-key mode_of "$card" alpha)" "switching route pins loses act"
+  scorecard "$card" true "$now" 20 1 0 alpha jev-custom-20261001
+  assert_equals act "$(JEV_MODEL=jev-custom-20261001 mode_of "$card" alpha)" "matching override evidence earns act"
+  printf 'JEV_MODEL=jev-custom-20261001\n' > "$home/.env"
+  assert_equals act "$(FM_HOME="$home" mode_of "$card" alpha)" "model resolution honors home configuration"
+  assert_equals advise "$(FM_HOME="$home" JEV_MODEL="$TYPESAFE_MODEL" mode_of "$card" alpha)" "environment model wins over home configuration"
+  rm -f "$home/.env"
+  scorecard "$card" true "$now" 20 1 0 alpha "$OPENROUTER_MODEL"
+  assert_equals act "$(JEV_ROUTE=openrouter OPENROUTER_API_KEY=fixture-key mode_of "$card" alpha)" "matching OpenRouter evidence earns act"
+  scorecard "$card" true "$now" 20 1 0 worker-cli
+  assert_equals act "$(JEV_ROUTE=openrouter OPENROUTER_API_KEY=fixture-key mode_of "$card" worker-cli)" "worker command always uses TypeSafe"
+  scorecard "$card" true "$now" 20 1 0 skill-select
+  assert_equals act "$(JEV_MODEL=jev-custom-20261001 mode_of "$card" skill-select)" "skill selector always uses the route pin"
+  rm -rf "$EVAL"
+  write_eval "$EVAL"
+  for variant in typesafe openrouter override configured; do
+    expected=$TYPESAFE_MODEL
+    case "$variant" in
+      typesafe) FM_HOME="$home" TYPESAFE_API_KEY=fixture-key FM_JEV_EVAL_DIR="$EVAL" "$SUT" run --live --site alpha --out "$card" >/dev/null 2>&1 ;;
+      openrouter) expected=$OPENROUTER_MODEL
+        FM_HOME="$home" OPENROUTER_API_KEY=fixture-key JEV_ROUTE=openrouter FM_JEV_EVAL_DIR="$EVAL" "$SUT" run --live --site alpha --out "$card" >/dev/null 2>&1 ;;
+      override) expected=jev-custom-20261001
+        FM_HOME="$home" TYPESAFE_API_KEY=fixture-key JEV_MODEL=$expected FM_JEV_EVAL_DIR="$EVAL" "$SUT" run --live --site alpha --out "$card" >/dev/null 2>&1 ;;
+      configured) expected=jev-file-20261002
+        printf 'TYPESAFE_API_KEY=fixture-key\nJEV_MODEL=%s\n' "$expected" > "$home/.env"
+        FM_HOME="$home" FM_JEV_EVAL_DIR="$EVAL" "$SUT" run --live --site alpha --out "$card" >/dev/null 2>&1 ;;
+    esac || fail "model $variant evaluation failed"
+    assert_equals "$expected" "$(jq -r '.sites.alpha.model' "$card")" "site evidence records the effective $variant model"
+    assert_equals "$expected" "$(jq -r '.model' "$card")" "run metadata records the effective $variant model"
+  done
+  pass "act evidence is bound to the effective per-site request model"
 }
 
 test_usage_errors() {
@@ -324,6 +460,9 @@ test_committed_test_sets_hold_their_baseline() {
 test_site_mode_rule
 test_run_scores_each_site
 test_cases_see_an_all_act_scorecard
+test_invalid_cases_and_internal_failures_never_publish
+test_partial_runs_preserve_site_evidence
+test_model_evidence_matches_effective_requests
 test_usage_errors
 test_baseline_guard
 test_overlay_adds_private_cases_to_runs_only

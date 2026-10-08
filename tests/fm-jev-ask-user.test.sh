@@ -191,7 +191,8 @@ test_security_screen_escalates_cross_tenant_finding() {
 
 test_escalates_contact_data_before_jev() {
   local code out
-  for contact in 'reach person@example.com' 'call 555-123-4567'; do
+  for contact in 'reach person@example.com' 'call 555-123-4567' \
+    'Call +49 170.1234567' 'Call 0170 123.4567' 'Call (0170) 123.4567' 'Call 212 555.0199'; do
     world
     printf 'schema=fm-task-inbox.v1\nat=2026-10-04T20:02:00Z\n--\n%s\n' "$contact" > "$HOME_DIR/state/t1.inbox/002.msg"
     answer in-scope-fix 0.99 in-scope-fix 0.99
