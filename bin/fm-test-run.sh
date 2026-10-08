@@ -53,7 +53,8 @@
 #                   silently pass as a gate skip.
 #   --jobs N        run the selected scripts with up to N concurrent workers.
 #                   Plain --changed and a plain list of script paths use
-#                   min(4, cpus) workers when multiple selected scripts are
+#                   min(4, cpus/2) workers, or FM_TEST_AUTO_JOBS (at most 8)
+#                   when set, when multiple selected scripts are
 #                   admissible; --lane, --family, and --all stay serial unless
 #                   asked for concurrency explicitly.
 #                   N>1 is allowed only when every selected script is proven
@@ -116,6 +117,9 @@
 # live-capability (a live-harness guard governed by fm_live_gate, which records
 # unavailable tools and explicit policy skips; see tests/lib.sh), or none.
 #
+# Every invocation runs at the background CPU class bin/fm-qos-lib.sh owns
+# (FM_WORKER_QOS), so a suite yields the CPU to interactive apps whoever starts it.
+#
 # Every selected script runs isolated from the host's global and system Git
 # configuration, including one that sources no test helper of its own;
 # tests/git-config-helpers.sh owns that contract and its limits.
@@ -151,6 +155,14 @@
 # tests/fixtures/<dir>/ is mapped by that directory instead. Curated family arms
 # above those also name individual tests/ files explicitly.
 set -eu
+
+# Run the whole suite at background CPU priority before anything else, so a
+# suite started by a worker, a pipeline daemon, or by hand yields the CPU to
+# interactive apps. bin/fm-qos-lib.sh owns the class, its override, and the
+# once-only re-exec; an unknown FM_WORKER_QOS refuses here.
+# shellcheck source=bin/fm-qos-lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/fm-qos-lib.sh"
+fm_qos_reexec "${BASH_SOURCE[0]}" "$@"
 
 now_ms() {
   if command -v python3 >/dev/null 2>&1; then
@@ -274,6 +286,28 @@ cpu_count() {
   case "$n" in
     ''|*[!0-9]*) n=1 ;;
   esac
+  [ "$n" -ge 1 ] || n=1
+  printf '%s\n' "$n"
+}
+
+# Worker count for the automatic scheduler: FM_TEST_AUTO_JOBS when set,
+# otherwise half the online cores, never more than 4. Several workers often run
+# suites at once on one machine, so each suite takes a share of it rather than
+# all of it. An override above JOBS_MAX is lowered to it; anything but a
+# positive integer refuses.
+auto_jobs() {
+  local n=${FM_TEST_AUTO_JOBS:-}
+  if [ -n "$n" ]; then
+    case "$n" in
+      *[!0-9]*) die "FM_TEST_AUTO_JOBS must be a positive integer (got $n)" ;;
+    esac
+    n=$((10#$n))
+    [ "$n" -ge 1 ] || die "FM_TEST_AUTO_JOBS must be a positive integer (got $n)"
+    [ "$n" -le "$JOBS_MAX" ] || n=$JOBS_MAX
+  else
+    n=$(($(cpu_count) / 2))
+    [ "$n" -le 4 ] || n=4
+  fi
   [ "$n" -ge 1 ] || n=1
   printf '%s\n' "$n"
 }
@@ -2429,9 +2463,7 @@ if { [ "$MODE" = changed ] || [ "$MODE" = scripts ]; } && [ "$JOBS_EXPLICIT" -eq
     script_allows_concurrency "$s" && auto_admissible=$((auto_admissible + 1))
   done
   if [ "$auto_admissible" -gt 1 ]; then
-    JOBS=$(cpu_count)
-    [ "$JOBS" -le 4 ] || JOBS=4
-    [ "$JOBS" -ge 1 ] || JOBS=1
+    JOBS=$(auto_jobs)
     [ "$JOBS" -eq 1 ] || AUTO_CONCURRENCY=1
   fi
 fi

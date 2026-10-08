@@ -12,6 +12,10 @@ set -u
 
 RUNNER="$ROOT/bin/fm-test-run.sh"
 
+# The automatic worker count is asserted against its core-derived default; an
+# operator override in the calling shell would make those assertions host-local.
+unset FM_TEST_AUTO_JOBS
+
 assert_present "$RUNNER" "bin/fm-test-run.sh is missing"
 [ -x "$RUNNER" ] || fail "bin/fm-test-run.sh must be executable"
 
@@ -92,6 +96,7 @@ init_changed_fixture_repo() {
   local repo=$1 script
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$repo/bin/fm-test-run.sh"
+  cp "$ROOT/bin/fm-qos-lib.sh" "$repo/bin/"
   cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
   chmod +x "$repo/bin/fm-test-run.sh"
@@ -188,6 +193,7 @@ init_primary_and_linked_worktree() {
   for tree in "$repo" "$linked"; do
     mkdir -p "$tree/bin" "$tree/tests"
     cp "$RUNNER" "$tree/bin/fm-test-run.sh"
+    cp "$ROOT/bin/fm-qos-lib.sh" "$tree/bin/"
     cp "$ROOT/tests/git-config-helpers.sh" "$tree/tests/"
     cp "$ROOT/tests/environment.sh" "$tree/tests/environment.sh"
     chmod +x "$tree/bin/fm-test-run.sh"
@@ -481,9 +487,15 @@ SH
   git -C "$repo" -c user.name=test -c user.email=test@example.invalid commit -qm fixtures
   printf '\n' >>"$repo/bin/shared-probe-lib.sh"
 
-  (cd "$repo" && bin/fm-test-run.sh --changed --base HEAD --json "$tmp/parallel.json") \
+  # The concurrent shape needs at least two workers whatever this host's core
+  # count, so the shape run pins the override; the default count is checked
+  # separately below.
+  (cd "$repo" && FM_TEST_AUTO_JOBS=2 bin/fm-test-run.sh --changed --base HEAD --json "$tmp/parallel.json") \
     >"$tmp/parallel.out" 2>"$tmp/parallel.err" \
-    || fail "default changed fixture run failed: $(cat "$tmp/parallel.err")"
+    || fail "overridden changed fixture run failed: $(cat "$tmp/parallel.err")"
+  (cd "$repo" && bin/fm-test-run.sh --changed --base HEAD --json "$tmp/default.json") \
+    >"$tmp/default.out" 2>"$tmp/default.err" \
+    || fail "default changed fixture run failed: $(cat "$tmp/default.err")"
   parallel_shape=$(grep -E '^FM_TEST_(BEGIN|END)' "$tmp/parallel.out" | head -n 2 | awk '{print $1}' | paste -sd, -)
   [ "$parallel_shape" = FM_TEST_BEGIN,FM_TEST_BEGIN ] \
     || fail "plain --changed did not use bounded concurrent scheduling: $parallel_shape"
@@ -498,22 +510,26 @@ SH
   case "$expected_jobs" in
     ''|*[!0-9]*) expected_jobs=1 ;;
   esac
+  expected_jobs=$((expected_jobs / 2))
   [ "$expected_jobs" -le 4 ] || expected_jobs=4
   [ "$expected_jobs" -ge 1 ] || expected_jobs=1
-  python3 - "$tmp/parallel.json" "$tmp/serial.json" "$expected_jobs" <<'PY' \
+  python3 - "$tmp/default.json" "$tmp/serial.json" "$expected_jobs" "$tmp/parallel.json" <<'PY' \
     || fail "changed timing artifacts did not record their resolved worker counts"
 import json, sys
 automatic = json.load(open(sys.argv[1], encoding="utf-8"))
 serial = json.load(open(sys.argv[2], encoding="utf-8"))
 expected = int(sys.argv[3])
+overridden = json.load(open(sys.argv[4], encoding="utf-8"))
 assert automatic["selection"].split(";")[-1] == f"jobs={expected}"
 assert serial["selection"].split(";")[-1] == "jobs=1"
+assert overridden["selection"].split(";")[-1] == "jobs=2"
 PY
 
   timeout_repo="$tmp/timeout-repo"
   timeout_script=tests/fm-calm-pi-extension.test.sh
   mkdir -p "$timeout_repo/bin" "$timeout_repo/tests"
   cp "$RUNNER" "$timeout_repo/bin/fm-test-run.sh"
+  cp "$ROOT/bin/fm-qos-lib.sh" "$timeout_repo/bin/"
   cp "$ROOT/tests/git-config-helpers.sh" "$timeout_repo/tests/"
   cp "$ROOT/tests/environment.sh" "$timeout_repo/tests/environment.sh"
   cat >"$timeout_repo/bin/fm-timeout-lib.sh" <<'SH'
@@ -596,7 +612,7 @@ SH
 # contract, so verifying several subjects is one bounded concurrent run rather
 # than a serial chain of separate `bash tests/X.test.sh` invocations.
 test_script_list_uses_bounded_automatic_concurrency() {
-  local tmp repo script parallel_shape serial_shape mixed_shape expected_jobs
+  local tmp repo script parallel_shape serial_shape mixed_shape expected_jobs rc
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-run-script-list.XXXXXX")
   repo="$tmp/repo"
   init_changed_fixture_repo "$repo"
@@ -612,9 +628,12 @@ SH
     chmod +x "$repo/tests/$script"
   done
 
-  (cd "$repo" && bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh \
+  (cd "$repo" && FM_TEST_AUTO_JOBS=2 bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh \
       --json "$tmp/parallel.json") >"$tmp/parallel.out" 2>"$tmp/parallel.err" \
-    || fail "default script-list run failed: $(cat "$tmp/parallel.err")"
+    || fail "overridden script-list run failed: $(cat "$tmp/parallel.err")"
+  (cd "$repo" && bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh \
+      --json "$tmp/default.json") >"$tmp/default.out" 2>"$tmp/default.err" \
+    || fail "default script-list run failed: $(cat "$tmp/default.err")"
   parallel_shape=$(grep -E '^FM_TEST_(BEGIN|END)' "$tmp/parallel.out" | head -n 2 | awk '{print $1}' | paste -sd, -)
   [ "$parallel_shape" = FM_TEST_BEGIN,FM_TEST_BEGIN ] \
     || fail "a plain script list did not use bounded concurrent scheduling: $parallel_shape"
@@ -628,7 +647,7 @@ SH
 
   # An unproven script in the list is scheduled around, never refused and never
   # run beside another script.
-  (cd "$repo" && bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh \
+  (cd "$repo" && FM_TEST_AUTO_JOBS=2 bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh \
       tests/fm-backend-orca.test.sh) >"$tmp/mixed.out" 2>"$tmp/mixed.err" \
     || fail "mixed proven/unproven script list failed: $(cat "$tmp/mixed.err")"
   mixed_shape=$(grep -E '^FM_TEST_(BEGIN|END)' "$tmp/mixed.out" | awk '{print $1}' | paste -sd, -)
@@ -639,17 +658,37 @@ SH
   case "$expected_jobs" in
     ''|*[!0-9]*) expected_jobs=1 ;;
   esac
+  expected_jobs=$((expected_jobs / 2))
   [ "$expected_jobs" -le 4 ] || expected_jobs=4
   [ "$expected_jobs" -ge 1 ] || expected_jobs=1
-  python3 - "$tmp/parallel.json" "$tmp/serial.json" "$expected_jobs" <<'PYJSON' \
+  python3 - "$tmp/default.json" "$tmp/serial.json" "$expected_jobs" "$tmp/parallel.json" <<'PYJSON' \
     || fail "script-list timing artifacts did not record their resolved worker counts"
 import json, sys
 automatic = json.load(open(sys.argv[1], encoding="utf-8"))
 serial = json.load(open(sys.argv[2], encoding="utf-8"))
 expected = int(sys.argv[3])
+overridden = json.load(open(sys.argv[4], encoding="utf-8"))
 assert automatic["selection"].split(";")[-1] == f"jobs={expected}"
 assert serial["selection"].split(";")[-1] == "jobs=1"
+assert overridden["selection"].split(";")[-1] == "jobs=2"
 PYJSON
+
+  # The override is clamped to the runner's cap, and a non-number refuses
+  # before any script runs rather than silently choosing a count.
+  (cd "$repo" && FM_TEST_AUTO_JOBS=99 bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh \
+      --json "$tmp/capped.json") >"$tmp/capped.out" 2>"$tmp/capped.err" \
+    || fail "capped override script-list run failed: $(cat "$tmp/capped.err")"
+  python3 - "$tmp/capped.json" <<'PYJSON' || fail "an oversized FM_TEST_AUTO_JOBS was not clamped to the runner cap"
+import json, sys
+assert json.load(open(sys.argv[1], encoding="utf-8"))["selection"].split(";")[-1] == "jobs=8"
+PYJSON
+  rc=0
+  (cd "$repo" && FM_TEST_AUTO_JOBS=lots bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh) \
+    >"$tmp/bad.out" 2>"$tmp/bad.err" || rc=$?
+  [ "$rc" -eq 2 ] || fail "a non-numeric FM_TEST_AUTO_JOBS must refuse with exit 2, got $rc"
+  grep -Fq 'FM_TEST_AUTO_JOBS must be a positive integer' "$tmp/bad.err" \
+    || fail "a non-numeric FM_TEST_AUTO_JOBS refusal did not name the variable: $(cat "$tmp/bad.err")"
+  ! grep -q '^FM_TEST_BEGIN' "$tmp/bad.out" || fail "a refused FM_TEST_AUTO_JOBS still ran scripts"
 
   (cd "$repo" && bin/fm-test-run.sh tests/fm-backend-orca.test.sh) \
     >"$tmp/named.out" 2>"$tmp/named.err" \
@@ -667,6 +706,7 @@ test_family_proofs_run_in_separate_concurrent_phases() {
   repo="$tmp/repo"
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$repo/bin/fm-test-run.sh"
+  cp "$ROOT/bin/fm-qos-lib.sh" "$repo/bin/"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
   cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   cp "$ROOT/bin/fm-timeout-lib.sh" "$repo/bin/fm-timeout-lib.sh"
@@ -1021,6 +1061,7 @@ test_list_scheduled_non_lane_selections_use_serial_weights() {
   repo="$tmp/repo"
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$repo/bin/fm-test-run.sh"
+  cp "$ROOT/bin/fm-qos-lib.sh" "$repo/bin/"
   for script in "${scripts[@]}"; do
     printf '#!/usr/bin/env bash\nexit 0\n' >"$repo/$script"
     chmod +x "$repo/$script"
@@ -1212,6 +1253,7 @@ test_portable_serial_packing_budget_boundary() {
 
   for weight in 1200000 1200001; do
     cp "$RUNNER" "$repo/bin/fm-test-run.sh"
+    cp "$ROOT/bin/fm-qos-lib.sh" "$repo/bin/"
     python3 - "$repo/bin/fm-test-run.sh" "$weight" <<'PY' \
       || fail "could not seed the fixture's measured timing input"
 from pathlib import Path
@@ -1350,6 +1392,7 @@ test_unmapped_new_test_never_inherits_family_concurrency() {
   repo="$tmp/repo"
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$repo/bin/fm-test-run.sh"
+  cp "$ROOT/bin/fm-qos-lib.sh" "$repo/bin/"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
   cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   chmod +x "$repo/bin/fm-test-run.sh"
@@ -1469,6 +1512,7 @@ test_per_script_timeout_bounds_a_hang() {
   hang=tests/fm-hang-fixture.test.sh
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$runner"
+  cp "$ROOT/bin/fm-qos-lib.sh" "$(dirname "$runner")/"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
   cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   cp "$ROOT/bin/fm-timeout-lib.sh" "$repo/bin/fm-timeout-lib.sh"
@@ -1537,6 +1581,7 @@ test_changed_bound_gives_slow_watcher_suites_headroom() {
   script=tests/fm-watch-triage.test.sh
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$repo/bin/fm-test-run.sh"
+  cp "$ROOT/bin/fm-qos-lib.sh" "$repo/bin/"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
   cp "$ROOT/tests/environment.sh" "$repo/tests/"
   cat >"$repo/bin/fm-timeout-lib.sh" <<'SH'
@@ -1576,6 +1621,7 @@ test_max_wall_ms_is_a_result_not_advice() {
   fast=tests/fm-budget-fixture.test.sh
   mkdir -p "$repo/bin" "$repo/tests"
   cp "$RUNNER" "$runner"
+  cp "$ROOT/bin/fm-qos-lib.sh" "$(dirname "$runner")/"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
   cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   cat >"$repo/$fast" <<'SH'
@@ -1642,6 +1688,7 @@ test_jobs_parallel_scheduler_and_failure_propagation() {
   d=tests/fm-supervision-instructions.test.sh
   mkdir -p "$repo/bin" "$repo/tests" "$evidence" "$fake_bin"
   cp "$RUNNER" "$runner"
+  cp "$ROOT/bin/fm-qos-lib.sh" "$(dirname "$runner")/"
   cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
   cat >"$fake_bin/stat" <<'SH'
@@ -1847,6 +1894,7 @@ test_operational_environment_is_cleared_at_every_entry() {
   mkdir -p "$repo/bin" "$repo/tests" "$hostile"
   printf 'preserve this synthetic operational home\n' > "$hostile/sentinel"
   cp "$RUNNER" "$repo/bin/fm-test-run.sh"
+  cp "$ROOT/bin/fm-qos-lib.sh" "$repo/bin/"
   cp "$ROOT/tests/environment.sh" "$repo/tests/environment.sh"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
   cat > "$repo/tests/fm-brief.test.sh" <<'SH'
