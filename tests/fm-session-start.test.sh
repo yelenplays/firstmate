@@ -775,6 +775,31 @@ write_omp_loaded_markers() {
   printf '%s\n%s\n' "$version" "$pid" > "$home/state/.omp-turnend-extension-loaded"
 }
 
+# --- routing selftest auto-arm ------------------------------------------------
+
+test_dispatch_selftest_auto_arm_is_idempotent() {
+  local rec root home fakebin first second
+  rec=$(new_world dispatch-selftest-auto-arm)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  printf '%s\n' '{"samples":[{"id":"one","brief":"sample task","expect":"default"}]}' > "$home/config/dispatch-samples.json"
+
+  run_session_start "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null
+  [ -x "$home/state/dispatch-selftest.check.sh" ] || fail "session start did not auto-arm the routing selftest"
+  [ -f "$home/state/dispatch-selftest.check-trust" ] || fail "session start did not register the routing check"
+  # shellcheck disable=SC2012 # The path is a fixed, private state filename.
+  first=$(ls -i "$home/state/dispatch-selftest.check-trust" | awk '{print $1}')
+  run_session_start "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null
+  # shellcheck disable=SC2012 # The path is a fixed, private state filename.
+  second=$(ls -i "$home/state/dispatch-selftest.check-trust" | awk '{print $1}')
+  assert_equals "$first" "$second" "session start: repeated auto-arm does not register twice"
+  assert_equals 3600 "$(cat "$home/state/dispatch-selftest.check-every")" "session start: auto-arm sets hourly cadence"
+  pass "session start auto-arms the routing check idempotently"
+}
+
 # --- context digest: absent vs empty vs present -----------------------------
 
 test_context_digest_absent_empty_present() {
@@ -3284,6 +3309,7 @@ case "${1:-}" in
   --reemit-only) test_reemit_skips_startup_sweeps_but_keeps_the_wake_drain; exit $? ;;
 esac
 
+test_dispatch_selftest_auto_arm_is_idempotent
 test_context_digest_absent_empty_present
 test_lock_refusal_read_only_path
 test_lock_write_failure_read_only_path

@@ -839,6 +839,11 @@ if [ -n "$BOOT_OUT" ]; then
 else
   printf '(silent - all good)\n'
 fi
+if [ "$READ_ONLY" -eq 0 ] && [ -f "$CONFIG/dispatch-samples.json" ]; then
+  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
+    "$SCRIPT_DIR/fm-dispatch-selftest.sh" arm >/dev/null 2>&1 \
+    || printf 'DISPATCH_SELFTEST: could not auto-arm the routing selftest\n'
+fi
 
 # --- 3. wake-drain ---------------------------------------------------------
 # The inactive-outcome startup scan runs in the deferred worker launched above,

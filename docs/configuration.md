@@ -1638,9 +1638,11 @@ Keep samples synthetic or public: each one is sent to the same judges a real bri
 Each sample runs in an isolated home that shares only `.env`, so a run writes nothing into the home.
 The tracked synthetic fixture in [`tests/fixtures/dispatch-selftest/`](../tests/fixtures/dispatch-selftest/) mirrors a seven-rule configuration with about thirty samples, and CI runs it offline with both judges stubbed.
 
-`bin/fm-dispatch-selftest.sh arm` adds a nightly live run on the existing watcher check path, with no separate scheduler.
-It writes and registers `state/dispatch-selftest.check.sh` with an hourly cadence; once a day after `FM_DISPATCH_SELFTEST_HOUR` (local hour, default 3) the check starts a detached run, and a failed run becomes one ordinary `check:` notification naming the misrouted samples, with the full output in `state/dispatch-selftest/last.out`.
-`bin/fm-dispatch-selftest.sh disarm` retires it; the script header owns the exact records.
+A locked `bin/fm-session-start.sh` automatically arms the nightly check whenever `config/dispatch-samples.json` exists.
+Repeated session starts preserve the existing check registration, and `bin/fm-dispatch-selftest.sh arm` remains available for manual recovery.
+Once a day after `FM_DISPATCH_SELFTEST_HOUR` (local hour, default 3), the watcher check starts a detached run.
+A missing samples or rules file, or a failed routing sample, becomes an ordinary `check:` notification, with the full output in `state/dispatch-selftest/last.out`.
+`bin/fm-dispatch-selftest.sh disarm` retires the check; the script header owns the exact records.
 
 ## Jev caller library (.env TYPESAFE_API_KEY / OPENROUTER_API_KEY)
 

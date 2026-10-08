@@ -159,6 +159,13 @@ expect_code 1 "$code" "arm: refused without a samples file"
 cp "$TMP_ROOT/home-samples.json" "$HOME_DIR/config/dispatch-samples.json"
 run_selftest code out arm
 expect_code 0 "$code" "arm: succeeds with rules and samples"
+# shellcheck disable=SC2012 # The path is a fixed, private state filename.
+first_registration=$(ls -i "$HOME_DIR/state/dispatch-selftest.check-trust" | awk '{print $1}')
+run_selftest code out arm
+expect_code 0 "$code" "arm: repeated registration succeeds"
+# shellcheck disable=SC2012 # The path is a fixed, private state filename.
+second_registration=$(ls -i "$HOME_DIR/state/dispatch-selftest.check-trust" | awk '{print $1}')
+assert_equals "$first_registration" "$second_registration" "arm: repeated registration preserves the existing binding"
 [ -x "$HOME_DIR/state/dispatch-selftest.check.sh" ] || fail "arm: no shim"
 [ -f "$HOME_DIR/state/dispatch-selftest.check-trust" ] || fail "arm: no trust binding"
 assert_equals 3600 "$(cat "$HOME_DIR/state/dispatch-selftest.check-every")" "arm: hourly check cadence"
@@ -204,6 +211,12 @@ jq -e '.exit == 0' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null ||
 run_selftest code out check
 assert_equals '' "$out" "check: a passing run is silent"
 pass "check: a passing scheduled run stays silent"
+
+rm -f "$HOME_DIR/config/dispatch-samples.json"
+run_selftest code out check
+assert_contains "$out" 'dispatch selftest failed: samples file is missing' "check: an armed check alerts when samples disappear"
+assert_equals 1 "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" "check: missing samples produce one wake line"
+pass "check: missing samples become an actionable wake line"
 
 run_selftest code out disarm
 expect_code 0 "$code" "disarm: succeeds"

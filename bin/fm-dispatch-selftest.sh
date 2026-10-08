@@ -42,7 +42,7 @@
 #   running, it launches `run --record` detached (nohup, its own process
 #   group, stdio closed) and returns at once, so it always fits the watcher's
 #   per-check bound. A run that died before recording is reported as failed.
-#   It never runs when the rules or samples file is absent.
+#   Missing rules or samples files produce an ordinary failure report.
 # `arm` writes state/dispatch-selftest.check.sh (embedding this home), sets its
 #   state/dispatch-selftest.check-every cadence to 3600 seconds, and binds it
 #   with bin/fm-check-register.sh, so the watcher dispatches it and turns its
@@ -73,6 +73,8 @@ NO_RECORD='{}'
 
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
+# shellcheck source=bin/fm-check-lib.sh
+. "$SCRIPT_DIR/fm-check-lib.sh"
 
 usage() {
   awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
@@ -222,9 +224,12 @@ action_check() {
   local hour=${FM_DISPATCH_SELFTEST_HOUR:-3} record started slot state
   case "$hour" in ''|*[!0-9]*) hour=3 ;; esac
   [ "$hour" -le 23 ] || hour=3
-  [ -f "$CONFIG_DIR/crew-dispatch.json" ] && [ -f "$CONFIG_DIR/dispatch-samples.json" ] || return 0
   mkdir -p "$RESULT_DIR" 2>/dev/null || return 0
   lock_live && return 0
+  if [ ! -f "$CONFIG_DIR/dispatch-samples.json" ] || [ ! -f "$CONFIG_DIR/crew-dispatch.json" ]; then
+    record_write "$(jq -cn --argjson at "$(date +%s)" --arg message "$( [ ! -f "$CONFIG_DIR/dispatch-samples.json" ] && printf 'samples file is missing' || printf 'rules file is missing' )" \
+      '{started: $at, finished: $at, state: "done", exit: 2, summary: $message, failing: "", reported: false}')" || return 0
+  fi
   record=$(record_read) || record=''
   state=$(jq -r '.state // ""' <<<"${record:-$NO_RECORD}")
   if [ "$state" = running ]; then
@@ -266,13 +271,19 @@ shim_content() {
 action_arm() {
   local home device tmp
   [ -f "$CONFIG_DIR/dispatch-samples.json" ] || { printf 'fm-dispatch-selftest: no samples file at %s\n' "$CONFIG_DIR/dispatch-samples.json" >&2; return 1; }
-  [ -f "$CONFIG_DIR/crew-dispatch.json" ] || { printf 'fm-dispatch-selftest: no rules file at %s\n' "$CONFIG_DIR/crew-dispatch.json" >&2; return 1; }
   home=$(CDPATH='' cd -- "$FM_HOME" 2>/dev/null && pwd -P) || { printf 'fm-dispatch-selftest: cannot resolve FM_HOME\n' >&2; return 1; }
   mkdir -p "$STATE" || return 1
   [ -d "$STATE" ] && [ ! -L "$STATE" ] || return 1
   device=$(fm_pr_file_device "$STATE") || return 1
   fm_pr_regular_destination_on_device_or_absent "$CHECK_SHIM" "$device" || { printf 'fm-dispatch-selftest: unsafe shim path\n' >&2; return 1; }
   fm_pr_regular_destination_on_device_or_absent "$CHECK_EVERY" "$device" || { printf 'fm-dispatch-selftest: unsafe cadence path\n' >&2; return 1; }
+  if [ -f "$CHECK_SHIM" ] && [ ! -L "$CHECK_SHIM" ] \
+    && shim_content "$home" | cmp -s - "$CHECK_SHIM" \
+    && [ "$(cat "$CHECK_EVERY" 2>/dev/null)" = 3600 ] \
+    && fm_custom_check_registered "$STATE" "$CHECK_ID"; then
+    printf 'armed: state/%s.check.sh\n' "$CHECK_ID"
+    return 0
+  fi
   tmp=$(umask 077; mktemp "$STATE/.fm-dispatch-selftest-check.XXXXXX") || return 1
   # The shim is renamed into place whole and bound right after; any failure in
   # between removes it, so the home never holds an unbound shim.
