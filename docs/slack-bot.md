@@ -73,6 +73,9 @@ Then copy the "Bot User OAuth Token" (it starts with `xoxb-`) for step 4 only; n
 
 Check: the person reports the token is copied.
 
+- Upload `assets/slack-bot-avatar.png` in Slack app settings under Basic Information > Display Information > App icon.
+- This is a square 1024x1024 PNG made for a small round avatar.
+
 ### 4. Store the token in the Keychain - [you], then [agent]
 
 The token lives only in the person's macOS login Keychain.
@@ -178,14 +181,7 @@ What counts:
 - Each message is delivered once, even when it is reachable as both a thread reply and a tag.
 - Messages arrive within one poll interval (`poll-seconds`) while firstmate's supervision runs.
 
-What the bot posts where:
-
-| Post | Channel |
-| --- | --- |
-| Finished PRs, merge asks, and merge results | Report channel, top-level |
-| Decisions with a recommendation | Decisions channel, top-level |
-| Answers to your DM | The DM |
-| Answers to a thread reply or a tag | That thread |
+Posting kinds, channels, and layouts are owned by [Slack bridge configuration](configuration.md#slack-bridge-configslack-bridge).
 
 ## Two people, two bots
 

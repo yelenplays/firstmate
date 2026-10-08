@@ -2,9 +2,11 @@
 # fm-slack-bridge.sh - the captain's Slack channel to and from this firstmate home.
 #
 # Usage:
-#   fm-slack-bridge.sh post report   [--url <https-url>] [--] <text>...
-#   fm-slack-bridge.sh post decision [--url <https-url>] [--] <text>...
-#   fm-slack-bridge.sh post <kind> [--url <https-url>] -        (text from stdin)
+#   fm-slack-bridge.sh post <kind> --title <line> [--project <name>] [--context <line>]...
+#                      [--option <key>=<text>]... [--recommend <key>]
+#                      [--url <https-url>]
+#   fm-slack-bridge.sh post report|decision [--url <https-url>] [--] <text>...
+#   fm-slack-bridge.sh post report|decision [--url <https-url>] -   (text from stdin)
 #   fm-slack-bridge.sh check
 #   fm-slack-bridge.sh arm
 #   fm-slack-bridge.sh disarm
@@ -19,10 +21,18 @@
 # posts and reads as that bot, with the bot token read from the macOS Keychain
 # item of that service name, and the person can also DM the bot.
 #
-# Out: `post` sends one captain-facing message to the report channel for
-# `report` (finished PRs, merge asks, merge results) or the decisions channel
-# for `decision` (a decision with its recommendation), through slack-axi (draft,
-# then `draft send`) or the bot. It appends the posted channel id and message ts
+# Out: `post` sends one captain-facing message to the decisions channel for
+# `decision` (one decision; options require a recommendation), or to the report channel
+# for `ready` (a PR ready for review or a merge ask), `merged` (a merge result),
+# and `report` (anything else), through slack-axi (draft, then `draft send`) or
+# the bot. The structured form (--title and its companions) is what firstmate
+# sends: one item per post, laid out by bin/fm-slack-render.mjs, which owns the
+# layouts and their limits (at most two --context lines). The bot posts it as
+# Block Kit with a plain-text fallback; slack-axi posts the fallback, which is
+# Slack mrkdwn with the same layout. The free-text form (report or decision
+# with positional or stdin text) stays for old callers. --url becomes a
+# labelled link (GitHub PRs as "PR #<n>"), never a raw URL.
+# `post` appends the posted channel id and message ts
 # to state/slack-bridge/posts, which is the only set of threads `check` reads.
 # Every post is top-level. Without a bot the bridge never replies inside a
 # thread, because it posts as the logged-in account, and that account's thread
@@ -111,6 +121,7 @@ CHECK_TRUST="$STATE/$CHECK_ID.check-trust"
 CHECK_EVERY="$STATE/$CHECK_ID.check-every"
 READER="$SCRIPT_DIR/fm-slack-read.mjs"
 BOT="$SCRIPT_DIR/fm-slack-bot.mjs"
+RENDERER="$SCRIPT_DIR/fm-slack-render.mjs"
 INBOX_BIN="$SCRIPT_DIR/fm-inbox.sh"
 REGISTER_BIN="$SCRIPT_DIR/fm-check-register.sh"
 MAX_LINE=240
@@ -127,9 +138,14 @@ MAX_LINE=240
 usage() {
   cat <<'EOF'
 Usage:
-  fm-slack-bridge.sh post report   [--url <https-url>] [--] <text>...   post a PR, merge ask, or result
-  fm-slack-bridge.sh post decision [--url <https-url>] [--] <text>...   post a decision with its recommendation
-  fm-slack-bridge.sh post <kind> [--url <https-url>] -                   text from stdin
+  fm-slack-bridge.sh post <kind> --title <line> [--project <name>] [--context <line>]...
+                     [--option <key>=<text>]... [--recommend <key>]
+                     [--url <https-url>]
+                               post one item laid out for scanning; kind is decision (decisions
+                               channel), ready (PR ready or merge ask), merged, or report;
+                               decisions with options need --recommend; at most two --context lines
+  fm-slack-bridge.sh post report|decision [--url <https-url>] [--] <text>...
+                               free-text form for old callers (- reads the text from stdin)
   fm-slack-bridge.sh check     deliver new captain thread replies, bot DMs and mentions, and handoff requests to the captain inbox
   fm-slack-bridge.sh arm       write and register state/slack-bridge.check.sh
   fm-slack-bridge.sh disarm    remove the check shim and its trust binding
@@ -295,12 +311,13 @@ bot_run() {  # <seconds> <action> <request-json>
 # Post as the bot.
 BOT_CHANNEL=
 BOT_TS=
-bot_post() {  # <channel-id> <text> [thread-ts]
-  local thread=${3:-} request posted
+bot_post() {  # <channel-id> <text> [thread-ts] [blocks-b64]
+  local thread=${3:-} blocks=${4:--} request posted
   BOT_CHANNEL=
   BOT_TS=
   request="{\"keychain\":\"$CFG_BOT\",\"channel\":\"$1\",\"text_b64\":\"$(b64_line "$2")\""
   [ -z "$thread" ] || request="$request,\"thread\":\"$thread\""
+  [ "$blocks" = - ] || request="$request,\"blocks_b64\":\"$blocks\""
   bot_run 30 post "$request}" || return 1
   posted=$(printf '%s\n' "$BOT_OUT" | sed -n 's/^posted \([CGD][A-Z0-9]*\) \([0-9]\{10\}\.[0-9]\{6\}\)$/\1 \2/p' | sed -n 1p)
   if [ -z "$posted" ]; then
@@ -322,20 +339,67 @@ record_post() {  # <channel-id> <ts> <kind> <text>
 # positional argument.
 ZWSP=$'\xe2\x80\x8b'
 
+# Render one post through bin/fm-slack-render.mjs, the single owner of the
+# layouts. 0 with RENDER_TEXT (decoded) and RENDER_BLOCKS_B64 ("-" for none);
+# otherwise exits 2 with the renderer's reason.
+RENDER_TEXT=
+RENDER_BLOCKS_B64=
+render_post() {  # <spec-json>
+  local out rc=0 text_b64
+  command -v node >/dev/null 2>&1 || die "node is not installed, so posts cannot be rendered"
+  out=$(printf '%s' "$1" | node "$RENDERER" lines 2>&1) || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    printf '%s\n' "$out" | sed -n 's/^fm-slack-render: /fm-slack-bridge: /p' | sed -n 1p >&2
+    exit 2
+  fi
+  text_b64=$(printf '%s\n' "$out" | sed -n 's/^text \([A-Za-z0-9+/=]*\)$/\1/p' | sed -n 1p)
+  RENDER_BLOCKS_B64=$(printf '%s\n' "$out" | sed -n 's/^blocks \([A-Za-z0-9+/=-]*\)$/\1/p' | sed -n 1p)
+  [ -n "$text_b64" ] && [ -n "$RENDER_BLOCKS_B64" ] || die "the renderer returned no message"
+  RENDER_TEXT=$(b64_decode "$text_b64"; printf .)
+  RENDER_TEXT=${RENDER_TEXT%.}
+}
+
+json_b64() { printf '"%s"' "$(b64_line "$1")"; }
+
 action_post() {
-  local kind=${1:-} url="" text channel out draft channel_id sent ts rc
+  local kind=${1:-} url="" title="" project="" text="" recommend=""
+  local spec summary channel out draft channel_id sent ts rc item key
+  local -a contexts=() option_keys=() option_texts=()
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
   shift
   case "$kind" in
-    report|decision) ;;
-    *) printf 'fm-slack-bridge: post kind must be report or decision\n' >&2; exit 2 ;;
+    report|decision|ready|merged) ;;
+    *) printf 'fm-slack-bridge: post kind must be report, decision, ready, or merged\n' >&2; exit 2 ;;
   esac
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --url)
-        [ "$#" -ge 2 ] || { printf 'fm-slack-bridge: --url needs a value\n' >&2; exit 2; }
-        url=$2
-        [[ "$url" =~ ^https://[^[:space:]]+$ ]] || { printf 'fm-slack-bridge: --url must be one https:// URL\n' >&2; exit 2; }
+      --url|--title|--project|--context|--option|--recommend)
+        [ "$#" -ge 2 ] || { printf 'fm-slack-bridge: %s needs a value\n' "$1" >&2; exit 2; }
+        case "$1" in
+          --url)
+            url=$2
+            [[ "$url" =~ ^https://[^[:space:]]+$ ]] || { printf 'fm-slack-bridge: --url must be one https:// URL\n' >&2; exit 2; }
+            ;;
+          --title) title=$2 ;;
+          --project) project=$2 ;;
+          --context) contexts+=("$2") ;;
+          --option)
+            case "$2" in
+              *=*) ;;
+              *) printf 'fm-slack-bridge: --option must be <key>=<text>\n' >&2; exit 2 ;;
+            esac
+            key=${2%%=*}
+            [[ "$key" =~ ^[a-z0-9][a-z0-9-]{0,15}$ ]] \
+              || { printf 'fm-slack-bridge: an --option key must be 1-16 lowercase letters, digits, or dashes\n' >&2; exit 2; }
+            option_keys+=("$key")
+            option_texts+=("${2#*=}")
+            ;;
+          --recommend)
+            recommend=$2
+            [[ "$recommend" =~ ^[a-z0-9][a-z0-9-]{0,15}$ ]] \
+              || { printf 'fm-slack-bridge: --recommend must name an option key\n' >&2; exit 2; }
+            ;;
+        esac
         shift 2
         ;;
       --) shift; break ;;
@@ -349,7 +413,48 @@ action_post() {
   else
     text="$*"
   fi
-  [ -n "${text//[[:space:]]/}" ] || { printf 'fm-slack-bridge: refusing to post an empty message\n' >&2; exit 2; }
+  # The structured form is any post with a title; everything else is the
+  # free-text form old callers use.
+  if [ -n "$title" ]; then
+    [ -z "${text//[[:space:]]/}" ] \
+      || { printf 'fm-slack-bridge: a post with --title takes no free text; put details in --context\n' >&2; exit 2; }
+    spec="{\"kind\":\"$kind\",\"title_b64\":$(json_b64 "$title")"
+    [ -z "$project" ] || spec="$spec,\"project_b64\":$(json_b64 "$project")"
+    if [ "${#contexts[@]}" -gt 0 ]; then
+      spec="$spec,\"context_b64\":["
+      for item in "${!contexts[@]}"; do
+        [ "$item" -eq 0 ] || spec="$spec,"
+        spec="$spec$(json_b64 "${contexts[$item]}")"
+      done
+      spec="$spec]"
+    fi
+    if [ "$kind" = decision ] && [ "${#option_keys[@]}" -gt 0 ] && [ -z "$recommend" ]; then
+      printf 'fm-slack-bridge: a decision with options needs --recommend\n' >&2
+      exit 2
+    fi
+    if [ "${#option_keys[@]}" -gt 0 ]; then
+      spec="$spec,\"options\":["
+      for item in "${!option_keys[@]}"; do
+        [ "$item" -eq 0 ] || spec="$spec,"
+        spec="$spec{\"key\":\"${option_keys[$item]}\",\"text_b64\":$(json_b64 "${option_texts[$item]}")}"
+      done
+      spec="$spec]"
+    fi
+    [ -z "$recommend" ] || spec="$spec,\"recommend\":\"$recommend\""
+  else
+    case "$kind" in
+      ready|merged) printf 'fm-slack-bridge: a %s post needs --title\n' "$kind" >&2; exit 2 ;;
+    esac
+    [ -z "$project" ] && [ "${#contexts[@]}" -eq 0 ] && [ "${#option_keys[@]}" -eq 0 ] && [ -z "$recommend" ] \
+      || { printf 'fm-slack-bridge: --project, --context, --option, and --recommend need --title\n' >&2; exit 2; }
+    [ -n "${text//[[:space:]]/}" ] || { printf 'fm-slack-bridge: refusing to post an empty message\n' >&2; exit 2; }
+    spec="{\"kind\":\"$kind\",\"text_b64\":$(json_b64 "$text")"
+  fi
+  # The posts record names a structured post by project and title, which is
+  # how a delivered thread reply says what it answers.
+  if [ -n "$title" ]; then summary="${project:+$project: }$title"; else summary=$text; fi
+  [ -z "$url" ] || spec="$spec,\"url_b64\":$(json_b64 "$url")"
+  spec="$spec}"
   if ! config_load; then
     printf 'slack bridge off: no config/slack-bridge\n'
     return 0
@@ -357,15 +462,18 @@ action_post() {
   [ -z "$CFG_ERROR" ] || die "$CFG_ERROR"
   [ -n "$CFG_BOT" ] || command -v slack-axi >/dev/null 2>&1 || die "slack-axi is not installed on PATH"
   state_prepare || die "cannot prepare $BRIDGE_STATE"
-  [ -z "$url" ] || text="$text"$'\n'"$url"
-  if [ "$kind" = report ]; then channel=$CFG_REPORT; else channel=$CFG_DECISIONS; fi
+  render_post "$spec"
+  text=$RENDER_TEXT
+  if [ "$kind" = decision ]; then channel=$CFG_DECISIONS; else channel=$CFG_REPORT; fi
   if [ -n "$CFG_BOT" ]; then
-    bot_post "$channel" "$text" || die "the Slack bot could not post to $channel: $BOT_ERROR"
-    record_post "$BOT_CHANNEL" "$BOT_TS" "$kind" "$text" \
+    bot_post "$channel" "$text" "" "$RENDER_BLOCKS_B64" || die "the Slack bot could not post to $channel: $BOT_ERROR"
+    record_post "$BOT_CHANNEL" "$BOT_TS" "$kind" "$summary" \
       || die "posted $BOT_CHANNEL $BOT_TS but could not record it in $POSTS"
     printf 'posted %s %s %s\n' "$kind" "$BOT_CHANNEL" "$BOT_TS"
     return 0
   fi
+  # slack-axi posts text only, so it sends the renderer's mrkdwn fallback,
+  # which carries the same layout.
   case "$text" in -*) text="$ZWSP$text" ;; esac
 
   rc=0
@@ -389,7 +497,7 @@ action_post() {
     slack-axi draft discard "$draft" >/dev/null 2>&1 || true
     die "slack-axi did not confirm the post to $channel (rc=$rc): $(one_line "$sent" 160)"
   fi
-  record_post "$channel_id" "$ts" "$kind" "$text" \
+  record_post "$channel_id" "$ts" "$kind" "$summary" \
     || die "posted $channel_id $ts but could not record it in $POSTS"
   printf 'posted %s %s %s\n' "$kind" "$channel_id" "$ts"
 }
