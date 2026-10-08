@@ -55,6 +55,9 @@ An `unknown` composer - no readable draft and no proven geometry - can use only 
 Absent that capability, `exit` re-reads the composer for a bounded settle window (`FM_CONTROL_COMPOSER_WAIT`) and acts only on a later decided verdict, because `unknown` can be transient: a Pi on Herdr keeps reporting a working turn for up to about 30 seconds after an interrupt, and Pi's composer is proven empty only for an idle Pi.
 A composer still `unknown` after that window refuses without typing, and every other verdict refuses as well.
 Both paths retain the same agent-gone postcondition, including when reached through `relaunch`.
+`exit` also refuses, naming the dialog as `blocked on a prompt`, when the screen shows a recognised dialog that a further Enter would answer, whether the dialog was open before the exit command was typed or the submitting Enter opened it; it sends no Escape and chooses no option, so closing the dialog is left to the operator.
+A stopped agent whose pane still shows the dialog text is not refused.
+[`fm_composer_blocking_dialog`](../bin/fm-composer-lib.sh) owns the recognised set, which today is only Claude's background-task exit picker; [its verification record](verification/runtime-backends.md#claude-background-task-exit-picker) lists the dialogs that are not covered.
 
 **Teardown and discard are not verbs and will not become verbs.**
 `exit` stops an agent and preserves everything else.
@@ -76,6 +79,7 @@ A relaunch does take one session reference when the endpoint's own runtime recor
    A recorded raw-command basename that differs from its resolved adapter cannot reproduce the command actually running, so relaunch refuses before the checkpoint unless the caller passes an explicit `--harness` to choose the replacement runtime deliberately.
    A harness change resets model and effort unless they are named too, because a model chosen for one adapter does not transfer to another.
    A Claude or Pi replacement must also pass the home's [worker account pin](configuration.md#worker-account-pin-configclaude-account-configpi-account), so a pin that no longer resolves or is signed out refuses before the old agent stops.
+   Ship and scout replacements also pass the [worker tool exclusion checks](configuration.md#worker-tool-exclusions-configcrew-exclude-tools) at this step.
 2. **Safe checkpoint.**
    The recorded worktree must exist and be a worktree root; its head and dirty state are recorded.
    For a ship or scout, a worktree that hangs off another clone of the recorded project's repository - a task carried over from another home - is relaunched as it is only when that clone's origin is the same repository (a GitHub transfer or rename counts) and, for a ship, the worktree is still on the task's branch; otherwise relaunch refuses before the old agent stops, and it never moves or re-homes the copy ([`bin/fm-relaunch-worktree-lib.sh`](../bin/fm-relaunch-worktree-lib.sh) owns that proof).

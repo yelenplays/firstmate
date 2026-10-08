@@ -19,6 +19,8 @@
 # skips this refusal, because its own merge-time draft refusal is authoritative.
 # For eligible shared-wiki GitHub PRs, an optional metadata-only Jev advisory
 # is printed after registration. It never influences merge monitoring or policy.
+# The recorded pr= also frees the task's place in a declared project capacity
+# (bin/fm-project-capacity-lib.sh).
 # Usage: fm-pr-check.sh <task-id> <pr-url>
 set -eu
 
