@@ -946,46 +946,6 @@ test_local_revert_keeps_every_merge_guard() {
   pass "fm-merge-local: the revert refuses everything the merge refuses and leaves a conflict untouched"
 }
 
-pe_env() {
-  FM_HOME="$W_HOME" PATH="$W_BIN:$PATH" FAKE_GH_DIR="$W_FAKE" "$ROOT/bin/fm-procevent.sh" "$@"
-}
-
-pending_results() {  # <source-id>: captured results with no handled acknowledgement
-  local result n=0
-  for result in "$W_HOME/state/procevent-inbox/$1".*.result; do
-    [ -e "$result" ] || continue
-    [ -e "${result%.result}.handled" ] || n=$((n + 1))
-  done
-  echo "$n"
-}
-
-# The watch's real runner captures its terminal outcome; close must both retire
-# the source and acknowledge that outcome, or reconcile re-announces it forever.
-test_close_acknowledges_captured_watch_result() {
-  local out sid n
-  make_pr_world pm-close-captured on
-  set_checks "$MERGE_SHA" build completed success
-  out=$(pm arm "$W_ID" 2>&1) || fail "arm refused a merged pull request: $out"
-  sid="when-pm-$W_ID"
-  assert_present "$W_HOME/state/procevent/$sid.source" "arm did not register the watch source"
-  pe_env start "$sid" >/dev/null 2>&1 &
-  for n in $(seq 1 300); do
-    [ "$(pending_results "$sid")" -gt 0 ] && break
-    sleep 0.1
-  done
-  assert_equals 1 "$(pending_results "$sid")" "the watch runner did not capture its settled outcome"
-
-  out=$(pm close "$W_ID" --reason "resolved by hand" 2>&1) || fail "close failed: $out"
-  assert_contains "$out" "closed: post-merge watch for $W_ID" "close did not report the closed watch"
-  assert_absent "$W_HOME/state/procevent/$sid.source" "close left the watch source registered"
-  assert_equals 0 "$(pending_results "$sid")" "close left the captured outcome unacknowledged, so it keeps re-announcing"
-  : > "$W_HOME/state/.wake-queue"
-  pe_env reconcile >/dev/null 2>&1 || true
-  assert_no_grep "$sid" "$W_HOME/state/.wake-queue" "reconcile re-announced the closed watch's outcome"
-  wait
-  pass "close retires the watch and acknowledges its captured outcome"
-}
-
 test_red_merge_checks_revert_on_green
 test_missing_required_check_blocks_merge_watch
 test_all_required_merge_checks_green
@@ -1019,4 +979,3 @@ test_local_witness_failure_reverts
 test_post_merge_resumes_durable_local_revert
 test_interrupted_local_revert_is_idempotent
 test_local_revert_keeps_every_merge_guard
-test_close_acknowledges_captured_watch_result

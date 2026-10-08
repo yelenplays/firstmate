@@ -77,9 +77,7 @@
 # status        Print the record.
 # close         End an open watch early on the captain's word (for example a
 #               blocked revert the captain resolved by hand); records the words
-#               as the reason. Like every step that ends a wait, it retires the
-#               watch and acknowledges any result the watch already captured,
-#               so nothing is re-announced after the watch ends.
+#               as the reason.
 #
 # Phases (record field phase): checks -> witness -> clear, or checks/witness ->
 # reverting -> reverted, with blocked when a revert cannot go ahead by itself
@@ -133,8 +131,6 @@ PR_MERGE_BIN="${FM_PR_MERGE_BIN:-$SCRIPT_DIR/fm-pr-merge.sh}"
 . "$SCRIPT_DIR/fm-pr-lib.sh"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
-# shellcheck source=bin/fm-procevent-lib.sh
-. "$SCRIPT_DIR/fm-procevent-lib.sh"
 # shellcheck source=bin/fm-post-merge-lib.sh
 . "$SCRIPT_DIR/fm-post-merge-lib.sh"
 
@@ -253,19 +249,8 @@ arm_watch() {  # <prefix>
   fi
 }
 
-# Every caller is a terminal path of the watch, whose record now owns the
-# outcome, so it also acknowledges any captured result the watch left behind;
-# retiring alone leaves that result re-announced on every reconcile.
 retire_watch() {  # <prefix>
-  local sid result base
-  sid="when-$(watch_name "$1")"
-  "$SCRIPT_DIR/fm-procevent-when.sh" retire "${sid#when-}" >/dev/null 2>&1 || true
-  while IFS= read -r result; do
-    base=${result%.result}
-    [ "${base%.*}" = "$(fm_procevent_inbox_dir "$STATE")/$sid" ] || continue
-    "$SCRIPT_DIR/fm-procevent.sh" handled "$sid" "${base##*.}" >/dev/null 2>&1 \
-      || echo "warning: could not acknowledge the captured result of $sid; run bin/fm-procevent.sh handled $sid ${base##*.}" >&2
-  done < <(fm_procevent_pending "$STATE")
+  "$SCRIPT_DIR/fm-procevent-when.sh" retire "$(watch_name "$1")" >/dev/null 2>&1 || true
 }
 
 need_gh() {
