@@ -55,6 +55,11 @@
 #   base_branch= in state/<id>.meta, which a relaunch reuses and later review and
 #   cleanup read; it is refused on secondmates and relaunches, and without it
 #   nothing changes.
+#   A ship or scout whose resolved --model is a Claude Sonnet or Haiku model
+#   records test_ban_model= (and test_ban_exception= for a captain-specified
+#   test) in state/<id>.meta, and a ship's launch brief gains the No test
+#   authoring section; bin/fm-dod-lib.sh's test-authoring block owns the model
+#   list, the exception, the section, and the done gate that enforces it.
 #   Ship/scout launches always put fm-dod-lib.sh's current worker role scope
 #   first in the private launch-brief overlay, including the exact task-owned
 #   steering inbox. This never rewrites a project's instruction files or a
@@ -3402,6 +3407,8 @@ fm_spawn_apply_jev_skills() {
   return 0
 }
 
+TEST_BAN_MODEL=
+TEST_BAN_EXCEPTION=0
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   if fm_brief_task_placeholders_present "$BRIEF"; then
     echo "error: $BRIEF still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn" >&2
@@ -3444,6 +3451,15 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
     echo "error: $BRIEF records a Base branch line but the spawn has no --base-branch; pass the brief's base with --base-branch or re-scaffold the brief without one" >&2
     exit 1
   fi
+  # bin/fm-dod-lib.sh's test-authoring block owns the model list, the captain
+  # exception, and the section a banned ship receives; a scout records the ban
+  # so a later promotion applies it.
+  if fm_test_ban_model_applies "$MODEL"; then
+    TEST_BAN_MODEL=$MODEL
+    if fm_test_ban_intent_has_exception "$(fm_brief_task_heading_body "$BRIEF" "## Captain's intent")"; then
+      TEST_BAN_EXCEPTION=1
+    fi
+  fi
   # Use the existing launch-brief overlay for every worker kind, including
   # pre-scope briefs and relaunches. Charters never enter this worker path.
   SOURCE_BRIEF=$BRIEF
@@ -3454,6 +3470,9 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       printf '\n' &&
       cat "$SOURCE_BRIEF" &&
       { fm_brief_decisions_skill_overlay "$SOURCE_BRIEF" || true; } &&
+      if [ "$KIND" = ship ] && [ -n "$TEST_BAN_MODEL" ]; then
+        fm_test_ban_overlay "$TEST_BAN_MODEL" "$TEST_BAN_EXCEPTION"
+      fi &&
       if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
         fm_brief_intent_overlay "$CAPTAIN_INTENT"
       fi
@@ -5427,7 +5446,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch model effort ai_family ai_family_source permission_mode account account_provider busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch model test_ban_model test_ban_exception effort ai_family ai_family_source permission_mode account account_provider busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
@@ -5467,6 +5486,10 @@ fi
   echo "tasktmp=$TASK_TMP"
   [ -z "$BASE_BRANCH" ] || echo "base_branch=$BASE_BRANCH"
   echo "model=${MODEL:-default}"
+  # The test-authoring ban, only when the model is on its list, so an unbanned
+  # task record stays byte-identical.
+  [ -z "$TEST_BAN_MODEL" ] || echo "test_ban_model=$TEST_BAN_MODEL"
+  [ "$TEST_BAN_EXCEPTION" = 0 ] || echo "test_ban_exception=captain-test"
   echo "effort=${EFFORT:-default}"
   echo "ai_family=$SPAWN_AI_FAMILY"
   echo "ai_family_source=$SPAWN_AI_FAMILY_SOURCE"

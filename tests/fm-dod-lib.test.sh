@@ -465,4 +465,127 @@ test_worker_role_names_skill_and_fallback_file() {
 
 test_worker_role_names_skill_and_fallback_file
 
+# The test-authoring ban covers Claude Sonnet and Haiku spellings across
+# harnesses and nothing else.
+test_test_ban_model_list() {
+  local model
+  for model in claude-sonnet-5-5 claude-haiku-5-5 Claude-Sonnet-4-5 anthropic/claude-sonnet-4.5 \
+    openrouter/anthropic/claude-haiku-4.5 us.anthropic.claude-haiku-4-5-v1:0 claude-3-5-sonnet-20241022 \
+    sonnet haiku 'sonnet[1m]'; do
+    fm_test_ban_model_applies "$model" || fail "test ban missed model $model"
+  done
+  for model in '' default claude-opus-5-5 opus claude-fable-5-1 gpt-5.5 grok-4 sonnetish-local; do
+    if fm_test_ban_model_applies "$model"; then fail "test ban matched model $model"; fi
+  done
+  pass "test ban covers Sonnet and Haiku spellings only"
+}
+
+test_test_ban_path_heuristic() {
+  local path
+  for path in tests/foo.test.sh test/a.py src/__tests__/x.js spec/models/user_spec.rb \
+    pkg/foo_test.go web/app.spec.ts web/app.test.tsx tests/fixtures/data.json \
+    src/__snapshots__/a.snap test_util.py; do
+    fm_test_ban_path_is_test "$path" || fail "test heuristic missed $path"
+  done
+  for path in bin/fm-spawn.sh src/testing.go docs/test-plan.md tests/fm-herdr-e2e.test.sh \
+    e2e/login.spec.ts tests/end-to-end/flow.sh latest/notes.md; do
+    if fm_test_ban_path_is_test "$path"; then fail "test heuristic matched $path"; fi
+  done
+  pass "test heuristic flags unit, integration, fixture and snapshot files and spares e2e"
+}
+
+test_test_ban_exception_needs_spelled_out_test() {
+  fm_test_ban_intent_has_exception "$(printf 'Fix it.\n\n### Captain-specified test\nAssert foo(2) returns 4.\n')" \
+    || fail "spelled-out captain test was not an exception"
+  if fm_test_ban_intent_has_exception "$(printf 'Fix it.\n\n### Captain-specified test\n\n')"; then
+    fail "empty captain test heading counted as an exception"
+  fi
+  if fm_test_ban_intent_has_exception "Fix it and add tests."; then
+    fail "intent without the heading counted as an exception"
+  fi
+  pass "only a spelled-out captain test is the exception"
+}
+
+# A banned ship whose commits add a test file is refused at its handoff done,
+# naming the file; e2e files, the captain exception, unbanned tasks, and the
+# no-mistakes CI-ready report are not refused for tests.
+test_test_ban_gate_refuses_added_tests() {
+  local repo wt meta reason rc
+  repo="$TMP_ROOT/testban-repo"
+  wt="$TMP_ROOT/testban-wt"
+  meta="$TMP_ROOT/testban.meta"
+  fm_git_worktree "$repo" "$wt" fm/testban
+  git -C "$wt" fetch -q origin
+  printf 'fix\n' > "$wt/fix.sh"
+  git -C "$wt" add fix.sh && git -C "$wt" commit -q -m fix
+  printf 'kind=ship\nmode=no-mistakes\ntest_ban_model=claude-sonnet-5-5\n' > "$meta"
+  accept_done ship no-mistakes "$wt" "$repo" 'done: fixed' "$TMP_ROOT" testban "$meta" \
+    || fail "banned ship without test files was refused"
+
+  mkdir -p "$wt/tests" "$wt/e2e"
+  printf 'e2e\n' > "$wt/e2e/flow.sh"
+  git -C "$wt" add e2e && git -C "$wt" commit -q -m e2e
+  accept_done ship no-mistakes "$wt" "$repo" 'done: fixed' "$TMP_ROOT" testban "$meta" \
+    || fail "an e2e test was refused"
+
+  printf 'unit\n' > "$wt/tests/fix.test.sh"
+  git -C "$wt" add tests && git -C "$wt" commit -q -m unit
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: fixed' "$TMP_ROOT" testban "$meta")
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "banned handoff done with a unit test was accepted"
+  assert_contains "$reason" "no test authoring on claude-sonnet-5-5" "refusal did not name the banned model"
+  assert_contains "$reason" "tests/fix.test.sh" "refusal did not name the test file"
+
+  reason=$(accept_done ship direct-PR "$wt" "$repo" 'done: PR https://example.test/o/r/pull/9' "$TMP_ROOT" testban "$meta")
+  assert_contains "$reason" "tests/fix.test.sh" "direct-PR ready done skipped the test check"
+
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: PR https://example.test/o/r/pull/9 checks green' "$TMP_ROOT" testban "$meta")
+  case "$reason" in
+    *"no test authoring"*) fail "CI-ready done was test-checked against pipeline commits" ;;
+  esac
+
+  printf 'kind=ship\nmode=no-mistakes\ntest_ban_model=claude-sonnet-5-5\ntest_ban_exception=captain-test\n' > "$meta"
+  accept_done ship no-mistakes "$wt" "$repo" 'done: fixed' "$TMP_ROOT" testban "$meta" \
+    || fail "captain-specified test exception was refused"
+  printf 'kind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\n' > "$meta"
+  accept_done ship no-mistakes "$wt" "$repo" 'done: fixed' "$TMP_ROOT" testban "$meta" \
+    || fail "an unbanned task was test-checked"
+  pass "test-ban gate refuses only a banned lane's added test files"
+}
+
+test_test_ban_gate_reads_the_named_base() {
+  local repo wt meta reason rc
+  repo="$TMP_ROOT/testban-base-repo"
+  wt="$TMP_ROOT/testban-base-wt"
+  meta="$TMP_ROOT/testban-base.meta"
+  fm_git_worktree "$repo" "$wt" fm/testban-base
+  mkdir -p "$repo/tests"
+  printf 'release\n' > "$repo/tests/release.test.sh"
+  git -C "$repo" checkout -q -b release
+  git -C "$repo" add tests && git -C "$repo" commit -q -m 'release test'
+  git -C "$repo" push -q origin release
+  git -C "$repo" checkout -q main
+  git -C "$wt" fetch -q origin
+  git -C "$wt" reset -q --hard origin/release
+  printf 'fix\n' > "$wt/fix.sh"
+  git -C "$wt" add fix.sh && git -C "$wt" commit -q -m fix
+  printf 'kind=ship\nmode=direct-PR\nbase_branch=release\ntest_ban_model=haiku\n' > "$meta"
+  reason=$(accept_done ship direct-PR "$wt" "$repo" 'done: PR https://example.test/o/r/pull/7' "$TMP_ROOT" testban-base "$meta")
+  case "$reason" in
+    *"no test authoring"*) fail "a test already on the named base was blamed on the worker: $reason" ;;
+  esac
+  printf 'kind=ship\nmode=direct-PR\nbase_branch=missing\ntest_ban_model=haiku\n' > "$meta"
+  reason=$(accept_done ship direct-PR "$wt" "$repo" 'done: PR https://example.test/o/r/pull/7' "$TMP_ROOT" testban-base "$meta")
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "an unresolvable base was accepted"
+  assert_contains "$reason" "cannot resolve the base branch origin/missing" "unresolvable base refusal was unclear"
+  pass "test-ban gate measures commits from the task's named base"
+}
+
+test_test_ban_model_list
+test_test_ban_path_heuristic
+test_test_ban_exception_needs_spelled_out_test
+test_test_ban_gate_refuses_added_tests
+test_test_ban_gate_reads_the_named_base
+
 echo "all fm-dod-lib tests passed"

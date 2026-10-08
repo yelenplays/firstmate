@@ -10,7 +10,10 @@
 # under `## Firstmate spec` (build instructions, which are never the captain's
 # intent). bin/fm-dod-lib.sh owns the no-mistakes `--intent` contract those
 # subsections feed; bin/fm-spawn.sh refuses leftover placeholders and a
-# `## Captain's intent` line opening with a Captain label or address. Secondmate
+# `## Captain's intent` line opening with a Captain label or address. A test
+# case the captain spells out goes under a `### Captain-specified test` heading
+# inside `## Captain's intent`, the one exception to the test-authoring ban on
+# Claude Sonnet and Haiku lanes (bin/fm-dod-lib.sh owns it). Secondmate
 # charters still use a single `{TASK}` charter fill. Firstmate may adjust other
 # sections when the task genuinely deviates (e.g. working an existing external
 # PR instead of shipping a new one).

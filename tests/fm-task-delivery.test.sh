@@ -1715,4 +1715,72 @@ test_promotion_carries_the_forge_binding
 test_spawn_and_promote_require_filled_task_subsections
 test_launch_brief_names_decisions_skill_for_decision_tasks
 test_project_mode_resolves_branch_prefix
+# A ship launched on a Claude Sonnet or Haiku model gets the No test authoring
+# section, with the captain-specified test as the only exception; other models
+# do not.
+test_launch_brief_bans_test_authoring_on_sonnet_and_haiku() {
+  local rec home proj fakebin id brief
+  rec=$(make_home test-ban)
+  IFS='|' read -r home proj fakebin <<EOF2
+$rec
+EOF2
+  id=test-ban-sonnet
+  write_brief "$home" "$id" no-mistakes
+  run_spawn "$home" "$fakebin" "$id" "$proj" claude --model claude-sonnet-5-5 --mode no-mistakes --yolo off >/dev/null
+  brief="$home/data/$id/launch-brief.md"
+  assert_present "$brief" "Sonnet ship did not render a launch brief"
+  assert_grep '# No test authoring' "$brief" "Sonnet ship did not get the No test authoring section"
+  assert_grep 'This worker runs on claude-sonnet-5-5' "$brief" "the section did not name the model"
+  assert_grep 'refuses the done while any remain' "$brief" "the section did not announce the done check"
+
+  id=test-ban-haiku-exception
+  write_brief "$home" "$id" direct-PR
+  printf '# Task\n## Captain'"'"'s intent\nFix the parser.\n\n### Captain-specified test\nAssert parse("a=1") returns a single pair.\n\n## Firstmate spec\nKeep it small.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  run_spawn "$home" "$fakebin" "$id" "$proj" claude --model haiku --mode direct-PR --yolo off >/dev/null
+  brief="$home/data/$id/launch-brief.md"
+  assert_present "$brief" "Haiku ship did not render a launch brief"
+  assert_grep '# No test authoring' "$brief" "Haiku ship did not get the No test authoring section"
+  assert_grep 'the done check below is off for it' "$brief" "the captain-specified test did not lift the done check"
+
+  id=test-ban-opus
+  write_brief "$home" "$id" no-mistakes
+  run_spawn "$home" "$fakebin" "$id" "$proj" claude --model claude-opus-5-5 --mode no-mistakes --yolo off >/dev/null
+  assert_present "$home/data/$id/launch-brief.md" "Opus ship did not render a launch brief"
+  assert_no_grep 'No test authoring' "$home/data/$id/launch-brief.md" "an Opus ship got the test ban"
+  pass "launch briefs ban test authoring on Sonnet and Haiku ships only"
+}
+
+# A scout launched on a banned model keeps the ban when promoted: its
+# regression-test step is replaced and the instructions carry the section.
+test_promotion_keeps_the_test_ban() {
+  local home meta instructions
+  home="$TMP_ROOT/promote-test-ban/home"
+  mkdir -p "$home/state"
+  meta="$home/state/promote-tb.meta"
+  write_brief "$home" promote-tb
+  printf 'window=fm-promote-tb\nkind=scout\nworktree=/tmp/wt\nmodel=claude-sonnet-5-5\ntest_ban_model=claude-sonnet-5-5\n' > "$meta"
+  FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" promote-tb --mode direct-PR --yolo off >/dev/null 2>&1 \
+    || fail "promotion of a test-banned scout failed"
+  instructions="$home/data/promote-tb/ship-instructions.md"
+  assert_grep '# No test authoring' "$instructions" "promoted ship lost the No test authoring section"
+  assert_no_grep 'turn that reproduction into a regression test' "$instructions" \
+    "promoted ship was still told to write a regression test"
+  assert_no_grep '^test_ban_exception=' "$meta" "promotion recorded an exception the intent does not carry"
+
+  home="$TMP_ROOT/promote-test-open/home"
+  mkdir -p "$home/state"
+  write_brief "$home" promote-to
+  printf 'window=fm-promote-to\nkind=scout\nworktree=/tmp/wt\nmodel=claude-opus-5-5\n' > "$home/state/promote-to.meta"
+  FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" promote-to --mode direct-PR --yolo off >/dev/null 2>&1 \
+    || fail "promotion of an unbanned scout failed"
+  assert_grep 'turn that reproduction into a regression test' "$home/data/promote-to/ship-instructions.md" \
+    "an unbanned promotion lost its regression-test step"
+  assert_no_grep 'No test authoring' "$home/data/promote-to/ship-instructions.md" "an unbanned promotion got the test ban"
+  pass "promotion keeps the test ban of a Sonnet or Haiku scout"
+}
+
+test_launch_brief_bans_test_authoring_on_sonnet_and_haiku
+test_promotion_keeps_the_test_ban
+
 echo "# all fm-task-delivery tests passed"
