@@ -48,7 +48,8 @@
 #
 # Effort is dynamic, not static: a profile's declared `effort` is the ceiling
 #   Jev may not exceed (xhigh when undeclared, so max always needs an explicit
-#   declaration), and the emitted --effort is the assessed class. A missing or
+#   declaration), and the emitted --effort is the assessed class, raised to
+#   the profile's optional `effort_floor` when the class is lower. A missing or
 #   malformed effort answer falls back to the declared effort and says so.
 #   A candidate that cannot supply the assessed class fails fit before quota
 #   gates; one whose predicted burn exceeds the tightest applicable remaining
@@ -351,6 +352,11 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
     or ($p | has("provider") and (provider_id(.provider) | not))
     or ($p | has("floor") and floor_bad(.floor; false));
   def overflow_bad($p): ($p | type) == "object" and ($p | has("overflow")) and (($p.overflow | type) != "boolean");
+  def effort_floor_bad($p):
+    ($p | type) == "object" and ($p | has("effort_floor")) and
+    ((["low","medium","high","xhigh","max"] | index($p.effort_floor)) == null
+     or ((["low","medium","high","xhigh","max"] | index($p.effort_floor))
+         > (["low","medium","high","xhigh","max","ultra"] | index($p.effort // "xhigh"))));
   def beats_bad($self; $count):
     (type != "array") or (length == 0)
     or any(.[]; (type != "object")
@@ -420,6 +426,7 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
   elif $beats_cycle_error != null then $beats_cycle_error
   elif any((.rules // [])[] | profiles(.use)[]; profile_bad(.)) then "each use profile needs harness; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"
   elif any((.rules // [])[] | profiles(.use)[], profiles(.default // [])[]; overflow_bad(.)) then "profile overflow must be true or false when present"
+  elif any((.rules // [])[] | profiles(.use)[], profiles(.default // [])[]; effort_floor_bad(.)) then "profile effort_floor must be low, medium, high, xhigh, or max and not above the profile effort"
   elif any((.rules // [])[]; duplicate_profiles(profiles(.use))) then "each rule use must not contain duplicate harness, model, and effort profiles"
   elif any((.rules // [])[] | profiles(.use)[]; (verified(.harness) | not)) then "each use profile must name a verified harness"
   elif any((.rules // [])[] | profiles(.use)[]; (effort_ok(.harness; .model; .effort) | not)) then "each use profile effort must be supported by its harness and model"
@@ -792,10 +799,13 @@ RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$
   # may be lower, never higher. An undeclared ceiling is xhigh - max and ultra
   # therefore always need an explicit declaration. A candidate that cannot
   # supply the assessed class fails fit before any quota evidence is read.
+  # An optional `effort_floor` raises a lower assessed class to the floor.
   def resolve_effort($c):
     ($c.effort // null) as $declared |
     (if $declared == null then "xhigh" else $declared end) as $ceiling |
+    ($c.effort_floor // null) as $efloor |
     if $jev_effort == null then {effort: $declared, ceiling: $ceiling, source: "declared", ok: true}
+    elif $efloor != null and (effort_rank($jev_effort) < effort_rank($efloor)) then {effort: $efloor, ceiling: $ceiling, source: "floor", ok: true}
     elif (effort_rank($jev_effort) <= effort_rank($ceiling)) then {effort: $jev_effort, ceiling: $ceiling, source: "jev", ok: true}
     else {effort: $jev_effort, ceiling: $ceiling, source: "jev", ok: false,
           reason: "assessed effort \($jev_effort) exceeds declared ceiling \($ceiling)"}

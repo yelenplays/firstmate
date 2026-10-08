@@ -1653,6 +1653,21 @@ assert_contains "$out" "$SOL_PROFILE" "an exhausted primary overflows"
 assert_contains "$out" 'not eligible: runway exhausted_now at all_models' "the exhausted primary keeps its own reason"
 pass "overflow: an exhausted primary overflows"
 
+jq '.rules[0].use[1].effort_floor = "high"' "$OVERFLOW_RULES" > "$RULES"
+reset_log
+write_response_effort "$RESPONSE" rule_1 0.97 medium
+jq --argjson p "$OVERFLOW_RESPONSE" '.answers.rule.probabilities = $p | .answers.effort.probabilities = {"low":0.05,"medium":0.8,"high":0.05,"xhigh":0.05,"max":0.05}' "$RESPONSE" > "$TMP_ROOT/r.json" && mv "$TMP_ROOT/r.json" "$RESPONSE"
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
+assert_contains "$out" "$SOL_PROFILE" "an effort floor lifts a lower assessed class to the floor"
+assert_contains "$out" 'candidate: claude:claude-opus-5-5  provider=claude  effort=medium(medium ceiling)' "a profile without a floor keeps the assessed class"
+jq '.rules[0].use[1].effort_floor = "max"' "$OVERFLOW_RULES" > "$RULES"
+reset_log
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
+expect_code 2 "$code" "an effort floor above the profile effort is a configuration error"
+assert_contains "$err" 'profile effort_floor must be low, medium, high, xhigh, or max and not above the profile effort' "the malformed effort floor is named"
+write_response "$RESPONSE" rule_1 0.97 "$OVERFLOW_RESPONSE"
+pass "effort floor: an overflowed Sol runs at its floor, never the lower assessed class"
+
 jq '.rules[0].use[1].overflow = "yes"' "$OVERFLOW_RULES" > "$RULES"
 reset_log
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"

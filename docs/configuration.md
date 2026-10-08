@@ -1323,7 +1323,7 @@ This section is the single owner of the canonical schema and its per-field seman
       "floor": { "scope": "<quota-axi scope>", "min_percent": 20, "provider": "<quota-axi provider>" },
       "beats": [ { "rule": 2, "when": "<optional condition under which this rule wins>" } ],
       "use": [
-        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "provider": "<optional quota-axi provider>", "floor": { "scope": "<quota-axi scope>", "min_percent": 50 }, "overflow": false }
+        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "provider": "<optional quota-axi provider>", "floor": { "scope": "<quota-axi scope>", "min_percent": 50 }, "effort_floor": "<optional, not above effort>", "overflow": false }
       ],
       "why": "<optional rationale that helps firstmate choose>"
     }
@@ -1344,6 +1344,7 @@ This section is the single owner of the canonical schema and its per-field seman
 | Profile `harness` | Required in every profile. |
 | Profile `model` and `effort`; rule `why` | Optional. |
 | Profile `overflow` | Optional boolean, default `false`; see "Overflow profiles" below. |
+| Profile `effort_floor` | Optional `low`, `medium`, `high`, `xhigh`, or `max`, not above the profile's `effort`; typed resolution raises a lower assessed effort class to it, so that profile never runs below it. |
 
 **Fields applied only by typed resolution**
 
@@ -1372,7 +1373,7 @@ Because `rule` is positional, reordering `rules` requires renumbering every `bea
 A profile `provider` optionally names the quota-axi provider family whose rows apply to that profile; when present, profile and rule-floor provider IDs must match the strict whole-string pattern `^[a-z0-9]+(-[a-z0-9]+)*\z`.
 Bootstrap validates resolver-only `approval`, `min_confidence`, `floor`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
 
-Bootstrap validates resolver-only `approval`, `floor`, `beats`, `overflow`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
+Bootstrap validates resolver-only `approval`, `floor`, `beats`, `overflow`, `effort_floor`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
 Typed resolution additively recognizes `gemini` because AGENTS.md section 4 verifies it for crewmate and scout dispatch.
 
 | Harness | Provider declaration on the opted-in resolver path |
