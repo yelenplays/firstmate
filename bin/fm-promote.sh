@@ -38,6 +38,9 @@
 # its value against the registry; bin/fm-project-mode.sh's header owns the
 # binding and bin/fm-dod-lib.sh owns what it changes for the worker, including
 # the refusal of a forge on local-only.
+# A scout whose meta records test_ban_model= keeps the test-authoring ban as a
+# ship: its regression-test step is replaced and the instructions carry the
+# section bin/fm-dod-lib.sh owns.
 # Usage: fm-promote.sh <task-id> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>]
 set -eu
 
@@ -236,6 +239,16 @@ fi
 # promoted no-mistakes worker that never received the ask-user escalation rule or
 # the --yes ban is the delivery hole this file used to leave open.
 INSTRUCTIONS="$DATA/$ID/ship-instructions.md"
+# A scout spawned on a test-banned model keeps that ban as a ship
+# (bin/fm-dod-lib.sh's test-authoring block); allowed paths are re-derived
+# from the intent the promoted ship carries.
+PROMOTE_TEST_BAN_MODEL=$(fm_dod_meta_value "$META" test_ban_model)
+PROMOTE_TEST_BAN_ALLOWED_PATHS=
+PROMOTE_REPRO_STEP="If you reproduced a bug, turn that reproduction into a regression test."
+if [ -n "$PROMOTE_TEST_BAN_MODEL" ]; then
+  PROMOTE_REPRO_STEP="Do not turn a reproduction into a regression test; the No test authoring section governs test files."
+  PROMOTE_TEST_BAN_ALLOWED_PATHS=$(fm_test_ban_intent_allowed_paths "$INTENT_BODY")
+fi
 PROMOTION_ASK_USER_BLOCK=
 if [ "$MODE" = no-mistakes ]; then
   PROMOTION_ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
@@ -246,7 +259,7 @@ If these promotion steps were already completed before a relaunch, preserve the 
 2. Inventory this worktree's scratch state with \`git status\` and \`git log\` before changing anything.
 3. Return to a clean $PROMOTE_BASE_WORDS, then create your branch: \`git checkout -b $BRANCH_Q --\`.
 4. Carry over only the intended fix changes. Leave scratch commits, debug edits, and experiment files behind.
-5. If you reproduced a bug, turn that reproduction into a regression test.
+5. $PROMOTE_REPRO_STEP
 6. Treat the scout-time Firstmate spec and any unmarked legacy \`# Task\` text as investigation context, not captain intent or current ship-time instructions.
 7. Everything else in your original instructions carries over unchanged: the status protocol; the instruction inbox and its acknowledgement; the escalation rules, including ask-user; and every safety rule, except where the current delivery contract below explicitly replaces scout-only delivery rules.
 EOF
@@ -291,6 +304,9 @@ $PROMOTION_SHIP_SPEC
 
 EOF
   promote_delivery_contract
+  if [ -n "$PROMOTE_TEST_BAN_MODEL" ]; then
+    fm_test_ban_overlay "$PROMOTE_TEST_BAN_MODEL" "$PROMOTE_TEST_BAN_ALLOWED_PATHS"
+  fi
 } > "$TMP" || { echo "error: could not render ship instructions for mode=$MODE" >&2; exit 1; }
 mv "$TMP" "$INSTRUCTIONS"
 TMP=
@@ -326,12 +342,17 @@ BRIEF_REPLACEMENT=
 EXECUTION_TOKEN=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" attempt "$ID") || exit 1
 
 TMP="$STATE/.$ID.meta.promote.${BASHPID:-$$}"
-grep -v -e '^kind=' -e '^mode=' -e '^yolo=' -e '^branch=' "$META" > "$TMP"
+grep -v -e '^kind=' -e '^mode=' -e '^yolo=' -e '^branch=' -e '^test_ban_allowed=' "$META" > "$TMP"
 {
   echo "kind=ship"
   echo "mode=$MODE"
   echo "yolo=$YOLO"
   echo "branch=$BRANCH"
+  if [ -n "$PROMOTE_TEST_BAN_MODEL" ]; then
+    while IFS= read -r allowed_path; do
+      [ -z "$allowed_path" ] || echo "test_ban_allowed=$allowed_path"
+    done <<<"$PROMOTE_TEST_BAN_ALLOWED_PATHS"
+  fi
 } >> "$TMP"
 if ! fm_backlog_atomic_transition publish "$TMP" "$META" "task record" "$STATE"; then
   rm -f -- "$TMP"

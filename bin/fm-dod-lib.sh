@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Single owner of a ship task's mode-specific "Definition of done" block and of
-# the named-head reachability gate that accepts a ship `done:` claim.
+# Single owner of a ship task's mode-specific "Definition of done" block, of
+# the named-head reachability gate that accepts a ship `done:` claim, and of the
+# test-authoring ban on Claude Sonnet and Haiku lanes (its block below).
 # Sourced by bin/fm-brief.sh, which renders it into a generated ship brief, and by
 # bin/fm-promote.sh, which renders it into the ship instructions a promoted scout
 # receives. Both paths must hand the worker the same contract: a promoted
@@ -777,19 +778,206 @@ fm_dod_named_head_reachable_outside_worktree() {  # <worktree> <project> <mode> 
   [ "$mode" = local-only ] && fm_dod_ref_contains "$project" refs/heads "$sha"
 }
 
+# --- No test authoring on Claude Sonnet and Haiku lanes ---------------------
+# This block is the single owner of the test-authoring ban: which models it
+# covers, the launch section that tells the worker, the explicit captain
+# exception, what counts as a test file, and the done gate that enforces it.
+# bin/fm-spawn.sh records test_ban_model=<model> in state/<id>.meta for a ship or
+# scout whose resolved --model matches FM_TEST_BAN_MODEL_PATTERNS, plus one
+# test_ban_allowed=<path> record per path explicitly named under the
+# `### Captain-specified test` subsection. It appends fm_test_ban_overlay to a
+# banned ship or scout launch brief. bin/fm-promote.sh renders the same section
+# into a promoted ship's instructions and re-derives allowed paths from intent. An unset or `default` model is not
+# matched, because the harness default is not knowable at spawn.
+# fm_dod_accept_ship_done refuses a ship `done:` from a banned task whose commits
+# since the base add or modify a test file, naming the files. Under no-mistakes
+# only the pre-validation handoff `done:` is checked: the later CI-ready report
+# carries the pipeline's own commits, which this ban does not cover. End-to-end
+# tests and running existing tests stay allowed.
+FM_TEST_BAN_MODEL_PATTERNS='*claude*sonnet* *claude*haiku* sonnet sonnet[[]* haiku haiku[[]*'
+FM_TEST_BAN_EXCEPTION_HEADING="### Captain-specified test"
+
+# 0 when <model> is on a lane whose workers may not author tests. Matching is
+# case-insensitive against the shell globs in FM_TEST_BAN_MODEL_PATTERNS, which
+# cover the Claude ids (claude-sonnet-*, claude-haiku-*, the older
+# claude-3-5-sonnet-* order), their provider-prefixed spellings such as
+# anthropic/claude-sonnet-* or us.anthropic.claude-haiku-*, and the Claude Code
+# aliases sonnet and haiku with an optional [context] suffix.
+fm_test_ban_model_applies() {  # <model>
+  local model pattern
+  model=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
+  [ -n "$model" ] && [ "$model" != default ] || return 1
+  for pattern in $FM_TEST_BAN_MODEL_PATTERNS; do
+    # shellcheck disable=SC2254  # The pattern list holds intentional globs.
+    case "$model" in $pattern) return 0 ;; esac
+  done
+  return 1
+}
+
+# Prints test-file paths explicitly named in the captain test subsection.
+fm_test_ban_intent_allowed_paths() {  # <captain-intent-body>
+  local body line token path
+  body=$(fm_brief_heading_parse - "$FM_TEST_BAN_EXCEPTION_HEADING" body <<<"${1:-}")
+  while IFS= read -r line; do
+    for token in $line; do
+      token=${token#\`}; token=${token#\"}; token=${token#\'}
+      token=${token#\(}; token=${token#\[}; token=${token#\*}; token=${token#-}
+      token=${token%\`}; token=${token%\"}; token=${token%\'}
+      token=${token%\)}; token=${token%\]}; token=${token%:}; token=${token%,}
+      token=${token%;}; token=${token%.}; token=${token%!}
+      path=$token
+      case "$path" in ./*) path=${path#./} ;; esac
+      case "$path" in /*|../*|*/../*|*/..) continue ;; esac
+      if fm_test_ban_path_is_test "$path"; then printf '%s\n' "$path"; fi
+    done
+  done <<<"$body" | awk '!seen[$0]++'
+}
+
+fm_test_ban_path_allowed() {  # <path> <meta>
+  local path=$1 meta=$2 allowed
+  while IFS= read -r allowed; do
+    [ "$path" = "$allowed" ] && return 0
+  done < <(grep '^test_ban_allowed=' "$meta" 2>/dev/null | cut -d= -f2-)
+  return 1
+}
+
+# 0 when <path> is a test file the ban covers: anything under a tests/, test/,
+# __tests__/, spec/, or __snapshots__/ directory, or a file named *.test.*,
+# *_test.*, *.spec.*, test_*.py, or *.snap. A path or name containing e2e or
+# end-to-end is an end-to-end test and stays allowed.
+fm_test_ban_path_is_test() {  # <path>
+  local path lower
+  path=/$1
+  lower=$(printf '%s' "$path" | tr '[:upper:]' '[:lower:]')
+  case "$lower" in
+    *e2e*|*end-to-end*|*end_to_end*) return 1 ;;
+  esac
+  case "$lower" in
+    */tests/*|*/test/*|*/__tests__/*|*/spec/*|*/__snapshots__/*) return 0 ;;
+  esac
+  case "${lower##*/}" in
+    *.test.*|*_test.*|*.spec.*|test_*.py|*.snap) return 0 ;;
+  esac
+  return 1
+}
+
+# The launch section a banned worker receives. <allowed-paths> is newline-separated.
+fm_test_ban_overlay() {  # <model> <allowed-paths>
+  cat <<EOF
+
+# No test authoring
+This worker runs on $1, a lane that does not write its own tests; this section supersedes any instruction in this brief, a promotion, or the project's own files that asks you to add or update tests.
+Create or modify no test files: no unit or integration tests, no test fixtures, and no snapshots.
+Running existing tests is fine, and an end-to-end test (a path or file name containing \`e2e\` or \`end-to-end\`) stays allowed.
+Only test-file paths explicitly named under \`$FM_TEST_BAN_EXCEPTION_HEADING\` inside \`## Captain's intent\` are allowed; implement only those tests as described. A test description without a file path allows no test file.
+EOF
+  local allowed
+  allowed=$(printf '%s' "${2:-}" | tr '\n' ' ' | sed 's/ $//')
+  if [ -n "$allowed" ]; then
+    printf 'Captain-authorized test path(s): %s. Every other test file remains prohibited.\n' "$allowed"
+  else
+    printf '%s\n' "No test file paths are authorized by the captain."
+  fi
+  printf '%s\n' "Before accepting your ship \`done:\`, firstmate checks commits since the base for added or modified test files outside those exact paths and refuses the done while any remain, naming them; drop them from the branch and report done again."
+}
+
+# The ref a ship's commits are measured against: origin/<base> for a named
+# base, else origin's default branch, else origin/main or origin/master.
+fm_test_ban_base_ref() {  # <worktree> [<base-branch>]
+  local wt=$1 base=${2:-} ref candidate
+  if [ -n "$base" ]; then
+    git -C "$wt" rev-parse --verify --quiet "refs/remotes/origin/$base^{commit}" >/dev/null || return 1
+    printf '%s\n' "refs/remotes/origin/$base"
+    return 0
+  fi
+  ref=$(git -C "$wt" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null) || ref=
+  for candidate in $ref refs/remotes/origin/main refs/remotes/origin/master; do
+    if git -C "$wt" rev-parse --verify --quiet "$candidate^{commit}" >/dev/null; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Prints, one per line, the test files the worker copy's commits add or modify
+# since their merge-base with the base. 1 when the base cannot be resolved;
+# stdout then holds a one-line reason.
+fm_test_ban_changed_tests() {  # <worktree> [<base-branch>]
+  local wt=$1 base_ref mb path
+  if ! base_ref=$(fm_test_ban_base_ref "$wt" "${2:-}"); then
+    printf '%s\n' "test-file check cannot resolve the base branch${2:+ origin/$2} in the worker copy"
+    return 1
+  fi
+  if ! mb=$(git -C "$wt" merge-base "$base_ref" HEAD 2>/dev/null); then
+    printf '%s\n' "test-file check found no merge-base between HEAD and $base_ref"
+    return 1
+  fi
+  git -C "$wt" diff --name-only --diff-filter=ACMR "$mb" HEAD 2>/dev/null \
+    | while IFS= read -r path; do
+      if fm_test_ban_path_is_test "$path"; then printf '%s\n' "$path"; fi
+    done
+}
+
+# 0 when this done: is one the test-authoring gate must check: a ship done: from
+# a task whose meta records test_ban_model=. A forced pre-PR check also covers
+# the no-mistakes CI-ready line, without changing the crew-state handoff gate.
+fm_test_ban_should_check() {  # <kind> <mode> <line> <meta> [force]
+  local note
+  [ "$1" = ship ] || return 1
+  [ "$(status_line_verb "$3")" = "done" ] || return 1
+  [ -n "$4" ] && [ -f "$4" ] || return 1
+  [ -n "$(fm_dod_meta_value "$4" test_ban_model)" ] || return 1
+  case "$2" in
+    no-mistakes|'')
+      [ "${5:-0}" = 1 ] && return 0
+      note=$(status_line_note "$3")
+      ! fm_dod_note_reports_ci_ready "$note" && ! fm_dod_note_reports_published_change "$note" ;;
+    *) return 0 ;;
+  esac
+}
+
+# 0 when the test-authoring gate does not apply or finds no test files. 1 when
+# refused; stdout then holds a one-line reason naming the files.
+fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
+  local kind=$1 mode=$2 wt=$3 line=$4 meta=$5 files rejected path
+  fm_test_ban_should_check "$kind" "$mode" "$line" "$meta" "${6:-0}" || return 0
+  if [ -z "$wt" ] || [ ! -d "$wt" ] || ! git -C "$wt" rev-parse --git-dir >/dev/null 2>&1; then
+    printf '%s\n' "test-file check cannot read the worker copy"
+    return 1
+  fi
+  files=$(fm_test_ban_changed_tests "$wt" "$(fm_dod_meta_value "$meta" base_branch)") || {
+    printf '%s\n' "$files"
+    return 1
+  }
+  [ -n "$files" ] || return 0
+  rejected=
+  while IFS= read -r path; do
+    fm_test_ban_path_allowed "$path" "$meta" || rejected="${rejected}${path}\n"
+  done <<<"$files"
+  [ -z "$rejected" ] || {
+    rejected=$(printf '%b' "$rejected" | sed '/^$/d' | tr '\n' ' ' | sed 's/ $//')
+    printf '%s\n' "no test authoring on $(fm_dod_meta_value "$meta" test_ban_model): the branch adds or modifies unauthorized test files $rejected; drop them and report done again"
+    return 1
+  }
+  return 0
+}
+
 # 0 when <line> is not a ship done: to gate, when it names the task's recorded
 # PR whose head the forge holds, when it names a Gerrit change whose current
 # patch set carries the worker copy's HEAD tree, or otherwise when its named
 # head - the worker copy's HEAD - is reachable outside that disposable copy. A
 # published-for-review report that names no Gerrit change is refused.
 # There is no free-text SHA scan: a SHA that happens to appear in the note is
-# not the named head. 1 when
+# not the named head. The test-authoring gate above runs first and can refuse
+# a done this gate would not check. 1 when
 # the claim is refused; stdout then holds a one-line reason and no other
 # output. <state> <id> <meta> supply pr=,
 # pr_head=, and the merge-notified marker; <meta> may be a captured copy
 # (bin/fm-fleet-snapshot.sh), so the marker is read from <state>.
 fm_dod_accept_ship_done() {  # <kind> <mode> <worktree> <project> <line> [<state> <id> <meta>]
   local kind=$1 mode=$2 wt=$3 project=$4 line=$5 state=${6:-} id=${7:-} meta=${8:-} url sha gerrit
+  fm_test_ban_accept_done "$kind" "$mode" "$wt" "$line" "$meta" || return 1
   fm_dod_should_gate_ship_done "$kind" "$mode" "$line" || return 0
   if url=$(fm_dod_pr_url_from_done_note "$(status_line_note "$line")") \
     && fm_dod_recorded_pr_on_forge "$state" "$id" "$meta" "$mode" "$url"; then

@@ -753,6 +753,26 @@ test_direct_pr_unpushed_commit_refuses_registration() {
   pass "fm-pr-check refuses a direct-PR registration while a later commit is only in the copy"
 }
 
+test_test_ban_runs_when_forge_head_is_available() {
+  local dir head
+  dir=$(make_case test-ban-with-pr-head)
+  write_task_meta "$dir"
+  fm_write_meta "$dir/home/state/task-a.meta" \
+    "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
+    "project=$dir/project" "kind=ship" "mode=no-mistakes" \
+    'test_ban_model=claude-sonnet-5-5'
+  mkdir -p "$dir/wt/tests"
+  printf 'unit\n' > "$dir/wt/tests/parser.test.sh"
+  git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'add worker test'
+  head=$(git -C "$dir/wt" rev-parse HEAD)
+  FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/81 \
+    > "$dir/stdout" 2> "$dir/stderr" && fail "test-ban bypassed with a forge-reported PR head"
+  grep -Fq 'tests/parser.test.sh' "$dir/stderr" || fail "test-ban refusal did not name the changed test: $(cat "$dir/stderr")"
+  [ ! -e "$dir/home/state/task-a.check.sh" ] || fail "test-ban bypass still armed a PR poll"
+  ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "test-ban bypass recorded the PR"
+  pass "fm-pr-check enforces the test ban when a forge head is available"
+}
+
 test_valid_recording_and_merge_derivation() {
   local dir expected sidecar count rc
   dir=$(make_case valid-recording)
@@ -3491,6 +3511,7 @@ test_invalid_entrypoints_have_zero_side_effects
 test_draft_pull_request_is_not_armed
 test_secondmate_record_refuses_a_pr_watch
 test_unpushed_named_head_refuses_registration
+test_test_ban_runs_when_forge_head_is_available
 test_direct_pr_unpushed_commit_refuses_registration
 test_valid_recording_and_merge_derivation
 test_rejected_metacharacter_bytes_are_inert
