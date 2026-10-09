@@ -1788,7 +1788,7 @@ A deterministic deny never reaches Jev.
 Default `FM_JEV_TOOL_GATE` is `shadow`: append `$FM_HOME/state/jev-tool-gate.jsonl` and still allow.
 Live Jev deny/allow stays off.
 Do not hard-ship live remainder deny into watcher-arm or PreToolUse paths; that is a do-not.
-Live mode requires `FM_JEV_TOOL_GATE=live` plus both local gitignored presence files `config/jev-tool-gate-live` and `config/jev-tool-gate-live-ack`, and still cannot override a deterministic deny.
+Live mode requires `FM_JEV_TOOL_GATE=live` plus both local gitignored presence files `config/jev-tool-gate-live` and `config/jev-tool-gate-live-ack`, and the tool-gate call site in act mode ("Jev eval and per-site autonomy" above); otherwise it runs as shadow, and it still cannot override a deterministic deny.
 The script header owns flags, log schema, and mode resolution.
 The thin hook point is documented in [`docs/arm-pretool-check.md`](arm-pretool-check.md).
 
@@ -1873,7 +1873,7 @@ Those four safety labels immediately and permanently stop collection; inspect re
 `unlabeled` and `unknown` leave review pending; labeling an existing case atomically persists the comparison and recomputes `state/jev-skill-shadow/evaluation.json`.
 After 20 cases, the evaluation stops or requires redesign if useful coverage is no better (`caught <= missed`), fewer than two useful misses were caught with any extra wrong pick, irrelevant suggestions exceed one, timeouts or invalid responses exceed one, or nearest-rank combined p95 is at least 2000 ms.
 Even a passing evaluation cannot start case 21: continuing or redesigning requires a separately authorized experiment, not clearing this checkpoint.
-Live load remains separately opt-in: it requires `FM_JEV_SKILL_SELECT=live`, the gitignored presence file `config/jev-skill-select-live`, and a nonblank safe query in `data/<id>/jev-skill-query.txt`.
+Live load remains separately opt-in: it requires `FM_JEV_SKILL_SELECT=live`, the gitignored presence file `config/jev-skill-select-live`, a nonblank safe query in `data/<id>/jev-skill-query.txt`, and the skill-select call site in act mode ("Jev eval and per-site autonomy" above).
 Project skills for live load are discovered from the resolved worker worktree after its freshness step; Codex launches also discover `$CODEX_HOME/skills`, defaulting to `~/.codex/skills` when `CODEX_HOME` is unset or empty.
 Live offers every collected skill id, describing a skill by its front-matter description only when that file's SHA-256 digest is listed in `config/jev-skill-public.json` and offering every other skill by id alone, so no unapproved description reaches Jev.
 With live inputs present, a clear selection is appended to that private launch overlay in the harness's skill-invocation form (`/<skill>`, `$<skill>` on Codex, or the skill id when the runtime has no verified slash form).
@@ -1929,7 +1929,7 @@ One `FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS` (default 6) wall-clock budget is shar
 Each call's HTTP bound is clipped to what the budget still allows, so a cycle never runs past it.
 After the first Jev timeout or error, Jev is skipped for the rest of that cycle and deterministic surfacing or escalation remains in force.
 An escalation surfaces the line marked `(jev-escalated)` as an advisory surface event; it never enters the needs-decision fold.
-[`bin/fm-jev-wedge-check.sh`](../bin/fm-jev-wedge-check.sh) reads one captured pane tail on stdin and prints `suppress` when the `stuck` Noul is below the floor, which defers the structural wedge escalation on the shared bounded resurface cadence; a Noul at or above the floor escalates unless the same task and class was already warned inside its window, and every other outcome keeps the incumbent escalation.
+[`bin/fm-jev-wedge-check.sh`](../bin/fm-jev-wedge-check.sh) reads one captured pane tail on stdin and prints `suppress` when the `stuck` Noul is below the floor and the wedge-check call site is in act mode ("Jev eval and per-site autonomy" above), which defers the structural wedge escalation on the shared bounded resurface cadence; a Noul at or above the floor escalates unless the same task and class was already warned inside its window, and every other outcome keeps the incumbent escalation.
 The wedge consult runs only when the structural checks leave an escalation due: after the watcher has checked declared waits, worktree writes, dead endpoints, and no-mistakes run liveness, or at the daemon's stale-persistence recheck after its run-liveness check; it never runs per poll.
 The watcher's busy-turn-bound path deliberately supplies no pane tail and skips Jev, so a busy-looking pane cannot suppress the hung-foreground escalation this bound exists to catch.
 The same wedge call also classifies the pane as `progressing`, `looping`, `rate_limited`, `stalled`, or `unclear`, and an escalation names that class in its wake reason (`Jev reads looping`); the class only labels the warning and never interrupts, relaunches, or reroutes a worker.
@@ -1952,7 +1952,7 @@ Coverage lives in [`tests/fm-jev-supervision.test.sh`](../tests/fm-jev-supervisi
 It exists for role-split teams and stays off unless the local, gitignored presence flag `config/seat-pick` exists or `FM_SEAT_PICK=1` is set; `FM_SEAT_PICK=0` forces it off, and off means exit 3 with no network call.
 Today's one-worker-per-task dispatch never calls it; [`bin/fm-dispatch-resolve.sh`](../bin/fm-dispatch-resolve.sh) remains the owner of choosing a harness and model before a spawn.
 Code owns capacity: only a seat that runs, is idle, can be served, and sits below the context wall is ever offered; idle seats with assigned open work remain eligible, and Jev weighs fit and load notes while preferring a free seat only when equally suitable.
-An act-band answer dispatches; anything else, including a missing key or a Jev error, hands the choice to the team lead, so a caller never blocks on the model.
+An act-band answer dispatches while the seat-pick call site is in act mode ("Jev eval and per-site autonomy" above); anything else, including a missing key or a Jev error, hands the choice to the team lead, so a caller never blocks on the model.
 Reroute planning is deterministic and report-only: it never moves work itself. The team dispatch from plan item 8 will apply the plan; nothing applies it until then. Old in-progress rows can move only off gone or non-running seats; every running seat, including an idle or unavailable seat and one at its context wall, keeps its in-progress rows.
 The script header owns the seat and row schema, the bands, the reroute rules, and the outbound data boundary; coverage lives in [`tests/fm-seat-pick.test.sh`](../tests/fm-seat-pick.test.sh).
 

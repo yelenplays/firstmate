@@ -242,9 +242,8 @@ A deterministic deny never reaches Jev, even in shadow.
 Default `FM_JEV_TOOL_GATE` is `shadow`: log `$FM_HOME/state/jev-tool-gate.jsonl` and still allow.
 Do not wire live Jev deny/allow into watcher-arm or PreToolUse paths.
 Hard-shipping that live remainder as a hard deny is a do-not.
-Live mode requires `FM_JEV_TOOL_GATE=live` plus both presence files `config/jev-tool-gate-live` and `config/jev-tool-gate-live-ack`, and still cannot override a deterministic deny.
 The script header owns flags, log schema, and mode resolution.
-[`docs/configuration.md`](configuration.md) "Jev remainder tool-gate" owns the operator knobs.
+[`docs/configuration.md`](configuration.md) "Jev remainder tool-gate" owns the operator knobs, including everything live mode requires.
 
 ## Automated validation
 
