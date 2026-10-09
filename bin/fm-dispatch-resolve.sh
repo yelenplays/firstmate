@@ -1202,13 +1202,13 @@ last_resort() {  # <stage> <effort-json>: settles the decided lane or its defaul
   refused=$(jq -r '(.candidates // []) as $c | (($c | length) > 0) and all($c[]; .eligible != true)' <<<"$RESULT")
   if [ "$refused" = true ] && [ "$stage" != fallback ] \
     && [ "$(jq -r '(.note // "") | contains("fall through to default")' <<<"$original")" = true ]; then
-    original_rule=$(jq -r '.rule // .decided_rule // "unknown"' <<<"$original")
+    original_rule=$(jq -r '.decided_rule // .rule // "unknown"' <<<"$original")
     original_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$original")
     last_resort_pick "default lane candidates refused for $original_rule: $original_reasons; first declared candidate used"
     return $?
   fi
   if [ "$refused" = true ] && [ "$stage" != fallback ]; then
-    original_rule=$(jq -r '.rule // .decided_rule // "unknown"' <<<"$original")
+    original_rule=$(jq -r '.decided_rule // .rule // "unknown"' <<<"$original")
     original_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$original")
     if [ "$HAS_DEFAULT" = true ]; then default_choice=default; else default_choice=rule_1; fi
     default_file=$(mktemp) || default_file=''
@@ -1236,7 +1236,7 @@ last_resort() {  # <stage> <effort-json>: settles the decided lane or its defaul
     return $?
   fi
   if [ "$refused" = true ]; then
-    original_rule=$(jq -r '.rule // .decided_rule // "default"' <<<"$original")
+    original_rule=$(jq -r '.decided_rule // .rule // "default"' <<<"$original")
     original_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$original")
     last_resort_pick "$original_rule candidates refused: $original_reasons; first declared candidate used"
     return $?

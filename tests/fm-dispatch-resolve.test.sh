@@ -2015,6 +2015,55 @@ assert_contains "$out" '  profile: ' "chain: a quota-axi failure still yields a 
 assert_contains "$out" '  last_resort: ' "chain: the last resort is disclosed"
 pass "chain: missing quota evidence never stops routing"
 
+ATTRIBUTION_RULES="$TMP_ROOT/attribution-rules.json"
+ATTRIBUTION_QUOTA="$TMP_ROOT/attribution-quota.json"
+for refusal_case in rescued all-refused floor-fallthrough; do
+  jq -n --arg scenario "$refusal_case" '{rules: [
+    {when: "A broad implementation task.", min_confidence: 0.9, use: {harness: "codex", model: "gpt-5.6-sol"}},
+    {when: "A focused implementation task.", min_confidence: 0.6, use: {harness: "claude", model: "sonnet", effort: "high"}}
+  ], default: {harness: "cursor", model: "cursor-grok-4.6-high"}}
+  | if $scenario == "floor-fallthrough" then
+      .rules[1].floor = {provider: "claude", scope: "all_models", min_percent: 20}
+    else . end' > "$ATTRIBUTION_RULES"
+  jq --arg scenario "$refusal_case" '
+    (.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[] | select(.scope == "all_models") | .effectivePercentRemaining) = 0
+    | (.providers[] | select(.provider == "cursor") | .quotaSemantics.effectiveAvailability[] | select(.scope == "all_models") | .effectivePercentRemaining) = (if $scenario == "rescued" then 91 else 0 end)
+  ' "$QUOTA" > "$ATTRIBUTION_QUOTA"
+  cp "$ATTRIBUTION_RULES" "$RULES"
+  reset_log
+  write_response "$RESPONSE" rule_1 0.3 '{"rule_1":0.30,"rule_2":0.65,"default":0.05}'
+  TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$ATTRIBUTION_QUOTA" run_chain code out err "$BRIEF"
+  expect_code 0 "$code" "$refusal_case: a settled runner-up still answers"
+  case "$refusal_case" in
+    rescued)
+      lane=default; matched=rule_2
+      refusal='rule rule_2 candidates refused:'
+      incorrect_refusal='rule rule_1 candidates refused:'
+      assert_contains "$out" '  decided: default by default' 'rescued: the healthy default supplies the profile'
+      assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" 'rescued: the default profile is preserved' ;;
+    all-refused)
+      lane=rule_2; matched=''
+      refusal='rule rule_2 candidates refused:'
+      incorrect_refusal='rule rule_1 candidates refused:'
+      assert_contains "$out" '  decided: rule_2 by typed' 'all-refused: the settled runner-up supplies the last resort'
+      assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" 'all-refused: the settled profile is preserved' ;;
+    floor-fallthrough)
+      lane=default; matched=rule_2
+      refusal='default lane candidates refused for rule_2:'
+      incorrect_refusal='default lane candidates refused for rule_1:'
+      assert_contains "$out" '  decided: default by typed' 'floor-fallthrough: the settled rule falls through to the default lane'
+      assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" 'floor-fallthrough: the default profile is preserved' ;;
+  esac
+  assert_contains "$out" "$refusal" "$refusal_case: refusal diagnostics name the settled rule"
+  assert_not_contains "$out" "$incorrect_refusal" "$refusal_case: refusal diagnostics never blame the initial pick"
+  tail -n 1 "$DISPATCH_LOG" | jq -e --arg lane "$lane" --arg matched "$matched" --arg refusal "$refusal" --arg incorrect "$incorrect_refusal" '
+    .rule == $lane and (.matched_rule // "") == $matched
+    and (.reason | contains($refusal)) and (.reason | contains($incorrect) | not)
+  ' >/dev/null || fail "$refusal_case: the persisted lane, matched rule, and refusal attribution disagree"
+done
+cp "$BASE_RULES" "$RULES"
+pass 'last-resort refusal diagnostics and logs name the settled rule after confidence fallback'
+
 ALL_REFUSED_RULES="$TMP_ROOT/all-refused-rule.json"
 jq '.rules[3].use = [
   {"harness":"claude","model":"fable","floor":{"scope":"model:fable","min_percent":20}},
@@ -2077,6 +2126,8 @@ FAKE_CURL_HTTP=500 FAKE_BACKUP_FAIL=1 TYPESAFE_API_KEY=$KEY \
 assert_contains "$out" '  decided: default by default' "default all-refused: the default stage remains named"
 assert_contains "$out" "  profile: --harness 'claude' --model 'opus'" "default all-refused: the first declared default profile answers"
 assert_contains "$out" 'default candidates refused:' "default all-refused: refusal details are disclosed"
+tail -n 1 "$DISPATCH_LOG" | jq -e '.rule == "default" and (.reason | contains("default candidates refused:"))' >/dev/null \
+  || fail 'default all-refused: the persisted refusal names the default stage'
 pass "chain: a refused default stage names its final declared-order choice"
 
 APPROVAL_DEFAULT_RULES="$TMP_ROOT/approval-default-rule.json"
