@@ -80,10 +80,11 @@
 #     flow or block value, so escaped quotes inside it never end the redaction
 #     early, and every GitHub token prefix (ghp_, gho_, ghu_, ghs_, ghr_,
 #     github_pat_) is stripped. Engpass/Bypass and Keyboard pass colon headings
-#     are exempt when their value is plain alphabetic prose; credential-shaped
-#     words, empty values, equals assignments and quoted/structured values
-#     remain sensitive. The fixed tests/fixtures/jev-privacy corpus pins this
-#     boundary.
+#     are exempt only when their whole value is a fixed status word (none,
+#     keiner, ok, n/a, ja, nein ...), an all-digit number or a path with a file
+#     extension; prose, single words, passphrases, empty values, equals
+#     assignments and quoted/structured values remain sensitive. The fixed
+#     tests/fixtures/jev-privacy corpus pins this boundary.
 #     Phone-shaped numeric
 #     lists stay blocked unless immediately labeled viewport/widths/screen
 #     sizes or suffixed px; plus/trunk-zero phones are never size lists.
@@ -432,35 +433,30 @@ FM_JEV_CHOICE_TOP2_JQ='def jev_choice_top2:
      margin: (($raw_margin * 10000 | round) / 10000)};'
 
 # One key predicate for the preflight detector and the value redactor.
-# Ordinary prose headings (Engpass, Bypass, Keyboard pass) are a narrow
+# Ordinary status headings (Engpass, Bypass, Keyboard pass) are a narrow
 # exception, not a compound-pass rule:
 # DBPASS, SSHPASS, WiFi pass and every equals/quoted assignment stay sensitive.
-# A colon heading passes only when the rest of its line is plain prose: every
-# word is letters (lowercase, Capitalized or ALLCAPS, joined by - ' /) with at
-# most surrounding punctuation. A digit, symbol, quote, bracket, mixed-case
-# word or empty value is credential-shaped and keeps the key sensitive. Later
-# keys on the same line are still screened on their own.
+# A colon heading passes only when the rest of its line is exactly one status
+# word, one all-digit number or one path with a file extension. Any other value,
+# including an ordinary word or prose, cannot be told apart from an alphabetic
+# passphrase and keeps the key sensitive. Later keys on the same line are still
+# screened on their own.
 # shellcheck disable=SC2016
 _FM_JEV_PRIVACY_KEY_AWK='
-  function sensitive_key(key, assignment, value, prefix,    normalized, prose, count, words, i, word) {
+  function sensitive_key(key, assignment, value, prefix,    normalized, status) {
     normalized = tolower(key)
     gsub(/[-_.]/, "", normalized)
     if (normalized !~ /(password|passwd|pwd|pass|secret|token|apikey|secretkey|accesskey|privatekey|clientsecret|auth|credential)$/) return 0
     if (tolower(key) !~ /^(engpass|bypass)$/ && !(tolower(key) == "pass" && tolower(prefix) ~ /(^|[^[:alnum:]_])keyboard[ \t]+$/)) return 1
     if (assignment !~ /:[ \t]*$/ || assignment ~ /[\042\047][ \t]*:[ \t]*$/) return 1
-    prose = value
-    sub(/^[ \t]*([*][*][ \t]+)?/, "", prose)
-    sub(/\n.*$/, "", prose)
-    sub(/[ \t\r]+$/, "", prose)
-    count = split(prose, words, /[ \t]+/)
-    if (count == 0) return 1
-    for (i = 1; i <= count; i++) {
-      word = words[i]
-      sub(/^[(]/, "", word)
-      sub(/[.,;:!?)]+$/, "", word)
-      if (word !~ /^([[:upper:]\200-\377]?[[:lower:]\200-\377]+|[[:upper:]]+)([-\047\/]([[:upper:]\200-\377]?[[:lower:]\200-\377]+|[[:upper:]]+))*$/) return 1
-    }
-    return 0
+    status = value
+    sub(/^[ \t]*([*][*][ \t]+)?/, "", status)
+    sub(/\n.*$/, "", status)
+    sub(/[ \t\r]+$/, "", status)
+    sub(/[.]$/, "", status)
+    if (tolower(status) ~ /^(none|keine|keiner|keines|kein|nichts|ok|okay|n\/a|ja|nein|yes|no)$/) return 0
+    if (status ~ /^[0-9]+$/) return 0
+    return status !~ /^\/?([[:alnum:]_.-]+\/)+[[:alnum:]_-]+([.][[:alnum:]_-]+)*[.][[:alpha:]]+$/
   }
 '
 
