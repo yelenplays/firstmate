@@ -60,7 +60,9 @@
 #   removes the cadence file; results under state/dispatch-selftest/ stay.
 #
 # State: state/dispatch-selftest/result.json (started, finished, state
-#   running|done, exit, pass, fail, failing, summary, reported),
+#   running|done, exit, failing, summary, reported),
+#   state/dispatch-selftest/running (ownership guard for recorded runs and
+#   watcher checks),
 #   state/dispatch-selftest/attempted.sha256 (the last attempted rules+samples
 #   and routing-implementation digest, including missing-file markers), and
 #   state/dispatch-selftest/last.out
@@ -311,6 +313,8 @@ action_check() (
   [ "$hour" -le 23 ] || hour=3
   . "$SCRIPT_DIR/fm-wake-lib.sh"
   mkdir -p "$RESULT_DIR" 2>/dev/null || return 0
+  # Own the same guard as run --record before reading, recovering, or
+  # acknowledging a result, so a check cannot overwrite a live run's state.
   fm_lock_try_acquire "$LOCK" || return 0
   trap 'fm_lock_release "$LOCK"' EXIT
   current_hash=$(inputs_hash "$CONFIG_DIR/crew-dispatch.json" "$CONFIG_DIR/dispatch-samples.json") || current_hash=''

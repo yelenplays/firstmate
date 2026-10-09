@@ -1378,7 +1378,6 @@ The resolver renders every entry as a tie-break sentence on both rules' options,
 Precedence cycles of three or more distinct rules are rejected even when some edges have `when` conditions; conditional two-rule pairs remain allowed.
 Because `rule` is positional, reordering `rules` requires renumbering every `beats` entry.
 A profile `provider` optionally names the quota-axi provider family whose rows apply to that profile; when present, profile and rule-floor provider IDs must match the strict whole-string pattern `^[a-z0-9]+(-[a-z0-9]+)*\z`.
-Bootstrap applies its additional checks for `approval`, `min_confidence`, `floor`, `beats`, `provider`, `overflow`, and `effort_floor` only when `TYPESAFE_API_KEY` is configured; the resolver's backup chain does not depend on that key.
 Typed resolution additively recognizes `gemini` because AGENTS.md section 4 verifies it for crewmate and scout dispatch.
 
 | Harness | Provider declaration required by the typed resolver |
@@ -1397,7 +1396,7 @@ This single-provider table is separate from the frozen legacy mapping used by `f
 
 A profile with `"overflow": true` is a quota overflow lane, not a peer of the array's other profiles.
 It competes only when the array has primary (non-overflow) profiles and every primary has concrete Claude quota-shortfall evidence: an applicable row with runway `projected_exhaustion` or `exhausted_now`, or known 0% remaining.
-Non-quota ineligibility, including effort ceiling, harness fit, profile floor, or burn prediction, never activates overflow.
+Non-quota ineligibility, including harness fit, profile floor, or burn prediction, never activates overflow.
 When that quota condition holds, the overflow profiles that can be ranked take the work instead and are chosen among by the ordinary `quota-array-dispatch` procedure.
 If no overflow profile can be ranked, the primaries remain subject to ordinary eligibility and ranking rather than being passed over for overflow.
 Unknown runway alone is not evidence of a shortfall; a known 0% applicable bound still qualifies.
@@ -1451,9 +1450,10 @@ Whenever the rules file parses and declares a rule or a default, it always print
 3. When the backup fails, the default stage resolves the configured `default` profiles (the first rule when no default is declared) with status `fallback`.
 
 Each stage's answer settles through the same gates described below.
-When a decided rule has no rankable candidate, the last resort picks its best-ranked eligible candidate, then its first eligible candidate, then its first declared candidate, in declared order on a tie.
-If every candidate is refused, the resolver tries eligible candidates from the configured default lane, or `rule_1` when no default is declared, before using the first declared candidate of the decided rule.
-If the default lane is refused too, the `last_resort:` line names both refusal reasons and the final declared-order choice.
+When the decided lane has no rankable candidate or ranking ties, the last resort picks its best-ranked eligible candidate, then its first eligible candidate, in declared order on a tie.
+If every candidate is refused, the resolver first tries an eligible selection from the configured default lane, or `rule_1` when no default is declared, preserving that lane's approval and rule-floor restrictions.
+If that lane cannot supply an eligible selection either, it uses the first declared candidate of the decided lane, with both refusal reasons on the `last_resort:` line.
+When a rule's quota-floor shortfall has already moved selection to the default lane, the last resort stays in that lane rather than returning to the matched rule.
 A captain-approval rule remains the one no-profile outcome.
 A request that cannot reach any stage falls to the first default profile, `decided: static by default`.
 The `decided:` line names the stage and the lane whose profile answers, and the `typed:` and `backup:` lines say why an earlier stage did not decide.
@@ -1593,9 +1593,9 @@ No qualifying option, or two equally probable qualifying options, leaves the typ
 Every result above exits 0.
 
 - Response probabilities must contain exactly every offered choice, use numeric values from 0 through 1, and sum to approximately 1 within 0.01.
-- Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, or missing `jq`, each reported and never selected around.
+- Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, an invalid `FM_JEV_DISPATCH_MARGIN`, or missing `jq`, each reported and never selected around.
 - Missing `curl` makes the typed stage fail, so the backup judge answers; under `--typed-only` it is a normal structured `error` outcome with exit 0.
-- A failed `quota-axi` read leaves every candidate eligible but unranked, so the last resort picks inside the decided rule.
+- A failed `quota-axi` read leaves quota evidence unranked rather than vetoing candidates; rule and overflow gates still apply before the last-resort procedure above.
 
 **Runoff on an ambiguous answer**
 
@@ -1617,11 +1617,11 @@ The [checks above](#checks-performed-after-the-answer) run in code after the ans
 The same Jev response carries a second typed Choice classifying the reasoning effort the brief itself needs (`low|medium|high|xhigh|max`); the backup judge answers the same question.
 The assessed class is clamped into the profile's declared effort range (see "Crew dispatch profiles"), so `max` still needs an explicit declaration, and then moved to the nearest level the harness supports inside the range, the lower one on a tie; a clamp is shown as `[clamped from <class>]` on the candidate line and logged, and never refuses a candidate.
 A missing, malformed, or low-confidence (below 0.5) effort answer falls back to the range default with the fallback disclosed on the `effort:` line.
-The profile's optional `effort_floor` raises the range's lower bound and any lower assessed or fallback value, including when no effort was declared, without exceeding the upper bound. The resolved value governs the launch, runoff identity, and predicted burn.
+The profile's optional `effort_floor` raises the range's lower bound and any lower assessed or fallback value, including when no effort was declared, without exceeding the upper bound.
+The resolved value governs the launch, runoff identity, and predicted burn.
 A harness without an effort knob keeps the class as a disclosed, unenforced note and emits no `--effort` flag for it.
 A candidate whose predicted burn exceeds its tightest applicable remaining percent (calibrated through the window's observed `tokensPerPoint`) is refused with the prediction named in the reason, and so is one whose predicted duration exceeds the window's usable runway seconds; if all candidates are refused, the resolver tries eligible default-lane candidates before its declared-candidate last resort.
 Missing or unreadable ledger evidence never fabricates a limit: the candidate keeps its rank and its line shows `pred=unknown`.
-Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, an invalid `FM_JEV_DISPATCH_MARGIN`, or missing `jq`, each reported and never selected around.
 By accepted design, a printed profile line does not enforce catalog/authentication gates or replace the captain-approval gate or `fm-spawn.sh` validation.
 Effort ranges and completion-runway eligibility are evaluated above, with any last-resort bypass disclosed under the always-answer chain.
 `AGENTS.md` section 4 owns how firstmate consumes a printed profile, the captain-authorized overrides, and intake when no profile is returned.

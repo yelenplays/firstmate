@@ -6,26 +6,8 @@
 # Usage:
 #   fm-dispatch-resolve.sh <brief-file> [--project <name>] [--typed-only]
 #
-# The chain: whenever config/crew-dispatch.json parses and declares at least
-#   one rule or a default, every run prints a `profile:` line, except a
-#   captain-approval rule, which is an authority gate and escalates with none.
-#   1. typed    - the Jev call below. A clear or picked answer decides.
-#   2. backup   - when the typed call is skipped (no key, never-send match,
-#                 unbuildable request), errors, cannot be reached, or stays
-#                 ambiguous, bin/fm-backup-judge-lib.sh asks the same rule and
-#                 effort questions on the SAME state through the local claude
-#                 CLI (fixed Haiku 5.5) with schema-validated output. A
-#                 never-send match skips the backup too.
-#   3. default  - when the backup fails, the configured
-#                 `default` profiles (rule_1 when no default is declared).
-#   Each stage settles through the same gates below. A stage whose rule
-#   leaves no rankable candidate (floors, quota, ties, missing quota
-#   evidence) first tries eligible candidates from the default lane when every
-#   candidate is refused; otherwise it takes the best-ranked eligible
-#   candidate, else the first eligible, else the first declared, in declared
-#   order on a tie, disclosed on a `last_resort:` line. A request that cannot
-#   reach any stage falls to the first default profile (status fallback,
-#   `decided: static by default`). Only a usage or configuration error exits 2.
+# Routing stages, last-resort selection, and authority gates are owned by
+#   docs/configuration.md "Typed dispatch resolution".
 #   --typed-only (implied by --replay) runs the typed stage alone with the
 #   historical outcomes and exit codes: off, ambiguous, escalate, error.
 #
@@ -68,20 +50,9 @@
 #   owns the declared fields and "Typed dispatch resolution" owns this tool's
 #   operator contract.
 #
-# Effort is a range: a profile's `effort` is the range default, optional
-#   `effort_min` and `effort_max` widen it, a bare `effort` is a one-level
-#   range, and an undeclared effort allows low..xhigh (max always needs an
-#   explicit declaration). An `effort_floor` raises the range's lower bound
-#   and its default, never exceeding its upper bound. The assessed class
-#   (Jev's at confidence >= 0.5, or the backup's) is clamped into the range
-#   and then moved to the nearest level the harness supports, the lower one
-#   on a tie; a clamp is shown as `[clamped from <class>]` and logged, never
-#   refused. A missing, malformed, or low-confidence effort answer falls back
-#   to the range default and says so. A candidate whose predicted burn exceeds
-#   the tightest applicable remaining percent or usable runway is refused
-#   with the prediction named in the reason. Missing ledger evidence never
-#   fabricates a limit: the candidate keeps today's rank and its line shows
-#   pred=unknown.
+# Effort ranges, floors, clamping, classifier fallback, and predicted-burn
+#   gates are owned by docs/configuration.md "Firstmate retains the dispatch
+#   decision".
 #   FM_SPEND_LEDGER overrides the ledger path (tests).
 #
 # Runoff on ambiguous: the picked option and the top two by probability each
@@ -1117,7 +1088,7 @@ RESOLVE_JQ="$FM_QUOTA_ROW_JQ"'
   # The runoff for an ambiguous answer: the picked option and the top two by
   # probability each settle on their own quota-ranked profile. Any contender
   # that would not clear (a captain-approval rule, an unverifiable floor,
-  # nothing rankable, a tie) leaves the decision with firstmate; contenders
+  # nothing rankable, a tie) skips the runoff; contenders
   # that land on the same concrete profile collapse into one option, which
   # carries the strictest min_confidence its rules declare as its `floor`.
   def runoff:
@@ -1272,8 +1243,8 @@ if [ "$TYPED_OK" -eq 1 ]; then
   # above, keyed by rule and worded with the same criteria the rule Choice sent,
   # so the model still never sees `use`, `why`, quota, or approvals. Code gates
   # the answer on the same top-2 margin, or on an option's declared floor;
-  # anything short of that leaves the answer ambiguous and the decision with
-  # firstmate.
+  # anything short of that leaves the typed answer ambiguous for the backup
+  # stage (or for firstmate under --typed-only).
   runoff_note() {  # <pick-json>: merge a non-settling outcome into RESULT
     RESULT=$(jq -c --argjson pick "$1" '. + {pick: $pick} | del(.runoff)' <<<"$RESULT") || emit_error "runoff merge failed"
   }
