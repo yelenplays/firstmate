@@ -28,8 +28,6 @@
 # remote home where that path does not resolve simply renders no wiki sections.
 # Primary config/keep-ai-trailers is a home-wide commit-attribution choice, so
 # a secondmate's own crewmates keep AI co-author trailers too.
-# Primary config/model-denylist.json is the captain's never-use model list, so a
-# secondmate's own launches and Jev model choices refuse the same models.
 # Primary config/supervision-host-off is the fleet's supervision-host opt-out,
 # so a primary that opts out opts every secondmate home out too, while each
 # home's config/supervision-host engine line stays its own.
@@ -89,7 +87,7 @@ FM_SHARED_CAPTAIN_MODE="444"
 # The declared inheritable set (space-separated, config-dir-relative item paths).
 # Extend here to inherit more of the primary's local config; override via the
 # environment only in tests. Items must not contain whitespace.
-FM_INHERITABLE_CONFIG="${FM_INHERITABLE_CONFIG:-crew-dispatch.json dispatch-never-send model-denylist.json crew-harness backlog-backend backend herdr-presentation-spaces startup-memory-budget trace-context launch-env-allowlist claude-permission-mode lavish-axi-host keep-ai-trailers wikis-root supervision-host-off theme}"
+FM_INHERITABLE_CONFIG="${FM_INHERITABLE_CONFIG:-crew-dispatch.json dispatch-never-send crew-harness backlog-backend backend herdr-presentation-spaces startup-memory-budget trace-context launch-env-allowlist claude-permission-mode lavish-axi-host keep-ai-trailers wikis-root supervision-host-off theme}"
 
 # Items whose value is a home-SESSION enablement decision rather than durable
 # local configuration. They are inherited at the launch convergence point, where

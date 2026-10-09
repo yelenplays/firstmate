@@ -2176,48 +2176,4 @@ assert_not_contains "$out" '  profile:' "chain: a malformed rules file emits no 
 cp "$BASE_RULES" "$RULES"
 pass "chain: only a malformed rules file stops routing"
 
-# --- never-use model list: banned profiles are never eligible, and the runoff carries the rules ---
-DENYLIST="$HOME_DIR/config/model-denylist.json"
-cat > "$DENYLIST" <<'JSON'
-{"never": [{"pattern": "*kimi*", "reason": "Kimi is ruled out"}], "rules": ["Opus does judgment work."]}
-JSON
-reset_log
-write_response "$RESPONSE" rule_4 0.9
-TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project pager
-expect_code 0 "$code" "a never-use list keeps the resolver exiting 0"
-assert_contains "$out" '  status: clear' "a banned profile does not block the other candidates"
-assert_contains "$out" 'candidate: kimi:kimi-code/k3' "the banned profile stays accounted for"
-assert_contains "$out" '-> not eligible: never-use model list: rule *kimi* - Kimi is ruled out' "the banned profile is not eligible and names the rule and reason"
-assert_not_contains "$out" 'unranked (kimi)' "a banned profile is not counted as eligible unranked"
-assert_not_contains "$(jq -c .state "$LOG/body")" 'captain_model_rules' "the rule Choice state is unchanged"
-pass "never-use list: a banned profile is listed as not eligible with its rule"
-
-jq '.never += [{"pattern": "cursor-*", "reason": "no Cursor subscription"}]' "$DENYLIST" > "$TMP_ROOT/d.json" && mv "$TMP_ROOT/d.json" "$DENYLIST"
-reset_log
-TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project pager
-assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet'" "the argmax skips a banned profile even when it ranks highest"
-assert_not_contains "$out" "--model 'cursor-grok-4.6-medium'" "a banned profile is never emitted"
-pass "never-use list: the highest-ranked profile is skipped when it is banned"
-
-jq '.never |= map(select(.pattern != "cursor-*"))' "$DENYLIST" > "$TMP_ROOT/d.json" && mv "$TMP_ROOT/d.json" "$DENYLIST"
-reset_log
-write_response "$RESPONSE" rule_4 0.26 "$NARROW"
-write_pick_response "$PICK_RESPONSE" rule_4 '{ "rule_4": 0.86, "rule_2": 0.14 }'
-TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF" --project pager
-assert_contains "$out" '  status: picked' "the runoff still settles with a never-use list"
-pick_body=$(cat "$LOG/pick-body")
-assert_contains "$(jq -r '.state.captain_model_rules' <<<"$pick_body")" 'Never use *kimi* (Kimi is ruled out). Opus does judgment work.' "the runoff state carries the captain model rules"
-assert_equals "$(jq -c .state "$LOG/body")" "$(jq -c 'del(.captain_model_rules)' <<<"$(jq -c .state <<<"$pick_body")")" "the runoff state is the rule state plus the rules"
-pass "never-use list: the runoff state carries the captain model rules"
-
-printf '{"never": [{"pattern": "*", "reason": "everything"}]}' > "$DENYLIST"
-reset_log
-write_response "$RESPONSE" rule_4 0.9
-TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project pager
-expect_code 2 "$code" "a malformed never-use list is a configuration error"
-assert_contains "$err" 'malformed never-use model list' "the error names the list"
-assert_equals '' "$out" "a malformed list prints no result"
-rm -f "$DENYLIST"
-pass "never-use list: a malformed list exits 2 instead of resolving unchecked"
-
 printf '# all fm-dispatch-resolve tests passed\n'

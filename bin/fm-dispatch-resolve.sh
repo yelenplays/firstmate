@@ -67,16 +67,6 @@
 #   nothing rankable, tie) skips the runoff, and a narrow, non-winning,
 #   malformed, failed, or never-send-withheld pick leaves the typed stage
 #   ambiguous, so the backup decides.
-#   The model still never sees `use`, `why`, quota, or approvals; the runoff
-#   state adds only the captain model-rules summary (captain_model_rules).
-#
-# Never-use models: a profile whose model, harness/model, or modelless harness
-#   matches $FM_HOME/config/model-denylist.json is never eligible, so it is
-#   never ranked or offered in a runoff; its candidate line names the rule and
-#   reason. Only the all-refused last resort can still name it, and
-#   bin/fm-spawn.sh refuses that launch. A malformed list exits 2 like
-#   malformed rules.
-#   docs/configuration.md "Never-use model list" owns the list.
 #
 # Never-send check: when the optional $FM_HOME/config/dispatch-never-send list
 #   exists, every string value of the built request is checked against it
@@ -175,8 +165,6 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 . "$SCRIPT_DIR/fm-never-send-lib.sh"
 # shellcheck source=bin/fm-backup-judge-lib.sh
 . "$SCRIPT_DIR/fm-backup-judge-lib.sh"
-# shellcheck source=bin/fm-model-denylist-lib.sh
-. "$SCRIPT_DIR/fm-model-denylist-lib.sh"
 
 DEFAULT_MARGIN=0.4
 # Below this confidence the effort answer is not trusted and each profile's
@@ -512,7 +500,6 @@ if [ -n "$missing_provider" ]; then
   done <<< "$missing_provider"
   die "malformed rules file: $RULES_PATH - $missing_provider_detail"
 fi
-fm_model_denylist_load "$CONFIG" || die "malformed never-use model list: $FM_MODEL_DENYLIST_ERROR"
 
 # ---- harness -> provider map, from the single owner in fm-quota-axi-lib.sh -----
 PMAP='{}'
@@ -838,7 +825,7 @@ jq -e 'type == "object"' "$PREDICT_FILE" >/dev/null 2>&1 \
 IS_SCOUT=false
 [ -z "$(brief_kind)" ] || IS_SCOUT=true
 # shellcheck disable=SC2016  # A jq program; $names are jq variables.
-RESOLVE_JQ="$FM_QUOTA_ROW_JQ$FM_MODEL_DENYLIST_JQ"'
+RESOLVE_JQ="$FM_QUOTA_ROW_JQ"'
   '"$FM_JEV_CHOICE_TOP2_JQ"'
   ($resp[0]) as $r | ($rules[0]) as $cfg | ($quota[0]) as $q | ($r.answers.rule) as $a |
   ($a.probabilities | jev_choice_top2) as $top2 |
@@ -986,17 +973,11 @@ RESOLVE_JQ="$FM_QUOTA_ROW_JQ$FM_MODEL_DENYLIST_JQ"'
         end
       end
     end;
-  def banned_profile($c):
-    model_banned_any($denylist;
-      if ($c.model // "") == "" then [$c.harness] else [$c.model, "\($c.harness)/\($c.model)"] end);
   def assess($c):
     (resolve_effort($c)) as $er |
     ({effort: $er.effort, range: (range_text($er.range)), effort_source: $er.source}
       + (if $er.clamped then {clamped: $er.clamped} else {} end)) as $ef |
-    (banned_profile($c)) as $ban |
-    if $ban != null then
-      {profile: $c, eligible: false} + $ef + {reason: "never-use model list: rule \($ban.pattern) - \($ban.reason)"}
-    elif $er.effort != null and (effort_ok($c.harness; $c.model; $er.effort) | not) then
+    if $er.effort != null and (effort_ok($c.harness; $c.model; $er.effort) | not) then
       if (effort_ok($c.harness; $c.model; "low") | not) then
         # The harness carries no effort knob at all (cursor, kimi, opencode):
         # the assessed class is disclosed on the line but cannot gate, and
@@ -1156,7 +1137,6 @@ RESOLVE_JQ="$FM_QUOTA_ROW_JQ$FM_MODEL_DENYLIST_JQ"'
   end'
 resolve_response() {  # <response-file> <effort-json> <latency-json>: sets RESULT
   RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$3" --arg none_criterion "$DEFAULT_WHEN" --argjson pmap "$PMAP" --argjson effort "$2" \
-    --argjson denylist "$FM_MODEL_DENYLIST_JSON" \
     --slurpfile resp "$1" --slurpfile rules "$RULES" --slurpfile quota "$QUOTA" --slurpfile predict "$PREDICT_FILE" "$RESOLVE_JQ") \
     || emit_error "resolution failed"
 }
@@ -1297,13 +1277,7 @@ if [ "$TYPED_OK" -eq 1 ]; then
           instructions: "More than one dispatch rule plausibly fits `task` (read `task.brief` and `task.project`). Which ONE option fits it best? Each option is the matching condition of one or more rules; pick the option whose condition the task meets most directly, following any Tie-break sentences.",
           criteria: ($result.runoff.options | map({key: .key, value: ([.rules[] as $r | $questions.rule.criteria[$r]] | join(" Or: "))}) | from_entries)
         }}') || emit_error "could not build runoff question"
-      # The runoff picks among concrete models, so its state carries the captain
-      # model rules from bin/fm-model-denylist-lib.sh, screened like the brief.
-      RUNOFF_RULES=$(fm_model_rules_summary)
-      [ -z "$RUNOFF_RULES" ] || RUNOFF_RULES=$(fm_jev_compact_state "$RUNOFF_RULES") || RUNOFF_RULES=''
-      PICK_STATE=$(jq -c --arg rules "$RUNOFF_RULES" 'if $rules == "" then . else . + {captain_model_rules: $rules} end' <<<"$STATE") \
-        || emit_error "could not build runoff state"
-      PICK_REQUEST=$(jq -nc --argjson state "$PICK_STATE" --argjson questions "$PICK_QUESTIONS" '{state: $state, questions: $questions}') \
+      PICK_REQUEST=$(jq -nc --argjson state "$STATE" --argjson questions "$PICK_QUESTIONS" '{state: $state, questions: $questions}') \
         || emit_error "could not build runoff request"
       if ! never_send_scan "$PICK_REQUEST"; then
         runoff_note "$(jq -nc --arg why "$NEVER_SEND_WHY" '{state: "skipped", reason: ($why + "; nothing sent")}')"
@@ -1311,7 +1285,7 @@ if [ "$TYPED_OK" -eq 1 ]; then
         [ -n "$TYPESAFE_API_KEY_PRIVATE" ] && TYPESAFE_API_KEY=$TYPESAFE_API_KEY_PRIVATE
         [ -n "$OPENROUTER_API_KEY_PRIVATE" ] && OPENROUTER_API_KEY=$OPENROUTER_API_KEY_PRIVATE
         PICK_ERR=0
-        fm_jev_decide "$PICK_STATE" "$PICK_QUESTIONS" > "$PICK_FILE" || PICK_ERR=$?
+        fm_jev_decide "$STATE" "$PICK_QUESTIONS" > "$PICK_FILE" || PICK_ERR=$?
         unset TYPESAFE_API_KEY OPENROUTER_API_KEY
         PICK_LAT=${FM_JEV_LAST_LATENCY_MS:-0}
         PICK_HTTP=${FM_JEV_LAST_HTTP:-000}

@@ -443,39 +443,3 @@ for target in \
     || fail 'a directory output refusal must send no request and leave no output, log, or directory changes'
 done
 pass 'directory output targets and directory symlinks refuse before any call or persistent write'
-
-DENYLIST="$HOME_DIR/config/model-denylist.json"
-cat > "$DENYLIST" <<'JSON'
-{"never": [{"pattern": "claude-fable*", "reason": "only after Opus high failed"}], "rules": ["Opus does judgment work."]}
-JSON
-jq '.rules = [.rules[1]]' "$HOME_DIR/config/crew-dispatch.json" > "$TMP_ROOT/one-rule.json"
-jq '.roles = []' "$TMP_ROOT/evidence.json" > "$TMP_ROOT/no-roles.json"
-rm -f "$TEST_REQUESTS"/*.json
-out=$(TEST_SECOND='{"model":"jev-1.13.0","answers":{"model":{"type":"choice","choice":"sonnet","confidence":0.9,"probabilities":{"opus":0.1,"sonnet":0.9,"none_fit":0}}}}' \
-  run_tool --evidence "$TMP_ROOT/no-roles.json" --dispatch "$TMP_ROOT/one-rule.json" --out "$TMP_ROOT/out/withheld.md" 2>&1); rc=$?
-[ "$rc" -eq 0 ] || fail "a proposal with a withheld candidate must succeed, got $rc: $out"
-request=$(cat "$TEST_REQUESTS"/0.json)
-[ "$(jq -c '.questions.model.criteria | keys' <<<"$request")" = '["none_fit","opus","sonnet"]' ] \
-  || fail "a never-use candidate must not be offered: $(jq -c '.questions.model.criteria | keys' <<<"$request")"
-[ "$(jq -c '.state.candidates | keys' <<<"$request")" = '["opus","sonnet"]' ] || fail 'a never-use candidate must not reach the state'
-case "$(jq -r '.state.captain_model_rules' <<<"$request")" in
-  *'Never use claude-fable* (only after Opus high failed). Opus does judgment work.'*) ;;
-  *) fail "the state must carry the captain model rules: $request" ;;
-esac
-# shellcheck disable=SC2016 # Backticks are literal Markdown in the proposal.
-grep -qF 'Withheld by the never-use model list, never offered to Jev: `fable` (claude/claude-fable-5-1; rule claude-fable* - only after Opus high failed).' "$TMP_ROOT/out/withheld.md" \
-  || fail "the proposal must name the withheld candidate: $(cat "$TMP_ROOT/out/withheld.md")"
-grep -qF '| fable |' "$TMP_ROOT/out/withheld.md" && fail 'a withheld candidate must not appear in the candidate table'
-pass 'never-use candidates are withheld from Jev and named in the proposal, and the rules reach the state'
-
-printf '{"never": [{"pattern": "claude-*", "reason": "test"}]}' > "$DENYLIST"
-rm -f "$TEST_REQUESTS"/*.json
-out=$(run_tool --evidence "$TMP_ROOT/no-roles.json" --dispatch "$TMP_ROOT/one-rule.json" --out "$TMP_ROOT/out/none-left.md" 2>&1); rc=$?
-case "$rc:$out" in 2:*'every candidate is on the never-use model list'*) ;; *) fail "a list banning every candidate must refuse: $rc $out" ;; esac
-printf '[' > "$DENYLIST"
-out=$(run_tool --evidence "$TMP_ROOT/no-roles.json" --dispatch "$TMP_ROOT/one-rule.json" --out "$TMP_ROOT/out/bad-list.md" 2>&1); rc=$?
-case "$rc:$out" in 2:*'malformed never-use model list'*) ;; *) fail "a malformed list must refuse: $rc $out" ;; esac
-[ -z "$(find "$TEST_REQUESTS" -type f)" ] && [ ! -e "$TMP_ROOT/out/none-left.md" ] && [ ! -e "$TMP_ROOT/out/bad-list.md" ] \
-  || fail 'a refused never-use list must send and write nothing'
-rm -f "$DENYLIST"
-pass 'a list that bans every candidate, or a malformed list, refuses before any call'
