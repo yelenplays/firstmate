@@ -30,14 +30,14 @@
 # Model choices: a pick or score question whose options name a model (any
 # option matching bin/fm-model-denylist-lib.sh's model test), or any call with
 # --models, is a model choice. An option is removed before sending when its
-# label matches a never-use rule, or its meaning does when the meaning is a bare
-# model id or the label is not itself a concrete model id (a harness, provider,
-# or route name such as opencode or openrouter is not; then by the first model
-# id the meaning names), so a description that mentions a banned model keeps a
-# model-id label; a question left with fewer than two options is refused, and
-# the captain model-rules summary from that library is appended to the state,
-# all inside the same byte cap and privacy screen. docs/configuration.md
-# "Never-use model list" owns the list.
+# label matches a never-use rule; under a concrete model-id label only a bare
+# model-id meaning counts, so a description that mentions a banned model keeps
+# it; under a harness, provider, or route label (opencode, codex, openrouter)
+# every model id the meaning names counts; under any other label the first
+# model id the meaning names counts. A question left with fewer than two
+# options is refused, and the captain model-rules summary from that library is
+# appended to the state, all inside the same byte cap and privacy screen.
+# docs/configuration.md "Never-use model list" owns the list.
 #
 # Escalation floor: a verdict whose confidence is below the floor prints
 # ESCALATE. The default floor follows the confidence source: 0.5 for the
@@ -244,11 +244,14 @@ if [ "$MODELS" -eq 0 ]; then
 fi
 if [ "$MODELS" -eq 1 ]; then
   [ "$DENYLIST_OK" -eq 1 ] || die "$FM_MODEL_DENYLIST_ERROR; nothing sent"
-  NORM=$(printf '%s' "$NORM" | jq -c --argjson list "$FM_MODEL_DENYLIST_JSON" --arg model_id "$FM_MODEL_ID_RE" "$FM_MODEL_DENYLIST_JQ"'
+  NORM=$(printf '%s' "$NORM" | jq -c --argjson list "$FM_MODEL_DENYLIST_JSON" --arg model_id "$FM_MODEL_ID_RE" --arg family "$FM_MODEL_FAMILY_RE" "$FM_MODEL_DENYLIST_JQ"'
     def model_id: (ascii_downcase | test($model_id)) or model_ban($list; .) != null;
-    def lead_model: first(splits("[\\s,;()]+") | select(. != "" and model_id)) // "";
-    def banned($o): model_banned_any($list; [$o[0],
-      (if ($o[0] | model_id) and ($o[1] | test("\\s")) then "" else $o[1] | lead_model end)]) != null;
+    def route: (ascii_downcase | test($family)) and (model_id | not);
+    def meaning_ids: [splits("[\\s,;()]+") | select(. != "" and model_id)];
+    def banned($o): model_banned_any($list; [$o[0]] +
+      (if ($o[0] | model_id) then (if ($o[1] | test("\\s")) then [] else [$o[1]] end)
+       elif ($o[0] | route) then ($o[1] | meaning_ids)
+       else ($o[1] | meaning_ids | .[:1]) end)) != null;
     .questions |= map(if .type == "yes" then .
       else .removed = [.opts[] | select(banned(.)) | .[0]]
         | .opts = [.opts[] | select(banned(.) | not)] end)') \

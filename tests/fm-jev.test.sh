@@ -1105,6 +1105,16 @@ test_meaning_that_mentions_a_banned_model_keeps_the_option() {
   assert_equals "$(jq -c '.questions.pick.criteria | keys' "$LOG/body")" '["a","opus","sonnet"]' "an option whose meaning only mentions a banned model is kept"
   assert_contains "$err" "removed never-use model options (pick: opencode, openrouter, codex)" "a harness, provider, or route label is judged by the model its meaning names"
   rm -f "$HOME_DIR/config/model-denylist.json"
+  reset_log
+  write_denylist
+  respond '{"answers":{"pick":{"type":"choice","choice":"opus","confidence":0.9,"probabilities":{"opus":0.9,"sonnet":0.1}}}}'
+  run_jev code out err pick "reviewer for a one-off pipeline run" "Which reviewer?" \
+    "opus=Better than kimi-coding/k3 for review" "sonnet=Sonnet 5.5" \
+    "codex=Codex w/ kimi-k2" "opencode=Fast and/or cheap: kimi-k2" "pi=N/A kimi-k2"
+  assert_equals "$code" 0 "a model choice with slash words in meanings still answers: $err"
+  assert_equals "$(jq -c '.questions.pick.criteria | keys' "$LOG/body")" '["opus","sonnet"]' "a slash word never hides the banned model a route or opaque label runs"
+  assert_contains "$err" "removed never-use model options (pick: codex, opencode, pi)" "every slash-word option running a banned model is removed"
+  rm -f "$HOME_DIR/config/model-denylist.json"
   pass "fm-jev.sh: a meaning that only mentions a banned model keeps a model-id option, and a route label is judged by its model"
 }
 

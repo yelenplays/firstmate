@@ -24,8 +24,8 @@
 #     Prints one model id per line for every `--model <id>` or `--model=<id>`
 #     in one command line, as `<provider>/<id>` when the command also passes
 #     `--provider <provider>`. A word starting with # ends the command. When
-#     the command's binary is codex, opencode, or kimi, `-m <id>` and `-m=<id>`
-#     count as `--model`.
+#     the command's binary is codex, opencode, or kimi, `-m <id>`, `-m=<id>`,
+#     and `-m<id>` count as `--model`. Quotes around a flag or value are ignored.
 #   fm_model_denylist_brief_pins <text>
 #     The command pins of every launch command line in prose: a line (joined
 #     across trailing-backslash continuations), code span, or shell-separated
@@ -55,8 +55,9 @@
 #     Succeeds when the text names a model: it matches a never-use rule or
 #     carries a known model-family, harness, or provider token.
 #   FM_MODEL_ID_RE
-#     Lowercase ERE for a concrete model id: a provider/model id or a model
-#     family token, never a bare harness, provider, or route name.
+#     Lowercase ERE for a concrete model id: a token carrying a model family
+#     token, never a bare harness, provider, or route name; a slash alone is
+#     not a model id.
 #   FM_MODEL_DENYLIST_JQ
 #     jq definitions for callers that filter inside jq: model_ban($list; $id)
 #     returns the first matching rule object or null, and model_banned_any(
@@ -93,7 +94,7 @@ FM_MODEL_DENYLIST_JQ='
 FM_MODEL_ID_TOKENS='claude|opus|sonnet|haiku|fable|gpt-?[0-9o]|o[0-9]-|gemini-[0-9]|grok-[0-9]|glm|qwen|deepseek|kimi|moonshot|mimo|minimax|mistral|llama|swe-[0-9]|space-bunny'
 FM_MODEL_ROUTE_TOKENS='codex|gemini|grok|devin|openai|anthropic|openrouter|opencode'
 # shellcheck disable=SC2034 # Read by the sourcing caller (bin/fm-jev.sh).
-FM_MODEL_ID_RE="/|(^|[^a-z0-9])(($FM_MODEL_ID_TOKENS)|(sol|luna)([^a-z]|\$))"
+FM_MODEL_ID_RE="(^|[^a-z0-9])(($FM_MODEL_ID_TOKENS)|(sol|luna)([^a-z]|\$))"
 FM_MODEL_FAMILY_RE="(^|[^a-z0-9])(($FM_MODEL_ID_TOKENS|$FM_MODEL_ROUTE_TOKENS)|(sol|luna)([^a-z]|\$))"
 
 fm_model_denylist_load() {
@@ -187,10 +188,12 @@ fm_model_denylist_command_pins() {
   esac
   for ((; i < ${#words[@]}; i++)); do
     word=${words[i]#[\"\'\`]}
+    word=${word%[\"\'\`]}
     if [ -n "$short" ]; then
       case "$word" in
         -m=*) word="--model=${word#-m=}" ;;
         -m) word=--model ;;
+        -m?*) word="--model=${word#-m}" ;;
       esac
     fi
     case "$word" in
