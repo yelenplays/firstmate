@@ -647,7 +647,7 @@ fm_jev_compact_state() {
       if (count == 2 && run ~ /^[0-9]+[.][0-9]+$/) return 0
       decimal = run
       gsub(/[^0-9]/, "", decimal)
-      return count >= 3 || longest >= 7 || length(decimal) >= 10
+      return count >= 3 || (count == 2 && (longest >= 7 || length(decimal) >= 10))
     }
     function flow_value_end(text,    depth, active_quote, escaped, pos, character, expected_open, stack) {
       if (substr(text, 1, 1) != "{" && substr(text, 1, 1) != "[") return 0

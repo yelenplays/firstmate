@@ -134,6 +134,18 @@
         "dangerous_misses": 0
       }
     },
+    "model-proposal": {
+      "recorded": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 22,
+        "agreement": 1,
+        "dangerous_misses": 0
+      }
+    },
     "pr-verdict": {
       "recorded": {
         "cases": 0,

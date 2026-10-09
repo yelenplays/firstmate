@@ -571,7 +571,8 @@ test_compact_state_keeps_task_numbers_and_prose() {
     'prefer 2024-2026 sources' '(1600-3200)' '(12) 34' 'resize 1440 900' 'oklch(0.575 0.18 24)' 'plan (17.07 - 31.07)' \
     'modes 0700/0600' 'due 2026-09-22. (1) next' 'Korridor 4.500-8.000 EUR' 'host 127.0.0.1:8081' \
     'version v1.2.3456789' 'External pass: re-check the pricing pages' 'Hero / Engpass: none' \
-    'Keyboard pass: every control reachable, focus visible'; do
+    'Keyboard pass: every control reachable, focus visible' 'size 10485760 (10 MiB)' 'run 20261008 (3 retries)' \
+    'took 1234567 (12 runs)' 'bytes 4823910 (12%)' 'PR 1234 (1234567)'; do
     out=$(fm_jev_compact_state "$text")
     assert_equals "$out" "$text" "compact keeps ordinary task text: $text"
     if fm_jev_has_sensitive_key "$text"; then
@@ -584,7 +585,7 @@ test_compact_state_keeps_task_numbers_and_prose() {
     '2026-10-08 +49 1701234567' '2026-10-08 (415) 5551234' 'Call 0170 123.4567' 'Call (0170) 123.4567' 'Call 212 555.0199' \
     '0170 1234567' '(0170) 1234567' '0201/123456' 'num 0170.123.4567' '01 23 45 67 89' \
     '2026-10-08 555-123-4567' '2026-10-08 0170 1234567' '2026-10-08 212 555 0199' '08.10.2026 555-123-4567' \
-    '2026/10/08 212 555 0199' 'Call 415 5551234' 'Call 415-5551234'; do
+    '2026/10/08 212 555 0199' 'Call 415 5551234' 'Call 415-5551234' 'call (415) 555-1234'; do
     out=$(fm_jev_compact_state "$text")
     assert_contains "$out" '[redacted]' "compact still redacts a phone number: $text"
   done

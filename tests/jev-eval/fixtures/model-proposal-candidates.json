@@ -1,0 +1,21 @@
+{
+  "as_of": "2026-10-09",
+  "pools": {
+    "claude-trio": [
+      {"id": "opus", "harness": "claude", "model": "claude-opus-5-5", "billing": "subscription",
+       "evidence": "Strongest reasoning in the family: open-ended planning, architecture and design from ambiguous asks, hard debugging of unreproduced failures, and deep review of finished changes. Slowest and most expensive. Text and code only; no image, audio, or video input or output."},
+      {"id": "sonnet", "harness": "claude", "model": "claude-sonnet-5-5", "billing": "subscription",
+       "evidence": "Strong everyday coding: implements well-specified features and writes tests from a finished spec at moderate speed and cost; weaker than opus on open-ended design and hard debugging. Text and code only; no image, audio, or video input or output."},
+      {"id": "haiku", "harness": "claude", "model": "claude-haiku-5-5", "billing": "subscription",
+       "evidence": "Fastest and cheapest: short classification, tagging, extraction into fixed fields, one-line summaries, and bulk mechanical edits from an exact list at high volume; weak at multi-step coding and design. Text and code only; no image, audio, or video input or output."}
+    ],
+    "search-mix": [
+      {"id": "opus", "harness": "claude", "model": "claude-opus-5-5", "billing": "subscription",
+       "evidence": "Strongest reasoning: open-ended planning, design, hard debugging, and careful review. Slow and expensive. Generates text and code only; produces no embedding vectors, images, or audio."},
+      {"id": "haiku", "harness": "claude", "model": "claude-haiku-5-5", "billing": "subscription",
+       "evidence": "Fast and cheap text model for short classification, tagging, extraction, and one-line summaries at high volume. Generates text only; produces no embedding vectors, images, or audio."},
+      {"id": "embed", "harness": "api", "model": "text-embed-3", "billing": "metered",
+       "evidence": "Embedding model: turns text into vectors for semantic search, clustering, and near-duplicate detection by meaning. Generates no text, so it cannot answer, plan, write, or classify on its own."}
+    ]
+  }
+}

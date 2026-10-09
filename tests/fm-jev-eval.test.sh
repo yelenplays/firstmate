@@ -523,7 +523,14 @@ test_arm_and_disarm() {
 }
 
 test_committed_test_sets_hold_their_baseline() {
-  local code=0 out
+  local code=0 out card="$TMP_ROOT/model-proposal-card.json"
+  out=$(FM_HOME="$TMP_ROOT/home-committed" FM_JEV_EVAL_OVERLAY="$TMP_ROOT/no-overlay" \
+    "$SUT" run --site model-proposal --out "$card" 2>&1) || code=$?
+  expect_code 0 "$code" "model-proposal is covered by the committed evaluation:"$'\n'"$out"
+  assert_equals 'false 0 22 1 0 advise' \
+    "$(jq -r '.sites["model-proposal"] | "\(.acts) \(.recorded.cases) \(.synthetic.cases) \(.synthetic.agreement) \(.errors) \(.mode)"' "$card")" \
+    "model-proposal replays its synthetic cases without errors and remains advisory"
+  code=0
   out=$(FM_HOME="$TMP_ROOT/home-committed" FM_JEV_EVAL_OVERLAY="$TMP_ROOT/no-overlay" FM_JEV_EVAL_JOBS=4 \
     "$SUT" check-baseline 2>&1) || code=$?
   expect_code 0 "$code" "every committed call site replays and holds its baseline:"$'\n'"$out"
