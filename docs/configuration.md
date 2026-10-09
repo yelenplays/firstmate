@@ -9,7 +9,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), and [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), and [worker CPU priority](#worker-cpu-priority) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), [Calm preference](#calm-preference-configcalm), and [theme pack](#theme-pack-configtheme) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
@@ -1276,6 +1276,23 @@ A repository whose config sets `core.hooksPath` to the empty string runs no proj
 When stripping is enabled, the hooks directory is read-only, so a hook manager run inside a fleet pane (lefthook's npm postinstall, `pre-commit install`) fails instead of displacing the strip; install a project's hooks from outside the pane, where the wrappers chain them.
 The flag is a home-wide attribution choice, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract and a secondmate's own workers keep AI trailers too.
 Per-machine Cursor `cli-config.json` attribution-off is not this contract: it does not travel with Firstmate, defaults back to on when unset, and only feeds the CLI's request to the server, so it suppresses the trailer rather than preventing it.
+
+## Worker CPU priority
+
+On macOS with `taskpolicy` available, Firstmate launches and relaunches workers, scouts, and secondmates at utility QoS, inherited by child processes to favor interactive apps.
+Every run of `bin/fm-test-run.sh` also applies this policy, covering suites started by a pipeline or by hand.
+QoS wrapping is a no-op where unsupported.
+[`bin/fm-qos-lib.sh`](../bin/fm-qos-lib.sh) owns the scheduling policy; [`fm-spawn.sh --help`](../bin/fm-spawn.sh) owns shell selection and launch wrapping.
+
+Test scripts admitted by `bin/fm-test-run.sh` share a machine-wide, per-user limit across workers, Firstmate homes, and checkouts using the same user `HOME`.
+The limit is `max(1, cpus/3)` with integer division - four top-level scripts at a time on a 14-core Mac.
+A runner waits for admission rather than exceeding the limit or failing; requesting more local workers cannot raise this shared limit.
+Nested runners reuse their parent's admission instead of adding parallel capacity.
+The cap bounds admitted test-script trees, not subprocesses within a script, direct test execution outside the runner, or CPU percentage for arbitrary worker commands.
+
+[`fm-test-run.sh --help`](../bin/fm-test-run.sh) owns local concurrency selection, slot paths and lifecycle, and fixture-only overrides.
+Normal workers must leave `FM_TEST_SLOT_DIR` unset so all suites share the same pool.
+Behavioral regression coverage is in [`tests/fm-qos.test.sh`](../tests/fm-qos.test.sh) and [`tests/fm-test-run.test.sh`](../tests/fm-test-run.test.sh).
 
 ## Project capacity (config/project-capacity)
 
@@ -3123,6 +3140,7 @@ FM_TRACE_CONTEXT=       # optional trace-context override; see "Trace context pr
 FM_WIKIS_ROOT=          # optional wikis root override; see "Wiki context in briefs"
 FM_TASK_ID=             # internal task-worker marker fm-spawn.sh exports into ship and scout panes, never set by hand; bin/fm-test-run.sh refuses to execute in the repository primary checkout while it is set
 FM_TASK_INBOX=          # internal: absolute path of the task's steering inbox (state/<id>.inbox) that fm-spawn.sh exports into every ship, scout, and secondmate launch, never set by hand; the steering doorbell names "$FM_TASK_INBOX"
+FM_TEST_SLOT_DIR=       # test-only; see bin/fm-test-run.sh --help for fixture slot isolation
 HERDR_SESSION=default  # herdr-only: named session for normal backend ops; not enough for destructive cleanup (docs/herdr-backend.md)
 FM_BACKEND_HERDR_SUBMIT_POLLS=6  # herdr-only: agent-state samples spread across each Enter attempt's budget when confirming a submit (docs/herdr-backend.md "Current transport behavior")
 FM_BACKEND_HERDR_SUBMIT_MIN_SLEEP=0.6  # herdr-only: minimum per-Enter confirmation budget before polling agent-state after an idle baseline

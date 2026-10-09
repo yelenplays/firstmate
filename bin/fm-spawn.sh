@@ -393,6 +393,12 @@
 #   This is an exec environment boundary, not a sandbox for the pane's startup
 #   shell, credential files, same-user processes, or later shell initialization.
 #   See docs/configuration.md for provider/Git setup and supported limits.
+# Worker CPU priority:
+#   bin/fm-qos-lib.sh applies the policy in docs/configuration.md "Worker CPU
+#   priority" to every ship, scout, secondmate, raw command, and relaunch.
+#   Where supported, the taskpolicy clamp wraps the launch outermost; without
+#   an allowlist the pane's SHELL interprets the launch, preserving raw-command
+#   syntax. Unsupported hosts leave the launch unwrapped.
 # Claude permission mode (config/claude-permission-mode):
 #   One token selecting the permission flag every claude launch (ship, scout,
 #   secondmate, and relaunch) carries. Absent or `bypass` keeps today's
@@ -641,6 +647,9 @@ if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
     exit 1
   fi
 fi
+# shellcheck source=bin/fm-qos-lib.sh
+. "$SCRIPT_DIR/fm-qos-lib.sh"
+QOS_PREFIX=$(fm_qos_command_prefix)
 # config/claude-permission-mode (header above): resolved once per spawn or
 # relaunch, before any mutation, so a malformed file refuses instead of
 # launching a worker on a permission posture the captain did not choose.
@@ -5842,6 +5851,9 @@ fi
 # launch and the launch-env-allowlist `env -i` wrapper.
 LAUNCH="export FM_TASK_INBOX=$(shell_quote "$STATE_REAL/$ID.inbox"); $LAUNCH"
 LAUNCH="export COMPACT_ADVISER_DISABLE=1; $LAUNCH"
+if [ -n "$QOS_PREFIX" ]; then
+  LAUNCH="export FM_QOS_APPLIED=utility; $LAUNCH"
+fi
 # When the live-harness gate has exported DISABLE_AUTOUPDATER into this spawn's
 # own environment, carry it into the launch command text so Claude Code's
 # auto-updater cannot rewrite the shared binary during a live run. Embedding the
@@ -5950,6 +5962,17 @@ if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
     LAUNCH_ENV_PREFIX="$LAUNCH_ENV_PREFIX "'${TRACEPARENT+"TRACEPARENT=$TRACEPARENT"}'
   fi
   LAUNCH="$LAUNCH_ENV_PREFIX /bin/sh -c $(shell_quote "$LAUNCH")"
+fi
+# The CPU clamp wraps the whole launch, outermost, so the agent and every
+# process it starts inherit it. Under an enabled allowlist the launch is
+# already one exec chain; otherwise the pane's SHELL gives the clamp a program
+# to exec.
+if [ -n "$QOS_PREFIX" ]; then
+  if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
+    LAUNCH="$QOS_PREFIX $LAUNCH"
+  else
+    LAUNCH="$QOS_PREFIX \"\$SHELL\" -c $(shell_quote "$LAUNCH")"
+  fi
 fi
 # Implement the launch-delivery contract in this script's header. The full
 # home-identity hash isolates equal task ids across homes, and the spawn token in

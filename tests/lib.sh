@@ -73,6 +73,14 @@ unset FM_TASK_ID
 # against an ambient override sets TASKS_AXI_FILE itself.
 unset TASKS_AXI_FILE TASKS_AXI_BACKEND
 
+# Keep emitted worker launches host-independent. On macOS bin/fm-spawn.sh wraps
+# every launch in a CPU-class clamp (bin/fm-qos-lib.sh), so a launch-shape
+# assertion would read a different command there than on Linux. Presenting a
+# non-macOS kernel to that library makes every host emit the Linux shape. The
+# suite run itself is still clamped, because bin/fm-test-run.sh applies its
+# class before any test starts; tests/fm-qos.test.sh chooses its own host.
+export FM_QOS_UNAME=Linux
+
 # Resolve the repo root from this library's own location. Consumed by sourcing
 # test files, not by this library, so it reads as "unused" here.
 # shellcheck disable=SC2034

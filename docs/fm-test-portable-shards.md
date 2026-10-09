@@ -27,6 +27,8 @@ The native-Windows-only `tests/fm-pi-windows-shell-invocation.test.sh` retains i
 The session-start hint retains its pre-optimization maximum until CI measures the shorter fixture-only home-summary bound; do not discount a local speedup from CI packing weights.
 
 This fork merges that upstream baseline with its own CI samples: a script both sets measured keeps the slower value, and a script only one set measured keeps that sample.
+The new `tests/fm-qos.test.sh` serial hint uses its successful Ubuntu sample of 9772 ms from [run 37925576139](https://github.com/yelenplays/firstmate/actions/runs/37925576139), replacing the unmeasured default.
+This single sample is a packing input, not a runtime upper bound.
 The fork's parallel-lane samples follow.
 The previous two-lane split ran close to its ten-minute job timeout.
 These recent artifact `summary.duration_ms` values measure the lane invocation itself, before job setup and tool installation are included:
@@ -173,7 +175,7 @@ No fast mode, path skips, or paid runner provisioning is part of this layout.
 
 The longer-term performance objective remains a complete green run under fifteen minutes including start delay, but the current watch-triage floor alone exceeds that objective.
 The immediate packing target is the runner's modeled script budget, not a claim that more shards alone can make an indivisible script faster.
-The layout uses fifteen long-lived Linux jobs (nine serial, three parallel, Herdr, two lint), plus short checks and macOS; insufficient shared account capacity can erase the packing gain.
+The layout uses sixteen long-lived Linux jobs (ten serial, three parallel, Herdr, two lint), plus short checks and macOS; insufficient shared account capacity can erase the packing gain.
 Compare complete before/after runs, preserve cancelled and partial-run evidence, and measure a representative normal-run sample before claiming a P95 improvement.
 The workflow retains per-PR supersession without cancelling main pushes or changing the compliance workflow's event semantics.
 
