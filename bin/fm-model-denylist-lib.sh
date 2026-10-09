@@ -27,9 +27,13 @@
 #   fm_model_denylist_brief_pins <text>
 #     The command pins of every launch command line in prose: a line (joined
 #     across trailing-backslash continuations), code span, or shell-separated
-#     segment that starts with `no-mistakes axi`, `run`, or `rerun`, or with a
-#     harness binary followed by a flag or nothing. Prose that only mentions or
-#     forbids `--model <id>` is no pin.
+#     segment whose first words (after list markers, prompts, and VAR=value
+#     words) form a shape in FM_MODEL_LAUNCH_SHAPES followed by a flag or
+#     nothing, such as `no-mistakes axi run --model x`, `codex exec --model x`,
+#     or `pi --model x`. Prose that only mentions or forbids `--model <id>` is
+#     no pin.
+#   fm_model_denylist_is_launch <segment>
+#     Succeeds when the segment is such a launch command line.
 #   fm_model_denylist_yaml_pins <file>
 #     Prints one model id per line for every model a no-mistakes config pins:
 #     `--provider`/`--model` argument lists (block or inline) and `provider:`
@@ -46,7 +50,10 @@
 #     FM_MODEL_RULES_SUMMARY_MAX bytes, or nothing when the list is empty.
 #   fm_model_option_looks_like_model <text>
 #     Succeeds when the text names a model: it matches a never-use rule or
-#     carries a known model-family token.
+#     carries a known model-family, harness, or provider token.
+#   FM_MODEL_ID_RE
+#     Lowercase ERE for a concrete model id: a provider/model id or a model
+#     family token, never a bare harness, provider, or route name.
 #   FM_MODEL_DENYLIST_JQ
 #     jq definitions for callers that filter inside jq: model_ban($list; $id)
 #     returns the first matching rule object or null, and model_banned_any(
@@ -80,7 +87,11 @@ FM_MODEL_DENYLIST_JQ='
     first(($ids[] | . as $id | model_ban($list; $id) | select(. != null) | . + {id: $id}), null);
 '
 # Family tokens that mark a Jev option as a model even when no rule names it.
-FM_MODEL_FAMILY_RE='(^|[^a-z0-9])((claude|opus|sonnet|haiku|fable|gpt-?[0-9o]|o[0-9]-|codex|gemini|grok|glm|qwen|deepseek|kimi|moonshot|mimo|minimax|mistral|llama|devin|swe-[0-9]|space-bunny|openai|anthropic|openrouter|opencode)|(sol|luna)([^a-z]|$))'
+FM_MODEL_ID_TOKENS='claude|opus|sonnet|haiku|fable|gpt-?[0-9o]|o[0-9]-|gemini-[0-9]|grok-[0-9]|glm|qwen|deepseek|kimi|moonshot|mimo|minimax|mistral|llama|swe-[0-9]|space-bunny'
+FM_MODEL_ROUTE_TOKENS='codex|gemini|grok|devin|openai|anthropic|openrouter|opencode'
+# shellcheck disable=SC2034 # Read by the sourcing caller (bin/fm-jev.sh).
+FM_MODEL_ID_RE="/|(^|[^a-z0-9])(($FM_MODEL_ID_TOKENS)|(sol|luna)([^a-z]|\$))"
+FM_MODEL_FAMILY_RE="(^|[^a-z0-9])(($FM_MODEL_ID_TOKENS|$FM_MODEL_ROUTE_TOKENS)|(sol|luna)([^a-z]|\$))"
 
 fm_model_denylist_load() {
   local dir=${1:-} file err
@@ -184,14 +195,55 @@ fm_model_denylist_command_pins() {
   done
 }
 
-FM_MODEL_LAUNCH_RE='^[[:space:]]*(([-*+>$]|[0-9]+[.)])[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*([^[:space:]]*/)?(no-mistakes[[:space:]]+(axi|run|rerun)([[:space:]]|$)|(claude|codex|opencode|pi|pi-signed|grok|kimi|cursor-agent|gemini|muse|rovo|omp|agy|devin)([[:space:]]+-|[[:space:]]*$))'
+FM_MODEL_LAUNCH_SHAPES='no-mistakes axi run
+no-mistakes axi rerun
+no-mistakes run
+no-mistakes rerun
+claude
+codex
+codex exec
+opencode
+opencode run
+pi
+pi-signed
+grok
+kimi
+cursor-agent
+gemini
+muse
+rovo
+omp
+agy
+devin'
+FM_MODEL_LAUNCH_PREFIX_RE='^([-*+>$]|[0-9]+[.)]|[A-Za-z_][A-Za-z0-9_]*=.*)$'
+
+fm_model_denylist_is_launch() {
+  local -a words shape_words
+  local i=0 j shape next
+  read -r -a words <<<"${1:-}"
+  while [ "$i" -lt "${#words[@]}" ] && [[ ${words[i]} =~ $FM_MODEL_LAUNCH_PREFIX_RE ]]; do
+    i=$((i + 1))
+  done
+  [ "$i" -lt "${#words[@]}" ] || return 1
+  words[i]=${words[i]##*/}
+  while IFS= read -r shape; do
+    read -r -a shape_words <<<"$shape"
+    for ((j = 0; j < ${#shape_words[@]}; j++)); do
+      [ "${words[i + j]:-}" = "${shape_words[j]}" ] || continue 2
+    done
+    next=${words[i + j]:-}
+    case "$next" in '' | -*) return 0 ;; esac
+  done <<<"$FM_MODEL_LAUNCH_SHAPES"
+  return 1
+}
 
 fm_model_denylist_brief_pins() {
   local segment text=${1:-}
   text=${text//$'\\\n'/ }
   while IFS= read -r segment; do
+    fm_model_denylist_is_launch "$segment" || continue
     fm_model_denylist_command_pins "$segment"
-  done < <(printf '%s\n' "${text//[\`;|&]/$'\n'}" | grep -E "$FM_MODEL_LAUNCH_RE" || true)
+  done <<<"${text//[\`;|&]/$'\n'}"
 }
 
 fm_model_denylist_yaml_pins() {

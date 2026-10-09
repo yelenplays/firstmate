@@ -1099,12 +1099,13 @@ test_meaning_that_mentions_a_banned_model_keeps_the_option() {
   write_denylist
   respond '{"answers":{"pick":{"type":"choice","choice":"opus","confidence":0.9,"probabilities":{"opus":0.9,"sonnet":0.05,"a":0.05}}}}'
   run_jev code out err pick "reviewer for a one-off pipeline run" "Which reviewer?" \
-    "opus=Better than kimi-coding/k3 for review" "sonnet=Claude Sonnet, replaces kimi-coding/k3" "a=Claude Opus again, never Kimi K3"
+    "opus=Better than kimi-coding/k3 for review" "sonnet=Claude Sonnet, replaces kimi-coding/k3" "a=Claude Opus again, never Kimi K3" \
+    "opencode=opencode-go/kimi-k2 on OpenCode Go" "openrouter=openrouter moonshotai/kimi-k2" "codex=Codex running kimi-k2"
   assert_equals "$code" 0 "a meaning that only mentions a banned model still answers: $err"
   assert_equals "$(jq -c '.questions.pick.criteria | keys' "$LOG/body")" '["a","opus","sonnet"]' "an option whose meaning only mentions a banned model is kept"
-  assert_equals "$err" "" "nothing is reported as removed"
+  assert_contains "$err" "removed never-use model options (pick: opencode, openrouter, codex)" "a harness, provider, or route label is judged by the model its meaning names"
   rm -f "$HOME_DIR/config/model-denylist.json"
-  pass "fm-jev.sh: a meaning that only mentions a banned model keeps the option"
+  pass "fm-jev.sh: a meaning that only mentions a banned model keeps a model-id option, and a route label is judged by its model"
 }
 
 test_model_choice_refuses_when_too_few_options_remain() {

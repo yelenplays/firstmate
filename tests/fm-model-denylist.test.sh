@@ -174,6 +174,11 @@ test_provider_split_pins_refuse() {
   out=$(spawn_ship deny-brief-continued no-mistakes claude --model claude-opus-5-5); rc=$?
   expect_code 1 "$rc" "a backslash-continued brief command pinning a banned model must refuse"
   assert_refused_before_launch deny-brief-continued "$out" "'kimi-y' is on the never-use model list"
+
+  fm_test_spawn_brief "$HOME_DIR" deny-brief-subcommand $'Launch the sub-run:\n\n```sh\nopencode run --model moonshotai/kimi-k2 "do it"\n```'
+  out=$(spawn_ship deny-brief-subcommand no-mistakes claude --model claude-opus-5-5); rc=$?
+  expect_code 1 "$rc" "a harness subcommand launch in the brief pinning a banned model must refuse"
+  assert_refused_before_launch deny-brief-subcommand "$out" "'moonshotai/kimi-k2' is on the never-use model list"
   pass "a model split across --provider and --model, or provider: and model:, is checked as provider/model"
 }
 
@@ -243,6 +248,9 @@ test_library_matching_and_summary() {
     assert_equals "$(fm_model_denylist_command_pins "no-mistakes axi run --provider kimi-coding --model k3")" "kimi-coding/k3" "a command line combines --provider with --model"
     assert_equals "$(fm_model_denylist_command_pins "pi --model=openai-codex/gpt-6-luna --provider=openai-codex")" "openai-codex/gpt-6-luna" "a model already carrying its provider is not prefixed twice"
     assert_equals "$(fm_model_denylist_command_pins "no-mistakes axi run # --model kimi-coding/k3")" "" "a shell comment is not a pin"
+    assert_equals "$(fm_model_denylist_brief_pins 'opencode run --model moonshotai/kimi-k2 "do it"')" "moonshotai/kimi-k2" "opencode run is a launch"
+    assert_equals "$(fm_model_denylist_brief_pins 'codex exec --model kimi-x task')" "kimi-x" "codex exec is a launch"
+    assert_equals "$(fm_model_denylist_brief_pins $'kimi is banned, so never pass --model kimi-coding/k3\nno-mistakes reviewers must never get --model kimi-coding/k3.\ncodex exec tasks must avoid --model kimi-x')" "" "prose starting with a binary name is not a launch"
     assert_equals "$(fm_model_denylist_brief_pins $'Never pass `--model kimi-coding/k3`.\n- `no-mistakes axi run --model claude-opus-5-5`\n$ pi --provider openai-codex --model gpt-6.1-sol')" \
       $'claude-opus-5-5\nopenai-codex/gpt-6.1-sol' "only launch command lines in prose are pins"
 
