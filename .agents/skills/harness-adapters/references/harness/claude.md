@@ -67,6 +67,12 @@ A Claude task worker's launch brief and Firstmate steering-inbox messages arrive
 The same prompt carries the advisory, fail-open Jev-first rule for closed-set judgments that `../../../../../bin/fm-brief.sh` also writes into every ship and scout brief.
 A `--secondmate` launch omits the statement because a secondmate operates under its own supervisor contract instead of a task worker's.
 
+## Worker context
+
+Claude ship and scout launches narrow skill discovery and omit Firstmate's own supervisor instructions without changing instruction files; secondmate launches retain their full supervisor context.
+[`bin/fm-claude-worker-context-lib.sh`](../../../../../bin/fm-claude-worker-context-lib.sh) owns repository identity, the launch settings, and the warning-and-retain fallback for unusual paths; other adapters and raw launch commands are unchanged.
+[`Runtime verification`](../../../../../docs/verification/runtime-backends.md#claude-worker-context) records the native Claude guard and its supported boundary.
+
 ## Primary integration
 
 [`../../../../../docs/verification/supervision.md`](../../../../../docs/verification/supervision.md#turn-end-guard) records the current primary and Stop auto-arm live evidence.

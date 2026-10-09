@@ -6,6 +6,27 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
+## Claude worker context
+
+Verified on 2026-10-09 with Claude Code 2.1.295 using the native transcript guard:
+
+```sh
+FM_CLAUDE_WORKER_CONTEXT_LIVE_E2E=1 bin/fm-test-run.sh tests/fm-claude-worker-context-live-e2e.test.sh
+```
+
+```text
+ok - claude 2.1.295 (Claude Code): supervisor instructions retained; worker excludes only root files; skill names retained
+```
+
+The guard submits two no-tool requests to real Claude sessions in a private temporary repository and checks their saved first-request usage and instruction/skill attachments.
+It proves the worker overlay omits only the root supervisor instructions, preserves unrelated instructions and every skill name, narrows the listing, and reduces total input including cache reads and writes.
+The portable `tests/fm-spawn-dispatch-profile.test.sh` drives actual ship/scout launch construction and verifies ordinary projects retain their instructions, secondmates receive no worker trimming, and unusual paths warn and retain instructions rather than broadening an exclusion.
+[`bin/fm-claude-worker-context-lib.sh`](../../bin/fm-claude-worker-context-lib.sh) owns the settings and path/identity contract.
+
+Native exclusions are supported here only for instruction roots without glob metacharacters or quotes; such roots retain the existing supervisor context while still receiving the skill budget.
+This is a Claude-only launch setting, not a cross-harness context claim: Codex, OpenCode, Pi/Pi-signed, Grok, Kimi, Cursor, Gemini, Muse, Rovo, omp, AGY, and Devin integration surfaces were reviewed and remain unchanged.
+The same shell launch construction reaches tmux, Herdr, Zellij, Orca, and cmux; this change has no backend-specific lifecycle operation, and the credentialed guard does not claim a live run of each backend.
+
 ## Harness detection precedence
 
 Firstmate's own harness comes from two kinds of evidence, and `bin/fm-harness.sh` owns how they combine: an environment marker names its harness, and the nearest harness process in the parent chain proves who owns the process tree.
