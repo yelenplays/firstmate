@@ -1,0 +1,19 @@
+$ bin/fm-dispatch-resolve.sh /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-brief.md --project public-demo
+FM_HOME: worktree-local isolated live-home
+dispatch-resolve: off (brief text matches /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-never-send line 1; nothing sent)
+dispatch-resolve:
+  status: fallback
+  decided: default by default
+  typed: skipped (brief text matches /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-never-send line 1; nothing sent)
+  backup: skipped (brief text matches /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-never-send line 1; nothing sent)
+  model: default   latency_ms: 0   tokens: -/-
+  rule: default (No listed rule applies to this task.)   confidence: 1
+  probabilities: rule_1=0 default=1
+  effort: - (declared fallback (classifier absent))
+  reason: no rankable eligible candidate
+  note: no rule matched
+  last_resort: no rankable eligible candidate: first eligible candidate in declared order
+  candidate: claude:claude-opus-5-5  provider=claude  effort=high(range high..xhigh)  scope=all_models  remaining=-%  spendPriority=-  runway=unknown  pred=unknown  -> eligible, unranked: provider claude unmeasured (unknown): disclosed uncertainty
+  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'high'
+
+exit=0; elapsed=0.94s

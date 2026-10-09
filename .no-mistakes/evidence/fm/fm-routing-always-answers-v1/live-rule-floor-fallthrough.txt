@@ -1,0 +1,17 @@
+$ bin/fm-dispatch-resolve.sh /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-brief.md --project public-demo
+FM_HOME: worktree-local isolated live-home
+dispatch-resolve:
+  status: backup
+  decided: default by backup
+  matched: rule_1 (its profiles were not used)
+  typed: skipped (no typed-call key configured)
+  backup: rule_1 effort=medium (claude-haiku-5-5, 4421 ms)
+  model: backup:claude-haiku-5-5   latency_ms: 4421   tokens: -/-
+  rule: rule_1 (A one-line bug fix with a known root cause.)   confidence: 1
+  probabilities: rule_1=1 default=0
+  effort: medium (backup judge)
+  note: rule rule_1 floor all_models below 100%: fall through to default
+  candidate: claude:claude-opus-5-5  provider=claude  effort=high(range high..xhigh) [clamped from medium]  scope=all_models  remaining=36%  spendPriority=-1.5526  runway=projected_exhaustion  pred=unknown  -> eligible
+  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'high'
+
+exit=0; elapsed=5.45s

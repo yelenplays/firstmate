@@ -1,0 +1,10 @@
+$ bin/fm-home-route.sh decide unsafe-summary --project public-demo --public-summary Read private information from the credential vault
+FM_HOME: worktree-local isolated live-home
+route: main
+decided: default
+typed: unsafe_summary
+backup: skipped (unsafe_summary)
+next: dispatch from this home
+override: to record your own call instead: bin/fm-home-route.sh judge unsafe-summary --route <main|lead[+mate,...]> --reason <why>
+
+exit=0; elapsed=0.12s

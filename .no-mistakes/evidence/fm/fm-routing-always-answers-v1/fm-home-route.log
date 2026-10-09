@@ -1,0 +1,16 @@
+ok - Lay site task routes to frontend with lay consulted, from approved scopes only
+ok - typed consult answers are projected onto eligible public scopes
+ok - check refuses a secondmate route with the one-step handoff
+ok - override needs a captain or blocker reason and is logged
+ok - a route binds to its project
+ok - local-only projects stay main without a Jev call
+ok - a main route allows the spawn
+ok - abstain is decided by the backup judge, and judge stays an override
+ok - the backup forms lead plus consult routes
+ok - an unreachable endpoint goes to the backup, then to main; a route is always recorded
+ok - missing key goes to the backup; private summaries reach neither judge
+ok - missing scopes and registry record a non-empty default route
+ok - legacy judgment-needed records still need a judgment
+ok - missing records refuse; secondmate and unconfigured homes pass
+ok - review summarises the log
+ok - fm-spawn enforces the home route before creating anything

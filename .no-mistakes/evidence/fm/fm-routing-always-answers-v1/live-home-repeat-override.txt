@@ -1,0 +1,5 @@
+$ bin/fm-home-route.sh judge public-layout --route frontend --reason Operator corrects the previous isolated judgment
+FM_HOME: worktree-local isolated live-home
+route: frontend
+
+exit=0; elapsed=0.08s

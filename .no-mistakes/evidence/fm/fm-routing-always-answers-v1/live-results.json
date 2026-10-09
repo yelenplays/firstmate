@@ -1,0 +1,14 @@
+[
+  {
+    "label": "live-dispatch-backup",
+    "exit": 0,
+    "output": "dispatch-resolve:\n  status: backup\n  decided: rule_1 by backup\n  typed: skipped (no typed-call key configured)\n  backup: rule_1 effort=low (claude-haiku-5-5, 2136 ms)\n  model: backup:claude-haiku-5-5   latency_ms: 2136   tokens: -/-\n  rule: rule_1 (A one-line bug fix with a known root cause.)   confidence: 1\n  probabilities: rule_1=1 default=0\n  effort: low (backup judge)\n  note: rule matched\n  candidate: claude:claude-haiku-5-5  provider=claude  effort=high(range high..xhigh) [clamped from low]  scope=all_models  remaining=36%  spendPriority=-1.5545  runway=projected_exhaustion  pred=unknown  -> eligible\n  profile: --harness 'claude' --model 'claude-haiku-5-5' --effort 'high'\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-dispatch-backup.txt"
+  },
+  {
+    "label": "live-home-backup",
+    "exit": 0,
+    "output": "route: frontend\ndecided: backup\ntyped: no_key\nbackup: ok (2761 ms)\nnext: hand the item to frontend: bin/fm-backlog-handoff.sh frontend public-layout\noverride: to record your own call instead: bin/fm-home-route.sh judge public-layout --route <main|lead[+mate,...]> --reason <why>\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-home-backup.txt"
+  }
+]

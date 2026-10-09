@@ -1,0 +1,5 @@
+$ bin/fm-dispatch-selftest.sh check
+FM_HOME: worktree-local isolated live-home
+dispatch selftest failed: error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-samples.json: samples file is not JSON; details in state/dispatch-selftest/last.out
+
+exit=0; elapsed=0.15s

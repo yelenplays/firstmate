@@ -1,0 +1,10 @@
+$ bin/fm-home-route.sh decide public-faq --project public-demo --public-summary Rewrite the FAQ on the public demo website describing Example Products company offers and policies
+FM_HOME: worktree-local isolated live-home
+route: frontend+facts
+decided: backup
+typed: no_key
+backup: ok (5729 ms)
+next: hand the item to frontend: bin/fm-backlog-handoff.sh frontend public-faq (facts supplies facts)
+override: to record your own call instead: bin/fm-home-route.sh judge public-faq --route <main|lead[+mate,...]> --reason <why>
+
+exit=0; elapsed=6.15s

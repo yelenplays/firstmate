@@ -1,0 +1,16 @@
+Actual persisted dispatch records: default rescue logs rule=default and matched_rule=rule_1; all-refused logs both refusals and selects the original Codex profile; complex task effort is clamped to medium.
+Actual persisted home route:
+{
+  "timestamp": "2026-10-09T09:36:36Z",
+  "task_id": "public-faq",
+  "project": "public-demo",
+  "route": "frontend+facts",
+  "lead": "frontend",
+  "consult": [
+    "facts"
+  ],
+  "source": "backup",
+  "probability": null,
+  "reason": "no_key",
+  "backup": "ok (5729 ms)"
+}

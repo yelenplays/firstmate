@@ -1,0 +1,10 @@
+$ bin/fm-home-route.sh decide missing-scopes --project public-demo --public-summary Fix header spacing in the public demo website
+FM_HOME: worktree-local isolated live-home
+route: main
+decided: default
+typed: no_public_scopes
+backup: skipped (no_public_scopes)
+next: dispatch from this home
+override: to record your own call instead: bin/fm-home-route.sh judge missing-scopes --route <main|lead[+mate,...]> --reason <why>
+
+exit=0; elapsed=0.12s

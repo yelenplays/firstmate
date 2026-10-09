@@ -1,0 +1,8 @@
+$ bin/fm-dispatch-selftest.sh run
+FM_HOME: worktree-local isolated live-home
+FAIL floor-1 expect=rule_1 decided=default by=backup status=backup
+PASS floor-2 expect=rule_1 decided=rule_1 by=backup status=fallback
+PASS floor-3 expect=rule_1 decided=rule_1 by=backup status=fallback
+selftest: 3 samples, 2 pass, 1 fail: floor-1
+
+exit=1; elapsed=11.81s

@@ -1,0 +1,26 @@
+real run --record published running with owner marker
+PASS scheduled-1 expect=default decided=default by=default status=fallback
+PASS scheduled-2 expect=default decided=default by=default status=fallback
+PASS scheduled-3 expect=default decided=default by=default status=fallback
+selftest: 3 samples, 3 pass, 0 fail
+
+{
+  "started": 1791538462,
+  "finished": 1791538465,
+  "state": "done",
+  "exit": 0,
+  "summary": "selftest: 3 samples, 3 pass, 0 fail",
+  "failing": "",
+  "reported": false
+}
+changed inputs: {"started": 1791538466, "finished": 1791538469, "state": "done", "exit": 0, "summary": "selftest: 3 samples, 3 pass, 0 fail", "failing": "", "reported": false}
+PASS scheduled-1 expect=default decided=default by=default status=fallback
+PASS scheduled-2 expect=default decided=default by=default status=fallback
+PASS scheduled-3 expect=default decided=default by=default status=fallback
+selftest: 3 samples, 3 pass, 0 fail
+failed input acknowledged once: {"started": 1791538469, "finished": 1791538469, "state": "done", "exit": 2, "summary": "error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-samples.json: samples file is not JSON", "failing": "", "reported": true}
+nightly eligibility reran unchanged corpus: {"started": 1791538474, "finished": 1791538477, "state": "done", "exit": 0, "summary": "selftest: 3 samples, 3 pass, 0 fail", "failing": "", "reported": false}
+PASS scheduled-1 expect=default decided=default by=default status=fallback
+PASS scheduled-2 expect=default decided=default by=default status=fallback
+PASS scheduled-3 expect=default decided=default by=default status=fallback
+selftest: 3 samples, 3 pass, 0 fail

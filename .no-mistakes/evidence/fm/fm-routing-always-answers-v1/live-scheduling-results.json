@@ -1,0 +1,98 @@
+[
+  {
+    "label": "live-measured-default-rescue",
+    "exit": 0,
+    "output": "dispatch-resolve:\n  status: fallback\n  decided: default by default\n  matched: rule_1 (its profiles were not used)\n  typed: skipped (no typed-call key configured)\n  backup: rule_1 effort=low (claude-haiku-5-5, 2563 ms)\n  model: default   latency_ms: 0   tokens: -/-\n  rule: default (No listed rule applies to this task.)   confidence: 1\n  probabilities: rule_1=0 default=1\n  effort: low (backup judge)\n  reason: no rankable eligible candidate\n  note: no rule matched\n  last_resort: no rankable eligible candidate: first eligible candidate in declared order; rule rule_1 candidates refused: profile floor all_models below 100%; eligible default lane used\n  candidate: claude:claude-opus-5-5  provider=claude  effort=high(range high) [clamped from low]  scope=all_models  remaining=-%  spendPriority=-  runway=unknown  pred=unknown  -> eligible, unranked: provider claude unmeasured (unknown): disclosed uncertainty\n  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'high'\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-measured-default-rescue.txt"
+  },
+  {
+    "label": "live-measured-all-refused",
+    "exit": 0,
+    "output": "dispatch-resolve:\n  status: fallback\n  decided: rule_1 by backup\n  typed: skipped (no typed-call key configured)\n  backup: rule_1 effort=medium (claude-haiku-5-5, 2496 ms)\n  model: backup:claude-haiku-5-5   latency_ms: 2496   tokens: -/-\n  rule: rule_1 (A one-line bug fix with a known root cause.)   confidence: 1\n  probabilities: rule_1=1 default=0\n  effort: medium (backup judge)\n  reason: no rankable eligible candidate\n  note: rule matched\n  last_resort: no rankable eligible candidate: every candidate refused; first declared candidate; rule rule_1 candidates refused: profile floor all_models below 100%; default candidates refused: profile floor all_models below 100%; first declared candidate used\n  candidate: codex:gpt-5.6-sol  provider=codex  effort=high(range high) [clamped from medium]  scope=all_models  remaining=52%  spendPriority=-  runway=projected_exhaustion  -> not eligible: profile floor all_models below 100%\n  profile: --harness 'codex' --model 'gpt-5.6-sol' --effort 'high'\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-measured-all-refused.txt"
+  },
+  {
+    "label": "live-measured-floor-misroutes",
+    "exit": 1,
+    "output": "FAIL floor-1 expect=rule_1 decided=default by=backup status=fallback\nFAIL floor-2 expect=rule_1 decided=default by=backup status=fallback\nFAIL floor-3 expect=rule_1 decided=default by=backup status=fallback\nselftest: 3 samples, 0 pass, 3 fail: floor-1 floor-2 floor-3\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-measured-floor-misroutes.txt"
+  },
+  {
+    "label": "live-selftest-arm",
+    "exit": 0,
+    "output": "armed: state/dispatch-selftest.check.sh\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-arm.txt"
+  },
+  {
+    "label": "live-selftest-overlap-run",
+    "exit": 1,
+    "output": "fm-dispatch-selftest: a recorded run is already active\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-overlap-run.txt"
+  },
+  {
+    "label": "live-selftest-overlap-check",
+    "exit": 0,
+    "output": "",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-overlap-check.txt"
+  },
+  {
+    "label": "live-selftest-unchanged",
+    "exit": 0,
+    "output": "",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-unchanged.txt"
+  },
+  {
+    "label": "live-selftest-changed",
+    "exit": 0,
+    "output": "",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-changed.txt"
+  },
+  {
+    "label": "live-selftest-invalid-start",
+    "exit": 0,
+    "output": "",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-invalid-start.txt"
+  },
+  {
+    "label": "live-selftest-alert-once",
+    "exit": 0,
+    "output": "dispatch selftest failed: error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-samples.json: samples file is not JSON; details in state/dispatch-selftest/last.out\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-alert-once.txt"
+  },
+  {
+    "label": "live-selftest-alert-not-repeated",
+    "exit": 0,
+    "output": "",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-alert-not-repeated.txt"
+  },
+  {
+    "label": "live-selftest-retry-change",
+    "exit": 0,
+    "output": "",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-retry-change.txt"
+  },
+  {
+    "label": "live-selftest-nightly-due",
+    "exit": 0,
+    "output": "",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-nightly-due.txt"
+  },
+  {
+    "label": "live-selftest-missing-input",
+    "exit": 0,
+    "output": "dispatch selftest failed: error: samples file is missing: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-samples.json; details in state/dispatch-selftest/last.out\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-missing-input.txt"
+  },
+  {
+    "label": "live-selftest-missing-input-not-repeated",
+    "exit": 0,
+    "output": "",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-missing-input-not-repeated.txt"
+  },
+  {
+    "label": "live-selftest-disarm",
+    "exit": 0,
+    "output": "disarmed: state/dispatch-selftest.check.sh\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-disarm.txt"
+  }
+]

@@ -1,0 +1,5 @@
+$ bin/fm-dispatch-selftest.sh disarm
+FM_HOME: worktree-local isolated live-home
+disarmed: state/dispatch-selftest.check.sh
+
+exit=0; elapsed=0.07s

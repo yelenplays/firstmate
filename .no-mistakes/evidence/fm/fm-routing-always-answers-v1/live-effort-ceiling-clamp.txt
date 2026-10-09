@@ -1,0 +1,16 @@
+$ bin/fm-dispatch-resolve.sh /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-brief.md --project public-demo
+FM_HOME: worktree-local isolated live-home
+dispatch-resolve:
+  status: backup
+  decided: rule_1 by backup
+  typed: skipped (no typed-call key configured)
+  backup: rule_1 effort=xhigh (claude-haiku-5-5, 2790 ms)
+  model: backup:claude-haiku-5-5   latency_ms: 2790   tokens: -/-
+  rule: rule_1 (Complex architecture design and investigation with an unknow)   confidence: 1
+  probabilities: rule_1=1 default=0
+  effort: xhigh (backup judge)
+  note: rule matched
+  candidate: claude:claude-opus-5-5  provider=claude  effort=medium(range medium) [clamped from xhigh]  scope=all_models  remaining=36%  spendPriority=-1.5461  runway=projected_exhaustion  pred=unknown  -> eligible
+  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'medium'
+
+exit=0; elapsed=4.77s

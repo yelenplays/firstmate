@@ -1,0 +1,134 @@
+[
+  {
+    "label": "live-dispatch-default",
+    "exit": 0,
+    "output": "dispatch-resolve:\n  status: fallback\n  decided: default by default\n  typed: skipped (no typed-call key configured)\n  backup: failed (FM_BACKUP_JUDGE_TIMEOUT must be 1..600)\n  model: default   latency_ms: 0   tokens: -/-\n  rule: default (No listed rule applies to this task.)   confidence: 1\n  probabilities: rule_1=0 default=1\n  effort: - (declared fallback (classifier absent))\n  note: no rule matched\n  candidate: claude:claude-opus-5-5  provider=claude  effort=high(range high..xhigh)  scope=all_models  remaining=36%  spendPriority=-1.5529  runway=projected_exhaustion  pred=unknown  -> eligible\n  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'high'\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-dispatch-default.txt"
+  },
+  {
+    "label": "live-home-default",
+    "exit": 0,
+    "output": "route: main\ndecided: default\ntyped: no_key\nbackup: failed (FM_BACKUP_JUDGE_TIMEOUT must be 1..600)\nnext: dispatch from this home\noverride: to record your own call instead: bin/fm-home-route.sh judge both-down --route <main|lead[+mate,...]> --reason <why>\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-home-default.txt"
+  },
+  {
+    "label": "live-typed-only",
+    "exit": 0,
+    "output": "dispatch-resolve: off (TYPESAFE_API_KEY and OPENROUTER_API_KEY absent from the environment and /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/.env)\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-typed-only.txt"
+  },
+  {
+    "label": "live-home-unsafe",
+    "exit": 0,
+    "output": "route: main\ndecided: default\ntyped: unsafe_summary\nbackup: skipped (unsafe_summary)\nnext: dispatch from this home\noverride: to record your own call instead: bin/fm-home-route.sh judge unsafe-summary --route <main|lead[+mate,...]> --reason <why>\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-home-unsafe.txt"
+  },
+  {
+    "label": "live-home-missing-scopes",
+    "exit": 0,
+    "output": "route: main\ndecided: default\ntyped: no_public_scopes\nbackup: skipped (no_public_scopes)\nnext: dispatch from this home\noverride: to record your own call instead: bin/fm-home-route.sh judge missing-scopes --route <main|lead[+mate,...]> --reason <why>\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-home-missing-scopes.txt"
+  },
+  {
+    "label": "live-home-missing-registry",
+    "exit": 0,
+    "output": "route: main\ndecided: default\ntyped: registry_unavailable\nbackup: skipped (registry_unavailable)\nnext: dispatch from this home\noverride: to record your own call instead: bin/fm-home-route.sh judge missing-registry --route <main|lead[+mate,...]> --reason <why>\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-home-missing-registry.txt"
+  },
+  {
+    "label": "live-home-judge-override",
+    "exit": 0,
+    "output": "route: main\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-home-judge-override.txt"
+  },
+  {
+    "label": "live-home-repeat-override",
+    "exit": 0,
+    "output": "route: frontend\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-home-repeat-override.txt"
+  },
+  {
+    "label": "live-home-gate-refusal",
+    "exit": 1,
+    "output": "error: task public-layout belongs to second mate frontend (route frontend, source judgment); hand it off instead of spawning here: bin/fm-backlog-handoff.sh frontend public-layout\n  To spawn here anyway, pass --route-override 'captain: <the captain redirect>' or --route-override 'blocker: <the concrete blocker>'.\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-home-gate-refusal.txt"
+  },
+  {
+    "label": "live-home-gate-main",
+    "exit": 0,
+    "output": "",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-home-gate-main.txt"
+  },
+  {
+    "label": "live-default-rescue",
+    "exit": 0,
+    "output": "dispatch-resolve:\n  status: fallback\n  decided: rule_1 by backup\n  typed: skipped (no typed-call key configured)\n  backup: rule_1 effort=low (claude-haiku-5-5, 2981 ms)\n  model: backup:claude-haiku-5-5   latency_ms: 2981   tokens: -/-\n  rule: rule_1 (A one-line bug fix with a known root cause.)   confidence: 1\n  probabilities: rule_1=1 default=0\n  effort: low (backup judge)\n  reason: no rankable eligible candidate\n  note: rule matched\n  last_resort: no rankable eligible candidate: first eligible candidate in declared order\n  candidate: claude:claude-haiku-5-5  provider=claude  effort=high(range high..xhigh) [clamped from low]  scope=live_validation_nonexistent_scope  remaining=-%  spendPriority=-  runway=-  pred=unknown  -> eligible, unranked: profile floor live_validation_nonexistent_scope is unverifiable: not rankable: disclosed uncertainty\n  profile: --harness 'claude' --model 'claude-haiku-5-5' --effort 'high'\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-default-rescue.txt"
+  },
+  {
+    "label": "live-all-refused",
+    "exit": 0,
+    "output": "dispatch-resolve:\n  status: fallback\n  decided: rule_1 by backup\n  typed: skipped (no typed-call key configured)\n  backup: rule_1 effort=medium (claude-haiku-5-5, 3648 ms)\n  model: backup:claude-haiku-5-5   latency_ms: 3648   tokens: -/-\n  rule: rule_1 (A one-line bug fix with a known root cause.)   confidence: 1\n  probabilities: rule_1=1 default=0\n  effort: medium (backup judge)\n  reason: no rankable eligible candidate\n  note: rule matched\n  last_resort: no rankable eligible candidate: first eligible candidate in declared order\n  candidate: claude:claude-haiku-5-5  provider=claude  effort=high(range high..xhigh) [clamped from medium]  scope=live_validation_nonexistent_scope  remaining=-%  spendPriority=-  runway=-  pred=unknown  -> eligible, unranked: profile floor live_validation_nonexistent_scope is unverifiable: not rankable: disclosed uncertainty\n  profile: --harness 'claude' --model 'claude-haiku-5-5' --effort 'high'\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-all-refused.txt"
+  },
+  {
+    "label": "live-rule-floor-fallthrough",
+    "exit": 0,
+    "output": "dispatch-resolve:\n  status: backup\n  decided: default by backup\n  matched: rule_1 (its profiles were not used)\n  typed: skipped (no typed-call key configured)\n  backup: rule_1 effort=medium (claude-haiku-5-5, 4421 ms)\n  model: backup:claude-haiku-5-5   latency_ms: 4421   tokens: -/-\n  rule: rule_1 (A one-line bug fix with a known root cause.)   confidence: 1\n  probabilities: rule_1=1 default=0\n  effort: medium (backup judge)\n  note: rule rule_1 floor all_models below 100%: fall through to default\n  candidate: claude:claude-opus-5-5  provider=claude  effort=high(range high..xhigh) [clamped from medium]  scope=all_models  remaining=36%  spendPriority=-1.5526  runway=projected_exhaustion  pred=unknown  -> eligible\n  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'high'\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-rule-floor-fallthrough.txt"
+  },
+  {
+    "label": "live-selftest-floor-misroutes",
+    "exit": 1,
+    "output": "FAIL floor-1 expect=rule_1 decided=default by=backup status=backup\nPASS floor-2 expect=rule_1 decided=rule_1 by=backup status=fallback\nPASS floor-3 expect=rule_1 decided=rule_1 by=backup status=fallback\nselftest: 3 samples, 2 pass, 1 fail: floor-1\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-floor-misroutes.txt"
+  },
+  {
+    "label": "live-selftest-privacy-dangling",
+    "exit": 2,
+    "output": "error: dispatch-never-send list is not a readable regular file; nothing sent\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-privacy-dangling.txt"
+  },
+  {
+    "label": "live-dispatch-privacy-dangling",
+    "exit": 0,
+    "output": "dispatch-resolve: off (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-never-send is not a readable regular file; nothing sent)\ndispatch-resolve:\n  status: fallback\n  decided: default by default\n  typed: skipped (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-never-send is not a readable regular file; nothing sent)\n  backup: skipped (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-never-send is not a readable regular file; nothing sent)\n  model: default   latency_ms: 0   tokens: -/-\n  rule: default (No listed rule applies to this task.)   confidence: 1\n  probabilities: rule_1=0 default=1\n  effort: - (declared fallback (classifier absent))\n  reason: no rankable eligible candidate\n  note: no rule matched\n  last_resort: no rankable eligible candidate: first eligible candidate in declared order\n  candidate: claude:claude-opus-5-5  provider=claude  effort=high(range high..xhigh)  scope=all_models  remaining=-%  spendPriority=-  runway=unknown  pred=unknown  -> eligible, unranked: provider claude unmeasured (unknown): disclosed uncertainty\n  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'high'\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-dispatch-privacy-dangling.txt"
+  },
+  {
+    "label": "live-selftest-privacy-directory",
+    "exit": 2,
+    "output": "error: dispatch-never-send list is not a readable regular file; nothing sent\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-privacy-directory.txt"
+  },
+  {
+    "label": "live-dispatch-privacy-directory",
+    "exit": 0,
+    "output": "dispatch-resolve: off (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-never-send is not a readable regular file; nothing sent)\ndispatch-resolve:\n  status: fallback\n  decided: default by default\n  typed: skipped (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-never-send is not a readable regular file; nothing sent)\n  backup: skipped (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-never-send is not a readable regular file; nothing sent)\n  model: default   latency_ms: 0   tokens: -/-\n  rule: default (No listed rule applies to this task.)   confidence: 1\n  probabilities: rule_1=0 default=1\n  effort: - (declared fallback (classifier absent))\n  reason: no rankable eligible candidate\n  note: no rule matched\n  last_resort: no rankable eligible candidate: first eligible candidate in declared order\n  candidate: claude:claude-opus-5-5  provider=claude  effort=high(range high..xhigh)  scope=all_models  remaining=-%  spendPriority=-  runway=unknown  pred=unknown  -> eligible, unranked: provider claude unmeasured (unknown): disclosed uncertainty\n  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'high'\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-dispatch-privacy-directory.txt"
+  },
+  {
+    "label": "live-selftest-privacy-match",
+    "exit": 1,
+    "output": "FAIL floor-1 expect=rule_1 decided=default by=default status=fallback\nFAIL floor-2 expect=rule_1 decided=default by=default status=fallback\nFAIL floor-3 expect=rule_1 decided=default by=default status=fallback\nselftest: 3 samples, 0 pass, 3 fail: floor-1 floor-2 floor-3\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-privacy-match.txt"
+  },
+  {
+    "label": "live-dispatch-privacy-match",
+    "exit": 0,
+    "output": "dispatch-resolve: off (brief text matches /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-never-send line 1; nothing sent)\ndispatch-resolve:\n  status: fallback\n  decided: default by default\n  typed: skipped (brief text matches /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-never-send line 1; nothing sent)\n  backup: skipped (brief text matches /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/config/dispatch-never-send line 1; nothing sent)\n  model: default   latency_ms: 0   tokens: -/-\n  rule: default (No listed rule applies to this task.)   confidence: 1\n  probabilities: rule_1=0 default=1\n  effort: - (declared fallback (classifier absent))\n  reason: no rankable eligible candidate\n  note: no rule matched\n  last_resort: no rankable eligible candidate: first eligible candidate in declared order\n  candidate: claude:claude-opus-5-5  provider=claude  effort=high(range high..xhigh)  scope=all_models  remaining=-%  spendPriority=-  runway=unknown  pred=unknown  -> eligible, unranked: provider claude unmeasured (unknown): disclosed uncertainty\n  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'high'\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-dispatch-privacy-match.txt"
+  },
+  {
+    "label": "live-captain-approval",
+    "exit": 0,
+    "output": "dispatch-resolve:\n  status: escalate\n  decided: rule_1 by backup\n  typed: skipped (no typed-call key configured)\n  backup: rule_1 effort=medium (claude-haiku-5-5, 2789 ms)\n  model: backup:claude-haiku-5-5   latency_ms: 2789   tokens: -/-\n  rule: rule_1 (A one-line bug fix with a known root cause.)   confidence: 1\n  probabilities: rule_1=1 default=0\n  effort: medium (backup judge)\n  reason: rule requires the captain's explicit approval before dispatch\n  candidate: claude:claude-haiku-5-5  provider=claude  effort=high(range high..xhigh) [clamped from medium]  scope=all_models  remaining=-%  spendPriority=-  runway=unknown  pred=unknown  -> eligible, unranked: provider claude unmeasured (unknown): disclosed uncertainty\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-captain-approval.txt"
+  },
+  {
+    "label": "live-selftest-corpus",
+    "exit": 0,
+    "output": "PASS think-1 expect=rule_1 decided=rule_1 by=backup status=fallback\nPASS think-2 expect=rule_1 decided=rule_1 by=backup status=fallback\nPASS think-3 expect=rule_1 decided=rule_1 by=backup status=fallback\nPASS think-4 expect=rule_1 decided=rule_1 by=backup status=fallback\nPASS front-1 expect=rule_2 decided=rule_2 by=backup status=fallback\nPASS front-2 expect=rule_2 decided=rule_2 by=backup status=fallback\nPASS front-3 expect=rule_2 decided=rule_2 by=backup status=fallback\nPASS front-4 expect=rule_2 decided=rule_2 by=backup status=fallback\nPASS luna-1 expect=rule_3 decided=rule_3 by=backup status=backup\nPASS luna-2 expect=rule_3 decided=rule_3 by=backup status=backup\nPASS luna-3 expect=rule_3 decided=rule_3 by=backup status=backup\nPASS luna-4 expect=rule_3 decided=rule_3 by=backup status=backup\nPASS bulk-1 expect=rule_4 decided=rule_4 by=backup status=fallback\nPASS bulk-2 expect=rule_4 decided=rule_4 by=backup status=fallback\nPASS bulk-3 expect=rule_4 decided=rule_4 by=backup status=fallback\nPASS bulk-4 expect=rule_4 decided=rule_4 by=backup status=fallback\nPASS fast-1 expect=rule_5 decided=rule_5 by=backup status=fallback\nPASS fast-2 expect=rule_5 decided=rule_5 by=backup status=fallback\nPASS fast-3 expect=rule_5 decided=rule_5 by=backup status=fallback\nPASS fast-4 expect=rule_5 decided=rule_5 by=backup status=fallback\nPASS impl-1 expect=rule_6 decided=rule_6 by=backup status=fallback\nPASS impl-2 expect=rule_6 decided=rule_6 by=backup status=fallback\nPASS impl-3 expect=rule_6 decided=rule_6 by=backup status=fallback\nPASS site-1 expect=rule_7 decided=rule_7 by=backup status=fallback\nPASS site-2 expect=rule_7 decided=rule_7 by=backup status=fallback\nPASS site-3 expect=rule_7 decided=rule_7 by=backup status=fallback\nPASS site-4 expect=rule_7 decided=rule_7 by=backup status=fallback\nPASS none-1 expect=default decided=default by=backup status=fallback\nPASS none-2 expect=default decided=default by=backup status=fallback\nPASS none-3 expect=default decided=default by=backup status=fallback\nselftest: 30 samples, 30 pass, 0 fail\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-selftest-corpus.txt"
+  }
+]

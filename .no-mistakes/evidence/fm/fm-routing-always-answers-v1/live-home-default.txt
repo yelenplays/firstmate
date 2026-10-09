@@ -1,0 +1,10 @@
+$ bin/fm-home-route.sh decide both-down --project public-demo --public-summary Fix spacing in the header of the public demo website
+FM_HOME: worktree-local isolated live-home
+route: main
+decided: default
+typed: no_key
+backup: failed (FM_BACKUP_JUDGE_TIMEOUT must be 1..600)
+next: dispatch from this home
+override: to record your own call instead: bin/fm-home-route.sh judge both-down --route <main|lead[+mate,...]> --reason <why>
+
+exit=0; elapsed=0.24s

@@ -1,0 +1,5 @@
+$ bin/fm-dispatch-selftest.sh run
+FM_HOME: worktree-local isolated live-home
+error: dispatch-never-send list is not a readable regular file; nothing sent
+
+exit=2; elapsed=0.05s

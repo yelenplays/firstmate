@@ -1,0 +1,5 @@
+$ bin/fm-dispatch-selftest.sh run --record
+FM_HOME: worktree-local isolated live-home
+fm-dispatch-selftest: a recorded run is already active
+
+exit=1; elapsed=0.04s

@@ -1,0 +1,10 @@
+$ bin/fm-home-route.sh decide missing-registry --project public-demo --public-summary Fix header spacing in the public demo website
+FM_HOME: worktree-local isolated live-home
+route: main
+decided: default
+typed: registry_unavailable
+backup: skipped (registry_unavailable)
+next: dispatch from this home
+override: to record your own call instead: bin/fm-home-route.sh judge missing-registry --route <main|lead[+mate,...]> --reason <why>
+
+exit=0; elapsed=0.10s

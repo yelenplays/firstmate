@@ -1,0 +1,14 @@
+[
+  {
+    "label": "live-effort-ceiling-clamp",
+    "exit": 0,
+    "output": "dispatch-resolve:\n  status: backup\n  decided: rule_1 by backup\n  typed: skipped (no typed-call key configured)\n  backup: rule_1 effort=xhigh (claude-haiku-5-5, 2790 ms)\n  model: backup:claude-haiku-5-5   latency_ms: 2790   tokens: -/-\n  rule: rule_1 (Complex architecture design and investigation with an unknow)   confidence: 1\n  probabilities: rule_1=1 default=0\n  effort: xhigh (backup judge)\n  note: rule matched\n  candidate: claude:claude-opus-5-5  provider=claude  effort=medium(range medium) [clamped from xhigh]  scope=all_models  remaining=36%  spendPriority=-1.5461  runway=projected_exhaustion  pred=unknown  -> eligible\n  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'medium'\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-effort-ceiling-clamp.txt"
+  },
+  {
+    "label": "live-home-consult",
+    "exit": 0,
+    "output": "route: frontend+facts\ndecided: backup\ntyped: no_key\nbackup: ok (5729 ms)\nnext: hand the item to frontend: bin/fm-backlog-handoff.sh frontend public-faq (facts supplies facts)\noverride: to record your own call instead: bin/fm-home-route.sh judge public-faq --route <main|lead[+mate,...]> --reason <why>\n",
+    "path": "/Users/yelen/.no-mistakes/evidence/01M4FXJHWHG22ZKQ3JYW98KP24/live-home-consult.txt"
+  }
+]

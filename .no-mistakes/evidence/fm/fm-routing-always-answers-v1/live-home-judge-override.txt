@@ -1,0 +1,5 @@
+$ bin/fm-home-route.sh judge public-layout --route main --reason Operator directs the isolated task to main
+FM_HOME: worktree-local isolated live-home
+route: main
+
+exit=0; elapsed=0.09s

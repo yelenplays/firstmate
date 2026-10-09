@@ -1,0 +1,4 @@
+$ bin/fm-dispatch-selftest.sh check
+FM_HOME: worktree-local isolated live-home
+
+exit=0; elapsed=0.15s

@@ -1,0 +1,18 @@
+$ bin/fm-dispatch-resolve.sh /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-brief.md --project public-demo
+FM_HOME: worktree-local isolated live-home
+dispatch-resolve:
+  status: fallback
+  decided: rule_1 by backup
+  typed: skipped (no typed-call key configured)
+  backup: rule_1 effort=low (claude-haiku-5-5, 2981 ms)
+  model: backup:claude-haiku-5-5   latency_ms: 2981   tokens: -/-
+  rule: rule_1 (A one-line bug fix with a known root cause.)   confidence: 1
+  probabilities: rule_1=1 default=0
+  effort: low (backup judge)
+  reason: no rankable eligible candidate
+  note: rule matched
+  last_resort: no rankable eligible candidate: first eligible candidate in declared order
+  candidate: claude:claude-haiku-5-5  provider=claude  effort=high(range high..xhigh) [clamped from low]  scope=live_validation_nonexistent_scope  remaining=-%  spendPriority=-  runway=-  pred=unknown  -> eligible, unranked: profile floor live_validation_nonexistent_scope is unverifiable: not rankable: disclosed uncertainty
+  profile: --harness 'claude' --model 'claude-haiku-5-5' --effort 'high'
+
+exit=0; elapsed=4.04s

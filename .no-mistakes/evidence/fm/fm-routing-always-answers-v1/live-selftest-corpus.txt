@@ -1,0 +1,35 @@
+$ bin/fm-dispatch-selftest.sh run --rules tests/fixtures/dispatch-selftest/rules.json --samples tests/fixtures/dispatch-selftest/samples.json
+FM_HOME: worktree-local isolated live-home
+PASS think-1 expect=rule_1 decided=rule_1 by=backup status=fallback
+PASS think-2 expect=rule_1 decided=rule_1 by=backup status=fallback
+PASS think-3 expect=rule_1 decided=rule_1 by=backup status=fallback
+PASS think-4 expect=rule_1 decided=rule_1 by=backup status=fallback
+PASS front-1 expect=rule_2 decided=rule_2 by=backup status=fallback
+PASS front-2 expect=rule_2 decided=rule_2 by=backup status=fallback
+PASS front-3 expect=rule_2 decided=rule_2 by=backup status=fallback
+PASS front-4 expect=rule_2 decided=rule_2 by=backup status=fallback
+PASS luna-1 expect=rule_3 decided=rule_3 by=backup status=backup
+PASS luna-2 expect=rule_3 decided=rule_3 by=backup status=backup
+PASS luna-3 expect=rule_3 decided=rule_3 by=backup status=backup
+PASS luna-4 expect=rule_3 decided=rule_3 by=backup status=backup
+PASS bulk-1 expect=rule_4 decided=rule_4 by=backup status=fallback
+PASS bulk-2 expect=rule_4 decided=rule_4 by=backup status=fallback
+PASS bulk-3 expect=rule_4 decided=rule_4 by=backup status=fallback
+PASS bulk-4 expect=rule_4 decided=rule_4 by=backup status=fallback
+PASS fast-1 expect=rule_5 decided=rule_5 by=backup status=fallback
+PASS fast-2 expect=rule_5 decided=rule_5 by=backup status=fallback
+PASS fast-3 expect=rule_5 decided=rule_5 by=backup status=fallback
+PASS fast-4 expect=rule_5 decided=rule_5 by=backup status=fallback
+PASS impl-1 expect=rule_6 decided=rule_6 by=backup status=fallback
+PASS impl-2 expect=rule_6 decided=rule_6 by=backup status=fallback
+PASS impl-3 expect=rule_6 decided=rule_6 by=backup status=fallback
+PASS site-1 expect=rule_7 decided=rule_7 by=backup status=fallback
+PASS site-2 expect=rule_7 decided=rule_7 by=backup status=fallback
+PASS site-3 expect=rule_7 decided=rule_7 by=backup status=fallback
+PASS site-4 expect=rule_7 decided=rule_7 by=backup status=fallback
+PASS none-1 expect=default decided=default by=backup status=fallback
+PASS none-2 expect=default decided=default by=backup status=fallback
+PASS none-3 expect=default decided=default by=backup status=fallback
+selftest: 30 samples, 30 pass, 0 fail
+
+exit=0; elapsed=149.98s

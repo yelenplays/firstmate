@@ -1,0 +1,4 @@
+$ bin/fm-home-route.sh check both-down /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/projects/public-demo
+FM_HOME: worktree-local isolated live-home
+
+exit=0; elapsed=0.08s

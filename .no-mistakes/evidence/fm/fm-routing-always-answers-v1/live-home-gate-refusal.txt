@@ -1,0 +1,6 @@
+$ bin/fm-home-route.sh check public-layout /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-home/projects/public-demo
+FM_HOME: worktree-local isolated live-home
+error: task public-layout belongs to second mate frontend (route frontend, source judgment); hand it off instead of spawning here: bin/fm-backlog-handoff.sh frontend public-layout
+  To spawn here anyway, pass --route-override 'captain: <the captain redirect>' or --route-override 'blocker: <the concrete blocker>'.
+
+exit=1; elapsed=0.09s

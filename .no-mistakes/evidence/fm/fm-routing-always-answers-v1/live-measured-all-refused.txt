@@ -1,0 +1,18 @@
+$ bin/fm-dispatch-resolve.sh /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FXJHWHG22ZKQ3JYW98KP24/.live-validation-tmp/live-brief.md --project public-demo
+FM_HOME: worktree-local isolated live-home
+dispatch-resolve:
+  status: fallback
+  decided: rule_1 by backup
+  typed: skipped (no typed-call key configured)
+  backup: rule_1 effort=medium (claude-haiku-5-5, 2496 ms)
+  model: backup:claude-haiku-5-5   latency_ms: 2496   tokens: -/-
+  rule: rule_1 (A one-line bug fix with a known root cause.)   confidence: 1
+  probabilities: rule_1=1 default=0
+  effort: medium (backup judge)
+  reason: no rankable eligible candidate
+  note: rule matched
+  last_resort: no rankable eligible candidate: every candidate refused; first declared candidate; rule rule_1 candidates refused: profile floor all_models below 100%; default candidates refused: profile floor all_models below 100%; first declared candidate used
+  candidate: codex:gpt-5.6-sol  provider=codex  effort=high(range high) [clamped from medium]  scope=all_models  remaining=52%  spendPriority=-  runway=projected_exhaustion  -> not eligible: profile floor all_models below 100%
+  profile: --harness 'codex' --model 'gpt-5.6-sol' --effort 'high'
+
+exit=0; elapsed=4.29s

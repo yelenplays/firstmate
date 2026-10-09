@@ -1,0 +1,19 @@
+ok - fixture: 30 samples with at least three per rule
+ok - run: the typed stage routes every sample
+ok - run: an unreadable never-send list refuses before any sample is sent
+ok - run: a floor fall-through to the default lane is a failure, not a pass
+ok - selftests enforce live prediction gates without modifying or disclosing evidence
+ok - run: the backup judge routes every sample when the typed call is down
+ok - run: losing both judges is reported, never hidden behind the default answer
+ok - run: a misrouted sample is named
+ok - run: coverage gaps fail and malformed input is refused
+ok - check: changed rules trigger an immediate proof and passing inputs stay quiet
+ok - check: failed attempts alert once until inputs change
+ok - run --record shares the check lock and cannot be mistaken for a stopped run
+ok - check snapshots, stopped-run recovery, and missing-input publication exclude overlapping recorded runs
+ok - check: a run that stopped early is reported
+ok - check: a passing scheduled run stays silent
+ok - check: a missing samples file alerts once until change or nightly slot
+ok - check: resolver and backup implementation changes trigger proof
+ok - disarm: retires the shim, its binding, and its cadence
+# all fm-dispatch-selftest tests passed
