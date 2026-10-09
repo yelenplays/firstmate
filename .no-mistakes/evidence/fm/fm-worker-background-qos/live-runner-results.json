@@ -1,0 +1,67 @@
+{
+  "cpus": 14,
+  "results": [
+    {
+      "name": "three concurrent suites",
+      "starts": 12,
+      "maximum": 4,
+      "cap": 4,
+      "qos": "0x11"
+    },
+    {
+      "name": "reclaim dead",
+      "starts": 1,
+      "maximum": 1,
+      "cap": 4,
+      "qos": "0x11"
+    },
+    {
+      "name": "reclaim unpublished",
+      "starts": 1,
+      "maximum": 1,
+      "cap": 4,
+      "qos": "0x11"
+    },
+    {
+      "name": "nested runners",
+      "starts": 8,
+      "maximum": 4,
+      "cap": 4,
+      "qos": "0x11"
+    },
+    {
+      "name": "cancel SIGINT",
+      "exit": 130,
+      "children_stopped": [
+        69027,
+        69091,
+        69259,
+        69381
+      ],
+      "slots_released": true
+    },
+    {
+      "name": "cancel SIGTERM",
+      "exit": 143,
+      "children_stopped": [
+        73993,
+        74075,
+        74144,
+        74171
+      ],
+      "slots_released": true
+    },
+    {
+      "name": "timeout native",
+      "script_exit": 124,
+      "slot_held_until_termination": true,
+      "slots_released": true
+    },
+    {
+      "name": "timeout bash",
+      "script_exit": 124,
+      "slot_held_until_termination": true,
+      "slots_released": true
+    }
+  ]
+}

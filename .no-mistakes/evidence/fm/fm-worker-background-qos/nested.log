@@ -1,0 +1,59 @@
+FM_TEST_BEGIN 2026-10-09T10:33:55Z tests/fm-brief.test.sh family=pure-contract-unit expected_gate_skip=none
+FM_TEST_BEGIN 2026-10-09T10:33:55Z tests/fm-cd-pretool-check.test.sh family=pure-contract-unit expected_gate_skip=none
+FM_TEST_BEGIN 2026-10-09T10:33:55Z tests/fm-pr-merge.test.sh family=pr-forge expected_gate_skip=none
+FM_TEST_BEGIN 2026-10-09T10:33:55Z tests/fm-supervision-instructions.test.sh family=pure-contract-unit expected_gate_skip=none
+FM_TEST_BEGIN 2026-10-09T10:33:55Z tests/fm-cd-pretool-check.test.sh family=pure-contract-unit expected_gate_skip=none
+script pid=61620 qos=0x11
+FM_TEST_END 2026-10-09T10:33:57Z tests/fm-cd-pretool-check.test.sh exit=0 duration_ms=1387 gate_skip=false
+FM_TEST_BEGIN 2026-10-09T10:33:57Z tests/fm-pr-merge.test.sh family=pr-forge expected_gate_skip=none
+script pid=64180 qos=0x11
+FM_TEST_END 2026-10-09T10:33:58Z tests/fm-pr-merge.test.sh exit=0 duration_ms=1348 gate_skip=false
+FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=3251
+FM_TEST_SUMMARY_FAMILY family=pr-forge count=1 duration_ms=1348 failed=0
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=1387 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-cd-pretool-check.test.sh duration_ms=1387
+FM_TEST_SLOWEST rank=2 script=tests/fm-pr-merge.test.sh duration_ms=1348
+FM_TEST_END 2026-10-09T10:33:59Z tests/fm-brief.test.sh exit=0 duration_ms=3810 gate_skip=false
+FM_TEST_BEGIN 2026-10-09T10:33:55Z tests/fm-cd-pretool-check.test.sh family=pure-contract-unit expected_gate_skip=none
+script pid=61814 qos=0x11
+FM_TEST_END 2026-10-09T10:33:57Z tests/fm-cd-pretool-check.test.sh exit=0 duration_ms=1322 gate_skip=false
+FM_TEST_BEGIN 2026-10-09T10:33:57Z tests/fm-pr-merge.test.sh family=pr-forge expected_gate_skip=none
+script pid=64426 qos=0x11
+FM_TEST_END 2026-10-09T10:33:58Z tests/fm-pr-merge.test.sh exit=0 duration_ms=1356 gate_skip=false
+FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=3441
+FM_TEST_SUMMARY_FAMILY family=pr-forge count=1 duration_ms=1356 failed=0
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=1322 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-pr-merge.test.sh duration_ms=1356
+FM_TEST_SLOWEST rank=2 script=tests/fm-cd-pretool-check.test.sh duration_ms=1322
+FM_TEST_END 2026-10-09T10:33:59Z tests/fm-cd-pretool-check.test.sh exit=0 duration_ms=3995 gate_skip=false
+FM_TEST_BEGIN 2026-10-09T10:33:55Z tests/fm-cd-pretool-check.test.sh family=pure-contract-unit expected_gate_skip=none
+script pid=62199 qos=0x11
+FM_TEST_END 2026-10-09T10:33:57Z tests/fm-cd-pretool-check.test.sh exit=0 duration_ms=1427 gate_skip=false
+FM_TEST_BEGIN 2026-10-09T10:33:57Z tests/fm-pr-merge.test.sh family=pr-forge expected_gate_skip=none
+script pid=64770 qos=0x11
+FM_TEST_END 2026-10-09T10:33:59Z tests/fm-pr-merge.test.sh exit=0 duration_ms=1223 gate_skip=false
+FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=3416
+FM_TEST_SUMMARY_FAMILY family=pr-forge count=1 duration_ms=1223 failed=0
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=1427 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-cd-pretool-check.test.sh duration_ms=1427
+FM_TEST_SLOWEST rank=2 script=tests/fm-pr-merge.test.sh duration_ms=1223
+FM_TEST_END 2026-10-09T10:33:59Z tests/fm-pr-merge.test.sh exit=0 duration_ms=4106 gate_skip=false
+FM_TEST_BEGIN 2026-10-09T10:33:56Z tests/fm-cd-pretool-check.test.sh family=pure-contract-unit expected_gate_skip=none
+script pid=62261 qos=0x11
+FM_TEST_END 2026-10-09T10:33:57Z tests/fm-cd-pretool-check.test.sh exit=0 duration_ms=1410 gate_skip=false
+FM_TEST_BEGIN 2026-10-09T10:33:57Z tests/fm-pr-merge.test.sh family=pr-forge expected_gate_skip=none
+script pid=64853 qos=0x11
+FM_TEST_END 2026-10-09T10:33:59Z tests/fm-pr-merge.test.sh exit=0 duration_ms=1413 gate_skip=false
+FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=3439
+FM_TEST_SUMMARY_FAMILY family=pr-forge count=1 duration_ms=1413 failed=0
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=1410 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-pr-merge.test.sh duration_ms=1413
+FM_TEST_SLOWEST rank=2 script=tests/fm-cd-pretool-check.test.sh duration_ms=1410
+FM_TEST_END 2026-10-09T10:33:59Z tests/fm-supervision-instructions.test.sh exit=0 duration_ms=4152 gate_skip=false
+FM_TEST_SUMMARY total=4 failed=0 skipped_gate=0 duration_ms=5256
+FM_TEST_SUMMARY_FAMILY family=pr-forge count=1 duration_ms=4106 failed=0
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=3 duration_ms=11957 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-supervision-instructions.test.sh duration_ms=4152
+FM_TEST_SLOWEST rank=2 script=tests/fm-pr-merge.test.sh duration_ms=4106
+FM_TEST_SLOWEST rank=3 script=tests/fm-cd-pretool-check.test.sh duration_ms=3995
+FM_TEST_SLOWEST rank=4 script=tests/fm-brief.test.sh duration_ms=3810

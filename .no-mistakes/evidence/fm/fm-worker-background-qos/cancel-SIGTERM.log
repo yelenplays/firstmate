@@ -1,0 +1,4 @@
+FM_TEST_BEGIN 2026-10-09T10:34:03Z tests/fm-brief.test.sh family=pure-contract-unit expected_gate_skip=none
+FM_TEST_BEGIN 2026-10-09T10:34:03Z tests/fm-cd-pretool-check.test.sh family=pure-contract-unit expected_gate_skip=none
+FM_TEST_BEGIN 2026-10-09T10:34:03Z tests/fm-pr-merge.test.sh family=pr-forge expected_gate_skip=none
+FM_TEST_BEGIN 2026-10-09T10:34:03Z tests/fm-supervision-instructions.test.sh family=pure-contract-unit expected_gate_skip=none

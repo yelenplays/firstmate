@@ -1,0 +1,40 @@
+This is the Z Shell configuration function for new users,
+zsh-newuser-install.
+You are seeing this message because you have no zsh startup files
+(the files .zshenv, .zprofile, .zshrc, .zlogin in the directory
+~).  This function can help you with a few settings that should
+make your use of the shell easier.
+
+You can:
+
+(q)  Quit and do nothing.  The function will be run again next time.
+
+(0)  Exit, creating the file ~/.zshrc containing just a comment.
+     That will prevent this function being run again.
+
+(1)  Continue to the main menu.
+
+--- Type one of the keys in parentheses --- cd -- '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FX8WGTCAVF0NABDE
+ZP63VV/.test-validation/fm-lab.3ifgP7/user-home/.treehouse/probe-cda6ee/2/probe'
+
+Aborting.
+The function will be run again next time.  To prevent this, execute:
+  touch ~/.zshrc
+d -- '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FX8WGTCAVF0NABDEZP63VV/.test-validation/fm-lab.3ifgP7/user-ho
+me/.treehouse/probe-cda6ee/2/probe'
+yelen@MBP-von-Yelen:~/.treehouse/probe-cda6ee/2/probe/ > d -- '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FX8W
+GTCAVF0NABDEZP63VV/.test-validation/fm-lab.3ifgP7/user-home/.treehouse/probe-cda6ee/2/probe'
+zsh: command not found: d
+yelen@MBP-von-Yelen:~/.treehouse/probe-cda6ee/2/probe/ > export GOTMPDIR=/tmp/fm-qos-allow/gotmp
+yelen@MBP-von-Yelen:~/.treehouse/probe-cda6ee/2/probe/ > export COMPACT_ADVISER_DISABLE=1
+yelen@MBP-von-Yelen:~/.treehouse/probe-cda6ee/2/probe/ > export FM_TASK_ID=qos-allow
+yelen@MBP-von-Yelen:~/.treehouse/probe-cda6ee/2/probe/ > . '/tmp/fm-qos-allow+2907db30712a7ae297bd953baa7a3128c30b9e1b0c
+5aa653f1667f172872dfb4/launch.s1791542254.36707.13617.sh'
+{"parent_qos": "0x11", "child_qos": "0x11", "applied": "utility", "zsh_input": "zsh-process-substitution", "cwd": "/User
+s/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FX8WGTCAVF0NABDEZP63VV/.test-validation/fm-lab.3ifgP7/user-home/.treehou
+se/probe-cda6ee/2/probe"}
+yelen@MBP-von-Yelen:~/.treehouse/probe-cda6ee/2/probe/ >
+
+
+
+

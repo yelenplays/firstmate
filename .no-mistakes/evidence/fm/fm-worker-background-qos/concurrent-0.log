@@ -1,0 +1,20 @@
+FM_TEST_BEGIN 2026-10-09T10:33:37Z tests/fm-brief.test.sh family=pure-contract-unit expected_gate_skip=none
+FM_TEST_BEGIN 2026-10-09T10:33:38Z tests/fm-cd-pretool-check.test.sh family=pure-contract-unit expected_gate_skip=none
+FM_TEST_BEGIN 2026-10-09T10:33:38Z tests/fm-pr-merge.test.sh family=pr-forge expected_gate_skip=none
+FM_TEST_BEGIN 2026-10-09T10:33:38Z tests/fm-supervision-instructions.test.sh family=pure-contract-unit expected_gate_skip=none
+script pid=28524 qos=0x11
+FM_TEST_END 2026-10-09T10:33:40Z tests/fm-brief.test.sh exit=0 duration_ms=2423 gate_skip=false
+script pid=30973 qos=0x11
+FM_TEST_END 2026-10-09T10:33:41Z tests/fm-cd-pretool-check.test.sh exit=0 duration_ms=3404 gate_skip=false
+script pid=33080 qos=0x11
+FM_TEST_END 2026-10-09T10:33:43Z tests/fm-supervision-instructions.test.sh exit=0 duration_ms=5029 gate_skip=false
+script pid=35223 qos=0x11
+FM_TEST_END 2026-10-09T10:33:44Z tests/fm-pr-merge.test.sh exit=0 duration_ms=6223 gate_skip=false
+FM_TEST_SUMMARY total=4 failed=0 skipped_gate=0 duration_ms=8036
+FM_TEST_SUMMARY_FAMILY family=pr-forge count=1 duration_ms=6223 failed=0
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=3 duration_ms=10856 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-pr-merge.test.sh duration_ms=6223
+FM_TEST_SLOWEST rank=2 script=tests/fm-supervision-instructions.test.sh duration_ms=5029
+FM_TEST_SLOWEST rank=3 script=tests/fm-cd-pretool-check.test.sh duration_ms=3404
+FM_TEST_SLOWEST rank=4 script=tests/fm-brief.test.sh duration_ms=2423
+fm-test-run: wrote timing artifact: /Users/yelen/.no-mistakes/evidence/01M4FX8WGTCAVF0NABDEZP63VV/concurrent-0.json

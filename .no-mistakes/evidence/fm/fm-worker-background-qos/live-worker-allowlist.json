@@ -1,0 +1,7 @@
+{
+  "parent_qos": "0x11",
+  "child_qos": "0x11",
+  "applied": "utility",
+  "zsh_input": "zsh-process-substitution",
+  "cwd": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4FX8WGTCAVF0NABDEZP63VV/.test-validation/fm-lab.3ifgP7/user-home/.treehouse/probe-cda6ee/2/probe"
+}
