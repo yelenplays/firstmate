@@ -1,0 +1,10 @@
+ ▐▛███▛█   Claude Code v2.1.295
+▝▜██████▀  Sonnet 5.5 with medium effort · Claude Pro
+ ▝▝   ▝▝   /private/tmp/fmlab.EVqRd4/home
+❯ Lab readiness probe from bin/fm-live-lab.sh. Run no tool or command for this message. Reply with only the word LABREADY, a hyphen, and then c83070436ee8, with no spaces.                                                 
+⏺ LABREADY-c83070436ee8                                                                                                                                                                                                     
+✻ Crunched for 4s · done 6:50 PM                                                                                                                                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯                                                                    
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent                   

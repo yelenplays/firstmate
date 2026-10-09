@@ -1,0 +1,3 @@
+worker settings fragment: {"env":{"SLASH_COMMAND_TOOL_CHAR_BUDGET":"8000"}}
+launch --settings: {"feedbackDrafts":"off","env":{"SLASH_COMMAND_TOOL_CHAR_BUDGET":"8000"}}
+300000

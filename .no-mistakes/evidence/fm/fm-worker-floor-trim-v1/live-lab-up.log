@@ -1,0 +1,25 @@
+lab: /private/tmp/fmlab.EVqRd4 (tear down with: bin/fm-live-lab.sh down /private/tmp/fmlab.EVqRd4)
+tree: 45b3ecc6ad299b413294cff8a0880f3bb009fb3d from /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4GQZWZWGTTMWB6BW0B721JB
+scaffolded: /private/tmp/fmlab.EVqRd4/home/data/labc83070436ee8-mate/brief.md (secondmate charter)
+home=/private/tmp/fmlab.EVqRd4/mate
+spawned labc83070436ee8-mate harness=claude kind=secondmate mode=secondmate yolo=off window=firstmate:fm-labc83070436ee8-mate worktree=/private/tmp/fmlab.EVqRd4/mate
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+spawned labc83070436ee8-worker harness=claude kind=ship mode=local-only yolo=on window=firstmate:fm-labc83070436ee8-worker worktree=/Users/yelen/.treehouse/notes-8b84c5/1/notes
+gate: /private/tmp/fmlab.EVqRd4/home/data/labc83070436ee8-worker/gate (touch, then message the worker to resume)
+primary: claude --setting-sources project,local --model sonnet --effort medium --permission-mode auto
+ok primary: claude pid 20111 in /private/tmp/fmlab.EVqRd4/home
+ok probe: the primary answered LABREADY-c83070436ee8
+ok trust: /private/tmp/fmlab.EVqRd4/home is trusted in the Claude store
+ok mirror: verified writer, check passed, captain=1 main=1
+ok host: supervision host pid 71903
+ok watcher: live watcher with a fresh beacon
+ok mate: labc83070436ee8-mate pid 65790 in /private/tmp/fmlab.EVqRd4/mate
+ok worker: labc83070436ee8-worker parked on /private/tmp/fmlab.EVqRd4/home/data/labc83070436ee8-worker/gate
+fail treehouse: new ~/.treehouse entries: notes-8b84c5
+not ready after 600s; the lab is left up for inspection: bin/fm-live-lab.sh pane /private/tmp/fmlab.EVqRd4, then bin/fm-live-lab.sh down /private/tmp/fmlab.EVqRd4
