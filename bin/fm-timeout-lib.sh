@@ -121,7 +121,7 @@ fm_run_bash_timeout() (
     command_rc=$?
     printf '%s\n' "$command_rc" > "$command_status"
     exit "$command_rc"
-  ) &
+  ) <&0 &
   child_pid=$!
   (
     set +m
@@ -173,7 +173,7 @@ fm_run_external_timeout() (
     command_rc=$?
     printf "%s\n" "$command_rc" > "$status_file"
     exit "$command_rc"
-  ' _ "$status_file" "$@" &
+  ' _ "$status_file" "$@" <&0 &
   runner_pid=$!
   trap 'rm -f "$status_file"' EXIT
   trap '_fm_run_timed_interrupt 130 "$runner_pid"' INT

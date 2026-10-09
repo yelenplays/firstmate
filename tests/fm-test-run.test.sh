@@ -2146,11 +2146,16 @@ test_runner_preserves_timeout_fallbacks() {
   init_changed_fixture_repo "$repo"
   cp "$ROOT/bin/fm-timeout-lib.sh" "$repo/bin/"
   mkdir -p "$tmp/bash-only" "$tmp/gnu-only"
-  for tool in bash sleep date dirname mkdir mktemp rm rmdir ln tee awk sort basename git getconf \
+  for tool in bash sleep date dirname mkdir mktemp rm rmdir ln tee awk sort basename git \
     python3 cat head mv stat tail tr wc uname chmod sed cut; do
     path=$(command -v "$tool") || fail "timeout fixture needs $tool"
     ln -s "$path" "$tmp/bash-only/$tool"
     ln -s "$path" "$tmp/gnu-only/$tool"
+  done
+  # Pin admission independently of whichever getconf the ambient PATH resolves.
+  for variant in bash-only gnu-only; do
+    printf '#!/bin/sh\nprintf "3\\n"\n' >"$tmp/$variant/getconf"
+    chmod +x "$tmp/$variant/getconf"
   done
   timeout_bin=$(command -v timeout || command -v gtimeout || true)
   if [ -n "$timeout_bin" ]; then
@@ -2165,7 +2170,13 @@ SH
 trap '' TERM
 printf '%s\n' "$$" >"$SLOT_STARTED"
 while :; do
-  if [ -f "$FM_TEST_SLOT_HELD/1/pid" ]; then
+  held=false
+  for record in "$FM_TEST_SLOT_HELD"/*/pid; do
+    if [ -f "$record" ] && IFS= read -r holder <"$record" && kill -0 "$holder" 2>/dev/null; then
+      held=true
+    fi
+  done
+  if "$held"; then
     printf held >"$SLOT_HELD_PROBE"
   else
     printf released >"$SLOT_EARLY_RELEASE"

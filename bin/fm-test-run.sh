@@ -2660,6 +2660,7 @@ run_script_bounded() (
   local slot='' candidate holder slot_pid slot_record='' command_pid='' n rc
   slot_pid=${BASHPID:-$(exec sh -c 'printf "%s\n" "$PPID"')}
   set +m
+  # shellcheck disable=SC2329 # Registered by this subshell's EXIT trap.
   release_script_slot() {
     if [ -n "$command_pid" ]; then
       kill -TERM -- "-$command_pid" 2>/dev/null || true

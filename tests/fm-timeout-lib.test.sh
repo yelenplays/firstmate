@@ -185,8 +185,7 @@ test_a_signal_to_the_bounding_process_reaches_the_command() {
   # shellcheck disable=SC2016
   (
     . "$ROOT/bin/fm-timeout-lib.sh"
-    PATH=$PERL_ONLY
-    fm_exec_timed 60 30 bash -c '
+    PATH=$PERL_ONLY fm_exec_timed 60 30 bash -c '
       trap "echo forwarded > \"\$2\"; exit 3" TERM
       echo $$ > "$1"
       while :; do sleep 0.1; done
@@ -426,12 +425,12 @@ test_bash_32_exec_timed_does_not_require_bashpid() {
 }
 
 test_timed_out_names_exactly_the_bound_statuses() {
-  local status verdict
-  for status in 124 137 0 1 125 127 143 ''; do
-    verdict=$( . "$ROOT/bin/fm-timeout-lib.sh"; if fm_timed_out "$status"; then echo yes; else echo no; fi)
-    case "$status" in
-      124|137) [ "$verdict" = yes ] || fail "status '$status' was not read as the bound" ;;
-      *) [ "$verdict" = no ] || fail "status '$status' was misread as the bound" ;;
+  local exit_status verdict
+  for exit_status in 124 137 0 1 125 127 143 ''; do
+    verdict=$( . "$ROOT/bin/fm-timeout-lib.sh"; if fm_timed_out "$exit_status"; then echo yes; else echo no; fi)
+    case "$exit_status" in
+      124|137) [ "$verdict" = yes ] || fail "status '$exit_status' was not read as the bound" ;;
+      *) [ "$verdict" = no ] || fail "status '$exit_status' was misread as the bound" ;;
     esac
   done
   pass "fm_timed_out accepts 124 and 137 and nothing else"
@@ -452,6 +451,27 @@ test_run_timed_passes_a_natural_exit_through_a_fired_bound() {
   pass 'fm_run_timed passes a natural exit through when the bound fired after completion'
 }
 
+test_run_timed_preserves_piped_stdin() {
+  local mechanism out rc
+  for mechanism in external bash perl; do
+    rc=0
+    out=$(printf 'first line\nsecond line\n' | (
+      . "$ROOT/bin/fm-timeout-lib.sh"
+      case "$mechanism" in
+        external) PATH="$RUN124:$PATH" ;;
+        bash) FM_TIMEOUT_MECHANISM_OVERRIDE=bash ;;
+        perl) PATH="$PERL_ONLY" ;;
+      esac
+      fm_run_timed 5 bash -c 'while IFS= read -r line; do printf "%s\n" "$line"; done; echo stderr-marker >&2; exit 7'
+    ) 2>"$TMP_ROOT/stdin.err") || rc=$?
+    [ "$rc" -eq 7 ] || fail "$mechanism lost the stdin consumer's exit status: $rc"
+    [ "$out" = $'first line\nsecond line' ] || fail "$mechanism lost piped stdin: $out"
+    assert_grep 'stderr-marker' "$TMP_ROOT/stdin.err" "$mechanism lost stderr"
+  done
+  pass "every fm_run_timed mechanism preserves piped stdin, stdout, stderr and exit status"
+}
+
+test_run_timed_preserves_piped_stdin
 test_passes_the_command_status_and_output_through
 test_system_bash_preserves_completion_and_signal_statuses
 test_run_timed_reports_the_bound_when_the_wrapper_records_a_signal_death
