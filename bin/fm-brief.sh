@@ -690,7 +690,7 @@ Write your findings to \`$DATA/$ID/report.md\` and put every explicitly named re
 The report must stand alone: what you did, what you found, the evidence (commands run, output, file:line references), and what you recommend.
 Before the final status line, verify that \`report.md\`, any requested \`report.html\` or \`report.pdf\`, and each additional named result file exist under \`$DATA/$ID/\`.
 $LAVISH_LINE
-Before reporting done, read and follow \`$FM_ROOT/.agents/skills/captain-hold-lifecycle/SKILL.md\` and pass its shared completion gate for the report and any visual review.
+Before reporting done, read and follow \`$FM_ROOT/.agents/skills/captain-hold-lifecycle/SKILL.md\` for the scout report handoff; firstmate passes its shared completion gate for the report and any visual review and performs cleanup.
 When the report is complete, append \`done [at=<epoch>]: {one-line conclusion}\` to the status file and stop.
 If your findings reveal work that should ship (e.g. you reproduced a bug and the fix is clear), say so in the report; firstmate may promote this task in place, and you would then receive mode-specific ship instructions as a follow-up message.
 EOF

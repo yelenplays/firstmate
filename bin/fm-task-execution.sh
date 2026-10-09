@@ -186,6 +186,16 @@ case "$command" in
       source=${RECONCILED_CURRENT#*source: }; source=${source%% ·*}
       fingerprint=$({
         printf '%s\n' "$line" "${RECONCILED_CURRENT%% ·*}" "$source"
+        printf '%s\n' "$RECONCILED_CURRENT" | awk -F ' · ' '
+          $2 == "source: run-step" && $3 ~ /^parked at / {
+            gate = $3
+            sub(/: [0-9]+ finding\(s\)$/, "", gate)
+            print gate
+          }
+          $2 == "source: run-step" || $2 == "source: status-log" {
+            for (i = 3; i <= NF; i++) if ($i ~ /^run: /) print $i
+          }
+        '
         row "$id" | jq -c '{state,hold_reason,hold_kind,hold_until,hold_set,unresolved_blocker_ids}'
         for key in kind spawn_gen pr mode; do meta "$STATE/$id.meta" "$key"; done
         # Status bytes include keyed opens/closes even when the next action

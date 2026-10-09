@@ -201,6 +201,29 @@ FM_FAKE_CREW_STATE='state: blocked · source: run-step · same next action' "$EX
 grep -q approved-scout "$home/notifications" || fail 'changed reconciled state with unchanged action did not notify'
 FM_FAKE_CREW_STATE='state: blocked · source: run-step · different volatile detail' "$EXEC" notify > "$home/dedup"
 [ ! -s "$home/dedup" ] || fail 'volatile crew detail resurfaced unchanged execution'
+"$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
+ack_drain_err "$home/state" "$home/err"
+for kind in ship task scout; do
+  printf 'kind=%s\n' "$kind" >> "$home/state/approved-scout.meta"
+  FM_FAKE_CREW_STATE='state: parked · source: run-step · parked at review: 2 finding(s) · run: run-a' "$EXEC" notify > "$home/notifications"
+  grep -q approved-scout "$home/notifications" || fail "$kind parked baseline did not notify"
+  "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
+  ack_drain_err "$home/state" "$home/err"
+  FM_FAKE_CREW_STATE='state: parked · source: run-step · parked at review: 3 finding(s) · volatile note changed · run: run-a' "$EXEC" notify > "$home/dedup"
+  [ ! -s "$home/dedup" ] || fail "$kind unchanged run/gate resurfaced on volatile detail"
+  FM_FAKE_CREW_STATE='state: parked · source: run-step · parked at test: 3 finding(s) · run: run-a' "$EXEC" notify > "$home/notifications"
+  grep -q approved-scout "$home/notifications" || fail "$kind changed parked gate did not notify"
+  "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
+  ack_drain_err "$home/state" "$home/err"
+  FM_FAKE_CREW_STATE='state: parked · source: run-step · parked at test: 3 finding(s) · run: run-a' "$EXEC" notify > "$home/dedup"
+  [ ! -s "$home/dedup" ] || fail "$kind changed parked gate notified more than once"
+  FM_FAKE_CREW_STATE='state: parked · source: run-step · parked at test: 3 finding(s) · run: run-b' "$EXEC" notify > "$home/notifications"
+  grep -q approved-scout "$home/notifications" || fail "$kind changed run identity did not notify"
+  "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
+  ack_drain_err "$home/state" "$home/err"
+  FM_FAKE_CREW_STATE='state: parked · source: run-step · parked at test: 3 finding(s) · run: run-b' "$EXEC" notify > "$home/dedup"
+  [ ! -s "$home/dedup" ] || fail "$kind changed run identity notified more than once"
+done
 # Supervision remains required with no endpoint at all, across process restart.
 rm "$home/state/approved-scout.meta"
 FM_STATE_OVERRIDE="$home/state" bash -c '. "$1"; fm_supervision_needed "$2"' _ "$ROOT/bin/fm-supervision-lib.sh" "$home/state"
