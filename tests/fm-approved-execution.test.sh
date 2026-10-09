@@ -6,6 +6,10 @@ fm_test_sanitize_environment
 set -eu
 # shellcheck source=tests/wake-helpers.sh
 . "$(dirname "${BASH_SOURCE[0]}")/wake-helpers.sh"
+# Bare assertions, pipelines, helper calls and waits must identify their failure
+# before the shared EXIT trap removes the fixture evidence.
+set -E
+trap 'printf "FAIL: %s:%s: %s (exit %s)\n" "${BASH_SOURCE[0]}" "$LINENO" "$BASH_COMMAND" "$?" >&2' ERR
 command -v tasks-axi >/dev/null || { echo 'skip: tasks-axi not found'; exit 0; }
 TMP_ROOT=$(fm_test_tmproot fm-approved-execution)
 home=$(make_case approved-scout)
