@@ -1997,6 +1997,19 @@ assert_contains "$out" '  backup: failed (fake-claude exited 1)' "chain: a faili
 assert_contains "$out" '  status: fallback' "chain: a failing backup stub falls to the default"
 pass "chain: a failed or invalid backup falls to the default rule"
 
+# Advise-only gates Jev's own pick: a backup or default-stage profile still binds.
+reset_log
+FM_JEV_EVAL_SCORES="$TMP_ROOT/no-scorecard.json" FAKE_BACKUP_ANSWER='{"rule":"rule_4","effort":"high"}' run_chain code out err "$BRIEF"
+assert_contains "$out" '  status: backup' "chain: advise-only no-key still goes to the backup"
+assert_contains "$out" '  profile: ' "chain: an advise-only site keeps the backup profile"
+assert_not_contains "$out" '  mode: advise' "chain: a backup pick is not printed as Jev advice"
+reset_log
+FM_JEV_EVAL_SCORES="$TMP_ROOT/no-scorecard.json" FAKE_CURL_HTTP=500 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_FAIL=1 run_chain code out err "$BRIEF"
+assert_contains "$out" '  status: fallback' "chain: advise-only failed backup falls to the default"
+assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" "chain: an advise-only site keeps the default profile"
+assert_not_contains "$out" '  mode: advise' "chain: a default-stage pick is not printed as Jev advice"
+pass "chain: advise-only mode leaves backup and default-stage profiles binding"
+
 # The never-send list blocks both judges: no typed call, no backup call, and
 # the default answers.
 reset_log

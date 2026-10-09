@@ -53,7 +53,7 @@
     "dispatch-resolve": {
       "recorded": {
         "cases": 70,
-        "agreement": 0.4571,
+        "agreement": 0.8,
         "dangerous_misses": 0
       },
       "synthetic": {

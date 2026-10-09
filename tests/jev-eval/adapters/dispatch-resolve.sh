@@ -3,6 +3,7 @@
 # into a scratch home with the public rules fixture, a fixed quota snapshot, and
 # no spend ledger, then prints the matched rule when the resolver clears or
 # picks a profile, or decline when it leaves the choice to firstmate.
+# --typed-only scores Jev alone: no backup judge or default stage answers.
 set -eu
 CASE=$1 WORK=$2
 ROOT=$FM_JEV_EVAL_CODE_ROOT
@@ -27,7 +28,7 @@ BRIEF=$WORK/brief.md
 } >"$BRIEF"
 PATH="$WORK/bin:$PATH" FM_HOME=$WORK/home FM_SPEND_LEDGER=$WORK/ledger \
   FM_JEV_DISPATCH_COMPACT=${FM_JEV_DISPATCH_COMPACT:-1} \
-  "$ROOT/bin/fm-dispatch-resolve.sh" "$BRIEF" --project "$(jq -r '.input.project' "$CASE")" >"$WORK/out" 2>"$WORK/err"
+  "$ROOT/bin/fm-dispatch-resolve.sh" "$BRIEF" --typed-only --project "$(jq -r '.input.project' "$CASE")" >"$WORK/out" 2>"$WORK/err"
 status=$(awk '$1 == "status:" { print $2; exit }' "$WORK/out")
 rule=$(awk '$1 == "rule:" { print $2; exit }' "$WORK/out")
 case "$status" in
