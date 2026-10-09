@@ -53,8 +53,7 @@
 #                   silently pass as a gate skip.
 #   --jobs N        run the selected scripts with up to N concurrent workers.
 #                   Plain --changed and a plain list of script paths use
-#                   min(4, cpus/2) workers, or FM_TEST_AUTO_JOBS (at most 8)
-#                   when set, when multiple selected scripts are
+#                   max(1, min(4, cpus/2)) workers when multiple scripts are
 #                   admissible; --lane, --family, and --all stay serial unless
 #                   asked for concurrency explicitly.
 #                   N>1 is allowed only when every selected script is proven
@@ -117,8 +116,14 @@
 # live-capability (a live-harness guard governed by fm_live_gate, which records
 # unavailable tools and explicit policy skips; see tests/lib.sh), or none.
 #
-# Every invocation runs at the background CPU class bin/fm-qos-lib.sh owns
-# (FM_WORKER_QOS), so a suite yields the CPU to interactive apps whoever starts it.
+# Every invocation applies utility QoS on macOS through bin/fm-qos-lib.sh.
+# All invocations share max(1, cpus/3) test-script slots per user, independent
+# of --jobs, using $HOME/.cache/firstmate/test-slots and waiting for free slots.
+# Slots record holder pids, reclaim dead holders, and release on exit or signal.
+# Nested runners reuse the inherited FM_TEST_SLOT_HELD slot and run serially.
+# FM_TEST_SLOT_DIR is a test-only override for an isolated absolute slot directory;
+# changing it also separates nested fixture runners from the parent's slots.
+# This bounds scripts, not the subprocesses that a script creates.
 #
 # Every selected script runs isolated from the host's global and system Git
 # configuration, including one that sources no test helper of its own;
@@ -156,10 +161,8 @@
 # above those also name individual tests/ files explicitly.
 set -eu
 
-# Run the whole suite at background CPU priority before anything else, so a
-# suite started by a worker, a pipeline daemon, or by hand yields the CPU to
-# interactive apps. bin/fm-qos-lib.sh owns the class, its override, and the
-# once-only re-exec; an unknown FM_WORKER_QOS refuses here.
+# Run the whole suite at utility CPU priority before anything else.
+# bin/fm-qos-lib.sh owns the policy and once-only re-exec.
 # shellcheck source=bin/fm-qos-lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/fm-qos-lib.sh"
 fm_qos_reexec "${BASH_SOURCE[0]}" "$@"
@@ -290,24 +293,10 @@ cpu_count() {
   printf '%s\n' "$n"
 }
 
-# Worker count for the automatic scheduler: FM_TEST_AUTO_JOBS when set,
-# otherwise half the online cores, never more than 4. Several workers often run
-# suites at once on one machine, so each suite takes a share of it rather than
-# all of it. An override above JOBS_MAX is lowered to it; anything but a
-# positive integer refuses.
 auto_jobs() {
-  local n=${FM_TEST_AUTO_JOBS:-}
-  if [ -n "$n" ]; then
-    case "$n" in
-      *[!0-9]*) die "FM_TEST_AUTO_JOBS must be a positive integer (got $n)" ;;
-    esac
-    n=$((10#$n))
-    [ "$n" -ge 1 ] || die "FM_TEST_AUTO_JOBS must be a positive integer (got $n)"
-    [ "$n" -le "$JOBS_MAX" ] || n=$JOBS_MAX
-  else
-    n=$(($(cpu_count) / 2))
-    [ "$n" -le 4 ] || n=4
-  fi
+  local n
+  n=$(($(cpu_count) / 2))
+  [ "$n" -le 4 ] || n=4
   [ "$n" -ge 1 ] || n=1
   printf '%s\n' "$n"
 }
@@ -2467,6 +2456,15 @@ if { [ "$MODE" = changed ] || [ "$MODE" = scripts ]; } && [ "$JOBS_EXPLICIT" -eq
     [ "$JOBS" -eq 1 ] || AUTO_CONCURRENCY=1
   fi
 fi
+SLOT_DIR=${FM_TEST_SLOT_DIR:-$HOME/.cache/firstmate/test-slots}
+case "$SLOT_DIR" in /*) ;; *) die "FM_TEST_SLOT_DIR must be absolute" ;; esac
+mkdir -p "$SLOT_DIR" || die "could not create test slot directory $SLOT_DIR"
+SLOT_DIR=$(cd "$SLOT_DIR" && pwd -P)
+SLOT_LIMIT=$(($(cpu_count) / 3))
+[ "$SLOT_LIMIT" -ge 1 ] || SLOT_LIMIT=1
+if [ "${FM_TEST_SLOT_HELD:-}" = "$SLOT_DIR" ]; then
+  JOBS=1
+fi
 if [ "$JOBS" -gt 1 ] || [ "$MODE" = changed ] || [ "$MODE" = scripts ]; then
   SELECTION_DESC="${SELECTION_DESC};jobs=$JOBS"
 fi
@@ -2553,10 +2551,23 @@ declare -a WORKER_SCRIPTS=()
 # Invoked indirectly by the EXIT trap below.
 # shellcheck disable=SC2329
 cleanup_run() {
+  local pid
+  for pid in "${WORKER_PIDS[@]+"${WORKER_PIDS[@]}"}" "${SERIAL_PID:-}"; do
+    [ -n "$pid" ] || continue
+    kill -TERM -- "-$pid" 2>/dev/null || true
+  done
+  for pid in "${WORKER_PIDS[@]+"${WORKER_PIDS[@]}"}" "${SERIAL_PID:-}"; do
+    [ -n "$pid" ] || continue
+    wait "$pid" 2>/dev/null || true
+  done
   rm -rf "$RUN_TMP"
 }
 
 trap cleanup_run EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+set -m
 
 RUN_ID="fm-test-run-${RUN_STARTED_MS}-$$"
 TOTAL=0
@@ -2639,45 +2650,107 @@ record_script_result() {
 # positive, a script that outruns it is terminated and reported as exit 124: a
 # hung script must become a bounded failure rather than an unbounded suite,
 # because an unbounded suite is what silently outruns its caller's budget.
-run_script_bounded() {  # <script> <out> <stream> <id>
+run_script_bounded() (
   local script=$1 out=$2 stream=$3 id=$4
-  # Declaring the variables local first keeps the helper's export scoped to this
-  # call and its child script, so the runner's own environment is left as the
-  # caller had it.
+  local slot='' candidate holder slot_pid slot_record='' command_pid='' n rc
+  slot_pid=${BASHPID:-$(exec sh -c 'printf "%s\n" "$PPID"')}
+  set +m
+  release_script_slot() {
+    if [ -n "$command_pid" ]; then
+      kill -TERM -- "-$command_pid" 2>/dev/null || true
+      if [ "$PER_SCRIPT_TIMEOUT_SECS" -gt 0 ]; then sleep 1.2; else sleep 0.2; fi
+      kill -KILL -- "-$command_pid" 2>/dev/null || true
+      wait "$command_pid" 2>/dev/null || true
+    fi
+    [ -z "$slot_record" ] || rm -f "$slot_record"
+    [ -n "$slot" ] || return 0
+    (
+      cd "$slot" 2>/dev/null || exit 0
+      [ "$(cat pid 2>/dev/null)" = "$slot_pid" ] || exit 0
+      rm -f pid
+      rmdir "$slot" 2>/dev/null || true
+    )
+  }
+  trap release_script_slot EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  trap 'exit 129' HUP
+  if [ "${FM_TEST_SLOT_HELD:-}" != "$SLOT_DIR" ]; then
+    slot_record="$SLOT_DIR/.pid.$slot_pid"
+    printf '%s\n' "$slot_pid" >"$slot_record" || return 1
+    while [ -z "$slot" ]; do
+      for ((n=1; n<=SLOT_LIMIT; n++)); do
+        candidate="$SLOT_DIR/$n"
+        if mkdir "$candidate" 2>/dev/null; then
+          slot=$candidate
+          if (cd "$candidate" && ln "$slot_record" pid && [ . -ef "$candidate" ]) 2>/dev/null; then
+            break
+          fi
+          slot=
+        else
+          (
+            cd "$candidate" 2>/dev/null || exit 0
+            if [ -f pid ]; then
+              holder=$(cat pid 2>/dev/null) || exit 0
+              case "$holder" in ''|*[!0-9]*|0) exit 0 ;; esac
+              kill -0 "$holder" 2>/dev/null && exit 0
+              rm pid 2>/dev/null || exit 0
+            fi
+            rmdir "$candidate" 2>/dev/null || true
+          )
+        fi
+      done
+      [ -n "$slot" ] || sleep 0.05
+    done
+    rm -f "$slot_record"
+    slot_record=
+    export FM_TEST_SLOT_HELD="$SLOT_DIR"
+  fi
+  # The subshell keeps the helper's export scoped to this call and its child
+  # script, so the runner's own environment is left as the caller had it.
   local GIT_CONFIG_GLOBAL GIT_CONFIG_NOSYSTEM
   # shellcheck source=tests/git-config-helpers.sh
   . "$ROOT/tests/git-config-helpers.sh" || return
   # shellcheck source=tests/environment.sh
   . "$ROOT/tests/environment.sh" || return
   fm_test_sanitize_environment
-  local rc
   : "$id"
   set +e
-  if [ "$stream" -eq 1 ]; then
+  set -m
+  (
+    trap - EXIT HUP INT TERM
+    set +m
     if [ "$PER_SCRIPT_TIMEOUT_SECS" -gt 0 ]; then
-      # Expansion is intentionally deferred to the child bash passed to -c.
-      # shellcheck disable=SC2016
-      fm_run_timed "$PER_SCRIPT_TIMEOUT_SECS" bash -c \
-        'bash "$1" 2>&1 | tee "$2"; exit "${PIPESTATUS[0]}"' _ "$script" "$out"
-      rc=$?
-    else
+      export FM_EXEC_TIMED_OWNER_PID="$slot_pid"
+      if [ "$stream" -eq 1 ]; then
+        # Expansion is intentionally deferred to the child bash passed to -c.
+        # shellcheck disable=SC2016
+        fm_exec_timed "$PER_SCRIPT_TIMEOUT_SECS" 1 bash -c \
+          'bash "$1" 2>&1 | tee "$2"; exit "${PIPESTATUS[0]}"' _ "$script" "$out"
+      else
+        fm_exec_timed "$PER_SCRIPT_TIMEOUT_SECS" 1 bash "$script" >"$out" 2>&1
+      fi
+    elif [ "$stream" -eq 1 ]; then
       bash "$script" 2>&1 | tee "$out"
       rc=${PIPESTATUS[0]}
+    else
+      bash "$script" >"$out" 2>&1
+      rc=$?
     fi
-  elif [ "$PER_SCRIPT_TIMEOUT_SECS" -gt 0 ]; then
-    fm_run_timed "$PER_SCRIPT_TIMEOUT_SECS" bash "$script" >"$out" 2>&1
-    rc=$?
-  else
-    bash "$script" >"$out" 2>&1
-    rc=$?
-  fi
+    exit "$rc"
+  ) &
+  command_pid=$!
+  set +m
+  wait "$command_pid"
+  rc=$?
+  command_pid=
   if [ "$PER_SCRIPT_TIMEOUT_SECS" -gt 0 ] && [ "$rc" -eq 124 ]; then
     printf 'not ok - %s exceeded the per-script bound of %ss and was terminated\n' \
       "$script" "$PER_SCRIPT_TIMEOUT_SECS" >>"$out"
     [ "$stream" -eq 1 ] && tail -1 "$out"
   fi
   return "$rc"
-}
+)
 
 run_one_serial() {
   local script=$1
@@ -2694,8 +2767,11 @@ run_one_serial() {
 
   set +e
   # Stream live output while retaining a copy for gate-skip detection.
-  run_script_bounded "$script" "$out" 1 "s$TOTAL"
+  run_script_bounded "$script" "$out" 1 "s$TOTAL" &
+  SERIAL_PID=$!
+  wait "$SERIAL_PID"
   rc=$?
+  SERIAL_PID=
   set -e
   : "${rc:=1}"
 

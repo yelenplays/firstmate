@@ -9,7 +9,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), and [worker CPU priority](#worker-cpu-priority-fm_worker_qos) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), and [worker CPU priority](#worker-cpu-priority) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), [Calm preference](#calm-preference-configcalm), and [theme pack](#theme-pack-configtheme) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
@@ -1272,30 +1272,28 @@ When stripping is enabled, the hooks directory is read-only, so a hook manager r
 The flag is a home-wide attribution choice, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract and a secondmate's own workers keep AI trailers too.
 Per-machine Cursor `cli-config.json` attribution-off is not this contract: it does not travel with Firstmate, defaults back to on when unset, and only feeds the CLI's request to the server, so it suppresses the trailer rather than preventing it.
 
-## Worker CPU priority (FM_WORKER_QOS)
+## Worker CPU priority
 
-Every worker, scout, and secondmate Firstmate launches, on a fresh spawn and on a relaunch alike, runs its whole process tree at a background CPU class, so heavy test suites and builds yield the processor to the apps you are using instead of competing with them.
-On macOS this is a `taskpolicy` QoS clamp that every child process inherits: the work still uses free processor time, but the scheduler serves interactive work first.
-Every run of `bin/fm-test-run.sh` applies the class to itself, which also covers suites a pipeline or any other non-worker process starts; a launch passes its class on to the worker, so the worker's own suite runs keep the class it was launched with.
-On other systems nothing changes.
-
-Set `FM_WORKER_QOS` in the environment that runs Firstmate's scripts to choose the class:
-
-| Value | Effect |
-| --- | --- |
-| `utility` (default) | Yields to interactive work at a modest throughput cost. |
-| `background` | Yields harder; long suites can run noticeably slower while you work. |
-| `maintenance` | The lowest class; meant for work that can wait indefinitely. |
-| `off` | Launches and suites run at their normal priority. |
-
-Any other value stops the launch or suite before it starts.
-Changes apply to later launches and suite runs; running workers keep the class they started with.
+Every worker, scout, and secondmate Firstmate launches, on a fresh spawn and on a relaunch alike, runs its whole process tree at utility QoS on macOS.
+The `taskpolicy` clamp is inherited by child processes, yielding processor time to interactive apps.
+Every run of `bin/fm-test-run.sh` also applies the clamp, covering suites started by a pipeline or by hand.
+QoS wrapping is a no-op on other systems.
 With the clamp active and no `config/launch-env-allowlist`, a launch runs under noninteractive POSIX `sh`, so a raw launch command must use compatible syntax.
 
-When `bin/fm-test-run.sh` chooses its own worker count - a plain `--changed` run or a plain list of scripts - it uses half the online cores, at most 4, so several workers running suites at once share the machine instead of each taking all of it.
-Set `FM_TEST_AUTO_JOBS` to a positive integer to override that count, up to the runner's cap of 8; an explicit `--jobs` still wins.
+Test-script execution also has a machine-wide, per-user limit shared across workers, homes, checkouts, and runner invocations on every supported system.
+The limit is `max(1, cpus/3)` - four scripts total on a 14-core Mac - using portable atomic directory slots under `$HOME/.cache/firstmate/test-slots`, not `flock`.
+A runner waits for a free slot rather than exceeding the limit or failing.
+Slots record holder pids, reclaim dead holders, and release on normal exit or interruption.
+Nested runners reuse their parent's slot and execute serially to avoid self-deadlock without increasing the limit.
+The cap bounds concurrent scripts, not the subprocesses created within a script, and it is not a CPU-percentage ceiling for arbitrary worker commands.
 
-[`bin/fm-qos-lib.sh`](../bin/fm-qos-lib.sh) owns the class resolution, [`fm-spawn.sh --help`](../bin/fm-spawn.sh) owns the launch wrapping, and [`fm-test-run.sh --help`](../bin/fm-test-run.sh) owns the worker count, with regression coverage in [`tests/fm-qos.test.sh`](../tests/fm-qos.test.sh).
+A plain `--changed` run or script list chooses `max(1, min(4, cpus/2))` local workers.
+An explicit `--jobs` still sets the invocation's local concurrency, but cannot raise the shared limit.
+Tests may set `FM_TEST_SLOT_DIR` to a private absolute directory to isolate their slots; this test-only override also separates nested fixture runners from the parent's slot pool.
+Normal workers must leave it unset so all suites share the same pool.
+
+[`bin/fm-qos-lib.sh`](../bin/fm-qos-lib.sh) owns the scheduling policy, [`fm-spawn.sh --help`](../bin/fm-spawn.sh) owns launch wrapping, and [`fm-test-run.sh --help`](../bin/fm-test-run.sh) owns slot admission and local concurrency.
+Behavioral regression coverage is in [`tests/fm-qos.test.sh`](../tests/fm-qos.test.sh) and [`tests/fm-test-run.test.sh`](../tests/fm-test-run.test.sh).
 
 ## Project capacity (config/project-capacity)
 
@@ -3077,8 +3075,7 @@ FM_TRACE_CONTEXT=       # optional trace-context override; see "Trace context pr
 FM_WIKIS_ROOT=          # optional wikis root override; see "Wiki context in briefs"
 FM_TASK_ID=             # internal task-worker marker fm-spawn.sh exports into ship and scout panes, never set by hand; bin/fm-test-run.sh refuses to execute in the repository primary checkout while it is set
 FM_TASK_INBOX=          # internal: absolute path of the task's steering inbox (state/<id>.inbox) that fm-spawn.sh exports into every ship, scout, and secondmate launch, never set by hand; the steering doorbell names "$FM_TASK_INBOX"
-FM_WORKER_QOS=utility   # CPU class for worker launches and test-suite runs: utility, background, maintenance, or off; see "Worker CPU priority"
-FM_TEST_AUTO_JOBS=      # optional worker count when bin/fm-test-run.sh picks its own; default half the cores, at most 4; see "Worker CPU priority"
+FM_TEST_SLOT_DIR=       # test-only absolute slot-directory override for isolated runner fixtures; leave unset in normal workers; see "Worker CPU priority"
 HERDR_SESSION=default  # herdr-only: named session for normal backend ops; not enough for destructive cleanup (docs/herdr-backend.md)
 FM_BACKEND_HERDR_SUBMIT_POLLS=6  # herdr-only: agent-state samples spread across each Enter attempt's budget when confirming a submit (docs/herdr-backend.md "Current transport behavior")
 FM_BACKEND_HERDR_SUBMIT_MIN_SLEEP=0.6  # herdr-only: minimum per-Enter confirmation budget before polling agent-state after an idle baseline

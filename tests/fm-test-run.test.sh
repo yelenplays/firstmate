@@ -12,9 +12,21 @@ set -u
 
 RUNNER="$ROOT/bin/fm-test-run.sh"
 
-# The automatic worker count is asserted against its core-derived default; an
-# operator override in the calling shell would make those assertions host-local.
-unset FM_TEST_AUTO_JOBS
+SLOT_TEST_TMP=$(fm_test_tmproot fm-test-slots)
+export FM_TEST_SLOT_DIR="$SLOT_TEST_TMP/slots"
+unset FM_TEST_SLOT_HELD
+mkdir -p "$SLOT_TEST_TMP/bin"
+REAL_GETCONF=$(command -v getconf)
+cat >"$SLOT_TEST_TMP/bin/getconf" <<SH
+#!/bin/sh
+if [ "\$1" = _NPROCESSORS_ONLN ]; then
+  echo "\${FM_SLOT_TEST_CPUS:-6}"
+else
+  exec "$REAL_GETCONF" "\$@"
+fi
+SH
+chmod +x "$SLOT_TEST_TMP/bin/getconf"
+export PATH="$SLOT_TEST_TMP/bin:$PATH"
 
 assert_present "$RUNNER" "bin/fm-test-run.sh is missing"
 [ -x "$RUNNER" ] || fail "bin/fm-test-run.sh must be executable"
@@ -487,12 +499,9 @@ SH
   git -C "$repo" -c user.name=test -c user.email=test@example.invalid commit -qm fixtures
   printf '\n' >>"$repo/bin/shared-probe-lib.sh"
 
-  # The concurrent shape needs at least two workers whatever this host's core
-  # count, so the shape run pins the override; the default count is checked
-  # separately below.
-  (cd "$repo" && FM_TEST_AUTO_JOBS=2 bin/fm-test-run.sh --changed --base HEAD --json "$tmp/parallel.json") \
+  (cd "$repo" && bin/fm-test-run.sh --changed --base HEAD --jobs 2 --json "$tmp/parallel.json") \
     >"$tmp/parallel.out" 2>"$tmp/parallel.err" \
-    || fail "overridden changed fixture run failed: $(cat "$tmp/parallel.err")"
+    || fail "explicit changed fixture run failed: $(cat "$tmp/parallel.err")"
   (cd "$repo" && bin/fm-test-run.sh --changed --base HEAD --json "$tmp/default.json") \
     >"$tmp/default.out" 2>"$tmp/default.err" \
     || fail "default changed fixture run failed: $(cat "$tmp/default.err")"
@@ -533,9 +542,9 @@ PY
   cp "$ROOT/tests/git-config-helpers.sh" "$timeout_repo/tests/"
   cp "$ROOT/tests/environment.sh" "$timeout_repo/tests/environment.sh"
   cat >"$timeout_repo/bin/fm-timeout-lib.sh" <<'SH'
-fm_run_timed() {
-  [ "$1" -eq 1500 ] || return 99
-  return 124
+fm_exec_timed() {
+  [ "$1" -eq 1500 ] || exit 99
+  exit 124
 }
 SH
   cat >"$timeout_repo/$timeout_script" <<'SH'
@@ -612,7 +621,7 @@ SH
 # contract, so verifying several subjects is one bounded concurrent run rather
 # than a serial chain of separate `bash tests/X.test.sh` invocations.
 test_script_list_uses_bounded_automatic_concurrency() {
-  local tmp repo script parallel_shape serial_shape mixed_shape expected_jobs rc
+  local tmp repo script parallel_shape serial_shape mixed_shape expected_jobs
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-run-script-list.XXXXXX")
   repo="$tmp/repo"
   init_changed_fixture_repo "$repo"
@@ -628,9 +637,9 @@ SH
     chmod +x "$repo/tests/$script"
   done
 
-  (cd "$repo" && FM_TEST_AUTO_JOBS=2 bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh \
-      --json "$tmp/parallel.json") >"$tmp/parallel.out" 2>"$tmp/parallel.err" \
-    || fail "overridden script-list run failed: $(cat "$tmp/parallel.err")"
+  (cd "$repo" && bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh \
+      --jobs 2 --json "$tmp/parallel.json") >"$tmp/parallel.out" 2>"$tmp/parallel.err" \
+    || fail "explicit script-list run failed: $(cat "$tmp/parallel.err")"
   (cd "$repo" && bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh \
       --json "$tmp/default.json") >"$tmp/default.out" 2>"$tmp/default.err" \
     || fail "default script-list run failed: $(cat "$tmp/default.err")"
@@ -647,7 +656,7 @@ SH
 
   # An unproven script in the list is scheduled around, never refused and never
   # run beside another script.
-  (cd "$repo" && FM_TEST_AUTO_JOBS=2 bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh \
+  (cd "$repo" && bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh \
       tests/fm-backend-orca.test.sh) >"$tmp/mixed.out" 2>"$tmp/mixed.err" \
     || fail "mixed proven/unproven script list failed: $(cat "$tmp/mixed.err")"
   mixed_shape=$(grep -E '^FM_TEST_(BEGIN|END)' "$tmp/mixed.out" | awk '{print $1}' | paste -sd, -)
@@ -672,23 +681,6 @@ assert automatic["selection"].split(";")[-1] == f"jobs={expected}"
 assert serial["selection"].split(";")[-1] == "jobs=1"
 assert overridden["selection"].split(";")[-1] == "jobs=2"
 PYJSON
-
-  # The override is clamped to the runner's cap, and a non-number refuses
-  # before any script runs rather than silently choosing a count.
-  (cd "$repo" && FM_TEST_AUTO_JOBS=99 bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh \
-      --json "$tmp/capped.json") >"$tmp/capped.out" 2>"$tmp/capped.err" \
-    || fail "capped override script-list run failed: $(cat "$tmp/capped.err")"
-  python3 - "$tmp/capped.json" <<'PYJSON' || fail "an oversized FM_TEST_AUTO_JOBS was not clamped to the runner cap"
-import json, sys
-assert json.load(open(sys.argv[1], encoding="utf-8"))["selection"].split(";")[-1] == "jobs=8"
-PYJSON
-  rc=0
-  (cd "$repo" && FM_TEST_AUTO_JOBS=lots bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh) \
-    >"$tmp/bad.out" 2>"$tmp/bad.err" || rc=$?
-  [ "$rc" -eq 2 ] || fail "a non-numeric FM_TEST_AUTO_JOBS must refuse with exit 2, got $rc"
-  grep -Fq 'FM_TEST_AUTO_JOBS must be a positive integer' "$tmp/bad.err" \
-    || fail "a non-numeric FM_TEST_AUTO_JOBS refusal did not name the variable: $(cat "$tmp/bad.err")"
-  ! grep -q '^FM_TEST_BEGIN' "$tmp/bad.out" || fail "a refused FM_TEST_AUTO_JOBS still ran scripts"
 
   (cd "$repo" && bin/fm-test-run.sh tests/fm-backend-orca.test.sh) \
     >"$tmp/named.out" 2>"$tmp/named.err" \
@@ -1585,10 +1577,10 @@ test_changed_bound_gives_slow_watcher_suites_headroom() {
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
   cp "$ROOT/tests/environment.sh" "$repo/tests/"
   cat >"$repo/bin/fm-timeout-lib.sh" <<'SH'
-fm_run_timed() {
+fm_exec_timed() {
   printf '%s\n' "$1" >bound-secs
-  shift
-  "$@"
+  shift 2
+  exec "$@"
 }
 SH
   cat >"$repo/$script" <<'SH'
@@ -1924,6 +1916,169 @@ SH
   pass 'serial, parallel and direct test entries clear inherited operational routes and startup child markers'
 }
 
+test_machine_wide_slots_bound_concurrent_suites() {
+  local tmp repo script cpus cap jobs first second
+  tmp=$(fm_test_tmproot fm-slot-concurrency)
+  repo="$tmp/repo"
+  init_changed_fixture_repo "$repo"
+  cp "$ROOT/bin/fm-timeout-lib.sh" "$repo/bin/"
+  for script in fm-cd-pretool-check fm-pr-merge fm-supervision-instructions fm-backend-orca; do
+    cat >"$repo/tests/$script.test.sh" <<'SH'
+#!/usr/bin/env bash
+printf 'start %s\n' "$$" >>"$SLOT_EVENTS"
+sleep 0.4
+printf 'end %s\n' "$$" >>"$SLOT_EVENTS"
+SH
+  done
+  for cpus in 3 6 14; do
+    cap=$((cpus / 3))
+    for jobs in 1 auto 2; do
+      : >"$tmp/events"
+      (
+        cd "$repo" || exit 1
+        if [ "$jobs" = auto ]; then
+          exec env FM_TEST_SLOT_DIR="$tmp/slots-$cpus-$jobs" FM_SLOT_TEST_CPUS="$cpus" SLOT_EVENTS="$tmp/events" \
+            bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh tests/fm-backend-orca.test.sh
+        else
+          exec env FM_TEST_SLOT_DIR="$tmp/slots-$cpus-$jobs" FM_SLOT_TEST_CPUS="$cpus" SLOT_EVENTS="$tmp/events" \
+            bin/fm-test-run.sh --jobs "$jobs" tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh
+        fi
+      ) >"$tmp/first.out" 2>"$tmp/first.err" &
+      first=$!
+      (
+        cd "$repo" || exit 1
+        exec env FM_TEST_SLOT_DIR="$tmp/slots-$cpus-$jobs" FM_SLOT_TEST_CPUS="$cpus" SLOT_EVENTS="$tmp/events" \
+          bin/fm-test-run.sh --jobs 2 --per-script-timeout-secs 5 tests/fm-cd-pretool-check.test.sh tests/fm-supervision-instructions.test.sh
+      ) >"$tmp/second.out" 2>"$tmp/second.err" &
+      second=$!
+      wait "$first" || fail "first suite failed: $(cat "$tmp/first.err")"
+      wait "$second" || fail "second suite failed: $(cat "$tmp/second.err")"
+      python3 - "$tmp/events" "$cap" "$jobs" <<'PY' || fail "concurrent suites exceeded shared slots"
+import sys
+live = set()
+maximum = starts = 0
+for line in open(sys.argv[1], encoding="utf-8"):
+    kind, pid = line.split()
+    if kind == "start":
+        assert pid not in live
+        live.add(pid)
+        starts += 1
+        maximum = max(maximum, len(live))
+    else:
+        assert pid in live
+        live.remove(pid)
+assert not live
+assert starts == (5 if sys.argv[3] == "auto" else 4)
+assert 1 <= maximum <= int(sys.argv[2]), maximum
+if int(sys.argv[2]) == 2:
+    assert maximum == 2, maximum
+PY
+      [ -z "$(ls -A "$tmp/slots-$cpus-$jobs")" ] || fail "completed suites leaked slots"
+    done
+  done
+  pass "serial, automatic, mixed-tail, parallel and timed suites share the core-derived machine cap"
+}
+
+test_slots_reclaim_dead_and_unpublished_holders() {
+  local tmp repo dead
+  tmp=$(fm_test_tmproot fm-slot-stale)
+  repo="$tmp/repo"
+  init_changed_fixture_repo "$repo"
+  sleep 0.01 &
+  dead=$!
+  wait "$dead"
+  mkdir -p "$tmp/slots/1"
+  printf '%s\n' "$dead" >"$tmp/slots/1/pid"
+  (cd "$repo" && FM_SLOT_TEST_CPUS=3 FM_TEST_SLOT_DIR="$tmp/slots" \
+    bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh) >"$tmp/out" 2>"$tmp/err" \
+    || fail "dead slot was not reclaimed: $(cat "$tmp/err")"
+  mkdir "$tmp/slots/1"
+  (cd "$repo" && FM_SLOT_TEST_CPUS=3 FM_TEST_SLOT_DIR="$tmp/slots" \
+    bin/fm-test-run.sh tests/fm-cd-pretool-check.test.sh) >"$tmp/out" 2>"$tmp/err" \
+    || fail "unpublished slot was not reclaimed: $(cat "$tmp/err")"
+  [ -z "$(ls -A "$tmp/slots")" ] || fail "reclaimed slots were not released"
+  pass "dead and unpublished holders cannot leak test slots"
+}
+
+test_nested_runner_reuses_one_slot() {
+  local tmp repo
+  tmp=$(fm_test_tmproot fm-slot-nested)
+  repo="$tmp/repo"
+  init_changed_fixture_repo "$repo"
+  cp "$ROOT/bin/fm-timeout-lib.sh" "$repo/bin/"
+  cat >"$repo/tests/fm-nested.test.sh" <<'SH'
+#!/usr/bin/env bash
+bin/fm-test-run.sh --jobs 2 tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh --json "$NESTED_JSON"
+SH
+  (cd "$repo" && FM_SLOT_TEST_CPUS=3 FM_TEST_SLOT_DIR="$tmp/slots" NESTED_JSON="$tmp/nested.json" \
+    bin/fm-test-run.sh --per-script-timeout-secs 5 tests/fm-nested.test.sh) >"$tmp/out" 2>"$tmp/err" \
+    || fail "nested runner deadlocked or failed: $(cat "$tmp/err")"
+  python3 - "$tmp/nested.json" <<'PY' || fail "nested runner must reuse its slot serially"
+import json, sys
+record = json.load(open(sys.argv[1], encoding="utf-8"))
+assert record["selection"].split(";")[-1] == "jobs=1"
+assert record["summary"]["total"] == 2
+PY
+  [ -z "$(ls -A "$tmp/slots")" ] || fail "nested runner leaked a slot"
+  pass "a nested runner reuses its parent's slot without deadlocking or multiplying concurrency"
+}
+
+test_interrupted_runner_releases_slots() {
+  local tmp repo signal runner_pid rc tries jobs timeout_secs
+  tmp=$(fm_test_tmproot fm-slot-interrupt)
+  repo="$tmp/repo"
+  init_changed_fixture_repo "$repo"
+  cp "$ROOT/bin/fm-timeout-lib.sh" "$repo/bin/"
+  cat >"$repo/tests/fm-cd-pretool-check.test.sh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$$" >"$SLOT_STARTED"
+sleep 60
+printf 'escaped\n' >"$SLOT_FINISHED"
+SH
+  for signal in INT TERM; do
+    for jobs in 1 2; do
+      for timeout_secs in 0 30; do
+      rm -f "$tmp/started" "$tmp/finished"
+      set -m
+      (
+        cd "$repo" || exit 1
+        exec env FM_SLOT_TEST_CPUS=3 FM_TEST_SLOT_DIR="$tmp/slots" SLOT_STARTED="$tmp/started" SLOT_FINISHED="$tmp/finished" \
+          bin/fm-test-run.sh --jobs "$jobs" --per-script-timeout-secs "$timeout_secs" tests/fm-cd-pretool-check.test.sh tests/fm-pr-merge.test.sh
+      ) >"$tmp/out" 2>"$tmp/err" &
+      runner_pid=$!
+      set +m
+      for ((tries=0; tries<200; tries++)); do
+        [ ! -s "$tmp/started" ] || break
+        sleep 0.05
+      done
+      if [ ! -s "$tmp/started" ]; then
+        kill -TERM "$runner_pid" 2>/dev/null || true
+        wait "$runner_pid" || true
+        fail "interruption fixture never started: $(cat "$tmp/err")"
+      fi
+      kill -"$signal" "$runner_pid"
+      rc=0
+      wait "$runner_pid" || rc=$?
+      case "$signal:$rc" in INT:130|TERM:143) ;; *) fail "unexpected interrupt exit: $signal:$rc" ;; esac
+      for ((tries=0; tries<200; tries++)); do
+        [ -n "$(ls -A "$tmp/slots")" ] || break
+        sleep 0.05
+      done
+      [ -z "$(ls -A "$tmp/slots")" ] || fail "$signal left occupied slots"
+      [ ! -f "$tmp/finished" ] || fail "interrupted script continued executing"
+      (cd "$repo" && FM_SLOT_TEST_CPUS=3 FM_TEST_SLOT_DIR="$tmp/slots" \
+        bin/fm-test-run.sh tests/fm-pr-merge.test.sh) >"$tmp/next.out" 2>"$tmp/next.err" \
+        || fail "runner could not use released slot: $(cat "$tmp/next.err")"
+      done
+    done
+  done
+  pass "INT and TERM stop serial, parallel and timed work and release their slots"
+}
+
+test_machine_wide_slots_bound_concurrent_suites
+test_slots_reclaim_dead_and_unpublished_holders
+test_nested_runner_reuses_one_slot
+test_interrupted_runner_releases_slots
 test_operational_environment_is_cleared_at_every_entry
 test_list_all_exact_suite_coverage
 test_family_selection

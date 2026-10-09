@@ -10,32 +10,14 @@
 # so the clamped process keeps its pid, parent, and process group. Everywhere
 # else it is a no-op that runs the command unchanged.
 #
-# FM_WORKER_QOS selects the class: utility (the default), background,
-# maintenance, or off. Any other value is refused rather than guessed, because
-# the caller is about to launch work and a typo should not silently change how
-# hard that work competes. docs/configuration.md "Worker CPU priority" owns the
-# operator contract.
+# The scheduling policy is always utility on macOS.
+# docs/configuration.md "Worker CPU priority" owns the operator contract.
 #
 # Callers:
 #   bin/fm-spawn.sh prefixes every worker launch with fm_qos_command_prefix and
-#   exports the resolved class into it, because a nested clamp replaces the
-#   outer one rather than stacking.
+#   marks the clamp as applied in the launch environment.
 #   bin/fm-test-run.sh re-execs itself once through fm_qos_reexec, which covers
 #   suites a pipeline daemon or any other non-worker parent starts.
-
-# fm_qos_class: print the configured class, empty when disabled. Exit 2 with a
-# diagnostic on stderr for an unknown value.
-fm_qos_class() {
-  local class=${FM_WORKER_QOS-utility}
-  case "$class" in
-    utility|background|maintenance) printf '%s' "$class" ;;
-    off|none|'') ;;
-    *)
-      printf 'error: FM_WORKER_QOS must be utility, background, maintenance, or off (got %s)\n' "$class" >&2
-      return 2
-      ;;
-  esac
-}
 
 # fm_qos_taskpolicy: print the taskpolicy path when this host can clamp, empty
 # otherwise. FM_QOS_TASKPOLICY overrides the path; FM_QOS_UNAME overrides the
@@ -50,28 +32,22 @@ fm_qos_taskpolicy() {
 }
 
 # fm_qos_command_prefix: print shell words that, placed before a command, run
-# it at the configured class. Empty when disabled or unsupported here. Exit 2
-# for an unknown class.
+# it at utility QoS. Empty when unsupported here.
 fm_qos_command_prefix() {
-  local class tp
-  class=$(fm_qos_class) || return 2
-  [ -n "$class" ] || return 0
+  local tp
   tp=$(fm_qos_taskpolicy)
   [ -n "$tp" ] || return 0
-  printf '%q -c %s' "$tp" "$class"
+  printf '%q -c utility' "$tp"
 }
 
 # fm_qos_reexec <script> [args...]: re-exec the calling bash script once under
-# the configured class. FM_QOS_APPLIED marks the clamped generation so the
-# re-exec never loops. Returns normally (without exec) when disabled,
-# unsupported, or already applied; exits 2 for an unknown class.
+# utility class. FM_QOS_APPLIED marks the clamped generation so the
+# re-exec never loops. Returns normally when unsupported or already applied.
 fm_qos_reexec() {
-  local class tp
-  class=$(fm_qos_class) || exit 2
-  [ -n "$class" ] || return 0
-  [ "${FM_QOS_APPLIED:-}" != "$class" ] || return 0
+  local tp
+  [ "${FM_QOS_APPLIED:-}" != utility ] || return 0
   tp=$(fm_qos_taskpolicy)
   [ -n "$tp" ] || return 0
-  export FM_QOS_APPLIED="$class"
-  exec "$tp" -c "$class" "${BASH:-bash}" "$@"
+  export FM_QOS_APPLIED=utility
+  exec "$tp" -c utility "${BASH:-bash}" "$@"
 }
