@@ -132,11 +132,12 @@ tasks rm independent-c >/dev/null
 # The real watcher reuses its queue; acknowledgment cannot retire the obligation.
 # No live backend lifecycle or external service is used by this fixture.
 PATH="$home/fakebin:$PATH" FM_EXECUTION_REMIND=0 FM_POLL=1 FM_SIGNAL_GRACE=1 \
-  FM_HEARTBEAT=999999 FM_CHECK_INTERVAL=999999 "$ROOT/bin/fm-watch.sh" > "$home/watch" &
+  FM_HEARTBEAT=999999 FM_CHECK_INTERVAL=999999 "$ROOT/bin/fm-watch.sh" > "$home/watch" 2> "$home/watch.err" &
 pid=$!
-wait_for_exit "$pid" 150 || { kill "$pid" 2>/dev/null || true; fail 'watcher failed to surface approved work'; }
+wait_for_exit "$pid" 150 || { kill "$pid" 2>/dev/null || true; fail "watcher failed to surface approved work: stdout=$(<"$home/watch"); stderr=$(<"$home/watch.err")"; }
 wait "$pid"
-grep -q 'unfinished-execution' "$home/watch"
+grep -q 'unfinished-execution' "$home/watch" \
+  || fail "watcher surfaced a different notification: stdout=$(<"$home/watch"); stderr=$(<"$home/watch.err")"
 "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
 ack_drain_err "$home/state" "$home/err"
 # Advancing the old reminder clock must not resurface an unchanged action.
@@ -152,7 +153,7 @@ for status in "$home/state"/*.status; do
 done
 scan_before=$(<"$home/state/.execution-scan-at")
 PATH="$home/fakebin:$PATH" FM_EXECUTION_REMIND=0 FM_POLL=1 FM_SIGNAL_GRACE=1 \
-  FM_HEARTBEAT=999999 FM_CHECK_INTERVAL=999999 "$ROOT/bin/fm-watch.sh" > "$home/watch-repeat" &
+  FM_HEARTBEAT=999999 FM_CHECK_INTERVAL=999999 "$ROOT/bin/fm-watch.sh" > "$home/watch-repeat" 2> "$home/watch-repeat.err" &
 pid=$!
 observed=0
 for _poll in $(seq 1 200); do
@@ -164,12 +165,13 @@ done
 if [ "$observed" != 1 ] || ! kill -0 "$pid" 2>/dev/null || grep -q 'check:' "$home/watch-repeat"; then
   kill "$pid" 2>/dev/null || true
   wait "$pid" 2>/dev/null || true
-  fail "unchanged restart resurfaced or stopped supervising: $(<"$home/watch-repeat")"
+  fail "unchanged restart resurfaced or stopped supervising: stdout=$(<"$home/watch-repeat"); stderr=$(<"$home/watch-repeat.err")"
 fi
 printf 'spawn_gen=s3\n' >> "$home/state/approved-scout.meta"
-wait_for_exit "$pid" 150 || { kill "$pid" 2>/dev/null || true; fail 'changed execution did not wake restarted watcher'; }
+wait_for_exit "$pid" 150 || { kill "$pid" 2>/dev/null || true; fail "changed execution did not wake restarted watcher: stdout=$(<"$home/watch-repeat"); stderr=$(<"$home/watch-repeat.err")"; }
 wait "$pid"
-grep -q 'unfinished-execution' "$home/watch-repeat" || fail 'incarnation change did not wake execution'
+grep -q 'unfinished-execution' "$home/watch-repeat" \
+  || fail "incarnation change did not wake execution: stdout=$(<"$home/watch-repeat"); stderr=$(<"$home/watch-repeat.err")"
 "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
 ack_drain_err "$home/state" "$home/err"
 # A new event with the SAME owner/action is nevertheless a real change.
