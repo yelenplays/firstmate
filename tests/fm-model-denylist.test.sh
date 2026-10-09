@@ -270,6 +270,7 @@ test_library_matching_and_summary() {
     printf '%s' '{"never":[{"pattern":"kimi-coding/k3","reason":"Kimi is ruled out"}]}' > "$dir/model-denylist.json"
     fm_model_denylist_load "$dir" || fail "an exact-pattern list must load: $FM_MODEL_DENYLIST_ERROR"
     fm_model_denylist_check model 'kimi-coding/k3.' && fail "trailing punctuation does not hide a banned id"
+    # shellcheck disable=SC2016
     fm_model_denylist_check model '`kimi-coding/k3`' && fail "backticks do not hide a banned id"
     fm_model_denylist_check model '**kimi-coding/k3**' && fail "markdown emphasis does not hide a banned id"
     fm_model_denylist_check model "'kimi-coding/k3'" && fail "quotes do not hide a banned id"
