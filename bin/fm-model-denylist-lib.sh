@@ -59,9 +59,11 @@
 #     token, never a bare harness, provider, or route name; a slash alone is
 #     not a model id.
 #   FM_MODEL_DENYLIST_JQ
-#     jq definitions for callers that filter inside jq: model_ban($list; $id)
-#     returns the first matching rule object or null, and model_banned_any(
-#     $list; $ids) does the same over an array of ids.
+#     jq definitions for callers that filter inside jq: model_token strips
+#     surrounding backticks, quotes, markdown emphasis (* and _), brackets,
+#     and trailing punctuation from an id; model_ban($list; $id) matches that
+#     cleaned id and returns the first matching rule object or null, and
+#     model_banned_any($list; $ids) does the same over an array of ids.
 
 FM_MODEL_DENYLIST_NAME='model-denylist.json'
 FM_MODEL_DENYLIST_JSON=${FM_MODEL_DENYLIST_JSON:-'{"never":[],"rules":[]}'}
@@ -80,8 +82,11 @@ FM_MODEL_DENYLIST_JQ='
   def model_subjects:
     ascii_downcase | split("/") as $p
     | [range(0; $p | length) as $i | $p[$i:] | join("/")];
-  def model_ban($list; $id):
-    if ($id | type) != "string" or $id == "" or $id == "default" then null
+  def model_token:
+    gsub("^[`\"\u0027*_\\[<(]+|[`\"\u0027*_\\]>).,:;!?]+$"; "");
+  def model_ban($list; $raw):
+    (if ($raw | type) == "string" then $raw | model_token else "" end) as $id
+    | if $id == "" or $id == "default" then null
     else ($id | model_subjects) as $s
       | first((($list.never // [])[] | . as $r
           | ($r.pattern | model_glob_re) as $re

@@ -1129,6 +1129,21 @@ test_meaning_that_mentions_a_banned_model_keeps_the_option() {
   pass "fm-jev.sh: a meaning that only mentions a banned model keeps a model-id option, and a route label is judged by its model"
 }
 
+test_wrapped_model_ids_in_meanings_are_removed() {
+  local code out err
+  reset_log
+  write_denylist
+  respond '{"answers":{"pick":{"type":"choice","choice":"sonnet","confidence":0.9,"probabilities":{"sonnet":0.9,"haiku":0.1}}}}'
+  run_jev code out err pick "reviewer for a one-off pipeline run" "Which reviewer?" \
+    "sonnet=Claude Sonnet" "haiku=Claude Haiku" "codex=Codex on \`gpt-6-luna\`" "pi=Pi on **gpt-6-luna**" \
+    "a=Runs \"gpt-6-luna\"" "opus=\`gpt-6-luna\`" "omp=OMP on 'kimi-k2'" "b=The **kimi-coding/k3**. route"
+  assert_equals "$code" 0 "a model choice with wrapped ids still answers: $err"
+  assert_equals "$(jq -c '.questions.pick.criteria | keys' "$LOG/body")" '["haiku","sonnet"]' "a wrapped banned id never reaches Jev"
+  assert_contains "$err" "removed never-use model options (pick: codex, pi, a, opus, omp, b)" "every option naming a wrapped banned id is removed"
+  rm -f "$HOME_DIR/config/model-denylist.json"
+  pass "fm-jev.sh: backtick-, quote-, and emphasis-wrapped banned ids in meanings are removed"
+}
+
 test_model_choice_refuses_when_too_few_options_remain() {
   local code out err
   reset_log
@@ -1190,5 +1205,6 @@ test_key_discovery_needs_no_env_setup
 test_model_choice_drops_banned_options_and_adds_rules
 test_models_flag_and_meanings_mark_a_model_choice
 test_meaning_that_mentions_a_banned_model_keeps_the_option
+test_wrapped_model_ids_in_meanings_are_removed
 test_model_choice_refuses_when_too_few_options_remain
 test_other_choices_and_absent_list_stay_unchanged

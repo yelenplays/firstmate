@@ -267,6 +267,13 @@ test_library_matching_and_summary() {
     assert_contains "$summary" "Never use gpt-*-luna* (Luna is banned). Opus does judgment work." "the summary lists bans then rules"
     summary=$(FM_MODEL_RULES_SUMMARY_MAX=40 fm_model_rules_summary)
     [ "$(printf '%s' "$summary" | wc -c | tr -d ' ')" -le 40 ] || fail "the summary honors its byte cap: $summary"
+    printf '%s' '{"never":[{"pattern":"kimi-coding/k3","reason":"Kimi is ruled out"}]}' > "$dir/model-denylist.json"
+    fm_model_denylist_load "$dir" || fail "an exact-pattern list must load: $FM_MODEL_DENYLIST_ERROR"
+    fm_model_denylist_check model 'kimi-coding/k3.' && fail "trailing punctuation does not hide a banned id"
+    fm_model_denylist_check model '`kimi-coding/k3`' && fail "backticks do not hide a banned id"
+    fm_model_denylist_check model '**kimi-coding/k3**' && fail "markdown emphasis does not hide a banned id"
+    fm_model_denylist_check model "'kimi-coding/k3'" && fail "quotes do not hide a banned id"
+    fm_model_denylist_check model 'kimi-coding/k3x' || fail "an exact pattern still needs the exact id"
     fm_model_option_looks_like_model "Sol 6.1 high" || fail "a Sol option names a model"
     fm_model_option_looks_like_model "solution draft" && fail "an ordinary word is not a model"
     assert_equals "$(fm_model_denylist_command_pins "no-mistakes axi run --provider kimi-coding --model k3")" "kimi-coding/k3" "a command line combines --provider with --model"

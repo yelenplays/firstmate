@@ -250,7 +250,7 @@ if [ "$MODELS" -eq 1 ]; then
   NORM=$(printf '%s' "$NORM" | jq -c --argjson list "$FM_MODEL_DENYLIST_JSON" --arg model_id "$FM_MODEL_ID_RE" --arg family "$FM_MODEL_FAMILY_RE" --arg shapes "$FM_MODEL_LAUNCH_SHAPES" "$FM_MODEL_DENYLIST_JQ"'
     ($shapes | split("\n") | map(split(" ")[0])) as $harnesses |
     def model_id: (ascii_downcase | test($model_id)) or model_ban($list; .) != null;
-    def route: (ascii_downcase | split("/") | last) as $name
+    def route: (model_token | ascii_downcase | split("/") | last) as $name
       | any($harnesses[]; . == $name) or ((ascii_downcase | test($family)) and (model_id | not));
     def meaning_ids: [splits("[\\s,;()]+") | select(. != "" and model_id)];
     def banned($o): model_banned_any($list; [$o[0]] +

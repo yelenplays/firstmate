@@ -1475,6 +1475,7 @@ Like `config/crew-dispatch.json`, it is inherited into secondmate homes, so thei
 Each `never` entry has a `pattern` and a one-line `reason` of at most 200 characters.
 A pattern is a case-insensitive glob (`*` and `?`) without whitespace, and `*` alone is refused because it would ban every model.
 It matches a model id when it matches the whole id or any part after a `/`, so `gpt-*-luna*` also matches `openai-codex/gpt-6-luna`.
+An id is matched after surrounding backticks, quotes, markdown emphasis (`*`, `_`), and brackets and trailing punctuation are stripped, so `` `gpt-6-luna` ``, `**gpt-6-luna**`, and `kimi-coding/k3.` are matched like the bare id.
 A launch is checked as its model, as `<harness>/<model>`, and, with no model, as the bare harness name, which then stands for that harness's default model.
 The optional `rules` array holds short captain model-rule sentences, each at most 300 characters, that Jev should weigh.
 A file that is present but unreadable, not a regular file, or malformed is never treated as empty: a launch or Jev model choice refuses, and the dispatch resolver and model-proposal generator exit 2 as for malformed configuration.
