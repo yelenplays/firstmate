@@ -25,7 +25,7 @@ Register or re-hold through `bin/fm-captain-hold.sh hold`, which is idempotent p
 Scout workers inventory the whole report and review surface in their durable report, then hand it off through their final status; firstmate owns the held-task registration, completion gate, and cleanup after that handoff.
 Firstmate runs `bin/fm-captain-hold.sh complete` with every captain-held task id after inventorying the report and review surface.
 For a scout with nothing outstanding, firstmate uses the one-call empty-inventory cleanup path owned by `bin/fm-teardown.sh --help`; other review surfaces still attest `--none`.
-A completed investigation and an ended visual review use this same owner and completion command; a visual tool, including Lavish, never owns a parallel completion policy.
+This policy covers both investigations and visual reviews; a visual tool, including Lavish, never owns a parallel completion policy.
 Run the command in the originating work's authoritative `FM_HOME`; secondmate-owned work registers in that secondmate home's backlog, and a question already held anywhere is never re-registered as a second row.
 Do not close a captain-held task merely because the originating investigation completed, its report was archived, its visual review ended, or its task was torn down.
 Holding the work item the question gates is safe for exactly that reason: cleanup keeps such a row open with the finished work's deliverable recorded and returns it to the queue, so it still reads as the captain's own call.

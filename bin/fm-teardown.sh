@@ -84,10 +84,11 @@
 # --scout-complete path combines the caller's no-outstanding-calls attestation,
 # empty-inventory check and missing no-guide record in one cleanup call.
 # Default teardown retains the separate semantic-review requirement.
-# Ship and scout tasks whose brief carries bin/fm-wiki-lib.sh's wiki guide
-# marker line additionally refuse while data/<task-id>/guide.md is absent;
-# briefs without the marker (wikis unconfigured, or scaffolded earlier) are
-# unaffected, and --force skips the check.
+# Outside the --scout-complete exception defined below, ship and scout tasks
+# whose brief carries bin/fm-wiki-lib.sh's wiki guide marker line additionally
+# refuse while data/<task-id>/guide.md is absent; briefs without the marker
+# (wikis unconfigured, or scaffolded earlier) are unaffected, and --force skips
+# the check.
 # Before destructive cleanup, teardown validates task check artifacts as
 # ordinary single-link files on the state device. It refuses and preserves
 # task state when that proof fails; otherwise it removes the task's check,

@@ -37,9 +37,10 @@
 # notify runs inside the existing watcher. Per-task queue keys coalesce;
 # a persisted fingerprint suppresses unchanged reconciled state, owner and next
 # action across acknowledgements and restarts. New status bytes, hold/dependency
-# changes, receipts, incarnations and PR handoffs notify once; ownership away
-# from firstmate is recorded too, so returning ownership is a new notification.
-# Legacy timestamp markers trigger one fresh notification. Reconciliation runs at
+# changes, receipts, incarnations, PR handoffs, attributed run identities and
+# parked gates notify once; volatile crew-state detail and finding counts do not.
+# Ownership away from firstmate is recorded too, so returning ownership is a
+# new notification. Legacy timestamp markers trigger one fresh notification. Reconciliation runs at
 # FM_EXECUTION_SCAN_INTERVAL (default 30 seconds), independent of fleet signals.
 # Drain always prints
 # the outstanding firstmate actions. Neither notification nor acknowledgement

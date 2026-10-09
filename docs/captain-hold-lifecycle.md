@@ -121,14 +121,8 @@ The event names the reviewed inventory.
 ### Checking before scout teardown (`verify`)
 
 Scout teardown calls the read-only `verify` subcommand after checking for the report and before removing any source state.
-The empty-scout exception is owned by `bin/fm-captain-hold.sh --help` (`verify --allow-empty`) and `bin/fm-teardown.sh --help`.
-Nonempty inventories retain three checks:
-
-- The recorded attestation exists.
-- Every recorded inventory entry still passes the [completion inventory checks](#recording-a-reviewed-inventory-complete).
-- No keyed status decision opened after the last `complete`.
-
-A keyed status decision opened after the last `complete` makes `verify` fail, and re-running `complete` is the repair.
+`bin/fm-captain-hold.sh --help` owns default reviewed-inventory verification and `verify --allow-empty`; `bin/fm-teardown.sh --help` owns the firstmate attestation required for the empty-scout path.
+For a keyed status decision opened after the last `complete`, re-run `complete` with the reviewed inventory rather than bypassing the refusal.
 The `--force` path remains the explicit captain-approved discard escape hatch.
 
 ## Cleanup never closes a captain call
