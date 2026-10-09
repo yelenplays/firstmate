@@ -1,0 +1,14 @@
+{
+  "model": "jev-1.13.0",
+  "state": "One-off no-mistakes reviewer for a firstmate shell-script change.\n\nCaptain model rules (binding; options naming a banned model were removed): Never use *kimi* (Kimi is ruled out on every provider); gpt-*-luna* (GPT Luna is banned at every effort). Opus does judgment, review, planning, and fixes. Never pick Kimi or Luna for any role.",
+  "questions": {
+    "pick": {
+      "type": "choice",
+      "instructions": "Which model should review this change?",
+      "criteria": {
+        "claude-opus-5-5": "Claude Opus 5.5",
+        "gpt-5.6-sol": "GPT 5.6 Sol"
+      }
+    }
+  }
+}

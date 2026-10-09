@@ -1,0 +1,14 @@
+$ fm-jev.sh pick "<state>" "<question>" kimi-coding/k3=... claude-opus-5-5=... gpt-5.6-sol=...   (lab list present: *kimi*, gpt-*-luna*, plus 2 captain rules)
+fm-jev: removed never-use model options (pick: kimi-coding/k3)
+pick: claude-opus-5-5 p=1 conf=1
+exit=0
+
+$ fm-jev.sh pick ... pi=<meaning naming kimi second> claude=<harness routed to kimi> codex=...   (route labels)
+fm-jev: removed never-use model options (pick: pi, claude)
+pick: opencode p=0.99 conf=0.98
+exit=0
+
+$ fm-jev.sh pick ... only one non-banned option left
+fm-jev: removed never-use model options (pick: kimi-coding/k3, openai-codex/gpt-6-luna)
+fm-jev: question pick has fewer than two options left after removing never-use models; nothing sent
+exit=1

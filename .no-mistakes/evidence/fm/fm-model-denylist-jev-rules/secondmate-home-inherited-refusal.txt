@@ -1,0 +1,4 @@
+# second home after propagate_secondmate_inheritance (config/model-denylist.json inherited byte-identical)
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.cInSEa-sm
+error: worker model 'kimi-coding/k3' is on the never-use model list: rule '*kimi*' - Kimi is ruled out on every provider (/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.cInSEa-sm/config/model-denylist.json); refusing the launch - pick a model that is not on the list
+rc=1

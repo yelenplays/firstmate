@@ -1,0 +1,12 @@
+$ fm-dispatch-resolve.sh dispatch-brief.md --project demo   (lab crew-dispatch rule lists kimi:kimi-code/k3 first, claude:sonnet second; list bans *kimi*)
+dispatch-resolve:
+  status: clear
+  model: jev-1.13.0   latency_ms: 266   tokens: 698/95
+  rule: rule_1 (A simple bug fix with a stated root cause.)   confidence: 1.0
+  probabilities: rule_1=1.0 rule_2=0.0 default=0.0
+  effort: medium (jev confidence=0.45)
+  note: rule matched
+  candidate: kimi:kimi-code/k3  effort=medium(xhigh ceiling)  -> not eligible: never-use model list: rule *kimi* - Kimi is ruled out on every provider
+  candidate: claude:sonnet  provider=claude  effort=medium(high ceiling)  scope=all_models  remaining=21%  spendPriority=-1.9325  runway=projected_exhaustion  pred=unknown  -> eligible
+  profile: --harness 'claude' --model 'sonnet' --effort 'medium'
+exit=0

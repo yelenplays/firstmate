@@ -1,0 +1,56 @@
+## ship --harness pi --model kimi-coding/k3
+error: worker model 'kimi-coding/k3' is on the never-use model list: rule '*kimi*' - Kimi is ruled out on every provider ($LAB/config/model-denylist.json); refusing the launch - pick a model that is not on the list
+rc=1
+
+## ship --harness kimi (harness default model)
+error: worker model 'kimi' is on the never-use model list: rule '*kimi*' - Kimi is ruled out on every provider ($LAB/config/model-denylist.json); refusing the launch - pick a model that is not on the list
+rc=1
+
+## raw launch 'pi --provider kimi-coding --model k3'
+error: raw launch model 'kimi-coding/k3' is on the never-use model list: rule '*kimi*' - Kimi is ruled out on every provider ($LAB/config/model-denylist.json); refusing the launch - pick a model that is not on the list
+rc=1
+
+## ship --harness pi --model openai-codex/gpt-6-luna
+error: worker model 'openai-codex/gpt-6-luna' is on the never-use model list: rule 'gpt-*-luna*' - GPT Luna is banned at every effort ($LAB/config/model-denylist.json); refusing the launch - pick a model that is not on the list
+rc=1
+
+## raw launch 'codex -m kimi-k2'
+error: raw launch model 'kimi-k2' is on the never-use model list: rule '*kimi*' - Kimi is ruled out on every provider ($LAB/config/model-denylist.json); refusing the launch - pick a model that is not on the list
+rc=1
+
+## brief pins `no-mistakes axi run --provider kimi-coding --model k3` (allowed worker opus)
+error: model pinned in $LAB/data/nm-brief-pin/brief.md 'kimi-coding/k3' is on the never-use model list: rule '*kimi*' - Kimi is ruled out on every provider ($LAB/config/model-denylist.json); refusing the launch - pick a model that is not on the list
+rc=1
+
+## NM_HOME config.yaml agent_args_override pi: --provider kimi-coding --model k3
+error: no-mistakes reviewer model in $LAB/nm-home/config.yaml 'kimi-coding/k3' is on the never-use model list: rule '*kimi*' - Kimi is ruled out on every provider ($LAB/config/model-denylist.json); refusing the launch - pick a model that is not on the list
+rc=1
+
+## NM_HOME config.yaml provider: openai-codex / model: gpt-6-luna block (+ commented kimi)
+error: no-mistakes reviewer model in $LAB/nm-home/config.yaml 'openai-codex/gpt-6-luna' is on the never-use model list: rule 'gpt-*-luna*' - GPT Luna is banned at every effort ($LAB/config/model-denylist.json); refusing the launch - pick a model that is not on the list
+rc=1
+
+## list with pattern "*" alone
+error: $LAB/config/model-denylist.json: a pattern must name something; * alone would ban every model; refusing to launch a worker with the never-use model list unreadable
+rc=1
+
+## truncated (invalid JSON) list
+error: $LAB/config/model-denylist.json is not valid JSON; refusing to launch a worker with the never-use model list unreadable
+rc=1
+
+## --secondmate --harness kimi
+error: worker model 'kimi' is on the never-use model list: rule '*kimi*' - Kimi is ruled out on every provider ($LAB/config/model-denylist.json); refusing the launch - pick a model that is not on the list
+rc=1
+
+## --secondmate --harness pi --model kimi-coding/k3
+error: worker model 'kimi-coding/k3' is on the never-use model list: rule '*kimi*' - Kimi is ruled out on every provider ($LAB/config/model-denylist.json); refusing the launch - pick a model that is not on the list
+rc=1
+
+## --secondmate with config/secondmate-harness "pi kimi-coding/k3 high"
+error: worker model 'kimi-coding/k3' is on the never-use model list: rule '*kimi*' - Kimi is ruled out on every provider ($LAB/config/model-denylist.json); refusing the launch - pick a model that is not on the list
+rc=1
+
+## POSITIVE CONTROL: brief only forbids kimi in prose, --harness claude --model claude-opus-5-5, clean NM config
+spawned nm-brief-prose harness=claude kind=ship mode=no-mistakes yolo=off window=primary:fm-nm-brief-prose worktree=/Users/yelen/.treehouse/demo-ee3dee/1/demo
+rc=0
+

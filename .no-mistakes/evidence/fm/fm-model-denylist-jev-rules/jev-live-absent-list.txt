@@ -1,0 +1,5 @@
+$ (no config/model-denylist.json) fm-jev.sh pick ... kimi-coding/k3 claude-opus-5-5 gpt-5.6-sol
+pick: ESCALATE conf=0.46 prior=claude-opus-5-5 -> decide yourself
+exit=2
+--- request body sent:
+{"model":"jev-1.13.0","state":"One-off no-mistakes reviewer for a firstmate shell-script change.","questions":{"pick":{"type":"choice","instructions":"Which model should review this change?","criteria":{"kimi-coding/k3":"Kimi K3","claude-opus-5-5":"Claude Opus 5.5","gpt-5.6-sol":"GPT 5.6 Sol"}}}}
