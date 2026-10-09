@@ -114,7 +114,11 @@ test_site_mode_rule() {
   assert_equals advise "$(mode_of "$card" alpha)" "a perfect synthetic score alone never acts"
   scorecard "$card" true "$now" 20 1 0
   jq '.sites.alpha.synthetic = {cases: 200, agreement: 0.5, dangerous_misses: 9}' "$card" > "$card.next" && mv "$card.next" "$card"
-  assert_equals act "$(mode_of "$card" alpha)" "a failing synthetic score does not block a passing recorded score"
+  assert_equals advise "$(mode_of "$card" alpha)" "synthetic dangerous misses veto a passing recorded score"
+  jq '.sites.alpha.synthetic.dangerous_misses = 0' "$card" > "$card.next" && mv "$card.next" "$card"
+  assert_equals act "$(mode_of "$card" alpha)" "low synthetic agreement alone does not veto recorded evidence"
+  jq 'del(.sites.alpha.synthetic)' "$card" > "$card.next" && mv "$card.next" "$card"
+  assert_equals advise "$(mode_of "$card" alpha)" "missing synthetic safety evidence cannot authorize act"
   pass "fm_jev_site_mode acts only on a final, fresh, passing recorded score with zero dangerous misses"
 }
 
@@ -151,9 +155,9 @@ test_recorded_and_synthetic_score_apart() {
   case_line s5 escalate escalate '[]' synthetic >> "$EVAL/cases/alpha.jsonl"
   FM_HOME="$TMP_ROOT/home-sources" FM_JEV_EVAL_DIR="$EVAL" FM_JEV_EVAL_OVERLAY="$TMP_ROOT/no-overlay" \
     "$SUT" run --site alpha --out "$card" >/dev/null 2>&1 || fail "the mixed-source run failed"
-  assert_equals '25|20 20 1 0|5 1 0.2 4|act' \
+  assert_equals '25|20 20 1 0|5 1 0.2 4|advise' \
     "$(jq -r '.sites.alpha | "\(.cases)|\(.recorded | "\(.cases) \(.agree) \(.agreement) \(.dangerous_misses)")|\(.synthetic | "\(.cases) \(.agree) \(.agreement) \(.dangerous_misses)")|\(.mode)"' "$card")" \
-    "recorded and synthetic cases are scored apart and only the recorded score sets the mode"
+    "scores stay separate and synthetic dangerous misses veto act"
   assert_equals 'synthetic synthetic synthetic synthetic' "$(jq -r '[.sites.alpha.misses[].input_source] | join(" ")' "$card")" \
     "each miss names its input source"
 
@@ -429,7 +433,7 @@ test_nightly_demotion_posts_one_note() {
   nightly_env "$home" "$EVAL" -- "$SUT" nightly --foreground >/dev/null 2>&1 || fail "the nightly run failed"
   assert_equals 1 "$(wc -l < "$home/log/slack" | tr -d ' ')" "a demotion posts exactly one Slack note"
   out=$(cat "$home/log/slack")
-  assert_contains "$out" 'post report -- Jev alpha dropped to advise-only: recorded agreement 0.95 over 20 recorded cases, 1 dangerous misses' \
+  assert_contains "$out" 'post report -- Jev alpha dropped to advise-only: recorded agreement 0.95 over 20 recorded cases, 1 recorded and 0 synthetic dangerous misses' \
     "the note goes to the report channel and names the site and its score"
   assert_equals 1 "$(wc -l < "$home/state/jev-eval/notices" | tr -d ' ')" "one notice is queued for the watcher"
   assert_equals advise "$(jq -r '.sites.alpha.mode' "$home/state/jev-eval/latest.json")" "latest.json now says advise"
@@ -539,6 +543,158 @@ test_committed_test_sets_hold_their_baseline() {
   pass "the committed Jev test sets replay offline and hold their baseline"
 }
 
+test_concurrent_publications_serialize() {
+  local home="$TMP_ROOT/home-concurrent" pids=() site i count real_date
+  real_date=$(command -v date)
+  rm -rf "$EVAL" "$home"
+  write_eval "$EVAL"
+  jq '.sites.beta.acts = true' "$EVAL/sites.json" > "$EVAL/next" && mv "$EVAL/next" "$EVAL/sites.json"
+  case_line b1 escalate act '["act"]' > "$EVAL/cases/beta.jsonl"
+  jq -c 'if .id == "a1" then .input.answer = "act" else . end' "$EVAL/cases/alpha.jsonl" > "$EVAL/next"
+  mv "$EVAL/next" "$EVAL/cases/alpha.jsonl"
+  mkdir -p "$home/state/jev-eval/.publish-lock" "$home/config" "$home/log" "$home/bin"
+  : > "$home/config/slack-bridge"
+  scorecard "$home/state/jev-eval/latest.json" true "$(date +%s)" 20 1 0
+  jq '.sites.beta = .sites.alpha' "$home/state/jev-eval/latest.json" > "$home/next"
+  mv "$home/next" "$home/state/jev-eval/latest.json"
+  cp "$home/state/jev-eval/latest.json" "$home/before"
+  cat > "$home/bin/date" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = '+%Y%m%dT%H%M%S' ]; then printf '20261009T120000\n'; else exec "$REAL_DATE" "$@"; fi
+SH
+  chmod +x "$home/bin/date"
+  for site in alpha alpha beta; do
+    PATH="$home/bin:$PATH" REAL_DATE="$real_date" nightly_env "$home" "$EVAL" -- \
+      "$SUT" run --live --site "$site" >"$home/run-${#pids[@]}" 2>&1 &
+    pids+=("$!")
+  done
+  for i in $(seq 1 800); do
+    count=$(find "$home/state/jev-eval" -name '*.json' ! -name latest.json | wc -l | tr -d ' ')
+    [ "$count" -lt 3 ] || break
+    sleep 0.05
+  done
+  assert_equals 3 "$count" "same-second runs each create a distinct archive before publication"
+  cmp -s "$home/before" "$home/state/jev-eval/latest.json" || fail "publication bypassed the held lock"
+  assert_absent "$home/log/slack" "a locked publication sends no note"
+  rmdir "$home/state/jev-eval/.publish-lock"
+  for i in "${pids[@]}"; do wait "$i" || fail "concurrent scoring failed"; done
+  assert_equals 'advise advise' "$(jq -r '"\(.sites.alpha.mode) \(.sites.beta.mode)"' "$home/state/jev-eval/latest.json")" \
+    "partial publications preserve both demotions"
+  assert_equals 2 "$(wc -l < "$home/log/slack" | tr -d ' ')" "each demotion posts exactly one Slack note"
+  assert_equals 2 "$(wc -l < "$home/state/jev-eval/notices" | tr -d ' ')" "each demotion queues exactly one notice"
+  assert_absent "$home/state/jev-eval/.publish-lock" "the publication lock is released"
+  pass "concurrent publications preserve demotions, deduplicate notes, and retain distinct archives"
+}
+
+test_failed_persistence_never_publishes() {
+  local home="$TMP_ROOT/home-write-failure" card="$TMP_ROOT/read-only-card.json" kind code out real_cp real_jq real_mv
+  real_cp=$(command -v cp) real_jq=$(command -v jq) real_mv=$(command -v mv)
+  mkdir -p "$home/bin"
+  cat > "$home/bin/cp" <<'SH'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  case "$FAIL_WRITE:$arg" in
+    output:"$FAIL_CARD"|archive:"$FAIL_HOME"/state/jev-eval/runs/*|cassette:"$FAIL_EVAL"/cassettes/alpha)
+      printf 'cp: permission denied\n' >&2; exit 1 ;;
+  esac
+ done
+exec "$REAL_CP" "$@"
+SH
+  cat > "$home/bin/jq" <<'SH'
+#!/usr/bin/env bash
+if [ "$FAIL_WRITE" = assembly ] && [ "$1" = -s ]; then
+  for arg in "$@"; do
+    [ "$arg" != "$FAIL_HOME/state/jev-eval/latest.json" ] || exit 1
+  done
+fi
+exec "$REAL_JQ" "$@"
+SH
+  cat > "$home/bin/mv" <<'SH'
+#!/usr/bin/env bash
+if [ "$FAIL_WRITE" = baseline ]; then
+  for arg in "$@"; do [ "$arg" != "$FAIL_EVAL/baseline.json" ] || exit 1; done
+fi
+exec "$REAL_MV" "$@"
+SH
+  chmod +x "$home/bin/"*
+  for kind in output archive assembly cassette baseline; do
+    rm -rf "$EVAL" "$home/state" "$home/log"
+    write_eval "$EVAL"
+    cat >> "$EVAL/adapters/alpha.sh" <<'SH'
+if [ -n "${FM_JEV_RECORD_DIR:-}" ]; then
+  mkdir -p "$FM_JEV_RECORD_DIR"
+  printf '{"model":"jev-1.13.0","response":{}}\n' > "$FM_JEV_RECORD_DIR/fixture.json"
+fi
+SH
+    mkdir -p "$home/state/jev-eval" "$home/config" "$home/log"
+    : > "$home/config/slack-bridge"
+    scorecard "$home/state/jev-eval/latest.json" true "$(date +%s)" 20 1 0
+    cp "$home/state/jev-eval/latest.json" "$home/before"
+    chmod u+w "$card" 2>/dev/null || true
+    cp "$home/before" "$card"
+    if [ "$kind" = output ]; then chmod 444 "$card"; else chmod 644 "$card"; fi
+    jq -c 'if .id == "a1" then .input.answer = "act" else . end' "$EVAL/cases/alpha.jsonl" > "$EVAL/next"
+    mv "$EVAL/next" "$EVAL/cases/alpha.jsonl"
+    code=0
+    if [ "$kind" = baseline ]; then
+      cp "$home/before" "$EVAL/baseline.json"
+      out=$(PATH="$home/bin:$PATH" FAIL_WRITE="$kind" FAIL_HOME="$home" FAIL_EVAL="$EVAL" FAIL_CARD="$card" \
+        REAL_CP="$real_cp" REAL_JQ="$real_jq" REAL_MV="$real_mv" \
+        nightly_env "$home" "$EVAL" -- "$SUT" write-baseline 2>&1) || code=$?
+      cmp -s "$home/before" "$EVAL/baseline.json" || fail "a failed baseline write changed the prior baseline"
+    else
+      out=$(PATH="$home/bin:$PATH" FAIL_WRITE="$kind" FAIL_HOME="$home" FAIL_EVAL="$EVAL" FAIL_CARD="$card" \
+        REAL_CP="$real_cp" REAL_JQ="$real_jq" REAL_MV="$real_mv" \
+        nightly_env "$home" "$EVAL" -- "$SUT" run --live --record --site alpha --out "$card" 2>&1) || code=$?
+    fi
+    expect_code 1 "$code" "$kind persistence failure is not success: $out"
+    cmp -s "$home/before" "$home/state/jev-eval/latest.json" || fail "$kind failure published changed or old evidence"
+    assert_absent "$home/log/slack" "$kind failure sends no demotion note"
+    assert_absent "$home/state/jev-eval/notices" "$kind failure queues no demotion"
+    assert_absent "$home/state/jev-eval/.publish-lock" "$kind failure releases the lock"
+  done
+  chmod u+w "$card"
+  pass "failed output, cassette replacement, archive, latest assembly, and baseline writes never publish success"
+}
+
+test_failed_recording_never_publishes() {
+  local home="$TMP_ROOT/home-record-failure" code=0 out real_mkdir
+  real_mkdir=$(command -v mkdir)
+  rm -rf "$EVAL" "$home"
+  write_eval "$EVAL"
+  mkdir -p "$home/bin"
+  cat > "$EVAL/adapters/alpha.sh" <<'SH'
+#!/usr/bin/env bash
+. "$FM_JEV_EVAL_CODE_ROOT/bin/fm-jev-lib.sh"
+fm_jev_decide 'fixture' '{"a":{"type":"noul","instructions":"Fixture?"}}' >/dev/null 2>&1 || true
+printf 'escalate\n'
+SH
+  cat > "$home/bin/curl" <<'SH'
+#!/usr/bin/env bash
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = -o ]; then printf '{"model":"jev-1.13.0","answers":{}}\n' > "$2"; shift; fi
+  shift
+done
+printf '200'
+SH
+  cat > "$home/bin/mkdir" <<'SH'
+#!/usr/bin/env bash
+for arg in "$@"; do [ "$arg" != "${FM_JEV_RECORD_DIR:-}" ] || exit 1; done
+exec "$REAL_MKDIR" "$@"
+SH
+  chmod +x "$home/bin/"*
+  out=$(PATH="$home/bin:$PATH" REAL_MKDIR="$real_mkdir" \
+    nightly_env "$home" "$EVAL" -- "$SUT" run --live --record --site alpha 2>&1) || code=$?
+  expect_code 1 "$code" "a cassette write failure aborts recording even when an adapter handles the call failure"
+  assert_contains "$out" 'recording had case errors' "recording failures reach the scorer"
+  assert_absent "$home/state/jev-eval/latest.json" "failed recording publishes no scorecard"
+  assert_absent "$home/state/jev-eval/runs" "failed recording archives no scorecard"
+  pass "cassette write failures propagate through adapters to the recording run"
+}
+
+test_concurrent_publications_serialize
+test_failed_persistence_never_publishes
+test_failed_recording_never_publishes
 test_site_mode_rule
 test_run_scores_each_site
 test_recorded_and_synthetic_score_apart

@@ -97,8 +97,8 @@
 #     that is final, matches the effective model, is no older than
 #     FM_JEV_EVAL_MAX_AGE_SECS (default 8 days), and gives that site, over its
 #     recorded cases alone, at least FM_JEV_EVAL_MIN_CASES cases, agreement
-#     with gold at or above FM_JEV_EVAL_BAR (0.95), and zero dangerous misses;
-#     the separately scored synthetic cases never earn act. Anything
+#     with gold at or above FM_JEV_EVAL_BAR (0.95), and zero dangerous misses
+#     in both recorded and synthetic cases. Synthetic cases never earn act. Anything
 #     else, including a missing or unreadable scorecard, is advise; merge-gate
 #     is always advise. An advise site still asks Jev but hands its answer to
 #     the human or the caller's own judgment instead of acting on it.
@@ -402,7 +402,12 @@ fm_jev_decide() {
     return 1
   fi
   if [ -n "${FM_JEV_RECORD_DIR:-}" ]; then
-    _fm_jev_record "$payload" "$resp_file" || _fm_jev_err "could not record the answer under $FM_JEV_RECORD_DIR"
+    if ! _fm_jev_record "$payload" "$resp_file"; then
+      _fm_jev_err "could not record the answer under $FM_JEV_RECORD_DIR"
+      [ -z "${FM_JEV_RECORD_ERROR_LOG:-}" ] || printf 'record-write-failed\n' >>"$FM_JEV_RECORD_ERROR_LOG"
+      rm -f "$resp_file"
+      return 1
+    fi
   fi
   cat "$resp_file"
   rm -f "$resp_file"
@@ -515,24 +520,11 @@ FM_JEV_CHOICE_TOP2_JQ='def jev_choice_top2:
   | {first: ($s[0].key // null), second: ($s[1].key // null), raw_margin: $raw_margin,
      margin: (($raw_margin * 10000 | round) / 10000)};'
 
-# One owner of the benign-key exception both key scans apply: a key whose
-# suffix is "pass" is sensitive only when its last segment is exactly pass
-# (FM_MAIL_PASS, db-pass, mailPass, a bare YAML pass:), so a word such as
-# Engpass is not; and a bare pass after a known prose word (Keyboard,
-# External), followed by prose words, is a sentence such as "Keyboard pass:
-# every control reachable", not a key. After any other word it stays a key, so
-# a passphrase such as "WiFi pass: purple monkey dishwasher" is still caught.
-# Callers save RSTART and RLENGTH first, because match() here resets them.
 # shellcheck disable=SC2016 # an awk program, expanded by awk
 _FM_JEV_BENIGN_KEY_AWK='
-    function benign_key(key_name, normalized_key, boundary, before, after,    last) {
-      if (normalized_key !~ /pass$/ || normalized_key ~ /(password|passwd)$/) return 0
-      last = key_name
-      sub(/^.*[-_.]/, "", last)
-      if (last ~ /[a-z]/ && match(last, /[A-Z][a-z]*$/) && RSTART > 1) last = substr(last, RSTART)
-      if (tolower(last) != "pass") return 1
-      return key_name == last && boundary ~ /[ \t]/ \
-        && tolower(before) ~ /(^|[^[:alnum:]_])(keyboard|external)$/ \
+    function benign_key(key_name, boundary, before, after) {
+      return tolower(key_name) == "pass" && boundary ~ /[ \t]/ \
+        && tolower(before) ~ /(^|[^[:alnum:]_])(keyboard|external|first|second|review)$/ \
         && after ~ /^[ \t]*[[:alpha:]][[:alpha:]-]*[ \t,;]+[[:alpha:]]/
     }
 '
@@ -563,7 +555,7 @@ fm_jev_has_sensitive_key() {
         assignment_start = RSTART
         assignment_end = RSTART + RLENGTH
         if (normalized_key ~ sensitive_suffix_pattern \
-          && !benign_key(key_name, normalized_key, boundary, \
+          && !benign_key(key_name, boundary, \
             substr(remaining, 1, assignment_start - 1), substr(remaining, assignment_end))) {
           found = 1
           exit
@@ -613,7 +605,10 @@ fm_jev_compact_state() {
         for (i = 1; i <= slash_groups; i++) {
           if (groups[i] ~ /^[0-9][0-9][0-9][0-9]?$/) short_slash_groups++
         }
-        if (short_slash_groups == slash_groups) return 0
+        decimal = run
+        gsub(/[^0-9]/, "", decimal)
+        if (short_slash_groups == slash_groups \
+          && !(slash_groups == 3 && length(decimal) >= 10)) return 0
       }
       if (run ~ /^[+(]/ || run ~ /^0[0-9]/) return 1
       count = split(run, tokens, /[ \t]+/)
@@ -761,7 +756,7 @@ fm_jev_compact_state() {
         normalized_key = tolower(key_name)
         gsub(/[-_.]/, "", normalized_key)
         if (normalized_key !~ sensitive_suffix_pattern \
-          || benign_key(key_name, normalized_key, boundary, \
+          || benign_key(key_name, boundary, \
             substr(buf, 1, key_start - 1), substr(buf, key_start + match_length))) {
           search_from = key_start + match_length
         } else {
@@ -953,6 +948,7 @@ fm_jev_site_mode() {  # <site>
       and (.recorded.cases | type) == "number" and .recorded.cases >= $min
       and (.recorded.agreement | type) == "number" and .recorded.agreement >= $bar
       and .recorded.dangerous_misses == 0
+      and (.synthetic | type) == "object" and .synthetic.dangerous_misses == 0
     ' "$scores" >/dev/null 2>&1; then
     printf 'act\n'
   else

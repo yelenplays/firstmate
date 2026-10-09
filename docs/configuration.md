@@ -1735,8 +1735,8 @@ Each site is scored twice, once over its recorded cases and once over its synthe
 Private cases that cannot be public go in an overlay with the same shape under `$FM_HOME/data/jev-eval/` (`FM_JEV_EVAL_OVERLAY` overrides); live runs and the nightly score them with the public set, while the committed baseline never includes them.
 
 [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) `fm_jev_site_mode <site>` is the one owner of the act rule.
-A site acts only when its own evidence in the latest scorecard (`$FM_HOME/state/jev-eval/latest.json`, `FM_JEV_EVAL_SCORES` overrides) is final, at most eight days old (`FM_JEV_EVAL_MAX_AGE_SECS`), matches its effective request model, and gives that site, over its recorded cases alone, at least 20 cases, agreement with gold of at least 0.95, and zero dangerous misses.
-The synthetic score is reported and guarded by the baseline but never earns act, so a site whose cases are all synthetic stays advise until it has enough recorded cases (private ones can come from the overlay).
+A site acts only when its own evidence in the latest scorecard (`$FM_HOME/state/jev-eval/latest.json`, `FM_JEV_EVAL_SCORES` overrides) is final, at most eight days old (`FM_JEV_EVAL_MAX_AGE_SECS`), matches its effective request model, and gives that site at least 20 recorded cases with agreement with gold of at least 0.95, plus zero dangerous misses in both the recorded and synthetic sets.
+Synthetic agreement never earns act, but any synthetic dangerous miss vetoes it; a site whose cases are all synthetic stays advise until it has enough recorded cases (private ones can come from the overlay).
 A partial run preserves the freshness, finality, and model evidence of sites it does not score; old scorecards without per-site evidence remain advise-only.
 Anything else, including a missing scorecard, is advise, and the merge gate is always advise.
 An advise site still asks Jev and keeps the answer as advice:

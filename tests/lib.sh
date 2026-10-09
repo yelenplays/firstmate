@@ -501,7 +501,8 @@ fm_jev_act_scores() {  # <dir>
   mkdir -p "$1"
   jq --arg model "$model" --argjson now "$(date +%s)" '{
     sites: (.sites | with_entries(.value = {final: true, generated_at: $now, model: $model,
-      recorded: {cases: 100, agreement: 1, dangerous_misses: 0}}))}' \
+      recorded: {cases: 100, agreement: 1, dangerous_misses: 0},
+      synthetic: {cases: 0, agreement: 0, dangerous_misses: 0}}))}' \
     "$ROOT/tests/jev-eval/sites.json" > "$out" || return 1
   printf '%s\n' "$out"
 }

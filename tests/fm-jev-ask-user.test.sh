@@ -194,7 +194,7 @@ test_escalates_contact_data_before_jev() {
   for contact in 'reach person@example.com' 'call 555-123-4567' \
     'Call +49 170.1234567' '+49 1701234567' '(415) 5551234' \
     '2026-10-08 +49 1701234567' '2026-10-08 (415) 5551234' 'Call 0170 123.4567' 'Call (0170) 123.4567' 'Call 212 555.0199' \
-    '2026-10-08 555-123-4567' '2026-10-08 0170 1234567' '2026-10-08 212 555 0199' 'Call 415 5551234'; do
+    '2026-10-08 555-123-4567' '2026-10-08 0170 1234567' '2026-10-08 212 555 0199' 'Call 415 5551234' 'Call 415/555/0199'; do
     world
     printf 'schema=fm-task-inbox.v1\nat=2026-10-04T20:02:00Z\n--\n%s\n' "$contact" > "$HOME_DIR/state/t1.inbox/002.msg"
     answer in-scope-fix 0.99 in-scope-fix 0.99
@@ -398,7 +398,7 @@ test_always_escalate_classes_skip_jev() {
 }
 
 test_escalates_oversized_or_secret_contract() {
-  local code out
+  local code out credential
   world
   answer in-scope-fix 0.99 in-scope-fix 0.99
   head -c 9000 /dev/zero | tr '\0' 'a' >> "$HOME_DIR/data/t1/brief.md"
@@ -416,6 +416,18 @@ test_escalates_oversized_or_secret_contract() {
   assert_equals "$code" 2 "a secret-shaped steer escalates"
   assert_contains "$out" "privacy" "the privacy refusal is named"
   assert_equals "$(calls)" 0 "a secret never leaves the machine"
+  for credential in 'DBPASS=hunter2' 'dbpass=hunter2' 'db_pass: x' \
+    'WiFi pass: purple monkey dishwasher' 'Router pass: correct horse battery staple'; do
+    world
+    answer in-scope-fix 0.99 in-scope-fix 0.99
+    printf 'schema=fm-task-inbox.v1\nat=2026-10-04T20:01:00Z\n--\n%s\n' "$credential" \
+      > "$HOME_DIR/state/t1.inbox/002.msg"
+    run code out t1 "$GATE" --round 1
+    assert_equals "$code" 2 "a password assignment escalates: $credential"
+    assert_contains "$out" 'privacy' "the password privacy refusal is named"
+    assert_equals "$(calls)" 0 "a password never reaches Jev"
+    assert_absent "$LOG/send-args" "a password-bearing steer never answers the gate"
+  done
   pass "fm-jev-ask-user: oversized or secret-bearing contracts escalate unsent"
 }
 
@@ -472,7 +484,7 @@ test_ordinary_task_numbers_reach_jev() {
     > "$HOME_DIR/state/t1.inbox/handled/002.msg"
   printf '%s\n' '# Task' "## Captain's intent" 'Make the parser keep every field.' '' '## Firstmate spec' \
     '- Check 320/390/768/1440, lines 1028-1045, ISO 1600-3200, oklch(0.575 0.18 24).' \
-    '- Keyboard pass: every control reachable; Engpass: none; host 127.0.0.1:8081.' > "$HOME_DIR/data/t1/brief.md"
+    '- Keyboard pass: every control reachable; host 127.0.0.1:8081.' > "$HOME_DIR/data/t1/brief.md"
   answer in-scope-fix 0.99 in-scope-fix 0.99
   run code out t1 "$GATE" --round 1
   assert_equals "$code" 0 "ordinary task numbers and prose do not trip the privacy screen"
