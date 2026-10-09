@@ -748,7 +748,8 @@ test_privacy_guard_refuses_before_sending() {
     assert_absent "$LOG/body" "mixed-format phone data in options never reaches Jev"
   done
 
-  for safe_state in "Version 1.2.3" "Date 2025-03-08" "Date 2025 03 08" "Timestamp 2025-03-08T14:32:10Z" "Count 123456789" "320/390/768" "Keyboard pass: every control reachable"; do
+  for safe_state in "Version 1.2.3" "Date 2025-03-08" "Date 2025 03 08" "Timestamp 2025-03-08T14:32:10Z" "Count 123456789" "320/390/768" "320/768/1440" "1440/1024/768" "1920/1440/1280" "195/390/1440" \
+    "Keyboard pass: every control reachable" "Engpass: none" "Auth bypass: the handler skips the check"; do
     reset_log
     run_jev code out err yes "$safe_state" "Is this accepted?"
     assert_equals "$code" 0 "non-phone numeric text is accepted: $safe_state"
@@ -788,7 +789,7 @@ test_privacy_guard_refuses_before_sending() {
 
   for credential in \
     'DB_PASSWORD = cleartext value' \
-    'DBPASS=hunter2' 'dbpass=hunter2' 'db_pass: x' '{"DBPASS":"hunter2"}' \
+    'DBPASS=hunter2' 'dbpass=hunter2' 'db_pass: x' '{"DBPASS":"hunter2"}' 'Engpass: hunter2' \
     'API_token : opaque-value' \
     'db_PWD=another-value' \
     'SERVICE_SECRET = "two word value"' \

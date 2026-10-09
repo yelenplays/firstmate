@@ -483,14 +483,19 @@ test_ordinary_task_numbers_reach_jev() {
     'Pickup receipt: from your worktree run: FM_HOME=/home/fm /home/fm/bin/fm-task-execution.sh started t1 e1791449349.20521.20886 - then carry on.' \
     > "$HOME_DIR/state/t1.inbox/handled/002.msg"
   printf '%s\n' '# Task' "## Captain's intent" 'Make the parser keep every field.' '' '## Firstmate spec' \
-    '- Check 320/390/768/1440, lines 1028-1045, ISO 1600-3200, oklch(0.575 0.18 24).' \
-    '- Keyboard pass: every control reachable; host 127.0.0.1:8081.' > "$HOME_DIR/data/t1/brief.md"
+    '- Check 320/390/768/1440, 320/768/1440, 1440/1024/768, 1920/1440/1280, 195/390/1440, lines 1028-1045, ISO 1600-3200, oklch(0.575 0.18 24).' \
+    '- Keyboard pass: every control reachable; Engpass: none; host 127.0.0.1:8081.' \
+    '- Auth bypass: the handler skips the check.' > "$HOME_DIR/data/t1/brief.md"
   answer in-scope-fix 0.99 in-scope-fix 0.99
   run code out t1 "$GATE" --round 1
   assert_equals "$code" 0 "ordinary task numbers and prose do not trip the privacy screen"
   assert_contains "$out" "ACT $GATE" "Jev decides the gate"
   assert_contains "$(jq -r '.state' "$LOG/body")" 'e1791449349.20521.20886' "the receipt id is sent unchanged"
   assert_contains "$(jq -r '.state' "$LOG/body")" '320/390/768/1440' "the viewport list is sent unchanged"
+  assert_contains "$(jq -r '.state' "$LOG/body")" 'Engpass: none' "the benign heading is sent unchanged"
+  assert_contains "$(jq -r '.state' "$LOG/body")" 'Auth bypass: the handler skips the check' "the benign review prose is sent unchanged"
+  assert_contains "$(jq -r '.state' "$LOG/body")" '320/768/1440' "the ascending viewport list is sent unchanged"
+  assert_contains "$(jq -r '.state' "$LOG/body")" '1440/1024/768' "the descending viewport list is sent unchanged"
   pass "fm-jev-ask-user: receipt ids, viewport lists, ranges, and prose reach Jev"
 }
 

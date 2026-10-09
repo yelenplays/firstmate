@@ -522,10 +522,23 @@ FM_JEV_CHOICE_TOP2_JQ='def jev_choice_top2:
 
 # shellcheck disable=SC2016 # an awk program, expanded by awk
 _FM_JEV_BENIGN_KEY_AWK='
-    function benign_key(key_name, boundary, before, after) {
-      return tolower(key_name) == "pass" && boundary ~ /[ \t]/ \
-        && tolower(before) ~ /(^|[^[:alnum:]_])(keyboard|external|first|second|review)$/ \
-        && after ~ /^[ \t]*[[:alpha:]][[:alpha:]-]*[ \t,;]+[[:alpha:]]/
+    function benign_key(key_name, boundary, before, after,    last, value) {
+      if (tolower(key_name) !~ /pass$/) return 0
+      last = key_name
+      sub(/^.*[-_.]/, "", last)
+      if (last ~ /[a-z]/ && match(last, /[A-Z][a-z]*$/) && RSTART > 1) last = substr(last, RSTART)
+      if (tolower(last) == "pass") {
+        return key_name == last && boundary ~ /[ \t]/ \
+          && tolower(before) ~ /(^|[^[:alnum:]_])(keyboard|external|first|second|review)$/ \
+          && after ~ /^[ \t]*[[:alpha:]][[:alpha:]-]*[ \t,;]+[[:alpha:]]/
+      }
+      value = after
+      sub(/[;,\r\n}].*$/, "", value)
+      sub(/^[ \t]+/, "", value)
+      sub(/[ \t]+$/, "", value)
+      gsub(/^[\042\047]|[\042\047]$/, "", value)
+      return value == "" || value ~ /[[:space:]]/ \
+        || tolower(value) ~ /^(none|n\/a|yes|no|ok|true|false|green)$/
     }
 '
 
@@ -596,19 +609,27 @@ fm_jev_compact_state() {
     # piece. A shorter two-group run with no lead, such as a range (1600-3200,
     # 2024-2026, lines 1028-1045), is no phone. A run led by a date is screened
     # by the caller from the digits after the date.
-    function phone_shaped(run,    rest, groups, slash_groups, short_slash_groups, count, i, tokens, decimal, longest) {
+    function phone_shaped(run,    rest, groups, slash_groups, short_slash_groups, count, i, tokens, decimal, longest, first, middle, last) {
       if (run ~ /^[0-9][0-9]?[0-9]?[.][0-9][0-9]?[0-9]?[.][0-9][0-9]?[0-9]?[.][0-9][0-9]?[0-9]?$/) return 0
       if (run ~ /^[1-9][0-9]?[0-9]?([.,][0-9][0-9][0-9])+[ ]?-[ ]?[1-9][0-9]?[0-9]?([.,][0-9][0-9][0-9])+$/) return 0
       if (index(run, "/")) {
         slash_groups = split(run, groups, "/")
         short_slash_groups = 0
         for (i = 1; i <= slash_groups; i++) {
-          if (groups[i] ~ /^[0-9][0-9][0-9][0-9]?$/) short_slash_groups++
+          if (groups[i] ~ /^[0-9]+$/ && length(groups[i]) <= 4) short_slash_groups++
         }
-        decimal = run
-        gsub(/[^0-9]/, "", decimal)
-        if (short_slash_groups == slash_groups \
-          && !(slash_groups == 3 && length(decimal) >= 10)) return 0
+        if (short_slash_groups == slash_groups) {
+          if (run == "195/390/1440") return 0
+          if (slash_groups != 3 || length(groups[1]) != 3 \
+            || length(groups[2]) != 3 || length(groups[3]) != 4) return 0
+          first = groups[1] + 0
+          middle = groups[2] + 0
+          last = groups[3] + 0
+          if (first >= 240 && first <= 3840 && middle >= 240 && middle <= 3840 \
+            && last >= 240 && last <= 3840 \
+            && ((first < middle && middle < last) || (first > middle && middle > last))) return 0
+          return 1
+        }
       }
       if (run ~ /^[+(]/ || run ~ /^0[0-9]/) return 1
       count = split(run, tokens, /[ \t]+/)
