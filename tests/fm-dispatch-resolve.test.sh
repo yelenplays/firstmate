@@ -1967,13 +1967,20 @@ for typed_status in clear picked; do
     assert_equals 1 "$(backup_calls)" "the backup is asked after advisory $typed_status"
     assert_equals 0 "$(curl_calls)" "the Jev answer comes only from the cassette"
     for answer_log in "$DISPATCH_LOG" "$HOME_DIR/state/jev-dispatch-shadow.jsonl"; do
-      tail -n 1 "$answer_log" | jq -e --arg stage "$deciding_stage" --arg status "$typed_status" '
+      tail -n 1 "$answer_log" | jq -e --arg stage "$deciding_stage" --arg status "$typed_status" --slurpfile response "$RESPONSE" '
         .mode == "advise" and .decided_by == $stage
         and .profile.model == "cursor-grok-4.6-high"
         and .advice.status == $status and .advice.rule == "rule_4"
-        and .advice.profile.model == "cursor-grok-4.6-medium"' >/dev/null \
+        and .advice.profile.model == "cursor-grok-4.6-medium"
+        and .advice.confidence == $response[0].answers.rule.confidence
+        and .advice.probabilities == $response[0].answers.rule.probabilities' >/dev/null \
         || fail "advisory $typed_status log must separate advice from the bound profile"
     done
+    tail -n 1 "$HOME_DIR/state/jev-dispatch-shadow.jsonl" | jq -e --slurpfile response "$RESPONSE" '
+      .rule == $response[0].answers.rule.choice
+      and .confidence == $response[0].answers.rule.confidence
+      and .probabilities == $response[0].answers.rule.probabilities' >/dev/null \
+      || fail "shadow evidence must retain Jev's $typed_status answer after $deciding_stage decides"
   done
   reset_log
   TYPESAFE_API_KEY=$KEY FM_JEV_REPLAY_DIR="$cassettes" FM_JEV_EVAL_SCORES="$ADVISE_SCORES" \
@@ -1992,6 +1999,56 @@ assert_equals 1 "$(backup_calls)" "a typed last-resort selection also goes to th
 tail -n 1 "$DISPATCH_LOG" | jq -e '.mode == "advise" and .decided_by == "backup" and .advice.status == "fallback"' >/dev/null \
   || fail "a typed last-resort profile must remain advice"
 pass "chain: advisory clear, runoff, and last-resort answers continue independently and log advice separately"
+
+jq '.default = {harness: "claude", model: "opus", effort: "medium", effort_min: "low", effort_max: "xhigh"}' "$BASE_RULES" > "$RULES"
+for typed_status in clear picked ambiguous; do
+  reset_log
+  write_response_effort "$RESPONSE" rule_4 0.9 xhigh
+  pick_fail=0
+  if [ "$typed_status" != clear ]; then
+    jq --argjson probabilities "$NARROW" '.answers.rule.confidence = 0.26 | .answers.rule.probabilities = $probabilities' \
+      "$RESPONSE" > "$TMP_ROOT/r.json" && mv "$TMP_ROOT/r.json" "$RESPONSE"
+    write_pick_response "$PICK_RESPONSE" rule_4 '{ "rule_4": 0.86, "rule_2": 0.14 }'
+    [ "$typed_status" != ambiguous ] || pick_fail=1
+  fi
+  TYPESAFE_API_KEY=$KEY FM_JEV_EVAL_SCORES="$ADVISE_SCORES" FM_JEV_DISPATCH_SHADOW=1 \
+    FAKE_BACKUP_FAIL=1 FAKE_CURL_PICK_FAIL=$pick_fail FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE \
+    run_chain code out err "$BRIEF" --project pager
+  expect_code 0 "$code" "advisory $typed_status effort falls to the declared default"
+  assert_contains "$out" "  profile: --harness 'claude' --model 'opus' --effort 'medium'" "default effort stays declared rather than using Jev's xhigh"
+  assert_not_contains "$out" "--effort 'xhigh'" "advisory effort never binds"
+  tail -n 1 "$DISPATCH_LOG" | jq -e --arg status "$typed_status" '
+    .decided_by == "default" and .mode == "advise"
+    and .effort.source != "jev" and .effort.emitted == "medium"
+    and .advice.status == $status and .advice.effort == "xhigh"' >/dev/null \
+    || fail "advisory $typed_status effort must be logged only as advice"
+  tail -n 1 "$HOME_DIR/state/jev-dispatch-shadow.jsonl" > "$TMP_ROOT/typed-shadow-row.jsonl"
+  tail -n 1 "$HOME_DIR/state/jev-dispatch-shadow.jsonl" | jq -e --slurpfile response "$RESPONSE" '
+    .rule == $response[0].answers.rule.choice
+    and .confidence == $response[0].answers.rule.confidence
+    and .probabilities == $response[0].answers.rule.probabilities
+    and .profile.model == "opus" and .decided_by == "default"' >/dev/null \
+    || fail "default stage must not overwrite typed shadow evidence"
+  score_out=$(bash "$ROOT/bin/fm-dispatch-replay.sh" score --rows "$TMP_ROOT/typed-shadow-row.jsonl") \
+    || fail "the typed shadow record must remain usable for calibration"
+  assert_contains "$score_out" 'first=rule_4' "calibration scores Jev's rule rather than the default stage"
+  if [ "$typed_status" = ambiguous ]; then
+    assert_contains "$score_out" 'margin-gate@0.4=ambiguous' "calibration preserves Jev's narrow margin"
+  fi
+done
+reset_log
+TYPESAFE_API_KEY=$KEY FAKE_BACKUP_FAIL=1 FAKE_CURL_PICK_FAIL=1 FM_JEV_DISPATCH_SHADOW=1 \
+  run_chain code out err "$BRIEF" --project pager
+assert_contains "$out" "  profile: --harness 'claude' --model 'opus' --effort 'xhigh'" "act mode preserves its assessed default effort"
+tail -n 1 "$HOME_DIR/state/jev-dispatch-shadow.jsonl" | jq -e '.mode == "act" and .rule == "rule_4" and .confidence == 0.26 and .probabilities.rule_4 == 0.41' >/dev/null \
+  || fail "act-mode fallback must also retain typed shadow evidence"
+reset_log
+FAKE_BACKUP_ANSWER='{"rule":"default","effort":"high"}' FM_JEV_DISPATCH_SHADOW=1 \
+  run_chain code out err "$BRIEF" --project pager
+tail -n 1 "$HOME_DIR/state/jev-dispatch-shadow.jsonl" | jq -e '.rule == null and .confidence == null and .probabilities == null and .decided_by == "backup" and .profile.model == "opus"' >/dev/null \
+  || fail "an absent Jev answer must never acquire backup calibration evidence"
+cp "$BASE_RULES" "$RULES"
+pass "chain: advisory effort remains declared, and calibration retains typed evidence across fallback stages"
 
 # An ambiguous typed answer goes to the backup, which sees exactly the typed
 # state and the same rule options, and its answer decides.

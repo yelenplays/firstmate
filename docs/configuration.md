@@ -1513,7 +1513,7 @@ A request that cannot reach any stage falls to the first default profile, `decid
 The `decided:` line names the stage and the lane whose profile answers, and the `typed:` and `backup:` lines say why an earlier stage did not decide.
 When a floor shortfall or an all-refused rule moves the answer to the default lane, `decided:` names that lane and a `matched:` line names the rule whose profiles were not used.
 Each answer appends one metadata-only record (status, mode, stage, lane, any differing matched rule, effort and any clamp, bound profile, reasons, never the brief) to `state/dispatch-resolve.jsonl`.
-An advise-only Jev selection is stored separately as `advice` with its status, rule, lane, profile, and emitted effort, never as the bound profile.
+An advise-only Jev selection is stored separately as `advice` with its status, rule, lane, profile, assessed effort, confidence, and probabilities, never as the bound profile.
 
 The backup judge is [`bin/fm-backup-judge-lib.sh`](../bin/fm-backup-judge-lib.sh): the local `claude` CLI on `claude-haiku-5-5`, called with a JSON schema whose enums are exactly the offered options, so an answer outside them is rejected rather than guessed around.
 It runs from an empty temporary directory with no settings, MCP servers, tools, or session persistence, reads the prompt on stdin, never receives the typed-call keys, and uses the CLI's own login.
@@ -1588,6 +1588,8 @@ Pi profiles on `xai/grok-4.6` declare `provider: grok` because quota-axi familie
 A truthy value sends the compact intent summary instead of the whole brief, and that compact form is the default on the OpenRouter route when both are unset.
 `FM_JEV_DISPATCH_EXTRA=1` adds log-only Choice questions for home `{main,agency,lay,frontend,zimmer}` (criteria from `data/secondmates.md` when readable) and deliverable `{ship,scout,neither}`; those answers are never auto-routing authority.
 Presence of gitignored `config/jev-dispatch-shadow`, or `FM_JEV_DISPATCH_SHADOW=1`, logs the Jev pick next to the resolved spawn axes into `state/jev-dispatch-shadow.jsonl` and does not add spawn authority beyond the `profile:` line the resolver itself prints.
+Its `rule`, `confidence`, and `probabilities` retain the typed answer for calibration even when the backup or default stage decides; `profile` and `decided_by` describe the bound selection.
+When no valid typed answer exists, those calibration fields are null rather than a fabricated backup answer.
 `FM_JEV_DISPATCH_SHADOW=0` turns that log off even when the config flag is present.
 A captain pin, `yolo` posture, and selected delivery mode still win over any printed profile.
 
@@ -1675,6 +1677,7 @@ The [checks above](#checks-performed-after-the-answer) run in code after the ans
 The same Jev response carries a second typed Choice classifying the reasoning effort the brief itself needs (`low|medium|high|xhigh|max`); the backup judge answers the same question.
 The assessed class is clamped into the profile's declared effort range (see "Crew dispatch profiles"), so `max` still needs an explicit declaration, and then moved to the nearest level the harness supports inside the range, the lower one on a tie; a clamp is shown as `[clamped from <class>]` on the candidate line and logged, and never refuses a candidate.
 A missing, malformed, or low-confidence (below 0.5) effort answer falls back to the range default with the fallback disclosed on the `effort:` line.
+In advise mode, Jev's assessed effort stays in `advice.effort`; if the backup fails, the default stage uses the profile's declared effort, including after an ambiguous typed answer.
 The profile's optional `effort_floor` raises the range's lower bound and any lower assessed or fallback value, including when no effort was declared, without exceeding the upper bound.
 The resolved value governs the launch, runoff identity, and predicted burn.
 A harness without an effort knob keeps the class as a disclosed, unenforced note and emits no `--effort` flag for it.

@@ -1265,6 +1265,7 @@ settle_stage() {  # <ok-status> <effort-json>
 
 # ---- the chain: typed, then the backup judge, then the default stage ----------
 DECIDED_BY='' TYPED_LINE='' BACKUP_LINE=''
+TYPED_RESULT=null
 if [ "$TYPED_OK" -eq 1 ]; then
   resolve_response "$RESP_FILE" "$EFFORT_JSON" "$LAT_MS"
   # ---- runoff: one typed Jev pick among the contenders of an ambiguous answer ----
@@ -1362,6 +1363,7 @@ if [ "$TYPED_OK" -eq 1 ]; then
       fi
       ;;
   esac
+  TYPED_RESULT=$RESULT
   if [ "$TYPED_ONLY" -eq 0 ]; then
     TYPED_STATUS=$(jq -r '.status' <<<"$RESULT")
     case "$TYPED_STATUS" in
@@ -1371,12 +1373,6 @@ if [ "$TYPED_OK" -eq 1 ]; then
       *)
         if settle_stage clear "$EFFORT_JSON"; then
           if [ "$SITE_MODE" != act ] && jq -e '.chosen != null' <<<"$RESULT" >/dev/null; then
-            TYPED_ADVICE=$(jq -c '{status, rule: (.decided_rule // .rule),
-              lane: (.lane // .decided_rule // .rule),
-              profile: (.chosen.profile | {harness, model, provider} | with_entries(select(.value != null))),
-              effort: (if .chosen.effort_emit == false then (.chosen.profile.effort // null)
-                else (.chosen.effort // .chosen.profile.effort // null) end)}' <<<"$RESULT") \
-              || emit_error "could not record typed advice"
             DECIDED_BY=''
             TYPED_REASON="advise_only: $(jq -r '.status' <<<"$RESULT")"
           else
@@ -1387,6 +1383,12 @@ if [ "$TYPED_OK" -eq 1 ]; then
         fi
         ;;
     esac
+  fi
+  if [ "$SITE_MODE" != act ]; then
+    TYPED_ADVICE=$(jq -c --argjson typed "$TYPED_RESULT" '{status, rule: (.decided_rule // .rule),
+      lane: (.lane // .decided_rule // .rule), confidence: $typed.confidence, probabilities: $typed.probabilities,
+      profile: (if .chosen then .chosen.profile | {harness, model, provider} | with_entries(select(.value != null)) else null end),
+      effort: $typed.effort.choice}' <<<"$RESULT") || emit_error "could not record typed advice"
   fi
 fi
 
@@ -1430,7 +1432,10 @@ if [ "$TYPED_ONLY" -eq 0 ] && [ -z "$DECIDED_BY" ]; then
     DEFAULT_CHOICE=rule_1
   fi
   DEFAULT_EFFORT_JSON=$EFFORT_JSON
-  if [ "$(jq -r '.source' <<<"$EFFORT_JSON")" != jev ] && [ -n "${BACKUP_EFFORT:-}" ]; then
+  if [ "$SITE_MODE" != act ] && [ "$(jq -r '.source' <<<"$DEFAULT_EFFORT_JSON")" = jev ]; then
+    DEFAULT_EFFORT_JSON='{"choice":null,"source":"advise-only"}'
+  fi
+  if [ "$(jq -r '.source' <<<"$DEFAULT_EFFORT_JSON")" != jev ] && [ -n "${BACKUP_EFFORT:-}" ]; then
     DEFAULT_EFFORT_JSON=$(jq -nc --arg e "$BACKUP_EFFORT" '{choice: $e, confidence: 1, source: "backup"}')
   fi
   DEFAULT_RESP=$(mktemp) || emit_error "mktemp failed"
@@ -1492,7 +1497,7 @@ TEXT=$(jq -r '
    else empty end)' --arg mode "$SITE_MODE" <<<"$RESULT") || emit_error "output rendering failed"
 if fm_dispatch_shadow_on; then
   SHADOW_PATH="$FM_HOME/state/jev-dispatch-shadow.jsonl"
-  SHADOW=$(jq -nc --argjson result "$RESULT" --arg route "${FM_JEV_LAST_ROUTE:-}" \
+  SHADOW=$(jq -nc --argjson result "$RESULT" --argjson typed "$TYPED_RESULT" --arg route "${FM_JEV_LAST_ROUTE:-}" \
     --arg url "${FM_JEV_LAST_URL:-}" --arg model "${FM_JEV_LAST_MODEL:-}" \
     --arg response_model "$(fm_jev_response_model "$(cat "$RESP_FILE" 2>/dev/null)")" \
     --arg project "$PROJECT" --argjson extra "$EXTRA_LOG" --arg mode "$SITE_MODE" --argjson advice "$TYPED_ADVICE" \
@@ -1508,11 +1513,11 @@ if fm_dispatch_shadow_on; then
       decided_by: ($result.chain.decided_by // null),
       mode: $mode,
       advice: $advice,
-      rule: $result.rule,
-      confidence: $result.confidence,
-      probabilities: $result.probabilities,
+      rule: $typed.rule,
+      confidence: $typed.confidence,
+      probabilities: $typed.probabilities,
       profile: (if $result.chosen then $result.chosen.profile else null end),
-      pick: (if $result.pick then ($result.pick | {state, rules, choice, probabilities, margin, reason} | with_entries(select(.value != null))) else null end),
+      pick: (if $typed.pick then ($typed.pick | {state, rules, choice, probabilities, margin, reason} | with_entries(select(.value != null))) else null end),
       extra: $extra
     }') || SHADOW=''
   if [ -n "$SHADOW" ]; then
