@@ -23,7 +23,9 @@
 #   fm_model_denylist_command_pins <command>
 #     Prints one model id per line for every `--model <id>` or `--model=<id>`
 #     in one command line, as `<provider>/<id>` when the command also passes
-#     `--provider <provider>`. A word starting with # ends the command.
+#     `--provider <provider>`. A word starting with # ends the command. When
+#     the command's binary is codex, opencode, or kimi, `-m <id>` and `-m=<id>`
+#     count as `--model`.
 #   fm_model_denylist_brief_pins <text>
 #     The command pins of every launch command line in prose: a line (joined
 #     across trailing-backslash continuations), code span, or shell-separated
@@ -37,7 +39,8 @@
 #   fm_model_denylist_yaml_pins <file>
 #     Prints one model id per line for every model a no-mistakes config pins:
 #     `--provider`/`--model` argument lists (block or inline) and `provider:`
-#     with `model:` keys, each combined within its own block. Comments,
+#     with `model:` keys, each combined within its own block and read as a
+#     command line of the block's agent key, so `codex: [-m, <id>]` is a pin. Comments,
 #     whole-line or trailing, are ignored.
 #   fm_model_denylist_check_pins <what> <pins>
 #     Checks each newline-separated pin from the helpers above.
@@ -170,12 +173,26 @@ fm_model_denylist_clean_pin() {
   printf '%s' "$v"
 }
 
+FM_MODEL_LAUNCH_PREFIX_RE='^([-*+>$]|[0-9]+[.)]|[A-Za-z_][A-Za-z0-9_]*=.*)$'
+
 fm_model_denylist_command_pins() {
   local -a words models=()
-  local i word provider='' model
+  local i=0 word provider='' model short=''
   read -r -a words <<<"${1//$'\n'/ }"
-  for ((i = 0; i < ${#words[@]}; i++)); do
+  while [ "$i" -lt "${#words[@]}" ] && [[ ${words[i]} =~ $FM_MODEL_LAUNCH_PREFIX_RE ]]; do
+    i=$((i + 1))
+  done
+  case "${words[i]:-}" in
+    codex | */codex | opencode | */opencode | kimi | */kimi) short=1 ;;
+  esac
+  for ((; i < ${#words[@]}; i++)); do
     word=${words[i]#[\"\'\`]}
+    if [ -n "$short" ]; then
+      case "$word" in
+        -m=*) word="--model=${word#-m=}" ;;
+        -m) word=--model ;;
+      esac
+    fi
     case "$word" in
       '#'*) break ;;
       --model=*) models+=("${word#--model=}") ;;
@@ -215,7 +232,6 @@ rovo
 omp
 agy
 devin'
-FM_MODEL_LAUNCH_PREFIX_RE='^([-*+>$]|[0-9]+[.)]|[A-Za-z_][A-Za-z0-9_]*=.*)$'
 
 fm_model_denylist_is_launch() {
   local -a words shape_words
@@ -258,7 +274,7 @@ fm_model_denylist_yaml_pins() {
     }
     function unquote(v) { gsub(/^["\x27]|["\x27]$/, "", v); return v }
     function words(v) { gsub(/[][,"\x27]/, " ", v); return v }
-    function add(o, v) { if (!(o in cmd)) order[++n] = o; cmd[o] = cmd[o] " " v }
+    function add(o, v) { if (!(o in cmd)) { order[++n] = o; cmd[o] = name[o] } cmd[o] = cmd[o] " " v }
     /^[ \t]*(#|$)/ { next }
     {
       line = $0
@@ -267,7 +283,7 @@ fm_model_denylist_yaml_pins() {
       body = substr(line, ind + 1)
       if (body ~ /^-([ \t]|$)/) { sub(/^-[ \t]*/, "", body); add(owner(ind, 1), words(body)); next }
       if (!match(body, /^["\x27]?[A-Za-z0-9_.-]+["\x27]?[ \t]*:([ \t]|$)/)) next
-      key = substr(body, 1, RLENGTH); sub(/[ \t]*:[ \t]*$/, "", key); key = unquote(key)
+      key = substr(body, 1, RLENGTH); sub(/[ \t]*:[ \t]*$/, "", key); key = unquote(key); name[NR] = key
       val = substr(body, RLENGTH + 1); sub(/^[ \t]+/, "", val)
       parent = owner(ind, 0)
       if (val == "") { depth++; at[depth] = ind; id[depth] = NR; next }

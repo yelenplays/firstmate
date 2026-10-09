@@ -182,6 +182,26 @@ test_provider_split_pins_refuse() {
   pass "a model split across --provider and --model, or provider: and model:, is checked as provider/model"
 }
 
+test_short_model_flag_pins_refuse() {
+  local out rc
+  new_case short
+  write_denylist
+  out=$(spawn_ship deny-raw-short no-mistakes "codex exec -m kimi-x"); rc=$?
+  expect_code 1 "$rc" "a raw codex launch pinning a banned model with -m must refuse"
+  assert_refused_before_launch deny-raw-short "$out" "raw launch model 'kimi-x' is on the never-use model list"
+
+  fm_test_spawn_brief "$HOME_DIR" deny-brief-short $'Launch the sub-run:\n\n```sh\ncodex exec -m kimi-x task\n```'
+  out=$(spawn_ship deny-brief-short no-mistakes claude --model claude-opus-5-5); rc=$?
+  expect_code 1 "$rc" "a brief codex exec line pinning a banned model with -m must refuse"
+  assert_refused_before_launch deny-brief-short "$out" "model pinned in $HOME_DIR/data/deny-brief-short/brief.md 'kimi-x' is on the never-use model list"
+
+  printf 'agent_args_override:\n  codex: [-m, kimi-x]\n' > "$NM_DIR/config.yaml"
+  out=$(spawn_ship deny-nm-short no-mistakes claude --model claude-opus-5-5); rc=$?
+  expect_code 1 "$rc" "an agent_args_override codex list pinning a banned model with -m must refuse"
+  assert_refused_before_launch deny-nm-short "$out" "no-mistakes reviewer model in $NM_DIR/config.yaml 'kimi-x' is on the never-use model list"
+  pass "-m pins a model for codex, opencode, and kimi launches, briefs, and reviewer lists"
+}
+
 test_mentions_and_comments_are_not_pins() {
   local out rc
   new_case mentions
@@ -250,6 +270,8 @@ test_library_matching_and_summary() {
     assert_equals "$(fm_model_denylist_command_pins "no-mistakes axi run # --model kimi-coding/k3")" "" "a shell comment is not a pin"
     assert_equals "$(fm_model_denylist_brief_pins 'opencode run --model moonshotai/kimi-k2 "do it"')" "moonshotai/kimi-k2" "opencode run is a launch"
     assert_equals "$(fm_model_denylist_brief_pins 'codex exec --model kimi-x task')" "kimi-x" "codex exec is a launch"
+    assert_equals "$(fm_model_denylist_command_pins '- opencode run -m=moonshotai/kimi-k2')" "moonshotai/kimi-k2" "-m= is the model flag for opencode"
+    assert_equals "$(fm_model_denylist_command_pins 'claude -m kimi-x')" "" "-m is not a model flag for other harnesses"
     assert_equals "$(fm_model_denylist_brief_pins $'kimi is banned, so never pass --model kimi-coding/k3\nno-mistakes reviewers must never get --model kimi-coding/k3.\ncodex exec tasks must avoid --model kimi-x')" "" "prose starting with a binary name is not a launch"
     assert_equals "$(fm_model_denylist_brief_pins $'Never pass `--model kimi-coding/k3`.\n- `no-mistakes axi run --model claude-opus-5-5`\n$ pi --provider openai-codex --model gpt-6.1-sol')" \
       $'claude-opus-5-5\nopenai-codex/gpt-6.1-sol' "only launch command lines in prose are pins"
@@ -263,6 +285,7 @@ test_absent_list_keeps_launches_unchanged
 test_banned_model_refuses_every_launch_shape
 test_brief_and_reviewer_pins_refuse
 test_provider_split_pins_refuse
+test_short_model_flag_pins_refuse
 test_mentions_and_comments_are_not_pins
 test_malformed_list_refuses
 test_library_matching_and_summary
