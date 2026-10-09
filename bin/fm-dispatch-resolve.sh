@@ -72,8 +72,10 @@
 #
 # Never-use models: a profile whose model, harness/model, or modelless harness
 #   matches $FM_HOME/config/model-denylist.json is never eligible, so it is
-#   never chosen, ranked, or offered in a runoff; its candidate line names the
-#   rule and reason. A malformed list exits 2 like malformed rules.
+#   never ranked or offered in a runoff; its candidate line names the rule and
+#   reason. Only the all-refused last resort can still name it, and
+#   bin/fm-spawn.sh refuses that launch. A malformed list exits 2 like
+#   malformed rules.
 #   docs/configuration.md "Never-use model list" owns the list.
 #
 # Never-send check: when the optional $FM_HOME/config/dispatch-never-send list
