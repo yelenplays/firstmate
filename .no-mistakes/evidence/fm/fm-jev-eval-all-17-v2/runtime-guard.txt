@@ -1,0 +1,40 @@
+$ bin/fm-jev-eval.sh status (empty isolated home)
+no scorecard yet: every site advises (run: fm-jev-eval.sh run --live)
+
+$ bin/fm-jev-eval.sh mode <each configured site>
+act-first: advise
+ask-user: advise
+brief-preflight: advise
+compaction: advise
+dispatch-resolve: advise
+done-verify: advise
+history-find: advise
+home-route: advise
+intake-match: advise
+mem-guard: advise
+merge-gate: advise
+model-proposal: advise
+pr-verdict: advise
+retrieval-miss: advise
+seat-pick: advise
+skill-select: advise
+status-triage: advise
+tool-gate: advise
+wedge-check: advise
+worker-cli: advise
+
+$ bin/fm-jev-eval.sh run --live --site ask-user
+exit=1
+fm-jev-eval: a live run needs TYPESAFE_API_KEY or OPENROUTER_API_KEY in the environment or /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4G1F9GGK05QXXQEFP8FBMR3/.test-scratch/operator-home/.env
+No live scorecard published.
+
+$ bin/fm-jev-eval.sh arm
+armed: state/jev-eval.check.sh (hourly; one live run a day)
+cadence(seconds): 3600
+
+$ <registered hourly check shim> (no key)
+No credentialless nightly started.
+
+$ bin/fm-jev-eval.sh disarm
+disarmed: state/jev-eval.check.sh
+Check shim, cadence, and registration removed.

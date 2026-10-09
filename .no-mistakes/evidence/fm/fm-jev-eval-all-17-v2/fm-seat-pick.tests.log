@@ -1,0 +1,6 @@
+ok - seat picking stays off unless config/seat-pick or FM_SEAT_PICK=1 opts in
+ok - code builds candidates from capacity, availability, the context wall, and family exclusions
+ok - act dispatches a listed seat; every other answer or failure hands the choice to the lead
+ok - a pick sends a capped, scrubbed task summary and audits without the task text
+ok - reroute plans moves off dead or unservable seats, keeps in-progress rows on running seats, keeps constraints, and never moves human or settled rows
+ok - usage errors and malformed input refuse

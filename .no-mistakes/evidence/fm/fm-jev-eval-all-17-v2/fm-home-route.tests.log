@@ -1,0 +1,13 @@
+ok - Lay site task routes to frontend with lay consulted, from approved scopes only
+ok - an advise-only home route keeps Jev route as advice and waits for firstmate judgment
+ok - check refuses a secondmate route with the one-step handoff
+ok - override needs a captain or blocker reason and is logged
+ok - a route binds to its project
+ok - local-only projects stay main without a Jev call
+ok - a main route allows the spawn
+ok - abstain falls back to a recorded firstmate judgment, never silently
+ok - an unreachable endpoint refuses with a clear next step
+ok - missing key and private summaries never reach the endpoint
+ok - missing records refuse; secondmate and unconfigured homes pass
+ok - review summarises the log
+ok - fm-spawn enforces the home route before creating anything

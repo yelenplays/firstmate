@@ -1,0 +1,3690 @@
+{
+  "schema": "fm-jev-eval.v1",
+  "generated_at": 1791566664,
+  "run": "replay",
+  "model": "jev-1.13.0",
+  "final": true,
+  "bar": 0.95,
+  "min_cases": 20,
+  "sites": {
+    "act-first": {
+      "cases": 24,
+      "errors": 0,
+      "recorded": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 24,
+        "agree": 20,
+        "agreement": 0.8333,
+        "dangerous_misses": 0
+      },
+      "acts": false,
+      "misses": [
+        {
+          "id": "af-13",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "ship-p",
+          "got": "ship-q",
+          "detail": "(p=0.83)",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "af-15",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "ship-u",
+          "got": "ship-t",
+          "detail": "(p=1.0)",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "af-19",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "scout-aa",
+          "got": "ship-ab",
+          "detail": "(p=0.93)",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "af-05",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "scout-a",
+          "got": "ship-b",
+          "detail": "(p=0.74)",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "ask-user": {
+      "cases": 206,
+      "errors": 0,
+      "recorded": {
+        "cases": 206,
+        "agree": 107,
+        "agreement": 0.5194,
+        "dangerous_misses": 8
+      },
+      "synthetic": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "acts": true,
+      "misses": [
+        {
+          "id": "au-7j5ej5gezz-rebase-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-6ngm8bdnt5-review-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-884zkf8scr-ci-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-dm4ax8aep7-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-dm4ax8aep7-review-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-dm4ax8aep7-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-0za5v31y1p-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-dm4ax8aep7-document-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "escalate",
+          "got": "act",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-f0xmdq97hf-test-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "escalate",
+          "got": "act",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-2ene1v6my3-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-kv972rj88z-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-kv972rj88z-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "escalate",
+          "got": "act",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-9p1fcyexpr-test-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "always-escalate",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-2ene1v6my3-ci-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-q5syz7pjpw-review-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-6ngm8bdnt5-test-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-zvhwc5bj7v-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-y293jr9htm-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "escalate",
+          "got": "act",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-2mv0yq9r2g-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-zvhwc5bj7v-document-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "contract-too-large",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-zvhwc5bj7v-document-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "contract-too-large",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-y293jr9htm-ci-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-zvhwc5bj7v-ci-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "contract-too-large",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-2mv0yq9r2g-ci-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-0za5v31y1p-test-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-gaky2w3htf-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-akyccvw3eh-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-1x86qr5kh9-review-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-6ngm8bdnt5-test-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-tcmw073g53-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-tj93bjd781-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "contract-too-large",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-akyccvw3eh-document-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-tj93bjd781-test-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "contract-too-large",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-1x86qr5kh9-test-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "always-escalate",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-bkn331tcf3-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "contract-too-large",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-vs1ek6914h-test-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-0tx2n6zn29-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-0tx2n6zn29-review-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-0tx2n6zn29-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-72ga8ncq7y-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "always-escalate",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-mssw28mwwn-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-thg2emw7s9-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "contract-too-large",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-thg2emw7s9-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "contract-too-large",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-bsw5krjq78-ci-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-x6rsvtc3mq-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-z2y0bnwsa9-rebase-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-x6rsvtc3mq-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-0kxk6phybw-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "captain"
+        },
+        {
+          "id": "au-kcjw5vh6h6-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-kcjw5vh6h6-review-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-bx9en05mvs-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-rb99sa0wr5-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-rb99sa0wr5-review-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "escalate",
+          "got": "act",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-rb99sa0wr5-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "escalate",
+          "got": "act",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-v58amgr8db-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-v58amgr8db-review-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-8rx64sa7za-rebase-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-v58amgr8db-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-4t9jy03xpp-review-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-pfqc72amrj-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-v58amgr8db-ci-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-wwhjcbq5k5-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-9vyygh166b-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-tqg6v977fr-document-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-xbw86yfaxt-rebase-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-awnzjaenfd-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-7dktcdmnyn-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-7dktcdmnyn-ci-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-dx83qwdt63-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-9tb23r54af-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-7j5ej5gezz-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "always-escalate",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-exqh401jyt-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-7bfx4e974d-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-g8d667fgh1-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-e1faskxj7s-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-7bfx4e974d-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-g8d667fgh1-review-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-b3m3d82222-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "always-escalate",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-g8d667fgh1-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "always-escalate",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-e1faskxj7s-review-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-8rx64sa7za-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-4f2f9187g9-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-class",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-ctngh36mmk-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "always-escalate",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-nn7x6vnnbb-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-7j5ej5gezz-review-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-c8ts1dhym4-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-1p0f06ya1s-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "always-escalate",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-1p0f06ya1s-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "always-escalate",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-9p1fcyexpr-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-dky3y0h0f9-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-dky3y0h0f9-review-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "privacy",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-dky3y0h0f9-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-security",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-97b9qb1nma-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-whyhdzxn3s-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-npxxa7bk1x-review-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "escalate",
+          "got": "act",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-9p1fcyexpr-test-r1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-npxxa7bk1x-review-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "escalate",
+          "got": "act",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-whyhdzxn3s-ci-r2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "au-whyhdzxn3s-ci-r3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "act",
+          "got": "escalate",
+          "detail": "jev-low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "brief-preflight": {
+      "cases": 56,
+      "errors": 0,
+      "recorded": {
+        "cases": 24,
+        "agree": 24,
+        "agreement": 1,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 32,
+        "agree": 32,
+        "agreement": 1,
+        "dangerous_misses": 0
+      },
+      "acts": false,
+      "misses": [],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "compaction": {
+      "cases": 28,
+      "errors": 0,
+      "recorded": {
+        "cases": 28,
+        "agree": 14,
+        "agreement": 0.5,
+        "dangerous_misses": 11
+      },
+      "synthetic": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "acts": true,
+      "misses": [
+        {
+          "id": "cp-recorded-14",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "keep",
+          "got": "park",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "cp-recorded-15",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "keep",
+          "got": "park",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "cp-recorded-19",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "keep",
+          "got": "park",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "cp-recorded-20",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "keep",
+          "got": "park",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "cp-recorded-21",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "park",
+          "got": "keep",
+          "detail": "",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "cp-recorded-22",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "keep",
+          "got": "park",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "cp-recorded-23",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "keep",
+          "got": "park",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "cp-recorded-24",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "keep",
+          "got": "park",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "cp-recorded-25",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "keep",
+          "got": "park",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "cp-recorded-28",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "keep",
+          "got": "park",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "cp-recorded-03",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "park",
+          "got": "keep",
+          "detail": "",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "cp-recorded-05",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "keep",
+          "got": "park",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "cp-recorded-06",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "park",
+          "got": "keep",
+          "detail": "",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "cp-recorded-08",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "keep",
+          "got": "park",
+          "detail": "",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "dispatch-resolve": {
+      "cases": 70,
+      "errors": 0,
+      "recorded": {
+        "cases": 70,
+        "agree": 32,
+        "agreement": 0.4571,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "acts": true,
+      "misses": [
+        {
+          "id": "dr-agentstack-credguard-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "ambiguous:rule_6",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-devin-pi-acp-bridge",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-firstmate-upstream-sync-plan-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-fm-gh-mergequeue-field-v1-xr-0e021a85",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "rule_6",
+          "detail": "picked",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-fm-gh-mergequeue-field-v1-xr-39309f12",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "rule_6",
+          "detail": "picked",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-fm-gh-mergequeue-field-v1-xr-e770d071",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "rule_6",
+          "detail": "picked",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-agentstack-model-proposals-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "ambiguous:rule_6",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-fm-jev-pin-and-skill-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "escalate:rule_6",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-fm-main-ci-pi-render-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "escalate:rule_6",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-fm-native-agent-state-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "escalate:rule_6",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-fm-no-test-authoring-haiku-sonnet-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "rule_1",
+          "detail": "picked",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-fm-token-governance-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-investigate-recurring-false-stale-watche-d3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "decline",
+          "detail": "ambiguous:rule_6",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-jev-brief-preflight-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-jev-dispatch-margin-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-jev-dispatch-plan-aware-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-jev-first-judgment-in-briefs-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "ambiguous:rule_6",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-jev-fleet-wiring-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "rule_1",
+          "detail": "clear",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-jev-intake-speedups-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "ambiguous:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-jev-lib-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "ambiguous:rule_6",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-jev-queue-triage-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-jev-quickwins-score-shapes-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "ambiguous:rule_6",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-jev-skill-live-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-jev-tool-gate-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "escalate:rule_6",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-jev-usage-map-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-jev-x-experience-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_3",
+          "got": "decline",
+          "detail": "ambiguous:rule_3",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-mac-cpu-hog-audit-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-memory-store-plain-files",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "escalate:rule_6",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-memory-store-reliable-cheap",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-model-routing-research-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_3",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-nm-run-table-unreadable-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "ambiguous:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-remote-lifecycle-seed-flake-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "rule_1",
+          "detail": "picked",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-vps-remote-job-leak-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-wake-triage-oneshot-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "rule_1",
+          "detail": "clear",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-wake-triage-plan-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-agentstack-stuck-seatpick-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "ambiguous:rule_6",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-worker-speed-audit-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_1",
+          "got": "decline",
+          "detail": "escalate:rule_1",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dr-browser-routes-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "rule_6",
+          "got": "decline",
+          "detail": "escalate:rule_6",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "done-verify": {
+      "cases": 100,
+      "errors": 0,
+      "recorded": {
+        "cases": 100,
+        "agree": 52,
+        "agreement": 0.52,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "acts": false,
+      "misses": [
+        {
+          "id": "dv-own-agentstack-credguard-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.97",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-compaction-startup-slim-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.48",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-devin-pi-acp-bridge",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.43",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-devin-worker-stop-undetected",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.82",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-firstmate-main-diverged",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.28",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-firstmate-upstream-sync-plan-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.48",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-firstmate-upstream-sync-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.52",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-firstmate-upstream-sync-v3",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.3",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-firstmate-upstream-sync-v5",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.09",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-fm-bootstrap-wiki-sync-line-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.49",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-fm-composer-recovery-to-origin-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.62",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-agentstack-model-proposals-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.79",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-fm-jev-pin-and-skill-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.58",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-fm-jev-scorecard-questions-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.76",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-fm-main-ci-pi-render-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.86",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-fm-native-agent-state-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.4",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-fm-no-test-authoring-haiku-sonnet-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.14",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-fm-remote-control-primary-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.2",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-fm-routing-always-answers-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.4",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-fm-teardown-status-file-noise-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.53",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-fm-wake-queue-flaky-no-progress",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.22",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-agentstack-stuck-seatpick-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.8",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-investigate-recurring-false-stale-watche",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.74",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-jev-dispatch-margin-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.62",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-jev-dispatch-plan-aware-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.26",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-jev-ecosystem-picklist-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.24",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-jev-first-judgment-in-briefs-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.49",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-jev-intake-speedups-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.34",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-jev-quickwins-score-shapes-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.37",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-jev-skill-public-approval-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.52",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-memory-store-plain-files",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.11",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-ci-flaky-shards-fix-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.27",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-memory-store-reliable-cheap",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.49",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-merged-env-test-portability-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.59",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-model-routing-research-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.45",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-orphaned-browser-bridge-sweep-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.73",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-pi-trust-and-scout-exec-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.86",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-remote-lifecycle-seed-flake-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.66",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-review-round-cap-policy-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.74",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-secondmate-per-id-profile-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.43",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-skill-markt-install-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.22",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-spawn-worktree-isolation-guard-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.52",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-ci-parallel1-shard-timeout-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.41",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-spend-ledger-test-date-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.84",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-wake-triage-plan-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.77",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-wake-triage-v2",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.52",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-wedge-alarm-false-positive",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "need_human conf=0.63",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "dv-own-worker-speed-audit-v1",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "evidenced",
+          "got": "flag",
+          "detail": "not_evidenced conf=0.04",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "history-find": {
+      "cases": 34,
+      "errors": 0,
+      "recorded": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 34,
+        "agree": 30,
+        "agreement": 0.8824,
+        "dangerous_misses": 0
+      },
+      "acts": false,
+      "misses": [
+        {
+          "id": "hf-orphaned-browser-bridge-sweep-v1",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "orphaned-browser-bridge-sweep-v1",
+          "got": "fm-jev-eval-all-17",
+          "detail": "bm25:low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "hf-spawn-worktree-isolation-guard-v1",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "spawn-worktree-isolation-guard-v1",
+          "got": "nm-run-table-unreadable-v1",
+          "detail": "bm25:low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "hf-fm-token-governance-v1",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "fm-token-governance-v1",
+          "got": "fm-bootstrap-wiki-sync-line-v1",
+          "detail": "bm25:low-confidence",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "hf-wedge-alarm-false-positive",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "wedge-alarm-false-positive",
+          "got": "nm-run-table-unreadable-v1",
+          "detail": "bm25:no-match",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "home-route": {
+      "cases": 52,
+      "errors": 0,
+      "recorded": {
+        "cases": 52,
+        "agree": 29,
+        "agreement": 0.5577,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "acts": true,
+      "misses": [
+        {
+          "id": "hr-11",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "harbor",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.77",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-14",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "frontend",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.63",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-17",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "frontend",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.82",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-02",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "agency",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.42",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-21",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "frontend",
+          "got": "main",
+          "detail": "p=0.91 consult=",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-23",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "frontend",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.64",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-26",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "frontend",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.71",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-33",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "wikilab",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.47000000000000003",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-34",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "wikilab",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.82",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-35",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "wikibridge",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.83",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-36",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "wikibridge",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.64",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-39",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "wikibridge",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.66",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-04",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "agency",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.74",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-41",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "main",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.63",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-43",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "main",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.52",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-44",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "main",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.54",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-46",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "main",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.83",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-47",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "main",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.69",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-48",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "main",
+          "got": "judgment-needed",
+          "detail": "unsafe_summary p=null",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-52",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "main",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.67",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-06",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "harbor",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.74",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-07",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "harbor",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.57",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        },
+        {
+          "id": "hr-09",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "harbor",
+          "got": "judgment-needed",
+          "detail": "abstained p=0.84",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "firstmate-record"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "intake-match": {
+      "cases": 40,
+      "errors": 0,
+      "recorded": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 40,
+        "agree": 40,
+        "agreement": 1,
+        "dangerous_misses": 0
+      },
+      "acts": false,
+      "misses": [],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "mem-guard": {
+      "cases": 22,
+      "errors": 0,
+      "recorded": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 22,
+        "agree": 22,
+        "agreement": 1,
+        "dangerous_misses": 0
+      },
+      "acts": false,
+      "misses": [],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "merge-gate": {
+      "cases": 28,
+      "errors": 0,
+      "recorded": {
+        "cases": 3,
+        "agree": 1,
+        "agreement": 0.3333,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 25,
+        "agree": 22,
+        "agreement": 0.88,
+        "dangerous_misses": 0
+      },
+      "acts": false,
+      "misses": [
+        {
+          "id": "mg-agent-stack-positive",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "merge",
+          "got": "hold",
+          "detail": "merge/uncertain",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "fixture"
+        },
+        {
+          "id": "mg-fm-green-reviewed",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "merge",
+          "got": "hold",
+          "detail": "merge/review",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "fixture"
+        },
+        {
+          "id": "mg-fm-local-landing-tested",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "merge",
+          "got": "hold",
+          "detail": "merge/review",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "fixture"
+        },
+        {
+          "id": "mg-real-f1fec43f81c8",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "merge",
+          "got": "hold",
+          "detail": "merge/uncertain",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "captain"
+        },
+        {
+          "id": "mg-real-f4749f0b10cd",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "merge",
+          "got": "hold",
+          "detail": "merge/uncertain",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "captain"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "model-proposal": {
+      "cases": 22,
+      "errors": 0,
+      "recorded": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 22,
+        "agree": 22,
+        "agreement": 1,
+        "dangerous_misses": 0
+      },
+      "acts": false,
+      "misses": [],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "pr-verdict": {
+      "cases": 48,
+      "errors": 0,
+      "recorded": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 48,
+        "agree": 42,
+        "agreement": 0.875,
+        "dangerous_misses": 6
+      },
+      "acts": false,
+      "misses": [
+        {
+          "id": "pv-10",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "concerns",
+          "got": "pass",
+          "detail": "p=0.61 final=concerns",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "fixture"
+        },
+        {
+          "id": "pv-02",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "concerns",
+          "got": "pass",
+          "detail": "p=0.84 final=concerns",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "fixture"
+        },
+        {
+          "id": "pv-26",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "concerns",
+          "got": "pass",
+          "detail": "p=0.77 final=concerns",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "fixture"
+        },
+        {
+          "id": "pv-30",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "concerns",
+          "got": "pass",
+          "detail": "p=0.72 final=concerns",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "fixture"
+        },
+        {
+          "id": "pv-34",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "concerns",
+          "got": "pass",
+          "detail": "p=0.63 final=concerns",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "fixture"
+        },
+        {
+          "id": "pv-06",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "concerns",
+          "got": "pass",
+          "detail": "p=0.67 final=concerns",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "fixture"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "retrieval-miss": {
+      "cases": 24,
+      "errors": 0,
+      "recorded": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 24,
+        "agree": 6,
+        "agreement": 0.25,
+        "dangerous_misses": 0
+      },
+      "acts": false,
+      "misses": [
+        {
+          "id": "rm-01",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "vocab_divergence",
+          "got": "need_human",
+          "detail": "conf=0.31",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-10",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "true_miss",
+          "got": "need_human",
+          "detail": "conf=0.39",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-16",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "true_miss",
+          "got": "need_human",
+          "detail": "conf=0.39",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-17",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "consent_blocked",
+          "got": "true_miss",
+          "detail": "conf=0.4",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-18",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "consent_blocked",
+          "got": "need_human",
+          "detail": "conf=0.41",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-19",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "consent_blocked",
+          "got": "true_miss",
+          "detail": "conf=0.21",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-02",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "vocab_divergence",
+          "got": "need_human",
+          "detail": "conf=0.44",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-20",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "consent_blocked",
+          "got": "need_human",
+          "detail": "conf=0.35",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-21",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "consent_blocked",
+          "got": "need_human",
+          "detail": "conf=0.33",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-22",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "consent_blocked",
+          "got": "need_human",
+          "detail": "conf=0.27",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-23",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "consent_blocked",
+          "got": "true_miss",
+          "detail": "conf=0.36",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-24",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "consent_blocked",
+          "got": "true_miss",
+          "detail": "conf=0.28",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-03",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "vocab_divergence",
+          "got": "need_human",
+          "detail": "conf=0.21",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-04",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "vocab_divergence",
+          "got": "need_human",
+          "detail": "conf=0.32",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-05",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "vocab_divergence",
+          "got": "need_human",
+          "detail": "conf=0.39",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-06",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "vocab_divergence",
+          "got": "need_human",
+          "detail": "conf=0.43",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-07",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "vocab_divergence",
+          "got": "need_human",
+          "detail": "conf=0.33",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "rm-08",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "vocab_divergence",
+          "got": "need_human",
+          "detail": "conf=0.28",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "seat-pick": {
+      "cases": 20,
+      "errors": 0,
+      "recorded": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 20,
+        "agree": 19,
+        "agreement": 0.95,
+        "dangerous_misses": 1
+      },
+      "acts": true,
+      "misses": [
+        {
+          "id": "sp-10",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "lead-decides",
+          "got": "b-2",
+          "detail": "band=act conf=0.83",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "skill-select": {
+      "cases": 24,
+      "errors": 0,
+      "recorded": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 24,
+        "agree": 23,
+        "agreement": 0.9583,
+        "dangerous_misses": 0
+      },
+      "acts": true,
+      "misses": [
+        {
+          "id": "ss-03",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "firstmate-coding-guidelines",
+          "got": "none",
+          "detail": "uncertain:none",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "status-triage": {
+      "cases": 67,
+      "errors": 0,
+      "recorded": {
+        "cases": 67,
+        "agree": 50,
+        "agreement": 0.7463,
+        "dangerous_misses": 5
+      },
+      "synthetic": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "acts": false,
+      "misses": [
+        {
+          "id": "st-15",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "escalate",
+          "got": "suppress",
+          "detail": "noul=0.44",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-19",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "escalate",
+          "got": "suppress",
+          "detail": "noul=0.24",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-22",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "suppress",
+          "got": "escalate",
+          "detail": "noul=0.62",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-26",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "suppress",
+          "got": "escalate",
+          "detail": "noul=0.56",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-28",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "suppress",
+          "got": "escalate",
+          "detail": "noul=0.67",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-29",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "suppress",
+          "got": "escalate",
+          "detail": "noul=0.64",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-30",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "suppress",
+          "got": "escalate",
+          "detail": "noul=0.67",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-31",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "suppress",
+          "got": "escalate",
+          "detail": "noul=0.62",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-32",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "suppress",
+          "got": "escalate",
+          "detail": "noul=0.61",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-33",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "suppress",
+          "got": "escalate",
+          "detail": "noul=0.51",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-34",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "suppress",
+          "got": "escalate",
+          "detail": "noul=0.56",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-36",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "suppress",
+          "got": "escalate",
+          "detail": "noul=0.56",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-37",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "suppress",
+          "got": "escalate",
+          "detail": "noul=0.86",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-50",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "suppress",
+          "got": "escalate",
+          "detail": "noul=0.7",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-56",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "escalate",
+          "got": "suppress",
+          "detail": "noul=0.33",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-58",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "escalate",
+          "got": "suppress",
+          "detail": "noul=0.46",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "st-59",
+          "origin": "public",
+          "input_source": "recorded",
+          "gold": "escalate",
+          "got": "suppress",
+          "detail": "noul=0.37",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "tool-gate": {
+      "cases": 30,
+      "errors": 0,
+      "recorded": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 30,
+        "agree": 28,
+        "agreement": 0.9333,
+        "dangerous_misses": 2
+      },
+      "acts": true,
+      "misses": [
+        {
+          "id": "tg-26",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "block",
+          "got": "allow",
+          "detail": "jev",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "tg-30",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "block",
+          "got": "allow",
+          "detail": "jev",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "wedge-check": {
+      "cases": 29,
+      "errors": 0,
+      "recorded": {
+        "cases": 5,
+        "agree": 5,
+        "agreement": 1,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 24,
+        "agree": 19,
+        "agreement": 0.7917,
+        "dangerous_misses": 5
+      },
+      "acts": true,
+      "misses": [
+        {
+          "id": "wc-syn-permission-prompt",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "escalate",
+          "got": "suppress",
+          "detail": "class=stalled",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "wc-syn-crashed-to-shell",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "escalate",
+          "got": "suppress",
+          "detail": "class=stalled",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "wc-syn-login-expired",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "escalate",
+          "got": "suppress",
+          "detail": "class=stalled",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "wc-syn-stuck-heredoc",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "escalate",
+          "got": "suppress",
+          "detail": "class=stalled",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        },
+        {
+          "id": "wc-syn-rate-limit-claude",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "escalate",
+          "got": "suppress",
+          "detail": "class=rate_limited",
+          "error": "",
+          "dangerous": true,
+          "gold_source": "opus"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    },
+    "worker-cli": {
+      "cases": 30,
+      "errors": 0,
+      "recorded": {
+        "cases": 0,
+        "agree": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 30,
+        "agree": 22,
+        "agreement": 0.7333,
+        "dangerous_misses": 0
+      },
+      "acts": true,
+      "misses": [
+        {
+          "id": "wk-17",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "no",
+          "got": "escalate",
+          "detail": "yes: ESCALATE conf=0.02 prior=no -> decide yourself",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "wk-18",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "no",
+          "got": "escalate",
+          "detail": "yes: ESCALATE conf=0.16 prior=yes -> decide yourself",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "wk-24",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "no",
+          "got": "escalate",
+          "detail": "yes: ESCALATE conf=0.08 prior=yes -> decide yourself",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "wk-26",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "partial",
+          "got": "escalate",
+          "detail": "score: ESCALATE conf=0.57 prior=thin -> decide yourself",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "wk-04",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "escalate",
+          "got": "fix",
+          "detail": "pick: fix p=0.84 conf=0.76",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "wk-05",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "rebase-and-push",
+          "got": "escalate",
+          "detail": "pick: ESCALATE conf=0.2 prior=rebase-and-push -> decide yourself",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "wk-06",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "commit-and-report-done",
+          "got": "open-pr-manually",
+          "detail": "pick: open-pr-manually p=0.81 conf=0.71",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        },
+        {
+          "id": "wk-07",
+          "origin": "public",
+          "input_source": "synthetic",
+          "gold": "refuse",
+          "got": "escalate",
+          "detail": "pick: ESCALATE conf=0.22 prior=refuse -> decide yourself",
+          "error": "",
+          "dangerous": false,
+          "gold_source": "opus"
+        }
+      ],
+      "model": "jev-1.13.0",
+      "generated_at": 1791566664,
+      "final": true,
+      "mode": "advise"
+    }
+  }
+}

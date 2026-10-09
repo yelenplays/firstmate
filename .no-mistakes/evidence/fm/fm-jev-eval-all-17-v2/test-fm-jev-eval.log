@@ -1,0 +1,19 @@
+ok - concurrent publications preserve demotions, deduplicate notes, and retain distinct archives
+ok - failed output, cassette replacement, archive, latest assembly, and baseline writes never publish success
+ok - cassette write failures propagate through adapters to the recording run
+ok - fm_jev_site_mode acts only on a final, fresh, passing recorded score with zero dangerous misses
+ok - run scores agreement, dangerous misses, and errors per site under an all-act scorecard
+ok - recorded and synthetic cases are scored separately and only recorded cases earn act
+ok - every case runs under an all-act scorecard
+ok - invalid cases and failed, missing, or duplicate results never publish scores
+ok - partial live runs preserve retained sites freshness and finality
+ok - act evidence is bound to the effective per-site request model
+ok - usage errors exit 2
+ok - check-baseline fails on a lower score, a new dangerous miss, a changed set, a missing site, or a foreign cassette
+ok - the private overlay joins runs but never the committed baseline
+ok - a nightly demotion posts one Slack note, queues one notice, and keeps Haiku's report
+ok - manual and nightly publication report each demotion once
+ok - without a Slack bridge a demotion is only queued
+ok - check prints notices once, and nightly runs at most once a window and only with a key
+ok - arm registers an hourly watcher check and disarm retires it
+ok - the committed Jev test sets replay offline and hold their baseline

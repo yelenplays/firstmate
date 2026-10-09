@@ -1,0 +1,8 @@
+ok - capture is idempotent, local-day keyed, and recoverable through recent and BM25 search
+ok - find lists candidates in keyword rank order, not path order
+ok - Jev history choices receive only locally retrieved page metadata
+ok - Pi transcript capture stores captain input and final replies without tool or thinking content
+ok - Claude compaction records clearly scoped usage and share an idempotent cursor
+ok - cleanup writes one private task card and updates the generated history index
+ok - task cards use independent terminal evidence and leave unfinished work intact
+ok - wake presentations are retry-safe and their acknowledgements are journaled

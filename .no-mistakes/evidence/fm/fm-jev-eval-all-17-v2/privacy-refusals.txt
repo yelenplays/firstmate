@@ -1,0 +1,19 @@
+$ bin/fm-jev.sh yes <privacy probe> "May I proceed?"
+input=SSHPASS=hunter2 sshpass -e ssh host
+exit=1
+fm-jev: input contains a secret, credential, or personal data; refused, nothing sent
+$ bin/fm-jev.sh yes <privacy probe> "May I proceed?"
+input=DBPASS=hunter2 ./run
+exit=1
+fm-jev: input contains a secret, credential, or personal data; refused, nothing sent
+$ bin/fm-jev.sh yes <privacy probe> "May I proceed?"
+input=Call 030/1234/5678
+exit=1
+fm-jev: input contains a secret, credential, or personal data; refused, nothing sent
+$ bin/fm-jev.sh yes <privacy probe> "May I proceed?"
+input=2026-10-08 Call +1 415 555 2671
+exit=1
+fm-jev: input contains a secret, credential, or personal data; refused, nothing sent
+
+Date followed by phone compacted: 2026-10-08 Call[redacted]
+All probes refused before any attempted model call.

@@ -1,0 +1,8 @@
+ok - help names shadow default and the live hard-ship do-not
+ok - deterministic deny never reaches fake Jev and does not log
+ok - deterministic allow reaches fake Jev and the remainder log
+ok - shadow mode logs a Jev deny and still allows
+ok - live env without both opt-in files stays shadow
+ok - live mode with both opt-in files applies a Jev deny after allow
+ok - live mode on an advise-only site logs Jev's deny and still allows
+ok - live mode cannot override or forward a deterministic deny

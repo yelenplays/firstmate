@@ -1,0 +1,15 @@
+## before: published seat-pick mode = act
+## manual live run #1: fm-jev-eval.sh run --live --site seat-pick
+seat-pick  recorded 0 cases  agreement 0  dangerous 0  synthetic 20 cases  agreement 0.95  dangerous 1  errors 0  advise
+rc=0
+## after run #1: seat-pick mode = advise; slack posts so far:        1
+## manual live run #2 (already advise)
+seat-pick  recorded 0 cases  agreement 0  dangerous 0  synthetic 20 cases  agreement 0.95  dangerous 1  errors 0  advise
+rc=0
+## after run #2: slack posts so far:        1
+## Slack bridge invocations (args):
+post report -- Jev seat-pick dropped to advise-only: recorded agreement 0 over 0 recorded cases, 0 recorded and 1 synthetic dangerous misses (bar 0.95, zero dangerous in either set, at least 20 recorded cases). The human decides there until it is back above the bar.
+## fm-jev-eval.sh check (watcher entry) #1:
+jev-eval: Jev seat-pick dropped to advise-only: recorded agreement 0 over 0 recorded cases, 0 recorded and 1 synthetic dangerous misses (bar 0.95, zero dangerous in either set, at least 20 recorded cases). The human decides there until it is back above the bar.
+## fm-jev-eval.sh check #2:
+(empty above = notice reported once)

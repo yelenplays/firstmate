@@ -1,0 +1,29 @@
+(lab home, no scorecard -> worker-cli advise; key loaded from operator .env, never printed)
+$ fm-jev.sh yes "CI failed once on a flaky watcher test; the rerun passed locally." "Should the worker rerun the failing test once?"
+yes: ESCALATE conf=0.6 prior=yes advise-only -> decide yourself
+  exit=2
+$ fm-jev.sh yes "SSHPASS=hunter2 sshpass -e ssh host" "Should the worker rerun the failing test once?"
+fm-jev: input contains a secret, credential, or personal data; refused, nothing sent
+  exit=1
+$ fm-jev.sh yes "DBPASS=hunter2 ./run" "Should the worker rerun the failing test once?"
+fm-jev: input contains a secret, credential, or personal data; refused, nothing sent
+  exit=1
+$ fm-jev.sh yes "Call 030/1234/5678 about the deploy" "Should the worker rerun the failing test once?"
+fm-jev: input contains a secret, credential, or personal data; refused, nothing sent
+  exit=1
+$ fm-jev.sh yes "Captain said on 2026-10-08 call 0170 1234567 if CI breaks" "Should the worker rerun the failing test once?"
+fm-jev: input contains a secret, credential, or personal data; refused, nothing sent
+  exit=1
+$ fm-jev.sh yes "Meeting 2026-10-08, phone +49 170 1234567" "Should the worker rerun the failing test once?"
+fm-jev: input contains a secret, credential, or personal data; refused, nothing sent
+  exit=1
+$ fm-jev.sh yes "Deadline 08.10.2026 tel 030 12345678" "Should the worker rerun the failing test once?"
+fm-jev: input contains a secret, credential, or personal data; refused, nothing sent
+  exit=1
+
+## library screen (bash: source bin/fm-jev-lib.sh)
+SSHPASS=hunter2 sshpass -e ssh host            sensitive_key=flagged compact=[redacted]
+DBPASS=hunter2 ./run                           sensitive_key=flagged compact=[redacted]
+Call 030/1234/5678                             sensitive_key=clean   compact=Call[redacted]
+Captain said on 2026-10-08 call 0170 1234567   sensitive_key=clean   compact=Captain said on 2026-10-08 call[redacted]
+Meeting 2026-10-08, phone +49 170 1234567      sensitive_key=clean   compact=Meeting 2026-10-08, phone[redacted]

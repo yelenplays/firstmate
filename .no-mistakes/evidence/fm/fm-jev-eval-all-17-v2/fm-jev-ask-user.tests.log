@@ -1,0 +1,15 @@
+ok - fm-jev-ask-user: a confident in-scope verdict answers the gate through fm-send
+ok - fm-jev-ask-user: an advise-only site escalates with Jev's answer and sends nothing
+ok - fm-jev-ask-user: cross-tenant security findings escalate
+ok - fm-jev-ask-user: email and phone data are refused before Jev
+ok - fm-jev-ask-user: incomplete contracts and steer records escalate
+ok - fm-jev-ask-user: unorderable and unreadable steer records escalate
+ok - fm-jev-ask-user: symlinked steer records are refused
+ok - fm-jev-ask-user: confidence below the floor escalates to the captain
+ok - fm-jev-ask-user: any finding outside a plain in-scope fix escalates the whole gate
+ok - fm-jev-ask-user: Jev errors and missing keys escalate with no fallback
+ok - fm-jev-ask-user: a wrong or missing answer type escalates even with valid probabilities
+ok - fm-jev-ask-user: round cap, destructive, security, and vault gates escalate without a Jev call
+ok - fm-jev-ask-user: oversized or secret-bearing contracts escalate unsent
+ok - fm-jev-ask-user: record and usage errors refuse without deciding
+ok - fm-jev-ask-user: a failed send reports the undelivered decision

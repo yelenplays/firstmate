@@ -1,0 +1,8 @@
+$ fm-jev-eval.sh status   (fresh lab home, no scorecard)
+no scorecard yet: every site advises (run: fm-jev-eval.sh run --live)
+$ fm-jev-eval.sh mode ask-user
+advise
+$ fm-jev-eval.sh mode merge-gate
+advise
+$ fm-jev-eval.sh mode seat-pick
+advise

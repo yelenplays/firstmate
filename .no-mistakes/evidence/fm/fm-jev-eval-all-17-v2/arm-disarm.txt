@@ -1,0 +1,18 @@
+$ fm-jev-eval.sh arm
+armed: state/jev-eval.check.sh (hourly; one live run a day)
+rc=0
+$LAB/state/jev-eval.check-every  5B
+$LAB/state/jev-eval.check-trust  84B
+$LAB/state/jev-eval.check.sh  212B
+
+📊 3 files, 0 dirs (1 .sh, 1 .check-every, 1 .check-trust)
+--- shim:
+export FM_HOME=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.T2jPgB
+exec /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4G1F9GGK05QXXQEFP8FBMR3/bin/fm-jev-eval.sh check
+--- every: 3600
+$ run the registered shim as the watcher would
+jev-eval: Jev seat-pick dropped to advise-only: recorded agreement 0 over 0 recorded cases, 0 recorded and 1 synthetic dangerous misses (bar 0.95, zero dangerous in either set, at least 20 recorded cases). The human decides there until it is back above the bar.
+rc=0
+$ fm-jev-eval.sh disarm
+disarmed: state/jev-eval.check.sh
+jev-eval/

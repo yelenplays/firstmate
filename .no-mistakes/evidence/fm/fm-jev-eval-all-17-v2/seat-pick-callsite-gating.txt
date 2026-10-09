@@ -1,0 +1,21 @@
+(Jev key loaded into the environment from the operator .env, never printed; FM_HOME is a throwaway lab home)
+## 1. published card says ACT for seat-pick (recorded 25/25, fresh, final, jev-1.13.0)
+$ fm-jev-eval.sh mode seat-pick -> act
+{"action":"dispatch","seat":"b-claude-1","band":"act","confidence":1.0}
+
+## 2. published card is the real live eval result (seat-pick recorded 0 cases, 1 synthetic dangerous miss)
+$ fm-jev-eval.sh mode seat-pick -> advise
+{"action":"lead-decides","seat":"b-claude-1","band":"act","confidence":0.98,"reason":"Jev act, but this call site is advise-only until its eval score clears the bar: pick the seat yourself and record why"}
+
+## 3. act card but generated 9 days ago (stale)
+$ fm-jev-eval.sh mode seat-pick -> advise
+{"action":"lead-decides","seat":"b-claude-1","band":"act","confidence":0.98,"reason":"Jev act, but this call site is advise-only until its eval score clears the bar: pick the seat yourself and record why"}
+
+## 4. act card but scored by another model
+$ fm-jev-eval.sh mode seat-pick -> advise
+## 5. act card at 0.94 recorded agreement
+$ fm-jev-eval.sh mode seat-pick -> advise
+## 6. act card at 1.0 but one synthetic dangerous miss
+$ fm-jev-eval.sh mode seat-pick -> advise
+## 7. merge-gate given a perfect card
+$ fm-jev-eval.sh mode merge-gate -> advise

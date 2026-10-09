@@ -1,0 +1,4 @@
+Rejected replay: exit=2 rejected=1; validator received complete request; cassette lookup not attempted.
+Allowed replay without cassette: exit=1 rejected marker cleared; replay miss recorded.
+Allowed replay with cassette: exit=0; answer={"model":"jev-1.13.0","answers":{"safe":{"noul":0.99}}}
+Existing cassette cannot bypass validator: exit=2 rejected=1, no response emitted.

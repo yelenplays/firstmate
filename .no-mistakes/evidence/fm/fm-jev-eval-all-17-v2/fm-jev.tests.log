@@ -1,0 +1,24 @@
+ok - fm-jev.sh: --help is the whole interface in under 15 lines
+ok - fm-jev.sh: pick sends one choice question and prints one line
+ok - fm-jev.sh: an advise-only site hands a confident answer back as a prior
+ok - fm-jev.sh: provider keys stay out of every child environment
+ok - fm-jev.sh: unoffered provider choices cannot forge answer lines
+ok - fm-jev.sh: option text uses the first equals as delimiter
+ok - fm-jev.sh: OpenRouter settings cannot redirect the worker command
+ok - fm-jev.sh: destination settings cannot redirect the TypeSafe credential
+ok - fm-jev.sh: yes and score print one line each
+ok - fm-jev.sh: batch asks several questions in one call
+ok - fm-jev.sh: JSON-looking state remains a JSON string
+ok - fm-jev.sh: request construction preserves trailing state newlines
+ok - fm-jev.sh: TypeSafe option limits apply to single and batch requests
+ok - fm-jev.sh: low confidence escalates with exit 2
+ok - fm-jev.sh: tied top probabilities escalate for picks and scores
+ok - fm-jev.sh: NUL in state, questions, options, and IDs is refused
+ok - fm-jev.sh: a split score distribution escalates by design
+ok - fm-jev.sh: --json prints the raw response
+ok - fm-jev.sh: errors exit 1 with one line
+ok - fm-jev.sh: option labels, meanings, and IDs reject C0, DEL, and C1 controls
+ok - fm-jev.sh: privacy guard refuses before anything is sent
+ok - fm-jev.sh: the guard screens provider keys from resolved home
+ok - fm-jev.sh: every call is logged as metadata only
+ok - fm-jev.sh: key discovery works from any directory without env setup
