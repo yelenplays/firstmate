@@ -94,7 +94,7 @@ Load `session-start-recovery` when the digest reports unfinished checks, actiona
 `docs/configuration.md` owns dispatch-profile and runtime-backend schemas, `bin/fm-harness.sh` owns static resolution, and `bin/fm-spawn.sh` owns launch flags and fail-closed validation.
 When dispatch profiles exist, consult them at every crewmate or scout intake and pass the resolved concrete profile required by `fm-spawn`.
 Routing precedence is an explicit per-task captain override, then the best-fit configured rule, then the configured default, then the static crewmate harness.
-Firstmate alone resolves a matched profile array: begin with `quota-axi`'s default TOON at that intake, using the skill's narrow TOON-then-`--json` fallback only for genuine ambiguity, evaluate every configured candidate against that current output, and choose with inspectable `spendPriority` as the one quota-perspective ranker after the skill's eligibility, reasoning-class, and runway-feasibility gates.
+The typed resolver returns a concrete profile after applying quota and effort gates; when firstmate resolves a profile array outside that tool, begin with `quota-axi`'s default TOON at intake and follow `quota-array-dispatch`'s TOON-then-`--json` fallback, eligibility, and `spendPriority` procedure.
 Account for every candidate with the catalog evidence, provider relationship, applicable quota and authentication facts, remaining uncertainty, fit and reasoning class, and the spendPriority and runway evidence used in selection; never omit a candidate, guess, fall back silently, or call the result quota-informed without them.
 Establish model support and provider family from that harness's own authoritative catalog, then apply the [account and scope matching rules in `quota-array-dispatch`](.agents/skills/quota-array-dispatch/SKILL.md#1-eligibility).
 Missing model-level quota, a missing authentication source, unmeasurable headroom, or unmodeled authentication is disclosed uncertainty that keeps a candidate eligible, never a credential or login escalation.
@@ -104,8 +104,8 @@ When every candidate is tight, preserve the captain's strongest-reasoning class 
 Break genuine evidence ties without array-order or harness bias.
 `quota-axi` owns how model or product windows relate to bounding account windows and remains data-only.
 Load `quota-array-dispatch` before choosing among a matched profile array; that skill is the single owner of the TOON-first spendPriority selection procedure.
-Run `bin/fm-dispatch-resolve.sh` directly on the written brief in the same turn, with no preflight; whenever it prints a `profile:` line (`clear`, or `picked` after its Jev runoff settled an ambiguous match), pass that line to `fm-spawn` without hand-picking (contract: `docs/configuration.md` "Typed dispatch resolution").
-Only a captain rule overrides that line - an explicit per-task captain override, or a standing `data/captain.md` routing rule the rules file does not yet encode - and the backlog note names it; a result without a profile line, and off, mean the intake above, unchanged.
+Run `bin/fm-dispatch-resolve.sh` directly on the written brief in the same turn, with no preflight; whenever it prints a `profile:` line, pass that line to `fm-spawn` without hand-picking (contract: `docs/configuration.md` "Typed dispatch resolution").
+Only a captain rule overrides that line - an explicit per-task captain override, or a standing `data/captain.md` routing rule the rules file does not yet encode - and the backlog note names it; a result without a profile line means the intake above remains in control.
 The generic effort fallback and its precedence are owned by `harness-adapters`: explicit captain and standing configured effort win; otherwise use low for well-understood explicit work, xhigh for ambiguous investigation or design, intermediate levels proportionally, and never max without explicit captain preference.
 Do not add model-specific versions of that policy.
 
@@ -172,7 +172,7 @@ An explicit project wins, a clear follow-up inherits its referent, and otherwise
 Proceed on one confident match while naming the project in plain language; ask one concise question when multiple or no projects plausibly match.
 
 Route by the nature of the work against each registered secondmate scope, not by a non-exclusive clone list.
-Decide that route with `bin/fm-home-route.sh decide` before writing the brief, and record your own call with its `judge` when Jev does not decide; `fm-spawn` enforces the route ([configuration](docs/configuration.md#home-router)).
+Decide that route with `bin/fm-home-route.sh decide` before writing the brief; follow the [home-router contract](docs/configuration.md#home-router) for judgment overrides and spawn enforcement.
 Keep `local-only` work in the main home.
 Send in-scope work to the fitting secondmate unless it is blocked or the captain explicitly redirects it; do not read the secondmate's chat because marked routed replies return through its status or referenced document.
 If no secondmate scope fits, use the main home or discuss creating an appropriate persistent secondmate.

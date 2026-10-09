@@ -34,6 +34,17 @@ while [ "$#" -gt 0 ]; do
 done
 SH
 chmod +x "$FAKEBIN/curl"
+# The fake backup judge records its prompt and answers FM_BACKUP_ANSWER as
+# structured output, or exits 1 when FM_BACKUP_ANSWER is unset.
+BACKUP_PROMPT="$TMP_ROOT/backup-prompt"
+export BACKUP_PROMPT
+cat > "$FAKEBIN/fake-claude" <<'SH'
+#!/usr/bin/env bash
+cat >> "$BACKUP_PROMPT"
+[ -n "${FM_BACKUP_ANSWER:-}" ] || exit 1
+jq -nc --argjson a "$FM_BACKUP_ANSWER" '{type:"result",is_error:false,structured_output:$a,modelUsage:{"claude-haiku-5-5":{}}}'
+SH
+chmod +x "$FAKEBIN/fake-claude"
 printf '%s\n' \
   '- lay - Company domain (home: /safe/lay; scope: Company facts for Lay Distribution except the marketing site.; projects: lay-distribution-vault; added 2026-09-01)' \
   '- frontend - Website domain (home: /safe/frontend; scope: Website and web-app work including lay-distribution-site.; projects: lay-distribution-site; added 2026-09-01)' \
@@ -55,7 +66,7 @@ write_answer() { # <lead> <lead probability> <lay consult> <frontend consult>
 }
 run_tool() {
   FM_HOME="$HOME_DIR" PATH="$FAKEBIN:$BASE_PATH" TYPESAFE_API_KEY=fixture-key JEV_URL=https://example.invalid/decision \
-    /bin/bash "$TOOL" "$@"
+    FM_BACKUP_JUDGE_CMD=fake-claude /bin/bash "$TOOL" "$@"
 }
 last_event() { tail -n 1 "$LOG"; }
 
@@ -74,6 +85,20 @@ last_event | jq -e '.event == "decide" and .task_id == "lay-faq" and .route == "
   and .source == "jev" and .probability == 0.98 and .response_model == "typesafe/jev-1.13-20260917" and .consult_probabilities.lay == 0.79' >/dev/null ||
   fail 'decision not logged'
 pass 'Lay site task routes to frontend with lay consulted, from approved scopes only'
+
+for extra in '{"type":"noul","noul":1}' '{"type":"choice","noul":1}' '{"type":"noul","noul":"yes"}'; do
+  write_answer frontend 0.98 0.79 0.62
+  jq --argjson extra "$extra" '.answers += {consult_ghost: $extra, consult_zimmer: {type: "noul", noul: 1}}' "$RESPONSE" > "$RESPONSE.tmp"
+  mv "$RESPONSE.tmp" "$RESPONSE"
+  out=$(run_tool decide extra-consults --project lay-distribution-site --public-summary 'Update the website FAQ') || fail 'extra-consults decide failed'
+  assert_contains "$out" 'route: frontend+lay' 'extra consult answers cannot add mates'
+  assert_contains "$out" 'decided: jev' 'valid requested answers still decide'
+  last_event | jq -e '.route == "frontend+lay" and .consult == ["lay"] and (.consult_probabilities | keys) == ["frontend", "lay"]' >/dev/null \
+    || fail 'unrequested consult evidence was logged'
+  jq -e '.route == "frontend+lay" and .consult == ["lay"]' "$HOME_DIR/state/home-route/extra-consults.json" >/dev/null \
+    || fail 'unrequested mates were recorded'
+done
+pass 'typed consult answers are projected onto eligible public scopes'
 
 rc=0
 out=$(run_tool check lay-faq "$TMP_ROOT/projects/lay-distribution-site" 2>&1) || rc=$?
@@ -118,55 +143,99 @@ run_tool check fm-task "$TMP_ROOT/projects/firstmate" || fail 'main route refuse
 last_event | jq -e '.event == "check" and .outcome == "allow" and .route == "main"' >/dev/null || fail 'allow not logged'
 pass 'a main route allows the spawn'
 
-# Abstain: below the lead floor the record asks for firstmate's judgment.
+# Abstain: below the lead floor the backup judge decides on the same state.
+: > "$BACKUP_PROMPT"
 write_answer frontend 0.6 0.3 0.4
-out=$(run_tool decide vague-task --project firstmate --public-summary 'Improve the onboarding') || fail 'abstain decide failed'
-assert_contains "$out" 'route: judgment-needed' 'abstain is judgment-needed'
-assert_contains "$out" 'judge vague-task' 'abstain names the judge command'
-last_event | jq -e '.route == "judgment-needed" and .reason == "abstained" and .probability == 0.6' >/dev/null || fail 'abstain not logged'
-rc=0
-out=$(run_tool check vague-task "$TMP_ROOT/projects/firstmate" 2>&1) || rc=$?
-[ "$rc" -ne 0 ] || fail 'judgment-needed allowed the spawn'
-assert_contains "$out" 'Jev did not route task vague-task (abstained)' 'judgment refusal names the reason'
-out=$(run_tool judge vague-task --route main --reason 'Firstmate onboarding docs belong to the main home') || fail 'judge failed'
-assert_contains "$out" 'route: main' 'judge records main'
-last_event | jq -e '.event == "judge" and .source == "judgment" and .route == "main"' >/dev/null || fail 'judgment not logged'
-run_tool check vague-task "$TMP_ROOT/projects/firstmate" || fail 'judged main refused'
+out=$(FM_BACKUP_ANSWER='{"lead":"main","consult_lay":false,"consult_frontend":false}' run_tool decide vague-task --project firstmate --public-summary 'Improve the onboarding') || fail 'abstain decide failed'
+assert_contains "$out" 'route: main' 'abstain is decided by the backup'
+assert_contains "$out" 'decided: backup' 'the backup is named'
+assert_contains "$out" 'typed: abstained' 'the typed reason is named'
+assert_contains "$out" 'judge vague-task' 'a backup route names the judge override'
+assert_contains "$(cat "$BACKUP_PROMPT")" '"task_summary":"Improve the onboarding"' 'the backup sees the typed state'
+assert_not_contains "$(cat "$BACKUP_PROMPT")" 'vague-task' 'the backup never sees the task id'
+assert_not_contains "$(cat "$BACKUP_PROMPT")" 'zimmer' 'the backup never sees an unapproved scope'
+last_event | jq -e '.route == "main" and .source == "backup" and .reason == "abstained" and (.backup | startswith("ok"))' >/dev/null || fail 'backup decision not logged'
+run_tool check vague-task "$TMP_ROOT/projects/firstmate" || fail 'a backup main route refused'
+out=$(run_tool judge vague-task --route frontend --reason 'onboarding pages live on the website') || fail 'judge over a backup route failed'
+assert_contains "$out" 'route: frontend' 'judge overrides a backup route'
+jq -e '.source == "judgment" and .judged_over == "backup" and .jev_reason == "abstained"' "$HOME_DIR/state/home-route/vague-task.json" >/dev/null || fail 'judgment record lost its provenance'
 rc=0
 run_tool judge lay-faq --route main --reason 'disagree' 2>/dev/null || rc=$?
 [ "$rc" -eq 2 ] || fail 'judge overwrote a confident Jev route'
 rc=0
 run_tool judge vague-task --route ghost --reason 'unknown' 2>/dev/null || rc=$?
 [ "$rc" -eq 2 ] || fail 'judge accepted an unregistered mate'
-pass 'abstain falls back to a recorded firstmate judgment, never silently'
+pass 'abstain is decided by the backup judge, and judge stays an override'
 
-# Jev unreachable: recorded as judgment-needed; the spawn refuses with the judge
-# command instead of blocking silently or passing silently.
+# Backup consult answers form the route like Jev's nouls.
+out=$(FM_BACKUP_ANSWER='{"lead":"frontend","consult_lay":true,"consult_frontend":true}' run_tool decide backup-site --project lay-distribution-site --public-summary 'Add the pricing table to the Lay site') || fail 'backup consult decide failed'
+assert_contains "$out" 'route: frontend+lay' 'a backup lead with consults forms the full route'
+pass 'the backup forms lead plus consult routes'
+
+# Jev unreachable: the backup decides; when the backup fails too, main.
 rm -f "$RESPONSE"
-out=$(run_tool decide outage-task --project lay-distribution-site --public-summary 'Fix the mobile navigation overlap') || fail 'outage decide failed'
-assert_contains "$out" 'route: judgment-needed' 'outage is judgment-needed'
-last_event | jq -e '.reason == "decision_unavailable"' >/dev/null || fail 'outage not logged'
+out=$(FM_BACKUP_ANSWER='{"lead":"frontend","consult_lay":false,"consult_frontend":false}' run_tool decide outage-task --project lay-distribution-site --public-summary 'Fix the mobile navigation overlap') || fail 'outage decide failed'
+assert_contains "$out" 'route: frontend' 'outage is decided by the backup'
+last_event | jq -e '.reason == "decision_unavailable" and .source == "backup"' >/dev/null || fail 'outage not logged'
 rc=0
 out=$(run_tool check outage-task "$TMP_ROOT/projects/lay-distribution-site" 2>&1) || rc=$?
-[ "$rc" -ne 0 ] || fail 'an outage let the spawn through'
-assert_contains "$out" 'decision_unavailable' 'outage refusal names the reason'
-assert_contains "$out" 'bin/fm-home-route.sh judge outage-task' 'outage refusal names the judge command'
-run_tool judge outage-task --route frontend --reason 'site layout belongs to the frontend mate' >/dev/null || fail 'outage judge failed'
-rc=0
-out=$(run_tool check outage-task "$TMP_ROOT/projects/lay-distribution-site" 2>&1) || rc=$?
-[ "$rc" -ne 0 ] || fail 'a judged secondmate route let the spawn through'
-assert_contains "$out" 'bin/fm-backlog-handoff.sh frontend outage-task' 'judged route names the handoff'
-pass 'an unreachable endpoint refuses with a clear next step'
+[ "$rc" -ne 0 ] || fail 'a backup secondmate route let the spawn through'
+assert_contains "$out" 'bin/fm-backlog-handoff.sh frontend outage-task' 'backup route names the handoff'
+out=$(run_tool decide outage-two --project lay-distribution-site --public-summary 'Fix the footer spacing') || fail 'double outage decide failed'
+assert_contains "$out" 'route: main' 'a failed backup keeps the task in main'
+assert_contains "$out" 'decided: default' 'the default is named'
+assert_contains "$out" 'backup: failed' 'the backup failure is named'
+last_event | jq -e '.route == "main" and .source == "default" and .reason == "decision_unavailable" and (.backup | startswith("failed"))' >/dev/null || fail 'default not logged'
+run_tool check outage-two "$TMP_ROOT/projects/lay-distribution-site" || fail 'a default main route refused'
+out=$(run_tool decide outage-three --project lay-distribution-site --public-summary 'Fix the header spacing') || fail 'failed backup decide failed'
+assert_contains "$out" 'backup: failed (fake-claude exited 1)' 'a failing backup is named'
+assert_contains "$out" 'route: main' 'a failed backup keeps the task in main'
+pass 'an unreachable endpoint goes to the backup, then to main; a route is always recorded'
 
-# No key and private input skip the call and still record judgment-needed.
+# No key goes to the backup; private input reaches neither judge and stays main.
 : > "$PAYLOAD"
+: > "$BACKUP_PROMPT"
 write_answer main 0.99 0 0
-out=$(FM_HOME="$HOME_DIR" PATH="$FAKEBIN:$BASE_PATH" TYPESAFE_API_KEY='' OPENROUTER_API_KEY='' /bin/bash "$TOOL" decide nokey-task --project firstmate --public-summary 'Update a guide') || fail 'no-key decide failed'
-assert_contains "$out" 'route: judgment-needed' 'no key is judgment-needed'
-out=$(run_tool decide private-task --project firstmate --public-summary 'Plan the IchWiki overlay') || fail 'private decide failed'
-last_event | jq -e '.reason == "unsafe_summary" and .route == "judgment-needed"' >/dev/null || fail 'private skip not logged'
+out=$(FM_HOME="$HOME_DIR" PATH="$FAKEBIN:$BASE_PATH" TYPESAFE_API_KEY='' OPENROUTER_API_KEY='' FM_BACKUP_JUDGE_CMD=fake-claude \
+  FM_BACKUP_ANSWER='{"lead":"main","consult_lay":false,"consult_frontend":false}' /bin/bash "$TOOL" decide nokey-task --project firstmate --public-summary 'Update a guide') || fail 'no-key decide failed'
+assert_contains "$out" 'route: main' 'no key is decided'
+assert_contains "$out" 'decided: backup' 'no key goes to the backup'
+: > "$BACKUP_PROMPT"
+out=$(FM_BACKUP_ANSWER='{"lead":"frontend","consult_lay":false,"consult_frontend":false}' run_tool decide private-task --project firstmate --public-summary 'Plan the IchWiki overlay') || fail 'private decide failed'
+assert_contains "$out" 'route: main' 'private input stays main'
+last_event | jq -e '.reason == "unsafe_summary" and .route == "main" and .source == "default" and .backup == "skipped (unsafe_summary)"' >/dev/null || fail 'private skip not logged'
 [ ! -s "$PAYLOAD" ] || fail 'no-key or private input reached the endpoint'
-pass 'missing key and private summaries never reach the endpoint'
+[ ! -s "$BACKUP_PROMPT" ] || fail 'private input reached the backup judge'
+pass 'missing key goes to the backup; private summaries reach neither judge'
+
+# Input failures before either judge still record a usable main-home route.
+: > "$PAYLOAD"
+mv "$APPROVAL" "$APPROVAL.off"
+out=$(run_tool decide missing-scopes --project lay-distribution-site --public-summary 'Update the site navigation') || fail 'missing-scopes decide failed'
+assert_contains "$out" 'route: main' 'missing public scopes route main'
+assert_contains "$out" 'decided: default' 'missing public scopes use the default'
+jq -e '.route == "main" and .source == "default" and (.route | length) > 0 and .reason == "no_public_scopes"' \
+  "$HOME_DIR/state/home-route/missing-scopes.json" >/dev/null || fail 'missing public scopes route not recorded'
+mv "$APPROVAL.off" "$APPROVAL"
+mv "$REG" "$REG.off"
+out=$(run_tool decide missing-registry --project lay-distribution-site --public-summary 'Update the site navigation') || fail 'missing-registry decide failed'
+assert_contains "$out" 'route: main' 'missing registry routes main'
+assert_contains "$out" 'decided: default' 'missing registry uses the default'
+jq -e '.route == "main" and .source == "default" and (.route | length) > 0 and .reason == "registry_unavailable"' \
+  "$HOME_DIR/state/home-route/missing-registry.json" >/dev/null || fail 'missing registry route not recorded'
+mv "$REG.off" "$REG"
+[ ! -s "$PAYLOAD" ] || fail 'unusable routing inputs reached the endpoint'
+pass 'missing scopes and registry record a non-empty default route'
+
+# A legacy judgment-needed record still refuses the spawn until judged.
+jq -n '{task_id: "legacy-task", project: "firstmate", route: "judgment-needed", lead: "", consult: [], source: "jev", probability: 0.6, reason: "abstained"}' > "$HOME_DIR/state/home-route/legacy-task.json"
+rc=0
+out=$(run_tool check legacy-task "$TMP_ROOT/projects/firstmate" 2>&1) || rc=$?
+[ "$rc" -ne 0 ] || fail 'a legacy judgment-needed record let the spawn through'
+assert_contains "$out" 'bin/fm-home-route.sh judge legacy-task' 'legacy refusal names the judge command'
+run_tool judge legacy-task --route main --reason 'main owns it' >/dev/null || fail 'judge over a legacy record failed'
+run_tool check legacy-task "$TMP_ROOT/projects/firstmate" || fail 'judged legacy record refused'
+pass 'legacy judgment-needed records still need a judgment'
 
 # A missing record refuses; a secondmate home and an unconfigured home are not gated.
 rc=0
@@ -186,7 +255,9 @@ pass 'missing records refuse; secondmate and unconfigured homes pass'
 
 out=$(run_tool review) || fail 'review failed'
 assert_contains "$out" 'overrides=1' 'review counts overrides'
-assert_contains "$out" 'judgment_needed_reasons: abstained=1' 'review groups abstain reasons'
+assert_contains "$out" 'typed_undecided_reasons: abstained=2 decision_unavailable=3 no_key=1 no_public_scopes=1 registry_unavailable=1 unsafe_summary=1' 'review groups the typed reasons'
+assert_contains "$out" 'backup_routed=4' 'review counts backup routes'
+assert_contains "$out" 'backup_failures: failed (fake-claude exited 1)=2' 'review groups backup failures'
 assert_contains "$out" 'override lay-faq: router said frontend+lay' 'review lists overrides'
 pass 'review summarises the log'
 

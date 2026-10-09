@@ -839,6 +839,23 @@ if [ -n "$BOOT_OUT" ]; then
 else
   printf '(silent - all good)\n'
 fi
+if [ "$READ_ONLY" -eq 0 ]; then
+  DISPATCH_SELFTEST_ALERT="$STATE/dispatch-selftest/missing-samples.alerted"
+  if [ -f "$CONFIG/crew-dispatch.json" ] && [ ! -f "$CONFIG/dispatch-samples.json" ]; then
+    mkdir -p "${DISPATCH_SELFTEST_ALERT%/*}"
+    if [ ! -e "$DISPATCH_SELFTEST_ALERT" ] \
+      && (umask 077; set -o noclobber; : > "$DISPATCH_SELFTEST_ALERT") 2>/dev/null; then
+      printf 'DISPATCH_SELFTEST: samples file missing at %s; add config/dispatch-samples.json to enable routing proof\n' "$CONFIG/dispatch-samples.json"
+    fi
+  else
+    rm -f "$DISPATCH_SELFTEST_ALERT"
+    if [ -f "$CONFIG/dispatch-samples.json" ]; then
+      FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
+        "$SCRIPT_DIR/fm-dispatch-selftest.sh" arm >/dev/null 2>&1 \
+        || printf 'DISPATCH_SELFTEST: could not auto-arm the routing selftest\n'
+    fi
+  fi
+fi
 
 # --- 3. wake-drain ---------------------------------------------------------
 # The inactive-outcome startup scan runs in the deferred worker launched above,

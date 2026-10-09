@@ -1109,6 +1109,35 @@ test_crew_dispatch_active_rules_are_verbose_bootstrap_info() {
   pass "bootstrap surfaces active crew-dispatch rules only as verbose BOOTSTRAP_INFO"
 }
 
+test_crew_dispatch_effort_floor_range() {
+  local case_dir fakebin location shape ceiling out expect
+  case_dir="$TMP_ROOT/dispatch-floor-range"
+  mkdir -p "$case_dir/home/config"
+  printf '%s\n' manual > "$case_dir/home/config/backlog-backend"
+  fakebin=$(make_fake_toolchain "$case_dir")
+  add_real_jq "$fakebin"
+  for location in use default; do
+    for shape in object array; do
+      for ceiling in high xhigh medium; do
+        jq -n --arg location "$location" --arg shape "$shape" --arg ceiling "$ceiling" '
+          {harness: "claude", effort: "medium", effort_max: $ceiling, effort_floor: "high"} as $profile |
+          (if $shape == "array" then [$profile] else $profile end) as $profiles |
+          if $location == "use" then {rules: [{when: "Building.", use: $profiles}]}
+          else {default: $profiles} end
+        ' > "$case_dir/home/config/crew-dispatch.json"
+        out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$case_dir/home" FM_ROOT_OVERRIDE="$case_dir/home" \
+          TYPESAFE_API_KEY=test-key FM_FAKE_TREEHOUSE_LEASE_HELP=1 "$ROOT/bin/fm-bootstrap.sh")
+        expect=''
+        if [ "$ceiling" = medium ]; then
+          expect='CREW_DISPATCH: invalid config/crew-dispatch.json - profile effort_floor must be low, medium, high, xhigh, or max and not above the profile effort, supported by an effort-capable harness and model'
+        fi
+        assert_equals "$expect" "$out" "bootstrap: $location $shape floor respects $ceiling ceiling"
+      done
+    done
+  done
+  pass "bootstrap composes effort floors with rule and default ranges"
+}
+
 test_crew_dispatch_validation() {
   local label body expect mode case_dir fakebin out child_env n
   n=0
@@ -1197,6 +1226,11 @@ default array profile without harness is flagged^{"default":[{"model":"gpt-5.5"}
 default array malformed effort is flagged^{"default":[{"harness":"codex","effort":3}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - default profile model and effort must be non-empty strings, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\z when present
 default profile floor without min_percent is flagged^{"default":[{"harness":"codex","floor":{"scope":"all_models"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - default profile floor needs scope and min_percent 0..100
 default profile floor provider override is flagged^{"default":{"harness":"codex","floor":{"scope":"all_models","min_percent":50,"provider":"claude"}}}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - default profile floor needs scope and min_percent 0..100
+effort range is accepted^{"rules":[{"when":"fast work","use":{"harness":"claude","model":"claude-haiku-5-5","effort":"high","effort_min":"low","effort_max":"xhigh"}}],"default":{"harness":"claude","effort":"medium","effort_max":"high"}}^empty^
+effort range without effort is flagged^{"rules":[{"when":"fast work","use":{"harness":"claude","effort_min":"low"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - use profile effort_min and effort_max need effort, and effort_min <= effort <= effort_max on low < medium < high < xhigh < max < ultra
+inverted effort range is flagged^{"rules":[{"when":"fast work","use":{"harness":"claude","effort":"medium","effort_max":"low"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - use profile effort_min and effort_max need effort, and effort_min <= effort <= effort_max on low < medium < high < xhigh < max < ultra
+inverted default effort range is flagged^{"default":{"harness":"claude","effort":"medium","effort_min":"high"}}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - default profile effort_min and effort_max need effort, and effort_min <= effort <= effort_max on low < medium < high < xhigh < max < ultra
+unsupported effort range bound is flagged^{"rules":[{"when":"agy work","use":{"harness":"agy","effort":"medium","effort_max":"xhigh"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - invalid effort: agy:xhigh
 ROWS
 
   local location shape invalid
@@ -1343,6 +1377,12 @@ test_wiki_sync_status_diagnostic() {
   pass "bootstrap reads local wiki sync health only for configured wiki families"
 }
 
+if [ "${1:-}" = --dispatch-effort-floor ]; then
+  test_crew_dispatch_effort_floor_range
+  exit 0
+fi
+
+test_crew_dispatch_effort_floor_range
 test_bootstrap_reporting
 test_wiki_sync_status_diagnostic
 test_no_mistakes_min_version

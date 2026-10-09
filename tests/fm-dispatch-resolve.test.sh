@@ -184,12 +184,14 @@ reset_log() {
   mkdir -p "$LOG"
 }
 
-# run <exit-var> <out-var> <err-var> [args...]: the tool with fakebin first on
-# PATH and an isolated FM_HOME; TYPESAFE_API_KEY comes from the caller's env.
+# run <exit-var> <out-var> <err-var> [args...]: the tool's typed stage alone
+# (--typed-only) with fakebin first on PATH and an isolated FM_HOME;
+# TYPESAFE_API_KEY comes from the caller's env. The typed gates are pinned
+# here; the backup and default stages after them are pinned by run_chain below.
 run() {
   local __exit=$1 __out=$2 __err=$3 _out _code
   shift 3
-  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_SPEND_LEDGER="${FM_SPEND_LEDGER:-$LEDGER_STUB}" "$TOOL" "$@" 2> "$TMP_ROOT/stderr")
+  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_SPEND_LEDGER="${FM_SPEND_LEDGER:-$LEDGER_STUB}" "$TOOL" --typed-only "$@" 2> "$TMP_ROOT/stderr")
   _code=$?
   printf -v "$__exit" '%s' "$_code"
   printf -v "$__out" '%s' "$_out"
@@ -199,7 +201,7 @@ run() {
 run_without_curl() {
   local __exit=$1 __out=$2 __err=$3 _out _code
   shift 3
-  _out=$(PATH="$NO_CURL_BIN" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY="$KEY" FM_SPEND_LEDGER="$LEDGER_STUB" "$TOOL" "$@" 2> "$TMP_ROOT/stderr")
+  _out=$(PATH="$NO_CURL_BIN" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY="$KEY" FM_SPEND_LEDGER="$LEDGER_STUB" "$TOOL" --typed-only "$@" 2> "$TMP_ROOT/stderr")
   _code=$?
   printf -v "$__exit" '%s' "$_code"
   printf -v "$__out" '%s' "$_out"
@@ -248,7 +250,7 @@ assert_contains "$out" 'dispatch-resolve:' "TOON block header"
 assert_contains "$out" '  status: clear' "clear status"
 assert_contains "$out" '  rule: rule_4 (A simple bug fix with a stated root cause.)   confidence: 0.9' "rule and confidence line"
 assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "argmax picks the highest spendPriority"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(high ceiling)  scope=all_models  remaining=79%  spendPriority=-0.4627  runway=projected_exhaustion  pred=unknown  -> eligible' "every candidate is accounted for"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(range high)  scope=all_models  remaining=79%  spendPriority=-0.4627  runway=projected_exhaustion  pred=unknown  -> eligible' "every candidate is accounted for"
 assert_contains "$out" 'candidate: kimi:kimi-code/k3  provider=kimi  pred=unknown  -> eligible, unranked: provider kimi unmeasured (unknown): disclosed uncertainty' "unmeasured provider stays listed as eligible and unranked"
 assert_contains "$out" '  note: 1 eligible candidate(s) unranked (kimi)' "clear results flag eligible unranked candidates once"
 assert_not_contains "$out" '--effort' "cursor profile without effort emits no --effort"
@@ -457,7 +459,7 @@ TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 expect_code 0 "$code" "ambiguous exits 0"
 assert_contains "$out" '  status: ambiguous' "a narrow top-2 margin is ambiguous"
 assert_contains "$out" '  reason: top-2 margin 0.11 below 0.4 (rule_4 vs rule_2)' "ambiguous names the margin, the threshold, and both contenders"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(high ceiling)  scope=all_models  remaining=79%  spendPriority=-0.4627  runway=projected_exhaustion  pred=unknown  -> eligible' "ambiguous preserves matched candidate evidence"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(range high)  scope=all_models  remaining=79%  spendPriority=-0.4627  runway=projected_exhaustion  pred=unknown  -> eligible' "ambiguous preserves matched candidate evidence"
 assert_contains "$out" 'candidate: kimi:kimi-code/k3  provider=kimi  pred=unknown  -> eligible, unranked: provider kimi unmeasured (unknown): disclosed uncertainty' "ambiguous preserves eligible unranked candidate evidence"
 assert_not_contains "$out" '  profile:' "ambiguous emits no profile line"
 pass "ambiguous: a narrow top-2 margin hands the decision back"
@@ -490,7 +492,7 @@ assert_contains "$out" '  status: picked' "a settled runoff reports picked"
 assert_contains "$out" '  reason: top-2 margin 0.11 below 0.4 (rule_4 vs rule_2)' "picked keeps the reason the rule answer was ambiguous"
 assert_contains "$out" '  pick: rule_4 (rule_4) over rule_2 by jev runoff   p=0.86 margin=0.72' "the pick line names the winner, the loser, and the evidence"
 assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "the winner's quota-ranked profile is emitted"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(high ceiling)' "the winner's candidates stay accounted for"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(range high)' "the winner's candidates stay accounted for"
 assert_equals '2' "$(grep -c . "$LOG/calls")" "a runoff spends exactly one more call"
 assert_equals $'curl:clean\nquota-axi:clean\ncurl:clean' "$(cat "$LOG/child-env")" "the key stays out of every child environment across both calls"
 pick_body=$(cat "$LOG/pick-body")
@@ -821,7 +823,7 @@ TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 expect_code 0 "$code" "escalate exits 0"
 assert_contains "$out" '  status: escalate' "approval-gated rule escalates"
 assert_contains "$out" "  reason: rule requires the captain's explicit approval before dispatch" "escalate names the approval gate"
-assert_contains "$out" 'candidate: claude:fable  provider=claude  effort=xhigh(xhigh ceiling)  scope=model:fable  remaining=15%  spendPriority=-0.79  runway=projected_exhaustion  pred=unknown  bounds=all_models:79%/projected_exhaustion,model:fable:15%/projected_exhaustion  -> eligible' "approval escalation preserves matched candidate evidence"
+assert_contains "$out" 'candidate: claude:fable  provider=claude  effort=xhigh(range xhigh)  scope=model:fable  remaining=15%  spendPriority=-0.79  runway=projected_exhaustion  pred=unknown  bounds=all_models:79%/projected_exhaustion,model:fable:15%/projected_exhaustion  -> eligible' "approval escalation preserves matched candidate evidence"
 assert_not_contains "$out" '  profile:' "escalate emits no profile line"
 pass "escalate: a rule declared approval: captain never yields a profile"
 
@@ -936,13 +938,13 @@ jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAva
 ]' "$QUOTA" > "$BOUNDED"
 write_response "$RESPONSE" rule_4 0.9
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$BOUNDED" run code out err "$BRIEF"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(high ceiling)  scope=all_models  remaining=79%  spendPriority=-0.4627' "the limiting provider-wide row drives ranking"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(range high)  scope=all_models  remaining=79%  spendPriority=-0.4627' "the limiting provider-wide row drives ranking"
 assert_contains "$out" 'bounds=all_models:79%/projected_exhaustion,model:sonnet:99%/through_reset' "all applicable quota bounds are disclosed"
 
 EXHAUSTED_WIDE="$TMP_ROOT/exhausted-wide.json"
 jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[] | select(.scope == "all_models")) |= (.effectivePercentRemaining = 0 | .runway.status = "exhausted_now")' "$BOUNDED" > "$EXHAUSTED_WIDE"
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$EXHAUSTED_WIDE" run code out err "$BRIEF"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(high ceiling)  scope=all_models  remaining=0%' "the exhausted account-wide bound is the candidate evidence"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(range high)  scope=all_models  remaining=0%' "the exhausted account-wide bound is the candidate evidence"
 assert_contains "$out" '-> not eligible: runway exhausted_now at all_models' "a healthy exact row cannot bypass an exhausted account-wide bound"
 pass "provider-wide and exact quota rows combine into one limiting candidate"
 
@@ -1076,7 +1078,7 @@ for harness in pi pi-signed; do
   TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$SCHEMA6_PI_NATIVE" run code out err "$BRIEF"
   expect_code 0 "$code" "$harness native adapter schema 6 exits 0"
   assert_contains "$out" '  status: clear' "$harness native adapter resolves with codex-home and no default row"
-  assert_contains "$out" "candidate: $harness:codex-native/gpt-6-astra  provider=codex  effort=ultra(ultra ceiling)  scope=all_models  remaining=80%  spendPriority=0.8  runway=through_reset  pred=unknown  -> eligible" "$harness native adapter reads codex-home"
+  assert_contains "$out" "candidate: $harness:codex-native/gpt-6-astra  provider=codex  effort=ultra(range ultra)  scope=all_models  remaining=80%  spendPriority=0.8  runway=through_reset  pred=unknown  -> eligible" "$harness native adapter reads codex-home"
   assert_contains "$out" "  profile: --harness '$harness' --model 'codex-native/gpt-6-astra' --effort 'ultra'" "$harness native adapter is chosen over exhausted Pi accounts"
 
   reset_log
@@ -1085,11 +1087,11 @@ for harness in pi pi-signed; do
 
   reset_log
   TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$SCHEMA6" run code out err "$BRIEF"
-  assert_contains "$out" "candidate: $harness:codex-native/gpt-6-astra  provider=codex  effort=ultra(ultra ceiling)  pred=unknown  -> eligible, unranked: provider codex has no quota row for account codex-home: disclosed uncertainty" "$harness native adapter never borrows a Pi account"
+  assert_contains "$out" "candidate: $harness:codex-native/gpt-6-astra  provider=codex  effort=ultra(range ultra)  pred=unknown  -> eligible, unranked: provider codex has no quota row for account codex-home: disclosed uncertainty" "$harness native adapter never borrows a Pi account"
 
   reset_log
   TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$SCHEMA5_PAIR" run code out err "$BRIEF"
-  assert_contains "$out" "candidate: $harness:codex-native/gpt-6-astra  provider=codex  effort=ultra(ultra ceiling)  scope=all_models  remaining=11%  spendPriority=-5.6819  runway=projected_exhaustion  pred=unknown  -> eligible" "$harness native adapter still joins schema 5 by provider alone"
+  assert_contains "$out" "candidate: $harness:codex-native/gpt-6-astra  provider=codex  effort=ultra(range ultra)  scope=all_models  remaining=11%  spendPriority=-5.6819  runway=projected_exhaustion  pred=unknown  -> eligible" "$harness native adapter still joins schema 5 by provider alone"
 done
 cp "$LANE_RULES" "$RULES"
 pass "Pi native adapters bind to codex-home with existing fallbacks and schema 5 compatibility"
@@ -1420,7 +1422,7 @@ rm -f "$HOME_DIR/data/secondmates.md" "$HOME_DIR/state/jev-dispatch-shadow.jsonl
 write_response "$RESPONSE" rule_4 0.9
 pass "extra questions are log-only"
 
-# --- effort classifier: dynamic class, ceiling, max guard, fallback -----------
+# --- effort classifier: dynamic class, range clamp, max guard, fallback -------
 
 # write_response_effort <path> <choice> <confidence> <effort-choice>: a canned
 # response carrying the second typed effort answer.
@@ -1437,29 +1439,44 @@ write_response_effort() {
 JSON
 }
 
-# A lower assessed class wins: rule_4's claude profile declares high, Jev
-# assesses low, and the emitted effort is the assessed class. Cursor gets a
-# lower spendPriority so the effort-capable lane wins the argmax.
+# A declared range lets the assessed class through: rule_4's claude profile
+# declares high with effort_min low, Jev assesses low, and the emitted effort
+# is the assessed class. Cursor gets a lower spendPriority so the
+# effort-capable lane wins the argmax.
 reset_log
 LOW_CURSOR="$TMP_ROOT/low-cursor-quota.json"
 write_quota "$LOW_CURSOR" -0.9
+RANGE_RULES="$TMP_ROOT/range-rules.json"
+jq '.rules[3].use[0].effort_min = "low"' "$BASE_RULES" > "$RANGE_RULES"
+cp "$RANGE_RULES" "$RULES"
 write_response_effort "$RESPONSE" rule_4 0.9 low
 jq '.answers.effort.probabilities = {"low":0.8,"medium":0.05,"high":0.05,"xhigh":0.05,"max":0.05}' "$RESPONSE" > "$TMP_ROOT/r.json" && mv "$TMP_ROOT/r.json" "$RESPONSE"
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$LOW_CURSOR" run code out err "$BRIEF"
 assert_contains "$out" '  effort: low (jev confidence=0.9)' "effort line names the assessed class"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=low(high ceiling)' "declared effort is the ceiling, not the emitted class"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=low(range low..high)' "the assessed class inside the range is the emitted class"
 assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'low'" "the assessed class is emitted on the profile line"
-pass "effort classifier: a lower assessed class replaces the declared ceiling value"
+pass "effort range: an assessed class inside the declared range is emitted"
 
-# An assessed class above the declared ceiling refuses the candidate - the
-# ceiling is a hard bound, never silently upgraded.
+# A bare effort is a one-level range: the same low assessment is clamped up to
+# the declared high, and the clamp is shown on the candidate line.
+cp "$BASE_RULES" "$RULES"
+reset_log
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$LOW_CURSOR" run code out err "$BRIEF"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(range high) [clamped from low]' "a bare effort clamps the assessment to itself"
+assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" "the declared effort is emitted"
+pass "effort range: a bare effort is a one-level range"
+
+# An assessed class above the range is clamped to its top and logged, never a
+# refusal: the 2026-10-07 escalate ("assessed effort high exceeds declared
+# ceiling medium") cannot recur.
 reset_log
 write_response_effort "$RESPONSE" rule_4 0.9 max
-TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
-assert_contains "$out" '  status: escalate' "assessed max over declared ceilings escalates"
-assert_contains "$out" 'not eligible: assessed effort max exceeds declared ceiling high' "ceiling breach is named per candidate"
-assert_not_contains "$out" '  profile:' "ceiling breach emits no profile"
-pass "effort classifier: declared effort is a ceiling that max cannot cross"
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$LOW_CURSOR" run code out err "$BRIEF"
+assert_contains "$out" '  status: clear' "an assessment above the range still clears"
+assert_contains "$out" 'effort=high(range high) [clamped from max]' "the clamp is disclosed"
+assert_not_contains "$out" 'exceeds declared ceiling' "an assessment never refuses a candidate"
+assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" "the range top is emitted"
+pass "effort range: an assessment above the range is clamped, never refused"
 
 # max is reachable only through an explicit declaration: a rule declaring max
 # lets an assessed max through; nothing else emits max.
@@ -1482,9 +1499,9 @@ assert_contains "$out" '  status: clear' "declared max admits an assessed max"
 assert_contains "$out" "  profile: --harness 'claude' --model 'opus' --effort 'max'" "declared max emits max"
 cp "$BASE_RULES" "$RULES"
 
-# A harness that cannot supply the assessed class fails fit: the profile has
-# no declared effort (xhigh ceiling), agy tops out at high, so an assessed
-# xhigh refuses it even though the ceiling would allow the class.
+# The clamped class moves to the nearest level the harness supports inside the
+# range: an undeclared effort allows low..xhigh, agy tops out at high, so an
+# assessed xhigh becomes high instead of refusing the candidate.
 AGY_FIT_RULE="$TMP_ROOT/agy-fit-rule.json"
 printf '%s\n' '{"rules":[{"when":"Deep work.","use":{"harness":"agy"}},{"when":"Other.","use":{"harness":"cursor","model":"cursor-grok-4.6-medium"}}]}' > "$AGY_FIT_RULE"
 cp "$AGY_FIT_RULE" "$RULES"
@@ -1500,7 +1517,8 @@ cat > "$RESPONSE" <<'JSON'
 JSON
 reset_log
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
-assert_contains "$out" 'not eligible: harness agy cannot supply assessed effort xhigh' "unsupported assessed class fails fit before quota"
+assert_contains "$out" 'effort=high(range low..xhigh) [clamped from xhigh]' "the nearest supported level inside the range is used"
+assert_contains "$out" "  profile: --harness 'agy' --effort 'high'" "agy is dispatched at its highest supported level"
 cp "$BASE_RULES" "$RULES"
 
 # A malformed effort answer falls back to the declared effort and says so;
@@ -1511,8 +1529,28 @@ jq '.answers.effort = {"type":"choice","choice":"ludicrous","confidence":0.9,"pr
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 assert_contains "$out" '  status: clear' "malformed effort answer does not break resolution"
 assert_contains "$out" 'declared fallback (classifier malformed)' "the fallback is disclosed"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(high ceiling)' "declared effort stands when the classifier is malformed"
-pass "effort classifier: ceiling, harness fit, and the declared fallback are all enforced"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  effort=high(range high)' "declared effort stands when the classifier is malformed"
+
+# A low-confidence effort answer is not trusted: the declared default applies.
+cp "$RANGE_RULES" "$RULES"
+reset_log
+write_response_effort "$RESPONSE" rule_4 0.9 low
+jq '.answers.effort.confidence = 0.3 | .answers.effort.probabilities = {"low":0.4,"medium":0.3,"high":0.1,"xhigh":0.1,"max":0.1}' "$RESPONSE" > "$TMP_ROOT/r.json" && mv "$TMP_ROOT/r.json" "$RESPONSE"
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$LOW_CURSOR" run code out err "$BRIEF"
+assert_contains "$out" 'declared fallback (classifier low-confidence)' "a low-confidence effort answer is disclosed as such"
+assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" "the range default applies"
+cp "$BASE_RULES" "$RULES"
+
+# Malformed ranges are configuration errors, never selected around.
+for bad in '.rules[3].use[0].effort_min = "xhigh"' '.rules[3].use[0].effort_max = "medium"' '.default[0].effort_max = "high"' '.rules[3].use[0].effort_min = "turbo"'; do
+  jq "$bad" "$BASE_RULES" > "$RULES"
+  reset_log
+  TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
+  expect_code 2 "$code" "malformed range exits 2: $bad"
+  assert_contains "$err" 'effort_min and effort_max' "malformed range is named: $bad"
+done
+cp "$BASE_RULES" "$RULES"
+pass "effort range: harness fit, the declared fallback, and range validation are enforced"
 
 # --- cost-aware ranking: predicted burn against headroom and runway -----------
 
@@ -1679,10 +1717,19 @@ for rejection in ceiling harness floor burn; do
   esac
   reset_log
   TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$ledger" QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
-  assert_contains "$out" '  status: escalate' "non-quota $rejection rejection does not activate overflow"
-  assert_not_contains "$out" '  profile:' "non-quota $rejection rejection emits no overflow launch"
+  case "$rejection" in
+    ceiling|harness)
+      assert_contains "$out" '  status: clear' "$rejection assessment clamps to the primary's supported range"
+      assert_contains "$out" "  profile: --harness '$(if [ "$rejection" = harness ]; then printf agy; else printf claude; fi)'" "$rejection assessment keeps the primary"
+      ;;
+    floor|burn)
+      assert_contains "$out" '  status: escalate' "non-quota $rejection rejection does not activate overflow"
+      assert_not_contains "$out" '  profile:' "non-quota $rejection rejection emits no overflow launch"
+      ;;
+  esac
+  assert_not_contains "$out" "$SOL_PROFILE" "non-quota $rejection evidence never authorizes overflow"
 done
-pass "overflow: ceiling, harness, floor, and burn failures never activate overflow"
+pass "overflow: clamped effort, harness support, floor, and burn never authorize overflow"
 
 cp "$OVERFLOW_RULES" "$RULES"
 write_response "$RESPONSE" rule_1 0.97 "$OVERFLOW_RESPONSE"
@@ -1738,7 +1785,7 @@ write_response_effort "$RESPONSE" rule_1 0.97 medium
 jq --argjson p "$OVERFLOW_RESPONSE" '.answers.rule.probabilities = $p | .answers.effort.probabilities = {"low":0.05,"medium":0.8,"high":0.05,"xhigh":0.05,"max":0.05}' "$RESPONSE" > "$TMP_ROOT/r.json" && mv "$TMP_ROOT/r.json" "$RESPONSE"
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
 assert_contains "$out" "$SOL_PROFILE" "an effort floor lifts a lower assessed class to the floor"
-assert_contains "$out" 'candidate: claude:claude-opus-5-5  provider=claude  effort=medium(medium ceiling)' "a profile without a floor keeps the assessed class"
+assert_contains "$out" 'candidate: claude:claude-opus-5-5  provider=claude  effort=medium(range medium)' "a profile without a floor keeps the assessed class"
 jq '.rules[0].use[1].effort_floor = "max"' "$OVERFLOW_RULES" > "$RULES"
 reset_log
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$OVERFLOW_QUOTA" run code out err "$BRIEF"
@@ -1800,6 +1847,333 @@ for location in use default; do
   done
 done
 pass "effort floor: fallback and assessed values are floored for rules and defaults"
+
+# Floors compose with widened effort ranges, including a floor above the
+# declared default but inside the range. Both assessed and fallback effort
+# must stay inside the range and never below the floor.
+for location in use default; do
+  for answer in absent low high max; do
+    jq --arg location "$location" '
+      .rules[0].use = {harness:"claude",model:"claude-opus-5-5",effort:"medium",effort_min:"low",effort_max:"xhigh",effort_floor:"high"} |
+      if $location == "default" then .default = .rules[0].use else . end
+    ' "$OVERFLOW_RULES" > "$RULES"
+    choice=rule_1
+    probabilities=$OVERFLOW_RESPONSE
+    if [ "$location" = default ]; then choice=default; probabilities='{"rule_1":0.03,"default":0.97}'; fi
+    write_response "$RESPONSE" "$choice" 0.97 "$probabilities"
+    if [ "$answer" != absent ]; then
+      jq --arg answer "$answer" '
+        .answers.effort = {type:"choice",choice:$answer,confidence:1,
+          probabilities:(["low","medium","high","xhigh","max"] | map({key:.,value:(if . == $answer then 1 else 0 end)}) | from_entries)}
+      ' "$RESPONSE" > "$TMP_ROOT/r.json" && mv "$TMP_ROOT/r.json" "$RESPONSE"
+    fi
+    reset_log
+    TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$QUOTA" run code out err "$BRIEF"
+    expect_code 0 "$code" "$location range accepts an effort floor above its default"
+    resolved=high
+    [ "$answer" != max ] || resolved=xhigh
+    assert_contains "$out" "  profile: --harness 'claude' --model 'claude-opus-5-5' --effort '$resolved'" "$location $answer effort respects both floor and range"
+  done
+done
+pass "effort floor: assessed and fallback effort compose with widened rule and default ranges"
 cp "$BASE_RULES" "$RULES"
+
+# --- the always-answer chain: typed, then backup judge, then default ----------
+# run_chain drops --typed-only and points the backup judge at a stub claude
+# that records its argv and the prompt it read on stdin, and answers with
+# FAKE_BACKUP_ANSWER as structured output or exits 1 when FAKE_BACKUP_FAIL=1.
+cat > "$FAKEBIN/fake-claude" <<'SH'
+#!/usr/bin/env bash
+set -u
+printf 'call\n' >> "${FAKE_CURL_LOG:?}/backup-calls"
+printf '%s\n' "$@" > "$FAKE_CURL_LOG/backup-argv"
+cat > "$FAKE_CURL_LOG/backup-prompt"
+if [ -n "${TYPESAFE_API_KEY+x}" ] || [ -n "${OPENROUTER_API_KEY+x}" ]; then
+  printf 'backup:secret-present\n' >> "${CHILD_ENV_LOG:?}"
+fi
+[ "${FAKE_BACKUP_FAIL:-0}" = 1 ] && exit 1
+jq -nc --argjson a "${FAKE_BACKUP_ANSWER:?}" '[{type:"system"},{type:"result",is_error:false,structured_output:$a,modelUsage:{"claude-haiku-5-5":{}}}]'
+SH
+chmod +x "$FAKEBIN/fake-claude"
+
+run_chain() {
+  local __exit=$1 __out=$2 __err=$3 _out _code
+  shift 3
+  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" FM_BACKUP_JUDGE_CMD=fake-claude FM_SPEND_LEDGER="${FM_SPEND_LEDGER:-$LEDGER_STUB}" "$TOOL" "$@" 2> "$TMP_ROOT/stderr")
+  _code=$?
+  printf -v "$__exit" '%s' "$_code"
+  printf -v "$__out" '%s' "$_out"
+  printf -v "$__err" '%s' "$(cat "$TMP_ROOT/stderr")"
+}
+backup_calls() { [ -f "$LOG/backup-calls" ] && wc -l < "$LOG/backup-calls" | tr -d ' ' || printf '0'; }
+curl_calls() { [ -f "$LOG/calls" ] && wc -l < "$LOG/calls" | tr -d ' ' || printf '0'; }
+DISPATCH_LOG="$HOME_DIR/state/dispatch-resolve.jsonl"
+cp "$BASE_RULES" "$RULES"
+
+# A clear typed answer decides alone; the backup is never asked.
+reset_log; rm -f "$DISPATCH_LOG"
+write_response "$RESPONSE" rule_4 0.9
+TYPESAFE_API_KEY=$KEY FAKE_BACKUP_ANSWER='{"rule":"rule_1","effort":"low"}' run_chain code out err "$BRIEF"
+expect_code 0 "$code" "chain: a clear typed answer exits 0"
+assert_contains "$out" '  status: clear' "chain: the typed stage clears"
+assert_contains "$out" '  decided: rule_4 by typed' "chain: the deciding stage is named"
+assert_equals "0" "$(backup_calls)" "chain: no backup call after a clear typed answer"
+assert_contains "$(tail -n 1 "$DISPATCH_LOG")" '"decided_by":"typed"' "chain: the dispatch log records the deciding stage"
+pass "chain: a clear typed answer decides without the backup"
+
+# An ambiguous typed answer goes to the backup, which sees exactly the typed
+# state and the same rule options, and its answer decides.
+reset_log
+write_response "$RESPONSE" rule_4 0.26 '{ "rule_1": 0.02, "rule_2": 0.30, "rule_3": 0.02, "rule_4": 0.41, "default": 0.25 }'
+FAKE_CURL_PICK_FAIL=1 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_ANSWER='{"rule":"rule_1","effort":"high"}' run_chain code out err "$BRIEF"
+expect_code 0 "$code" "chain: ambiguous typed answer still exits 0"
+assert_contains "$out" '  status: backup' "chain: the backup decided"
+assert_contains "$out" '  decided: default by backup' "chain: a floor shortfall names the default lane actually used"
+assert_contains "$out" '  matched: rule_1 (its profiles were not used)' "chain: the matched rule stays visible"
+assert_not_contains "$out" '  decided: rule_1 by backup' "chain: the matched rule is never reported as the lane"
+assert_contains "$(tail -n 1 "$DISPATCH_LOG")" '"rule":"default","matched_rule":"rule_1"' "chain: the dispatch log records the lane and the matched rule"
+assert_contains "$out" '  backup: rule_1 effort=high' "chain: the backup answer is summarized"
+assert_contains "$out" "note: rule rule_1 floor model:fable below 20%: fall through to default" "chain: the backup's rule keeps its quota floor"
+assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" "chain: the backup's rule yields a profile through the ordinary gates"
+assert_equals "1" "$(backup_calls)" "chain: exactly one backup call"
+STATE_SENT=$(jq -c '.state' "$LOG/body")
+assert_contains "$(cat "$LOG/backup-prompt")" "$STATE_SENT" "chain: the backup sees the same state as the typed call"
+for opt in rule_1 rule_2 rule_3 rule_4 default; do
+  assert_contains "$(cat "$LOG/backup-argv")" "\"$opt\"" "chain: the backup schema offers $opt"
+done
+assert_contains "$(cat "$LOG/backup-argv")" 'claude-haiku-5-5' "chain: the backup defaults to Haiku 5.5"
+assert_not_contains "$(cat "$LOG/backup-argv")" "$KEY" "chain: no key reaches the backup argv"
+assert_not_contains "$(cat "$CHILD_ENV_LOG" 2>/dev/null)" 'backup:secret-present' "chain: no key reaches the backup environment"
+assert_contains "$(tail -n 1 "$DISPATCH_LOG")" '"decided_by":"backup"' "chain: the log records the backup"
+pass "chain: an ambiguous typed answer is decided by the backup on the same state"
+
+# An unreachable typed call and an absent key both go to the backup.
+reset_log
+write_response "$RESPONSE" rule_4 0.9
+FAKE_CURL_HTTP=503 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_ANSWER='{"rule":"rule_4","effort":"high"}' run_chain code out err "$BRIEF"
+assert_contains "$out" '  status: backup' "chain: an http error goes to the backup"
+assert_contains "$out" '  typed: http 503' "chain: the typed failure is named"
+assert_contains "$out" '  profile: ' "chain: an http error still yields a profile"
+reset_log
+FAKE_BACKUP_ANSWER='{"rule":"rule_4","effort":"high"}' run_chain code out err "$BRIEF"
+expect_code 0 "$code" "chain: no key exits 0"
+assert_contains "$out" '  status: backup' "chain: no key goes to the backup"
+assert_equals "0" "$(curl_calls)" "chain: no key makes no typed call"
+assert_contains "$out" '  profile: ' "chain: no key still yields a profile"
+pass "chain: an unreachable typed call or absent key falls to the backup"
+
+# A failed backup falls to the default rule's profile.
+reset_log
+FAKE_CURL_HTTP=500 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_FAIL=1 run_chain code out err "$BRIEF"
+expect_code 0 "$code" "chain: a failed backup still exits 0"
+assert_contains "$out" '  status: fallback' "chain: the default stage decided"
+assert_contains "$out" '  decided: default by default' "chain: the default rule is named"
+assert_contains "$out" '  backup: failed' "chain: the backup failure is named"
+assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" "chain: the best-ranked default profile is emitted"
+assert_contains "$(tail -n 1 "$DISPATCH_LOG")" '"decided_by":"default"' "chain: the log records the default stage"
+reset_log
+FAKE_CURL_HTTP=500 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_ANSWER='{"rule":"rule_99","effort":"high"}' run_chain code out err "$BRIEF"
+assert_contains "$out" '  backup: failed (answer is not a valid structured answer)' "chain: an off-menu backup answer is rejected"
+assert_contains "$out" '  status: fallback' "chain: an off-menu backup answer falls to the default"
+reset_log
+FAKE_CURL_HTTP=500 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_FAIL=1 run_chain code out err "$BRIEF"
+assert_contains "$out" '  backup: failed (fake-claude exited 1)' "chain: a failing backup stub is named"
+assert_contains "$out" '  status: fallback' "chain: a failing backup stub falls to the default"
+pass "chain: a failed or invalid backup falls to the default rule"
+
+# The never-send list blocks both judges: no typed call, no backup call, and
+# the default answers.
+reset_log
+printf 'pager.sh\n' > "$HOME_DIR/config/dispatch-never-send"
+TYPESAFE_API_KEY=$KEY FAKE_BACKUP_ANSWER='{"rule":"rule_4","effort":"high"}' run_chain code out err "$BRIEF"
+rm -f "$HOME_DIR/config/dispatch-never-send"
+expect_code 0 "$code" "chain: a never-send match exits 0"
+assert_equals "0" "$(curl_calls)" "chain: a never-send match makes no typed call"
+assert_equals "0" "$(backup_calls)" "chain: a never-send match makes no backup call"
+assert_contains "$out" '  status: fallback' "chain: a never-send match uses the default"
+assert_contains "$out" '  profile: ' "chain: a never-send match still yields a profile"
+pass "chain: the never-send list keeps the brief from both judges"
+
+# A captain-approval rule stays an escalation with no profile: it is an
+# authority gate, not a routing failure.
+reset_log
+write_response "$RESPONSE" rule_3 0.95 '{ "rule_1": 0.01, "rule_2": 0.01, "rule_3": 0.96, "rule_4": 0.01, "default": 0.01 }'
+TYPESAFE_API_KEY=$KEY FAKE_BACKUP_ANSWER='{"rule":"rule_4","effort":"high"}' run_chain code out err "$BRIEF"
+assert_contains "$out" '  status: escalate' "chain: a captain-approval rule escalates"
+assert_not_contains "$out" '  profile:' "chain: a captain-approval rule emits no profile"
+assert_equals "0" "$(backup_calls)" "chain: the backup never overrides an approval gate"
+pass "chain: captain approval remains the one no-profile outcome"
+
+# Quota evidence that would make the typed stage escalate (the 2026-10-07
+# shape) still yields a profile: a quota-axi failure leaves every candidate
+# unranked and the last resort picks inside the decided rule.
+reset_log
+write_response "$RESPONSE" rule_4 0.9
+FAKE_QUOTA_FAIL=1 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_ANSWER='{"rule":"rule_4","effort":"high"}' run_chain code out err "$BRIEF"
+expect_code 0 "$code" "chain: a quota-axi failure exits 0"
+assert_contains "$out" '  profile: ' "chain: a quota-axi failure still yields a profile"
+assert_contains "$out" '  last_resort: ' "chain: the last resort is disclosed"
+pass "chain: missing quota evidence never stops routing"
+
+ATTRIBUTION_RULES="$TMP_ROOT/attribution-rules.json"
+ATTRIBUTION_QUOTA="$TMP_ROOT/attribution-quota.json"
+for refusal_case in rescued all-refused floor-fallthrough; do
+  jq -n --arg scenario "$refusal_case" '{rules: [
+    {when: "A broad implementation task.", min_confidence: 0.9, use: {harness: "codex", model: "gpt-5.6-sol"}},
+    {when: "A focused implementation task.", min_confidence: 0.6, use: {harness: "claude", model: "sonnet", effort: "high"}}
+  ], default: {harness: "cursor", model: "cursor-grok-4.6-high"}}
+  | if $scenario == "floor-fallthrough" then
+      .rules[1].floor = {provider: "claude", scope: "all_models", min_percent: 20}
+    else . end' > "$ATTRIBUTION_RULES"
+  jq --arg scenario "$refusal_case" '
+    (.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[] | select(.scope == "all_models") | .effectivePercentRemaining) = 0
+    | (.providers[] | select(.provider == "cursor") | .quotaSemantics.effectiveAvailability[] | select(.scope == "all_models") | .effectivePercentRemaining) = (if $scenario == "rescued" then 91 else 0 end)
+  ' "$QUOTA" > "$ATTRIBUTION_QUOTA"
+  cp "$ATTRIBUTION_RULES" "$RULES"
+  reset_log
+  write_response "$RESPONSE" rule_1 0.3 '{"rule_1":0.30,"rule_2":0.65,"default":0.05}'
+  TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$ATTRIBUTION_QUOTA" run_chain code out err "$BRIEF"
+  expect_code 0 "$code" "$refusal_case: a settled runner-up still answers"
+  case "$refusal_case" in
+    rescued)
+      lane=default; matched=rule_2
+      refusal='rule rule_2 candidates refused:'
+      incorrect_refusal='rule rule_1 candidates refused:'
+      assert_contains "$out" '  decided: default by default' 'rescued: the healthy default supplies the profile'
+      assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" 'rescued: the default profile is preserved' ;;
+    all-refused)
+      lane=rule_2; matched=''
+      refusal='rule rule_2 candidates refused:'
+      incorrect_refusal='rule rule_1 candidates refused:'
+      assert_contains "$out" '  decided: rule_2 by typed' 'all-refused: the settled runner-up supplies the last resort'
+      assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" 'all-refused: the settled profile is preserved' ;;
+    floor-fallthrough)
+      lane=default; matched=rule_2
+      refusal='default lane candidates refused for rule_2:'
+      incorrect_refusal='default lane candidates refused for rule_1:'
+      assert_contains "$out" '  decided: default by typed' 'floor-fallthrough: the settled rule falls through to the default lane'
+      assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" 'floor-fallthrough: the default profile is preserved' ;;
+  esac
+  assert_contains "$out" "$refusal" "$refusal_case: refusal diagnostics name the settled rule"
+  assert_not_contains "$out" "$incorrect_refusal" "$refusal_case: refusal diagnostics never blame the initial pick"
+  tail -n 1 "$DISPATCH_LOG" | jq -e --arg lane "$lane" --arg matched "$matched" --arg refusal "$refusal" --arg incorrect "$incorrect_refusal" '
+    .rule == $lane and (.matched_rule // "") == $matched
+    and (.reason | contains($refusal)) and (.reason | contains($incorrect) | not)
+  ' >/dev/null || fail "$refusal_case: the persisted lane, matched rule, and refusal attribution disagree"
+done
+cp "$BASE_RULES" "$RULES"
+pass 'last-resort refusal diagnostics and logs name the settled rule after confidence fallback'
+
+ALL_REFUSED_RULES="$TMP_ROOT/all-refused-rule.json"
+jq '.rules[3].use = [
+  {"harness":"claude","model":"fable","floor":{"scope":"model:fable","min_percent":20}},
+  {"harness":"cursor","model":"cursor-grok-4.6-medium","floor":{"scope":"all_models","min_percent":99}}
+]' "$BASE_RULES" > "$ALL_REFUSED_RULES"
+cp "$ALL_REFUSED_RULES" "$RULES"
+reset_log
+write_response "$RESPONSE" rule_4 0.9
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$QUOTA" run_chain code out err "$BRIEF"
+assert_contains "$out" '  decided: default by default' "all-refused rule: eligible default lane is named"
+assert_contains "$out" '  matched: rule_4 (its profiles were not used)' "all-refused rule: the refused matched rule is named"
+assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" "all-refused rule: eligible default profile is emitted"
+assert_contains "$out" 'last_resort: ' "all-refused rule: the default-lane rescue is disclosed"
+assert_contains "$out" 'eligible default lane used' "all-refused rule: the refusal and default transition are named"
+pass "chain: eligible default candidates follow an all-refused decided rule"
+
+UNRANKED_DEFAULT_RULES="$TMP_ROOT/unranked-default-rules.json"
+UNRANKED_DEFAULT_QUOTA="$TMP_ROOT/unranked-default-quota.json"
+jq '.default = {harness: "codex", model: "gpt-5.6-sol"}' "$ALL_REFUSED_RULES" > "$UNRANKED_DEFAULT_RULES"
+jq '.providers |= map(select(.provider != "codex"))' "$QUOTA" > "$UNRANKED_DEFAULT_QUOTA"
+cp "$UNRANKED_DEFAULT_RULES" "$RULES"
+for stage in typed backup; do
+  reset_log
+  http=200
+  [ "$stage" != backup ] || http=503
+  TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=$http FAKE_BACKUP_ANSWER='{"rule":"rule_4","effort":"high"}' \
+    FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$UNRANKED_DEFAULT_QUOTA" run_chain code out err "$BRIEF"
+  expect_code 0 "$code" "$stage unranked default: routing answers"
+  assert_contains "$out" '  decided: default by default' "$stage unranked default: eligible lane rescues the rule"
+  assert_contains "$out" "  profile: --harness 'codex' --model 'gpt-5.6-sol'" "$stage unranked default: profile is not the refused original"
+  assert_contains "$out" 'predicted burn ~' "$stage unranked default: the diagnostic includes burn evidence"
+  tail -n 1 "$DISPATCH_LOG" | jq -e '.rule == "default" and .matched_rule == "rule_4" and .profile.harness == "codex"' >/dev/null \
+    || fail "$stage unranked default: actual lane not logged"
+done
+pass "chain: diagnostic burn text cannot disqualify an eligible default"
+
+RESTRICTED_DEFAULT_RULES="$TMP_ROOT/restricted-default-rules.json"
+jq 'del(.default) | .rules[3].use[0].floor = {scope: "all_models", min_percent: 99}' "$ALL_REFUSED_RULES" > "$RESTRICTED_DEFAULT_RULES"
+cp "$RESTRICTED_DEFAULT_RULES" "$RULES"
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$MISSING_RULE_FLOOR" run_chain code out err "$BRIEF"
+assert_contains "$out" '  decided: rule_4 by typed' "restricted default: an unverifiable rule floor cannot rescue the rule"
+assert_contains "$out" "  profile: --harness 'claude' --model 'fable'" "restricted default: the original lane answers"
+cp "$ALL_REFUSED_RULES" "$RULES"
+
+ALL_REFUSED_DEFAULT_QUOTA="$TMP_ROOT/all-refused-default-quota.json"
+jq '(.providers[] | select(.provider == "claude" or .provider == "cursor") | .quotaSemantics.effectiveAvailability[] | select(.scope == "all_models") | .effectivePercentRemaining) = 0' "$QUOTA" > "$ALL_REFUSED_DEFAULT_QUOTA"
+reset_log
+write_response "$RESPONSE" rule_4 0.9
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$ALL_REFUSED_DEFAULT_QUOTA" run_chain code out err "$BRIEF"
+assert_contains "$out" '  decided: rule_4 by typed' "all-refused defaults: original decision remains named"
+assert_not_contains "$out" '  matched: ' "all-refused defaults: the lane used is the matched rule"
+assert_contains "$out" "  profile: --harness 'claude' --model 'fable'" "all-refused defaults: first declared original profile answers"
+assert_contains "$out" 'default candidates refused:' "all-refused defaults: default refusal is disclosed"
+assert_contains "$out" 'every candidate refused' "all-refused defaults: the final choice is identified as last resort"
+pass "chain: the original first profile answers only after default candidates refuse"
+
+reset_log
+FAKE_CURL_HTTP=500 FAKE_BACKUP_FAIL=1 TYPESAFE_API_KEY=$KEY \
+  QUOTA_AXI_FIXTURE="$ALL_REFUSED_DEFAULT_QUOTA" run_chain code out err "$BRIEF"
+assert_contains "$out" '  decided: default by default' "default all-refused: the default stage remains named"
+assert_contains "$out" "  profile: --harness 'claude' --model 'opus'" "default all-refused: the first declared default profile answers"
+assert_contains "$out" 'default candidates refused:' "default all-refused: refusal details are disclosed"
+tail -n 1 "$DISPATCH_LOG" | jq -e '.rule == "default" and (.reason | contains("default candidates refused:"))' >/dev/null \
+  || fail 'default all-refused: the persisted refusal names the default stage'
+pass "chain: a refused default stage names its final declared-order choice"
+
+APPROVAL_DEFAULT_RULES="$TMP_ROOT/approval-default-rule.json"
+jq '.rules[0].approval = "captain" | del(.default)' "$ALL_REFUSED_RULES" > "$APPROVAL_DEFAULT_RULES"
+cp "$APPROVAL_DEFAULT_RULES" "$RULES"
+reset_log
+write_response "$RESPONSE" rule_4 0.9
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$QUOTA" run_chain code out err "$BRIEF"
+assert_contains "$out" '  decided: rule_4 by typed' "approval default: the captain gate is not bypassed"
+assert_not_contains "$out" '  decided: rule_1 by default' "approval default: no profile is routed through the approval rule"
+pass "chain: the no-default fallback preserves captain approval"
+cp "$BASE_RULES" "$RULES"
+
+# An unverifiable rule floor never authorizes the default: the last resort
+# picks inside the decided rule instead.
+NOFLOOR_QUOTA="$TMP_ROOT/nofloor-quota.json"
+jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability) |= map(select(.scope != "model:fable"))' "$QUOTA" > "$NOFLOOR_QUOTA"
+reset_log
+write_response "$RESPONSE" rule_1 0.97 '{ "rule_1": 0.96, "rule_2": 0.01, "rule_3": 0.01, "rule_4": 0.01, "default": 0.01 }'
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$NOFLOOR_QUOTA" FAKE_BACKUP_ANSWER='{"rule":"rule_1","effort":"high"}' run_chain code out err "$BRIEF"
+assert_contains "$out" '  decided: rule_1 by typed' "chain: an unverifiable floor keeps the decided rule"
+assert_contains "$out" "  profile: --harness 'claude' --model 'fable'" "chain: the last resort picks inside the rule, not the default"
+assert_contains "$out" '  last_resort: ' "chain: the last resort is disclosed for an unverifiable floor"
+pass "chain: an unverifiable rule floor takes the last resort inside its rule"
+
+# An assessed effort above a rule's range is clamped, not refused.
+reset_log
+write_response_effort "$RESPONSE" rule_4 0.9 max
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$LOW_CURSOR" FAKE_BACKUP_ANSWER='{"rule":"rule_4","effort":"high"}' run_chain code out err "$BRIEF"
+assert_contains "$out" '  decided: rule_4 by typed' "chain: a clamped effort keeps the typed decision"
+assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" "chain: the clamped effort is emitted"
+assert_contains "$(tail -n 1 "$DISPATCH_LOG")" '"clamped_from":"max"' "chain: the clamp is logged"
+pass "chain: an effort above the range is clamped and logged"
+
+# A rules file with only a default still routes, and a malformed rules file is
+# the one hard error.
+reset_log
+printf '%s\n' '{"rules":[],"default":{"harness":"claude","model":"opus","effort":"medium"}}' > "$RULES"
+FAKE_BACKUP_ANSWER='{"rule":"default","effort":"high"}' run_chain code out err "$BRIEF"
+expect_code 0 "$code" "chain: a default-only rules file exits 0"
+assert_contains "$out" "  profile: --harness 'claude' --model 'opus' --effort 'medium'" "chain: a default-only rules file yields the default"
+printf '{ not json\n' > "$RULES"
+run_chain code out err "$BRIEF"
+expect_code 2 "$code" "chain: a malformed rules file is still an error"
+assert_not_contains "$out" '  profile:' "chain: a malformed rules file emits no profile"
+cp "$BASE_RULES" "$RULES"
+pass "chain: only a malformed rules file stops routing"
 
 printf '# all fm-dispatch-resolve tests passed\n'

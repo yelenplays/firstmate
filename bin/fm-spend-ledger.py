@@ -6,7 +6,7 @@ Usage:
   fm-spend-ledger.py task <task-id>              refresh state/<id>.spend and print it
   fm-spend-ledger.py rollup                      print (and write) state/spend-rollup.json
   fm-spend-ledger.py model                       write state/spend-model.json (median task burn)
-  fm-spend-ledger.py predict --quota <file>      print the dispatch prediction document
+  fm-spend-ledger.py predict --quota <file> [--read-only]  print the dispatch prediction document
   fm-spend-ledger.py week [--hours <n>]          print trailing-window family totals
 
 What it measures. Every Pi session is a JSONL file under the sessions root
@@ -70,6 +70,8 @@ carries the inputs (windowStart, windowTokens, percentConsumed) for inspection.
 Only windows whose kind is "weekly" are calibrated (resetsAt - 7 days is exact);
 other kinds stay unmeasured. Median task burn comes from spend-model.json when
 fresh enough (--model-max-age seconds, default 900) or is rebuilt in place.
+With --read-only, predict emits the same evidence without writing the cache,
+model, or state directory.
 
 A missing or unreadable sessions root is status "unavailable", never an empty
 zero. All state writes are atomic (temp file + rename, mode 0600).
@@ -328,7 +330,7 @@ def iter_session_files(sessions_root):
                 yield child
 
 
-def refresh_cache(sessions_root, state_dir, budget_seconds=None):
+def refresh_cache(sessions_root, state_dir, budget_seconds=None, persist=True):
     """Incremental scan: parse only new or changed session files.
     Returns (files_map, scanned, remaining, seconds_used)."""
     start = time.time()
@@ -355,7 +357,8 @@ def refresh_cache(sessions_root, state_dir, budget_seconds=None):
             scanned += 1
     for gone in set(files) - seen:
         del files[gone]
-    save_cache(state_dir, files)
+    if persist:
+        save_cache(state_dir, files)
     return files, scanned, remaining, time.time() - start
 
 
@@ -718,14 +721,15 @@ def cmd_predict(args, state_dir, sessions_root):
     if isinstance(model, dict):
         model_age = time.time() - (parse_iso(model.get("generatedAt")) or 0)
     files, _scanned, remaining, secs = refresh_cache(
-        sessions_root, state_dir, budget_seconds=args.scan_budget
+        sessions_root, state_dir, budget_seconds=args.scan_budget, persist=not args.read_only
     )
     tasks = load_metas(state_dir)
     if not isinstance(model, dict) or model.get("version") != VERSION or (
         model_age is not None and model_age > args.model_max_age
     ):
         model = build_model(files, tasks, sessions_root)
-        atomic_write_json(model_path, model)
+        if not args.read_only:
+            atomic_write_json(model_path, model)
     day_series = provider_day_series(files)
     providers = {}
     now = time.time()
@@ -840,6 +844,7 @@ def main(argv=None):
     p.add_argument("--quota", required=True)
     p.add_argument("--model-max-age", type=float, default=MODEL_MAX_AGE)
     p.add_argument("--scan-budget", type=float, default=25)
+    p.add_argument("--read-only", action="store_true")
 
     p = sub.add_parser("week", help="print trailing-window family totals")
     p.add_argument("--hours", type=float, default=168)
@@ -847,7 +852,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     state_dir = args.state
     sessions_root = args.sessions_root
-    Path(state_dir).mkdir(parents=True, exist_ok=True)
+    if not (args.cmd == "predict" and args.read_only):
+        Path(state_dir).mkdir(parents=True, exist_ok=True)
 
     if args.cmd == "scan":
         files, scanned, remaining, secs = refresh_cache(

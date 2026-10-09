@@ -1,28 +1,34 @@
 #!/usr/bin/env bash
 # fm-dispatch-resolve.sh - resolve one concrete crewmate or scout dispatch
-# profile from a task brief with typesafe.ai's System One model (Jev), opt-in.
+# profile from a task brief: a typed Jev call (typesafe.ai's System One model),
+# then a backup judge, then the configured default. It always answers.
 #
 # Usage:
-#   fm-dispatch-resolve.sh <brief-file> [--project <name>]
+#   fm-dispatch-resolve.sh <brief-file> [--project <name>] [--typed-only]
 #
-# Opt-in gate: TYPESAFE_API_KEY or OPENROUTER_API_KEY non-empty in this
+# Routing stages, last-resort selection, and authority gates are owned by
+#   docs/configuration.md "Typed dispatch resolution".
+#   --typed-only (implied by --replay) runs the typed stage alone with the
+#   historical outcomes and exit codes: off, ambiguous, escalate, error.
+#
+# Typed-call keys: TYPESAFE_API_KEY or OPENROUTER_API_KEY non-empty in this
 #   process environment, else the same names in $FM_HOME/.env read with
 #   fmx_env_get, the same accessor as FMX_PAIRING_TOKEN (bin/fm-env-lib.sh).
-#   The environment wins. Absent in both: one "dispatch-resolve: off" line on
-#   stderr, nothing on stdout, exit 0, no network call, so firstmate
-#   dispatches exactly as today. Keys reach curl only through bin/fm-jev-lib.sh
-#   as an Authorization header read from a file descriptor, never on argv;
-#   nothing logs or writes them.
+#   The environment wins. Absent in both: the typed stage is skipped (under
+#   --typed-only, one "dispatch-resolve: off" line on stderr, nothing on
+#   stdout, exit 0, no network call). Keys reach curl only through
+#   bin/fm-jev-lib.sh as an Authorization header read from a file descriptor,
+#   never on argv, and never reach the backup judge; nothing logs or writes
+#   them.
 #
-# What it does when on with at least one rule: one POST through
-#   bin/fm-jev-lib.sh (TypeSafe /v1/systemone, or OpenRouter
-#   /api/alpha/decisions when OPENROUTER_API_KEY is set and TYPESAFE_API_KEY
-#   is not, or when JEV_ROUTE=openrouter) with the project name plus either
-#   the brief's `## Captain's intent` and `## Firstmate spec` sections, tagged
-#   when it is a scout brief (the whole brief when it has neither section), or
-#   a compact intent summary as state, and a Choice question whose options are
-#   every rule's `when` from config/crew-dispatch.json plus one fixed generic
-#   none option. Optional rule precedence follows the owner contract in
+# The typed call: one POST through bin/fm-jev-lib.sh (TypeSafe /v1/systemone,
+#   or OpenRouter /api/alpha/decisions when OPENROUTER_API_KEY is set and
+#   TYPESAFE_API_KEY is not, or when JEV_ROUTE=openrouter) with the project
+#   name plus either the brief's `## Captain's intent` and `## Firstmate spec`
+#   sections, tagged when it is a scout brief (the whole brief when it has
+#   neither section), or a compact intent summary as state, and a Choice
+#   question whose options are every rule's `when` plus one fixed generic none
+#   option. Optional rule precedence follows the owner contract in
 #   docs/configuration.md "Crew dispatch profiles". Jev returns the matched
 #   rule, a probability per option, and a confidence. The same response
 #   carries a second typed Choice classifying the reasoning effort the brief
@@ -35,18 +41,18 @@
 #   candidate binds to one row through quota_row in bin/fm-quota-axi-lib.sh,
 #   so a Pi lane such as openai-codex-work/... reads its own account's row
 #   and an expanded provider with no row for the candidate is unmeasured,
-#   never blocked), the spend ledger's predicted burn for the assessed class
-#   (bin/fm-spend-ledger.py predict), and the spendPriority argmax over the
-#   eligible candidates after applying the overflow contract owned by
-#   docs/configuration.md "Overflow profiles". The model never sees quota,
-#   catalogs, approvals, confidence floors, `why`, or `use`.
-#   With no rules, it returns a non-clear
-#   result so firstmate keeps using the existing intake.
-#   docs/configuration.md "Crew dispatch profiles" owns the declared fields and
-#   "Typed dispatch resolution" owns this tool's operator contract.
+#   never blocked; a failed read leaves every candidate unranked), the spend
+#   ledger's predicted burn for the assessed class (bin/fm-spend-ledger.py
+#   predict), and the spendPriority argmax over the eligible candidates after
+#   applying the overflow contract owned by docs/configuration.md "Overflow
+#   profiles". Neither judge sees quota, catalogs, approvals, confidence
+#   floors, `why`, or `use`. docs/configuration.md "Crew dispatch profiles"
+#   owns the declared fields and "Typed dispatch resolution" owns this tool's
+#   operator contract.
 #
-# Effort ceilings, floors, classifier fallback, and predicted-burn gates are
-#   owned by docs/configuration.md "Firstmate retains the dispatch decision".
+# Effort ranges, floors, clamping, classifier fallback, and predicted-burn
+#   gates are owned by docs/configuration.md "Firstmate retains the dispatch
+#   decision".
 #   FM_SPEND_LEDGER overrides the ledger path (tests).
 #
 # Runoff on ambiguous: the picked option and the top two by probability each
@@ -59,54 +65,65 @@
 #   min_confidence instead, and makes the answer `picked`. Any
 #   contender that would not clear (captain approval, unverifiable floor,
 #   nothing rankable, tie) skips the runoff, and a narrow, non-winning,
-#   malformed, failed, or never-send-withheld pick leaves it `ambiguous`.
-#   The model still never sees `use`, `why`, quota, or approvals.
+#   malformed, failed, or never-send-withheld pick leaves the typed stage
+#   ambiguous, so the backup decides.
 #
 # Never-send check: when the optional $FM_HOME/config/dispatch-never-send list
 #   exists, every string value of the built request is checked against it
 #   before the POST. Each non-blank, non-# line is a literal matched
 #   case-insensitively, with surrounding whitespace trimmed and every run of
 #   whitespace, on both sides, treated as one space. A match, or a list that
-#   is not a readable regular file, prints one
-#   "dispatch-resolve: off (...; nothing sent)" line on stderr naming at most
-#   the list line number, never its value, prints nothing on stdout, and exits
-#   0 with no network or quota call, exactly like the absent-key off path.
-#   The runoff request is checked the same way; a match there sends nothing
-#   and only leaves the answer ambiguous with a `pick: skipped` line.
+#   is not a readable regular file, sends nothing to either judge and the
+#   default stage answers; the reason names at most the list line number,
+#   never its value. Under --typed-only it prints one
+#   "dispatch-resolve: off (...; nothing sent)" line on stderr, nothing on
+#   stdout, and exits 0 with no network or quota call. The runoff request is
+#   checked the same way; a match there sends nothing and leaves the typed
+#   stage ambiguous with a `pick: skipped` line.
 #
 # Output (stdout, TOON-style block):
 #   dispatch-resolve:
-#     status: clear | picked | ambiguous | escalate | error
+#     status: clear | picked | backup | fallback | ambiguous | escalate | error
+#     decided: <lane> by typed|backup|default             (chain only; the rule whose profile was used)
+#     matched: <rule> (its profiles were not used)        (chain only; a floor shortfall or refusal moved it to another lane)
+#     typed: <why the typed stage did not decide>         (chain only)
+#     backup: <rule> effort=<e> (<model>, <ms> ms) | failed (<why>) | skipped (<why>)
 #     model/latency_ms/tokens, rule (when excerpt) and confidence, probabilities
-#     effort: <assessed class> (jev confidence=.. | declared | declared fallback (classifier <why>))
+#     effort: <assessed class> (jev confidence=.. | backup judge | declared | declared fallback (classifier <why>))
 #     fallback: <runner-up rule taken when the picked rule missed its own declared floor>
 #     reason: <why the status is not clear; an all-refused escalate names the predicted burn>
+#     note: <quota or floor context>
 #     pick: <rule> (<rules>) over <rules> by jev runoff   p=.. margin=..  (picked)
 #           <rules> settle on the same profile (no runoff call)           (picked)
 #           skipped|undecided|error (<why>)                               (ambiguous)
-#     candidate: <harness>:<model> provider=.. effort=<class>(<ceiling> ceiling) scope=.. remaining=..%
-#       spendPriority=.. runway=.. pred=~<tokens>tok/<seconds>s | pred=unknown
+#     candidate: <harness>:<model> provider=.. effort=<class>(range <range>) [clamped from <class>]
+#       scope=.. remaining=..% spendPriority=.. runway=.. pred=~<tokens>tok/<seconds>s | pred=unknown
 #       -> eligible | eligible, unranked: <reason> | not eligible: <reason>
-#     profile: --harness <h> [--model <m>] [--effort <e>]     (status clear or picked only; effort is the resolved class)
-#   clear     -> pass the profile line to fm-spawn.sh (AGENTS.md section 4 owns the only overrides)
-#   picked    -> the rule answer was ambiguous and the runoff settled it; pass the profile line the same way
-#   ambiguous -> choice is not the most probable option or the top-2 margin is below threshold, and no runoff settled it; decide as today from the probabilities
-#   escalate  -> the rule requires captain approval, no candidate is rankable, or a genuine tie
-#   error     -> API, network, response, or quota-axi failure; decide as today
+#     last_resort: <why the stage's own ranking could not choose>
+#     profile: --harness <h> [--model <m>] [--effort <e>]
+#   clear     -> the typed call decided; pass the profile line to fm-spawn.sh (AGENTS.md section 4 owns the only overrides)
+#   picked    -> the typed rule answer was ambiguous and the runoff settled it; pass the profile line the same way
+#   backup    -> the backup judge decided; pass the profile line the same way
+#   fallback  -> the default stage or a last resort decided; pass the profile line the same way
+#   escalate  -> the rule requires captain approval (no profile); under --typed-only also no rankable candidate or a tie
+#   ambiguous, error -> --typed-only only; decide as today
 #   Every outcome exits 0 so an intake is never blocked by this tool.
 #   Exit 2 only for a usage or configuration error (unreadable brief, an
 #   existing unreadable rules file, malformed rules, an invalid
 #   FM_JEV_DISPATCH_MARGIN, or missing jq), which is
 #   actionable, never selected around.
+#   Chain runs append one metadata-only record per answer (status, stage,
+#   rule, effort and clamp, profile, reasons; never the brief) to
+#   $FM_HOME/state/dispatch-resolve.jsonl.
 #
 # Environment:
-#   TYPESAFE_API_KEY and/or OPENROUTER_API_KEY opt the resolver in.
+#   TYPESAFE_API_KEY and/or OPENROUTER_API_KEY enable the typed stage.
 #   JEV_ROUTE, JEV_MODEL, JEV_URL, JEV_BASE, and JEV_TIMEOUT follow
 #   docs/configuration.md "Typed dispatch resolution" (env then .env).
 #   JEV_ROUTE=openrouter selects OpenRouter even when a TypeSafe key is also
 #   present. FM_JEV_DISPATCH_SHADOW=1 or config/jev-dispatch-shadow logs the
 #   Jev pick to state/jev-dispatch-shadow.jsonl and does not add spawn
-#   authority beyond today's optional clear-profile use.
+#   authority beyond the profile line this resolver prints.
 #   FM_JEV_DISPATCH_EXTRA=1 adds log-only home and deliverable questions.
 #   FM_JEV_DISPATCH_MARGIN configures the clear gate; docs/configuration.md
 #   "Typed dispatch resolution" owns its source, range, default, and calibration.
@@ -114,10 +131,12 @@
 #   from $FM_HOME/.env via fmx_env_get; the environment wins. A truthy value
 #   sends a 400-800 character intent summary instead of the whole brief
 #   (default on for the OpenRouter route when both are unset).
+#   FM_BACKUP_JUDGE_CMD selects the test stub and FM_BACKUP_JUDGE_TIMEOUT
+#   bounds the backup judge (bin/fm-backup-judge-lib.sh owns both).
 #
-# Authority: this tool never replaces firstmate's judgment, quota-array-dispatch,
-#   the captain-approval gate, or fm-spawn.sh validation; it publishes one
-#   inspectable answer plus every candidate's evidence, in code.
+# Authority: this tool never replaces the captain-approval gate or fm-spawn.sh
+#   validation; it publishes one inspectable answer plus every candidate's
+#   evidence, in code.
 set -u
 
 TYPESAFE_API_KEY_PRIVATE=${TYPESAFE_API_KEY:-}
@@ -144,8 +163,13 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 . "$SCRIPT_DIR/fm-brief-heading-lib.sh"
 # shellcheck source=bin/fm-never-send-lib.sh
 . "$SCRIPT_DIR/fm-never-send-lib.sh"
+# shellcheck source=bin/fm-backup-judge-lib.sh
+. "$SCRIPT_DIR/fm-backup-judge-lib.sh"
 
 DEFAULT_MARGIN=0.4
+# Below this confidence the effort answer is not trusted and each profile's
+# declared effort (its range default) applies instead.
+EFFORT_CONFIDENCE_FLOOR=0.5
 # Only the floor an undeclared runner-up must clear when a rule's own declared
 # min_confidence sends the pick to it; the top-2 margin gates the model's pick.
 CONFIDENCE_FLOOR=0.6
@@ -275,12 +299,13 @@ fm_dispatch_home_criteria() {
   printf '%s' "$json"
 }
 
-BRIEF='' PROJECT='' RULES_PATH="$CONFIG/crew-dispatch.json" RULES='' REPLAY=0
+BRIEF='' PROJECT='' RULES_PATH="$CONFIG/crew-dispatch.json" RULES='' REPLAY=0 TYPED_ONLY=0
 NEVER_SEND_PATH="$CONFIG/dispatch-never-send"
 while [ $# -gt 0 ]; do
   case "$1" in
     --project) [ $# -ge 2 ] || die "--project needs a value"; PROJECT=$2; shift 2 ;;
-    --replay) REPLAY=1; shift ;;
+    --replay) REPLAY=1; TYPED_ONLY=1; shift ;;
+    --typed-only) TYPED_ONLY=1; shift ;;
     -h|--help) usage; exit 0 ;;
     -*) die "unknown flag $1" ;;
     *) [ -z "$BRIEF" ] || die "one brief file only"; BRIEF=$1; shift ;;
@@ -294,9 +319,13 @@ fi
 if [ -z "$OPENROUTER_API_KEY_PRIVATE" ]; then
   OPENROUTER_API_KEY_PRIVATE=$(fmx_env_get OPENROUTER_API_KEY "$FM_HOME/.env")
 fi
+TYPED_SKIP=''
 if [ -z "$TYPESAFE_API_KEY_PRIVATE" ] && [ -z "$OPENROUTER_API_KEY_PRIVATE" ]; then
-  echo "dispatch-resolve: off (TYPESAFE_API_KEY and OPENROUTER_API_KEY absent from the environment and $FM_HOME/.env)" >&2
-  exit 0
+  if [ "$TYPED_ONLY" -eq 1 ]; then
+    echo "dispatch-resolve: off (TYPESAFE_API_KEY and OPENROUTER_API_KEY absent from the environment and $FM_HOME/.env)" >&2
+    exit 0
+  fi
+  TYPED_SKIP='no typed-call key configured'
 fi
 
 # ---- inputs --------------------------------------------------------------------
@@ -342,6 +371,8 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
     or (($p.harness | type) != "string") or (($p.harness | length) == 0)
     or ($p | has("model") and ((.model | type) != "string" or (.model | length) == 0))
     or ($p | has("effort") and ((.effort | type) != "string" or (.effort | length) == 0))
+    or ($p | has("effort_min") and ((.effort_min | type) != "string" or (.effort_min | length) == 0))
+    or ($p | has("effort_max") and ((.effort_max | type) != "string" or (.effort_max | length) == 0))
     or ($p | has("provider") and (provider_id(.provider) | not))
     or ($p | has("floor") and floor_bad(.floor; false));
   def overflow_bad($p): ($p | type) == "object" and ($p | has("overflow")) and (($p.overflow | type) != "boolean");
@@ -352,7 +383,21 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
      or (["claude","codex","grok","agy","pi","pi-signed","omp","muse","rovo"] | index($p.harness)) == null
      or (effort_ok($p.harness; $p.model; $p.effort_floor) | not)
      or ((["low","medium","high","xhigh","max"] | index($p.effort_floor))
-         > (["low","medium","high","xhigh","max","ultra"] | index($p.effort // "xhigh"))));
+         > (["low","medium","high","xhigh","max","ultra"] | index($p.effort_max // $p.effort // "xhigh"))));
+  # An effort range is effort_min..effort_max around the declared effort, which
+  # is the range default and must lie inside it; a bare effort is a one-level
+  # range. Ranks follow the effort ladder, ultra last.
+  def effort_rank($e): (["low","medium","high","xhigh","max","ultra"] | index($e));
+  def range_bad($p):
+    ($p | has("effort_min") or has("effort_max")) and (
+      ($p | has("effort") | not)
+      or effort_rank($p.effort) == null
+      or effort_rank($p.effort_min // $p.effort) == null
+      or effort_rank($p.effort_max // $p.effort) == null
+      or effort_rank($p.effort_min // $p.effort) > effort_rank($p.effort)
+      or effort_rank($p.effort) > effort_rank($p.effort_max // $p.effort));
+  def range_effort_ok($p):
+    effort_ok($p.harness; $p.model; ($p.effort_min // null)) and effort_ok($p.harness; $p.model; ($p.effort_max // null));
   def beats_bad($self; $count):
     (type != "array") or (length == 0)
     or any(.[]; (type != "object")
@@ -426,11 +471,15 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
   elif any((.rules // [])[]; duplicate_profiles(profiles(.use))) then "each rule use must not contain duplicate harness, model, and effort profiles"
   elif any((.rules // [])[] | profiles(.use)[]; (verified(.harness) | not)) then "each use profile must name a verified harness"
   elif any((.rules // [])[] | profiles(.use)[]; (effort_ok(.harness; .model; .effort) | not)) then "each use profile effort must be supported by its harness and model"
+  elif any((.rules // [])[] | profiles(.use)[]; range_bad(.)) then "each use profile effort_min and effort_max need effort, and effort_min <= effort <= effort_max on low < medium < high < xhigh < max < ultra"
+  elif any((.rules // [])[] | profiles(.use)[]; (range_effort_ok(.) | not)) then "each use profile effort_min and effort_max must be supported by its harness and model"
   elif has("default") and (profiles(.default) | length) == 0 then "default must be a profile object or non-empty profile array"
   elif has("default") and any(profiles(.default)[]; profile_bad(.)) then "each default profile needs harness; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"
   elif has("default") and duplicate_profiles(profiles(.default)) then "default must not contain duplicate harness, model, and effort profiles"
   elif has("default") and any(profiles(.default)[]; (verified(.harness) | not)) then "each default profile must name a verified harness"
   elif has("default") and any(profiles(.default)[]; (effort_ok(.harness; .model; .effort) | not)) then "each default profile effort must be supported by its harness and model"
+  elif has("default") and any(profiles(.default)[]; range_bad(.)) then "each default profile effort_min and effort_max need effort, and effort_min <= effort <= effort_max on low < medium < high < xhigh < max < ultra"
+  elif has("default") and any(profiles(.default)[]; (range_effort_ok(.) | not)) then "each default profile effort_min and effort_max must be supported by its harness and model"
   else empty end
 ' "$RULES" 2>/dev/null) || die "malformed rules file: $RULES_PATH (not JSON)"
 [ -z "$rules_err" ] || die "malformed rules file: $RULES_PATH - $rules_err"
@@ -464,26 +513,90 @@ done < <(jq -r '
   | map(.harness) | unique | .[]' "$RULES")
 
 RULE_COUNT=$(jq -r '(.rules // []) | length' "$RULES")
+HAS_DEFAULT=$(jq -r 'has("default")' "$RULES")
 
+# Without --typed-only the resolver always answers: a failure anywhere past the
+# rules check falls to the static last resort below instead of to no answer.
 emit_error() {
   local reason=$1
   echo "dispatch-resolve: error ($reason)" >&2
+  if [ "$TYPED_ONLY" -eq 0 ]; then
+    static_fallback "$reason"
+  fi
   printf 'dispatch-resolve:\n  status: error\n  reason: %s\n' "$reason"
   exit 0
 }
 
-if [ "$RULE_COUNT" -eq 0 ]; then
+# The last resort when even the staged chain cannot run: the first declared
+# default profile, else the first profile of the first rule that needs no
+# captain approval, with its declared effort, read from the validated rules
+# snapshot alone. Only a file whose every profile sits behind approval leaves
+# no profile, because approval is an authority gate, not uncertainty.
+static_fallback() {
+  local reason=$1 line
+  line=$(jq -r '
+    def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
+    def shell_arg: tostring | gsub("[\t\r\n]"; " ") | @sh;
+    (profiles(.default // null) + [(.rules // [])[] | select((.approval // "") != "captain") | profiles(.use)[]])
+    | first // empty
+    | . as $c
+    | if $c.effort_floor != null and ($c.effort == null or
+        ((["low","medium","high","xhigh","max","ultra"] | index($c.effort)) <
+         (["low","medium","high","xhigh","max","ultra"] | index($c.effort_floor))))
+      then .effort = $c.effort_floor else . end
+    | "--harness \(.harness | shell_arg)"
+      + (if .model then " --model \(.model | shell_arg)" else "" end)
+      + (if .effort then " --effort \(.effort | shell_arg)" else "" end)' "$RULES" 2>/dev/null) || line=''
+  [ -n "$line" ] || return 0
+  printf 'dispatch-resolve:\n  status: fallback\n  decided: static by default\n  reason: %s; static last resort: first declared profile\n  profile: %s\n' \
+    "$(printf '%s' "$reason" | tr '\t\r\n' '   ')" "$line"
+  dispatch_log "$(jq -nc --arg reason "$reason" --arg profile "$line" '{status: "fallback", decided_by: "default", rule: "static", reason: $reason, profile_line: $profile}')"
+  exit 0
+}
+
+# One metadata-only line per chained run: which stage decided, the rule, the
+# effort, and the profile, never the brief or the request text.
+DISPATCH_LOG="$FM_HOME/state/dispatch-resolve.jsonl"
+dispatch_log() {
+  [ "$TYPED_ONLY" -eq 0 ] || return 0
+  [ ! -L "$DISPATCH_LOG" ] || return 0
+  mkdir -p "$FM_HOME/state" 2>/dev/null || return 0
+  fm_jev_log_call "$(jq -c --arg at "$(fm_jev_iso_now)" --arg project "$PROJECT" '{timestamp: $at, project: $project} + .' <<<"$1")" "$DISPATCH_LOG" >/dev/null 2>&1 || true
+}
+
+if [ "$RULE_COUNT" -eq 0 ] && { [ "$TYPED_ONLY" -eq 1 ] || [ "$HAS_DEFAULT" != true ]; }; then
   no_rules
 fi
 
 RESP_FILE=$(mktemp) || die "mktemp failed"
 QUOTA=$(mktemp) || { rm -f "$RESP_FILE"; die "mktemp failed"; }
 TASK_TEXT=$(mktemp) || { rm -f "$RESP_FILE" "$QUOTA"; die "mktemp failed"; }
-trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT"' EXIT
+PREDICT_FILE=$(mktemp) || { rm -f "$RESP_FILE" "$QUOTA" "$TASK_TEXT"; die "mktemp failed"; }
+PICK_FILE=$(mktemp) || { rm -f "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE"; die "mktemp failed"; }
+BACKUP_FILE=$(mktemp) || { rm -f "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE" "$PICK_FILE"; die "mktemp failed"; }
+trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE" "$PICK_FILE" "$BACKUP_FILE"' EXIT
 
-never_send_check() {
-  fm_never_send_check "$NEVER_SEND_PATH" "$REQUEST" "brief text" \
-    || { echo "dispatch-resolve: off ($FM_NEVER_SEND_ERROR; nothing sent)" >&2; exit 0; }
+# A never-send match sends nothing to any judge: --typed-only reports the
+# historical off line, and the chain goes straight to the default stage.
+NEVER_SEND_BLOCKED=0
+never_send_off() {
+  echo "dispatch-resolve: off ($1; nothing sent)" >&2
+  if [ "$TYPED_ONLY" -eq 1 ]; then
+    exit 0
+  fi
+  NEVER_SEND_BLOCKED=1
+  TYPED_SKIP="$1; nothing sent"
+}
+
+# Use the same final-request screening as advisory model proposals.
+NEVER_SEND_WHY=''
+never_send_scan() {
+  NEVER_SEND_WHY=''
+  if fm_never_send_check "$NEVER_SEND_PATH" "$1" "brief text"; then
+    return 0
+  fi
+  NEVER_SEND_WHY=$FM_NEVER_SEND_ERROR
+  return 1
 }
 
 # Send Jev only the task-specific sections bin/fm-brief.sh scaffolds, plus a
@@ -511,137 +624,193 @@ else
 fi
 LAT_MS=null
 EXTRA_LOG=null
-command -v curl >/dev/null 2>&1 || emit_error "curl not installed"
-[ -n "$TYPESAFE_API_KEY_PRIVATE" ] && TYPESAFE_API_KEY=$TYPESAFE_API_KEY_PRIVATE
-[ -n "$OPENROUTER_API_KEY_PRIVATE" ] && OPENROUTER_API_KEY=$OPENROUTER_API_KEY_PRIVATE
+STATE='' QUESTIONS='' REQUEST=''
+# A request that cannot be built cannot reach any judge: --typed-only reports
+# it as the historical error, and the chain goes to the default stage.
+state_fail() {
+  [ "$TYPED_ONLY" -eq 0 ] || emit_error "$1"
+  TYPED_SKIP=$1
+  STATE=''
+}
 EXTRA=0
 if fm_dispatch_truthy "${FM_JEV_DISPATCH_EXTRA:-}"; then
   EXTRA=1
 fi
-if [ "$EXTRA" -eq 1 ]; then
-  HOME_CRITERIA=$(fm_dispatch_home_criteria)
-else
-  HOME_CRITERIA='{}'
-fi
-if fm_dispatch_compact_on; then
-  BRIEF_TEXT=$(fm_dispatch_intent_summary "$BRIEF")
-else
-  BRIEF_TEXT=$(cat "$TASK_TEXT")
-fi
-BRIEF_TEXT=$(fm_jev_compact_state "$BRIEF_TEXT") || emit_error "state exceeds size limit"
-STATE=$(jq -nc --arg project "$PROJECT" --arg brief "$BRIEF_TEXT" '{task:{project:$project, brief:$brief}}') \
-  || emit_error "could not build state"
-QUESTIONS=$(jq -nc --arg none_criterion "$DEFAULT_WHEN" --argjson extra "$EXTRA" --argjson homes "$HOME_CRITERIA" --slurpfile rules "$RULES" '
-  ($rules[0].rules) as $rs |
-  ([range(0; $rs | length) as $i | ($rs[$i].beats // [])[] | {w: ($i + 1), l: .rule, c: (.when // null)}]) as $edges |
-  def cond($e): if $e.c == null then "" else " and \($e.c)" end;
-  ($rs | to_entries | map((.key + 1) as $n | {
-    key: "rule_\($n)",
-    value: (.value.when
-      + ([$edges[] | select(.w == $n) | " Tie-break: when rule_\(.l) also fits\(cond(.)), choose this option over rule_\(.l)."] | join(""))
-      + ([$edges[] | select(.l == $n) | " Tie-break: when rule_\(.w) also fits\(cond(.)), choose rule_\(.w) over this option."] | join("")))
-  }) | from_entries) as $criteria |
-  {
-    rule: {
-      type: "choice",
-      instructions: ("Which ONE dispatch rule best fits `task` (read `task.brief` and `task.project`)? Each option is the rule'"'"'s own matching condition; pick `default` when no rule'"'"'s condition is met, including when a rule'"'"'s own exemption text excludes this task."
-        + (if ($edges | length) > 0 then " When more than one option fits, follow the Tie-break sentences at the end of the options; any rule whose condition fits wins over `default`." else "" end)),
-      criteria: ($criteria + {default: $none_criterion})
-    },
-    effort: {
-      type: "choice",
-      instructions: "What reasoning effort does `task` itself need? Judge the work'"'"'s intrinsic difficulty from task.brief, independently of any dispatch rule. `max` is reserved: choose it only when the task text itself explicitly demands maximum effort; otherwise never.",
-      criteria: {
-        low: "Trivial mechanical work: a rote rename, formatting sweep, targeted typo fix, or single-file gathering.",
-        medium: "Contained work needing ordinary care: a small feature, a narrow bug fix, or a bounded question.",
-        high: "Big or ambiguous multi-file work: a feature across several files, a risky refactor, or many moving parts.",
-        xhigh: "Deep-deliberation work: safety-critical, subtle, or highly ambiguous tasks where mistakes are costly.",
-        max: "Maximum effort. Choose only when the task text itself explicitly demands maximum effort; otherwise never."
-      }
-    }
-  } + (if $extra == 1 then {
-    home: {
-      type: "choice",
-      instructions: "Which Firstmate home should own this work? This answer is log-only and must not route the task.",
-      criteria: $homes
-    },
-    deliverable: {
-      type: "choice",
-      instructions: "Should this work ship a change, produce a scout report, or neither? This answer is log-only.",
-      criteria: {
-        ship: "A project change through the selected delivery path.",
-        scout: "A knowledge-only report, not a PR.",
-        neither: "Neither a ship nor a scout."
-      }
-    }
-  } else {} end)
-') || emit_error "could not build questions"
-REQUEST=$(jq -nc --argjson state "$STATE" --argjson questions "$QUESTIONS" '{state: $state, questions: $questions}') \
-  || emit_error "could not build request"
-never_send_check
-DECIDE_ERR=0
-fm_jev_decide "$STATE" "$QUESTIONS" > "$RESP_FILE" || DECIDE_ERR=$?
-LAT_MS=${FM_JEV_LAST_LATENCY_MS:-0}
-HTTP=${FM_JEV_LAST_HTTP:-000}
-unset TYPESAFE_API_KEY OPENROUTER_API_KEY
-if [ "$DECIDE_ERR" -ne 0 ]; then
-  if [ -n "$HTTP" ] && [ "$HTTP" != 200 ]; then
-    emit_error "http $HTTP after ${LAT_MS} ms"
-  else
-    emit_error "jev caller failed"
+build_request() {
+  # --typed-only keeps the historical order: no curl is reported before any
+  # request work.
+  if [ "$TYPED_ONLY" -eq 1 ] && ! command -v curl >/dev/null 2>&1; then
+    emit_error "curl not installed"
   fi
+  if [ "$EXTRA" -eq 1 ]; then
+    HOME_CRITERIA=$(fm_dispatch_home_criteria)
+  else
+    HOME_CRITERIA='{}'
+  fi
+  if fm_dispatch_compact_on; then
+    BRIEF_TEXT=$(fm_dispatch_intent_summary "$BRIEF")
+  else
+    BRIEF_TEXT=$(cat "$TASK_TEXT")
+  fi
+  BRIEF_TEXT=$(fm_jev_compact_state "$BRIEF_TEXT") || { state_fail "state exceeds size limit"; return; }
+  STATE=$(jq -nc --arg project "$PROJECT" --arg brief "$BRIEF_TEXT" '{task:{project:$project, brief:$brief}}') \
+    || { state_fail "could not build state"; return; }
+  QUESTIONS=$(jq -nc --arg none_criterion "$DEFAULT_WHEN" --argjson extra "$EXTRA" --argjson homes "$HOME_CRITERIA" --slurpfile rules "$RULES" '
+    ($rules[0].rules) as $rs |
+    ([range(0; $rs | length) as $i | ($rs[$i].beats // [])[] | {w: ($i + 1), l: .rule, c: (.when // null)}]) as $edges |
+    def cond($e): if $e.c == null then "" else " and \($e.c)" end;
+    ($rs | to_entries | map((.key + 1) as $n | {
+      key: "rule_\($n)",
+      value: (.value.when
+        + ([$edges[] | select(.w == $n) | " Tie-break: when rule_\(.l) also fits\(cond(.)), choose this option over rule_\(.l)."] | join(""))
+        + ([$edges[] | select(.l == $n) | " Tie-break: when rule_\(.w) also fits\(cond(.)), choose rule_\(.w) over this option."] | join("")))
+    }) | from_entries) as $criteria |
+    {
+      rule: {
+        type: "choice",
+        instructions: ("Which ONE dispatch rule best fits `task` (read `task.brief` and `task.project`)? Each option is the rule'"'"'s own matching condition; pick `default` when no rule'"'"'s condition is met, including when a rule'"'"'s own exemption text excludes this task."
+          + (if ($edges | length) > 0 then " When more than one option fits, follow the Tie-break sentences at the end of the options; any rule whose condition fits wins over `default`." else "" end)),
+        criteria: ($criteria + {default: $none_criterion})
+      },
+      effort: {
+        type: "choice",
+        instructions: "What reasoning effort does `task` itself need? Judge the work'"'"'s intrinsic difficulty from task.brief, independently of any dispatch rule. `max` is reserved: choose it only when the task text itself explicitly demands maximum effort; otherwise never.",
+        criteria: {
+          low: "Trivial mechanical work: a rote rename, formatting sweep, targeted typo fix, or single-file gathering.",
+          medium: "Contained work needing ordinary care: a small feature, a narrow bug fix, or a bounded question.",
+          high: "Big or ambiguous multi-file work: a feature across several files, a risky refactor, or many moving parts.",
+          xhigh: "Deep-deliberation work: safety-critical, subtle, or highly ambiguous tasks where mistakes are costly.",
+          max: "Maximum effort. Choose only when the task text itself explicitly demands maximum effort; otherwise never."
+        }
+      }
+    } + (if $extra == 1 then {
+      home: {
+        type: "choice",
+        instructions: "Which Firstmate home should own this work? This answer is log-only and must not route the task.",
+        criteria: $homes
+      },
+      deliverable: {
+        type: "choice",
+        instructions: "Should this work ship a change, produce a scout report, or neither? This answer is log-only.",
+        criteria: {
+          ship: "A project change through the selected delivery path.",
+          scout: "A knowledge-only report, not a PR.",
+          neither: "Neither a ship nor a scout."
+        }
+      }
+    } else {} end)
+  ') || { state_fail "could not build questions"; return; }
+  REQUEST=$(jq -nc --argjson state "$STATE" --argjson questions "$QUESTIONS" '{state: $state, questions: $questions}') \
+    || { state_fail "could not build request"; return; }
+  never_send_scan "$REQUEST" || never_send_off "$NEVER_SEND_WHY"
+}
+if [ "$RULE_COUNT" -gt 0 ]; then
+  build_request
+else
+  TYPED_SKIP='no rules to match'
 fi
-if [ "$EXTRA" -eq 1 ]; then
-  EXTRA_LOG=$(jq -c '{
-    home: (.answers.home.choice // null),
-    deliverable: (.answers.deliverable.choice // null),
-    home_confidence: (.answers.home.confidence // null),
-    deliverable_confidence: (.answers.deliverable.confidence // null)
-  }' "$RESP_FILE") || EXTRA_LOG='{}'
-fi
-jq -e --slurpfile rules "$RULES" '
-    (($rules[0].rules | to_entries | map("rule_" + ((.key + 1) | tostring))) + ["default"] | sort) as $choices |
-    .answers.rule.type == "choice" and
-    (.answers.rule.choice | type) == "string" and
-    (.answers.rule.confidence | type) == "number" and
-    .answers.rule.confidence >= 0 and .answers.rule.confidence <= 1 and
-    (.answers.rule.probabilities | type) == "object" and
-    ((.answers.rule.probabilities | keys | sort) == $choices) and
-    all(.answers.rule.probabilities[]; type == "number" and . >= 0 and . <= 1) and
-    ((.answers.rule.probabilities | [.[]] | add) as $total | $total >= 0.99 and $total <= 1.01) and
-    ((has("usage") | not) or
-      ((.usage | type) == "object" and
-       (.usage.input_tokens | type) == "number" and
-       (.usage.output_tokens | type) == "number"))' \
-  "$RESP_FILE" >/dev/null 2>&1 || emit_error "response is not a rule Choice answer"
 
-# The effort answer is a second typed Choice in the same response. It is
-# validated separately and softly: a missing or malformed effort answer falls
-# back to the rule's declared effort with the fallback disclosed in the
-# output, while a well-formed answer becomes the assessed reasoning class.
-EFFORT_JSON=$(jq -c '
-  (["low","medium","high","xhigh","max"]) as $classes |
-  (.answers.effort // null) as $a |
-  if $a == null then {choice: null, source: "absent"}
-  elif (($a.choice | type) == "string") and ($classes | index($a.choice) != null) and
-       (($a.confidence | type) == "number") and ($a.confidence >= 0) and ($a.confidence <= 1) and
-       (($a.probabilities | type) == "object") and (($a.probabilities | keys | sort) == ($classes | sort)) and
-       (all($a.probabilities[]; type == "number" and . >= 0 and . <= 1)) and
-       (($a.probabilities | [.[]] | add) >= 0.99) and (($a.probabilities | [.[]] | add) <= 1.01)
-    then {choice: $a.choice, confidence: $a.confidence, source: "jev"}
-    else {choice: null, source: "malformed"}
-    end' "$RESP_FILE" 2>/dev/null) || EFFORT_JSON='{"choice":null,"source":"malformed"}'
+# ---- typed stage: one Jev call through bin/fm-jev-lib.sh -------------------------
+# Returns 0 with a validated rule answer in RESP_FILE and EFFORT_JSON set, or 1
+# with the reason in TYPED_REASON. --typed-only turns every failure into the
+# historical error outcome instead.
+TYPED_REASON=''
+typed_fail() {
+  [ "$TYPED_ONLY" -eq 0 ] || emit_error "$1"
+  TYPED_REASON=$1
+  return 1
+}
+typed_call() {
+  local decide_err=0 http
+  if [ -n "$TYPED_SKIP" ] || [ -z "$STATE" ]; then
+    TYPED_REASON="skipped (${TYPED_SKIP:-no request})"
+    return 1
+  fi
+  command -v curl >/dev/null 2>&1 || { typed_fail "curl not installed"; return 1; }
+  [ -n "$TYPESAFE_API_KEY_PRIVATE" ] && TYPESAFE_API_KEY=$TYPESAFE_API_KEY_PRIVATE
+  [ -n "$OPENROUTER_API_KEY_PRIVATE" ] && OPENROUTER_API_KEY=$OPENROUTER_API_KEY_PRIVATE
+  fm_jev_decide "$STATE" "$QUESTIONS" > "$RESP_FILE" || decide_err=$?
+  LAT_MS=${FM_JEV_LAST_LATENCY_MS:-0}
+  http=${FM_JEV_LAST_HTTP:-000}
+  unset TYPESAFE_API_KEY OPENROUTER_API_KEY
+  if [ "$decide_err" -ne 0 ]; then
+    if [ -n "$http" ] && [ "$http" != 200 ]; then
+      typed_fail "http $http after ${LAT_MS} ms"
+    else
+      typed_fail "jev caller failed"
+    fi
+    return 1
+  fi
+  if [ "$EXTRA" -eq 1 ]; then
+    EXTRA_LOG=$(jq -c '{
+      home: (.answers.home.choice // null),
+      deliverable: (.answers.deliverable.choice // null),
+      home_confidence: (.answers.home.confidence // null),
+      deliverable_confidence: (.answers.deliverable.confidence // null)
+    }' "$RESP_FILE") || EXTRA_LOG='{}'
+  fi
+  jq -e --slurpfile rules "$RULES" '
+      (($rules[0].rules | to_entries | map("rule_" + ((.key + 1) | tostring))) + ["default"] | sort) as $choices |
+      .answers.rule.type == "choice" and
+      (.answers.rule.choice | type) == "string" and
+      (.answers.rule.confidence | type) == "number" and
+      .answers.rule.confidence >= 0 and .answers.rule.confidence <= 1 and
+      (.answers.rule.probabilities | type) == "object" and
+      ((.answers.rule.probabilities | keys | sort) == $choices) and
+      all(.answers.rule.probabilities[]; type == "number" and . >= 0 and . <= 1) and
+      ((.answers.rule.probabilities | [.[]] | add) as $total | $total >= 0.99 and $total <= 1.01) and
+      ((has("usage") | not) or
+        ((.usage | type) == "object" and
+         (.usage.input_tokens | type) == "number" and
+         (.usage.output_tokens | type) == "number"))' \
+    "$RESP_FILE" >/dev/null 2>&1 || { typed_fail "response is not a rule Choice answer"; } || return 1
+  # The effort answer is a second typed Choice in the same response. It is
+  # validated separately and softly: a missing, malformed, or low-confidence
+  # effort answer falls back to the profile's declared effort with the
+  # fallback disclosed in the output, while a confident well-formed answer
+  # becomes the assessed reasoning class.
+  EFFORT_JSON=$(jq -c --argjson floor "$EFFORT_CONFIDENCE_FLOOR" '
+    (["low","medium","high","xhigh","max"]) as $classes |
+    (.answers.effort // null) as $a |
+    if $a == null then {choice: null, source: "absent"}
+    elif (($a.choice | type) == "string") and ($classes | index($a.choice) != null) and
+         (($a.confidence | type) == "number") and ($a.confidence >= 0) and ($a.confidence <= 1) and
+         (($a.probabilities | type) == "object") and (($a.probabilities | keys | sort) == ($classes | sort)) and
+         (all($a.probabilities[]; type == "number" and . >= 0 and . <= 1)) and
+         (($a.probabilities | [.[]] | add) >= 0.99) and (($a.probabilities | [.[]] | add) <= 1.01)
+      then (if $a.confidence < $floor then {choice: null, confidence: $a.confidence, source: "low-confidence"}
+            else {choice: $a.choice, confidence: $a.confidence, source: "jev"} end)
+      else {choice: null, source: "malformed"}
+      end' "$RESP_FILE" 2>/dev/null) || EFFORT_JSON='{"choice":null,"source":"malformed"}'
+  return 0
+}
+EFFORT_JSON='{"choice":null,"source":"absent"}'
+TYPED_OK=0
+if typed_call; then
+  TYPED_OK=1
+fi
 
 # ---- quota evidence: one quota-axi --json snapshot -----------------------------
-command -v quota-axi >/dev/null 2>&1 || emit_error "quota-axi not installed"
-quota-axi --json > "$QUOTA" 2>/dev/null || emit_error "quota-axi --json failed"
-fm_quota_json_valid < "$QUOTA" || emit_error "quota-axi --json returned an invalid snapshot"
+# Without --typed-only a missing or failed snapshot is disclosed and every
+# candidate becomes unranked, so the chain still answers.
+QUOTA_NOTE=''
+quota_unavailable() {
+  [ "$TYPED_ONLY" -eq 0 ] || emit_error "$1"
+  QUOTA_NOTE="$1: every candidate unranked"
+  printf '{"schemaVersion":5,"generatedAt":"1970-01-01T00:00:00Z","providers":[]}\n' > "$QUOTA"
+}
+if ! command -v quota-axi >/dev/null 2>&1; then
+  quota_unavailable "quota-axi not installed"
+elif ! quota-axi --json > "$QUOTA" 2>/dev/null; then
+  quota_unavailable "quota-axi --json failed"
+elif ! fm_quota_json_valid < "$QUOTA"; then
+  quota_unavailable "quota-axi --json returned an invalid snapshot"
+fi
 
 # ---- spend prediction: one ledger pass over the same quota snapshot ----------
 # bin/fm-spend-ledger.py owns the measurement; absent or unreadable output
 # leaves every burn gate inert and shows pred=unknown on the candidate lines.
-PREDICT_FILE=$(mktemp) || { rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT"; die "mktemp failed"; }
-trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE"' EXIT
+
 SPEND_LEDGER=${FM_SPEND_LEDGER:-$SCRIPT_DIR/fm-spend-ledger.py}
 if [ -x "$SPEND_LEDGER" ]; then
   FM_HOME="$FM_HOME" "$SPEND_LEDGER" predict --quota "$QUOTA" > "$PREDICT_FILE" 2>/dev/null \
@@ -655,8 +824,8 @@ jq -e 'type == "object"' "$PREDICT_FILE" >/dev/null 2>&1 \
 # ---- resolution: declared gates + quota evidence + argmax, all in jq ------------
 IS_SCOUT=false
 [ -z "$(brief_kind)" ] || IS_SCOUT=true
-RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg none_criterion "$DEFAULT_WHEN" --argjson pmap "$PMAP" --argjson effort "$EFFORT_JSON" \
-  --slurpfile resp "$RESP_FILE" --slurpfile rules "$RULES" --slurpfile quota "$QUOTA" --slurpfile predict "$PREDICT_FILE" "$FM_QUOTA_ROW_JQ"'
+# shellcheck disable=SC2016  # A jq program; $names are jq variables.
+RESOLVE_JQ="$FM_QUOTA_ROW_JQ"'
   '"$FM_JEV_CHOICE_TOP2_JQ"'
   ($resp[0]) as $r | ($rules[0]) as $cfg | ($quota[0]) as $q | ($r.answers.rule) as $a |
   ($a.probabilities | jev_choice_top2) as $top2 |
@@ -748,19 +917,33 @@ RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$
          spendPriority: $limiting.selection.spendPriority, runway: $limiting.runway.status, eligible: true, reason: "ok"}
       end
     end;
-  # Resolve effort once so launch, runoff identity, and burn prediction cannot
-  # disagree when a floor raises an assessed or classifier-fallback value.
+  # A profile allows effort_min..effort_max around its declared effort, which
+  # is the range default; a bare effort is a one-level range. An undeclared
+  # effort allows low..xhigh with no default, so max and ultra always need an
+  # explicit declaration. The assessed class is clamped into the range and then
+  # moved to the nearest level inside it that the harness supports (the lower
+  # one on a tie), so an assessment never refuses a candidate.
+  def effort_range($c):
+    ($c.effort // null) as $d |
+    ($c.effort_floor // null) as $floor |
+    ($c.effort_min // $d // "low") as $min |
+    {min: (if $floor != null and effort_rank($floor) > effort_rank($min) then $floor else $min end),
+     max: ($c.effort_max // $d // "xhigh"),
+     default: (if $floor != null and ($d == null or effort_rank($d) < effort_rank($floor)) then $floor else $d end)};
+  def range_text($r): if $r.min == $r.max then $r.min else "\($r.min)..\($r.max)" end;
   def resolve_effort($c):
-    ($c.effort // null) as $declared |
-    (if $declared == null then "xhigh" else $declared end) as $ceiling |
-    ($c.effort_floor // null) as $efloor |
-    ($jev_effort // $declared) as $resolved |
-    if $efloor != null and ($resolved == null or effort_rank($resolved) < effort_rank($efloor)) then
-      {effort: $efloor, ceiling: $ceiling, source: "floor", ok: true}
-    elif $resolved == null or (effort_rank($resolved) <= effort_rank($ceiling)) then
-      {effort: $resolved, ceiling: $ceiling, source: (if $jev_effort == null then "declared" else "jev" end), ok: true}
-    else {effort: $resolved, ceiling: $ceiling, source: "jev", ok: false,
-          reason: "assessed effort \($resolved) exceeds declared ceiling \($ceiling)"}
+    (effort_range($c)) as $r |
+    if $jev_effort == null then {effort: $r.default, range: $r, source: "declared"}
+    else
+      (effort_rank($jev_effort)) as $x |
+      (if $x < effort_rank($r.min) then $r.min elif $x > effort_rank($r.max) then $r.max else $jev_effort end) as $clamped |
+      ([["low","medium","high","xhigh","max","ultra"][]
+        | select(effort_rank(.) >= effort_rank($r.min) and effort_rank(.) <= effort_rank($r.max))
+        | select(effort_ok($c.harness; $c.model; .))]) as $fit |
+      (if ($fit | length) == 0 then $clamped
+       else ($fit | min_by([((effort_rank(.) - effort_rank($clamped)) | if . < 0 then -. else . end), effort_rank(.)])) end) as $e |
+      {effort: $e, range: $r, source: "assessed"}
+      + (if $e != $jev_effort then {clamped: $jev_effort} else {} end)
     end;
   # Burn gates bind only where the ledger produced evidence: a median burn for
   # this provider/effort ladder, a calibrated tokens-per-point for the current
@@ -792,22 +975,19 @@ RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$
     end;
   def assess($c):
     (resolve_effort($c)) as $er |
-    if ($er.ok | not) then
-      {profile: $c, eligible: false, effort: $er.effort, ceiling: $er.ceiling, effort_source: $er.source,
-       reason: $er.reason}
-    elif $er.effort != null and (effort_ok($c.harness; $c.model; $er.effort) | not) then
+    ({effort: $er.effort, range: (range_text($er.range)), effort_source: $er.source}
+      + (if $er.clamped then {clamped: $er.clamped} else {} end)) as $ef |
+    if $er.effort != null and (effort_ok($c.harness; $c.model; $er.effort) | not) then
       if (effort_ok($c.harness; $c.model; "low") | not) then
         # The harness carries no effort knob at all (cursor, kimi, opencode):
         # the assessed class is disclosed on the line but cannot gate, and
         # the emitted profile stays effort-free exactly as today.
-        (evaluate($c) + {effort: $er.effort, ceiling: $er.ceiling, effort_source: $er.source,
-                         effort_emit: false, effort_note: "effort unenforceable on \($c.harness)"}) | burn_gate(.)
+        (evaluate($c) + $ef + {effort_emit: false, effort_note: "effort unenforceable on \($c.harness)"}) | burn_gate(.)
       else
-        {profile: $c, eligible: false, effort: $er.effort, ceiling: $er.ceiling, effort_source: $er.source,
-         reason: "harness \($c.harness) cannot supply assessed effort \($er.effort)"}
+        {profile: $c, eligible: false} + $ef + {reason: "harness \($c.harness) cannot supply effort \($er.effort)"}
       end
     else
-      (evaluate($c) + {effort: $er.effort, ceiling: $er.ceiling, effort_source: $er.source}) | burn_gate(.)
+      (evaluate($c) + $ef) | burn_gate(.)
     end;
   def is_overflow($c): ($c.profile.overflow // false) == true;
   def runs_short($c):
@@ -864,18 +1044,20 @@ RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$
     (if $rule == null then "none" else floor_state($rule.floor; $rule.floor.provider; "") end) as $rule_floor_state |
     if $c != "default" and $rule == null then {invalid: "rule \($c) is not in the rules file"}
     elif $rule == null then {source: "default", use: profiles($cfg.default // null), note: "no rule matched"}
-    elif ($rule.approval // "") == "captain" then {source: $c, escalate: "rule requires the captain'"'"'s explicit approval before dispatch"}
+    elif ($rule.approval // "") == "captain" then {source: $c, approval: true, escalate: "rule requires the captain'"'"'s explicit approval before dispatch"}
     elif $rule_floor_state == "unknown" then {source: $c, escalate: "rule \($c) floor \($rule.floor.provider)/\($rule.floor.scope) is unverifiable"}
     elif $rule_floor_state == "below"
       then {source: "default", use: profiles($cfg.default // null), note: "rule \($c) floor \($rule.floor.scope) below \($rule.floor.min_percent)%: fall through to default"}
     else {source: $c, use: profiles($rule.use), note: "rule matched"} end;
   # What the gates and the spendPriority argmax make of one rule answer, as
   # though it had cleared the rule gate. The main answer and every runoff
-  # contender go through this one definition.
+  # contender go through this one definition. `lane` is the rule whose
+  # profiles were assessed, which a floor shortfall moves to the default.
   def settle($c):
     (selection($c)) as $sel |
     if $sel.invalid then {status: "error", reason: $sel.invalid}
     elif $sel.escalate then {status: "escalate", reason: $sel.escalate, candidates: (answer_use($c) | map(assess(.)))}
+      + (if $sel.approval then {approval: true} else {} end)
     elif ($sel.use | length) == 0 then {status: "escalate", reason: "no profiles configured for \($sel.source)", note: $sel.note, candidates: []}
     else
       ($sel.use | map(assess(.)) | apply_overflow(.)) as $cands |
@@ -897,14 +1079,16 @@ RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$
              else {} end)
         end
       end
-    end;
+    end
+    | . + {selection_eligible: (($sel.invalid == null) and ($sel.escalate == null) and any(.candidates[]?; .eligible == true))}
+    | if $sel.invalid then . else . + {lane: $sel.source} end;
   def emitted_effort($c):
     if $c.effort_emit == false then ($c.profile.effort // null)
     else ($c.effort // $c.profile.effort // null) end;
   # The runoff for an ambiguous answer: the picked option and the top two by
   # probability each settle on their own quota-ranked profile. Any contender
   # that would not clear (a captain-approval rule, an unverifiable floor,
-  # nothing rankable, a tie) leaves the decision with firstmate; contenders
+  # nothing rankable, a tie) skips the runoff; contenders
   # that land on the same concrete profile collapse into one option, which
   # carries the strictest min_confidence its rules declare as its `floor`.
   def runoff:
@@ -933,6 +1117,7 @@ RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$
     confidence: $a.confidence, probabilities: $a.probabilities,
     effort: {choice: $jev_effort, confidence: $effort.confidence, source: $effort.source}
   }
+  + {decided_rule: $choice}
   + (if $fb.to then {fallback: "\($choice) (\(when_of($choice))) probability \($fb.p) clears its floor \($fb.to_floor); \($picked) probability \($a.probabilities[$picked]) is below its floor \($picked_floor)"} else {} end)
   as $ev |
   (settle($choice)) as $settled |
@@ -949,99 +1134,274 @@ RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$
   elif (declared_confidence($picked) | not) and ($top2.raw_margin + 1e-9) < ($margin | tonumber) then
     $ev + {status: "ambiguous", reason: "top-2 margin \($top2.margin) below \($margin) (\($top2.first) vs \($top2.second))", candidates: $answer_cands, runoff: runoff}
   else $ev + $settled
-  end') || emit_error "resolution failed"
+  end'
+resolve_response() {  # <response-file> <effort-json> <latency-json>: sets RESULT
+  RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$3" --arg none_criterion "$DEFAULT_WHEN" --argjson pmap "$PMAP" --argjson effort "$2" \
+    --slurpfile resp "$1" --slurpfile rules "$RULES" --slurpfile quota "$QUOTA" --slurpfile predict "$PREDICT_FILE" "$RESOLVE_JQ") \
+    || emit_error "resolution failed"
+}
 
-# ---- runoff: one typed Jev pick among the contenders of an ambiguous answer ----
-# The question offers only contenders that each settled on a concrete profile
-# above, keyed by rule and worded with the same criteria the rule Choice sent,
-# so the model still never sees `use`, `why`, quota, or approvals. Code gates
-# the answer on the same top-2 margin, or on an option's declared floor;
-# anything short of that leaves the answer ambiguous and the decision with
-# firstmate.
-runoff_note() {  # <pick-json>: merge a non-settling outcome into RESULT
-  RESULT=$(jq -c --argjson pick "$1" '. + {pick: $pick} | del(.runoff)' <<<"$RESULT") || emit_error "runoff merge failed"
+# A one-hot answer for a choice the backup or the default stage made, in the
+# typed response shape, so it settles through the same gates as a typed answer.
+one_hot_response() {  # <choice> <model-label> <path>
+  jq -n --arg choice "$1" --arg model "$2" --slurpfile rules "$RULES" '
+    ((($rules[0].rules // []) | to_entries | map("rule_" + ((.key + 1) | tostring))) + ["default"]) as $keys
+    | {model: $model, answers: {rule: {type: "choice", choice: $choice, confidence: 1,
+        probabilities: ($keys | map({key: ., value: (if . == $choice then 1 else 0 end)}) | from_entries)}}}' > "$3" \
+    || emit_error "could not build the $2 answer"
 }
-runoff_settle() {  # <option-key> <pick-json>: the chosen contender becomes the answer
-  RESULT=$(jq -c --arg key "$1" --argjson pick "$2" '
-    (.runoff.options[] | select(.key == $key) | .settled) as $s
-    | (.runoff.options[] | select(.key == $key) | .rules) as $rules
-    | del(.runoff) + {status: "picked", pick: ($pick + {rules: $rules}), candidates: $s.candidates, chosen: $s.chosen}
-      + (if $s.note then {note: $s.note} else {} end)
-      + (if $s.unranked_note then {unranked_note: $s.unranked_note} else {} end)' <<<"$RESULT") \
-    || emit_error "runoff merge failed"
+
+last_resort_pick() {  # <additional-note>: sets RESULT with an eligible pick or the declared fallback
+  local note=${1:-} next
+  next=$(jq -c --arg note "$note" '
+    (.candidates // []) as $c |
+    ([$c[] | select(.eligible == true and ((.unranked // false) | not) and (.spendPriority | type) == "number")]) as $ranked |
+    ([$c[] | select(.eligible == true)]) as $eligible |
+    (if ($ranked | length) > 0 then
+       ($ranked | max_by(.spendPriority).spendPriority) as $best
+       | {pick: ([$ranked[] | select(.spendPriority == $best)] | first), why: "best-ranked eligible candidate, first in declared order on a tie"}
+     elif ($eligible | length) > 0 then {pick: $eligible[0], why: "first eligible candidate in declared order"}
+     elif ($c | length) > 0 then {pick: $c[0], why: "every candidate refused; first declared candidate"}
+     else null end) as $lr |
+    if $lr == null then error("no candidate")
+    else . + {status: "fallback", chosen: $lr.pick, last_resort: ("\(.reason // .status): \($lr.why)" + (if $note == "" then "" else "; " + $note end))} end' <<<"$RESULT" 2>/dev/null) || return 1
+  RESULT=$next
 }
-RUNOFF_STATE=$(jq -r 'if .status == "ambiguous" then (.runoff.state // "") else "" end' <<<"$RESULT") || RUNOFF_STATE=''
-if [ -n "$RUNOFF_STATE" ] && [ "$REPLAY" -eq 1 ]; then
-  RESULT=$(jq -c 'del(.runoff)' <<<"$RESULT") || emit_error "runoff merge failed"
-  RUNOFF_STATE=''
-fi
-case "$RUNOFF_STATE" in
-  skipped)
-    runoff_note "$(jq -c '{state: "skipped", reason: .runoff.reason}' <<<"$RESULT")"
-    ;;
-  agreed)
-    runoff_settle "$(jq -r '.runoff.options[0].key' <<<"$RESULT")" \
-      "$(jq -c '{state: "agreed", rules: .runoff.options[0].rules}' <<<"$RESULT")"
-    ;;
-  ask)
-    PICK_QUESTIONS=$(jq -nc --argjson result "$RESULT" --argjson questions "$QUESTIONS" '
-      {pick: {
-        type: "choice",
-        instructions: "More than one dispatch rule plausibly fits `task` (read `task.brief` and `task.project`). Which ONE option fits it best? Each option is the matching condition of one or more rules; pick the option whose condition the task meets most directly, following any Tie-break sentences.",
-        criteria: ($result.runoff.options | map({key: .key, value: ([.rules[] as $r | $questions.rule.criteria[$r]] | join(" Or: "))}) | from_entries)
-      }}') || emit_error "could not build runoff question"
-    PICK_REQUEST=$(jq -nc --argjson state "$STATE" --argjson questions "$PICK_QUESTIONS" '{state: $state, questions: $questions}') \
-      || emit_error "could not build runoff request"
-    if ! fm_never_send_check "$NEVER_SEND_PATH" "$PICK_REQUEST" "brief text"; then
-      runoff_note "$(jq -nc --arg why "$FM_NEVER_SEND_ERROR" '{state: "skipped", reason: ($why + "; nothing sent")}')"
+
+last_resort() {  # <stage> <effort-json>: settles the decided lane or its default
+  local stage=$1 effort=$2 original=$RESULT refused original_rule original_reasons default_choice default_file default_result default_eligible default_reasons note
+  refused=$(jq -r '(.candidates // []) as $c | (($c | length) > 0) and all($c[]; .eligible != true)' <<<"$RESULT")
+  if [ "$refused" = true ] && [ "$stage" != fallback ] \
+    && [ "$(jq -r '(.note // "") | contains("fall through to default")' <<<"$original")" = true ]; then
+    original_rule=$(jq -r '.decided_rule // .rule // "unknown"' <<<"$original")
+    original_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$original")
+    last_resort_pick "default lane candidates refused for $original_rule: $original_reasons; first declared candidate used"
+    return $?
+  fi
+  if [ "$refused" = true ] && [ "$stage" != fallback ]; then
+    original_rule=$(jq -r '.decided_rule // .rule // "unknown"' <<<"$original")
+    original_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$original")
+    if [ "$HAS_DEFAULT" = true ]; then default_choice=default; else default_choice=rule_1; fi
+    default_file=$(mktemp) || default_file=''
+    if [ -n "$default_file" ]; then
+      one_hot_response "$default_choice" default "$default_file"
+      resolve_response "$default_file" "$effort" 0
+      default_result=$RESULT
+      rm -f "$default_file"
+      default_eligible=$(jq -r '.selection_eligible == true' <<<"$default_result")
+      if [ "$default_eligible" = true ]; then
+        RESULT=$(jq -c --argjson original "$original" '.decided_rule = ($original.decided_rule // $original.rule)' <<<"$default_result") \
+          || { RESULT=$original; return 1; }
+        note="rule $original_rule candidates refused: $original_reasons; eligible default lane used"
+        last_resort_pick "$note" || { RESULT=$original; return 1; }
+        DECIDED_BY=default
+        return 0
+      fi
+      default_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$default_result")
     else
-      PICK_FILE=$(mktemp) || emit_error "mktemp failed"
-      trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE" "$PICK_FILE"' EXIT
-      [ -n "$TYPESAFE_API_KEY_PRIVATE" ] && TYPESAFE_API_KEY=$TYPESAFE_API_KEY_PRIVATE
-      [ -n "$OPENROUTER_API_KEY_PRIVATE" ] && OPENROUTER_API_KEY=$OPENROUTER_API_KEY_PRIVATE
-      PICK_ERR=0
-      fm_jev_decide "$STATE" "$PICK_QUESTIONS" > "$PICK_FILE" || PICK_ERR=$?
-      unset TYPESAFE_API_KEY OPENROUTER_API_KEY
-      PICK_LAT=${FM_JEV_LAST_LATENCY_MS:-0}
-      PICK_HTTP=${FM_JEV_LAST_HTTP:-000}
-      if [ "$PICK_ERR" -ne 0 ]; then
-        if [ -n "$PICK_HTTP" ] && [ "$PICK_HTTP" != 200 ]; then
-          runoff_note "$(jq -nc --arg why "http $PICK_HTTP after ${PICK_LAT} ms" '{state: "error", reason: $why}')"
-        else
-          runoff_note '{"state":"error","reason":"jev caller failed"}'
-        fi
+      default_reasons='default lane could not be assessed'
+    fi
+    RESULT=$original
+    note="rule $original_rule candidates refused: $original_reasons; default candidates refused: ${default_reasons:-none}; first declared candidate used"
+    last_resort_pick "$note"
+    return $?
+  fi
+  if [ "$refused" = true ]; then
+    original_rule=$(jq -r '.decided_rule // .rule // "default"' <<<"$original")
+    original_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$original")
+    last_resort_pick "$original_rule candidates refused: $original_reasons; first declared candidate used"
+    return $?
+  fi
+  last_resort_pick
+}
+
+# Settles RESULT for a stage that has decided a rule. Returns 0 when RESULT now
+# carries a final answer (a profile, or a captain-approval escalate), 1 when it
+# has no candidate at all.
+settle_stage() {  # <ok-status> <effort-json>
+  local status approval effort=${2:-$EFFORT_JSON}
+  status=$(jq -r '.status' <<<"$RESULT")
+  approval=$(jq -r '.approval // false' <<<"$RESULT")
+  case "$status" in
+    clear|picked)
+      [ "$1" = clear ] || RESULT=$(jq -c --arg s "$1" '.status = $s' <<<"$RESULT")
+      return 0
+      ;;
+  esac
+  if [ "$status" = escalate ] && [ "$approval" = true ]; then
+    return 0
+  fi
+  last_resort "$1" "$effort"
+}
+
+# ---- the chain: typed, then the backup judge, then the default stage ----------
+DECIDED_BY='' TYPED_LINE='' BACKUP_LINE=''
+if [ "$TYPED_OK" -eq 1 ]; then
+  resolve_response "$RESP_FILE" "$EFFORT_JSON" "$LAT_MS"
+  # ---- runoff: one typed Jev pick among the contenders of an ambiguous answer ----
+  # The question offers only contenders that each settled on a concrete profile
+  # above, keyed by rule and worded with the same criteria the rule Choice sent,
+  # so the model still never sees `use`, `why`, quota, or approvals. Code gates
+  # the answer on the same top-2 margin, or on an option's declared floor;
+  # anything short of that leaves the typed answer ambiguous for the backup
+  # stage (or for firstmate under --typed-only).
+  runoff_note() {  # <pick-json>: merge a non-settling outcome into RESULT
+    RESULT=$(jq -c --argjson pick "$1" '. + {pick: $pick} | del(.runoff)' <<<"$RESULT") || emit_error "runoff merge failed"
+  }
+  runoff_settle() {  # <option-key> <pick-json>: the chosen contender becomes the answer
+    RESULT=$(jq -c --arg key "$1" --argjson pick "$2" '
+      (.runoff.options[] | select(.key == $key) | .settled) as $s
+      | (.runoff.options[] | select(.key == $key) | .rules) as $rules
+      | del(.runoff) + {status: "picked", decided_rule: $key, lane: ($s.lane // $key), pick: ($pick + {rules: $rules}), candidates: $s.candidates, chosen: $s.chosen}
+        + (if $s.note then {note: $s.note} else {} end)
+        + (if $s.unranked_note then {unranked_note: $s.unranked_note} else {} end)' <<<"$RESULT") \
+      || emit_error "runoff merge failed"
+  }
+  RUNOFF_STATE=$(jq -r 'if .status == "ambiguous" then (.runoff.state // "") else "" end' <<<"$RESULT") || RUNOFF_STATE=''
+  if [ -n "$RUNOFF_STATE" ] && [ "$REPLAY" -eq 1 ]; then
+    RESULT=$(jq -c 'del(.runoff)' <<<"$RESULT") || emit_error "runoff merge failed"
+    RUNOFF_STATE=''
+  fi
+  case "$RUNOFF_STATE" in
+    skipped)
+      runoff_note "$(jq -c '{state: "skipped", reason: .runoff.reason}' <<<"$RESULT")"
+      ;;
+    agreed)
+      runoff_settle "$(jq -r '.runoff.options[0].key' <<<"$RESULT")" \
+        "$(jq -c '{state: "agreed", rules: .runoff.options[0].rules}' <<<"$RESULT")"
+      ;;
+    ask)
+      PICK_QUESTIONS=$(jq -nc --argjson result "$RESULT" --argjson questions "$QUESTIONS" '
+        {pick: {
+          type: "choice",
+          instructions: "More than one dispatch rule plausibly fits `task` (read `task.brief` and `task.project`). Which ONE option fits it best? Each option is the matching condition of one or more rules; pick the option whose condition the task meets most directly, following any Tie-break sentences.",
+          criteria: ($result.runoff.options | map({key: .key, value: ([.rules[] as $r | $questions.rule.criteria[$r]] | join(" Or: "))}) | from_entries)
+        }}') || emit_error "could not build runoff question"
+      PICK_REQUEST=$(jq -nc --argjson state "$STATE" --argjson questions "$PICK_QUESTIONS" '{state: $state, questions: $questions}') \
+        || emit_error "could not build runoff request"
+      if ! never_send_scan "$PICK_REQUEST"; then
+        runoff_note "$(jq -nc --arg why "$NEVER_SEND_WHY" '{state: "skipped", reason: ($why + "; nothing sent")}')"
       else
-        PICK=$(jq -c --argjson questions "$PICK_QUESTIONS" --argjson result "$RESULT" --arg margin "$MARGIN" --argjson lat "$PICK_LAT" "$FM_JEV_CHOICE_TOP2_JQ"'
-          ($questions.pick.criteria | keys | sort) as $keys |
-          (.answers.pick // null) as $p |
-          if ($p | type) == "object" and $p.type == "choice" and ($p.choice | type) == "string" and ($keys | index($p.choice)) != null and
-             (($p.confidence | type) == "number") and ($p.confidence >= 0) and ($p.confidence <= 1) and
-             (($p.probabilities | type) == "object") and (($p.probabilities | keys | sort) == $keys) and
-             all($p.probabilities[]; type == "number" and . >= 0 and . <= 1) and
-             (($p.probabilities | [.[]] | add) as $t | $t >= 0.99 and $t <= 1.01)
-          then
-            ($p.probabilities | jev_choice_top2) as $t2 |
-            ([$result.runoff.options[] | select(.key == $p.choice) | .floor] | first) as $floor |
-            {choice: $p.choice, probabilities: $p.probabilities, margin: $t2.margin, latency_ms: $lat}
-            # A declared min_confidence replaces the top-2 gates for its own
-            # option, exactly as it does for the rule answer.
-            + (if $floor != null then
-                 (if $p.probabilities[$p.choice] >= $floor then {state: "settled", over: [$keys[] | select(. != $p.choice)]}
-                  else {state: "undecided", reason: "runoff choice \($p.choice) probability \($p.probabilities[$p.choice]) below its floor \($floor)"} end)
-               elif $p.choice != $t2.first then {state: "undecided", reason: "runoff choice \($p.choice) is not the most probable option \($t2.first)"}
-               elif ($t2.raw_margin + 1e-9) < ($margin | tonumber) then {state: "undecided", reason: "runoff margin \($t2.margin) below \($margin) (\($t2.first) vs \($t2.second))"}
-               else {state: "settled", over: [$keys[] | select(. != $p.choice)]} end)
-          else {state: "error", reason: "response is not a runoff Choice answer"} end' "$PICK_FILE" 2>/dev/null) \
-          || PICK='{"state":"error","reason":"response is not a runoff Choice answer"}'
-        if [ "$(jq -r .state <<<"$PICK")" = settled ]; then
-          runoff_settle "$(jq -r .choice <<<"$PICK")" "$PICK"
+        [ -n "$TYPESAFE_API_KEY_PRIVATE" ] && TYPESAFE_API_KEY=$TYPESAFE_API_KEY_PRIVATE
+        [ -n "$OPENROUTER_API_KEY_PRIVATE" ] && OPENROUTER_API_KEY=$OPENROUTER_API_KEY_PRIVATE
+        PICK_ERR=0
+        fm_jev_decide "$STATE" "$PICK_QUESTIONS" > "$PICK_FILE" || PICK_ERR=$?
+        unset TYPESAFE_API_KEY OPENROUTER_API_KEY
+        PICK_LAT=${FM_JEV_LAST_LATENCY_MS:-0}
+        PICK_HTTP=${FM_JEV_LAST_HTTP:-000}
+        if [ "$PICK_ERR" -ne 0 ]; then
+          if [ -n "$PICK_HTTP" ] && [ "$PICK_HTTP" != 200 ]; then
+            runoff_note "$(jq -nc --arg why "http $PICK_HTTP after ${PICK_LAT} ms" '{state: "error", reason: $why}')"
+          else
+            runoff_note '{"state":"error","reason":"jev caller failed"}'
+          fi
         else
-          runoff_note "$PICK"
+          PICK=$(jq -c --argjson questions "$PICK_QUESTIONS" --argjson result "$RESULT" --arg margin "$MARGIN" --argjson lat "$PICK_LAT" "$FM_JEV_CHOICE_TOP2_JQ"'
+            ($questions.pick.criteria | keys | sort) as $keys |
+            (.answers.pick // null) as $p |
+            if ($p | type) == "object" and $p.type == "choice" and ($p.choice | type) == "string" and ($keys | index($p.choice)) != null and
+               (($p.confidence | type) == "number") and ($p.confidence >= 0) and ($p.confidence <= 1) and
+               (($p.probabilities | type) == "object") and (($p.probabilities | keys | sort) == $keys) and
+               all($p.probabilities[]; type == "number" and . >= 0 and . <= 1) and
+               (($p.probabilities | [.[]] | add) as $t | $t >= 0.99 and $t <= 1.01)
+            then
+              ($p.probabilities | jev_choice_top2) as $t2 |
+              ([$result.runoff.options[] | select(.key == $p.choice) | .floor] | first) as $floor |
+              {choice: $p.choice, probabilities: $p.probabilities, margin: $t2.margin, latency_ms: $lat}
+              # A declared min_confidence replaces the top-2 gates for its own
+              # option, exactly as it does for the rule answer.
+              + (if $floor != null then
+                   (if $p.probabilities[$p.choice] >= $floor then {state: "settled", over: [$keys[] | select(. != $p.choice)]}
+                    else {state: "undecided", reason: "runoff choice \($p.choice) probability \($p.probabilities[$p.choice]) below its floor \($floor)"} end)
+                 elif $p.choice != $t2.first then {state: "undecided", reason: "runoff choice \($p.choice) is not the most probable option \($t2.first)"}
+                 elif ($t2.raw_margin + 1e-9) < ($margin | tonumber) then {state: "undecided", reason: "runoff margin \($t2.margin) below \($margin) (\($t2.first) vs \($t2.second))"}
+                 else {state: "settled", over: [$keys[] | select(. != $p.choice)]} end)
+            else {state: "error", reason: "response is not a runoff Choice answer"} end' "$PICK_FILE" 2>/dev/null) \
+            || PICK='{"state":"error","reason":"response is not a runoff Choice answer"}'
+          if [ "$(jq -r .state <<<"$PICK")" = settled ]; then
+            runoff_settle "$(jq -r .choice <<<"$PICK")" "$PICK"
+          else
+            runoff_note "$PICK"
+          fi
         fi
       fi
+      ;;
+  esac
+  if [ "$TYPED_ONLY" -eq 0 ]; then
+    TYPED_STATUS=$(jq -r '.status' <<<"$RESULT")
+    case "$TYPED_STATUS" in
+      ambiguous|error)
+        TYPED_REASON="$TYPED_STATUS: $(jq -r '.reason // "-"' <<<"$RESULT")"
+        ;;
+      *)
+        if settle_stage clear "$EFFORT_JSON"; then
+          DECIDED_BY=${DECIDED_BY:-typed}
+        else
+          TYPED_REASON="$TYPED_STATUS: $(jq -r '.reason // "-"' <<<"$RESULT")"
+        fi
+        ;;
+    esac
+  fi
+fi
+
+if [ "$TYPED_ONLY" -eq 0 ] && [ -z "$DECIDED_BY" ]; then
+  TYPED_LINE=${TYPED_REASON:-skipped}
+  # The backup judge gets the same state and the same rule and effort
+  # questions the typed call was allowed to send, already never-send checked.
+  if [ -n "$STATE" ] && [ "$NEVER_SEND_BLOCKED" -eq 0 ]; then
+    BACKUP_QUESTIONS=$(jq -c '{rule: .rule, effort: .effort}' <<<"$QUESTIONS") || BACKUP_QUESTIONS=''
+    if [ -z "$BACKUP_QUESTIONS" ]; then
+      BACKUP_LINE='failed (could not build the backup questions)'
+    elif fm_backup_judge "$STATE" "$BACKUP_QUESTIONS" "$BACKUP_FILE"; then
+      BACKUP_MODEL=${FM_BACKUP_JUDGE_MODEL_USED:-$FM_BACKUP_JUDGE_DEFAULT_MODEL}
+      BACKUP_RULE=$(jq -r '.rule' "$BACKUP_FILE")
+      BACKUP_EFFORT=$(jq -r '.effort' "$BACKUP_FILE")
+      BACKUP_LINE="$BACKUP_RULE effort=$BACKUP_EFFORT ($BACKUP_MODEL, ${FM_BACKUP_JUDGE_LATENCY_MS} ms)"
+      BACKUP_RESP=$(mktemp) || emit_error "mktemp failed"
+      one_hot_response "$BACKUP_RULE" "backup:$BACKUP_MODEL" "$BACKUP_RESP"
+      BACKUP_EFFORT_JSON=$(jq -nc --arg e "$BACKUP_EFFORT" '{choice: $e, confidence: 1, source: "backup"}')
+      resolve_response "$BACKUP_RESP" "$BACKUP_EFFORT_JSON" "${FM_BACKUP_JUDGE_LATENCY_MS:-0}"
+      rm -f "$BACKUP_RESP"
+      if settle_stage backup "$BACKUP_EFFORT_JSON"; then
+        DECIDED_BY=${DECIDED_BY:-backup}
+      else
+        BACKUP_LINE="$BACKUP_LINE; $BACKUP_RULE has no candidate"
+      fi
+    else
+      BACKUP_LINE="failed ($FM_BACKUP_JUDGE_WHY)"
     fi
-    ;;
-esac
+  else
+    BACKUP_LINE="skipped (${TYPED_SKIP:-no request})"
+  fi
+fi
+
+if [ "$TYPED_ONLY" -eq 0 ] && [ -z "$DECIDED_BY" ]; then
+  # The default stage: the configured default profiles, else the first rule,
+  # with the best effort assessment any stage made.
+  if [ "$HAS_DEFAULT" = true ]; then
+    DEFAULT_CHOICE=default
+  else
+    DEFAULT_CHOICE=rule_1
+  fi
+  DEFAULT_EFFORT_JSON=$EFFORT_JSON
+  if [ "$(jq -r '.source' <<<"$EFFORT_JSON")" != jev ] && [ -n "${BACKUP_EFFORT:-}" ]; then
+    DEFAULT_EFFORT_JSON=$(jq -nc --arg e "$BACKUP_EFFORT" '{choice: $e, confidence: 1, source: "backup"}')
+  fi
+  DEFAULT_RESP=$(mktemp) || emit_error "mktemp failed"
+  one_hot_response "$DEFAULT_CHOICE" default "$DEFAULT_RESP"
+  resolve_response "$DEFAULT_RESP" "$DEFAULT_EFFORT_JSON" 0
+  rm -f "$DEFAULT_RESP"
+  settle_stage fallback "$DEFAULT_EFFORT_JSON" || emit_error "no candidate in the default stage"
+  DECIDED_BY=${DECIDED_BY:-default}
+fi
+
+if [ "$TYPED_ONLY" -eq 0 ]; then
+  RESULT=$(jq -c --arg by "$DECIDED_BY" --arg typed "$TYPED_LINE" --arg backup "$BACKUP_LINE" --arg quota "$QUOTA_NOTE" '
+    .chain = ({decided_by: $by}
+      + (if $typed != "" then {typed: $typed} else {} end)
+      + (if $backup != "" then {backup: $backup} else {} end))
+    | if $quota != "" then .quota_note = $quota else . end' <<<"$RESULT") || emit_error "chain merge failed"
+fi
 
 TEXT=$(jq -r '
   def flat: tostring | gsub("[\t\r\n]"; " ");
@@ -1049,10 +1409,14 @@ TEXT=$(jq -r '
   def shell_arg: flat | @sh;
   "dispatch-resolve:",
   "  status: \(.status | flat)",
+  (if .chain then "  decided: \((.lane // .decided_rule // .rule) | flat) by \(.chain.decided_by | flat)" else empty end),
+  (if .chain and .lane and .lane != (.decided_rule // .rule) then "  matched: \((.decided_rule // .rule) | flat) (its profiles were not used)" else empty end),
+  (if .chain.typed then "  typed: \(.chain.typed | flat)" else empty end),
+  (if .chain.backup then "  backup: \(.chain.backup | flat)" else empty end),
   "  model: \(show(.model))   latency_ms: \(show(.latency_ms))   tokens: \(show(.tokens.input_tokens))/\(show(.tokens.output_tokens))",
   "  rule: \(.rule | flat) (\(.rule_when | flat))   confidence: \(.confidence | flat)",
   "  probabilities: \([.probabilities | to_entries[] | "\(.key | flat)=\(.value | flat)"] | join(" "))",
-  "  effort: \(show(.effort.choice)) (\(if .effort.source == "jev" then "jev confidence=\(show(.effort.confidence))" elif .effort.source == "declared" then "declared" else "declared fallback (classifier \(.effort.source))" end))",
+  "  effort: \(show(.effort.choice)) (\(if .effort.source == "jev" then "jev confidence=\(show(.effort.confidence))" elif .effort.source == "declared" then "declared" elif .effort.source == "backup" then "backup judge" else "declared fallback (classifier \(.effort.source))" end))",
   (if .fallback then "  fallback: \(.fallback | flat)" else empty end),
   (if .reason then "  reason: \(.reason | flat)" else empty end),
   (if .pick == null then empty
@@ -1061,9 +1425,11 @@ TEXT=$(jq -r '
    else "  pick: \(.pick.state | flat) (\(show(.pick.reason)))" end),
   (if .note then "  note: \(.note | flat)" else empty end),
   (if .unranked_note then "  note: \(.unranked_note | flat)" else empty end),
+  (if .quota_note then "  note: \(.quota_note | flat)" else empty end),
+  (if .last_resort then "  last_resort: \(.last_resort | flat)" else empty end),
   (.candidates[]? | "  candidate: \(.profile.harness | flat):\(show(.profile.model))"
       + (if .provider then "  provider=\(.provider | flat)" else "" end)
-      + (if .effort then "  effort=\(.effort | flat)" + (if .ceiling then "(\(.ceiling | flat) ceiling)" else "" end) + (if .effort_note then " [\(.effort_note | flat)]" else "" end) else "" end)
+      + (if .effort then "  effort=\(.effort | flat)" + (if .range then "(range \(.range | flat))" else "" end) + (if .clamped then " [clamped from \(.clamped | flat)]" else "" end) + (if .effort_note then " [\(.effort_note | flat)]" else "" end) else "" end)
       + (if .scope then "  scope=\(.scope | flat)  remaining=\(show(.pct))%  spendPriority=\(show(.spendPriority))  runway=\(show(.runway))" else "" end)
       + (if .pred then "  pred=~\(.pred.tokens | flat)tok/\(show(.pred.seconds))s" elif has("pred") then "  pred=unknown" else "" end)
       + (if (.bounds // [] | length) > 1 then "  bounds=" + ([.bounds[] | "\(.scope | flat):\(show(.pct))%/\((.runway // .status) | flat)"] | join(",")) else "" end)
@@ -1089,6 +1455,7 @@ if fm_dispatch_shadow_on; then
       project: $project,
       compact: ($compact == "1"),
       status: $result.status,
+      decided_by: ($result.chain.decided_by // null),
       rule: $result.rule,
       confidence: $result.confidence,
       probabilities: $result.probabilities,
@@ -1100,5 +1467,15 @@ if fm_dispatch_shadow_on; then
     fm_jev_log_call "$SHADOW" "$SHADOW_PATH" || true
   fi
 fi
+dispatch_log "$(jq -c '{
+    status, decided_by: (.chain.decided_by // null), rule: (.lane // .decided_rule // .rule),
+    matched_rule: (if .lane and .lane != (.decided_rule // .rule) then (.decided_rule // .rule) else null end),
+    typed: (.chain.typed // null), backup: (.chain.backup // null),
+    effort: {assessed: (.effort.choice // null), source: (.effort.source // null),
+             emitted: (if .chosen then (if .chosen.effort_emit == false then (.chosen.profile.effort // null) else (.chosen.effort // .chosen.profile.effort // null) end) else null end),
+             clamped_from: (.chosen.clamped // null)},
+    profile: (if .chosen then .chosen.profile | {harness, model, provider} | with_entries(select(.value != null)) else null end),
+    reason: (.last_resort // .reason // null)
+  }' <<<"$RESULT" 2>/dev/null || printf '{}')"
 printf '%s\n' "$TEXT"
 exit 0

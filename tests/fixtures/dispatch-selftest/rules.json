@@ -1,0 +1,42 @@
+{
+  "rules": [
+    {
+      "when": "Thinking work: design, planning, an investigation, or a hard bug whose cause is unknown.",
+      "use": { "harness": "claude", "model": "claude-opus-5-5", "effort": "medium", "effort_max": "xhigh" }
+    },
+    {
+      "when": "Frontend work: web pages, styling, layout, or a web interface component.",
+      "beats": [{ "rule": 1 }],
+      "use": [
+        { "harness": "claude", "model": "claude-opus-5-5", "effort": "medium" },
+        { "harness": "devin", "model": "swe-2-max", "provider": "devin" }
+      ]
+    },
+    {
+      "when": "Work that needs the Luna model: image generation or reading a very large document set at once.",
+      "beats": [{ "rule": 1 }, { "rule": 2 }],
+      "use": { "harness": "pi", "model": "openai-codex/gpt-6-luna", "effort": "high", "provider": "codex" }
+    },
+    {
+      "when": "Bulk mechanical work across many files: renames, codemods, or mass formatting.",
+      "beats": [{ "rule": 1, "when": "the change is the same edit repeated" }],
+      "use": { "harness": "claude", "model": "claude-haiku-5-5", "effort": "xhigh" }
+    },
+    {
+      "when": "Fast work that needs no thinking: a typo, a version bump, or a one-line configuration change.",
+      "beats": [{ "rule": 1, "when": "the fix is already stated" }, { "rule": 6, "when": "the change is one line" }],
+      "use": { "harness": "claude", "model": "claude-haiku-5-5", "effort": "high", "effort_min": "low" }
+    },
+    {
+      "when": "Well-scoped implementation with a stated plan and acceptance criteria.",
+      "beats": [{ "rule": 1, "when": "the plan is already written" }],
+      "use": { "harness": "claude", "model": "claude-opus-5-5", "effort": "medium", "effort_min": "low", "effort_max": "high" }
+    },
+    {
+      "when": "Any work on the Example Shop website or the Example Arena game.",
+      "beats": [{ "rule": 1 }, { "rule": 2 }, { "rule": 4 }, { "rule": 6 }],
+      "use": { "harness": "claude", "model": "claude-opus-5-5", "effort": "high" }
+    }
+  ],
+  "default": { "harness": "claude", "model": "claude-opus-5-5", "effort": "medium" }
+}
