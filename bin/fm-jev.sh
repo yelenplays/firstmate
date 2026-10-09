@@ -29,11 +29,12 @@
 #
 # Model choices: a pick or score question whose options name a model (any
 # option matching bin/fm-model-denylist-lib.sh's model test), or any call with
-# --models, is a model choice. Options matching a never-use rule are removed
-# before sending, a question left with fewer than two options is refused, and
-# the captain model-rules summary from that library is appended to the state,
-# all inside the same byte cap and privacy screen. docs/configuration.md
-# "Never-use model list" owns the list.
+# --models, is a model choice. An option is removed before sending when its
+# label or the first model its meaning names matches a never-use rule, so a
+# meaning that later mentions a banned model keeps it; a question left with
+# fewer than two options is refused, and the captain model-rules summary from
+# that library is appended to the state, all inside the same byte cap and
+# privacy screen. docs/configuration.md "Never-use model list" owns the list.
 #
 # Escalation floor: a verdict whose confidence is below the floor prints
 # ESCALATE. The default floor follows the confidence source: 0.5 for the
@@ -240,8 +241,10 @@ if [ "$MODELS" -eq 0 ]; then
 fi
 if [ "$MODELS" -eq 1 ]; then
   [ "$DENYLIST_OK" -eq 1 ] || die "$FM_MODEL_DENYLIST_ERROR; nothing sent"
-  NORM=$(printf '%s' "$NORM" | jq -c --argjson list "$FM_MODEL_DENYLIST_JSON" "$FM_MODEL_DENYLIST_JQ"'
-    def banned($o): model_banned_any($list; [$o[0]] + [$o[1] | splits("[\\s,;()]+") | select(. != "")]) != null;
+  NORM=$(printf '%s' "$NORM" | jq -c --argjson list "$FM_MODEL_DENYLIST_JSON" --arg family "$FM_MODEL_FAMILY_RE" "$FM_MODEL_DENYLIST_JQ"'
+    def model_like: (ascii_downcase | test($family)) or model_ban($list; .) != null;
+    def lead_model: first(splits("[\\s,;()]+") | select(. != "" and model_like)) // "";
+    def banned($o): model_banned_any($list; [$o[0], ($o[1] | lead_model)]) != null;
     .questions |= map(if .type == "yes" then .
       else .removed = [.opts[] | select(banned(.)) | .[0]]
         | .opts = [.opts[] | select(banned(.) | not)] end)') \

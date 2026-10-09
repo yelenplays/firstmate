@@ -20,14 +20,21 @@
 #   fm_model_denylist_check_launch <what> <harness> [<model>]
 #     Checks the model, harness/model, and, with no model, the bare harness
 #     name, which then stands for that harness's own default model.
-#   fm_model_denylist_text_pins <text>
+#   fm_model_denylist_command_pins <command>
 #     Prints one model id per line for every `--model <id>` or `--model=<id>`
-#     pin in the text.
+#     in one command line, as `<provider>/<id>` when the command also passes
+#     `--provider <provider>`. A word starting with # ends the command.
+#   fm_model_denylist_brief_pins <text>
+#     The command pins of every launch command line in prose: a line, code
+#     span, or shell-separated segment that starts with no-mistakes, fm-spawn,
+#     or a harness binary. Prose that only mentions `--model <id>` is no pin.
 #   fm_model_denylist_yaml_pins <file>
 #     Prints one model id per line for every model a no-mistakes config pins:
-#     `--model` argument lists (block or inline) and `model:` keys.
+#     `--provider`/`--model` argument lists (block or inline) and `provider:`
+#     with `model:` keys, each combined within its own block. Comments,
+#     whole-line or trailing, are ignored.
 #   fm_model_denylist_check_pins <what> <pins>
-#     Checks each newline-separated pin from the two helpers above.
+#     Checks each newline-separated pin from the helpers above.
 #   fm_model_denylist_check_nm_config [<file>]
 #     Checks every model the no-mistakes global config pins for its pipeline
 #     agents (default ${NM_HOME:-$HOME/.no-mistakes}/config.yaml); an absent
@@ -150,41 +157,71 @@ fm_model_denylist_clean_pin() {
   printf '%s' "$v"
 }
 
-fm_model_denylist_text_pins() {
-  local token
-  while IFS= read -r token; do
-    token=${token#--model}
-    token=${token#=}
-    token=${token#"${token%%[![:space:]]*}"}
-    token=$(fm_model_denylist_clean_pin "$token")
-    [ -z "$token" ] || printf '%s\n' "$token"
-  done < <(printf '%s\n' "${1:-}" | grep -oE -e '--model(=|[[:space:]]+)[^[:space:]]+' 2>/dev/null || true)
+fm_model_denylist_command_pins() {
+  local -a words models=()
+  local i word provider='' model
+  read -r -a words <<<"${1//$'\n'/ }"
+  for ((i = 0; i < ${#words[@]}; i++)); do
+    word=${words[i]#[\"\'\`]}
+    case "$word" in
+      '#'*) break ;;
+      --model=*) models+=("${word#--model=}") ;;
+      --model) models+=("${words[i + 1]:-}"); i=$((i + 1)) ;;
+      --provider=*) provider=${word#--provider=} ;;
+      --provider) provider=${words[i + 1]:-}; i=$((i + 1)) ;;
+    esac
+  done
+  provider=$(fm_model_denylist_clean_pin "$provider")
+  for model in "${models[@]+"${models[@]}"}"; do
+    model=$(fm_model_denylist_clean_pin "$model")
+    [ -n "$model" ] || continue
+    if [ -n "$provider" ] && [ "${model#"$provider"/}" = "$model" ]; then
+      model="$provider/$model"
+    fi
+    printf '%s\n' "$model"
+  done
+}
+
+FM_MODEL_LAUNCH_RE='^[[:space:]]*(([-*+>$]|[0-9]+[.)])[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*([^[:space:]]*/)?(no-mistakes|fm-spawn(\.sh)?|claude|codex|opencode|pi|pi-signed|grok|kimi|cursor-agent|gemini|muse|rovo|omp|agy|devin)([[:space:]]|$)'
+
+fm_model_denylist_brief_pins() {
+  local segment text=${1:-}
+  while IFS= read -r segment; do
+    fm_model_denylist_command_pins "$segment"
+  done < <(printf '%s\n' "${text//[\`;|&]/$'\n'}" | grep -E "$FM_MODEL_LAUNCH_RE" || true)
 }
 
 fm_model_denylist_yaml_pins() {
-  local file=$1
+  local file=$1 command
   [ -f "$file" ] && [ -r "$file" ] || return 0
-  awk '
-    function clean(v) {
-      sub(/^[ \t]*-?[ \t]*/, "", v); sub(/[ \t]+#.*$/, "", v)
-      gsub(/^["\x27]|["\x27,]*[ \t]*$/, "", v)
-      return v
+  while IFS= read -r command; do
+    fm_model_denylist_command_pins "$command"
+  done < <(awk '
+    function owner(ind, item) {
+      while (depth > 0 && (at[depth] > ind || (!item && at[depth] == ind))) depth--
+      return depth > 0 ? id[depth] : 0
     }
-    /^[ \t]*#/ { next }
+    function unquote(v) { gsub(/^["\x27]|["\x27]$/, "", v); return v }
+    function words(v) { gsub(/[][,"\x27]/, " ", v); return v }
+    function add(o, v) { if (!(o in cmd)) order[++n] = o; cmd[o] = cmd[o] " " v }
+    /^[ \t]*(#|$)/ { next }
     {
       line = $0
-      if (want) {
-        if (line ~ /^[ \t]*-[ \t]*[^ \t]/) { v = clean(line); if (v != "") print v }
-        want = 0
-        next
-      }
-      if (line ~ /^[ \t]*-[ \t]*["\x27]?--model["\x27]?[ \t]*(#.*)?$/) { want = 1; next }
-      if (match(line, /--model[= \t,"\x27]+[^] \t,"\x27]+/)) {
-        v = substr(line, RSTART, RLENGTH); sub(/^--model[= \t,"\x27]+/, "", v); print v
-      }
-      if (line ~ /^[ \t]*model:[ \t]*[^ \t#]/) { v = line; sub(/^[ \t]*model:/, "", v); v = clean(v); if (v != "") print v }
+      sub(/[ \t]+#.*$/, "", line); sub(/[ \t]+$/, "", line)
+      match(line, /^[ \t]*/); ind = RLENGTH
+      body = substr(line, ind + 1)
+      if (body ~ /^-([ \t]|$)/) { sub(/^-[ \t]*/, "", body); add(owner(ind, 1), words(body)); next }
+      if (!match(body, /^["\x27]?[A-Za-z0-9_.-]+["\x27]?[ \t]*:([ \t]|$)/)) next
+      key = substr(body, 1, RLENGTH); sub(/[ \t]*:[ \t]*$/, "", key); key = unquote(key)
+      val = substr(body, RLENGTH + 1); sub(/^[ \t]+/, "", val)
+      parent = owner(ind, 0)
+      if (val == "") { depth++; at[depth] = ind; id[depth] = NR; next }
+      if (key == "provider") add(parent, "--provider " unquote(val))
+      else if (key == "model") add(parent, "--model " unquote(val))
+      else add(NR, words(val))
     }
-  ' "$file"
+    END { for (i = 1; i <= n; i++) print cmd[order[i]] }
+  ' "$file")
 }
 
 fm_model_denylist_check_pins() {

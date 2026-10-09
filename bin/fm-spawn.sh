@@ -416,7 +416,7 @@
 #   before provisioning; __PIEXCLUDE__ below owns the Pi launch substitution.
 # Never-use model list (config/model-denylist.json): every launch, including a
 #   secondmate pin, a dispatch profile, an explicit --model, a raw launch
-#   command's --model, a --model pin written in the brief, and for a no-mistakes
+#   command's --model, a --model pin on a launch command line in the brief, and for a no-mistakes
 #   ship the models the no-mistakes config pins for its pipeline agents, is
 #   checked before provisioning; a match refuses with exit 1 naming the rule and
 #   reason. bin/fm-model-denylist-lib.sh owns matching; docs/configuration.md
@@ -2629,7 +2629,8 @@ if [ "$KIND" = secondmate ] && [ -z "$ARG3" ]; then
 fi
 # Never-use model list (bin/fm-model-denylist-lib.sh; docs/configuration.md
 # "Never-use model list"): the fully resolved harness and model, any model a raw
-# launch command or the brief pins with --model, and, for a no-mistakes ship, the
+# launch command or a launch command line in the brief pins with --model (with
+# its --provider), and, for a no-mistakes ship, the
 # models the no-mistakes config pins for its pipeline agents are refused before
 # any worktree, endpoint, or record exists. An absent list changes nothing.
 fm_model_denylist_load "$CONFIG" || {
@@ -2640,13 +2641,13 @@ MODEL_DENYLIST_REFUSED=0
 if [ "$RAW_LAUNCH" = 0 ]; then
   fm_model_denylist_check_launch "worker model" "$HARNESS" "$MODEL" || MODEL_DENYLIST_REFUSED=1
 else
-  fm_model_denylist_check_pins "raw launch model" "$(fm_model_denylist_text_pins "$ARG3")" || MODEL_DENYLIST_REFUSED=1
+  fm_model_denylist_check_pins "raw launch model" "$(fm_model_denylist_command_pins "$ARG3")" || MODEL_DENYLIST_REFUSED=1
   [ "$MODEL_DENYLIST_REFUSED" = 1 ] || [ -z "$MODEL" ] \
     || fm_model_denylist_check "worker model" "$MODEL" || MODEL_DENYLIST_REFUSED=1
 fi
 if [ "$MODEL_DENYLIST_REFUSED" = 0 ] && [ "$KIND" != secondmate ] && [ -r "$DATA/$ID/brief.md" ]; then
   fm_model_denylist_check_pins "model pinned in $DATA/$ID/brief.md" \
-    "$(fm_model_denylist_text_pins "$(cat "$DATA/$ID/brief.md")")" || MODEL_DENYLIST_REFUSED=1
+    "$(fm_model_denylist_brief_pins "$(cat "$DATA/$ID/brief.md")")" || MODEL_DENYLIST_REFUSED=1
 fi
 if [ "$MODEL_DENYLIST_REFUSED" = 0 ] && [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
   fm_model_denylist_check_nm_config || MODEL_DENYLIST_REFUSED=1

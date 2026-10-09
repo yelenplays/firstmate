@@ -142,6 +142,59 @@ YAML
   pass "a brief or no-mistakes reviewer pin naming a banned model refuses the ship"
 }
 
+test_provider_split_pins_refuse() {
+  local out rc
+  new_case provider
+  write_denylist
+  out=$(spawn_ship deny-raw-provider no-mistakes "pi --provider kimi-coding --model k3"); rc=$?
+  expect_code 1 "$rc" "a raw launch splitting a banned model across --provider and --model must refuse"
+  assert_refused_before_launch deny-raw-provider "$out" "raw launch model 'kimi-coding/k3' is on the never-use model list"
+
+  fm_test_spawn_brief "$HOME_DIR" deny-brief-provider $'Run the review:\n\n```sh\nno-mistakes axi run --provider kimi-coding --model k3\n```'
+  out=$(spawn_ship deny-brief-provider no-mistakes claude --model claude-opus-5-5); rc=$?
+  expect_code 1 "$rc" "a brief command line splitting a banned model across --provider and --model must refuse"
+  assert_refused_before_launch deny-brief-provider "$out" "'kimi-coding/k3' is on the never-use model list"
+
+  printf 'agent_args_override:\n  pi: [--provider, kimi-coding, --model, k3]\n' > "$NM_DIR/config.yaml"
+  out=$(spawn_ship deny-nm-flow no-mistakes claude --model claude-opus-5-5); rc=$?
+  expect_code 1 "$rc" "an inline agent_args_override list splitting a banned model must refuse"
+  assert_refused_before_launch deny-nm-flow "$out" "no-mistakes reviewer model in $NM_DIR/config.yaml 'kimi-coding/k3' is on the never-use model list"
+
+  printf 'agent_args_override:\n  pi:\n    - --provider\n    - kimi-coding\n    - --model\n    - k3\n  claude:\n    - --model\n    - claude-opus-5-5\n' > "$NM_DIR/config.yaml"
+  out=$(spawn_ship deny-nm-block no-mistakes claude --model claude-opus-5-5); rc=$?
+  expect_code 1 "$rc" "a block agent_args_override list splitting a banned model must refuse"
+  assert_refused_before_launch deny-nm-block "$out" "'kimi-coding/k3' is on the never-use model list"
+
+  printf 'agent_config:\n  pi:\n    provider: kimi-coding\n    model: k3\n  claude:\n    model: claude-opus-5-5\n' > "$NM_DIR/config.yaml"
+  out=$(spawn_ship deny-nm-keys no-mistakes claude --model claude-opus-5-5); rc=$?
+  expect_code 1 "$rc" "provider: and model: keys in one block naming a banned model must refuse"
+  assert_refused_before_launch deny-nm-keys "$out" "'kimi-coding/k3' is on the never-use model list"
+  pass "a model split across --provider and --model, or provider: and model:, is checked as provider/model"
+}
+
+test_mentions_and_comments_are_not_pins() {
+  local out rc
+  new_case mentions
+  write_denylist
+  fm_test_spawn_brief "$HOME_DIR" deny-prose "Reproduce the incident, but do not pass \`--model kimi-coding/k3\` to anything; run \`no-mistakes axi run\` with its default reviewer."
+  cat > "$NM_DIR/config.yaml" <<'YAML'
+agent: [pi] # was --model kimi-coding/k3
+agent_args_override:
+  # pi: [--provider, kimi-coding, --model, k3]
+  pi:
+    # - --model
+    # - kimi-coding/k3
+    - --provider
+    - openai-codex
+    - --model
+    - gpt-6.1-sol # replaced kimi-coding/k3
+YAML
+  out=$(spawn_ship deny-prose no-mistakes claude --model claude-opus-5-5); rc=$?
+  expect_code 0 "$rc" "prose that forbids a banned model and commented YAML must not refuse: $out"
+  assert_grep "claude-opus-5-5" "$CASE/launch.log" "the allowed model is launched"
+  pass "prose mentioning a banned model and YAML comments, whole-line or trailing, are not pins"
+}
+
 test_malformed_list_refuses() {
   local out rc
   new_case malformed
@@ -179,6 +232,12 @@ test_library_matching_and_summary() {
     [ "$(printf '%s' "$summary" | wc -c | tr -d ' ')" -le 40 ] || fail "the summary honors its byte cap: $summary"
     fm_model_option_looks_like_model "Sol 6.1 high" || fail "a Sol option names a model"
     fm_model_option_looks_like_model "solution draft" && fail "an ordinary word is not a model"
+    assert_equals "$(fm_model_denylist_command_pins "no-mistakes axi run --provider kimi-coding --model k3")" "kimi-coding/k3" "a command line combines --provider with --model"
+    assert_equals "$(fm_model_denylist_command_pins "pi --model=openai-codex/gpt-6-luna --provider=openai-codex")" "openai-codex/gpt-6-luna" "a model already carrying its provider is not prefixed twice"
+    assert_equals "$(fm_model_denylist_command_pins "no-mistakes axi run # --model kimi-coding/k3")" "" "a shell comment is not a pin"
+    assert_equals "$(fm_model_denylist_brief_pins $'Never pass `--model kimi-coding/k3`.\n- `no-mistakes axi run --model claude-opus-5-5`\n$ pi --provider openai-codex --model gpt-6.1-sol')" \
+      $'claude-opus-5-5\nopenai-codex/gpt-6.1-sol' "only launch command lines in prose are pins"
+
     exit 0
   ) || fail "library checks failed"
   pass "the library matches suffixes case-insensitively, summarizes within its cap, and recognizes model options"
@@ -187,5 +246,7 @@ test_library_matching_and_summary() {
 test_absent_list_keeps_launches_unchanged
 test_banned_model_refuses_every_launch_shape
 test_brief_and_reviewer_pins_refuse
+test_provider_split_pins_refuse
+test_mentions_and_comments_are_not_pins
 test_malformed_list_refuses
 test_library_matching_and_summary

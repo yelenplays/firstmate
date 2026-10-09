@@ -1482,10 +1482,12 @@ A file that is present but unreadable, not a regular file, or malformed is never
 Where the list is enforced:
 
 - `bin/fm-spawn.sh` refuses a worker or secondmate launch whose resolved harness and model match, whatever chose them: a dispatch profile, an explicit `--model`, a secondmate pin, or a raw launch command's `--model`.
-  It also refuses a ship or scout whose brief pins a matching model with `--model <id>`, and a no-mistakes ship while `${NM_HOME:-~/.no-mistakes}/config.yaml` pins a matching model for a pipeline agent through `agent_args_override` or a `model:` key.
+  It also refuses a ship or scout whose brief pins a matching model on a launch command line: a line, code span, or shell-separated segment that starts with `no-mistakes`, `fm-spawn.sh`, or a harness binary and passes `--model <id>`, checked as `<provider>/<id>` when it also passes `--provider <provider>`.
+  Prose that only mentions or forbids a model, such as "do not pass `--model <id>`", is not a pin.
+  A no-mistakes ship is refused while `${NM_HOME:-~/.no-mistakes}/config.yaml` pins a matching model for a pipeline agent through `agent_args_override` (`--provider` and `--model` in one agent's list) or `provider:` and `model:` keys in one block; YAML comments, whole-line or trailing, are ignored.
   The refusal exits 1 before any worktree, window, or record exists and names the rule and its reason.
 - `bin/fm-dispatch-resolve.sh` marks a matching profile not eligible, so it is never chosen, ranked, or offered in a runoff, and its candidate line names the rule.
-- Jev calls that pick a model drop matching options before anything is sent and append a captain model-rules summary to the state: `bin/fm-jev.sh` for any pick or score question whose options name a model or that passes `--models`, `bin/fm-jev-model-proposal.sh` for its candidates, and the dispatch resolver's runoff.
+- Jev calls that pick a model drop matching options before anything is sent (an option matches by its label or the first model its meaning names, so a meaning that later mentions a banned model keeps the option) and append a captain model-rules summary to the state: `bin/fm-jev.sh` for any pick or score question whose options name a model or that passes `--models`, `bin/fm-jev-model-proposal.sh` for its candidates, and the dispatch resolver's runoff.
   The summary lists every `never` pattern with its reason followed by the `rules` sentences, is cut to 700 bytes, and still passes each caller's byte cap and privacy screen.
   A `bin/fm-jev.sh` question left with fewer than two options is refused with nothing sent.
 
