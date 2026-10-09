@@ -79,9 +79,20 @@ JSON
 SH
 chmod +x "$FAKEBIN/quota-axi"
 
+output_identity() {
+  if [ "$(uname)" = Darwin ]; then
+    stat -f %i "$1" 2>/dev/null
+  else
+    stat -c %i "$1" 2>/dev/null
+  fi
+}
+
 run_selftest() { # <exit-var> <out-var> [args...]
   local __exit=$1 __out=$2 _out _code
   shift 2
+  if [ "${1:-}" = check ]; then
+    before_check_output=$(output_identity "$HOME_DIR/state/dispatch-selftest/last.out")
+  fi
   _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY=selftest-key FM_BACKUP_JUDGE_CMD=fake-claude \
     FM_SPEND_LEDGER="${FM_SPEND_LEDGER:-/nonexistent}" "$TOOL" "$@" 2>&1)
   _code=$?
@@ -276,7 +287,8 @@ assert_equals 3600 "$(cat "$HOME_DIR/state/dispatch-selftest.check-every")" "arm
 wait_for_result() {
   local i
   for ((i = 0; i < 300; i++)); do
-    if [ ! -d "$HOME_DIR/state/dispatch-selftest/running" ] \
+    if [ "$(output_identity "$HOME_DIR/state/dispatch-selftest/last.out")" != "${before_check_output:-}" ] \
+      && [ ! -d "$HOME_DIR/state/dispatch-selftest/running" ] \
       && jq -e '.state == "done"' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null 2>&1; then
       return 0
     fi
@@ -354,6 +366,60 @@ wait "$direct_pid" || fail "run --record: direct recorded run failed"
 jq -e '.state == "done" and .exit == 0' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null || fail "run --record: recorded pass was not preserved"
 pass "run --record shares the check lock and cannot be mistaken for a stopped run"
 
+real_perl=$(command -v perl) || fail 'perl is required for check scheduling tests'
+export FAKE_REAL_PERL="$real_perl"
+cat > "$FAKEBIN/perl" <<'SH'
+#!/usr/bin/env bash
+if [ -n "${FAKE_SLOT_BARRIER:-}" ]; then
+  exec 3<> "$FAKE_SLOT_BARRIER"
+  : > "$FAKE_SLOT_BARRIER.ready"
+  read -r -t 30 _ <&3 || exit 1
+fi
+exec "$FAKE_REAL_PERL" "$@"
+SH
+chmod +x "$FAKEBIN/perl"
+for snapshot_case in completed stopped missing; do
+  barrier="$TMP_ROOT/snapshot-$snapshot_case"
+  mkfifo "$barrier"
+  if [ "$snapshot_case" = stopped ]; then
+    jq -n --argjson at "$(date +%s)" '{started: $at, state: "running"}' > "$HOME_DIR/state/dispatch-selftest/result.json"
+    mkdir "$HOME_DIR/state/dispatch-selftest/running"
+    printf '999999999\n' > "$HOME_DIR/state/dispatch-selftest/running/pid"
+  elif [ "$snapshot_case" = missing ]; then
+    mv "$HOME_DIR/config/dispatch-samples.json" "$TMP_ROOT/held-samples.json"
+  fi
+  FAKE_REAL_PERL="$real_perl" FAKE_SLOT_BARRIER="$barrier" PATH="$FAKEBIN:$BASE_PATH" \
+    FM_HOME="$HOME_DIR" FM_SPEND_LEDGER=/nonexistent "$TOOL" check > "$barrier.out" 2>&1 &
+  checker_pid=$!
+  for ((i = 0; i < 200; i++)); do
+    [ -f "$barrier.ready" ] && break
+    sleep 0.02
+  done
+  [ -f "$barrier.ready" ] || fail "$snapshot_case: check never reached the scheduling barrier"
+  cp "$HOME_DIR/state/dispatch-selftest/result.json" "$barrier.record"
+  run_selftest code out run --record
+  expect_code 1 "$code" "$snapshot_case: recorded run cannot enter a check's snapshot"
+  assert_contains "$out" 'a recorded run is already active' "$snapshot_case: check owns the recorded-run guard"
+  run_selftest code out check
+  assert_equals '' "$out" "$snapshot_case: another check cannot enter the guarded snapshot"
+  cmp -s "$barrier.record" "$HOME_DIR/state/dispatch-selftest/result.json" || fail "$snapshot_case: overlapping calls changed the result"
+  printf 'continue\n' > "$barrier"
+  wait "$checker_pid" || fail "$snapshot_case: guarded check failed"
+  case "$snapshot_case" in
+    completed) assert_equals '' "$(cat "$barrier.out")" 'completed: the pass is not reported as stopped' ;;
+    stopped) assert_contains "$(cat "$barrier.out")" 'dispatch selftest failed: the run stopped before it finished' 'stopped: abandoned state is recovered once' ;;
+    missing)
+      assert_contains "$(cat "$barrier.out")" 'dispatch selftest failed: error: samples file is missing' 'missing: missing inputs are published under ownership'
+      mv "$TMP_ROOT/held-samples.json" "$HOME_DIR/config/dispatch-samples.json" ;;
+  esac
+  [ ! -d "$HOME_DIR/state/dispatch-selftest/running" ] || fail "$snapshot_case: check did not release the guard"
+  run_selftest code out run --record
+  expect_code 0 "$code" "$snapshot_case: a recorded run succeeds after the check releases ownership"
+  jq -e '.state == "done" and .exit == 0' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null || fail "$snapshot_case: the subsequent recorded pass was lost"
+done
+rm "$FAKEBIN/perl"
+pass 'check snapshots, stopped-run recovery, and missing-input publication exclude overlapping recorded runs'
+
 # A run that died before recording is reported, not silently retried forever.
 jq -n --argjson at "$(date +%s)" '{started: $at, state: "running"}' > "$HOME_DIR/state/dispatch-selftest/result.json"
 run_selftest code out check
@@ -399,6 +465,9 @@ printf '%s\n' '  status: clear' '  decided: rule_1 by typed' '  profile: --harne
 SH
 chmod +x "$DIGEST_RESOLVER"
 digest_run() {
+  if [ "${1:-}" = check ]; then
+    before_digest_output=$(output_identity "$DIGEST_HOME/state/dispatch-selftest/last.out")
+  fi
   PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$DIGEST_HOME" FM_DISPATCH_RESOLVE_BIN="$DIGEST_RESOLVER" \
     FM_DISPATCH_SELFTEST_HOUR="$test_hour" "$DIGEST_BIN/fm-dispatch-selftest.sh" "$@"
 }
@@ -407,7 +476,8 @@ digest_hash=$(cat "$DIGEST_HOME/state/dispatch-selftest/attempted.sha256")
 printf '\n' >> "$DIGEST_BIN/fm-dispatch-resolve.sh"
 digest_run check >/dev/null || fail "digest proof: resolver change check failed"
 for ((i = 0; i < 100; i++)); do
-  [ ! -d "$DIGEST_HOME/state/dispatch-selftest/running" ] \
+  [ "$(output_identity "$DIGEST_HOME/state/dispatch-selftest/last.out")" != "$before_digest_output" ] \
+    && [ ! -d "$DIGEST_HOME/state/dispatch-selftest/running" ] \
     && jq -e '.state == "done"' "$DIGEST_HOME/state/dispatch-selftest/result.json" >/dev/null 2>&1 && break
   sleep 0.05
 done
@@ -416,7 +486,8 @@ resolver_hash=$(cat "$DIGEST_HOME/state/dispatch-selftest/attempted.sha256")
 printf '\n' >> "$DIGEST_BIN/fm-backup-judge-lib.sh"
 digest_run check >/dev/null || fail "digest proof: backup change check failed"
 for ((i = 0; i < 100; i++)); do
-  [ ! -d "$DIGEST_HOME/state/dispatch-selftest/running" ] \
+  [ "$(output_identity "$DIGEST_HOME/state/dispatch-selftest/last.out")" != "$before_digest_output" ] \
+    && [ ! -d "$DIGEST_HOME/state/dispatch-selftest/running" ] \
     && jq -e '.state == "done"' "$DIGEST_HOME/state/dispatch-selftest/result.json" >/dev/null 2>&1 && break
   sleep 0.05
 done

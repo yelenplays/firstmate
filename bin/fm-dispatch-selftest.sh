@@ -111,7 +111,7 @@ validate_samples() { # <samples> <rule-count> -> error text, or nothing
     else empty end' "$1" 2>/dev/null || printf 'samples file is not JSON\n'
 }
 
-action_run() {
+action_run() (
   local rules="$CONFIG_DIR/crew-dispatch.json" samples="$CONFIG_DIR/dispatch-samples.json" record=0
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -121,37 +121,29 @@ action_run() {
       *) die_usage "unknown run argument: $1" ;;
     esac
   done
-  local out rc=0 started_hash lock_owned=0
+  local out rc=0 started_hash
   if [ "$record" -eq 1 ]; then
-    mkdir -p "$RESULT_DIR" || exit 2
-    if [ "${FM_DISPATCH_SELFTEST_LOCKED:-0}" = 1 ]; then
-      lock_live && [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$PPID" ] \
-        || { printf 'fm-dispatch-selftest: recorded run has no live check lock\n' >&2; return 2; }
-    else
-      lock_live && { printf 'fm-dispatch-selftest: a recorded run is already active\n' >&2; return 1; }
-      mkdir "$LOCK" 2>/dev/null || { printf 'fm-dispatch-selftest: a recorded run is already active\n' >&2; return 1; }
-      printf '%s\n' "$$" > "$LOCK/pid" || { rm -rf "$LOCK"; return 2; }
-      lock_owned=1
-    fi
+    . "$SCRIPT_DIR/fm-wake-lib.sh"
+    mkdir -p "$RESULT_DIR" || return 2
+    fm_lock_try_acquire "$LOCK" || { printf 'fm-dispatch-selftest: a recorded run is already active\n' >&2; return 1; }
+    trap 'fm_lock_release "$LOCK"' EXIT
     started_hash=''
     if [ "$rules" = "$CONFIG_DIR/crew-dispatch.json" ] \
       && [ "$samples" = "$CONFIG_DIR/dispatch-samples.json" ]; then
       started_hash=$(inputs_hash "$rules" "$samples") || started_hash=''
       if [ -n "$started_hash" ] && ! record_attempted_hash "$started_hash"; then
-        [ "$lock_owned" -eq 0 ] || rm -rf "$LOCK"
         return 2
       fi
     fi
-    record_write "$(jq -cn --argjson at "$(date +%s)" '{started: $at, state: "running"}')"
+    record_write "$(jq -cn --argjson at "$(date +%s)" '{started: $at, state: "running"}')" || return 2
     out=$(run_samples "$rules" "$samples") || rc=$?
     printf '%s\n' "$out" > "$LAST_OUT.tmp.$$" && mv -f "$LAST_OUT.tmp.$$" "$LAST_OUT"
     record_finish "$rc" "$out"
-    [ "$lock_owned" -eq 0 ] || rm -rf "$LOCK"
     printf '%s\n' "$out"
     return "$rc"
   fi
   run_samples "$rules" "$samples"
-}
+)
 
 run_samples() { # <rules> <samples>
   local rules=$1 samples=$2 rule_count err work n i id brief spec project expect line decided by status
@@ -303,21 +295,6 @@ last_slot() {
   perl -MPOSIX -e 'my $h = shift; my @t = localtime; my $s = mktime(0, 0, $h, $t[3], $t[4], $t[5]); $s -= 86400 if $s > time; print "$s\n"' "$1"
 }
 
-lock_live() {
-  local pid
-  [ -d "$LOCK" ] || return 1
-  pid=$(cat "$LOCK/pid" 2>/dev/null) || pid=''
-  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-    return 0
-  fi
-  # A lock younger than a minute may still be waiting for its pid.
-  if [ -z "$pid" ] && [ -n "$(find "$LOCK" -maxdepth 0 -mmin -1 2>/dev/null)" ]; then
-    return 0
-  fi
-  rm -rf "$LOCK"
-  return 1
-}
-
 emit_failure() {
   local record
   record=$(record_read) || return 0
@@ -328,18 +305,14 @@ emit_failure() {
     "$(jq -r 'if (.failing // "") == "" then "" else " - misrouted: " + .failing end' <<<"$record")"
 }
 
-report_failure() {
-  mkdir "$LOCK" 2>/dev/null || return 0
-  emit_failure
-  rm -rf "$LOCK"
-}
-
-action_check() {
+action_check() (
   local hour=${FM_DISPATCH_SELFTEST_HOUR:-3} record started slot state current_hash attempted_hash changed=0 nightly=0 missing=''
   case "$hour" in ''|*[!0-9]*) hour=3 ;; esac
   [ "$hour" -le 23 ] || hour=3
+  . "$SCRIPT_DIR/fm-wake-lib.sh"
   mkdir -p "$RESULT_DIR" 2>/dev/null || return 0
-  lock_live && return 0
+  fm_lock_try_acquire "$LOCK" || return 0
+  trap 'fm_lock_release "$LOCK"' EXIT
   current_hash=$(inputs_hash "$CONFIG_DIR/crew-dispatch.json" "$CONFIG_DIR/dispatch-samples.json") || current_hash=''
   slot=$(last_slot "$hour") || return 0
   attempted_hash=$(cat "$ATTEMPT_HASH" 2>/dev/null) || attempted_hash=''
@@ -351,7 +324,7 @@ action_check() {
     record=$(record_read) || record=''
   fi
   if [ -n "$record" ] && [ "$(jq -r '.exit != 0 and .reported == false' <<<"$record")" = true ]; then
-    report_failure
+    emit_failure
     return 0
   fi
   started=$(jq -r '.started // 0' <<<"${record:-$NO_RECORD}")
@@ -363,32 +336,27 @@ action_check() {
   fi
   if [ -n "$missing" ]; then
     [ "$changed" -eq 1 ] || [ "$nightly" -eq 1 ] || return 0
-    mkdir "$LOCK" 2>/dev/null || return 0
     if ! record_attempted_hash "$current_hash" \
       || ! printf 'error: %s\n' "$missing" > "$LAST_OUT.tmp.$$" \
       || ! mv -f "$LAST_OUT.tmp.$$" "$LAST_OUT" \
       || ! record_write "$(jq -cn --argjson at "$(date +%s)" --arg message "error: $missing" \
         '{started: $at, finished: $at, state: "done", exit: 2, summary: $message, failing: "", reported: false}')"; then
       rm -f "$LAST_OUT.tmp.$$"
-      rm -rf "$LOCK"
       return 0
     fi
     emit_failure
-    rm -rf "$LOCK"
     return 0
   fi
   [ "$changed" -eq 1 ] || [ "$nightly" -eq 1 ] || return 0
-  mkdir "$LOCK" 2>/dev/null || return 0
-  local monitor_was_on=0 pid
+  fm_lock_release "$LOCK"
+  trap - EXIT
+  local monitor_was_on=0
   case $- in *m*) monitor_was_on=1 ;; esac
   set -m 2>/dev/null || true
-  # shellcheck disable=SC2016  # Expanded by the detached shell.
-  nohup bash -c 'trap "rm -rf \"$1\"" EXIT; printf "%s\\n" "$$" > "$1/pid"; shift; FM_DISPATCH_SELFTEST_LOCKED=1 "$@"' fm-dispatch-selftest "$LOCK" "$0" run --record >/dev/null 2>&1 </dev/null &
-  pid=$!
-  printf '%s\n' "$pid" > "$LOCK/pid" 2>/dev/null || true
+  nohup "$0" run --record >/dev/null 2>&1 </dev/null &
   [ "$monitor_was_on" -eq 1 ] || set +m 2>/dev/null || true
   return 0
-}
+)
 
 # ---- arm / disarm ----------------------------------------------------------------
 shim_content() {

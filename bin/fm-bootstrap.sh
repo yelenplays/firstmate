@@ -1291,7 +1291,7 @@ crew_dispatch_validate() {
         or ((["low","medium","high","xhigh","max"] | index($p.effort_floor)) == null)
         or ((["claude","codex","grok","agy","pi","pi-signed","omp","muse","rovo"] | index($p.harness)) == null)
         or (effort_ok($p.harness; $p.model; $p.effort_floor) | not)
-        or ((["low","medium","high","xhigh","max"] | index($p.effort_floor)) > (["low","medium","high","xhigh","max","ultra"] | index($p.effort // "xhigh")))))) then "profile effort_floor must be low, medium, high, xhigh, or max and not above the profile effort, supported by an effort-capable harness and model"
+        or ((["low","medium","high","xhigh","max"] | index($p.effort_floor)) > (["low","medium","high","xhigh","max","ultra"] | index($p.effort_max // $p.effort // "xhigh")))))) then "profile effort_floor must be low, medium, high, xhigh, or max and not above the profile effort, supported by an effort-capable harness and model"
     elif $typed and ([(.rules // [])[]? | select(has("approval") and .approval != "captain")] | length > 0) then "approval must be \"captain\" when present"
     elif $typed and ([(.rules // [])[]? | select(has("floor") and floor_bad(.floor; true))] | length > 0) then "rule floor needs scope, min_percent 0..100, and provider matching ^[a-z0-9]+(-[a-z0-9]+)*\\z"
     elif $typed and ((.rules // []) as $rs | any(range(0; $rs | length); . as $i | ($rs[$i] | type) == "object" and ($rs[$i] | has("beats")) and ($rs[$i].beats | beats_bad($i + 1; $rs | length)))) then "beats must be a non-empty array of {rule, when?} naming other rules by 1-based number, each at most once, with when a non-empty string when present"
