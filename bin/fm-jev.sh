@@ -30,12 +30,13 @@
 # Model choices: a pick or score question whose options name a model (any
 # option matching bin/fm-model-denylist-lib.sh's model test), or any call with
 # --models, is a model choice. An option is removed before sending when its
-# label matches a never-use rule; under a concrete model-id label only a bare
-# model-id meaning counts, so a description that mentions a banned model keeps
-# it; under a harness, provider, or route label (any launch binary in that
-# library's FM_MODEL_LAUNCH_SHAPES, such as pi or opencode, or a provider or
-# route name such as openrouter) every model id the meaning names counts;
-# under any other label the first model id the meaning names counts. A
+# label matches a never-use rule; under a harness, provider, or route label
+# (any launch binary in that library's FM_MODEL_LAUNCH_SHAPES, such as pi,
+# claude, or opencode, or a provider or route name such as openrouter) every
+# model id the meaning names counts; under any other concrete model-id label,
+# such as opus, only a bare model-id meaning counts, so a description that
+# mentions a banned model keeps it; under any other label the first model id
+# the meaning names counts. A
 # question left with fewer than two options is refused, and the captain
 # model-rules summary from that library is appended to the state, all inside
 # the same byte cap and privacy screen. docs/configuration.md "Never-use model
@@ -253,8 +254,8 @@ if [ "$MODELS" -eq 1 ]; then
       | any($harnesses[]; . == $name) or ((ascii_downcase | test($family)) and (model_id | not));
     def meaning_ids: [splits("[\\s,;()]+") | select(. != "" and model_id)];
     def banned($o): model_banned_any($list; [$o[0]] +
-      (if ($o[0] | model_id) then (if ($o[1] | test("\\s")) then [] else [$o[1]] end)
-       elif ($o[0] | route) then ($o[1] | meaning_ids)
+      (if ($o[0] | route) then ($o[1] | meaning_ids)
+       elif ($o[0] | model_id) then (if ($o[1] | test("\\s")) then [] else [$o[1]] end)
        else ($o[1] | meaning_ids | .[:1]) end)) != null;
     .questions |= map(if .type == "yes" then .
       else .removed = [.opts[] | select(banned(.)) | .[0]]
