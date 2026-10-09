@@ -23,8 +23,10 @@
 #   FM_HOME (sharing $FM_HOME/.env for the typed-call keys and read-only
 #   prediction evidence from the home) and an isolated config directory
 #   holding the rules file and, when the home has
-#   one, its dispatch-never-send list, so a run writes nothing into the home
-#   and turns on no shadow logging. With both judges unavailable, the default
+#   one, its dispatch-never-send list, so an unrecorded run writes nothing into
+#   the home and turns on no shadow logging. A present list that is not a
+#   readable regular file (including a dangling symlink) refuses the entire
+#   run before any sample is sent. With both judges unavailable, the default
 #   stage answers every sample and the run fails, which is the point: it
 #   measures routing as dispatch will see it.
 #   --record also writes the result to state/dispatch-selftest/ (used by the

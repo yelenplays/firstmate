@@ -142,7 +142,7 @@ Negative finding: an intermediate variant that also sent `Brief kind: ship, mode
 The delivery mode is the same on most ship briefs and says nothing about difficulty, so it is deliberately not sent.
 
 These live runs cover the scout line, the free-form whole-brief fallback, the ship-brief package, the top-tier floor turning the pick `ambiguous`, and the fallback to a runner-up.
-The remaining behavior is covered only by the offline tests below: a fenced heading inside a section, the boundaries of the global 0.6 confidence check with no declared floors, the probability-based floor examples, the tie case, and rejection of an out-of-range `min_confidence`.
+Current regression coverage for brief parsing, confidence gates, and configuration validation is listed below; the [operator contract](../configuration.md#confidence-and-fallback-rules) owns the current gates.
 
 ## Runoff on an ambiguous answer
 
@@ -153,26 +153,16 @@ Finding: a two-contender runoff on the same state largely restates the rule answ
 
 ## Offline behavior
 
-`tests/fm-dispatch-resolve.test.sh` drives the public interface with a fake `curl` that records argv, the request body, the header read from file descriptor 3, and whether the secret reached its environment, plus a fake `quota-axi` that performs the same environment check.
-It proves firstmate can invoke the resolve path without a preflight, rules are snapshotted once from the isolated home's canonical `config/crew-dispatch.json`, and dynamic output fields are flattened to one line.
-It proves the absent key (environment and `.env`) prints one stderr line, nothing on stdout, exits 0, and never invokes `curl` or `quota-axi`.
-It proves absent, default-only, and empty-rules files return `no rules to match` without a model or quota request, while a broken rules-file symlink exits 2 as unreadable.
-It proves the documented starter configuration resolves its Pi default through the declared Claude provider, a `.env` key turns the tool on, and the environment wins over it.
-It proves the key is absent from child environments, never appears on `curl` argv, and arrives only as the bearer header on the descriptor.
-It proves the request uses the fixed endpoint and model, carries only the project, the brief's task sections read by the shared brief-heading parser with a scout line only for a scout brief and never a ship brief's delivery mode (or the whole brief when it has neither section), and rule Choice with one option per rule plus the fixed neutral none option, and never carries `why`, `use`, or quota.
-It proves a declared `min_confidence` is checked against the rule's own probability both as the pick and as a runner-up, a picked rule below it falls to the most probable runner-up that clears its floor, is `ambiguous` when none does or two tie, and that a file without declared floors keeps the global 0.6 floor on confidence unchanged.
-It proves the clear, fixed-floor ambiguous with candidate evidence, escalate (approval with candidate evidence, unverifiable rule floor, tie, nothing rankable), known rule-floor fall-through, known and unverifiable profile-floor evidence, explicit-provider and provider-ID enforcement, authoritative Agy and explicit-provider Gemini routing, partial providers, eligible unranked candidates and their clear-result note, concrete quota vetoes and profile-floor shortfalls taking precedence over uncertainty, account-wide quota veto, limiting-bound ranking, schema-6 account-row binding with schema-5 compatibility, missing-curl and quota-axi failures, HTTP 429 and 500, transport failure, malformed usage, zero-mass or malformed probabilities or confidence, malformed or duplicate profile, invalid selector, removed-option rejection, and out-of-range rule ID paths behave as the contract states, with configuration errors exiting 2 before any network call.
-It proves the request uses the default TypeSafe endpoint, model, and 25-second timeout, that `JEV_URL` is used verbatim without appending `/v1/systemone`, and that model, URL, and timeout overrides come from the environment or `.env`.
-It proves the request carries the project, brief, the rule Choice with one option per rule plus the fixed neutral none option, and the effort Choice, and never carries `why`, `use`, or quota.
-It proves the clear, margin-gated ambiguous with candidate evidence (inclusive threshold, a low derived confidence still clearing on a wide margin, `FM_JEV_DISPATCH_MARGIN` from the environment then `.env`, and invalid values refused before any request), a returned rule choice below the probability leader remaining ambiguous with candidate evidence and no profile line, `beats` tie-break sentences on both options with an unchanged question when no rule declares them, escalate (approval with candidate evidence, unverifiable rule floor, tie, nothing rankable), known rule-floor fall-through, known and unverifiable profile-floor evidence, explicit-provider and provider-ID enforcement, authoritative Agy and explicit-provider Gemini routing, partial providers, eligible unranked candidates and their clear-result note, concrete quota vetoes and profile-floor shortfalls taking precedence over uncertainty, account-wide quota veto, limiting-bound ranking, missing-curl and quota-axi failures, HTTP 429 and 500, transport failure, malformed usage, zero-mass or malformed probabilities or confidence, malformed or duplicate profile, invalid selector, removed-option rejection, and out-of-range rule ID paths behave as the contract states, with configuration errors exiting 2 before any network call.
-It proves malformed `beats` (empty, out of range, self, fractional, duplicate target, empty `when`, unconditional mutual, and cycles of three or more rules including conditional edges) exit 2 before any request, while conditional pairs and non-cyclic chains remain accepted.
-It proves the runoff on an ambiguous answer: a decisive pick emits the winner's quota-ranked profile as `picked` and may overturn the rule answer's own choice, the runoff request carries only the contenders keyed by rule with their own criteria on the same state and never `use`, `why`, quota, or the key, a narrow, non-winning, below-its-rule's-declared-floor, out-of-options, malformed, HTTP-failed, or transport-failed pick stays `ambiguous` with no profile, a captain-approval contender skips the runoff with no call, contenders on one profile settle with no call, the never-send list withholds the runoff request, and the shadow log records the runoff evidence.
-`tests/fm-dispatch-replay.test.sh` drives the replay harness through the real resolver with a queued fake transport: one call per case including no extra call for an ambiguous case, a hard budget that stops before the call that would exceed it, candidate rules that leave the home's rules unchanged, output alias and writability checks before live requests, and resolver failure and opt-out propagation; it also proves the resolver's shadow log is forced off and the offline score compares both gates and counts wrong labeled picks.
-`tests/fm-bootstrap.test.sh` proves bootstrap ignores resolver-only fields without the typed key, validates each malformed shape when the environment or home `.env` activates typed resolution, and prevents an environment-provided key from reaching child processes.
+The [operator contract](../configuration.md#typed-dispatch-resolution-env-typesafe_api_key) owns current outcomes, gates, settings, and privacy guarantees.
+The dated live runs above predate the backup/default chain and do not establish its live accuracy.
+Current behavioral regression entry points are:
 
-```console
-$ bash tests/fm-dispatch-resolve.test.sh | tail -1
-# all fm-dispatch-resolve tests passed
-```
+- [`tests/fm-dispatch-resolve.test.sh`](../../tests/fm-dispatch-resolve.test.sh): typed-only compatibility, request and credential boundaries, effort ranges, confidence and quota gates, the backup/default chain, last-resort selection, and actual-lane reporting.
+- [`tests/fm-dispatch-replay.test.sh`](../../tests/fm-dispatch-replay.test.sh): typed-only replay, call budgets, input isolation, and offline scoring.
+- [`tests/fm-dispatch-selftest.test.sh`](../../tests/fm-dispatch-selftest.test.sh): the synthetic corpus, fail-closed never-send handling, default-lane misroutes, read-only prediction evidence, concurrency, and retry/alert cadence.
+- [`tests/fm-home-route.test.sh`](../../tests/fm-home-route.test.sh): home-routing fallbacks, missing inputs, approved consult scopes, and override authority.
+- [`tests/fm-bootstrap.test.sh`](../../tests/fm-bootstrap.test.sh) and [`tests/fm-session-start.test.sh`](../../tests/fm-session-start.test.sh): range validation, credential isolation, selftest auto-arming, and missing-samples alerts.
+- [`tests/fm-spend-ledger.test.sh`](../../tests/fm-spend-ledger.test.sh): read-only prediction without cache, model, or state-directory writes.
 
-A live run needs a key and is not part of the suite; rerun the table above by pointing the tool at a brief with the key injected for that one command.
+Offline stubs cannot certify the operator's private rules against live judges.
+Use the home-local routing selftest described in the operator contract for that proof; it can reach the backup CLI even without a typed-call key.

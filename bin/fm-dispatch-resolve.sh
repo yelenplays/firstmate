@@ -14,7 +14,7 @@
 #                 unbuildable request), errors, cannot be reached, or stays
 #                 ambiguous, bin/fm-backup-judge-lib.sh asks the same rule and
 #                 effort questions on the SAME state through the local claude
-#                 CLI (Haiku 5.5 by default) with schema-validated output. A
+#                 CLI (fixed Haiku 5.5) with schema-validated output. A
 #                 never-send match skips the backup too.
 #   3. default  - when the backup fails, the configured
 #                 `default` profiles (rule_1 when no default is declared).
@@ -152,7 +152,7 @@
 #   JEV_ROUTE=openrouter selects OpenRouter even when a TypeSafe key is also
 #   present. FM_JEV_DISPATCH_SHADOW=1 or config/jev-dispatch-shadow logs the
 #   Jev pick to state/jev-dispatch-shadow.jsonl and does not add spawn
-#   authority beyond today's optional clear-profile use.
+#   authority beyond the profile line this resolver prints.
 #   FM_JEV_DISPATCH_EXTRA=1 adds log-only home and deliverable questions.
 #   FM_JEV_DISPATCH_MARGIN configures the clear gate; docs/configuration.md
 #   "Typed dispatch resolution" owns its source, range, default, and calibration.

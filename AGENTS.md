@@ -104,7 +104,7 @@ When every candidate is tight, preserve the captain's strongest-reasoning class 
 Break genuine evidence ties without array-order or harness bias.
 `quota-axi` owns how model or product windows relate to bounding account windows and remains data-only.
 Load `quota-array-dispatch` before choosing among a matched profile array; that skill is the single owner of the TOON-first spendPriority selection procedure.
-Run `bin/fm-dispatch-resolve.sh` directly on the written brief in the same turn, with no preflight; whenever it prints a `profile:` line (`clear` or `picked` from Jev, `backup` from its backup judge, or `fallback` from the default rule), pass that line to `fm-spawn` without hand-picking (contract: `docs/configuration.md` "Typed dispatch resolution").
+Run `bin/fm-dispatch-resolve.sh` directly on the written brief in the same turn, with no preflight; whenever it prints a `profile:` line, pass that line to `fm-spawn` without hand-picking (contract: `docs/configuration.md` "Typed dispatch resolution").
 Only a captain rule overrides that line - an explicit per-task captain override, or a standing `data/captain.md` routing rule the rules file does not yet encode - and the backlog note names it; a result without a profile line means the intake above remains in control.
 The generic effort fallback and its precedence are owned by `harness-adapters`: explicit captain and standing configured effort win; otherwise use low for well-understood explicit work, xhigh for ambiguous investigation or design, intermediate levels proportionally, and never max without explicit captain preference.
 Do not add model-specific versions of that policy.
@@ -172,7 +172,7 @@ An explicit project wins, a clear follow-up inherits its referent, and otherwise
 Proceed on one confident match while naming the project in plain language; ask one concise question when multiple or no projects plausibly match.
 
 Route by the nature of the work against each registered secondmate scope, not by a non-exclusive clone list.
-Decide that route with `bin/fm-home-route.sh decide` before writing the brief, and use its `judge` only to override a route its backup judge or default chose; `fm-spawn` enforces the route ([configuration](docs/configuration.md#home-router)).
+Decide that route with `bin/fm-home-route.sh decide` before writing the brief; follow the [home-router contract](docs/configuration.md#home-router) for judgment overrides and spawn enforcement.
 Keep `local-only` work in the main home.
 Send in-scope work to the fitting secondmate unless it is blocked or the captain explicitly redirects it; do not read the secondmate's chat because marked routed replies return through its status or referenced document.
 If no secondmate scope fits, use the main home or discuss creating an appropriate persistent secondmate.

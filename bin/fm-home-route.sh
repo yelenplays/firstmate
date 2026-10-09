@@ -66,8 +66,8 @@ RECORDS="$FM_HOME/state/home-route"
 REG="$FM_HOME/data/secondmates.md"
 APPROVAL="$FM_HOME/config/jev-mate-public-scopes.json"
 SUB_HOME_MARKER="$FM_HOME/.fm-secondmate-home"
-# A wrong lead dispatches work into the wrong home, so below this firstmate's
-# own judgment decides instead of the model. Correct leads probed at 0.89-1.0.
+# A wrong lead dispatches work into the wrong home, so below this the backup
+# judge decides instead of Jev. Correct leads probed at 0.89-1.0.
 LEAD_FLOOR=0.85
 # A missed consult leaves the lead without the owning mate's facts; a spurious
 # one costs one extra question to that mate. Probed true consults scored
@@ -142,7 +142,7 @@ project_mode() { # <name> -> registered mode word, or nothing
   printf '%s\n' "${posture%% *}"
 }
 
-# Prints the eligible {mate: scope} object, or sets REASON.
+# Sets ELIGIBLE_SCOPES to the eligible {mate: scope} object, or sets REASON.
 eligible_scopes() {
   local entries='{}' line id scope approved
   if [ ! -f "$REG" ] || [ -L "$REG" ] || [ ! -r "$REG" ]; then REASON=registry_unavailable; return 1; fi
