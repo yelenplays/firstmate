@@ -1730,10 +1730,13 @@ Typed dispatch resolution above uses this library for the HTTP call and owns the
 [`bin/fm-jev-eval.sh`](../bin/fm-jev-eval.sh) scores every Jev call site against its own gold test set and drives each site's act/advise mode from that score.
 The test sets live in [`tests/jev-eval/`](../tests/jev-eval/): `sites.json` names each call site, the script it runs, whether it acts on its own, its labels, and what a dangerous miss is; `cases/<site>.jsonl` holds the public-safe cases, `adapters/<site>.sh` runs the real script on one case in a scratch home, `cassettes/<site>/` holds the recorded Jev answers, and `baseline.json` holds the score those cassettes reproduce.
 Gold comes from the captain's recorded answers where they exist, from firstmate records next, and from Opus labels last; `gold_confirmed` in `sites.json` stays false until a human spot-checks the Opus labels, and no score is final before then.
+Every case also names its `input_source`: `recorded` when its input comes from a real past decision or worker session, `synthetic` when Opus wrote it or it is a fixture grid.
+Each site is scored twice, once over its recorded cases and once over its synthetic cases, and the scorecard, the baseline, `status`, and the run table report both scores side by side.
 Private cases that cannot be public go in an overlay with the same shape under `$FM_HOME/data/jev-eval/` (`FM_JEV_EVAL_OVERLAY` overrides); live runs and the nightly score them with the public set, while the committed baseline never includes them.
 
 [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) `fm_jev_site_mode <site>` is the one owner of the act rule.
-A site acts only when its own evidence in the latest scorecard (`$FM_HOME/state/jev-eval/latest.json`, `FM_JEV_EVAL_SCORES` overrides) is final, at most eight days old (`FM_JEV_EVAL_MAX_AGE_SECS`), matches its effective request model, and gives that site at least 20 cases, agreement with gold of at least 0.95, and zero dangerous misses.
+A site acts only when its own evidence in the latest scorecard (`$FM_HOME/state/jev-eval/latest.json`, `FM_JEV_EVAL_SCORES` overrides) is final, at most eight days old (`FM_JEV_EVAL_MAX_AGE_SECS`), matches its effective request model, and gives that site, over its recorded cases alone, at least 20 cases, agreement with gold of at least 0.95, and zero dangerous misses.
+The synthetic score is reported and guarded by the baseline but never earns act, so a site whose cases are all synthetic stays advise until it has enough recorded cases (private ones can come from the overlay).
 A partial run preserves the freshness, finality, and model evidence of sites it does not score; old scorecards without per-site evidence remain advise-only.
 Anything else, including a missing scorecard, is advise, and the merge gate is always advise.
 An advise site still asks Jev and keeps the answer as advice:
@@ -1751,7 +1754,7 @@ An advise site still asks Jev and keeps the answer as advice:
 Merges, deletions, logins, and other destructive, irreversible, or security-sensitive actions stay with the human whatever a site scores.
 
 `bin/fm-jev-eval.sh run` replays the committed cassettes with no key and no network; `--live` asks Jev for real, publishes `latest.json`, and archives the card under `state/jev-eval/runs/`; `--record` with `--live` also re-records the cassettes.
-`check-baseline` is the change guard: [`tests/fm-jev-eval.test.sh`](../tests/fm-jev-eval.test.sh) runs it in CI, so a change to a Jev call site, its prompt, or the pinned Jev build cannot ship until its cassettes are re-recorded and every site still holds its baseline.
+`check-baseline` is the change guard: [`tests/fm-jev-eval.test.sh`](../tests/fm-jev-eval.test.sh) runs it in CI, so a change to a Jev call site, its prompt, or the pinned Jev build cannot ship until its cassettes are re-recorded and every site still holds both its recorded and its synthetic baseline.
 After an intended change, re-record the affected sites with `run --live --record --site <site>` and rewrite the baseline with `write-baseline`.
 The compaction set contains 28 public-safe segments from recorded Claude Code workers, independently labeled by Opus 5.5 rather than written by it.
 Each case records its transcript digest, row, block or excerpt, and labeling rationale; parking a `keep` segment is the dangerous direction.
@@ -1760,7 +1763,7 @@ Arm the nightly run once per home with `bin/fm-jev-eval.sh arm`, which registers
 The deliberate, captain-confirmed design is that the deterministic runner runs Jev on every test set and scores it exactly against gold on `run`, `check-baseline`, and `nightly` alike.
 Haiku 5.5 (`claude-haiku-5-5` through `claude -p`, `FM_JEV_EVAL_HAIKU_CMD` replaces the command) only writes the nightly summary and miss analysis next to the archived card; it never computes or changes a score.
 A site that acted before live publication and is advise after it is a demotion, whether the run is manual or nightly: one note through `bin/fm-slack-bridge.sh post report` when `config/slack-bridge` exists, and one notice the watcher check prints once.
-`bin/fm-jev-eval.sh status` prints each site's latest score and current mode.
+`bin/fm-jev-eval.sh status` prints each site's latest recorded and synthetic scores and its current mode.
 The script header owns the case schema, adapter contract, scorecard fields, and exit codes.
 
 ## Jev worker command (bin/fm-jev.sh)

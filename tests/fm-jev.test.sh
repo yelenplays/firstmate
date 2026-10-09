@@ -732,7 +732,8 @@ test_privacy_guard_refuses_before_sending() {
   assert_absent "$LOG/body" "a space-grouped phone number is never sent"
 
   for contact in 'Call +49 170.1234567' '+49 1701234567' '(415) 5551234' \
-    '2026-10-08 +49 1701234567' '2026-10-08 (415) 5551234' 'Call 0170 123.4567' 'Call (0170) 123.4567' 'Call 212 555.0199'; do
+    '2026-10-08 +49 1701234567' '2026-10-08 (415) 5551234' 'Call 0170 123.4567' 'Call (0170) 123.4567' 'Call 212 555.0199' \
+    '2026-10-08 555-123-4567' '2026-10-08 0170 1234567' '2026-10-08 212 555 0199' 'Call 415 5551234'; do
     reset_log
     run_jev code out err yes "$contact" "Done?"
     assert_equals "$code" 1 "mixed-format phone data in state is refused"
@@ -791,7 +792,9 @@ test_privacy_guard_refuses_before_sending() {
     'db_PWD=another-value' \
     'SERVICE_SECRET = "two word value"' \
     'STRIPE_SECRET_KEY=opaque-stripe-secret' \
-    'vendor_API_KEY : opaque-vendor-key'; do
+    'vendor_API_KEY : opaque-vendor-key' \
+    'WiFi pass: purple monkey dishwasher' \
+    'Router pass: correct horse battery staple'; do
     reset_log
     run_jev code out err yes "$credential" "Done?"
     assert_equals "$code" 1 "a sensitive assignment is refused: $credential"

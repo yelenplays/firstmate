@@ -95,9 +95,10 @@
 #     act needs per-site evidence in the latest scorecard (FM_JEV_EVAL_SCORES,
 #     default $FM_HOME/state/jev-eval/latest.json, written by bin/fm-jev-eval.sh)
 #     that is final, matches the effective model, is no older than
-#     FM_JEV_EVAL_MAX_AGE_SECS (default 8 days), and gives that site at least
-#     FM_JEV_EVAL_MIN_CASES cases, agreement with gold
-#     at or above FM_JEV_EVAL_BAR (0.95), and zero dangerous misses. Anything
+#     FM_JEV_EVAL_MAX_AGE_SECS (default 8 days), and gives that site, over its
+#     recorded cases alone, at least FM_JEV_EVAL_MIN_CASES cases, agreement
+#     with gold at or above FM_JEV_EVAL_BAR (0.95), and zero dangerous misses;
+#     the separately scored synthetic cases never earn act. Anything
 #     else, including a missing or unreadable scorecard, is advise; merge-gate
 #     is always advise. An advise site still asks Jev but hands its answer to
 #     the human or the caller's own judgment instead of acting on it.
@@ -517,18 +518,21 @@ FM_JEV_CHOICE_TOP2_JQ='def jev_choice_top2:
 # One owner of the benign-key exception both key scans apply: a key whose
 # suffix is "pass" is sensitive only when its last segment is exactly pass
 # (FM_MAIL_PASS, db-pass, mailPass, a bare YAML pass:), so a word such as
-# Engpass is not; and a bare pass after a prose word, followed by prose words,
-# is a sentence such as "Keyboard pass: every control reachable", not a key.
+# Engpass is not; and a bare pass after a known prose word (Keyboard,
+# External), followed by prose words, is a sentence such as "Keyboard pass:
+# every control reachable", not a key. After any other word it stays a key, so
+# a passphrase such as "WiFi pass: purple monkey dishwasher" is still caught.
 # Callers save RSTART and RLENGTH first, because match() here resets them.
 # shellcheck disable=SC2016 # an awk program, expanded by awk
 _FM_JEV_BENIGN_KEY_AWK='
-    function benign_key(key_name, normalized_key, boundary, prev_char, after,    last) {
+    function benign_key(key_name, normalized_key, boundary, before, after,    last) {
       if (normalized_key !~ /pass$/ || normalized_key ~ /(password|passwd)$/) return 0
       last = key_name
       sub(/^.*[-_.]/, "", last)
       if (last ~ /[a-z]/ && match(last, /[A-Z][a-z]*$/) && RSTART > 1) last = substr(last, RSTART)
       if (tolower(last) != "pass") return 1
-      return key_name == last && boundary ~ /[ \t]/ && prev_char ~ /[[:alpha:]]/ \
+      return key_name == last && boundary ~ /[ \t]/ \
+        && tolower(before) ~ /(^|[^[:alnum:]_])(keyboard|external)$/ \
         && after ~ /^[ \t]*[[:alpha:]][[:alpha:]-]*[ \t,;]+[[:alpha:]]/
     }
 '
@@ -560,7 +564,7 @@ fm_jev_has_sensitive_key() {
         assignment_end = RSTART + RLENGTH
         if (normalized_key ~ sensitive_suffix_pattern \
           && !benign_key(key_name, normalized_key, boundary, \
-            substr(remaining, assignment_start - 1, 1), substr(remaining, assignment_end))) {
+            substr(remaining, 1, assignment_start - 1), substr(remaining, assignment_end))) {
           found = 1
           exit
         }
@@ -589,17 +593,19 @@ fm_jev_compact_state() {
   printf '%s' "$state" | awk "$_FM_JEV_BENIGN_KEY_AWK"'
     # Whether a separated digit run of seven or more digits reads as a phone
     # number rather than a number shape that is common in task text: a phone
-    # starts with "+", "(" or a trunk "0", or has at least three digit groups.
-    # Never a phone: a dotted IPv4 address; a run led by an ISO date; a slash
-    # list whose groups are all three or four digits (viewport widths such as
-    # 320/390/768/1440, file modes such as 0700/0600); a list of decimals
+    # starts with "+", "(" or a trunk "0", has at least three digit groups, or
+    # has a group of seven or more digits or ten or more digits in all.
+    # Never a phone: one decimal number (p50 88.32156658172607); a dotted
+    # IPv4 address; a slash list whose groups are all three or four digits
+    # (viewport widths such as 320/390/768/1440, file modes such as
+    # 0700/0600); a list of decimals
     # (oklch(0.575 0.18 24), 17.07 - 31.07); a range of grouped thousands
     # (4.500-8.000). Runs joined by an inner parenthesis count piece by
-    # piece. A two-group run with no lead,
-    # such as a range (1600-3200, 2024-2026, lines 1028-1045), is no phone.
-    function phone_shaped(run,    rest, groups, slash_groups, short_slash_groups, count, i, tokens, decimal) {
+    # piece. A shorter two-group run with no lead, such as a range (1600-3200,
+    # 2024-2026, lines 1028-1045), is no phone. A run led by a date is screened
+    # by the caller from the digits after the date.
+    function phone_shaped(run,    rest, groups, slash_groups, short_slash_groups, count, i, tokens, decimal, longest) {
       if (run ~ /^[0-9][0-9]?[0-9]?[.][0-9][0-9]?[0-9]?[.][0-9][0-9]?[0-9]?[.][0-9][0-9]?[0-9]?$/) return 0
-      if (run ~ /^[0-9][0-9][0-9][0-9][-.\/][0-9][0-9]?[-.\/][0-9][0-9]?([^0-9]|$)/) return 0
       if (run ~ /^[1-9][0-9]?[0-9]?([.,][0-9][0-9][0-9])+[ ]?-[ ]?[1-9][0-9]?[0-9]?([.,][0-9][0-9][0-9])+$/) return 0
       if (index(run, "/")) {
         slash_groups = split(run, groups, "/")
@@ -632,11 +638,16 @@ fm_jev_compact_state() {
       if (run ~ /^0/) return 1
       rest = run
       count = 0
+      longest = 0
       while (match(rest, /[0-9]+/)) {
         count++
+        if (RLENGTH > longest) longest = RLENGTH
         rest = substr(rest, RSTART + RLENGTH)
       }
-      return count >= 3
+      if (count == 2 && run ~ /^[0-9]+[.][0-9]+$/) return 0
+      decimal = run
+      gsub(/[^0-9]/, "", decimal)
+      return count >= 3 || longest >= 7 || length(decimal) >= 10
     }
     function flow_value_end(text,    depth, active_quote, escaped, pos, character, expected_open, stack) {
       if (substr(text, 1, 1) != "{" && substr(text, 1, 1) != "[") return 0
@@ -688,6 +699,7 @@ fm_jev_compact_state() {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
       phone_pattern = "(^|[^[:alnum:]+])([+][0-9][0-9() ./-]*[0-9]|[(][0-9]+[)][ ./-]*[0-9][0-9() ./-]*[0-9]|[0-9][0-9() ./-]*[-./() ][0-9() ./-]*[0-9])([^[:alnum:]+]|$)"
+      date_prefix_pattern = "^([0-9][0-9][0-9][0-9][-./][0-9][0-9]?[-./][0-9][0-9]?|[0-9][0-9]?[./][0-9][0-9]?[./][0-9][0-9][0-9][0-9])"
       date_pattern = "^([0-9][0-9][0-9][0-9][./ -][0-9][0-9]?[./ -][0-9][0-9]?|[0-9][0-9]?[./ -][0-9][0-9]?[./ -][0-9][0-9][0-9][0-9])([ Tt][0-9][0-9](:[0-9][0-9](:[0-9][0-9]([.][0-9]+)?)?)?([Zz]|[+-][0-9][0-9]:?[0-9][0-9])?)?$"
       search_from = 1
       while (search_from <= length(buf)) {
@@ -702,6 +714,13 @@ fm_jev_compact_state() {
           phone_start++
         }
         if (phone ~ /[^[:alnum:]]$/) phone = substr(phone, 1, length(phone) - 1)
+        # A leading ISO, dotted, or slashed date stays; the digits after it are
+        # screened on their own, so "2026-10-08 555-123-4567" loses the phone.
+        if (match(phone, date_prefix_pattern) && RLENGTH < length(phone) \
+          && substr(phone, RLENGTH + 1, 1) !~ /[0-9]/) {
+          search_from = phone_start + RLENGTH
+          continue
+        }
         phone_end = phone_start + length(phone) - 1
         digits = phone
         gsub(/[^0-9]/, "", digits)
@@ -743,7 +762,7 @@ fm_jev_compact_state() {
         gsub(/[-_.]/, "", normalized_key)
         if (normalized_key !~ sensitive_suffix_pattern \
           || benign_key(key_name, normalized_key, boundary, \
-            substr(buf, key_start - 1, 1), substr(buf, key_start + match_length))) {
+            substr(buf, 1, key_start - 1), substr(buf, key_start + match_length))) {
           search_from = key_start + match_length
         } else {
           prefix = substr(buf, 1, key_start - 1)
@@ -930,9 +949,10 @@ fm_jev_site_mode() {  # <site>
       .sites[$site] |
       type == "object" and .final == true and .model == $model
       and ((.generated_at | type) == "number") and .generated_at <= $now and ($now - .generated_at) <= $max_age
-      and (.cases | type) == "number" and .cases >= $min
-      and (.agreement | type) == "number" and .agreement >= $bar
-      and .dangerous_misses == 0
+      and (.recorded | type) == "object"
+      and (.recorded.cases | type) == "number" and .recorded.cases >= $min
+      and (.recorded.agreement | type) == "number" and .recorded.agreement >= $bar
+      and .recorded.dangerous_misses == 0
     ' "$scores" >/dev/null 2>&1; then
     printf 'act\n'
   else

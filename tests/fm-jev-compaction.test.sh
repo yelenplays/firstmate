@@ -141,7 +141,7 @@ ACT_SCORES="$TMP/act-scores.json"
 MODEL=$(bash -c '. "$1/bin/fm-jev-lib.sh"; printf "%s" "$FM_JEV_TYPESAFE_MODEL"' -- "$ROOT")
 jq -n --arg model "$MODEL" --argjson now "$(date +%s)" '{
   sites: {compaction: {final: true, generated_at: $now, model: $model,
-    cases: 100, agreement: 1, dangerous_misses: 0}}}' > "$ACT_SCORES"
+    recorded: {cases: 100, agreement: 1, dangerous_misses: 0}}}}' > "$ACT_SCORES"
 PATH="$FAKEBIN:$PATH" FAKE_CURL_BODIES="$BODIES" TYPESAFE_API_KEY=test-key-not-real \
   FM_JEV_EVAL_SCORES="$ACT_SCORES" FM_JEV_COMPACTION=on "$SCRIPT" \
   --task jev \

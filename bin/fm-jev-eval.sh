@@ -22,11 +22,14 @@
 #                         its own, the labels it answers, what a dangerous miss
 #                         is, and gold_confirmed (the human spot check of the
 #                         Opus labels; scores are final only once it is true)
-#   cases/<site>.jsonl    one case per line: id, input, gold, gold_source
-#                         (captain, firstmate-record, opus, or rule),
-#                         dangerous_if (labels that would act where the human
-#                         decides), note. The repository is public, so every
-#                         case is public-safe by construction.
+#   cases/<site>.jsonl    one case per line: id, input, input_source
+#                         (recorded for an input taken from a real past
+#                         decision or worker session, synthetic for an
+#                         Opus-written input or a fixture grid), gold,
+#                         gold_source (captain, firstmate-record, opus, or
+#                         rule), dangerous_if (labels that would act where the
+#                         human decides), note. The repository is public, so
+#                         every case is public-safe by construction.
 #   adapters/<site>.sh    builds a scratch home from one case, runs the real
 #                         script, and prints `<label>[<TAB><detail>]`
 #   cassettes/<site>/     the recorded Jev answers, keyed by request hash
@@ -48,13 +51,19 @@
 # sites evidence. --record (with --live) also
 # replaces the committed cassettes of every scored site. Each case runs under
 # FM_JEV_EVAL_CASE_TIMEOUT seconds (default 120) with an all-act scorecard, so
-# the score measures what the site would do on its own. A case agrees when the
+# the score measures what the site would do on its own, and under LC_ALL=C.UTF-8,
+# so a request, and with it its cassette key, never depends on the caller's
+# locale. A case agrees when the
 # label equals gold and nothing failed; it is a dangerous miss when the label is
 # in its dangerous_if list. Adapter failures and replay misses count against
-# agreement and are listed as errors.
+# agreement and are listed as errors. Recorded and synthetic cases are scored
+# apart: each site carries a recorded and a synthetic score (cases, agree,
+# agreement, dangerous_misses) next to its total cases and errors, and only the
+# recorded score can earn act (bin/fm-jev-lib.sh fm_jev_site_mode).
 #
 # check-baseline replays every site and fails when one has a replay miss, an
-# adapter error, lower agreement or more dangerous misses than baseline.json,
+# adapter error, lower recorded or synthetic agreement or more dangerous
+# misses than baseline.json, a changed recorded or synthetic case count,
 # a site missing from the baseline, or a cassette answered by another model
 # than the pinned build. tests/fm-jev-eval.test.sh runs it in CI, so a Jev
 # change cannot ship until its cassettes are re-recorded and the score holds.
@@ -126,7 +135,7 @@ run_one_case() {  # <site> <case-file> <work-dir> <result-file>
     # Opt-in gates read a key before the seam; replay never sends one.
     export TYPESAFE_API_KEY=${TYPESAFE_API_KEY:-fm-jev-eval-replay}
   fi
-  FM_JEV_EVAL_CODE_ROOT=$ROOT FM_JEV_REPLAY_MISS_LOG=$work.miss \
+  LC_ALL=C.UTF-8 FM_JEV_EVAL_CODE_ROOT=$ROOT FM_JEV_REPLAY_MISS_LOG=$work.miss \
     fm_run_timed "${FM_JEV_EVAL_CASE_TIMEOUT:-120}" bash "$adapter" "$case_file" "$work" \
     >"$work.out" 2>"$work.err" </dev/null || rc=$?
   line=$(awk 'NF { last = $0 } END { print last }' "$work.out")
@@ -140,7 +149,7 @@ run_one_case() {  # <site> <case-file> <work-dir> <result-file>
   fi
   jq -c --arg got "$label" --arg detail "$detail" --arg error "$error" \
     --arg origin "$origin" '
-    {id, gold, gold_source, got: $got, detail: $detail, error: $error,
+    {id, gold, gold_source, input_source, got: $got, detail: $detail, error: $error,
      origin: $origin,
      agree: ($error == "" and $got == .gold),
      dangerous: ($error == "" and ((.dangerous_if // []) | index($got)) != null)}' \
@@ -161,14 +170,17 @@ summarize_site() {  # <site> <results-dir>
   done
   jq -e -s --argjson expected "$expected" \
     --argjson acts "$(jq --arg s "$site" '.sites[$s].acts == true' "$(sites_file)")" '
+    def score: {cases: length,
+      agree: (map(select(.agree)) | length),
+      agreement: (if length == 0 then 0 else ((map(select(.agree)) | length) / length * 10000 | round / 10000) end),
+      dangerous_misses: (map(select(.dangerous)) | length)};
     if length != $expected then error("incomplete case results") else
     {cases: length,
-     agree: (map(select(.agree)) | length),
-     agreement: (if length == 0 then 0 else ((map(select(.agree)) | length) / length * 10000 | round / 10000) end),
-     dangerous_misses: (map(select(.dangerous)) | length),
      errors: (map(select(.error != "")) | length),
+     recorded: (map(select(.input_source == "recorded")) | score),
+     synthetic: (map(select(.input_source == "synthetic")) | score),
      acts: $acts,
-     misses: map(select(.agree | not) | {id, origin, gold, got, detail, error, dangerous, gold_source})} end' "$dir"/*.result
+     misses: map(select(.agree | not) | {id, origin, input_source, gold, got, detail, error, dangerous, gold_source})} end' "$dir"/*.result
 }
 
 score_run() {  # <live:0|1> <record:0|1> <jobs> <public-only:0|1> <out-file> <site>...
@@ -196,7 +208,7 @@ score_run() {  # <live:0|1> <record:0|1> <jobs> <public-only:0|1> <out-file> <si
     model=$(_fm_jev_site_model "$site") || die "could not resolve model for $site"
     jq --arg s "$site" --arg model "$model" --argjson now "$(date +%s)" '
       .sites[$s] = {final: true, generated_at: $now, model: $model,
-        cases: 1000000, agreement: 1, dangerous_misses: 0}' "$act_scores" >"$tmp/sc.next" \
+        recorded: {cases: 1000000, agreement: 1, dangerous_misses: 0}}' "$act_scores" >"$tmp/sc.next" \
       && mv "$tmp/sc.next" "$act_scores" || die "could not build evaluation evidence"
   done < <(all_sites)
   for site in "$@"; do
@@ -219,6 +231,7 @@ score_run() {  # <live:0|1> <record:0|1> <jobs> <public-only:0|1> <out-file> <si
           length == 1 and (.[0] | type == "object")
           and (.[0].id | type == "string" and length > 0)
           and (.[0].input | type == "object")
+          and (.[0].input_source == "recorded" or .[0].input_source == "synthetic")
           and (.[0].gold | type == "string" and length > 0)
           and (.[0].gold_source | type == "string" and length > 0)
           and (.[0].dangerous_if | type == "array" and all(.[]; type == "string"))
@@ -294,7 +307,7 @@ export_live_keys() {
 
 print_table() {  # <scorecard>
   jq -r '.sites | to_entries[] |
-    "\(.key)\t\(.value.cases) cases\tagreement \(.value.agreement)\tdangerous \(.value.dangerous_misses)\terrors \(.value.errors)\t\(.value.mode // "advise")"' "$1" |
+    "\(.key)\trecorded \(.value.recorded.cases) cases\tagreement \(.value.recorded.agreement)\tdangerous \(.value.recorded.dangerous_misses)\tsynthetic \(.value.synthetic.cases) cases\tagreement \(.value.synthetic.agreement)\tdangerous \(.value.synthetic.dangerous_misses)\terrors \(.value.errors)\t\(.value.mode // "advise")"' "$1" |
     column -t -s $'\t'
 }
 
@@ -363,11 +376,12 @@ cmd_check_baseline() {
       printf 'FAIL %s: not in baseline.json\n' "$site" >"$card.fail"
     else
       jq -r --arg s "$site" --slurpfile b "$baseline" '
-      .sites[$s] as $now | $b[0].sites[$s] as $base |
-      (if $now.errors > 0 then "FAIL \($s): \($now.errors) case errors: \([$now.misses[] | select(.error != "") | "\(.id) \(.error)"] | .[:3] | join("; "))" else empty end),
-      (if $now.agreement < $base.agreement then "FAIL \($s): agreement \($now.agreement) below baseline \($base.agreement)" else empty end),
-      (if $now.dangerous_misses > $base.dangerous_misses then "FAIL \($s): \($now.dangerous_misses) dangerous misses, baseline \($base.dangerous_misses)" else empty end),
-      (if $now.cases != $base.cases then "FAIL \($s): \($now.cases) cases, baseline \($base.cases)" else empty end)' "$card" >"$card.fail"
+      .sites[$s] as $site_now | $b[0].sites[$s] as $site_base |
+      (if $site_now.errors > 0 then "FAIL \($s): \($site_now.errors) case errors: \([$site_now.misses[] | select(.error != "") | "\(.id) \(.error)"] | .[:3] | join("; "))" else empty end),
+      ("recorded", "synthetic" | . as $k | $site_now[$k] as $now | $site_base[$k] as $base |
+        (if $now.agreement < $base.agreement then "FAIL \($s) \($k): agreement \($now.agreement) below baseline \($base.agreement)" else empty end),
+        (if $now.dangerous_misses > $base.dangerous_misses then "FAIL \($s) \($k): \($now.dangerous_misses) dangerous misses, baseline \($base.dangerous_misses)" else empty end),
+        (if $now.cases != $base.cases then "FAIL \($s) \($k): \($now.cases) cases, baseline \($base.cases)" else empty end))' "$card" >"$card.fail"
     fi
     if [ -s "$card.fail" ]; then
       cat "$card.fail"
@@ -397,7 +411,8 @@ cmd_write_baseline() {
   card=$(mktemp "${TMPDIR:-/tmp}/fm-jev-eval-card.XXXXXX") || die "mktemp failed"
   mapfile -t sites < <(all_sites)
   score_run 0 0 "${FM_JEV_EVAL_JOBS:-4}" 1 "$card" "${sites[@]}"
-  jq '{schema, model, sites: (.sites | map_values({cases, agreement, dangerous_misses}))}' "$card" >"$EVAL_DIR/baseline.json"
+  jq '{schema, model, sites: (.sites | map_values({recorded: (.recorded | {cases, agreement, dangerous_misses}),
+    synthetic: (.synthetic | {cases, agreement, dangerous_misses})}))}' "$card" >"$EVAL_DIR/baseline.json"
   print_table "$card"
   rm -f "$card"
 }
@@ -413,8 +428,8 @@ cmd_status() {
   for site in "${sites[@]}"; do
     jq -r --arg s "$site" --arg m "$(fm_jev_site_mode "$site")" '
       .sites[$s] as $x |
-      if $x == null then "\($s)\tnot scored\t\t\t\($m)"
-      else "\($s)\t\($x.cases) cases\tagreement \($x.agreement)\tdangerous \($x.dangerous_misses)\tscored \($x.generated_at | if type == "number" then todate else "unknown" end)\tfinal \($x.final)\tmodel \($x.model)\t\($m)" end' "$latest"
+      if $x == null then "\($s)\tnot scored\t\t\t\t\t\t\t\t\t\($m)"
+      else "\($s)\trecorded \($x.recorded.cases) cases\tagreement \($x.recorded.agreement)\tdangerous \($x.recorded.dangerous_misses)\tsynthetic \($x.synthetic.cases) cases\tagreement \($x.synthetic.agreement)\tdangerous \($x.synthetic.dangerous_misses)\tscored \($x.generated_at | if type == "number" then todate else "unknown" end)\tfinal \($x.final)\tmodel \($x.model)\t\($m)" end' "$latest"
   done | column -t -s $'\t'
 }
 
@@ -471,7 +486,7 @@ nightly_foreground() {
 demote_note() {  # <site> <scorecard>
   local site=$1 card=$2 text
   text=$(jq -r --arg s "$site" '.sites[$s] |
-    "Jev \($s) dropped to advise-only: agreement \(.agreement) over \(.cases) cases, \(.dangerous_misses) dangerous misses (bar 0.95, zero dangerous). The human decides there until it is back above the bar."' "$card")
+    "Jev \($s) dropped to advise-only: recorded agreement \(.recorded.agreement) over \(.recorded.cases) recorded cases, \(.recorded.dangerous_misses) dangerous misses (bar 0.95, zero dangerous, at least 20 recorded cases). The human decides there until it is back above the bar."' "$card")
   printf '%s\n' "$text" >>"$OUT/notices"
   if [ -e "$FM_HOME/config/slack-bridge" ]; then
     FM_HOME=$FM_HOME "${FM_JEV_EVAL_SLACK_CMD:-$SCRIPT_DIR/fm-slack-bridge.sh}" post report -- "$text" >/dev/null 2>&1 || true
@@ -480,7 +495,7 @@ demote_note() {  # <site> <scorecard>
 
 haiku_report() {  # <scorecard>
   local prompt
-  prompt=$(jq -r '"You are reviewing a nightly scorecard of Jev, a typed decision model, across Firstmate call sites. Scores are computed by code and are authoritative; do not recompute or change them. Write a short Markdown report: one line per site with its mode, then for each site below 0.95 agreement or with dangerous misses, the pattern you see in its misses (gold vs got, detail) and whether the gold label or the site looks wrong. Keep it under 60 lines.\n\nScorecard JSON:\n" + (. | tojson)' "$1")
+  prompt=$(jq -r '"You are reviewing a nightly scorecard of Jev, a typed decision model, across Firstmate call sites. Scores are computed by code and are authoritative; do not recompute or change them. Each site has a recorded score (real past inputs) and a synthetic score (Opus-written inputs and fixture grids); only the recorded score drives the mode. Write a short Markdown report: one line per site with its mode and both scores, then for each site whose recorded or synthetic score is below 0.95 agreement or has dangerous misses, the pattern you see in its misses (gold vs got, detail) and whether the gold label or the site looks wrong. Keep it under 60 lines.\n\nScorecard JSON:\n" + (. | tojson)' "$1")
   if [ -n "${FM_JEV_EVAL_HAIKU_CMD:-}" ]; then
     printf '%s' "$prompt" | $FM_JEV_EVAL_HAIKU_CMD
   else

@@ -582,17 +582,29 @@ test_compact_state_keeps_task_numbers_and_prose() {
   for text in 'call 555-123-4567' 'Call +1 (212) 555-0199' 'Call 212 555 0199' '+49 15567 692971' \
     'Call +49 170.1234567' '+49 1701234567' '(415) 5551234' '(555-123-4567)' \
     '2026-10-08 +49 1701234567' '2026-10-08 (415) 5551234' 'Call 0170 123.4567' 'Call (0170) 123.4567' 'Call 212 555.0199' \
-    '0170 1234567' '(0170) 1234567' '0201/123456' 'num 0170.123.4567' '01 23 45 67 89'; do
+    '0170 1234567' '(0170) 1234567' '0201/123456' 'num 0170.123.4567' '01 23 45 67 89' \
+    '2026-10-08 555-123-4567' '2026-10-08 0170 1234567' '2026-10-08 212 555 0199' '08.10.2026 555-123-4567' \
+    '2026/10/08 212 555 0199' 'Call 415 5551234' 'Call 415-5551234'; do
     out=$(fm_jev_compact_state "$text")
     assert_contains "$out" '[redacted]' "compact still redacts a phone number: $text"
   done
-  out=$(fm_jev_compact_state '2026-10-08 (415) 5551234')
-  assert_contains "$out" '2026-10-08' "a preceding date is preserved"
-  assert_not_contains "$out" '5551234' "a phone after a date is fully redacted"
+  for text in '2026-10-08 (415) 5551234' '2026-10-08 555-123-4567' '2026-10-08 0170 1234567' '2026-10-08 212 555 0199'; do
+    out=$(fm_jev_compact_state "$text")
+    assert_contains "$out" '2026-10-08' "a preceding date is preserved: $text"
+    assert_not_contains "$out" '555' "a phone after a date is fully redacted: $text"
+    assert_not_contains "$out" '1234567' "a trunk phone after a date is fully redacted: $text"
+  done
   for text in 'FM_MAIL_PASS=hunter2' 'pass: hunter2' '  pass: s3cret' 'mailPass: abc' 'db-pass = xyz' 'SMTP pass: hunter2'; do
     fm_jev_has_sensitive_key "$text" || fail "a password key stays sensitive: $text"
     out=$(fm_jev_compact_state "$text")
     assert_not_contains "$out" 'hunter2' "compact still drops the password value: $text"
+  done
+  for text in 'WiFi pass: purple monkey dishwasher' 'Router pass: correct horse battery staple'; do
+    fm_jev_has_sensitive_key "$text" || fail "a passphrase after an unknown word stays sensitive: $text"
+    out=$(fm_jev_compact_state "$text")
+    assert_contains "$out" '[redacted]' "compact redacts the passphrase: $text"
+    assert_not_contains "$out" 'monkey' "compact drops the passphrase words: $text"
+    assert_not_contains "$out" 'horse' "compact drops the passphrase words: $text"
   done
   pass "compact-state keeps receipt ids, number lists, ranges, and prose while phones and password keys stay caught"
 }
