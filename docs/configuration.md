@@ -9,7 +9,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), and [worker CPU priority](#worker-cpu-priority) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), [worker CPU priority](#worker-cpu-priority), and [never-use models](#never-use-model-list-configmodel-denylistjson) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), [Calm preference](#calm-preference-configcalm), and [theme pack](#theme-pack-configtheme) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
@@ -1455,6 +1455,43 @@ See [`docs/examples/crew-dispatch.json`](examples/crew-dispatch.json) for a star
 
 Secondmate homes inherit this file from the primary, so a secondmate's own crewmates apply the same dispatch profile behavior.
 
+## Never-use model list (config/model-denylist.json)
+
+The optional local, gitignored `config/model-denylist.json` names models the captain has ruled out, so no worker launch, no-mistakes reviewer setting, or Jev model choice can land on one.
+An absent file bans nothing and changes no behavior.
+Like `config/crew-dispatch.json`, it is inherited into secondmate homes, so their own workers refuse the same models.
+[`bin/fm-model-denylist-lib.sh`](../bin/fm-model-denylist-lib.sh) is the one owner of loading, matching, pin detection, and the rules summary.
+
+```json
+{
+  "never": [
+    {"pattern": "*kimi*", "reason": "Kimi is ruled out on every provider"},
+    {"pattern": "gpt-*-luna*", "reason": "GPT Luna is banned at every effort"}
+  ],
+  "rules": ["Opus does judgment, review, planning, and fixes."]
+}
+```
+
+Each `never` entry has a `pattern` and a one-line `reason` of at most 200 characters.
+A pattern is a case-insensitive glob (`*` and `?`) without whitespace, and `*` alone is refused because it would ban every model.
+It matches a model id when it matches the whole id or any part after a `/`, so `gpt-*-luna*` also matches `openai-codex/gpt-6-luna`.
+An id is matched after surrounding backticks, quotes, markdown emphasis (`*`, `_`), and brackets and trailing punctuation are stripped, so `` `gpt-6-luna` ``, `**gpt-6-luna**`, and `kimi-coding/k3.` are matched like the bare id.
+A launch is checked as its model, as `<harness>/<model>`, and, with no model, as the bare harness name, which then stands for that harness's default model.
+The optional `rules` array holds short captain model-rule sentences, each at most 300 characters, that Jev should weigh.
+A file that is present but unreadable, not a regular file, or malformed is never treated as empty: a launch or Jev model choice refuses, and the dispatch resolver and model-proposal generator exit 2 as for malformed configuration.
+
+Where the list is enforced:
+
+- `bin/fm-spawn.sh` refuses a worker or secondmate launch whose resolved harness and model match, whatever chose them: a dispatch profile, an explicit `--model`, a secondmate pin, or a raw launch command's `--model` (or `-m` for `codex`, `opencode`, and `kimi`).
+  It also refuses a ship or scout whose brief pins a matching model on a launch command line: a line (joined across trailing-backslash continuations), code span, or shell-separated segment that starts with a known launch shape followed by a flag or nothing (`no-mistakes axi run`, `no-mistakes axi rerun`, `no-mistakes run`, `no-mistakes rerun`, `codex exec`, `opencode run`, or a bare harness binary such as `pi` or `claude`), and passes `--model <id>` (or `-m <id>`, `-m=<id>`, or `-m<id>` for `codex`, `opencode`, and `kimi`, whose CLIs define it as the model flag; quotes around a flag or value are ignored), checked as `<provider>/<id>` when it also passes `--provider <provider>`.
+  Prose that only mentions or forbids a model, such as "do not pass `--model <id>`", is not a pin.
+  A no-mistakes ship is refused while `${NM_HOME:-~/.no-mistakes}/config.yaml` pins a matching model for a pipeline agent through `agent_args_override` (`--provider` and `--model` in one agent's list, or `-m` in a `codex`, `opencode`, or `kimi` list) or `provider:` and `model:` keys in one block; YAML comments, whole-line or trailing, are ignored.
+  The refusal exits 1 before any worktree, window, or record exists and names the rule and its reason.
+- `bin/fm-dispatch-resolve.sh` marks a matching profile not eligible, so it is never chosen, ranked, or offered in a runoff, and its candidate line names the rule.
+- Jev calls that pick a model drop matching options before anything is sent (an option matches by its label; under a harness, provider, or route label (any launch binary such as `pi`, `claude`, `omp`, `cursor-agent`, or `opencode`, or a provider or route name such as `openrouter`) every model id the meaning names counts, so `claude=Claude Opus, not kimi` is removed under a Kimi ban; under any other concrete model-id label, such as `opus`, only a bare model-id meaning counts, so a description that mentions a banned model keeps the option; under any other label the first model id the meaning names counts; a token is a model id only when it carries a model-family token or matches a rule, never for a slash alone) and append a captain model-rules summary to the state: `bin/fm-jev.sh` for any pick or score question whose options name a model or that passes `--models`, `bin/fm-jev-model-proposal.sh` for its candidates, and the dispatch resolver's runoff.
+  The summary lists every `never` pattern with its reason followed by the `rules` sentences, is cut to 700 bytes, and still passes each caller's byte cap and privacy screen.
+  A `bin/fm-jev.sh` question left with fewer than two options is refused with nothing sent.
+
 ## Typed dispatch resolution (.env TYPESAFE_API_KEY)
 
 `bin/fm-dispatch-resolve.sh` resolves one concrete crewmate or scout profile from a written brief with typesafe.ai's System One model (Jev), so the rule match that firstmate otherwise reasons out in its own context becomes one short tool turn.
@@ -1591,6 +1628,7 @@ No qualifying option, or two equally probable qualifying options, leaves the typ
 
 **Candidate eligibility and evidence**
 
+- A profile on the [never-use model list](#never-use-model-list-configmodel-denylistjson) is ineligible, and its candidate line names the rule.
 - Any applicable `exhausted_now` row or known zero bound makes that candidate ineligible, and a known profile-floor shortfall does the same before unrelated quota uncertainty is considered.
 - Missing or nonnumeric `spendPriority` evidence is never ranked, and every candidate is printed beside its evidence or the reason it was not rankable, including on ambiguous and approval-gated outcomes that emit no profile.
 - Duplicate concrete profiles with the same harness, model, and effort inside one rule or the default array are configuration errors rather than ties.
@@ -1620,7 +1658,7 @@ An `ambiguous` rule answer gets one runoff before it reaches firstmate, so a clo
 The contenders are the picked option and the two most probable options, and each settles in code exactly as a cleared answer would under [the checks above](#checks-performed-after-the-answer).
 If any contender would not clear - a captain-approval rule, an unverifiable rule floor, nothing rankable, or a genuine tie - the runoff is skipped, because a pick between them could bypass a gate that belongs to the captain or to `quota-array-dispatch`.
 Contenders that settle on the same concrete profile collapse into one option, and when only one remains its profile is taken without another call.
-Otherwise the resolver sends one more request on the same state with one `pick` Choice whose options are the remaining contenders, keyed by rule and worded with the same criteria, tie-break sentences included, that the rule Choice sent; the model still never sees `use`, `why`, quota, or approvals.
+Otherwise the resolver sends one more request on the same state, plus the [captain model-rules summary](#never-use-model-list-configmodel-denylistjson), with one `pick` Choice whose options are the remaining contenders, keyed by rule and worded with the same criteria, tie-break sentences included, that the rule Choice sent; the model still never sees `use`, `why`, quota, or approvals.
 The pick settles only when its returned choice is its most probable option and its top-2 margin reaches the same `FM_JEV_DISPATCH_MARGIN`.
 An option whose rules declare `min_confidence` instead settles only when its runoff probability reaches the strictest of those floors, so a runoff never dispatches a rule more loosely than the rule answer would.
 A settled pick makes the result `picked`, with a `pick:` line naming the winner and its evidence, the winner's candidates, and its `profile:` line.
@@ -1694,6 +1732,7 @@ It reuses the caller library above and pins its route and URL to TypeSafe produc
 It resolves `TYPESAFE_API_KEY` from the process environment, then `$FM_HOME/.env`, then the `.env` of the firstmate home that owns the command checkout.
 For pooled worktrees, it finds that home through `git rev-parse --git-common-dir`; `.env` values use the shared `fmx_env_get` accessor.
 Its `--help` is its whole interface, flags follow the command, and the header owns the privacy refusal, escalation floor, output, and exit codes.
+A question whose options name a model follows the [never-use model list](#never-use-model-list-configmodel-denylistjson).
 Callers must pass only task facts and never personal data or private-vault content; refusing obvious secrets, email addresses, and phone numbers is only a safety net, not a general personal-data detector.
 Standard ship and scout launches, plus Devin launches, carry the spawning home's absolute path as `FM_HOME` and clear inherited provider keys; raw launch commands remain unchanged.
 The key itself is not added to the launch command or environment, so standard spawned workers must resolve `TYPESAFE_API_KEY` from the firstmate home `.env`; an environment-only key intentionally does not cross that launch boundary.
@@ -1732,6 +1771,7 @@ The proposal lists each role's current models, every candidate's probability and
 The [script header](../bin/fm-jev-model-proposal.sh) owns invocation, input validation, evidence and current-model formats, outbound privacy and never-send checks, answer bands, output and call-log schemas, and exit codes.
 It never edits `config/` or any dispatch profile, and every switch it proposes needs the captain's yes before anyone changes a profile.
 Any candidate billed to usage credits, such as Fable, is named in a billing notice at the top of the proposal.
+Candidates on the [never-use model list](#never-use-model-list-configmodel-denylistjson) are withheld from Jev and named as withheld in the proposal.
 Regression coverage lives in [`tests/fm-jev-model-proposal.test.sh`](../tests/fm-jev-model-proposal.test.sh).
 
 ## Shadow done verifier

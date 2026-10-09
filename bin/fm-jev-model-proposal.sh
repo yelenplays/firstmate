@@ -60,6 +60,13 @@
 #   "Never-send list" owns its matching rules; a refusal exits 2 with no proposal
 #   and a diagnostic that never includes the matched value.
 #
+# Never-use models: candidates whose model, harness/model, or id match
+#   $FM_HOME/config/model-denylist.json are withheld before any call, never
+#   offered to Jev, and listed as withheld in the proposal; the state also
+#   carries the captain model-rules summary as `captain_model_rules`. Both come
+#   from bin/fm-model-denylist-lib.sh. A malformed list, or one that withholds
+#   every candidate, exits 2 with no proposal.
+#
 # Gate (code, from intake.specialist v2): the chosen option's probability
 #   gives the band, and the chosen option must be the most probable one. Jev's
 #   own confidence is calibrated separately, may differ from that probability,
@@ -102,6 +109,8 @@ FM_HOME=${FM_HOME:-$(cd "$SCRIPT_DIR/.." && pwd)}
 . "$SCRIPT_DIR/fm-jev-lib.sh"
 # shellcheck source=bin/fm-never-send-lib.sh
 . "$SCRIPT_DIR/fm-never-send-lib.sh"
+# shellcheck source=bin/fm-model-denylist-lib.sh
+. "$SCRIPT_DIR/fm-model-denylist-lib.sh"
 
 # Bands copied from intake.specialist v2 (act 0.55, review 0.3). A too-low act
 # floor proposes switches Jev barely prefers; a too-high one hides real leads.
@@ -236,6 +245,16 @@ roles=$(jq -c --argjson rules "$dispatch_roles" '
 oversized_role=$(jq -r --argjson max "$FM_MODEL_PROPOSAL_JOB_MAX" '[.[] | select((.job | length) > $max) | .id][0] // empty' <<<"$roles")
 [ -z "$oversized_role" ] || die "role $oversized_role job exceeds $FM_MODEL_PROPOSAL_JOB_MAX characters"
 
+# --- never-use models -----------------------------------------------------------
+fm_model_denylist_load "$FM_HOME/config" || die "malformed never-use model list: $FM_MODEL_DENYLIST_ERROR"
+withheld=$(jq -c --argjson list "$FM_MODEL_DENYLIST_JSON" "$FM_MODEL_DENYLIST_JQ"'
+  [.candidates[] | . as $c | model_banned_any($list; [$c.model, "\($c.harness)/\($c.model)", $c.id]) as $ban
+   | select($ban != null) | $c + {rule: $ban.pattern, reason: $ban.reason}]' "$EVIDENCE") \
+  || die "could not apply the never-use model list"
+candidates=$(jq -c --argjson withheld "$withheld" '[.candidates[] | select(.id as $id | all($withheld[]; .id != $id))]' "$EVIDENCE")
+[ "$(jq 'length' <<<"$candidates")" -gt 0 ] || die "every candidate is on the never-use model list; nothing sent, no proposal written"
+model_rules=$(fm_model_rules_summary)
+
 fm_jev_key_configured || die "no Jev key configured (TYPESAFE_API_KEY or OPENROUTER_API_KEY); nothing sent, no proposal written"
 
 state_dir=${FM_STATE_OVERRIDE:-$FM_HOME/state}
@@ -332,7 +351,6 @@ new_request_id() {
   printf '%s' "$id"
 }
 
-candidates=$(jq -c '.candidates' "$EVIDENCE")
 # shellcheck disable=SC2329 # Invoked indirectly by fm_jev_decide as its before-send validator.
 fm_jev_proposal_before_send() {
   fm_never_send_check "$FM_HOME/config/dispatch-never-send" "$1" "request text"
@@ -348,7 +366,8 @@ compact_states='[]'
 n_roles=$(jq 'length' <<<"$roles")
 for ((i = 0; i < n_roles; i++)); do
   role=$(jq -c --argjson i "$i" '.[$i]' <<<"$roles")
-  state=$(jq -c --argjson role "$role" '{role: {job: $role.job}, candidates: (map({key: .id, value: {model, evidence}}) | from_entries)}' <<<"$candidates")
+  state=$(jq -c --argjson role "$role" --arg rules "$model_rules" '{role: {job: $role.job}, candidates: (map({key: .id, value: {model, evidence}}) | from_entries)}
+    + (if $rules == "" then {} else {captain_model_rules: $rules} end)' <<<"$candidates")
   if compact=$(fm_jev_compact_state "$state" 2>/dev/null) && jq -e 'type == "object"' >/dev/null 2>&1 <<<"$compact"; then
     request=$(jq -nc --argjson state "$compact" --argjson questions "$questions" '{state: $state, questions: $questions}')
     fm_never_send_check "$FM_HOME/config/dispatch-never-send" "$request" "request text" \
@@ -368,7 +387,8 @@ for ((i = 0; i < n_roles; i++)); do
   FM_JEV_LAST_HTTP=''
   role=$(jq -c --argjson i "$i" '.[$i]' <<<"$roles")
   request_id=$(new_request_id)
-  state=$(jq -c --argjson role "$role" '{role: {job: $role.job}, candidates: (map({key: .id, value: {model, evidence}}) | from_entries)}' <<<"$candidates")
+  state=$(jq -c --argjson role "$role" --arg rules "$model_rules" '{role: {job: $role.job}, candidates: (map({key: .id, value: {model, evidence}}) | from_entries)}
+    + (if $rules == "" then {} else {captain_model_rules: $rules} end)' <<<"$candidates")
   result=$(jq -nc --argjson role "$role" --arg rid "$request_id" '$role + {request_id: $rid}')
   compact=$(jq -r --argjson i "$i" '.[$i] | if . == null then "" else tojson end' <<<"$compact_states")
   error=''
@@ -430,7 +450,8 @@ done
 tmp_out=$(mktemp "$out_dir/.fm-model-proposal.XXXXXX") || die "mktemp failed" 1
 trap 'rm -f "$resp_file" "$tmp_out"' EXIT
 jq -r --argjson results "$results" --arg at "$(fm_jev_iso_now)" --arg route "${FM_JEV_LAST_ROUTE:-}" \
-  --arg model "$route_model" --arg evidence "$(basename "$EVIDENCE")" '
+  --arg model "$route_model" --arg evidence "$(basename "$EVIDENCE")" \
+  --argjson cands "$candidates" --argjson withheld "$withheld" '
   def pct: (. * 100 | round | tostring) + "%";
   def num: (. * 100 | round / 100 | tostring);
   def current_model($value; $harness; $model):
@@ -438,8 +459,8 @@ jq -r --argjson results "$results" --arg at "$(fm_jev_iso_now)" --arg route "${F
     | ($value == "\($harness)/\($model)"
        or ($value | startswith("\($harness)/\($model)/"))
        or ($parts[1] == $harness and $parts[2] == $model));
-  (.candidates | map({key: .id, value: .}) | from_entries) as $c
-  | [.candidates[] | select(.billing == "usage-credits")] as $credits
+  ($cands | map({key: .id, value: .}) | from_entries) as $c
+  | [$cands[] | select(.billing == "usage-credits")] as $credits
   | "# Jev model proposal \($at)",
     "",
     "Proposal only: nothing in config/ or any dispatch profile was changed.",
@@ -447,6 +468,9 @@ jq -r --argjson results "$results" --arg at "$(fm_jev_iso_now)" --arg route "${F
     "Evidence: \($evidence), as of \(.as_of).",
     (if (.sources // []) | length > 0 then "Sources: \(.sources | join("; "))." else empty end),
     "Jev: route \(if $route == "" then "unknown" else $route end), model \(if $model == "" then "unknown" else $model end).",
+    (if ($withheld | length) > 0 then
+       "Withheld by the never-use model list, never offered to Jev: \($withheld | map("`\(.id)` (\(.harness)/\(.model); rule \(.rule) - \(.reason))") | join(", "))."
+     else empty end),
     "",
     (if ($credits | length) > 0 then
        "**Billing:** \($credits | map("`\(.model)`") | join(", ")) bill\(if ($credits | length) == 1 then "s" else "" end) the account'"'"'s usage credits, outside the subscription. Choosing \(if ($credits | length) == 1 then "it" else "one" end) spends credits and needs the captain'"'"'s yes like any switch.", ""
@@ -473,7 +497,7 @@ jq -r --argjson results "$results" --arg at "$(fm_jev_iso_now)" --arg route "${F
        "",
        "| Candidate | Harness | Model | Billing | p |",
        "|---|---|---|---|---|",
-       (.candidates[] | "| \(.id) | \(.harness) | \(.model) | \(.billing) | \(if $r.probabilities then ($r.probabilities[.id] | pct) else "-" end) |"),
+       ($cands[] | "| \(.id) | \(.harness) | \(.model) | \(.billing) | \(if $r.probabilities then ($r.probabilities[.id] | pct) else "-" end) |"),
        "")
 ' "$EVIDENCE" > "$tmp_out" || die "could not render the proposal" 1
 mv -f "$tmp_out" "$OUT" || die "could not write $OUT" 1

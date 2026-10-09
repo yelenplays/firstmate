@@ -414,6 +414,13 @@
 #   docs/configuration.md "Worker tool exclusions" owns config/crew-exclude-tools
 #   and its operator contract. Resolve it with bin/fm-exclude-tools-lib.sh
 #   before provisioning; __PIEXCLUDE__ below owns the Pi launch substitution.
+# Never-use model list (config/model-denylist.json): every launch, including a
+#   secondmate pin, a dispatch profile, an explicit --model, a raw launch
+#   command's --model, a --model pin on a launch command line in the brief, and for a no-mistakes
+#   ship the models the no-mistakes config pins for its pipeline agents, is
+#   checked before provisioning; a match refuses with exit 1 naming the rule and
+#   reason. bin/fm-model-denylist-lib.sh owns matching; docs/configuration.md
+#   "Never-use model list" owns the file.
 # Worker account pin (config/claude-account, config/pi-account):
 #   Opt-in. With no file, a Claude or Pi launch is unchanged: Claude still
 #   receives this process's own CLAUDE_CONFIG_DIR when it is set, and Pi the
@@ -749,6 +756,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 . "$SCRIPT_DIR/fm-project-capacity-lib.sh"
 # shellcheck source=bin/fm-worker-account-lib.sh
 . "$SCRIPT_DIR/fm-worker-account-lib.sh"
+# shellcheck source=bin/fm-model-denylist-lib.sh
+. "$SCRIPT_DIR/fm-model-denylist-lib.sh"
 # shellcheck source=bin/fm-ai-family-lib.sh
 . "$SCRIPT_DIR/fm-ai-family-lib.sh"
 # Fail closed before any fleet mutation: a no-mistakes gate agent must never spawn
@@ -2617,6 +2626,35 @@ if [ "$KIND" = secondmate ] && [ -z "$ARG3" ]; then
       esac
     fi
   fi
+fi
+# Never-use model list (bin/fm-model-denylist-lib.sh; docs/configuration.md
+# "Never-use model list"): the fully resolved harness and model, any model a raw
+# launch command or a launch command line in the brief pins with --model (with
+# its --provider), and, for a no-mistakes ship, the
+# models the no-mistakes config pins for its pipeline agents are refused before
+# any worktree, endpoint, or record exists. An absent list changes nothing.
+fm_model_denylist_load "$CONFIG" || {
+  echo "error: $FM_MODEL_DENYLIST_ERROR; refusing to launch a worker with the never-use model list unreadable" >&2
+  exit 1
+}
+MODEL_DENYLIST_REFUSED=0
+if [ "$RAW_LAUNCH" = 0 ]; then
+  fm_model_denylist_check_launch "worker model" "$HARNESS" "$MODEL" || MODEL_DENYLIST_REFUSED=1
+else
+  fm_model_denylist_check_pins "raw launch model" "$(fm_model_denylist_command_pins "$ARG3")" || MODEL_DENYLIST_REFUSED=1
+  [ "$MODEL_DENYLIST_REFUSED" = 1 ] || [ -z "$MODEL" ] \
+    || fm_model_denylist_check "worker model" "$MODEL" || MODEL_DENYLIST_REFUSED=1
+fi
+if [ "$MODEL_DENYLIST_REFUSED" = 0 ] && [ "$KIND" != secondmate ] && [ -r "$DATA/$ID/brief.md" ]; then
+  fm_model_denylist_check_pins "model pinned in $DATA/$ID/brief.md" \
+    "$(fm_model_denylist_brief_pins "$(cat "$DATA/$ID/brief.md")")" || MODEL_DENYLIST_REFUSED=1
+fi
+if [ "$MODEL_DENYLIST_REFUSED" = 0 ] && [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
+  fm_model_denylist_check_nm_config || MODEL_DENYLIST_REFUSED=1
+fi
+if [ "$MODEL_DENYLIST_REFUSED" = 1 ]; then
+  echo "error: $FM_MODEL_DENYLIST_ERROR; refusing the launch - pick a model that is not on the list" >&2
+  exit 1
 fi
 # Ultra is an explicit native capability, never a Pi thinking-level alias.
 # Validate the fully resolved profile before worktree or endpoint provisioning.
