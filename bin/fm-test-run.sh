@@ -2666,7 +2666,8 @@ run_script_bounded() (
     [ -n "$slot" ] || return 0
     (
       cd "$slot" 2>/dev/null || exit 0
-      [ "$(cat pid 2>/dev/null)" = "$slot_pid" ] || exit 0
+      { IFS= read -r holder <pid; } 2>/dev/null || exit 0
+      [ "$holder" = "$slot_pid" ] || exit 0
       rm -f pid
       rmdir "$slot" 2>/dev/null || true
     )
@@ -2691,7 +2692,7 @@ run_script_bounded() (
           (
             cd "$candidate" 2>/dev/null || exit 0
             if [ -f pid ]; then
-              holder=$(cat pid 2>/dev/null) || exit 0
+              { IFS= read -r holder <pid; } 2>/dev/null || exit 0
               case "$holder" in ''|*[!0-9]*|0) exit 0 ;; esac
               kill -0 "$holder" 2>/dev/null && exit 0
               rm pid 2>/dev/null || exit 0
@@ -2700,7 +2701,7 @@ run_script_bounded() (
           )
         fi
       done
-      [ -n "$slot" ] || sleep 0.05
+      [ -n "$slot" ] || sleep 1
     done
     rm -f "$slot_record"
     slot_record=
@@ -2721,15 +2722,15 @@ run_script_bounded() (
     trap - EXIT HUP INT TERM
     set +m
     if [ "$PER_SCRIPT_TIMEOUT_SECS" -gt 0 ]; then
-      export FM_EXEC_TIMED_OWNER_PID="$slot_pid"
       if [ "$stream" -eq 1 ]; then
         # Expansion is intentionally deferred to the child bash passed to -c.
         # shellcheck disable=SC2016
-        fm_exec_timed "$PER_SCRIPT_TIMEOUT_SECS" 1 bash -c \
+        fm_run_timed "$PER_SCRIPT_TIMEOUT_SECS" bash -c \
           'bash "$1" 2>&1 | tee "$2"; exit "${PIPESTATUS[0]}"' _ "$script" "$out"
       else
-        fm_exec_timed "$PER_SCRIPT_TIMEOUT_SECS" 1 bash "$script" >"$out" 2>&1
+        fm_run_timed "$PER_SCRIPT_TIMEOUT_SECS" bash "$script" >"$out" 2>&1
       fi
+      rc=$?
     elif [ "$stream" -eq 1 ]; then
       bash "$script" 2>&1 | tee "$out"
       rc=${PIPESTATUS[0]}

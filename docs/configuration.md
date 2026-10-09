@@ -1278,7 +1278,7 @@ Every worker, scout, and secondmate Firstmate launches, on a fresh spawn and on 
 The `taskpolicy` clamp is inherited by child processes, yielding processor time to interactive apps.
 Every run of `bin/fm-test-run.sh` also applies the clamp, covering suites started by a pipeline or by hand.
 QoS wrapping is a no-op on other systems.
-With the clamp active and no `config/launch-env-allowlist`, a launch runs under noninteractive POSIX `sh`, so a raw launch command must use compatible syntax.
+Without `config/launch-env-allowlist`, QoS wrapping uses the pane's `SHELL`, preserving its raw-command syntax.
 
 Test-script execution also has a machine-wide, per-user limit shared across workers, homes, checkouts, and runner invocations on every supported system.
 The limit is `max(1, cpus/3)` - four scripts total on a 14-core Mac - using portable atomic directory slots under `$HOME/.cache/firstmate/test-slots`, not `flock`.

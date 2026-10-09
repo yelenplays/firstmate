@@ -397,7 +397,7 @@
 #   Every launch (ship, scout, secondmate, raw command, and relaunch) runs its
 #   whole process tree at utility QoS through bin/fm-qos-lib.sh on macOS.
 #   The taskpolicy clamp wraps the launch outermost; without an allowlist
-#   the launch runs under /bin/sh -c, so raw commands must be POSIX compatible.
+#   the pane's SHELL interprets the launch.
 #   Non-macOS hosts leave the launch unwrapped.
 # Claude permission mode (config/claude-permission-mode):
 #   One token selecting the permission flag every claude launch (ship, scout,
@@ -5965,13 +5965,13 @@ if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
 fi
 # The CPU clamp wraps the whole launch, outermost, so the agent and every
 # process it starts inherit it. Under an enabled allowlist the launch is
-# already one exec chain; otherwise /bin/sh -c gives the clamp a program to
-# exec, exactly as that allowlist wrapper does.
+# already one exec chain; otherwise the pane's SHELL gives the clamp a program
+# to exec.
 if [ -n "$QOS_PREFIX" ]; then
   if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
     LAUNCH="$QOS_PREFIX $LAUNCH"
   else
-    LAUNCH="$QOS_PREFIX /bin/sh -c $(shell_quote "$LAUNCH")"
+    LAUNCH="$QOS_PREFIX \"\$SHELL\" -c $(shell_quote "$LAUNCH")"
   fi
 fi
 # Implement the launch-delivery contract in this script's header. The full

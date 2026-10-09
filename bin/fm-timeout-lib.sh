@@ -90,7 +90,22 @@ fm_timeout_mechanism() {
   fi
 }
 
-fm_run_bash_timeout() {
+_fm_run_timed_interrupt() {
+  local status=$1 pid
+  shift
+  trap '' INT TERM HUP
+  for pid in "$@"; do
+    kill -TERM -- "-$pid" 2>/dev/null || true
+  done
+  sleep 0.2
+  for pid in "$@"; do
+    kill -KILL -- "-$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+  done
+  exit "$status"
+}
+
+fm_run_bash_timeout() (
   local seconds=$1 command_status deadline_status child_pid watchdog_pid command_rc recorded_rc monitor_was_on=0
   shift
   command_status=$(mktemp "${TMPDIR:-/tmp}/fm-bash-timeout-command.XXXXXX" 2>/dev/null) || return 124
@@ -116,6 +131,10 @@ fm_run_bash_timeout() {
   ) &
   watchdog_pid=$!
   [ "$monitor_was_on" -eq 1 ] || set +m
+  trap 'rm -f "$command_status" "$deadline_status"' EXIT
+  trap '_fm_run_timed_interrupt 130 "$child_pid" "$watchdog_pid"' INT
+  trap '_fm_run_timed_interrupt 143 "$child_pid" "$watchdog_pid"' TERM
+  trap '_fm_run_timed_interrupt 129 "$child_pid" "$watchdog_pid"' HUP
 
   if wait "$child_pid" 2>/dev/null; then
     command_rc=0
@@ -131,11 +150,10 @@ fm_run_bash_timeout() {
     recorded_rc=$(cat "$command_status" 2>/dev/null || true)
     case "$recorded_rc" in ''|*[!0-9]*) ;; *) command_rc=$recorded_rc ;; esac
   fi
-  rm -f "$command_status" "$deadline_status" 2>/dev/null || true
   return "$command_rc"
-}
+)
 
-fm_run_external_timeout() {
+fm_run_external_timeout() (
   local runner=$1 seconds=$2 status_file runner_pid runner_rc command_rc
   shift 2
   status_file=$(mktemp "${TMPDIR:-/tmp}/fm-timeout-status.XXXXXX" 2>/dev/null) || return 124
@@ -154,13 +172,16 @@ fm_run_external_timeout() {
     exit "$command_rc"
   ' _ "$status_file" "$@" &
   runner_pid=$!
+  trap 'rm -f "$status_file"' EXIT
+  trap '_fm_run_timed_interrupt 130 "$runner_pid"' INT
+  trap '_fm_run_timed_interrupt 143 "$runner_pid"' TERM
+  trap '_fm_run_timed_interrupt 129 "$runner_pid"' HUP
   if wait "$runner_pid"; then
     runner_rc=0
   else
     runner_rc=$?
   fi
   command_rc=$(cat "$status_file" 2>/dev/null || true)
-  rm -f "$status_file" 2>/dev/null || true
   case "$command_rc" in
     ''|*[!0-9]*) ;;
     *)
@@ -179,7 +200,7 @@ fm_run_external_timeout() {
       ;;
     *) return "$runner_rc" ;;
   esac
-}
+)
 
 fm_run_timed() {  # <seconds> <command...>
   local seconds=$1
@@ -188,7 +209,7 @@ fm_run_timed() {  # <seconds> <command...>
     timeout) fm_run_external_timeout timeout "$seconds" "$@" ;;
     gtimeout) fm_run_external_timeout gtimeout "$seconds" "$@" ;;
     perl)
-      perl -e 'my $t = shift; my $pid = fork; die "fork failed" unless defined $pid; if (!$pid) { setpgrp(0, 0); exec @ARGV } local $SIG{ALRM} = sub { kill "TERM", -$pid; select undef, undef, undef, 0.2; kill "KILL", -$pid; exit 124 }; alarm $t; waitpid $pid, 0; exit(($? & 127) ? 128 + ($? & 127) : $? >> 8)' \
+      perl -e 'my $t = shift; my $pid = fork; die "fork failed" unless defined $pid; if (!$pid) { setpgrp(0, 0); exec @ARGV } for my $entry ([ALRM => 124], [INT => 130], [TERM => 143], [HUP => 129]) { my ($signal, $status) = @$entry; $SIG{$signal} = sub { $SIG{$_} = "IGNORE" for qw(ALRM INT TERM HUP); kill "TERM", -$pid; select undef, undef, undef, 0.2; kill "KILL", -$pid; waitpid $pid, 0; exit $status } } alarm $t; waitpid $pid, 0; exit(($? & 127) ? 128 + ($? & 127) : $? >> 8)' \
         "$seconds" "$@"
       ;;
     bash) fm_run_bash_timeout "$seconds" "$@" ;;

@@ -63,8 +63,9 @@ install_probe() {
 }
 
 run_emitted_launch() {
-  env -i HOME="$TMP_ROOT/pane-home" PATH="$FAKEBIN_DIR:$PATH" TERM=xterm TMUX=synthetic-pane \
-    /bin/sh -c "$(cat "$LAUNCH_LOG")"
+  local shell=${1:-/bin/sh}
+  env -i HOME="$TMP_ROOT/pane-home" PATH="$FAKEBIN_DIR:$PATH" TERM=xterm TMUX=synthetic-pane SHELL="$shell" \
+    "$shell" -c "$(cat "$LAUNCH_LOG")"
 }
 
 test_spawn_wraps_every_launch() {
@@ -120,7 +121,7 @@ test_real_taskpolicy_clamps_the_agent() {
   expect_code 0 "$status" "a real-clamp spawn should succeed: $out"
   install_probe "$FAKEBIN_DIR" "exec $(command -v python3) -I -c 'import ctypes; print(hex(ctypes.CDLL(None).qos_class_self()))'"
   seen=$(/usr/sbin/taskpolicy -c background env -i HOME="$TMP_ROOT/pane-home" \
-    PATH="$FAKEBIN_DIR:$PATH" TERM=xterm TMUX=synthetic-pane /bin/sh -c "$(cat "$LAUNCH_LOG")") \
+    PATH="$FAKEBIN_DIR:$PATH" TERM=xterm TMUX=synthetic-pane SHELL=/bin/sh /bin/sh -c "$(cat "$LAUNCH_LOG")") \
     || fail "real clamp: the emitted launch failed to run"
   assert_equals 0x11 "$seen" "the agent should run at utility QoS even from a background parent"
   pass "on macOS the real taskpolicy gives the launched agent utility QoS"
@@ -153,8 +154,37 @@ SH
   pass "the runner clamps itself at utility exactly once"
 }
 
+test_spawn_preserves_zsh_raw_command_syntax() {
+  local shell rec fake log out seen status
+  shell=$(command -v zsh) || {
+    pass "skip: zsh raw-command syntax needs zsh"
+    return 0
+  }
+  rec=$(make_case zsh zsh-a1)
+  read_case "$rec"
+  fake="$TMP_ROOT/zsh-taskpolicy"
+  log="$TMP_ROOT/zsh-taskpolicy.log"
+  make_fake_taskpolicy "$fake" "$log"
+  cat >"$FAKEBIN_DIR/custom-agent" <<'SH'
+#!/bin/sh
+cat "$1"
+printenv FM_QOS_APPLIED
+SH
+  chmod +x "$FAKEBIN_DIR/custom-agent"
+  out=$(FM_QOS_UNAME=Darwin FM_QOS_TASKPOLICY="$fake" \
+    run_case_spawn zsh-a1 "$PROJ_DIR" --mode no-mistakes --yolo off \
+      "\"$FAKEBIN_DIR/custom-agent\" =(printf '%s\\n' zsh-process-substitution)")
+  status=$?
+  expect_code 0 "$status" "raw zsh spawn should succeed: $out"
+  seen=$(run_emitted_launch "$shell") || fail "the clamped zsh raw command did not run"
+  assert_equals $'zsh-process-substitution\nutility' "$seen" "zsh should interpret the raw command inside the clamp"
+  assert_equals '-c utility' "$(cat "$log")" "the raw zsh command must retain utility QoS"
+  pass "a real spawn preserves zsh-only raw-command syntax under utility QoS"
+}
+
 test_prefix_follows_the_host
 test_spawn_wraps_every_launch
+test_spawn_preserves_zsh_raw_command_syntax
 test_spawn_on_a_host_without_the_clamp_is_unchanged
 test_real_taskpolicy_clamps_the_agent
 test_runner_applies_the_class_once
