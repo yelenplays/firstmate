@@ -27,6 +27,14 @@
 # equals signs belong to the meaning, so labels cannot contain equals signs.
 # Option labels and meanings must not contain control characters.
 #
+# Model choices: a pick or score question whose options name a model (any
+# option matching bin/fm-model-denylist-lib.sh's model test), or any call with
+# --models, is a model choice. Options matching a never-use rule are removed
+# before sending, a question left with fewer than two options is refused, and
+# the captain model-rules summary from that library is appended to the state,
+# all inside the same byte cap and privacy screen. docs/configuration.md
+# "Never-use model list" owns the list.
+#
 # Escalation floor: a verdict whose confidence is below the floor prints
 # ESCALATE. The default floor follows the confidence source: 0.5 for the
 # confidence TypeSafe reports on choice and score answers, 0.4 for a yes/no
@@ -65,7 +73,8 @@ fm-jev.sh - one typed Jev judgment (TypeSafe) with one output line per question.
   fm-jev.sh batch < {"state":"..","questions":[{"id":"x","type":"pick|yes|score","q":"..","opts":[..]}]}
     Several questions on one state in one call; opts is an array of label or label=meaning strings.
     First "=" splits label from meaning; later "=" stays in meaning; labels cannot contain "="; labels and meanings cannot contain controls.
-Flags follow the command: --json (raw response); --help prints this interface.
+Flags follow the command: --json (raw response); --models (a model choice); --help prints this interface.
+Model choices drop options on config/model-denylist.json and append the captain model rules to the state.
 Output: "pick: answer p=0.96 conf=0.94"; a batch uses its question id; escalation prints "ESCALATE conf=0.31 prior=X -> decide yourself".
 Exit: 0 answered, 2 any escalation, 1 error with a one-line reason; on 1 or 2 use your own judgment, never block.
 Input: 4096 bytes total; caller must pass only task facts, never personal data or private-vault content. Obvious secrets, email addresses and phone numbers are refused as a safety net only.
@@ -127,10 +136,12 @@ contains_live_key() {
 
 # --- argv ------------------------------------------------------------------
 JSON=0
+MODELS=0
 parse_flags() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --json) JSON=1; FLAG_SHIFT=$((FLAG_SHIFT + 1)); shift ;;
+      --models) MODELS=1; FLAG_SHIFT=$((FLAG_SHIFT + 1)); shift ;;
       --help) usage; exit 0 ;;
       *) return 0 ;;
     esac
@@ -150,6 +161,8 @@ command -v jq >/dev/null 2>&1 || die "jq required"
 
 # shellcheck source=bin/fm-jev-lib.sh
 . "$SCRIPT_DIR/fm-jev-lib.sh"
+# shellcheck source=bin/fm-model-denylist-lib.sh
+. "$SCRIPT_DIR/fm-model-denylist-lib.sh"
 
 # Build the normalized spec {state, questions:[{id,type,q,opts}]} on stdout.
 case "$SUB" in
@@ -216,6 +229,33 @@ NORM=$(printf '%s' "$SPEC" | jq -c '
   | if ([.questions[].id] | unique | length) != (.questions | length) then fail("question ids must be unique") else . end
   | {state, questions}
 ' 2>&1) || die "$(printf '%s' "$NORM" | sed -n 's/^jq: error ([^)]*): //p' | head -n 1)"
+
+# Model choices: drop never-use options and append the captain model rules.
+DENYLIST_OK=1
+fm_model_denylist_load "${FM_CONFIG_OVERRIDE:-${FM_HOME:-$(firstmate_home)}/config}" || DENYLIST_OK=0
+if [ "$MODELS" -eq 0 ]; then
+  while IFS= read -r option_text; do
+    if fm_model_option_looks_like_model "$option_text"; then MODELS=1; break; fi
+  done < <(printf '%s' "$NORM" | jq -r '.questions[] | select(.type != "yes") | .opts[][]')
+fi
+if [ "$MODELS" -eq 1 ]; then
+  [ "$DENYLIST_OK" -eq 1 ] || die "$FM_MODEL_DENYLIST_ERROR; nothing sent"
+  NORM=$(printf '%s' "$NORM" | jq -c --argjson list "$FM_MODEL_DENYLIST_JSON" "$FM_MODEL_DENYLIST_JQ"'
+    def banned($o): model_banned_any($list; [$o[0]] + [$o[1] | splits("[\\s,;()]+") | select(. != "")]) != null;
+    .questions |= map(if .type == "yes" then .
+      else .removed = [.opts[] | select(banned(.)) | .[0]]
+        | .opts = [.opts[] | select(banned(.) | not)] end)') \
+    || die "could not apply the never-use model list"
+  REMOVED=$(printf '%s' "$NORM" | jq -r '[.questions[] | select((.removed // []) | length > 0) | "\(.id): \(.removed | join(", "))"] | join("; ")')
+  [ -z "$REMOVED" ] || printf 'fm-jev: removed never-use model options (%s)\n' "$REMOVED" >&2
+  SHORT=$(printf '%s' "$NORM" | jq -r 'first(.questions[] | select(.type != "yes" and (.opts | length) < 2) | .id) // empty')
+  [ -z "$SHORT" ] || die "question $SHORT has fewer than two options left after removing never-use models; nothing sent"
+  RULES_SUMMARY=$(fm_model_rules_summary)
+  NORM=$(printf '%s' "$NORM" | jq -c --arg rules "$RULES_SUMMARY" '
+    .questions |= map(del(.removed))
+    | if $rules == "" then . else .state += "\n\n" + $rules end') \
+    || die "could not add the captain model rules"
+fi
 
 STATE_TEXT=$(printf '%s' "$NORM" | jq -jr '.state + "x"') \
   || die "could not read normalized state"

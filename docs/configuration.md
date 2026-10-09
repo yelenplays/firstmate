@@ -9,7 +9,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), and [worker CPU priority](#worker-cpu-priority) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), [worker CPU priority](#worker-cpu-priority), and [never-use models](#never-use-model-list-configmodel-denylistjson) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), [Calm preference](#calm-preference-configcalm), and [theme pack](#theme-pack-configtheme) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
@@ -1455,6 +1455,40 @@ See [`docs/examples/crew-dispatch.json`](examples/crew-dispatch.json) for a star
 
 Secondmate homes inherit this file from the primary, so a secondmate's own crewmates apply the same dispatch profile behavior.
 
+## Never-use model list (config/model-denylist.json)
+
+The optional local, gitignored `config/model-denylist.json` names models the captain has ruled out, so no worker launch, no-mistakes reviewer setting, or Jev model choice can land on one.
+An absent file bans nothing and changes no behavior.
+Like `config/crew-dispatch.json`, it is inherited into secondmate homes, so their own workers refuse the same models.
+[`bin/fm-model-denylist-lib.sh`](../bin/fm-model-denylist-lib.sh) is the one owner of loading, matching, pin detection, and the rules summary.
+
+```json
+{
+  "never": [
+    {"pattern": "*kimi*", "reason": "Kimi is ruled out on every provider"},
+    {"pattern": "gpt-*-luna*", "reason": "GPT Luna is banned at every effort"}
+  ],
+  "rules": ["Opus does judgment, review, planning, and fixes."]
+}
+```
+
+Each `never` entry has a `pattern` and a one-line `reason` of at most 200 characters.
+A pattern is a case-insensitive glob (`*` and `?`) without whitespace, and `*` alone is refused because it would ban every model.
+It matches a model id when it matches the whole id or any part after a `/`, so `gpt-*-luna*` also matches `openai-codex/gpt-6-luna`.
+A launch is checked as its model, as `<harness>/<model>`, and, with no model, as the bare harness name, which then stands for that harness's default model.
+The optional `rules` array holds short captain model-rule sentences, each at most 300 characters, that Jev should weigh.
+A file that is present but unreadable, not a regular file, or malformed is never treated as empty: a launch or Jev model choice refuses, and the dispatch resolver and model-proposal generator exit 2 as for malformed configuration.
+
+Where the list is enforced:
+
+- `bin/fm-spawn.sh` refuses a worker or secondmate launch whose resolved harness and model match, whatever chose them: a dispatch profile, an explicit `--model`, a secondmate pin, or a raw launch command's `--model`.
+  It also refuses a ship or scout whose brief pins a matching model with `--model <id>`, and a no-mistakes ship while `${NM_HOME:-~/.no-mistakes}/config.yaml` pins a matching model for a pipeline agent through `agent_args_override` or a `model:` key.
+  The refusal exits 1 before any worktree, window, or record exists and names the rule and its reason.
+- `bin/fm-dispatch-resolve.sh` marks a matching profile not eligible, so it is never chosen, ranked, or offered in a runoff, and its candidate line names the rule.
+- Jev calls that pick a model drop matching options before anything is sent and append a captain model-rules summary to the state: `bin/fm-jev.sh` for any pick or score question whose options name a model or that passes `--models`, `bin/fm-jev-model-proposal.sh` for its candidates, and the dispatch resolver's runoff.
+  The summary lists every `never` pattern with its reason followed by the `rules` sentences, is cut to 700 bytes, and still passes each caller's byte cap and privacy screen.
+  A `bin/fm-jev.sh` question left with fewer than two options is refused with nothing sent.
+
 ## Typed dispatch resolution (.env TYPESAFE_API_KEY)
 
 `bin/fm-dispatch-resolve.sh` resolves one concrete crewmate or scout profile from a written brief with typesafe.ai's System One model (Jev), so the rule match that firstmate otherwise reasons out in its own context becomes one short tool turn.
@@ -1694,6 +1728,7 @@ It reuses the caller library above and pins its route and URL to TypeSafe produc
 It resolves `TYPESAFE_API_KEY` from the process environment, then `$FM_HOME/.env`, then the `.env` of the firstmate home that owns the command checkout.
 For pooled worktrees, it finds that home through `git rev-parse --git-common-dir`; `.env` values use the shared `fmx_env_get` accessor.
 Its `--help` is its whole interface, flags follow the command, and the header owns the privacy refusal, escalation floor, output, and exit codes.
+A question whose options name a model follows the [never-use model list](#never-use-model-list-configmodel-denylistjson).
 Callers must pass only task facts and never personal data or private-vault content; refusing obvious secrets, email addresses, and phone numbers is only a safety net, not a general personal-data detector.
 Standard ship and scout launches, plus Devin launches, carry the spawning home's absolute path as `FM_HOME` and clear inherited provider keys; raw launch commands remain unchanged.
 The key itself is not added to the launch command or environment, so standard spawned workers must resolve `TYPESAFE_API_KEY` from the firstmate home `.env`; an environment-only key intentionally does not cross that launch boundary.
@@ -1732,6 +1767,7 @@ The proposal lists each role's current models, every candidate's probability and
 The [script header](../bin/fm-jev-model-proposal.sh) owns invocation, input validation, evidence and current-model formats, outbound privacy and never-send checks, answer bands, output and call-log schemas, and exit codes.
 It never edits `config/` or any dispatch profile, and every switch it proposes needs the captain's yes before anyone changes a profile.
 Any candidate billed to usage credits, such as Fable, is named in a billing notice at the top of the proposal.
+Candidates on the [never-use model list](#never-use-model-list-configmodel-denylistjson) are withheld from Jev and named as withheld in the proposal.
 Regression coverage lives in [`tests/fm-jev-model-proposal.test.sh`](../tests/fm-jev-model-proposal.test.sh).
 
 ## Shadow done verifier

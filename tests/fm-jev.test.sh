@@ -978,7 +978,7 @@ test_log_records_metadata_only() {
 # make_checkout <dir> - a disposable copy of the command and its libraries.
 make_checkout() {
   mkdir -p "$1/bin"
-  cp "$ROOT/bin/fm-jev.sh" "$ROOT/bin/fm-jev-lib.sh" "$ROOT/bin/fm-env-lib.sh" "$1/bin/"
+  cp "$ROOT/bin/fm-jev.sh" "$ROOT/bin/fm-jev-lib.sh" "$ROOT/bin/fm-env-lib.sh" "$ROOT/bin/fm-model-denylist-lib.sh" "$1/bin/"
 }
 
 test_key_discovery_needs_no_env_setup() {
@@ -1054,6 +1054,80 @@ test_key_discovery_needs_no_env_setup() {
   pass "fm-jev.sh: key discovery works from any directory without env setup"
 }
 
+write_denylist() {
+  mkdir -p "$HOME_DIR/config"
+  cat > "$HOME_DIR/config/model-denylist.json" <<'JSON'
+{"never": [{"pattern": "*kimi*", "reason": "Kimi is ruled out"}, {"pattern": "gpt-*-luna*", "reason": "Luna is banned"}],
+ "rules": ["Opus does judgment, review, and planning."]}
+JSON
+}
+
+test_model_choice_drops_banned_options_and_adds_rules() {
+  local code out err state
+  reset_log
+  write_denylist
+  respond '{"answers":{"pick":{"type":"choice","choice":"opus","confidence":0.9,"probabilities":{"opus":0.9,"sol":0.1}}}}'
+  run_jev code out err pick "reviewer for a one-off pipeline run" "Which model reviews?" \
+    "opus=claude-opus-5-5" "kimi=kimi-coding/k3" "sol=openai-codex/gpt-6.1-sol" "luna=openai-codex/gpt-6-luna"
+  assert_equals "$code" 0 "a model choice with banned options still answers"
+  assert_equals "$out" "pick: opus p=0.9 conf=0.9" "the answer line is unchanged"
+  assert_equals "$(jq -c '.questions.pick.criteria | keys' "$LOG/body")" '["opus","sol"]' "banned options never leave the machine"
+  assert_contains "$err" "removed never-use model options (pick: kimi, luna)" "the caller learns which options were removed"
+  state=$(jq -r '.state' "$LOG/body")
+  assert_contains "$state" $'reviewer for a one-off pipeline run\n\nCaptain model rules (binding' "the rules follow the caller's state"
+  assert_contains "$state" 'Never use *kimi* (Kimi is ruled out); gpt-*-luna* (Luna is banned). Opus does judgment, review, and planning.' "the state carries every ban and rule"
+  rm -f "$HOME_DIR/config/model-denylist.json"
+  pass "fm-jev.sh: a model choice drops never-use options and appends the captain model rules"
+}
+
+test_models_flag_and_meanings_mark_a_model_choice() {
+  local code out err
+  reset_log
+  write_denylist
+  respond '{"answers":{"pick":{"type":"choice","choice":"a","confidence":0.9,"probabilities":{"a":0.9,"c":0.1}}}}'
+  run_jev code out err pick --models "seat for the review" "Which seat?" "a=the first seat" "b=the seat that runs Kimi K3" "c=the third seat"
+  assert_equals "$code" 0 "--models with opaque labels still answers"
+  assert_equals "$(jq -c '.questions.pick.criteria | keys' "$LOG/body")" '["a","c"]' "a meaning naming a banned model removes the option"
+  assert_contains "$(jq -r '.state' "$LOG/body")" 'Captain model rules' "--models adds the rules"
+  rm -f "$HOME_DIR/config/model-denylist.json"
+  pass "fm-jev.sh: --models and a banned model named in a meaning mark a model choice"
+}
+
+test_model_choice_refuses_when_too_few_options_remain() {
+  local code out err
+  reset_log
+  write_denylist
+  run_jev code out err pick "reviewer" "Which model?" "kimi-coding/k3" "opencode-go/kimi-k2" "claude-opus-5-5"
+  assert_equals "$code" 1 "a model choice left with one option is refused"
+  assert_contains "$err" "fewer than two options left after removing never-use models; nothing sent" "the refusal says why"
+  assert_absent "$LOG/body" "a refused model choice sends nothing"
+  printf '[' > "$HOME_DIR/config/model-denylist.json"
+  reset_log
+  run_jev code out err pick "reviewer" "Which model?" "claude-opus-5-5" "claude-sonnet-5-5"
+  assert_equals "$code" 1 "a malformed never-use list refuses a model choice"
+  assert_contains "$err" "model-denylist.json is not valid JSON; nothing sent" "the refusal names the list"
+  assert_absent "$LOG/body" "a malformed list sends nothing"
+  rm -f "$HOME_DIR/config/model-denylist.json"
+  pass "fm-jev.sh: a model choice with too few allowed options, or an unreadable list, sends nothing"
+}
+
+test_other_choices_and_absent_list_stay_unchanged() {
+  local code out err
+  reset_log
+  write_denylist
+  respond '{"answers":{"pick":{"type":"choice","choice":"PlacementWiki","confidence":0.94,"probabilities":{"PlacementWiki":0.96,"FinanzWiki":0.04}}}}'
+  run_jev code out err pick "topic: trainee hiring" "Which vault?" PlacementWiki FinanzWiki
+  assert_equals "$(jq -r '.state' "$LOG/body")" "topic: trainee hiring" "a non-model choice keeps its state exactly"
+  rm -f "$HOME_DIR/config/model-denylist.json"
+  reset_log
+  respond '{"answers":{"pick":{"type":"choice","choice":"opus","confidence":0.9,"probabilities":{"opus":0.9,"kimi":0.1}}}}'
+  run_jev code out err pick "reviewer" "Which model?" "opus=claude-opus-5-5" "kimi=kimi-coding/k3"
+  assert_equals "$(jq -r '.state' "$LOG/body")" "reviewer" "with no list a model choice keeps its state"
+  assert_equals "$(jq -c '.questions.pick.criteria | keys' "$LOG/body")" '["kimi","opus"]' "with no list every option is sent"
+  assert_equals "$err" "" "with no list nothing is reported"
+  pass "fm-jev.sh: non-model choices and an absent list leave requests unchanged"
+}
+
 test_help_is_short_and_complete
 test_pick_answers_one_line
 test_key_stays_out_of_child_environments
@@ -1077,3 +1151,7 @@ test_privacy_guard_refuses_before_sending
 test_privacy_guard_screens_checkout_env_without_fm_home
 test_log_records_metadata_only
 test_key_discovery_needs_no_env_setup
+test_model_choice_drops_banned_options_and_adds_rules
+test_models_flag_and_meanings_mark_a_model_choice
+test_model_choice_refuses_when_too_few_options_remain
+test_other_choices_and_absent_list_stay_unchanged
