@@ -14,6 +14,8 @@ SPAWN="$ROOT/bin/fm-spawn.sh"
 TMP_ROOT=$(fm_test_tmproot fm-spawn-dispatch-profile)
 # shellcheck source=bin/fm-dod-lib.sh
 . "$ROOT/bin/fm-dod-lib.sh"
+# shellcheck source=bin/fm-claude-worker-context-lib.sh
+. "$ROOT/bin/fm-claude-worker-context-lib.sh"
 expected_shell_quote() {
   printf "'"
   printf '%s' "$1" | sed "s/'/'\\\\''/g"
@@ -1692,7 +1694,7 @@ test_claude_forwards_firstmate_config_dir_when_set() {
   status=$?
   expect_code 0 "$status" "claude spawn with CLAUDE_CONFIG_DIR set should succeed"
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY CLAUDE_CONFIG_DIR='$CASE_DIR/claude-work' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions $(claude_worker_add_dirs "$HOME_DIR" "$id")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}'" \
+  assert_contains "$launch" "env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY CLAUDE_CONFIG_DIR='$CASE_DIR/claude-work' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions $(claude_worker_add_dirs "$HOME_DIR" "$id")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false},\"env\":{\"SLASH_COMMAND_TOOL_CHAR_BUDGET\":\"8000\"}}'" \
     "claude launch did not forward firstmate's CLAUDE_CONFIG_DIR to the crewmate pane"
   pass "claude forwards firstmate's CLAUDE_CONFIG_DIR so the crewmate uses the same credential store"
 }
@@ -1914,6 +1916,54 @@ test_claude_long_launch_is_delivered_intact() {
   pass "fm-spawn: a Claude launch longer than 1024 bytes is delivered intact through the staging path"
 }
 
+test_claude_context_unusual_path_fallback() {
+  local path settings diagnostic repo wt i=0
+  for path in 'bracket[x]' "quote's" 'quote"s' 'star*' 'question?' 'brace{x}' 'paren(x)' 'slash\\x'; do
+    i=$((i + 1))
+    repo="$TMP_ROOT/context-fallback-$i/$path/repo"
+    wt="$TMP_ROOT/context-fallback-$i/$path/wt"
+    fm_git_worktree "$repo" "$wt" "fallback-$i"
+    diagnostic="$TMP_ROOT/context-fallback-$i/warning.log"
+    settings=$(fm_claude_worker_context ship "$wt" "$repo" "$repo" 2> "$diagnostic") || fail "unusual path refused instead of retaining instructions"
+    printf '%s' "$settings" | jq -e '.env.SLASH_COMMAND_TOOL_CHAR_BUDGET == "8000" and (has("claudeMdExcludes") | not)' >/dev/null || fail "unusual path received exclusions: $path"
+    assert_grep 'exclusions skipped' "$diagnostic" "unusual path fallback was silent"
+    [ -z "$(fm_claude_worker_context secondmate "$wt" "$repo" "$repo" 2> "$diagnostic" | jq -r 'keys[]')" ] || fail "supervisor got worker settings"
+    [ ! -s "$diagnostic" ] || fail "supervisor emitted worker warning"
+  done
+  pass "Claude unusual-path fallback retains project instructions, warns, and still caps worker skills"
+}
+
+test_claude_firstmate_workers_exclude_only_supervisor_files() {
+  local rec id kind out launch settings origin before after
+  origin=$(git -C "$ROOT" remote get-url origin)
+  before=$(git -C "$ROOT" hash-object AGENTS.md CLAUDE.md)
+  for kind in ship scout; do
+    id=profile-context-$kind-z28
+    rec=$(make_spawn_case "profile-context-$kind" claude "$id")
+    read_case_record "$rec"
+    git -C "$PROJ_DIR" remote set-url origin "$origin"
+    # Avoid fetching the real origin: the fixture already has its local main.
+    git -C "$PROJ_DIR" update-ref refs/remotes/origin/main HEAD
+    git -C "$PROJ_DIR" symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
+    if [ "$kind" = ship ]; then
+      out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+    else
+      out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --scout)
+    fi
+    expect_code 0 "$?" "$kind Firstmate context spawn"$'\n'"$out"
+    launch=$(cat "$LAUNCH_LOG")
+    settings=$(claude_settings_json_arg "$launch")
+    printf '%s' "$settings" | jq -e --arg wt "$WT_DIR" --arg code "$ROOT" --arg project "$PROJ_DIR" \
+      --arg wt_real "$(cd "$WT_DIR" && pwd -P)" --arg code_real "$(cd "$ROOT" && pwd -P)" --arg project_real "$(cd "$PROJ_DIR" && pwd -P)" '
+      .env.SLASH_COMMAND_TOOL_CHAR_BUDGET == "8000" and
+      (.claudeMdExcludes | sort) == ([$wt, $code, $project, $wt_real, $code_real, $project_real] | unique | [ .[] | . + "/CLAUDE.md", . + "/AGENTS.md"] | sort)
+    ' >/dev/null || fail "$kind did not exclude exactly its Firstmate root instruction files: $settings"
+  done
+  after=$(git -C "$ROOT" hash-object AGENTS.md CLAUDE.md)
+  [ "$before" = "$after" ] || fail "spawn changed supervisor instruction files"
+  pass "Claude Firstmate ships/scouts exclude supervisor files without rewriting them"
+}
+
 test_claude_crewmate_launch_carries_the_attribution_policy() {
   local rec id out status launch
   id=profile-claude-attribution-z22
@@ -1925,6 +1975,7 @@ test_claude_crewmate_launch_carries_the_attribution_policy() {
   expect_code 0 "$status" "claude crewmate spawn should succeed"$'\n'"$out"
   launch=$(cat "$LAUNCH_LOG")
   assert_attribution_policy "$launch" "claude crewmate"
+  claude_settings_json_arg "$launch" | jq -e '.env.SLASH_COMMAND_TOOL_CHAR_BUDGET == "8000" and (has("claudeMdExcludes") | not)' >/dev/null || fail "ordinary repo lost instructions or lacks skill budget"
   [ -d "$HOME_DIR/state/$id.git-hooks" ] || fail "default config did not install the AI trailer hooks"
   pass "a claude crewmate launch carries the attribution-off policy in its own settings"
 }
@@ -1992,6 +2043,7 @@ test_claude_secondmate_launch_carries_the_attribution_policy() {
   expect_code 0 "$status" "secondmate claude spawn should succeed"$'\n'"$out"
   launch=$(cat "$LAUNCH_LOG")
   assert_attribution_policy "$launch" "claude secondmate"
+  claude_settings_json_arg "$launch" | jq -e '(has("env") | not) and (has("claudeMdExcludes") | not)' >/dev/null || fail "secondmate received worker context trimming"
   pass "a claude secondmate launch carries the attribution-off policy too"
 }
 
@@ -2368,7 +2420,7 @@ claude_expected_launch() {  # <launch> <home> <id> <permission-flag>
   [ "$(printf '%s' "$doorbell" | "$ROOT/bin/fm-operational-input.sh" doorbell-kind)" = launch-brief ] \
     || doorbell="not a launch-brief doorbell"
   quoted="'$(printf '%s' "$doorbell" | sed "s/'/'\\\\''/g")'"
-  printf '%s' "export COMPACT_ADVISER_DISABLE=1; $(task_inbox_export "$2" "$3")$(ai_trailer_hooks_prefix "$2" "$3")FM_HOME='$2' env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude $4 $(claude_worker_add_dirs "$2" "$3")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}' $CLAUDE_CONTROL_CHANNEL_FLAG $quoted"
+  printf '%s' "export COMPACT_ADVISER_DISABLE=1; $(task_inbox_export "$2" "$3")$(ai_trailer_hooks_prefix "$2" "$3")FM_HOME='$2' env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude $4 $(claude_worker_add_dirs "$2" "$3")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false},\"env\":{\"SLASH_COMMAND_TOOL_CHAR_BUDGET\":\"8000\"}}' $CLAUDE_CONTROL_CHANNEL_FLAG $quoted"
 }
 
 test_claude_permission_mode_bypass_matches_absent_launch() {
@@ -2630,6 +2682,8 @@ test_claude_task_launch_carries_control_channel_authority
 test_jev_rule_preserves_apostrophe_in_checkout_path
 test_claude_secondmate_launch_omits_task_control_channel_authority
 test_claude_long_launch_is_delivered_intact
+test_claude_context_unusual_path_fallback
+test_claude_firstmate_workers_exclude_only_supervisor_files
 test_claude_crewmate_launch_carries_the_attribution_policy
 test_keep_ai_trailers_omits_attribution_settings_and_strip_hooks
 test_keep_ai_trailers_reaches_secondmate_crew_launches
