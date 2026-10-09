@@ -1627,6 +1627,7 @@ No qualifying option, or two equally probable qualifying options, leaves the typ
 
 **Candidate eligibility and evidence**
 
+- A profile on the [never-use model list](#never-use-model-list-configmodel-denylistjson) is ineligible, and its candidate line names the rule.
 - Any applicable `exhausted_now` row or known zero bound makes that candidate ineligible, and a known profile-floor shortfall does the same before unrelated quota uncertainty is considered.
 - Missing or nonnumeric `spendPriority` evidence is never ranked, and every candidate is printed beside its evidence or the reason it was not rankable, including on ambiguous and approval-gated outcomes that emit no profile.
 - Duplicate concrete profiles with the same harness, model, and effort inside one rule or the default array are configuration errors rather than ties.
@@ -1656,7 +1657,7 @@ An `ambiguous` rule answer gets one runoff before it reaches firstmate, so a clo
 The contenders are the picked option and the two most probable options, and each settles in code exactly as a cleared answer would under [the checks above](#checks-performed-after-the-answer).
 If any contender would not clear - a captain-approval rule, an unverifiable rule floor, nothing rankable, or a genuine tie - the runoff is skipped, because a pick between them could bypass a gate that belongs to the captain or to `quota-array-dispatch`.
 Contenders that settle on the same concrete profile collapse into one option, and when only one remains its profile is taken without another call.
-Otherwise the resolver sends one more request on the same state with one `pick` Choice whose options are the remaining contenders, keyed by rule and worded with the same criteria, tie-break sentences included, that the rule Choice sent; the model still never sees `use`, `why`, quota, or approvals.
+Otherwise the resolver sends one more request on the same state, plus the [captain model-rules summary](#never-use-model-list-configmodel-denylistjson), with one `pick` Choice whose options are the remaining contenders, keyed by rule and worded with the same criteria, tie-break sentences included, that the rule Choice sent; the model still never sees `use`, `why`, quota, or approvals.
 The pick settles only when its returned choice is its most probable option and its top-2 margin reaches the same `FM_JEV_DISPATCH_MARGIN`.
 An option whose rules declare `min_confidence` instead settles only when its runoff probability reaches the strictest of those floors, so a runoff never dispatches a rule more loosely than the rule answer would.
 A settled pick makes the result `picked`, with a `pick:` line naming the winner and its evidence, the winner's candidates, and its `profile:` line.
