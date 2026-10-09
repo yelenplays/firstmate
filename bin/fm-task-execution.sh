@@ -209,7 +209,8 @@ case "$command" in
       fm_lock_acquire_wait "$LOCK" || fail 'cannot lock notification marker'
       [ ! -L "$marker" ] || fail 'notification marker is a symlink'
       [ ! -e "$marker" ] || [ -f "$marker" ] || fail 'notification marker is not a regular file'
-      previous=$(<"$marker") 2>/dev/null || previous=''
+      # Bash 5.2 aborts on a missing file in $(<file), even with an || fallback.
+      previous=$(cat "$marker" 2>/dev/null || true)
       if [ "$previous" != "v2 $fingerprint" ]; then
         if [ "$owner" = firstmate ]; then
           fm_wake_append check "execution:$id" "check: execution $id" || exit 1

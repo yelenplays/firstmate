@@ -27,6 +27,15 @@ printf 'kind=scout\nwindow=fake\nworktree=%s\n' "$home" > "$home/state/approved-
 printf 'done: research complete; implementation required\n' > "$home/state/approved-scout.status"
 # Explicit semantic intake, never chat or status parsing.
 "$EXEC" approve approved-scout --basis captain-approved
+# Cold notify has no persisted deduplication marker yet. Exercise the public
+# command directly so a failure is named before the watcher hides its stderr.
+"$EXEC" notify > "$home/cold-notify" 2> "$home/cold-notify.err" \
+  || fail "first execution notification failed: $(<"$home/cold-notify.err")"
+grep -q 'approved-scout.*firstmate' "$home/cold-notify" \
+  || fail 'first execution notification omitted approved scout'
+"$EXEC" notify > "$home/cold-repeat"
+[ ! -s "$home/cold-repeat" ] || fail 'unchanged cold notification repeated'
+pass 'missing notification marker permits one initial notification'
 for _round in 1 2; do
   append_wake "$home/state" signal approved-scout.status "$home/state/approved-scout.status"
   "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
