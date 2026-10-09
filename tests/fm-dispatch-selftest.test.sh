@@ -14,6 +14,8 @@ set -u
 TOOL="$ROOT/bin/fm-dispatch-selftest.sh"
 FIXTURE="$ROOT/tests/fixtures/dispatch-selftest"
 TMP_ROOT=$(fm_test_tmproot fm-dispatch-selftest)
+FM_JEV_EVAL_SCORES=$(fm_jev_act_scores "$TMP_ROOT")
+export FM_JEV_EVAL_SCORES
 FAKEBIN=$(fm_fakebin "$TMP_ROOT")
 HOME_DIR="$TMP_ROOT/home"
 BASE_PATH=$PATH

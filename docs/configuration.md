@@ -1499,8 +1499,8 @@ Whenever the rules file parses and declares a rule or a default, it always print
 
 **The always-answer chain**
 
-1. The typed stage is the Jev call described below; a `clear` or `picked` answer decides.
-2. When the typed stage is skipped, fails, cannot be reached, or stays ambiguous, the backup judge answers the same rule and effort questions on the same state, and its answer decides with status `backup`.
+1. The typed stage is the Jev call described below; a `clear` or `picked` answer decides only while the dispatch call site is in act mode.
+2. When the typed stage is skipped, fails, cannot be reached, stays ambiguous, or gives an advise-only profile, the backup judge answers the same rule and effort questions on the same state, and its answer decides with status `backup`.
 3. When the backup fails, the default stage resolves the configured `default` profiles (the first rule when no default is declared) with status `fallback`.
 
 Each stage's answer settles through the same gates described below.
@@ -1512,7 +1512,8 @@ A captain-approval rule remains the one no-profile outcome.
 A request that cannot reach any stage falls to the first default profile, `decided: static by default`.
 The `decided:` line names the stage and the lane whose profile answers, and the `typed:` and `backup:` lines say why an earlier stage did not decide.
 When a floor shortfall or an all-refused rule moves the answer to the default lane, `decided:` names that lane and a `matched:` line names the rule whose profiles were not used.
-Each answer appends one metadata-only record (status, stage, lane, any differing matched rule, effort and any clamp, profile, reasons, never the brief) to `state/dispatch-resolve.jsonl`.
+Each answer appends one metadata-only record (status, mode, stage, lane, any differing matched rule, effort and any clamp, bound profile, reasons, never the brief) to `state/dispatch-resolve.jsonl`.
+An advise-only Jev selection is stored separately as `advice` with its status, rule, lane, profile, and emitted effort, never as the bound profile.
 
 The backup judge is [`bin/fm-backup-judge-lib.sh`](../bin/fm-backup-judge-lib.sh): the local `claude` CLI on `claude-haiku-5-5`, called with a JSON schema whose enums are exactly the offered options, so an answer outside them is rejected rather than guessed around.
 It runs from an empty temporary directory with no settings, MCP servers, tools, or session persistence, reads the prompt on stdin, never receives the typed-call keys, and uses the CLI's own login.
@@ -1646,7 +1647,8 @@ No qualifying option, or two equally probable qualifying options, leaves the typ
 | `error` | Under `--typed-only` only: API, network, malformed response metadata, rendering, or quota-axi failure. |
 
 Every result above exits 0.
-While the dispatch call site is advise-only ("Jev eval and per-site autonomy" below), a `clear` or `picked` result prints `mode: advise` and the same profile as an `advice:` line instead of the `profile:` line, so it binds nothing.
+While the dispatch call site is advise-only ("Jev eval and per-site autonomy" below), its Jev selection remains advice and the always-answer chain continues to the backup judge and default stage.
+Under `--typed-only`, a `clear` or `picked` result instead prints `mode: advise` and an `advice:` line without a `profile:` line.
 
 - Response probabilities must contain exactly every offered choice, use numeric values from 0 through 1, and sum to approximately 1 within 0.01.
 - Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, an invalid `FM_JEV_DISPATCH_MARGIN`, or missing `jq`, each reported and never selected around.
@@ -1742,7 +1744,7 @@ Anything else, including a missing scorecard, is advise, and the merge gate is a
 An advise site still asks Jev and keeps the answer as advice:
 
 - the ask-user gate escalates `advise-only` with Jev's verdict in the reason and sends nothing to the worker;
-- dispatch resolution prints a `clear` or `picked` result as `mode: advise` and an `advice:` line instead of the `profile:` line, so firstmate decides as today;
+- dispatch resolution retains Jev's profile as advice and continues the [always-answer chain](#typed-dispatch-resolution-env-typesafe_api_key); `--typed-only` prints advice without a binding profile;
 - the home router keeps a confident Jev route as `advice`, reason `advise_only`, and lets the backup judge decide, which firstmate can still override with `judge`;
 - the wedge check never suppresses a structural escalation and logs `advised: suppress`;
 - compaction parks nothing and names the segments Jev would have parked on stderr;

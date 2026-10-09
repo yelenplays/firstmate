@@ -1937,6 +1937,62 @@ assert_equals "0" "$(backup_calls)" "chain: no backup call after a clear typed a
 assert_contains "$(tail -n 1 "$DISPATCH_LOG")" '"decided_by":"typed"' "chain: the dispatch log records the deciding stage"
 pass "chain: a clear typed answer decides without the backup"
 
+ADVISE_SCORES="$TMP_ROOT/advise-scores.json"
+jq '.sites |= map_values(.recorded.agreement = 0)' "$FM_JEV_EVAL_SCORES" > "$ADVISE_SCORES"
+for typed_status in clear picked; do
+  cassettes="$TMP_ROOT/advise-$typed_status-cassettes"
+  reset_log
+  if [ "$typed_status" = clear ]; then
+    write_response "$RESPONSE" rule_4 0.9
+  else
+    write_response "$RESPONSE" rule_4 0.26 "$NARROW"
+    write_pick_response "$PICK_RESPONSE" rule_4 '{ "rule_4": 0.86, "rule_2": 0.14 }'
+  fi
+  FM_JEV_RECORD_DIR="$cassettes" TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE \
+    run code out err "$BRIEF" --project pager
+  expect_code 0 "$code" "$typed_status cassette recording succeeds"
+  assert_contains "$out" "  status: $typed_status" "$typed_status fixture exercises the intended Jev answer"
+  for deciding_stage in backup default; do
+    reset_log
+    backup_fail=0
+    [ "$deciding_stage" != default ] || backup_fail=1
+    TYPESAFE_API_KEY=$KEY FM_JEV_REPLAY_DIR="$cassettes" FM_JEV_EVAL_SCORES="$ADVISE_SCORES" \
+      FAKE_BACKUP_FAIL=$backup_fail FAKE_BACKUP_ANSWER='{"rule":"default","effort":"high"}' \
+      FM_JEV_DISPATCH_SHADOW=1 run_chain code out err "$BRIEF" --project pager
+    expect_code 0 "$code" "advisory $typed_status continues to $deciding_stage"
+    assert_contains "$out" "  decided: default by $deciding_stage" "the independent stage owns the bound profile"
+    assert_contains "$out" "  typed: advise_only: $typed_status" "Jev's answer is explicitly advisory"
+    assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" "the independent default profile is emitted"
+    assert_not_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "Jev's advised profile never binds"
+    assert_equals 1 "$(backup_calls)" "the backup is asked after advisory $typed_status"
+    assert_equals 0 "$(curl_calls)" "the Jev answer comes only from the cassette"
+    for answer_log in "$DISPATCH_LOG" "$HOME_DIR/state/jev-dispatch-shadow.jsonl"; do
+      tail -n 1 "$answer_log" | jq -e --arg stage "$deciding_stage" --arg status "$typed_status" '
+        .mode == "advise" and .decided_by == $stage
+        and .profile.model == "cursor-grok-4.6-high"
+        and .advice.status == $status and .advice.rule == "rule_4"
+        and .advice.profile.model == "cursor-grok-4.6-medium"' >/dev/null \
+        || fail "advisory $typed_status log must separate advice from the bound profile"
+    done
+  done
+  reset_log
+  TYPESAFE_API_KEY=$KEY FM_JEV_REPLAY_DIR="$cassettes" FM_JEV_EVAL_SCORES="$ADVISE_SCORES" \
+    run code out err "$BRIEF" --project pager
+  assert_contains "$out" "  status: $typed_status" "typed-only keeps the advisory Jev result"
+  assert_contains "$out" "  advice: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "typed-only emits only Jev advice"
+  assert_not_contains "$out" '  profile: ' "typed-only never binds an advisory profile"
+  assert_equals 0 "$(backup_calls)" "typed-only never asks the backup"
+done
+reset_log
+TYPESAFE_API_KEY=$KEY FM_JEV_REPLAY_DIR="$TMP_ROOT/advise-clear-cassettes" FM_JEV_EVAL_SCORES="$ADVISE_SCORES" \
+  FAKE_QUOTA_FAIL=1 FAKE_BACKUP_ANSWER='{"rule":"default","effort":"high"}' \
+  run_chain code out err "$BRIEF" --project pager
+assert_contains "$out" '  profile: ' "advisory last-resort selection still gets an independent profile"
+assert_equals 1 "$(backup_calls)" "a typed last-resort selection also goes to the backup"
+tail -n 1 "$DISPATCH_LOG" | jq -e '.mode == "advise" and .decided_by == "backup" and .advice.status == "fallback"' >/dev/null \
+  || fail "a typed last-resort profile must remain advice"
+pass "chain: advisory clear, runoff, and last-resort answers continue independently and log advice separately"
+
 # An ambiguous typed answer goes to the backup, which sees exactly the typed
 # state and the same rule options, and its answer decides.
 reset_log
@@ -2027,10 +2083,14 @@ pass "chain: the never-send list keeps the brief from both judges"
 # authority gate, not a routing failure.
 reset_log
 write_response "$RESPONSE" rule_3 0.95 '{ "rule_1": 0.01, "rule_2": 0.01, "rule_3": 0.96, "rule_4": 0.01, "default": 0.01 }'
-TYPESAFE_API_KEY=$KEY FAKE_BACKUP_ANSWER='{"rule":"rule_4","effort":"high"}' run_chain code out err "$BRIEF"
-assert_contains "$out" '  status: escalate' "chain: a captain-approval rule escalates"
-assert_not_contains "$out" '  profile:' "chain: a captain-approval rule emits no profile"
-assert_equals "0" "$(backup_calls)" "chain: the backup never overrides an approval gate"
+for approval_scores in "$FM_JEV_EVAL_SCORES" "$ADVISE_SCORES"; do
+  reset_log
+  FM_JEV_EVAL_SCORES="$approval_scores" TYPESAFE_API_KEY=$KEY \
+    FAKE_BACKUP_ANSWER='{"rule":"rule_4","effort":"high"}' run_chain code out err "$BRIEF"
+  assert_contains "$out" '  status: escalate' "chain: a captain-approval rule escalates"
+  assert_not_contains "$out" '  profile:' "chain: a captain-approval rule emits no profile"
+  assert_equals "0" "$(backup_calls)" "chain: the backup never overrides an approval gate"
+done
 pass "chain: captain approval remains the one no-profile outcome"
 
 # Quota evidence that would make the typed stage escalate (the 2026-10-07

@@ -112,9 +112,9 @@
 #     last_resort: <why the stage's own ranking could not choose>
 #     profile: --harness <h> [--model <m>] [--effort <e>]
 #     mode: advise (...) and advice: <same profile>   (instead of profile: on a
-#       clear or picked result, while fm_jev_site_mode dispatch-resolve says
-#       advise: the call site's latest bin/fm-jev-eval.sh score has not
-#       cleared the bar, so the pick is advice and firstmate decides as today)
+#       typed-only clear or picked result, while fm_jev_site_mode says advise;
+#       the normal chain records Jev's profile as advice and continues to
+#       the backup judge and default stage)
 #   clear     -> the typed call decided; pass the profile line to fm-spawn.sh (AGENTS.md section 4 owns the only overrides)
 #   picked    -> the typed rule answer was ambiguous and the runoff settled it; pass the profile line the same way
 #   backup    -> the backup judge decided; pass the profile line the same way
@@ -532,6 +532,9 @@ done < <(jq -r '
 RULE_COUNT=$(jq -r '(.rules // []) | length' "$RULES")
 HAS_DEFAULT=$(jq -r 'has("default")' "$RULES")
 
+SITE_MODE=$(fm_jev_site_mode dispatch-resolve)
+TYPED_ADVICE=null
+
 # Without --typed-only the resolver always answers: a failure anywhere past the
 # rules check falls to the static last resort below instead of to no answer.
 emit_error() {
@@ -578,7 +581,9 @@ dispatch_log() {
   [ "$TYPED_ONLY" -eq 0 ] || return 0
   [ ! -L "$DISPATCH_LOG" ] || return 0
   mkdir -p "$FM_HOME/state" 2>/dev/null || return 0
-  fm_jev_log_call "$(jq -c --arg at "$(fm_jev_iso_now)" --arg project "$PROJECT" '{timestamp: $at, project: $project} + .' <<<"$1")" "$DISPATCH_LOG" >/dev/null 2>&1 || true
+  fm_jev_log_call "$(jq -c --arg at "$(fm_jev_iso_now)" --arg project "$PROJECT" \
+    --arg mode "$SITE_MODE" --argjson advice "$TYPED_ADVICE" \
+    '{timestamp: $at, project: $project, mode: $mode, advice: $advice} + .' <<<"$1")" "$DISPATCH_LOG" >/dev/null 2>&1 || true
 }
 
 if [ "$RULE_COUNT" -eq 0 ] && { [ "$TYPED_ONLY" -eq 1 ] || [ "$HAS_DEFAULT" != true ]; }; then
@@ -1365,7 +1370,18 @@ if [ "$TYPED_OK" -eq 1 ]; then
         ;;
       *)
         if settle_stage clear "$EFFORT_JSON"; then
-          DECIDED_BY=${DECIDED_BY:-typed}
+          if [ "$SITE_MODE" != act ] && jq -e '.chosen != null' <<<"$RESULT" >/dev/null; then
+            TYPED_ADVICE=$(jq -c '{status, rule: (.decided_rule // .rule),
+              lane: (.lane // .decided_rule // .rule),
+              profile: (.chosen.profile | {harness, model, provider} | with_entries(select(.value != null))),
+              effort: (if .chosen.effort_emit == false then (.chosen.profile.effort // null)
+                else (.chosen.effort // .chosen.profile.effort // null) end)}' <<<"$RESULT") \
+              || emit_error "could not record typed advice"
+            DECIDED_BY=''
+            TYPED_REASON="advise_only: $(jq -r '.status' <<<"$RESULT")"
+          else
+            DECIDED_BY=${DECIDED_BY:-typed}
+          fi
         else
           TYPED_REASON="$TYPED_STATUS: $(jq -r '.reason // "-"' <<<"$RESULT")"
         fi
@@ -1433,10 +1449,6 @@ if [ "$TYPED_ONLY" -eq 0 ]; then
     | if $quota != "" then .quota_note = $quota else . end' <<<"$RESULT") || emit_error "chain merge failed"
 fi
 
-# Jev's own profile (clear or picked) binds the spawn only while this call
-# site's eval score clears the bar (bin/fm-jev-eval.sh); otherwise it is
-# printed as advice.
-SITE_MODE=$(fm_jev_site_mode dispatch-resolve)
 TEXT=$(jq -r '
   def flat: tostring | gsub("[\t\r\n]"; " ");
   def show($value): ($value // "-") | flat;
@@ -1483,7 +1495,7 @@ if fm_dispatch_shadow_on; then
   SHADOW=$(jq -nc --argjson result "$RESULT" --arg route "${FM_JEV_LAST_ROUTE:-}" \
     --arg url "${FM_JEV_LAST_URL:-}" --arg model "${FM_JEV_LAST_MODEL:-}" \
     --arg response_model "$(fm_jev_response_model "$(cat "$RESP_FILE" 2>/dev/null)")" \
-    --arg project "$PROJECT" --argjson extra "$EXTRA_LOG" --arg mode "$SITE_MODE" \
+    --arg project "$PROJECT" --argjson extra "$EXTRA_LOG" --arg mode "$SITE_MODE" --argjson advice "$TYPED_ADVICE" \
     --arg compact "$(if fm_dispatch_compact_on; then printf 1; else printf 0; fi)" '{
       purpose: "dispatch-shadow",
       route: $route,
@@ -1495,6 +1507,7 @@ if fm_dispatch_shadow_on; then
       status: $result.status,
       decided_by: ($result.chain.decided_by // null),
       mode: $mode,
+      advice: $advice,
       rule: $result.rule,
       confidence: $result.confidence,
       probabilities: $result.probabilities,
