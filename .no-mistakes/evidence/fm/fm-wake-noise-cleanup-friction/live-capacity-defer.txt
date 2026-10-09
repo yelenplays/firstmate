@@ -1,0 +1,3 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: project demo admits 1 worker(s) at once on this machine (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/config/project-capacity) and 1 already hold a place (live-review); task excess-review was not launched and its backlog item stays queued - dispatch it again once one of them records its ready PR or is cleaned up

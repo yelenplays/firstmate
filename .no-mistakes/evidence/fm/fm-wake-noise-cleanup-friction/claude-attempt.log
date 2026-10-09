@@ -1,0 +1,96 @@
+Private socket and nonzero grid: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/tmux/tmux-501/fm-lab 120x40
+ok: added live-review (scout) -> Queued
+task:
+  id: live-review
+  title: Review the disposable demo
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-10-09
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start live-review` to move it to in flight
+  - Run `tasks-axi block live-review --by <other>` to record a dependency
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  2 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+spawned live-review harness=claude kind=scout window=primary:fm-live-review worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/projects/demo/.treehouse/demo-f320c6/1/demo
+
+ok: added excess-review (scout) -> Queued
+task:
+  id: excess-review
+  title: Second disposable review
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-10-09
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start excess-review` to move it to in flight
+  - Run `tasks-axi block excess-review --by <other>` to record a dependency
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: project demo admits 1 worker(s) at once on this machine (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/config/project-capacity) and 1 already hold a place (live-review); task excess-review was not launched and its backlog item stays queued - dispatch it again once one of them records its ready PR or is cleaned up
+
+task:
+  id: excess-review
+  title: Second disposable review
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-10-09
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+LIVE_REPORT_UNAVAILABLE: actual Claude worker did not produce the report within 90 seconds; inspect live-worker.txt.
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/pre-rebase: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/pre-applypatch: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/pre-auto-gc: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/pre-merge-commit: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/post-commit: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/sendemail-validate: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/applypatch-msg: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/prepare-commit-msg: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/post-checkout: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/post-applypatch: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/post-rewrite: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/commit-msg: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/pre-push: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/post-merge: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks/pre-commit: Permission denied
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state/live-review.git-hooks: Directory not empty
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/state: Directory not empty
+rm: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l: Directory not empty

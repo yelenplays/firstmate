@@ -1,0 +1,5 @@
+ok - a scout with a report and no outstanding calls completes in one cleanup call
+ok - resolved inventories and closed blocked keys permit one-call completion without overwriting guides
+ok - one-call scout completion cannot bypass discard authority or ship safety
+ok - missing reports, blocked keys, unresolved inventory and unrecorded origin calls still refuse
+ok - scout teardown discards scratch output and preserves named durable deliverables

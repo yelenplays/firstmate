@@ -1,0 +1,12 @@
+window=primary:fm-live-review
+endpoint_task_id=live-review
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/projects/demo/.treehouse/demo-f320c6/1/demo
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/l/projects/demo
+harness=codex
+kind=scout
+tasktmp=/tmp/fm-live-review
+model=default
+effort=default
+ai_family=unknown
+ai_family_source=codex catalog does not prove a maker for model unknown
+spawn_gen=s1791536822.359.31488

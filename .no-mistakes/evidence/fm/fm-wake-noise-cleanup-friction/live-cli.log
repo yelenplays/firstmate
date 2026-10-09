@@ -1,0 +1,182 @@
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/.test-tmp/fm-lab.otuE9C
+
+=== Approve queued implementation; notification then acknowledged restart ===
+ok: added approved-change (ship) -> Queued
+task:
+  id: approved-change
+  title: Implement the accepted feature
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-09
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start approved-change` to move it to in flight
+  - Run `tasks-axi block approved-change --by <other>` to record a dependency
+bin/fm-task-execution.sh: Zeile 211: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/.test-tmp/fm-lab.otuE9C/state/.approved-change.execution-notified: No such file or directory
+approved-change	firstmate	implementation owner missing; dispatch or promote within approved intent
+
+--- Drain ---
+1791536415	1	check	execution:approved-change	check: execution approved-change
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+approved-change	firstmate	implementation owner missing; dispatch or promote within approved intent
+
+Three fresh notify processes after acknowledgement produced no repeated wake.
+approved-change	firstmate	implementation owner missing; dispatch or promote within approved intent
+
+=== A real hold transfers ownership; release notifies once ===
+ok: hold approved-change -> held (captain)
+task:
+  id: approved-change
+  title: Implement the accepted feature
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: Choose implementation scope
+  hold_kind: captain
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-09
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold approved-change` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+approved-change	captain	answer-recorded-hold
+ok: unhold approved-change -> cleared
+task:
+  id: approved-change
+  title: Implement the accepted feature
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-09
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[1]:
+  - Run `tasks-axi ready` to see dispatchable work
+approved-change	firstmate	implementation owner missing; dispatch or promote within approved intent
+
+--- Drain ---
+1791536417	2	check	execution:approved-change	check: execution approved-change
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+approved-change	firstmate	implementation owner missing; dispatch or promote within approved intent
+
+Release notified once; unchanged repeat stayed silent.
+
+=== One-call cleanup of completed endpoint-free legacy scout ===
+ok: added empty-review (scout) -> Queued
+task:
+  id: empty-review
+  title: Review the implementation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-10-09
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start empty-review` to move it to in flight
+  - Run `tasks-axi block empty-review --by <other>` to record a dependency
+ok: start empty-review -> In flight
+help[1]:
+  - Run `tasks-axi done empty-review --pr <url>` when it ships
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/.test-tmp/fm-lab.otuE9C
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+wrote data/history/tasks/empty-review.md
+teardown empty-review complete (window none, worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/.test-tmp/fm-lab.otuE9C/removed-scratch, legacy record accepted without spawn_gen: endpoint missing, incarnation legacy-20261009T090020Z-86871)
+Backlog: empty-review is closed in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/.test-tmp/fm-lab.otuE9C/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+task:
+  id: empty-review
+  title: Review the implementation data/empty-review/report.md
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-09
+  deps: none
+  links: "report:data/empty-review/report.md"
+  body: ""
+no guide: scout completion caller attested no reusable guide is owed; report retained.
+
+
+=== Adversarial open status key refuses empty completion ===
+ok: added pending-review (scout) -> Queued
+task:
+  id: pending-review
+  title: Review with unresolved choice
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-10-09
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start pending-review` to move it to in flight
+  - Run `tasks-axi block pending-review --by <other>` to record a dependency
+ok: start pending-review -> In flight
+help[1]:
+  - Run `tasks-axi done pending-review --pr <url>` when it ships
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4EXVAYQS1J60HP0BRK1QTTF/.test-tmp/fm-lab.otuE9C
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-captain-hold: origin pending-review still has open captain decisions in its status stream
+REFUSED: scout task pending-review has not passed the captain-call completion gate.
+Inventory its report and any visual review through bin/fm-captain-hold.sh before teardown.
+Refused; runtime record and report retained; no guide synthesized.
+
+=== Uninventoried captain-held call refuses completion ===
+review-choice
+fm-captain-hold: origin pending-review still has captain-held tasks: review-choice
+Uninventoried origin call refused empty verification.
+
+=== Generated worker handoff contract (public emitted brief) ===
+Scaffolded scout brief saved as emitted-scout-brief.md (not a model-interpretation proof).
