@@ -452,17 +452,20 @@ test_run_timed_passes_a_natural_exit_through_a_fired_bound() {
 }
 
 test_run_timed_preserves_piped_stdin() {
-  local mechanism out rc
+  local mechanism out rc timed_path override
   for mechanism in external bash perl; do
+    timed_path=$PATH
+    override=''
+    case "$mechanism" in
+      external) timed_path="$RUN124:$PATH" ;;
+      bash) override=bash ;;
+      perl) timed_path="$PERL_ONLY" ;;
+    esac
     rc=0
     out=$(printf 'first line\nsecond line\n' | (
       . "$ROOT/bin/fm-timeout-lib.sh"
-      case "$mechanism" in
-        external) PATH="$RUN124:$PATH" ;;
-        bash) FM_TIMEOUT_MECHANISM_OVERRIDE=bash ;;
-        perl) PATH="$PERL_ONLY" ;;
-      esac
-      fm_run_timed 5 bash -c 'while IFS= read -r line; do printf "%s\n" "$line"; done; echo stderr-marker >&2; exit 7'
+      PATH=$timed_path FM_TIMEOUT_MECHANISM_OVERRIDE=$override \
+        fm_run_timed 5 bash -c 'while IFS= read -r line; do printf "%s\n" "$line"; done; echo stderr-marker >&2; exit 7'
     ) 2>"$TMP_ROOT/stdin.err") || rc=$?
     [ "$rc" -eq 7 ] || fail "$mechanism lost the stdin consumer's exit status: $rc"
     [ "$out" = $'first line\nsecond line' ] || fail "$mechanism lost piped stdin: $out"
