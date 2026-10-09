@@ -1939,7 +1939,7 @@ test_claude_firstmate_workers_exclude_only_supervisor_files() {
   before=$(git -C "$ROOT" hash-object AGENTS.md CLAUDE.md)
   for kind in ship scout; do
     id=profile-context-$kind-z28
-    rec=$(make_spawn_case "profile-context-$kind" claude "$id")
+    rec=$(make_spawn_case "profile-context-R&D-$kind" claude "$id")
     read_case_record "$rec"
     git -C "$PROJ_DIR" remote set-url origin "$origin"
     # Avoid fetching the real origin: the fixture already has its local main.

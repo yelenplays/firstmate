@@ -5697,10 +5697,7 @@ case "$LAUNCH" in
   CLAUDE_CONTEXT=${CLAUDE_CONTEXT#\{}
   CLAUDE_CONTEXT=${CLAUDE_CONTEXT%\}}
   [ -z "$CLAUDE_CONTEXT" ] || CLAUDE_CONTEXT=,$CLAUDE_CONTEXT
-  # JSON is embedded inside a shell single-quoted argument. Escape apostrophes
-  # in directory names without changing the JSON Claude receives.
-  CLAUDE_CONTEXT=$(printf '%s' "$CLAUDE_CONTEXT" | sed "s/'/'\\\\''/g")
-  LAUNCH=${LAUNCH//__CLAUDECONTEXT__/$CLAUDE_CONTEXT}
+  LAUNCH=${LAUNCH//__CLAUDECONTEXT__/"$CLAUDE_CONTEXT"}
   ;;
 esac
 if [ "$KEEP_AI_TRAILERS" = 1 ]; then
