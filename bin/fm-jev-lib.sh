@@ -80,16 +80,16 @@
 #     flow or block value, so escaped quotes inside it never end the redaction
 #     early, and every GitHub token prefix (ghp_, gho_, ghu_, ghs_, ghr_,
 #     github_pat_) is stripped. Engpass/Bypass and Keyboard pass colon headings
-#     are exempt only when their whole value is a fixed status word (none,
-#     keiner, ok, n/a, ja, nein ...), an all-digit number or a path with a file
-#     extension; prose, single words, passphrases, empty values, equals
-#     assignments and quoted/structured values remain sensitive. The fixed
+#     are exempt only when their whole value is one fixed status word (none,
+#     none., keiner, ok, n/a, ja, nein); every other value, including numbers,
+#     paths, prose, passphrases, empty values, equals assignments and
+#     quoted/structured values, remains sensitive. The fixed
 #     tests/fixtures/jev-privacy corpus pins this boundary.
-#     Phone-shaped numeric
-#     lists stay blocked unless immediately labeled viewport/widths/screen
-#     sizes or suffixed px; plus/trunk-zero phones are never size lists.
-#     Filename:line-line references are retained. Bare viewport triples remain
-#     ambiguous and are deliberately still redacted.
+#     Phone-shaped numeric lists stay blocked unless immediately labeled
+#     viewport(s) or width(s); plus/trunk-zero phones are never size lists.
+#     A path:start-end line range (directory, file extension, no leading zero,
+#     at most 6 digits per side, start <= end) is retained. Bare viewport
+#     triples remain ambiguous and are deliberately still redacted.
 #   fm_jev_iso_now
 #     Prints the current UTC time as an ISO-8601 second timestamp.
 #   fm_jev_supervision_timeout
@@ -436,11 +436,10 @@ FM_JEV_CHOICE_TOP2_JQ='def jev_choice_top2:
 # Ordinary status headings (Engpass, Bypass, Keyboard pass) are a narrow
 # exception, not a compound-pass rule:
 # DBPASS, SSHPASS, WiFi pass and every equals/quoted assignment stay sensitive.
-# A colon heading passes only when the rest of its line is exactly one status
-# word, one all-digit number or one path with a file extension. Any other value,
-# including an ordinary word or prose, cannot be told apart from an alphabetic
-# passphrase and keeps the key sensitive. Later keys on the same line are still
-# screened on their own.
+# A colon heading passes only when the rest of its line is exactly one fixed
+# status word. Any other value, including a number, path, ordinary word or
+# prose, cannot be told apart from a passphrase or code and keeps the key
+# sensitive. Later keys on the same line are still screened on their own.
 # shellcheck disable=SC2016
 _FM_JEV_PRIVACY_KEY_AWK='
   function sensitive_key(key, assignment, value, prefix,    normalized, status) {
@@ -453,10 +452,7 @@ _FM_JEV_PRIVACY_KEY_AWK='
     sub(/^[ \t]*([*][*][ \t]+)?/, "", status)
     sub(/\n.*$/, "", status)
     sub(/[ \t\r]+$/, "", status)
-    sub(/[.]$/, "", status)
-    if (tolower(status) ~ /^(none|keine|keiner|keines|kein|nichts|ok|okay|n\/a|ja|nein|yes|no)$/) return 0
-    if (status ~ /^[0-9]+$/) return 0
-    return status !~ /^\/?([[:alnum:]_.-]+\/)+[[:alnum:]_-]+([.][[:alnum:]_-]+)*[.][[:alpha:]]+$/
+    return tolower(status) !~ /^(none|none[.]|keiner|ok|n\/a|ja|nein)$/
   }
 '
 
@@ -507,16 +503,19 @@ fm_jev_compact_state() {
     return 1
   fi
   printf '%s' "$state" | awk "$_FM_JEV_PRIVACY_KEY_AWK"'
-    function technical_number(prefix, number, suffix,    count, sizes, i) {
-      # A source line range is not a phone; require a filename and colon.
-      if (prefix ~ /[[:alnum:]_.\/-]+[.][[:alpha:]][[:alnum:]]*:$/ && number ~ /^[0-9]+-[0-9]+$/) return 1
+    function technical_number(prefix, number,    count, sizes, i) {
+      # A source line range is not a phone; require a path, extension and colon.
+      if (prefix ~ /[[:alnum:]_.-]+\/[[:alnum:]_.\/-]*[.][[:alpha:]][[:alnum:]]*:$/ && number ~ /^[1-9][0-9]*-[1-9][0-9]*$/) {
+        split(number, sizes, "-")
+        return length(sizes[1]) <= 6 && length(sizes[2]) <= 6 && sizes[1] + 0 <= sizes[2] + 0
+      }
       # Context must touch this list, not merely occur elsewhere in the state.
       if (number !~ /^[1-9][0-9]*(\/[1-9][0-9]*)+$/) return 0
       count = split(number, sizes, "/")
       for (i = 1; i <= count; i++) {
         if (length(sizes[i]) < 2 || length(sizes[i]) > 4 || sizes[i] + 0 < 160 || sizes[i] + 0 > 7680) return 0
       }
-      return tolower(prefix) ~ /(^|[^[:alnum:]_])(viewports?|widths?|screen sizes?)[ \t]*(:|=|at)?[ \t]*$/ || tolower(suffix) ~ /^[ \t]*px([^[:alnum:]_]|$)/
+      return tolower(prefix) ~ /(^|[^[:alnum:]_])(viewports?|widths?)[ \t]*(:|=|at)?[ \t]*$/
     }
     function flow_value_end(text,    depth, active_quote, escaped, pos, character, expected_open, stack) {
       if (substr(text, 1, 1) != "{" && substr(text, 1, 1) != "[") return 0
@@ -582,8 +581,7 @@ fm_jev_compact_state() {
         gsub(/[^0-9]/, "", digits)
         phone_start = start
         if (substr(buf, start, 1) ~ /[^[:alnum:]]/) phone_start++
-        phone_end = phone_start + length(phone)
-        if (length(digits) >= 7 && phone !~ date_pattern && !technical_number(substr(buf, 1, phone_start - 1), phone, substr(buf, phone_end))) {
+        if (length(digits) >= 7 && phone !~ date_pattern && !technical_number(substr(buf, 1, phone_start - 1), phone)) {
           buf = substr(buf, 1, start - 1) "[redacted]" substr(buf, start + match_length)
           search_from = start + 10
         } else {
