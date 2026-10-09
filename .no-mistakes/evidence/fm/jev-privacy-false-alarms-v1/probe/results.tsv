@@ -1,0 +1,4 @@
+P-viewports-phone-shaped	head	0	1	yes	ACT nm-01M4LIVE000000000000000000-review: Jev decided fix F1 (F1=in-scope-fix@0.99)
+P-viewports-phone-shaped	base	2	0	-	ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+P-viewport-list-with-zoom	head	0	1	yes	ACT nm-01M4LIVE000000000000000000-review: Jev decided fix F1 (F1=in-scope-fix@0.99)
+P-viewport-list-with-zoom	base	2	0	-	ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent

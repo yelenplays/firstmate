@@ -1,0 +1,12 @@
+[
+  {
+    "id": "P-viewports-phone-shaped",
+    "label": "?",
+    "text": "viewports: 415/555/1999"
+  },
+  {
+    "id": "P-viewport-list-with-zoom",
+    "label": "pass",
+    "text": "Check viewports: 375/414/1920 at 200% zoom."
+  }
+]

@@ -1,0 +1,146 @@
+# Live fm-jev-ask-user.sh privacy-screen run (head bd8a8f0b vs base 1823ab2a)
+Real CLI in a disposable fm-lab home; JEV_URL -> local capture endpoint; FM_JEV_ASK_USER_SEND -> recorder.
+Columns: verdict, case, label, head requests, base requests, new-vs-base, head escalation line
+
+OK	REAL-dispatch-findings	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	X-bypass-na-then-token	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	X-bypass-ok-trailing-space	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	X-engpass-NONE-upper	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	X-engpass-none-dotdot	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	X-engpass-ok-newline-dbpass	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	X-engpass-single-quoted-key	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	X-engpass-tab-secret	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	X-hero-engpass-real	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	X-keyboard-pass-no-keyboard	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	X-source-range-leading-zero	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	X-source-range-then-phone	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	X-viewport-then-phone-later	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	X-widths-label	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	ambiguous-small-list	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	ambiguous-triple	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	authorization	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	aws-key	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bearer	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-assignment	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-bare-phone	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-dotted-word	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-long-code	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-markdown	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-nein-markdown	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	bypass-nonascii-symbols	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-number	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-path	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-path-credential	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-prefix-comma	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-prefix-semicolon	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-prose	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-provider-letters	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-provider-token	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-random-case	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-single-word	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	bypass-status	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	bypass-unquoted-passphrase	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	date	pass	head_sent=1	base_sent=1		
+OK	db-pass	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	dbpass	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	dbpass-command	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	dbpass-plain-phrase	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	dbpass-plain-status	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	dbpass-plain-word	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	dotted-key-landline	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	dotted-key-local-phone	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	dotted-key-phone	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	dotted-key-phone-prose	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	email	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-assignment	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-compound	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-count	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-count-prose	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-dashed-digits	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-empty-block	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-german-status	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	engpass-json-key	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-markdown	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-markdown-secret	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-mixed-token	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-na	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	engpass-number	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-prefix-comma	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-prefix-semicolon	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-prose-then-token	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-quoted	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-sentence	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	engpass-single-word	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-status	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-status-aside	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-umlaut	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	engpass-unquoted-passphrase	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	filename-then-phone	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	german-phone	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	github-pat	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	github-token	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	gitlab-token	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	heading-then-credential	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	international-plus	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	international-trunk	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	irrelevant-viewport-context	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	json-secret	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	keyboard-pass-assignment	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	keyboard-pass-credential	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	keyboard-pass-ja	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	keyboard-pass-status	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	keyboard-pass-symbol	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	keyboard-pass-then-key	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	keyboard-unquoted-passphrase	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	mobile-phone	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	openai-key	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	openrouter-key	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	pem	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	phone-after-source	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	phone-labeled-call	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	phone-parens-even-px	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	phone-plus-even-px	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	phone-trunk-even-viewport	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	private-key-field	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	px-list	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	range-without-source	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	screen-sizes-phone	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	size-label-not-prose	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	slack-token	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	small-viewport-list	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	source-lines	pass	head_sent=1	base_sent=1		
+OK	source-range	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	source-range-md	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	source-range-reversed	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	source-range-too-long	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	sshpass-command	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	stripe-key	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	token-heading	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	unseen-bypass-prose	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	unseen-engpass-prose	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	uri-credential	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	us-phone	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	viewport-descending	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	viewport-four	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	viewport-list	pass	head_sent=1	base_sent=0	NEW-vs-base	
+OK	viewport-on-other-line	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	viewport-then-secret	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	wifi-pass	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+OK	wxh-list	pass	head_sent=1	base_sent=1		
+OK	yaml-block	block	head_sent=0	base_sent=0		ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+
+## Real dispatch finding (intent repro)
+🔍 2 in 2F:
+
+📄 1 (1):
+     0: Jev decided fix dispatch-advise-skips-chain (dispatch-advise-skips-chain=in-s...
+
+📄 2 (1):
+     0: the contract or findings carry a secret-shaped value; nothing was sent
+
+
+## Boundary probe
+P-viewports-phone-shaped	head	0	1	yes	ACT nm-01M4LIVE000000000000000000-review: Jev decided fix F1 (F1=in-scope-fix@0.99)
+P-viewports-phone-shaped	base	2	0	-	ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+P-viewport-list-with-zoom	head	0	1	yes	ACT nm-01M4LIVE000000000000000000-review: Jev decided fix F1 (F1=in-scope-fix@0.99)
+P-viewport-list-with-zoom	base	2	0	-	ESCALATE nm-01M4LIVE000000000000000000-review privacy: the contract or findings carry a secret-shaped value; nothing was sent

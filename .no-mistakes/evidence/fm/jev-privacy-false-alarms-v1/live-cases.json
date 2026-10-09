@@ -1,0 +1,634 @@
+[
+  {
+    "id": "REAL-dispatch-findings",
+    "label": "pass",
+    "text": "Please fix the review findings.",
+    "findings_file": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4H14PMQFVAHQBC5RTM73VWJ/tests/fixtures/jev-privacy/dispatch-findings.txt",
+    "finding_ids": "dispatch-advise-skips-chain"
+  },
+  {
+    "id": "engpass-status",
+    "label": "block",
+    "text": "- Keyboard pass: every control reachable; Engpass: none"
+  },
+  {
+    "id": "engpass-markdown",
+    "label": "block",
+    "text": "- **Hero / Engpass:** premium macro or overhead precision-machined metal components with one deliberate interruption, gap, or misalignment that visually suggests a bottleneck; no literal arrow or text."
+  },
+  {
+    "id": "bypass-prose",
+    "label": "block",
+    "text": "Auth bypass: the handler skips the check"
+  },
+  {
+    "id": "engpass-sentence",
+    "label": "pass",
+    "text": "- Engpass: none."
+  },
+  {
+    "id": "bypass-markdown",
+    "label": "block",
+    "text": "**Bypass:** the handler skips the check"
+  },
+  {
+    "id": "engpass-german-status",
+    "label": "pass",
+    "text": "Engpass: keiner"
+  },
+  {
+    "id": "engpass-compound",
+    "label": "block",
+    "text": "Engpass: Datenbank-Locks"
+  },
+  {
+    "id": "bypass-status",
+    "label": "pass",
+    "text": "Bypass: none"
+  },
+  {
+    "id": "keyboard-pass-status",
+    "label": "pass",
+    "text": "- Keyboard pass: ok"
+  },
+  {
+    "id": "engpass-na",
+    "label": "pass",
+    "text": "Engpass: n/a"
+  },
+  {
+    "id": "keyboard-pass-ja",
+    "label": "pass",
+    "text": "- Keyboard pass: ja"
+  },
+  {
+    "id": "bypass-nein-markdown",
+    "label": "pass",
+    "text": "**Bypass:** Nein"
+  },
+  {
+    "id": "engpass-count",
+    "label": "block",
+    "text": "Engpass: 2"
+  },
+  {
+    "id": "bypass-path",
+    "label": "block",
+    "text": "Bypass: bin/fm-dispatch-resolve.sh"
+  },
+  {
+    "id": "engpass-umlaut",
+    "label": "block",
+    "text": "Engpass: Größe der Warteschlange"
+  },
+  {
+    "id": "viewport-list",
+    "label": "pass",
+    "text": "Validate viewport widths: 320/768/1440/2040 and 200% zoom."
+  },
+  {
+    "id": "small-viewport-list",
+    "label": "pass",
+    "text": "Load impeccable. Check viewports: 195/390/1440. Commit and ready in branch."
+  },
+  {
+    "id": "viewport-four",
+    "label": "pass",
+    "text": "Check viewport: 195/390/768/1440."
+  },
+  {
+    "id": "viewport-descending",
+    "label": "pass",
+    "text": "viewport: 1440/1024/768"
+  },
+  {
+    "id": "px-list",
+    "label": "block",
+    "text": "Check 320/768/1440 px."
+  },
+  {
+    "id": "screen-sizes-phone",
+    "label": "block",
+    "text": "screen sizes: 320/768/1440"
+  },
+  {
+    "id": "wxh-list",
+    "label": "pass",
+    "text": "Check 320x768/1440x900."
+  },
+  {
+    "id": "source-range",
+    "label": "pass",
+    "text": "bin/fm-dispatch-resolve.sh:1509-1518 (dispatch_log)"
+  },
+  {
+    "id": "source-lines",
+    "label": "pass",
+    "text": "bin/fm-dispatch-resolve.sh:1486/:1497"
+  },
+  {
+    "id": "source-range-md",
+    "label": "pass",
+    "text": "docs/configuration.md:1509-1518"
+  },
+  {
+    "id": "range-without-source",
+    "label": "block",
+    "text": "Call 1509-1518"
+  },
+  {
+    "id": "phone-after-source",
+    "label": "block",
+    "text": "Read bin/example.sh:15, then call 415-555-0199"
+  },
+  {
+    "id": "dotted-key-phone",
+    "label": "block",
+    "text": "contact.phone:0170-1234567"
+  },
+  {
+    "id": "dotted-key-phone-prose",
+    "label": "block",
+    "text": "Kunde.Tel:0170-1234567 bitte anrufen"
+  },
+  {
+    "id": "dotted-key-landline",
+    "label": "block",
+    "text": "Tel.Nr:030-12345678"
+  },
+  {
+    "id": "filename-then-phone",
+    "label": "block",
+    "text": "see app.log:0151-23456789"
+  },
+  {
+    "id": "dotted-key-local-phone",
+    "label": "block",
+    "text": "contact.phone:123-4567"
+  },
+  {
+    "id": "source-range-reversed",
+    "label": "block",
+    "text": "bin/example.sh:5550199-1234567"
+  },
+  {
+    "id": "source-range-too-long",
+    "label": "block",
+    "text": "bin/example.sh:1234567-1234568"
+  },
+  {
+    "id": "date",
+    "label": "pass",
+    "text": "Review on 2026-10-09."
+  },
+  {
+    "id": "engpass-number",
+    "label": "block",
+    "text": "Engpass: hunter2 (rotated)"
+  },
+  {
+    "id": "engpass-assignment",
+    "label": "block",
+    "text": "Engpass=synthetic-passphrase"
+  },
+  {
+    "id": "engpass-quoted",
+    "label": "block",
+    "text": "Engpass: \"correct horse battery staple\""
+  },
+  {
+    "id": "engpass-markdown-secret",
+    "label": "block",
+    "text": "**Engpass:** hunter2 (rotated)"
+  },
+  {
+    "id": "engpass-json-key",
+    "label": "block",
+    "text": "{\"Engpass\": \"none\"}"
+  },
+  {
+    "id": "bypass-assignment",
+    "label": "block",
+    "text": "Bypass=ordinary alphabetic passphrase"
+  },
+  {
+    "id": "heading-then-credential",
+    "label": "block",
+    "text": "Engpass: none; DBPASS=hunter2"
+  },
+  {
+    "id": "dbpass-plain-word",
+    "label": "block",
+    "text": "dbpass=swordfish"
+  },
+  {
+    "id": "dbpass-plain-phrase",
+    "label": "block",
+    "text": "DBPASS: correct horse battery staple"
+  },
+  {
+    "id": "dbpass-plain-status",
+    "label": "block",
+    "text": "DBPASS: none"
+  },
+  {
+    "id": "keyboard-pass-credential",
+    "label": "block",
+    "text": "Keyboard pass: hunter2"
+  },
+  {
+    "id": "keyboard-pass-assignment",
+    "label": "block",
+    "text": "Keyboard pass=synthetic-only-value"
+  },
+  {
+    "id": "engpass-single-word",
+    "label": "block",
+    "text": "Engpass: swordfish"
+  },
+  {
+    "id": "engpass-unquoted-passphrase",
+    "label": "block",
+    "text": "Engpass: correct horse battery staple"
+  },
+  {
+    "id": "bypass-unquoted-passphrase",
+    "label": "block",
+    "text": "Bypass: correct horse battery staple"
+  },
+  {
+    "id": "keyboard-unquoted-passphrase",
+    "label": "block",
+    "text": "Keyboard pass: correct horse battery staple"
+  },
+  {
+    "id": "unseen-engpass-prose",
+    "label": "block",
+    "text": "Engpass: the handler skips the check"
+  },
+  {
+    "id": "unseen-bypass-prose",
+    "label": "block",
+    "text": "Bypass: the other handler skips the check"
+  },
+  {
+    "id": "engpass-prefix-comma",
+    "label": "block",
+    "text": "Engpass: none, correct horse battery staple"
+  },
+  {
+    "id": "engpass-prefix-semicolon",
+    "label": "block",
+    "text": "Engpass: none; correct horse battery staple"
+  },
+  {
+    "id": "bypass-prefix-comma",
+    "label": "block",
+    "text": "Bypass: the handler skips the check, correct horse battery staple"
+  },
+  {
+    "id": "bypass-prefix-semicolon",
+    "label": "block",
+    "text": "Bypass: the handler skips the check; correct horse battery staple"
+  },
+  {
+    "id": "bypass-single-word",
+    "label": "block",
+    "text": "Bypass: letmein"
+  },
+  {
+    "id": "engpass-count-prose",
+    "label": "block",
+    "text": "Engpass: 2 Datenbank-Locks"
+  },
+  {
+    "id": "engpass-status-aside",
+    "label": "block",
+    "text": "Engpass: none (see bin/x.sh)"
+  },
+  {
+    "id": "bypass-dotted-word",
+    "label": "block",
+    "text": "Bypass: swordfish.txt"
+  },
+  {
+    "id": "engpass-dashed-digits",
+    "label": "block",
+    "text": "Engpass: 1234-5678"
+  },
+  {
+    "id": "bypass-nonascii-symbols",
+    "label": "block",
+    "text": "Bypass: Pass€wort§"
+  },
+  {
+    "id": "bypass-long-code",
+    "label": "block",
+    "text": "Bypass: 48213977"
+  },
+  {
+    "id": "bypass-bare-phone",
+    "label": "block",
+    "text": "Bypass: 01701234567"
+  },
+  {
+    "id": "bypass-path-credential",
+    "label": "block",
+    "text": "Bypass: a/hunter2.x"
+  },
+  {
+    "id": "engpass-mixed-token",
+    "label": "block",
+    "text": "Engpass: Tr0ub4dor&3"
+  },
+  {
+    "id": "bypass-random-case",
+    "label": "block",
+    "text": "Bypass: hUnTeRtWo"
+  },
+  {
+    "id": "keyboard-pass-symbol",
+    "label": "block",
+    "text": "Keyboard pass: swordfish!@#"
+  },
+  {
+    "id": "engpass-prose-then-token",
+    "label": "block",
+    "text": "Engpass: none, sk_test_syntheticnotacredential"
+  },
+  {
+    "id": "bypass-provider-letters",
+    "label": "block",
+    "text": "Bypass: glpat-syntheticnotacredential"
+  },
+  {
+    "id": "keyboard-pass-then-key",
+    "label": "block",
+    "text": "Keyboard pass: ok; DBPASS: swordfish"
+  },
+  {
+    "id": "engpass-empty-block",
+    "label": "block",
+    "text": "Engpass:\n  Tr0ub4dor&3"
+  },
+  {
+    "id": "dbpass",
+    "label": "block",
+    "text": "DBPASS=hunter2"
+  },
+  {
+    "id": "dbpass-command",
+    "label": "block",
+    "text": "DBPASS=hunter2 ./run"
+  },
+  {
+    "id": "sshpass-command",
+    "label": "block",
+    "text": "SSHPASS=hunter2 sshpass -e ssh host"
+  },
+  {
+    "id": "db-pass",
+    "label": "block",
+    "text": "db_pass: ordinary alphabetic passphrase"
+  },
+  {
+    "id": "wifi-pass",
+    "label": "block",
+    "text": "WiFi pass: swordfish"
+  },
+  {
+    "id": "bypass-number",
+    "label": "block",
+    "text": "Bypass: hunter2"
+  },
+  {
+    "id": "bypass-provider-token",
+    "label": "block",
+    "text": "Bypass: the token is sk-or-v1-syntheticnotacredential"
+  },
+  {
+    "id": "token-heading",
+    "label": "block",
+    "text": "apiToken: synthetic-only-value"
+  },
+  {
+    "id": "private-key-field",
+    "label": "block",
+    "text": "privateKey: {\"value\": \"synthetic-only-value\"}"
+  },
+  {
+    "id": "yaml-block",
+    "label": "block",
+    "text": "API_TOKEN: |\n  synthetic-only-value\nnext: retained"
+  },
+  {
+    "id": "json-secret",
+    "label": "block",
+    "text": "{\"clientSecret\": [\"synthetic-only-value\"], \"safe\": true}"
+  },
+  {
+    "id": "openrouter-key",
+    "label": "block",
+    "text": "sk-or-v1-syntheticnotacredential"
+  },
+  {
+    "id": "openai-key",
+    "label": "block",
+    "text": "sk-syntheticnotacredential0123456789"
+  },
+  {
+    "id": "stripe-key",
+    "label": "block",
+    "text": "sk_test_syntheticnotacredential"
+  },
+  {
+    "id": "github-pat",
+    "label": "block",
+    "text": "github_pat_syntheticnotacredential"
+  },
+  {
+    "id": "github-token",
+    "label": "block",
+    "text": "ghp_syntheticnotacredential"
+  },
+  {
+    "id": "gitlab-token",
+    "label": "block",
+    "text": "glpat-syntheticnotacredential"
+  },
+  {
+    "id": "slack-token",
+    "label": "block",
+    "text": "xoxb-synthetic-not-a-credential"
+  },
+  {
+    "id": "authorization",
+    "label": "block",
+    "text": "Authorization: Basic synthetic-only-value"
+  },
+  {
+    "id": "bearer",
+    "label": "block",
+    "text": "Bearer synthetic-only-value"
+  },
+  {
+    "id": "aws-key",
+    "label": "block",
+    "text": "aws_secret_access_key=synthetic-only-value"
+  },
+  {
+    "id": "pem",
+    "label": "block",
+    "text": "-----BEGIN PRIVATE KEY-----\nsynthetic-only-value\n-----END PRIVATE KEY-----"
+  },
+  {
+    "id": "uri-credential",
+    "label": "block",
+    "text": "redis://user:synthetic-only-value@example.invalid/0"
+  },
+  {
+    "id": "email",
+    "label": "block",
+    "text": "reach person@example.invalid"
+  },
+  {
+    "id": "us-phone",
+    "label": "block",
+    "text": "Call 415/555/0199"
+  },
+  {
+    "id": "german-phone",
+    "label": "block",
+    "text": "Call 030/1234/5678"
+  },
+  {
+    "id": "mobile-phone",
+    "label": "block",
+    "text": "Call 0170/123/4567"
+  },
+  {
+    "id": "international-trunk",
+    "label": "block",
+    "text": "tel 0049/170/1234"
+  },
+  {
+    "id": "international-plus",
+    "label": "block",
+    "text": "Call +49 170 1234567"
+  },
+  {
+    "id": "ambiguous-small-list",
+    "label": "block",
+    "text": "Load impeccable. Check 195/390/1440. Commit and ready in branch."
+  },
+  {
+    "id": "ambiguous-triple",
+    "label": "block",
+    "text": "check 320/768/1440"
+  },
+  {
+    "id": "irrelevant-viewport-context",
+    "label": "block",
+    "text": "viewport: 320/768/1440; call 415/555/0199"
+  },
+  {
+    "id": "viewport-on-other-line",
+    "label": "block",
+    "text": "viewport\nCall 415/555/0199"
+  },
+  {
+    "id": "phone-labeled-call",
+    "label": "block",
+    "text": "viewport: call 415/555/0199"
+  },
+  {
+    "id": "phone-plus-even-px",
+    "label": "block",
+    "text": "viewport: +49 170 1234567 px"
+  },
+  {
+    "id": "phone-trunk-even-viewport",
+    "label": "block",
+    "text": "viewport: 030/1234/5678"
+  },
+  {
+    "id": "phone-parens-even-px",
+    "label": "block",
+    "text": "(415) 555-0199 px"
+  },
+  {
+    "id": "size-label-not-prose",
+    "label": "block",
+    "text": "supplied_viewport: 415/555/0199"
+  },
+  {
+    "id": "viewport-then-secret",
+    "label": "block",
+    "text": "viewport: 320/768/1440; apiToken: synthetic-only-value"
+  },
+  {
+    "id": "X-engpass-NONE-upper",
+    "label": "pass",
+    "text": "Engpass: NONE"
+  },
+  {
+    "id": "X-bypass-ok-trailing-space",
+    "label": "pass",
+    "text": "Bypass: ok   "
+  },
+  {
+    "id": "X-engpass-none-dotdot",
+    "label": "block",
+    "text": "Engpass: none.."
+  },
+  {
+    "id": "X-engpass-ok-newline-dbpass",
+    "label": "block",
+    "text": "Engpass: ok\nDBPASS=hunter2"
+  },
+  {
+    "id": "X-bypass-na-then-token",
+    "label": "block",
+    "text": "Bypass: n/a; apiToken: synthetic-only-value"
+  },
+  {
+    "id": "X-engpass-tab-secret",
+    "label": "block",
+    "text": "Engpass:\thunter2"
+  },
+  {
+    "id": "X-engpass-single-quoted-key",
+    "label": "block",
+    "text": "'Engpass': none"
+  },
+  {
+    "id": "X-keyboard-pass-no-keyboard",
+    "label": "block",
+    "text": "pass: ok"
+  },
+  {
+    "id": "X-widths-label",
+    "label": "pass",
+    "text": "Check widths: 360/768/1280"
+  },
+  {
+    "id": "X-viewport-then-phone-later",
+    "label": "block",
+    "text": "viewport: 320/768/1440 and call 0170/123/4567"
+  },
+  {
+    "id": "X-source-range-then-phone",
+    "label": "block",
+    "text": "bin/fm-dispatch-resolve.sh:1509-1518 then 0151/2345/6789"
+  },
+  {
+    "id": "X-source-range-leading-zero",
+    "label": "block",
+    "text": "bin/x.sh:0170-1234567"
+  },
+  {
+    "id": "X-hero-engpass-real",
+    "label": "block",
+    "text": "- **Hero / Engpass:** premium macro"
+  }
+]

@@ -1,0 +1,30 @@
+ok - executing fm-jev-lib.sh is refused; it is sourceable only
+ok - with only OPENROUTER_API_KEY, decide uses the OpenRouter URL and bearer header
+ok - with only TYPESAFE_API_KEY, decide uses the TypeSafe URL and bearer header
+ok - fm_jev_decide keeps auto-detection for existing callers
+ok - with both keys and no JEV_ROUTE, TypeSafe wins
+ok - JEV_ROUTE=openrouter selects OpenRouter even when a TypeSafe key is present
+ok - JEV_MODEL overrides the route default
+ok - JEV_MODEL warns on unpinned overrides while honoring them
+ok - JEV_URL is a complete POST URL used verbatim
+ok - JEV_BASE keeps default path building from the origin
+ok - JEV_URL wins over JEV_BASE
+ok - OpenRouter ignores JEV_BASE so /v1/systemone is never appended
+ok - timeout defaults to 25s and JEV_TIMEOUT overrides it
+ok - .env supplies URL, model, and timeout; the environment wins
+ok - OPENROUTER_API_KEY in .env activates the OpenRouter route
+ok - environment TYPESAFE_API_KEY wins over .env
+ok - key configuration is a presence gate independent of route resolution
+ok - absent keys fail closed without a network call
+ok - questions that are not a JSON object fail before curl
+ok - a non-200 response is a hard failure with no stdout JSON
+ok - a curl transport failure is a hard failure
+ok - missing curl is a usage failure
+ok - choice confidence floor defaults to 0.7 and accepts an explicit dispatch-style 0.6
+ok - probabilities must be 0..1 numbers that sum to about 1
+ok - shared privacy screen preserves every benign fixture and blocks every sensitive fixture
+ok - compact-state strips obvious secrets and refuses oversized input
+ok - log helper writes one JSONL line and keeps secrets out of it
+ok - response-model helper names the exact build that answered
+ok - log helper defaults to $FM_HOME/state/jev-calls.jsonl
+EXIT=0
