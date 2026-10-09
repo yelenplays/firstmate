@@ -24,7 +24,10 @@
 #       exit, and is reported as 124 too. Only 137 raised by GNU/BSD timeout's
 #       own KILL escalation, with no status recorded by the bounded command,
 #       also collapses into 124: there it means the bound fired, not that the
-#       command chose to die.
+#       command chose to die. INT, TERM, or HUP delivered to the bounding
+#       process terminates the bounded process group and waits for its direct
+#       child before returning 130, 143, or 129 respectively, so interruption
+#       does not leave work running in that group.
 #
 #   fm_exec_timed <seconds> <grace-seconds> <command> [args...]
 #       Replaces the calling shell with the bounded command, so it must be the

@@ -1274,25 +1274,19 @@ Per-machine Cursor `cli-config.json` attribution-off is not this contract: it do
 
 ## Worker CPU priority
 
-Every worker, scout, and secondmate Firstmate launches, on a fresh spawn and on a relaunch alike, runs its whole process tree at utility QoS on macOS.
-The `taskpolicy` clamp is inherited by child processes, yielding processor time to interactive apps.
-Every run of `bin/fm-test-run.sh` also applies the clamp, covering suites started by a pipeline or by hand.
-QoS wrapping is a no-op on other systems.
-Without `config/launch-env-allowlist`, QoS wrapping uses the pane's `SHELL`, preserving its raw-command syntax.
+On macOS with `taskpolicy` available, Firstmate launches and relaunches workers, scouts, and secondmates at utility QoS, inherited by child processes to favor interactive apps.
+Every run of `bin/fm-test-run.sh` also applies this policy, covering suites started by a pipeline or by hand.
+QoS wrapping is a no-op where unsupported.
+[`bin/fm-qos-lib.sh`](../bin/fm-qos-lib.sh) owns the scheduling policy; [`fm-spawn.sh --help`](../bin/fm-spawn.sh) owns shell selection and launch wrapping.
 
-Test-script execution also has a machine-wide, per-user limit shared across workers, homes, checkouts, and runner invocations on every supported system.
-The limit is `max(1, cpus/3)` - four scripts total on a 14-core Mac - using portable atomic directory slots under `$HOME/.cache/firstmate/test-slots`, not `flock`.
-A runner waits for a free slot rather than exceeding the limit or failing.
-Slots record holder pids, reclaim dead holders, and release on normal exit or interruption.
-Nested runners reuse their parent's slot and execute serially to avoid self-deadlock without increasing the limit.
-The cap bounds concurrent scripts, not the subprocesses created within a script, and it is not a CPU-percentage ceiling for arbitrary worker commands.
+Test scripts admitted by `bin/fm-test-run.sh` share a machine-wide, per-user limit across workers, Firstmate homes, and checkouts using the same user `HOME`.
+The limit is `max(1, cpus/3)` with integer division - four top-level scripts at a time on a 14-core Mac.
+A runner waits for admission rather than exceeding the limit or failing; requesting more local workers cannot raise this shared limit.
+Nested runners reuse their parent's admission instead of adding parallel capacity.
+The cap bounds admitted test-script trees, not subprocesses within a script, direct test execution outside the runner, or CPU percentage for arbitrary worker commands.
 
-A plain `--changed` run or script list chooses `max(1, min(4, cpus/2))` local workers.
-An explicit `--jobs` still sets the invocation's local concurrency, but cannot raise the shared limit.
-Tests may set `FM_TEST_SLOT_DIR` to a private absolute directory to isolate their slots; this test-only override also separates nested fixture runners from the parent's slot pool.
-Normal workers must leave it unset so all suites share the same pool.
-
-[`bin/fm-qos-lib.sh`](../bin/fm-qos-lib.sh) owns the scheduling policy, [`fm-spawn.sh --help`](../bin/fm-spawn.sh) owns launch wrapping, and [`fm-test-run.sh --help`](../bin/fm-test-run.sh) owns slot admission and local concurrency.
+[`fm-test-run.sh --help`](../bin/fm-test-run.sh) owns local concurrency selection, slot paths and lifecycle, and fixture-only overrides.
+Normal workers must leave `FM_TEST_SLOT_DIR` unset so all suites share the same pool.
 Behavioral regression coverage is in [`tests/fm-qos.test.sh`](../tests/fm-qos.test.sh) and [`tests/fm-test-run.test.sh`](../tests/fm-test-run.test.sh).
 
 ## Project capacity (config/project-capacity)
@@ -3075,7 +3069,7 @@ FM_TRACE_CONTEXT=       # optional trace-context override; see "Trace context pr
 FM_WIKIS_ROOT=          # optional wikis root override; see "Wiki context in briefs"
 FM_TASK_ID=             # internal task-worker marker fm-spawn.sh exports into ship and scout panes, never set by hand; bin/fm-test-run.sh refuses to execute in the repository primary checkout while it is set
 FM_TASK_INBOX=          # internal: absolute path of the task's steering inbox (state/<id>.inbox) that fm-spawn.sh exports into every ship, scout, and secondmate launch, never set by hand; the steering doorbell names "$FM_TASK_INBOX"
-FM_TEST_SLOT_DIR=       # test-only absolute slot-directory override for isolated runner fixtures; leave unset in normal workers; see "Worker CPU priority"
+FM_TEST_SLOT_DIR=       # test-only; see bin/fm-test-run.sh --help for fixture slot isolation
 HERDR_SESSION=default  # herdr-only: named session for normal backend ops; not enough for destructive cleanup (docs/herdr-backend.md)
 FM_BACKEND_HERDR_SUBMIT_POLLS=6  # herdr-only: agent-state samples spread across each Enter attempt's budget when confirming a submit (docs/herdr-backend.md "Current transport behavior")
 FM_BACKEND_HERDR_SUBMIT_MIN_SLEEP=0.6  # herdr-only: minimum per-Enter confirmation budget before polling agent-state after an idle baseline

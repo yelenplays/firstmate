@@ -116,14 +116,19 @@
 # live-capability (a live-harness guard governed by fm_live_gate, which records
 # unavailable tools and explicit policy skips; see tests/lib.sh), or none.
 #
-# Every invocation applies utility QoS on macOS through bin/fm-qos-lib.sh.
-# All invocations share max(1, cpus/3) test-script slots per user, independent
-# of --jobs, using $HOME/.cache/firstmate/test-slots and waiting for free slots.
+# bin/fm-qos-lib.sh applies the Worker CPU priority policy documented in
+# docs/configuration.md to this runner, including suites started outside workers.
+# Executing invocations share max(1, cpus/3) top-level test-script slots per
+# user HOME, with integer division, independent of --jobs, using portable atomic
+# directories under $HOME/.cache/firstmate/test-slots (no flock).
+# A waiter retries once per second; slot waiting is outside the per-script timeout.
 # Slots record holder pids, reclaim dead holders, and release on exit or signal.
 # Nested runners reuse the inherited FM_TEST_SLOT_HELD slot and run serially.
 # FM_TEST_SLOT_DIR is a test-only override for an isolated absolute slot directory;
 # changing it also separates nested fixture runners from the parent's slots.
-# This bounds scripts, not the subprocesses that a script creates.
+# Normal workers must leave it unset to preserve shared admission.
+# This bounds admitted script trees, not subprocesses within a script or tests
+# executed directly outside this runner.
 #
 # Every selected script runs isolated from the host's global and system Git
 # configuration, including one that sources no test helper of its own;

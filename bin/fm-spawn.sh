@@ -394,11 +394,11 @@
 #   shell, credential files, same-user processes, or later shell initialization.
 #   See docs/configuration.md for provider/Git setup and supported limits.
 # Worker CPU priority:
-#   Every launch (ship, scout, secondmate, raw command, and relaunch) runs its
-#   whole process tree at utility QoS through bin/fm-qos-lib.sh on macOS.
-#   The taskpolicy clamp wraps the launch outermost; without an allowlist
-#   the pane's SHELL interprets the launch.
-#   Non-macOS hosts leave the launch unwrapped.
+#   bin/fm-qos-lib.sh applies the policy in docs/configuration.md "Worker CPU
+#   priority" to every ship, scout, secondmate, raw command, and relaunch.
+#   Where supported, the taskpolicy clamp wraps the launch outermost; without
+#   an allowlist the pane's SHELL interprets the launch, preserving raw-command
+#   syntax. Unsupported hosts leave the launch unwrapped.
 # Claude permission mode (config/claude-permission-mode):
 #   One token selecting the permission flag every claude launch (ship, scout,
 #   secondmate, and relaunch) carries. Absent or `bypass` keeps today's
