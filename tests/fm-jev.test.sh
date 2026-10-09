@@ -1115,6 +1115,16 @@ test_meaning_that_mentions_a_banned_model_keeps_the_option() {
   assert_equals "$(jq -c '.questions.pick.criteria | keys' "$LOG/body")" '["opus","sonnet"]' "a slash word never hides the banned model a route or opaque label runs"
   assert_contains "$err" "removed never-use model options (pick: codex, opencode, pi)" "every slash-word option running a banned model is removed"
   rm -f "$HOME_DIR/config/model-denylist.json"
+  reset_log
+  write_denylist
+  respond '{"answers":{"pick":{"type":"choice","choice":"opus","confidence":0.9,"probabilities":{"opus":0.9,"sonnet":0.1}}}}'
+  run_jev code out err pick "harness for a one-off pipeline run" "Which harness reviews?" \
+    "opus=Claude Opus" "sonnet=Claude Sonnet" "pi=Pi on gpt-5.6-sol, or kimi-k2 fallback" \
+    "omp=Opus plans, kimi-k2 executes" "cursor-agent=Sonnet or kimi-k2" "pi-signed=Pi running kimi-coding/k3"
+  assert_equals "$code" 0 "a harness choice with banned fallbacks still answers: $err"
+  assert_equals "$(jq -c '.questions.pick.criteria | keys' "$LOG/body")" '["opus","sonnet"]' "a harness label naming a banned model anywhere in its meaning is removed"
+  assert_contains "$err" "removed never-use model options (pick: pi, omp, cursor-agent, pi-signed)" "every harness option that can run a banned model is removed"
+  rm -f "$HOME_DIR/config/model-denylist.json"
   pass "fm-jev.sh: a meaning that only mentions a banned model keeps a model-id option, and a route label is judged by its model"
 }
 
