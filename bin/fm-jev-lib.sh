@@ -80,9 +80,10 @@
 #     flow or block value, so escaped quotes inside it never end the redaction
 #     early, and every GitHub token prefix (ghp_, gho_, ghu_, ghs_, ghr_,
 #     github_pat_) is stripped. Engpass/Bypass and Keyboard pass colon headings
-#     allow only the exact locally vetted prose values in the shared predicate;
-#     unseen values, equals assignments and quoted/structured values remain
-#     sensitive. The fixed tests/fixtures/jev-privacy corpus pins this boundary.
+#     are exempt when their value is plain alphabetic prose; credential-shaped
+#     words, empty values, equals assignments and quoted/structured values
+#     remain sensitive. The fixed tests/fixtures/jev-privacy corpus pins this
+#     boundary.
 #     Phone-shaped numeric
 #     lists stay blocked unless immediately labeled viewport/widths/screen
 #     sizes or suffixed px; plus/trunk-zero phones are never size lists.
@@ -434,13 +435,14 @@ FM_JEV_CHOICE_TOP2_JQ='def jev_choice_top2:
 # Ordinary prose headings (Engpass, Bypass, Keyboard pass) are a narrow
 # exception, not a compound-pass rule:
 # DBPASS, SSHPASS, WiFi pass and every equals/quoted assignment stay sensitive.
-# Only exact locally vetted values pass: unseen prose cannot be distinguished
-# from an alphabetic passphrase, so grammar, length and token shape do not
-# authorize an exemption. Keep the entire line, including comma/semicolon
-# suffixes, so an approved prefix cannot conceal an appended credential.
+# A colon heading passes only when the rest of its line is plain prose: every
+# word is letters (lowercase, Capitalized or ALLCAPS, joined by - ' /) with at
+# most surrounding punctuation. A digit, symbol, quote, bracket, mixed-case
+# word or empty value is credential-shaped and keeps the key sensitive. Later
+# keys on the same line are still screened on their own.
 # shellcheck disable=SC2016
 _FM_JEV_PRIVACY_KEY_AWK='
-  function sensitive_key(key, assignment, value, prefix,    normalized, prose) {
+  function sensitive_key(key, assignment, value, prefix,    normalized, prose, count, words, i, word) {
     normalized = tolower(key)
     gsub(/[-_.]/, "", normalized)
     if (normalized !~ /(password|passwd|pwd|pass|secret|token|apikey|secretkey|accesskey|privatekey|clientsecret|auth|credential)$/) return 0
@@ -449,12 +451,16 @@ _FM_JEV_PRIVACY_KEY_AWK='
     prose = value
     sub(/^[ \t]*([*][*][ \t]+)?/, "", prose)
     sub(/\n.*$/, "", prose)
-    sub(/[ \t]+$/, "", prose)
-    if (tolower(key) == "engpass") {
-      return prose != "none" && prose != "none." && prose != "premium macro or overhead precision-machined metal components with one deliberate interruption, gap, or misalignment that visually suggests a bottleneck; no literal arrow or text."
+    sub(/[ \t\r]+$/, "", prose)
+    count = split(prose, words, /[ \t]+/)
+    if (count == 0) return 1
+    for (i = 1; i <= count; i++) {
+      word = words[i]
+      sub(/^[(]/, "", word)
+      sub(/[.,;:!?)]+$/, "", word)
+      if (word !~ /^([[:upper:]\200-\377]?[[:lower:]\200-\377]+|[[:upper:]]+)([-\047\/]([[:upper:]\200-\377]?[[:lower:]\200-\377]+|[[:upper:]]+))*$/) return 1
     }
-    if (tolower(key) == "bypass") return prose != "the handler skips the check"
-    return prose != "every control reachable; Engpass: none"
+    return 0
   }
 '
 
