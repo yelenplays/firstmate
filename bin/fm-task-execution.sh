@@ -34,9 +34,13 @@
 # and teardown retire the obligation. Captain/dated external holds and true task
 # dependencies remain with their existing owners; no hold is lifted here.
 #
-# notify runs only inside the existing watcher. Per-task queue keys coalesce;
-# reminders recur after FM_EXECUTION_REMIND (default 300 seconds), even after
-# queue acknowledgement, until current evidence changes. Reconciliation runs at
+# notify runs inside the existing watcher. Per-task queue keys coalesce;
+# a persisted fingerprint suppresses unchanged reconciled state, owner and next
+# action across acknowledgements and restarts. New status bytes, hold/dependency
+# changes, receipts, incarnations, PR handoffs, attributed run identities and
+# parked gates notify once; volatile crew-state detail and finding counts do not.
+# Ownership away from firstmate is recorded too, so returning ownership is a
+# new notification. Legacy timestamp markers trigger one fresh notification. Reconciliation runs at
 # FM_EXECUTION_SCAN_INTERVAL (default 30 seconds), independent of fleet signals.
 # Drain always prints
 # the outstanding firstmate actions. Neither notification nor acknowledgement
@@ -73,6 +77,7 @@ row() { printf '%s' "$BACKLOG_JSON" | jq -c --arg id "$1" '[.records[] | select(
 
 scan_one() {
   local id=$1 file="$STATE/$1.execution" task kind gen phase attempt receipt current busy state source wait_until hold blockers
+  RECONCILED_CURRENT=''
   record_valid "$file" || { printf '%s\tfirstmate\treconcile-corrupt-execution-record\n' "$id"; return; }
   task=$(row "$id")
   if [ "$task" = null ]; then
@@ -103,6 +108,7 @@ scan_one() {
   if [ "$kind" != ship ] && [ "$kind" != task ]; then
     if [ "$kind" = scout ]; then
       current=$(crew_state "$id" 2>/dev/null || true)
+      RECONCILED_CURRENT=$current
       case "$current" in
         'state: working · source: pane'*)
           printf '%s\tworker\tfinish-authorized-research-then-handoff\n' "$id"; return ;;
@@ -120,6 +126,7 @@ scan_one() {
     printf '%s\tfirstmate\timplementation owner unconfirmed; verify processing or recover failed handoff\n' "$id"; return
   fi
   current=$(crew_state "$id" 2>/dev/null || true)
+  RECONCILED_CURRENT=$current
   state=${current#state: }; state=${state%% ·*}
   source=${current#*source: }; source=${source%% ·*}
   case "$state:$source" in
@@ -142,8 +149,9 @@ scan_one() {
   esac
 }
 
-LOCK='' TMP=''
+LOCK='' TMP='' NOTIFY_TMP=''
 cleanup() {
+  [ -z "$NOTIFY_TMP" ] || rm -f -- "$NOTIFY_TMP"
   [ -z "$TMP" ] || rm -f -- "$TMP"
   [ -z "$LOCK" ] || fm_lock_release "$LOCK" || true
 }
@@ -168,24 +176,51 @@ case "$command" in
       printf '%s\n' "$now" > "$scan_marker"
     fi
     BACKLOG_JSON=$(read_backlog) || fail 'backlog reconciliation unavailable'
+    TMP=$(mktemp "${TMPDIR:-/tmp}/fm-execution-scan.XXXXXX") || fail 'cannot stage reconciliation'
     for file in "$STATE"/*.execution; do
       [ -e "$file" ] || [ -L "$file" ] || continue
       id=$(basename "$file" .execution); valid_id "$id"
-      line=$(scan_one "$id")
+      scan_one "$id" > "$TMP"
+      line=$(<"$TMP")
       if [ "$command" = scan ]; then printf '%s\n' "$line"; continue; fi
       owner=$(printf '%s' "$line" | cut -f2)
-      [ "$owner" = firstmate ] || continue
-      now=$(date +%s)
-      interval=${FM_EXECUTION_REMIND:-300}
-      case "$interval" in ''|*[!0-9]*) fail 'invalid reminder interval' ;; esac
+      source=${RECONCILED_CURRENT#*source: }; source=${source%% ·*}
+      fingerprint=$({
+        printf '%s\n' "$line" "${RECONCILED_CURRENT%% ·*}" "$source"
+        printf '%s\n' "$RECONCILED_CURRENT" | awk -F ' · ' '
+          $2 == "source: run-step" && $3 ~ /^parked at / {
+            gate = $3
+            sub(/: [0-9]+ finding\(s\)$/, "", gate)
+            print gate
+          }
+          $2 == "source: run-step" || $2 == "source: status-log" {
+            for (i = 3; i <= NF; i++) if ($i ~ /^run: /) print $i
+          }
+        '
+        row "$id" | jq -c '{state,hold_reason,hold_kind,hold_until,hold_set,unresolved_blocker_ids}'
+        for key in kind spawn_gen pr mode; do meta "$STATE/$id.meta" "$key"; done
+        # Status bytes include keyed opens/closes even when the next action
+        # stays identical. Never hash cadence markers or volatile pane prose.
+        cksum "$file"
+        if [ -e "$STATE/$id.status" ]; then cksum "$STATE/$id.status"; fi
+      } | cksum)
       marker="$STATE/.$id.execution-notified"
-      [ ! -L "$marker" ] || fail 'reminder marker is a symlink'
-      previous=$(awk 'NR==1 {print $1}' "$marker" 2>/dev/null || true)
-      case "$previous" in ''|*[!0-9]*) previous=0 ;; esac
-      [ $((now - previous)) -ge "$interval" ] || continue
-      fm_wake_append check "execution:$id" "check: execution $id" || exit 1
-      printf '%s\n' "$now" > "$marker"
-      printf '%s\n' "$line"
+      LOCK="${marker}.lock"
+      fm_lock_acquire_wait "$LOCK" || fail 'cannot lock notification marker'
+      [ ! -L "$marker" ] || fail 'notification marker is a symlink'
+      [ ! -e "$marker" ] || [ -f "$marker" ] || fail 'notification marker is not a regular file'
+      # Bash 5.2 aborts on a missing file in $(<file), even with an || fallback.
+      previous=$(cat "$marker" 2>/dev/null || true)
+      if [ "$previous" != "v2 $fingerprint" ]; then
+        if [ "$owner" = firstmate ]; then
+          fm_wake_append check "execution:$id" "check: execution $id" || exit 1
+          printf '%s\n' "$line"
+        fi
+        NOTIFY_TMP=$(mktemp "${marker}.tmp.XXXXXX") || fail 'cannot stage notification marker'
+        printf 'v2 %s\n' "$fingerprint" > "$NOTIFY_TMP"
+        mv -f -- "$NOTIFY_TMP" "$marker"; NOTIFY_TMP=''
+      fi
+      fm_lock_release "$LOCK"; LOCK=''
     done
     exit 0 ;;
   approve|attempt|started|show|confirmed) ;;

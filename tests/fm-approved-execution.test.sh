@@ -6,6 +6,10 @@ fm_test_sanitize_environment
 set -eu
 # shellcheck source=tests/wake-helpers.sh
 . "$(dirname "${BASH_SOURCE[0]}")/wake-helpers.sh"
+# Bare assertions, pipelines, helper calls and waits must identify their failure
+# before the shared EXIT trap removes the fixture evidence.
+set -E
+trap 'printf "FAIL: %s:%s: %s (exit %s)\n" "${BASH_SOURCE[0]}" "$LINENO" "$BASH_COMMAND" "$?" >&2' ERR
 command -v tasks-axi >/dev/null || { echo 'skip: tasks-axi not found'; exit 0; }
 TMP_ROOT=$(fm_test_tmproot fm-approved-execution)
 home=$(make_case approved-scout)
@@ -23,6 +27,15 @@ printf 'kind=scout\nwindow=fake\nworktree=%s\n' "$home" > "$home/state/approved-
 printf 'done: research complete; implementation required\n' > "$home/state/approved-scout.status"
 # Explicit semantic intake, never chat or status parsing.
 "$EXEC" approve approved-scout --basis captain-approved
+# Cold notify has no persisted deduplication marker yet. Exercise the public
+# command directly so a failure is named before the watcher hides its stderr.
+"$EXEC" notify > "$home/cold-notify" 2> "$home/cold-notify.err" \
+  || fail "first execution notification failed: $(<"$home/cold-notify.err")"
+grep -q 'approved-scout.*firstmate' "$home/cold-notify" \
+  || fail 'first execution notification omitted approved scout'
+"$EXEC" notify > "$home/cold-repeat"
+[ ! -s "$home/cold-repeat" ] || fail 'unchanged cold notification repeated'
+pass 'missing notification marker permits one initial notification'
 for _round in 1 2; do
   append_wake "$home/state" signal approved-scout.status "$home/state/approved-scout.status"
   "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
@@ -128,19 +141,104 @@ tasks rm independent-c >/dev/null
 # The real watcher reuses its queue; acknowledgment cannot retire the obligation.
 # No live backend lifecycle or external service is used by this fixture.
 PATH="$home/fakebin:$PATH" FM_EXECUTION_REMIND=0 FM_POLL=1 FM_SIGNAL_GRACE=1 \
-  FM_HEARTBEAT=999999 FM_CHECK_INTERVAL=999999 "$ROOT/bin/fm-watch.sh" > "$home/watch" &
+  FM_HEARTBEAT=999999 FM_CHECK_INTERVAL=999999 "$ROOT/bin/fm-watch.sh" > "$home/watch" 2> "$home/watch.err" &
 pid=$!
-wait_for_exit "$pid" 150 || { kill "$pid" 2>/dev/null || true; fail 'watcher failed to surface approved work'; }
+wait_for_exit "$pid" 150 || { kill "$pid" 2>/dev/null || true; fail "watcher failed to surface approved work: stdout=$(<"$home/watch"); stderr=$(<"$home/watch.err")"; }
 wait "$pid"
-grep -q 'unfinished-execution' "$home/watch"
+grep -q 'unfinished-execution' "$home/watch" \
+  || fail "watcher surfaced a different notification: stdout=$(<"$home/watch"); stderr=$(<"$home/watch.err")"
 "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
 ack_drain_err "$home/state" "$home/err"
-FM_EXECUTION_REMIND=0 "$EXEC" notify > "$home/notifications"
-grep -q approved-scout "$home/notifications"
+# Advancing the old reminder clock must not resurface an unchanged action.
+# Across a fresh process and queue acknowledgement, obligations remain readable.
+FM_EXECUTION_REMIND=0 "$EXEC" notify > "$home/dedup"
+[ ! -s "$home/dedup" ] || fail 'unchanged execution re-fired after acknowledgement'
+[ -f "$home/state/approved-scout.execution" ] || fail 'dedup retired the obligation'
+# Restart the REAL watcher after the acknowledged unfinished-execution wake.
+# It must keep supervising instead of delivering rearm-resurface or another
+# execution wake merely because time passed. A changed incarnation wakes once.
+for status in "$home/state"/*.status; do
+  prime_status_seen "$home/state" "$status"
+done
+scan_before=$(<"$home/state/.execution-scan-at")
+PATH="$home/fakebin:$PATH" FM_EXECUTION_REMIND=0 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+  FM_HEARTBEAT=999999 FM_CHECK_INTERVAL=999999 "$ROOT/bin/fm-watch.sh" > "$home/watch-repeat" 2> "$home/watch-repeat.err" &
+pid=$!
+observed=0
+for _poll in $(seq 1 200); do
+  scan_after=$(<"$home/state/.execution-scan-at")
+  if [ "$scan_after" -ge "$((scan_before + 2))" ]; then observed=1; break; fi
+  kill -0 "$pid" 2>/dev/null || break
+  sleep 0.1
+done
+if [ "$observed" != 1 ] || ! kill -0 "$pid" 2>/dev/null || grep -q 'check:' "$home/watch-repeat"; then
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  fail "unchanged restart resurfaced or stopped supervising: stdout=$(<"$home/watch-repeat"); stderr=$(<"$home/watch-repeat.err")"
+fi
+printf 'spawn_gen=s3\n' >> "$home/state/approved-scout.meta"
+wait_for_exit "$pid" 150 || { kill "$pid" 2>/dev/null || true; fail "changed execution did not wake restarted watcher: stdout=$(<"$home/watch-repeat"); stderr=$(<"$home/watch-repeat.err")"; }
+wait "$pid"
+grep -q 'unfinished-execution' "$home/watch-repeat" \
+  || fail "incarnation change did not wake execution: stdout=$(<"$home/watch-repeat"); stderr=$(<"$home/watch-repeat.err")"
+"$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
+ack_drain_err "$home/state" "$home/err"
+# A new event with the SAME owner/action is nevertheless a real change.
+printf 'blocked [key=new-block]: a new impediment\n' >> "$home/state/approved-scout.status"
+"$EXEC" notify > "$home/notifications"
+grep -q approved-scout "$home/notifications" || fail 'new status did not notify'
+"$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
+ack_drain_err "$home/state" "$home/err"
 "$EXEC" notify > "$home/dedup"
-[ ! -s "$home/dedup" ] || fail 'duplicate reminders ignored their cadence'
+[ ! -s "$home/dedup" ] || fail 'changed execution notified more than once'
+printf 'resolved [key=new-block]: impediment cleared\n' >> "$home/state/approved-scout.status"
+"$EXEC" notify > "$home/notifications"
+grep -q approved-scout "$home/notifications" || fail 'decision closure did not notify'
 "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
 grep -q 'approved-scout.*owner unconfirmed' "$home/drain"
+ack_drain_err "$home/state" "$home/err"
+# Changes in owner are recorded even while no firstmate wake is due.
+tasks hold approved-scout --reason 'Captain selection' --kind captain >/dev/null
+"$EXEC" notify > "$home/notifications"
+[ ! -s "$home/notifications" ] || fail 'captain-owned hold raised an execution wake'
+tasks unhold approved-scout >/dev/null
+"$EXEC" notify > "$home/notifications"
+grep -q approved-scout "$home/notifications" || fail 'owner returning from captain did not notify'
+"$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
+ack_drain_err "$home/state" "$home/err"
+# A reconciled blocked/done state change with identical next action also wakes.
+printf 'spawn_gen=s1\n' >> "$home/state/approved-scout.meta"
+FM_FAKE_CREW_STATE='state: parked · source: run-step · decision needed' "$EXEC" notify > "$home/notifications"
+grep -q approved-scout "$home/notifications"
+"$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
+ack_drain_err "$home/state" "$home/err"
+FM_FAKE_CREW_STATE='state: blocked · source: run-step · same next action' "$EXEC" notify > "$home/notifications"
+grep -q approved-scout "$home/notifications" || fail 'changed reconciled state with unchanged action did not notify'
+FM_FAKE_CREW_STATE='state: blocked · source: run-step · different volatile detail' "$EXEC" notify > "$home/dedup"
+[ ! -s "$home/dedup" ] || fail 'volatile crew detail resurfaced unchanged execution'
+"$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
+ack_drain_err "$home/state" "$home/err"
+for kind in ship task scout; do
+  printf 'kind=%s\n' "$kind" >> "$home/state/approved-scout.meta"
+  FM_FAKE_CREW_STATE='state: parked · source: run-step · parked at review: 2 finding(s) · run: run-a' "$EXEC" notify > "$home/notifications"
+  grep -q approved-scout "$home/notifications" || fail "$kind parked baseline did not notify"
+  "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
+  ack_drain_err "$home/state" "$home/err"
+  FM_FAKE_CREW_STATE='state: parked · source: run-step · parked at review: 3 finding(s) · volatile note changed · run: run-a' "$EXEC" notify > "$home/dedup"
+  [ ! -s "$home/dedup" ] || fail "$kind unchanged run/gate resurfaced on volatile detail"
+  FM_FAKE_CREW_STATE='state: parked · source: run-step · parked at test: 3 finding(s) · run: run-a' "$EXEC" notify > "$home/notifications"
+  grep -q approved-scout "$home/notifications" || fail "$kind changed parked gate did not notify"
+  "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
+  ack_drain_err "$home/state" "$home/err"
+  FM_FAKE_CREW_STATE='state: parked · source: run-step · parked at test: 3 finding(s) · run: run-a' "$EXEC" notify > "$home/dedup"
+  [ ! -s "$home/dedup" ] || fail "$kind changed parked gate notified more than once"
+  FM_FAKE_CREW_STATE='state: parked · source: run-step · parked at test: 3 finding(s) · run: run-b' "$EXEC" notify > "$home/notifications"
+  grep -q approved-scout "$home/notifications" || fail "$kind changed run identity did not notify"
+  "$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
+  ack_drain_err "$home/state" "$home/err"
+  FM_FAKE_CREW_STATE='state: parked · source: run-step · parked at test: 3 finding(s) · run: run-b' "$EXEC" notify > "$home/dedup"
+  [ ! -s "$home/dedup" ] || fail "$kind changed run identity notified more than once"
+done
 # Supervision remains required with no endpoint at all, across process restart.
 rm "$home/state/approved-scout.meta"
 FM_STATE_OVERRIDE="$home/state" bash -c '. "$1"; fm_supervision_needed "$2"' _ "$ROOT/bin/fm-supervision-lib.sh" "$home/state"

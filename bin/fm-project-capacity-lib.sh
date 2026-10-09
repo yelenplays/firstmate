@@ -37,7 +37,8 @@
 #
 # Occupancy: a place is held by every task record, in any local Firstmate home on
 # this machine (fm_local_firstmate_state_dirs in bin/fm-wake-lib.sh), that
-#   - is not a secondmate, which is a persistent home rather than a worker,
+#   - is neither a secondmate nor a captain call, and has a recorded backend
+#     endpoint target (window, or Orca terminal), rather than workerless state,
 #   - names the same project identity, meaning its project resolves to the same
 #     shared project lock path (fm_treehouse_project_lock_path), which is keyed
 #     by the project's resolved origin, so workers in any clone of that origin
@@ -199,7 +200,8 @@ fm_project_capacity_occupants() {  # <project-lock> <project-dir> <first-state> 
         return 1
       }
       kind=$(fm_meta_get "$meta" kind)
-      [ "$kind" != secondmate ] || continue
+      case "$kind" in secondmate|captain) continue ;; esac
+      [ -n "$(fm_backend_target_of_meta "$meta")" ] || continue
       [ -z "$(fm_meta_get "$meta" pr)" ] || continue
       project=$(fm_meta_get "$meta" project)
       [ -n "$project" ] || continue

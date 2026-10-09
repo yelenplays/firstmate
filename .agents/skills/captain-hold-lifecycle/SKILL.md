@@ -22,8 +22,10 @@ Prefer holding the work item the question gates over minting a new row; create a
 The originating investigation or review is never its own inventory entry, so hold a separate task for the call and pass `--origin <origin-id>` so `complete` can check it.
 Put the question and its options in the hold reason, and keep one held task per genuine gate: a multi-question review is one held task pointing at its report, not a row per question. Represent that task with exactly one board card that consolidates its questions and options; never fan one task id into duplicate same-key cards.
 Register or re-hold through `bin/fm-captain-hold.sh hold`, which is idempotent per task id.
-After inventorying the whole report and review surface, run `bin/fm-captain-hold.sh complete` with every captain-held task id, or with `--none` only when the reviewed surface leaves nothing waiting on the captain.
-A completed investigation and an ended visual review use this same owner and completion command; a visual tool, including Lavish, never owns a parallel completion policy.
+Scout workers inventory the whole report and review surface in their durable report, then hand it off through their final status; firstmate owns the held-task registration, completion gate, and cleanup after that handoff.
+Firstmate runs `bin/fm-captain-hold.sh complete` with every captain-held task id after inventorying the report and review surface.
+For a scout with nothing outstanding, firstmate uses the one-call empty-inventory cleanup path owned by `bin/fm-teardown.sh --help`; other review surfaces still attest `--none`.
+This policy covers both investigations and visual reviews; a visual tool, including Lavish, never owns a parallel completion policy.
 Run the command in the originating work's authoritative `FM_HOME`; secondmate-owned work registers in that secondmate home's backlog, and a question already held anywhere is never re-registered as a second row.
 Do not close a captain-held task merely because the originating investigation completed, its report was archived, its visual review ended, or its task was torn down.
 Holding the work item the question gates is safe for exactly that reason: cleanup keeps such a row open with the finished work's deliverable recorded and returns it to the queue, so it still reads as the captain's own call.
@@ -56,12 +58,12 @@ Read such a line as "these two records disagree", never as "the captain ruled an
 Reconcile it with what actually happened - `answer` when the captain's own words exist to record, and a fresh `needs-decision` line re-opening the status decision when that resolution was not the captain's word.
 The absence of a routed work item is not a divergence and the guard never requires one: when the decision IS the deliverable there is nothing to route.
 
-## Operating sequence
+## Firstmate operating sequence
 
 1. Read the complete investigation result and complete the visual review before declaring either complete.
 2. Inventory only genuine unresolved choices that require the captain, and find the task each one gates.
 3. Hold that task - or create one captain-held task for the review's open questions - with a concise reason carrying the question and options.
-4. Run `complete` with the full captain-held inventory for that review pass.
+4. Record the inventory through `complete`, or perform the scout's empty-inventory cleanup when nothing remains after the worker's report handoff.
 5. Relay the choices to the captain as decisions from Bearings' Captain's Call section under `AGENTS.md` section 9; do not use the word hold in captain chat.
 6. Close each call only through `answer` (or a channel that feeds `answers`), close a board-requested moot call through evidence-backed `reconcile close`, record a still-active reconciliation through `reconcile note`, use `--until` when the captain defers it, or confirm a channel already closed it.
 7. Confirm Bearings reflects the outcome: answered or reconciled-moot calls leave Captain's Call, released work resumes, active reconciliations remain held, and deferred calls sit in Charted Next with their date.

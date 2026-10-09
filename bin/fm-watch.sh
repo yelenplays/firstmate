@@ -3039,8 +3039,9 @@ while :; do
   fi
 
   # Approved work can have no endpoint at all. Its owner reuses this loop and
-  # queue, never dispatches, and re-notifies after acknowledgements that did not
-  # produce real handling. Run before chatty task signals can starve it.
+  # queue, never dispatches, and notifies only when reconciled evidence changes.
+  # Acknowledgement leaves the obligation visible in the drain, not a recurring
+  # wake. Run before chatty task signals can starve it.
   execution_out=
   if execution_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
     "$SCRIPT_DIR/fm-task-execution.sh" notify 2>/dev/null); then
