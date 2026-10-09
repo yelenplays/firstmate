@@ -125,6 +125,7 @@ action_run() (
   done
   local out rc=0 started_hash
   if [ "$record" -eq 1 ]; then
+    # shellcheck source=bin/fm-wake-lib.sh
     . "$SCRIPT_DIR/fm-wake-lib.sh"
     mkdir -p "$RESULT_DIR" || return 2
     fm_lock_try_acquire "$LOCK" || { printf 'fm-dispatch-selftest: a recorded run is already active\n' >&2; return 1; }
@@ -147,6 +148,8 @@ action_run() (
   run_samples "$rules" "$samples"
 )
 
+# Home/state are initialized in the parent; scoped wake-library imports do not change them here.
+# shellcheck disable=SC2031
 run_samples() { # <rules> <samples>
   local rules=$1 samples=$2 rule_count err work n i id brief spec project expect line decided by status
   local pass=0 fail=0 failing='' coverage rc
@@ -311,6 +314,7 @@ action_check() (
   local hour=${FM_DISPATCH_SELFTEST_HOUR:-3} record started slot state current_hash attempted_hash changed=0 nightly=0 missing=''
   case "$hour" in ''|*[!0-9]*) hour=3 ;; esac
   [ "$hour" -le 23 ] || hour=3
+  # shellcheck source=bin/fm-wake-lib.sh
   . "$SCRIPT_DIR/fm-wake-lib.sh"
   mkdir -p "$RESULT_DIR" 2>/dev/null || return 0
   # Own the same guard as run --record before reading, recovering, or
@@ -372,6 +376,8 @@ shim_content() {
     "exec $(printf '%q' "$SCRIPT_DIR/fm-dispatch-selftest.sh") check"
 }
 
+# Use the parent's home/state, not the isolated wake-library imports in run/check.
+# shellcheck disable=SC2031
 action_arm() {
   local home device tmp
   [ -f "$CONFIG_DIR/dispatch-samples.json" ] || { printf 'fm-dispatch-selftest: no samples file at %s\n' "$CONFIG_DIR/dispatch-samples.json" >&2; return 1; }
@@ -406,6 +412,8 @@ action_arm() {
   printf 'armed: state/%s.check.sh\n' "$CHECK_ID"
 }
 
+# Use the parent's state, not the isolated wake-library imports in run/check.
+# shellcheck disable=SC2031
 action_disarm() {
   FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-check-unregister.sh" "$CHECK_ID" >/dev/null || return 1
   rm -f -- "$CHECK_EVERY"

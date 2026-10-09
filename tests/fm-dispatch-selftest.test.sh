@@ -262,6 +262,22 @@ assert_not_contains "$out" 'FAIL ' "input: a refused rules file is not reported 
 pass "run: coverage gaps fail and malformed input is refused"
 
 # --- nightly: arm, a detached run, one report, disarm -------------------------
+# Pin the most recent slot before every recorded run, so an hour rollover
+# cannot launch an unrelated nightly run during the changed-input cases.
+# Other Perl calls (including backup-judge timing) still use the real tool.
+real_perl=$(command -v perl) || fail 'perl is required for check scheduling tests'
+export FAKE_REAL_PERL="$real_perl"
+cat > "$FAKEBIN/perl" <<'SH'
+#!/usr/bin/env bash
+[ "${1:-}" = -MPOSIX ] || exec "$FAKE_REAL_PERL" "$@"
+if [ -n "${FAKE_SLOT_BARRIER:-}" ]; then
+  exec 3<> "$FAKE_SLOT_BARRIER"
+  : > "$FAKE_SLOT_BARRIER.ready"
+  read -r -t 30 _ <&3 || exit 1
+fi
+printf '1\n'
+SH
+chmod +x "$FAKEBIN/perl"
 # A two-rule home keeps the detached runs short.
 jq '.rules |= .[4:6] | .rules[0].beats = [{"rule": 2, "when": "the change is one line"}] | del(.rules[1].beats)' "$RULES" > "$TMP_ROOT/home-rules.json"
 jq '.samples |= (map(select(.expect | IN("rule_5", "rule_6"))) | map(.expect |= {"rule_5": "rule_1", "rule_6": "rule_2"}[.]))' "$SAMPLES" > "$TMP_ROOT/home-samples.json"
@@ -298,8 +314,6 @@ wait_for_result() {
 }
 
 # A clean recorded pass binds the current rules and samples together.
-test_hour=$(( (10#$(date '+%H') + 1) % 24 ))
-export FM_DISPATCH_SELFTEST_HOUR=$test_hour
 run_selftest code out run --record
 expect_code 0 "$code" "proof: the live sample set passes"
 attempted_hash=$(cat "$HOME_DIR/state/dispatch-selftest/attempted.sha256")
@@ -366,18 +380,6 @@ wait "$direct_pid" || fail "run --record: direct recorded run failed"
 jq -e '.state == "done" and .exit == 0' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null || fail "run --record: recorded pass was not preserved"
 pass "run --record shares the check lock and cannot be mistaken for a stopped run"
 
-real_perl=$(command -v perl) || fail 'perl is required for check scheduling tests'
-export FAKE_REAL_PERL="$real_perl"
-cat > "$FAKEBIN/perl" <<'SH'
-#!/usr/bin/env bash
-if [ -n "${FAKE_SLOT_BARRIER:-}" ]; then
-  exec 3<> "$FAKE_SLOT_BARRIER"
-  : > "$FAKE_SLOT_BARRIER.ready"
-  read -r -t 30 _ <&3 || exit 1
-fi
-exec "$FAKE_REAL_PERL" "$@"
-SH
-chmod +x "$FAKEBIN/perl"
 for snapshot_case in completed stopped missing; do
   barrier="$TMP_ROOT/snapshot-$snapshot_case"
   mkfifo "$barrier"
@@ -417,7 +419,6 @@ for snapshot_case in completed stopped missing; do
   expect_code 0 "$code" "$snapshot_case: a recorded run succeeds after the check releases ownership"
   jq -e '.state == "done" and .exit == 0' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null || fail "$snapshot_case: the subsequent recorded pass was lost"
 done
-rm "$FAKEBIN/perl"
 pass 'check snapshots, stopped-run recovery, and missing-input publication exclude overlapping recorded runs'
 
 # A run that died before recording is reported, not silently retried forever.
@@ -469,7 +470,7 @@ digest_run() {
     before_digest_output=$(output_identity "$DIGEST_HOME/state/dispatch-selftest/last.out")
   fi
   PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$DIGEST_HOME" FM_DISPATCH_RESOLVE_BIN="$DIGEST_RESOLVER" \
-    FM_DISPATCH_SELFTEST_HOUR="$test_hour" "$DIGEST_BIN/fm-dispatch-selftest.sh" "$@"
+    "$DIGEST_BIN/fm-dispatch-selftest.sh" "$@"
 }
 digest_run run --record >/dev/null || fail "digest proof: initial recorded run failed"
 digest_hash=$(cat "$DIGEST_HOME/state/dispatch-selftest/attempted.sha256")
