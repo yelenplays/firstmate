@@ -1099,12 +1099,12 @@ test_meaning_that_mentions_a_banned_model_keeps_the_option() {
   write_denylist
   respond '{"answers":{"pick":{"type":"choice","choice":"opus","confidence":0.9,"probabilities":{"opus":0.9,"sonnet":0.05,"a":0.05}}}}'
   run_jev code out err pick "reviewer for a one-off pipeline run" "Which reviewer?" \
-    "opus=Claude Opus, replaces kimi-coding/k3" "sonnet=Sonnet 5.5" "a=Claude Opus again, never Kimi K3"
+    "opus=Better than kimi-coding/k3 for review" "sonnet=Claude Sonnet, replaces kimi-coding/k3" "a=Claude Opus again, never Kimi K3"
   assert_equals "$code" 0 "a meaning that only mentions a banned model still answers: $err"
   assert_equals "$(jq -c '.questions.pick.criteria | keys' "$LOG/body")" '["a","opus","sonnet"]' "an option whose meaning only mentions a banned model is kept"
   assert_equals "$err" "" "nothing is reported as removed"
   rm -f "$HOME_DIR/config/model-denylist.json"
-  pass "fm-jev.sh: a meaning that mentions a banned model after the option's own model keeps the option"
+  pass "fm-jev.sh: a meaning that only mentions a banned model keeps the option"
 }
 
 test_model_choice_refuses_when_too_few_options_remain() {

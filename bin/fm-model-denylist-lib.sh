@@ -25,9 +25,11 @@
 #     in one command line, as `<provider>/<id>` when the command also passes
 #     `--provider <provider>`. A word starting with # ends the command.
 #   fm_model_denylist_brief_pins <text>
-#     The command pins of every launch command line in prose: a line, code
-#     span, or shell-separated segment that starts with no-mistakes, fm-spawn,
-#     or a harness binary. Prose that only mentions `--model <id>` is no pin.
+#     The command pins of every launch command line in prose: a line (joined
+#     across trailing-backslash continuations), code span, or shell-separated
+#     segment that starts with `no-mistakes axi`, `run`, or `rerun`, or with a
+#     harness binary followed by a flag or nothing. Prose that only mentions or
+#     forbids `--model <id>` is no pin.
 #   fm_model_denylist_yaml_pins <file>
 #     Prints one model id per line for every model a no-mistakes config pins:
 #     `--provider`/`--model` argument lists (block or inline) and `provider:`
@@ -182,10 +184,11 @@ fm_model_denylist_command_pins() {
   done
 }
 
-FM_MODEL_LAUNCH_RE='^[[:space:]]*(([-*+>$]|[0-9]+[.)])[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*([^[:space:]]*/)?(no-mistakes|fm-spawn(\.sh)?|claude|codex|opencode|pi|pi-signed|grok|kimi|cursor-agent|gemini|muse|rovo|omp|agy|devin)([[:space:]]|$)'
+FM_MODEL_LAUNCH_RE='^[[:space:]]*(([-*+>$]|[0-9]+[.)])[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*([^[:space:]]*/)?(no-mistakes[[:space:]]+(axi|run|rerun)([[:space:]]|$)|(claude|codex|opencode|pi|pi-signed|grok|kimi|cursor-agent|gemini|muse|rovo|omp|agy|devin)([[:space:]]+-|[[:space:]]*$))'
 
 fm_model_denylist_brief_pins() {
   local segment text=${1:-}
+  text=${text//$'\\\n'/ }
   while IFS= read -r segment; do
     fm_model_denylist_command_pins "$segment"
   done < <(printf '%s\n' "${text//[\`;|&]/$'\n'}" | grep -E "$FM_MODEL_LAUNCH_RE" || true)

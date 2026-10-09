@@ -169,6 +169,11 @@ test_provider_split_pins_refuse() {
   out=$(spawn_ship deny-nm-keys no-mistakes claude --model claude-opus-5-5); rc=$?
   expect_code 1 "$rc" "provider: and model: keys in one block naming a banned model must refuse"
   assert_refused_before_launch deny-nm-keys "$out" "'kimi-coding/k3' is on the never-use model list"
+  : > "$NM_DIR/config.yaml"
+  fm_test_spawn_brief "$HOME_DIR" deny-brief-continued $'Run the review:\n\n```sh\nno-mistakes axi run \\\n  --model kimi-y\n```'
+  out=$(spawn_ship deny-brief-continued no-mistakes claude --model claude-opus-5-5); rc=$?
+  expect_code 1 "$rc" "a backslash-continued brief command pinning a banned model must refuse"
+  assert_refused_before_launch deny-brief-continued "$out" "'kimi-y' is on the never-use model list"
   pass "a model split across --provider and --model, or provider: and model:, is checked as provider/model"
 }
 
@@ -176,7 +181,10 @@ test_mentions_and_comments_are_not_pins() {
   local out rc
   new_case mentions
   write_denylist
-  fm_test_spawn_brief "$HOME_DIR" deny-prose "Reproduce the incident, but do not pass \`--model kimi-coding/k3\` to anything; run \`no-mistakes axi run\` with its default reviewer."
+  fm_test_spawn_brief "$HOME_DIR" deny-prose "$(printf '%s\n' \
+    "Reproduce the incident, but do not pass \`--model kimi-coding/k3\` to anything; run \`no-mistakes axi run\` with its default reviewer." \
+    "no-mistakes reviewers must never get --model kimi-coding/k3." \
+    "kimi is banned, so never pass --model kimi-coding/k3")"
   cat > "$NM_DIR/config.yaml" <<'YAML'
 agent: [pi] # was --model kimi-coding/k3
 agent_args_override:
