@@ -271,11 +271,18 @@ fm_model_denylist_brief_pins() {
 }
 
 fm_model_denylist_yaml_pins() {
-  local file=$1 command
-  [ -f "$file" ] && [ -r "$file" ] || return 0
+  local command
   while IFS= read -r command; do
     fm_model_denylist_command_pins "$command"
-  done < <(awk '
+  done < <(fm_model_denylist_yaml_commands "$1")
+}
+
+# The parsed agent command per YAML block; shared by denylist inspection and
+# fixed-policy model routing, so provider/model combination has one parser.
+fm_model_denylist_yaml_commands() {
+  local file=$1
+  [ -f "$file" ] && [ -r "$file" ] || return 0
+  awk -v path_filter="${2:-}" '
     function owner(ind, item) {
       while (depth > 0 && (at[depth] > ind || (!item && at[depth] == ind))) depth--
       return depth > 0 ? id[depth] : 0
@@ -294,13 +301,16 @@ fm_model_denylist_yaml_pins() {
       key = substr(body, 1, RLENGTH); sub(/[ \t]*:[ \t]*$/, "", key); key = unquote(key); name[NR] = key
       val = substr(body, RLENGTH + 1); sub(/^[ \t]+/, "", val)
       parent = owner(ind, 0)
+      keypath[NR] = (parent > 0 ? keypath[parent] "." : "") key
       if (val == "") { depth++; at[depth] = ind; id[depth] = NR; next }
       if (key == "provider") add(parent, "--provider " unquote(val))
       else if (key == "model") add(parent, "--model " unquote(val))
+      else if (key == "effort" || key == "thinking") add(parent, "--effort " unquote(val))
+      else if ((key == "agent" || key == "harness") && parent > 0) add(parent, "--harness " unquote(val))
       else add(NR, words(val))
     }
-    END { for (i = 1; i <= n; i++) print cmd[order[i]] }
-  ' "$file")
+    END { for (i = 1; i <= n; i++) if (path_filter == "" || keypath[order[i]] == path_filter) print cmd[order[i]] }
+  ' "$file"
 }
 
 fm_model_denylist_check_pins() {

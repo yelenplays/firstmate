@@ -1149,6 +1149,14 @@ spawn_remote_secondmate() {
       [ -n "$effort" ] || effort=-
     fi
   fi
+  local seat_profile
+  seat_profile=$(jq -nc --arg harness "$harness" --arg model "${model#-}" --arg effort "${effort#-}" '{harness:$harness,model:$model,effort:$effort}') || return 1
+  if ! FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-dispatch-resolve.sh" "$DATA/$id/brief.md" \
+    --decision-kind secondmate --policy-profile "$seat_profile" --policy-reason 'configured remote secondmate seat pin' >/dev/null; then
+    fm_lock_release "$registry_lock" || true
+    fm_lock_release "$SPAWN_TASK_LOCK" || true
+    return 1
+  fi
   # A remote second mate always runs on Herdr: its server belongs to the host's
   # own GUI login session, so the endpoint outlives every SSH connection that
   # supervises it. bin/fm-remote-doctor.sh gates that host on the same
@@ -2660,6 +2668,50 @@ if [ "$MODEL_DENYLIST_REFUSED" = 1 ]; then
   echo "error: $FM_MODEL_DENYLIST_ERROR; refusing the launch - pick a model that is not on the list" >&2
   exit 1
 fi
+# Every model selection must be consumed with a state-bound consultation or
+# typed exception. Static seats and recovery preserve their existing pin policy
+# through the same resolver; a configured dispatch never becomes a manual pick.
+ROUTE_BRIEF="$DATA/$ID/brief.md"
+ROUTE_CONTEXT_ARGS=()
+ROUTE_MODEL=$MODEL
+if [ "$RAW_LAUNCH" -eq 1 ]; then
+  ROUTE_CONTEXT_HASH=$(printf '%s' "$ARG3" | python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())') || exit 1
+  ROUTE_CONTEXT_ARGS=(--context-hash "$ROUTE_CONTEXT_HASH")
+  ROUTE_RAW_PINS=$(fm_model_denylist_command_pins "$ARG3")
+  if [[ "$ROUTE_RAW_PINS" == *$'\n'* ]]; then
+    echo 'error: a composite raw launch has multiple model pins; use one inspectable model profile' >&2
+    exit 1
+  fi
+  [ -z "$ROUTE_RAW_PINS" ] || ROUTE_MODEL=$ROUTE_RAW_PINS
+fi
+ROUTE_SELECTED=$(jq -nc --arg harness "$HARNESS" --arg model "$ROUTE_MODEL" --arg effort "$EFFORT" '{harness:$harness,model:$model,effort:$effort}') || exit 1
+ROUTE_KIND=dispatch
+if [ "$KIND" = secondmate ]; then
+  ROUTE_KIND=secondmate
+  ROUTE_POLICY='configured secondmate seat pin'
+elif [ "$RAW_LAUNCH" -eq 1 ] && { [ "$RELAUNCH" -eq 1 ] || [ ! -f "$CONFIG/crew-dispatch.json" ]; }; then
+  ROUTE_KIND=static
+  ROUTE_POLICY='explicit raw launch profile'
+elif [ "$RELAUNCH" -eq 1 ]; then
+  ROUTE_KIND=static
+  ROUTE_POLICY='recovery preserves the recorded worker profile'
+elif [ ! -f "$CONFIG/crew-dispatch.json" ]; then
+  ROUTE_KIND=static
+  ROUTE_POLICY='static launch profile in a home without dispatch rules'
+else
+  ROUTE_POLICY=''
+  [ ! -f "$DATA/$ID/cross-review-request" ] || ROUTE_KIND=cross-review
+fi
+if [ -n "$ROUTE_POLICY" ]; then
+  FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-dispatch-resolve.sh" "$ROUTE_BRIEF" --decision-kind "$ROUTE_KIND" \
+    --policy-profile "$ROUTE_SELECTED" --policy-reason "$ROUTE_POLICY" ${ROUTE_CONTEXT_ARGS[@]+"${ROUTE_CONTEXT_ARGS[@]}"} >/dev/null || exit 1
+fi
+"$SCRIPT_DIR/fm-model-route-receipt.py" check --home "$FM_HOME" --config "$CONFIG" --brief "$ROUTE_BRIEF" \
+  --kind "$ROUTE_KIND" --selected "$ROUTE_SELECTED" ${ROUTE_CONTEXT_ARGS[@]+"${ROUTE_CONTEXT_ARGS[@]}"} || {
+  echo 'error: model selection has no current consultation receipt; run fm-dispatch-resolve.sh on these instructions before launching' >&2
+  exit 1
+}
+
 # Ultra is an explicit native capability, never a Pi thinking-level alias.
 # Validate the fully resolved profile before worktree or endpoint provisioning.
 if [ "$EFFORT" = ultra ]; then
@@ -5903,6 +5955,16 @@ fi
 # "$FM_TASK_INBOX" instead of a path that grows with the home's depth. Like the
 # kill switch below it is an export statement, so it survives a compound raw
 # launch and the launch-env-allowlist `env -i` wrapper.
+# A PATH-local boundary catches worker-selected pipeline pins on every runtime,
+# including a new pin supplied after the original spawn. The shared daemon and
+# its configuration remain untouched.
+if [ "$KIND" != secondmate ]; then
+  NM_TOOL_DIR="$DATA/$ID/model-tools"
+  mkdir -p "$NM_TOOL_DIR" || exit 1
+  ln -sf "$SCRIPT_DIR/fm-no-mistakes.sh" "$NM_TOOL_DIR/no-mistakes" || exit 1
+  NM_REAL=$(command -v no-mistakes 2>/dev/null || true)
+  LAUNCH="export FM_NO_MISTAKES_REAL=$(shell_quote "$NM_REAL") FM_MODEL_ROUTER_BRIEF=$(shell_quote "$DATA/$ID/brief.md"); export PATH=$(shell_quote "$NM_TOOL_DIR"):\$PATH; $LAUNCH"
+fi
 LAUNCH="export FM_TASK_INBOX=$(shell_quote "$STATE_REAL/$ID.inbox"); $LAUNCH"
 LAUNCH="export COMPACT_ADVISER_DISABLE=1; $LAUNCH"
 if [ -n "$QOS_PREFIX" ]; then

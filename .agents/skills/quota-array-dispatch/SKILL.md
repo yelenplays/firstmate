@@ -34,7 +34,8 @@ Use it only when the brief already fixed the candidate order and every candidate
 It does not replace the reasoning-class, runway-feasibility, or authentication gates above.
 Firstmate can optionally arm `bin/fm-procevent-quota.sh` for a recurring mid-task check that wakes when the tracked provider drops below its configured threshold or its runway becomes `exhausted_now`.
 The [typed resolver](../../../docs/configuration.md#typed-dispatch-resolution-env-typesafe_api_key) has its own documented gates.
-It never removes this skill's authority, and every outcome without a `profile:` line returns here.
+It preserves this skill's authority and returns a state-bound consultation receipt with each full-chain profile.
+A no-profile approval or entirely refused selection stops; do not substitute hand-picked launch flags.
 
 ## Read the default TOON
 
@@ -121,17 +122,21 @@ Rank only from comparable known scalars.
 Never treat absent, `unknown`, or unmeasurable `spendPriority` as zero or as healthy; `0` means exact utilization, a different claim from unknown.
 An unknown `spendPriority` keeps the candidate eligible with disclosed uncertainty.
 Prefer known viable evidence when otherwise comparable.
-After the permitted TOON-to-JSON fallback, escalate to Firstmate instead of routing if no candidate can be ranked or runway uncertainty prevents proving the feasibility floor for any candidate that could be selected.
-Never resolve that terminal uncertainty by treating unknown as healthy or by choosing arbitrarily.
+After the permitted TOON-to-JSON fallback, put viable unranked alternatives through the existing typed resolver's bounded model/effort/quota pass.
+Unknown evidence remains unknown, never healthy; a sole eligible option may resolve with its uncertainty disclosed.
+If Jev cannot decide, only an eligible configured default may answer, with the typed exception recorded.
+No eligible choice means stop, never launch a known-refused candidate.
 Show the scalar or the literal `unknown` in the rationale; do not hide it in a score.
 
 Do not compare headroom against runway by hand.
 Do not use pace or signed reserve as a later tie-break layer.
 Do not read `aheadWindowIds`, `behindWindowIds`, `onPaceWindowIds`, `limitingWindowIds`, or other window-id lists to reconstruct what `spendPriority` already computed.
 
-Genuine ties: stop and report every tied candidate for captain choice.
-Do not select by array order, harness name, or another arbitrary identity ordering.
-Report duplicate concrete profiles as a configuration error.
+Genuine different-model ties use the existing resolver's bounded Jev pass, with captain rules and quota summaries, then its configured default if still uncertain.
+A same-harness/model tie differing only in effort keeps the most probable rule's effort without another model call.
+Do not hand-pick by array order or harness name; consume the resolver's profile and current receipt.
+Exact duplicate harness/model/effort profiles remain configuration errors.
+Token/point forecasts are advisory, and task-duration evidence must come from the candidate's own provider; `through_reset` is never rejected by a historical duration.
 
 Account for every candidate visibly before selecting or escalating, naming its catalog evidence, provider relation, applicable quota and authentication facts, remaining uncertainty, fit and reasoning class, `spendPriority`, and runway-versus-horizon result.
 A blocked credential report must name `harness`, `model`, authentication surface, and concrete failure evidence; never emit a bare `Grok unauthenticated` statement.

@@ -790,6 +790,15 @@ if [ "${1:-}" = "--key" ]; then
   fm_send_record_interrupt "$semantic_key" || exit 1
 else
   MESSAGE=$*
+  # Steering can introduce a new reviewer/run pin long after spawn. Apply the
+  # same launch-pin parser and current home ban list before durable delivery.
+  # shellcheck source=bin/fm-model-denylist-lib.sh
+  . "$SCRIPT_DIR/fm-model-denylist-lib.sh"
+  if ! fm_model_denylist_load "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" ||
+    ! fm_model_denylist_check_pins 'runtime model pin in steer' "$(fm_model_denylist_brief_pins "$MESSAGE")"; then
+    echo "error: $FM_MODEL_DENYLIST_ERROR; model pin was not sent" >&2
+    exit 1
+  fi
   if [ -z "${MESSAGE//[[:space:]]/}" ]; then
     echo "error: a text steer requires a nonempty message; nothing was sent (an empty marked request would deliver only marker and correlation bytes and leave the parent waiting on a reply to nothing)" >&2
     exit 1
