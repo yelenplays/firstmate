@@ -32,3 +32,5 @@ FM_HOME=/path/to/home FM_JEV_COMPACTION=on bin/fm-jev-compaction.sh \
 ```
 
 Pass `--scores scores.json` in tests to skip the network Jev call.
+
+Without `--scores`, Jev's park scores act only while the compaction call site is in act mode ([Jev eval and per-site autonomy](configuration.md#jev-eval-and-per-site-autonomy-binfm-jev-evalsh)); otherwise nothing is parked.

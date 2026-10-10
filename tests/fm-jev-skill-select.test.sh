@@ -16,6 +16,9 @@ unset TYPESAFE_API_KEY OPENROUTER_API_KEY TYPESAFE_API_KEY_PRIVATE \
 TMP_ROOT=$(fm_test_tmproot fm-jev-skill-select)
 HOME_DIR="$TMP_ROOT/home"
 FAKEBIN=$(fm_fakebin "$TMP_ROOT")
+# A passing eval scorecard lets live skill selection reach the worker.
+FM_JEV_EVAL_SCORES=$(fm_jev_act_scores "$TMP_ROOT")
+export FM_JEV_EVAL_SCORES
 LOG="$TMP_ROOT/log"
 SKILLS_DIR="$TMP_ROOT/user-home/.agents/skills"
 BASE_PATH=$PATH
@@ -280,6 +283,23 @@ test_live_without_overlay_stays_unloaded() {
   pass "live plus confirm without --overlay only records a suggestion"
 }
 
+test_live_overlay_advise_only_site_stays_unloaded() {
+  local code out err overlay
+  fresh_home
+  : > "$HOME_DIR/config/jev-skill-select-live"
+  overlay="$HOME_DIR/data/t-advise/launch-brief.md"
+  mkdir -p "$(dirname "$overlay")"
+  seed_overlay "$overlay"
+  FM_JEV_EVAL_SCORES="$TMP_ROOT/no-scorecard.json" FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY \
+    run_select code out err --harness grok --task-id t-advise --skills-dir "$SKILLS_DIR" --overlay "$overlay"
+  expect_code 0 "$code" "an advise-only live select still exits 0"
+  jq -e '.mode == "live" and .live_loaded == false and .status == "clear" and (.skills | index("pager") != null)' \
+    "$HOME_DIR/state/t-advise.jev-skills.json" >/dev/null \
+    || fail "an advise-only site must record the pick with live_loaded false"
+  assert_no_grep '# Jev-selected skills' "$overlay" "an advise-only site must not inject skills"
+  pass "live overlay on an advise-only site records the pick and injects nothing"
+}
+
 test_live_overlay_sets_live_loaded() {
   local code out err overlay
   fresh_home
@@ -322,6 +342,40 @@ description: Find and explain pager workflows.
 Use pager workflows.
 EOF
   pass "cached skills are revalidated against currently readable files"
+}
+
+test_live_model_permission_covers_fresh_and_reused_picks() {
+  local code out err overlay custom_scores original_scores
+  fresh_home
+  : > "$HOME_DIR/config/jev-skill-select-live"
+  overlay="$HOME_DIR/data/t-model/launch-brief.md"
+  mkdir -p "$(dirname "$overlay")"
+  seed_overlay "$overlay"
+  original_scores=$FM_JEV_EVAL_SCORES
+  custom_scores="$TMP_ROOT/custom-scores.json"
+  jq '.sites["skill-select"].model = "jev-custom-20261001"' "$original_scores" > "$custom_scores"
+  FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY JEV_MODEL=jev-custom-20261001 run_select code out err \
+    --harness grok --task-id t-model --skills-dir "$SKILLS_DIR" --overlay "$overlay"
+  expect_code 0 "$code" "custom live selection remains advice without matching evidence"
+  jq -e '.model == "jev-custom-20261001" and .status == "clear" and .live_loaded == false' \
+    "$HOME_DIR/state/t-model.jev-skills.json" >/dev/null || fail "custom pick must remain unbound"
+  assert_no_grep '# Jev-selected skills' "$overlay" "unevaluated custom model must not inject"
+  FM_JEV_EVAL_SCORES="$custom_scores" FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY JEV_MODEL=jev-custom-20261001 \
+    run_select code out err --harness grok --task-id t-model --skills-dir "$SKILLS_DIR" --overlay "$overlay"
+  jq -e '.reused == true and .live_loaded == true' "$HOME_DIR/state/t-model.jev-skills.json" >/dev/null \
+    || fail "cached custom pick with matching evidence must inject"
+  assert_absent "$LOG/body" "cache reuse does not repeat the model request"
+  seed_overlay "$overlay"
+  FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY run_select code out err \
+    --harness grok --task-id t-model --skills-dir "$SKILLS_DIR" --overlay "$overlay"
+  jq -e '.reused == true and .live_loaded == false' "$HOME_DIR/state/t-model.jev-skills.json" >/dev/null \
+    || fail "cached custom pick cannot borrow pin permission after a model switch"
+  assert_no_grep '# Jev-selected skills' "$overlay" "model-switched cache must not inject"
+  FM_JEV_EVAL_SCORES="$custom_scores" FM_JEV_SKILL_SELECT=live TYPESAFE_API_KEY=$TS_KEY JEV_MODEL=jev-custom-20261001 \
+    run_select code out err --harness grok --task-id t-model-fresh --skills-dir "$SKILLS_DIR" --overlay "$overlay"
+  jq -e '.reused == false and .live_loaded == true' "$HOME_DIR/state/t-model-fresh.jev-skills.json" >/dev/null \
+    || fail "fresh custom pick with matching evidence must inject"
+  pass "live skill permission binds fresh and cached picks to their model"
 }
 
 test_shadow_overlay_does_not_change_launch() {
@@ -720,7 +774,9 @@ test_below_floor_is_uncertain
 test_missing_keys_are_off_without_curl
 test_live_without_confirm_refuses
 test_live_without_overlay_stays_unloaded
+test_live_overlay_advise_only_site_stays_unloaded
 test_live_overlay_sets_live_loaded
+test_live_model_permission_covers_fresh_and_reused_picks
 test_shadow_overlay_does_not_change_launch
 test_none_overlay_leaves_launch_unchanged
 test_jev_failure_does_not_rewrite_overlay

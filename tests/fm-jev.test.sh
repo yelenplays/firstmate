@@ -12,6 +12,10 @@ set -u
 
 TMP_ROOT=$(fm_test_tmproot fm-jev)
 FAKEBIN=$(fm_fakebin "$TMP_ROOT")
+# A passing eval scorecard lets a confident answer bind; the advise-only case
+# points this at a missing file.
+FM_JEV_EVAL_SCORES=$(fm_jev_act_scores "$TMP_ROOT")
+export FM_JEV_EVAL_SCORES
 LOG="$TMP_ROOT/log"
 HOME_DIR="$TMP_ROOT/home"
 RESPONSE="$TMP_ROOT/response.json"
@@ -112,6 +116,17 @@ test_pick_answers_one_line() {
   assert_equals "$(jq -r '.state' "$LOG/body")" "topic: trainee hiring" "the state is sent as a string"
   assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY" "the key travels only as the fd 3 header"
   pass "fm-jev.sh: pick sends one choice question and prints one line"
+}
+
+test_advise_only_site_escalates_confident_answer() {
+  local code out err
+  reset_log
+  respond '{"model":"jev-1.13.0","answers":{"pick":{"type":"choice","choice":"PlacementWiki","confidence":0.94,"probabilities":{"PlacementWiki":0.96,"FinanzWiki":0.04}}}}'
+  FM_JEV_EVAL_SCORES="$TMP_ROOT/no-scorecard.json" run_jev code out err pick "topic: trainee hiring" "Which vault?" PlacementWiki FinanzWiki
+  assert_equals "$code" 2 "an advise-only site escalates even a confident answer"
+  assert_equals "$out" "pick: ESCALATE conf=0.94 prior=PlacementWiki advise-only -> decide yourself" \
+    "the escalation carries the answer as its prior and names advise-only"
+  pass "fm-jev.sh: an advise-only site hands a confident answer back as a prior"
 }
 
 test_key_stays_out_of_child_environments() {
@@ -1181,6 +1196,7 @@ test_other_choices_and_absent_list_stay_unchanged() {
 
 test_help_is_short_and_complete
 test_pick_answers_one_line
+test_advise_only_site_escalates_confident_answer
 test_key_stays_out_of_child_environments
 test_unoffered_multiline_choice_cannot_forge_output
 test_option_meaning_splits_on_first_equals

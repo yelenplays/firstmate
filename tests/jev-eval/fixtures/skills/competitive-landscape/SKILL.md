@@ -1,0 +1,4 @@
+---
+name: competitive-landscape
+description: Map SEO market leaders, winning content themes, keyword coverage, backlinks, and strategic gaps.
+---

@@ -111,6 +111,10 @@
 #       -> eligible | eligible, unranked: <reason> | not eligible: <reason>
 #     last_resort: <why the stage's own ranking could not choose>
 #     profile: --harness <h> [--model <m>] [--effort <e>]
+#     mode: advise (...) and advice: <same profile>   (instead of profile: on a
+#       typed-only clear or picked result, while fm_jev_site_mode says advise;
+#       the normal chain records Jev's profile as advice and continues to
+#       the backup judge and default stage)
 #   clear     -> the typed call decided; pass the profile line to fm-spawn.sh (AGENTS.md section 4 owns the only overrides)
 #   picked    -> the typed rule answer was ambiguous and the runoff settled it; pass the profile line the same way
 #   backup    -> the backup judge decided; pass the profile line the same way
@@ -528,6 +532,9 @@ done < <(jq -r '
 RULE_COUNT=$(jq -r '(.rules // []) | length' "$RULES")
 HAS_DEFAULT=$(jq -r 'has("default")' "$RULES")
 
+SITE_MODE=$(fm_jev_site_mode dispatch-resolve)
+TYPED_ADVICE=null
+
 # Without --typed-only the resolver always answers: a failure anywhere past the
 # rules check falls to the static last resort below instead of to no answer.
 emit_error() {
@@ -574,7 +581,9 @@ dispatch_log() {
   [ "$TYPED_ONLY" -eq 0 ] || return 0
   [ ! -L "$DISPATCH_LOG" ] || return 0
   mkdir -p "$FM_HOME/state" 2>/dev/null || return 0
-  fm_jev_log_call "$(jq -c --arg at "$(fm_jev_iso_now)" --arg project "$PROJECT" '{timestamp: $at, project: $project} + .' <<<"$1")" "$DISPATCH_LOG" >/dev/null 2>&1 || true
+  fm_jev_log_call "$(jq -c --arg at "$(fm_jev_iso_now)" --arg project "$PROJECT" \
+    --arg mode "$SITE_MODE" --argjson advice "$TYPED_ADVICE" \
+    '{timestamp: $at, project: $project, mode: $mode, advice: $advice} + .' <<<"$1")" "$DISPATCH_LOG" >/dev/null 2>&1 || true
 }
 
 if [ "$RULE_COUNT" -eq 0 ] && { [ "$TYPED_ONLY" -eq 1 ] || [ "$HAS_DEFAULT" != true ]; }; then
@@ -1256,6 +1265,7 @@ settle_stage() {  # <ok-status> <effort-json>
 
 # ---- the chain: typed, then the backup judge, then the default stage ----------
 DECIDED_BY='' TYPED_LINE='' BACKUP_LINE=''
+TYPED_RESULT=null
 if [ "$TYPED_OK" -eq 1 ]; then
   resolve_response "$RESP_FILE" "$EFFORT_JSON" "$LAT_MS"
   # ---- runoff: one typed Jev pick among the contenders of an ambiguous answer ----
@@ -1353,6 +1363,7 @@ if [ "$TYPED_OK" -eq 1 ]; then
       fi
       ;;
   esac
+  TYPED_RESULT=$RESULT
   if [ "$TYPED_ONLY" -eq 0 ]; then
     TYPED_STATUS=$(jq -r '.status' <<<"$RESULT")
     case "$TYPED_STATUS" in
@@ -1361,12 +1372,23 @@ if [ "$TYPED_OK" -eq 1 ]; then
         ;;
       *)
         if settle_stage clear "$EFFORT_JSON"; then
-          DECIDED_BY=${DECIDED_BY:-typed}
+          if [ "$SITE_MODE" != act ] && jq -e '.chosen != null' <<<"$RESULT" >/dev/null; then
+            DECIDED_BY=''
+            TYPED_REASON="advise_only: $(jq -r '.status' <<<"$RESULT")"
+          else
+            DECIDED_BY=${DECIDED_BY:-typed}
+          fi
         else
           TYPED_REASON="$TYPED_STATUS: $(jq -r '.reason // "-"' <<<"$RESULT")"
         fi
         ;;
     esac
+  fi
+  if [ "$SITE_MODE" != act ]; then
+    TYPED_ADVICE=$(jq -c --argjson typed "$TYPED_RESULT" '{status, rule: (.decided_rule // .rule),
+      lane: (.lane // .decided_rule // .rule), confidence: $typed.confidence, probabilities: $typed.probabilities,
+      profile: (if .chosen then .chosen.profile | {harness, model, provider} | with_entries(select(.value != null)) else null end),
+      effort: $typed.effort.choice}' <<<"$RESULT") || emit_error "could not record typed advice"
   fi
 fi
 
@@ -1410,7 +1432,10 @@ if [ "$TYPED_ONLY" -eq 0 ] && [ -z "$DECIDED_BY" ]; then
     DEFAULT_CHOICE=rule_1
   fi
   DEFAULT_EFFORT_JSON=$EFFORT_JSON
-  if [ "$(jq -r '.source' <<<"$EFFORT_JSON")" != jev ] && [ -n "${BACKUP_EFFORT:-}" ]; then
+  if [ "$SITE_MODE" != act ] && [ "$(jq -r '.source' <<<"$DEFAULT_EFFORT_JSON")" = jev ]; then
+    DEFAULT_EFFORT_JSON='{"choice":null,"source":"advise-only"}'
+  fi
+  if [ "$(jq -r '.source' <<<"$DEFAULT_EFFORT_JSON")" != jev ] && [ -n "${BACKUP_EFFORT:-}" ]; then
     DEFAULT_EFFORT_JSON=$(jq -nc --arg e "$BACKUP_EFFORT" '{choice: $e, confidence: 1, source: "backup"}')
   fi
   DEFAULT_RESP=$(mktemp) || emit_error "mktemp failed"
@@ -1460,18 +1485,22 @@ TEXT=$(jq -r '
       + (if .pred then "  pred=~\(.pred.tokens | flat)tok/\(show(.pred.seconds))s" elif has("pred") then "  pred=unknown" else "" end)
       + (if (.bounds // [] | length) > 1 then "  bounds=" + ([.bounds[] | "\(.scope | flat):\(show(.pct))%/\((.runway // .status) | flat)"] | join(",")) else "" end)
       + "  -> " + (if .unranked then "eligible, unranked: \(.reason | flat): disclosed uncertainty" elif .eligible then "eligible" else "not eligible: \(.reason | flat)" end)),
-  (if .chosen then "  profile: --harness \(.chosen.profile.harness | shell_arg)"
+  (if .chosen then
+     ("--harness \(.chosen.profile.harness | shell_arg)"
       + (if .chosen.profile.model then " --model \(.chosen.profile.model | shell_arg)" else "" end)
       + (if .chosen.effort_emit == false then
            (if .chosen.profile.effort then " --effort \(.chosen.profile.effort | shell_arg)" else "" end)
          elif .chosen.effort then " --effort \(.chosen.effort | shell_arg)"
-         elif .chosen.profile.effort then " --effort \(.chosen.profile.effort | shell_arg)" else "" end) else empty end)' <<<"$RESULT") || emit_error "output rendering failed"
+         elif .chosen.profile.effort then " --effort \(.chosen.profile.effort | shell_arg)" else "" end)) as $profile
+     | if $mode == "act" or (.status != "clear" and .status != "picked") then "  profile: \($profile)"
+       else "  mode: advise (this call site'"'"'s eval score has not cleared the bar; decide as today)", "  advice: \($profile)" end
+   else empty end)' --arg mode "$SITE_MODE" <<<"$RESULT") || emit_error "output rendering failed"
 if fm_dispatch_shadow_on; then
   SHADOW_PATH="$FM_HOME/state/jev-dispatch-shadow.jsonl"
-  SHADOW=$(jq -nc --argjson result "$RESULT" --arg route "${FM_JEV_LAST_ROUTE:-}" \
+  SHADOW=$(jq -nc --argjson result "$RESULT" --argjson typed "$TYPED_RESULT" --arg route "${FM_JEV_LAST_ROUTE:-}" \
     --arg url "${FM_JEV_LAST_URL:-}" --arg model "${FM_JEV_LAST_MODEL:-}" \
     --arg response_model "$(fm_jev_response_model "$(cat "$RESP_FILE" 2>/dev/null)")" \
-    --arg project "$PROJECT" --argjson extra "$EXTRA_LOG" \
+    --arg project "$PROJECT" --argjson extra "$EXTRA_LOG" --arg mode "$SITE_MODE" --argjson advice "$TYPED_ADVICE" \
     --arg compact "$(if fm_dispatch_compact_on; then printf 1; else printf 0; fi)" '{
       purpose: "dispatch-shadow",
       route: $route,
@@ -1482,11 +1511,13 @@ if fm_dispatch_shadow_on; then
       compact: ($compact == "1"),
       status: $result.status,
       decided_by: ($result.chain.decided_by // null),
-      rule: $result.rule,
-      confidence: $result.confidence,
-      probabilities: $result.probabilities,
+      mode: $mode,
+      advice: $advice,
+      rule: $typed.rule,
+      confidence: $typed.confidence,
+      probabilities: $typed.probabilities,
       profile: (if $result.chosen then $result.chosen.profile else null end),
-      pick: (if $result.pick then ($result.pick | {state, rules, choice, probabilities, margin, reason} | with_entries(select(.value != null))) else null end),
+      pick: (if $typed.pick then ($typed.pick | {state, rules, choice, probabilities, margin, reason} | with_entries(select(.value != null))) else null end),
       extra: $extra
     }') || SHADOW=''
   if [ -n "$SHADOW" ]; then

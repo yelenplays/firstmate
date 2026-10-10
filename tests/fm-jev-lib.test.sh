@@ -428,7 +428,16 @@ test_probabilities_sum() {
 }
 
 test_compact_state_strips_secrets_and_refuses_oversized() {
-  local out secret big yaml json
+  local out secret big yaml json text
+  for text in 'SSHPASS=hunter2 sshpass -e ssh host' 'DBPASS=hunter2 ./run'; do
+    fm_jev_has_sensitive_key "$text" || fail "a password assignment stays sensitive: $text"
+    out=$(fm_jev_compact_state "$text")
+    assert_contains "$out" '[redacted]' "compact redacts the password assignment: $text"
+    assert_not_contains "$out" 'hunter2' "compact drops the password value: $text"
+  done
+  out=$(fm_jev_compact_state 'Call 030/1234/5678')
+  assert_contains "$out" '[redacted]' "compact redacts the slash phone"
+  assert_not_contains "$out" '030/1234/5678' "compact drops the phone number"
   secret='note TYPESAFE_API_KEY=abc123 and Bearer tok_secret_value and sk-or-v1-abcdefghijklmnopqrstuvwxyz'
   out=$(fm_jev_compact_state "keep this $secret skill-selector")
   assert_contains "$out" 'keep this' "compact keeps ordinary prose"
@@ -562,6 +571,18 @@ test_curl_transport_failure
 test_missing_curl
 test_confidence_floor
 test_probabilities_sum
+test_record_write_failure_refuses_answer() {
+  local code out err
+  printf 'not a directory\n' > "$TMP_ROOT/record-blocker"
+  TYPESAFE_API_KEY=$TS_KEY FM_JEV_RECORD_DIR="$TMP_ROOT/record-blocker/cassettes" \
+    run_decide code out err
+  expect_code 1 "$code" "a failed cassette write fails the decision call"
+  assert_equals '' "$out" "an unrecorded answer is not returned as success"
+  assert_contains "$err" 'could not record' "the recording failure is reported"
+  pass "cassette persistence failures propagate from the decision call"
+}
+
+test_record_write_failure_refuses_answer
 test_compact_state_strips_secrets_and_refuses_oversized
 test_log_call_writes_jsonl_without_secrets
 test_response_model_names_the_answering_build

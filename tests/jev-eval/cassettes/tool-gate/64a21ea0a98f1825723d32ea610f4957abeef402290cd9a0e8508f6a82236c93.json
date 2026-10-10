@@ -1,0 +1,1 @@
+{"model":"jev-1.13.0","response":{"answers":{"gate":{"choice":"allow","confidence":0.55,"probabilities":{"allow":0.7,"deny":0.02,"need_human":0.28},"type":"choice"}},"model":"jev-1.13.0","usage":{"input_tokens":670,"output_tokens":40}}}

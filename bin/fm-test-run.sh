@@ -842,6 +842,7 @@ tests/fm-jev-act-first.test.sh 5426
 tests/fm-jev-ask-user.test.sh 7400
 tests/fm-jev-brief-preflight.test.sh 10209
 tests/fm-jev-compaction.test.sh 638
+tests/fm-jev-eval.test.sh 240000
 tests/fm-jev-done-verify.test.sh 38035
 tests/fm-jev-intake-match.test.sh 17464
 tests/fm-jev-lib.test.sh 1005

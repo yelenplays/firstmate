@@ -14,6 +14,9 @@ SEAT_PICK="$ROOT/bin/fm-seat-pick.sh"
 TMP_ROOT=$(fm_test_tmproot fm-seat-pick)
 HOME_DIR="$TMP_ROOT/home"
 FAKEBIN=$(fm_fakebin "$TMP_ROOT")
+# A passing eval scorecard lets an act-band pick dispatch.
+FM_JEV_EVAL_SCORES=$(fm_jev_act_scores "$TMP_ROOT")
+export FM_JEV_EVAL_SCORES
 LOG="$TMP_ROOT/log"
 BASE_PATH=$PATH
 TS_KEY='ts-test-key-not-for-argv'
@@ -120,6 +123,11 @@ test_pick_bands_and_fallbacks() {
   body=$(cat "$LOG/body")
   jq -e '.questions.seat.criteria | has("b-claude-1") and has("b-codex-1") and has("none_fit") and (has("b-codex-2") | not)' \
     <<<"$body" >/dev/null || fail "the question does not offer exactly the candidates plus none_fit: $body"
+
+  run_seat code out FM_JEV_EVAL_SCORES="$TMP_ROOT/no-scorecard.json" -- pick --role builder --task 'add a button'
+  expect_code 0 "$code" "an advise-only act-band pick exits 0"
+  jq -e '.action == "lead-decides" and .seat == "b-codex-1" and .band == "act" and (.reason | contains("advise-only"))' <<<"$out" >/dev/null \
+    || fail "an advise-only site did not hand its act-band seat to the lead as advice: $out"
 
   seat_response b-claude-1 0.4
   run_seat code out -- pick --role builder --task 'add a button'

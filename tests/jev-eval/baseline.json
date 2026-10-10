@@ -1,0 +1,246 @@
+{
+  "schema": "fm-jev-eval.v1",
+  "model": "jev-1.13.0",
+  "sites": {
+    "act-first": {
+      "recorded": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 24,
+        "agreement": 0.8333,
+        "dangerous_misses": 0
+      }
+    },
+    "ask-user": {
+      "recorded": {
+        "cases": 206,
+        "agreement": 0.5194,
+        "dangerous_misses": 8
+      },
+      "synthetic": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      }
+    },
+    "brief-preflight": {
+      "recorded": {
+        "cases": 24,
+        "agreement": 1,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 32,
+        "agreement": 1,
+        "dangerous_misses": 0
+      }
+    },
+    "compaction": {
+      "recorded": {
+        "cases": 28,
+        "agreement": 0.5,
+        "dangerous_misses": 11
+      },
+      "synthetic": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      }
+    },
+    "dispatch-resolve": {
+      "recorded": {
+        "cases": 70,
+        "agreement": 0.8,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      }
+    },
+    "done-verify": {
+      "recorded": {
+        "cases": 100,
+        "agreement": 0.52,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      }
+    },
+    "history-find": {
+      "recorded": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 34,
+        "agreement": 0.8824,
+        "dangerous_misses": 0
+      }
+    },
+    "home-route": {
+      "recorded": {
+        "cases": 52,
+        "agreement": 0.5577,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      }
+    },
+    "intake-match": {
+      "recorded": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 40,
+        "agreement": 1,
+        "dangerous_misses": 0
+      }
+    },
+    "mem-guard": {
+      "recorded": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 22,
+        "agreement": 1,
+        "dangerous_misses": 0
+      }
+    },
+    "merge-gate": {
+      "recorded": {
+        "cases": 3,
+        "agreement": 0.3333,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 25,
+        "agreement": 0.88,
+        "dangerous_misses": 0
+      }
+    },
+    "model-proposal": {
+      "recorded": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 22,
+        "agreement": 1,
+        "dangerous_misses": 0
+      }
+    },
+    "pr-verdict": {
+      "recorded": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 48,
+        "agreement": 0.875,
+        "dangerous_misses": 6
+      }
+    },
+    "retrieval-miss": {
+      "recorded": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 24,
+        "agreement": 0.25,
+        "dangerous_misses": 0
+      }
+    },
+    "seat-pick": {
+      "recorded": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 20,
+        "agreement": 0.95,
+        "dangerous_misses": 1
+      }
+    },
+    "skill-select": {
+      "recorded": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 24,
+        "agreement": 0.9583,
+        "dangerous_misses": 0
+      }
+    },
+    "status-triage": {
+      "recorded": {
+        "cases": 67,
+        "agreement": 0.7463,
+        "dangerous_misses": 5
+      },
+      "synthetic": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      }
+    },
+    "tool-gate": {
+      "recorded": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 30,
+        "agreement": 0.9333,
+        "dangerous_misses": 2
+      }
+    },
+    "wedge-check": {
+      "recorded": {
+        "cases": 5,
+        "agreement": 1,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 24,
+        "agreement": 0.7917,
+        "dangerous_misses": 5
+      }
+    },
+    "worker-cli": {
+      "recorded": {
+        "cases": 0,
+        "agreement": 0,
+        "dangerous_misses": 0
+      },
+      "synthetic": {
+        "cases": 30,
+        "agreement": 0.7333,
+        "dangerous_misses": 0
+      }
+    }
+  }
+}

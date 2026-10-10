@@ -52,7 +52,7 @@ These classes are the criteria both firstmate's screen and the Jev question appl
    When any finding is destructive, irreversible, security-sensitive, or contract-expanding, repeats a theme under item 4, or the gate is past the round cap, escalate the whole gate to the captain without calling Jev.
 2. Otherwise run `bin/fm-jev-ask-user.sh <task-id> <decision-key> --round <n>` on the worker's open ask-user decision; its header owns the inputs, the deterministic always-escalate classes, the confidence floor, the outbound privacy boundary, and the log.
 3. On `ACT` (exit 0), Jev decided every finding an in-scope fix and the script has already answered the gate through `bin/fm-send.sh --resolve-key`, whose close note records that Jev decided; resume supervision.
-4. On `ESCALATE` (exit 2), escalate the whole gate to the captain; a low-confidence verdict, a Jev error, a missing key, or a kept-out project is an escalation, never a cue for firstmate to decide the finding itself.
+4. On `ESCALATE` (exit 2), escalate the whole gate to the captain; a low-confidence verdict, a Jev error, a missing key, a kept-out project, or an `advise-only` verdict (Jev's answer offered as advice because its eval score has not cleared the bar) is an escalation, never a cue for firstmate to decide the finding itself.
 5. On exit 1 nothing was decided, or the printed decision did not reach the worker: correct a wrong key or round and rerun, resend an undelivered printed decision with `bin/fm-send.sh --resolve-key`, and escalate when neither applies.
 6. When the captain answers, relay that answer under `validation-supervision`.
 

@@ -12,8 +12,10 @@
 # Default FM_JEV_TOOL_GATE=shadow: log the Choice and still allow. Live Jev
 # deny/allow stays off. Live mode requires FM_JEV_TOOL_GATE=live plus both
 # presence files $FM_HOME/config/jev-tool-gate-live and
-# $FM_HOME/config/jev-tool-gate-live-ack, and still cannot override a
-# deterministic deny. Hard-shipping live remainder deny into watcher-arm or
+# $FM_HOME/config/jev-tool-gate-live-ack, plus fm_jev_site_mode tool-gate
+# saying act (the call site's latest bin/fm-jev-eval.sh score clears the bar;
+# otherwise live runs as shadow), and still cannot override a deterministic
+# deny. Hard-shipping live remainder deny into watcher-arm or
 # PreToolUse paths is a do-not; this script is the documented remainder hook,
 # not a replacement for bin/fm-arm-pretool-check.sh.
 #
@@ -134,6 +136,11 @@ MODE=$(_fm_jev_tool_gate_mode)
 # shellcheck source=bin/fm-jev-lib.sh
 . "$ROOT/bin/fm-jev-lib.sh"
 
+# Live deny binds only while this call site's eval score clears the bar
+# (bin/fm-jev-eval.sh); otherwise live runs as shadow and logs the advice.
+SITE_MODE=$(fm_jev_site_mode tool-gate)
+[ "$MODE" != live ] || [ "$SITE_MODE" = act ] || MODE=shadow
+
 COMPACT=""
 if COMPACT=$(fm_jev_compact_state "$CMD"); then
   :
@@ -197,6 +204,7 @@ fi
 
 LOG_PAYLOAD=$(jq -n \
   --arg mode "$MODE" \
+  --arg site_mode "$SITE_MODE" \
   --arg policy "allow" \
   --arg command "$COMPACT" \
   --arg choice "$CHOICE" \
@@ -210,6 +218,7 @@ LOG_PAYLOAD=$(jq -n \
   '{
     event: "jev-tool-gate",
     mode: $mode,
+    site_mode: $site_mode,
     policy: $policy,
     command: $command,
     choice: (if $choice == "" then null else $choice end),

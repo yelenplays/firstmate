@@ -854,7 +854,7 @@ It asks Jev only about mates whose exact `scope:` value from `data/secondmates.m
 Review the task summary and every scope manually before approval: the deterministic privacy veto rejects known private terms and obvious credentials, but cannot establish that arbitrary free text is safe.
 A `local-only` project always routes main without a call.
 `decide` always records a route, and its `decided:` line names the stage that chose it.
-A missing key, a low-confidence answer, or an endpoint that does not answer goes to the [backup judge](#typed-dispatch-resolution-env-typesafe_api_key), which answers the same lead and consult questions on the same state.
+A missing key, a low-confidence answer, an endpoint that does not answer, or a route given while the home-route call site is advise-only (reason `advise_only`, the route kept as `advice`; see "Jev eval and per-site autonomy") goes to the [backup judge](#typed-dispatch-resolution-env-typesafe_api_key), which answers the same lead and consult questions on the same state.
 An unsafe summary or project, missing or unusable scopes or registry, or a backup that fails too keeps the task in the main home.
 Only eligible, approved scopes can appear as consulted mates, even if a typed response includes extra consult answers.
 Firstmate may still record its own call with `bin/fm-home-route.sh judge`, accepted over a backup, main-by-default, earlier judgment, or legacy `judgment-needed` record, but never over a Jev or local-only route.
@@ -1499,8 +1499,8 @@ Whenever the rules file parses and declares a rule or a default, it always print
 
 **The always-answer chain**
 
-1. The typed stage is the Jev call described below; a `clear` or `picked` answer decides.
-2. When the typed stage is skipped, fails, cannot be reached, or stays ambiguous, the backup judge answers the same rule and effort questions on the same state, and its answer decides with status `backup`.
+1. The typed stage is the Jev call described below; a `clear` or `picked` answer decides only while the dispatch call site is in act mode.
+2. When the typed stage is skipped, fails, cannot be reached, stays ambiguous, or gives an advise-only profile, the backup judge answers the same rule and effort questions on the same state, and its answer decides with status `backup`.
 3. When the backup fails, the default stage resolves the configured `default` profiles (the first rule when no default is declared) with status `fallback`.
 
 Each stage's answer settles through the same gates described below.
@@ -1512,7 +1512,8 @@ A captain-approval rule remains the one no-profile outcome.
 A request that cannot reach any stage falls to the first default profile, `decided: static by default`.
 The `decided:` line names the stage and the lane whose profile answers, and the `typed:` and `backup:` lines say why an earlier stage did not decide.
 When a floor shortfall or an all-refused rule moves the answer to the default lane, `decided:` names that lane and a `matched:` line names the rule whose profiles were not used.
-Each answer appends one metadata-only record (status, stage, lane, any differing matched rule, effort and any clamp, profile, reasons, never the brief) to `state/dispatch-resolve.jsonl`.
+Each answer appends one metadata-only record (status, mode, stage, lane, any differing matched rule, effort and any clamp, bound profile, reasons, never the brief) to `state/dispatch-resolve.jsonl`.
+An advise-only Jev selection is stored separately as `advice` with its status, rule, lane, profile, assessed effort, confidence, and probabilities, never as the bound profile.
 
 The backup judge is [`bin/fm-backup-judge-lib.sh`](../bin/fm-backup-judge-lib.sh): the local `claude` CLI on `claude-haiku-5-5`, called with a JSON schema whose enums are exactly the offered options, so an answer outside them is rejected rather than guessed around.
 It runs from an empty temporary directory with no settings, MCP servers, tools, or session persistence, reads the prompt on stdin, never receives the typed-call keys, and uses the CLI's own login.
@@ -1587,6 +1588,8 @@ Pi profiles on `xai/grok-4.6` declare `provider: grok` because quota-axi familie
 A truthy value sends the compact intent summary instead of the whole brief, and that compact form is the default on the OpenRouter route when both are unset.
 `FM_JEV_DISPATCH_EXTRA=1` adds log-only Choice questions for home `{main,agency,lay,frontend,zimmer}` (criteria from `data/secondmates.md` when readable) and deliverable `{ship,scout,neither}`; those answers are never auto-routing authority.
 Presence of gitignored `config/jev-dispatch-shadow`, or `FM_JEV_DISPATCH_SHADOW=1`, logs the Jev pick next to the resolved spawn axes into `state/jev-dispatch-shadow.jsonl` and does not add spawn authority beyond the `profile:` line the resolver itself prints.
+Its `rule`, `confidence`, and `probabilities` retain the typed answer for calibration even when the backup or default stage decides; `profile` and `decided_by` describe the bound selection.
+When no valid typed answer exists, those calibration fields are null rather than a fabricated backup answer.
 `FM_JEV_DISPATCH_SHADOW=0` turns that log off even when the config flag is present.
 A captain pin, `yolo` posture, and selected delivery mode still win over any printed profile.
 
@@ -1646,6 +1649,8 @@ No qualifying option, or two equally probable qualifying options, leaves the typ
 | `error` | Under `--typed-only` only: API, network, malformed response metadata, rendering, or quota-axi failure. |
 
 Every result above exits 0.
+While the dispatch call site is advise-only ("Jev eval and per-site autonomy" below), its Jev selection remains advice and the always-answer chain continues to the backup judge and default stage.
+Under `--typed-only`, a `clear` or `picked` result instead prints `mode: advise` and an `advice:` line without a `profile:` line.
 
 - Response probabilities must contain exactly every offered choice, use numeric values from 0 through 1, and sum to approximately 1 within 0.01.
 - Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, an invalid `FM_JEV_DISPATCH_MARGIN`, or missing `jq`, each reported and never selected around.
@@ -1672,6 +1677,7 @@ The [checks above](#checks-performed-after-the-answer) run in code after the ans
 The same Jev response carries a second typed Choice classifying the reasoning effort the brief itself needs (`low|medium|high|xhigh|max`); the backup judge answers the same question.
 The assessed class is clamped into the profile's declared effort range (see "Crew dispatch profiles"), so `max` still needs an explicit declaration, and then moved to the nearest level the harness supports inside the range, the lower one on a tie; a clamp is shown as `[clamped from <class>]` on the candidate line and logged, and never refuses a candidate.
 A missing, malformed, or low-confidence (below 0.5) effort answer falls back to the range default with the fallback disclosed on the `effort:` line.
+In advise mode, Jev's assessed effort stays in `advice.effort`; if the backup fails, the default stage uses the profile's declared effort, including after an ambiguous typed answer.
 The profile's optional `effort_floor` raises the range's lower bound and any lower assessed or fallback value, including when no effort was declared, without exceeding the upper bound.
 The resolved value governs the launch, runoff identity, and predicted burn.
 A harness without an effort knob keeps the class as a disclosed, unenforced note and emits no `--effort` flag for it.
@@ -1724,6 +1730,47 @@ It is a sourceable library, not a user CLI; the script header owns route selecti
 Set `TYPESAFE_API_KEY` for the TypeSafe route, or `OPENROUTER_API_KEY` for OpenRouter when that is the only key or when `JEV_ROUTE=openrouter`.
 Typed dispatch resolution above uses this library for the HTTP call and owns the `JEV_ROUTE`, `JEV_MODEL`, `JEV_URL`, `JEV_BASE`, and `JEV_TIMEOUT` names.
 
+## Jev eval and per-site autonomy (bin/fm-jev-eval.sh)
+
+[`bin/fm-jev-eval.sh`](../bin/fm-jev-eval.sh) scores every Jev call site against its own gold test set and drives each site's act/advise mode from that score.
+The test sets live in [`tests/jev-eval/`](../tests/jev-eval/): `sites.json` names each call site, the script it runs, whether it acts on its own, its labels, and what a dangerous miss is; `cases/<site>.jsonl` holds the public-safe cases, `adapters/<site>.sh` runs the real script on one case in a scratch home, `cassettes/<site>/` holds the recorded Jev answers, and `baseline.json` holds the score those cassettes reproduce.
+Gold comes from the captain's recorded answers where they exist, from firstmate records next, and from Opus labels last; `gold_confirmed` in `sites.json` stays false until a human spot-checks the Opus labels, and no score is final before then.
+Every case also names its `input_source`: `recorded` when its input comes from a real past decision or worker session, `synthetic` when Opus wrote it or it is a fixture grid.
+Each site is scored twice, once over its recorded cases and once over its synthetic cases, and the scorecard, the baseline, `status`, and the run table report both scores side by side.
+Private cases that cannot be public go in an overlay with the same shape under `$FM_HOME/data/jev-eval/` (`FM_JEV_EVAL_OVERLAY` overrides); live runs and the nightly score them with the public set, while the committed baseline never includes them.
+
+[`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) `fm_jev_site_mode <site>` is the one owner of the act rule.
+A site acts only when its own evidence in the latest scorecard (`$FM_HOME/state/jev-eval/latest.json`, `FM_JEV_EVAL_SCORES` overrides) is final, at most eight days old (`FM_JEV_EVAL_MAX_AGE_SECS`), matches its effective request model, and gives that site at least 20 recorded cases with agreement with gold of at least 0.95, plus zero dangerous misses in both the recorded and synthetic sets.
+Synthetic agreement never earns act, but any synthetic dangerous miss vetoes it; a site whose cases are all synthetic stays advise until it has enough recorded cases (private ones can come from the overlay).
+A partial run preserves the freshness, finality, and model evidence of sites it does not score; old scorecards without per-site evidence remain advise-only.
+Anything else, including a missing scorecard, is advise, and the merge gate is always advise.
+An advise site still asks Jev and keeps the answer as advice:
+
+- the ask-user gate escalates `advise-only` with Jev's verdict in the reason and sends nothing to the worker;
+- dispatch resolution retains Jev's profile as advice and continues the [always-answer chain](#typed-dispatch-resolution-env-typesafe_api_key); `--typed-only` prints advice without a binding profile;
+- the home router keeps a confident Jev route as `advice`, reason `advise_only`, and lets the backup judge decide, which firstmate can still override with `judge`;
+- the wedge check never suppresses a structural escalation and logs `advised: suppress`;
+- compaction parks nothing and names the segments Jev would have parked on stderr;
+- the live tool-gate runs as shadow and logs `site_mode: advise`;
+- the live skill selector records its pick but injects nothing;
+- seat picking hands its act-band seat to the lead as advice;
+- `bin/fm-jev.sh` prints a confident answer as `ESCALATE ... prior=<answer> advise-only` and exits 2, reading the scorecard of `FM_HOME`, else of the owning home.
+
+Merges, deletions, logins, and other destructive, irreversible, or security-sensitive actions stay with the human whatever a site scores.
+
+`bin/fm-jev-eval.sh run` replays the committed cassettes with no key and no network; `--live` asks Jev for real, publishes `latest.json`, and archives the card under `state/jev-eval/runs/`; `--record` with `--live` also re-records the cassettes.
+`check-baseline` is the change guard: [`tests/fm-jev-eval.test.sh`](../tests/fm-jev-eval.test.sh) runs it in CI, so a change to a Jev call site, its prompt, or the pinned Jev build cannot ship until its cassettes are re-recorded and every site still holds both its recorded and its synthetic baseline.
+After an intended change, re-record the affected sites with `run --live --record --site <site>` and rewrite the baseline with `write-baseline`.
+The compaction set contains 28 public-safe segments from recorded Claude Code workers, independently labeled by Opus 5.5 rather than written by it.
+Each case records its transcript digest, row, block or excerpt, and labeling rationale; parking a `keep` segment is the dangerous direction.
+
+Arm the nightly run once per home with `bin/fm-jev-eval.sh arm`, which registers an hourly watcher check that starts at most one detached live run per `FM_JEV_EVAL_NIGHTLY_SECS` (default 72000) when a Jev key is configured; `disarm` retires it.
+The deliberate, captain-confirmed design is that the deterministic runner runs Jev on every test set and scores it exactly against gold on `run`, `check-baseline`, and `nightly` alike.
+Haiku 5.5 (`claude-haiku-5-5` through `claude -p`, `FM_JEV_EVAL_HAIKU_CMD` replaces the command) only writes the nightly summary and miss analysis next to the archived card; it never computes or changes a score.
+A site that acted before live publication and is advise after it is a demotion, whether the run is manual or nightly: one note through `bin/fm-slack-bridge.sh post report` when `config/slack-bridge` exists, and one notice the watcher check prints once.
+`bin/fm-jev-eval.sh status` prints each site's latest recorded and synthetic scores and its current mode.
+The script header owns the case schema, adapter contract, scorecard fields, and exit codes.
+
 ## Jev worker command (bin/fm-jev.sh)
 
 [`bin/fm-jev.sh`](../bin/fm-jev.sh) is the one Jev command firstmate and every worker call for closed-set judgments; the Jev-first rule in every ship and scout brief names it by absolute path.
@@ -1746,7 +1793,7 @@ A deterministic deny never reaches Jev.
 Default `FM_JEV_TOOL_GATE` is `shadow`: append `$FM_HOME/state/jev-tool-gate.jsonl` and still allow.
 Live Jev deny/allow stays off.
 Do not hard-ship live remainder deny into watcher-arm or PreToolUse paths; that is a do-not.
-Live mode requires `FM_JEV_TOOL_GATE=live` plus both local gitignored presence files `config/jev-tool-gate-live` and `config/jev-tool-gate-live-ack`, and still cannot override a deterministic deny.
+Live mode requires `FM_JEV_TOOL_GATE=live` plus both local gitignored presence files `config/jev-tool-gate-live` and `config/jev-tool-gate-live-ack`, and the tool-gate call site in act mode ("Jev eval and per-site autonomy" above); otherwise it runs as shadow, and it still cannot override a deterministic deny.
 The script header owns flags, log schema, and mode resolution.
 The thin hook point is documented in [`docs/arm-pretool-check.md`](arm-pretool-check.md).
 
@@ -1831,7 +1878,7 @@ Those four safety labels immediately and permanently stop collection; inspect re
 `unlabeled` and `unknown` leave review pending; labeling an existing case atomically persists the comparison and recomputes `state/jev-skill-shadow/evaluation.json`.
 After 20 cases, the evaluation stops or requires redesign if useful coverage is no better (`caught <= missed`), fewer than two useful misses were caught with any extra wrong pick, irrelevant suggestions exceed one, timeouts or invalid responses exceed one, or nearest-rank combined p95 is at least 2000 ms.
 Even a passing evaluation cannot start case 21: continuing or redesigning requires a separately authorized experiment, not clearing this checkpoint.
-Live load remains separately opt-in: it requires `FM_JEV_SKILL_SELECT=live`, the gitignored presence file `config/jev-skill-select-live`, and a nonblank safe query in `data/<id>/jev-skill-query.txt`.
+Live load remains separately opt-in: it requires `FM_JEV_SKILL_SELECT=live`, the gitignored presence file `config/jev-skill-select-live`, a nonblank safe query in `data/<id>/jev-skill-query.txt`, and the skill-select call site in act mode ("Jev eval and per-site autonomy" above).
 Project skills for live load are discovered from the resolved worker worktree after its freshness step; Codex launches also discover `$CODEX_HOME/skills`, defaulting to `~/.codex/skills` when `CODEX_HOME` is unset or empty.
 Live offers every collected skill id, describing a skill by its front-matter description only when that file's SHA-256 digest is listed in `config/jev-skill-public.json` and offering every other skill by id alone, so no unapproved description reaches Jev.
 With live inputs present, a clear selection is appended to that private launch overlay in the harness's skill-invocation form (`/<skill>`, `$<skill>` on Codex, or the skill id when the runtime has no verified slash form).
@@ -1887,7 +1934,7 @@ One `FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS` (default 6) wall-clock budget is shar
 Each call's HTTP bound is clipped to what the budget still allows, so a cycle never runs past it.
 After the first Jev timeout or error, Jev is skipped for the rest of that cycle and deterministic surfacing or escalation remains in force.
 An escalation surfaces the line marked `(jev-escalated)` as an advisory surface event; it never enters the needs-decision fold.
-[`bin/fm-jev-wedge-check.sh`](../bin/fm-jev-wedge-check.sh) reads one captured pane tail on stdin and prints `suppress` when the `stuck` Noul is below the floor, which defers the structural wedge escalation on the shared bounded resurface cadence; a Noul at or above the floor escalates unless the same task and class was already warned inside its window, and every other outcome keeps the incumbent escalation.
+[`bin/fm-jev-wedge-check.sh`](../bin/fm-jev-wedge-check.sh) reads one captured pane tail on stdin and prints `suppress` when the `stuck` Noul is below the floor and the wedge-check call site is in act mode ("Jev eval and per-site autonomy" above), which defers the structural wedge escalation on the shared bounded resurface cadence; a Noul at or above the floor escalates unless the same task and class was already warned inside its window, and every other outcome keeps the incumbent escalation.
 The wedge consult runs only when the structural checks leave an escalation due: after the watcher has checked declared waits, worktree writes, dead endpoints, and no-mistakes run liveness, or at the daemon's stale-persistence recheck after its run-liveness check; it never runs per poll.
 The watcher's busy-turn-bound path deliberately supplies no pane tail and skips Jev, so a busy-looking pane cannot suppress the hung-foreground escalation this bound exists to catch.
 The same wedge call also classifies the pane as `progressing`, `looping`, `rate_limited`, `stalled`, or `unclear`, and an escalation names that class in its wake reason (`Jev reads looping`); the class only labels the warning and never interrupts, relaunches, or reroutes a worker.
@@ -1910,7 +1957,7 @@ Coverage lives in [`tests/fm-jev-supervision.test.sh`](../tests/fm-jev-supervisi
 It exists for role-split teams and stays off unless the local, gitignored presence flag `config/seat-pick` exists or `FM_SEAT_PICK=1` is set; `FM_SEAT_PICK=0` forces it off, and off means exit 3 with no network call.
 Today's one-worker-per-task dispatch never calls it; [`bin/fm-dispatch-resolve.sh`](../bin/fm-dispatch-resolve.sh) remains the owner of choosing a harness and model before a spawn.
 Code owns capacity: only a seat that runs, is idle, can be served, and sits below the context wall is ever offered; idle seats with assigned open work remain eligible, and Jev weighs fit and load notes while preferring a free seat only when equally suitable.
-An act-band answer dispatches; anything else, including a missing key or a Jev error, hands the choice to the team lead, so a caller never blocks on the model.
+An act-band answer dispatches while the seat-pick call site is in act mode ("Jev eval and per-site autonomy" above); anything else, including a missing key or a Jev error, hands the choice to the team lead, so a caller never blocks on the model.
 Reroute planning is deterministic and report-only: it never moves work itself. The team dispatch from plan item 8 will apply the plan; nothing applies it until then. Old in-progress rows can move only off gone or non-running seats; every running seat, including an idle or unavailable seat and one at its context wall, keeps its in-progress rows.
 The script header owns the seat and row schema, the bands, the reroute rules, and the outbound data boundary; coverage lives in [`tests/fm-seat-pick.test.sh`](../tests/fm-seat-pick.test.sh).
 

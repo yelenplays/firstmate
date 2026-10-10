@@ -10,7 +10,11 @@
 #
 # Prints exactly one verdict word on stdout:
 #   escalate  - the stuck Noul met the 0.5 floor
-#   suppress  - a valid Noul below the floor (the pane reads as not-stuck)
+#   suppress  - a valid Noul below the floor (the pane reads as not-stuck),
+#               only while fm_jev_site_mode wedge-check says act; while it
+#               says advise (the call site's latest bin/fm-jev-eval.sh score
+#               has not cleared the bar) that read is escalate (or held), and
+#               the log records advised: suppress
 # With --class it prints the verdict, one space, and the stuck class, and the
 # verdict may also be:
 #   held      - the Noul escalates, but this task already escalated with the
@@ -102,6 +106,7 @@ task_id=
 task_state_dir=
 want_class=0
 idle_secs=
+advised=
 mark_class=
 lock_held=0
 while [ $# -gt 0 ]; do
@@ -247,6 +252,7 @@ log_call() {
     --arg http "${FM_JEV_LAST_HTTP:-}" \
     --arg latency "${FM_JEV_LAST_LATENCY_MS:-}" \
     --arg payload "$payload_mode" \
+    --arg advised "${advised:-}" \
     --arg excerpt "$excerpt" \
     --argjson chars "${#tail_text}" \
     --argjson decide_code "$decide_code" \
@@ -255,6 +261,7 @@ log_call() {
       advisory: true,
       second_opinion: true,
       status: $status,
+      advised: (if $advised == "" then null else $advised end),
       noul: (try ($noul | tonumber) catch null),
       state_choice: (if $state_choice == "" then null else $state_choice end),
       state_confidence: (try ($state_confidence | tonumber) catch null),
@@ -411,6 +418,15 @@ if awk -v n="$noul" 'BEGIN { exit !(n + 0 >= 0.5) }'; then
   fi
 else
   verdict=suppress
+  # Jev drops a structural escalation only while this call site's eval score
+  # clears the bar (bin/fm-jev-eval.sh); otherwise its not-stuck read is
+  # advice and the escalation stands.
+  if [ "$(fm_jev_site_mode wedge-check)" != act ]; then
+    advised=suppress verdict=escalate
+    if [ "$want_class" -eq 1 ] && warned_recently "$wedge_class"; then
+      verdict=held
+    fi
+  fi
 fi
 log_call "$verdict" "$noul" "$state_choice" "$state_confidence" "$decide_code"
 if [ "$want_class" -eq 1 ]; then

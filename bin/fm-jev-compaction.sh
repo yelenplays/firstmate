@@ -31,6 +31,11 @@
 # low-value segments as well. The first segment is always kept so the
 # active prompt prefix stays stable when possible.
 #
+# Autonomy: Jev's scores park only while fm_jev_site_mode compaction says
+# act (the call site's latest bin/fm-jev-eval.sh score clears the bar). While
+# it says advise, nothing is parked, the trace is emitted whole, and one
+# stderr line names the segments Jev would have parked. --scores always acts.
+#
 # Does not touch stow or the startup-memory budget.
 #
 # Environment: FM_HOME, FM_JEV_COMPACTION, FM_JEV_COMPACTION_THRESHOLD.
@@ -278,6 +283,25 @@ if [ "$n" -gt 0 ]; then
       fi
       break
     done
+  fi
+fi
+
+# Jev's park scores act only while this call site's eval score clears the bar
+# (bin/fm-jev-eval.sh); otherwise they are advice and the trace stays whole.
+# Caller-supplied --scores are the caller's own decision and always act.
+if [ -z "$SCORES_FILE" ] && [ "$(fm_jev_site_mode compaction)" != act ]; then
+  advised=()
+  i=0
+  while [ "$i" -lt "$n" ]; do
+    if [ "${park_flags[$i]}" -eq 1 ]; then
+      advised+=("${ids[$i]}")
+      park_flags[i]=0
+    fi
+    i=$((i + 1))
+  done
+  if [ "${#advised[@]}" -gt 0 ]; then
+    printf 'fm-jev-compaction.sh: advise-only: Jev would park %s segment(s) (%s); trace kept whole\n' \
+      "${#advised[@]}" "${advised[*]}" >&2
   fi
 fi
 

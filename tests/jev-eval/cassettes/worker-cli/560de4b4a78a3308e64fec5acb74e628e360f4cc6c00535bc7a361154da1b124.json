@@ -1,0 +1,1 @@
+{"model":"jev-1.13.0","response":{"answers":{"pick":{"choice":"open-pr-manually","confidence":0.71,"probabilities":{"commit-and-report-done":0.05,"merge":0.14,"open-pr-manually":0.8099999999999999},"type":"choice"}},"model":"jev-1.13.0","usage":{"input_tokens":353,"output_tokens":52}}}

@@ -12,6 +12,9 @@ set -u
 fm_git_identity
 
 TMP_ROOT=$(fm_test_tmproot fm-spawn-jev-skill-live)
+# A passing eval scorecard lets live skill selection reach the worker.
+FM_JEV_EVAL_SCORES=$(fm_jev_act_scores "$TMP_ROOT")
+export FM_JEV_EVAL_SCORES
 RESPONSE="$TMP_ROOT/response.json"
 TS_KEY='ts-test-key-not-for-argv'
 

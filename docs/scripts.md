@@ -64,6 +64,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-credguard-install.mjs` | Wire the credential read guard into every installed worker harness, idempotently (docs/credguard.md) |
 | `fm-jev-tool-gate.sh` | Remainder Jev Choice after a deterministic arm-policy allow; shadow-log default (docs/arm-pretool-check.md) |
 | `fm-jev.sh` | Compact typed judgments for closed-set decisions ([configuration](configuration.md)) |
+| `fm-jev-eval.sh` | Score every Jev call site against its gold test set, guard the committed baseline, and drive each site's act/advise mode ([configuration](configuration.md#jev-eval-and-per-site-autonomy-binfm-jev-evalsh)) |
 | `fm-jev-skill-select.sh` | Suggest optional skills ([configuration](configuration.md#jev-skill-selector-fm_jev_skill_select)) |
 | `fm-jev-intake-match.sh` | Match positional free-text captain references to backlog items and task records, keyword fallback ([configuration](configuration.md#jev-intake-match)) |
 | `fm-jev-act-first.sh` | ACT FIRST priority list of the session-start digest's actionable items, and its deferred Jev ranking ([configuration](configuration.md#jev-act-first-ranking-session-start)) |

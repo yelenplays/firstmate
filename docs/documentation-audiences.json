@@ -655,6 +655,170 @@
       "audience": "maintainer-verification"
     },
     {
+      "path": "tests/jev-eval/fixtures/skills/afk/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/agent-skill-trigger-index/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/ahoy/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/ask-user-authority/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/away-quiet-supervision/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/bearings/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/bootstrap-diagnostics/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/browser-steps/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/captain-hold-lifecycle/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/competitive-landscape/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/competitor-analysis/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/decision-hold-lifecycle/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/diagnostic-reasoning/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/firstmate-codexapp/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/firstmate-coding-guidelines/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/firstmate-orca/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/fmx-respond/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/harness-adapters/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/i-have-adhd/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/keyword-clustering/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/keyword-research/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/link-prospecting/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/local-seo/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/operational-home-layout/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/orchestrated-delivery/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/process-event-sources/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/project-management/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/quiet/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/quota-array-dispatch/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/scout-completion/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/secondmate-provisioning/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/seo-audit/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/seo-coach/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/seo-project-setup/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/session-start-recovery/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/ship-landing/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/simple-issue-description/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/stow/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/stuck-crewmate-recovery/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/updatefirstmate/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/jev-eval/fixtures/skills/validation-supervision/SKILL.md",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": ".agents/skills/agent-skill-trigger-index/SKILL.md",
       "audience": "agent-runtime"
     },

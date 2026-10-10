@@ -1,0 +1,143 @@
+{
+  "rules": [
+    {
+      "when": "open-ended reasoning and judgment: planning, specifying, architecture and design decisions, investigating and diagnosing unclear problems, auditing, independent final review, deciding what is true or what to build, orchestrating role pipelines, and all wiki-tool work. Effort follows the task: low for clear questions; medium for anything ambiguous, multi-step, or design-heavy",
+      "use": [
+        {
+          "harness": "claude",
+          "model": "claude-opus-5-5",
+          "effort": "medium",
+          "provider": "claude"
+        }
+      ]
+    },
+    {
+      "when": "frontend and visual work where taste and pixel precision decide the outcome: UI, layout, styling, motion and design systems (not the Harbor Supply website or Tide Arena, which rule 7 owns)",
+      "beats": [
+        {
+          "rule": 1
+        }
+      ],
+      "use": [
+        {
+          "harness": "claude",
+          "model": "claude-opus-5-5",
+          "effort": "medium",
+          "provider": "claude"
+        },
+        {
+          "harness": "devin",
+          "model": "swe-2-max",
+          "provider": "devin"
+        }
+      ]
+    },
+    {
+      "when": "work whose hard requirement is a capability only the Codex/GPT lane provides: OpenAI image generation or editing, video generation, live web or realtime news context, or a brief that must invoke a mattpocock-skills plugin skill (grill-intake, wayfinder, to-spec, to-tickets and similar)",
+      "beats": [
+        {
+          "rule": 1
+        },
+        {
+          "rule": 2
+        }
+      ],
+      "use": [
+        {
+          "harness": "pi",
+          "model": "openai-codex/gpt-6.1-sol",
+          "effort": "high",
+          "provider": "codex"
+        }
+      ]
+    },
+    {
+      "when": "token-eating bulk work that needs volume more than judgment: rote renames, formatting sweeps, typo fixes, rerunning tests, applying an already-settled patch, mass file gathering, documentation or source sweeps, wiki restructuring and page writing to a settled standard, transcript distillation, and repetitive inventories or comparisons",
+      "beats": [
+        {
+          "rule": 1,
+          "when": "the work is pure volume with no judgment or design in it"
+        }
+      ],
+      "use": [
+        {
+          "harness": "claude",
+          "model": "claude-haiku-5-5",
+          "effort": "xhigh",
+          "provider": "claude"
+        }
+      ]
+    },
+    {
+      "when": "work that needs no thinking or has to be done as fast as possible: fast research and quick lookups (product and price searches, first-pass web or GitHub research, fact checks), status or inventory reads, small mechanical edits with an obvious result, simple one-step fixes, short drafts, and any small task where speed matters more than judgment",
+      "beats": [
+        {
+          "rule": 1,
+          "when": "the task has no open question and only needs to be done quickly"
+        },
+        {
+          "rule": 6,
+          "when": "the change is small and mechanical, and speed matters more than careful implementation"
+        }
+      ],
+      "use": [
+        {
+          "harness": "claude",
+          "model": "claude-haiku-5-5",
+          "effort": "high",
+          "provider": "claude"
+        }
+      ]
+    },
+    {
+      "when": "well-scoped implementation with a clear target: building a specified feature, fixing a bug whose cause is known or easy to find, refactoring, writing or fixing tests, documentation changes, and routine reviews of a bounded change",
+      "beats": [
+        {
+          "rule": 1,
+          "when": "the task is already specified or its fix is clear, with no open design question"
+        }
+      ],
+      "use": [
+        {
+          "harness": "claude",
+          "model": "claude-opus-5-5",
+          "effort": "medium",
+          "provider": "claude"
+        }
+      ]
+    },
+    {
+      "when": "any work on the Harbor Supply website (harbor-site) or the Tide Arena game (tide-arena), whatever its kind except pure image generation",
+      "beats": [
+        {
+          "rule": 1
+        },
+        {
+          "rule": 2
+        },
+        {
+          "rule": 4
+        },
+        {
+          "rule": 6
+        }
+      ],
+      "use": [
+        {
+          "harness": "claude",
+          "model": "claude-opus-5-5",
+          "effort": "high",
+          "provider": "claude"
+        }
+      ]
+    }
+  ],
+  "default": [
+    {
+      "harness": "claude",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "provider": "claude"
+    }
+  ]
+}

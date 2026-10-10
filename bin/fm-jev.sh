@@ -49,6 +49,11 @@
 # score answer with no reported confidence, estimated as top minus runner-up
 # probability.
 #
+# Autonomy: an answer that clears the floor still prints as ESCALATE with the
+# answer as its prior and "advise-only" while fm_jev_site_mode worker-cli says
+# advise (the call site's latest bin/fm-jev-eval.sh score in the chosen home,
+# FM_HOME else the owning home, has not cleared the bar).
+#
 # Log: every attempted call appends one metadata-only record (purpose
 # worker-cli, route, requested model, response_model (the build that answered), http, latency, usage in/out token counts - named
 # so fm_jev_log_call's token-key redaction leaves them readable - question count,
@@ -350,7 +355,11 @@ RESPONSE=$(cat "$OUT_FILE")
 # --- output --------------------------------------------------------------------
 # Emits "A<TAB>line" per answered question and "E<TAB>line" per escalation, or
 # fails with a one-line reason when an answer is missing or mistyped.
-LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
+# An answer binds only while this call site's eval score clears the bar
+# (bin/fm-jev-eval.sh); otherwise it escalates with the answer as the prior.
+SITE_MODE=$(FM_JEV_EVAL_SCORES=${FM_JEV_EVAL_SCORES:-${FM_HOME:-$(firstmate_home)}/state/jev-eval/latest.json} \
+  fm_jev_site_mode worker-cli)
+LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" --arg site_mode "$SITE_MODE" '
   def r2: (. * 100 | round) / 100;
   def estimate(p): (p | [.[]] | sort | reverse) as $s | (($s[0] // 0) - ($s[1] // 0));
   def unique_top($probabilities):
@@ -418,6 +427,8 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
     end
   | if (.force_escalate // false) or .conf == null or .conf < .floor then
       "E\t\($q.id): ESCALATE conf=\(if .conf == null then "na" else (.conf | r2) end) prior=\(.prior // .answer) -> decide yourself"
+    elif $site_mode != "act" then
+      "E\t\($q.id): ESCALATE conf=\(.conf | r2) prior=\(.answer) advise-only -> decide yourself"
     else
       "A\t\($q.id): \(.answer)\(if .s != null then " s=\(.s | r2)" else "" end)\(if .p != null then " p=\(.p | r2)" else "" end) conf=\(.conf | r2)"
     end
