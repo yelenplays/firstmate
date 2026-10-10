@@ -655,6 +655,10 @@
       "audience": "maintainer-verification"
     },
     {
+      "path": "tests/fixtures/jev-privacy/dispatch-findings.txt",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": ".agents/skills/agent-skill-trigger-index/SKILL.md",
       "audience": "agent-runtime"
     },

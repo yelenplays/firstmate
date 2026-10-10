@@ -124,6 +124,59 @@ last_log() {
   tail -n 1 "$HOME_DIR/state/jev-ask-user.jsonl"
 }
 
+test_privacy_corpus_before_transport() {
+  local row id label text marker code out failures=''
+  while IFS= read -r row; do
+    id=$(jq -r .id <<<"$row")
+    label=$(jq -r .label <<<"$row")
+    text=$(jq -r .text <<<"$row")
+    marker=$(jq -r '.project_marker // ""' <<<"$row")
+    world
+    if [ -n "$marker" ]; then
+      mkdir -p "$PROJECT/$(dirname "$marker")"
+      : > "$PROJECT/$marker"
+    fi
+    printf 'schema=fm-task-inbox.v1\nat=2026-10-09T18:00:00Z\n--\n%s\n' "$text" \
+      > "$HOME_DIR/state/t1.inbox/002.msg"
+    answer in-scope-fix 0.99 in-scope-fix 0.99
+    run code out t1 "$GATE" --round 1
+    if [ "$label" = pass ]; then
+      if [ "$code" != 0 ] || [ "$(calls)" != 1 ]; then
+        failures="$failures $id"
+        printf 'corpus false alarm: %s (%s)\n' "$id" "$out" >&2
+      else
+        assert_contains "$(jq -r .state "$LOG/body")" "$text" "$id reaches transport unchanged"
+      fi
+    else
+      assert_equals 2 "$code" "$id is refused"
+      assert_equals 0 "$(calls)" "$id makes no outbound request"
+      assert_absent "$LOG/body" "$id never reaches the transport"
+      assert_absent "$LOG/send-args" "$id never answers the gate"
+      assert_equals false "$(last_log | jq -r .jev_called)" "$id is logged as unsent"
+    fi
+  done < <(jq -c '.[]' "$ROOT/tests/fixtures/jev-privacy/corpus.json")
+  [ -z "$failures" ] || fail "privacy corpus false alarms:$failures"
+  pass "fm-jev-ask-user: labeled privacy corpus reaches transport unchanged or stays entirely local"
+}
+
+test_real_dispatch_finding_before_transport() {
+  local code out fixture
+  fixture="$ROOT/tests/fixtures/jev-privacy/dispatch-findings.txt"
+  world
+  cp "$fixture" "$FINDINGS"
+  printf 'needs-decision [at=1791571614] [key=%s]: ask-user findings=dispatch-advise-skips-chain file=%s\n' \
+    "$GATE" "$FINDINGS" > "$HOME_DIR/state/t1.status"
+  answer in-scope-fix 0.99
+  jq '.answers.f1 as $answer | .answers = {f1: $answer, s1: {type: "noul", noul: 0.01}}' \
+    "$RESPONSE" > "$TMP_ROOT/dispatch-response.json"
+  mv "$TMP_ROOT/dispatch-response.json" "$RESPONSE"
+  run code out t1 "$GATE" --round 1
+  assert_equals 0 "$code" "the real dispatch finding passes privacy screening"
+  assert_equals 1 "$(calls)" "the real dispatch finding reaches the fake endpoint"
+  assert_contains "$(jq -r .state "$LOG/body")" "$(cat "$fixture")" "the real finding is sent verbatim"
+  pass "fm-jev-ask-user: real dispatch review finding no longer trips the phone screen"
+}
+
 test_act_sends_jev_decision_with_resolve_key() {
   local code out
   world
@@ -442,6 +495,8 @@ test_send_failure_reports_error() {
   pass "fm-jev-ask-user: a failed send reports the undelivered decision"
 }
 
+test_privacy_corpus_before_transport
+test_real_dispatch_finding_before_transport
 test_act_sends_jev_decision_with_resolve_key
 test_security_screen_escalates_cross_tenant_finding
 test_escalates_contact_data_before_jev

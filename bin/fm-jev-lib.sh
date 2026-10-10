@@ -79,7 +79,17 @@
 #     A credential value is consumed through the end of its line, or its whole
 #     flow or block value, so escaped quotes inside it never end the redaction
 #     early, and every GitHub token prefix (ghp_, gho_, ghu_, ghs_, ghr_,
-#     github_pat_) is stripped.
+#     github_pat_) is stripped. Engpass/Bypass and Keyboard pass colon headings
+#     are exempt only when their whole value is one fixed status word (none,
+#     none., keiner, ok, n/a, ja, nein); every other value, including numbers,
+#     paths, prose, passphrases, empty values, equals assignments and
+#     quoted/structured values, remains sensitive. The fixed
+#     tests/fixtures/jev-privacy corpus pins this boundary.
+#     Phone-shaped numeric lists stay blocked unless immediately labeled
+#     viewport(s) or width(s); plus/trunk-zero phones are never size lists.
+#     A path:start-end line range (directory, file extension, no leading zero,
+#     at most 6 digits per side, start <= end) is retained. Bare viewport
+#     triples remain ambiguous and are deliberately still redacted.
 #   fm_jev_iso_now
 #     Prints the current UTC time as an ISO-8601 second timestamp.
 #   fm_jev_supervision_timeout
@@ -422,6 +432,30 @@ FM_JEV_CHOICE_TOP2_JQ='def jev_choice_top2:
   | {first: ($s[0].key // null), second: ($s[1].key // null), raw_margin: $raw_margin,
      margin: (($raw_margin * 10000 | round) / 10000)};'
 
+# One key predicate for the preflight detector and the value redactor.
+# Ordinary status headings (Engpass, Bypass, Keyboard pass) are a narrow
+# exception, not a compound-pass rule:
+# DBPASS, SSHPASS, WiFi pass and every equals/quoted assignment stay sensitive.
+# A colon heading passes only when the rest of its line is exactly one fixed
+# status word. Any other value, including a number, path, ordinary word or
+# prose, cannot be told apart from a passphrase or code and keeps the key
+# sensitive. Later keys on the same line are still screened on their own.
+# shellcheck disable=SC2016
+_FM_JEV_PRIVACY_KEY_AWK='
+  function sensitive_key(key, assignment, value, prefix,    normalized, status) {
+    normalized = tolower(key)
+    gsub(/[-_.]/, "", normalized)
+    if (normalized !~ /(password|passwd|pwd|pass|secret|token|apikey|secretkey|accesskey|privatekey|clientsecret|auth|credential)$/) return 0
+    if (tolower(key) !~ /^(engpass|bypass)$/ && !(tolower(key) == "pass" && tolower(prefix) ~ /(^|[^[:alnum:]_])keyboard[ \t]+$/)) return 1
+    if (assignment !~ /:[ \t]*$/ || assignment ~ /[\042\047][ \t]*:[ \t]*$/) return 1
+    status = value
+    sub(/^[ \t]*([*][*][ \t]+)?/, "", status)
+    sub(/\n.*$/, "", status)
+    sub(/[ \t\r]+$/, "", status)
+    return tolower(status) !~ /^(none|none[.]|keiner|ok|n\/a|ja|nein)$/
+  }
+'
+
 fm_jev_has_sensitive_key() {
   local text
   if [ $# -ne 1 ]; then
@@ -429,10 +463,9 @@ fm_jev_has_sensitive_key() {
     return 2
   fi
   text=$1
-  printf '%s' "$text" | awk '
+  printf '%s' "$text" | awk "$_FM_JEV_PRIVACY_KEY_AWK"'
     BEGIN {
       assignment_pattern = "(^|[^[:alnum:]_])([-[:alnum:]_.]+)[\042\047]?[ \t]*[:=]"
-      sensitive_suffix_pattern = "(password|passwd|pwd|pass|secret|token|apikey|secretkey|accesskey|privatekey|clientsecret|auth|credential)$"
     }
     {
       remaining = $0
@@ -443,9 +476,7 @@ fm_jev_has_sensitive_key() {
         key_name = assignment
         if (boundary ~ /[^[:alnum:]_]/) key_name = substr(assignment, 2)
         sub(/[\042\047]?[ \t]*[:=]$/, "", key_name)
-        normalized_key = tolower(key_name)
-        gsub(/[-_.]/, "", normalized_key)
-        if (normalized_key ~ sensitive_suffix_pattern) {
+        if (sensitive_key(key_name, assignment, substr(remaining, RSTART + RLENGTH), substr(remaining, 1, RSTART))) {
           found = 1
           exit
         }
@@ -471,7 +502,21 @@ fm_jev_compact_state() {
     _fm_jev_err "state exceeds $max bytes"
     return 1
   fi
-  printf '%s' "$state" | awk '
+  printf '%s' "$state" | awk "$_FM_JEV_PRIVACY_KEY_AWK"'
+    function technical_number(prefix, number,    count, sizes, i) {
+      # A source line range is not a phone; require a path, extension and colon.
+      if (prefix ~ /[[:alnum:]_.-]+\/[[:alnum:]_.\/-]*[.][[:alpha:]][[:alnum:]]*:$/ && number ~ /^[1-9][0-9]*-[1-9][0-9]*$/) {
+        split(number, sizes, "-")
+        return length(sizes[1]) <= 6 && length(sizes[2]) <= 6 && sizes[1] + 0 <= sizes[2] + 0
+      }
+      # Context must touch this list, not merely occur elsewhere in the state.
+      if (number !~ /^[1-9][0-9]*(\/[1-9][0-9]*)+$/) return 0
+      count = split(number, sizes, "/")
+      for (i = 1; i <= count; i++) {
+        if (length(sizes[i]) < 2 || length(sizes[i]) > 4 || sizes[i] + 0 < 160 || sizes[i] + 0 > 7680) return 0
+      }
+      return tolower(prefix) ~ /(^|[^[:alnum:]_])(viewports?|widths?)[ \t]*(:|=|at)?[ \t]*$/
+    }
     function flow_value_end(text,    depth, active_quote, escaped, pos, character, expected_open, stack) {
       if (substr(text, 1, 1) != "{" && substr(text, 1, 1) != "[") return 0
       depth = 1
@@ -534,7 +579,9 @@ fm_jev_compact_state() {
         if (phone ~ /[^[:alnum:]]$/) phone = substr(phone, 1, length(phone) - 1)
         digits = phone
         gsub(/[^0-9]/, "", digits)
-        if (length(digits) >= 7 && phone !~ date_pattern) {
+        phone_start = start
+        if (substr(buf, start, 1) ~ /[^[:alnum:]]/) phone_start++
+        if (length(digits) >= 7 && phone !~ date_pattern && !technical_number(substr(buf, 1, phone_start - 1), phone)) {
           buf = substr(buf, 1, start - 1) "[redacted]" substr(buf, start + match_length)
           search_from = start + 10
         } else {
@@ -548,7 +595,6 @@ fm_jev_compact_state() {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
       assignment_pattern = "(^|[^[:alnum:]_])([-[:alnum:]_.]+)[\042\047]?[ \t]*[:=][ \t]*"
-      sensitive_suffix_pattern = "(password|passwd|pwd|pass|secret|token|apikey|secretkey|accesskey|privatekey|clientsecret|auth|credential)$"
       search_from = 1
       while (search_from <= length(buf)) {
         tail = substr(buf, search_from)
@@ -560,9 +606,7 @@ fm_jev_compact_state() {
         key_name = assignment
         if (boundary ~ /[^[:alnum:]_]/) key_name = substr(assignment, 2)
         sub(/[\042\047]?[ \t]*[:=][ \t]*$/, "", key_name)
-        normalized_key = tolower(key_name)
-        gsub(/[-_.]/, "", normalized_key)
-        if (normalized_key !~ sensitive_suffix_pattern) {
+        if (!sensitive_key(key_name, assignment, substr(buf, key_start + match_length), substr(buf, 1, key_start))) {
           search_from = key_start + match_length
         } else {
           prefix = substr(buf, 1, key_start - 1)

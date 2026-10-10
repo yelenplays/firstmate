@@ -427,6 +427,32 @@ test_probabilities_sum() {
   pass "probabilities must be 0..1 numbers that sum to about 1"
 }
 
+test_labeled_privacy_corpus() {
+  local row id label text compact key_found failures=''
+  jq -e 'length > 0 and ([.[].id] | length == (unique | length))
+    and all(.[]; (.label == "pass" or .label == "block") and (.text | length > 0) and (.source | length > 0))' \
+    "$ROOT/tests/fixtures/jev-privacy/corpus.json" >/dev/null || fail "privacy corpus must be labeled and nonempty"
+  while IFS= read -r row; do
+    [ "$(jq -r '.project_marker // ""' <<<"$row")" = '' ] || continue
+    id=$(jq -r .id <<<"$row")
+    label=$(jq -r .label <<<"$row")
+    text=$(jq -r .text <<<"$row")
+    compact=$(fm_jev_compact_state "$text") || fail "$id could not be screened"
+    key_found=0
+    fm_jev_has_sensitive_key "$text" && key_found=1
+    if [ "$label" = pass ]; then
+      if [ "$key_found" != 0 ] || [ "$compact" != "$text" ]; then
+        failures="$failures $id"
+        printf 'corpus false alarm: %s\n' "$id" >&2
+      fi
+    elif [ "$key_found" != 1 ] && [ "$compact" = "$text" ]; then
+      fail "privacy corpus leak: $id"
+    fi
+  done < <(jq -c '.[]' "$ROOT/tests/fixtures/jev-privacy/corpus.json")
+  [ -z "$failures" ] || fail "privacy corpus false alarms:$failures"
+  pass "shared privacy screen preserves every benign fixture and blocks every sensitive fixture"
+}
+
 test_compact_state_strips_secrets_and_refuses_oversized() {
   local out secret big yaml json
   secret='note TYPESAFE_API_KEY=abc123 and Bearer tok_secret_value and sk-or-v1-abcdefghijklmnopqrstuvwxyz'
@@ -562,6 +588,7 @@ test_curl_transport_failure
 test_missing_curl
 test_confidence_floor
 test_probabilities_sum
+test_labeled_privacy_corpus
 test_compact_state_strips_secrets_and_refuses_oversized
 test_log_call_writes_jsonl_without_secrets
 test_response_model_names_the_answering_build
