@@ -2689,6 +2689,22 @@ if [ "$MODEL_DENYLIST_REFUSED" = 1 ]; then
   echo "error: $FM_MODEL_DENYLIST_ERROR; refusing the launch - pick a model that is not on the list" >&2
   exit 1
 fi
+if [ "$KIND" = secondmate ]; then
+  if [ -z "$FIRSTMATE_HOME" ] && { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; }; then
+    fm_backlog_record_present "$STATE/$ID.meta" "task record" "$STATE" || {
+      echo "error: secondmate task record is unsafe: $FM_BACKLOG_TRANSITION_ERROR" >&2
+      exit 1
+    }
+    FIRSTMATE_HOME=$(grep '^home=' "$STATE/$ID.meta" | cut -d= -f2- || true)
+  fi
+  if [ -z "$FIRSTMATE_HOME" ]; then
+    FIRSTMATE_HOME=$(secondmate_registry_field "$DATA/secondmates.md" "$ID" home || true)
+  fi
+  [ -n "$FIRSTMATE_HOME" ] || {
+    echo "error: no firstmate home supplied or registered for $ID" >&2
+    exit 1
+  }
+fi
 # Every model selection must be consumed with a state-bound consultation or
 # typed exception. --captain-override <reason> records an explicitly authorized
 # profile even after a rule escalates without issuing a receipt; it never waives
@@ -2696,6 +2712,9 @@ fi
 # Static seats and recovery preserve their existing pin policy
 # through the same resolver; a configured dispatch never becomes a manual pick.
 ROUTE_BRIEF="$DATA/$ID/brief.md"
+if [ "$KIND" = secondmate ] && [ -f "$FIRSTMATE_HOME/data/charter.md" ]; then
+  ROUTE_BRIEF="$FIRSTMATE_HOME/data/charter.md"
+fi
 ROUTE_CONTEXT_ARGS=()
 ROUTE_MODEL=$MODEL
 if [ "$RAW_LAUNCH" -eq 1 ]; then
@@ -2710,7 +2729,8 @@ if [ "$RAW_LAUNCH" -eq 1 ]; then
 fi
 ROUTE_SELECTED=$(jq -nc --arg harness "$HARNESS" --arg model "$ROUTE_MODEL" --arg effort "$EFFORT" '{harness:$harness,model:$model,effort:$effort}') || exit 1
 if [ "$RELAUNCH" -eq 1 ]; then
-  ROUTE_PRIOR_MODEL=$(fm_meta_get "$RELAUNCH_META" model)
+  ROUTE_PRIOR_MODEL=$(fm_meta_get "$RELAUNCH_META" raw_model)
+  [ -n "$ROUTE_PRIOR_MODEL" ] || ROUTE_PRIOR_MODEL=$(fm_meta_get "$RELAUNCH_META" model)
   ROUTE_PRIOR_EFFORT=$(fm_meta_get "$RELAUNCH_META" effort)
   [ "$ROUTE_PRIOR_MODEL" != default ] || ROUTE_PRIOR_MODEL=
   [ "$ROUTE_PRIOR_EFFORT" != default ] || ROUTE_PRIOR_EFFORT=
@@ -2718,7 +2738,16 @@ if [ "$RELAUNCH" -eq 1 ]; then
   ROUTE_COMPARE_EFFORT=$EFFORT
   [ "$ROUTE_COMPARE_MODEL" != default ] || ROUTE_COMPARE_MODEL=
   [ "$ROUTE_COMPARE_EFFORT" != default ] || ROUTE_COMPARE_EFFORT=
-  if { [ "$HARNESS" != "$RELAUNCH_PRIOR_HARNESS" ] || [ "$ROUTE_COMPARE_MODEL" != "$ROUTE_PRIOR_MODEL" ] || [ "$ROUTE_COMPARE_EFFORT" != "$ROUTE_PRIOR_EFFORT" ]; } && [ -z "$CAPTAIN_OVERRIDE" ]; then
+  ROUTE_SEAT_PIN=0
+  if [ "$KIND" = secondmate ]; then
+    ROUTE_SEAT_EFFORT=$("$SCRIPT_DIR/fm-harness.sh" secondmate-effort "$ID" 2>/dev/null || true)
+    case "$ROUTE_SEAT_EFFORT" in low | medium | high | xhigh | max | ultra) ;; *) ROUTE_SEAT_EFFORT= ;; esac
+    [ "$HARNESS" != "$("$SCRIPT_DIR/fm-harness.sh" secondmate "$ID" 2>/dev/null || true)" ] \
+      || [ "$ROUTE_COMPARE_MODEL" != "$("$SCRIPT_DIR/fm-harness.sh" secondmate-model "$ID" 2>/dev/null || true)" ] \
+      || [ "$ROUTE_COMPARE_EFFORT" != "$ROUTE_SEAT_EFFORT" ] || ROUTE_SEAT_PIN=1
+  fi
+  if { [ "$HARNESS" != "$RELAUNCH_PRIOR_HARNESS" ] || [ "$ROUTE_COMPARE_MODEL" != "$ROUTE_PRIOR_MODEL" ] || [ "$ROUTE_COMPARE_EFFORT" != "$ROUTE_PRIOR_EFFORT" ]; } \
+    && [ "$ROUTE_SEAT_PIN" = 0 ] && [ -z "$CAPTAIN_OVERRIDE" ]; then
     echo 'error: changed relaunch profile requires --captain-override with the captain-authorized reason; it is not preserved recovery' >&2
     exit 1
   fi
@@ -2786,10 +2815,6 @@ if [ -n "$WORKER_ACCOUNT" ] && [ "$HARNESS" = claude ]; then
     unset CLAUDE_CONFIG_DIR
   fi
 fi
-
-secondmate_registry_value() {
-  secondmate_registry_field "$DATA/secondmates.md" "$1" "$2"
-}
 
 resolve_kimi_binary() {
   local candidate dir fallback
@@ -3307,23 +3332,6 @@ validate_firstmate_operational_dirs() {
 }
 
 if [ "$KIND" = secondmate ]; then
-  if [ -z "$FIRSTMATE_HOME" ] && { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; }; then
-    fm_backlog_record_present "$STATE/$ID.meta" "task record" "$STATE" || {
-      echo "error: secondmate task record is unsafe: $FM_BACKLOG_TRANSITION_ERROR" >&2
-      exit 1
-    }
-    FIRSTMATE_HOME=$(grep '^home=' "$STATE/$ID.meta" | cut -d= -f2- || true)
-  fi
-  if [ -z "$FIRSTMATE_HOME" ]; then
-    FIRSTMATE_HOME=$(secondmate_registry_value "$ID" home || true)
-  fi
-fi
-
-if [ "$KIND" = secondmate ]; then
-  [ -n "$FIRSTMATE_HOME" ] || {
-    echo "error: no firstmate home supplied or registered for $ID" >&2
-    exit 1
-  }
   PROJ_ABS=$(validate_firstmate_home_for_spawn "$ID" "$FIRSTMATE_HOME")
   if [ -e "$DATA/secondmates.md" ] || [ -L "$DATA/secondmates.md" ]; then
     if ! secondmate_registry_validate_bindings "$DATA/secondmates.md" resolve_path "$ID" "$FIRSTMATE_HOME"; then
@@ -5628,6 +5636,7 @@ fi
   echo "tasktmp=$TASK_TMP"
   [ -z "$BASE_BRANCH" ] || echo "base_branch=$BASE_BRANCH"
   echo "model=${MODEL:-default}"
+  [ "$RAW_LAUNCH" = 0 ] || [ -z "$ROUTE_MODEL" ] || echo "raw_model=$ROUTE_MODEL"
   # The test-authoring ban, only when the model is on its list, so an unbanned
   # task record stays byte-identical.
   [ -z "$TEST_BAN_MODEL" ] || echo "test_ban_model=$TEST_BAN_MODEL"
@@ -6004,7 +6013,7 @@ if [ "$KIND" != secondmate ]; then
   mkdir -p "$NM_TOOL_DIR" || exit 1
   ln -sf "$SCRIPT_DIR/fm-no-mistakes.sh" "$NM_TOOL_DIR/no-mistakes" || exit 1
   NM_REAL=$(command -v no-mistakes 2>/dev/null || true)
-  LAUNCH="export FM_NO_MISTAKES_REAL=$(shell_quote "$NM_REAL") FM_MODEL_ROUTER_BRIEF=$(shell_quote "$DATA/$ID/brief.md"); export PATH=$(shell_quote "$NM_TOOL_DIR"):\$PATH; $LAUNCH"
+  LAUNCH="export FM_NO_MISTAKES_REAL=$(shell_quote "$NM_REAL") FM_MODEL_ROUTER_HOME=$(shell_quote "$(cd "$FM_HOME" && pwd -P)") FM_MODEL_ROUTER_BRIEF=$(shell_quote "$DATA/$ID/brief.md"); export PATH=$(shell_quote "$NM_TOOL_DIR"):\$PATH; $LAUNCH"
 fi
 LAUNCH="export FM_TASK_INBOX=$(shell_quote "$STATE_REAL/$ID.inbox"); $LAUNCH"
 LAUNCH="export COMPACT_ADVISER_DISABLE=1; $LAUNCH"

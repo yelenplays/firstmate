@@ -105,6 +105,15 @@ printf '{"schemaVersion":5,"providers":[]}\n' > "$QUOTA"
 out=$(route "$BRIEF") || fail 'unmeasured model array did not resolve safely'
 assert_contains "$(jq -sc '.[-1].state.model_options' "$CALLS")" 'gpt-6.1-sol' 'model tie request includes concrete alternatives'
 assert_contains "$out" '  receipt: ' 'Jev escalation still binds the configured default exception'
+cp "$H/config/crew-dispatch.json" "$TMP_ROOT/two-model-rules.json"
+jq '.rules[0].use |= [.[0], (.[0] | .effort = "high"), .[1]]' "$TMP_ROOT/two-model-rules.json" > "$H/config/crew-dispatch.json"
+: > "$CALLS"
+out=$(route "$BRIEF") || fail 'same-model efforts in an unmeasured array did not resolve safely'
+jq -s -e '.[-1].state.model_options | length == 2 and ([.[].model] | sort) == ["claude-opus-5-5","openai-codex/gpt-6.1-sol"] and
+  ([.[] | select(.model == "claude-opus-5-5") | .harness] == ["claude"])' "$CALLS" >/dev/null \
+  || fail "same-model efforts split the model tie: $(jq -sc '.[-1].state.model_options' "$CALLS")"
+cp "$TMP_ROOT/two-model-rules.json" "$H/config/crew-dispatch.json"
+pass 'rule-local model ties offer one option per concrete model'
 cp "$TMP_ROOT/measured.json" "$QUOTA"
 
 # Fixed-policy consumers use the public resolver, not another picker.
@@ -166,7 +175,7 @@ agent_config:
 YAML
 export NATIVE_CALLS="$TMP_ROOT/native-calls"
 native() {
-  (cd "$TMP_ROOT/repo" && FM_HOME="$H" NM_HOME="$TMP_ROOT/nm" FM_MODEL_ROUTER_BRIEF="$BRIEF" \
+  (cd "$TMP_ROOT/repo" && FM_MODEL_ROUTER_HOME="$H" NM_HOME="$TMP_ROOT/nm" FM_MODEL_ROUTER_BRIEF="$BRIEF" \
     FM_NO_MISTAKES_REAL="$F/native-no-mistakes" "$ROOT/bin/fm-no-mistakes.sh" "$@")
 }
 native axi status >/dev/null || fail 'status pass-through unexpectedly requires a receipt'

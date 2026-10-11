@@ -2,8 +2,8 @@
 # Model-routing boundary for no-mistakes in Firstmate worker launch environments.
 # Usage: fm-no-mistakes.sh <normal no-mistakes arguments>
 # Spawn installs this executable as no-mistakes on the worker's PATH and binds
-# FM_NO_MISTAKES_REAL to the original executable and FM_MODEL_ROUTER_BRIEF to
-# the exact task instructions. Non-model-changing operations pass through.
+# FM_NO_MISTAKES_REAL to the original executable, FM_MODEL_ROUTER_HOME to the
+# owning Firstmate home, and FM_MODEL_ROUTER_BRIEF to the exact task instructions. Non-model-changing operations pass through.
 # Runs and gate responses check runtime pins and both global and repository agent policies
 # through fm-dispatch-resolve.sh before calling the real tool. Fixed native
 # agent chains remain fixed policies, recorded as deterministic exceptions;
@@ -26,7 +26,7 @@ case "${1:-} ${2:-}" in
     ;;
   *) exec "$REAL" "$@";;
 esac
-HOME_DIR=${FM_HOME:?model routing requires the owning Firstmate home}
+HOME_DIR=${FM_MODEL_ROUTER_HOME:?model routing requires the owning Firstmate home}
 CONFIG=${FM_CONFIG_OVERRIDE:-$HOME_DIR/config}
 BRIEF=${FM_MODEL_ROUTER_BRIEF:-$HOME_DIR/data/${FM_TASK_ID:-}/brief.md}
 [ -r "$BRIEF" ] || { echo 'model-route: task instructions required for no-mistakes selection' >&2; exit 1; }

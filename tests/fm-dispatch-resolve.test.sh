@@ -2028,7 +2028,7 @@ for refusal_case in rescued all-refused floor-fallthrough; do
   write_response "$RESPONSE" rule_1 0.3 '{"rule_1":0.30,"rule_2":0.65,"default":0.05}'
   TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$ATTRIBUTION_QUOTA" run_chain code out err "$BRIEF"
   if [ "$refusal_case" != rescued ]; then
-    expect_code 2 "$code" "$refusal_case: an entirely refused default stops safely"
+    expect_code 3 "$code" "$refusal_case: an entirely refused default stops safely"
     assert_not_contains "$out" '  profile:' "$refusal_case: no known-refused model is emitted"
     continue
   fi
@@ -2108,7 +2108,7 @@ RESTRICTED_DEFAULT_RULES="$TMP_ROOT/restricted-default-rules.json"
 jq 'del(.default) | .rules[3].use[0].floor = {scope: "all_models", min_percent: 99}' "$ALL_REFUSED_RULES" > "$RESTRICTED_DEFAULT_RULES"
 cp "$RESTRICTED_DEFAULT_RULES" "$RULES"
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$MISSING_RULE_FLOOR" run_chain code out err "$BRIEF"
-expect_code 2 "$code" 'an unverifiable default rule floor cannot authorize a refused original profile'
+expect_code 3 "$code" 'an unverifiable default rule floor cannot authorize a refused original profile'
 assert_not_contains "$out" '  profile:' 'an unverifiable default never authorizes a known-refused model'
 cp "$ALL_REFUSED_RULES" "$RULES"
 
@@ -2117,7 +2117,7 @@ jq '(.providers[] | select(.provider == "claude" or .provider == "cursor") | .qu
 reset_log
 write_response "$RESPONSE" rule_4 0.9
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$ALL_REFUSED_DEFAULT_QUOTA" run_chain code out err "$BRIEF"
-expect_code 2 "$code" 'entirely refused rule and default stop rather than selecting by declaration order'
+expect_code 3 "$code" 'entirely refused rule and default stop rather than selecting by declaration order'
 assert_not_contains "$out" '  profile:' 'entirely refused selections never emit launch flags'
 pass 'chain: known-refused candidates cannot be revived by a last resort'
 

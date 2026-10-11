@@ -106,8 +106,8 @@ task_inbox_export() {  # <home> <id>
   if ! grep -qxF 'kind=secondmate' "$1/state/$2.meta" 2>/dev/null; then
     local real_nm
     real_nm=$(PATH="$FAKEBIN_DIR:$PATH" command -v no-mistakes 2>/dev/null || true)
-    printf "export FM_NO_MISTAKES_REAL='%s' FM_MODEL_ROUTER_BRIEF='%s'; export PATH='%s':\$PATH; " \
-      "$real_nm" "$1/data/$2/brief.md" "$1/data/$2/model-tools"
+    printf "export FM_NO_MISTAKES_REAL='%s' FM_MODEL_ROUTER_HOME='%s' FM_MODEL_ROUTER_BRIEF='%s'; export PATH='%s':\$PATH; " \
+      "$real_nm" "$(CDPATH='' cd -- "$1" && pwd -P)" "$1/data/$2/brief.md" "$1/data/$2/model-tools"
   fi
 }
 
@@ -298,6 +298,26 @@ test_claude_secondmate_launch_brief_publishes_into_its_own_home() {
   [ -z "$(find "$HOME_DIR/state/operational-inbox" -name '*.msg' -print -quit 2>/dev/null)" ] \
     || fail "the secondmate launch record leaked into the primary's operational inbox"
   pass "a secondmate claude launch publishes its brief record into the secondmate's own home"
+}
+
+# A host-local second mate may have only its home's charter; the route binds
+# the instructions its launch actually uses.
+test_secondmate_route_binds_its_charter_without_a_task_brief() {
+  local rec id sm out status
+  id="secondmate-charter-route-z4"
+  rec=$(make_spawn_case secondmate-charter-route claude "$id")
+  read_case_record "$rec"
+  sm="$CASE_DIR/secondmate-home"
+  make_seeded_secondmate_home "$sm" "$id"
+  rm -f "$HOME_DIR/data/$id/brief.md"
+
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$sm" --secondmate)
+  status=$?
+  expect_code 0 "$status" "a charter-only secondmate could not be routed"$'\n'"$out"
+  [ -s "$LAUNCH_LOG" ] || fail 'charter-only secondmate was not launched'
+  jq -s -e 'any(.[]; .kind == "secondmate" and .reason == "configured secondmate seat pin")' \
+    "$HOME_DIR/state/model-route/decisions.jsonl" >/dev/null || fail 'charter-only secondmate has no seat-pin receipt'
+  pass "a secondmate with only its charter routes and launches on that charter"
 }
 
 # A claude worker given a typed envelope would see it with the marker stripped,
@@ -2649,6 +2669,7 @@ test_no_profile_keeps_claude_profile_defaults
 test_claude_launch_brief_publishes_record_doorbell
 test_claude_secondmate_launch_brief_publishes_into_its_own_home
 test_claude_spawn_refuses_when_the_brief_record_cannot_publish
+test_secondmate_route_binds_its_charter_without_a_task_brief
 test_non_cursor_launch_clears_inherited_cursor_markers
 test_relative_home_overrides_launch_with_absolute_cross_process_paths
 test_home_defaults_preserve_absolute_or_resolve_relative_paths

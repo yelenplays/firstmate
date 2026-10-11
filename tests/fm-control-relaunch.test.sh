@@ -437,6 +437,24 @@ test_unchanged_direct_relaunch_preserves_recorded_profile_receipt() {
   pass 'unchanged direct relaunch preserves its exact model/effort and deterministic receipt'
 }
 
+test_unchanged_raw_relaunch_compares_its_own_model_pin() {
+  local dir out raw='claude --model opus'
+  dir=$(new_case raw-pin raw-pin)
+  add_ship_task "$dir" raw-pin claude
+  printf zsh > "$dir/fake/command"
+  out=$(run_spawn "$dir" raw-pin --relaunch --harness "$raw")
+  expect_code 1 "$?" "a new raw model pin was accepted without authority: $out"
+  assert_contains "$out" 'requires --captain-override' 'a changed raw pin names the missing authority'
+  out=$(run_spawn "$dir" raw-pin --relaunch --harness "$raw" --captain-override 'Fixture-authorized raw command.')
+  expect_code 0 "$?" "approved raw relaunch failed: $out"
+  printf zsh > "$dir/fake/command"
+  out=$(run_spawn "$dir" raw-pin --relaunch --harness "$raw")
+  expect_code 0 "$?" "unchanged raw relaunch required an override: $out"
+  jq -s -e '.[-1] | .captain_override != true and .reason == "explicit raw launch profile" and .selected.model == "opus"' \
+    "$dir/home/state/model-route/decisions.jsonl" >/dev/null || fail 'unchanged raw relaunch did not bind its own pin'
+  pass 'an unchanged raw relaunch compares its own model pin, not the empty recorded model'
+}
+
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint() {
   local dir out rc gen_before gen_after
   dir=$(new_case same rl1)
@@ -1197,7 +1215,7 @@ test_secondmate_relaunch_picks_up_the_configured_harness_pin() {
   printf '%s\n' "fm-sm3" > "$dir/fake/windows"
   printf '%s' "$dir/smhome" > "$dir/fake/cwd"
   printf 'codex' > "$dir/fake/becomes"
-  out=$(run_control "$dir" sm3 relaunch --captain-override 'Fixture-authorized configured seat change.'); rc=$?
+  out=$(run_control "$dir" sm3 relaunch); rc=$?
   expect_code 0 "$rc" "a configured secondmate harness should relaunch"$'\n'"$out"
   [ "$(journal_field "$dir" sm3 to_harness)" = codex ] \
     || fail "a secondmate relaunch should pick up the configured harness pin, got '$(journal_field "$dir" sm3 to_harness)'"
@@ -1206,7 +1224,9 @@ test_secondmate_relaunch_picks_up_the_configured_harness_pin() {
   [ "$(journal_field "$dir" sm3 to_effort)" = high ] \
     || fail "the configured effort token should come with the pin"
   assert_not_contains "$out" "not a verified harness" "codex is a verified harness"
-  pass "fm-control relaunch: a secondmate relaunch re-resolves its durable configured harness pin"
+  jq -s -e 'any(.[]; .kind == "secondmate" and .captain_override != true and .reason == "configured secondmate seat pin" and .selected == {harness:"codex",model:"some-model",effort:"high"})' \
+    "$home/state/model-route/decisions.jsonl" >/dev/null || fail "the configured seat pin was not recorded as its deterministic policy"
+  pass "fm-control relaunch: a secondmate relaunch re-resolves its durable configured harness pin without an override"
 }
 
 test_secondmate_relaunch_picks_up_its_per_id_pin() {
@@ -1237,7 +1257,7 @@ test_secondmate_relaunch_picks_up_its_per_id_pin() {
   printf '%s\n' "fm-sm8" > "$dir/fake/windows"
   printf '%s' "$dir/smhome" > "$dir/fake/cwd"
   printf 'codex' > "$dir/fake/becomes"
-  out=$(run_control "$dir" sm8 relaunch --captain-override 'Fixture-authorized configured seat change.'); rc=$?
+  out=$(run_control "$dir" sm8 relaunch); rc=$?
   expect_code 0 "$rc" "a per-id pinned secondmate should relaunch"$'\n'"$out"
   [ "$(journal_field "$dir" sm8 to_model)" = other-model ] \
     || fail "the per-id model should beat the shared pin, got '$(journal_field "$dir" sm8 to_model)'"
@@ -1273,7 +1293,7 @@ test_secondmate_relaunch_ignores_invalid_configured_effort_before_stop() {
   printf '%s\n' "fm-sm6" > "$dir/fake/windows"
   printf '%s' "$dir/smhome" > "$dir/fake/cwd"
   printf 'codex' > "$dir/fake/becomes"
-  out=$(run_control "$dir" sm6 relaunch --captain-override 'Fixture-authorized configured seat change.'); rc=$?
+  out=$(run_control "$dir" sm6 relaunch); rc=$?
   expect_code 0 "$rc" "an invalid configured effort should be ignored before stop"$'\n'"$out"
   assert_contains "$out" "effort token 'impossible'" \
     "relaunch should surface the same warning as a normal secondmate spawn"
@@ -2751,6 +2771,7 @@ test_exit_and_relaunch_remove_the_dialog_file
 test_exit_removes_the_dialog_file_before_releasing_the_lock
 test_changed_relaunch_requires_a_recorded_override
 test_unchanged_direct_relaunch_preserves_recorded_profile_receipt
+test_unchanged_raw_relaunch_compares_its_own_model_pin
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint
 test_relaunch_refuses_before_exit_when_the_composer_holds_pending_text
 test_relaunch_refuses_before_exit_when_the_composer_state_is_unproven

@@ -25,8 +25,7 @@
 #   --typed-only, one "dispatch-resolve: off" line on stderr, nothing on
 #   stdout, exit 0, no network call). Keys reach curl only through
 #   bin/fm-jev-lib.sh as an Authorization header read from a file descriptor,
-#   never on argv, and never reach the backup judge; nothing logs or writes
-#   them.
+#   never on argv; nothing logs or writes them.
 #
 # The typed call: one POST through bin/fm-jev-lib.sh (TypeSafe /v1/systemone,
 #   or OpenRouter /api/alpha/decisions when OPENROUTER_API_KEY is set and
@@ -107,9 +106,8 @@
 #     decided: <lane> by typed|default             (chain only; the rule whose profile was used)
 #     matched: <rule> (its profiles were not used)        (chain only; a floor shortfall or refusal moved it to another lane)
 #     typed: <why the typed stage did not decide>         (chain only)
-#     backup: <rule> effort=<e> (<model>, <ms> ms) | failed (<why>) | skipped (<why>)
 #     model/latency_ms/tokens, rule (when excerpt) and confidence, probabilities
-#     effort: <assessed class> (jev confidence=.. | backup judge | declared | declared fallback (classifier <why>))
+#     effort: <assessed class> (jev confidence=.. | declared | declared fallback (classifier <why>))
 #     fallback: <runner-up rule taken when the picked rule missed its own declared floor>
 #     reason: <why the status is not clear; an all-refused escalate names the predicted burn>
 #     note: <quota or floor context>
@@ -127,7 +125,7 @@
 #   escalate  -> the rule requires captain approval (no profile); under --typed-only also no rankable candidate or a tie
 #   ambiguous, error -> --typed-only only; decide as today
 #   Normal typed outcomes exit 0. A full-chain result with no viable profile
-#   exits 2 rather than authorizing a known-refused or unconsulted launch.
+#   exits 3 rather than authorizing a known-refused or unconsulted launch.
 #   Exit 2 only for a usage or configuration error (unreadable brief, an
 #   existing unreadable rules file, malformed rules, an invalid
 #   FM_JEV_DISPATCH_MARGIN, or missing jq), which is
@@ -590,40 +588,13 @@ done < <(jq -r '
 RULE_COUNT=$(jq -r '(.rules // []) | length' "$RULES")
 HAS_DEFAULT=$(jq -r 'has("default")' "$RULES")
 
-# Without --typed-only the resolver always answers: a failure anywhere past the
-# rules check falls to the static last resort below instead of to no answer.
+# A failure anywhere past the rules check reports a structured error with no
+# profile instead of no answer.
 emit_error() {
   local reason=$1
   echo "dispatch-resolve: error ($reason)" >&2
   # Unexpected resolver failures cannot authorize a launch with unchecked gates.
   printf 'dispatch-resolve:\n  status: error\n  reason: %s\n' "$reason"
-  exit 0
-}
-
-# The last resort when even the staged chain cannot run: the first declared
-# default profile, else the first profile of the first rule that needs no
-# captain approval, with its declared effort, read from the validated rules
-# snapshot alone. Only a file whose every profile sits behind approval leaves
-# no profile, because approval is an authority gate, not uncertainty.
-static_fallback() {
-  local reason=$1 line
-  line=$(jq -r '
-    def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
-    def shell_arg: tostring | gsub("[\t\r\n]"; " ") | @sh;
-    (profiles(.default // null) + [(.rules // [])[] | select((.approval // "") != "captain") | profiles(.use)[]])
-    | first // empty
-    | . as $c
-    | if $c.effort_floor != null and ($c.effort == null or
-        ((["low","medium","high","xhigh","max","ultra"] | index($c.effort)) <
-         (["low","medium","high","xhigh","max","ultra"] | index($c.effort_floor))))
-      then .effort = $c.effort_floor else . end
-    | "--harness \(.harness | shell_arg)"
-      + (if .model then " --model \(.model | shell_arg)" else "" end)
-      + (if .effort then " --effort \(.effort | shell_arg)" else "" end)' "$RULES" 2>/dev/null) || line=''
-  [ -n "$line" ] || return 0
-  printf 'dispatch-resolve:\n  status: fallback\n  decided: static by default\n  reason: %s; static last resort: first declared profile\n  profile: %s\n' \
-    "$(printf '%s' "$reason" | tr '\t\r\n' '   ')" "$line"
-  dispatch_log "$(jq -nc --arg reason "$reason" --arg profile "$line" '{status: "fallback", decided_by: "default", rule: "static", reason: $reason, profile_line: $profile}')"
   exit 0
 }
 
@@ -646,8 +617,7 @@ QUOTA=$(mktemp) || { rm -f "$RESP_FILE"; die "mktemp failed"; }
 TASK_TEXT=$(mktemp) || { rm -f "$RESP_FILE" "$QUOTA"; die "mktemp failed"; }
 PREDICT_FILE=$(mktemp) || { rm -f "$RESP_FILE" "$QUOTA" "$TASK_TEXT"; die "mktemp failed"; }
 PICK_FILE=$(mktemp) || { rm -f "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE"; die "mktemp failed"; }
-BACKUP_FILE=$(mktemp) || { rm -f "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE" "$PICK_FILE"; die "mktemp failed"; }
-trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE" "$PICK_FILE" "$BACKUP_FILE"' EXIT
+trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE" "$PICK_FILE"' EXIT
 
 # A never-send match sends nothing to any judge: --typed-only reports the
 # historical off line, and the chain goes straight to the default stage.
@@ -886,7 +856,7 @@ fi
 
 SPEND_LEDGER=${FM_SPEND_LEDGER:-$SCRIPT_DIR/fm-spend-ledger.py}
 if [ -x "$SPEND_LEDGER" ]; then
-  FM_HOME="$FM_HOME" "$SPEND_LEDGER" predict --quota "$QUOTA" > "$PREDICT_FILE" 2>/dev/null \
+  FM_HOME="$FM_HOME" "$SPEND_LEDGER" predict --quota "$QUOTA" --scan-budget 2 > "$PREDICT_FILE" 2>/dev/null \
     || printf '{"status":"unavailable"}\n' > "$PREDICT_FILE"
 else
   printf '{"status":"unavailable"}\n' > "$PREDICT_FILE"
@@ -1242,7 +1212,7 @@ resolve_response() {  # <response-file> <effort-json> <latency-json>: sets RESUL
     || emit_error "resolution failed"
 }
 
-# A one-hot answer for a choice the backup or the default stage made, in the
+# A one-hot answer for a choice the default stage made, in the
 # typed response shape, so it settles through the same gates as a typed answer.
 one_hot_response() {  # <choice> <model-label> <path>
   jq -n --arg choice "$1" --arg model "$2" --slurpfile rules "$RULES" '
@@ -1337,7 +1307,7 @@ settle_stage() {  # <ok-status> <effort-json>
 }
 
 # ---- the chain: typed, bounded runoff, then configured default ---------------
-DECIDED_BY='' TYPED_LINE='' BACKUP_LINE=''
+DECIDED_BY='' TYPED_LINE=''
 if [ "$TYPED_OK" -eq 1 ]; then
   resolve_response "$RESP_FILE" "$EFFORT_JSON" "$LAT_MS"
   # Rule-local quota ties or an entirely unmeasured array are model choices,
@@ -1345,9 +1315,11 @@ if [ "$TYPED_OK" -eq 1 ]; then
   # the same second pass. A fixed single-model lane needs no extra judgment.
   RESULT=$(jq -c "$MODEL_TIE_JQ"'
     if .status == "escalate" and .approval != true and .selection_eligible == true then
-      . as $r | model_tie_candidates as $viable |
+      . as $r |
+      (reduce model_tie_candidates[] as $c ([];
+        if any(.[]; [.profile.harness,.profile.model] == [$c.profile.harness,$c.profile.model]) then . else . + [$c] end)) as $viable |
       if ($viable | length) == 0 then .
-      elif ($viable | map([.profile.harness,.profile.model]) | unique | length) == 1 then
+      elif ($viable | length) == 1 then
         .status = "picked" | .chosen = $viable[0] |
         .pick = {state:"agreed",rules:[$r.rule]}
       else .status = "ambiguous" | .runoff = {state:"ask",options:($viable | to_entries | map({
@@ -1359,7 +1331,7 @@ if [ "$TYPED_OK" -eq 1 ]; then
   # above, keyed by rule and worded with the same criteria the rule Choice sent,
   # so the model still never sees `use`, `why`, quota, or approvals. Code gates
   # the answer on the same top-2 margin, or on an option's declared floor;
-  # anything short of that leaves the typed answer ambiguous for the backup
+  # anything short of that leaves the typed answer ambiguous for the default
   # stage (or for firstmate under --typed-only).
   runoff_note() {  # <pick-json>: merge a non-settling outcome into RESULT
     RESULT=$(jq -c --argjson pick "$1" '. + {pick: $pick} | del(.runoff)' <<<"$RESULT") || emit_error "runoff merge failed"
@@ -1505,10 +1477,9 @@ if [ "$TYPED_ONLY" -eq 0 ] && [ -z "$DECIDED_BY" ]; then
 fi
 
 if [ "$TYPED_ONLY" -eq 0 ]; then
-  RESULT=$(jq -c --arg by "$DECIDED_BY" --arg typed "$TYPED_LINE" --arg backup "$BACKUP_LINE" --arg quota "$QUOTA_NOTE" '
+  RESULT=$(jq -c --arg by "$DECIDED_BY" --arg typed "$TYPED_LINE" --arg quota "$QUOTA_NOTE" '
     .chain = ({decided_by: $by}
-      + (if $typed != "" then {typed: $typed} else {} end)
-      + (if $backup != "" then {backup: $backup} else {} end))
+      + (if $typed != "" then {typed: $typed} else {} end))
     | if $quota != "" then .quota_note = $quota else . end' <<<"$RESULT") || emit_error "chain merge failed"
 fi
 
@@ -1521,11 +1492,10 @@ TEXT=$(jq -r '
   (if .chain then "  decided: \((.lane // .decided_rule // .rule) | flat) by \(.chain.decided_by | flat)" else empty end),
   (if .chain and .lane and .lane != (.decided_rule // .rule) then "  matched: \((.decided_rule // .rule) | flat) (its profiles were not used)" else empty end),
   (if .chain.typed then "  typed: \(.chain.typed | flat)" else empty end),
-  (if .chain.backup then "  backup: \(.chain.backup | flat)" else empty end),
   "  model: \(show(.model))   latency_ms: \(show(.latency_ms))   tokens: \(show(.tokens.input_tokens))/\(show(.tokens.output_tokens))",
   "  rule: \(.rule | flat) (\(.rule_when | flat))   confidence: \(.confidence | flat)",
   "  probabilities: \([.probabilities | to_entries[] | "\(.key | flat)=\(.value | flat)"] | join(" "))",
-  "  effort: \(show(.effort.choice)) (\(if .effort.source == "jev" then "jev confidence=\(show(.effort.confidence))" elif .effort.source == "declared" then "declared" elif .effort.source == "backup" then "backup judge" else "declared fallback (classifier \(.effort.source))" end))",
+  "  effort: \(show(.effort.choice)) (\(if .effort.source == "jev" then "jev confidence=\(show(.effort.confidence))" elif .effort.source == "declared" then "declared" else "declared fallback (classifier \(.effort.source))" end))",
   (if .fallback then "  fallback: \(.fallback | flat)" else empty end),
   (if .reason then "  reason: \(.reason | flat)" else empty end),
   (if .pick == null then empty
@@ -1579,7 +1549,7 @@ fi
 dispatch_log "$(jq -c '{
     status, decided_by: (.chain.decided_by // null), rule: (.lane // .decided_rule // .rule),
     matched_rule: (if .lane and .lane != (.decided_rule // .rule) then (.decided_rule // .rule) else null end),
-    typed: (.chain.typed // null), backup: (.chain.backup // null),
+    typed: (.chain.typed // null),
     effort: {assessed: (.effort.choice // null), source: (.effort.source // null),
              emitted: (if .chosen then (if .chosen.effort_emit == false then (.chosen.profile.effort // null) else (.chosen.effort // .chosen.profile.effort // null) end) else null end),
              clamped_from: (.chosen.clamped // null)},
@@ -1616,6 +1586,6 @@ fi
 printf '%s\n' "$TEXT"
 [ -z "$RECEIPT_PATH" ] || printf '  receipt: %s\n' "$RECEIPT_PATH"
 if [ "$TYPED_ONLY" -eq 0 ] && ! jq -e '.approval == true or .chosen.eligible == true' <<<"$RESULT" >/dev/null; then
-  exit 2
+  exit 3
 fi
 exit 0

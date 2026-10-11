@@ -380,7 +380,7 @@ def refresh_cache(sessions_root, state_dir, budget_seconds=None, persist=True):
     paths = list(iter_session_files(sessions_root))
     if CLAUDE_SESSIONS_ROOT and Path(CLAUDE_SESSIONS_ROOT).is_dir():
         paths += sorted(Path(CLAUDE_SESSIONS_ROOT).rglob("*.jsonl"))
-    for path in dict.fromkeys(paths):
+    for path in sorted(dict.fromkeys(paths), key=lambda p: str(p) in files):
         spath = str(path)
         seen.add(spath)
         try:

@@ -1651,7 +1651,7 @@ Every result above exits 0.
 - Response probabilities must contain exactly every offered choice, use numeric values from 0 through 1, and sum to approximately 1 within 0.01.
 - Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, an invalid `FM_JEV_DISPATCH_MARGIN`, or missing `jq`, each reported and never selected around.
 - Missing `curl` makes the typed stage fail, so the configured default answers; under `--typed-only` it is a structured `error` outcome with exit 0.
-- No eligible full-chain selection or no valid receipt exits 2 and never authorizes a launch.
+- No eligible full-chain selection exits 3, and a receipt that cannot be recorded exits 2; neither authorizes a launch.
 - A failed `quota-axi` read leaves quota evidence unranked rather than vetoing candidates; rule and overflow gates still apply before the last-resort procedure above.
 
 **Runoff on an ambiguous answer**
@@ -1701,11 +1701,12 @@ A receipt is consultation evidence, not merge, task, catalog or authentication a
 `fm-spawn.sh` consumes the receipt before provisioning; arbitrary manual dispatch flags cannot replace a configured resolution.
 For an explicitly captain-authorized choice, pass `--captain-override "<captain-authorized reason>"` with the concrete profile to `fm-spawn.sh`, or to `fm-dispatch-resolve.sh` with `--policy-profile`.
 This path records the reason and `captain_override: true` with a `deterministic_policy` receipt, including after an approval rule issued no receipt; it never waives model bans or widens task authority.
-A relaunch whose harness/model/effort differs from its recorded profile requires that same flag; `fm-control.sh` refuses before stopping the worker and forwards the reason to the launch owner.
+A relaunch whose harness/model/effort differs from its recorded profile requires that same flag, unless the new profile is the secondmate's configured seat pin; `fm-control.sh` refuses before stopping the worker and forwards the reason to the launch owner.
+A raw-launched task's recorded profile includes the model its command pins, so relaunching the same command is unchanged.
 An unchanged relaunch retains the recorded model/effort and its deterministic recovery receipt.
 Configured secondmate seats, preserved recovery pins, and catalog-proven cross-family reviewer chains use the same resolver with explicit fixed-policy exceptions.
 `fm-cross-review.sh` checks the shared denylist before selecting its policy candidate and rebinds the receipt to the generated reviewer instructions.
-Worker launches install `fm-no-mistakes.sh` as a PATH-local boundary without changing the shared daemon or native agent config.
+Worker launches, raw launches included, install `fm-no-mistakes.sh` as a PATH-local boundary bound to the owning home (`FM_MODEL_ROUTER_HOME`) without changing the shared daemon or native agent config.
 It routes the configured native agent/reviewer chain and explicit immutable Pi run pins, consumes fresh receipts, and rechecks bans at run time.
 `fm-send.sh` also rejects banned model pins in steering, so a mid-run pin cannot evade the original spawn check.
 The [never-use model list](#never-use-model-list-configmodel-denylistjson) remains the one owner of bans and captain-model-rules injection.
