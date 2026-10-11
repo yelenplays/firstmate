@@ -1507,7 +1507,7 @@ A rule declaring `approval: captain` returns no profile; an entirely refused sel
 No generative backup judge or firstmate hand-pick chooses a model.
 
 Each stage's answer settles through the same gates described below.
-When the decided lane has no rankable candidate or ranking ties, the last resort picks its best-ranked eligible candidate, then its first eligible candidate, in declared order on a tie.
+When the decided lane has no rankable candidate or its ranking ties, its eligible models go to the bounded second Jev pass described under "Runoff on an ambiguous answer" below; if that pass does not settle, the configured default lane answers, and its last resort picks its best-ranked eligible candidate, then its first eligible candidate, in declared order on a tie.
 If every candidate is refused, the resolver first tries an eligible selection from the configured default lane, or `rule_1` when no default is declared, preserving that lane's approval and rule-floor restrictions.
 If that lane cannot supply an eligible selection either, the resolver stops with both refusal reasons rather than emitting a refused profile.
 When a rule's quota-floor shortfall has already moved selection to the default lane, the last resort stays in that lane rather than returning to the matched rule.
@@ -1644,7 +1644,7 @@ No qualifying option, or two equally probable qualifying options, leaves the typ
 | `fallback` | The default stage or a last resort decided; a `profile:` line ready for `fm-spawn.sh`. |
 | `escalate` | An approval-gated rule; no profile line; typed-only mode also uses it for an unverifiable rule floor or no eligible candidate. A genuine quota tie or unranked eligible alternatives in one rule become `ambiguous` for the runoff, or `picked` when they share one model. |
 | `ambiguous` | Under `--typed-only` only: the rule answer missed its gate and no runoff settled it; no profile line. |
-| `error` | Under `--typed-only` only: API, network, malformed response metadata, rendering, or quota-axi failure. |
+| `error` | Under `--typed-only`: API, network, malformed response metadata, rendering, or quota-axi failure. In the full chain: an internal resolver failure, with no profile line and exit 3, so it authorizes no launch. |
 
 Every result above exits 0, except a full-chain result with no eligible selection.
 

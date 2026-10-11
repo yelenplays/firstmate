@@ -12,7 +12,8 @@
 #     (recorded, not inferred).
 #   Full-chain profile results may carry a receipt: line for optional evidence.
 #   Missing or unwritable records never prevent a concrete profile result.
-#   Fixed pins record deterministic_policy rather than spend a model call.
+#   The cross-review chain and a captain override record deterministic_policy
+#   rather than spend a model call.
 #
 # Routing stages, last-resort selection, and authority gates are owned by
 #   docs/configuration.md "Typed dispatch resolution".
@@ -84,8 +85,8 @@
 # Never-use models: a profile whose model, harness/model, or modelless harness
 #   matches $FM_HOME/config/model-denylist.json is never eligible, so it is
 #   never ranked or offered in a runoff; its candidate line names the rule and
-#   reason. No fallback may emit a known-refused model. The current list is
-#   checked again at spawn, steering and pipeline run time. A malformed list exits 2 like
+#   reason. No fallback may emit a known-refused model. bin/fm-spawn.sh
+#   checks the current list again at launch. A malformed list exits 2 like
 #   malformed rules.
 #   docs/configuration.md "Never-use model list" owns the list.
 #
@@ -125,7 +126,8 @@
 #   picked    -> the typed rule answer was ambiguous and the runoff settled it; pass the profile line the same way
 #   fallback  -> the default stage or a last resort decided; pass the profile line the same way
 #   escalate  -> the rule requires captain approval (no profile); under --typed-only also an unverifiable floor or no eligible candidate
-#   ambiguous, error -> --typed-only only; decide as today
+#   ambiguous -> --typed-only only; decide as today
+#   error     -> under --typed-only decide as today; in the full chain no profile (exit 3)
 #   Normal typed outcomes exit 0. A full-chain result with no viable profile
 #   exits 3 rather than authorizing a known-refused or unconsulted launch.
 #   Exit 2 only for a usage or configuration error (unreadable brief, an
@@ -586,6 +588,7 @@ emit_error() {
   echo "dispatch-resolve: error ($reason)" >&2
   # Unexpected resolver failures cannot authorize a launch with unchecked gates.
   printf 'dispatch-resolve:\n  status: error\n  reason: %s\n' "$reason"
+  [ "$TYPED_ONLY" -eq 1 ] || exit 3
   exit 0
 }
 
@@ -1258,16 +1261,16 @@ if [ "$TYPED_OK" -eq 1 ]; then
   # the same second pass. A fixed single-model lane needs no extra judgment.
   RESULT=$(jq -c "$MODEL_TIE_JQ"'
     if .status == "escalate" and .approval != true and .selection_eligible == true then
-      . as $r |
+      . as $r | ($r.decided_rule // $r.rule) as $rule |
       (reduce model_tie_candidates[] as $c ([];
         if any(.[]; [.profile.harness,.profile.model] == [$c.profile.harness,$c.profile.model]) then . else . + [$c] end)) as $viable |
       if ($viable | length) == 0 then .
       elif ($viable | length) == 1 then
         .status = "picked" | .chosen = $viable[0] |
-        .pick = {state:"agreed",rules:[$r.rule]}
+        .pick = {state:"agreed",rules:[$rule]}
       else .status = "ambiguous" | .runoff = {state:"ask",options:($viable | to_entries | map({
-        key:("candidate_" + (.key | tostring)), rules:[$r.rule], floor:null,
-        settled:{status:"clear",decided_rule:$r.rule,lane:$r.lane,chosen:.value,candidates:$r.candidates,note:$r.note}}))} end
+        key:("candidate_" + (.key | tostring)), rules:[$rule], floor:null,
+        settled:{status:"clear",decided_rule:$rule,lane:$r.lane,chosen:.value,candidates:$r.candidates,note:$r.note}}))} end
     else . end' <<<"$RESULT") || emit_error 'could not form model-tie options'
   # ---- runoff: one typed Jev pick among the contenders of an ambiguous answer ----
   # The question offers only contenders that each settled on a concrete profile
@@ -1501,7 +1504,7 @@ dispatch_log "$(jq -c '{
     reason: (.last_resort // .reason // null)
   }' <<<"$RESULT" 2>/dev/null || printf '{}')"
 record_model_choice() {
-  OPTIONS_HASH=$(set -o pipefail; jq -cS --argjson questions "$QUESTIONS" \
+  OPTIONS_HASH=$(set -o pipefail; jq -cS --argjson questions "${QUESTIONS:-"{}"}" \
     '{questions:$questions,candidates:.candidates,runoff:.runoff}' <<<"$RESULT" | \
     python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())') || return 1
   RAW_CONSULT=$(jq -c '{model, answer:.answers}' "$RESP_FILE" 2>/dev/null) || RAW_CONSULT=null

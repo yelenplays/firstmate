@@ -25,10 +25,12 @@ done
 body=$(cat)
 printf '%s\n' "$body" >> "$CALLS"
 if jq -e '.questions.pick' <<<"$body" >/dev/null; then
- jq -nc --argjson body "$body" '
+ jq -nc --argjson body "$body" --argjson lead "${PICK_LEAD:-0.51}" '
    ($body.questions.pick.criteria | keys) as $keys |
-   {model:"jev-1.13.0",answers:{pick:{type:"choice",choice:$keys[0],confidence:0.01,
-     probabilities:($keys | to_entries | map({key:.value,value:(if .key == 0 then 0.51 else 0.49 end)}) | from_entries)}}}' > "$out"
+   {model:"jev-1.13.0",answers:{pick:{type:"choice",choice:$keys[0],confidence:$lead,
+     probabilities:($keys | to_entries | map({key:.value,value:(if .key == 0 then $lead else (1 - $lead) / (($keys | length) - 1) end)}) | from_entries)}}}' > "$out"
+elif [ -n "${RULE_ANSWER:-}" ]; then
+ printf '%s\n' "$RULE_ANSWER" > "$out"
 elif jq -e '.questions.rule.criteria.rule_2' <<<"$body" >/dev/null; then
  printf '%s\n' '{"model":"jev-1.13.0","answers":{"rule":{"type":"choice","choice":"rule_1","confidence":0.01,"probabilities":{"rule_1":0.51,"rule_2":0.49,"default":0}}}}' > "$out"
 else
@@ -133,6 +135,48 @@ cp "$TMP_ROOT/before-override.json" "$H/config/crew-dispatch.json"
 pass 'captain overrides and approved escalations record their explicit reason'
 
 # Consultation records are optional evidence, never a model-choice prerequisite.
+cp "$H/config/crew-dispatch.json" "$TMP_ROOT/before-fallback-tie.json"
+cat > "$H/config/crew-dispatch.json" <<'JSON'
+{"rules":[
+ {"when":"Contained implementation work.","min_confidence":0.8,"use":{"harness":"claude","model":"claude-opus-5-5","effort":"medium"}},
+ {"when":"Complex implementation work.","use":[{"harness":"claude","model":"claude-opus-5-5","effort":"medium"},{"harness":"pi","model":"openai-codex/gpt-6.1-sol","effort":"high","provider":"codex"}]}
+],"default":{"harness":"claude","model":"claude-opus-5-5","effort":"medium"}}
+JSON
+printf '{"schemaVersion":5,"providers":[]}\n' > "$QUOTA"
+: > "$CALLS"
+out=$(RULE_ANSWER='{"model":"jev-1.13.0","answers":{"rule":{"type":"choice","choice":"rule_1","confidence":0.3,"probabilities":{"rule_1":0.3,"rule_2":0.65,"default":0.05}}}}' \
+  PICK_LEAD=0.9 route "$BRIEF") || fail "a floor fallback with a model tie did not resolve: $out"
+jq -s -e '.[-1].questions.pick.criteria | length == 2 and all(.[]; . == "Complex implementation work.")' "$CALLS" >/dev/null \
+  || fail "model-tie options were worded with the rejected rule: $(jq -sc '.[-1].questions.pick.criteria' "$CALLS")"
+assert_contains "$out" '  decided: rule_2 by typed' 'the settled fallback rule decides the model tie'
+assert_not_contains "$out" '  matched: ' 'a model tie inside the settled rule claims no other matched rule'
+tail -n 1 "$H/state/dispatch-resolve.jsonl" | jq -e '.rule == "rule_2" and .matched_rule == null' >/dev/null \
+  || fail 'the dispatch log misattributed the model tie'
+cp "$TMP_ROOT/before-fallback-tie.json" "$H/config/crew-dispatch.json"
+cp "$TMP_ROOT/measured.json" "$QUOTA"
+pass 'model ties after a confidence fallback belong to the settled rule'
+
+printf '%s\n' '{"status":"ok","median":"broken"}' > "$TMP_ROOT/broken-ledger"
+cat > "$F/broken-ledger" <<SH
+cat "$TMP_ROOT/broken-ledger"
+SH
+chmod +x "$F/broken-ledger"
+out=$(PATH="$F:$PATH" FM_HOME="$H" TYPESAFE_API_KEY=test-route-key FM_SPEND_LEDGER="$F/broken-ledger" "$ROOT/bin/fm-dispatch-resolve.sh" "$BRIEF" 2>/dev/null)
+code=$?
+assert_equals 3 "$code" 'a full-chain internal failure authorizes no launch'
+assert_contains "$out" '  status: error' 'the internal failure is reported'
+assert_not_contains "$out" '  profile: ' 'an internal failure prints no profile'
+pass 'full-chain internal failures exit 3 without a profile'
+
+cp "$H/config/crew-dispatch.json" "$TMP_ROOT/before-default-only.json"
+jq '.rules = []' "$TMP_ROOT/before-default-only.json" > "$H/config/crew-dispatch.json"
+out=$(route "$BRIEF" 2>&1) || fail "a default-only rules file did not resolve: $out"
+assert_not_contains "$out" 'record unavailable' 'a default-only selection still writes its record'
+jq -e '.exception == "deterministic_policy" and .selected.model == "claude-opus-5-5"' "$(record_of "$out")" >/dev/null \
+  || fail 'the default-only record did not capture its deterministic policy'
+cp "$TMP_ROOT/before-default-only.json" "$H/config/crew-dispatch.json"
+pass 'a default-only rules file records its deterministic policy'
+
 mv "$H/state/model-route" "$TMP_ROOT/saved-records"
 printf 'records unavailable\n' > "$H/state/model-route"
 out=$(route "$BRIEF") || fail 'unwritable records blocked core routing'
