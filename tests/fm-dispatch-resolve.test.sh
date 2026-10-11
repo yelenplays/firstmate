@@ -499,10 +499,11 @@ pick_body=$(cat "$LOG/pick-body")
 assert_equals '["pick"]' "$(jq -c '.questions | keys' <<<"$pick_body")" "the runoff asks one pick Choice"
 assert_equals '["rule_2","rule_4"]' "$(jq -c '.questions.pick.criteria | keys' <<<"$pick_body")" "only the contenders are offered, keyed by rule"
 assert_equals 'A simple bug fix with a stated root cause.' "$(jq -r '.questions.pick.criteria.rule_4' <<<"$pick_body")" "a contender is worded with its own rule criterion"
-assert_equals "$(jq -c .state "$LOG/body")" "$(jq -c .state <<<"$pick_body")" "the runoff reuses the rule request's state"
-assert_not_contains "$pick_body" 'cursor-grok' "use profiles never leave the machine in a runoff"
+assert_equals "$(jq -c .state "$LOG/body")" "$(jq -c '.state | del(.captain_model_rules,.model_options)' <<<"$pick_body")" "the runoff preserves the task state"
+assert_contains "$(jq -c .state.model_options <<<"$pick_body")" 'runway' 'the second pass sees the concrete models and quota evidence'
+assert_contains "$pick_body" 'cursor-grok' 'the runoff sees the bounded concrete model choices'
 assert_not_contains "$pick_body" 'SECRET-WHY-TEXT' "why text never leaves the machine in a runoff"
-assert_not_contains "$pick_body" 'spendPriority' "quota never leaves the machine in a runoff"
+assert_contains "$pick_body" 'spendPriority' 'the runoff sees locally computed quota evidence, not account identities'
 assert_not_contains "$(cat "$LOG/argv")" "$KEY" "the key never appears on curl argv in a runoff"
 pass "runoff: a decisive pick among clearing contenders emits the winner's profile"
 
@@ -575,7 +576,7 @@ pass "runoff: contenders that settle on the same profile need no call"
 reset_log
 write_response "$RESPONSE" rule_4 0.26 "$NARROW"
 write_pick_response "$PICK_RESPONSE" rule_4 '{ "rule_4": 0.86, "rule_2": 0.14 }'
-printf '%s\n' 'plausibly fits' > "$HOME_DIR/config/dispatch-never-send"
+printf '%s\n' 'Which ONE of' > "$HOME_DIR/config/dispatch-never-send"
 reset_log
 TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$BRIEF"
 assert_contains "$out" "  pick: skipped (brief text matches $HOME_DIR/config/dispatch-never-send line 1; nothing sent)" "the never-send list also guards the runoff request"
@@ -963,7 +964,8 @@ TIE="$TMP_ROOT/tie.json"
 write_quota "$TIE" 0.5 0.5
 write_response "$RESPONSE" default 0.88 '{ "rule_1": 0.01, "rule_2": 0.01, "rule_3": 0.01, "rule_4": 0.01, "default": 0.96 }'
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$TIE" run code out err "$BRIEF"
-assert_contains "$out" '  status: escalate' "tie escalates"
+assert_contains "$out" '  status: ambiguous' 'a model tie gets the bounded Jev pass before falling back'
+assert_present "$LOG/pick-body" 'the tied models were offered to Jev' 
 assert_contains "$out" '  reason: genuine spendPriority tie' "tie is named"
 pass "tie: equal spendPriority never breaks by array order"
 
@@ -1064,7 +1066,7 @@ pass "native Codex binds to codex-home before default, independently of Pi accou
 jq '.schemaVersion = 5 | .providers |= map(select(.accountKey != "openai-codex")) | del(.providers[].accountKey)' "$SCHEMA6" > "$SCHEMA5_PAIR"
 reset_log
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$SCHEMA5_PAIR" run code out err "$BRIEF"
-assert_contains "$out" '  status: escalate' "schema 5 keeps joining by provider alone"
+assert_contains "$out" '  status: ambiguous' 'schema 5 provider-only evidence ties go to the bounded model pass'
 assert_contains "$out" '  reason: genuine spendPriority tie' "every codex profile reads the one schema 5 codex row"
 assert_contains "$out" 'candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=11%  spendPriority=-5.6819  runway=projected_exhaustion  pred=unknown  -> eligible' "a schema 5 row never needs accountKey"
 
@@ -1569,9 +1571,9 @@ write_response_effort "$RESPONSE" rule_4 0.9 high
 jq '.answers.effort.probabilities = {"low":0.05,"medium":0.05,"high":0.8,"xhigh":0.05,"max":0.05}' "$RESPONSE" > "$TMP_ROOT/r.json" && mv "$TMP_ROOT/r.json" "$RESPONSE"
 TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_DATA" run code out err "$BRIEF"
 assert_contains "$out" '  status: clear' "cost gates leave a fitting candidate clear"
-assert_contains "$out" 'not eligible: predicted burn ~200k tokens (~200%) exceeds remaining 91%' "cursor is refused with its predicted burn named"
-assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" "the fitting candidate wins over the higher spendPriority"
-pass "cost-aware ranking: predicted burn refuses a candidate that cannot fit"
+assert_not_contains "$out" 'not eligible: predicted burn' 'token/point estimates cannot fabricate an account limit'
+assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" 'through-reset quota keeps its normal ranking'
+pass 'cost evidence: token burn is advisory, not a quota veto'
 
 # When every measured candidate's predicted burn exceeds its headroom the
 # escalate reason names the predicted burn.
@@ -1585,9 +1587,9 @@ reset_log
 write_response_effort "$RESPONSE" rule_4 0.9 high
 jq '.answers.effort.probabilities = {"low":0.05,"medium":0.05,"high":0.8,"xhigh":0.05,"max":0.05}' "$RESPONSE" > "$TMP_ROOT/r.json" && mv "$TMP_ROOT/r.json" "$RESPONSE"
 TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$BURN_ALL" run code out err "$BRIEF"
-assert_contains "$out" '  status: escalate' "all refused escalates"
-assert_contains "$out" 'predicted burn ~' "the escalate reason names the predicted burn"
-pass "cost-aware ranking: an all-refused escalate names the predicted burn"
+assert_contains "$out" '  status: clear' 'large token estimates do not refuse otherwise viable quota'
+assert_contains "$out" 'pred=~200000tok/500s' 'provider-specific predictions remain visible'
+pass 'cost evidence: large estimates stay inspectable without overriding viable quota'
 
 # Runway: a candidate whose usable runway is shorter than the predicted
 # duration is refused with the prediction named. Cursor's token burn fits
@@ -1602,7 +1604,7 @@ RUNWAY_QUOTA="$TMP_ROOT/runway-quota.json"
 jq '(.providers[] | select(.provider == "cursor") | .quotaSemantics.effectiveAvailability[] | select(.scope == "all_models") | .runway) = {"status":"projected_exhaustion","usableRunwaySeconds":60}' "$QUOTA" > "$RUNWAY_QUOTA"
 reset_log
 TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$RUNWAY_QUOTA" run code out err "$BRIEF"
-assert_contains "$out" 'not eligible: predicted duration ~500s exceeds usable runway 60s' "short runway refuses with the predicted duration named"
+assert_contains "$out" 'not eligible: predicted duration ~500s exceeds projected-exhaustion runway 60s' 'known exhaustion before completion refuses with the provider-specific duration named'
 assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" "the runway-fitting candidate still resolves"
 pass "cost-aware ranking: a runway shorter than predicted duration refuses the candidate"
 
@@ -1722,9 +1724,13 @@ for rejection in ceiling harness floor burn; do
       assert_contains "$out" '  status: clear' "$rejection assessment clamps to the primary's supported range"
       assert_contains "$out" "  profile: --harness '$(if [ "$rejection" = harness ]; then printf agy; else printf claude; fi)'" "$rejection assessment keeps the primary"
       ;;
-    floor|burn)
-      assert_contains "$out" '  status: escalate' "non-quota $rejection rejection does not activate overflow"
-      assert_not_contains "$out" '  profile:' "non-quota $rejection rejection emits no overflow launch"
+    floor)
+      assert_contains "$out" '  status: escalate' 'an explicit floor shortfall does not activate overflow'
+      assert_not_contains "$out" '  profile:' 'an explicit floor shortfall emits no overflow launch'
+      ;;
+    burn)
+      assert_contains "$out" '  status: clear' 'advisory burn does not override a through-reset primary'
+      assert_contains "$out" "--model 'claude-opus-5-5'" 'the primary stays on its real provider quota'
       ;;
   esac
   assert_not_contains "$out" "$SOL_PROFILE" "non-quota $rejection evidence never authorizes overflow"
@@ -1927,37 +1933,25 @@ reset_log
 write_response "$RESPONSE" rule_4 0.26 '{ "rule_1": 0.02, "rule_2": 0.30, "rule_3": 0.02, "rule_4": 0.41, "default": 0.25 }'
 FAKE_CURL_PICK_FAIL=1 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_ANSWER='{"rule":"rule_1","effort":"high"}' run_chain code out err "$BRIEF"
 expect_code 0 "$code" "chain: ambiguous typed answer still exits 0"
-assert_contains "$out" '  status: backup' "chain: the backup decided"
-assert_contains "$out" '  decided: default by backup' "chain: a floor shortfall names the default lane actually used"
-assert_contains "$out" '  matched: rule_1 (its profiles were not used)' "chain: the matched rule stays visible"
-assert_not_contains "$out" '  decided: rule_1 by backup' "chain: the matched rule is never reported as the lane"
-assert_contains "$(tail -n 1 "$DISPATCH_LOG")" '"rule":"default","matched_rule":"rule_1"' "chain: the dispatch log records the lane and the matched rule"
-assert_contains "$out" '  backup: rule_1 effort=high' "chain: the backup answer is summarized"
-assert_contains "$out" "note: rule rule_1 floor model:fable below 20%: fall through to default" "chain: the backup's rule keeps its quota floor"
-assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" "chain: the backup's rule yields a profile through the ordinary gates"
-assert_equals "1" "$(backup_calls)" "chain: exactly one backup call"
-STATE_SENT=$(jq -c '.state' "$LOG/body")
-assert_contains "$(cat "$LOG/backup-prompt")" "$STATE_SENT" "chain: the backup sees the same state as the typed call"
-for opt in rule_1 rule_2 rule_3 rule_4 default; do
-  assert_contains "$(cat "$LOG/backup-argv")" "\"$opt\"" "chain: the backup schema offers $opt"
-done
-assert_contains "$(cat "$LOG/backup-argv")" 'claude-haiku-5-5' "chain: the backup defaults to Haiku 5.5"
-assert_not_contains "$(cat "$LOG/backup-argv")" "$KEY" "chain: no key reaches the backup argv"
-assert_not_contains "$(cat "$CHILD_ENV_LOG" 2>/dev/null)" 'backup:secret-present' "chain: no key reaches the backup environment"
-assert_contains "$(tail -n 1 "$DISPATCH_LOG")" '"decided_by":"backup"' "chain: the log records the backup"
-pass "chain: an ambiguous typed answer is decided by the backup on the same state"
+assert_contains "$out" '  status: fallback' 'chain: an undecided Jev answer uses the configured default'
+assert_contains "$out" '  decided: default by default' 'chain: the default lane is named'
+assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" 'chain: the default keeps its ordinary quota gates'
+assert_equals 0 "$(backup_calls)" 'chain: no generative backup model is invoked'
+assert_contains "$(tail -n 1 "$DISPATCH_LOG")" '"decided_by":"default"' 'chain: the deciding stage is recorded'
+assert_contains "$out" '  receipt: ' 'chain: fallback has a consumable typed exception receipt'
+pass 'chain: an undecided Jev answer uses the configured default without a generative judge'
 
 # An unreachable typed call and an absent key both go to the backup.
 reset_log
 write_response "$RESPONSE" rule_4 0.9
 FAKE_CURL_HTTP=503 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_ANSWER='{"rule":"rule_4","effort":"high"}' run_chain code out err "$BRIEF"
-assert_contains "$out" '  status: backup' "chain: an http error goes to the backup"
+assert_contains "$out" '  status: fallback' 'chain: an HTTP error uses the configured default, not another model'
 assert_contains "$out" '  typed: http 503' "chain: the typed failure is named"
 assert_contains "$out" '  profile: ' "chain: an http error still yields a profile"
 reset_log
 FAKE_BACKUP_ANSWER='{"rule":"rule_4","effort":"high"}' run_chain code out err "$BRIEF"
 expect_code 0 "$code" "chain: no key exits 0"
-assert_contains "$out" '  status: backup' "chain: no key goes to the backup"
+assert_contains "$out" '  status: fallback' 'chain: no key records a default exception'
 assert_equals "0" "$(curl_calls)" "chain: no key makes no typed call"
 assert_contains "$out" '  profile: ' "chain: no key still yields a profile"
 pass "chain: an unreachable typed call or absent key falls to the backup"
@@ -1968,16 +1962,16 @@ FAKE_CURL_HTTP=500 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_FAIL=1 run_chain code out e
 expect_code 0 "$code" "chain: a failed backup still exits 0"
 assert_contains "$out" '  status: fallback' "chain: the default stage decided"
 assert_contains "$out" '  decided: default by default' "chain: the default rule is named"
-assert_contains "$out" '  backup: failed' "chain: the backup failure is named"
+assert_equals 0 "$(backup_calls)" 'chain: an unreachable Jev never invokes a generative backup'
 assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" "chain: the best-ranked default profile is emitted"
 assert_contains "$(tail -n 1 "$DISPATCH_LOG")" '"decided_by":"default"' "chain: the log records the default stage"
 reset_log
 FAKE_CURL_HTTP=500 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_ANSWER='{"rule":"rule_99","effort":"high"}' run_chain code out err "$BRIEF"
-assert_contains "$out" '  backup: failed (answer is not a valid structured answer)' "chain: an off-menu backup answer is rejected"
+assert_equals 0 "$(backup_calls)" 'chain: a configured backup stub is never consulted'
 assert_contains "$out" '  status: fallback' "chain: an off-menu backup answer falls to the default"
 reset_log
 FAKE_CURL_HTTP=500 TYPESAFE_API_KEY=$KEY FAKE_BACKUP_FAIL=1 run_chain code out err "$BRIEF"
-assert_contains "$out" '  backup: failed (fake-claude exited 1)' "chain: a failing backup stub is named"
+assert_equals 0 "$(backup_calls)" 'chain: fallback does not execute a failing backup stub'
 assert_contains "$out" '  status: fallback' "chain: a failing backup stub falls to the default"
 pass "chain: a failed or invalid backup falls to the default rule"
 
@@ -2033,7 +2027,12 @@ for refusal_case in rescued all-refused floor-fallthrough; do
   reset_log
   write_response "$RESPONSE" rule_1 0.3 '{"rule_1":0.30,"rule_2":0.65,"default":0.05}'
   TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$ATTRIBUTION_QUOTA" run_chain code out err "$BRIEF"
-  expect_code 0 "$code" "$refusal_case: a settled runner-up still answers"
+  if [ "$refusal_case" != rescued ]; then
+    expect_code 3 "$code" "$refusal_case: an entirely refused default stops safely"
+    assert_not_contains "$out" '  profile:' "$refusal_case: no known-refused model is emitted"
+    continue
+  fi
+  expect_code 0 "$code" 'a healthy configured default rescues the refused rule'
   case "$refusal_case" in
     rescued)
       lane=default; matched=rule_2
@@ -2076,7 +2075,7 @@ TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$QUOTA" run_chain code out err "$BRIEF"
 assert_contains "$out" '  decided: default by default' "all-refused rule: eligible default lane is named"
 assert_contains "$out" '  matched: rule_4 (its profiles were not used)' "all-refused rule: the refused matched rule is named"
 assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-high'" "all-refused rule: eligible default profile is emitted"
-assert_contains "$out" 'last_resort: ' "all-refused rule: the default-lane rescue is disclosed"
+assert_contains "$out" 'reason: rule rule_4 candidates refused:' "all-refused rule: the default-lane rescue is disclosed"
 assert_contains "$out" 'eligible default lane used' "all-refused rule: the refusal and default transition are named"
 pass "chain: eligible default candidates follow an all-refused decided rule"
 
@@ -2094,9 +2093,14 @@ for stage in typed backup; do
   expect_code 0 "$code" "$stage unranked default: routing answers"
   assert_contains "$out" '  decided: default by default' "$stage unranked default: eligible lane rescues the rule"
   assert_contains "$out" "  profile: --harness 'codex' --model 'gpt-5.6-sol'" "$stage unranked default: profile is not the refused original"
-  assert_contains "$out" 'predicted burn ~' "$stage unranked default: the diagnostic includes burn evidence"
-  tail -n 1 "$DISPATCH_LOG" | jq -e '.rule == "default" and .matched_rule == "rule_4" and .profile.harness == "codex"' >/dev/null \
-    || fail "$stage unranked default: actual lane not logged"
+  assert_contains "$out" 'pred=unknown' "$stage unranked default: another provider median is never used"
+  if [ "$stage" = typed ]; then
+    tail -n 1 "$DISPATCH_LOG" | jq -e '.rule == "default" and .matched_rule == "rule_4" and .profile.harness == "codex"' >/dev/null \
+      || fail "$stage unranked default: actual lane not logged"
+  else
+    tail -n 1 "$DISPATCH_LOG" | jq -e '.rule == "default" and .profile.harness == "codex"' >/dev/null \
+      || fail "$stage unranked default: unreachable Jev must not claim an unmeasured match"
+  fi
 done
 pass "chain: diagnostic burn text cannot disqualify an eligible default"
 
@@ -2104,8 +2108,8 @@ RESTRICTED_DEFAULT_RULES="$TMP_ROOT/restricted-default-rules.json"
 jq 'del(.default) | .rules[3].use[0].floor = {scope: "all_models", min_percent: 99}' "$ALL_REFUSED_RULES" > "$RESTRICTED_DEFAULT_RULES"
 cp "$RESTRICTED_DEFAULT_RULES" "$RULES"
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$MISSING_RULE_FLOOR" run_chain code out err "$BRIEF"
-assert_contains "$out" '  decided: rule_4 by typed' "restricted default: an unverifiable rule floor cannot rescue the rule"
-assert_contains "$out" "  profile: --harness 'claude' --model 'fable'" "restricted default: the original lane answers"
+expect_code 3 "$code" 'an unverifiable default rule floor cannot authorize a refused original profile'
+assert_not_contains "$out" '  profile:' 'an unverifiable default never authorizes a known-refused model'
 cp "$ALL_REFUSED_RULES" "$RULES"
 
 ALL_REFUSED_DEFAULT_QUOTA="$TMP_ROOT/all-refused-default-quota.json"
@@ -2113,22 +2117,16 @@ jq '(.providers[] | select(.provider == "claude" or .provider == "cursor") | .qu
 reset_log
 write_response "$RESPONSE" rule_4 0.9
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$ALL_REFUSED_DEFAULT_QUOTA" run_chain code out err "$BRIEF"
-assert_contains "$out" '  decided: rule_4 by typed' "all-refused defaults: original decision remains named"
-assert_not_contains "$out" '  matched: ' "all-refused defaults: the lane used is the matched rule"
-assert_contains "$out" "  profile: --harness 'claude' --model 'fable'" "all-refused defaults: first declared original profile answers"
-assert_contains "$out" 'default candidates refused:' "all-refused defaults: default refusal is disclosed"
-assert_contains "$out" 'every candidate refused' "all-refused defaults: the final choice is identified as last resort"
-pass "chain: the original first profile answers only after default candidates refuse"
+expect_code 3 "$code" 'entirely refused rule and default stop rather than selecting by declaration order'
+assert_not_contains "$out" '  profile:' 'entirely refused selections never emit launch flags'
+pass 'chain: known-refused candidates cannot be revived by a last resort'
 
 reset_log
 FAKE_CURL_HTTP=500 FAKE_BACKUP_FAIL=1 TYPESAFE_API_KEY=$KEY \
   QUOTA_AXI_FIXTURE="$ALL_REFUSED_DEFAULT_QUOTA" run_chain code out err "$BRIEF"
-assert_contains "$out" '  decided: default by default' "default all-refused: the default stage remains named"
-assert_contains "$out" "  profile: --harness 'claude' --model 'opus'" "default all-refused: the first declared default profile answers"
-assert_contains "$out" 'default candidates refused:' "default all-refused: refusal details are disclosed"
-tail -n 1 "$DISPATCH_LOG" | jq -e '.rule == "default" and (.reason | contains("default candidates refused:"))' >/dev/null \
-  || fail 'default all-refused: the persisted refusal names the default stage'
-pass "chain: a refused default stage names its final declared-order choice"
+expect_code 3 "$code" 'an unreachable Jev plus an exhausted default cannot launch'
+assert_not_contains "$out" '  profile:' 'an exhausted default never authorizes launch'
+pass 'chain: a refused default stops safely when Jev cannot answer'
 
 APPROVAL_DEFAULT_RULES="$TMP_ROOT/approval-default-rule.json"
 jq '.rules[0].approval = "captain" | del(.default)' "$ALL_REFUSED_RULES" > "$APPROVAL_DEFAULT_RULES"
@@ -2136,7 +2134,7 @@ cp "$APPROVAL_DEFAULT_RULES" "$RULES"
 reset_log
 write_response "$RESPONSE" rule_4 0.9
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$QUOTA" run_chain code out err "$BRIEF"
-assert_contains "$out" '  decided: rule_4 by typed' "approval default: the captain gate is not bypassed"
+assert_contains "$out" '  status: escalate' 'approval default: the captain gate is not bypassed'
 assert_not_contains "$out" '  decided: rule_1 by default' "approval default: no profile is routed through the approval rule"
 pass "chain: the no-default fallback preserves captain approval"
 cp "$BASE_RULES" "$RULES"
@@ -2148,10 +2146,9 @@ jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAva
 reset_log
 write_response "$RESPONSE" rule_1 0.97 '{ "rule_1": 0.96, "rule_2": 0.01, "rule_3": 0.01, "rule_4": 0.01, "default": 0.01 }'
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$NOFLOOR_QUOTA" FAKE_BACKUP_ANSWER='{"rule":"rule_1","effort":"high"}' run_chain code out err "$BRIEF"
-assert_contains "$out" '  decided: rule_1 by typed' "chain: an unverifiable floor keeps the decided rule"
-assert_contains "$out" "  profile: --harness 'claude' --model 'fable'" "chain: the last resort picks inside the rule, not the default"
-assert_contains "$out" '  last_resort: ' "chain: the last resort is disclosed for an unverifiable floor"
-pass "chain: an unverifiable rule floor takes the last resort inside its rule"
+assert_not_contains "$out" "--model 'fable'" 'an unverifiable rule floor never authorizes that model'
+assert_contains "$out" '  receipt: ' 'the eligible configured default supplies a typed exception'
+pass 'chain: unknown rule-floor evidence cannot revive an unauthorized rule profile'
 
 # An assessed effort above a rule's range is clamped, not refused.
 reset_log
@@ -2207,7 +2204,7 @@ TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run code out err "$
 assert_contains "$out" '  status: picked' "the runoff still settles with a never-use list"
 pick_body=$(cat "$LOG/pick-body")
 assert_contains "$(jq -r '.state.captain_model_rules' <<<"$pick_body")" 'Never use *kimi* (Kimi is ruled out). Opus does judgment work.' "the runoff state carries the captain model rules"
-assert_equals "$(jq -c .state "$LOG/body")" "$(jq -c 'del(.captain_model_rules)' <<<"$(jq -c .state <<<"$pick_body")")" "the runoff state is the rule state plus the rules"
+assert_equals "$(jq -c .state "$LOG/body")" "$(jq -c 'del(.captain_model_rules,.model_options)' <<<"$(jq -c .state <<<"$pick_body")")" "the runoff preserves task state and adds model rules plus model/effort/quota options"
 pass "never-use list: the runoff state carries the captain model rules"
 
 printf '{"never": [{"pattern": "*", "reason": "everything"}]}' > "$DENYLIST"

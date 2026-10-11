@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fm-spend-ledger.py - the Firstmate spend ledger over workers' Pi session logs.
+"""fm-spend-ledger.py - the Firstmate spend ledger over workers' Pi and Claude session logs.
 
 Usage:
   fm-spend-ledger.py scan                        refresh the session cache and fleet rollup
@@ -18,6 +18,12 @@ carry usage per turn: input/output/cacheRead/cacheWrite/reasoning/totalTokens,
 a cost object, plus provider and model. "thinking_level_change" records carry
 the reasoning effort in effect from that point in the file, so each usage row
 is attributed to the effort class active when it was written.
+
+Native Claude Code transcripts are read as well: every *.jsonl under
+${CLAUDE_CONFIG_DIR:-~/.claude}/projects (override with --claude-sessions-root
+or FM_SPEND_CLAUDE_SESSIONS). Each "assistant" record carries its own
+sessionId, cwd and message usage; repeated records of one message count only
+their usage growth, and message content never enters the cache.
 
 Nested sub-agents (the fm-orchestrated-* role agents and any other Pi
 subagent) are separate session files. A session's artifacts directory holds
@@ -38,8 +44,9 @@ that limitation is stated rather than hidden.
 
 Lanes and families. The raw "provider" on each usage record (openai-codex,
 xai, opencode-go, openrouter, ...) is the observed lane. For quota comparison
-the rollup also publishes the mapped family: openai-codex -> codex and xai ->
-grok are the only mappings, because those are the observed pairs; every other
+the rollup also publishes the mapped family: openai-codex -> codex, xai ->
+grok, and claude or anthropic -> claude are the only mappings, because those
+are the observed pairs; every other
 provider stays under its own name so the ledger never invents a quota row for
 a lane quota-axi does not measure. "deepseek" is a model family, not a lane:
 any model whose name contains "deepseek" rolls up under the deepseek family in
@@ -84,14 +91,16 @@ import re
 import sys
 import tempfile
 import time
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 
-VERSION = 1
+VERSION = 3
 EFFORT_CLASSES = ("low", "medium", "high", "xhigh", "max")
 # Observed Pi log provider -> quota-axi provider family. Only pairs observed in
 # the real fleet are mapped; anything else keeps its own name.
-LOG_TO_QUOTA_PROVIDER = {"openai-codex": "codex", "xai": "grok"}
+LOG_TO_QUOTA_PROVIDER = {"openai-codex": "codex", "xai": "grok", "claude": "claude", "anthropic": "claude"}
+CLAUDE_SESSIONS_ROOT = None
 WEEK_SECONDS = 604800
 MODEL_MAX_AGE = 900
 
@@ -191,6 +200,8 @@ def parse_session_file(path):
         "error": None,
     }
     effort = "unset"
+    native_usage = {}
+    native_counted = set()
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as stream:
             for line in stream:
@@ -204,6 +215,12 @@ def parse_session_file(path):
                 if not isinstance(rec, dict):
                     continue
                 rtype = rec.get("type")
+                # Native Claude transcripts have per-record session identity
+                # and cwd, not Pi's separate session header. Only usage and
+                # identity fields enter the cache; message content never does.
+                if rtype == "assistant":
+                    info["sessionId"] = rec.get("sessionId") or info["sessionId"]
+                    info["cwd"] = rec.get("cwd") or info["cwd"]
                 ts = parse_iso(rec.get("timestamp"))
                 if ts is not None:
                     info["endTs"] = ts
@@ -216,20 +233,49 @@ def parse_session_file(path):
                 elif rtype == "thinking_level_change":
                     level = rec.get("thinkingLevel")
                     effort = level if isinstance(level, str) and level else "unset"
-                elif rtype == "message":
+                elif rtype in ("message", "assistant"):
                     msg = rec.get("message")
                     if not isinstance(msg, dict) or msg.get("role") != "assistant":
                         continue
                     usage = msg.get("usage")
                     if not isinstance(usage, dict):
                         continue
-                    provider = msg.get("provider") or "unknown"
+                    if rtype == "assistant":
+                        observed = {"input": usage.get("input_tokens", 0),
+                                    "output": usage.get("output_tokens", 0),
+                                    "cacheRead": usage.get("cache_read_input_tokens", 0),
+                                    "cacheWrite": usage.get("cache_creation_input_tokens", 0)}
+                        observed = {k: max(0, int(v)) if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) else 0
+                                    for k, v in observed.items()}
+                        # Streaming/final records can repeat one Claude message.
+                        # Count only the monotonic usage delta of that identity.
+                        # Message IDs remain stable even when a later native
+                        # record omits the optional request ID.
+                        identity = next(((kind, value) for kind, value in
+                                         (("message", msg.get("id")), ("request", rec.get("requestId")), ("record", rec.get("uuid")))
+                                         if isinstance(value, str) and value), None)
+                        if identity is None:
+                            # No evidence that two unidentified records are the
+                            # same message: do not manufacture deduplication.
+                            identity = (None, object())
+                        prior = native_usage.get(identity, {})
+                        native_usage[identity] = {k: max(v, prior.get(k, 0)) for k, v in observed.items()}
+                        usage = {k: max(0, v - prior.get(k, 0)) for k, v in observed.items()
+                                 if isinstance(v, (int, float))}
+                        usage["totalTokens"] = sum(usage.values())
+                        if usage["totalTokens"] <= 0:
+                            continue
+                    provider = "claude" if rtype == "assistant" else (msg.get("provider") or "unknown")
                     model = msg.get("model") or "unknown"
                     key = f"{provider}|{model}|{effort}"
                     row = info["rows"].get(key)
                     if row is None:
                         row = info["rows"][key] = empty_bucket()
                     tokens = bucket_add(row, usage)
+                    if rtype == "assistant":
+                        if identity in native_counted:
+                            row["messages"] -= 1
+                        native_counted.add(identity)
                     # Usage belongs to the day its record was written, not the
                     # session start day; long sessions span quota windows.
                     when = ts if ts is not None else info["startTs"]
@@ -338,7 +384,10 @@ def refresh_cache(sessions_root, state_dir, budget_seconds=None, persist=True):
     scanned = 0
     remaining = 0
     seen = set()
-    for path in iter_session_files(sessions_root):
+    paths = list(iter_session_files(sessions_root))
+    if CLAUDE_SESSIONS_ROOT and Path(CLAUDE_SESSIONS_ROOT).is_dir():
+        paths += sorted(Path(CLAUDE_SESSIONS_ROOT).rglob("*.jsonl"))
+    for path in sorted(dict.fromkeys(paths), key=lambda p: str(p) in files):
         spath = str(path)
         seen.add(spath)
         try:
@@ -687,9 +736,10 @@ def build_model(files, tasks, sessions_root):
             continue
         provider = max(doc["providerTokens"], key=doc["providerTokens"].get)
         effort = (
-            max(doc["effortTokens"], key=doc["effortTokens"].get) if doc["effortTokens"] else "unset"
+            max(doc["effortTokens"], key=doc["effortTokens"].get) if doc["effortTokens"] else
+            next((t["effort"] for t in tasks if t["id"] == task_id and t.get("effort") in EFFORT_CLASSES), "unset")
         )
-        row = {"tokens": doc["tokens"], "seconds": doc["seconds"]}
+        row = {"tokens": doc["providerTokens"][provider], "seconds": doc["seconds"]}
         median_doc.setdefault(provider, {}).setdefault(effort, []).append(row)
         median_doc[provider].setdefault("all", []).append(row)
         if effort in EFFORT_CLASSES:
@@ -826,6 +876,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="fm-spend-ledger.py", description=__doc__.splitlines()[0])
     parser.add_argument("--state", default=os.environ.get("FM_STATE_OVERRIDE") or os.path.join(os.environ.get("FM_HOME", str(Path(__file__).resolve().parent.parent)), "state"))
     parser.add_argument("--sessions-root", default=os.environ.get("FM_SPEND_SESSIONS") or os.path.join(os.environ.get("PI_CODING_AGENT_DIR", os.path.expanduser("~/.pi/agent")), "sessions"))
+    parser.add_argument("--claude-sessions-root", default=os.environ.get("FM_SPEND_CLAUDE_SESSIONS", os.path.join(os.environ.get("CLAUDE_CONFIG_DIR", os.path.expanduser("~/.claude")), "projects")))
     parser.add_argument("--scan-budget", type=float, default=None)
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -852,6 +903,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     state_dir = args.state
     sessions_root = args.sessions_root
+    global CLAUDE_SESSIONS_ROOT
+    CLAUDE_SESSIONS_ROOT = args.claude_sessions_root
     if not (args.cmd == "predict" and args.read_only):
         Path(state_dir).mkdir(parents=True, exist_ok=True)
 

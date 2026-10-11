@@ -2,10 +2,10 @@
 # Behavior tests for bin/fm-dispatch-selftest.sh, offline.
 #
 # The tracked synthetic fixture (tests/fixtures/dispatch-selftest/) runs through
-# the real resolver with the typed call and the backup judge stubbed: a fake
-# curl answers each sample's expected rule (or a wrong one on request, or not at
-# all), a fake claude does the same as the backup judge, and a fake quota-axi
-# serves fresh rows. Every case drives the public run/check/arm/disarm CLI.
+# the real resolver with the typed call stubbed: a fake curl answers each
+# sample's expected rule (or a wrong one on request, or not at all), and a fake
+# quota-axi serves fresh rows. Every case drives the public run/check/arm/disarm
+# CLI.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -17,7 +17,9 @@ TMP_ROOT=$(fm_test_tmproot fm-dispatch-selftest)
 FAKEBIN=$(fm_fakebin "$TMP_ROOT")
 HOME_DIR="$TMP_ROOT/home"
 BASE_PATH=$PATH
-mkdir -p "$HOME_DIR/config" "$HOME_DIR/state"
+mkdir -p "$HOME_DIR/config" "$HOME_DIR/state" "$TMP_ROOT/claude-sessions"
+# The ledger also reads native Claude transcripts; keep the host's out.
+export FM_SPEND_CLAUDE_SESSIONS="$TMP_ROOT/claude-sessions"
 SAMPLES="$FIXTURE/samples.json"
 RULES="$FIXTURE/rules.json"
 export FAKE_SAMPLES="$SAMPLES"
@@ -54,18 +56,6 @@ printf '200'
 SH
 chmod +x "$FAKEBIN/curl"
 
-cat > "$FAKEBIN/fake-claude" <<'SH'
-#!/usr/bin/env bash
-set -u
-prompt=$(cat)
-[ -z "${FAKE_REQUEST_LOG:-}" ] || printf '%s\n' "$prompt" >> "$FAKE_REQUEST_LOG"
-[ -z "${FAKE_CALL_LOG:-}" ] || printf 'backup\n' >> "$FAKE_CALL_LOG"
-[ "${FAKE_BACKUP_DOWN:-0}" = 1 ] && exit 1
-expect=$(jq -r --arg p "$prompt" '[.samples[] | select(.brief as $s | $p | contains($s)) | .expect] | first // "default"' "$FAKE_SAMPLES")
-jq -nc --arg r "$expect" '{type: "result", is_error: false, structured_output: {rule: $r, effort: "high"}, modelUsage: {"claude-haiku-5-5": {}}}'
-SH
-chmod +x "$FAKEBIN/fake-claude"
-
 cat > "$FAKEBIN/quota-axi" <<'SH'
 #!/usr/bin/env bash
 if [ -n "${FAKE_QUOTA_FIXTURE:-}" ]; then cat "$FAKE_QUOTA_FIXTURE"; exit; fi
@@ -93,7 +83,7 @@ run_selftest() { # <exit-var> <out-var> [args...]
   if [ "${1:-}" = check ]; then
     before_check_output=$(output_identity "$HOME_DIR/state/dispatch-selftest/last.out")
   fi
-  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY=selftest-key FM_BACKUP_JUDGE_CMD=fake-claude \
+  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY=selftest-key \
     FM_SPEND_LEDGER="${FM_SPEND_LEDGER:-/nonexistent}" "$TOOL" "$@" 2>&1)
   _code=$?
   printf -v "$__exit" '%s' "$_code"
@@ -129,7 +119,7 @@ ln -s "$TMP_ROOT/missing-never-send" "$HOME_DIR/config/dispatch-never-send"
 FAKE_CALL_LOG="$CALLS" run_selftest code out run --rules "$RULES" --samples "$SAMPLES"
 expect_code 2 "$code" "never-send: a dangling list refuses the run"
 assert_contains "$out" 'dispatch-never-send list is not a readable regular file; nothing sent' "never-send: names the refusal"
-assert_equals 0 "$(wc -l < "$CALLS" | tr -d ' ')" "never-send: no judge received a sample"
+assert_equals 0 "$(wc -l < "$CALLS" | tr -d ' ')" "never-send: Jev received no sample"
 rm "$HOME_DIR/config/dispatch-never-send"
 mkdir "$HOME_DIR/config/dispatch-never-send"
 FAKE_CALL_LOG="$CALLS" run_selftest code out run --rules "$RULES" --samples "$SAMPLES"
@@ -170,7 +160,7 @@ pathlib.Path(sys.argv[1], "history.meta").write_text(f"worktree=/LEDGER_PRIVATE_
 records = [
     {"type": "session", "cwd": "/LEDGER_PRIVATE_MARKER", "id": "history", "timestamp": iso(start)},
     {"type": "thinking_level_change", "thinkingLevel": "high", "timestamp": iso(start)},
-    {"type": "message", "timestamp": iso(start + 120), "message": {"role": "assistant", "provider": "openai-codex", "model": "gpt-5.6-sol", "content": "LEDGER_PRIVATE_MARKER", "usage": {"totalTokens": 100}}},
+    {"type": "message", "timestamp": iso(start + 120), "message": {"role": "assistant", "provider": "anthropic", "model": "claude-opus-5-5", "content": "LEDGER_PRIVATE_MARKER", "usage": {"totalTokens": 100}}},
 ]
 pathlib.Path(sys.argv[2]).write_text("".join(json.dumps(r) + "\n" for r in records))
 providers = []
@@ -193,44 +183,38 @@ diff -r "$TMP_ROOT/prediction-state-before" "$HOME_DIR/state" >/dev/null || fail
 jq '.generatedAt = "2000-01-01T00:00:00Z" | .median = {} | .anyProvider = {}' "$HOME_DIR/state/spend-model.json" > "$TMP_ROOT/stale-model.json"
 cp "$TMP_ROOT/stale-model.json" "$HOME_DIR/state/spend-model.json"
 cp "$HOME_DIR/state/.spend-cache.json" "$TMP_ROOT/cache-before"
-FM_SPEND_LEDGER="$LEDGER" FM_SPEND_SESSIONS="$LEDGER_SESSIONS" FAKE_QUOTA_FIXTURE="$LEDGER_QUOTA" FAKE_REQUEST_LOG="$REQUESTS" FAKE_TYPED_DOWN=1 \
+FM_SPEND_LEDGER="$LEDGER" FM_SPEND_SESSIONS="$LEDGER_SESSIONS" FAKE_QUOTA_FIXTURE="$LEDGER_QUOTA" FAKE_REQUEST_LOG="$REQUESTS" \
   run_selftest code out run --rules "$LEDGER_RULES" --samples "$LEDGER_SAMPLES" --record
-expect_code 1 "$code" 'prediction: rebuilt evidence also fails the recorded backup run'
+expect_code 1 "$code" 'prediction: rebuilt evidence also fails the recorded run'
 assert_contains "$out" 'FAIL burn-1 expect=rule_1 decided=default by=default' 'prediction: stale model rebuild preserves the runway gate'
 jq -e '.exit == 1 and (.failing | contains("burn-1"))' "$HOME_DIR/state/dispatch-selftest/result.json" >/dev/null || fail 'prediction: recorded failure lost the sample'
 cmp -s "$TMP_ROOT/stale-model.json" "$HOME_DIR/state/spend-model.json" || fail 'prediction: recorded run rewrote the live model'
 cmp -s "$TMP_ROOT/cache-before" "$HOME_DIR/state/.spend-cache.json" || fail 'prediction: recorded run rewrote the live cache'
-jq '(.providers[] | .quotaSemantics.effectiveAvailability[0].runway.usableRunwaySeconds) = 600 | (.providers[] | select(.provider == "codex") | .quotaSemantics.effectiveAvailability[0].effectivePercentRemaining) = 2' "$LEDGER_QUOTA" > "$TMP_ROOT/token-quota.json"
-jq '.rules[0].use = {harness: "codex", model: "gpt-5.6-sol", effort: "high"} | .default = {harness: "claude", model: "opus", effort: "high"}' "$LEDGER_RULES" > "$TMP_ROOT/token-rules.json"
+# Token burn against a low remaining percent is advisory, never a quota veto.
+jq '(.providers[] | .quotaSemantics.effectiveAvailability[0].runway.usableRunwaySeconds) = 600 | (.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[0].effectivePercentRemaining) = 2' "$LEDGER_QUOTA" > "$TMP_ROOT/token-quota.json"
 rm "$HOME_DIR/state/spend-model.json"
 FM_SPEND_LEDGER="$LEDGER" FM_SPEND_SESSIONS="$LEDGER_SESSIONS" FAKE_QUOTA_FIXTURE="$TMP_ROOT/token-quota.json" FAKE_REQUEST_LOG="$REQUESTS" \
-  run_selftest code out run --rules "$TMP_ROOT/token-rules.json" --samples "$LEDGER_SAMPLES"
-expect_code 1 "$code" 'prediction: calibrated token shortfalls also fail the selftest'
-assert_contains "$out" 'FAIL burn-1 expect=rule_1 decided=default by=default' 'prediction: token evidence refuses the expected lane'
+  run_selftest code out run --rules "$LEDGER_RULES" --samples "$LEDGER_SAMPLES"
+expect_code 0 "$code" 'prediction: token estimates alone do not fail the selftest'
+assert_contains "$out" 'PASS burn-1 expect=rule_1 decided=rule_1 by=typed' 'prediction: token evidence keeps the expected lane'
 assert_absent "$HOME_DIR/state/spend-model.json" 'prediction: missing models are rebuilt without persistence'
 cmp -s "$TMP_ROOT/cache-before" "$HOME_DIR/state/.spend-cache.json" || fail 'prediction: token run rewrote the live cache'
-assert_not_contains "$(cat "$REQUESTS")" 'LEDGER_PRIVATE_MARKER' 'prediction: neither judge sees private prediction inputs'
-assert_not_contains "$(cat "$REQUESTS")" 'tokensPerPoint' 'prediction: neither judge sees prediction aggregates'
-assert_not_contains "$(cat "$REQUESTS")" 'usableRunwaySeconds' 'prediction: neither judge sees quota evidence'
+assert_not_contains "$(cat "$REQUESTS")" 'LEDGER_PRIVATE_MARKER' 'prediction: Jev never sees private prediction inputs'
+assert_not_contains "$(cat "$REQUESTS")" 'tokensPerPoint' 'prediction: Jev never sees prediction aggregates'
+assert_not_contains "$(cat "$REQUESTS")" 'usableRunwaySeconds' 'prediction: Jev never sees quota evidence'
 rm -rf "$HOME_DIR/state/dispatch-selftest"
 rm "$HOME_DIR/state/history.meta" "$HOME_DIR/state/.spend-cache.json"
 export FAKE_SAMPLES="$SAMPLES"
 pass 'selftests enforce live prediction gates without modifying or disclosing evidence'
 
-# --- typed call down: the backup judge answers every sample ---------------------
-FAKE_TYPED_DOWN=1 run_selftest code out run --rules "$RULES" --samples "$SAMPLES"
-expect_code 0 "$code" "backup: every sample routes with the typed call down"
-assert_contains "$out" 'PASS think-1 expect=rule_1 decided=rule_1 by=backup status=' "backup: the backup stage decided"
-pass "run: the backup judge routes every sample when the typed call is down"
-
-# --- both judges down: the default stage answers, and the run says it failed ----
+# --- Jev down: the default stage answers, and the run says it failed ------------
 # The repeat runs below use a few samples; the full fixture ran twice above.
 jq '.samples |= map(select(.id | IN("think-1", "front-2", "impl-2", "none-1")))' "$SAMPLES" > "$TMP_ROOT/few.json"
-FAKE_TYPED_DOWN=1 FAKE_BACKUP_DOWN=1 run_selftest code out run --rules "$RULES" --samples "$TMP_ROOT/few.json"
+FAKE_TYPED_DOWN=1 run_selftest code out run --rules "$RULES" --samples "$TMP_ROOT/few.json"
 expect_code 1 "$code" "default: misroutes fail the run"
 assert_contains "$out" 'FAIL think-1 expect=rule_1 decided=default by=default status=fallback' "default: a misroute names the stage"
 assert_contains "$out" 'PASS none-1 expect=default decided=default by=default' "default: default samples still pass"
-pass "run: losing both judges is reported, never hidden behind the default answer"
+pass "run: losing Jev is reported, never hidden behind the default answer"
 
 # --- a single misroute is named -----------------------------------------------
 FAKE_TYPED_WRONG=front-2 run_selftest code out run --rules "$RULES" --samples "$TMP_ROOT/few.json"
@@ -264,7 +248,7 @@ pass "run: coverage gaps fail and malformed input is refused"
 # --- nightly: arm, a detached run, one report, disarm -------------------------
 # Pin the most recent slot before every recorded run, so an hour rollover
 # cannot launch an unrelated nightly run during the changed-input cases.
-# Other Perl calls (including backup-judge timing) still use the real tool.
+# Other Perl calls still use the real tool.
 real_perl=$(command -v perl) || fail 'perl is required for check scheduling tests'
 export FAKE_REAL_PERL="$real_perl"
 cat > "$FAKEBIN/perl" <<'SH'
@@ -359,7 +343,7 @@ assert_contains "$(cat "$HOME_DIR/state/dispatch-selftest/last.out")" 'PASS impl
 pass "check: failed attempts alert once until inputs change"
 
 FAKE_TYPED_DELAY=0.15 PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY=selftest-key \
-  FM_BACKUP_JUDGE_CMD=fake-claude FM_SPEND_LEDGER=/nonexistent "$TOOL" run --record > "$TMP_ROOT/direct-run.out" 2>&1 &
+  FM_SPEND_LEDGER=/nonexistent "$TOOL" run --record > "$TMP_ROOT/direct-run.out" 2>&1 &
 direct_pid=$!
 for ((i = 0; i < 100; i++)); do
   if [ -d "$HOME_DIR/state/dispatch-selftest/running" ] \

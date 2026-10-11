@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Spawn a direct report: a crewmate in a treehouse or Orca worktree, or a
 # secondmate in its isolated firstmate home.
-# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--route-override <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--backend <name>] [--herdr-resume-lock-wait]
-#        fm-spawn.sh <task-id> <project-dir> --scout [--base-branch <branch>] [--route-override <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--backend <name>] [--herdr-resume-lock-wait]
-#        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--backend <name>] --secondmate
+# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--route-override <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--captain-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
+#        fm-spawn.sh <task-id> <project-dir> --scout [--base-branch <branch>] [--route-override <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--captain-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
+#        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--captain-override <reason>] [--backend <name>] --secondmate
 #   --mode and --yolo are this task's delivery contract, REQUIRED for every ship
 #   spawn and refused on --scout and --secondmate spawns. Firstmate resolves both
 #   per task at intake (AGENTS.md section 7); data/projects.md holds the captain's
@@ -27,6 +27,9 @@
 #   yet routed; --route-override '<captain|blocker>: <reason>' spawns anyway for
 #   that one task and is logged there. It is refused on relaunch, secondmate,
 #   and batch spawns.
+#   --captain-override '<reason>' records the captain-authorized reason with
+#   the resolved profile through bin/fm-dispatch-resolve.sh. It is never
+#   required, never waives a model ban, and an unavailable record only warns.
 #   For the optional bin/fm-jev-brief-preflight.sh check, see the operator
 #   contract in docs/configuration.md "Brief preflight".
 #   Every ship or scout spawn renders `launch-brief.md`; for a no-mistakes ship
@@ -784,6 +787,7 @@ BRANCH_PREFIX=fm/
 TRACEPARENT_ARG=
 ROUTE_OVERRIDE=
 ROUTE_OVERRIDE_SET=0
+CAPTAIN_OVERRIDE=
 HARNESS_SET=0
 MODEL_SET=0
 EFFORT_SET=0
@@ -853,6 +857,10 @@ for a in "$@"; do
       ROUTE_OVERRIDE=$a
       ROUTE_OVERRIDE_SET=1
       ;;
+    captain-override)
+      [[ "$a" == *[![:space:]]* ]] || { echo 'error: --captain-override needs the captain-authorized reason' >&2; exit 1; }
+      CAPTAIN_OVERRIDE=$a
+      ;;
     *)
       echo "error: internal parser state for --$want_value" >&2
       exit 1
@@ -871,6 +879,11 @@ for a in "$@"; do
     KIND_SET=1
     ;;
   --relaunch) RELAUNCH=1 ;;
+  --captain-override) want_value=captain-override ;;
+  --captain-override=*)
+    CAPTAIN_OVERRIDE=${a#--captain-override=}
+    [[ "$CAPTAIN_OVERRIDE" == *[![:space:]]* ]] || { echo 'error: --captain-override needs the captain-authorized reason' >&2; exit 1; }
+    ;;
   --herdr-resume-lock-wait) HERDR_RESUME_LOCK_WAIT=1 ;;
   --harness) want_value=harness ;;
   --harness=*)
@@ -1683,6 +1696,7 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
   [ -z "$MODEL" ] || shared_args+=(--model "$MODEL")
   [ "$PERMISSION_MODE_SET" -eq 0 ] || shared_args+=(--permission-mode "$PERMISSION_MODE")
   [ -z "$EFFORT" ] || shared_args+=(--effort "$EFFORT")
+  [ -z "$CAPTAIN_OVERRIDE" ] || shared_args+=(--captain-override "$CAPTAIN_OVERRIDE")
   [ -z "$BACKEND_ARG" ] || shared_args+=(--backend "$BACKEND_ARG")
   # One delivery contract applies to every pair in a batch, exactly like the shared
   # harness. Each pair still re-validates it against its own brief, so a batch
@@ -2660,6 +2674,40 @@ if [ "$MODEL_DENYLIST_REFUSED" = 1 ]; then
   echo "error: $FM_MODEL_DENYLIST_ERROR; refusing the launch - pick a model that is not on the list" >&2
   exit 1
 fi
+if [ "$KIND" = secondmate ]; then
+  if [ -z "$FIRSTMATE_HOME" ] && { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; }; then
+    fm_backlog_record_present "$STATE/$ID.meta" "task record" "$STATE" || {
+      echo "error: secondmate task record is unsafe: $FM_BACKLOG_TRANSITION_ERROR" >&2
+      exit 1
+    }
+    FIRSTMATE_HOME=$(grep '^home=' "$STATE/$ID.meta" | cut -d= -f2- || true)
+  fi
+  if [ -z "$FIRSTMATE_HOME" ]; then
+    FIRSTMATE_HOME=$(secondmate_registry_field "$DATA/secondmates.md" "$ID" home || true)
+  fi
+  [ -n "$FIRSTMATE_HOME" ] || {
+    echo "error: no firstmate home supplied or registered for $ID" >&2
+    exit 1
+  }
+fi
+# An explicitly authorized override is recorded without creating a launch gate.
+# The existing never-use model checks above remain authoritative.
+if [ -n "$CAPTAIN_OVERRIDE" ]; then
+  ROUTE_BRIEF="$DATA/$ID/brief.md"
+  ROUTE_KIND=dispatch
+  if [ "$KIND" = secondmate ]; then
+    ROUTE_KIND=secondmate
+    [ ! -f "$FIRSTMATE_HOME/data/charter.md" ] || ROUTE_BRIEF="$FIRSTMATE_HOME/data/charter.md"
+  fi
+  if ROUTE_SELECTED=$(jq -nc --arg harness "$HARNESS" --arg model "$MODEL" --arg effort "$EFFORT" '{harness:$harness,model:$model,effort:$effort}'); then
+    FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-dispatch-resolve.sh" "$ROUTE_BRIEF" --decision-kind "$ROUTE_KIND" \
+      --policy-profile "$ROUTE_SELECTED" --captain-override "$CAPTAIN_OVERRIDE" >/dev/null \
+      || echo 'warning: model override record unavailable; continuing launch' >&2
+  else
+    echo 'warning: model override record unavailable; continuing launch' >&2
+  fi
+fi
+
 # Ultra is an explicit native capability, never a Pi thinking-level alias.
 # Validate the fully resolved profile before worktree or endpoint provisioning.
 if [ "$EFFORT" = ultra ]; then
@@ -2693,10 +2741,6 @@ if [ -n "$WORKER_ACCOUNT" ] && [ "$HARNESS" = claude ]; then
     unset CLAUDE_CONFIG_DIR
   fi
 fi
-
-secondmate_registry_value() {
-  secondmate_registry_field "$DATA/secondmates.md" "$1" "$2"
-}
 
 resolve_kimi_binary() {
   local candidate dir fallback
@@ -3214,23 +3258,6 @@ validate_firstmate_operational_dirs() {
 }
 
 if [ "$KIND" = secondmate ]; then
-  if [ -z "$FIRSTMATE_HOME" ] && { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; }; then
-    fm_backlog_record_present "$STATE/$ID.meta" "task record" "$STATE" || {
-      echo "error: secondmate task record is unsafe: $FM_BACKLOG_TRANSITION_ERROR" >&2
-      exit 1
-    }
-    FIRSTMATE_HOME=$(grep '^home=' "$STATE/$ID.meta" | cut -d= -f2- || true)
-  fi
-  if [ -z "$FIRSTMATE_HOME" ]; then
-    FIRSTMATE_HOME=$(secondmate_registry_value "$ID" home || true)
-  fi
-fi
-
-if [ "$KIND" = secondmate ]; then
-  [ -n "$FIRSTMATE_HOME" ] || {
-    echo "error: no firstmate home supplied or registered for $ID" >&2
-    exit 1
-  }
   PROJ_ABS=$(validate_firstmate_home_for_spawn "$ID" "$FIRSTMATE_HOME")
   if [ -e "$DATA/secondmates.md" ] || [ -L "$DATA/secondmates.md" ]; then
     if ! secondmate_registry_validate_bindings "$DATA/secondmates.md" resolve_path "$ID" "$FIRSTMATE_HOME"; then

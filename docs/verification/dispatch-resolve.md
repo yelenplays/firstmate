@@ -154,10 +154,10 @@ Finding: a two-contender runoff on the same state largely restates the rule answ
 ## Offline behavior
 
 The [operator contract](../configuration.md#typed-dispatch-resolution-env-typesafe_api_key) owns current outcomes, gates, settings, and privacy guarantees.
-The dated live runs above predate the backup/default chain and do not establish its live accuracy.
+The dated live runs above predate the current runoff/default chain and do not establish its live accuracy.
 Current behavioral regression entry points are:
 
-- [`tests/fm-dispatch-resolve.test.sh`](../../tests/fm-dispatch-resolve.test.sh): typed-only compatibility, request and credential boundaries, effort ranges, confidence and quota gates, the backup/default chain, last-resort selection, and actual-lane reporting.
+- [`tests/fm-dispatch-resolve.test.sh`](../../tests/fm-dispatch-resolve.test.sh): typed-only compatibility, request and credential boundaries, effort ranges, confidence and quota gates, the runoff/default chain, last-resort selection, and actual-lane reporting.
 - [`tests/fm-dispatch-replay.test.sh`](../../tests/fm-dispatch-replay.test.sh): typed-only replay, call budgets, input isolation, and offline scoring.
 - [`tests/fm-dispatch-selftest.test.sh`](../../tests/fm-dispatch-selftest.test.sh): the synthetic corpus, fail-closed never-send handling, default-lane misroutes, read-only prediction evidence, concurrency, and retry/alert cadence.
 - [`tests/fm-home-route.test.sh`](../../tests/fm-home-route.test.sh): home-routing fallbacks, missing inputs, approved consult scopes, and override authority.
@@ -165,4 +165,4 @@ Current behavioral regression entry points are:
 - [`tests/fm-spend-ledger.test.sh`](../../tests/fm-spend-ledger.test.sh): read-only prediction without cache, model, or state-directory writes.
 
 Offline stubs cannot certify the operator's private rules against live judges.
-Use the home-local routing selftest described in the operator contract for that proof; it can reach the backup CLI even without a typed-call key.
+Use the home-local routing selftest described in the operator contract for that proof; without a typed-call key it exercises only the configured default.

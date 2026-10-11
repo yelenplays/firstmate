@@ -1671,7 +1671,7 @@ families_for_changed_path() {
       printf '%s\n' "__script__:fm-dispatch-selftest.test.sh"
       ;;
     bin/fm-backup-judge-lib.sh)
-      # The backup judge behind both typed routers.
+      # The home router's backup judge; the dispatch selftest digests it.
       printf '%s\n' "__script__:fm-dispatch-resolve.test.sh"
       printf '%s\n' "__script__:fm-home-route.test.sh"
       printf '%s\n' "__script__:fm-dispatch-selftest.test.sh"

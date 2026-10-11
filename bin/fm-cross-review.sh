@@ -45,12 +45,17 @@
 #     fm_wiki_change_private) always gets action=none: it stays on today's path
 #     and no new reviewer sees it. docs/configuration.md "Cross-family review"
 #     owns the fixed candidate-chain policy; the first candidate whose family
-#     is proven by its catalog and disjoint from the builder's wins.
+#     is proven by its catalog and disjoint from the builder's wins. A spawn
+#     plan also writes data/<task-id>/cross-review-model.json binding that
+#     profile to the head; a write failure only warns.
 #   fm-cross-review.sh brief <task-id> <reviewer-id> --head <sha> [--confirm]
 #     Scaffold the reviewer's scout instructions with bin/fm-brief.sh --scout,
 #     fill them for this exact head, and write the request record
-#     data/<reviewer-id>/cross-review-request. Spawn the reviewer as a scout of
-#     the task's project with the profile `plan` printed.
+#     data/<reviewer-id>/cross-review-request. When the plan record matches the
+#     head, it optionally records that profile against the generated reviewer
+#     instructions through bin/fm-dispatch-resolve.sh; a record failure only
+#     warns. Spawn the reviewer as a scout of the task's project with the
+#     profile `plan` printed.
 #   fm-cross-review.sh collect <task-id> <reviewer-id>
 #     Read the reviewer's data/<reviewer-id>/report.md, check it against the
 #     request and the reviewer's own task record, and append the result to
@@ -566,6 +571,10 @@ EOF
     return 0
   fi
   read -r h m e f <<<"$chosen"
+  local profile
+  profile=$(jq -nc --arg h "$h" --arg m "$m" --arg e "$e" '{harness:$h,model:$m,effort:$e}') || die 'cannot form reviewer profile'
+  jq -nc --arg head "$HEAD_SHA" --argjson profile "$profile" '{head:$head,profile:$profile}' > "$DATA/$TASK/cross-review-model.json" \
+    || echo 'warning: reviewer model record unavailable; continuing plan' >&2
   printf 'action=spawn-reviewer\nkind=%s\n' "$want"
   if [ "$want" = review ]; then
     printf 'reason=%s\n' "$I_DETAIL"
@@ -648,6 +657,15 @@ This confirmation covers $subject of task $TASK in $(basename "$T_PROJ"), at exa
   ' "$brief" || die "could not fill $brief"
   printf 'task=%s\nhead=%s\nkind=%s\n' "$TASK" "$head" "$want" > "$DATA/$rid/cross-review-request" \
     || die "could not write the reviewer request record"
+  # Optional evidence binds the policy choice to the actual reviewer instructions.
+  # Planning itself never asks the resolver, and record failures never block review.
+  local model_plan profile
+  model_plan="$DATA/$TASK/cross-review-model.json"
+  if profile=$(jq -ce --arg head "$head" 'select(.head == $head) | .profile' "$model_plan" 2>/dev/null); then
+    FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-dispatch-resolve.sh" "$brief" --decision-kind cross-review \
+      --policy-profile "$profile" --policy-reason 'catalog-proven cross-family reviewer chain' >/dev/null \
+      || echo 'warning: reviewer consultation record unavailable; continuing review' >&2
+  fi
   printf 'brief=%s\n' "$brief"
 }
 

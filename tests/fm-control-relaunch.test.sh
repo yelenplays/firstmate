@@ -386,6 +386,19 @@ test_blocked_grok_relaunch_refuses_without_verified_quit_keys() {
 
 test_blocked_grok_relaunch_refuses_without_verified_quit_keys
 
+test_relaunch_profile_changes_do_not_require_a_receipt() {
+  local dir out
+  dir=$(new_case no-receipt no-receipt)
+  add_ship_task "$dir" no-receipt claude
+  # A broken record destination must not interfere with lifecycle operations.
+  printf 'records unavailable\n' > "$dir/home/state/model-route"
+  out=$(run_control "$dir" no-receipt relaunch --model opus --effort high --note 'Continue with the changed profile.')
+  expect_code 0 "$?" "model/effort relaunch was blocked by recording: $out"
+  assert_equals opus "$(meta_field "$dir" no-receipt model)" 'requested model is recorded'
+  assert_equals high "$(meta_field "$dir" no-receipt effort)" 'requested effort is recorded'
+  pass 'changed relaunch model and effort do not depend on consultation records'
+}
+
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint() {
   local dir out rc gen_before gen_after
   dir=$(new_case same rl1)
@@ -2698,6 +2711,7 @@ SH
 
 test_exit_and_relaunch_remove_the_dialog_file
 test_exit_removes_the_dialog_file_before_releasing_the_lock
+test_relaunch_profile_changes_do_not_require_a_receipt
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint
 test_relaunch_refuses_before_exit_when_the_composer_holds_pending_text
 test_relaunch_refuses_before_exit_when_the_composer_state_is_unproven

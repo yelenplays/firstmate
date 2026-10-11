@@ -105,7 +105,7 @@ Break genuine evidence ties without array-order or harness bias.
 `quota-axi` owns how model or product windows relate to bounding account windows and remains data-only.
 Load `quota-array-dispatch` before choosing among a matched profile array; that skill is the single owner of the TOON-first spendPriority selection procedure.
 Run `bin/fm-dispatch-resolve.sh` directly on the written brief in the same turn, with no preflight; whenever it prints a `profile:` line, pass that line to `fm-spawn` without hand-picking (contract: `docs/configuration.md` "Typed dispatch resolution").
-Only a captain rule overrides that line - an explicit per-task captain override, or a standing `data/captain.md` routing rule the rules file does not yet encode - and the backlog note names it; a result without a profile line means the intake above remains in control.
+Only a captain rule overrides that line - an explicit per-task captain override, or a standing `data/captain.md` routing rule the rules file does not yet encode - and the backlog note names it; a result without a profile line means the intake above remains in control, but an approval gate or an entirely refused selection stops for the captain instead of using hand-picked launch flags.
 The generic effort fallback and its precedence are owned by `harness-adapters`: explicit captain and standing configured effort win; otherwise use low for well-understood explicit work, xhigh for ambiguous investigation or design, intermediate levels proportionally, and never max without explicit captain preference.
 Do not add model-specific versions of that policy.
 

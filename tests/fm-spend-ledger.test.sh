@@ -54,6 +54,7 @@ json_field() {  # <file-or-doc> <python-expr-over-d>
 TMP_ROOT=$(fm_test_tmproot fm-spend-ledger)
 SESSIONS=$TMP_ROOT/sessions
 STATE=$TMP_ROOT/state
+export FM_SPEND_CLAUDE_SESSIONS="$TMP_ROOT/claude-projects"
 mkdir -p "$SESSIONS" "$STATE"
 
 # Two tasks reuse the same worktree across spawn generations. Keep their
@@ -179,7 +180,7 @@ RESETS=$(format_reset "$BASE_RESET_EPOCH")
 write_quota "$STATE/quota.json" "$RESETS"
 cp -R "$STATE" "$TMP_ROOT/read-only-before"
 READ_ONLY=$("$LEDGER" --state "$STATE" --sessions-root "$SESSIONS" predict --quota "$STATE/quota.json" --read-only)
-python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["median"]["codex"]["high"]["tokens"] == 3900; assert abs(d["providers"]["codex"]["tokensPerPoint"] - 3400/60) < 0.01' "$READ_ONLY" \
+python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["median"]["codex"]["high"]["tokens"] == 3400; assert abs(d["providers"]["codex"]["tokensPerPoint"] - 3400/60) < 0.01' "$READ_ONLY" \
   || fail 'read-only prediction lost the model or calibration'
 diff -r "$TMP_ROOT/read-only-before" "$STATE" >/dev/null || fail 'read-only prediction changed source state'
 "$LEDGER" --state "$TMP_ROOT/absent-state" --sessions-root "$SESSIONS" predict --quota "$STATE/quota.json" --read-only >/dev/null
@@ -227,4 +228,30 @@ mkdir -p "$EMPTY"
 "$LEDGER" --state "$STATE" --sessions-root "$EMPTY" task task-a >/dev/null
 assert_equals "empty" "$(json_field "$(cat "$STATE/task-a.spend")" "d['status']")" "no sessions -> empty not zero-fabricated"
 
-pass "spend ledger: parsing, lanes, effort, nested transcripts, task binding, rollup, predict, malformed inputs"
+# Native Claude usage is part of the same ledger, deduplicated across streamed
+# assistant records. Task bodies must not appear in the cached summaries.
+mkdir -p "$FM_SPEND_CLAUDE_SESSIONS/project"
+fm_write_meta "$STATE/task-c.meta" "endpoint_task_id=task-c" "worktree=/work/claude" \
+  "spawn_gen=s${EPOCH_A}.1.cc" "harness=claude" "kind=ship" "effort=medium"
+NATIVE="$FM_SPEND_CLAUDE_SESSIONS/project/native.jsonl"
+printf '{"type":"assistant","sessionId":"native-c","cwd":"/work/claude","timestamp":"%s","requestId":"req-c","message":{"id":"msg-c","role":"assistant","model":"claude-opus-5-5","content":"PRIVATE-BODY-NOT-USAGE","usage":{"input_tokens":100,"output_tokens":10,"cache_read_input_tokens":200,"cache_creation_input_tokens":50}}}\n' "$SESSION_A_ISO" > "$NATIVE"
+# Identical final emission must not double the message usage.
+printf '%s\n' "$(cat "$NATIVE")" >> "$NATIVE"
+python3 - "$NATIVE" <<'PY'
+import json, sys
+with open(sys.argv[1]) as stream:
+    record = json.loads(stream.readline())
+with open(sys.argv[1], 'a') as stream:
+    partial = json.loads(json.dumps(record))
+    partial['message']['usage'] = {'input_tokens':'malformed', 'output_tokens':5}
+    stream.write(json.dumps(partial) + '\n')
+    record.pop('requestId')
+    record['message']['usage']['output_tokens'] = 20
+    stream.write(json.dumps(record) + '\n')
+PY
+"$LEDGER" --state "$STATE" --sessions-root "$SESSIONS" task task-c >/dev/null
+assert_equals 370 "$(json_field "$(cat "$STATE/task-c.spend")" "d['totals']['tokens']")" 'native Claude tokens count only monotonic usage deltas across optional request IDs'
+assert_equals 370 "$(json_field "$(cat "$STATE/task-c.spend")" "d['byLane']['claude']['tokens']")" 'native Claude usage binds its quota family'
+assert_equals 1 "$(json_field "$(cat "$STATE/task-c.spend")" "d['totals']['messages']")" 'streamed deltas remain one logical Claude message'
+assert_not_contains "$(cat "$STATE/.spend-cache.json")" PRIVATE-BODY-NOT-USAGE 'Claude message bodies never enter the spend cache'
+pass "spend ledger: Pi and native Claude usage, deduplication, task binding and prediction"

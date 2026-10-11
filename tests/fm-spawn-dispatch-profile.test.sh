@@ -294,6 +294,24 @@ test_claude_secondmate_launch_brief_publishes_into_its_own_home() {
   pass "a secondmate claude launch publishes its brief record into the secondmate's own home"
 }
 
+# A host-local second mate may have only its home's charter; the route binds
+# the instructions its launch actually uses.
+test_secondmate_route_binds_its_charter_without_a_task_brief() {
+  local rec id sm out status
+  id="secondmate-charter-route-z4"
+  rec=$(make_spawn_case secondmate-charter-route claude "$id")
+  read_case_record "$rec"
+  sm="$CASE_DIR/secondmate-home"
+  make_seeded_secondmate_home "$sm" "$id"
+  rm -f "$HOME_DIR/data/$id/brief.md"
+
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$sm" --secondmate)
+  status=$?
+  expect_code 0 "$status" "a charter-only secondmate could not be routed"$'\n'"$out"
+  [ -s "$LAUNCH_LOG" ] || fail 'charter-only secondmate was not launched'
+  pass "a secondmate with only its charter launches without a consultation prerequisite"
+}
+
 # A claude worker given a typed envelope would see it with the marker stripped,
 # so a launch-brief record that cannot be published stops the spawn before any
 # launch is sent.
@@ -523,7 +541,7 @@ test_active_dispatch_profile_allows_explicit_harness() {
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id" "$PROJ_DIR" --harness codex --model gpt-5 --effort high)
   status=$?
-  expect_code 0 "$status" "explicit harness should satisfy active dispatch-profile requirement"
+  expect_code 0 "$status" "an explicit profile must launch without requiring consultation records"
   assert_contains "$out" "spawned $id harness=codex" "spawn did not report explicit codex harness"
   assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
   assert_grep "ai_family=openai" "$HOME_DIR/state/$id.meta" "a codex builder was not recorded as the openai family"
@@ -531,6 +549,28 @@ test_active_dispatch_profile_allows_explicit_harness() {
   assert_contains "$launch" "codex --model 'gpt-5' -c 'model_reasoning_effort=\"high\"' --dangerously-bypass-approvals-and-sandbox" \
     "explicit harness launch did not thread model and effort"
   pass "active crew-dispatch profile allows an explicit resolved harness"
+}
+
+test_captain_override_records_and_launches_explicit_profile() {
+  local rec id out why storage
+  why='Explicit per-task runtime choice authorized for this fixture.'
+  for storage in available unavailable; do
+    id="profile-captain-override-$storage"
+    rec=$(make_spawn_case "captain-override-$storage" claude "$id")
+    read_case_record "$rec"
+    enable_dispatch_profile "$HOME_DIR"
+    if [ "$storage" = unavailable ]; then printf 'records unavailable\n' > "$HOME_DIR/state/model-route"; fi
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+      "$id" "$PROJ_DIR" --harness codex --model gpt-5 --effort high --captain-override "$why")
+    expect_code 0 "$?" "captain override did not launch with $storage records: $out"
+    assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
+    [ -s "$LAUNCH_LOG" ] || fail 'approved profile was not delivered to the launch endpoint'
+    if [ "$storage" = available ]; then
+      jq -s -e --arg why "$why" 'any(.[]; .kind == "dispatch" and .captain_override == true and .reason == $why and .selected == {harness:"codex",model:"gpt-5",effort:"high"})' \
+        "$HOME_DIR/state/model-route/decisions.jsonl" >/dev/null || fail 'launch did not record the captain reason/profile'
+    fi
+  done
+  pass 'explicit captain override records its reason without imposing a receipt gate'
 }
 
 test_active_dispatch_profile_allows_positional_harness() {
@@ -2614,6 +2654,7 @@ test_no_profile_keeps_claude_profile_defaults
 test_claude_launch_brief_publishes_record_doorbell
 test_claude_secondmate_launch_brief_publishes_into_its_own_home
 test_claude_spawn_refuses_when_the_brief_record_cannot_publish
+test_secondmate_route_binds_its_charter_without_a_task_brief
 test_non_cursor_launch_clears_inherited_cursor_markers
 test_relative_home_overrides_launch_with_absolute_cross_process_paths
 test_home_defaults_preserve_absolute_or_resolve_relative_paths
@@ -2622,6 +2663,7 @@ test_unresolvable_relative_overrides_fail_loudly
 test_active_dispatch_profile_requires_explicit_harness_for_ship
 test_active_dispatch_profile_requires_explicit_harness_for_scout
 test_active_dispatch_profile_allows_explicit_harness
+test_captain_override_records_and_launches_explicit_profile
 test_active_dispatch_profile_allows_positional_harness
 test_active_dispatch_profile_allows_raw_launch_command
 test_chained_raw_launch_strips_ai_trailer_in_every_step
