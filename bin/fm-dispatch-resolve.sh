@@ -8,6 +8,8 @@
 #   Fixed consumers: --decision-kind cross-review|secondmate|no-mistakes|static
 #     --policy-profile <JSON> --policy-reason <recognized consumer policy>
 #     [--policy-file <source-file>] (repeatable, hashed with the instructions).
+#   Captain-authorized profile: --policy-profile <JSON>
+#     --captain-override <captain-authorized reason> (recorded, not inferred).
 #   Full-chain profile results carry a receipt: line consumed by launch tools.
 #   Fixed pins record deterministic_policy rather than spend a model call.
 #
@@ -316,7 +318,7 @@ fm_dispatch_home_criteria() {
 }
 
 BRIEF='' PROJECT='' RULES_PATH="$CONFIG/crew-dispatch.json" RULES='' REPLAY=0 TYPED_ONLY=0
-DECISION_KIND=dispatch POLICY_PROFILE='' POLICY_REASON='' RECEIPT_PATH=''
+DECISION_KIND=dispatch POLICY_PROFILE='' POLICY_REASON='' RECEIPT_PATH='' CAPTAIN_OVERRIDE=''
 POLICY_FILES=()
 NEVER_SEND_PATH="$CONFIG/dispatch-never-send"
 while [ $# -gt 0 ]; do
@@ -325,6 +327,7 @@ while [ $# -gt 0 ]; do
     --decision-kind) [ $# -ge 2 ] || die "--decision-kind needs a value"; DECISION_KIND=$2; shift 2 ;;
     --policy-profile) [ $# -ge 2 ] || die "--policy-profile needs a JSON profile"; POLICY_PROFILE=$2; shift 2 ;;
     --policy-reason) [ $# -ge 2 ] || die "--policy-reason needs a value"; POLICY_REASON=$2; shift 2 ;;
+    --captain-override) [ $# -ge 2 ] && [[ "$2" == *[![:space:]]* ]] || die '--captain-override needs the captain-authorized reason'; CAPTAIN_OVERRIDE=$2; shift 2 ;;
     --policy-file) [ $# -ge 2 ] && [ -r "$2" ] || die "--policy-file needs a readable source"; POLICY_FILES+=(--policy-file "$2"); shift 2 ;;
     --context-hash) [ $# -ge 2 ] || die '--context-hash needs a hash'; POLICY_FILES+=(--context-hash "$2"); shift 2 ;;
     --replay) REPLAY=1; TYPED_ONLY=1; shift ;;
@@ -338,9 +341,12 @@ done
 # Fixed, existing policy pins use the same router and receipt consumer without
 # asking a model to rediscover a value the policy already supplies.
 case "$DECISION_KIND" in dispatch|cross-review|secondmate|no-mistakes|static) ;; *) die "invalid decision kind" ;; esac
+[ -z "$CAPTAIN_OVERRIDE" ] || { [ -n "$POLICY_PROFILE" ] && [ -z "$POLICY_REASON" ]; } || die 'captain override needs a profile and cannot be combined with another policy reason'
+[ -z "$CAPTAIN_OVERRIDE" ] || POLICY_REASON='captain-authorized launch override'
 if [ -n "$POLICY_PROFILE" ]; then
   [ -r "$BRIEF" ] && [ -n "$POLICY_REASON" ] || die "policy routing needs a readable brief and policy reason"
   case "$DECISION_KIND:$POLICY_REASON" in
+    'dispatch:captain-authorized launch override'|'static:captain-authorized launch override'|'cross-review:captain-authorized launch override'|'secondmate:captain-authorized launch override'|\
     'cross-review:catalog-proven cross-family reviewer chain'|\
     'secondmate:configured secondmate seat pin'|'secondmate:configured remote secondmate seat pin'|\
     'static:recovery preserves the recorded worker profile'|'static:static launch profile in a home without dispatch rules'|'static:explicit raw launch profile'|\
@@ -348,6 +354,7 @@ if [ -n "$POLICY_PROFILE" ]; then
     'no-mistakes:configured no-mistakes native agent/reviewer chain'|'no-mistakes:uninspectable no-mistakes role policy') ;;
     *) die 'fixed-policy routing needs a recognized policy consumer, not hand-picked dispatch flags' ;;
   esac
+  [ "$POLICY_REASON" != 'captain-authorized launch override' ] || [ -n "$CAPTAIN_OVERRIDE" ] || die 'captain override requires --captain-override and its recorded reason'
   POLICY_INPUT_HASH=$("$SCRIPT_DIR/fm-model-route-receipt.py" fingerprint --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"}) || die 'cannot bind fixed-policy inputs'
   jq -e 'type == "object" and (.harness | type == "string" and length > 0) and
     all(.model?, .effort?; . == null or type == "string")' <<<"$POLICY_PROFILE" >/dev/null || die "invalid policy profile"
@@ -365,8 +372,8 @@ if [ -n "$POLICY_PROFILE" ]; then
   fm_model_denylist_load "$CONFIG" || die "$FM_MODEL_DENYLIST_ERROR"
   fm_model_denylist_check_launch 'fixed policy model' "$POLICY_H" "$(jq -r '.model // ""' <<<"$POLICY_PROFILE")" || die "$FM_MODEL_DENYLIST_ERROR"
   POLICY_HASH=$(printf '%s' "$POLICY_PROFILE" | python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())') || die "could not hash policy options"
-  POLICY_RECORD=$(jq -nc --argjson selected "$POLICY_PROFILE" --arg reason "$POLICY_REASON" --arg hash "$POLICY_HASH" --arg exception "$POLICY_EXCEPTION" \
-    '{selected:$selected, exception:$exception, reason:$reason, options_hash:$hash}') || die "could not build policy receipt"
+  POLICY_RECORD=$(jq -nc --argjson selected "$POLICY_PROFILE" --arg reason "$POLICY_REASON" --arg captain_reason "$CAPTAIN_OVERRIDE" --arg hash "$POLICY_HASH" --arg exception "$POLICY_EXCEPTION" \
+    '{selected:$selected, exception:$exception, reason:(if $captain_reason != "" then $captain_reason else $reason end), captain_override:($captain_reason != ""), options_hash:$hash}') || die "could not build policy receipt"
   RECEIPT_PATH=$(printf '%s' "$POLICY_RECORD" | "$SCRIPT_DIR/fm-model-route-receipt.py" write --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" --expected-state-hash "$POLICY_INPUT_HASH" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"}) || die "could not record fixed policy model"
   printf 'dispatch-resolve:\n  status: policy\n  exception: %s (%s)\n  receipt: %s\n' "$POLICY_EXCEPTION" "$POLICY_REASON" "$RECEIPT_PATH"
   jq -r '"  profile: --harness " + (.harness | @sh) +
@@ -891,7 +898,19 @@ jq -e 'type == "object"' "$PREDICT_FILE" >/dev/null 2>&1 \
 IS_SCOUT=false
 [ -z "$(brief_kind)" ] || IS_SCOUT=true
 # shellcheck disable=SC2016  # A jq program; $names are jq variables.
-RESOLVE_JQ="$FM_QUOTA_ROW_JQ$FM_MODEL_DENYLIST_JQ"'
+# The rule-local and ambiguous-rule model ties offer the same quota-eligible
+# maxima (or all eligible candidates when no provider can be ranked).
+MODEL_TIE_JQ='
+  def model_tie_candidates:
+    [.candidates[]? | select(.eligible)] as $all |
+    ([$all[] | select((.spendPriority | type) == "number" and .unranked != true)]) as $ranked |
+    if ($ranked | length) > 0 then
+      ($ranked | max_by(.spendPriority).spendPriority) as $best |
+      [$ranked[] | select(.spendPriority == $best)]
+    else $all end;
+'
+# shellcheck disable=SC2016  # A jq program; $names are jq variables.
+RESOLVE_JQ="$FM_QUOTA_ROW_JQ$FM_MODEL_DENYLIST_JQ$MODEL_TIE_JQ"'
   '"$FM_JEV_CHOICE_TOP2_JQ"'
   ($resp[0]) as $r | ($rules[0]) as $cfg | ($quota[0]) as $q | ($r.answers.rule) as $a |
   ($a.probabilities | jev_choice_top2) as $top2 |
@@ -1162,15 +1181,20 @@ RESOLVE_JQ="$FM_QUOTA_ROW_JQ$FM_MODEL_DENYLIST_JQ"'
     if $c.effort_emit == false then ($c.profile.effort // null)
     else ($c.effort // $c.profile.effort // null) end;
   # The runoff for an ambiguous answer: the picked option and the top two by
-  # probability each settle on their own quota-ranked profile. Any contender
-  # that would not clear (a captain-approval rule, an unverifiable floor,
-  # nothing rankable, a tie) skips the runoff; contenders
+  # probability each settle on their own quota-ranked profile. Eligible model
+  # ties expand into bounded model options; captain-approval rules and
+  # unverifiable floors still skip the runoff. Contenders
   # that land on the same concrete profile collapse into one option, which
   # carries the strictest min_confidence its rules declare as its `floor`.
   def runoff:
     (reduce ([$top2.first, $picked, $top2.second][] | select(. != null)) as $x
       ([]; if any(.[]; . == $x) then . else . + [$x] end)) as $cs |
-    [$cs[] | {option: ., settled: settle(.)}] as $rows |
+    [$cs[] as $c | settle($c) as $s |
+      if $s.status != "clear" and $s.approval != true and $s.selection_eligible == true
+        and ($s.reason == "genuine spendPriority tie" or (($s.reason // "") | startswith("no rankable eligible candidate"))) then
+        ($s | model_tie_candidates | to_entries[]) as $v |
+        {option:$c, key:("\($c)_model_\($v.key)"), settled:($s + {status:"clear",chosen:$v.value,decided_rule:$c})}
+      else {option:$c, key:$c, settled:$s} end] as $rows |
     ([$rows[] | select(.settled.status != "clear")] | first) as $bad |
     if $bad != null then
       {state: "skipped", reason: "\($bad.option) would not clear: \($bad.settled.reason // $bad.settled.status)"}
@@ -1179,7 +1203,7 @@ RESOLVE_JQ="$FM_QUOTA_ROW_JQ$FM_MODEL_DENYLIST_JQ"'
         ([$r.settled.chosen.profile.harness, ($r.settled.chosen.profile.model // null)]) as $k |
         (map(.k == $k) | index(true)) as $i |
         (if declared_confidence($r.option) then [rule_at($r.option).min_confidence] else [] end) as $f |
-        if $i == null then . + [{k: $k, key: $r.option, rules: [$r.option], floors: $f, settled: $r.settled}]
+        if $i == null then . + [{k: $k, key: $r.key, rules: [$r.option], floors: $f, settled: $r.settled}]
         else .[$i].rules += [$r.option] | .[$i].floors += $f end)) as $groups |
       ($groups | map(del(.k) | .floor = (.floors | max) | del(.floors))) as $options |
       if ($options | length) == 1 then {state: "agreed", options: $options}
@@ -1319,12 +1343,9 @@ if [ "$TYPED_OK" -eq 1 ]; then
   # Rule-local quota ties or an entirely unmeasured array are model choices,
   # not reasons for firstmate to hand-pick. Offer the viable bounded models to
   # the same second pass. A fixed single-model lane needs no extra judgment.
-  RESULT=$(jq -c '
+  RESULT=$(jq -c "$MODEL_TIE_JQ"'
     if .status == "escalate" and .approval != true and .selection_eligible == true then
-      . as $r | [.candidates[] | select(.eligible)] as $all |
-      ([$all[] | select((.spendPriority | type) == "number" and .unranked != true)]) as $ranked |
-      (if ($ranked | length) > 0 then ($ranked | max_by(.spendPriority).spendPriority) as $best |
-        [$ranked[] | select(.spendPriority == $best)] else $all end) as $viable |
+      . as $r | model_tie_candidates as $viable |
       if ($viable | length) == 0 then .
       elif ($viable | map([.profile.harness,.profile.model]) | unique | length) == 1 then
         .status = "picked" | .chosen = $viable[0] |

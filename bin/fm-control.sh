@@ -260,6 +260,7 @@ fi
 NEW_HARNESS=
 NEW_MODEL=
 NEW_EFFORT=
+CAPTAIN_OVERRIDE=
 HARNESS_SET=0
 MODEL_SET=0
 EFFORT_SET=0
@@ -275,6 +276,9 @@ for control_arg in "$@"; do
       harness) NEW_HARNESS=$control_arg; HARNESS_SET=1 ;;
       model) NEW_MODEL=$control_arg; MODEL_SET=1 ;;
       effort) NEW_EFFORT=$control_arg; EFFORT_SET=1 ;;
+      captain_override)
+        [[ "$control_arg" == *[![:space:]]* ]] || die '--captain-override needs the captain-authorized reason'
+        CAPTAIN_OVERRIDE=$control_arg ;;
       note) NOTE=$control_arg; NOTE_SET=1 ;;
       note_file)
         [ -f "$control_arg" ] || die "--note-file '$control_arg' is not a readable file"
@@ -292,6 +296,10 @@ for control_arg in "$@"; do
     --model=*) NEW_MODEL=${control_arg#--model=}; MODEL_SET=1 ;;
     --effort) control_want_value=effort ;;
     --effort=*) NEW_EFFORT=${control_arg#--effort=}; EFFORT_SET=1 ;;
+    --captain-override) control_want_value=captain_override ;;
+    --captain-override=*)
+      CAPTAIN_OVERRIDE=${control_arg#--captain-override=}
+      [[ "$CAPTAIN_OVERRIDE" == *[![:space:]]* ]] || die '--captain-override needs the captain-authorized reason' ;;
     --note) control_want_value=note ;;
     --note=*) NOTE=${control_arg#--note=}; NOTE_SET=1 ;;
     --note-file) control_want_value=note_file ;;
@@ -309,8 +317,8 @@ if [ -n "$control_want_value" ]; then
 fi
 
 if [ "$VERB" != relaunch ]; then
-  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] \
-    || die "--harness, --model, --effort, and --note apply to 'relaunch' only"
+  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ -z "$CAPTAIN_OVERRIDE" ] \
+    || die "--harness, --model, --effort, --captain-override, and --note apply to 'relaunch' only"
 fi
 [ "$HARNESS_SET" = 0 ] || [ -n "$NEW_HARNESS" ] || die "--harness requires a non-empty value"
 [ "$MODEL_SET" = 0 ] || [ -n "$NEW_MODEL" ] || die "--model requires a non-empty value"
@@ -1034,6 +1042,9 @@ resolve_relaunch_profile() {
   if [ "$KIND" != secondmate ]; then
     fm_exclude_tools_check "$TARGET_HARNESS" 0 "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" >/dev/null || return 1
   fi
+  if { [ "$TARGET_HARNESS" != "$PRIOR_RECORDED_HARNESS" ] || [ "$TARGET_MODEL" != "$PRIOR_MODEL" ] || [ "$TARGET_EFFORT" != "$PRIOR_EFFORT" ]; } && [ -z "$CAPTAIN_OVERRIDE" ]; then
+    die 'changed relaunch profile requires --captain-override with the captain-authorized reason; refusing before stopping the worker'
+  fi
 }
 
 # safe_checkpoint: prove, before anything is stopped, that the work a relaunch
@@ -1196,6 +1207,7 @@ do_relaunch() {
   spawn_args=("$ID" --relaunch --harness "$TARGET_HARNESS")
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
+  [ -z "$CAPTAIN_OVERRIDE" ] || spawn_args+=(--captain-override "$CAPTAIN_OVERRIDE")
   if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" \
       "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null; then
     RELAUNCH_META_PUBLISHED=1

@@ -572,8 +572,6 @@ EOF
   read -r h m e f <<<"$chosen"
   local profile
   profile=$(jq -nc --arg h "$h" --arg m "$m" --arg e "$e" '{harness:$h,model:$m,effort:$e}') || die 'cannot form reviewer profile'
-  FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-dispatch-resolve.sh" "$DATA/$TASK/brief.md" \
-    --decision-kind cross-review --policy-profile "$profile" --policy-reason 'catalog-proven cross-family reviewer chain' >/dev/null || die 'reviewer model routing refused'
   jq -nc --arg head "$HEAD_SHA" --argjson profile "$profile" '{head:$head,profile:$profile}' > "$DATA/$TASK/cross-review-model.json" || die 'cannot record reviewer model plan'
   printf 'action=spawn-reviewer\nkind=%s\n' "$want"
   if [ "$want" = review ]; then

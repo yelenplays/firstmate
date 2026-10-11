@@ -553,6 +553,22 @@ test_active_dispatch_profile_allows_explicit_harness() {
   pass "active crew-dispatch profile allows an explicit resolved harness"
 }
 
+test_captain_override_records_and_launches_explicit_profile() {
+  local rec id=profile-captain-override out why
+  rec=$(make_spawn_case captain-override claude "$id")
+  read_case_record "$rec"
+  enable_dispatch_profile "$HOME_DIR"
+  why='Explicit per-task runtime choice authorized for this fixture.'
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness codex --model gpt-5 --effort high --captain-override "$why")
+  expect_code 0 "$?" "captain override did not launch: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
+  [ -s "$LAUNCH_LOG" ] || fail 'approved profile was not delivered to the launch endpoint'
+  jq -s -e --arg why "$why" 'any(.[]; .kind == "dispatch" and .captain_override == true and .reason == $why and .selected == {harness:"codex",model:"gpt-5",effort:"high"})' \
+    "$HOME_DIR/state/model-route/decisions.jsonl" >/dev/null || fail 'launch did not consume the recorded captain reason/profile'
+  pass 'explicit captain override records its reason and launches through the receipt gate'
+}
+
 test_active_dispatch_profile_allows_positional_harness() {
   local rec id out status
   id=profile-positional-z14
@@ -2641,6 +2657,7 @@ test_unresolvable_relative_overrides_fail_loudly
 test_active_dispatch_profile_requires_explicit_harness_for_ship
 test_active_dispatch_profile_requires_explicit_harness_for_scout
 test_active_dispatch_profile_allows_explicit_harness
+test_captain_override_records_and_launches_explicit_profile
 test_active_dispatch_profile_allows_positional_harness
 test_active_dispatch_profile_allows_raw_launch_command
 test_chained_raw_launch_strips_ai_trailer_in_every_step

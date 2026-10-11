@@ -77,6 +77,24 @@ JSON
 check >/dev/null 2>&1 && fail 'a changed model policy reused an old receipt'
 pass 'receipts reject changed instructions, policy, profile and age'
 
+# An ambiguous rule answer must not skip the second pass when a contender has
+# equally ranked models or no rankable provider evidence.
+cp "$H/config/crew-dispatch.json" "$TMP_ROOT/before-model-ties.json"
+cp "$QUOTA" "$TMP_ROOT/before-model-ties-quota.json"
+jq '.rules[0].use = [{harness:"claude",model:"claude-opus-5-5",effort:"medium"},
+  {harness:"claude",model:"claude-sonnet-5",effort:"high"}]' "$TMP_ROOT/before-model-ties.json" > "$H/config/crew-dispatch.json"
+for evidence in tied unranked; do
+  if [ "$evidence" = unranked ]; then printf '{"schemaVersion":5,"providers":[]}\n' > "$QUOTA"; fi
+  : > "$CALLS"
+  out=$(route "$BRIEF") || fail "$evidence ambiguous contender did not resolve"
+  assert_equals 2 "$(jq -s length "$CALLS")" "$evidence contender must make the bounded second Jev call"
+  jq -s -e '.[1].state.model_options | length == 2 and any(.[]; .model == "claude-opus-5-5") and any(.[]; .model == "claude-sonnet-5")' "$CALLS" >/dev/null || fail "$evidence second pass did not offer concrete eligible models"
+  assert_contains "$out" '  receipt: ' "$evidence undecided second pass still binds the safe default"
+done
+cp "$TMP_ROOT/before-model-ties.json" "$H/config/crew-dispatch.json"
+cp "$TMP_ROOT/before-model-ties-quota.json" "$QUOTA"
+pass 'ambiguous rule arrays run the bounded model pass before the default'
+
 # An array with unmeasured candidates asks Jev about the concrete models rather
 # than passing an arbitrary eligible option to the launch consumer.
 jq '.rules[0].use = [{harness:"claude",model:"claude-opus-5-5",effort:"medium"},{harness:"pi",model:"openai-codex/gpt-6.1-sol",effort:"high",provider:"codex"}] |
@@ -103,6 +121,26 @@ for kind in secondmate cross-review no-mistakes; do
   check --kind "$kind" >/dev/null || fail "$kind receipt was not consumable"
 done
 pass 'seats, cross-family reviewers and native pipeline pins share the resolver'
+
+# Explicit captain overrides are recorded by the same resolver, including
+# after a captain-approval rule issued no usable receipt.
+cp "$H/config/crew-dispatch.json" "$TMP_ROOT/before-override.json"
+why='Explicit per-task model choice authorized for this fixture.'
+out=$(route "$BRIEF" --policy-profile "$SELECTED" --captain-override "$why") || fail 'explicit override did not route'
+check >/dev/null || fail 'override receipt was not consumable'
+RECEIPT=$(awk '/^  receipt: / {sub(/^  receipt: /, ""); print}' <<<"$out")
+jq -e --arg why "$why" '.captain_override == true and .exception == "deterministic_policy" and .reason == $why' "$RECEIPT" >/dev/null || fail 'override reason was not recorded'
+jq '.rules = [.rules[0]] | .rules[0].approval = "captain"' "$TMP_ROOT/before-override.json" > "$H/config/crew-dispatch.json"
+out=$(route "$BRIEF") || fail 'approval rule did not escalate'
+assert_contains "$out" '  status: escalate' 'rule waits for captain approval'
+assert_not_contains "$out" '  receipt: ' 'approval escalation issues no launch receipt'
+check >/dev/null 2>&1 && fail 'old override was reusable after the rule changed'
+out=$(route "$BRIEF" --policy-profile "$SELECTED" --captain-override "$why") || fail 'approved escalation could not route'
+check >/dev/null || fail 'approved escalation receipt did not bind the profile'
+route "$BRIEF" --policy-profile "$SELECTED" --policy-reason 'captain-authorized launch override' >/dev/null 2>&1 && fail 'policy reason forged captain authority without the explicit override path'
+route "$BRIEF" --policy-profile '{"harness":"pi","model":"openai-codex/gpt-6-luna","effort":"high"}' --captain-override "$why" >/dev/null 2>&1 && fail 'captain override silently waived a model ban'
+cp "$TMP_ROOT/before-override.json" "$H/config/crew-dispatch.json"
+pass 'captain overrides and approved escalations carry explicit reason receipts'
 
 # Exercise the executable no-mistakes boundary with an opaque native tool.
 # The wrapper never administers a daemon and never changes native argv.

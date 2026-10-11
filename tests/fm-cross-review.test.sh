@@ -199,10 +199,15 @@ test_direct_pr_gets_a_head_bound_review() {
   assert_equals spawn-reviewer "$(field "$out" action)" "direct-PR always needs a one-shot reviewer"
   assert_equals openai-codex/gpt-6.1-sol "$(field "$out" reviewer_model)" "a Claude-built change goes to Sol 6.1 first"
   assert_equals high "$(field "$out" reviewer_effort)" "the Sol reviewer runs at high effort"
+  assert_absent "$HOME_DIR/state/model-route/decisions.jsonl" 'planning must not issue an unused builder-brief receipt'
+  jq -e --arg head "$HEAD_SHA" '.head == $head and .profile.model == "openai-codex/gpt-6.1-sol"' \
+    "$HOME_DIR/data/$TASK/cross-review-model.json" >/dev/null || fail 'planning did not preserve the head-bound model record'
   rid=$(field "$out" reviewer_id)
   out=$(xr brief "$TASK" "$rid" --head "$HEAD_SHA" <&-) || fail "brief failed: $out"
   brief="$HOME_DIR/data/$rid/brief.md"
   assert_present "$brief" "the reviewer instructions were not written"
+  "$ROOT/bin/fm-model-route-receipt.py" check --home "$HOME_DIR" --kind cross-review --brief "$brief" \
+    --selected "$(jq -c .profile "$HOME_DIR/data/$TASK/cross-review-model.json")" >/dev/null || fail 'generated reviewer instructions do not have a consumable receipt'
   assert_grep "git checkout --detach $HEAD_SHA" "$brief" "the reviewer is pinned to the exact head"
   assert_grep "reviewed head $HEAD_SHA" "$brief" "the reviewer is told the declaration line"
   assert_no_grep "{TASK}" "$brief" "the intent placeholder was left unfilled"

@@ -1694,10 +1694,15 @@ Effort ranges and completion-runway eligibility are evaluated above; no last res
 `bin/fm-model-route-receipt.py` binds the exact instructions, current model policy, offered-options hash, selected harness/model/effort and consultation to a five-minute receipt.
 The typed exceptions are `deterministic_policy`, `privacy_insufficient_payload`, `jev_unavailable` and `jev_escalation`, each with a reason.
 Changed instructions, policy, selected flags or age require another resolution; policy files supplied by fixed consumers are hashed too.
-`state/model-route/` contains private current receipts and a metadata-only `decisions.jsonl` journal, never prompt text, keys or quota account identities.
+`state/model-route/` contains private current receipts and a `decisions.jsonl` journal, never brief bodies, keys or quota account identities.
+Explicit captain-override reasons are intentionally recorded.
 A receipt is consultation evidence, not merge, task, catalog or authentication authority.
 
 `fm-spawn.sh` consumes the receipt before provisioning; arbitrary manual dispatch flags cannot replace a configured resolution.
+For an explicitly captain-authorized choice, pass `--captain-override "<captain-authorized reason>"` with the concrete profile to `fm-spawn.sh`, or to `fm-dispatch-resolve.sh` with `--policy-profile`.
+This path records the reason and `captain_override: true` with a `deterministic_policy` receipt, including after an approval rule issued no receipt; it never waives model bans or widens task authority.
+A relaunch whose harness/model/effort differs from its recorded profile requires that same flag; `fm-control.sh` refuses before stopping the worker and forwards the reason to the launch owner.
+An unchanged relaunch retains the recorded model/effort and its deterministic recovery receipt.
 Configured secondmate seats, preserved recovery pins, and catalog-proven cross-family reviewer chains use the same resolver with explicit fixed-policy exceptions.
 `fm-cross-review.sh` checks the shared denylist before selecting its policy candidate and rebinds the receipt to the generated reviewer instructions.
 Worker launches install `fm-no-mistakes.sh` as a PATH-local boundary without changing the shared daemon or native agent config.

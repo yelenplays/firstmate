@@ -784,6 +784,7 @@ BRANCH_PREFIX=fm/
 TRACEPARENT_ARG=
 ROUTE_OVERRIDE=
 ROUTE_OVERRIDE_SET=0
+CAPTAIN_OVERRIDE=
 HARNESS_SET=0
 MODEL_SET=0
 EFFORT_SET=0
@@ -853,6 +854,10 @@ for a in "$@"; do
       ROUTE_OVERRIDE=$a
       ROUTE_OVERRIDE_SET=1
       ;;
+    captain-override)
+      [[ "$a" == *[![:space:]]* ]] || { echo 'error: --captain-override needs the captain-authorized reason' >&2; exit 1; }
+      CAPTAIN_OVERRIDE=$a
+      ;;
     *)
       echo "error: internal parser state for --$want_value" >&2
       exit 1
@@ -871,6 +876,11 @@ for a in "$@"; do
     KIND_SET=1
     ;;
   --relaunch) RELAUNCH=1 ;;
+  --captain-override) want_value=captain-override ;;
+  --captain-override=*)
+    CAPTAIN_OVERRIDE=${a#--captain-override=}
+    [[ "$CAPTAIN_OVERRIDE" == *[![:space:]]* ]] || { echo 'error: --captain-override needs the captain-authorized reason' >&2; exit 1; }
+    ;;
   --herdr-resume-lock-wait) HERDR_RESUME_LOCK_WAIT=1 ;;
   --harness) want_value=harness ;;
   --harness=*)
@@ -1691,6 +1701,7 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
   [ -z "$MODEL" ] || shared_args+=(--model "$MODEL")
   [ "$PERMISSION_MODE_SET" -eq 0 ] || shared_args+=(--permission-mode "$PERMISSION_MODE")
   [ -z "$EFFORT" ] || shared_args+=(--effort "$EFFORT")
+  [ -z "$CAPTAIN_OVERRIDE" ] || shared_args+=(--captain-override "$CAPTAIN_OVERRIDE")
   [ -z "$BACKEND_ARG" ] || shared_args+=(--backend "$BACKEND_ARG")
   # One delivery contract applies to every pair in a batch, exactly like the shared
   # harness. Each pair still re-validates it against its own brief, so a batch
@@ -2077,6 +2088,16 @@ if [ "$RELAUNCH" -eq 1 ]; then
     echo "error: task $ID has no recorded harness; pass --harness to relaunch it" >&2
     exit 1
   }
+  if [ "$ARG3" = "$RELAUNCH_PRIOR_HARNESS" ]; then
+    if [ "$MODEL_SET" -eq 0 ]; then
+      MODEL=$(fm_meta_get "$RELAUNCH_META" model)
+      [ "$MODEL" != default ] || MODEL=
+    fi
+    if [ "$EFFORT_SET" -eq 0 ]; then
+      EFFORT=$(fm_meta_get "$RELAUNCH_META" effort)
+      [ "$EFFORT" != default ] || EFFORT=
+    fi
+  fi
 elif [ "$KIND" = secondmate ]; then
   case "${POS[1]:-}" in
   '' | claude | codex | opencode | pi | pi-signed | grok | kimi | cursor | gemini | muse | rovo | omp | agy | devin)
@@ -2669,7 +2690,10 @@ if [ "$MODEL_DENYLIST_REFUSED" = 1 ]; then
   exit 1
 fi
 # Every model selection must be consumed with a state-bound consultation or
-# typed exception. Static seats and recovery preserve their existing pin policy
+# typed exception. --captain-override <reason> records an explicitly authorized
+# profile even after a rule escalates without issuing a receipt; it never waives
+# model bans. A changed relaunch requires this same recorded override.
+# Static seats and recovery preserve their existing pin policy
 # through the same resolver; a configured dispatch never becomes a manual pick.
 ROUTE_BRIEF="$DATA/$ID/brief.md"
 ROUTE_CONTEXT_ARGS=()
@@ -2685,6 +2709,20 @@ if [ "$RAW_LAUNCH" -eq 1 ]; then
   [ -z "$ROUTE_RAW_PINS" ] || ROUTE_MODEL=$ROUTE_RAW_PINS
 fi
 ROUTE_SELECTED=$(jq -nc --arg harness "$HARNESS" --arg model "$ROUTE_MODEL" --arg effort "$EFFORT" '{harness:$harness,model:$model,effort:$effort}') || exit 1
+if [ "$RELAUNCH" -eq 1 ]; then
+  ROUTE_PRIOR_MODEL=$(fm_meta_get "$RELAUNCH_META" model)
+  ROUTE_PRIOR_EFFORT=$(fm_meta_get "$RELAUNCH_META" effort)
+  [ "$ROUTE_PRIOR_MODEL" != default ] || ROUTE_PRIOR_MODEL=
+  [ "$ROUTE_PRIOR_EFFORT" != default ] || ROUTE_PRIOR_EFFORT=
+  ROUTE_COMPARE_MODEL=$ROUTE_MODEL
+  ROUTE_COMPARE_EFFORT=$EFFORT
+  [ "$ROUTE_COMPARE_MODEL" != default ] || ROUTE_COMPARE_MODEL=
+  [ "$ROUTE_COMPARE_EFFORT" != default ] || ROUTE_COMPARE_EFFORT=
+  if { [ "$HARNESS" != "$RELAUNCH_PRIOR_HARNESS" ] || [ "$ROUTE_COMPARE_MODEL" != "$ROUTE_PRIOR_MODEL" ] || [ "$ROUTE_COMPARE_EFFORT" != "$ROUTE_PRIOR_EFFORT" ]; } && [ -z "$CAPTAIN_OVERRIDE" ]; then
+    echo 'error: changed relaunch profile requires --captain-override with the captain-authorized reason; it is not preserved recovery' >&2
+    exit 1
+  fi
+fi
 ROUTE_KIND=dispatch
 if [ "$KIND" = secondmate ]; then
   ROUTE_KIND=secondmate
@@ -2702,7 +2740,10 @@ else
   ROUTE_POLICY=''
   [ ! -f "$DATA/$ID/cross-review-request" ] || ROUTE_KIND=cross-review
 fi
-if [ -n "$ROUTE_POLICY" ]; then
+if [ -n "$CAPTAIN_OVERRIDE" ]; then
+  FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-dispatch-resolve.sh" "$ROUTE_BRIEF" --decision-kind "$ROUTE_KIND" \
+    --policy-profile "$ROUTE_SELECTED" --captain-override "$CAPTAIN_OVERRIDE" ${ROUTE_CONTEXT_ARGS[@]+"${ROUTE_CONTEXT_ARGS[@]}"} >/dev/null || exit 1
+elif [ -n "$ROUTE_POLICY" ]; then
   FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-dispatch-resolve.sh" "$ROUTE_BRIEF" --decision-kind "$ROUTE_KIND" \
     --policy-profile "$ROUTE_SELECTED" --policy-reason "$ROUTE_POLICY" ${ROUTE_CONTEXT_ARGS[@]+"${ROUTE_CONTEXT_ARGS[@]}"} >/dev/null || exit 1
 fi

@@ -7,7 +7,8 @@ write reads a JSON decision envelope from stdin and prints the record path.
 check verifies the selected harness/model/effort, brief and policy hashes and
 receipt age (five minutes for dispatch; fixed policy records are reissued at
 consumption). A receipt is evidence of consultation, never launch authority.
-No input text, credentials, or quota account identities are persisted.
+No brief bodies, credentials, or quota account identities are persisted.
+An explicit captain-override reason is intentionally recorded.
 """
 import argparse
 import fcntl
@@ -101,7 +102,8 @@ def main():
         record = {'version': VERSION, 'kind': args.kind, 'created': time.time(),
                   'state_hash': fingerprint, 'options_hash': envelope.get('options_hash'),
                   'selected': pick, 'consultation': consultation, 'exception': exception,
-                  'reason': envelope.get('reason'), 'source_hashes': source_hashes,
+                  'reason': envelope.get('reason'), 'captain_override': envelope.get('captain_override', False),
+                  'source_hashes': source_hashes,
                   'outcome': envelope.get('outcome', 'selected')}
         if not isinstance(record['options_hash'], str) or len(record['options_hash']) != 64:
             raise ValueError('model selection has no options hash')
