@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fm-spend-ledger.py - the Firstmate spend ledger over workers' Pi session logs.
+"""fm-spend-ledger.py - the Firstmate spend ledger over workers' Pi and Claude session logs.
 
 Usage:
   fm-spend-ledger.py scan                        refresh the session cache and fleet rollup
@@ -18,6 +18,12 @@ carry usage per turn: input/output/cacheRead/cacheWrite/reasoning/totalTokens,
 a cost object, plus provider and model. "thinking_level_change" records carry
 the reasoning effort in effect from that point in the file, so each usage row
 is attributed to the effort class active when it was written.
+
+Native Claude Code transcripts are read as well: every *.jsonl under
+${CLAUDE_CONFIG_DIR:-~/.claude}/projects (override with --claude-sessions-root
+or FM_SPEND_CLAUDE_SESSIONS). Each "assistant" record carries its own
+sessionId, cwd and message usage; repeated records of one message count only
+their usage growth, and message content never enters the cache.
 
 Nested sub-agents (the fm-orchestrated-* role agents and any other Pi
 subagent) are separate session files. A session's artifacts directory holds
@@ -38,8 +44,9 @@ that limitation is stated rather than hidden.
 
 Lanes and families. The raw "provider" on each usage record (openai-codex,
 xai, opencode-go, openrouter, ...) is the observed lane. For quota comparison
-the rollup also publishes the mapped family: openai-codex -> codex and xai ->
-grok are the only mappings, because those are the observed pairs; every other
+the rollup also publishes the mapped family: openai-codex -> codex, xai ->
+grok, and claude or anthropic -> claude are the only mappings, because those
+are the observed pairs; every other
 provider stays under its own name so the ledger never invents a quota row for
 a lane quota-axi does not measure. "deepseek" is a model family, not a lane:
 any model whose name contains "deepseek" rolls up under the deepseek family in

@@ -90,7 +90,7 @@ Each effective `FM_HOME` contains private operational directories.
 - Enabled extension working namespaces under `state/extensions/`.
 - Parent-side remote ledger copies under `state/secondmate-summary-cache/`.
 - Home-router decisions at `state/home-route/<task-id>.json` and the append-only decision, judgment, spawn-check, and override log at `state/home-route.jsonl` (`bin/fm-home-route.sh`).
-- The metadata-only dispatch answer log at `state/dispatch-resolve.jsonl` (`bin/fm-dispatch-resolve.sh`) and the routing selftest result under `state/dispatch-selftest/` (`bin/fm-dispatch-selftest.sh`).
+- The metadata-only dispatch answer log at `state/dispatch-resolve.jsonl` (`bin/fm-dispatch-resolve.sh`), the routing selftest result under `state/dispatch-selftest/` (`bin/fm-dispatch-selftest.sh`), and optional model consultation records under `state/model-route/` (`bin/fm-model-route-receipt.py`).
 - One-shot Bearings reconcile requests under `state/reconcile-notify/`.
 - Private secondmate config-reread generations with their retry and quarantine state.
 - Per-task steering-inbox records under `state/<id>.inbox/` (`bin/fm-task-inbox-lib.sh`).
@@ -854,7 +854,7 @@ It asks Jev only about mates whose exact `scope:` value from `data/secondmates.m
 Review the task summary and every scope manually before approval: the deterministic privacy veto rejects known private terms and obvious credentials, but cannot establish that arbitrary free text is safe.
 A `local-only` project always routes main without a call.
 `decide` always records a route, and its `decided:` line names the stage that chose it.
-A missing key, a low-confidence answer, or an endpoint that does not answer goes to the [backup judge](#typed-dispatch-resolution-env-typesafe_api_key), which answers the same lead and consult questions on the same state.
+A missing key, a low-confidence answer, or an endpoint that does not answer goes to the [backup judge](../bin/fm-backup-judge-lib.sh), which answers the same lead and consult questions on the same state.
 An unsafe summary or project, missing or unusable scopes or registry, or a backup that fails too keeps the task in the main home.
 Only eligible, approved scopes can appear as consulted mates, even if a typed response includes extra consult answers.
 Firstmate may still record its own call with `bin/fm-home-route.sh judge`, accepted over a backup, main-by-default, earlier judgment, or legacy `judgment-needed` record, but never over a Jev or local-only route.
@@ -1402,7 +1402,7 @@ Typed resolution additively recognizes `gemini` because AGENTS.md section 4 veri
 | `claude`, `codex`, `grok`, `kimi`, `cursor`, `agy`, `muse` | The resolver has an authoritative single-provider mapping. |
 | Every other verified harness | Must declare `provider` explicitly; this includes multi-provider `pi`, `pi-signed`, `omp`, and `opencode`, and unmapped `gemini`, `rovo`, and `devin`; omission is an actionable configuration error before any request. |
 
-This single-provider table is separate from the frozen legacy mapping used by `fm-quota-choose.sh`; it applies to all resolver stages, including no-key backup and default routing.
+This single-provider table is separate from the frozen legacy mapping used by `fm-quota-choose.sh`; it applies to all resolver stages, including no-key default routing.
 
 **Profile quota floors**
 
@@ -1725,11 +1725,11 @@ The home-local samples file is the optional, gitignored `config/dispatch-samples
 ```
 
 `brief` becomes the sample's captain's intent, an optional `spec` its firstmate spec, an optional `project` its project name, and `expect` is `rule_<n>` in the resolver's 1-based numbering or `default`.
-Keep samples synthetic or public: each one is sent to the same judges a real brief would reach.
+Keep samples synthetic or public: each one is sent to Jev exactly as a real brief would be.
 Each sample runs in an isolated home that shares `.env` and reads prediction evidence from the live home's spend ledger without modifying its cache, model, or task metadata.
-Neither judge receives spend records or task metadata, and the [never-send boundary](#never-send-list-configdispatch-never-send) applies before any sample is sent.
+Jev never receives spend records or task metadata, and the [never-send boundary](#never-send-list-configdispatch-never-send) applies before any sample is sent.
 An unrecorded run writes nothing into the live home; recorded runs write only selftest results and concurrency markers.
-The tracked synthetic fixture in [`tests/fixtures/dispatch-selftest/`](../tests/fixtures/dispatch-selftest/) mirrors a seven-rule configuration with about thirty samples, and CI runs it offline with both judges stubbed.
+The tracked synthetic fixture in [`tests/fixtures/dispatch-selftest/`](../tests/fixtures/dispatch-selftest/) mirrors a seven-rule configuration with about thirty samples, and CI runs it offline with the typed call stubbed.
 
 A locked `bin/fm-session-start.sh` automatically arms the nightly check whenever `config/dispatch-samples.json` exists.
 When a locked session start finds `config/crew-dispatch.json` but no samples file, it alerts once and records `state/dispatch-selftest/missing-samples.alerted` until the samples return or the rules disappear.
@@ -3169,7 +3169,7 @@ The two read files use different parsing rules:
 ## Spend ceilings (config/spend-ceilings.json)
 
 `config/spend-ceilings.json` is an optional local, gitignored file that bounds token spend per task and per fleet window; absent or empty means no ceilings and nothing is armed.
-The measurement is `bin/fm-spend-ledger.py`, which rebuilds per-task totals from the workers' own Pi session logs (including nested subagent transcripts) into `state/<id>.spend`, plus fleet-level `state/spend-rollup.json` and `state/spend-model.json`.
+The measurement is `bin/fm-spend-ledger.py`, which rebuilds per-task totals from the workers' own Pi session logs (including nested subagent transcripts) and native Claude transcripts into `state/<id>.spend`, plus fleet-level `state/spend-rollup.json` and `state/spend-model.json`.
 The enforcement is the `spend` process-event adapter (`bin/fm-procevent-spend.sh`), armed best-effort at every ship/scout spawn: an unconfigured or malformed file arms nothing and never fails a launch.
 
 ```json

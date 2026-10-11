@@ -95,7 +95,7 @@
 #   before the POST. Each non-blank, non-# line is a literal matched
 #   case-insensitively, with surrounding whitespace trimmed and every run of
 #   whitespace, on both sides, treated as one space. A match, or a list that
-#   is not a readable regular file, sends nothing to either judge and the
+#   is not a readable regular file, sends nothing to Jev and the
 #   default stage answers; the reason names at most the list line number,
 #   never its value. Under --typed-only it prints one
 #   "dispatch-resolve: off (...; nothing sent)" line on stderr, nothing on
@@ -121,9 +121,12 @@
 #       scope=.. remaining=..% spendPriority=.. runway=.. pred=~<tokens>tok/<seconds>s | pred=unknown
 #       -> eligible | eligible, unranked: <reason> | not eligible: <reason>
 #     last_resort: <why the stage's own ranking could not choose>
+#     exception: deterministic_policy (<reason>)          (policy)
+#     receipt: <optional consultation record path>
 #     profile: --harness <h> [--model <m>] [--effort <e>]
 #   clear     -> the typed call decided; pass the profile line to fm-spawn.sh (AGENTS.md section 4 owns the only overrides)
 #   picked    -> the typed rule answer was ambiguous and the runoff settled it; pass the profile line the same way
+#   policy    -> the cross-review chain or a captain override supplied the profile; pass it the same way
 #   fallback  -> the default stage or a last resort decided; pass the profile line the same way
 #   escalate  -> the rule requires captain approval (no profile); under --typed-only also an unverifiable floor or no eligible candidate
 #   ambiguous -> --typed-only only; decide as today
@@ -613,7 +616,7 @@ PREDICT_FILE=$(mktemp) || { rm -f "$RESP_FILE" "$QUOTA" "$TASK_TEXT"; die "mktem
 PICK_FILE=$(mktemp) || { rm -f "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE"; die "mktemp failed"; }
 trap 'rm -f "$RULES" "$RESP_FILE" "$QUOTA" "$TASK_TEXT" "$PREDICT_FILE" "$PICK_FILE"' EXIT
 
-# A never-send match sends nothing to any judge: --typed-only reports the
+# A never-send match sends nothing to Jev: --typed-only reports the
 # historical off line, and the chain goes straight to the default stage.
 NEVER_SEND_BLOCKED=0
 never_send_off() {
@@ -662,7 +665,7 @@ fi
 LAT_MS=null
 EXTRA_LOG=null
 STATE='' QUESTIONS='' REQUEST=''
-# A request that cannot be built cannot reach any judge: --typed-only reports
+# A request that cannot be built cannot reach Jev: --typed-only reports
 # it as the historical error, and the chain goes to the default stage.
 state_fail() {
   [ "$TYPED_ONLY" -eq 0 ] || emit_error "$1"

@@ -45,12 +45,17 @@
 #     fm_wiki_change_private) always gets action=none: it stays on today's path
 #     and no new reviewer sees it. docs/configuration.md "Cross-family review"
 #     owns the fixed candidate-chain policy; the first candidate whose family
-#     is proven by its catalog and disjoint from the builder's wins.
+#     is proven by its catalog and disjoint from the builder's wins. A spawn
+#     plan also writes data/<task-id>/cross-review-model.json binding that
+#     profile to the head; a write failure only warns.
 #   fm-cross-review.sh brief <task-id> <reviewer-id> --head <sha> [--confirm]
 #     Scaffold the reviewer's scout instructions with bin/fm-brief.sh --scout,
 #     fill them for this exact head, and write the request record
-#     data/<reviewer-id>/cross-review-request. Spawn the reviewer as a scout of
-#     the task's project with the profile `plan` printed.
+#     data/<reviewer-id>/cross-review-request. When the plan record matches the
+#     head, it optionally records that profile against the generated reviewer
+#     instructions through bin/fm-dispatch-resolve.sh; a record failure only
+#     warns. Spawn the reviewer as a scout of the task's project with the
+#     profile `plan` printed.
 #   fm-cross-review.sh collect <task-id> <reviewer-id>
 #     Read the reviewer's data/<reviewer-id>/report.md, check it against the
 #     request and the reviewer's own task record, and append the result to
