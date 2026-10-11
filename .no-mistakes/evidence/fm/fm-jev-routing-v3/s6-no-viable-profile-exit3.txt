@@ -1,0 +1,12 @@
+dispatch-resolve:
+  status: escalate
+  decided: rule_1 by default
+  typed: escalate: no rankable eligible candidate
+  model: jev-1.13.0   latency_ms: 267   tokens: 658/86
+  rule: rule_1 (Fixing a bug in a code module, with a regression test.)   confidence: 1.0
+  probabilities: rule_1=1.0 default=0.0
+  effort: medium (jev confidence=1.0)
+  reason: rule rule_1 candidates refused: overflow only: not every primary has concrete Claude quota-shortfall evidence; default lane has no eligible candidate
+  note: rule matched
+  candidate: pi:openai-codex/gpt-6.1-sol  provider=codex  effort=high(range high) [clamped from medium]  scope=all_models  remaining=96%  spendPriority=-0.3765  runway=projected_exhaustion  pred=unknown  -> not eligible: overflow only: not every primary has concrete Claude quota-shortfall evidence
+rc=3

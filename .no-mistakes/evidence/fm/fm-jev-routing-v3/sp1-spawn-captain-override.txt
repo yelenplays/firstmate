@@ -1,0 +1,8 @@
+$ fm-spawn.sh ov1 <proj> --mode local-only --yolo off --harness claude --model claude-haiku-5-5 --effort low --captain-override 'Captain chose Haiku low for this lab no-op.' --backend herdr
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we
+warning: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we/data/ov1/launch-brief.md records no ship branch; defaulting to legacy branch fm/ov1
+warning: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we/data/ov1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+notice: ov1 ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+warning: brief preflight: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we/data/ov1/brief.md is missing acceptance criteria or definition of done (missing_acceptance); spawn continues
+spawned ov1 harness=claude kind=ship mode=local-only yolo=off window=fm-lab-routev3-99518-3747:w1:p2 worktree=/Users/yelen/.treehouse/proj-3055ab/1/proj
+rc=0

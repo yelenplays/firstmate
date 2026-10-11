@@ -1,0 +1,12 @@
+dispatch-resolve:
+  status: fallback
+  decided: default by default
+  typed: ambiguous: genuine spendPriority tie
+  model: default   latency_ms: 0   tokens: -/-
+  rule: default (No listed rule applies to this task.)   confidence: 1
+  probabilities: rule_1=0 rule_2=0 default=1
+  effort: medium (jev confidence=1.0)
+  note: no rule matched
+  candidate: claude:claude-opus-5-5  provider=claude  effort=high(range high) [clamped from medium]  scope=all_models  remaining=5%  spendPriority=2.1784  runway=through_reset  pred=unknown  -> eligible
+  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'high'
+  receipt: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.ZUp7we/state/model-route/5a98f907c0121030c8d7fa2647643ae3468a1fdd42700856d8e0ac519ae0f01a.json

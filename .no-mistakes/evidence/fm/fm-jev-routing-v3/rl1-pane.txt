@@ -1,0 +1,30 @@
+
+⏺ READY
+
+✻ Brewed for 7s · done 4:37 PM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Transcript saving is off — inherited CLAUDE_CODE_CHILD_SESSION marker · restart with CLAUDE_CODE_FORCE_SESSION_PE…
+  Sonnet 5.5 | ~/.treehouse/proj-3055ab/1/proj | 1e72831 | ctx 4%
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

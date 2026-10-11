@@ -1,0 +1,47 @@
+{
+  "captain_override": false,
+  "consultation": {
+    "answer": {
+      "effort": {
+        "choice": "medium",
+        "confidence": 1.0,
+        "probabilities": {
+          "high": 0.0,
+          "low": 0.0,
+          "max": 0.0,
+          "medium": 1.0,
+          "xhigh": 0.0
+        },
+        "type": "choice"
+      },
+      "rule": {
+        "choice": "rule_1",
+        "confidence": 1.0,
+        "probabilities": {
+          "default": 0.0,
+          "rule_1": 1.0,
+          "rule_2": 0.0,
+          "rule_3": 0.0,
+          "rule_4": 0.0,
+          "rule_5": 0.0,
+          "rule_6": 0.0
+        },
+        "type": "choice"
+      }
+    },
+    "model": "jev-1.13.0"
+  },
+  "created": 1791729214.160662,
+  "exception": null,
+  "kind": "dispatch",
+  "options_hash": "8bd0b614fd63f241687ec668efd9edb433559c1f243187da0bae61ef38657811",
+  "outcome": "clear",
+  "reason": "configured default policy",
+  "selected": {
+    "effort": "high",
+    "harness": "claude",
+    "model": "claude-opus-5-5"
+  },
+  "state_hash": "69c4d34a294599c61b4e24c54a13155cd39a1811e789fca5f16d08410d9259be",
+  "version": 1
+}

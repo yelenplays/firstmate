@@ -1,0 +1,6 @@
+worktree=/Users/yelen/.treehouse/proj-3055ab/1/proj
+harness=claude
+model=claude-haiku-5-5
+effort=low
+backend=herdr
+herdr_pane_id=w1:p2

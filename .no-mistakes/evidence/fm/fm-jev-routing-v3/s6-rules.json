@@ -1,0 +1,3 @@
+{"rules":[
+ {"when":"Fixing a bug in a code module, with a regression test.","use":[{"harness":"pi","model":"openai-codex/gpt-6.1-sol","effort":"high","provider":"codex","overflow":true}]}
+],"default":{"harness":"pi","model":"openai-codex/gpt-6.1-sol","effort":"high","provider":"codex","overflow":true}}

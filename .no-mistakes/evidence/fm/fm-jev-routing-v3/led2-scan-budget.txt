@@ -1,0 +1,9 @@
+$ time fm-spend-ledger.py --state <fresh> predict --quota quota.json --scan-budget 2   (resolver argument order, cold cache, real ~/.claude/projects)
+{"status":"ok","partial":true,"scanSeconds":2.016,"claude":{"percentConsumed":10.0,"windowKind":"weekly","windowStart":"2026-10-07T07:00:00.000Z","windowTokens":0}}
+{"status":"ok","partial":true,"scanSeconds":2.044,"claude":{"percentConsumed":10.0,"windowKind":"weekly","windowStart":"2026-10-07T07:00:00.000Z","windowTokens":0}}
+{"status":"ok","partial":true,"scanSeconds":2.027,"claude":{"percentConsumed":10.0,"windowKind":"weekly","windowStart":"2026-10-07T07:00:00.000Z","windowTokens":0}}
+# continuing budgeted predict calls on the same cache until the scan converges
+call 4: {"status":"ok","partial":true,"scanSeconds":2.033,"claudeTPP":84831963.7,"claudeWindowTokens":848319637}
+call 5: {"status":"ok","partial":true,"scanSeconds":2.059,"claudeTPP":169618705.4,"claudeWindowTokens":1696187054}
+call 6: {"status":"ok","partial":true,"scanSeconds":2.054,"claudeTPP":262532585.6,"claudeWindowTokens":2625325856}
+call 7: {"status":"ok","partial":false,"scanSeconds":0.957,"claudeTPP":579646267.8,"claudeWindowTokens":5796462678}

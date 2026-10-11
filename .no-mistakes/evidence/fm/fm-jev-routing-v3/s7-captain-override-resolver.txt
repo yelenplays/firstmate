@@ -1,0 +1,15 @@
+$ route.sh brief --policy-profile {claude,claude-fable-5-1,high} --captain-override "Captain named Fable for this lab task."
+dispatch-resolve:
+  status: policy
+  exception: deterministic_policy (captain-authorized launch override)
+  receipt: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.ZUp7we/state/model-route/5a98f907c0121030c8d7fa2647643ae3468a1fdd42700856d8e0ac519ae0f01a.json
+  profile: --harness 'claude' --model 'claude-fable-5-1' --effort 'high'
+rc=0
+
+$ route.sh brief --policy-profile {pi,openai-codex/gpt-6-luna,high} --captain-override "try to waive ban"
+error: fixed policy model 'openai-codex/gpt-6-luna' is on the never-use model list: rule 'gpt-*-luna*' - GPT Luna is banned by the captain for everything; use Sol 6.1 for GPT lanes (/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we/config/model-denylist.json)
+rc=2
+
+$ route.sh brief --policy-profile {claude,opus} --policy-reason "captain-authorized launch override"   (forged reason, no --captain-override)
+error: captain override requires --captain-override and its recorded reason
+rc=2

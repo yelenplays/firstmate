@@ -1,0 +1,15 @@
+# state/model-route replaced by a plain file so no record can be written
+$ fm-spawn.sh plain1 <proj> --mode local-only --yolo off --harness claude --model claude-haiku-5-5 --effort low --captain-override 'Captain chose Haiku for this lab no-op.' --backend herdr
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we
+model-route: [Errno 17] File exists: '/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.ZUp7we/state/model-route'
+dispatch-resolve: policy record unavailable; returning the selected profile
+warning: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we/data/plain1/launch-brief.md records no ship branch; defaulting to legacy branch fm/plain1
+warning: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we/data/plain1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+notice: plain1 ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+warning: brief preflight: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we/data/plain1/brief.md is missing acceptance criteria or definition of done (missing_acceptance); spawn continues
+spawned plain1 harness=claude kind=ship mode=local-only yolo=off window=fm-lab-routev3-99518-3747:w1:p3 worktree=/Users/yelen/.treehouse/proj-3055ab/2/proj
+rc=0
+harness=claude
+model=claude-haiku-5-5
+effort=low
+herdr_pane_id=w1:p3

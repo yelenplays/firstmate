@@ -1,0 +1,2 @@
+{"kind":"dispatch","captain_override":true,"exception":"deterministic_policy","reason":"Captain chose Haiku low for this lab no-op.","selected":{"effort":"low","harness":"claude","model":"claude-haiku-5-5"}}
+{"kind":"dispatch","captain_override":true,"exception":"deterministic_policy","reason":"Captain chose Haiku low for this lab no-op.","selected":{"effort":"low","harness":"claude","model":"claude-haiku-5-5"}}

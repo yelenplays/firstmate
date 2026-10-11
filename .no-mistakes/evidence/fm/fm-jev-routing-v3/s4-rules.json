@@ -1,0 +1,36 @@
+{
+  "rules": [
+    {
+      "when": "Fixing a bug in a code module, with a regression test.",
+      "use": [
+        {
+          "harness": "claude",
+          "model": "claude-sonnet-5-5",
+          "effort": "medium",
+          "provider": "claude"
+        },
+        {
+          "harness": "pi",
+          "model": "anthropic/claude-sonnet-5-5",
+          "effort": "medium",
+          "provider": "claude"
+        }
+      ]
+    },
+    {
+      "when": "Writing marketing copy for a landing page.",
+      "use": {
+        "harness": "claude",
+        "model": "claude-haiku-5-5",
+        "effort": "low",
+        "provider": "claude"
+      }
+    }
+  ],
+  "default": {
+    "harness": "claude",
+    "model": "claude-opus-5-5",
+    "effort": "high",
+    "provider": "claude"
+  }
+}

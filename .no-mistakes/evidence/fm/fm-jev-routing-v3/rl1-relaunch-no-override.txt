@@ -1,0 +1,15 @@
+$ fm-control.sh ov1 relaunch --model claude-sonnet-5-5 --effort medium --note '...'   (no --captain-override)
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we
+warning: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we/data/ov1/launch-brief.md records no ship branch; defaulting to legacy branch fm/ov1
+warning: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we/data/ov1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+notice: ov1 ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+warning: brief preflight: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ZUp7we/data/ov1/brief.md is missing acceptance criteria or definition of done (missing_acceptance); spawn continues
+relaunched ov1 harness=claude from=claude model=claude-sonnet-5-5 effort=medium backend=herdr endpoint=fm-lab-routev3-99518-3747:w1:p2 worktree=/Users/yelen/.treehouse/proj-3055ab/1/proj
+rc=0
+
+--- meta after relaunch ---
+harness=claude
+model=claude-sonnet-5-5
+effort=medium
+herdr_pane_id=w1:p2

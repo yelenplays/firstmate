@@ -1,0 +1,90 @@
+$ time fm-spend-ledger.py --state <lab>/ledger-state --scan-budget 2 predict --quota quota.json   (first call, cold cache, real ~/.claude/projects)
+{
+ "anyProvider": {
+  "all": {
+   "seconds": null,
+   "tasks": 0,
+   "tokens": null
+  }
+ },
+ "generatedAt": "2026-10-11T14:39:12.000Z",
+ "median": {},
+ "partial": false,
+ "providers": {
+  "claude": {
+   "percentConsumed": 10.0,
+   "tokensPerPoint": 579582533.4,
+   "windowKind": "weekly",
+   "windowStart": "2026-10-07T07:00:00.000Z",
+   "windowTokens": 5795825334
+  },
+  "codex": {
+   "percentConsumed": 4.0,
+   "tokensPerPoint": 14365593.25,
+   "windowKind": "weekly",
+   "windowStart": "2026-10-11T09:44:55.000Z",
+   "windowTokens": 57462373
+  },
+  "devin": {
+   "percentConsumed": 0.0,
+   "windowKind": "weekly",
+   "windowStart": "2026-10-11T08:00:00.000Z",
+   "windowTokens": 0
+  },
+  "grok": {
+   "percentConsumed": 0.0,
+   "windowKind": "weekly",
+   "windowStart": "2026-10-08T18:41:04.000Z",
+   "windowTokens": 0
+  }
+ },
+ "scanSeconds": 13.735,
+ "status": "ok",
+ "version": 3
+}
+real 13.80
+user 9.53
+sys 1.32
+
+$ fm-spend-ledger.py --state <lab>/ledger-state scan (full, unbudgeted)
+ "version": 3
+}
+real 0.15
+user 0.08
+sys 0.06
+$ fm-spend-ledger.py --state <lab>/ledger-state week
+{
+ "families": {
+  "claude": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.0,
+   "costStatus": "none",
+   "input": 0,
+   "messages": 0,
+   "output": 0,
+   "pricedTokens": 0,
+   "reasoning": 0,
+   "tokens": 8624709255,
+   "unpricedTokens": 8624709255
+  },
+  "codex": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 163.8058703799999,
+   "costStatus": "partial",
+   "input": 0,
+   "messages": 0,
+   "output": 0,
+   "pricedTokens": 1306850988,
+   "reasoning": 0,
+   "tokens": 1311164971,
+   "unpricedTokens": 4313983
+  }
+ },
+ "generatedAt": "2026-10-11T14:39:12.000Z",
+ "hours": 168,
+ "partial": false,
+ "totalTokens": 9935874226,
+ "version": 3
+}

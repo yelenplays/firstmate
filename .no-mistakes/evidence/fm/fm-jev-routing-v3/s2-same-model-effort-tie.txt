@@ -1,0 +1,13 @@
+dispatch-resolve:
+  status: picked
+  decided: rule_1 by typed
+  model: jev-1.13.0   latency_ms: 224   tokens: 675/95
+  rule: rule_1 (Fixing a bug in the pager module.)   confidence: 0.33
+  probabilities: rule_1=0.55 rule_2=0.4 default=0.05
+  effort: medium (jev confidence=1.0)
+  reason: top-2 margin 0.15 below 0.4 (rule_1 vs rule_2)
+  pick: rule_1, rule_2 settle on the same profile (no runoff call)
+  note: rule matched
+  candidate: claude:claude-opus-5-5  provider=claude  effort=medium(range medium)  scope=all_models  remaining=5%  spendPriority=2.1663  runway=through_reset  pred=unknown  -> eligible
+  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'medium'
+  receipt: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.ZUp7we/state/model-route/5a98f907c0121030c8d7fa2647643ae3468a1fdd42700856d8e0ac519ae0f01a.json

@@ -1,0 +1,15 @@
+dispatch-resolve:
+  status: picked
+  decided: rule_1 by typed
+  model: jev-1.13.0   latency_ms: 525   tokens: 679/95
+  rule: rule_1 (Fixing a bug in a code module, with a regression test.)   confidence: 1.0
+  probabilities: rule_1=1.0 rule_2=0.0 default=0.0
+  effort: medium (jev confidence=1.0)
+  reason: genuine spendPriority tie
+  pick: candidate_0 (rule_1) over candidate_1 by jev runoff   p=1.0 margin=1
+  note: rule matched
+  candidate: claude:claude-opus-5-5  provider=claude  effort=medium(range medium)  scope=all_models  remaining=5%  spendPriority=2.1691  runway=through_reset  pred=unknown  -> eligible
+  candidate: claude:claude-opus-5-5  provider=claude  effort=high(range high) [clamped from medium]  scope=all_models  remaining=5%  spendPriority=2.1691  runway=through_reset  pred=unknown  -> eligible
+  candidate: claude:claude-haiku-5-5  provider=claude  effort=high(range high) [clamped from medium]  scope=all_models  remaining=5%  spendPriority=2.1691  runway=through_reset  pred=unknown  -> eligible
+  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'medium'
+  receipt: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.ZUp7we/state/model-route/5a98f907c0121030c8d7fa2647643ae3468a1fdd42700856d8e0ac519ae0f01a.json
