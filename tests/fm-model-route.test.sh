@@ -58,24 +58,14 @@ assert_equals 1 "$(jq -s length "$CALLS")" 'same-model tie makes one Jev call'
 assert_not_contains "$out" 'not eligible: predicted' 'through_reset cannot be vetoed by a cross-provider or long-duration task median'
 pass 'same model, top effort, and through-reset quota'
 
-RECEIPT=$(awk '/^  receipt: / {sub(/^  receipt: /, ""); print}' <<<"$out")
+record_of() { awk '/^  receipt: / {sub(/^  receipt: /, ""); print}' <<<"$1"; }
 SELECTED='{"harness":"claude","model":"claude-opus-5-5","effort":"medium"}'
-check() { "$ROOT/bin/fm-model-route-receipt.py" check --home "$H" --brief "$BRIEF" --selected "$SELECTED" "$@"; }
-check >/dev/null || fail 'fresh dispatch receipt did not bind the selected profile'
-check --selected '{"harness":"claude","model":"claude-opus-5-5","effort":"high"}' >/dev/null 2>&1 && fail 'a hand-picked effort bypassed the receipt'
-printf '\nChanged requirement.\n' >> "$BRIEF"
-check >/dev/null 2>&1 && fail 'changed instructions reused an old receipt'
-out=$(route "$BRIEF") || fail 'instructions could not be resolved again'
-check >/dev/null || fail 'a new consultation did not replace the stale receipt'
-jq '.created -= 301' "$RECEIPT" > "$TMP_ROOT/old.json"
-mv "$TMP_ROOT/old.json" "$RECEIPT"
-check >/dev/null 2>&1 && fail 'expired receipt was accepted'
-out=$(route "$BRIEF") || fail 'expired receipt could not be refreshed'
+jq -e --argjson s "$SELECTED" '.kind == "dispatch" and .selected == $s and .exception == null and .consultation.model == "jev-1.13.0"' \
+  "$(record_of "$out")" >/dev/null || fail 'dispatch record did not capture the selected profile and Jev consultation'
 cat > "$H/config/model-denylist.json" <<'JSON'
 {"never":[{"pattern":"*luna*","reason":"unsupported for this work"}],"rules":["Opus handles judgment."]}
 JSON
-check >/dev/null 2>&1 && fail 'a changed model policy reused an old receipt'
-pass 'receipts reject changed instructions, policy, profile and age'
+pass 'a dispatch record captures the selected profile and its Jev consultation'
 
 # An ambiguous rule answer must not skip the second pass when a contender has
 # equally ranked models or no rankable provider evidence.
@@ -119,37 +109,28 @@ cp "$TMP_ROOT/measured.json" "$QUOTA"
 # Fixed-policy consumers use the public resolver, not another picker.
 policy() { route "$BRIEF" --decision-kind "$1" --policy-profile "$SELECTED" --policy-reason "$2"; }
 policy dispatch arbitrary >/dev/null 2>&1 && fail 'hand-picked dispatch flags became a fixed-policy exception'
-for kind in secondmate cross-review no-mistakes; do
-  case "$kind" in
-    secondmate) reason='configured secondmate seat pin';;
-    cross-review) reason='catalog-proven cross-family reviewer chain';;
-    no-mistakes) reason='configured no-mistakes native agent/reviewer chain';;
-  esac
-  out=$(policy "$kind" "$reason") || fail "$kind did not route its existing policy"
-  assert_contains "$out" 'exception: deterministic_policy' "$kind records its exception"
-  check --kind "$kind" >/dev/null || fail "$kind receipt was not consumable"
-done
-pass 'the public resolver accepts and records recognized fixed-policy profiles'
+out=$(policy cross-review 'catalog-proven cross-family reviewer chain') || fail 'cross-review did not route its reviewer chain'
+assert_contains "$out" 'exception: deterministic_policy' 'cross-review records its exception'
+jq -e --argjson s "$SELECTED" '.kind == "cross-review" and .selected == $s' "$(record_of "$out")" >/dev/null || fail 'cross-review record did not capture its profile'
+pass 'the public resolver accepts and records the cross-review reviewer chain'
 
 # Explicit captain overrides are recorded by the same resolver, including
 # after a captain-approval rule issued no usable receipt.
 cp "$H/config/crew-dispatch.json" "$TMP_ROOT/before-override.json"
 why='Explicit per-task model choice authorized for this fixture.'
 out=$(route "$BRIEF" --policy-profile "$SELECTED" --captain-override "$why") || fail 'explicit override did not route'
-check >/dev/null || fail 'override receipt was not consumable'
-RECEIPT=$(awk '/^  receipt: / {sub(/^  receipt: /, ""); print}' <<<"$out")
-jq -e --arg why "$why" '.captain_override == true and .exception == "deterministic_policy" and .reason == $why' "$RECEIPT" >/dev/null || fail 'override reason was not recorded'
+jq -e --arg why "$why" --argjson s "$SELECTED" '.captain_override == true and .exception == "deterministic_policy" and .reason == $why and .selected == $s' \
+  "$(record_of "$out")" >/dev/null || fail 'override reason was not recorded'
 jq '.rules = [.rules[0]] | .rules[0].approval = "captain"' "$TMP_ROOT/before-override.json" > "$H/config/crew-dispatch.json"
 out=$(route "$BRIEF") || fail 'approval rule did not escalate'
 assert_contains "$out" '  status: escalate' 'rule waits for captain approval'
 assert_not_contains "$out" '  receipt: ' 'approval escalation issues no launch receipt'
-check >/dev/null 2>&1 && fail 'old override was reusable after the rule changed'
 out=$(route "$BRIEF" --policy-profile "$SELECTED" --captain-override "$why") || fail 'approved escalation could not route'
-check >/dev/null || fail 'approved escalation receipt did not bind the profile'
+jq -e --argjson s "$SELECTED" '.captain_override == true and .selected == $s' "$(record_of "$out")" >/dev/null || fail 'approved escalation did not record the profile'
 route "$BRIEF" --policy-profile "$SELECTED" --policy-reason 'captain-authorized launch override' >/dev/null 2>&1 && fail 'policy reason forged captain authority without the explicit override path'
 route "$BRIEF" --policy-profile '{"harness":"pi","model":"openai-codex/gpt-6-luna","effort":"high"}' --captain-override "$why" >/dev/null 2>&1 && fail 'captain override silently waived a model ban'
 cp "$TMP_ROOT/before-override.json" "$H/config/crew-dispatch.json"
-pass 'captain overrides and approved escalations carry explicit reason receipts'
+pass 'captain overrides and approved escalations record their explicit reason'
 
 # Consultation records are optional evidence, never a model-choice prerequisite.
 mv "$H/state/model-route" "$TMP_ROOT/saved-records"

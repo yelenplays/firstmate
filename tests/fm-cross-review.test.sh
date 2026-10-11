@@ -206,8 +206,9 @@ test_direct_pr_gets_a_head_bound_review() {
   out=$(xr brief "$TASK" "$rid" --head "$HEAD_SHA" <&-) || fail "brief failed: $out"
   brief="$HOME_DIR/data/$rid/brief.md"
   assert_present "$brief" "the reviewer instructions were not written"
-  "$ROOT/bin/fm-model-route-receipt.py" check --home "$HOME_DIR" --kind cross-review --brief "$brief" \
-    --selected "$(jq -c .profile "$HOME_DIR/data/$TASK/cross-review-model.json")" >/dev/null || fail 'generated reviewer instructions do not have a consumable receipt'
+  jq -s -e --argjson p "$(jq -c .profile "$HOME_DIR/data/$TASK/cross-review-model.json")" \
+    'any(.[]; .kind == "cross-review" and .exception == "deterministic_policy" and .selected == $p)' \
+    "$HOME_DIR/state/model-route/decisions.jsonl" >/dev/null || fail 'generated reviewer instructions were not recorded with the planned profile'
   assert_grep "git checkout --detach $HEAD_SHA" "$brief" "the reviewer is pinned to the exact head"
   assert_grep "reviewed head $HEAD_SHA" "$brief" "the reviewer is told the declaration line"
   assert_no_grep "{TASK}" "$brief" "the intent placeholder was left unfilled"

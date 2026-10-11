@@ -1495,7 +1495,7 @@ Where the list is enforced:
 ## Typed dispatch resolution (.env TYPESAFE_API_KEY)
 
 `bin/fm-dispatch-resolve.sh` resolves one concrete crewmate or scout profile from a written brief with typesafe.ai's System One model (Jev), so the rule match that firstmate otherwise reasons out in its own context becomes one short tool turn.
-A viable selection prints a `profile:` and a state-bound `receipt:` line.
+A viable selection prints a `profile:` line, plus a `receipt:` line when its optional consultation record was written.
 A rule declaring `approval: captain` returns no profile; an entirely refused selection stops rather than authorizing a known-ineligible model.
 
 **The consultation chain**
@@ -1640,25 +1640,26 @@ No qualifying option, or two equally probable qualifying options, leaves the typ
 | --- | --- |
 | `clear` | The typed stage decided; a `profile:` line ready for `fm-spawn.sh`. |
 | `picked` | The typed rule answer missed its gate and the runoff below settled it; a `profile:` line ready for `fm-spawn.sh`. |
-| `policy` | An existing fixed consumer policy supplied the profile with a `deterministic_policy` receipt. |
+| `policy` | The cross-review reviewer chain or a captain-authorized override supplied the profile; an optional `deterministic_policy` record may be written. |
 | `fallback` | The default stage or a last resort decided; a `profile:` line ready for `fm-spawn.sh`. |
-| `escalate` | An approval-gated rule; no profile line; typed-only mode also uses it for an unverifiable rule floor, nothing rankable, or a genuine tie. |
+| `escalate` | An approval-gated rule; no profile line; typed-only mode also uses it for an unverifiable rule floor or no eligible candidate. A genuine quota tie or unranked eligible alternatives in one rule become `ambiguous` for the runoff, or `picked` when they share one model. |
 | `ambiguous` | Under `--typed-only` only: the rule answer missed its gate and no runoff settled it; no profile line. |
 | `error` | Under `--typed-only` only: API, network, malformed response metadata, rendering, or quota-axi failure. |
 
-Every result above exits 0.
+Every result above exits 0, except a full-chain result with no eligible selection.
 
 - Response probabilities must contain exactly every offered choice, use numeric values from 0 through 1, and sum to approximately 1 within 0.01.
 - Only a usage or configuration error exits 2: an unreadable brief, an existing but unreadable or malformed canonical rules file, an invalid `FM_JEV_DISPATCH_MARGIN`, or missing `jq`, each reported and never selected around.
 - Missing `curl` makes the typed stage fail, so the configured default answers; under `--typed-only` it is a structured `error` outcome with exit 0.
-- No eligible full-chain selection exits 3, and a receipt that cannot be recorded exits 2; neither authorizes a launch.
+- No eligible full-chain selection exits 3 and authorizes no launch; a record that cannot be written only warns and keeps the profile result.
 - A failed `quota-axi` read leaves quota evidence unranked rather than vetoing candidates; rule and overflow gates still apply before the last-resort procedure above.
 
 **Runoff on an ambiguous answer**
 
 An `ambiguous` rule answer gets one runoff before it reaches firstmate, so a close race between rules is settled by a typed Jev pick rather than by hand.
 The contenders are the picked option and the two most probable options, and each settles in code exactly as a cleared answer would under [the checks above](#checks-performed-after-the-answer).
-If any contender would not clear - a captain-approval rule, an unverifiable rule floor, nothing rankable, or a genuine tie - the runoff is skipped, because a pick between them could bypass a gate that belongs to the captain or to `quota-array-dispatch`.
+A contender whose rule has a genuine quota tie or only unranked eligible candidates offers those concrete models instead.
+If any contender would not clear - a captain-approval rule, an unverifiable rule floor, or no eligible candidate - the runoff is skipped, because a pick between them could bypass a gate that belongs to the captain or to `quota-array-dispatch`.
 Contenders that settle on the same harness/model collapse into one option even if their efforts differ; the most probable rule's effort is preserved.
 When only one model remains it is taken without another call.
 Otherwise one `pick` Choice receives the same task, the [captain model-rules summary](#never-use-model-list-configmodel-denylistjson), and concrete model/effort/quota options.
@@ -1693,7 +1694,6 @@ Effort ranges and completion-runway eligibility are evaluated above; no last res
 
 `bin/fm-model-route-receipt.py` records the exact instructions and policy hashes, offered-options hash, selected harness/model/effort and consultation.
 The typed exceptions are `deterministic_policy`, `privacy_insufficient_payload`, `jev_unavailable` and `jev_escalation`, each with a reason.
-Its read-only `check` operation detects changed inputs and records older than five minutes; no launch or pipeline consumes that check as a requirement.
 `state/model-route/` contains private records and a `decisions.jsonl` journal, never brief bodies, keys or quota account identities.
 Missing, stale or unwritable records never block model selection, launch, relaunch or pipeline execution.
 A record is consultation evidence, not merge, task, catalog or authentication authority.
@@ -1701,7 +1701,7 @@ A record is consultation evidence, not merge, task, catalog or authentication au
 The resolver and spawn support an explicitly captain-authorized profile with a free-text override reason; each script's help owns the flags.
 That reason and `captain_override: true` are recorded as a deterministic policy, including after an approval rule returned no profile, without waiving model bans or widening task authority.
 Relaunches need no override or receipt and retain their existing profile-resolution rules.
-`fm-cross-review.sh` checks the shared denylist, preserves the head-bound model plan, and optionally records the choice against the generated reviewer instructions rather than the builder's brief.
+`fm-cross-review.sh` preserves the head-bound model plan, and optionally records the choice against the generated reviewer instructions rather than the builder's brief.
 Workers use the native no-mistakes executable without an added PATH-local model gate.
 The [never-use model list](#never-use-model-list-configmodel-denylistjson) remains the unchanged owner of bans and captain-model-rules injection.
 

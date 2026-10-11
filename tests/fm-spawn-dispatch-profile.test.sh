@@ -599,11 +599,15 @@ test_active_dispatch_profile_allows_raw_launch_command() {
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id" "$PROJ_DIR" "custom-agent --flag")
   status=$?
-  expect_code 0 "$status" "raw launch must not require a consultation receipt"
+  expect_code 0 "$status" "raw launch command should satisfy active dispatch-profile requirement"
+  assert_contains "$out" "spawned $id harness=custom-agent" "spawn did not report raw command harness"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" custom-agent default default
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" 'custom-agent --flag' 'raw command reached its launch endpoint'
-  assert_present "$HOME_DIR/state/$id.meta" 'raw launch publishes its task record'
-  pass "active dispatch rules permit explicit raw commands without a new receipt gate"
+  # The unverified-adapter escape hatch is still an agent this fleet launched,
+  # so it carries the compact-adviser floor and the AI-trailer strip; nothing
+  # else may rewrite the captain's own command.
+  [ "$launch" = "export COMPACT_ADVISER_DISABLE=1; $(task_inbox_export "$HOME_DIR" "$id")$(ai_trailer_hooks_prefix "$HOME_DIR" "$id")custom-agent --flag" ] || fail "raw launch command changed"$'\n'"actual: $launch"
+  pass "active crew-dispatch profile allows the raw launch-command escape hatch"
 }
 
 test_chained_raw_launch_strips_ai_trailer_in_every_step() {

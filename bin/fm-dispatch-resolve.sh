@@ -5,11 +5,11 @@
 #
 # Usage:
 #   fm-dispatch-resolve.sh <brief-file> [--project <name>] [--typed-only]
-#   Fixed consumers: --decision-kind cross-review|secondmate|no-mistakes|static
-#     --policy-profile <JSON> --policy-reason <recognized consumer policy>
-#     [--policy-file <source-file>] (repeatable, hashed with the instructions).
-#   Captain-authorized profile: --policy-profile <JSON>
-#     --captain-override <captain-authorized reason> (recorded, not inferred).
+#   Cross-review chain: --decision-kind cross-review --policy-profile <JSON>
+#     --policy-reason 'catalog-proven cross-family reviewer chain'.
+#   Captain-authorized profile: [--decision-kind dispatch|secondmate|cross-review]
+#     --policy-profile <JSON> --captain-override <captain-authorized reason>
+#     (recorded, not inferred).
 #   Full-chain profile results may carry a receipt: line for optional evidence.
 #   Missing or unwritable records never prevent a concrete profile result.
 #   Fixed pins record deterministic_policy rather than spend a model call.
@@ -72,9 +72,10 @@
 #   otherwise one more POST asks a typed `pick` Choice keyed by rule and worded
 #   with the same criteria the rule Choice sent, on the same state. The pick
 #   clears on the same top-2 margin gate, or on an option's strictest declared
-#   min_confidence instead, and makes the answer `picked`. Any
-#   contender that would not clear (captain approval, unverifiable floor,
-#   nothing rankable, tie) skips the runoff, and a narrow, non-winning,
+#   min_confidence instead, and makes the answer `picked`. A contender whose
+#   rule has a quota tie or only unranked eligible candidates offers those
+#   models instead. Any contender that would not clear (captain approval,
+#   unverifiable floor, no eligible candidate) skips the runoff, and a narrow, non-winning,
 #   malformed, failed, or never-send-withheld pick leaves the typed stage
 #   ambiguous, so the configured default decides with a typed exception.
 #   The runoff includes concrete model_options and the captain model-rules
@@ -123,7 +124,7 @@
 #   clear     -> the typed call decided; pass the profile line to fm-spawn.sh (AGENTS.md section 4 owns the only overrides)
 #   picked    -> the typed rule answer was ambiguous and the runoff settled it; pass the profile line the same way
 #   fallback  -> the default stage or a last resort decided; pass the profile line the same way
-#   escalate  -> the rule requires captain approval (no profile); under --typed-only also no rankable candidate or a tie
+#   escalate  -> the rule requires captain approval (no profile); under --typed-only also an unverifiable floor or no eligible candidate
 #   ambiguous, error -> --typed-only only; decide as today
 #   Normal typed outcomes exit 0. A full-chain result with no viable profile
 #   exits 3 rather than authorizing a known-refused or unconsulted launch.
@@ -318,7 +319,6 @@ fm_dispatch_home_criteria() {
 
 BRIEF='' PROJECT='' RULES_PATH="$CONFIG/crew-dispatch.json" RULES='' REPLAY=0 TYPED_ONLY=0
 DECISION_KIND=dispatch POLICY_PROFILE='' POLICY_REASON='' RECEIPT_PATH='' CAPTAIN_OVERRIDE=''
-POLICY_FILES=()
 NEVER_SEND_PATH="$CONFIG/dispatch-never-send"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -327,8 +327,6 @@ while [ $# -gt 0 ]; do
     --policy-profile) [ $# -ge 2 ] || die "--policy-profile needs a JSON profile"; POLICY_PROFILE=$2; shift 2 ;;
     --policy-reason) [ $# -ge 2 ] || die "--policy-reason needs a value"; POLICY_REASON=$2; shift 2 ;;
     --captain-override) [ $# -ge 2 ] && [[ "$2" == *[![:space:]]* ]] || die '--captain-override needs the captain-authorized reason'; CAPTAIN_OVERRIDE=$2; shift 2 ;;
-    --policy-file) [ $# -ge 2 ] && [ -r "$2" ] || die "--policy-file needs a readable source"; POLICY_FILES+=(--policy-file "$2"); shift 2 ;;
-    --context-hash) [ $# -ge 2 ] || die '--context-hash needs a hash'; POLICY_FILES+=(--context-hash "$2"); shift 2 ;;
     --replay) REPLAY=1; TYPED_ONLY=1; shift ;;
     --typed-only) TYPED_ONLY=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -339,47 +337,33 @@ done
 
 # Fixed, existing policy pins use the same router and optional records without
 # asking a model to rediscover a value the policy already supplies.
-case "$DECISION_KIND" in dispatch|cross-review|secondmate|no-mistakes|static) ;; *) die "invalid decision kind" ;; esac
+case "$DECISION_KIND" in dispatch|cross-review|secondmate) ;; *) die "invalid decision kind" ;; esac
 [ -z "$CAPTAIN_OVERRIDE" ] || { [ -n "$POLICY_PROFILE" ] && [ -z "$POLICY_REASON" ]; } || die 'captain override needs a profile and cannot be combined with another policy reason'
 [ -z "$CAPTAIN_OVERRIDE" ] || POLICY_REASON='captain-authorized launch override'
 if [ -n "$POLICY_PROFILE" ]; then
   [ -r "$BRIEF" ] && [ -n "$POLICY_REASON" ] || die "policy routing needs a readable brief and policy reason"
   case "$DECISION_KIND:$POLICY_REASON" in
-    'dispatch:captain-authorized launch override'|'static:captain-authorized launch override'|'cross-review:captain-authorized launch override'|'secondmate:captain-authorized launch override'|\
-    'cross-review:catalog-proven cross-family reviewer chain'|\
-    'secondmate:configured secondmate seat pin'|'secondmate:configured remote secondmate seat pin'|\
-    'static:recovery preserves the recorded worker profile'|'static:static launch profile in a home without dispatch rules'|'static:explicit raw launch profile'|\
-    'no-mistakes:explicit immutable no-mistakes Pi run pin'|'no-mistakes:existing immutable no-mistakes Pi run pin'|\
-    'no-mistakes:configured no-mistakes native agent/reviewer chain'|'no-mistakes:uninspectable no-mistakes role policy') ;;
+    *':captain-authorized launch override'|'cross-review:catalog-proven cross-family reviewer chain') ;;
     *) die 'fixed-policy routing needs a recognized policy consumer, not hand-picked dispatch flags' ;;
   esac
   [ "$POLICY_REASON" != 'captain-authorized launch override' ] || [ -n "$CAPTAIN_OVERRIDE" ] || die 'captain override requires --captain-override and its recorded reason'
-  POLICY_INPUT_HASH=$("$SCRIPT_DIR/fm-model-route-receipt.py" fingerprint --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"}) || POLICY_INPUT_HASH=''
+  POLICY_INPUT_HASH=$("$SCRIPT_DIR/fm-model-route-receipt.py" fingerprint --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND") || POLICY_INPUT_HASH=''
   jq -e 'type == "object" and (.harness | type == "string" and length > 0) and
     all(.model?, .effort?; . == null or type == "string")' <<<"$POLICY_PROFILE" >/dev/null || die "invalid policy profile"
   POLICY_H=$(jq -r .harness <<<"$POLICY_PROFILE")
-  POLICY_EXCEPTION=deterministic_policy
-  if [ "$POLICY_REASON" = 'explicit raw launch profile' ]; then
-    [[ " ${POLICY_FILES[*]} " == *' --context-hash '* ]] || die 'an opaque raw launch needs its exact command hash'
-    POLICY_EXCEPTION=privacy_insufficient_payload
-  elif [ "$POLICY_REASON" = 'uninspectable no-mistakes role policy' ]; then
-    [ "$POLICY_H" = no-mistakes ] && [ "${#POLICY_FILES[@]}" -gt 0 ] || die 'an opaque native role needs its policy source'
-    POLICY_EXCEPTION=privacy_insufficient_payload
-  else
-    fm_control_harnesses | grep -qxF "$POLICY_H" || die "unverified policy harness"
-  fi
+  fm_control_harnesses | grep -qxF "$POLICY_H" || die "unverified policy harness"
   fm_model_denylist_load "$CONFIG" || die "$FM_MODEL_DENYLIST_ERROR"
   fm_model_denylist_check_launch 'fixed policy model' "$POLICY_H" "$(jq -r '.model // ""' <<<"$POLICY_PROFILE")" || die "$FM_MODEL_DENYLIST_ERROR"
   POLICY_HASH=$(printf '%s' "$POLICY_PROFILE" | python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())') || POLICY_HASH=''
-  POLICY_RECORD=$(jq -nc --argjson selected "$POLICY_PROFILE" --arg reason "$POLICY_REASON" --arg captain_reason "$CAPTAIN_OVERRIDE" --arg hash "$POLICY_HASH" --arg exception "$POLICY_EXCEPTION" \
-    '{selected:$selected, exception:$exception, reason:(if $captain_reason != "" then $captain_reason else $reason end), captain_override:($captain_reason != ""), options_hash:$hash}') || POLICY_RECORD=''
-  if [ -n "$POLICY_INPUT_HASH" ] && RECEIPT_PATH=$(printf '%s' "$POLICY_RECORD" | "$SCRIPT_DIR/fm-model-route-receipt.py" write --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" --expected-state-hash "$POLICY_INPUT_HASH" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"}); then
+  POLICY_RECORD=$(jq -nc --argjson selected "$POLICY_PROFILE" --arg reason "$POLICY_REASON" --arg captain_reason "$CAPTAIN_OVERRIDE" --arg hash "$POLICY_HASH" \
+    '{selected:$selected, exception:"deterministic_policy", reason:(if $captain_reason != "" then $captain_reason else $reason end), captain_override:($captain_reason != ""), options_hash:$hash}') || POLICY_RECORD=''
+  if [ -n "$POLICY_INPUT_HASH" ] && RECEIPT_PATH=$(printf '%s' "$POLICY_RECORD" | "$SCRIPT_DIR/fm-model-route-receipt.py" write --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" --expected-state-hash "$POLICY_INPUT_HASH"); then
     :
   else
     RECEIPT_PATH=''
     echo 'dispatch-resolve: policy record unavailable; returning the selected profile' >&2
   fi
-  printf 'dispatch-resolve:\n  status: policy\n  exception: %s (%s)\n' "$POLICY_EXCEPTION" "$POLICY_REASON"
+  printf 'dispatch-resolve:\n  status: policy\n  exception: deterministic_policy (%s)\n' "$POLICY_REASON"
   [ -z "$RECEIPT_PATH" ] || printf '  receipt: %s\n' "$RECEIPT_PATH"
   jq -r '"  profile: --harness " + (.harness | @sh) +
     (if (.model // "") != "" then " --model " + (.model | @sh) else "" end) +
@@ -409,7 +393,7 @@ MARGIN=$(fm_dispatch_margin) || die "FM_JEV_DISPATCH_MARGIN must be a number in 
 [ -r "$BRIEF" ] || die "brief file not readable: $BRIEF"
 RECEIPT_INPUT_HASH=''
 if [ "$TYPED_ONLY" -eq 0 ]; then
-  RECEIPT_INPUT_HASH=$("$SCRIPT_DIR/fm-model-route-receipt.py" fingerprint --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"}) || RECEIPT_INPUT_HASH=''
+  RECEIPT_INPUT_HASH=$("$SCRIPT_DIR/fm-model-route-receipt.py" fingerprint --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND") || RECEIPT_INPUT_HASH=''
 fi
 [ -e "$RULES_PATH" ] || [ -L "$RULES_PATH" ] || no_rules
 [ -r "$RULES_PATH" ] || die "rules file not readable: $RULES_PATH"
@@ -1229,9 +1213,9 @@ one_hot_response() {  # <choice> <model-label> <path>
     || emit_error "could not build the $2 answer"
 }
 
-last_resort_pick() {  # <additional-note>: sets RESULT with an eligible pick or the declared fallback
-  local note=${1:-} next
-  next=$(jq -c --arg note "$note" '
+last_resort_pick() {  # sets RESULT with an eligible pick
+  local next
+  next=$(jq -c '
     (.candidates // []) as $c |
     ([$c[] | select(.eligible == true and ((.unranked // false) | not) and (.spendPriority | type) == "number")]) as $ranked |
     ([$c[] | select(.eligible == true)]) as $eligible |
@@ -1239,65 +1223,17 @@ last_resort_pick() {  # <additional-note>: sets RESULT with an eligible pick or 
        ($ranked | max_by(.spendPriority).spendPriority) as $best
        | {pick: ([$ranked[] | select(.spendPriority == $best)] | first), why: "best-ranked eligible candidate, first in declared order on a tie"}
      elif ($eligible | length) > 0 then {pick: $eligible[0], why: "first eligible candidate in declared order"}
-     elif ($c | length) > 0 then {pick: $c[0], why: "every candidate refused; first declared candidate"}
      else null end) as $lr |
-    if $lr == null or $lr.pick.eligible != true then error("no eligible candidate")
-    else . + {status: "fallback", chosen: $lr.pick, last_resort: ("\(.reason // .status): \($lr.why)" + (if $note == "" then "" else "; " + $note end))} end' <<<"$RESULT" 2>/dev/null) || return 1
+    if $lr == null then error("no eligible candidate")
+    else . + {status: "fallback", chosen: $lr.pick, last_resort: "\(.reason // .status): \($lr.why)"} end' <<<"$RESULT" 2>/dev/null) || return 1
   RESULT=$next
-}
-
-last_resort() {  # <stage> <effort-json>: settles the decided lane or its default
-  local stage=$1 effort=$2 original=$RESULT refused original_rule original_reasons default_choice default_file default_result default_eligible default_reasons note
-  refused=$(jq -r '(.candidates // []) as $c | (($c | length) > 0) and all($c[]; .eligible != true)' <<<"$RESULT")
-  if [ "$refused" = true ] && [ "$stage" != fallback ] \
-    && [ "$(jq -r '(.note // "") | contains("fall through to default")' <<<"$original")" = true ]; then
-    original_rule=$(jq -r '.decided_rule // .rule // "unknown"' <<<"$original")
-    original_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$original")
-    last_resort_pick "default lane candidates refused for $original_rule: $original_reasons; first declared candidate used"
-    return $?
-  fi
-  if [ "$refused" = true ] && [ "$stage" != fallback ]; then
-    original_rule=$(jq -r '.decided_rule // .rule // "unknown"' <<<"$original")
-    original_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$original")
-    if [ "$HAS_DEFAULT" = true ]; then default_choice=default; else default_choice=rule_1; fi
-    default_file=$(mktemp) || default_file=''
-    if [ -n "$default_file" ]; then
-      one_hot_response "$default_choice" default "$default_file"
-      resolve_response "$default_file" "$effort" 0
-      default_result=$RESULT
-      rm -f "$default_file"
-      default_eligible=$(jq -r '.selection_eligible == true' <<<"$default_result")
-      if [ "$default_eligible" = true ]; then
-        RESULT=$(jq -c --argjson original "$original" '.decided_rule = ($original.decided_rule // $original.rule)' <<<"$default_result") \
-          || { RESULT=$original; return 1; }
-        note="rule $original_rule candidates refused: $original_reasons; eligible default lane used"
-        last_resort_pick "$note" || { RESULT=$original; return 1; }
-        DECIDED_BY=default
-        return 0
-      fi
-      default_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$default_result")
-    else
-      default_reasons='default lane could not be assessed'
-    fi
-    RESULT=$original
-    note="rule $original_rule candidates refused: $original_reasons; default candidates refused: ${default_reasons:-none}; first declared candidate used"
-    last_resort_pick "$note"
-    return $?
-  fi
-  if [ "$refused" = true ]; then
-    original_rule=$(jq -r '.decided_rule // .rule // "default"' <<<"$original")
-    original_reasons=$(jq -r '[.candidates[]? | select(.eligible != true) | (.reason // "refused")] | unique | join("; ")' <<<"$original")
-    last_resort_pick "$original_rule candidates refused: $original_reasons; first declared candidate used"
-    return $?
-  fi
-  last_resort_pick
 }
 
 # Settles RESULT for a stage that has decided a rule. Returns 0 when RESULT now
 # carries a final answer (a profile, or a captain-approval escalate), 1 when it
 # has no candidate at all.
-settle_stage() {  # <ok-status> <effort-json>
-  local status approval effort=${2:-$EFFORT_JSON}
+settle_stage() {  # <ok-status>
+  local status approval
   status=$(jq -r '.status' <<<"$RESULT")
   approval=$(jq -r '.approval // false' <<<"$RESULT")
   case "$status" in
@@ -1309,8 +1245,8 @@ settle_stage() {  # <ok-status> <effort-json>
   if [ "$status" = escalate ] && [ "$approval" = true ]; then
     return 0
   fi
-  [ "$1" = fallback ] || return 1
-  last_resort "$1" "$effort"
+  [ "$1" = fallback ] && [ "$(jq -r '.selection_eligible == true' <<<"$RESULT")" = true ] || return 1
+  last_resort_pick
 }
 
 # ---- the chain: typed, bounded runoff, then configured default ---------------
@@ -1437,7 +1373,7 @@ if [ "$TYPED_OK" -eq 1 ]; then
         TYPED_REASON="$TYPED_STATUS: $(jq -r '.reason // "-"' <<<"$RESULT")"
         ;;
       *)
-        if settle_stage clear "$EFFORT_JSON"; then
+        if settle_stage clear; then
           DECIDED_BY=${DECIDED_BY:-typed}
         else
           TYPED_REASON="$TYPED_STATUS: $(jq -r '.reason // "-"' <<<"$RESULT")"
@@ -1462,12 +1398,11 @@ if [ "$TYPED_ONLY" -eq 0 ] && [ -z "$DECIDED_BY" ]; then
     DEFAULT_CHOICE=rule_1
   fi
   DEFAULT_ORIGIN=${RESULT:-null}
-  DEFAULT_EFFORT_JSON=$EFFORT_JSON
   DEFAULT_RESP=$(mktemp) || emit_error "mktemp failed"
   one_hot_response "$DEFAULT_CHOICE" default "$DEFAULT_RESP"
-  resolve_response "$DEFAULT_RESP" "$DEFAULT_EFFORT_JSON" 0
+  resolve_response "$DEFAULT_RESP" "$EFFORT_JSON" 0
   rm -f "$DEFAULT_RESP"
-  settle_stage fallback "$DEFAULT_EFFORT_JSON" || RESULT=$(jq -c '.status = "escalate" | del(.chosen) | .reason = "default lane has no eligible candidate; no model selected"' <<<"$RESULT")
+  settle_stage fallback || RESULT=$(jq -c '.status = "escalate" | del(.chosen) | .reason = "default lane has no eligible candidate; no model selected"' <<<"$RESULT")
   # Keep the proven matched lane and its refusal evidence when the configured
   # default supplies a different selection. Do not turn an ambiguous guess
   # into a claimed match, or erase the source of a quota refusal.
@@ -1475,10 +1410,12 @@ if [ "$TYPED_ONLY" -eq 0 ] && [ -z "$DECIDED_BY" ]; then
     ($origin.candidates // []) as $c |
     if $origin.status == "escalate" and ($c | length) > 0 and all($c[]; .eligible != true) then
       ($origin.decided_rule // $origin.rule) as $r |
-      .decided_rule = $r |
+      (if .chosen.eligible == true then "; eligible default lane used"
+       elif .approval == true then "; default lane requires captain approval"
+       else "; default lane has no eligible candidate" end) as $default_note |
+      (if .chosen.eligible == true then .decided_rule = $r else $origin end) |
       .reason = ("rule " + $r + " candidates refused: " +
-        ([$c[] | .reason // "refused"] | unique | join("; ")) +
-        (if .chosen.eligible == true then "; eligible default lane used" else "; default lane has no eligible candidate" end))
+        ([$c[] | .reason // "refused"] | unique | join("; ")) + $default_note)
     else . end' <<<"$RESULT") || emit_error 'could not preserve model-refusal evidence'
   DECIDED_BY=${DECIDED_BY:-default}
 fi
@@ -1589,7 +1526,7 @@ record_model_choice() {
      consultation:$consultation, options_hash:$hash, outcome:$result.status, reason:$reason,
      exception:(if $exception == "" then null else $exception end)}') || return 1
   [ -n "$RECEIPT_INPUT_HASH" ] || return 1
-  RECEIPT_PATH=$(printf '%s' "$ROUTE_ENVELOPE" | "$SCRIPT_DIR/fm-model-route-receipt.py" write --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" --expected-state-hash "$RECEIPT_INPUT_HASH" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"})
+  RECEIPT_PATH=$(printf '%s' "$ROUTE_ENVELOPE" | "$SCRIPT_DIR/fm-model-route-receipt.py" write --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" --expected-state-hash "$RECEIPT_INPUT_HASH")
 }
 if [ "$TYPED_ONLY" -eq 0 ] && jq -e '.chosen.eligible == true' <<<"$RESULT" >/dev/null; then
   record_model_choice || {

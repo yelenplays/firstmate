@@ -551,12 +551,8 @@ cmd_plan() {
       return 0
       ;;
   esac
-  # shellcheck source=bin/fm-model-denylist-lib.sh
-  . "$SCRIPT_DIR/fm-model-denylist-lib.sh"
-  fm_model_denylist_load "$CONFIG" || die "$FM_MODEL_DENYLIST_ERROR"
   while read -r h m e; do
     [ -n "$h" ] || continue
-    fm_model_denylist_check_launch 'cross-family reviewer' "$h" "$m" || continue
     fm_ai_family_resolve "$h" "$m"
     if fm_ai_family_disjoint "$B_FAM" "$FM_AI_FAMILY"; then
       chosen="$h $m $e $FM_AI_FAMILY"

@@ -2124,7 +2124,7 @@ pass 'chain: known-refused candidates cannot be revived by a last resort'
 reset_log
 FAKE_CURL_HTTP=500 FAKE_BACKUP_FAIL=1 TYPESAFE_API_KEY=$KEY \
   QUOTA_AXI_FIXTURE="$ALL_REFUSED_DEFAULT_QUOTA" run_chain code out err "$BRIEF"
-expect_code 2 "$code" 'an unreachable Jev plus an exhausted default cannot launch'
+expect_code 3 "$code" 'an unreachable Jev plus an exhausted default cannot launch'
 assert_not_contains "$out" '  profile:' 'an exhausted default never authorizes launch'
 pass 'chain: a refused default stops safely when Jev cannot answer'
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Spawn a direct report: a crewmate in a treehouse or Orca worktree, or a
 # secondmate in its isolated firstmate home.
-# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--route-override <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--backend <name>] [--herdr-resume-lock-wait]
-#        fm-spawn.sh <task-id> <project-dir> --scout [--base-branch <branch>] [--route-override <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--backend <name>] [--herdr-resume-lock-wait]
-#        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--backend <name>] --secondmate
+# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--route-override <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--captain-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
+#        fm-spawn.sh <task-id> <project-dir> --scout [--base-branch <branch>] [--route-override <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--captain-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
+#        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--captain-override <reason>] [--backend <name>] --secondmate
 #   --mode and --yolo are this task's delivery contract, REQUIRED for every ship
 #   spawn and refused on --scout and --secondmate spawns. Firstmate resolves both
 #   per task at intake (AGENTS.md section 7); data/projects.md holds the captain's
@@ -27,6 +27,9 @@
 #   yet routed; --route-override '<captain|blocker>: <reason>' spawns anyway for
 #   that one task and is logged there. It is refused on relaunch, secondmate,
 #   and batch spawns.
+#   --captain-override '<reason>' records the captain-authorized reason with
+#   the resolved profile through bin/fm-dispatch-resolve.sh. It is never
+#   required, never waives a model ban, and an unavailable record only warns.
 #   For the optional bin/fm-jev-brief-preflight.sh check, see the operator
 #   contract in docs/configuration.md "Brief preflight".
 #   Every ship or scout spawn renders `launch-brief.md`; for a no-mistakes ship
