@@ -572,7 +572,8 @@ EOF
   read -r h m e f <<<"$chosen"
   local profile
   profile=$(jq -nc --arg h "$h" --arg m "$m" --arg e "$e" '{harness:$h,model:$m,effort:$e}') || die 'cannot form reviewer profile'
-  jq -nc --arg head "$HEAD_SHA" --argjson profile "$profile" '{head:$head,profile:$profile}' > "$DATA/$TASK/cross-review-model.json" || die 'cannot record reviewer model plan'
+  jq -nc --arg head "$HEAD_SHA" --argjson profile "$profile" '{head:$head,profile:$profile}' > "$DATA/$TASK/cross-review-model.json" \
+    || echo 'warning: reviewer model record unavailable; continuing plan' >&2
   printf 'action=spawn-reviewer\nkind=%s\n' "$want"
   if [ "$want" = review ]; then
     printf 'reason=%s\n' "$I_DETAIL"
@@ -655,15 +656,15 @@ This confirmation covers $subject of task $TASK in $(basename "$T_PROJ"), at exa
   ' "$brief" || die "could not fill $brief"
   printf 'task=%s\nhead=%s\nkind=%s\n' "$TASK" "$head" "$want" > "$DATA/$rid/cross-review-request" \
     || die "could not write the reviewer request record"
-  # Rebind the policy consultation to the actual generated reviewer instructions.
+  # Optional evidence binds the policy choice to the actual reviewer instructions.
+  # Planning itself never asks the resolver, and record failures never block review.
   local model_plan profile
   model_plan="$DATA/$TASK/cross-review-model.json"
-  if [ ! -f "$model_plan" ] || ! jq -e --arg head "$head" '.head == $head' "$model_plan" >/dev/null; then
-    cmd_plan "$TASK" --head "$head" >/dev/null || die 'reviewer model plan is missing'
+  if profile=$(jq -ce --arg head "$head" 'select(.head == $head) | .profile' "$model_plan" 2>/dev/null); then
+    FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-dispatch-resolve.sh" "$brief" --decision-kind cross-review \
+      --policy-profile "$profile" --policy-reason 'catalog-proven cross-family reviewer chain' >/dev/null \
+      || echo 'warning: reviewer consultation record unavailable; continuing review' >&2
   fi
-  profile=$(jq -ce --arg head "$head" 'select(.head == $head) | .profile' "$model_plan") || die 'reviewer plan does not bind this head'
-  FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-dispatch-resolve.sh" "$brief" --decision-kind cross-review \
-    --policy-profile "$profile" --policy-reason 'catalog-proven cross-family reviewer chain' >/dev/null || die 'reviewer consultation could not be rebound'
   printf 'brief=%s\n' "$brief"
 }
 

@@ -102,51 +102,6 @@ fm_nm_field() {  # <toon-output> <key>
   printf '%s\n' "$1" | sed -n "s/^[[:space:]]*$2:[[:space:]]*\(.*\)/\1/p" | head -1
 }
 
-# Saved immutable Pi profile for the run named by this worktree's captured
-# status. Never reads other runs or prompt text. Config files cannot replace a
-# persisted pin on reattach. Prints JSON state absent|unpinned|pinned; an
-# unavailable or contradictory active-run read returns nonzero.
-fm_nm_saved_model_profile() { # <worktree> <captured-axi-status> [timeout-secs]
-  local wt=$1 status=$2 budget=${3:-5} id branch current
-  id=$(fm_nm_strip_quotes "$(fm_nm_field "$status" id)")
-  if [ -z "$id" ]; then
-    [ "$(fm_nm_field "$status" runs_on_current_branch)" = 0 ] || return 1
-    printf '%s\n' '{"state":"absent"}'
-    return 0
-  fi
-  fm_nm_run_is_active "$status" || { printf '%s\n' '{"state":"absent"}'; return 0; }
-  branch=$(fm_nm_strip_quotes "$(fm_nm_field "$status" branch)")
-  current=$(git -C "$wt" branch --show-current 2>/dev/null) || return 1
-  [ -n "$current" ] && [ "$branch" = "$current" ] || return 1
-  fm_nm_bounded "$wt" "$budget" python3 - "$(fm_nm_state_db "$wt")" "$id" "$branch" <<'PY'
-import json
-from pathlib import Path
-import re
-import sqlite3
-import sys
-from contextlib import closing
-try:
-    path, run, branch = sys.argv[1:]
-    if not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', run):
-        raise ValueError('invalid run identity')
-    with closing(sqlite3.connect(Path(path).resolve().as_uri() + '?mode=ro', uri=True, timeout=1)) as db:
-        rows = db.execute('SELECT pi_profile FROM runs WHERE id = ? AND branch = ? LIMIT 2', (run, branch)).fetchall()
-    if len(rows) != 1:
-        raise ValueError('saved run does not bind this branch')
-    if not rows[0][0]:
-        print('{"state":"unpinned"}')
-    else:
-        profile = json.loads(rows[0][0])
-        if (not isinstance(profile, dict) or not isinstance(profile.get('model'), str)
-                or '/' not in profile['model'] or not isinstance(profile.get('effort'), str)):
-            raise ValueError('uninspectable saved Pi profile')
-        print(json.dumps({'state': 'pinned', 'run': run, 'selected': {'harness': 'pi', 'model': profile['model'], 'effort': profile['effort']}}))
-except (OSError, ValueError, TypeError, sqlite3.Error):
-    print('model-route: active run profile could not be verified', file=sys.stderr)
-    sys.exit(1)
-PY
-}
-
 # Full commit sha for sha-ish $2 as seen from worktree $1's own object store;
 # empty when the object is absent or ambiguous. Read-only: never fetches,
 # never moves refs or custody.

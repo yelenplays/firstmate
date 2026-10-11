@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""State-bound consultation receipts used by fm-dispatch-resolve and launch consumers.
+"""Optional state-bound consultation records used by fm-dispatch-resolve.
 
 Usage: fm-model-route-receipt.py write|check --brief FILE --kind KIND
        [--config DIR] [--home DIR] [--selected JSON]
 write reads a JSON decision envelope from stdin and prints the record path.
 check verifies the selected harness/model/effort, brief and policy hashes and
-receipt age (five minutes for dispatch; fixed policy records are reissued at
-consumption). A receipt is evidence of consultation, never launch authority.
+record age (five minutes). This is an inspection interface, not a launch gate.
+A record is evidence of consultation, never launch authority.
 No brief bodies, credentials, or quota account identities are persisted.
 An explicit captain-override reason is intentionally recorded.
 """

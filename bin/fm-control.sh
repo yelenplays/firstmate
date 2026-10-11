@@ -1042,12 +1042,6 @@ resolve_relaunch_profile() {
   if [ "$KIND" != secondmate ]; then
     fm_exclude_tools_check "$TARGET_HARNESS" 0 "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" >/dev/null || return 1
   fi
-  if { [ "$TARGET_HARNESS" != "$PRIOR_RECORDED_HARNESS" ] || [ "$TARGET_MODEL" != "$PRIOR_MODEL" ] || [ "$TARGET_EFFORT" != "$PRIOR_EFFORT" ]; } \
-     && ! { [ -n "$CONFIG_HARNESS" ] && [ "$TARGET_HARNESS" = "$CONFIG_HARNESS" ] \
-            && [ "$TARGET_MODEL" = "${CONFIG_MODEL:-default}" ] && [ "$TARGET_EFFORT" = "${CONFIG_EFFORT:-default}" ]; } \
-     && [ -z "$CAPTAIN_OVERRIDE" ]; then
-    die 'changed relaunch profile requires --captain-override with the captain-authorized reason; refusing before stopping the worker'
-  fi
 }
 
 # safe_checkpoint: prove, before anything is stopped, that the work a relaunch

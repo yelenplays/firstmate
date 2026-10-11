@@ -10,7 +10,8 @@
 #     [--policy-file <source-file>] (repeatable, hashed with the instructions).
 #   Captain-authorized profile: --policy-profile <JSON>
 #     --captain-override <captain-authorized reason> (recorded, not inferred).
-#   Full-chain profile results carry a receipt: line consumed by launch tools.
+#   Full-chain profile results may carry a receipt: line for optional evidence.
+#   Missing or unwritable records never prevent a concrete profile result.
 #   Fixed pins record deterministic_policy rather than spend a model call.
 #
 # Routing stages, last-resort selection, and authority gates are owned by
@@ -336,7 +337,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# Fixed, existing policy pins use the same router and receipt consumer without
+# Fixed, existing policy pins use the same router and optional records without
 # asking a model to rediscover a value the policy already supplies.
 case "$DECISION_KIND" in dispatch|cross-review|secondmate|no-mistakes|static) ;; *) die "invalid decision kind" ;; esac
 [ -z "$CAPTAIN_OVERRIDE" ] || { [ -n "$POLICY_PROFILE" ] && [ -z "$POLICY_REASON" ]; } || die 'captain override needs a profile and cannot be combined with another policy reason'
@@ -353,7 +354,7 @@ if [ -n "$POLICY_PROFILE" ]; then
     *) die 'fixed-policy routing needs a recognized policy consumer, not hand-picked dispatch flags' ;;
   esac
   [ "$POLICY_REASON" != 'captain-authorized launch override' ] || [ -n "$CAPTAIN_OVERRIDE" ] || die 'captain override requires --captain-override and its recorded reason'
-  POLICY_INPUT_HASH=$("$SCRIPT_DIR/fm-model-route-receipt.py" fingerprint --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"}) || die 'cannot bind fixed-policy inputs'
+  POLICY_INPUT_HASH=$("$SCRIPT_DIR/fm-model-route-receipt.py" fingerprint --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"}) || POLICY_INPUT_HASH=''
   jq -e 'type == "object" and (.harness | type == "string" and length > 0) and
     all(.model?, .effort?; . == null or type == "string")' <<<"$POLICY_PROFILE" >/dev/null || die "invalid policy profile"
   POLICY_H=$(jq -r .harness <<<"$POLICY_PROFILE")
@@ -369,11 +370,17 @@ if [ -n "$POLICY_PROFILE" ]; then
   fi
   fm_model_denylist_load "$CONFIG" || die "$FM_MODEL_DENYLIST_ERROR"
   fm_model_denylist_check_launch 'fixed policy model' "$POLICY_H" "$(jq -r '.model // ""' <<<"$POLICY_PROFILE")" || die "$FM_MODEL_DENYLIST_ERROR"
-  POLICY_HASH=$(printf '%s' "$POLICY_PROFILE" | python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())') || die "could not hash policy options"
+  POLICY_HASH=$(printf '%s' "$POLICY_PROFILE" | python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())') || POLICY_HASH=''
   POLICY_RECORD=$(jq -nc --argjson selected "$POLICY_PROFILE" --arg reason "$POLICY_REASON" --arg captain_reason "$CAPTAIN_OVERRIDE" --arg hash "$POLICY_HASH" --arg exception "$POLICY_EXCEPTION" \
-    '{selected:$selected, exception:$exception, reason:(if $captain_reason != "" then $captain_reason else $reason end), captain_override:($captain_reason != ""), options_hash:$hash}') || die "could not build policy receipt"
-  RECEIPT_PATH=$(printf '%s' "$POLICY_RECORD" | "$SCRIPT_DIR/fm-model-route-receipt.py" write --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" --expected-state-hash "$POLICY_INPUT_HASH" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"}) || die "could not record fixed policy model"
-  printf 'dispatch-resolve:\n  status: policy\n  exception: %s (%s)\n  receipt: %s\n' "$POLICY_EXCEPTION" "$POLICY_REASON" "$RECEIPT_PATH"
+    '{selected:$selected, exception:$exception, reason:(if $captain_reason != "" then $captain_reason else $reason end), captain_override:($captain_reason != ""), options_hash:$hash}') || POLICY_RECORD=''
+  if [ -n "$POLICY_INPUT_HASH" ] && RECEIPT_PATH=$(printf '%s' "$POLICY_RECORD" | "$SCRIPT_DIR/fm-model-route-receipt.py" write --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" --expected-state-hash "$POLICY_INPUT_HASH" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"}); then
+    :
+  else
+    RECEIPT_PATH=''
+    echo 'dispatch-resolve: policy record unavailable; returning the selected profile' >&2
+  fi
+  printf 'dispatch-resolve:\n  status: policy\n  exception: %s (%s)\n' "$POLICY_EXCEPTION" "$POLICY_REASON"
+  [ -z "$RECEIPT_PATH" ] || printf '  receipt: %s\n' "$RECEIPT_PATH"
   jq -r '"  profile: --harness " + (.harness | @sh) +
     (if (.model // "") != "" then " --model " + (.model | @sh) else "" end) +
     (if (.effort // "") != "" then " --effort " + (.effort | @sh) else "" end)' <<<"$POLICY_PROFILE"
@@ -402,7 +409,7 @@ MARGIN=$(fm_dispatch_margin) || die "FM_JEV_DISPATCH_MARGIN must be a number in 
 [ -r "$BRIEF" ] || die "brief file not readable: $BRIEF"
 RECEIPT_INPUT_HASH=''
 if [ "$TYPED_ONLY" -eq 0 ]; then
-  RECEIPT_INPUT_HASH=$("$SCRIPT_DIR/fm-model-route-receipt.py" fingerprint --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"}) || die 'cannot bind routing inputs'
+  RECEIPT_INPUT_HASH=$("$SCRIPT_DIR/fm-model-route-receipt.py" fingerprint --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"}) || RECEIPT_INPUT_HASH=''
 fi
 [ -e "$RULES_PATH" ] || [ -L "$RULES_PATH" ] || no_rules
 [ -r "$RULES_PATH" ] || die "rules file not readable: $RULES_PATH"
@@ -1556,15 +1563,15 @@ dispatch_log "$(jq -c '{
     profile: (if .chosen then .chosen.profile | {harness, model, provider} | with_entries(select(.value != null)) else null end),
     reason: (.last_resort // .reason // null)
   }' <<<"$RESULT" 2>/dev/null || printf '{}')"
-if [ "$TYPED_ONLY" -eq 0 ] && jq -e '.chosen.eligible == true' <<<"$RESULT" >/dev/null; then
+record_model_choice() {
   OPTIONS_HASH=$(set -o pipefail; jq -cS --argjson questions "$QUESTIONS" \
     '{questions:$questions,candidates:.candidates,runoff:.runoff}' <<<"$RESULT" | \
-    python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())') || die "could not hash model options"
+    python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())') || return 1
   RAW_CONSULT=$(jq -c '{model, answer:.answers}' "$RESP_FILE" 2>/dev/null) || RAW_CONSULT=null
   [ -n "$RAW_CONSULT" ] || RAW_CONSULT=null
   if [ -n "$PICK_FILE" ] && [ -s "$PICK_FILE" ]; then
     RAW_CONSULT=$(jq -nc --argjson first "$RAW_CONSULT" --slurpfile second "$PICK_FILE" \
-      '$first + {passes:[$first,($second[0] | {model,answer:.answers})]}') || die 'could not bind runoff consultation'
+      '$first + {passes:[$first,($second[0] | {model,answer:.answers})]}') || return 1
   fi
   if [ "$DECIDED_BY" = typed ]; then
     ROUTE_EXCEPTION=''
@@ -1580,8 +1587,15 @@ if [ "$TYPED_ONLY" -eq 0 ] && jq -e '.chosen.eligible == true' <<<"$RESULT" >/de
   ROUTE_ENVELOPE=$(jq -nc --argjson result "$RESULT" --argjson consultation "$RAW_CONSULT" --arg exception "$ROUTE_EXCEPTION" --arg reason "${TYPED_LINE:-configured default policy}" --arg hash "$OPTIONS_HASH" '
     {selected:($result.chosen.profile + {effort:(if $result.chosen.effort_emit == false then $result.chosen.profile.effort else ($result.chosen.effort // $result.chosen.profile.effort) end)}),
      consultation:$consultation, options_hash:$hash, outcome:$result.status, reason:$reason,
-     exception:(if $exception == "" then null else $exception end)}') || die "could not build model receipt"
-  RECEIPT_PATH=$(printf '%s' "$ROUTE_ENVELOPE" | "$SCRIPT_DIR/fm-model-route-receipt.py" write --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" --expected-state-hash "$RECEIPT_INPUT_HASH" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"}) || die "no valid model consultation receipt; no launch authorized"
+     exception:(if $exception == "" then null else $exception end)}') || return 1
+  [ -n "$RECEIPT_INPUT_HASH" ] || return 1
+  RECEIPT_PATH=$(printf '%s' "$ROUTE_ENVELOPE" | "$SCRIPT_DIR/fm-model-route-receipt.py" write --home "$FM_HOME" --config "$CONFIG" --brief "$BRIEF" --kind "$DECISION_KIND" --expected-state-hash "$RECEIPT_INPUT_HASH" ${POLICY_FILES[@]+"${POLICY_FILES[@]}"})
+}
+if [ "$TYPED_ONLY" -eq 0 ] && jq -e '.chosen.eligible == true' <<<"$RESULT" >/dev/null; then
+  record_model_choice || {
+    RECEIPT_PATH=''
+    echo 'dispatch-resolve: consultation record unavailable; returning the selected profile' >&2
+  }
 fi
 printf '%s\n' "$TEXT"
 [ -z "$RECEIPT_PATH" ] || printf '  receipt: %s\n' "$RECEIPT_PATH"

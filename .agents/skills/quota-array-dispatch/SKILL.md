@@ -34,7 +34,7 @@ Use it only when the brief already fixed the candidate order and every candidate
 It does not replace the reasoning-class, runway-feasibility, or authentication gates above.
 Firstmate can optionally arm `bin/fm-procevent-quota.sh` for a recurring mid-task check that wakes when the tracked provider drops below its configured threshold or its runway becomes `exhausted_now`.
 The [typed resolver](../../../docs/configuration.md#typed-dispatch-resolution-env-typesafe_api_key) has its own documented gates.
-It preserves this skill's authority and returns a state-bound consultation receipt with each full-chain profile.
+It preserves this skill's authority and optionally records state-bound consultation evidence; unavailable records never prevent its profile result.
 A no-profile approval or entirely refused selection stops; do not substitute hand-picked launch flags.
 
 ## Read the default TOON
@@ -134,7 +134,7 @@ Do not read `aheadWindowIds`, `behindWindowIds`, `onPaceWindowIds`, `limitingWin
 
 Genuine different-model ties use the existing resolver's bounded Jev pass, with captain rules and quota summaries, then its configured default if still uncertain.
 A same-harness/model tie differing only in effort keeps the most probable rule's effort without another model call.
-Do not hand-pick by array order or harness name; consume the resolver's profile and current receipt.
+Do not hand-pick by array order or harness name; consume the resolver's profile, with its optional record as evidence rather than a launch requirement.
 Exact duplicate harness/model/effort profiles remain configuration errors.
 Token/point forecasts are advisory, and task-duration evidence must come from the candidate's own provider; `through_reset` is never rejected by a historical duration.
 

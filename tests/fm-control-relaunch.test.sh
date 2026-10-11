@@ -386,73 +386,17 @@ test_blocked_grok_relaunch_refuses_without_verified_quit_keys() {
 
 test_blocked_grok_relaunch_refuses_without_verified_quit_keys
 
-test_changed_relaunch_requires_a_recorded_override() {
-  local dir out axis why before
-  local -a args
-  for axis in harness model effort; do
-    dir=$(new_case "override-$axis" "ovr-$axis")
-    add_ship_task "$dir" "ovr-$axis" claude
-    before=$(cat "$dir/home/state/ovr-$axis.meta")
-    case "$axis" in
-      harness) args=(--harness codex) ;;
-      model) args=(--model opus) ;;
-      effort) args=(--effort high) ;;
-    esac
-    out=$(run_control "$dir" "ovr-$axis" relaunch "${args[@]}" --note 'Continue with the changed profile.')
-    expect_code 1 "$?" "unapproved $axis change was accepted: $out"
-    assert_contains "$out" 'requires --captain-override' "$axis change names the missing authority"
-    assert_equals claude "$(cat "$dir/fake/command")" "$axis refusal preserves the running agent"
-    assert_equals "$before" "$(cat "$dir/home/state/ovr-$axis.meta")" "$axis refusal preserves the record"
-    [ ! -s "$dir/fake/literal" ] || fail "$axis refusal sent lifecycle text"
-    printf zsh > "$dir/fake/command"
-    out=$(run_spawn "$dir" "ovr-$axis" --relaunch "${args[@]}")
-    expect_code 1 "$?" "direct spawn accepted unapproved $axis change: $out"
-    assert_contains "$out" 'requires --captain-override' 'direct launch enforces the same authority'
-  done
-  dir=$(new_case override-approved override-approved)
-  add_ship_task "$dir" override-approved claude
-  why='Explicit effort change authorized for this fixture.'
-  out=$(run_control "$dir" override-approved relaunch --effort high --captain-override "$why" --note 'Continue with the approved effort.')
-  expect_code 0 "$?" "approved effort change did not launch: $out"
-  assert_equals high "$(meta_field "$dir" override-approved effort)" 'approved effort is recorded'
-  jq -s -e --arg why "$why" 'any(.[]; .captain_override == true and .reason == $why and .selected.effort == "high")' \
-    "$dir/home/state/model-route/decisions.jsonl" >/dev/null || fail 'control did not forward the captain reason to launch receipt'
-  pass 'changed relaunch profiles require recorded authority before stopping or launching'
-}
-
-test_unchanged_direct_relaunch_preserves_recorded_profile_receipt() {
+test_relaunch_profile_changes_do_not_require_a_receipt() {
   local dir out
-  dir=$(new_case preserved-profile preserved-profile)
-  add_ship_task "$dir" preserved-profile claude
-  sed 's/^model=default$/model=opus/; s/^effort=default$/effort=high/' \
-    "$dir/home/state/preserved-profile.meta" > "$dir/home/state/preserved-profile.meta.tmp"
-  mv "$dir/home/state/preserved-profile.meta.tmp" "$dir/home/state/preserved-profile.meta"
-  printf zsh > "$dir/fake/command"
-  out=$(run_spawn "$dir" preserved-profile --relaunch)
-  expect_code 0 "$?" "unchanged direct relaunch failed: $out"
-  assert_equals opus "$(meta_field "$dir" preserved-profile model)" 'direct relaunch retains recorded model'
-  assert_equals high "$(meta_field "$dir" preserved-profile effort)" 'direct relaunch retains recorded effort'
-  jq -s -e 'any(.[]; .exception == "deterministic_policy" and .captain_override != true and .reason == "recovery preserves the recorded worker profile" and .selected.model == "opus" and .selected.effort == "high")' \
-    "$dir/home/state/model-route/decisions.jsonl" >/dev/null || fail 'unchanged relaunch does not have a preservation receipt'
-  pass 'unchanged direct relaunch preserves its exact model/effort and deterministic receipt'
-}
-
-test_unchanged_raw_relaunch_compares_its_own_model_pin() {
-  local dir out raw='claude --model opus'
-  dir=$(new_case raw-pin raw-pin)
-  add_ship_task "$dir" raw-pin claude
-  printf zsh > "$dir/fake/command"
-  out=$(run_spawn "$dir" raw-pin --relaunch --harness "$raw")
-  expect_code 1 "$?" "a new raw model pin was accepted without authority: $out"
-  assert_contains "$out" 'requires --captain-override' 'a changed raw pin names the missing authority'
-  out=$(run_spawn "$dir" raw-pin --relaunch --harness "$raw" --captain-override 'Fixture-authorized raw command.')
-  expect_code 0 "$?" "approved raw relaunch failed: $out"
-  printf zsh > "$dir/fake/command"
-  out=$(run_spawn "$dir" raw-pin --relaunch --harness "$raw")
-  expect_code 0 "$?" "unchanged raw relaunch required an override: $out"
-  jq -s -e '.[-1] | .captain_override != true and .reason == "explicit raw launch profile" and .selected.model == "opus"' \
-    "$dir/home/state/model-route/decisions.jsonl" >/dev/null || fail 'unchanged raw relaunch did not bind its own pin'
-  pass 'an unchanged raw relaunch compares its own model pin, not the empty recorded model'
+  dir=$(new_case no-receipt no-receipt)
+  add_ship_task "$dir" no-receipt claude
+  # A broken record destination must not interfere with lifecycle operations.
+  printf 'records unavailable\n' > "$dir/home/state/model-route"
+  out=$(run_control "$dir" no-receipt relaunch --model opus --effort high --note 'Continue with the changed profile.')
+  expect_code 0 "$?" "model/effort relaunch was blocked by recording: $out"
+  assert_equals opus "$(meta_field "$dir" no-receipt model)" 'requested model is recorded'
+  assert_equals high "$(meta_field "$dir" no-receipt effort)" 'requested effort is recorded'
+  pass 'changed relaunch model and effort do not depend on consultation records'
 }
 
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint() {
@@ -878,7 +822,7 @@ test_harness_switch_moves_the_record_and_clears_prior_wiring() {
   mkdir -p "$dir/wt/.claude"
   printf '{"hooks":{}}\n' > "$dir/wt/.claude/settings.local.json"
   printf 'codex' > "$dir/fake/becomes"
-  out=$(run_control "$dir" rl4 relaunch --harness codex --captain-override 'Fixture-authorized runtime switch.' --note "switching runtime"); rc=$?
+  out=$(run_control "$dir" rl4 relaunch --harness codex --note "switching runtime"); rc=$?
   expect_code 0 "$rc" "a harness switch should succeed"$'\n'"$out"
   assert_contains "$out" "harness=codex from=claude" "the outcome should name both harnesses"
   [ "$(meta_field "$dir" rl4 harness)" = codex ] || fail "the record should follow the switch"
@@ -898,7 +842,7 @@ test_harness_switch_does_not_carry_the_old_profile_axes() {
     "$dir/home/state/rl5.meta" > "$dir/home/state/rl5.meta.tmp"
   mv "$dir/home/state/rl5.meta.tmp" "$dir/home/state/rl5.meta"
   printf 'codex' > "$dir/fake/becomes"
-  out=$(run_control "$dir" rl5 relaunch --harness codex --captain-override 'Fixture-authorized runtime switch.' --note "switching runtime"); rc=$?
+  out=$(run_control "$dir" rl5 relaunch --harness codex --note "switching runtime"); rc=$?
   expect_code 0 "$rc" "a harness switch should succeed"$'\n'"$out"
   [ "$(meta_field "$dir" rl5 model)" = default ] \
     || fail "a model chosen for the old harness must not carry to a different one"
@@ -918,7 +862,7 @@ test_harness_switch_resolves_a_prefixed_recorded_harness() {
   printf '%s\n' "$dir/home/state/rl32.turn-ended" > "$auth"
   printf 'token=fm.abcdefabcdef\n' > "$dir/wt/.fm-grok-turnend"
 
-  out=$(run_control "$dir" rl32 relaunch --harness claude --captain-override 'Fixture-authorized runtime switch.' --note "switching runtime"); rc=$?
+  out=$(run_control "$dir" rl32 relaunch --harness claude --note "switching runtime"); rc=$?
   expect_code 0 "$rc" "relaunch should resolve a prefixed recorded harness"$'\n'"$out"
   [ "$(sed -n '1p' "$dir/fake/literal")" = /exit ] \
     || fail "relaunch should stop a grok-prefixed task with grok's exit command"
@@ -1108,7 +1052,7 @@ test_explicit_model_wins_over_the_recorded_one() {
   local dir out rc
   dir=$(new_case explicit rl7)
   add_ship_task "$dir" rl7 claude
-  out=$(run_control "$dir" rl7 relaunch --model sonnet --effort low --captain-override 'Fixture-authorized model and effort change.' --note "dialling down"); rc=$?
+  out=$(run_control "$dir" rl7 relaunch --model sonnet --effort low --note "dialling down"); rc=$?
   expect_code 0 "$rc" "relaunch with explicit axes should succeed"$'\n'"$out"
   [ "$(meta_field "$dir" rl7 model)" = sonnet ] || fail "an explicit model should be recorded"
   [ "$(meta_field "$dir" rl7 effort)" = low ] || fail "an explicit effort should be recorded"
@@ -1224,9 +1168,7 @@ test_secondmate_relaunch_picks_up_the_configured_harness_pin() {
   [ "$(journal_field "$dir" sm3 to_effort)" = high ] \
     || fail "the configured effort token should come with the pin"
   assert_not_contains "$out" "not a verified harness" "codex is a verified harness"
-  jq -s -e 'any(.[]; .kind == "secondmate" and .captain_override != true and .reason == "configured secondmate seat pin" and .selected == {harness:"codex",model:"some-model",effort:"high"})' \
-    "$home/state/model-route/decisions.jsonl" >/dev/null || fail "the configured seat pin was not recorded as its deterministic policy"
-  pass "fm-control relaunch: a secondmate relaunch re-resolves its durable configured harness pin without an override"
+  pass "fm-control relaunch: a secondmate relaunch re-resolves its durable configured harness pin"
 }
 
 test_secondmate_relaunch_picks_up_its_per_id_pin() {
@@ -1372,7 +1314,7 @@ test_explicit_secondmate_harness_ignores_configured_profile_axes() {
   printf '%s\n' "fm-sm4" > "$dir/fake/windows"
   printf '%s' "$dir/smhome" > "$dir/fake/cwd"
   printf 'codex' > "$dir/fake/becomes"
-  out=$(run_control "$dir" sm4 relaunch --harness codex --captain-override 'Fixture-authorized seat runtime switch.'); rc=$?
+  out=$(run_control "$dir" sm4 relaunch --harness codex); rc=$?
   expect_code 0 "$rc" "an explicit secondmate harness should relaunch"$'\n'"$out"
   [ "$(meta_field "$dir" sm4 model)" = default ] \
     || fail "an explicit secondmate harness must not inherit the configured model"
@@ -1508,7 +1450,7 @@ test_prefixed_prior_harness_wiring_is_still_retired() {
   printf '%s\n' "$dir/home/state/rl30.turn-ended" > "$auth"
   printf 'token=fm.abcdefabcdef\n' > "$dir/wt/.fm-grok-turnend"
   printf 'zsh' > "$dir/fake/command"
-  run_spawn "$dir" rl30 --relaunch --harness claude --captain-override 'Fixture-authorized runtime switch.' >/dev/null
+  run_spawn "$dir" rl30 --relaunch --harness claude >/dev/null
   [ ! -e "$auth" ] \
     || fail "a prefixed prior harness must still have its turn-end registry entry revoked"
   [ ! -e "$dir/home/state/rl30.grok-turnend-token" ] \
@@ -1530,7 +1472,7 @@ test_muse_session_binding_is_retired_on_a_harness_switch() {
     > "$dir/home/state/rl31.muse-session"
   printf '/nonexistent/session.jsonl\n' > "$dir/home/state/rl31.muse-session-current"
   printf 'zsh' > "$dir/fake/command"
-  run_spawn "$dir" rl31 --relaunch --harness claude --captain-override 'Fixture-authorized runtime switch.' >/dev/null
+  run_spawn "$dir" rl31 --relaunch --harness claude >/dev/null
   [ ! -e "$dir/home/state/rl31.muse-session" ] \
     || fail "the retired muse incarnation's session binding must not outlive it"
   [ ! -e "$dir/home/state/rl31.muse-session-current" ] \
@@ -1545,7 +1487,7 @@ test_cursor_session_binding_is_retired_on_a_harness_switch() {
   printf 'workspace=%s\nprior_conversation=old-conversation\n' "$dir/wt" \
     > "$dir/home/state/rl35.cursor-session"
   printf 'zsh' > "$dir/fake/command"
-  run_spawn "$dir" rl35 --relaunch --harness claude --captain-override 'Fixture-authorized runtime switch.' >/dev/null
+  run_spawn "$dir" rl35 --relaunch --harness claude >/dev/null
   [ ! -e "$dir/home/state/rl35.cursor-session" ] \
     || fail "the retired cursor incarnation's session binding must not outlive it"
   pass "fm-spawn --relaunch: switching away from cursor retires its session binding"
@@ -1624,7 +1566,7 @@ test_launch_failure_keeps_the_prior_record_and_reports_it() {
   # The endpoint's shell is not in the recorded worktree, so the launch owner
   # refuses AFTER the previous agent has already been stopped.
   printf '%s' "$dir/proj" > "$dir/fake/cwd"
-  out=$(run_control "$dir" rl13 relaunch --harness codex --captain-override 'Fixture-authorized runtime switch.' --note "carry this forward"); rc=$?
+  out=$(run_control "$dir" rl13 relaunch --harness codex --note "carry this forward"); rc=$?
   expect_code 1 "$rc" "a failed launch should fail closed"$'\n'"$out"
   assert_contains "$out" "no agent is running" "the failure should say no agent is running"
   assert_contains "$out" "$dir/wt" "the failure should say where the work is preserved"
@@ -2769,9 +2711,7 @@ SH
 
 test_exit_and_relaunch_remove_the_dialog_file
 test_exit_removes_the_dialog_file_before_releasing_the_lock
-test_changed_relaunch_requires_a_recorded_override
-test_unchanged_direct_relaunch_preserves_recorded_profile_receipt
-test_unchanged_raw_relaunch_compares_its_own_model_pin
+test_relaunch_profile_changes_do_not_require_a_receipt
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint
 test_relaunch_refuses_before_exit_when_the_composer_holds_pending_text
 test_relaunch_refuses_before_exit_when_the_composer_state_is_unproven

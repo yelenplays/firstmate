@@ -1689,27 +1689,21 @@ By accepted design, a printed profile line does not enforce catalog/authenticati
 Effort ranges and completion-runway eligibility are evaluated above; no last resort bypasses a known refusal.
 `AGENTS.md` section 4 owns how firstmate consumes a printed profile, the captain-authorized overrides, and intake when no profile is returned.
 
-### Model consultation receipts and consumers
+### Optional model consultation records
 
-`bin/fm-model-route-receipt.py` binds the exact instructions, current model policy, offered-options hash, selected harness/model/effort and consultation to a five-minute receipt.
+`bin/fm-model-route-receipt.py` records the exact instructions and policy hashes, offered-options hash, selected harness/model/effort and consultation.
 The typed exceptions are `deterministic_policy`, `privacy_insufficient_payload`, `jev_unavailable` and `jev_escalation`, each with a reason.
-Changed instructions, policy, selected flags or age require another resolution; policy files supplied by fixed consumers are hashed too.
-`state/model-route/` contains private current receipts and a `decisions.jsonl` journal, never brief bodies, keys or quota account identities.
-Explicit captain-override reasons are intentionally recorded.
-A receipt is consultation evidence, not merge, task, catalog or authentication authority.
+Its read-only `check` operation detects changed inputs and records older than five minutes; no launch or pipeline consumes that check as a requirement.
+`state/model-route/` contains private records and a `decisions.jsonl` journal, never brief bodies, keys or quota account identities.
+Missing, stale or unwritable records never block model selection, launch, relaunch or pipeline execution.
+A record is consultation evidence, not merge, task, catalog or authentication authority.
 
-`fm-spawn.sh` consumes the receipt before provisioning; arbitrary manual dispatch flags cannot replace a configured resolution.
-For an explicitly captain-authorized choice, pass `--captain-override "<captain-authorized reason>"` with the concrete profile to `fm-spawn.sh`, or to `fm-dispatch-resolve.sh` with `--policy-profile`.
-This path records the reason and `captain_override: true` with a `deterministic_policy` receipt, including after an approval rule issued no receipt; it never waives model bans or widens task authority.
-A relaunch whose harness/model/effort differs from its recorded profile requires that same flag, unless the new profile is the secondmate's configured seat pin; `fm-control.sh` refuses before stopping the worker and forwards the reason to the launch owner.
-A raw-launched task's recorded profile includes the model its command pins, so relaunching the same command is unchanged.
-An unchanged relaunch retains the recorded model/effort and its deterministic recovery receipt.
-Configured secondmate seats, preserved recovery pins, and catalog-proven cross-family reviewer chains use the same resolver with explicit fixed-policy exceptions.
-`fm-cross-review.sh` checks the shared denylist before selecting its policy candidate and rebinds the receipt to the generated reviewer instructions.
-Worker launches, raw launches included, install `fm-no-mistakes.sh` as a PATH-local boundary bound to the owning home (`FM_MODEL_ROUTER_HOME`) without changing the shared daemon or native agent config.
-It routes the configured native agent/reviewer chain and explicit immutable Pi run pins, consumes fresh receipts, and rechecks bans at run time.
-`fm-send.sh` also rejects banned model pins in steering, so a mid-run pin cannot evade the original spawn check.
-The [never-use model list](#never-use-model-list-configmodel-denylistjson) remains the one owner of bans and captain-model-rules injection.
+The resolver and spawn support an explicitly captain-authorized profile with a free-text override reason; each script's help owns the flags.
+That reason and `captain_override: true` are recorded as a deterministic policy, including after an approval rule returned no profile, without waiving model bans or widening task authority.
+Relaunches need no override or receipt and retain their existing profile-resolution rules.
+`fm-cross-review.sh` checks the shared denylist, preserves the head-bound model plan, and optionally records the choice against the generated reviewer instructions rather than the builder's brief.
+Workers use the native no-mistakes executable without an added PATH-local model gate.
+The [never-use model list](#never-use-model-list-configmodel-denylistjson) remains the unchanged owner of bans and captain-model-rules injection.
 
 **Key handling and fixed settings**
 

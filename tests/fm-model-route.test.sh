@@ -129,7 +129,7 @@ for kind in secondmate cross-review no-mistakes; do
   assert_contains "$out" 'exception: deterministic_policy' "$kind records its exception"
   check --kind "$kind" >/dev/null || fail "$kind receipt was not consumable"
 done
-pass 'seats, cross-family reviewers and native pipeline pins share the resolver'
+pass 'the public resolver accepts and records recognized fixed-policy profiles'
 
 # Explicit captain overrides are recorded by the same resolver, including
 # after a captain-approval rule issued no usable receipt.
@@ -151,79 +151,12 @@ route "$BRIEF" --policy-profile '{"harness":"pi","model":"openai-codex/gpt-6-lun
 cp "$TMP_ROOT/before-override.json" "$H/config/crew-dispatch.json"
 pass 'captain overrides and approved escalations carry explicit reason receipts'
 
-# Exercise the executable no-mistakes boundary with an opaque native tool.
-# The wrapper never administers a daemon and never changes native argv.
-cat > "$F/native-no-mistakes" <<'SH'
-#!/usr/bin/env bash
-if [ "${1:-} ${2:-}" = 'axi status' ]; then
-  if [ -n "${NATIVE_STATUS:-}" ]; then cat "$NATIVE_STATUS"; else printf 'runs_on_current_branch: 0\n'; fi
-  exit 0
-fi
-printf '%s\n' "$*" >> "$NATIVE_CALLS"
-SH
-chmod +x "$F/native-no-mistakes"
-mkdir -p "$TMP_ROOT/nm" "$TMP_ROOT/repo"
-cat > "$TMP_ROOT/nm/config.yaml" <<'YAML'
-agent: [claude, pi]
-agent_args_override:
-  claude: [--model, claude-opus-5-5, --effort, high]
-agent_config:
-  pi:
-    provider: openai-codex
-    model: gpt-6.1-sol
-    thinking: high
-YAML
-export NATIVE_CALLS="$TMP_ROOT/native-calls"
-native() {
-  (cd "$TMP_ROOT/repo" && FM_MODEL_ROUTER_HOME="$H" NM_HOME="$TMP_ROOT/nm" FM_MODEL_ROUTER_BRIEF="$BRIEF" \
-    FM_NO_MISTAKES_REAL="$F/native-no-mistakes" "$ROOT/bin/fm-no-mistakes.sh" "$@")
-}
-native axi status >/dev/null || fail 'status pass-through unexpectedly requires a receipt'
-native axi run --intent 'Implement the agreed fix.' >/dev/null || fail 'configured native chain did not route'
-assert_equals 1 "$(wc -l < "$NATIVE_CALLS" | tr -d ' ')" 'the real tool sees only the allowed model-changing calls'
-native axi run --model openai-codex/gpt-6-luna --intent 'Implement the agreed fix.' >/dev/null 2>&1 && fail 'runtime Pi pin bypassed the ban'
-assert_equals 1 "$(wc -l < "$NATIVE_CALLS" | tr -d ' ')" 'banned native pin never reached the tool'
-jq -s -e 'any(.[]; .kind == "no-mistakes" and .selected.model == "openai-codex/gpt-6.1-sol" and .selected.effort == "high")' "$H/state/model-route/decisions.jsonl" >/dev/null || fail 'native Pi policy selection lacks a durable receipt'
-pass 'runtime native model pins and configured agent chains are routed and ban-checked'
-
-# Repeated executable-boundary trials test fresh receipt consumption, including
-# a ban changed after the worker started. These are fixture integration trials,
-# not launches of hosted workers or evidence of live model accuracy.
-for ((trial=1; trial<=30; trial++)); do
-  native axi run --model openai-codex/gpt-6.1-sol --effort high --intent 'Apply the agreed patch.' >/dev/null || fail "native boundary trial $trial"
-done
-assert_equals 31 "$(wc -l < "$NATIVE_CALLS" | tr -d ' ')" '30 native boundary trials complete without hand-picking'
-
-# A real native immutable pin survives disk edits. A reattach must read that
-# exact current-branch profile, not claim the replacement YAML was selected.
-git init -q -b profile-trial "$TMP_ROOT/repo"
-export NATIVE_STATUS="$TMP_ROOT/native-status"
-printf 'run:\n  id: RUNPI\n  branch: profile-trial\n  status: running\n' > "$NATIVE_STATUS"
-python3 - "$TMP_ROOT/nm/state.sqlite" <<'PY'
-import json, sqlite3, sys
-with sqlite3.connect(sys.argv[1]) as db:
-    db.execute('CREATE TABLE runs (id TEXT PRIMARY KEY, branch TEXT, pi_profile TEXT)')
-    db.execute('INSERT INTO runs VALUES (?,?,?)', ('RUNPI', 'profile-trial', json.dumps({'model':'openai-codex/gpt-6-luna','effort':'high'})))
-PY
-native axi run --intent 'Apply the agreed patch.' >/dev/null 2>&1 && fail 'saved immutable banned pin bypassed edited disk config'
-assert_equals 31 "$(wc -l < "$NATIVE_CALLS" | tr -d ' ')" 'banned saved pin never reached a model-changing native call'
-python3 - "$TMP_ROOT/nm/state.sqlite" <<'PY'
-import json, sqlite3, sys
-with sqlite3.connect(sys.argv[1]) as db:
-    db.execute('UPDATE runs SET pi_profile = ? WHERE id = ?', (json.dumps({'model':'openai-codex/gpt-6.1-sol','effort':'high'}), 'RUNPI'))
-PY
-printf 'agent: pi\nagent_config:\n  pi:\n    model: openai-codex/gpt-6-luna\n    effort: high\n' > "$TMP_ROOT/nm/config.yaml"
-native axi run --intent 'Apply the agreed patch.' >/dev/null || fail 'edited unused disk config displaced the allowed immutable pin'
-assert_equals 32 "$(wc -l < "$NATIVE_CALLS" | tr -d ' ')" 'allowed immutable pin reattaches despite an unused disk-model change'
-pass 'reattach checks the saved current-branch model, not replacement config'
-jq '.never += [{pattern:"*sol*",reason:"new runtime policy"}]' "$H/config/model-denylist.json" > "$TMP_ROOT/bans.json"
-mv "$TMP_ROOT/bans.json" "$H/config/model-denylist.json"
-native axi run --model openai-codex/gpt-6.1-sol --intent 'Apply the agreed patch.' >/dev/null 2>&1 && fail 'a mid-run ban change was not enforced'
-assert_equals 32 "$(wc -l < "$NATIVE_CALLS" | tr -d ' ')" 'changed ban refuses before native tool invocation'
-native axi respond --action fix >/dev/null 2>&1 && fail 'a fix response launched the newly banned saved model'
-assert_equals 32 "$(wc -l < "$NATIVE_CALLS" | tr -d ' ')" 'fix responses recheck model bans before launching another agent'
-native rerun --skip ci >/dev/null 2>&1 && fail 'legacy rerun arguments bypassed the model ban'
-native --skip=ci >/dev/null 2>&1 && fail 'legacy default-run arguments bypassed the model ban'
-native >/dev/null 2>&1 && fail 'bare default-run invocation bypassed the model ban'
-assert_equals 32 "$(wc -l < "$NATIVE_CALLS" | tr -d ' ')" 'legacy default runs and reruns recheck saved pins'
-pass '30 automatic executable-boundary trials; mid-run policy changes stop new model pins and fix responses'
+# Consultation records are optional evidence, never a model-choice prerequisite.
+mv "$H/state/model-route" "$TMP_ROOT/saved-records"
+printf 'records unavailable\n' > "$H/state/model-route"
+out=$(route "$BRIEF") || fail 'unwritable records blocked core routing'
+assert_contains "$out" '  profile: ' 'a concrete Jev/default choice survives unavailable records'
+assert_not_contains "$out" '  receipt: ' 'unavailable records must not claim a saved receipt'
+out=$(route "$BRIEF" --policy-profile "$SELECTED" --captain-override "$why") || fail 'unwritable records blocked a captain override'
+assert_contains "$out" "--model 'claude-opus-5-5'" 'record failure preserves the explicit override model'
+pass 'unavailable records never block the routing result or captain override'

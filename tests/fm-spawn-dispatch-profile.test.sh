@@ -103,12 +103,6 @@ task_inbox_export() {  # <home> <id>
   local state
   state=$(CDPATH='' cd -- "$1/state" && pwd -P) || fail "cannot resolve state dir $1/state"
   printf "export FM_TASK_INBOX='%s'; " "$state/$2.inbox"
-  if ! grep -qxF 'kind=secondmate' "$1/state/$2.meta" 2>/dev/null; then
-    local real_nm
-    real_nm=$(PATH="$FAKEBIN_DIR:$PATH" command -v no-mistakes 2>/dev/null || true)
-    printf "export FM_NO_MISTAKES_REAL='%s' FM_MODEL_ROUTER_HOME='%s' FM_MODEL_ROUTER_BRIEF='%s'; export PATH='%s':\$PATH; " \
-      "$real_nm" "$(CDPATH='' cd -- "$1" && pwd -P)" "$1/data/$2/brief.md" "$1/data/$2/model-tools"
-  fi
 }
 
 ai_trailer_hooks_prefix() {  # <home> <id>
@@ -315,9 +309,7 @@ test_secondmate_route_binds_its_charter_without_a_task_brief() {
   status=$?
   expect_code 0 "$status" "a charter-only secondmate could not be routed"$'\n'"$out"
   [ -s "$LAUNCH_LOG" ] || fail 'charter-only secondmate was not launched'
-  jq -s -e 'any(.[]; .kind == "secondmate" and .reason == "configured secondmate seat pin")' \
-    "$HOME_DIR/state/model-route/decisions.jsonl" >/dev/null || fail 'charter-only secondmate has no seat-pin receipt'
-  pass "a secondmate with only its charter routes and launches on that charter"
+  pass "a secondmate with only its charter launches without a consultation prerequisite"
 }
 
 # A claude worker given a typed envelope would see it with the marker stripped,
@@ -539,13 +531,6 @@ test_active_dispatch_profile_requires_explicit_harness_for_scout() {
   pass "active crew-dispatch profile requires an explicit harness for scout spawns"
 }
 
-# Launch-construction fixtures simulate the resolver's consultation, never a
-# production bypass. Real automatic trials must run the resolver itself.
-fixture_model_consultation() {
-  jq -nc --arg h "$3" --arg m "$4" --arg e "$5" '{selected:{harness:$h,model:$m,effort:$e},consultation:{model:"jev-test-fixture",answer:{profile:$h},confidence:1},options_hash:"0000000000000000000000000000000000000000000000000000000000000000"}' |
-    "$ROOT/bin/fm-model-route-receipt.py" write --home "$1" --brief "$1/data/$2/brief.md" --kind dispatch >/dev/null
-}
-
 test_active_dispatch_profile_allows_explicit_harness() {
   local rec id out status launch
   id=profile-explicit-z13
@@ -556,14 +541,7 @@ test_active_dispatch_profile_allows_explicit_harness() {
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id" "$PROJ_DIR" --harness codex --model gpt-5 --effort high)
   status=$?
-  expect_code 1 "$status" "an explicit profile without consultation cannot authorize dispatch"
-  assert_contains "$out" 'model selection has no current consultation receipt' 'missing consultation is named'
-  assert_absent "$HOME_DIR/state/$id.meta" 'missing consultation cannot publish an agent'
-  fixture_model_consultation "$HOME_DIR" "$id" codex gpt-5 high || fail 'fixture consultation could not be written'
-  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
-    "$id" "$PROJ_DIR" --harness codex --model gpt-5 --effort high)
-  status=$?
-  expect_code 0 "$status" "explicit consulted profile should satisfy active dispatch-profile requirement"
+  expect_code 0 "$status" "an explicit profile must launch without requiring consultation records"
   assert_contains "$out" "spawned $id harness=codex" "spawn did not report explicit codex harness"
   assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
   assert_grep "ai_family=openai" "$HOME_DIR/state/$id.meta" "a codex builder was not recorded as the openai family"
@@ -574,19 +552,25 @@ test_active_dispatch_profile_allows_explicit_harness() {
 }
 
 test_captain_override_records_and_launches_explicit_profile() {
-  local rec id=profile-captain-override out why
-  rec=$(make_spawn_case captain-override claude "$id")
-  read_case_record "$rec"
-  enable_dispatch_profile "$HOME_DIR"
+  local rec id out why storage
   why='Explicit per-task runtime choice authorized for this fixture.'
-  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
-    "$id" "$PROJ_DIR" --harness codex --model gpt-5 --effort high --captain-override "$why")
-  expect_code 0 "$?" "captain override did not launch: $out"
-  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
-  [ -s "$LAUNCH_LOG" ] || fail 'approved profile was not delivered to the launch endpoint'
-  jq -s -e --arg why "$why" 'any(.[]; .kind == "dispatch" and .captain_override == true and .reason == $why and .selected == {harness:"codex",model:"gpt-5",effort:"high"})' \
-    "$HOME_DIR/state/model-route/decisions.jsonl" >/dev/null || fail 'launch did not consume the recorded captain reason/profile'
-  pass 'explicit captain override records its reason and launches through the receipt gate'
+  for storage in available unavailable; do
+    id="profile-captain-override-$storage"
+    rec=$(make_spawn_case "captain-override-$storage" claude "$id")
+    read_case_record "$rec"
+    enable_dispatch_profile "$HOME_DIR"
+    if [ "$storage" = unavailable ]; then printf 'records unavailable\n' > "$HOME_DIR/state/model-route"; fi
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+      "$id" "$PROJ_DIR" --harness codex --model gpt-5 --effort high --captain-override "$why")
+    expect_code 0 "$?" "captain override did not launch with $storage records: $out"
+    assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
+    [ -s "$LAUNCH_LOG" ] || fail 'approved profile was not delivered to the launch endpoint'
+    if [ "$storage" = available ]; then
+      jq -s -e --arg why "$why" 'any(.[]; .kind == "dispatch" and .captain_override == true and .reason == $why and .selected == {harness:"codex",model:"gpt-5",effort:"high"})' \
+        "$HOME_DIR/state/model-route/decisions.jsonl" >/dev/null || fail 'launch did not record the captain reason/profile'
+    fi
+  done
+  pass 'explicit captain override records its reason without imposing a receipt gate'
 }
 
 test_active_dispatch_profile_allows_positional_harness() {
@@ -595,7 +579,6 @@ test_active_dispatch_profile_allows_positional_harness() {
   rec=$(make_spawn_case profile-positional claude "$id")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
-  fixture_model_consultation "$HOME_DIR" "$id" codex gpt-5 high || fail 'fixture consultation could not be written'
 
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id" "$PROJ_DIR" codex --model gpt-5 --effort high)
@@ -616,11 +599,11 @@ test_active_dispatch_profile_allows_raw_launch_command() {
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id" "$PROJ_DIR" "custom-agent --flag")
   status=$?
-  expect_code 1 "$status" "raw commands cannot bypass active model routing"
-  assert_contains "$out" 'model selection has no current consultation receipt' 'unconsulted raw selection is named'
-  assert_absent "$HOME_DIR/state/$id.meta" 'unconsulted raw selection cannot publish an agent'
-  [ ! -s "$LAUNCH_LOG" ] || fail 'unconsulted raw command reached a terminal'
-  pass "active model routing refuses an unconsulted raw-command escape hatch"
+  expect_code 0 "$status" "raw launch must not require a consultation receipt"
+  launch=$(cat "$LAUNCH_LOG")
+  assert_contains "$launch" 'custom-agent --flag' 'raw command reached its launch endpoint'
+  assert_present "$HOME_DIR/state/$id.meta" 'raw launch publishes its task record'
+  pass "active dispatch rules permit explicit raw commands without a new receipt gate"
 }
 
 test_chained_raw_launch_strips_ai_trailer_in_every_step() {
@@ -1014,8 +997,6 @@ test_batch_preserves_native_ultra() {
   rec=$(make_spawn_case ultra-batch pi "$id1" "$id2")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
-  fixture_model_consultation "$HOME_DIR" "$id1" pi codex-native/gpt-6-astra ultra || fail 'batch fixture consultation could not be written'
-  fixture_model_consultation "$HOME_DIR" "$id2" pi codex-native/gpt-6-astra ultra || fail 'batch fixture consultation could not be written'
   # Each batch child claims its own slot: a fresh spawn refuses a worktree
   # another living task record still names, so the pairs need distinct copies.
   wt2="$CASE_DIR/wt2"
@@ -2164,7 +2145,7 @@ SH
         enabled) expected=$(printf '%s\n' unset "$value" '' unset) ;;
         empty) expected=$(printf '%s\n' unset unset unset unset) ;;
       esac
-      expected="$expected"$'\n'"$HOME_DIR/user-home"$'\n'"$HOME_DIR/data/$id/model-tools:$pane_path"$'\nxterm\nsynthetic-pane\n/synthetic/gotmp'
+      expected="$expected"$'\n'"$HOME_DIR/user-home"$'\n'"$pane_path"$'\nxterm\nsynthetic-pane\n/synthetic/gotmp'
       [ "$result" = "$expected" ] || fail "allowlist=$setting worker environment mismatch: $result"
     done
     pass "allowlist=$setting preserves the operational floor and filters only when opted in"
