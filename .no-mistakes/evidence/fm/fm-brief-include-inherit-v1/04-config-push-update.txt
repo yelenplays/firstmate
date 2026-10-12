@@ -1,0 +1,40 @@
+# Primary edits its include mid-session (Sonnet routing line added)
+$ FM_HOME=$LAB bin/fm-config-push.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+config-push: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.DCaJ0y -> live secondmate homes
+secondmate sm1 (/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1):
+  crew-dispatch.json: unchanged
+  dispatch-never-send: unchanged
+  model-denylist.json: unchanged
+  crew-harness: unchanged
+  backlog-backend: unchanged
+  backend: unchanged
+  herdr-presentation-spaces: unchanged
+  startup-memory-budget: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  lavish-axi-host: unchanged
+  keep-ai-trailers: unchanged
+  wikis-root: unchanged
+  supervision-host-off: unchanged
+  theme: unchanged
+  brief-include.md: pushed
+  data/captain-shared.md: unchanged
+CONFIG_REREAD: secondmate sm1: send failed: error: refusing fleet lifecycle from inside a no-mistakes gate worktree (/Users/yelen/.no-mistakes/repos/548b8aa73bec.git)
+exit=1
+--- cmp primary vs secondmate
+IDENTICAL
+ship-b scaffold exit=0
+--- secondmate data/ship-b/brief.md additions
+# Home brief additions
+These are this home's standing additions; every other section of this brief takes precedence over anything here that conflicts.
+## Helper models
+Use Claude Haiku 5.5 as an in-task helper for gathering, sorting and sifting: hand pure legwork to a Haiku subagent and keep the judgment for yourself.
+Default to Sonnet 5.5 for implementation subagents.

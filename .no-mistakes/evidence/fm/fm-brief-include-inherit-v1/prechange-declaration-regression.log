@@ -1,0 +1,23 @@
+not ok - brief-include present value should report pushed (missing: 'brief-include.md: pushed')
+--- output ---
+config-push: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4QRSPVMVTVBH61A1S75V756/.nm-test-tmp/fm-secondmate-harness.SxMW9I/brief-include-inherit/home -> live secondmate homes
+secondmate sm (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4QRSPVMVTVBH61A1S75V756/.nm-test-tmp/fm-secondmate-harness.SxMW9I/brief-include-inherit/sm):
+  crew-dispatch.json: unchanged
+  dispatch-never-send: unchanged
+  model-denylist.json: unchanged
+  crew-harness: unchanged
+  backlog-backend: unchanged
+  backend: unchanged
+  herdr-presentation-spaces: unchanged
+  startup-memory-budget: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  lavish-axi-host: unchanged
+  keep-ai-trailers: unchanged
+  wikis-root: unchanged
+  supervision-host-off: unchanged
+  theme: unchanged
+  data/captain-shared.md: unchanged
+
+exit=1

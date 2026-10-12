@@ -1,0 +1,92 @@
+Candidate: cc81c6420a028a36265e66c80ce47d976717b4c3
+No SSH or LLM execution claimed.
+
+$ FM_HOME=<isolated-secondmate> fm-remote-inherit.sh put config/brief-include.md 360 1c2d1a7737bc2fc1c1a8dcb26ccb30d91259ea57e0c255acf71f07ea10298f4d 1
+pushed: config/brief-include.md
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-remote-inherit.sh put config/brief-include.md 360 1c2d1a7737bc2fc1c1a8dcb26ccb30d91259ea57e0c255acf71f07ea10298f4d 1
+unchanged: config/brief-include.md
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-brief.sh ship-no-mistakes validation-project --mode no-mistakes
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4QRSPVMVTVBH61A1S75V756/.nm-test-tmp/cli-swnmyqln/secondmate/data/ship-no-mistakes/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-brief.sh ship-direct-PR validation-project --mode direct-PR
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4QRSPVMVTVBH61A1S75V756/.nm-test-tmp/cli-swnmyqln/secondmate/data/ship-direct-PR/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-brief.sh ship-local-only validation-project --mode local-only
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4QRSPVMVTVBH61A1S75V756/.nm-test-tmp/cli-swnmyqln/secondmate/data/ship-local-only/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-brief.sh scout-present validation-project --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4QRSPVMVTVBH61A1S75V756/.nm-test-tmp/cli-swnmyqln/secondmate/data/scout-present/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-brief.sh charter validation-project --secondmate
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4QRSPVMVTVBH61A1S75V756/.nm-test-tmp/cli-swnmyqln/secondmate/data/charter/brief.md (secondmate charter; replace {TASK})
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-remote-inherit.sh put config/brief-include.md 59 472105e74e987d2c2615349e47405a7b296a6f53a4f4ee68f1f9ca0c3cbe40f2 2
+pushed: config/brief-include.md
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-brief.sh scout-updated validation-project --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4QRSPVMVTVBH61A1S75V756/.nm-test-tmp/cli-swnmyqln/secondmate/data/scout-updated/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-remote-inherit.sh put config/brief-include.md 360 1c2d1a7737bc2fc1c1a8dcb26ccb30d91259ea57e0c255acf71f07ea10298f4d 1
+error: inheritance write generation is superseded
+exit=1
+
+$ FM_HOME=<isolated-secondmate> fm-remote-inherit.sh put config/brief-include.md 360 0000000000000000000000000000000000000000000000000000000000000000 3
+error: inherited material digest does not match its commitment
+exit=1
+
+$ FM_HOME=<isolated-secondmate> fm-remote-inherit.sh put config/secondmate-harness 360 1c2d1a7737bc2fc1c1a8dcb26ccb30d91259ea57e0c255acf71f07ea10298f4d 3
+error: path is not inherited material: config/secondmate-harness
+exit=1
+
+$ FM_HOME=<isolated-secondmate> fm-remote-inherit.sh absent config/brief-include.md 0 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 3
+removed: config/brief-include.md
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-brief.sh scout-removed validation-project --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4QRSPVMVTVBH61A1S75V756/.nm-test-tmp/cli-swnmyqln/secondmate/data/scout-removed/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-brief.sh ship-removed validation-project --mode no-mistakes
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4QRSPVMVTVBH61A1S75V756/.nm-test-tmp/cli-swnmyqln/secondmate/data/ship-removed/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-remote-inherit.sh put config/brief-include.md 5 3ee42a8fa03e7fcdcb07efcd9194f20bfb64d15733407d6f90fccffd92df3666 4
+pushed: config/brief-include.md
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-brief.sh scout-blank validation-project --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4QRSPVMVTVBH61A1S75V756/.nm-test-tmp/cli-swnmyqln/secondmate/data/scout-blank/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-remote-inherit.sh put config/brief-include.md 35 48065834a39276e940c0af8923e1af155c78c93957f8417ba9864ac57636fe5b 5
+pushed: config/brief-include.md
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-brief.sh invalid-contract validation-project --mode no-mistakes
+error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4QRSPVMVTVBH61A1S75V756/.nm-test-tmp/cli-swnmyqln/secondmate/config/brief-include.md must not carry a 'Delivery contract: mode=' line; the delivery mode is a per-task --mode decision
+exit=1
+
+$ FM_HOME=<isolated-secondmate> fm-remote-inherit.sh absent config/brief-include.md 0 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 6
+removed: config/brief-include.md
+exit=0
+
+$ FM_HOME=<isolated-secondmate> fm-remote-inherit.sh put config/brief-include.md 59 472105e74e987d2c2615349e47405a7b296a6f53a4f4ee68f1f9ca0c3cbe40f2 7
+error: inherited destination is a symlink
+exit=1
+
+PASS: real receiver accepts and idempotently preserves include bytes; all ship modes and scout emit the exact final additions; charter excludes them; text is not executed.
+PASS: new primary generation replaces local drift; stale generations, bad digest, and non-inheritable secondmate model pin are refused without altering the include.
+PASS: primary absence removes destination and additions from subsequent ship/scout briefs; inherited blank include produces no additions.
+PASS: inherited delivery-contract override stops scaffolding before any task directory is written.
+PASS: receiver refuses symlink destination without touching its target.

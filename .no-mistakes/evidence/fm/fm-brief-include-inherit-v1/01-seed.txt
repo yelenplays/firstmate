@@ -1,0 +1,12 @@
+$ FM_HOME=$LAB FM_SECONDMATE_CHARTER=... bin/fm-brief.sh sm1 --secondmate --no-projects
+scaffolded: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.DCaJ0y/data/sm1/brief.md (secondmate charter)
+exit=0
+$ FM_HOME=$LAB bin/fm-home-seed.sh sm1 $SM --no-projects
+home=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1
+exit=0
+--- primary data/secondmates.md
+- sm1 - Own firstmate tooling chores for the brief-include lab check. (home: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1; scope: Own firstmate tooling chores for the brief-include lab check.; projects: ; added 2026-10-12)
+--- secondmate home config/ before spawn
+total 0
+drwxr-xr-x@  2 yelen  staff    64 Oct 12 12:06 .
+drwxr-xr-x@ 39 yelen  staff  1248 Oct 12 12:06 ..

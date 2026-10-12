@@ -1,0 +1,12 @@
+# Adversarial: primary include smuggles a delivery-contract line
+  brief-include.md: pushed
+error: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1/config/brief-include.md must not carry a 'Delivery contract: mode=' line; the delivery mode is a per-task --mode decision
+ship-d scaffold exit=1
+--- partial brief written? no
+
+# Respawn convergence over a secondmate-local edit
+$ fm-spawn.sh sm1 ... --secondmate (relaunch after killing pane)
+warning: secondmate sm1 sync skipped before launch: primary default-branch commit cannot be resolved
+spawned sm1 harness=sh kind=secondmate mode=secondmate yolo=off window=fm-lab-briefinc-3226-2928:w2:p2 worktree=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1
+spawn exit=
+secondmate copy reconverged to primary: IDENTICAL

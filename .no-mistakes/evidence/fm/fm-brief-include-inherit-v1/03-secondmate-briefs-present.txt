@@ -1,0 +1,34 @@
+# Inside secondmate home sm1 (its own checkout), FM_HOME=$SM
+$ bin/fm-brief.sh ship-a some-proj --mode direct-PR
+scaffolded: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1/data/ship-a/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+$ bin/fm-brief.sh scout-a some-proj --scout
+scaffolded: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1/data/scout-a/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+$ FM_SECONDMATE_CHARTER=... bin/fm-brief.sh sub-a --secondmate --no-projects
+scaffolded: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1/data/sub-a/brief.md (secondmate charter)
+exit=0
+
+===== /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1/data/ship-a/brief.md : '# Home brief additions' sections = 1
+
+===== /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1/data/scout-a/brief.md : '# Home brief additions' sections = 1
+
+===== /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1/data/sub-a/brief.md : '# Home brief additions' sections = 0
+
+===== tail of ship-a brief.md
+/usr/bin/read: line 4: read: `data/ship-a/brief.md': not a valid identifier
+
+===== tail of scout-a brief.md
+/usr/bin/read: line 4: read: `data/scout-a/brief.md': not a valid identifier
+===== secondmate data/ship-a/brief.md from '# Home brief additions' to end
+# Home brief additions
+These are this home's standing additions; every other section of this brief takes precedence over anything here that conflicts.
+## Helper models
+Use Claude Haiku 5.5 as an in-task helper for gathering, sorting and sifting: hand pure legwork to a Haiku subagent and keep the judgment for yourself.
+
+===== secondmate data/scout-a/brief.md from '# Home brief additions' to end
+# Home brief additions
+These are this home's standing additions; every other section of this brief takes precedence over anything here that conflicts.
+## Helper models
+Use Claude Haiku 5.5 as an in-task helper for gathering, sorting and sifting: hand pure legwork to a Haiku subagent and keep the judgment for yourself.
+

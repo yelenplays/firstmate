@@ -1,0 +1,12 @@
+# Primary drops its include
+$ FM_HOME=$LAB bin/fm-config-push.sh   (brief-include line only)
+config-push: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.DCaJ0y -> live secondmate homes
+secondmate sm1 (/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1):
+  brief-include.md: pushed - mirrored primary absence
+CONFIG_REREAD: secondmate sm1: send failed: error: refusing fleet lifecycle from inside a no-mistakes gate worktree (/Users/yelen/.no-mistakes/repos/548b8aa73bec.git)
+--- secondmate config/brief-include.md exists? no
+scaffolded: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1/data/ship-c/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+ship-c scaffold exit=0
+--- secondmate data/ship-c/brief.md '# Home brief additions' sections = 0
+--- tail of ship-c brief:
+Do NOT run /no-mistakes. The configured merge authority decides whether to merge the PR; firstmate relays the outcome.

@@ -1,0 +1,36 @@
+$ HERDR_SESSION=$SESSION FM_HOME=$LAB bin/fm-spawn.sh sm1 $SM "sh -c 'while :; do sleep 60; done'" --backend herdr --secondmate
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.DCaJ0y
+warning: secondmate sm1 sync skipped before launch: primary default-branch commit cannot be resolved
+spawned sm1 harness=sh kind=secondmate mode=secondmate yolo=off window=fm-lab-briefinc-3226-2928:w1:p2 worktree=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1
+exit=0
+--- primary state/sm1.meta
+window=fm-lab-briefinc-3226-2928:w1:p2
+endpoint_task_id=sm1
+worktree=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1
+project=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1
+harness=sh
+kind=secondmate
+mode=secondmate
+yolo=off
+tasktmp=/tmp/fm-sm1
+model=default
+effort=default
+ai_family=unknown
+ai_family_source=sh catalog does not prove a maker for model unknown
+spawn_gen=s1791799597.29504.4574
+backend=herdr
+herdr_session=fm-lab-briefinc-3226-2928
+herdr_workspace_id=w1
+herdr_tab_id=w1:t2
+herdr_pane_id=w1:p2
+home=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab-sm.xbxSVm/sm1
+projects=
+--- secondmate home config/ after spawn
+total 8
+drwxr-xr-x@  3 yelen  staff    96 Oct 12 12:06 .
+drwxr-xr-x@ 39 yelen  staff  1248 Oct 12 12:06 ..
+-rw-------@  1 yelen  staff   169 Oct 12 12:06 brief-include.md
+--- cmp primary vs secondmate brief-include.md
+IDENTICAL
+## Helper models
+Use Claude Haiku 5.5 as an in-task helper for gathering, sorting and sifting: hand pure legwork to a Haiku subagent and keep the judgment for yourself.
