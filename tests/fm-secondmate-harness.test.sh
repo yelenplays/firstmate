@@ -1156,7 +1156,7 @@ new_world() {
     [ "$dispatch_ignore" = no ] || printf 'config/crew-dispatch.json\n'
     printf 'config/crew-harness\nconfig/secondmate-harness\nconfig/backlog-backend\n'
     printf 'config/backend\nconfig/herdr-presentation-spaces\nconfig/startup-memory-budget\n'
-    printf 'config/claude-permission-mode\n'
+    printf 'config/claude-permission-mode\nconfig/brief-include.md\n'
   } > "$w/main/.gitignore"
   printf 'v1\n' > "$w/main/AGENTS.md"
   printf 'r1\n' > "$w/main/README.md"
@@ -1629,6 +1629,96 @@ test_claude_permission_mode_inheritance_present_and_absent() {
   expect_code 0 "$status" "claude-permission-mode absence push should succeed"
   [ -e "$w/sm/config/claude-permission-mode" ] && fail "claude-permission-mode not removed on primary absence"
   pass "B12c claude-permission-mode inheritance: present values and primary absence converge exactly"
+}
+
+# config/brief-include.md carries the captain's standing worker instructions,
+# so a secondmate's own ship and scout briefs must take the primary's additions
+# and lose them once the primary drops the file, on local and remote routes.
+# Each route is asserted through the brief the secondmate home actually renders.
+assert_home_brief_include() {  # <home> <task-id> <expected-text|ABSENT> <route>
+  local home=$1 id=$2 expected=$3 route=$4 brief
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --scout >/dev/null \
+    || fail "$route: scout scaffold failed in the secondmate home"
+  brief="$home/data/$id/brief.md"
+  if [ "$expected" = ABSENT ]; then
+    assert_no_grep '# Home brief additions' "$brief" "$route: secondmate brief kept additions the primary removed"
+  else
+    assert_grep '# Home brief additions' "$brief" "$route: secondmate brief lacks the inherited additions section"
+    assert_grep "$expected" "$brief" "$route: secondmate brief lacks the inherited additions text"
+  fi
+}
+
+test_brief_include_inheritance_present_and_absent() {
+  local w head out err status remote fakebin route_line
+  w=$(new_world brief-include-inherit)
+  head=$(git -C "$w/main" rev-parse HEAD)
+  add_sm_worktree "$w" sm "$head"
+  err="$w/brief-include-inherit.err"
+
+  printf '%s\n' '## Helper models' 'Hand pure legwork to a helper.' > "$w/home/config/brief-include.md"
+  out=$(run_config_push "$w" 2>"$err"); status=$?
+  expect_code 0 "$status" "brief-include present push should succeed: $(cat "$err")"
+  assert_contains "$out" "brief-include.md: pushed" "brief-include present value should report pushed"
+  cmp -s "$w/home/config/brief-include.md" "$w/sm/config/brief-include.md" \
+    || fail "brief-include present bytes did not converge into the secondmate home"
+  assert_home_brief_include "$w/sm" crew-present 'Hand pure legwork to a helper.' local
+
+  printf '%s\n' 'A stale local edit.' > "$w/sm/config/brief-include.md"
+  printf '%s\n' '## Helper models' 'Hand sorting to a helper.' > "$w/home/config/brief-include.md"
+  out=$(run_config_push "$w" 2>"$err"); status=$?
+  expect_code 0 "$status" "brief-include changed push should succeed: $(cat "$err")"
+  cmp -s "$w/home/config/brief-include.md" "$w/sm/config/brief-include.md" \
+    || fail "primary brief-include did not overwrite the divergent destination"
+
+  rm -f "$w/home/config/brief-include.md"
+  out=$(run_config_push "$w" 2>"$err"); status=$?
+  expect_code 0 "$status" "brief-include absence push should succeed: $(cat "$err")"
+  assert_contains "$out" "brief-include.md: pushed - mirrored primary absence" "brief-include should mirror primary absence"
+  [ -e "$w/sm/config/brief-include.md" ] && fail "brief-include not removed on primary absence"
+  assert_home_brief_include "$w/sm" crew-absent ABSENT local
+
+  # The remote route derives its sender and receiver allowlists from the same
+  # declaration, so the default list must carry the item end to end over SSH.
+  remote="$w/remote-home"
+  mkdir -p "$remote/config" "$remote/data" "$remote/state"
+  route_line=$(printf -- '- brief-remote - Test route (host: inherit-host; root: %s; home: %s; scope: test; projects: ; added 2026-10-12)' "$ROOT" "$remote")
+  printf '%s\n' "$route_line" > "$w/home/data/secondmates.md"
+  fakebin="$w/remote-fakebin"
+  mkdir -p "$fakebin"
+  cat > "$fakebin/inherit-ssh" <<'SH'
+#!/usr/bin/env bash
+set -eu
+while [ "$#" -gt 0 ]; do
+  case "$1" in -o) shift 2 ;; --) shift; break ;; *) exit 90 ;; esac
+done
+[ "$#" -eq 6 ] && [ "$1" = inherit-host ] && [ "$2" = fm-remote-entrypoint.sh ] && [ "$3" = 1 ] || exit 91
+remote_root=$(printf '%s' "$4" | base64 --decode)
+remote_home=$(printf '%s' "$5" | base64 --decode)
+args=()
+while IFS= read -r -d '' arg; do args+=("$arg"); done < <(printf '%s' "$6" | base64 --decode)
+[ "${args[0]}" = fm-remote-inherit.sh ] || exit 92
+FM_HOME="$remote_home" FM_STATE_OVERRIDE="$remote_home/state" \
+  exec "$remote_root/bin/${args[0]}" "${args[@]:1}"
+SH
+  chmod +x "$fakebin/inherit-ssh"
+
+  printf '%s\n' '## Helper models' 'Hand pure legwork to a remote helper.' > "$w/home/config/brief-include.md"
+  out=$(PATH="$BASE_PATH" FM_HOME="$w/home" FM_ROOT_OVERRIDE="$ROOT" FM_CONFIG_OVERRIDE="$w/home/config" \
+    FM_DATA_OVERRIDE="$w/home/data" FM_SSH_BIN="$fakebin/inherit-ssh" \
+    "$ROOT/bin/fm-remote-inherit-push.sh" brief-remote 1 2>&1); status=$?
+  expect_code 0 "$status" "remote brief-include present push should succeed: $out"
+  cmp -s "$w/home/config/brief-include.md" "$remote/config/brief-include.md" \
+    || fail "remote brief-include present bytes did not converge"
+  assert_home_brief_include "$remote" remote-present 'Hand pure legwork to a remote helper.' remote
+
+  rm -f "$w/home/config/brief-include.md"
+  out=$(PATH="$BASE_PATH" FM_HOME="$w/home" FM_ROOT_OVERRIDE="$ROOT" FM_CONFIG_OVERRIDE="$w/home/config" \
+    FM_DATA_OVERRIDE="$w/home/data" FM_SSH_BIN="$fakebin/inherit-ssh" \
+    "$ROOT/bin/fm-remote-inherit-push.sh" brief-remote 2 2>&1); status=$?
+  expect_code 0 "$status" "remote brief-include absence push should succeed: $out"
+  [ -e "$remote/config/brief-include.md" ] && fail "remote brief-include not removed on primary absence"
+  assert_home_brief_include "$remote" remote-absent ABSENT remote
+  pass "B12d brief-include inheritance: secondmate briefs follow the primary's include, present and absent, local and remote"
 }
 
 test_backend_inheritance_present_and_absent() {
@@ -2835,6 +2925,7 @@ test_backend_inheritance_present_and_absent
 test_spawn_secondmate_claude_permission_mode_auto
 test_spawn_secondmate_claude_grants_parent_inbox_dir
 test_claude_permission_mode_inheritance_present_and_absent
+test_brief_include_inheritance_present_and_absent
 test_presentation_inheritance_default_on_and_opt_out
 test_bootstrap_sweep_surfaces_config_propagation_failure
 test_bootstrap_rereads_after_partial_propagation
