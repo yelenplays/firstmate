@@ -752,6 +752,13 @@ _fm_recovery_marker_publish() {
         announced:handling:*)
           generation=${FM_RECOVERY_MARKER_TOKEN##*:}
           status=pending
+          # A watcher close after a handled episode with nothing queued has
+          # no wake to re-announce; stay announced so the next arm waits.
+          # The queue is read without its lock: an append that lands after
+          # this read publishes its own pending marker (source=append).
+          if [ "$source" = watcher ] && [ ! -s "$FM_WAKE_QUEUE" ]; then
+            status=announced
+          fi
           ;;
         announced:downtime:*)
           if [ "$source" = watcher ]; then
