@@ -14,6 +14,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), [Calm preference](#calm-preference-configcalm), and [theme pack](#theme-pack-configtheme) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
 | Who reviews finished work | [Cross-family review](#cross-family-review) |
+| Context size of no-mistakes pipeline agents | [Pipeline agent skill listing](#pipeline-agent-skill-listing-no-mistakesconfigyaml) |
 | Slack updates and replies | [Slack bridge](#slack-bridge-configslack-bridge) |
 | Per-run overrides and tuning | [Environment variables](#environment-variables) |
 
@@ -761,6 +762,24 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for the firstmate-specific local test 
 
 Portable shard evidence and coverage rules are in [fm-test-portable-shards.md](fm-test-portable-shards.md); [herdr-backend.md](herdr-backend.md#destructive-lab-safety) owns the real-Herdr lane's isolation boundary, and [runtime-backends.md](verification/runtime-backends.md#herdr) owns active evidence.
 
+## Pipeline agent skill listing (~/.no-mistakes/config.yaml)
+
+Every Claude session Firstmate launches - ship, scout, and secondmate - caps its skill listing at 8000 characters; [`bin/fm-claude-worker-context-lib.sh`](../bin/fm-claude-worker-context-lib.sh) owns that value.
+No-mistakes starts its own Claude agents for each pipeline step, and it accepts extra Claude flags only from its machine-wide global config, so the operator adds the same budget there once per machine:
+
+```yaml
+agent_args_override:
+  claude:
+    # keep the existing flags, such as --model, and append:
+    - --settings
+    - '{"env":{"SLASH_COMMAND_TOOL_CHAR_BUDGET":"8000"}}'
+```
+
+Without it, a pipeline agent on a large-context model lists every installed skill with its description, about 30,000 characters on a home with many personal skills, on every request.
+The setting applies to pipeline agents in every repository on that machine; skill names stay listed and explicitly invoked skills still load, while Claude drops less-used descriptions first.
+It does not touch `--setting-sources`, so a repository's `disable_project_settings: true` keeps neutralizing project instructions.
+The opt-in `tests/fm-claude-worker-context-live-e2e.test.sh` guard proves this argument shape against a real Claude session ([runtime verification](verification/runtime-backends.md#claude-worker-context)).
+
 ## Captain Preferences (data/captain.md / data/captain-shared.md)
 
 Domain-local preferences for one captain's fleet live locally in each home's `data/captain.md`; it is gitignored and printed in the session-start context digest after `data/projects.md` and optional `data/secondmates.md`.
@@ -1298,7 +1317,7 @@ Behavioral regression coverage is in [`tests/fm-qos.test.sh`](../tests/fm-qos.te
 ## Project capacity (config/project-capacity)
 
 The optional local, gitignored `config/project-capacity` tells Firstmate how many workers a project can run at once on this machine, for a project whose machine-local resource - a heavy test suite, a local editor stack, a device - only serves a few workers at a time.
-Without it, dispatch stays uncapped as `AGENTS.md` section 7 describes, and a surplus worker is launched only to spend full-context turns waiting for the resource.
+Without it, dispatch stays uncapped as the `task-intake` skill describes, and a surplus worker is launched only to spend full-context turns waiting for the resource.
 The file lives in the machine's root Firstmate home, so every local secondmate home reads the same limit, and it holds one line per project:
 
 ```text
