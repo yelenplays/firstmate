@@ -8,6 +8,10 @@
 #        fm-home-route.sh review
 #        fm-home-route.sh --help
 # Run 'decide' at intake, before writing the spawn, in the primary home only.
+# Its flags may come in either order. --project names the project directory the
+# task changes; it need not exist yet, so work that will create a new local
+# project passes the directory name it will be created under (check later
+# matches that name against the spawned project directory's basename).
 # A project registered local-only in data/projects.md always routes main with no
 # Jev call. Otherwise one typed Jev call (bin/fm-jev-lib.sh) asks a 'choice' for
 # the lead over main plus every eligible mate, and one 'noul' per eligible mate
@@ -394,10 +398,22 @@ review() {
 case "${1:-}" in
 -h | --help) usage ;;
 decide)
-  [ "$#" -eq 6 ] && [ "$3" = --project ] && [ "$5" = --public-summary ] || invalid 'usage: decide <task-id> --project <name> --public-summary <safe-text>'
+  DECIDE_USAGE='usage: decide <task-id> --project <name> --public-summary <safe-text>'
+  [ "$#" -ge 2 ] || invalid "$DECIDE_USAGE"
   valid_id "$2" || invalid 'invalid task id'
-  [ -n "$4" ] && [[ "$4" != */* ]] || invalid 'invalid project name'
-  decide "$2" "$4" "$6"
+  task=$2 project='' summary='' project_set=0 summary_set=0
+  shift 2
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --project) [ "$#" -ge 2 ] || invalid "$DECIDE_USAGE"; project=$2 project_set=1; shift 2 ;;
+    --public-summary) [ "$#" -ge 2 ] || invalid "$DECIDE_USAGE"; summary=$2 summary_set=1; shift 2 ;;
+    *) invalid "$DECIDE_USAGE" ;;
+    esac
+  done
+  [ "$project_set" -eq 1 ] || invalid "decide needs --project <name>, the project directory the task changes; a project that does not exist yet needs no setup first - pass the directory name it will be created under: bin/fm-home-route.sh decide $task --project <new-project-name> --public-summary '<public one-line summary>'"
+  [ "$summary_set" -eq 1 ] || invalid "$DECIDE_USAGE"
+  [ -n "$project" ] && [[ "$project" != */* ]] || invalid 'invalid project name'
+  decide "$task" "$project" "$summary"
   ;;
 judge)
   [ "$#" -eq 6 ] && [ "$3" = --route ] && [ "$5" = --reason ] || invalid 'usage: judge <task-id> --route <main|lead[+mate,...]> --reason <text>'

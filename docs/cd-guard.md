@@ -97,6 +97,8 @@ Identical in shape to `docs/arm-pretool-check.md`:
 - Allow (and inert-outside-primary) returns exit 0 with both streams empty.
 - Deny returns exit 2 and writes `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] reason"}` to stderr.
 - Default deny mode also writes `{"decision":"deny","reason":"[persistent-cd] reason"}` to stdout for Grok.
+- The reason ends with `Retry in one step as: <rewrite>`, where the rewrite is the whole denied command inside a subshell, with the parentheses on their own lines when the command spans lines or contains `#`, so the agent can retry in one step.
+- Every deny object is JSON-escaped with newlines kept as `\n`, so a multi-line rewrite arrives intact.
 - `--claude` suppresses stdout completely because Claude ignores a PreToolUse deny when stdout is nonempty.
 - Codex blocks on exit 2 and displays stderr.
 - OpenCode throws only when the checker exits 2.

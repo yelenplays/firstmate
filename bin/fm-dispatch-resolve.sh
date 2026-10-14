@@ -4,7 +4,10 @@
 # then the configured default. No generative backup or unchecked refused pick.
 #
 # Usage:
-#   fm-dispatch-resolve.sh <brief-file> [--project <name>] [--typed-only]
+#   fm-dispatch-resolve.sh <brief-file|task-id> [--project <name>] [--typed-only]
+#   A brief argument that names no existing file and is a bare task id (no
+#   slash) resolves to $FM_HOME/data/<task-id>/brief.md; an existing file
+#   always wins.
 #   Cross-review chain: --decision-kind cross-review --policy-profile <JSON>
 #     --policy-reason 'catalog-proven cross-family reviewer chain'.
 #   Captain-authorized profile: [--decision-kind dispatch|secondmate|cross-review]
@@ -339,6 +342,17 @@ while [ $# -gt 0 ]; do
     *) [ -z "$BRIEF" ] || die "one brief file only"; BRIEF=$1; shift ;;
   esac
 done
+
+# A bare task id is shorthand for that task's brief under this home.
+if [ -n "$BRIEF" ] && [ ! -e "$BRIEF" ]; then
+  case "$BRIEF" in
+    .*|*/*|*[!A-Za-z0-9._-]*) ;;
+    *)
+      [ -r "$FM_HOME/data/$BRIEF/brief.md" ] || die "brief file not readable: $FM_HOME/data/$BRIEF/brief.md (resolved from task id $BRIEF)"
+      BRIEF="$FM_HOME/data/$BRIEF/brief.md"
+      ;;
+  esac
+fi
 
 # Fixed, existing policy pins use the same router and optional records without
 # asking a model to rediscover a value the policy already supplies.

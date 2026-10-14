@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 
 const REASONS = {
   "persistent-cd":
-    "a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).",
+    "a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell.",
 };
 
 // Directory-changing builtins that mutate the calling shell's own cwd.
@@ -46,8 +46,23 @@ function nodePersists(separators, index) {
   return true;
 }
 
-function deny(code) {
-  return { decision: "deny", code, reason: REASONS[code] };
+// The exact one-step retry for a denied command: the whole submitted command
+// inside a subshell, so every cd in it stays scoped to that child shell and the
+// rest of the command runs unchanged. A command that spans lines or may carry a
+// comment gets the parentheses on their own lines, so a trailing comment or a
+// heredoc terminator can never swallow the closing parenthesis.
+function subshellRewrite(command) {
+  const body = command.trim();
+  if (body.includes("\n") || body.includes("#")) return `(\n${body}\n)`;
+  return `(${body})`;
+}
+
+function deny(code, command) {
+  return {
+    decision: "deny",
+    code,
+    reason: `${REASONS[code]} Retry in one step as: ${subshellRewrite(command)}`,
+  };
 }
 
 function hasPathQualifiedCommandPrefix(position) {
@@ -68,8 +83,8 @@ function hasCommandQueryPrefix(position) {
   return false;
 }
 
-function decision(command) {
-  const lexed = new Lexer(command).tokenize();
+function decision(source) {
+  const lexed = new Lexer(source).tokenize();
   // Fail open on syntax this classifier cannot tokenize. The cd-guard's threat
   // model is agent mistakes - an accidental bare `cd projects/foo` always
   // tokenizes - so we prioritize zero false blocks over catching malformed or
@@ -94,7 +109,7 @@ function decision(command) {
     if (!command) continue;
     if (!CD_BUILTINS.has(command.value)) continue;
     if (position.wrappers.some((wrapper) => FORKING_WRAPPERS.has(wrapper))) continue;
-    return deny("persistent-cd");
+    return deny("persistent-cd", source);
   }
   return { decision: "allow" };
 }

@@ -30,6 +30,8 @@
 #      (the operator path the OPEN DECISIONS hint names), while an unrelated
 #      writer's answered: note still cannot hijack or clear that key. A reserved
 #      key this send cannot close refuses before anything is sent.
+#   9. A captain-hold-* key closes only with --captain-answer; without it the
+#      send refuses before anything is sent and the hold stays open.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -487,6 +489,47 @@ test_local_secondmate_answer_marked_and_closed() {
   pass "fm-send --resolve-key: a marked local-secondmate answer closes with the plain answer text"
 }
 
+# A captain-hold-* key is the captain's own decision (bin/fm-captain-hold.sh
+# publishes it on a secondmate's parent channel). An ordinary steer that names
+# it must refuse before sending and leave the hold open; only a send confirmed
+# with --captain-answer closes it, and --captain-answer alone refuses.
+test_captain_hold_key_needs_captain_answer() {
+  local dir fb log home rc err out key=captain-hold-tax-etl-signing-v1-1
+  dir="$TMP_ROOT/captain-hold"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); log="$dir/send.log"
+  home=$(setup_home captain-hold)
+  fm_write_secondmate_meta "$home/state/domain.meta" "$home" "sess:fm-domain"
+  printf 'needs-decision [key=%s]: captain hold tax-etl-signing-v1: sign the filing?\n' "$key" > "$home/state/domain.status"
+
+  err=$(env PATH="$fb:$PATH" FM_ROOT_OVERRIDE="$home" FM_HOME="$home" FM_SEND_LOG="$log" FM_SEND_SETTLE=0 \
+    "$SEND" fm-domain --resolve-key "$key" "prepare the ETL run; signing stays open" 2>&1 >/dev/null); rc=$?
+  [ "$rc" -ne 0 ] || fail "a captain-hold key without --captain-answer must refuse"
+  assert_contains "$err" "closes a captain hold, which only the captain's own answer may do" "the refusal names why"
+  assert_contains "$err" "resend with --captain-answer" "the refusal names the confirming flag"
+  assert_contains "$err" "Nothing was sent." "the refusal says nothing was sent"
+  [ ! -e "$home/state/domain.inbox" ] || fail "a refused captain-hold close must send nothing"
+  ! grep -qF "resolved [key=$key]" "$home/state/domain.status" || fail "a refused captain-hold close must leave the hold open"
+  out=$(drain_out "$home")
+  assert_contains "$out" "[key=$key]" "the captain hold still lists as open after the refusal"
+
+  run_send "$fb" "$home" "$log" fm-domain "prepare the ETL run; signing stays open"; rc=$?
+  expect_code 0 "$rc" "an ordinary steer to the same task still sends"
+  ! grep -qF "resolved [key=$key]" "$home/state/domain.status" || fail "an ordinary steer must not close the captain hold"
+
+  err=$(env PATH="$fb:$PATH" FM_ROOT_OVERRIDE="$home" FM_HOME="$home" FM_SEND_LOG="$log" FM_SEND_SETTLE=0 \
+    "$SEND" fm-domain --captain-answer "sign it" 2>&1 >/dev/null); rc=$?
+  [ "$rc" -ne 0 ] || fail "--captain-answer without --resolve-key must refuse"
+  assert_contains "$err" "--captain-answer only confirms a --resolve-key answer" "a stray --captain-answer names its use"
+  [ ! -e "$home/state/domain.inbox/002.msg" ] || fail "a stray --captain-answer must send nothing"
+
+  run_send "$fb" "$home" "$log" fm-domain --resolve-key "$key" --captain-answer "captain: sign it"; rc=$?
+  expect_code 0 "$rc" "a confirmed captain answer closes the hold"
+  grep -qF "captain: sign it" "$home/state/domain.inbox/002.msg" || fail "the captain answer should reach the mate"
+  sed -E 's/ \[at=[0-9]+\]//' "$home/state/domain.status" | grep -qF "resolved [key=$key]: answered: captain: sign it" \
+    || fail "the confirmed captain answer did not close the hold: $(cat "$home/state/domain.status")"
+  pass "fm-send --resolve-key: a captain-hold key closes only with --captain-answer; an ordinary steer leaves it open"
+}
+
 # Remote secondmate: the answer crosses the (stubbed) ssh transport through the
 # real fm-on.sh + registry route, while the close is the SAME local ledger
 # append as every other target kind - the transport is the only difference.
@@ -917,6 +960,7 @@ test_failed_enqueue_does_not_close
 test_multiple_keys_close_together
 test_multiple_keys_close_after_fold_is_self_announced
 test_local_secondmate_answer_marked_and_closed
+test_captain_hold_key_needs_captain_answer
 test_remote_secondmate_answer_closes_locally
 test_remote_reply_corr_tag_does_not_block_resolve_key
 test_remote_transport_failure_does_not_close

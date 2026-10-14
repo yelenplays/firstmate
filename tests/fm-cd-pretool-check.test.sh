@@ -282,6 +282,52 @@ test_e2e_cwd_leak_regression() {
   pass "cd-guard: reproduces the cwd leak and denies the exact command that causes it"
 }
 
+# --- one-step retry rewrite --------------------------------------------------
+
+# A denied command's reason ends with the exact subshell rewrite of the command.
+# Pull it out of every harness's deny object, prove the guard allows it, and run
+# it from the home: it does the same work while the shell's cwd stays home.
+retry_from_deny() { # <json-file> <jq-field>
+  jq -r "$2" "$1" | awk 'found { print; next } { i = index($0, "Retry in one step as: "); if (i) { found = 1; print substr($0, i + 22) } }'
+}
+
+test_deny_names_exact_subshell_rewrite() {
+  local sandbox cmd expected id entry out_file err_file field file rewrite rc ran
+  sandbox="$TMP_ROOT/retry"
+  mkdir -p "$sandbox/home/projects/clone"
+  local -a cmds=(
+    'cd projects/clone && touch made-one'
+    $'cd projects/clone # enter the clone\ncat > made-two <<EOF\n\t"quoted" body\nEOF'
+  )
+  local -a expects=(
+    '(cd projects/clone && touch made-one)'
+    $'(\ncd projects/clone # enter the clone\ncat > made-two <<EOF\n\t"quoted" body\nEOF\n)'
+  )
+  for id in 0 1; do
+    cmd=${cmds[$id]}
+    expected=${expects[$id]}
+    for entry in claude grok cursor; do
+      out_file="$sandbox/$id-$entry.out"
+      err_file="$sandbox/$id-$entry.err"
+      case "$entry" in
+        claude) "$CHECK" --claude --command "$cmd" >"$out_file" 2>"$err_file"; file=$err_file field=.systemMessage ;;
+        grok) "$CHECK" --command "$cmd" >"$out_file" 2>"$err_file"; file=$out_file field=.reason ;;
+        cursor) "$CHECK" --cursor --command "$cmd" >"$out_file" 2>"$err_file"; file=$out_file field=.user_message ;;
+      esac
+      jq -e . "$file" >/dev/null 2>&1 || fail "retry case $id via $entry: deny object is not valid JSON: $(cat "$file")"
+      rewrite=$(retry_from_deny "$file" "$field")
+      assert_equals "$expected" "$rewrite" "retry case $id via $entry must name the exact subshell rewrite"
+      "$CHECK" --claude --command "$rewrite" >/dev/null 2>&1; rc=$?
+      expect_code 0 "$rc" "retry case $id via $entry: the named rewrite must pass the guard"
+    done
+    ran=$(cd "$sandbox/home" && bash -c "$rewrite"$'\npwd -P')
+    assert_equals "$(cd "$sandbox/home" && pwd -P)" "$ran" "retry case $id: the rewrite must leave the shell in the home"
+  done
+  [ -f "$sandbox/home/projects/clone/made-one" ] || fail "the one-line rewrite did not do the command's work"
+  assert_equals $'\t"quoted" body' "$(cat "$sandbox/home/projects/clone/made-two")" "the multi-line rewrite must keep the heredoc and comment intact"
+  pass "cd-guard: every deny names the exact one-step subshell rewrite, which the guard allows and which keeps cwd home"
+}
+
 # --- fail-open transport behavior ------------------------------------------
 
 test_fail_open_empty_stdin() {
@@ -391,6 +437,7 @@ test_inert_in_child_worktree
 test_inert_when_not_firstmate_repo
 test_inert_when_not_a_git_repo
 test_e2e_cwd_leak_regression
+test_deny_names_exact_subshell_rewrite
 test_fail_open_empty_stdin
 test_fail_open_unparseable_json
 test_fail_open_missing_node
