@@ -550,7 +550,7 @@ EOF
   # the send that answers a listed decision also closes it, so closure never
   # depends on the busy worker writing a matching resolved line (contract:
   # bin/fm-send.sh header).
-  printf "OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'\n" || return 1
+  printf "OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)\n" || return 1
 }
 
 # Print the RECORD DIVERGENCE section: every captain call whose two records

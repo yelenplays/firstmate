@@ -48,7 +48,8 @@ function nodePersists(separators, index) {
 
 // The exact one-step retry for a denied command: the whole submitted command
 // inside a subshell, so every cd in it stays scoped to that child shell and the
-// rest of the command runs unchanged. A command that spans lines or may carry a
+// rest of the command runs unchanged. A command that is only the cd gets no
+// rewrite, since a scoped cd alone does nothing. A command that spans lines or may carry a
 // comment gets the parentheses on their own lines, so a trailing comment or a
 // heredoc terminator can never swallow the closing parenthesis.
 function subshellRewrite(command) {
@@ -57,12 +58,9 @@ function subshellRewrite(command) {
   return `(${body})`;
 }
 
-function deny(code, command) {
-  return {
-    decision: "deny",
-    code,
-    reason: `${REASONS[code]} Retry in one step as: ${subshellRewrite(command)}`,
-  };
+function deny(code, retryCommand) {
+  const retry = retryCommand === null ? "" : ` Retry in one step as: ${subshellRewrite(retryCommand)}`;
+  return { decision: "deny", code, reason: `${REASONS[code]}${retry}` };
 }
 
 function hasPathQualifiedCommandPrefix(position) {
@@ -109,7 +107,7 @@ function decision(source) {
     if (!command) continue;
     if (!CD_BUILTINS.has(command.value)) continue;
     if (position.wrappers.some((wrapper) => FORKING_WRAPPERS.has(wrapper))) continue;
-    return deny("persistent-cd", source);
+    return deny("persistent-cd", nodes.length > 1 ? source : null);
   }
   return { decision: "allow" };
 }

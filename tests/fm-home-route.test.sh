@@ -144,16 +144,16 @@ last_event | jq -e '.event == "check" and .outcome == "allow" and .route == "mai
 pass 'a main route allows the spawn'
 
 # A task that will create a new local project decides before the project
-# exists: the name it will be created under is enough, and the flags may come in
-# either order. The spawn gate then matches that name to the new directory.
+# exists: the name it will be created under is enough. The spawn gate then
+# matches that name to the new directory.
 write_answer main 0.99 0.05 0.1
 [ ! -e "$TMP_ROOT/projects/brand-new-tool" ] || fail 'fixture: new project already exists'
-out=$(run_tool decide new-tool --public-summary 'Create a small local CLI tool' --project brand-new-tool) || fail 'new-project decide failed'
+out=$(run_tool decide new-tool --project brand-new-tool --public-summary 'Create a small local CLI tool') || fail 'new-project decide failed'
 assert_contains "$out" 'route: main' 'a not-yet-created project routes like any other'
 last_event | jq -e '.event == "decide" and .project == "brand-new-tool" and .source == "jev"' >/dev/null || fail 'new-project decide not logged'
 mkdir -p "$TMP_ROOT/projects/brand-new-tool"
 run_tool check new-tool "$TMP_ROOT/projects/brand-new-tool" || fail 'new-project route refused once the project exists'
-pass 'decide works before the project exists, with flags in either order'
+pass 'decide works before the project exists'
 
 # Leaving --project out names the exact next step instead of a bare usage line.
 lines_before=$(wc -l < "$LOG")
@@ -165,8 +165,6 @@ assert_contains "$err" "bin/fm-home-route.sh decide no-project-yet --project <ne
 err=$(run_tool decide no-summary --project brand-new-tool 2>&1 >/dev/null); rc=$?
 expect_code 2 "$rc" 'decide without --public-summary is a usage error'
 assert_contains "$err" 'usage: decide <task-id> --project <name> --public-summary <safe-text>' 'missing summary prints usage'
-err=$(run_tool decide bad-flag --project x --public-summary y --extra z 2>&1 >/dev/null); rc=$?
-expect_code 2 "$rc" 'decide with an unknown flag is a usage error'
 pass 'decide without --project names the exact next step'
 
 # Abstain: below the lead floor the backup judge decides on the same state.

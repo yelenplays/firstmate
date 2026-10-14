@@ -224,7 +224,8 @@ Two channels feed that one intake today, and both are ordinary callers rather th
 - For a key the status log still owns, that script's header owns the status-log close.
 - A key the status log no longer owns is resolved to a still-open captain-held task and fed as one keyed line.
   The script tries the key as a task id first, then the legacy derived identity.
-- A `captain-hold-*` key, which a secondmate home publishes for its own captain holds, closes only when the send carries `--captain-answer`, the sender's confirmation that the text is the captain's own answer.
+- A key that closes a captain decision closes only when the send carries `--captain-answer`, the sender's confirmation that the text is the captain's own answer.
+  That covers a key resolved to a captain-held task and a `captain-hold-*` key, which a secondmate home publishes for its own captain holds.
 
 `bin/fm-procevent.sh` is the captured-result channel:
 

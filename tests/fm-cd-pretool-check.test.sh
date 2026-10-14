@@ -284,7 +284,8 @@ test_e2e_cwd_leak_regression() {
 
 # --- one-step retry rewrite --------------------------------------------------
 
-# A denied command's reason ends with the exact subshell rewrite of the command.
+# A denied command that runs more than the cd ends its reason with the exact
+# subshell rewrite of the command.
 # Pull it out of every harness's deny object, prove the guard allows it, and run
 # it from the home: it does the same work while the shell's cwd stays home.
 retry_from_deny() { # <json-file> <jq-field>
@@ -325,7 +326,29 @@ test_deny_names_exact_subshell_rewrite() {
   done
   [ -f "$sandbox/home/projects/clone/made-one" ] || fail "the one-line rewrite did not do the command's work"
   assert_equals $'\t"quoted" body' "$(cat "$sandbox/home/projects/clone/made-two")" "the multi-line rewrite must keep the heredoc and comment intact"
-  pass "cd-guard: every deny names the exact one-step subshell rewrite, which the guard allows and which keeps cwd home"
+  pass "cd-guard: a deny that runs more than the cd names the exact one-step subshell rewrite, which the guard allows and which keeps cwd home"
+}
+
+# A command that is only the cd has no useful subshell rewrite - (cd x) does
+# nothing - so its deny gives the git -C / absolute-path advice alone.
+test_cd_only_deny_names_no_rewrite() {
+  local cmd entry out_file err_file field file reason rc want
+  for cmd in 'cd projects/clone' 'cd projects/clone;' 'pushd projects/clone # enter it'; do
+    for entry in claude grok cursor; do
+      out_file="$TMP_ROOT/cd-only-$entry.out"
+      err_file="$TMP_ROOT/cd-only-$entry.err"
+      case "$entry" in
+        claude) "$CHECK" --claude --command "$cmd" >"$out_file" 2>"$err_file"; rc=$? want=2 file=$err_file field=.systemMessage ;;
+        grok) "$CHECK" --command "$cmd" >"$out_file" 2>"$err_file"; rc=$? want=2 file=$out_file field=.reason ;;
+        cursor) "$CHECK" --cursor --command "$cmd" >"$out_file" 2>"$err_file"; rc=$? want=0 file=$out_file field=.user_message ;;
+      esac
+      expect_code "$want" "$rc" "'$cmd' via $entry must still be denied"
+      reason=$(jq -r "$field" "$file") || fail "'$cmd' via $entry: deny object is not valid JSON: $(cat "$file")"
+      assert_contains "$reason" "use git -C <dir> or an absolute path" "'$cmd' via $entry must keep the git -C / absolute-path advice"
+      assert_not_contains "$reason" "Retry in one step as:" "'$cmd' via $entry must not offer a do-nothing subshell retry"
+    done
+  done
+  pass "cd-guard: a cd-only deny gives the git -C / absolute-path advice without a do-nothing retry"
 }
 
 # --- fail-open transport behavior ------------------------------------------
@@ -438,6 +461,7 @@ test_inert_when_not_firstmate_repo
 test_inert_when_not_a_git_repo
 test_e2e_cwd_leak_regression
 test_deny_names_exact_subshell_rewrite
+test_cd_only_deny_names_no_rewrite
 test_fail_open_empty_stdin
 test_fail_open_unparseable_json
 test_fail_open_missing_node
