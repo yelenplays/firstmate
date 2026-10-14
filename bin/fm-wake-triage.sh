@@ -1,7 +1,28 @@
 #!/usr/bin/env bash
 # Drain durable wakes and classify rows as routine only when the task is
 # verifiably working, has no open decision, and is not held for the captain.
-# Acknowledgement remains manual.
+#
+# Usage: fm-wake-triage.sh [--absorb]
+#
+# Without --absorb, acknowledgement stays manual: the output ends with the
+# drain's WAKE_ACK_REQUIRED command for the handling turn to run.
+# --absorb is the Claude Stop hook's mode (bin/fm-claude-stop-autoarm.sh), and
+# acknowledges for it:
+#   - exit 0, the wake is absorbed: every row is routine and the drain presented
+#     nothing else that needs firstmate, so triage acknowledges the whole batch
+#     and prints one WAKE_ACKED line after the presentation;
+#   - exit 10, the wake needs firstmate: triage acknowledges only the routine
+#     rows (fm-wake-drain.sh --ack-rows) while other rows remain queued, and
+#     ends the presentation with the WAKE_ACK_REQUIRED command for the rest;
+#   - any other status is a failure that leaves the wake to the handling turn.
+# While state/.afk exists the away daemon owns triage, so --absorb acknowledges
+# nothing.
+# "Nothing else" is a whitelist, absorbable_drain_output below, so a drain line
+# it does not recognize always keeps the wake: queue rows, working status
+# annotations of routine tasks, the acknowledgement line, the queued-wakes
+# warning, the persistent OPEN DECISIONS list (never one naming new or changed
+# decisions), and the persistent UNFINISHED EXECUTION obligations, whose owners
+# get their own queued wake whenever their evidence changes.
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-wake-lib.sh
@@ -14,12 +35,29 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/fm-lease-lib.sh"
 
-usage() { sed -n '1,3p' "$0"; }
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
+ABSORB=0
 case "${1:-}" in
   -h|--help) usage; exit 0 ;;
+  --absorb) [ "$#" -eq 1 ] || { echo "usage: fm-wake-triage.sh [--absorb]" >&2; exit 2; }; ABSORB=1 ;;
   '') ;;
-  *) echo "usage: fm-wake-triage.sh [-h|--help]" >&2; exit 2 ;;
+  *) echo "usage: fm-wake-triage.sh [--absorb]" >&2; exit 2 ;;
 esac
+
+# The leading verb of a status event as bin/fm-classify-lib.sh's
+# status_line_verb reads it: the text before the first colon, cut at the first
+# "[" (the [at=...] and [key=...] stamps), with correlation tokens dropped.
+EVENT_VERB_AWK='
+function event_verb(s,    w, n, i, out) {
+  sub(/:.*/, "", s); sub(/\[.*/, "", s)
+  n = split(s, w, /[ \t]+/); out = ""
+  for (i = 1; i <= n; i++) {
+    if (w[i] == "") continue
+    if (out != "" && length(w[i]) == 21 && w[i] ~ /^corr=[0-9A-Fa-f]+$/) continue
+    out = (out == "" ? w[i] : out " " w[i])
+  }
+  return out
+}'
 
 ACTOR=$(fm_lease_actor) || exit 2
 [ "$ACTOR" = main ] || exec "$SCRIPT_DIR/fm-wake-drain.sh"
@@ -63,8 +101,10 @@ fi
 LOCK_FAILED=${LOCK_FAILED:-0}
 
 # Each row is classified by task; anything malformed or outside the three
-# explicitly eligible wake shapes remains ACT NOW.
+# explicitly eligible wake shapes remains ACT NOW. row_tags keeps each row's
+# sequence beside its tag, so --absorb can name the routine rows it retires.
 ids="$work/ids"
+row_tags="$work/row-tags"
 awk -F '\t' '
 function routine_shape(kind,key,payload,id) {
   if (kind == "signal" && key == id ".status" && payload ~ /^signal:/ && payload !~ /^needs-decision:/) return 1
@@ -72,14 +112,15 @@ function routine_shape(kind,key,payload,id) {
   if (kind == "check" && key == "execution:" id && payload == "check: execution " id) return 1
   return 0
 }
-NF < 5 { print "!"; next }
-{ kind=$3; key=$4; payload=$5; for (i=6;i<=NF;i++) payload=payload FS $i; id="";
+NF < 5 { print "-\t!"; next }
+{ kind=$3; key=$4; payload=$5; for (i=6;i<=NF;i++) payload=payload FS $i; id=""; seq=($2 ~ /^[0-9]+$/ ? $2 : "-");
   if (kind=="signal" && key ~ /\.status$/) { id=key; sub(/\.status$/, "", id) }
   else if (kind=="check" && key ~ /^execution:[A-Za-z0-9._-]+$/) { id=substr(key,11) }
-  else if (kind=="stale" && payload == "stale: " key) { print "?" key; next }
-  if (id != "") { if (routine_shape(kind,key,payload,id)) print id; else print "!" id; next }
-  print "!"
-}' "$rows" | LC_ALL=C sort -u > "$ids"
+  else if (kind=="stale" && payload == "stale: " key) { print seq "\t?" key; next }
+  if (id != "") { if (routine_shape(kind,key,payload,id)) print seq "\t" id; else print seq "\t!" id; next }
+  print seq "\t!"
+}' "$rows" > "$row_tags"
+cut -f2- "$row_tags" | LC_ALL=C sort -u > "$ids"
 
 # Resolve stale handles only by exact meta-field matches. Metadata must identify
 # one ship/scout task; remote and secondmate records are never candidates.
@@ -125,10 +166,13 @@ while IFS= read -r tagged; do
     if [ ! -f "$STATE/$id.status" ] || [ ! -r "$STATE/$id.status" ] || [ -L "$STATE/$id.status" ] || [ -z "$current" ]; then reason='C7 latest task status missing';
     elif status_is_paused_or_captain_held "$current"; then reason='C5 paused/captain-held status';
     elif status_is_captain_relevant "$current"; then reason='C7 latest status is captain-relevant';
-    elif [ "$(awk -F ': ' -v key="$id.status" '$1 == "wake annotation" && $3 == key { verb=$4; sub(/:.*/, "", verb); if (verb == "done" || verb == "needs-decision" || verb == "blocked" || verb == "failed" || verb == "note") n++ } END { print n+0 }' "$out")" -gt 0 ]; then reason='C7 task has terminal or unread status';
-    elif [ "$(awk -F ': ' -v key="$id.status" '$1 == "wake annotation" && $3 == key { verb=$4; sub(/:.*/, "", verb); if (verb != "working") n++ } END { print n+0 }' "$out")" -gt 0 ]; then reason='C7 presented status event is not working';
+    elif [ "$(awk -F ': ' -v key="$id.status" "$EVENT_VERB_AWK"'
+      $1 == "wake annotation" && $3 == key { verb=event_verb($4); if (verb == "done" || verb == "needs-decision" || verb == "blocked" || verb == "failed" || verb == "note") n++ } END { print n+0 }' "$out")" -gt 0 ]; then reason='C7 task has terminal or unread status';
+    elif [ "$(awk -F ': ' -v key="$id.status" "$EVENT_VERB_AWK"'
+      $1 == "wake annotation" && $3 == key { verb=event_verb($4); if (verb != "working") n++ } END { print n+0 }' "$out")" -gt 0 ]; then reason='C7 presented status event is not working';
     elif awk -F '\t' -v id="$id" '$3 == "signal" && $4 == id ".status" { found=1 } END { exit !found }' "$rows" \
-      && [ "$(awk -F ': ' -v key="$id.status" '$1 == "wake annotation" && $3 == key { verb=$4; sub(/:.*/, "", verb); if (verb == "working") found=1 } END { print found+0 }' "$out")" -eq 0 ]; then reason='C7 signal has no current working annotation';
+      && [ "$(awk -F ': ' -v key="$id.status" "$EVENT_VERB_AWK"'
+      $1 == "wake annotation" && $3 == key { verb=event_verb($4); if (verb == "working") found=1 } END { print found+0 }' "$out")" -eq 0 ]; then reason='C7 signal has no current working annotation';
     else
       owner_lines=$(awk -F '\t' -v id="$id" 'index($0,"UNFINISHED EXECUTION") { section=1; next } section && /^[A-Z][A-Z ]+ \(/ { section=0 } section && $1 == id {print}' "$out")
       owner_bad=$(printf '%s\n' "$owner_lines" | awk -F '\t' 'NF && $2 != "worker" {print; exit}')
@@ -196,11 +240,101 @@ rendered="$work/rendered"
     while IFS="$(printf '\t')" read -r id crew; do printf '%s - crew: %s\n' "$id" "$crew"; done < "$routine_file"
   fi
 } > "$rendered" || { cat "$pending"; exit 1; }
-cat "$rendered" || exit 1
-mv -f -- "$pending" "$STATE/.wake-triage.last" || { echo 'wake triage: could not commit drain output' >&2; exit 1; }
+if [ "$ABSORB" -eq 0 ]; then
+  cat "$rendered" || exit 1
+fi
+mv -f -- "$pending" "$STATE/.wake-triage.last" || { [ "$ABSORB" -eq 0 ] || cat "$rendered"; echo 'wake triage: could not commit drain output' >&2; exit 1; }
 out="$STATE/.wake-triage.last"
 for f in ${recovered[@]+"${recovered[@]}"}; do rm -f -- "$f" || exit 1; done
+ack_line=$(sed -n '/^WAKE_ACK_REQUIRED:/p' "$out" | tail -1)
 
-if [ "$DRAIN_CODE" -ne 0 ]; then exit "$DRAIN_CODE"; fi
-sed -n '/^WAKE_ACK_REQUIRED:/p' "$STATE/.wake-triage.last" | tail -1
-exit 0
+if [ "$ABSORB" -eq 0 ]; then
+  if [ "$DRAIN_CODE" -ne 0 ]; then exit "$DRAIN_CODE"; fi
+  printf '%s\n' "$ack_line"
+  exit 0
+fi
+
+# --- --absorb (header) ---------------------------------------------------------
+# True when every line the drain printed is one the whitelist knows to need
+# nothing from firstmate (header); any unrecognized line keeps the wake.
+absorbable_drain_output() {  # <routine-ids-file>
+  awk -v rows="$rows" -v ids="$1" "$EVENT_VERB_AWK"'
+    BEGIN {
+      while ((getline line < rows) > 0) row[line] = 1
+      while ((getline line < ids) > 0) routine[line] = 1
+    }
+    ($0 in row) { section = ""; next }
+    /^WAKE_ACK_REQUIRED: / { section = ""; next }
+    /^WARNING: queued wakes pending - drain them with bin\/fm-wake-drain\.sh before anything else\.$/ { next }
+    /^wake annotation: / {
+      n = split($0, part, ": ")
+      task = part[3]
+      if (n < 4 || sub(/\.status$/, "", task) != 1 || !(task in routine)) exit 1
+      if (event_verb(part[4]) != "working") exit 1
+      section = ""; next
+    }
+    /^OPEN DECISIONS \(still open, folded from the durable status logs/ { section = "decisions"; next }
+    /^OPEN DECISIONS: [0-9]+ still open, none new or changed since the last presentation/ { section = ""; next }
+    section == "decisions" && /^OPEN DECISIONS: [0-9]+ more omitted \(byte cap\)$/ { next }
+    section == "decisions" && /^OPEN DECISIONS: close one by answering it: / { section = ""; next }
+    section == "decisions" && /^[A-Za-z0-9._-]+( \[key=[^]]*\])? (needs-decision|blocked): / { next }
+    /^UNFINISHED EXECUTION \(task, accountable owner, next action/ { section = "execution"; next }
+    section == "execution" && split($0, cell, "\t") == 3 && cell[1] ~ /^[A-Za-z0-9._-]+$/ { next }
+    { exit 1 }
+  ' "$out"
+}
+
+act_ids="$work/act-ids"
+routine_ids="$work/routine-ids"
+cut -f1 "$act_file" | LC_ALL=C sort -u > "$act_ids"
+cut -f1 "$routine_file" | LC_ALL=C sort -u | LC_ALL=C comm -23 - "$act_ids" > "$routine_ids"
+ack_generation=$(printf '%s\n' "$ack_line" | sed -n 's/.* --recovery-generation \([A-Za-z0-9._-][A-Za-z0-9._-]*\)$/\1/p')
+
+absorbed=0
+ack_out=
+if [ "$DRAIN_CODE" -eq 0 ] && [ "$LOCK_FAILED" -eq 0 ] && [ "$recovered_count" -eq 0 ] \
+  && [ ! -e "$STATE/.afk" ] && [ -n "$cutoff" ] && [ -n "$ack_generation" ] && [ ! -s "$act_file" ] \
+  && absorbable_drain_output "$routine_ids"; then
+  ack_out=$("$SCRIPT_DIR/fm-wake-drain.sh" --ack-through "$cutoff" --recovery-generation "$ack_generation" 2>&1)
+  ack_code=$?
+  if [ "$ack_code" -eq 0 ] && ! printf '%s\n' "$ack_out" | grep -q '^wake drain: nothing was acknowledged'; then
+    absorbed=1
+  fi
+fi
+
+if [ "$absorbed" -eq 1 ]; then
+  cat "$rendered" || exit 0
+  printf 'WAKE_ACKED: triage acknowledged every row through %s; nothing needs firstmate\n' "$cutoff"
+  [ -z "$ack_out" ] || printf '%s\n' "$ack_out"
+  exit 0
+fi
+
+# The wake needs firstmate. Retire its routine rows now when another row stays
+# queued for the handling turn's own acknowledgement.
+partial_note=
+routine_seqs=$(while IFS="$(printf '\t')" read -r seq tagged; do
+  case "$seq" in ''|*[!0-9]*) continue ;; esac
+  case "$tagged" in
+    '!'*) continue ;;
+    '?'*) tagged=$(meta_for_stale "${tagged#?}" 2>/dev/null) || continue ;;
+  esac
+  grep -Fqx -- "$tagged" "$routine_ids" && printf '%s\n' "$seq"
+done < "$row_tags" | LC_ALL=C sort -nu | paste -sd, -)
+if [ "$DRAIN_CODE" -eq 0 ] && [ "$LOCK_FAILED" -eq 0 ] && [ ! -e "$STATE/.afk" ] && [ -n "$routine_seqs" ] && [ -n "$ack_generation" ] \
+  && [ "$(printf '%s\n' "$routine_seqs" | tr ',' '\n' | awk 'END { print NR }')" -lt "$(awk 'END { print NR }' "$rows")" ]; then
+  if partial_out=$("$SCRIPT_DIR/fm-wake-drain.sh" --ack-rows "$routine_seqs" --recovery-generation "$ack_generation" 2>&1); then
+    partial_note="ROUTINE ROWS ACKNOWLEDGED BY TRIAGE: $routine_seqs (the WAKE_ACK_REQUIRED command below retires the rest)"
+  else
+    partial_note="ROUTINE ROWS NOT ACKNOWLEDGED: triage could not retire rows $routine_seqs; the WAKE_ACK_REQUIRED command below retires them with the rest"
+  fi
+  [ -z "$partial_out" ] || partial_note="$partial_note
+$partial_out"
+fi
+cat "$rendered" || exit 1
+[ -z "$partial_note" ] || printf '%s\n' "$partial_note"
+[ -z "$ack_line" ] || printf '%s\n' "$ack_line"
+if [ "$DRAIN_CODE" -ne 0 ]; then
+  [ "$DRAIN_CODE" -ne 10 ] || exit 1
+  exit "$DRAIN_CODE"
+fi
+exit 10

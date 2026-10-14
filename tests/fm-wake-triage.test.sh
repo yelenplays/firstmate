@@ -39,8 +39,11 @@ SH
   chmod +x "$dir/fakebin/fm-captain-hold.sh"
 }
 
+# run_triage <dir> [<interpreter>] [<triage-args>...]
 run_triage() {
   local dir=$1 interpreter=${2:-}
+  shift
+  [ "$#" -eq 0 ] || shift
   local PATH="$PATH" FM_HOME FM_STATE_OVERRIDE FM_CREW_STATE_BIN FM_CAPTAIN_HOLD_BIN FM_ROOT_OVERRIDE
   PATH="$dir/fakebin:$PATH"
   FM_HOME="$dir"
@@ -50,9 +53,9 @@ run_triage() {
   FM_ROOT_OVERRIDE="$dir"
   export PATH FM_HOME FM_STATE_OVERRIDE FM_CREW_STATE_BIN FM_CAPTAIN_HOLD_BIN FM_ROOT_OVERRIDE
   if [ -n "$interpreter" ]; then
-    "$interpreter" "$TRIAGE"
+    "$interpreter" "$TRIAGE" "$@"
   else
-    "$TRIAGE"
+    "$TRIAGE" "$@"
   fi
 }
 
@@ -421,6 +424,169 @@ test_interruption_retains_pending_output() {
   pass 'interrupted triage output survives and is replayed before manual acknowledgement'
 }
 
+# Real status lines carry stamps: fm-status writes "working [at=N]: ..." and
+# correlated lines add a corr= token. The annotation verb must read through
+# both exactly as status_line_verb does, or every real wake reads as unread
+# non-working status and nothing is ever routine.
+test_stamped_working_status_is_routine() {
+  local dir out line
+  for line in 'working [at=1792010690]: implementing' \
+    'working corr=0123456789abcdef [at=1792010690]: implementing'; do
+    dir=$(make_case "stamped-$RANDOM"); install_crew_stub "$dir"; install_hold_stub "$dir"
+    setup_task stamped "$dir"
+    printf '%s\n' "$line" > "$dir/state/stamped.status"
+    append_wake "$dir/state" signal stamped.status 'signal: changed'
+    out=$(run_triage "$dir") || fail "triage of a stamped working status failed"
+    assert_contains "$out" 'ROUTINE (worker verifiably working' "a stamped working status was not routine: $line"
+    assert_not_contains "$out" 'C7' "a stamped working status was read as non-working: $line"
+  done
+
+  dir=$(make_case stamped-done); install_crew_stub "$dir"; install_hold_stub "$dir"
+  setup_task stamped "$dir"
+  printf 'done [at=1792010690]: merged\n' > "$dir/state/stamped.status"
+  append_wake "$dir/state" signal stamped.status 'signal: changed'
+  out=$(run_triage "$dir") || fail "triage of a stamped done status failed"
+  assert_contains "$out" 'C7' 'a stamped done status was not kept actionable'
+  pass 'stamped and correlated working status events are routine; stamped terminal events are not'
+}
+
+# absorb_case <name>: a case with one routine working task, a fresh watcher, and
+# one stale wake row for it. Prints the case directory; the watcher pid is in
+# <dir>/watcher.pid.
+absorb_case() {
+  local dir
+  dir=$(make_case "$1"); install_crew_stub "$dir"; install_hold_stub "$dir"
+  setup_task routine "$dir"
+  seed_fresh_watcher "$dir" > "$dir/watcher.pid"
+  append_wake "$dir/state" stale 'test:routine' 'stale: test:routine'
+  printf '%s\n' "$dir"
+}
+
+stop_absorb_watcher() {
+  kill "$(cat "$1/watcher.pid")" 2>/dev/null || true
+}
+
+test_absorb_acknowledges_an_all_routine_wake() {
+  local dir out rc ack
+  dir=$(absorb_case absorb-routine)
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  stop_absorb_watcher "$dir"
+  [ "$rc" -eq 0 ] || fail "an all-routine wake was not absorbed (rc=$rc): $out"
+  assert_contains "$out" 'ROUTINE (worker verifiably working' 'the absorbed presentation was not printed'
+  assert_contains "$out" 'WAKE_ACKED: triage acknowledged every row through' 'the absorbed wake printed no WAKE_ACKED line'
+  assert_not_contains "$out" 'WAKE_ACK_REQUIRED' 'an absorbed wake still asked for manual acknowledgement'
+  [ ! -s "$dir/state/.wake-queue" ] || fail 'an absorbed wake left its row queued'
+  case "$(cat "$dir/state/.watcher-down" 2>/dev/null)" in
+    pending:*|announced:*) fail 'an absorbed wake left its recovery episode open' ;;
+  esac
+  [ -s "$dir/state/.wake-triage.last" ] || fail 'the absorbed drain output was not retained'
+
+  dir=$(absorb_case absorb-persistent-decision)
+  setup_task other "$dir"
+  printf 'needs-decision [key=k1]: choose a lane\n' > "$dir/state/other.status"
+  # A first presentation makes the decision old news; the absorb pass then sees
+  # only the persistent list, which is not a reason to wake firstmate again.
+  run_triage "$dir" > /dev/null || fail 'priming triage failed'
+  ack=$(sed -n 's/^WAKE_ACK_REQUIRED: after handling completes run \(.*\)$/\1/p' "$dir/state/.wake-triage.last" | tail -1)
+  [ -n "$ack" ] || fail 'the priming triage printed no acknowledgement'
+  # shellcheck disable=SC2086 # the printed command is a plain word list
+  FM_STATE_OVERRIDE="$dir/state" "$ROOT"/$ack > /dev/null 2>&1 || fail 'the priming acknowledgement failed'
+  append_wake "$dir/state" stale 'test:routine' 'stale: test:routine'
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  stop_absorb_watcher "$dir"
+  [ "$rc" -eq 0 ] || fail "a persistent open decision of another task kept a routine wake (rc=$rc): $out"
+  assert_contains "$out" 'OPEN DECISIONS' 'the persistent decision list was not presented'
+  [ ! -s "$dir/state/.wake-queue" ] || fail 'the absorbed wake left its row queued'
+  pass '--absorb acknowledges an all-routine wake, persistent open decisions included'
+}
+
+test_absorb_retires_routine_rows_of_an_actionable_wake() {
+  local dir out rc ack
+  dir=$(absorb_case absorb-mixed)
+  setup_task finished "$dir"
+  printf 'done: merged\n' > "$dir/state/finished.status"
+  printf 'pr=https://example.test/pull/1\n' >> "$dir/state/finished.meta"
+  append_wake "$dir/state" stale 'test:finished' 'stale: test:finished'
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  stop_absorb_watcher "$dir"
+  [ "$rc" -eq 10 ] || fail "a wake with an ACT NOW row did not exit 10 (rc=$rc): $out"
+  assert_contains "$out" 'ACT NOW:' 'the actionable row was not presented'
+  assert_contains "$out" 'ROUTINE ROWS ACKNOWLEDGED BY TRIAGE:' 'the routine row was not retired'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'an actionable wake was reported as absorbed'
+  [ "$(awk -F '\t' '{ print $4 }' "$dir/state/.wake-queue")" = test:finished ] \
+    || fail "triage did not keep exactly the actionable row queued: $(cat "$dir/state/.wake-queue")"
+  ack=$(printf '%s\n' "$out" | sed -n 's/^WAKE_ACK_REQUIRED: after handling completes run \(.*\)$/\1/p' | tail -1)
+  [ -n "$ack" ] || fail 'the actionable wake printed no acknowledgement command'
+  printf '%s\n' "$out" | tail -1 | grep -q '^WAKE_ACK_REQUIRED: ' || fail 'the acknowledgement command is not the last line'
+  # shellcheck disable=SC2086 # the printed command is a plain word list
+  FM_STATE_OVERRIDE="$dir/state" "$ROOT"/$ack > /dev/null 2>&1 || fail 'the printed acknowledgement failed'
+  [ ! -s "$dir/state/.wake-queue" ] || fail 'the printed acknowledgement left the actionable row queued'
+  pass '--absorb retires routine rows of an actionable wake and leaves the rest to the printed acknowledgement'
+}
+
+test_absorb_fails_closed() {
+  local dir out rc
+  # An unread one-shot notice of another task needs firstmate.
+  dir=$(absorb_case absorb-unread)
+  setup_task unrelated "$dir"
+  printf 'note: unrelated captain reply\n' >> "$dir/state/unrelated.status"
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  stop_absorb_watcher "$dir"
+  [ "$rc" -eq 10 ] || fail "an unread notice did not keep the wake (rc=$rc)"
+  assert_contains "$out" 'UNREAD STATUS' 'the unread notice was not presented'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'an unread notice was absorbed'
+  assert_not_contains "$out" 'ROUTINE ROWS ACKNOWLEDGED' 'an all-routine batch kept for a notice acknowledged rows piecemeal'
+  assert_contains "$out" 'WAKE_ACK_REQUIRED: after handling completes run' 'the kept wake lost its acknowledgement command'
+  assert_unacked "$dir"
+
+  # A watcher-down banner is never absorbed.
+  dir=$(make_case absorb-watcher-down); install_crew_stub "$dir"; install_hold_stub "$dir"
+  setup_task routine "$dir"
+  append_wake "$dir/state" stale 'test:routine' 'stale: test:routine'
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  [ "$rc" -eq 10 ] || fail "a wake drained without a live watcher was absorbed or failed (rc=$rc): $out"
+  assert_unacked "$dir"
+
+  # A new open decision keeps the wake: the status write that raises it queues
+  # its own signal row, and that row is never routine.
+  dir=$(absorb_case absorb-new-decision)
+  setup_task other "$dir"
+  printf 'needs-decision [key=k2]: choose a lane\n' >> "$dir/state/other.status"
+  append_wake "$dir/state" signal other.status 'signal: changed'
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  stop_absorb_watcher "$dir"
+  [ "$rc" -eq 10 ] || fail "a new open decision was absorbed (rc=$rc)"
+  assert_contains "$out" 'C4 open decision' 'the new decision row was not kept actionable'
+  [ "$(awk -F '\t' '{ print $4 }' "$dir/state/.wake-queue")" = other.status ] \
+    || fail "the decision row was not the one left queued: $(cat "$dir/state/.wake-queue")"
+
+  # Away mode belongs to the away daemon.
+  dir=$(absorb_case absorb-afk)
+  : > "$dir/state/.afk"
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  stop_absorb_watcher "$dir"
+  [ "$rc" -eq 10 ] || fail "--absorb acknowledged while away (rc=$rc)"
+  assert_not_contains "$out" 'WAKE_ACKED:' 'away posture was absorbed'
+  assert_unacked "$dir"
+
+  # Arguments.
+  dir=$(make_case absorb-args); install_crew_stub "$dir"; install_hold_stub "$dir"
+  rc=0; run_triage "$dir" '' --absorb extra > /dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 2 ] || fail "--absorb accepted an extra argument (rc=$rc)"
+  rc=0; run_triage "$dir" '' --bogus > /dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 2 ] || fail "triage accepted an unknown argument (rc=$rc)"
+  out=$(run_triage "$dir" '' --help) || fail '--help failed'
+  assert_contains "$out" 'Usage: fm-wake-triage.sh [--absorb]' '--help did not print the usage header'
+  pass '--absorb keeps every wake that needs firstmate and validates its arguments'
+}
+
 test_instruction_wiring() {
   local rendered
   rendered=$("$ROOT/bin/fm-supervision-instructions.sh" --harness claude)
@@ -449,5 +615,9 @@ test_malformed_queue_row_is_actionable
 test_hidden_duplicate_row_stays_actionable
 test_signal_terminates_before_acknowledgement
 test_interruption_retains_pending_output
+test_stamped_working_status_is_routine
+test_absorb_acknowledges_an_all_routine_wake
+test_absorb_retires_routine_rows_of_an_actionable_wake
+test_absorb_fails_closed
 test_instruction_wiring
 test_shellcheck
