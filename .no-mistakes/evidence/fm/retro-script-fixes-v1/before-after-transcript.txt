@@ -1,0 +1,37 @@
+[BEFORE] $ <base>/bin/fm-dispatch-resolve.sh pager-fix-v1 --project pager
+error: brief file not readable: pager-fix-v1
+exit=2
+
+[AFTER] $ <change>/bin/fm-dispatch-resolve.sh pager-fix-v1 --project pager
+dispatch-resolve:
+  status: escalate
+  reason: no rules to match
+exit=0
+
+[BEFORE] $ <base>/bin/fm-home-route.sh decide new-tool-v1 --public-summary Create a small local CLI tool
+home route: usage: decide <task-id> --project <name> --public-summary <safe-text>
+exit=2
+
+[AFTER] $ <change>/bin/fm-home-route.sh decide new-tool-v1 --public-summary Create a small local CLI tool
+home route: decide needs --project <name>, the project directory the task changes; a project that does not exist yet needs no setup first - pass the directory name it will be created under: bin/fm-home-route.sh decide new-tool-v1 --project <new-project-name> --public-summary '<public one-line summary>'
+exit=2
+
+[AFTER] $ <change>/bin/fm-home-route.sh decide new-tool-v1 --public-summary Create a small local CLI tool --project brand-new-tool
+home route: usage: decide <task-id> --project <name> --public-summary <safe-text>
+exit=2
+
+[AFTER] $ <change>/bin/fm-home-route.sh decide new-tool-v1 --project brand-new-tool --public-summary Create a small local CLI tool
+route: main
+decided: default
+typed: registry_unavailable
+backup: skipped (registry_unavailable)
+next: dispatch from this home
+override: to record your own call instead: bin/fm-home-route.sh judge new-tool-v1 --route <main|lead[+mate,...]> --reason <why>
+exit=0
+
+
+[AFTER] $ mkdir $LAB/projects/brand-new-tool && bin/fm-home-route.sh check new-tool-v1 $LAB/projects/brand-new-tool
+exit=
+[persisted] state/home-route.jsonl:
+{"timestamp":"2026-10-14T22:10:48Z","task_id":"new-tool-v1","event":"decide","project":"brand-new-tool","route":"main","lead":"main","consult":[],"source":"default","probability":null,"response_model":"","reason":"registry_unavailable","consult_probabilities":{},"backup":"skipped (registry_unavailable)"}
+check exit=0

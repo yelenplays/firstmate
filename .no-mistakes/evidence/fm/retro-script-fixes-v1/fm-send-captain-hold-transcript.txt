@@ -1,0 +1,96 @@
+
+## Scenario A: captain-hold-* key on a secondmate parent channel
+
+[OPEN DECISIONS before]
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+domain [key=captain-hold-tax-etl-signing-v1-1] needs-decision: captain hold tax-etl-signing-v1: sign the filing?
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+
+$ bin/fm-send.sh domain --resolve-key captain-hold-tax-etl-signing-v1-1 prepare the ETL run; signing stays open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home $LAB
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: --resolve-key 'captain-hold-tax-etl-signing-v1-1' closes a captain hold, which only the captain's own answer may do. If this text is the captain's answer, resend with --captain-answer; otherwise resend without --resolve-key 'captain-hold-tax-etl-signing-v1-1' so the hold stays open. Nothing was sent.
+exit=1
+
+[inbox after refused steer]
+ls: $LAB/state/domain.inbox: No such file or directory
+
+[domain.status after refused steer]
+needs-decision [key=captain-hold-tax-etl-signing-v1-1]: captain hold tax-etl-signing-v1: sign the filing?
+
+$ bin/fm-send.sh domain prepare the ETL run; signing stays open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home $LAB
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+exit=0
+
+[domain.status after plain steer (hold must stay open)]
+needs-decision [key=captain-hold-tax-etl-signing-v1-1]: captain hold tax-etl-signing-v1: sign the filing?
+
+[OPEN DECISIONS after plain steer]
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+domain [key=captain-hold-tax-etl-signing-v1-1] needs-decision: captain hold tax-etl-signing-v1: sign the filing?
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+
+$ bin/fm-send.sh domain --captain-answer sign it
+fm-gate-refuse: gate agent lifecycle permitted only against lab home $LAB
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: --captain-answer only confirms a --resolve-key answer; nothing was sent
+exit=1
+
+$ bin/fm-send.sh domain --resolve-key captain-hold-tax-etl-signing-v1-1 --captain-answer captain: sign it
+fm-gate-refuse: gate agent lifecycle permitted only against lab home $LAB
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+exit=0
+
+[domain.status after confirmed captain answer]
+needs-decision [key=captain-hold-tax-etl-signing-v1-1]: captain hold tax-etl-signing-v1: sign the filing?
+resolved [key=captain-hold-tax-etl-signing-v1-1]: answered: captain: sign it
+
+[OPEN DECISIONS after confirmed captain answer]
+
+## Scenario B: a plain key that resolves to a captain-held task (<task>-decision-<key>)
+
+$ bin/fm-captain-hold.sh hold t1-decision-signing --title Sign the filing --reason captain signing decision pending --repo sample
+t1-decision-signing
+exit=0
+
+$ bin/fm-send.sh t1 --resolve-key signing prepare the ETL run; signing stays open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home $LAB
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: --resolve-key 'signing' closes a captain hold, which only the captain's own answer may do. If this text is the captain's answer, resend with --captain-answer; otherwise resend without --resolve-key 'signing' so the hold stays open. Nothing was sent.
+exit=1
+
+[t1 inbox after refused steer]
+ls: $LAB/state/t1.inbox: No such file or directory
+
+[captain-held task after refused steer]
+  id: t1-decision-signing
+  state: queued
+
+$ bin/fm-send.sh t1 --resolve-key signing --captain-answer captain: sign it
+fm-gate-refuse: gate agent lifecycle permitted only against lab home $LAB
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+exit=0
+
+[t1 inbox message]
+schema=fm-task-inbox.v1
+at=2026-10-14T22:11:51Z
+--
+captain: sign it
+[captain-held task after confirmed answer]
+  state: done
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: 628b70ec18d5206b619f964eb0044929743528a4d3dfd4ad8192b3e5b2360080\nResolution mode: answered\nResolved: 2026-10-14T22:11:53Z\n\nCaptain decision:\nCaptain answered this call through a firstmate answer sent to t1.\nTask: t1-decision-signing\nAnswer: captain: sign it"
+
+## Scenario C: an ordinary (non-captain) decision key still closes without --captain-answer
+
+$ bin/fm-send.sh t1 --resolve-key api-shape go with REST
+fm-gate-refuse: gate agent lifecycle permitted only against lab home $LAB
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+exit=0
+
+[t1.status]
+needs-decision [key=api-shape]: pick REST or RPC
+resolved [key=api-shape]: answered: go with REST
+
+[doorbell text typed into panes (stub transport log)]
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'domain.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/.: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'domain.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/.: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 't1.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/.: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 't1.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/.

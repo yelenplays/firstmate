@@ -1,0 +1,52 @@
+$ (Claude PreToolUse Bash) cd projects/foo && git status
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell. Retry in one step as: (cd projects/foo && git status)"}
+exit=2
+
+$ (Claude PreToolUse Bash) cd projects/foo
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+exit=2
+
+$ (Claude PreToolUse Bash) cd projects/foo && git log -1 # check head
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell. Retry in one step as: (\ncd projects/foo && git log -1 # check head\n)"}
+exit=2
+
+$ (Claude PreToolUse Bash) git -C projects/foo status
+exit=0
+
+$ (Claude PreToolUse Bash) (cd projects/foo && git status)
+exit=0
+
+--- denied: cd projects/foo && git status
+suggested retry:
+(cd projects/foo && git status)
+hook on retry exit=0 (0=allowed)
+retry parses in bash: ok
+Not currently on any branch.
+nothing to commit, working tree clean
+/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-cdclone.diIGvv/fm
+--- denied: cd projects/foo && git log -1 # check head
+suggested retry:
+(
+cd projects/foo && git log -1 # check head
+)
+hook on retry exit=0 (0=allowed)
+retry parses in bash: ok
+commit 0c42d2b944fde466372cd974fbd42afa741022ce
+Author: yelenplays <126522341+yelenplays@users.noreply.github.com>
+Date:   Wed Oct 14 23:57:22 2026 +0200
+
+    no-mistakes(review): Require --captain-answer for captain-held keys, tighten script UX
+/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-cdclone.diIGvv/fm
+--- denied: cd projects/foo && cat <<EOF
+hi
+EOF
+suggested retry:
+(
+cd projects/foo && cat <<EOF
+hi
+EOF
+)
+hook on retry exit=0 (0=allowed)
+retry parses in bash: ok
+hi
+/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-cdclone.diIGvv/fm
