@@ -329,7 +329,8 @@ record_history_acknowledgement() {
   local history_data_override=${FM_DATA_OVERRIDE:-$FM_HOME/data}
   if ! FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" \
     FM_DATA_OVERRIDE="$history_data_override" FM_STATE_OVERRIDE="$STATE" \
-    "$SCRIPT_DIR/fm-history.sh" wake-ack "$ACK_THROUGH" "$ACK_REMOVED" "$ACTOR" >/dev/null; then
+    "$SCRIPT_DIR/fm-history.sh" wake-ack "$ACK_THROUGH" "$ACK_REMOVED" "$ACTOR" \
+      ${ACK_ROWS:+--rows "$ACK_ROWS"} >/dev/null; then
     printf 'wake drain: could not journal the wake acknowledgement\n' >&2
     return 1
   fi

@@ -4,7 +4,7 @@
 # Usage:
 #   fm-history.sh capture [--compaction] --transcript <path>
 #   fm-history.sh wakes --rows-file <path> --ack-through <sequence> --actor <main|branch>
-#   fm-history.sh wake-ack <sequence> <row-count> <main|branch>
+#   fm-history.sh wake-ack <sequence> <row-count> <main|branch> [--rows <sequence>[,<sequence>...]]
 #   fm-history.sh recent [--n <count>]
 #   fm-history.sh find <query>
 #   fm-history.sh task <id> [--completed]
@@ -52,7 +52,7 @@ usage() {
 Usage:
   fm-history.sh capture [--compaction] --transcript <path>
   fm-history.sh wakes --rows-file <path> --ack-through <sequence> --actor <main|branch>
-  fm-history.sh wake-ack <sequence> <row-count> <main|branch>
+  fm-history.sh wake-ack <sequence> <row-count> <main|branch> [--rows <sequence>[,<sequence>...]]
   fm-history.sh recent [--n <count>]
   fm-history.sh find <query>
   fm-history.sh task <id> [--completed]
@@ -522,21 +522,24 @@ function wakeBatch(historyDir, stateDir, rowsFile, ackThrough, actor) {
   });
 }
 
-function wakeAcknowledgement(historyDir, stateDir, sequence, rowCount, actor) {
+function wakeAcknowledgement(historyDir, stateDir, sequence, rowCount, actor, namedRows = '') {
   if (!/^\d+$/.test(String(sequence)) || !/^\d+$/.test(String(rowCount))
     || !['main', 'branch'].includes(actor)) fail('invalid wake acknowledgement');
+  if (namedRows && !/^\d+(,\d+)*$/.test(namedRows)) fail('invalid wake acknowledgement');
   const acknowledgementNumber = Number(sequence);
   const rowsAcknowledged = Number(rowCount);
   if (!Number.isSafeInteger(acknowledgementNumber) || !Number.isSafeInteger(rowsAcknowledged)
     || acknowledgementNumber < 0 || rowsAcknowledged < 0) fail('invalid wake acknowledgement');
+  const rows = namedRows ? [...new Set(namedRows.split(',').map(Number))].sort((a, b) => a - b) : [];
   return withHistoryLock(stateDir, () => {
     const observed = localDateParts(new Date());
-    const identity = crypto.createHash('sha256')
-      .update(`${acknowledgementNumber}\u0000${rowsAcknowledged}\u0000${actor}`, 'utf8').digest('hex').slice(0, 32);
+    let key = `${acknowledgementNumber}\u0000${rowsAcknowledged}\u0000${actor}`;
+    if (rows.length) key += `\u0000rows=${rows.join(',')}`;
+    const identity = crypto.createHash('sha256').update(key, 'utf8').digest('hex').slice(0, 32);
+    const record = { actor, acknowledgement_number: acknowledgementNumber, rows_acknowledged: rowsAcknowledged };
+    if (rows.length) record.rows = rows;
     appendStructuredRecord(historyDir, observed.day, { type: 'wake-ack', value: identity }, observed.time,
-      `wake acknowledgement ${acknowledgementNumber}`, {
-        actor, acknowledgement_number: acknowledgementNumber, rows_acknowledged: rowsAcknowledged,
-      });
+      `wake acknowledgement ${acknowledgementNumber}`, record);
     updateIndex(historyDir);
   });
 }
@@ -1244,7 +1247,7 @@ const [mode, ...args] = process.argv.slice(2);
 try {
   if (mode === 'capture') capture(args[0], args[1], args[2], args[3] === '1');
   else if (mode === 'wakes') wakeBatch(args[0], args[1], args[2], args[3], args[4]);
-  else if (mode === 'wake-ack') wakeAcknowledgement(args[0], args[1], args[2], args[3], args[4]);
+  else if (mode === 'wake-ack') wakeAcknowledgement(args[0], args[1], args[2], args[3], args[4], args[5]);
   else if (mode === 'recent') {
     const n = Number.parseInt(args[1], 10);
     recent(args[0], Number.isInteger(n) && n > 0 ? n : 5);
@@ -1285,11 +1288,13 @@ cmd_wakes() {
 }
 
 cmd_wake_ack() {
-  [ "$#" -eq 3 ] || { usage; die 'wake-ack requires a sequence, row count, and actor'; }
+  { [ "$#" -eq 3 ] || { [ "$#" -eq 5 ] && [ "$4" = --rows ]; }; } \
+    || { usage; die 'wake-ack requires a sequence, row count, and actor'; }
   case "$1" in ''|*[!0-9]*) die 'wake acknowledgement number must be a non-negative integer' ;; esac
   case "$2" in ''|*[!0-9]*) die 'wake acknowledgement row count must be a non-negative integer' ;; esac
   case "$3" in main|branch) : ;; *) die 'wake actor must be main or branch' ;; esac
-  run_history_node wake-ack "$HISTORY_DIR" "$STATE_DIR" "$1" "$2" "$3"
+  case "${5-0}" in ''|,*|*,|*,,*|*[!0-9,]*) die 'wake acknowledgement rows must be comma-separated sequences' ;; esac
+  run_history_node wake-ack "$HISTORY_DIR" "$STATE_DIR" "$1" "$2" "$3" "${5:-}"
 }
 
 HISTORY_TMP_DIR=

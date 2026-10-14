@@ -1719,6 +1719,41 @@ test_ack_rows_naming_every_row_retires_the_episode() {
   pass "--ack-rows naming every row retires the recovery episode"
 }
 
+# Triage's --ack-rows of a later row and the handling turn's --ack-through the
+# same cutoff each remove one row, yet each is its own acknowledgement and must
+# land in the history journal.
+test_ack_rows_and_the_batch_ack_are_both_journaled() {
+  local dir state seq_a seq_b generation page
+  dir=$(make_case ack-rows-history)
+  state="$dir/state"
+
+  append_wake "$state" check row-a 'check: row a' || fail "first append failed"
+  append_wake "$state" check row-b 'check: row b' || fail "second append failed"
+  FM_HOME="$dir" FM_DATA_OVERRIDE="$dir/data" FM_STATE_OVERRIDE="$state" "$DRAIN" \
+    > /dev/null 2> "$dir/drain.err" || fail "drain failed: $(cat "$dir/drain.err")"
+  seq_a=$(awk -F '\t' '$4 == "row-a" { print $2 }' "$state/.wake-queue")
+  seq_b=$(awk -F '\t' '$4 == "row-b" { print $2 }' "$state/.wake-queue")
+  generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--recovery-generation \([A-Za-z0-9._-][A-Za-z0-9._-]*\)$/\1/p' "$dir/drain.err")
+  [ -n "$seq_a" ] && [ -n "$seq_b" ] && [ -n "$generation" ] || fail "drain did not present the two rows"
+
+  FM_HOME="$dir" FM_DATA_OVERRIDE="$dir/data" FM_STATE_OVERRIDE="$state" "$DRAIN" \
+    --ack-rows "$seq_b" --recovery-generation "$generation" 2> "$dir/partial.err" \
+    || fail "partial acknowledgement failed: $(cat "$dir/partial.err")"
+  FM_HOME="$dir" FM_DATA_OVERRIDE="$dir/data" FM_STATE_OVERRIDE="$state" "$DRAIN" \
+    --ack-through "$seq_b" --recovery-generation "$generation" 2> "$dir/rest.err" \
+    || fail "the batch acknowledgement failed: $(cat "$dir/rest.err")"
+  [ ! -s "$state/.wake-queue" ] || fail "the two acknowledgements left a row queued"
+
+  for page in "$dir/data/history/days/"*.md; do break; done
+  [ -f "$page" ] || fail "no history page was written"
+  [ "$(grep -c 'fm-history:wake-ack id=' "$page")" = 2 ] \
+    || fail "the handling turn's acknowledgement was lost behind triage's: $(cat "$page")"
+  grep -Fq "\"acknowledgement_number\": $seq_b" "$page" \
+    || fail "the acknowledgements did not record their cutoff: $(cat "$page")"
+
+  pass "--ack-rows and the batch acknowledgement after it are each journaled"
+}
+
 # The away posture lets a branch grant name a check-kind row, so the branch
 # ack must close the same publish-before-receipt crash window the main ack
 # does: consuming a secondmate-wake-loop row commits its stall receipt under
@@ -3789,6 +3824,7 @@ test_main_drain_excludes_rows_already_granted_to_branch
 test_branch_ack_commits_secondmate_stall_receipts
 test_ack_rows_retires_only_the_named_presented_rows
 test_ack_rows_naming_every_row_retires_the_episode
+test_ack_rows_and_the_batch_ack_are_both_journaled
 test_main_is_never_told_to_drain_rows_only_the_branch_owns
 test_uncountable_queue_still_raises_the_pending_alarm
 test_unconsumable_rows_are_retired_instead_of_wedging_the_queue

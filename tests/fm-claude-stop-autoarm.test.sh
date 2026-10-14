@@ -1448,6 +1448,22 @@ SH
       crash)
         printf 'kill -KILL "$$"\n'
         ;;
+      plain-then-slow-crash)
+        # The first park closes with a plain wake; the re-park after it uses
+        # up a few seconds of its budget and dies; any later park closes at
+        # the cycle boundary.
+        cat <<'SH'
+runs=$(wc -l < "$FM_HOME/state/host-ran" | tr -d ' ')
+printf '%s %s\n' "${FM_SUPERVISION_HOST_PARK_SECONDS:-}" "${FM_SUPERVISION_HOST_PARK_LIMIT:-}" >> "$FM_HOME/state/host-park-seconds"
+printf 'pending:downtime:fixture-generation-%s\n' "$runs" > "$FM_HOME/state/.watcher-down"
+touch "$FM_HOME/state/.last-watcher-beat"
+case "$runs" in
+  1) printf 'signal: fixture.status\n' ;;
+  2) sleep 4; kill -KILL "$$" ;;
+  *) printf 'supervision-host: cycle boundary - fixture\n' ;;
+esac
+SH
+        ;;
       plain-then-boundary)
         # A main-only pass-through: the close prints the arm's wake lines and
         # nothing else. The second park closes at the cycle boundary instead.
@@ -1608,6 +1624,25 @@ test_host_absorbed_wake_near_the_boundary_rewakes_briefly() {
   [ "$(epoch_field "$dir" recovery_generation)" = fixture-generation-1 ] \
     || fail "the absorbed rewake must bind its acknowledged generation"
   pass "auto-arm: an absorbed wake too close to the boundary rewakes only to end the turn"
+}
+
+# A re-park that dies is retried, but the retry must not get the budget the
+# re-park started with: the hook would outlive Claude's hook timeout. With too
+# little left for another park, the hook stops parking and reports instead.
+test_host_reparks_retry_only_within_the_remaining_budget() {
+  local dir out status second
+  dir=$(make_host_triage_dir host-absorb-crash absorbed)
+  write_host_fixture "$dir" plain-then-slow-crash
+  out=$(FM_SUPERVISION_HOST_PARK_SECONDS=1803 run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "a re-park that died with no budget left must notify"
+  [ "$(wc -l < "$dir/state/host-ran" | tr -d ' ')" -eq 2 ] \
+    || fail "the hook parked again past what was left of its budget: $(cat "$dir/state/host-park-seconds")"
+  second=$(sed -n '2p' "$dir/state/host-park-seconds")
+  [ "${second% *}" = "${second#* }" ] && [ "${second% *}" -le 1803 ] && [ "${second% *}" -ge 1800 ] \
+    || fail "the re-park was not given what was left of its budget: '$second'"
+  assert_contains "$out" "auto-arm FAILED" "a re-park that died with no budget left must deliver the failure notice"
+  assert_contains "$out" "its last one exited 137 without a wake." "the failure notice must name the host's exit"
+  pass "auto-arm: a re-park after an absorbed wake is retried only within what is left of the budget"
 }
 
 test_host_close_with_a_host_line_is_not_triaged() {
@@ -2004,6 +2039,7 @@ test_host_crash_is_retried_then_reported
 test_host_absorbed_wake_parks_again_without_a_rewake
 test_host_actionable_wake_rewakes_with_the_triage_output
 test_host_absorbed_wake_near_the_boundary_rewakes_briefly
+test_host_reparks_retry_only_within_the_remaining_budget
 test_host_close_with_a_host_line_is_not_triaged
 test_host_absorbed_wake_with_need_gone_closes_quietly
 test_plain_arm_absorbed_wake_rewakes_briefly_after_the_successor

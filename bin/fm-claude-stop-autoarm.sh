@@ -475,12 +475,16 @@ while [ "$attempt" -lt "$AUTOARM_ATTEMPTS" ]; do
     [ -z "$OUT" ] || rm -f "$OUT" 2>/dev/null || true
     exit 0
   fi
+  # After an absorbed wake every park, retries included, gets only what is
+  # left of the budget, as both its boundary and its turn limit.
+  if [ -n "$PARK_REMAINING" ]; then
+    PARK_REMAINING=$((HOOK_PARK_BUDGET - SECONDS))
+    [ "$PARK_REMAINING" -ge "$ABSORB_MIN_REMAINING" ] || break
+  fi
   attempt=$((attempt + 1))
   OUT=$(mktemp "$STATE/.claude-autoarm-output.XXXXXX") || OUT=
   if [ "$HOST_MODE" -eq 1 ]; then
     HOST_RC=0
-    # A re-park after an absorbed wake gets only what is left of the budget,
-    # as both its boundary and its turn limit.
     FM_SUPERVISION_HOST_AUTOARM_GEN=$MY_GEN FM_SUPERVISION_HOST_OWNER_PID=$$ \
       FM_SUPERVISION_HOST_PRIMARY=claude FM_GUARD_GRACE="$GRACE" \
       FM_SUPERVISION_HOST_PARK_SECONDS=${PARK_REMAINING:-${FM_SUPERVISION_HOST_PARK_SECONDS:-}} \
