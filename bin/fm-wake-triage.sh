@@ -148,8 +148,9 @@ while IFS= read -r tagged; do
   [ -n "$tagged" ] || continue
   id=$tagged
   reason='C2 identity is not exact'
+  shape_ineligible=0
   case "$tagged" in
-    '!'*) id=${tagged#!}; reason='C1 row shape is not eligible' ;;
+    '!'*) id=${tagged#!}; reason='C1 row shape is not eligible'; shape_ineligible=1 ;;
     '?'*) key=${tagged#?}; id=$(meta_for_stale "$key" 2>/dev/null || true); reason='C2 stale identity is not exact' ;;
   esac
   [ -n "$id" ] || { printf '%s\t%s\n' '-' "$reason" >> "$act_file"; continue; }
@@ -159,7 +160,9 @@ while IFS= read -r tagged; do
   kind=$(awk -F= '$1 == "kind" { count++; if (NF != 2 || $2 == "") invalid=1; value=$2 } END { if (count == 1 && !invalid) print value }' "$meta")
   [ "$kind" = ship ] || [ "$kind" = scout ] || { printf '%s\t%s\n' "$id" 'C2 task kind is not ship/scout' >> "$act_file"; continue; }
   task_count=$((task_count+1))
-  if [ "$LOCK_FAILED" -eq 1 ]; then reason='queue lock unavailable';
+  # An ineligible row shape stays ACT NOW whatever its task's state.
+  if [ "$shape_ineligible" -eq 1 ]; then reason='C1 row shape is not eligible';
+  elif [ "$LOCK_FAILED" -eq 1 ]; then reason='queue lock unavailable';
   elif [ -s "$STATE/$id.status" ] && [ -n "$(status_open_decisions "$STATE/$id.status" "$kind")" ]; then reason='C4 open decision';
   else
     current=$(status_current_line "$STATE/$id.status" "$kind" 2>/dev/null || true)

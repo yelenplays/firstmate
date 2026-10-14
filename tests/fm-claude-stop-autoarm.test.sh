@@ -1448,10 +1448,240 @@ SH
       crash)
         printf 'kill -KILL "$$"\n'
         ;;
+      plain-then-boundary)
+        # A main-only pass-through: the close prints the arm's wake lines and
+        # nothing else. The second park closes at the cycle boundary instead.
+        cat <<'SH'
+runs=$(wc -l < "$FM_HOME/state/host-ran" | tr -d ' ')
+printf '%s %s\n' "${FM_SUPERVISION_HOST_PARK_SECONDS:-}" "${FM_SUPERVISION_HOST_PARK_LIMIT:-}" >> "$FM_HOME/state/host-park-seconds"
+printf 'pending:downtime:fixture-generation-%s\n' "$runs" > "$FM_HOME/state/.watcher-down"
+touch "$FM_HOME/state/.last-watcher-beat"
+if [ "$runs" -ge 2 ]; then
+  printf 'supervision-host: cycle boundary - fixture\n'
+else
+  printf 'signal: fixture.status\n'
+fi
+SH
+        ;;
     esac
     printf 'exit 0\n'
   } > "$dir/bin/fm-supervision-host.sh"
   chmod +x "$dir/bin/fm-supervision-host.sh"
+}
+
+# Wake-triage fixture variants, installed per test as <dir>/bin/fm-wake-triage.sh
+# (the real one is not installed by default, so every other case keeps the
+# hook's untriaged path). Each run appends "<args> successor=<yes|no>" to
+# state/triage-ran, where successor says whether a handling successor had
+# started first, and moves the recovery marker as the real drain would:
+# absorbed acknowledges it, act and fail leave it in its handling phase.
+write_triage_fixture() {
+  local dir=$1 kind=$2
+  {
+    printf '#!/usr/bin/env bash\n'
+    cat <<'SH'
+successor=no
+[ ! -s "$FM_HOME/state/successor-ran" ] || successor=yes
+printf '%s successor=%s\n' "$*" "$successor" >> "$FM_HOME/state/triage-ran"
+gen=$(sed -n 's/^[a-z]*:[a-z]*:\(.*\)$/\1/p' "$FM_HOME/state/.watcher-down")
+SH
+    case "$kind" in
+      absorbed)
+        cat <<'SH'
+printf 'acked:handling:%s\n' "$gen" > "$FM_HOME/state/.watcher-down"
+printf 'WAKE TRIAGE: 1 row(s), 1 task(s): 0 act now, 1 routine\n'
+printf 'WAKE_ACKED: triage acknowledged every row through 1; nothing needs firstmate\n'
+exit 0
+SH
+        ;;
+      absorbed-idle)
+        cat <<'SH'
+printf 'acked:handling:%s\n' "$gen" > "$FM_HOME/state/.watcher-down"
+rm -f "$FM_HOME/state/task.meta"
+printf 'WAKE_ACKED: triage acknowledged every row through 1; nothing needs firstmate\n'
+exit 0
+SH
+        ;;
+      act)
+        cat <<'SH'
+printf 'pending:handling:%s\n' "$gen" > "$FM_HOME/state/.watcher-down"
+printf 'WAKE TRIAGE: 2 row(s), 2 task(s): 1 act now, 1 routine\n'
+printf 'ACT NOW:\nfixture-task - C7 task has terminal or unread status\n'
+printf 'ROUTINE ROWS ACKNOWLEDGED BY TRIAGE: 1 (the WAKE_ACK_REQUIRED command below retires the rest)\n'
+printf 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation %s\n' "$gen"
+exit 10
+SH
+        ;;
+      act-long)
+        cat <<'SH'
+printf 'pending:handling:%s\n' "$gen" > "$FM_HOME/state/.watcher-down"
+printf 'ACT NOW:\n'
+i=0
+while [ "$i" -lt 400 ]; do printf 'fixture-task-%s - C7 task has terminal or unread status\n' "$i"; i=$((i + 1)); done
+printf 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 400 --recovery-generation %s\n' "$gen"
+exit 10
+SH
+        ;;
+      fail)
+        cat <<'SH'
+printf 'pending:handling:%s\n' "$gen" > "$FM_HOME/state/.watcher-down"
+printf 'wake triage: could not commit drain output\n'
+exit 1
+SH
+        ;;
+    esac
+  } > "$dir/bin/fm-wake-triage.sh"
+  chmod +x "$dir/bin/fm-wake-triage.sh"
+}
+
+# A supervision-host home whose host hands main one plain wake close first.
+make_host_triage_dir() {  # <name> <triage-kind>
+  local dir
+  dir=$(make_primary_dir "$TMP_ROOT/$1")
+  rm -f "$dir/config/supervision-host-off"
+  : > "$dir/state/task.meta"
+  write_host_fixture "$dir" plain-then-boundary
+  write_triage_fixture "$dir" "$2"
+  printf '%s\n' "$dir"
+}
+
+# The point of hook-side triage: a wake whose every row is routine costs the
+# model nothing. Under the host the hook acknowledges it and parks again with
+# what is left of its budget, and only the next close that needs main wakes it.
+test_host_absorbed_wake_parks_again_without_a_rewake() {
+  local dir out status first second
+  dir=$(make_host_triage_dir host-absorb absorbed)
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "the boundary after an absorbed wake must still rewake"
+  [ "$(wc -l < "$dir/state/host-ran" | tr -d ' ')" -eq 2 ] \
+    || fail "an absorbed wake did not park the host again: $(cat "$dir/state/host-ran")"
+  [ "$(cat "$dir/state/triage-ran")" = '--absorb successor=no' ] \
+    || fail "triage must run once, with --absorb, for the plain close only: $(cat "$dir/state/triage-ran")"
+  assert_contains "$out" "supervision-host: cycle boundary - fixture" "the rewake must carry the later close"
+  assert_not_contains "$out" "signal: fixture.status" "the absorbed wake reached the model"
+  assert_contains "$out" "Run bin/fm-wake-triage.sh first" "an untriaged host close must keep the triage-first instruction"
+  first=$(sed -n '1p' "$dir/state/host-park-seconds")
+  second=$(sed -n '2p' "$dir/state/host-park-seconds")
+  [ "$first" = ' ' ] || fail "the first park must keep the host's own budget, got: '$first'"
+  case "$second" in
+    *[!0-9\ ]*|'') fail "the re-park was not given a numeric budget: '$second'" ;;
+  esac
+  [ "${second% *}" = "${second#* }" ] || fail "the re-park boundary and turn limit differ: '$second'"
+  [ "${second% *}" -le 27000 ] && [ "${second% *}" -ge 26000 ] \
+    || fail "the re-park budget is not what is left of 27000 seconds: '$second'"
+  [ "$(epoch_outcome "$dir")" = rewake ] || fail "the boundary rewake was not committed: $(epoch_outcome "$dir")"
+  [ "$(epoch_field "$dir" recovery_generation)" = fixture-generation-2 ] \
+    || fail "the rewake must bind the later close's recovery generation: $(epoch_field "$dir" recovery_generation)"
+  pass "auto-arm: under the host an absorbed wake is acknowledged and parked past without a rewake"
+}
+
+test_host_actionable_wake_rewakes_with_the_triage_output() {
+  local dir out status
+  dir=$(make_host_triage_dir host-triage-act act)
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "a wake that needs firstmate must rewake"
+  [ "$(wc -l < "$dir/state/host-ran" | tr -d ' ')" -eq 1 ] || fail "a wake that needs firstmate parked again"
+  assert_contains "$out" "signal: fixture.status" "the rewake must carry the wake line"
+  assert_contains "$out" "already ran bin/fm-wake-triage.sh" "the rewake must say triage already ran"
+  assert_contains "$out" "Do not run the triage or the drain again" "the rewake must stop a second triage"
+  assert_contains "$out" "$dir/state/.claude-autoarm-triage.last" "the rewake must name the full triage output"
+  assert_contains "$out" "fixture-task - C7 task has terminal or unread status" "the rewake must embed the triage output"
+  assert_contains "$out" "WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2" "the rewake must carry the acknowledgement"
+  assert_not_contains "$out" "Run bin/fm-wake-triage.sh first" "a triaged rewake still asked for triage"
+  assert_contains "$out" "do NOT run bin/fm-watch-arm.sh" "the rewake must keep the continuity instruction"
+  [ "$(epoch_outcome "$dir")" = rewake ] || fail "the triaged rewake was not committed: $(epoch_outcome "$dir")"
+  [ "$(epoch_field "$dir" recovery_generation)" = fixture-generation-1 ] \
+    || fail "the triaged rewake must bind the close's generation through its handling phase"
+  pass "auto-arm: a wake that needs firstmate rewakes once with triage's output and acknowledgement"
+}
+
+test_host_absorbed_wake_near_the_boundary_rewakes_briefly() {
+  local dir out status
+  dir=$(make_host_triage_dir host-absorb-late absorbed)
+  out=$(FM_SUPERVISION_HOST_PARK_SECONDS=1000 run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "an absorbed wake without budget for another park must rewake"
+  [ "$(wc -l < "$dir/state/host-ran" | tr -d ' ')" -eq 1 ] || fail "the hook parked again without the budget for it"
+  assert_contains "$out" "absorbed: this Stop hook already ran bin/fm-wake-triage.sh" "the rewake must say the wake was absorbed"
+  assert_contains "$out" "End this turn now" "the absorbed rewake must only end the turn"
+  assert_not_contains "$out" "ACT NOW" "the absorbed rewake asked for handling"
+  [ "$(epoch_outcome "$dir")" = rewake ] || fail "the absorbed rewake was not committed: $(epoch_outcome "$dir")"
+  [ "$(epoch_field "$dir" recovery_generation)" = fixture-generation-1 ] \
+    || fail "the absorbed rewake must bind its acknowledged generation"
+  pass "auto-arm: an absorbed wake too close to the boundary rewakes only to end the turn"
+}
+
+test_host_close_with_a_host_line_is_not_triaged() {
+  local dir out status
+  dir=$(make_primary_dir "$TMP_ROOT/host-line-untriaged")
+  rm -f "$dir/config/supervision-host-off"
+  : > "$dir/state/task.meta"
+  write_host_fixture "$dir" handed-back
+  write_triage_fixture "$dir" absorbed
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "a host hand-back must rewake"
+  [ ! -e "$dir/state/triage-ran" ] || fail "a close carrying a supervision-host line was triaged"
+  assert_contains "$out" "Run bin/fm-wake-triage.sh first" "an untriaged close must keep the triage-first instruction"
+  pass "auto-arm: a close carrying a supervision-host line goes to main untriaged"
+}
+
+test_host_absorbed_wake_with_need_gone_closes_quietly() {
+  local dir out status
+  dir=$(make_host_triage_dir host-absorb-idle absorbed-idle)
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 0 "$status" "an absorbed wake that leaves nothing to supervise must not rewake"
+  [ -z "$out" ] || fail "an absorbed wake with no need printed to main: $out"
+  [ "$(wc -l < "$dir/state/host-ran" | tr -d ' ')" -eq 1 ] || fail "the hook parked again with nothing to supervise"
+  [ "$(epoch_outcome "$dir")" = clean ] || fail "an absorbed idle close must record outcome=clean: $(epoch_outcome "$dir")"
+  pass "auto-arm: an absorbed wake that leaves nothing to supervise closes quietly"
+}
+
+# The plain arm parks without a bound, so a second park could outlive the hook
+# timeout: an absorbed wake there rewakes only to end the turn, and its triage
+# runs after the handling successor started, so the drain sees a live watcher.
+test_plain_arm_absorbed_wake_rewakes_briefly_after_the_successor() {
+  local dir out status
+  dir=$(make_primary_dir "$TMP_ROOT/plain-absorb")
+  : > "$dir/state/task.meta"
+  write_arm_fixture "$dir" actionable
+  write_triage_fixture "$dir" absorbed
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "an absorbed plain-arm wake must rewake to end the turn"
+  [ "$(wc -l < "$dir/state/arm-ran" | tr -d ' ')" -eq 1 ] || fail "the plain arm parked twice in one hook"
+  [ "$(cat "$dir/state/triage-ran")" = '--absorb successor=yes' ] \
+    || fail "triage must run once, after the handling successor started: $(cat "$dir/state/triage-ran")"
+  assert_contains "$out" "absorbed: this Stop hook already ran bin/fm-wake-triage.sh" "the rewake must say the wake was absorbed"
+  assert_contains "$out" "End this turn now" "the absorbed rewake must only end the turn"
+  [ "$(epoch_outcome "$dir")" = rewake ] || fail "the absorbed rewake was not committed: $(epoch_outcome "$dir")"
+  [ "$(epoch_field "$dir" recovery_generation)" = fixture-generation ] \
+    || fail "the absorbed rewake must bind the acknowledged generation"
+  pass "auto-arm: a plain-arm absorbed wake rewakes once, only to end the turn"
+}
+
+test_triage_failure_and_long_output_reach_the_rewake() {
+  local dir out status
+  dir=$(make_primary_dir "$TMP_ROOT/plain-triage-fail")
+  : > "$dir/state/task.meta"
+  write_arm_fixture "$dir" actionable
+  write_triage_fixture "$dir" fail
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "a failed triage must still rewake"
+  assert_contains "$out" "but it exited 1" "the rewake must say triage failed"
+  assert_contains "$out" "Run bin/fm-wake-triage.sh again" "the rewake must ask for a fresh triage"
+  assert_contains "$out" "wake triage: could not commit drain output" "the rewake must carry triage's error"
+  [ "$(epoch_outcome "$dir")" = rewake ] || fail "a failed triage's rewake was not committed: $(epoch_outcome "$dir")"
+
+  dir=$(make_primary_dir "$TMP_ROOT/plain-triage-long")
+  : > "$dir/state/task.meta"
+  write_arm_fixture "$dir" actionable
+  write_triage_fixture "$dir" act-long
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "a long triage must still rewake"
+  assert_contains "$out" "fixture-task-0 - C7" "the rewake must embed the start of the triage output"
+  assert_not_contains "$out" "fixture-task-399 - C7" "the rewake embedded the whole long output"
+  assert_contains "$out" "output cut near 7000 bytes; read $dir/state/.claude-autoarm-triage.last" "the rewake must point at the full output"
+  grep -q 'fixture-task-399 - C7' "$dir/state/.claude-autoarm-triage.last" || fail "the full triage output was not kept"
+  [ "$(printf '%s\n' "$out" | wc -c | tr -d ' ')" -lt 9000 ] || fail "the embedded triage output was not capped"
+  pass "auto-arm: a failed or long triage still reaches the model, capped and pointing at its full output"
 }
 
 test_host_off_flag_keeps_the_arm() {
@@ -1771,6 +2001,13 @@ test_host_benign_rewake_refusal_opens_no_failure_episode
 test_host_lost_handback_notifies_once_per_episode
 test_host_lost_announced_handback_notifies_once_per_episode
 test_host_crash_is_retried_then_reported
+test_host_absorbed_wake_parks_again_without_a_rewake
+test_host_actionable_wake_rewakes_with_the_triage_output
+test_host_absorbed_wake_near_the_boundary_rewakes_briefly
+test_host_close_with_a_host_line_is_not_triaged
+test_host_absorbed_wake_with_need_gone_closes_quietly
+test_plain_arm_absorbed_wake_rewakes_briefly_after_the_successor
+test_triage_failure_and_long_output_reach_the_rewake
 test_arguments_never_arm
 test_fm_lock_status_still_works_with_shared_lib
 test_stands_down_only_on_pi_code_transcript_path

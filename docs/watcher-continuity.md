@@ -86,7 +86,30 @@ Claude's `.claude/settings.json` Stop `asyncRewake` hook (`bin/fm-claude-stop-au
 Do not run the hook as a manual arm from a tool turn: a short-lived tool process cannot own its park; its header and help own the invocation contract.
 The hook fires on every Stop.
 On each Stop, an eligible primary with supervision need admits one home-scoped owner, which foregrounds `bin/fm-watch-arm.sh` inside the hook-owned process tree.
-While supervision is still needed and away mode remains inactive, an actionable close wakes the idle session through exit 2.
+While supervision is still needed and away mode remains inactive, an actionable close wakes the idle session through exit 2, unless the hook's own triage absorbs it.
+
+### Hook-side wake triage
+
+Before it translates a close of wake lines, the Claude hook runs `bin/fm-wake-triage.sh --absorb` itself, so a routine wake costs no model turn.
+Triage runs only for the generation owner, in the session that holds the lock, outside an exhausted failure episode, and only when the close opened a downtime recovery episode.
+A close that carries a `supervision-host:` line, or comes from a host that exited non-zero, is never triaged here.
+
+`--absorb` exits 0 only when every row is routine and the drain printed nothing else that needs firstmate.
+That second test is a whitelist: queue rows, working status annotations of routine tasks, the acknowledgement line, the queued-wakes warning, the persistent `OPEN DECISIONS` list, and the persistent `UNFINISHED EXECUTION` obligations.
+Any other line keeps the wake, including unread status, branch outcomes, record divergence, a watcher-down banner, and recovered drain output.
+A new decision, a terminal status, and a firstmate-owned execution item each arrive with their own queue row, which triage keeps as ACT NOW.
+
+| Triage result | What the hook does |
+| --- | --- |
+| Absorbed, under the supervision host, with at least 1800 seconds of the park budget left | Acknowledges the wake and parks the host again, with what is left of `FM_SUPERVISION_HOST_PARK_SECONDS` as both boundary and turn limit. |
+| Absorbed otherwise, including on the plain arm | Rewakes once with a banner that only asks the model to end its turn. |
+| Needs firstmate (exit 10) | Retires the routine rows with `--ack-rows`, then rewakes with the triage output embedded and the `WAKE_ACK_REQUIRED` command for the rest. |
+| Failed | Rewakes with triage's output and the instruction to triage again. |
+
+The plain arm's park has no bound, so a second park could outlive the hook's 28800-second timeout and lapse supervision; that is why only the host re-parks.
+On the plain arm the handling successor starts before triage, so the drain finds a live watcher.
+The embedded output is cut on a line boundary near 7000 bytes, and `state/.claude-autoarm-triage.last` keeps the full copy.
+Triage's drain moves the close's recovery episode to its handling phase or acknowledges it; the rewake still binds that same generation, so the mid-turn pull guard stays satisfied.
 
 ### Claude session-lock ownership
 
@@ -310,6 +333,7 @@ Failing the whole drain would strand the usable rows too.
 | Acknowledgement | What it deletes |
 | --- | --- |
 | Main `--ack-through <SEQ>` | Only claimed main rows at or below the cutoff. |
+| Main `--ack-rows <SEQ>[,<SEQ>...]` | Only the named claimed main rows; the recovery episode stays open while another row remains. |
 | Branch | Only claimed branch rows at or below its cutoff. |
 
 A main acknowledgement first claims every unreserved row at or below its cutoff, so none is stranded.
@@ -347,6 +371,7 @@ Attended, a grant names no check row and each scan finds nothing.
 - Branch acknowledgement cannot swallow a main row.
 - A concurrent main turn cannot present or acknowledge an active branch grant.
 - A no-op stale acknowledgement names the current presented wake's exact command.
+- `--ack-rows` retires exactly the named presented rows, keeps the recovery episode open while another row waits, and refuses a branch actor.
 - Live-holder presentation contention stays bounded and retriable.
 - Acknowledgement locking remains blocking.
 
@@ -355,6 +380,8 @@ The same suite pins the counted-equals-presentable invariant against `bin/fm-gua
 - A branch-held row raises the held advisory rather than the ordinary queued-wake warning for main.
 - That row is presented with its acknowledgement command - with the ordinary warning restored - as soon as the grant clears.
 - Structurally unusable rows are retired by main alone while every remaining row stays presentable and acknowledgeable.
+
+`tests/fm-wake-triage.test.sh` pins `--absorb`: an all-routine wake is acknowledged, an actionable wake keeps only its non-routine rows, and unread status, a watcher-down banner, a new decision, an ineligible row shape, and away mode all keep the wake.
 
 Branch acknowledgement retiring the check-row receipts of exactly its granted sequences is pinned by `tests/fm-wake-queue.test.sh` for the secondmate stall receipt and by `tests/fm-inactive-reconcile.test.sh` for the inactive-outcome receipt.
 
@@ -497,6 +524,7 @@ It checks that a newly appended keyed decision is classified without rereading e
 - Exit-2 translation.
 - The handling successor an ended attached cycle starts with the closed arm as its predecessor and that outlives the rewake.
 - An unconfirmed successor reported in the banner without withholding the wake.
+- Hook-side triage: an absorbed wake re-parks the host within the remaining budget, falls back to a brief rewake near the boundary and on the plain arm, and a wake that needs firstmate rewakes with capped triage output.
 - Host-timeout HUP/TERM/INT translation into the same durable failure handoff.
 
 It also covers generation-claim single-flight, stuck-claim supersession, superseded-owner silence, notice-marker refusal and retry, ownership-atomic episode reset, and the legacy upgrade shim.

@@ -566,6 +566,22 @@ test_absorb_fails_closed() {
   [ "$(awk -F '\t' '{ print $4 }' "$dir/state/.wake-queue")" = other.status ] \
     || fail "the decision row was not the one left queued: $(cat "$dir/state/.wake-queue")"
 
+  # A row of an ineligible shape stays ACT NOW even for a working task, and an
+  # execution check row (queued only for a firstmate-owned obligation) is never
+  # routine without its obligation line.
+  for row in 'check|execution:routine|check: execution routine (changed)' \
+    'check|execution:routine|check: execution routine'; do
+    dir=$(absorb_case "absorb-shape-$RANDOM")
+    append_wake "$dir/state" "${row%%|*}" "$(printf '%s' "$row" | cut -d'|' -f2)" "${row##*|}"
+    rc=0
+    out=$(run_triage "$dir" '' --absorb) || rc=$?
+    stop_absorb_watcher "$dir"
+    [ "$rc" -eq 10 ] || fail "an ineligible or unexplained execution row was absorbed (rc=$rc): $row"
+    assert_contains "$out" 'ACT NOW:' "the row was not kept actionable: $row"
+    awk -F '\t' '$3 == "check" { found=1 } END { exit !found }' "$dir/state/.wake-queue" \
+      || fail "the execution row was acknowledged: $row"
+  done
+
   # Away mode belongs to the away daemon.
   dir=$(absorb_case absorb-afk)
   : > "$dir/state/.afk"

@@ -1663,8 +1663,9 @@ test_ack_rows_retires_only_the_named_presented_rows() {
   rc=0
   FM_STATE_OVERRIDE="$state" FM_SUPERVISION_ACTOR=branch "$DRAIN" --ack-rows "$seq_a" \
     --recovery-generation "$generation" > /dev/null 2> "$dir/branch.err" || rc=$?
-  [ "$rc" -eq 2 ] && grep -Fq "main's presented rows only" "$dir/branch.err" \
-    || fail "a branch actor could acknowledge main rows by name: rc=$rc $(cat "$dir/branch.err")"
+  [ "$rc" -eq 2 ] || fail "a branch actor could acknowledge main rows by name: rc=$rc $(cat "$dir/branch.err")"
+  grep -Fq "main's presented rows only" "$dir/branch.err" \
+    || fail "a refused branch --ack-rows did not say why: $(cat "$dir/branch.err")"
   [ "$(wc -l < "$state/.wake-queue" | tr -d ' ')" = 3 ] || fail "a refused --ack-rows consumed a row"
 
   FM_STATE_OVERRIDE="$state" "$DRAIN" --ack-rows "$seq_a,$seq_c" --recovery-generation "$generation" \
