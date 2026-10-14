@@ -460,6 +460,7 @@ HEALTHY=0
 HOST_MODE=0
 HOST_RC=0
 PARK_REMAINING=
+ABSORBED_GEN=
 ACTIONABLE_RE='^(signal:|stale:|check:|heartbeat($|:))'
 # The home gate's owner decides (docs/configuration.md "Supervision host").
 if fm_supervision_host_enabled "$CONFIG" claude; then
@@ -475,11 +476,19 @@ while [ "$attempt" -lt "$AUTOARM_ATTEMPTS" ]; do
     [ -z "$OUT" ] || rm -f "$OUT" 2>/dev/null || true
     exit 0
   fi
-  # After an absorbed wake every park, retries included, gets only what is
-  # left of the budget, as both its boundary and its turn limit.
-  if [ -n "$PARK_REMAINING" ]; then
+  # A host retry, and a re-park after an absorbed wake, gets only what is
+  # left of the budget, as both its boundary and its turn limit. Without
+  # enough left, a wake already absorbed rewakes only to end the turn.
+  if [ "$HOST_MODE" -eq 1 ] && [ "$attempt" -gt 0 ]; then
     PARK_REMAINING=$((HOOK_PARK_BUDGET - SECONDS))
-    [ "$PARK_REMAINING" -ge "$ABSORB_MIN_REMAINING" ] || break
+    if [ "$PARK_REMAINING" -lt "$ABSORB_MIN_REMAINING" ]; then
+      if [ -n "$ABSORBED_GEN" ]; then
+        ACTIONABLE=1
+        TRIAGE_RC=0
+        TRIAGE_RECOVERY_GEN=$ABSORBED_GEN
+      fi
+      break
+    fi
   fi
   attempt=$((attempt + 1))
   OUT=$(mktemp "$STATE/.claude-autoarm-output.XXXXXX") || OUT=
@@ -512,18 +521,19 @@ while [ "$attempt" -lt "$AUTOARM_ATTEMPTS" ]; do
     # turn while enough of the budget is left to park again (header).
     if [ "$HOST_MODE" -eq 1 ] && [ "$HOST_RC" -eq 0 ] && ! grep -q '^supervision-host:' "$OUT" 2>/dev/null \
       && absorb_wake && [ "$TRIAGE_RC" -eq 0 ] \
-      && [ $((HOOK_PARK_BUDGET - SECONDS)) -ge "$ABSORB_MIN_REMAINING" ]; then
+      && PARK_REMAINING=$((HOOK_PARK_BUDGET - SECONDS)) \
+      && [ "$PARK_REMAINING" -ge "$ABSORB_MIN_REMAINING" ]; then
       rm -f "$OUT" 2>/dev/null || true
       OUT=
       ACTIONABLE=0
       TRIAGE_RC=
+      ABSORBED_GEN=$TRIAGE_RECOVERY_GEN
       TRIAGE_RECOVERY_GEN=
       need_supervision || break
       if [ -e "$STATE/.afk" ]; then
         autoarm_record afk
         exit 0
       fi
-      PARK_REMAINING=$((HOOK_PARK_BUDGET - SECONDS))
       attempt=0
       continue
     fi
