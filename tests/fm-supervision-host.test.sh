@@ -2912,7 +2912,7 @@ QUEUED_CASES=()
 queue_case() { QUEUED_CASES+=("$1"); }
 
 run_queued_cases() {
-  local n=${#QUEUED_CASES[@]} i=0 live=0 pid failed=0 case_pids=() active=()
+  local n=${#QUEUED_CASES[@]} i=0 live=0 pid rc failed=0 case_pids=() active=()
   local alive
   while [ "$i" -lt "$n" ]; do
     live=0
@@ -2939,7 +2939,16 @@ run_queued_cases() {
           [ -z "$h" ] || stop_home_processes "$h"
         done < <(cat "$HOMES_FILE" 2>/dev/null)
       }
-      trap case_cleanup EXIT
+      # The case records its own exit status: bash forgets a reaped child's
+      # status once a later fork reuses its pid, and then wait reports 127
+      # ("not a child of this shell") for a case that passed.
+      # shellcheck disable=SC2329 # invoked indirectly by the EXIT trap below.
+      case_exit() {
+        local case_rc=$?
+        case_cleanup
+        printf '%s\n' "$case_rc" > "$TMP_ROOT/case-rc.$i"
+      }
+      trap case_exit EXIT
       # A failed assertion exits through fail; a case's own return status is
       # whatever its last command left, which the sequential suite never read.
       "${QUEUED_CASES[$i]}" || true
@@ -2951,7 +2960,11 @@ run_queued_cases() {
   done
   i=0
   while [ "$i" -lt "$n" ]; do
-    wait "${case_pids[$i]}" || { printf 'case failed rc=%s: %s\n' "$?" "${QUEUED_CASES[$i]}" >&2; failed=1; }
+    # wait only reaps here (its status may be forgotten, above); a case that
+    # died before its EXIT trap wrote a status has no file and fails.
+    wait "${case_pids[$i]}" 2>/dev/null || true
+    rc=$(cat "$TMP_ROOT/case-rc.$i" 2>/dev/null || echo missing)
+    [ "$rc" = 0 ] || { printf 'case failed rc=%s: %s\n' "$rc" "${QUEUED_CASES[$i]}" >&2; failed=1; }
     cat "$TMP_ROOT/case-out.$i"
     i=$((i + 1))
   done
