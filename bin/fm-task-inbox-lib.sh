@@ -336,11 +336,13 @@ fm_task_inbox_doorbell_line() {  # <record-path>
 }
 
 # Ring the doorbell, best-effort: one endpoint-liveness pre-check, one advisory
-# composer pre-check, then the backend's submit machinery with a minimal retry
-# budget, verdict discarded.
+# composer pre-check, then the backend's submit machinery. Both fresh input
+# and an exact leftover doorbell use FM_SEND_RETRIES (default 3) Enter-only
+# attempts, separated by FM_SEND_SLEEP (default 0.4). An uncleared or unreadable
+# composer reports an unconfirmed ring so the existing re-ring ladder can retry.
 # Returns 0 rang, 1 skipped because the composer PROVENLY holds pending text
 # other than our own doorbell (the watcher re-rings later), 2 the backend send
-# failed, 3 skipped because the endpoint is positively dead or missing (nothing
+# failed or remained unconfirmed, 3 skipped because the endpoint is positively dead or missing (nothing
 # typed; recovery owns the record). No return value is delivery proof; the
 # acknowledgement move is the only delivery signal.
 # The skip is deliberately narrow: only an exact `pending` verdict can defer,
@@ -350,11 +352,11 @@ fm_task_inbox_doorbell_line() {  # <record-path>
 # verdicts would starve a harness whose idle screen the classifier cannot
 # positively identify (that classifier is advisory here by design).
 # A pending composer holding exactly our own doorbell line is a previous ring
-# whose Enter never landed, so on an agent not reported busy it is submitted
-# rather than skipped; skipping it would block every later ring. On both paths
-# a lost first Enter gets one confirmed retry.
+# whose Enter never landed, so it is submitted rather than skipped or retyped;
+# skipping it would block every later ring. Other proven pending drafts stay untouched.
 fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
   local backend=$1 target=$2 rec=$3 label=${4:-} line cstate verdict
+  local retries=${FM_SEND_RETRIES:-3} sleep_s=${FM_SEND_SLEEP:-0.4}
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
     dead|missing) return 3 ;;
   esac
@@ -363,27 +365,25 @@ fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
   fi
   cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown
   case "$cstate" in
-    pending)
-      fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" \
-        && [ "$(fm_backend_busy_state "$backend" "$target" 2>/dev/null)" != busy ] \
-        || return 1
-      fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 || return 2
-      sleep 0.3
-      fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" || return 0
-      fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 || return 2
-      return 0
+    pending|pending-unproven|unknown)
+      if fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label"; then
+        verdict=$(fm_backend_submit_enter "$backend" "$target" "$retries" "$sleep_s" "$label" 2>/dev/null) || return 2
+        [ "$verdict" = empty ] || return 2
+        return 0
+      fi
+      [ "$cstate" != pending ] || return 1
       ;;
   esac
   # Accepted residual race: terminal input and Enter are separate delivery
   # steps, so an agent exiting after the liveness check could leave a bare
   # shell only a suffix; the `: ` prefix protects complete lines only. Do not
   # add process-bound atomic delivery here unless an incident reopens this.
-  if ! verdict=$(fm_backend_send_text_submit "$backend" "$target" "$line" 2 0.4 0.3 "$label" 2>/dev/null); then
+  if ! verdict=$(fm_backend_send_text_submit "$backend" "$target" "$line" "$retries" "$sleep_s" 0.3 "$label" 2>/dev/null); then
     return 2
   fi
-  # The verdict is read only to report a failed keystroke; every other value
-  # (empty, pending, unknown, ...) is deliberately ignored, never proof.
-  [ "$verdict" != send-failed ] || return 2
+  # This confirms only the terminal submit, never acknowledgement of the
+  # durable instruction. Unknown or still-pending input needs another ring.
+  [ "$verdict" = empty ] || return 2
   return 0
 }
 
@@ -391,7 +391,11 @@ fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
 fm_task_inbox_composer_holds() {  # <backend> <target> <line> [expected-label]
   local cap held
   fm_backend_source "$1" || return 1
-  cap=$(fm_backend_capture "$1" "$2" "$FM_COMPOSER_CAPTURE_LINES" "${4:-}" 2>/dev/null) || return 1
+  if fm_backend_visible_capture_supported "$1"; then
+    cap=$(fm_backend_visible_capture "$1" "$2" "${4:-}" 2>/dev/null) || return 1
+  else
+    cap=$(fm_backend_capture "$1" "$2" "$FM_COMPOSER_CAPTURE_LINES" "${4:-}" 2>/dev/null) || return 1
+  fi
   held=$(fm_composer_extract_selected_content styled=0 "$cap") || return 1
   [ -n "$held" ] && [ "$(printf '%s' "$held" | tr -d '[:space:]')" = "$(printf '%s' "$3" | tr -d '[:space:]')" ]
 }

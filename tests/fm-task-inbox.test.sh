@@ -352,7 +352,7 @@ SH
 # The stuck-doorbell deadlock: a doorbell whose Enter never landed sits in the
 # composer, and a ring that skipped every pending composer blocked all later
 # rings. Our own exact doorbell is submitted instead; any other pending text
-# still skips untouched; and a lost Enter after typing gets one retry.
+# still skips untouched; and two swallowed Enters recover on the third attempt.
 test_ring_submits_its_own_stuck_doorbell() {
   local dir state rec doorbell log composer drops rc other
   dir="$TMP_ROOT/ring-stuck"
@@ -374,7 +374,7 @@ test_ring_submits_its_own_stuck_doorbell() {
     || fail "the stuck doorbell should be submitted exactly once, not retyped:"$'\n'"$(cat "$log")"
   [ ! -s "$composer" ] || fail "the stuck doorbell was left in the composer"
 
-  : > "$log"; printf '%s' "$doorbell" > "$composer"; echo 1 > "$drops"
+  : > "$log"; printf '%s' "$doorbell" > "$composer"; echo 2 > "$drops"
   rc=0; ring || rc=$?
   [ "$rc" = 0 ] || fail "a stuck doorbell whose first Enter is lost should still report rung, got rc $rc"
   [ "$(cat "$log")" = "SUBMIT: $doorbell" ] \
@@ -389,14 +389,72 @@ test_ring_submits_its_own_stuck_doorbell() {
     [ "$(cat "$composer")" = "$other" ] || fail "other pending text was changed: $(cat "$composer")"
   done
 
-  : > "$log"; : > "$composer"; echo 1 > "$drops"
+  : > "$log"; : > "$composer"; echo 2 > "$drops"
   rc=0; ring || rc=$?
   [ "$rc" = 0 ] || fail "a ring whose first Enter is lost should still report rung, got rc $rc"
   [ "$(cat "$log")" = "SUBMIT: $doorbell" ] \
     || fail "the retry Enter should submit the doorbell once:"$'\n'"$(cat "$log")"
   [ ! -s "$composer" ] || fail "a lost Enter left the doorbell unsubmitted"
-  pass "inbox: the ring submits its own stuck doorbell, skips other pending text, and retries a lost Enter once on both paths"
+  # Exhaustion must not claim a successful ring. The next attempt submits the
+  # existing line rather than typing another copy, even for a newer record.
+  : > "$log"; : > "$composer"; echo 3 > "$drops"
+  rc=0; ring || rc=$?
+  [ "$rc" = 2 ] || fail "an unsubmitted doorbell should report an unconfirmed ring, got rc $rc"
+  [ "$(cat "$composer")" = "$doorbell" ] || fail "the failed ring lost its single doorbell"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "newer instruction")
+  rc=0; ring || rc=$?
+  [ "$rc" = 0 ] || fail "a newer record must recover the older unsubmitted doorbell, got rc $rc"
+  [ "$(cat "$log")" = "SUBMIT: $doorbell" ] || fail "re-ring duplicated the old doorbell"
+  [ ! -s "$composer" ] || fail "re-ring left a stale doorbell"
+  pass "inbox: exact stale doorbells and fresh rings retry two swallowed Enters without retyping; exhaustion stays retryable"
 }
+
+# Exercise the Enter-only dispatcher on every supported backend. Only the
+# terminal I/O is replaced; source, dispatch, dialog sink, and retry loop are real.
+test_enter_only_dispatch() (
+  . "$ROOT/bin/fm-backend.sh"
+  local backend state_fn key_fn dir log drops verdict mode=normal
+  dir="$TMP_ROOT/enter-dispatch"; mkdir -p "$dir"
+  log="$dir/keys"; drops="$dir/drops"
+  inbox_test_key() {
+    printf '%s\n' "$*" >> "$log"
+    local count
+    count=$(< "$drops")
+    [ "$count" -le 0 ] || echo $((count - 1)) > "$drops"
+  }
+  inbox_test_state() {
+    if [ "$mode" = dialog ]; then
+      printf 'test picker' > "$FM_COMPOSER_DIALOG_SINK"
+      printf pending
+    elif [ "$(< "$drops")" -gt 0 ]; then
+      printf pending
+    else
+      printf empty
+    fi
+  }
+  for backend in tmux herdr zellij orca cmux; do
+    fm_backend_source "$backend" || fail "could not load $backend for Enter-only conformance"
+    state_fn="fm_backend_${backend}_composer_state"
+    [ "$backend" != tmux ] || state_fn=fm_tmux_composer_state
+    key_fn="fm_backend_${backend}_send_key"
+    eval "$state_fn() { inbox_test_state; }"
+    eval "$key_fn() { inbox_test_key \"\$@\"; }"
+    : > "$log"; echo 3 > "$drops"
+    verdict=$(fm_backend_submit_enter "$backend" test-target 3 0 test-label)
+    [ "$verdict" = empty ] || fail "$backend did not confirm the final Enter: $verdict"
+    [ "$(wc -l < "$log" | tr -d ' ')" = 3 ] || fail "$backend did not retry Enter three times"
+    [ "$(sort -u "$log")" = 'test-target Enter test-label' ] || fail "$backend lost target, key, or label"
+    : > "$log"; echo 4 > "$drops"
+    verdict=$(fm_backend_submit_enter "$backend" test-target 3 0 test-label)
+    [ "$verdict" = pending ] || fail "$backend must preserve unconfirmed pending input"
+    [ "$(< "$drops")" = 1 ] || fail "$backend exceeded its Enter budget"
+    : > "$log"; mode=dialog
+    verdict=$(fm_backend_submit_enter "$backend" test-target 3 0 test-label)
+    [ "$verdict" = unknown ] && [ ! -s "$log" ] || fail "$backend sent Enter into a blocking dialog"
+    mode=normal
+  done
+  pass "inbox: all backend Enter-only dispatches preserve retries, labels, pending input, and dialog refusal"
+)
 
 test_idempotent_write_dedups_exact_body() {
   local state r1 r2 r3 r4 count text
@@ -1186,6 +1244,7 @@ test_doorbell_is_a_shell_noop
 test_doorbell_rejects_terminal_controls
 test_ring_skips_dead_agent
 test_ring_submits_its_own_stuck_doorbell
+test_enter_only_dispatch
 test_idempotent_write_dedups_exact_body
 test_idempotent_write_follows_concurrent_ack
 test_handled_mv_dedups_by_sequence

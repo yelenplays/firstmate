@@ -926,7 +926,7 @@ This guard is the refresh command after any harness upgrade; it spends a small n
 The doorbell no longer prints the inbox's absolute path, so its length no longer grows with the home's depth.
 It names the inbox as `"$FM_TASK_INBOX"`, which `bin/fm-spawn.sh` exports into every launch as the absolute `state/<task>.inbox` path, followed by the short `<task>.inbox` name; the brief's full path remains the fallback for a worker launched without that export.
 The guard now launches each worker with `FM_TASK_INBOX` exported and no brief, so the worker must resolve the inbox from the doorbell and its environment alone.
-It is the refresh command for that shape, which has not yet been recorded live here.
+It is the refresh command for that shape; the Pi-on-Herdr result below covers the environment-resolved inbox without a brief.
 The run below, on 2026-09-30 on tmux 3.6, Linux (WSL2), with the same command, covered the earlier brief-primed shape, whose doorbell named only the short `<task>.inbox` name and whose guard gave each worker the brief's steering-inbox sentence before the steer:
 
 ```text
@@ -940,6 +940,33 @@ ok - opencode (1.18.33): the doorbell reached a real worker, which acted and ack
 
 OpenCode needed `FM_SEND_INBOX_LIVE_TIMEOUT=560` because its configured model was still mid-turn at the default 240 seconds.
 Pi 0.87.1 was installed but not verified: its configured model returned an account error (`The 'gpt-5.6-sol' model is not supported when using Codex with a ChatGPT account`) before it read the inbox.
+
+### Herdr doorbell submission (2026-10-15)
+
+Pi 1.2.0 was verified on macOS arm64 through the real `fm-send.sh`, in a named non-default Herdr session with guarded cleanup and the default-session tripwire.
+The existing live guard now accepts `FM_SEND_INBOX_LIVE_BACKEND=herdr` for Claude/Pi; a transport shim drops exactly two Enter calls on both the fresh and preloaded-stale paths.
+The worker must act on each durable record and acknowledge it, rather than merely change the screen.
+The guard also verifies that an unrelated idle draft stays untouched.
+
+```sh
+HERDR_LAB_HELPER="$HOME/github/firstmate/bin/fm-herdr-lab.sh" \
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_BACKEND=herdr \
+FM_SEND_INBOX_LIVE_HARNESSES=pi \
+bash bin/fm-test-run.sh tests/fm-send-inbox-doorbell-live-e2e.test.sh
+```
+
+```text
+ok - Herdr pi (1.2.0): fresh doorbell acted and acknowledged after two swallowed Enters
+ok - Herdr pi (1.2.0): stale doorbell acted and acknowledged after two swallowed Enters
+ok - Herdr pi (1.2.0): unrelated draft stays unsubmitted
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=135764
+```
+
+Claude was not refreshed in this run because its account quota was unavailable.
+Its verification remains pending, not passed; select `FM_SEND_INBOX_LIVE_HARNESSES=claude` and an operator-trusted directory via `FM_SEND_INBOX_LIVE_CWD` to refresh it after access returns.
+The guard never answers trust/import dialogs or writes a global consent store.
+Portable coverage in `tests/fm-task-inbox.test.sh` proves Enter-only retries, exhaustion, label preservation, and blocking-dialog refusal across tmux, Herdr, Zellij, Orca, and cmux.
+`tests/fm-composer-lib.test.sh` pins exact extraction of the captured Pi rail/footer geometry and refuses incomplete input or a lower shell.
 
 ## Waiting-worker command ceilings
 
