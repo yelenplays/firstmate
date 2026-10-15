@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Generate 38 pointers and run every generated Step 1 against the enabled 1.3.1 install",
+    "result": "pass"
+  },
+  {
+    "name": "A stale official-plugin pin loads the current source with a warning or refuses in strict mode",
+    "result": "pass"
+  },
+  {
+    "name": "No enabled source or two enabled marketplaces refuses without creating pointers",
+    "result": "pass"
+  },
+  {
+    "name": "Audit detects edited, missing and dead-loader pointers while install and uninstall preserve a foreign skill",
+    "result": "pass"
+  },
+  {
+    "name": "An incomplete upstream deployment names every unresolved skill, fails health checks, preserves their pointers and prunes only a retired skill",
+    "result": "pass"
+  }
+]

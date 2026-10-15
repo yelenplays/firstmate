@@ -1,0 +1,200 @@
+$ bin/fm-matt-pointers.sh --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers
+exit=0
+stdout:
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-ask-matt/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-chief-of-staff/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-claude-handoff/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-code-review/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-codebase-design/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-diagnosing-bugs/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-domain-modeling/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-git-guardrails-claude-code/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-grill-me/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-grill-with-docs/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-grilling/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-handoff/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-implement/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-implement-spec/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-improve-codebase-architecture/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-loop-me/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-migrate-to-shoehorn/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-pr/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-prototype/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-research/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-retro/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-scaffold-exercises/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-setup-matt-pocock-skills/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-setup-pre-commit/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-setup-ts-deep-modules/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-tdd/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-teach/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-to-questionnaire/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-to-spec/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-to-tickets/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-triage/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-wait-what/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-wayfinder/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-wizard/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-writing-beats/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-writing-for-agents/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-writing-fragments/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-writing-shape/SKILL.md
+38 pointers under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers: 38 written, 0 already current (mattpocock-skills@mattpocock 1.3.1, install /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/installed-1.3.1)
+
+stderr:
+
+Replaced only isolated skills/in-progress with a symlink to its identical original bucket. All seven SKILL.md files remain intact.
+$ bin/fm-matt-skill.sh --list
+exit=7
+stdout:
+ask-matt
+code-review
+codebase-design
+diagnosing-bugs
+domain-modeling
+git-guardrails-claude-code
+grill-me
+grill-with-docs
+grilling
+handoff
+implement
+implement-spec
+improve-codebase-architecture
+migrate-to-shoehorn
+pr
+prototype
+research
+retro
+scaffold-exercises
+setup-matt-pocock-skills
+setup-pre-commit
+tdd
+teach
+to-questionnaire
+to-spec
+to-tickets
+triage
+wait-what
+wayfinder
+wizard
+writing-for-agents
+
+stderr:
+fm-skill-path.sh: skill 'in-progress' resolves through a symlink under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/installed-1.3.1
+fm-skill-path.sh: --list-skills leaves out in-progress, which does not resolve
+
+$ bin/fm-matt-skill.sh writing-beats --check
+exit=6
+stdout:
+
+stderr:
+fm-skill-path.sh: skill 'writing-beats' cannot be ruled out because the source tree contains a symlinked skill directory or bucket
+
+$ bin/fm-matt-pointers.sh --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers
+exit=1
+stdout:
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-ask-matt/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-code-review/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-codebase-design/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-diagnosing-bugs/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-domain-modeling/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-git-guardrails-claude-code/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-grill-me/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-grill-with-docs/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-grilling/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-handoff/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-implement/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-implement-spec/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-improve-codebase-architecture/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-migrate-to-shoehorn/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-pr/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-prototype/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-research/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-retro/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-scaffold-exercises/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-setup-matt-pocock-skills/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-setup-pre-commit/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-tdd/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-teach/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-to-questionnaire/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-to-spec/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-to-tickets/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-triage/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-wait-what/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-wayfinder/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-wizard/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers/matt-writing-for-agents/SKILL.md
+31 pointers under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers: 31 written, 0 already current (mattpocock-skills@mattpocock 1.3.1, install /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/installed-1.3.1)
+
+stderr:
+fm-skill-path.sh: skill 'in-progress' resolves through a symlink under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/installed-1.3.1
+fm-skill-path.sh: --list-skills leaves out in-progress, which does not resolve
+UNRESOLVED: upstream skill in-progress is offered but does not resolve, so it has no current pointer
+
+$ bin/fm-matt-pointers.sh --check --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers
+exit=1
+stdout:
+
+stderr:
+fm-skill-path.sh: skill 'in-progress' resolves through a symlink under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/installed-1.3.1
+fm-skill-path.sh: --list-skills leaves out in-progress, which does not resolve
+UNRESOLVED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-chief-of-staff points at upstream skill chief-of-staff, which the plugin still offers but which does not resolve
+UNRESOLVED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-claude-handoff points at upstream skill claude-handoff, which the plugin still offers but which does not resolve
+UNRESOLVED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-loop-me points at upstream skill loop-me, which the plugin still offers but which does not resolve
+UNRESOLVED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-setup-ts-deep-modules points at upstream skill setup-ts-deep-modules, which the plugin still offers but which does not resolve
+UNRESOLVED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-writing-beats points at upstream skill writing-beats, which the plugin still offers but which does not resolve
+UNRESOLVED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-writing-fragments points at upstream skill writing-fragments, which the plugin still offers but which does not resolve
+UNRESOLVED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-writing-shape points at upstream skill writing-shape, which the plugin still offers but which does not resolve
+UNRESOLVED: upstream skill in-progress is offered but does not resolve, so it has no current pointer
+drift=7 foreign=0 under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers
+
+$ bin/fm-matt-pointers.sh --prune --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers
+exit=1
+stdout:
+no matching firstmate pointers under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers
+
+stderr:
+fm-skill-path.sh: skill 'in-progress' resolves through a symlink under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/installed-1.3.1
+fm-skill-path.sh: --list-skills leaves out in-progress, which does not resolve
+UNRESOLVED: kept /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-chief-of-staff, whose upstream skill chief-of-staff is still offered but does not resolve
+UNRESOLVED: kept /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-claude-handoff, whose upstream skill claude-handoff is still offered but does not resolve
+UNRESOLVED: kept /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-loop-me, whose upstream skill loop-me is still offered but does not resolve
+UNRESOLVED: kept /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-setup-ts-deep-modules, whose upstream skill setup-ts-deep-modules is still offered but does not resolve
+UNRESOLVED: kept /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-writing-beats, whose upstream skill writing-beats is still offered but does not resolve
+UNRESOLVED: kept /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-writing-fragments, whose upstream skill writing-fragments is still offered but does not resolve
+UNRESOLVED: kept /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/pointers/matt-writing-shape, whose upstream skill writing-shape is still offered but does not resolve
+
+$ bin/fm-matt-pointers.sh --check --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers
+exit=1
+stdout:
+
+stderr:
+fm-skill-path.sh: skill 'in-progress' resolves through a symlink under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/installed-1.3.1
+fm-skill-path.sh: --list-skills leaves out in-progress, which does not resolve
+UNRESOLVED: upstream skill in-progress is offered but does not resolve, so it has no current pointer
+drift=0 foreign=0 under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/symlink-bucket-c31j01xn/fresh-pointers
+
+OBSERVED:
+{
+  "list_exit": 7,
+  "listed_count": 31,
+  "single_skill_exit": 6,
+  "single_skill_stdout_empty": true,
+  "fresh_install_exit": 1,
+  "check_classified_retired": false,
+  "unresolved_summary_names_writing_beats": false,
+  "prune_exit": 1,
+  "removed_pointers": [],
+  "preserved_unchanged_pointers": [
+    "chief-of-staff",
+    "claude-handoff",
+    "loop-me",
+    "setup-ts-deep-modules",
+    "writing-beats",
+    "writing-fragments",
+    "writing-shape"
+  ],
+  "fresh_check_exit": 1,
+  "fresh_check_says_ok": false
+}
+Removed isolated staged package, configuration and generated pointers.

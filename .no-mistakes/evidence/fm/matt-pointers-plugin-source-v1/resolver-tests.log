@@ -1,0 +1,18 @@
+ok - fm-skill-path.sh: resolves a declared skill with its full identity
+ok - fm-skill-path.sh: resolved directory carries the skill's support tree
+ok - fm-skill-path.sh: an unset CLAUDE_CONFIG_DIR falls back to $HOME/.claude
+ok - fm-skill-path.sh: resolves through a CLAUDE_CONFIG_DIR containing spaces
+ok - fm-skill-path.sh: refuses a missing registry, plugin, or install directory
+ok - fm-skill-path.sh: refuses a disabled or unenabled plugin
+ok - fm-skill-path.sh: a local enablement decision wins over the shared one
+ok - fm-skill-path.sh: refuses a skill this plugin version does not declare
+ok - fm-skill-path.sh: refuses an ambiguous marketplace and accepts an explicit one
+ok - fm-skill-path.sh: a bare name follows the one enabled marketplace
+ok - fm-skill-path.sh: undeclared skills resolve only on request, never from a deprecated bucket
+ok - fm-skill-path.sh: refuses an ambiguous scope and accepts an explicit one
+ok - fm-skill-path.sh: refuses a tampered or inconsistent install
+ok - fm-skill-path.sh: refuses symlinked skills and support trees
+ok - fm-skill-path.sh: never falls back to a stale user-level skill copy
+ok - fm-skill-path.sh: honors expected version and source-commit pins
+ok - fm-skill-path.sh: malformed configuration shapes refuse cleanly
+ok - fm-skill-path.sh: usage errors are exact and --help works

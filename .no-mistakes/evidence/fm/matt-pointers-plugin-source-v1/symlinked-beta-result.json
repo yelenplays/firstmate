@@ -1,0 +1,12 @@
+{
+  "list_exit": 0,
+  "writing_beats_listed": false,
+  "listed_count": 37,
+  "single_skill_exit": 5,
+  "fresh_install_exit": 0,
+  "check_classified_retired": true,
+  "prune_exit": 0,
+  "pointer_survives_prune": false,
+  "fresh_check_exit": 0,
+  "fresh_check_says_ok": true
+}

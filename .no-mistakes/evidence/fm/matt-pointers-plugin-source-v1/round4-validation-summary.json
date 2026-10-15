@@ -1,0 +1,86 @@
+{
+  "head": "63f6d9ded85a2c9a428561f07546a2c112eeb1e6",
+  "targeted_checks": [
+    {
+      "command": "TMPDIR=\"$PWD/.test-tmp\" bash tests/fm-skill-path.test.sh",
+      "exit": 0
+    },
+    {
+      "command": "TMPDIR=\"$PWD/.test-tmp\" bash tests/fm-matt-pointers.test.sh",
+      "exit": 0,
+      "note": "Initial combined invocation hit the tool timeout after 120 seconds. Re-ran the pointer suite alone with a 420-second limit and it completed successfully."
+    }
+  ],
+  "manual_cli_scenarios": [
+    {
+      "name": "Generate 38 pointers and run every generated Step 1 against the enabled 1.3.1 install",
+      "result": "pass"
+    },
+    {
+      "name": "A stale official-plugin pin loads the current source with a warning or refuses in strict mode",
+      "result": "pass"
+    },
+    {
+      "name": "No enabled source or two enabled marketplaces refuses without creating pointers",
+      "result": "pass"
+    },
+    {
+      "name": "Audit detects edited, missing and dead-loader pointers while install and uninstall preserve a foreign skill",
+      "result": "pass"
+    },
+    {
+      "name": "An incomplete upstream deployment names every unresolved skill, fails health checks, preserves their pointers and prunes only a retired skill",
+      "result": "pass"
+    }
+  ],
+  "symlink_file": {
+    "list_exit": 7,
+    "writing_beats_listed": false,
+    "listed_count": 37,
+    "single_skill_exit": 6,
+    "fresh_install_exit": 1,
+    "check_classified_retired": false,
+    "prune_exit": 1,
+    "pointer_survives_prune": true,
+    "fresh_check_exit": 1,
+    "fresh_check_says_ok": false
+  },
+  "symlink_directory": {
+    "list_exit": 7,
+    "writing_beats_listed": false,
+    "listed_count": 37,
+    "single_skill_exit": 6,
+    "fresh_install_exit": 1,
+    "check_classified_retired": false,
+    "prune_exit": 1,
+    "pointer_survives_prune": true,
+    "fresh_check_exit": 1,
+    "fresh_check_says_ok": false
+  },
+  "symlink_bucket": {
+    "list_exit": 7,
+    "listed_count": 31,
+    "single_skill_exit": 6,
+    "single_skill_stdout_empty": true,
+    "fresh_install_exit": 1,
+    "check_classified_retired": false,
+    "unresolved_summary_names_writing_beats": false,
+    "prune_exit": 1,
+    "removed_pointers": [],
+    "preserved_unchanged_pointers": [
+      "chief-of-staff",
+      "claude-handoff",
+      "loop-me",
+      "setup-ts-deep-modules",
+      "writing-beats",
+      "writing-fragments",
+      "writing-shape"
+    ],
+    "fresh_check_exit": 1,
+    "fresh_check_says_ok": false
+  },
+  "live_surface": "Executed the real resolver, loader and generator commands against the enabled installed 1.3.1 plugin and isolated deployments of that same package. No mock CLI or synthetic upstream skill bodies were used for the manual scenarios.",
+  "visual_evidence": "Not applicable: changed executable surfaces are text CLI commands, not rendered UI.",
+  "cleanup": "All generated destinations, staged package trees and temporary configurations were deleted. Operator pointers, credentials and fleet state were not modified.",
+  "verdict": "go"
+}

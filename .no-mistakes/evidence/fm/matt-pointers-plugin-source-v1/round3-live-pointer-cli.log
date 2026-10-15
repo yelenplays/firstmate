@@ -1,0 +1,790 @@
+Read-only installed plugin identity:
+{
+  "plugins": {
+    "mattpocock-skills@claude-plugins-official": [
+      {
+        "scope": "user",
+        "installPath": "/Users/yelen/.claude/plugins/cache/claude-plugins-official/mattpocock-skills/1.2.3",
+        "version": "1.2.3",
+        "installedAt": "2026-07-29T09:57:04.116Z",
+        "lastUpdated": "2026-08-07T05:17:40.493Z",
+        "gitCommitSha": "2ab958093e83e0ec752e6c1c5932da465bf23e0c"
+      }
+    ],
+    "mattpocock-skills@mattpocock": [
+      {
+        "scope": "user",
+        "installPath": "/Users/yelen/.claude/plugins/cache/mattpocock/mattpocock-skills/1.3.1",
+        "version": "1.3.1",
+        "installedAt": "2026-10-14T20:35:51.197Z",
+        "lastUpdated": "2026-10-14T20:35:51.197Z",
+        "gitCommitSha": "49dd158d1076134a641b33efb035946536778336"
+      }
+    ]
+  }
+}
+$ bin/fm-matt-skill.sh code-review --check
+exit=0
+stdout:
+===== FIRSTMATE POINTER: ORIGINAL SKILL LOADED =====
+skill=code-review
+author=Matt Pocock
+license=MIT
+upstream=https://github.com/mattpocock/skills
+plugin=mattpocock-skills@mattpocock
+scope=user
+resolved_version=1.3.1
+resolved_commit=49dd158d1076134a641b33efb035946536778336
+validated_plugin=none
+validated_version=none
+validated_commit=none
+pin=unpinned
+skill_file=/Users/yelen/.claude/plugins/cache/mattpocock/mattpocock-skills/1.3.1/skills/engineering/code-review/SKILL.md
+skill_file_sha256=09eb147f793e4647949edd32dbad278f0554dfb56e0d46b699cd4c2c55bf0357
+resolved_by=bin/fm-skill-path.sh
+=====================================================
+
+$ bin/fm-skill-path.sh mattpocock-skills --list-skills --include-undeclared
+exit=0
+stdout:
+ask-matt	skills/engineering/ask-matt
+chief-of-staff	skills/in-progress/chief-of-staff
+claude-handoff	skills/in-progress/claude-handoff
+code-review	skills/engineering/code-review
+codebase-design	skills/engineering/codebase-design
+diagnosing-bugs	skills/engineering/diagnosing-bugs
+domain-modeling	skills/engineering/domain-modeling
+git-guardrails-claude-code	skills/misc/git-guardrails-claude-code
+grill-me	skills/productivity/grill-me
+grill-with-docs	skills/engineering/grill-with-docs
+grilling	skills/productivity/grilling
+handoff	skills/productivity/handoff
+implement	skills/engineering/implement
+implement-spec	skills/engineering/implement-spec
+improve-codebase-architecture	skills/engineering/improve-codebase-architecture
+loop-me	skills/in-progress/loop-me
+migrate-to-shoehorn	skills/misc/migrate-to-shoehorn
+pr	skills/engineering/pr
+prototype	skills/engineering/prototype
+research	skills/engineering/research
+retro	skills/engineering/retro
+scaffold-exercises	skills/misc/scaffold-exercises
+setup-matt-pocock-skills	skills/engineering/setup-matt-pocock-skills
+setup-pre-commit	skills/misc/setup-pre-commit
+setup-ts-deep-modules	skills/in-progress/setup-ts-deep-modules
+tdd	skills/engineering/tdd
+teach	skills/productivity/teach
+to-questionnaire	skills/productivity/to-questionnaire
+to-spec	skills/engineering/to-spec
+to-tickets	skills/engineering/to-tickets
+triage	skills/engineering/triage
+wait-what	skills/productivity/wait-what
+wayfinder	skills/engineering/wayfinder
+wizard	skills/engineering/wizard
+writing-beats	skills/in-progress/writing-beats
+writing-for-agents	skills/productivity/writing-for-agents
+writing-fragments	skills/in-progress/writing-fragments
+writing-shape	skills/in-progress/writing-shape
+
+$ bin/fm-matt-skill.sh --list
+exit=0
+stdout:
+ask-matt
+chief-of-staff
+claude-handoff
+code-review
+codebase-design
+diagnosing-bugs
+domain-modeling
+git-guardrails-claude-code
+grill-me
+grill-with-docs
+grilling
+handoff
+implement
+implement-spec
+improve-codebase-architecture
+loop-me
+migrate-to-shoehorn
+pr
+prototype
+research
+retro
+scaffold-exercises
+setup-matt-pocock-skills
+setup-pre-commit
+setup-ts-deep-modules
+tdd
+teach
+to-questionnaire
+to-spec
+to-tickets
+triage
+wait-what
+wayfinder
+wizard
+writing-beats
+writing-for-agents
+writing-fragments
+writing-shape
+
+$ bin/fm-matt-pointers.sh --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers
+exit=0
+stdout:
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-ask-matt/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-chief-of-staff/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-claude-handoff/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-code-review/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-codebase-design/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-diagnosing-bugs/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-domain-modeling/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-git-guardrails-claude-code/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-grill-me/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-grill-with-docs/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-grilling/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-handoff/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-implement/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-implement-spec/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-improve-codebase-architecture/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-loop-me/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-migrate-to-shoehorn/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-pr/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-prototype/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-research/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-retro/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-scaffold-exercises/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-setup-matt-pocock-skills/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-setup-pre-commit/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-setup-ts-deep-modules/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-tdd/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-teach/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-to-questionnaire/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-to-spec/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-to-tickets/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-triage/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-wait-what/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-wayfinder/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-wizard/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-writing-beats/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-writing-for-agents/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-writing-fragments/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-writing-shape/SKILL.md
+38 pointers under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers: 38 written, 0 already current (mattpocock-skills@mattpocock 1.3.1, install /Users/yelen/.claude/plugins/cache/mattpocock/mattpocock-skills/1.3.1)
+
+$ bin/fm-matt-pointers.sh --check --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers
+exit=0
+stdout:
+ok - 38 pointers under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers match mattpocock-skills@mattpocock 1.3.1
+
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh ask-matt \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+ask-matt: pin=validated; exact_original_bytes=true; sha256=1371f5ce005de0992a44b137748bfb960a56948aa9871b405fe9d90b24332e3c
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh chief-of-staff \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+chief-of-staff: pin=validated; exact_original_bytes=true; sha256=6cc6e47ab5022f3e45e5be0fedbb0f6e645f4f0190d6b0c51c7cd60c2d7c1d98
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh claude-handoff \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+claude-handoff: pin=validated; exact_original_bytes=true; sha256=79357a18425d66d4c24048bedf83dceb79d3bba356f38014950f764a7fab4026
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh code-review \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+code-review: pin=validated; exact_original_bytes=true; sha256=09eb147f793e4647949edd32dbad278f0554dfb56e0d46b699cd4c2c55bf0357
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh codebase-design \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+codebase-design: pin=validated; exact_original_bytes=true; sha256=2c20617f87ec8af6a434859f381b2f061a69b530444e74eb39e78bb016a6d1e2
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh diagnosing-bugs \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+diagnosing-bugs: pin=validated; exact_original_bytes=true; sha256=849198df88cdb65fd0d97236604c1fca7ff2f22d2f705f9724a800d0266b118d
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh domain-modeling \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+domain-modeling: pin=validated; exact_original_bytes=true; sha256=7b925d7b1e341a2eeae33ad68a8a8c0ab889a38ddd22a7598e4c240e5a7556a3
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh git-guardrails-claude-code \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+git-guardrails-claude-code: pin=validated; exact_original_bytes=true; sha256=69b291d655626a01602b998a1836fcb93c058ede68dfafddfd71e87f17074764
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh grill-me \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+grill-me: pin=validated; exact_original_bytes=true; sha256=caaf8b8de1684f96e26b28f3c29189db5c89cce4b73e1c93d86164f66ef88637
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh grill-with-docs \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+grill-with-docs: pin=validated; exact_original_bytes=true; sha256=7de372c13488f1ee96cc11cd8907b56b6809cc93eef776eeddd37de6b6cbe3fe
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh grilling \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+grilling: pin=validated; exact_original_bytes=true; sha256=befdff1e27a1dfe2a294d5871169ac1afe16d983911daa4f32627514a48c1e15
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh handoff \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+handoff: pin=validated; exact_original_bytes=true; sha256=4cbb043950dad2ffd3662ff1a5a0b51ae676004b5cae10e3787e8ee7a4ee69d3
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh implement \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+implement: pin=validated; exact_original_bytes=true; sha256=483bdc4ccf4ac31d86ac7beeaa0d0db80313e71e120bb8c59b3196ae5decd53d
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh implement-spec \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+implement-spec: pin=validated; exact_original_bytes=true; sha256=7a22dd2e60b8fcece478ced9d2533582adf3520d695acd3ab715341535c9e56d
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh improve-codebase-architecture \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+improve-codebase-architecture: pin=validated; exact_original_bytes=true; sha256=552240a5ab5cec6b67c15dd1ad6e9f6962b1bca6ce870059a8c2713760c20392
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh loop-me \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+loop-me: pin=validated; exact_original_bytes=true; sha256=e44d1cc3e760fb86ac42964c2a5f1fcac511715db50fb375f3f7be814de1eaa7
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh migrate-to-shoehorn \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+migrate-to-shoehorn: pin=validated; exact_original_bytes=true; sha256=de4da4c11d924fac79c924b2ee3d2db4a5cb98386eb490a599119463d036ae72
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh pr \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+pr: pin=validated; exact_original_bytes=true; sha256=ab63f1cf78647389edcd386c9427c5dfca27ed2836930c24773ffee834c19bcd
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh prototype \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+prototype: pin=validated; exact_original_bytes=true; sha256=714de632d116bb73f65cdb5a882db15b9369a6713b9a47c0fad827848f0bfbe3
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh research \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+research: pin=validated; exact_original_bytes=true; sha256=985569f15739c713d6784887c3d186d4ef9ac85bec5ad9c068d25bf0739928e4
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh retro \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+retro: pin=validated; exact_original_bytes=true; sha256=33fbc28568e3146f20fd908b12998bc0ab30aa4f4c87288199a40793efa94696
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh scaffold-exercises \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+scaffold-exercises: pin=validated; exact_original_bytes=true; sha256=75f5c9d771606fb9762f16522efc954df11c324f87148d8ff069bce166257de9
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh setup-matt-pocock-skills \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+setup-matt-pocock-skills: pin=validated; exact_original_bytes=true; sha256=f148858ffb7f63c03c06fca06e6fdb1d91a35c6b293244b8fdfacd5f4cc028c4
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh setup-pre-commit \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+setup-pre-commit: pin=validated; exact_original_bytes=true; sha256=c9819d7f1e3b198064edc1faa3154224ed67395e9f07f5d3cea4b67cf0a11a98
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh setup-ts-deep-modules \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+setup-ts-deep-modules: pin=validated; exact_original_bytes=true; sha256=29acca66ac99d4532e2a6f0370d8125d7cba1e87c9ac66573203c75189d3e6c7
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh tdd \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+tdd: pin=validated; exact_original_bytes=true; sha256=5505d25bbaa8fc14a79e4d20163936958992a2995b7f1dd1d6197edc9ed722e0
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh teach \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+teach: pin=validated; exact_original_bytes=true; sha256=550482c2d674b085c9043b87bfdc14a8f2ec453c736119e7fcbb1e9332bffeba
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh to-questionnaire \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+to-questionnaire: pin=validated; exact_original_bytes=true; sha256=b5eb929842ee0e93d867c5e906d183d350f2f2d149eaeaa86967d94d8eda1d3b
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh to-spec \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+to-spec: pin=validated; exact_original_bytes=true; sha256=43ad9cf318e5e7d3d1fa360253a37021796dc87a0c2e595ad262661a10f85088
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh to-tickets \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+to-tickets: pin=validated; exact_original_bytes=true; sha256=56ec23c5b2782785d4e65bff9e315b6d3aeb4ef977c174a219e99489fada1995
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh triage \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+triage: pin=validated; exact_original_bytes=true; sha256=917b0baf74be583e74f110857ed45df2766617f75c00baf61fd136d7af515edf
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh wait-what \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+wait-what: pin=validated; exact_original_bytes=true; sha256=d961bb37defd975c539427edb8f450cdbccdcdd552e213c1ece46676a7970905
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh wayfinder \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+wayfinder: pin=validated; exact_original_bytes=true; sha256=9be7b478c389605a24517d27752f278933588da97a1b5921b165f455edf4c5b7
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh wizard \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+wizard: pin=validated; exact_original_bytes=true; sha256=bdf31d48211ea559878f95a4f344aeabf8d85897488ba564382bab0b000daac1
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh writing-beats \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+writing-beats: pin=validated; exact_original_bytes=true; sha256=a96abafa2372eede8267d770138b322d6125da8adaa7ccf0a5e08e4ee13ee71e
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh writing-for-agents \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+writing-for-agents: pin=validated; exact_original_bytes=true; sha256=551adca942227b44192edba88acd4e8db911f0121ce58ad16944ccf6a896a74a
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh writing-fragments \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+writing-fragments: pin=validated; exact_original_bytes=true; sha256=298b0edd23df229183630de592ed8aa4289233560f2040691f6eb77caeaad4ea
+$ bash -c /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/bin/fm-matt-skill.sh writing-shape \
+  --validated-plugin mattpocock-skills@mattpocock \
+  --validated-version 1.3.1 \
+  --validated-commit 49dd158d1076134a641b33efb035946536778336
+exit=0
+writing-shape: pin=validated; exact_original_bytes=true; sha256=f5e6c57bdd85178ace4a260c92f46da6b64ddee18215b461d875739c68976f72
+SCENARIO PASS: Generate 38 pointers and run every generated Step 1 against the enabled 1.3.1 install
+$ bin/fm-matt-skill.sh code-review --validated-plugin mattpocock-skills@claude-plugins-official --validated-version 1.2.3
+exit=0
+stdout:
+===== FIRSTMATE POINTER: ORIGINAL SKILL LOADED =====
+skill=code-review
+author=Matt Pocock
+license=MIT
+upstream=https://github.com/mattpocock/skills
+plugin=mattpocock-skills@mattpocock
+scope=user
+resolved_version=1.3.1
+resolved_commit=49dd158d1076134a641b33efb035946536778336
+validated_plugin=mattpocock-skills@claude-plugins-official
+validated_version=1.2.3
+validated_commit=none
+pin=changed
+skill_file=/Users/yelen/.claude/plugins/cache/mattpocock/mattpocock-skills/1.3.1/skills/engineering/code-review/SKILL.md
+skill_file_sha256=09eb147f793e4647949edd32dbad278f0554dfb56e0d46b699cd4c2c55bf0357
+resolved_by=bin/fm-skill-path.sh
+
+!!! PLUGIN CHANGED !!!
+The installed plugin is mattpocock-skills@mattpocock 1.3.1 (49dd158d1076134a641b33efb035946536778336), not the mattpocock-skills@claude-plugins-official 1.2.3 (any commit) this pointer was validated against.
+The bytes below are the installed original and are authoritative. Follow them,
+and tell the operator the pointers need regenerating with bin/fm-matt-pointers.sh.
+=====================================================
+
+---
+name: code-review
+description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
+---
+
+Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
+
+- **Standards**: does the code conform to this repo's documented coding standards?
+- **Spec**: does the code faithfully implement the originating issue / spec?
+
+Both axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings.
+
+The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
+
+## Process
+
+### 1. Pin the fixed point
+
+Whatever the user said is the fixed point (a commit SHA, branch name, tag, `main`, `HEAD~5`, etc.). If they didn't specify one, ask for it.
+
+Capture the diff command once: `git diff <fixed-point>...HEAD` (three-dot, so the comparison is against the merge-base). Also note the list of commits via `git log <fixed-point>..HEAD --oneline`.
+
+Before going further, confirm the fixed point resolves (`git rev-parse <fixed-point>`) and the diff is non-empty. A bad ref or empty diff should fail here, not inside two parallel sub-agents.
+
+### 2. Identify the spec source
+
+Look for the originating spec, in this order:
+
+1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.), fetched via the workflow in the tracker doc.
+2. A path the user passed as an argument.
+3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
+4. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
+
+### 3. Identify the standards sources
+
+Search the repo for every file that documents how code should be written. When `CODING_STANDARDS.md` or `CONTRIBUTING.md` exists, it must be on the list.
+
+On top of whatever the repo documents, the Standards axis always carries the **smell baseline** below: a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
+
+- **The repo overrides.** A documented repo standard always wins; where it endorses something the baseline would flag, suppress the smell.
+- **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation. Like any standard here, skip anything tooling already enforces.
+
+Each smell reads *what it is* → *how to fix*; match it against the diff:
+
+- **Mysterious Name**: a function, variable, or type whose name doesn't reveal what it does or holds. → rename it; if no honest name comes, the design's murky.
+- **Duplicated Code**: the same logic shape appears in more than one hunk or file in the change. → extract the shared shape, call it from both.
+- **Feature Envy**: a method that reaches into another object's data more than its own. → move the method onto the data it envies.
+- **Data Clumps**: the same few fields or params keep travelling together (a type wanting to be born). → bundle them into one type, pass that.
+- **Primitive Obsession**: a primitive or string standing in for a domain concept that deserves its own type. → give the concept its own small type.
+- **Repeated Switches**: the same `switch`/`if`-cascade on the same type recurs across the change. → replace with polymorphism, or one map both sites share.
+- **Shotgun Surgery**: one logical change forces scattered edits across many files in the diff. → gather what changes together into one module.
+- **Divergent Change**: one file or module is edited for several unrelated reasons. → split so each module changes for one reason.
+- **Speculative Generality**: abstraction, parameters, or hooks added for needs the spec doesn't have. → delete it; inline back until a real need shows.
+- **Message Chains**: long `a.b().c().d()` navigation the caller shouldn't depend on. → hide the walk behind one method on the first object.
+- **Middle Man**: a class or function that mostly just delegates onward. → cut it, call the real target direct.
+- **Refused Bequest**: a subclass or implementer that ignores or overrides most of what it inherits. → drop the inheritance, use composition.
+
+### 4. Spawn both sub-agents in parallel
+
+Issue both sub-agent calls together, in the foreground, and aggregate the reports they return.
+
+**Standards sub-agent prompt** should include:
+
+- The full diff command and commit list.
+- The list of standards-source files you found in step 3, **plus the smell baseline from step 3** pasted in full (the sub-agent has no other access to it).
+- The brief: "Report, per file/hunk where relevant, (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls: documented-standard breaches can be hard, but baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words."
+
+**Spec sub-agent prompt** should include:
+
+- The diff command and commit list.
+- The path or fetched contents of the spec.
+- The brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
+
+If the spec is missing, skip the Spec sub-agent and note this in the final report.
+
+### 5. Aggregate
+
+Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Do **not** merge or rerank findings, because the two axes are deliberately separate (see _Why two axes_).
+
+End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Don't pick a single winner across axes: that's the reranking the separation exists to prevent.
+
+## Why two axes
+
+A change can pass one axis and fail the other:
+
+- Code that follows every standard but implements the wrong thing → **Standards pass, Spec fail.**
+- Code that does exactly what the issue asked but breaks the project's conventions → **Spec pass, Standards fail.**
+
+Reporting them separately stops one axis from masking the other.
+
+===== END ORIGINAL SKILL.md =====
+
+Support files shipped with this skill. Read any the instructions above refer to:
+/Users/yelen/.claude/plugins/cache/mattpocock/mattpocock-skills/1.3.1/skills/engineering/code-review/agents/openai.yaml
+
+$ bin/fm-matt-skill.sh code-review --validated-plugin mattpocock-skills@claude-plugins-official --validated-version 1.2.3 --require-validated-pin
+exit=6
+stdout:
+
+stderr:
+fm-matt-skill.sh: resolved mattpocock-skills@mattpocock version '1.3.1' commit '49dd158d1076134a641b33efb035946536778336', not the validated mattpocock-skills@claude-plugins-official version '1.2.3' commit 'any'
+
+$ bin/fm-skill-path.sh mattpocock-skills@claude-plugins-official code-review
+exit=4
+stdout:
+
+stderr:
+fm-skill-path.sh: plugin 'mattpocock-skills@claude-plugins-official' is installed but disabled in this Claude configuration
+
+SCENARIO PASS: A stale official-plugin pin loads the current source with a warning or refuses in strict mode
+$ bin/fm-matt-skill.sh --list
+exit=6
+stdout:
+
+stderr:
+fm-skill-path.sh: plugin 'mattpocock-skills' is ambiguous: enabled from several marketplaces (mattpocock-skills@claude-plugins-official mattpocock-skills@mattpocock); disable all but one, or name it as <plugin>@<marketplace>
+
+$ bin/fm-matt-pointers.sh --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/disabled-destination
+exit=4
+stdout:
+
+stderr:
+fm-skill-path.sh: plugin 'mattpocock-skills' is installed from several marketplaces (mattpocock-skills@claude-plugins-official mattpocock-skills@mattpocock) and none of them is enabled in this Claude configuration
+
+SCENARIO PASS: No enabled source or two enabled marketplaces refuses without creating pointers
+$ bin/fm-matt-pointers.sh --check --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers
+exit=1
+stdout:
+
+stderr:
+DRIFTED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-code-review/SKILL.md no longer matches the installed plugin front matter
+BROKEN: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-code-review/SKILL.md points at a loader that is not executable: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/missing-loader
+FOREIGN: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-grilling exists and is not a firstmate pointer; left untouched
+MISSING: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-tdd/SKILL.md
+drift=2 foreign=1 under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers
+
+$ bin/fm-matt-pointers.sh --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers
+exit=1
+stdout:
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-code-review/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-tdd/SKILL.md
+38 pointers under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers: 2 written, 35 already current (mattpocock-skills@mattpocock 1.3.1, install /Users/yelen/.claude/plugins/cache/mattpocock/mattpocock-skills/1.3.1)
+
+stderr:
+FOREIGN: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-grilling exists and is not a firstmate pointer; left untouched
+1 foreign directories were left untouched
+
+$ bin/fm-matt-pointers.sh --uninstall --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers
+exit=0
+stdout:
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-ask-matt
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-chief-of-staff
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-claude-handoff
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-code-review
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-codebase-design
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-diagnosing-bugs
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-domain-modeling
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-git-guardrails-claude-code
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-grill-me
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-grill-with-docs
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-handoff
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-implement
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-implement-spec
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-improve-codebase-architecture
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-loop-me
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-migrate-to-shoehorn
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-pr
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-prototype
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-research
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-retro
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-scaffold-exercises
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-setup-matt-pocock-skills
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-setup-pre-commit
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-setup-ts-deep-modules
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-tdd
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-teach
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-to-questionnaire
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-to-spec
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-to-tickets
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-triage
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-wait-what
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-wayfinder
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-wizard
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-writing-beats
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-writing-for-agents
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-writing-fragments
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/pointers/matt-writing-shape
+
+SCENARIO PASS: Audit detects edited, missing and dead-loader pointers while install and uninstall preserve a foreign skill
+$ bin/fm-matt-pointers.sh --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers
+exit=0
+stdout:
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-ask-matt/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-chief-of-staff/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-claude-handoff/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-code-review/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-codebase-design/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-diagnosing-bugs/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-domain-modeling/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-git-guardrails-claude-code/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-grill-me/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-grill-with-docs/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-grilling/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-handoff/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-implement/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-implement-spec/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-improve-codebase-architecture/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-loop-me/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-migrate-to-shoehorn/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-pr/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-prototype/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-research/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-retro/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-scaffold-exercises/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-setup-matt-pocock-skills/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-setup-pre-commit/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-setup-ts-deep-modules/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-tdd/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-teach/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-to-questionnaire/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-to-spec/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-to-tickets/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-triage/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-wait-what/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-wayfinder/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-wizard/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-writing-beats/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-writing-for-agents/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-writing-fragments/SKILL.md
+wrote /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-writing-shape/SKILL.md
+38 pointers under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers: 38 written, 0 already current (mattpocock-skills@mattpocock 1.3.1, install /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/installed-1.3.1)
+
+$ bin/fm-matt-pointers.sh --check --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers
+exit=0
+stdout:
+ok - 38 pointers under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers match mattpocock-skills@mattpocock 1.3.1
+
+$ bin/fm-matt-skill.sh --list
+exit=7
+stdout:
+ask-matt
+claude-handoff
+code-review
+codebase-design
+diagnosing-bugs
+domain-modeling
+git-guardrails-claude-code
+grill-me
+grill-with-docs
+grilling
+handoff
+implement
+implement-spec
+improve-codebase-architecture
+loop-me
+migrate-to-shoehorn
+pr
+prototype
+research
+retro
+scaffold-exercises
+setup-matt-pocock-skills
+setup-pre-commit
+setup-ts-deep-modules
+teach
+to-questionnaire
+to-spec
+to-tickets
+triage
+wait-what
+wayfinder
+wizard
+writing-for-agents
+writing-fragments
+writing-shape
+
+stderr:
+fm-skill-path.sh: skill 'chief-of-staff' is present more than once in the source tree of mattpocock-skills 1.3.1 (skills/misc/chief-of-staff skills/in-progress/chief-of-staff)
+fm-skill-path.sh: --list-skills leaves out chief-of-staff, which does not resolve
+fm-skill-path.sh: skill 'tdd' support tree contains a symlink under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/installed-1.3.1/skills/engineering/tdd
+fm-skill-path.sh: --list-skills leaves out tdd, which does not resolve
+fm-skill-path.sh: skill file at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/installed-1.3.1/skills/in-progress/writing-beats/SKILL.md declares name 'wrong-name', not 'writing-beats'
+fm-skill-path.sh: --list-skills leaves out writing-beats, which does not resolve
+
+$ bin/fm-matt-pointers.sh --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers
+exit=1
+stdout:
+35 pointers under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers: 0 written, 35 already current (mattpocock-skills@mattpocock 1.3.1, install /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/installed-1.3.1)
+
+stderr:
+fm-skill-path.sh: skill 'chief-of-staff' is present more than once in the source tree of mattpocock-skills 1.3.1 (skills/misc/chief-of-staff skills/in-progress/chief-of-staff)
+fm-skill-path.sh: --list-skills leaves out chief-of-staff, which does not resolve
+fm-skill-path.sh: skill 'tdd' support tree contains a symlink under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/installed-1.3.1/skills/engineering/tdd
+fm-skill-path.sh: --list-skills leaves out tdd, which does not resolve
+fm-skill-path.sh: skill file at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/installed-1.3.1/skills/in-progress/writing-beats/SKILL.md declares name 'wrong-name', not 'writing-beats'
+fm-skill-path.sh: --list-skills leaves out writing-beats, which does not resolve
+UNRESOLVED: upstream skill chief-of-staff is offered but does not resolve, so it has no current pointer
+UNRESOLVED: upstream skill tdd is offered but does not resolve, so it has no current pointer
+UNRESOLVED: upstream skill writing-beats is offered but does not resolve, so it has no current pointer
+
+$ bin/fm-matt-pointers.sh --check --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers
+exit=1
+stdout:
+
+stderr:
+fm-skill-path.sh: skill 'chief-of-staff' is present more than once in the source tree of mattpocock-skills 1.3.1 (skills/misc/chief-of-staff skills/in-progress/chief-of-staff)
+fm-skill-path.sh: --list-skills leaves out chief-of-staff, which does not resolve
+fm-skill-path.sh: skill 'tdd' support tree contains a symlink under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/installed-1.3.1/skills/engineering/tdd
+fm-skill-path.sh: --list-skills leaves out tdd, which does not resolve
+fm-skill-path.sh: skill file at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/installed-1.3.1/skills/in-progress/writing-beats/SKILL.md declares name 'wrong-name', not 'writing-beats'
+fm-skill-path.sh: --list-skills leaves out writing-beats, which does not resolve
+UNRESOLVED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-chief-of-staff points at upstream skill chief-of-staff, which the plugin still offers but which does not resolve
+UNRESOLVED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-tdd points at upstream skill tdd, which the plugin still offers but which does not resolve
+UNRESOLVED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-writing-beats points at upstream skill writing-beats, which the plugin still offers but which does not resolve
+UNRESOLVED: upstream skill chief-of-staff is offered but does not resolve, so it has no current pointer
+UNRESOLVED: upstream skill tdd is offered but does not resolve, so it has no current pointer
+UNRESOLVED: upstream skill writing-beats is offered but does not resolve, so it has no current pointer
+drift=3 foreign=0 under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers
+
+$ bin/fm-matt-pointers.sh --check --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers
+exit=1
+stdout:
+
+stderr:
+fm-skill-path.sh: skill 'chief-of-staff' is present more than once in the source tree of mattpocock-skills 1.3.1 (skills/misc/chief-of-staff skills/in-progress/chief-of-staff)
+fm-skill-path.sh: --list-skills leaves out chief-of-staff, which does not resolve
+fm-skill-path.sh: skill 'tdd' support tree contains a symlink under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/installed-1.3.1/skills/engineering/tdd
+fm-skill-path.sh: --list-skills leaves out tdd, which does not resolve
+fm-skill-path.sh: skill file at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/installed-1.3.1/skills/in-progress/writing-beats/SKILL.md declares name 'wrong-name', not 'writing-beats'
+fm-skill-path.sh: --list-skills leaves out writing-beats, which does not resolve
+UNRESOLVED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-chief-of-staff points at upstream skill chief-of-staff, which the plugin still offers but which does not resolve
+RETIRED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-setup-pre-commit points at upstream skill setup-pre-commit, which the plugin no longer offers
+UNRESOLVED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-tdd points at upstream skill tdd, which the plugin still offers but which does not resolve
+UNRESOLVED: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-writing-beats points at upstream skill writing-beats, which the plugin still offers but which does not resolve
+UNRESOLVED: upstream skill chief-of-staff is offered but does not resolve, so it has no current pointer
+UNRESOLVED: upstream skill tdd is offered but does not resolve, so it has no current pointer
+UNRESOLVED: upstream skill writing-beats is offered but does not resolve, so it has no current pointer
+drift=4 foreign=0 under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers
+
+$ bin/fm-matt-pointers.sh --prune --dest /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers
+exit=1
+stdout:
+removed /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-setup-pre-commit
+
+stderr:
+fm-skill-path.sh: skill 'chief-of-staff' is present more than once in the source tree of mattpocock-skills 1.3.1 (skills/misc/chief-of-staff skills/in-progress/chief-of-staff)
+fm-skill-path.sh: --list-skills leaves out chief-of-staff, which does not resolve
+fm-skill-path.sh: skill 'tdd' support tree contains a symlink under /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/installed-1.3.1/skills/engineering/tdd
+fm-skill-path.sh: --list-skills leaves out tdd, which does not resolve
+fm-skill-path.sh: skill file at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/installed-1.3.1/skills/in-progress/writing-beats/SKILL.md declares name 'wrong-name', not 'writing-beats'
+fm-skill-path.sh: --list-skills leaves out writing-beats, which does not resolve
+UNRESOLVED: kept /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-chief-of-staff, whose upstream skill chief-of-staff is still offered but does not resolve
+UNRESOLVED: kept /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-tdd, whose upstream skill tdd is still offered but does not resolve
+UNRESOLVED: kept /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35/staged-pointers/matt-writing-beats, whose upstream skill writing-beats is still offered but does not resolve
+
+SCENARIO PASS: An incomplete upstream deployment names every unresolved skill, fails health checks, preserves their pointers and prunes only a retired skill
+Removed isolated generated pointers, staged install and configuration: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M4ZTR52N580GZBN507P0FPP9/.test-tmp/manual-pointer-lq2ygs35

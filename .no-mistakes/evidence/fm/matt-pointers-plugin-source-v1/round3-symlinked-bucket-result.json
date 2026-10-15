@@ -1,0 +1,22 @@
+{
+  "list_exit": 7,
+  "listed_count": 31,
+  "single_skill_exit": 5,
+  "single_skill_stdout_empty": true,
+  "fresh_install_exit": 1,
+  "check_classified_retired": true,
+  "unresolved_summary_names_writing_beats": false,
+  "prune_exit": 0,
+  "removed_pointers": [
+    "chief-of-staff",
+    "claude-handoff",
+    "loop-me",
+    "setup-ts-deep-modules",
+    "writing-beats",
+    "writing-fragments",
+    "writing-shape"
+  ],
+  "preserved_unchanged_pointers": [],
+  "fresh_check_exit": 1,
+  "fresh_check_says_ok": false
+}
