@@ -588,10 +588,80 @@ test_test_ban_gate_reads_the_named_base() {
   pass "test-ban gate measures commits from the task's named base"
 }
 
+# A tests-first handoff: tests an unbanned seat committed before the recorded
+# handoff commit are not the banned worker's, while its own edits or deletions
+# of them, and any test it adds, still are; a handoff commit HEAD no longer
+# contains refuses the done, and the launch section names the handoff.
+test_test_ban_gate_measures_from_the_tests_first_handoff() {
+  local repo wt meta since reason rc section
+  repo="$TMP_ROOT/testban-handoff-repo"
+  wt="$TMP_ROOT/testban-handoff-wt"
+  meta="$TMP_ROOT/testban-handoff.meta"
+  fm_git_worktree "$repo" "$wt" fm/testban-handoff
+  git -C "$wt" fetch -q origin
+  mkdir -p "$wt/tests"
+  printf 'red\n' > "$wt/tests/feature.test.sh"
+  git -C "$wt" add tests && git -C "$wt" commit -q -m 'red tests'
+  since=$(git -C "$wt" rev-parse HEAD)
+  printf 'impl\n' > "$wt/feature.sh"
+  git -C "$wt" add feature.sh && git -C "$wt" commit -q -m implement
+
+  printf 'kind=ship\nmode=no-mistakes\ntest_ban_model=claude-sonnet-5-5\n' > "$meta"
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-handoff "$meta")
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "without a handoff commit the earlier seat's test was not counted"
+  assert_contains "$reason" "tests/feature.test.sh" "refusal without a handoff did not name the test"
+
+  printf 'kind=ship\nmode=no-mistakes\ntest_ban_model=claude-sonnet-5-5\ntest_ban_since=%s\n' "$since" > "$meta"
+  accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-handoff "$meta" \
+    || fail "tests handed over before the handoff commit were blamed on the banned worker"
+
+  printf 'weakened\n' > "$wt/tests/feature.test.sh"
+  git -C "$wt" add tests && git -C "$wt" commit -q -m 'edit handed test'
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-handoff "$meta")
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "an edit to a handed-over test was accepted"
+  assert_contains "$reason" "tests/feature.test.sh" "refusal did not name the edited handed-over test"
+
+  git -C "$wt" reset -q --hard HEAD~1
+  git -C "$wt" rm -q tests/feature.test.sh && git -C "$wt" commit -q -m 'drop handed test'
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-handoff "$meta")
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "deleting a handed-over test was accepted"
+  assert_contains "$reason" "tests/feature.test.sh" "refusal did not name the deleted handed-over test"
+
+  git -C "$wt" reset -q --hard HEAD~1
+  printf 'extra\n' > "$wt/tests/extra.test.sh"
+  git -C "$wt" add tests && git -C "$wt" commit -q -m 'own test'
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-handoff "$meta")
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "a test the banned worker added after the handoff was accepted"
+  assert_contains "$reason" "tests/extra.test.sh" "refusal did not name the banned worker's own test"
+  case "$reason" in
+    *feature.test.sh*) fail "the untouched handed-over test was blamed: $reason" ;;
+  esac
+
+  git -C "$wt" reset -q --hard "$since"
+  git -C "$wt" commit -q --amend -m 'rewritten red tests'
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-handoff "$meta")
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "a handoff commit HEAD no longer contains was accepted"
+  assert_contains "$reason" "cannot find the tests-first handoff commit $since" "lost-handoff refusal was unclear"
+
+  section=$(fm_test_ban_overlay claude-sonnet-5-5 '' "$since")
+  assert_contains "$section" "committed up to $since were written before this handoff" "launch section did not name the handoff"
+  section=$(fm_test_ban_overlay claude-sonnet-5-5 '')
+  case "$section" in
+    *"before this handoff"*) fail "a launch section without a handoff named one" ;;
+  esac
+  pass "test-ban gate measures a tests-first handoff from its recorded commit"
+}
+
 test_test_ban_model_list
 test_test_ban_path_heuristic
 test_test_ban_exception_requires_explicit_paths
 test_test_ban_gate_refuses_added_tests
 test_test_ban_gate_reads_the_named_base
+test_test_ban_gate_measures_from_the_tests_first_handoff
 
 echo "all fm-dod-lib tests passed"

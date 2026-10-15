@@ -61,8 +61,10 @@
 #   A ship or scout whose resolved --model is a Claude Sonnet or Haiku model
 #   records test_ban_model= and repeated test_ban_allowed=<path> values for
 #   captain-specified paths in state/<id>.meta; banned ship/scout launch briefs
-#   gain the No test authoring section. bin/fm-dod-lib.sh's test-authoring block
-#   owns the model list, path exception, section, and enforcing done gate.
+#   gain the No test authoring section. A ship relaunch onto a banned model also
+#   records test_ban_since=, the tests-first handoff commit. bin/fm-dod-lib.sh's
+#   test-authoring block owns the model list, path exception, handoff baseline,
+#   section, and enforcing done gate.
 #   Ship/scout launches always put fm-dod-lib.sh's current worker role scope
 #   first in the private launch-brief overlay, including the exact task-owned
 #   steering inbox. This never rewrites a project's instruction files or a
@@ -3488,6 +3490,7 @@ fm_spawn_apply_jev_skills() {
 
 TEST_BAN_MODEL=
 TEST_BAN_ALLOWED_PATHS=
+TEST_BAN_SINCE=
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   if fm_brief_task_placeholders_present "$BRIEF"; then
     echo "error: $BRIEF still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn" >&2
@@ -3536,6 +3539,16 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   if fm_test_ban_model_applies "$MODEL"; then
     TEST_BAN_MODEL=$MODEL
     TEST_BAN_ALLOWED_PATHS=$(fm_test_ban_intent_allowed_paths "$(fm_brief_task_heading_body "$BRIEF" "## Captain's intent")")
+    # Tests-first handoff: an unbanned record moving onto a banned model hands
+    # over the tests committed so far; a banned record keeps its own baseline.
+    if [ "$RELAUNCH" -eq 1 ] && [ "$KIND" = ship ]; then
+      if [ -n "$(fm_meta_get "$RELAUNCH_META" test_ban_model)" ]; then
+        TEST_BAN_SINCE=$(fm_meta_get "$RELAUNCH_META" test_ban_since)
+      elif ! TEST_BAN_SINCE=$(git -C "$RELAUNCH_WT" rev-parse --verify --quiet 'HEAD^{commit}'); then
+        echo "error: cannot read the worker copy's HEAD in $RELAUNCH_WT to record the tests-first handoff commit" >&2
+        exit 1
+      fi
+    fi
   fi
   # Use the existing launch-brief overlay for every worker kind, including
   # pre-scope briefs and relaunches. Charters never enter this worker path.
@@ -3548,7 +3561,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       cat "$SOURCE_BRIEF" &&
       { fm_brief_decisions_skill_overlay "$SOURCE_BRIEF" || true; } &&
       if [ -n "$TEST_BAN_MODEL" ]; then
-        fm_test_ban_overlay "$TEST_BAN_MODEL" "$TEST_BAN_ALLOWED_PATHS"
+        fm_test_ban_overlay "$TEST_BAN_MODEL" "$TEST_BAN_ALLOWED_PATHS" "$TEST_BAN_SINCE"
       fi &&
       if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
         fm_brief_intent_overlay "$CAPTAIN_INTENT"
@@ -5523,7 +5536,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch model test_ban_model test_ban_allowed effort ai_family ai_family_source permission_mode account account_provider busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch model test_ban_model test_ban_allowed test_ban_since effort ai_family ai_family_source permission_mode account account_provider busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
@@ -5571,6 +5584,7 @@ fi
       [ -z "$allowed_path" ] || echo "test_ban_allowed=$allowed_path"
     done <<<"$TEST_BAN_ALLOWED_PATHS"
   fi
+  [ -z "$TEST_BAN_SINCE" ] || echo "test_ban_since=$TEST_BAN_SINCE"
   echo "effort=${EFFORT:-default}"
   echo "ai_family=$SPAWN_AI_FAMILY"
   echo "ai_family_source=$SPAWN_AI_FAMILY_SOURCE"

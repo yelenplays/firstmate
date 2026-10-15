@@ -794,6 +794,16 @@ fm_dod_named_head_reachable_outside_worktree() {  # <worktree> <project> <mode> 
 # only the pre-validation handoff `done:` is checked: the later CI-ready report
 # carries the pipeline's own commits, which this ban does not cover. End-to-end
 # tests and running existing tests stay allowed.
+# Tests-first handoff: a ship may start on a lane the ban does not cover, commit
+# failing tests there, and then be relaunched onto a banned lane to implement
+# until they pass (`bin/fm-control.sh <id> relaunch --model <banned-model>`).
+# bin/fm-spawn.sh records test_ban_since=<HEAD> when such a relaunch moves an
+# unbanned task record onto a banned model, and carries the recorded value
+# forward when a banned record is relaunched again. The done gate then measures
+# test files from that commit instead of the base, so the tests the earlier seat
+# committed are not the banned worker's authorship while any change it makes to
+# them still is. Tests left uncommitted at the handoff count as the banned
+# worker's. A recorded commit that HEAD no longer contains refuses the done.
 FM_TEST_BAN_MODEL_PATTERNS='*claude*sonnet* *claude*haiku* sonnet sonnet[[]* haiku haiku[[]*'
 FM_TEST_BAN_EXCEPTION_HEADING="### Captain-specified test"
 
@@ -861,8 +871,9 @@ fm_test_ban_path_is_test() {  # <path>
   return 1
 }
 
-# The launch section a banned worker receives. <allowed-paths> is newline-separated.
-fm_test_ban_overlay() {  # <model> <allowed-paths>
+# The launch section a banned worker receives. <allowed-paths> is newline-separated;
+# <since> is the tests-first handoff commit, when one was recorded.
+fm_test_ban_overlay() {  # <model> <allowed-paths> [<since>]
   cat <<EOF
 
 # No test authoring
@@ -877,6 +888,9 @@ EOF
     printf 'Captain-authorized test path(s): %s. Every other test file remains prohibited.\n' "$allowed"
   else
     printf '%s\n' "No test file paths are authorized by the captain."
+  fi
+  if [ -n "${3:-}" ]; then
+    printf '%s\n' "The test files committed up to $3 were written before this handoff for you to make pass: implement until they pass and leave them unchanged; only commits after $3 count as yours."
   fi
   printf '%s\n' "Before accepting your ship \`done:\`, firstmate checks commits since the base for added or modified test files outside those exact paths and refuses the done while any remain, naming them; drop them from the branch and report done again."
 }
@@ -901,19 +915,26 @@ fm_test_ban_base_ref() {  # <worktree> [<base-branch>]
 }
 
 # Prints, one per line, the test files the worker copy's commits add or modify
-# since their merge-base with the base. 1 when the base cannot be resolved;
-# stdout then holds a one-line reason.
-fm_test_ban_changed_tests() {  # <worktree> [<base-branch>]
-  local wt=$1 base_ref mb path
-  if ! base_ref=$(fm_test_ban_base_ref "$wt" "${2:-}"); then
+# since their merge-base with the base, or add, modify, or delete since <since>
+# when a tests-first handoff recorded one. 1 when the base cannot be resolved
+# or HEAD no longer contains <since>; stdout then holds a one-line reason.
+fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>]
+  local wt=$1 since=${3:-} filter=ACMR base_ref mb path
+  if [ -n "$since" ]; then
+    if ! git -C "$wt" merge-base --is-ancestor "$since" HEAD 2>/dev/null; then
+      printf '%s\n' "test-file check cannot find the tests-first handoff commit $since in HEAD's history"
+      return 1
+    fi
+    # Deleting a handed-over failing test is as much a change to it as editing it.
+    mb=$since filter=ACMRD
+  elif ! base_ref=$(fm_test_ban_base_ref "$wt" "${2:-}"); then
     printf '%s\n' "test-file check cannot resolve the base branch${2:+ origin/$2} in the worker copy"
     return 1
-  fi
-  if ! mb=$(git -C "$wt" merge-base "$base_ref" HEAD 2>/dev/null); then
+  elif ! mb=$(git -C "$wt" merge-base "$base_ref" HEAD 2>/dev/null); then
     printf '%s\n' "test-file check found no merge-base between HEAD and $base_ref"
     return 1
   fi
-  git -C "$wt" diff --name-only --diff-filter=ACMR "$mb" HEAD 2>/dev/null \
+  git -C "$wt" diff --name-only --diff-filter="$filter" "$mb" HEAD 2>/dev/null \
     | while IFS= read -r path; do
       if fm_test_ban_path_is_test "$path"; then printf '%s\n' "$path"; fi
     done
@@ -946,7 +967,7 @@ fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
     printf '%s\n' "test-file check cannot read the worker copy"
     return 1
   fi
-  files=$(fm_test_ban_changed_tests "$wt" "$(fm_dod_meta_value "$meta" base_branch)") || {
+  files=$(fm_test_ban_changed_tests "$wt" "$(fm_dod_meta_value "$meta" base_branch)" "$(fm_dod_meta_value "$meta" test_ban_since)") || {
     printf '%s\n' "$files"
     return 1
   }
