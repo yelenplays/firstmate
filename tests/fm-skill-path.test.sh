@@ -302,7 +302,7 @@ EOF
 EOF
 
   fm_skill_run "$config" demo-skills interviewing
-  assert_refusal 6 "a plugin name present in two marketplaces must refuse as ambiguous"
+  assert_refusal 6 "a plugin enabled from two marketplaces must refuse as ambiguous"
   assert_contains "$RUN_ERR" "ambiguous" "ambiguity refusal did not name the problem"
 
   # Naming the marketplace explicitly resolves the ambiguity.
@@ -310,6 +310,144 @@ EOF
   expect_code 0 "$RUN_RC" "an explicit marketplace should resolve (stderr: $RUN_ERR)"
   [ "$RUN_OUT" = "demo-market" ] || fail "explicit marketplace resolved to '$RUN_OUT'"
   pass "fm-skill-path.sh: refuses an ambiguous marketplace and accepts an explicit one"
+}
+
+# A plugin moved to another marketplace leaves the old install registered but
+# disabled. A bare name must follow the enabled install, because that is the one
+# the Claude runtime actually loads, and must never fall back to a disabled one.
+test_bare_name_follows_the_one_enabled_marketplace() {
+  local config install other
+  config="$TMP_ROOT/enabled-market"
+  install=$(fm_skill_fixture "$config")
+  other="$config/plugins/cache/other-market/demo-skills/3.0.0"
+  mkdir -p "$other/.claude-plugin" "$other/skills/productivity/interviewing"
+  cat > "$other/.claude-plugin/plugin.json" <<'EOF'
+{ "name": "demo-skills", "version": "3.0.0", "skills": ["./skills/productivity/interviewing"] }
+EOF
+  cp "$install/skills/productivity/interviewing/SKILL.md" "$other/skills/productivity/interviewing/"
+
+  cat > "$config/plugins/installed_plugins.json" <<EOF
+{
+  "version": 1,
+  "plugins": {
+    "demo-skills@demo-market": [
+      { "scope": "user", "installPath": "$install", "version": "2.3.1", "gitCommitSha": "abc123def456" }
+    ],
+    "demo-skills@other-market": [
+      { "scope": "user", "installPath": "$other", "version": "3.0.0", "gitCommitSha": "fedcba987654" }
+    ]
+  }
+}
+EOF
+  cat > "$config/settings.json" <<'EOF'
+{ "enabledPlugins": { "demo-skills@demo-market": false, "demo-skills@other-market": true } }
+EOF
+  fm_skill_run "$config" demo-skills interviewing
+  expect_code 0 "$RUN_RC" "a bare name with one enabled marketplace should resolve (stderr: $RUN_ERR)"
+  assert_contains "$RUN_OUT" "marketplace=other-market" "bare name did not follow the enabled marketplace"
+  assert_contains "$RUN_OUT" "version=3.0.0" "bare name resolved the disabled install's version"
+  assert_contains "$RUN_OUT" "skill_file=$other/skills/productivity/interviewing/SKILL.md" \
+    "bare name resolved a path inside the disabled install"
+
+  # A local decision still wins over the shared one when picking the install.
+  cat > "$config/settings.local.json" <<'EOF'
+{ "enabledPlugins": { "demo-skills@demo-market": true, "demo-skills@other-market": false } }
+EOF
+  fm_skill_run "$config" demo-skills interviewing --field marketplace
+  expect_code 0 "$RUN_RC" "a locally enabled marketplace should resolve (stderr: $RUN_ERR)"
+  [ "$RUN_OUT" = "demo-market" ] || fail "local enablement did not pick the marketplace: $RUN_OUT"
+  rm -f "$config/settings.local.json"
+
+  cat > "$config/settings.json" <<'EOF'
+{ "enabledPlugins": { "demo-skills@demo-market": false, "demo-skills@other-market": false } }
+EOF
+  fm_skill_run "$config" demo-skills interviewing
+  assert_refusal 4 "a bare name whose every marketplace is disabled must refuse as not enabled"
+  assert_contains "$RUN_ERR" "demo-skills@demo-market" "the refusal did not name the installed marketplaces"
+  assert_contains "$RUN_ERR" "demo-skills@other-market" "the refusal did not name the installed marketplaces"
+
+  fm_skill_run "$config" demo-skills --list-skills
+  assert_refusal 4 "--list-skills must apply the same enablement rule"
+  pass "fm-skill-path.sh: a bare name follows the one enabled marketplace"
+}
+
+# Skills that sit in the source tree without a manifest entry stay refused by
+# default and become reachable only on request, and a deprecated bucket never
+# does, so an adapter that wants every live upstream skill can name exactly that.
+test_undeclared_skills_resolve_only_on_request() {
+  local config install
+  config="$TMP_ROOT/undeclared"
+  install=$(fm_skill_fixture "$config")
+  mkdir -p "$install/skills/in-progress/drafting"
+  cat > "$install/skills/in-progress/drafting/SKILL.md" <<'EOF'
+---
+name: drafting
+description: Present on disk in a beta bucket, absent from the manifest.
+---
+EOF
+  printf 'beta notes\n' > "$install/skills/in-progress/drafting/NOTES.md"
+
+  fm_skill_run "$config" demo-skills drafting
+  assert_refusal 5 "an undeclared skill must stay refused without --include-undeclared"
+
+  fm_skill_run "$config" demo-skills drafting --include-undeclared
+  expect_code 0 "$RUN_RC" "an undeclared skill should resolve on request (stderr: $RUN_ERR)"
+  assert_contains "$RUN_OUT" "skill_file=$install/skills/in-progress/drafting/SKILL.md" \
+    "the undeclared skill resolved to the wrong file"
+  assert_contains "$RUN_OUT" "declared=false" "the block did not mark the skill as undeclared"
+
+  fm_skill_run "$config" demo-skills interviewing --include-undeclared --field declared
+  expect_code 0 "$RUN_RC" "a declared skill should still resolve with the option (stderr: $RUN_ERR)"
+  [ "$RUN_OUT" = true ] || fail "a declared skill was reported as declared=$RUN_OUT"
+
+  fm_skill_run "$config" demo-skills retired --include-undeclared
+  assert_refusal 5 "a skill in a deprecated bucket must never resolve"
+
+  fm_skill_run "$config" demo-skills --list-skills
+  expect_code 0 "$RUN_RC" "--list-skills should exit 0 (stderr: $RUN_ERR)"
+  [ "$RUN_OUT" = "$(printf 'interviewing\tdeclared\tskills/productivity/interviewing')" ] \
+    || fail "--list-skills without the option listed more than the manifest: $RUN_OUT"
+
+  fm_skill_run "$config" demo-skills --list-skills --include-undeclared
+  expect_code 0 "$RUN_RC" "--list-skills --include-undeclared should exit 0 (stderr: $RUN_ERR)"
+  [ "$RUN_OUT" = "$(printf 'drafting\tundeclared\tskills/in-progress/drafting\ninterviewing\tdeclared\tskills/productivity/interviewing')" ] \
+    || fail "--list-skills --include-undeclared listed the wrong set: $RUN_OUT"
+
+  # A declared skill always wins over an undeclared copy of the same name.
+  mkdir -p "$install/skills/in-progress/interviewing"
+  cat > "$install/skills/in-progress/interviewing/SKILL.md" <<'EOF'
+---
+name: interviewing
+description: A beta copy shadowed by the declared skill.
+---
+EOF
+  fm_skill_run "$config" demo-skills interviewing --include-undeclared --field skill_dir
+  expect_code 0 "$RUN_RC" "a shadowed name should resolve to the declared skill (stderr: $RUN_ERR)"
+  [ "$RUN_OUT" = "$install/skills/productivity/interviewing" ] \
+    || fail "an undeclared copy shadowed the declared skill: $RUN_OUT"
+  fm_skill_run "$config" demo-skills --list-skills --include-undeclared
+  assert_not_contains "$RUN_OUT" "skills/in-progress/interviewing" \
+    "--list-skills offered a shadowed undeclared copy"
+
+  # Two undeclared skills of one name are ambiguous, never a guess.
+  mkdir -p "$install/skills/misc/drafting"
+  cat > "$install/skills/misc/drafting/SKILL.md" <<'EOF'
+---
+name: drafting
+description: A second undeclared skill with the same name.
+---
+EOF
+  fm_skill_run "$config" demo-skills drafting --include-undeclared
+  assert_refusal 6 "two undeclared skills of one name must refuse as ambiguous"
+
+  # An undeclared skill passes the same integrity checks as a declared one.
+  rm -rf "$install/skills/misc/drafting"
+  sed 's/^name: drafting$/name: other/' "$install/skills/in-progress/drafting/SKILL.md" \
+    > "$TMP_ROOT/drafting.md"
+  cp "$TMP_ROOT/drafting.md" "$install/skills/in-progress/drafting/SKILL.md"
+  fm_skill_run "$config" demo-skills drafting --include-undeclared
+  assert_refusal 6 "an undeclared SKILL.md naming another skill must refuse"
+  pass "fm-skill-path.sh: undeclared skills resolve only on request, never from a deprecated bucket"
 }
 
 test_ambiguous_scope_refuses() {
@@ -538,6 +676,12 @@ test_usage_errors() {
   fm_skill_run "$config" demo-skills interviewing --list-files --field skill_dir
   assert_refusal 2 "combining --list-files with --field must be a usage error"
 
+  fm_skill_run "$config" demo-skills interviewing --list-skills
+  assert_refusal 2 "--list-skills with a skill name must be a usage error"
+
+  fm_skill_run "$config" demo-skills --list-skills --field version
+  assert_refusal 2 "combining --list-skills with --field must be a usage error"
+
   out=$("$RESOLVER" --help 2>&1); rc=$?
   expect_code 0 "$rc" "--help must exit 0"
   assert_contains "$out" "Usage:" "--help did not print the usage header"
@@ -554,6 +698,8 @@ test_disabled_plugin_refuses
 test_local_settings_decide_enablement
 test_skill_not_in_this_version_refuses
 test_ambiguous_marketplace_refuses
+test_bare_name_follows_the_one_enabled_marketplace
+test_undeclared_skills_resolve_only_on_request
 test_ambiguous_scope_refuses
 test_tampered_install_refuses
 test_symlinked_skill_refuses

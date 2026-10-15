@@ -9,23 +9,41 @@
 # every pointer's first instruction is to run this command. Nothing is copied,
 # so nothing can drift, and an upstream plugin bump arrives on its own.
 #
+# The plugin is whichever `mattpocock-skills@<marketplace>` install is enabled
+# in this Claude configuration; no marketplace is assumed. Installs from several
+# marketplaces resolve to the one enabled install, and none or more than one
+# enabled is a refusal.
+#
+# The skills offered are every skill in that install: the ones its manifest
+# declares, plus the ones upstream keeps in its source tree outside the declared
+# set (its in-progress and misc buckets), never a deprecated bucket. The header
+# says which of the two a loaded skill is.
+#
 # Attribution: the skills are Matt Pocock's work, MIT licensed, published at
-# https://github.com/mattpocock/skills and distributed as the plugin
-# `mattpocock-skills@claude-plugins-official`. This script reads the installed
-# original in place and reproduces nothing of its own.
+# https://github.com/mattpocock/skills and distributed as the Claude plugin
+# `mattpocock-skills`. This script reads the installed original in place and
+# reproduces nothing of its own.
 #
 # Usage:
-#   fm-matt-skill.sh --list                   declared skills, one name per line
+#   fm-matt-skill.sh --list                   offered skills, one name per line
 #   fm-matt-skill.sh <skill>                  header, then original SKILL.md bytes
 #   fm-matt-skill.sh <skill> --path           absolute SKILL.md path only
 #   fm-matt-skill.sh <skill> --files          support files, absolute, one per line
 #   fm-matt-skill.sh <skill> --check          verify only, print the identity block
 #
 # Options:
-#   --require-validated-pin  refuse when the installed version or source commit
-#                            differs from the pin this repo was validated
-#                            against, instead of loading the newer bytes under a
-#                            PLUGIN CHANGED banner
+#   --validated-plugin <plugin@marketplace>
+#   --validated-version <version>
+#   --validated-commit <sha>
+#                            the plugin identity the caller was validated
+#                            against; a generated pointer passes the identity it
+#                            was generated from. Any difference is reported as
+#                            pin=changed under a PLUGIN CHANGED banner, and no
+#                            value given reports pin=unpinned
+#   --require-validated-pin  refuse when any given validated value differs from
+#                            the resolved plugin, instead of loading the
+#                            installed bytes under a PLUGIN CHANGED banner;
+#                            requires at least one --validated-* value
 #   -h, --help               print this header
 #
 # Exit status:
@@ -33,7 +51,7 @@
 #   2    usage error
 #   3    plugin not installed for this configuration
 #   4    plugin installed but not enabled
-#   5    skill not declared by this installed plugin version
+#   5    skill not offered by this installed plugin version
 #   6    integrity or ambiguity refusal
 #   127  a required tool is missing
 #
@@ -43,26 +61,24 @@
 #
 # Version drift is reported, not fatal by default. Refusing on every upstream
 # bump would turn each release into a fleet outage and recreate the sync chore
-# the pointer pattern exists to remove, so a differing version still loads the
-# original bytes and prints a PLUGIN CHANGED banner naming both versions.
-# Identity, declaration, symlink, containment, and front-matter checks always
-# refuse, because those are the states where the bytes cannot be trusted.
+# the pointer pattern exists to remove, so a differing plugin still loads the
+# original bytes and prints a PLUGIN CHANGED banner naming both identities.
+# Identity, offer, symlink, containment, and front-matter checks always refuse,
+# because those are the states where the bytes cannot be trusted.
 # --require-validated-pin turns drift back into a refusal for a caller that
 # wants the strict reading.
 #
-# Resolution is delegated to bin/fm-skill-path.sh, the repo's single owner of
-# plugin-skill resolution. There is deliberately no second resolver: a loader
-# that guesses a path when the owner is absent is exactly the drift the pointer
-# pattern exists to prevent, so a missing owner is a refusal (127).
+# Resolution, enablement, and listing are delegated to bin/fm-skill-path.sh, the
+# repo's single owner of plugin-skill resolution. There is deliberately no second
+# resolver: a loader that guesses a path when the owner is absent is exactly the
+# drift the pointer pattern exists to prevent, so a missing owner is a refusal
+# (127).
 set -eu
 
 HERE=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 RESOLVER="$HERE/fm-skill-path.sh"
 
 PLUGIN=mattpocock-skills
-MARKETPLACE=claude-plugins-official
-VALIDATED_VERSION=1.2.3
-VALIDATED_COMMIT=2ab958093e83e0ec752e6c1c5932da465bf23e0c
 UPSTREAM=https://github.com/mattpocock/skills
 LICENSE=MIT
 AUTHOR='Matt Pocock'
@@ -86,6 +102,9 @@ SKILL=
 MODE=body
 LIST=0
 REQUIRE_PIN=0
+PIN_PLUGIN=
+PIN_VERSION=
+PIN_COMMIT=
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -95,6 +114,24 @@ while [ "$#" -gt 0 ]; do
     --files) MODE=files; shift ;;
     --check) MODE=check; shift ;;
     --require-validated-pin) REQUIRE_PIN=1; shift ;;
+    --validated-plugin)
+      [ "$#" -ge 2 ] || die 2 "--validated-plugin requires <plugin@marketplace>"
+      PIN_PLUGIN=$2
+      shift 2
+      ;;
+    --validated-plugin=*) PIN_PLUGIN=${1#*=}; shift ;;
+    --validated-version)
+      [ "$#" -ge 2 ] || die 2 "--validated-version requires a version"
+      PIN_VERSION=$2
+      shift 2
+      ;;
+    --validated-version=*) PIN_VERSION=${1#*=}; shift ;;
+    --validated-commit)
+      [ "$#" -ge 2 ] || die 2 "--validated-commit requires a commit"
+      PIN_COMMIT=$2
+      shift 2
+      ;;
+    --validated-commit=*) PIN_COMMIT=${1#*=}; shift ;;
     --) shift; break ;;
     -*) die 2 "unknown option '$1' (see --help)" ;;
     *)
@@ -105,131 +142,70 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-command -v jq >/dev/null 2>&1 || die 127 "jq is required to read the Claude plugin registry"
-
-CONFIG_ROOT=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
-REGISTRY="$CONFIG_ROOT/plugins/installed_plugins.json"
-KEY="$PLUGIN@$MARKETPLACE"
-
-# --- install location and enablement ----------------------------------------
-#
-# Needed for --list, and cheap enough that the delegating path reuses it for the
-# manifest read and the pin comparison rather than re-deriving them.
-
-[ -f "$REGISTRY" ] \
-  || die 3 "no Claude plugin registry at $REGISTRY; $PLUGIN is not installed for this configuration"
-jq -e . "$REGISTRY" >/dev/null 2>&1 \
-  || die 3 "unreadable Claude plugin registry at $REGISTRY"
-
-ENTRY_COUNT=$(jq -r --arg k "$KEY" '
-  (if ((.plugins[$k]) | type) == "array" then .plugins[$k] else [] end)
-  | map(select(type == "object"))
-  | length
-' "$REGISTRY")
-case "$ENTRY_COUNT" in
-  0) die 3 "$KEY is not installed for this configuration ($REGISTRY)" ;;
-  1) : ;;
-  *) die 6 "$KEY is installed in several scopes; resolve it with bin/fm-skill-path.sh --scope" ;;
-esac
-
-ENTRY=$(jq -c --arg k "$KEY" '
-  (if ((.plugins[$k]) | type) == "array" then .plugins[$k] else [] end)
-  | map(select(type == "object"))
-  | .[0]
-' "$REGISTRY")
-INSTALL_PATH=$(printf '%s' "$ENTRY" | jq -r '.installPath // ""')
-REG_VERSION=$(printf '%s' "$ENTRY" | jq -r '.version // ""')
-COMMIT=$(printf '%s' "$ENTRY" | jq -r '.gitCommitSha // ""')
-SCOPE=$(printf '%s' "$ENTRY" | jq -r '.scope // ""')
-
-[ -n "$INSTALL_PATH" ] || die 6 "$KEY has no installPath in $REGISTRY"
-case "$INSTALL_PATH" in
-  /*) : ;;
-  *) die 6 "$KEY has a non-absolute installPath: $INSTALL_PATH" ;;
-esac
-[ -d "$INSTALL_PATH" ] \
-  || die 3 "$KEY install directory is missing (moved or removed): $INSTALL_PATH"
-
-plugin_enabled_state() {  # <settings-file> -> true|false|unset
-  file=$1
-  [ -f "$file" ] || { printf 'unset\n'; return 0; }
-  jq -e . "$file" >/dev/null 2>&1 || { printf 'unset\n'; return 0; }
-  jq -r --arg k "$KEY" '
-    if ((.enabledPlugins) | type) != "object" then "unset"
-    elif (.enabledPlugins | has($k)) then ((.enabledPlugins[$k]) | tostring)
-    else "unset"
-    end
-  ' "$file"
-}
-
-ENABLED=$(plugin_enabled_state "$CONFIG_ROOT/settings.local.json")
-if [ "$ENABLED" = unset ]; then
-  ENABLED=$(plugin_enabled_state "$CONFIG_ROOT/settings.json")
+if [ "$REQUIRE_PIN" -eq 1 ] && [ -z "$PIN_PLUGIN$PIN_VERSION$PIN_COMMIT" ]; then
+  die 2 "--require-validated-pin needs --validated-plugin, --validated-version, or --validated-commit"
 fi
-case "$ENABLED" in
-  true) : ;;
-  false) die 4 "$KEY is installed but disabled in this Claude configuration" ;;
-  *) die 4 "$KEY is installed but not enabled in this Claude configuration" ;;
-esac
-
-MANIFEST="$INSTALL_PATH/.claude-plugin/plugin.json"
-[ -f "$MANIFEST" ] || die 6 "$KEY install has no manifest at $MANIFEST"
-jq -e . "$MANIFEST" >/dev/null 2>&1 || die 6 "$KEY has an unreadable manifest at $MANIFEST"
-
-MANIFEST_NAME=$(jq -r '.name // ""' "$MANIFEST")
-VERSION=$(jq -r '.version // ""' "$MANIFEST")
-[ "$MANIFEST_NAME" = "$PLUGIN" ] \
-  || die 6 "install for $KEY carries manifest name '$MANIFEST_NAME', not '$PLUGIN'"
-if [ -n "$REG_VERSION" ] && [ "$VERSION" != "$REG_VERSION" ]; then
-  die 6 "$KEY registry version '$REG_VERSION' disagrees with manifest version '$VERSION'"
-fi
-[ -n "$VERSION" ] || die 6 "$KEY declares no version"
-
 if [ "$LIST" -eq 1 ]; then
   [ -z "$SKILL" ] || die 2 "--list takes no skill name"
-  jq -r '
-    (if (.skills | type) == "array" then .skills else [] end)
-    | map(select(type == "string"))
-    | map(sub("/+$"; "") | split("/") | last)
-    | .[]
-  ' "$MANIFEST" | LC_ALL=C sort
-  exit 0
+else
+  [ -n "$SKILL" ] || die 2 "usage: fm-matt-skill.sh <skill> (see --help)"
+  case "$SKILL" in
+    */*|.|..) die 2 "skill name must not contain a path separator: '$SKILL'" ;;
+  esac
 fi
-
-[ -n "$SKILL" ] || die 2 "usage: fm-matt-skill.sh <skill> (see --help)"
-case "$SKILL" in
-  */*|.|..) die 2 "skill name must not contain a path separator: '$SKILL'" ;;
-esac
-
-# --- resolve the skill directory --------------------------------------------
 
 [ -x "$RESOLVER" ] \
   || die 127 "bin/fm-skill-path.sh is required to resolve a skill and is missing or not executable at $RESOLVER"
 
-# The repo's single owner of plugin-skill resolution. It re-derives the registry
-# entry itself, so this call passes only the identity constants and trusts its
-# refusals verbatim.
-set +e
-RESOLVED=$("$RESOLVER" "$KEY" "$SKILL" 2>&1)
-RC=$?
-set -e
-if [ "$RC" -ne 0 ]; then
-  printf '%s\n' "$RESOLVED" >&2
-  exit "$RC"
+# The repo's single owner of plugin-skill resolution finds the one enabled
+# install, verifies it, and decides what it offers. Its refusals pass through
+# verbatim, exit status included.
+resolve() {  # <args...> -> resolver stdout, or exit with its status
+  set +e
+  RESOLVED=$("$RESOLVER" "$PLUGIN" "$@" --include-undeclared 2>&1)
+  RC=$?
+  set -e
+  if [ "$RC" -ne 0 ]; then
+    printf '%s\n' "$RESOLVED" >&2
+    exit "$RC"
+  fi
+}
+
+if [ "$LIST" -eq 1 ]; then
+  resolve --list-skills
+  [ -z "$RESOLVED" ] || printf '%s\n' "$RESOLVED" | cut -f 1 | LC_ALL=C sort -u
+  exit 0
 fi
-SKILL_DIR=$(printf '%s\n' "$RESOLVED" | sed -n 's/^skill_dir=//p' | head -n 1)
-SKILL_FILE=$(printf '%s\n' "$RESOLVED" | sed -n 's/^skill_file=//p' | head -n 1)
+
+resolve "$SKILL"
+field() {  # <key>
+  printf '%s\n' "$RESOLVED" | sed -n "s/^$1=//p" | head -n 1
+}
+KEY="$(field plugin)@$(field marketplace)"
+SCOPE=$(field scope)
+VERSION=$(field version)
+COMMIT=$(field commit)
+SKILL_DIR=$(field skill_dir)
+SKILL_FILE=$(field skill_file)
+DECLARED=$(field declared)
 RESOLVED_BY="bin/fm-skill-path.sh"
 [ -n "$SKILL_FILE" ] || die 6 "bin/fm-skill-path.sh resolved $SKILL without a skill_file"
+BUCKET=${SKILL_DIR%/*}
+BUCKET=${BUCKET##*/}
 
 # --- pin comparison ----------------------------------------------------------
 
-PIN_STATE=validated
-if [ "$VERSION" != "$VALIDATED_VERSION" ] || [ "$COMMIT" != "$VALIDATED_COMMIT" ]; then
-  PIN_STATE=changed
+PIN_STATE=unpinned
+if [ -n "$PIN_PLUGIN$PIN_VERSION$PIN_COMMIT" ]; then
+  PIN_STATE=validated
+  if { [ -n "$PIN_PLUGIN" ] && [ "$PIN_PLUGIN" != "$KEY" ]; } \
+     || { [ -n "$PIN_VERSION" ] && [ "$PIN_VERSION" != "$VERSION" ]; } \
+     || { [ -n "$PIN_COMMIT" ] && [ "$PIN_COMMIT" != "$COMMIT" ]; }; then
+    PIN_STATE=changed
+  fi
 fi
 if [ "$PIN_STATE" = changed ] && [ "$REQUIRE_PIN" -eq 1 ]; then
-  die 6 "$KEY resolves to version '$VERSION' commit '${COMMIT:-none}', not the validated '$VALIDATED_VERSION' commit '$VALIDATED_COMMIT'"
+  die 6 "resolved $KEY version '$VERSION' commit '${COMMIT:-none}', not the validated ${PIN_PLUGIN:-plugin} version '${PIN_VERSION:-any}' commit '${PIN_COMMIT:-any}'"
 fi
 
 if [ "$MODE" = path ]; then
@@ -264,19 +240,27 @@ emit_header() {
   printf 'scope=%s\n' "$SCOPE"
   printf 'resolved_version=%s\n' "$VERSION"
   printf 'resolved_commit=%s\n' "${COMMIT:-none}"
-  printf 'validated_version=%s\n' "$VALIDATED_VERSION"
-  printf 'validated_commit=%s\n' "$VALIDATED_COMMIT"
+  printf 'declared=%s\n' "$DECLARED"
+  printf 'upstream_bucket=%s\n' "$BUCKET"
+  printf 'validated_plugin=%s\n' "${PIN_PLUGIN:-none}"
+  printf 'validated_version=%s\n' "${PIN_VERSION:-none}"
+  printf 'validated_commit=%s\n' "${PIN_COMMIT:-none}"
   printf 'pin=%s\n' "$PIN_STATE"
   printf 'skill_file=%s\n' "$SKILL_FILE"
   d=$(digest "$SKILL_FILE")
   [ -z "$d" ] || printf 'skill_file_sha256=%s\n' "$d"
   printf 'resolved_by=%s\n' "$RESOLVED_BY"
+  if [ "$DECLARED" = false ]; then
+    printf "\nNot in the plugin's declared skill set: upstream keeps this skill in the\n"
+    printf '%s bucket of the same install, so Claude does not list it as a plugin skill.\n' "$BUCKET"
+  fi
   if [ "$PIN_STATE" = changed ]; then
     printf '\n!!! PLUGIN CHANGED !!!\n'
-    printf 'The installed plugin is %s (%s), not the %s (%s) this pointer was validated against.\n' \
-      "$VERSION" "${COMMIT:-no commit}" "$VALIDATED_VERSION" "$VALIDATED_COMMIT"
+    printf 'The installed plugin is %s %s (%s), not the %s %s (%s) this pointer was validated against.\n' \
+      "$KEY" "$VERSION" "${COMMIT:-no commit}" \
+      "${PIN_PLUGIN:-same plugin}" "${PIN_VERSION:-any version}" "${PIN_COMMIT:-any commit}"
     printf 'The bytes below are the installed original and are authoritative. Follow them,\n'
-    printf 'and tell the operator the validated pin needs refreshing.\n'
+    printf 'and tell the operator the pointers need regenerating with bin/fm-matt-pointers.sh.\n'
   fi
   printf '=====================================================\n'
 }

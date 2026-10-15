@@ -9,11 +9,25 @@
 #
 # Usage:
 #   fm-skill-path.sh <plugin>[@<marketplace>] <skill> [options]
+#   fm-skill-path.sh <plugin>[@<marketplace>] --list-skills [options]
+#
+# A bare <plugin> installed from several marketplaces resolves to the one of
+# those installs that is enabled in this Claude configuration, and refuses when
+# none or more than one is enabled. <plugin>@<marketplace> names one install.
 #
 # Options:
 #   --field <key>          print only that value from the resolved block
 #   --list-files           print the skill's support tree, one relative path per
 #                          line, instead of the resolved block
+#   --list-skills          print every skill the install offers instead of
+#                          resolving one, one "<skill> TAB <declared|undeclared>
+#                          TAB <directory relative to the install>" per line,
+#                          sorted by skill
+#   --include-undeclared   also offer skills that sit in the install's source
+#                          tree at skills/<skill>/ or skills/<bucket>/<skill>/
+#                          without being declared by the manifest, except in a
+#                          bucket named deprecated; a declared skill of the same
+#                          name always wins
 #   --scope <scope>        select one scope when a plugin is installed in several
 #                          (for example user, project, local)
 #   --expect-version <v>   refuse unless the resolved plugin version equals <v>
@@ -21,7 +35,9 @@
 #   -h, --help             print this header
 #
 # Resolved block on stdout (key=value lines, stable order):
-#   plugin, marketplace, scope, version, commit, skill, skill_dir, skill_file
+#   plugin, marketplace, scope, version, commit, skill, skill_dir, skill_file,
+#   declared (true when the manifest declares the skill, false when it was
+#   reached through --include-undeclared)
 #
 # Exit status:
 #   0    resolved
@@ -37,14 +53,16 @@
 # state. Diagnostics go to stderr.
 #
 # What is verified before a path is printed:
-#   - the registry entry resolves to exactly one scope, and the install directory
-#     exists;
+#   - the registry entry resolves to exactly one enabled install and exactly one
+#     scope, and the install directory exists;
 #   - the plugin manifest names this plugin and agrees with the registry version,
 #     so a swapped cache directory cannot pass;
 #   - the skill is declared in that manifest's own skills list, so deprecated,
 #     in-progress, misc, and personal skills that ship in the source tree but not
-#     in the plugin can never resolve;
-#   - exactly one declared skill matches the requested name;
+#     in the plugin never resolve unless the caller opts in with
+#     --include-undeclared, and a deprecated bucket never resolves at all;
+#   - exactly one declared skill, or failing that exactly one undeclared one,
+#     matches the requested name;
 #   - no component from the install root down to the skill, and no file inside the
 #     skill directory, is a symlink, and the skill directory stays inside the
 #     install root;
@@ -79,6 +97,8 @@ PLUGIN_ARG=
 SKILL=
 FIELD=
 LIST_FILES=0
+LIST_SKILLS=0
+INCLUDE_UNDECLARED=0
 WANT_SCOPE=
 EXPECT_VERSION=
 EXPECT_COMMIT=
@@ -92,6 +112,8 @@ while [ "$#" -gt 0 ]; do
       ;;
     --field=*) FIELD=${1#*=}; shift ;;
     --list-files) LIST_FILES=1; shift ;;
+    --list-skills) LIST_SKILLS=1; shift ;;
+    --include-undeclared) INCLUDE_UNDECLARED=1; shift ;;
     --scope)
       [ "$#" -ge 2 ] || die 2 "--scope requires a value"
       WANT_SCOPE=$2
@@ -126,18 +148,25 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-[ -n "$PLUGIN_ARG" ] && [ -n "$SKILL" ] || die 2 "usage: fm-skill-path.sh <plugin>[@<marketplace>] <skill> (see --help)"
+[ -n "$PLUGIN_ARG" ] || die 2 "usage: fm-skill-path.sh <plugin>[@<marketplace>] <skill> (see --help)"
 [ "$LIST_FILES" -eq 0 ] || [ -z "$FIELD" ] || die 2 "--list-files and --field are mutually exclusive"
 
-case "$SKILL" in
-  */*|.|..|'') die 2 "skill name must not contain a path separator: '$SKILL'" ;;
-esac
+if [ "$LIST_SKILLS" -eq 1 ]; then
+  [ -z "$SKILL" ] || die 2 "--list-skills takes no skill name"
+  [ -z "$FIELD" ] && [ "$LIST_FILES" -eq 0 ] \
+    || die 2 "--list-skills cannot be combined with --field or --list-files"
+else
+  [ -n "$SKILL" ] || die 2 "usage: fm-skill-path.sh <plugin>[@<marketplace>] <skill> (see --help)"
+  case "$SKILL" in
+    */*|.|..) die 2 "skill name must not contain a path separator: '$SKILL'" ;;
+  esac
+fi
 
 # Validate the field name before touching the environment, so a typo is always
 # the same usage error rather than whichever resolution failure came first.
 case "$FIELD" in
-  ''|plugin|marketplace|scope|version|commit|skill|skill_dir|skill_file) : ;;
-  *) die 2 "unknown field '$FIELD' (plugin, marketplace, scope, version, commit, skill, skill_dir, skill_file)" ;;
+  ''|plugin|marketplace|scope|version|commit|skill|skill_dir|skill_file|declared) : ;;
+  *) die 2 "unknown field '$FIELD' (plugin, marketplace, scope, version, commit, skill, skill_dir, skill_file, declared)" ;;
 esac
 
 command -v jq >/dev/null 2>&1 || die 127 "jq is required to read the Claude plugin registry"
@@ -149,6 +178,37 @@ REGISTRY="$CONFIG_ROOT/plugins/installed_plugins.json"
   || die 3 "no Claude plugin registry at $REGISTRY; the plugin is not installed for this configuration"
 jq -e . "$REGISTRY" >/dev/null 2>&1 \
   || die 3 "unreadable Claude plugin registry at $REGISTRY"
+
+# --- enablement ---------------------------------------------------------------
+#
+# A disabled plugin is invisible to the Claude runtime, so its skills cannot be
+# invoked even though the bytes are still on disk. Refusing a disabled install
+# keeps a caller from reporting a workflow as available when no worker could
+# actually load it, and picks the live install when several marketplaces carry
+# the same plugin. A local settings file, when it carries a decision for a
+# plugin, wins over the shared one; absence of any decision is treated as not
+# enabled.
+
+plugin_enabled_state() {  # <settings-file> <key> -> true|false|unset
+  local file=$1 key=$2
+  [ -f "$file" ] || { printf 'unset\n'; return 0; }
+  jq -e . "$file" >/dev/null 2>&1 || { printf 'unset\n'; return 0; }
+  jq -r --arg k "$key" '
+    if ((.enabledPlugins) | type) != "object" then "unset"
+    elif (.enabledPlugins | has($k)) then ((.enabledPlugins[$k]) | tostring)
+    else "unset"
+    end
+  ' "$file"
+}
+
+plugin_enabled() {  # <key> -> true|false|unset
+  local state
+  state=$(plugin_enabled_state "$CONFIG_ROOT/settings.local.json" "$1")
+  if [ "$state" = unset ]; then
+    state=$(plugin_enabled_state "$CONFIG_ROOT/settings.json" "$1")
+  fi
+  printf '%s\n' "$state"
+}
 
 # --- registry key: <plugin>@<marketplace> -----------------------------------
 
@@ -170,16 +230,28 @@ else
     | select(startswith($p + "@"))
   ' "$REGISTRY")
   KEY_COUNT=0
+  ENABLED_KEYS=
+  ENABLED_COUNT=0
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     KEY_COUNT=$((KEY_COUNT + 1))
+    [ "$(plugin_enabled "$line")" = true ] || continue
+    ENABLED_KEYS="${ENABLED_KEYS:+$ENABLED_KEYS }$line"
+    ENABLED_COUNT=$((ENABLED_COUNT + 1))
   done <<EOF
 $KEY_MATCHES
 EOF
+  INSTALLED_KEYS=$(printf '%s' "$KEY_MATCHES" | tr '\n' ' ')
   case "$KEY_COUNT" in
     0) die 3 "plugin '$PLUGIN' is not installed for this configuration" ;;
     1) KEY=$(printf '%s' "$KEY_MATCHES" | head -n 1) ;;
-    *) die 6 "plugin '$PLUGIN' is ambiguous across marketplaces ($(printf '%s' "$KEY_MATCHES" | tr '\n' ' ')); name it as <plugin>@<marketplace>" ;;
+    *)
+      case "$ENABLED_COUNT" in
+        0) die 4 "plugin '$PLUGIN' is installed from several marketplaces (${INSTALLED_KEYS% }) and none of them is enabled in this Claude configuration" ;;
+        1) KEY=$ENABLED_KEYS ;;
+        *) die 6 "plugin '$PLUGIN' is ambiguous: enabled from several marketplaces ($ENABLED_KEYS); disable all but one, or name it as <plugin>@<marketplace>" ;;
+      esac
+      ;;
   esac
   MARKETPLACE=${KEY#*@}
 fi
@@ -231,30 +303,8 @@ esac
 [ -d "$INSTALL_PATH" ] || die 3 "plugin '$KEY' install directory is missing: $INSTALL_PATH"
 
 # --- enabled in this configuration ------------------------------------------
-#
-# A disabled plugin is invisible to the Claude runtime, so its skills cannot be
-# invoked even though the bytes are still on disk. Refusing here keeps a caller
-# from reporting a workflow as available when no worker could actually load it.
-# A local settings file, when it carries a decision for this plugin, wins over
-# the shared one; absence of any decision is treated as not enabled.
 
-plugin_enabled_state() {  # <settings-file> <key> -> true|false|unset
-  local file=$1 key=$2
-  [ -f "$file" ] || { printf 'unset\n'; return 0; }
-  jq -e . "$file" >/dev/null 2>&1 || { printf 'unset\n'; return 0; }
-  jq -r --arg k "$key" '
-    if ((.enabledPlugins) | type) != "object" then "unset"
-    elif (.enabledPlugins | has($k)) then ((.enabledPlugins[$k]) | tostring)
-    else "unset"
-    end
-  ' "$file"
-}
-
-ENABLED=$(plugin_enabled_state "$CONFIG_ROOT/settings.local.json" "$KEY")
-if [ "$ENABLED" = unset ]; then
-  ENABLED=$(plugin_enabled_state "$CONFIG_ROOT/settings.json" "$KEY")
-fi
-case "$ENABLED" in
+case "$(plugin_enabled "$KEY")" in
   true) : ;;
   false) die 4 "plugin '$KEY' is installed but disabled in this Claude configuration" ;;
   *) die 4 "plugin '$KEY' is installed but not enabled in this Claude configuration" ;;
@@ -285,14 +335,62 @@ if [ -n "$EXPECT_COMMIT" ] && [ "$COMMIT" != "$EXPECT_COMMIT" ]; then
   die 6 "plugin '$KEY' is pinned at source commit '${COMMIT:-none}', not the expected '$EXPECT_COMMIT'"
 fi
 
-# --- the skill must be declared by this version ------------------------------
+# --- what the install offers -------------------------------------------------
 
-DECLARED=$(jq -r --arg s "$SKILL" '
-  (if (.skills | type) == "array" then .skills else [] end)
-  | map(select(type == "string"))
-  | map(select((sub("/+$"; "") | split("/") | last) == $s))
-  | .[]
-' "$MANIFEST")
+declared_skills() {  # -> "<skill>\t<relative dir>" per declared entry
+  jq -r '
+    (if (.skills | type) == "array" then .skills else [] end)
+    | map(select(type == "string"))
+    | map(sub("^(\\./)+"; "") | sub("/+$"; ""))
+    | .[]
+    | "\(split("/") | last)\t\(.)"
+  ' "$MANIFEST"
+}
+
+# Skills present in the source tree that the manifest does not declare, at
+# skills/<skill>/SKILL.md or skills/<bucket>/<skill>/SKILL.md. A deprecated
+# bucket is never offered, and a name the manifest declares is never offered a
+# second time, because the declared skill always wins resolution.
+undeclared_skills() {  # -> "<skill>\t<relative dir>" per undeclared entry
+  [ -d "$INSTALL_PATH/skills" ] || return 0
+  # One awk pass over the tree. Values travel through the environment because
+  # awk -v would rewrite backslash escapes in a path.
+  find "$INSTALL_PATH/skills" -mindepth 2 -maxdepth 3 -type f -name SKILL.md -print \
+    | FM_SKILL_ROOT="$INSTALL_PATH/" FM_SKILL_DECLARED="$(declared_skills)" awk '
+        BEGIN {
+          root = ENVIRON["FM_SKILL_ROOT"]
+          n = split(ENVIRON["FM_SKILL_DECLARED"], rows, "\n")
+          for (i = 1; i <= n; i++) {
+            if (split(rows[i], f, "\t") < 2) continue
+            declared_name[f[1]] = 1
+            declared_rel[f[2]] = 1
+          }
+        }
+        index($0, root) == 1 {
+          rel = substr($0, length(root) + 1)
+          sub(/\/SKILL\.md$/, "", rel)
+          if (("/" rel "/") ~ /\/deprecated\//) next
+          name = rel
+          sub(/.*\//, "", name)
+          if ((name in declared_name) || (rel in declared_rel)) next
+          printf "%s\t%s\n", name, rel
+        }
+      '
+}
+
+if [ "$LIST_SKILLS" -eq 1 ]; then
+  {
+    declared_skills | awk -F '\t' '{ printf "%s\tdeclared\t%s\n", $1, $2 }'
+    if [ "$INCLUDE_UNDECLARED" -eq 1 ]; then
+      undeclared_skills | awk -F '\t' '{ printf "%s\tundeclared\t%s\n", $1, $2 }'
+    fi
+  } | LC_ALL=C sort
+  exit 0
+fi
+
+# --- the skill must be offered by this version --------------------------------
+
+DECLARED=$(declared_skills | awk -F '\t' -v s="$SKILL" '$1 == s { print $2 }')
 DECLARED_COUNT=0
 while IFS= read -r line; do
   [ -n "$line" ] || continue
@@ -300,14 +398,29 @@ while IFS= read -r line; do
 done <<EOF
 $DECLARED
 EOF
+IS_DECLARED=true
 case "$DECLARED_COUNT" in
-  0) die 5 "skill '$SKILL' is not declared by $PLUGIN $VERSION" ;;
+  0)
+    [ "$INCLUDE_UNDECLARED" -eq 1 ] || die 5 "skill '$SKILL' is not declared by $PLUGIN $VERSION"
+    IS_DECLARED=false
+    DECLARED=$(undeclared_skills | awk -F '\t' -v s="$SKILL" '$1 == s { print $2 }')
+    DECLARED_COUNT=0
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      DECLARED_COUNT=$((DECLARED_COUNT + 1))
+    done <<EOF
+$DECLARED
+EOF
+    case "$DECLARED_COUNT" in
+      0) die 5 "skill '$SKILL' is neither declared by $PLUGIN $VERSION nor present outside a deprecated bucket of its source tree" ;;
+      1) : ;;
+      *) die 6 "skill '$SKILL' is present more than once in the source tree of $PLUGIN $VERSION ($(printf '%s' "$DECLARED" | tr '\n' ' '))" ;;
+    esac
+    ;;
   1) : ;;
   *) die 6 "skill '$SKILL' is declared more than once by $PLUGIN $VERSION ($(printf '%s' "$DECLARED" | tr '\n' ' '))" ;;
 esac
 REL=$(printf '%s' "$DECLARED" | head -n 1)
-REL=${REL#./}
-REL=${REL%/}
 
 case "$REL" in
   /*) die 6 "skill '$SKILL' is declared with an absolute path: $REL" ;;
@@ -402,12 +515,13 @@ emit_field() {  # <key>
     skill) printf '%s\n' "$SKILL" ;;
     skill_dir) printf '%s\n' "$SKILL_DIR" ;;
     skill_file) printf '%s\n' "$SKILL_FILE" ;;
+    declared) printf '%s\n' "$IS_DECLARED" ;;
     *) return 1 ;;
   esac
 }
 
 if [ -n "$FIELD" ]; then
-  emit_field "$FIELD" || die 2 "unknown field '$FIELD' (plugin, marketplace, scope, version, commit, skill, skill_dir, skill_file)"
+  emit_field "$FIELD" || die 2 "unknown field '$FIELD' (plugin, marketplace, scope, version, commit, skill, skill_dir, skill_file, declared)"
   exit 0
 fi
 
@@ -419,3 +533,4 @@ printf 'commit=%s\n' "$COMMIT"
 printf 'skill=%s\n' "$SKILL"
 printf 'skill_dir=%s\n' "$SKILL_DIR"
 printf 'skill_file=%s\n' "$SKILL_FILE"
+printf 'declared=%s\n' "$IS_DECLARED"

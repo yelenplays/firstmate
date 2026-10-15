@@ -4,12 +4,20 @@
 # reach the installed originals without a copy existing anywhere.
 #
 # The suite ships as the Claude plugin `mattpocock-skills`, and only `claude`
-# reads the plugin cache. The other runtimes read `~/.agents/skills`. Vendoring
+# reads the plugin cache. The plugin in play is whichever install
+# bin/fm-matt-skill.sh resolves: the one `mattpocock-skills@<marketplace>` that
+# is enabled in this Claude configuration, from any marketplace. The other
+# runtimes read `~/.agents/skills`. Vendoring
 # the bodies there was tried and rotted, so each pointer is a few lines of
 # instruction whose first step is to run bin/fm-matt-skill.sh, which resolves
 # and prints the installed original at load time. No skill body is ever copied,
 # so no skill body can ever drift, and an upstream plugin bump takes effect on
 # the next load with nothing to re-run.
+#
+# There is one pointer for every skill that install offers: each skill its
+# manifest declares, and each skill upstream keeps in the same source tree
+# outside the declared set (its in-progress and misc buckets), never a
+# deprecated bucket. A pointer for an undeclared skill says so.
 #
 # What IS derived from upstream is each pointer's front matter: its description
 # and its model-invocation flag, which the host runtime needs before any body is
@@ -19,7 +27,9 @@
 #
 # Attribution: the skills are Matt Pocock's work, MIT licensed, published at
 # https://github.com/mattpocock/skills. Every generated pointer names him, the
-# licence, the upstream repository, the plugin, and the validated version.
+# licence, the upstream repository, the resolved plugin, and the version and
+# commit it was generated from. That identity is the pointer's validated pin:
+# its load command passes it to the loader, which flags any later difference.
 #
 # Usage:
 #   fm-matt-pointers.sh [--dest <dir>] [--dry-run]      install or refresh
@@ -36,10 +46,12 @@
 #                  disposable worktree bakes that worktree's path into every
 #                  pointer, so pass the stable checkout's path instead.
 #   --dry-run      print what would change, write nothing
-#   --list         print "<pointer-name> <upstream-skill> <invocation>" and exit
+#   --list         print "<pointer-name> <upstream-skill> <invocation>
+#                  <declared|undeclared>" and exit
 #   --check        exit 1 when an installed pointer is missing, foreign, has
-#                  drifted from what upstream would generate now, is retired
-#                  upstream even when no skills remain declared, or names a
+#                  drifted from what upstream would generate now (including a
+#                  plugin, version, or commit change), is retired upstream even
+#                  when no skills remain offered, or names a
 #                  loader that is no longer executable; every applicable state
 #                  is reported independently
 #   --prune        remove firstmate pointers whose upstream skill is gone
@@ -68,7 +80,7 @@ LOADER="$HERE/fm-matt-skill.sh"
 MARKER=.firstmate-pointer
 PREFIX=matt-
 UPSTREAM=https://github.com/mattpocock/skills
-PLUGIN_KEY=mattpocock-skills@claude-plugins-official
+PLUGIN=mattpocock-skills
 
 usage() {
   awk '
@@ -133,7 +145,7 @@ esac
 # Both the skill list and the identity block come from the loader, so this
 # script never re-reads the registry and the two can never disagree about which
 # install is in play. Identity is read through the first skill this install
-# actually declares rather than a fixed name, so an upstream rename can never
+# actually offers rather than a fixed name, so an upstream rename can never
 # take out --check, --prune, or --uninstall - the modes an operator needs most
 # when a rename has left stale pointers on disk.
 SKILLS=$("$LOADER" --list)
@@ -146,25 +158,35 @@ done <<EOF
 $SKILLS
 EOF
 HAVE_IDENTITY=0
+PLUGIN_KEY=$PLUGIN
 VERSION=
 COMMIT=
 INSTALL_ROOT=
+identity_field() {  # <identity-block> <key>
+  printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -n 1
+}
 if [ -n "$IDENTITY_SKILL" ]; then
   IDENTITY=$("$LOADER" "$IDENTITY_SKILL" --check)
-  VERSION=$(printf '%s\n' "$IDENTITY" | sed -n 's/^resolved_version=//p' | head -n 1)
-  COMMIT=$(printf '%s\n' "$IDENTITY" | sed -n 's/^resolved_commit=//p' | head -n 1)
-  SKILL_ROOT=$(printf '%s\n' "$IDENTITY" | sed -n 's/^skill_file=//p' | head -n 1)
+  PLUGIN_KEY=$(identity_field "$IDENTITY" plugin)
+  VERSION=$(identity_field "$IDENTITY" resolved_version)
+  COMMIT=$(identity_field "$IDENTITY" resolved_commit)
+  [ "$COMMIT" != none ] || COMMIT=
+  SKILL_ROOT=$(identity_field "$IDENTITY" skill_file)
   [ -n "$VERSION" ] || die 6 "could not read the resolved plugin version from the loader"
+  case "$PLUGIN_KEY" in
+    "$PLUGIN"@?*) : ;;
+    *) die 6 "the loader resolved an unexpected plugin '$PLUGIN_KEY'" ;;
+  esac
   INSTALL_ROOT=${SKILL_ROOT%/skills/*}
   HAVE_IDENTITY=1
 elif [ "$MODE" != check ]; then
-  die 6 "$PLUGIN_KEY declares no skills, so there is nothing to point at"
+  die 6 "the enabled $PLUGIN plugin offers no skills, so there is nothing to point at"
 fi
 
 # --- upstream front-matter reads ---------------------------------------------
 
-skill_file_for() {  # <skill>
-  "$LOADER" "$1" --path
+skill_identity() {  # <skill> -> the loader's identity block for it
+  "$LOADER" "$1" --check
 }
 
 front_matter_field() {  # <skill-file> <key>
@@ -196,8 +218,8 @@ yaml_quote() {  # <value> -> a safe double-quoted YAML scalar
 
 # --- pointer body ------------------------------------------------------------
 
-render_pointer() {  # <skill> <pointer-name> <description> <dmi> <argument-hint> <date> <loader>
-  skill=$1 pname=$2 desc=$3 dmi=$4 hint=$5 stamp=$6 loader=$7
+render_pointer() {  # <skill> <pointer-name> <description> <dmi> <argument-hint> <date> <loader> <declared> <bucket>
+  skill=$1 pname=$2 desc=$3 dmi=$4 hint=$5 stamp=$6 loader=$7 declared=$8 bucket=$9
   cat <<EOF
 ---
 name: $pname
@@ -215,6 +237,8 @@ metadata:
   upstream-skill: "$skill"
   upstream-repo: "$UPSTREAM"
   upstream-plugin: "$PLUGIN_KEY"
+  upstream-bucket: "$bucket"
+  declared-by-plugin: "$declared"
   validated-version: "$VERSION"
   validated-commit: "$COMMIT"
 ---
@@ -224,17 +248,31 @@ metadata:
 This file is a pointer, not a skill. It contains no part of the procedure.
 
 The real skill is **\`$skill\`** by **Matt Pocock**, MIT licensed, from
-<$UPSTREAM>, installed here as the plugin \`$PLUGIN_KEY\`, validated against
-version $VERSION ($COMMIT). Firstmate generated this pointer on $stamp so
-runtimes that read \`.agents/skills\` can reach the installed original. Nothing
-was copied, so nothing here can be out of date with the original.
+<$UPSTREAM>, installed here as the plugin \`$PLUGIN_KEY\`.
+This pointer was validated against version $VERSION (${COMMIT:-no commit}).
+Firstmate generated it on $stamp so runtimes that read \`.agents/skills\` can
+reach the installed original. Nothing was copied, so nothing here can be out of
+date with the original.
+EOF
+  if [ "$declared" = false ]; then
+    cat <<EOF
+
+The plugin's manifest does not declare this skill. Upstream keeps it in the
+\`$bucket\` bucket of the same install, outside the set Claude lists as plugin
+skills, so treat it as upstream marks that bucket.
+EOF
+  fi
+  cat <<EOF
 
 ## Step 1 - load the original, before doing anything else
 
 Run exactly this:
 
 \`\`\`bash
-$loader $skill
+$loader $skill \\
+  --validated-plugin $PLUGIN_KEY \\
+  --validated-version $VERSION${COMMIT:+ \\
+  --validated-commit $COMMIT}
 \`\`\`
 
 It prints the original \`SKILL.md\` bytes, preceded by an identity header naming
@@ -247,10 +285,10 @@ Treat the printed instructions as the body of this skill and follow them as
 written. Read any support file they refer to, at the absolute path listed. Do
 not summarise the printed procedure and then work from your summary.
 
-If the header says **PLUGIN CHANGED**, the installed plugin is newer than the
-version this pointer was validated against. The printed bytes are still the
-installed original and are authoritative, so follow them - and tell the user the
-validated pin needs refreshing with \`bin/fm-matt-pointers.sh\`.
+If the header says **PLUGIN CHANGED**, the enabled plugin is no longer the
+plugin, version, or commit this pointer was validated against. The printed bytes
+are still the installed original and are authoritative, so follow them - and
+tell the user the pointers need regenerating with \`bin/fm-matt-pointers.sh\`.
 
 ## If the command fails
 
@@ -266,13 +304,15 @@ There is no second source for this procedure. So:
 EOF
 }
 
-render_marker() {  # <skill> <pointer-name> <date> <loader>
+render_marker() {  # <skill> <pointer-name> <date> <loader> <declared> <bucket>
   cat <<EOF
 generator=bin/fm-matt-pointers.sh
 generated=$3
 pointer=$2
 upstream_skill=$1
 upstream_plugin=$PLUGIN_KEY
+upstream_bucket=$6
+declared_by_plugin=$5
 upstream_repo=$UPSTREAM
 validated_version=$VERSION
 validated_commit=$COMMIT
@@ -282,14 +322,17 @@ EOF
 
 # --- enumeration -------------------------------------------------------------
 
-describe_skill() {  # <skill> -> "<dmi>\t<hint>\t<description>"
-  f=$(skill_file_for "$1")
+describe_skill() {  # <skill> -> "<dmi>\t<declared>\t<bucket>\t<hint>\t<description>"
+  id=$(skill_identity "$1")
+  f=$(identity_field "$id" skill_file)
+  [ -n "$f" ] || die 6 "the loader returned no skill_file for $1"
   d=$(unquote "$(front_matter_field "$f" description)")
   m=$(unquote "$(front_matter_field "$f" disable-model-invocation)")
   h=$(unquote "$(front_matter_field "$f" argument-hint)")
   [ -n "$d" ] || d="Matt Pocock's $1 skill."
   case "$m" in true) m=true ;; *) m=false ;; esac
-  printf '%s\t%s\t%s' "$m" "$h" "$d"
+  printf '%s\t%s\t%s\t%s\t%s' "$m" "$(identity_field "$id" declared)" \
+    "$(identity_field "$id" upstream_bucket)" "$h" "$d"
 }
 
 if [ "$MODE" = list ]; then
@@ -297,8 +340,10 @@ if [ "$MODE" = list ]; then
     [ -n "$s" ] || continue
     row=$(describe_skill "$s")
     dmi=${row%%	*}
+    rest=${row#*	}
     if [ "$dmi" = true ]; then inv='user-invoked-only'; else inv='model-invocable'; fi
-    printf '%s%s\t%s\t%s\n' "$PREFIX" "$s" "$s" "$inv"
+    if [ "${rest%%	*}" = true ]; then offer=declared; else offer=undeclared; fi
+    printf '%s%s\t%s\t%s\t%s\n' "$PREFIX" "$s" "$s" "$inv" "$offer"
   done
   exit 0
 fi
@@ -350,6 +395,10 @@ printf '%s\n' "$SKILLS" | {
     row=$(describe_skill "$s")
     dmi=${row%%	*}
     rest=${row#*	}
+    declared=${rest%%	*}
+    rest=${rest#*	}
+    bucket=${rest%%	*}
+    rest=${rest#*	}
     hint=${rest%%	*}
     desc=${rest#*	}
     pname="$PREFIX$s"
@@ -379,7 +428,8 @@ printf '%s\n' "$SKILLS" | {
       fi
     fi
 
-    want=$(render_pointer "$s" "$pname" "$desc" "$dmi" "$hint" "$stamp" "$loader")
+    want=$(render_pointer "$s" "$pname" "$desc" "$dmi" "$hint" "$stamp" "$loader" \
+      "$declared" "$bucket")
 
     if [ "$MODE" = check ]; then
       pointer_drift=0
@@ -412,14 +462,14 @@ printf '%s\n' "$SKILLS" | {
     else
       mkdir -p "$dir"
       printf '%s\n' "$want" >"$file"
-      render_marker "$s" "$pname" "$stamp" "$loader" >"$dir/$MARKER"
+      render_marker "$s" "$pname" "$stamp" "$loader" "$declared" "$bucket" >"$dir/$MARKER"
       printf 'wrote %s\n' "$file"
     fi
     written=$((written + 1))
   done
 
   if [ "$MODE" = check ]; then
-    # Declared skills above cannot expose a pointer whose upstream entry was
+    # Offered skills above cannot expose a pointer whose upstream entry was
     # removed, so scan every marked destination directory as well.
     for dir in "$DEST"/*; do
       [ -d "$dir" ] || continue
@@ -431,7 +481,7 @@ printf '%s\n' "$SKILLS" | {
 
       file="$dir/SKILL.md"
       loader=$(sed -n 's/^loader=//p' "$dir/$MARKER" | head -n 1)
-      printf 'RETIRED: %s no longer declares upstream skill %s\n' \
+      printf 'RETIRED: %s points at upstream skill %s, which the plugin no longer offers\n' \
         "$dir" "$skill" >&2
       if [ ! -x "$loader" ]; then
         printf 'BROKEN: %s points at a loader that is not executable: %s\n' \
@@ -442,7 +492,7 @@ printf '%s\n' "$SKILLS" | {
     done
 
     if [ "$status" -eq 0 ] && [ "$HAVE_IDENTITY" -eq 0 ]; then
-      printf 'ok - no declared skills or marked pointers under %s\n' "$DEST"
+      printf 'ok - no offered skills or marked pointers under %s\n' "$DEST"
     elif [ "$status" -eq 0 ]; then
       printf 'ok - %s pointers under %s match %s %s\n' \
         "$(printf '%s\n' "$SKILLS" | grep -c .)" "$DEST" "$PLUGIN_KEY" "$VERSION"
