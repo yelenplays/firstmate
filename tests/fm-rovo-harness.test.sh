@@ -476,13 +476,14 @@ tool output line $i"
 
 test_rovo_enrolled_launch_preserves_status_route() {
   local id rec brief content out rc pointer delivered prompt command data_real tool
-  for tool in tasks-axi jq; do
+  # tasks-axi is a node script, so the hermetic PATH also needs node itself.
+  for tool in tasks-axi jq node; do
     command -v "$tool" >/dev/null || { printf 'skip: Rovo enrolled status test needs %s\n' "$tool"; return; }
   done
   id="rovo-enrolled-z7-$$"
   rec=$(make_spawn_case enrolled "$id")
   read_spawn_record "$rec"
-  for tool in tasks-axi jq; do
+  for tool in tasks-axi jq node; do
     ln -s "$(command -v "$tool")" "$FAKEBIN_DIR/$tool"
   done
   rm "$HOME_DIR/data/$id/brief.md"
