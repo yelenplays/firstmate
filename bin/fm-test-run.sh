@@ -464,6 +464,7 @@ family_for_basename() {
     fm-claude-primary.test.sh|\
     fm-claude-stop-autoarm.test.sh|fm-cursor-harness.test.sh|\
     fm-dispatch-resolve.test.sh|fm-dispatch-replay.test.sh|fm-dispatch-selftest.test.sh|\
+    fm-free-model-canary.test.sh|\
     fm-jev-retrieval-miss.test.sh|fm-wiki-ask.test.sh|\
     fm-extension-binding.test.sh|fm-gitignore-config.test.sh|\
     fm-no-mistakes-required.test.sh|fm-peek-remote.test.sh|\
@@ -805,6 +806,7 @@ tests/fm-devin-live-e2e.test.sh 48
 tests/fm-dispatch-replay.test.sh 1337
 tests/fm-dispatch-resolve.test.sh 10051
 tests/fm-dispatch-selftest.test.sh 46000
+tests/fm-free-model-canary.test.sh 41000
 tests/fm-documentation-audiences.test.sh 1301
 tests/fm-dod-lib.test.sh 2035
 tests/fm-extension-binding.test.sh 11105
@@ -1666,6 +1668,16 @@ families_for_changed_path() {
       printf '%s\n' "__script__:fm-dispatch-selftest.test.sh"
       ;;
     bin/fm-dispatch-selftest.sh)
+      printf '%s\n' "__script__:fm-dispatch-selftest.test.sh"
+      ;;
+    bin/fm-free-model-canary.sh)
+      printf '%s\n' "__script__:fm-free-model-canary.test.sh"
+      ;;
+    bin/fm-private-guard-lib.sh)
+      # The private-material guard: the resolver and fm-spawn both call it,
+      # and the dispatch selftest digests it.
+      printf '%s\n' "__script__:fm-dispatch-resolve.test.sh"
+      printf '%s\n' "__script__:fm-spawn-dispatch-profile.test.sh"
       printf '%s\n' "__script__:fm-dispatch-selftest.test.sh"
       ;;
     bin/fm-backup-judge-lib.sh)

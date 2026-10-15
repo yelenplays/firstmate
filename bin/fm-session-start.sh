@@ -855,6 +855,11 @@ if [ "$READ_ONLY" -eq 0 ]; then
         || printf 'DISPATCH_SELFTEST: could not auto-arm the routing selftest\n'
     fi
   fi
+  # The free-model canary arms itself only where a profile is watched
+  # (docs/configuration.md "Free-tier canary").
+  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
+    "$SCRIPT_DIR/fm-free-model-canary.sh" arm --if-watched >/dev/null 2>&1 \
+    || printf 'FREE_MODEL_CANARY: could not auto-arm the free-model canary\n'
 fi
 
 # --- 3. wake-drain ---------------------------------------------------------

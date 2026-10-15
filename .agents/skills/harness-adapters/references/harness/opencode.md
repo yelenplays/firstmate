@@ -9,7 +9,7 @@ Verified on 2026-06-11 across versions 1.15.7 through 1.17.6, with busy-queue be
 | Busy state | The Firstmate-owned plugin's semantic `session.status`: `busy` and `retry` are active, `idle` is inactive, latched to the worker's own session. |
 | Exit command | `/exit`. |
 | Interrupt | Double Escape; it is known to be flaky while a long shell command runs, so use `../../../bin/fm-control.sh <task-id> relaunch` for a wedged pane. |
-| Skill invocation | No separate verified form beyond normal slash-command behavior; use natural language when the exact command is uncertain. |
+| Skill invocation | No separate verified form beyond normal slash-command behavior; use natural language when the exact command is uncertain. A crewmate launch denies the skill tool (`"skill":"deny"`), so a crewmate reads any skill its brief needs from the named `SKILL.md` path; a secondmate keeps the tool. |
 | Resume | Relaunch with `--continue` to resume the most recent session for the current directory, then send the next instruction after the TUI is ready because `--prompt` does not auto-submit alongside `--continue`. |
 | Model flag | `--model <provider/model>`. |
 | Effort flag | None for Firstmate's interactive `opencode --prompt` launch; `opencode run` has `--variant`, but that is not this path. The effort instead rides the launch's `OPENCODE_CONFIG_CONTENT` JSON as the `build` agent's `variant` keyed to the resolved model, the config schema's per-model reasoning-effort field verified on 1.18.32. It is emitted only when the resolved model's provider is known to expose that effort as a variant (`anthropic/*`: high, max; `openai/*`: low, medium, high, xhigh); with no model resolved, another provider, or an effort outside its family's list, the variant is omitted and the permission-only launch is unchanged. |
@@ -19,7 +19,8 @@ Verified on 2026-06-11 across versions 1.15.7 through 1.17.6, with busy-queue be
 
 OpenCode can auto-upgrade in the background, and the running TUI can exit mid-task.
 That behavior was observed live during an upgrade from 1.15.7 to 1.17.3.
-If the pane shows the exit banner, use the verified resume path above.
+Every Firstmate launch therefore sets `"autoupdate":false` and `"share":"disabled"` in its `OPENCODE_CONFIG_CONTENT`; OpenCode 1.19.0 validates both keys (`opencode debug config` rejects an unknown `share` value).
+If the pane still shows the exit banner, use the verified resume path above.
 
 ## Busy-queued Enter
 

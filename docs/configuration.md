@@ -9,7 +9,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), [worker CPU priority](#worker-cpu-priority), and [never-use models](#never-use-model-list-configmodel-denylistjson) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), [worker CPU priority](#worker-cpu-priority), [never-use models](#never-use-model-list-configmodel-denylistjson), and [private-material guard](#private-material-guard-configprivate-markers) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), [Calm preference](#calm-preference-configcalm), and [theme pack](#theme-pack-configtheme) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
@@ -1366,7 +1366,7 @@ This section is the single owner of the canonical schema and its per-field seman
       "floor": { "scope": "<quota-axi scope>", "min_percent": 20, "provider": "<quota-axi provider>" },
       "beats": [ { "rule": 2, "when": "<optional condition under which this rule wins>" } ],
       "use": [
-        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "effort_min": "<optional>", "effort_max": "<optional>", "provider": "<optional quota-axi provider>", "floor": { "scope": "<quota-axi scope>", "min_percent": 50 }, "effort_floor": "<optional, not above effort_max or effort>", "overflow": false }
+        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "effort_min": "<optional>", "effort_max": "<optional>", "provider": "<optional quota-axi provider>", "floor": { "scope": "<quota-axi scope>", "min_percent": 50 }, "effort_floor": "<optional, not above effort_max or effort>", "overflow": false, "private_ok": true, "replace_when_unlisted": { "harness": "<adapter>", "model": "<model>", "provider": "<provider>" } }
       ],
       "why": "<optional rationale that helps firstmate choose>"
     }
@@ -1387,6 +1387,8 @@ This section is the single owner of the canonical schema and its per-field seman
 | Profile `harness` | Required in every profile. |
 | Profile `model` and `effort`; rule `why` | Optional. |
 | Profile `overflow` | Optional boolean, default `false`; see "Overflow profiles" below. |
+| Profile `private_ok` | Optional boolean, default `true`; `false` keeps the profile off private work, enforced in code by the [private-material guard](#private-material-guard-configprivate-markers). |
+| Profile `replace_when_unlisted` | Optional, only on an `opencode` profile with a model: the profile the [free-tier canary](#free-tier-canary-replace_when_unlisted) swaps in once that model is no longer listed, with only `harness`, `model`, `provider`, and `effort`. |
 | Profile `effort_floor` | Optional scalar `low`, `medium`, `high`, `xhigh`, or `max`, supported by an effort-capable harness and model and not above the profile's `effort_max`, or `effort` when no upper bound is declared (`xhigh` when both are omitted); see [typed effort resolution](#firstmate-retains-the-dispatch-decision) below. |
 | Profile `effort_min` and `effort_max` | Optional; they need `effort` and widen it into a range, `effort_min <= effort <= effort_max` on `low < medium < high < xhigh < max < ultra`. |
 
@@ -1440,6 +1442,24 @@ Unknown runway alone is not evidence of a shortfall; a known 0% applicable bound
 A scout brief never overflows: investigation, planning, design, and diagnosis deliverables stay on the primary profiles.
 Typed resolution applies this in code and names the held or passed-over profile on its candidate line; firstmate's own intake applies the same rule by hand.
 
+### Free-tier canary (replace_when_unlisted)
+
+A free model can disappear without notice, and every dispatch to it then fails at the first turn.
+An `opencode` profile that declares `replace_when_unlisted` is watched by [`bin/fm-free-model-canary.sh`](../bin/fm-free-model-canary.sh):
+
+```json
+{ "harness": "opencode", "model": "opencode/deepseek-v4.1-flash-free", "provider": "opencode", "private_ok": false,
+  "replace_when_unlisted": { "harness": "pi", "model": "opencode-go/deepseek-v4.1-flash", "provider": "opencode-go" } }
+```
+
+Once a day it lists the provider's models with `opencode models <provider> --refresh`.
+When the watched model is missing from a listing that succeeded and names other models of that provider, it rewrites that profile in place to the replacement, keeps every other key such as `private_ok`, drops `replace_when_unlisted`, and keeps the previous file as `config/crew-dispatch.json.bak-<date>-canary`.
+It then pushes the changed rules to live secondmate homes through `bin/fm-config-push.sh` and raises one `captain notice` line as a `check: free-model-canary` wake for firstmate to relay.
+A listing that fails or names nothing swaps nothing and alerts once until the outcome changes.
+The canary never changes an OpenCode account or plan setting; in particular it never turns on the Go plan's "use balance", so a Go replacement stays inside the subscription allowance.
+A locked session start arms the check in a primary home whenever a profile is watched; a secondmate home inherits the rules and never runs it.
+The script header owns the exact records and exit codes.
+
 **Changing the routing table**
 
 The rules file is the captain's approved table from kind of work to model; the rule match only names the kind of work.
@@ -1454,6 +1474,7 @@ A model reserved for escalation stays out of every `use` array; firstmate dispat
 - A profile's typed-resolution effort is a range: `effort` is its default and `effort_min` and `effort_max` its bounds, with each omitted bound falling back to `effort`, so a bare `effort` is a one-level range.
   With no declared effort, the resolver allows `low` through `xhigh`; firstmate's own intake reads the range as a hint.
 - OpenCode receives the effort as its default `build` agent's `variant`, keyed to the resolved model, inside the `OPENCODE_CONFIG_CONTENT` JSON its launch already writes (the per-model reasoning-effort field of the config schema, verified on opencode 1.18.32); with no model resolved, the effort is recorded in task metadata but omitted from the launch.
+  The same JSON sets `"autoupdate":false` and `"share":"disabled"` on every OpenCode launch, and a crewmate launch also denies the skill tool, whose skill list otherwise costs every turn; the [OpenCode harness reference](../.agents/skills/harness-adapters/references/harness/opencode.md) records the verification.
 - Outside the resolver, firstmate resolves profile arrays through `quota-array-dispatch`; the resolver's selection contract is [below](#typed-dispatch-resolution-env-typesafe_api_key).
 - If no dispatch rule fits, firstmate resolves `default` through the same object-or-array path before falling back to `config/crew-harness`.
 - Except for `ultra`, which refuses unsupported profiles under the native-effort contract above, an effort value the chosen harness does not accept is recorded as `effort=` in task meta for traceability but omitted from the launch flags.
@@ -1511,6 +1532,43 @@ Where the list is enforced:
 - Jev calls that pick a model drop matching options before anything is sent (an option matches by its label; under a harness, provider, or route label (any launch binary such as `pi`, `claude`, `omp`, `cursor-agent`, or `opencode`, or a provider or route name such as `openrouter`) every model id the meaning names counts, so `claude=Claude Opus, not kimi` is removed under a Kimi ban; under any other concrete model-id label, such as `opus`, only a bare model-id meaning counts, so a description that mentions a banned model keeps the option; under any other label the first model id the meaning names counts; a token is a model id only when it carries a model-family token or matches a rule, never for a slash alone) and append a captain model-rules summary to the state: `bin/fm-jev.sh` for any pick or score question whose options name a model or that passes `--models`, `bin/fm-jev-model-proposal.sh` for its candidates, and the dispatch resolver's runoff.
   The summary lists every `never` pattern with its reason followed by the `rules` sentences, is cut to 700 bytes, and still passes each caller's byte cap and privacy screen.
   A `bin/fm-jev.sh` question left with fewer than two options is refused with nothing sent.
+
+## Private-material guard (config/private-markers)
+
+A dispatch profile marked `"private_ok": false` in `config/crew-dispatch.json` is one that must never see private material, such as a free model on a third-party gateway.
+A rule's `when` text cannot guarantee that, because Jev matches it as a judgment; this guard holds it in code instead.
+[`bin/fm-private-guard-lib.sh`](../bin/fm-private-guard-lib.sh) is the one owner of loading and matching.
+
+The optional local, gitignored `config/private-markers` lists what makes a task private:
+
+```text
+# Private clients and people
+Lay Distribution
+data/private
+```
+
+Each non-blank line not beginning with `#` is one literal marker.
+Matching is case-insensitive, and every run of whitespace, `-`, or `_` counts as one space on both sides, so `Lay Distribution` also matches the project `lay-distribution-site`.
+A marker matches anywhere in the checked text, so prefer distinctive markers; standing brief additions from `config/brief-include.md` are part of every brief.
+
+A task is non-private only when the list exists as a readable regular file and no marker matches any of:
+
+- the project name (`--project` for the resolver, the project directory's name for a spawn);
+- the home's names: its directory name and, in a secondmate home, its secondmate id (for a secondmate launch, the secondmate's id and home);
+- the whole brief text.
+
+The guard fails closed: with no list, an unusable list, or an unreadable brief, a `private_ok: false` profile is treated as facing private work.
+Profiles without `"private_ok": false` are unaffected, and an absent list changes nothing for them.
+
+Where the guard is enforced:
+
+- `bin/fm-dispatch-resolve.sh` marks such a profile not eligible, so it is never chosen, ranked, or offered in a runoff; a rule left with no eligible profile falls to the default lane.
+  A fixed policy profile that is such a profile is refused the same way.
+- `bin/fm-spawn.sh` refuses, with exit 1 before any worktree, endpoint, or record exists, a ship, scout, relaunch, or secondmate launch whose model (or, for a model-less profile, harness) matches such a profile, unless the task is proven non-private.
+  A rules file that cannot be read as JSON counts as matching, so it refuses only when the task is not also proven non-private.
+
+The list is read locally and never sent to Jev, a remote model, or a log; a refusal or candidate line names only the matched source and the list line number.
+Like `config/crew-dispatch.json`, it is inherited into secondmate homes, and the routing selftest copies it into its isolated config.
 
 ## Typed dispatch resolution (.env TYPESAFE_API_KEY)
 
@@ -1755,7 +1813,7 @@ The tracked synthetic fixture in [`tests/fixtures/dispatch-selftest/`](../tests/
 A locked `bin/fm-session-start.sh` automatically arms the nightly check whenever `config/dispatch-samples.json` exists.
 When a locked session start finds `config/crew-dispatch.json` but no samples file, it alerts once and records `state/dispatch-selftest/missing-samples.alerted` until the samples return or the rules disappear.
 Repeated session starts preserve the existing check registration, and `bin/fm-dispatch-selftest.sh arm` remains available for manual recovery.
-The check stores the SHA-256 digest of the most recently attempted rules, samples, `bin/fm-dispatch-resolve.sh`, and `bin/fm-backup-judge-lib.sh` in `state/dispatch-selftest/attempted.sha256`, including distinct markers for missing or unreadable inputs.
+The check stores the SHA-256 digest of the most recently attempted rules, samples, `config/private-markers`, `bin/fm-dispatch-resolve.sh`, `bin/fm-backup-judge-lib.sh`, and `bin/fm-private-guard-lib.sh` in `state/dispatch-selftest/attempted.sha256`, including distinct markers for missing or unreadable inputs.
 When any of those inputs changes, the next watcher check starts a live run immediately instead of waiting for the nightly hour, unless a run is already active.
 A direct `run --record` uses the same running marker, so a watcher does not report an overlapping recorded run as stopped.
 A failed run alerts once for that attempt, and unchanged inputs wait for the nightly slot before another run; changed inputs trigger a new immediate attempt.

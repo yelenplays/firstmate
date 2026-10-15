@@ -892,7 +892,7 @@ test_opencode_threads_model_and_effort_variant() {
   # the launch already writes, keyed to the resolved model on the default
   # build agent, never as a launch flag.
   assert_contains "$launch" \
-    "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\"},\"agent\":{\"build\":{\"model\":\"anthropic/claude-sonnet-4-5\",\"variant\":\"high\"}}}' opencode --model 'anthropic/claude-sonnet-4-5' --prompt" \
+    "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\",\"skill\":\"deny\"},\"autoupdate\":false,\"share\":\"disabled\",\"agent\":{\"build\":{\"model\":\"anthropic/claude-sonnet-4-5\",\"variant\":\"high\"}}}' opencode --model 'anthropic/claude-sonnet-4-5' --prompt" \
     "opencode launch did not write the effort as the build agent's variant in its config"
   assert_not_contains "$launch" "--effort" "opencode launch must not pass unsupported --effort"
   assert_not_contains "$launch" "--variant" "opencode launch must not pass run-only --variant"
@@ -912,7 +912,7 @@ test_opencode_without_effort_keeps_launch_config_unchanged() {
   assert_meta_profile "$HOME_DIR/state/$id.meta" opencode anthropic/claude-sonnet-4-5 default
   launch=$(cat "$LAUNCH_LOG")
   assert_contains "$launch" \
-    "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\"}}' opencode --model 'anthropic/claude-sonnet-4-5' --prompt" \
+    "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\",\"skill\":\"deny\"},\"autoupdate\":false,\"share\":\"disabled\"}' opencode --model 'anthropic/claude-sonnet-4-5' --prompt" \
     "opencode launch without effort must keep the permission-only config byte-identical"
   assert_not_contains "$launch" '"variant"' "opencode launch without effort must not write a variant"
   pass "opencode without an effort keeps its launch config unchanged"
@@ -930,7 +930,7 @@ test_opencode_emits_variant_for_openai_family_effort() {
   assert_meta_profile "$HOME_DIR/state/$id.meta" opencode openai/gpt-5.6-sol xhigh
   launch=$(cat "$LAUNCH_LOG")
   assert_contains "$launch" \
-    "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\"},\"agent\":{\"build\":{\"model\":\"openai/gpt-5.6-sol\",\"variant\":\"xhigh\"}}}' opencode --model 'openai/gpt-5.6-sol' --prompt" \
+    "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\",\"skill\":\"deny\"},\"autoupdate\":false,\"share\":\"disabled\",\"agent\":{\"build\":{\"model\":\"openai/gpt-5.6-sol\",\"variant\":\"xhigh\"}}}' opencode --model 'openai/gpt-5.6-sol' --prompt" \
     "opencode launch did not write the openai family effort as the build agent's variant"
   pass "opencode emits the variant for an effort the openai family exposes"
 }
@@ -947,7 +947,7 @@ test_opencode_omits_variant_when_model_family_lacks_effort() {
   assert_meta_profile "$HOME_DIR/state/$id.meta" opencode anthropic/claude-sonnet-4-5 medium
   launch=$(cat "$LAUNCH_LOG")
   assert_contains "$launch" \
-    "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\"}}' opencode --model 'anthropic/claude-sonnet-4-5' --prompt" \
+    "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\",\"skill\":\"deny\"},\"autoupdate\":false,\"share\":\"disabled\"}' opencode --model 'anthropic/claude-sonnet-4-5' --prompt" \
     "opencode must keep the permission-only config when the model family lacks the effort"
   assert_not_contains "$launch" '"variant"' "opencode must omit the variant when the model family lacks the effort"
   pass "opencode omits the variant for an effort outside the model family's list"
@@ -2116,6 +2116,132 @@ test_active_dispatch_profile_does_not_block_secondmate_launch() {
   pass "active crew-dispatch profile does not block secondmate launches"
 }
 
+# A secondmate is a firstmate primary that loads skills, so its opencode
+# launch keeps the skill tool; autoupdate and sharing stay off as for a crew.
+test_opencode_secondmate_keeps_skills() {
+  local rec id sm out status launch
+  id=research-mate-z19
+  rec=$(make_spawn_case opencode-secondmate codex)
+  read_case_record "$rec"
+  sm="$CASE_DIR/secondmate-home"
+  make_seeded_secondmate_home "$sm" "$id"
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$sm" opencode --model opencode/big-pickle --secondmate)
+  status=$?
+  expect_code 0 "$status" "an opencode secondmate launches: $out"
+  launch=$(cat "$LAUNCH_LOG")
+  assert_contains "$launch" \
+    "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\"},\"autoupdate\":false,\"share\":\"disabled\"}' opencode --model 'opencode/big-pickle' --prompt" \
+    "an opencode secondmate launch turns autoupdate and sharing off"
+  assert_not_contains "$launch" '"skill":"deny"' "an opencode secondmate keeps the skill tool"
+  pass "opencode secondmate launch keeps skills with autoupdate and sharing off"
+}
+
+
+# The private-material guard (bin/fm-private-guard-lib.sh): a launch of a
+# profile marked private_ok false is refused before provisioning when the
+# project, the home, or the brief matches config/private-markers, and the
+# refusal names the source and line, never the marker.
+FREE_MODEL=opencode/deepseek-v4.1-flash-free
+enable_private_guard() {  # <home>
+  printf '%s\n' '{"rules":[{"when":"read-only research","use":{"harness":"opencode","model":"'"$FREE_MODEL"'","provider":"opencode","private_ok":false}}],"default":{"harness":"codex","model":"gpt-5"}}' \
+    > "$1/config/crew-dispatch.json"
+  printf '%s\n' '# private clients' 'Lay Distribution' 'MyLINA' > "$1/config/private-markers"
+}
+
+expect_guard_refusal() {  # <label> <id> <source>
+  expect_code 1 "$status" "$1 must refuse the not-for-private launch"
+  assert_contains "$out" "private-material guard refused this launch: $3" "$1 names the matched source and line"
+  assert_not_contains "$out" 'Lay Distribution' "$1 never prints a marker"
+  assert_absent "$HOME_DIR/state/$2.meta" "$1 refuses before any task record exists"
+  [ ! -s "$LAUNCH_LOG" ] || fail "$1 must not launch anything"
+}
+
+test_private_guard_allows_a_non_private_task() {
+  local rec id out status
+  id=private-guard-clear-z20
+  rec=$(make_spawn_case private-guard-clear opencode "$id")
+  read_case_record "$rec"
+  enable_private_guard "$HOME_DIR"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --harness opencode --model "$FREE_MODEL")
+  status=$?
+  expect_code 0 "$status" "a proven non-private task may launch the not-for-private profile: $out"
+  assert_contains "$(cat "$LAUNCH_LOG")" "opencode --model '$FREE_MODEL' --prompt" "the not-for-private profile launched"
+  pass "private guard: a proven non-private task launches the not-for-private profile"
+}
+
+test_private_guard_refuses_a_private_project() {
+  local rec id out status proj wt
+  id=private-guard-project-z21
+  rec=$(make_spawn_case private-guard-project opencode "$id")
+  read_case_record "$rec"
+  enable_private_guard "$HOME_DIR"
+  proj="$CASE_DIR/lay-distribution-site"
+  wt="$CASE_DIR/wt-lay"
+  fm_git_worktree "$proj" "$wt" "wt-lay-$id"
+  out=$(run_ship_spawn "$HOME_DIR" "$wt" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$proj" --harness opencode --model "$FREE_MODEL")
+  status=$?
+  expect_guard_refusal 'a private project' "$id" 'project matches config/private-markers line 2'
+  pass "private guard: a private project is refused at spawn"
+}
+
+test_private_guard_refuses_a_private_home() {
+  local rec id out status
+  id=private-guard-home-z22
+  rec=$(make_spawn_case private-guard-home opencode "$id")
+  read_case_record "$rec"
+  enable_private_guard "$HOME_DIR"
+  printf 'mylina-home\n' > "$HOME_DIR/.fm-secondmate-home"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --harness opencode --model "$FREE_MODEL")
+  status=$?
+  expect_guard_refusal 'a private home' "$id" 'home name matches config/private-markers line 3'
+  pass "private guard: a private home is refused at spawn"
+}
+
+test_private_guard_refuses_a_private_brief() {
+  local rec id out status
+  id=private-guard-brief-z23
+  rec=$(make_spawn_case private-guard-brief opencode)
+  read_case_record "$rec"
+  enable_private_guard "$HOME_DIR"
+  fm_test_spawn_brief "$HOME_DIR" "$id" "Gather competitor prices for the mylina offer."
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --harness opencode --model "$FREE_MODEL")
+  status=$?
+  expect_guard_refusal 'a private brief' "$id" 'brief matches config/private-markers line 3'
+
+  # The same private brief still launches on a private-capable profile.
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --harness codex --model gpt-5)
+  status=$?
+  expect_code 0 "$status" "a private brief still launches on a private-capable profile: $out"
+  pass "private guard: a private brief is refused at spawn, and only for the not-for-private profile"
+}
+
+test_private_guard_fails_closed_without_a_list() {
+  local rec id out status
+  id=private-guard-nolist-z24
+  rec=$(make_spawn_case private-guard-nolist opencode "$id")
+  read_case_record "$rec"
+  enable_private_guard "$HOME_DIR"
+  rm -f "$HOME_DIR/config/private-markers"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --harness opencode --model "$FREE_MODEL")
+  status=$?
+  expect_guard_refusal 'a missing marker list' "$id" 'no config/private-markers list proves the task non-private'
+  pass "private guard: a missing marker list fails closed at spawn"
+}
+
+test_private_guard_refuses_a_private_secondmate() {
+  local rec id out status sm
+  id=mylina-mate
+  rec=$(make_spawn_case private-guard-secondmate codex)
+  read_case_record "$rec"
+  enable_private_guard "$HOME_DIR"
+  sm="$CASE_DIR/secondmate-home"
+  make_seeded_secondmate_home "$sm" "$id"
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$sm" opencode --model "$FREE_MODEL" --secondmate)
+  status=$?
+  expect_guard_refusal 'a private secondmate' "$id" 'home name matches config/private-markers line 3'
+  pass "private guard: a private secondmate home is refused at spawn"
+}
+
 
 # Execute the actual emitted command in a synthetic pane environment: the
 # fake backend records delivery, while real shells exercise the env boundary.
@@ -2742,5 +2868,12 @@ test_keep_ai_trailers_omits_attribution_settings_and_strip_hooks
 test_keep_ai_trailers_reaches_secondmate_crew_launches
 test_claude_secondmate_launch_carries_the_attribution_policy
 test_active_dispatch_profile_does_not_block_secondmate_launch
+test_opencode_secondmate_keeps_skills
+test_private_guard_allows_a_non_private_task
+test_private_guard_refuses_a_private_project
+test_private_guard_refuses_a_private_home
+test_private_guard_refuses_a_private_brief
+test_private_guard_fails_closed_without_a_list
+test_private_guard_refuses_a_private_secondmate
 
 echo "# all fm-spawn-dispatch-profile tests passed"
