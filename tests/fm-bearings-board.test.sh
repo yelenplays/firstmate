@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Behavior tests for bin/fm-bearings-board.sh: fail-closed payload validation,
 # slot-injection round-trip through the built page, bind-before-arm, and
-# idempotent re-arm of the stable board source.
+# idempotent re-arm of the stable board source, deterministic compose, and
+# live refresh.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -324,12 +325,12 @@ test_build_injects_binds_then_arms() {
   assert_present "$board" "build reported success without a board"
 
   # Round-trip: apart from the reconcile choice the build adds to every
-  # decision card, the payload extracted from the built page is the same JSON
-  # document, and the escaped </script> string can no longer terminate the
-  # data block.
+  # decision card and the WIP limit it stamps, the payload extracted from the
+  # built page is the same JSON document, and the escaped </script> string can
+  # no longer terminate the data block.
   extract_payload "$board" | jq -S . > "$home/extracted.json" \
     || fail "the built board does not carry parseable payload JSON"
-  jq -S '.captains_call = [.captains_call[]
+  jq -S 'del(.wip_limit) | .captains_call = [.captains_call[]
       | .options = [.options[] | select(.value != "reconcile")]]' \
     "$home/extracted.json" > "$home/stripped.json"
   jq -S '.captains_call = [.captains_call[]
@@ -769,6 +770,215 @@ test_build_refuses_a_nondecision_reconcile_value() {
   pass "build reserves reconcile across non-decision cards"
 }
 
+# --- part 4: deterministic compose, live refresh, and the WIP limit ---------
+
+write_bearings_snapshot() {  # <path>
+  cat > "$1" <<'EOF'
+{
+  "schema": "fm-bearings.v1",
+  "home": "lab",
+  "generated": "2026-10-15T09:00:00Z",
+  "holds": [
+    {"id": "pick-route", "key": "pick-route", "owner": "(main)", "title": "Pick the launch route",
+     "reason": "choose north or south", "repo": "sample"},
+    {"id": "mate-call", "key": "mate-call", "owner": "frontend", "title": "", "reason": "", "repo": null},
+    {"id": "bad key", "key": "bad key", "owner": "(main)", "title": "Unkeyable", "reason": "x", "repo": null}
+  ],
+  "contributions": {"captain": [
+    {"hold": "pick-route", "owner": "(main)", "url": "https://github.com/example/sample/pull/4"},
+    {"hold": "mate-call", "owner": "(main)", "url": "https://github.com/example/sample/pull/5"}
+  ]},
+  "in_flight": [
+    {"id": "ship-it", "repo": "sample", "name": "Ship it", "state": "working", "doing": "", "kind": "ship"}
+  ],
+  "landed": [
+    {"id": "old-task", "what": "Old work", "owner": "(main)", "artifact": "https://github.com/example/sample/pull/3"},
+    {"id": "local-task", "what": "", "owner": "frontend", "artifact": "local commit"}
+  ],
+  "gates": [
+    {"id": "(main-inventory)", "title": "Main inventory drift", "owner": "(main)", "reason": "2 untracked"},
+    {"id": "ready-task", "title": "Ready work", "owner": "(main)", "blocked_by": "-", "reason": "-",
+     "filed": "2026-10-01"},
+    {"id": "gated-task", "title": "Gated work", "owner": "(main)", "blocked_by": "ship-it", "reason": "after ship",
+     "filed": "yesterday"},
+    {"id": "mate-task", "title": "Mate work", "owner": "frontend", "blocked_by": "", "reason": ""}
+  ],
+  "secondmates": [
+    {"id": "wikilab", "state": "unknown", "doing": ""},
+    {"id": "held-mate", "state": "externally_held", "doing": "paused by captain"},
+    {"id": "busy-mate", "state": "working", "doing": "fine"}
+  ],
+  "omitted": [{"surface": "gates showing 4 of 9"}]
+}
+EOF
+}
+
+test_compose_projects_a_snapshot_deterministically() {
+  local home snap out
+  home=$(make_home compose)
+  snap="$home/snapshot.json"
+  write_bearings_snapshot "$snap"
+  out=$(run_board "$home" compose "$snap") || fail "compose refused a valid bearings snapshot"
+  printf '%s\n' "$out" > "$home/composed.json"
+  run_board "$home" build "$home/composed.json" >/dev/null \
+    || fail "the composed payload did not pass the build validator"
+  jq -e '
+    .schema == "fm-bearings-board.v1" and .home == "lab" and .prs_live == false
+    and ([.captains_call[].key] == ["pick-route", "mate-call"])
+    and (.captains_call[0] | .type == "decision" and .options == [] and .allow_freeform == true
+         and .title == "Pick the launch route" and .about == "choose north or south"
+         and .repo == "sample" and .pr_url == "https://github.com/example/sample/pull/4")
+    and (.captains_call[1] | .title == "mate-call" and .about == "frontend: captain decision pending"
+         and (has("pr_url") | not))
+    and (.underway == [{"id":"ship-it","repo":"sample","name":"Ship it","state":"working",
+                        "doing":"working","kind":"ship"}])
+    and (.landed[0].pr_url == "https://github.com/example/sample/pull/3")
+    and (.landed[1] | .what == "local-task" and (has("pr_url") | not))
+    and ([.charted[] | {id, dispatchable, kind: (.kind // "queued")}] == [
+          {"id":"main-inventory","dispatchable":false,"kind":"warning"},
+          {"id":"ready-task","dispatchable":true,"kind":"queued"},
+          {"id":"gated-task","dispatchable":false,"kind":"queued"},
+          {"id":"mate-task","dispatchable":false,"kind":"queued"},
+          {"id":"secondmate.wikilab","dispatchable":false,"kind":"warning"},
+          {"id":"secondmate.held-mate","dispatchable":false,"kind":"queued"}])
+    and ([.charted[] | select(.id == "gated-task") | .reason, .filed] == ["blocked by ship-it; after ship", null])
+    and ([.charted[] | select(.id == "ready-task") | .filed] == ["2026-10-01"])
+    and ([.charted[] | select(.id == "mate-task") | .reason] == ["frontend home"])
+    and .charted_more == 5
+  ' "$home/composed.json" >/dev/null || fail "compose did not project the snapshot as specified: $out"
+  [ "$(run_board "$home" compose "$snap")" = "$out" ] || fail "compose is not deterministic"
+  printf '{"schema":"fm-fleet.v1"}\n' > "$home/wrong.json"
+  ! run_board "$home" compose "$home/wrong.json" >/dev/null 2>&1 \
+    || fail "compose accepted a document that is not an fm-bearings.v1 snapshot"
+  pass "compose projects a bearings snapshot into a valid board payload deterministically"
+}
+
+test_wip_limit_is_stamped_and_configurable() {
+  local home data board rc
+  home=$(make_home wip-limit)
+  data="$home/payload.json"
+  board="$home/.lavish/bearings-board.html"
+  write_valid_payload "$data"
+  run_board "$home" build "$data" >/dev/null || fail "the default-limit build failed"
+  extract_payload "$board" | jq -e '.wip_limit == 3' >/dev/null \
+    || fail "the board did not carry the default captain WIP limit of 3"
+
+  mkdir -p "$home/config"
+  printf '5\n' > "$home/config/captain-wip-limit"
+  run_board "$home" build "$data" >/dev/null || fail "the configured-limit build failed"
+  extract_payload "$board" | jq -e '.wip_limit == 5' >/dev/null \
+    || fail "the board ignored config/captain-wip-limit"
+
+  FM_CAPTAIN_WIP_LIMIT=2 run_board "$home" build "$data" >/dev/null \
+    || fail "the overridden-limit build failed"
+  extract_payload "$board" | jq -e '.wip_limit == 2' >/dev/null \
+    || fail "FM_CAPTAIN_WIP_LIMIT did not override the configured limit"
+
+  printf 'three\n' > "$home/config/captain-wip-limit"
+  set +e; run_board "$home" build "$data" >/dev/null 2>&1; rc=$?; set -e
+  [ "$rc" -ne 0 ] || fail "a non-numeric captain WIP limit was accepted"
+
+  rm -f "$home/config/captain-wip-limit"
+  write_valid_payload "$data"
+  jq '.wip_limit = 0' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
+  set +e; run_board "$home" build "$data" >/dev/null 2>&1; rc=$?; set -e
+  [ "$rc" -ne 0 ] || fail "a payload carrying a zero WIP limit was accepted"
+  pass "the captain WIP limit defaults to 3, reads config, honors the override, and fails closed"
+}
+
+test_refresh_skips_without_a_live_board() {
+  local home data out
+  home=$(make_home refresh-skip)
+  data="$home/payload.json"
+  out=$(run_board "$home" refresh) || fail "refresh failed with no board"
+  [ "$out" = "skipped: no board has been built" ] || fail "refresh without a board did not skip: $out"
+
+  write_valid_payload "$data"
+  run_board "$home" build "$data" >/dev/null || fail "the refresh-skip build failed"
+  end_session_as_captain "$home"
+  out=$(run_board "$home" refresh) || fail "refresh failed on an ended session"
+  [ "$out" = "skipped: the board Lavish session is not open" ] \
+    || fail "refresh republished a board whose session the captain ended: $out"
+  [ ! -e "$home/lavish-state/user-ended" ] || [ ! -s "$home/lavish-state/open" ] \
+    || fail "refresh reopened a session the captain ended"
+  pass "refresh skips when no board was built or its session is not open"
+}
+
+test_refresh_republishes_live_state_and_drops_answered_calls() {
+  local home data board out today
+  home=$(make_home refresh-live)
+  data="$home/payload.json"
+  board="$home/.lavish/bearings-board.html"
+  today=$(date -u +%Y-%m-%d)
+  cp "$ROOT/.tasks.toml" "$home/.tasks.toml"
+  cat > "$home/data/backlog.md" <<EOF
+## In flight
+
+## Queued
+- [ ] pick-route - Pick the launch route (repo: sample) (kind: captain) (since $today) (hold: choose north or south) (hold-kind: captain)
+  Captain hold set: ${today}T00:00:00Z
+- [ ] next-up - Ready queued work (repo: sample) (kind: ship) (since $today)
+
+## Done
+EOF
+  # The composer authored options for the live hold plus a call that is no
+  # longer open; refresh must carry the first and let the second go.
+  write_valid_payload "$data"
+  jq '.captains_call = [
+        {"key":"pick-route","type":"decision","repo":"sample","title":"Launch route",
+         "options":[{"value":"north","label":"North"},{"value":"south","label":"South"}]},
+        {"key":"gone-call","type":"decision","repo":"sample","title":"No longer open",
+         "options":[{"value":"yes","label":"Yes"}]}
+      ] | .charted = []' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
+  run_board "$home" build "$data" >/dev/null 2>&1 || fail "the refresh-live build failed"
+
+  out=$(run_board "$home" refresh) || fail "the first refresh failed: $out"
+  [ "$out" = "refreshed: $board" ] || fail "the first refresh did not republish: $out"
+  extract_payload "$board" | jq -e '
+    [.captains_call[].key] == ["pick-route"]
+    and ([.captains_call[0].options[].value] == ["north", "south", "reconcile"])
+    and .captains_call[0].title == "Launch route"
+    and ([.charted[] | select(.id == "next-up") | .dispatchable] == [true])
+    and .wip_limit == 3
+  ' >/dev/null || fail "refresh did not carry the authored card over the live fleet state"
+
+  out=$(run_board "$home" refresh) || fail "the second refresh failed: $out"
+  [ "$out" = "unchanged: $board" ] || fail "an unchanged fleet republished the board: $out"
+  out=$(run_board "$home" refresh --if-due) || fail "the not-due refresh failed: $out"
+  [ "$out" = "skipped: not due" ] || fail "refresh --if-due ran with nothing changed: $out"
+
+  # A template upgrade is a change to the published page even when the fleet
+  # is quiet, so it reaches the open board.
+  sed 's|</head>|<!-- upgraded template -->\n</head>|' "$ROOT/.agents/skills/bearings/assets/board-template.html" \
+    > "$home/upgraded-template.html"
+  out=$(FM_BEARINGS_BOARD_TEMPLATE="$home/upgraded-template.html" run_board "$home" refresh) \
+    || fail "the template-upgrade refresh failed: $out"
+  [ "$out" = "refreshed: $board" ] || fail "a template upgrade did not republish the board: $out"
+  grep -qF '<!-- upgraded template -->' "$board" || fail "the republished board is not the upgraded template"
+  out=$(FM_BEARINGS_BOARD_TEMPLATE="$home/upgraded-template.html" run_board "$home" refresh) \
+    || fail "the repeat template refresh failed: $out"
+  [ "$out" = "unchanged: $board" ] || fail "the same template and fleet republished the board: $out"
+
+  printf 'north\n' > "$home/answer.txt"
+  sleep 1
+  (cd "$home" && PATH="$home/fakebin:$PATH" FM_HOME="$home" \
+    FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    "$ROOT/bin/fm-captain-hold.sh" answer pick-route --decision-file "$home/answer.txt") >/dev/null \
+    || fail "could not answer the captain hold"
+  # The change is due, but the floor holds it until the interval has passed
+  # since the last refresh started; a zero floor lets it through now. The
+  # floor is set high so a slow loaded machine cannot outlast it.
+  out=$(FM_BEARINGS_BOARD_MIN_INTERVAL=3600 run_board "$home" refresh --if-due) \
+    || fail "the floored refresh failed: $out"
+  [ "$out" = "skipped: not due" ] || fail "a refresh ran inside the minimum interval: $out"
+  out=$(FM_BEARINGS_BOARD_MIN_INTERVAL=0 run_board "$home" refresh --if-due) \
+    || fail "the due refresh failed: $out"
+  [ "$out" = "refreshed: $board" ] || fail "an answered hold did not make the refresh due: $out"
+  extract_payload "$board" | jq -e '.captains_call == []' >/dev/null \
+    || fail "the answered card stayed on the board after refresh"
+  pass "refresh republishes live fleet state, carries authored cards, and drops answered calls"
+}
+
 test_path_is_stable_and_home_scoped
 test_build_refuses_malformed_payloads_before_touching_the_board
 test_charted_kind_is_optional_and_accepts_both_values
@@ -787,3 +997,7 @@ test_build_fails_when_reconcile_cannot_establish_a_listener
 test_every_decision_card_carries_the_reconcile_choice
 test_build_refuses_a_payload_that_occupies_the_reconcile_value
 test_build_refuses_a_nondecision_reconcile_value
+test_compose_projects_a_snapshot_deterministically
+test_wip_limit_is_stamped_and_configurable
+test_refresh_skips_without_a_live_board
+test_refresh_republishes_live_state_and_drops_answered_calls

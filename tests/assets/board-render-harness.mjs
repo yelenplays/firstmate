@@ -4,7 +4,7 @@
 //
 // Usage: node board-render-harness.mjs <built-board.html>
 // Prints one JSON document:
-//   { stats:[{n,label}], underway:[{title,sub,badges}],
+//   { stats:[{n,label,of,wip,over}], call_sub, underway:[{title,sub,badges}],
 //     charted:[{title,sub,badges,pickable}], empty, more, error }
 import { readFileSync } from "node:fs";
 
@@ -24,9 +24,16 @@ class Node {
     this.type = "";
     this.value = "";
     this.checked = false;
+    const classes = () => this.className.split(/\s+/).filter(Boolean);
     this.classList = {
-      add: (c) => { this.className = (this.className + " " + c).trim(); },
-      contains: (c) => this.className.split(/\s+/).includes(c),
+      add: (c) => { if (!classes().includes(c)) this.className = (this.className + " " + c).trim(); },
+      remove: (c) => { this.className = classes().filter((x) => x !== c).join(" "); },
+      contains: (c) => classes().includes(c),
+      toggle: (c, force) => {
+        const on = force === undefined ? !classes().includes(c) : Boolean(force);
+        if (on) this.classList.add(c); else this.classList.remove(c);
+        return on;
+      },
     };
   }
   get textContent() {
@@ -89,11 +96,24 @@ const badgesOf = (row) =>
     .filter((c) => c.className.includes("fm-badge"))
     .map((c) => ({ tone: c.className.replace(/.*fm-badge--/, "").trim(), text: c.textContent }));
 
+const findDeep = (node, cls) => {
+  for (const c of node.children) {
+    if (c.className.split(/\s+/).includes(cls)) return c;
+    const hit = findDeep(c, cls);
+    if (hit) return hit;
+  }
+  return undefined;
+};
+
 const strip = byId.get("bb-stats") || new Node("div");
 const stats = strip.children.map((t) => ({
-  n: Number(t.children.find((c) => c.className.includes("bb-stat__num"))?.textContent),
-  label: t.children.find((c) => c.className.includes("bb-stat__label"))?.textContent,
+  n: Number(findDeep(t, "bb-stat__num")?.textContent),
+  label: findDeep(t, "bb-stat__label")?.textContent,
+  of: findDeep(t, "bb-stat__of")?.textContent ?? null,
+  wip: findDeep(t, "bb-stat__wip")?.textContent ?? null,
+  over: t.className.split(/\s+/).includes("bb-stat--over"),
 }));
+const callSub = byId.get("bb-call-sub")?.textContent ?? "";
 
 const rowsOf = (container) =>
   container.children
@@ -123,4 +143,4 @@ const empty = ch.children.filter((c) => c.className.includes("bb-empty")).map((c
 const more = ch.children.filter((c) => c.className.includes("bb-morechip")).map((c) => c.textContent);
 
 process.stdout.write(
-  JSON.stringify({ stats, underway, charted, empty, more, error: errorText }) + "\n");
+  JSON.stringify({ stats, call_sub: callSub, underway, charted, empty, more, error: errorText }) + "\n");

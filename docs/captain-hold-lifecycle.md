@@ -310,7 +310,7 @@ No path here closes a captain call without either the captain's words through `a
 
 ## Card hygiene: a landed subject is not a live call
 
-`bin/fm-bearings-board.sh build` cross-checks every `decision` card before it publishes and drops stale subjects rather than trusting the composed inventory alone.
+`bin/fm-bearings-board.sh build` and its automatic `refresh` cross-check every `decision` card before they publish and drop stale subjects rather than trusting the composed inventory alone.
 
 Three checks run, all on exact identity and none on prose:
 

@@ -150,9 +150,22 @@ a { color: inherit; text-decoration: none; }
 .bb-stat__num { font-family: var(--font-mono); font-size: var(--fs-h3); font-weight: 600; line-height: 1; color: var(--text-strong); }
 .bb-stat--call .bb-stat__num { color: var(--rust-600); }
 .bb-stat__label { font-family: var(--font-mono); font-size: var(--fs-2xs); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+/* the captain's WIP limit: the call count reads against it, and a tile over
+   the limit turns solid so it is impossible to miss on a glance */
+.bb-stat__row { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.bb-stat__of { font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 600; color: var(--rust-400); }
+.bb-stat__wip {
+  align-self: flex-start; margin-top: 2px; font-family: var(--font-mono); font-size: var(--fs-2xs); font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase; border-radius: var(--radius-xs); padding: 3px 7px 2px;
+}
+.bb-stat__wip--at { color: var(--gold-600); background: var(--gold-100); border: 1.5px solid var(--gold-300); }
+.bb-stat__wip--over { color: var(--paper-000); background: var(--rust-600); border: 1.5px solid var(--rust-700); }
+.bb-stat--over { background: var(--rust-100); border-color: var(--rust-600); }
 
 .bb-section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.bb-section__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+/* a long subline wraps under its heading instead of running into the next column */
+.bb-section__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.bb-section__head .fm-sign--muted { white-space: normal; line-height: 1.35; min-width: 0; }
 .bb-cols { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 22px; }
 
 /* ---- Captain's Call: one card at a time, dealt off a visible stack ---- */
@@ -272,6 +285,13 @@ a { color: inherit; text-decoration: none; }
 
 .bb-foot { display: flex; justify-content: flex-end; border-top: 1px solid var(--border-default); padding-top: 14px; }
 
+/* side by side, the two sections of a row share one heading row, so a subline
+   that wraps under its heading never pushes one column's card below the other's */
+@media (min-width: 901px) {
+  .bb-cols { row-gap: 12px; }
+  .bb-cols > .bb-section { display: grid; grid-row: span 2; grid-template-rows: subgrid; }
+  .bb-cols > .bb-section > * { align-self: start; }
+}
 @media (max-width: 900px) {
   .bb-cols { grid-template-columns: 1fr; }
 }
@@ -289,6 +309,7 @@ a { color: inherit; text-decoration: none; }
       </span>
       <span class="bb-brand__wm">bearings</span>
     </span>
+    <span class="bb-meta-mono" id="bb-asof"></span>
   </div>
 </header>
 
@@ -456,9 +477,35 @@ __FM_BEARINGS_BOARD_DATA__
   var CHECK_SVG = '<svg class="fm-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
 
   document.getElementById("bb-provenance").textContent = data.schema + " · " + data.generated;
+  var generatedAt = Date.parse(data.generated);
+  document.getElementById("bb-asof").textContent = isNaN(generatedAt) ? "" :
+    "as of " + new Date(generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  /* The board refreshes itself in place, so a reload must not lose what the
+     captain was doing: drafts, queued answers, the dealt card, and dispatch
+     picks live in this tab's session storage, keyed by card. Storage can be
+     unavailable; the board then simply starts fresh on every load. */
+  var STORE_KEY = "fm-bearings-board:" + data.home;
+  var store = {};
+  try { store = JSON.parse(window.sessionStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { store = {}; }
+  function storeMap(name) {
+    if (!store[name] || typeof store[name] !== "object" || Array.isArray(store[name])) store[name] = {};
+    return store[name];
+  }
+  var drafts = storeMap("drafts"), queuedAnswers = storeMap("queued");
+  var liveKeys = {};
+  data.captains_call.forEach(function (item) { liveKeys[item.key] = true; });
+  [drafts, queuedAnswers].forEach(function (m) {
+    Object.keys(m).forEach(function (k) { if (!liveKeys[k]) delete m[k]; });
+  });
+  function saveStore() {
+    try { window.sessionStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* storage unavailable */ }
+  }
 
   /* stat strip */
   var callTotal = data.captains_call.length;
+  var wipLimit = typeof data.wip_limit === "number" && data.wip_limit > 0 ? data.wip_limit : 0;
+  var wipOver = wipLimit ? Math.max(0, callTotal - wipLimit) : 0;
   var stats = [
     { n: callTotal, l: "need you", call: true },
     { n: data.underway.length, l: "underway" },
@@ -467,13 +514,26 @@ __FM_BEARINGS_BOARD_DATA__
   ];
   var strip = document.getElementById("bb-stats");
   stats.forEach(function (s) {
-    var t = el("div", "bb-stat" + (s.call ? " bb-stat--call" : ""));
-    t.appendChild(el("span", "bb-stat__num", String(s.n)));
+    var withLimit = s.call && wipLimit;
+    var t = el("div", "bb-stat" + (s.call ? " bb-stat--call" : "") + (withLimit && wipOver ? " bb-stat--over" : ""));
+    var numRow = el("span", "bb-stat__row");
+    numRow.appendChild(el("span", "bb-stat__num", String(s.n)));
+    if (withLimit) {
+      numRow.appendChild(el("span", "bb-stat__of", "/ " + wipLimit));
+      t.title = "At most " + wipLimit + " things should wait on you at once";
+    }
+    t.appendChild(numRow);
     t.appendChild(el("span", "bb-stat__label", s.l));
+    if (withLimit && wipOver) {
+      t.appendChild(el("span", "bb-stat__wip bb-stat__wip--over", wipOver + " over limit"));
+    } else if (withLimit && callTotal === wipLimit) {
+      t.appendChild(el("span", "bb-stat__wip bb-stat__wip--at", "at limit"));
+    }
     strip.appendChild(t);
   });
   document.getElementById("bb-call-sub").textContent =
-    callTotal ? callTotal + " item" + (callTotal === 1 ? "" : "s") + " wait on you, captain" : "nothing needs you, captain";
+    (callTotal ? callTotal + " item" + (callTotal === 1 ? "" : "s") + " wait on you, captain" : "nothing needs you, captain") +
+    (wipOver ? " · " + wipOver + " over your limit of " + wipLimit : "");
 
   /* Captain's Call deck: every item renders as the same full card */
   var deck = document.getElementById("bb-call");
@@ -522,6 +582,7 @@ __FM_BEARINGS_BOARD_DATA__
       var lab = el("label", "bb-opt");
       var input = document.createElement("input");
       input.type = "radio"; input.name = "answer"; input.value = o.value;
+      if (drafts[item.key] && drafts[item.key].answer === o.value) input.checked = true;
       lab.appendChild(input);
       var body = el("span", "bb-opt__body");
       body.appendChild(el("span", "bb-opt__label", o.label));
@@ -538,6 +599,7 @@ __FM_BEARINGS_BOARD_DATA__
       var ff = document.createElement("input");
       ff.type = "text"; ff.name = "note"; ff.className = "bb-freeform";
       ff.placeholder = item.freeform_hint || "or answer in your own words…";
+      if (drafts[item.key] && typeof drafts[item.key].note === "string") ff.value = drafts[item.key].note;
       form.appendChild(ff);
     }
 
@@ -552,6 +614,15 @@ __FM_BEARINGS_BOARD_DATA__
     answerLimit.setAttribute("role", "alert");
     foot.appendChild(answerLimit);
     form.appendChild(foot);
+
+    function saveDraft() {
+      var fd = new FormData(form);
+      drafts[item.key] = { answer: fd.get("answer") || "", note: fd.get("note") || "" };
+      saveStore();
+    }
+    form.addEventListener("change", saveDraft);
+    form.addEventListener("input", saveDraft);
+    if (queuedAnswers[item.key]) card.classList.add("is-queued");
 
     form.addEventListener("submit", function (ev) {
       ev.preventDefault();
@@ -583,6 +654,8 @@ __FM_BEARINGS_BOARD_DATA__
         );
       }
       card.classList.add("is-queued");
+      queuedAnswers[item.key] = displayAnswer;
+      saveStore();
       /* deal the next card once this one is answered */
       setTimeout(function () { showCard(active < cards.length - 1 ? active + 1 : active); }, 450);
     });
@@ -602,6 +675,7 @@ __FM_BEARINGS_BOARD_DATA__
   function showCard(i) {
     active = Math.max(0, Math.min(cards.length - 1, i));
     cards.forEach(function (c, j) { c.hidden = j !== active; });
+    if (data.captains_call[active]) { store.active = data.captains_call[active].key; saveStore(); }
     var answered = deck.querySelectorAll(".is-queued").length;
     stackCount.textContent = "card " + (active + 1) + " of " + cards.length +
       (answered ? " · " + answered + " answered" : "");
@@ -614,7 +688,13 @@ __FM_BEARINGS_BOARD_DATA__
   if (cards.length) {
     stackPrev.addEventListener("click", function () { showCard(active - 1); });
     stackNext.addEventListener("click", function () { showCard(active + 1); });
-    showCard(0);
+    /* resume on the card the captain was on, else the first unanswered one */
+    var resume = -1;
+    data.captains_call.forEach(function (item, j) { if (item.key === store.active) resume = j; });
+    if (resume < 0) {
+      data.captains_call.some(function (item, j) { if (!queuedAnswers[item.key]) { resume = j; return true; } return false; });
+    }
+    showCard(Math.max(0, resume));
   } else {
     deck.classList.add("bb-call--empty");
     deck.appendChild(el("div", "bb-empty", "Nothing needs your action right now."));
@@ -670,7 +750,9 @@ __FM_BEARINGS_BOARD_DATA__
     return Array.prototype.map.call(ch.querySelectorAll(".bb-pick:checked"), function (c) { return c.value; });
   }
   function refreshBar(limitMessage) {
-    var n = pickedIds().length;
+    store.picks = pickedIds();
+    saveStore();
+    var n = store.picks.length;
     barCount.textContent = limitMessage || (n ? n + " picked for dispatch" : "pick queued work to dispatch");
     barBtn.disabled = !n;
   }
@@ -684,6 +766,7 @@ __FM_BEARINGS_BOARD_DATA__
       anyPickable = true;
       var pick = document.createElement("input");
       pick.type = "checkbox"; pick.className = "bb-pick"; pick.value = t.id;
+      if (Array.isArray(store.picks) && store.picks.indexOf(t.id) >= 0) pick.checked = true;
       pick.setAttribute("aria-label", "Pick " + t.id + " for dispatch");
       pick.addEventListener("change", function () {
         if (pick.checked && utf8ByteLength(pickedIds().join(",")) > 512) {

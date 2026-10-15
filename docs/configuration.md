@@ -148,6 +148,12 @@ If the job is already running, its 30-minute timer is the backstop.
 If no usable label is configured or kickstart fails, the checkout's `deploy/refresh.sh work-landed` hook runs directly with this home as the Deck's Firstmate root.
 Missing or invalid configuration skips the Deck refresh, and both operations are bounded best-effort work that cannot fail teardown or answer.
 
+## Captain WIP limit (config/captain-wip-limit)
+
+The optional one-line `$FM_HOME/config/captain-wip-limit` file sets how many items may wait on the captain at once, as a positive integer; without it the limit is 3.
+The `/bearings lavish` board shows its Captain's Call count against that limit and flags the board when the count is over it; it only displays the limit, never enforces it.
+`bin/fm-bearings-board.sh` owns how the value is read and its `FM_CAPTAIN_WIP_LIMIT` override.
+
 ## Calm preference (config/calm)
 
 The Pi Calm extension and the Claude Code Calm mod share the local, gitignored `config/calm` preference under the effective Firstmate home.

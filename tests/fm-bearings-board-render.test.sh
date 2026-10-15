@@ -266,6 +266,52 @@ test_charted_rows_without_a_filed_date_follow_the_dated_rows_in_payload_order() 
   pass "charted rows with no filed date follow the dated rows in payload order"
 }
 
+# Build a board whose Captain's Call holds <calls> freeform cards against the
+# captain WIP limit <limit>, and return what the renderer produced.
+render_calls() {  # <home> <calls> <limit>
+  local home=$1 data="$1/payload.json"
+  jq -n --argjson calls "$2" '{
+    schema:"fm-bearings-board.v1", home:"render-home", generated:"2026-08-26T00:00Z",
+    prs_live:false,
+    captains_call:[range($calls) | {key:("call-\(.)"), type:"decision", repo:"sample",
+      title:("Call \(.)"), options:[], allow_freeform:true}],
+    underway:[], landed:[], charted:[], charted_more:0}' > "$data"
+  PATH="$home/fakebin:$PATH" FM_HOME="$home" \
+    FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    FM_PROCEVENT_CLAIM_ROOT="$home/procevent-claims" \
+    LAVISH_AXI_STATE_DIR="$home/lavish-state" FM_CAPTAIN_WIP_LIMIT="$3" \
+    "$BOARD" build "$data" >/dev/null || fail "the board did not build"
+  require_listener_reached_poll "$home"
+  node "$HARNESS" "$home/.lavish/bearings-board.html" \
+    || fail "the built board could not be rendered"
+}
+
+test_the_call_count_reads_against_the_wip_limit_and_flags_overflow() {
+  local home out
+  home=$(make_home wip-tile)
+  out=$(render_calls "$home" 2 3)
+  printf '%s' "$out" | jq -e '
+    .error == ""
+    and ([.stats[] | select(.label == "need you")]
+         == [{"n":2,"label":"need you","of":"/ 3","wip":null,"over":false}])
+    and .call_sub == "2 items wait on you, captain"
+  ' >/dev/null || fail "a board under its WIP limit did not read N / limit quietly: $out"
+
+  out=$(render_calls "$home" 3 3)
+  printf '%s' "$out" | jq -e '
+    [.stats[] | select(.label == "need you")]
+      == [{"n":3,"label":"need you","of":"/ 3","wip":"at limit","over":false}]
+  ' >/dev/null || fail "a board at its WIP limit was not marked at limit: $out"
+
+  out=$(render_calls "$home" 5 3)
+  printf '%s' "$out" | jq -e '
+    ([.stats[] | select(.label == "need you")]
+      == [{"n":5,"label":"need you","of":"/ 3","wip":"2 over limit","over":true}])
+    and .call_sub == "5 items wait on you, captain · 2 over your limit of 3"
+  ' >/dev/null || fail "a board over its WIP limit was not flagged: $out"
+  pass "the call count reads against the WIP limit and flags a board over it"
+}
+
 test_an_underway_row_leads_with_the_task_name_and_keeps_its_run_status
 test_an_underway_identifier_label_is_not_replaced_by_run_status
 test_charted_next_reads_newest_filed_first
@@ -275,3 +321,4 @@ test_warnings_are_excluded_from_the_charted_next_count
 test_a_board_of_only_warnings_still_reports_nothing_queued
 test_omitted_warnings_never_count_as_more_queued
 test_an_omitted_kind_keeps_the_existing_queued_rendering
+test_the_call_count_reads_against_the_wip_limit_and_flags_overflow

@@ -9,6 +9,8 @@
 #
 # Usage:
 #   fm-bearings-board.sh build <data.json>
+#   fm-bearings-board.sh compose <bearings-snapshot.json>
+#   fm-bearings-board.sh refresh [--if-due]
 #   fm-bearings-board.sh path
 #
 # build      Validate the payload, drop the Captain's Call cards whose subject
@@ -33,7 +35,53 @@
 #            Every dropped card is named on stderr as a `dropped-landed-card:`
 #            line, so a rebuild states what it removed instead of quietly
 #            shrinking Captain's Call.
+# compose    Print the deterministic fm-bearings-board.v1 payload for one
+#            `fm-bearings-snapshot.sh --json --fields holds` document. No
+#            judgment and no agent-authored copy: every live captain hold
+#            becomes a freeform-answer decision card titled by its task title
+#            (with the hold reason as context and a contribution PR as
+#            pr_url), and Underway, Recently Landed, and Charted Next are
+#            projected row by row. Action-free notices - the main-inventory and
+#            return-catchup gates and an unavailable secondmate home - become
+#            warning rows. Snapshot rows whose id cannot be a payload key are
+#            left out rather than invented.
+# refresh    The automatic path that keeps an open board live with no
+#            conversation turn. It acts only on a board an earlier build
+#            published and whose Lavish session is listed open; otherwise it
+#            prints `skipped: <why>` and exits 0. It gathers a fresh snapshot,
+#            composes it, carries over the cards the last build's agent
+#            authored (a decision or credential card while its key is still an
+#            open call, a merge card while its task is still underway and not
+#            landed - the authored order first, so the composer's ranking
+#            survives), and applies the same landed-card drop and reconcile
+#            choice as build. It republishes the board file only when the
+#            page it would publish differs from the board in anything but
+#            `generated` (so a template upgrade also reaches an open board),
+#            and never when another publication replaced the board while the
+#            snapshot ran. Lavish's own file watcher then
+#            reloads every open review window, so the captain never reloads.
+#            refresh never opens, reopens, binds, or arms anything: build owns
+#            the session and the answer path, and the watcher's ordinary
+#            reconcile repairs a missing listener. Output is one line:
+#            `refreshed: <path>`, `unchanged: <path>`, `superseded: <path>`,
+#            or `skipped: <why>`. Concurrent refreshes collapse into one.
+#            --if-due first returns `skipped: not due` unless the main home's
+#            backlog, a task meta, or a task status log changed since the last
+#            refresh started, or FM_BEARINGS_BOARD_MAX_AGE seconds (default
+#            300) passed, which is how bin/fm-watch.sh calls it on every poll.
+#            Either way it waits until FM_BEARINGS_BOARD_MIN_INTERVAL seconds
+#            (default 60) passed since the last refresh started, so a busy
+#            fleet never runs the snapshot back to back.
+#            FM_BEARINGS_BOARD_SNAPSHOT_TIMEOUT bounds the snapshot (default
+#            300 seconds).
 # path       Print the stable board path for this home.
+#
+# THE CAPTAIN'S WIP LIMIT. Build and refresh both stamp the effective payload
+# with `wip_limit`, the most items that should wait on the captain at once;
+# the board shows its Captain's Call count against it and flags the board when
+# the count is over. The first line of $FM_HOME/config/captain-wip-limit sets
+# it (a positive integer), FM_CAPTAIN_WIP_LIMIT overrides that, and the default
+# is 3. The board only shows the limit; firstmate's conversation enforces it.
 #
 # A LIVE SESSION IS PROVED, NEVER ASSUMED. `lavish-axi <file>` exits 0 even
 # when it refuses to reopen a session the captain ended from the browser,
@@ -92,7 +140,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-$FM_ROOT}"
 
+STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
+DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
+CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+
 TEMPLATE="${FM_BEARINGS_BOARD_TEMPLATE:-$SCRIPT_DIR/../.agents/skills/bearings/assets/board-template.html}"
+DEFAULT_WIP_LIMIT=3
 PLACEHOLDER='__FM_BEARINGS_BOARD_DATA__'
 BOARD_SCHEMA=fm-bearings-board.v1
 
@@ -110,6 +163,8 @@ fail() {
 }
 
 board_path() { printf '%s/.lavish/bearings-board.html\n' "$FM_HOME"; }
+# The last agent-composed payload build accepted; refresh carries its cards.
+authored_path() { printf '%s/bearings-board.authored.json\n' "$STATE"; }
 
 validate_payload() {  # <data.json>
   jq -e --arg schema "$BOARD_SCHEMA" '
@@ -197,6 +252,8 @@ validate_payload() {  # <data.json>
       or ((.charted_more | type == "number") and (.charted_more >= 0) and (.charted_more | floor == .)))
     and ((has("charted_warning_more") | not)
       or ((.charted_warning_more | type == "number") and (.charted_warning_more >= 0) and (.charted_warning_more | floor == .)))
+    and ((has("wip_limit") | not)
+      or ((.wip_limit | type == "number") and (.wip_limit >= 1) and (.wip_limit | floor == .)))
     and ([.captains_call[] | call_item] | all)
     and ([.underway[] | underway_item] | all)
     and ([.landed[] | landed_item] | all)
@@ -294,7 +351,8 @@ decision_card_is_stale() {  # <task-id> <landed-0-or-1>
 # card offers reconcile" a property of the board rather than of the composer's
 # memory; the validator prevents duplicate decision options.
 effective_payload() {  # <data.json> <dest.json>
-  local data=$1 dest=$2 landed_keys key reason drop='' tmp landed=0
+  local data=$1 dest=$2 landed_keys key reason drop='' tmp landed=0 limit
+  limit=$(wip_limit) || return 1
   landed_keys=$(jq -c '
     def version_parts: split(".") | map(tonumber);
     . as $payload
@@ -322,8 +380,9 @@ effective_payload() {  # <data.json> <dest.json>
     drop=$drop$key$'\n'
   done < <(jq -r '.captains_call[]? | select(.type == "decision") | .key' "$data")
   tmp=$(printf '%s' "$drop" | jq -R -s 'split("\n") | map(select(length > 0))') || return 1
-  jq --argjson dropped "$tmp" '
-    .captains_call = [
+  jq --argjson dropped "$tmp" --argjson limit "$limit" '
+    .wip_limit = $limit
+    | .captains_call = [
       .captains_call[]
       | . as $card
       | select($card.type != "decision" or (($dropped | index($card.key)) == null))
@@ -335,6 +394,305 @@ effective_payload() {  # <data.json> <dest.json>
         }]
         else . end
     ]' "$data" > "$dest" || return 1
+}
+
+wip_limit() {
+  local value=${FM_CAPTAIN_WIP_LIMIT-}
+  if [ -z "$value" ] && [ -f "$CONFIG/captain-wip-limit" ]; then
+    IFS= read -r value < "$CONFIG/captain-wip-limit" || true
+    value=${value//[[:space:]]/}
+  fi
+  case "$value" in
+    '') value=$DEFAULT_WIP_LIMIT ;;
+    *[!0-9]*|0*) printf 'fm-bearings-board: captain WIP limit is not a positive integer: %s\n' "$value" >&2; return 1 ;;
+  esac
+  printf '%s\n' "$value"
+}
+
+# Deterministic snapshot-to-payload projection. Everything here is structure
+# copied from fm-bearings.v1; nothing is ranked, summarized, or invented.
+compose_payload() {  # <bearings-snapshot.json>
+  jq -e --arg schema "$BOARD_SCHEMA" '
+    def is_slug: type == "string" and test("^[A-Za-z0-9._-]{1,128}$");
+    def has_text: type == "string" and test("[^[:space:]]");
+    def text_or($fallback): if has_text then . else $fallback end;
+    def https_url:
+      type == "string"
+      and test("^https://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::[0-9]{1,5})?(?:[/?#][^[:space:]]*)?$");
+    def filed_or_null:
+      if type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2}:[0-9]{2}:[0-9]{2}Z)?$")
+      then . else null end;
+    def owner_note($owner): if $owner == "(main)" or $owner == null then "" else $owner + ": " end;
+    def omitted_count($surface):
+      [(.omitted // [])[] | .surface
+        | capture("^" + $surface + " showing (?<shown>[0-9]+) of (?<total>[0-9]+)")?
+        | (.total | tonumber) - (.shown | tonumber)] | add // 0;
+    . as $s
+    | ([($s.contributions.captain // [])[] | select((.hold | is_slug) and (.url | https_url))]) as $contrib
+    | {
+        schema: $schema,
+        home: ($s.home | text_or("firstmate")),
+        generated: ($s.generated | text_or("unknown")),
+        prs_live: ($s | has("candidate_prs")),
+        captains_call: [
+          ($s.holds // [])[]
+          | select(.key | is_slug)
+          | . as $h
+          | ([$contrib[] | select(.hold == $h.key and .owner == $h.owner) | .url][0]) as $pr
+          | {key, type: "decision", repo: (.repo // null),
+             title: (.title | text_or($h.key)),
+             options: [], allow_freeform: true,
+             freeform_hint: "Answer in your own words"}
+          + (if (.reason | has_text) or $h.owner != "(main)"
+             then {about: (owner_note($h.owner) + (.reason | text_or("captain decision pending")))}
+             else {} end)
+          + (if $pr != null then {pr_url: $pr} else {} end)
+        ],
+        underway: [
+          ($s.in_flight // [])[]
+          | select(.id | has_text)
+          | . as $r
+          | {id, repo: (.repo // null), name: (.name | text_or($r.id)),
+             state: (.state | text_or("unknown")),
+             doing: (.doing | text_or($r.state | text_or("in progress"))),
+             kind: (.kind | text_or("task"))}
+        ],
+        landed: [
+          ($s.landed // [])[]
+          | select(.id | has_text)
+          | . as $r
+          | {id, repo: null, what: (.what | text_or($r.id)), owner: (.owner | text_or("(main)"))}
+            + (if .artifact | https_url then {pr_url: .artifact} else {} end)
+        ],
+        charted: (
+          [($s.gates // [])[]
+           | . as $g
+           | if .id == "(main-inventory)" or .id == "(return-catchup)" then
+               {id: (.id | gsub("[()]"; "")), repo: null, title: (.title | text_or($g.id)),
+                reason: (.reason | text_or("")), dispatchable: false, kind: "warning", filed: null}
+             elif (.id | is_slug) then
+               ([(if (.blocked_by | has_text) and .blocked_by != "-" then "blocked by " + .blocked_by else empty end),
+                 (if (.reason | has_text) and .reason != "-" then .reason else empty end)] | join("; ")) as $why
+               | {id, repo: null, title: (.title | text_or($g.id)),
+                  reason: (if .owner == "(main)" or .owner == null then $why
+                           elif $why == "" then .owner + " home"
+                           else owner_note(.owner) + $why end),
+                  dispatchable: (.owner == "(main)" and $why == ""),
+                  filed: (.filed | filed_or_null)}
+             else empty end]
+          + [($s.secondmates // [])[]
+             | select(.id | is_slug)
+             | if .state == "unknown" then
+                 {id: ("secondmate." + .id), repo: null,
+                  title: ("Secondmate " + .id + " state unavailable"),
+                  reason: (.doing | text_or("current home state unavailable")),
+                  dispatchable: false, kind: "warning", filed: null}
+               elif .state == "externally_held" then
+                 {id: ("secondmate." + .id), repo: null,
+                  title: ("Secondmate " + .id + " held externally"),
+                  reason: (.doing | text_or("held")),
+                  dispatchable: false, filed: null}
+               else empty end]),
+        charted_more: ($s | omitted_count("gates"))
+      }
+  ' "$1"
+}
+
+# Carry the last build's agent-authored Captain's Call cards onto a composed
+# payload: a call card while its key is still a composed open call, a merge
+# card while its task is still underway and not landed. Authored order first.
+carry_authored() {  # <composed.json> <authored.json>
+  jq --slurpfile authored "$2" '
+    . as $c
+    | ([$c.captains_call[].key]) as $open
+    | ([$c.underway[].id]) as $live
+    | ([$c.landed[].id]) as $landed
+    | ([($authored[0].captains_call // [])[]
+        | select(
+            if .type == "merge" then
+              (.key | ltrimstr("merge.")) as $task
+              | ($live | index($task)) != null and ($landed | index($task)) == null
+            else (.key as $k | $open | index($k)) != null end)]) as $carried
+    | ([$carried[].key]) as $carried_keys
+    | .captains_call = $carried + [$c.captains_call[] | select(.key as $k | $carried_keys | index($k) | not)]
+  ' "$1"
+}
+
+# The payload a published board carries, read back from the page itself.
+published_payload() {  # <board>
+  sed -n '/<script id="bearings-data" type="application\/json">/,/<\/script>/p' "$1" \
+    | sed '1d;$d'
+}
+
+board_cksum() {  # <board>
+  if [ -f "$1" ]; then cksum < "$1"; else printf 'absent\n'; fi
+}
+
+# Render <effective.json> into a fresh template copy at <out>, refusing a page
+# whose injected payload would not read back.
+render_board_page() {  # <effective.json> <out>
+  local json
+  json=$(jq -c . "$1") || { printf 'fm-bearings-board: cannot compact the board data\n' >&2; return 1; }
+  # `<` never appears in JSON syntax outside strings, so escaping every
+  # occurrence keeps the payload valid JSON while making </script> inert.
+  json=${json//</\\u003c}
+  if ! BOARD_JSON="$json" perl -pe "s/^\\Q$PLACEHOLDER\\E\$/\$ENV{BOARD_JSON}/" "$TEMPLATE" > "$2"; then
+    printf 'fm-bearings-board: cannot inject the board data\n' >&2
+    return 1
+  fi
+  if grep -qxF "$PLACEHOLDER" "$2"; then
+    printf 'fm-bearings-board: the board data slot survived injection\n' >&2
+    return 1
+  fi
+  # Round-trip the injected payload back out of the built page, so a board that
+  # would fail to parse in the browser fails here instead.
+  if ! published_payload "$2" | jq -e --arg schema "$BOARD_SCHEMA" '.schema == $schema' >/dev/null 2>&1; then
+    printf 'fm-bearings-board: the built board does not carry a readable %s payload\n' "$BOARD_SCHEMA" >&2
+    return 1
+  fi
+}
+
+# Render <effective.json> and atomically replace the board. With
+# <expect-cksum>, return 3 instead when the board changed since the caller read
+# it, so an older snapshot never overwrites a newer publication.
+publish_board() {  # <effective.json> [<expect-cksum>]
+  local effective=$1 expect=${2-} board tmp
+  board=$(board_path)
+  (umask 077; mkdir -p "${board%/*}") || { printf 'fm-bearings-board: cannot create %s\n' "${board%/*}" >&2; return 1; }
+  tmp=$(umask 077; mktemp "${board%/*}/.board.XXXXXX") \
+    || { printf 'fm-bearings-board: cannot stage the board\n' >&2; return 1; }
+  render_board_page "$effective" "$tmp" || { rm -f -- "$tmp"; return 1; }
+  if [ -n "$expect" ] && [ "$(board_cksum "$board")" != "$expect" ]; then
+    rm -f -- "$tmp"
+    return 3
+  fi
+  if ! { chmod 0600 "$tmp" && mv -f -- "$tmp" "$board"; }; then
+    rm -f -- "$tmp"
+    printf 'fm-bearings-board: cannot publish the board\n' >&2
+    return 1
+  fi
+}
+
+load_refresh_libs() {
+  # shellcheck source=bin/fm-wake-lib.sh
+  # shellcheck disable=SC1091
+  . "$SCRIPT_DIR/fm-wake-lib.sh"
+  # shellcheck source=bin/fm-timeout-lib.sh
+  # shellcheck disable=SC1091
+  . "$SCRIPT_DIR/fm-timeout-lib.sh"
+}
+
+refresh_due() {  # <stamp>
+  local stamp=$1 max_age=${FM_BEARINGS_BOARD_MAX_AGE:-300} min_interval=${FM_BEARINGS_BOARD_MIN_INTERVAL:-60}
+  local now mtime age changed
+  [ -f "$stamp" ] || return 0
+  case "$max_age" in ''|*[!0-9]*) max_age=300 ;; esac
+  case "$min_interval" in ''|*[!0-9]*) min_interval=60 ;; esac
+  now=$(date +%s)
+  if [ "$(uname)" = Darwin ]; then
+    mtime=$(/usr/bin/stat -f %m "$stamp" 2>/dev/null || echo 0)
+  else
+    mtime=$(stat -c %Y "$stamp" 2>/dev/null || echo 0)
+  fi
+  age=$((now - mtime))
+  # A busy fleet changes some status log nearly every poll; the floor keeps the
+  # snapshot from running back to back on the captain's machine.
+  [ "$age" -ge "$min_interval" ] || return 1
+  [ "$age" -lt "$max_age" ] || return 0
+  [ ! "$DATA/backlog.md" -nt "$stamp" ] || return 0
+  changed=$(find "$STATE" -maxdepth 1 -type f \( -name '*.meta' -o -name '*.status' \) \
+    -newer "$stamp" -print 2>/dev/null | head -n 1)
+  [ -n "$changed" ]
+}
+
+command_compose() {
+  local snapshot=${1-}
+  [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+  command -v jq >/dev/null 2>&1 || fail "jq is required"
+  [ -f "$snapshot" ] || fail "bearings snapshot does not exist: $snapshot"
+  jq -e '.schema == "fm-bearings.v1"' "$snapshot" >/dev/null 2>&1 \
+    || fail "not an fm-bearings.v1 snapshot: $snapshot"
+  compose_payload "$snapshot" || fail "cannot compose the board payload from $snapshot"
+}
+
+REFRESH_LOCK_HELD=0
+REFRESH_TMP=''
+# shellcheck disable=SC2329 # Invoked by the EXIT trap command_refresh installs.
+refresh_cleanup() {
+  [ -z "$REFRESH_TMP" ] || rm -rf -- "$REFRESH_TMP"
+  [ "$REFRESH_LOCK_HELD" = 0 ] || fm_lock_release "$STATE/.bearings-board-refresh.lock" || true
+}
+
+command_refresh() {
+  local if_due=0 board stamp before composed effective timeout current rc=0
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --if-due) if_due=1 ;;
+      *) usage >&2; exit 2 ;;
+    esac
+    shift
+  done
+  board=$(board_path)
+  stamp="$STATE/.bearings-board-refresh.stamp"
+  [ -f "$board" ] || { printf 'skipped: no board has been built\n'; return 0; }
+  if [ "$if_due" = 1 ] && ! refresh_due "$stamp"; then
+    printf 'skipped: not due\n'
+    return 0
+  fi
+  command -v jq >/dev/null 2>&1 || fail "jq is required"
+  [ -f "$TEMPLATE" ] && [ ! -L "$TEMPLATE" ] || fail "board template is missing: $TEMPLATE"
+  load_refresh_libs
+  trap refresh_cleanup EXIT
+  fm_lock_try_acquire "$STATE/.bearings-board-refresh.lock" \
+    || { printf 'skipped: a refresh is already running\n'; return 0; }
+  REFRESH_LOCK_HELD=1
+  # Stamped before the snapshot, so a change landing while it runs is newer
+  # than the stamp and makes the next poll due again.
+  touch "$stamp" || fail "cannot stamp the refresh: $stamp"
+  if ! command -v lavish-axi >/dev/null 2>&1 \
+    || ! lavish_session_listed_open "$(board_realpath "$board")"; then
+    printf 'skipped: the board Lavish session is not open\n'
+    return 0
+  fi
+  before=$(board_cksum "$board")
+  REFRESH_TMP=$(umask 077; mktemp -d "${TMPDIR:-/tmp}/fm-bearings-refresh.XXXXXX") \
+    || fail "cannot stage the refresh"
+  timeout=${FM_BEARINGS_BOARD_SNAPSHOT_TIMEOUT:-300}
+  # Every live call must reach the board, or its WIP count would undercount.
+  if ! FM_BEARINGS_DECISIONS=${FM_BEARINGS_BOARD_DECISIONS:-500} \
+    fm_run_timed "$timeout" "$SCRIPT_DIR/fm-bearings-snapshot.sh" --json --fields holds \
+    > "$REFRESH_TMP/snapshot.json" 2> "$REFRESH_TMP/snapshot.err"; then
+    fail "cannot gather the bearings snapshot: $(tail -n 3 "$REFRESH_TMP/snapshot.err" | tr '\n' ' ')"
+  fi
+  composed="$REFRESH_TMP/composed.json"
+  compose_payload "$REFRESH_TMP/snapshot.json" > "$composed" \
+    || fail "cannot compose the board payload"
+  if [ -f "$(authored_path)" ] && jq empty "$(authored_path)" 2>/dev/null; then
+    carry_authored "$composed" "$(authored_path)" > "$REFRESH_TMP/carried.json" \
+      || fail "cannot carry the authored cards"
+    composed="$REFRESH_TMP/carried.json"
+  fi
+  validate_payload "$composed" || fail "the composed payload does not satisfy $BOARD_SCHEMA"
+  effective="$REFRESH_TMP/effective.json"
+  effective_payload "$composed" "$effective" \
+    || fail "cannot reconcile the board payload against landed work"
+  # Unchanged means the page this refresh would publish, rendered with the
+  # published `generated`, is byte-identical to the board, so a template
+  # upgrade still reaches an open board even when the fleet is quiet.
+  current=$(published_payload "$board" | jq -r '.generated // empty' 2>/dev/null || true)
+  if [ -n "$current" ] \
+    && jq --arg generated "$current" '.generated = $generated' "$effective" > "$REFRESH_TMP/same.json" \
+    && render_board_page "$REFRESH_TMP/same.json" "$REFRESH_TMP/same.html" 2>/dev/null \
+    && cmp -s "$REFRESH_TMP/same.html" "$board"; then
+    printf 'unchanged: %s\n' "$board"
+    return 0
+  fi
+  publish_board "$effective" "$before" || rc=$?
+  case "$rc" in
+    0) printf 'refreshed: %s\n' "$board" ;;
+    3) printf 'superseded: %s\n' "$board" ;;
+    *) fail "cannot publish the refreshed board" ;;
+  esac
 }
 
 # The OWNER column bin/fm-procevent.sh already publishes: live, none,
@@ -358,7 +716,7 @@ await_source_owner() {  # <source-id>
 }
 
 command_build() {
-  local data=${1-} board json tmp sid extracted effective owner version pre_reopen_owner
+  local data=${1-} board sid effective owner version pre_reopen_owner
   [ "$#" -eq 1 ] || { usage >&2; exit 2; }
   command -v jq >/dev/null 2>&1 || fail "jq is required"
   [ -f "$data" ] || fail "board data does not exist: $data"
@@ -374,35 +732,15 @@ command_build() {
     rm -f -- "$effective"
     fail "cannot reconcile the board payload against landed work"
   fi
-  json=$(jq -c . "$effective") || { rm -f -- "$effective"; fail "cannot compact the board data"; }
-  rm -f -- "$effective"
-  # `<` never appears in JSON syntax outside strings, so escaping every
-  # occurrence keeps the payload valid JSON while making </script> inert.
-  json=${json//</\\u003c}
-
-  board=$(board_path)
-  (umask 077; mkdir -p "${board%/*}") || fail "cannot create ${board%/*}"
-  tmp=$(umask 077; mktemp "${board%/*}/.board.XXXXXX") || fail "cannot stage the board"
-  if ! BOARD_JSON="$json" perl -pe "s/^\\Q$PLACEHOLDER\\E\$/\$ENV{BOARD_JSON}/" "$TEMPLATE" > "$tmp"; then
-    rm -f -- "$tmp"
-    fail "cannot inject the board data"
-  fi
-  if grep -qxF "$PLACEHOLDER" "$tmp"; then
-    rm -f -- "$tmp"
-    fail "the board data slot survived injection"
-  fi
-  # Round-trip the injected payload back out of the built page, so a board that
-  # would fail to parse in the browser fails here instead.
-  extracted=$(sed -n '/<script id="bearings-data" type="application\/json">/,/<\/script>/p' "$tmp" \
-    | sed '1d;$d')
-  if ! printf '%s\n' "$extracted" | jq -e --arg schema "$BOARD_SCHEMA" '.schema == $schema' >/dev/null 2>&1; then
-    rm -f -- "$tmp"
-    fail "the built board does not carry a readable $BOARD_SCHEMA payload"
-  fi
-  if ! { chmod 0600 "$tmp" && mv -f -- "$tmp" "$board"; }; then
-    rm -f -- "$tmp"
+  if ! publish_board "$effective"; then
+    rm -f -- "$effective"
     fail "cannot publish the board"
   fi
+  rm -f -- "$effective"
+  board=$(board_path)
+  # refresh carries this agent-authored copy's cards while their calls stay open.
+  (umask 077; mkdir -p "$STATE" && cp -f -- "$data" "$(authored_path)") \
+    || fail "cannot record the authored payload for refresh"
   printf 'board: %s\n' "$board"
 
   command -v lavish-axi >/dev/null 2>&1 || fail "lavish-axi is not installed"
@@ -453,6 +791,8 @@ command_build() {
 
 case "${1-}" in
   build) shift; command_build "$@" ;;
+  compose) shift; command_compose "$@" ;;
+  refresh) shift; command_refresh "$@" ;;
   path) board_path ;;
   -h|--help|help) usage ;;
   *) usage >&2; exit 2 ;;

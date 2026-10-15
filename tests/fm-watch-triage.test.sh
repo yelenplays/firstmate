@@ -8352,6 +8352,41 @@ if [ -n "${FM_TEST_ONLY:-}" ]; then
   exit 0
 fi
 
+
+# A built /bearings lavish board stays live without a conversation turn: every
+# poll offers it a detached `fm-bearings-board.sh refresh --if-due`, and a home
+# with no board is never touched. The refresh stamps its state before it checks
+# the Lavish session, so the stamp proves the watcher made the offer.
+test_watcher_offers_a_built_bearings_board_a_refresh() {
+  local dir state home fakebin pid i
+  dir=$(make_case bearings-board-refresh); state="$dir/state"; fakebin="$dir/fakebin"
+  home="$dir/home"
+  mkdir -p "$home/data" "$home/.lavish"
+  # An empty session listing: the board's session is not open, so the refresh
+  # stops after its stamp and never reaches the real Lavish server.
+  printf '#!/usr/bin/env bash\nprintf "sessions[0]{file,status,url,pending_prompts}:\\n"\n' \
+    > "$fakebin/lavish-axi"
+  chmod +x "$fakebin/lavish-axi"
+  watch_bg "$state" "$fakebin" "$dir/out" env "FM_HOME=$home"; pid=$!
+  wait_poll_cycle "$state" "$pid" || fail "the watcher exited before a full poll cycle"
+  [ ! -e "$state/.bearings-board-refresh.stamp" ] \
+    || fail "the watcher offered a refresh to a home with no built board"
+  printf '<html></html>\n' > "$home/.lavish/bearings-board.html"
+  i=0
+  while [ "$i" -lt 300 ] && [ ! -e "$state/.bearings-board-refresh.stamp" ]; do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 0.1
+    i=$((i + 1))
+  done
+  [ -e "$state/.bearings-board-refresh.stamp" ] \
+    || fail "the watcher never offered the built board a refresh"
+  wait_poll_cycle "$state" "$pid" || fail "the watcher exited after offering the refresh"
+  [ ! -s "$state/.bearings-board-refresh.err" ] \
+    || fail "the offered refresh failed: $(cat "$state/.bearings-board-refresh.err")"
+  reap "$pid"
+  pass "the watcher offers a built bearings board a refresh every poll and leaves other homes alone"
+}
+
 test_status_span_actionable_classifier
 test_status_span_survives_a_later_routine_append
 test_status_span_respects_decision_closure
@@ -8516,3 +8551,4 @@ test_unowned_legacy_residue_never_adopted
 test_watch_orphan_state_sweep
 test_stale_escalation_holds_while_recorded_step_advances
 test_stale_escalation_holds_without_progress_marker
+test_watcher_offers_a_built_bearings_board_a_refresh
