@@ -194,13 +194,6 @@ def claude_eq(usage):
         + write_1h * CLAUDE_EQ_WEIGHTS["cacheWrite1h"]))
 
 
-def window_bucket():
-    """A trailing-window bucket. Windows sum per-day rows, which keep only
-    tokens, Claude equivalents and cost, so the token-type breakdown is absent
-    rather than reported as zero."""
-    return {"tokens": 0, "claudeEqTokens": 0, "cost": 0.0, "pricedTokens": 0, "unpricedTokens": 0}
-
-
 def bucket_add(bucket, usage, claude=False):
     """Add one usage record; returns (raw tokens, Claude equivalents)."""
     tokens = usage.get("totalTokens")
@@ -701,7 +694,7 @@ def build_rollup(files, tasks, sessions_root, now=None):
             if day_ts is None or day_ts + 86400 <= cutoff:
                 continue
             fam = family_of(provider, model)
-            fam_bucket = week["byFamily"].setdefault(fam, window_bucket())
+            fam_bucket = week["byFamily"].setdefault(fam, empty_bucket())
             fam_bucket["tokens"] += day_row["tokens"]
             fam_bucket["claudeEqTokens"] += day_row["claudeEqTokens"]
             fam_bucket["cost"] += day_row["cost"]
@@ -886,7 +879,7 @@ def cmd_week(args, state_dir, sessions_root):
             if day_ts is None or day_ts + 86400 <= cutoff:
                 continue
             fam = family_of(provider, model)
-            bucket = families.setdefault(fam, window_bucket())
+            bucket = families.setdefault(fam, empty_bucket())
             bucket["tokens"] += day_row["tokens"]
             bucket["claudeEqTokens"] += day_row["claudeEqTokens"]
             bucket["cost"] += day_row["cost"]

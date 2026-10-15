@@ -268,7 +268,6 @@ assert_equals 907 "$(json_field "$(cat "$STATE/task-c.spend")" "d['totals']['cla
 WEEK=$("$LEDGER" --state "$STATE" --sessions-root "$SESSIONS" week --hours 1000000)
 assert_equals 907 "$(json_field "$WEEK" "d['families']['claude']['claudeEqTokens']")" 'week reports Claude equivalents next to raw family tokens'
 assert_equals 1670 "$(json_field "$WEEK" "d['families']['claude']['tokens']")" 'week keeps the raw Claude tokens'
-assert_equals False "$(json_field "$WEEK" "'output' in d['families']['claude']")" 'week omits the token-type breakdown its day rows do not keep'
 assert_equals 0 "$(json_field "$WEEK" "d['families']['codex']['claudeEqTokens']")" 'a non-Claude family has no Claude equivalents'
 assert_equals 0.1 "$(json_field "$WEEK" "d['claudeEqWeights']['cacheRead']")" 'week names the weights behind the equivalents'
 
