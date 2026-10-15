@@ -1036,7 +1036,7 @@ fm_remote_job_stop_worker_tree() { # <pid>
   [ "$pid" -gt 1 ] || return 1
   pgid=$(fm_remote_job_worker_process_group "$pid" 2>/dev/null || true)
   if [ -n "$pgid" ]; then kill -TERM -- "-$pgid" 2>/dev/null || true; else kill -TERM "$pid" 2>/dev/null || true; fi
-  while { [ -n "$pgid" ] && kill -0 -- "-$pgid" 2>/dev/null || [ -z "$pgid" ] && kill -0 "$pid" 2>/dev/null; } \
+  while { if [ -n "$pgid" ]; then kill -0 -- "-$pgid" 2>/dev/null; else kill -0 "$pid" 2>/dev/null; fi; } \
     && [ "$i" -lt 50 ]; do
     i=$((i + 1))
     sleep 0.1
@@ -1048,7 +1048,7 @@ fm_remote_job_stop_worker_tree() { # <pid>
   fi
   if [ -n "$pgid" ]; then kill -KILL -- "-$pgid" 2>/dev/null || true; else kill -KILL "$pid" 2>/dev/null || true; fi
   i=0
-  while { [ -n "$pgid" ] && kill -0 -- "-$pgid" 2>/dev/null || [ -z "$pgid" ] && kill -0 "$pid" 2>/dev/null; } \
+  while { if [ -n "$pgid" ]; then kill -0 -- "-$pgid" 2>/dev/null; else kill -0 "$pid" 2>/dev/null; fi; } \
     && [ "$i" -lt 50 ]; do
     i=$((i + 1))
     sleep 0.1

@@ -144,6 +144,7 @@ FM_JEV_TYPESAFE_PATH='/v1/systemone'
 FM_JEV_TYPESAFE_URL="${FM_JEV_TYPESAFE_BASE}${FM_JEV_TYPESAFE_PATH}"
 FM_JEV_OPENROUTER_URL='https://openrouter.ai/api/alpha/decisions'
 # Pinned versioned builds; changing either is a deliberate, re-probed change.
+# jev-1.14.0 was probed and not adopted; see docs/verification/dispatch-resolve.md#jev-114-pin-probe.
 FM_JEV_TYPESAFE_MODEL='jev-1.13.0'
 FM_JEV_OPENROUTER_MODEL='typesafe/jev-1.13-20260917'
 FM_JEV_CONFIDENCE_FLOOR=0.7

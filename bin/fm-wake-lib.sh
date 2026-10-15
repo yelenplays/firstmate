@@ -1624,6 +1624,168 @@ fm_treehouse_pool_slot() {  # <project-dir> <worktree>
   [ "$project_common" = "$slot_common" ]
 }
 
+# Per-clone Treehouse pool identity.
+# Treehouse v2 names a pool <root>/.treehouse/<basename>-<hash>, where <hash> is
+# the first six hex digits of the SHA-256 of the clone's origin URL (its
+# top-level path when it has no origin) and <root> comes from a repo-local
+# treehouse.toml, else ~/.config/treehouse/config.toml, else $HOME, expanded
+# from the environment and resolved from the clone when relative (verified
+# against the Treehouse v2.0.1 source, internal/config/config.go, on
+# 2026-10-15). Two Firstmate homes that clone one remote into projects/<name>
+# therefore resolve the same pool, and whichever clone created it owns every
+# slot in it: Treehouse hands any free slot to any clone, so the other home's
+# spawn lands in a worktree of the first home's clone and is refused at trust
+# registration. fm_treehouse_pool_foreign_slot detects that before allocation,
+# and fm_treehouse_pool_pin gives the latecomer clone a pool of its own by
+# writing a repo-local treehouse.toml whose root is unique to that clone's
+# physical path, excluded through the clone's info/exclude so the clone stays
+# clean. The pin is the only thing written: no slot of the shared pool is read
+# for allocation, reset, moved, returned, or pruned, and slots the clone took
+# from the shared pool before it was pinned still return by path.
+
+FM_TREEHOUSE_POOL_PIN_MARKER='# firstmate per-clone Treehouse pool pin; bin/fm-wake-lib.sh fm_treehouse_pool_pin owns this file, do not edit.'
+
+_fm_treehouse_sha256() {  # <string>
+  local digest
+  if command -v shasum >/dev/null 2>&1; then
+    digest=$(printf '%s' "$1" | shasum -a 256 2>/dev/null | awk '{print $1}')
+  elif command -v sha256sum >/dev/null 2>&1; then
+    digest=$(printf '%s' "$1" | sha256sum 2>/dev/null | awk '{print $1}')
+  fi
+  case "${digest:-}" in
+    ''|*[!0-9a-f]*) return 1 ;;
+  esac
+  printf '%s\n' "$digest"
+}
+
+# Print the max_trees and the pool root (the directory that holds every
+# per-repository pool) Treehouse's config.Load and ResolvePoolRoot give the
+# clone at <top>, one per line. A repo-local treehouse.toml replaces the user
+# config, which must still parse; a root expands $NAME and ${NAME} from the
+# environment and a relative one resolves from <top>. Fails on a configuration
+# it cannot read as Treehouse would, including any other use of $, so a caller
+# never acts on a guessed pool.
+_fm_treehouse_config() {  # <top>
+  local top=$1
+  case "${HOME:-}" in /*) ;; *) return 1 ;; esac
+  if [ ! -e "$top/treehouse.toml" ] && [ ! -e "$HOME/.config/treehouse/config.toml" ]; then
+    printf '16\n%s/.treehouse\n' "$HOME"
+    return 0
+  fi
+  # shellcheck disable=SC2016
+  python3 -I -c '
+import os, re, sys, tomllib
+top, home = sys.argv[1], sys.argv[2]
+def load(path):
+    with open(path, "rb") as f:
+        data = tomllib.load(f)
+    trees, root = data.get("max_trees", 16), data.get("root", "")
+    if type(trees) is not int or not isinstance(root, str):
+        sys.exit(1)
+    return trees, root
+repo = os.path.join(top, "treehouse.toml")
+user = os.path.join(home, ".config", "treehouse", "config.toml")
+trees, root = load(repo) if os.path.exists(repo) else (16, "")
+if os.path.exists(user):
+    user_config = load(user)
+    if not os.path.exists(repo):
+        trees, root = user_config
+if root == "":
+    pool_root = os.path.join(home, ".treehouse")
+else:
+    name = r"[A-Za-z_][A-Za-z0-9_]*"
+    if not re.fullmatch(r"(?:[^$]|\$\{%s\}|\$%s)*" % (name, name), root):
+        sys.exit(1)
+    root = re.sub(r"\$\{(%s)\}|\$(%s)" % (name, name), lambda m: os.environ.get(m.group(1) or m.group(2), ""), root)
+    pool_root = os.path.join(top, root, ".treehouse")
+pool_root = os.path.normpath(pool_root)
+if "\n" in pool_root:
+    sys.exit(1)
+print(trees)
+print(pool_root)
+' "$top" "$HOME" 2>/dev/null
+}
+
+# Print the pool directory `treehouse get` would use for <project-dir>.
+fm_treehouse_pool_dir() {  # <project-dir>
+  local project=$1 top config pool_root key hash
+  [ -d "$project" ] || return 1
+  top=$(git -C "$project" rev-parse --show-toplevel 2>/dev/null) || return 1
+  [ -n "$top" ] || return 1
+  config=$(_fm_treehouse_config "$top") || return 1
+  pool_root=${config#*$'\n'}
+  key=$(git -C "$top" remote get-url origin 2>/dev/null) || key=$top
+  hash=$(_fm_treehouse_sha256 "$key") || return 1
+  printf '%s/%s-%s\n' "$pool_root" "$(basename "$top")" "${hash:0:6}"
+}
+
+# Print the first slot of <project-dir>'s resolved pool that is a worktree of
+# a different repository, and succeed only when one exists. Exits 1 when the
+# pool is absent or every slot belongs to the project, and 2 when the pool
+# cannot be resolved.
+fm_treehouse_pool_foreign_slot() {  # <project-dir>
+  local project=$1 pool name project_common slot slot_common
+  pool=$(fm_treehouse_pool_dir "$project") || return 2
+  project_common=$(git -C "$project" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 2
+  project_common=$(CDPATH='' cd -- "$project_common" 2>/dev/null && pwd -P) || return 2
+  [ -f "$pool/treehouse-state.json" ] && [ ! -L "$pool/treehouse-state.json" ] || return 1
+  name=${pool##*/}
+  name=${name%-*}
+  for slot in "$pool"/*/"$name"; do
+    [ -d "$slot" ] || continue
+    slot_common=$(git -C "$slot" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || continue
+    slot_common=$(CDPATH='' cd -- "$slot_common" 2>/dev/null && pwd -P) || continue
+    if [ "$slot_common" != "$project_common" ]; then
+      printf '%s\n' "$slot"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Pin <project-dir>'s clone to a Treehouse pool of its own. Succeeds when the
+# pin is written or already present; fails, writing nothing, when the clone
+# carries a treehouse.toml Firstmate did not write (the repository's or the
+# operator's own configuration governs that clone) or when the pin's root
+# cannot be spelled safely or the clone's Treehouse configuration cannot be
+# read. The pin keeps the max_trees Treehouse gave the clone before it.
+fm_treehouse_pool_pin() {  # <project-dir>
+  local project=$1 top top_real file hash root config max_trees exclude tmp
+  [ -d "$project" ] || return 1
+  top=$(git -C "$project" rev-parse --show-toplevel 2>/dev/null) || return 1
+  file="$top/treehouse.toml"
+  if [ -e "$file" ] || [ -L "$file" ]; then
+    [ -f "$file" ] && [ ! -L "$file" ] || return 1
+    [ "$(head -n 1 "$file" 2>/dev/null)" = "$FM_TREEHOUSE_POOL_PIN_MARKER" ]
+    return
+  fi
+  if git -C "$top" ls-files --error-unmatch -- treehouse.toml >/dev/null 2>&1; then
+    return 1
+  fi
+  top_real=$(CDPATH='' cd -- "$top" 2>/dev/null && pwd -P) || return 1
+  hash=$(_fm_treehouse_sha256 "$top_real") || return 1
+  case "${HOME:-}" in /*) ;; *) return 1 ;; esac
+  root="$HOME/.treehouse/fm-clones/${hash:0:12}"
+  case "$root" in *'"'*|*\\*|*'$'*|*$'\n'*) return 1 ;; esac
+  config=$(_fm_treehouse_config "$top") || return 1
+  max_trees=${config%%$'\n'*}
+  exclude=$(git -C "$top" rev-parse --path-format=absolute --git-path info/exclude 2>/dev/null) || return 1
+  mkdir -p "$(dirname "$exclude")" || return 1
+  if ! grep -qxF '/treehouse.toml' "$exclude" 2>/dev/null; then
+    if [ -s "$exclude" ] && [ -n "$(tail -c 1 "$exclude")" ]; then
+      printf '\n' >> "$exclude" || return 1
+    fi
+    printf '/treehouse.toml\n' >> "$exclude" || return 1
+  fi
+  tmp="$file.tmp.${BASHPID:-$$}"
+  {
+    printf '%s\n' "$FM_TREEHOUSE_POOL_PIN_MARKER"
+    printf 'max_trees = %s\n' "$max_trees"
+    printf 'root = "%s"\n' "$root"
+  } > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 1; }
+  mv -f "$tmp" "$file" 2>/dev/null || { rm -f "$tmp"; return 1; }
+}
+
 # Slot-owner claim: which task a Treehouse pool slot currently belongs to.
 #
 # Treehouse can record ownership durably: `treehouse get --lease --lease-holder`

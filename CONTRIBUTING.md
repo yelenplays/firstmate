@@ -56,7 +56,7 @@ Coordinate any workflow rollback with its required-check names so a retired chec
 ## Repo conventions
 
 - This repo is a template for running a firstmate orchestrator agent.
-  [`AGENTS.md`](AGENTS.md) owns the supervisor contract, role boundary, and bundled firstmate skill triggers; `CLAUDE.md` is a real `@AGENTS.md` pointer to it, and `.claude/skills` is a symlink to `.agents/skills`.
+  [`AGENTS.md`](AGENTS.md) owns the supervisor contract, role boundary, and bundled firstmate skill triggers; [`CLAUDE.md`](CLAUDE.md) imports it and routes repository engineering-skill configuration, while `.claude/skills` is a symlink to `.agents/skills`.
 - Only shared material is tracked: `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `.tasks.toml`, `.github/workflows/`, `bin/`, `.agents/skills/`, and `skills/`.
   `.agents/skills/` holds agent-loaded skills that assume a live firstmate home and carry `metadata.internal: true` so installers such as [skills.sh](https://skills.sh) hide them from discovery; `skills/` holds standalone, installer-facing public skills with no firstmate dependency (see the README's "Two-tier skill layout").
   `.claude/mods/` holds Claude Code mods, plugins whose behavior lives in one function-hooks module; each is reached through an `.agents/skills/<mod>` symlink because Claude Code adopts project plugins only from `.claude/skills`, carries no `SKILL.md` so every other harness's skill loader ignores that entry, and imports only files physically inside its own folder because Claude Code refuses anything else.
@@ -118,10 +118,6 @@ bin/fm-test-run.sh --all   # deliberate complete regression (optional local full
 bin/fm-test-isolation-proof.sh --list   # proven portable parallel candidate set
 bin/fm-test-isolation-proof.sh --jobs 4 --json /tmp/fm-isolation-proof.json   # re-run the portable candidate proof
 bin/fm-test-isolation-proof.sh --pool watcher-wake-lock --jobs 4   # re-run an admitted family proof
-[ ! -L CLAUDE.md ] && cmp -s CLAUDE.md - <<'EOF'
-<!-- Points Claude at AGENTS.md via import; edit AGENTS.md, not this file. -->
-@AGENTS.md
-EOF
 [ "$(readlink .claude/skills)" = "../.agents/skills" ]
 tmp=$(mktemp -d) && printf 'done: smoke\n' > "$tmp/smoke.status" && FM_STATE_OVERRIDE="$tmp" FM_SIGNAL_GRACE=1 FM_POLL=1 FM_HEARTBEAT=999999 bin/fm-watch-arm.sh  # watcher re-arm smoke test (prints arm status, then an actionable signal)
 ```
@@ -132,6 +128,7 @@ Its header and `--help` own the flags, family labels, lanes, and changed-file ma
 Portable shard balance evidence lives in `docs/fm-test-portable-shards.md`.
 Family selection is the ordinary local path; `--all` is deliberate full regression only.
 CI owns broad regression across required portable parallel shards, the portable serial lane's separate-runner shards, the Herdr lane, lint, invariants, the coverage guard, and stock macOS Bash compatibility in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+That workflow's `Repo invariants` job owns the exact required `CLAUDE.md` import prefix; do not duplicate its bytes here.
 Pushing a new head to a pull request cancels that pull request's still-running CI so only the current head is validated; pushes to `main` are never cancelled, and the workflow owns that contract and its rationale.
 A fork can set the repository variable `FM_CI_SKIP_PUSH` to `1` to skip the push run of `CI`, and `FM_CI_SKIP_MACOS` to `1` to skip the stock macOS Bash job, without a tracked edit that drifts from upstream.
 Each skip is a job-level condition, so a skipped job reports success rather than leaving the pull request pending, and with neither variable set every job runs on upstream and on every fork exactly as before.

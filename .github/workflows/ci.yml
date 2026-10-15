@@ -572,9 +572,9 @@ jobs:
           tmp=$(mktemp)
           trap 'rm -f "$tmp"' EXIT
           printf '%s\n' \
-            '<!-- Points Claude at AGENTS.md via import; edit AGENTS.md, not this file. -->' \
+            '<!-- Supervisor instructions live in AGENTS.md; repository skill configuration follows the import. -->' \
             '@AGENTS.md' >"$tmp"
-          cmp -s CLAUDE.md "$tmp" || { echo "::error::CLAUDE.md must be the canonical @AGENTS.md pointer"; exit 1; }
+          head -n 2 CLAUDE.md | cmp -s - "$tmp" || { echo "::error::CLAUDE.md must begin with the canonical @AGENTS.md import"; exit 1; }
           [ "$(readlink .claude/skills)" = "../.agents/skills" ] || { echo "::error::.claude/skills must be a symlink to ../.agents/skills"; exit 1; }
       - name: Personal fleet paths must not be tracked
         run: |
