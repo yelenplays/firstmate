@@ -359,10 +359,13 @@ declared_skills() {  # -> "<skill>\t<relative dir>" per declared entry
 # second time, because the declared skill always wins resolution.
 undeclared_skills() {  # -> "<skill>\t<relative dir>" per undeclared entry
   [ -d "$INSTALL_PATH/skills" ] || return 0
-  # One awk pass over the tree. Values travel through the environment because
-  # awk -v would rewrite backslash escapes in a path.
-  find "$INSTALL_PATH/skills" -mindepth 2 -maxdepth 3 \( -type f -o -type l \) -name SKILL.md -print \
-    | FM_SKILL_ROOT="$INSTALL_PATH/" FM_SKILL_DECLARED="$(declared_skills)" awk '
+  # Directory links are candidates even when dangling; never traverse them to
+  # discover SKILL.md. Resolution rejects them before reading any skill bytes.
+  # Values travel through the environment because awk -v rewrites backslashes.
+  {
+    find "$INSTALL_PATH/skills" -mindepth 2 -maxdepth 3 \( -type f -o -type l \) -name SKILL.md -print
+    find "$INSTALL_PATH/skills" -mindepth 1 -maxdepth 2 -type l ! -name SKILL.md -print
+  } | FM_SKILL_ROOT="$INSTALL_PATH/" FM_SKILL_DECLARED="$(declared_skills)" awk '
         BEGIN {
           root = ENVIRON["FM_SKILL_ROOT"]
           n = split(ENVIRON["FM_SKILL_DECLARED"], rows, "\n")

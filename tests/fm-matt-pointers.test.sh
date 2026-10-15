@@ -574,23 +574,32 @@ test_prune_keeps_pointers_of_unresolved_skills() {
   pass "--prune keeps, and --check flags, pointers of offered skills that do not resolve"
 }
 
-# Symlinked entry files still identify offered skills, even if their targets
-# disappear; they must be unresolved, not silently omitted or pruned as retired.
+# Symlinked entry files and skill directories still identify offered skills,
+# even if their targets disappear; they must be unresolved, not pruned as retired.
 test_symlinked_undeclared_skill_stays_unresolved() {
   local root dest out kind
-  for kind in linked dangling; do
+  for kind in directory-linked directory-dangling linked dangling; do
     root="$TMP_ROOT/symlinked-entry-$kind"
     build_plugin "$root"
     dest="$root/skills"
     run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null \
       || fail "pointer install failed against a healthy plugin"
 
-    mv "$root/install/skills/in-progress/loop-me/SKILL.md" "$root/loop-me.md"
-    ln -s "$root/loop-me.md" "$root/install/skills/in-progress/loop-me/SKILL.md"
-    [ "$kind" != dangling ] || rm "$root/loop-me.md"
+    case "$kind" in
+      directory-*)
+        mv "$root/install/skills/in-progress/loop-me" "$root/loop-me"
+        ln -s "$root/loop-me" "$root/install/skills/in-progress/loop-me"
+        [ "$kind" != directory-dangling ] || rm -rf "$root/loop-me"
+        ;;
+      *)
+        mv "$root/install/skills/in-progress/loop-me/SKILL.md" "$root/loop-me.md"
+        ln -s "$root/loop-me.md" "$root/install/skills/in-progress/loop-me/SKILL.md"
+        [ "$kind" != dangling ] || rm "$root/loop-me.md"
+        ;;
+    esac
 
     out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
-    expect_code 1 $? "--check passed with a $kind symlinked undeclared SKILL.md"
+    expect_code 1 $? "--check passed with a $kind symlinked undeclared skill"
     assert_contains "$out" "UNRESOLVED: $dest/matt-loop-me" \
       "--check did not flag the $kind symlinked skill's pointer"
     assert_not_contains "$out" "RETIRED: $dest/matt-loop-me" \
@@ -600,16 +609,20 @@ test_symlinked_undeclared_skill_stays_unresolved() {
     out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" loop-me --check 2>"$root/err")
     expect_code 6 $? "loader did not reject the $kind symlink as an integrity failure"
     [ -z "$out" ] || fail "loader printed output for a symlinked skill"
-    assert_grep 'symlink' "$root/err" "loader did not diagnose the symlink"
+    if [ "$kind" = directory-dangling ]; then
+      assert_grep 'directory is missing' "$root/err" "loader did not diagnose the dangling directory"
+    else
+      assert_grep 'symlink' "$root/err" "loader did not diagnose the symlink"
+    fi
 
     out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" --list 2>"$root/err")
-    expect_code 7 $? "--list silently omitted a $kind symlinked undeclared SKILL.md"
+    expect_code 7 $? "--list silently omitted a $kind symlinked undeclared skill"
     [ "$out" = "$(printf 'grilling\ntdd\nwayfinder')" ] \
       || fail "--list did not retain exactly the resolvable skills: $out"
     assert_grep 'leaves out loop-me' "$root/err" "--list did not name the unresolved skill"
 
     out=$(run_pointers "$root/config" --dest "$root/fresh-skills" --date 2026-07-30 2>&1)
-    expect_code 1 $? "install passed with a $kind symlinked undeclared SKILL.md"
+    expect_code 1 $? "install passed with a $kind symlinked undeclared skill"
     assert_contains "$out" 'UNRESOLVED: upstream skill loop-me is offered' \
       "install did not name the unresolved upstream skill"
     assert_absent "$root/fresh-skills/matt-loop-me" "install generated an unsafe pointer"
@@ -623,14 +636,14 @@ test_symlinked_undeclared_skill_stays_unresolved() {
 
     cp "$dest/matt-loop-me/SKILL.md" "$root/pointer-before.md"
     out=$(run_pointers "$root/config" --prune --dest "$dest" 2>&1)
-    expect_code 1 $? "--prune passed with a $kind symlinked undeclared SKILL.md"
+    expect_code 1 $? "--prune passed with a $kind symlinked undeclared skill"
     assert_contains "$out" "UNRESOLVED: kept $dest/matt-loop-me" \
       "prune did not name the unresolved pointer it kept"
     assert_present "$dest/matt-loop-me/.firstmate-pointer" "prune removed the pointer marker"
     cmp -s "$root/pointer-before.md" "$dest/matt-loop-me/SKILL.md" \
       || fail "prune removed or changed the unresolved pointer"
   done
-  pass "symlinked undeclared entry files are unresolved and their pointers survive pruning"
+  pass "symlinked undeclared skills are unresolved and their pointers survive pruning"
 }
 
 # --- the bridge must be internally coherent ---------------------------------
