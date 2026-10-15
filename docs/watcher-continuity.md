@@ -221,6 +221,11 @@ The away return brief treats a still-open handling episode as a wake in progress
 
 An unacknowledged downtime generation is announced at most once.
 The first recovery marks that generation announced, and later empty-queue arms leave it announced until durable work or interrupted handling makes recovery pending again.
+A recovery that finds the queue empty after a clean close presents nothing: the close was an actionable wake, a take-over, a stop signal, or a stalled holder replaced, and the new watcher's own poll re-detects every durable change.
+That holds even while decisions stay open: a new or changed decision arrives as a status line the new watcher classifies itself, and every drain still counts the open ones.
+`bin/fm-watch.sh` acknowledges that generation in place under the queue and marker locks (`fm_recovery_transition <marker> retire-quiet`), logs `absorbed rearm-resurface` to the triage log, and keeps supervising without a `check: rearm-resurface` wake.
+A recovery still presents once when the queue holds any row, when the marker it consumed was missing or malformed, when the previous watcher faulted (a nonzero exit that is not a signal, or a dead holder whose cleanup never ran), or when it closed during a handling episode whose turn may have been interrupted.
+The closing watcher records those last two cases in `state/.watcher-down.present` before it publishes downtime, and the presenting watcher removes it.
 A non-successor watcher start checks the durable queue and recovery marker under their locks.
 If an announced-but-unacknowledged episode has an empty queue, the arm leaves that generation announced, making repeated empty-queue arms idempotent while a long-poll source is merely alive.
 If a durable row arrived after the announcement, the arm opens a fresh pending downtime generation so buried work still resurfaces once.
@@ -250,7 +255,7 @@ It is a non-fatal result that names its own remedy: re-drain, then acknowledge t
 
 The acknowledgement retires the marker only when no rows remain after sequence-bound consumption.
 A concurrently appended wake has a higher sequence, remains queued, and keeps the episode pending for presentation.
-Consequently, a watcher close during handling republishes the same generation as pending and forces one recovery turn even when no queue row remains, while the outstanding generation-bound acknowledgement stays valid.
+Consequently, a watcher close during handling republishes the same generation as pending and forces one recovery turn even when no queue row remains, while the outstanding generation-bound acknowledgement stays valid (see [Announcement](#announcement) for how that close is told apart from a clean one).
 An acknowledged episode does not freeze the generation, because the next downtime after it opens an episode of its own.
 
 ## Per-actor acknowledgement
@@ -446,12 +451,13 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 
 - Durable queue replay.
 - Real remote parent-replies ingestion into the authoritative status log.
-- Decision-only OPEN DECISIONS recovery.
+- Decision-only OPEN DECISIONS recovery after a watcher died without its cleanup, and none after a clean close.
 - Interrupted handling replay.
 - Generation-bound acknowledgement.
 - A persistent live successor after recovery.
 - An idle live Lavish source that stays quiet until its real result wakes promptly.
 - An append that reopens an announced empty recovery.
+- A clean close with an empty queue that retires its recovery quietly, while a faulted close or a close during handling still presents once.
 - A watcher close inside the handling window that must leave the printed acknowledgement valid.
 - A re-arm whose recovery cycle is slowed after confirmation and must still surface rather than read as a watcher that stayed live.
 - The self-healing moved-generation acknowledgement that consumes its handled rows and names its remedy.

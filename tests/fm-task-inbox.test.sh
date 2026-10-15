@@ -950,6 +950,48 @@ test_watcher_busy_budget_resets_on_ring_and_ack() {
   pass "watcher: delivery and acknowledgement reset the durable busy budget"
 }
 
+# The 2026-10-14 retro: lay's secondmate was escalated stuck-busy three times
+# while it was visibly mid-turn on exactly the steered message - a record is
+# acknowledged only after it is acted on, so a long turn on it looked like two
+# busy-deferred polls. A delivered doorbell holds the busy budget for the turn
+# bound; a turn that outlives it with no completed turn or progress escalates.
+test_watcher_holds_busy_turn_on_delivered_message() {
+  local dir check rec
+  dir=$(busy_case busy-delivered)
+  rec="$dir/state/t1.inbox/001.msg"
+  busy_steer_check "$dir" "$(idle_capture "$dir")"
+  grep -q 'Firstmate instruction waiting' "$dir/send.log" || fail "idle pane did not ring"
+  for check in 1 2 3 4; do
+    busy_steer_check "$dir"
+    [ ! -s "$dir/state/.wake-queue" ] \
+      || fail "a busy turn on a delivered message escalated on check $check:"$'\n'"$(cat "$dir/state/.wake-queue")"
+  done
+  # Past the turn bound with no completed turn or progress, the budget applies.
+  printf '001.msg\t%s\n' "$(( $(date +%s) - 7200 ))" > "$dir/state/t1.inbox/.delivered"
+  busy_steer_check "$dir"
+  [ ! -s "$dir/state/.wake-queue" ] || fail "an overdue delivered turn escalated before its busy budget"
+  busy_steer_check "$dir"
+  grep -q 'stuck-busy after 2 consecutive busy-deferred due doorbells; its doorbell was delivered' "$dir/state/.wake-queue" \
+    || fail "a delivered turn past the bound did not escalate stuck-busy:"$'\n'"$(cat "$dir/state/.wake-queue" 2>/dev/null)"
+  [ "$(grep -c '^' "$dir/send.log")" = 1 ] || fail "a busy pane was typed into"
+  [ -f "$rec" ] || fail "the busy hold lost the steer"
+  pass "watcher: a busy turn on a delivered message is held for the turn bound, then escalates stuck-busy"
+}
+
+test_watcher_completed_turn_renews_the_delivered_hold() {
+  local dir check
+  dir=$(busy_case busy-delivered-turn)
+  busy_steer_check "$dir" "$(idle_capture "$dir")"
+  printf '001.msg\t%s\n' "$(( $(date +%s) - 7200 ))" > "$dir/state/t1.inbox/.delivered"
+  : > "$dir/state/t1.turn-ended"
+  for check in 1 2 3; do
+    busy_steer_check "$dir"
+    [ ! -s "$dir/state/.wake-queue" ] \
+      || fail "a busy worker with a fresh completed turn escalated on check $check"
+  done
+  pass "watcher: a completed turn after delivery renews the busy hold"
+}
+
 test_watcher_busy_bookkeeping_failure_surfaces() {
   local dir
   dir=$(busy_case busy-unwritable)
@@ -1431,3 +1473,5 @@ test_watcher_retry_keeps_a_newer_mark
 test_watcher_escalates_once_after_budget
 test_watcher_dead_pane_escalates_once_without_ringing
 test_watcher_dead_pane_ignores_stale_busy_state
+test_watcher_holds_busy_turn_on_delivered_message
+test_watcher_completed_turn_renews_the_delivered_hold

@@ -29,6 +29,7 @@
 #                              (the session and the away daemon)
 #   <task>.inbox/.ring-state   watcher re-ring ladder: "<msg>\t<count>\t<epoch>"
 #   <task>.inbox/.busy-state   consecutive busy deferrals: "<msg>\t<count>"
+#   <task>.inbox/.delivered    last doorbell that reached the pane: "<msg>\t<epoch>"
 #   <task>.inbox/.escalated    oldest-message name already surfaced as stale,
 #                              so later polls suppress another escalation
 #   <task>.inbox/.retry-ring   name of a fire-and-forget record still owed its
@@ -56,7 +57,12 @@
 # caller owns the busy and recovery-grade endpoint checks: due actions deferred
 # by a busy pane consume a separate durable consecutive-poll budget,
 # FM_TASK_INBOX_BUSY_MAX. At that bound the same escalation path surfaces a
-# stuck-busy reason without typing. A non-busy due check or acknowledgement resets
+# stuck-busy reason without typing. A busy pane whose doorbell for this record
+# demonstrably reached it (fm_task_inbox_record_delivered, written by every
+# ring that returned 0, the enqueue ring in bin/fm-send.sh included) is the
+# worker in the turn that processes the message - the record is acknowledged
+# only after it is acted on - so the caller holds that budget while the turn is
+# inside its own busy-turn bound and spends it only once the turn outlives it. A non-busy due check or acknowledgement resets
 # this budget. Fire-and-forget retries remain outside escalation. A positively
 # dead or missing endpoint skips delivery and the ladder and escalates directly.
 # This library owns the schedule, durable budgets, and escalation marker.
@@ -145,6 +151,25 @@ fm_task_inbox_record_busy() {  # <state-dir> <task-id> <record-path>
     return 1
   fi
   printf '%s' "$count"
+}
+
+# Record that a doorbell for <record> reached the pane (its ring returned 0).
+# Best-effort for callers: a lost write only forfeits the busy hold above.
+fm_task_inbox_record_delivered() {  # <state-dir> <task-id> <record-path>
+  local dir
+  dir=$(fm_task_inbox_dir "$1" "$2")
+  [ -d "$dir" ] || return 0
+  { printf '%s\t%s\n' "${3##*/}" "$(date +%s)" > "$dir/.delivered"; } 2>/dev/null
+}
+
+# The epoch a doorbell for <record> last reached the pane; fails when none did.
+fm_task_inbox_delivered_at() {  # <state-dir> <task-id> <record-path>
+  local dir base at
+  dir=$(fm_task_inbox_dir "$1" "$2")
+  { IFS=$(printf '\t') read -r base at < "$dir/.delivered"; } 2>/dev/null || return 1
+  [ "$base" = "${3##*/}" ] || return 1
+  case "$at" in ''|*[!0-9]*) return 1 ;; esac
+  printf '%s' "$at"
 }
 
 fm_task_inbox_clear_busy() {  # <state-dir> <task-id>
@@ -460,7 +485,7 @@ fm_task_inbox_due_action() {  # <state-dir> <task-id>
   local dir oldest base now grace max ladder rec_base count last
   dir=$(fm_task_inbox_dir "$1" "$2")
   if ! oldest=$(fm_task_inbox_oldest_unhandled "$1" "$2"); then
-    rm -f "$dir/.ring-state" "$dir/.escalated" "$dir/.busy-state" 2>/dev/null || true
+    rm -f "$dir/.ring-state" "$dir/.escalated" "$dir/.busy-state" "$dir/.delivered" 2>/dev/null || true
     # The one retry ring exists only while config/wait-no-turns is present.
     # Absent, a mark is left untouched and the inbox stays quiet, as before.
     if [ -e "${FM_CONFIG_OVERRIDE:-${FM_HOME:-}/config}/wait-no-turns" ]; then

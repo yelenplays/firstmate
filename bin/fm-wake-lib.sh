@@ -877,6 +877,9 @@ _fm_recovery_marker_ack() {
 _fm_recovery_marker_arm_check() {
   local marker=$1 lock line quarantine
   FM_RECOVERY_MARKER_ACTION='none'
+  # The valid token a recover action consumed; empty when the marker was
+  # missing or malformed, which never authorizes a quiet retire.
+  FM_RECOVERY_MARKER_CONSUMED=
   lock="${marker}.lock"
   fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK" || return 1
   if ! fm_lock_acquire_wait "$lock"; then
@@ -930,6 +933,8 @@ _fm_recovery_marker_arm_check() {
         return 1
       fi
       FM_RECOVERY_MARKER_TOKEN="announced:downtime:${line##*:}"
+      # shellcheck disable=SC2034 # Output read by callers after this function returns.
+      FM_RECOVERY_MARKER_CONSUMED=$line
       FM_RECOVERY_MARKER_ACTION='recover'
       ;;
     acked:*)
@@ -944,6 +949,48 @@ _fm_recovery_marker_arm_check() {
       fi
       ;;
   esac
+  fm_lock_release "$lock"
+  fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+}
+
+# Require the next recovery from <marker> to present even with an empty queue:
+# nothing proves the previous watcher closed cleanly. The "<marker>.present"
+# file is consumed by bin/fm-watch.sh resurface_after_downtime. Best effort: a
+# failed write is reported, and the caller decides.
+fm_recovery_require_presentation() {  # <marker>
+  : > "$1.present" 2>/dev/null
+}
+
+# Retire a just-announced downtime episode that has nothing to present: the
+# queue is empty and the marker reads announced downtime, so the episode is
+# acknowledged in place instead of costing the supervisor a recovery turn.
+# Under the queue lock then the marker lock, the same order as arm-check, so an
+# append that lands first keeps the episode open. Sets FM_RECOVERY_MARKER_ACTION
+# to retired or present; a lock or write failure returns 1 and the caller
+# presents, which is the safe direction. The caller owns the clean-close proof
+# (docs/watcher-continuity.md "Announcement").
+_fm_recovery_marker_retire_quiet() {
+  local marker=$1 lock
+  FM_RECOVERY_MARKER_ACTION='present'
+  lock="${marker}.lock"
+  fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK" || return 1
+  if ! fm_lock_acquire_wait "$lock"; then
+    fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+    return 1
+  fi
+  if [ ! -s "$FM_WAKE_QUEUE" ] && fm_recovery_marker_read "$marker"; then
+    case "$FM_RECOVERY_MARKER_TOKEN" in
+      announced:downtime:*)
+        if ! _fm_recovery_marker_write_locked "$marker" downtime "${FM_RECOVERY_MARKER_TOKEN##*:}" acked; then
+          fm_lock_release "$lock"
+          fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+          return 1
+        fi
+        # shellcheck disable=SC2034 # Output read by callers after this function returns.
+        FM_RECOVERY_MARKER_ACTION='retired'
+        ;;
+    esac
+  fi
   fm_lock_release "$lock"
   fm_lock_release "$FM_WAKE_QUEUE_LOCK"
 }
@@ -1046,6 +1093,9 @@ fm_recovery_transition() {
       ;;
     reopen-announced)
       _fm_recovery_marker_reopen_announced "$marker"
+      ;;
+    retire-quiet)
+      _fm_recovery_marker_retire_quiet "$marker"
       ;;
     release-lock)
       [ -n "$target" ] || return 1

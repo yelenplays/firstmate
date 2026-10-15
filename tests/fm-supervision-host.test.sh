@@ -769,7 +769,8 @@ test_branch_ack_keeps_older_keyed_decision_open() {
   assert_contains "$drained" '[seq 2, newest of 2 for this task' "the branch line must collapse to the newest outcome"
   assert_contains "$drained" "including its still-open decisions listed above under OPEN DECISIONS" "the check-first instruction must include the older keyed decision"
   FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" mark-processed --through 2 >/dev/null || fail "fixture: acknowledgement refused"
-  drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" 2>&1' "$ROOT/bin/fm-wake-drain.sh")
+  # Already presented, so the default drain only counts it; --decisions lists it.
+  drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" --decisions 2>&1' "$ROOT/bin/fm-wake-drain.sh")
   assert_contains "$drained" 'held [key=merge-153] needs-decision: merge PR 153 now or hold?' "acknowledging the newer branch line closed the older keyed decision"
   assert_not_contains "$drained" 'CI is now green' "acknowledged branch outcome repeated"
   pass "drain: a keyed decision survives acknowledgement through a newer outcome for its task"
@@ -1541,7 +1542,7 @@ test_next_park_takes_over_the_cycle_a_pass_through_left_for_main() {
   sleep 2
   ! hook_exited "$home" || fail "takeover: the takeover woke main: $(cat "$home/hook.err")"
   host_owns_the_only_cycle "$home" || fail "takeover: the park did not keep the cycle it took over"
-  assert_re '^acked:' "$home/state/.watcher-down" "takeover: the takeover opened a downtime episode"
+  assert_re '^acked:' "$home/state/.watcher-down" "takeover: the takeover opened a downtime episode ($(cat "$home/state/.watcher-down" 2>/dev/null))"
   assert_no_re 'rearm-resurface' "$home/state/.supervision-host.log" "takeover: the takeover resurfaced a recovery to main"
   append_status "$home" 'which region?' needs-decision
   wait_until 250 hook_exited "$home" || fail "takeover: the owned cycle did not deliver the next close: $(cat "$home/state/.supervision-host.log")"
@@ -1776,14 +1777,39 @@ quiet_pass_through_successor() {  # <home>
     || fail "fixture: could not acknowledge the successor downtime"
 }
 
+# The running host's own arm holds the watcher lock: the park owns its cycle.
+park_owns_cycle() {  # <home>
+  local host arm watcher
+  host=$(awk -F '\t' '$1 == "host" { print $2; exit }' "$1/state/.supervision-host" 2>/dev/null)
+  arm=$(awk -F '\t' '$1 == "arm" { print $2; exit }' "$1/state/.supervision-host" 2>/dev/null)
+  watcher=$(cat "$1/state/.watch.lock/pid" 2>/dev/null)
+  [ -n "$host" ] && [ -n "$arm" ] && [ -n "$watcher" ] || return 1
+  kill -0 "$host" 2>/dev/null && kill -0 "$watcher" 2>/dev/null || return 1
+  [ "$(parent_of "$watcher")" = "$arm" ]
+}
+
+# Park again after a host was stopped. A stop that interrupted a handling
+# episode or left a queued row presents one rearm-resurface, which main drains
+# and acknowledges; a clean stop with nothing queued retires its recovery
+# quietly, so the park keeps its cycle and main sees nothing.
 park_after_stop() {  # <home>
-  rm -f "$1/host.rc"
-  : > "$1/park.go"
-  wait_until 150 host_exited "$1" || fail "the watcher's downtime resurface did not reach main: $(cat "$1/host.out")"
-  assert_re '^check: rearm-resurface' "$1/host.out" "fixture: the first close after the watcher stopped was not its resurface"
-  main_drain_and_ack "$1"
-  quiet_pass_through_successor "$1"
+  if [ -e "$1/state/.watcher-down.present" ] || [ -s "$1/state/.wake-queue" ]; then
+    rm -f "$1/host.rc"
+    : > "$1/park.go"
+    wait_until 150 host_exited "$1" || fail "the watcher's downtime resurface did not reach main: $(cat "$1/host.out")"
+    assert_re '^check: rearm-resurface' "$1/host.out" "fixture: the first close after the watcher stopped was not its resurface"
+    main_drain_and_ack "$1"
+    quiet_pass_through_successor "$1"
+    park_again "$1"
+    return
+  fi
   park_again "$1"
+  wait_until 150 park_owns_cycle "$1" \
+    || fail "the park after a stop did not own its watcher cycle: $(cat "$1/host.out"; cat "$1/state/.supervision-host" 2>/dev/null)"
+  sleep 1
+  if ! park_owns_cycle "$1" || grep -q 'rearm-resurface' "$1/host.out" 2>/dev/null; then
+    fail "a clean stop with no queued row still resurfaced to main: $(cat "$1/host.out")"
+  fi
 }
 
 # Dialog counts as delivered only once the turn that carried it is accepted
@@ -1819,7 +1845,7 @@ SH
   park_after_stop "$home"
   append_status "$home" 'reaches the boundary'
   wait_until 400 host_exited "$home" || fail "mirror boundary: the host did not end its park"
-  assert_re '^supervision-host: cycle boundary - ' "$home/host.out" "fixture: the second host did not exit at its boundary"
+  assert_re '^supervision-host: cycle boundary - ' "$home/host.out" "fixture: the second host did not exit at its boundary: $(cat "$home/host.out"; tail -n 4 "$home/state/.supervision-host.log")"
   [ "$(engine_calls "$home")" -eq 1 ] || fail "fixture: an engine turn ran at the boundary"
   main_drain_and_ack "$home"
 
@@ -1840,7 +1866,7 @@ SH
   echo hang > "$home/stub-mode"
   park_after_stop "$home"
   append_status "$home" 'stopped mid-turn'
-  wait_until 250 test -e "$home/engine-call.3" || fail "mirror boundary: the stopped turn never started"
+  wait_until 250 test -e "$home/engine-call.3" || fail "mirror boundary: the stopped turn never started: $(cat "$home/host.out"; tail -n 6 "$home/state/.supervision-host.log")"
   assert_re '^\[captain\] third ask, turn stopped$' "$home/engine-call.3" "fixture: the stopped turn did not carry the third dialog"
   kill -TERM "$(awk -F '\t' '$1 == "host" { print $2 }' "$home/state/.supervision-host")"
   wait_until 200 host_exited "$home" || fail "mirror boundary: the host did not stop mid-turn on TERM"

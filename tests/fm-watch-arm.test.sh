@@ -454,7 +454,12 @@ test_rearm_resurfaces_durable_queue_and_remote_open_decision() {
     || fail "remote-reply wake queued during downtime was not drained"
   grep "$(printf '\tcheck\tstartup-network\t')" "$drainout" >/dev/null \
     || fail "second durable wake queued during downtime was not drained"
-  grep -F 'ios [key=remote-signoff] needs-decision: remote secondmate is held for captain sign-off' "$drainout" >/dev/null \
+  # The decision was already presented before the outage, so the wake drain
+  # counts it rather than relisting it; --decisions lists the full fold.
+  grep -F 'OPEN DECISIONS: 1 still open, none new or changed since the last presentation' "$drainout" >/dev/null \
+    || fail "remote parent-reply decision was not counted after watcher re-arm: $(cat "$drainout")"
+  FM_HOME="$home" FM_STATE_OVERRIDE="$state" "$DRAIN" --decisions 2>/dev/null \
+    | grep -F 'ios [key=remote-signoff] needs-decision: remote secondmate is held for captain sign-off' >/dev/null \
     || fail "remote parent-reply decision was not re-folded after watcher re-arm"
   ack_wakes "$state" || fail "recovery handling acknowledgement failed"
   [ ! -s "$state/.wake-queue" ] || fail "re-arm recovery acknowledgement left durable wakes behind"
@@ -465,9 +470,25 @@ test_rearm_resurfaces_durable_queue_and_remote_open_decision() {
   start_rearm_arm "$home" "$state" "$fakebin" "$dir/recovery-successor-arm.out"
   is_live_non_zombie "$ARM_PID" || fail "recovery successor did not stay live after the drain"
 
-  # A later down interval can have no new queue rows at all. The unchanged
-  # remote decision must still trigger a recovery wake and be folded again.
+  # A later clean down interval can have no new queue rows at all. The open
+  # decision was already presented and every later drain still counts it, so
+  # that recovery retires quietly instead of costing a supervision turn.
   kill "$ARM_PID" 2>/dev/null || true
+  wait "$ARM_PID" 2>/dev/null || true
+  start_rearm_arm "$home" "$state" "$fakebin" "$dir/clean-decision-arm.out"
+  is_live_non_zombie "$ARM_PID" \
+    || fail "a clean close with only an already-presented decision still woke the supervisor: $(cat "$dir/clean-decision-arm.out")"
+  FM_HOME="$home" FM_STATE_OVERRIDE="$state" "$DRAIN" > "$dir/clean-decision-drain.out" 2>/dev/null \
+    || fail "drain after a quiet decision recovery failed"
+  grep -F 'OPEN DECISIONS: 1 still open, none new or changed since the last presentation' \
+    "$dir/clean-decision-drain.out" >/dev/null \
+    || fail "a quietly retired recovery stopped counting the open decision: $(cat "$dir/clean-decision-drain.out")"
+
+  # A watcher that dies without its EXIT cleanup leaves no proof of a clean
+  # close, so the unchanged decision still triggers one recovery wake and is
+  # folded again.
+  watcher_pid=$(cat "$state/.watch.lock/pid" 2>/dev/null || true)
+  kill -KILL "$watcher_pid" 2>/dev/null || fail "could not abruptly stop the decision fixture watcher"
   wait "$ARM_PID" 2>/dev/null || true
   start_rearm_arm "$home" "$state" "$fakebin" "$dir/decision-only-arm.out"
   wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "decision-only re-arm did not surface the open decision"
@@ -475,7 +496,7 @@ test_rearm_resurfaces_durable_queue_and_remote_open_decision() {
   start_rearm_arm "$home" "$state" "$fakebin" "$dir/decision-handling-successor.out" "$decision_recovery_arm"
   is_live_non_zombie "$ARM_PID" || fail "decision handling successor re-triggered before the drain"
   decision_successor=$ARM_PID
-  FM_HOME="$home" FM_STATE_OVERRIDE="$state" "$DRAIN" > "$dir/decision-only-drain.out" \
+  FM_HOME="$home" FM_STATE_OVERRIDE="$state" "$DRAIN" --decisions > "$dir/decision-only-drain.out" \
     2> "$dir/decision-only-drain.err" || fail "decision-only drain after re-arm recovery failed"
   grep -F 'ios [key=remote-signoff] needs-decision: remote secondmate is held for captain sign-off' \
     "$dir/decision-only-drain.out" >/dev/null \
@@ -495,7 +516,7 @@ test_rearm_resurfaces_durable_queue_and_remote_open_decision() {
   wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "interrupted decision handling was not recovered on successor re-arm"
   grep -F 'check: rearm-resurface' "$dir/interrupted-decision-arm.out" >/dev/null \
     || fail "successor did not re-surface the unacknowledged decision recovery"
-  FM_HOME="$home" FM_STATE_OVERRIDE="$state" "$DRAIN" > "$dir/replayed-decision-drain.out" \
+  FM_HOME="$home" FM_STATE_OVERRIDE="$state" "$DRAIN" --decisions > "$dir/replayed-decision-drain.out" \
     2> "$dir/replayed-decision-drain.err" || fail "replayed decision recovery drain failed"
   grep -F 'ios [key=remote-signoff] needs-decision: remote secondmate is held for captain sign-off' \
     "$dir/replayed-decision-drain.out" >/dev/null \
@@ -880,6 +901,8 @@ SH
     "$ROOT/bin/fm-procevent.sh" reconcile >/dev/null \
     || fail "could not start the Lavish fixture source"
   printf 'pending:downtime:idle-lavish.1.fixture\n' > "$state/.watcher-down"
+  # No clean close is on record for this seeded episode, so it presents once.
+  : > "$state/.watcher-down.present"
 
   FM_ROOT_OVERRIDE="$ROOT" start_rearm_arm "$home" "$state" "$fakebin" "$first_out"
   wait_for_exit "$ARM_PID" 80 || fail "the first recovery arm did not surface"
@@ -924,6 +947,8 @@ test_append_wakes_live_announced_watcher() {
   idle_out="$dir/idle-arm.out"
   mkdir -p "$home/data"
   printf 'pending:downtime:append-after-empty.fixture\n' > "$state/.watcher-down"
+  # No clean close is on record for this seeded episode, so it presents once.
+  : > "$state/.watcher-down.present"
 
   start_rearm_arm "$home" "$state" "$fakebin" "$first_out"
   wait_for_exit "$ARM_PID" 80 || fail "the initial empty recovery did not surface"
@@ -1264,6 +1289,89 @@ test_take_over_preserves_downtime_from_watcher_self_exit() {
   expect_code 0 "$status" "fresh takeover must surface recovery cleanly"
   assert_contains "$(cat "$armout")" 'check: rearm-resurface' "self-exit downtime must surface as recovery"
   pass "watch-arm: takeover preserves self-exit downtime and surfaces a recovery wake"
+}
+
+# The 2026-10-14 retro: `check: rearm-resurface` reached the supervisor with
+# zero queued rows after ordinary take-overs and stop signals. A clean close
+# with an empty queue retires its downtime episode in place; a faulted close
+# (a nonzero, non-signal exit) still presents once.
+test_clean_close_with_empty_queue_retires_recovery_quietly() {
+  local dir home state fakebin watcher generation real_touch status i
+  dir=$(make_case clean-close-quiet-recovery)
+  home="$dir/home"
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  mkdir -p "$home/data"
+
+  start_rearm_arm "$home" "$state" "$fakebin" "$dir/first-arm.out"
+  is_live_non_zombie "$ARM_PID" || fail "clean-close fixture watcher did not stay live"
+  watcher=$(cat "$state/.watch.lock/pid")
+  kill -TERM "$watcher" 2>/dev/null || fail "could not stop the fixture watcher"
+  wait "$ARM_PID" 2>/dev/null || true
+  case "$(cat "$state/.watcher-down")" in pending:downtime:*) ;; *) fail "a signal close did not publish downtime" ;; esac
+  generation=$(recovery_marker_generation "$state/.watcher-down")
+  [ ! -s "$state/.wake-queue" ] || fail "fixture: the clean close queued a row"
+
+  start_rearm_arm "$home" "$state" "$fakebin" "$dir/quiet-arm.out"
+  is_live_non_zombie "$ARM_PID" \
+    || fail "a clean close with no queued rows still woke the supervisor: $(cat "$dir/quiet-arm.out")"
+  ! grep -F 'check: rearm-resurface' "$dir/quiet-arm.out" >/dev/null \
+    || fail "a clean close with no queued rows emitted a recovery wake"
+  [ "$(cat "$state/.watcher-down")" = "acked:downtime:$generation" ] \
+    || fail "the quiet episode was not retired in place: $(cat "$state/.watcher-down")"
+
+  # A faulted close: once a running watcher's own liveness tick write fails, it
+  # exits 1. It must first be past its own startup recovery, as a running
+  # watcher is, so the downtime it publishes is a fresh episode.
+  real_touch=$(command -v touch)
+  printf '#!/usr/bin/env bash\nif [ "$*" = "%s/.secondmate-liveness-tick" ] && [ -e "%s/fail-tick" ]; then exit 1; fi\nexec "%s" "$@"\n' \
+    "$state" "$dir" "$real_touch" > "$fakebin/touch"
+  chmod +x "$fakebin/touch"
+  watcher=$(cat "$state/.watch.lock/pid")
+  kill -TERM "$watcher" 2>/dev/null || fail "could not stop the quiet watcher"
+  wait "$ARM_PID" 2>/dev/null || true
+  FM_SECONDMATE_LIVENESS_SECS=1 start_rearm_arm "$home" "$state" "$fakebin" "$dir/fault-arm.out"
+  i=0
+  while [ "$i" -lt "$REARM_REPORT_POLLS" ]; do
+    case "$(cat "$state/.watcher-down" 2>/dev/null)" in acked:*) break ;; esac
+    sleep 0.05
+    i=$((i + 1))
+  done
+  case "$(cat "$state/.watcher-down")" in acked:*) ;; *) fail "the second clean close was not retired quietly" ;; esac
+  is_live_non_zombie "$ARM_PID" || fail "the second quiet watcher did not stay live"
+  touch "$dir/fail-tick"
+  wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+  status=$?
+  [ "$status" -ne 124 ] || fail "the faulting watcher did not exit"
+  grep -F 'watcher cycle exited 1' "$dir/fault-arm.out" >/dev/null \
+    || fail "fixture: the watcher did not fault: $(cat "$dir/fault-arm.out")"
+  rm -f "$dir/fail-tick"
+  [ ! -s "$state/.wake-queue" ] || fail "fixture: the faulted close queued a row"
+
+  start_rearm_arm "$home" "$state" "$fakebin" "$dir/fault-recovery-arm.out"
+  wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+  status=$?
+  expect_code 0 "$status" "a faulted close must surface its recovery: $(cat "$dir/fault-recovery-arm.out")"
+  grep -F 'check: rearm-resurface' "$dir/fault-recovery-arm.out" >/dev/null \
+    || fail "a faulted close with no queued rows did not present its recovery"
+
+  # A clean close during a handling episode may have interrupted that turn, so
+  # it presents once too. The drain marks the episode handling when it presents.
+  start_rearm_arm "$home" "$state" "$fakebin" "$dir/handling-arm.out"
+  is_live_non_zombie "$ARM_PID" || fail "the watcher after the presented fault did not stay live"
+  generation=$(recovery_marker_generation "$state/.watcher-down")
+  printf 'announced:handling:%s\n' "$generation" > "$state/.watcher-down"
+  watcher=$(cat "$state/.watch.lock/pid")
+  kill -TERM "$watcher" 2>/dev/null || fail "could not stop the watcher during handling"
+  wait "$ARM_PID" 2>/dev/null || true
+  [ ! -s "$state/.wake-queue" ] || fail "fixture: the handling close queued a row"
+  start_rearm_arm "$home" "$state" "$fakebin" "$dir/handling-recovery-arm.out"
+  wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+  status=$?
+  expect_code 0 "$status" "a close during handling must surface its recovery: $(cat "$dir/handling-recovery-arm.out")"
+  grep -F 'check: rearm-resurface' "$dir/handling-recovery-arm.out" >/dev/null \
+    || fail "a close during a handling episode did not present its recovery"
+  pass "watch-arm: a clean close with no queued rows retires quietly; a faulted or handling close still presents"
 }
 
 test_downtime_marker_does_not_follow_symlink() {
@@ -1610,6 +1718,7 @@ test_append_wakes_live_announced_watcher
 test_handling_window_close_keeps_the_acknowledgement_valid
 test_moved_generation_acknowledgement_is_self_healing
 test_downtime_marker_does_not_follow_symlink
+test_clean_close_with_empty_queue_retires_recovery_quietly
 test_stop_ends_the_home_watcher_and_publishes_downtime
 test_handling_delivered_accepts_already_acked_generation
 test_handling_delivered_rejects_a_superseded_generation

@@ -894,7 +894,9 @@ else
       printf '%s\n' "$BRANCH_REPLAY_OUT"
     fi
   fi
-  DRAIN_OUT=$("$SCRIPT_DIR/fm-wake-drain.sh" 2>&1)
+  # A fresh session has seen no earlier presentation, so it gets every open
+  # decision rather than only the news since the last drain.
+  DRAIN_OUT=$("$SCRIPT_DIR/fm-wake-drain.sh" --decisions 2>&1)
   if [ -n "$DRAIN_OUT" ]; then
     printf '%s\n' "$DRAIN_OUT"
   else

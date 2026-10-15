@@ -4656,6 +4656,41 @@ if [ "${1:-}" = --scout-completion ]; then
   exit 0
 fi
 
+# `parked` is the read-only predicate bin/fm-watch.sh asks before it rechecks a
+# declared wait: hold kind captain or parked on a row that is not Done answers
+# yes with the kind and hold-until date; anything else answers no, and an
+# unknown task answers absent.
+test_parked_reports_only_captain_and_parked_holds() {
+  local home out rc
+  home=$(make_home parked-predicate)
+  tasks_in "$home" add parked-captain 'captain-parked work' --file data/backlog.md >/dev/null 2>&1 \
+    || fail "could not add the captain-parked fixture row"
+  tasks_in "$home" add parked-kind 'deferred work' --file data/backlog.md >/dev/null 2>&1 \
+    || fail "could not add the parked-kind fixture row"
+  tasks_in "$home" add parked-external 'externally blocked work' --file data/backlog.md >/dev/null 2>&1 \
+    || fail "could not add the external fixture row"
+  tasks_in "$home" add parked-none 'ordinary work' --file data/backlog.md >/dev/null 2>&1 \
+    || fail "could not add the unheld fixture row"
+  run_captain "$home" hold parked-captain --reason 'parked by the captain' --until 2099-12-01 >/dev/null 2>&1 \
+    || fail "could not park the captain fixture"
+  tasks_in "$home" hold parked-kind --reason 'start after launch' --kind parked --file data/backlog.md >/dev/null 2>&1 \
+    || fail "could not hold the parked-kind fixture"
+  tasks_in "$home" hold parked-external --reason 'waiting on the vendor' --kind external --file data/backlog.md >/dev/null 2>&1 \
+    || fail "could not hold the external fixture"
+
+  out=$(run_captain "$home" parked parked-captain) || fail "a captain hold did not read as parked"
+  [ "$out" = $'captain\t2099-12-01' ] || fail "a captain hold printed the wrong kind or date: $out"
+  out=$(run_captain "$home" parked parked-kind) || fail "a parked hold did not read as parked"
+  [ "$out" = $'parked\t-' ] || fail "a parked hold without a date printed: $out"
+  rc=0; run_captain "$home" parked parked-external >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 1 ] || fail "an external hold read as captain-parked (rc=$rc)"
+  rc=0; run_captain "$home" parked parked-none >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 1 ] || fail "an unheld row read as captain-parked (rc=$rc)"
+  rc=0; run_captain "$home" parked no-such-task >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 3 ] || fail "an absent task did not answer absent (rc=$rc)"
+  pass "parked answers yes only for a captain or parked hold on an open row"
+}
+
 test_hold_reason_round_trips_awkward_characters
 test_hold_origins_precede_backend_holds
 test_historical_self_inventory_has_workable_repair
@@ -4717,3 +4752,4 @@ test_verify_names_the_unresolvable_legacy_id_once
 test_verify_resolves_a_pre_collapse_key_through_its_derived_marker
 test_captain_hold_mutations_address_the_beads_backend
 test_hold_creates_a_captain_row_when_beads_requires_due_without_custom_type
+test_parked_reports_only_captain_and_parked_holds

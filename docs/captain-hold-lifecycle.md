@@ -37,6 +37,7 @@ It never reads report bodies, review artifacts, terminal output, or chat.
 | `answer` | Records the captain's exact words and resolves the call. | [Answering a call](#answering-a-call-answer) |
 | `complete` | Records the reviewed captain-held task ids in the originating task's metadata. | [Recording a reviewed inventory](#recording-a-reviewed-inventory-complete) |
 | `verify` | Read-only check that scout teardown runs before removing source state. | [Checking before scout teardown](#checking-before-scout-teardown-verify) |
+| `parked` | Read-only check of whether a task's pause is captain-parked. | [Captain-parked pauses](#captain-parked-pauses-parked) |
 | `open` | Read-only check of whether a row is still an open captain call. | [Cleanup never closes a captain call](#cleanup-never-closes-a-captain-call) |
 | `answers` | Channel-agnostic entry point for keyed answers. | [Answer-time resolution](#answer-time-resolution) |
 | `bind`, `unbind`, `binding` | Record that a captured-answer source feeds the keyed-answer intake. | [Source bindings](#source-bindings) |
@@ -124,6 +125,14 @@ Scout teardown calls the read-only `verify` subcommand after checking for the re
 `bin/fm-captain-hold.sh --help` owns default reviewed-inventory verification and `verify --allow-empty`; `bin/fm-teardown.sh --help` owns the firstmate attestation required for the empty-scout path.
 For a keyed status decision opened after the last `complete`, re-run `complete` with the reviewed inventory rather than bypassing the refusal.
 The `--force` path remains the explicit captain-approved discard escape hatch.
+
+### Captain-parked pauses (`parked`)
+
+The read-only `parked <task-id>` subcommand reports whether a row that is not Done carries a captain or parked hold kind, and prints that kind with its hold-until date.
+`bin/fm-watch.sh` uses it so a `paused:` line under such a hold gets no periodic stale recheck.
+It wakes once when the hold-until date or the pause's declared until time arrives, and any real state change still wakes as usual.
+A `captain-held:` line counts as parked only under the parked kind, so a captain-held decision keeps its reminder cadence.
+`bin/fm-captain-hold.sh --help` owns the exit codes.
 
 ## Cleanup never closes a captain call
 

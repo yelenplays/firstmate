@@ -40,7 +40,14 @@
 # changes, receipts, incarnations, PR handoffs, attributed run identities and
 # parked gates notify once; volatile crew-state detail and finding counts do not.
 # Ownership away from firstmate is recorded too, so returning ownership is a
-# new notification. Legacy timestamp markers trigger one fresh notification. Reconciliation runs at
+# new notification.
+# A fresh launch is the worker's to finish starting: within
+# FM_EXECUTION_LAUNCH_GRACE_SECS (default 300, 0 disables) of the attempt for
+# the current incarnation, a crew whose current state reads working owns both
+# the missing receipt and the spawn-seeded busy record, so a normal start never
+# wakes firstmate. The grace ends with a changed next action, so a launch that
+# is still unconfirmed or still on its seed afterwards notifies exactly as
+# before; a dead or unknown crew never gets the grace. Legacy timestamp markers trigger one fresh notification. Reconciliation runs at
 # FM_EXECUTION_SCAN_INTERVAL (default 30 seconds), independent of fleet signals.
 # Drain always prints
 # the outstanding firstmate actions. Neither notification nor acknowledgement
@@ -74,6 +81,19 @@ record_valid() {
 }
 read_backlog() { "$SCRIPT_DIR/fm-fleet-snapshot.sh" --backlog-json; }
 row() { printf '%s' "$BACKLOG_JSON" | jq -c --arg id "$1" '[.records[] | select(.structured and .id == $id)] | if length == 1 then .[0] else null end'; }
+
+# True while the recorded attempt for the current incarnation is younger than
+# the launch grace. Records written before attempts carried attempt_at get none.
+launch_grace_open() {  # <execution-file> <spawn-gen>
+  local at grace
+  grace=${FM_EXECUTION_LAUNCH_GRACE_SECS:-300}
+  case "$grace" in ''|*[!0-9]*) grace=300 ;; esac
+  [ "$grace" -gt 0 ] && [ -n "$2" ] || return 1
+  [ "$(jq -r .attempt_gen "$1")" = "$2" ] || return 1
+  at=$(jq -r '.attempt_at // empty' "$1")
+  case "$at" in ''|*[!0-9]*) return 1 ;; esac
+  [ $(( $(date +%s) - at )) -lt "$grace" ]
+}
 
 scan_one() {
   local id=$1 file="$STATE/$1.execution" task kind gen phase attempt receipt current busy state source wait_until hold blockers
@@ -123,6 +143,14 @@ scan_one() {
   attempt=$(jq -r .attempt "$file")
   if [ "$phase" != processing ] || [ -z "$gen" ] || [ "$receipt" != "$gen" ] \
     || [ "$(jq -r .attempt_gen "$file")" != "$gen" ] || [ -z "$attempt" ]; then
+    if [ "$phase" = attempted ] && [ -n "$attempt" ] && launch_grace_open "$file" "$gen"; then
+      current=$(crew_state "$id" 2>/dev/null || true)
+      RECONCILED_CURRENT=$current
+      case "$current" in
+        'state: working · '*)
+          printf '%s\tworker\tconfirm-handoff-within-launch-grace\n' "$id"; return ;;
+      esac
+    fi
     printf '%s\tfirstmate\timplementation owner unconfirmed; verify processing or recover failed handoff\n' "$id"; return
   fi
   current=$(crew_state "$id" 2>/dev/null || true)
@@ -134,7 +162,12 @@ scan_one() {
     working:pane)
       busy=$(fm_busy_record_read "$STATE" "$id" 2>/dev/null || true)
       case "$busy" in
-        *' fm-spawn '*|*' fm-recovery '*) printf '%s\tfirstmate\tverify-progress-not-launch-seed\n' "$id" ;;
+        *' fm-spawn '*|*' fm-recovery '*)
+          if launch_grace_open "$file" "$gen"; then
+            printf '%s\tworker\tstart-implementation-within-launch-grace\n' "$id"
+          else
+            printf '%s\tfirstmate\tverify-progress-not-launch-seed\n' "$id"
+          fi ;;
         *) printf '%s\tworker\tcontinue-implementation\n' "$id" ;;
       esac ;;
     done:*)
@@ -277,7 +310,8 @@ case "$command" in
       gen=$2
     fi
     token="e$(date +%s).${BASHPID:-$$}.$RANDOM"
-    content=$(jq --arg token "$token" --arg gen "$gen" '.phase="attempted" | .attempt=$token | .attempt_gen=$gen | .spawn_gen=""' "$file") ;;
+    content=$(jq --arg token "$token" --arg gen "$gen" --argjson at "$(date +%s)" \
+      '.phase="attempted" | .attempt=$token | .attempt_gen=$gen | .attempt_at=$at | .spawn_gen=""' "$file") ;;
   started)
     record_valid "$file" || fail 'no valid execution obligation'
     [ "$#" = 1 ] && [ -n "$1" ] || fail 'started requires handoff token'

@@ -217,6 +217,81 @@ test_over_long_decision_note_is_capped_with_a_marker() {
   pass "an over-long open decision is cut to its per-item budget with the shared truncation marker"
 }
 
+test_repeat_drain_shows_count_and_only_new_or_changed_keys() {
+  local dir state out
+  dir=$(make_case repeat-presentation)
+  state="$dir/state"
+  out="$dir/drain.out"
+  # Retro 2026-10-14 point 2: every wake re-printed every still-open decision,
+  # mostly old and already known. The first presentation lists them; a later
+  # drain with nothing new prints the count alone and points at --decisions.
+  printf 'needs-decision [key=old-a]: an old known decision\n' > "$state/task-a.status"
+  printf 'needs-decision [key=old-b]: another old known decision\n' > "$state/task-b.status"
+
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "first drain failed"
+  grep -F 'task-a [key=old-a] needs-decision: an old known decision' "$out" >/dev/null \
+    || fail "the first presentation did not list a decision: $(cat "$out")"
+  grep -F 'task-b [key=old-b]' "$out" >/dev/null || fail "the first presentation dropped a decision"
+
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "repeat drain failed"
+  if grep -F '[key=old-a]' "$out" >/dev/null || grep -F '[key=old-b]' "$out" >/dev/null; then
+    fail "a repeat drain re-listed already presented, unchanged decisions: $(cat "$out")"
+  fi
+  grep -F 'OPEN DECISIONS: 2 still open, none new or changed since the last presentation' "$out" >/dev/null \
+    || fail "a repeat drain did not report the open count: $(cat "$out")"
+  grep -F 'bin/fm-wake-drain.sh --decisions' "$out" >/dev/null \
+    || fail "the count line does not name the full-list flag: $(cat "$out")"
+
+  # A new key and a changed note on a known key both count as news.
+  printf 'needs-decision [key=new-c]: a brand new decision\n' > "$state/task-c.status"
+  printf 'needs-decision [key=old-a]: the old decision, re-asked differently\n' >> "$state/task-a.status"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "drain after news failed"
+  grep -F 'OPEN DECISIONS (3 still open; 2 new or changed since the last presentation' "$out" >/dev/null \
+    || fail "the header did not carry the open and new counts: $(cat "$out")"
+  grep -F 'task-c [key=new-c] needs-decision: a brand new decision' "$out" >/dev/null \
+    || fail "a new key was not listed: $(cat "$out")"
+  grep -F 'task-a [key=old-a] needs-decision: the old decision, re-asked differently' "$out" >/dev/null \
+    || fail "a changed note on a known key was not listed: $(cat "$out")"
+  if grep -F '[key=old-b]' "$out" >/dev/null; then
+    fail "an unchanged known decision was re-listed beside the news: $(cat "$out")"
+  fi
+  grep -F "close one by answering it: bin/fm-send.sh <task> --resolve-key <key>" "$out" >/dev/null \
+    || fail "listed news lost the answerer-closes hint"
+
+  # The explicit flag lists every open decision, including the known ones.
+  FM_STATE_OVERRIDE="$state" "$DRAIN" --decisions > "$out" || fail "drain --decisions failed"
+  for key in old-a old-b new-c; do
+    grep -F "[key=$key]" "$out" >/dev/null || fail "--decisions omitted $key: $(cat "$out")"
+  done
+
+  # A decision that closes and later re-opens with the same words is news again.
+  printf 'resolved [key=old-b]: settled\n' >> "$state/task-b.status"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "drain after a resolution failed"
+  grep -F 'OPEN DECISIONS: 2 still open' "$out" >/dev/null || fail "a resolution did not lower the count: $(cat "$out")"
+  printf 'needs-decision [key=old-b]: another old known decision\n' >> "$state/task-b.status"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "drain after a re-open failed"
+  grep -F 'task-b [key=old-b] needs-decision: another old known decision' "$out" >/dev/null \
+    || fail "a re-opened decision was treated as already known: $(cat "$out")"
+  pass "a repeat drain prints the open count plus only new or changed keys; --decisions lists all"
+}
+
+test_wake_triage_passes_the_full_list_flag_through() {
+  local dir state out
+  dir=$(make_case triage-decisions-flag)
+  state="$dir/state"
+  out="$dir/triage.out"
+  printf 'needs-decision [key=known]: a known decision\n' > "$state/task-t.status"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > /dev/null || fail "seed drain failed"
+  FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-wake-triage.sh" > "$out" || fail "triage failed"
+  if grep -F '[key=known]' "$out" >/dev/null; then
+    fail "default triage re-listed a known decision: $(cat "$out")"
+  fi
+  FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-wake-triage.sh" --decisions > "$out" || fail "triage --decisions failed"
+  grep -F 'task-t [key=known] needs-decision: a known decision' "$out" >/dev/null \
+    || fail "triage --decisions did not list the full set: $(cat "$out")"
+  pass "fm-wake-triage.sh --decisions passes the full-list flag through to the drain"
+}
+
 test_buried_decision_still_surfaces
 test_over_long_decision_note_is_capped_with_a_marker
 test_explicit_resolution_closes_it
@@ -226,3 +301,5 @@ test_no_open_decisions_prints_nothing
 test_open_decision_surfaces_even_with_an_unrelated_queued_wake
 test_buried_decision_surfaces_on_the_empty_queue_fast_path
 test_status_symlink_is_not_followed
+test_repeat_drain_shows_count_and_only_new_or_changed_keys
+test_wake_triage_passes_the_full_list_flag_through

@@ -249,6 +249,11 @@ WATCH_HOME_EXISTED=0
 WATCH_LOCK="$STATE/.watch.lock"
 WATCH_PATH="$SCRIPT_DIR/fm-watch.sh"
 WATCHER_DOWNTIME_MARKER="$STATE/.watcher-down"
+# Present while the latest downtime must reach the supervisor even with an
+# empty queue: a faulted close (a nonzero, non-signal exit, or a dead holder
+# whose cleanup never ran) or a close during a handling episode, whose turn may
+# have been interrupted (resurface_after_downtime).
+WATCHER_PRESENT_MARKER="$WATCHER_DOWNTIME_MARKER.present"
 # The singleton-lock acquisition, EXIT trap, and the blocking supervision loop
 # all live below the source guard at the very bottom of this file (see "Main
 # entry"). Sourcing this file for unit tests therefore loads the functions -
@@ -524,6 +529,26 @@ inbox_steer_escalate_unavailable() {  # <window> <task> <record>
   wake "$reason"
 }
 
+# A busy pane holding a message whose doorbell reached it is the worker inside
+# the turn that processes it, because a record is acknowledged only after it is
+# acted on. That busy turn is held to the same BUSY_TURN_MAX_SECS bound any busy
+# pane gets, measured from the newest of the delivery, the completed-turn marker
+# and the native progress marker. Fails when no doorbell for <record> was
+# delivered or the turn has outlived the bound, so the stuck-busy budget applies.
+inbox_delivered_turn_open() {  # <task> <record>
+  local task=$1 rec=$2 at age f
+  at=$(fm_task_inbox_delivered_at "$STATE" "$task" "$rec") || return 1
+  fm_epoch_seconds_to age
+  age=$(( age - at ))
+  for f in "$STATE/$task.turn-ended" "$STATE/$task.progress"; do
+    [ -f "$f" ] || continue
+    [ "$(age_of "$f")" -ge "$age" ] || age=$(age_of "$f")
+  done
+  INBOX_DELIVERED_AGE=$age
+  [ "$age" -lt "$BUSY_TURN_MAX_SECS" ]
+}
+INBOX_DELIVERED_AGE=
+
 # Steering-inbox loss detection, one cheap check per recorded window per poll.
 # bin/fm-task-inbox-lib.sh owns delivery, busy-deferral, retry, and escalation policy.
 # Endpoint and busy checks precede delivery so recovery never types into a busy,
@@ -563,11 +588,17 @@ inbox_steer_check() {  # <window> <task>
   tail40=$WATCHER_CAPTURE
   if window_is_busy "$w" "$tail40"; then
     [ "$verb" != retry ] || return 0
+    INBOX_DELIVERED_AGE=
+    inbox_delivered_turn_open "$task" "$rec" && return 0
     if ! count=$(fm_task_inbox_record_busy "$STATE" "$task" "$rec"); then
       [ -f "$rec" ] || return 0
       reason="stale: $w (steering-inbox busy bookkeeping unwritable: ${rec%/*}/.busy-state cannot be written while $rec stays unhandled; inspect the inbox directory)"
     elif [ "$count" -ge "$(fm_task_inbox_busy_max)" ]; then
-      reason="stale: $w (unread firstmate instruction: stuck-busy after $count consecutive busy-deferred due doorbells; $rec stays unhandled and no doorbell was typed; inspect the worker)"
+      if [ -n "$INBOX_DELIVERED_AGE" ]; then
+        reason="stale: $w (unread firstmate instruction: stuck-busy after $count consecutive busy-deferred due doorbells; its doorbell was delivered and the pane has stayed busy ${INBOX_DELIVERED_AGE}s past the ${BUSY_TURN_MAX_SECS}s turn bound with no completed turn or progress; $rec stays unhandled; inspect the worker)"
+      else
+        reason="stale: $w (unread firstmate instruction: stuck-busy after $count consecutive busy-deferred due doorbells; $rec stays unhandled and no doorbell was typed; inspect the worker)"
+      fi
     else
       return 0
     fi
@@ -580,6 +611,7 @@ inbox_steer_check() {  # <window> <task>
     ring)
       ring_rc=0
       fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" || ring_rc=$?
+      [ "$ring_rc" -ne 0 ] || fm_task_inbox_record_delivered "$STATE" "$task" "$rec" || true
       if [ "$ring_rc" -eq 3 ]; then
         inbox_steer_escalate_unavailable "$w" "$task" "$rec"
         return 0
@@ -1742,6 +1774,85 @@ worker_stopped_churning() {  # <window> <task>
   [ "$(fm_backend_busy_state herdr "$w" 2>/dev/null)" = idle ]
 }
 
+# A captain-parked wait: the worker declared the wait and its backlog row says
+# the captain took the work in hand or deferred it (bin/fm-captain-hold.sh
+# `parked` owns that predicate: hold kind captain or parked on a row that is not
+# Done). A paused: line under either kind counts, and a captain-held: line only
+# under kind parked - a captain-held decision the captain merely holds is still
+# an open call, so it keeps its long reminder cadence. Only the captain can end
+# a parked wait, so a periodic recheck has nothing to ask: the stale path absorbs
+# it with no cadence re-surface at all. It wakes once when the wait comes due - the backlog
+# hold-until date is reached (UTC date, the date the hold goes inactive) or the
+# declared `until` time passes - and a real state change (a status append, an
+# answered or lifted hold) arrives through its own signal or changes the
+# declaration this verdict is cached against.
+# The backlog verdict is cached in .paused-parked-<key> as
+# "<declaration>\t<captain|parked|unparked>\t<hold-until|->\t<announced due|->", so the
+# backlog is read at most once per declaration per PAUSE_RESURFACE_SECS rather
+# than on every stale poll; an unreadable backlog reads unparked, which keeps
+# the caller's own bounded cadence.
+# Returns 0 when this sighting is absorbed (the one due wake exits the cycle
+# instead), 1 when the wait is not captain-parked and the caller decides.
+captain_parked_absorb() {  # <window> <task> <declared-wait-line>
+  local win=$1 task=$2 last=$3 key marker declaration line rc today due='' epoch
+  local cached='' verdict='' until='' announced='' prev_until='' prev_announced='' reason
+  status_is_paused_or_captain_held "$last" || return 1
+  key=$(fm_watch_state_key "$win")
+  marker="$STATE/.paused-parked-$key"
+  declaration=$(stale_wait_declaration "$task")
+  if [ -f "$marker" ] && [ ! -L "$marker" ]; then
+    IFS=$'\t' read -r cached verdict prev_until prev_announced < "$marker" || true
+    if [ "$cached" = "$declaration" ] && [ "$(age_of "$marker")" -lt "$PAUSE_RESURFACE_SECS" ]; then
+      until=$prev_until
+      announced=$prev_announced
+    else
+      verdict=
+    fi
+  fi
+  case "$verdict" in captain|parked|unparked) ;; *) verdict= ;; esac
+  if [ -z "$verdict" ]; then
+    rc=0
+    line=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-captain-hold.sh" parked "$task" 2>/dev/null) || rc=$?
+    if [ "$rc" -eq 0 ]; then
+      verdict=${line%%$'\t'*}
+      case "$verdict" in captain|parked) ;; *) verdict=unparked ;; esac
+      until=${line#*$'\t'}
+      case "$until" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) until=- ;; esac
+    else
+      verdict=unparked
+      until=-
+    fi
+    announced=-
+    if [ "$cached" = "$declaration" ] && [ "$prev_until" = "$until" ]; then
+      announced=${prev_announced:--}
+    fi
+    printf '%s\t%s\t%s\t%s\n' "$declaration" "$verdict" "$until" "$announced" > "$marker" || return 1
+  fi
+  case "$verdict" in
+    parked) ;;
+    captain) status_is_paused "$last" || return 1 ;;
+    *) return 1 ;;
+  esac
+  # Both dates are validated YYYY-MM-DD, so their digits compare as integers.
+  today=$(date -u +%Y%m%d)
+  if [ "$until" != - ] && [ "$((10#${until//-/}))" -le "$((10#$today))" ]; then
+    due="hold-until:$until"
+  elif epoch=$(status_paused_until "$last") && [ "$(date +%s)" -ge "$epoch" ]; then
+    due="until:$epoch"
+  fi
+  if [ -z "$due" ] || [ "$announced" = "$due" ]; then
+    triage_log "absorbed stale (captain-parked wait, no periodic recheck): $win"
+    return 0
+  fi
+  case "$due" in
+    hold-until:*) reason="stale: $win (captain-parked wait for $task reached its hold-until date $until - ask the captain whether the work resumes, or re-park it with a new date)" ;;
+    *) reason="stale: $win (captain-parked wait for $task passed its declared until time - ask the captain whether the work resumes, or re-park it)" ;;
+  esac
+  fm_wake_append stale "$win" "$reason" || exit 1
+  printf '%s\t%s\t%s\t%s\n' "$declaration" "$verdict" "$until" "$due" > "$marker" || true
+  wake "$reason"
+}
+
 # Absorb a stale pane under a declared external-wait pause (paused:) or a
 # dead-agent captain-held transfer, and re-surface it once every
 # PAUSE_RESURFACE_SECS for a recheck so it cannot rot invisibly. Called on any
@@ -1773,11 +1884,12 @@ handle_paused_stale() {  # <window> <task> <hash>
   last=$(status_declared_wait_line "$statusf")
   min_age=$PAUSE_RESURFACE_SECS
   declaration="declared:$(fm_wake_signal_sig "$statusf" || true)"
+  if status_is_captain_held "$last" && away_record_present; then
+    triage_log "absorbed stale (captain-held, never rechecked while the away-posture record exists): $win"
+    return 0
+  fi
+  captain_parked_absorb "$win" "$task" "$last" && return 0
   if status_is_captain_held "$last"; then
-    if away_record_present; then
-      triage_log "absorbed stale (captain-held, never rechecked while the away-posture record exists): $win"
-      return 0
-    fi
     detail="captain-held, awaiting the captain"
     reason="captain-held ${age}s, awaiting the captain - verified hold transfer, rechecked on a long cadence not a wedge; answer the held decision or release the hold"
   elif until=$(status_paused_until "$last"); then
@@ -1882,7 +1994,8 @@ bound_stall_check() {  # <window> <task> <hash> <since-file> <escalation-file> <
 
 clear_pause_state() {  # <window-key>
   local key=$1
-  rm -f "$STATE/.paused-$key" "$STATE/.paused-rechecked-$key" "$STATE/.paused-resurfaced-$key"
+  rm -f "$STATE/.paused-$key" "$STATE/.paused-rechecked-$key" "$STATE/.paused-resurfaced-$key" \
+    "$STATE/.paused-parked-$key"
 }
 
 # The hash-scoped half of clear_pause_tracking: the stale suppressor, its wedge
@@ -2086,7 +2199,12 @@ surface_nonterminal_stale() {  # <window> <hash>
   task=$(window_to_task "$win" "$STATE")
   last=$(status_declared_wait_line "$STATE/$task.status")
   STALE_WAIT_DECLARATION=
-  if status_is_paused "$last"; then
+  if status_is_paused_or_captain_held "$last" && ! captain_held_silenced "$last" \
+    && captain_parked_absorb "$win" "$task" "$last"; then
+    declared=0
+    bounded=0
+    throttled=0
+  elif status_is_paused "$last"; then
     declared=0
     bounded=0
     STALE_WAIT_DECLARATION=$(stale_wait_declaration "$task")
@@ -2697,6 +2815,8 @@ fi
 WATCHER_RECOVERY_PENDING=0
 if [ -n "${FM_LOCK_RECOVERED_PID:-}" ]; then
   WATCHER_RECOVERY_PENDING=1
+  # Its holder died without the EXIT cleanup, so nothing proves a clean close.
+  fm_recovery_require_presentation "$WATCHER_DOWNTIME_MARKER" || true
 fi
 if [ "${FM_WATCH_HANDLING_SUCCESSOR:-0}" != 1 ]; then
   if ! fm_recovery_marker_reopen_announced "$WATCHER_DOWNTIME_MARKER"; then
@@ -2713,6 +2833,8 @@ if [ "${FM_WATCH_HANDLING_SUCCESSOR:-0}" = 1 ]; then
 elif [ "$FM_RECOVERY_MARKER_ACTION" = recover ]; then
   WATCHER_RECOVERY_PENDING=1
 fi
+# The marker token this startup recovery consumed (resurface_after_downtime).
+WATCHER_RECOVERY_CONSUMED=$FM_RECOVERY_MARKER_CONSUMED
 # Side-band ledger publication, detached from the poll loop.
 #
 # The poll loop owns the liveness beacon below, and fm-guard.sh reads that
@@ -2822,6 +2944,7 @@ pr_poll_publish_release() {
 }
 
 watcher_cleanup() {
+  local exit_status=$?
   local cleanup_status=0 owns_lock=0 transition=release-lock
   signal_publish_release || cleanup_status=1
   pr_poll_publish_release || cleanup_status=1
@@ -2837,6 +2960,21 @@ watcher_cleanup() {
   fm_check_output_cleanup
   fm_capture_output_cleanup
   fm_custom_check_snapshot_cleanup
+  # A nonzero exit that is not a signal is a fault, and a close during a
+  # handling episode may have interrupted that turn: either must present once.
+  # Recorded before the downtime is published, so no successor can read the
+  # downtime without it. The unlocked read only ever errs toward presenting.
+  if [ "$owns_lock" -eq 1 ]; then
+    if [ "$exit_status" -gt 0 ] && [ "$exit_status" -lt 128 ]; then
+      fm_recovery_require_presentation "$WATCHER_DOWNTIME_MARKER" || true
+    elif fm_recovery_marker_read "$WATCHER_DOWNTIME_MARKER"; then
+      case "$FM_RECOVERY_MARKER_TOKEN" in
+        pending:handling:* | announced:handling:*)
+          fm_recovery_require_presentation "$WATCHER_DOWNTIME_MARKER" || true
+          ;;
+      esac
+    fi
+  fi
   if [ "$owns_lock" -eq 1 ] \
     && ! fm_recovery_transition "$WATCHER_DOWNTIME_MARKER" "$transition" "$WATCH_LOCK" \
       downtime "$CLEANUP_LOCK_BOUND"; then
@@ -2906,6 +3044,7 @@ rerecord_device_shifted_pr_poll() {  # <id>
 }
 
 resurface_after_downtime() {
+  local consumed=$WATCHER_RECOVERY_CONSUMED
   # Handling successors already have a predecessor-delivered wake on the way.
   # Re-announcing from this cycle is what turned a lost handshake into an
   # unbounded recovery loop; stay in the poll loop and supervise instead.
@@ -2918,7 +3057,23 @@ resurface_after_downtime() {
       exit 1
     fi
     [ "$FM_RECOVERY_MARKER_ACTION" = recover ] || return 0
+    consumed=$FM_RECOVERY_MARKER_CONSUMED
   fi
+  # A clean close - an actionable wake, a take-over or stop signal, a stalled
+  # holder replaced - leaves nothing the supervisor must act on when no row is
+  # queued: this loop re-detects every durable change itself. That episode is
+  # retired in place rather than spending a supervision turn on zero rows. A
+  # faulted close or one during a handling episode still presents once, and so
+  # does any queued row and any recovery from a missing or malformed marker.
+  if [ ! -e "$WATCHER_PRESENT_MARKER" ] \
+    && case "$consumed" in pending:downtime:*) true ;; *) false ;; esac \
+    && fm_recovery_transition "$WATCHER_DOWNTIME_MARKER" retire-quiet \
+    && [ "$FM_RECOVERY_MARKER_ACTION" = retired ]; then
+    WATCHER_RECOVERY_PENDING=0
+    triage_log "absorbed rearm-resurface: clean downtime with no queued rows, episode retired"
+    return 0
+  fi
+  rm -f "$WATCHER_PRESENT_MARKER" 2>/dev/null || true
   wake "check: rearm-resurface"
 }
 
