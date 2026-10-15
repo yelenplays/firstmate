@@ -2271,19 +2271,18 @@ cat > "$GUARD_RULES" <<'JSON'
   "rules": [
     {
       "when": "Read-only research on non-private material.",
-      "use": [ { "harness": "opencode", "model": "opencode/deepseek-v4.1-flash-free", "provider": "opencode", "private_ok": false,
-                 "replace_when_unlisted": { "harness": "pi", "model": "opencode-go/deepseek-v4.1-flash", "provider": "opencode-go" } } ]
+      "use": [ { "harness": "opencode", "model": "opencode/deepseek-v4.1-flash-free", "provider": "opencode", "private_ok": false } ]
     }
   ],
   "default": { "harness": "claude", "model": "sonnet" }
 }
 JSON
 cp "$GUARD_RULES" "$RULES"
-printf '%s\n' '# private clients' 'Lay Distribution' 'MyLINA' 'zz-unused-marker' > "$MARKERS"
+printf '%s\n' '# private clients' 'Acme Private' 'Zebracorp' 'zz-unused-marker' > "$MARKERS"
 RESEARCH_BRIEF="$TMP_ROOT/research-brief.md"
 PRIVATE_BRIEF="$TMP_ROOT/private-brief.md"
 printf '%s\n' "## Captain's intent" 'Collect public changelogs of the last five opencode releases.' > "$RESEARCH_BRIEF"
-printf '%s\n' "## Captain's intent" 'Gather competitor prices for the mylina offer.' > "$PRIVATE_BRIEF"
+printf '%s\n' "## Captain's intent" 'Gather competitor prices for the zebracorp offer.' > "$PRIVATE_BRIEF"
 write_response "$RESPONSE" rule_1 0.95 '{ "rule_1": 0.95, "default": 0.05 }'
 GUARD_PROFILE="  profile: --harness 'opencode' --model 'opencode/deepseek-v4.1-flash-free'"
 
@@ -2300,16 +2299,16 @@ expect_private_refusal() {  # <label> <source>
   assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet'" "$1 falls to the default lane"
   assert_not_contains "$out" "$GUARD_PROFILE" "$1 never emits the not-for-private profile"
   assert_not_contains "$out" 'zz-unused-marker' "$1 never prints a marker"
-  assert_not_contains "$(cat "$DISPATCH_LOG")" 'Lay Distribution' "$1 never logs a marker"
+  assert_not_contains "$(cat "$DISPATCH_LOG")" 'Acme Private' "$1 never logs a marker"
 }
 
 reset_log
-TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project lay-distribution-site
+TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project acme-private-site
 expect_private_refusal 'a private project' 'project matches config/private-markers line 2'
-assert_not_contains "$out" 'Lay Distribution' "the refusal names the line, not the marker"
+assert_not_contains "$out" 'Acme Private' "the refusal names the line, not the marker"
 pass "private guard: a private project is refused at resolve"
 
-printf 'mylina-home\n' > "$HOME_DIR/.fm-secondmate-home"
+printf 'zebracorp-home\n' > "$HOME_DIR/.fm-secondmate-home"
 reset_log
 TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project firstmate
 rm -f "$HOME_DIR/.fm-secondmate-home"
@@ -2338,9 +2337,9 @@ expect_private_refusal 'an unusable marker list' 'config/private-markers is not 
 rmdir "$MARKERS"
 pass "private guard: a missing or unusable list fails closed"
 
-printf 'Lay Distribution\n' > "$MARKERS"
+printf 'Acme Private\n' > "$MARKERS"
 reset_log
-TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project lay-distribution-site --decision-kind dispatch \
+TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project acme-private-site --decision-kind dispatch \
   --policy-profile '{"harness":"opencode","model":"opencode/deepseek-v4.1-flash-free"}' --captain-override 'captain wants the free model'
 expect_code 2 "$code" "a not-for-private policy profile on private work is refused"
 assert_contains "$err" 'private-material guard refused it: project matches config/private-markers line 1' "the policy refusal names the source"
@@ -2356,17 +2355,8 @@ reset_log
 TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project firstmate
 expect_code 2 "$code" "a non-boolean private_ok is a configuration error"
 assert_contains "$err" 'profile private_ok must be true or false when present' "the error names private_ok"
-jq '.default.replace_when_unlisted = {"harness":"pi","model":"x/y","provider":"x"}' "$GUARD_RULES" > "$RULES"
-reset_log
-TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project firstmate
-expect_code 2 "$code" "replace_when_unlisted off an opencode profile is a configuration error"
-assert_contains "$err" 'profile replace_when_unlisted belongs on an opencode profile' "the error names replace_when_unlisted"
-jq '.rules[0].use[0].replace_when_unlisted.extra = 1' "$GUARD_RULES" > "$RULES"
-reset_log
-TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project firstmate
-expect_code 2 "$code" "an unknown replacement key is a configuration error"
 rm -f "$MARKERS"
 cp "$BASE_RULES" "$RULES"
-pass "private guard: malformed private_ok and replace_when_unlisted exit 2"
+pass "private guard: a malformed private_ok exits 2"
 
 printf '# all fm-dispatch-resolve tests passed\n'

@@ -2116,9 +2116,9 @@ test_active_dispatch_profile_does_not_block_secondmate_launch() {
   pass "active crew-dispatch profile does not block secondmate launches"
 }
 
-# A secondmate is a firstmate primary that loads skills, so its opencode
-# launch keeps the skill tool; autoupdate and sharing stay off as for a crew.
-test_opencode_secondmate_keeps_skills() {
+# A secondmate's opencode launch carries the same JSON as a crewmate's: the
+# skill tool is denied and autoupdate and sharing stay off.
+test_opencode_secondmate_denies_skills() {
   local rec id sm out status launch
   id=research-mate-z19
   rec=$(make_spawn_case opencode-secondmate codex)
@@ -2130,10 +2130,9 @@ test_opencode_secondmate_keeps_skills() {
   expect_code 0 "$status" "an opencode secondmate launches: $out"
   launch=$(cat "$LAUNCH_LOG")
   assert_contains "$launch" \
-    "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\"},\"autoupdate\":false,\"share\":\"disabled\"}' opencode --model 'opencode/big-pickle' --prompt" \
-    "an opencode secondmate launch turns autoupdate and sharing off"
-  assert_not_contains "$launch" '"skill":"deny"' "an opencode secondmate keeps the skill tool"
-  pass "opencode secondmate launch keeps skills with autoupdate and sharing off"
+    "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\",\"skill\":\"deny\"},\"autoupdate\":false,\"share\":\"disabled\"}' opencode --model 'opencode/big-pickle' --prompt" \
+    "an opencode secondmate launch denies skills and turns autoupdate and sharing off"
+  pass "opencode secondmate launch denies skills with autoupdate and sharing off"
 }
 
 
@@ -2145,13 +2144,13 @@ FREE_MODEL=opencode/deepseek-v4.1-flash-free
 enable_private_guard() {  # <home>
   printf '%s\n' '{"rules":[{"when":"read-only research","use":{"harness":"opencode","model":"'"$FREE_MODEL"'","provider":"opencode","private_ok":false}}],"default":{"harness":"codex","model":"gpt-5"}}' \
     > "$1/config/crew-dispatch.json"
-  printf '%s\n' '# private clients' 'Lay Distribution' 'MyLINA' > "$1/config/private-markers"
+  printf '%s\n' '# private clients' 'Acme Private' 'Zebracorp' > "$1/config/private-markers"
 }
 
 expect_guard_refusal() {  # <label> <id> <source>
   expect_code 1 "$status" "$1 must refuse the not-for-private launch"
   assert_contains "$out" "private-material guard refused this launch: $3" "$1 names the matched source and line"
-  assert_not_contains "$out" 'Lay Distribution' "$1 never prints a marker"
+  assert_not_contains "$out" 'Acme Private' "$1 never prints a marker"
   assert_absent "$HOME_DIR/state/$2.meta" "$1 refuses before any task record exists"
   [ ! -s "$LAUNCH_LOG" ] || fail "$1 must not launch anything"
 }
@@ -2175,9 +2174,9 @@ test_private_guard_refuses_a_private_project() {
   rec=$(make_spawn_case private-guard-project opencode "$id")
   read_case_record "$rec"
   enable_private_guard "$HOME_DIR"
-  proj="$CASE_DIR/lay-distribution-site"
-  wt="$CASE_DIR/wt-lay"
-  fm_git_worktree "$proj" "$wt" "wt-lay-$id"
+  proj="$CASE_DIR/acme-private-site"
+  wt="$CASE_DIR/wt-acme"
+  fm_git_worktree "$proj" "$wt" "wt-acme-$id"
   out=$(run_ship_spawn "$HOME_DIR" "$wt" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$proj" --harness opencode --model "$FREE_MODEL")
   status=$?
   expect_guard_refusal 'a private project' "$id" 'project matches config/private-markers line 2'
@@ -2190,7 +2189,7 @@ test_private_guard_refuses_a_private_home() {
   rec=$(make_spawn_case private-guard-home opencode "$id")
   read_case_record "$rec"
   enable_private_guard "$HOME_DIR"
-  printf 'mylina-home\n' > "$HOME_DIR/.fm-secondmate-home"
+  printf 'zebracorp-home\n' > "$HOME_DIR/.fm-secondmate-home"
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --harness opencode --model "$FREE_MODEL")
   status=$?
   expect_guard_refusal 'a private home' "$id" 'home name matches config/private-markers line 3'
@@ -2203,7 +2202,7 @@ test_private_guard_refuses_a_private_brief() {
   rec=$(make_spawn_case private-guard-brief opencode)
   read_case_record "$rec"
   enable_private_guard "$HOME_DIR"
-  fm_test_spawn_brief "$HOME_DIR" "$id" "Gather competitor prices for the mylina offer."
+  fm_test_spawn_brief "$HOME_DIR" "$id" "Gather competitor prices for the zebracorp offer."
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --harness opencode --model "$FREE_MODEL")
   status=$?
   expect_guard_refusal 'a private brief' "$id" 'brief matches config/private-markers line 3'
@@ -2230,7 +2229,7 @@ test_private_guard_fails_closed_without_a_list() {
 
 test_private_guard_refuses_a_private_secondmate() {
   local rec id out status sm
-  id=mylina-mate
+  id=zebracorp-mate
   rec=$(make_spawn_case private-guard-secondmate codex)
   read_case_record "$rec"
   enable_private_guard "$HOME_DIR"
@@ -2240,6 +2239,41 @@ test_private_guard_refuses_a_private_secondmate() {
   status=$?
   expect_guard_refusal 'a private secondmate' "$id" 'home name matches config/private-markers line 3'
   pass "private guard: a private secondmate home is refused at spawn"
+}
+
+# A secondmate launch sends its home's charter, so a private charter is refused
+# even when the id and the home's name are innocuous.
+test_private_guard_refuses_a_private_secondmate_charter() {
+  local rec id out status sm
+  id=research-mate-z25
+  rec=$(make_spawn_case private-guard-charter codex)
+  read_case_record "$rec"
+  enable_private_guard "$HOME_DIR"
+  sm="$CASE_DIR/secondmate-home"
+  make_seeded_secondmate_home "$sm" "$id"
+  printf '%s\n' 'Charter: research for the Zebracorp launch.' > "$sm/data/charter.md"
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$sm" opencode --model "$FREE_MODEL" --secondmate)
+  status=$?
+  expect_guard_refusal 'a private secondmate charter' "$id" 'brief matches config/private-markers line 3'
+  pass "private guard: a private secondmate charter is refused at spawn"
+}
+
+# A recovery names no home on the command line; the guard still checks the
+# registered home, so a marker in that home's name is refused.
+test_private_guard_refuses_a_private_registered_secondmate_home() {
+  local rec id out status sm
+  id=research-mate-z26
+  rec=$(make_spawn_case private-guard-registered codex)
+  read_case_record "$rec"
+  enable_private_guard "$HOME_DIR"
+  sm="$CASE_DIR/zebracorp-research"
+  make_seeded_secondmate_home "$sm" "$id"
+  printf -- '- %s - research route (home: %s; scope: research; projects: ; added 2026-10-15)\n' "$id" "$sm" \
+    > "$HOME_DIR/data/secondmates.md"
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" opencode --model "$FREE_MODEL" --secondmate)
+  status=$?
+  expect_guard_refusal 'a private registered secondmate home' "$id" 'home name matches config/private-markers line 3'
+  pass "private guard: a recovery launch checks the registered secondmate home"
 }
 
 
@@ -2868,12 +2902,14 @@ test_keep_ai_trailers_omits_attribution_settings_and_strip_hooks
 test_keep_ai_trailers_reaches_secondmate_crew_launches
 test_claude_secondmate_launch_carries_the_attribution_policy
 test_active_dispatch_profile_does_not_block_secondmate_launch
-test_opencode_secondmate_keeps_skills
+test_opencode_secondmate_denies_skills
 test_private_guard_allows_a_non_private_task
 test_private_guard_refuses_a_private_project
 test_private_guard_refuses_a_private_home
 test_private_guard_refuses_a_private_brief
 test_private_guard_fails_closed_without_a_list
 test_private_guard_refuses_a_private_secondmate
+test_private_guard_refuses_a_private_secondmate_charter
+test_private_guard_refuses_a_private_registered_secondmate_home
 
 echo "# all fm-spawn-dispatch-profile tests passed"

@@ -476,18 +476,6 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
     or ($p | has("floor") and floor_bad(.floor; false));
   def overflow_bad($p): ($p | type) == "object" and ($p | has("overflow")) and (($p.overflow | type) != "boolean");
   def private_ok_bad($p): ($p | type) == "object" and ($p | has("private_ok")) and (($p.private_ok | type) != "boolean");
-  # The free-tier canary (bin/fm-free-model-canary.sh) swaps an opencode
-  # profile to this replacement once its model is no longer listed.
-  def replacement_bad($p):
-    ($p | type) == "object" and ($p | has("replace_when_unlisted")) and
-    ($p.harness != "opencode"
-     or (($p.model // "") | length) == 0
-     or ($p.replace_when_unlisted | type) != "object"
-     or ($p.replace_when_unlisted | keys - ["harness", "model", "provider", "effort"] | length) > 0
-     or profile_bad($p.replace_when_unlisted)
-     or (($p.replace_when_unlisted.model // "") | length) == 0
-     or (verified($p.replace_when_unlisted.harness) | not)
-     or (effort_ok($p.replace_when_unlisted.harness; $p.replace_when_unlisted.model; ($p.replace_when_unlisted.effort // null)) | not));
   def effort_floor_bad($p):
     ($p | type) == "object" and ($p | has("effort_floor")) and
     (($p.effort_floor | type) != "string"
@@ -580,7 +568,6 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
   elif any((.rules // [])[] | profiles(.use)[]; profile_bad(.)) then "each use profile needs harness; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"
   elif any(((.rules // [])[] | profiles(.use)[]), profiles(.default)[]; overflow_bad(.)) then "profile overflow must be true or false when present"
   elif any(((.rules // [])[] | profiles(.use)[]), profiles(.default)[]; private_ok_bad(.)) then "profile private_ok must be true or false when present"
-  elif any(((.rules // [])[] | profiles(.use)[]), profiles(.default)[]; replacement_bad(.)) then "profile replace_when_unlisted belongs on an opencode profile with a model and must be a profile with only harness, model, provider, and effort, naming a verified harness and a model"
   elif any(((.rules // [])[] | profiles(.use)[]), profiles(.default)[]; effort_floor_bad(.)) then "profile effort_floor must be low, medium, high, xhigh, or max and not above the profile effort, supported by an effort-capable harness and model"
   elif any((.rules // [])[]; duplicate_profiles(profiles(.use))) then "each rule use must not contain duplicate harness, model, and effort profiles"
   elif any((.rules // [])[] | profiles(.use)[]; (verified(.harness) | not)) then "each use profile must name a verified harness"

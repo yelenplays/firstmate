@@ -15,8 +15,8 @@
 #
 # Matching: each non-blank line not starting with # is one literal marker.
 #   The marker and the checked text are both lowercased, and every run of
-#   whitespace, '-', or '_' counts as one space, so "Lay Distribution" also
-#   matches the project lay-distribution-site. A marker matches anywhere in
+#   whitespace, '-', or '_' counts as one space, so "Acme Private" also
+#   matches the project acme-private-site. A marker matches anywhere in
 #   the checked text.
 #
 # fm_private_guard_home_names <home-dir>

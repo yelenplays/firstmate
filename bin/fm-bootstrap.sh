@@ -704,7 +704,7 @@ secondmate_sync() {
     if inherit_out=$(fm_run_timed "$REMOTE_SYNC_INHERITANCE_TIMEOUT" \
       env FM_CONFIG_INHERIT_LIVE=1 \
       "$SCRIPT_DIR/fm-remote-inherit-push.sh" "$id" "$remote_generation" 2>&1); then
-      if printf '%s\n' "$inherit_out" | grep -Eq '^(pushed|removed):'; then nudge_needed=1; fi
+      if printf '%s\n' "$inherit_out" | fm_config_inherit_output_has_visible_change; then nudge_needed=1; fi
     else
       inherit_rc=$?
       if [ "$inherit_rc" -eq 124 ]; then

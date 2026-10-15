@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# fm-free-model-canary.sh - once a day, prove that every free-tier opencode
-# dispatch profile's model is still listed, and swap a profile whose model is
-# gone to its declared paid replacement.
+# fm-free-model-canary.sh - once a day, prove that the free research lane's
+# model is still listed, and swap its dispatch profile to the paid replacement
+# once it is gone.
 #
 # Usage:
 #   fm-free-model-canary.sh run [--record]
@@ -10,28 +10,29 @@
 #   fm-free-model-canary.sh disarm
 #   fm-free-model-canary.sh --help
 #
-# A watched profile is any opencode profile in config/crew-dispatch.json (a
-#   rule's `use` or the `default`) that declares `replace_when_unlisted`;
-#   docs/configuration.md "Free-tier canary (replace_when_unlisted)" owns the field and the operator
-#   view.
+# The watched profile is any opencode profile in config/crew-dispatch.json (a
+#   rule's `use` or the `default`) on the lane's free model, and the
+#   replacement is the lane's paid profile; bin/fm-free-lane-lib.sh owns both,
+#   and docs/configuration.md "Free research lane" owns the operator view. No
+#   other model is watched and no other replacement is ever written.
 #
-# `run` lists each watched provider's models once with
+# `run` lists the free model's provider once with
 #   `opencode models <provider> --refresh --pure` (autoupdate and sharing off,
-#   bounded by FM_FREE_MODEL_CANARY_TIMEOUT seconds, default 120). A watched
-#   model that is listed is ok. A watched model missing from a listing that
-#   exited 0 and named at least one model of that provider is gone: the profile
-#   is rewritten in place to its replacement (harness, model, provider, and
-#   effort come from the replacement; every other key, such as private_ok, is
-#   kept, and replace_when_unlisted is dropped), the previous file is kept as
+#   bounded by FM_FREE_MODEL_CANARY_TIMEOUT seconds, default 120). A listed
+#   model is ok. A model missing from a listing that exited 0 and named at least
+#   one model of that provider is gone: every watched profile is rewritten in
+#   place to the replacement (harness, model, and provider come from the
+#   replacement, any effort keys are dropped, and every other key, such as
+#   private_ok, is kept), the previous file is kept as
 #   config/crew-dispatch.json.bak-<YYYY-MM-DD>-canary, and
 #   bin/fm-config-push.sh converges live secondmate homes. A listing that fails
 #   or names nothing proves nothing, so nothing is swapped. The rewrite refuses
 #   when the rules file changed while the listing ran. It never touches any
 #   OpenCode account or plan setting (in particular, never the Go plan's
-#   "use balance"). Prints one line per watched model and exits 0 when every
-#   watched model is listed or was swapped, 1 when a listing proved nothing or
-#   a swap failed, 2 for a usage error, a secondmate home (whose rules are
-#   inherited from the primary), or an unreadable rules file.
+#   "use balance"). Prints one line and exits 0 when the model is listed, was
+#   swapped, or is not watched, 1 when the listing proved nothing or the swap
+#   failed, 2 for a usage error, a secondmate home (whose rules are inherited
+#   from the primary), or an unreadable rules file.
 #   --record writes the outcome to state/free-model-canary/.
 #
 # `check` is the watcher check. It prints one captain-notice line for a
@@ -73,6 +74,8 @@ LAST_OUT="$RESULT_DIR/last.out"
 LOCK="$RESULT_DIR/running"
 NO_RECORD='{}'
 
+# shellcheck source=bin/fm-free-lane-lib.sh
+. "$SCRIPT_DIR/fm-free-lane-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
 # shellcheck source=bin/fm-check-lib.sh
@@ -92,18 +95,8 @@ positive_int() {  # <value> <default>
 
 secondmate_home() { [ -e "$FM_HOME/.fm-secondmate-home" ] || [ -L "$FM_HOME/.fm-secondmate-home" ]; }
 
-# Every watched profile, one compact JSON object per line:
-# {model, provider, replacement}.
-# shellcheck disable=SC2016 # A jq program: $v is jq's, not the shell's.
-WATCHED_JQ='
-  def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
-  [((.rules // [])[] | profiles(.use)[]), profiles(.default // null)[]
-    | select(type == "object" and .harness == "opencode" and ((.model // "") != "")
-        and (.replace_when_unlisted | type) == "object")
-    | {model, provider: (.provider // (.model | split("/") | first)), replacement: .replace_when_unlisted}]
-  | unique_by(.model) | .[]'
-
-watched() { jq -c "$WATCHED_JQ" "$RULES" 2>/dev/null; }
+# True when some rule's use or the default runs the lane's free model.
+watched() { [ "$(jq -r "$FM_FREE_LANE_JQ"' lane_watched' "$RULES" 2>/dev/null)" = true ]; }
 
 bounded() {  # <seconds> <command...>
   local secs=$1
@@ -123,17 +116,15 @@ sha256_file() {
   fi
 }
 
-# Rewrite every watched profile on <model> to its replacement, keeping the
-# previous bytes as a dated backup. Refuses when the file changed since
-# <digest> was taken.
-swap_profile() {  # <model> <digest>
-  local model=$1 digest=$2 tmp backup
+# Rewrite every watched profile to the replacement, keeping the previous bytes
+# as a dated backup. Refuses when the file changed since <digest> was taken.
+swap_profile() {  # <digest>
+  local digest=$1 tmp backup
   [ "$(sha256_file "$RULES")" = "$digest" ] || { printf 'the rules file changed while the canary ran'; return 1; }
   tmp=$(mktemp "$CONFIG_DIR/.crew-dispatch.json.canary.XXXXXX") || { printf 'mktemp failed'; return 1; }
-  if ! jq --indent 2 --arg model "$model" '
-    def swap: if type == "object" and .harness == "opencode" and .model == $model
-                and (.replace_when_unlisted | type) == "object"
-              then .replace_when_unlisted + del(.harness, .model, .provider, .effort, .replace_when_unlisted)
+  if ! jq --indent 2 --argjson replacement "$FM_FREE_LANE_REPLACEMENT" "$FM_FREE_LANE_JQ"'
+    def swap: if lane_free(.)
+              then $replacement + del(.harness, .model, .provider, .effort, .effort_min, .effort_max, .effort_floor)
               else . end;
     def swap_all: if type == "array" then map(swap) else swap end;
     (if has("rules") then .rules |= map(if has("use") then .use |= swap_all else . end) else . end)
@@ -151,60 +142,36 @@ swap_profile() {  # <model> <digest>
 }
 
 # ---- run ----------------------------------------------------------------------
-# Prints one OK, SWAPPED, FAILED, or UNVERIFIABLE line per watched model (the
-# recorded outcome is derived from these lines) and returns the run's exit code.
+# Prints one OK, SWAPPED, FAILED, or UNVERIFIABLE line (the recorded outcome is
+# derived from it) and returns the run's exit code.
 canary_run() {
-  local timeout_s rows row model provider replacement listing rc digest how swapped=0 bad=0
-  local listings=$'\n'
+  local timeout_s listing rc digest how model=$FM_FREE_LANE_MODEL provider=$FM_FREE_LANE_PROVIDER
   [ -f "$RULES" ] && [ -r "$RULES" ] || { printf 'error: rules file is not readable: %s\n' "$RULES"; return 2; }
+  jq -e . "$RULES" >/dev/null 2>&1 || { printf 'error: rules file is not valid JSON: %s\n' "$RULES"; return 2; }
   digest=$(sha256_file "$RULES")
-  rows=$(watched) || { printf 'error: rules file is not valid JSON: %s\n' "$RULES"; return 2; }
-  [ -n "$rows" ] || { printf 'canary: no watched profile\n'; return 0; }
+  watched || { printf 'canary: no watched profile\n'; return 0; }
   timeout_s=$(positive_int "${FM_FREE_MODEL_CANARY_TIMEOUT:-}" 120)
-  while IFS= read -r row; do
-    model=$(jq -r .model <<<"$row")
-    provider=$(jq -r .provider <<<"$row")
-    replacement=$(jq -c .replacement <<<"$row")
-    # One listing per provider, kept as "<provider><TAB><models...>".
-    case "$listings" in
-      *$'\n'"$provider"$'\t'*) ;;
-      *)
-        rc=0
-        listing=$(OPENCODE_CONFIG_CONTENT='{"autoupdate":false,"share":"disabled"}' OPENCODE_DISABLE_AUTOUPDATE=1 \
-          bounded "$timeout_s" "$OPENCODE_BIN" models "$provider" --refresh --pure </dev/null 2>/dev/null) || rc=$?
-        if [ "$rc" -eq 0 ] && grep -qF -- "$provider/" <<<"$listing"; then
-          listings+="$provider"$'\t'"$(printf '%s' "$listing" | tr '\n' ' ')"$'\n'
-        else
-          listings+="$provider"$'\t'"!exit $rc"$'\n'
-        fi
-        ;;
-    esac
-    listing=$(printf '%s' "$listings" | awk -F '\t' -v p="$provider" '$1 == p { print $2; exit }')
-    case "$listing" in
-      '!exit '*)
-        printf 'UNVERIFIABLE %s: opencode models %s listed nothing (%s)\n' "$model" "$provider" "${listing#!}"
-        bad=1
-        ;;
-      *)
-        if tr ' ' '\n' <<<"$listing" | grep -qxF -- "$model"; then
-          printf 'OK %s: listed\n' "$model"
-        elif how=$(swap_profile "$model" "$digest"); then
-          digest=$(sha256_file "$RULES")
-          swapped=1
-          printf 'SWAPPED %s: no longer listed by opencode; its dispatch profile now runs %s (backup config/%s)\n' \
-            "$model" "$(jq -r '"\(.harness) \(.model)"' <<<"$replacement")" "$how"
-        else
-          printf 'FAILED %s: no longer listed by opencode, but the swap failed: %s\n' "$model" "$how"
-          bad=1
-        fi
-        ;;
-    esac
-  done <<<"$rows"
-  if [ "$swapped" -eq 1 ] && [ -x "$CONFIG_PUSH_BIN" ]; then
+  rc=0
+  listing=$(OPENCODE_CONFIG_CONTENT='{"autoupdate":false,"share":"disabled"}' OPENCODE_DISABLE_AUTOUPDATE=1 \
+    bounded "$timeout_s" "$OPENCODE_BIN" models "$provider" --refresh --pure </dev/null 2>/dev/null) || rc=$?
+  if [ "$rc" -ne 0 ] || ! grep -qF -- "$provider/" <<<"$listing"; then
+    printf 'UNVERIFIABLE %s: opencode models %s listed nothing (exit %s)\n' "$model" "$provider" "$rc"
+    return 1
+  fi
+  if grep -qxF -- "$model" <<<"$listing"; then
+    printf 'OK %s: listed\n' "$model"
+    return 0
+  fi
+  if ! how=$(swap_profile "$digest"); then
+    printf 'FAILED %s: no longer listed by opencode, but the swap failed: %s\n' "$model" "$how"
+    return 1
+  fi
+  printf 'SWAPPED %s: no longer listed by opencode; its dispatch profile now runs %s %s (backup config/%s)\n' \
+    "$model" "$FM_FREE_LANE_PAID_HARNESS" "$FM_FREE_LANE_PAID_MODEL" "$how"
+  if [ -x "$CONFIG_PUSH_BIN" ]; then
     FM_HOME="$FM_HOME" "$CONFIG_PUSH_BIN" >/dev/null 2>&1 \
       || printf 'WARN the config push to secondmate homes failed; run bin/fm-config-push.sh\n'
   fi
-  [ "$bad" -eq 0 ] || return 1
   return 0
 }
 
@@ -288,7 +255,7 @@ action_check() (
   now=$(date +%s)
   started=$(jq -r '.started // 0' <<<"${record:-$NO_RECORD}")
   [ $((now - started)) -ge "$interval" ] || return 0
-  [ -n "$(watched)" ] || return 0
+  watched || return 0
   fm_lock_release "$LOCK"
   trap - EXIT
   local monitor_was_on=0
@@ -313,12 +280,12 @@ shim_content() {
 action_arm() {
   local home device tmp
   if [ "${1:-}" = --if-watched ]; then
-    ! secondmate_home && [ -n "$(watched)" ] || return 0
+    ! secondmate_home && watched || return 0
   elif [ -n "${1:-}" ]; then
     die_usage "unknown arm flag: $1"
   fi
   secondmate_home && { printf 'fm-free-model-canary: a secondmate home inherits its rules; arm the canary in the primary home\n' >&2; return 1; }
-  [ -n "$(watched)" ] || { printf 'fm-free-model-canary: no opencode profile in %s declares replace_when_unlisted\n' "$RULES" >&2; return 1; }
+  watched || { printf 'fm-free-model-canary: no opencode profile in %s runs %s\n' "$RULES" "$FM_FREE_LANE_MODEL" >&2; return 1; }
   home=$(CDPATH='' cd -- "$FM_HOME" 2>/dev/null && pwd -P) || { printf 'fm-free-model-canary: cannot resolve FM_HOME\n' >&2; return 1; }
   mkdir -p "$STATE" || return 1
   [ -d "$STATE" ] && [ ! -L "$STATE" ] || return 1

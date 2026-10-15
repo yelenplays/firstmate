@@ -36,7 +36,9 @@ printf 'push %s\n' "$FM_HOME" >> "$FAKE_PUSH_LOG"
 SH
 chmod +x "$FAKEBIN/config-push"
 
-WATCHED_RULES='{"rules":[{"when":"read-only research","use":{"harness":"opencode","model":"'"$FREE"'","provider":"opencode","private_ok":false,"replace_when_unlisted":{"harness":"pi","model":"'"$PAID"'","provider":"opencode-go"}}},{"when":"implementation","use":{"harness":"codex","model":"gpt-5"}}],"default":{"harness":"claude","model":"sonnet"}}'
+# The lane's free profile, an unrelated rule, and another free opencode model
+# the canary must never watch or rewrite.
+WATCHED_RULES='{"rules":[{"when":"read-only research","use":{"harness":"opencode","model":"'"$FREE"'","provider":"opencode","private_ok":false}},{"when":"implementation","use":{"harness":"codex","model":"gpt-5"}},{"when":"bulk renames","use":{"harness":"opencode","model":"opencode/other-free"}}],"default":{"harness":"claude","model":"sonnet"}}'
 PLAIN_RULES='{"rules":[{"when":"implementation","use":{"harness":"opencode","model":"opencode/big-pickle"}}],"default":{"harness":"claude","model":"sonnet"}}'
 
 HOME_DIR=''
@@ -85,16 +87,18 @@ rules="$HOME_DIR/config/crew-dispatch.json"
 assert_equals "{\"harness\":\"pi\",\"model\":\"$PAID\",\"provider\":\"opencode-go\",\"private_ok\":false}" \
   "$(jq -c '.rules[0].use' "$rules")" "run: the profile becomes its replacement and keeps private_ok"
 assert_equals '{"harness":"codex","model":"gpt-5"}' "$(jq -c '.rules[1].use' "$rules")" "run: other rules are untouched"
+assert_equals '{"harness":"opencode","model":"opencode/other-free"}' "$(jq -c '.rules[2].use' "$rules")" \
+  "run: another unlisted opencode model is never swapped"
 assert_equals '{"harness":"claude","model":"sonnet"}' "$(jq -c '.default' "$rules")" "run: the default is untouched"
 assert_equals 'read-only research' "$(jq -r '.rules[0].when' "$rules")" "run: the rule's routing text is untouched"
 assert_equals 1 "$(backups)" "run: the previous rules are kept as one dated backup"
-jq -e '.rules[0].use.replace_when_unlisted' "$HOME_DIR"/config/crew-dispatch.json.bak-*-canary >/dev/null \
+jq -e --arg free "$FREE" '.rules[0].use.model == $free' "$HOME_DIR"/config/crew-dispatch.json.bak-*-canary >/dev/null \
   || fail "run: the backup holds the rules from before the swap"
 assert_equals "push $HOME_DIR" "$(cat "$FAKE_PUSH_LOG")" "run: a swap converges the secondmate homes"
 run_canary code out run
 expect_code 0 "$code" "run: after the swap nothing is watched"
 assert_equals 'canary: no watched profile' "$out" "run: a swapped profile is no longer watched"
-pass "run: an unlisted free model swaps to its replacement, keeps a backup, and pushes"
+pass "run: an unlisted free model swaps to the paid replacement only, keeps a backup, and pushes"
 
 new_home failed "$WATCHED_RULES"
 before=$(cat "$HOME_DIR/config/crew-dispatch.json")
@@ -119,7 +123,7 @@ printf '%s\n' opencode/big-pickle > "$FAKE_OC_LISTING"
 FAKE_OC_TOUCH="$HOME_DIR/config/crew-dispatch.json" run_canary code out run
 expect_code 1 "$code" "run: a rules edit during the listing"
 assert_contains "$out" "FAILED $FREE: no longer listed by opencode, but the swap failed: the rules file changed while the canary ran" "run: an edit during the run refuses the swap"
-jq -e '.rules[0].use.replace_when_unlisted' "$HOME_DIR/config/crew-dispatch.json" >/dev/null \
+jq -e --arg free "$FREE" '.rules[0].use.model == $free' "$HOME_DIR/config/crew-dispatch.json" >/dev/null \
   || fail "run: a refused swap leaves the operator's rules in place"
 pass "run: a rules edit during the listing refuses the swap"
 
@@ -128,7 +132,7 @@ run_canary code out run
 expect_code 0 "$code" "run: no watched profile"
 assert_equals 'canary: no watched profile' "$out" "run: no watched profile says so"
 [ ! -s "$FAKE_OC_LOG" ] || fail "run: no watched profile never calls opencode"
-pass "run: a rules file without replace_when_unlisted calls nothing"
+pass "run: a rules file without the free lane model calls nothing"
 
 new_home secondmate "$WATCHED_RULES"
 printf 'research-mate\n' > "$HOME_DIR/.fm-secondmate-home"
@@ -136,7 +140,7 @@ printf '%s\n' opencode/big-pickle > "$FAKE_OC_LISTING"
 run_canary code out run
 expect_code 2 "$code" "run: a secondmate home"
 assert_contains "$out" 'this is a secondmate home' "run: a secondmate home is refused"
-jq -e '.rules[0].use.replace_when_unlisted' "$HOME_DIR/config/crew-dispatch.json" >/dev/null \
+jq -e --arg free "$FREE" '.rules[0].use.model == $free' "$HOME_DIR/config/crew-dispatch.json" >/dev/null \
   || fail "run: a secondmate home never rewrites its inherited rules"
 [ ! -s "$FAKE_OC_LOG" ] || fail "run: a secondmate home never calls opencode"
 pass "run: a secondmate home is refused before any listing"
@@ -216,7 +220,7 @@ assert_equals '' "$out" "arm --if-watched: nothing watched stays silent"
 [ ! -e "$HOME_DIR/state/free-model-canary.check.sh" ] || fail "arm --if-watched: nothing watched arms nothing"
 run_canary code out arm
 expect_code 1 "$code" "arm: nothing watched is refused"
-assert_contains "$out" 'declares replace_when_unlisted' "arm: the refusal names the missing field"
+assert_contains "$out" "runs $FREE" "arm: the refusal names the watched model"
 pass "arm: nothing is armed without a watched profile"
 
 new_home arm-sm "$WATCHED_RULES"

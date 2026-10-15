@@ -1159,7 +1159,7 @@ new_world() {
     [ "$dispatch_ignore" = no ] || printf 'config/crew-dispatch.json\n'
     printf 'config/crew-harness\nconfig/secondmate-harness\nconfig/backlog-backend\n'
     printf 'config/backend\nconfig/herdr-presentation-spaces\nconfig/startup-memory-budget\n'
-    printf 'config/claude-permission-mode\nconfig/brief-include.md\n'
+    printf 'config/claude-permission-mode\nconfig/brief-include.md\nconfig/private-markers\n'
   } > "$w/main/.gitignore"
   printf 'v1\n' > "$w/main/AGENTS.md"
   printf 'r1\n' > "$w/main/README.md"
@@ -2658,6 +2658,50 @@ test_bootstrap_detect_only_does_not_create_state() {
   pass "B24 bootstrap detect-only mode remains filesystem read-only"
 }
 
+# config/private-markers is inherited as a file so a secondmate's own guard
+# holds, but its content must never reach the live agent's model: a reread
+# instruction leaves it out, a marker-only change sends no reread at all, and
+# the remote route's nudge decision ignores it too.
+test_private_markers_inherit_but_never_reach_a_reread() {
+  local w head log out err status instruction count_before count_after
+  w=$(new_world private-markers-reread)
+  head=$(git -C "$w/main" rev-parse HEAD)
+  add_sm_worktree "$w" sm "$head"
+  mkdir -p "$w/sm/config" "$w/sm/state"
+  err="$w/private-markers-reread.err"
+
+  printf '%s\n' 'Zebra Secret Client' > "$w/home/config/private-markers"
+  printf 'codex\n' > "$w/home/config/crew-harness"
+  log="$w/private-markers-reread.tmux.log"
+  out=$(run_config_push "$w" "$log" 2>"$err"); status=$?
+  expect_code 0 "$status" "private-markers push should succeed: $(cat "$err")"
+  assert_contains "$out" "private-markers: pushed" "private-markers should inherit as a file"
+  cmp -s "$w/home/config/private-markers" "$w/sm/config/private-markers" \
+    || fail "private-markers bytes did not converge into the secondmate home"
+  instruction=$(reread_instruction_path "$w/sm") || fail "crew-harness change wrote no reread instruction"
+  assert_contains "$(cat "$instruction")" "config/crew-harness" "reread instruction lacks the visible change"
+  assert_not_contains "$(cat "$instruction")" "Zebra Secret Client" "reread instruction leaked a private marker"
+  assert_not_contains "$(cat "$instruction")" "config/private-markers" "reread instruction named the private marker list"
+
+  count_before=$(inbox_stream "$w/home/state" sm | grep -c 'CONFIG_REREAD:' || true)
+  printf '%s\n' 'Zebra Secret Client' 'Another Private Name' > "$w/home/config/private-markers"
+  out=$(run_config_push "$w" "$log" 2>"$err"); status=$?
+  expect_code 0 "$status" "marker-only push should succeed: $(cat "$err")"
+  assert_contains "$out" "private-markers: pushed" "marker-only change should still inherit"
+  assert_not_contains "$out" "config-reread: sent" "a marker-only change must not nudge a reread"
+  count_after=$(inbox_stream "$w/home/state" sm | grep -c 'CONFIG_REREAD:' || true)
+  [ "$count_before" = "$count_after" ] || fail "a marker-only change sent a reread pointer"
+  [ "$(reread_instruction_path "$w/sm")" = "$instruction" ] || fail "a marker-only change wrote a new reread instruction"
+
+  printf '%s\n' 'pushed: config/private-markers' 'unchanged: config/crew-harness' \
+    | fm_config_inherit_output_has_visible_change \
+    && fail "remote route would nudge a reread for a marker-only change"
+  printf '%s\n' 'pushed: config/private-markers' 'removed: config/crew-harness' \
+    | fm_config_inherit_output_has_visible_change \
+    || fail "remote route would skip the reread for a visible change"
+  pass "private-markers inherit as a file but never reach a reread instruction or nudge"
+}
+
 test_config_reread_skips_when_unchanged_and_reads_after_push() {
   local w head log out err status report instr n path pending_instruction count
   w=$(new_world config-reread-after-push)
@@ -2946,6 +2990,7 @@ test_config_reread_full_retry_queue_drains_before_new_push
 test_config_reread_cleanup_runs_after_mixed_delivery_failure
 test_config_reread_stops_after_failed_generation
 test_config_reread_skips_when_unchanged_and_reads_after_push
+test_private_markers_inherit_but_never_reach_a_reread
 test_config_reread_bootstrap_path_and_spawn_flexibility
 test_bootstrap_respawns_before_config_reread
 test_spawn_quarantines_pending_rereads_on_cleanup_failure
