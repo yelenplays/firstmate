@@ -62,7 +62,7 @@ pass 'same model, top effort, and through-reset quota'
 
 record_of() { awk '/^  receipt: / {sub(/^  receipt: /, ""); print}' <<<"$1"; }
 SELECTED='{"harness":"claude","model":"claude-opus-5-5","effort":"medium"}'
-jq -e --argjson s "$SELECTED" '.kind == "dispatch" and .selected == $s and .exception == null and .consultation.model == "jev-1.13.0"' \
+jq -e --argjson s "$SELECTED" '.kind == "dispatch" and .selected == $s and .selected_rule == "rule_1" and .exception == null and .consultation.model == "jev-1.13.0"' \
   "$(record_of "$out")" >/dev/null || fail 'dispatch record did not capture the selected profile and Jev consultation'
 cat > "$H/config/model-denylist.json" <<'JSON'
 {"never":[{"pattern":"*luna*","reason":"unsupported for this work"}],"rules":["Opus handles judgment."]}
@@ -121,7 +121,7 @@ pass 'the public resolver accepts and records the cross-review reviewer chain'
 cp "$H/config/crew-dispatch.json" "$TMP_ROOT/before-override.json"
 why='Explicit per-task model choice authorized for this fixture.'
 out=$(route "$BRIEF" --policy-profile "$SELECTED" --captain-override "$why") || fail 'explicit override did not route'
-jq -e --arg why "$why" --argjson s "$SELECTED" '.captain_override == true and .exception == "deterministic_policy" and .reason == $why and .selected == $s' \
+jq -e --arg why "$why" --argjson s "$SELECTED" '.captain_override == true and .exception == "deterministic_policy" and .reason == $why and .selected == $s and .selected_rule == null' \
   "$(record_of "$out")" >/dev/null || fail 'override reason was not recorded'
 jq '.rules = [.rules[0]] | .rules[0].approval = "captain"' "$TMP_ROOT/before-override.json" > "$H/config/crew-dispatch.json"
 out=$(route "$BRIEF") || fail 'approval rule did not escalate'
@@ -185,3 +185,15 @@ assert_not_contains "$out" '  receipt: ' 'unavailable records must not claim a s
 out=$(route "$BRIEF" --policy-profile "$SELECTED" --captain-override "$why") || fail 'unwritable records blocked a captain override'
 assert_contains "$out" "--model 'claude-opus-5-5'" 'record failure preserves the explicit override model'
 pass 'unavailable records never block the routing result or captain override'
+
+write_receipt() {  # <selected-rule-json>
+  jq -nc --argjson rule "$1" --argjson s "$SELECTED" \
+    '{selected:$s, selected_rule:$rule, consultation:{model:"jev-1.13.0",answer:{}}, options_hash:("a" * 64), exception:"jev_escalation", reason:"fixture"}' |
+    "$ROOT/bin/fm-model-route-receipt.py" write --home "$TMP_ROOT/receipt-home" --brief "$BRIEF" --config "$H/config" 2>/dev/null
+}
+record=$(write_receipt '"rule_2"') || fail 'a receipt with a named selected rule was refused'
+assert_equals rule_2 "$(jq -r .selected_rule "$record")" 'a receipt keeps the selected rule it was given'
+for bad in '""' '7'; do
+  write_receipt "$bad" >/dev/null && fail "a receipt accepted selected_rule $bad"
+done
+pass 'a receipt keeps a named selected rule and refuses an empty or non-string one'

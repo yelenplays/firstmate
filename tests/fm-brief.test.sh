@@ -751,6 +751,25 @@ test_secondmate_no_projects_charter() {
   pass "fm-brief.sh: --no-projects scaffolds a project-less charter and guards misuse"
 }
 
+# A secondmate seat may be pinned to a lighter model for routine supervision,
+# so its charter routes captain-decision and design judgment off that seat.
+test_secondmate_charter_keeps_judgment_off_the_seat() {
+  local home brief
+  home="$TMP_ROOT/seat-judgment-home"
+  mkdir -p "$home/data"
+  FM_HOME="$home" FM_SECONDMATE_CHARTER='Handle routed domain work.' \
+    "$ROOT/bin/fm-brief.sh" seat-judgment --secondmate --no-projects >/dev/null 2>&1
+  brief="$home/data/seat-judgment/brief.md"
+  assert_present "$brief" "secondmate charter was not scaffolded"
+  assert_grep 'Your own seat runs routine supervision on the model the main firstmate pins for it' "$brief" \
+    "secondmate charter did not tie its seat to the pinned routine-supervision model"
+  assert_grep 'dispatch design, planning, and other open-ended work to a crewmate through this home'"'"'s dispatch rules' "$brief" \
+    "secondmate charter did not route design work off the seat"
+  assert_grep 'send a captain decision up the parent channel below with its facts and options' "$brief" \
+    "secondmate charter did not route captain decisions to the main firstmate"
+  pass "fm-brief.sh: a secondmate charter keeps captain-decision and design judgment off its seat"
+}
+
 test_secondmate_marked_request_reporting_contract() {
   local home brief
   home="$TMP_ROOT/marked-request-reporting-home"
@@ -1625,6 +1644,7 @@ test_documented_global_replace_leaves_the_herdr_gate_intact
 test_herdr_lab_contract_applies_to_scouts_but_not_secondmates
 test_secondmate_no_projects_charter
 test_secondmate_marked_request_reporting_contract
+test_secondmate_charter_keeps_judgment_off_the_seat
 test_secondmate_directory_paths_are_absolute_and_output_is_stable
 test_pause_verb_override_renders_all_brief_scaffolds
 test_ship_and_scout_teach_validation_round_pause

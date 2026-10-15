@@ -1040,7 +1040,7 @@ This guard is the refresh command after any harness upgrade; it spends a small n
 The doorbell no longer prints the inbox's absolute path, so its length no longer grows with the home's depth.
 It names the inbox as `"$FM_TASK_INBOX"`, which `bin/fm-spawn.sh` exports into every launch as the absolute `state/<task>.inbox` path, followed by the short `<task>.inbox` name; the brief's full path remains the fallback for a worker launched without that export.
 The guard now launches each worker with `FM_TASK_INBOX` exported and no brief, so the worker must resolve the inbox from the doorbell and its environment alone.
-It is the refresh command for that shape, which has not yet been recorded live here.
+It is the refresh command for that shape; the Pi-on-Herdr result below covers the environment-resolved inbox without a brief.
 The run below, on 2026-09-30 on tmux 3.6, Linux (WSL2), with the same command, covered the earlier brief-primed shape, whose doorbell named only the short `<task>.inbox` name and whose guard gave each worker the brief's steering-inbox sentence before the steer:
 
 ```text
@@ -1054,6 +1054,45 @@ ok - opencode (1.18.33): the doorbell reached a real worker, which acted and ack
 
 OpenCode needed `FM_SEND_INBOX_LIVE_TIMEOUT=560` because its configured model was still mid-turn at the default 240 seconds.
 Pi 0.87.1 was installed but not verified: its configured model returned an account error (`The 'gpt-5.6-sol' model is not supported when using Codex with a ChatGPT account`) before it read the inbox.
+
+### Herdr doorbell submission (2026-10-15)
+
+Pi 1.2.0 was verified on macOS arm64 through the real `fm-send.sh`, in a named non-default Herdr session with guarded cleanup and the default-session tripwire.
+The existing live guard now accepts `FM_SEND_INBOX_LIVE_BACKEND=herdr` for Claude/Pi; a transport shim drops exactly two Enter calls on both the fresh and preloaded-stale paths.
+The worker must act on each durable record and acknowledge it, rather than merely change the screen.
+The guard also verifies that an unrelated idle draft stays untouched.
+
+```sh
+HERDR_LAB_HELPER="$HOME/github/firstmate/bin/fm-herdr-lab.sh" \
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_BACKEND=herdr \
+FM_SEND_INBOX_LIVE_HARNESSES=pi \
+bash bin/fm-test-run.sh tests/fm-send-inbox-doorbell-live-e2e.test.sh
+```
+
+```text
+ok - Herdr pi (1.2.0): fresh doorbell acted and acknowledged after two swallowed Enters
+ok - Herdr pi (1.2.0): stale doorbell acted and acknowledged after two swallowed Enters
+ok - Herdr pi (1.2.0): unrelated draft stays unsubmitted
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=135764
+```
+
+Claude Code 2.1.300 passed the same fresh, stale, and draft checks on a named Herdr lab, plus a retry-exhaustion check: after all three Enters were dropped, `fm-send.sh` reported the doorbell unconfirmed, left one exact doorbell and the durable record, and a re-ring then reached the worker.
+Pi 1.2.0 passed the same exhaustion and recovery check.
+Claude launches with `--safe-mode` because `--bare` never reads claude.ai OAuth (see [supervision host](../supervision-host.md)), and its settings exclude this checkout's own `CLAUDE.md` and `AGENTS.md`.
+To refresh it, pre-register trust for one disposable lab directory, pass that directory as `FM_SEND_INBOX_LIVE_CWD`, and select the account with `CLAUDE_CONFIG_DIR`; the guard forwards that variable only into the lab process:
+
+```sh
+CLAUDE_CONFIG_DIR=<account-dir> bin/fm-claude-trust.sh --lab-home <lab-dir>
+CLAUDE_CONFIG_DIR=<account-dir> FM_SEND_INBOX_LIVE_CWD=<lab-dir> \
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_BACKEND=herdr \
+FM_SEND_INBOX_LIVE_HARNESSES=claude \
+bash bin/fm-test-run.sh tests/fm-send-inbox-doorbell-live-e2e.test.sh
+```
+
+The guard never answers trust/import dialogs or writes a global consent store; remove the lab directory's trust entry afterward.
+tmux was not on PATH, so the tmux Pi stale-submit path has only the portable coverage below, not a live run.
+Portable coverage in `tests/fm-task-inbox.test.sh` exercises Enter-only retries, exhaustion, supported label preservation, and blocking-dialog refusal across tmux, Herdr, Zellij, Orca, and cmux. Its Pi regression covers exact stale doorbells starting a turn with an unknown composer on tmux and Herdr, including two swallowed Enters, while pre-existing busy/unknown state remains unconfirmed and unrelated drafts remain untouched.
+`tests/fm-composer-lib.test.sh` pins exact extraction of the captured Pi rail/footer geometry and refuses incomplete input or a lower shell.
 
 ## Waiting-worker command ceilings
 
@@ -1429,7 +1468,7 @@ The composer row lands outside a bounded 20-row tail of the pane, so the adapter
 The pre-Enter payload proof then judged the typed command unsent, pressed Ctrl+U, and reported `send-failed` without ever pressing Enter, so `bin/fm-control.sh exit` never exited the worker (and `bin/fm-secondmate-restart.sh` inherited the failure through its exit step).
 
 The fix captures the FULL VISIBLE VIEWPORT for every herdr adapter composer read (`pane read --source visible [--format ansi]`, `fm_backend_herdr_composer_state` and `fm_backend_herdr_composer_content`): the composer is by definition inside the viewport, and the viewport is the one bound that always contains it.
-The shared inbox pending-line confirmation read (`bin/fm-task-inbox-lib.sh`) stays a bounded tail on every backend, herdr included; its payloads are task lines, not slash commands, so the popup shape does not arise there.
+At the time the shared inbox pending-line confirmation read (`bin/fm-task-inbox-lib.sh`) stayed a bounded tail; since 2026-10-15 it also reads the visible viewport wherever the backend supports one (`docs/herdr-backend.md` "Claude composer proof" owns the contract).
 The popup rows sit below the composer's closing rule, which is a structural edge row, so the shared classifier still selects only the composer and the menu rows never read as typed text.
 Verified live in the lab: with the popup up the state read answers `pending` (previously `empty`) and the payload proof returns `/exit` (previously empty), the submit presses Enter, and the Claude process exits, leaving the shell prompt.
 Growing the window only adds rows above the composer, so the bottom-most-shape selection, the footer zone, and every previously passing verdict are unchanged.

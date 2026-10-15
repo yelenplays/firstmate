@@ -1953,6 +1953,21 @@ assert_equals "0" "$(backup_calls)" "chain: no backup call after a clear typed a
 assert_contains "$(tail -n 1 "$DISPATCH_LOG")" '"decided_by":"typed"' "chain: the dispatch log records the deciding stage"
 pass "chain: a clear typed answer decides without the backup"
 
+# A runoff that overturns the first-pass answer names its winner as the
+# receipt's selected rule, while the first pass stays consultation evidence.
+reset_log
+write_response "$RESPONSE" rule_4 0.26 '{ "rule_1": 0.02, "rule_2": 0.30, "rule_3": 0.02, "rule_4": 0.41, "default": 0.25 }'
+write_pick_response "$PICK_RESPONSE" rule_2 '{ "rule_4": 0.2, "rule_2": 0.8 }'
+TYPESAFE_API_KEY=$KEY FAKE_CURL_PICK_RESPONSE=$PICK_RESPONSE run_chain code out err "$BRIEF"
+expect_code 0 "$code" "chain: an overturning runoff exits 0"
+assert_contains "$out" '  decided: rule_2 by typed' 'chain: the runoff winner decides'
+receipt=$(awk '/^  receipt: / {sub(/^  receipt: /, ""); print}' <<<"$out")
+[ -f "$receipt" ] || fail "chain: an overturning runoff must write a receipt: $out"
+assert_equals 'rule_2' "$(jq -r '.selected_rule' "$receipt")" 'chain: the receipt names the runoff winner as the selected rule'
+assert_equals 'rule_4' "$(jq -r '.consultation.answer.rule.choice' "$receipt")" 'chain: the first-pass answer stays consultation evidence'
+assert_equals 'rule_2' "$(tail -n 1 "$HOME_DIR/state/model-route/decisions.jsonl" | jq -r '.selected_rule')" 'chain: the decision journal carries the selected rule'
+pass 'chain: receipts record the runoff winner as the selected rule'
+
 # An ambiguous typed answer goes to the backup, which sees exactly the typed
 # state and the same rule options, and its answer decides.
 reset_log
@@ -1965,6 +1980,8 @@ assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-h
 assert_equals 0 "$(backup_calls)" 'chain: no generative backup model is invoked'
 assert_contains "$(tail -n 1 "$DISPATCH_LOG")" '"decided_by":"default"' 'chain: the deciding stage is recorded'
 assert_contains "$out" '  receipt: ' 'chain: fallback has a consumable typed exception receipt'
+assert_equals 'default' "$(jq -r '.selected_rule' "$(awk '/^  receipt: / {sub(/^  receipt: /, ""); print}' <<<"$out")")" \
+  'chain: a fallback receipt names the default lane as the selected rule'
 pass 'chain: an undecided Jev answer uses the configured default without a generative judge'
 
 # An unreachable typed call and an absent key both go to the backup.

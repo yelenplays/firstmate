@@ -1390,6 +1390,26 @@ test_pi_cache_hit_footer_plain_capture() {
 
 test_pi_cache_hit_footer_plain_capture
 
+# Captured Pi rail geometry from the stale-doorbell reproduction: input is
+# followed immediately by cwd and cache-hit metrics, with no blank footer gap.
+# Exact extraction must use the same complete-region proof as classification.
+test_pi_footer_exact_content() {
+  local screen out footer text dollar='$'
+  footer="↑35k ↓352 R102k CH99.0% ${dollar}0.000 (sub) 12.6%/272k (auto) (openai-codex) gpt-6-astra • xhigh"
+  text=': Firstmate instruction waiting: wrapped doorbell'
+  screen=$(printf '%s\n' 'old transcript' '' '┃ : Firstmate instruction waiting:' '┃ wrapped doorbell' '/tmp/lab' "$footer")
+  out=$(fm_composer_extract_selected_content styled=0 "$screen") || fail "Pi footer hid exact composer content"
+  [ "$out" = "$text" ] || fail "Pi footer leaked into extracted content: $out"
+  for screen in "${screen#*$'\n\n'}" "$screen"$'\n$ shell' "${screen%$'\n'*}"; do
+    if fm_composer_extract_selected_content styled=0 "$screen" >/dev/null; then
+      fail "truncated input, a lower shell, or missing footer must not prove exact Pi content"
+    fi
+  done
+  pass "Pi footer exact extraction recovers wrapped input and refuses incomplete or stale regions"
+}
+
+test_pi_footer_exact_content
+
 test_pi_footer_rule_fragment_never_proves_empty() {
   local cap screen out rule24 rule10 footer path tilde dollar
   cap=$'styled=1\ncursor=0\nidentity=1\nrows=40'
