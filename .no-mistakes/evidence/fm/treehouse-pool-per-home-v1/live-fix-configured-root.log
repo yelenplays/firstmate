@@ -1,0 +1,37 @@
+== [fix-configured-root] lab=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY firstmate=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M505Q4ZF43JEKEVF6YPTX9CT (4e739f55) treehouse=v2.0.0
+lab homes marked: fm-lab-home v1 / fm-lab-home v1
+-- user config.toml:
+"max_trees" = +4
+root = "$HOME/worktrees"
+-- step 1: home A's clone takes and returns a slot with real treehouse (creates the shared pool)
+home A got: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/user-home/worktrees/.treehouse/wiki-anbindung-179ed3/1/wiki-anbindung
+slot A belongs to: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/homeA/projects/wiki-anbindung/.git
+-- step 2: unpinned, real treehouse from home B's clone hands out:
+  /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/user-home/worktrees/.treehouse/wiki-anbindung-179ed3/1/wiki-anbindung (common-dir /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/homeA/projects/wiki-anbindung/.git)
+-- step 3: home B runs bin/fm-spawn.sh for projects/wiki-anbindung
+  | fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/homeB
+  | note: pinned project '/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/homeB/projects/wiki-anbindung' to its own Treehouse worktree pool /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/user-home/.treehouse/fm-clones/cea3e4076031/.treehouse/wiki-anbindung-179ed3, because its shared pool holds another clone's worktrees
+  | warning: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/homeB/data/live-b/launch-brief.md records no ship branch; defaulting to legacy branch fm/live-b
+  | warning: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/homeB/data/live-b/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+  | warning: brief preflight: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/homeB/data/live-b/brief.md is missing acceptance criteria or definition of done (missing_acceptance); spawn continues
+  | spawned live-b harness=claude kind=ship mode=no-mistakes yolo=off window=firstmate:fm-live-b worktree=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/user-home/.treehouse/fm-clones/cea3e4076031/.treehouse/wiki-anbindung-179ed3/1/wiki-anbindung
+fm-spawn exit=0
+pane ran real 'treehouse get' -> /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/user-home/.treehouse/fm-clones/cea3e4076031/.treehouse/wiki-anbindung-179ed3/1/wiki-anbindung
+-- results
+worktree=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/user-home/.treehouse/fm-clones/cea3e4076031/.treehouse/wiki-anbindung-179ed3/1/wiki-anbindung
+worktree belongs to: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/homeB/projects/wiki-anbindung/.git
+home B clone common-dir: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/homeB/projects/wiki-anbindung/.git
+home B treehouse.toml:
+    # firstmate per-clone Treehouse pool pin; bin/fm-wake-lib.sh fm_treehouse_pool_pin owns this file, do not edit.
+    max_trees = 4
+    root = "/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/user-home/.treehouse/fm-clones/cea3e4076031"
+home B git status: []
+home A pinned: no
+slot A HEAD unchanged
+slot A claimed by B: no
+shared pool slots unchanged: [{"name": "1", "path": "/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/user-home/worktrees/.treehouse/wiki-anbindung-179ed3/1/wiki-anbindung"}]
+-- step 4: home A spawns again from its own clone (pool must still be A's)
+home A fm-spawn exit=0
+worktree=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.dq7ydY/user-home/worktrees/.treehouse/wiki-anbindung-179ed3/1/wiki-anbindung
+home A pinned: no
+== [fix-configured-root] lab removed

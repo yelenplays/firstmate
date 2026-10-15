@@ -1,0 +1,26 @@
+== [base-22fdb5a6] lab=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y firstmate=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-base.l77mls (archive) treehouse=v2.0.0
+lab homes marked: fm-lab-home v1 / fm-lab-home v1
+-- step 1: home A's clone takes and returns a slot with real treehouse (creates the shared pool)
+home A got: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/user-home/.treehouse/wiki-anbindung-8b938c/1/wiki-anbindung
+slot A belongs to: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/homeA/projects/wiki-anbindung/.git
+-- step 2: unpinned, real treehouse from home B's clone hands out:
+  /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/user-home/.treehouse/wiki-anbindung-8b938c/1/wiki-anbindung (common-dir /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/homeA/projects/wiki-anbindung/.git)
+-- step 3: home B runs bin/fm-spawn.sh for projects/wiki-anbindung
+  | fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/homeB
+  | warning: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/homeB/data/live-b/launch-brief.md records no ship branch; defaulting to legacy branch fm/live-b
+  | warning: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/homeB/data/live-b/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+  | warning: brief preflight: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/homeB/data/live-b/brief.md is missing acceptance criteria or definition of done (missing_acceptance); spawn continues
+  | error: refusing to pre-register Claude trust: '/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/user-home/.treehouse/wiki-anbindung-8b938c/1/wiki-anbindung' is not a worktree of project '/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/homeB/projects/wiki-anbindung'
+  | error: could not pre-register Claude workspace trust for /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/user-home/.treehouse/wiki-anbindung-8b938c/1/wiki-anbindung; refusing to launch a claude worker that would wedge on the trust dialog; inspect window firstmate:fm-live-b
+fm-spawn exit=1
+pane ran real 'treehouse get' -> /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/user-home/.treehouse/wiki-anbindung-8b938c/1/wiki-anbindung
+-- results
+no meta for live-b
+home B clone common-dir: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/homeB/projects/wiki-anbindung/.git
+home B has no treehouse.toml
+home B git status: []
+home A pinned: no
+slot A HEAD unchanged
+slot A claimed by B: no
+shared pool slots unchanged: [{"name": "1", "path": "/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.fZWu4y/user-home/.treehouse/wiki-anbindung-8b938c/1/wiki-anbindung"}]
+== [base-22fdb5a6] lab removed

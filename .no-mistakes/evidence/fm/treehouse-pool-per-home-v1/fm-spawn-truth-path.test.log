@@ -1,0 +1,10 @@
+ok - a clone sharing its origin's Treehouse pool refuses early and names the path to pass
+ok - the path the refusal names spawns cleanly
+ok - clones with a separately keyed or clone-rooted pool are not refused
+ok - a second home's clone of one remote is pinned to its own pool and the first home's pool is untouched
+ok - a project outside projects/ whose pool holds a foreign slot refuses before allocation
+ok - a clone carrying its own treehouse.toml refuses instead of being overwritten
+ok - a configured $HOME root with a quoted key and signed max_trees resolves and pins like Treehouse
+ok - a Treehouse config that cannot be read refuses before allocation
+ok - real Treehouse hands a pinned second-home clone a worktree of its own clone (v2.0.0)
+# all fm-spawn-truth-path tests passed

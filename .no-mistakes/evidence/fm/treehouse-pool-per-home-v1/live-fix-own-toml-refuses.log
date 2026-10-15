@@ -1,0 +1,23 @@
+== [fix-own-toml] lab=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.VrpIPk firstmate=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M505Q4ZF43JEKEVF6YPTX9CT (4e739f55) treehouse=v2.0.0
+lab homes marked: fm-lab-home v1 / fm-lab-home v1
+-- step 1: home A's clone takes and returns a slot with real treehouse (creates the shared pool)
+home A got: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.VrpIPk/user-home/.treehouse/wiki-anbindung-a7577b/1/wiki-anbindung
+slot A belongs to: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.VrpIPk/homeA/projects/wiki-anbindung/.git
+-- step 2: unpinned, real treehouse from home B's clone hands out:
+  /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.VrpIPk/user-home/.treehouse/wiki-anbindung-a7577b/1/wiki-anbindung (common-dir /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.VrpIPk/homeA/projects/wiki-anbindung/.git)
+-- home B's clone carries its own treehouse.toml
+-- step 3: home B runs bin/fm-spawn.sh for projects/wiki-anbindung
+  | fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.VrpIPk/homeB
+  | error: project '/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.VrpIPk/homeB/projects/wiki-anbindung' resolves a Treehouse worktree pool that holds '/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.VrpIPk/user-home/.treehouse/wiki-anbindung-a7577b/1/wiki-anbindung', a worktree of another clone, and it could not be pinned to a pool of its own (a treehouse.toml Firstmate did not write governs it); refusing before allocation
+fm-spawn exit=1
+-- results
+no meta for live-b
+home B clone common-dir: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.VrpIPk/homeB/projects/wiki-anbindung/.git
+home B treehouse.toml:
+    max_trees = 4
+home B git status: [?? treehouse.toml ]
+home A pinned: no
+slot A HEAD unchanged
+slot A claimed by B: no
+shared pool slots unchanged: [{"name": "1", "path": "/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-live-pool.VrpIPk/user-home/.treehouse/wiki-anbindung-a7577b/1/wiki-anbindung"}]
+== [fix-own-toml] lab removed
