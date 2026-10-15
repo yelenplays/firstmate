@@ -98,16 +98,28 @@ Implement the accepted feature after research.
 ## Firstmate spec
 Promote this scout into a ship task under the recorded delivery contract.
 EOF
-FM_ROOT_OVERRIDE="$home" PATH="$home/fakebin:$PATH" "$ROOT/bin/fm-promote.sh" approved-scout --mode no-mistakes --yolo on > "$home/promotion"
-"$EXEC" show approved-scout | grep -q 'implementation owner unconfirmed'
-
-# Real isolated repository + generation-bound worker acknowledgement. Neither
-# a shell's existence, a launch seed, wrong cwd, nor an old token is a receipt.
 mkdir -p "$home/project" "$home/worker"
 fm_git_identity fmtest fmtest@example.invalid
 git -C "$home/worker" init -q
-printf 'kind=ship\nwindow=fake\nworktree=%s\nproject=%s\nspawn_gen=s1\nharness=pi\nmode=no-mistakes\n' "$home/worker" "$home/project" > "$home/state/approved-scout.meta"
+printf 'kind=scout\nwindow=fake\nworktree=%s\nproject=%s\nspawn_gen=s1\nharness=pi\n' "$home/worker" "$home/project" > "$home/state/approved-scout.meta"
+FM_ROOT_OVERRIDE="$home" PATH="$home/fakebin:$PATH" "$ROOT/bin/fm-promote.sh" approved-scout --mode no-mistakes --yolo on > "$home/promotion"
+"$EXEC" show approved-scout | grep -q 'implementation owner unconfirmed'
+promoted_command=$(awk '/^`FM_HOME=.* status / {sub(/^`/, ""); sub(/`$/, ""); print; exit}' "$home/data/approved-scout/ship-instructions.md")
+[ -n "$promoted_command" ] || fail 'promotion delivered no receipt-bearing status command'
+promoted_command=${promoted_command//'{state}'/working}
+promoted_epoch=$(date +%s)
+promoted_command=${promoted_command//'<epoch>'/$promoted_epoch}
+promoted_command=${promoted_command//'{one short line}'/promoted worker processing}
+if (cd "$home" && bash -c "$promoted_command") 2>/dev/null; then fail 'promotion recipe accepted supervisor cwd'; fi
+(cd "$home/worker" && bash -c "$promoted_command")
+"$EXEC" confirmed approved-scout
+[ "$(tail -1 "$home/state/approved-scout.status")" = "working [at=$promoted_epoch]: promoted worker processing" ] || fail 'promotion recipe did not append worker status'
+FM_FAKE_CREW_STATE='state: working · source: pane · harness busy' "$EXEC" show approved-scout | grep -q 'worker.*continue-implementation'
+(cd "$home/worker" && bash -c "${promoted_command/working/paused}")
+"$EXEC" confirmed approved-scout
+FM_FAKE_CREW_STATE='state: working · source: run-step · running review' "$EXEC" show approved-scout | grep -q 'worker.*continue-validation'
 token=$("$EXEC" attempt approved-scout)
+if (cd "$home/worker" && bash -c "$promoted_command") 2>/dev/null; then fail 'promotion recipe survived a new handoff'; fi
 "$EXEC" show approved-scout | grep -q 'owner unconfirmed'
 if "$EXEC" started approved-scout "$token" 2>/dev/null; then fail 'firstmate cwd accepted as worker receipt'; fi
 # Normal status reporting, without a separate started call, must acknowledge
@@ -145,6 +157,7 @@ if (cd "$home/worker" && "$EXEC" status approved-scout "$token" 'working: stale 
 printf 'spawn_gen=s2\n' >> "$home/state/approved-scout.meta"
 if "$EXEC" confirmed approved-scout; then fail 'old incarnation receipt accepted'; fi
 if (cd "$home/worker" && "$EXEC" started approved-scout "$new_token") 2>/dev/null; then fail 'old handoff token rebound to a newer incarnation'; fi
+if (cd "$home/worker" && "$EXEC" status approved-scout "$new_token" 'working: wrong generation') 2>/dev/null; then fail 'status token rebound to a newer incarnation'; fi
 
 # A backlog completion, including a finished scout, is not landing evidence.
 tasks 'done' independent-b >/dev/null
@@ -275,16 +288,15 @@ printf 'kind=task\nwindow=fake\nworktree=%s/task-worker\nproject=%s/project\nspa
 task_token=$(FM_HOME="$home" "$EXEC" attempt task-receipt --spawn-gen task-gen)
 (cd "$home/task-worker" && FM_HOME="$home" "$EXEC" started task-receipt "$task_token")
 FM_HOME="$home" "$EXEC" confirmed task-receipt
-# Unenrolled legacy workers may report without fabricating implementation consent.
-rm "$home/state/task-receipt.execution"
-(cd "$home/task-worker" && "$EXEC" status task-receipt '' 'working: unenrolled worker')
-[ ! -e "$home/state/task-receipt.execution" ] || fail 'status enrolled unauthorized implementation'
-[ "$(tail -1 "$home/state/task-receipt.status")" = 'working: unenrolled worker' ] || fail 'unenrolled status lost'
-# The status target must not redirect a worker append to another file.
-rm "$home/state/task-receipt.status"
+if (cd "$home/task-worker" && "$EXEC" status task-receipt '' 'working: empty token') 2>/dev/null; then fail 'empty status token accepted'; fi
+[ ! -e "$home/state/task-receipt.status" ] || fail 'rejected empty token appended status'
+
 printf 'untouched\n' > "$home/other-file"
 ln -s "$home/other-file" "$home/state/task-receipt.status"
-if (cd "$home/task-worker" && "$EXEC" status task-receipt '' 'working: redirected') 2>/dev/null; then fail 'symlink status target accepted'; fi
+if (cd "$home/task-worker" && "$EXEC" status task-receipt "$task_token" 'working: redirected') 2>/dev/null; then fail 'symlink status target accepted'; fi
 [ "$(<"$home/other-file")" = untouched ] || fail 'status followed a symlink'
+rm "$home/state/task-receipt.status" "$home/state/task-receipt.execution"
+if (cd "$home/task-worker" && "$EXEC" status task-receipt "$task_token" 'working: unenrolled worker') 2>/dev/null; then fail 'unenrolled status accepted'; fi
+[ ! -e "$home/state/task-receipt.execution" ] && [ ! -e "$home/state/task-receipt.status" ] || fail 'unenrolled status mutated worker records'
 
 printf 'PASS: authority, fan-out, waits, promotion, receipts, restart, handoff and watcher transitions\n'
