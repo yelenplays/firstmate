@@ -151,6 +151,25 @@ Under the home's own rules, three borderline briefs split between the open-ended
 Under a three-rule synthetic file whose contenders settled on different Pi models, the runoff request was accepted and answered: a two-way race of 0.72 against 0.28 came back from the runoff at a 0.42 margin, and a 0.51 against 0.49 race at 0.04, so neither cleared that raised threshold and both stayed `ambiguous`.
 Finding: a two-contender runoff on the same state largely restates the rule answer's split, so its practical gains are the agreement collapse and contenders whose probability the other rules were diluting; in these runs it did not settle a race the threshold called close.
 
+## Jev 1.14 pin probe
+
+Run 2026-10-15 on the TypeSafe route, comparing the pinned `jev-1.13.0` with `jev-1.14.0`; the OpenRouter build `typesafe/jev-1.14-20261014` was also probed and answering.
+Both models ran live the same day through the Jev eval sets' 553 recorded cases (public set only, no private overlay).
+
+| Measure | `jev-1.13.0` | `jev-1.14.0` |
+| --- | --- | --- |
+| Agreement with gold | 338 | 337 |
+| Brier score | 0.313 | 0.320 |
+| ECE (5 bins) | 0.206 | 0.228 |
+| Accuracy at confidence >= 0.7 | 0.742 | 0.720 |
+| Dangerous misses in total | 24 | 29 |
+| Dangerous misses at the ask-user gate | 9 | 15 |
+
+Each dangerous miss at the ask-user gate is a case where the model acts where the captain should decide.
+Noise floor: two `jev-1.13.0` runs a week apart changed 11 labels with dangerous misses unchanged, against 45 changed labels for `jev-1.14.0`.
+Decision: the pin in `bin/fm-jev-lib.sh` stays on 1.13.
+Re-probe when `jev-latest` moves to 1.14 or a newer build ships.
+
 ## Offline behavior
 
 The [operator contract](../configuration.md#typed-dispatch-resolution-env-typesafe_api_key) owns current outcomes, gates, settings, and privacy guarantees.
