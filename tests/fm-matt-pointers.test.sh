@@ -646,6 +646,62 @@ test_symlinked_undeclared_skill_stays_unresolved() {
   pass "symlinked undeclared skills are unresolved and their pointers survive pruning"
 }
 
+test_symlinked_bucket_keeps_hidden_pointers() {
+  local root dest out kind skill names rc
+  names='loop-me beta-two beta-three beta-four beta-five beta-six beta-seven'
+  for kind in linked dangling; do
+    root="$TMP_ROOT/symlinked-bucket-$kind"
+    build_plugin "$root"
+    for skill in $names; do
+      write_skill "$root/install/skills/in-progress/$skill" "$skill" 'Beta skill.' ''
+    done
+    dest="$root/skills"
+    run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null \
+      || fail "pointer install failed against a healthy plugin"
+    cp -R "$dest" "$root/pointers-before"
+
+    mv "$root/install/skills/in-progress" "$root/beta-bucket"
+    ln -s "$root/beta-bucket" "$root/install/skills/in-progress"
+    [ "$kind" != dangling ] || rm -rf "$root/beta-bucket"
+
+    # A hidden name is unknown, not evidence that upstream retired the skill.
+    for skill in $names; do
+      out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" "$skill" --check 2>"$root/err")
+      expect_code 6 $? "loader called $skill retired behind a $kind bucket symlink"
+      [ -z "$out" ] || fail "loader printed bytes from an unsafe bucket"
+    done
+    out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" --list 2>"$root/err")
+    expect_code 7 $? "--list passed with a $kind bucket symlink"
+    [ "$out" = "$(printf 'grilling\ntdd\nwayfinder')" ] \
+      || fail "--list trusted linked bucket contents: $out"
+
+    out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+    expect_code 1 $? "--check passed with a $kind bucket symlink"
+    assert_not_contains "$out" 'RETIRED:' "audit retired skills hidden by a bucket symlink"
+    assert_not_contains "$out" 'ok - ' "audit reported healthy coverage behind a bucket symlink"
+    for skill in $names; do
+      assert_contains "$out" "UNRESOLVED: $dest/matt-$skill" "audit omitted hidden skill $skill"
+    done
+
+    out=$(run_pointers "$root/config" --dest "$root/fresh-skills" 2>&1)
+    expect_code 1 $? "install passed with a $kind bucket symlink"
+    assert_present "$root/fresh-skills/matt-tdd/SKILL.md" "install omitted a healthy skill"
+    assert_absent "$root/fresh-skills/matt-loop-me" "install trusted a linked bucket"
+
+    out=$(run_pointers "$root/config" --prune --dest "$dest" 2>&1)
+    rc=$?
+    for skill in $names; do
+      cmp -s "$root/pointers-before/matt-$skill/SKILL.md" "$dest/matt-$skill/SKILL.md" \
+        || fail "prune removed or changed $skill behind a $kind bucket symlink"
+      cmp -s "$root/pointers-before/matt-$skill/.firstmate-pointer" "$dest/matt-$skill/.firstmate-pointer" \
+        || fail "prune removed or changed the marker for $skill"
+      assert_contains "$out" "UNRESOLVED: kept $dest/matt-$skill" "prune omitted hidden skill $skill"
+    done
+    expect_code 1 "$rc" "--prune passed with a $kind bucket symlink"
+  done
+  pass "symlinked buckets leave hidden skills unresolved and preserve all pointers"
+}
+
 # --- the bridge must be internally coherent ---------------------------------
 #
 # The outage these guard: every installed pointer named bin/fm-matt-skill.sh as
@@ -999,6 +1055,7 @@ test_foreign_directories_are_never_written_or_removed
 test_retired_skills_are_pruned_and_reinstalls_are_idempotent
 test_prune_keeps_pointers_of_unresolved_skills
 test_symlinked_undeclared_skill_stays_unresolved
+test_symlinked_bucket_keeps_hidden_pointers
 test_generated_pointer_loads_through_the_shipped_loader
 test_check_reports_a_recorded_loader_that_later_vanished
 test_check_reports_retired_pointers_and_their_recorded_loaders

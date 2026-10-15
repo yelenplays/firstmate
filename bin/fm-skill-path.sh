@@ -436,7 +436,14 @@ EOF
 $found
 EOF
       case "$count" in
-        0) die 5 "skill '$skill' is neither declared by $PLUGIN $VERSION nor present outside a deprecated bucket of its source tree" ;;
+        0)
+          # A linked bucket can hide any undeclared name. Without traversing it,
+          # absence is unknown, not proof that upstream retired the skill.
+          if [ -L "$INSTALL_PATH/skills" ] || [ -n "$(find "$INSTALL_PATH/skills" -mindepth 1 -maxdepth 1 -type l ! -name deprecated -print 2>/dev/null | head -n 1)" ]; then
+            die 6 "skill '$skill' cannot be ruled out because the source tree contains a symlinked skill directory or bucket"
+          fi
+          die 5 "skill '$skill' is neither declared by $PLUGIN $VERSION nor present outside a deprecated bucket of its source tree"
+          ;;
         1) : ;;
         *) die 6 "skill '$skill' is present more than once in the source tree of $PLUGIN $VERSION ($(printf '%s' "$found" | tr '\n' ' '))" ;;
       esac
