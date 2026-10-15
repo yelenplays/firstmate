@@ -1,0 +1,3 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.a9b4ZE
+warning: secondmate smprobe sync skipped before launch: primary default-branch commit cannot be resolved
+spawned smprobe harness=claude kind=secondmate mode=secondmate yolo=off window=fm-lab-ctxtrim2-58888-19272:w1:p2 worktree=/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-mate.89WFhq

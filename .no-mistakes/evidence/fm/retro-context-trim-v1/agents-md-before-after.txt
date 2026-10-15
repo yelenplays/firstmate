@@ -1,0 +1,3 @@
+base: AGENTS.md bytes=53376 instructions attachment chars=62558 first-request input tokens=52680
+head: AGENTS.md bytes=36449 instructions attachment chars=45461 first-request input tokens=47384
+saved per supervisor request: 5296 tokens; instructions chars 17097

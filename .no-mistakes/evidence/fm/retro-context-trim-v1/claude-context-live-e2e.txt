@@ -1,0 +1,8 @@
+FM_TEST_BEGIN 2026-10-15T09:40:32Z tests/fm-claude-worker-context-live-e2e.test.sh family=live-harness-optin expected_gate_skip=live-capability
+ok - claude 2.1.300 (Claude Code): supervisor and secondmate instructions retained; worker excludes only root files; worker, secondmate, and user-sources pipeline listings narrowed; skill names retained
+# skill listing chars: wide=133354 supervisor=30000 worker=9601 secondmate=9601 pipeline-wide=134154 pipeline=10401
+# first-request transcript input: supervisor=47626 worker=27923 saved=19703
+FM_TEST_END 2026-10-15T09:41:57Z tests/fm-claude-worker-context-live-e2e.test.sh exit=0 duration_ms=84865 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=85253
+FM_TEST_SUMMARY_FAMILY family=live-harness-optin count=1 duration_ms=84865 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-claude-worker-context-live-e2e.test.sh duration_ms=84865

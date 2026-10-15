@@ -1,0 +1,10 @@
+live secondmate launch argv (ps): --settings {"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false},"env":{"SLASH_COMMAND_TOOL_CHAR_BUDGET":"8000"}}
+transcript: 7add31ab-974a-4e46-b21d-7e2587f1a6fb.jsonl
+attachment types: {'hook_success': 13, 'environment': 1, 'model': 1, 'deferred_tools_delta': 1, 'agent_listing_delta': 1, 'mcp_instructions_delta': 1, 'skill_listing': 1, 'auto_mode': 1, 'total_tokens_reminder': 3, 'hook_additional_context': 1, 'instructions': 1, 'session_context': 1, 'date': 1, 'credential_org': 1, 'prompt_snapshot': 2}
+secondmate root AGENTS.md in instructions attachment: True
+secondmate root CLAUDE.md in instructions attachment: True
+skill_listing chars: 10290
+task-intake listed: True
+project-management listed: True
+agent-skill-trigger-index listed: True
+first-request input tokens (incl cache): 60987

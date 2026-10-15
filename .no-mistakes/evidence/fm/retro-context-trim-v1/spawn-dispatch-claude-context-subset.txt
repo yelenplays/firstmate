@@ -1,0 +1,3 @@
+ok - Claude unusual-path fallback retains project instructions, warns, and still caps worker and secondmate skills
+ok - Claude Firstmate ships/scouts exclude supervisor files without rewriting them
+ok - a claude secondmate launch carries the attribution-off policy and the skill budget, keeping its supervisor instructions
