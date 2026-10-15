@@ -342,11 +342,9 @@ if [ "$DRAIN_CODE" -eq 0 ] && [ "$LOCK_FAILED" -eq 0 ] && [ ! -e "$STATE/.afk" ]
   [ -z "$partial_out" ] || partial_note="$partial_note
 $partial_out"
 fi
-{
-  cat "$rendered"
-  [ -z "$partial_note" ] || printf '%s\n' "$partial_note"
-  [ -z "$ack_line" ] || printf '%s\n' "$ack_line"
-} || exit 1
+cat "$rendered" || exit 1
+[ -z "$partial_note" ] || printf '%s\n' "$partial_note" || exit 1
+[ -z "$ack_line" ] || printf '%s\n' "$ack_line" || exit 1
 commit_drain_output || exit 1
 if [ "$DRAIN_CODE" -ne 0 ]; then
   [ "$DRAIN_CODE" -ne 10 ] || exit 1

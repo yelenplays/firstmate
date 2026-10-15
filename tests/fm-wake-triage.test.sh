@@ -428,13 +428,44 @@ test_interruption_retains_pending_output() {
 # unread presentation, so a handoff that never reached firstmate keeps the
 # pending output, and the retry replays it instead of absorbing the batch.
 test_absorb_interruption_retains_pending_output() {
-  local dir out rc
+  local dir out rc recovered queue_holder tries f
   dir=$(absorb_case absorb-interrupted)
   setup_task unrelated "$dir"
   printf 'note: important unrelated answer\n' >> "$dir/state/unrelated.status"
   run_triage "$dir" '' --absorb >&- 2>/dev/null && fail 'closed output unexpectedly succeeded under --absorb'
   set -- "$dir/state"/.wake-triage.pending.*
   [ -f "$1" ] || fail 'an interrupted --absorb handoff discarded its pending drain output'
+  recovered=$1
+  assert_unacked "$dir"
+
+  FM_STATE_OVERRIDE="$dir/state" bash -c '
+    . "$1"
+    fm_lock_acquire_wait "$2" || exit 1
+    printf "ready\n" > "$3"
+    exec sleep 60
+  ' _ "$ROOT/bin/fm-wake-lib.sh" "$dir/state/.wake-queue.lock" "$dir/queue.ready" &
+  queue_holder=$!
+  tries=0
+  while [ ! -s "$dir/queue.ready" ] && [ "$tries" -lt 100 ]; do
+    sleep 0.05
+    tries=$((tries + 1))
+  done
+  [ -s "$dir/queue.ready" ] || { kill "$queue_holder" 2>/dev/null || true; fail 'queue holder never acquired its lock'; }
+  rc=0
+  FM_STATUS_PRESENTATION_LOCK_TIMEOUT=1 run_triage "$dir" /bin/bash --absorb >&- 2>/dev/null || rc=$?
+  kill "$queue_holder" 2>/dev/null || true
+  wait "$queue_holder" 2>/dev/null || true
+  [ "$rc" -eq 1 ] || fail "closed replay without an acknowledgement did not fail (rc=$rc)"
+  [ -f "$recovered" ] || fail 'closed replay discarded the recovered drain output'
+  assert_contains "$(cat "$recovered")" 'important unrelated answer' 'closed replay lost the unread answer'
+  set -- "$dir/state"/.wake-triage.pending.*
+  [ "$#" -eq 2 ] || fail 'closed replay did not retain both pending drain outputs'
+  for f in "$@"; do
+    [ "$f" = "$recovered" ] && continue
+    out=$(cat "$f")
+    assert_contains "$out" 'WAKE DRAIN SKIPPED: queue lock remains held' 'replay did not exercise the contended drain'
+    assert_not_contains "$out" 'WAKE_ACK_REQUIRED:' 'contended drain unexpectedly supplied an acknowledgement'
+  done
   assert_unacked "$dir"
   rc=0
   out=$(run_triage "$dir" '' --absorb) || rc=$?
