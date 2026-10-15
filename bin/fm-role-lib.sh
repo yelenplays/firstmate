@@ -37,10 +37,11 @@
 # of the code root's history covers any fork, the parent, and any clone of
 # either. Lineage that cannot be determined (no code root history, or a shallow
 # side sharing no root) refuses rather than permits. The publication target is
-# compared only against a maintainer scope or task consent: the first remote
-# named upstream, github, or origin (the order gh prefers when resolving a
-# default repository), reduced to lowercase host/owner/repo; a local-path remote
-# is resolved one hop through that repository's own origin, and left as
+# compared only against a maintainer scope or task consent. It follows gh's own
+# default-repository resolution: a `gh repo set-default` choice (git config
+# remote.<name>.gh-resolved) wins, otherwise the first remote named upstream,
+# github, or origin. It is reduced to lowercase host/owner/repo; a local-path
+# remote is resolved one hop through that repository's own origin, and left as
 # path:<abs> when unreadable. An unknown target never permits.
 #
 # Public functions:
@@ -221,12 +222,53 @@ fm_role_git_common_dir() {
   (CDPATH='' cd -- "$common" 2>/dev/null && pwd -P) || printf '%s\n' "$common"
 }
 
+# fm_role_gh_remotes <git-dir> - remote names in the order gh ranks them when
+# resolving a default repository: upstream, github, origin, then the rest in
+# git's order.
+fm_role_gh_remotes() {
+  local remote all
+  all=$(git -C "$1" remote 2>/dev/null) || return 0
+  for remote in upstream github origin; do
+    printf '%s\n' "$all" | grep -qxF -- "$remote" && printf '%s\n' "$remote"
+  done
+  printf '%s\n' "$all" | grep -vxE 'upstream|github|origin' || true
+}
+
 # fm_role_publication_target <git-dir> - the repository a default publication
-# (gh pr/issue, a no-mistakes PR) would reach: the first of upstream, github,
-# origin that is configured, in the order gh prefers, normalized to
-# host/owner/repo or path:<abs>. Empty when the repo has no such remote.
+# (gh pr/issue, a no-mistakes PR) would reach, resolved as gh resolves it. The
+# first remote in gh's order carrying a `gh repo set-default` choice
+# (remote.<name>.gh-resolved) decides: "base" is that remote itself, owner/repo
+# is that repository on the remote's host, and any other value (which gh itself
+# rejects) leaves the target empty. With no recorded choice, the first of
+# upstream, github, origin that is configured. Normalized to host/owner/repo or
+# path:<abs>; empty when undeterminable.
 fm_role_publication_target() {
-  local dir=$1 remote url=
+  local dir=$1 remote url resolved identity
+  while IFS= read -r remote; do
+    [ -n "$remote" ] || continue
+    resolved=$(git -C "$dir" config --get "remote.$remote.gh-resolved" 2>/dev/null) || continue
+    [ -n "$resolved" ] || continue
+    url=$(git -C "$dir" remote get-url "$remote" 2>/dev/null) || return 0
+    identity=$(fm_role_remote_identity "$url" "$dir")
+    if [ "$resolved" = base ]; then
+      [ -n "$identity" ] && printf '%s\n' "$identity"
+      return 0
+    fi
+    case $identity in
+    '' | path:*) return 0 ;;
+    esac
+    case $resolved in
+    */*/* | /* | */ | *[!A-Za-z0-9._/-]*) return 0 ;;
+    */*) ;;
+    *) return 0 ;;
+    esac
+    printf '%s/%s\n' "${identity%%/*}" \
+      "$(printf '%s' "$resolved" | tr '[:upper:]' '[:lower:]')"
+    return 0
+  done <<EOF
+$(fm_role_gh_remotes "$dir")
+EOF
+  url=
   for remote in upstream github origin; do
     if url=$(git -C "$dir" remote get-url "$remote" 2>/dev/null) && [ -n "$url" ]; then
       break
@@ -514,7 +556,7 @@ fm_role_gate_self_publish() {
   fi
   if [ -z "$FM_ROLE_PUB_TARGET" ]; then
     # shellcheck disable=SC2034 # Output global, read by the sourcing caller.
-    FM_ROLE_PUB_DENIAL="this task targets firstmate's own repository but no publication target can be determined (no upstream, github, or origin remote on $proj)"
+    FM_ROLE_PUB_DENIAL="this task targets firstmate's own repository but no publication target can be determined (no upstream, github, or origin remote on $proj, or its gh default repository is unusable)"
     return 1
   fi
   if [ -n "$consent" ] && [ "$consent" = "$FM_ROLE_PUB_TARGET" ]; then
