@@ -896,7 +896,7 @@ EOF
   if [ "${3:-base}" != base ]; then
     printf '%s\n' "The test files committed up to $3 were written before this handoff for you to make pass: implement until they pass and leave them unchanged; only commits after $3 count as yours."
   fi
-  printf '%s\n' "Before accepting your ship \`done:\`, firstmate checks commits since the base for added or modified test files outside those exact paths and refuses the done while any remain, naming them; drop them from the branch and report done again."
+  printf '%s\n' "Before accepting your ship \`done:\`, firstmate checks commits since the base for added, modified, or deleted test files outside those exact paths and refuses the done while any remain, naming them; revert those changes and report done again."
 }
 
 # The ref a ship's commits are measured against: origin/<base> for a named
@@ -989,7 +989,7 @@ fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
   done <<<"$files"
   [ -z "$rejected" ] || {
     rejected=$(printf '%b' "$rejected" | sed '/^$/d' | tr '\n' ' ' | sed 's/ $//')
-    printf '%s\n' "no test authoring on $(fm_dod_meta_value "$meta" test_ban_model): the branch adds or modifies unauthorized test files $rejected; drop them and report done again"
+    printf '%s\n' "no test authoring on $(fm_dod_meta_value "$meta" test_ban_model): the branch adds, modifies, or deletes unauthorized test files $rejected; revert those changes and report done again"
     return 1
   }
   return 0

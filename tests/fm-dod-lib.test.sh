@@ -630,6 +630,8 @@ test_test_ban_gate_measures_from_the_tests_first_handoff() {
   rc=$?
   [ "$rc" -eq 1 ] || fail "deleting a handed-over test was accepted"
   assert_contains "$reason" "tests/feature.test.sh" "refusal did not name the deleted handed-over test"
+  assert_contains "$reason" "deletes unauthorized test files tests/feature.test.sh; revert those changes" \
+    "refusal for a deleted handed-over test did not ask to revert the deletion"
 
   git -C "$wt" reset -q --hard HEAD~1
   git -C "$wt" mv tests/feature.test.sh notes.txt && git -C "$wt" commit -q -m 'move handed test aside'
