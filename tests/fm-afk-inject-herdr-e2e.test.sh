@@ -307,6 +307,23 @@ stop_daemon() {
   sleep 1
 }
 
+# Wait for an asynchronous daemon outcome instead of a fixed sleep: a loaded
+# host can still be mid-inject when a fixed sleep ends.
+wait_until() {  # <seconds> <command...>
+  local deadline=$(($(date +%s) + $1))
+  shift
+  until "$@"; do
+    [ "$(date +%s)" -lt "$deadline" ] || return 1
+    sleep 0.2
+  done
+}
+
+# escalate_flush empties the escalation buffer only after inject_msg confirmed
+# the submit, so a logged digest plus an empty buffer means the flush is done.
+digest_flushed() {
+  grep -q 'Supervisor escalate' "$LOG_FILE" && [ ! -s "$STATE_DIR/.subsuper-escalations" ]
+}
+
 reset_state() {
   rm -f "$STATE_DIR"/*.status \
          "$STATE_DIR"/.subsuper-* \
@@ -370,14 +387,11 @@ test_scenario_a() {
   fi
 
   fm_backend_herdr_send_key "$SUPERVISOR_TARGET" Enter
-  sleep 0.5
 
-  sleep 8
-
+  wait_until 30 digest_flushed \
+    || fail "Scenario A: digest not injected after the pane went idle"
   grep -q 'human draft text' "$LOG_FILE" \
     || fail "Scenario A: human text not in log after submit"
-  grep -q 'Supervisor escalate' "$LOG_FILE" \
-    || fail "Scenario A: digest not injected after the pane went idle"
   if grep -q 'human draft text.*Supervisor escalate' "$LOG_FILE" || \
      grep -q 'Supervisor escalate.*human draft text' "$LOG_FILE"; then
     fail "Scenario A: human text and digest merged into one line (after idle)"
@@ -413,7 +427,8 @@ test_scenario_b() {
 
   echo "done: PR https://example.test/pr/200" > "$STATE_DIR/fake-c1.status"
 
-  sleep 10
+  wait_until 30 digest_flushed \
+    || fail "Scenario B: digest not injected after the swallowed Enter"
 
   local marker_count
   marker_count=$(awk -F '\t' '{ hex=$1; count += gsub(/e281a3/, "", hex) } END { print count + 0 }' "$LOG_FILE")
@@ -445,7 +460,8 @@ test_scenario_c() {
   start_daemon
 
   echo "done: PR https://example.test/pr/300" > "$STATE_DIR/fake-c1.status"
-  sleep 8
+  wait_until 30 digest_flushed \
+    || fail "Scenario C: digest not injected"
 
   local marker_count
   marker_count=$(awk -F '\t' '{ hex=$1; count += gsub(/e281a3/, "", hex) } END { print count + 0 }' "$LOG_FILE")
@@ -512,9 +528,7 @@ test_scenario_d_max_defer() {
 
   echo "needs-decision: pick A or B" > "$STATE_DIR/fake-c1.status"
 
-  sleep 12
-
-  [ -s "$STATE_DIR/.subsuper-inject-wedged" ] \
+  wait_until 30 test -s "$STATE_DIR/.subsuper-inject-wedged" \
     || fail "Scenario D: a persistently pending real herdr composer never raised the max-defer wedge alarm"
   [ -s "$STATE_DIR/.subsuper-escalations" ] \
     || fail "Scenario D: the buffered escalation was lost instead of preserved during the wedge"
