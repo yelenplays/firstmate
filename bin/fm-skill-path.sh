@@ -51,22 +51,20 @@
 #        ones that do are still printed
 #   127  a required tool is missing
 #
-# Nothing is printed on stdout unless every check passed, so a caller can treat
-# any output as a resolved path and any other nonzero status as an honest
-# unsupported state. The one exception is status 7 from --list-skills: stdout
-# still carries every skill that passed, and each left-out skill is named on
-# stderr as "fm-skill-path.sh: --list-skills leaves out <skill>, which does not
-# resolve". Diagnostics go to stderr.
+# Single-skill modes print on stdout only after all checks pass; a nonzero
+# status leaves stdout empty. --list-skills is the exception: status 7 preserves
+# the resolvable rows on stdout and names each omitted skill on stderr as
+# "fm-skill-path.sh: --list-skills leaves out <skill>, which does not resolve".
+# Other diagnostics also go to stderr.
 #
 # What is verified before a path is printed:
 #   - the registry entry resolves to exactly one enabled install and exactly one
 #     scope, and the install directory exists;
 #   - the plugin manifest names this plugin and agrees with the registry version,
 #     so a swapped cache directory cannot pass;
-#   - the skill is declared in that manifest's own skills list, so deprecated,
-#     in-progress, misc, and personal skills that ship in the source tree but not
-#     in the plugin never resolve unless the caller opts in with
-#     --include-undeclared, and a deprecated bucket never resolves at all;
+#   - the skill is declared in that manifest's own skills list, or the caller
+#     opts in to source-tree discovery with --include-undeclared; that discovery
+#     excludes deprecated buckets;
 #   - exactly one declared skill, or failing that exactly one undeclared one,
 #     matches the requested name;
 #   - no component from the install root down to the skill, and no file inside the

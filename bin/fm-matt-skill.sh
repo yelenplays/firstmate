@@ -1,23 +1,19 @@
 #!/usr/bin/env bash
 # fm-matt-skill.sh - load one Matt Pocock skill from its installed Claude plugin
 # and print the original bytes, or refuse and print nothing on stdout.
+# --list can return a partial list with status 7, as described below.
 #
-# Firstmate never copies, vendors, or paraphrases a third-party skill. The
-# suite ships as the Claude plugin `mattpocock-skills`, and only `claude` reads
-# the plugin cache. Runtimes that discover skills under `~/.agents/skills`
-# (codex, grok, kimi, pi) get a small generated pointer per skill instead, and
-# every pointer's first instruction is to run this command. Nothing is copied,
-# so nothing can drift, and an upstream plugin bump arrives on its own.
+# Firstmate never copies, vendors, or paraphrases a third-party skill. Runtimes
+# without native plugin discovery use generated pointers whose first instruction
+# runs this loader. Runtime discovery evidence lives in
+# docs/verification/matt-pocock-runtime-reach.md. No skill body is copied, so
+# upstream procedure changes arrive on the next load.
 #
-# The plugin is whichever `mattpocock-skills@<marketplace>` install is enabled
-# in this Claude configuration; no marketplace is assumed. Installs from several
-# marketplaces resolve to the one enabled install, and none or more than one
-# enabled is a refusal.
-#
-# The skills offered are every skill in that install: the ones its manifest
-# declares, plus the ones upstream keeps in its source tree outside the declared
-# set (its in-progress and misc buckets), never a deprecated bucket. A skill is
-# offered only when it resolves, so every name --list prints loads.
+# This loader resolves the bare plugin name `mattpocock-skills` with
+# --include-undeclared. See bin/fm-skill-path.sh's header for marketplace
+# selection, source-tree discovery, and integrity rules. Every name --list
+# prints resolves; offered skills that fail those checks are omitted and named
+# on stderr, and the listing exits 7.
 #
 # Attribution: the skills are Matt Pocock's work, MIT licensed, published at
 # https://github.com/mattpocock/skills and distributed as the Claude plugin
@@ -57,11 +53,10 @@
 #        ones that do are still printed and each left-out one is named on stderr
 #   127  a required tool is missing
 #
-# Nothing reaches stdout unless every check passed, so a caller may treat any
-# output as original bytes and any other nonzero status as an honest
-# unsupported state. The one exception is status 7 from --list: stdout still
-# carries every offered skill that resolves, and bin/fm-skill-path.sh names each
-# left-out skill on stderr. Diagnostics go to stderr.
+# Single-skill modes print on stdout only after all checks pass; a nonzero
+# status leaves stdout empty. --list is the exception: status 7 preserves the
+# resolvable names on stdout while diagnostics name each omitted skill on
+# stderr. Other diagnostics also go to stderr.
 #
 # Version drift is reported, not fatal by default. Refusing on every upstream
 # bump would turn each release into a fleet outage and recreate the sync chore

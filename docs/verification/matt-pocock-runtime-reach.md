@@ -11,8 +11,7 @@ The runtime discovery rows were verified 2026-08-28 on macOS 25.5.0 with `claude
 
 Plugin identity, loader, pin, and pointer-audit evidence below was re-verified 2026-10-15 on macOS 26.5 with `claude` 2.1.300.
 
-The suite is the Claude plugin `mattpocock-skills`, and the install in play is the one enabled in the Claude configuration, whichever marketplace it came from.
-Two installs are registered: Matt Pocock's own marketplace, enabled, and the older `claude-plugins-official` copy, disabled.
+The observed configuration registers two installs of `mattpocock-skills`: Matt Pocock's own marketplace, enabled, and the older `claude-plugins-official` copy, disabled.
 
 ```sh
 jq -r '.plugins | to_entries[] | select(.key | startswith("mattpocock-skills@")) | "\(.key) \(.value[0].scope) \(.value[0].version) \(.value[0].gitCommitSha)"' ~/.claude/plugins/installed_plugins.json
@@ -28,8 +27,7 @@ mattpocock-skills@claude-plugins-official false
 mattpocock-skills@mattpocock true
 ```
 
-`bin/fm-skill-path.sh` resolves a bare plugin name to that one enabled install, so no script names a marketplace.
-With none enabled it exits 4, and with more than one enabled it exits 6.
+The [resolver header](../../bin/fm-skill-path.sh) owns marketplace selection and refusal statuses.
 
 The manifest's own `skills` list declares the promoted skills, and the source tree carries more.
 
@@ -51,11 +49,8 @@ Observed:
 
 Upstream's own `CLAUDE.md` in the install defines the buckets: `in-progress` is beta and public on purpose but not shipped in the plugin, and `misc` is kept but frozen and not promoted.
 Claude lists only the 27 declared skills, the `engineering` and `productivity` ones, as plugin skills.
-`bin/fm-skill-path.sh` resolves only declared skills by default and refuses anything else with exit 5; `--include-undeclared` also offers the source-tree skills, never from a bucket named `deprecated`.
-`bin/fm-matt-skill.sh` always passes that option, so the loader and the pointers offer all 38.
-`--list-skills` runs the same checks as resolving one skill by name, so it lists a skill only when that skill resolves; one that would be refused, for example a front-matter name that differs from its directory or a name present in two buckets, is left out and named on stderr, and the listing exits 7 instead of 0.
-The loader's `--list` passes that status on, so the generator still writes every pointer that resolves, but install and `--check` exit 1 with one `UNRESOLVED` line naming each left-out skill, and `--prune` keeps the pointer of such a skill instead of treating it as retired.
-Resolution reads only the plugin registry, so a stale copy under `~/.agents/skills` can never satisfy a request.
+The observed listing includes all 38 source-tree skills, not only the 27 declared plugin skills.
+The [loader header](../../bin/fm-matt-skill.sh) owns its discovery options, and the [generator header](../../bin/fm-matt-pointers.sh) owns partial-install, audit, and prune behavior; regression coverage is linked below.
 
 ## The loader prints the installed original, proven by digest
 
@@ -121,8 +116,7 @@ fm-matt-skill.sh: resolved mattpocock-skills@mattpocock version '1.3.1' commit '
 exit=6
 ```
 
-Without `--require-validated-pin` the same difference loads the installed original and reports `pin=changed` under a `PLUGIN CHANGED` banner.
-With no validated identity given, the header reports `pin=unpinned`.
+The [loader header](../../bin/fm-matt-skill.sh) owns pin comparison, drift reporting, and strict-mode behavior.
 
 ## The bridge names an executable the repo ships
 
@@ -145,11 +139,8 @@ The case fails with `loader is missing or not executable` when the repo does not
 bin/fm-matt-pointers.sh --check --dest ~/.agents/skills
 ```
 
-It reports every applicable state independently: `MISSING` for an offered skill with no pointer, `DRIFTED` for front matter behind the installed plugin, `RETIRED` for a marked pointer whose upstream skill is no longer offered even when the install offers none, `UNRESOLVED` for an offered skill that does not resolve, with or without a pointer, and `BROKEN` for a recorded loader that is no longer executable.
-This mode writes nothing.
-
-Every pointer records the plugin, version, and commit it was generated from, so a plugin bump or a marketplace switch reports every pointer as `DRIFTED` until the generator runs again.
-A freshly generated set passes the 38-pointer audit:
+The [generator header](../../bin/fm-matt-pointers.sh) owns audit states and regeneration mechanics.
+The recorded scratch-destination audit passed for 38 freshly generated pointers:
 
 ```sh
 bin/fm-matt-pointers.sh --dest <scratch-dir> --loader <stable-checkout>/bin/fm-matt-skill.sh
@@ -166,7 +157,7 @@ ok - 38 pointers under <scratch-dir> match mattpocock-skills@mattpocock 1.3.1
 
 | Runtime | Version | Reads the Claude plugin | Bridge needed |
 |---|---|---|---|
-| `claude` | 2.1.300 | yes, it owns the plugin | no |
+| `claude` | 2.1.300 | yes, it owns the plugin | no for declared skills; undeclared reach unverified |
 | `grok` | 1.0.50 | yes, re-verified below | only for the undeclared skills |
 | `kimi` | 0.36.1 | not re-established | not established |
 | `codex` | 0.145.0 | no reference to the plugin cache at 0.145.0 | yes, with `--dest ~/.codex/skills` |

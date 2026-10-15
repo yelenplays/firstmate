@@ -3,21 +3,14 @@
 # into the directory non-Claude runtimes read, so grok, codex, kimi and pi can
 # reach the installed originals without a copy existing anywhere.
 #
-# The suite ships as the Claude plugin `mattpocock-skills`, and only `claude`
-# reads the plugin cache. The plugin in play is whichever install
-# bin/fm-matt-skill.sh resolves: the one `mattpocock-skills@<marketplace>` that
-# is enabled in this Claude configuration, from any marketplace. The other
-# runtimes read `~/.agents/skills`. Vendoring
-# the bodies there was tried and rotted, so each pointer is a few lines of
-# instruction whose first step is to run bin/fm-matt-skill.sh, which resolves
-# and prints the installed original at load time. No skill body is ever copied,
-# so no skill body can ever drift, and an upstream plugin bump takes effect on
-# the next load with nothing to re-run.
+# Plugin selection and skill listing come from bin/fm-matt-skill.sh; see its
+# header for those rules. Runtime discovery evidence lives in
+# docs/verification/matt-pocock-runtime-reach.md; choose --dest for the runtime.
+# Each pointer's first step runs the loader to print the installed original at
+# load time. No skill body is copied, so upstream procedure changes take effect
+# on the next load without regenerating pointers.
 #
-# There is one pointer for every skill that install offers: each skill its
-# manifest declares, and each skill upstream keeps in the same source tree
-# outside the declared set (its in-progress and misc buckets), never a
-# deprecated bucket.
+# There is one pointer for every skill the loader lists as resolvable.
 #
 # What IS derived from upstream is each pointer's front matter: its description
 # and its model-invocation flag, which the host runtime needs before any body is
@@ -72,11 +65,12 @@
 #
 # Exit status:
 #   0    everything requested succeeded, or --check found no drift
-#   1    --check found drift, a foreign directory blocked an install, or an
-#        offered upstream skill does not resolve (UNRESOLVED), so it has no
-#        current pointer
+#   1    --check found drift, a foreign directory blocked an install, install
+#        or --check found a partial skill listing (UNRESOLVED), or --prune kept
+#        a pointer whose upstream skill could not be resolved
 #   2    usage error
-#   3-6  the plugin could not be resolved (see bin/fm-matt-skill.sh)
+#   3-6  the plugin could not be resolved (see bin/fm-matt-skill.sh); except for
+#        --check, no resolvable skill also exits 6 before any destination changes
 set -eu
 
 HERE=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
@@ -151,9 +145,9 @@ esac
 # install is in play. Identity is read through the first skill this install
 # actually offers rather than a fixed name, so an upstream rename can never
 # take out --check, --prune, or --uninstall - the modes an operator needs most
-# when a rename has left stale pointers on disk. A partial listing (7) still
-# runs, so one broken upstream skill cannot block the rest, but every mode that
-# reports health ends nonzero and names each left-out skill.
+# when a rename has left stale pointers on disk. With a partial listing (7),
+# resolvable skills still supply identity and install candidates; install and
+# --check report the omitted names rather than treating the set as complete.
 LIST_ERR_FILE=$(mktemp "${TMPDIR:-/tmp}/fm-matt-pointers.XXXXXX")
 trap 'rm -f "$LIST_ERR_FILE"' EXIT
 set +e
