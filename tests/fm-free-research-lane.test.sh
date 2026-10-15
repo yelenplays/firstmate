@@ -145,4 +145,21 @@ assert_contains "$out" 'would renumber later rules' "disable: the refusal explai
 assert_equals "$before" "$(cat "$(rules_file)")" "disable: a refusal leaves the rules untouched"
 pass "disable: refuses when removing the lane would renumber later rules"
 
+new_home custom-paid "$BASE_RULES" 'Acme Private'
+jq --arg paid "$PAID" '.rules += [{"when": "operator rule", "use": {"harness": "pi", "model": $paid, "provider": "opencode-go"}}] | .rules[0].beats += [{"rule": 3}]' "$(rules_file)" > "$TMP_ROOT/custom.json"
+cp "$TMP_ROOT/custom.json" "$(rules_file)"
+before=$(cat "$(rules_file)")
+run_lane code out status
+assert_contains "$out" 'lane: disabled' "custom paid rule: status does not claim it as the lane"
+run_lane code out enable
+expect_code 0 "$code" "custom paid rule: enable: $out"
+assert_contains "$out" 'lane: enabled as rule 4' "custom paid rule: the lane is appended after it"
+assert_equals "$FREE" "$(jq -r '.rules[3].use[0].model' "$(rules_file)")" "custom paid rule: the new lane rule is the free one"
+assert_equals false "$(jq -r '.rules[3].use[0].private_ok' "$(rules_file)")" "custom paid rule: the new lane rule is private_ok false"
+run_lane code out disable
+expect_code 0 "$code" "custom paid rule: disable: $out"
+assert_contains "$out" 'removed rule 4' "custom paid rule: disable removes only the lane rule"
+assert_equals "$before" "$(cat "$(rules_file)")" "custom paid rule: the custom rule and its beats edge are intact"
+pass "a custom paid-profile rule is never mistaken for the lane"
+
 echo "# all fm-free-research-lane tests passed"

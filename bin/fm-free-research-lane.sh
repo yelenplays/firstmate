@@ -62,7 +62,6 @@ CANARY_BIN="${FM_FREE_MODEL_CANARY_BIN:-$SCRIPT_DIR/fm-free-model-canary.sh}"
 # private project, person, or client; config/private-markers holds those
 # locally and the guard enforces them in code.
 LANE_WHEN='read-only research and reading on non-private material whose deliverable is an evidence file, inventory, summary or first-pass research report that firstmate or a stronger model checks before anything ships or is decided: public web or GitHub research sweeps, gathering sources and documentation, codebase or public wiki inventories, transcript or document distillation, comparisons and fact checks. Only for public-code projects or public web topics. Never for code changes, tests, reviews, or a report that directly decides a captain question, and never for private projects, private people or clients, personal accounts, health or finances'
-LANE_WHY='Free research lane (bin/fm-free-research-lane.sh): read-only, non-private work checked by a stronger model; the private-material guard enforces non-private in code and the free-model canary swaps to the paid replacement when the free tier ends.'
 
 usage() {
   awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
@@ -136,7 +135,7 @@ action_enable() {
   count=$(marker_count) || refuse 'config/private-markers is missing or not a readable regular file; the private-material guard would refuse every task, so the lane stays off'
   [ "$count" -gt 0 ] || refuse 'config/private-markers names no marker; add the private projects, people, and clients first'
   tmp=$(mktemp "$CONFIG_DIR/.crew-dispatch.json.research-lane.XXXXXX") || refuse 'mktemp failed'
-  if ! jq --indent 2 --arg when "$LANE_WHEN" --arg why "$LANE_WHY" --argjson profile "$FM_FREE_LANE_PROFILE" \
+  if ! jq --indent 2 --arg when "$LANE_WHEN" --arg why "$FM_FREE_LANE_WHY" --argjson profile "$FM_FREE_LANE_PROFILE" \
     '.rules = ((.rules // []) + [{when: $when, use: [$profile], why: $why}])' "$RULES" > "$tmp" 2>/dev/null; then
     rm -f -- "$tmp"
     refuse 'could not add the lane rule'

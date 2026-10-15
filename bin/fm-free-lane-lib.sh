@@ -29,11 +29,13 @@ FM_FREE_LANE_PROFILE='{"harness":"opencode","model":"'"$FM_FREE_LANE_MODEL"'","p
 FM_FREE_LANE_REPLACEMENT='{"harness":"'"$FM_FREE_LANE_PAID_HARNESS"'","model":"'"$FM_FREE_LANE_PAID_MODEL"'","provider":"'"$FM_FREE_LANE_PAID_PROVIDER"'"}'
 
 # shellcheck disable=SC2016 # A jq program: $p and $r are jq's, not the shell's.
+FM_FREE_LANE_WHY='Free research lane (bin/fm-free-research-lane.sh): read-only, non-private work checked by a stronger model; the private-material guard enforces non-private in code and the free-model canary swaps to the paid replacement when the free tier ends.'
+
 FM_FREE_LANE_JQ='
   def lane_profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
   def lane_free($p): ($p | type) == "object" and $p.harness == "opencode" and $p.model == "'"$FM_FREE_LANE_MODEL"'";
   def lane_paid($p): ($p | type) == "object" and $p.harness == "'"$FM_FREE_LANE_PAID_HARNESS"'" and $p.model == "'"$FM_FREE_LANE_PAID_MODEL"'";
-  def lane_rule($r): ($r | type) == "object" and (lane_profiles($r.use) | length) == 1
+  def lane_rule($r): ($r | type) == "object" and $r.why == "'"$FM_FREE_LANE_WHY"'" and (lane_profiles($r.use) | length) == 1
     and (lane_free(lane_profiles($r.use)[0]) or lane_paid(lane_profiles($r.use)[0]));
   def lane_watched: [((.rules // [])[] | lane_profiles(.use)[]), lane_profiles(.default // null)[]] | any(.[]; lane_free(.));
 '
