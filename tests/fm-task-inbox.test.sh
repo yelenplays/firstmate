@@ -496,9 +496,11 @@ test_stale_pi_doorbell_turn_started() (
   FM_SEND_RETRIES=3 FM_SEND_SLEEP=0 FM_BACKEND_HERDR_SUBMIT_MIN_SLEEP=0 FM_BACKEND_HERDR_SUBMIT_POLLS=1
   fm_backend_agent_state() { printf alive; }
   pi_test_capture() {
-    if [ "$backend" = herdr ]; then
+    if [ "$1" = herdr ]; then
+      # shellcheck disable=SC2016 # literal Pi cost footer, not an expansion.
       printf 'transcript\n\n┃ %s\n/fixture/project\n$0.000 (sub) 2.0%%/272k (auto) (test) high\n' "$(< "$composer")"
     else
+      # shellcheck disable=SC2016 # literal Pi cost footer, not an expansion.
       printf 'transcript\n────────────────────────\n%s\n────────────────────────\n$0.000 (sub) 5.4%%/272k (auto)\n' "$(< "$composer")"
     fi
   }
@@ -521,7 +523,7 @@ test_stale_pi_doorbell_turn_started() (
   }
   tmux() {
     case "$1" in
-      capture-pane) pi_test_capture ;;
+      capture-pane) pi_test_capture tmux ;;
       display-message) printf '2\n' ;;
       send-keys)
         [ "$2" = -t ] || return 1
@@ -542,8 +544,8 @@ test_stale_pi_doorbell_turn_started() (
   fm_tmux_composer_identity() { printf 'pi\t%s' "$(< "$status")"; }
   fm_backend_herdr_agent_identity_raw() { printf 'pi\t%s' "$(< "$status")"; }
   fm_backend_herdr_agent_status_raw() { printf '%s' "$(< "$status")"; }
-  fm_backend_herdr_visible_capture_ansi() { pi_test_capture; }
-  fm_backend_herdr_visible_capture() { pi_test_capture; }
+  fm_backend_herdr_visible_capture_ansi() { pi_test_capture herdr; }
+  fm_backend_herdr_visible_capture() { pi_test_capture herdr; }
   fm_backend_herdr_rendered_busy_state() { fm_pane_busy_state; }
   fm_backend_herdr_send_key() { pi_test_key "$@"; }
   fm_backend_herdr_send_literal() { pi_test_literal "$@"; }
