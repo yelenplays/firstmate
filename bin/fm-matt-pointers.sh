@@ -153,15 +153,23 @@ esac
 # take out --check, --prune, or --uninstall - the modes an operator needs most
 # when a rename has left stale pointers on disk. A partial listing (7) still
 # runs, so one broken upstream skill cannot block the rest, but every mode that
-# reports health ends nonzero.
+# reports health ends nonzero and names each left-out skill.
+LIST_ERR_FILE=$(mktemp "${TMPDIR:-/tmp}/fm-matt-pointers.XXXXXX")
+trap 'rm -f "$LIST_ERR_FILE"' EXIT
 set +e
-SKILLS=$("$LOADER" --list)
+SKILLS=$("$LOADER" --list 2>"$LIST_ERR_FILE")
 LIST_RC=$?
 set -e
+LIST_ERR=$(cat "$LIST_ERR_FILE")
+rm -f "$LIST_ERR_FILE"
+trap - EXIT
+[ -z "$LIST_ERR" ] || printf '%s\n' "$LIST_ERR" >&2
 case "$LIST_RC" in
   0|7) : ;;
   *) exit "$LIST_RC" ;;
 esac
+LEFT_OUT=$(printf '%s\n' "$LIST_ERR" \
+  | sed -n 's/^fm-skill-path\.sh: --list-skills leaves out \(.*\), which does not resolve$/\1/p')
 IDENTITY_SKILL=
 while IFS= read -r declared; do
   [ -n "$declared" ] || continue
@@ -206,7 +214,11 @@ retired_upstream() {  # <skill>
 
 report_unresolved_listing() {
   [ "$LIST_RC" -eq 7 ] || return 0
-  printf 'UNRESOLVED: offered upstream skills named above by bin/fm-skill-path.sh do not resolve and have no current pointer\n' >&2
+  printf '%s\n' "$LEFT_OUT" | while IFS= read -r left; do
+    [ -n "$left" ] || continue
+    printf 'UNRESOLVED: upstream skill %s is offered but does not resolve, so it has no current pointer\n' \
+      "$left" >&2
+  done
   return 1
 }
 

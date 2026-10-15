@@ -44,15 +44,19 @@
 #   2    usage error
 #   3    plugin not installed (no registry, unreadable registry, or no entry)
 #   4    plugin installed but not enabled in this Claude configuration
-#   5    skill not declared by this installed plugin version
+#   5    skill not offered by this installed plugin version: not declared, and
+#        with --include-undeclared not present outside a deprecated bucket either
 #   6    integrity or ambiguity refusal
 #   7    --list-skills left out at least one skill that does not resolve; the
 #        ones that do are still printed
 #   127  a required tool is missing
 #
 # Nothing is printed on stdout unless every check passed, so a caller can treat
-# any output as a resolved path and any nonzero status as an honest unsupported
-# state. Diagnostics go to stderr.
+# any output as a resolved path and any other nonzero status as an honest
+# unsupported state. The one exception is status 7 from --list-skills: stdout
+# still carries every skill that passed, and each left-out skill is named on
+# stderr as "fm-skill-path.sh: --list-skills leaves out <skill>, which does not
+# resolve". Diagnostics go to stderr.
 #
 # What is verified before a path is printed:
 #   - the registry entry resolves to exactly one enabled install and exactly one

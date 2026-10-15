@@ -58,8 +58,10 @@
 #   127  a required tool is missing
 #
 # Nothing reaches stdout unless every check passed, so a caller may treat any
-# output as original bytes and any nonzero status as an honest unsupported
-# state. Diagnostics go to stderr.
+# output as original bytes and any other nonzero status as an honest
+# unsupported state. The one exception is status 7 from --list: stdout still
+# carries every offered skill that resolves, and bin/fm-skill-path.sh names each
+# left-out skill on stderr. Diagnostics go to stderr.
 #
 # Version drift is reported, not fatal by default. Refusing on every upstream
 # bump would turn each release into a fleet outage and recreate the sync chore

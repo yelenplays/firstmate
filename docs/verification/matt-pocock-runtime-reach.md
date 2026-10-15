@@ -54,7 +54,7 @@ Claude lists only the 27 declared skills, the `engineering` and `productivity` o
 `bin/fm-skill-path.sh` resolves only declared skills by default and refuses anything else with exit 5; `--include-undeclared` also offers the source-tree skills, never from a bucket named `deprecated`.
 `bin/fm-matt-skill.sh` always passes that option, so the loader and the pointers offer all 38.
 `--list-skills` runs the same checks as resolving one skill by name, so it lists a skill only when that skill resolves; one that would be refused, for example a front-matter name that differs from its directory or a name present in two buckets, is left out and named on stderr, and the listing exits 7 instead of 0.
-The loader's `--list` passes that status on, so the generator still writes every pointer that resolves, but install and `--check` exit 1 with `UNRESOLVED`, and `--prune` keeps the pointer of such a skill instead of treating it as retired.
+The loader's `--list` passes that status on, so the generator still writes every pointer that resolves, but install and `--check` exit 1 with one `UNRESOLVED` line naming each left-out skill, and `--prune` keeps the pointer of such a skill instead of treating it as retired.
 Resolution reads only the plugin registry, so a stale copy under `~/.agents/skills` can never satisfy a request.
 
 ## The loader prints the installed original, proven by digest

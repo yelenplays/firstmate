@@ -825,15 +825,18 @@ test_pointers_cover_undeclared_skills() {
 
   assert_absent "$dest/matt-writing-beats" "a skill whose front matter names another skill got a pointer"
   assert_absent "$dest/matt-drafting" "a skill present twice in the source tree got a pointer"
-  assert_grep 'leaves out writing-beats' "$err" "install did not name the misnamed skill"
-  assert_grep 'leaves out drafting' "$err" "install did not name the duplicated skill"
-  assert_grep 'UNRESOLVED' "$err" "install did not report the incomplete pointer set"
+  assert_grep 'UNRESOLVED: upstream skill writing-beats is offered' "$err" \
+    "install did not name the misnamed skill in its own summary"
+  assert_grep 'UNRESOLVED: upstream skill drafting is offered' "$err" \
+    "install did not name the duplicated skill in its own summary"
 
   out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
   rc=$?
   expect_code 1 "$rc" "--check passed a pointer set missing offered skills that do not resolve"
-  assert_contains "$out" 'leaves out writing-beats' "--check did not name the misnamed skill"
-  assert_contains "$out" 'leaves out drafting' "--check did not name the duplicated skill"
+  assert_contains "$out" 'UNRESOLVED: upstream skill writing-beats is offered' \
+    "--check did not name the misnamed skill in its own summary"
+  assert_contains "$out" 'UNRESOLVED: upstream skill drafting is offered' \
+    "--check did not name the duplicated skill in its own summary"
   assert_not_contains "$out" 'ok - ' "--check reported ok for an incomplete pointer set"
 
   assert_grep 'disable-model-invocation: true' "$dest/matt-loop-me/SKILL.md" \
