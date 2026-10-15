@@ -767,7 +767,7 @@ test_branch_ack_keeps_older_keyed_decision_open() {
   assert_contains "$drained" 'OPEN DECISIONS' "the status decision must appear in the first drain"
   assert_contains "$drained" 'held [key=merge-153] needs-decision: merge PR 153 now or hold?' "the older decision must remain open"
   assert_contains "$drained" '[seq 2, newest of 2 for this task' "the branch line must collapse to the newest outcome"
-  assert_contains "$drained" "including its still-open decisions listed above under OPEN DECISIONS" "the check-first instruction must include the older keyed decision"
+  assert_contains "$drained" "including its still-open decisions under OPEN DECISIONS (bin/fm-wake-drain.sh --decisions lists every one)" "the check-first instruction must include the older keyed decision"
   FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" mark-processed --through 2 >/dev/null || fail "fixture: acknowledgement refused"
   # Already presented, so the default drain only counts it; --decisions lists it.
   drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" --decisions 2>&1' "$ROOT/bin/fm-wake-drain.sh")

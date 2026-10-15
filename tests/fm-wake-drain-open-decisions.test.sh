@@ -14,6 +14,7 @@ set -u
 . "$(dirname "${BASH_SOURCE[0]}")/wake-helpers.sh"
 
 DRAIN="$ROOT/bin/fm-wake-drain.sh"
+GRANT="$ROOT/bin/fm-wake-grant.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-wake-drain-open-decisions-tests)
 
@@ -292,6 +293,38 @@ test_wake_triage_passes_the_full_list_flag_through() {
   pass "fm-wake-triage.sh --decisions passes the full-list flag through to the drain"
 }
 
+# The known-decision ledger is main's: a branch drain that presents a decision
+# must not let main's next default drain reduce it to a count main never saw
+# the text behind.
+test_branch_drain_leaves_the_decision_unknown_to_main() {
+  local dir state out
+  dir=$(make_case branch-then-main)
+  state="$dir/state"
+  out="$dir/drain.out"
+  printf 'needs-decision [key=merge]: merge PR 9 now or hold?\n' > "$state/task-x.status"
+  append_wake "$state" signal task-x.status 'signal: task-x.status' \
+    || fail "could not queue the branch-owned status signal"
+  FM_STATE_OVERRIDE="$state" "$GRANT" activate "$$" open-decisions-branch \
+    || fail "branch owner activation failed"
+  FM_STATE_OVERRIDE="$state" "$GRANT" publish open-decisions-branch 1 \
+    || fail "branch grant publication failed"
+
+  for round in 1 2; do
+    FM_STATE_OVERRIDE="$state" FM_SUPERVISION_ACTOR=branch "$DRAIN" > "$out" 2>/dev/null \
+      || fail "branch drain $round failed"
+    grep -F 'task-x [key=merge] needs-decision: merge PR 9 now or hold?' "$out" >/dev/null \
+      || fail "branch drain $round did not list the open decision: $(cat "$out")"
+  done
+
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" 2>/dev/null || fail "main drain failed"
+  grep -F 'task-x [key=merge] needs-decision: merge PR 9 now or hold?' "$out" >/dev/null \
+    || fail "main's drain only counted a decision just the branch was shown: $(cat "$out")"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" 2>/dev/null || fail "repeat main drain failed"
+  grep -F 'OPEN DECISIONS: 1 still open, none new or changed since the last presentation' "$out" >/dev/null \
+    || fail "main's repeat drain re-listed a decision main was already shown: $(cat "$out")"
+  pass "a branch drain lists every open decision and leaves main's known-decision ledger alone"
+}
+
 test_buried_decision_still_surfaces
 test_over_long_decision_note_is_capped_with_a_marker
 test_explicit_resolution_closes_it
@@ -303,3 +336,4 @@ test_buried_decision_surfaces_on_the_empty_queue_fast_path
 test_status_symlink_is_not_followed
 test_repeat_drain_shows_count_and_only_new_or_changed_keys
 test_wake_triage_passes_the_full_list_flag_through
+test_branch_drain_leaves_the_decision_unknown_to_main

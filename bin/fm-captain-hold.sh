@@ -202,11 +202,11 @@
 #
 # `parked` is the read-only predicate a supervisor asks before it rechecks a
 # declared wait: did the captain park this work? Exit 0 means the row is not
-# Done and its hold kind is captain or parked - the captain took the work in
-# hand or deferred it, so the wait is theirs to end - and stdout carries one
-# `<hold-kind>\t<hold-until>` line, the date `-` when none is recorded. Exit 1
-# means it is not, 3 an absent local task or backlog, and 2 that the answer
-# could not be established. A date-expired hold still answers 0: tasks-axi keeps
+# Done and its hold kind is parked - the captain deferred the work, so the wait
+# is theirs to end - and stdout carries one `<hold-kind>\t<hold-until>` line,
+# the date `-` when none is recorded. Exit 1 means it is not (a captain-kind
+# hold is still an open call awaiting an answer), 3 an absent local task or
+# backlog, and 2 that the answer could not be established. A date-expired hold still answers 0: tasks-axi keeps
 # the hold kind, and the expired date is exactly what the supervisor rechecks.
 # bin/fm-watch.sh asks it so a captain-parked pause gets no periodic stale
 # recheck, only one when its hold-until date is reached.
@@ -2155,13 +2155,9 @@ command_parked() {  # <task-id>
   if fm_backlog_row_probe "$data" "$id"; then
     state=${FM_BACKLOG_ROW_STATE%% *}
     [ "$state" != "done" ] || return 1
-    case "$FM_BACKLOG_ROW_HOLD_KIND" in
-      captain|parked)
-        printf '%s\t%s\n' "$FM_BACKLOG_ROW_HOLD_KIND" "${FM_BACKLOG_ROW_HOLD_UNTIL:--}"
-        return 0
-        ;;
-    esac
-    return 1
+    [ "$FM_BACKLOG_ROW_HOLD_KIND" = parked ] || return 1
+    printf '%s\t%s\n' "$FM_BACKLOG_ROW_HOLD_KIND" "${FM_BACKLOG_ROW_HOLD_UNTIL:--}"
+    return 0
   fi
   [ "$FM_BACKLOG_ROW_RESULT" != not_found ] || return 3
   printf 'fm-captain-hold: %s\n' "$FM_BACKLOG_ROW_ERROR" >&2

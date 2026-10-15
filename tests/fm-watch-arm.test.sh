@@ -1295,6 +1295,26 @@ test_take_over_preserves_downtime_from_watcher_self_exit() {
 # zero queued rows after ordinary take-overs and stop signals. A clean close
 # with an empty queue retires its downtime episode in place; a faulted close
 # (a nonzero, non-signal exit) still presents once.
+# A stop signal that lands while a check's process group is being recorded is
+# deferred, then exits. It must still exit in the signal range, so the cleanup
+# reads it as the clean close it is rather than a fault that presents a
+# zero-row rearm-resurface.
+test_deferred_stop_signal_exits_in_the_signal_range() {
+  local dir status
+  dir=$(make_case deferred-stop-signal)
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/check.sh"
+  status=0
+  FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/state" FM_ROOT_OVERRIDE="$ROOT" bash -c '
+    . "$1"
+    eval "deferred_$(declare -f watcher_stop_signals)"
+    watcher_stop_signals() { kill -TERM "$$"; deferred_watcher_stop_signals; }
+    run_check_capture "$2"
+    exit 0
+  ' _ "$ROOT/bin/fm-watch.sh" "$dir/check.sh" >/dev/null 2>&1 || status=$?
+  expect_code 143 "$status" "a TERM deferred during a check spawn did not exit as a signal"
+  pass "watch: a stop signal deferred during a check spawn exits in the signal range"
+}
+
 test_clean_close_with_empty_queue_retires_recovery_quietly() {
   local dir home state fakebin watcher generation real_touch status i
   dir=$(make_case clean-close-quiet-recovery)
@@ -1719,6 +1739,7 @@ test_handling_window_close_keeps_the_acknowledgement_valid
 test_moved_generation_acknowledgement_is_self_healing
 test_downtime_marker_does_not_follow_symlink
 test_clean_close_with_empty_queue_retires_recovery_quietly
+test_deferred_stop_signal_exits_in_the_signal_range
 test_stop_ends_the_home_watcher_and_publishes_downtime
 test_handling_delivered_accepts_already_acked_generation
 test_handling_delivered_rejects_a_superseded_generation

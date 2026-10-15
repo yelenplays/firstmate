@@ -244,6 +244,9 @@ case "${1:-}" in
     ;;
   *) echo "usage: fm-wake-drain.sh [--decisions | --ack-through SEQUENCE --recovery-generation GENERATION]" >&2; exit 2 ;;
 esac
+# The known-decision ledger records what main's context was shown, so any
+# other actor lists every open decision and leaves the ledger untouched.
+[ "$ACTOR" = main ] || SHOW_ALL_DECISIONS=true
 
 [ "$ACTOR" != branch ] || require_branch_eligible_rows || exit 1
 
@@ -536,9 +539,10 @@ discard_open_decisions_ledger() {
 # line. A decision is known when its exact task, key, verb, and note were
 # listed by an earlier presentation and it has stayed open since, so a changed
 # note, a re-opened key, and an entry the byte cap omitted all list again.
-# --decisions (SHOW_ALL_DECISIONS) lists every open decision. The known set is
-# OPEN_DECISIONS_LEDGER, rewritten to the current open set on every
-# presentation; this function only stages it, and print_status_sections commits
+# --decisions (SHOW_ALL_DECISIONS) lists every open decision, as does every
+# drain by an actor other than main. The known set is OPEN_DECISIONS_LEDGER,
+# rewritten to the current open set on every presentation to main; this
+# function only stages it, and print_status_sections commits
 # it beside the status presentation receipt once the bytes reached stdout. An
 # unreadable ledger reads as empty, so a fault lists too much, never too little.
 print_open_decisions_section() {
@@ -587,7 +591,9 @@ print_open_decisions_section() {
 $open
 EOF
 
-  stage_open_decisions_ledger "$staged" || return 1
+  if [ "$ACTOR" = main ]; then
+    stage_open_decisions_ledger "$staged" || return 1
+  fi
   [ "$total" -gt 0 ] || return 0
   if [ "$SHOW_ALL_DECISIONS" = true ]; then
     printf 'OPEN DECISIONS (%d still open, folded from the durable status logs - not just the latest line):\n' "$total" || return 1
@@ -767,7 +773,7 @@ print_branch_outcomes_section() {
 $captain
 ROWS
   if [ "$shown" -gt 0 ]; then
-    text="BRANCH OUTCOMES (captain outcomes the supervision session recorded for you, one line per task, oldest first; each says what was true when it was recorded, so check the task's current state first, including its still-open decisions listed above under OPEN DECISIONS, and sort them into still open and already settled, such as a decision since answered, a PR since merged, or a task since finished - process the still-open ones as firstmate: tell the captain, land or merge what is ready, answer or escalate a decision, or act on a blocker; your reply to the captain covers only those, as if the settled ones had never been listed, and a settled one needs only the acknowledgement):
+    text="BRANCH OUTCOMES (captain outcomes the supervision session recorded for you, one line per task, oldest first; each says what was true when it was recorded, so check the task's current state first, including its still-open decisions under OPEN DECISIONS (bin/fm-wake-drain.sh --decisions lists every one), and sort them into still open and already settled, such as a decision since answered, a PR since merged, or a task since finished - process the still-open ones as firstmate: tell the captain, land or merge what is ready, answer or escalate a decision, or act on a blocker; your reply to the captain covers only those, as if the settled ones had never been listed, and a settled one needs only the acknowledgement):
 "
     for line in "${captain_lines[@]}"; do
       text="$text$line

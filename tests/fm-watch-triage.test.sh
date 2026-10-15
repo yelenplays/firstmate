@@ -7792,10 +7792,11 @@ test_paused_until_that_passed_is_rechecked_before_the_cadence() {
 
 # --- a captain-parked pause gets no periodic recheck --------------------------
 # The 2026-10-14 retro: a task the captain parked days earlier (paused: line,
-# backlog hold kind captain) re-alarmed `stale` once per cadence for its whole
+# backlog hold kind parked) re-alarmed `stale` once per cadence for its whole
 # pause, each wake with nothing for the captain to do. A parked wait is absorbed
 # with no cadence recheck; only its hold-until date (or a real state change)
-# wakes, once.
+# wakes, once. A captain-kind hold is still an open captain call, so it keeps
+# its reminder cadence.
 
 utc_yesterday() {
   if [ "$(uname)" = Darwin ]; then date -u -v-1d +%Y-%m-%d
@@ -7818,8 +7819,10 @@ test_captain_parked_pause_gets_no_periodic_recheck() {
   # Parked: with a one-second cadence and a declaration a minute old, every
   # churned hash is past the recheck cadence, which woke before the fix. None
   # may wake now.
-  dir=$(make_hold_home parked-pause "$line" hold) \
+  dir=$(make_hold_home parked-pause "$line" nohold) \
     || fail "could not build the captain-parked fixture"
+  (cd "$dir" && tasks-axi hold held-merge --reason 'start after the launch window' --kind parked --file data/backlog.md) >/dev/null 2>&1 \
+    || fail "could not park the captain-parked fixture"
   state="$dir/state"; out="$dir/watch.out"; capture="$dir/pane.txt"
   age_hold_status "$state"
   FM_HOLD_PAUSE_RESURFACE_SECS=1 hold_watch_churn "$dir" "$out" "$capture" 'parked pane, clock tick' 3 \
@@ -7839,11 +7842,23 @@ test_captain_parked_pause_gets_no_periodic_recheck() {
     || fail "an unparked declared wait past its cadence was not rechecked: $(cat "$out")"
   [ "$(hold_stale_wakes "$state")" -eq 1 ] || fail "an unparked declared wait did not queue its stale wake"
 
+  # Control: an open captain call (hold kind captain) under the same paused:
+  # line is not parked, so it keeps its reminder cadence.
+  dir=$(make_hold_home captain-kind-pause "$line" hold) \
+    || fail "could not build the captain-kind fixture"
+  state="$dir/state"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  age_hold_status "$state"
+  FM_HOLD_PAUSE_RESURFACE_SECS=1 hold_watch_surface "$dir" "$out" "$capture" 'captain-kind pane' \
+    || fail "a paused: line under an open captain call lost its reminder cadence: $(cat "$out")"
+  [ "$(hold_stale_wakes "$state")" -eq 1 ] || fail "a paused: line under an open captain call did not queue its stale wake"
+  ! grep -F 'captain-parked wait' "$state/.watch-triage.log" >/dev/null 2>&1 \
+    || fail "an open captain call was absorbed as captain-parked"
+
   # Due: a hold-until date that has been reached wakes exactly once, naming the
   # date, and the same parked wait is silent afterwards.
   dir=$(make_hold_home parked-due "$line" nohold) \
     || fail "could not build the due fixture"
-  run_hold "$dir" hold held-merge --reason 'parked by the captain' --until "$(utc_yesterday)" \
+  (cd "$dir" && tasks-axi hold held-merge --reason 'start after the launch window' --kind parked --until "$(utc_yesterday)" --file data/backlog.md) >/dev/null 2>&1 \
     || fail "could not park the due fixture with a hold-until date"
   state="$dir/state"; out="$dir/watch.out"; capture="$dir/pane.txt"
   hold_watch_surface "$dir" "$out" "$capture" 'due pane' \

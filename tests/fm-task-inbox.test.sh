@@ -992,6 +992,47 @@ test_watcher_completed_turn_renews_the_delivered_hold() {
   pass "watcher: a completed turn after delivery renews the busy hold"
 }
 
+# The retro's multi-message shape (lay inbox 125, 127, 131): the doorbell names
+# the whole inbox, so one that reached the pane covers every record queued when
+# it rang, whichever record it was rung for. A later steer's ring covers the
+# oldest record the worker is still mid-turn on, and the watcher's ring for the
+# oldest covers the later records the worker moves on to in the same turn.
+test_watcher_later_doorbell_holds_busy_turn_on_oldest() {
+  local dir check
+  dir=$(busy_case busy-delivered-later)
+  busy_steer_check "$dir" "$(idle_capture "$dir")"
+  inbox_lib "$dir/state" fm_task_inbox_write "$dir/state" t1 "second steer" >/dev/null
+  inbox_lib "$dir/state" fm_task_inbox_record_delivered "$dir/state" t1 "$dir/state/t1.inbox/002.msg"
+  for check in 1 2 3 4; do
+    busy_steer_check "$dir"
+    [ ! -s "$dir/state/.wake-queue" ] \
+      || fail "a later doorbell did not hold the busy turn on the oldest record (check $check):"$'\n'"$(cat "$dir/state/.wake-queue")"
+  done
+  printf '000.msg\t%s\n' "$(date +%s)" > "$dir/state/t1.inbox/.delivered"
+  busy_steer_check "$dir"
+  busy_steer_check "$dir"
+  grep -q 'stuck-busy' "$dir/state/.wake-queue" \
+    || fail "an earlier doorbell held the busy budget for a record it never covered"
+  pass "watcher: a later doorbell holds the busy turn on the oldest record; an earlier one does not"
+}
+
+test_watcher_ring_for_oldest_covers_records_queued_behind_it() {
+  local dir check
+  dir=$(busy_case busy-delivered-queued)
+  inbox_lib "$dir/state" fm_task_inbox_write "$dir/state" t1 "second steer" >/dev/null
+  age_path "$dir/state/t1.inbox/002.msg"
+  busy_steer_check "$dir" "$(idle_capture "$dir")"
+  grep -q 'Firstmate instruction waiting' "$dir/send.log" || fail "idle pane did not ring"
+  mv "$dir/state/t1.inbox/001.msg" "$dir/state/t1.inbox/handled/"
+  for check in 1 2 3 4; do
+    busy_steer_check "$dir"
+    [ ! -s "$dir/state/.wake-queue" ] \
+      || fail "the ring for the oldest record did not cover the one queued behind it (check $check):"$'\n'"$(cat "$dir/state/.wake-queue")"
+  done
+  [ "$(grep -c '^' "$dir/send.log")" = 1 ] || fail "a busy pane was typed into"
+  pass "watcher: a ring for the oldest record covers the records queued behind it"
+}
+
 test_watcher_busy_bookkeeping_failure_surfaces() {
   local dir
   dir=$(busy_case busy-unwritable)
@@ -1475,3 +1516,5 @@ test_watcher_dead_pane_escalates_once_without_ringing
 test_watcher_dead_pane_ignores_stale_busy_state
 test_watcher_holds_busy_turn_on_delivered_message
 test_watcher_completed_turn_renews_the_delivered_hold
+test_watcher_later_doorbell_holds_busy_turn_on_oldest
+test_watcher_ring_for_oldest_covers_records_queued_behind_it

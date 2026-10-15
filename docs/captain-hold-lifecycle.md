@@ -128,10 +128,10 @@ The `--force` path remains the explicit captain-approved discard escape hatch.
 
 ### Captain-parked pauses (`parked`)
 
-The read-only `parked <task-id>` subcommand reports whether a row that is not Done carries a captain or parked hold kind, and prints that kind with its hold-until date.
-`bin/fm-watch.sh` uses it so a `paused:` line under such a hold gets no periodic stale recheck.
+The read-only `parked <task-id>` subcommand reports whether a row that is not Done carries the parked hold kind, and prints that kind with its hold-until date.
+`bin/fm-watch.sh` uses it so a `paused:` or `captain-held:` line under such a hold gets no periodic stale recheck.
 It wakes once when the hold-until date or the pause's declared until time arrives, and any real state change still wakes as usual.
-A `captain-held:` line counts as parked only under the parked kind, so a captain-held decision keeps its reminder cadence.
+A hold of kind captain is still an open captain call awaiting an answer, so it is not parked and keeps its reminder cadence.
 `bin/fm-captain-hold.sh --help` owns the exit codes.
 
 ## Cleanup never closes a captain call

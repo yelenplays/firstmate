@@ -1774,20 +1774,19 @@ worker_stopped_churning() {  # <window> <task>
   [ "$(fm_backend_busy_state herdr "$w" 2>/dev/null)" = idle ]
 }
 
-# A captain-parked wait: the worker declared the wait and its backlog row says
-# the captain took the work in hand or deferred it (bin/fm-captain-hold.sh
-# `parked` owns that predicate: hold kind captain or parked on a row that is not
-# Done). A paused: line under either kind counts, and a captain-held: line only
-# under kind parked - a captain-held decision the captain merely holds is still
-# an open call, so it keeps its long reminder cadence. Only the captain can end
-# a parked wait, so a periodic recheck has nothing to ask: the stale path absorbs
-# it with no cadence re-surface at all. It wakes once when the wait comes due - the backlog
+# A captain-parked wait: the worker declared the wait (paused: or captain-held:)
+# and its backlog row says the captain deferred the work (bin/fm-captain-hold.sh
+# `parked` owns that predicate: hold kind parked on a row that is not Done). A
+# hold of kind captain is still an open captain call awaiting an answer, so it
+# keeps its long reminder cadence. Only the captain can end a parked wait, so a
+# periodic recheck has nothing to ask: the stale path absorbs it with no cadence
+# re-surface at all. It wakes once when the wait comes due - the backlog
 # hold-until date is reached (UTC date, the date the hold goes inactive) or the
 # declared `until` time passes - and a real state change (a status append, an
 # answered or lifted hold) arrives through its own signal or changes the
 # declaration this verdict is cached against.
 # The backlog verdict is cached in .paused-parked-<key> as
-# "<declaration>\t<captain|parked|unparked>\t<hold-until|->\t<announced due|->", so the
+# "<declaration>\t<parked|unparked>\t<hold-until|->\t<announced due|->", so the
 # backlog is read at most once per declaration per PAUSE_RESURFACE_SECS rather
 # than on every stale poll; an unreadable backlog reads unparked, which keeps
 # the caller's own bounded cadence.
@@ -1809,13 +1808,13 @@ captain_parked_absorb() {  # <window> <task> <declared-wait-line>
       verdict=
     fi
   fi
-  case "$verdict" in captain|parked|unparked) ;; *) verdict= ;; esac
+  case "$verdict" in parked|unparked) ;; *) verdict= ;; esac
   if [ -z "$verdict" ]; then
     rc=0
     line=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-captain-hold.sh" parked "$task" 2>/dev/null) || rc=$?
     if [ "$rc" -eq 0 ]; then
       verdict=${line%%$'\t'*}
-      case "$verdict" in captain|parked) ;; *) verdict=unparked ;; esac
+      [ "$verdict" = parked ] || verdict=unparked
       until=${line#*$'\t'}
       case "$until" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) until=- ;; esac
     else
@@ -1828,11 +1827,7 @@ captain_parked_absorb() {  # <window> <task> <declared-wait-line>
     fi
     printf '%s\t%s\t%s\t%s\n' "$declaration" "$verdict" "$until" "$announced" > "$marker" || return 1
   fi
-  case "$verdict" in
-    parked) ;;
-    captain) status_is_paused "$last" || return 1 ;;
-    *) return 1 ;;
-  esac
+  [ "$verdict" = parked ] || return 1
   # Both dates are validated YYYY-MM-DD, so their digits compare as integers.
   today=$(date -u +%Y%m%d)
   if [ "$until" != - ] && [ "$((10#${until//-/}))" -le "$((10#$today))" ]; then
@@ -2461,7 +2456,17 @@ fm_active_check_stop() {
 # its trap because bash ignores a direct SIGINT while a child runs.
 watcher_stop_signals() {
   trap - HUP TERM
-  trap 'exit 1' INT
+  trap 'exit 130' INT
+}
+
+# Hold stop signals while a check's process group is being recorded, keeping the
+# 128+signal status a deferred one exits with: watcher_cleanup reads any status
+# in the signal range as a clean close, the same as a signal taken natively.
+watcher_defer_stop_signals() {
+  FM_CHECK_SIGNAL_PENDING=
+  trap 'FM_CHECK_SIGNAL_PENDING=129' HUP
+  trap 'FM_CHECK_SIGNAL_PENDING=130' INT
+  trap 'FM_CHECK_SIGNAL_PENDING=143' TERM
 }
 
 run_check_capture() {
@@ -2470,18 +2475,17 @@ run_check_capture() {
   FM_CHECK_RESULT=
   FM_CHECK_OUTPUT=$(mktemp "$STATE/.fm-check-output.XXXXXX") || return 1
   chmod 0600 "$FM_CHECK_OUTPUT" || { fm_check_output_cleanup; return 1; }
-  FM_CHECK_SIGNAL_PENDING=
   # Defer stop signals only until the check's process group is recorded for
   # watcher_cleanup. Keep command substitutions out of this window: bash 5.2
   # can drop a trap that is pending when one is parsed (watcher_stop_signals).
-  trap 'FM_CHECK_SIGNAL_PENDING=1' HUP INT TERM
+  watcher_defer_stop_signals
   set -m
   ( FM_CHECK_OWNED_GROUP=1 run_check_process "$@" ) > "$FM_CHECK_OUTPUT" 2>/dev/null &
   FM_ACTIVE_CHECK_PID=$!
   FM_ACTIVE_CHECK_PGID=$FM_ACTIVE_CHECK_PID
   set +m
   watcher_stop_signals
-  [ -z "$FM_CHECK_SIGNAL_PENDING" ] || exit 1
+  [ -z "$FM_CHECK_SIGNAL_PENDING" ] || exit "$FM_CHECK_SIGNAL_PENDING"
   pgid=$(ps -o pgid= -p "$FM_ACTIVE_CHECK_PID" 2>/dev/null | tr -d '[:space:]')
   if [ -n "$pgid" ] && [ "$pgid" != "$FM_ACTIVE_CHECK_PGID" ]; then
     fm_active_check_stop || true
@@ -2512,8 +2516,7 @@ watcher_capture() {  # <backend> <target> <lines> [expected-label]
   fm_capture_output_cleanup
   WATCHER_CAPTURE=
   FM_CAPTURE_OUTPUT=$(mktemp "$STATE/.fm-capture-output.XXXXXX") || return 1
-  FM_CHECK_SIGNAL_PENDING=
-  trap 'FM_CHECK_SIGNAL_PENDING=1' HUP INT TERM
+  watcher_defer_stop_signals
   # The group's stderr is redirected before the fork: bash 3.2 on macOS can
   # print a harmless "child setpgid ... Operation not permitted" race from the
   # child before the command's own redirections apply.
@@ -2523,7 +2526,7 @@ watcher_capture() {  # <backend> <target> <lines> [expected-label]
   FM_ACTIVE_CHECK_PGID=$FM_ACTIVE_CHECK_PID
   set +m
   watcher_stop_signals
-  [ -z "$FM_CHECK_SIGNAL_PENDING" ] || exit 1
+  [ -z "$FM_CHECK_SIGNAL_PENDING" ] || exit "$FM_CHECK_SIGNAL_PENDING"
   pgid=$(ps -o pgid= -p "$FM_ACTIVE_CHECK_PID" 2>/dev/null | tr -d '[:space:]')
   if [ -n "$pgid" ] && [ "$pgid" != "$FM_ACTIVE_CHECK_PGID" ]; then
     fm_active_check_stop || true

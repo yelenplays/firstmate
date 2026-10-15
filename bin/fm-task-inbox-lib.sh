@@ -29,7 +29,8 @@
 #                              (the session and the away daemon)
 #   <task>.inbox/.ring-state   watcher re-ring ladder: "<msg>\t<count>\t<epoch>"
 #   <task>.inbox/.busy-state   consecutive busy deferrals: "<msg>\t<count>"
-#   <task>.inbox/.delivered    last doorbell that reached the pane: "<msg>\t<epoch>"
+#   <task>.inbox/.delivered    last doorbell that reached the pane: "<msg>\t<epoch>";
+#                              it covers <msg> and every earlier record
 #   <task>.inbox/.escalated    oldest-message name already surfaced as stale,
 #                              so later polls suppress another escalation
 #   <task>.inbox/.retry-ring   name of a fire-and-forget record still owed its
@@ -153,21 +154,35 @@ fm_task_inbox_record_busy() {  # <state-dir> <task-id> <record-path>
   printf '%s' "$count"
 }
 
-# Record that a doorbell for <record> reached the pane (its ring returned 0).
+# Record that a doorbell rung for <record> reached the pane (its ring returned
+# 0). The doorbell names the whole inbox, so the slot keeps the newest record
+# it covers, <record> or a later one still queued.
 # Best-effort for callers: a lost write only forfeits the busy hold above.
 fm_task_inbox_record_delivered() {  # <state-dir> <task-id> <record-path>
-  local dir
+  local dir newest best f n
   dir=$(fm_task_inbox_dir "$1" "$2")
   [ -d "$dir" ] || return 0
-  { printf '%s\t%s\n' "${3##*/}" "$(date +%s)" > "$dir/.delivered"; } 2>/dev/null
+  best=${3##*/}
+  newest=$(fm_task_inbox_seq_of "$best") || newest=0
+  for f in "$dir"/*.msg; do
+    n=$(fm_task_inbox_seq_of "${f##*/}") || continue
+    [ "$n" -gt "$newest" ] || continue
+    newest=$n
+    best=${f##*/}
+  done
+  { printf '%s\t%s\n' "$best" "$(date +%s)" > "$dir/.delivered"; } 2>/dev/null
 }
 
-# The epoch a doorbell for <record> last reached the pane; fails when none did.
+# The epoch the last doorbell covering <record> reached the pane; fails when
+# none did. The doorbell names the whole inbox, not one record, so one rung for
+# <record> or any later sequence covers it.
 fm_task_inbox_delivered_at() {  # <state-dir> <task-id> <record-path>
-  local dir base at
+  local dir base at seq want
   dir=$(fm_task_inbox_dir "$1" "$2")
   { IFS=$(printf '\t') read -r base at < "$dir/.delivered"; } 2>/dev/null || return 1
-  [ "$base" = "${3##*/}" ] || return 1
+  seq=$(fm_task_inbox_seq_of "$base") || return 1
+  want=$(fm_task_inbox_seq_of "${3##*/}") || return 1
+  [ "$seq" -ge "$want" ] || return 1
   case "$at" in ''|*[!0-9]*) return 1 ;; esac
   printf '%s' "$at"
 }
