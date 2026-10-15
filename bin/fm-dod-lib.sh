@@ -886,7 +886,7 @@ Create or modify no test files: no unit or integration tests, no test fixtures, 
 Running existing tests is fine, and an end-to-end test (a path or file name containing \`e2e\` or \`end-to-end\`) stays allowed.
 Only test-file paths explicitly named under \`$FM_TEST_BAN_EXCEPTION_HEADING\` inside \`## Captain's intent\` are allowed; implement only those tests as described. A test description without a file path allows no test file.
 EOF
-  local allowed
+  local allowed changes='added or modified'
   allowed=$(printf '%s' "${2:-}" | tr '\n' ' ' | sed 's/ $//')
   if [ -n "$allowed" ]; then
     printf 'Captain-authorized test path(s): %s. Every other test file remains prohibited.\n' "$allowed"
@@ -895,8 +895,9 @@ EOF
   fi
   if [ "${3:-base}" != base ]; then
     printf '%s\n' "The test files committed up to $3 were written before this handoff for you to make pass: implement until they pass and leave them unchanged; only commits after $3 count as yours."
+    changes='added, modified, or deleted'
   fi
-  printf '%s\n' "Before accepting your ship \`done:\`, firstmate checks commits since the base for added, modified, or deleted test files outside those exact paths and refuses the done while any remain, naming them; revert those changes and report done again."
+  printf '%s\n' "Before accepting your ship \`done:\`, firstmate checks commits since the base for $changes test files outside those exact paths and refuses the done while any remain, naming them; revert those changes and report done again."
 }
 
 # The ref a ship's commits are measured against: origin/<base> for a named

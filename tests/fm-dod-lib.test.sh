@@ -670,6 +670,7 @@ test_test_ban_gate_measures_from_the_tests_first_handoff() {
 
   section=$(fm_test_ban_overlay claude-sonnet-5-5 '' "$since")
   assert_contains "$section" "committed up to $since were written before this handoff" "launch section did not name the handoff"
+  assert_contains "$section" "for added, modified, or deleted test files" "a handoff launch section did not announce deletions are checked"
   section=$(fm_test_ban_overlay claude-sonnet-5-5 '')
   case "$section" in
     *"before this handoff"*) fail "a launch section without a handoff named one" ;;
@@ -677,7 +678,9 @@ test_test_ban_gate_measures_from_the_tests_first_handoff() {
   section=$(fm_test_ban_overlay claude-sonnet-5-5 '' base)
   case "$section" in
     *"before this handoff"*) fail "a launch section measured from the base named a handoff" ;;
+    *deleted*) fail "a launch section measured from the base promised a deletion check the gate does not run" ;;
   esac
+  assert_contains "$section" "for added or modified test files" "a base launch section did not announce the done check"
   pass "test-ban gate measures a tests-first handoff from its recorded commit"
 }
 
