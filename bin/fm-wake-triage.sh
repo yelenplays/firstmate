@@ -316,10 +316,10 @@ fi
 # queued for the handling turn's own acknowledgement.
 partial_note=
 routine_seqs=$(while IFS="$(printf '\t')" read -r seq tagged; do
-  case "$seq" in ''|*[!0-9]*) continue ;; esac
+  case "$seq" in (''|*[!0-9]*) continue ;; esac
   case "$tagged" in
-    '!'*) continue ;;
-    '?'*) tagged=$(meta_for_stale "${tagged#?}" 2>/dev/null) || continue ;;
+    ('!'*) continue ;;
+    ('?'*) tagged=$(meta_for_stale "${tagged#?}" 2>/dev/null) || continue ;;
   esac
   grep -Fqx -- "$tagged" "$routine_ids" && printf '%s\n' "$seq"
 done < "$row_tags" | LC_ALL=C sort -nu | paste -sd, -)
