@@ -14,14 +14,21 @@ LOADER="$ROOT/bin/fm-matt-skill.sh"
 POINTERS="$ROOT/bin/fm-matt-pointers.sh"
 TMP_ROOT=$(fm_test_tmproot fm-matt-pointers)
 
-REAL_VERSION=1.2.3
-REAL_COMMIT=2ab958093e83e0ec752e6c1c5932da465bf23e0c
+REAL_VERSION=1.3.1
+REAL_COMMIT=49dd158d1076134a641b33efb035946536778336
+MARKET=mattpocock
+KEY="mattpocock-skills@$MARKET"
+# The identity a pointer generated from the default fixture passes to the loader.
+PINS=(--validated-plugin "$KEY" --validated-version "$REAL_VERSION" --validated-commit "$REAL_COMMIT")
 
 # --- fixture ----------------------------------------------------------------
 #
 # build_plugin <root> [version] [commit] [enabled] [manifest-name]
-# Creates a Claude configuration root with one installed plugin carrying three
-# skills, and echoes nothing. Callers export CLAUDE_CONFIG_DIR="<root>/config".
+# Creates a Claude configuration root with one installed plugin from marketplace
+# $MARKET, and echoes nothing. Its manifest declares three skills; its source
+# tree also carries an in-progress skill outside the declared set, the shape of
+# upstream's non-promoted buckets, and a deprecated one that must never be
+# offered. Callers export CLAUDE_CONFIG_DIR="<root>/config".
 
 build_plugin() {
   local root=$1
@@ -35,7 +42,7 @@ build_plugin() {
   cat >"$root/config/plugins/installed_plugins.json" <<EOF
 {
   "plugins": {
-    "mattpocock-skills@claude-plugins-official": [
+    "$KEY": [
       {
         "scope": "user",
         "installPath": "$install",
@@ -47,7 +54,7 @@ build_plugin() {
 }
 EOF
   cat >"$root/config/settings.json" <<EOF
-{ "enabledPlugins": { "mattpocock-skills@claude-plugins-official": $enabled } }
+{ "enabledPlugins": { "$KEY": $enabled } }
 EOF
   cat >"$install/.claude-plugin/plugin.json" <<EOF
 {
@@ -67,6 +74,15 @@ EOF
     'Plan a huge chunk of work as a shared map of decision tickets.' 'true'
   write_skill "$install/skills/productivity/grilling" grilling \
     'Grill the user relentlessly about a plan, decision, or idea.' ''
+  write_skill "$install/skills/in-progress/loop-me" loop-me \
+    'Grill me about specs for the workflows I want to build.' 'true'
+  write_skill "$install/skills/deprecated/old-way" old-way \
+    'A retired skill upstream no longer uses.' ''
+}
+
+# pointer_command <pointer-file>: the Step 1 command block, exactly as written.
+pointer_command() {
+  awk '/^```bash$/ { inside = 1; next } /^```$/ { inside = 0 } inside' "$1"
 }
 
 # write_skill <dir> <name> <description> <disable-model-invocation>
@@ -91,7 +107,7 @@ test_loader_prints_original_bytes_and_identity() {
   root="$TMP_ROOT/loader-ok"
   build_plugin "$root"
 
-  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd) \
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd "${PINS[@]}") \
     || fail "loader refused a healthy install"
 
   assert_contains "$out" 'UNIQUE-UPSTREAM-PROCEDURE-tdd' \
@@ -100,11 +116,18 @@ test_loader_prints_original_bytes_and_identity() {
   assert_contains "$out" 'license=MIT' "loader dropped the licence"
   assert_contains "$out" 'upstream=https://github.com/mattpocock/skills' \
     "loader dropped the upstream repository"
+  assert_contains "$out" "plugin=$KEY" "loader did not name the plugin it resolved"
   assert_contains "$out" "resolved_version=$REAL_VERSION" "loader dropped the resolved version"
   assert_contains "$out" 'pin=validated' "loader did not report a matching pin as validated"
   assert_contains "$out" 'reference.md' "loader did not list the skill's support files"
   assert_not_contains "$out" 'PLUGIN CHANGED' \
     "loader warned about drift while resolving the validated pin"
+
+  # With no validated identity to compare, there is nothing to call drift.
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd --check) \
+    || fail "loader refused a healthy install without a validated identity"
+  assert_contains "$out" 'pin=unpinned' "loader invented a pin nobody passed"
+  assert_not_contains "$out" 'PLUGIN CHANGED' "loader reported drift with no validated identity"
   pass "loader prints the installed original with full attribution and identity"
 }
 
@@ -136,7 +159,8 @@ test_loader_refuses_without_printing_anything() {
 
   root="$TMP_ROOT/loader-undeclared"
   build_plugin "$root"
-  refuses "undeclared skill" 5 env CLAUDE_CONFIG_DIR="$root/config" "$LOADER" not-a-skill
+  refuses "unknown skill" 5 env CLAUDE_CONFIG_DIR="$root/config" "$LOADER" not-a-skill
+  refuses "deprecated skill" 5 env CLAUDE_CONFIG_DIR="$root/config" "$LOADER" old-way
 
   root="$TMP_ROOT/loader-swapped"
   build_plugin "$root" "$REAL_VERSION" "$REAL_COMMIT" true some-other-plugin
@@ -166,14 +190,15 @@ test_loader_reports_drift_without_hiding_the_original() {
 
   # An upstream bump must keep working, or every release becomes an outage and
   # the sync chore the pointer pattern removes comes straight back.
-  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd) \
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd "${PINS[@]}") \
     || fail "loader refused a newer plugin version by default"
   assert_contains "$out" 'PLUGIN CHANGED' "loader stayed silent about a changed plugin"
   assert_contains "$out" 'pin=changed' "loader reported a changed pin as validated"
   assert_contains "$out" 'UNIQUE-UPSTREAM-PROCEDURE-tdd' \
     "loader withheld the installed original while reporting drift"
 
-  CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd --require-validated-pin >/dev/null 2>&1
+  CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd "${PINS[@]}" --require-validated-pin \
+    >/dev/null 2>&1
   rc=$?
   expect_code 6 "$rc" "--require-validated-pin accepted a changed plugin"
   pass "version drift is reported loudly, and refused outright on request"
@@ -184,7 +209,7 @@ test_loader_reports_commit_drift_without_hiding_the_original() {
   root="$TMP_ROOT/loader-commit-drift"
   build_plugin "$root" "$REAL_VERSION" deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 
-  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd) \
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd "${PINS[@]}") \
     || fail "loader refused an install with a changed source commit"
   assert_contains "$out" 'PLUGIN CHANGED' \
     "loader stayed silent about a changed source commit"
@@ -193,10 +218,103 @@ test_loader_reports_commit_drift_without_hiding_the_original() {
   assert_contains "$out" 'UNIQUE-UPSTREAM-PROCEDURE-tdd' \
     "loader withheld the installed original during commit drift"
 
-  CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd --require-validated-pin >/dev/null 2>&1
+  CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd "${PINS[@]}" --require-validated-pin \
+    >/dev/null 2>&1
   rc=$?
   expect_code 6 "$rc" "--require-validated-pin accepted a changed source commit"
+
+  # Strict mode with nothing to compare against is a usage error, not a pass.
+  CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd --require-validated-pin >/dev/null 2>&1
+  expect_code 2 $? "--require-validated-pin without a validated identity was accepted"
   pass "commit drift is reported loudly, and refused outright on request"
+}
+
+# add_install <root> <marketplace> <version> <commit>: register a second install
+# of the plugin from another marketplace, carrying the same skills.
+add_install() {
+  local root=$1 market=$2 version=$3 commit=$4 other registry
+  other="$root/install-$market"
+  mkdir -p "$other"
+  cp -R "$root/install/." "$other/"
+  jq --arg v "$version" '.version = $v' "$other/.claude-plugin/plugin.json" \
+    >"$other/plugin.json.new"
+  mv "$other/plugin.json.new" "$other/.claude-plugin/plugin.json"
+  printf '\nUNIQUE-%s-INSTALL\n' "$market" >>"$other/skills/engineering/tdd/SKILL.md"
+  registry="$root/config/plugins/installed_plugins.json"
+  jq --arg k "mattpocock-skills@$market" --arg p "$other" --arg v "$version" --arg c "$commit" \
+    '.plugins[$k] = [{ scope: "user", installPath: $p, version: $v, gitCommitSha: $c }]' \
+    "$registry" >"$registry.new"
+  mv "$registry.new" "$registry"
+}
+
+# set_enabled <root> <marketplace>=<true|false>...
+set_enabled() {
+  local root=$1 pair settings
+  shift
+  settings="$root/config/settings.json"
+  for pair in "$@"; do
+    jq --arg k "mattpocock-skills@${pair%%=*}" --argjson v "${pair#*=}" \
+      '.enabledPlugins[$k] = $v' "$settings" >"$settings.new"
+    mv "$settings.new" "$settings"
+  done
+}
+
+# The suite moved marketplaces once already: the old install stays registered
+# but disabled, and the loader has to follow the enabled one, wherever it is.
+test_loader_follows_the_one_enabled_marketplace() {
+  local root out
+  root="$TMP_ROOT/loader-market"
+  build_plugin "$root"
+  add_install "$root" claude-plugins-official 1.2.3 2ab958093e83e0ec752e6c1c5932da465bf23e0c
+  set_enabled "$root" claude-plugins-official=false
+
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd) \
+    || fail "loader refused while exactly one marketplace was enabled"
+  assert_contains "$out" "plugin=$KEY" "loader did not follow the enabled marketplace"
+  assert_contains "$out" "resolved_version=$REAL_VERSION" "loader read the disabled install's version"
+  assert_not_contains "$out" 'UNIQUE-claude-plugins-official-INSTALL' \
+    "loader printed bytes from the disabled install"
+
+  set_enabled "$root" claude-plugins-official=true "$MARKET=false"
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd) \
+    || fail "loader refused after the enabled marketplace switched"
+  assert_contains "$out" 'plugin=mattpocock-skills@claude-plugins-official' \
+    "loader kept a marketplace that is now disabled"
+  assert_contains "$out" 'UNIQUE-claude-plugins-official-INSTALL' \
+    "loader did not print the newly enabled install's bytes"
+
+  set_enabled "$root" claude-plugins-official=false "$MARKET=false"
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd 2>"$root/err")
+  expect_code 4 $? "loader resolved while no marketplace was enabled"
+  [ -z "$out" ] || fail "loader printed on stdout with no marketplace enabled: $out"
+  assert_grep 'none of them is enabled' "$root/err" "the refusal did not say why"
+
+  set_enabled "$root" claude-plugins-official=true "$MARKET=true"
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" tdd 2>"$root/err")
+  expect_code 6 $? "loader picked one of two enabled marketplaces"
+  [ -z "$out" ] || fail "loader printed on stdout with two marketplaces enabled: $out"
+  assert_grep 'ambiguous' "$root/err" "the refusal did not name the ambiguity"
+  pass "the loader follows the one enabled marketplace and refuses none or several"
+}
+
+# Captain's ask: every upstream skill, not only the declared set. Skills upstream
+# keeps outside the manifest load like any other.
+test_loader_offers_every_live_upstream_skill() {
+  local root out
+  root="$TMP_ROOT/loader-undeclared-offer"
+  build_plugin "$root"
+  write_skill "$root/install/skills/misc/setup-pre-commit" setup-pre-commit \
+    'Set up pre-commit hooks.' ''
+
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" --list) || fail "--list refused a healthy install"
+  [ "$out" = "$(printf 'grilling\nloop-me\nsetup-pre-commit\ntdd\nwayfinder')" ] \
+    || fail "--list did not offer exactly the declared and non-deprecated skills: $out"
+
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" loop-me) \
+    || fail "loader refused an in-progress skill"
+  assert_contains "$out" 'UNIQUE-UPSTREAM-PROCEDURE-loop-me' \
+    "loader did not print the in-progress skill's original bytes"
+  pass "the loader offers every non-deprecated upstream skill"
 }
 
 test_loader_delegates_to_the_shared_resolver_when_present() {
@@ -210,6 +328,12 @@ test_loader_delegates_to_the_shared_resolver_when_present() {
 #!/usr/bin/env bash
 set -eu
 [ "${2:-}" = tdd ] || { printf 'fm-skill-path.sh: refused %s\n' "${2:-}" >&2; exit 5; }
+printf 'plugin=mattpocock-skills\n'
+printf 'marketplace=stub-market\n'
+printf 'scope=user\n'
+printf 'version=7.7.7\n'
+printf 'commit=stubcommit\n'
+printf 'skill=tdd\n'
 printf 'skill_dir=%s\n' "$FM_TEST_SKILL_DIR"
 printf 'skill_file=%s/SKILL.md\n' "$FM_TEST_SKILL_DIR"
 EOF
@@ -225,6 +349,10 @@ EOF
     || fail "loader did not delegate successfully to the shared resolver"
   assert_contains "$out" 'resolved_by=bin/fm-skill-path.sh' \
     "loader did not record that the shared resolver resolved the skill"
+  assert_contains "$out" 'plugin=mattpocock-skills@stub-market' \
+    "loader did not take the plugin identity from the shared resolver"
+  assert_contains "$out" 'resolved_version=7.7.7' \
+    "loader did not take the version from the shared resolver"
   assert_contains "$out" 'UNIQUE-UPSTREAM-PROCEDURE-tdd' \
     "delegated resolution did not reach the original bytes"
 
@@ -274,8 +402,10 @@ test_pointers_carry_attribution_and_no_procedure() {
   assert_grep 'license: MIT' "$file" "pointer does not carry the licence"
   assert_grep 'https://github.com/mattpocock/skills' "$file" \
     "pointer does not name the upstream repository"
-  assert_grep 'mattpocock-skills@claude-plugins-official' "$file" \
+  assert_grep "upstream-plugin: \"$KEY\"" "$file" \
     "pointer does not name the plugin it resolves"
+  assert_no_grep 'claude-plugins-official' "$file" \
+    "pointer names a marketplace that is not the enabled one"
   assert_grep "validated-version: \"$REAL_VERSION\"" "$file" \
     "pointer does not record the validated version"
 
@@ -401,11 +531,175 @@ test_retired_skills_are_pruned_and_reinstalls_are_idempotent() {
   manifest="$root/install/.claude-plugin/plugin.json"
   jq '.skills |= map(select(. != "./skills/productivity/grilling"))' "$manifest" >"$manifest.new"
   mv "$manifest.new" "$manifest"
+  rm -rf "$root/install/skills/productivity/grilling"
 
   run_pointers "$root/config" --prune --dest "$dest" >/dev/null
   assert_absent "$dest/matt-grilling" "prune left a pointer to a retired skill"
   assert_present "$dest/matt-tdd/SKILL.md" "prune removed a still-declared pointer"
   pass "retired pointers are pruned and repeat installs change nothing"
+}
+
+# A skill upstream still ships but that stops resolving is not retired: --prune
+# keeps its pointer and says why, and --check reports it as unresolved.
+test_prune_keeps_pointers_of_unresolved_skills() {
+  local root dest out rc
+  root="$TMP_ROOT/prune-unresolved"
+  build_plugin "$root"
+  dest="$root/skills"
+  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null \
+    || fail "pointer install failed against a healthy plugin"
+
+  sed 's/^name: loop-me$/name: loop-you/' "$root/install/skills/in-progress/loop-me/SKILL.md" \
+    >"$root/loop-me.md"
+  mv "$root/loop-me.md" "$root/install/skills/in-progress/loop-me/SKILL.md"
+  jq '.skills -= ["./skills/productivity/grilling"]' "$root/install/.claude-plugin/plugin.json" \
+    >"$root/plugin.json"
+  mv "$root/plugin.json" "$root/install/.claude-plugin/plugin.json"
+  rm -rf "$root/install/skills/productivity/grilling"
+
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  rc=$?
+  expect_code 1 "$rc" "--check passed with an offered skill that does not resolve"
+  assert_contains "$out" "UNRESOLVED: $dest/matt-loop-me" "--check did not report the unresolved pointer"
+  assert_not_contains "$out" "RETIRED: $dest/matt-loop-me" "--check called an unresolved skill retired"
+  assert_contains "$out" "RETIRED: $dest/matt-grilling" "--check did not report the retired pointer"
+
+  out=$(run_pointers "$root/config" --prune --dest "$dest" 2>&1)
+  rc=$?
+  expect_code 1 "$rc" "--prune passed while keeping a pointer whose skill does not resolve"
+  assert_present "$dest/matt-loop-me/SKILL.md" "prune deleted the pointer of a skill that still ships"
+  assert_contains "$out" "UNRESOLVED: kept $dest/matt-loop-me" "prune did not name the kept pointer"
+  assert_absent "$dest/matt-grilling" "prune left a pointer to a retired skill"
+  assert_present "$dest/matt-tdd/SKILL.md" "prune removed a pointer whose skill resolves"
+  pass "--prune keeps, and --check flags, pointers of offered skills that do not resolve"
+}
+
+# Symlinked entry files and skill directories still identify offered skills,
+# even if their targets disappear; they must be unresolved, not pruned as retired.
+test_symlinked_undeclared_skill_stays_unresolved() {
+  local root dest out kind
+  for kind in directory-linked directory-dangling linked dangling; do
+    root="$TMP_ROOT/symlinked-entry-$kind"
+    build_plugin "$root"
+    dest="$root/skills"
+    run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null \
+      || fail "pointer install failed against a healthy plugin"
+
+    case "$kind" in
+      directory-*)
+        mv "$root/install/skills/in-progress/loop-me" "$root/loop-me"
+        ln -s "$root/loop-me" "$root/install/skills/in-progress/loop-me"
+        [ "$kind" != directory-dangling ] || rm -rf "$root/loop-me"
+        ;;
+      *)
+        mv "$root/install/skills/in-progress/loop-me/SKILL.md" "$root/loop-me.md"
+        ln -s "$root/loop-me.md" "$root/install/skills/in-progress/loop-me/SKILL.md"
+        [ "$kind" != dangling ] || rm "$root/loop-me.md"
+        ;;
+    esac
+
+    out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+    expect_code 1 $? "--check passed with a $kind symlinked undeclared skill"
+    assert_contains "$out" "UNRESOLVED: $dest/matt-loop-me" \
+      "--check did not flag the $kind symlinked skill's pointer"
+    assert_not_contains "$out" "RETIRED: $dest/matt-loop-me" \
+      "--check called a $kind symlinked skill retired"
+    assert_not_contains "$out" 'ok - ' "--check reported an incomplete set as healthy"
+
+    out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" loop-me --check 2>"$root/err")
+    expect_code 6 $? "loader did not reject the $kind symlink as an integrity failure"
+    [ -z "$out" ] || fail "loader printed output for a symlinked skill"
+    if [ "$kind" = directory-dangling ]; then
+      assert_grep 'directory is missing' "$root/err" "loader did not diagnose the dangling directory"
+    else
+      assert_grep 'symlink' "$root/err" "loader did not diagnose the symlink"
+    fi
+
+    out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" --list 2>"$root/err")
+    expect_code 7 $? "--list silently omitted a $kind symlinked undeclared skill"
+    [ "$out" = "$(printf 'grilling\ntdd\nwayfinder')" ] \
+      || fail "--list did not retain exactly the resolvable skills: $out"
+    assert_grep 'leaves out loop-me' "$root/err" "--list did not name the unresolved skill"
+
+    out=$(run_pointers "$root/config" --dest "$root/fresh-skills" --date 2026-07-30 2>&1)
+    expect_code 1 $? "install passed with a $kind symlinked undeclared skill"
+    assert_contains "$out" 'UNRESOLVED: upstream skill loop-me is offered' \
+      "install did not name the unresolved upstream skill"
+    assert_absent "$root/fresh-skills/matt-loop-me" "install generated an unsafe pointer"
+    assert_present "$root/fresh-skills/matt-tdd/SKILL.md" "install omitted a healthy skill"
+
+    out=$(run_pointers "$root/config" --check --dest "$root/fresh-skills" 2>&1)
+    expect_code 1 $? "--check passed a fresh incomplete pointer set"
+    assert_contains "$out" 'UNRESOLVED: upstream skill loop-me is offered' \
+      "fresh audit did not name the unresolved upstream skill"
+    assert_not_contains "$out" 'ok - ' "fresh audit reported an incomplete set as healthy"
+
+    cp "$dest/matt-loop-me/SKILL.md" "$root/pointer-before.md"
+    out=$(run_pointers "$root/config" --prune --dest "$dest" 2>&1)
+    expect_code 1 $? "--prune passed with a $kind symlinked undeclared skill"
+    assert_contains "$out" "UNRESOLVED: kept $dest/matt-loop-me" \
+      "prune did not name the unresolved pointer it kept"
+    assert_present "$dest/matt-loop-me/.firstmate-pointer" "prune removed the pointer marker"
+    cmp -s "$root/pointer-before.md" "$dest/matt-loop-me/SKILL.md" \
+      || fail "prune removed or changed the unresolved pointer"
+  done
+  pass "symlinked undeclared skills are unresolved and their pointers survive pruning"
+}
+
+test_symlinked_bucket_keeps_hidden_pointers() {
+  local root dest out kind skill names rc
+  names='loop-me beta-two beta-three beta-four beta-five beta-six beta-seven'
+  for kind in linked dangling; do
+    root="$TMP_ROOT/symlinked-bucket-$kind"
+    build_plugin "$root"
+    for skill in $names; do
+      write_skill "$root/install/skills/in-progress/$skill" "$skill" 'Beta skill.' ''
+    done
+    dest="$root/skills"
+    run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null \
+      || fail "pointer install failed against a healthy plugin"
+    cp -R "$dest" "$root/pointers-before"
+
+    mv "$root/install/skills/in-progress" "$root/beta-bucket"
+    ln -s "$root/beta-bucket" "$root/install/skills/in-progress"
+    [ "$kind" != dangling ] || rm -rf "$root/beta-bucket"
+
+    # A hidden name is unknown, not evidence that upstream retired the skill.
+    for skill in $names; do
+      out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" "$skill" --check 2>"$root/err")
+      expect_code 6 $? "loader called $skill retired behind a $kind bucket symlink"
+      [ -z "$out" ] || fail "loader printed bytes from an unsafe bucket"
+    done
+    out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" --list 2>"$root/err")
+    expect_code 7 $? "--list passed with a $kind bucket symlink"
+    [ "$out" = "$(printf 'grilling\ntdd\nwayfinder')" ] \
+      || fail "--list trusted linked bucket contents: $out"
+
+    out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+    expect_code 1 $? "--check passed with a $kind bucket symlink"
+    assert_not_contains "$out" 'RETIRED:' "audit retired skills hidden by a bucket symlink"
+    assert_not_contains "$out" 'ok - ' "audit reported healthy coverage behind a bucket symlink"
+    for skill in $names; do
+      assert_contains "$out" "UNRESOLVED: $dest/matt-$skill" "audit omitted hidden skill $skill"
+    done
+
+    out=$(run_pointers "$root/config" --dest "$root/fresh-skills" 2>&1)
+    expect_code 1 $? "install passed with a $kind bucket symlink"
+    assert_present "$root/fresh-skills/matt-tdd/SKILL.md" "install omitted a healthy skill"
+    assert_absent "$root/fresh-skills/matt-loop-me" "install trusted a linked bucket"
+
+    out=$(run_pointers "$root/config" --prune --dest "$dest" 2>&1)
+    rc=$?
+    for skill in $names; do
+      cmp -s "$root/pointers-before/matt-$skill/SKILL.md" "$dest/matt-$skill/SKILL.md" \
+        || fail "prune removed or changed $skill behind a $kind bucket symlink"
+      cmp -s "$root/pointers-before/matt-$skill/.firstmate-pointer" "$dest/matt-$skill/.firstmate-pointer" \
+        || fail "prune removed or changed the marker for $skill"
+      assert_contains "$out" "UNRESOLVED: kept $dest/matt-$skill" "prune omitted hidden skill $skill"
+    done
+    expect_code 1 "$rc" "--prune passed with a $kind bucket symlink"
+  done
+  pass "symlinked buckets leave hidden skills unresolved and preserve all pointers"
 }
 
 # --- the bridge must be internally coherent ---------------------------------
@@ -501,6 +795,7 @@ test_check_reports_retired_pointers_and_their_recorded_loaders() {
   jq '.skills |= map(select(. != "./skills/productivity/grilling"))' "$manifest" \
     >"$manifest.new"
   mv "$manifest.new" "$manifest"
+  rm -rf "$root/install/skills/productivity/grilling"
 
   retired_loader="$root/retired-loader.sh"
   cp "$mirror/fm-matt-skill.sh" "$retired_loader"
@@ -562,6 +857,7 @@ test_check_audits_all_retired_pointers_without_an_identity_skill() {
   manifest="$root/install/.claude-plugin/plugin.json"
   jq '.skills = []' "$manifest" >"$manifest.new"
   mv "$manifest.new" "$manifest"
+  rm -rf "$root/install/skills"
   mkdir -p "$dest/foreign-skill"
   printf 'foreign skill remains untouched\n' >"$dest/foreign-skill/SKILL.md"
 
@@ -573,6 +869,8 @@ test_check_audits_all_retired_pointers_without_an_identity_skill() {
     "--check did not report the retired wayfinder pointer"
   assert_contains "$out" "RETIRED: $dest/matt-grilling" \
     "--check did not report the retired grilling pointer"
+  assert_contains "$out" "RETIRED: $dest/matt-loop-me" \
+    "--check did not report the retired undeclared pointer"
   assert_contains "$out" "BROKEN: $dest/matt-tdd/SKILL.md" \
     "--check did not report the dead all-retired loader"
   assert_contains "$out" "$retired_loader" \
@@ -634,18 +932,130 @@ test_check_reports_combined_pointer_faults_once_each() {
   pass "--check reports combined pointer faults without double-counting"
 }
 
+# Every skill upstream offers gets a pointer, including the ones outside the
+# declared set, without changing its invocation. An uncurated bucket skill that
+# would not resolve is left out instead of aborting the run partway, and both
+# install and --check fail naming it rather than passing an incomplete set.
+test_pointers_cover_undeclared_skills() {
+  local root dest out err rc
+  root="$TMP_ROOT/undeclared-pointers"
+  build_plugin "$root"
+  write_skill "$root/install/skills/misc/setup-pre-commit" setup-pre-commit \
+    'Set up pre-commit hooks.' ''
+  write_skill "$root/install/skills/in-progress/writing-beats" beats \
+    'Front matter names another skill.' ''
+  write_skill "$root/install/skills/in-progress/drafting" drafting 'One copy.' ''
+  write_skill "$root/install/skills/misc/drafting" drafting 'Another copy.' ''
+  dest="$root/skills"
+  err="$root/install.err"
+  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null 2>"$err"
+  expect_code 1 $? "install passed while offered skills did not resolve"
+
+  assert_absent "$dest/matt-writing-beats" "a skill whose front matter names another skill got a pointer"
+  assert_absent "$dest/matt-drafting" "a skill present twice in the source tree got a pointer"
+  assert_grep 'UNRESOLVED: upstream skill writing-beats is offered' "$err" \
+    "install did not name the misnamed skill in its own summary"
+  assert_grep 'UNRESOLVED: upstream skill drafting is offered' "$err" \
+    "install did not name the duplicated skill in its own summary"
+
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  rc=$?
+  expect_code 1 "$rc" "--check passed a pointer set missing offered skills that do not resolve"
+  assert_contains "$out" 'UNRESOLVED: upstream skill writing-beats is offered' \
+    "--check did not name the misnamed skill in its own summary"
+  assert_contains "$out" 'UNRESOLVED: upstream skill drafting is offered' \
+    "--check did not name the duplicated skill in its own summary"
+  assert_not_contains "$out" 'ok - ' "--check reported ok for an incomplete pointer set"
+
+  assert_grep 'disable-model-invocation: true' "$dest/matt-loop-me/SKILL.md" \
+    "an undeclared user-invoked skill was promoted to model invocation"
+  assert_grep 'disable-model-invocation: false' "$dest/matt-setup-pre-commit/SKILL.md" \
+    "an undeclared model-invocable skill lost model invocation"
+  assert_no_grep 'UNIQUE-UPSTREAM-PROCEDURE' "$dest/matt-loop-me/SKILL.md" \
+    "an undeclared pointer copied part of the upstream skill body"
+  assert_absent "$dest/matt-old-way" "a deprecated upstream skill got a pointer"
+
+  out=$(run_pointers "$root/config" --list 2>/dev/null)
+  [ "$out" = "$(printf 'matt-grilling\tgrilling\tmodel-invocable\nmatt-loop-me\tloop-me\tuser-invoked-only\nmatt-setup-pre-commit\tsetup-pre-commit\tmodel-invocable\nmatt-tdd\ttdd\tmodel-invocable\nmatt-wayfinder\twayfinder\tuser-invoked-only')" ] \
+    || fail "--list did not offer exactly the resolvable skills: $out"
+  pass "pointers cover every resolvable non-deprecated upstream skill"
+}
+
+# A pointer's Step 1 carries the identity it was generated from, so the loader
+# can tell a worker when the enabled plugin has moved on. A marketplace switch
+# is the case that bit: pointers kept naming an install that was disabled.
+test_pointer_step1_flags_a_plugin_switch() {
+  local root dest cmd out
+  root="$TMP_ROOT/switch"
+  build_plugin "$root"
+  dest="$root/skills"
+  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null \
+    || fail "pointer install failed against a healthy plugin"
+
+  cmd=$(pointer_command "$dest/matt-tdd/SKILL.md")
+  assert_contains "$cmd" "--validated-plugin $KEY" "Step 1 does not pass the plugin it was generated from"
+  out=$(CLAUDE_CONFIG_DIR="$root/config" bash -c "$cmd") \
+    || fail "the pointer's Step 1 failed against the plugin it was generated from"
+  assert_contains "$out" 'pin=validated' "Step 1 did not validate against its own identity"
+  assert_not_contains "$out" 'PLUGIN CHANGED' "Step 1 reported drift with nothing changed"
+
+  add_install "$root" newmarket 2.0.0 cafecafecafecafecafecafecafecafecafecafe
+  set_enabled "$root" "$MARKET=false" newmarket=true
+
+  out=$(CLAUDE_CONFIG_DIR="$root/config" bash -c "$cmd") \
+    || fail "the pointer's Step 1 refused after the plugin switched marketplaces"
+  assert_contains "$out" 'PLUGIN CHANGED' "Step 1 stayed silent about a marketplace switch"
+  assert_contains "$out" 'plugin=mattpocock-skills@newmarket' "Step 1 did not load the enabled install"
+  assert_contains "$out" 'UNIQUE-newmarket-INSTALL' "Step 1 did not print the enabled install's bytes"
+
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  expect_code 1 $? "--check passed pointers generated from a disabled install"
+  assert_contains "$out" "DRIFTED: $dest/matt-tdd/SKILL.md" "--check did not flag the switched plugin"
+
+  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null \
+    || fail "regenerating after the switch failed"
+  assert_grep 'upstream-plugin: "mattpocock-skills@newmarket"' "$dest/matt-tdd/SKILL.md" \
+    "regenerated pointer does not name the newly enabled plugin"
+  assert_grep 'validated-version: "2.0.0"' "$dest/matt-tdd/SKILL.md" \
+    "regenerated pointer does not record the new version"
+  run_pointers "$root/config" --check --dest "$dest" >/dev/null 2>&1
+  expect_code 0 $? "--check still reported drift after regenerating"
+  pass "a pointer's Step 1 flags a plugin switch and regenerating clears it"
+}
+
+test_generator_refuses_without_an_enabled_plugin() {
+  local root dest out
+  root="$TMP_ROOT/none-enabled"
+  build_plugin "$root" "$REAL_VERSION" "$REAL_COMMIT" false
+  dest="$root/skills"
+
+  out=$(run_pointers "$root/config" --dest "$dest" 2>&1)
+  expect_code 4 $? "the generator ran with no enabled plugin"
+  assert_contains "$out" 'disabled' "the generator's refusal did not say the plugin is disabled"
+  assert_absent "$dest" "the generator created pointers with no enabled plugin"
+  pass "the generator refuses, and writes nothing, without an enabled plugin"
+}
+
 test_loader_prints_original_bytes_and_identity
 test_loader_refuses_without_printing_anything
 test_loader_reports_drift_without_hiding_the_original
 test_loader_reports_commit_drift_without_hiding_the_original
+test_loader_follows_the_one_enabled_marketplace
+test_loader_offers_every_live_upstream_skill
 test_loader_delegates_to_the_shared_resolver_when_present
 test_loader_refuses_without_the_shared_resolver
 test_pointers_carry_attribution_and_no_procedure
 test_pointers_mirror_upstream_invocation_flags
+test_pointers_cover_undeclared_skills
+test_pointer_step1_flags_a_plugin_switch
+test_generator_refuses_without_an_enabled_plugin
 test_pointer_instructs_a_hard_stop_on_failure
 test_check_detects_drift_absence_and_a_dead_loader
 test_foreign_directories_are_never_written_or_removed
 test_retired_skills_are_pruned_and_reinstalls_are_idempotent
+test_prune_keeps_pointers_of_unresolved_skills
+test_symlinked_undeclared_skill_stays_unresolved
+test_symlinked_bucket_keeps_hidden_pointers
 test_generated_pointer_loads_through_the_shipped_loader
 test_check_reports_a_recorded_loader_that_later_vanished
 test_check_reports_retired_pointers_and_their_recorded_loaders
