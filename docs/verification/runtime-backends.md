@@ -8,23 +8,19 @@ Exact task chronology, branch names, temporary homes, local paths, process ids, 
 
 ## Claude worker context
 
-Verified on 2026-10-14 with Claude Code 2.1.300 using the native transcript guard:
+Verified on 2026-10-09 with Claude Code 2.1.295 using the native transcript guard:
 
 ```sh
 FM_CLAUDE_WORKER_CONTEXT_LIVE_E2E=1 bin/fm-test-run.sh tests/fm-claude-worker-context-live-e2e.test.sh
 ```
 
 ```text
-ok - claude 2.1.300 (Claude Code): supervisor and secondmate instructions retained; worker excludes only root files; worker, secondmate, and user-sources pipeline listings narrowed; skill names retained
-# skill listing chars: wide=133203 supervisor=9601 worker=9601 secondmate=9601 pipeline-wide=134003 pipeline=10401
-# first-request transcript input: supervisor=37420 worker=22150 saved=15270
+ok - claude 2.1.295 (Claude Code): supervisor instructions retained; worker excludes only root files; skill names retained
 ```
 
-The guard submits six no-tool requests to real Claude sessions in a private temporary repository and checks their saved first-request usage and instruction/skill attachments.
-It proves the worker overlay omits only the root supervisor instructions, the secondmate overlay keeps every instruction, both preserve unrelated instructions and every skill name, and the worker reduces total input including cache reads and writes.
-Wide-budget controls prove the synthetic probes overflow the budget, so each narrowed listing is the budget's effect; the pipeline pair passes `--setting-sources user` and the probes as a session plugin, the shape a no-mistakes Claude agent receives with the [global config setting](../configuration.md#pipeline-agent-skill-listing-no-mistakesconfigyaml).
-Claude's default listing budget scales with the session's context window, so a run whose default already fits near 8000 characters, as above, shows no supervisor-to-worker listing difference; the wide controls carry that proof instead.
-The portable `tests/fm-spawn-dispatch-profile.test.sh` drives actual ship/scout/secondmate launch construction and verifies ordinary projects retain their instructions, secondmates receive only the skill budget, and unusual paths warn and retain instructions rather than broadening an exclusion.
+The guard submits two no-tool requests to real Claude sessions in a private temporary repository and checks their saved first-request usage and instruction/skill attachments.
+It proves the worker overlay omits only the root supervisor instructions, preserves unrelated instructions and every skill name, narrows the listing, and reduces total input including cache reads and writes.
+The portable `tests/fm-spawn-dispatch-profile.test.sh` drives actual ship/scout launch construction and verifies ordinary projects retain their instructions, secondmates receive no worker trimming, and unusual paths warn and retain instructions rather than broadening an exclusion.
 [`bin/fm-claude-worker-context-lib.sh`](../../bin/fm-claude-worker-context-lib.sh) owns the settings and path/identity contract.
 
 Native exclusions are supported here only for instruction roots without glob metacharacters or quotes; such roots retain the existing supervisor context while still receiving the skill budget.

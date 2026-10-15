@@ -6,7 +6,7 @@
 #        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--captain-override <reason>] [--backend <name>] --secondmate
 #   --mode and --yolo are this task's delivery contract, REQUIRED for every ship
 #   spawn and refused on --scout and --secondmate spawns. Firstmate resolves both
-#   per task at intake (the task-intake skill); data/projects.md holds the captain's
+#   per task at intake (AGENTS.md section 7); data/projects.md holds the captain's
 #   standing posture as context, not as this task's answer, so a spawn never looks
 #   the mode up. A ship spawn additionally reads the brief's recorded
 #   "Delivery contract: mode=<mode>" line and REFUSES a mismatch, so the worker's
@@ -441,9 +441,8 @@
 #   bin/fm-worker-account-lib.sh owns parsing, the check, and the shed list.
 #   Launch templates live in launch_template() below; placeholders replaced before launch:
 #     __BRIEF__    absolute path to data/<task-id>/brief.md
-#     __CLAUDECONTEXT__ per-launch context settings JSON fragment from
-#                  fm-claude-worker-context-lib.sh (skill budget for every kind;
-#                  ship/scout also exclude Firstmate's supervisor instructions)
+#     __CLAUDECONTEXT__ per-launch worker context settings JSON fragment from
+#                  fm-claude-worker-context-lib.sh (empty for supervisors)
 #     __CLAUDEPERMFLAG__ the claude permission flag selected by config/claude-permission-mode
 #     __CLAUDEADDDIRS__ quoted --add-dir flags granting exactly this task's
 #                  Firstmate channel directories (claude_add_dirs_flag below;
@@ -1043,7 +1042,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
     exit 1
   }
 else
-  # Delivery contract (the task-intake skill). A ship task's mode and yolo are
+  # Delivery contract (AGENTS.md section 7). A ship task's mode and yolo are
   # firstmate's per-task decision, so they are required and closed-set validated
   # here rather than resolved from the project registry. Scouts deliver a report
   # and record no delivery posture; secondmate spawns hardcode theirs.

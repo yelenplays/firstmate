@@ -69,7 +69,7 @@ A `--secondmate` launch omits the statement because a secondmate operates under 
 
 ## Worker context
 
-Claude ship, scout, and secondmate launches narrow skill discovery without changing instruction files; ship and scout launches also omit Firstmate's own supervisor instructions, while secondmate launches retain them as their supervisor contract.
+Claude ship and scout launches narrow skill discovery and omit Firstmate's own supervisor instructions without changing instruction files; secondmate launches retain their full supervisor context.
 [`bin/fm-claude-worker-context-lib.sh`](../../../../../bin/fm-claude-worker-context-lib.sh) owns repository identity, the launch settings, and the warning-and-retain fallback for unusual paths; other adapters and raw launch commands are unchanged.
 [`Runtime verification`](../../../../../docs/verification/runtime-backends.md#claude-worker-context) records the native Claude guard and its supported boundary.
 
