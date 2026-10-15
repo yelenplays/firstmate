@@ -98,6 +98,8 @@ A close that carries a `supervision-host:` line, or comes from a host that exite
 That second test is a whitelist: queue rows, working status annotations of routine tasks, the acknowledgement line, the queued-wakes warning, the persistent `OPEN DECISIONS` list, and the persistent `UNFINISHED EXECUTION` obligations.
 Any other line keeps the wake, including unread status, branch outcomes, record divergence, a watcher-down banner, and recovered drain output.
 A new decision, a terminal status, and a firstmate-owned execution item each arrive with their own queue row, which triage keeps as ACT NOW.
+Triage commits the drain output to `state/.wake-triage.last` only after its presentation is delivered, because the drain has already spent its one-shot unread presentation.
+A handoff that fails or is interrupted leaves the pending output in place, and the next triage replays it as recovered drain output, which never absorbs.
 
 | Triage result | What the hook does |
 | --- | --- |

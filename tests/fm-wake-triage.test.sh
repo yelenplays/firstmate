@@ -424,6 +424,31 @@ test_interruption_retains_pending_output() {
   pass 'interrupted triage output survives and is replayed before manual acknowledgement'
 }
 
+# --absorb must keep the same promise: the drain has already spent its one-shot
+# unread presentation, so a handoff that never reached firstmate keeps the
+# pending output, and the retry replays it instead of absorbing the batch.
+test_absorb_interruption_retains_pending_output() {
+  local dir out rc
+  dir=$(absorb_case absorb-interrupted)
+  setup_task unrelated "$dir"
+  printf 'note: important unrelated answer\n' >> "$dir/state/unrelated.status"
+  run_triage "$dir" '' --absorb >&- 2>/dev/null && fail 'closed output unexpectedly succeeded under --absorb'
+  set -- "$dir/state"/.wake-triage.pending.*
+  [ -f "$1" ] || fail 'an interrupted --absorb handoff discarded its pending drain output'
+  assert_unacked "$dir"
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  stop_absorb_watcher "$dir"
+  [ "$rc" -eq 10 ] || fail "the retry after an interrupted handoff did not need firstmate (rc=$rc): $out"
+  assert_contains "$out" 'RECOVERED DRAIN OUTPUT' 'the retry did not replay the interrupted output'
+  assert_contains "$out" 'important unrelated answer' 'the retry lost the unread answer'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'the retry absorbed a batch whose earlier presentation never arrived'
+  assert_unacked "$dir"
+  set -- "$dir/state"/.wake-triage.pending.*
+  [ ! -e "$1" ] || fail 'a delivered retry left the recovered output behind'
+  pass 'an interrupted --absorb handoff keeps its output, and the retry replays it instead of absorbing'
+}
+
 # Real status lines carry stamps: fm-status writes "working [at=N]: ..." and
 # correlated lines add a corr= token. The annotation verb must read through
 # both exactly as status_line_verb does, or every real wake reads as unread
@@ -635,5 +660,6 @@ test_stamped_working_status_is_routine
 test_absorb_acknowledges_an_all_routine_wake
 test_absorb_retires_routine_rows_of_an_actionable_wake
 test_absorb_fails_closed
+test_absorb_interruption_retains_pending_output
 test_instruction_wiring
 test_shellcheck

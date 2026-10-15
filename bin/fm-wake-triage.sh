@@ -243,15 +243,21 @@ rendered="$work/rendered"
     while IFS="$(printf '\t')" read -r id crew; do printf '%s - crew: %s\n' "$id" "$crew"; done < "$routine_file"
   fi
 } > "$rendered" || { cat "$pending"; exit 1; }
-if [ "$ABSORB" -eq 0 ]; then
-  cat "$rendered" || exit 1
-fi
-mv -f -- "$pending" "$STATE/.wake-triage.last" || { [ "$ABSORB" -eq 0 ] || cat "$rendered"; echo 'wake triage: could not commit drain output' >&2; exit 1; }
-out="$STATE/.wake-triage.last"
-for f in ${recovered[@]+"${recovered[@]}"}; do rm -f -- "$f" || exit 1; done
 ack_line=$(sed -n '/^WAKE_ACK_REQUIRED:/p' "$out" | tail -1)
 
+# The drain has already spent its one-shot presentations, so the pending and
+# recovered output is the only copy until the presentation reaches its reader.
+# Commit it only after delivery; a failed handoff leaves it for the next
+# triage to replay, and a replay never absorbs.
+commit_drain_output() {
+  mv -f -- "$pending" "$STATE/.wake-triage.last" || { echo 'wake triage: could not commit drain output' >&2; return 1; }
+  out="$STATE/.wake-triage.last"
+  for f in ${recovered[@]+"${recovered[@]}"}; do rm -f -- "$f" || return 1; done
+}
+
 if [ "$ABSORB" -eq 0 ]; then
+  cat "$rendered" || exit 1
+  commit_drain_output || exit 1
   if [ "$DRAIN_CODE" -ne 0 ]; then exit "$DRAIN_CODE"; fi
   printf '%s\n' "$ack_line"
   exit 0
@@ -306,6 +312,9 @@ if [ "$DRAIN_CODE" -eq 0 ] && [ "$LOCK_FAILED" -eq 0 ] && [ "$recovered_count" -
 fi
 
 if [ "$absorbed" -eq 1 ]; then
+  # Absorbed output is all routine and already acknowledged; there is nothing
+  # left to replay, so it commits whether or not the presentation arrives.
+  commit_drain_output || exit 1
   cat "$rendered" || exit 0
   printf 'WAKE_ACKED: triage acknowledged every row through %s; nothing needs firstmate\n' "$cutoff"
   [ -z "$ack_out" ] || printf '%s\n' "$ack_out"
@@ -333,9 +342,12 @@ if [ "$DRAIN_CODE" -eq 0 ] && [ "$LOCK_FAILED" -eq 0 ] && [ ! -e "$STATE/.afk" ]
   [ -z "$partial_out" ] || partial_note="$partial_note
 $partial_out"
 fi
-cat "$rendered" || exit 1
-[ -z "$partial_note" ] || printf '%s\n' "$partial_note"
-[ -z "$ack_line" ] || printf '%s\n' "$ack_line"
+{
+  cat "$rendered"
+  [ -z "$partial_note" ] || printf '%s\n' "$partial_note"
+  [ -z "$ack_line" ] || printf '%s\n' "$ack_line"
+} || exit 1
+commit_drain_output || exit 1
 if [ "$DRAIN_CODE" -ne 0 ]; then
   [ "$DRAIN_CODE" -ne 10 ] || exit 1
   exit "$DRAIN_CODE"
