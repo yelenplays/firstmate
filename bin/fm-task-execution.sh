@@ -26,10 +26,10 @@
 # to spawn_gen. Executing this instruction proves processing of this handoff,
 # not successful implementation, activity, or progress. It is independent of
 # vendor text and works even when a harness has no semantic busy source.
-# status applies the same receipt checks before appending one worker status
-# line and optionally recording it in the fleet ledger. Spawn binds TOKEN into
-# the standard status recipe in the delivered brief, so normal reporting
-# confirms processing without a separate remembered step.
+# status validates enrollment, TOKEN and generation before appending a status
+# line and optionally recording it in the fleet ledger. Isolation failure keeps
+# the append but skips the receipt. Spawn binds TOKEN into the standard status
+# recipe, so reporting from the isolated root also confirms processing.
 # A status receipt proves processing, not current progress: scan still uses
 # crew-state, and old status lines or launch seeds alone never confirm activity.
 #
@@ -300,21 +300,26 @@ case "$command" in
     case "$(meta "$STATE/$id.meta" kind)" in ship|task) ;; *) fail 'a scout or secondmate is not an implementation owner' ;; esac
     wt=$(meta "$STATE/$id.meta" worktree); project=$(meta "$STATE/$id.meta" project)
     gen=$(meta "$STATE/$id.meta" spawn_gen)
-    [ -n "$gen" ] && [ -d "$wt" ] && [ -d "$project" ] || fail 'missing dispatch identity'
+    [ -n "$gen" ] || fail 'missing dispatch identity'
     [ "$(jq -r .attempt_gen "$file")" = "$gen" ] || fail 'handoff belongs to another spawn incarnation'
-    wt=$(cd "$wt" && pwd -P); project=$(cd "$project" && pwd -P)
-    [ "$(pwd -P)" = "$wt" ] && [ "$wt" != "$project" ] \
-      && [ "$(git rev-parse --show-toplevel 2>/dev/null)" = "$wt" ] \
-      || fail 'receipt must run in the isolated worker copy'
-    content=$(jq --arg gen "$gen" '.phase="processing" | .spawn_gen=$gen' "$file") ;;
+    if [ "$command" = status ]; then
+      printf '%s\n' "$status_line" >> "$STATE/$id.status"
+      if [ -e "$FM_HOME/config/fleet-ledger" ]; then
+        "$SCRIPT_DIR/fm-fleet-ledger.sh" appended "$FM_HOME/config" "$STATE/$id.status" >/dev/null 2>&1 || true
+      fi
+    fi
+    if [ -d "$wt" ] && [ -d "$project" ] \
+      && wt=$(cd "$wt" && pwd -P) && project=$(cd "$project" && pwd -P) \
+      && [ "$(pwd -P)" = "$wt" ] && [ "$wt" != "$project" ] \
+      && [ "$(git rev-parse --show-toplevel 2>/dev/null)" = "$wt" ]; then
+      content=$(jq --arg gen "$gen" '.phase="processing" | .spawn_gen=$gen' "$file")
+    else
+      [ "$command" = status ] || fail 'receipt must run in the isolated worker copy'
+      printf 'fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy\n' >&2
+      exit 0
+    fi ;;
 esac
 TMP="$STATE/.$id.execution.${BASHPID:-$$}"
 (umask 077; printf '%s\n' "$content" > "$TMP")
 mv -f -- "$TMP" "$file"; TMP=
-if [ "$command" = status ]; then
-  printf '%s\n' "$status_line" >> "$STATE/$id.status"
-  if [ -e "$FM_HOME/config/fleet-ledger" ]; then
-    "$SCRIPT_DIR/fm-fleet-ledger.sh" appended "$FM_HOME/config" "$STATE/$id.status" >/dev/null 2>&1 || true
-  fi
-fi
 [ "$command" != attempt ] || printf '%s\n' "$token"

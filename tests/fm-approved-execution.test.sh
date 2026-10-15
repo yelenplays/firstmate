@@ -101,6 +101,7 @@ EOF
 mkdir -p "$home/project" "$home/worker"
 fm_git_identity fmtest fmtest@example.invalid
 git -C "$home/worker" init -q
+git -C "$home/project" init -q
 printf 'kind=scout\nwindow=fake\nworktree=%s\nproject=%s\nspawn_gen=s1\nharness=pi\n' "$home/worker" "$home/project" > "$home/state/approved-scout.meta"
 FM_ROOT_OVERRIDE="$home" PATH="$home/fakebin:$PATH" "$ROOT/bin/fm-promote.sh" approved-scout --mode no-mistakes --yolo on > "$home/promotion"
 "$EXEC" show approved-scout | grep -q 'implementation owner unconfirmed'
@@ -110,7 +111,11 @@ promoted_command=${promoted_command//'{state}'/working}
 promoted_epoch=$(date +%s)
 promoted_command=${promoted_command//'<epoch>'/$promoted_epoch}
 promoted_command=${promoted_command//'{one short line}'/promoted worker processing}
-if (cd "$home" && bash -c "$promoted_command") 2>/dev/null; then fail 'promotion recipe accepted supervisor cwd'; fi
+before_receipt=$(cksum "$home/state/approved-scout.execution")
+(cd "$home" && bash -c "${promoted_command/working/blocked}")
+[ "$(tail -1 "$home/state/approved-scout.status")" = "blocked [at=$promoted_epoch]: promoted worker processing" ] || fail 'promotion dropped isolation safety report'
+[ "$(cksum "$home/state/approved-scout.execution")" = "$before_receipt" ] || fail 'promotion safety report changed receipt'
+if "$EXEC" confirmed approved-scout; then fail 'promotion confirmed supervisor cwd'; fi
 (cd "$home/worker" && bash -c "$promoted_command")
 "$EXEC" confirmed approved-scout
 [ "$(tail -1 "$home/state/approved-scout.status")" = "working [at=$promoted_epoch]: promoted worker processing" ] || fail 'promotion recipe did not append worker status'
@@ -124,7 +129,17 @@ if (cd "$home/worker" && bash -c "$promoted_command") 2>/dev/null; then fail 'pr
 if "$EXEC" started approved-scout "$token" 2>/dev/null; then fail 'firstmate cwd accepted as worker receipt'; fi
 # Normal status reporting, without a separate started call, must acknowledge
 # processing. Supervisor cwd, stale tokens and malformed appends cannot do so.
-if "$EXEC" status approved-scout "$token" 'working: wrong cwd' 2>/dev/null; then fail 'supervisor status confirmed processing'; fi
+mkdir -p "$home/worker/packages/foo"
+before_receipt=$(cksum "$home/state/approved-scout.execution")
+for report_cwd in "$home" "$home/project" "$home/worker/packages/foo"; do
+  for report_state in working paused blocked done needs-decision; do
+    report_line="$report_state: safety report from $report_cwd"
+    (cd "$report_cwd" && "$EXEC" status approved-scout "$token" "$report_line") || fail 'isolation failure dropped status'
+    [ "$(tail -1 "$home/state/approved-scout.status")" = "$report_line" ] || fail 'safety status changed or missing'
+    [ "$(cksum "$home/state/approved-scout.execution")" = "$before_receipt" ] || fail 'unattributed status changed receipt'
+    if "$EXEC" confirmed approved-scout; then fail 'unattributed status confirmed processing'; fi
+  done
+done
 if (cd "$home/worker" && "$EXEC" status approved-scout stale 'working: stale token') 2>/dev/null; then fail 'stale status confirmed processing'; fi
 if (cd "$home/worker" && "$EXEC" status approved-scout "$token" $'working: one\nworking: two') 2>/dev/null; then fail 'multi-line status accepted'; fi
 "$EXEC" show approved-scout | grep -q 'owner unconfirmed'
@@ -298,5 +313,27 @@ if (cd "$home/task-worker" && "$EXEC" status task-receipt "$task_token" 'working
 rm "$home/state/task-receipt.status" "$home/state/task-receipt.execution"
 if (cd "$home/task-worker" && "$EXEC" status task-receipt "$task_token" 'working: unenrolled worker') 2>/dev/null; then fail 'unenrolled status accepted'; fi
 [ ! -e "$home/state/task-receipt.execution" ] && [ ! -e "$home/state/task-receipt.status" ] || fail 'unenrolled status mutated worker records'
+
+tasks add rovo-promotion 'Implement approved Rovo task' --kind scout >/dev/null
+"$EXEC" approve rovo-promotion --basis captain-approved
+FM_HOME="$home" "$ROOT/bin/fm-brief.sh" rovo-promotion project --scout >/dev/null
+rovo_brief="$home/data/rovo-promotion/brief.md"
+rovo_content=$(<"$rovo_brief")
+rovo_content=${rovo_content//'{TASK}'/Implement approved Rovo task.}
+rovo_content=${rovo_content//'{FIRSTMATE_SPEC}'/Promote after research.}
+printf '%s\n' "$rovo_content" > "$rovo_brief"
+printf 'kind=scout\nwindow=fake\nworktree=%s\nproject=%s\nspawn_gen=rovo-gen\nharness=rovo\n' "$home/task-worker" "$home/project" > "$home/state/rovo-promotion.meta"
+FM_ROOT_OVERRIDE="$home" PATH="$home/fakebin:$PATH" "$ROOT/bin/fm-promote.sh" rovo-promotion --mode direct-PR --yolo off > "$home/rovo-promotion"
+rovo_instructions=$(<"$home/data/rovo-promotion/ship-instructions.md")
+[ -z "$(awk '/^[[:space:]]*`FM_HOME=.* status /' "$home/data/rovo-promotion/ship-instructions.md")" ] || fail 'Rovo promotion replaced plain status reporting'
+case "$rovo_instructions" in *' started '*) ;; *) fail 'Rovo promotion lost separate started receipt' ;; esac
+rovo_command=$(awk '/^[[:space:]]*`echo / {sub(/^[[:space:]]*`/, ""); sub(/`$/, ""); print; exit}' "$rovo_brief")
+[ -n "$rovo_command" ] || fail 'Rovo promotion lost status-file reporting route'
+rovo_command=${rovo_command//'{state}'/working}
+rovo_command=${rovo_command//'<epoch>'/$(date +%s)}
+rovo_command=${rovo_command//'{one short line}'/Rovo status without receipt}
+(cd "$home/task-worker" && bash -c "$rovo_command")
+grep -q 'Rovo status without receipt' "$home/state/rovo-promotion.status" || fail 'Rovo promotion status not delivered'
+if "$EXEC" confirmed rovo-promotion; then fail 'Rovo plain status confirmed receipt'; fi
 
 printf 'PASS: authority, fan-out, waits, promotion, receipts, restart, handoff and watcher transitions\n'

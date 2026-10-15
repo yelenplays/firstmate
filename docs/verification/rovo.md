@@ -186,7 +186,8 @@ $ ls "$LAB/outside/inbox/handled"
 
 Rovo is excluded from the status-coupled execution-receipt fix, with support deferred to `exec-receipt-rovo-v1`.
 This exception covers enrolled implementation workers launched directly, promoted in place from scouts, or relaunched from saved briefs.
-The generated `fm-task-execution.sh status` and `started` commands require shell access to home-side scripts and records, which Rovo's bash confinement does not provide.
+Rovo handoffs retain the plain status-file recipe and separate `fm-task-execution.sh started` appendix rather than replacing reporting with `fm-task-execution.sh status`.
+The receipt command still requires shell access to home-side scripts and records, which Rovo's bash confinement does not provide.
 The native file-tool grant described above permits status appends but excludes `state/<id>.execution`; a native append therefore does not confirm processing.
 A busy Rovo worker posting `working:` or `paused:` may still appear in `UNFINISHED EXECUTION` as "implementation owner unconfirmed; verify processing or recover failed handoff" and generate `check: unfinished-execution` or `check: execution <task>` notifications.
 The existing live status-append evidence does not prove receipt confirmation, and no adapter-compatible receipt transport is claimed here.

@@ -2418,13 +2418,11 @@ SH
   done
 }
 
-if [ "${1:-}" != --execution-receipts ]; then
-  test_launch_environment_allowlist
-  test_launch_environment_invalid_config_refuses
-  test_launch_environment_inaccessible_config_refuses
-  test_launch_environment_inherited_by_secondmate
-  test_launch_environment_inheritance_preserves_on_source_errors
-fi
+test_launch_environment_allowlist
+test_launch_environment_invalid_config_refuses
+test_launch_environment_inaccessible_config_refuses
+test_launch_environment_inherited_by_secondmate
+test_launch_environment_inheritance_preserves_on_source_errors
 
 test_worker_launch_delivers_role_scope() {
   local rec id out launch kind prompt envelope encoded brief_kind brief content first_line role_line task_line inbox
@@ -2785,7 +2783,9 @@ SH
   command=${command//'{state}'/working}
   command=${command//'<epoch>'/$(date +%s)}
   command=${command//'{one short line}'/worker processing}
-  if (cd "$HOME_DIR" && bash -c "$command") 2>/dev/null; then fail 'delivered recipe accepted firstmate cwd'; fi
+  (cd "$HOME_DIR" && bash -c "${command/working/blocked}") || fail 'delivered recipe dropped safety report'
+  assert_grep 'blocked .*worker processing' "$HOME_DIR/state/$id.status" 'safety report was not appended'
+  if FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$id"; then fail 'supervisor cwd confirmed processing'; fi
   (cd "$WT_DIR" && bash -c "$command") || fail 'delivered recipe failed in isolated worker copy'
   FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$id" || fail 'normal reporting did not confirm processing'
   assert_grep 'worker processing' "$HOME_DIR/state/$id.status" 'worker event was not appended'
@@ -2796,8 +2796,6 @@ SH
   pass 'delivered status command confirms isolated worker processing without the separate receipt'
 }
 
-test_enrolled_launch_status_confirms_processing
-if [ "${1:-}" = --execution-receipts ]; then exit 0; fi
 test_launch_preserves_inherited_git_config
 test_worker_launch_delivers_role_scope
 test_no_profile_keeps_claude_profile_defaults
@@ -2881,5 +2879,6 @@ test_keep_ai_trailers_omits_attribution_settings_and_strip_hooks
 test_keep_ai_trailers_reaches_secondmate_crew_launches
 test_claude_secondmate_launch_carries_the_attribution_policy
 test_active_dispatch_profile_does_not_block_secondmate_launch
+test_enrolled_launch_status_confirms_processing
 
 echo "# all fm-spawn-dispatch-profile tests passed"

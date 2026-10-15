@@ -6131,14 +6131,18 @@ fi
 # Custom briefs without the standard recipe retain the explicit started step.
 if [ -n "$EXECUTION_TOKEN" ]; then
   EXECUTION_BRIEF="$TASK_TMP/execution-brief.md"
+  [ "$HARNESS" != rovo ] || EXECUTION_BRIEF="$DATA/$ID/execution-brief.md"
   # shellcheck disable=SC2016 # Literal Markdown and worker-filled placeholders.
   EXECUTION_STATUS="   \`FM_HOME=$(shell_quote "$FM_HOME") $(shell_quote "$SCRIPT_DIR/fm-task-execution.sh") status $(shell_quote "$ID") $(shell_quote "$EXECUTION_TOKEN") \"{state} [at=<epoch>]: {one short line}\"\`"
   {
-    # ENVIRON preserves shell quoting and backslashes in the generated command.
-    FM_EXECUTION_STATUS="$EXECUTION_STATUS" awk '
-      report && /^[[:space:]]*`echo / {print ENVIRON["FM_EXECUTION_STATUS"]; report=0; next}
-      {report = /^[0-9]+[.] Report status by appending one line:$/; print}
-    ' "$BRIEF"
+    if [ "$HARNESS" = rovo ]; then
+      cat "$BRIEF"
+    else
+      FM_EXECUTION_STATUS="$EXECUTION_STATUS" awk '
+        report && /^[[:space:]]*`echo / {print ENVIRON["FM_EXECUTION_STATUS"]; report=0; next}
+        {report = /^[0-9]+[.] Report status by appending one line:$/; print}
+      ' "$BRIEF"
+    fi
     # shellcheck disable=SC2016 # Backticks are literal Markdown in worker instructions.
     printf '\n# Confirm this implementation handoff\nAfter verifying isolation, execute from this worker copy before implementation:\n`FM_HOME=%s %s started %s %s`\nThis acknowledges processing, not task completion. Never run it from firstmate.\n' \
       "$(shell_quote "$FM_HOME")" "$(shell_quote "$SCRIPT_DIR/fm-task-execution.sh")" \

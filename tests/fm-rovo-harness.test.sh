@@ -474,7 +474,52 @@ tool output line $i"
   pass "busy detection: a rovo busy marker scrolled out of the tail classifies unknown, never idle"
 }
 
+test_rovo_enrolled_launch_preserves_status_route() {
+  local id rec brief content out rc pointer delivered prompt command data_real tool
+  for tool in tasks-axi jq; do
+    command -v "$tool" >/dev/null || { printf 'skip: Rovo enrolled status test needs %s\n' "$tool"; return; }
+  done
+  id="rovo-enrolled-z7-$$"
+  rec=$(make_spawn_case enrolled "$id")
+  read_spawn_record "$rec"
+  for tool in tasks-axi jq; do
+    ln -s "$(command -v "$tool")" "$FAKEBIN_DIR/$tool"
+  done
+  rm "$HOME_DIR/data/$id/brief.md"
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-brief.sh" "$id" project --mode no-mistakes >/dev/null || fail 'Rovo receipt scaffold failed'
+  brief="$HOME_DIR/data/$id/brief.md"
+  content=$(<"$brief")
+  content=${content//'{TASK}'/Implement approved Rovo change.}
+  content=${content//'{FIRSTMATE_SPEC}'/Preserve native status reporting.}
+  printf '%s\n' "$content" > "$brief"
+  cp "$ROOT/.tasks.toml" "$HOME_DIR/.tasks.toml"
+  printf '## In flight\n- [ ] %s - Implement approved Rovo change (kind: ship)\n\n## Queued\n\n## Done\n' "$id" > "$HOME_DIR/data/backlog.md"
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" approve "$id" --basis captain-approved || fail 'Rovo task approval failed'
+  rc=0
+  out=$(run_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id") || rc=$?
+  expect_code 0 "$rc" "enrolled Rovo spawn failed: $out"
+  pointer=$(tail -1 "$CASE_DIR/pointer.log")
+  delivered=${pointer#Read the brief at }
+  delivered=${delivered% and follow it exactly.}
+  data_real=$(cd "$HOME_DIR/data/$id" && pwd -P)
+  [ -f "$delivered" ] || fail 'Rovo delivered prompt missing'
+  [ "$(cd "$(dirname "$delivered")" && pwd -P)" = "$data_real" ] || fail 'Rovo receipt instructions escaped the existing brief grant'
+  prompt=$(<"$delivered")
+  assert_contains "$prompt" ' started ' 'Rovo lost separate started appendix'
+  [ -z "$(awk '/^[[:space:]]*`FM_HOME=.* status /' "$delivered")" ] || fail 'Rovo received replacement receipt reporting'
+  command=$(awk '/^[[:space:]]*`echo / {sub(/^[[:space:]]*`/, ""); sub(/`$/, ""); print; exit}' "$delivered")
+  [ -n "$command" ] || fail 'Rovo delivered prompt lost plain status route'
+  command=${command//'{state}'/working}
+  command=${command//'<epoch>'/$(date +%s)}
+  command=${command//'{one short line}'/Rovo worker status}
+  (cd "$WT_DIR" && bash -c "$command") || fail 'Rovo plain status route failed'
+  assert_grep 'Rovo worker status' "$HOME_DIR/state/$id.status" 'Rovo worker status missing'
+  if FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$id"; then fail 'Rovo plain append confirmed processing'; fi
+  pass 'enrolled Rovo launch preserves status reporting within existing grants without confirming a receipt'
+}
+
 test_rovo_launch_then_send_is_verified
+test_rovo_enrolled_launch_preserves_status_route
 test_rovo_effort_xhigh_is_recorded_but_omitted
 test_rovo_effort_high_sets_config_override
 test_rovo_readiness_gate_precedes_pointer

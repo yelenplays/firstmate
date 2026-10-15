@@ -5810,11 +5810,6 @@ test_captured_completed_history() {
   pass 'captured completed status yields to synthetic subsequent development'
 }
 
-if [ "${1:-}" = --execution-receipts ]; then
-  test_launch_and_old_working_events_do_not_prove_processing
-  exit 0
-fi
-
 test_captured_axi_status_shapes
 test_captured_inventory_replay
 test_captured_authority_transition
