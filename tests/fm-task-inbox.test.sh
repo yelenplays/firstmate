@@ -411,6 +411,7 @@ test_ring_submits_its_own_stuck_doorbell() {
 
 # Exercise the Enter-only dispatcher on every supported backend. Only the
 # terminal I/O is replaced; source, dispatch, dialog sink, and retry loop are real.
+# shellcheck disable=SC2329 # Mocks are invoked indirectly by the sourced adapters.
 test_enter_only_dispatch() (
   . "$ROOT/bin/fm-backend.sh"
   local backend state_fn key_fn dir log drops verdict expected mode=normal native_status=idle
@@ -480,6 +481,7 @@ test_enter_only_dispatch() (
   pass "inbox: all backend Enter-only dispatches preserve retries, labels, pending input, and dialog refusal"
 )
 
+# shellcheck disable=SC2329 # Mocks are invoked indirectly by the sourced adapters.
 test_stale_pi_doorbell_turn_started() (
   . "$ROOT/bin/fm-backend.sh"
   . "$ROOT/bin/fm-task-inbox-lib.sh"
@@ -493,6 +495,7 @@ test_stale_pi_doorbell_turn_started() (
   doorbell=$(fm_task_inbox_doorbell_line "$rec")
   composer="$dir/composer"; status="$dir/status"; drops="$dir/drops"
   log="$dir/keys"; submitted="$dir/submitted"
+  # shellcheck disable=SC2034 # Read by the sourced herdr adapter.
   FM_SEND_RETRIES=3 FM_SEND_SLEEP=0 FM_BACKEND_HERDR_SUBMIT_MIN_SLEEP=0 FM_BACKEND_HERDR_SUBMIT_POLLS=1
   fm_backend_agent_state() { printf alive; }
   pi_test_capture() {

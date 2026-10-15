@@ -48,6 +48,7 @@ if [ "${FM_SEND_INBOX_LIVE_BACKEND:-tmux}" = herdr ]; then
   HERDR_LAB_SESSION=$("$LAB_HELPER" name inbox-doorbell)
   LAB=$(mktemp -d "${TMPDIR:-/tmp}/fm-inbox-herdr.XXXXXX")
   LAB=$(cd "$LAB" && pwd -P)
+  # shellcheck disable=SC2329 # Invoked by the EXIT trap below.
   cleanup_herdr() {
     local rc=$?
     trap - EXIT
