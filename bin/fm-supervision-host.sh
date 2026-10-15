@@ -51,9 +51,10 @@
 #     so main-only classes (check triggers, decision-owned triggers, a scan
 #     that is unsafe or holds nothing for the branch) stay main's. That
 #     pass-through starts the successor watcher cycle and leaves it running
-#     before the close is printed, so supervision continues when the session
-#     drops the handoff. It confirms no handling handoff, so the recovery
-#     marker still reads downtime and the re-arm owner delivers the close to
+#     in its own process group before the close is printed, so Claude's Stop
+#     hook group teardown cannot stop that cycle. It confirms no handling
+#     handoff, so the recovery marker still reads downtime and the re-arm owner
+#     delivers the close to
 #     main. The host records that successor's arm before relinquishing it
 #     (detach_successor owns the persistence check and failure path). The
 #     session's next park without --restart requests a take-over of its cycle
@@ -64,7 +65,8 @@
 # close accepted away whose turn starts attended (the captain returned in
 # between) or an attended close whose task turned main-only while the
 # successor started reaches main exactly as the arm printed it without the
-# host stopping the successor. The successor may already have queued the new
+# host stopping the successor, whose own process group also protects this
+# hand-back from hook teardown. The successor may already have queued the new
 # decision and exited by that hand-back; a still-live pid is not required
 # (tests/fm-supervision-host.test.sh pins the queued decision). The host returns
 # the confirmed handling handoff to downtime so the arm owner can deliver
@@ -465,15 +467,21 @@ host_still_owner() {
 }
 
 start_arm() {  # <predecessor-arm-pid or empty> [--restart]; sets the started pid/output
-  local predecessor=$1 out pid
+  local predecessor=$1 out pid monitor_was_on=0
   shift
   out=$(mktemp "$STATE/.supervision-host-arm.XXXXXX") || return 1
+  # A successor left for main must outlive Claude's Stop-hook process group.
+  # Match the plain hook's detached handling successor without changing arms
+  # that this host alone owns. Explicit retirement still stops either kind.
+  case $- in *m*) monitor_was_on=1 ;; esac
+  [ "${ARM_OWN_GROUP:-0}" -ne 1 ] || set -m 2>/dev/null || true
   if [ -n "$predecessor" ]; then
-    FM_WATCH_PREDECESSOR_ARM_PID=$predecessor FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$@" >"$out" 2>&1 &
+    FM_WATCH_PREDECESSOR_ARM_PID=$predecessor FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$@" >"$out" 2>&1 </dev/null &
   else
-    FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$@" >"$out" 2>&1 &
+    FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$@" >"$out" 2>&1 </dev/null &
   fi
   pid=$!
+  [ "$monitor_was_on" -eq 1 ] || set +m 2>/dev/null || true
   record_process arm "$pid"
   STARTED_ARM_PID=$pid
   STARTED_ARM_OUT=$out
@@ -707,7 +715,7 @@ detach_successor() {
 # downtime (autoarm_commit in bin/fm-claude-stop-autoarm.sh). A failed start
 # returns 1; the caller still prints the close unchanged.
 leave_successor_for_main() {
-  if ! start_successor "$CLOSED_ARM_PID"; then
+  if ! ARM_OWN_GROUP=1 start_successor "$CLOSED_ARM_PID"; then
     log_line "pass-through	successor-unverified	$(printf '%s\n' "$REASON" | head -n 1)"
     return 1
   fi
@@ -1120,7 +1128,7 @@ while :; do
 
   # A turn that could outlive the boundary would outlive the hook registration.
   turn_crosses_boundary && boundary_exit
-  if ! start_successor "$CLOSED_ARM_PID"; then
+  if ! ARM_OWN_GROUP=1 start_successor "$CLOSED_ARM_PID"; then
     exit_to_main "the successor watcher cycle could not be verified before handling; this wake is yours"
   fi
   if [ -n "$SUCCESSOR_GENERATION" ]; then
