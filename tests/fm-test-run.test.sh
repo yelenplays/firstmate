@@ -2168,7 +2168,6 @@ SH
   cat >"$repo/tests/fm-cd-pretool-check.test.sh" <<'SH'
 #!/usr/bin/env bash
 trap '' TERM
-printf '%s\n' "$$" >"$SLOT_STARTED"
 while :; do
   held=false
   for record in "$FM_TEST_SLOT_HELD"/*/pid; do
@@ -2181,6 +2180,9 @@ while :; do
   else
     printf released >"$SLOT_EARLY_RELEASE"
   fi
+  # Start is recorded only after a probe, so a deadline that lands right after
+  # startup cannot leave a started script with no slot evidence.
+  [ -s "$SLOT_STARTED" ] || printf '%s\n' "$$" >"$SLOT_STARTED"
   sleep 0.01
 done
 SH
