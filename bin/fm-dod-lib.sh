@@ -943,9 +943,9 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>]
   else
     # Deleting a handed-over failing test is as much a change to it as editing it.
     awk 'NR == FNR { owned[$0] = 1; next } $0 in owned' \
-      <(git -C "$wt" diff --name-only --diff-filter=ACMRD "$mb" HEAD 2>/dev/null
-        git -C "$wt" diff --name-only --diff-filter=ACMRD "$fork" "$since" 2>/dev/null) \
-      <(git -C "$wt" diff --name-only --diff-filter=ACMRD "$since" HEAD 2>/dev/null)
+      <(git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$mb" HEAD 2>/dev/null
+        git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$fork" "$since" 2>/dev/null) \
+      <(git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$since" HEAD 2>/dev/null)
   fi | while IFS= read -r path; do
     if fm_test_ban_path_is_test "$path"; then printf '%s\n' "$path"; fi
   done

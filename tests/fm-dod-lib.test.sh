@@ -590,9 +590,9 @@ test_test_ban_gate_reads_the_named_base() {
 
 # A tests-first handoff: tests an unbanned seat committed before the recorded
 # handoff commit are not the banned worker's, while its own edits or deletions
-# of them, and any test it adds, still are; a rewritten handoff commit is still
-# measured by its tree, an unknown one refuses the done, and the launch section
-# names the handoff.
+# of them, including a rename away from a test path, and any test it adds,
+# still are; a rewritten handoff commit is still measured by its tree, an
+# unknown one refuses the done, and the launch section names the handoff.
 test_test_ban_gate_measures_from_the_tests_first_handoff() {
   local repo wt meta since reason rc section
   repo="$TMP_ROOT/testban-handoff-repo"
@@ -630,6 +630,13 @@ test_test_ban_gate_measures_from_the_tests_first_handoff() {
   rc=$?
   [ "$rc" -eq 1 ] || fail "deleting a handed-over test was accepted"
   assert_contains "$reason" "tests/feature.test.sh" "refusal did not name the deleted handed-over test"
+
+  git -C "$wt" reset -q --hard HEAD~1
+  git -C "$wt" mv tests/feature.test.sh notes.txt && git -C "$wt" commit -q -m 'move handed test aside'
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-handoff "$meta")
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "renaming a handed-over test to a non-test path was accepted"
+  assert_contains "$reason" "tests/feature.test.sh" "refusal did not name the handed-over test renamed away"
 
   git -C "$wt" reset -q --hard HEAD~1
   printf 'extra\n' > "$wt/tests/extra.test.sh"
