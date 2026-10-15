@@ -1627,7 +1627,8 @@ fm_treehouse_pool_slot() {  # <project-dir> <worktree>
 # Treehouse v2 names a pool <root>/.treehouse/<basename>-<hash>, where <hash> is
 # the first six hex digits of the SHA-256 of the clone's origin URL (its
 # top-level path when it has no origin) and <root> comes from a repo-local
-# treehouse.toml, else ~/.config/treehouse/config.toml, else $HOME (verified
+# treehouse.toml, else ~/.config/treehouse/config.toml, else $HOME, expanded
+# from the environment and resolved from the clone when relative (verified
 # against the Treehouse v2.0.1 source, internal/config/config.go, on
 # 2026-10-15). Two Firstmate homes that clone one remote into projects/<name>
 # therefore resolve the same pool, and whichever clone created it owns every
@@ -1656,49 +1657,62 @@ _fm_treehouse_sha256() {  # <string>
   printf '%s\n' "$digest"
 }
 
-# Print a Treehouse config file's top-level value for <key>, or nothing when
-# the key is absent. Fails on a value this reader cannot reproduce exactly - a
-# string with escapes or a $ that Treehouse would expand from the environment -
-# so a caller never acts on a guessed pool.
-_fm_treehouse_config_value() {  # <file> <key>
-  local file=$1 key=$2 line value=
-  local re_basic="^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"([^\"\\\\]*)\"[[:space:]]*(#.*)?\$"
-  local re_literal="^[[:space:]]*${key}[[:space:]]*=[[:space:]]*'([^']*)'[[:space:]]*(#.*)?\$"
-  local re_bare="^[[:space:]]*${key}[[:space:]]*=[[:space:]]*([0-9]+)[[:space:]]*(#.*)?\$"
-  local re_any="^[[:space:]]*${key}[[:space:]]*="
-  [ -f "$file" ] || return 0
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in
-      *'['*) [[ "$line" =~ ^[[:space:]]*\[ ]] && break ;;
-    esac
-    [[ "$line" =~ $re_any ]] || continue
-    if [[ "$line" =~ $re_basic ]] || [[ "$line" =~ $re_literal ]] || [[ "$line" =~ $re_bare ]]; then
-      value=${BASH_REMATCH[1]}
-    else
-      return 1
-    fi
-  done < "$file"
-  case "$value" in *'$'*) return 1 ;; esac
-  printf '%s\n' "$value"
+# Print the max_trees and the pool root (the directory that holds every
+# per-repository pool) Treehouse's config.Load and ResolvePoolRoot give the
+# clone at <top>, one per line. A repo-local treehouse.toml replaces the user
+# config, which must still parse; a root expands $NAME and ${NAME} from the
+# environment and a relative one resolves from <top>. Fails on a configuration
+# it cannot read as Treehouse would, including any other use of $, so a caller
+# never acts on a guessed pool.
+_fm_treehouse_config() {  # <top>
+  local top=$1
+  case "${HOME:-}" in /*) ;; *) return 1 ;; esac
+  if [ ! -e "$top/treehouse.toml" ] && [ ! -e "$HOME/.config/treehouse/config.toml" ]; then
+    printf '16\n%s/.treehouse\n' "$HOME"
+    return 0
+  fi
+  # shellcheck disable=SC2016
+  python3 -I -c '
+import os, re, sys, tomllib
+top, home = sys.argv[1], sys.argv[2]
+def load(path):
+    with open(path, "rb") as f:
+        data = tomllib.load(f)
+    trees, root = data.get("max_trees", 16), data.get("root", "")
+    if type(trees) is not int or not isinstance(root, str):
+        sys.exit(1)
+    return trees, root
+repo = os.path.join(top, "treehouse.toml")
+user = os.path.join(home, ".config", "treehouse", "config.toml")
+trees, root = load(repo) if os.path.exists(repo) else (16, "")
+if os.path.exists(user):
+    user_config = load(user)
+    if not os.path.exists(repo):
+        trees, root = user_config
+if root == "":
+    pool_root = os.path.join(home, ".treehouse")
+else:
+    name = r"[A-Za-z_][A-Za-z0-9_]*"
+    if not re.fullmatch(r"(?:[^$]|\$\{%s\}|\$%s)*" % (name, name), root):
+        sys.exit(1)
+    root = re.sub(r"\$\{(%s)\}|\$(%s)" % (name, name), lambda m: os.environ.get(m.group(1) or m.group(2), ""), root)
+    pool_root = os.path.join(top, root, ".treehouse")
+pool_root = os.path.normpath(pool_root)
+if "\n" in pool_root:
+    sys.exit(1)
+print(trees)
+print(pool_root)
+' "$top" "$HOME" 2>/dev/null
 }
 
 # Print the pool directory `treehouse get` would use for <project-dir>.
 fm_treehouse_pool_dir() {  # <project-dir>
-  local project=$1 top config root pool_root key hash
+  local project=$1 top config pool_root key hash
   [ -d "$project" ] || return 1
   top=$(git -C "$project" rev-parse --show-toplevel 2>/dev/null) || return 1
   [ -n "$top" ] || return 1
-  if [ -f "$top/treehouse.toml" ]; then
-    config="$top/treehouse.toml"
-  else
-    config="${HOME:-}/.config/treehouse/config.toml"
-  fi
-  root=$(_fm_treehouse_config_value "$config" root) || return 1
-  case "$root" in
-    '') [ -n "${HOME:-}" ] || return 1; pool_root="$HOME/.treehouse" ;;
-    /*) pool_root="$root/.treehouse" ;;
-    *) pool_root="$top/$root/.treehouse" ;;
-  esac
+  config=$(_fm_treehouse_config "$top") || return 1
+  pool_root=${config#*$'\n'}
   key=$(git -C "$top" remote get-url origin 2>/dev/null) || key=$top
   hash=$(_fm_treehouse_sha256 "$key") || return 1
   printf '%s/%s-%s\n' "$pool_root" "$(basename "$top")" "${hash:0:6}"
@@ -1732,9 +1746,10 @@ fm_treehouse_pool_foreign_slot() {  # <project-dir>
 # pin is written or already present; fails, writing nothing, when the clone
 # carries a treehouse.toml Firstmate did not write (the repository's or the
 # operator's own configuration governs that clone) or when the pin's root
-# cannot be spelled safely. The root keeps the user's max_trees.
+# cannot be spelled safely or the clone's Treehouse configuration cannot be
+# read. The pin keeps the max_trees Treehouse gave the clone before it.
 fm_treehouse_pool_pin() {  # <project-dir>
-  local project=$1 top top_real file hash root max_trees exclude tmp
+  local project=$1 top top_real file hash root config max_trees exclude tmp
   [ -d "$project" ] || return 1
   top=$(git -C "$project" rev-parse --show-toplevel 2>/dev/null) || return 1
   file="$top/treehouse.toml"
@@ -1751,11 +1766,14 @@ fm_treehouse_pool_pin() {  # <project-dir>
   case "${HOME:-}" in /*) ;; *) return 1 ;; esac
   root="$HOME/.treehouse/fm-clones/${hash:0:12}"
   case "$root" in *'"'*|*\\*|*'$'*|*$'\n'*) return 1 ;; esac
-  max_trees=$(_fm_treehouse_config_value "$HOME/.config/treehouse/config.toml" max_trees 2>/dev/null) || max_trees=
-  case "$max_trees" in ''|*[!0-9]*) max_trees=16 ;; esac
+  config=$(_fm_treehouse_config "$top") || return 1
+  max_trees=${config%%$'\n'*}
   exclude=$(git -C "$top" rev-parse --path-format=absolute --git-path info/exclude 2>/dev/null) || return 1
   mkdir -p "$(dirname "$exclude")" || return 1
   if ! grep -qxF '/treehouse.toml' "$exclude" 2>/dev/null; then
+    if [ -s "$exclude" ] && [ -n "$(tail -c 1 "$exclude")" ]; then
+      printf '\n' >> "$exclude" || return 1
+    fi
     printf '/treehouse.toml\n' >> "$exclude" || return 1
   fi
   tmp="$file.tmp.${BASHPID:-$$}"

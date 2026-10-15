@@ -146,9 +146,10 @@ sha256_hex() {
 # where <hash> is six hex digits of the SHA-256 of the origin URL. Home A made
 # that pool first, so its one slot is a worktree of A's clone. B's per-clone
 # pool is <user-home>/.treehouse/fm-clones/<twelve hex digits of the SHA-256 of
-# B's physical clone path>/.treehouse/<name>-<hash>.
+# B's physical clone path>/.treehouse/<name>-<hash>. An optional <pool-base>
+# relative to the user home stands in for a configured Treehouse root.
 make_two_home_case() {
-  local id=$1 name=${2:-Proj} case_dir user url hash pool pinned slot_a slot_b
+  local id=$1 name=${2:-Proj} pool_base=${3:-} case_dir user url hash pool pinned slot_a slot_b
   case_dir="$TMP_ROOT/$id"
   user="$case_dir/user-home"
   mkdir -p "$user"
@@ -160,7 +161,7 @@ make_two_home_case() {
   git clone --quiet "$url" "$case_dir/homeA/projects/$name"
   git clone --quiet "$url" "$case_dir/homeB/projects/$name"
   hash=$(sha256_hex "$url")
-  pool="$user/.treehouse/$name-${hash:0:6}"
+  pool="$user${pool_base:+/$pool_base}/.treehouse/$name-${hash:0:6}"
   slot_a="$pool/1/$name"
   mkdir -p "$pool"
   printf '{"worktrees":[{"name":"1","path":"%s"}]}\n' "$slot_a" > "$pool/treehouse-state.json"
@@ -258,6 +259,64 @@ test_repository_owned_treehouse_config_is_not_overwritten() {
   pass "a clone carrying its own treehouse.toml refuses instead of being overwritten"
 }
 
+toml_value() {  # <file> <key>
+  python3 -I -c 'import sys, tomllib; print(tomllib.load(open(sys.argv[1], "rb"))[sys.argv[2]])' "$1" "$2"
+}
+
+# Treehouse expands a configured root from the environment and reads its
+# config as TOML, so a user config of `root = "$HOME/worktrees"` with a quoted
+# key and a signed max_trees still resolves the shared pool, and the pin keeps
+# that max_trees. A clone whose info/exclude lacks a final newline stays clean.
+test_configured_root_resolves_and_pins_like_treehouse() {
+  local rec id out status clone_b
+  id='pool-configured-root-z8'
+  rec=$(make_two_home_case "$id" Proj worktrees)
+  read_two_home_record "$rec"
+  clone_b="$CASE_DIR/homeB/projects/Proj"
+  mkdir -p "$USER_HOME/.config/treehouse"
+  # shellcheck disable=SC2016
+  printf '"max_trees" = +4\nroot = "$HOME/worktrees" # the configured pool root\n' \
+    > "$USER_HOME/.config/treehouse/config.toml"
+  printf 'build/' > "$(git -C "$clone_b" rev-parse --path-format=absolute --git-path info/exclude)"
+  mkdir -p "$clone_b/build"
+  : > "$clone_b/build/artifact"
+  mkdir -p "$PINNED_POOL"
+  printf '{"worktrees":[]}\n' > "$PINNED_POOL/treehouse-state.json"
+  git -C "$clone_b" worktree add --quiet --detach "$SLOT_B"
+
+  out=$(run_home_spawn "$CASE_DIR/homeB" "$SLOT_B" "$id-b" projects/Proj)
+  status=$?
+  expect_code 0 "$status" "home B's spawn under a configured root should pin and succeed"$'\n'"$out"
+  assert_contains "$out" "pinned project" "home B's clone was not pinned away from the configured shared pool"$'\n'"$out"
+  assert_grep "worktree=$SLOT_B" "$CASE_DIR/homeB/state/$id-b.meta" \
+    "home B's meta did not record a worktree of its own clone"
+  [ "$(toml_value "$clone_b/treehouse.toml" max_trees)" = 4 ] || fail "the pin did not keep the configured max_trees"
+  [ "$(toml_value "$clone_b/treehouse.toml" root)" = "$(dirname "$(dirname "$PINNED_POOL")")" ] \
+    || fail "the pin did not name the per-clone pool root"
+  [ -z "$(git -C "$clone_b" status --porcelain)" ] \
+    || fail "pinning left home B's clone dirty"$'\n'"$(git -C "$clone_b" status --porcelain)"
+  [ ! -e "$(dirname "$SLOT_A")/.fm-slot-owner" ] || fail "home B claimed home A's slot"
+  pass "a configured \$HOME root with a quoted key and signed max_trees resolves and pins like Treehouse"
+}
+
+test_unreadable_treehouse_config_refuses_before_allocation() {
+  local rec id out status clone_b
+  id='pool-unreadable-config-z9'
+  rec=$(make_two_home_case "$id")
+  read_two_home_record "$rec"
+  clone_b="$CASE_DIR/homeB/projects/Proj"
+  mkdir -p "$USER_HOME/.config/treehouse"
+  printf 'root = \n' > "$USER_HOME/.config/treehouse/config.toml"
+  out=$(run_home_spawn "$CASE_DIR/homeB" "$SLOT_A" "$id-b" projects/Proj)
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn allocated from a pool it could not resolve"$'\n'"$out"
+  assert_contains "$out" "could not resolve the Treehouse worktree pool" \
+    "the refusal did not explain the unresolved pool"$'\n'"$out"
+  [ ! -e "$clone_b/treehouse.toml" ] || fail "an unresolved pool was pinned"
+  [ ! -e "$(dirname "$SLOT_A")/.fm-slot-owner" ] || fail "refused spawn claimed the foreign slot"
+  pass "a Treehouse config that cannot be read refuses before allocation"
+}
+
 # The pin must hold against the real Treehouse binary, not only the fake pane:
 # unpinned, B is handed A's slot (the defect); pinned, B is handed its own.
 test_real_treehouse_hands_second_home_its_own_worktree() {
@@ -294,6 +353,8 @@ test_unshared_pools_are_not_refused
 test_second_home_clone_of_one_remote_gets_its_own_pool
 test_foreign_pool_outside_projects_refuses_without_pinning
 test_repository_owned_treehouse_config_is_not_overwritten
+test_configured_root_resolves_and_pins_like_treehouse
+test_unreadable_treehouse_config_refuses_before_allocation
 test_real_treehouse_hands_second_home_its_own_worktree
 
 echo "# all fm-spawn-truth-path tests passed"

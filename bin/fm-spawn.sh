@@ -337,7 +337,8 @@
 #   remote resolve one pool - is screened before allocation: a fleet clone
 #   under projects/ is pinned to a pool of its own, printing one note line, so
 #   `treehouse get` hands it a worktree of this clone, and any other project,
-#   or a clone whose own treehouse.toml rules out the pin, refuses. The shared
+#   a clone whose own treehouse.toml rules out the pin, or a pool that cannot
+#   be resolved the way Treehouse resolves it, refuses. The shared
 #   pool and its slots are never touched (bin/fm-wake-lib.sh's
 #   fm_treehouse_pool_foreign_slot and fm_treehouse_pool_pin own the rule).
 #   Only after this isolation check, every fresh ship or scout requires a clean
@@ -3397,7 +3398,8 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ];
   SPAWN_POOL_FOREIGN_RC=0
   SPAWN_POOL_FOREIGN_SLOT=$(fm_treehouse_pool_foreign_slot "$PROJ_ABS") || SPAWN_POOL_FOREIGN_RC=$?
   if [ "$SPAWN_POOL_FOREIGN_RC" -eq 2 ]; then
-    echo "warning: could not resolve the Treehouse pool for $PROJ_ABS; its slots are not screened for another clone's worktrees before allocation" >&2
+    echo "error: could not resolve the Treehouse worktree pool for $PROJ_ABS as Treehouse would (its treehouse.toml or ~/.config/treehouse/config.toml cannot be read, or python3 with tomllib is unavailable), so its slots cannot be screened for another clone's worktrees; refusing before allocation" >&2
+    exit 1
   elif [ "$SPAWN_POOL_FOREIGN_RC" -eq 0 ]; then
     if [ "$(cd "$(dirname "$PROJ_ABS")" 2>/dev/null && pwd -P)" != "$(cd "$PROJECTS" 2>/dev/null && pwd -P)" ]; then
       echo "error: project '$PROJ_ABS' resolves a Treehouse worktree pool that holds '$SPAWN_POOL_FOREIGN_SLOT', a worktree of another repository, so treehouse get could hand this project a foreign slot; refusing before allocation" >&2
@@ -3407,8 +3409,14 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ];
       echo "error: project '$PROJ_ABS' resolves a Treehouse worktree pool that holds '$SPAWN_POOL_FOREIGN_SLOT', a worktree of another clone, and it could not be pinned to a pool of its own (a treehouse.toml Firstmate did not write governs it); refusing before allocation" >&2
       exit 1
     fi
-    if SPAWN_POOL_FOREIGN_SLOT=$(fm_treehouse_pool_foreign_slot "$PROJ_ABS"); then
+    SPAWN_POOL_FOREIGN_RC=0
+    SPAWN_POOL_FOREIGN_SLOT=$(fm_treehouse_pool_foreign_slot "$PROJ_ABS") || SPAWN_POOL_FOREIGN_RC=$?
+    if [ "$SPAWN_POOL_FOREIGN_RC" -eq 0 ]; then
       echo "error: project '$PROJ_ABS' still resolves a Treehouse worktree pool holding '$SPAWN_POOL_FOREIGN_SLOT', a worktree of another clone, after it was pinned to its own pool; refusing before allocation" >&2
+      exit 1
+    fi
+    if [ "$SPAWN_POOL_FOREIGN_RC" -ne 1 ]; then
+      echo "error: could not resolve the Treehouse worktree pool for $PROJ_ABS after it was pinned to its own pool, so the pin is unverified; refusing before allocation" >&2
       exit 1
     fi
     echo "note: pinned project '$PROJ_ABS' to its own Treehouse worktree pool $(fm_treehouse_pool_dir "$PROJ_ABS"), because its shared pool holds another clone's worktrees" >&2
