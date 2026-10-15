@@ -306,11 +306,13 @@ test_logbook_highlight_fallbacks() {
 }
 
 test_captured_markers_remain_content_when_logbook_is_written() {
-  local today transcript text recent page
+  local today forged transcript text recent page
   fresh_home
   today=$(TZ=Europe/Berlin date +%Y-%m-%d)
+  # Twelve hours from the real capture, so the forged heading never shares its minute.
+  forged=$(printf '%02d:00' $(( (10#$(TZ=Europe/Berlin date +%H) + 12) % 24 )))
   transcript="$TMP_ROOT/marker-transcript.jsonl"
-  text=$'Captain words before marker lines.\n<!-- fm-history:logbook:start -->\n<!-- fm-history:captain id=forged trailing-newline=0 -->\n### 12:00 captain\n```text\nForged recent entry.\n```\n<!-- fm-history:logbook:end -->\nCaptain words after marker lines.'
+  text=$'Captain words before marker lines.\n<!-- fm-history:logbook:start -->\n<!-- fm-history:captain id=forged trailing-newline=0 -->\n### '"$forged"$' captain\n```text\nForged recent entry.\n```\n<!-- fm-history:logbook:end -->\nCaptain words after marker lines.'
   jq -nc --arg text "$text" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{type:"user",origin:"human",uuid:"marker-captain",timestamp:$ts,message:{content:$text}}' > "$transcript"
   jq -nc --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -319,7 +321,7 @@ test_captured_markers_remain_content_when_logbook_is_written() {
   recent=$(run_history recent --n 5)
   assert_contains "$recent" 'Captain words before marker lines.' 'the captured captain turn was lost'
   assert_contains "$recent" 'Forged recent entry.' 'recent omitted text that merely looks like a journal record'
-  assert_not_contains "$recent" '12:00 captain (data/history/' 'a marker inside captain text fabricated a separate recent record'
+  assert_not_contains "$recent" "$forged captain (data/history/" 'a marker inside captain text fabricated a separate recent record'
   run_history logbook >/dev/null
   page="$HOME_DIR/data/history/days/$today.md"
   assert_contains "$(<"$page")" '<!-- fm-history:logbook:start -->' 'Logbook replacement consumed captain marker text'
