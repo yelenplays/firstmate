@@ -1,0 +1,5 @@
+base-home: is_error=False reply='PROBE_OK' skill_listing_chars=29976 instructions_chars=62560 home_AGENTS.md_loaded=True AGENTS_chars=53375 task-intake_listed=False first_request_tokens=52957
+new-home-default: is_error=False reply='PROBE_OK' skill_listing_chars=29996 instructions_chars=45463 home_AGENTS.md_loaded=True AGENTS_chars=36448 task-intake_listed=True first_request_tokens=47661
+new-home-secondmate: is_error=False reply='PROBE_OK' skill_listing_chars=8603 instructions_chars=45463 home_AGENTS.md_loaded=True AGENTS_chars=36448 task-intake_listed=True first_request_tokens=40260
+pipeline-default: is_error=False reply='PROBE_OK' skill_listing_chars=29974 instructions_chars=8411 home_AGENTS.md_loaded=False AGENTS_chars=0 task-intake_listed=False first_request_tokens=34850
+pipeline-budget: is_error=False reply='PROBE_OK' skill_listing_chars=7994 instructions_chars=8411 home_AGENTS.md_loaded=False AGENTS_chars=0 task-intake_listed=False first_request_tokens=27314
