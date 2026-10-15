@@ -2176,7 +2176,8 @@ while :; do
     fi
   done
   if "$held"; then
-    printf held >"$SLOT_HELD_PROBE"
+    # Write once: a re-truncating rewrite cut by the bound's KILL would empty it.
+    [ -s "$SLOT_HELD_PROBE" ] || printf held >"$SLOT_HELD_PROBE"
   else
     printf released >"$SLOT_EARLY_RELEASE"
   fi
