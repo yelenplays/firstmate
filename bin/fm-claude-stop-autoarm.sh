@@ -93,13 +93,14 @@
 #     acknowledged and the owner parks again within what is left of the host's
 #     park boundary (FM_SUPERVISION_HOST_PARK_SECONDS), as long as at least
 #     1800 seconds of it remain; a close carrying a "supervision-host:" line,
-#     or one from a host that exited non-zero, is never triaged here. Otherwise, and always on the plain arm, whose park
-#     has no bound, the hook never parks twice: an absorbed wake still
-#     rewakes, with a banner that only asks the model to end its turn, so the
-#     next Stop starts a fresh hook with a fresh timeout. A wake
-#     that needs firstmate rewakes with the triage output embedded (capped,
-#     the full copy in state/.claude-autoarm-triage.last) after triage retired
-#     its routine rows, so the handling turn neither drains nor triages again.
+#     or one from a host that exited non-zero, is never triaged here.
+#     Otherwise, and always on the plain arm, whose park has no bound, the
+#     hook never parks twice: an absorbed wake still rewakes, with a banner
+#     that only asks the model to end its turn, so the next Stop starts a
+#     fresh hook with a fresh timeout. A wake that needs firstmate rewakes
+#     with the triage output embedded (capped, the full copy in
+#     state/.claude-autoarm-triage.last) after triage retired its routine
+#     rows, so the handling turn neither drains nor triages again.
 #     Triage runs only for this generation's owner, in the session that holds
 #     the lock, outside an exhausted failure episode, and only when the close
 #     opened a recovery episode; its drain moves that episode to its handling
