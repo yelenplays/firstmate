@@ -175,8 +175,12 @@ CODE=${REST%%"$TAB"*}
 REASON=${REST#*"$TAB"}
 [ -n "$CODE" ] && [ -n "$REASON" ] && [ "$REASON" != "$REST" ] || exit 0
 
+# JSON-escape a string: escape backslash, quote, tab, and carriage return, and encode
+# each newline as \n, so a multi-line retry rewrite in the reason survives intact.
 json_escape() {
-  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '
+  printf '%s' "$1" \
+    | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e "s/$TAB/\\\\t/g" -e "s/$(printf '\r')/\\\\r/g" \
+    | awk 'NR > 1 { printf "\\n" } { printf "%s", $0 }'
 }
 
 DETAIL="[$CODE] $REASON"

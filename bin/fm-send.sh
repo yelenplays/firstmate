@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Steer a task by durable record: write the message into the task's steering
 # inbox and ring a constant doorbell line into its terminal, best-effort.
-# Usage: fm-send.sh <target> [--resolve-key <key>]... [--fire-and-forget <delivery-id>] <text...>
+# Usage: fm-send.sh <target> [--resolve-key <key>]... [--captain-answer] [--fire-and-forget <delivery-id>] <text...>
 #   <target> may be an exact task id, a legacy fm-<id> task label resolved
 #   through this home's state/<id>.meta, or an explicit well-formed backend
 #   target. fm-send refuses unresolved guesses rather than falling back to a
@@ -173,6 +173,12 @@
 # open-decision ledger fm-wake-drain folds lives in this home's own state dir
 # (a remote mate's escalations reach it through the parent-replies ingest);
 # only the answer message crosses the backend or remote transport.
+# A key that closes a captain decision - an open captain-hold-* status key that
+# bin/fm-captain-hold.sh published, or a key that resolves to a captain-held
+# task (the chat channel below) - also needs --captain-answer, the sender's
+# confirmation that the text is the captain's own answer; without it the send
+# refuses before anything is sent, so an ordinary steer to the same task cannot
+# close the hold. --captain-answer without --resolve-key refuses too.
 #
 # Answering a decision is the gate-answer path and is main-owned while
 # attended: when any named key is an open needs-decision or a captain-held task
@@ -182,12 +188,13 @@
 # to the branch (contract: bin/fm-lease-lib.sh); which findings firstmate may
 # decide at all remains ask-user-authority's judgment for either actor.
 #
-# Chat is also a channel that carries keyed captain answers, so the same flag
-# feeds bin/fm-captain-hold.sh's one keyed-answer intake for any key that names
-# a captain-held task in this home - the key as a task id itself, or through
-# the legacy `<task>-decision-<key>` identity for pre-collapse rows. fm-send
-# closes nothing itself; it hands the intake `<task-id>\t<answer>\t<label>`
-# exactly as every other channel does, and the intake owns what that means.
+# Chat is also a channel that carries keyed captain answers, so the same flag,
+# confirmed with --captain-answer, feeds bin/fm-captain-hold.sh's one
+# keyed-answer intake for any key that names a captain-held task in this home -
+# the key as a task id itself, or through the legacy `<task>-decision-<key>`
+# identity for pre-collapse rows. fm-send closes nothing itself; it hands the
+# intake `<task-id>\t<answer>\t<label>` exactly as every other channel does,
+# and the intake owns what that means.
 # This is what lets an answer reach a decision that has already been
 # transferred from the live status log to its durable captain-held task, which
 # the status ledger alone can no longer close.
@@ -461,6 +468,7 @@ fi
 # must precede --key or the message text; everything after the last flag is the
 # message exactly as before, so ordinary sends are byte-identical.
 RESOLVE_KEYS=
+CAPTAIN_ANSWER=0
 FIRE_AND_FORGET_ID=
 fm_send_add_resolve_key() { # <key>
   local k=$1
@@ -490,6 +498,10 @@ while :; do
     ;;
   --resolve-key=*)
     fm_send_add_resolve_key "${1#--resolve-key=}" || exit 1
+    shift
+    ;;
+  --captain-answer)
+    CAPTAIN_ANSWER=1
     shift
     ;;
   --fire-and-forget)
@@ -610,6 +622,15 @@ if [ -n "$FIRE_AND_FORGET_ID" ]; then
     }
 fi
 
+if [ "$CAPTAIN_ANSWER" -eq 1 ] && [ -z "$RESOLVE_KEYS" ]; then
+  echo "error: --captain-answer only confirms a --resolve-key answer; nothing was sent" >&2
+  exit 1
+fi
+fm_send_require_captain_answer() { # <key>
+  [ "$CAPTAIN_ANSWER" -eq 0 ] || return 0
+  echo "error: --resolve-key '$1' closes a captain hold, which only the captain's own answer may do. If this text is the captain's answer, resend with --captain-answer; otherwise resend without --resolve-key '$1' so the hold stays open. Nothing was sent." >&2
+  exit 1
+}
 if [ -n "$RESOLVE_KEYS" ]; then
   if [ -z "$TARGET_SELECTOR" ] || [ -z "$TARGET_META" ]; then
     echo "error: --resolve-key needs a task selector resolved through this home's metadata; an explicit backend target has no decision ledger here" >&2
@@ -629,6 +650,7 @@ if [ -n "$RESOLVE_KEYS" ]; then
   for k in $RESOLVE_KEYS; do
     case "$resolve_open_set" in
     "$k"$'\t'* | *$'\n'"$k"$'\t'*)
+      case "$k" in captain-hold-*) fm_send_require_captain_answer "$k" ;; esac
       RESOLVE_STATUS_KEYS="${RESOLVE_STATUS_KEYS}${RESOLVE_STATUS_KEYS:+ }$k"
       continue
       ;;
@@ -637,6 +659,7 @@ if [ -n "$RESOLVE_KEYS" ]; then
     # captain-held task is exactly this case, and it is answerable - just
     # through the other ledger - so check there before refusing.
     if resolved_hold_id=$(fm_send_hold_resolved_id "$RESOLVE_TASK_ID" "$k"); then
+      fm_send_require_captain_answer "$k"
       RESOLVE_HOLD_KEYS="${RESOLVE_HOLD_KEYS}${RESOLVE_HOLD_KEYS:+ }$resolved_hold_id"
       continue
     fi

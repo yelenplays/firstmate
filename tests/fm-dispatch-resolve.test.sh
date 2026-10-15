@@ -1188,6 +1188,32 @@ TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=500 run code out err "$BRIEF"
 assert_contains "$out" '  status: error' "http 500 is a TOON error outcome"
 pass "API, transport, and response failures are error outcomes with exit 0"
 
+# --- a bare task id resolves to that task's brief under FM_HOME ---------------
+mkdir -p "$HOME_DIR/data/pager-fix-v1"
+cp "$BRIEF" "$HOME_DIR/data/pager-fix-v1/brief.md"
+reset_log
+write_response "$RESPONSE" rule_4 0.9
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project pager
+path_profile=$(grep "^  profile: " <<<"$out")
+path_body=$(jq -c .state "$LOG/body")
+reset_log
+TYPESAFE_API_KEY=$KEY run code out err pager-fix-v1 --project pager
+expect_code 0 "$code" "a task id resolves like its brief path"
+assert_contains "$out" "$path_profile" "a task id gives the same profile as its brief path"
+assert_equals "$path_body" "$(jq -c .state "$LOG/body")" "a task id sends the same brief state as its path"
+reset_log
+TYPESAFE_API_KEY=$KEY run code out err no-such-task --project pager
+expect_code 2 "$code" "an unknown task id is a usage error"
+assert_contains "$err" "brief file not readable: $HOME_DIR/data/no-such-task/brief.md (resolved from task id no-such-task)" "an unknown task id names the brief path it tried"
+assert_absent "$LOG/argv" "an unknown task id never calls curl"
+reset_log
+TYPESAFE_API_KEY=$KEY run code out err "$TMP_ROOT/missing/brief.md" --project pager
+expect_code 2 "$code" "a missing brief path is still a usage error"
+assert_contains "$err" "brief file not readable: $TMP_ROOT/missing/brief.md" "a missing path keeps the path error"
+assert_not_contains "$err" "resolved from task id" "a path is never treated as a task id"
+rm -rf "$HOME_DIR/data/pager-fix-v1"
+pass "a bare task id resolves to data/<id>/brief.md; paths keep working"
+
 # --- configuration errors exit 2 and select nothing ----------------------------------
 reset_log
 TYPESAFE_API_KEY=$KEY run code out err

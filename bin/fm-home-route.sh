@@ -8,6 +8,10 @@
 #        fm-home-route.sh review
 #        fm-home-route.sh --help
 # Run 'decide' at intake, before writing the spawn, in the primary home only.
+# --project names the project directory the task changes; it need not exist
+# yet, so work that will create a new local project passes the directory name
+# it will be created under (check later matches that name against the spawned
+# project directory's basename).
 # A project registered local-only in data/projects.md always routes main with no
 # Jev call. Otherwise one typed Jev call (bin/fm-jev-lib.sh) asks a 'choice' for
 # the lead over main plus every eligible mate, and one 'noul' per eligible mate
@@ -394,7 +398,11 @@ review() {
 case "${1:-}" in
 -h | --help) usage ;;
 decide)
-  [ "$#" -eq 6 ] && [ "$3" = --project ] && [ "$5" = --public-summary ] || invalid 'usage: decide <task-id> --project <name> --public-summary <safe-text>'
+  if ! { [ "$#" -eq 6 ] && [ "$3" = --project ] && [ "$5" = --public-summary ]; }; then
+    [ "$#" -eq 4 ] && [ "$3" = --public-summary ] && valid_id "$2" &&
+      invalid "decide needs --project <name>, the project directory the task changes; a project that does not exist yet needs no setup first - pass the directory name it will be created under: bin/fm-home-route.sh decide $2 --project <new-project-name> --public-summary '<public one-line summary>'"
+    invalid 'usage: decide <task-id> --project <name> --public-summary <safe-text>'
+  fi
   valid_id "$2" || invalid 'invalid task id'
   [ -n "$4" ] && [[ "$4" != */* ]] || invalid 'invalid project name'
   decide "$2" "$4" "$6"

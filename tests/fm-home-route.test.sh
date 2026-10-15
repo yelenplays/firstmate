@@ -143,6 +143,30 @@ run_tool check fm-task "$TMP_ROOT/projects/firstmate" || fail 'main route refuse
 last_event | jq -e '.event == "check" and .outcome == "allow" and .route == "main"' >/dev/null || fail 'allow not logged'
 pass 'a main route allows the spawn'
 
+# A task that will create a new local project decides before the project
+# exists: the name it will be created under is enough. The spawn gate then
+# matches that name to the new directory.
+write_answer main 0.99 0.05 0.1
+[ ! -e "$TMP_ROOT/projects/brand-new-tool" ] || fail 'fixture: new project already exists'
+out=$(run_tool decide new-tool --project brand-new-tool --public-summary 'Create a small local CLI tool') || fail 'new-project decide failed'
+assert_contains "$out" 'route: main' 'a not-yet-created project routes like any other'
+last_event | jq -e '.event == "decide" and .project == "brand-new-tool" and .source == "jev"' >/dev/null || fail 'new-project decide not logged'
+mkdir -p "$TMP_ROOT/projects/brand-new-tool"
+run_tool check new-tool "$TMP_ROOT/projects/brand-new-tool" || fail 'new-project route refused once the project exists'
+pass 'decide works before the project exists'
+
+# Leaving --project out names the exact next step instead of a bare usage line.
+lines_before=$(wc -l < "$LOG")
+err=$(run_tool decide no-project-yet --public-summary 'Create a small local CLI tool' 2>&1 >/dev/null); rc=$?
+expect_code 2 "$rc" 'decide without --project is a usage error'
+assert_contains "$err" "a project that does not exist yet needs no setup first" 'missing --project explains a new project needs no setup'
+assert_contains "$err" "bin/fm-home-route.sh decide no-project-yet --project <new-project-name> --public-summary '<public one-line summary>'" 'missing --project names the exact command'
+[ "$(wc -l < "$LOG")" -eq "$lines_before" ] || fail 'a refused decide must not log'
+err=$(run_tool decide no-summary --project brand-new-tool 2>&1 >/dev/null); rc=$?
+expect_code 2 "$rc" 'decide without --public-summary is a usage error'
+assert_contains "$err" 'usage: decide <task-id> --project <name> --public-summary <safe-text>' 'missing summary prints usage'
+pass 'decide without --project names the exact next step'
+
 # Abstain: below the lead floor the backup judge decides on the same state.
 : > "$BACKUP_PROMPT"
 write_answer frontend 0.6 0.3 0.4
