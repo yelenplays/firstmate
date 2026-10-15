@@ -47,8 +47,17 @@ SH
 make_spawn_fakebin() {
   local dir=$1 fakebin
   fakebin=$(fm_test_make_spawn_fakebin "$dir")
+  # Pass-through timeout: skip options (fm-timeout-lib passes `-k <secs>`) and
+  # the duration, then run the command unbounded.
   cat > "$fakebin/timeout" <<'SH'
 #!/usr/bin/env bash
+while [ "$#" -gt 0 ]; do
+  case $1 in
+    -k|-s) shift 2 ;;
+    -*) shift ;;
+    *) break ;;
+  esac
+done
 shift
 exec "$@"
 SH
@@ -128,7 +137,7 @@ run_spawn() {
     fm_test_run_spawn "$home" "$wt" "$fakebin" "$@"
 }
 
-# Ship spawns carry an explicit delivery contract (AGENTS.md section 7); these
+# Ship spawns carry an explicit delivery contract (the task-intake skill); these
 # tests are about profile resolution, so they pass a fixed valid one.
 run_ship_spawn() {
   run_spawn "$@" --mode no-mistakes --yolo off
@@ -1967,10 +1976,12 @@ test_claude_context_unusual_path_fallback() {
     settings=$(fm_claude_worker_context ship "$wt" "$repo" "$repo" 2> "$diagnostic") || fail "unusual path refused instead of retaining instructions"
     printf '%s' "$settings" | jq -e '.env.SLASH_COMMAND_TOOL_CHAR_BUDGET == "8000" and (has("claudeMdExcludes") | not)' >/dev/null || fail "unusual path received exclusions: $path"
     assert_grep 'exclusions skipped' "$diagnostic" "unusual path fallback was silent"
-    [ -z "$(fm_claude_worker_context secondmate "$wt" "$repo" "$repo" 2> "$diagnostic" | jq -r 'keys[]')" ] || fail "supervisor got worker settings"
+    settings=$(fm_claude_worker_context secondmate "$wt" "$repo" "$repo" 2> "$diagnostic") || fail "secondmate context refused"
+    [ "$(printf '%s' "$settings" | jq -c .)" = '{"env":{"SLASH_COMMAND_TOOL_CHAR_BUDGET":"8000"}}' ] || fail "secondmate got more than the skill budget: $settings"
     [ ! -s "$diagnostic" ] || fail "supervisor emitted worker warning"
+    [ "$(fm_claude_worker_context unknown-kind "$wt" "$repo" "$repo")" = '{}' ] || fail "an unknown launch kind received context settings"
   done
-  pass "Claude unusual-path fallback retains project instructions, warns, and still caps worker skills"
+  pass "Claude unusual-path fallback retains project instructions, warns, and still caps worker and secondmate skills"
 }
 
 test_claude_firstmate_workers_exclude_only_supervisor_files() {
@@ -2083,8 +2094,8 @@ test_claude_secondmate_launch_carries_the_attribution_policy() {
   expect_code 0 "$status" "secondmate claude spawn should succeed"$'\n'"$out"
   launch=$(cat "$LAUNCH_LOG")
   assert_attribution_policy "$launch" "claude secondmate"
-  claude_settings_json_arg "$launch" | jq -e '(has("env") | not) and (has("claudeMdExcludes") | not)' >/dev/null || fail "secondmate received worker context trimming"
-  pass "a claude secondmate launch carries the attribution-off policy too"
+  claude_settings_json_arg "$launch" | jq -e '.env == {"SLASH_COMMAND_TOOL_CHAR_BUDGET": "8000"} and (has("claudeMdExcludes") | not)' >/dev/null || fail "secondmate lacks the skill budget or lost its supervisor instructions"
+  pass "a claude secondmate launch carries the attribution-off policy and the skill budget, keeping its supervisor instructions"
 }
 
 test_active_dispatch_profile_does_not_block_secondmate_launch() {
