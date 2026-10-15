@@ -14,6 +14,11 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-bootstrap.sh`        | Detect toolchain and fleet problems, run the locked session-start sweeps, and install approved tools |
 | `fm-browser-bridge-sweep-lib.sh` | Reap orphaned chrome-devtools-axi bridge trees whose owning task is proven dead, and remove their temporary-root browser profiles |
 | `fm-browser.sh` | Run one isolated browser action or a saved, verified browser route in a named session |
+| `fm-browser-guard-env.sh` | Print the launch environment text that puts a launched agent under the agent browser guard |
+| `fm-browser-guard-preload.cjs` | Force a Node-started browser headless at the launcher API and at the process spawn |
+| `fm-browser-guard-open.sh` | Refuse the `open` calls that can only end in a visible browser window, reached as `open` through `fm-browser-guard-bin` |
+| `fm-browser-guard-osascript.sh` | Refuse the AppleScript scripts that would put a browser on screen, reached as `osascript` through `fm-browser-guard-bin` |
+| `fm-browser-guard-shim-lib.sh` | Own which applications, bundle identifiers, targets, and AppleScript forms are browser launches |
 | `fm-startup-network.sh`  | Run session start's network checks and inactive-outcome scan off its blocking path, retaining reports and durable findings |
 | `fm-fleet-sync.sh`       | Refresh project clones with safe fast-forwards, self-heals, `STUCK:` reports, branch pruning, and bounded recovery from an orphaned `.git/packed-refs.lock` |
 | `fm-fleet-snapshot.sh`   | Print structured fleet snapshot JSON and refresh only its parent-side remote-ledger cache (schema `fm-fleet-snapshot.v1`) |

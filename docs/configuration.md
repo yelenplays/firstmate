@@ -9,7 +9,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) and its [Orca environment source](#orca-environment-source-configlaunch-env-tmux-session), [worker CPU priority](#worker-cpu-priority), [never-use models](#never-use-model-list-configmodel-denylistjson), and [private-material guard](#private-material-guard-configprivate-markers) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) and its [Orca environment source](#orca-environment-source-configlaunch-env-tmux-session), [agent browser guard](#agent-browser-guard), [worker CPU priority](#worker-cpu-priority), [never-use models](#never-use-model-list-configmodel-denylistjson), and [private-material guard](#private-material-guard-configprivate-markers) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), [external memory tiers](#external-memory-tiers-memory-layering-section), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), [Calm preference](#calm-preference-configcalm), and [theme pack](#theme-pack-configtheme) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
@@ -1365,6 +1365,18 @@ Firstmate provides no configuration or flag to change this value.
 This applies only to agents Firstmate launches; the captain's own primary Firstmate session is never given the variable.
 
 [`fm-spawn.sh --help`](../bin/fm-spawn.sh) owns the delivery mechanics, with focused regression coverage in [`tests/fm-spawn-compact-adviser-disable.test.sh`](../tests/fm-spawn-compact-adviser-disable.test.sh) and [`tests/fm-spawn-compact-adviser-disable-remote.test.sh`](../tests/fm-spawn-compact-adviser-disable-remote.test.sh).
+
+### Agent browser guard
+
+Every crewmate, scout, and secondmate Firstmate launches runs under the agent browser guard, so no agent-started browser can open a visible window on the captain's Mac.
+A worker's Playwright or Puppeteer launch that asks for `headless: false`, a `--headed` test run, `open <url>`, `open -a "Google Chrome"`, and an `osascript` script that addresses a browser all end headless or are refused in one line.
+Ordinary file opening, the shared headless browser behind `chrome-devtools-axi`, and the captain's own primary session are unaffected.
+
+The single setting is the captain's opt-out: `FM_ALLOW_HEADED_BROWSER=1`, exported into a pane, lets one visible launch through and prints one line naming it.
+Firstmate never sets it for a worker, and no config file or flag disables the guard for a fleet.
+
+[`docs/browser-guard.md`](browser-guard.md) owns the guarantee, the three enforcement layers, the boundaries, and the verification entry points.
+[`bin/fm-browser-guard-env.sh`](../bin/fm-browser-guard-env.sh) owns the launch environment text that `bin/fm-spawn.sh` embeds.
 
 ### Commit attribution
 

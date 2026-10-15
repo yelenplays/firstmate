@@ -103,6 +103,20 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # --- reporters --------------------------------------------------------------
 
+# browser_guard_prefix: the agent browser guard's export snippet, which every
+# Firstmate launch carries at its head. Suites that assert the exact launch text
+# build their expectation from this instead of restating it;
+# bin/fm-browser-guard-env.sh owns the snippet.
+browser_guard_prefix() {
+  "$ROOT/bin/fm-browser-guard-env.sh" --command
+}
+
+# browser_guard_shim_dir: the directory the agent browser guard puts first on a
+# launched worker's PATH, for suites that assert the worker environment exactly.
+browser_guard_shim_dir() {
+  printf '%s' "$ROOT/bin/fm-browser-guard-bin"
+}
+
 fail() {
   printf 'not ok - %s\n' "$1" >&2
   exit 1
