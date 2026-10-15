@@ -22,6 +22,9 @@
 # detector. State, question IDs and text, option labels and meanings are refused
 # when their combined UTF-8 text exceeds FM_JEV_CLI_INPUT_MAX bytes (4096), when
 # fm_jev_compact_state would strip anything, or when the text contains a live key.
+# The cap is a privacy and brevity bound, far below the model's context limit
+# (32k tokens per question by default); the long-context mode is never
+# requested, so a larger model window never widens what a worker may send.
 #
 # Option text accepts label=meaning, split on its first equals sign; later
 # equals signs belong to the meaning, so labels cannot contain equals signs.
