@@ -1543,6 +1543,7 @@ record_model_choice() {
   fi
   ROUTE_ENVELOPE=$(jq -nc --argjson result "$RESULT" --argjson consultation "$RAW_CONSULT" --arg exception "$ROUTE_EXCEPTION" --arg reason "${TYPED_LINE:-configured default policy}" --arg hash "$OPTIONS_HASH" '
     {selected:($result.chosen.profile + {effort:(if $result.chosen.effort_emit == false then $result.chosen.profile.effort else ($result.chosen.effort // $result.chosen.profile.effort) end)}),
+     selected_rule:($result.lane // $result.decided_rule // $result.rule // null),
      consultation:$consultation, options_hash:$hash, outcome:$result.status, reason:$reason,
      exception:(if $exception == "" then null else $exception end)}') || return 1
   [ -n "$RECEIPT_INPUT_HASH" ] || return 1

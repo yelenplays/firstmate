@@ -17,9 +17,10 @@
 # fm-spawn.sh refusals.
 #
 # Verdicts: missing_acceptance when the Definition of done is missing,
-# otherwise need_human (structure alone cannot prove a brief complete).
+# otherwise has_acceptance. has_acceptance means only that the section exists;
+# structure alone cannot prove a brief complete.
 #
-# Output: silent on need_human and on skips. missing_acceptance prints one
+# Output: silent on has_acceptance and on skips. missing_acceptance prints one
 # stderr warning naming the missing element; spawn still proceeds.
 # Exit 0 except usage (exit 2).
 #

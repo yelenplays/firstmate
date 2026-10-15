@@ -297,7 +297,7 @@ JSON
 test_option_limits_refuse_before_sending() {
   local code out err batch_json i
   local -a pick_opts=() score_opts=()
-  for ((i = 0; i < 256; i++)); do pick_opts+=("option$i"); done
+  for ((i = 0; i < 9; i++)); do pick_opts+=("option$i"); done
   for ((i = 0; i < 11; i++)); do score_opts+=("level$i"); done
 
   reset_log
@@ -322,23 +322,29 @@ JSON
 
   reset_log
   run_jev code out err pick "s" "Choose?" "${pick_opts[@]}"
-  assert_equals "$code" 1 "a single pick with 256 options is refused"
-  assert_contains "$err" "at most 255 options" "the single pick limit is explained"
+  assert_equals "$code" 1 "a single pick with nine options is refused"
+  assert_contains "$err" "at most 8 options; narrow the list first" "the single pick limit is explained"
   assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
     "the single pick limit prints one stderr line"
   assert_equals "$out" "" "the single pick limit prints no answer"
   assert_absent "$LOG/body" "an over-limit single pick is never sent"
 
-  batch_json=$(jq -cn '{state:"s",questions:[{id:"choices",type:"pick",q:"Choose?",opts:[range(0;256) | "option" + tostring]}]}')
+  batch_json=$(jq -cn '{state:"s",questions:[{id:"choices",type:"pick",q:"Choose?",opts:[range(0;9) | "option" + tostring]}]}')
   reset_log
   run_jev code out err batch <<<"$batch_json"
-  assert_equals "$code" 1 "a batch pick with 256 options is refused"
-  assert_contains "$err" "at most 255 options" "the batch pick limit is explained"
+  assert_equals "$code" 1 "a batch pick with nine options is refused"
+  assert_contains "$err" "at most 8 options; narrow the list first" "the batch pick limit is explained"
   assert_equals "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" 1 \
     "the batch pick limit prints one stderr line"
   assert_equals "$out" "" "the batch pick limit prints no answer"
   assert_absent "$LOG/body" "an over-limit batch pick is never sent"
-  pass "fm-jev.sh: TypeSafe option limits apply to single and batch requests"
+
+  respond '{"answers":{"pick":{"choice":"option0","confidence":0.9,"probabilities":{"option0":0.93,"option1":0.01,"option2":0.01,"option3":0.01,"option4":0.01,"option5":0.01,"option6":0.01,"option7":0.01}}}}'
+  reset_log
+  run_jev code out err pick "s" "Choose?" "${pick_opts[@]:0:8}"
+  assert_equals "$code" 0 "a pick with exactly eight options is sent"
+  assert_equals "$(jq '.questions.pick.criteria | length' "$LOG/body")" 8 "all eight options reach the request"
+  pass "fm-jev.sh: option limits apply to single and batch requests"
 }
 
 test_escalation_exits_two() {
@@ -962,8 +968,14 @@ test_log_records_metadata_only() {
   local code out err line
   rm -f "$HOME_DIR/state/jev-calls.jsonl"
   respond '{"model":"jev-1.13.0-build","answers":{"yes":{"noul":0.97}},"usage":{"input_tokens":274,"output_tokens":20}}'
-  run_jev code out err yes "secret-free state text" "Unique question text?"
+  FM_TASK_ID='' run_jev code out err yes "secret-free state text" "Unique question text?"
   line=$(tail -n 1 "$HOME_DIR/state/jev-calls.jsonl")
+  printf '%s' "$line" | jq -e '.ts | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")' >/dev/null \
+    || fail "the record timestamp is a UTC second: $line"
+  assert_equals "$(printf '%s' "$line" | jq -r '.caller')" "home:$(basename "$HOME_DIR")" \
+    "with no task id the caller is the logging home"
+  assert_equals "$(printf '%s' "$line" | jq -c '.items')" '[{"type":"yes","options":0,"conf":0.94}]' \
+    "a yes answer logs its type, no options, and the printed confidence"
   assert_equals "$(printf '%s' "$line" | jq -c '{purpose, model, response_model, http, usage, questions, escalated, exit}')" \
     '{"purpose":"worker-cli","model":"jev-1.13.0","response_model":"jev-1.13.0-build","http":"200","usage":{"in":274,"out":20},"questions":1,"escalated":0,"exit":0}' \
     "the call is logged with the pinned request model, the answering build, usage, and outcome"
@@ -972,6 +984,26 @@ test_log_records_metadata_only() {
   assert_not_contains "$line" "$KEY" "the log never holds the key"
   assert_equals "$(printf '%s' "$line" | jq -r 'has("cwd")')" false \
     "the metadata record does not store the working directory"
+
+  respond '{"answers":{"vault":{"choice":"A","confidence":0.31,"probabilities":{"A":0.6,"B":0.4}},"size":{"score":1,"confidence":0.8,"probabilities":{"0":0.1,"1":0.8,"2":0.1}},"ok":{"noul":0.9}}}'
+  FM_TASK_ID=demo-task-v1 run_jev code out err batch <<'JSON'
+{"state":"s","questions":[{"id":"vault","type":"pick","q":"Which?","opts":["A","B"]},{"id":"size","type":"score","q":"How large?","opts":["S","M","L"]},{"id":"ok","type":"yes","q":"Fine?"}]}
+JSON
+  assert_equals "$code" 2 "the low-confidence pick escalates the batch"
+  line=$(tail -n 1 "$HOME_DIR/state/jev-calls.jsonl")
+  assert_equals "$(printf '%s' "$line" | jq -r '.caller')" "task:demo-task-v1" "a dispatched worker logs its task id as the caller"
+  assert_equals "$(printf '%s' "$line" | jq -c '.items')" \
+    '[{"type":"pick","options":2,"conf":0.31},{"type":"score","options":3,"conf":0.8},{"type":"yes","options":0,"conf":0.8}]' \
+    "a batch logs each question's type, option count, and confidence in order, escalated or not"
+  assert_equals "$(printf '%s' "$line" | jq -c '{questions, escalated, exit}')" '{"questions":3,"escalated":1,"exit":2}' \
+    "the batch record keeps its question and escalation counts"
+  assert_not_contains "$line" "vault" "the log never holds question ids"
+
+  respond 'not json'
+  FM_TASK_ID=demo-task-v1 run_jev code out err pick "s" "Which?" A B
+  assert_equals "$code" 1 "a malformed response fails"
+  assert_equals "$(tail -n 1 "$HOME_DIR/state/jev-calls.jsonl" | jq -c '.items')" '[{"type":"pick","options":2,"conf":null}]' \
+    "a failed call still logs type and option count with no confidence"
   pass "fm-jev.sh: every call is logged as metadata only"
 }
 
