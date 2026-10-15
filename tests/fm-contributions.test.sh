@@ -1534,22 +1534,22 @@ test_account_error_is_scoped_to_the_current_observation() {
   # observed first and its error files exist when the issue is observed.
   out=$(with_home "$home" env FM_CONTRIBUTIONS_NOW=2026-09-16T08:05:00Z \
     "$ROOT/bin/fm-contributions.sh" poll) || fail 'poll with a mid-run account refusal failed'
-  [ "$out" = "contributions: observation unavailable for https://github.com/o/r/pull/8
-contributions: observation unavailable for https://github.com/o/r/issues/9" ] \
-    || fail "both failing observations must wake in observation order: $out"
+  # The pull request's parallel reads all refuse, so which read reports first varies.
+  [ "$(printf '%s\n' "$out" | mask_budget | sed -E '1s/ - [a-z]+ read exited / - parallel read exited /')" = "contributions: observation unavailable for https://github.com/o/r/pull/8 - parallel read exited 1 with Ns of budget left: fm-gh-account: simulated token refusal
+contributions: observation unavailable for https://github.com/o/r/issues/9 - core read exited 1 with Ns of budget left: HTTP 502" ] \
+    || fail "both failing observations must wake in observation order with their own failure: $out"
   jq -e '.records[0].error == "simulated token refusal"' "$home/data/delivery/contributions.json" >/dev/null \
     || fail "a pull request must record its own background account refusal: $(cat "$home/data/delivery/contributions.json")"
-  jq -e '.records[0].error == "forge observation unavailable or changed during read"' \
-    "$home/data/filed/contributions.json" >/dev/null \
+  [ "$(jq -r '.records[0].error' "$home/data/filed/contributions.json" | mask_budget)" \
+    = 'forge observation unavailable: core read exited 1 with Ns of budget left: HTTP 502' ] \
     || fail "an issue must not inherit an earlier pull request's account error: $(cat "$home/data/filed/contributions.json")"
   pass 'an account error is scoped to the observation whose error files wrote it'
 }
 
 test_account_error_is_not_inherited_by_a_non_github_observation() {
-  # The next URL is a GitLab merge request, so observe() returns at its URL
-  # guard before any forge call. That path must still clear the previous
-  # observation's error files, or the durable error recorded for the merge
-  # request becomes the pull request's account text.
+  # The next URL is a GitLab merge request, an unsupported forge that is
+  # never observed. It must stay silent and record nothing, so the pull
+  # request's account text can never become its durable error.
   local home out
   home=$(new_home account-error-non-github)
   forge_home "$home"
@@ -1560,13 +1560,12 @@ test_account_error_is_not_inherited_by_a_non_github_observation() {
   # pull request is observed first and its error files exist afterwards.
   out=$(with_home "$home" "$ROOT/bin/fm-contributions.sh" poll) \
     || fail 'poll across github and gitlab contributions failed'
-  [ "$out" = "contributions: observation unavailable for https://github.com/o/r/pull/8
-contributions: observation unavailable for https://gitlab.com/o/r/-/merge_requests/2" ] \
-    || fail "both failing observations must wake in observation order: $out"
+  # The pull request's parallel reads all refuse, so which read reports first varies.
+  [ "$(printf '%s\n' "$out" | mask_budget | sed -E '1s/ - [a-z]+ read exited / - parallel read exited /')" = "contributions: observation unavailable for https://github.com/o/r/pull/8 - parallel read exited 1 with Ns of budget left: fm-gh-account: simulated token refusal" ] \
+    || fail "only the pull request may wake, and the unsupported merge request stays silent: $out"
   jq -e '.records[0].error == "simulated token refusal"' "$home/data/delivery/contributions.json" >/dev/null \
     || fail "a pull request must record its own background account refusal: $(cat "$home/data/delivery/contributions.json")"
-  jq -e '.records[0].error == "forge observation unavailable or changed during read"' \
-    "$home/data/mirrored/contributions.json" >/dev/null \
+  [ ! -e "$home/data/mirrored/contributions.json" ] \
     || fail "a non-github observation must not inherit a github account error: $(cat "$home/data/mirrored/contributions.json")"
   pass 'a non-github observation never inherits a github account error'
 }

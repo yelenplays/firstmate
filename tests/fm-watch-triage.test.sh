@@ -8768,7 +8768,9 @@ test_exit_picker_wedge_keeps_climbing() {
   [ -s "$state/.stale-since-$key" ] || fail "the picker did not start the wedge timer"
   reap "$pid"
   ack_stopped_cycle "$state" || fail "could not acknowledge the picker absorb"
+  # The recorded step's anchor stops advancing too, so the turn bound no longer holds it.
   echo $(( $(date +%s) - 500 )) > "$state/.stale-since-$key"
+  touch -t 200001010000 "$state/picker.meta"
   : > "$out"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" FM_STALE_ESCALATE_SECS=240 \

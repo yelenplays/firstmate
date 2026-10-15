@@ -185,6 +185,7 @@ jobs:
   tests-portable-parallel-3:
     name: Behavior portable parallel 3
     runs-on: ubuntu-latest
+    if: ${{ !(github.event_name == 'push' && vars.FM_CI_SKIP_PUSH == '1') }}
     # Normal tier (see the timeout policy above).
     timeout-minutes: 30
     steps:
