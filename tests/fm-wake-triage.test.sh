@@ -41,7 +41,7 @@ SH
 
 # run_triage <dir> [<interpreter>] [<triage-args>...]
 run_triage() {
-  local dir=$1 interpreter=${2:-}
+  local dir=$1 interpreter=${2:-$BASH}
   shift
   [ "$#" -eq 0 ] || shift
   local PATH="$PATH" FM_HOME FM_STATE_OVERRIDE FM_CREW_STATE_BIN FM_CAPTAIN_HOLD_BIN FM_ROOT_OVERRIDE
@@ -52,11 +52,7 @@ run_triage() {
   FM_CAPTAIN_HOLD_BIN="$dir/fakebin/fm-captain-hold.sh"
   FM_ROOT_OVERRIDE="$dir"
   export PATH FM_HOME FM_STATE_OVERRIDE FM_CREW_STATE_BIN FM_CAPTAIN_HOLD_BIN FM_ROOT_OVERRIDE
-  if [ -n "$interpreter" ]; then
-    "$interpreter" "$TRIAGE" "$@"
-  else
-    "$TRIAGE" "$@"
-  fi
+  "$interpreter" "$TRIAGE" "$@"
 }
 
 seed_fresh_watcher() {
@@ -522,6 +518,35 @@ stop_absorb_watcher() {
   kill "$(cat "$1/watcher.pid")" 2>/dev/null || true
 }
 
+test_absorb_routine_interruption_retains_pending_output() {
+  local dir out rc recovered
+  dir=$(absorb_case absorb-routine-interrupted)
+  rc=0
+  run_triage "$dir" '' --absorb >&- 2>/dev/null || rc=$?
+  [ "$rc" -eq 1 ] || fail "closed all-routine output did not fail (rc=$rc)"
+  [ ! -s "$dir/state/.wake-queue" ] || fail 'the all-routine batch did not reach acknowledgement'
+  set -- "$dir/state"/.wake-triage.pending.*
+  [ "$#" -eq 1 ] && [ -s "$1" ] || fail 'closed all-routine output was not retained'
+  recovered=$1
+  assert_contains "$(cat "$recovered")" 'stale: test:routine' 'the retained routine drain lost its row'
+  [ ! -e "$dir/state/.wake-triage.last" ] || fail 'closed all-routine output was committed before delivery'
+
+  append_wake "$dir/state" stale 'test:routine' 'stale: test:routine'
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  stop_absorb_watcher "$dir"
+  [ "$rc" -eq 10 ] || fail "routine replay did not need firstmate (rc=$rc): $out"
+  assert_contains "$out" 'RECOVERED DRAIN OUTPUT' 'the undelivered routine output was not replayed'
+  assert_contains "$out" 'stale: test:routine' 'the routine replay lost the retained row'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'the routine replay absorbed the new batch'
+  assert_unacked "$dir"
+  [ ! -e "$recovered" ] || fail 'delivered routine replay left its recovered output behind'
+  set -- "$dir/state"/.wake-triage.pending.*
+  [ ! -e "$1" ] || fail 'delivered routine replay left pending output behind'
+  [ -s "$dir/state/.wake-triage.last" ] || fail 'delivered routine replay was not committed'
+  pass 'closed all-routine output remains pending until replayed without absorbing'
+}
+
 test_absorb_acknowledges_an_all_routine_wake() {
   local dir out rc ack
   dir=$(absorb_case absorb-routine)
@@ -691,6 +716,7 @@ test_stamped_working_status_is_routine
 test_absorb_acknowledges_an_all_routine_wake
 test_absorb_retires_routine_rows_of_an_actionable_wake
 test_absorb_fails_closed
+test_absorb_routine_interruption_retains_pending_output
 test_absorb_interruption_retains_pending_output
 test_instruction_wiring
 test_shellcheck

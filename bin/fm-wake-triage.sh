@@ -312,12 +312,10 @@ if [ "$DRAIN_CODE" -eq 0 ] && [ "$LOCK_FAILED" -eq 0 ] && [ "$recovered_count" -
 fi
 
 if [ "$absorbed" -eq 1 ]; then
-  # Absorbed output is all routine and already acknowledged; there is nothing
-  # left to replay, so it commits whether or not the presentation arrives.
+  cat "$rendered" || exit 1
+  printf 'WAKE_ACKED: triage acknowledged every row through %s; nothing needs firstmate\n' "$cutoff" || exit 1
+  [ -z "$ack_out" ] || printf '%s\n' "$ack_out" || exit 1
   commit_drain_output || exit 1
-  cat "$rendered" || exit 0
-  printf 'WAKE_ACKED: triage acknowledged every row through %s; nothing needs firstmate\n' "$cutoff"
-  [ -z "$ack_out" ] || printf '%s\n' "$ack_out"
   exit 0
 fi
 
