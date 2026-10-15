@@ -2774,7 +2774,15 @@ reconcile_requests_detached() {
 # board script owns when a refresh is due and what it publishes; the watcher
 # only offers it a chance each poll, detached for the same beacon reason as the
 # ledger publication above, and records a failure where triage can see it.
-BEARINGS_BOARD=$("$SCRIPT_DIR/fm-bearings-board.sh" path 2>/dev/null || true)
+# A watcher pointed at some other state directory (FM_STATE_OVERRIDE, as every
+# test watcher is) never offers one: the refresh would compose that foreign
+# state onto the home's real, captain-visible board.
+BEARINGS_BOARD=
+BEARINGS_OWN_STATE=$(cd "$STATE" 2>/dev/null && pwd -P || true)
+if [ -n "$BEARINGS_OWN_STATE" ] \
+  && [ "$BEARINGS_OWN_STATE" = "$(cd "$FM_HOME/state" 2>/dev/null && pwd -P || true)" ]; then
+  BEARINGS_BOARD=$("$SCRIPT_DIR/fm-bearings-board.sh" path 2>/dev/null || true)
+fi
 BEARINGS_BOARD_PID=
 bearings_board_refresh_detached() {
   if [ -n "$BEARINGS_BOARD_PID" ]; then

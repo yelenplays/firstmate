@@ -15,6 +15,13 @@ BOARD="$ROOT/bin/fm-bearings-board.sh"
 HARNESS="$ROOT/tests/assets/board-render-harness.mjs"
 TMP_ROOT=$(fm_test_tmproot fm-bearings-board-render)
 
+# A healthy listener launch settles on the first confirmation poll, so the
+# production 3s window only matters when the launch is slow. Under a loaded
+# host a detached runner can take longer than that to claim its source, and the
+# build then reports a listener that is merely late as not running. Widen the
+# window for this suite only; no case here expects an arm to fail.
+export FM_PROCEVENT_LAUNCH_CONFIRM_SECONDS=${FM_PROCEVENT_LAUNCH_CONFIRM_SECONDS:-30}
+
 command -v jq >/dev/null 2>&1 || { echo "skip: jq not found"; exit 0; }
 command -v node >/dev/null 2>&1 || { echo "skip: node not found"; exit 0; }
 

@@ -8345,22 +8345,17 @@ test_stale_escalation_holds_without_progress_marker() {
   pass "the hold rests on the every-harness turn anchor, so a harness with no .progress marker still defers and still detects"
 }
 
-# CI's stock macOS Bash lane sets FM_TEST_ONLY to run just the bash-3.2
-# churn-deferral regression. The rest of this file is not a 3.2 snapshot suite.
-if [ -n "${FM_TEST_ONLY:-}" ]; then
-  "$FM_TEST_ONLY"
-  exit 0
-fi
-
-
 # A built /bearings lavish board stays live without a conversation turn: every
 # poll offers it a detached `fm-bearings-board.sh refresh --if-due`, and a home
 # with no board is never touched. The refresh stamps its state before it checks
-# the Lavish session, so the stamp proves the watcher made the offer.
+# the Lavish session, so the stamp proves the watcher made the offer. A watcher
+# pointed at another state directory never offers the home's board a refresh,
+# so foreign state can never reach the captain's real board.
 test_watcher_offers_a_built_bearings_board_a_refresh() {
-  local dir state home fakebin pid i
+  local dir state home fakebin pid i foreign
   dir=$(make_case bearings-board-refresh); state="$dir/state"; fakebin="$dir/fakebin"
-  home="$dir/home"
+  # The case directory is the home, so the watched state is the home's own.
+  home="$dir"
   mkdir -p "$home/data" "$home/.lavish"
   # An empty session listing: the board's session is not open, so the refresh
   # stops after its stamp and never reaches the real Lavish server.
@@ -8384,8 +8379,26 @@ test_watcher_offers_a_built_bearings_board_a_refresh() {
   [ ! -s "$state/.bearings-board-refresh.err" ] \
     || fail "the offered refresh failed: $(cat "$state/.bearings-board-refresh.err")"
   reap "$pid"
+
+  rm -f "$state/.bearings-board-refresh.stamp"
+  foreign="$dir/foreign-state"
+  mkdir -p "$foreign"
+  fm_test_track_watcher_state "$foreign"
+  watch_bg "$foreign" "$fakebin" "$dir/foreign.out" env "FM_HOME=$home"; pid=$!
+  wait_poll_cycle "$foreign" "$pid" || fail "the foreign-state watcher exited before a full poll cycle"
+  wait_poll_cycle "$foreign" "$pid" || fail "the foreign-state watcher exited before a second poll cycle"
+  reap "$pid"
+  [ ! -e "$foreign/.bearings-board-refresh.stamp" ] && [ ! -e "$state/.bearings-board-refresh.stamp" ] \
+    || fail "a watcher on foreign state offered the home's board a refresh"
   pass "the watcher offers a built bearings board a refresh every poll and leaves other homes alone"
 }
+
+# CI's stock macOS Bash lane sets FM_TEST_ONLY to run just the bash-3.2
+# churn-deferral regression. The rest of this file is not a 3.2 snapshot suite.
+if [ -n "${FM_TEST_ONLY:-}" ]; then
+  "$FM_TEST_ONLY"
+  exit 0
+fi
 
 test_status_span_actionable_classifier
 test_status_span_survives_a_later_routine_append
