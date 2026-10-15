@@ -361,7 +361,7 @@ undeclared_skills() {  # -> "<skill>\t<relative dir>" per undeclared entry
   [ -d "$INSTALL_PATH/skills" ] || return 0
   # One awk pass over the tree. Values travel through the environment because
   # awk -v would rewrite backslash escapes in a path.
-  find "$INSTALL_PATH/skills" -mindepth 2 -maxdepth 3 -type f -name SKILL.md -print \
+  find "$INSTALL_PATH/skills" -mindepth 2 -maxdepth 3 \( -type f -o -type l \) -name SKILL.md -print \
     | FM_SKILL_ROOT="$INSTALL_PATH/" FM_SKILL_DECLARED="$(declared_skills)" awk '
         BEGIN {
           root = ENVIRON["FM_SKILL_ROOT"]
