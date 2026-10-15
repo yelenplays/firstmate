@@ -1,0 +1,50 @@
+       3 +<!-- fm-history:wake-batch id=10678cc7c2c6a4879039cec91f510066 -->
+       4 +### 20:12 wake batch (acknowledgement number 2)
+       5 +```json
+       6 +{
+       7 +  "actor": "main",
+       8 +  "acknowledgement_number": 2,
+       9 +  "rows": [
+      10 +    {
+      11 +      "occurred_at": "2026-10-15T18:12:05.000Z",
+      12 +      "sequence": 2,
+      13 +      "kind": "signal",
+      14 +      "key": "demo.status",
+      15 +      "reason": "needs-decision: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.3To04n/state/demo.status"
+      16 +    }
+      17 +  ]
+      18 +}
+      19 +```
+      20 +
+  ⎿  Created data/history/index.md (+5 -0)
+      1 +# History index
+      2 +
+      3 +Generated register of dated history pages and task cards.
+      4 +
+      5 +- days/2026-10-15.md - day - Conversation history - 2026-10-15
+
+⏺ Bash(cd /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.3To04n && bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 24831.1792087925.c4GaoX 2>&1)
+  ⎿  Updated data/history/days/2026-10-15.md (+10 -0)
+      18  }
+      19  ```
+      20
+      21 +<!-- fm-history:wake-ack id=3bcdba82d943593f13b0fbd459ffad79 -->
+      22 +### 20:12 wake acknowledgement 2
+      23 +```json
+      24 +{
+      25 +  "actor": "main",
+      26 +  "acknowledgement_number": 2,
+      27 +  "rows_acknowledged": 2
+      28 +}
+      29 +```
+      30 +
+
+⏺ The wake was from demo, which needs a decision on "which export format?"; I acknowledged it and left the decision open.
+
+✻ Crunched for 15s · done 8:12 PM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5.5 (1M context) | /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.3To04n | main | ctx 6%
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 1 agent

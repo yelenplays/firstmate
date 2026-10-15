@@ -1,0 +1,2 @@
+ok - host+hook: three ordinary group-teardown re-arms stay quiet; real outage work resurfaces once
+ok - host+hook: an at-turn hand-back survives group teardown, quiet re-arms, and real outage recovery

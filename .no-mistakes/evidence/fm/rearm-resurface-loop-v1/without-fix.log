@@ -1,0 +1,4 @@
+case failed rc=1: test_hook_rearms_after_group_teardown_without_empty_recovery
+not ok - group rearm: successor still belongs to the terminated hook group
+case failed rc=1: test_at_turn_successor_survives_group_teardown_and_real_outage_recovers
+not ok - group rearm: successor still belongs to the terminated hook group

@@ -1,0 +1,41 @@
+⏺ Bash(bin/fm-wake-drain.sh --ack-through 6 --recovery-generation 17652.1792088634.MCLy2r)
+  ⎿  Updated data/history/days/2026-10-15.md (+10 -0)
+       92  }
+       93  ```
+       94
+       95 +<!-- fm-history:wake-ack id=5a6b4cc4620a100c38872cf5056f1675 -->
+       96 +### 20:24 wake acknowledgement 6
+       97 +```json
+       98 +{
+       99 +  "actor": "main",
+      100 +  "acknowledgement_number": 6,
+      101 +  "rows_acknowledged": 2
+      102 +}
+      103 +```
+      104 +
+⏺ I acknowledged the wake from demo, which is asking for a decision on which export format to use for the third time (cycle 3); it stays open and will keep coming back until someone answers it.
+✻ Baked for 32s · done 8:24 PM
+⏺ Stop hook feedback
+  Ran 2 shell commands
+⏺ Bash(bin/fm-wake-drain.sh --ack-through 0 --recovery-generation 87777.1792088811.u5lV3s)
+  ⎿  Updated data/history/days/2026-10-15.md (+10 -0)
+      102  }
+      103  ```
+      104
+      105 +<!-- fm-history:wake-ack id=336428c2cd8bb71b7858568a5d5bd9d3 -->
+      106 +### 20:27 wake acknowledgement 0
+      107 +```json
+      108 +{
+      109 +  "actor": "main",
+      110 +  "acknowledgement_number": 0,
+      111 +  "rows_acknowledged": 0
+      112 +}
+      113 +```
+      114 +
+⏺ I acknowledged a re-arm check wake that carried no new events; demo's question about which export format to use (cycle 3) is still open.
+✻ Cogitated for 32s · done 8:27 PM
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5.5 (1M context) | /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.3To04n | main | ctx 7%
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 1 agent

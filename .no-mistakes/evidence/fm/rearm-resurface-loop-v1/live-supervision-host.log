@@ -1,0 +1,24 @@
+1792088190	start	gen=host-12841-1792088189	primary=claude
+1792088253	pass-through	attended	main-only	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.3To04n/state/demo.status
+1792088297	start	gen=host-5945-1792088295	primary=claude
+1792088297	take-over	arm=69390
+1792088458	pass-through	attended	main-only	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.3To04n/state/demo.status
+1792088482	start	gen=host-13558-1792088481	primary=claude
+1792088482	take-over	arm=94035
+1792088641	pass-through	attended	main-only	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.3To04n/state/demo.status
+1792088686	start	gen=host-56588-1792088684	primary=claude
+1792088686	take-over	arm=12079
+1792088805	pass-through	a close without a wake
+1792088808	start	gen=host-86182-1792088806	primary=claude
+1792088817	pass-through	attended	main-only	check: rearm-resurface
+1792088858	start	gen=host-42156-1792088856	primary=claude
+1792088858	take-over	arm=92781
+1792089257	pass-through	attended	main-only	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.3To04n/state/demo.status
+1792089305	start	gen=host-55360-1792089303	primary=claude
+1792089305	take-over	arm=95401
+1792089373	pass-through	attended	main-only	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.3To04n/state/demo.status
+1792089419	start	gen=host-88378-1792089417	primary=claude
+1792089419	take-over	arm=36442
+1792089816	pass-through	attended	main-only	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.3To04n/state/demo.status
+1792089853	start	gen=host-39218-1792089852	primary=claude
+1792089853	take-over	arm=97356
