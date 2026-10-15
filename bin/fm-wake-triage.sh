@@ -208,7 +208,8 @@ act_count=$(awk -F '\t' '$1 != "-" { seen[$1]=1 } END { for (id in seen) count++
 routine_count=$(awk -F '\t' '{ seen[$1]=1 } END { for (id in seen) count++; print count+0 }' "$routine_file")
 
 # Build the complete presentation before writing to the terminal. A closed
-# output pipe leaves the durable pending file in place and cannot reach ack.
+# output pipe leaves the durable pending file in place (commit_drain_output
+# below runs only after delivery), even when --absorb has already acknowledged.
 rendered="$work/rendered"
 {
   printf 'WAKE TRIAGE: %s row(s), %s task(s): %s act now, %s routine\n' \

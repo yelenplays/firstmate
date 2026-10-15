@@ -387,6 +387,7 @@ The same suite pins the counted-equals-presentable invariant against `bin/fm-gua
 - Structurally unusable rows are retired by main alone while every remaining row stays presentable and acknowledgeable.
 
 `tests/fm-wake-triage.test.sh` pins `--absorb`: an all-routine wake is acknowledged, an actionable wake keeps only its non-routine rows, and unread status, a watcher-down banner, a new decision, an ineligible row shape, and away mode all keep the wake.
+Its `test_absorb_interruption_retains_pending_output` and `test_absorb_routine_interruption_retains_pending_output` pin that an undelivered presentation keeps its drain output for the next triage.
 
 Branch acknowledgement retiring the check-row receipts of exactly its granted sequences is pinned by `tests/fm-wake-queue.test.sh` for the secondmate stall receipt and by `tests/fm-inactive-reconcile.test.sh` for the inactive-outcome receipt.
 
