@@ -1,0 +1,11 @@
+$ bin/fm-control.sh tfh2 relaunch --model claude-opus-5-5   # a record that ran banned from the base moves to an unbanned lane
+relaunched tfh2 harness=claude from=claude model=claude-opus-5-5 effort=low backend=herdr endpoint=fm-lab-tfh-71894-1397:w2:p2 worktree=/Users/yelen/.treehouse/notes-7bf321/2/notes
+model=claude-opus-5-5
+test_ban_since=base
+
+$ bin/fm-control.sh tfh2 relaunch --model claude-sonnet-5-5   # back to banned: no handoff past the banned run
+relaunched tfh2 harness=claude from=claude model=claude-sonnet-5-5 effort=low backend=herdr endpoint=fm-lab-tfh-71894-1397:w2:p2 worktree=/Users/yelen/.treehouse/notes-7bf321/2/notes
+model=claude-sonnet-5-5
+test_ban_model=claude-sonnet-5-5
+test_ban_since=base
+Before accepting your ship `done:`, firstmate checks commits since the base for added or modified test files outside those exact paths and refuses the done while any remain, naming them; revert those changes and report done again.

@@ -1,0 +1,19 @@
+== A. banned seat weakens the handed-over test (edit) ==
+c09a719 weaken test
+state: blocked · source: status-log · no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/test_notes.py; revert those changes and report done again
+
+== B. banned seat deletes the handed-over test ==
+72059cc drop failing test
+state: blocked · source: status-log · no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/test_notes.py; revert those changes and report done again
+
+== C. banned seat renames the handed-over test away (git mv to notes.txt) ==
+bbe62bb move test
+state: blocked · source: status-log · no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/test_notes.py; revert those changes and report done again
+
+== D. banned seat adds its own new test file ==
+6ac933b add own test
+state: blocked · source: status-log · no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/test_extra.py; revert those changes and report done again
+
+== E. restored: implementation only ==
+ceedb80 feat: add count_notes
+state: done · source: status-log · ready in branch fm/tfh1

@@ -1,0 +1,10 @@
+$ bin/fm-spawn.sh tfh2 <notes> --mode local-only --yolo on --harness claude --model claude-sonnet-5-5 --backend herdr
+spawned tfh2 harness=claude kind=ship mode=local-only yolo=on window=fm-lab-tfh-71894-1397:w2:p2 worktree=/Users/yelen/.treehouse/notes-7bf321/2/notes
+
+--- state/tfh2.meta test-ban keys ---
+model=claude-sonnet-5-5
+test_ban_model=claude-sonnet-5-5
+test_ban_since present: 0
+
+--- launch-brief: gate sentence ---
+Before accepting your ship `done:`, firstmate checks commits since the base for added or modified test files outside those exact paths and refuses the done while any remain, naming them; revert those changes and report done again.

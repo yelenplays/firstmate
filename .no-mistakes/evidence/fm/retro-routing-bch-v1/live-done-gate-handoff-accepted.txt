@@ -1,0 +1,17 @@
+$ git -C <worker> log --oneline; diff --stat since..HEAD
+ceedb80 feat: add count_notes
+9537d05 red: count_notes test
+3238080 seed notes
+ notes/__init__.py | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+$ tail -1 state/tfh1.status
+done [at=1792091268]: ready in branch fm/tfh1
+
+$ FM_CREW_STATE_NO_FORGE=1 bin/fm-crew-state.sh tfh1   # this change
+state: done · source: status-log · ready in branch fm/tfh1
+exit=0
+
+$ FM_CREW_STATE_NO_FORGE=1 <base c969802>/bin/fm-crew-state.sh tfh1   # before this change, same task record and worker copy
+state: blocked · source: status-log · no test authoring on claude-sonnet-5-5: the branch adds or modifies unauthorized test files tests/test_notes.py; drop them and report done again
+exit=0

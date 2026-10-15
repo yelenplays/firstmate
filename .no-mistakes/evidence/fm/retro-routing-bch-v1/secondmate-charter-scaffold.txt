@@ -1,0 +1,12 @@
+$ FM_HOME=$LAB FM_SECONDMATE_CHARTER="Own the notes domain." bin/fm-brief.sh labmate1 --secondmate --no-projects
+scaffolded: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.SQQnBt/data/labmate1/brief.md (secondmate charter)
+exit=0
+
+--- /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.SQQnBt/data/labmate1/brief.md (excerpt around the seat rule) ---
+15-Delegate project work to your own crewmates with the normal firstmate lifecycle: brief, spawn, status, watcher, steer, teardown, and recovery.
+16-Do not invent a second delegation system.
+17:Your own seat runs routine supervision on the model the main firstmate pins for it, which can be lighter than the judgment a captain decision or design work needs.
+18-Keep that judgment off your seat: dispatch design, planning, and other open-ended work to a crewmate through this home's dispatch rules, and send a captain decision up the parent channel below with its facts and options, where the main firstmate frames it for the captain.
+19-You do not generate your own work.
+20-Act only on tasks the main firstmate routes to you.
+21-Never start a survey, audit, or "find improvements" sweep on your own initiative; that is not your job and it is unwanted.

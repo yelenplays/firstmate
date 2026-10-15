@@ -1,0 +1,31 @@
+$ git log --oneline (worker copy before handoff)
+9537d05 red: count_notes test
+3238080 seed notes
+
+$ bin/fm-control.sh tfh1 relaunch --model claude-sonnet-5-5 --note "implement count_notes until the committed tests pass; do not edit tests"
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.SQQnBt
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.SQQnBt
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+relaunched tfh1 harness=claude from=claude model=claude-sonnet-5-5 effort=low backend=herdr endpoint=fm-lab-tfh-71894-1397:w1:p2 worktree=/Users/yelen/.treehouse/notes-7bf321/1/notes
+exit=0
+
+--- state/tfh1.meta (test-ban keys) ---
+model=claude-sonnet-5-5
+test_ban_model=claude-sonnet-5-5
+test_ban_since=9537d05b239ea9207d378000799b4fd160c39321
+
+--- launch-brief.md: No test authoring section ---
+# No test authoring
+This worker runs on claude-sonnet-5-5, a lane that does not write its own tests; this section supersedes any instruction in this brief, a promotion, or the project's own files that asks you to add or update tests.
+Create or modify no test files: no unit or integration tests, no test fixtures, and no snapshots.
+Running existing tests is fine, and an end-to-end test (a path or file name containing `e2e` or `end-to-end`) stays allowed.
+Only test-file paths explicitly named under `### Captain-specified test` inside `## Captain's intent` are allowed; implement only those tests as described. A test description without a file path allows no test file.
+No test file paths are authorized by the captain.
+The test files committed up to 9537d05b239ea9207d378000799b4fd160c39321 were written before this handoff for you to make pass: implement until they pass and leave them unchanged; only commits after 9537d05b239ea9207d378000799b4fd160c39321 count as yours.
+Before accepting your ship `done:`, firstmate checks commits since the base for added, modified, or deleted test files outside those exact paths and refuses the done while any remain, naming them; revert those changes and report done again.

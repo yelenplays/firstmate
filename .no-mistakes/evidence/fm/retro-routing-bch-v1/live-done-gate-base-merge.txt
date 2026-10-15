@@ -1,0 +1,14 @@
+== main moves on: someone else adds tests/test_tags.py and edits README on origin/main ==
+bab5226 main: add tags test
+
+== banned seat merges origin/main into its branch before done ==
+4e8e573 Merge remote-tracking branch 'origin/main' into fm/tfh1
+bab5226 main: add tags test
+ceedb80 feat: add count_notes
+9537d05 red: count_notes test
+since..HEAD test paths:
+README.md
+notes/__init__.py
+tests/test_tags.py
+
+state: done · source: status-log · ready in branch fm/tfh1
