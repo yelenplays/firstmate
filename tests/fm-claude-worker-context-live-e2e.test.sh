@@ -76,7 +76,7 @@ def read(mode):
     # Native transcript records are evidence, not an estimate from file sizes.
     records = [json.loads(s) for s in transcript.read_text().splitlines()]
     attachments = [d['attachment'] for d in records if d.get('type') == 'attachment']
-    instructions = next(a for a in attachments if a.get('type') == 'instructions')
+    instructions = next((a for a in attachments if a.get('type') == 'instructions'), None)
     listing = next(a for a in attachments if a.get('type') == 'skill_listing')['content']
     u = next(d['message']['usage'] for d in records if d.get('type') == 'assistant')
     tokens = sum(u.get(k, 0) for k in ('input_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens'))
