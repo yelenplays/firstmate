@@ -78,8 +78,11 @@ done
 ! printf 'esc to cancel\n' | fm_busy_lines_match commandcode || fail 'borrowed another harness signal'
 pass "composer placeholder, draft safety, identity-scoped ceiling, and independent delivery signals"
 
+# A package.json without "type" above the checkout makes node print a
+# module-type warning on stderr, which would join the compared output.
 drive_mod() {  # <event> <stopReason|-> [option-overrides-json]
-  MOD="$ROOT/bin/fm-commandcode-mod.ts" EVENT="$1" STOP="$2" OPTS="${3:-}" node --input-type=module 2>&1 <<'EOF'
+  MOD="$ROOT/bin/fm-commandcode-mod.ts" EVENT="$1" STOP="$2" OPTS="${3:-}" \
+    node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --input-type=module 2>&1 <<'EOF'
 import { pathToFileURL } from "node:url";
 const mod = await import(pathToFileURL(process.env.MOD).href);
 const flags = {};
@@ -150,9 +153,11 @@ proj="$case_dir/project"
 wt="$case_dir/wt"
 fm_test_spawn_home "$home" commandcode
 fm_git_worktree "$proj" "$wt" commandcode-test
+# Each recorded task gets its own copy: spawn refuses to put two tasks in one.
 spawn_case() {  # <id> <model> <effort>
+  git -C "$proj" worktree add --quiet -b "commandcode-$1" "$case_dir/wt-$1"
   fm_test_spawn_brief "$home" "$1"
-  FM_FAKE_LAUNCH_LOG="$case_dir/$1.launch" fm_test_run_spawn "$home" "$wt" "$fakebin" "$1" "$proj" \
+  FM_FAKE_LAUNCH_LOG="$case_dir/$1.launch" fm_test_run_spawn "$home" "$case_dir/wt-$1" "$fakebin" "$1" "$proj" \
     --scout --harness commandcode --model "$2" --effort "$3" 2>&1
 }
 out=$(spawn_case cc-low deepseek/deepseek-v4.1-flash low) || fail "spawn failed: $out"
@@ -167,10 +172,10 @@ assert_contains "$launch" '-u NO_COLOR COLORTERM=truecolor' 'placeholder styling
 assert_contains "$launch" '-- "$(' 'typed launch envelope must follow --'
 assert_contains "$launch" 'encode launch-brief' 'typed launch envelope lost'
 [ "$(fm_busy_classify tmux fake:w commandcode cc-low "$home/state")" = 'busy fm-spawn' ] || fail 'launch not armed'
-[ ! -e "$wt/.commandcode" ] || fail 'spawn wrote project Command Code settings'
-mkdir -p "$wt/.commandcode/taste" && : > "$wt/.commandcode/taste/taste.md"
-[ -z "$(git -C "$wt" status --porcelain -- .commandcode)" ] || fail 'Command Code taste state is visible to git'
-rm -rf "$wt/.commandcode"
+[ ! -e "$case_dir/wt-cc-low/.commandcode" ] || fail 'spawn wrote project Command Code settings'
+mkdir -p "$case_dir/wt-cc-low/.commandcode/taste" && : > "$case_dir/wt-cc-low/.commandcode/taste/taste.md"
+[ -z "$(git -C "$case_dir/wt-cc-low" status --porcelain -- .commandcode)" ] || fail 'Command Code taste state is visible to git'
+rm -rf "$case_dir/wt-cc-low/.commandcode"
 out=$(spawn_case cc-xhigh deepseek/deepseek-v4.1-flash xhigh) || fail "spawn failed: $out"
 case "$(cat "$case_dir/cc-xhigh.launch")" in *--effort*) fail 'an unaccepted effort reached argv' ;; esac
 assert_grep 'effort=xhigh' "$home/state/cc-xhigh.meta" 'effort not recorded'
