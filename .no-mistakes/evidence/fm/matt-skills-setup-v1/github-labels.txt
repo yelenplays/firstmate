@@ -1,0 +1,17 @@
+count: 13
+labels[13]{name}:
+  bug
+  documentation
+  duplicate
+  enhancement
+  good first issue
+  help wanted
+  invalid
+  question
+  wontfix
+  needs-info
+  needs-triage
+  ready-for-agent
+  ready-for-human
+help[1]:
+  Run `gh-axi label create --name "..." --color "..." -R yelenplays/firstmate` to create a label
