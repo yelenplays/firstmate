@@ -52,10 +52,18 @@
 # score answer with no reported confidence, estimated as top minus runner-up
 # probability.
 #
-# Log: every attempted call appends one metadata-only record (purpose
+# Pick limit: a pick question offers at most 8 options. A longer list is
+# refused before anything is sent, because a wide pick mostly escalates; the
+# caller narrows the list deterministically first. Score keeps its 10 levels.
+#
+# Log: every attempted call appends one metadata-only record (ts, caller -
+# task:$FM_TASK_ID when set, else home:<basename of the logging home> - purpose
 # worker-cli, route, requested model, response_model (the build that answered), http, latency, usage in/out token counts - named
 # so fm_jev_log_call's token-key redaction leaves them readable - question count,
-# escalations, exit code; never the working directory, state, or question text) through
+# escalations, exit code, and items: one {type, options, conf} per question in
+# order, where options is the offered option count (0 for yes) and conf the
+# confidence the answer line reports, null when there is none; never the
+# working directory, state, question ids, or question text) through
 # fm_jev_log_call to the chosen home's state/jev-calls.jsonl. A log failure
 # never changes the result.
 #
@@ -77,7 +85,7 @@ FM_JEV_CLI_INPUT_MAX=4096
 usage() {
   cat <<'EOF'
 fm-jev.sh - one typed Jev judgment (TypeSafe) with one output line per question.
-  fm-jev.sh pick  "<state>" "<question>" optA optB ...   pick one option, at most 255
+  fm-jev.sh pick  "<state>" "<question>" optA optB ...   pick one option, at most 8
   fm-jev.sh yes   "<state>" "<question>"                 yes/no with probability p of yes
   fm-jev.sh score "<state>" "<question>" lvl1 lvl2 ...   ordered levels, at most 10
   fm-jev.sh batch < {"state":"..","questions":[{"id":"x","type":"pick|yes|score","q":"..","opts":[..]}]}
@@ -230,7 +238,7 @@ NORM=$(printf '%s' "$SPEC" | jq -c '
                          then fail("option labels and meanings must not contain control characters") else . end ]
                    else fail("question \($i + 1): opts must be an array of strings") end)
           | if (.opts | length) < 2 then fail("question \($i + 1): needs at least two options") else . end
-          | if .type == "pick" and (.opts | length) > 255 then fail("question \($i + 1): pick supports at most 255 options")
+          | if .type == "pick" and (.opts | length) > 8 then fail("question \($i + 1): pick supports at most 8 options; narrow the list first")
             elif .type == "score" and (.opts | length) > 10 then fail("question \($i + 1): score supports at most 10 levels")
             else . end
           | if ([.opts[][0]] | unique | length) != (.opts | length) then fail("question \($i + 1): option labels must be unique") else . end
@@ -307,9 +315,23 @@ QUESTIONS=$(printf '%s' "$NORM" | jq -c '
                 else {type: "score", instructions: .q, criteria: [.opts[][1]]} end) } ]
   | from_entries')
 
+# caller: the dispatched task, else the home whose log receives the record.
+jev_caller() {
+  if [ -n "${FM_TASK_ID:-}" ]; then
+    printf 'task:%s' "$FM_TASK_ID"
+  else
+    printf 'home:%s' "$(basename "$(_fm_jev_home)")"
+  fi
+}
+
 log_call() {
-  local exit_code=$1 response=${2:-} escalated=${3:-0} payload
+  local exit_code=$1 response=${2:-} escalated=${3:-0} confs=${4:-[]} items payload
+  items=$(printf '%s' "$NORM" | jq -c --argjson confs "$confs" '
+    [.questions | to_entries[] | {type: .value.type, options: (.value.opts | length), conf: ($confs[.key] // null)}]') || items='[]'
   payload=$(jq -nc \
+    --arg ts "$(fm_jev_iso_now)" \
+    --arg caller "$(jev_caller)" \
+    --argjson items "$items" \
     --arg route "${FM_JEV_LAST_ROUTE:-}" \
     --arg model "${FM_JEV_LAST_MODEL:-}" \
     --arg response_model "$(fm_jev_response_model "$response")" \
@@ -320,6 +342,8 @@ log_call() {
     --argjson exit "$exit_code" \
     --arg response "$response" \
     '{
+      ts: $ts,
+      caller: $caller,
       purpose: "worker-cli",
       route: $route,
       model: $model,
@@ -332,7 +356,8 @@ log_call() {
       },
       questions: $questions,
       escalated: $escalated,
-      exit: $exit
+      exit: $exit,
+      items: $items
     }' 2>/dev/null) || return 0
   fm_jev_log_call "$payload" >/dev/null 2>&1 || true
 }
@@ -351,8 +376,9 @@ fi
 RESPONSE=$(cat "$OUT_FILE")
 
 # --- output --------------------------------------------------------------------
-# Emits "A<TAB>line" per answered question and "E<TAB>line" per escalation, or
-# fails with a one-line reason when an answer is missing or mistyped.
+# Emits "A<TAB>conf<TAB>line" per answered question and "E<TAB>conf<TAB>line"
+# per escalation (conf rounded as printed, or null), or fails with a one-line
+# reason when an answer is missing or mistyped.
 LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
   def r2: (. * 100 | round) / 100;
   def estimate(p): (p | [.[]] | sort | reverse) as $s | (($s[0] // 0) - ($s[1] // 0));
@@ -419,10 +445,11 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
                 or (($s - $weighted) | fabs) > 0.05) }
         end
     end
+  | (if .conf == null then "null" else (.conf | r2 | tostring) end) as $logged
   | if (.force_escalate // false) or .conf == null or .conf < .floor then
-      "E\t\($q.id): ESCALATE conf=\(if .conf == null then "na" else (.conf | r2) end) prior=\(.prior // .answer) -> decide yourself"
+      "E\t\($logged)\t\($q.id): ESCALATE conf=\(if .conf == null then "na" else (.conf | r2) end) prior=\(.prior // .answer) -> decide yourself"
     else
-      "A\t\($q.id): \(.answer)\(if .s != null then " s=\(.s | r2)" else "" end)\(if .p != null then " p=\(.p | r2)" else "" end) conf=\(.conf | r2)"
+      "A\t\($logged)\t\($q.id): \(.answer)\(if .s != null then " s=\(.s | r2)" else "" end)\(if .p != null then " p=\(.p | r2)" else "" end) conf=\(.conf | r2)"
     end
 ' 2>&1) || {
   reason=$(printf '%s' "$LINES" | sed -n 's/^jq: error ([^)]*): //p' | head -n 1)
@@ -432,11 +459,12 @@ LINES=$(jq -rn --argjson spec "$NORM" --argjson resp "$RESPONSE" '
 
 ESCALATED=$(printf '%s\n' "$LINES" | grep -c '^E' || true)
 if [ "$ESCALATED" -gt 0 ]; then CODE=2; else CODE=0; fi
-log_call "$CODE" "$RESPONSE" "$ESCALATED"
+CONFS=$(printf '%s\n' "$LINES" | cut -f2 | jq -sc '.') || CONFS='[]'
+log_call "$CODE" "$RESPONSE" "$ESCALATED" "$CONFS"
 
 if [ "$JSON" -eq 1 ]; then
   printf '%s\n' "$RESPONSE"
 else
-  printf '%s\n' "$LINES" | cut -f2-
+  printf '%s\n' "$LINES" | cut -f3-
 fi
 exit "$CODE"

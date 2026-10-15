@@ -250,13 +250,13 @@ fm_brief_task_placeholders_present() {  # <file>
 # the structural facts it reads: worker kind plus Task, Definition of done,
 # Captain's intent, and Firstmate spec presence as true/false. Prints
 # missing_acceptance exactly when the Definition of done is missing and
-# need_human otherwise, because no structural fact can prove a brief complete.
-# This reproduces the Jev answers recorded on a 32-case grid over these
-# facts, so the rule replaced that model call without changing a verdict.
+# has_acceptance otherwise. The rule reproduces the Jev answers recorded on a
+# 32-case grid over these facts; Jev's need_human for every brief with a
+# Definition of done carried no signal, so that case names what was checked.
 fm_brief_preflight_verdict() {  # <kind> <has_task> <has_dod> <has_intent> <has_spec>
   case "$3" in
     false) printf '%s\n' missing_acceptance ;;
-    *) printf '%s\n' need_human ;;
+    *) printf '%s\n' has_acceptance ;;
   esac
 }
 

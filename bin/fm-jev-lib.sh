@@ -103,8 +103,8 @@
 #     is ship or scout, and its project= is this firstmate repository itself
 #     (same resolved path as the code root, or the same resolved Git common directory).
 #     Any other case, including an unreadable record or a missing kind, fails.
-#     Supervision triage, the wedge check, and the shadow done verifier all
-#     gate their free-text payloads on it.
+#     Supervision triage and the wedge check gate their free-text payloads
+#     on it.
 #   fm_jev_supervision_state <status-line|pane-tail> <text> <free-text:0|1>
 #     Prints the Jev state for one supervision consult. With free-text 1 it is
 #     the size-capped text (FM_JEV_SUPERVISION_FREE_TEXT_MAX_CHARS, first chars

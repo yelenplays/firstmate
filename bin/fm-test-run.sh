@@ -464,7 +464,7 @@ family_for_basename() {
     fm-claude-primary.test.sh|\
     fm-claude-stop-autoarm.test.sh|fm-cursor-harness.test.sh|\
     fm-dispatch-resolve.test.sh|fm-dispatch-replay.test.sh|fm-dispatch-selftest.test.sh|\
-    fm-jev-done-verify.test.sh|fm-jev-retrieval-miss.test.sh|fm-wiki-ask.test.sh|\
+    fm-jev-retrieval-miss.test.sh|fm-wiki-ask.test.sh|\
     fm-extension-binding.test.sh|fm-gitignore-config.test.sh|\
     fm-no-mistakes-required.test.sh|fm-peek-remote.test.sh|\
     fm-pending-reply.test.sh|fm-pi-branch-extension.test.sh|\
@@ -842,7 +842,6 @@ tests/fm-jev-act-first.test.sh 5426
 tests/fm-jev-ask-user.test.sh 7400
 tests/fm-jev-brief-preflight.test.sh 10209
 tests/fm-jev-compaction.test.sh 638
-tests/fm-jev-done-verify.test.sh 38035
 tests/fm-jev-intake-match.test.sh 17464
 tests/fm-jev-lib.test.sh 1005
 tests/fm-jev-model-proposal.test.sh 1565
@@ -1608,7 +1607,6 @@ families_for_changed_path() {
     bin/fm-watch*|bin/fm-wake*|bin/fm-inactive-reconcile.sh|\
     bin/fm-classify-lib.sh|bin/fm-daemon*|bin/fm-turnend-guard*|bin/fm-guard.sh)
       printf '%s\n' watcher-wake-lock
-      printf '%s\n' "__script__:fm-jev-done-verify.test.sh"
       ;;
     bin/fm-afk*)
       printf '%s\n' afk
@@ -1678,9 +1676,6 @@ families_for_changed_path() {
       ;;
     bin/fm-dispatch-replay.sh)
       printf '%s\n' "__script__:fm-dispatch-replay.test.sh"
-      ;;
-    bin/fm-jev-done-verify.sh)
-      printf '%s\n' "__script__:fm-jev-done-verify.test.sh"
       ;;
     bin/fm-jev-ask-user.sh)
       printf '%s\n' "__script__:fm-jev-ask-user.test.sh"

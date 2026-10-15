@@ -58,6 +58,19 @@ such as openai-codex reports cost 0 while still consuming quota, so a zero
 sum is "unmeasured", never "free". Buckets report costStatus known | partial |
 none accordingly.
 
+Claude equivalents. Raw tokens count a cache read like an output token, so a
+cache-heavy session looks many times larger than the same spend on output.
+Every Claude usage record (native transcripts, and Pi records whose provider
+maps to the claude family) also adds claudeEqTokens: input-token equivalents
+under CLAUDE_EQ_WEIGHTS - input 1, output 5, cache read 0.1, 5-minute cache
+write 1.25, 1-hour cache write 2 - the ratios Claude's price list applies to
+each model's base input price. A native transcript's
+cache_creation.ephemeral_1h_input_tokens is counted as cacheWrite1h; a cache
+write with no such split is priced as a 5-minute write. Reasoning tokens are
+not weighted separately because Claude bills thinking as output. Every bucket,
+day row, task document and week family carries claudeEqTokens next to its raw
+tokens (0 where no Claude usage was seen), and rollup and week name the weights.
+
 Outputs (all under the effective state dir - --state, FM_STATE_OVERRIDE, or
 $FM_HOME/state):
   state/<id>.spend        per-task JSON: totals, byLane, byModel, byEffort,
@@ -95,11 +108,13 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 
-VERSION = 3
+VERSION = 4
 EFFORT_CLASSES = ("low", "medium", "high", "xhigh", "max")
 # Observed Pi log provider -> quota-axi provider family. Only pairs observed in
 # the real fleet are mapped; anything else keeps its own name.
 LOG_TO_QUOTA_PROVIDER = {"openai-codex": "codex", "xai": "grok", "claude": "claude", "anthropic": "claude"}
+# Claude input-token equivalents per raw token (see "Claude equivalents" above).
+CLAUDE_EQ_WEIGHTS = {"input": 1.0, "output": 5.0, "cacheRead": 0.1, "cacheWrite": 1.25, "cacheWrite1h": 2.0}
 CLAUDE_SESSIONS_ROOT = None
 WEEK_SECONDS = 604800
 MODEL_MAX_AGE = 900
@@ -155,14 +170,39 @@ def empty_bucket():
         "output": 0,
         "cacheRead": 0,
         "cacheWrite": 0,
+        "cacheWrite1h": 0,
         "reasoning": 0,
+        "claudeEqTokens": 0,
         "cost": 0.0,
         "pricedTokens": 0,
         "unpricedTokens": 0,
     }
 
 
-def bucket_add(bucket, usage):
+def claude_eq(usage):
+    """Input-token equivalents of one Claude usage record. cacheWrite counts
+    every cache write; the cacheWrite1h share of it takes the 1-hour weight."""
+    def num(key):
+        value = usage.get(key)
+        return value if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0 else 0
+    write_1h = min(num("cacheWrite1h"), num("cacheWrite"))
+    return int(round(
+        num("input") * CLAUDE_EQ_WEIGHTS["input"]
+        + num("output") * CLAUDE_EQ_WEIGHTS["output"]
+        + num("cacheRead") * CLAUDE_EQ_WEIGHTS["cacheRead"]
+        + (num("cacheWrite") - write_1h) * CLAUDE_EQ_WEIGHTS["cacheWrite"]
+        + write_1h * CLAUDE_EQ_WEIGHTS["cacheWrite1h"]))
+
+
+def window_bucket():
+    """A trailing-window bucket. Windows sum per-day rows, which keep only
+    tokens, Claude equivalents and cost, so the token-type breakdown is absent
+    rather than reported as zero."""
+    return {"tokens": 0, "claudeEqTokens": 0, "cost": 0.0, "pricedTokens": 0, "unpricedTokens": 0}
+
+
+def bucket_add(bucket, usage, claude=False):
+    """Add one usage record; returns (raw tokens, Claude equivalents)."""
     tokens = usage.get("totalTokens")
     if not isinstance(tokens, (int, float)) or tokens <= 0:
         tokens = sum(
@@ -171,10 +211,12 @@ def bucket_add(bucket, usage):
         )
     bucket["messages"] += 1
     bucket["tokens"] += int(tokens)
-    for key in ("input", "output", "cacheRead", "cacheWrite", "reasoning"):
+    for key in ("input", "output", "cacheRead", "cacheWrite", "cacheWrite1h", "reasoning"):
         value = usage.get(key)
         if isinstance(value, (int, float)):
             bucket[key] += int(value)
+    eq = claude_eq(usage) if claude else 0
+    bucket["claudeEqTokens"] += eq
     cost = usage.get("cost")
     total = cost.get("total") if isinstance(cost, dict) else None
     if isinstance(total, (int, float)) and total > 0:
@@ -184,7 +226,7 @@ def bucket_add(bucket, usage):
         # Zero or absent cost on a token-bearing record is unmeasured spend,
         # not evidence of a free lane.
         bucket["unpricedTokens"] += int(tokens)
-    return int(tokens)
+    return int(tokens), eq
 
 
 def parse_session_file(path):
@@ -241,10 +283,12 @@ def parse_session_file(path):
                     if not isinstance(usage, dict):
                         continue
                     if rtype == "assistant":
+                        split = usage.get("cache_creation")
                         observed = {"input": usage.get("input_tokens", 0),
                                     "output": usage.get("output_tokens", 0),
                                     "cacheRead": usage.get("cache_read_input_tokens", 0),
-                                    "cacheWrite": usage.get("cache_creation_input_tokens", 0)}
+                                    "cacheWrite": usage.get("cache_creation_input_tokens", 0),
+                                    "cacheWrite1h": split.get("ephemeral_1h_input_tokens", 0) if isinstance(split, dict) else 0}
                         observed = {k: max(0, int(v)) if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) else 0
                                     for k, v in observed.items()}
                         # Streaming/final records can repeat one Claude message.
@@ -262,7 +306,8 @@ def parse_session_file(path):
                         native_usage[identity] = {k: max(v, prior.get(k, 0)) for k, v in observed.items()}
                         usage = {k: max(0, v - prior.get(k, 0)) for k, v in observed.items()
                                  if isinstance(v, (int, float))}
-                        usage["totalTokens"] = sum(usage.values())
+                        # cacheWrite1h is a share of cacheWrite, not more tokens.
+                        usage["totalTokens"] = sum(v for k, v in usage.items() if k != "cacheWrite1h")
                         if usage["totalTokens"] <= 0:
                             continue
                     provider = "claude" if rtype == "assistant" else (msg.get("provider") or "unknown")
@@ -271,7 +316,7 @@ def parse_session_file(path):
                     row = info["rows"].get(key)
                     if row is None:
                         row = info["rows"][key] = empty_bucket()
-                    tokens = bucket_add(row, usage)
+                    tokens, eq = bucket_add(row, usage, LOG_TO_QUOTA_PROVIDER.get(provider) == "claude")
                     if rtype == "assistant":
                         if identity in native_counted:
                             row["messages"] -= 1
@@ -286,11 +331,13 @@ def parse_session_file(path):
                         if day_row is None:
                             day_row = info["dayTokens"][day_key] = {
                                 "tokens": 0,
+                                "claudeEqTokens": 0,
                                 "cost": 0.0,
                                 "pricedTokens": 0,
                                 "unpricedTokens": 0,
                             }
                         day_row["tokens"] += tokens
+                        day_row["claudeEqTokens"] += eq
                         cost = usage.get("cost")
                         total = cost.get("total") if isinstance(cost, dict) else None
                         if isinstance(total, (int, float)) and total > 0:
@@ -654,8 +701,9 @@ def build_rollup(files, tasks, sessions_root, now=None):
             if day_ts is None or day_ts + 86400 <= cutoff:
                 continue
             fam = family_of(provider, model)
-            fam_bucket = week["byFamily"].setdefault(fam, empty_bucket())
+            fam_bucket = week["byFamily"].setdefault(fam, window_bucket())
             fam_bucket["tokens"] += day_row["tokens"]
+            fam_bucket["claudeEqTokens"] += day_row["claudeEqTokens"]
             fam_bucket["cost"] += day_row["cost"]
             fam_bucket["pricedTokens"] += day_row["pricedTokens"]
             fam_bucket["unpricedTokens"] += day_row["unpricedTokens"]
@@ -666,8 +714,9 @@ def build_rollup(files, tasks, sessions_root, now=None):
                 unattributed["sessions"] += 1
                 unattributed["tokens"] += sum(r["tokens"] for r in rows.values())
             continue
-        doc = task_docs.setdefault(task_id, {"tokens": 0, "cost": 0.0, "sessions": 0, "seconds": 0.0})
+        doc = task_docs.setdefault(task_id, {"tokens": 0, "claudeEqTokens": 0, "cost": 0.0, "sessions": 0, "seconds": 0.0})
         doc["tokens"] += sum(r["tokens"] for r in rows.values())
+        doc["claudeEqTokens"] += sum(r["claudeEqTokens"] for r in rows.values())
         doc["cost"] += sum(r["cost"] for r in rows.values())
         doc["sessions"] += 1
         if summary.get("startTs") is not None and summary.get("endTs") is not None:
@@ -684,6 +733,7 @@ def build_rollup(files, tasks, sessions_root, now=None):
         "byFamily": families,
         "trailing168h": week,
         "byProviderDay": provider_day_series(files),
+        "claudeEqWeights": CLAUDE_EQ_WEIGHTS,
         "tasks": task_docs,
         "unattributed": unattributed,
     }
@@ -836,8 +886,9 @@ def cmd_week(args, state_dir, sessions_root):
             if day_ts is None or day_ts + 86400 <= cutoff:
                 continue
             fam = family_of(provider, model)
-            bucket = families.setdefault(fam, empty_bucket())
+            bucket = families.setdefault(fam, window_bucket())
             bucket["tokens"] += day_row["tokens"]
+            bucket["claudeEqTokens"] += day_row["claudeEqTokens"]
             bucket["cost"] += day_row["cost"]
             bucket["pricedTokens"] += day_row["pricedTokens"]
             bucket["unpricedTokens"] += day_row["unpricedTokens"]
@@ -849,6 +900,8 @@ def cmd_week(args, state_dir, sessions_root):
         "hours": args.hours,
         "families": families,
         "totalTokens": sum(b["tokens"] for b in families.values()),
+        "claudeEqTokens": sum(b["claudeEqTokens"] for b in families.values()),
+        "claudeEqWeights": CLAUDE_EQ_WEIGHTS,
         "partial": remaining > 0,
     }
     print(json.dumps(doc, indent=1, sort_keys=True))
