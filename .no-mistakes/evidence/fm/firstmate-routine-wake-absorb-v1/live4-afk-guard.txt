@@ -1,0 +1,24 @@
+== successor: watcher: started pid=28210 (beacon fresh) recovery-generation=10364.1792057269.uNu5fX
+== queue before
+1792057269	8	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057270	9	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+== state/.afk created (away daemon owns triage)
+== $ bin/fm-wake-triage.sh --absorb
+1792057269	8	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+ROUTINE (worker verifiably working, no open decision, no hold):
+demo - crew: state: working · source: pane · busy (lab verdict)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 9 --recovery-generation 10364.1792057269.uNu5fX
+== triage exit=
+== queue after (must be untouched):
+1792057269	8	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057270	9	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+== state/.afk removed; $ bin/fm-wake-triage.sh --absorb
+demo - C7 signal has no current working annotation
+  crew: not read (failed earlier clause)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 9 --recovery-generation 10364.1792057269.uNu5fX
+== triage exit=
+== queue after: [1792057269	8	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057270	9	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status]
+== marker: announced:handling:10364.1792057269.uNu5fX
+== re-run under state/.afk: triage --absorb exit=10
+== queue rows still queued: 2

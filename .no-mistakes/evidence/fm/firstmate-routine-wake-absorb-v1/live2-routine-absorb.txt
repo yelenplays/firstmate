@@ -1,0 +1,27 @@
+== status file
+working: implementing [at=1792056713]
+working [at=1792056849]: running unit tests
+working [at=1792056873]: still going
+touching up docs
+working [at=1792057028]: wiring the parser
+== queue before
+1792057071	3	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057072	4	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+== recovery marker before: announced:downtime:19302.1792057071.gSnQ37
+== crew verdict now: state: working · source: pane · busy (lab verdict)
+== $ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 2 row(s), 1 task(s): 0 act now, 1 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792057072	4	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+wake annotation: latest wake-EVENT observed at drain, not current state: demo.status: working [at=1792057028]: wiring the parser
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+HIDDEN QUEUE ROWS (preserved despite drain deduplication):
+1792057071	3	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+ROUTINE (worker verifiably working, no open decision, no hold):
+demo - crew: state: working · source: pane · busy (lab verdict)
+WAKE_ACKED: triage acknowledged every row through 4; nothing needs firstmate
+== triage exit=0
+== queue after (empty means acknowledged):
+
+== recovery marker after: acked:handling:19302.1792057071.gSnQ37

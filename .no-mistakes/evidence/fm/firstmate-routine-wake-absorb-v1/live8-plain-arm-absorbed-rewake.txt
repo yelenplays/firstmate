@@ -1,0 +1,16 @@
+== plain arm (config/supervision-host-off): hook stderr = the rewake Claude would receive:
+firstmate watcher wake - absorbed: this Stop hook already ran bin/fm-wake-triage.sh for it and acknowledged every row (WAKE_ACKED), so nothing needs firstmate.
+signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+End this turn now: do not drain, triage, or acknowledge again. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+HOOK_RC=2 at 1792057928
+== queue after: []
+== recovery marker: acked:handling:49640.1792057903.XTyJSo
+== epoch ledger:
+epoch=2 owner_pid=73466 outcome=rewake updated_at=1792057928 session_pid=73460 recovery_generation=49640.1792057903.XTyJSo
+== hook's triage run:
+ROUTINE (worker verifiably working, no open decision, no hold):
+demo - crew: state: working · source: pane · busy (lab verdict)
+WAKE_ACKED: triage acknowledged every row through 21; nothing needs firstmate
+== watchers alive after the rewake (handling successor started before triage):
+67748       00:12 bash /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.uhj4SQ/checkout/bin/fm-watch-arm.sh
+67922       00:11 bash /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.uhj4SQ/checkout/bin/fm-watch.sh

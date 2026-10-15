@@ -1,0 +1,27 @@
+== successor: watcher: started pid=83269 (beacon fresh) recovery-generation=28210.1792057410.2dVqbE
+== crew verdict (still claims working): state: working · source: pane · busy (lab verdict)
+== queue before
+1792057410	10	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057411	11	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+== $ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 2 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792057411	11	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+wake annotation: latest wake-EVENT observed at drain, not current state: demo.status: done [at=1792057377]: shipped, PR https://example.test/pull/9
+STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):
+demo done [at=1792057377]: shipped, PR https://example.test/pull/9
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+dec [key=lane-1] needs-decision: pick lane A or B for the migration
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+HIDDEN QUEUE ROWS (preserved despite drain deduplication):
+1792057410	10	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+ACT NOW:
+demo - C7 latest status is captain-relevant
+  crew: not read (failed earlier clause)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 11 --recovery-generation 28210.1792057410.2dVqbE
+== triage exit=10
+== queue after (done rows must remain):
+1792057410	10	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057411	11	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status

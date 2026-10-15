@@ -1,0 +1,49 @@
+== successor: watcher: started pid=10364 (beacon fresh) recovery-generation=98606.1792057165.OFDeIp
+== queue before
+1792057165	5	signal	dec.status	needs-decision: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057166	6	signal	dec.status	needs-decision: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057166	7	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+== recovery marker before: announced:downtime:98606.1792057165.OFDeIp
+== $ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 3 row(s), 2 task(s): 1 act now, 1 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792057166	6	signal	dec.status	needs-decision: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057166	7	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+wake annotation: unread wake-EVENT since last drain, not current state: dec.status: working [at=1792057124]: started
+wake annotation: latest wake-EVENT observed at drain, not current state: dec.status: needs-decision [key=lane-1] [at=1792057149]: pick lane A or B for the migration
+wake annotation: latest wake-EVENT observed at drain, not current state: demo.status: working [at=1792057149]: refactoring helper
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+dec [key=lane-1] needs-decision: pick lane A or B for the migration
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+HIDDEN QUEUE ROWS (preserved despite drain deduplication):
+1792057165	5	signal	dec.status	needs-decision: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+ACT NOW:
+dec - C1 row shape is not eligible
+  crew: not read (failed earlier clause)
+ROUTINE (worker verifiably working, no open decision, no hold):
+demo - crew: state: working · source: pane · busy (lab verdict)
+ROUTINE ROWS ACKNOWLEDGED BY TRIAGE: 7 (the WAKE_ACK_REQUIRED command below retires the rest)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 7 --recovery-generation 98606.1792057165.OFDeIp
+== triage exit=10
+== queue after triage (decision rows must remain):
+1792057165	5	signal	dec.status	needs-decision: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057166	6	signal	dec.status	needs-decision: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+== recovery marker after triage: announced:handling:98606.1792057165.OFDeIp
+== journal (fm-history wake-ack entries):
+<!-- fm-history:wake-ack id=3bcdba82d943593f13b0fbd459ffad79 -->
+<!-- fm-history:wake-ack id=8ccdcedd9c017e30388a72b5c4447d14 -->
+<!-- fm-history:wake-ack id=1da1e011152364ce2a2475537493863e -->
+== journal entry for the triage --ack-rows acknowledgement (/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/data/history/days/2026-10-15.md)
+<!-- fm-history:wake-ack id=1da1e011152364ce2a2475537493863e -->
+### 11:39 wake acknowledgement 7
+```json
+{
+  "actor": "main",
+  "acknowledgement_number": 7,
+  "rows_acknowledged": 1,
+== $ bin/fm-wake-drain.sh --ack-through 7 --recovery-generation 98606.1792057165.OFDeIp   (the handling turn's printed command)
+rc=0
+== queue after: []
+== marker after: acked:handling:98606.1792057165.OFDeIp

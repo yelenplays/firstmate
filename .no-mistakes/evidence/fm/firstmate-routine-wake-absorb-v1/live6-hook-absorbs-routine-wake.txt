@@ -1,0 +1,36 @@
+== hook stderr so far (empty = the model was NOT woken): []
+== hook process still running (re-parked):
+48892       00:11 bash /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.uhj4SQ/checkout/bin/fm-supervision-host.sh park
+49600       00:10 bash /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.uhj4SQ/checkout/bin/fm-watch-arm.sh --take-over 38069
+51631       00:08 bash /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.uhj4SQ/checkout/bin/fm-watch.sh
+== supervision host log:
+1792057608	start	gen=host-77468-1792057607	primary=claude
+1792057608	pass-through	a close without a wake
+1792057609	start	gen=host-79011-1792057609	primary=claude
+1792057610	pass-through	a close without a wake
+1792057665	start	gen=host-49555-1792057664	primary=claude
+1792057735	pass-through	attended	main-only	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057746	start	gen=host-48892-1792057745	primary=claude
+1792057746	take-over	arm=38069
+== state/.claude-autoarm-triage.last (the hook's own triage run):
+WAKE TRIAGE: 2 row(s), 1 task(s): 0 act now, 1 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792057733	15	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+wake annotation: latest wake-EVENT observed at drain, not current state: demo.status: working [at=1792057694]: adding the retry path
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+dec [key=lane-1] needs-decision: pick lane A or B for the migration
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+HIDDEN QUEUE ROWS (preserved despite drain deduplication):
+1792057732	14	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+ROUTINE (worker verifiably working, no open decision, no hold):
+demo - crew: state: working · source: pane · busy (lab verdict)
+WAKE_ACKED: triage acknowledged every row through 15; nothing needs firstmate
+== queue now: []
+== recovery marker now: acked:handling:51883.1792057733.ZhtuxW
+== autoarm epoch ledger:
+epoch=1 owner_pid=47578 outcome=arming updated_at=1792057663
+Thu Oct 15 11:47:43 2026     bash bin/fm-claude-stop-autoarm.sh
+re-park pid=48892 (hook started at 1792057663, re-parked at 1792057746, elapsed 83s): FM_SUPERVISION_HOST_PARK_SECONDS=2318
+re-park pid=48892 (hook started at 1792057663, re-parked at 1792057746, elapsed 83s): FM_SUPERVISION_HOST_PARK_LIMIT=2318

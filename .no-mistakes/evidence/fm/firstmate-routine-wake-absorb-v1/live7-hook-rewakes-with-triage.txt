@@ -1,0 +1,38 @@
+== hook stderr = the rewake Claude would receive as 'Stop hook feedback':
+firstmate watcher wake - one supervision event needs a handling turn now.
+signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+This Stop hook already ran bin/fm-wake-triage.sh for this wake; its output follows, and its full copy is /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/.claude-autoarm-triage.last. Do not run the triage or the drain again for it: handle every ACT NOW item, then run the WAKE_ACK_REQUIRED command it ends with. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+--- bin/fm-wake-triage.sh output ---
+WAKE TRIAGE: 4 row(s), 2 task(s): 1 act now, 1 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792057816	18	signal	dec.status	needs-decision: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057817	19	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+wake annotation: latest wake-EVENT observed at drain, not current state: dec.status: needs-decision [key=lane-2] [at=1792057773]: approve deleting the legacy endpoint?
+wake annotation: latest wake-EVENT observed at drain, not current state: demo.status: working [at=1792057773]: polishing
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+dec [key=lane-1] needs-decision: pick lane A or B for the migration
+dec [key=lane-2] needs-decision: approve deleting the legacy endpoint?
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+HIDDEN QUEUE ROWS (preserved despite drain deduplication):
+1792057815	16	signal	dec.status	needs-decision: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057816	17	signal	demo.status	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+ACT NOW:
+dec - C1 row shape is not eligible
+  crew: not read (failed earlier clause)
+ROUTINE (worker verifiably working, no open decision, no hold):
+demo - crew: state: working · source: pane · busy (lab verdict)
+ROUTINE ROWS ACKNOWLEDGED BY TRIAGE: 17,19 (the WAKE_ACK_REQUIRED command below retires the rest)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 19 --recovery-generation 51631.1792057815.cb78kp
+HOOK_RC=2 at 1792057829
+== queue after (decision rows remain, routine row retired):
+1792057815	16	signal	dec.status	needs-decision: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+1792057816	18	signal	dec.status	needs-decision: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/dec.status /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.uhj4SQ/state/demo.status
+== recovery marker: announced:handling:51631.1792057815.cb78kp
+== epoch ledger:
+epoch=1 owner_pid=47578 outcome=rewake updated_at=1792057829 session_pid=47568 recovery_generation=51631.1792057815.cb78kp
+Thu Oct 15 11:47:43 2026     bash bin/fm-claude-stop-autoarm.sh
+== supervision host log tail:
+/usr/bin/read: line 4: read: -3: invalid option
+read: usage: read [-ers] [-u fd] [-t timeout] [-p prompt] [-a array] [-n nchars] [-d delim] [name ...]
