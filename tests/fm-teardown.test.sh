@@ -2004,6 +2004,10 @@ SH
 test_forced_secondmate_dirty_child_return_warns_and_completes() {
   local case_dir home child_wt rc
   case_dir=$(make_case secondmate-child-dirty-return)
+  # The child's pool slot is serialized by the shared project lock, which lives
+  # in the root home's state directory, so that directory must exist as it does
+  # in every real home.
+  mkdir -p "$case_dir/fm-home/state"
   write_meta "$case_dir" local-only secondmate
   home="$case_dir/secondmate-home"
   mkdir -p "$home/state" "$home/data" "$home/config" "$home/projects"
