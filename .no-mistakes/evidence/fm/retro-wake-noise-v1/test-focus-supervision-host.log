@@ -1,0 +1,7 @@
+ok - drain: a keyed decision survives acknowledgement through a newer outcome for its task
+ok - host+hook: the next park takes over the cycle a main-only pass-through left, so one arm owns it
+case failed rc=1: test_undelivered_dialog_is_fed_again_on_the_next_turn
+not ok - mirror boundary: the first wake was not handled: 1792083354	start	gen=host-31539-1792083352	primary=claude
+1792083426	failed	turn=host-31539-1792083352.1	posture=attended	rc=124	reports=0	unacked=1 2	no-result		signal: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.UfH2sf/mirror-boundary/state/demo.status
+1792083430	to-main	the supervision session could not take this wake: the engine turn hit its 20s bound; this wake is yours
+ok - host: an away wake is handled on the engine through the branch contract and never reaches main

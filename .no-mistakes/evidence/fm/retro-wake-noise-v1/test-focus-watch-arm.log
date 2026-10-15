@@ -1,0 +1,3 @@
+watcher: secondmate liveness check failed
+ok - watch-arm: a clean close with no queued rows retires quietly; a faulted or handling close still presents
+ok - watch: a stop signal deferred during a check spawn exits in the signal range

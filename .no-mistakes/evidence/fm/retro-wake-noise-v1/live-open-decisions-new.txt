@@ -1,0 +1,59 @@
+### lab FM_HOME=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ww4BGM, 22 still-open frontend decisions seeded
+
+$ bin/fm-wake-triage.sh   # NEW (target 2845a9fc), wake #1
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ww4BGM/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS (22 still open; 22 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+frontend-01 [key=fe-01] needs-decision: old frontend decision 01 - pick variant A or B for the card layout
+frontend-02 [key=fe-02] needs-decision: old frontend decision 02 - pick variant A or B for the card layout
+frontend-03 [key=fe-03] needs-decision: old frontend decision 03 - pick variant A or B for the card layout
+frontend-04 [key=fe-04] needs-decision: old frontend decision 04 - pick variant A or B for the card layout
+frontend-05 [key=fe-05] needs-decision: old frontend decision 05 - pick variant A or B for the card layout
+frontend-06 [key=fe-06] needs-decision: old frontend decision 06 - pick variant A or B for the card layout
+frontend-07 [key=fe-07] needs-decision: old frontend decision 07 - pick variant A or B for the card layout
+frontend-08 [key=fe-08] needs-decision: old frontend decision 08 - pick variant A or B for the card layout
+frontend-09 [key=fe-09] needs-decision: old frontend decision 09 - pick variant A or B for the card layout
+frontend-10 [key=fe-10] needs-decision: old frontend decision 10 - pick variant A or B for the card layout
+frontend-11 [key=fe-11] needs-decision: old frontend decision 11 - pick variant A or B for the card layout
+frontend-12 [key=fe-12] needs-decision: old frontend decision 12 - pick variant A or B for the card layout
+frontend-13 [key=fe-13] needs-decision: old frontend decision 13 - pick variant A or B for the card layout
+frontend-14 [key=fe-14] needs-decision: old frontend decision 14 - pick variant A or B for the card layout
+frontend-15 [key=fe-15] needs-decision: old frontend decision 15 - pick variant A or B for the card layout
+frontend-16 [key=fe-16] needs-decision: old frontend decision 16 - pick variant A or B for the card layout
+frontend-17 [key=fe-17] needs-decision: old frontend decision 17 - pick variant A or B for the card layout
+frontend-18 [key=fe-18] needs-decision: old frontend decision 18 - pick variant A or B for the card layout
+frontend-19 [key=fe-19] needs-decision: old frontend decision 19 - pick variant A or B for the card layout
+frontend-20 [key=fe-20] needs-decision: old frontend decision 20 - pick variant A or B for the card layout
+frontend-21 [key=fe-21] needs-decision: old frontend decision 21 - pick variant A or B for the card layout
+frontend-22 [key=fe-22] needs-decision: old frontend decision 22 - pick variant A or B for the card layout
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+[exit 0]
+
+$ bin/fm-wake-triage.sh   # NEW (target 2845a9fc), wake #2
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ww4BGM/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS: 22 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[exit 0]
+
+$ bin/fm-wake-triage.sh   # NEW (target 2845a9fc), wake #3
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ww4BGM/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS: 22 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[exit 0]
+
+### a new decision arrives and one known note changes
+$ bin/fm-wake-triage.sh   # NEW, wake #4
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.ww4BGM/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS (23 still open; 2 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+backend-hotfix [key=deploy] needs-decision: ship the hotfix to prod now or wait for the freeze?
+frontend-07 [key=fe-07] needs-decision: old frontend decision 07 - re-asked: variant C is now available
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+[exit 0]
+
+$ bin/fm-wake-triage.sh --decisions   # NEW, explicit full list
+listed needs-decision lines: 23

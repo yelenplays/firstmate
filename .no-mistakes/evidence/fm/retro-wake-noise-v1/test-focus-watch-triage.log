@@ -1,0 +1,3 @@
+ok - a captain-parked pause is never rechecked on a cadence, only once at its hold-until date
+ok - a long silent poll holds the idle threshold while its recorded step advances, then escalates once it stops
+ok - the hold rests on the every-harness turn anchor, so a harness with no .progress marker still defers and still detects

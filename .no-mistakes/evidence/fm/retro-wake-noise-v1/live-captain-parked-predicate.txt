@@ -1,0 +1,7 @@
+$ bin/fm-captain-hold.sh parked lay-go-live-cloudflare
+parked	2099-12-01
+[exit=0]
+$ bin/fm-captain-hold.sh parked open-call
+[exit=1]
+$ bin/fm-captain-hold.sh parked no-such-task
+[exit=3]

@@ -1,0 +1,50 @@
+=== main: first drain (fresh ledger) ===
+$ bin/fm-wake-drain.sh
+OPEN DECISIONS (22 still open; 22 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+web-01 [key=frontend-01] needs-decision: old known frontend decision number 01 about layout
+web-02 [key=frontend-02] needs-decision: old known frontend decision number 02 about layout
+web-03 [key=frontend-03] needs-decision: old known frontend decision number 03 about layout
+web-04 [key=frontend-04] needs-decision: old known frontend decision number 04 about layout
+web-05 [key=frontend-05] needs-decision: old known frontend decision number 05 about layout
+web-06 [key=frontend-06] needs-decision: old known frontend decision number 06 about layout
+... (lines total: 24 )
+=== main: second drain, nothing new ===
+$ bin/fm-wake-drain.sh
+OPEN DECISIONS: 22 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[rc=0]
+
+=== main: via fm-wake-triage.sh, nothing new ===
+$ bin/fm-wake-triage.sh
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.li0nmR/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS: 22 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[rc=0]
+
+=== main: one new decision added ===
+$ bin/fm-wake-drain.sh
+OPEN DECISIONS (23 still open; 1 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+api [key=api-auth] needs-decision: brand new decision on auth
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+[rc=0]
+
+=== main: --decisions full list (head) ===
+$ bin/fm-wake-drain.sh --decisions
+OPEN DECISIONS (23 still open, folded from the durable status logs - not just the latest line):
+api [key=api-auth] needs-decision: brand new decision on auth
+web-01 [key=frontend-01] needs-decision: old known frontend decision number 01 about layout
+web-02 [key=frontend-02] needs-decision: old known frontend decision number 02 about layout
+=== branch conv A: first turn ===
+0
+=== branch conv A: second turn ===
+$ bin/fm-wake-drain.sh
+wake drain: no branch-eligible row snapshot at /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.li0nmR/state/.branch-eligible-rows; refusing to guess what this actor may consume
+[rc=1]
+
+=== branch conv B (rotated): first turn lists again ===
+0
+=== main after branch turns: still quiet ===
+$ bin/fm-wake-drain.sh
+OPEN DECISIONS: 23 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[rc=0]
+

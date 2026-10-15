@@ -1,0 +1,31 @@
+=== branch conversation convA, turn 1 (fresh conversation) ===
+wake annotation: latest wake-EVENT observed at drain, not current state: web-04.status: needs-decision [key=frontend-04]: old known frontend decision number 04 about layout
+OPEN DECISIONS (23 still open; 23 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+api [key=api-auth] needs-decision: brand new decision on auth
+[rc=0]
+(26 OPEN DECISIONS lines)
+
+=== branch conversation convA, turn 2 (same resumed conversation) ===
+wake annotation: latest wake-EVENT observed at drain, not current state: web-05.status: needs-decision [key=frontend-05]: old known frontend decision number 05 about layout
+OPEN DECISIONS: 23 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[rc=0]
+(2 OPEN DECISIONS lines)
+
+=== branch convA, turn 3 after one new decision ===
+wake annotation: latest wake-EVENT observed at drain, not current state: db.status: needs-decision [key=db-mig]: new migration decision
+OPEN DECISIONS (24 still open; 1 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+db [key=db-mig] needs-decision: new migration decision
+[rc=0]
+(4 OPEN DECISIONS lines)
+
+=== branch conversation convB (host rotated to a new conversation) ===
+wake annotation: latest wake-EVENT observed at drain, not current state: web-06.status: needs-decision [key=frontend-06]: old known frontend decision number 06 about layout
+OPEN DECISIONS (24 still open; 24 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+api [key=api-auth] needs-decision: brand new decision on auth
+[rc=0]
+(27 OPEN DECISIONS lines)
+
+=== main afterwards: main's own ledger still lists only its news (db-mig), not branch-seen state ===
+OPEN DECISIONS (24 still open; 1 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+db [key=db-mig] needs-decision: new migration decision
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
