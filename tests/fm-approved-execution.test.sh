@@ -110,8 +110,21 @@ printf 'kind=ship\nwindow=fake\nworktree=%s\nproject=%s\nspawn_gen=s1\nharness=p
 token=$("$EXEC" attempt approved-scout)
 "$EXEC" show approved-scout | grep -q 'owner unconfirmed'
 if "$EXEC" started approved-scout "$token" 2>/dev/null; then fail 'firstmate cwd accepted as worker receipt'; fi
-(cd "$home/worker" && "$EXEC" started approved-scout "$token")
+# Normal status reporting, without a separate started call, must acknowledge
+# processing. Supervisor cwd, stale tokens and malformed appends cannot do so.
+if "$EXEC" status approved-scout "$token" 'working: wrong cwd' 2>/dev/null; then fail 'supervisor status confirmed processing'; fi
+if (cd "$home/worker" && "$EXEC" status approved-scout stale 'working: stale token') 2>/dev/null; then fail 'stale status confirmed processing'; fi
+if (cd "$home/worker" && "$EXEC" status approved-scout "$token" $'working: one\nworking: two') 2>/dev/null; then fail 'multi-line status accepted'; fi
+"$EXEC" show approved-scout | grep -q 'owner unconfirmed'
+worker_line="working [at=$(date +%s)]: isolated worker processing"
+(cd "$home/worker" && "$EXEC" status approved-scout "$token" "$worker_line")
+[ "$(tail -1 "$home/state/approved-scout.status")" = "$worker_line" ] || fail 'status receipt changed the worker event'
 "$EXEC" confirmed approved-scout
+FM_FAKE_CREW_STATE='state: working · source: pane · harness busy' "$EXEC" show approved-scout | grep -q 'worker.*continue-implementation'
+# Receipt durability is independent of later deliberate pipeline waits.
+(cd "$home/worker" && "$EXEC" status approved-scout "$token" 'paused: waiting for validation')
+"$EXEC" confirmed approved-scout
+FM_FAKE_CREW_STATE='state: working · source: run-step · running test' "$EXEC" show approved-scout | grep -q 'worker.*continue-validation'
 FM_FAKE_CREW_STATE='state: working · source: status-log · old note' "$EXEC" show approved-scout | grep -q 'firstmate.*verify-idle'
 FM_FAKE_CREW_STATE='state: unknown · source: none · endpoint dead' "$EXEC" show approved-scout | grep -q 'firstmate.*recover-or-escalate'
 FM_FAKE_CREW_STATE='state: working · source: run-step · running review' "$EXEC" show approved-scout | grep -q 'worker.*continue-validation'
@@ -123,6 +136,9 @@ FM_FAKE_CREW_STATE='state: paused · source: status-log · external wait' "$EXEC
 new_token=$("$EXEC" attempt approved-scout)
 if (cd "$home/worker" && "$EXEC" started approved-scout "$token") 2>/dev/null; then fail 'old receipt survived new handoff'; fi
 if "$EXEC" confirmed approved-scout; then fail 'unconfirmed relaunch counted as processing'; fi
+before_status=$(cksum "$home/state/approved-scout.status")
+if (cd "$home/worker" && "$EXEC" status approved-scout "$token" 'working: stale worker') 2>/dev/null; then fail 'old status receipt survived relaunch'; fi
+[ "$(cksum "$home/state/approved-scout.status")" = "$before_status" ] || fail 'rejected old worker appended status'
 (cd "$home/worker" && "$EXEC" started approved-scout "$new_token")
 # Receipt durability after a new process, and rejection after a changed incarnation.
 "$EXEC" confirmed approved-scout
@@ -259,5 +275,16 @@ printf 'kind=task\nwindow=fake\nworktree=%s/task-worker\nproject=%s/project\nspa
 task_token=$(FM_HOME="$home" "$EXEC" attempt task-receipt --spawn-gen task-gen)
 (cd "$home/task-worker" && FM_HOME="$home" "$EXEC" started task-receipt "$task_token")
 FM_HOME="$home" "$EXEC" confirmed task-receipt
+# Unenrolled legacy workers may report without fabricating implementation consent.
+rm "$home/state/task-receipt.execution"
+(cd "$home/task-worker" && "$EXEC" status task-receipt '' 'working: unenrolled worker')
+[ ! -e "$home/state/task-receipt.execution" ] || fail 'status enrolled unauthorized implementation'
+[ "$(tail -1 "$home/state/task-receipt.status")" = 'working: unenrolled worker' ] || fail 'unenrolled status lost'
+# The status target must not redirect a worker append to another file.
+rm "$home/state/task-receipt.status"
+printf 'untouched\n' > "$home/other-file"
+ln -s "$home/other-file" "$home/state/task-receipt.status"
+if (cd "$home/task-worker" && "$EXEC" status task-receipt '' 'working: redirected') 2>/dev/null; then fail 'symlink status target accepted'; fi
+[ "$(<"$home/other-file")" = untouched ] || fail 'status followed a symlink'
 
 printf 'PASS: authority, fan-out, waits, promotion, receipts, restart, handoff and watcher transitions\n'

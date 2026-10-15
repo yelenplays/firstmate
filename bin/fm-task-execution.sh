@@ -5,6 +5,7 @@
 #   approve ID --basis captain-approved|accepted-intent
 #   attempt ID [--spawn-gen GENERATION]
 #   started ID TOKEN                   (worker, from its isolated worktree)
+#   status ID TOKEN LINE               (worker receipt plus status append)
 #   show ID | scan | notify
 #   confirmed ID                      (read-only receipt check for crew-state)
 #
@@ -25,6 +26,13 @@
 # to spawn_gen. Executing this instruction proves processing of this handoff,
 # not successful implementation, activity, or progress. It is independent of
 # vendor text and works even when a harness has no semantic busy source.
+# status applies the same receipt checks before appending one worker status
+# line and optionally recording it in the fleet ledger. Spawn binds TOKEN into
+# the standard status recipe in the delivered brief, so normal reporting
+# confirms processing without a separate remembered step. An empty token is
+# allowed only for unenrolled tasks and never creates an execution obligation.
+# A status receipt proves processing, not current progress: scan still uses
+# crew-state, and old status lines or launch seeds alone never confirm activity.
 #
 # scan derives accountable owner and concrete next action from the obligation,
 # the existing backlog parser (holds/dependencies), and fm-crew-state's current
@@ -223,7 +231,7 @@ case "$command" in
       fm_lock_release "$LOCK"; LOCK=''
     done
     exit 0 ;;
-  approve|attempt|started|show|confirmed) ;;
+  approve|attempt|started|status|show|confirmed) ;;
   *) fail 'unknown command (use --help)' ;;
 esac
 id=${1:-}; shift || true; valid_id "$id"
@@ -278,22 +286,49 @@ case "$command" in
     fi
     token="e$(date +%s).${BASHPID:-$$}.$RANDOM"
     content=$(jq --arg token "$token" --arg gen "$gen" '.phase="attempted" | .attempt=$token | .attempt_gen=$gen | .spawn_gen=""' "$file") ;;
-  started)
-    record_valid "$file" || fail 'no valid execution obligation'
-    [ "$#" = 1 ] && [ -n "$1" ] || fail 'started requires handoff token'
-    [ "$(jq -r .attempt "$file")" = "$1" ] || fail 'stale or mismatched handoff token'
+  started|status)
+    if [ "$command" = status ]; then
+      [ "$#" = 2 ] && [ -n "$2" ] || fail 'status requires token and one status line'
+      status_line=$2
+      case "$status_line" in *$'\n'*|*$'\r'*) fail 'status requires a single line' ;; esac
+      [ ! -L "$STATE/$id.status" ] || fail 'status file is a symlink'
+      [ ! -e "$STATE/$id.status" ] || [ -f "$STATE/$id.status" ] || fail 'status file is not regular'
+    else
+      [ "$#" = 1 ] && [ -n "$1" ] || fail 'started requires handoff token'
+    fi
+    enrolled=0
+    if [ -e "$file" ]; then
+      record_valid "$file" || fail 'no valid execution obligation'
+      [ -n "$1" ] && [ "$(jq -r .attempt "$file")" = "$1" ] || fail 'stale or mismatched handoff token'
+      enrolled=1
+    else
+      [ "$command" = status ] && [ -z "$1" ] || fail 'no valid execution obligation'
+    fi
     case "$(meta "$STATE/$id.meta" kind)" in ship|task) ;; *) fail 'a scout or secondmate is not an implementation owner' ;; esac
     wt=$(meta "$STATE/$id.meta" worktree); project=$(meta "$STATE/$id.meta" project)
     gen=$(meta "$STATE/$id.meta" spawn_gen)
     [ -n "$gen" ] && [ -d "$wt" ] && [ -d "$project" ] || fail 'missing dispatch identity'
-    [ "$(jq -r .attempt_gen "$file")" = "$gen" ] || fail 'handoff belongs to another spawn incarnation'
+    if [ "$enrolled" = 1 ]; then
+      [ "$(jq -r .attempt_gen "$file")" = "$gen" ] || fail 'handoff belongs to another spawn incarnation'
+    fi
     wt=$(cd "$wt" && pwd -P); project=$(cd "$project" && pwd -P)
     [ "$(pwd -P)" = "$wt" ] && [ "$wt" != "$project" ] \
       && [ "$(git rev-parse --show-toplevel 2>/dev/null)" = "$wt" ] \
       || fail 'receipt must run in the isolated worker copy'
-    content=$(jq --arg gen "$gen" '.phase="processing" | .spawn_gen=$gen' "$file") ;;
+    content=''
+    if [ "$enrolled" = 1 ]; then
+      content=$(jq --arg gen "$gen" '.phase="processing" | .spawn_gen=$gen' "$file")
+    fi ;;
 esac
-TMP="$STATE/.$id.execution.${BASHPID:-$$}"
-(umask 077; printf '%s\n' "$content" > "$TMP")
-mv -f -- "$TMP" "$file"; TMP=
+if [ -n "$content" ]; then
+  TMP="$STATE/.$id.execution.${BASHPID:-$$}"
+  (umask 077; printf '%s\n' "$content" > "$TMP")
+  mv -f -- "$TMP" "$file"; TMP=
+fi
+if [ "$command" = status ]; then
+  printf '%s\n' "$status_line" >> "$STATE/$id.status"
+  if [ -e "$FM_HOME/config/fleet-ledger" ]; then
+    "$SCRIPT_DIR/fm-fleet-ledger.sh" appended "$FM_HOME/config" "$STATE/$id.status" >/dev/null 2>&1 || true
+  fi
+fi
 [ "$command" != attempt ] || printf '%s\n' "$token"

@@ -2603,12 +2603,23 @@ test_launch_and_old_working_events_do_not_prove_processing() {
   gen=$("$ROOT/bin/fm-busy-event.sh" arm "$d/state" execution-proof)
   out=$(run_crew_state "$d" execution-proof)
   assert_contains "$out" 'state: unknown' 'unconfirmed launch counted as working'
-  (cd "$d/wt" && FM_HOME="$d" "$ROOT/bin/fm-task-execution.sh" started execution-proof "$token") || fail 'isolated receipt failed'
+  printf 'working [at=%s]: plain legacy append\n' "$(date +%s)" > "$d/state/execution-proof.status"
+  out=$(run_crew_state "$d" execution-proof)
+  assert_contains "$out" 'handoff processing unconfirmed' 'unattributed status echo counted as a receipt'
+  # The delivered status command proves its isolated cwd and incarnation as
+  # part of reporting, even when the worker omits the separate started step.
+  (cd "$d/wt" && FM_HOME="$d" "$ROOT/bin/fm-task-execution.sh" status execution-proof "$token" 'working: processing brief') || fail 'isolated status receipt failed'
   out=$(run_crew_state "$d" execution-proof)
   assert_contains "$out" 'launch/recovery seed is not verified processing' 'launch seed counted as active harness evidence'
   "$ROOT/bin/fm-busy-event.sh" apply "$d/state" execution-proof busy --gen "$gen" --source claude-hook --event user-prompt-submit
   out=$(run_crew_state "$d" execution-proof)
   assert_contains "$out" 'state: working' 'actual semantic busy event was rejected'
+  (cd "$d/wt" && FM_HOME="$d" "$ROOT/bin/fm-task-execution.sh" status execution-proof "$token" 'paused: validation in progress') || fail 'pipeline wait status failed'
+  FM_FAKE_AXI_STATUS="$(run_running fm/execution-proof)"
+  out=$(run_crew_state "$d" execution-proof)
+  assert_contains "$out" 'state: working' 'status receipt did not preserve validation ownership'
+  assert_contains "$out" 'source: run-step' 'validation after worker receipt lost its authoritative source'
+  FM_FAKE_AXI_STATUS=""
   "$ROOT/bin/fm-busy-event.sh" apply "$d/state" execution-proof idle --gen "$gen" --source claude-hook --event stop
   printf 'working: old event acknowledged again\n' > "$d/state/execution-proof.status"
   out=$(run_crew_state "$d" execution-proof)
@@ -2635,7 +2646,14 @@ test_launch_and_old_working_events_do_not_prove_processing() {
   out=$(FM_HOME="$d" run_crew_state "$d" execution-task-proof)
   assert_contains "$out" 'state: unknown' 'an unconfirmed task receipt was reported as working'
   assert_contains "$out" 'handoff processing unconfirmed' 'task receipt mismatch was not reported'
-  pass 'launch seed, unconfirmed ship/task handoffs and stale working events never prove current processing'
+  token=$(FM_HOME="$d" "$ROOT/bin/fm-task-execution.sh" attempt execution-task-proof)
+  (cd "$d/task-wt" && FM_HOME="$d" "$ROOT/bin/fm-task-execution.sh" status execution-task-proof "$token" 'paused: validation in progress') || fail 'task status receipt failed'
+  gen=$("$ROOT/bin/fm-busy-event.sh" arm "$d/state" execution-task-proof)
+  "$ROOT/bin/fm-busy-event.sh" apply "$d/state" execution-task-proof busy --gen "$gen" --source claude-hook --event user-prompt-submit
+  out=$(FM_HOME="$d" run_crew_state "$d" execution-task-proof)
+  assert_contains "$out" 'state: working' 'real task status receipt did not restore active worker ownership'
+  assert_contains "$out" 'source: pane' 'task receipt replaced the ordinary activity source'
+  pass 'status reporting confirms isolated ship/task processing, never launch seeds or stale working events'
 }
 
 # A launch pinned at the fm-spawn seed (no hook has posted yet) whose pane
@@ -5791,6 +5809,11 @@ test_captured_completed_history() {
   done
   pass 'captured completed status yields to synthetic subsequent development'
 }
+
+if [ "${1:-}" = --execution-receipts ]; then
+  test_launch_and_old_working_events_do_not_prove_processing
+  exit 0
+fi
 
 test_captured_axi_status_shapes
 test_captured_inventory_replay

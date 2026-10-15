@@ -2418,11 +2418,13 @@ SH
   done
 }
 
-test_launch_environment_allowlist
-test_launch_environment_invalid_config_refuses
-test_launch_environment_inaccessible_config_refuses
-test_launch_environment_inherited_by_secondmate
-test_launch_environment_inheritance_preserves_on_source_errors
+if [ "${1:-}" != --execution-receipts ]; then
+  test_launch_environment_allowlist
+  test_launch_environment_invalid_config_refuses
+  test_launch_environment_inaccessible_config_refuses
+  test_launch_environment_inherited_by_secondmate
+  test_launch_environment_inheritance_preserves_on_source_errors
+fi
 
 test_worker_launch_delivers_role_scope() {
   local rec id out launch kind prompt envelope encoded brief_kind brief content first_line role_line task_line inbox
@@ -2745,6 +2747,57 @@ test_non_claude_harness_ignores_claude_permission_mode() {
   pass "config/claude-permission-mode changes claude launches only"
 }
 
+# Exercise the actual delivered prompt and execute its ordinary reporting
+# command, omitting the separate appendix receipt exactly as real workers did.
+test_enrolled_launch_status_confirms_processing() {
+  local rec id out brief content launch command prompt token
+  id=execution-status-receipt
+  rec=$(make_spawn_case "$id" codex)
+  read_case_record "$rec"
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-brief.sh" "$id" arbitrary-project-name --mode no-mistakes >/dev/null || fail 'receipt scaffold failed'
+  brief="$HOME_DIR/data/$id/brief.md"
+  content=$(<"$brief")
+  content=${content//'{TASK}'/Implement approved change.}
+  content=${content//'{FIRSTMATE_SPEC}'/Exercise worker status receipt.}
+  printf '%s\n' "$content" > "$brief"
+  # Enrollment enables the real tasks-axi backlog path, whose bounded reads
+  # need the timeout owner's actual CLI rather than the launch-only stub.
+  rm "$FAKEBIN_DIR/timeout"
+  cp "$ROOT/.tasks.toml" "$HOME_DIR/.tasks.toml"
+  printf '## In flight\n- [ ] %s - Implement approved change (kind: ship)\n\n## Queued\n\n## Done\n' "$id" > "$HOME_DIR/data/backlog.md"
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" approve "$id" --basis captain-approved || fail 'could not approve receipt task'
+  cat > "$FAKEBIN_DIR/codex" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$FM_ROLE_PROMPT"
+SH
+  chmod +x "$FAKEBIN_DIR/codex"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  expect_code 0 "$?" "enrolled spawn failed: $out"
+  if FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$id"; then fail 'spawn confirmed before worker activity'; fi
+  # The source instructions stay unchanged; the token belongs to this launch.
+  cmp -s "$brief" <(printf '%s\n' "$content") || fail 'spawn rewrote source instructions'
+  launch=$(<"$LAUNCH_LOG")
+  FM_ROLE_PROMPT="$CASE_DIR/envelope" PATH="$FAKEBIN_DIR:$PATH" bash -c "$launch" || fail 'could not consume enrolled launch'
+  prompt="$CASE_DIR/prompt"
+  sed -n '/FIRSTMATE_OP: v1 launch-brief:/,$p' "$CASE_DIR/envelope" | "$ROOT/bin/fm-operational-input.sh" body > "$prompt" || fail 'could not decode enrolled launch'
+  command=$(awk '/^[[:space:]]*`FM_HOME=.* status / {sub(/^[[:space:]]*`/, ""); sub(/`$/, ""); print; exit}' "$prompt")
+  [ -n "$command" ] || fail 'delivered status recipe has no receipt'
+  command=${command//'{state}'/working}
+  command=${command//'<epoch>'/$(date +%s)}
+  command=${command//'{one short line}'/worker processing}
+  if (cd "$HOME_DIR" && bash -c "$command") 2>/dev/null; then fail 'delivered recipe accepted firstmate cwd'; fi
+  (cd "$WT_DIR" && bash -c "$command") || fail 'delivered recipe failed in isolated worker copy'
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$id" || fail 'normal reporting did not confirm processing'
+  assert_grep 'worker processing' "$HOME_DIR/state/$id.status" 'worker event was not appended'
+  token=$(jq -r .attempt "$HOME_DIR/state/$id.execution")
+  [ -n "$token" ] || fail 'spawn omitted the receipt token'
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" attempt "$id" >/dev/null
+  if (cd "$WT_DIR" && bash -c "$command") 2>/dev/null; then fail 'old delivered recipe survived a new handoff'; fi
+  pass 'delivered status command confirms isolated worker processing without the separate receipt'
+}
+
+test_enrolled_launch_status_confirms_processing
+if [ "${1:-}" = --execution-receipts ]; then exit 0; fi
 test_launch_preserves_inherited_git_config
 test_worker_launch_delivers_role_scope
 test_no_profile_keeps_claude_profile_defaults
