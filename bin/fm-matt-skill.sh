@@ -53,6 +53,8 @@
 #   4    plugin installed but not enabled
 #   5    skill not offered by this installed plugin version
 #   6    integrity or ambiguity refusal
+#   7    --list left out at least one offered skill that does not resolve; the
+#        ones that do are still printed and each left-out one is named on stderr
 #   127  a required tool is missing
 #
 # Nothing reaches stdout unless every check passed, so a caller may treat any
@@ -159,19 +161,20 @@ fi
 
 # The repo's single owner of plugin-skill resolution finds the one enabled
 # install, verifies it, and decides what it offers. Its refusals pass through
-# verbatim on stderr, exit status included.
+# verbatim on stderr, exit status included. A partial listing (7) still
+# carries the skills that resolve.
 resolve() {  # <args...> -> resolver stdout, or exit with its status
   set +e
   RESOLVED=$("$RESOLVER" "$PLUGIN" "$@" --include-undeclared)
   RC=$?
   set -e
-  [ "$RC" -eq 0 ] || exit "$RC"
+  [ "$RC" -eq 0 ] || [ "$RC" -eq 7 ] || exit "$RC"
 }
 
 if [ "$LIST" -eq 1 ]; then
   resolve --list-skills
   [ -z "$RESOLVED" ] || printf '%s\n' "$RESOLVED" | cut -f 1
-  exit 0
+  exit "$RC"
 fi
 
 resolve "$SKILL"

@@ -539,6 +539,41 @@ test_retired_skills_are_pruned_and_reinstalls_are_idempotent() {
   pass "retired pointers are pruned and repeat installs change nothing"
 }
 
+# A skill upstream still ships but that stops resolving is not retired: --prune
+# keeps its pointer and says why, and --check reports it as unresolved.
+test_prune_keeps_pointers_of_unresolved_skills() {
+  local root dest out rc
+  root="$TMP_ROOT/prune-unresolved"
+  build_plugin "$root"
+  dest="$root/skills"
+  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null \
+    || fail "pointer install failed against a healthy plugin"
+
+  sed 's/^name: loop-me$/name: loop-you/' "$root/install/skills/in-progress/loop-me/SKILL.md" \
+    >"$root/loop-me.md"
+  mv "$root/loop-me.md" "$root/install/skills/in-progress/loop-me/SKILL.md"
+  jq '.skills -= ["./skills/productivity/grilling"]' "$root/install/.claude-plugin/plugin.json" \
+    >"$root/plugin.json"
+  mv "$root/plugin.json" "$root/install/.claude-plugin/plugin.json"
+  rm -rf "$root/install/skills/productivity/grilling"
+
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  rc=$?
+  expect_code 1 "$rc" "--check passed with an offered skill that does not resolve"
+  assert_contains "$out" "UNRESOLVED: $dest/matt-loop-me" "--check did not report the unresolved pointer"
+  assert_not_contains "$out" "RETIRED: $dest/matt-loop-me" "--check called an unresolved skill retired"
+  assert_contains "$out" "RETIRED: $dest/matt-grilling" "--check did not report the retired pointer"
+
+  out=$(run_pointers "$root/config" --prune --dest "$dest" 2>&1)
+  rc=$?
+  expect_code 1 "$rc" "--prune passed while keeping a pointer whose skill does not resolve"
+  assert_present "$dest/matt-loop-me/SKILL.md" "prune deleted the pointer of a skill that still ships"
+  assert_contains "$out" "UNRESOLVED: kept $dest/matt-loop-me" "prune did not name the kept pointer"
+  assert_absent "$dest/matt-grilling" "prune left a pointer to a retired skill"
+  assert_present "$dest/matt-tdd/SKILL.md" "prune removed a pointer whose skill resolves"
+  pass "--prune keeps, and --check flags, pointers of offered skills that do not resolve"
+}
+
 # --- the bridge must be internally coherent ---------------------------------
 #
 # The outage these guard: every installed pointer named bin/fm-matt-skill.sh as
@@ -771,9 +806,10 @@ test_check_reports_combined_pointer_faults_once_each() {
 
 # Every skill upstream offers gets a pointer, including the ones outside the
 # declared set, without changing its invocation. An uncurated bucket skill that
-# would not resolve is left out instead of aborting the run partway.
+# would not resolve is left out instead of aborting the run partway, and both
+# install and --check fail naming it rather than passing an incomplete set.
 test_pointers_cover_undeclared_skills() {
-  local root dest out err
+  local root dest out err rc
   root="$TMP_ROOT/undeclared-pointers"
   build_plugin "$root"
   write_skill "$root/install/skills/misc/setup-pre-commit" setup-pre-commit \
@@ -784,15 +820,21 @@ test_pointers_cover_undeclared_skills() {
   write_skill "$root/install/skills/misc/drafting" drafting 'Another copy.' ''
   dest="$root/skills"
   err="$root/install.err"
-  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null 2>"$err" \
-    || fail "pointer install failed with undeclared skills present: $(cat "$err")"
+  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null 2>"$err"
+  expect_code 1 $? "install passed while offered skills did not resolve"
 
   assert_absent "$dest/matt-writing-beats" "a skill whose front matter names another skill got a pointer"
   assert_absent "$dest/matt-drafting" "a skill present twice in the source tree got a pointer"
-  assert_grep 'leaves out writing-beats' "$err" "the misnamed skill was dropped without saying so"
-  assert_grep 'leaves out drafting' "$err" "the duplicated skill was dropped without saying so"
-  run_pointers "$root/config" --check --dest "$dest" >/dev/null 2>&1 \
-    || fail "--check failed right after an install that left unresolvable skills out"
+  assert_grep 'leaves out writing-beats' "$err" "install did not name the misnamed skill"
+  assert_grep 'leaves out drafting' "$err" "install did not name the duplicated skill"
+  assert_grep 'UNRESOLVED' "$err" "install did not report the incomplete pointer set"
+
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  rc=$?
+  expect_code 1 "$rc" "--check passed a pointer set missing offered skills that do not resolve"
+  assert_contains "$out" 'leaves out writing-beats' "--check did not name the misnamed skill"
+  assert_contains "$out" 'leaves out drafting' "--check did not name the duplicated skill"
+  assert_not_contains "$out" 'ok - ' "--check reported ok for an incomplete pointer set"
 
   assert_grep 'disable-model-invocation: true' "$dest/matt-loop-me/SKILL.md" \
     "an undeclared user-invoked skill was promoted to model invocation"
@@ -880,6 +922,7 @@ test_pointer_instructs_a_hard_stop_on_failure
 test_check_detects_drift_absence_and_a_dead_loader
 test_foreign_directories_are_never_written_or_removed
 test_retired_skills_are_pruned_and_reinstalls_are_idempotent
+test_prune_keeps_pointers_of_unresolved_skills
 test_generated_pointer_loads_through_the_shipped_loader
 test_check_reports_a_recorded_loader_that_later_vanished
 test_check_reports_retired_pointers_and_their_recorded_loaders

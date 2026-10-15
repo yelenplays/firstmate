@@ -371,13 +371,13 @@ EOF
   pass "fm-skill-path.sh: a bare name follows the one enabled marketplace"
 }
 
-# --list-skills lists only what resolves: <skill> is left out and named on
-# stderr, and the declared skill is still listed.
+# --list-skills lists only what resolves: <skill> is left out, named on stderr,
+# and reported by status 7, and the declared skill is still listed.
 assert_list_omits() {  # <config> <skill> <case>
   local config=$1
   shift
   fm_skill_run "$config" demo-skills --list-skills --include-undeclared
-  expect_code 0 "$RUN_RC" "--list-skills should still exit 0 with $2 present (stderr: $RUN_ERR)"
+  expect_code 7 "$RUN_RC" "--list-skills must report a partial listing with $2 present (stderr: $RUN_ERR)"
   [ "$RUN_OUT" = "$(printf 'interviewing\tskills/productivity/interviewing')" ] \
     || fail "--list-skills offered $2, which does not resolve: $RUN_OUT"
   assert_contains "$RUN_ERR" "leaves out $1" "--list-skills dropped $2 without saying so"

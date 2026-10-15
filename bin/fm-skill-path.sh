@@ -24,7 +24,7 @@
 #                          to the install>" per line, sorted by skill. A skill
 #                          is listed only when resolving it by name would pass
 #                          every check below; one that would be refused is left
-#                          out and named on stderr
+#                          out, named on stderr, and turns the exit status to 7
 #   --include-undeclared   also offer skills that sit in the install's source
 #                          tree at skills/<skill>/ or skills/<bucket>/<skill>/
 #                          without being declared by the manifest, except in a
@@ -46,6 +46,8 @@
 #   4    plugin installed but not enabled in this Claude configuration
 #   5    skill not declared by this installed plugin version
 #   6    integrity or ambiguity refusal
+#   7    --list-skills left out at least one skill that does not resolve; the
+#        ones that do are still printed
 #   127  a required tool is missing
 #
 # Nothing is printed on stdout unless every check passed, so a caller can treat
@@ -488,7 +490,9 @@ EOF
 
 if [ "$LIST_SKILLS" -eq 1 ]; then
   # Each candidate resolves in its own subshell, so one that would be refused is
-  # left out with its reason on stderr instead of taking the listing down.
+  # left out with its reason on stderr instead of taking the listing down, and
+  # the distinct status keeps the gap from passing as a complete listing.
+  LEFT_OUT=0
   CANDIDATES=$(
     {
       declared_skills
@@ -501,10 +505,12 @@ if [ "$LIST_SKILLS" -eq 1 ]; then
       printf '%s\n' "$row"
     else
       printf 'fm-skill-path.sh: --list-skills leaves out %s, which does not resolve\n' "$name" >&2
+      LEFT_OUT=$((LEFT_OUT + 1))
     fi
   done <<EOF
 $CANDIDATES
 EOF
+  [ "$LEFT_OUT" -eq 0 ] || exit 7
   exit 0
 fi
 
