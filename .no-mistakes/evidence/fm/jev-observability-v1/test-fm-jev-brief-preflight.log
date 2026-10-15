@@ -1,0 +1,10 @@
+ok - usage requires --brief and --task and refuses a path-like id
+ok - the deterministic rule reproduces Jev's 32 recorded grid answers
+ok - every reachable grid row gives the rule's verdict through the script
+ok - a brief with a definition of done records has_acceptance silently and offline
+ok - a missing definition of done warns, records, and never blocks
+ok - off and unrecognized delivery metadata skip the check
+ok - the record carries structural facts only
+ok - spawn records the deterministic verdict and still proceeds
+ok - existing structural brief refusals still fire before the preflight
+ok - populated generated ship and scout briefs record has_acceptance through spawn

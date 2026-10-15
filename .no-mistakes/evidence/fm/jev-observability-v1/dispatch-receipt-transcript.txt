@@ -1,0 +1,59 @@
+$ FM_HOME=$LAB bin/fm-dispatch-resolve.sh lab-route-v1
+dispatch-resolve:
+  status: clear
+  decided: rule_4 by typed
+  model: jev-1.13.0   latency_ms: 316   tokens: 1694/140
+  rule: rule_4 (token-eating bulk work that needs volume more than judgment:)   confidence: 1.0
+  probabilities: rule_1=0.0 rule_2=0.0 rule_3=0.0 rule_4=1.0 rule_5=0.0 rule_6=0.0 rule_7=0.0 default=0.0
+  effort: low (jev confidence=1.0)
+  note: rule matched
+  note: single eligible policy option; quota uncertainty disclosed
+  candidate: pi:opencode-go/deepseek-v4.1-flash  provider=opencode-go  effort=high(range high) [clamped from low]  pred=unknown  -> eligible, unranked: provider opencode-go unmeasured (unknown): disclosed uncertainty
+  profile: --harness 'pi' --model 'opencode-go/deepseek-v4.1-flash' --effort 'high'
+  receipt: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.WRnRTo/state/model-route/35b50c0b30528ab31536abe02cfa87540f05d965c60d257a3d49cd113e179106.json
+[exit 0]
+--- stderr:
+--- receipt top level (selected_rule vs first-pass consultation answer):
+{
+  "kind": "dispatch",
+  "selected_rule": "rule_4",
+  "selected": {
+    "effort": "high",
+    "harness": "pi",
+    "model": "opencode-go/deepseek-v4.1-flash"
+  },
+  "first_pass_answer": {
+    "effort": {
+      "choice": "low",
+      "confidence": 1.0,
+      "probabilities": {
+        "high": 0.0,
+        "low": 1.0,
+        "max": 0.0,
+        "medium": 0.0,
+        "xhigh": 0.0
+      },
+      "type": "choice"
+    },
+    "rule": {
+      "choice": "rule_4",
+      "confidence": 1.0,
+      "probabilities": {
+        "default": 0.0,
+        "rule_1": 0.0,
+        "rule_2": 0.0,
+        "rule_3": 0.0,
+        "rule_4": 1.0,
+        "rule_5": 0.0,
+        "rule_6": 0.0,
+        "rule_7": 0.0
+      },
+      "type": "choice"
+    }
+  },
+  "outcome": "clear",
+  "exception": null,
+  "reason": "configured default policy"
+}
+--- decisions.jsonl last row selected_rule:
+{"selected_rule":"rule_4","selected":{"effort":"high","harness":"pi","model":"opencode-go/deepseek-v4.1-flash"}}

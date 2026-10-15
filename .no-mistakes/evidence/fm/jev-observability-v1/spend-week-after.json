@@ -1,0 +1,47 @@
+{
+ "claudeEqTokens": 879848305,
+ "claudeEqWeights": {
+  "cacheRead": 0.1,
+  "cacheWrite": 1.25,
+  "cacheWrite1h": 2.0,
+  "input": 1.0,
+  "output": 5.0
+ },
+ "families": {
+  "claude": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cacheWrite1h": 0,
+   "claudeEqTokens": 879848305,
+   "cost": 0.0,
+   "costStatus": "none",
+   "input": 0,
+   "messages": 0,
+   "output": 0,
+   "pricedTokens": 0,
+   "reasoning": 0,
+   "tokens": 6049817199,
+   "unpricedTokens": 6049817199
+  },
+  "codex": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cacheWrite1h": 0,
+   "claudeEqTokens": 0,
+   "cost": 115.77242954,
+   "costStatus": "partial",
+   "input": 0,
+   "messages": 0,
+   "output": 0,
+   "pricedTokens": 635400371,
+   "reasoning": 0,
+   "tokens": 642176085,
+   "unpricedTokens": 6775714
+  }
+ },
+ "generatedAt": "2026-10-15T18:23:42.000Z",
+ "hours": 168.0,
+ "partial": false,
+ "totalTokens": 6691993284,
+ "version": 4
+}

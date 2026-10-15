@@ -1,0 +1,15 @@
+ok - same model, top effort, and through-reset quota
+ok - a dispatch record captures the selected profile and its Jev consultation
+ok - ambiguous rule arrays run the bounded model pass before the default
+ok - rule-local model ties offer one option per concrete model
+ok - the public resolver accepts and records the cross-review reviewer chain
+ok - captain overrides and approved escalations record their explicit reason
+ok - model ties after a confidence fallback belong to the settled rule
+ok - full-chain internal failures exit 3 without a profile
+ok - a default-only rules file records its deterministic policy
+model-route: [Errno 17] File exists: '/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-model-route.igx2vo/home/state/model-route'
+dispatch-resolve: consultation record unavailable; returning the selected profile
+model-route: [Errno 17] File exists: '/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-model-route.igx2vo/home/state/model-route'
+dispatch-resolve: policy record unavailable; returning the selected profile
+ok - unavailable records never block the routing result or captain override
+ok - a receipt keeps a named selected rule and refuses an empty or non-string one

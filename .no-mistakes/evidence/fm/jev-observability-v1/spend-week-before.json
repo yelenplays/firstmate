@@ -1,0 +1,35 @@
+{
+ "families": {
+  "claude": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 0.0,
+   "costStatus": "none",
+   "input": 0,
+   "messages": 0,
+   "output": 0,
+   "pricedTokens": 0,
+   "reasoning": 0,
+   "tokens": 6052265942,
+   "unpricedTokens": 6052265942
+  },
+  "codex": {
+   "cacheRead": 0,
+   "cacheWrite": 0,
+   "cost": 115.77242954,
+   "costStatus": "partial",
+   "input": 0,
+   "messages": 0,
+   "output": 0,
+   "pricedTokens": 635400371,
+   "reasoning": 0,
+   "tokens": 642176085,
+   "unpricedTokens": 6775714
+  }
+ },
+ "generatedAt": "2026-10-15T18:25:28.000Z",
+ "hours": 168.0,
+ "partial": false,
+ "totalTokens": 6694442027,
+ "version": 3
+}

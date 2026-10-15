@@ -1,0 +1,37 @@
+== S1: yes question from a dispatched task (FM_TASK_ID=lab-demo-v1)
+$ bin/fm-jev.sh yes A shell script test suite passed with zero failures and the diff only touches docs. Is the change safe to merge?
+yes: yes p=0.87 conf=0.74
+[exit 0]
+
+== S2: no task id -> caller is the logging home
+$ bin/fm-jev.sh pick The task edits a CSS stylesheet for a button colour. Which area does this task touch? frontend=web UI styling backend=server API infra=CI and deploy
+pick: frontend p=1 conf=1
+[exit 0]
+
+== S3: batch of pick, score, yes
+$ bin/fm-jev.sh batch
+area: docs p=1 conf=1
+size: tiny s=0 p=1 conf=1
+ok: yes p=0.77 conf=0.54
+[exit 0]
+
+== S4: pick with nine options is refused before sending
+$ bin/fm-jev.sh pick s Choose one? o1 o2 o3 o4 o5 o6 o7 o8 o9
+fm-jev: question 1: pick supports at most 8 options; narrow the list first
+[exit 1]
+
+== S4b: batch pick with nine options is refused
+$ bin/fm-jev.sh batch
+fm-jev: question 1: pick supports at most 8 options; narrow the list first
+[exit 1]
+
+== S5: pick with exactly eight options is sent and answered
+$ bin/fm-jev.sh pick The bug is a null pointer in the Rust parser module. Which language is the bug in? rust go python java ruby swift kotlin php
+pick: rust p=1 conf=1
+[exit 0]
+
+== jev-calls.jsonl in the lab home (one record per attempted call)
+{"ts":"2026-10-15T18:22:01Z","caller":"task:lab-demo-v1","purpose":"worker-cli","route":"typesafe","model":"jev-1.13.0","response_model":"jev-1.13.0","http":"200","latency_ms":319,"usage":{"in":289,"out":20},"questions":1,"escalated":0,"exit":0,"items":[{"type":"yes","options":0,"conf":0.74}]}
+{"ts":"2026-10-15T18:22:03Z","caller":"home:fm-lab.WRnRTo","purpose":"worker-cli","route":"typesafe","model":"jev-1.13.0","response_model":"jev-1.13.0","http":"200","latency_ms":282,"usage":{"in":335,"out":38},"questions":1,"escalated":0,"exit":0,"items":[{"type":"pick","options":3,"conf":1}]}
+{"ts":"2026-10-15T18:22:06Z","caller":"task:lab-demo-v1","purpose":"worker-cli","route":"typesafe","model":"jev-1.13.0","response_model":"jev-1.13.0","http":"200","latency_ms":405,"usage":{"in":386,"out":68},"questions":3,"escalated":0,"exit":0,"items":[{"type":"pick","options":3,"conf":1},{"type":"score","options":4,"conf":1},{"type":"yes","options":0,"conf":0.54}]}
+{"ts":"2026-10-15T18:22:09Z","caller":"task:lab-demo-v1","purpose":"worker-cli","route":"typesafe","model":"jev-1.13.0","response_model":"jev-1.13.0","http":"200","latency_ms":408,"usage":{"in":393,"out":74},"questions":1,"escalated":0,"exit":0,"items":[{"type":"pick","options":8,"conf":1}]}

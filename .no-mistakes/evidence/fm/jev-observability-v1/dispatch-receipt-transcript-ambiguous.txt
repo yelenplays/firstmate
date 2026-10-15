@@ -1,0 +1,58 @@
+$ FM_HOME=$LAB bin/fm-dispatch-resolve.sh lab-route-v2
+dispatch-resolve:
+  status: clear
+  decided: rule_2 by typed
+  model: jev-1.13.0   latency_ms: 294   tokens: 1692/140
+  rule: rule_2 (work that genuinely needs Opus-level judgment: open-ended pl)   confidence: 0.9
+  probabilities: rule_1=0.09 rule_2=0.91 rule_3=0.0 rule_4=0.0 rule_5=0.0 rule_6=0.0 rule_7=0.0 default=0.0
+  effort: - (declared fallback (classifier low-confidence))
+  note: rule matched
+  candidate: claude:claude-opus-5-5  provider=claude  effort=high(range high)  scope=all_models  remaining=24%  spendPriority=-0.9103  runway=projected_exhaustion  pred=unknown  -> eligible
+  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'high'
+  receipt: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.WRnRTo/state/model-route/d00af603960c648df25571b00c7504102a74dfb20259673f9a6d703468641b99.json
+[exit 0]
+--- stderr:
+--- receipt top level (selected_rule vs first-pass consultation answer):
+{
+  "kind": "dispatch",
+  "selected_rule": "rule_2",
+  "selected": {
+    "effort": "high",
+    "harness": "claude",
+    "model": "claude-opus-5-5"
+  },
+  "first_pass_answer": {
+    "effort": {
+      "choice": "high",
+      "confidence": 0.41,
+      "probabilities": {
+        "high": 0.53,
+        "low": 0.01,
+        "max": 0.0,
+        "medium": 0.45,
+        "xhigh": 0.01
+      },
+      "type": "choice"
+    },
+    "rule": {
+      "choice": "rule_2",
+      "confidence": 0.9,
+      "probabilities": {
+        "default": 0.0,
+        "rule_1": 0.09,
+        "rule_2": 0.91,
+        "rule_3": 0.0,
+        "rule_4": 0.0,
+        "rule_5": 0.0,
+        "rule_6": 0.0,
+        "rule_7": 0.0
+      },
+      "type": "choice"
+    }
+  },
+  "outcome": "clear",
+  "exception": null,
+  "reason": "configured default policy"
+}
+--- decisions.jsonl last row selected_rule:
+{"selected_rule":"rule_2","selected":{"effort":"high","harness":"claude","model":"claude-opus-5-5"}}

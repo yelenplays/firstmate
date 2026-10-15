@@ -1,0 +1,18 @@
+--- brief with-dod.md:
+# Task
+Fix the typo in README.md.
+
+# Definition of done
+- README.md has no typo in the install section.
+$ FM_HOME=$LAB bin/fm-jev-brief-preflight.sh --brief with-dod.md --task lab-with-dod --kind ship
+[exit 0]
+log: {"purpose":"brief-preflight","task":"lab-with-dod","kind":"ship","mode":"","verdict":"has_acceptance","missing":"","surfaced":false,"shadow":true,"block":false,"rule":"deterministic"}
+
+--- brief no-dod.md:
+# Task
+Fix the typo in README.md.
+$ FM_HOME=$LAB bin/fm-jev-brief-preflight.sh --brief no-dod.md --task lab-no-dod --kind ship
+warning: brief preflight: $LAB/briefs/no-dod.md is missing acceptance criteria or definition of done (missing_acceptance); spawn continues
+[exit 0]
+log: {"purpose":"brief-preflight","task":"lab-no-dod","kind":"ship","mode":"","verdict":"missing_acceptance","missing":"acceptance criteria or definition of done","surfaced":true,"shadow":true,"block":false,"rule":"deterministic"}
+
