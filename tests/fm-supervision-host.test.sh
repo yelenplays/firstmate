@@ -161,7 +161,7 @@ unset FM_SUPERVISION_ACTOR FM_BRANCH_REPORT_TURN FM_BRANCH_CONVERSATION FM_LEASE
 # whose variables never reach this shell.
 HOMES_FILE="$TMP_ROOT/homes"
 # Stop whatever a case left running, by the exact pids its home recorded.
-stop_home_processes() {  # <home>
+stop_home_cycle() {  # <home>
   local home=$1 pid arms='' i=0
   if [ -f "$home/state/.supervision-host" ]; then
     arms=$(awk -F '\t' '$1 == "arm" { print $2 }' "$home/state/.supervision-host")
@@ -177,13 +177,36 @@ stop_home_processes() {  # <home>
   done
   pid=$(cat "$home/state/.watch.lock/pid" 2>/dev/null || true)
   [ -z "$pid" ] || kill -TERM "$pid" 2>/dev/null || true
-  while IFS= read -r pid; do
-    if [ -e "$home/session.stop" ]; then
-      wait "$pid" 2>/dev/null || true
-    else
-      kill -TERM "$pid" 2>/dev/null || true
-    fi
-  done < <(cat "$home/claude-pids" 2>/dev/null)
+}
+any_live() {  # <pid>...
+  local pid
+  for pid in "$@"; do
+    kill -0 "$pid" 2>/dev/null && return 0
+  done
+  return 1
+}
+stop_home_processes() {  # <home>
+  local home=$1 pid sessions i=0
+  sessions=$(cat "$home/claude-pids" 2>/dev/null || true)
+  stop_home_cycle "$home"
+  # A stopping session may still sit in its Stop hook, whose retry parks a
+  # fresh host after the stopped one: sweep again until it ends, bounded.
+  # shellcheck disable=SC2086 # one pid per word
+  if [ -e "$home/session.stop" ]; then
+    while [ "$i" -lt 100 ] && any_live $sessions; do
+      sleep 0.1
+      i=$((i + 1))
+      [ $((i % 10)) -ne 0 ] || stop_home_cycle "$home"
+    done
+  fi
+  # A session still alive past the bound is stopped with its Stop hook, so no
+  # hook outlives the case to park another host.
+  for pid in $sessions; do
+    pkill -TERM -P "$pid" 2>/dev/null || true
+    kill -TERM "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+  done
+  stop_home_cycle "$home"
   while IFS= read -r pid; do
     kill -TERM "$pid" 2>/dev/null || true
   done < <(cat "$home/orphan-pid" 2>/dev/null)
