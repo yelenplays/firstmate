@@ -850,6 +850,36 @@ fm_backend_send_text_submit() {  # <backend> <target> <text> <retries> <enter-sl
   return "$rc"
 }
 
+# Submit already-proven input without typing it again. The inbox uses this
+# only after an exact match with its own constant doorbell; ordinary drafts
+# must never enter here.
+fm_backend_submit_enter() {  # <backend> <target> <retries> <enter-sleep> [expected-label]
+  local backend=$1 target=$2 retries=$3 sleep_s=$4 label=${5:-} baseline_idle='' rc=0
+  fm_backend_source "$backend" || return 1
+  fm_composer_dialog_sink_prepare || return 1
+  fm_backend_composer_state "$backend" "$target" "$label" >/dev/null || true
+  if fm_composer_blocking_dialog_noted >/dev/null; then
+    fm_composer_dialog_sink_release
+    printf unknown
+    return 0
+  fi
+  case "$backend" in
+    tmux)
+      [ "$(fm_pane_busy_state "$target")" != idle ] || baseline_idle=1
+      fm_tmux_submit_enter_core "$target" "$retries" "$sleep_s" "$baseline_idle" 0 || rc=$?
+      ;;
+    herdr)
+      fm_backend_herdr_submit_enter "$target" "$retries" "$sleep_s" 0 || rc=$?
+      ;;
+    *)
+      fm_composer_submit_retry_core "fm_backend_${backend}_send_key" "fm_backend_${backend}_composer_state" \
+        "$target" "$retries" "$sleep_s" "$label" || rc=$?
+      ;;
+  esac
+  fm_composer_dialog_sink_release
+  return "$rc"
+}
+
 # fm_backend_kill: remove the task's session endpoint. An already-gone target
 # is NOT an error and returns 0 silently, so ordinary cleanup of an
 # already-exited session stays quiet. A nonzero return means the close could

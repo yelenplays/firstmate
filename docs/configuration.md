@@ -14,6 +14,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), [Calm preference](#calm-preference-configcalm), and [theme pack](#theme-pack-configtheme) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
 | Who reviews finished work | [Cross-family review](#cross-family-review) |
+| Context size of no-mistakes pipeline agents | [Pipeline agent skill listing](#pipeline-agent-skill-listing-no-mistakesconfigyaml) |
 | Slack updates and replies | [Slack bridge](#slack-bridge-configslack-bridge) |
 | Per-run overrides and tuning | [Environment variables](#environment-variables) |
 
@@ -761,6 +762,24 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for the firstmate-specific local test 
 
 Portable shard evidence and coverage rules are in [fm-test-portable-shards.md](fm-test-portable-shards.md); [herdr-backend.md](herdr-backend.md#destructive-lab-safety) owns the real-Herdr lane's isolation boundary, and [runtime-backends.md](verification/runtime-backends.md#herdr) owns active evidence.
 
+## Pipeline agent skill listing (~/.no-mistakes/config.yaml)
+
+Every Claude session Firstmate launches - ship, scout, and secondmate - caps its skill listing at 8000 characters; [`bin/fm-claude-worker-context-lib.sh`](../bin/fm-claude-worker-context-lib.sh) owns that value.
+No-mistakes starts its own Claude agents for each pipeline step, and it accepts extra Claude flags only from its machine-wide global config, so the operator adds the same budget there once per machine:
+
+```yaml
+agent_args_override:
+  claude:
+    # keep the existing flags, such as --model, and append:
+    - --settings
+    - '{"env":{"SLASH_COMMAND_TOOL_CHAR_BUDGET":"8000"}}'
+```
+
+Without it, a pipeline agent on a large-context model lists every installed skill with its description, about 30,000 characters on a home with many personal skills, on every request.
+The setting applies to pipeline agents in every repository on that machine; skill names stay listed and explicitly invoked skills still load, while Claude drops less-used descriptions first.
+It does not touch `--setting-sources`, so a repository's `disable_project_settings: true` keeps neutralizing project instructions.
+The opt-in `tests/fm-claude-worker-context-live-e2e.test.sh` guard proves this argument shape against a real Claude session ([runtime verification](verification/runtime-backends.md#claude-worker-context)).
+
 ## Captain Preferences (data/captain.md / data/captain-shared.md)
 
 Domain-local preferences for one captain's fleet live locally in each home's `data/captain.md`; it is gitignored and printed in the session-start context digest after `data/projects.md` and optional `data/secondmates.md`.
@@ -1298,7 +1317,7 @@ Behavioral regression coverage is in [`tests/fm-qos.test.sh`](../tests/fm-qos.te
 ## Project capacity (config/project-capacity)
 
 The optional local, gitignored `config/project-capacity` tells Firstmate how many workers a project can run at once on this machine, for a project whose machine-local resource - a heavy test suite, a local editor stack, a device - only serves a few workers at a time.
-Without it, dispatch stays uncapped as `AGENTS.md` section 7 describes, and a surplus worker is launched only to spend full-context turns waiting for the resource.
+Without it, dispatch stays uncapped as the `task-intake` skill describes, and a surplus worker is launched only to spend full-context turns waiting for the resource.
 The file lives in the machine's root Firstmate home, so every local secondmate home reads the same limit, and it holds one line per project:
 
 ```text
@@ -3356,13 +3375,13 @@ FM_FLEET_SYNC_PACKED_REFS_LOCK_RETRY_WAIT_SECS=1 # seconds fm-fleet-sync.sh wait
 FM_FLEET_SYNC_PACKED_REFS_LOCK_AGE_SECS=30       # min mtime age before fm-fleet-sync.sh treats a leftover packed-refs.lock as provably stale
 FM_BUSY_REGEX=          # optional override for rendered delivery guards and Grok's isolated task-state fallback; converted worker state ignores it
 FM_COMPOSER_IDLE_RE=    # optional fleet-wide idle-placeholder regex override (bin/fm-composer-lib.sh); a match alone does not prove emptiness because shape-specific position and ANSI de-emphasis safety gates still apply
-FM_COMPOSER_CAPTURE_LINES=20   # fleet-wide bound for tail-capture composer reads; it no longer bounds the adapter composer state/content reads on tmux or herdr, which supply their bounded visible pane instead, while the cmux, orca, and Zellij adapters use this small window so stale scrollback banners stay out of the candidate set; it still bounds the shared inbox composer read (bin/fm-task-inbox-lib.sh) on every backend, and on herdr it also floors how many Ctrl+U presses a refused leftover may take
+FM_COMPOSER_CAPTURE_LINES=20   # fleet-wide bound for tail-capture composer reads; it no longer bounds the adapter composer state/content reads on tmux or herdr, which supply their bounded visible pane instead, while the cmux, orca, and Zellij adapters use this small window so stale scrollback banners stay out of the candidate set; it still bounds the shared inbox composer read (bin/fm-task-inbox-lib.sh) on backends without a visible-viewport capture (tmux, herdr, and Zellij read the viewport), and on herdr it also floors how many Ctrl+U presses a refused leftover may take
 FM_COMPOSER_PI_MAX_LINES=8     # fleet-wide: maximum rows admitted between Pi's identity-corroborated separator pair; taller or ambiguous candidates stay unknown
 FM_COMPOSER_PI_MAX_LINES=8     # fleet-wide: maximum rows admitted in Pi's composer region - between its identity-corroborated separator pair or in the Zen-rail block; taller or ambiguous candidates stay unknown
 FM_COMPOSER_GHOST_LUMA_MAX=128   # fleet-wide: max perceived luminance (0.299R+0.587G+0.114B, 0-255) for a TRUECOLOR foreground to count as de-emphasised ghost/placeholder text and be stripped; dim/faint (SGR 2) is stripped regardless. Assumes a dark terminal theme (bin/fm-composer-lib.sh's fm_composer_strip_ghost, used by styled tmux, herdr, and Zellij reads)
 GROK_HOME=              # optional Grok config home for firstmate's global grok turn-end hook; defaults to ~/.grok
-FM_SEND_RETRIES=3       # fm-send typed-plane Enter-retry attempts after typing the line once; agy typed targets use a longer per-harness default owned by bin/fm-send.sh
-FM_SEND_SLEEP=0.4       # seconds between fm-send typed-plane submit checks
+FM_SEND_RETRIES=3       # fm-send typed-plane and steering-doorbell Enter-retry attempts after typing the line once; agy typed targets use a longer per-harness default owned by bin/fm-send.sh
+FM_SEND_SLEEP=0.4       # seconds between fm-send typed-plane and steering-doorbell submit checks
 FM_SEND_SETTLE=1        # seconds fm-send waits after a successful typed-plane submit; 0 disables
 FM_PENDING_REPLY_GRACE_SECS=120   # seconds after the request turn completes without a correlated parent report before its one recovery repost is eligible, and after the recovery turn completes before the missed-report escalation is eligible; never counted from delivery
 # sub-supervisor (bin/fm-supervise-daemon.sh); presence-gated via /afk

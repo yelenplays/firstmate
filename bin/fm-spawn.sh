@@ -6,7 +6,7 @@
 #        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--captain-override <reason>] [--backend <name>] --secondmate
 #   --mode and --yolo are this task's delivery contract, REQUIRED for every ship
 #   spawn and refused on --scout and --secondmate spawns. Firstmate resolves both
-#   per task at intake (AGENTS.md section 7); data/projects.md holds the captain's
+#   per task at intake (the task-intake skill); data/projects.md holds the captain's
 #   standing posture as context, not as this task's answer, so a spawn never looks
 #   the mode up. A ship spawn additionally reads the brief's recorded
 #   "Delivery contract: mode=<mode>" line and REFUSES a mismatch, so the worker's
@@ -332,6 +332,15 @@
 #   fm_treehouse_pool_origin_root owns the detection): the pool's slots would
 #   be worktrees of that repository, not of the clone. Spawn never redirects silently, because that would change
 #   which repository the work lands in.
+#   Next, under the same lock, a project whose Treehouse pool already holds a
+#   slot that is a worktree of another repository - two homes that cloned one
+#   remote resolve one pool - is screened before allocation: a fleet clone
+#   under projects/ is pinned to a pool of its own, printing one note line, so
+#   `treehouse get` hands it a worktree of this clone, and any other project,
+#   a clone whose own treehouse.toml rules out the pin, or a pool that cannot
+#   be resolved the way Treehouse resolves it, refuses. The shared
+#   pool and its slots are never touched (bin/fm-wake-lib.sh's
+#   fm_treehouse_pool_foreign_slot and fm_treehouse_pool_pin own the rule).
 #   Only after this isolation check, every fresh ship or scout requires a clean
 #   task worktree. When an origin configuration is detected, spawn fetches it,
 #   resolves the current remote default branch (or uses --base-branch, described
@@ -441,8 +450,9 @@
 #   bin/fm-worker-account-lib.sh owns parsing, the check, and the shed list.
 #   Launch templates live in launch_template() below; placeholders replaced before launch:
 #     __BRIEF__    absolute path to data/<task-id>/brief.md
-#     __CLAUDECONTEXT__ per-launch worker context settings JSON fragment from
-#                  fm-claude-worker-context-lib.sh (empty for supervisors)
+#     __CLAUDECONTEXT__ per-launch context settings JSON fragment from
+#                  fm-claude-worker-context-lib.sh (skill budget for every kind;
+#                  ship/scout also exclude Firstmate's supervisor instructions)
 #     __CLAUDEPERMFLAG__ the claude permission flag selected by config/claude-permission-mode
 #     __CLAUDEADDDIRS__ quoted --add-dir flags granting exactly this task's
 #                  Firstmate channel directories (claude_add_dirs_flag below;
@@ -1042,7 +1052,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
     exit 1
   }
 else
-  # Delivery contract (AGENTS.md section 7). A ship task's mode and yolo are
+  # Delivery contract (the task-intake skill). A ship task's mode and yolo are
   # firstmate's per-task decision, so they are required and closed-set validated
   # here rather than resolved from the project registry. Scouts deliver a report
   # and record no delivery posture; secondmate spawns hardcode theirs.
@@ -3374,6 +3384,43 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ] 
   SPAWN_POOL_TRUTH_PATH=$(fm_treehouse_pool_origin_root "$PROJ_ABS"); then
   echo "error: project '$PROJ_ABS' shares its Treehouse worktree pool with its origin repository, so its slots are worktrees of that repository, not of this clone; pass '$SPAWN_POOL_TRUTH_PATH' as the project to spawn from the repository that owns the pool" >&2
   exit 1
+fi
+# Pool-identity check: two homes that clone one remote resolve the same
+# Treehouse pool, and its slots are worktrees of whichever clone created them.
+# A fleet clone under projects/ whose pool already holds another repository's
+# slot is pinned to a pool of its own before allocation, so `treehouse get`
+# hands it a worktree of this clone; any other project refuses instead. Both
+# run under the Treehouse project lock, which every clone of one remote
+# shares, and neither touches the shared pool. bin/fm-wake-lib.sh's
+# fm_treehouse_pool_foreign_slot and fm_treehouse_pool_pin own the detection
+# and the pin.
+if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
+  SPAWN_POOL_FOREIGN_RC=0
+  SPAWN_POOL_FOREIGN_SLOT=$(fm_treehouse_pool_foreign_slot "$PROJ_ABS") || SPAWN_POOL_FOREIGN_RC=$?
+  if [ "$SPAWN_POOL_FOREIGN_RC" -eq 2 ]; then
+    echo "error: could not resolve the Treehouse worktree pool for $PROJ_ABS as Treehouse would (its treehouse.toml or ~/.config/treehouse/config.toml cannot be read, or python3 with tomllib is unavailable), so its slots cannot be screened for another clone's worktrees; refusing before allocation" >&2
+    exit 1
+  elif [ "$SPAWN_POOL_FOREIGN_RC" -eq 0 ]; then
+    if [ "$(cd "$(dirname "$PROJ_ABS")" 2>/dev/null && pwd -P)" != "$(cd "$PROJECTS" 2>/dev/null && pwd -P)" ]; then
+      echo "error: project '$PROJ_ABS' resolves a Treehouse worktree pool that holds '$SPAWN_POOL_FOREIGN_SLOT', a worktree of another repository, so treehouse get could hand this project a foreign slot; refusing before allocation" >&2
+      exit 1
+    fi
+    if ! fm_treehouse_pool_pin "$PROJ_ABS"; then
+      echo "error: project '$PROJ_ABS' resolves a Treehouse worktree pool that holds '$SPAWN_POOL_FOREIGN_SLOT', a worktree of another clone, and it could not be pinned to a pool of its own (a treehouse.toml Firstmate did not write governs it); refusing before allocation" >&2
+      exit 1
+    fi
+    SPAWN_POOL_FOREIGN_RC=0
+    SPAWN_POOL_FOREIGN_SLOT=$(fm_treehouse_pool_foreign_slot "$PROJ_ABS") || SPAWN_POOL_FOREIGN_RC=$?
+    if [ "$SPAWN_POOL_FOREIGN_RC" -eq 0 ]; then
+      echo "error: project '$PROJ_ABS' still resolves a Treehouse worktree pool holding '$SPAWN_POOL_FOREIGN_SLOT', a worktree of another clone, after it was pinned to its own pool; refusing before allocation" >&2
+      exit 1
+    fi
+    if [ "$SPAWN_POOL_FOREIGN_RC" -ne 1 ]; then
+      echo "error: could not resolve the Treehouse worktree pool for $PROJ_ABS after it was pinned to its own pool, so the pin is unverified; refusing before allocation" >&2
+      exit 1
+    fi
+    echo "note: pinned project '$PROJ_ABS' to its own Treehouse worktree pool $(fm_treehouse_pool_dir "$PROJ_ABS"), because its shared pool holds another clone's worktrees" >&2
+  fi
 fi
 if [ -n "$SPAWN_PROJECT_CAPACITY" ]; then
   if ! fm_project_capacity_occupants "$SPAWN_TREEHOUSE_PROJECT_LOCK" "$PROJ_ABS" "$STATE" "$ID"; then

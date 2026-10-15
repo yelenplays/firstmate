@@ -1647,7 +1647,11 @@ $caps
 EOF
   plain=$(printf '%s\n' "$screen" | fm_composer_strip_ansi)
   _fm_composer_scan_screen "$plain" '' 1
-  _fm_composer_select_cursorless "$plain" || return 1
+  # Pi's rail sits directly over cwd/metrics, which the generic staleness
+  # check correctly refuses. Use the classifier's complete-footer bounds,
+  # not another parser, to recover exact input without including that footer.
+  _fm_composer_select_cursorless "$plain" \
+    || _fm_composer_select_pi_footer "$plain" || return 1
   row=$FM_COMPOSER_SELECTED_FIRST
   while [ "$row" -le "$FM_COMPOSER_SELECTED_LAST" ]; do
     raw=$(_fm_composer_screen_row "$row" "$screen")
@@ -1718,10 +1722,14 @@ EOF
 # conjunction of the exact bottom footer, a complete input region, and native
 # idle/done Pi identity. This fallback never relaxes generic left-bar, shell,
 # or separator verdicts.
-_fm_composer_pi_footer_verdict() {  # <plain-screen> <screen> <styled> <has-identity> <identity>
-  local plain=$1 screen=$2 styled=$3 has_identity=$4 identity=$5
+# Select the complete Pi input region over its cwd/metrics footer. This is
+# structural selection only, not proof of an agent or an empty composer.
+# Return 2 for an ambiguous rule pair; classification preserves its
+# pending-unproven verdict, while exact-content extraction refuses it.
+_fm_composer_select_pi_footer() {  # <plain-screen>
+  local plain=$1
   local -a rows=()
-  local line n end first row content pending=0 shape=rail max=$FM_COMPOSER_PI_MAX_LINES open_row close_row
+  local line n end first row shape=rail max=$FM_COMPOSER_PI_MAX_LINES open_row close_row
   local metrics_tail metrics_re token_prefix_re
   case "$max" in ''|*[!0-9]*|0) max=8 ;; esac
   metrics_tail='[0-9]+([.][0-9]+)?%/[0-9]+([.][0-9]+)?[kM]?([[:space:]]+\(auto\))?[[:space:]]+\([^)]+\)[[:space:]]+[^[:space:]]'
@@ -1740,13 +1748,13 @@ EOF
     [ -z "$line" ] || break
     n=$((n - 1))
   done
-  [ "$n" -ge 4 ] || { printf unknown; return; }
-  [[ "$line" =~ $metrics_re ]] || { printf unknown; return; }
+  [ "$n" -ge 4 ] || return 1
+  [[ "$line" =~ $metrics_re ]] || return 1
   case "$line" in
     '$'*) ;;
-    *) [[ "$line" =~ $token_prefix_re ]] || { printf unknown; return; } ;;
+    *) [[ "$line" =~ $token_prefix_re ]] || return 1 ;;
   esac
-  case "${rows[$((n - 2))]}" in /*|\~/*) ;; *) printf unknown; return ;; esac
+  case "${rows[$((n - 2))]}" in /*|\~/*) ;; *) return 1 ;; esac
   end=$((n - 3))
   if [ "$FM_COMPOSER_SCAN_PI_PAIR_VALID" = 1 ] \
      && [ "$FM_COMPOSER_SCAN_PI_CLOSE" -eq "$end" ]; then
@@ -1755,11 +1763,7 @@ EOF
     row=$end
     while [ "$row" -ge 0 ]; do
       case "${rows[$row]}" in
-        '┃'*)
-          content=${rows[$row]#┃}
-          fm_composer_normalize_trim_var content
-          [ -z "$content" ] || pending=1
-          ;;
+        '┃'*) ;;
         *) break ;;
       esac
       row=$((row - 1))
@@ -1768,14 +1772,12 @@ EOF
     # A cut-off or scrolled editor cannot prove that all draft rows are visible.
     if [ "$row" -lt 0 ] || [ "$first" -gt "$end" ] \
        || [ "$((end - first + 1))" -gt "$max" ]; then
-      printf unknown; return
+      return 1
     fi
     line=${rows[$row]}
     fm_composer_normalize_trim_var line
-    [ -z "$line" ] || { printf unknown; return; }
+    [ -z "$line" ] || return 1
   fi
-  [ "$has_identity" = 1 ] || { printf unknown; return; }
-  [ -n "$identity" ] || { printf need-identity; return; }
   if [ "$shape" = pair ]; then
     open_row=${rows[$FM_COMPOSER_SCAN_PI_OPEN]}
     close_row=${rows[$FM_COMPOSER_SCAN_PI_CLOSE]}
@@ -1787,15 +1789,40 @@ EOF
     # that the whole input region between them was inspected.
     if [ "$FM_COMPOSER_SCAN_PI_CLOSE" -le "$((FM_COMPOSER_SCAN_PI_OPEN + 1))" ] \
        || [ "${#open_row}" -ne "${#close_row}" ]; then
-      printf 'pending-unproven'
-      return
+      return 2
     fi
+    FM_COMPOSER_SELECTED_KIND=pi
+    FM_COMPOSER_SELECTED_FIRST=$((FM_COMPOSER_SCAN_PI_OPEN + 1))
+    FM_COMPOSER_SELECTED_LAST=$((FM_COMPOSER_SCAN_PI_CLOSE - 1))
+  else
+    FM_COMPOSER_SELECTED_KIND=leftbar
+    FM_COMPOSER_SELECTED_FIRST=$first
+    FM_COMPOSER_SELECTED_LAST=$end
+  fi
+}
+
+_fm_composer_pi_footer_verdict() {  # <plain-screen> <screen> <styled> <has-identity> <identity>
+  local plain=$1 screen=$2 styled=$3 has_identity=$4 identity=$5 rc=0 row content
+  _fm_composer_select_pi_footer "$plain" || rc=$?
+  [ "$rc" != 1 ] || { printf unknown; return; }
+  [ "$has_identity" = 1 ] || { printf unknown; return; }
+  [ -n "$identity" ] || { printf need-identity; return; }
+  [ "$rc" != 2 ] || { printf pending-unproven; return; }
+  if [ "$FM_COMPOSER_SELECTED_KIND" = pi ]; then
     _fm_composer_pi_verdict "$screen" "$styled" "$has_identity" "$identity"
     return
   fi
   case "$identity" in
     $'pi\tidle'|$'pi\tdone')
-      if [ "$pending" = 1 ]; then printf pending; else printf empty; fi ;;
+      row=$FM_COMPOSER_SELECTED_FIRST
+      while [ "$row" -le "$FM_COMPOSER_SELECTED_LAST" ]; do
+        content=$(_fm_composer_screen_row "$row" "$plain")
+        content=${content#┃}
+        fm_composer_normalize_trim_var content
+        [ -z "$content" ] || { printf pending; return; }
+        row=$((row + 1))
+      done
+      printf empty ;;
     *) printf unknown ;;
   esac
 }

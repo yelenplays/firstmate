@@ -3,13 +3,14 @@
 # into the directory non-Claude runtimes read, so grok, codex, kimi and pi can
 # reach the installed originals without a copy existing anywhere.
 #
-# The suite ships as the Claude plugin `mattpocock-skills`, and only `claude`
-# reads the plugin cache. The other runtimes read `~/.agents/skills`. Vendoring
-# the bodies there was tried and rotted, so each pointer is a few lines of
-# instruction whose first step is to run bin/fm-matt-skill.sh, which resolves
-# and prints the installed original at load time. No skill body is ever copied,
-# so no skill body can ever drift, and an upstream plugin bump takes effect on
-# the next load with nothing to re-run.
+# Plugin selection and skill listing come from bin/fm-matt-skill.sh; see its
+# header for those rules. Runtime discovery evidence lives in
+# docs/verification/matt-pocock-runtime-reach.md; choose --dest for the runtime.
+# Each pointer's first step runs the loader to print the installed original at
+# load time. No skill body is copied, so upstream procedure changes take effect
+# on the next load without regenerating pointers.
+#
+# There is one pointer for every skill the loader lists as resolvable.
 #
 # What IS derived from upstream is each pointer's front matter: its description
 # and its model-invocation flag, which the host runtime needs before any body is
@@ -19,7 +20,9 @@
 #
 # Attribution: the skills are Matt Pocock's work, MIT licensed, published at
 # https://github.com/mattpocock/skills. Every generated pointer names him, the
-# licence, the upstream repository, the plugin, and the validated version.
+# licence, the upstream repository, the resolved plugin, and the version and
+# commit it was generated from. That identity is the pointer's validated pin:
+# its load command passes it to the loader, which flags any later difference.
 #
 # Usage:
 #   fm-matt-pointers.sh [--dest <dir>] [--dry-run]      install or refresh
@@ -38,11 +41,15 @@
 #   --dry-run      print what would change, write nothing
 #   --list         print "<pointer-name> <upstream-skill> <invocation>" and exit
 #   --check        exit 1 when an installed pointer is missing, foreign, has
-#                  drifted from what upstream would generate now, is retired
-#                  upstream even when no skills remain declared, or names a
-#                  loader that is no longer executable; every applicable state
+#                  drifted from what upstream would generate now (including a
+#                  plugin, version, or commit change), is retired upstream even
+#                  when no skills remain offered, or names a
+#                  loader that is no longer executable, or when an offered
+#                  upstream skill does not resolve; every applicable state
 #                  is reported independently
-#   --prune        remove firstmate pointers whose upstream skill is gone
+#   --prune        remove firstmate pointers whose upstream skill is gone. A
+#                  pointer whose skill upstream still offers but which does not
+#                  resolve is kept and reported, never removed
 #   --uninstall    remove every firstmate pointer under --dest. Use this when a
 #                  runtime turns out to read the installed plugin directly and
 #                  the pointers are only duplicating it
@@ -58,9 +65,12 @@
 #
 # Exit status:
 #   0    everything requested succeeded, or --check found no drift
-#   1    --check found drift, or a foreign directory blocked an install
+#   1    --check found drift, a foreign directory blocked an install, install
+#        or --check found a partial skill listing (UNRESOLVED), or --prune kept
+#        a pointer whose upstream skill could not be resolved
 #   2    usage error
-#   3-6  the plugin could not be resolved (see bin/fm-matt-skill.sh)
+#   3-6  the plugin could not be resolved (see bin/fm-matt-skill.sh); except for
+#        --check, no resolvable skill also exits 6 before any destination changes
 set -eu
 
 HERE=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
@@ -68,7 +78,7 @@ LOADER="$HERE/fm-matt-skill.sh"
 MARKER=.firstmate-pointer
 PREFIX=matt-
 UPSTREAM=https://github.com/mattpocock/skills
-PLUGIN_KEY=mattpocock-skills@claude-plugins-official
+PLUGIN=mattpocock-skills
 
 usage() {
   awk '
@@ -133,10 +143,27 @@ esac
 # Both the skill list and the identity block come from the loader, so this
 # script never re-reads the registry and the two can never disagree about which
 # install is in play. Identity is read through the first skill this install
-# actually declares rather than a fixed name, so an upstream rename can never
+# actually offers rather than a fixed name, so an upstream rename can never
 # take out --check, --prune, or --uninstall - the modes an operator needs most
-# when a rename has left stale pointers on disk.
-SKILLS=$("$LOADER" --list)
+# when a rename has left stale pointers on disk. With a partial listing (7),
+# resolvable skills still supply identity and install candidates; install and
+# --check report the omitted names rather than treating the set as complete.
+LIST_ERR_FILE=$(mktemp "${TMPDIR:-/tmp}/fm-matt-pointers.XXXXXX")
+trap 'rm -f "$LIST_ERR_FILE"' EXIT
+set +e
+SKILLS=$("$LOADER" --list 2>"$LIST_ERR_FILE")
+LIST_RC=$?
+set -e
+LIST_ERR=$(cat "$LIST_ERR_FILE")
+rm -f "$LIST_ERR_FILE"
+trap - EXIT
+[ -z "$LIST_ERR" ] || printf '%s\n' "$LIST_ERR" >&2
+case "$LIST_RC" in
+  0|7) : ;;
+  *) exit "$LIST_RC" ;;
+esac
+LEFT_OUT=$(printf '%s\n' "$LIST_ERR" \
+  | sed -n 's/^fm-skill-path\.sh: --list-skills leaves out \(.*\), which does not resolve$/\1/p')
 IDENTITY_SKILL=
 while IFS= read -r declared; do
   [ -n "$declared" ] || continue
@@ -146,20 +173,48 @@ done <<EOF
 $SKILLS
 EOF
 HAVE_IDENTITY=0
+PLUGIN_KEY=$PLUGIN
 VERSION=
 COMMIT=
 INSTALL_ROOT=
+identity_field() {  # <identity-block> <key>
+  printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -n 1
+}
 if [ -n "$IDENTITY_SKILL" ]; then
   IDENTITY=$("$LOADER" "$IDENTITY_SKILL" --check)
-  VERSION=$(printf '%s\n' "$IDENTITY" | sed -n 's/^resolved_version=//p' | head -n 1)
-  COMMIT=$(printf '%s\n' "$IDENTITY" | sed -n 's/^resolved_commit=//p' | head -n 1)
-  SKILL_ROOT=$(printf '%s\n' "$IDENTITY" | sed -n 's/^skill_file=//p' | head -n 1)
+  PLUGIN_KEY=$(identity_field "$IDENTITY" plugin)
+  VERSION=$(identity_field "$IDENTITY" resolved_version)
+  COMMIT=$(identity_field "$IDENTITY" resolved_commit)
+  [ "$COMMIT" != none ] || COMMIT=
+  SKILL_ROOT=$(identity_field "$IDENTITY" skill_file)
   [ -n "$VERSION" ] || die 6 "could not read the resolved plugin version from the loader"
+  case "$PLUGIN_KEY" in
+    "$PLUGIN"@?*) : ;;
+    *) die 6 "the loader resolved an unexpected plugin '$PLUGIN_KEY'" ;;
+  esac
   INSTALL_ROOT=${SKILL_ROOT%/skills/*}
   HAVE_IDENTITY=1
 elif [ "$MODE" != check ]; then
-  die 6 "$PLUGIN_KEY declares no skills, so there is nothing to point at"
+  die 6 "the enabled $PLUGIN plugin offers no skill that resolves, so there is nothing to point at"
 fi
+
+# Only the loader's not-offered status (5) means upstream retired a skill. Any
+# other refusal is a skill upstream still ships that does not resolve.
+retired_upstream() {  # <skill>
+  rc=0
+  "$LOADER" "$1" --check >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 5 ]
+}
+
+report_unresolved_listing() {
+  [ "$LIST_RC" -eq 7 ] || return 0
+  printf '%s\n' "$LEFT_OUT" | while IFS= read -r left; do
+    [ -n "$left" ] || continue
+    printf 'UNRESOLVED: upstream skill %s is offered but does not resolve, so it has no current pointer\n' \
+      "$left" >&2
+  done
+  return 1
+}
 
 # --- upstream front-matter reads ---------------------------------------------
 
@@ -224,17 +279,21 @@ metadata:
 This file is a pointer, not a skill. It contains no part of the procedure.
 
 The real skill is **\`$skill\`** by **Matt Pocock**, MIT licensed, from
-<$UPSTREAM>, installed here as the plugin \`$PLUGIN_KEY\`, validated against
-version $VERSION ($COMMIT). Firstmate generated this pointer on $stamp so
-runtimes that read \`.agents/skills\` can reach the installed original. Nothing
-was copied, so nothing here can be out of date with the original.
+<$UPSTREAM>, installed here as the plugin \`$PLUGIN_KEY\`.
+This pointer was validated against version $VERSION (${COMMIT:-no commit}).
+Firstmate generated it on $stamp so runtimes that read \`.agents/skills\` can
+reach the installed original. Nothing was copied, so nothing here can be out of
+date with the original.
 
 ## Step 1 - load the original, before doing anything else
 
 Run exactly this:
 
 \`\`\`bash
-$loader $skill
+$loader $skill \\
+  --validated-plugin $PLUGIN_KEY \\
+  --validated-version $VERSION${COMMIT:+ \\
+  --validated-commit $COMMIT}
 \`\`\`
 
 It prints the original \`SKILL.md\` bytes, preceded by an identity header naming
@@ -247,10 +306,10 @@ Treat the printed instructions as the body of this skill and follow them as
 written. Read any support file they refer to, at the absolute path listed. Do
 not summarise the printed procedure and then work from your summary.
 
-If the header says **PLUGIN CHANGED**, the installed plugin is newer than the
-version this pointer was validated against. The printed bytes are still the
-installed original and are authoritative, so follow them - and tell the user the
-validated pin needs refreshing with \`bin/fm-matt-pointers.sh\`.
+If the header says **PLUGIN CHANGED**, the enabled plugin is no longer the
+plugin, version, or commit this pointer was validated against. The printed bytes
+are still the installed original and are authoritative, so follow them - and
+tell the user the pointers need regenerating with \`bin/fm-matt-pointers.sh\`.
 
 ## If the command fails
 
@@ -312,6 +371,7 @@ is_pointer_dir() {  # <dir>
 if [ "$MODE" = prune ] || [ "$MODE" = uninstall ]; then
   [ -d "$DEST" ] || { printf 'nothing to remove: %s does not exist\n' "$DEST"; exit 0; }
   removed=0
+  status=0
   for dir in "$DEST"/"$PREFIX"*; do
     [ -d "$dir" ] || continue
     # Only marked pointer directories are ever removed, so a hand-authored skill
@@ -320,6 +380,12 @@ if [ "$MODE" = prune ] || [ "$MODE" = uninstall ]; then
     name=$(basename "$dir")
     skill=${name#"$PREFIX"}
     if [ "$MODE" = prune ] && printf '%s\n' "$SKILLS" | grep -qx -- "$skill"; then
+      continue
+    fi
+    if [ "$MODE" = prune ] && ! retired_upstream "$skill"; then
+      printf 'UNRESOLVED: kept %s, whose upstream skill %s is still offered but does not resolve\n' \
+        "$dir" "$skill" >&2
+      status=1
       continue
     fi
     if [ "$DRY" -eq 1 ]; then
@@ -331,7 +397,7 @@ if [ "$MODE" = prune ] || [ "$MODE" = uninstall ]; then
     removed=$((removed + 1))
   done
   [ "$removed" -gt 0 ] || printf 'no matching firstmate pointers under %s\n' "$DEST"
-  exit 0
+  exit "$status"
 fi
 
 # --- install and check -------------------------------------------------------
@@ -419,7 +485,7 @@ printf '%s\n' "$SKILLS" | {
   done
 
   if [ "$MODE" = check ]; then
-    # Declared skills above cannot expose a pointer whose upstream entry was
+    # Offered skills above cannot expose a pointer whose upstream entry was
     # removed, so scan every marked destination directory as well.
     for dir in "$DEST"/*; do
       [ -d "$dir" ] || continue
@@ -431,8 +497,13 @@ printf '%s\n' "$SKILLS" | {
 
       file="$dir/SKILL.md"
       loader=$(sed -n 's/^loader=//p' "$dir/$MARKER" | head -n 1)
-      printf 'RETIRED: %s no longer declares upstream skill %s\n' \
-        "$dir" "$skill" >&2
+      if retired_upstream "$skill"; then
+        printf 'RETIRED: %s points at upstream skill %s, which the plugin no longer offers\n' \
+          "$dir" "$skill" >&2
+      else
+        printf 'UNRESOLVED: %s points at upstream skill %s, which the plugin still offers but which does not resolve\n' \
+          "$dir" "$skill" >&2
+      fi
       if [ ! -x "$loader" ]; then
         printf 'BROKEN: %s points at a loader that is not executable: %s\n' \
           "$file" "$loader" >&2
@@ -441,8 +512,9 @@ printf '%s\n' "$SKILLS" | {
       status=1
     done
 
+    report_unresolved_listing || status=1
     if [ "$status" -eq 0 ] && [ "$HAVE_IDENTITY" -eq 0 ]; then
-      printf 'ok - no declared skills or marked pointers under %s\n' "$DEST"
+      printf 'ok - no offered skills or marked pointers under %s\n' "$DEST"
     elif [ "$status" -eq 0 ]; then
       printf 'ok - %s pointers under %s match %s %s\n' \
         "$(printf '%s\n' "$SKILLS" | grep -c .)" "$DEST" "$PLUGIN_KEY" "$VERSION"
@@ -454,6 +526,7 @@ printf '%s\n' "$SKILLS" | {
       "$(printf '%s\n' "$SKILLS" | grep -c .)" "$DEST" "$written" "$unchanged" \
       "$PLUGIN_KEY" "$VERSION" "$INSTALL_ROOT"
     [ "$foreign" -eq 0 ] || printf '%s foreign directories were left untouched\n' "$foreign" >&2
+    report_unresolved_listing || status=1
   fi
   exit "$status"
 }
