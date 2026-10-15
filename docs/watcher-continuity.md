@@ -174,7 +174,7 @@ After an actionable foreground close, including an attached peer cycle that ende
 3. Only then exits 2 with the wake.
 
 A child of the hook cannot outlive its exit-2 rewake.
-So that successor is the one deliberate detached launch in the continuity path:
+So with the supervision host off, that successor is the one deliberate detached launch in the continuity path (the [host header](../bin/fm-supervision-host.sh) owns the host's own-group successors):
 
 - It runs under nohup.
 - Its stdio is away from the hook's pipes.
