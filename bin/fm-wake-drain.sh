@@ -11,8 +11,9 @@
 # Usage: fm-wake-drain.sh [--decisions]
 #        fm-wake-drain.sh --ack-through SEQUENCE --recovery-generation GENERATION
 # OPEN DECISIONS prints the open count plus only the decisions that are new or
-# changed since the last successful presentation; --decisions lists every open
-# decision instead (print_open_decisions_section owns the rule).
+# changed since the last successful presentation to the same conversation;
+# --decisions lists every open decision instead (print_open_decisions_section
+# owns the rule).
 #
 # Keep sequence-bound row consumption independent from generation-bound episode
 # retirement; docs/watcher-continuity.md owns the recovery contract.
@@ -59,6 +60,7 @@ PRESENTATION_LOCK_TIMEOUT=${FM_STATUS_PRESENTATION_LOCK_TIMEOUT:-10}
 BRANCH_OUTCOMES_RC=0
 SHOW_ALL_DECISIONS=false
 OPEN_DECISIONS_LEDGER="$STATE/.open-decisions-presented"
+OPEN_DECISIONS_CONVERSATION=
 OPEN_DECISIONS_LEDGER_STAGED=
 case "$PRESENTATION_LOCK_TIMEOUT" in ''|*[!0-9]*|0) PRESENTATION_LOCK_TIMEOUT=10 ;; esac
 
@@ -244,9 +246,22 @@ case "${1:-}" in
     ;;
   *) echo "usage: fm-wake-drain.sh [--decisions | --ack-through SEQUENCE --recovery-generation GENERATION]" >&2; exit 2 ;;
 esac
-# The known-decision ledger records what main's context was shown, so any
-# other actor lists every open decision and leaves the ledger untouched.
-[ "$ACTOR" = main ] || SHOW_ALL_DECISIONS=true
+# A known-decision ledger records what one conversation was shown. Main keeps
+# its own; the branch keeps one for the supervision host's engine conversation
+# it runs in (FM_BRANCH_CONVERSATION, bin/fm-supervision-host.sh), and a
+# branch drain outside one lists every open decision and keeps no ledger.
+if [ "$ACTOR" = branch ]; then
+  case "${FM_BRANCH_CONVERSATION:-}" in
+    ''|*[!A-Za-z0-9._-]*)
+      OPEN_DECISIONS_LEDGER=
+      SHOW_ALL_DECISIONS=true
+      ;;
+    *)
+      OPEN_DECISIONS_LEDGER="$STATE/.open-decisions-presented.branch"
+      OPEN_DECISIONS_CONVERSATION="conversation=$FM_BRANCH_CONVERSATION"
+      ;;
+  esac
+fi
 
 [ "$ACTOR" != branch ] || require_branch_eligible_rows || exit 1
 
@@ -539,10 +554,12 @@ discard_open_decisions_ledger() {
 # line. A decision is known when its exact task, key, verb, and note were
 # listed by an earlier presentation and it has stayed open since, so a changed
 # note, a re-opened key, and an entry the byte cap omitted all list again.
-# --decisions (SHOW_ALL_DECISIONS) lists every open decision, as does every
-# drain by an actor other than main. The known set is OPEN_DECISIONS_LEDGER,
-# rewritten to the current open set on every presentation to main; this
-# function only stages it, and print_status_sections commits
+# --decisions (SHOW_ALL_DECISIONS) lists every open decision. The known set is
+# OPEN_DECISIONS_LEDGER, the one for this drain's conversation (set beside the
+# argument parsing), rewritten to the current open set on every presentation.
+# The branch ledger's first line names its engine conversation, so a ledger
+# left by another conversation reads as empty and a new one lists everything
+# once. This function only stages the ledger, and print_status_sections commits
 # it beside the status presentation receipt once the bytes reached stdout. An
 # unreadable ledger reads as empty, so a fault lists too much, never too little.
 print_open_decisions_section() {
@@ -554,8 +571,14 @@ print_open_decisions_section() {
   else
     open=$(scan_open_decisions_incremental "$STATE") || return 1
   fi
-  if [ -f "$OPEN_DECISIONS_LEDGER" ] && [ ! -L "$OPEN_DECISIONS_LEDGER" ]; then
+  if [ -n "$OPEN_DECISIONS_LEDGER" ] && [ -f "$OPEN_DECISIONS_LEDGER" ] && [ ! -L "$OPEN_DECISIONS_LEDGER" ]; then
     known=$(cat "$OPEN_DECISIONS_LEDGER" 2>/dev/null) || known=
+    if [ -n "$OPEN_DECISIONS_CONVERSATION" ]; then
+      case "$known$nl" in
+        "$OPEN_DECISIONS_CONVERSATION$nl"*) known=${known#"$OPEN_DECISIONS_CONVERSATION"} ;;
+        *) known= ;;
+      esac
+    fi
   fi
 
   while IFS=$(printf '\t') read -r task key verb note; do
@@ -591,8 +614,8 @@ print_open_decisions_section() {
 $open
 EOF
 
-  if [ "$ACTOR" = main ]; then
-    stage_open_decisions_ledger "$staged" || return 1
+  if [ -n "$OPEN_DECISIONS_LEDGER" ]; then
+    stage_open_decisions_ledger "${OPEN_DECISIONS_CONVERSATION:+$OPEN_DECISIONS_CONVERSATION$nl}$staged" || return 1
   fi
   [ "$total" -gt 0 ] || return 0
   if [ "$SHOW_ALL_DECISIONS" = true ]; then

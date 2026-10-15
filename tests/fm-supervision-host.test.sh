@@ -67,8 +67,8 @@ STATE=${FM_STATE_OVERRIDE:-$FM_HOME/state}
 mode=$(cat "$FM_HOME/stub-mode" 2>/dev/null || echo handle)
 n=$(( $(ls "$FM_HOME"/engine-call.* 2>/dev/null | wc -l) + 1 ))
 {
-  printf 'mode=%s\nactor=%s\nholder=%s\nprimary=%s\nturn=%s\n' "$mode" "${FM_SUPERVISION_ACTOR:-}" \
-    "${FM_LEASE_HOLDER_PID:-}" "${FM_SUPERVISION_PRIMARY_HARNESS:-}" "${FM_BRANCH_REPORT_TURN:-}"
+  printf 'mode=%s\nactor=%s\nholder=%s\nprimary=%s\nturn=%s\nconversation=%s\n' "$mode" "${FM_SUPERVISION_ACTOR:-}" \
+    "${FM_LEASE_HOLDER_PID:-}" "${FM_SUPERVISION_PRIMARY_HARNESS:-}" "${FM_BRANCH_REPORT_TURN:-}" "${FM_BRANCH_CONVERSATION:-}"
   for a in "$@"; do printf 'arg=%s\n' "$a"; done
 } > "$FM_HOME/engine-call.$n"
 case "$mode" in held|captain-held) printf 'ready\n' > "$FM_HOME/stub-ready" ;; esac
@@ -155,7 +155,7 @@ export FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999
 # Keep the real engine watchdog/reaping path, but not its production grace in fixtures.
 export FM_SUPERVISION_ENGINE_GRACE=1
 export FM_ARM_CONFIRM_TIMEOUT=30
-unset FM_SUPERVISION_ACTOR FM_BRANCH_REPORT_TURN FM_LEASE_HOLDER_PID PI_CODING_AGENT
+unset FM_SUPERVISION_ACTOR FM_BRANCH_REPORT_TURN FM_BRANCH_CONVERSATION FM_LEASE_HOLDER_PID PI_CODING_AGENT
 
 # Homes are registered in a file: make_home runs in a command substitution,
 # whose variables never reach this shell.
@@ -2068,6 +2068,8 @@ test_away_wake_is_handled_on_the_engine_and_never_reaches_main() {
   second="$home/engine-call.2"
   assert_re '^arg=--resume$' "$second" "a later turn must resume the conversation"
   assert_re "^arg=$session\$" "$second" "a later turn must resume the same conversation"
+  assert_re "^conversation=$session\$" "$first" "the engine must carry its conversation for the branch decision ledger"
+  assert_re "^conversation=$session\$" "$second" "a resumed turn must carry the same conversation"
   [ "$(grep -c '"task":"demo"' "$home/state/branch-outcomes.jsonl")" -eq 2 ] || fail "the second outcome was not recorded"
   assert_re '	handled	turn=[^	]*\.2	.* cost=0\.25 conversation_cost=0\.5 ' "$home/state/.supervision-host.log" \
     "a resumed turn must log its own cost, not the conversation's running total"

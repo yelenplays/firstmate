@@ -295,8 +295,11 @@ test_wake_triage_passes_the_full_list_flag_through() {
 
 # The known-decision ledger is main's: a branch drain that presents a decision
 # must not let main's next default drain reduce it to a count main never saw
-# the text behind.
-test_branch_drain_leaves_the_decision_unknown_to_main() {
+# the text behind. The supervision host's branch keeps its own ledger, tied to
+# its engine conversation: a resumed conversation sees only news, a new one sees
+# every open decision once, and a branch drain outside a host conversation
+# lists every open decision each time.
+test_branch_drain_keeps_a_ledger_per_conversation() {
   local dir state out
   dir=$(make_case branch-then-main)
   state="$dir/state"
@@ -311,18 +314,43 @@ test_branch_drain_leaves_the_decision_unknown_to_main() {
 
   for round in 1 2; do
     FM_STATE_OVERRIDE="$state" FM_SUPERVISION_ACTOR=branch "$DRAIN" > "$out" 2>/dev/null \
-      || fail "branch drain $round failed"
+      || fail "branch drain $round outside a host conversation failed"
     grep -F 'task-x [key=merge] needs-decision: merge PR 9 now or hold?' "$out" >/dev/null \
-      || fail "branch drain $round did not list the open decision: $(cat "$out")"
+      || fail "branch drain $round outside a host conversation did not list the open decision: $(cat "$out")"
+  done
+
+  FM_STATE_OVERRIDE="$state" FM_SUPERVISION_ACTOR=branch FM_BRANCH_CONVERSATION=conv-a "$DRAIN" > "$out" 2>/dev/null \
+    || fail "first branch drain in a conversation failed"
+  grep -F 'task-x [key=merge] needs-decision: merge PR 9 now or hold?' "$out" >/dev/null \
+    || fail "a new branch conversation did not see the open decision: $(cat "$out")"
+  FM_STATE_OVERRIDE="$state" FM_SUPERVISION_ACTOR=branch FM_BRANCH_CONVERSATION=conv-a "$DRAIN" > "$out" 2>/dev/null \
+    || fail "resumed branch drain failed"
+  grep -F 'OPEN DECISIONS: 1 still open, none new or changed since the last presentation' "$out" >/dev/null \
+    || fail "a resumed branch conversation re-listed a decision it was already shown: $(cat "$out")"
+  printf 'needs-decision [key=deploy]: ship the hotfix now?\n' > "$state/task-y.status"
+  FM_STATE_OVERRIDE="$state" FM_SUPERVISION_ACTOR=branch FM_BRANCH_CONVERSATION=conv-a "$DRAIN" > "$out" 2>/dev/null \
+    || fail "branch drain after news failed"
+  grep -F 'task-y [key=deploy] needs-decision: ship the hotfix now?' "$out" >/dev/null \
+    || fail "a resumed branch conversation missed a new decision: $(cat "$out")"
+  if grep -F '[key=merge]' "$out" >/dev/null; then
+    fail "a resumed branch conversation re-listed a known decision beside the news: $(cat "$out")"
+  fi
+  FM_STATE_OVERRIDE="$state" FM_SUPERVISION_ACTOR=branch FM_BRANCH_CONVERSATION=conv-b "$DRAIN" > "$out" 2>/dev/null \
+    || fail "branch drain in a rotated conversation failed"
+  for key in merge deploy; do
+    grep -F "[key=$key]" "$out" >/dev/null \
+      || fail "a rotated branch conversation did not see $key: $(cat "$out")"
   done
 
   FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" 2>/dev/null || fail "main drain failed"
-  grep -F 'task-x [key=merge] needs-decision: merge PR 9 now or hold?' "$out" >/dev/null \
-    || fail "main's drain only counted a decision just the branch was shown: $(cat "$out")"
+  for key in merge deploy; do
+    grep -F "[key=$key]" "$out" >/dev/null \
+      || fail "main's drain only counted $key, which just the branch was shown: $(cat "$out")"
+  done
   FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" 2>/dev/null || fail "repeat main drain failed"
-  grep -F 'OPEN DECISIONS: 1 still open, none new or changed since the last presentation' "$out" >/dev/null \
-    || fail "main's repeat drain re-listed a decision main was already shown: $(cat "$out")"
-  pass "a branch drain lists every open decision and leaves main's known-decision ledger alone"
+  grep -F 'OPEN DECISIONS: 2 still open, none new or changed since the last presentation' "$out" >/dev/null \
+    || fail "main's repeat drain re-listed decisions main was already shown: $(cat "$out")"
+  pass "the branch keeps a known-decision ledger per host conversation, apart from main's"
 }
 
 test_buried_decision_still_surfaces
@@ -336,4 +364,4 @@ test_buried_decision_surfaces_on_the_empty_queue_fast_path
 test_status_symlink_is_not_followed
 test_repeat_drain_shows_count_and_only_new_or_changed_keys
 test_wake_triage_passes_the_full_list_flag_through
-test_branch_drain_leaves_the_decision_unknown_to_main
+test_branch_drain_keeps_a_ledger_per_conversation

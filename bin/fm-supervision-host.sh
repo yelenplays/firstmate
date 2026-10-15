@@ -133,7 +133,9 @@
 # host that stands down before activation leaves the owner's host record,
 # processes, arms, and leases alone. The engine runs with
 # FM_SUPERVISION_ACTOR=branch, the session-lock holder as FM_LEASE_HOLDER_PID,
-# the primary's harness pin, and this turn's report id, so every guarded
+# the primary's harness pin, this turn's report id, and its engine
+# conversation as FM_BRANCH_CONVERSATION (the key bin/fm-wake-drain.sh ties the
+# branch's known OPEN DECISIONS to), so every guarded
 # script applies the same partition, leases, and away relocation it applies to
 # the Pi branch. At activation the host stops anything a crashed predecessor
 # left running (recorded with identities, never by name), including the
@@ -232,7 +234,7 @@ PRIMARY=${FM_SUPERVISION_HOST_PRIMARY:-}
 # The owner's predecessor arm belongs to the first cycle only.
 OWNER_PREDECESSOR=${FM_WATCH_PREDECESSOR_ARM_PID:-}
 case "$OWNER_PREDECESSOR" in *[!0-9]*) OWNER_PREDECESSOR= ;; esac
-unset FM_WATCH_PREDECESSOR_ARM_PID FM_SUPERVISION_ACTOR FM_BRANCH_REPORT_TURN
+unset FM_WATCH_PREDECESSOR_ARM_PID FM_SUPERVISION_ACTOR FM_BRANCH_REPORT_TURN FM_BRANCH_CONVERSATION
 
 HOST_RECORD="$STATE/.supervision-host"
 ENGINE_RECORD="$STATE/.supervision-host-engine"
@@ -964,6 +966,7 @@ handle_wake() {  # <reason-lines>
     export FM_LEASE_HOLDER_PID
     export FM_SUPERVISION_PRIMARY_HARNESS="$PRIMARY"
     export FM_BRANCH_REPORT_TURN="$turn"
+    export FM_BRANCH_CONVERSATION="$ENGINE_SESSION"
     fm_supervision_engine_turn "$FM_SUPERVISION_ENGINE" "$FM_SUPERVISION_ENGINE_MODEL" \
       "$PROMPT_FILE" "$WAKE_FILE" "$ENGINE_SESSION" "$ENGINE_MODE" "$TURN_TIMEOUT" \
       "$result" "$errors" "$ENGINE_PID_FILE"

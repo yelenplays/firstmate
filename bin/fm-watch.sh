@@ -595,7 +595,7 @@ inbox_steer_check() {  # <window> <task>
       reason="stale: $w (steering-inbox busy bookkeeping unwritable: ${rec%/*}/.busy-state cannot be written while $rec stays unhandled; inspect the inbox directory)"
     elif [ "$count" -ge "$(fm_task_inbox_busy_max)" ]; then
       if [ -n "$INBOX_DELIVERED_AGE" ]; then
-        reason="stale: $w (unread firstmate instruction: stuck-busy after $count consecutive busy-deferred due doorbells; its doorbell was delivered and the pane has stayed busy ${INBOX_DELIVERED_AGE}s past the ${BUSY_TURN_MAX_SECS}s turn bound with no completed turn or progress; $rec stays unhandled; inspect the worker)"
+        reason="stale: $w (unread firstmate instruction: stuck-busy after $count consecutive busy-deferred due doorbells; its doorbell was delivered and the pane has stayed busy for ${INBOX_DELIVERED_AGE}s, past the ${BUSY_TURN_MAX_SECS}s turn bound, with no completed turn or progress; $rec stays unhandled; inspect the worker)"
       else
         reason="stale: $w (unread firstmate instruction: stuck-busy after $count consecutive busy-deferred due doorbells; $rec stays unhandled and no doorbell was typed; inspect the worker)"
       fi
