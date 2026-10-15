@@ -1455,6 +1455,7 @@ The free research lane sends read-only research and reading on non-private mater
 
 It refuses until `config/private-markers` names at least one marker, because the [private-material guard](#private-material-guard-configprivate-markers) proves nothing non-private without one, and it refuses in a secondmate home, whose rules are inherited.
 The rule text names no private project, person, or client, since rule text reaches Jev on every dispatch; the guard enforces those locally in code.
+The lane rule is recognised by its fixed `why` text together with a single free or already swapped paid profile, so an operator's own rule with the paid profile is never mistaken for it.
 Precedence over overlapping rules is a per-home `beats` edit made after enabling.
 `status` reports the lane's rule number, which model it runs, and the marker count, never a marker.
 `disable` removes the lane when it is still the last rule, together with every `beats` entry naming it, and refuses otherwise, because removing it would renumber later rules.

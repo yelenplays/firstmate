@@ -21,7 +21,8 @@
 #   not a readable regular file, or names no marker, because the
 #   private-material guard (bin/fm-private-guard-lib.sh) can then prove nothing
 #   non-private. It never reads a marker's text into its output. An existing
-#   lane rule, free or already swapped to the paid replacement, is reported and
+#   lane rule, matched by its FM_FREE_LANE_WHY text and either the free or the
+#   already swapped paid profile, is reported and
 #   left alone. The previous rules file is kept as
 #   config/crew-dispatch.json.bak-<YYYY-MM-DD>-research-lane. It then pushes the
 #   rules to live secondmate homes with bin/fm-config-push.sh and arms the

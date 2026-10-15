@@ -10,12 +10,15 @@
 #   `opencode models FM_FREE_LANE_PROVIDER`. No other model or replacement is
 #   ever watched or written.
 #
+# FM_FREE_LANE_WHY is the lane rule's why text, which marks the rule as the lane.
+#
 # FM_FREE_LANE_JQ defines, for a jq program:
 #   lane_profiles($v)   a rule's use or the default as an array of profiles
 #   lane_free($p)       true for an opencode profile on FM_FREE_LANE_MODEL
 #   lane_paid($p)       true for a profile on the replacement's harness and model
-#   lane_rule($r)       true for a rule whose use is exactly one lane profile,
-#                       free or already swapped to the replacement
+#   lane_rule($r)       true for a rule whose why equals FM_FREE_LANE_WHY and
+#                       whose use is exactly one lane profile, free or already
+#                       swapped to the replacement
 #   lane_watched        true when some rule's use or the default runs the
 #                       free model (input: the rules file)
 
@@ -28,9 +31,9 @@ FM_FREE_LANE_PAID_PROVIDER='opencode-go'
 FM_FREE_LANE_PROFILE='{"harness":"opencode","model":"'"$FM_FREE_LANE_MODEL"'","provider":"'"$FM_FREE_LANE_PROVIDER"'","private_ok":false}'
 FM_FREE_LANE_REPLACEMENT='{"harness":"'"$FM_FREE_LANE_PAID_HARNESS"'","model":"'"$FM_FREE_LANE_PAID_MODEL"'","provider":"'"$FM_FREE_LANE_PAID_PROVIDER"'"}'
 
-# shellcheck disable=SC2016 # A jq program: $p and $r are jq's, not the shell's.
 FM_FREE_LANE_WHY='Free research lane (bin/fm-free-research-lane.sh): read-only, non-private work checked by a stronger model; the private-material guard enforces non-private in code and the free-model canary swaps to the paid replacement when the free tier ends.'
 
+# shellcheck disable=SC2016 # A jq program: $p and $r are jq's, not the shell's.
 FM_FREE_LANE_JQ='
   def lane_profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
   def lane_free($p): ($p | type) == "object" and $p.harness == "opencode" and $p.model == "'"$FM_FREE_LANE_MODEL"'";
