@@ -114,10 +114,9 @@ bin/fm-test-run.sh --all   # deliberate complete regression (optional local full
 bin/fm-test-isolation-proof.sh --list   # proven portable parallel candidate set
 bin/fm-test-isolation-proof.sh --jobs 4 --json /tmp/fm-isolation-proof.json   # re-run the portable candidate proof
 bin/fm-test-isolation-proof.sh --pool watcher-wake-lock --jobs 4   # re-run an admitted family proof
-[ ! -L CLAUDE.md ] && cmp -s CLAUDE.md - <<'EOF'
-<!-- Points Claude at AGENTS.md via import; edit AGENTS.md, not this file. -->
-@AGENTS.md
-EOF
+[ ! -L CLAUDE.md ] && head -n 2 CLAUDE.md | cmp -s - <(printf '%s\n' \
+  '<!-- Supervisor instructions live in AGENTS.md; repository skill configuration follows the import. -->' \
+  '@AGENTS.md')
 [ "$(readlink .claude/skills)" = "../.agents/skills" ]
 tmp=$(mktemp -d) && printf 'done: smoke\n' > "$tmp/smoke.status" && FM_STATE_OVERRIDE="$tmp" FM_SIGNAL_GRACE=1 FM_POLL=1 FM_HEARTBEAT=999999 bin/fm-watch-arm.sh  # watcher re-arm smoke test (prints arm status, then an actionable signal)
 ```
