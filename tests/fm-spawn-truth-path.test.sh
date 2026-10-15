@@ -133,8 +133,167 @@ test_unshared_pools_are_not_refused() {
   pass "clones with a separately keyed or clone-rooted pool are not refused"
 }
 
+sha256_hex() {
+  if command -v shasum >/dev/null 2>&1; then
+    printf '%s' "$1" | shasum -a 256 | awk '{print $1}'
+  else
+    printf '%s' "$1" | sha256sum | awk '{print $1}'
+  fi
+}
+
+# Two Firstmate homes clone one remote into projects/<name> on one machine, so
+# both resolve Treehouse's default pool <user-home>/.treehouse/<name>-<hash>,
+# where <hash> is six hex digits of the SHA-256 of the origin URL. Home A made
+# that pool first, so its one slot is a worktree of A's clone. B's per-clone
+# pool is <user-home>/.treehouse/fm-clones/<twelve hex digits of the SHA-256 of
+# B's physical clone path>/.treehouse/<name>-<hash>.
+make_two_home_case() {
+  local id=$1 name=${2:-Proj} case_dir user url hash pool pinned slot_a slot_b
+  case_dir="$TMP_ROOT/$id"
+  user="$case_dir/user-home"
+  mkdir -p "$user"
+  fm_git_init_commit "$case_dir/seed/$name"
+  git clone --quiet --bare "$case_dir/seed/$name" "$case_dir/remote/$name.git"
+  url="file://$case_dir/remote/$name.git"
+  fm_test_spawn_home "$case_dir/homeA" claude
+  fm_test_spawn_home "$case_dir/homeB" claude
+  git clone --quiet "$url" "$case_dir/homeA/projects/$name"
+  git clone --quiet "$url" "$case_dir/homeB/projects/$name"
+  hash=$(sha256_hex "$url")
+  pool="$user/.treehouse/$name-${hash:0:6}"
+  slot_a="$pool/1/$name"
+  mkdir -p "$pool"
+  printf '{"worktrees":[{"name":"1","path":"%s"}]}\n' "$slot_a" > "$pool/treehouse-state.json"
+  git -C "$case_dir/homeA/projects/$name" worktree add --quiet --detach "$slot_a"
+  pinned="$user/.treehouse/fm-clones/$(sha256_hex "$(cd "$case_dir/homeB/projects/$name" && pwd -P)" | cut -c1-12)/.treehouse/$name-${hash:0:6}"
+  slot_b="$pinned/1/$name"
+  fm_test_spawn_brief "$case_dir/homeA" "$id-a" "Spawn from home A."
+  fm_test_spawn_brief "$case_dir/homeB" "$id-b" "Spawn from home B."
+  printf '%s\n' "$case_dir|$user|$pool|$slot_a|$pinned|$slot_b"
+}
+
+read_two_home_record() {
+  IFS='|' read -r CASE_DIR USER_HOME POOL_DIR SLOT_A PINNED_POOL SLOT_B <<EOF
+$1
+EOF
+}
+
+run_home_spawn() {
+  local home=$1 slot=$2 id=$3 project=$4 fakebin
+  fakebin=$(make_spawn_fakebin "$home/fake")
+  HOME_DIR=$home
+  FM_TEST_SPAWN_USER_HOME=$USER_HOME FM_TEST_CLAUDE_CONFIG_DIR="$home/claude-config" \
+    fm_test_run_spawn "$home" "$slot" "$fakebin" "$id" "$project" --mode no-mistakes --yolo off
+}
+
+test_second_home_clone_of_one_remote_gets_its_own_pool() {
+  local rec id out status head_a state_before clone_b
+  id='pool-two-homes-z4'
+  rec=$(make_two_home_case "$id")
+  read_two_home_record "$rec"
+  clone_b="$CASE_DIR/homeB/projects/Proj"
+  head_a=$(git -C "$SLOT_A" rev-parse HEAD)
+  state_before=$(cat "$POOL_DIR/treehouse-state.json")
+  # Where Treehouse lands once B is pinned: a worktree of B's own clone.
+  mkdir -p "$PINNED_POOL"
+  printf '{"worktrees":[]}\n' > "$PINNED_POOL/treehouse-state.json"
+  git -C "$clone_b" worktree add --quiet --detach "$SLOT_B"
+
+  out=$(run_home_spawn "$CASE_DIR/homeB" "$SLOT_B" "$id-b" projects/Proj)
+  status=$?
+  expect_code 0 "$status" "home B's spawn of its own clone should succeed"$'\n'"$out"
+  assert_not_contains "$out" "is not a worktree of project" \
+    "home B was still handed home A's slot"
+  assert_grep "worktree=$SLOT_B" "$CASE_DIR/homeB/state/$id-b.meta" \
+    "home B's meta did not record a worktree of its own clone"
+  assert_grep "root = \"$(dirname "$(dirname "$PINNED_POOL")")\"" "$clone_b/treehouse.toml" \
+    "home B's clone was not pinned to its per-clone pool root"
+  [ -z "$(git -C "$clone_b" status --porcelain)" ] \
+    || fail "pinning left home B's clone dirty"$'\n'"$(git -C "$clone_b" status --porcelain)"
+  [ "$(git -C "$SLOT_A" rev-parse HEAD)" = "$head_a" ] || fail "home A's slot HEAD moved"
+  [ "$(cat "$POOL_DIR/treehouse-state.json")" = "$state_before" ] || fail "the shared pool's state changed"
+  [ ! -e "$(dirname "$SLOT_A")/.fm-slot-owner" ] || fail "home B claimed home A's slot"
+  [ ! -e "$CASE_DIR/homeA/projects/Proj/treehouse.toml" ] || fail "home A's clone was pinned"
+
+  out=$(run_home_spawn "$CASE_DIR/homeA" "$SLOT_A" "$id-a" projects/Proj)
+  status=$?
+  expect_code 0 "$status" "home A's spawn should still use its existing pool"$'\n'"$out"
+  assert_grep "worktree=$SLOT_A" "$CASE_DIR/homeA/state/$id-a.meta" \
+    "home A's meta did not record its existing slot"
+  [ ! -e "$CASE_DIR/homeA/projects/Proj/treehouse.toml" ] || fail "home A's own spawn pinned its clone"
+  pass "a second home's clone of one remote is pinned to its own pool and the first home's pool is untouched"
+}
+
+test_foreign_pool_outside_projects_refuses_without_pinning() {
+  local rec id out status project
+  id='pool-outside-projects-z5'
+  rec=$(make_two_home_case "$id")
+  read_two_home_record "$rec"
+  project="$CASE_DIR/elsewhere/Proj"
+  mkdir -p "$CASE_DIR/elsewhere"
+  mv "$CASE_DIR/homeB/projects/Proj" "$project"
+  out=$(run_home_spawn "$CASE_DIR/homeB" "$SLOT_A" "$id-b" "$project")
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn accepted a project whose pool holds a foreign slot"$'\n'"$out"
+  assert_contains "$out" "holds '$SLOT_A', a worktree of another repository" \
+    "the refusal did not name the foreign slot"$'\n'"$out"
+  [ ! -e "$project/treehouse.toml" ] || fail "a project outside projects/ was pinned"
+  [ ! -e "$(dirname "$SLOT_A")/.fm-slot-owner" ] || fail "refused spawn claimed the foreign slot"
+  pass "a project outside projects/ whose pool holds a foreign slot refuses before allocation"
+}
+
+test_repository_owned_treehouse_config_is_not_overwritten() {
+  local rec id out status clone_b
+  id='pool-own-config-z6'
+  rec=$(make_two_home_case "$id")
+  read_two_home_record "$rec"
+  clone_b="$CASE_DIR/homeB/projects/Proj"
+  printf 'max_trees = 4\n' > "$clone_b/treehouse.toml"
+  out=$(run_home_spawn "$CASE_DIR/homeB" "$SLOT_A" "$id-b" projects/Proj)
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn accepted a foreign slot it could not pin away from"$'\n'"$out"
+  assert_contains "$out" "could not be pinned to a pool of its own" \
+    "the refusal did not explain the pin failure"$'\n'"$out"
+  [ "$(cat "$clone_b/treehouse.toml")" = "max_trees = 4" ] || fail "the clone's own treehouse.toml was overwritten"
+  pass "a clone carrying its own treehouse.toml refuses instead of being overwritten"
+}
+
+# The pin must hold against the real Treehouse binary, not only the fake pane:
+# unpinned, B is handed A's slot (the defect); pinned, B is handed its own.
+test_real_treehouse_hands_second_home_its_own_worktree() {
+  local rec id out clone_b got common_b got_common
+  if ! command -v treehouse >/dev/null 2>&1; then
+    echo "skip: treehouse not installed; the real-Treehouse pin check did not run"
+    return 0
+  fi
+  id='pool-real-treehouse-z7'
+  rec=$(make_two_home_case "$id")
+  read_two_home_record "$rec"
+  clone_b="$CASE_DIR/homeB/projects/Proj"
+  common_b=$(cd "$(git -C "$clone_b" rev-parse --path-format=absolute --git-common-dir)" && pwd -P)
+
+  got=$(cd "$clone_b" && HOME=$USER_HOME TREEHOUSE_NO_UPDATE_CHECK=1 treehouse get --lease --lease-holder "$id" 2>/dev/null)
+  [ "$got" = "$SLOT_A" ] || fail "unpinned Treehouse did not reproduce the shared-pool defect (got '$got')"
+  (cd "$clone_b" && HOME=$USER_HOME TREEHOUSE_NO_UPDATE_CHECK=1 treehouse return --force "$got" >/dev/null 2>&1) \
+    || fail "could not return the reproduction lease"
+
+  out=$(run_home_spawn "$CASE_DIR/homeB" "$SLOT_A" "$id-b" projects/Proj)
+  assert_contains "$out" "pinned project" "home B's spawn did not pin its clone"$'\n'"$out"
+  got=$(cd "$clone_b" && HOME=$USER_HOME TREEHOUSE_NO_UPDATE_CHECK=1 treehouse get --lease --lease-holder "$id" 2>/dev/null)
+  [ -n "$got" ] || fail "pinned Treehouse handed out no worktree"
+  got_common=$(cd "$(git -C "$got" rev-parse --path-format=absolute --git-common-dir)" && pwd -P)
+  [ "$got_common" = "$common_b" ] || fail "pinned Treehouse handed home B '$got', not a worktree of its clone"
+  [ "$got" = "$SLOT_B" ] || fail "pinned Treehouse used '$got', not the per-clone pool slot '$SLOT_B'"
+  (cd "$clone_b" && HOME=$USER_HOME TREEHOUSE_NO_UPDATE_CHECK=1 treehouse return --force "$got" >/dev/null 2>&1) || true
+  pass "real Treehouse hands a pinned second-home clone a worktree of its own clone ($(treehouse --version 2>/dev/null))"
+}
+
 test_shared_pool_clone_refuses_early_naming_the_live_path
 test_live_path_itself_spawns
 test_unshared_pools_are_not_refused
+test_second_home_clone_of_one_remote_gets_its_own_pool
+test_foreign_pool_outside_projects_refuses_without_pinning
+test_repository_owned_treehouse_config_is_not_overwritten
+test_real_treehouse_hands_second_home_its_own_worktree
 
 echo "# all fm-spawn-truth-path tests passed"
