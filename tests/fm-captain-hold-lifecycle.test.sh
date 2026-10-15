@@ -89,11 +89,14 @@ run_captain() {  # <home> <command args...>
 }
 
 # Completes <id>'s captain-call inventory through a separate held task, because
-# the origin task is never accepted as its own inventory entry.
+# the origin task is never accepted as its own inventory entry. The sibling is
+# parked with a far-off --until: it is still the captain's call, but it never
+# spends a place under the captain's WIP limit that the test's own calls need.
 complete_through_sibling() {  # <home> <origin-id>
   local home=$1 id=$2
   run_captain "$home" hold "$id-call" --title "Sibling captain call for $id" \
-    --reason "captain must decide the sibling call" --repo sample --origin "$id" >/dev/null \
+    --reason "captain must decide the sibling call" --repo sample --origin "$id" \
+    --until 2099-01-01 >/dev/null \
     && run_captain "$home" complete "$id" "$id-call"
 }
 
@@ -898,6 +901,67 @@ test_answer_records_and_closes() {
   pass "answer records the captain's words, closes idempotently, and releases routed work"
 }
 
+# The captain's WIP limit is a brake on `hold`: with three calls live, a fourth
+# is refused before anything is created or changed, naming the live calls so
+# firstmate can ask which to park or drop. Repeating a live hold and deferring
+# to a future date add nothing and pass; parking or dropping a call makes room.
+test_hold_brakes_before_a_fourth_live_call() {
+  local home rc out later
+  home=$(make_home wip-brake)
+  later=$(date -u -v+7d +%Y-%m-%d 2>/dev/null || date -u -d '+7 days' +%Y-%m-%d)
+  for n in 1 2 3; do
+    run_captain "$home" hold "sample-call-$n" --title "Captain call $n" \
+      --reason "captain choice $n pending" --repo sample >/dev/null \
+      || fail "the brake refused live call $n of 3"
+  done
+
+  rc=0
+  run_captain "$home" hold sample-call-4 --title "Captain call 4" \
+    --reason "captain choice 4 pending" --repo sample > "$home/fourth.out" 2> "$home/fourth.err" || rc=$?
+  [ "$rc" -eq 3 ] || fail "a fourth live call was not braked (exit $rc): $(cat "$home/fourth.err")"
+  for n in 1 2 3; do
+    assert_grep "sample-call-$n - Captain call $n" "$home/fourth.err" \
+      "the refusal did not name live call $n"
+  done
+  assert_grep "limit is 3" "$home/fourth.err" "the refusal did not name the captain's limit"
+  assert_grep "which one to park" "$home/fourth.err" "the refusal did not tell firstmate to ask the captain"
+  tasks_in "$home" show sample-call-4 >/dev/null 2>&1 \
+    && fail "a braked hold still created its task"
+
+  tasks_in "$home" add sample-gated-work "Gated sample work" --kind ship --repo sample >/dev/null
+  rc=0
+  run_captain "$home" hold sample-gated-work --reason "captain go needed" >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 3 ] || fail "holding existing work as a fourth live call was not braked (exit $rc)"
+  out=$(tasks_in "$home" show sample-gated-work --full)
+  assert_contains "$out" "held: no" "a braked hold still held the work item"
+  assert_not_contains "$out" "Captain hold set" "a braked hold still stamped the work item"
+
+  run_captain "$home" hold sample-call-2 --reason "captain choice 2 still pending" >/dev/null \
+    || fail "repeating a hold on a live call was braked"
+  run_captain "$home" hold sample-call-4 --title "Captain call 4" \
+    --reason "captain choice 4 revisit later" --repo sample --until "$later" >/dev/null \
+    || fail "a deferral to a future date was braked"
+
+  # Parking one call with --until makes room for the next.
+  run_captain "$home" hold sample-call-1 --reason "captain parked it" --until "$later" >/dev/null \
+    || fail "could not park a live call"
+  run_captain "$home" hold sample-gated-work --reason "captain go needed" >/dev/null \
+    || fail "a hold was braked after a call was parked"
+  rc=0
+  run_captain "$home" hold sample-call-5 --title "Captain call 5" \
+    --reason "captain choice 5 pending" --repo sample >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 3 ] || fail "the brake did not hold again once the limit was reached (exit $rc)"
+
+  # Dropping one by answering it makes room too.
+  printf 'Drop it.\n' > "$home/drop.txt"
+  run_captain "$home" answer sample-call-3 --decision-file "$home/drop.txt" >/dev/null \
+    || fail "could not drop a live call"
+  run_captain "$home" hold sample-call-5 --title "Captain call 5" \
+    --reason "captain choice 5 pending" --repo sample >/dev/null \
+    || fail "a hold was braked after a call was dropped"
+  pass "hold brakes before a fourth live captain call and names the calls to park or drop"
+}
+
 # --release lifts the hold instead of closing, preserving the work item's own
 # body under the record; a re-held task later accepts a new answer.
 test_release_frees_held_work() {
@@ -1584,21 +1648,23 @@ test_bound_channel_answers_close_at_answer_time() {
     --reason "captain headline choice pending" --repo sample --origin "$id" >/dev/null
   run_captain "$home" hold sample-forged-call --title "Captain call: forged" \
     --reason "captain forged choice pending" --repo sample --origin "$id" >/dev/null
+  # Calls past the captain's WIP limit are parked; a dated hold is still the
+  # captain's and still answerable.
   run_captain "$home" hold sample-invalid-close-call --title "Captain call: invalid close" \
-    --reason "captain close mode validation pending" --repo sample --origin "$id" >/dev/null
+    --reason "captain close mode validation pending" --repo sample --origin "$id" --until 2099-01-01 >/dev/null
   run_captain "$home" hold sample-source-reconcile --title "Captain call: reconcile" \
-    --reason "captain re-check pending" --repo sample --origin "$id" >/dev/null
+    --reason "captain re-check pending" --repo sample --origin "$id" --until 2099-01-01 >/dev/null
   run_captain "$home" hold sample-bare-reconcile --title "Captain call: bare reconcile" \
-    --reason "captain bare re-check pending" --repo sample --origin "$id" >/dev/null
+    --reason "captain bare re-check pending" --repo sample --origin "$id" --until 2099-01-01 >/dev/null
   run_captain "$home" hold sample-old-shape --title "Captain call: old board shape" \
-    --reason "captain old board pending" --repo sample --origin "$id" >/dev/null
+    --reason "captain old board pending" --repo sample --origin "$id" --until 2099-01-01 >/dev/null
   run_captain "$home" hold sample-old-reconcile --title "Captain call: old bare reconcile" \
-    --reason "captain old bare reconcile pending" --repo sample --origin "$id" >/dev/null
+    --reason "captain old bare reconcile pending" --repo sample --origin "$id" --until 2099-01-01 >/dev/null
   run_captain "$home" hold sample-old-reconcile-note --title "Captain call: old annotated reconcile" \
-    --reason "captain old annotated reconcile pending" --repo sample --origin "$id" >/dev/null
+    --reason "captain old annotated reconcile pending" --repo sample --origin "$id" --until 2099-01-01 >/dev/null
   tasks_in "$home" add sample-gated-work "Gated sample work" --kind ship --repo sample \
     --body 'Gated work plan.' >/dev/null
-  run_captain "$home" hold sample-gated-work --reason "captain go needed" >/dev/null
+  run_captain "$home" hold sample-gated-work --reason "captain go needed" --until 2099-01-01 >/dev/null
   run_captain "$home" complete "$id" \
     sample-membership-call sample-headline-call sample-forged-call sample-invalid-close-call \
     sample-source-reconcile sample-bare-reconcile sample-old-shape sample-old-reconcile \
@@ -1977,8 +2043,11 @@ test_reconcile_outcomes_retry_partial_failures_once() {
   run_captain "$home" hold sample-reconcile-close-retry --reason "verify close" >/dev/null
   run_captain "$home" hold sample-reconcile-note-retry --reason "verify note" >/dev/null
   run_captain "$home" hold sample-reconcile-retire-retry --reason "verify retire" >/dev/null
-  run_captain "$home" hold sample-reconcile-close-retire --reason "verify close retirement" >/dev/null
-  run_captain "$home" hold sample-answer-retire --reason "verify answer retirement" >/dev/null
+  # Parked past the captain's WIP limit; a dated hold is still the captain's.
+  run_captain "$home" hold sample-reconcile-close-retire --reason "verify close retirement" \
+    --until 2099-01-01 >/dev/null
+  run_captain "$home" hold sample-answer-retire --reason "verify answer retirement" \
+    --until 2099-01-01 >/dev/null
   request_reconciles "$home" board-src sample-reconcile-close-retry sample-reconcile-note-retry \
     sample-reconcile-retire-retry sample-reconcile-close-retire sample-answer-retire \
     || fail "could not create partial-retry requests"
@@ -2312,6 +2381,108 @@ SH
   assert_contains "$show" "the captured result $sid sequence 1" \
     "the recorded answer did not name the board result that carried it"
   pass "a board answer reaches the keyed-answer intake and wakes firstmate"
+}
+
+# A card that cannot know which close its answer means declares `route`, the
+# mode every board-composed card carries. Its answer, captured through the real
+# runner, closes nothing: a captain-gated work item answered "go" must not be
+# completed as Done. The intake stages the captain's words for firstmate, which
+# then routes them with the close it chose, and that answer retires the staged
+# copy; a newer answer replaces an unrouted one, and `to-route clear` retires
+# one firstmate routed without resolving the call.
+test_route_card_answer_waits_for_firstmate_to_route() {
+  local home sid stub out queue show staged list rc
+  home=$(make_home board-route)
+  sid=lavish-b0a4d0000000f1e3
+  fm_test_track_procevent_home "$home" "$home/procevent-claims"
+
+  tasks_in "$home" add sample-deploy-work "Deploy the sample service" --kind ship --repo sample \
+    --body 'Deploy plan.' >/dev/null || fail "could not create the gated work item"
+  run_captain "$home" hold sample-deploy-work --reason "captain approval needed before deploy" >/dev/null \
+    || fail "could not hold the work item for the captain"
+  run_captain "$home" hold sample-route-question --title "Pick the sample launch week" \
+    --reason "captain launch week pending" --repo sample >/dev/null \
+    || fail "could not register the question call"
+
+  stub="$home/board-source.sh"
+  cat > "$stub" <<'SH'
+#!/usr/bin/env bash
+cat <<'OUT'
+session:
+  status: feedback
+  session_ended: false
+prompts[2]{tag,text,prompt}:
+  "choice","Deploy the sample service -> yes go ahead","Context data: {\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-deploy-work\",\"selection\":\"\",\"note\":\"yes go ahead\",\"close\":\"route\"}"
+  "choice","Pick the sample launch week -> week two","Context data: {\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-route-question\",\"selection\":\"\",\"note\":\"week two\",\"close\":\"route\"}"
+OUT
+SH
+  chmod +x "$stub"
+  "$stub" > "$home/route.result"
+  out=$(run_lavish "$home" answers "$home/route.result") || fail "the adapter could not read the route answers"
+  assert_contains "$out" "sample-deploy-work	yes go ahead	Deploy the sample service -> yes go ahead	route" \
+    "the adapter did not relay the card-declared route mode"
+
+  run_procevent "$home" register lavish "$sid" -- "$stub" >/dev/null \
+    || fail "could not register the board source"
+  run_captain "$home" bind "$sid" >/dev/null \
+    || fail "could not bind the board source to the keyed-answer intake"
+  out=$(run_procevent "$home" start "$sid" 2>&1) \
+    || fail "the board source runner did not complete: $out"
+  assert_contains "$out" "answers-fed: $sid" \
+    "the captured route answers never reached the keyed-answer intake: $out"
+  queue=$(cat "$home/state/.wake-queue" 2>/dev/null || true)
+  assert_contains "$queue" "check: procevent lavish $sid 1" \
+    "the routed answers produced no wake for firstmate: $queue"
+
+  show=$(tasks_in "$home" show sample-deploy-work --full)
+  assert_contains "$show" "state: queued" "a route answer completed the captain-gated work item"
+  assert_contains "$show" "held: yes" "a route answer lifted the captain hold"
+  assert_not_contains "$show" "Resolution recorded" "a route answer recorded a resolution"
+  show=$(tasks_in "$home" show sample-route-question --full)
+  assert_contains "$show" "held: yes" "a route answer resolved the question call"
+
+  list=$(run_captain "$home" to-route) || fail "could not list the answers waiting to be routed"
+  staged="$home/state/captain-answers-to-route/sample-deploy-work.decision"
+  assert_contains "$list" "sample-deploy-work	$staged" "the work item's answer is not waiting to be routed: $list"
+  assert_contains "$list" "sample-route-question	" "the question's answer is not waiting to be routed: $list"
+  assert_grep "Answer: yes go ahead" "$staged" "the staged answer lost the captain's words"
+  assert_grep "the captured result $sid sequence 1" "$staged" \
+    "the staged answer did not name the board result that carried it"
+
+  # Firstmate routes the work item's answer as the release it means.
+  run_captain "$home" answer sample-deploy-work --decision-file "$staged" --release >/dev/null \
+    || fail "firstmate could not route the staged answer as a release"
+  show=$(tasks_in "$home" show sample-deploy-work --full)
+  assert_contains "$show" "state: queued" "the routed release completed the work item"
+  assert_contains "$show" "held: no" "the routed release did not lift the hold"
+  assert_contains "$show" "Resolution mode: released" "the routed answer did not record a release"
+  assert_contains "$show" "yes go ahead" "the routed answer lost the captain's words"
+  assert_absent "$staged" "resolving the call left its staged answer waiting"
+
+  # The same capture delivered again is the same, already routed decision.
+  rc=0
+  out=$(run_lavish "$home" answers "$home/route.result" \
+    | run_captain "$home" answers --source "the captured result $sid sequence 1" 2>&1) || rc=$?
+  [ "$rc" -eq 0 ] || fail "replaying a routed capture reported a skip: $out"
+  assert_contains "$out" "closed: sample-deploy-work" "a routed and resolved answer did not replay as closed: $out"
+  assert_absent "$staged" "a replayed capture staged an answer that was already routed"
+
+  # A newer captain answer replaces the one firstmate has not routed yet.
+  out=$(printf 'sample-route-question\tweek three\tPick the sample launch week -> week three\troute\n' \
+    | run_captain "$home" answers --source "a later board answer") \
+    || fail "a newer route answer was refused: $out"
+  assert_contains "$out" "to-route: sample-route-question" "the newer answer was not staged: $out"
+  assert_contains "$out" "answers: closed=0 to-route=1 skipped=0" "the intake miscounted a route answer: $out"
+  assert_grep "Answer: week three" "$home/state/captain-answers-to-route/sample-route-question.decision" \
+    "a newer captain answer did not replace the unrouted one"
+
+  run_captain "$home" to-route clear sample-route-question >/dev/null \
+    || fail "firstmate could not retire an answer it routed without resolving the call"
+  list=$(run_captain "$home" to-route)
+  [ -z "$list" ] || fail "a cleared or resolved answer is still waiting: $list"
+  show=$(tasks_in "$home" show sample-route-question --full)
+  assert_contains "$show" "held: yes" "clearing a routed answer resolved its call"
+  pass "a route card's answer closes nothing and waits for firstmate to route it"
 }
 
 # The intake is channel-agnostic, so chat must reach it the same way a captured
@@ -4163,6 +4334,10 @@ test_retained_body_keeps_its_utf8_bytes() {
     || fail "the retained body holds a lone latin-1 byte, so it is no longer valid UTF-8"
 
   # A body carrying a character above U+00FF keeps its bytes and stays quiet.
+  # Each retained row holds two calls, so this one gets its own home to stay
+  # within the captain's WIP limit.
+  home=$(make_home retain-utf8-wide)
+  stored="$home/data/backlog.md"
   wide_id=sample-utf8-wide
   retain_row_with_body "$home" "$wide_id" "Serve it $wide black, no sugar."
   LC_ALL=C grep -qF "$wide" "$stored" \
@@ -4506,7 +4681,9 @@ test_hold_reason_round_trips_awkward_characters() {
   quoted_legacy=$(jq -cn --arg value "$legacy" '$value')
   tasks_in "$home" add sample-legacy-call "$title" --kind captain --repo sample >/dev/null \
     || fail "could not create the legacy call"
-  tasks_in "$home" hold sample-legacy-call --reason "$legacy" --kind captain >/dev/null \
+  # Every historical row is deferred so the rows the test holds next stay
+  # within the captain's WIP limit.
+  tasks_in "$home" hold sample-legacy-call --reason "$legacy" --kind captain --until 2099-01-01 >/dev/null \
     || fail "could not hold the legacy call"
   printf '%s' "$body" > "$home/legacy-body.txt"
   tasks_in "$home" update sample-legacy-call --body-file "$home/legacy-body.txt" >/dev/null \
@@ -4518,7 +4695,7 @@ test_hold_reason_round_trips_awkward_characters() {
     index=$((index + 1))
     tasks_in "$home" add "$id" "Historical reason $index" --kind captain --repo sample >/dev/null \
       || fail "could not create $id"
-    tasks_in "$home" hold "$id" --reason "$malformed" --kind captain >/dev/null \
+    tasks_in "$home" hold "$id" --reason "$malformed" --kind captain --until 2099-01-01 >/dev/null \
       || fail "could not store the historical literal reason"
     for verb in show view; do
       out=$(FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" "$verb" "$id" --full) \
@@ -4668,6 +4845,7 @@ test_retained_body_keeps_its_utf8_bytes
 test_completion_gate_attests_and_transfers
 test_answer_records_and_closes
 test_release_frees_held_work
+test_hold_brakes_before_a_fourth_live_call
 test_hold_stamp_precedes_hold_visibility
 test_interrupted_answer_preserves_hold_age
 test_deferral_leaves_captains_call_until_due
@@ -4686,6 +4864,7 @@ test_reconcile_outcomes_retry_partial_failures_once
 test_unbound_source_closes_no_hold
 test_legacy_identities_keep_working
 test_board_answer_reaches_the_keyed_answer_intake
+test_route_card_answer_waits_for_firstmate_to_route
 test_chat_channel_feeds_the_same_keyed_answer_intake
 test_origin_slug_validation_precedes_path_construction
 test_status_resolution_over_an_open_hold_is_signalled

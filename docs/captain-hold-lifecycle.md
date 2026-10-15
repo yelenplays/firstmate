@@ -57,6 +57,12 @@ It works in this order:
 
 Publishing the stamp first ensures a snapshot cannot observe a newly captain-held task without the timestamp that defines its age.
 
+Before step 1, `hold` applies the captain's WIP limit: at most three calls may wait on the captain at once.
+A hold that would add a fourth live call is refused with exit 3 before anything is created or changed, and the refusal names the live calls.
+Firstmate then asks the captain which call to park with `--until` or drop with `answer`, and holds the new call only after that.
+A call counts while its snapshot `hold_bucket` is `live`, so a repeated hold on a live call and a deferral to a future date pass the brake.
+The count reads the home's markdown backlog under one home-wide lock; [`bin/fm-captain-hold.sh --help`](../bin/fm-captain-hold.sh) owns the fail-open cases.
+
 Repeat and edge cases:
 
 - Retries of an active hold preserve its hold-set timestamp.
@@ -196,7 +202,15 @@ The optional mode column carries a card-declared close:
 | --- | --- |
 | `done` (default) | Completes the task. |
 | `release` | Lifts the hold so held work resumes. |
+| `route` | Closes nothing: records the answer for firstmate to route and reports `to-route:`. |
 | Any other value | Skipped. |
+
+`route` exists for a card whose composer could not know which close the answer means, such as a card the board composes for a hold nobody authored.
+Completing a captain-gated work item would silently drop approved work, so that card's answer waits under `state/captain-answers-to-route/` with the hold left exactly as it was.
+The captured result stays announced, and firstmate routes the staged answer with `answer <id> --decision-file <staged> [--release]` once it knows which close the answer means.
+That answer, like every other resolution, retires the staged file.
+`to-route clear <id>` retires it when firstmate routed the answer without resolving the call, and a newer captain answer replaces an unrouted one.
+`to-route` lists every answer still waiting.
 
 Each key is reported as follows:
 

@@ -4,8 +4,9 @@
 //
 // Usage: node board-render-harness.mjs <built-board.html>
 // Prints one JSON document:
-//   { stats:[{n,label,of,wip,over}], call_sub, underway:[{title,sub,badges}],
-//     charted:[{title,sub,badges,pickable}], empty, more, error }
+//   { stats:[{n,label,of,wip,over}], call_sub, calls:[{title,badges}],
+//     underway:[{title,sub,badges}], charted:[{title,sub,badges,pickable}],
+//     empty, more, error }
 import { readFileSync } from "node:fs";
 
 const html = readFileSync(process.argv[2], "utf8");
@@ -115,6 +116,18 @@ const stats = strip.children.map((t) => ({
 }));
 const callSub = byId.get("bb-call-sub")?.textContent ?? "";
 
+// A Captain's Call card nests its badges inside the card head, so gather them
+// from anywhere in the card, keeping each badge's hover title.
+const deepBadges = (node) =>
+  node.children.flatMap((c) =>
+    c.className.includes("fm-badge")
+      ? [{ tone: c.className.replace(/.*fm-badge--/, "").trim(), text: c.textContent, title: c.title ?? "" }]
+      : deepBadges(c));
+const deck = byId.get("bb-call") || new Node("div");
+const calls = deck.children
+  .filter((c) => c.className.split(/\s+/).includes("bb-decision"))
+  .map((card) => ({ title: findDeep(card, "bb-decision__title")?.textContent ?? "", badges: deepBadges(card) }));
+
 const rowsOf = (container) =>
   container.children
     .filter((r) => r.className.split(/\s+/).includes("bb-row"))
@@ -143,4 +156,4 @@ const empty = ch.children.filter((c) => c.className.includes("bb-empty")).map((c
 const more = ch.children.filter((c) => c.className.includes("bb-morechip")).map((c) => c.textContent);
 
 process.stdout.write(
-  JSON.stringify({ stats, call_sub: callSub, underway, charted, empty, more, error: errorText }) + "\n");
+  JSON.stringify({ stats, call_sub: callSub, calls, underway, charted, empty, more, error: errorText }) + "\n");

@@ -274,19 +274,20 @@ test_charted_rows_without_a_filed_date_follow_the_dated_rows_in_payload_order() 
 }
 
 # Build a board whose Captain's Call holds <calls> freeform cards against the
-# captain WIP limit <limit>, and return what the renderer produced.
-render_calls() {  # <home> <calls> <limit>
+# captain's fixed WIP limit of 3, and return what the renderer produced. An
+# optional jq <filter> reshapes the payload before the build.
+render_calls() {  # <home> <calls> [<filter>]
   local home=$1 data="$1/payload.json"
   jq -n --argjson calls "$2" '{
     schema:"fm-bearings-board.v1", home:"render-home", generated:"2026-08-26T00:00Z",
     prs_live:false,
     captains_call:[range($calls) | {key:("call-\(.)"), type:"decision", repo:"sample",
       title:("Call \(.)"), options:[], allow_freeform:true}],
-    underway:[], landed:[], charted:[], charted_more:0}' > "$data"
+    underway:[], landed:[], charted:[], charted_more:0}' | jq "${3:-.}" > "$data"
   PATH="$home/fakebin:$PATH" FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROCEVENT_CLAIM_ROOT="$home/procevent-claims" \
-    LAVISH_AXI_STATE_DIR="$home/lavish-state" FM_CAPTAIN_WIP_LIMIT="$3" \
+    LAVISH_AXI_STATE_DIR="$home/lavish-state" \
     "$BOARD" build "$data" >/dev/null || fail "the board did not build"
   require_listener_reached_poll "$home"
   node "$HARNESS" "$home/.lavish/bearings-board.html" \
@@ -296,7 +297,7 @@ render_calls() {  # <home> <calls> <limit>
 test_the_call_count_reads_against_the_wip_limit_and_flags_overflow() {
   local home out
   home=$(make_home wip-tile)
-  out=$(render_calls "$home" 2 3)
+  out=$(render_calls "$home" 2)
   printf '%s' "$out" | jq -e '
     .error == ""
     and ([.stats[] | select(.label == "need you")]
@@ -304,19 +305,40 @@ test_the_call_count_reads_against_the_wip_limit_and_flags_overflow() {
     and .call_sub == "2 items wait on you, captain"
   ' >/dev/null || fail "a board under its WIP limit did not read N / limit quietly: $out"
 
-  out=$(render_calls "$home" 3 3)
+  out=$(render_calls "$home" 3)
   printf '%s' "$out" | jq -e '
     [.stats[] | select(.label == "need you")]
       == [{"n":3,"label":"need you","of":"/ 3","wip":"at limit","over":false}]
   ' >/dev/null || fail "a board at its WIP limit was not marked at limit: $out"
 
-  out=$(render_calls "$home" 5 3)
+  out=$(render_calls "$home" 5)
   printf '%s' "$out" | jq -e '
     ([.stats[] | select(.label == "need you")]
       == [{"n":5,"label":"need you","of":"/ 3","wip":"2 over limit","over":true}])
     and .call_sub == "5 items wait on you, captain · 2 over your limit of 3"
   ' >/dev/null || fail "a board over its WIP limit was not flagged: $out"
   pass "the call count reads against the WIP limit and flags a board over it"
+}
+
+# A composed card whose answer firstmate is still routing stays open, so the
+# build marks it from the staged answer and it says the answer is recorded
+# instead of looking unanswered; other cards do not.
+test_a_card_whose_answer_is_routing_says_it_is_recorded() {
+  local home out
+  home=$(make_home routing-card)
+  mkdir -p "$home/state/captain-answers-to-route"
+  printf 'south\n' > "$home/state/captain-answers-to-route/call-0.decision"
+  out=$(render_calls "$home" 2 '.captains_call[] += {close:"route"}')
+  printf '%s' "$out" | jq -e '
+    .error == ""
+    and .calls == [
+      {"title":"Call 0","badges":[
+        {"tone":"solid","text":"decision","title":""},
+        {"tone":"info","text":"answer recorded",
+         "title":"Firstmate is routing your answer; a new answer replaces it"}]},
+      {"title":"Call 1","badges":[{"tone":"solid","text":"decision","title":""}]}]
+  ' >/dev/null || fail "a card whose answer is routing did not say it was recorded: $out"
+  pass "a card whose answer is routing says it is recorded and the others stay plain"
 }
 
 test_an_underway_row_leads_with_the_task_name_and_keeps_its_run_status
@@ -329,3 +351,4 @@ test_a_board_of_only_warnings_still_reports_nothing_queued
 test_omitted_warnings_never_count_as_more_queued
 test_an_omitted_kind_keeps_the_existing_queued_rendering
 test_the_call_count_reads_against_the_wip_limit_and_flags_overflow
+test_a_card_whose_answer_is_routing_says_it_is_recorded

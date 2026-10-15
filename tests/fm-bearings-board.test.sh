@@ -832,6 +832,7 @@ test_compose_projects_a_snapshot_deterministically() {
   jq -e '
     .schema == "fm-bearings-board.v1" and .home == "lab" and .prs_live == false
     and ([.captains_call[].key] == ["pick-route", "mate-call"])
+    and ([.captains_call[].close] == ["route", "route"])
     and (.captains_call[0] | .type == "decision" and .options == [] and .allow_freeform == true
          and .title == "Pick the launch route" and .about == "choose north or south"
          and .repo == "sample" and .pr_url == "https://github.com/example/sample/pull/4")
@@ -860,37 +861,27 @@ test_compose_projects_a_snapshot_deterministically() {
   pass "compose projects a bearings snapshot into a valid board payload deterministically"
 }
 
-test_wip_limit_is_stamped_and_configurable() {
+test_wip_limit_is_stamped_at_the_fixed_three() {
   local home data board rc
   home=$(make_home wip-limit)
   data="$home/payload.json"
   board="$home/.lavish/bearings-board.html"
   write_valid_payload "$data"
-  run_board "$home" build "$data" >/dev/null || fail "the default-limit build failed"
+  run_board "$home" build "$data" >/dev/null || fail "the build failed"
   extract_payload "$board" | jq -e '.wip_limit == 3' >/dev/null \
-    || fail "the board did not carry the default captain WIP limit of 3"
+    || fail "the board did not carry the captain's WIP limit of 3"
 
-  mkdir -p "$home/config"
-  printf '5\n' > "$home/config/captain-wip-limit"
-  run_board "$home" build "$data" >/dev/null || fail "the configured-limit build failed"
-  extract_payload "$board" | jq -e '.wip_limit == 5' >/dev/null \
-    || fail "the board ignored config/captain-wip-limit"
+  # The limit is the captain's, not the composer's: an authored value never
+  # reaches the board.
+  jq '.wip_limit = 7' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
+  run_board "$home" build "$data" >/dev/null || fail "the authored-limit build failed"
+  extract_payload "$board" | jq -e '.wip_limit == 3' >/dev/null \
+    || fail "an authored WIP limit replaced the captain's limit of 3"
 
-  FM_CAPTAIN_WIP_LIMIT=2 run_board "$home" build "$data" >/dev/null \
-    || fail "the overridden-limit build failed"
-  extract_payload "$board" | jq -e '.wip_limit == 2' >/dev/null \
-    || fail "FM_CAPTAIN_WIP_LIMIT did not override the configured limit"
-
-  printf 'three\n' > "$home/config/captain-wip-limit"
-  set +e; run_board "$home" build "$data" >/dev/null 2>&1; rc=$?; set -e
-  [ "$rc" -ne 0 ] || fail "a non-numeric captain WIP limit was accepted"
-
-  rm -f "$home/config/captain-wip-limit"
-  write_valid_payload "$data"
   jq '.wip_limit = 0' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
   set +e; run_board "$home" build "$data" >/dev/null 2>&1; rc=$?; set -e
   [ "$rc" -ne 0 ] || fail "a payload carrying a zero WIP limit was accepted"
-  pass "the captain WIP limit defaults to 3, reads config, honors the override, and fails closed"
+  pass "the board stamps the captain's fixed WIP limit of 3 whatever the payload carries"
 }
 
 test_refresh_skips_without_a_live_board() {
@@ -986,6 +977,57 @@ EOF
   pass "refresh republishes live fleet state, carries authored cards, and drops answered calls"
 }
 
+# A composed card's answer is staged for firstmate to route and its call stays
+# open, so the card would come back looking unanswered on every refresh. A
+# staged answer marks its card instead, and recording one makes refresh due.
+test_a_staged_route_answer_marks_its_card() {
+  local home data board out today
+  home=$(make_home refresh-route)
+  data="$home/payload.json"
+  board="$home/.lavish/bearings-board.html"
+  today=$(date -u +%Y-%m-%d)
+  cp "$ROOT/.tasks.toml" "$home/.tasks.toml"
+  cat > "$home/data/backlog.md" <<EOF
+## In flight
+
+## Queued
+- [ ] pick-route - Pick the launch route (repo: sample) (kind: captain) (since $today) (hold: choose north or south) (hold-kind: captain)
+  Captain hold set: ${today}T00:00:00Z
+
+## Done
+EOF
+  write_valid_payload "$data"
+  jq '.captains_call = [] | .charted = []' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
+  run_board "$home" build "$data" >/dev/null 2>&1 || fail "the refresh-route build failed"
+  out=$(run_board "$home" refresh) || fail "the first refresh failed: $out"
+  extract_payload "$board" | jq -e '
+    [.captains_call[] | {key, close, routing: (.routing // false)}]
+      == [{"key":"pick-route","close":"route","routing":false}]
+  ' >/dev/null || fail "refresh did not compose a route card for the unauthored hold"
+
+  sleep 1
+  out=$(printf 'pick-route\tsouth\tPick the launch route -> south\troute\n' \
+    | (cd "$home" && PATH="$home/fakebin:$PATH" FM_HOME="$home" \
+      FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+      "$ROOT/bin/fm-captain-hold.sh" answers --source "a board answer")) \
+    || fail "the intake refused a route answer: $out"
+  out=$(FM_BEARINGS_BOARD_MIN_INTERVAL=0 run_board "$home" refresh --if-due) \
+    || fail "the due refresh failed: $out"
+  [ "$out" = "refreshed: $board" ] || fail "a staged route answer did not make the refresh due: $out"
+  extract_payload "$board" | jq -e '
+    [.captains_call[] | {key, routing}] == [{"key":"pick-route","routing":true}]
+  ' >/dev/null || fail "the card whose answer waits to be routed was not marked"
+
+  (cd "$home" && PATH="$home/fakebin:$PATH" FM_HOME="$home" \
+    FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    "$ROOT/bin/fm-captain-hold.sh" to-route clear pick-route) >/dev/null \
+    || fail "could not retire the routed answer"
+  out=$(run_board "$home" refresh) || fail "the routed refresh failed: $out"
+  extract_payload "$board" | jq -e '.captains_call[0] | has("routing") | not' >/dev/null \
+    || fail "a card kept its routing mark after the answer was routed"
+  pass "a staged route answer marks its card and makes the refresh due"
+}
+
 test_path_is_stable_and_home_scoped
 test_build_refuses_malformed_payloads_before_touching_the_board
 test_charted_kind_is_optional_and_accepts_both_values
@@ -1005,6 +1047,7 @@ test_every_decision_card_carries_the_reconcile_choice
 test_build_refuses_a_payload_that_occupies_the_reconcile_value
 test_build_refuses_a_nondecision_reconcile_value
 test_compose_projects_a_snapshot_deterministically
-test_wip_limit_is_stamped_and_configurable
+test_wip_limit_is_stamped_at_the_fixed_three
 test_refresh_skips_without_a_live_board
 test_refresh_republishes_live_state_and_drops_answered_calls
+test_a_staged_route_answer_marks_its_card

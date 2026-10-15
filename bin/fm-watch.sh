@@ -2794,7 +2794,7 @@ bearings_board_refresh_detached() {
     fi
     BEARINGS_BOARD_PID=
   fi
-  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
+  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
     "$SCRIPT_DIR/fm-bearings-board.sh" refresh --if-due \
     </dev/null >/dev/null 2>"$STATE/.bearings-board-refresh.err" &
   BEARINGS_BOARD_PID=$!

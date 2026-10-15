@@ -24,6 +24,7 @@
 #     [--title <title>] [--repo <repo>] [--origin <origin-id>] [--until YYYY-MM-DD]
 #   fm-captain-hold.sh answer <task-id> --decision-file <path> [--release [--execute]]
 #   fm-captain-hold.sh answers [<legacy-origin> | --any-origin] --source <provenance>   (keyed answers on stdin)
+#   fm-captain-hold.sh to-route [clear <task-id>]
 #   fm-captain-hold.sh reconcile-requests --source-id <source-id> --source <provenance>   (task ids on stdin)
 #   fm-captain-hold.sh bind <source-id> [<legacy-origin> | --any-origin]
 #   fm-captain-hold.sh unbind <source-id>
@@ -57,6 +58,18 @@
 # --until`, so a "revisit later" answer is stored as a date instead of a live
 # card.
 #
+# THE CAPTAIN'S WIP LIMIT IS A BRAKE ON `hold`. At most FM_CAPTAIN_WIP_LIMIT
+# (bin/fm-captain-wip-lib.sh, fixed at 3) calls may wait on the captain at
+# once. A hold that would add one more live call while that many are already
+# live is refused with exit 3 before anything is created or changed, naming
+# the live calls, so firstmate asks the captain which one to park (`hold <id>
+# --until <date>`) or drop (`answer <id>`) and only then holds the new one.
+# Repeating a hold on a call that is already live adds nothing and always
+# passes, as does a deferral to a future date. The count reads this home's
+# markdown backlog under one home-wide lock, so two holds cannot both take the
+# last place; a backlog on another backend, or one the count cannot read, is
+# not braked and says so on stderr rather than losing the captain's call.
+#
 # `answer` records the captain's exact words and resolves the call in the same
 # act. It requires a non-empty captain decision file of at most 8192 bytes and
 # writes a resolution block while preserving the leading hold-set stamp until
@@ -87,12 +100,24 @@
 # identically no matter which channel the answer arrived on. The key IS the
 # task id - no identity arithmetic. The optional fourth field selects the close:
 # empty or `done` completes the task, `release` lifts the hold so held work
-# resumes; anything else is skipped. A key that names no task, a task that is
-# not held for the captain, or a task already closed is reported as `skipped:`
-# and feeds nothing. A replayed delivery whose answer digest and requested
-# close mode both match the newest record is reported `closed:` and is a no-op;
-# a mode mismatch is skipped. The command exits nonzero when any key was
-# skipped. `--source` is provenance text recorded in the
+# resumes, and `route` closes nothing (below); anything else is skipped. A key
+# that names no task, a task that is not held for the captain, or a task
+# already closed is reported as `skipped:` and feeds nothing. A replayed
+# delivery whose answer digest and requested close mode both match the newest
+# record is reported `closed:` and is a no-op; a mode mismatch is skipped. The
+# command exits nonzero when any key was skipped.
+#
+# ROUTE: AN ANSWER RECORDED, NOT ACTED ON. A card whose composer could not know
+# whether its answer should complete the task or free held work declares
+# `route`. The intake then records the captain's answer, with the same
+# provenance text `answer` would record, under `state/captain-answers-to-route/`
+# and reports `to-route:`, leaving the hold and the task exactly as they were.
+# The captured result that carried it stays announced, so firstmate routes it:
+# `answer <id> --decision-file <staged> [--release]` once it knows which close
+# the answer means, which retires the staged answer with every other
+# resolution, or `to-route clear <id>` when it routed the answer without
+# resolving the call. A newer captain answer replaces an unrouted one. `to-route`
+# lists `<task-id><TAB><staged-file>` for every answer still waiting. `--source` is provenance text recorded in the
 # durable decision, never a behavior switch: this command has no per-channel
 # branch and no knowledge of chat, review decks, or any transport.
 # Legacy input: an optional positional origin (or a stored concrete-origin
@@ -247,6 +272,9 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 # shellcheck source=bin/fm-parent-channel-lib.sh
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/fm-parent-channel-lib.sh"
+# shellcheck source=bin/fm-captain-wip-lib.sh
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/fm-captain-wip-lib.sh"
 
 PARENT_HOLD_PUBLISHED=0
 publish_parent_hold() {  # <task-id> <occurrence> <verb> <note>
@@ -264,7 +292,12 @@ CAPTAIN_META_LOCK=
 CAPTAIN_META_LOCK_HELD=0
 CAPTAIN_CONTROL_LOCK=
 CAPTAIN_CONTROL_LOCK_HELD=0
+CAPTAIN_WIP_LOCK_HELD=0
 captain_hold_cleanup() {
+  if [ "$CAPTAIN_WIP_LOCK_HELD" = 1 ]; then
+    fm_lock_release "$STATE/.captain-wip.lock" || true
+    CAPTAIN_WIP_LOCK_HELD=0
+  fi
   if [ "$CAPTAIN_META_LOCK_HELD" = 1 ]; then
     fm_lock_release "$CAPTAIN_META_LOCK" || true
     CAPTAIN_META_LOCK_HELD=0
@@ -915,6 +948,47 @@ verify_entry_durable() {  # <origin-or-empty> <entry>; prints "<id> <how> <origi
   printf '%s %s %s\n' "$id" "$how" "$origin_state"
 }
 
+# Refuse, with exit 3, a hold that would add a live captain call past the
+# captain's WIP limit (see the header). Takes the home-wide WIP lock, which the
+# EXIT trap releases once the hold is recorded.
+captain_wip_brake() {  # <task-id> <until-or-empty>
+  local id=$1 until=$2 data root backend backlog calls others count
+  if [ -n "$until" ] && [[ "$until" > "$(date -u +%Y-%m-%d)" ]]; then
+    return 0
+  fi
+  fm_lock_acquire_wait "$STATE/.captain-wip.lock"
+  CAPTAIN_WIP_LOCK_HELD=1
+  data=$(fm_backlog_data_absolute "$DATA") || fail "data directory cannot be resolved: $DATA"
+  root=$(fm_backlog_root "$data") || fail "$FM_BACKLOG_TRANSITION_ERROR"
+  backend=$(fm_tasks_axi_backend "$root") || fail "cannot resolve the backlog backend for $root"
+  if [ "$backend" != markdown ]; then
+    printf 'fm-captain-hold: the captain WIP limit is not checked on a %s backlog; holding %s unbraked\n' \
+      "$backend" "$id" >&2
+    return 0
+  fi
+  backlog=$(fm_backlog_file "$data") || fail "$FM_BACKLOG_TRANSITION_ERROR"
+  [ -f "$backlog" ] || return 0
+  if ! calls=$(fm_captain_live_calls "$SCRIPT_DIR/fm-fleet-snapshot.sh" "$backlog"); then
+    printf 'fm-captain-hold: cannot count the live captain calls in %s; holding %s unbraked\n' \
+      "$backlog" "$id" >&2
+    return 0
+  fi
+  # Already a live call: holding it again adds nothing.
+  if printf '%s\n' "$calls" | cut -f1 | grep -Fqx -- "$id"; then
+    return 0
+  fi
+  others=$(printf '%s\n' "$calls" | sed '/^$/d')
+  count=$(printf '%s' "$others" | grep -c '' || true)
+  [ "$count" -ge "$FM_CAPTAIN_WIP_LIMIT" ] || return 0
+  {
+    printf 'fm-captain-hold: refused: %s calls already wait on the captain, and the limit is %s:\n' \
+      "$count" "$FM_CAPTAIN_WIP_LIMIT"
+    printf '%s\n' "$others" | awk -F '\t' '{ printf "  %s - %s\n", $1, $2 }'
+    printf 'Ask the captain which one to park (hold <id> --reason <reason> --until <date>) or drop (answer <id> --decision-file <file>), then hold %s again.\n' "$id"
+  } >&2
+  exit 3
+}
+
 command_hold() {
   local id=${1:-} title='' reason='' repo='' origin='' until='' show state existing_title body='' hold_kind hold_set occurrence
   local existing_hold_kind='' existing_held='' preserve_hold_set=0 stored_reason previous_origin='' hold_status=0
@@ -949,8 +1023,9 @@ command_hold() {
     [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z) : ;;
     *) fail "FM_CAPTAIN_HOLD_NOW must be a UTC YYYY-MM-DDTHH:MM:SSZ timestamp" ;;
   esac
-  acquire_task_control_lock "$id"
   require_tasks_axi
+  captain_wip_brake "$id" "$until"
+  acquire_task_control_lock "$id"
   if task_show "$id"; then
     show=$TASK_SHOW_OUTPUT
     state=$(show_field "$show" state)
@@ -1339,10 +1414,55 @@ sanitize_reconcile_provenance() {
   printf '%s' "$1" | tr '\n\r\t' '   ' | LC_ALL=C tr -d '\000-\037\177' | cut -c1-1024
 }
 
+# --- route: captain answers recorded for firstmate to route -----------------
+
+ROUTE_DIR="$STATE/captain-answers-to-route"
+
+routed_answer_path() { printf '%s/%s.decision\n' "$ROUTE_DIR" "$1"; }
+
+routed_answer_stage() {  # <task-id> <decision-file>
+  local path tmp
+  path=$(routed_answer_path "$1")
+  (umask 077; mkdir -p "$ROUTE_DIR") || return 1
+  [ -d "$ROUTE_DIR" ] && [ ! -L "$ROUTE_DIR" ] || return 1
+  tmp=$(umask 077; mktemp "$ROUTE_DIR/.decision.XXXXXX") || return 1
+  if cat -- "$2" > "$tmp" && mv -f -- "$tmp" "$path"; then
+    return 0
+  fi
+  rm -f -- "$tmp"
+  return 1
+}
+
+routed_answer_retire() {  # <task-id>
+  rm -f -- "$(routed_answer_path "$1")" \
+    || fail "could not retire the answer recorded for firstmate to route on $1"
+}
+
+command_to_route() {
+  local f id
+  case "${1:-}" in
+    '')
+      [ "$#" -le 1 ] || { usage >&2; exit 2; }
+      for f in "$ROUTE_DIR"/*.decision; do
+        [ -f "$f" ] && [ ! -L "$f" ] || continue
+        id=${f##*/}
+        printf '%s\t%s\n' "${id%.decision}" "$f"
+      done
+      ;;
+    clear)
+      [ "$#" -eq 2 ] || { usage >&2; exit 2; }
+      validate_slug task-id "$2"
+      routed_answer_retire "$2"
+      printf 'cleared: %s\n' "$2"
+      ;;
+    *) usage >&2; exit 2 ;;
+  esac
+}
+
 command_answers() {
   local origin='' source='' row rest key answer label mode id show state hold_kind body digest legacy_digest legacy_key
   local recorded_digest recorded_mode occurrence tmp err closed=0 skipped=0 reason release_flag tab=$'\t'
-  local resolve_rc
+  local resolve_rc route to_route=0
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --source) shift; source=${1:-} ;;
@@ -1384,9 +1504,11 @@ command_answers() {
       continue
     fi
     release_flag=''
+    route=0
     case "${mode:-}" in
       ''|done) : ;;
       release) release_flag=--release ;;
+      route) route=1 ;;
       *)
         printf 'skipped: %s (unknown close mode %s)\n' "$key" "$(sanitize_field "$mode")"
         skipped=$((skipped + 1))
@@ -1439,7 +1561,10 @@ command_answers() {
       && { [ "$recorded_digest" = "$digest" ] \
         || { case "$body" in *"Resolution recorded by fm-decision-hold."*) true ;; *) false ;; esac \
           && [ -n "$legacy_digest" ] && [ "$recorded_digest" = "$legacy_digest" ]; }; }; then
-      if { [ -z "$release_flag" ] && [ "$state" = "done" ] \
+      # A routed answer firstmate already resolved, by either close, is the
+      # same captain decision delivered again.
+      if { [ "$route" = 1 ] && { [ "$state" = "done" ] || [ "$hold_kind" != captain ]; }; } \
+        || { [ -z "$release_flag" ] && [ "$state" = "done" ] \
           && closed_answer_replay_mode_compatible "$recorded_mode" "$body"; } \
         || { [ "$release_flag" = --release ] && [ "$state" != "done" ] \
           && [ "$hold_kind" != captain ] && [ "$recorded_mode" = released ]; }; then
@@ -1464,6 +1589,16 @@ command_answers() {
       skipped=$((skipped + 1))
       continue
     fi
+    if [ "$route" = 1 ]; then
+      if routed_answer_stage "$id" "$tmp"; then
+        printf 'to-route: %s\n' "$id"
+        to_route=$((to_route + 1))
+      else
+        printf 'skipped: %s (could not record the answer for firstmate to route)\n' "$id"
+        skipped=$((skipped + 1))
+      fi
+      continue
+    fi
     # shellcheck disable=SC2086  # release_flag is empty or a single literal flag.
     if "$0" answer "$id" --decision-file "$tmp" $release_flag </dev/null >/dev/null 2>"$err"; then
       # A parent-channel delivery problem is reported on stderr by the answer
@@ -1478,7 +1613,7 @@ command_answers() {
     fi
   done
   rm -f -- "$tmp" "$err"
-  printf 'answers: closed=%s skipped=%s\n' "$closed" "$skipped"
+  printf 'answers: closed=%s to-route=%s skipped=%s\n' "$closed" "$to_route" "$skipped"
   [ "$skipped" -eq 0 ]
 }
 
@@ -1542,6 +1677,7 @@ publish_parent_resolution_then_retire() {  # <task-id> <occurrence> <note>
     fail "could not publish the answered captain-held task $id to its parent"
   fi
   reconcile_request_retire "$id"
+  routed_answer_retire "$id"
   TZ=Europe/Berlin FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" \
     FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" FM_ROOT_OVERRIDE="$FM_ROOT" \
     "$SCRIPT_DIR/fm-logbook-refresh.sh" >/dev/null 2>&1 || true
@@ -2126,6 +2262,7 @@ case "${1:-}" in
     "$SCRIPT_DIR/fm-logbook-refresh.sh" >/dev/null 2>&1 || true
     ;;
   answers) shift; command_answers "$@" ;;
+  to-route) shift; command_to_route "$@" ;;
   reconcile-requests) shift; command_reconcile_requests "$@" ;;
   bind) shift; command_bind "$@" ;;
   unbind) shift; command_unbind "$@" ;;

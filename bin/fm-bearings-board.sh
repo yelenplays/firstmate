@@ -40,7 +40,10 @@
 #            judgment and no agent-authored copy: every live captain hold
 #            becomes a freeform-answer decision card titled by its task title
 #            (with the hold reason as context and a contribution PR as
-#            pr_url), and Underway, Recently Landed, and Charted Next are
+#            pr_url). Nothing tells the composer whether an answer should
+#            complete the task or free held work, so every composed card
+#            declares the `route` close: the keyed-answer intake records its
+#            answer for firstmate to route and closes nothing. Underway, Recently Landed, and Charted Next are
 #            projected row by row. Action-free notices - the main-inventory and
 #            return-catchup gates and an unavailable secondmate home - become
 #            warning rows. Snapshot rows whose id cannot be a payload key are
@@ -66,8 +69,8 @@
 #            `refreshed: <path>`, `unchanged: <path>`, `superseded: <path>`,
 #            or `skipped: <why>`. Concurrent refreshes collapse into one.
 #            --if-due first returns `skipped: not due` unless the main home's
-#            backlog, a task meta, or a task status log changed since the last
-#            refresh started, or FM_BEARINGS_BOARD_MAX_AGE seconds (default
+#            backlog, a task meta, a task status log, or the answers waiting
+#            to be routed changed since the last refresh started, or FM_BEARINGS_BOARD_MAX_AGE seconds (default
 #            300) passed, which is how bin/fm-watch.sh calls it on every poll.
 #            Either way it waits until FM_BEARINGS_BOARD_MIN_INTERVAL seconds
 #            (default 60) passed since the last refresh started, so a busy
@@ -79,9 +82,14 @@
 # THE CAPTAIN'S WIP LIMIT. Build and refresh both stamp the effective payload
 # with `wip_limit`, the most items that should wait on the captain at once;
 # the board shows its Captain's Call count against it and flags the board when
-# the count is over. The first line of $FM_HOME/config/captain-wip-limit sets
-# it (a positive integer), FM_CAPTAIN_WIP_LIMIT overrides that, and the default
-# is 3. The board only shows the limit; firstmate's conversation enforces it.
+# the count is over. bin/fm-captain-wip-lib.sh owns the fixed limit, and
+# bin/fm-captain-hold.sh `hold` is the brake that refuses to add a call past it.
+#
+# AN ANSWER WAITING TO BE ROUTED. A `route` card's answer leaves its call open
+# (see compose), so build and refresh mark every non-merge card whose answer
+# bin/fm-captain-hold.sh holds for firstmate to route with `routing: true`, and
+# the board shows that answer as recorded instead of inviting a second one. A
+# newly recorded answer makes refresh due.
 #
 # A LIVE SESSION IS PROVED, NEVER ASSUMED. `lavish-axi <file>` exits 0 even
 # when it refuses to reopen a session the captain ended from the browser,
@@ -142,10 +150,13 @@ FM_HOME="${FM_HOME:-$FM_ROOT}"
 
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
-CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+# Captain answers waiting for firstmate to route; bin/fm-captain-hold.sh owns it.
+ROUTE_DIR="$STATE/captain-answers-to-route"
+# shellcheck source=bin/fm-captain-wip-lib.sh
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/fm-captain-wip-lib.sh"
 
 TEMPLATE="${FM_BEARINGS_BOARD_TEMPLATE:-$SCRIPT_DIR/../.agents/skills/bearings/assets/board-template.html}"
-DEFAULT_WIP_LIMIT=3
 PLACEHOLDER='__FM_BEARINGS_BOARD_DATA__'
 BOARD_SCHEMA=fm-bearings-board.v1
 
@@ -216,7 +227,8 @@ validate_payload() {  # <data.json>
       and optional_subject
       and (if has("subject") then .type == "decision" else true end)
       and (optional_string("freeform_hint"))
-      and ((has("close") | not) or (.close == "done" or .close == "release"))
+      and ((has("close") | not) or (.close == "done" or .close == "release" or .close == "route"))
+      and ((has("routing") | not) or (.routing | type == "boolean"))
       and ((has("allow_freeform") | not) or (.allow_freeform | type == "boolean"))
       and ((has("recommend_value") | not)
         or ((.recommend_value | slug(128))
@@ -351,8 +363,7 @@ decision_card_is_stale() {  # <task-id> <landed-0-or-1>
 # card offers reconcile" a property of the board rather than of the composer's
 # memory; the validator prevents duplicate decision options.
 effective_payload() {  # <data.json> <dest.json>
-  local data=$1 dest=$2 landed_keys key reason drop='' tmp landed=0 limit
-  limit=$(wip_limit) || return 1
+  local data=$1 dest=$2 landed_keys key reason drop='' tmp landed=0 routing f
   landed_keys=$(jq -c '
     def version_parts: split(".") | map(tonumber);
     . as $payload
@@ -380,12 +391,21 @@ effective_payload() {  # <data.json> <dest.json>
     drop=$drop$key$'\n'
   done < <(jq -r '.captains_call[]? | select(.type == "decision") | .key' "$data")
   tmp=$(printf '%s' "$drop" | jq -R -s 'split("\n") | map(select(length > 0))') || return 1
-  jq --argjson dropped "$tmp" --argjson limit "$limit" '
+  routing=''
+  for f in "$ROUTE_DIR"/*.decision; do
+    [ -f "$f" ] && [ ! -L "$f" ] || continue
+    f=${f##*/}
+    routing=$routing${f%.decision}$'\n'
+  done
+  routing=$(printf '%s' "$routing" | jq -R -s 'split("\n") | map(select(length > 0))') || return 1
+  jq --argjson dropped "$tmp" --argjson routing "$routing" --argjson limit "$FM_CAPTAIN_WIP_LIMIT" '
     .wip_limit = $limit
     | .captains_call = [
       .captains_call[]
       | . as $card
       | select($card.type != "decision" or (($dropped | index($card.key)) == null))
+      | if ($card.type != "merge" and ($routing | index($card.key)) != null)
+        then .routing = true else del(.routing) end
       | if .type == "decision"
         then .options += [{
           value: "reconcile",
@@ -394,19 +414,6 @@ effective_payload() {  # <data.json> <dest.json>
         }]
         else . end
     ]' "$data" > "$dest" || return 1
-}
-
-wip_limit() {
-  local value=${FM_CAPTAIN_WIP_LIMIT-}
-  if [ -z "$value" ] && [ -f "$CONFIG/captain-wip-limit" ]; then
-    IFS= read -r value < "$CONFIG/captain-wip-limit" || true
-    value=${value//[[:space:]]/}
-  fi
-  case "$value" in
-    '') value=$DEFAULT_WIP_LIMIT ;;
-    *[!0-9]*|0*) printf 'fm-bearings-board: captain WIP limit is not a positive integer: %s\n' "$value" >&2; return 1 ;;
-  esac
-  printf '%s\n' "$value"
 }
 
 # Deterministic snapshot-to-payload projection. Everything here is structure
@@ -442,7 +449,8 @@ compose_payload() {  # <bearings-snapshot.json>
           | {key, type: "decision", repo: (.repo // null),
              title: (.title | text_or($h.key)),
              options: [], allow_freeform: true,
-             freeform_hint: "Answer in your own words"}
+             freeform_hint: "Answer in your own words",
+             close: "route"}
           + (if (.reason | has_text) or $h.owner != "(main)"
              then {about: (owner_note($h.owner) + (.reason | text_or("captain decision pending")))}
              else {} end)
@@ -600,6 +608,7 @@ refresh_due() {  # <stamp>
   [ "$age" -ge "$min_interval" ] || return 1
   [ "$age" -lt "$max_age" ] || return 0
   [ ! "$DATA/backlog.md" -nt "$stamp" ] || return 0
+  [ ! -d "$ROUTE_DIR" ] || [ ! "$ROUTE_DIR" -nt "$stamp" ] || return 0
   changed=$(find "$STATE" -maxdepth 1 -type f \( -name '*.meta' -o -name '*.status' \) \
     -newer "$stamp" -print 2>/dev/null | head -n 1)
   [ -n "$changed" ]
