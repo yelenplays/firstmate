@@ -1,0 +1,3 @@
+not ok - pi (1.2.0): no empty composer before fresh; resolve trust/login dialogs first
+
+exit=1

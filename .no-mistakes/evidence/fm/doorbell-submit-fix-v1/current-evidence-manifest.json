@@ -1,0 +1,53 @@
+{
+  "target": "4056f4fceadea861d2164b2b6b891c75aae4eec5",
+  "harnesses": {
+    "claude": "2.1.300",
+    "pi": "1.2.0"
+  },
+  "captures": [
+    {
+      "harness": "claude",
+      "capture": "claude-protected-draft.json",
+      "sha256": "5fa09cb064048a3898a4361b368b0b54453104d8a4b5e83b6a8553a99798eeea"
+    },
+    {
+      "harness": "claude",
+      "capture": "claude-retry-exhausted.json",
+      "sha256": "134ea560c0f91e490740cbb67b0b48c3d188d7429e1660536cd27305cfabb90a"
+    },
+    {
+      "harness": "claude",
+      "capture": "claude-retry-recovered.json",
+      "sha256": "2207bf3a2c968282e3d4b6f99f20f60b4d7c31d122f48ff582d28f7b6f5f254b"
+    },
+    {
+      "harness": "pi",
+      "capture": "pi-protected-draft.json",
+      "sha256": "7fae0dbce14f0151068fefb24328a50ef8b7339f84d878d7a30620edf3cb0ae7"
+    },
+    {
+      "harness": "pi",
+      "capture": "pi-retry-exhausted.json",
+      "sha256": "f90300a313cc73ab19506f06872f53abfb975e2592a6523547750648c6a50b17"
+    },
+    {
+      "harness": "pi",
+      "capture": "pi-retry-recovered.json",
+      "sha256": "864aad02a21f868764ca3b996a6a15c259e7cd4de0c16d8832718c20b7cd7525"
+    }
+  ],
+  "busy_guard": "busy-baseline ring rc=2 remaining-dropped-enters=98 record=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501Y41X1MGX5GCEX9PDZXD5/.gate-test-tmp/fm-inbox-herdr.TkYo0D/home/state/live-pi.inbox/006.msg",
+  "claude_handled": [
+    "001.msg",
+    "002.msg",
+    "003.msg"
+  ],
+  "pi_handled": [
+    "001.msg",
+    "002.msg",
+    "003.msg",
+    "004.msg"
+  ],
+  "tmux": "not on PATH; no filesystem search or installation performed",
+  "cleanup": "All named lab sessions torn down through helper; final-run-cleanup.log belongs to interrupted combined attempt; successful single-harness runs exited 0 through cleanup traps."
+}

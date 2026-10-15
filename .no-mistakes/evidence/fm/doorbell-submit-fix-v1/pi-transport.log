@@ -1,0 +1,263 @@
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+pane get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+pane process-info --pane w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-text w1:p1 : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'live-pi.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/. --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-text w1:p1 : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'live-pi.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/. --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+pane get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+pane process-info --pane w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+pane get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+pane process-info --pane w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-text w1:p1 : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'live-pi.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/. --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source recent --lines 200 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --session fm-lab-inbox-doorbell-29413-25898
+pane get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+pane process-info --pane w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-text w1:p1 unsubmitted human draft --session fm-lab-inbox-doorbell-29413-25898
+pane get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+pane process-info --pane w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+pane get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+pane process-info --pane w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-text w1:p1 : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'live-pi.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/. --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+pane process-info --pane w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-text w1:p1 : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'live-pi.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/. --session fm-lab-inbox-doorbell-29413-25898
+pane get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+pane process-info --pane w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source recent --lines 200 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane send-keys w1:p1 enter --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --format ansi --session fm-lab-inbox-doorbell-29413-25898
+agent get w1:p1 --session fm-lab-inbox-doorbell-29413-25898
+status --json --session fm-lab-inbox-doorbell-29413-25898
+pane read w1:p1 --source visible --session fm-lab-inbox-doorbell-29413-25898

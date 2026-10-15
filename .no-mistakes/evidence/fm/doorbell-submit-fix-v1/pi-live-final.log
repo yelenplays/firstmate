@@ -1,0 +1,5 @@
+ok - Herdr pi (1.2.0): fresh doorbell acted and acknowledged after two swallowed Enters
+ok - Herdr pi (1.2.0): stale doorbell acted and acknowledged after two swallowed Enters
+ok - Herdr pi: exhausted retries report unconfirmed and preserve a recoverable single doorbell
+ok - Herdr pi (1.2.0): unrelated draft stays unsubmitted
+ok - Herdr Pi: pre-existing working status does not confirm three dropped Enter attempts

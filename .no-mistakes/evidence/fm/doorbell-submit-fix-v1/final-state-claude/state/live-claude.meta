@@ -1,0 +1,6 @@
+backend=herdr
+herdr_session=fm-lab-inbox-doorbell-18071-22152
+herdr_pane_id=w1:p1
+window=fm-lab-inbox-doorbell-18071-22152:w1:p1
+kind=ship
+harness=claude

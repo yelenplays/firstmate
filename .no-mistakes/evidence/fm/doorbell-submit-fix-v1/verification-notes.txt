@@ -1,0 +1,15 @@
+Target: 4056f4fceadea861d2164b2b6b891c75aae4eec5
+Base: 22fdb5a6a8c09aef3adce84b46536aaceb3a82f0
+Date: 2026-10-15 (checks completed before 16:20 UTC)
+
+Real product: Herdr 0.9.0 protocol 22; Pi 1.2.0, existing login, no fake harness or credentials. All Herdr operations went through bin/fm-herdr-lab.sh, named disposable sessions, successful guarded teardown and default-session tripwire. No default-session panes were driven.
+
+First live attempt stopped at Pi's project trust menu. Re-driven with only 'Trust (this session only)' selected; no persistent trust/configuration change. Fresh and stale doorbells each survived two deliberately dropped transport Enters, then the real worker executed the instruction and moved 001.msg / 002.msg to handled/. The test's shim drops only Enter; the real pane and model process handle all remaining input. The actual transcript and copied handled records are retained beside this note. An unrelated human draft remained visible and unsubmitted; the new steer stayed in 003.msg with a public doorbell-skipped diagnostic.
+
+Supplemental deterministic checks: tests/fm-composer-lib.test.sh and tests/fm-task-inbox.test.sh completed with exit 0. The latter exercises stale Pi native idle-to-working with unknown composer, retry exhaustion, already-working/unknown baselines, unrelated drafts, blocking dialogs, and Enter-only dispatch across adapters. These stubbed cases are not live evidence. The first combined invocation exceeded its 180-second command budget during inbox tests; the inbox suite was re-run with a 420-second budget and completed successfully.
+
+Limitations: Claude live verification remains pending the explicitly recorded 16:20 UTC account quota reset; Claude is NOT claimed passed. No login, logout, quota workaround, or credential-store edit was attempted. tmux is absent from PATH; its live Pi submit path was not exercised. Install/provide tmux on PATH outside this phase to enable that check; no host search or installation was attempted here.
+
+No screenshot: this change concerns terminal input transport rather than visual layout. The lab was headless; installed Herdr pane help exposes text/ANSI viewport capture, not image capture. Actual visible ANSI and unwrapped terminal transcripts are supplied instead. No native GUI screenshot was captured.
+
+No source files changed. Temporary fixture data was removed after checking no process still referenced it. Evidence files remain in the designated evidence directory.

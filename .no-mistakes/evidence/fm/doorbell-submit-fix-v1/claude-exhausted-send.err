@@ -1,0 +1,2 @@
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell did not reach fm-lab-inbox-doorbell-81994-25759:w1:p1; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501Y41X1MGX5GCEX9PDZXD5/.gate-test-tmp/fm-inbox-herdr.MYjpqT/home/state/live-claude.inbox/003.msg and the watcher will re-ring

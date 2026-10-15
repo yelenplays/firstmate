@@ -1,0 +1,6 @@
+backend=herdr
+herdr_session=fm-lab-inbox-doorbell-29413-25898
+herdr_pane_id=w1:p1
+window=fm-lab-inbox-doorbell-29413-25898:w1:p1
+kind=ship
+harness=pi

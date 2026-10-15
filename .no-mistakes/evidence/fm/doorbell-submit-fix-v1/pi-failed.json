@@ -1,0 +1,22 @@
+export FM_TASK_INBOX=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501Y41X1MGX5GCEX9PDZXD5/.gate-test-tmp/fm-inbo
+x-herdr.2BTZqi/home/state/live-pi.inbox; pi --thinking low
+projexport  master [?]
+inbox-herdr.2BTZqi/home/state/live-pi.inbox; pi --thinking low
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+ Trust project folder?
+ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501Y41X1MGX5GCEX9PDZXD5/.gate-test-tmp/fm-inbox-herdr.2BTZqi/proj
+ ect
+
+ This allows pi to load .pi settings and resources, install missing project packages, and execute project extensions.
+
+ → Trust
+   Trust parent folder
+ (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501Y41X1MGX5GCEX9PDZXD5/.gate-test-tmp/fm-inbox-herdr.2BTZqi)
+   Trust (this session only)
+   Do not trust
+   Do not trust (this session only)
+
+ ↑↓ navigate  enter select  escape/ctrl+c cancel
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

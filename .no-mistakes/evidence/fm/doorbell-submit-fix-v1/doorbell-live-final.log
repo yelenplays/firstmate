@@ -1,0 +1,6 @@
+trusted: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501Y41X1MGX5GCEX9PDZXD5/.gate-test-tmp/fm-inbox-herdr.MYjpqT/project
+ok - Herdr claude (2.1.300 (Claude Code)): fresh doorbell acted and acknowledged after two swallowed Enters
+ok - Herdr claude (2.1.300 (Claude Code)): stale doorbell acted and acknowledged after two swallowed Enters
+ok - Herdr claude: exhausted retries report unconfirmed and preserve a recoverable single doorbell
+ok - Herdr claude (2.1.300 (Claude Code)): unrelated draft stays unsubmitted
+ok - Herdr pi (1.2.0): fresh doorbell acted and acknowledged after two swallowed Enters

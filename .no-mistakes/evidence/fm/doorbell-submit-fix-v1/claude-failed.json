@@ -1,0 +1,23 @@
+export FM_TASK_INBOX=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501Y41X1MGX5GCEX9PDZXD5/.gate-test-tmp/fm-inbo
+x-herdr.5j7JAX/home/state/live-claude.inbox; CLAUDE_CONFIG_DIR=/Users/yelen/.claude-lay CLAUDE_CODE_ENABLE_PROMPT_SUGGE
+STION=false claude --safe-mode --dangerously-skip-permissions
+projexport  master [?]
+inbox-herdr.5j7JAX/home/state/live-claude.inbox; CLAUDE_CONFIG_DIR=/Users/yelen/.claude-lay CLAUDE_CODE_ENABLE_PROMPT_S
+UGGESTION=false claude --safe-mode --dangerously-skip-permissions
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Allow external CLAUDE.md file imports?
+
+  This project's CLAUDE.md or .claude/rules imports files outside the current working directory. Never allow this for
+  third-party repositories.
+
+  External imports:
+    /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501Y41X1MGX5GCEX9PDZXD5/AGENTS.md
+
+  Important: Only use Claude Code with files you trust. Accessing untrusted files may pose security risks
+  https://code.claude.com/docs/en/security
+
+  ❯ No, disable external imports
+    Yes, allow external imports
+
+  Enter to confirm · Esc to cancel
