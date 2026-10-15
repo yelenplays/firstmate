@@ -590,8 +590,9 @@ test_test_ban_gate_reads_the_named_base() {
 
 # A tests-first handoff: tests an unbanned seat committed before the recorded
 # handoff commit are not the banned worker's, while its own edits or deletions
-# of them, and any test it adds, still are; a handoff commit HEAD no longer
-# contains refuses the done, and the launch section names the handoff.
+# of them, and any test it adds, still are; a rewritten handoff commit is still
+# measured by its tree, an unknown one refuses the done, and the launch section
+# names the handoff.
 test_test_ban_gate_measures_from_the_tests_first_handoff() {
   local repo wt meta since reason rc section
   repo="$TMP_ROOT/testban-handoff-repo"
@@ -643,10 +644,20 @@ test_test_ban_gate_measures_from_the_tests_first_handoff() {
 
   git -C "$wt" reset -q --hard "$since"
   git -C "$wt" commit -q --amend -m 'rewritten red tests'
+  accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-handoff "$meta" \
+    || fail "a rewritten handoff commit with the same tests blamed them on the banned worker"
+
+  printf 'kind=ship\nmode=no-mistakes\ntest_ban_model=claude-sonnet-5-5\ntest_ban_since=%s\n' "$(printf 'f%.0s' $(seq 40))" > "$meta"
   reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-handoff "$meta")
   rc=$?
-  [ "$rc" -eq 1 ] || fail "a handoff commit HEAD no longer contains was accepted"
-  assert_contains "$reason" "cannot find the tests-first handoff commit $since" "lost-handoff refusal was unclear"
+  [ "$rc" -eq 1 ] || fail "an unknown handoff commit was accepted"
+  assert_contains "$reason" "cannot find the tests-first handoff commit" "unknown-handoff refusal was unclear"
+
+  printf 'kind=ship\nmode=no-mistakes\ntest_ban_model=claude-sonnet-5-5\ntest_ban_since=base\n' > "$meta"
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-handoff "$meta")
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "a record that ran banned from the base did not count its branch tests"
+  assert_contains "$reason" "tests/feature.test.sh" "a base baseline did not measure from the base"
 
   section=$(fm_test_ban_overlay claude-sonnet-5-5 '' "$since")
   assert_contains "$section" "committed up to $since were written before this handoff" "launch section did not name the handoff"
@@ -654,7 +665,65 @@ test_test_ban_gate_measures_from_the_tests_first_handoff() {
   case "$section" in
     *"before this handoff"*) fail "a launch section without a handoff named one" ;;
   esac
+  section=$(fm_test_ban_overlay claude-sonnet-5-5 '' base)
+  case "$section" in
+    *"before this handoff"*) fail "a launch section measured from the base named a handoff" ;;
+  esac
   pass "test-ban gate measures a tests-first handoff from its recorded commit"
+}
+
+# Test changes the base gains after a tests-first handoff are not the banned
+# worker's, whether a merge or a rebase brings them onto the branch, while an
+# edit the worker makes on top of such a base test still is.
+test_test_ban_handoff_ignores_test_changes_from_the_base() {
+  local repo wt meta since reason rc
+  repo="$TMP_ROOT/testban-moved-repo"
+  wt="$TMP_ROOT/testban-moved-wt"
+  meta="$TMP_ROOT/testban-moved.meta"
+  fm_git_worktree "$repo" "$wt" fm/testban-moved
+  mkdir -p "$wt/tests"
+  printf 'red\n' > "$wt/tests/feature.test.sh"
+  git -C "$wt" add tests && git -C "$wt" commit -q -m 'red tests'
+  since=$(git -C "$wt" rev-parse HEAD)
+  printf 'kind=ship\nmode=no-mistakes\ntest_ban_model=claude-sonnet-5-5\ntest_ban_since=%s\n' "$since" > "$meta"
+
+  mkdir -p "$repo/tests"
+  printf 'base\n' > "$repo/tests/base.test.sh"
+  git -C "$repo" add tests && git -C "$repo" commit -q -m 'base test'
+  git -C "$wt" fetch -q origin
+
+  git -C "$wt" merge -q --no-edit origin/main
+  printf 'impl\n' > "$wt/feature.sh"
+  git -C "$wt" add feature.sh && git -C "$wt" commit -q -m implement
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-moved "$meta")
+  case "$reason" in
+    *"no test authoring"*) fail "a base test merged after the handoff was blamed on the banned worker: $reason" ;;
+  esac
+
+  printf 'edited\n' > "$wt/tests/base.test.sh"
+  git -C "$wt" add tests && git -C "$wt" commit -q -m 'edit base test'
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-moved "$meta")
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "an edit to a merged base test was accepted"
+  assert_contains "$reason" "tests/base.test.sh" "refusal did not name the edited base test"
+
+  git -C "$wt" reset -q --hard "$since"
+  printf 'impl\n' > "$wt/feature.sh"
+  git -C "$wt" add feature.sh && git -C "$wt" commit -q -m implement
+  git -C "$wt" rebase -q origin/main
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-moved "$meta")
+  case "$reason" in
+    *"no test authoring"*) fail "a rebase onto a base with a new test was blamed on the banned worker: $reason" ;;
+  esac
+  git -C "$wt" rm -q tests/feature.test.sh && git -C "$wt" commit -q -m 'drop handed test'
+  reason=$(accept_done ship no-mistakes "$wt" "$repo" 'done: green' "$TMP_ROOT" testban-moved "$meta")
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "deleting a handed-over test after a rebase was accepted"
+  assert_contains "$reason" "tests/feature.test.sh" "refusal did not name the deleted handed-over test after a rebase"
+  case "$reason" in
+    *base.test.sh*) fail "the base's own test was blamed after a rebase: $reason" ;;
+  esac
+  pass "test-ban gate ignores test changes the base brings in after a handoff"
 }
 
 test_test_ban_model_list
@@ -663,5 +732,6 @@ test_test_ban_exception_requires_explicit_paths
 test_test_ban_gate_refuses_added_tests
 test_test_ban_gate_reads_the_named_base
 test_test_ban_gate_measures_from_the_tests_first_handoff
+test_test_ban_handoff_ignores_test_changes_from_the_base
 
 echo "all fm-dod-lib tests passed"

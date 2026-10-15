@@ -797,13 +797,17 @@ fm_dod_named_head_reachable_outside_worktree() {  # <worktree> <project> <mode> 
 # Tests-first handoff: a ship may start on a lane the ban does not cover, commit
 # failing tests there, and then be relaunched onto a banned lane to implement
 # until they pass (`bin/fm-control.sh <id> relaunch --model <banned-model>`).
-# bin/fm-spawn.sh records test_ban_since=<HEAD> when such a relaunch moves an
-# unbanned task record onto a banned model, and carries the recorded value
-# forward when a banned record is relaunched again. The done gate then measures
-# test files from that commit instead of the base, so the tests the earlier seat
-# committed are not the banned worker's authorship while any change it makes to
-# them still is. Tests left uncommitted at the handoff count as the banned
-# worker's. A recorded commit that HEAD no longer contains refuses the done.
+# bin/fm-spawn.sh records test_ban_since=<HEAD> when such a relaunch moves a
+# task record that never ran banned onto a banned model. Once a record has run
+# banned, every relaunch, banned or not, carries its test_ban_since forward,
+# writing test_ban_since=base when that banned run started from the base, so a
+# later handoff never moves the baseline past tests a banned run wrote. The done
+# gate then counts a test file only when it changed since that commit and is
+# either one of the branch's own changes against the base or one of the tests
+# handed over at it, so the tests the earlier seat committed are not the banned
+# worker's authorship while any change it makes to them still is, and test
+# changes a merge or rebase brings in from the base are not. Tests left
+# uncommitted at the handoff count as the banned worker's.
 FM_TEST_BAN_MODEL_PATTERNS='*claude*sonnet* *claude*haiku* sonnet sonnet[[]* haiku haiku[[]*'
 FM_TEST_BAN_EXCEPTION_HEADING="### Captain-specified test"
 
@@ -889,7 +893,7 @@ EOF
   else
     printf '%s\n' "No test file paths are authorized by the captain."
   fi
-  if [ -n "${3:-}" ]; then
+  if [ "${3:-base}" != base ]; then
     printf '%s\n' "The test files committed up to $3 were written before this handoff for you to make pass: implement until they pass and leave them unchanged; only commits after $3 count as yours."
   fi
   printf '%s\n' "Before accepting your ship \`done:\`, firstmate checks commits since the base for added or modified test files outside those exact paths and refuses the done while any remain, naming them; drop them from the branch and report done again."
@@ -915,29 +919,36 @@ fm_test_ban_base_ref() {  # <worktree> [<base-branch>]
 }
 
 # Prints, one per line, the test files the worker copy's commits add or modify
-# since their merge-base with the base, or add, modify, or delete since <since>
-# when a tests-first handoff recorded one. 1 when the base cannot be resolved
-# or HEAD no longer contains <since>; stdout then holds a one-line reason.
+# since their merge-base with the base. With a tests-first handoff <since>, it
+# prints the test files added, modified, or deleted since <since> that are also
+# changed against the base or were handed over at <since>. 1 when the base or
+# <since> cannot be resolved; stdout then holds a one-line reason.
 fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>]
-  local wt=$1 since=${3:-} filter=ACMR base_ref mb path
-  if [ -n "$since" ]; then
-    if ! git -C "$wt" merge-base --is-ancestor "$since" HEAD 2>/dev/null; then
-      printf '%s\n' "test-file check cannot find the tests-first handoff commit $since in HEAD's history"
-      return 1
-    fi
-    # Deleting a handed-over failing test is as much a change to it as editing it.
-    mb=$since filter=ACMRD
-  elif ! base_ref=$(fm_test_ban_base_ref "$wt" "${2:-}"); then
+  local wt=$1 since=${3:-} base_ref mb fork path
+  [ "$since" != base ] || since=
+  if ! base_ref=$(fm_test_ban_base_ref "$wt" "${2:-}"); then
     printf '%s\n' "test-file check cannot resolve the base branch${2:+ origin/$2} in the worker copy"
     return 1
-  elif ! mb=$(git -C "$wt" merge-base "$base_ref" HEAD 2>/dev/null); then
+  fi
+  if ! mb=$(git -C "$wt" merge-base "$base_ref" HEAD 2>/dev/null); then
     printf '%s\n' "test-file check found no merge-base between HEAD and $base_ref"
     return 1
   fi
-  git -C "$wt" diff --name-only --diff-filter="$filter" "$mb" HEAD 2>/dev/null \
-    | while IFS= read -r path; do
-      if fm_test_ban_path_is_test "$path"; then printf '%s\n' "$path"; fi
-    done
+  if [ -n "$since" ] && ! fork=$(git -C "$wt" merge-base "$base_ref" "$since" 2>/dev/null); then
+    printf '%s\n' "test-file check cannot find the tests-first handoff commit $since in the worker copy"
+    return 1
+  fi
+  if [ -z "$since" ]; then
+    git -C "$wt" diff --name-only --diff-filter=ACMR "$mb" HEAD 2>/dev/null
+  else
+    # Deleting a handed-over failing test is as much a change to it as editing it.
+    awk 'NR == FNR { owned[$0] = 1; next } $0 in owned' \
+      <(git -C "$wt" diff --name-only --diff-filter=ACMRD "$mb" HEAD 2>/dev/null
+        git -C "$wt" diff --name-only --diff-filter=ACMRD "$fork" "$since" 2>/dev/null) \
+      <(git -C "$wt" diff --name-only --diff-filter=ACMRD "$since" HEAD 2>/dev/null)
+  fi | while IFS= read -r path; do
+    if fm_test_ban_path_is_test "$path"; then printf '%s\n' "$path"; fi
+  done
 }
 
 # 0 when this done: is one the test-authoring gate must check: a ship done: from

@@ -62,7 +62,8 @@
 #   records test_ban_model= and repeated test_ban_allowed=<path> values for
 #   captain-specified paths in state/<id>.meta; banned ship/scout launch briefs
 #   gain the No test authoring section. A ship relaunch onto a banned model also
-#   records test_ban_since=, the tests-first handoff commit. bin/fm-dod-lib.sh's
+#   records test_ban_since=, the tests-first handoff commit, and every relaunch
+#   of a record that ever ran banned keeps that baseline. bin/fm-dod-lib.sh's
 #   test-authoring block owns the model list, path exception, handoff baseline,
 #   section, and enforcing done gate.
 #   Ship/scout launches always put fm-dod-lib.sh's current worker role scope
@@ -3533,21 +3534,26 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
     echo "error: $BRIEF records a Base branch line but the spawn has no --base-branch; pass the brief's base with --base-branch or re-scaffold the brief without one" >&2
     exit 1
   fi
+  # A record that ever ran banned keeps its test-ban baseline across every
+  # relaunch: the recorded handoff commit, or base when it ran banned from the base.
+  if [ "$RELAUNCH" -eq 1 ]; then
+    TEST_BAN_SINCE=$(fm_meta_get "$RELAUNCH_META" test_ban_since)
+    if [ -z "$TEST_BAN_SINCE" ] && [ -n "$(fm_meta_get "$RELAUNCH_META" test_ban_model)" ]; then
+      TEST_BAN_SINCE=base
+    fi
+  fi
   # bin/fm-dod-lib.sh's test-authoring block owns the model list, the captain
   # exception, and the section a banned ship receives; a scout records the ban
   # so a later promotion applies it.
   if fm_test_ban_model_applies "$MODEL"; then
     TEST_BAN_MODEL=$MODEL
     TEST_BAN_ALLOWED_PATHS=$(fm_test_ban_intent_allowed_paths "$(fm_brief_task_heading_body "$BRIEF" "## Captain's intent")")
-    # Tests-first handoff: an unbanned record moving onto a banned model hands
-    # over the tests committed so far; a banned record keeps its own baseline.
-    if [ "$RELAUNCH" -eq 1 ] && [ "$KIND" = ship ]; then
-      if [ -n "$(fm_meta_get "$RELAUNCH_META" test_ban_model)" ]; then
-        TEST_BAN_SINCE=$(fm_meta_get "$RELAUNCH_META" test_ban_since)
-      elif ! TEST_BAN_SINCE=$(git -C "$RELAUNCH_WT" rev-parse --verify --quiet 'HEAD^{commit}'); then
-        echo "error: cannot read the worker copy's HEAD in $RELAUNCH_WT to record the tests-first handoff commit" >&2
-        exit 1
-      fi
+    # Tests-first handoff: a record that never ran banned moving onto a banned
+    # model hands over the tests committed so far.
+    if [ "$RELAUNCH" -eq 1 ] && [ "$KIND" = ship ] && [ -z "$TEST_BAN_SINCE" ] &&
+      ! TEST_BAN_SINCE=$(git -C "$RELAUNCH_WT" rev-parse --verify --quiet 'HEAD^{commit}'); then
+      echo "error: cannot read the worker copy's HEAD in $RELAUNCH_WT to record the tests-first handoff commit" >&2
+      exit 1
     fi
   fi
   # Use the existing launch-brief overlay for every worker kind, including
