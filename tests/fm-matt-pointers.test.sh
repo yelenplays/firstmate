@@ -118,7 +118,6 @@ test_loader_prints_original_bytes_and_identity() {
     "loader dropped the upstream repository"
   assert_contains "$out" "plugin=$KEY" "loader did not name the plugin it resolved"
   assert_contains "$out" "resolved_version=$REAL_VERSION" "loader dropped the resolved version"
-  assert_contains "$out" 'declared=true' "loader did not report a declared skill as declared"
   assert_contains "$out" 'pin=validated' "loader did not report a matching pin as validated"
   assert_contains "$out" 'reference.md' "loader did not list the skill's support files"
   assert_not_contains "$out" 'PLUGIN CHANGED' \
@@ -299,7 +298,7 @@ test_loader_follows_the_one_enabled_marketplace() {
 }
 
 # Captain's ask: every upstream skill, not only the declared set. Skills upstream
-# keeps outside the manifest load like any other, and say that they are outside.
+# keeps outside the manifest load like any other.
 test_loader_offers_every_live_upstream_skill() {
   local root out
   root="$TMP_ROOT/loader-undeclared-offer"
@@ -315,11 +314,7 @@ test_loader_offers_every_live_upstream_skill() {
     || fail "loader refused an in-progress skill"
   assert_contains "$out" 'UNIQUE-UPSTREAM-PROCEDURE-loop-me' \
     "loader did not print the in-progress skill's original bytes"
-  assert_contains "$out" 'declared=false' "loader hid that the skill is outside the declared set"
-  assert_contains "$out" 'upstream_bucket=in-progress' "loader did not name the upstream bucket"
-  assert_contains "$out" "Not in the plugin's declared skill set" \
-    "loader did not explain what an undeclared skill is"
-  pass "the loader offers every non-deprecated upstream skill and marks undeclared ones"
+  pass "the loader offers every non-deprecated upstream skill"
 }
 
 test_loader_delegates_to_the_shared_resolver_when_present() {
@@ -341,7 +336,6 @@ printf 'commit=stubcommit\n'
 printf 'skill=tdd\n'
 printf 'skill_dir=%s\n' "$FM_TEST_SKILL_DIR"
 printf 'skill_file=%s/SKILL.md\n' "$FM_TEST_SKILL_DIR"
-printf 'declared=true\n'
 EOF
   chmod +x "$bin/fm-skill-path.sh"
 
@@ -776,41 +770,42 @@ test_check_reports_combined_pointer_faults_once_each() {
 }
 
 # Every skill upstream offers gets a pointer, including the ones outside the
-# declared set, and each says which it is without changing its invocation.
+# declared set, without changing its invocation. An uncurated bucket skill that
+# would not resolve is left out instead of aborting the run partway.
 test_pointers_cover_undeclared_skills() {
-  local root dest out
+  local root dest out err
   root="$TMP_ROOT/undeclared-pointers"
   build_plugin "$root"
   write_skill "$root/install/skills/misc/setup-pre-commit" setup-pre-commit \
     'Set up pre-commit hooks.' ''
+  write_skill "$root/install/skills/in-progress/writing-beats" beats \
+    'Front matter names another skill.' ''
+  write_skill "$root/install/skills/in-progress/drafting" drafting 'One copy.' ''
+  write_skill "$root/install/skills/misc/drafting" drafting 'Another copy.' ''
   dest="$root/skills"
-  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null \
-    || fail "pointer install failed with undeclared skills present"
+  err="$root/install.err"
+  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null 2>"$err" \
+    || fail "pointer install failed with undeclared skills present: $(cat "$err")"
 
-  assert_grep 'declared-by-plugin: "false"' "$dest/matt-loop-me/SKILL.md" \
-    "an undeclared pointer claims the plugin declares it"
-  assert_grep 'upstream-bucket: "in-progress"' "$dest/matt-loop-me/SKILL.md" \
-    "an undeclared pointer does not name its upstream bucket"
-  assert_grep "The plugin's manifest does not declare this skill" "$dest/matt-loop-me/SKILL.md" \
-    "an undeclared pointer does not explain that it is outside the declared set"
+  assert_absent "$dest/matt-writing-beats" "a skill whose front matter names another skill got a pointer"
+  assert_absent "$dest/matt-drafting" "a skill present twice in the source tree got a pointer"
+  assert_grep 'leaves out writing-beats' "$err" "the misnamed skill was dropped without saying so"
+  assert_grep 'leaves out drafting' "$err" "the duplicated skill was dropped without saying so"
+  run_pointers "$root/config" --check --dest "$dest" >/dev/null 2>&1 \
+    || fail "--check failed right after an install that left unresolvable skills out"
+
   assert_grep 'disable-model-invocation: true' "$dest/matt-loop-me/SKILL.md" \
     "an undeclared user-invoked skill was promoted to model invocation"
   assert_grep 'disable-model-invocation: false' "$dest/matt-setup-pre-commit/SKILL.md" \
     "an undeclared model-invocable skill lost model invocation"
-  assert_grep 'declared-by-plugin: "true"' "$dest/matt-tdd/SKILL.md" \
-    "a declared pointer claims the plugin does not declare it"
-  assert_no_grep "does not declare this skill" "$dest/matt-tdd/SKILL.md" \
-    "a declared pointer carries the undeclared explanation"
   assert_no_grep 'UNIQUE-UPSTREAM-PROCEDURE' "$dest/matt-loop-me/SKILL.md" \
     "an undeclared pointer copied part of the upstream skill body"
   assert_absent "$dest/matt-old-way" "a deprecated upstream skill got a pointer"
 
-  out=$(run_pointers "$root/config" --list)
-  assert_contains "$out" 'matt-loop-me	loop-me	user-invoked-only	undeclared' \
-    "--list misreports an undeclared skill"
-  assert_contains "$out" 'matt-tdd	tdd	model-invocable	declared' \
-    "--list misreports a declared skill"
-  pass "pointers cover every non-deprecated upstream skill and mark undeclared ones"
+  out=$(run_pointers "$root/config" --list 2>/dev/null)
+  [ "$out" = "$(printf 'matt-grilling\tgrilling\tmodel-invocable\nmatt-loop-me\tloop-me\tuser-invoked-only\nmatt-setup-pre-commit\tsetup-pre-commit\tmodel-invocable\nmatt-tdd\ttdd\tmodel-invocable\nmatt-wayfinder\twayfinder\tuser-invoked-only')" ] \
+    || fail "--list did not offer exactly the resolvable skills: $out"
+  pass "pointers cover every resolvable non-deprecated upstream skill"
 }
 
 # A pointer's Step 1 carries the identity it was generated from, so the loader

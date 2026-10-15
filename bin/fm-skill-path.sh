@@ -20,9 +20,11 @@
 #   --list-files           print the skill's support tree, one relative path per
 #                          line, instead of the resolved block
 #   --list-skills          print every skill the install offers instead of
-#                          resolving one, one "<skill> TAB <declared|undeclared>
-#                          TAB <directory relative to the install>" per line,
-#                          sorted by skill
+#                          resolving one, one "<skill> TAB <directory relative
+#                          to the install>" per line, sorted by skill. A skill
+#                          is listed only when resolving it by name would pass
+#                          every check below; one that would be refused is left
+#                          out and named on stderr
 #   --include-undeclared   also offer skills that sit in the install's source
 #                          tree at skills/<skill>/ or skills/<bucket>/<skill>/
 #                          without being declared by the manifest, except in a
@@ -35,9 +37,7 @@
 #   -h, --help             print this header
 #
 # Resolved block on stdout (key=value lines, stable order):
-#   plugin, marketplace, scope, version, commit, skill, skill_dir, skill_file,
-#   declared (true when the manifest declares the skill, false when it was
-#   reached through --include-undeclared)
+#   plugin, marketplace, scope, version, commit, skill, skill_dir, skill_file
 #
 # Exit status:
 #   0    resolved
@@ -165,8 +165,8 @@ fi
 # Validate the field name before touching the environment, so a typo is always
 # the same usage error rather than whichever resolution failure came first.
 case "$FIELD" in
-  ''|plugin|marketplace|scope|version|commit|skill|skill_dir|skill_file|declared) : ;;
-  *) die 2 "unknown field '$FIELD' (plugin, marketplace, scope, version, commit, skill, skill_dir, skill_file, declared)" ;;
+  ''|plugin|marketplace|scope|version|commit|skill|skill_dir|skill_file) : ;;
+  *) die 2 "unknown field '$FIELD' (plugin, marketplace, scope, version, commit, skill, skill_dir, skill_file)" ;;
 esac
 
 command -v jq >/dev/null 2>&1 || die 127 "jq is required to read the Claude plugin registry"
@@ -378,59 +378,6 @@ undeclared_skills() {  # -> "<skill>\t<relative dir>" per undeclared entry
       '
 }
 
-if [ "$LIST_SKILLS" -eq 1 ]; then
-  {
-    declared_skills | awk -F '\t' '{ printf "%s\tdeclared\t%s\n", $1, $2 }'
-    if [ "$INCLUDE_UNDECLARED" -eq 1 ]; then
-      undeclared_skills | awk -F '\t' '{ printf "%s\tundeclared\t%s\n", $1, $2 }'
-    fi
-  } | LC_ALL=C sort
-  exit 0
-fi
-
-# --- the skill must be offered by this version --------------------------------
-
-DECLARED=$(declared_skills | awk -F '\t' -v s="$SKILL" '$1 == s { print $2 }')
-DECLARED_COUNT=0
-while IFS= read -r line; do
-  [ -n "$line" ] || continue
-  DECLARED_COUNT=$((DECLARED_COUNT + 1))
-done <<EOF
-$DECLARED
-EOF
-IS_DECLARED=true
-case "$DECLARED_COUNT" in
-  0)
-    [ "$INCLUDE_UNDECLARED" -eq 1 ] || die 5 "skill '$SKILL' is not declared by $PLUGIN $VERSION"
-    IS_DECLARED=false
-    DECLARED=$(undeclared_skills | awk -F '\t' -v s="$SKILL" '$1 == s { print $2 }')
-    DECLARED_COUNT=0
-    while IFS= read -r line; do
-      [ -n "$line" ] || continue
-      DECLARED_COUNT=$((DECLARED_COUNT + 1))
-    done <<EOF
-$DECLARED
-EOF
-    case "$DECLARED_COUNT" in
-      0) die 5 "skill '$SKILL' is neither declared by $PLUGIN $VERSION nor present outside a deprecated bucket of its source tree" ;;
-      1) : ;;
-      *) die 6 "skill '$SKILL' is present more than once in the source tree of $PLUGIN $VERSION ($(printf '%s' "$DECLARED" | tr '\n' ' '))" ;;
-    esac
-    ;;
-  1) : ;;
-  *) die 6 "skill '$SKILL' is declared more than once by $PLUGIN $VERSION ($(printf '%s' "$DECLARED" | tr '\n' ' '))" ;;
-esac
-REL=$(printf '%s' "$DECLARED" | head -n 1)
-
-case "$REL" in
-  /*) die 6 "skill '$SKILL' is declared with an absolute path: $REL" ;;
-  ..|../*|*/..|*/../*) die 6 "skill '$SKILL' is declared with a traversing path: $REL" ;;
-  '') die 6 "skill '$SKILL' is declared with an empty path" ;;
-esac
-
-SKILL_DIR="$INSTALL_PATH/$REL"
-[ -d "$SKILL_DIR" ] || die 6 "skill '$SKILL' directory is missing: $SKILL_DIR"
-
 # --- no symlink from the install root down to the skill's files --------------
 #
 # Ancestors of the install root belong to the operating system (macOS resolves
@@ -452,44 +399,116 @@ path_has_symlink_component() {  # <root> <relative-path>
   return 1
 }
 
-if path_has_symlink_component "$INSTALL_PATH" "$REL"; then
-  die 6 "skill '$SKILL' resolves through a symlink under $INSTALL_PATH"
+# --- one skill, offered by this version and intact ----------------------------
+#
+# The single place a skill name becomes a trusted directory. --list-skills runs
+# it for every candidate, so a skill is listed only when it resolves.
+
+resolve_skill() {  # <skill> -> sets REL, SKILL_DIR, SKILL_FILE, or dies
+  local skill=$1 found count line declared_name
+
+  found=$(declared_skills | awk -F '\t' -v s="$skill" '$1 == s { print $2 }')
+  count=0
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    count=$((count + 1))
+  done <<EOF
+$found
+EOF
+  case "$count" in
+    0)
+      [ "$INCLUDE_UNDECLARED" -eq 1 ] || die 5 "skill '$skill' is not declared by $PLUGIN $VERSION"
+      found=$(undeclared_skills | awk -F '\t' -v s="$skill" '$1 == s { print $2 }')
+      count=0
+      while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        count=$((count + 1))
+      done <<EOF
+$found
+EOF
+      case "$count" in
+        0) die 5 "skill '$skill' is neither declared by $PLUGIN $VERSION nor present outside a deprecated bucket of its source tree" ;;
+        1) : ;;
+        *) die 6 "skill '$skill' is present more than once in the source tree of $PLUGIN $VERSION ($(printf '%s' "$found" | tr '\n' ' '))" ;;
+      esac
+      ;;
+    1) : ;;
+    *) die 6 "skill '$skill' is declared more than once by $PLUGIN $VERSION ($(printf '%s' "$found" | tr '\n' ' '))" ;;
+  esac
+  REL=$(printf '%s' "$found" | head -n 1)
+
+  case "$REL" in
+    /*) die 6 "skill '$skill' is declared with an absolute path: $REL" ;;
+    ..|../*|*/..|*/../*) die 6 "skill '$skill' is declared with a traversing path: $REL" ;;
+    '') die 6 "skill '$skill' is declared with an empty path" ;;
+  esac
+
+  SKILL_DIR="$INSTALL_PATH/$REL"
+  [ -d "$SKILL_DIR" ] || die 6 "skill '$skill' directory is missing: $SKILL_DIR"
+
+  if path_has_symlink_component "$INSTALL_PATH" "$REL"; then
+    die 6 "skill '$skill' resolves through a symlink under $INSTALL_PATH"
+  fi
+  if [ -n "$(find "$SKILL_DIR" -type l -print 2>/dev/null | head -n 1)" ]; then
+    die 6 "skill '$skill' support tree contains a symlink under $SKILL_DIR"
+  fi
+
+  INSTALL_REAL=$(CDPATH='' cd -- "$INSTALL_PATH" 2>/dev/null && pwd -P) \
+    || die 6 "plugin '$KEY' install directory cannot be resolved: $INSTALL_PATH"
+  SKILL_REAL=$(CDPATH='' cd -- "$SKILL_DIR" 2>/dev/null && pwd -P) \
+    || die 6 "skill '$skill' directory cannot be resolved: $SKILL_DIR"
+  case "$SKILL_REAL" in
+    "$INSTALL_REAL"/*) : ;;
+    *) die 6 "skill '$skill' resolves outside the plugin install: $SKILL_REAL" ;;
+  esac
+
+  SKILL_FILE="$SKILL_DIR/SKILL.md"
+  [ -f "$SKILL_FILE" ] || die 6 "skill '$skill' has no SKILL.md at $SKILL_FILE"
+
+  declared_name=$(awk '
+    NR == 1 { if ($0 !~ /^---[[:space:]]*$/) exit 0; next }
+    /^---[[:space:]]*$/ { exit 0 }
+    /^name:[[:space:]]*/ {
+      line = $0
+      sub(/^name:[[:space:]]*/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      print line
+      exit 0
+    }
+  ' "$SKILL_FILE")
+  declared_name=${declared_name%\"}
+  declared_name=${declared_name#\"}
+  declared_name=${declared_name%\'}
+  declared_name=${declared_name#\'}
+  [ -n "$declared_name" ] \
+    || die 6 "skill '$skill' front matter at $SKILL_FILE declares no name"
+  [ "$declared_name" = "$skill" ] \
+    || die 6 "skill file at $SKILL_FILE declares name '$declared_name', not '$skill'"
+}
+
+if [ "$LIST_SKILLS" -eq 1 ]; then
+  # Each candidate resolves in its own subshell, so one that would be refused is
+  # left out with its reason on stderr instead of taking the listing down.
+  CANDIDATES=$(
+    {
+      declared_skills
+      [ "$INCLUDE_UNDECLARED" -eq 0 ] || undeclared_skills
+    } | cut -f 1 | LC_ALL=C sort -u
+  )
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    if row=$(resolve_skill "$name" && printf '%s\t%s' "$name" "$REL"); then
+      printf '%s\n' "$row"
+    else
+      printf 'fm-skill-path.sh: --list-skills leaves out %s, which does not resolve\n' "$name" >&2
+    fi
+  done <<EOF
+$CANDIDATES
+EOF
+  exit 0
 fi
-if [ -n "$(find "$SKILL_DIR" -type l -print 2>/dev/null | head -n 1)" ]; then
-  die 6 "skill '$SKILL' support tree contains a symlink under $SKILL_DIR"
-fi
 
-INSTALL_REAL=$(CDPATH='' cd -- "$INSTALL_PATH" 2>/dev/null && pwd -P) \
-  || die 6 "plugin '$KEY' install directory cannot be resolved: $INSTALL_PATH"
-SKILL_REAL=$(CDPATH='' cd -- "$SKILL_DIR" 2>/dev/null && pwd -P) \
-  || die 6 "skill '$SKILL' directory cannot be resolved: $SKILL_DIR"
-case "$SKILL_REAL" in
-  "$INSTALL_REAL"/*) : ;;
-  *) die 6 "skill '$SKILL' resolves outside the plugin install: $SKILL_REAL" ;;
-esac
-
-SKILL_FILE="$SKILL_DIR/SKILL.md"
-[ -f "$SKILL_FILE" ] || die 6 "skill '$SKILL' has no SKILL.md at $SKILL_FILE"
-
-DECLARED_NAME=$(awk '
-  NR == 1 { if ($0 !~ /^---[[:space:]]*$/) exit 0; next }
-  /^---[[:space:]]*$/ { exit 0 }
-  /^name:[[:space:]]*/ {
-    line = $0
-    sub(/^name:[[:space:]]*/, "", line)
-    sub(/[[:space:]]+$/, "", line)
-    print line
-    exit 0
-  }
-' "$SKILL_FILE")
-DECLARED_NAME=${DECLARED_NAME%\"}
-DECLARED_NAME=${DECLARED_NAME#\"}
-DECLARED_NAME=${DECLARED_NAME%\'}
-DECLARED_NAME=${DECLARED_NAME#\'}
-[ -n "$DECLARED_NAME" ] \
-  || die 6 "skill '$SKILL' front matter at $SKILL_FILE declares no name"
-[ "$DECLARED_NAME" = "$SKILL" ] \
-  || die 6 "skill file at $SKILL_FILE declares name '$DECLARED_NAME', not '$SKILL'"
+resolve_skill "$SKILL"
 
 # --- resolved -----------------------------------------------------------------
 
@@ -515,13 +534,12 @@ emit_field() {  # <key>
     skill) printf '%s\n' "$SKILL" ;;
     skill_dir) printf '%s\n' "$SKILL_DIR" ;;
     skill_file) printf '%s\n' "$SKILL_FILE" ;;
-    declared) printf '%s\n' "$IS_DECLARED" ;;
     *) return 1 ;;
   esac
 }
 
 if [ -n "$FIELD" ]; then
-  emit_field "$FIELD" || die 2 "unknown field '$FIELD' (plugin, marketplace, scope, version, commit, skill, skill_dir, skill_file, declared)"
+  emit_field "$FIELD" || die 2 "unknown field '$FIELD' (plugin, marketplace, scope, version, commit, skill, skill_dir, skill_file)"
   exit 0
 fi
 
@@ -533,4 +551,3 @@ printf 'commit=%s\n' "$COMMIT"
 printf 'skill=%s\n' "$SKILL"
 printf 'skill_dir=%s\n' "$SKILL_DIR"
 printf 'skill_file=%s\n' "$SKILL_FILE"
-printf 'declared=%s\n' "$IS_DECLARED"

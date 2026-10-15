@@ -37,22 +37,23 @@ The manifest's own `skills` list declares the promoted skills, and the source tr
 jq -r '.skills | length' <installPath>/.claude-plugin/plugin.json   # 27
 /usr/bin/find <installPath>/skills -name SKILL.md | wc -l            # 38
 bin/fm-skill-path.sh mattpocock-skills --list-skills --include-undeclared \
-  | awk -F '\t' '{ split($3, p, "/"); print $2, p[2] }' | sort | uniq -c
+  | awk -F '\t' '{ split($2, p, "/"); print p[2] }' | sort | uniq -c
 ```
 
 Observed:
 
 ```text
-  20 declared engineering
-   7 declared productivity
-   7 undeclared in-progress
-   4 undeclared misc
+  20 engineering
+   7 in-progress
+   4 misc
+   7 productivity
 ```
 
 Upstream's own `CLAUDE.md` in the install defines the buckets: `in-progress` is beta and public on purpose but not shipped in the plugin, and `misc` is kept but frozen and not promoted.
-Claude lists only the 27 declared skills as plugin skills.
+Claude lists only the 27 declared skills, the `engineering` and `productivity` ones, as plugin skills.
 `bin/fm-skill-path.sh` resolves only declared skills by default and refuses anything else with exit 5; `--include-undeclared` also offers the source-tree skills, never from a bucket named `deprecated`.
-`bin/fm-matt-skill.sh` always passes that option, so the loader and the pointers offer all 38, and mark each undeclared one as `declared=false` with its upstream bucket.
+`bin/fm-matt-skill.sh` always passes that option, so the loader and the pointers offer all 38.
+`--list-skills` runs the same checks as resolving one skill by name, so it lists a skill only when that skill resolves; one that would be refused, for example a front-matter name that differs from its directory or a name present in two buckets, is left out and named on stderr instead of aborting the generator partway.
 Resolution reads only the plugin registry, so a stale copy under `~/.agents/skills` can never satisfy a request.
 
 ## The loader prints the installed original, proven by digest
@@ -72,7 +73,6 @@ Observed:
 plugin=mattpocock-skills@mattpocock
 resolved_version=1.3.1
 resolved_commit=49dd158d1076134a641b33efb035946536778336
-declared=true
 skill_file=~/.claude/plugins/cache/mattpocock/mattpocock-skills/1.3.1/skills/engineering/code-review/SKILL.md
 skill_file_sha256=09eb147f793e4647949edd32dbad278f0554dfb56e0d46b699cd4c2c55bf0357
 resolved_by=bin/fm-skill-path.sh
@@ -144,7 +144,7 @@ The case fails with `loader is missing or not executable` when the repo does not
 bin/fm-matt-pointers.sh --check --dest ~/.agents/skills
 ```
 
-It reports every applicable state independently: `MISSING` for a declared skill with no pointer, `DRIFTED` for front matter behind the installed plugin, `RETIRED` for a marked pointer whose upstream skill is no longer declared even when the manifest is empty, and `BROKEN` for a recorded loader that is no longer executable.
+It reports every applicable state independently: `MISSING` for an offered skill with no pointer, `DRIFTED` for front matter behind the installed plugin, `RETIRED` for a marked pointer whose upstream skill is no longer offered even when the install offers none, and `BROKEN` for a recorded loader that is no longer executable.
 This mode writes nothing.
 
 Every pointer records the plugin, version, and commit it was generated from, so a plugin bump or a marketplace switch reports every pointer as `DRIFTED` until the generator runs again.
@@ -165,7 +165,7 @@ ok - 38 pointers under <scratch-dir> match mattpocock-skills@mattpocock 1.3.1
 
 | Runtime | Version | Reads the Claude plugin | Bridge needed |
 |---|---|---|---|
-| `claude` | 2.1.228 | yes, it owns the plugin | no |
+| `claude` | 2.1.300 | yes, it owns the plugin | no |
 | `grok` | 1.0.50 | yes, re-verified below | only for the undeclared skills |
 | `kimi` | 0.36.1 | not re-established | not established |
 | `codex` | 0.145.0 | no reference to the plugin cache at 0.145.0 | yes, with `--dest ~/.codex/skills` |
@@ -189,9 +189,9 @@ Re-establish any unverified row before relying on it to add or remove a pointer 
 
 ## Regression coverage
 
-`tests/fm-skill-path.test.sh` covers the resolver: identity, support-file resolution, a custom `CLAUDE_CONFIG_DIR`, paths containing spaces, expected version and commit pins, a bare name following the one enabled marketplace, undeclared skills resolving and listing only under `--include-undeclared` and never from a deprecated bucket, and refusal of missing, disabled, ambiguous, tampered, symlinked, and malformed installs.
+`tests/fm-skill-path.test.sh` covers the resolver: identity, support-file resolution, a custom `CLAUDE_CONFIG_DIR`, paths containing spaces, expected version and commit pins, a bare name following the one enabled marketplace, undeclared skills resolving and listing only under `--include-undeclared` and never from a deprecated bucket, `--list-skills` leaving out and naming a misnamed, duplicated, or symlinked skill that would not resolve, and refusal of missing, disabled, ambiguous, tampered, symlinked, and malformed installs.
 
-`tests/fm-matt-pointers.test.sh` builds a fake plugin under a private `CLAUDE_CONFIG_DIR` and covers the loader and the generator without touching the real install: original bytes, full identity, a validated matching pin, and support-file discovery on success; silent-stdout refusal for a moved, absent, disabled, swapped, unknown or deprecated, symlinked, or misnamed install; following the one enabled marketplace and refusing none or several; offering and marking undeclared upstream skills; loud but non-fatal version or source-commit drift and outright refusal under `--require-validated-pin`; delegation to `bin/fm-skill-path.sh` including its exit statuses, and the loader's own silent-stdout 127 refusal without that owner; pointers that carry attribution and no procedure; mirrored invocation flags; the hard-stop instruction; `--check` catching edited, missing, inert, and retired pointers; unmarked directories surviving install and uninstall; a generated pointer's Step 1 running against the loader the repo ships; that Step 1 flagging a marketplace switch until the generator runs again; the generator refusing without an enabled plugin; and `--check` naming a recorded loader that later vanished.
+`tests/fm-matt-pointers.test.sh` builds a fake plugin under a private `CLAUDE_CONFIG_DIR` and covers the loader and the generator without touching the real install: original bytes, full identity, a validated matching pin, and support-file discovery on success; silent-stdout refusal for a moved, absent, disabled, swapped, unknown or deprecated, symlinked, or misnamed install; following the one enabled marketplace and refusing none or several; offering undeclared upstream skills, and a generator run that leaves out a misnamed or duplicated bucket skill instead of aborting; loud but non-fatal version or source-commit drift and outright refusal under `--require-validated-pin`; delegation to `bin/fm-skill-path.sh` including its exit statuses, and the loader's own silent-stdout 127 refusal without that owner; pointers that carry attribution and no procedure; mirrored invocation flags; the hard-stop instruction; `--check` catching edited, missing, inert, and retired pointers; unmarked directories surviving install and uninstall; a generated pointer's Step 1 running against the loader the repo ships; that Step 1 flagging a marketplace switch until the generator runs again; the generator refusing without an enabled plugin; and `--check` naming a recorded loader that later vanished.
 
 `test_check_reports_retired_pointers_and_their_recorded_loaders` proves that `--check` reports a retired pointer with an executable recorded loader and reports its recorded loader as `BROKEN` after it becomes non-executable.
 

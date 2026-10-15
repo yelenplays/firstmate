@@ -17,7 +17,7 @@
 # There is one pointer for every skill that install offers: each skill its
 # manifest declares, and each skill upstream keeps in the same source tree
 # outside the declared set (its in-progress and misc buckets), never a
-# deprecated bucket. A pointer for an undeclared skill says so.
+# deprecated bucket.
 #
 # What IS derived from upstream is each pointer's front matter: its description
 # and its model-invocation flag, which the host runtime needs before any body is
@@ -46,8 +46,7 @@
 #                  disposable worktree bakes that worktree's path into every
 #                  pointer, so pass the stable checkout's path instead.
 #   --dry-run      print what would change, write nothing
-#   --list         print "<pointer-name> <upstream-skill> <invocation>
-#                  <declared|undeclared>" and exit
+#   --list         print "<pointer-name> <upstream-skill> <invocation>" and exit
 #   --check        exit 1 when an installed pointer is missing, foreign, has
 #                  drifted from what upstream would generate now (including a
 #                  plugin, version, or commit change), is retired upstream even
@@ -185,8 +184,8 @@ fi
 
 # --- upstream front-matter reads ---------------------------------------------
 
-skill_identity() {  # <skill> -> the loader's identity block for it
-  "$LOADER" "$1" --check
+skill_file_for() {  # <skill>
+  "$LOADER" "$1" --path
 }
 
 front_matter_field() {  # <skill-file> <key>
@@ -218,8 +217,8 @@ yaml_quote() {  # <value> -> a safe double-quoted YAML scalar
 
 # --- pointer body ------------------------------------------------------------
 
-render_pointer() {  # <skill> <pointer-name> <description> <dmi> <argument-hint> <date> <loader> <declared> <bucket>
-  skill=$1 pname=$2 desc=$3 dmi=$4 hint=$5 stamp=$6 loader=$7 declared=$8 bucket=$9
+render_pointer() {  # <skill> <pointer-name> <description> <dmi> <argument-hint> <date> <loader>
+  skill=$1 pname=$2 desc=$3 dmi=$4 hint=$5 stamp=$6 loader=$7
   cat <<EOF
 ---
 name: $pname
@@ -237,8 +236,6 @@ metadata:
   upstream-skill: "$skill"
   upstream-repo: "$UPSTREAM"
   upstream-plugin: "$PLUGIN_KEY"
-  upstream-bucket: "$bucket"
-  declared-by-plugin: "$declared"
   validated-version: "$VERSION"
   validated-commit: "$COMMIT"
 ---
@@ -253,16 +250,6 @@ This pointer was validated against version $VERSION (${COMMIT:-no commit}).
 Firstmate generated it on $stamp so runtimes that read \`.agents/skills\` can
 reach the installed original. Nothing was copied, so nothing here can be out of
 date with the original.
-EOF
-  if [ "$declared" = false ]; then
-    cat <<EOF
-
-The plugin's manifest does not declare this skill. Upstream keeps it in the
-\`$bucket\` bucket of the same install, outside the set Claude lists as plugin
-skills, so treat it as upstream marks that bucket.
-EOF
-  fi
-  cat <<EOF
 
 ## Step 1 - load the original, before doing anything else
 
@@ -304,15 +291,13 @@ There is no second source for this procedure. So:
 EOF
 }
 
-render_marker() {  # <skill> <pointer-name> <date> <loader> <declared> <bucket>
+render_marker() {  # <skill> <pointer-name> <date> <loader>
   cat <<EOF
 generator=bin/fm-matt-pointers.sh
 generated=$3
 pointer=$2
 upstream_skill=$1
 upstream_plugin=$PLUGIN_KEY
-upstream_bucket=$6
-declared_by_plugin=$5
 upstream_repo=$UPSTREAM
 validated_version=$VERSION
 validated_commit=$COMMIT
@@ -322,17 +307,14 @@ EOF
 
 # --- enumeration -------------------------------------------------------------
 
-describe_skill() {  # <skill> -> "<dmi>\t<declared>\t<bucket>\t<hint>\t<description>"
-  id=$(skill_identity "$1")
-  f=$(identity_field "$id" skill_file)
-  [ -n "$f" ] || die 6 "the loader returned no skill_file for $1"
+describe_skill() {  # <skill> -> "<dmi>\t<hint>\t<description>"
+  f=$(skill_file_for "$1")
   d=$(unquote "$(front_matter_field "$f" description)")
   m=$(unquote "$(front_matter_field "$f" disable-model-invocation)")
   h=$(unquote "$(front_matter_field "$f" argument-hint)")
   [ -n "$d" ] || d="Matt Pocock's $1 skill."
   case "$m" in true) m=true ;; *) m=false ;; esac
-  printf '%s\t%s\t%s\t%s\t%s' "$m" "$(identity_field "$id" declared)" \
-    "$(identity_field "$id" upstream_bucket)" "$h" "$d"
+  printf '%s\t%s\t%s' "$m" "$h" "$d"
 }
 
 if [ "$MODE" = list ]; then
@@ -340,10 +322,8 @@ if [ "$MODE" = list ]; then
     [ -n "$s" ] || continue
     row=$(describe_skill "$s")
     dmi=${row%%	*}
-    rest=${row#*	}
     if [ "$dmi" = true ]; then inv='user-invoked-only'; else inv='model-invocable'; fi
-    if [ "${rest%%	*}" = true ]; then offer=declared; else offer=undeclared; fi
-    printf '%s%s\t%s\t%s\t%s\n' "$PREFIX" "$s" "$s" "$inv" "$offer"
+    printf '%s%s\t%s\t%s\n' "$PREFIX" "$s" "$s" "$inv"
   done
   exit 0
 fi
@@ -395,10 +375,6 @@ printf '%s\n' "$SKILLS" | {
     row=$(describe_skill "$s")
     dmi=${row%%	*}
     rest=${row#*	}
-    declared=${rest%%	*}
-    rest=${rest#*	}
-    bucket=${rest%%	*}
-    rest=${rest#*	}
     hint=${rest%%	*}
     desc=${rest#*	}
     pname="$PREFIX$s"
@@ -428,8 +404,7 @@ printf '%s\n' "$SKILLS" | {
       fi
     fi
 
-    want=$(render_pointer "$s" "$pname" "$desc" "$dmi" "$hint" "$stamp" "$loader" \
-      "$declared" "$bucket")
+    want=$(render_pointer "$s" "$pname" "$desc" "$dmi" "$hint" "$stamp" "$loader")
 
     if [ "$MODE" = check ]; then
       pointer_drift=0
@@ -462,7 +437,7 @@ printf '%s\n' "$SKILLS" | {
     else
       mkdir -p "$dir"
       printf '%s\n' "$want" >"$file"
-      render_marker "$s" "$pname" "$stamp" "$loader" "$declared" "$bucket" >"$dir/$MARKER"
+      render_marker "$s" "$pname" "$stamp" "$loader" >"$dir/$MARKER"
       printf 'wrote %s\n' "$file"
     fi
     written=$((written + 1))

@@ -371,6 +371,18 @@ EOF
   pass "fm-skill-path.sh: a bare name follows the one enabled marketplace"
 }
 
+# --list-skills lists only what resolves: <skill> is left out and named on
+# stderr, and the declared skill is still listed.
+assert_list_omits() {  # <config> <skill> <case>
+  local config=$1
+  shift
+  fm_skill_run "$config" demo-skills --list-skills --include-undeclared
+  expect_code 0 "$RUN_RC" "--list-skills should still exit 0 with $2 present (stderr: $RUN_ERR)"
+  [ "$RUN_OUT" = "$(printf 'interviewing\tskills/productivity/interviewing')" ] \
+    || fail "--list-skills offered $2, which does not resolve: $RUN_OUT"
+  assert_contains "$RUN_ERR" "leaves out $1" "--list-skills dropped $2 without saying so"
+}
+
 # Skills that sit in the source tree without a manifest entry stay refused by
 # default and become reachable only on request, and a deprecated bucket never
 # does, so an adapter that wants every live upstream skill can name exactly that.
@@ -394,23 +406,23 @@ EOF
   expect_code 0 "$RUN_RC" "an undeclared skill should resolve on request (stderr: $RUN_ERR)"
   assert_contains "$RUN_OUT" "skill_file=$install/skills/in-progress/drafting/SKILL.md" \
     "the undeclared skill resolved to the wrong file"
-  assert_contains "$RUN_OUT" "declared=false" "the block did not mark the skill as undeclared"
 
-  fm_skill_run "$config" demo-skills interviewing --include-undeclared --field declared
+  fm_skill_run "$config" demo-skills interviewing --include-undeclared --field skill_dir
   expect_code 0 "$RUN_RC" "a declared skill should still resolve with the option (stderr: $RUN_ERR)"
-  [ "$RUN_OUT" = true ] || fail "a declared skill was reported as declared=$RUN_OUT"
+  [ "$RUN_OUT" = "$install/skills/productivity/interviewing" ] \
+    || fail "a declared skill resolved elsewhere with the option: $RUN_OUT"
 
   fm_skill_run "$config" demo-skills retired --include-undeclared
   assert_refusal 5 "a skill in a deprecated bucket must never resolve"
 
   fm_skill_run "$config" demo-skills --list-skills
   expect_code 0 "$RUN_RC" "--list-skills should exit 0 (stderr: $RUN_ERR)"
-  [ "$RUN_OUT" = "$(printf 'interviewing\tdeclared\tskills/productivity/interviewing')" ] \
+  [ "$RUN_OUT" = "$(printf 'interviewing\tskills/productivity/interviewing')" ] \
     || fail "--list-skills without the option listed more than the manifest: $RUN_OUT"
 
   fm_skill_run "$config" demo-skills --list-skills --include-undeclared
   expect_code 0 "$RUN_RC" "--list-skills --include-undeclared should exit 0 (stderr: $RUN_ERR)"
-  [ "$RUN_OUT" = "$(printf 'drafting\tundeclared\tskills/in-progress/drafting\ninterviewing\tdeclared\tskills/productivity/interviewing')" ] \
+  [ "$RUN_OUT" = "$(printf 'drafting\tskills/in-progress/drafting\ninterviewing\tskills/productivity/interviewing')" ] \
     || fail "--list-skills --include-undeclared listed the wrong set: $RUN_OUT"
 
   # A declared skill always wins over an undeclared copy of the same name.
@@ -439,6 +451,7 @@ description: A second undeclared skill with the same name.
 EOF
   fm_skill_run "$config" demo-skills drafting --include-undeclared
   assert_refusal 6 "two undeclared skills of one name must refuse as ambiguous"
+  assert_list_omits "$config" drafting "two undeclared skills of one name"
 
   # An undeclared skill passes the same integrity checks as a declared one.
   rm -rf "$install/skills/misc/drafting"
@@ -447,6 +460,14 @@ EOF
   cp "$TMP_ROOT/drafting.md" "$install/skills/in-progress/drafting/SKILL.md"
   fm_skill_run "$config" demo-skills drafting --include-undeclared
   assert_refusal 6 "an undeclared SKILL.md naming another skill must refuse"
+  assert_list_omits "$config" drafting "an undeclared SKILL.md naming another skill"
+
+  sed 's/^name: other$/name: drafting/' "$TMP_ROOT/drafting.md" \
+    > "$install/skills/in-progress/drafting/SKILL.md"
+  ln -s "$TMP_ROOT/drafting.md" "$install/skills/in-progress/drafting/linked.md"
+  fm_skill_run "$config" demo-skills drafting --include-undeclared
+  assert_refusal 6 "an undeclared skill with a symlinked support file must refuse"
+  assert_list_omits "$config" drafting "an undeclared skill with a symlinked support file"
   pass "fm-skill-path.sh: undeclared skills resolve only on request, never from a deprecated bucket"
 }
 

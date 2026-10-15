@@ -16,8 +16,8 @@
 #
 # The skills offered are every skill in that install: the ones its manifest
 # declares, plus the ones upstream keeps in its source tree outside the declared
-# set (its in-progress and misc buckets), never a deprecated bucket. The header
-# says which of the two a loaded skill is.
+# set (its in-progress and misc buckets), never a deprecated bucket. A skill is
+# offered only when it resolves, so every name --list prints loads.
 #
 # Attribution: the skills are Matt Pocock's work, MIT licensed, published at
 # https://github.com/mattpocock/skills and distributed as the Claude plugin
@@ -159,21 +159,18 @@ fi
 
 # The repo's single owner of plugin-skill resolution finds the one enabled
 # install, verifies it, and decides what it offers. Its refusals pass through
-# verbatim, exit status included.
+# verbatim on stderr, exit status included.
 resolve() {  # <args...> -> resolver stdout, or exit with its status
   set +e
-  RESOLVED=$("$RESOLVER" "$PLUGIN" "$@" --include-undeclared 2>&1)
+  RESOLVED=$("$RESOLVER" "$PLUGIN" "$@" --include-undeclared)
   RC=$?
   set -e
-  if [ "$RC" -ne 0 ]; then
-    printf '%s\n' "$RESOLVED" >&2
-    exit "$RC"
-  fi
+  [ "$RC" -eq 0 ] || exit "$RC"
 }
 
 if [ "$LIST" -eq 1 ]; then
   resolve --list-skills
-  [ -z "$RESOLVED" ] || printf '%s\n' "$RESOLVED" | cut -f 1 | LC_ALL=C sort -u
+  [ -z "$RESOLVED" ] || printf '%s\n' "$RESOLVED" | cut -f 1
   exit 0
 fi
 
@@ -187,11 +184,8 @@ VERSION=$(field version)
 COMMIT=$(field commit)
 SKILL_DIR=$(field skill_dir)
 SKILL_FILE=$(field skill_file)
-DECLARED=$(field declared)
 RESOLVED_BY="bin/fm-skill-path.sh"
 [ -n "$SKILL_FILE" ] || die 6 "bin/fm-skill-path.sh resolved $SKILL without a skill_file"
-BUCKET=${SKILL_DIR%/*}
-BUCKET=${BUCKET##*/}
 
 # --- pin comparison ----------------------------------------------------------
 
@@ -240,8 +234,6 @@ emit_header() {
   printf 'scope=%s\n' "$SCOPE"
   printf 'resolved_version=%s\n' "$VERSION"
   printf 'resolved_commit=%s\n' "${COMMIT:-none}"
-  printf 'declared=%s\n' "$DECLARED"
-  printf 'upstream_bucket=%s\n' "$BUCKET"
   printf 'validated_plugin=%s\n' "${PIN_PLUGIN:-none}"
   printf 'validated_version=%s\n' "${PIN_VERSION:-none}"
   printf 'validated_commit=%s\n' "${PIN_COMMIT:-none}"
@@ -250,10 +242,6 @@ emit_header() {
   d=$(digest "$SKILL_FILE")
   [ -z "$d" ] || printf 'skill_file_sha256=%s\n' "$d"
   printf 'resolved_by=%s\n' "$RESOLVED_BY"
-  if [ "$DECLARED" = false ]; then
-    printf "\nNot in the plugin's declared skill set: upstream keeps this skill in the\n"
-    printf '%s bucket of the same install, so Claude does not list it as a plugin skill.\n' "$BUCKET"
-  fi
   if [ "$PIN_STATE" = changed ]; then
     printf '\n!!! PLUGIN CHANGED !!!\n'
     printf 'The installed plugin is %s %s (%s), not the %s %s (%s) this pointer was validated against.\n' \
