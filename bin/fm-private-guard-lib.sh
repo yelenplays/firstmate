@@ -1,4 +1,6 @@
 # shellcheck shell=bash
+# FM_PRIVATE_GUARD_WHY is this library's output; its callers read it.
+# shellcheck disable=SC2034
 # fm-private-guard-lib.sh - the hard private-material guard for dispatch
 # profiles that config/crew-dispatch.json marks "private_ok": false.
 #
@@ -38,8 +40,6 @@
 #   model matches a launch of its harness with no model.
 
 FM_PRIVATE_MARKERS_NAME='private-markers'
-# FM_PRIVATE_GUARD_WHY is this library's output; its callers read it.
-# shellcheck disable=SC2034
 FM_PRIVATE_GUARD_WHY=''
 
 # Lowercase, and fold every run of whitespace, '-', or '_' into one space.
