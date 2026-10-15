@@ -962,9 +962,21 @@ ok - Herdr pi (1.2.0): unrelated draft stays unsubmitted
 FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=135764
 ```
 
-Claude was not refreshed in this run because its account quota was unavailable; live verification remains pending its 16:20 UTC quota reset, not passed.
-Select `FM_SEND_INBOX_LIVE_HARNESSES=claude` and an operator-trusted directory via `FM_SEND_INBOX_LIVE_CWD` to refresh it after access returns.
-The guard never answers trust/import dialogs or writes a global consent store.
+Claude Code 2.1.300 passed the same fresh, stale, and draft checks on a named Herdr lab, plus a retry-exhaustion check: after all three Enters were dropped, `fm-send.sh` reported the doorbell unconfirmed, left one exact doorbell and the durable record, and a re-ring then reached the worker.
+Pi 1.2.0 passed the same exhaustion and recovery check.
+Claude launches with `--safe-mode` because `--bare` never reads claude.ai OAuth (see [supervision host](../supervision-host.md)), and its settings exclude this checkout's own `CLAUDE.md` and `AGENTS.md`.
+To refresh it, pre-register trust for one disposable lab directory, pass that directory as `FM_SEND_INBOX_LIVE_CWD`, and select the account with `CLAUDE_CONFIG_DIR`; the guard forwards that variable only into the lab process:
+
+```sh
+CLAUDE_CONFIG_DIR=<account-dir> bin/fm-claude-trust.sh --lab-home <lab-dir>
+CLAUDE_CONFIG_DIR=<account-dir> FM_SEND_INBOX_LIVE_CWD=<lab-dir> \
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_BACKEND=herdr \
+FM_SEND_INBOX_LIVE_HARNESSES=claude \
+bash bin/fm-test-run.sh tests/fm-send-inbox-doorbell-live-e2e.test.sh
+```
+
+The guard never answers trust/import dialogs or writes a global consent store; remove the lab directory's trust entry afterward.
+tmux was not on PATH, so the tmux Pi stale-submit path has only the portable coverage below, not a live run.
 Portable coverage in `tests/fm-task-inbox.test.sh` exercises Enter-only retries, exhaustion, supported label preservation, and blocking-dialog refusal across tmux, Herdr, Zellij, Orca, and cmux. Its Pi regression covers exact stale doorbells starting a turn with an unknown composer on tmux and Herdr, including two swallowed Enters, while pre-existing busy/unknown state remains unconfirmed and unrelated drafts remain untouched.
 `tests/fm-composer-lib.test.sh` pins exact extraction of the captured Pi rail/footer geometry and refuses incomplete input or a lower shell.
 

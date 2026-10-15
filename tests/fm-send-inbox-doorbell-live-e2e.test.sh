@@ -98,7 +98,14 @@ EOF
       continue
     fi
     case "$h" in
-      claude) cmd='CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false claude --bare --dangerously-skip-permissions' ;;
+      # --bare never reads claude.ai OAuth. --safe-mode skips the home's hooks,
+      # skills, plugins and MCP servers; the exclusions keep this checkout's
+      # own instructions out when the lab lives under it. The selected
+      # account is forwarded only into the lab process.
+      claude)
+        jq -nc --arg root "$ROOT" '{claudeMdExcludes: [($root+"/CLAUDE.md"),($root+"/AGENTS.md")]}' > "$LAB/claude-settings.json"
+        cmd="${CLAUDE_CONFIG_DIR:+CLAUDE_CONFIG_DIR=$(printf '%q' "$CLAUDE_CONFIG_DIR") }CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false claude --safe-mode --dangerously-skip-permissions --settings $(printf '%q' "$LAB/claude-settings.json")"
+        ;;
       pi) cmd='pi --thinking low' ;;
       *) fail "Herdr doorbell reproduction supports claude and pi, got $h" ;;
     esac
