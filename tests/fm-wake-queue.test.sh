@@ -915,6 +915,8 @@ SH
 # session:window makes the pane look missing, which is the leftover-row tests'
 # ring-unsafe path and must keep the parent alarm. These cases print fm-mate
 # and a claude foreground command so a proven-idle mate can actually be rung.
+# The pane renders an empty Claude composer (cursor on its row) so the ring's
+# submit check can confirm the Enter cleared it.
 install_secondmate_alive_tmux() {  # <fakebin>
   local fakebin=$1
   cat > "$fakebin/tmux" <<'SH'
@@ -922,12 +924,15 @@ install_secondmate_alive_tmux() {  # <fakebin>
 set -u
 case "${1:-}" in
   list-windows) printf '%s\n' 'fm-mate' ;;
-  capture-pane) exit 0 ;;
+  capture-pane)
+    rule=$(printf '─%.0s' $(seq 64))
+    printf '● done\n%s\n❯ \n%s\n  ? for shortcuts\n' "$rule" "$rule"
+    ;;
   display-message)
     case "$*" in
       *pane_current_command*) printf 'claude\n' ;;
       *pane_tty*) exit 1 ;;
-      *cursor_y*) printf '0\n' ;;
+      *cursor_y*) printf '2\n' ;;
       *) printf '0\n' ;;
     esac
     ;;

@@ -36,6 +36,127 @@ set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Set FM_SEND_INBOX_LIVE_BACKEND=herdr for the Claude/Pi reproduction below.
+# A transport shim swallows two Enters, not text: real composers must accept
+# the third Enter without retyping. An operator must pre-register Claude's
+# workspace trust and pass that exact directory as FM_SEND_INBOX_LIVE_CWD.
+if [ "${FM_SEND_INBOX_LIVE_BACKEND:-tmux}" = herdr ]; then
+  fm_live_gate opt-in FM_SEND_INBOX_LIVE_E2E herdr jq
+  unset NO_MISTAKES_GATE
+  LAB_HELPER=${HERDR_LAB_HELPER:-$ROOT/bin/fm-herdr-lab.sh}
+  ORIGINAL_PATH=$PATH
+  HERDR_LAB_SESSION=$("$LAB_HELPER" name inbox-doorbell)
+  LAB=$(mktemp -d "${TMPDIR:-/tmp}/fm-inbox-herdr.XXXXXX")
+  LAB=$(cd "$LAB" && pwd -P)
+  # shellcheck disable=SC2329 # Invoked by the EXIT trap below.
+  cleanup_herdr() {
+    local rc=$?
+    trap - EXIT
+    PATH="$ORIGINAL_PATH" "$LAB_HELPER" teardown "$HERDR_LAB_SESSION" || rc=1
+    rm -rf "$LAB"
+    exit "$rc"
+  }
+  trap cleanup_herdr EXIT
+  unset HERDR_ENV HERDR_PANE_ID HERDR_TAB_ID HERDR_WORKSPACE_ID HERDR_SOCKET_PATH HERDR_SESSION
+  mkdir -p "$LAB/shim" "$LAB/project" "$LAB/home/state"
+  cat > "$LAB/shim/herdr" <<EOF
+#!/usr/bin/env bash
+set -eu
+args=("\$@")
+n=\${#args[@]}
+[ "\${args[\$((n-2))]}" = --session ] && [ "\${args[\$((n-1))]}" = "$HERDR_LAB_SESSION" ] || exit 97
+args=("\${args[@]:0:\$((n-2))}")
+if [ "\${args[0]} \${args[1]}" = 'pane send-keys' ] && [ "\${args[3]:-}" = enter ] && [ -f "$LAB/drop-enters" ]; then
+  drops=\$(< "$LAB/drop-enters")
+  if [ "\$drops" -gt 0 ]; then echo \$((drops-1)) > "$LAB/drop-enters"; exit 0; fi
+fi
+exec env PATH="$ORIGINAL_PATH" "$LAB_HELPER" run "$HERDR_LAB_SESSION" "\${args[@]}"
+EOF
+  chmod +x "$LAB/shim/herdr"
+  "$LAB_HELPER" provision "$HERDR_LAB_SESSION" || fail 'could not provision isolated Herdr session'
+  export PATH="$LAB/shim:$ORIGINAL_PATH"
+  # shellcheck source=bin/fm-backend.sh
+  . "$ROOT/bin/fm-backend.sh"
+  # The readiness probes below run in substitutions; their lazy adapter load
+  # cannot populate this shell's functions for the literal preloads.
+  fm_backend_source herdr || fail 'could not load the Herdr adapter'
+  # shellcheck source=bin/fm-task-inbox-lib.sh
+  . "$ROOT/bin/fm-task-inbox-lib.sh"
+  lab() { env PATH="$ORIGINAL_PATH" "$LAB_HELPER" run "$HERDR_LAB_SESSION" "$@"; }
+  wait_herdr_idle() {  # <target>
+    local i
+    for ((i=0; i<60; i++)); do
+      if [ "$(fm_backend_composer_state herdr "$1")" = empty ] \
+         && [ "$(fm_backend_busy_state herdr "$1")" != busy ]; then return 0; fi
+      sleep 1
+    done
+    return 1
+  }
+  checked=0
+  for h in ${FM_SEND_INBOX_LIVE_HARNESSES:-claude pi}; do
+    if ! command -v "$h" >/dev/null 2>&1; then
+      printf '# harness absent, not verified here: %s\n' "$h"
+      continue
+    fi
+    case "$h" in
+      # --bare never reads claude.ai OAuth. --safe-mode skips the home's hooks,
+      # skills, plugins and MCP servers; the exclusions keep this checkout's
+      # own instructions out when the lab lives under it. The selected
+      # account is forwarded only into the lab process.
+      claude)
+        jq -nc --arg root "$ROOT" '{claudeMdExcludes: [($root+"/CLAUDE.md"),($root+"/AGENTS.md")]}' > "$LAB/claude-settings.json"
+        cmd="${CLAUDE_CONFIG_DIR:+CLAUDE_CONFIG_DIR=$(printf '%q' "$CLAUDE_CONFIG_DIR") }CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false claude --safe-mode --dangerously-skip-permissions --settings $(printf '%q' "$LAB/claude-settings.json")"
+        ;;
+      pi) cmd='pi --thinking low' ;;
+      *) fail "Herdr doorbell reproduction supports claude and pi, got $h" ;;
+    esac
+    version=$("$h" --version 2>/dev/null | head -1)
+    task="live-$h"; home="$LAB/home"
+    created=$(lab workspace create --cwd "${FM_SEND_INBOX_LIVE_CWD:-$LAB/project}" --label "fm-$task" --no-focus) || fail "$h ($version): could not create workspace"
+    pane=$(printf '%s' "$created" | jq -er '.result.root_pane.pane_id') || fail "$h ($version): missing pane"
+    target="$HERDR_LAB_SESSION:$pane"
+    printf 'backend=herdr\nherdr_session=%s\nherdr_pane_id=%s\nwindow=%s\nkind=ship\nharness=%s\n' "$HERDR_LAB_SESSION" "$pane" "$target" "$h" > "$home/state/$task.meta"
+    lab pane run "$pane" "export FM_TASK_INBOX=$(printf '%q' "$home/state/$task.inbox"); $cmd" >/dev/null || fail "$h ($version): could not launch"
+    for scenario in fresh stale; do
+      wait_herdr_idle "$target" || fail "$h ($version): no empty composer before $scenario; resolve trust/login dialogs first"
+      rec="$home/state/$task.inbox/001.msg"
+      if [ "$scenario" = stale ]; then
+        line=$(fm_task_inbox_doorbell_line "$rec")
+        fm_backend_herdr_send_literal "$target" "$line" || fail "$h ($version): could not preload stale doorbell"
+        sleep 1
+        [ "$(fm_backend_composer_state herdr "$target")" = pending ] || fail "$h ($version): preload is not pending"
+        rec="$home/state/$task.inbox/002.msg"
+      fi
+      echo 2 > "$LAB/drop-enters"
+      acted="$LAB/acted-$h-$scenario"
+      FM_HOME="$home" FM_ROOT_OVERRIDE="$home" "$ROOT/bin/fm-send.sh" "$task" \
+        "Run exactly: touch $acted . Then move this message into handled/. Reply with one short line." \
+        > "$LAB/send.out" 2> "$LAB/send.err" || fail "$h ($version): $scenario fm-send failed"
+      [ "$(< "$LAB/drop-enters")" = 0 ] || fail "$h ($version): $scenario never attempted both swallowed Enters"
+      landed=0
+      for ((i=0; i<${FM_SEND_INBOX_LIVE_TIMEOUT:-240}; i++)); do
+        if [ -f "${rec%/*}/handled/${rec##*/}" ] && [ -e "$acted" ]; then landed=1; break; fi
+        sleep 1
+      done
+      [ "$landed" = 1 ] || fail "$h ($version): $scenario doorbell never acted and acknowledged after two swallowed Enters"
+      printf 'ok - Herdr %s (%s): %s doorbell acted and acknowledged after two swallowed Enters\n' "$h" "$version" "$scenario"
+    done
+    rm -f "$LAB/drop-enters"
+    # The acknowledgement happens inside the turn, before the worker settles.
+    # Do not inject the unrelated draft into a still-running turn.
+    wait_herdr_idle "$target" || fail "$h ($version): did not settle before draft protection check"
+    fm_backend_herdr_send_literal "$target" 'unsubmitted human draft' || fail "$h ($version): could not preload draft"
+    sleep 1
+    FM_HOME="$home" FM_ROOT_OVERRIDE="$home" "$ROOT/bin/fm-send.sh" "$task" 'Do not submit the pending draft.' > "$LAB/draft.out" 2> "$LAB/draft.err" || fail "$h ($version): draft steer failed"
+    grep -qF 'doorbell skipped' "$LAB/draft.err" || fail "$h ($version): unrelated draft was not protected"
+    fm_task_inbox_composer_holds herdr "$target" 'unsubmitted human draft' || fail "$h ($version): unrelated draft was modified"
+    printf 'ok - Herdr %s (%s): unrelated draft stays unsubmitted\n' "$h" "$version"
+    checked=$((checked + 1))
+  done
+  [ "$checked" -gt 0 ] || fail 'Herdr doorbell guard verified no installed harness'
+  exit 0
+fi
+
 fm_live_gate opt-in FM_SEND_INBOX_LIVE_E2E tmux
 
 unset NO_MISTAKES_GATE
