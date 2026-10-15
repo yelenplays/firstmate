@@ -477,18 +477,18 @@ while [ "$attempt" -lt "$AUTOARM_ATTEMPTS" ]; do
     exit 0
   fi
   # A host retry, and a re-park after an absorbed wake, gets only what is
-  # left of the budget, as both its boundary and its turn limit. Without
-  # enough left, a wake already absorbed rewakes only to end the turn.
+  # left of the budget, as both its boundary and its turn limit. A re-park
+  # after an absorbed wake needs ABSORB_MIN_REMAINING of it, and without that
+  # the absorbed wake rewakes only to end the turn.
   if [ "$HOST_MODE" -eq 1 ] && [ "$attempt" -gt 0 ]; then
     PARK_REMAINING=$((HOOK_PARK_BUDGET - SECONDS))
-    if [ "$PARK_REMAINING" -lt "$ABSORB_MIN_REMAINING" ]; then
-      if [ -n "$ABSORBED_GEN" ]; then
-        ACTIONABLE=1
-        TRIAGE_RC=0
-        TRIAGE_RECOVERY_GEN=$ABSORBED_GEN
-      fi
+    if [ -n "$ABSORBED_GEN" ] && [ "$PARK_REMAINING" -lt "$ABSORB_MIN_REMAINING" ]; then
+      ACTIONABLE=1
+      TRIAGE_RC=0
+      TRIAGE_RECOVERY_GEN=$ABSORBED_GEN
       break
     fi
+    [ "$PARK_REMAINING" -gt 0 ] || break
   fi
   attempt=$((attempt + 1))
   OUT=$(mktemp "$STATE/.claude-autoarm-output.XXXXXX") || OUT=
@@ -657,11 +657,24 @@ if [ "$ACTIONABLE" -eq 1 ]; then
     if [ -n "$TRIAGE_RC" ] && [ "$TRIAGE_RC" != 0 ]; then
       printf -- '--- bin/fm-wake-triage.sh output ---\n'
       # Claude keeps only a preview of long hook output, so cut on a line
-      # boundary and point at the full copy.
+      # boundary and point at the full copy. Triage's own summary after the
+      # verbatim drain output is what the model acts on: keep it whole and
+      # cut only the drain output before it.
       awk -v cap="$TRIAGE_EMBED_BYTES" -v full="$TRIAGE_OUT" '
-        { n += length($0) + 1; if (n > cap) { cut = 1; exit } print }
-        END { if (cut) printf "--- output cut near %s bytes; read %s for the rest ---\n", cap, full }
-      ' "$TRIAGE_OUT" 2>/dev/null
+        NR == FNR {
+          if (!drain && /^DRAIN OUTPUT \(verbatim/) drain = FNR
+          else if (drain && !summary && /^(HIDDEN QUEUE ROWS|ACT NOW:|ROUTINE \(|ROUTINE ROWS |WAKE_ACK_REQUIRED:)/) summary = FNR
+          if (summary) kept += length($0) + 1
+          last = FNR
+          next
+        }
+        FNR == 1 { if (!summary) summary = last + 1; room = cap - kept }
+        FNR >= summary { print; next }
+        cut { next }
+        { n += length($0) + 1 }
+        n > room { cut = 1; printf "--- output cut near %s bytes; read %s for the rest ---\n", cap, full; next }
+        { print }
+      ' "$TRIAGE_OUT" "$TRIAGE_OUT" 2>/dev/null
     fi
   } >&2
   if autoarm_commit rewake; then

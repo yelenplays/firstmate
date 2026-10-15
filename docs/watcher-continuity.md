@@ -107,10 +107,11 @@ A new decision, a terminal status, and a firstmate-owned execution item each arr
 | Failed | Rewakes with triage's output and the instruction to triage again. |
 
 The plain arm's park has no bound, so a second park could outlive the hook's 28800-second timeout and lapse supervision; that is why only the host re-parks.
-A retried host park, after a crash or empty output, likewise gets only what is left of the budget, and needs at least 1800 seconds of it.
-When a re-park after an absorbed wake dies with less than that left, the hook rewakes only to end the turn instead of reporting a broken auto-arm.
+A retried host park, after a crash or empty output, likewise gets only what is left of the budget, so the hook never parks past it.
+Only a retried re-park after an absorbed wake also needs at least 1800 seconds of it; with less left, the hook rewakes only to end the turn instead of reporting a broken auto-arm.
 On the plain arm the handling successor starts before triage, so the drain finds a live watcher.
 The embedded output is cut on a line boundary near 7000 bytes, and `state/.claude-autoarm-triage.last` keeps the full copy.
+The cut falls inside the verbatim drain output, so triage's summary after it, with the `ACT NOW` list, the routine acknowledgement note and the `WAKE_ACK_REQUIRED` command, always arrives whole.
 Triage's drain moves the close's recovery episode to its handling phase or acknowledges it; the rewake still binds that same generation, so the mid-turn pull guard stays satisfied.
 
 ### Claude session-lock ownership

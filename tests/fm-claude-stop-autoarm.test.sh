@@ -1541,9 +1541,12 @@ SH
       act-long)
         cat <<'SH'
 printf 'pending:handling:%s\n' "$gen" > "$FM_HOME/state/.watcher-down"
-printf 'ACT NOW:\n'
+printf 'WAKE TRIAGE: 400 row(s), 1 task(s): 1 act now, 0 routine\n'
+printf 'DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):\n'
 i=0
-while [ "$i" -lt 400 ]; do printf 'fixture-task-%s - C7 task has terminal or unread status\n' "$i"; i=$((i + 1)); done
+while [ "$i" -lt 400 ]; do printf 'check: fixture drain line %s with enough words to fill the embed\n' "$i"; i=$((i + 1)); done
+printf 'ACT NOW:\nfixture-task - C7 task has terminal or unread status\n  crew: fixture\n'
+printf 'ROUTINE ROWS ACKNOWLEDGED BY TRIAGE: 7 (the WAKE_ACK_REQUIRED command below retires the rest)\n'
 printf 'WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 400 --recovery-generation %s\n' "$gen"
 exit 10
 SH
@@ -1678,6 +1681,20 @@ test_host_first_park_retry_gets_the_remaining_budget() {
   esac
   [ "${second% *}" = "${second#* }" ] && [ "${second% *}" -le 27000 ] && [ "${second% *}" -ge 26000 ] \
     || fail "the retried park's budget is not what is left of 27000 seconds: '$second'"
+
+  # The 1800-second floor is for re-parks after an absorbed wake only: a
+  # shorter configured budget keeps its retries.
+  dir=$(make_primary_dir "$TMP_ROOT/host-crash-short-budget")
+  rm -f "$dir/config/supervision-host-off"
+  : > "$dir/state/task.meta"
+  write_host_fixture "$dir" crash-then-boundary
+  FM_SUPERVISION_HOST_PARK_SECONDS=1000 run_autoarm "$dir" > "$dir/out" 2>&1; status=$?
+  expect_code 2 "$status" "the retried short park's boundary close must rewake"
+  [ "$(wc -l < "$dir/state/host-ran" | tr -d ' ')" -eq 2 ] || fail "a crash under a budget below 1800 seconds was not retried"
+  assert_not_contains "$(cat "$dir/out")" "auto-arm FAILED" "a retryable crash under a short budget was reported as broken"
+  second=$(sed -n '2p' "$dir/state/host-park-seconds")
+  [ "${second% *}" = "${second#* }" ] && [ "${second% *}" -le 1000 ] && [ "${second% *}" -ge 900 ] \
+    || fail "the retried short park's budget is not what is left of 1000 seconds: '$second'"
   pass "auto-arm: a retry of the first host park gets only what is left of the budget"
 }
 
@@ -1747,10 +1764,16 @@ test_triage_failure_and_long_output_reach_the_rewake() {
   write_triage_fixture "$dir" act-long
   out=$(run_autoarm "$dir" 2>/dev/null); status=$?
   expect_code 2 "$status" "a long triage must still rewake"
-  assert_contains "$out" "fixture-task-0 - C7" "the rewake must embed the start of the triage output"
-  assert_not_contains "$out" "fixture-task-399 - C7" "the rewake embedded the whole long output"
+  assert_contains "$out" "WAKE TRIAGE: 400 row(s)" "the rewake must embed the start of the triage output"
+  assert_contains "$out" "fixture drain line 0 " "the rewake must embed the head of the drain output"
+  assert_not_contains "$out" "fixture drain line 399 " "the rewake embedded the whole long drain output"
   assert_contains "$out" "output cut near 7000 bytes; read $dir/state/.claude-autoarm-triage.last" "the rewake must point at the full output"
-  grep -q 'fixture-task-399 - C7' "$dir/state/.claude-autoarm-triage.last" || fail "the full triage output was not kept"
+  assert_contains "$out" "fixture-task - C7 task has terminal or unread status" "the cut dropped the ACT NOW list"
+  assert_contains "$out" "ROUTINE ROWS ACKNOWLEDGED BY TRIAGE: 7" "the cut dropped the routine acknowledgement note"
+  assert_contains "$out" "WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 400" "the cut dropped the acknowledgement"
+  [ "$(printf '%s\n' "$out" | awk '/output cut near/ { c = NR } /^ACT NOW:$/ { a = NR } END { print (c && a > c) }')" = 1 ] \
+    || fail "the cut marker must sit inside the drain output, before triage's summary"
+  grep -q 'fixture drain line 399 ' "$dir/state/.claude-autoarm-triage.last" || fail "the full triage output was not kept"
   [ "$(printf '%s\n' "$out" | wc -c | tr -d ' ')" -lt 9000 ] || fail "the embedded triage output was not capped"
   pass "auto-arm: a failed or long triage still reaches the model, capped and pointing at its full output"
 }
