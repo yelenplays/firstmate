@@ -1091,9 +1091,12 @@ test_attended_close_with_unidentified_main_session_passes_to_main() {
 # The successor is already live then, so it closes on that decision within one
 # poll and exits: the queue the turn judged is kept in offer-queue, and the
 # successor is proven by the decision row it queues, never by a liveness poll.
-turn_main_only_at_second_offer() {  # <home>
-  local real_node
+turn_main_only_at_second_offer() {  # <home> [quiet]
+  local real_node turn
   real_node=$(command -v node)
+  turn='printf '\''needs-decision [at=%s]: which export format?\n'\'' "$(date +%s)" >> "$FM_HOME/state/demo.status"'
+  # Turn only the offer main-only, leaving no status change for its successor.
+  [ "${2:-}" != quiet ] || turn='echo eligible=0; exit 0'
   cat > "$1/fakebin/node" <<SH
 #!/usr/bin/env bash
 case "\$*" in
@@ -1103,7 +1106,7 @@ case "\$*" in
     printf '%s\n' "\$count" > "\$FM_HOME/offer-count"
     if [ "\$count" -eq 2 ]; then
       cp "\$FM_HOME/state/.wake-queue" "\$FM_HOME/offer-queue"
-      printf 'needs-decision [at=%s]: which export format?\n' "\$(date +%s)" >> "\$FM_HOME/state/demo.status"
+      $turn
     fi ;;
 esac
 exec "$real_node" "\$@"
@@ -1172,9 +1175,21 @@ start_hook_session() {  # <home>
       while [ ! -e "$FM_HOME/session.stop" ]; do
         if [ -e "$FM_HOME/stop.go" ]; then
           rm -f "$FM_HOME/stop.go"
-          printf "{\"session_id\":\"sess-host-hook\",\"stop_hook_active\":false}\n" \
-            | "$FM_HOME/bin/fm-claude-stop-autoarm.sh" > "$FM_HOME/hook.out" 2> "$FM_HOME/hook.err"
-          printf "%s\n" "$?" > "$FM_HOME/hook.rc"
+          if [ -e "$FM_HOME/hook.own-group" ]; then
+            # Give the real hook a group that the test can retire without
+            # touching the fake harness or processes from any other test.
+            printf "{\"session_id\":\"sess-host-hook\",\"stop_hook_active\":false}\n" > "$FM_HOME/hook.stdin"
+            set -m
+            "$FM_HOME/bin/fm-claude-stop-autoarm.sh" < "$FM_HOME/hook.stdin" > "$FM_HOME/hook.out" 2> "$FM_HOME/hook.err" &
+            printf "%s\n" "$!" > "$FM_HOME/hook.pgid"
+            wait "$!"
+            printf "%s\n" "$?" > "$FM_HOME/hook.rc"
+            set +m
+          else
+            printf "{\"session_id\":\"sess-host-hook\",\"stop_hook_active\":false}\n" \
+              | "$FM_HOME/bin/fm-claude-stop-autoarm.sh" > "$FM_HOME/hook.out" 2> "$FM_HOME/hook.err"
+            printf "%s\n" "$?" > "$FM_HOME/hook.rc"
+          fi
         fi
         sleep 0.1
       done
@@ -1525,6 +1540,90 @@ leave_a_cycle_for_main_and_restart() {  # <home>
   rm -f "$home/session.stop"
   kill -0 "$LEFT_ARM" 2>/dev/null || fail "fixture: the successor arm did not outlive its session"
   start_hook_session "$home"
+}
+
+# Reproduce the real Stop lifecycle, including the group teardown missing from
+# earlier hook fixtures. A handled/acked wake must not become downtime when
+# that old group is retired. Exercise both places that can leave a successor,
+# repeat the ordinary cycle, then prove genuine downtime still surfaces once.
+assert_hook_group_rearms() {  # <name> <main-only|at-turn>
+  local home mode=$2 cycle watcher pgid
+  home=$(make_primary_home "$1")
+  [ "$mode" != at-turn ] || turn_main_only_at_second_offer "$home" quiet
+  : > "$home/hook.own-group"
+  start_hook_session "$home"
+  turn_end "$home"
+  wait_until 200 watcher_live "$home" || fail "group rearm: no initial cycle"
+  if [ "$mode" = at-turn ]; then
+    append_status "$home" 'first routine close'
+  else
+    append_status "$home" 'first decision' needs-decision
+  fi
+
+  for cycle in 1 2 3; do
+    wait_until 300 hook_exited "$home" || fail "group rearm: close $cycle never arrived"
+    assert_rewoke_main "$home" "group rearm $cycle"
+    assert_no_re '^check: rearm-resurface$' "$home/hook.err" "ordinary rearm delivered an empty recovery"
+    main_drain "$home" >/dev/null
+    [ -n "$MAIN_ACK" ] || fail "group rearm: no main acknowledgement"
+    # shellcheck disable=SC2086 # replay exactly the acknowledgement arguments
+    FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK >/dev/null 2>&1 \
+      || fail "group rearm: main acknowledgement failed"
+    [ ! -s "$home/state/.wake-queue" ] || fail "group rearm: queue not empty after acknowledgement"
+    assert_re '^acked:' "$home/state/.watcher-down" "group rearm: episode not acknowledged"
+    watcher=$(cat "$home/state/.watch.lock/pid")
+    pgid=$(cat "$home/hook.pgid")
+    kill -TERM -- "-$pgid" 2>/dev/null || true
+    # The successor's structural process-group identity, not a vendor string,
+    # proves it cannot receive the hook group's termination signal.
+    [ "$(ps -o pgid= -p "$watcher" | tr -d ' ')" != "$pgid" ] \
+      || fail "group rearm: successor still belongs to the terminated hook group"
+    turn_end "$home"
+    wait_until 300 host_owns_the_only_cycle "$home" \
+      || fail "group rearm: next park did not take over its only cycle: $(cat "$home/hook.err")"
+    ! wait_until 30 hook_exited "$home" \
+      || fail "group rearm: empty rearm woke main: $(cat "$home/hook.err")"
+    assert_re '^acked:' "$home/state/.watcher-down" "group rearm: takeover reopened downtime"
+    assert_no_re 'rearm-resurface' "$home/state/.supervision-host.log" "group rearm: recovery loop returned"
+    append_status "$home" "next decision $cycle" needs-decision
+  done
+
+  wait_until 300 hook_exited "$home" || fail "outage: last decision never reached main"
+  main_drain "$home" >/dev/null
+  [ -n "$MAIN_ACK" ] || fail "outage: no acknowledgement"
+  # shellcheck disable=SC2086 # replay exactly the acknowledgement arguments
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK >/dev/null 2>&1 || fail "outage: ack failed"
+  watcher=$(cat "$home/state/.watch.lock/pid")
+  kill -KILL "$watcher" || fail "outage: could not kill fixture watcher"
+  wait_until 200 bash -c '! kill -0 "$1" 2>/dev/null' _ "$watcher" || fail "outage: watcher still alive"
+  append_wake "$home/state" check outage-fixture 'check: queued during genuine outage'
+  turn_end "$home"
+  wait_until 300 hook_exited "$home" || fail "outage: recovery never reached main"
+  assert_rewoke_main "$home" outage
+  [ "$(grep -c '^check: rearm-resurface$' "$home/hook.err")" -eq 1 ] || fail "outage: expected exactly one recovery"
+  main_drain "$home" > "$home/outage-drain"
+  assert_grep 'queued during genuine outage' "$home/outage-drain" "outage: buried work was lost"
+  [ -n "$MAIN_ACK" ] || fail "outage: no recovery acknowledgement"
+  # shellcheck disable=SC2086 # replay exactly the acknowledgement arguments
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK >/dev/null 2>&1 || fail "outage: recovery ack failed"
+  kill -TERM -- "-$(cat "$home/hook.pgid")" 2>/dev/null || true
+  turn_end "$home"
+  wait_until 300 host_owns_the_only_cycle "$home" || fail "outage: successor never settled"
+  ! wait_until 30 hook_exited "$home" || fail "outage: acknowledged recovery repeated"
+  assert_re '^acked:' "$home/state/.watcher-down" "outage: acknowledged recovery reopened"
+  [ "$(grep -c $'pass-through\tattended\tmain-only\tcheck: rearm-resurface$' "$home/state/.supervision-host.log")" -eq 1 ] \
+    || fail "outage: expected exactly one recovery in the host history"
+  stop_home_processes "$home"
+}
+
+test_hook_rearms_after_group_teardown_without_empty_recovery() {
+  assert_hook_group_rearms hook-group-rearms main-only
+  pass "host+hook: three ordinary group-teardown re-arms stay quiet; real outage work resurfaces once"
+}
+
+test_at_turn_successor_survives_group_teardown_and_real_outage_recovers() {
+  assert_hook_group_rearms hook-at-turn-group-rearms at-turn
+  pass "host+hook: an at-turn hand-back survives group teardown, quiet re-arms, and real outage recovery"
 }
 
 test_next_park_takes_over_the_cycle_a_pass_through_left_for_main() {
@@ -2996,6 +3095,8 @@ queue_case test_claude_stop_hook_runs_the_host_without_the_file_and_off_opts_out
 queue_case test_claude_stop_hook_delivers_a_close_that_turns_main_only_at_its_turn
 queue_case test_claude_stop_hook_notifies_when_at_turn_downtime_write_fails
 queue_case test_successor_close_during_main_turn_is_delivered_at_the_next_turn_end
+queue_case test_hook_rearms_after_group_teardown_without_empty_recovery
+queue_case test_at_turn_successor_survives_group_teardown_and_real_outage_recovers
 queue_case test_next_park_takes_over_the_cycle_a_pass_through_left_for_main
 queue_case test_a_park_stopped_mid_take_over_leaves_the_take_over_to_the_next_park
 queue_case test_unrecorded_successor_is_stopped_rather_than_left_for_main
