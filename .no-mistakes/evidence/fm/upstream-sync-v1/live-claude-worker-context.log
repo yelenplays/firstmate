@@ -1,0 +1,3 @@
+ok - claude 2.1.301 (Claude Code): supervisor and secondmate instructions retained; worker excludes only root files; worker, secondmate, and user-sources pipeline listings narrowed; skill names retained
+# skill listing chars: wide=133607 supervisor=29941 worker=9854 secondmate=9854 pipeline-wide=134407 pipeline=10654
+# first-request transcript input: supervisor=48802 worker=28474 saved=20328

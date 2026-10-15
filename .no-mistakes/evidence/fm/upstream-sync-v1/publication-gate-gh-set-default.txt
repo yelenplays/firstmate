@@ -1,0 +1,54 @@
+== report
+$ report
+fm-role: maintainer github.com/yelenplays/firstmate (local)
+[exit 0]
+== S1 fallback: no gh-resolved, remotes upstream=kunchenguid origin=yelenplays
+$ check /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm
+refused: this home runs as firstmate user/operator and holds no publication authority for github.com/kunchenguid/firstmate
+[exit 1]
+== S2 real 'gh repo set-default yelenplays/firstmate'
+remote.origin.gh-resolved base
+$ check /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm
+authorized: maintainer scope github.com/yelenplays/firstmate
+[exit 0]
+== S3 owner/repo value on upstream outranks origin base (gh remote order)
+remote.origin.gh-resolved base
+remote.upstream.gh-resolved yelenplays/firstmate
+$ check /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm
+authorized: maintainer scope github.com/yelenplays/firstmate
+[exit 0]
+== S4 upstream base outranks origin base
+$ check /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm
+refused: this home runs as firstmate user/operator and holds no publication authority for github.com/kunchenguid/firstmate
+[exit 1]
+== S5 adversarial upstream gh-resolved='evil' (fail closed)
+$ check /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm
+refused: this task targets firstmate's own repository but no publication target can be determined (no upstream, github, or origin remote on /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm, or its gh default repository is unusable)
+[exit 1]
+== S5 adversarial upstream gh-resolved='a/b/c' (fail closed)
+$ check /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm
+refused: this task targets firstmate's own repository but no publication target can be determined (no upstream, github, or origin remote on /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm, or its gh default repository is unusable)
+[exit 1]
+== S5 adversarial upstream gh-resolved='/abs' (fail closed)
+$ check /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm
+refused: this task targets firstmate's own repository but no publication target can be determined (no upstream, github, or origin remote on /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm, or its gh default repository is unusable)
+[exit 1]
+== S5 adversarial upstream gh-resolved='own er/repo' (fail closed)
+$ check /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm
+refused: this task targets firstmate's own repository but no publication target can be determined (no upstream, github, or origin remote on /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm, or its gh default repository is unusable)
+[exit 1]
+== S5 adversarial upstream gh-resolved='owner/' (fail closed)
+$ check /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm
+refused: this task targets firstmate's own repository but no publication target can be determined (no upstream, github, or origin remote on /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm, or its gh default repository is unusable)
+[exit 1]
+== S6 consent path still works with set-default to kunchenguid (owner/repo case-folded)
+$ check /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm
+refused: this home runs as firstmate user/operator and holds no publication authority for github.com/kunchenguid/firstmate
+[exit 1]
+$ check /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/fm upstream-consent github.com/kunchenguid/firstmate
+authorized: task consent for github.com/kunchenguid/firstmate
+[exit 0]
+== S7 not a self-repo
+$ check /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-clone.PztQNd/other
+not a self-repository task
+[exit 2]
