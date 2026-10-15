@@ -852,10 +852,9 @@ fm_backend_send_text_submit() {  # <backend> <target> <text> <retries> <enter-sl
 
 # Submit already-proven input without typing it again. The inbox uses this
 # only after an exact match with its own constant doorbell; ordinary drafts
-# must never enter here. Reuse the shared Enter-only loop and dialog guard,
-# requiring a cleared composer rather than assuming a sent key was accepted.
+# must never enter here.
 fm_backend_submit_enter() {  # <backend> <target> <retries> <enter-sleep> [expected-label]
-  local backend=$1 target=$2 retries=$3 sleep_s=$4 label=${5:-} state_fn rc=0
+  local backend=$1 target=$2 retries=$3 sleep_s=$4 label=${5:-} baseline_idle='' rc=0
   fm_backend_source "$backend" || return 1
   fm_composer_dialog_sink_prepare || return 1
   fm_backend_composer_state "$backend" "$target" "$label" >/dev/null || true
@@ -865,11 +864,18 @@ fm_backend_submit_enter() {  # <backend> <target> <retries> <enter-sleep> [expec
     return 0
   fi
   case "$backend" in
-    tmux) state_fn=fm_tmux_composer_state ;;
-    *) state_fn="fm_backend_${backend}_composer_state" ;;
+    tmux)
+      [ "$(fm_pane_busy_state "$target")" != idle ] || baseline_idle=1
+      fm_tmux_submit_enter_core "$target" "$retries" "$sleep_s" "$baseline_idle" 0 || rc=$?
+      ;;
+    herdr)
+      fm_backend_herdr_submit_enter "$target" "$retries" "$sleep_s" 0 || rc=$?
+      ;;
+    *)
+      fm_composer_submit_retry_core "fm_backend_${backend}_send_key" "fm_backend_${backend}_composer_state" \
+        "$target" "$retries" "$sleep_s" "$label" || rc=$?
+      ;;
   esac
-  fm_composer_submit_retry_core "fm_backend_${backend}_send_key" "$state_fn" \
-    "$target" "$retries" "$sleep_s" "$label" || rc=$?
   fm_composer_dialog_sink_release
   return "$rc"
 }

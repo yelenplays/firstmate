@@ -2024,16 +2024,15 @@ EOF
 }
 
 # fm_composer_submit_retry_core: the ONE verify-and-retry-Enter submit loop
-# for the cursor-less backends (cmux, orca, zellij) and exact preloaded inbox
-# doorbells on every backend, parameterised by the adapter's send-key and
-# composer-state functions. The caller has already
+# for the cursor-less backends (cmux, orca, zellij), parameterised by the
+# adapter's send-key and composer-state functions. The caller has already
 # typed the text ONCE (send_literal) and settled; this loop submits with
 # Enter, re-reading the composer verdict, and retries Enter ONLY - never
 # retypes, because a swallowed Enter leaves the text in the composer and
 # retyping would duplicate it. Proven pending (and pending-unproven) retries
 # consume the budget; any other verdict returns immediately, so `unknown`
 # stays a loud refusal rather than a blind retry into an unreadable pane.
-# Fresh tmux and herdr text uses richer cores consuming this same verdict plus
+# tmux and herdr keep richer cores that consume this same shared verdict plus
 # fm_composer_queued_enter_verdict; no shape knowledge lives in any loop.
 fm_composer_submit_retry_core() {  # <send-key-fn> <state-fn> <target> <retries> <enter-sleep> [expected-label]
   local send_key_fn=$1 state_fn=$2 target=$3 retries=$4 sleep_s=$5 expected_label=${6:-} i=0 state

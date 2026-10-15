@@ -413,7 +413,7 @@ test_ring_submits_its_own_stuck_doorbell() {
 # terminal I/O is replaced; source, dispatch, dialog sink, and retry loop are real.
 test_enter_only_dispatch() (
   . "$ROOT/bin/fm-backend.sh"
-  local backend state_fn key_fn dir log drops verdict mode=normal
+  local backend state_fn key_fn dir log drops verdict expected mode=normal native_status=idle
   dir="$TMP_ROOT/enter-dispatch"; mkdir -p "$dir"
   log="$dir/keys"; drops="$dir/drops"
   inbox_test_key() {
@@ -423,7 +423,7 @@ test_enter_only_dispatch() (
     [ "$count" -le 0 ] || echo $((count - 1)) > "$drops"
   }
   inbox_test_state() {
-    if [ "$mode" = dialog ]; then
+    if [ "$mode" = dialog ] || { [ "$mode" = opens-dialog ] && [ "$(< "$drops")" -lt 3 ]; }; then
       printf 'test picker' > "$FM_COMPOSER_DIALOG_SINK"
       printf pending
     elif [ "$(< "$drops")" -gt 0 ]; then
@@ -434,26 +434,164 @@ test_enter_only_dispatch() (
   }
   for backend in tmux herdr zellij orca cmux; do
     fm_backend_source "$backend" || fail "could not load $backend for Enter-only conformance"
+    if [ "$backend" = tmux ]; then
+      fm_pane_busy_state() { [ "$native_status" = working ] && printf busy || printf idle; }
+      fm_pane_is_busy() { [ "$native_status" = working ]; }
+      tmux() {
+        [ "$1" = send-keys ] && [ "$2" = -t ] || return 1
+        inbox_test_key "$3" "$4"
+      }
+    elif [ "$backend" = herdr ]; then
+      FM_BACKEND_HERDR_SUBMIT_MIN_SLEEP=0
+      FM_BACKEND_HERDR_SUBMIT_POLLS=1
+      fm_backend_herdr_agent_status_raw() { printf '%s' "$native_status"; }
+      fm_backend_herdr_rendered_busy_state() { fm_pane_busy_state; }
+    fi
     state_fn="fm_backend_${backend}_composer_state"
     [ "$backend" != tmux ] || state_fn=fm_tmux_composer_state
     key_fn="fm_backend_${backend}_send_key"
     eval "$state_fn() { inbox_test_state; }"
-    eval "$key_fn() { inbox_test_key \"\$@\"; }"
+    [ "$backend" = tmux ] || eval "$key_fn() { inbox_test_key \"\$@\"; }"
     : > "$log"; echo 3 > "$drops"
-    verdict=$(fm_backend_submit_enter "$backend" test-target 3 0 test-label)
+    verdict=$(fm_backend_submit_enter "$backend" test-session:w1:p1 3 0 test-label)
     [ "$verdict" = empty ] || fail "$backend did not confirm the final Enter: $verdict"
     [ "$(wc -l < "$log" | tr -d ' ')" = 3 ] || fail "$backend did not retry Enter three times"
-    [ "$(sort -u "$log")" = 'test-target Enter test-label' ] || fail "$backend lost target, key, or label"
+    expected='test-session:w1:p1 Enter'
+    case "$backend" in tmux|herdr) ;; *) expected="$expected test-label" ;; esac
+    [ "$(sort -u "$log")" = "$expected" ] || fail "$backend lost target, key, or supported label"
     : > "$log"; echo 4 > "$drops"
-    verdict=$(fm_backend_submit_enter "$backend" test-target 3 0 test-label)
+    verdict=$(fm_backend_submit_enter "$backend" test-session:w1:p1 3 0 test-label)
     [ "$verdict" = pending ] || fail "$backend must preserve unconfirmed pending input"
     [ "$(< "$drops")" = 1 ] || fail "$backend exceeded its Enter budget"
+    : > "$log"; echo 4 > "$drops"; native_status=working
+    verdict=$(fm_backend_submit_enter "$backend" test-session:w1:p1 3 0 test-label)
+    [ "$verdict" = pending ] && [ "$(wc -l < "$log" | tr -d ' ')" = 3 ] \
+      || fail "$backend used pre-existing activity to confirm an unsubmitted stale doorbell"
+    native_status=idle
     : > "$log"; mode=dialog
-    verdict=$(fm_backend_submit_enter "$backend" test-target 3 0 test-label)
+    verdict=$(fm_backend_submit_enter "$backend" test-session:w1:p1 3 0 test-label)
     [ "$verdict" = unknown ] && [ ! -s "$log" ] || fail "$backend sent Enter into a blocking dialog"
+    : > "$log"; echo 3 > "$drops"; mode=opens-dialog
+    verdict=$(fm_backend_submit_enter "$backend" test-session:w1:p1 3 0 test-label)
+    [ "$verdict" = unknown ] && [ "$(wc -l < "$log" | tr -d ' ')" = 1 ] \
+      || fail "$backend retried Enter after opening a blocking dialog"
     mode=normal
   done
   pass "inbox: all backend Enter-only dispatches preserve retries, labels, pending input, and dialog refusal"
+)
+
+test_stale_pi_doorbell_turn_started() (
+  . "$ROOT/bin/fm-backend.sh"
+  . "$ROOT/bin/fm-task-inbox-lib.sh"
+  fm_backend_source tmux || fail "could not load tmux"
+  fm_backend_source herdr || fail "could not load herdr"
+  local dir="$TMP_ROOT/pi-turn-started" backend state rec doorbell composer status drops log submitted
+  local baseline swallowed rc accept=1 draft
+  mkdir -p "$dir/state"
+  state="$dir/state"
+  rec=$(fm_task_inbox_write "$state" t1 "please continue")
+  doorbell=$(fm_task_inbox_doorbell_line "$rec")
+  composer="$dir/composer"; status="$dir/status"; drops="$dir/drops"
+  log="$dir/keys"; submitted="$dir/submitted"
+  FM_SEND_RETRIES=3 FM_SEND_SLEEP=0 FM_BACKEND_HERDR_SUBMIT_MIN_SLEEP=0 FM_BACKEND_HERDR_SUBMIT_POLLS=1
+  fm_backend_agent_state() { printf alive; }
+  pi_test_capture() {
+    if [ "$backend" = herdr ]; then
+      printf 'transcript\n\n┃ %s\n/fixture/project\n$0.000 (sub) 2.0%%/272k (auto) (test) high\n' "$(< "$composer")"
+    else
+      printf 'transcript\n────────────────────────\n%s\n────────────────────────\n$0.000 (sub) 5.4%%/272k (auto)\n' "$(< "$composer")"
+    fi
+  }
+  pi_test_key() {
+    printf '%s\n' "$*" >> "$log"
+    [ "$2" = Enter ] || return 1
+    local remaining
+    remaining=$(< "$drops")
+    if [ "$remaining" -gt 0 ]; then
+      echo $((remaining - 1)) > "$drops"
+    elif [ "$accept" = 1 ]; then
+      printf '%s' "$(< "$composer")" > "$submitted"
+      : > "$composer"
+      printf working > "$status"
+    fi
+  }
+  pi_test_literal() {
+    printf 'TYPE\n' >> "$log"
+    printf '%s' "$2" >> "$composer"
+  }
+  tmux() {
+    case "$1" in
+      capture-pane) pi_test_capture ;;
+      display-message) printf '2\n' ;;
+      send-keys)
+        [ "$2" = -t ] || return 1
+        if [ "$#" = 5 ] && [ "$4" = -l ]; then
+          pi_test_literal "$3" "$5"
+        elif [ "$#" = 4 ]; then
+          pi_test_key "$3" "$4"
+        else
+          return 1
+        fi ;;
+      *) return 1 ;;
+    esac
+  }
+  fm_pane_busy_state() {
+    case "$(< "$status")" in idle) printf idle ;; working) printf busy ;; *) printf unknown ;; esac
+  }
+  fm_pane_is_busy() { [ "$(fm_pane_busy_state)" = busy ]; }
+  fm_tmux_composer_identity() { printf 'pi\t%s' "$(< "$status")"; }
+  fm_backend_herdr_agent_identity_raw() { printf 'pi\t%s' "$(< "$status")"; }
+  fm_backend_herdr_agent_status_raw() { printf '%s' "$(< "$status")"; }
+  fm_backend_herdr_visible_capture_ansi() { pi_test_capture; }
+  fm_backend_herdr_visible_capture() { pi_test_capture; }
+  fm_backend_herdr_rendered_busy_state() { fm_pane_busy_state; }
+  fm_backend_herdr_send_key() { pi_test_key "$@"; }
+  fm_backend_herdr_send_literal() { pi_test_literal "$@"; }
+  for backend in tmux herdr; do
+    for swallowed in 0 2; do
+      printf '%s' "$doorbell" > "$composer"; printf idle > "$status"
+      echo "$swallowed" > "$drops"; : > "$log"; : > "$submitted"
+      [ "$(fm_backend_composer_state "$backend" test-session:w1:p1)" = pending ] \
+        || fail "$backend Pi fixture must start with proven pending input"
+      rc=0
+      fm_task_inbox_ring "$backend" test-session:w1:p1 "$rec" || rc=$?
+      [ "$rc" = 0 ] || fail "$backend must confirm a stale Pi doorbell starting a turn, got $rc"
+      [ "$(< "$submitted")" = "$doorbell" ] || fail "$backend retyped or lost the stale doorbell"
+      [ "$(wc -l < "$log" | tr -d ' ')" = "$((swallowed + 1))" ] \
+        || fail "$backend sent extra keys after a turn started"
+      [ "$(fm_backend_composer_state "$backend" test-session:w1:p1)" = unknown ] \
+        || fail "$backend must exercise working Pi's unknown composer"
+      [ -f "$rec" ] || fail "submit confirmation must not acknowledge the durable record"
+    done
+    : > "$composer"; printf idle > "$status"; echo 2 > "$drops"
+    : > "$log"; : > "$submitted"
+    rc=0
+    fm_task_inbox_ring "$backend" test-session:w1:p1 "$rec" || rc=$?
+    [ "$rc" = 0 ] && [ "$(< "$submitted")" = "$doorbell" ] \
+      || fail "$backend fresh Pi submission regressed"
+    [ "$(grep -c '^TYPE$' "$log")" = 1 ] && [ "$(wc -l < "$log" | tr -d ' ')" = 4 ] \
+      || fail "$backend must type a fresh doorbell once and retry only Enter"
+    accept=0
+    for baseline in working unknown; do
+      printf '%s' "$doorbell" > "$composer"; printf '%s' "$baseline" > "$status"
+      echo 0 > "$drops"; : > "$log"; : > "$submitted"
+      rc=0
+      fm_task_inbox_ring "$backend" test-session:w1:p1 "$rec" || rc=$?
+      [ "$rc" = 2 ] || fail "$backend must not treat pre-existing $baseline as submit proof, got $rc"
+      [ "$(< "$composer")" = "$doorbell" ] && [ ! -s "$submitted" ] \
+        || fail "$backend changed an unconfirmed stale doorbell"
+      [ "$(wc -l < "$log" | tr -d ' ')" -le 3 ] || fail "$backend exceeded its unconfirmed Enter budget"
+    done
+    accept=1
+    for draft in 'an unrelated draft' "$doorbell with more text"; do
+      printf '%s' "$draft" > "$composer"; printf idle > "$status"; : > "$log"
+      rc=0
+      fm_task_inbox_ring "$backend" test-session:w1:p1 "$rec" || rc=$?
+      [ "$rc" = 1 ] && [ ! -s "$log" ] && [ "$(< "$composer")" = "$draft" ] \
+        || fail "$backend submitted or modified an unrelated Pi draft"
+    done
+  done
+  pass "inbox: stale Pi submits retain tmux/Herdr turn-start proof without retyping or accepting pre-existing activity"
 )
 
 test_idempotent_write_dedups_exact_body() {
@@ -1244,7 +1382,8 @@ test_doorbell_is_a_shell_noop
 test_doorbell_rejects_terminal_controls
 test_ring_skips_dead_agent
 test_ring_submits_its_own_stuck_doorbell
-test_enter_only_dispatch
+test_enter_only_dispatch || exit $?
+test_stale_pi_doorbell_turn_started || exit $?
 test_idempotent_write_dedups_exact_body
 test_idempotent_write_follows_concurrent_ack
 test_handled_mv_dedups_by_sequence

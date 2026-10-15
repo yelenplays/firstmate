@@ -962,10 +962,10 @@ ok - Herdr pi (1.2.0): unrelated draft stays unsubmitted
 FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=135764
 ```
 
-Claude was not refreshed in this run because its account quota was unavailable.
-Its verification remains pending, not passed; select `FM_SEND_INBOX_LIVE_HARNESSES=claude` and an operator-trusted directory via `FM_SEND_INBOX_LIVE_CWD` to refresh it after access returns.
+Claude was not refreshed in this run because its account quota was unavailable; live verification remains pending its 16:20 UTC quota reset, not passed.
+Select `FM_SEND_INBOX_LIVE_HARNESSES=claude` and an operator-trusted directory via `FM_SEND_INBOX_LIVE_CWD` to refresh it after access returns.
 The guard never answers trust/import dialogs or writes a global consent store.
-Portable coverage in `tests/fm-task-inbox.test.sh` proves Enter-only retries, exhaustion, label preservation, and blocking-dialog refusal across tmux, Herdr, Zellij, Orca, and cmux.
+Portable coverage in `tests/fm-task-inbox.test.sh` exercises Enter-only retries, exhaustion, supported label preservation, and blocking-dialog refusal across tmux, Herdr, Zellij, Orca, and cmux. Its Pi regression covers exact stale doorbells starting a turn with an unknown composer on tmux and Herdr, including two swallowed Enters, while pre-existing busy/unknown state remains unconfirmed and unrelated drafts remain untouched.
 `tests/fm-composer-lib.test.sh` pins exact extraction of the captured Pi rail/footer geometry and refuses incomplete input or a lower shell.
 
 ## Waiting-worker command ceilings

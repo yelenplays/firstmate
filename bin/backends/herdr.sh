@@ -3441,8 +3441,7 @@ fm_backend_herdr_composer_clear() {  # <target> <text>
 }
 
 fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep> <settle>
-  local target=$1 text=$2 retries=$3 sleep_s=$4 settle=$5 i=0 verdict baseline confirm_sleep
-  local raw_status footer_baseline='' allow_rendered=0 enter_sent=0 identity proof=0 content
+  local target=$1 text=$2 retries=$3 sleep_s=$4 settle=$5 identity proof=0 content
   fm_backend_herdr_parse_target "$target" || { printf 'unknown'; return 0; }
   # Claude on Herdr is the live-verified truncation shape: Enter is withheld
   # unless the composer, empty before the send, shows this payload. A suffix
@@ -3468,6 +3467,13 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
       return 0
     fi
   fi
+  fm_backend_herdr_submit_enter "$target" "$retries" "$sleep_s"
+}
+
+fm_backend_herdr_submit_enter() {
+  local target=$1 retries=$2 sleep_s=$3 allow_queued=${4:-1} i=0 verdict baseline confirm_sleep
+  local raw_status footer_baseline='' allow_rendered=0 enter_sent=0
+  fm_backend_herdr_parse_target "$target" || { printf 'unknown'; return 0; }
   raw_status=$(fm_backend_herdr_agent_status_raw "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE")
   baseline=$(fm_backend_herdr_classify_submit_agent_status "$raw_status")
   confirm_sleep=$(fm_backend_herdr_submit_confirm_budget "$sleep_s")
@@ -3532,6 +3538,8 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
     if [ "$i" -ge "$retries" ]; then
       if [ "$enter_sent" -eq 0 ]; then
         printf 'send-failed'
+      elif [ "$allow_queued" != 1 ]; then
+        printf '%s' "$verdict"
       else
         fm_composer_queued_enter_verdict "$verdict" \
           "$(fm_backend_herdr_queued_enter_busy "$target" "$allow_rendered")"
