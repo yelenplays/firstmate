@@ -3675,6 +3675,10 @@ fi
 # kind=secondmate: a secondmate home's own runtime lifecycle is owned by the
 # dedicated process-event and firstmate-home removal machinery further below,
 # not by task-worktree cleanup.
+if [ "$KIND" != secondmate ]; then
+  fm_nm_bounded "$STATE" 30 python3 "$SCRIPT_DIR/fm-spend-ledger.py" --state "$STATE" task "$ID" --scan-budget 15 >/dev/null 2>&1 || true
+  python3 "$SCRIPT_DIR/fm-model-ledger.py" --state "$STATE" --data "$DATA" "$ID" || exit 1
+fi
 if [ "$KIND" != secondmate ] && teardown_owns_worktree; then
   conclude_task_no_mistakes_run "$WT"
   reap_task_worktree_processes worktree "$WT" "$TASK_TMP"
@@ -3902,9 +3906,6 @@ retire_busy_state "$STATE" "$ID" "$BUSY_GEN" || exit 1
 # Opt-in fleet activity ledger (docs/fleet-ledger.md), before the status log is
 # retired so its last lines are captured; off costs one file test.
 [ ! -e "$CONFIG/fleet-ledger" ] || FM_HOME=$FM_HOME FM_STATE_OVERRIDE=$STATE FM_CONFIG_OVERRIDE=$CONFIG "$SCRIPT_DIR/fm-fleet-ledger.sh" cleaned_up "$ID" || true
-if [ "$KIND" != secondmate ]; then
-  python3 "$SCRIPT_DIR/fm-model-ledger.py" --state "$STATE" --data "$DATA" "$ID" || exit 1
-fi
 status_retire_presentation_task "$STATE" "$ID" || exit 1
 # The endpoint this task recorded is dead and its task-scoped supervision is
 # over: retire the watcher's per-window and per-task bookkeeping now, so a
