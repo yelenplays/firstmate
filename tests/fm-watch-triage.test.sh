@@ -5813,7 +5813,7 @@ test_term_stops_a_watcher_blocked_inside_a_poll() {
 # record before the TERM. Only the TERM'd watcher's cleanup reads them, and a
 # second read comes only from a retry after a completed failed acquire, so that
 # read marks real contention in $dir/marker-lock-contended; the holder then
-# frees the lock <release-ticks> tenths of a second later. The caller's environment
+# frees the lock <release-ticks> tenths of a wall-clock second later. The caller's environment
 # reaches the watcher; its wait_for_exit code lands in HELD_MARKER_LOCK_RC.
 term_watcher_with_held_marker_lock() {  # <dir> [release-ticks]
   local dir=$1 release_ticks=${2:-} successor=0 state fakebin out capture_file window sig pid holder i
@@ -5866,11 +5866,10 @@ term_watcher_with_held_marker_lock() {  # <dir> [release-ticks]
         wait "$writer"
         rm -f "$contended"
       fi
-      i=0
-      while [ "$i" -lt "$release_ticks" ]; do
-        sleep 0.1
-        i=$((i + 1))
-      done
+      # One wall-clock sleep, not a count of 0.1s ticks: the watcher bounds
+      # its acquire by SECONDS, and forked ticks drift past it under load.
+      [ "$release_ticks" -eq 0 ] \
+        || sleep "$((release_ticks / 10)).$((release_ticks % 10))"
     else
       : > "$held"
       i=0
