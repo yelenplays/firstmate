@@ -119,6 +119,27 @@ collect() {  # <rid>
   env -u FM_WIKIS_ROOT FM_HOME="$HOME_DIR" PATH="$FAKEBIN:$PATH" bash "$SCRIPT" collect "$TASK" "$1"
 }
 
+test_gateway_builder_family() {
+  local model family out
+  for model in deepseek-v4.1-flash glm-5 not-a-known-model; do
+    case "$model" in
+      deepseek-*) family=deepseek ;;
+      glm-*) family=zhipu ;;
+      *) family=unknown ;;
+    esac
+    new_case "gateway-$model" direct-PR opencode "opencode-go/$model"
+    out=$(xr status "$TASK" --head "$HEAD_SHA" --json <&-) || fail "status failed: $out"
+    assert_equals "$family" "$(printf '%s' "$out" | jq -r .builder.family)" "gateway builder $model"
+    out=$(xr plan "$TASK" --head "$HEAD_SHA" <&-) || fail "plan failed: $out"
+    if [ "$family" = unknown ]; then
+      assert_equals escalate "$(field "$out" action)" "unknown gateway model still needs a decision"
+    else
+      assert_equals spawn-reviewer "$(field "$out" action)" "known gateway maker gets an independent reviewer"
+    fi
+  done
+  pass "gateway builders resolve by model maker while unknown models still escalate"
+}
+
 test_same_family_pipeline_review_needs_a_reviewer() {
   local out
   new_case same-family no-mistakes pi openai-codex/gpt-6-astra openai
@@ -493,6 +514,7 @@ test_usage_errors() {
   pass "usage errors exit 2 and missing records exit 1"
 }
 
+test_gateway_builder_family
 test_same_family_pipeline_review_needs_a_reviewer
 test_cross_family_pipeline_review_counts
 test_pipeline_provider_read_from_the_state_database

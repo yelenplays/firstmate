@@ -5,17 +5,19 @@
 # bin/fm-spawn.sh when it records a task's builder family and by
 # bin/fm-cross-review.sh when it records the family of a reviewer. A family is
 # the model maker (anthropic, openai, xai, moonshot, google, meta, mistral,
-# deepseek, zai), never a harness, an account, or a quota provider: one
+# deepseek, zhipu), never a harness, an account, or a quota provider: one
 # harness can serve several makers, and two harnesses can serve one maker.
 #
-# The family is read from the harness's authoritative model catalog or its
-# documented native model surface, never from a harness, model, or seat name
-# alone. Claude Code's --help documents native aliases and full model names;
+# The family is read from the harness's authoritative model catalog, its
+# documented native model surface, or a recognized provider-qualified model
+# namespace, never from a harness or seat name alone.
+# Claude Code's --help documents native aliases and full model names;
 # its Claude model ids and aliases identify Anthropic, as Codex's gpt-* ids
 # identify OpenAI. Otherwise a catalog row must identify one provider for the
 # exact resolved model, and that provider must serve one maker.
-# A gateway that serves several makers resolves to
-# `unknown`, because its catalog row does not prove the model maker.
+# For Pi and OpenCode, provider-qualified DeepSeek and GLM model ids identify
+# DeepSeek and Zhipu even through multi-maker gateways, without a live catalog.
+# Other gateway ids stay `unknown` unless their catalog proves the maker.
 # `unknown` is a verdict, not a failure: a caller that needs two families to
 # differ must treat `unknown` as "independence cannot be proven".
 #
@@ -42,7 +44,7 @@ fm_ai_family_of_provider() {  # <catalog-provider-key>
     google|google-gemini-cli|google-vertex) printf 'google\n' ;;
     mistral) printf 'mistral\n' ;;
     deepseek) printf 'deepseek\n' ;;
-    zai) printf 'zai\n' ;;
+    zai) printf 'zhipu\n' ;;
     *) return 1 ;;
   esac
 }
@@ -104,6 +106,21 @@ fm_ai_family_resolve() {  # <harness> [<model>]
     return 0
     ;;
   esac
+  # These model namespaces identify the maker, not the serving gateway.
+  # Require a provider qualifier and a nonempty, bounded model suffix; do not
+  # infer a maker from arbitrary substrings or from the gateway name itself.
+  case "$harness" in
+    pi|pi-signed|opencode)
+      if [[ "$model" =~ ^[^/]+/(deepseek|glm)-[[:alnum:]][[:alnum:].:_-]*$ ]]; then
+        case "${BASH_REMATCH[1]}" in
+          deepseek) FM_AI_FAMILY=deepseek ;;
+          glm) FM_AI_FAMILY=zhipu ;;
+        esac
+        FM_AI_FAMILY_SOURCE="$harness provider-qualified model $model identifies maker $FM_AI_FAMILY"
+        return 0
+      fi
+      ;;
+  esac
   case "$model" in default|-) model= ;; esac
   case "$harness" in
     pi|pi-signed)
@@ -139,13 +156,16 @@ fm_ai_family_resolve() {  # <harness> [<model>]
 
 # Sorted, de-duplicated union of comma-separated family sets.
 fm_ai_family_union() {  # <set>...
-  printf '%s\n' "$@" | tr ',' '\n' | awk 'NF && !seen[$0]++' | sort | paste -sd, -
+  # Older task records used the provider brand zai for Zhipu.
+  printf '%s\n' "$@" | tr ',' '\n' | awk '$0 == "zai" { $0 = "zhipu" } NF && !seen[$0]++' | sort | paste -sd, -
 }
 
 # 0 when two family sets are both fully known and share no family, which is the
 # only case in which their work is provably from different AI families.
 fm_ai_family_disjoint() {  # <set-a> <set-b>
-  local a=$1 b=$2 f
+  local a b f
+  a=$(fm_ai_family_union "$1")
+  b=$(fm_ai_family_union "$2")
   [ -n "$a" ] && [ -n "$b" ] || return 1
   case ",$a,$b," in *,unknown,*) return 1 ;; esac
   for f in $(printf '%s' "$a" | tr ',' ' '); do
