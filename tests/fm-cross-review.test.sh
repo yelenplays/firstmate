@@ -140,27 +140,34 @@ test_gateway_builder_family() {
   pass "gateway builders resolve by model maker while unknown models still escalate"
 }
 
+test_hidden_gateway_incarnation_stays_unknown() {
+  local out
+  # Before gateway resolution, DeepSeek -> GLM relaunches kept the same
+  # unknown family, so spawn did not add an earlier-incarnations marker.
+  new_case hidden-gateway-incarnation no-mistakes opencode opencode-go/glm-5 unknown
+  printf 'ai_family_source=opencode catalog does not prove a maker for model opencode-go/glm-5\n' >> "$HOME_DIR/state/$TASK.meta"
+  nm_run "$HEAD_SHA" completed pi opencode-go/deepseek-v4.1-flash
+  out=$(xr status "$TASK" --head "$HEAD_SHA" --json <&-) || fail "status failed: $out"
+  assert_equals unknown "$(printf '%s' "$out" | jq -r .builder.family)" "current GLM model cannot identify earlier unknown builders"
+  assert_equals deepseek "$(printf '%s' "$out" | jq -r .pipeline_review.family)" "DeepSeek reviewer is known"
+  assert_contains "$(printf '%s' "$out" | jq -r .independent_review)" "MISSING:" "possible earlier DeepSeek builder prevents independence"
+  out=$(xr plan "$TASK" --head "$HEAD_SHA" <&-) || fail "plan failed: $out"
+  assert_equals escalate "$(field "$out" action)" "hidden builder history must require a decision"
+  pass "an unknown gateway incarnation never certifies an earlier builder's maker as independent"
+}
+
 test_existing_unknown_gateway_builder_family() {
-  local harness model family out
+  local harness model out
   for harness in opencode pi pi-signed; do
     for model in deepseek-v4.1-flash glm-5 not-a-known-model; do
-      case "$model" in
-        deepseek-*) family=deepseek ;;
-        glm-*) family=zhipu ;;
-        *) family=unknown ;;
-      esac
       new_case "existing-$harness-$model" direct-PR "$harness" "opencode-go/$model" unknown
       out=$(xr status "$TASK" --head "$HEAD_SHA" --json <&-) || fail "status failed: $out"
-      assert_equals "$family" "$(printf '%s' "$out" | jq -r .builder.family)" "existing gateway builder $harness/$model"
+      assert_equals unknown "$(printf '%s' "$out" | jq -r .builder.family)" "existing gateway builder $harness/$model keeps unknown history"
       out=$(xr plan "$TASK" --head "$HEAD_SHA" <&-) || fail "plan failed: $out"
-      if [ "$family" = unknown ]; then
-        assert_equals escalate "$(field "$out" action)" "unresolved gateway task still escalates"
-      else
-        assert_equals spawn-reviewer "$(field "$out" action)" "existing gateway task gets an independent reviewer"
-      fi
+      assert_equals escalate "$(field "$out" action)" "unresolved gateway task still escalates"
     done
   done
-  pass "previously unknown gateway builders are resolved for status and planning"
+  pass "previously unknown gateway builder history stays unknown for status and planning"
 }
 
 test_gateway_resolution_preserves_builder_history() {
@@ -554,6 +561,7 @@ test_usage_errors() {
   pass "usage errors exit 2 and missing records exit 1"
 }
 
+test_hidden_gateway_incarnation_stays_unknown
 test_gateway_builder_family
 test_existing_unknown_gateway_builder_family
 test_gateway_resolution_preserves_builder_history

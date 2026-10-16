@@ -2157,7 +2157,7 @@ The daily schedule itself is home-local operator setup, not tracked code.
 
 ## Cross-family review
 
-Every in-scope task's exact head is reviewed by an AI family other than the one that built it; [`bin/fm-cross-review.sh`](../bin/fm-cross-review.sh)'s header owns the evidence rules, recovery of previously unknown builder records, subcommands, record formats, and exit codes, and [`bin/fm-ai-family-lib.sh`](../bin/fm-ai-family-lib.sh) owns family resolution, including recognized gateway model namespaces and legacy family aliases.
+Every in-scope task's exact head is reviewed by an AI family other than the one that built it; [`bin/fm-cross-review.sh`](../bin/fm-cross-review.sh)'s header owns the evidence rules, preservation of recorded unknown builder history, subcommands, record formats, and exit codes, and [`bin/fm-ai-family-lib.sh`](../bin/fm-ai-family-lib.sh) owns family resolution, including recognized gateway model namespaces and legacy family aliases.
 `bin/fm-spawn.sh` records the builder's family as `ai_family=` in the task record, keeping every family that has driven the task across relaunches.
 A no-mistakes pipeline review of the exact head counts when the agent that ran it resolves to a family disjoint from the builder's; otherwise, and always for direct-PR and local-only work, firstmate spawns a one-shot reviewer scout from another family, which also gives the `confirm <head-sha>` an unsure merge decision needs.
 Vault changes excluded by `fm_wiki_change_private` in [`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) never get a new reviewer and stay on their existing path.

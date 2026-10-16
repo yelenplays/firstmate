@@ -14,10 +14,9 @@
 # task record's `ai_family=` set written by bin/fm-spawn.sh (every family that
 # has driven the task); a record from before that field existed resolves its
 # recorded harness and model the same way.
-# Only a singleton `ai_family=unknown` whose `ai_family_source=` lacks
-# `earlier incarnations:` is re-resolved against the recorded harness and model.
-# Known or mixed family sets and earlier builder history remain authoritative;
-# re-resolution does not rewrite the record's builder-family fields.
+# Recorded family sets, including `unknown`, remain authoritative: the current
+# model cannot prove the makers of earlier incarnations, even without a history
+# marker. Only records with no family field resolve their recorded model.
 #
 # An independent review of head H is, in order:
 #   1. the no-mistakes pipeline review, when the task's run on its branch has
@@ -159,14 +158,6 @@ load_task() {  # <task-id>
     fm_ai_family_resolve "$T_HARNESS" "$T_MODEL"
     B_FAM=$FM_AI_FAMILY
     B_FAM_SRC="$FM_AI_FAMILY_SOURCE (resolved from the recorded harness and model; the record predates family recording)"
-  elif [ "$B_FAM" = unknown ] && [[ "$B_FAM_SRC" != *"earlier incarnations:"* ]]; then
-    # An improved resolver can identify an old gateway model, but the current
-    # harness/model cannot explain unknown work from an earlier incarnation.
-    fm_ai_family_resolve "$T_HARNESS" "$T_MODEL"
-    if [ "$FM_AI_FAMILY" != unknown ]; then
-      B_FAM=$FM_AI_FAMILY
-      B_FAM_SRC="$FM_AI_FAMILY_SOURCE (re-resolved previously unknown recorded harness and model)"
-    fi
   fi
 }
 
