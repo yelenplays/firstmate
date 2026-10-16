@@ -1,0 +1,13 @@
+live calls before: sample-call-3,sample-call-4
+race-b exit 0
+race-a exit 3
+/usr/bin/read: line 4: read: `/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.1cTtuI/ra.out': not a valid identifier
+live calls after: sample-call-3,sample-call-4,race-b
+== ra.out
+fm-captain-hold: refused: 3 calls already wait on the captain, and the limit is 3:
+  sample-call-3 - Pick the release name 3
+  sample-call-4 - Approve credential 4
+  race-b - Race B
+Ask the captain which one to park (hold <id> --reason <reason> --until <date>) or drop (answer <id> --decision-file <file>), then hold race-a again.
+== rb.out
+race-b

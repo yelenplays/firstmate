@@ -1,0 +1,20 @@
+$ fm-procevent.sh handled lavish-fb33b012d6f182c0 1
+handled: lavish-fb33b012d6f182c0 1
+exit 0
+$ fm-captain-hold.sh answer sample-call-1 --decision-file <staged>
+answered: sample-call-1
+exit 0
+$ fm-captain-hold.sh to-route
+(empty = staged answer retired) exit 0
+$ tasks-axi show sample-call-1
+  state: done
+  held: no
+$ hold sample-call-4 now that two calls were resolved
+sample-call-4
+exit 0
+$ FM_BEARINGS_BOARD_MIN_INTERVAL=0 fm-bearings-board.sh refresh --if-due
+refreshed: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.1cTtuI/.lavish/bearings-board.html
+exit 0
+$ refresh again with nothing changed
+skipped: not due
+exit 0

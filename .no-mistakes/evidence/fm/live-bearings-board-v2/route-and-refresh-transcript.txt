@@ -1,0 +1,16 @@
+$ fm-captain-hold.sh to-route
+sample-call-1	/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.1cTtuI/state/captain-answers-to-route/sample-call-1.decision
+$ cat staged decision
+Captain answered this call through the captured result lavish-fb33b012d6f182c0 sequence 1.
+Task: sample-call-1
+Answer: Call it Northwind
+Answer as shown to the captain: Pick the release name 1 -> Call it Northwind
+
+$ tasks-axi show sample-call-1
+  state: queued
+  held: yes
+$ lavish-axi (session listing)
+  /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.1cTtuI/.lavish/bearings-board.html,open,"http://macbook-pro-von-yelen.tail009721.ts.net:4387/session/fb33b012d6f182c0",0,none
+$ fm-bearings-board.sh refresh --if-due
+refreshed: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.1cTtuI/.lavish/bearings-board.html
+exit 0

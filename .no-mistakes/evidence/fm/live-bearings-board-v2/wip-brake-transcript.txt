@@ -1,0 +1,24 @@
+$ fm-captain-hold.sh hold sample-call-1 ...
+sample-call-1
+exit 0
+$ fm-captain-hold.sh hold sample-call-2 ...
+sample-call-2
+exit 0
+$ fm-captain-hold.sh hold sample-call-3 ...
+sample-call-3
+exit 0
+$ fm-captain-hold.sh hold sample-call-4 (the 4th)
+fm-captain-hold: refused: 3 calls already wait on the captain, and the limit is 3:
+  sample-call-1 - Pick the release name 1
+  sample-call-2 - Pick the release name 2
+  sample-call-3 - Pick the release name 3
+Ask the captain which one to park (hold <id> --reason <reason> --until <date>) or drop (answer <id> --decision-file <file>), then hold sample-call-4 again.
+exit 3
+$ (cd $LAB && tasks-axi show sample-call-4)
+error: "Task \"sample-call-4\" not found in this backlog"
+code: NOT_FOUND
+help[1]: Run `tasks-axi list` to see existing tasks
+exit 1
+$ re-hold live sample-call-2
+sample-call-2
+exit 0
