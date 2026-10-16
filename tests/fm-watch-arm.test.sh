@@ -491,6 +491,9 @@ test_rearm_resurfaces_durable_queue_and_remote_open_decision() {
 
   kill -TERM "$decision_successor" 2>/dev/null || fail "could not interrupt decision handling successor"
   wait "$decision_successor" 2>/dev/null || true
+  # An interrupted handling with nothing queued has no wake to replay and stays
+  # announced; queued work arriving meanwhile is what the successor re-surfaces.
+  append_wake "$state" check interrupted-decision 'check: interrupted-decision'
   start_rearm_arm "$home" "$state" "$fakebin" "$dir/interrupted-decision-arm.out"
   wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "interrupted decision handling was not recovered on successor re-arm"
   grep -F 'check: rearm-resurface' "$dir/interrupted-decision-arm.out" >/dev/null \
@@ -502,7 +505,7 @@ test_rearm_resurfaces_durable_queue_and_remote_open_decision() {
     || fail "interrupted decision recovery did not re-fold the open decision"
   sequence=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through \([0-9][0-9]*\) --recovery-generation [A-Za-z0-9._-][A-Za-z0-9._-]*$/\1/p' "$dir/replayed-decision-drain.err")
   generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through [0-9][0-9]* --recovery-generation \([A-Za-z0-9._-][A-Za-z0-9._-]*\)$/\1/p' "$dir/replayed-decision-drain.err")
-  [ "$sequence" = 0 ] && [ -n "$generation" ] \
+  [ -n "$sequence" ] && [ -n "$generation" ] \
     || fail "replayed decision recovery omitted its current acknowledgement generation"
   FM_STATE_OVERRIDE="$state" "$DRAIN" --ack-through "$sequence" --recovery-generation "$generation" \
     || fail "completed decision handling could not acknowledge current recovery"

@@ -2158,6 +2158,57 @@ test_handover_restore_undoes_only_its_own_stop() {
   pass "a handover undoes only the downtime its own stop published over an acknowledged episode"
 }
 
+# A watcher that closes after a handled episode (announced:handling) with an
+# empty queue has nothing to re-announce: the next arm waits instead of waking
+# the session with an empty rearm-resurface. Queued rows, or work appended after
+# the close, must still be recovered.
+handled_close_case() {  # <state> <queued 0|1> <append-after-close 0|1>
+  FM_STATE_OVERRIDE="$1" bash -c '
+    # shellcheck disable=SC1090,SC1091
+    . "$1/bin/fm-wake-lib.sh"
+    marker="$STATE/.watcher-down"
+    fm_recovery_marker_publish "$marker" downtime || exit 1
+    fm_recovery_marker_arm_check "$marker" || exit 1
+    fm_recovery_marker_begin_handling "$marker" || exit 1
+    fm_recovery_marker_read "$marker" || exit 1
+    printf "before=%s\n" "$FM_RECOVERY_MARKER_TOKEN"
+    [ "$2" = 0 ] || fm_wake_append signal queued "signal: queued before the close" || exit 1
+    fm_recovery_marker_publish "$marker" downtime || exit 1
+    fm_recovery_marker_read "$marker" || exit 1
+    printf "closed=%s\n" "$FM_RECOVERY_MARKER_TOKEN"
+    [ "$3" = 0 ] || fm_wake_append signal later "signal: appended after the close" || exit 1
+    fm_recovery_marker_arm_check "$marker" || exit 1
+    fm_recovery_marker_read "$marker" || exit 1
+    printf "after=%s\naction=%s\n" "$FM_RECOVERY_MARKER_TOKEN" "$FM_RECOVERY_MARKER_ACTION"
+  ' _ "$ROOT" "$2" "$3"
+}
+
+test_empty_queue_handled_close_does_not_rewake() {
+  local out before closed after action
+  out=$(handled_close_case "$(make_case handled-empty)/state" 0 0) || fail "empty handled close failed: $out"
+  before=$(printf '%s\n' "$out" | sed -n 's/^before=//p')
+  closed=$(printf '%s\n' "$out" | sed -n 's/^closed=//p')
+  action=$(printf '%s\n' "$out" | sed -n 's/^action=//p')
+  case "$before" in announced:handling:*) ;; *) fail "fixture: episode was not announced and handled: $out" ;; esac
+  [ "$closed" = "announced:downtime:${before##*:}" ] || fail "empty-queue close did not stay announced: $out"
+  [ "$action" = wait ] || fail "empty queue produced a recovery wake after a handled close: $out"
+
+  out=$(handled_close_case "$(make_case handled-queued)/state" 1 0) || fail "queued handled close failed: $out"
+  before=$(printf '%s\n' "$out" | sed -n 's/^before=//p')
+  closed=$(printf '%s\n' "$out" | sed -n 's/^closed=//p')
+  action=$(printf '%s\n' "$out" | sed -n 's/^action=//p')
+  [ "$closed" = "pending:downtime:${before##*:}" ] || fail "interrupted handling with queued rows was not re-opened: $out"
+  [ "$action" = recover ] || fail "queued work after interrupted handling was not re-announced: $out"
+
+  out=$(handled_close_case "$(make_case handled-append)/state" 0 1) || fail "append after empty close failed: $out"
+  before=$(printf '%s\n' "$out" | sed -n 's/^before=//p')
+  after=$(printf '%s\n' "$out" | sed -n 's/^after=//p')
+  action=$(printf '%s\n' "$out" | sed -n 's/^action=//p')
+  [ "$action" = recover ] || fail "work appended after an empty close was suppressed: $out"
+  case "$after" in announced:downtime:*) [ "${after##*:}" != "${before##*:}" ] || fail "append reused the closed generation: $out" ;; *) fail "unexpected marker after append recovery: $out" ;; esac
+  pass "an empty-queue handled close stays announced; queued or later work is still recovered"
+}
+
 test_stale_recovery_generation_cannot_touch_a_newer_episode() {
   local dir state first_err replay_err sequence generation handling_marker
   local newer_marker newer_sequence newer_generation rc
@@ -3715,6 +3766,7 @@ test_wake_publish_requires_atomic_recovery_evidence
 test_recovery_mint_and_delivery_log_avoid_sibling_subst
 test_legacy_generationless_wake_is_adopted
 test_handover_restore_undoes_only_its_own_stop
+test_empty_queue_handled_close_does_not_rewake
 test_stale_recovery_generation_cannot_touch_a_newer_episode
 test_stale_ack_that_consumes_nothing_names_the_current_wake
 test_branch_stale_ack_that_consumes_nothing_names_its_granted_wake
