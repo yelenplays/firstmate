@@ -1,13 +1,13 @@
 Mode: Claude Stop-hook-owned supervision.
 
 When this session owns supervision and away mode is not active:
-1. Drain first with `bin/fm-wake-triage.sh`.
+1. For a wake without completed hook-side triage (step 3), drain first with `bin/fm-wake-triage.sh`.
    Act on every ACT NOW, NOTICES and STANDING entry.
    Triage you run by hand never acknowledges; after handling, run its exact `WAKE_ACK_REQUIRED` command.
    If the triage itself fails, read any `state/.wake-triage.pending.*` output, then use `bin/fm-wake-drain.sh`.
 2. Routine watcher arm and re-arm are owned by the Stop `asyncRewake` hook (`bin/fm-claude-stop-autoarm.sh`), never by you.
    Every turn end while supervision is needed launches or attaches one home-scoped watcher cycle with no model command and no model tokens.
-   An actionable close wakes you through the hook's exit-2 rewake, delivered as a `Stop hook feedback` message.
+   A close needing your handling wakes you through the hook's exit-2 rewake, delivered as a `Stop hook feedback` message ([hook-side triage](../watcher-continuity.md#hook-side-wake-triage)).
 3. On a `Stop hook feedback` wake (`signal:`, `stale:`, `check:`, or `heartbeat`), the hook has usually triaged it already.
    A banner that says the wake was absorbed only asks you to end the turn; do not drain, triage, or acknowledge it again.
    When the banner says not to triage or drain again, use its embedded output, handle every ACT NOW item, then run the `WAKE_ACK_REQUIRED` command it ends with.

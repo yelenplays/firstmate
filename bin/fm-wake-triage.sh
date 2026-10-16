@@ -9,25 +9,18 @@
 #
 # Without --absorb, acknowledgement stays manual: the output ends with the
 # drain's WAKE_ACK_REQUIRED command for the handling turn to run.
-# --absorb is the Claude Stop hook's mode (bin/fm-claude-stop-autoarm.sh), and
-# acknowledges for it:
-#   - exit 0, the wake is absorbed: every row is routine and the drain presented
-#     nothing else that needs firstmate, so triage acknowledges the whole batch
-#     and prints one WAKE_ACKED line after the presentation;
-#   - exit 10, the wake needs firstmate: triage acknowledges only the routine
-#     rows (fm-wake-drain.sh --ack-rows) while other rows remain queued, and
-#     ends the presentation with the WAKE_ACK_REQUIRED command for the rest;
-#   - any other status is a failure that leaves the wake to the handling turn.
-# While state/.afk exists the away daemon owns triage, so --absorb acknowledges
-# nothing.
-# "Nothing else" is a whitelist, absorbable_drain_output below, so a drain line
-# it does not recognize always keeps the wake: queue rows, working status
-# annotations of routine tasks, the acknowledgement line, the queued-wakes
-# warning, the OPEN DECISIONS count line (the drain lists a decision only while
-# it is new or changed, and a listed one is ACT NOW even when its task has no
-# queued row), and the persistent UNFINISHED EXECUTION obligations (only
-# firstmate-owned ones an earlier triage delivered; a worker-owned one gets its
-# owner's own queued wake whenever its evidence changes).
+# --absorb is the Claude Stop hook's mode (bin/fm-claude-stop-autoarm.sh).
+# For the main actor it returns:
+#   - exit 0, absorbed: the whole batch was acknowledged; WAKE_ACKED follows
+#     the presentation;
+#   - exit 10, needs firstmate: WAKE_ACK_REQUIRED ends the presentation when
+#     the drain supplied it; a ROUTINE ROWS ACKNOWLEDGED BY TRIAGE note names
+#     any routine rows already retired from a mixed batch;
+#   - any other status, failure: re-run triage to replay retained drain output,
+#     even if routine rows were already acknowledged before delivery failed.
+# A branch actor delegates to the drain without absorption.
+# docs/watcher-continuity.md "Hook-side wake triage" owns eligibility,
+# away-mode exclusion, and presentation-delivery safety.
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-wake-lib.sh

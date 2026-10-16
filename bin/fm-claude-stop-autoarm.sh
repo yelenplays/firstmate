@@ -86,25 +86,8 @@
 #     A refused generation exits 0 silently even after printing. A close that
 #     reports no actionable reason is benign when a live identity-matched
 #     watcher still has a fresh beacon.
-#   - Wake absorption: before it translates a close of wake lines, the owner
-#     runs bin/fm-wake-triage.sh --absorb itself (docs/watcher-continuity.md
-#     "Hook-side wake triage"), so a wake whose every row is routine never
-#     wakes the model for handling. Under the supervision host such a wake is
-#     acknowledged and the owner parks again within what is left of the host's
-#     park boundary (FM_SUPERVISION_HOST_PARK_SECONDS), as long as at least
-#     1800 seconds of it remain; a close carrying a "supervision-host:" line,
-#     or one from a host that exited non-zero, is never triaged here.
-#     Otherwise, and always on the plain arm, whose park has no bound, the
-#     hook never parks twice: an absorbed wake still rewakes, with a banner
-#     that only asks the model to end its turn, so the next Stop starts a
-#     fresh hook with a fresh timeout. A wake that needs firstmate rewakes
-#     with the triage output embedded (capped, the full copy in
-#     state/.claude-autoarm-triage.last) after triage retired its routine
-#     rows, so the handling turn neither drains nor triages again.
-#     Triage runs only for this generation's owner, in the session that holds
-#     the lock, outside an exhausted failure episode, and only when the close
-#     opened a recovery episode; its drain moves that episode to its handling
-#     phase or acknowledges it, and the rewake binds the same generation.
+#   - Wake absorption: docs/watcher-continuity.md "Hook-side wake triage"
+#     owns routine-wake absorption, bounded host re-parks, and triaged rewakes.
 #   - Failure handling: a typed failure is rechecked against the same live,
 #     fresh watcher predicate and retried a bounded number of times in this
 #     hook. Only an exhausted failure with no verified watcher emits one
