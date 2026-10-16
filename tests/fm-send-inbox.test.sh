@@ -136,6 +136,8 @@ test_text_steer_rides_inbox() {
   case "$typed" in
   *"please rebase onto main"*) fail "the payload must never be typed:"$'\n'"$typed" ;;
   esac
+  bash -c '. "$1"; fm_task_inbox_delivered_at "$2" t1 "$3"' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$dir/home/state" "$rec" >/dev/null \
+    || fail "a doorbell that reached the pane was not recorded as delivered"
   pass "fm-send inbox: the payload is recorded durably and only the doorbell is typed"
 }
 
@@ -226,6 +228,10 @@ test_pending_composer_skips_ring_advisorily() {
   [ ! -s "$dir/send.log" ] || fail "a visibly pending composer should skip the ring:"$'\n'"$(cat "$dir/send.log")"
   assert_contains "$(cat "$err")" "watcher will re-ring" \
     "the skip notice should point at the re-ring"
+  if bash -c '. "$1"; fm_task_inbox_delivered_at "$2" t1 "$3"' _ "$ROOT/bin/fm-task-inbox-lib.sh" \
+    "$dir/home/state" "$dir/home/state/t1.inbox/001.msg" >/dev/null 2>&1; then
+    fail "a skipped doorbell was recorded as delivered"
+  fi
   pass "fm-send inbox: a visibly pending composer skips the ring, and the steer stays durably sent"
 }
 

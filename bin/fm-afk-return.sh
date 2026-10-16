@@ -759,7 +759,9 @@ EOF
     fi
   fi
 
-  if drained=$("$SCRIPT_DIR/fm-wake-drain.sh" 2> "$drain_err"); then
+  # The return brief lists every open decision, not just news since the away
+  # daemon's own presentations.
+  if drained=$("$SCRIPT_DIR/fm-wake-drain.sh" --decisions 2> "$drain_err"); then
     remove_evidence lifecycle 'durable wake drain failed; retry catch-up before ordinary work' "$evidence" || lifecycle_ok=0
   else
     append_evidence lifecycle 'durable wake drain failed; retry catch-up before ordinary work' "$evidence"
