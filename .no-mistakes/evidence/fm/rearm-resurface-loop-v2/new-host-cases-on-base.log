@@ -1,0 +1,10 @@
+case failed rc=1: test_hook_rearms_after_group_teardown_without_empty_recovery
+not ok - group rearm: successor still belongs to the terminated hook group
+case failed rc=1: test_at_turn_successor_survives_group_teardown_and_real_outage_recovers
+not ok - group rearm: successor still belongs to the terminated hook group
+case failed rc=1: test_confirmed_takeover_does_not_resurface_acknowledged_interleaved_work
+not ok - takeover left recovery pending with no unread work
+--- /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-supervision-host.YdRsh5/hook-confirmed-takeover-acked/state/.watcher-down ---
+announced:downtime:79347.1792138341.HcCRrX
+ok - host+hook: unread handover work resurfaces once and stays quiet after acknowledgement
+ok - host+hook: the next park takes over the cycle a main-only pass-through left, so one arm owns it

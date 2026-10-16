@@ -1,0 +1,11 @@
+1792139025	start	gen=host-32868-1792139023	primary=claude
+1792139199	handled	turn=host-32868-1792139023.1	posture=attended	rc=0	reports=1	error=0 cost=0.017505 conversation_cost=0.017505 input=8 cache_read=52726 cache_write=2004 output=420 turns=4	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.WsaphG/state/demo.status
+1792139330	pass-through	attended	main-only	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.WsaphG/state/demo.status
+1792139362	start	gen=host-70356-1792139361	primary=claude
+1792139362	take-over	arm=46108
+1792139520	pass-through	attended	main-only	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.WsaphG/state/demo.status
+1792139545	start	gen=host-66521-1792139545	primary=claude
+1792139545	take-over	arm=42967
+1792139687	pass-through	attended	main-only	signal: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.WsaphG/state/demo.status
+1792139709	start	gen=host-28045-1792139709	primary=claude
+1792139709	take-over	arm=91755

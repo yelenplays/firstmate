@@ -1,0 +1,6 @@
+ok - host+hook: three ordinary group-teardown re-arms stay quiet; real outage work resurfaces once
+ok - host+hook: an at-turn hand-back survives group teardown, quiet re-arms, and real outage recovery
+ok - host+hook: three confirmed TERM take-overs stay quiet after interleaved work was acknowledged
+ok - host+hook: unread handover work resurfaces once and stays quiet after acknowledgement
+ok - host+hook: the next park takes over the cycle a main-only pass-through left, so one arm owns it
+bash tests/zz-nm-host.test.sh  63.27s user 120.17s system 56% cpu 5:22.95 total
