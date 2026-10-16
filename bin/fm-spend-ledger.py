@@ -91,7 +91,9 @@ Only windows whose kind is "weekly" are calibrated (resetsAt - 7 days is exact);
 other kinds stay unmeasured. Median task burn comes from spend-model.json when
 fresh enough (--model-max-age seconds, default 900) or is rebuilt in place.
 With --read-only, predict emits the same evidence without writing the cache,
-model, or state directory.
+model, or state directory. Task seconds sum only positive gaps strictly below
+600 seconds between consecutive assistant requests in each session, excluding
+idle time, session headers, and repeated native streaming records.
 
 A missing or unreadable sessions root is status "unavailable", never an empty
 zero. All state writes are atomic (temp file + rename, mode 0600).
@@ -108,7 +110,7 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 
-VERSION = 4
+VERSION = 5
 EFFORT_CLASSES = ("low", "medium", "high", "xhigh", "max")
 # Observed Pi log provider -> quota-axi provider family. Only pairs observed in
 # the real fleet are mapped; anything else keeps its own name.
@@ -237,6 +239,7 @@ def parse_session_file(path):
     effort = "unset"
     native_usage = {}
     native_counted = set()
+    request_times = []
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as stream:
             for line in stream:
@@ -310,6 +313,8 @@ def parse_session_file(path):
                     if row is None:
                         row = info["rows"][key] = empty_bucket()
                     tokens, eq = bucket_add(row, usage, LOG_TO_QUOTA_PROVIDER.get(provider) == "claude")
+                    if ts is not None and (rtype != "assistant" or identity not in native_counted):
+                        request_times.append(ts)
                     if rtype == "assistant":
                         if identity in native_counted:
                             row["messages"] -= 1
@@ -346,6 +351,8 @@ def parse_session_file(path):
     # The directory name IS the encoded cwd; keep it so binding can fall back
     # to it when the session header carries no cwd.
     info["dirName"] = Path(path).parent.name
+    times = sorted(set(request_times))
+    info["activeSeconds"] = sum(b - a for a, b in zip(times, times[1:]) if 0 < b - a < 600)
     return info
 
 
@@ -712,8 +719,7 @@ def build_rollup(files, tasks, sessions_root, now=None):
         doc["claudeEqTokens"] += sum(r["claudeEqTokens"] for r in rows.values())
         doc["cost"] += sum(r["cost"] for r in rows.values())
         doc["sessions"] += 1
-        if summary.get("startTs") is not None and summary.get("endTs") is not None:
-            doc["seconds"] += max(0.0, summary["endTs"] - summary["startTs"])
+        doc["seconds"] += summary.get("activeSeconds", 0.0)
     for fam, bucket in week["byFamily"].items():
         bucket["costStatus"] = cost_status(bucket)
     for fam, bucket in families.items():
@@ -753,8 +759,7 @@ def build_model(files, tasks, sessions_root):
             continue
         summary = entry.get("summary") or {}
         doc = per_task.setdefault(task_id, {"tokens": 0, "seconds": 0.0, "effortTokens": {}, "providerTokens": {}})
-        if summary.get("startTs") is not None and summary.get("endTs") is not None:
-            doc["seconds"] += max(0.0, summary["endTs"] - summary["startTs"])
+        doc["seconds"] += summary.get("activeSeconds", 0.0)
         for key, row in (summary.get("rows") or {}).items():
             provider, _model, effort = key.split("|", 2)
             quota = LOG_TO_QUOTA_PROVIDER.get(provider)

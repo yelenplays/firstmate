@@ -5,6 +5,8 @@
 # fake tmux pane and a real isolated git worktree. The fake tmux captures the
 # literal launch command sent with `tmux send-keys -l`, so assertions pin the
 # command firstmate would run without starting any real harness.
+# --opus-effort runs only the Opus cap and neighboring profile regressions
+# after the shared fixture setup checks.
 set -u
 
 # shellcheck source=tests/fixtures.sh
@@ -740,6 +742,37 @@ test_claude_threads_model_and_effort() {
     "claude launch did not thread model and effort flags"
   assert_not_contains "$launch" "--tui-mode" "non-Pi launches must not receive Pi's TUI mode override"
   pass "claude receives --model and --effort profile flags"
+}
+
+test_opus_effort_cap_and_named_override() {
+  local rec id out level why expected rc
+  for level in high xhigh max; do
+    for why in '' 'Different runtime approved' "claude-opus-5-5 $level explicitly approved"; do
+      id="opus-cap-$level-${#why}"
+      rec=$(make_spawn_case "$id" claude "$id")
+      read_case_record "$rec"
+      expected=medium
+      if [ -n "$why" ]; then
+        out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+          "$id" "$PROJ_DIR" --model claude-opus-5-5 --effort "$level" --captain-override "$why" 2>&1)
+        rc=$?
+        [ "$why" != "claude-opus-5-5 $level explicitly approved" ] || expected=$level
+      else
+        out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+          "$id" "$PROJ_DIR" --model claude-opus-5-5 --effort "$level" 2>&1)
+        rc=$?
+      fi
+      expect_code 0 "$rc" "Opus effort cap should launch: $out"
+      assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 "$expected"
+      assert_contains "$(cat "$LAUNCH_LOG")" "--effort '$expected'" 'launch must match recorded effort'
+      if [ "$expected" = medium ]; then
+        assert_contains "$out" 'clamped to medium' 'cap must explain the changed effort'
+      else
+        assert_not_contains "$out" 'clamped to medium' 'named override must preserve effort'
+      fi
+    done
+  done
+  pass 'Opus high effort requires an explicit override naming model and effort'
 }
 
 test_codex_threads_model_and_effort() {
@@ -3130,6 +3163,14 @@ SH
   pass 'delivered status command confirms isolated worker processing without the separate receipt'
 }
 
+if [ "${1:-}" = --opus-effort ]; then
+  test_no_profile_keeps_claude_profile_defaults
+  test_claude_threads_model_and_effort
+  test_captain_override_records_and_launches_explicit_profile
+  test_opus_effort_cap_and_named_override
+  exit 0
+fi
+
 test_launch_preserves_inherited_git_config
 test_worker_launch_delivers_role_scope
 test_no_profile_keeps_claude_profile_defaults
@@ -3150,6 +3191,7 @@ test_active_dispatch_profile_allows_positional_harness
 test_active_dispatch_profile_allows_raw_launch_command
 test_chained_raw_launch_strips_ai_trailer_in_every_step
 test_claude_threads_model_and_effort
+test_opus_effort_cap_and_named_override
 test_codex_threads_model_and_effort
 test_codex_threads_model_and_max_effort
 test_codex_omits_max_effort_for_unsupported_model

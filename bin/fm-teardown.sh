@@ -5,6 +5,9 @@
 # scout tasks before reporting success (a secondmate teardown transitions none,
 # since secondmates are not backlog items), then refresh/prune the project's
 # clone for PR-based ship tasks.
+# Before retiring a task's meta/status, bin/fm-model-ledger.py preserves its
+# minimal model/outcome facts in data/model-ledger.jsonl. A failed append stops
+# cleanup with those records retained; retries do not duplicate an incarnation.
 # An endpoint whose close could not do its job REFUSES before any record naming
 # it is removed: those records are the only thing that names what survived, so
 # reporting such a close as a completed cleanup strands the endpoint instead of
@@ -3391,6 +3394,7 @@ cleanup_firstmate_home_children() {
       child_busy_gen=$(cat "$sub_state/$child_id.busy-gen" 2>/dev/null || true)
     fi
     retire_busy_state "$sub_state" "$child_id" "$child_busy_gen" || return 1
+    python3 "$SCRIPT_DIR/fm-model-ledger.py" --state "$sub_state" --data "$home/data" "$child_id" || return 1
     status_retire_presentation_task "$sub_state" "$child_id" || return 1
     if [ -d "$sub_state" ]; then
       case "$child_kind" in
@@ -3898,6 +3902,9 @@ retire_busy_state "$STATE" "$ID" "$BUSY_GEN" || exit 1
 # Opt-in fleet activity ledger (docs/fleet-ledger.md), before the status log is
 # retired so its last lines are captured; off costs one file test.
 [ ! -e "$CONFIG/fleet-ledger" ] || FM_HOME=$FM_HOME FM_STATE_OVERRIDE=$STATE FM_CONFIG_OVERRIDE=$CONFIG "$SCRIPT_DIR/fm-fleet-ledger.sh" cleaned_up "$ID" || true
+if [ "$KIND" != secondmate ]; then
+  python3 "$SCRIPT_DIR/fm-model-ledger.py" --state "$STATE" --data "$DATA" "$ID" || exit 1
+fi
 status_retire_presentation_task "$STATE" "$ID" || exit 1
 # The endpoint this task recorded is dead and its task-scoped supervision is
 # over: retire the watcher's per-window and per-task bookkeeping now, so a
