@@ -1,0 +1,17 @@
+[
+  {
+    "name": "All-routine triage acknowledges a real working Claude endpoint",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Closed all-routine stdout keeps output until non-absorbing replay",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Mixed triage retires the real-worker routine row and leaves the captain row for one acknowledgement",
+    "result": "pass",
+    "live": true
+  }
+]

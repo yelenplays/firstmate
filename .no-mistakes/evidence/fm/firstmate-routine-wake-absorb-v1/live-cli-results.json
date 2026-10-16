@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Unqueued decisions are actionable once, and changes or reopening resurface them",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Execution approval before notification and corrupt records reach firstmate",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Captain-relevant statuses and branch outcomes are never auto-acknowledged",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Selective acknowledgement retires only presented rows and respects recovery generations",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Closed stdout and no-ack replay retain a one-shot notice until delivery",
+    "result": "pass",
+    "live": true
+  }
+]

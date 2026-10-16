@@ -1,0 +1,74 @@
+$ /bin/bash bin/fm-wake-triage.sh --absorb
+Scenario: 24 newly open long keyed decisions; isolated FM_HOME.
+WAKE TRIAGE: 0 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-decision-cap/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS (24 still open; 24 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+choice [key=option0] needs-decision: Choose option 0 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+choice [key=option1] needs-decision: Choose option 1 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+choice [key=option2] needs-decision: Choose option 2 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+choice [key=option3] needs-decision: Choose option 3 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+choice [key=option4] needs-decision: Choose option 4 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+choice [key=option5] needs-decision: Choose option 5 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+choice [key=option6] needs-decision: Choose option 6 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+choice [key=option7] needs-decision: Choose option 7 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+choice [key=option8] needs-decision: Choose option 8 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+choice [key=option9] needs-decision: Choose option 9 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+choice [key=option10] needs-decision: Choose option 10 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+choice [key=option11] needs-decision: Choose option 11 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+choice [key=option12] needs-decision: Choose option 12 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+choice [key=option13] needs-decision: Choose option 13 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+choice [key=option14] needs-decision: Choose option 14 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+choice [key=option15] needs-decision: Choose option 15 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+choice [key=option16] needs-decision: Choose option 16 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+choice [key=option17] needs-decision: Choose option 17 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+OPEN DECISIONS: 6 more omitted (byte cap)
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ACT NOW:
+choice - C4 new or changed open decision: choice [key=option0] needs-decision: Choose option 0 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option1] needs-decision: Choose option 1 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option2] needs-decision: Choose option 2 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option3] needs-decision: Choose option 3 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option4] needs-decision: Choose option 4 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option5] needs-decision: Choose option 5 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option6] needs-decision: Choose option 6 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option7] needs-decision: Choose option 7 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option8] needs-decision: Choose option 8 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option9] needs-decision: Choose option 9 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail  [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option10] needs-decision: Choose option 10 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option11] needs-decision: Choose option 11 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option12] needs-decision: Choose option 12 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option13] needs-decision: Choose option 13 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option14] needs-decision: Choose option 14 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option15] needs-decision: Choose option 15 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option16] needs-decision: Choose option 16 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+choice - C4 new or changed open decision: choice [key=option17] needs-decision: Choose option 17 detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detai [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+- - C4 open decisions omitted by the byte cap; read the full drain output
+  crew: 
+
+EXIT=10

@@ -1,0 +1,400 @@
+Candidate 2d60467bd3f767b199aae3d80590a8347f033fff
+$ FM_HOME=<isolated 01M52YXRVTHRP8ZG402N2BVNCV> /bin/bash --version
+GNU bash, version 3.2.57(1)-release (arm64-apple-darwin25)
+Copyright (C) 2007 Free Software Foundation, Inc.
+EXIT=0
+
+===== Unqueued decisions are actionable once, and changes or reopening resurface them =====
+$ FM_HOME=<isolated .phase-live-decisions> bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-decisions
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-decisions
+EXIT=0
+worker-published status decision: 'needs-decision [key=lane]: Choose blue or green\n'
+$ FM_HOME=<isolated .phase-live-decisions> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ check manual-review 'check: manual-review'
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-decisions> bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-decisions/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792175683	1	check	manual-review	check: manual-review
+OPEN DECISIONS (1 still open; 1 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+decision [key=lane] needs-decision: Choose blue or green
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+- - C1 row shape is not eligible
+  crew: 
+decision - C4 new or changed open decision: decision [key=lane] needs-decision: Choose blue or green
+  crew: not read (the drain found the decision, not a queued row)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 52239.1792175683.GCJjIA
+EXIT=10
+$ FM_HOME=<isolated .phase-live-decisions> bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 52239.1792175683.GCJjIA
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-decisions> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ check manual-review 'check: manual-review'
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-decisions> bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-decisions/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792175693	2	check	manual-review	check: manual-review
+OPEN DECISIONS: 1 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+- - C1 row shape is not eligible
+  crew: 
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 61424.1792175693.V7g2CG
+EXIT=10
+$ FM_HOME=<isolated .phase-live-decisions> bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 61424.1792175693.V7g2CG
+
+EXIT=0
+worker-published status decision: 'needs-decision [key=lane]: Choose blue or green\nneeds-decision [key=lane]: Choose green by Friday\n'
+$ FM_HOME=<isolated .phase-live-decisions> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ check manual-review 'check: manual-review'
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-decisions> /bin/bash bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-decisions/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792175701	3	check	manual-review	check: manual-review
+OPEN DECISIONS (1 still open; 1 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+decision [key=lane] needs-decision: Choose green by Friday
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+- - C1 row shape is not eligible
+  crew: 
+decision - C4 new or changed open decision: decision [key=lane] needs-decision: Choose green by Friday
+  crew: not read (the drain found the decision, not a queued row)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 65931.1792175701.NtcTjh
+EXIT=10
+$ FM_HOME=<isolated .phase-live-decisions> bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 65931.1792175701.NtcTjh
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-decisions> /bin/bash bin/fm-wake-triage.sh --decisions
+WAKE TRIAGE: 0 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-decisions/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS (1 still open, folded from the durable status logs - not just the latest line):
+decision [key=lane] needs-decision: Choose green by Friday
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+ACT NOW:
+decision - C4 new or changed open decision: decision [key=lane] needs-decision: Choose green by Friday
+  crew: not read (the drain found the decision, not a queued row)
+EXIT=0
+worker-published status decision: 'needs-decision [key=lane]: Choose green by Friday\nresolved [key=lane]: green\n'
+$ FM_HOME=<isolated .phase-live-decisions> bin/fm-wake-triage.sh
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-decisions/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+EXIT=0
+$ FM_HOME=<isolated .phase-live-decisions> bin/fm-wake-triage.sh
+WAKE TRIAGE: 0 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-decisions/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS (1 still open; 1 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+decision [key=lane] needs-decision: Choose green by Friday
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+ACT NOW:
+decision - C4 new or changed open decision: decision [key=lane] needs-decision: Choose green by Friday
+  crew: not read (the drain found the decision, not a queued row)
+EXIT=0
+Decision ledger contract: new, changed and reopened decisions were ACT NOW; unchanged decision was count-only; --decisions enumerated the decision.
+Removed isolated home .phase-live-decisions
+SCENARIO PASS
+
+===== Execution approval before notification and corrupt records reach firstmate =====
+$ FM_HOME=<isolated .phase-live-execution> bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-execution
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-execution
+EXIT=0
+$ FM_HOME=<isolated .phase-live-execution> tasks-axi add approved 'Implement approved feature' --kind ship --file /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-execution/data/backlog.md
+ok: added approved (ship) -> Queued
+task:
+  id: approved
+  title: Implement approved feature
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-16
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start approved --file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-execution/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block approved --by <other> --file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-execution/data/backlog.md` to record a dependency
+EXIT=0
+$ FM_HOME=<isolated .phase-live-execution> bin/fm-task-execution.sh approve approved --basis captain-approved
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-execution> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ check manual-review 'check: manual-review'
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-execution> bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-execution/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792175735	1	check	manual-review	check: manual-review
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+approved	firstmate	implementation owner missing; dispatch or promote within approved intent
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  X-mode relay polling needs supervision, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+- - C1 row shape is not eligible
+  crew: 
+approved - C8 new execution obligation owned by firstmate: implementation owner missing; dispatch or promote within approved intent
+  crew: not read (the drain found the obligation, not a queued row)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 86824.1792175736.3xXV18
+EXIT=10
+$ FM_HOME=<isolated .phase-live-execution> bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 86824.1792175736.3xXV18
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-execution> bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-execution/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+approved	firstmate	implementation owner missing; dispatch or promote within approved intent
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+EXIT=10
+$ FM_HOME=<isolated .phase-live-execution> /bin/bash bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 0 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-execution/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+approved	firstmate	implementation owner missing; dispatch or promote within approved intent
+corrupt	firstmate	reconcile-corrupt-execution-record
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+ACT NOW:
+corrupt - C8 new execution obligation owned by firstmate: reconcile-corrupt-execution-record
+  crew: not read (the drain found the obligation, not a queued row)
+EXIT=10
+Delivered execution obligations were recorded; an unnotified approval and a corrupt record each reached ACT NOW with next action.
+Removed isolated home .phase-live-execution
+SCENARIO PASS
+
+===== Captain-relevant statuses and branch outcomes are never auto-acknowledged =====
+$ FM_HOME=<isolated .phase-live-safety> bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-safety
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-safety
+EXIT=0
+worker-published status decision: 'needs-decision [key=k]: captain must choose\n'
+$ FM_HOME=<isolated .phase-live-safety> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ signal decision.status 'signal: decision.status'
+
+EXIT=0
+worker-published status paused: 'paused: waiting for captain\n'
+$ FM_HOME=<isolated .phase-live-safety> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ signal paused.status 'signal: paused.status'
+
+EXIT=0
+worker-published status failed: 'failed: build failed\n'
+$ FM_HOME=<isolated .phase-live-safety> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ signal failed.status 'signal: failed.status'
+
+EXIT=0
+worker-published status blocked: 'blocked: credentials missing\n'
+$ FM_HOME=<isolated .phase-live-safety> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ signal blocked.status 'signal: blocked.status'
+
+EXIT=0
+worker-published status finished: 'done: implementation complete\n'
+$ FM_HOME=<isolated .phase-live-safety> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ signal finished.status 'signal: finished.status'
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-safety> bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 5 row(s), 5 task(s): 5 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-safety/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792175757	1	signal	decision.status	signal: decision.status
+1792175758	2	signal	paused.status	signal: paused.status
+1792175759	3	signal	failed.status	signal: failed.status
+1792175761	4	signal	blocked.status	signal: blocked.status
+1792175763	5	signal	finished.status	signal: finished.status
+wake annotation: latest wake-EVENT observed at drain, not current state: decision.status: needs-decision [key=k]: captain must choose
+wake annotation: latest wake-EVENT observed at drain, not current state: paused.status: paused: waiting for captain
+wake annotation: latest wake-EVENT observed at drain, not current state: failed.status: failed: build failed
+wake annotation: latest wake-EVENT observed at drain, not current state: blocked.status: blocked: credentials missing
+wake annotation: latest wake-EVENT observed at drain, not current state: finished.status: done: implementation complete
+STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):
+failed failed: build failed
+finished done: implementation complete
+OPEN DECISIONS (2 still open; 2 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+blocked blocked: credentials missing
+decision [key=k] needs-decision: captain must choose
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  5 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+blocked - C4 open decision
+  crew: not read (failed earlier clause)
+decision - C4 open decision
+  crew: not read (failed earlier clause)
+failed - C7 latest status is captain-relevant
+  crew: not read (failed earlier clause)
+finished - C7 latest status is captain-relevant
+  crew: not read (failed earlier clause)
+paused - C5 paused/captain-held status
+  crew: not read (failed earlier clause)
+blocked - C4 new or changed open decision: blocked blocked: credentials missing
+  crew: not read (the drain found the decision, not a queued row)
+decision - C4 new or changed open decision: decision [key=k] needs-decision: captain must choose
+  crew: not read (the drain found the decision, not a queued row)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 5 --recovery-generation 4816.1792175757.qzaiPM
+EXIT=10
+$ FM_HOME=<isolated .phase-live-safety> bin/fm-wake-drain.sh --ack-through 5 --recovery-generation 4816.1792175757.qzaiPM
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-safety> bin/fm-branch-outcome.sh append --task finished --verdict captain --summary 'Review approved delivery before merging'
+1
+EXIT=0
+$ FM_HOME=<isolated .phase-live-safety> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ check manual-review 'check: manual-review'
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-safety> bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-safety/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792175785	6	check	manual-review	check: manual-review
+OPEN DECISIONS: 2 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+- - C1 row shape is not eligible
+  crew: 
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 6 --recovery-generation 27707.1792175785.CarvxJ
+EXIT=10
+Removed isolated home .phase-live-safety
+SCENARIO FAIL: AssertionError()
+
+===== Selective acknowledgement retires only presented rows and respects recovery generations =====
+$ FM_HOME=<isolated .phase-live-row-ack> bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-row-ack
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-row-ack
+EXIT=0
+$ FM_HOME=<isolated .phase-live-row-ack> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ check first 'check: first'
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-row-ack> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ check second 'check: second'
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-row-ack> bin/fm-wake-drain.sh
+1792175807	1	check	first	check: first
+1792175808	2	check	second	check: second
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 51679.1792175807.Pj044E
+EXIT=0
+$ FM_HOME=<isolated .phase-live-row-ack> bin/fm-wake-drain.sh --ack-rows 1 --recovery-generation 51679.1792175807.Pj044E
+
+EXIT=0
+Persisted queue after selective acknowledgement:
+1792175808	2	check	second	check: second
+
+$ FM_HOME=<isolated .phase-live-row-ack> bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 51679.1792175807.Pj044E
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-row-ack> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ check third 'check: third'
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-row-ack> bin/fm-wake-drain.sh
+1792175818	3	check	third	check: third
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 60877.1792175819.d5Rm6a
+EXIT=0
+$ FM_HOME=<isolated .phase-live-row-ack> bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 51679.1792175807.Pj044E
+wake drain: nothing was acknowledged through 2 (none of your presented wake rows is at or below it); the current wake is row 3: run bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 60877.1792175819.d5Rm6a after handling it
+EXIT=0
+$ FM_HOME=<isolated .phase-live-row-ack> bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 60877.1792175819.d5Rm6a
+
+EXIT=0
+Old generation did not consume the later row; the new presentation command did.
+Removed isolated home .phase-live-row-ack
+SCENARIO PASS
+
+===== Closed stdout and no-ack replay retain a one-shot notice until delivery =====
+$ FM_HOME=<isolated .phase-live-delivery> bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-delivery
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-delivery
+EXIT=0
+worker-published status notice: 'working: implementing\nnote: one-shot captain answer 548b8aa\n'
+$ FM_HOME=<isolated .phase-live-delivery> bash -c '. bin/fm-wake-lib.sh; fm_wake_append "$1" "$2" "$3"' _ check manual-review 'check: manual-review'
+
+EXIT=0
+$ FM_HOME=<isolated .phase-live-delivery> /bin/bash bin/fm-wake-triage.sh --absorb [stdout closed]
+cat: stdout: Bad file descriptor
+EXIT=1
+$ FM_HOME=<isolated .phase-live-delivery> /bin/bash bin/fm-wake-triage.sh --absorb [stdout closed]
+cat: stdout: Bad file descriptor
+EXIT=1
+Retained pending presentations after closed no-ack replay:
+1792175831	1	check	manual-review	check: manual-review
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 69407.1792175831.0vKGOX
+UNREAD STATUS (new since last drain, not re-printed after this presentation):
+notice note: one-shot captain answer 548b8aa
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+---second pending---
+WAKE DRAIN SKIPPED: queue lock remains held by live pid 78055 after 1s; retry on the next drain.
+
+$ FM_HOME=<isolated .phase-live-delivery> /bin/bash bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.phase-live-delivery/state/.wake-triage.last
+RECOVERED DRAIN OUTPUT (an earlier triage was interrupted; act on all of it):
+1792175831	1	check	manual-review	check: manual-review
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 69407.1792175831.0vKGOX
+UNREAD STATUS (new since last drain, not re-printed after this presentation):
+notice note: one-shot captain answer 548b8aa
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YXRVTHRP8ZG402N2BVNCV/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+WAKE DRAIN SKIPPED: queue lock remains held by live pid 78055 after 1s; retry on the next drain.
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792175831	1	check	manual-review	check: manual-review
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+- - C1 row shape is not eligible
+  crew: 
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 69407.1792175831.0vKGOX
+EXIT=10
+$ FM_HOME=<isolated .phase-live-delivery> bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 69407.1792175831.0vKGOX
+
+EXIT=0
+One-shot notice survived both failed stdout deliveries; successful replay committed pending output, refused absorption, and left explicit acknowledgement.
+Removed isolated home .phase-live-delivery
+SCENARIO PASS
