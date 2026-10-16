@@ -1,0 +1,60 @@
+{
+  "result": "automatic watcher refresh observed",
+  "watcher_pid": 12396,
+  "watcher_exit": 0,
+  "cards": [
+    {
+      "key": "lab-choice",
+      "type": "decision",
+      "repo": "firstmate",
+      "title": "Choose the rollout order",
+      "options": [
+        {
+          "value": "reconcile",
+          "label": "Reconcile",
+          "hint": "Re-check the latest state, then close this with evidence or keep it open with a note"
+        }
+      ],
+      "allow_freeform": true,
+      "freeform_hint": "Answer in your own words",
+      "close": "route",
+      "about": "Rollout decision",
+      "routing": true
+    },
+    {
+      "key": "lab-credential",
+      "type": "decision",
+      "repo": "firstmate",
+      "title": "Provide the sandbox credential",
+      "options": [
+        {
+          "value": "reconcile",
+          "label": "Reconcile",
+          "hint": "Re-check the latest state, then close this with evidence or keep it open with a note"
+        }
+      ],
+      "allow_freeform": true,
+      "freeform_hint": "Answer in your own words",
+      "close": "route",
+      "about": "Credential needed"
+    },
+    {
+      "key": "lab-new",
+      "type": "decision",
+      "repo": "firstmate",
+      "title": "Approve the new sandbox request",
+      "options": [
+        {
+          "value": "reconcile",
+          "label": "Reconcile",
+          "hint": "Re-check the latest state, then close this with evidence or keep it open with a note"
+        }
+      ],
+      "allow_freeform": true,
+      "freeform_hint": "Answer in your own words",
+      "close": "route",
+      "about": "Automatic refresh demonstration"
+    }
+  ],
+  "generated": "2026-10-16T19:24:21Z"
+}

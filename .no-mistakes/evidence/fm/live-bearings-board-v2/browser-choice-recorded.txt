@@ -1,0 +1,4 @@
+Captain answered this call through the captured result lavish-44c96eea6d581626 sequence 3.
+Task: lab-choice
+Answer: Start with the smallest rollout
+Answer as shown to the captain: Choose the rollout order -> Start with the smallest rollout

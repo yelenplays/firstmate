@@ -1,0 +1,3 @@
+Live checks used real tasks-axi, Firstmate board/snapshot/hold/watch/process-event scripts, an isolated Lavish server on port 44931, and a real Chrome tab. Task/PR records were sandbox data; no real PR was merged and no model/harness was invoked.
+Chrome CLI screenshots reported paths without creating files; screenshots were instead saved through real CDP Page.captureScreenshot and visually inspected. Immediate browser assertions were re-driven after asynchronous artifact refresh; overflow assertion was corrected to handle rendered uppercase text.
+Cleanup: retired the isolated answer source; ended the lab board session; stopped only the isolated Lavish server and named browser bridge; closed the exact lab browser tab. No real fleet session was touched.

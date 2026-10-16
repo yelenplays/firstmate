@@ -1,0 +1,40 @@
+{
+  "concurrent_requests": [
+    {
+      "id": "a",
+      "exit": 0,
+      "output": "lab-race-a\n"
+    },
+    {
+      "id": "b",
+      "exit": 3,
+      "output": "fm-captain-hold: refused: 3 calls already wait on the captain, and the limit is 3:\n  lab-merge - Approve the green lab change\n  lab-credential - Provide the refreshed sandbox credential\n  lab-race-a - Concurrent call a\nAsk the captain which one to park (hold <id> --reason <reason> --until <date>) or drop (answer <id> --decision-file <file>), then hold lab-race-b again.\n"
+    }
+  ],
+  "live_holds": [
+    {
+      "id": "lab-merge",
+      "key": "lab-merge",
+      "owner": "(main)",
+      "title": "Approve the green lab change",
+      "reason": "Approve merge",
+      "repo": "sample"
+    },
+    {
+      "id": "lab-credential",
+      "key": "lab-credential",
+      "owner": "(main)",
+      "title": "Provide the refreshed sandbox credential",
+      "reason": "Credential needed",
+      "repo": "firstmate"
+    },
+    {
+      "id": "lab-race-a",
+      "key": "lab-race-a",
+      "owner": "(main)",
+      "title": "Concurrent call a",
+      "reason": "Compete for final slot",
+      "repo": "firstmate"
+    }
+  ]
+}

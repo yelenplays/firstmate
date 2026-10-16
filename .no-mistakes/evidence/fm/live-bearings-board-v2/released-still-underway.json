@@ -1,0 +1,23 @@
+{
+  "cards": [
+    "lab-choice",
+    "lab-credential"
+  ],
+  "stats": [
+    "2\n/ 3\nNEED YOU",
+    "1\nUNDERWAY",
+    "0\nLANDED RECENTLY",
+    "0\nCHARTED NEXT"
+  ],
+  "underway": [
+    {
+      "id": "lab-merge",
+      "repo": "sample",
+      "name": "Approve the green lab change",
+      "state": "unknown",
+      "doing": "worktree gone (torn down?)",
+      "kind": "ship"
+    }
+  ],
+  "frame": "http://127.0.0.1:44931/artifact/44c96eea6d581626/index.html?artifact_revision=5&artifact_load_token=r2x1QnBv8QZye1n1-AFv8ng04_hZubvP"
+}

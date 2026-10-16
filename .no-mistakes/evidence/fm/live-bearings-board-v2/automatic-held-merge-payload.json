@@ -1,0 +1,77 @@
+{
+  "schema": "fm-bearings-board.v1",
+  "home": "01M531TMT8RQGXA2RA2GWBPW50/.live-bearings-home",
+  "generated": "2026-10-16T19:27:30Z",
+  "prs_live": false,
+  "captains_call": [
+    {
+      "key": "merge.lab-merge",
+      "type": "merge",
+      "repo": "sample",
+      "title": "Approve the green lab change",
+      "detail": "Held idle task; recorded PR checks green",
+      "pr_url": "https://github.com/example/sample/pull/1",
+      "risk": "low",
+      "options": [
+        {
+          "value": "merge",
+          "label": "Merge now"
+        },
+        {
+          "value": "hold",
+          "label": "Not yet"
+        }
+      ],
+      "allow_freeform": true
+    },
+    {
+      "key": "lab-choice",
+      "type": "decision",
+      "repo": "firstmate",
+      "title": "Choose the rollout order",
+      "options": [
+        {
+          "value": "reconcile",
+          "label": "Reconcile",
+          "hint": "Re-check the latest state, then close this with evidence or keep it open with a note"
+        }
+      ],
+      "allow_freeform": true,
+      "freeform_hint": "Answer in your own words",
+      "close": "route",
+      "about": "Rollout decision",
+      "routing": true
+    },
+    {
+      "key": "lab-credential",
+      "type": "decision",
+      "repo": "firstmate",
+      "title": "Provide the refreshed sandbox credential",
+      "options": [
+        {
+          "value": "reconcile",
+          "label": "Reconcile",
+          "hint": "Re-check the latest state, then close this with evidence or keep it open with a note"
+        }
+      ],
+      "allow_freeform": true,
+      "freeform_hint": "Answer in your own words",
+      "close": "route",
+      "about": "Credential needed"
+    }
+  ],
+  "underway": [],
+  "landed": [],
+  "charted": [
+    {
+      "id": "lab-over",
+      "repo": null,
+      "title": "Historical fourth approval",
+      "reason": "until 2099-01-01: Park legacy question",
+      "dispatchable": false,
+      "filed": "2026-10-16"
+    }
+  ],
+  "charted_more": 0,
+  "wip_limit": 3
+}

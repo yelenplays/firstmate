@@ -1,0 +1,20 @@
+released: lab-merge
+task:
+  id: lab-merge
+  title: Approve the green lab change
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: sample
+  priority: "-"
+  created: 2026-10-16
+  closed: "-"
+  deps: none
+  links: none
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: 283128acef14943c127f7327ca8f57e7cd7c31ec6c5546de5d62ab16a2f9758a\nResolution mode: released\nResolved: 2026-10-16T19:23:15Z\n\nCaptain decision:\nmerge"
+refreshed: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M531TMT8RQGXA2RA2GWBPW50/.live-bearings-home/.lavish/bearings-board.html

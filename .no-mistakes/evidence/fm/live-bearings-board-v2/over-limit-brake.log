@@ -1,0 +1,6 @@
+fm-captain-hold: refused: 3 calls already wait on the captain, and the limit is 3:
+  lab-merge - Approve the green lab change
+  lab-choice - Choose the rollout order
+  lab-credential - Provide the refreshed sandbox credential
+Ask the captain which one to park (hold <id> --reason <reason> --until <date>) or drop (answer <id> --decision-file <file>), then hold lab-over again.
+brake exit=3

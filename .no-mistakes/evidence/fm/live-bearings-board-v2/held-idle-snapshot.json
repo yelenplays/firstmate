@@ -1,0 +1,97 @@
+{
+  "schema": "fm-bearings.v1",
+  "home": "01M531TMT8RQGXA2RA2GWBPW50/.live-bearings-home",
+  "generated": "2026-10-16T19:19:04Z",
+  "prs": "not_requested (run: /bearings include PRs)",
+  "contributions": {
+    "scope": "owned contributions per home",
+    "known": 1,
+    "checked": 0,
+    "counts": {
+      "captain": 1,
+      "fleet": 0,
+      "maintainer": 0,
+      "nobody": 0
+    },
+    "complete": false,
+    "proven_clear": false,
+    "unmeasured_homes": 0,
+    "unreadable_records": 0,
+    "unmeasured": 0,
+    "stale_verdicts": 0,
+    "missing_verdicts": 0,
+    "captain_omitted": 0,
+    "captain": [
+      {
+        "task": "lab-merge",
+        "url": "https://github.com/example/sample/pull/1",
+        "kind": "pr",
+        "head": null,
+        "reason": "Approve merge",
+        "hold": "lab-merge",
+        "verdict_freshness": null,
+        "verdict_head": null,
+        "verdict_source": null,
+        "checked_at": null,
+        "owner": "(main)"
+      }
+    ]
+  },
+  "in_flight": [],
+  "secondmates": [],
+  "secondmate_reconcile": [],
+  "decisions_open": [
+    {
+      "id": "lab-merge",
+      "key": "lab-merge",
+      "verb": "captain-hold",
+      "summary": "Approve the green lab change: Approve merge",
+      "owner": "(main)"
+    }
+  ],
+  "landed": [],
+  "gates": [],
+  "reports": [],
+  "recorded_prs": [
+    {
+      "id": "lab-merge",
+      "url": "https://github.com/example/sample/pull/1"
+    }
+  ],
+  "holds": [
+    {
+      "id": "lab-merge",
+      "key": "lab-merge",
+      "owner": "(main)",
+      "title": "Approve the green lab change",
+      "reason": "Approve merge",
+      "repo": "sample"
+    }
+  ],
+  "omitted": [
+    {
+      "surface": "backlog item bodies",
+      "reveal": "--fields bodies"
+    },
+    {
+      "surface": "task paths",
+      "reveal": "--fields paths"
+    },
+    {
+      "surface": "watch/steer actions",
+      "reveal": "--fields actions"
+    },
+    {
+      "surface": "healthy endpoint detail",
+      "reveal": "--fields endpoints"
+    },
+    {
+      "surface": "full scout-report inventory",
+      "reveal": "--all-reports"
+    },
+    {
+      "surface": "live PR discovery + checks",
+      "reveal": "--include-prs"
+    }
+  ]
+}

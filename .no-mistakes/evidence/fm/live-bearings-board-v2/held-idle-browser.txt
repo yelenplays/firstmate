@@ -1,0 +1,71 @@
+page:
+  title: Bearings - fleet board · Lavish
+  refs: 60
+snapshot:
+uid=g3:1_0 RootWebArea "Bearings - fleet board · Lavish" url="http://127.0.0.1:44931/session/44c96eea6d581626"
+  uid=g3:1_1 StaticText "Lavish"
+  uid=g3:1_2 StaticText "EDITOR"
+  uid=g3:1_3 button "Annotate" description="Toggle annotate/explore mode (⌘I / Ctrl+I)" pressed
+  uid=g3:1_4 button "More" expandable haspopup="menu"
+  uid=g3:1_5 Iframe
+    uid=g3:3_0 RootWebArea "Bearings - fleet board" url="http://127.0.0.1:44931/artifact/44c96eea6d581626/index.html?artifact_revision=2&artifact_load_token=l62PmksmLmF8F3u1VTI9XinF1aqOCP7T"
+      uid=g3:3_1 banner
+        uid=g3:3_2 StaticText "bearings"
+        uid=g3:3_3 StaticText "changed 21:19"
+      uid=g3:3_4 main
+        uid=g3:3_5 StaticText "1"
+        uid=g3:3_6 StaticText "/ 3"
+        uid=g3:3_7 StaticText "NEED YOU"
+        uid=g3:3_8 StaticText "0"
+        uid=g3:3_9 StaticText "UNDERWAY"
+        uid=g3:3_10 StaticText "0"
+        uid=g3:3_11 StaticText "LANDED RECENTLY"
+        uid=g3:3_12 StaticText "0"
+        uid=g3:3_13 StaticText "CHARTED NEXT"
+        uid=g3:3_14 StaticText "CAPTAIN'S CALL"
+        uid=g3:3_15 StaticText "1 ITEM WAIT ON YOU, CAPTAIN"
+        uid=g3:3_16 StaticText "CHECKS GREEN"
+        uid=g3:3_17 StaticText "RISK LOW"
+        uid=g3:3_18 heading "Approve the green lab change" level="3"
+        uid=g3:3_19 StaticText "Held idle task; recorded PR checks green"
+        uid=g3:3_20 link "https://github.com/example/sample/pull/1" url="https://github.com/example/sample/pull/1"
+          uid=g3:3_21 StaticText "https://github.com/example/sample/pull/1"
+        uid=g3:3_22 form
+          uid=g3:3_23 radio "Merge now"
+          uid=g3:3_24 StaticText "Merge now"
+          uid=g3:3_25 radio "Not yet"
+          uid=g3:3_26 StaticText "Not yet"
+          uid=g3:3_27 textbox "or answer in your own words…"
+          uid=g3:3_28 button "Queue answer"
+        uid=g3:3_29 StaticText "card 1 of 1"
+        uid=g3:3_30 button "Previous card" disableable disabled
+        uid=g3:3_31 button "Next card" disableable disabled
+        uid=g3:3_32 StaticText "CHARTED NEXT"
+        uid=g3:3_33 StaticText "Nothing is queued."
+        uid=g3:3_34 StaticText "NOTHING PICKED"
+        uid=g3:3_35 button "Queue dispatch order"
+        uid=g3:3_36 StaticText "UNDERWAY"
+        uid=g3:3_37 StaticText "Nothing is underway."
+        uid=g3:3_38 StaticText "RECENTLY LANDED"
+        uid=g3:3_39 StaticText "No recent completions are in the current baseline."
+        uid=g3:3_40 StaticText "fm-bearings-board.v1 · 2026-10-16T19:19:08Z"
+  uid=g3:1_49 complementary
+    uid=g3:1_50 heading "Conversation" level="2"
+    uid=g3:1_51 StaticText "Agent hasn't sent a message yet. Click an element in the artifact to annotate, or type below to start."
+    uid=g3:1_52 textbox "Write a message for the agent..." multiline
+    uid=g3:1_53 button "Attach images"
+    uid=g3:1_54 status atomic live="polite" relevant="additions text"
+    uid=g3:1_55 button "Send & End"
+    uid=g3:1_56 button "Send to Agent"
+  uid=g3:3_41 StaticText "Checking layout."
+  uid=g3:3_42 LineBreak "
+"
+  uid=g3:3_43 StaticText "One moment."
+  uid=g3:3_44 StaticText "Lavish is waiting for fonts and final geometry before revealing this artifact."
+  uid=g3:3_45 button "Show anyway"
+help[5]:
+  Run `chrome-devtools-axi fill @g3:3_27 "text"` to fill the "or answer in your own words…" field
+  Run `chrome-devtools-axi click @g3:1_3` to click the "Annotate" button
+  Run `chrome-devtools-axi click @g3:3_20` to click the "https://github.com/example/sample/pull/1" link
+  Run `chrome-devtools-axi scroll down` to scroll down
+  Use `chrome-devtools-axi eval <expr>` for JS expressions. For multi-statement code, pass a function: `eval "() => { ...; return result }"`

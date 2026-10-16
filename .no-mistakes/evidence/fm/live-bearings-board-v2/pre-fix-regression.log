@@ -1,0 +1,3 @@
+not ok - refresh did not keep the held task's merge card as its one call
+
+pre-fix exit=1 (failure expected)

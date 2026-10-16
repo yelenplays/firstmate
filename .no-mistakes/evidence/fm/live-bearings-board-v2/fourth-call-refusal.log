@@ -1,0 +1,10 @@
+fm-captain-hold: refused: 3 calls already wait on the captain, and the limit is 3:
+  lab-merge - Approve the green lab change
+  lab-choice - Choose the rollout order
+  lab-credential - Provide the sandbox credential
+Ask the captain which one to park (hold <id> --reason <reason> --until <date>) or drop (answer <id> --decision-file <file>), then hold lab-fourth again.
+exit=3
+backlog_before=b329259d33b9a56d4b188d41535030ef05219ab9  /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M531TMT8RQGXA2RA2GWBPW50/.live-bearings-home/data/backlog.md
+backlog_after=b329259d33b9a56d4b188d41535030ef05219ab9  /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M531TMT8RQGXA2RA2GWBPW50/.live-bearings-home/data/backlog.md
+
+lab-choice
