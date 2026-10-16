@@ -1,0 +1,9 @@
+watcher: secondmate liveness check failed
+ok - watch-arm: a clean close with no queued rows retires quietly; a faulted or handling close still presents
+ok - watch: a stop signal deferred during a check spawn exits in the signal range
+ok - watch-arm: interrupted handling leaves its wake durable for successor re-drain
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M521VGZFB1ZSKM06VZZM8XGY/bin/fm-watch-arm.sh: Zeile 788: 55485 Killed: 9                  "$WATCH" > "$child_out"
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 58224.1792145111.yfHV8y
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M521VGZFB1ZSKM06VZZM8XGY/bin/fm-watch-arm.sh: Zeile 788: 84402 Killed: 9                  "$WATCH" > "$child_out"
+ok - watch-arm: re-arm surfaces every queued wake and an open remote decision after downtime
+rc=0

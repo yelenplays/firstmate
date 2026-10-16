@@ -1,0 +1,99 @@
+## Wake 1 (main): first presentation lists every open decision
+$ bin/fm-wake-triage.sh
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.0uD3bP/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS (22 still open; 22 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+web-1 [key=fe-01] needs-decision: frontend decision 1 - pick layout variant for page 1
+web-10 [key=fe-10] needs-decision: frontend decision 10 - pick layout variant for page 10
+web-11 [key=fe-11] needs-decision: frontend decision 11 - pick layout variant for page 11
+web-12 [key=fe-12] needs-decision: frontend decision 12 - pick layout variant for page 12
+web-13 [key=fe-13] needs-decision: frontend decision 13 - pick layout variant for page 13
+web-14 [key=fe-14] needs-decision: frontend decision 14 - pick layout variant for page 14
+web-15 [key=fe-15] needs-decision: frontend decision 15 - pick layout variant for page 15
+web-16 [key=fe-16] needs-decision: frontend decision 16 - pick layout variant for page 16
+web-17 [key=fe-17] needs-decision: frontend decision 17 - pick layout variant for page 17
+web-18 [key=fe-18] needs-decision: frontend decision 18 - pick layout variant for page 18
+web-19 [key=fe-19] needs-decision: frontend decision 19 - pick layout variant for page 19
+web-2 [key=fe-02] needs-decision: frontend decision 2 - pick layout variant for page 2
+web-20 [key=fe-20] needs-decision: frontend decision 20 - pick layout variant for page 20
+web-21 [key=fe-21] needs-decision: frontend decision 21 - pick layout variant for page 21
+web-22 [key=fe-22] needs-decision: frontend decision 22 - pick layout variant for page 22
+web-3 [key=fe-03] needs-decision: frontend decision 3 - pick layout variant for page 3
+web-4 [key=fe-04] needs-decision: frontend decision 4 - pick layout variant for page 4
+web-5 [key=fe-05] needs-decision: frontend decision 5 - pick layout variant for page 5
+web-6 [key=fe-06] needs-decision: frontend decision 6 - pick layout variant for page 6
+web-7 [key=fe-07] needs-decision: frontend decision 7 - pick layout variant for page 7
+web-8 [key=fe-08] needs-decision: frontend decision 8 - pick layout variant for page 8
+web-9 [key=fe-09] needs-decision: frontend decision 9 - pick layout variant for page 9
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+[exit 0]
+
+## Wake 2 (main): nothing changed -> one count line
+$ bin/fm-wake-triage.sh
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.0uD3bP/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS: 22 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[exit 0]
+
+## A new decision lands and one note changes
+## Wake 3 (main): only the new/changed keys are listed
+$ bin/fm-wake-triage.sh
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.0uD3bP/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS (23 still open; 2 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+ops-1 [key=deploy] needs-decision: approve go-live window
+web-3 [key=fe-03] needs-decision: frontend decision 3 - REVISED: captain asked for dark variant
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+[exit 0]
+
+## Wake 4 (main): quiet again
+$ bin/fm-wake-triage.sh
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.0uD3bP/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS: 23 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[exit 0]
+
+## Explicit full listing on demand
+$ bin/fm-wake-triage.sh --decisions
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.0uD3bP/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS (23 still open, folded from the durable status logs - not just the latest line):
+ops-1 [key=deploy] needs-decision: approve go-live window
+web-1 [key=fe-01] needs-decision: frontend decision 1 - pick layout variant for page 1
+web-10 [key=fe-10] needs-decision: frontend decision 10 - pick layout variant for page 10
+web-11 [key=fe-11] needs-decision: frontend decision 11 - pick layout variant for page 11
+web-12 [key=fe-12] needs-decision: frontend decision 12 - pick layout variant for page 12
+web-13 [key=fe-13] needs-decision: frontend decision 13 - pick layout variant for page 13
+web-14 [key=fe-14] needs-decision: frontend decision 14 - pick layout variant for page 14
+web-15 [key=fe-15] needs-decision: frontend decision 15 - pick layout variant for page 15
+web-16 [key=fe-16] needs-decision: frontend decision 16 - pick layout variant for page 16
+web-17 [key=fe-17] needs-decision: frontend decision 17 - pick layout variant for page 17
+web-18 [key=fe-18] needs-decision: frontend decision 18 - pick layout variant for page 18
+web-19 [key=fe-19] needs-decision: frontend decision 19 - pick layout variant for page 19
+web-2 [key=fe-02] needs-decision: frontend decision 2 - pick layout variant for page 2
+web-20 [key=fe-20] needs-decision: frontend decision 20 - pick layout variant for page 20
+web-21 [key=fe-21] needs-decision: frontend decision 21 - pick layout variant for page 21
+web-22 [key=fe-22] needs-decision: frontend decision 22 - pick layout variant for page 22
+web-3 [key=fe-03] needs-decision: frontend decision 3 - REVISED: captain asked for dark variant
+web-4 [key=fe-04] needs-decision: frontend decision 4 - pick layout variant for page 4
+web-5 [key=fe-05] needs-decision: frontend decision 5 - pick layout variant for page 5
+web-6 [key=fe-06] needs-decision: frontend decision 6 - pick layout variant for page 6
+web-7 [key=fe-07] needs-decision: frontend decision 7 - pick layout variant for page 7
+web-8 [key=fe-08] needs-decision: frontend decision 8 - pick layout variant for page 8
+web-9 [key=fe-09] needs-decision: frontend decision 9 - pick layout variant for page 9
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+[exit 0]
+
+## Resolve one decision; wake 5 count drops
+$ bin/fm-wake-triage.sh
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.0uD3bP/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS: 22 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[exit 0]
+

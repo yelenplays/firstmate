@@ -1,0 +1,2 @@
+ok - a captain-parked pause is never rechecked on a cadence, only once at its hold-until date
+rc=0

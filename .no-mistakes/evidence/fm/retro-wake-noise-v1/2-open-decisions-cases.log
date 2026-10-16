@@ -1,0 +1,4 @@
+ok - a repeat drain prints the open count plus only new or changed keys; --decisions lists all
+ok - fm-wake-triage.sh --decisions passes the full-list flag through to the drain
+ok - the branch keeps a known-decision ledger per host conversation, apart from main's
+rc=0

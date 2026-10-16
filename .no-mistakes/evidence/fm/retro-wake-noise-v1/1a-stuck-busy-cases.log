@@ -1,0 +1,6 @@
+ok - watcher: a busy turn on a delivered message is held for the turn bound, then escalates stuck-busy
+ok - watcher: a completed turn after delivery renews the busy hold
+ok - watcher: a later doorbell holds the busy turn on the oldest record; an earlier one does not
+ok - watcher: a ring for the oldest record covers the records queued behind it
+ok - watcher: a spent ring budget emits exactly one ordinary stale wake for recovery
+rc=0

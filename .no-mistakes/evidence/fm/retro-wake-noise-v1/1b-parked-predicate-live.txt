@@ -1,0 +1,24 @@
+## Backlog fixture (real tasks-axi): a captain-parked go-live, an open captain call, an ordinary row
+captain hold rc=0
+$ fm-captain-hold.sh parked lay-go-live-cloudflare
+parked	-
+[exit 0]
+$ fm-captain-hold.sh parked pick-domain
+
+[exit 1]
+$ fm-captain-hold.sh parked ordinary
+
+[exit 1]
+$ fm-captain-hold.sh parked missing-task
+
+[exit 3]
+
+## Backlog after fixture
+## In flight
+
+## Queued
+- [ ] lay-go-live-cloudflare - Go live on Cloudflare (since 2026-10-16) (hold: captain parked until after launch) (hold-kind: parked)
+- [ ] pick-domain - Pick domain (since 2026-10-16) (hold: fm-hold-v1:YXdhaXRpbmcgdGhlIGNhcHRhaW4=) (hold-kind: captain) (hold-until: 2099-12-01)
+  Captain hold set: 2026-10-16T10:03:42Z
+- [ ] ordinary - Ordinary work (since 2026-10-16)
+## Done
