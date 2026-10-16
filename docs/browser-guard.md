@@ -11,7 +11,8 @@ An instruction-level rule in the brief include file came first; this document de
 
 - A browser started through Node - Playwright, Puppeteer, `chrome-devtools-mcp`, a driver, a raw `spawn` of a Chromium, Firefox, or WebKit binary - runs headless.
 - `open <url>`, `open -a "Google Chrome"`, `open -b <browser bundle>`, and `open <page.html>` are refused instead of opening a window, and the refusal is one line on stderr plus a non-zero exit.
-- `osascript` scripts that address a browser or ask for a web URL are refused, including the script-on-stdin form Python's `webbrowser` module uses.
+- `osascript` scripts that address a browser or ask for a web URL are refused, including the script-on-stdin form older Python's `webbrowser` module sends through `PATH`.
+- Python's `webbrowser.open` and other tools that honor `BROWSER` are refused in one line, including Python 3.13 and later, whose `webbrowser` pipes to `/usr/bin/osascript` by full path and so never reaches the `osascript` shim.
 - Ordinary file opening, `open -R`, non-browser applications, and non-browser AppleScript keep working unchanged.
 - Every forced launch and every refusal is visible in the worker's own transcript as a single `fm-browser-guard:` line.
 
@@ -29,6 +30,8 @@ Three layers, each covering what the one below it cannot.
    It is also the reason a `chrome-devtools-axi` run that opts into a headed browser still cannot open one.
 3. **The PATH shims** - [`bin/fm-browser-guard-bin/open`](../bin/fm-browser-guard-bin/open) and [`bin/fm-browser-guard-bin/osascript`](../bin/fm-browser-guard-bin/osascript) are symlinks to [`bin/fm-browser-guard-open.sh`](../bin/fm-browser-guard-open.sh) and [`bin/fm-browser-guard-osascript.sh`](../bin/fm-browser-guard-osascript.sh), which the guard puts first on the pane's `PATH`.
    They cover the routes that never touch Node, and they refuse rather than forcing because `open` has no headless form.
+   The guard also sets `BROWSER` to [`bin/fm-browser-guard-browser.sh`](../bin/fm-browser-guard-browser.sh), which Python's `webbrowser`, `gh`, and `git web--browse` call with the URL before anything else.
+   It refuses the URL in one line but exits 0, because `webbrowser.open` treats a failing `BROWSER` as a cue to try its next entry, the full-path `osascript` pipe.
    [`bin/fm-browser-guard-shim-lib.sh`](../bin/fm-browser-guard-shim-lib.sh) is the single owner of which applications, bundle identifiers, targets, and AppleScript forms are browser launches.
 
 The guard environment also sets `LAVISH_AXI_NO_OPEN=1`, lavish-axi's own switch for suppressing its local browser launch.

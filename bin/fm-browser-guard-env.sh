@@ -19,6 +19,9 @@
 #   PATH=<shims>:$PATH   the `open` and `osascript` shims ahead of the real tools
 #   NODE_OPTIONS=--require <preload>  the Node preload, appended to whatever
 #                        NODE_OPTIONS the pane already carries
+#   BROWSER=<refuser>    the URL-opening hook Python's webbrowser, gh, and git
+#                        web--browse call first; it refuses the URL and stops
+#                        webbrowser before its direct /usr/bin/osascript pipe
 #   LAVISH_AXI_NO_OPEN=1 lavish-axi's own switch for suppressing its local
 #                        browser launch, so a worker's visual review still
 #                        serves and prints its URL instead of hitting the shim's
@@ -46,6 +49,7 @@ set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SHIM_DIR="$ROOT/bin/fm-browser-guard-bin"
 PRELOAD="$ROOT/bin/fm-browser-guard-preload.cjs"
+BROWSER_CMD="$ROOT/bin/fm-browser-guard-browser.sh"
 
 usage() {
   cat <<'EOF'
@@ -84,17 +88,18 @@ fm_bg_node_embeddable() {
 }
 
 guard_command() {
-  local q_shim q_warning q_unusable
+  local q_shim q_browser q_warning q_unusable
   q_shim=$(fm_bg_quote "$SHIM_DIR")
+  q_browser=$(fm_bg_quote "$BROWSER_CMD")
   q_warning=$(fm_bg_quote "fm-browser-guard: warning: the browser guard is not installed at $ROOT; agent browser launches in this pane are unguarded")
   q_unusable=$(fm_bg_quote "fm-browser-guard: warning: $PRELOAD cannot be named in NODE_OPTIONS, so Node browser launches in this pane are unguarded")
-  if [ ! -r "$PRELOAD" ] || [ ! -x "$SHIM_DIR/open" ]; then
+  if [ ! -r "$PRELOAD" ] || [ ! -x "$SHIM_DIR/open" ] || [ ! -x "$BROWSER_CMD" ]; then
     printf '%s\n' "printf '%s\\n' $q_warning >&2;"
     return 0
   fi
   if ! fm_bg_node_embeddable "$PRELOAD"; then
     # shellcheck disable=SC2016 # $PATH expands in the pane shell, not here.
-    printf '%s\n' "export FM_BROWSER_GUARD=1; export LAVISH_AXI_NO_OPEN=1; export PATH=$q_shim:\$PATH; printf '%s\\n' $q_unusable >&2;"
+    printf '%s\n' "export FM_BROWSER_GUARD=1; export LAVISH_AXI_NO_OPEN=1; export BROWSER=$q_browser; export PATH=$q_shim:\$PATH; printf '%s\\n' $q_unusable >&2;"
     return 0
   fi
   # The NODE_OPTIONS value needs double quotes around the path, because that is
@@ -102,7 +107,7 @@ guard_command() {
   # below are escaped so the pane shell writes them into the value.
   # shellcheck disable=SC2016 # every $ below expands in the pane shell, not here.
   printf '%s\n' \
-    "export FM_BROWSER_GUARD=1; export LAVISH_AXI_NO_OPEN=1; export PATH=$q_shim:\$PATH; export NODE_OPTIONS=\"--require \\\"$PRELOAD\\\"\${NODE_OPTIONS:+ \$NODE_OPTIONS}\";"
+    "export FM_BROWSER_GUARD=1; export LAVISH_AXI_NO_OPEN=1; export BROWSER=$q_browser; export PATH=$q_shim:\$PATH; export NODE_OPTIONS=\"--require \\\"$PRELOAD\\\"\${NODE_OPTIONS:+ \$NODE_OPTIONS}\";"
 }
 
 case "${1:-}" in

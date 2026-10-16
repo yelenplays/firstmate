@@ -543,6 +543,46 @@ STDIN '
   pass "the captain's opt-out passes the PATH shims through with one notice line"
 }
 
+# Python's webbrowser reaches a browser without the PATH shims: since Python 3.13
+# it pipes its AppleScript to /usr/bin/osascript by full path. The driver lets
+# webbrowser run for real but records that final os.popen instead of executing
+# it, so a route that would have opened a window is observable without one.
+PY_WEBBROWSER_DRIVER='
+import os, webbrowser
+calls = []
+class Pipe:
+    def write(self, text): pass
+    def close(self): return None
+def popen(cmd, mode="r", buffering=-1):
+    calls.append(cmd)
+    return Pipe()
+os.popen = popen
+opened = webbrowser.open("https://example.com")
+print("POPEN=%s" % ",".join(calls))
+'
+
+test_python_webbrowser_is_refused() {
+  local fake out
+  command -v python3 >/dev/null 2>&1 || fail "the browser guard tests need python3"
+  fake=$(make_fake_system_tools "$TMP_ROOT/system-tools")
+  FM_SHIM_LOG="$TMP_ROOT/shim.log"
+  export FM_SHIM_LOG
+  : > "$FM_SHIM_LOG"
+  out=$(PATH="$fake:$PATH" guarded python3 -I -c "$PY_WEBBROWSER_DRIVER" 2>"$TMP_ROOT/py.err")
+  assert_equals 'POPEN=' "$out" "webbrowser.open must not fall through to a direct osascript pipe"
+  assert_equals 1 "$(guard_lines "$TMP_ROOT/py.err")" "the refusal must be exactly one line"
+  assert_equals '' "$(cat "$FM_SHIM_LOG")" "the real open and osascript must not be reached"
+
+  : > "$FM_SHIM_LOG"
+  out=$(PATH="$fake:$PATH" FM_ALLOW_HEADED_BROWSER=1 guarded python3 -I -c "$PY_WEBBROWSER_DRIVER" 2>"$TMP_ROOT/py.err")
+  assert_equals 'POPEN=' "$out" "the opt-out must open through the real open, not a direct osascript pipe"
+  assert_equals 'CALL open [https://example.com]' "$(cat "$FM_SHIM_LOG")" \
+    "the opt-out must hand the URL to the real open"
+  assert_contains "$(cat "$TMP_ROOT/py.err")" 'FM_ALLOW_HEADED_BROWSER=1' \
+    "the opt-out must be reported in one line"
+  pass "Python's webbrowser is refused in a guarded pane and allowed through the opt-out"
+}
+
 # --- the guard must not break a worker --------------------------------------
 
 test_guard_leaves_ordinary_node_work_alone() {
@@ -685,6 +725,7 @@ for t in \
   test_osascript_shim_refuses_browser_scripts \
   test_osascript_shim_passes_other_scripts \
   test_shims_honor_the_opt_out \
+  test_python_webbrowser_is_refused \
   test_guard_leaves_ordinary_node_work_alone \
   test_electron_launch_is_left_alone_and_bare_browser_spawn_is_forced \
   test_guard_environment_is_safe_to_apply_twice \

@@ -18,6 +18,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-browser-guard-preload.cjs` | Force a Node-started browser headless at the launcher API and at the process spawn |
 | `fm-browser-guard-open.sh` | Refuse the `open` calls that can only end in a visible browser window, reached as `open` through `fm-browser-guard-bin` |
 | `fm-browser-guard-osascript.sh` | Refuse the AppleScript scripts that would put a browser on screen, reached as `osascript` through `fm-browser-guard-bin` |
+| `fm-browser-guard-browser.sh` | Refuse the URL a `BROWSER`-honoring tool such as Python's `webbrowser` would open, set as `BROWSER` by `fm-browser-guard-env.sh` |
 | `fm-browser-guard-shim-lib.sh` | Own which applications, bundle identifiers, targets, and AppleScript forms are browser launches |
 | `fm-startup-network.sh`  | Run session start's network checks and inactive-outcome scan off its blocking path, retaining reports and durable findings |
 | `fm-fleet-sync.sh`       | Refresh project clones with safe fast-forwards, self-heals, `STUCK:` reports, branch pruning, and bounded recovery from an orphaned `.git/packed-refs.lock` |
