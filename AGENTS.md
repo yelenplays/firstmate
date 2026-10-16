@@ -43,6 +43,9 @@ You may maintain this repo's private operational state directly.
 Shared tracked material is `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `.tasks.toml`, `.github/workflows/`, `bin/`, `.agents/skills/`, and public `skills/`; while any crewmate is live, delegate changes to it rather than competing with supervision, and with an empty fleet change it directly.
 This repo is a shared template, while `.env`, `data/`, `state/`, `config/`, `projects/`, and `.no-mistakes/` are captain-private and gitignored.
 Ship shared tracked changes through this repo's no-mistakes pipeline and PR path, with the same merge authority as any other project.
+This home's relationship to this repository is a declared local role, never an inference: absent an explicit grant it runs as a firstmate user/operator, and a firstmate bug found in ordinary use gets private diagnosis, a local workaround, a local issue draft, or a proposed patch - never a push, fork, issue, comment, or pull request opened on its own authority.
+Publishing to this repository's upstream requires `config/firstmate-role`'s maintainer opt-in or a captain-approved one-task consent recorded at dispatch (`docs/configuration.md` "Firstmate role"; the gate is `bin/fm-role-lib.sh`), and is never granted by gh identity, forge permissions, remotes, repository ownership, authentication state, environment, or CI.
+Load `firstmate-self-repo` before dispatching, promoting, or delivering work that targets this repository, when a firstmate bug or improvement idea surfaces in ordinary use, and before granting or revoking upstream publication authority.
 Never add an agent name as a commit co-author.
 Use `gh-axi` for GitHub, `chrome-devtools-axi` for browser work, and compatible `lavish-axi` for visual decisions or reports, consulting current help rather than memorized flags.
 
@@ -51,7 +54,7 @@ Use `gh-axi` for GitHub, `chrome-devtools-axi` for browser work, and compatible 
 `docs/configuration.md` owns the home layout and configuration schemas, and each producing script's header owns exact fields and mutation mechanics; load `operational-home-layout` when locating, interpreting, or changing home, config, data, state, project, or generated runtime paths.
 `FM_HOME` selects an instance's private `data/`, `state/`, `config/`, and `projects/` while scripts come from the tracked code root; each secondmate has its own persistent isolated `FM_HOME`, and `bin/fm-send.sh` fails closed unless `FM_HOME` is explicit.
 A `state/<id>.status` line is a wake event, not current-state truth; `bin/fm-crew-state.sh` owns current-state reconciliation.
-`data/captain.md` holds this home's captain preferences, optional `data/captain-shared.md` the main-authoritative preferences secondmates inherit, and `data/learnings.md` curated home-local knowledge, regardless of harness memory.
+`data/captain.md` holds this home's captain preferences, optional `data/captain-shared.md` the main-authoritative preferences secondmates inherit, and `data/learnings.md` curated home-local knowledge, regardless of harness memory, except for a knowledge class that a home-declared external memory tier under section 6 owns.
 
 ## 3. Session start (run once at every session start)
 
@@ -65,7 +68,7 @@ A `state/<id>.status` line is a wake event, not current-state truth; `bin/fm-cre
 ## 4. Harness and runtime dispatch
 
 - Load `harness-adapters` before every spawn or recovery and before trust handling, skill invocation, interrupt, exit, resume, or adapter verification.
-- The verified harnesses are `claude`, `codex`, `opencode`, `pi`, `pi-signed`, `grok`, `kimi`, `cursor`, and `omp`, plus `muse`, `gemini`, `rovo`, `agy`, and `devin` for crewmates and scouts only; never dispatch on an unverified adapter, and when static harness config names one, report it and fall back only to a verified adapter.
+- The verified harnesses are `claude`, `codex`, `opencode`, `pi`, `pi-signed`, `grok`, `kimi`, `cursor`, and `omp`, plus `muse`, `gemini`, `rovo`, `agy`, `devin`, and `commandcode` (Command Code) for crewmates and scouts only; never dispatch on an unverified adapter, and when static harness config names one, report it and fall back only to a verified adapter.
 - Only the captain chooses or changes a worker account pin (`config/claude-account`, `config/pi-account`): on a pin refusal report the needed login, and never edit or remove the file to unblock a spawn.
 
 `docs/configuration.md` owns dispatch-profile and runtime-backend schemas, `bin/fm-harness.sh` static resolution, and `bin/fm-spawn.sh` launch flags and fail-closed validation.
@@ -102,9 +105,11 @@ Keep `local-only` work in the main home, and never reconstruct or supervise a se
 
 Route durable knowledge to its most specific owner:
 
+- A home may declare authoritative external memory tiers in a `Memory layering` section of its captain-preference files ([`docs/configuration.md`](docs/configuration.md) owns the schema); each declared tier owns the knowledge classes it names, this home's `data/` is then only a per-machine cache for those classes, capture to the tier is never skipped because a local file also received the fact, and a correction follows the tier's declared rule rather than an in-place edit.
+- When a worker's harness cannot reach a declared tier, firstmate captures on the worker's behalf from its report.
 - This home's captain preferences go in `data/captain.md` after inspect-then-update, and preferences shared across secondmate domains in the primary home's `data/captain-shared.md` under `secondmate-provisioning`.
-- Fleet-local operational facts go in curated `data/learnings.md`, task notes with the backlog item, and investigation findings in the scout report.
-- Knowledge useful to almost every contributor to one project belongs in its committed `AGENTS.md`, extended only by deliberate human edits; knowledge general to every firstmate user belongs in this repo's shared tracked surface.
+- Fleet-local operational facts no declared tier owns go in curated `data/learnings.md`, task notes with the backlog item, and investigation findings in the scout report.
+- Knowledge useful to almost every contributor to one project belongs in its committed `AGENTS.md`, extended only by deliberate human edits; knowledge general to every firstmate user belongs in this repo's shared tracked surface, which a user/operator home can only reach through an authorized contribution - otherwise it stays in `data/learnings.md` or a local draft for the captain.
 
 Knowledge wikis are projects whose truth is the vault under `~/Documents/Wikis`, mapped by `~/Documents/Wikis/ROUTER.md`; `projects/` clones are snapshots that `bin/fm-fleet-sync.sh` fast-forwards, never edited by a crew.
 A wiki brief names the vault path, routing card, and entry layer, and its acceptance runs that vault's `_meta/einstieg.sh` and `_meta/pruefe.sh`; with a configured wiki engine and private catalog, ask through `bin/fm-wiki-ask.sh`, never the engine directly.
