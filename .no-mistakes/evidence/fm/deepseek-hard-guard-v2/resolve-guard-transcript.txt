@@ -1,0 +1,22 @@
+## A. non-private brief, public project, captain-pinned free profile
+$ bin/fm-dispatch-resolve.sh <lab>/pub.md --project opencode-notes --decision-kind dispatch --policy-profile {"harness":"opencode","model":"opencode/deepseek-v4.1-flash-free"} --captain-override captain wants the free model
+dispatch-resolve:
+  status: policy
+  exception: deterministic_policy (captain-authorized launch override)
+  receipt: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.rKR7NG/state/model-route/52e1d6a714ce97815277ddf49e72b80953f1607845712a7a0e5e6c87060d7229.json
+  profile: --harness 'opencode' --model 'opencode/deepseek-v4.1-flash-free'
+[exit ]
+## B. private project name (acme-private-site matches marker 'Acme Private')
+$ bin/fm-dispatch-resolve.sh <lab>/pub.md --project acme-private-site --decision-kind dispatch --policy-profile {"harness":"opencode","model":"opencode/deepseek-v4.1-flash-free"} --captain-override captain wants the free model
+error: fixed policy profile is marked private_ok false and the private-material guard refused it: project matches config/private-markers line 2
+[exit ]
+## C. private brief text (mentions zebracorp)
+$ bin/fm-dispatch-resolve.sh <lab>/priv.md --project opencode-notes --decision-kind dispatch --policy-profile {"harness":"opencode","model":"opencode/deepseek-v4.1-flash-free"} --captain-override captain wants the free model
+error: fixed policy profile is marked private_ok false and the private-material guard refused it: brief matches config/private-markers line 3
+[exit ]
+## D. marker list removed -> fail closed
+$ bin/fm-dispatch-resolve.sh <lab>/pub.md --project opencode-notes --decision-kind dispatch --policy-profile {"harness":"opencode","model":"opencode/deepseek-v4.1-flash-free"} --captain-override captain wants the free model
+error: fixed policy profile is marked private_ok false and the private-material guard refused it: no config/private-markers list proves the task non-private
+[exit ]
+project=opencode-notes exit=0
+project=acme-private-site exit=2

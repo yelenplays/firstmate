@@ -1,0 +1,15 @@
+ok - run: a listed free model is ok and changes nothing
+ok - run: an unlisted free model swaps to the paid replacement only, keeps a backup, and pushes
+ok - run: a failed or empty listing is unverifiable and never swaps
+ok - run: a rules edit during the listing refuses the swap
+ok - run: a rules file without the free lane model calls nothing
+ok - run: a secondmate home is refused before any listing
+ok - check: a recorded swap raises exactly one captain notice
+ok - check: an unverifiable canary alerts once per outcome change
+ok - check: a due canary runs detached and reports on the next poll
+ok - check: a run that stopped before it finished is reported
+ok - check: a secondmate home never runs the canary
+ok - arm: nothing is armed without a watched profile
+ok - arm: a secondmate home is never armed
+ok - arm: a watched profile arms an hourly check, and disarm removes it
+# all fm-free-model-canary tests passed

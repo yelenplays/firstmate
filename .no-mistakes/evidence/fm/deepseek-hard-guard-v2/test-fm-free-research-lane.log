@@ -1,0 +1,10 @@
+ok - enable: refused without a marker list that names a marker
+ok - enable: a secondmate home is refused
+ok - enable: appends the lane rule, keeps a backup, pushes, and arms the canary
+ok - enable: is idempotent
+ok - status: names the lane rule and counts markers without naming one
+ok - status and enable: recognize a lane the canary swapped to the paid replacement
+ok - disable: removes the last-rule lane and its beats entries, and disarms the canary
+ok - disable: refuses when removing the lane would renumber later rules
+ok - a custom paid-profile rule is never mistaken for the lane
+# all fm-free-research-lane tests passed

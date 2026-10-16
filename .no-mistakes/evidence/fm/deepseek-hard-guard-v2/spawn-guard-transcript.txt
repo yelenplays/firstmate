@@ -1,0 +1,35 @@
+$ fm-spawn.sh acme-z1 <lab>/projects/acme-private-site --scout --harness opencode --model opencode/deepseek-v4.1-flash-free
+fm-gate-refuse: gate agent lifecycle permitted only against lab home <lab>
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 registered custom check(s), but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: opencode/deepseek-v4.1-flash-free is a dispatch profile marked private_ok false and the private-material guard refused this launch: project matches config/private-markers line 2; route this task to a private-capable profile
+[exit 0]
+state: free-model-canary
+state: free-model-canary.check-every
+state: free-model-canary.check-trust
+state: free-model-canary.check.sh
+state: model-route
+## re-run with exit code: private project + free profile
+fm-gate-refuse: gate agent lifecycle permitted only against lab home <lab>
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: opencode/deepseek-v4.1-flash-free is a dispatch profile marked private_ok false and the private-material guard refused this launch: project matches config/private-markers line 2; route this task to a private-capable profile
+[exit 1]
+## public project + free profile (guard passes; spawn continues past the guard)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+warning: brief preflight: <lab>/data/pub-z2/brief.md is missing acceptance criteria or definition of done (missing_acceptance); spawn continues
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M50M3MZ343YNEX1GAKSPJR8R/bin/backends/tmux.sh: Zeile 77: tmux: Kommando nicht gefunden
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M50M3MZ343YNEX1GAKSPJR8R/bin/backends/tmux.sh: Zeile 99: tmux: Kommando nicht gefunden
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M50M3MZ343YNEX1GAKSPJR8R/bin/backends/tmux.sh: Zeile 103: tmux: Kommando nicht gefunden
+[exit 1]
+## private project + a private-capable profile (claude opus): guard does not apply
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+warning: brief preflight: <lab>/data/acme-z3/brief.md is missing acceptance criteria or definition of done (missing_acceptance); spawn continues
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M50M3MZ343YNEX1GAKSPJR8R/bin/backends/tmux.sh: Zeile 77: tmux: Kommando nicht gefunden
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M50M3MZ343YNEX1GAKSPJR8R/bin/backends/tmux.sh: Zeile 99: tmux: Kommando nicht gefunden
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M50M3MZ343YNEX1GAKSPJR8R/bin/backends/tmux.sh: Zeile 103: tmux: Kommando nicht gefunden
+[exit 1]

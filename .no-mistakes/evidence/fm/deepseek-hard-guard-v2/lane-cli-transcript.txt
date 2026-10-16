@@ -1,0 +1,51 @@
+## 1. status before enable (custom paid rule last, not the lane)
+$ bin/fm-free-research-lane.sh status
+lane: disabled
+private markers: none readable at config/private-markers
+[exit 0]
+## 2. enable refused: no marker list
+$ bin/fm-free-research-lane.sh enable
+fm-free-research-lane: config/private-markers is missing or not a readable regular file; the private-material guard would refuse every task, so the lane stays off
+[exit 1]
+## 3. enable refused: marker list with no marker
+$ bin/fm-free-research-lane.sh enable
+fm-free-research-lane: config/private-markers names no marker; add the private projects, people, and clients first
+[exit 1]
+## 4. enable with markers
+$ bin/fm-free-research-lane.sh enable
+backup: config/crew-dispatch.json.bak-2026-10-15-research-lane
+lane: enabled as rule 3 on opencode/deepseek-v4.1-flash-free
+[exit 0]
+$ bin/fm-free-research-lane.sh status
+lane: enabled as rule 3 on opencode/deepseek-v4.1-flash-free
+private markers: 2
+[exit 0]
+## rules file after enable:
+{"why":"code","use":[{"harness":"codex","model":"gpt-5.5"}],"beats":null}
+{"why":"operator custom","use":[{"harness":"pi","model":"opencode-go/deepseek-v4.1-flash","provider":"opencode-go"}],"beats":[{"rule":1,"why":"x"}]}
+{"why":"Free research lane (bin/fm-free-research","use":[{"harness":"opencode","model":"opencode/deepseek-v4.1-flash-free","provider":"opencode","private_ok":false}],"beats":null}
+crew-dispatch.json
+crew-dispatch.json.bak-2026-10-15-research-lane
+private-markers
+free-model-canary.check-every
+free-model-canary.check-trust
+free-model-canary.check.sh
+## 5. enable again is idempotent
+$ bin/fm-free-research-lane.sh enable
+lane: already enabled as rule 3
+[exit 0]
+## 6. operator adds beats edge naming the lane (rule 3) to rule 1, then disable
+$ bin/fm-free-research-lane.sh disable
+backup: config/crew-dispatch.json.bak-2026-10-15-research-lane
+lane: disabled (removed rule 3)
+[exit 0]
+{"why":"code","use":[{"harness":"codex","model":"gpt-5.5"}],"beats":null}
+{"why":"operator custom","use":[{"harness":"pi","model":"opencode-go/deepseek-v4.1-flash","provider":"opencode-go"}],"beats":[{"rule":1,"why":"x"}]}
+$ bin/fm-free-research-lane.sh status
+lane: disabled
+private markers: 2
+[exit 0]
+## 7. secondmate home refuses enable
+$ FM_HOME=<secondmate> bin/fm-free-research-lane.sh enable
+fm-free-research-lane: this is a secondmate home; its dispatch rules are inherited from the primary
+[exit 1]

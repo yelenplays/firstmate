@@ -1,0 +1,9 @@
+$ OPENCODE_CONFIG_CONTENT='{"permission":{"*":"allow","skill":"deny"},"autoupdate":false,"share":"disabled"}' opencode debug config | jq "{permission, autoupdate, share}"  (opencode 1.19.0, run in an empty temp dir)
+{
+  "permission": {
+    "*": "allow",
+    "skill": "deny"
+  },
+  "autoupdate": false,
+  "share": "disabled"
+}

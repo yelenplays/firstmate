@@ -1,0 +1,21 @@
+## state after disable (canary disarmed?)
+.guard-watcher-stale-banner  13B
+
+📊 1 files, 0 dirs (1 .guard-watcher-stale-banner)
+## re-enable lane, then real canary run against installed opencode 1.19.0
+$ bin/fm-free-research-lane.sh enable
+backup: config/crew-dispatch.json.bak-2026-10-15-research-lane
+lane: enabled as rule 3 on opencode/deepseek-v4.1-flash-free
+[exit 0]
+free-model-canary.check-every
+free-model-canary.check-trust
+free-model-canary.check.sh
+$ bin/fm-free-model-canary.sh run --record
+OK opencode/deepseek-v4.1-flash-free: listed
+[exit 0]
+last.out
+result.json
+$ bin/fm-free-model-canary.sh check
+[exit 0]
+## direct listing for comparison:
+opencode/deepseek-v4.1-flash-free
