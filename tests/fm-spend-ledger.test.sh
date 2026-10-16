@@ -254,4 +254,30 @@ assert_equals 370 "$(json_field "$(cat "$STATE/task-c.spend")" "d['totals']['tok
 assert_equals 370 "$(json_field "$(cat "$STATE/task-c.spend")" "d['byLane']['claude']['tokens']")" 'native Claude usage binds its quota family'
 assert_equals 1 "$(json_field "$(cat "$STATE/task-c.spend")" "d['totals']['messages']")" 'streamed deltas remain one logical Claude message'
 assert_not_contains "$(cat "$STATE/.spend-cache.json")" PRIVATE-BODY-NOT-USAGE 'Claude message bodies never enter the spend cache'
+# 100 input + 20 output x5 + 200 cache read x0.1 + 50 five-minute writes x1.25,
+# rounded per record: 232 for the first emission plus 50 for its later output.
+assert_equals 282 "$(json_field "$(cat "$STATE/task-c.spend")" "d['totals']['claudeEqTokens']")" 'native Claude usage reports input-token equivalents next to raw tokens'
+
+# A one-hour cache write is the share of cacheWrite the transcript splits out.
+printf '{"type":"assistant","sessionId":"native-c","cwd":"/work/claude","timestamp":"%s","requestId":"req-d","message":{"id":"msg-d","role":"assistant","model":"claude-opus-5-5","usage":{"input_tokens":0,"output_tokens":0,"cache_read_input_tokens":1000,"cache_creation_input_tokens":300,"cache_creation":{"ephemeral_1h_input_tokens":200,"ephemeral_5m_input_tokens":100}}}}\n' "$SESSION_A_ISO" >> "$NATIVE"
+"$LEDGER" --state "$STATE" --sessions-root "$SESSIONS" task task-c >/dev/null
+assert_equals 1670 "$(json_field "$(cat "$STATE/task-c.spend")" "d['totals']['tokens']")" 'the one-hour split adds no raw tokens'
+assert_equals 200 "$(json_field "$(cat "$STATE/task-c.spend")" "d['totals']['cacheWrite1h']")" 'the one-hour cache write share is recorded'
+# 1000 x0.1 + 100 x1.25 + 200 x2 = 625 more.
+assert_equals 907 "$(json_field "$(cat "$STATE/task-c.spend")" "d['totals']['claudeEqTokens']")" 'one-hour cache writes take the one-hour weight'
+WEEK=$("$LEDGER" --state "$STATE" --sessions-root "$SESSIONS" week --hours 1000000)
+assert_equals 907 "$(json_field "$WEEK" "d['families']['claude']['claudeEqTokens']")" 'week reports Claude equivalents next to raw family tokens'
+assert_equals 1670 "$(json_field "$WEEK" "d['families']['claude']['tokens']")" 'week keeps the raw Claude tokens'
+assert_equals 0 "$(json_field "$WEEK" "d['families']['codex']['claudeEqTokens']")" 'a non-Claude family has no Claude equivalents'
+assert_equals 0.1 "$(json_field "$WEEK" "d['claudeEqWeights']['cacheRead']")" 'week names the weights behind the equivalents'
+
+# A Pi record on the anthropic provider is Claude usage too; its unsplit cache
+# write takes the five-minute weight. 100 input + 10 output x5 + 40 writes x1.25.
+PI_ANTHROPIC="$TMP_ROOT/pi-anthropic"
+mkdir -p "$PI_ANTHROPIC/--work-anthropic--" "$TMP_ROOT/pi-anthropic-state"
+write_session_header "$PI_ANTHROPIC/--work-anthropic--/s.jsonl" pi-anthropic /work/anthropic "$SESSION_A_ISO"
+printf '{"type":"message","timestamp":"%s","message":{"role":"assistant","provider":"anthropic","model":"claude-opus-5-5","usage":{"input":100,"output":10,"cacheRead":0,"cacheWrite":40,"reasoning":0,"totalTokens":150}}}\n' \
+  "$SESSION_A_ISO" >> "$PI_ANTHROPIC/--work-anthropic--/s.jsonl"
+WEEK=$("$LEDGER" --state "$TMP_ROOT/pi-anthropic-state" --sessions-root "$PI_ANTHROPIC" --claude-sessions-root "$EMPTY" week --hours 1000000)
+assert_equals 200 "$(json_field "$WEEK" "d['families']['claude']['claudeEqTokens']")" 'Pi anthropic usage is weighted as Claude usage'
 pass "spend ledger: Pi and native Claude usage, deduplication, task binding and prediction"

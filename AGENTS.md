@@ -175,7 +175,7 @@ Follow the emitted ordinary-wake continuation for every actionable wake, and its
 
 Handle actionable wakes:
 
-1. `signal:` - read the listed event lines first, then reconcile current state only where action depends on it; optional `done:` scoring ("Shadow done verifier" in `docs/configuration.md`) never authorizes closure or teardown.
+1. `signal:` - read the listed event lines first, then reconcile current state only where action depends on it.
 2. `stale:` - inspect the recorded endpoint and load `stuck-crewmate-recovery` for a stopped, looping, confused, or unresponsive worker; a deep-inspection reason also requires current-state and validation-log inspection.
 3. `check:` - act on the named poll result (merges, contribution signals, Relay events, process-to-event sources, captain inbox notes); acknowledge a handled inbox note with `bin/fm-inbox.sh drain --ack <id>`, and publish an answer the submitter needs with `bin/fm-inbox.sh reply <id>`.
    `check: secondmate <id> auto-relaunched` records a finished recovery: reconcile the mate's state rather than relaunching, and investigate a repeat or paused-bound wake.

@@ -250,13 +250,13 @@ fm_brief_task_placeholders_present() {  # <file>
 # the structural facts it reads: worker kind plus Task, Definition of done,
 # Captain's intent, and Firstmate spec presence as true/false. Prints
 # missing_acceptance exactly when the Definition of done is missing and
-# need_human otherwise, because no structural fact can prove a brief complete.
-# This reproduces the Jev answers recorded on a 32-case grid over these
-# facts, so the rule replaced that model call without changing a verdict.
+# has_acceptance otherwise. The rule reproduces the Jev answers recorded on a
+# 32-case grid over these facts; Jev's need_human for every brief with a
+# Definition of done carried no signal, so that case names what was checked.
 fm_brief_preflight_verdict() {  # <kind> <has_task> <has_dod> <has_intent> <has_spec>
   case "$3" in
     false) printf '%s\n' missing_acceptance ;;
-    *) printf '%s\n' need_human ;;
+    *) printf '%s\n' has_acceptance ;;
   esac
 }
 
@@ -794,6 +794,20 @@ fm_dod_named_head_reachable_outside_worktree() {  # <worktree> <project> <mode> 
 # only the pre-validation handoff `done:` is checked: the later CI-ready report
 # carries the pipeline's own commits, which this ban does not cover. End-to-end
 # tests and running existing tests stay allowed.
+# Tests-first handoff: a ship may start on a lane the ban does not cover, commit
+# failing tests there, and then be relaunched onto a banned lane to implement
+# until they pass (`bin/fm-control.sh <id> relaunch --model <banned-model>`).
+# bin/fm-spawn.sh records test_ban_since=<HEAD> when such a relaunch moves a
+# task record that never ran banned onto a banned model. Once a record has run
+# banned, every relaunch, banned or not, carries its test_ban_since forward,
+# writing test_ban_since=base when that banned run started from the base, so a
+# later handoff never moves the baseline past tests a banned run wrote. The done
+# gate then counts a test file only when it changed since that commit and is
+# either one of the branch's own changes against the base or one of the tests
+# handed over at it, so the tests the earlier seat committed are not the banned
+# worker's authorship while any change it makes to them still is, and test
+# changes a merge or rebase brings in from the base are not. Tests left
+# uncommitted at the handoff count as the banned worker's.
 FM_TEST_BAN_MODEL_PATTERNS='*claude*sonnet* *claude*haiku* sonnet sonnet[[]* haiku haiku[[]*'
 FM_TEST_BAN_EXCEPTION_HEADING="### Captain-specified test"
 
@@ -861,8 +875,9 @@ fm_test_ban_path_is_test() {  # <path>
   return 1
 }
 
-# The launch section a banned worker receives. <allowed-paths> is newline-separated.
-fm_test_ban_overlay() {  # <model> <allowed-paths>
+# The launch section a banned worker receives. <allowed-paths> is newline-separated;
+# <since> is the tests-first handoff commit, when one was recorded.
+fm_test_ban_overlay() {  # <model> <allowed-paths> [<since>]
   cat <<EOF
 
 # No test authoring
@@ -871,14 +886,18 @@ Create or modify no test files: no unit or integration tests, no test fixtures, 
 Running existing tests is fine, and an end-to-end test (a path or file name containing \`e2e\` or \`end-to-end\`) stays allowed.
 Only test-file paths explicitly named under \`$FM_TEST_BAN_EXCEPTION_HEADING\` inside \`## Captain's intent\` are allowed; implement only those tests as described. A test description without a file path allows no test file.
 EOF
-  local allowed
+  local allowed changes='added or modified'
   allowed=$(printf '%s' "${2:-}" | tr '\n' ' ' | sed 's/ $//')
   if [ -n "$allowed" ]; then
     printf 'Captain-authorized test path(s): %s. Every other test file remains prohibited.\n' "$allowed"
   else
     printf '%s\n' "No test file paths are authorized by the captain."
   fi
-  printf '%s\n' "Before accepting your ship \`done:\`, firstmate checks commits since the base for added or modified test files outside those exact paths and refuses the done while any remain, naming them; drop them from the branch and report done again."
+  if [ "${3:-base}" != base ]; then
+    printf '%s\n' "The test files committed up to $3 were written before this handoff for you to make pass: implement until they pass and leave them unchanged; only commits after $3 count as yours."
+    changes='added, modified, or deleted'
+  fi
+  printf '%s\n' "Before accepting your ship \`done:\`, firstmate checks commits since the base for $changes test files outside those exact paths and refuses the done while any remain, naming them; revert those changes and report done again."
 }
 
 # The ref a ship's commits are measured against: origin/<base> for a named
@@ -901,10 +920,13 @@ fm_test_ban_base_ref() {  # <worktree> [<base-branch>]
 }
 
 # Prints, one per line, the test files the worker copy's commits add or modify
-# since their merge-base with the base. 1 when the base cannot be resolved;
-# stdout then holds a one-line reason.
-fm_test_ban_changed_tests() {  # <worktree> [<base-branch>]
-  local wt=$1 base_ref mb path
+# since their merge-base with the base. With a tests-first handoff <since>, it
+# prints the test files added, modified, or deleted since <since> that are also
+# changed against the base or were handed over at <since>. 1 when the base or
+# <since> cannot be resolved; stdout then holds a one-line reason.
+fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>]
+  local wt=$1 since=${3:-} base_ref mb fork path
+  [ "$since" != base ] || since=
   if ! base_ref=$(fm_test_ban_base_ref "$wt" "${2:-}"); then
     printf '%s\n' "test-file check cannot resolve the base branch${2:+ origin/$2} in the worker copy"
     return 1
@@ -913,10 +935,21 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>]
     printf '%s\n' "test-file check found no merge-base between HEAD and $base_ref"
     return 1
   fi
-  git -C "$wt" diff --name-only --diff-filter=ACMR "$mb" HEAD 2>/dev/null \
-    | while IFS= read -r path; do
-      if fm_test_ban_path_is_test "$path"; then printf '%s\n' "$path"; fi
-    done
+  if [ -n "$since" ] && ! fork=$(git -C "$wt" merge-base "$base_ref" "$since" 2>/dev/null); then
+    printf '%s\n' "test-file check cannot find the tests-first handoff commit $since in the worker copy"
+    return 1
+  fi
+  if [ -z "$since" ]; then
+    git -C "$wt" diff --name-only --diff-filter=ACMR "$mb" HEAD 2>/dev/null
+  else
+    # Deleting a handed-over failing test is as much a change to it as editing it.
+    awk 'NR == FNR { owned[$0] = 1; next } $0 in owned' \
+      <(git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$mb" HEAD 2>/dev/null
+        git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$fork" "$since" 2>/dev/null) \
+      <(git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$since" HEAD 2>/dev/null)
+  fi | while IFS= read -r path; do
+    if fm_test_ban_path_is_test "$path"; then printf '%s\n' "$path"; fi
+  done
 }
 
 # 0 when this done: is one the test-authoring gate must check: a ship done: from
@@ -946,7 +979,7 @@ fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
     printf '%s\n' "test-file check cannot read the worker copy"
     return 1
   fi
-  files=$(fm_test_ban_changed_tests "$wt" "$(fm_dod_meta_value "$meta" base_branch)") || {
+  files=$(fm_test_ban_changed_tests "$wt" "$(fm_dod_meta_value "$meta" base_branch)" "$(fm_dod_meta_value "$meta" test_ban_since)") || {
     printf '%s\n' "$files"
     return 1
   }
@@ -957,7 +990,7 @@ fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
   done <<<"$files"
   [ -z "$rejected" ] || {
     rejected=$(printf '%b' "$rejected" | sed '/^$/d' | tr '\n' ' ' | sed 's/ $//')
-    printf '%s\n' "no test authoring on $(fm_dod_meta_value "$meta" test_ban_model): the branch adds or modifies unauthorized test files $rejected; drop them and report done again"
+    printf '%s\n' "no test authoring on $(fm_dod_meta_value "$meta" test_ban_model): the branch adds, modifies, or deletes unauthorized test files $rejected; revert those changes and report done again"
     return 1
   }
   return 0

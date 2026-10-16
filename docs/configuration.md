@@ -975,9 +975,6 @@ The first non-empty, non-comment line is parsed as `<harness> [<model>] [<effort
 A bare `<harness>` preserves the previous behavior: harness only, with no model or effort launch flag.
 When the harness token is absent or `default`, secondmate launch falls back through `config/crew-harness` and then the primary's own harness, and no model or effort is read from that file.
 
-`fm-harness.sh secondmate-model` and `fm-harness.sh secondmate-effort` expose only the optional tokens from `config/secondmate-harness`; `config/crew-harness` remains a bare adapter-name file.
-Changing this pin affects the next secondmate spawn or control-plane relaunch; the relaunch profile rules are owned by [`docs/agent-control.md`](agent-control.md#transactional-relaunch).
-
 ### Per-launch overrides and inherited defaults
 
 `fm-harness.sh secondmate-model` and `fm-harness.sh secondmate-effort` expose the optional tokens from the pin line governing that secondmate; `config/crew-harness` remains a bare adapter-name file.
@@ -988,8 +985,6 @@ Every local secondmate launch path resolves it by id: `fm-spawn.sh --secondmate`
 For a config-resolved secondmate harness, the per-id pin replaces the shared pin.
 Changing a pin affects the next secondmate spawn, control-plane relaunch, liveness recovery, or `/updatefirstmate` restart; the relaunch profile rules are owned by [`docs/agent-control.md`](agent-control.md#transactional-relaunch).
 An explicit harness argument to `fm-spawn.sh` still overrides either config file for that spawn only.
-An explicit `--model` or `--effort` overrides the matching token from `config/secondmate-harness`; for a local route, an explicit harness or raw launch command starts with clean model and effort defaults unless those flags are also passed.
-
 An explicit `--model` or `--effort` overrides the matching token from the governing secondmate pin; for a local route, an explicit harness or raw launch command starts with clean model and effort defaults unless those flags are also passed.
 Remote secondmate routes accept verified harness adapters only and reject raw launch commands.
 When `config/crew-dispatch.json` exists, crewmate and scout spawns require an explicit resolved harness instead of automatically falling back to `config/crew-harness`.
@@ -997,11 +992,10 @@ When `config/crew-dispatch.json` exists, crewmate and scout spawns require an ex
 The inherited-local-material contract is owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md); its harness-relevant consequence is that a secondmate's own crewmates use the primary's dispatch profiles and static harness value.
 Those inherited values are defaults and rules only; `fm-spawn` still permits a consciously chosen explicit runtime outside the config.
 
-`config/secondmate-harness` is not inherited because secondmates do not launch secondmates.
+`config/secondmate-harness` and `config/secondmate-harness.d/` are not inherited because secondmates do not launch secondmates.
 
 ### Installed hooks and launch details
 
-`config/secondmate-harness` and `config/secondmate-harness.d/` are not inherited because secondmates do not launch secondmates.
 For grok, `fm-spawn.sh` installs one firstmate-owned global turn-end hook under `$GROK_HOME/hooks/`, or `~/.grok/hooks/` when `GROK_HOME` is unset, and drops a per-task `.fm-grok-turnend` pointer in the worktree, with teardown removing the task token and pointer.
 For Kimi crews, `fm-spawn.sh` runs `fm-kimi-turnend-hook.sh install`, drops a per-task `.fm-kimi-turnend` pointer in the worktree, and records the matching private registry token for teardown.
 
@@ -1713,6 +1707,7 @@ Effort ranges and completion-runway eligibility are evaluated above; no last res
 ### Optional model consultation records
 
 `bin/fm-model-route-receipt.py` records the exact instructions and policy hashes, offered-options hash, selected harness/model/effort and consultation.
+Its top-level `selected_rule` names the rule whose profile was selected: after a runoff it is the runoff winner, while the consultation keeps the first-pass answer as evidence; a fixed-policy record has none.
 The typed exceptions are `deterministic_policy`, `privacy_insufficient_payload`, `jev_unavailable` and `jev_escalation`, each with a reason.
 `state/model-route/` contains private records and a `decisions.jsonl` journal, never brief bodies, keys or quota account identities.
 Missing, stale or unwritable records never block model selection, launch, relaunch or pipeline execution.
@@ -1780,7 +1775,9 @@ A question whose options name a model follows the [never-use model list](#never-
 Callers must pass only task facts and never personal data or private-vault content; refusing obvious secrets, email addresses, and phone numbers is only a safety net, not a general personal-data detector.
 Standard ship and scout launches, plus Devin launches, carry the spawning home's absolute path as `FM_HOME` and clear inherited provider keys; raw launch commands remain unchanged.
 The key itself is not added to the launch command or environment, so standard spawned workers must resolve `TYPESAFE_API_KEY` from the firstmate home `.env`; an environment-only key intentionally does not cross that launch boundary.
-Each call appends a metadata-only record, without the working directory, state, or question text, to that home's `state/jev-calls.jsonl`.
+A pick question offers at most 8 options; a longer list is refused before anything is sent, so the caller narrows it first.
+Each call appends a metadata-only record, without the working directory, state, question ids, or question text, to that home's `state/jev-calls.jsonl`.
+The record names its time, its caller (the dispatched task, else the home), and each question's type, option count, and confidence, so escalation rates can be audited per caller and per question shape; the script header owns the exact fields.
 Crew workers run as the operator's same OS user and have full file access; they are not sandboxed and can read files available to that user.
 
 ## Jev remainder tool-gate (FM_JEV_TOOL_GATE)
@@ -1817,25 +1814,6 @@ It never edits `config/` or any dispatch profile, and every switch it proposes n
 Any candidate billed to usage credits, such as Fable, is named in a billing notice at the top of the proposal.
 Candidates on the [never-use model list](#never-use-model-list-configmodel-denylistjson) are withheld from Jev and named as withheld in the proposal.
 Regression coverage lives in [`tests/fm-jev-model-proposal.test.sh`](../tests/fm-jev-model-proposal.test.sh).
-
-## Shadow done verifier
-
-[`bin/fm-jev-done-verify.sh`](../bin/fm-jev-done-verify.sh) is a log-only helper the wake drain invokes after successfully presenting a worker `done:` line on a ship or scout.
-It asks Jev one Choice (`evidenced`, `not_evidenced`, `need_human`) plus a strength Score, using the 0.7 confidence floor from the Jev caller library.
-It sends the done line, and any acceptance, report, or PR input, only for a ship or scout task of the firstmate repository verified from the primary home - the same outbound data boundary as "Jev supervision triage" below.
-This boundary is deliberate: per the captain's privacy decision, other projects' task text (done lines, acceptance, reports, and PR input) must not go to Jev.
-With a configured key, every other task makes no model call and records `payload: withheld` with a `skipped` verdict.
-`need_human` is required because a currently healthy system is not evidence the claimed repair happened.
-Each call appends one JSONL record in the effective state directory, honoring `FM_STATE_OVERRIDE`.
-The helper never tears down a task, never writes `resolved` or `done` on the worker's behalf, and never reopens work from its score.
-The drain starts the helper in the background after presentation so the done line is never delayed, and skips the call without writing a deduplication record when neither `TYPESAFE_API_KEY` nor `OPENROUTER_API_KEY` resolves to a nonempty value in the environment or `$FM_HOME/.env`.
-Scoring uses only done events actually emitted by the annotation or outcome-backstop paths after successful presentation; an event merely present in the captured span is not sufficient.
-Before scoring and deduplication, the drain strips trailing carriage returns and replaces remaining tabs and carriage returns with spaces, preserving trailing spaces and leaving worker status bytes unchanged.
-It skips a completion whose normalized text already appears in that task's JSONL log; per-task serialization covers the duplicate check through log append in the same effective state directory, including overlapping drains.
-The background record may not exist yet when firstmate handles the wake; the drain discards the helper's stdout and does not display its risk annotation automatically.
-Automatic calls supply only the task ID and done line, without the optional acceptance, report, or PR inputs.
-The script header owns flags, output lines, exit codes, and the log path and schema.
-Behavioral regressions in [`tests/fm-jev-done-verify.test.sh`](../tests/fm-jev-done-verify.test.sh) use fake transport to exercise presentation selection, concurrent deduplication, whitespace normalization, state overrides, empty credentials, and both sides of the data boundary.
 
 ## Jev merge gate (shadow)
 
@@ -1963,10 +1941,10 @@ The script header owns the seat and row schema, the bands, the reroute rules, an
 `bin/fm-spawn.sh` runs [`bin/fm-jev-brief-preflight.sh`](../bin/fm-jev-brief-preflight.sh) for ship and scout briefs after its structural brief refusals and before any endpoint exists.
 The check reads the worker kind, delivery metadata, and whether the Task, Definition of done, Captain's intent, and Firstmate spec sections are present.
 It makes no model or network call, and the brief's text never leaves the machine.
-After valid delivery metadata, the verdict depends only on the Definition of done: `missing_acceptance` when that section is missing, otherwise `need_human`, because structure alone cannot prove a brief complete.
-That rule reproduces the answers Jev gave on every combination of those facts, which is why the Jev call was retired; the `jev` name and variable stay for compatibility.
+After valid delivery metadata, the verdict depends only on the Definition of done: `missing_acceptance` when that section is missing, otherwise `has_acceptance`, which means only that the section exists, because structure alone cannot prove a brief complete.
+That rule reproduces the answers Jev gave on every combination of those facts, which is why the Jev call was retired; Jev's `need_human` on every brief with a Definition of done carried no signal, so the log now names what was checked, and the `jev` name and variable stay for compatibility.
 Default `FM_JEV_BRIEF_PREFLIGHT` is `shadow`: each verdict appends the record described in the [script header](../bin/fm-jev-brief-preflight.sh) and the spawn continues.
-`missing_acceptance` prints the missing element on stderr; `need_human` stays silent.
+`missing_acceptance` prints the missing element on stderr; `has_acceptance` stays silent.
 `FM_JEV_BRIEF_PREFLIGHT=off` or unrecognized delivery metadata skips the check and writes nothing.
 This gate never blocks a spawn.
 Leftover placeholders, an empty Task, a half-filled intent/spec pair, and a Captain-addressed intent line remain `fm-spawn.sh`'s structural refusals.
@@ -3190,6 +3168,7 @@ The two read files use different parsing rules:
 
 `config/spend-ceilings.json` is an optional local, gitignored file that bounds token spend per task and per fleet window; absent or empty means no ceilings and nothing is armed.
 The measurement is `bin/fm-spend-ledger.py`, which rebuilds per-task totals from the workers' own Pi session logs (including nested subagent transcripts) and native Claude transcripts into `state/<id>.spend`, plus fleet-level `state/spend-rollup.json` and `state/spend-model.json`.
+Ceilings compare raw tokens; next to them the ledger reports `claudeEqTokens`, Claude usage weighted into input-token equivalents by its cache-read, cache-write, and output price ratios, so cache-heavy and output-heavy Claude work compare on one scale; the script header owns the weights.
 The enforcement is the `spend` process-event adapter (`bin/fm-procevent-spend.sh`), armed best-effort at every ship/scout spawn: an unconfigured or malformed file arms nothing and never fails a launch.
 
 ```json

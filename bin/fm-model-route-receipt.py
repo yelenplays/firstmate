@@ -8,6 +8,9 @@ fingerprint prints the brief and model-policy hash a record binds.
 A record is evidence of consultation, never launch authority.
 No brief bodies, credentials, or quota account identities are persisted.
 An explicit captain-override reason is intentionally recorded.
+selected_rule names the rule whose profile was selected - after a runoff, the
+runoff winner, not the first-pass answer kept in consultation - or null for a
+fixed-policy record.
 """
 import argparse
 import fcntl
@@ -83,6 +86,9 @@ def main():
     envelope = json.load(sys.stdin)
     pick = selected(envelope['selected'])
     exception = envelope.get('exception')
+    selected_rule = envelope.get('selected_rule')
+    if selected_rule is not None and (not isinstance(selected_rule, str) or not selected_rule):
+        raise ValueError('selected rule must be a non-empty string or null')
     consultation = envelope.get('consultation')
     if exception is not None:
         if exception not in EXCEPTIONS or not envelope.get('reason'):
@@ -91,7 +97,7 @@ def main():
         raise ValueError('model selection has no Jev consultation or typed exception')
     record = {'version': VERSION, 'kind': args.kind, 'created': time.time(),
               'state_hash': fingerprint, 'options_hash': envelope.get('options_hash'),
-              'selected': pick, 'consultation': consultation, 'exception': exception,
+              'selected': pick, 'selected_rule': selected_rule, 'consultation': consultation, 'exception': exception,
               'reason': envelope.get('reason'), 'captain_override': envelope.get('captain_override', False),
               'outcome': envelope.get('outcome', 'selected')}
     if not isinstance(record['options_hash'], str) or len(record['options_hash']) != 64:

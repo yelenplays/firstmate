@@ -35,42 +35,43 @@ SH
 chmod +x "$FAKEBIN/curl"
 export FAKE_CURL_LOG="$LOG"
 
-# Jev's recorded answers on the full grid of structural facts the preflight
+# The rule's verdicts on the full grid of structural facts the preflight
 # reads: kind, has_task, has_definition_of_done, has_captain_intent,
 # has_firstmate_spec. Jev answered missing_acceptance on all 16 rows without a
-# definition of done and need_human on all 16 rows with one.
+# definition of done and need_human on all 16 rows with one, which the rule
+# records as has_acceptance.
 GRID='ship|false|false|false|false|missing_acceptance
 ship|false|false|false|true|missing_acceptance
 ship|false|false|true|false|missing_acceptance
 ship|false|false|true|true|missing_acceptance
-ship|false|true|false|false|need_human
-ship|false|true|false|true|need_human
-ship|false|true|true|false|need_human
-ship|false|true|true|true|need_human
+ship|false|true|false|false|has_acceptance
+ship|false|true|false|true|has_acceptance
+ship|false|true|true|false|has_acceptance
+ship|false|true|true|true|has_acceptance
 ship|true|false|false|false|missing_acceptance
 ship|true|false|false|true|missing_acceptance
 ship|true|false|true|false|missing_acceptance
 ship|true|false|true|true|missing_acceptance
-ship|true|true|false|false|need_human
-ship|true|true|false|true|need_human
-ship|true|true|true|false|need_human
-ship|true|true|true|true|need_human
+ship|true|true|false|false|has_acceptance
+ship|true|true|false|true|has_acceptance
+ship|true|true|true|false|has_acceptance
+ship|true|true|true|true|has_acceptance
 scout|false|false|false|false|missing_acceptance
 scout|false|false|false|true|missing_acceptance
 scout|false|false|true|false|missing_acceptance
 scout|false|false|true|true|missing_acceptance
-scout|false|true|false|false|need_human
-scout|false|true|false|true|need_human
-scout|false|true|true|false|need_human
-scout|false|true|true|true|need_human
+scout|false|true|false|false|has_acceptance
+scout|false|true|false|true|has_acceptance
+scout|false|true|true|false|has_acceptance
+scout|false|true|true|true|has_acceptance
 scout|true|false|false|false|missing_acceptance
 scout|true|false|false|true|missing_acceptance
 scout|true|false|true|false|missing_acceptance
 scout|true|false|true|true|missing_acceptance
-scout|true|true|false|false|need_human
-scout|true|true|false|true|need_human
-scout|true|true|true|false|need_human
-scout|true|true|true|true|need_human'
+scout|true|true|false|false|has_acceptance
+scout|true|true|false|true|has_acceptance
+scout|true|true|true|false|has_acceptance
+scout|true|true|true|true|has_acceptance'
 
 reset_log() {
   rm -rf "$LOG"
@@ -205,23 +206,23 @@ test_reachable_grid_through_the_script() {
     rows=$((rows + 1))
   done <<<"$GRID"
   assert_equals 20 "$rows" "every structurally reachable grid row ran"
-  pass "every reachable grid row gives Jev's recorded verdict through the script"
+  pass "every reachable grid row gives the rule's verdict through the script"
 }
 
-test_complete_brief_is_silent_and_records_need_human() {
+test_complete_brief_is_silent_and_records_has_acceptance() {
   local code out err
   write_grid_brief true true true true
   run_preflight code out err --brief "$BRIEF" --task "$TASK_ID" --kind ship --mode direct-PR
   expect_code 0 "$code" "complete preflight exits 0"
   [ -z "$out" ] || fail "preflight must be silent on stdout, got '$out'"
-  assert_equals '' "$err" "need_human stays silent"
+  assert_equals '' "$err" "has_acceptance stays silent"
   jq -e '. == {
     purpose: "brief-preflight", task: "pager-off-by-one", kind: "ship",
-    mode: "direct-PR", verdict: "need_human", missing: "", surfaced: false,
+    mode: "direct-PR", verdict: "has_acceptance", missing: "", surfaced: false,
     shadow: true, block: false, rule: "deterministic"
   }' "$(record_path)" >/dev/null || fail "record shape: $(cat "$(record_path)")"
   assert_absent "$LOG/argv" "a configured key still makes no network call"
-  pass "a brief with a definition of done records need_human silently and offline"
+  pass "a brief with a definition of done records has_acceptance silently and offline"
 }
 
 test_missing_dod_warns_and_records() {
@@ -272,9 +273,9 @@ test_spawn_records_and_proceeds() {
   out=$(run_spawn "$home" "$fakebin" complete-ship "$proj" claude --mode direct-PR --yolo off)
   assert_not_contains "$out" 'warning: brief preflight' "complete spawn is silent"
   assert_not_contains "$out" 'still contains {TASK}' "complete spawn is not a structural refusal"
-  jq -e '.verdict == "need_human" and .block == false' \
+  jq -e '.verdict == "has_acceptance" and .block == false' \
     "$home/state/complete-ship.jev-brief-preflight.jsonl" >/dev/null \
-    || fail "spawn must write a need_human record: $out"
+    || fail "spawn must write a has_acceptance record: $out"
 
   write_spawn_brief "$home" no-dod-ship "Fix the pager." "Change only pager.sh." no
   out=$(run_spawn "$home" "$fakebin" no-dod-ship "$proj" claude --mode direct-PR --yolo off)
@@ -329,7 +330,7 @@ test_spawn_structural_refusals_still_fire() {
   pass "existing structural brief refusals still fire before the preflight"
 }
 
-test_spawn_generated_briefs_record_need_human() {
+test_spawn_generated_briefs_record_has_acceptance() {
   local rec home proj fakebin out content kind id mode
   local -a args
   rec=$(make_spawn_home generated)
@@ -350,22 +351,22 @@ test_spawn_generated_briefs_record_need_human() {
     printf '%s\n' "$content" > "$home/data/$id/brief.md"
     if [ "$kind" = ship ]; then args+=(--yolo off); fi
     out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude "${args[@]}")
-    jq -e --arg kind "$kind" '.verdict == "need_human" and .kind == $kind and .block == false' \
+    jq -e --arg kind "$kind" '.verdict == "has_acceptance" and .kind == $kind and .block == false' \
       "$home/state/$id.jev-brief-preflight.jsonl" >/dev/null \
-      || fail "$id must record need_human: $out"
+      || fail "$id must record has_acceptance: $out"
     assert_not_contains "$out" 'warning: brief preflight' "$id stays silent"
     assert_absent "$LOG/argv" "$id makes no network call"
   done
-  pass "populated generated ship and scout briefs record need_human through spawn"
+  pass "populated generated ship and scout briefs record has_acceptance through spawn"
 }
 
 test_usage_requires_brief_and_task
 test_rule_matches_recorded_jev_grid
 test_reachable_grid_through_the_script
-test_complete_brief_is_silent_and_records_need_human
+test_complete_brief_is_silent_and_records_has_acceptance
 test_missing_dod_warns_and_records
 test_off_and_unrecognized_metadata_write_nothing
 test_record_keeps_brief_content_local
 test_spawn_records_and_proceeds
 test_spawn_structural_refusals_still_fire
-test_spawn_generated_briefs_record_need_human
+test_spawn_generated_briefs_record_has_acceptance

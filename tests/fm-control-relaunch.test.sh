@@ -45,6 +45,8 @@ relaunch_cleanup() {
   for d in "${TASK_TMPS[@]:-}"; do
     [ -n "$d" ] && rm -rf "$d"
   done
+  # A spawn installs its AI-trailer strip hooks read-only under state/.
+  chmod -R u+w "$TMP_ROOT" 2>/dev/null || true
   rm -rf "$TMP_ROOT"
 }
 trap relaunch_cleanup EXIT
@@ -265,6 +267,16 @@ run_spawn() {  # <case-dir> <args...>
     HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' \
     FM_SPAWN_NO_GUARD=1 GROK_HOME="$dir/grokhome" \
     "$SPAWN" "$@" 2>&1
+}
+
+# A relaunch can take tens of seconds to reach a staged checkpoint on a loaded
+# host, so waits on its progress are bounded by time, not by an iteration count.
+wait_for_path() {  # <path> -> 0 once it exists, 1 after FM_TEST_STUB_MAX_BLOCK_SECONDS
+  local deadline=$((SECONDS + FM_TEST_STUB_MAX_BLOCK_SECONDS))
+  while [ ! -e "$1" ]; do
+    [ "$SECONDS" -lt "$deadline" ] || return 1
+    /bin/sleep 0.01
+  done
 }
 
 meta_field() {  # <case-dir> <id> <key>
@@ -677,7 +689,7 @@ test_relaunch_preserves_durable_task_metadata() {
 }
 
 test_relaunch_serializes_concurrent_durable_metadata_publication() {
-  local dir control_pid link_pid rc i=0 traceparent prepare launch_release waiting ready release
+  local dir control_pid link_pid rc traceparent prepare launch_release waiting ready release
   dir=$(new_case metadata-race rl28)
   add_ship_task "$dir" rl28 claude
   printf '%s\n' "$$" > "$dir/home/state/.lock"
@@ -693,10 +705,7 @@ test_relaunch_serializes_concurrent_durable_metadata_publication() {
     FM_FAKE_TRACE_RELEASE="$launch_release" \
     run_control "$dir" rl28 relaunch --note "continue after publication" > "$dir/control.out" &
   control_pid=$!
-  while [ ! -e "$prepare" ] && [ "$i" -lt 500 ]; do
-    /bin/sleep 0.01
-    i=$((i + 1))
-  done
+  wait_for_path "$prepare" || true
   [ -e "$prepare" ] || {
     kill "$control_pid" 2>/dev/null || true
     wait "$control_pid" 2>/dev/null || true
@@ -711,11 +720,7 @@ test_relaunch_serializes_concurrent_durable_metadata_publication() {
     "$X_LINK" rl28 request-28 --carry-count 1 --carry-ts 1700000000 \
       --carry-platform x --carry-max 280 > "$dir/link.out" 2>&1 &
   link_pid=$!
-  i=0
-  while [ ! -e "$waiting" ] && [ "$i" -lt 500 ]; do
-    /bin/sleep 0.01
-    i=$((i + 1))
-  done
+  wait_for_path "$waiting" || true
   [ -e "$waiting" ] && [ ! -e "$ready" ] || {
     : > "$launch_release"
     : > "$release"
@@ -724,11 +729,7 @@ test_relaunch_serializes_concurrent_durable_metadata_publication() {
     fail "a durable metadata writer was not blocked during relaunch delivery"
   }
   : > "$launch_release"
-  i=0
-  while [ ! -e "$ready" ] && [ "$i" -lt 500 ]; do
-    /bin/sleep 0.01
-    i=$((i + 1))
-  done
+  wait_for_path "$ready" || true
   [ -e "$ready" ] || {
     kill "$link_pid" "$control_pid" 2>/dev/null || true
     wait "$link_pid" 2>/dev/null || true
@@ -1057,6 +1058,75 @@ test_explicit_model_wins_over_the_recorded_one() {
   [ "$(meta_field "$dir" rl7 model)" = sonnet ] || fail "an explicit model should be recorded"
   [ "$(meta_field "$dir" rl7 effort)" = low ] || fail "an explicit effort should be recorded"
   pass "fm-control relaunch: explicit model and effort win over the recorded ones"
+}
+
+# A tests-first split: a ship that committed its failing tests on an unbanned
+# model and is relaunched onto a banned one records that HEAD as the handoff,
+# names it in the launch section, and keeps it across later relaunches, banned
+# or not, so a return to a banned model never moves it forward.
+test_relaunch_onto_a_test_banned_model_records_the_tests_first_handoff() {
+  local dir out rc wt since brief
+  dir=$(new_case tests-first rl31)
+  add_ship_task "$dir" rl31 claude
+  wt="$dir/wt"
+  mkdir -p "$wt/tests"
+  printf 'red\n' > "$wt/tests/feature.test.sh"
+  git -C "$wt" add tests && git -C "$wt" commit -q -m 'red tests'
+  since=$(git -C "$wt" rev-parse HEAD)
+
+  out=$(run_control "$dir" rl31 relaunch --model claude-sonnet-5-5 --note "implement until the committed tests pass"); rc=$?
+  expect_code 0 "$rc" "relaunch onto a banned model should succeed"$'\n'"$out"
+  [ "$(meta_field "$dir" rl31 test_ban_model)" = claude-sonnet-5-5 ] || fail "the banned replacement did not record the test ban"
+  [ "$(meta_field "$dir" rl31 test_ban_since)" = "$since" ] || fail "the handoff commit was not recorded as test_ban_since"
+  brief="$dir/home/data/rl31/launch-brief.md"
+  assert_grep "committed up to $since were written before this handoff" "$brief" "the launch section did not name the handoff"
+
+  printf 'impl\n' > "$wt/feature.sh"
+  git -C "$wt" add feature.sh && git -C "$wt" commit -q -m implement
+  out=$(run_control "$dir" rl31 relaunch --note "keep going"); rc=$?
+  expect_code 0 "$rc" "a second banned relaunch should succeed"$'\n'"$out"
+  [ "$(meta_field "$dir" rl31 test_ban_since)" = "$since" ] || fail "a banned relaunch moved the handoff commit forward"
+  [ "$(grep -c '^test_ban_since=' "$dir/home/state/rl31.meta")" = 1 ] || fail "test_ban_since was duplicated in the task record"
+
+  out=$(run_control "$dir" rl31 relaunch --model claude-opus-5-5 --note "back to the test lane"); rc=$?
+  expect_code 0 "$rc" "relaunch back onto an unbanned model should succeed"$'\n'"$out"
+  [ -z "$(meta_field "$dir" rl31 test_ban_model)" ] || fail "an unbanned replacement kept the test ban"
+  [ "$(meta_field "$dir" rl31 test_ban_since)" = "$since" ] || fail "an unbanned replacement dropped the handoff commit"
+
+  printf 'more\n' > "$wt/tests/more.test.sh"
+  git -C "$wt" add tests && git -C "$wt" commit -q -m 'more tests'
+  out=$(run_control "$dir" rl31 relaunch --model claude-sonnet-5-5 --note "implement again"); rc=$?
+  expect_code 0 "$rc" "a return to the banned model should succeed"$'\n'"$out"
+  [ "$(meta_field "$dir" rl31 test_ban_since)" = "$since" ] || fail "a later handoff moved the baseline past the earlier banned run"
+  pass "fm-control relaunch: a tests-first handoff onto a banned model records its commit"
+}
+
+# A ship that ran banned from its base and round-trips through an unbanned
+# model keeps measuring from the base when it returns to a banned model, so the
+# tests its first banned run committed are never handed over.
+test_relaunch_round_trip_keeps_a_banned_run_baseline() {
+  local dir out rc wt brief
+  dir=$(new_case banned-round-trip rl32)
+  add_ship_task "$dir" rl32 claude
+  printf 'test_ban_model=claude-sonnet-5-5\n' >> "$dir/home/state/rl32.meta"
+  wt="$dir/wt"
+  mkdir -p "$wt/tests"
+  printf 'banned\n' > "$wt/tests/banned.test.sh"
+  git -C "$wt" add tests && git -C "$wt" commit -q -m 'banned-run test'
+
+  out=$(run_control "$dir" rl32 relaunch --model claude-opus-5-5 --note "take over"); rc=$?
+  expect_code 0 "$rc" "relaunch onto an unbanned model should succeed"$'\n'"$out"
+  [ -z "$(meta_field "$dir" rl32 test_ban_model)" ] || fail "an unbanned replacement kept the test ban"
+  [ "$(meta_field "$dir" rl32 test_ban_since)" = base ] || fail "an unbanned replacement forgot the banned run"
+
+  out=$(run_control "$dir" rl32 relaunch --model claude-sonnet-5-5 --note "implement"); rc=$?
+  expect_code 0 "$rc" "a return to the banned model should succeed"$'\n'"$out"
+  [ "$(meta_field "$dir" rl32 test_ban_model)" = claude-sonnet-5-5 ] || fail "the banned replacement did not record the test ban"
+  [ "$(meta_field "$dir" rl32 test_ban_since)" = base ] || fail "a return to the banned model handed over the banned run's tests"
+  brief="$dir/home/data/rl32/launch-brief.md"
+  assert_present "$brief" "the banned replacement has no launch brief"
+  if grep -q 'before this handoff' "$brief"; then fail "a launch section measured from the base named a handoff"; fi
+  pass "fm-control relaunch: a banned round trip keeps measuring from the banned run"
 }
 
 test_relaunch_onto_an_unverified_harness_is_refused() {
@@ -1582,7 +1652,7 @@ test_launch_failure_keeps_the_prior_record_and_reports_it() {
 }
 
 test_prepublication_failure_keeps_concurrent_durable_metadata() {
-  local dir control_pid link_out rc i=0
+  local dir control_pid link_out rc
   dir=$(new_case rollback-race rl30)
   add_ship_task "$dir" rl30 claude
   printf '%s' "$dir/proj" > "$dir/fake/cwd"
@@ -1590,10 +1660,7 @@ test_prepublication_failure_keeps_concurrent_durable_metadata() {
     run_control "$dir" rl30 relaunch --harness codex --note "preserve concurrent metadata" \
       > "$dir/control.out" &
   control_pid=$!
-  while [ ! -e "$dir/cwd-race-ready" ] && [ "$i" -lt 200 ]; do
-    /bin/sleep 0.01
-    i=$((i + 1))
-  done
+  wait_for_path "$dir/cwd-race-ready" || true
   [ -e "$dir/cwd-race-ready" ] || {
     kill "$control_pid" 2>/dev/null || true
     wait "$control_pid" 2>/dev/null || true
@@ -2737,6 +2804,8 @@ test_worker_account_pin_follows_the_relaunch
 test_pi_exclude_tools_follow_the_relaunch
 test_exclude_tools_refusals_happen_before_the_agent_stops
 test_explicit_model_wins_over_the_recorded_one
+test_relaunch_onto_a_test_banned_model_records_the_tests_first_handoff
+test_relaunch_round_trip_keeps_a_banned_run_baseline
 test_relaunch_onto_an_unverified_harness_is_refused
 test_prior_harness_turnend_registry_entry_is_cleared
 test_wiring_removal_failure_refuses_before_replacement_arm
