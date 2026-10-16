@@ -26,7 +26,8 @@ Three layers, each covering what the one below it cannot.
    Hooking `Module.prototype._compile` rather than `Module._load` is what also covers `import { chromium } from 'playwright-core'`, because an ESM import of a CommonJS package still compiles through it.
    The library then takes its own headless path - its own binary choice, its own flags - so the forced launch is exactly the launch that library performs when it is asked for headless.
 2. **The browser process** - the same preload wraps `child_process.spawn`, `spawnSync`, `execFile`, and `execFileSync` and adds the library's own headless flag to a browser command line that is missing one: `--headless` for the Chromium family, `-headless` for Firefox, `--headless` for WebKit.
-   This is the layer that catches a launcher's ESM build (puppeteer-core ships one), a renamed or wrapped binary, a driver, and any other tool that starts a browser process.
+   It recognizes a browser by its binary name alone - Chrome, Chromium, Chrome for Testing, the headless shell, Edge, Brave and the other Chromium browsers, Firefox, and Playwright's WebKit - never by debugging flags, so an Electron app launched with `--remote-debugging-port` is left untouched, and a bare `spawn(chromePath)` with no argument list still gets the flag.
+   This is the layer that catches a launcher's ESM build (puppeteer-core ships one), a wrapper script, a driver, and any other tool that starts a known browser binary.
    It is also the reason a `chrome-devtools-axi` run that opts into a headed browser still cannot open one.
 3. **The PATH shims** - [`bin/fm-browser-guard-bin/open`](../bin/fm-browser-guard-bin/open) and [`bin/fm-browser-guard-bin/osascript`](../bin/fm-browser-guard-bin/osascript) are symlinks to [`bin/fm-browser-guard-open.sh`](../bin/fm-browser-guard-open.sh) and [`bin/fm-browser-guard-osascript.sh`](../bin/fm-browser-guard-osascript.sh), which the guard puts first on the pane's `PATH`.
    They cover the routes that never touch Node, and they refuse rather than forcing because `open` has no headless form.
@@ -50,6 +51,7 @@ A worker that exports it in its own pane is visible in its transcript, which is 
 ## Boundaries
 
 - A launcher that is neither a Node process nor one of the two PATH shims is outside the guard: a Python or Java Selenium run driving `chromedriver`, an absolute-path browser binary started from a shell, or a script file passed to `osascript` (only `-e` and stdin scripts are read).
+- A browser binary renamed to a name the spawn layer does not recognize is outside layer 2; a Playwright or Puppeteer launch of it is still forced headless by layer 1.
 - A browser URL held in an AppleScript variable, or one assembled inside a shell string passed to `child_process.exec`, cannot be judged without evaluating the script, so the guard does not try.
 - The guard covers agents Firstmate launches.
   The captain's own primary session is not guarded, so his own browser use and his login flows are unaffected.

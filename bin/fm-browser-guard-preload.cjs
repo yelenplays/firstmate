@@ -27,8 +27,10 @@
 //   2. Process spawn (child_process spawn/spawnSync/execFile/execFileSync). The
 //      browser command line is rewritten to carry the library's own headless
 //      flag before the process starts. This is the backstop for launchers this
-//      preload does not recognize as a library: a renamed binary, a wrapper
-//      script, a driver, or any other tool that starts a browser process.
+//      preload does not recognize as a library: a wrapper script, a driver,
+//      or any other tool that starts a browser process. A browser is
+//      recognized by its binary name only, never by debugging flags, so an
+//      Electron app launched with --remote-debugging-port is left alone.
 //   3. PATH shims (bin/fm-browser-guard-bin/open, .../osascript), which cover
 //      the non-Node routes: `open <url>`, `open -a "Google Chrome"`, and
 //      AppleScript browser activation. They refuse instead of forcing, because
