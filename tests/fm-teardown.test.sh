@@ -835,9 +835,22 @@ test_model_ledger_skips_corrupt_prior_line() {
   case_dir=$(make_case model-ledger-corrupt)
   write_meta "$case_dir" local-only ship
   printf 'done: ok\n' > "$case_dir/state/task-x1.status"
-  printf '{"task":"other","spawn_gen":"g"}\n{"task":"task-x1","spa\n' > "$case_dir/data/model-ledger.jsonl"
+  printf '{"task":"other","spawn_gen":"g"}\n[1]\n\377bad\n{"task":"task-x1","spa' > "$case_dir/data/model-ledger.jsonl"
   python3 "$ROOT/bin/fm-model-ledger.py" --state "$case_dir/state" --data "$case_dir/data" task-x1 || fail 'corrupt prior line wedged the ledger'
-  [ "$(grep -c '^{"task":"task-x1".*"kind":' "$case_dir/data/model-ledger.jsonl")" -eq 1 ] || fail 'ledger did not append exactly one row'
+  python3 "$ROOT/bin/fm-model-ledger.py" --state "$case_dir/state" --data "$case_dir/data" task-x1 || fail 'retry after corrupt tail failed'
+  python3 - "$case_dir/data/model-ledger.jsonl" <<'PY' || fail 'ledger rows wrong after corrupt tail'
+import json, sys
+good = []
+for line in open(sys.argv[1], 'rb').read().splitlines():
+    try:
+        row = json.loads(line)
+    except ValueError:
+        continue
+    if isinstance(row, dict):
+        good.append(row)
+assert [r['task'] for r in good] == ['other', 'task-x1'], good
+assert good[1]['kind'] == 'ship', good
+PY
   pass 'model ledger skips unparsable prior lines'
 }
 
