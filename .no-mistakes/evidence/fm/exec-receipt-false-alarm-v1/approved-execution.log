@@ -2,9 +2,31 @@ $ bash tests/fm-approved-execution.test.sh
 ok - missing notification marker permits one initial notification
 PASS: approved scout cannot disappear after acknowledgements
 WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-warn: no registry at /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-approved-execution.8Mhpub/approved-scout/data/projects.md; defaulting project to no-mistakes off
-error: promotion refused for approved-scout: cannot determine whether /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-approved-execution.8Mhpub/approved-scout/project shares firstmate's history (the code root /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-approved-execution.8Mhpub/approved-scout has no readable history, or a shallow clone shares no root commit); fetch full history (git fetch --unshallow) before dispatching publishing work
-error: to let this home publish to that repository, write 'maintainer <host>/<owner>/<repo>' into /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-approved-execution.8Mhpub/approved-scout/config/firstmate-role (docs/configuration.md "Firstmate role"), or pass --upstream-consent <host>/<owner>/<repo> for this one task with the captain's explicit approval
-FAIL: tests/fm-approved-execution.test.sh:106: FM_ROOT_OVERRIDE="$home" PATH="$home/fakebin:$PATH" "$ROOT/bin/fm-promote.sh" approved-scout --mode no-mistakes --yolo on > "$home/promotion" (exit 1)
-
-exit=1; elapsed=18.3s
+warn: no registry at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52PDXGWKTXAPVQKXPHGQDZW/.test-phase-tmp/fm-approved-execution.yzrzlR/approved-scout/data/projects.md; defaulting project to no-mistakes off
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+ok - a fresh launch owns its start inside the grace; a dead or overdue launch still wakes firstmate
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  3 task(s) in flight, but no watcher has a fresh beacon (last beat: 338s ago, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52PDXGWKTXAPVQKXPHGQDZW/.test-phase-tmp/fm-approved-execution.yzrzlR/approved-scout/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52PDXGWKTXAPVQKXPHGQDZW/.test-phase-tmp/fm-approved-execution.yzrzlR/approved-scout/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+warn: no registry at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52PDXGWKTXAPVQKXPHGQDZW/.test-phase-tmp/fm-approved-execution.yzrzlR/approved-scout/data/projects.md; defaulting project to no-mistakes off
+PASS: authority, fan-out, waits, promotion, receipts, restart, handoff and watcher transitions

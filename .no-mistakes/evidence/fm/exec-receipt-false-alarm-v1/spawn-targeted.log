@@ -1,0 +1,23 @@
+Targeted existing behavioral test: fm-spawn-dispatch-profile.test.sh::test_enrolled_launch_status_confirms_processing
+Fixture execution only; no live harness started.
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+ok - delivered status command confirms isolated worker processing without the separate receipt
+
+FIXTURE PRODUCT OUTPUT: delivered status and current execution obligation
+Executed reporting command: FM_HOME='/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52PDXGWKTXAPVQKXPHGQDZW/.test-phase-tmp/fm-spawn-dispatch-profile.w8WyaH/execution-status-receipt/home' '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52PDXGWKTXAPVQKXPHGQDZW/bin/fm-task-execution.sh' status 'execution-status-receipt' 'e1792166545.53695.15173' "working [at=1792166554]: worker processing"
+Persisted status events:
+blocked [at=1792166554]: worker processing
+working [at=1792166554]: worker processing
+Persisted execution record:
+{
+  "version": 1,
+  "basis": "captain-approved",
+  "phase": "attempted",
+  "attempt": "e1792166556.67934.22628",
+  "attempt_gen": "s1792166543.38822.11153",
+  "spawn_gen": "",
+  "attempt_at": 1792166556
+}
+execution-status-receipt	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+
+EXIT 0

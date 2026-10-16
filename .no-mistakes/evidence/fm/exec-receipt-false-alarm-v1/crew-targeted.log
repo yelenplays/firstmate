@@ -1,0 +1,20 @@
+Targeted existing behavioral test: fm-crew-state.test.sh::test_launch_and_old_working_events_do_not_prove_processing
+Fixture execution only; no live harness started.
+ok - status reporting confirms isolated ship/task processing, never launch seeds or stale working events
+
+FIXTURE PRODUCT OUTPUT: reconciled task worker after status receipt
+state: working · source: pane · harness busy (claude-hook)
+Task status events:
+paused: validation in progress
+Task execution record:
+{
+  "version": 1,
+  "basis": "captain-approved",
+  "phase": "processing",
+  "attempt": "e1792166546.56088.21739",
+  "attempt_gen": "task1",
+  "spawn_gen": "task1",
+  "attempt_at": 1792166546
+}
+
+EXIT 0

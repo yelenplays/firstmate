@@ -1,0 +1,18 @@
+Targeted existing behavioral test: fm-rovo-harness.test.sh::test_rovo_enrolled_launch_preserves_status_route
+Fixture execution only; no live harness started.
+ok - enrolled Rovo launch preserves status reporting within existing grants without confirming a receipt
+
+FIXTURE PRODUCT OUTPUT: Rovo reporting route
+Executed reporting command: echo "working [at=1792167287]: Rovo worker status" >> '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52PDXGWKTXAPVQKXPHGQDZW/.test-phase-tmp/fm-rovo-harness.RNbZbG/enrolled/home/state/rovo-enrolled-z7-14345.status' && { [ ! -e '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52PDXGWKTXAPVQKXPHGQDZW/.test-phase-tmp/fm-rovo-harness.RNbZbG/enrolled/home/config/fleet-ledger' ] || '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52PDXGWKTXAPVQKXPHGQDZW/bin/fm-fleet-ledger.sh' appended '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52PDXGWKTXAPVQKXPHGQDZW/.test-phase-tmp/fm-rovo-harness.RNbZbG/enrolled/home/config' '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52PDXGWKTXAPVQKXPHGQDZW/.test-phase-tmp/fm-rovo-harness.RNbZbG/enrolled/home/state/rovo-enrolled-z7-14345.status' >/dev/null 2>&1 || true; }
+working [at=1792167287]: Rovo worker status
+{
+  "version": 1,
+  "basis": "captain-approved",
+  "phase": "attempted",
+  "attempt": "e1792167281.23750.30817",
+  "attempt_gen": "s1792167280.15962.13328",
+  "spawn_gen": "",
+  "attempt_at": 1792167281
+}
+
+EXIT 0
