@@ -537,7 +537,7 @@ SH
 set -u
 if [ "${1:-}" = models ]; then
   if [ "${FM_FAKE_AGY_MODELS_FAIL:-0}" = 1 ]; then exit 3; fi
-  if [ "${FM_FAKE_AGY_MODELS_HANG:-0}" = 1 ]; then cat > /dev/null; sleep 30; exit 0; fi
+  if [ "${FM_FAKE_AGY_MODELS_HANG:-0}" = 1 ]; then cat > /dev/null; sleep 120; exit 0; fi
   printf 'gemini-3.8-flash-high\tGemini 3.8 Flash (High)\n'
   printf 'gemini-3.8-flash-medium\tGemini 3.8 Flash (Medium)\n'
   printf 'gemini-3.8-flash-low\tGemini 3.8 Flash (Low)\n'
@@ -696,7 +696,8 @@ test_agy_hung_listing_is_cut_off_and_launches() {
     "$FAKEBIN_DIR" "$id" --model gemini-3.8-flash-low) || rc=$?
   elapsed=$(( $(date +%s) - started ))
   expect_code 0 "$rc" "a hung model listing must not block the spawn"
-  [ "$elapsed" -lt 20 ] || fail "the model probe was not cut off by its bound (took ${elapsed}s)"
+  # The fake listing hangs 120s; 60s leaves spawn room on a loaded host.
+  [ "$elapsed" -lt 60 ] || fail "the model probe was not cut off by its bound (took ${elapsed}s)"
   assert_contains "$out" "did not answer within 1s" "a hung listing launched without its timeout notice"
   [ -s "$CASE_DIR/launch.log" ] || fail "a hung listing produced no launch command"
   assert_contains "$(cat "$CASE_DIR/launch.log")" "--model 'gemini-3.8-flash-low'" \
@@ -716,7 +717,7 @@ test_agy_zero_model_timeout_is_clamped_to_the_default_bound() {
     "$FAKEBIN_DIR" "$id" --model gemini-3.8-flash-low) || rc=$?
   elapsed=$(( $(date +%s) - started ))
   expect_code 0 "$rc" "a hung listing with a zero bound must not block the spawn"
-  [ "$elapsed" -lt 25 ] || fail "a zero model bound disabled the deadline (took ${elapsed}s)"
+  [ "$elapsed" -lt 60 ] || fail "a zero model bound disabled the deadline (took ${elapsed}s)"
   assert_contains "$out" "did not answer within 15s" \
     "a zero model bound was not clamped to the documented default"
   [ -s "$CASE_DIR/launch.log" ] || fail "a zero model bound produced no launch command"

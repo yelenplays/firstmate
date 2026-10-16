@@ -6,7 +6,7 @@ Busy-state sources live-verified on Claude Code 2.1.282; hook fallback details a
 
 | Fact | Value |
 |---|---|
-| Busy | `claude agents --json` is the primary source; owned lifecycle hooks are the fallback. The shared classifier owns matching, precedence, and waiting-state semantics; see [`bin/fm-busy-lib.sh`](../../../../../bin/fm-busy-lib.sh) and [live evidence](../../../../../docs/verification/supervision.md#claude-session-list-2026-09-24). |
+| Busy | `claude agents --json` is the primary source; owned lifecycle hooks are the fallback, and a secondmate gets no `Stop` busy hook, because its home's tracked Stop guard is its only Stop writer, unless that guard predates `.fm-busy-stop` and the launch keeps the `Stop` idle hook (`../../../docs/turnend-guard.md` owns that). The shared classifier owns matching, precedence, and waiting-state semantics; see [`bin/fm-busy-lib.sh`](../../../../../bin/fm-busy-lib.sh) and [live evidence](../../../../../docs/verification/supervision.md#claude-session-list-2026-09-24). |
 | Exit | `/exit`. |
 | Interrupt | Single Escape. |
 | Skill | `/<skill>`, for example `/no-mistakes`. |
@@ -77,6 +77,7 @@ Claude ship, scout, and secondmate launches narrow skill discovery without chang
 
 [`../../../../../docs/verification/supervision.md`](../../../../../docs/verification/supervision.md#turn-end-guard) records the current primary and Stop auto-arm live evidence.
 This differs from the worker hook, which only touches a task marker through `.claude/settings.local.json`.
+A Claude secondmate's busy hooks are not that file: `bin/fm-spawn.sh` passes the parent home's `state/<id>.claude-settings.json` through `--settings` and does not edit the mate home's `settings.local.json`.
 
 Primary `.claude/settings.json` registers `../../../bin/fm-turnend-guard.sh --claude` and `../../../bin/fm-claude-stop-autoarm.sh` with `asyncRewake: true` and `timeout: 28800`.
 Guard exit 2 plus stderr forces continuation.
