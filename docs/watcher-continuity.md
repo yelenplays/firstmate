@@ -214,7 +214,8 @@ In its `--claude` mode it cooperates with the auto-arm.
 ## Recovery episode acknowledgement
 
 A recovery episode is one generation of the `state/.watcher-down` marker.
-It is retired only by the generation-bound acknowledgement the drain prints as `WAKE_ACK_REQUIRED`.
+Handling retires it through the generation-bound acknowledgement the drain prints as `WAKE_ACK_REQUIRED`.
+Automatic quiet retirement is limited to the empty clean-close recovery and confirmed take-over cases below.
 The away return brief treats a still-open handling episode as a wake in progress, not watcher downtime; an open downtime episode remains a gap.
 
 ### Announcement
@@ -467,7 +468,7 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 - The self-healing moved-generation acknowledgement that consumes its handled rows and names its remedy.
 - The already-acknowledged confirmation no-op for a matching generation, with its mismatched-generation, dead-pid, and lock-mismatch rejections preserved.
 - The manual-restart generation churn that makes a confirmation for the churned generation report a mismatch, which an arm check without a reopen leaves in place.
-- A take-over that stays quiet after a confirmed TERM, including arrivals already acknowledged during handover, still surfaces unread work and self-exit downtime, and attaches without stopping a cycle the named arm does not own.
+- A take-over that stays quiet after a confirmed TERM, still surfaces queued work and self-exit downtime, and attaches without stopping a cycle the named arm does not own.
 - The disposable-checkout arm refusal.
 - The home-gone and state-gone watcher exits.
 - The test reaper that stops a watcher armed for a temporary home.
@@ -481,6 +482,8 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 It also exercises a single TERM with a live foreign downtime-marker lock holder, retained stale singleton and subsequent arm-style recovery, including decimal `08` and zero `00` cleanup bounds.
 It checks that a newly appended keyed decision is classified without rereading earlier status bytes, so signal handling can return to the watcher's beacon refresh even when the status history is long.
 `tests/fm-wake-queue.test.sh` proves TERM likewise stops a watcher blocked in the drain-ring idle check's pane capture.
+Its handover cases pin the [generation-reuse contract](#generation-reuse) for already-acknowledged arrivals, unread rows, unsafe queue paths, and unacknowledged snapshots.
+`tests/fm-supervision-host.test.sh` exercises that contract through repeated real host and hook cycles, including hook-process-group teardown and one-shot recovery of work queued during a genuine outage.
 
 `tests/fm-watcher-lock.test.sh` covers:
 

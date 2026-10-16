@@ -1733,6 +1733,10 @@ assert_confirmed_takeover_recovery() {  # <name> <acknowledged|pending>
   local home mode=$2 cycle cycles=3 seq_before seq_after
   home=$(make_primary_home "$1")
   install_takeover_interleave "$home" "$mode"
+  # Empty clean downtime is intentionally retired without waking main. Seed
+  # real unread work so this setup reaches the recovery/acknowledgement boundary.
+  append_wake "$home/state" check takeover-setup 'check: initial takeover recovery work' \
+    || fail "takeover recovery: could not seed initial unread work"
   FM_HOME="$home" bash -c '. "$1"; fm_recovery_marker_publish "$STATE/.watcher-down" downtime' _ \
     "$ROOT/bin/fm-wake-lib.sh" || fail "takeover recovery: could not seed downtime"
   FM_TEST_TAKEOVER_ROOT="$ROOT" BASH_ENV="$home/interleave.bash" start_hook_session "$home"
