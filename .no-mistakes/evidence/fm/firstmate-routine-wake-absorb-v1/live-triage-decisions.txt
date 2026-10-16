@@ -1,0 +1,97 @@
+## lab home: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.qhh8tY (stock fm-lab-home layout, real bin/ scripts, real fm-crew-state, no stubs)
+
+## step 1: task "other" appends a NEW decision to its status log; only an unrelated row (task "third") is queued
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 2 task(s): 2 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.qhh8tY/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792137551	1	stale	lab:third	stale: lab:third
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+other [key=review-question] needs-decision: choose a lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+third - C3 crew not working
+  crew: state: unknown · source: none · worktree gone (torn down?)
+other - C4 new open decision: other [key=review-question] needs-decision: choose a lane
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 43648.1792137552.8rY9Un
+[exit 10]
+$ cat state/.wake-triage.decisions
+other [key=review-question] needs-decision: choose a lane
+$ bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 43648.1792137552.8rY9Un
+[exit 0] queue now: 0 row(s)
+
+## step 2: next wake while the SAME decision stays open (manual triage) - must not be C4 again
+$ bin/fm-wake-triage.sh 
+WAKE TRIAGE: 1 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.qhh8tY/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792137576	2	stale	lab:third	stale: lab:third
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+other [key=review-question] needs-decision: choose a lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+third - C3 crew not working
+  crew: state: unknown · source: none · worktree gone (torn down?)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 74092.1792137576.cl7Z5I
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 74092.1792137576.cl7Z5I
+[exit 0] queue now: 0 row(s)
+
+## step 3: the decision text CHANGES; next wake under --absorb - must be C4 again
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 2 task(s): 2 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.qhh8tY/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792137594	3	stale	lab:third	stale: lab:third
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+other [key=review-question] needs-decision: choose a lane, now with a deadline
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+third - C3 crew not working
+  crew: state: unknown · source: none · worktree gone (torn down?)
+other - C4 new open decision: other [key=review-question] needs-decision: choose a lane, now with a deadline
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 91460.1792137595.bj8Ga1
+[exit 10]
+$ cat state/.wake-triage.decisions
+other [key=review-question] needs-decision: choose a lane, now with a deadline
+$ bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 91460.1792137595.bj8Ga1
+[exit 0] queue now: 0 row(s)
+
+## step 4: 40 open decisions overflow the OPEN DECISIONS byte cap (bulk entries filtered from this transcript)
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 22 task(s): 22 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.qhh8tY/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792137605	4	stale	lab:third	stale: lab:third
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+other [key=review-question] needs-decision: choose a lane, now with a deadline
+OPEN DECISIONS: 19 more omitted (byte cap)
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+third - C3 crew not working
+  crew: state: unknown · source: none · worktree gone (torn down?)
+- - C4 open decisions omitted by the byte cap; read the full drain output
+  crew: 
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 4 --recovery-generation 98778.1792137605.fWIuqT
+[exit 10]
+$ bin/fm-wake-drain.sh --ack-through 4 --recovery-generation 98778.1792137605.fWIuqT
+[exit 0] queue now: 0 row(s)
+
+## step 5: stdout closed during an --absorb presentation - pending output kept, new decision NOT recorded as presented
+[exit 1 with stdout closed]
+$ ls -a state | grep wake-triage
+.wake-triage.decisions
+.wake-triage.last
+.wake-triage.pending.1792137684.79113
+fresh decision lines in .wake-triage.decisions: 0
+## step 5b: the next triage replays the undelivered output and still shows the fresh decision ACT NOW
+$ bin/fm-wake-triage.sh --absorb
+RECOVERED DRAIN OUTPUT (an earlier triage was interrupted; act on all of it):
+[exit 10]
