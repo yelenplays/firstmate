@@ -1,0 +1,4 @@
+case failed rc=1: test_confirmed_takeover_does_not_resurface_acknowledged_interleaved_work
+not ok - takeover recovery: initial recovery never arrived
+case failed rc=1: test_confirmed_takeover_still_resurfaces_unread_interleaved_work
+not ok - takeover recovery: initial recovery never arrived

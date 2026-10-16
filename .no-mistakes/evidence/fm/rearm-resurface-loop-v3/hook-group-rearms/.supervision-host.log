@@ -1,0 +1,15 @@
+1792162573	start	gen=host-5500-1792162572	primary=claude
+1792162592	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/state/demo.status
+1792162622	start	gen=host-58926-1792162620	primary=claude
+1792162622	take-over	arm=23752
+1792162643	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/state/demo.status
+1792162668	start	gen=host-22640-1792162666	primary=claude
+1792162668	take-over	arm=94227
+1792162701	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/state/demo.status
+1792162725	start	gen=host-89556-1792162723	primary=claude
+1792162725	take-over	arm=63130
+1792162748	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/state/demo.status
+1792162766	start	gen=host-43481-1792162765	primary=claude
+1792162772	pass-through	attended	main-only	check: rearm-resurface
+1792162792	start	gen=host-76332-1792162791	primary=claude
+1792162793	take-over	arm=51719

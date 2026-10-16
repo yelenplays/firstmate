@@ -1,0 +1,155 @@
+Fixture-only evidence: real runtime scripts with simulated primary/engine, NOT live Claude notification coverage.
+
+--- hook-group-rearms/.supervision-host.log ---
+1792162573	start	gen=host-5500-1792162572	primary=claude
+1792162592	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/state/demo.status
+1792162622	start	gen=host-58926-1792162620	primary=claude
+1792162622	take-over	arm=23752
+1792162643	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/state/demo.status
+1792162668	start	gen=host-22640-1792162666	primary=claude
+1792162668	take-over	arm=94227
+1792162701	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/state/demo.status
+1792162725	start	gen=host-89556-1792162723	primary=claude
+1792162725	take-over	arm=63130
+1792162748	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/state/demo.status
+1792162766	start	gen=host-43481-1792162765	primary=claude
+1792162772	pass-through	attended	main-only	check: rearm-resurface
+1792162792	start	gen=host-76332-1792162791	primary=claude
+1792162793	take-over	arm=51719
+
+--- hook-group-rearms/.watch-cycle-exits.log ---
+arm_pid=7557	watcher_pid=7902	origin=started	started_at=1792162574	ended_at=1792162588	exit_code=0	signal=none	reason=actionable-signal	beacon_age=10	lock_before=pid:7902|identity:Fri Oct 16 16:56:14 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:23933
+arm_pid=23752	watcher_pid=23933	origin=started	started_at=1792162592	ended_at=1792162625	exit_code=143	signal=TERM	reason=signal-exit	beacon_age=2	lock_before=pid:23933|identity:Fri Oct 16 16:56:32 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+arm_pid=61402	watcher_pid=23933	origin=attached	started_at=1792162623	ended_at=1792162626	exit_code=unknown	signal=unknown	reason=taken-over	beacon_age=3	lock_before=pid:23933|identity:Fri Oct 16 16:56:32 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:70367
+arm_pid=61402	watcher_pid=70367	origin=started	started_at=1792162627	ended_at=1792162641	exit_code=0	signal=none	reason=actionable-signal	beacon_age=7	lock_before=pid:70367|identity:Fri Oct 16 16:57:07 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:94607
+arm_pid=94227	watcher_pid=94607	origin=started	started_at=1792162644	ended_at=1792162672	exit_code=143	signal=TERM	reason=signal-exit	beacon_age=4	lock_before=pid:94607|identity:Fri Oct 16 16:57:24 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+arm_pid=28402	watcher_pid=94607	origin=attached	started_at=1792162669	ended_at=1792162675	exit_code=unknown	signal=unknown	reason=taken-over	beacon_age=7	lock_before=pid:94607|identity:Fri Oct 16 16:57:24 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:39324
+arm_pid=28402	watcher_pid=39324	origin=started	started_at=1792162676	ended_at=1792162696	exit_code=0	signal=none	reason=actionable-signal	beacon_age=11	lock_before=pid:39324|identity:Fri Oct 16 16:57:56 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:63758
+arm_pid=63130	watcher_pid=63758	origin=started	started_at=1792162702	ended_at=1792162728	exit_code=143	signal=TERM	reason=signal-exit	beacon_age=3	lock_before=pid:63758|identity:Fri Oct 16 16:58:22 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+arm_pid=92144	watcher_pid=63758	origin=attached	started_at=1792162726	ended_at=1792162730	exit_code=unknown	signal=unknown	reason=taken-over	beacon_age=5	lock_before=pid:63758|identity:Fri Oct 16 16:58:22 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:98122
+arm_pid=92144	watcher_pid=98122	origin=started	started_at=1792162731	ended_at=1792162746	exit_code=0	signal=none	reason=actionable-signal	beacon_age=8	lock_before=pid:98122|identity:Fri Oct 16 16:58:51 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:23896
+arm_pid=23626	watcher_pid=23896	origin=started	started_at=1792162748	ended_at=1792162762	exit_code=137	signal=KILL	reason=signal-exit	beacon_age=0	lock_before=pid:23896|identity:Fri Oct 16 16:59:08 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:23896|identity:Fri Oct 16 16:59:08 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	successor=none
+arm_pid=44831	watcher_pid=45005	origin=started	started_at=1792162766	ended_at=1792162770	exit_code=0	signal=none	reason=actionable-check	beacon_age=1	lock_before=pid:45005|identity:Fri Oct 16 16:59:26 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:51946
+arm_pid=51719	watcher_pid=51946	origin=started	started_at=1792162772	ended_at=1792162795	exit_code=143	signal=TERM	reason=signal-exit	beacon_age=2	lock_before=pid:51946|identity:Fri Oct 16 16:59:32 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+arm_pid=78076	watcher_pid=51946	origin=attached	started_at=1792162793	ended_at=1792162797	exit_code=unknown	signal=unknown	reason=taken-over	beacon_age=4	lock_before=pid:51946|identity:Fri Oct 16 16:59:32 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:84540
+arm_pid=78076	watcher_pid=84540	origin=started	started_at=1792162797	ended_at=1792162807	exit_code=143	signal=TERM	reason=arm-interrupted	beacon_age=5	lock_before=pid:84540|identity:Fri Oct 16 16:59:57 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+
+--- hook-group-rearms/.watcher-down ---
+pending:downtime:84540.1792162806.UJ4pvz
+
+--- hook-group-rearms/outage-drain ---
+1792162763	9	check	outage-fixture	check: queued during genuine outage
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 9 --recovery-generation 41115.1792162763.4e0jaH
+OPEN DECISIONS: 1 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+--- hook-at-turn-group-rearms/.supervision-host.log ---
+1792162573	start	gen=host-5475-1792162572	primary=claude
+1792162604	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/state/demo.status
+1792162625	start	gen=host-62359-1792162624	primary=claude
+1792162625	take-over	arm=25290
+1792162647	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/state/demo.status
+1792162675	start	gen=host-34271-1792162673	primary=claude
+1792162676	take-over	arm=98238
+1792162707	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/state/demo.status
+1792162731	start	gen=host-95992-1792162729	primary=claude
+1792162731	take-over	arm=68662
+1792162751	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/state/demo.status
+1792162770	start	gen=host-48129-1792162769	primary=claude
+1792162777	pass-through	attended	main-only	check: rearm-resurface
+1792162800	start	gen=host-85108-1792162798	primary=claude
+1792162800	take-over	arm=59280
+
+--- hook-at-turn-group-rearms/.watch-cycle-exits.log ---
+arm_pid=7493	watcher_pid=7891	origin=started	started_at=1792162574	ended_at=1792162589	exit_code=0	signal=none	reason=actionable-signal	beacon_age=11	lock_before=pid:7891|identity:Fri Oct 16 16:56:14 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:25595
+arm_pid=25290	watcher_pid=25595	origin=started	started_at=1792162595	ended_at=1792162627	exit_code=143	signal=TERM	reason=signal-exit	beacon_age=1	lock_before=pid:25595|identity:Fri Oct 16 16:56:35 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+arm_pid=66831	watcher_pid=25595	origin=attached	started_at=1792162626	ended_at=1792162628	exit_code=unknown	signal=unknown	reason=taken-over	beacon_age=2	lock_before=pid:25595|identity:Fri Oct 16 16:56:35 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:74155
+arm_pid=66831	watcher_pid=74155	origin=started	started_at=1792162629	ended_at=1792162644	exit_code=0	signal=none	reason=actionable-signal	beacon_age=7	lock_before=pid:74155|identity:Fri Oct 16 16:57:09 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:98572
+arm_pid=98238	watcher_pid=98572	origin=started	started_at=1792162647	ended_at=1792162678	exit_code=143	signal=TERM	reason=signal-exit	beacon_age=1	lock_before=pid:98572|identity:Fri Oct 16 16:57:27 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+arm_pid=38690	watcher_pid=98572	origin=attached	started_at=1792162676	ended_at=1792162680	exit_code=unknown	signal=unknown	reason=taken-over	beacon_age=3	lock_before=pid:98572|identity:Fri Oct 16 16:57:27 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:46457
+arm_pid=38690	watcher_pid=46457	origin=started	started_at=1792162682	ended_at=1792162703	exit_code=0	signal=none	reason=actionable-signal	beacon_age=14	lock_before=pid:46457|identity:Fri Oct 16 16:58:01 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:69023
+arm_pid=68662	watcher_pid=69023	origin=started	started_at=1792162708	ended_at=1792162734	exit_code=143	signal=TERM	reason=signal-exit	beacon_age=5	lock_before=pid:69023|identity:Fri Oct 16 16:58:28 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+arm_pid=98831	watcher_pid=69023	origin=attached	started_at=1792162732	ended_at=1792162735	exit_code=unknown	signal=unknown	reason=taken-over	beacon_age=6	lock_before=pid:69023|identity:Fri Oct 16 16:58:28 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:5334
+arm_pid=98831	watcher_pid=5334	origin=started	started_at=1792162736	ended_at=1792162749	exit_code=0	signal=none	reason=actionable-signal	beacon_age=8	lock_before=pid:5334|identity:Fri Oct 16 16:58:56 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:29428
+arm_pid=29069	watcher_pid=29428	origin=started	started_at=1792162752	ended_at=1792162767	exit_code=137	signal=KILL	reason=signal-exit	beacon_age=0	lock_before=pid:29428|identity:Fri Oct 16 16:59:12 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:29428|identity:Fri Oct 16 16:59:12 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	successor=none
+arm_pid=49600	watcher_pid=49777	origin=started	started_at=1792162770	ended_at=1792162774	exit_code=0	signal=none	reason=actionable-check	beacon_age=1	lock_before=pid:49777|identity:Fri Oct 16 16:59:30 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:59597
+arm_pid=59280	watcher_pid=59597	origin=started	started_at=1792162777	ended_at=1792162803	exit_code=143	signal=TERM	reason=signal-exit	beacon_age=6	lock_before=pid:59597|identity:Fri Oct 16 16:59:37 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+arm_pid=89898	watcher_pid=59597	origin=attached	started_at=1792162801	ended_at=1792162805	exit_code=unknown	signal=unknown	reason=taken-over	beacon_age=8	lock_before=pid:59597|identity:Fri Oct 16 16:59:37 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:95769
+arm_pid=89898	watcher_pid=95769	origin=started	started_at=1792162806	ended_at=1792162814	exit_code=143	signal=TERM	reason=arm-interrupted	beacon_age=1	lock_before=pid:95769|identity:Fri Oct 16 17:00:06 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.zADU5F/hook-at-turn-group-rearms/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+
+--- hook-at-turn-group-rearms/.watcher-down ---
+pending:downtime:95769.1792162813.RxuAcO
+
+--- hook-at-turn-group-rearms/outage-drain ---
+1792162767	9	check	outage-fixture	check: queued during genuine outage
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 9 --recovery-generation 45574.1792162768.W5bM3h
+OPEN DECISIONS: 1 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+--- hook-confirmed-takeover-acked/.supervision-host.log ---
+1792163104	start	gen=host-72365-1792163104	primary=claude
+1792163110	pass-through	attended	main-only	check: rearm-resurface
+1792163122	start	gen=host-96448-1792163121	primary=claude
+1792163122	take-over	arm=81305
+1792163148	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/state/demo.status
+1792163165	start	gen=host-37359-1792163163	primary=claude
+1792163165	take-over	arm=25127
+1792163190	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/state/demo.status
+1792163203	start	gen=host-92590-1792163202	primary=claude
+1792163203	take-over	arm=70083
+
+--- hook-confirmed-takeover-acked/.watch-cycle-exits.log ---
+arm_pid=74261	watcher_pid=74677	origin=started	started_at=1792163105	ended_at=1792163108	exit_code=0	signal=none	reason=actionable-check	beacon_age=1	lock_before=pid:74677|identity:Fri Oct 16 17:05:05 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:81631
+arm_pid=81305	watcher_pid=81631	origin=started	started_at=1792163111	ended_at=1792163132	exit_code=143	signal=TERM	reason=signal-exit	beacon_age=3	lock_before=pid:81631|identity:Fri Oct 16 17:05:11 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+arm_pid=97549	watcher_pid=81631	origin=attached	started_at=1792163123	ended_at=1792163133	exit_code=unknown	signal=unknown	reason=taken-over	beacon_age=4	lock_before=pid:81631|identity:Fri Oct 16 17:05:11 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:11329
+arm_pid=97549	watcher_pid=11329	origin=started	started_at=1792163134	ended_at=1792163147	exit_code=0	signal=none	reason=actionable-signal	beacon_age=6	lock_before=pid:11329|identity:Fri Oct 16 17:05:34 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:25236
+arm_pid=25127	watcher_pid=25236	origin=started	started_at=1792163149	ended_at=1792163176	exit_code=143	signal=TERM	reason=signal-exit	beacon_age=1	lock_before=pid:25236|identity:Fri Oct 16 17:05:49 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+arm_pid=38687	watcher_pid=25236	origin=attached	started_at=1792163166	ended_at=1792163177	exit_code=unknown	signal=unknown	reason=taken-over	beacon_age=2	lock_before=pid:25236|identity:Fri Oct 16 17:05:49 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:54783
+arm_pid=38687	watcher_pid=54783	origin=started	started_at=1792163177	ended_at=1792163188	exit_code=0	signal=none	reason=actionable-signal	beacon_age=4	lock_before=pid:54783|identity:Fri Oct 16 17:06:17 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:70233
+arm_pid=70083	watcher_pid=70233	origin=started	started_at=1792163190	ended_at=1792163211	exit_code=143	signal=TERM	reason=signal-exit	beacon_age=2	lock_before=pid:70233|identity:Fri Oct 16 17:06:30 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+arm_pid=95483	watcher_pid=70233	origin=attached	started_at=1792163203	ended_at=1792163212	exit_code=unknown	signal=unknown	reason=taken-over	beacon_age=3	lock_before=pid:70233|identity:Fri Oct 16 17:06:30 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:12741
+arm_pid=95483	watcher_pid=12741	origin=started	started_at=1792163212	ended_at=1792163219	exit_code=143	signal=TERM	reason=arm-interrupted	beacon_age=3	lock_before=pid:12741|identity:Fri Oct 16 17:06:52 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+
+--- hook-confirmed-takeover-acked/.watcher-down ---
+pending:downtime:12741.1792163219.IMaVw2
+
+--- hook-confirmed-takeover-acked/interleave-drain ---
+1792163204	8	check	handover-result	check: result arrived during handover
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 8 --recovery-generation 97538.1792163204.gVTI6l
+OPEN DECISIONS: 1 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+--- hook-confirmed-takeover-acked/interleave-ack ---
+
+--- hook-confirmed-takeover-pending/.supervision-host.log ---
+1792163225	start	gen=host-31443-1792163225	primary=claude
+1792163231	pass-through	attended	main-only	check: rearm-resurface
+1792163240	start	gen=host-50096-1792163240	primary=claude
+1792163240	take-over	arm=40090
+1792163247	pass-through	attended	main-only	check: rearm-resurface
+1792163259	start	gen=host-68927-1792163257	primary=claude
+1792163259	take-over	arm=59637
+
+--- hook-confirmed-takeover-pending/.watch-cycle-exits.log ---
+arm_pid=32971	watcher_pid=33240	origin=started	started_at=1792163226	ended_at=1792163229	exit_code=0	signal=none	reason=actionable-check	beacon_age=2	lock_before=pid:33240|identity:Fri Oct 16 17:07:06 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-pending/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:40315
+arm_pid=40090	watcher_pid=40315	origin=started	started_at=1792163231	ended_at=1792163242	exit_code=143	signal=TERM	reason=signal-exit	beacon_age=1	lock_before=pid:40315|identity:Fri Oct 16 17:07:11 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-pending/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+arm_pid=51606	watcher_pid=40315	origin=attached	started_at=1792163241	ended_at=1792163243	exit_code=unknown	signal=unknown	reason=taken-over	beacon_age=2	lock_before=pid:40315|identity:Fri Oct 16 17:07:11 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-pending/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:55423
+arm_pid=51606	watcher_pid=55423	origin=started	started_at=1792163243	ended_at=1792163246	exit_code=0	signal=none	reason=actionable-check	beacon_age=1	lock_before=pid:55423|identity:Fri Oct 16 17:07:23 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-pending/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:59833
+arm_pid=59637	watcher_pid=59833	origin=started	started_at=1792163247	ended_at=1792163260	exit_code=143	signal=TERM	reason=signal-exit	beacon_age=3	lock_before=pid:59833|identity:Fri Oct 16 17:07:27 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-pending/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+arm_pid=70407	watcher_pid=59833	origin=attached	started_at=1792163259	ended_at=1792163261	exit_code=unknown	signal=unknown	reason=taken-over	beacon_age=4	lock_before=pid:59833|identity:Fri Oct 16 17:07:27 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-pending/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=started:72905
+arm_pid=70407	watcher_pid=72905	origin=started	started_at=1792163261	ended_at=1792163268	exit_code=143	signal=TERM	reason=arm-interrupted	beacon_age=2	lock_before=pid:72905|identity:Fri Oct 16 17:07:41 2026     bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-pending/bin/fm-watch.sh	lock_after=pid:none|identity:none	successor=none
+
+--- hook-confirmed-takeover-pending/.watcher-down ---
+pending:downtime:72905.1792163268.abvQ1u
+
+--- hook-confirmed-takeover-pending/pending-drain ---
+1792163241	2	check	handover-result	check: result arrived during handover
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 52608.1792163241.RKGQiZ
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.

@@ -1,0 +1,89 @@
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-lab.RBaucd
+viewer attached to fm-lab-rearm-live-19224-10761 (pid 20777)
+
+ ▐▛███▛█   Claude Code v2.1.301
+▝▜██████▀  Opus 5.5 (1M context) with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+─────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "create a util logging.py that..."
+─────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5.5 (1M context) | ~/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5…
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent
+
+--- startup state ---
+.
+..
+demo.meta
+demo.status
+
+--- setup screen ---
+
+ ▐▛███▛█   Claude Code v2.1.301
+▝▜██████▀  Opus 5.5 (1M context) with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5
+
+
+❯ This is a captain-approved isolated live notification test. FM_HOME is /Users/yelen/.no-mi
+  stakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-lab.RBaucd, a
+  marked disposable lab. All intentional writes must stay in that home. Do not delegate,
+  spawn workers, publish, merge, or touch any other home or repository files. Use only this
+  checkout's bin scripts. If session startup has not acquired this lab's session lock, run
+  bin/fm-session-start.sh once. On every watcher wake, run bin/fm-wake-drain.sh first, read
+  its result, then run its exact WAKE_ACK_REQUIRED command after handling. Every lab demo
+  decision is a test notification and requires no task action; just acknowledge its wake. Do
+  not manually arm or stop a watcher: the tracked Stop hook owns continuity. For this setup
+  turn, reply READY and end.
+
+  Listed 1 directory
+
+⏺ The lab is marked and no session lock shows up yet, so I'll run startup once.
+
+  Searched for 2 patterns, ran 3 shell commands
+
+⏺ READY
+
+  Captain, the lab home's session start ran once and holds its lock. The wake queue is empty
+  and nothing needs your attention. My second call only passed the help flag, which prints
+  usage and exits without running startup again.
+
+✻ Crunched for 52s · done 5:14 PM
+
+
+
+
+─────────────────────────────────────────────────────────────────────────────────────────────
+❯
+─────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5.5 (1M context) | ~/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5…
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent
+BLOCKED: primary did not arm a watcher

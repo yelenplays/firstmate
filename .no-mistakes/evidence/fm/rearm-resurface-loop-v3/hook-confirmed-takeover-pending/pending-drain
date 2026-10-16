@@ -1,0 +1,3 @@
+1792163241	2	check	handover-result	check: result arrived during handover
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 52608.1792163241.RKGQiZ
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.

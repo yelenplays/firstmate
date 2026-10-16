@@ -1,0 +1,4 @@
+1792162763	9	check	outage-fixture	check: queued during genuine outage
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 9 --recovery-generation 41115.1792162763.4e0jaH
+OPEN DECISIONS: 1 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.

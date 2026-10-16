@@ -1,0 +1,10 @@
+1792163104	start	gen=host-72365-1792163104	primary=claude
+1792163110	pass-through	attended	main-only	check: rearm-resurface
+1792163122	start	gen=host-96448-1792163121	primary=claude
+1792163122	take-over	arm=81305
+1792163148	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/state/demo.status
+1792163165	start	gen=host-37359-1792163163	primary=claude
+1792163165	take-over	arm=25127
+1792163190	pass-through	attended	main-only	signal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52K8W2DD20AFAN2G8JXM7A5/.local-test-tmp/fm-supervision-host.ucsGOV/hook-confirmed-takeover-acked/state/demo.status
+1792163203	start	gen=host-92590-1792163202	primary=claude
+1792163203	take-over	arm=70083
