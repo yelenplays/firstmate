@@ -1135,6 +1135,13 @@ Remote Control does not connect through Bedrock, Vertex, Foundry, a non-Anthropi
 `/remote-control` inside an already-running primary turns it on for that session only, without this file.
 Claude Code's [Remote Control documentation](https://code.claude.com/docs/en/remote-control) owns the product behavior.
 
+### Auto-compaction window (config/claude-autocompact)
+
+The optional local, gitignored `config/claude-autocompact` sets the primary's auto-compaction window through the same launcher.
+Its first non-comment line is `auto` or a token count from 100000 to 1000000, which becomes `claude --autocompact <value>`; any other value refuses to launch, and an `--autocompact` the caller passes wins.
+A smaller window compacts more often but carries a smaller context on every request, which is the main-session usage lever the memory capture work measured.
+A primary started with plain `claude` gets the same effect by passing `--autocompact <value>` itself, which also overrides `CLAUDE_CODE_AUTO_COMPACT_WINDOW` from the user settings.
+
 ## Worker tool exclusions (config/crew-exclude-tools)
 
 The optional local, gitignored `config/crew-exclude-tools` hides named tools from this home's ship and scout workers, for example to keep an MCP server's write tools out of reach while its read tools stay available.
@@ -2171,6 +2178,13 @@ Durable memory is plain markdown searched by a light BM25 index; [`docs/memory.m
 The store lives at `FM_MEMORY_DIR`, else the first non-comment non-blank line of gitignored `config/memory-dir` (under `FM_CONFIG_OVERRIDE` when set), else `$FM_HOME/data/memories`.
 The file is home-local and not part of secondmate inherited configuration.
 [`bin/fm-memory.sh`](../bin/fm-memory.sh) is the store/recall command surface, [`bin/fm-memory-migrate.sh`](../bin/fm-memory-migrate.sh) the verified export path, and [`bin/fm-openviking-retire.sh`](../bin/fm-openviking-retire.sh) the reversible server stop.
+
+### Automatic capture (config/memory-capture)
+
+Automatic capture of captain turns into the store is on by default for the primary home's main Claude session; [`docs/memory.md`](memory.md#automatic-capture) owns what it does.
+The optional local, gitignored `config/memory-capture` turns it off when its first non-comment line is `off`; `FM_MEMORY_CAPTURE=off` does the same for one process.
+`FM_MEMORY_CAPTURE_MODEL` overrides the default `claude-haiku-5-5` and accepts only a Claude Haiku or Sonnet model, and `FM_MEMORY_CAPTURE_JEV=off` sends every turn to that model instead of triaging through Jev first.
+The file is home-local and not inherited into secondmate homes, which capture nothing in this version.
 
 ## Toolchain
 
@@ -3457,6 +3471,9 @@ FM_DISPATCH_SELFTEST_HOUR=3  # local hour after which the nightly routing selfte
 FM_WIKI_ENGINE=         # wiki-tool executable path or command; else config/wiki-engine (docs/configuration.md "Wiki engine ask")
 FM_WIKI_CATALOG=        # private wiki-tool catalog JSON path; else config/wiki-catalog (docs/configuration.md "Wiki engine ask")
 FM_MEMORY_DIR=          # memory store directory; else config/memory-dir, else $FM_HOME/data/memories (docs/configuration.md "Memory store")
+FM_MEMORY_CAPTURE=      # off disables automatic memory capture; else config/memory-capture (docs/configuration.md "Automatic capture")
+FM_MEMORY_CAPTURE_MODEL=claude-haiku-5-5  # capture model; Claude Haiku or Sonnet only (same section)
+FM_MEMORY_CAPTURE_JEV=  # off skips the Jev first pass in capture (same section)
 FM_OV_HOME=             # OpenViking home override for migration/retire scripts; default ~/.openviking (docs/memory.md)
 FM_JEV_TOOL_GATE=shadow # remainder Jev tool-gate after arm-command policy; live needs this plus two opt-in files; hard-ship is a do-not (docs/configuration.md "Jev remainder tool-gate")
 FM_JEV_SKILL_SELECT=shadow # skill selection mode; activation and safe-query requirements: "Jev skill selector" above

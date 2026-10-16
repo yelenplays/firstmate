@@ -1212,6 +1212,19 @@ if [ -n "$THEME_DIGEST" ]; then
   printf '%s\n' "$THEME_DIGEST"
 fi
 
+# Current, perishable captain context captured by bin/fm-memory-capture.sh.
+# Keyword recall misses implicit follow-ups, so this block rides along on every
+# digest, slim or full, capped near 1.5K tokens by fm-memory.sh now. Private
+# entries reach only a Claude primary.
+NOW_ARGS=()
+[ "$PRIMARY_HARNESS" = claude ] || NOW_ARGS=(--exclude-private)
+NOW_BLOCK=$(FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" \
+  "$SCRIPT_DIR/fm-memory.sh" now ${NOW_ARGS[@]+"${NOW_ARGS[@]}"} 2>/dev/null || true)
+if [ -n "$NOW_BLOCK" ]; then
+  section "NOW (current captain context from the memory store now/ entries)"
+  printf '%s\n' "$NOW_BLOCK"
+fi
+
 if [ "$REEMIT" -eq 1 ]; then
   section "RECENT CAPTAIN WORDS"
   if HISTORY_RECENT=$("$SCRIPT_DIR/fm-history.sh" recent --n 5 2>/dev/null); then

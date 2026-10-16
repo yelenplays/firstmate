@@ -31,6 +31,7 @@ FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 RC_FILE="$CONFIG/claude-remote-control"
+AC_FILE="$CONFIG/claude-autocompact"
 DEFAULT_NAME=firstmate
 
 refuse() {
@@ -57,8 +58,35 @@ if [ -e "$RC_FILE" ] || [ -L "$RC_FILE" ]; then
   esac
 fi
 
+# config/claude-autocompact sets the primary's auto-compact window. Absent or
+# auto leaves Claude's own setting alone; a whole token count from 100000 to
+# 1000000 adds --autocompact <n>, unless the caller already passed one.
+AC_ARGS=()
+if [ -e "$AC_FILE" ] || [ -L "$AC_FILE" ]; then
+  [ -f "$AC_FILE" ] && [ -r "$AC_FILE" ] \
+    || { printf 'error: %s is not a readable regular file; accepted values are: auto or a token count from 100000 to 1000000\n' "$AC_FILE" >&2; exit 2; }
+  AC_LINE=$(grep -v -E '^[[:space:]]*(#|$)' "$AC_FILE" | head -n 1 | tr -d '[:space:]')
+  case "$AC_LINE" in
+    ''|auto) ;;
+    *[!0-9]*)
+      printf 'error: %s holds %s; accepted values are: auto or a token count from 100000 to 1000000\n' "$AC_FILE" "$AC_LINE" >&2
+      exit 2
+      ;;
+    *)
+      if [ "$AC_LINE" -lt 100000 ] || [ "$AC_LINE" -gt 1000000 ]; then
+        printf 'error: %s holds %s; accepted values are: auto or a token count from 100000 to 1000000\n' "$AC_FILE" "$AC_LINE" >&2
+        exit 2
+      fi
+      AC_ARGS=(--autocompact "$AC_LINE")
+      for arg in "$@"; do
+        case "$arg" in --autocompact|--autocompact=*) AC_ARGS=() ;; esac
+      done
+      ;;
+  esac
+fi
+
 CLAUDE_BIN="${FM_CLAUDE_BIN:-claude}"
-ARGV=("$CLAUDE_BIN" ${RC_ARGS[@]+"${RC_ARGS[@]}"} "$@")
+ARGV=("$CLAUDE_BIN" ${RC_ARGS[@]+"${RC_ARGS[@]}"} ${AC_ARGS[@]+"${AC_ARGS[@]}"} "$@")
 
 cd "$FM_ROOT" || exit 1
 exec "${ARGV[@]}"
