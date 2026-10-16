@@ -419,7 +419,7 @@ test_reviewer_chain_skips_the_builder_family() {
   assert_equals claude "$(field "$out" reviewer_harness)" "the Claude reviewer is selected"
   assert_equals anthropic "$(field "$out" reviewer_family)" "the same-family candidate is skipped"
   assert_equals claude-opus-5-5 "$(field "$out" reviewer_model)" "the fixed chain advances to its next disjoint family"
-  assert_equals high "$(field "$out" reviewer_effort)" "the Opus reviewer runs at high effort"
+  assert_equals medium "$(field "$out" reviewer_effort)" "the Opus reviewer runs at medium effort"
   pass "the fixed reviewer chain skips candidates from the builder family"
 }
 

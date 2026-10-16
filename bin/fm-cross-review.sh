@@ -516,9 +516,10 @@ private_change() {  # <head>, decision-time vault exclusion for plan and brief
   fi
 }
 
+# The fixed strongest-family candidates use Sol high and Opus medium.
 reviewer_candidates() {
   printf 'pi openai-codex/gpt-6.1-sol high\n'
-  printf 'claude claude-opus-5-5 high\n'
+  printf 'claude claude-opus-5-5 medium\n'
 }
 
 reviewer_id_for() {  # <tag> <head>

@@ -677,7 +677,7 @@ make_path_without_lsof() {  # <case-dir>
   local case_dir=$1 path_dir="$1/path-without-lsof" cmd resolved
   mkdir -p "$path_dir"
   for cmd in awk base64 bash basename cat chmod cp cksum cut date dirname env find git grep head hostname id jq ln node \
-    mkdir mktemp mv perl ps readlink realpath rm sed sh sleep sort stat tail tasks-axi timeout tr uname wc xargs; do
+    mkdir mktemp mv perl ps python3 readlink realpath rm sed sh sleep sort stat tail tasks-axi timeout tr uname wc xargs; do
     resolved=$(command -v "$cmd" 2>/dev/null) || continue
     case "$resolved" in /*) ln -sf "$resolved" "$path_dir/$cmd" ;; esac
   done
@@ -763,12 +763,39 @@ test_remote_secondmate_pending_reply_cleanup_foreign_last_record() {
   pass "remote secondmate teardown survives a foreign pending-reply record visited last"
 }
 
+test_model_ledger_failure_retains_records() {
+  local case_dir rc=0
+  case_dir=$(make_case model-ledger-failure)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" 'ledger fixture'
+  add_fork_with_pushed_branch "$case_dir"
+  printf 'done: private outcome\n' > "$case_dir/state/task-x1.status"
+  mkdir "$case_dir/data/model-ledger.jsonl"
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 1 "$rc" 'unwritable model ledger must refuse cleanup'
+  assert_present "$case_dir/state/task-x1.meta" 'ledger failure retains metadata'
+  assert_present "$case_dir/state/task-x1.status" 'ledger failure retains status'
+  rmdir "$case_dir/data/model-ledger.jsonl"
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || fail 'ledger retry failed'
+  jq -e '.final_state == "done" and .model == null and .pipeline_review_rounds == null and .cross_review_verdict == null and .claude_eq_tokens == null' \
+    "$case_dir/data/model-ledger.jsonl" >/dev/null || fail 'unknown ledger measurements must remain null'
+  pass 'model ledger failures retain task facts for retry and unknown measurements stay null'
+}
+
 test_local_only_fork_remote_allows() {
   local case_dir rc
   case_dir=$(make_case fork-allow)
   write_meta "$case_dir" local-only ship
   wt_commit "$case_dir" "fix the thing"
   add_fork_with_pushed_branch "$case_dir"
+  # Preserve model facts and counts, not task text or account-root paths.
+  printf 'harness=pi\nmodel=openai-codex/gpt-6.1-sol\neffort=high\naccount=/private/account-root\naccount_provider=openai-codex\npipeline_review_rounds=3\n' >> "$case_dir/state/task-x1.meta"
+  printf 'needs-decision [at=1] [key=test]: SECRET-STATUS\nresolved [at=2] [key=test]: SECRET-ANSWER\nblocked [at=3]: SECRET-BLOCKER\ndone [at=4]: SECRET-DONE\n' > "$case_dir/state/task-x1.status"
+  mkdir -p "$case_dir/data/task-x1"
+  printf '{"kind":"review","accepted":true,"verdict":"success","head":"abc","report":"data/private-report"}\n' > "$case_dir/data/task-x1/cross-review.jsonl"
+  printf '{\n  "task":"task-x1",\n  "totals":{"claudeEqTokens":1234}\n}\n' > "$case_dir/state/task-x1.spend"
+  # An interrupted cleanup must not append again on retry.
+  python3 "$ROOT/bin/fm-model-ledger.py" --state "$case_dir/state" --data "$case_dir/data" task-x1 || fail 'initial ledger append'
   # The supervision branch's bounded per-task outcome cache is a footprint of
   # the retired task, not a record anything reads after it is gone.
   printf 'fm-branch-outcome-index-v1\t5\t0\t-\n' > "$case_dir/state/.task-x1.branch-outcome-index"
@@ -779,6 +806,21 @@ test_local_only_fork_remote_allows() {
   set -e
 
   expect_code 0 "$rc" "fork-allow: teardown should succeed when HEAD is on a fork remote"
+  python3 - "$case_dir/data/model-ledger.jsonl" <<'PY' || fail 'model ledger did not preserve minimal outcome'
+import json, sys
+rows = [json.loads(line) for line in open(sys.argv[1])]
+assert len(rows) == 1, rows
+r = rows[0]
+assert r['task'] == 'task-x1' and r['kind'] == 'ship', r
+assert r['harness'] == 'pi' and r['model'] == 'openai-codex/gpt-6.1-sol' and r['effort'] == 'high', r
+assert r['pool'] is None and r['provider'] == 'openai-codex', r
+assert r['final_state'] == 'done' and r['needs_decision_count'] == 1 and r['blocked_count'] == 1, r
+assert r['pipeline_review_rounds'] == 3 and r['cross_review_verdict'] == 'success' and r['claude_eq_tokens'] == 1234, r
+text = json.dumps(r)
+assert 'SECRET' not in text and '/private/' not in text and 'data/' not in text, text
+PY
+  assert_absent "$case_dir/state/task-x1.meta" 'ledger integration completes metadata retirement'
+  assert_absent "$case_dir/state/task-x1.status" 'ledger integration completes status retirement'
   ! grep -q REFUSED "$case_dir/stderr" || fail "fork-allow: teardown printed a REFUSED line"
   [ ! -e "$case_dir/state/.task-x1.branch-outcome-index" ] \
     || fail "fork-allow: teardown left the task's branch outcome index behind"
@@ -5556,6 +5598,12 @@ if [ "${1:-}" = --scout-deliverables ]; then
   exit 0
 fi
 
+if [ "${1:-}" = --model-ledger ]; then
+  test_local_only_fork_remote_allows
+  test_model_ledger_failure_retains_records
+  exit 0
+fi
+
 test_missing_startup_source_refuses_before_cleanup
 test_unreadable_startup_source_refuses_before_cleanup
 test_missing_adapter_sibling_refuses_before_cleanup
@@ -5569,6 +5617,7 @@ if [ "${1:-}" = --teardown-signals ]; then
 fi
 
 test_local_only_fork_remote_allows
+test_model_ledger_failure_retains_records
 test_teardown_retires_watcher_state
 test_teardown_closes_the_backlog_item_itself
 test_teardown_closes_a_gerrit_task_with_its_change_url_as_a_note
