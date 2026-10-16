@@ -54,9 +54,10 @@
 #            prints `skipped: <why>` and exits 0. It gathers a fresh snapshot,
 #            composes it, carries over the cards the last build's agent
 #            authored (a decision or credential card while its key is still an
-#            open call, a merge card while its task is still underway and not
-#            landed - the authored order first, so the composer's ranking
-#            survives), and applies the same landed-card drop and reconcile
+#            open call, a merge card while its task is still an open call and
+#            not landed, standing in for that task's own call so one approval
+#            is one card - the authored order first, so the
+#            composer's ranking survives), and applies the same landed-card drop and reconcile
 #            choice as build. It republishes the board file only when the
 #            page it would publish differs from the board in anything but
 #            `generated` (so a template upgrade also reaches an open board),
@@ -508,21 +509,27 @@ compose_payload() {  # <bearings-snapshot.json>
 
 # Carry the last build's agent-authored Captain's Call cards onto a composed
 # payload: a call card while its key is still a composed open call, a merge
-# card while its task is still underway and not landed. Authored order first.
+# card while its task is still a composed open call and not landed. A merge
+# answer is acted on only by releasing the task's captain hold, so the open
+# call is the merge card's authoritative signal: whether the worker is busy
+# does not keep it, and an answered (released) one leaves. A carried merge card
+# is that task's one card, so no other card keyed by the task survives beside
+# it. Authored order first.
 carry_authored() {  # <composed.json> <authored.json>
   jq --slurpfile authored "$2" '
     . as $c
     | ([$c.captains_call[].key]) as $open
-    | ([$c.underway[].id]) as $live
     | ([$c.landed[].id]) as $landed
     | ([($authored[0].captains_call // [])[]
         | select(
             if .type == "merge" then
               (.key | ltrimstr("merge.")) as $task
-              | ($live | index($task)) != null and ($landed | index($task)) == null
+              | ($open | index($task)) != null and ($landed | index($task)) == null
             else (.key as $k | $open | index($k)) != null end)]) as $carried
-    | ([$carried[].key]) as $carried_keys
-    | .captains_call = $carried + [$c.captains_call[] | select(.key as $k | $carried_keys | index($k) | not)]
+    | ([$carried[] | select(.type == "merge") | .key | ltrimstr("merge.")]) as $merged
+    | ([$carried[] | select(.type == "merge" or (.key as $k | $merged | index($k) | not))]) as $carried
+    | ([$carried[].key] + $merged) as $taken
+    | .captains_call = $carried + [$c.captains_call[] | select(.key as $k | $taken | index($k) | not)]
   ' "$1"
 }
 

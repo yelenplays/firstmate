@@ -1028,6 +1028,61 @@ EOF
   pass "a staged route answer marks its card and makes the refresh due"
 }
 
+# A finished worker waiting on the captain's merge approval is held and idle,
+# so the snapshot leaves it out of Underway; its open call is what keeps the
+# authored merge card. That card is the task's one call: the composed card for
+# the same hold must not sit beside it and count the approval twice.
+test_refresh_keeps_a_held_merge_card_as_the_tasks_one_call() {
+  local home data board out today render
+  home=$(make_home refresh-merge)
+  data="$home/payload.json"
+  board="$home/.lavish/bearings-board.html"
+  today=$(date -u +%Y-%m-%d)
+  cp "$ROOT/.tasks.toml" "$home/.tasks.toml"
+  cat > "$home/data/backlog.md" <<EOF
+## In flight
+- [ ] sample-task - Ship the thing (repo: sample) (kind: ship) (since $today) (hold: Approve merge) (hold-kind: captain)
+  Captain hold set: ${today}T00:00:00Z
+
+## Queued
+
+## Done
+EOF
+  fm_write_meta "$home/state/sample-task.meta" "project=$home/projects/sample" "kind=ship" \
+    "pr=https://github.com/example/sample/pull/1"
+  printf 'done [at=%s]: PR https://github.com/example/sample/pull/1 checks green\n' "$(date +%s)" \
+    > "$home/state/sample-task.status"
+  write_valid_payload "$data"
+  jq '.captains_call = [.captains_call[] | select(.type == "merge")] | .charted = []' \
+    "$data" > "$data.tmp" && mv "$data.tmp" "$data"
+  run_board "$home" build "$data" >/dev/null 2>&1 || fail "the refresh-merge build failed"
+
+  out=$(run_board "$home" refresh) || fail "the merge-card refresh failed: $out"
+  extract_payload "$board" | jq -e '
+    ([.captains_call[] | {key, type, pr_url}]
+      == [{"key":"merge.sample-task","type":"merge","pr_url":"https://github.com/example/sample/pull/1"}])
+    and ([.captains_call[0].options[].value] == ["merge", "hold"])
+    and ([.underway[] | select(.id == "sample-task")] == [])
+  ' >/dev/null || fail "refresh did not keep the held task's merge card as its one call"
+  if command -v node >/dev/null 2>&1; then
+    render=$(node "$ROOT/tests/assets/board-render-harness.mjs" "$board") \
+      || fail "the refreshed merge board could not be rendered"
+    printf '%s' "$render" | jq -e '
+      [.stats[] | select(.label == "need you") | .n] == [1]
+    ' >/dev/null || fail "one merge approval did not count once against the WIP limit: $render"
+  fi
+
+  printf 'merge\n' > "$home/answer.txt"
+  (cd "$home" && PATH="$home/fakebin:$PATH" FM_HOME="$home" \
+    FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    "$ROOT/bin/fm-captain-hold.sh" answer sample-task --decision-file "$home/answer.txt" --release) >/dev/null \
+    || fail "could not record the merge answer"
+  out=$(run_board "$home" refresh) || fail "the answered merge refresh failed: $out"
+  extract_payload "$board" | jq -e '.captains_call == []' >/dev/null \
+    || fail "the answered merge card stayed on the board after refresh"
+  pass "refresh keeps a held merge card as the task's one call and drops it once answered"
+}
+
 test_path_is_stable_and_home_scoped
 test_build_refuses_malformed_payloads_before_touching_the_board
 test_charted_kind_is_optional_and_accepts_both_values
@@ -1051,3 +1106,4 @@ test_wip_limit_is_stamped_at_the_fixed_three
 test_refresh_skips_without_a_live_board
 test_refresh_republishes_live_state_and_drops_answered_calls
 test_a_staged_route_answer_marks_its_card
+test_refresh_keeps_a_held_merge_card_as_the_tasks_one_call
