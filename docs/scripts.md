@@ -125,6 +125,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-gate-refuse-lib.sh`  | Shared gate-context lifecycle boundary for real and lab homes                      |
 | `fm-procevent-spend.sh`  | Enforce optional per-task and fleet-window token ceilings against the spend ledger |
 | `fm-spend-ledger.py`     | Rebuild per-task and fleet token totals from workers' Pi and native Claude session logs, and predict dispatch burn |
+| [`fm-model-ledger.py`](../bin/fm-model-ledger.py) | Preserve minimal model-outcome facts before task cleanup retires metadata and status |
 | `fm-watch-arm.sh`        | Verified home-scoped watcher arm wrapper with loud cycle endings and bounded lifecycle ledger |
 | `fm-watch-checkpoint.sh` | Run one bounded foreground watcher checkpoint for Codex-style supervision            |
 | `fm-watch.sh`            | Singleton-safe watcher: absorb benign wakes, detect stalled local-secondmate wake queues, and exit on actionable ones |

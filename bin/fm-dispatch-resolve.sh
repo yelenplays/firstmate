@@ -85,10 +85,8 @@
 #   The runoff includes concrete model_options and the captain model-rules
 #   summary, never credentials, account identities, `why`, or approval authority.
 #
-# Runway gates compare the spend ledger's active task seconds to measured
-# projected exhaustion. A custom config/claude-account root (or inherited
-# CLAUDE_CONFIG_DIR) cannot be matched to quota-axi's Claude pool, so that
-# candidate's quota/runway are unknown and unranked, never binding.
+# Runway duration measurement is owned by bin/fm-spend-ledger.py's header;
+# worker-pool matching follows quota-array-dispatch's eligibility contract.
 # Never-use models: a profile whose model, harness/model, or modelless harness
 #   matches $FM_HOME/config/model-denylist.json is never eligible, so it is
 #   never ranked or offered in a runoff; its candidate line names the rule and

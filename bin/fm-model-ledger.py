@@ -12,9 +12,13 @@ invocation that no-mistakes recorded read-only in its state database for the
 task branch since its creation; they stay null when the worktree, branch, or
 repository cannot be matched, and agent invocation counts are never substituted.
 Cross-review uses the latest accepted review for the recorded head (when known).
-Claude weighted tokens are copied only from the task spend snapshot teardown
-refreshes just before this runs. Write failures stop cleanup so records remain
-retryable.
+Claude weighted tokens are copied only from an ok task spend snapshot; a partial
+snapshot can supply partial totals. The fm-teardown.sh header owns the best-effort
+refresh boundary, and the fm-spend-ledger.py header owns task-attribution limits.
+Write failures stop cleanup so records remain retryable. Malformed/non-object
+historical rows are ignored without removing valid rows, and an unterminated
+tail is separated from the next append so corruption cannot swallow a record.
+Focused regressions: tests/fm-teardown.test.sh --model-ledger.
 """
 
 import argparse
