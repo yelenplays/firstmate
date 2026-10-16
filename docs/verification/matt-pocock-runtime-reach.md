@@ -115,6 +115,10 @@ resolved_by=repository-compatibility
 
 `test_loader_restores_retired_conflict_skill` in `tests/fm-matt-pointers.test.sh` exercises body, path, support files, identity, strict-pin refusal, an upstream return taking precedence, and integrity/enablement refusals through the loader executable.
 `test_pointer_step_one_reaches_retired_conflict_skill` in the same suite executes a generated pointer's Step 1 command with the skill name changed to `resolving-merge-conflicts`, preserving its plugin pins, and also exercises the unpinned loader invocation.
+`test_bundled_pointer_survives_audit_and_prune` installs the conflict pointer while upstream still offers it, removes that upstream skill, then audits and prunes the installed pointer through the generator CLI.
+It requires `BUNDLED` with exit 0 from `--check`, `--prune --dry-run`, and `--prune`, preserves the pointer and marker byte-for-byte, and executes the kept pointer's load command.
+Missing pointer bodies, unusable recorded loaders, and an upstream integrity refusal remain failures.
+The [generator header](../../bin/fm-matt-pointers.sh) owns compatibility classification for audit and prune.
 These are caller-route regressions, not live no-mistakes rebase or CI-repair runs.
 This compatibility path prints Markdown through the same CLI for every runtime and backend; it introduces no harness-specific discovery or lifecycle behavior.
 The runtime discovery rows below are unchanged, not newly validated by this loader test.

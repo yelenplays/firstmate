@@ -1100,6 +1100,66 @@ test_pointer_step_one_reaches_retired_conflict_skill() {
   pass "a pointer's Step 1 command reaches the retired conflict skill"
 }
 
+test_bundled_pointer_survives_audit_and_prune() {
+  local root dest pointer marker out rc cmd mode
+  root="$TMP_ROOT/bundled-pointer"
+  build_plugin "$root"
+  write_skill "$root/install/skills/engineering/resolving-merge-conflicts" resolving-merge-conflicts 'Resolve conflicts.' ''
+  dest="$root/skills"
+  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null \
+    || fail "could not install conflict pointer before upstream retirement"
+  pointer="$dest/matt-resolving-merge-conflicts/SKILL.md"
+  marker="$dest/matt-resolving-merge-conflicts/.firstmate-pointer"
+  cp "$pointer" "$root/pointer-before.md"
+  cp "$marker" "$root/marker-before"
+  rm -rf "$root/install/skills/engineering/resolving-merge-conflicts"
+
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  expect_code 0 $? "--check rejected a healthy bundled compatibility pointer"
+  assert_contains "$out" "BUNDLED: $dest/matt-resolving-merge-conflicts" "audit did not identify the bundled route"
+  assert_not_contains "$out" 'UNRESOLVED:' "audit misclassified the bundled route as unresolved"
+  assert_not_contains "$out" 'RETIRED:' "audit requested removal of a working compatibility pointer"
+  for mode in dry-run apply; do
+    if [ "$mode" = dry-run ]; then
+      out=$(run_pointers "$root/config" --prune --dry-run --dest "$dest" 2>&1)
+      rc=$?
+    else
+      out=$(run_pointers "$root/config" --prune --dest "$dest" 2>&1)
+      rc=$?
+    fi
+    expect_code 0 "$rc" "--prune $mode rejected a working bundled pointer"
+    assert_contains "$out" 'BUNDLED:' "prune $mode did not explain why the pointer was kept"
+    assert_not_contains "$out" 'UNRESOLVED:' "prune $mode reported a false failure"
+    cmp -s "$root/pointer-before.md" "$pointer" || fail "prune $mode changed the bundled pointer"
+    cmp -s "$root/marker-before" "$marker" || fail "prune $mode changed the bundled marker"
+  done
+  cmd=$(pointer_command "$pointer")
+  out=$(CLAUDE_CONFIG_DIR="$root/config" bash -c "$cmd") \
+    || fail "pruned compatibility pointer no longer loads"
+  assert_contains "$out" 'BUNDLED COMPATIBILITY SKILL' "kept pointer did not reach the compatibility skill"
+
+  rm "$pointer"
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  expect_code 1 $? "bundled route hid a missing pointer body"
+  assert_contains "$out" "MISSING: $pointer" "audit did not name the missing bundled pointer"
+  cp "$root/pointer-before.md" "$pointer"
+  sed "s|^loader=.*|loader=$root/missing-loader|" "$marker" >"$root/marker-new"
+  mv "$root/marker-new" "$marker"
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  expect_code 1 $? "bundled route hid an unusable recorded loader"
+  assert_contains "$out" "BROKEN: $pointer" "audit did not name the broken bundled pointer loader"
+  cp "$root/marker-before" "$marker"
+
+  write_skill "$root/install/skills/engineering/resolving-merge-conflicts" wrong-name 'Damaged upstream skill.' ''
+  out=$(run_pointers "$root/config" --prune --dest "$dest" 2>&1)
+  expect_code 1 $? "bundled classification hid an upstream integrity refusal"
+  assert_contains "$out" 'UNRESOLVED:' "prune did not report the damaged upstream skill"
+  assert_not_contains "$out" 'BUNDLED:' "damaged upstream skill was mislabeled as bundled"
+  assert_present "$pointer" "prune removed a damaged upstream skill pointer"
+  pass "audit and prune preserve bundled pointers without hiding missing or broken routes"
+}
+
+test_bundled_pointer_survives_audit_and_prune
 test_loader_restores_retired_conflict_skill
 test_pointer_step_one_reaches_retired_conflict_skill
 test_loader_prints_original_bytes_and_identity

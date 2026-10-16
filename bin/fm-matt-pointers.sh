@@ -46,10 +46,13 @@
 #                  when no skills remain offered, or names a
 #                  loader that is no longer executable, or when an offered
 #                  upstream skill does not resolve; every applicable state
-#                  is reported independently
-#   --prune        remove firstmate pointers whose upstream skill is gone. A
-#                  pointer whose skill upstream still offers but which does not
-#                  resolve is kept and reported, never removed
+#                  is reported independently. An unlisted skill the loader serves
+#                  with pin=bundled is reported as BUNDLED, not drift; its pointer
+#                  body and recorded loader must still exist and be usable
+#   --prune        remove firstmate pointers whose upstream skill is gone, unless
+#                  the loader serves a bundled compatibility route (BUNDLED).
+#                  A pointer whose skill upstream still offers but which does
+#                  not resolve is kept and reported, never removed
 #   --uninstall    remove every firstmate pointer under --dest. Use this when a
 #                  runtime turns out to read the installed plugin directly and
 #                  the pointers are only duplicating it
@@ -198,12 +201,19 @@ elif [ "$MODE" != check ]; then
   die 6 "the enabled $PLUGIN plugin offers no skill that resolves, so there is nothing to point at"
 fi
 
-# Only the loader's not-offered status (5) means upstream retired a skill. Any
-# other refusal is a skill upstream still ships that does not resolve.
-retired_upstream() {  # <skill>
-  rc=0
-  "$LOADER" "$1" --check >/dev/null 2>&1 || rc=$?
-  [ "$rc" -eq 5 ]
+# The loader owns compatibility as well as plugin resolution. An unlisted name
+# can still be loadable through a bundled route; only status 5 proves it retired
+# without that route. Every other refusal must preserve the pointer as unresolved.
+unlisted_skill_state() {  # <skill> -> bundled|retired|unresolved
+  local identity rc=0
+  identity=$("$LOADER" "$1" --check 2>/dev/null) || rc=$?
+  if [ "$rc" -eq 0 ] && printf '%s\n' "$identity" | grep -qx 'pin=bundled'; then
+    printf 'bundled\n'
+  elif [ "$rc" -eq 5 ]; then
+    printf 'retired\n'
+  else
+    printf 'unresolved\n'
+  fi
 }
 
 report_unresolved_listing() {
@@ -382,11 +392,20 @@ if [ "$MODE" = prune ] || [ "$MODE" = uninstall ]; then
     if [ "$MODE" = prune ] && printf '%s\n' "$SKILLS" | grep -qx -- "$skill"; then
       continue
     fi
-    if [ "$MODE" = prune ] && ! retired_upstream "$skill"; then
-      printf 'UNRESOLVED: kept %s, whose upstream skill %s is still offered but does not resolve\n' \
-        "$dir" "$skill" >&2
-      status=1
-      continue
+    if [ "$MODE" = prune ]; then
+      case "$(unlisted_skill_state "$skill")" in
+        bundled)
+          printf 'BUNDLED: kept %s, served by the repository compatibility skill\n' "$dir"
+          continue
+          ;;
+        retired) : ;;
+        *)
+          printf 'UNRESOLVED: kept %s, whose upstream skill %s is still offered but does not resolve\n' \
+            "$dir" "$skill" >&2
+          status=1
+          continue
+          ;;
+      esac
     fi
     if [ "$DRY" -eq 1 ]; then
       printf 'would remove %s\n' "$dir"
@@ -497,26 +516,42 @@ printf '%s\n' "$SKILLS" | {
 
       file="$dir/SKILL.md"
       loader=$(sed -n 's/^loader=//p' "$dir/$MARKER" | head -n 1)
-      if retired_upstream "$skill"; then
-        printf 'RETIRED: %s points at upstream skill %s, which the plugin no longer offers\n' \
-          "$dir" "$skill" >&2
-      else
-        printf 'UNRESOLVED: %s points at upstream skill %s, which the plugin still offers but which does not resolve\n' \
-          "$dir" "$skill" >&2
+      pointer_drift=0
+      case "$(unlisted_skill_state "$skill")" in
+        bundled)
+          printf 'BUNDLED: %s is served by the repository compatibility skill\n' "$dir"
+          ;;
+        retired)
+          printf 'RETIRED: %s points at upstream skill %s, which the plugin no longer offers\n' \
+            "$dir" "$skill" >&2
+          pointer_drift=1
+          ;;
+        *)
+          printf 'UNRESOLVED: %s points at upstream skill %s, which the plugin still offers but which does not resolve\n' \
+            "$dir" "$skill" >&2
+          pointer_drift=1
+          ;;
+      esac
+      if [ ! -f "$file" ]; then
+        printf 'MISSING: %s\n' "$file" >&2
+        pointer_drift=1
       fi
       if [ ! -x "$loader" ]; then
         printf 'BROKEN: %s points at a loader that is not executable: %s\n' \
           "$file" "$loader" >&2
+        pointer_drift=1
       fi
-      drift=$((drift + 1))
-      status=1
+      if [ "$pointer_drift" -eq 1 ]; then
+        drift=$((drift + 1))
+        status=1
+      fi
     done
 
     report_unresolved_listing || status=1
     if [ "$status" -eq 0 ] && [ "$HAVE_IDENTITY" -eq 0 ]; then
       printf 'ok - no offered skills or marked pointers under %s\n' "$DEST"
     elif [ "$status" -eq 0 ]; then
-      printf 'ok - %s pointers under %s match %s %s\n' \
+      printf 'ok - %s plugin pointers under %s match %s %s\n' \
         "$(printf '%s\n' "$SKILLS" | grep -c .)" "$DEST" "$PLUGIN_KEY" "$VERSION"
     else
       printf 'drift=%s foreign=%s under %s\n' "$drift" "$foreign" "$DEST" >&2
