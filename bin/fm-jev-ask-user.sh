@@ -290,9 +290,10 @@ fi
 
 # --- the Jev call ---------------------------------------------------------------
 # Approve is offered only where it can apply: a test-step gate whose snapshot
-# carries a `live validation verdict: inconclusive` finding. Any other gate can only be fixed or escalated.
+# carries a `live validation verdict: inconclusive` finding and lists no finding beyond the asked ids,
+# because an approve answer accepts the whole gate. Any other gate can only be fixed or escalated.
 OFFER_APPROVE=false
-if [ "$STEP" = test ] && printf '%s\n' "$FINDINGS" | grep -Eiq 'live validation verdict: *inconclusive'; then OFFER_APPROVE=true; fi
+if [ "$STEP" = test ] && [ "$HAVE_IDS" = "$WANT_IDS" ] && printf '%s\n' "$FINDINGS" | grep -Eiq 'live validation verdict: *inconclusive'; then OFFER_APPROVE=true; fi
 QUESTIONS=$(printf '%s\n' "$IDS" | tr ',' '\n' | jq -Rnc --argjson approve "$OFFER_APPROVE" '
   {"in-scope-fix": {what: "Fixing it is a straight correction the accepted contract already requires",
       signals: ["it restores accepted behavior an earlier fix broke", "it completes the already-approved design",
