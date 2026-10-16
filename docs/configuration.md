@@ -1113,7 +1113,7 @@ The optional local, gitignored `config/claude-remote-control` lets the captain s
 It is read only by `bin/fm-claude-primary.sh`, the launcher for a Claude primary, so it changes nothing for a primary started with plain `claude` or on another harness, and nothing for crewmates, scouts, or secondmates.
 Only the first non-empty, non-comment line counts:
 
-- absent or `off` launches plain `claude`, exactly like typing it by hand.
+- absent or `off` adds no Remote Control flag; the independent [auto-compaction setting](#auto-compaction-window-configclaude-autocompact) still applies.
 - `on` launches `claude --remote-control firstmate`.
 Any other value, or an unreadable file, refuses to launch and names the accepted values.
 Arguments after the launcher pass through to `claude`, so a relaunch is the same command plus `--continue` or `--resume <id>`.
@@ -1138,8 +1138,10 @@ Claude Code's [Remote Control documentation](https://code.claude.com/docs/en/rem
 ### Auto-compaction window (config/claude-autocompact)
 
 The optional local, gitignored `config/claude-autocompact` sets the primary's auto-compaction window through the same launcher.
-Its first non-comment line is `auto` or a token count from 100000 to 1000000, which becomes `claude --autocompact <value>`; any other value refuses to launch, and an `--autocompact` the caller passes wins.
-A smaller window compacts more often but carries a smaller context on every request, which is the main-session usage lever the memory capture work measured.
+An absent file, an empty file, or `auto` leaves Claude's own window setting unchanged.
+A token count from 100000 to 1000000 on the first non-empty, non-comment line adds `claude --autocompact <value>` unless the caller already supplied `--autocompact` or `--autocompact=<value>`.
+An unreadable or invalid file refuses to launch even when the caller supplies a window.
+Earlier compaction is the opt-in usage-saving lever for [automatic memory capture](memory.md#automatic-capture); capture does not enable it or change user settings outside this repo.
 A primary started with plain `claude` gets the same effect by passing `--autocompact <value>` itself, which also overrides `CLAUDE_CODE_AUTO_COMPACT_WINDOW` from the user settings.
 
 ## Worker tool exclusions (config/crew-exclude-tools)
@@ -2183,7 +2185,8 @@ The file is home-local and not part of secondmate inherited configuration.
 
 Automatic capture of captain turns into the store is on by default for the primary home's main Claude session; [`docs/memory.md`](memory.md#automatic-capture) owns what it does.
 The optional local, gitignored `config/memory-capture` turns it off when its first non-comment line is `off`; `FM_MEMORY_CAPTURE=off` does the same for one process.
-`FM_MEMORY_CAPTURE_MODEL` overrides the default `claude-haiku-5-5` and accepts only a Claude Haiku or Sonnet model, and `FM_MEMORY_CAPTURE_JEV=off` sends every turn to that model instead of triaging through Jev first.
+`FM_MEMORY_CAPTURE_MODEL` overrides the default `claude-haiku-5-5` and accepts only a Claude Haiku or Sonnet model; use Sonnet only if Haiku misses facts, not as an automatic fallback.
+`FM_MEMORY_CAPTURE_JEV=off` bypasses Jev for turns that survive the deterministic pre-filter, not for discarded turns.
 The file is home-local and not inherited into secondmate homes, which capture nothing in this version.
 
 ## Toolchain

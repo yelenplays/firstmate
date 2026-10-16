@@ -76,7 +76,10 @@
 #                       follows with the pack's chat voice (bin/fm-theme.sh
 #                       digest), plus its banner on a fresh start; the built-in
 #                       default prints no THEME section at all.
-#                       This stage is always read-only.
+#                       Both slim and full digests then print the store's NOW
+#                       block when non-empty (bin/fm-memory.sh now owns its
+#                       size cap), excluding private entries unless the primary
+#                       harness is Claude. This stage is always read-only.
 #   9. closing reminder - prints the context-specific watcher next step; this
 #                       script points back to the emitted harness supervision
 #                       block and deliberately never arms the watcher itself.
@@ -1214,8 +1217,7 @@ fi
 
 # Current, perishable captain context captured by bin/fm-memory-capture.sh.
 # Keyword recall misses implicit follow-ups, so this block rides along on every
-# digest, slim or full, capped near 1.5K tokens by fm-memory.sh now. Private
-# entries reach only a Claude primary.
+# digest, slim or full, using fm-memory.sh now's bounded presentation.
 NOW_ARGS=()
 [ "$PRIMARY_HARNESS" = claude ] || NOW_ARGS=(--exclude-private)
 NOW_BLOCK=$(FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" \

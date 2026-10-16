@@ -2,8 +2,11 @@
 # fm-memory.sh - plain-markdown memory store with a light BM25 search index.
 #
 # Usage:
-#   fm-memory.sh remember [--category <cat>] <topic> [body...]
+#   fm-memory.sh remember [--category <cat>] [--expires <YYYY-MM-DD>]
+#                         [--sensitivity normal|private] <topic> [body...]
 #   fm-memory.sh recall [--json] [--limit <n>] <query>
+#   fm-memory.sh now [--max-chars <n>] [--exclude-private]
+#   fm-memory.sh merge-from <other-store-dir>
 #   fm-memory.sh list
 #   fm-memory.sh reindex
 #   fm-memory.sh stats
@@ -20,9 +23,12 @@
 #   3. $FM_HOME/data/memories
 #
 # A memory is one markdown file. `remember` writes
-# <category>/<slug>.md with a small frontmatter block (category, created,
-# updated) and a `# <topic>` title; re-writing the same category+topic updates
-# the file in place and preserves its original `created:` date. `body` comes
+# <category>/<slug>.md with frontmatter (category, created, updated, plus
+# optional expires and sensitivity) and a `# <topic>` title. Re-writing the
+# same category+topic preserves `created:` but replaces the body and optional
+# metadata; omitted expires/sensitivity values are not carried forward.
+# --expires accepts YYYY-MM-DD; --sensitivity accepts normal or private.
+# Every option must precede the topic. `body` comes
 # from the remaining arguments joined by spaces, or from stdin when no body
 # argument is given. Categories normalize the OpenViking names
 # (preference->preferences, entity->entities, event->events); any other value
@@ -35,13 +41,24 @@
 # <store>/.index.json owned by the engine; it self-rebuilds whenever the tree
 # drifts from the recorded manifest, so recall never answers from stale bytes.
 #
+# `now` prints now/*.md entries newest updated date first, excluding entries
+# whose expires date is before today (local date). --exclude-private also
+# excludes sensitivity: private. --max-chars bounds the whole output including
+# its omission notice; default FM_MEMORY_NOW_MAX_CHARS, else 6000 (~1.5K tokens).
+# Each entry's body is flattened and clipped to 600 characters.
+#
+# `merge-from` copies missing relative Markdown paths from another store,
+# leaves identical files alone, reports differing files without overwriting,
+# and rebuilds the index if it copied anything. Conflicts return exit 1 even
+# when other files were copied successfully.
+#
 # `reindex` forces a rebuild, `list` prints store-relative paths, `stats`
 # prints the resolved dir, document count, and index freshness, and `dir`
 # prints the resolved store path.
 #
-# Exit codes: 0 success (including zero recall hits); 2 usage error, a node
-# runtime problem, or a missing/unusable store component; 3 an invalid
-# category or topic slug.
+# Exit codes: 0 success (including zero recall hits); 1 merge conflicts;
+# 2 usage error, a node runtime problem, or a missing/unusable store component;
+# 3 an invalid category, topic slug, expires date shape, or sensitivity.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -269,10 +286,7 @@ frontmatter_value() {
   ' "$1"
 }
 
-# Prints the unexpired now/ entries, newest update first, as one bounded block
-# for a session-start digest. Entries are never deleted here; an expired entry
-# is only left out of the block. The default cap of 6000 characters keeps the
-# block near 1.5K tokens.
+# Expiry filters presentation only; never delete a memory during digest reads.
 cmd_now() {
   local max_chars=${FM_MEMORY_NOW_MAX_CHARS:-6000} exclude_private=0
   while [ $# -gt 0 ]; do

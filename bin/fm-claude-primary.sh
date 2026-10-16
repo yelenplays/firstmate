@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # Launch (or relaunch) the Claude Code PRIMARY firstmate session for this home,
-# adding Claude Code's native Remote Control when the home opts in.
+# applying the home's optional Remote Control and auto-compaction settings.
 #
 # Usage: fm-claude-primary.sh [<claude arg>...]
-#   <claude arg>  passed through to claude unchanged, after the Remote Control
-#                 flag, so a relaunch is the same command plus e.g. --continue
-#                 or --resume <id>.
+#   <claude arg>  passed through unchanged after home-configured flags, so a
+#                 relaunch is the same command plus e.g. --continue or --resume
+#                 <id>. docs/configuration.md owns both configuration formats.
 #
 # The opt-in is the local, gitignored config/claude-remote-control under the
 # effective home (FM_HOME, else this checkout). docs/configuration.md "Claude
 # primary Remote Control" owns the file format, the phone-side setup, and what
 # the flag does and does not change. In short:
-#   absent or "off"   launch plain `claude`, exactly as `claude` typed by hand.
+#   absent or "off"   add no Remote Control flag; auto-compaction still applies.
 #   "on"              launch `claude --remote-control firstmate`.
 # Anything else, or an unreadable file, refuses to launch and names the accepted
 # values: the captain chose a posture, so the launcher never guesses another one.
@@ -58,9 +58,7 @@ if [ -e "$RC_FILE" ] || [ -L "$RC_FILE" ]; then
   esac
 fi
 
-# config/claude-autocompact sets the primary's auto-compact window. Absent or
-# auto leaves Claude's own setting alone; a whole token count from 100000 to
-# 1000000 adds --autocompact <n>, unless the caller already passed one.
+# docs/configuration.md "Auto-compaction window" owns values and precedence.
 AC_ARGS=()
 if [ -e "$AC_FILE" ] || [ -L "$AC_FILE" ]; then
   [ -f "$AC_FILE" ] && [ -r "$AC_FILE" ] \
