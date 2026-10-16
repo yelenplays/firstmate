@@ -13,10 +13,12 @@
 # namespace, never from a harness or seat name alone.
 # Claude Code's --help documents native aliases and full model names;
 # its Claude model ids and aliases identify Anthropic, as Codex's gpt-* ids
-# identify OpenAI. Otherwise a catalog row must identify one provider for the
-# exact resolved model, and that provider must serve one maker.
-# For Pi and OpenCode, provider-qualified DeepSeek and GLM model ids identify
-# DeepSeek and Zhipu even through multi-maker gateways, without a live catalog.
+# identify OpenAI.
+# For Pi (including pi-signed) and OpenCode, provider-qualified deepseek-* and
+# glm-* model namespaces identify DeepSeek and Zhipu, respectively, even through
+# multi-maker gateways such as opencode-go, without a live catalog.
+# Otherwise a catalog row must identify one provider for the exact resolved
+# model, and that provider must serve one maker.
 # Other gateway ids stay `unknown` unless their catalog proves the maker.
 # `unknown` is a verdict, not a failure: a caller that needs two families to
 # differ must treat `unknown` as "independence cannot be proven".
@@ -75,7 +77,7 @@ fm_ai_family_catalog_provider() {  # <harness> <model-id> [<provider>]
 
 # Resolve one (harness, model) pair. Sets FM_AI_FAMILY to the maker or
 # `unknown`, and FM_AI_FAMILY_SOURCE to a short plain-text reason that names
-# the catalog fact used. Always returns 0.
+# the evidence used. Always returns 0.
 # shellcheck disable=SC2034 # FM_AI_FAMILY*: output globals, read by the sourcing caller.
 fm_ai_family_resolve() {  # <harness> [<model>]
   local harness=$1 model=${2:-} provider id fam
