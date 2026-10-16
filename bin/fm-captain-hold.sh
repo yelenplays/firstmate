@@ -105,8 +105,11 @@
 # that names no task, a task that is not held for the captain, or a task
 # already closed is reported as `skipped:` and feeds nothing. A replayed
 # delivery whose answer digest and requested close mode both match the newest
-# record is reported `closed:` and is a no-op; a mode mismatch is skipped. The
-# command exits nonzero when any key was skipped.
+# record is reported `closed:` and is a no-op; a mode mismatch is skipped.
+# A `route` replay of the newest matching answer accepts either completed or
+# released resolution, because firstmate chose that close after capture; it
+# reports `closed:` without staging the answer again.
+# The command exits nonzero when any key was skipped.
 #
 # ROUTE: AN ANSWER RECORDED, NOT ACTED ON. A card whose composer could not know
 # whether its answer should complete the task or free held work declares

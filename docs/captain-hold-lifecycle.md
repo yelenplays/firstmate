@@ -39,7 +39,7 @@ It never reads report bodies, review artifacts, terminal output, or chat.
 | `verify` | Read-only check that scout teardown runs before removing source state. | [Checking before scout teardown](#checking-before-scout-teardown-verify) |
 | `parked` | Read-only check of whether a task's pause is captain-parked. | [Captain-parked pauses](#captain-parked-pauses-parked) |
 | `open` | Read-only check of whether a row is still an open captain call. | [Cleanup never closes a captain call](#cleanup-never-closes-a-captain-call) |
-| `answers` | Channel-agnostic entry point for keyed answers. | [Answer-time resolution](#answer-time-resolution) |
+| `answers`, `to-route` | Intake for keyed answers and inspection or retirement of answers awaiting routing. | [Answer-time resolution](#answer-time-resolution) |
 | `bind`, `unbind`, `binding` | Record that a captured-answer source feeds the keyed-answer intake. | [Source bindings](#source-bindings) |
 | `reconcile-requests` | Internal intake that records a reconcile request from a board selection. | [Reconcile](#reconcile-re-check-reality-never-a-blind-close) |
 | `reconcile close`, `reconcile note`, `reconcile list` | Retire or list pending reconcile requests. | [Verifying and retiring a request](#verifying-and-retiring-a-request) |
@@ -58,11 +58,8 @@ It works in this order:
 
 Publishing the stamp first ensures a snapshot cannot observe a newly captain-held task without the timestamp that defines its age.
 
-Before step 1, `hold` applies the captain's WIP limit: at most three calls may wait on the captain at once.
-A hold that would add a fourth live call is refused with exit 3 before anything is created or changed, and the refusal names the live calls.
-Firstmate then asks the captain which call to park with `--until` or drop with `answer`, and holds the new call only after that.
-A call counts while its snapshot `hold_bucket` is `live`, so a repeated hold on a live call and a deferral to a future date pass the brake.
-The count reads the home's markdown backlog under one home-wide lock; [`bin/fm-captain-hold.sh --help`](../bin/fm-captain-hold.sh) owns the fail-open cases.
+Before step 1, `hold` applies the WIP brake defined in [`bin/fm-captain-hold.sh`](../bin/fm-captain-hold.sh), whose header owns refusal, retry, locking, and unsupported-backend or unreadable-count behavior.
+[`bin/fm-captain-wip-lib.sh`](../bin/fm-captain-wip-lib.sh) owns the fixed limit and live-call count, including the boundary between per-home enforcement and the board's fleet-wide view.
 
 Repeat and edge cases:
 
@@ -202,8 +199,8 @@ Only `answer` with the captain's words or evidence-backed `reconcile close` reso
 
 "A keyed answer resolves its matching captain-held task" is one capability with one owner.
 `answers` is its channel-agnostic entry point.
-It reads `<task-id>\t<answer>\t<label>[\t<mode>]` lines and resolves each named task through the same `answer` path.
-Every guard therefore applies identically no matter which channel the answer arrived on.
+It handles keyed answers according to the card-declared mode below, using the same `answer` path for resolutions.
+The script header owns the input format and guards, which apply identically no matter which channel the answer arrived on.
 
 The optional mode column carries a card-declared close:
 
@@ -215,22 +212,8 @@ The optional mode column carries a card-declared close:
 | Any other value | Skipped. |
 
 `route` exists for a card whose composer could not know which close the answer means, such as a card the board composes for a hold nobody authored.
-Completing a captain-gated work item would silently drop approved work, so that card's answer waits under `state/captain-answers-to-route/` with the hold left exactly as it was.
-The captured result stays announced, and firstmate routes the staged answer with `answer <id> --decision-file <staged> [--release]` once it knows which close the answer means.
-That answer, like every other resolution, retires the staged file.
-`to-route clear <id>` retires it when firstmate routed the answer without resolving the call, and a newer captain answer replaces an unrouted one.
-`to-route` lists every answer still waiting.
-
-Each key is reported as follows:
-
-| Key | Result |
-| --- | --- |
-| Names no task, names a task that is not captain-held, or names a task already closed | Reported as `skipped:` and feeds nothing. |
-| A replay whose answer and requested close mode match the newest record | An idempotent `closed:`. |
-| A replay with a mode mismatch | Skipped. |
-
-The command exits nonzero when any key was skipped.
-`--source` is provenance text recorded in the durable decision, never a behavior switch, and the command carries no per-channel branch.
+Completing a captain-gated work item would silently drop approved work, so staging an answer leaves its hold untouched until firstmate determines the intended action.
+The [`bin/fm-captain-hold.sh` header](../bin/fm-captain-hold.sh) owns staging and retirement mechanics, per-key outcomes, replay compatibility, and provenance; [`bearings`](../.agents/skills/bearings/SKILL.md#handling-a-board-wake) owns the supervisor's board-answer workflow.
 
 ### Source bindings
 
@@ -554,6 +537,10 @@ The suite does not test the accepted merge-to-cleanup re-hold window or asynchro
 - Hold-set stamping precedes visible hold state, preserves an active lifecycle's timestamp, and resets after release.
 - Interrupted answer closure retains the stamp until close and restores resolution-first ordering on retry.
 - Deferral through `--until` leaves `captain_actionable` false until due.
+- The WIP brake refuses another live call at capacity before creating or stamping its task, permits repeated holds and future deferrals, and makes room after a call is parked or answered.
+  Old unanswered calls still consume capacity and remain in Captain's Call.
+- A captured `route` answer leaves both question-shaped and work-item calls held, stages the captain's words with provenance, and retires after firstmate resolves it.
+  A resolved replay stages nothing, a newer answer replaces an unrouted one, and clearing the staged answer alone leaves the call open.
 
 ### Legacy paths
 
@@ -636,8 +623,13 @@ The board's half is pinned in `tests/fm-bearings-board.test.sh`:
 - A build requires a fresh authoritative listed-open result before binding or arming.
 - A reopen retires the pre-reopen source generation and waits for a fresh live listener.
 - A rebuild of an already-armed board with no live listener starts one.
+- Refresh skips absent or ended boards, carries authored options over fresh state, drops answered calls, and republishes a changed template even when fleet state is unchanged.
+- A held idle task with a recorded green PR retains its authored merge card as its only call, counts once in the rendered "need you" total, and loses the card after its answer releases the hold.
+- A staged answer marks its still-open card and makes refresh due.
 
-That suite drives its Lavish session through a protocol-shaped stub.
+`tests/fm-bearings-board-render.test.sh` additionally pins the count against the WIP limit, at-limit and overflow indicators, and the recorded-answer badge.
+
+The board suite drives its Lavish session through a protocol-shaped stub.
 `tests/fm-bearings-board-lavish-live-e2e.test.sh` is the default-on capability guard for the installed provider, and [`verification/process-event-sources.md`](verification/process-event-sources.md) owns the version-scoped evidence.
 [`verification/process-event-sources.md`](verification/process-event-sources.md) owns the process-event ownership and reclamation evidence exercised by `tests/fm-procevent.test.sh`.
 
