@@ -2205,7 +2205,9 @@ SH
           tests/fm-cd-pretool-check.test.sh) >"$tmp/hang.out" 2>"$tmp/hang.err" || rc=$?
       [ "$rc" -eq 1 ] || fail "$variant timeout should fail the suite, got $rc"
       [ -s "$tmp/started" ] || fail "$variant did not start the timed script"
-      [ -s "$tmp/held" ] || fail "$variant executed the script without a slot"
+      # Existence, not size: the probe truncates on every write, so a kill can
+      # land between truncate and write; only the held branch creates the file.
+      [ -e "$tmp/held" ] || fail "$variant executed the script without a slot"
       [ ! -e "$tmp/early-release" ] || fail "$variant released the slot while the script was running"
       grep -q 'exceeded the per-script bound of 1s and was terminated' "$tmp/hang.out" \
         || fail "$variant timeout explanation was lost"

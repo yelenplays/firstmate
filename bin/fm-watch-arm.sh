@@ -299,6 +299,8 @@ clear_stale_recorded_watcher_lock() {
   [ "$lock_home" = "$FM_HOME" ] || return 0
   [ "$lock_path" = "$WATCH" ] || return 0
   [ -n "$lock_identity" ] || return 0
+  # Its holder is gone without its EXIT cleanup, so nothing proves a clean close.
+  fm_recovery_require_presentation "$STATE/.watcher-down" || true
   fm_recovery_transition "$STATE/.watcher-down" clear-stale-lock "$WATCH_LOCK" downtime
 }
 

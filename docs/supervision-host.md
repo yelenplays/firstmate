@@ -88,6 +88,7 @@ An attended turn queues nothing: its captain rows reach main through the host's 
 The host's engine runs with these settings:
 
 - `FM_SUPERVISION_ACTOR=branch`.
+- The engine conversation as `FM_BRANCH_CONVERSATION`, which keys the branch's own OPEN DECISIONS ledger ([architecture](architecture.md)).
 - The session-lock holder as `FM_LEASE_HOLDER_PID`.
 - The primary's harness pin.
 
