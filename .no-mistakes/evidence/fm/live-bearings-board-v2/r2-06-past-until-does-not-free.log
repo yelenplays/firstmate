@@ -1,0 +1,11 @@
+== Adversarial: 'park' old-1 with an until date already past (2026-10-01):
+old-1
+park_exit=0
+
+== Fifth call must still be braked:
+fm-captain-hold: refused: 3 calls already wait on the captain, and the limit is 3:
+  old-1 - Unanswered old call 1
+  old-3 - Unanswered old call 3
+  new-fourth - A new fourth call
+Ask the captain which one to park (hold <id> --reason <reason> --until <date>) or drop (answer <id> --decision-file <file>), then hold new-fifth again.
+fifth_exit=3 (expected 3)

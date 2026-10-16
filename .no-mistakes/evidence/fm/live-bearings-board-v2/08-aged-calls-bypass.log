@@ -1,0 +1,155 @@
+Three unanswered, undated calls created 20 days ago:
+old-1
+old-2
+old-3
+
+Attempt a fourth without parking or answering anything:
+new-fourth
+fourth_exit=0 (expected 3)
+
+Persisted calls:
+task:
+  id: old-1
+  title: Unanswered old call 1
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v1:U3RpbGwgbmVlZCBhIGRlY2lzaW9u"
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: demo
+  priority: "-"
+  created: 2026-10-16
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-09-26T10:00:00Z"
+task:
+  id: new-fourth
+  title: A new fourth call
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v1:QW5vdGhlciBkZWNpc2lvbg=="
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: demo
+  priority: "-"
+  created: 2026-10-16
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-16T10:18:56Z"
+
+Live product snapshot:
+{
+  "schema": "fm-bearings.v1",
+  "home": ".test-live/aged",
+  "generated": "2026-10-16T10:19:00Z",
+  "prs": "not_requested (run: /bearings include PRs)",
+  "contributions": {
+    "scope": "owned contributions per home",
+    "known": 0,
+    "checked": 0,
+    "counts": {
+      "captain": 0,
+      "fleet": 0,
+      "maintainer": 0,
+      "nobody": 0
+    },
+    "complete": true,
+    "proven_clear": true,
+    "unmeasured_homes": 0,
+    "unreadable_records": 0,
+    "unmeasured": 0,
+    "stale_verdicts": 0,
+    "missing_verdicts": 0,
+    "captain_omitted": 0,
+    "captain": []
+  },
+  "in_flight": [],
+  "secondmates": [],
+  "secondmate_reconcile": [],
+  "decisions_open": [
+    {
+      "id": "new-fourth",
+      "key": "new-fourth",
+      "verb": "captain-hold",
+      "summary": "A new fourth call: Another decision",
+      "owner": "(main)"
+    }
+  ],
+  "landed": [],
+  "gates": [
+    {
+      "id": "old-1",
+      "title": "Unanswered old call 1",
+      "blocked_by": "-",
+      "reason": "held 20d: Still need a decision",
+      "owner": "(main)",
+      "filed": "2026-10-16"
+    },
+    {
+      "id": "old-2",
+      "title": "Unanswered old call 2",
+      "blocked_by": "-",
+      "reason": "held 20d: Still need a decision",
+      "owner": "(main)",
+      "filed": "2026-10-16"
+    },
+    {
+      "id": "old-3",
+      "title": "Unanswered old call 3",
+      "blocked_by": "-",
+      "reason": "held 20d: Still need a decision",
+      "owner": "(main)",
+      "filed": "2026-10-16"
+    }
+  ],
+  "reports": [],
+  "recorded_prs": [],
+  "holds": [
+    {
+      "id": "new-fourth",
+      "key": "new-fourth",
+      "owner": "(main)",
+      "title": "A new fourth call",
+      "reason": "Another decision",
+      "repo": "demo"
+    }
+  ],
+  "omitted": [
+    {
+      "surface": "backlog item bodies",
+      "reveal": "--fields bodies"
+    },
+    {
+      "surface": "task paths",
+      "reveal": "--fields paths"
+    },
+    {
+      "surface": "watch/steer actions",
+      "reveal": "--fields actions"
+    },
+    {
+      "surface": "healthy endpoint detail",
+      "reveal": "--fields endpoints"
+    },
+    {
+      "surface": "full scout-report inventory",
+      "reveal": "--all-reports"
+    },
+    {
+      "surface": "captain holds bucketed blocked, dated, or aged: 3",
+      "reveal": "--all-decisions"
+    },
+    {
+      "surface": "live PR discovery + checks",
+      "reveal": "--include-prs"
+    }
+  ]
+}

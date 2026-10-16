@@ -1,0 +1,13 @@
+== tests/fm-bearings-snapshot.test.sh
+ok - per-repository open-PR caps are disclosed with an expansion knob
+ok - projection and TOON rendering failures exit nonzero with diagnostics
+rc=0
+== tests/fm-fleet-snapshot-view.test.sh
+ok - fleet view shows theme status words for display only and falls back safely
+ok - fleet view renders secondmate agent liveness
+rc=0
+== tests/fm-captain-hold-lifecycle.test.sh
+ok - old unanswered captain calls keep counting and stay in the Captain's Call
+ok - captain-hold mutations address the beads backend without a markdown override
+ok - skipped on markdown-only tasks-axi: captain-hold create under due.required without types.custom
+rc=0

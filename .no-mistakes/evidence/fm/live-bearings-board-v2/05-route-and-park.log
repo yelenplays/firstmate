@@ -1,0 +1,114 @@
+
+--- Supervisor routes the browser answer ---
+answered: decision
+handled: lavish-dd1b13954d2a4835 1
+
+--- Park a pending approval and accept its replacement ---
+approval
+fourth
+{
+  "schema": "fm-bearings.v1",
+  "home": ".test-live/home",
+  "generated": "2026-10-16T10:16:22Z",
+  "prs": "not_requested (run: /bearings include PRs)",
+  "contributions": {
+    "scope": "owned contributions per home",
+    "known": 0,
+    "checked": 0,
+    "counts": {
+      "captain": 0,
+      "fleet": 0,
+      "maintainer": 0,
+      "nobody": 0
+    },
+    "complete": true,
+    "proven_clear": true,
+    "unmeasured_homes": 0,
+    "unreadable_records": 0,
+    "unmeasured": 0,
+    "stale_verdicts": 0,
+    "missing_verdicts": 0,
+    "captain_omitted": 0,
+    "captain": []
+  },
+  "in_flight": [],
+  "secondmates": [],
+  "secondmate_reconcile": [],
+  "decisions_open": [
+    {
+      "id": "credential",
+      "key": "credential",
+      "verb": "captain-hold",
+      "summary": "Provide staging access: The deploy needs a staging token",
+      "owner": "(main)"
+    },
+    {
+      "id": "fourth",
+      "key": "fourth",
+      "verb": "captain-hold",
+      "summary": "Choose the follow-up: Pick the next task",
+      "owner": "(main)"
+    }
+  ],
+  "landed": [],
+  "gates": [
+    {
+      "id": "approval",
+      "title": "Approve the ready PR",
+      "blocked_by": "-",
+      "reason": "until 2099-01-01: Revisit next month",
+      "owner": "(main)",
+      "filed": "2026-10-16"
+    }
+  ],
+  "reports": [],
+  "recorded_prs": [],
+  "holds": [
+    {
+      "id": "credential",
+      "key": "credential",
+      "owner": "(main)",
+      "title": "Provide staging access",
+      "reason": "The deploy needs a staging token",
+      "repo": "demo"
+    },
+    {
+      "id": "fourth",
+      "key": "fourth",
+      "owner": "(main)",
+      "title": "Choose the follow-up",
+      "reason": "Pick the next task",
+      "repo": "demo"
+    }
+  ],
+  "omitted": [
+    {
+      "surface": "backlog item bodies",
+      "reveal": "--fields bodies"
+    },
+    {
+      "surface": "task paths",
+      "reveal": "--fields paths"
+    },
+    {
+      "surface": "watch/steer actions",
+      "reveal": "--fields actions"
+    },
+    {
+      "surface": "healthy endpoint detail",
+      "reveal": "--fields endpoints"
+    },
+    {
+      "surface": "full scout-report inventory",
+      "reveal": "--all-reports"
+    },
+    {
+      "surface": "captain holds bucketed blocked, dated, or aged: 1",
+      "reveal": "--all-decisions"
+    },
+    {
+      "surface": "live PR discovery + checks",
+      "reveal": "--include-prs"
+    }
+  ]
+}

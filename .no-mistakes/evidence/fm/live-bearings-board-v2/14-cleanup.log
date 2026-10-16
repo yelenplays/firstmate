@@ -1,0 +1,16 @@
+retired: lavish-dd1b13954d2a4835
+swept: attempted=1
+retired: lavish-f449f76fa837100f
+swept: attempted=1
+session:
+  file: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5232SAG992YRSCT968W5X29/.test-live/home/.lavish/bearings-board.html
+  status: ended
+session:
+  file: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5232SAG992YRSCT968W5X29/.test-live/aged/.lavish/bearings-board.html
+  status: ended
+closed owned lab page http://127.0.0.1:44831/session/f449f76fa837100f Target is closing
+closed owned lab page http://127.0.0.1:44831/session/dd1b13954d2a4835 Target is closing
+status: stopped
+server:
+  status: stopped
+  port: 44831

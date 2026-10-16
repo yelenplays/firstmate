@@ -1,0 +1,22 @@
+SOURCE                       ADAPTER      OWNER      PENDING
+lavish-f449f76fa837100f      lavish       none       1
+new-fourth	requested=2026-10-16T10:27:08Z	source=the captured result lavish-f449f76fa837100f sequence 1; captain note: Please check whether this is still needed
+reconcile-requests: 1
+task:
+  id: new-fourth
+  title: A new fourth call
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v1:QW5vdGhlciBkZWNpc2lvbg=="
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: demo
+  priority: "-"
+  created: 2026-10-16
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-16T10:18:56Z"

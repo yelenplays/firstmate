@@ -1,24 +1,56 @@
-$ fm-captain-hold.sh hold sample-call-1 ...
-sample-call-1
-exit 0
-$ fm-captain-hold.sh hold sample-call-2 ...
-sample-call-2
-exit 0
-$ fm-captain-hold.sh hold sample-call-3 ...
-sample-call-3
-exit 0
-$ fm-captain-hold.sh hold sample-call-4 (the 4th)
+$ bin/fm-captain-hold.sh hold call-1 --title Approve PR 1 --reason PR 1 waits for approval --repo sample
+call-1
+[exit 0]
+$ bin/fm-captain-hold.sh hold call-2 --title Approve PR 2 --reason PR 2 waits for approval --repo sample
+call-2
+[exit 0]
+$ bin/fm-captain-hold.sh hold call-3 --title Approve PR 3 --reason PR 3 waits for approval --repo sample
+call-3
+[exit 0]
+$ bin/fm-captain-hold.sh hold call-4 --title Credential for deploy --reason need token --repo sample
 fm-captain-hold: refused: 3 calls already wait on the captain, and the limit is 3:
-  sample-call-1 - Pick the release name 1
-  sample-call-2 - Pick the release name 2
-  sample-call-3 - Pick the release name 3
-Ask the captain which one to park (hold <id> --reason <reason> --until <date>) or drop (answer <id> --decision-file <file>), then hold sample-call-4 again.
-exit 3
-$ (cd $LAB && tasks-axi show sample-call-4)
-error: "Task \"sample-call-4\" not found in this backlog"
-code: NOT_FOUND
-help[1]: Run `tasks-axi list` to see existing tasks
-exit 1
-$ re-hold live sample-call-2
-sample-call-2
-exit 0
+  call-1 - Approve PR 1
+  call-2 - Approve PR 2
+  call-3 - Approve PR 3
+Ask the captain which one to park (hold <id> --reason <reason> --until <date>) or drop (answer <id> --decision-file <file>), then hold call-4 again.
+[exit 3]
+--- backlog after refused 4th:
+## In flight
+
+## Queued
+- [ ] call-1 - Approve PR 1 (repo: sample) (kind: captain) (since 2026-10-16) (hold: fm-hold-v1:UFIgMSB3YWl0cyBmb3IgYXBwcm92YWw=) (hold-kind: captain)
+  Captain hold set: 2026-10-16T10:13:22Z
+- [ ] call-2 - Approve PR 2 (repo: sample) (kind: captain) (since 2026-10-16) (hold: fm-hold-v1:UFIgMiB3YWl0cyBmb3IgYXBwcm92YWw=) (hold-kind: captain)
+  Captain hold set: 2026-10-16T10:13:25Z
+- [ ] call-3 - Approve PR 3 (repo: sample) (kind: captain) (since 2026-10-16) (hold: fm-hold-v1:UFIgMyB3YWl0cyBmb3IgYXBwcm92YWw=) (hold-kind: captain)
+  Captain hold set: 2026-10-16T10:13:28Z
+## Done
+$ bin/fm-captain-hold.sh hold call-2 --reason PR 2 waits for approval
+call-2
+[exit 0]
+$ bin/fm-captain-hold.sh hold call-1 --reason parked by captain --until 2026-12-01
+call-1
+[exit 0]
+$ bin/fm-captain-hold.sh hold call-4 --title Credential for deploy --reason need token --repo sample
+call-4
+[exit 0]
+$ bin/fm-captain-hold.sh hold call-5 --title Fifth --reason x --repo sample
+fm-captain-hold: refused: 3 calls already wait on the captain, and the limit is 3:
+  call-2 - Approve PR 2
+  call-3 - Approve PR 3
+  call-4 - Credential for deploy
+Ask the captain which one to park (hold <id> --reason <reason> --until <date>) or drop (answer <id> --decision-file <file>), then hold call-5 again.
+[exit 3]
+--- backlog final:
+## In flight
+
+## Queued
+- [ ] call-1 - Approve PR 1 (repo: sample) (kind: captain) (since 2026-10-16) (hold: fm-hold-v1:cGFya2VkIGJ5IGNhcHRhaW4=) (hold-kind: captain) (hold-until: 2026-12-01)
+  Captain hold set: 2026-10-16T10:13:22Z
+- [ ] call-2 - Approve PR 2 (repo: sample) (kind: captain) (since 2026-10-16) (hold: fm-hold-v1:UFIgMiB3YWl0cyBmb3IgYXBwcm92YWw=) (hold-kind: captain)
+  Captain hold set: 2026-10-16T10:13:25Z
+- [ ] call-3 - Approve PR 3 (repo: sample) (kind: captain) (since 2026-10-16) (hold: fm-hold-v1:UFIgMyB3YWl0cyBmb3IgYXBwcm92YWw=) (hold-kind: captain)
+  Captain hold set: 2026-10-16T10:13:28Z
+- [ ] call-4 - Credential for deploy (repo: sample) (kind: captain) (since 2026-10-16) (hold: fm-hold-v1:bmVlZCB0b2tlbg==) (hold-kind: captain)
+  Captain hold set: 2026-10-16T10:13:43Z
+## Done

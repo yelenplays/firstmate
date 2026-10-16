@@ -1,0 +1,20 @@
+== Three unanswered, undated calls held on 2026-09-26 (20 days ago, past the old 14-day aging cutoff):
+old-1
+exit=0
+old-2
+exit=0
+old-3
+exit=0
+
+== Attempt a fourth without parking or answering anything:
+fm-captain-hold: refused: 3 calls already wait on the captain, and the limit is 3:
+  old-1 - Unanswered old call 1
+  old-2 - Unanswered old call 2
+  old-3 - Unanswered old call 3
+Ask the captain which one to park (hold <id> --reason <reason> --until <date>) or drop (answer <id> --decision-file <file>), then hold new-fourth again.
+fourth_exit=3 (expected 3)
+
+== Was new-fourth created?
+error: "Task \"new-fourth\" not found in this backlog"
+code: NOT_FOUND
+help[1]: Run `tasks-axi list` to see existing tasks

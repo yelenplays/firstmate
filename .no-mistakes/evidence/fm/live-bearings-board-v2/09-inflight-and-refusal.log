@@ -1,0 +1,35 @@
+Public backlog includes in-flight work while captain slots remain available:
+ok: added background-1 (ship, repo demo) -> In flight
+task:
+  id: background-1
+  title: Long-running independent work
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: demo
+  priority: "-"
+  created: 2026-10-16
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi done background-1 --pr <url>` when it ships
+  - Run `tasks-axi block background-1 --by <other>` to record a dependency
+last-slot
+third_exit=0
+fm-captain-hold: refused: 3 calls already wait on the captain, and the limit is 3:
+  credential - Provide staging access
+  fourth - Choose the follow-up
+  last-slot - Third pending decision
+Ask the captain which one to park (hold <id> --reason <reason> --until <date>) or drop (answer <id> --decision-file <file>), then hold over-limit again.
+fourth_exit=3
+error: "Task \"over-limit\" not found in this backlog"
+code: NOT_FOUND
+help[1]: Run `tasks-axi list` to see existing tasks
+absent_exit=1

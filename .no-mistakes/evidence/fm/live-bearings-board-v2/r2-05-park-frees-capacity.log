@@ -1,0 +1,18 @@
+== Captain parks old-2 until 2026-11-01:
+old-2
+park_exit=0
+
+== Retry the fourth call:
+new-fourth
+fourth_exit=0 (expected 0)
+
+== Fifth call while 3 live again (old-1, old-3, new-fourth):
+fm-captain-hold: refused: 3 calls already wait on the captain, and the limit is 3:
+  old-1 - Unanswered old call 1
+  old-3 - Unanswered old call 3
+  new-fourth - A new fourth call
+Ask the captain which one to park (hold <id> --reason <reason> --until <date>) or drop (answer <id> --decision-file <file>), then hold new-fifth again.
+fifth_exit=3 (expected 3)
+
+== Bearings Captain's Call vs Charted Next:
+{"captains_call":["old-1","old-3","new-fourth"],"gates":[{"id":"old-2","why":"until 2026-11-01: Still need a decision …"}]}

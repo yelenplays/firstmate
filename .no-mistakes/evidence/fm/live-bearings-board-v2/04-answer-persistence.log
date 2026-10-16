@@ -1,0 +1,20 @@
+decision	/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5232SAG992YRSCT968W5X29/.test-live/home/state/captain-answers-to-route/decision.decision
+task:
+  id: decision
+  title: Choose the release scope
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v1:RGVjaWRlIGJldHdlZW4gdGhlIHNtYWxsIGFuZCBmdWxsIHJlbGVhc2U="
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: demo
+  priority: "-"
+  created: 2026-10-16
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-16T10:14:59Z"
+refreshed: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5232SAG992YRSCT968W5X29/.test-live/home/.lavish/bearings-board.html

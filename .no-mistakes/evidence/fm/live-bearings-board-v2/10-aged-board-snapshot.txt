@@ -1,0 +1,68 @@
+page:
+  title: Bearings - fleet board · Lavish
+  refs: 60
+snapshot:
+uid=g10:1_0 RootWebArea "Bearings - fleet board · Lavish" url="http://127.0.0.1:44831/session/f449f76fa837100f"
+  uid=g10:1_1 StaticText "Lavish"
+  uid=g10:1_2 StaticText "EDITOR"
+  uid=g10:1_3 button "Annotate" description="Toggle annotate/explore mode (⌘I / Ctrl+I)" pressed
+  uid=g10:1_4 button "More" expandable haspopup="menu"
+  uid=g10:1_5 Iframe
+    uid=g10:1_6 RootWebArea "Bearings - fleet board" url="http://127.0.0.1:44831/artifact/f449f76fa837100f/index.html?artifact_revision=1&artifact_load_token=XG-843EnthADfODSRr8XkVjnivJ3JWvj"
+      uid=g10:1_7 banner
+        uid=g10:1_8 StaticText "bearings"
+        uid=g10:1_9 StaticText "changed 12:23 PM"
+      uid=g10:1_10 main
+        uid=g10:1_11 StaticText "1"
+        uid=g10:1_12 StaticText "/ 3"
+        uid=g10:1_13 StaticText "NEED YOU"
+        uid=g10:1_14 StaticText "0"
+        uid=g10:1_15 StaticText "UNDERWAY"
+        uid=g10:1_16 StaticText "0"
+        uid=g10:1_17 StaticText "LANDED RECENTLY"
+        uid=g10:1_18 StaticText "3"
+        uid=g10:1_19 StaticText "CHARTED NEXT"
+        uid=g10:1_20 StaticText "CAPTAIN'S CALL"
+        uid=g10:1_21 StaticText "1 ITEM WAIT ON YOU, CAPTAIN"
+        uid=g10:1_22 StaticText "DECISION"
+        uid=g10:1_23 StaticText "demo"
+        uid=g10:1_24 heading "A new fourth call" level="3"
+        uid=g10:1_25 StaticText "ABOUT"
+        uid=g10:1_26 StaticText "Another decision"
+        uid=g10:1_27 radio "Reconcile Re-check the latest state, then close this with evidence or keep it open with a note"
+        uid=g10:1_28 StaticText "Reconcile"
+        uid=g10:1_29 StaticText "Re-check the latest state, then close this with evidence or keep it open with a note"
+        uid=g10:1_30 textbox "Answer in your own words"
+        uid=g10:1_31 button "Queue answer"
+        uid=g10:1_32 StaticText "card 1 of 1"
+        uid=g10:1_33 button "Previous card" disableable disabled
+        uid=g10:1_34 button "Next card" disableable disabled
+        uid=g10:1_35 StaticText "CHARTED NEXT"
+        uid=g10:1_36 StaticText "Unanswered old call 1"
+        uid=g10:1_37 StaticText "held 20d: Still need a decision · old-1"
+        uid=g10:1_38 StaticText "WAITING"
+        uid=g10:1_39 StaticText "Unanswered old call 2"
+        uid=g10:1_40 StaticText "held 20d: Still need a decision · old-2"
+        uid=g10:1_41 StaticText "WAITING"
+        uid=g10:1_42 StaticText "Unanswered old call 3"
+        uid=g10:1_43 StaticText "held 20d: Still need a decision · old-3"
+        uid=g10:1_44 StaticText "WAITING"
+        uid=g10:1_45 StaticText "NOTHING PICKED"
+        uid=g10:1_46 button "Queue dispatch order"
+        uid=g10:1_47 StaticText "UNDERWAY"
+        uid=g10:1_48 StaticText "Nothing is underway."
+        uid=g10:1_49 StaticText "RECENTLY LANDED"
+        uid=g10:1_50 StaticText "No recent completions are in the current baseline."
+        uid=g10:1_51 StaticText "fm-bearings-board.v1 · 2026-10-16T10:23:11Z"
+  uid=g10:1_52 complementary
+    uid=g10:1_53 heading "Conversation" level="2"
+    uid=g10:1_54 StaticText "Agent hasn't sent a message yet. Click an element in the artifact to annotate, or type below to start."
+    uid=g10:1_55 textbox "Write a message for the agent..." multiline
+    uid=g10:1_56 button "Attach images"
+    uid=g10:1_57 status atomic live="polite" relevant="additions text"
+    uid=g10:1_58 button "Send & End"
+    uid=g10:1_59 button "Send to Agent"
+help[3]:
+  Run `chrome-devtools-axi fill @g10:1_30 "text"` to fill the "Answer in your own words" field
+  Run `chrome-devtools-axi scroll down` to scroll down
+  Use `chrome-devtools-axi eval <expr>` for JS expressions. For multi-statement code, pass a function: `eval "() => { ...; return result }"`
