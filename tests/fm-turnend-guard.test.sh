@@ -893,7 +893,7 @@ test_tracked_claude_entries_inert_under_grok() {
   mkdir -p "$dir/bin"
   for script in fm-turnend-guard.sh fm-claude-stop-autoarm.sh fm-sessionstart-run.sh fm-history.sh \
     fm-memory-capture.sh fm-arm-pretool-check.sh fm-cd-pretool-check.sh fm-subagent-pretool-check.sh fm-host-mirror.sh; do
-    printf '#!/usr/bin/env bash\nprintf "%%s\\n" "${0##*/}" >> %q\n' "$dir/invoked" > "$dir/bin/$script"
+    printf '#!/usr/bin/env bash\nprintf "%%s\\n" %q >> %q\n' "$script" "$dir/invoked" > "$dir/bin/$script"
     chmod +x "$dir/bin/$script"
   done
 
