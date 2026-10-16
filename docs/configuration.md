@@ -9,7 +9,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) and its [Orca environment source](#orca-environment-source-configlaunch-env-tmux-session), [worker CPU priority](#worker-cpu-priority), and [never-use models](#never-use-model-list-configmodel-denylistjson) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [GitHub account per owner](#github-account-per-owner-configgh-account-by-owner), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist) and its [Orca environment source](#orca-environment-source-configlaunch-env-tmux-session), [worker CPU priority](#worker-cpu-priority), [never-use models](#never-use-model-list-configmodel-denylistjson), and [private-material guard](#private-material-guard-configprivate-markers) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), [external memory tiers](#external-memory-tiers-memory-layering-section), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), [Calm preference](#calm-preference-configcalm), and [theme pack](#theme-pack-configtheme) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
@@ -1444,7 +1444,7 @@ This section is the single owner of the canonical schema and its per-field seman
       "floor": { "scope": "<quota-axi scope>", "min_percent": 20, "provider": "<quota-axi provider>" },
       "beats": [ { "rule": 2, "when": "<optional condition under which this rule wins>" } ],
       "use": [
-        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "effort_min": "<optional>", "effort_max": "<optional>", "provider": "<optional quota-axi provider>", "floor": { "scope": "<quota-axi scope>", "min_percent": 50 }, "effort_floor": "<optional, not above effort_max or effort>", "overflow": false }
+        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "effort_min": "<optional>", "effort_max": "<optional>", "provider": "<optional quota-axi provider>", "floor": { "scope": "<quota-axi scope>", "min_percent": 50 }, "effort_floor": "<optional, not above effort_max or effort>", "overflow": false, "private_ok": true }
       ],
       "why": "<optional rationale that helps firstmate choose>"
     }
@@ -1465,6 +1465,7 @@ This section is the single owner of the canonical schema and its per-field seman
 | Profile `harness` | Required in every profile. |
 | Profile `model` and `effort`; rule `why` | Optional. |
 | Profile `overflow` | Optional boolean, default `false`; see "Overflow profiles" below. |
+| Profile `private_ok` | Optional boolean, default `true`; `false` keeps the profile off private work, enforced in code by the [private-material guard](#private-material-guard-configprivate-markers). |
 | Profile `effort_floor` | Optional scalar `low`, `medium`, `high`, `xhigh`, or `max`, supported by an effort-capable harness and model and not above the profile's `effort_max`, or `effort` when no upper bound is declared (`xhigh` when both are omitted); see [typed effort resolution](#firstmate-retains-the-dispatch-decision) below. |
 | Profile `effort_min` and `effort_max` | Optional; they need `effort` and widen it into a range, `effort_min <= effort <= effort_max` on `low < medium < high < xhigh < max < ultra`. |
 
@@ -1518,6 +1519,35 @@ Unknown runway alone is not evidence of a shortfall; a known 0% applicable bound
 A scout brief never overflows: investigation, planning, design, and diagnosis deliverables stay on the primary profiles.
 Typed resolution applies this in code and names the held or passed-over profile on its candidate line; firstmate's own intake applies the same rule by hand.
 
+### Free research lane
+
+The free research lane sends read-only research and reading on non-private material to OpenCode's free DeepSeek V4.1 Flash, and switches to the paid OpenCode Go model on its own once the free tier ends.
+[`bin/fm-free-lane-lib.sh`](../bin/fm-free-lane-lib.sh) owns both profiles; no other model is watched or swapped.
+
+`bin/fm-free-research-lane.sh enable` appends the lane as the last rule of `config/crew-dispatch.json`, so every existing rule number and `beats` entry stays valid:
+
+```json
+{ "when": "read-only research and reading on non-private material ... never for private projects, private people or clients, personal accounts, health or finances",
+  "use": [ { "harness": "opencode", "model": "opencode/deepseek-v4.1-flash-free", "provider": "opencode", "private_ok": false } ] }
+```
+
+It refuses until `config/private-markers` names at least one marker, because the [private-material guard](#private-material-guard-configprivate-markers) proves nothing non-private without one, and it refuses in a secondmate home, whose rules are inherited.
+The rule text names no private project, person, or client, since rule text reaches Jev on every dispatch; the guard enforces those locally in code.
+The lane rule is recognised by its fixed `why` text together with a single free or already swapped paid profile, so an operator's own rule with the paid profile is never mistaken for it.
+Precedence over overlapping rules is a per-home `beats` edit made after enabling.
+`status` reports the lane's rule number, which model it runs, and the marker count, never a marker.
+`disable` removes the lane when it is still the last rule, together with every `beats` entry naming it, and refuses otherwise, because removing it would renumber later rules.
+Both keep the previous file as `config/crew-dispatch.json.bak-<date>-research-lane` and push the rules to live secondmate homes.
+
+[`bin/fm-free-model-canary.sh`](../bin/fm-free-model-canary.sh) watches any `opencode` profile on the free model.
+Once a day it lists the provider's models with `opencode models opencode --refresh`.
+When the free model is missing from a listing that succeeded and names other models of that provider, it rewrites each such profile in place to `{ "harness": "pi", "model": "opencode-go/deepseek-v4.1-flash", "provider": "opencode-go" }`, keeps every other key such as `private_ok`, and keeps the previous file as `config/crew-dispatch.json.bak-<date>-canary`.
+It then pushes the changed rules to live secondmate homes through `bin/fm-config-push.sh` and raises one `captain notice` line as a `check: free-model-canary` wake for firstmate to relay.
+A listing that fails or names nothing swaps nothing and alerts once until the outcome changes.
+The canary never changes an OpenCode account or plan setting; in particular it never turns on the Go plan's "use balance", so the Go replacement stays inside the subscription allowance.
+`enable` and a locked session start arm the check in a primary home whenever the free model is in use, and `disable` disarms it; a secondmate home inherits the rules and never runs it.
+The script headers own the exact records and exit codes.
+
 **Changing the routing table**
 
 The rules file is the captain's approved table from kind of work to model; the rule match only names the kind of work.
@@ -1532,6 +1562,7 @@ A model reserved for escalation stays out of every `use` array; firstmate dispat
 - A profile's typed-resolution effort is a range: `effort` is its default and `effort_min` and `effort_max` its bounds, with each omitted bound falling back to `effort`, so a bare `effort` is a one-level range.
   With no declared effort, the resolver allows `low` through `xhigh`; firstmate's own intake reads the range as a hint.
 - OpenCode receives the effort as its default `build` agent's `variant`, keyed to the resolved model, inside the `OPENCODE_CONFIG_CONTENT` JSON its launch already writes (the per-model reasoning-effort field of the config schema, verified on opencode 1.18.32); with no model resolved, the effort is recorded in task metadata but omitted from the launch.
+  The same JSON sets `"autoupdate":false` and `"share":"disabled"` and denies the skill tool, whose skill list otherwise costs every turn, on every OpenCode launch, crewmate and secondmate alike; the [OpenCode harness reference](../.agents/skills/harness-adapters/references/harness/opencode.md) records the verification.
 - Outside the resolver, firstmate resolves profile arrays through `quota-array-dispatch`; the resolver's selection contract is [below](#typed-dispatch-resolution-env-typesafe_api_key).
 - If no dispatch rule fits, firstmate resolves `default` through the same object-or-array path before falling back to `config/crew-harness`.
 - Except for `ultra`, which refuses unsupported profiles under the native-effort contract above, an effort value the chosen harness does not accept is recorded as `effort=` in task meta for traceability but omitted from the launch flags.
@@ -1589,6 +1620,43 @@ Where the list is enforced:
 - Jev calls that pick a model drop matching options before anything is sent (an option matches by its label; under a harness, provider, or route label (any launch binary such as `pi`, `claude`, `omp`, `cursor-agent`, or `opencode`, or a provider or route name such as `openrouter`) every model id the meaning names counts, so `claude=Claude Opus, not kimi` is removed under a Kimi ban; under any other concrete model-id label, such as `opus`, only a bare model-id meaning counts, so a description that mentions a banned model keeps the option; under any other label the first model id the meaning names counts; a token is a model id only when it carries a model-family token or matches a rule, never for a slash alone) and append a captain model-rules summary to the state: `bin/fm-jev.sh` for any pick or score question whose options name a model or that passes `--models`, `bin/fm-jev-model-proposal.sh` for its candidates, and the dispatch resolver's runoff.
   The summary lists every `never` pattern with its reason followed by the `rules` sentences, is cut to 700 bytes, and still passes each caller's byte cap and privacy screen.
   A `bin/fm-jev.sh` question left with fewer than two options is refused with nothing sent.
+
+## Private-material guard (config/private-markers)
+
+A dispatch profile marked `"private_ok": false` in `config/crew-dispatch.json` is one that must never see private material, such as a free model on a third-party gateway.
+A rule's `when` text cannot guarantee that, because Jev matches it as a judgment; this guard holds it in code instead.
+[`bin/fm-private-guard-lib.sh`](../bin/fm-private-guard-lib.sh) is the one owner of loading and matching.
+
+The optional local, gitignored `config/private-markers` lists what makes a task private:
+
+```text
+# Private clients and people
+Acme Private
+data/private
+```
+
+Each non-blank line not beginning with `#` is one literal marker.
+Matching is case-insensitive, and every run of whitespace, `-`, or `_` counts as one space on both sides, so `Acme Private` also matches the project `acme-private-site`.
+A marker matches anywhere in the checked text, so prefer distinctive markers; standing brief additions from `config/brief-include.md` are part of every brief.
+
+A task is non-private only when the list exists as a readable regular file and no marker matches any of:
+
+- the project name (`--project` for the resolver, the project directory's name for a spawn);
+- the home's names: its directory name and, in a secondmate home, its secondmate id (for a secondmate launch, the secondmate's id and its home as given or, on a recovery, as registered);
+- the whole brief text (for a secondmate launch, the brief it will send: the home's `data/charter.md` when present, else the task brief).
+
+The guard fails closed: with no list, an unusable list, or an unreadable brief, a `private_ok: false` profile is treated as facing private work.
+Profiles without `"private_ok": false` are unaffected, and an absent list changes nothing for them.
+
+Where the guard is enforced:
+
+- `bin/fm-dispatch-resolve.sh` marks such a profile not eligible, so it is never chosen, ranked, or offered in a runoff; a rule left with no eligible profile falls to the default lane.
+  A fixed policy profile that is such a profile is refused the same way.
+- `bin/fm-spawn.sh` refuses, with exit 1 before any worktree, endpoint, or record exists, a ship, scout, relaunch, or secondmate launch whose model (or, for a model-less profile, harness) matches such a profile, unless the task is proven non-private.
+  A rules file that cannot be read as JSON counts as matching, so it refuses only when the task is not also proven non-private.
+
+The list is read locally and never sent to Jev, a remote model, or a log; a refusal or candidate line names only the matched source and the list line number.
+Like `config/crew-dispatch.json`, it is inherited into secondmate homes as a file, but never inlined into the config reread instruction a live secondmate's model reads, and a change to it alone sends no reread; the routing selftest copies it into its isolated config.
 
 ## Typed dispatch resolution (.env TYPESAFE_API_KEY)
 
@@ -1833,7 +1901,7 @@ The tracked synthetic fixture in [`tests/fixtures/dispatch-selftest/`](../tests/
 A locked `bin/fm-session-start.sh` automatically arms the nightly check whenever `config/dispatch-samples.json` exists.
 When a locked session start finds `config/crew-dispatch.json` but no samples file, it alerts once and records `state/dispatch-selftest/missing-samples.alerted` until the samples return or the rules disappear.
 Repeated session starts preserve the existing check registration, and `bin/fm-dispatch-selftest.sh arm` remains available for manual recovery.
-The check stores the SHA-256 digest of the most recently attempted rules, samples, `bin/fm-dispatch-resolve.sh`, and `bin/fm-backup-judge-lib.sh` in `state/dispatch-selftest/attempted.sha256`, including distinct markers for missing or unreadable inputs.
+The check stores the SHA-256 digest of the most recently attempted rules, samples, `config/private-markers`, `bin/fm-dispatch-resolve.sh`, `bin/fm-backup-judge-lib.sh`, and `bin/fm-private-guard-lib.sh` in `state/dispatch-selftest/attempted.sha256`, including distinct markers for missing or unreadable inputs.
 When any of those inputs changes, the next watcher check starts a live run immediately instead of waiting for the nightly hour, unless a run is already active.
 A direct `run --record` uses the same running marker, so a watcher does not report an overlapping recorded run as stopped.
 A failed run alerts once for that attempt, and unchanged inputs wait for the nightly slot before another run; changed inputs trigger a new immediate attempt.
@@ -3334,7 +3402,8 @@ FM_INACTIVE_RECONCILE_BUDGET_SECS=10  # 1..30-second scan deadline; wedged-scan 
 FM_CHECK_INTERVAL=300   # seconds between global slow checks (authenticated merge polls, custom checks, or Relay dispatch); per-check state/<id>.check-every overrides only that check
 FM_TASK_INBOX_GRACE_SECS=90   # seconds an unhandled steering-inbox message may sit before the watcher attempts doorbell delivery on an idle pane; also the minimum spacing between attempts
 FM_TASK_INBOX_RING_MAX=3      # watcher delivery attempts without an acknowledgement before the task surfaces as a stale wake for recovery
-FM_TASK_INBOX_BUSY_MAX=2      # consecutive busy-deferred due polls before a stuck-busy stale wake; 1..999999999, at most 9 decimal digits, otherwise 2; policy: bin/fm-task-inbox-lib.sh
+FM_TASK_INBOX_BUSY_MAX=2      # consecutive busy-deferred due polls before a stuck-busy stale wake; 1..999999999, at most 9 decimal digits, otherwise 2; a doorbell already delivered to that pane holds the escalation while the newest of its delivery, completed turn, or progress marker is younger than FM_BUSY_TURN_MAX_SECS; policy: bin/fm-task-inbox-lib.sh
+FM_EXECUTION_LAUNCH_GRACE_SECS=300   # seconds after a recorded launch attempt during which an approved execution whose crew reports a fresh working state stays owned by the worker instead of waking firstmate; 0 disables; policy: bin/fm-task-execution.sh --help
 FM_CHECK_TIMEOUT=30     # seconds allowed per slow check script
 FM_MAIL_CHECK_BUDGET=15   # seconds allowed for one standing mail poll; valid 5..25, cut to fit FM_CHECK_TIMEOUT
 FM_MAIL_POLL_MAX_WAKES=20   # per-poll wake cap for a mail poll; valid 1..200, keeps a flood from flooding firstmate
@@ -3423,7 +3492,7 @@ FM_CAPTAIN_RE='done:|needs-decision:|blocked:|failed:|PR ready|checks green|read
 FM_CLASSIFY_PAUSED_VERB=paused     # leading declared-wait status verb; bin/fm-classify-lib.sh owns its meaning and legacy external-wait label; excluded from FM_CAPTAIN_RE and distinct from blocked
 FM_STALE_ESCALATE_SECS=240         # idle seconds before a provably-working stale pane escalates, unless that pane's own worker declared a wait that has not elapsed, its task is held for the captain in the backlog, or, where config/wedge-defer-parked-gate arms it, that pane's crew is parked at a validation gate awaiting the supervisor's decision on it that the crew raised under that run's key and nobody has answered yet, any of which takes the FM_PAUSE_RESURFACE_SECS recheck below instead; the escalation is also held while the pane's recorded run step is still inside its FM_BUSY_TURN_MAX_SECS bound below and the pane shows no recognised blocking dialog, which re-arms the idle timer like the sibling deferrals so the at-threshold probes stay on the once-per-interval cadence instead of every poll - a healthy long silent foreground step (an in-flight sleep-based status poll, a long command with a static pane) is not a wedge, and a genuinely wedged step still escalates within one stale interval of that bound crossing - and while the task's attributed no-mistakes run proves execution (that run-liveness rule also applies to the away-mode daemon; details: docs/architecture.md, Event-driven supervision); stale panes whose crew is not provably working surface immediately unless admitted directly to the declared-wait cadence, while a live idle declared wait still surfaces once before that cadence bounds repeats; at that same escalation moment a recovery-grade agent-state probe (docs/architecture.md owns that dead-record contract) reports a pane whose endpoint is proven `dead` or `missing` once and stops re-escalating it while it stays that way
 FM_BUSY_TURN_MAX_SECS=3600         # maximum age of the recorded step's anchor before the same wedge escalation used for a provably-working non-busy stale takes over; the anchor is evidence every harness produces - the completed-turn marker, else the spawn record - with a native-harness .progress marker only freshening it where one is emitted (bin/fm-watch.sh owns marker selection), so a harness that never writes .progress stays bounded by its completed-turn or spawn age; the same bound also holds an idle-looking pane's FM_STALE_ESCALATE_SECS escalation while the recorded step is still inside it, unless the pane shows a recognised blocking dialog, and it bounds the recorded herdr+devin stopped-worker signature, a natively idle worker whose still-rendering pane never forms a stable hash; inspection-only, never an automatic interrupt or restart; a declared external wait, an attended verified captain-held transfer, an attended backlog captain hold on the crew's task, or - where config/wedge-defer-parked-gate arms it - a validation gate of the crew's own awaiting the supervisor's still-unanswered decision takes the FM_PAUSE_RESURFACE_SECS recheck below instead
-FM_PAUSE_RESURFACE_SECS=14400      # four hours between bounded rechecks of a declared external wait or verified captain-held transfer, and between repeated new-hash stale alarms for an ordinary crew task with an open backlog captain call; a structured until time can make an external-wait recheck occur sooner but cannot extend this bound; this includes a live idle pane after its first inconclusive stale wake, a provably-working pane whose own unelapsed declared wait, backlog captain hold, or, where config/wedge-defer-parked-gate arms it, unanswered supervisor-owed validation gate defers its FM_STALE_ESCALATE_SECS escalation, and a live busy pane past FM_BUSY_TURN_MAX_SECS; it also caps quiet no-mistakes process/daemon evidence and the watcher's run-liveness deferral re-surface interval (details: docs/architecture.md, Event-driven supervision); the away-mode daemon uses the same setting and ages its declared-wait window against the crew's own latest status line rather than pane busy state; a captain-held transfer or backlog captain hold is never rechecked while the away-posture record exists, while an armed validation gate awaiting the supervisor's decision keeps this recheck in either posture
+FM_PAUSE_RESURFACE_SECS=14400      # four hours between bounded rechecks of a declared external wait or verified captain-held transfer, and between repeated new-hash stale alarms for an ordinary crew task with an open backlog captain call; a structured until time can make an external-wait recheck occur sooner but cannot extend this bound; this includes a live idle pane after its first inconclusive stale wake, a provably-working pane whose own unelapsed declared wait, backlog captain hold, or, where config/wedge-defer-parked-gate arms it, unanswered supervisor-owed validation gate defers its FM_STALE_ESCALATE_SECS escalation, and a live busy pane past FM_BUSY_TURN_MAX_SECS; it also caps quiet no-mistakes process/daemon evidence and the watcher's run-liveness deferral re-surface interval (details: docs/architecture.md, Event-driven supervision); the away-mode daemon uses the same setting and ages its declared-wait window against the crew's own latest status line rather than pane busy state; a captain-held transfer or backlog captain hold is never rechecked while the away-posture record exists; a declared wait whose backlog row the captain parked gets no periodic recheck in the watcher, only one wake when it comes due (docs/captain-hold-lifecycle.md "Captain-parked pauses"), while an armed validation gate awaiting the supervisor's decision keeps this recheck in either posture
 FM_SECONDMATE_WAKE_STALL_SECS=180  # minimum interval with no change of the oldest actionable foreign wake-queue row (it advances as the mate drains, and a queue reprovisioned under the same task id starts a fresh interval at whatever sequence it restarts) before an endpoint-recorded local secondmate produces one durable parent wake-loop-stall notification for that no-progress episode; a mate that is provably inside an active turn (an exact busy verdict) does not escalate until that same no-progress interval reaches FM_BUSY_TURN_MAX_SECS above; a mate whose busy class is exactly idle, whose agent is alive, and whose composer is not pending is rung once so its own home can drain, and the parent notification is withheld until that same row stays frozen for another stall interval; unknown or ring-unsafe panes keep the parent alarm; declared external-wait pause rows are excluded, and zero or invalid values use 180
 FM_SECONDMATE_LIVENESS_SECS=60   # seconds between watcher probes of each registered secondmate's recorded endpoint through bin/fm-secondmate-liveness-lib.sh, which relaunches only a positively `dead` or `missing` endpoint through the ordinary guarded fm-spawn.sh --secondmate path and emits exactly one check wake per relaunch; zero or invalid values use 60
 FM_SECONDMATE_LIVENESS_TIMEOUT=120   # seconds allowed separately for a watcher-driven relaunch's per-home lock wait and its spawn execution; a lock-wait timeout skips recovery without touching the endpoint or recording an attempt; zero or invalid values use 120

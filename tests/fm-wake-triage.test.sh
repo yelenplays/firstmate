@@ -658,7 +658,7 @@ test_absorb_fails_closed() {
   rc=0
   out=$(run_triage "$dir" '' --absorb) || rc=$?
   [ "$rc" -eq 10 ] || fail "an unqueued new decision was absorbed (rc=$rc): $out"
-  assert_contains "$out" 'other - C4 new open decision: other [key=review-question] needs-decision: choose a lane' \
+  assert_contains "$out" 'other - C4 new or changed open decision: other [key=review-question] needs-decision: choose a lane' \
     'the unqueued decision did not reach the ACT NOW summary'
   assert_not_contains "$out" 'WAKE_ACKED:' 'the unqueued decision was reported as absorbed'
   assert_unacked "$dir"
@@ -676,7 +676,7 @@ test_absorb_fails_closed() {
   out=$(run_triage "$dir" '' --absorb) || rc=$?
   stop_absorb_watcher "$dir"
   [ "$rc" -eq 10 ] || fail "a changed decision was absorbed as already delivered (rc=$rc): $out"
-  assert_contains "$out" 'C4 new open decision: other [key=review-question] needs-decision: choose a lane, now with a deadline' \
+  assert_contains "$out" 'C4 new or changed open decision: other [key=review-question] needs-decision: choose a lane, now with a deadline' \
     'the changed decision did not reach the ACT NOW summary'
   assert_unacked "$dir"
 
@@ -758,7 +758,7 @@ test_absorb_fails_closed() {
   rc=0; run_triage "$dir" '' --bogus > /dev/null 2>&1 || rc=$?
   [ "$rc" -eq 2 ] || fail "triage accepted an unknown argument (rc=$rc)"
   out=$(run_triage "$dir" '' --help) || fail '--help failed'
-  assert_contains "$out" 'Usage: fm-wake-triage.sh [--absorb]' '--help did not print the usage header'
+  assert_contains "$out" 'Usage: fm-wake-triage.sh [--absorb | --decisions]' '--help did not print the usage header'
   pass '--absorb keeps every wake that needs firstmate and validates its arguments'
 }
 

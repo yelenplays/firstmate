@@ -8,6 +8,13 @@
 # the supervision session's new and unprocessed outcomes (BRANCH OUTCOMES),
 # then assert liveness.
 #
+# Usage: fm-wake-drain.sh [--decisions]
+#        fm-wake-drain.sh --ack-through SEQUENCE --recovery-generation GENERATION
+#        fm-wake-drain.sh --ack-rows SEQUENCE[,SEQUENCE...] --recovery-generation GENERATION
+# OPEN DECISIONS prints the open count plus only the decisions that are new or
+# changed since the last successful presentation to the same conversation;
+# --decisions lists every open decision instead (print_open_decisions_section
+# owns the rule).
 # --ack-rows acknowledges only the named sequences main was presented, for
 # bin/fm-wake-triage.sh --absorb to retire the routine rows of a batch whose
 # other rows still need firstmate; --ack-through stays the handling turn's
@@ -59,6 +66,10 @@ ACK_FINGERPRINTS=
 ACK_NOTICE_FINGERPRINTS=
 PRESENTATION_LOCK_TIMEOUT=${FM_STATUS_PRESENTATION_LOCK_TIMEOUT:-10}
 BRANCH_OUTCOMES_RC=0
+SHOW_ALL_DECISIONS=false
+OPEN_DECISIONS_LEDGER="$STATE/.open-decisions-presented"
+OPEN_DECISIONS_CONVERSATION=
+OPEN_DECISIONS_LEDGER_STAGED=
 case "$PRESENTATION_LOCK_TIMEOUT" in ''|*[!0-9]*|0) PRESENTATION_LOCK_TIMEOUT=10 ;; esac
 
 # --- per-actor consume (docs/watcher-continuity.md "Per-actor acknowledgement") --
@@ -260,6 +271,10 @@ presented_max_row() { # <rows-file>
 
 case "${1:-}" in
   '') ;;
+  --decisions)
+    [ "$#" -eq 1 ] || { echo "wake drain: --decisions takes no further arguments" >&2; exit 2; }
+    SHOW_ALL_DECISIONS=true
+    ;;
   --ack-through)
     ACK_THROUGH=${2:-}
     case "$ACK_THROUGH" in ''|*[!0-9]*) echo "wake drain: invalid acknowledgement sequence" >&2; exit 2 ;; esac
@@ -282,8 +297,24 @@ case "${1:-}" in
     [ "$ACTOR" = main ] || { echo "wake drain: --ack-rows acknowledges main's presented rows only" >&2; exit 2; }
     ACK_THROUGH=$(printf '%s\n' "$ACK_ROWS" | tr ',' '\n' | awk '$1 + 0 > max { max = $1 + 0 } END { print max + 0 }')
     ;;
-  *) echo "usage: fm-wake-drain.sh [--ack-through SEQUENCE | --ack-rows SEQUENCE[,SEQUENCE...]] --recovery-generation GENERATION" >&2; exit 2 ;;
+  *) echo "usage: fm-wake-drain.sh [--decisions | --ack-through SEQUENCE --recovery-generation GENERATION | --ack-rows SEQUENCE[,SEQUENCE...] --recovery-generation GENERATION]" >&2; exit 2 ;;
 esac
+# A known-decision ledger records what one conversation was shown. Main keeps
+# its own; the branch keeps one for the supervision host's engine conversation
+# it runs in (FM_BRANCH_CONVERSATION, bin/fm-supervision-host.sh), and a
+# branch drain outside one lists every open decision and keeps no ledger.
+if [ "$ACTOR" = branch ]; then
+  case "${FM_BRANCH_CONVERSATION:-}" in
+    ''|*[!A-Za-z0-9._-]*)
+      OPEN_DECISIONS_LEDGER=
+      SHOW_ALL_DECISIONS=true
+      ;;
+    *)
+      OPEN_DECISIONS_LEDGER="$STATE/.open-decisions-presented.branch"
+      OPEN_DECISIONS_CONVERSATION="conversation=$FM_BRANCH_CONVERSATION"
+      ;;
+  esac
+fi
 
 [ "$ACTOR" != branch ] || require_branch_eligible_rows || exit 1
 
@@ -536,6 +567,25 @@ EOF
   [ "$shown" -gt 0 ] || return 0
 }
 
+# Stage the known-decision ledger print_open_decisions_section computed; the
+# commit is commit_open_decisions_ledger, after presentation.
+stage_open_decisions_ledger() {  # <entries>
+  [ -z "$OPEN_DECISIONS_LEDGER_STAGED" ] || rm -f -- "$OPEN_DECISIONS_LEDGER_STAGED"
+  OPEN_DECISIONS_LEDGER_STAGED=$(mktemp "$STATE/.open-decisions-presented.tmp.XXXXXX") || return 1
+  printf '%s' "$1" > "$OPEN_DECISIONS_LEDGER_STAGED" || return 1
+}
+
+commit_open_decisions_ledger() {
+  [ -n "$OPEN_DECISIONS_LEDGER_STAGED" ] || return 0
+  mv -f -- "$OPEN_DECISIONS_LEDGER_STAGED" "$OPEN_DECISIONS_LEDGER" || return 1
+  OPEN_DECISIONS_LEDGER_STAGED=
+}
+
+discard_open_decisions_ledger() {
+  [ -z "$OPEN_DECISIONS_LEDGER_STAGED" ] || rm -f -- "$OPEN_DECISIONS_LEDGER_STAGED"
+  OPEN_DECISIONS_LEDGER_STAGED=
+}
+
 # Print the consolidated OPEN DECISIONS section: every still-open
 # needs-decision/blocked, fleet-wide, folded from the durable status logs by
 # fm-classify-lib.sh's status_open_decisions fold (via its cursor-backed
@@ -551,19 +601,51 @@ EOF
 # fm-classify-lib.sh's "incremental (cursor-backed) open-decisions fold").
 # Bounded and silent: prints nothing when no decision is open, which is the
 # common case.
+#
+# Repeat presentations stay short: by default only a decision that is new or
+# changed since the last successful presentation is listed, after a header that
+# carries the open count, and a drain with no news prints that count on one
+# line. A decision is known when its exact task, key, verb, and note were
+# listed by an earlier presentation and it has stayed open since, so a changed
+# note, a re-opened key, and an entry the byte cap omitted all list again.
+# --decisions (SHOW_ALL_DECISIONS) lists every open decision. The known set is
+# OPEN_DECISIONS_LEDGER, the one for this drain's conversation (set beside the
+# argument parsing), rewritten to the current open set on every presentation.
+# The branch ledger's first line names its engine conversation, so a ledger
+# left by another conversation reads as empty and a new one lists everything
+# once. This function only stages the ledger, and print_status_sections commits
+# it beside the status presentation receipt once the bytes reached stdout. An
+# unreadable ledger reads as empty, so a fault lists too much, never too little.
 print_open_decisions_section() {
   local snapshot=${1:-} open task key verb note line item_bytes=220 global_bytes=4000
-  local output='' used=0 shown=0 omitted=0 bytes
+  local output='' used=0 shown=0 omitted=0 bytes known='' entry staged='' total=0 news=0 nl=$'\n'
 
   if [ -n "$snapshot" ]; then
     open=$(scan_open_decisions_snapshot "$STATE" "$snapshot") || return 1
   else
     open=$(scan_open_decisions_incremental "$STATE") || return 1
   fi
-  [ -n "$open" ] || return 0
+  if [ -n "$OPEN_DECISIONS_LEDGER" ] && [ -f "$OPEN_DECISIONS_LEDGER" ] && [ ! -L "$OPEN_DECISIONS_LEDGER" ]; then
+    known=$(cat "$OPEN_DECISIONS_LEDGER" 2>/dev/null) || known=
+    if [ -n "$OPEN_DECISIONS_CONVERSATION" ]; then
+      case "$known$nl" in
+        "$OPEN_DECISIONS_CONVERSATION$nl"*) known=${known#"$OPEN_DECISIONS_CONVERSATION"} ;;
+        *) known= ;;
+      esac
+    fi
+  fi
 
   while IFS=$(printf '\t') read -r task key verb note; do
     [ -n "$task" ] || continue
+    entry="$task"$'\t'"$key"$'\t'"$verb"$'\t'"$note"
+    total=$((total + 1))
+    case "$nl$known$nl" in
+      *"$nl$entry$nl"*)
+        staged="$staged$entry$nl"
+        [ "$SHOW_ALL_DECISIONS" = true ] || continue
+        ;;
+      *) news=$((news + 1)) ;;
+    esac
     line="$task"
     [ "$key" = default ] || line="$line [key=$key]"
     line="$line $verb: $note"
@@ -581,12 +663,23 @@ print_open_decisions_section() {
 "
     used=$((used + bytes))
     shown=$((shown + 1))
+    case "$nl$staged" in *"$nl$entry$nl"*) ;; *) staged="$staged$entry$nl" ;; esac
   done <<EOF
 $open
 EOF
 
-  [ "$shown" -gt 0 ] || [ "$omitted" -gt 0 ] || return 0
-  printf 'OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):\n' || return 1
+  if [ -n "$OPEN_DECISIONS_LEDGER" ]; then
+    stage_open_decisions_ledger "${OPEN_DECISIONS_CONVERSATION:+$OPEN_DECISIONS_CONVERSATION$nl}$staged" || return 1
+  fi
+  [ "$total" -gt 0 ] || return 0
+  if [ "$SHOW_ALL_DECISIONS" = true ]; then
+    printf 'OPEN DECISIONS (%d still open, folded from the durable status logs - not just the latest line):\n' "$total" || return 1
+  elif [ "$news" -eq 0 ]; then
+    printf 'OPEN DECISIONS: %d still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all\n' "$total" || return 1
+    return 0
+  else
+    printf 'OPEN DECISIONS (%d still open; %d new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):\n' "$total" "$news" || return 1
+  fi
   printf '%s' "$output" || return 1
   if [ "$omitted" -gt 0 ]; then
     printf 'OPEN DECISIONS: %d more omitted (byte cap)\n' "$omitted" || return 1
@@ -757,7 +850,7 @@ print_branch_outcomes_section() {
 $captain
 ROWS
   if [ "$shown" -gt 0 ]; then
-    text="BRANCH OUTCOMES (captain outcomes the supervision session recorded for you, one line per task, oldest first; each says what was true when it was recorded, so check the task's current state first, including its still-open decisions listed above under OPEN DECISIONS, and sort them into still open and already settled, such as a decision since answered, a PR since merged, or a task since finished - process the still-open ones as firstmate: tell the captain, land or merge what is ready, answer or escalate a decision, or act on a blocker; your reply to the captain covers only those, as if the settled ones had never been listed, and a settled one needs only the acknowledgement):
+    text="BRANCH OUTCOMES (captain outcomes the supervision session recorded for you, one line per task, oldest first; each says what was true when it was recorded, so check the task's current state first, including its still-open decisions under OPEN DECISIONS (bin/fm-wake-drain.sh --decisions lists every one), and sort them into still open and already settled, such as a decision since answered, a PR since merged, or a task since finished - process the still-open ones as firstmate: tell the captain, land or merge what is ready, answer or escalate a decision, or act on a blocker; your reply to the captain covers only those, as if the settled ones had never been listed, and a settled one needs only the acknowledgement):
 "
     for line in "${captain_lines[@]}"; do
       text="$text$line
@@ -847,6 +940,7 @@ print_status_sections() {
       && print_record_divergence_section
   } > "$prepared"; then
     rm -f -- "$prepared"
+    discard_open_decisions_ledger
     return 1
   fi
   # Prepare every section before presentation, but do not commit its receipt
@@ -854,13 +948,16 @@ print_status_sections() {
   # leave the receipt behind so the next drain can recover the presentation.
   if ! command cat "$prepared"; then
     rm -f -- "$prepared"
+    discard_open_decisions_ledger
     return 1
   fi
   if ! status_commit_presentation_snapshot "$STATE" "$acknowledged"; then
     rm -f -- "$prepared"
+    discard_open_decisions_ledger
     return 1
   fi
   rm -f -- "$prepared"
+  commit_open_decisions_ledger || { discard_open_decisions_ledger; return 1; }
 }
 
 # One advisory next-work line, only when this drain is presenting a heartbeat:

@@ -95,14 +95,13 @@ Triage runs only for the generation owner, in the session that holds the lock, o
 A close that carries a `supervision-host:` line, or comes from a host that exited non-zero, is never triaged here.
 
 `--absorb` exits 0 only when every row is routine and the drain printed nothing else that needs firstmate.
-That second test is a whitelist: queue rows, working status annotations of routine tasks, the acknowledgement line, the queued-wakes warning, the persistent `OPEN DECISIONS` list, and the persistent `UNFINISHED EXECUTION` obligations.
+That second test is a whitelist: queue rows, working status annotations of routine tasks, the acknowledgement line, the queued-wakes warning, the `OPEN DECISIONS` count line, and the persistent `UNFINISHED EXECUTION` obligations.
 Any other line keeps the wake, including unread status, branch outcomes, record divergence, a watcher-down banner, and recovered drain output.
 Queued decisions, terminal statuses, and firstmate-owned execution items stay ACT NOW.
-The drain's fleet-wide scan can list a new decision before that row is queued, and it prints new and long-open decisions alike, so triage records in `state/.wake-triage.decisions` the decision lines of each presentation it delivers.
-Any listed decision outside that record, a changed one included, is ACT NOW with its text in the triage summary, which the hook never cuts; a byte-capped list cannot be compared and is ACT NOW too.
+The drain's fleet-wide scan can list a new decision before that row is queued, and it lists a decision only while it is new or changed since the last presentation, so every listed decision is ACT NOW with its text in the triage summary, which the hook never cuts; a byte-capped list is ACT NOW too.
 Execution obligations are reconciled on every drain while their check row is rate-limited, so triage likewise records the firstmate-owned `UNFINISHED EXECUTION` entries it delivers in `state/.wake-triage.execution`, and any other firstmate-owned entry is ACT NOW with its next action in the summary.
-These presentation checks also apply to manual triage: without a prior record, including after upgrade, an already-open entry is ACT NOW until delivered and recorded.
-An unchanged recorded entry without its own actionable queue row does not keep a later routine wake; worker-owned execution entries remain absorbable.
+This execution check also applies to manual triage: without a prior record, including after upgrade, an already-open firstmate-owned entry is ACT NOW until delivered and recorded.
+An unchanged recorded entry, like an unchanged decision the drain no longer lists, does not keep a later routine wake without its own actionable queue row; worker-owned execution entries remain absorbable.
 Triage commits the drain output to `state/.wake-triage.last` only after its presentation is delivered, because the drain has already spent its one-shot unread presentation.
 In `--absorb` mode every presentation write must succeed before that commit, even for an all-routine batch whose queue acknowledgement already succeeded.
 A handoff that fails or is interrupted leaves pending and recovered output in place, and the next triage replays it as recovered drain output, which never absorbs.
@@ -255,6 +254,11 @@ The away return brief treats a still-open handling episode as a wake in progress
 
 An unacknowledged downtime generation is announced at most once.
 The first recovery marks that generation announced, and later empty-queue arms leave it announced until durable work or interrupted handling makes recovery pending again.
+A recovery that finds the queue empty after a clean close presents nothing: the close was an actionable wake, a take-over, a stop signal, or a stalled holder replaced, and the new watcher's own poll re-detects every durable change.
+That holds even while decisions stay open: a new or changed decision arrives as a status line the new watcher classifies itself, and every drain still counts the open ones.
+`bin/fm-watch.sh` acknowledges that generation in place under the queue and marker locks (`fm_recovery_transition <marker> retire-quiet`), logs `absorbed rearm-resurface` to the triage log, and keeps supervising without a `check: rearm-resurface` wake.
+A recovery still presents once when the queue holds any row, when the marker it consumed was missing or malformed, when the previous watcher faulted (a nonzero exit that is not a signal, or a dead holder whose cleanup never ran), or when it closed during a handling episode whose turn may have been interrupted.
+The closing watcher records those last two cases in `state/.watcher-down.present` before it publishes downtime, and the presenting watcher removes it.
 A non-successor watcher start checks the durable queue and recovery marker under their locks.
 If an announced-but-unacknowledged episode has an empty queue, the arm leaves that generation announced, making repeated empty-queue arms idempotent while a long-poll source is merely alive.
 If a durable row arrived after the announcement, the arm opens a fresh pending downtime generation so buried work still resurfaces once.
@@ -286,7 +290,7 @@ It is a non-fatal result that names its own remedy: re-drain, then acknowledge t
 
 The acknowledgement retires the marker only when no rows remain after sequence-bound consumption.
 A concurrently appended wake has a higher sequence, remains queued, and keeps the episode pending for presentation.
-Consequently, a watcher close during handling republishes the same generation as pending and forces one recovery turn even when no queue row remains, while the outstanding generation-bound acknowledgement stays valid.
+Consequently, a watcher close during handling republishes the same generation as pending and forces one recovery turn even when no queue row remains, while the outstanding generation-bound acknowledgement stays valid (see [Announcement](#announcement) for how that close is told apart from a clean one).
 An acknowledged episode does not freeze the generation, because the next downtime after it opens an episode of its own.
 
 ## Per-actor acknowledgement
@@ -487,12 +491,13 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 
 - Durable queue replay.
 - Real remote parent-replies ingestion into the authoritative status log.
-- Decision-only OPEN DECISIONS recovery.
+- Decision-only OPEN DECISIONS recovery after a watcher died without its cleanup, and none after a clean close.
 - Interrupted handling replay.
 - Generation-bound acknowledgement.
 - A persistent live successor after recovery.
 - An idle live Lavish source that stays quiet until its real result wakes promptly.
 - An append that reopens an announced empty recovery.
+- A clean close with an empty queue that retires its recovery quietly, while a faulted close or a close during handling still presents once.
 - A watcher close inside the handling window that must leave the printed acknowledgement valid.
 - A re-arm whose recovery cycle is slowed after confirmation and must still surface rather than read as a watcher that stayed live.
 - The self-healing moved-generation acknowledgement that consumes its handled rows and names its remedy.

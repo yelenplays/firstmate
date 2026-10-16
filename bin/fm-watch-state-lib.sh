@@ -83,13 +83,14 @@ fm_watch_state_key() {  # <window-target-or-task-id> -> marker key
 
 # Every per-window marker family, as filename prefixes after state/. Order
 # matters for the sweep's glob pass: a family that prefixes another must come
-# first (.stale-since- before .stale-, .paused-rechecked-/.paused-resurfaced-
-# before .paused-) so each file is claimed by its longest family exactly once.
+# first (.stale-since- before .stale-, .paused-rechecked-/.paused-resurfaced-/
+# .paused-parked- before .paused-) so each file is claimed by its longest family exactly once.
 fm_watch_window_marker_families() {
   printf '%s\n' \
     .stale-since- \
     .paused-rechecked- \
     .paused-resurfaced- \
+    .paused-parked- \
     .writing-since- \
     .writing-resurfaced- \
     .nmrun-since- \

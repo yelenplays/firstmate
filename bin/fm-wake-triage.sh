@@ -2,7 +2,10 @@
 # Drain durable wakes and classify rows as routine only when the task is
 # verifiably working, has no open decision, and is not held for the captain.
 #
-# Usage: fm-wake-triage.sh [--absorb]
+# Usage: fm-wake-triage.sh [--absorb | --decisions]
+#
+# --decisions passes through to the drain, which then lists every open
+# decision instead of only the new or changed ones.
 #
 # Without --absorb, acknowledgement stays manual: the output ends with the
 # drain's WAKE_ACK_REQUIRED command for the handling turn to run.
@@ -20,11 +23,11 @@
 # "Nothing else" is a whitelist, absorbable_drain_output below, so a drain line
 # it does not recognize always keeps the wake: queue rows, working status
 # annotations of routine tasks, the acknowledgement line, the queued-wakes
-# warning, the persistent OPEN DECISIONS list (only decisions an earlier triage
-# delivered; a new or changed one is ACT NOW even when its task has no queued
-# row), and the persistent UNFINISHED EXECUTION obligations (only firstmate-owned
-# ones an earlier triage delivered; a worker-owned one gets its owner's own
-# queued wake whenever its evidence changes).
+# warning, the OPEN DECISIONS count line (the drain lists a decision only while
+# it is new or changed, and a listed one is ACT NOW even when its task has no
+# queued row), and the persistent UNFINISHED EXECUTION obligations (only
+# firstmate-owned ones an earlier triage delivered; a worker-owned one gets its
+# owner's own queued wake whenever its evidence changes).
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-wake-lib.sh
@@ -39,11 +42,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
 ABSORB=0
+DRAIN_ARGS=()
 case "${1:-}" in
   -h|--help) usage; exit 0 ;;
-  --absorb) [ "$#" -eq 1 ] || { echo "usage: fm-wake-triage.sh [--absorb]" >&2; exit 2; }; ABSORB=1 ;;
+  --absorb) [ "$#" -eq 1 ] || { echo "usage: fm-wake-triage.sh [--absorb | --decisions]" >&2; exit 2; }; ABSORB=1 ;;
+  --decisions) [ "$#" -eq 1 ] || { echo "usage: fm-wake-triage.sh [--absorb | --decisions]" >&2; exit 2; }; DRAIN_ARGS=(--decisions) ;;
   '') ;;
-  *) echo "usage: fm-wake-triage.sh [--absorb]" >&2; exit 2 ;;
+  *) echo "usage: fm-wake-triage.sh [--absorb | --decisions]" >&2; exit 2 ;;
 esac
 
 # The leading verb of a status event as bin/fm-classify-lib.sh's
@@ -62,7 +67,7 @@ function event_verb(s,    w, n, i, out) {
 }'
 
 ACTOR=$(fm_lease_actor) || exit 2
-[ "$ACTOR" = main ] || exec "$SCRIPT_DIR/fm-wake-drain.sh"
+[ "$ACTOR" = main ] || exec "$SCRIPT_DIR/fm-wake-drain.sh" ${DRAIN_ARGS[@]+"${DRAIN_ARGS[@]}"}
 mkdir -p "$STATE" || exit 1
 shopt -s nullglob
 recovered=("$STATE"/.wake-triage.pending.*)
@@ -75,7 +80,7 @@ done
 
 pending="$STATE/.wake-triage.pending.$(date +%s).$$"
 [ ! -e "$pending" ] && [ ! -L "$pending" ] || { echo "wake triage: pending output collision" >&2; exit 1; }
-"$SCRIPT_DIR/fm-wake-drain.sh" >"$pending" 2>&1
+"$SCRIPT_DIR/fm-wake-drain.sh" ${DRAIN_ARGS[@]+"${DRAIN_ARGS[@]}"} >"$pending" 2>&1
 DRAIN_CODE=$?
 chmod 0600 "$pending" || { cat "$pending"; exit 1; }
 
@@ -206,26 +211,26 @@ while IFS= read -r tagged; do
   fi
 done < "$ids"
 
-# The drain lists every open decision fleet-wide, including one whose task has
-# no queued row yet (its own signal can trail the status write), and it prints
-# a new decision exactly like one presented many wakes ago. Triage therefore
-# remembers the decision lines it has delivered, in $DECISIONS_SEEN, and keeps
-# any other one ACT NOW with its text in the summary, the part of the
-# presentation the Stop hook never cuts. A byte-capped list cannot be compared,
-# so it stays ACT NOW too.
-DECISIONS_SEEN="$STATE/.wake-triage.decisions"
-# decision_entries <file>...: the OPEN DECISIONS entry lines the files list.
+# The drain scans open decisions fleet-wide, so it can list one whose task has
+# no queued row yet (its own signal can trail the status write). It lists a
+# decision only while it is new or changed since the last presentation (its
+# known-decision ledger owns that rule), so every listed entry is ACT NOW, with
+# its text in the summary, the part of the presentation the Stop hook never
+# cuts. A byte-capped list stays ACT NOW too.
+# decision_entries <file>: the OPEN DECISIONS entry lines the file lists.
 decision_entries() {
   awk '
-    /^OPEN DECISIONS \(still open, folded from the durable status logs/ { section = 1; next }
+    /^OPEN DECISIONS \([0-9]+ still open[,;] / { section = 1; next }
     section && /^[A-Za-z0-9._-]+( \[key=[^]]*\])? (needs-decision|blocked): / { print; next }
     { section = 0 }
   ' "$@"
 }
 # The drain also reconciles execution obligations fleet-wide on every drain,
 # while an obligation's own check row is rate-limited, so the drain can show a
-# firstmate-owned obligation before any row names its task. Triage remembers the
-# firstmate-owned entries it has delivered, in $EXECUTION_SEEN, the same way.
+# firstmate-owned obligation before any row names its task. The drain prints
+# every obligation on every drain, so triage itself remembers the
+# firstmate-owned entries it has delivered, in $EXECUTION_SEEN, and keeps any
+# other one ACT NOW with its next action in the summary.
 EXECUTION_SEEN="$STATE/.wake-triage.execution"
 # execution_entries <file>...: the firstmate-owned UNFINISHED EXECUTION entry
 # lines the files list, that is, every well-formed entry whose owner is not the
@@ -237,26 +242,18 @@ execution_entries() {
     { section = 0 }
   ' "$@"
 }
-# load_seen <record> <copy>: copy a presentation record, or start empty when it
-# is missing, a symlink, or unreadable.
-load_seen() {
-  if [ -f "$1" ] && [ ! -L "$1" ]; then
-    cp -- "$1" "$2" 2>/dev/null || : > "$2"
-  else
-    : > "$2"
-  fi
-}
-seen_decisions="$work/seen-decisions"
-load_seen "$DECISIONS_SEEN" "$seen_decisions"
 decision_entries "$out" | while IFS= read -r entry; do
-  grep -Fqx -- "$entry" "$seen_decisions" && continue
-  printf '%s\t%s\t%s\n' "${entry%% *}" "C4 new open decision: $entry" 'not read (the drain found the decision, not a queued row)'
+  printf '%s\t%s\t%s\n' "${entry%% *}" "C4 new or changed open decision: $entry" 'not read (the drain found the decision, not a queued row)'
 done >> "$act_file"
 if grep -q '^OPEN DECISIONS: [0-9][0-9]* more omitted (byte cap)$' "$out"; then
   printf '%s\t%s\n' '-' 'C4 open decisions omitted by the byte cap; read the full drain output' >> "$act_file"
 fi
 seen_execution="$work/seen-execution"
-load_seen "$EXECUTION_SEEN" "$seen_execution"
+if [ -f "$EXECUTION_SEEN" ] && [ ! -L "$EXECUTION_SEEN" ]; then
+  cp -- "$EXECUTION_SEEN" "$seen_execution" 2>/dev/null || : > "$seen_execution"
+else
+  : > "$seen_execution"
+fi
 execution_entries "$out" | while IFS= read -r entry; do
   grep -Fqx -- "$entry" "$seen_execution" && continue
   IFS="$(printf '\t')" read -r task owner action <<EOF_ENTRY
@@ -266,18 +263,13 @@ EOF_ENTRY
 done >> "$act_file"
 
 # record_presented: after a delivered presentation, remember exactly the
-# decisions and firstmate-owned obligations it listed. Failing to remember
-# forgets them all instead, so the next wake presents them again rather than
-# absorbing them.
+# firstmate-owned obligations it listed. Failing to remember forgets them all
+# instead, so the next wake presents them again rather than absorbing them.
 record_presented() {
-  local extract record
-  for extract in decision_entries:"$DECISIONS_SEEN" execution_entries:"$EXECUTION_SEEN"; do
-    record=${extract#*:}; extract=${extract%%:*}
-    if ! { "$extract" "$out" ${recovered[@]+"${recovered[@]}"} | LC_ALL=C sort -u > "$work/presented" \
-      && chmod 0600 "$work/presented" && mv -f -- "$work/presented" "$record"; }; then
-      rm -f -- "$record" 2>/dev/null || true
-    fi
-  done
+  if ! { execution_entries "$out" ${recovered[@]+"${recovered[@]}"} | LC_ALL=C sort -u > "$work/presented" \
+    && chmod 0600 "$work/presented" && mv -f -- "$work/presented" "$EXECUTION_SEEN"; }; then
+    rm -f -- "$EXECUTION_SEEN" 2>/dev/null || true
+  fi
 }
 task_count=$(awk -F '\t' '$1 != "-" { seen[$1]=1 } END { for (id in seen) count++; print count+0 }' "$act_file" "$routine_file")
 act_count=$(awk -F '\t' '$1 != "-" { seen[$1]=1 } END { for (id in seen) count++; print count+0 }' "$act_file")
@@ -360,7 +352,7 @@ absorbable_drain_output() {  # <routine-ids-file>
       if (event_verb(part[4]) != "working") exit 1
       section = ""; next
     }
-    /^OPEN DECISIONS \(still open, folded from the durable status logs/ { section = "decisions"; next }
+    /^OPEN DECISIONS \([0-9]+ still open[,;] / { section = "decisions"; next }
     /^OPEN DECISIONS: [0-9]+ still open, none new or changed since the last presentation/ { section = ""; next }
     section == "decisions" && /^OPEN DECISIONS: [0-9]+ more omitted \(byte cap\)$/ { next }
     section == "decisions" && /^OPEN DECISIONS: close one by answering it: / { section = ""; next }
