@@ -183,6 +183,19 @@ start_rearm_arm() {  # <home> <state> <fakebin> <arm-out> [predecessor-arm-pid]
   return 0
 }
 
+# The arm reports "started" once the beacon is fresh, before the new watcher's
+# startup recovery has run, so a quiet retire lands a little after the report.
+# Wait for the marker to read acked, within the same ceiling as the report wait.
+wait_for_quiet_retire() {  # <marker>
+  local i=0
+  while [ "$i" -lt "$REARM_REPORT_POLLS" ]; do
+    case "$(cat "$1" 2>/dev/null)" in acked:*) return 0 ;; esac
+    sleep 0.05
+    i=$((i + 1))
+  done
+  return 0
+}
+
 test_attached_arm_reports_the_delivered_wake() {
   local dir state fakebin out armout status
   dir=$(make_case attached-delivered-wake)
@@ -1316,7 +1329,7 @@ test_deferred_stop_signal_exits_in_the_signal_range() {
 }
 
 test_clean_close_with_empty_queue_retires_recovery_quietly() {
-  local dir home state fakebin watcher generation real_touch status i
+  local dir home state fakebin watcher generation real_touch status
   dir=$(make_case clean-close-quiet-recovery)
   home="$dir/home"
   state="$dir/state"
@@ -1337,6 +1350,7 @@ test_clean_close_with_empty_queue_retires_recovery_quietly() {
     || fail "a clean close with no queued rows still woke the supervisor: $(cat "$dir/quiet-arm.out")"
   ! grep -F 'check: rearm-resurface' "$dir/quiet-arm.out" >/dev/null \
     || fail "a clean close with no queued rows emitted a recovery wake"
+  wait_for_quiet_retire "$state/.watcher-down"
   [ "$(cat "$state/.watcher-down")" = "acked:downtime:$generation" ] \
     || fail "the quiet episode was not retired in place: $(cat "$state/.watcher-down")"
 
@@ -1351,12 +1365,7 @@ test_clean_close_with_empty_queue_retires_recovery_quietly() {
   kill -TERM "$watcher" 2>/dev/null || fail "could not stop the quiet watcher"
   wait "$ARM_PID" 2>/dev/null || true
   FM_SECONDMATE_LIVENESS_SECS=1 start_rearm_arm "$home" "$state" "$fakebin" "$dir/fault-arm.out"
-  i=0
-  while [ "$i" -lt "$REARM_REPORT_POLLS" ]; do
-    case "$(cat "$state/.watcher-down" 2>/dev/null)" in acked:*) break ;; esac
-    sleep 0.05
-    i=$((i + 1))
-  done
+  wait_for_quiet_retire "$state/.watcher-down"
   case "$(cat "$state/.watcher-down")" in acked:*) ;; *) fail "the second clean close was not retired quietly" ;; esac
   is_live_non_zombie "$ARM_PID" || fail "the second quiet watcher did not stay live"
   touch "$dir/fail-tick"
