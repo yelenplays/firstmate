@@ -60,6 +60,7 @@ The mid-turn pull warning in `bin/fm-guard.sh` judges watcher health differently
 ### Primary scope
 
 The guard first calls the shared primary scope.
+A set `FM_TASK_ID` excludes a worker before marker or Git checks; an unmarked numeric Treehouse slot is also excluded even when it is a plain clone.
 A secondmate home runs its own primary Firstmate session, so a genuine `.fm-secondmate-home` marker includes it whether the home is a linked worktree or plain clone.
 The marker must meet both of these conditions:
 

@@ -130,11 +130,13 @@ export interface UnreadWakeScope {
    */
   needsDecisionKeys: string[];
   /**
-   * The check-kind rows included in eligibleSeqs. Non-empty only in the away
-   * posture, where the branch takes main's rows too; a check row names no
+   * The check-kind rows included in eligibleSeqs. Residual execution/rearm
+   * checks are engine-owned attended too; away takes every check. A check row names no
    * task, so a prompt that claims one is not scoped by task.
    */
   checkSeqs: string[];
+  /** Attended rows a residual check must not strand without their own close. */
+  mainOnlyChecks?: boolean;
   /**
    * The heartbeat rows included in eligibleSeqs. A heartbeat names no task,
    * so a prompt that claims one is not scoped by task, including when a
@@ -178,8 +180,8 @@ const UNSAFE_SCOPE: UnreadWakeScope = {
 // A check-kind row - merge-confirmation polls, Relay mentions, credential/auth
 // failures, and every other legitimately main-only class - never vetoes a scan
 // in either mode. It is simply excluded from eligibleSeqs and left queued for
-// main, which is woken for it on that check's own watcher cycle
-// (fm-primary-pi-watch.ts forces every check-kind TRIGGER to main), so nothing
+// main, which is woken for it on that check's own watcher cycle (except the
+// two residual engine checks below and their execution-notifier rows), so nothing
 // starves by being left behind.
 //
 // A signal row marked "needs-decision:" by the watcher, a second-mate signal
@@ -413,6 +415,7 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean, afk = fals
   const eligibleTasks = new Set<string>();
   const needsDecisionKeys: string[] = [];
   const checkSeqs: string[] = [];
+  let mainOnlyChecks = false;
   const heartbeatSeqs: string[] = [];
   const staleDecisionOwnership = new Map<string, boolean>();
   const resolveVerb = process.env.FM_CLASSIFY_RESOLVE_VERB || "resolved";
@@ -438,13 +441,20 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean, afk = fals
       continue;
     }
     if (kind === "check") {
-      // Main-owned while attended: excluded from what the branch may claim,
-      // never a reason to reject the rest of the queue and never a reason to
-      // send an otherwise-eligible heartbeat review to main. Away, the branch
-      // is the only actor, so the row is claimed unscoped.
-      if (afk) {
+      // Residual execution/rearm reconciliation is cheap engine work. The
+      // execution notifier stores per-task rows, although the close it emits
+      // is "unfinished-execution". All other checks remain main-owned while
+      // attended; away, the branch is the only actor and claims every check.
+      const payload = fields[4] ?? "";
+      const executionTask = key.startsWith("execution:") ? key.slice("execution:".length) : "";
+      const engineCheck = isEngineCheckTrigger(payload) || (
+        /^[A-Za-z0-9._-]+$/.test(executionTask) && payload === `check: execution ${executionTask}`
+      );
+      if (afk || engineCheck) {
         eligibleSeqs.push(seq);
         checkSeqs.push(seq);
+      } else {
+        mainOnlyChecks = true;
       }
       continue;
     }
@@ -563,6 +573,7 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean, afk = fals
     corrupted: false,
     needsDecisionKeys,
     checkSeqs,
+    mainOnlyChecks,
     heartbeatSeqs,
     taskByWakeKey: Object.fromEntries(taskByKey),
   };
@@ -584,8 +595,14 @@ export interface BranchOfferVerdict {
 // host off Pi (bin/fm-branch-dispatch.mjs offer) both route through this one
 // owner, so a close reaches main off Pi exactly when it would on Pi.
 //
-// A check-kind close (merge-confirmation polls, Relay mentions,
-// credential/auth failures, and every other legitimately main-only class -
+// Only these residual check triggers opt into engine handling. Exact matching
+// keeps credential failures and similarly named actionable checks on main.
+function isEngineCheckTrigger(message: string): boolean {
+  return /^check: (unfinished-execution|rearm-resurface)$/.test(message);
+}
+
+// A check-kind close (other than the two residual engine checks above,
+// merge-confirmation polls, Relay mentions, credential/auth failures -
 // docs/pi-supervision-branch.md) is never routed to the branch while attended,
 // even when other currently-unread rows are individually eligible: this
 // watcher cycle's own triggering event stays on main, exactly as before
@@ -605,7 +622,7 @@ export interface BranchOfferVerdict {
 // (scopeForUnreadWake owns the per-row rule).
 export function branchOfferForWake(state: string, message: string, afk: boolean, attendedHost = false): BranchOfferVerdict {
   const heartbeat = /^heartbeat($|:)/.test(message);
-  const isCheckTrigger = /^check:/.test(message);
+  const isCheckTrigger = /^check:/.test(message) && !isEngineCheckTrigger(message);
   const scope = scopeForUnreadWake(state, heartbeat, afk, attendedHost && !afk);
   const triggerKeys = /^signal:/.test(message)
     ? message
@@ -620,8 +637,16 @@ export function branchOfferForWake(state: string, message: string, afk: boolean,
     scope.taskByWakeKey[key] ?? scope.taskByWakeKey[key.replace(/^fm-/, "")] ?? key;
   const needsDecisionTasks = new Set(scope.needsDecisionKeys.map(taskIdentity));
   const isNeedsDecisionTrigger = triggerKeys.some((key) => needsDecisionTasks.has(taskIdentity(key)));
-  const attendedEligible = !isCheckTrigger && !isNeedsDecisionTrigger && (
-    afk ? scopeForUnreadWake(state, heartbeat, false).eligible : scope.eligible
+  // A resurface may be the only remaining close for an already-queued main
+  // row. Do not consume that recovery opportunity on unrelated engine work.
+  const residualMustReachMain = isEngineCheckTrigger(message) && (
+    scope.mainOnlyChecks || scope.needsDecisionKeys.length > 0
+  );
+  // An already-consumed residual close needs no model turn at all. Both
+  // consumers recheck and settle an empty claim as a quiet no-op.
+  const residualEmpty = isEngineCheckTrigger(message) && scope.status === "empty" && !scope.corrupted;
+  const attendedEligible = !isCheckTrigger && !isNeedsDecisionTrigger && !residualMustReachMain && (
+    afk ? scopeForUnreadWake(state, heartbeat, false).eligible : scope.eligible || residualEmpty
   );
   const eligible = afk ? scope.eligible : attendedEligible;
   return { scope, heartbeat, eligible, awayOnly: Boolean(eligible && !attendedEligible) };

@@ -80,8 +80,9 @@
 # releases the branch's leases and grant, and counts the wake handled only
 # when that turn exited cleanly, recorded a durable report
 # (bin/fm-branch-report.sh), and left none of its granted rows in the wake
-# queue. A handled wake with only routine outcomes never wakes
-# main, and neither does any handled wake while away: captain outcomes wait in
+# queue. A handled wake with only informational (routine) outcomes, including
+# healthy completions needing no action, never wakes main: those rows remain
+# unread for main's next real drain. Neither does any handled wake while away: captain outcomes wait in
 # the outcome store for the return drain's BRANCH OUTCOMES section. A handled
 # attended wake that recorded a captain outcome exits with one "supervision-host: branch-outcome:"
 # line naming its store rows, without the close it handled; main drains, where
@@ -1023,9 +1024,16 @@ handle_wake() {  # <reason-lines>
   return 1
 }
 
-# The captain outcomes one turn recorded, as store rows.
+# Verify every recorded outcome before deciding whether main must wake. The
+# prompt owns routine/informational versus captain/action classification; the
+# store, not a receipt's copied verdict, owns the outcome. No read or processed
+# cursor moves here, so deferred information survives until a real main drain.
 turn_captain_seqs() {  # <turn>
-  awk -F '\t' -v turn="$1" '$1 == turn && $3 == "captain" { printf "%s%s", sep, $2; sep = ", " }' "$RECEIPTS" 2>/dev/null
+  local seqs rows
+  seqs=$(awk -F '\t' -v turn="$1" '$1 == turn { printf "%s%s", sep, $2; sep = "," }' "$RECEIPTS" 2>/dev/null) || return 1
+  [ -n "$seqs" ] || return 1
+  rows=$("$SCRIPT_DIR/fm-branch-outcome.sh" lookup --seqs "$seqs" 2>/dev/null) || return 1
+  printf '%s\n' "$rows" | jq -rs 'map(select(.verdict == "captain") | .seq | tostring) | join(", ")'
 }
 
 # Why an attended close stays with main exactly as the plain arm delivers it,
@@ -1178,7 +1186,9 @@ while :; do
   # return, including when the captain left while this turn ran. The close
   # itself was handled, so only the host's lines reach main.
   if [ -n "$LAST_TURN" ] && ! fm_afk_contract_away_present "$STATE"; then
-    CAPTAIN_SEQS=$(turn_captain_seqs "$LAST_TURN")
+    if ! CAPTAIN_SEQS=$(turn_captain_seqs "$LAST_TURN"); then
+      exit_to_main "the supervision session handled this wake, but its recorded outcomes could not be verified; main must review them" "$HEALTH_NOTE"
+    fi
     if [ -n "$CAPTAIN_SEQS" ]; then
       ARM_TEXT=
       exit_to_main "branch-outcome: the supervision session handled this wake and recorded captain outcomes for you (store rows $CAPTAIN_SEQS); run bin/fm-wake-drain.sh, act on its BRANCH OUTCOMES section, and acknowledge them as it prints" \

@@ -19,12 +19,28 @@ fm_root_is_secondmate_home() {
   return 0
 }
 
+# Worker identity wins over a copied home marker. Treehouse slots may be plain
+# clones (git-dir equals common-dir), so Git linkage alone cannot exclude them.
+# A marked secondmate home in a pool slot is still a supervisor seat.
+fm_primary_seat_matches() {  # <session-cwd-or-root>
+  local root=$1
+  [ -z "${FM_TASK_ID:-}" ] || return 1
+  if [ -d "$root" ]; then
+    root=$(cd "$root" && pwd -P) || return 1
+  fi
+  if [[ "$root" =~ (^|/)\.treehouse/[^/]+/[0-9]+(/|$) ]]; then
+    fm_root_is_secondmate_home "$root" || return 1
+  fi
+  return 0
+}
+
 # Return 0 when $1 is a genuine primary root, regardless of whether its state
 # dir exists yet. A valid secondmate marker force-includes a linked secondmate
 # home. Otherwise only a plain checkout is primary, never a linked task
 # worktree.
 fm_primary_root_matches() {
   local root=$1 git_dir git_common_dir
+  fm_primary_seat_matches "$root" || return 1
   if ! fm_root_is_secondmate_home "$root"; then
     git_dir=$(git -C "$root" rev-parse --git-dir 2>/dev/null) || return 1
     git_common_dir=$(git -C "$root" rev-parse --git-common-dir 2>/dev/null) || return 1

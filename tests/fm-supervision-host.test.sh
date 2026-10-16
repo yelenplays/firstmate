@@ -92,7 +92,7 @@ verdict=routine
 [ "$mode" != go-away ] || verdict=captain
 case "$mode" in
   fail) exit 3 ;;
-  handle|captain|captain-close-before-return|held|captain-held|hold-lease|return|return-silent|return-fail|return-fail-silent|return-many|return-lookup-fail|return-first|noack|emptyresult|go-away)
+  handle|information|information-failure|captain|captain-close-before-return|held|captain-held|hold-lease|return|return-silent|return-fail|return-fail-silent|return-many|return-lookup-fail|return-first|noack|emptyresult|go-away)
     case "$mode" in held|captain-held) read -r _ < "$FM_HOME/stub-release" ;; esac
     [ "$mode" != return-first ] || "$FM_REPO/bin/fm-afk-contract.sh" archive >> "$FM_HOME/engine-return.log" 2>&1
     [ "$mode" != go-away ] || "$FM_REPO/bin/fm-afk-contract.sh" enter --words 'gone mid-turn' >> "$FM_HOME/engine-return.log" 2>&1
@@ -110,6 +110,15 @@ case "$mode" in
           ;;
       esac
       "$FM_REPO/bin/fm-branch-report.sh" "${report_args[@]}" >> "$FM_HOME/engine-report.log" 2>&1
+    fi
+    if [ "$mode" = information ]; then
+      "$FM_REPO/bin/fm-branch-report.sh" --task "$task" --verdict routine \
+        --summary 'requested measurement finished successfully' >> "$FM_HOME/engine-report.log" 2>&1
+    elif [ "$mode" = information-failure ]; then
+      "$FM_REPO/bin/fm-branch-report.sh" --task "$task" --verdict routine \
+        --summary 'measurement artifact saved' >> "$FM_HOME/engine-report.log" 2>&1
+      "$FM_REPO/bin/fm-branch-report.sh" --task "$task" --verdict captain \
+        --summary 'required validation failed; intervention needed' >> "$FM_HOME/engine-report.log" 2>&1
     fi
     if [ "$mode" = return-many ]; then
       awk -v task="$task" 'BEGIN { for (seq = 2; seq <= 1001; seq++)
@@ -390,6 +399,48 @@ test_report_after_the_return_is_queued_for_main() {
 }
 
 # --- dispatch entry -----------------------------------------------------------
+
+test_residual_checks_use_engine_scope_without_claiming_main_rows() {
+  local home="$TMP_ROOT/residual-checks" state out reason
+  state="$home/state"
+  mkdir -p "$state"
+  printf 'project=demo\nwindow=fm-demo\n' > "$state/demo.meta"
+  printf 'needs-decision [key=choose]: choose the approach\n' > "$state/demo.status"
+  append_wake "$state" check execution:demo 'check: execution demo'
+  for reason in 'check: unfinished-execution' 'check: rearm-resurface'; do
+    out=$(printf '%s\n' "$reason" | FM_HOME="$home" node "$DISPATCH" offer)
+    assert_contains "$out" 'eligible=1' "$reason should reach the engine"
+    assert_contains "$out" 'rows=1' "$reason claimed unrelated captain-owned rows"
+    assert_contains "$out" 'unscoped=1' "$reason needs fleet reconciliation scope"
+    # Same shared owner, with Pi's attended mode rather than the CLI host mode.
+    out=$(FM_HOME="$home" FM_REASON="$reason" FM_LIB="$ROOT/.pi/extensions/lib/fm-branch-dispatch.ts" \
+      node --input-type=module -e 'import { pathToFileURL } from "node:url";
+        const { branchOfferForWake } = await import(pathToFileURL(process.env.FM_LIB).href);
+        const offer = branchOfferForWake(`${process.env.FM_HOME}/state`, process.env.FM_REASON, false);
+        if (!offer.eligible || offer.scope.eligibleSeqs.join(",") !== "1") process.exit(1);') \
+      || fail "$reason diverged between Pi and host"
+  done
+  append_wake "$state" check auth 'check: credential required'
+  append_wake "$state" signal demo.status 'needs-decision: choose the approach'
+  append_wake "$state" stale fm-demo 'stale: fm-demo'
+  for reason in 'check: unfinished-execution' 'check: rearm-resurface' \
+    'check: credential required' 'check: unfinished-execution failed' \
+    'check: rearm-resurface-extra' 'signal: demo.status' 'stale: fm-demo'; do
+    out=$(printf '%s\n' "$reason" | FM_HOME="$home" node "$DISPATCH" offer)
+    assert_contains "$out" 'eligible=0' "$reason must stay on main"
+  done
+  : > "$state/.wake-queue"
+  for reason in 'check: unfinished-execution' 'check: rearm-resurface'; do
+    out=$(printf '%s\n' "$reason" | FM_HOME="$home" node "$DISPATCH" offer)
+    assert_contains "$out" 'eligible=1' "$reason with an empty queue should settle quietly"
+    assert_contains "$out" 'status=empty' 'empty residual claim must stay visibly empty'
+  done
+  printf 'broken\n' >> "$state/.wake-queue"
+  out=$(printf 'check: unfinished-execution\n' | FM_HOME="$home" node "$DISPATCH" offer)
+  assert_contains "$out" 'eligible=0' 'corrupt queue must not reach the engine'
+  assert_contains "$out" 'corrupted=1' 'corruption should stay actionable'
+  pass "dispatch: only residual checks reach the engine; decisions, real signals/stale and broken queues stay on main"
+}
 
 test_dispatch_entry_scopes_rows_and_renders_the_away_tail() {
   local home state out rc
@@ -905,6 +956,28 @@ test_attended_routine_wake_is_handled_on_the_engine_and_stays_off_main() {
   pass "host: an attended wake the branch may take is handled on the engine, and its routine outcome never wakes main"
 }
 
+test_attended_informational_completion_is_deferred_but_failure_wakes_main() {
+  local home drained
+  home=$(make_home attended-information attended)
+  echo information > "$home/stub-mode"
+  start_host "$home"
+  wait_until 150 watcher_live "$home" || fail "information: watcher never started"
+  append_status "$home" 'finished requested measurement'
+  wait_until 250 handled_at_least "$home" 1 || fail "information: outcome was not handled"
+  [ ! -s "$home/host.rc" ] || fail "informational completion woke main"
+  assert_absent "$home/state/.branch-outcomes-cursor" "deferral marked information read"
+  drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" 2>&1' "$ROOT/bin/fm-wake-drain.sh")
+  assert_contains "$drained" 'requested measurement finished successfully' "next main drain lost informational completion"
+  echo information-failure > "$home/stub-mode"
+  append_status "$home" 'failed required validation'
+  wait_until 250 host_exited "$home" || fail "failure after information never woke main"
+  assert_re '^supervision-host: branch-outcome: ' "$home/host.out" "failure should open main processing"
+  drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" 2>&1' "$ROOT/bin/fm-wake-drain.sh")
+  assert_contains "$drained" 'required validation failed; intervention needed' "main drain lost failure"
+  assert_contains "$drained" 'measurement artifact saved' "mixed turn lost informational outcome"
+  pass "host: healthy informational completion waits for a real drain; a mixed failure turn wakes main immediately"
+}
+
 test_attended_captain_outcome_reaches_main_through_branch_outcomes() {
   local home drained
   home=$(make_home attended-captain attended)
@@ -912,7 +985,9 @@ test_attended_captain_outcome_reaches_main_through_branch_outcomes() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "captain: the host never started a watcher cycle"
   append_status "$home" 'ready for review'
-  wait_until 250 host_exited "$home" || fail "captain: the captain outcome did not wake main: $(cat "$home/state/.supervision-host.log")"
+  # Store verification follows the engine's acknowledgement and can pay for
+  # several contended shell/store locks on a loaded runner.
+  wait_until 500 host_exited "$home" || fail "captain: the captain outcome did not wake main: $(cat "$home/state/.supervision-host.log")"
   expect_code 0 "$(cat "$home/host.rc")" "a captain-outcome exit must exit 0 for the owner to deliver"
   assert_re '^supervision-host: branch-outcome: .*\(store rows 1\); run bin/fm-wake-drain.sh' "$home/host.out" \
     "the exit must name the captain outcome's store row and send main to its drain"
@@ -1811,11 +1886,7 @@ SH
   pass "host: the dialog mirror, its feed, and the wake file are owner-only"
 }
 
-# Park again after a host was stopped mid-park: the new cycle's first close is
-# the watcher's downtime resurface, which main drains before the next park.
-# That close can end the park before its cycle is ever seen live, so this
-# waits for the exit itself.
-# The resurface pass-through leaves its successor running. Stop that watcher
+# A resurface pass-through can leave its successor running. Stop that watcher
 # and acknowledge the downtime its exit records, so the next park starts a
 # watcher it owns. Attaching instead would not observe the exit until the
 # beacon went stale, and this fixture's turn budget would already be gone.
@@ -1842,10 +1913,8 @@ quiet_pass_through_successor() {  # <home>
 }
 
 park_after_stop() {  # <home>
-  rm -f "$1/host.rc"
-  : > "$1/park.go"
-  wait_until 150 host_exited "$1" || fail "the watcher's downtime resurface did not reach main: $(cat "$1/host.out")"
-  assert_re '^check: rearm-resurface' "$1/host.out" "fixture: the first close after the watcher stopped was not its resurface"
+  # This helper models MAIN reconciling a stopped turn, not a residual check
+  # finding fresh engine work. Retire the prior close before restarting.
   main_drain_and_ack "$1"
   quiet_pass_through_successor "$1"
   park_again "$1"
@@ -2999,10 +3068,11 @@ run_queued_cases() {
       HOMES_FILE="$TMP_ROOT/homes.$i"
       # shellcheck disable=SC2329 # invoked indirectly by the EXIT trap below.
       case_cleanup() {
-        local h
+        local rc=$? h
         while IFS= read -r h; do
           [ -z "$h" ] || stop_home_processes "$h"
         done < <(cat "$HOMES_FILE" 2>/dev/null)
+        printf '%s\n' "$rc" > "$TMP_ROOT/case-status.$i"
       }
       trap case_cleanup EXIT
       # A failed assertion exits through fail; a case's own return status is
@@ -3016,7 +3086,14 @@ run_queued_cases() {
   done
   i=0
   while [ "$i" -lt "$n" ]; do
-    wait "${case_pids[$i]}" || { printf 'case failed rc=%s: %s\n' "$?" "${QUEUED_CASES[$i]}" >&2; failed=1; }
+    # Bash can evict an early child's saved wait status after this many tool
+    # processes. The child's EXIT trap records its result after cleanup; a
+    # missing receipt (including SIGKILL) is always a failed case.
+    wait "${case_pids[$i]}" 2>/dev/null || true
+    if [ "$(cat "$TMP_ROOT/case-status.$i" 2>/dev/null)" != 0 ]; then
+      printf 'case failed: %s\n' "${QUEUED_CASES[$i]}" >&2
+      failed=1
+    fi
     cat "$TMP_ROOT/case-out.$i"
     i=$((i + 1))
   done
@@ -3030,6 +3107,7 @@ queue_case test_claude_stop_hook_notifies_when_closed_announced_successor_downti
 queue_case test_park_exit_probe_uses_half_second_child_sleeps
 queue_case test_report_surface_enforces_actor_turn_and_scope
 queue_case test_report_after_the_return_is_queued_for_main
+queue_case test_residual_checks_use_engine_scope_without_claiming_main_rows
 queue_case test_dispatch_entry_scopes_rows_and_renders_the_away_tail
 queue_case test_branch_outcomes_only_on_a_host_home_off_pi
 queue_case test_branch_outcomes_put_captain_first_and_collapse_routine_overflow
@@ -3046,6 +3124,7 @@ queue_case test_branch_outcomes_keep_an_unshown_outcome_until_acknowledged
 queue_case test_branch_outcomes_keep_a_drain_presented_outcome_across_a_switch_to_pi
 queue_case test_branch_outcomes_keep_a_drain_presented_outcome_across_an_index_repair
 queue_case test_attended_routine_wake_is_handled_on_the_engine_and_stays_off_main
+queue_case test_attended_informational_completion_is_deferred_but_failure_wakes_main
 queue_case test_attended_captain_outcome_reaches_main_through_branch_outcomes
 queue_case test_captain_leaving_mid_turn_keeps_its_captain_outcome_for_the_return
 queue_case test_quiet_record_without_its_daemon_is_a_present_captain

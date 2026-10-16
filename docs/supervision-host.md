@@ -101,7 +101,8 @@ Only an away record is away: no record, or the record daemon-backed quiet mode w
 ### Attended
 
 The host asks the Pi branch's offer rule (`branchOfferForWake`, through `bin/fm-branch-dispatch.mjs offer`) whether the branch may take the close.
-So a close reaches main off Pi exactly when it would on Pi: a check trigger, a decision-owned signal or stale trigger, and a scan that is unsafe or holds nothing for the branch stay main's.
+So a close reaches main off Pi exactly when it would on Pi, including the residual-check exceptions in [branch routing](pi-supervision-branch.md#decision-owned-rows); decision-owned signals and stale triggers and unsafe scans stay main's.
+An empty residual-check claim settles quietly without a model turn; other empty offers stay on main.
 On that main-only pass-through the host prints the close unchanged; the [host header](../bin/fm-supervision-host.sh) owns successor continuity, the downtime hand-back required for delivery, and the next park's take-over request.
 The successor watcher cycle, like one a turn hands back at its start (see [Away](#away)), runs in a process group of its own, so the harness tearing down the hook's group after the rewake does not stop it.
 The [arm header](../bin/fm-watch-arm.sh) owns take-over eligibility and fallback.
@@ -116,7 +117,8 @@ It also passes the close through unchanged, with no added line, when any of thes
 - The session is cooling down after engine errors; see [The broken-session latch](#the-broken-session-latch).
 
 A close the engine takes is handled as in [One wake](#one-wake), with the dialog mirror at the head of the wake message.
-A handled wake with only routine outcomes never reaches main.
+A handled wake with only informational routine outcomes never reaches main; its rows remain unread until main's next real drain.
+The branch prompt's [verdict criteria](../bin/fm-branch-prompt.sh) distinguish informational completion from decisions, failures, blockers, and work needing action; the host verifies the stored verdicts before deferring.
 A handled wake that recorded a captain outcome while the captain is still attended exits with one `supervision-host: branch-outcome:` line naming its store rows, without the close it handled; see [Captain outcomes](#captain-outcomes).
 A turn that fails hands its close to main with one `supervision-host:` line, as away.
 Main-only rows that share the queue with the branch's rows stay queued for main, which is woken for each on its own triggering close, as on Pi.

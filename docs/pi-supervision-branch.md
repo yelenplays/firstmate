@@ -96,8 +96,10 @@ A successful row grant transfers ownership of exactly the currently branch-eligi
 
 What is never offered, or falls back to main:
 
-- While attended, a check-kind triggering close is never offered, even when other rows are eligible.
-  Check-kind closes are merge-confirmation polls, Relay mentions, credential/auth failures, and every other legitimately main-only class.
+- While attended, check-kind triggering closes stay on main except the exact `check: unfinished-execution` and `check: rearm-resurface` reconciliation triggers.
+  Those two may claim residual check rows and the execution notifier's `execution:<task>` rows; merge-confirmation polls, Relay mentions, credential/auth failures, and every other check remain main-only.
+  Decision-owned signals and stale rows keep their existing exclusions; a broken queue still prevents branch handling.
+  A residual close with an empty queue settles quietly without a model turn, while a residual close with queued main-only checks or decision rows goes to main so recovery cannot strand them.
 - When a triggering close has no acceptor (extension absent, branch broken), it keeps today's wake-to-main path.
 - Watcher-failure alarms always go to main, because only main can repair the watcher cycle.
 
