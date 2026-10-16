@@ -1,0 +1,6 @@
+Tools: /opt/homebrew/bin/herdr
+/Users/yelen/.local/bin/claude
+/Users/yelen/.local/bin/treehouse
+/etc/profiles/per-user/yelen/bin/jq
+Named lab: fm-lab-token-burn-10718-19983
+fm-herdr-lab: tripwire already exists for 'fm-lab-token-burn-10718-19983'; refusing ambiguous ownership

@@ -1,0 +1,4 @@
+Raw launch accepted without --captain-override: env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI claude --model claude-opus-5-5 --effort high
+not ok - raw Opus high effort bypassed the medium cap without a named override (unexpected: '--effort high')
+--- output ---
+env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI claude --model claude-opus-5-5 --effort high

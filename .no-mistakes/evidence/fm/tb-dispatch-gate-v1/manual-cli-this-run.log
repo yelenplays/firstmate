@@ -1,0 +1,38 @@
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-tmp/cli-proof-n954z4dt/home
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-tmp/cli-proof-n954z4dt/home
+exit: 0
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-tmp/cli-proof-n954z4dt/project init -q -b main
+exit: 0
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-tmp/cli-proof-n954z4dt/project add change.txt
+exit: 0
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-tmp/cli-proof-n954z4dt/project -c user.name=CLI validation -c user.email=test@example.invalid commit -qm base
+exit: 0
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-tmp/cli-proof-n954z4dt/project checkout -qb fm/cli-task
+exit: 0
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-tmp/cli-proof-n954z4dt/project -c user.name=CLI validation -c user.email=test@example.invalid commit -qam change
+exit: 0
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-tmp/cli-proof-n954z4dt/project rev-parse HEAD
+734b3d1e387300eb8b7758d56581c3e0405062ff
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/bin/fm-cross-review.sh plan cli-task --head 734b3d1e387300eb8b7758d56581c3e0405062ff
+task=cli-task
+head=734b3d1e387300eb8b7758d56581c3e0405062ff
+builder_family=openai
+action=spawn-reviewer
+kind=review
+reason=no one-shot review is recorded for 734b3d1e387300eb8b7758d56581c3e0405062ff, and local-only mode runs no pipeline review
+reviewer_id=cli-task-xr-734b3d1e
+reviewer_harness=claude
+reviewer_model=claude-opus-5-5
+reviewer_effort=medium
+reviewer_family=anthropic
+exit: 0
+Persisted review profile: {"head":"734b3d1e387300eb8b7758d56581c3e0405062ff","profile":{"harness":"claude","model":"claude-opus-5-5","effort":"medium"}}
+
+$ python3 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/bin/fm-model-ledger.py --state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-tmp/cli-proof-n954z4dt/home/state --data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-tmp/cli-proof-n954z4dt/home/data cli-task
+exit: 0
+$ python3 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/bin/fm-model-ledger.py --state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-tmp/cli-proof-n954z4dt/home/state --data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-tmp/cli-proof-n954z4dt/home/data cli-task
+exit: 0
+Persisted outcome after two append attempts: {"blocked_count": 1, "claude_eq_tokens": null, "cross_review_verdict": null, "effort": "high", "final_state": "done", "harness": "codex", "kind": "ship", "model": "gpt-6.1-sol", "needs_decision_count": 1, "pipeline_review_rounds": null, "pool": "ordinary", "provider": "codex", "recorded_at": "2026-10-16T15:51:20Z", "redispatches": 2.0, "spawn_gen": "cli-proof-g1", "task": "cli-task"}
+Historical row retained; malformed lines ignored; unterminated tail separated; one new row; no private text.
+Disposable CLI home and project removed.

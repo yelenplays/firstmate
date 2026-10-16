@@ -1,0 +1,4 @@
+ok - no --model/--effort records defaults and types the claude launch instructions
+ok - claude receives --model and --effort profile flags
+ok - explicit captain override records its reason without imposing a receipt gate
+ok - Opus high effort requires an explicit override naming model and effort

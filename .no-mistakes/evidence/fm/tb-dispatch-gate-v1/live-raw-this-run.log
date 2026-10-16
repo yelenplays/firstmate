@@ -1,0 +1,30 @@
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/bin/fm-herdr-lab.sh name raw-opus
+fm-lab-raw-opus-79958-20561
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/bin/fm-herdr-lab.sh provision fm-lab-raw-opus-79958-20561
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-live-l7hfoyni/home
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-live-l7hfoyni/home
+exit: 0
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-live-l7hfoyni/project init -q -b main
+exit: 0
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-live-l7hfoyni/project -c user.name=CLI validation -c user.email=test@example.invalid commit --allow-empty -qm initial
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/bin/fm-spawn.sh raw-live-0 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-live-l7hfoyni/project claude --model claude-opus-5-5 --effort high --scout --backend herdr
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-live-l7hfoyni/home
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+exit: 1
+Verified: refused before publishing task metadata.
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/bin/fm-spawn.sh raw-live-1 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-live-l7hfoyni/project claude --model="claude-opus-5-5[1m]" --effort=xhigh --scout --backend herdr
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-live-l7hfoyni/home
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+exit: 1
+Verified: refused before publishing task metadata.
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/bin/fm-spawn.sh raw-live-2 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-live-l7hfoyni/project env WORKER=1 claude --model anthropic/claude-opus-5-5 --effort max --scout --backend herdr
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-live-l7hfoyni/home
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+exit: 1
+Verified: refused before publishing task metadata.
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/bin/fm-herdr-lab.sh teardown fm-lab-raw-opus-79958-20561
+exit: 0
+Lab session and disposable local files removed.

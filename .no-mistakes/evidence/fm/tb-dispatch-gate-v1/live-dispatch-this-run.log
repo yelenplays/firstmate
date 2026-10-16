@@ -1,0 +1,31 @@
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/bin/fm-dispatch-resolve.sh /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-dispatch-uyjpn_yc/brief.md pool=ordinary
+dispatch-resolve:
+  status: fallback
+  decided: default by default
+  typed: skipped (no rules to match)
+  model: default   latency_ms: 0   tokens: -/-
+  rule: default (No listed rule applies to this task.)   confidence: 1
+  probabilities: default=1
+  effort: - (declared fallback (classifier absent))
+  note: no rule matched
+  candidate: claude:claude-opus-5-5  provider=claude  effort=medium(range medium)  scope=all_models  remaining=51%  spendPriority=-0.6635  runway=projected_exhaustion  pred=unknown  -> eligible
+  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'medium'
+  receipt: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-dispatch-uyjpn_yc/state/model-route/59e329c20a29b8bd27b6a9e73ea58349f2b2eeff45fa5f5bb1866cb31ca4b32d.json
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/bin/fm-dispatch-resolve.sh /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-dispatch-uyjpn_yc/brief.md pool=custom
+dispatch-resolve:
+  status: fallback
+  decided: default by default
+  typed: skipped (no rules to match)
+  model: default   latency_ms: 0   tokens: -/-
+  rule: default (No listed rule applies to this task.)   confidence: 1
+  probabilities: default=1
+  effort: - (declared fallback (classifier absent))
+  note: no rule matched
+  note: single eligible policy option; quota uncertainty disclosed
+  candidate: claude:claude-opus-5-5  provider=claude  effort=medium(range medium)  pred=unknown  -> eligible, unranked: Claude worker pool is not matched to the quota snapshot; quota and runway unknown: disclosed uncertainty
+  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'medium'
+  receipt: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HMW2AFHNV6F4XCFK7W19G/.test-dispatch-uyjpn_yc/state/model-route/59e329c20a29b8bd27b6a9e73ea58349f2b2eeff45fa5f5bb1866cb31ca4b32d.json
+exit: 0
+Verified: actual quota snapshot cannot rank or refuse the unmatched custom Claude pool.
+Disposable dispatch home removed.

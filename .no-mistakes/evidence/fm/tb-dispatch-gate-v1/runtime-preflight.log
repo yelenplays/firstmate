@@ -1,0 +1,6 @@
+Runtime preflight for private-tmux primary:
+BLOCKED: tmux is not on PATH. Provide tmux on PATH and rerun the isolated-primary scenarios.
+/Users/yelen/.local/bin/claude
+/Users/yelen/.local/bin/treehouse
+TYPESAFE_API_KEY: not exported
+OPENROUTER_API_KEY: not exported
