@@ -78,6 +78,8 @@ REAL_PS_FOR_TEST=$(command -v ps)
 export REAL_PS_FOR_TEST
 REAL_LSOF_FOR_TEST=$(command -v lsof)
 export REAL_LSOF_FOR_TEST
+mkdir -p "$TMP_ROOT/no-sessions"
+export FM_SPEND_SESSIONS="$TMP_ROOT/no-sessions" FM_SPEND_CLAUDE_SESSIONS="$TMP_ROOT/no-sessions" NM_HOME="$TMP_ROOT/no-sessions"
 
 # Build a fresh sandbox for one test case. Sets up:
 #   $CASE/state/        - firstmate state dir (with a fresh watcher beacon)
@@ -782,6 +784,63 @@ test_model_ledger_failure_retains_records() {
   pass 'model ledger failures retain task facts for retry and unknown measurements stay null'
 }
 
+test_model_ledger_populates_counts_at_teardown() {
+  local case_dir sessions epoch common repo db rc=0
+  case_dir=$(make_case model-ledger-counts)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" 'ledger counts fixture'
+  add_fork_with_pushed_branch "$case_dir"
+  epoch=$(date +%s)
+  sed -i.bak "s/^spawn_gen=.*/spawn_gen=s$((epoch - 60)).1.cc/" "$case_dir/state/task-x1.meta"
+  rm -f "$case_dir/state/task-x1.meta.bak"
+  printf 'harness=claude\nmodel=claude-opus-5-5\neffort=medium\nredispatches=1\n' >> "$case_dir/state/task-x1.meta"
+  printf 'done: finished\n' > "$case_dir/state/task-x1.status"
+  sessions="$case_dir/claude-projects/project"
+  mkdir -p "$sessions" "$case_dir/pi-sessions"
+  printf '{"type":"assistant","sessionId":"s1","cwd":"%s","timestamp":"%s","requestId":"r1","message":{"id":"m1","role":"assistant","model":"claude-opus-5-5","usage":{"input_tokens":100,"output_tokens":10}}}\n' \
+    "$case_dir/wt" "$(date -u -r "$((epoch - 30))" +%Y-%m-%dT%H:%M:%SZ)" > "$sessions/s1.jsonl"
+  common=$(git -C "$case_dir/wt" rev-parse --path-format=absolute --git-common-dir)
+  repo=$(dirname "$common")
+  branch=$(git -C "$case_dir/wt" symbolic-ref --short HEAD)
+  db="$case_dir/nm/state.sqlite"
+  mkdir -p "$case_dir/nm"
+  python3 - "$db" "$repo" "$branch" <<'PY' || fail 'could not build no-mistakes state fixture'
+import sqlite3, sys, time
+db = sqlite3.connect(sys.argv[1])
+db.executescript("""
+create table repos (id text primary key, working_path text not null unique);
+create table runs (id text primary key, repo_id text, branch text, created_at integer);
+create table agent_invocations (id text primary key, run_id text, round integer, purpose text, exit_status text);
+""")
+now = int(time.time()) + 60
+db.execute("insert into repos values ('r', ?)", (sys.argv[2],))
+db.execute("insert into runs values ('run1', 'r', ?, ?)", (sys.argv[3], now))
+db.execute("insert into runs values ('other', 'r', 'unrelated-branch', ?)", (now,))
+rows = [("run1", 0, "review", "ok"), ("run1", 0, "review", "ok"), ("run1", 1, "review", "ok"),
+        ("run1", 2, "review", "error"), ("run1", 1, "review-fix", "ok"), ("other", 0, "review", "ok")]
+db.executemany("insert into agent_invocations values (lower(hex(randomblob(4))), ?, ?, ?, ?)", rows)
+db.commit()
+PY
+  NM_HOME="$case_dir/nm" FM_SPEND_CLAUDE_SESSIONS="$case_dir/claude-projects" FM_SPEND_SESSIONS="$case_dir/pi-sessions" \
+    run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" 'teardown with a populated ledger should succeed'
+  jq -e '.redispatches == 1 and .pipeline_review_rounds == 2 and .claude_eq_tokens == 150 and .model == "claude-opus-5-5"' \
+    "$case_dir/data/model-ledger.jsonl" >/dev/null || fail "ledger counts wrong: $(cat "$case_dir/data/model-ledger.jsonl")"
+  assert_absent "$case_dir/state/task-x1.meta" 'counts ledger completes metadata retirement'
+  pass 'teardown records re-dispatch, review-round and weighted-token facts'
+}
+
+test_model_ledger_skips_corrupt_prior_line() {
+  local case_dir
+  case_dir=$(make_case model-ledger-corrupt)
+  write_meta "$case_dir" local-only ship
+  printf 'done: ok\n' > "$case_dir/state/task-x1.status"
+  printf '{"task":"other","spawn_gen":"g"}\n{"task":"task-x1","spa\n' > "$case_dir/data/model-ledger.jsonl"
+  python3 "$ROOT/bin/fm-model-ledger.py" --state "$case_dir/state" --data "$case_dir/data" task-x1 || fail 'corrupt prior line wedged the ledger'
+  [ "$(grep -c '^{"task":"task-x1".*"kind":' "$case_dir/data/model-ledger.jsonl")" -eq 1 ] || fail 'ledger did not append exactly one row'
+  pass 'model ledger skips unparsable prior lines'
+}
+
 test_local_only_fork_remote_allows() {
   local case_dir rc
   case_dir=$(make_case fork-allow)
@@ -789,11 +848,11 @@ test_local_only_fork_remote_allows() {
   wt_commit "$case_dir" "fix the thing"
   add_fork_with_pushed_branch "$case_dir"
   # Preserve model facts and counts, not task text or account-root paths.
-  printf 'harness=pi\nmodel=openai-codex/gpt-6.1-sol\neffort=high\naccount=/private/account-root\naccount_provider=openai-codex\npipeline_review_rounds=3\n' >> "$case_dir/state/task-x1.meta"
+  printf 'harness=pi\nmodel=openai-codex/gpt-6.1-sol\neffort=high\naccount=/private/account-root\naccount_provider=openai-codex\nredispatches=2\n' >> "$case_dir/state/task-x1.meta"
   printf 'needs-decision [at=1] [key=test]: SECRET-STATUS\nresolved [at=2] [key=test]: SECRET-ANSWER\nblocked [at=3]: SECRET-BLOCKER\ndone [at=4]: SECRET-DONE\n' > "$case_dir/state/task-x1.status"
   mkdir -p "$case_dir/data/task-x1"
   printf '{"kind":"review","accepted":true,"verdict":"success","head":"abc","report":"data/private-report"}\n' > "$case_dir/data/task-x1/cross-review.jsonl"
-  printf '{\n  "task":"task-x1",\n  "totals":{"claudeEqTokens":1234}\n}\n' > "$case_dir/state/task-x1.spend"
+  printf '{\n  "task":"task-x1",\n  "status":"ok",\n  "totals":{"claudeEqTokens":1234}\n}\n' > "$case_dir/state/task-x1.spend"
   # An interrupted cleanup must not append again on retry.
   python3 "$ROOT/bin/fm-model-ledger.py" --state "$case_dir/state" --data "$case_dir/data" task-x1 || fail 'initial ledger append'
   # The supervision branch's bounded per-task outcome cache is a footprint of
@@ -815,7 +874,7 @@ assert r['task'] == 'task-x1' and r['kind'] == 'ship', r
 assert r['harness'] == 'pi' and r['model'] == 'openai-codex/gpt-6.1-sol' and r['effort'] == 'high', r
 assert r['pool'] is None and r['provider'] == 'openai-codex', r
 assert r['final_state'] == 'done' and r['needs_decision_count'] == 1 and r['blocked_count'] == 1, r
-assert r['pipeline_review_rounds'] == 3 and r['cross_review_verdict'] == 'success' and r['claude_eq_tokens'] == 1234, r
+assert r['redispatches'] == 2 and r['pipeline_review_rounds'] is None and r['cross_review_verdict'] == 'success' and r['claude_eq_tokens'] == 1234, r
 text = json.dumps(r)
 assert 'SECRET' not in text and '/private/' not in text and 'data/' not in text, text
 PY
@@ -5601,6 +5660,8 @@ fi
 if [ "${1:-}" = --model-ledger ]; then
   test_local_only_fork_remote_allows
   test_model_ledger_failure_retains_records
+  test_model_ledger_populates_counts_at_teardown
+  test_model_ledger_skips_corrupt_prior_line
   exit 0
 fi
 
@@ -5618,6 +5679,8 @@ fi
 
 test_local_only_fork_remote_allows
 test_model_ledger_failure_retains_records
+test_model_ledger_populates_counts_at_teardown
+test_model_ledger_skips_corrupt_prior_line
 test_teardown_retires_watcher_state
 test_teardown_closes_the_backlog_item_itself
 test_teardown_closes_a_gerrit_task_with_its_change_url_as_a_note
