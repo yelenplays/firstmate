@@ -887,21 +887,20 @@ test_grok_adapter_missing_jq_and_no_supervision_allow() {
 # rather than deduplicate it (docs/subagent-guard.md "Known residual gap").
 # It is asserted to stay unguarded so the exception cannot be closed silently.
 test_tracked_claude_entries_inert_under_grok() {
-  local dir cmd script target guarded=0 unguarded=0 input
+  local dir cmd script target expected guarded=0 unguarded=0 input
   command -v jq >/dev/null 2>&1 || fail "test host must provide jq"
   dir="$TMP_ROOT/claude-entries-grok-inert"
   mkdir -p "$dir/bin"
   for script in fm-turnend-guard.sh fm-claude-stop-autoarm.sh fm-sessionstart-run.sh fm-history.sh \
-    fm-arm-pretool-check.sh fm-cd-pretool-check.sh fm-subagent-pretool-check.sh fm-host-mirror.sh; do
-    printf '#!/usr/bin/env bash\nprintf ran >> %q\n' "$dir/invoked" > "$dir/bin/$script"
+    fm-memory-capture.sh fm-arm-pretool-check.sh fm-cd-pretool-check.sh fm-subagent-pretool-check.sh fm-host-mirror.sh; do
+    printf '#!/usr/bin/env bash\nprintf "%%s\\n" "${0##*/}" >> %q\n' "$dir/invoked" > "$dir/bin/$script"
     chmod +x "$dir/bin/$script"
   done
 
-  # Runs one tracked command string and reports whether it reached its script.
+  # Supply a real hook payload even when the command chains multiple scripts.
+  input=$(jq -nc --arg transcript "$dir/transcript.jsonl" '{transcript_path:$transcript}')
   ran_under() {
     rm -f "$dir/invoked"
-    input=''
-    [ "$target" != fm-history.sh ] || input=$(jq -nc --arg transcript "$dir/transcript.jsonl" '{transcript_path:$transcript}')
     printf '%s' "$input" | env "$@" CLAUDE_PROJECT_DIR="$dir" bash -c "$cmd" >/dev/null 2>&1
     [ -e "$dir/invoked" ]
   }
@@ -916,6 +915,12 @@ test_tracked_claude_entries_inert_under_grok() {
     ran_under -u GROK_AGENT -u GROK_HOOK_EVENT -u GROK_HOOK_NAME -u GROK_SESSION_ID \
       -u GROK_WORKSPACE_ROOT \
       || fail "tracked entry for $target did not run under a native Claude environment"
+    expected=$target
+    if [ "$target" = fm-memory-capture.sh ]; then
+      expected=$'fm-history.sh\nfm-memory-capture.sh'
+    fi
+    [ "$(cat "$dir/invoked")" = "$expected" ] \
+      || fail "tracked entry for $target did not execute its scripts in order under Claude"
 
     if [ "$target" = fm-subagent-pretool-check.sh ]; then
       unguarded=$((unguarded + 1))
