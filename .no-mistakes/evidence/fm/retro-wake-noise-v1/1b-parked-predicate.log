@@ -1,0 +1,2 @@
+ok - parked answers yes only for a parked hold on an open row
+$R tests/fm-captain-hold-lifecycle.test.sh   5.65s user 3.99s system 18% cpu 51.210 total

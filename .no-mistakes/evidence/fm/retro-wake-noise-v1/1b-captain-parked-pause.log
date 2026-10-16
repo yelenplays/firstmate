@@ -1,0 +1,2 @@
+ok - a captain-parked pause is never rechecked on a cadence, only once at its hold-until date
+$R tests/fm-watch-triage.test.sh   38.89s user 56.92s system 28% cpu 5:38.97 total

@@ -1,0 +1,9 @@
+ok - TERM stops a watcher whose downtime-marker lock is held, retaining stale evidence
+ok - the cleanup marker-lock bound is decimal and zero falls back to the default
+run 1 rc= 35s
+ok - TERM stops a watcher whose downtime-marker lock is held, retaining stale evidence
+not ok - cleanup lock bound 08 gave up before the marker lock freed
+run 2 rc= 31s
+ok - TERM stops a watcher whose downtime-marker lock is held, retaining stale evidence
+ok - the cleanup marker-lock bound is decimal and zero falls back to the default
+run 3 rc= 33s

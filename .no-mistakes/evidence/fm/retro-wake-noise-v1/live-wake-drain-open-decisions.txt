@@ -1,0 +1,54 @@
+=== wake 1 (main, fresh): full list ===
+$ bin/fm-wake-drain.sh
+OPEN DECISIONS (22 still open; 22 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+frontend-1 [key=fe-01] needs-decision: old frontend decision 1 - pick layout A or B for the dashboard widget
+frontend-10 [key=fe-10] needs-decision: old frontend decision 10 - pick layout A or B for the dashboard widget
+frontend-11 [key=fe-11] needs-decision: old frontend decision 11 - pick layout A or B for the dashboard widget
+frontend-12 [key=fe-12] needs-decision: old frontend decision 12 - pick layout A or B for the dashboard widget
+frontend-13 [key=fe-13] needs-decision: old frontend decision 13 - pick layout A or B for the dashboard widget
+frontend-14 [key=fe-14] needs-decision: old frontend decision 14 - pick layout A or B for the dashboard widget
+frontend-15 [key=fe-15] needs-decision: old frontend decision 15 - pick layout A or B for the dashboard widget
+frontend-16 [key=fe-16] needs-decision: old frontend decision 16 - pick layout A or B for the dashboard widget
+frontend-17 [key=fe-17] needs-decision: old frontend decision 17 - pick layout A or B for the dashboard widget
+frontend-18 [key=fe-18] needs-decision: old frontend decision 18 - pick layout A or B for the dashboard widget
+frontend-19 [key=fe-19] needs-decision: old frontend decision 19 - pick layout A or B for the dashboard widget
+frontend-2 [key=fe-02] needs-decision: old frontend decision 2 - pick layout A or B for the dashboard widget
+frontend-20 [key=fe-20] needs-decision: old frontend decision 20 - pick layout A or B for the dashboard widget
+frontend-21 [key=fe-21] needs-decision: old frontend decision 21 - pick layout A or B for the dashboard widget
+frontend-22 [key=fe-22] needs-decision: old frontend decision 22 - pick layout A or B for the dashboard widget
+frontend-3 [key=fe-03] needs-decision: old frontend decision 3 - pick layout A or B for the dashboard widget
+frontend-4 [key=fe-04] needs-decision: old frontend decision 4 - pick layout A or B for the dashboard widget
+frontend-5 [key=fe-05] needs-decision: old frontend decision 5 - pick layout A or B for the dashboard widget
+frontend-6 [key=fe-06] needs-decision: old frontend decision 6 - pick layout A or B for the dashboard widget
+frontend-7 [key=fe-07] needs-decision: old frontend decision 7 - pick layout A or B for the dashboard widget
+frontend-8 [key=fe-08] needs-decision: old frontend decision 8 - pick layout A or B for the dashboard widget
+frontend-9 [key=fe-09] needs-decision: old frontend decision 9 - pick layout A or B for the dashboard widget
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+[exit=0]
+
+=== wake 2 (main, nothing new) ===
+$ bin/fm-wake-drain.sh
+OPEN DECISIONS: 22 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[exit=0]
+
+=== new decision + changed note on fe-03 ===
+=== wake 3 (main) ===
+$ bin/fm-wake-drain.sh
+OPEN DECISIONS (23 still open; 2 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+frontend-3 [key=fe-03] needs-decision: REVISED - layout C now on the table
+lay-go [key=deploy] needs-decision: approve deploy to prod?
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+[exit=0]
+
+=== wake 4 (main, nothing new) ===
+$ bin/fm-wake-drain.sh
+OPEN DECISIONS: 23 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[exit=0]
+
+=== explicit --decisions ===
+$ bin/fm-wake-drain.sh --decisions
+OPEN DECISIONS (23 still open, folded from the durable status logs - not just the latest line):
+frontend-1 [key=fe-01] needs-decision: old frontend decision 1 - pick layout A or B for the dashboard widget
+frontend-10 [key=fe-10] needs-decision: old frontend decision 10 - pick layout A or B for the dashboard widget
+frontend-11 [key=fe-11] needs-decision: old frontend decision 11 - pick layout A or B for the dashboard widget
+frontend-12 [key=fe-12] needs-decision: old frontend decision 12 - pick layout A or B for the dashboard widget

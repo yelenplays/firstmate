@@ -1,0 +1,17 @@
+=== 1. arm the watcher (fresh lab home, empty wake queue) ===
+watcher: started pid=86925 (beacon fresh)
+watcher pid=86925
+=== 2. clean stop: SIGTERM the watcher (take-over / stop) ===
+arm exit=143
+.watcher-down: pending:downtime:86925.1792100616.rZRZu0
+_: Zeile 11: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.FAk4SY/state/.wake-queue: No such file or directory
+wake-queue bytes: 0
+=== 3. re-arm: expect NO check: rearm-resurface, watcher stays parked ===
+watcher: started pid=92821 (beacon fresh)
+arm still parked (no wake delivered) - OK
+rearm-resurface lines: 0
+.watcher-down: acked:downtime:86925.1792100616.rZRZu0
+=== 4. queue a real row, stop, re-arm: wake must still surface ===
+watcher: started pid=10628 (beacon fresh)
+check: rearm-resurface
+arm3 exited with the wake

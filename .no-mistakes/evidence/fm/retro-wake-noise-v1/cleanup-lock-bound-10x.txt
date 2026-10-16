@@ -1,0 +1,10 @@
+ok - the cleanup marker-lock bound is decimal and zero falls back to the default
+ok - the cleanup marker-lock bound is decimal and zero falls back to the default
+ok - the cleanup marker-lock bound is decimal and zero falls back to the default
+ok - the cleanup marker-lock bound is decimal and zero falls back to the default
+ok - the cleanup marker-lock bound is decimal and zero falls back to the default
+ok - the cleanup marker-lock bound is decimal and zero falls back to the default
+ok - the cleanup marker-lock bound is decimal and zero falls back to the default
+ok - the cleanup marker-lock bound is decimal and zero falls back to the default
+ok - the cleanup marker-lock bound is decimal and zero falls back to the default
+ok - the cleanup marker-lock bound is decimal and zero falls back to the default

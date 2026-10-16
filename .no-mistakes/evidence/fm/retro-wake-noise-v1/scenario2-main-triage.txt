@@ -1,0 +1,88 @@
+# lab home with 23 tasks carrying an open needs-decision
+$ bin/fm-wake-triage.sh   # wake 1 (main)
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9KzY22/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS (23 still open; 23 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+frontend-1 [key=fe-01] needs-decision: frontend decision 1 - pick layout variant A or B for page 1
+frontend-10 [key=fe-10] needs-decision: frontend decision 10 - pick layout variant A or B for page 10
+frontend-11 [key=fe-11] needs-decision: frontend decision 11 - pick layout variant A or B for page 11
+frontend-12 [key=fe-12] needs-decision: frontend decision 12 - pick layout variant A or B for page 12
+frontend-13 [key=fe-13] needs-decision: frontend decision 13 - pick layout variant A or B for page 13
+frontend-14 [key=fe-14] needs-decision: frontend decision 14 - pick layout variant A or B for page 14
+frontend-15 [key=fe-15] needs-decision: frontend decision 15 - pick layout variant A or B for page 15
+frontend-16 [key=fe-16] needs-decision: frontend decision 16 - pick layout variant A or B for page 16
+frontend-17 [key=fe-17] needs-decision: frontend decision 17 - pick layout variant A or B for page 17
+frontend-18 [key=fe-18] needs-decision: frontend decision 18 - pick layout variant A or B for page 18
+frontend-19 [key=fe-19] needs-decision: frontend decision 19 - pick layout variant A or B for page 19
+frontend-2 [key=fe-02] needs-decision: frontend decision 2 - pick layout variant A or B for page 2
+frontend-20 [key=fe-20] needs-decision: frontend decision 20 - pick layout variant A or B for page 20
+frontend-21 [key=fe-21] needs-decision: frontend decision 21 - pick layout variant A or B for page 21
+frontend-22 [key=fe-22] needs-decision: frontend decision 22 - pick layout variant A or B for page 22
+frontend-3 [key=fe-03] needs-decision: frontend decision 3 - re-asked: variant C added
+frontend-4 [key=fe-04] needs-decision: frontend decision 4 - pick layout variant A or B for page 4
+frontend-5 [key=fe-05] needs-decision: frontend decision 5 - pick layout variant A or B for page 5
+frontend-6 [key=fe-06] needs-decision: frontend decision 6 - pick layout variant A or B for page 6
+frontend-7 [key=fe-07] needs-decision: frontend decision 7 - pick layout variant A or B for page 7
+frontend-8 [key=fe-08] needs-decision: frontend decision 8 - pick layout variant A or B for page 8
+frontend-9 [key=fe-09] needs-decision: frontend decision 9 - pick layout variant A or B for page 9
+hotfix [key=deploy] needs-decision: ship the hotfix now?
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+[exit 0]
+
+$ bin/fm-wake-triage.sh   # wake 2 (main, nothing new)
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9KzY22/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS: 23 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[exit 0]
+
+# captain-side change: new key deploy on hotfix, changed note on frontend-3
+$ bin/fm-wake-triage.sh   # wake 3 (main)
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9KzY22/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS: 23 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[exit 0]
+
+$ bin/fm-wake-triage.sh   # wake 4 (main, nothing new)
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9KzY22/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS: 23 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[exit 0]
+
+$ bin/fm-wake-triage.sh --decisions | grep -c "key="   # explicit full list
+23
+# change: new key dns, changed note on fe-07, fe-01 resolved
+$ bin/fm-wake-triage.sh   # wake 5 (main)
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9KzY22/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS (23 still open; 2 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+dns [key=dns] needs-decision: cut DNS over to Cloudflare today?
+frontend-7 [key=fe-07] needs-decision: frontend decision 7 - captain asked for a dark variant too
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+[exit 0]
+
+$ bin/fm-wake-triage.sh   # wake 6 (main, nothing new)
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9KzY22/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS: 23 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[exit 0]
+
+# branch actor, supervision-host conversation conv-A (shares the home, separate ledger)
+$ FM_SUPERVISION_ACTOR=branch FM_BRANCH_CONVERSATION=conv-A bin/fm-wake-drain.sh | grep -c key=   # first turn of conv-A
+0
+$ FM_SUPERVISION_ACTOR=branch FM_BRANCH_CONVERSATION=conv-A bin/fm-wake-drain.sh   # second turn of conv-A
+wake drain: no branch-eligible row snapshot at /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9KzY22/state/.branch-eligible-rows; refusing to guess what this actor may consume
+$ FM_SUPERVISION_ACTOR=branch FM_BRANCH_CONVERSATION=conv-B bin/fm-wake-drain.sh | grep -c key=   # rotated conversation
+0
+
+$ bin/fm-wake-triage.sh   # main again after the branch turns: main ledger untouched
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9KzY22/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS: 23 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+[exit 0]

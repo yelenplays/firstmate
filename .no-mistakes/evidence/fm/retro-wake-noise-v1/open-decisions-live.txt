@@ -1,0 +1,63 @@
+$ bin/fm-wake-triage.sh   # wake 1 (first presentation)
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.YYogoR/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS (22 still open; 22 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+fe-task-01 [key=fe-01] needs-decision: old frontend decision 01 about layout
+fe-task-02 [key=fe-02] needs-decision: old frontend decision 02 about layout
+fe-task-03 [key=fe-03] needs-decision: old frontend decision 03 about layout
+fe-task-04 [key=fe-04] needs-decision: old frontend decision 04 about layout
+fe-task-05 [key=fe-05] needs-decision: old frontend decision 05 about layout
+fe-task-06 [key=fe-06] needs-decision: old frontend decision 06 about layout
+fe-task-07 [key=fe-07] needs-decision: old frontend decision 07 about layout
+fe-task-08 [key=fe-08] needs-decision: old frontend decision 08 about layout
+fe-task-09 [key=fe-09] needs-decision: old frontend decision 09 about layout
+fe-task-10 [key=fe-10] needs-decision: old frontend decision 10 about layout
+fe-task-11 [key=fe-11] needs-decision: old frontend decision 11 about layout
+fe-task-12 [key=fe-12] needs-decision: old frontend decision 12 about layout
+fe-task-13 [key=fe-13] needs-decision: old frontend decision 13 about layout
+fe-task-14 [key=fe-14] needs-decision: old frontend decision 14 about layout
+fe-task-15 [key=fe-15] needs-decision: old frontend decision 15 about layout
+fe-task-16 [key=fe-16] needs-decision: old frontend decision 16 about layout
+fe-task-17 [key=fe-17] needs-decision: old frontend decision 17 about layout
+fe-task-18 [key=fe-18] needs-decision: old frontend decision 18 about layout
+fe-task-19 [key=fe-19] needs-decision: old frontend decision 19 about layout
+fe-task-20 [key=fe-20] needs-decision: old frontend decision 20 about layout
+fe-task-21 [key=fe-21] needs-decision: old frontend decision 21 about layout
+fe-task-22 [key=fe-22] needs-decision: old frontend decision 22 about layout
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+exit=0
+
+$ bin/fm-wake-triage.sh   # wake 2 (nothing new)
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.YYogoR/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+OPEN DECISIONS: 22 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+exit=0
+
+$ bin/fm-wake-drain.sh   # wake 3 (nothing new)
+OPEN DECISIONS: 22 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+exit=0
+
+# a new decision is recorded
+$ bin/fm-wake-drain.sh   # wake 4
+OPEN DECISIONS (23 still open; 1 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+new-task [key=new-x] needs-decision: brand new decision
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+exit=0
+
+$ bin/fm-wake-drain.sh --decisions | head -5; | wc -l
+OPEN DECISIONS (23 still open, folded from the durable status logs - not just the latest line):
+fe-task-01 [key=fe-01] needs-decision: old frontend decision 01 about layout
+fe-task-02 [key=fe-02] needs-decision: old frontend decision 02 about layout
+fe-task-03 [key=fe-03] needs-decision: old frontend decision 03 about layout
+fe-task-04 [key=fe-04] needs-decision: old frontend decision 04 about layout
+23
+
+# branch actor, conversation c1, twice, then new conversation c2
+$ FM_SUPERVISION_ACTOR=branch FM_BRANCH_CONVERSATION=c1 bin/fm-wake-drain.sh | grep -c needs-decision ; head -1
+exit=1 listed=0
+$ FM_SUPERVISION_ACTOR=branch FM_BRANCH_CONVERSATION=c1 bin/fm-wake-drain.sh | grep -c needs-decision ; head -1
+exit=1 listed=0
+$ FM_SUPERVISION_ACTOR=branch FM_BRANCH_CONVERSATION=c2 bin/fm-wake-drain.sh | grep -c needs-decision ; head -1
+exit=1 listed=0

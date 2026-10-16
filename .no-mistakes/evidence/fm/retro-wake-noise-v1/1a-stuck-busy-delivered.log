@@ -1,0 +1,26 @@
+ok - inbox: all backend Enter-only dispatches preserve retries, labels, pending input, and dialog refusal
+ok - inbox: stale Pi submits retain tmux/Herdr turn-start proof without retyping or accepting pre-existing activity
+ok - watcher: idle successor surfaces once despite unremovable predecessor bookkeeping
+ok - watcher: busy successor surfaces once despite unremovable predecessor bookkeeping
+ok - watcher: persistent idle busy-reset failure escalates once and later instructions still deliver
+ok - watcher: persistent protected busy-reset failure escalates once and later instructions still deliver
+ok - watcher: busy limit '999999999999999999999999999999' escalates exactly once at 2
+ok - watcher: busy limit '1000000000' escalates exactly once at 2
+ok - watcher: busy limit '0' escalates exactly once at 2
+ok - watcher: busy limit '000' escalates exactly once at 2
+ok - watcher: busy limit '' escalates exactly once at 2
+ok - watcher: busy limit 'invalid' escalates exactly once at 2
+ok - watcher: busy limit '1' escalates exactly once at 1
+ok - watcher: busy limit '3' escalates exactly once at 3
+ok - watcher: busy successor escalates once despite stale predecessor ring history
+ok - watcher: dead successor escalates once despite stale predecessor ring history
+ok - watcher: missing successor escalates once despite stale predecessor ring history
+ok - watcher: unwritable successor escalates once despite stale predecessor ring history
+ok - watcher: a non-busy protected delivery breaks the busy streak and preserves the attempt ladder
+ok - watcher: a non-busy failed delivery breaks the busy streak and preserves the attempt ladder
+ok - watcher: a busy turn on a delivered message is held for the turn bound, then escalates stuck-busy
+ok - watcher: a completed turn after delivery renews the busy hold
+ok - watcher: a later doorbell holds the busy turn on the oldest record; an earlier one does not
+ok - watcher: a spent ring budget emits exactly one ordinary stale wake for recovery
+ok - watcher: a positively dead pane is never typed into and surfaces exactly one stale wake
+$R tests/fm-task-inbox.test.sh    test_watcher_escalates_once_after_budget   28.32s user 44.29s system 24% cpu 4:58.18 total

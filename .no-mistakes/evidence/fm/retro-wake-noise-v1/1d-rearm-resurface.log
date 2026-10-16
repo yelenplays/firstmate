@@ -1,0 +1,4 @@
+not ok - the quiet episode was not retired in place: announced:downtime:41420.1792135662.WxMart
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M50QY8PZE7BJ9G93JYFYYRQ5/bin/fm-watch-arm.sh: Zeile 222: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-watch-arm-tests.tlg9SO/clean-close-quiet-recovery/state/.watch-cycle-exits.log: No such file or directory
+$R tests/fm-watch-arm.test.sh     0.82s user 1.73s system 14% cpu 17.609 total
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M50QY8PZE7BJ9G93JYFYYRQ5/bin/fm-watch-arm.sh: Zeile 236: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-watch-arm-tests.tlg9SO/clean-close-quiet-recovery/state/.watch-cycle-exits.log: No such file or directory

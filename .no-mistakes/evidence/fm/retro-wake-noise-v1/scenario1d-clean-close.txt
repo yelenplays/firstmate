@@ -1,0 +1,16 @@
+# fresh lab home; marker before: none
+# queued rows before: 0
+0
+$ bin/fm-watch-arm.sh &   # cycle 1
+arm said: watcher: started pid=63605 (beacon fresh)
+watcher pid 63605 live; marker: none
+$ kill -TERM <watcher>   # clean close (stop / take-over), nothing queued
+[arm exit 143] arm said: watcher: FAILED - watcher cycle exited 143 without an actionable reason
+marker after clean close: pending:downtime:63605.1792139462.EP4WJD
+present flag: no
+$ bin/fm-watch-arm.sh   # cycle 2 re-arm: must not wake with check: rearm-resurface
+marker after re-arm: acked:downtime:63605.1792139462.EP4WJD
+re-arm still parked after 8s (no zero-row rearm-resurface wake)
+queue rows: 0
+0; rearm-resurface rows: 0
+0

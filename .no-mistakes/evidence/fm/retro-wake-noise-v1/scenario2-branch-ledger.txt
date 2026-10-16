@@ -1,0 +1,22 @@
+# branch setup: one queued status wake plus a branch-owned wake grant (what the supervision host does before a branch turn)
+(wake queued)
+(grant active)
+
+$ FM_SUPERVISION_ACTOR=branch FM_BRANCH_CONVERSATION=conv-A bin/fm-wake-drain.sh   # conv-A turn 1
+OPEN DECISIONS (23 still open; 23 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+(decision lines listed: 24)
+$ ... conv-A turn 2
+OPEN DECISIONS: 23 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+# new decision key=rollback appears
+$ ... conv-A turn 3
+OPEN DECISIONS (24 still open; 1 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+release [key=rollback] needs-decision: roll back release 4.2?
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+$ ... conv-B turn 1 (host rotated to a new conversation)
+OPEN DECISIONS (24 still open; 24 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+(decision lines listed: 24)
+
+$ bin/fm-wake-drain.sh  # main: its own ledger still shows the new key once
+OPEN DECISIONS (24 still open; 1 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+release [key=rollback] needs-decision: roll back release 4.2?
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
