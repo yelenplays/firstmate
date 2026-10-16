@@ -495,6 +495,62 @@ RUBY
   pass "CI matrices cover every executable serial lane and canonical lint root exactly once"
 }
 
+# Replay a byte-balanced but analysis-skewed workload through the real lint
+# owner and the workflow's matrix. Costs are virtual milliseconds, not sleeps:
+# source fan-out can make equally sized roots differ greatly in analysis work.
+# The former two-runner matrix packs all three expensive roots onto one runner
+# (over 32 minutes); the selected layout must leave 20% of the job for headroom.
+test_lint_matrix_has_analysis_headroom() {
+  local tmp
+  tmp=$(fm_test_tmproot fm-ci-lint-headroom)
+  ruby -ryaml -ropen3 -rfileutils - "$CI_WORKFLOW" "$ROOT" "$tmp" <<'RUBY' || fail "lint matrix has insufficient analysis headroom"
+job = YAML.load_file(ARGV[0]).fetch("jobs").fetch("lint")
+root, sandbox = ARGV[1], ARGV[2]
+%w[bin/backends tests fakebin].each { |dir| FileUtils.mkdir_p(File.join(sandbox, dir)) }
+File.write(File.join(sandbox, "bin/backends/noop.sh"), "#!/usr/bin/env bash\nexit 0\n")
+FileUtils.cp(File.join(root, "bin/fm-lint.sh"), File.join(sandbox, "bin/fm-lint.sh"))
+File.write(File.join(sandbox, "bin/fm-lint-workflows.sh"), "#!/usr/bin/env bash\nexit 0\n")
+File.chmod(0o755, File.join(sandbox, "bin/fm-lint-workflows.sh"))
+# Direct-byte sizes deliberately disagree with the simulated analyzer costs.
+sizes = {"bin/a.sh" => 60000, "bin/b.sh" => 50000, "bin/c.sh" => 40000,
+         "tests/d.sh" => 30000, "tests/e.sh" => 20000, "tests/f.sh" => 10000}
+sizes.each { |path, size| File.write(File.join(sandbox, path), "#" * size + "\n") }
+cost = Hash.new(1000).merge("bin/a.sh" => 650000, "bin/c.sh" => 650000, "tests/d.sh" => 650000)
+stub = File.join(sandbox, "fakebin/shellcheck")
+File.write(stub, <<~'SH')
+  #!/usr/bin/env bash
+  if [ "${1:-}" = --version ]; then
+    printf 'version: 0.11.0\n'
+    exit 0
+  fi
+  printf '%s\n' "${!#}" >> "$FM_ROOT_LOG"
+SH
+File.chmod(0o755, stub)
+parts = job.fetch("strategy").fetch("matrix").fetch("partition")
+step = job.fetch("steps").find { |s| s["name"] == "Lint canonical partition" }.fetch("run")
+executed = []
+parts.each do |part|
+  log = File.join(sandbox, "roots-#{part}")
+  command = step.gsub("${{ matrix.partition }}", part.to_s).gsub("${{ strategy.job-total }}", parts.length.to_s)
+  _out, err, result = Open3.capture3(
+    {"PATH" => "#{sandbox}/fakebin:#{ENV.fetch('PATH')}", "FM_ROOT_LOG" => log,
+     "RUNNER_TEMP" => File.join(sandbox, "runner-temp"), "FM_LINT_REQUIRE_BOUNDS" => "0"},
+    "bash", "-e", "-c", command, chdir: sandbox
+  )
+  raise "partition #{part} failed: #{err}" unless result.success?
+  roots = File.readlines(log, chomp: true)
+  executed.concat(roots)
+  work_ms = roots.sum { |path| cost[path] }
+  budget_ms = job.fetch("timeout-minutes") * 60000 * 0.8
+  raise "partition #{part}: #{work_ms}ms analysis exceeds #{budget_ms.to_i}ms packing budget" if work_ms > budget_ms
+end
+expected = Dir.chdir(sandbox) { Dir.glob("{bin,bin/backends,tests}/*.sh").sort }
+raise "headroom was obtained by dropping or duplicating roots" unless executed.sort == expected
+RUBY
+  pass "CI lint partitions execute a skewed workload completely with timeout headroom"
+}
+
+test_lint_matrix_has_analysis_headroom
 test_ci_matrices_match_executable_partitions
 test_pr_pushes_supersede_within_one_pr
 test_separate_prs_do_not_cancel_each_other
