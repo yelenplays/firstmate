@@ -485,6 +485,13 @@
 #   profile marked "private_ok": false exits 1 before provisioning unless
 #   bin/fm-private-guard-lib.sh proves the task non-private; docs/configuration.md
 #   "Private-material guard (config/private-markers)" owns the contract.
+# Effort cap (config/crew-dispatch.json): a launch whose resolved
+#   --harness/--model/--effort exceeds the home's declared effort envelope for
+#   that model exits 1 before provisioning, reviewers and every other task
+#   kind included; a harness with no effort knob is never gated and an explicit
+#   --captain-override bypasses with a named line. bin/fm-effort-cap-lib.sh
+#   owns the envelope; docs/configuration.md "Effort caps for concrete
+#   launches" owns the contract.
 # Worker account pin (config/claude-account, config/pi-account):
 #   Opt-in. With no file, a Claude or Pi launch is unchanged: Claude still
 #   receives this process's own CLAUDE_CONFIG_DIR when it is set, and Pi the
@@ -850,6 +857,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 . "$SCRIPT_DIR/fm-worker-account-lib.sh"
 # shellcheck source=bin/fm-model-denylist-lib.sh
 . "$SCRIPT_DIR/fm-model-denylist-lib.sh"
+# shellcheck source=bin/fm-effort-cap-lib.sh
+. "$SCRIPT_DIR/fm-effort-cap-lib.sh"
 # shellcheck source=bin/fm-private-guard-lib.sh
 . "$SCRIPT_DIR/fm-private-guard-lib.sh"
 # shellcheck source=bin/fm-ai-family-lib.sh
@@ -2909,6 +2918,40 @@ fi
 if [ "$MODEL_DENYLIST_REFUSED" = 1 ]; then
   echo "error: $FM_MODEL_DENYLIST_ERROR; refusing the launch - pick a model that is not on the list" >&2
   exit 1
+fi
+# Effort cap (bin/fm-effort-cap-lib.sh; docs/configuration.md "Effort caps for
+# concrete launches"): the fully resolved model+effort must not exceed the
+# home's declared effort envelope for that harness/model pair in
+# config/crew-dispatch.json, the same ranges the dispatch resolver clamps
+# dispatch and cross-review answers into, so a hand-typed or printed effort
+# cannot outrun the model policy for any task kind, reviewers included. The
+# check needs an effort axis: a harness with none (opencode, kimi, cursor)
+# is never gated, mirroring the resolver's unenforceable-effort disclosure.
+# --captain-override is the only bypass, named here and recorded through the
+# resolver's captain-authorized launch override below.
+if [ -n "$EFFORT" ]; then
+  case "$HARNESS" in
+    opencode | kimi | cursor) ;;
+    *)
+      if fm_effort_caps_load "$CONFIG"; then
+        EFFORT_CAP_RANGE=$(fm_effort_range_for "$HARNESS" "$MODEL") || EFFORT_CAP_RANGE=''
+        if [ -n "$EFFORT_CAP_RANGE" ]; then
+          read -r _ EFFORT_CAP_MAX _ <<<"$EFFORT_CAP_RANGE"
+          if [ "$(fm_effort_rank "$EFFORT")" -gt "$(fm_effort_rank "$EFFORT_CAP_MAX")" ]; then
+            if [ -n "$CAPTAIN_OVERRIDE" ]; then
+              echo "effort-cap override: effort $EFFORT exceeds the $EFFORT_CAP_MAX cap for $HARNESS/${MODEL:-default} in $FM_EFFORT_RANGE_FILE; continuing with the captain-authorized override: $CAPTAIN_OVERRIDE" >&2
+            else
+              echo "error: effort $EFFORT exceeds the home's effort cap ($EFFORT_CAP_MAX) for $HARNESS/${MODEL:-default} declared in $FM_EFFORT_RANGE_FILE; refusing the launch - lower --effort, or raise the model's profile effort_max in config/crew-dispatch.json" >&2
+              exit 1
+            fi
+          fi
+        fi
+      else
+        echo "error: $FM_EFFORT_RANGE_ERROR; refusing the launch rather than launching past an unreadable effort policy" >&2
+        exit 1
+      fi
+      ;;
+  esac
 fi
 if [ "$KIND" = secondmate ]; then
   if [ -z "$FIRSTMATE_HOME" ] && { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; }; then
