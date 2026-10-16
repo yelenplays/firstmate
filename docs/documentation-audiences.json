@@ -319,6 +319,10 @@
       "audience": "agent-runtime"
     },
     {
+      "path": ".agents/skills/resolving-merge-conflicts/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
       "path": ".agents/skills/secondmate-provisioning/SKILL.md",
       "audience": "agent-runtime"
     },

@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# fm-matt-skill.sh - load one Matt Pocock skill from its installed Claude plugin
-# and print the original bytes, or refuse and print nothing on stdout.
+# fm-matt-skill.sh - load an installed Matt Pocock skill or the bundled exception
+# below, or refuse and print nothing on stdout.
 # --list can return a partial list with status 7, as described below.
 #
 # Runtimes without native plugin discovery use generated pointers whose first instruction
 # runs this loader. Runtime discovery evidence lives in
-# docs/verification/matt-pocock-runtime-reach.md. No skill body is copied, so
-# upstream procedure changes arrive on the next load.
+# docs/verification/matt-pocock-runtime-reach.md. Installed skill bodies are read
+# in place, so upstream procedure changes arrive on the next load.
 # Exception: resolving-merge-conflicts was retired upstream with no replacement.
 # Only an exact-name status-5 refusal loads the attributed compatibility skill
 # under .agents/skills/resolving-merge-conflicts, labeled as bundled, not original.
+# An offered upstream skill always takes precedence over the bundled procedure.
 # Missing, disabled, ambiguous, or damaged installs still refuse. --list remains
 # the installed plugin inventory, not a list of bundled compatibility routes.
 # Strict plugin pins cannot validate the bundled skill and therefore refuse it.
@@ -28,7 +29,7 @@
 #
 # Usage:
 #   fm-matt-skill.sh --list                   offered skills, one name per line
-#   fm-matt-skill.sh <skill>                  header, then original SKILL.md bytes
+#   fm-matt-skill.sh <skill>                  identity header, then SKILL.md bytes
 #   fm-matt-skill.sh <skill> --path           absolute SKILL.md path only
 #   fm-matt-skill.sh <skill> --files          support files, absolute, one per line
 #   fm-matt-skill.sh <skill> --check          verify only, print the identity block
@@ -41,10 +42,10 @@
 #                            against; a generated pointer passes the identity it
 #                            was generated from. Any difference is reported as
 #                            pin=changed under a PLUGIN CHANGED banner, and no
-#                            value given reports pin=unpinned
-#   --require-validated-pin  refuse when any given validated value differs from
-#                            the resolved plugin, instead of loading the
-#                            installed bytes under a PLUGIN CHANGED banner;
+#                            value given reports pin=unpinned for installed
+#                            skills. Bundled content always reports pin=bundled
+#   --require-validated-pin  refuse bundled content or any difference between a
+#                            given validated value and the resolved plugin;
 #                            requires at least one --validated-* value
 #   -h, --help               print this header
 #
@@ -53,7 +54,7 @@
 #   2    usage error
 #   3    plugin not installed for this configuration
 #   4    plugin installed but not enabled
-#   5    skill not offered by this installed plugin version
+#   5    skill not offered by this installed plugin version, without a bundled route
 #   6    integrity or ambiguity refusal
 #   7    --list left out at least one offered skill that does not resolve; the
 #        ones that do are still printed and each left-out one is named on stderr
@@ -68,8 +69,8 @@
 # bump would turn each release into a fleet outage and recreate the sync chore
 # the pointer pattern exists to remove, so a differing plugin still loads the
 # original bytes and prints a PLUGIN CHANGED banner naming both identities.
-# Identity, offer, symlink, containment, and front-matter checks always refuse,
-# because those are the states where the bytes cannot be trusted.
+# Plugin integrity checks (identity, symlink, containment, and front matter)
+# always refuse on failure, because those bytes cannot be trusted.
 # --require-validated-pin turns drift back into a refusal for a caller that
 # wants the strict reading.
 #
@@ -163,9 +164,9 @@ fi
   || die 127 "bin/fm-skill-path.sh is required to resolve a skill and is missing or not executable at $RESOLVER"
 
 # The repo's single owner of plugin-skill resolution finds the one enabled
-# install, verifies it, and decides what it offers. Its refusals pass through
-# verbatim on stderr, exit status included. A partial listing (7) still
-# carries the skills that resolve.
+# install, verifies it, and decides what it offers. Diagnostics pass through on
+# stderr; refusal statuses pass through except for the compatibility route
+# documented above. A partial listing (7) still carries the skills that resolve.
 resolve() {  # <args...> -> resolver stdout, or exit with its status
   set +e
   RESOLVED=$("$RESOLVER" "$PLUGIN" "$@" --include-undeclared)

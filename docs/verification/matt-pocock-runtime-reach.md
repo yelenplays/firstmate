@@ -52,10 +52,11 @@ Claude lists only the 27 declared skills, the `engineering` and `productivity` o
 The observed listing includes all 38 source-tree skills, not only the 27 declared plugin skills.
 The [loader header](../../bin/fm-matt-skill.sh) owns its discovery options, and the [generator header](../../bin/fm-matt-pointers.sh) owns partial-install, audit, and prune behavior; regression coverage is linked below.
 
-## The loader prints the installed original, proven by digest
+## Installed skills: the loader prints the original, proven by digest
 
 A pointer's body carries no procedure.
-Its first instruction runs `bin/fm-matt-skill.sh <skill>`, which prints the installed original behind an identity header.
+For installed plugin skills, its first instruction runs `bin/fm-matt-skill.sh <skill>`, which prints the installed original behind an identity header.
+For the retired conflict skill, see [compatibility evidence](#retired-conflict-skill-compatibility).
 The header's `skill_file_sha256` is the discriminator: no source other than the resolved file can produce it.
 
 ```sh
@@ -82,7 +83,6 @@ That script is the repo's single owner of plugin-skill resolution, enablement, a
 ## Retired conflict skill compatibility
 
 Verified 2026-10-16 against the enabled `mattpocock-skills@mattpocock` 1.3.1 install at commit `49dd158d1076134a641b33efb035946536778336`.
-Upstream's `docs/engineering/resolving-merge-conflicts.md` says the skill was removed in v1.3.0 without a replacement.
 The generic plugin resolver still correctly refuses that name with exit 5.
 The [Matt loader header](../../bin/fm-matt-skill.sh) owns the narrow compatibility exception for existing callers, including older generated `matt-resolving-merge-conflicts` pointers.
 The [bundled skill](../../.agents/skills/resolving-merge-conflicts/SKILL.md) owns the maintained procedure and its attribution.
@@ -113,14 +113,17 @@ pin=bundled
 resolved_by=repository-compatibility
 ```
 
-`tests/fm-matt-pointers.test.sh` exercises body, path, support files, identity, strict-pin refusal, an upstream return taking precedence, and integrity/enablement refusals through the loader executable.
+`test_loader_restores_retired_conflict_skill` in `tests/fm-matt-pointers.test.sh` exercises body, path, support files, identity, strict-pin refusal, an upstream return taking precedence, and integrity/enablement refusals through the loader executable.
+`test_pointer_step_one_reaches_retired_conflict_skill` in the same suite executes a generated pointer's Step 1 command with the skill name changed to `resolving-merge-conflicts`, preserving its plugin pins, and also exercises the unpinned loader invocation.
+These are caller-route regressions, not live no-mistakes rebase or CI-repair runs.
 This compatibility path prints Markdown through the same CLI for every runtime and backend; it introduces no harness-specific discovery or lifecycle behavior.
 The runtime discovery rows below are unchanged, not newly validated by this loader test.
 
 ## Validated pin
 
 No script hardcodes a validated version.
-Each generated pointer passes the plugin, version, and commit it was generated from, and the loader compares them with the enabled install.
+Each generated pointer passes the plugin, version, and commit it was generated from.
+The [loader header](../../bin/fm-matt-skill.sh) owns pin comparison, drift reporting, strict-mode behavior, and the bundled exception.
 
 ```sh
 bin/fm-matt-skill.sh diagnosing-bugs --check \
@@ -153,8 +156,6 @@ Observed:
 fm-matt-skill.sh: resolved mattpocock-skills@mattpocock version '1.3.1' commit '49dd158d1076134a641b33efb035946536778336', not the validated mattpocock-skills@claude-plugins-official version '1.2.3' commit '2ab958093e83e0ec752e6c1c5932da465bf23e0c'
 exit=6
 ```
-
-The [loader header](../../bin/fm-matt-skill.sh) owns pin comparison, drift reporting, and strict-mode behavior.
 
 ## The bridge names an executable the repo ships
 
