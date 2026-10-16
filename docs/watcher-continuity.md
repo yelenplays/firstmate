@@ -90,19 +90,22 @@ While supervision is still needed and away mode remains inactive, an actionable 
 
 ### Hook-side wake triage
 
-Before it translates a close of wake lines, the Claude hook runs `bin/fm-wake-triage.sh --absorb` itself, so a routine wake costs no model turn.
+Before it translates a close of wake lines, the Claude hook runs `bin/fm-wake-triage.sh --absorb` itself, so an absorbed wake under the supervision host costs no model turn when enough park budget remains.
 Triage runs only for the generation owner, in the session that holds the lock, outside an exhausted failure episode, and only when the close opened a downtime recovery episode.
 A close that carries a `supervision-host:` line, or comes from a host that exited non-zero, is never triaged here.
 
 `--absorb` exits 0 only when every row is routine and the drain printed nothing else that needs firstmate.
 That second test is a whitelist: queue rows, working status annotations of routine tasks, the acknowledgement line, the queued-wakes warning, the persistent `OPEN DECISIONS` list, and the persistent `UNFINISHED EXECUTION` obligations.
 Any other line keeps the wake, including unread status, branch outcomes, record divergence, a watcher-down banner, and recovered drain output.
-A new decision, a terminal status, and a firstmate-owned execution item each arrive with their own queue row, which triage keeps as ACT NOW.
+Queued decisions, terminal statuses, and firstmate-owned execution items stay ACT NOW.
 The drain's fleet-wide scan can list a new decision before that row is queued, and it prints new and long-open decisions alike, so triage records in `state/.wake-triage.decisions` the decision lines of each presentation it delivers.
 Any listed decision outside that record, a changed one included, is ACT NOW with its text in the triage summary, which the hook never cuts; a byte-capped list cannot be compared and is ACT NOW too.
 Execution obligations are reconciled on every drain while their check row is rate-limited, so triage likewise records the firstmate-owned `UNFINISHED EXECUTION` entries it delivers in `state/.wake-triage.execution`, and any other firstmate-owned entry is ACT NOW with its next action in the summary.
+These presentation checks also apply to manual triage: without a prior record, including after upgrade, an already-open entry is ACT NOW until delivered and recorded.
+An unchanged recorded entry without its own actionable queue row does not keep a later routine wake; worker-owned execution entries remain absorbable.
 Triage commits the drain output to `state/.wake-triage.last` only after its presentation is delivered, because the drain has already spent its one-shot unread presentation.
-A handoff that fails or is interrupted leaves the pending output in place, and the next triage replays it as recovered drain output, which never absorbs.
+In `--absorb` mode every presentation write must succeed before that commit, even for an all-routine batch whose queue acknowledgement already succeeded.
+A handoff that fails or is interrupted leaves pending and recovered output in place, and the next triage replays it as recovered drain output, which never absorbs.
 
 | Triage result | What the hook does |
 | --- | --- |
