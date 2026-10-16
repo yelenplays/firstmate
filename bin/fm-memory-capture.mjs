@@ -1,12 +1,9 @@
 #!/usr/bin/env node
 // fm-memory-capture.mjs - the extraction pass behind bin/fm-memory-capture.sh.
 //
-// bin/fm-memory-capture.sh owns the operator contract, guards, and flags; this
-// file owns one run: read journaled captain turns past the watermark, filter
-// them deterministically, let Jev triage the work-shaped ones, let one
-// Anthropic model write memory text for the rest, write and verify every
-// memory, then advance the watermark. Nothing advances unless every write
-// verified, so a failed run retries the same turns at the next boundary.
+// docs/memory.md "Automatic capture" owns the operator contract;
+// bin/fm-memory-capture.sh owns scope guards, flags, and state locations.
+// This file implements one extraction run.
 //
 // Usage (normally through the shell wrapper):
 //   node fm-memory-capture.mjs run --bin <dir> --state <dir> --config <dir>
@@ -230,9 +227,7 @@ function jevText(unit) {
   return `${unit.captain.slice(0, JEV_UNIT_CHARS - reply.length)}${reply}`.replace(/\s+/g, ' ');
 }
 
-// Packs eligible units into Jev batches under the 4096-byte request cap and
-// returns {kinds: Map(unitIndex -> kind|null), calls, escalated}. A null kind
-// means Jev could not decide; the caller sends that unit to the model.
+// Keep each question tied to its unit id even when several share one state.
 function jevRequest(units, batch) {
   return {
     state: `Lines from an operator chat with a coding fleet, one per id.${batch.map((idx) => ` U${idx}: ${jevText(units[idx])}`).join('')}`,

@@ -6,16 +6,17 @@ Each script's header and `--help` own exact flags and exit codes; this page stat
 
 The arrangement exists because the captain chose it on 2026-09-20 after the `data/memory-store-reliable-cheap` investigation: the OpenViking server burned about 9.5% of a core in a non-converging retry loop against a dead Ollama, while the memory payload itself was about 119 markdown files.
 The memory store deliberately excludes vector recall and vikingbot; it remains plain files plus keyword search, with no daemon or GPU.
-On 2026-10-16 the captain added automatic capture of captain turns, on the condition that it lowers total usage rather than raising it; [Automatic capture](#automatic-capture) owns that path.
+[Automatic capture](#automatic-capture) retains new captain facts across sessions, with lower total usage as its acceptance condition rather than an assumption that capture alone saves tokens.
 
 ## Layout
 
 The store defaults to `$FM_HOME/data/memories`; [`configuration.md`](configuration.md#memory-store-configmemory-dir) owns the `FM_MEMORY_DIR` and gitignored `config/memory-dir` overrides and their precedence.
 Every home has its own store; `config/memory-dir` is home-local and is not part of secondmate inherited configuration.
-A memory is one markdown file `<category>/<topic>.md` written by `remember` with a small frontmatter block (`category`, `created`, `updated`, optionally `expires` and `sensitivity`) and a `# <topic>` title.
+A memory is one markdown file with frontmatter and a topic title; [`bin/fm-memory.sh`](../bin/fm-memory.sh)'s header owns the record format and write options.
 The OpenViking categories carry over: `preferences`, `entities`, `events`; `remember` normalizes the singular names.
 A fourth category, `now`, holds short-lived current captain context, such as an open personal or project situation a follow-up may refer to implicitly.
-A `now` entry carries an `expires` date; an expired entry stays on disk and in recall but is no longer printed by `now`.
+Automatically captured `now` entries carry an `expires` date; manually written entries may omit it and remain current indefinitely.
+An expired entry stays on disk and in recall but is no longer printed by `now`.
 `sensitivity: private` marks an entry that a non-Claude primary harness must not see in its session-start digest.
 The BM25 index is `<store>/.index.json`, a disposable cache owned by [`bin/fm-memory-bm25.mjs`](../bin/fm-memory-bm25.mjs) that self-rebuilds whenever the tree drifts from its recorded manifest, so recall never answers from stale bytes.
 Recall scores the title and body only: the frontmatter block stays structured metadata and is never indexed, so a metadata word or a date is not a ranking signal.
@@ -23,24 +24,33 @@ During OpenViking migration, legacy session history and other non-memory Markdow
 
 ## Commands
 
-- `bin/fm-memory.sh remember [--category <cat>] <topic> [body...]` writes or updates a memory; the body may come from stdin.
-- `bin/fm-memory.sh recall [--json] [--limit <n>] <query>` ranks memories by BM25; `--json` emits one envelope for programmatic consumers such as a recall-injection hook.
-- `bin/fm-memory.sh now [--max-chars <n>] [--exclude-private]` prints the current, unexpired `now` entries newest first under a hard size cap; the session-start digest prints it as its NOW block.
-- `bin/fm-memory.sh merge-from <dir>` copies memories that are missing here from another store, never overwrites, and reports each conflicting topic for a human to settle.
-- `bin/fm-memory.sh list`, `stats`, `dir`, and `reindex` inspect the store and manage the index.
+See `bin/fm-memory.sh --help` for exact syntax.
+
+- `remember` writes or updates a memory from arguments or stdin.
+- `recall` ranks memories by BM25, with a JSON envelope available for recall-injection consumers.
+- `now` prints current entries newest first under a size cap; every full or slim session-start digest includes this as its NOW block when non-empty.
+- `merge-from` copies memories missing from this store without overwriting; differing files at the same relative path are conflicts for an operator to settle.
+- `list`, `stats`, `dir`, and `reindex` inspect the store and manage the index.
 
 ## Automatic capture
 
 [`bin/fm-memory-capture.sh`](../bin/fm-memory-capture.sh) captures durable facts from the captain's own words at each compaction and session end of the primary home's main Claude session.
 The project `.claude/settings.json` chains it after `bin/fm-history.sh capture` on PreCompact and SessionEnd, and it detaches at once so neither waits on a model.
-It stands down in crews, scouts, ship worktrees, no-mistakes gates, the supervision branch, secondmate homes, and any home whose `config/memory-capture` says `off`.
+The automatic hook stands down outside the primary main session; its header owns the scope guards and manual-run caveat, and [configuration](configuration.md#automatic-capture-configmemory-capture) owns the disable and model settings.
 
-Each run reads only the journaled captain turns after its watermark, drops wake prompts, pasted blocks, short acknowledgements, and tool output, and keeps each captain message with the reply to it.
-Work-shaped turns with no personal word and no `config/private-markers` match go first to Jev, which picks none, preference, entity, event, or now without spending Claude tokens; a turn Jev rates none costs nothing further.
-Every other turn, and every turn Jev escalates or cannot answer, goes to one Anthropic Claude model, by default Haiku; the extractor refuses any other model family, so personal content never reaches a non-Anthropic model.
+Each run reads journaled captain turns after its watermark, starting with all available journaled turns when no watermark exists.
+It drops recognized wake prompts and acknowledgements, strips pasted blocks and configured no-op replies, and keeps bounded captain messages with their paired replies; tool output is excluded by journal capture.
+Short factual messages remain eligible.
+Work-shaped turns with no recognized personal word and no `config/private-markers` match go first to Jev, which picks none, preference, entity, event, or now without spending Claude tokens; a turn Jev rates none costs nothing further.
+Every other retained turn, and every turn Jev escalates or cannot answer, goes to the configured Claude Haiku or Sonnet model.
+If no turns remain after filtering and triage, the extractor skips the model.
+The Jev privacy split is a deterministic word-and-marker filter, not a semantic privacy guarantee; recognized personal or configured-private content bypasses Jev.
 Each memory is written through `remember`, read back, and recalled by topic before it counts, and the watermark advances only when every write verified.
 Two failed runs in a row append one `failed` line to `state/memory-capture.status`, which wakes firstmate, and the next good run appends `resolved`.
-The script header owns flags, state files, and the per-run cost record in `state/memory-capture/runs.jsonl`; `bin/fm-memory-capture.sh status` summarizes it.
+The script header owns flags, state files, and per-run usage records; `bin/fm-memory-capture.sh status` summarizes them.
+These records account for extraction, not total main-session savings; compare total usage with the opt-in [auto-compaction window](configuration.md#auto-compaction-window-configclaude-autocompact) before claiming a net reduction.
+The recall-injection hook is unchanged.
+[`tests/fm-memory-capture.test.sh`](../tests/fm-memory-capture.test.sh) covers capture routing, writes, watermarking, and recovery with recording stand-ins; [`tests/fm-memory-filter-budget.test.sh`](../tests/fm-memory-filter-budget.test.sh) covers short facts and the complete NOW output cap.
 
 ## Migrating from OpenViking
 
@@ -84,5 +94,5 @@ Secondmates resolve the same commands against their own `$FM_HOME`; nothing is s
 ## What is intentionally absent
 
 No vector embeddings, no semantic similarity beyond keyword BM25, no bulk session-archive ingestion, no vikingbot, and no resident model backend.
-The only model call is the bounded automatic capture above, which runs at session boundaries over new captain turns only.
+The only model-backed memory extraction path is [automatic capture](#automatic-capture).
 Adding any of the rest back is a new decision, not a repair.

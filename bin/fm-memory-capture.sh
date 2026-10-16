@@ -17,27 +17,26 @@
 # capture's own model child (FM_MEMORY_CAPTURE_CHILD), or a home whose
 # config/memory-capture says off. FM_MEMORY_CAPTURE=off disables it too.
 #
-# `run` reads journaled captain turns after the watermark
-# (bin/fm-history.sh turns), and bin/fm-memory-capture.mjs filters them,
-# triages work-shaped turns through Jev, sends what remains to one Anthropic
-# model (default claude-haiku-5-5), writes each memory with
-# bin/fm-memory.sh remember, and verifies it by reading the file back and
-# recalling its topic. A current, perishable fact also gets a dated now/ entry,
-# which the session-start digest prints. The watermark advances only when
-# every write verified. Two failed runs in a row append one `failed` line to
-# state/memory-capture.status, which wakes firstmate; the next good run appends
-# `resolved`. --dry-run filters and triages but calls no model and writes
-# nothing; --no-watermark leaves the watermark alone (replays).
+# `run` explicitly processes the journal selected by FM_HOME; unlike `hook`,
+# it does not enforce primary-session scope or capture-disable settings.
+# Use it only for an intentional operator replay with the correct home selected.
+# docs/memory.md "Automatic capture" owns filtering, privacy, verified writes,
+# watermark advancement, and failure/recovery behavior.
+# --after overrides the saved watermark; --until-day limits the last day read.
+# --dry-run filters and may call Jev, but does not call Claude, write memories,
+# update the watermark, or append run/failure records. It still creates the
+# state directory and transient lock. --no-watermark only preserves the saved
+# watermark; memory writes and run/failure records still occur.
 #
 # `status` prints the watermark, the failure streak, and the last runs.
-#
-# Privacy: captain words reach only an Anthropic Claude model. A turn reaches
-# Jev only when it reads as fleet work and matches no personal-life word and
-# no config/private-markers line; every other turn goes to the model directly.
+# docs/configuration.md "Automatic capture" owns disable and model settings.
 #
 # State: state/memory-capture/ holds watermark.json (fm-memory-capture-mark.v1),
 # runs.jsonl (one fm-memory-capture-run.v1 record per run, with token usage,
 # cost, and Jev call counts), failures, log, and the run lock.
+# model_calls is a planned call count in dry-run output; model_cost_usd counts
+# Claude extraction only, not Jev spend or the primary session's total usage.
+# Failure/recovery events append to state/memory-capture.status.
 #
 # Environment: FM_HOME, FM_STATE_OVERRIDE, FM_CONFIG_OVERRIDE,
 # FM_ROOT_OVERRIDE, FM_MEMORY_DIR, FM_MEMORY_CAPTURE, FM_MEMORY_CAPTURE_MODEL,
