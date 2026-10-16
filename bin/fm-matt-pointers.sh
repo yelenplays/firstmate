@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 # fm-matt-pointers.sh - install one small pointer skill per Matt Pocock skill
 # into the directory non-Claude runtimes read, so grok, codex, kimi and pi can
-# reach the installed originals without a copy existing anywhere.
+# reach the installed originals through generated pointers.
 #
 # Plugin selection and skill listing come from bin/fm-matt-skill.sh; see its
 # header for those rules. Runtime discovery evidence lives in
 # docs/verification/matt-pocock-runtime-reach.md; choose --dest for the runtime.
-# Each pointer's first step runs the loader to print the installed original at
-# load time. No skill body is copied, so upstream procedure changes take effect
-# on the next load without regenerating pointers.
+# Newly generated pointers load installed originals without copying skill bodies,
+# so upstream procedure changes take effect on the next load without regeneration.
+# The loader header owns compatibility loading for older pointers.
 #
-# There is one pointer for every skill the loader lists as resolvable.
+# Install and refresh generate one pointer per listed plugin skill; they do not
+# create pointers for bundled compatibility routes.
 #
 # What IS derived from upstream is each pointer's front matter: its description
 # and its model-invocation flag, which the host runtime needs before any body is
@@ -48,7 +49,8 @@
 #                  upstream skill does not resolve; every applicable state
 #                  is reported independently. An unlisted skill the loader serves
 #                  with pin=bundled is reported as BUNDLED, not drift; its pointer
-#                  body and recorded loader must still exist and be usable
+#                  SKILL.md must still be a regular file and its recorded loader
+#                  must be executable
 #   --prune        remove firstmate pointers whose upstream skill is gone, unless
 #                  the loader serves a bundled compatibility route (BUNDLED).
 #                  A pointer whose skill upstream still offers but which does
