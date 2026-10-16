@@ -1634,6 +1634,28 @@ assert_contains "$out" 'not eligible: predicted duration ~500s exceeds projected
 assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" "the runway-fitting candidate still resolves"
 pass "cost-aware ranking: a runway shorter than predicted duration refuses the candidate"
 
+# The ordinary Claude account has a binding runway; a custom worker pin is
+# another pool, so none of the ordinary row's quota gates may bind it.
+CLAUDE_RUNWAY_QUOTA="$TMP_ROOT/claude-runway-quota.json"
+jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[] | .runway) = {"status":"projected_exhaustion","usableRunwaySeconds":60}' "$QUOTA" > "$CLAUDE_RUNWAY_QUOTA"
+printf 'ordinary\n' > "$HOME_DIR/config/claude-account"
+reset_log
+TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$CLAUDE_RUNWAY_QUOTA" run code out err "$BRIEF"
+assert_contains "$out" 'predicted duration ~300s exceeds projected-exhaustion runway 60s' 'ordinary Claude runway binds'
+printf '%s\n' "$TMP_ROOT/other-claude" > "$HOME_DIR/config/claude-account"
+reset_log
+TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$CLAUDE_RUNWAY_QUOTA" run code out err "$BRIEF"
+assert_contains "$out" 'quota and runway unknown' 'unmatched Claude pool is disclosed'
+assert_not_contains "$out" 'predicted duration ~300s exceeds' 'wrong pool runway cannot reject Claude'
+# Exhaustion and 0% from the wrong pool cannot reject it either.
+jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[]) |= (.runway.status = "exhausted_now" | .effectivePercentRemaining = 0)' "$CLAUDE_RUNWAY_QUOTA" > "$TMP_ROOT/wrong-pool-empty.json"
+reset_log
+TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$TMP_ROOT/wrong-pool-empty.json" run code out err "$BRIEF"
+assert_contains "$out" 'quota and runway unknown' 'wrong pool exhaustion remains unknown'
+assert_not_contains "$out" 'not eligible: runway exhausted_now' 'wrong pool exhaustion cannot reject Claude'
+rm "$HOME_DIR/config/claude-account"
+pass 'duration and capacity gates apply only to the worker pool measured'
+
 # A failing or absent ledger never fabricates a limit: candidates keep their
 # quota-driven ranking with pred=unknown disclosed.
 BROKEN_LEDGER="$TMP_ROOT/fm-spend-ledger-broken.py"

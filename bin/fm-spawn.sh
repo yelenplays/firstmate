@@ -127,6 +127,10 @@
 #   controls do not change primary seats, secondmates, or raw launch commands.
 #   --harness <name> is the explicit per-spawn harness/profile adapter. The old
 #   positional harness arg still works for back-compat.
+#   claude-opus-5-5 (including provider-qualified and [1m] forms) is capped
+#   at medium effort. Higher effort needs explicit --effort plus an existing
+#   --captain-override reason naming claude-opus-5-5 and that effort level.
+#   The resolved launch and metadata use the cap and print a one-line notice.
 #   --model <name> and --effort <low|medium|high|xhigh|max|ultra> are concrete profile
 #   axes chosen by firstmate at intake. They are only threaded into harnesses whose
 #   installed CLIs were verified to support that axis; unsupported axes are omitted
@@ -1214,6 +1218,22 @@ else
   fi
 fi
 
+clamp_opus_effort() {  # <resolved-model> <resolved-effort>
+  local model=${1##*/} effort=$2
+  case "$model:$effort" in
+    claude-opus-5-5:high|claude-opus-5-5:xhigh|claude-opus-5-5:max|claude-opus-5-5:ultra|claude-opus-5-5\[1m\]:high|claude-opus-5-5\[1m\]:xhigh|claude-opus-5-5\[1m\]:max|claude-opus-5-5\[1m\]:ultra)
+      if [ "$EFFORT_SET" -eq 1 ] && [[ "$CAPTAIN_OVERRIDE" =~ (^|[^[:alnum:]_-])claude-opus-5-5([^[:alnum:]_-]|$) ]] \
+        && [[ "$CAPTAIN_OVERRIDE" =~ (^|[^[:alnum:]_-])$effort([^[:alnum:]_-]|$) ]]; then
+        :
+      else
+        printf 'notice: claude-opus-5-5 effort %s clamped to medium; higher effort needs an explicit named captain override\n' "$effort" >&2
+        effort=medium
+      fi
+      ;;
+  esac
+  printf '%s\n' "$effort"
+}
+
 spawn_remote_secondmate() {
   local id=$1 remote host root home harness positional model effort backend out rc meta tmp
   local remote_backend remote_target remote_harness remote_herdr_session registry_lock remote_lock remote_generation
@@ -1305,6 +1325,7 @@ spawn_remote_secondmate() {
     return 1
     ;;
   esac
+  effort=$(clamp_opus_effort "$model" "$effort")
   if [ "$effort" = ultra ] && ! "$SCRIPT_DIR/fm-harness.sh" validate-native-effort "$harness" "$model" "$effort"; then
     fm_lock_release "$registry_lock" || true
     fm_lock_release "$SPAWN_TASK_LOCK" || true
@@ -2881,6 +2902,7 @@ if [ "$KIND" = secondmate ] && [ -z "$ARG3" ]; then
     fi
   fi
 fi
+EFFORT=$(clamp_opus_effort "$MODEL" "$EFFORT")
 # Never-use model list (bin/fm-model-denylist-lib.sh; docs/configuration.md
 # "Never-use model list"): the fully resolved harness and model, any model a raw
 # launch command or a launch command line in the brief pins with --model (with

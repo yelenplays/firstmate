@@ -85,6 +85,10 @@
 #   The runoff includes concrete model_options and the captain model-rules
 #   summary, never credentials, account identities, `why`, or approval authority.
 #
+# Runway gates compare the spend ledger's active task seconds to measured
+# projected exhaustion. A custom config/claude-account root (or inherited
+# CLAUDE_CONFIG_DIR) cannot be matched to quota-axi's Claude pool, so that
+# candidate's quota/runway are unknown and unranked, never binding.
 # Never-use models: a profile whose model, harness/model, or modelless harness
 #   matches $FM_HOME/config/model-denylist.json is never eligible, so it is
 #   never ranked or offered in a runoff; its candidate line names the rule and
@@ -187,6 +191,8 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 
 # shellcheck source=bin/fm-quota-axi-lib.sh
 . "$SCRIPT_DIR/fm-quota-axi-lib.sh"
+# shellcheck source=bin/fm-worker-account-lib.sh
+. "$SCRIPT_DIR/fm-worker-account-lib.sh"
 # shellcheck source=bin/fm-control-lib.sh
 . "$SCRIPT_DIR/fm-control-lib.sh"
 # shellcheck source=bin/fm-env-lib.sh
@@ -890,6 +896,20 @@ elif ! fm_quota_json_valid < "$QUOTA"; then
   quota_unavailable "quota-axi --json returned an invalid snapshot"
 fi
 
+# quota-axi cannot prove that its Claude row measures a custom local config
+# root. Never apply that row's capacity, runway or ranking to another pool.
+# ordinary explicitly sheds any inherited CLAUDE_CONFIG_DIR at launch.
+CLAUDE_POOL_UNKNOWN=false
+if CLAUDE_PIN=$(fm_worker_account_read claude "$CONFIG/claude-account"); then
+  [ "${CLAUDE_PIN%%$'\t'*}" = ordinary ] || CLAUDE_POOL_UNKNOWN=true
+else
+  CLAUDE_PIN_RC=$?
+  [ "$CLAUDE_PIN_RC" -eq 3 ] || emit_error "config/claude-account is unreadable or malformed"
+  if [ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ "$CLAUDE_CONFIG_DIR" != "$HOME/.claude" ]; then
+    CLAUDE_POOL_UNKNOWN=true
+  fi
+fi
+
 # ---- spend prediction: one ledger pass over the same quota snapshot ----------
 # bin/fm-spend-ledger.py owns the measurement; absent or unreadable output
 # leaves every burn gate inert and shows pred=unknown on the candidate lines.
@@ -971,6 +991,9 @@ RESOLVE_JQ="$FM_QUOTA_ROW_JQ$FM_MODEL_DENYLIST_JQ$MODEL_TIE_JQ"'
   def evaluate($c):
     (provider_of($c)) as $p | (lane_of($c)) as $lane |
     if $p == null then {profile: $c, eligible: false, reason: "no provider family for harness \($c.harness); declare provider on the profile"}
+    elif $p == "claude" and $c.harness == "claude" and $claude_pool_unknown then
+      {profile: $c, provider: $p, eligible: true, unranked: true, unknown: true,
+       runway: "unknown", reason: "Claude worker pool is not matched to the quota snapshot; quota and runway unknown"}
     elif prov($p; $lane) == null then
       {profile: $c, provider: $p, eligible: true, unranked: true,
        reason: (if any($q.providers[]; .provider == $p)
@@ -1250,6 +1273,7 @@ RESOLVE_JQ="$FM_QUOTA_ROW_JQ$FM_MODEL_DENYLIST_JQ$MODEL_TIE_JQ"'
 resolve_response() {  # <response-file> <effort-json> <latency-json>: sets RESULT
   RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$3" --arg none_criterion "$DEFAULT_WHEN" --argjson pmap "$PMAP" --argjson effort "$2" \
     --argjson denylist "$FM_MODEL_DENYLIST_JSON" --argjson private_guard "$PRIVATE_GUARD" \
+    --argjson claude_pool_unknown "$CLAUDE_POOL_UNKNOWN" \
     --slurpfile resp "$1" --slurpfile rules "$RULES" --slurpfile quota "$QUOTA" --slurpfile predict "$PREDICT_FILE" "$RESOLVE_JQ") \
     || emit_error "resolution failed"
 }
