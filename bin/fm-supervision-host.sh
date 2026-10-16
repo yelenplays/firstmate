@@ -471,8 +471,9 @@ start_arm() {  # <predecessor-arm-pid or empty> [--restart]; sets the started pi
   shift
   out=$(mktemp "$STATE/.supervision-host-arm.XXXXXX") || return 1
   # A successor left for main must outlive Claude's Stop-hook process group.
-  # Match the plain hook's detached handling successor without changing arms
-  # that this host alone owns. Explicit retirement still stops either kind.
+  # Any handling successor can transfer to main at the turn boundary, so it
+  # gets its own group even when a handled wake leaves it owned by this host.
+  # Explicit retirement and recorded-predecessor recovery still stop that arm.
   case $- in *m*) monitor_was_on=1 ;; esac
   [ "${ARM_OWN_GROUP:-0}" -ne 1 ] || set -m 2>/dev/null || true
   if [ -n "$predecessor" ]; then

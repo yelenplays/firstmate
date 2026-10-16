@@ -980,9 +980,10 @@ _fm_recovery_marker_reopen_announced() {
 # The handover rule for a watcher stopped by bin/fm-watch-arm.sh --take-over
 # (docs/watcher-continuity.md "Generation reuse" owns it). The snapshot reads
 # the marker token and the queue's append sequence under both locks before the
-# stop; handover-restore puts an acknowledged token back only while that
-# sequence is unchanged and the marker reads the fresh pending downtime the
-# stopped watcher's own close published.
+# stop. After a confirmed TERM, handover-restore retires only that stop's fresh
+# pending downtime over an acknowledged snapshot and an empty, safe queue.
+# An unchanged sequence restores the snapshot; fully consumed intervening work
+# keeps its newer generation instead of reopening an empty recovery episode.
 FM_RECOVERY_HANDOVER_TOKEN=
 FM_RECOVERY_HANDOVER_SEQ=
 fm_recovery_marker_handover_snapshot() {  # <marker>
@@ -1014,15 +1015,30 @@ _fm_recovery_marker_handover_restore() {
     fm_lock_release "$FM_WAKE_QUEUE_LOCK"
     return 1
   fi
-  if [ "$(cat "$STATE/.wake-queue.seq" 2>/dev/null || true)" = "$seq" ] \
-    && fm_recovery_marker_read "$marker"; then
-    case "$FM_RECOVERY_MARKER_TOKEN" in
-      pending:downtime:*)
-        if [ "${FM_RECOVERY_MARKER_TOKEN##*:}" != "${token##*:}" ]; then
-          _fm_recovery_marker_restore_token_locked "$marker" "$token" || status=1
-        fi
-        ;;
-    esac
+  # An append sequence measures arrivals, not outstanding work. An actor can
+  # append, handle and acknowledge a row while the take-over stops its watcher.
+  # That watcher then publishes fresh downtime over the completed episode.
+  # Keep unread rows (and unsafe queue paths) pending, but do not resurface the
+  # controlled stop merely because already-consumed work advanced the sequence.
+  if { [ ! -e "$FM_WAKE_QUEUE" ] && [ ! -L "$FM_WAKE_QUEUE" ]; } \
+    || { [ -f "$FM_WAKE_QUEUE" ] && [ ! -L "$FM_WAKE_QUEUE" ] \
+      && [ -r "$FM_WAKE_QUEUE" ] && [ ! -s "$FM_WAKE_QUEUE" ]; }; then
+    if fm_recovery_marker_read "$marker"; then
+      case "$FM_RECOVERY_MARKER_TOKEN" in
+        pending:downtime:*)
+          if [ "$(cat "$STATE/.wake-queue.seq" 2>/dev/null || true)" = "$seq" ]; then
+            if [ "${FM_RECOVERY_MARKER_TOKEN##*:}" != "${token##*:}" ]; then
+              _fm_recovery_marker_restore_token_locked "$marker" "$token" || status=1
+            fi
+          else
+            # Acknowledge only the stop's current generation; restoring the old
+            # snapshot here would roll back a newer completed recovery episode.
+            _fm_recovery_marker_write_locked "$marker" downtime \
+              "${FM_RECOVERY_MARKER_TOKEN##*:}" acked || status=1
+          fi
+          ;;
+      esac
+    fi
   fi
   fm_lock_release "$lock"
   fm_lock_release "$FM_WAKE_QUEUE_LOCK"

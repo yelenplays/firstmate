@@ -1626,6 +1626,103 @@ test_at_turn_successor_survives_group_teardown_and_real_outage_recovers() {
   pass "host+hook: an at-turn hand-back survives group teardown, quiet re-arms, and real outage recovery"
 }
 
+# Put queue activity precisely between the real take-over snapshot and TERM.
+# The old handling successor stays alive; no hook group is torn down. BASH_ENV
+# wraps only take_over_cycle's kill, then delegates to the real builtin signal.
+install_takeover_interleave() {  # <home> <acknowledged|pending>
+  printf '%s\n' "$2" > "$1/interleave-mode"
+  cat > "$1/interleave.bash" <<'SH'
+kill() {
+  if [ "$#" -eq 2 ] && [ "$1" = -TERM ] && [ "${FUNCNAME[1]:-}" = take_over_cycle ] \
+    && [ -f "$FM_HOME/interleave-ready" ]; then
+    mv "$FM_HOME/interleave-ready" "$FM_HOME/interleave-running"
+    bash -c '. "$1"; fm_wake_append check handover-result "check: result arrived during handover"' _ \
+      "$FM_TEST_TAKEOVER_ROOT/bin/fm-wake-lib.sh" || return 1
+    if [ "$(cat "$FM_HOME/interleave-mode")" = acknowledged ]; then
+      "$FM_TEST_TAKEOVER_ROOT/bin/fm-wake-drain.sh" > "$FM_HOME/interleave-drain" 2>&1 || return 1
+      ack=$(sed -n 's/^WAKE_ACK_REQUIRED: after handling completes run bin\/fm-wake-drain.sh //p' "$FM_HOME/interleave-drain" | tail -1)
+      [ -n "$ack" ] || return 1
+      # shellcheck disable=SC2086 # replay the generated acknowledgement arguments
+      "$FM_TEST_TAKEOVER_ROOT/bin/fm-wake-drain.sh" $ack > "$FM_HOME/interleave-ack" 2>&1 || return 1
+      [ ! -s "$FM_HOME/state/.wake-queue" ] || return 1
+    fi
+    cp "$FM_HOME/state/.watcher-down" "$FM_HOME/interleave-marker"
+    cp "$FM_HOME/state/.wake-queue.seq" "$FM_HOME/interleave-seq"
+    : > "$FM_HOME/interleave-finished"
+  fi
+  builtin kill "$@"
+}
+SH
+}
+
+assert_confirmed_takeover_recovery() {  # <name> <acknowledged|pending>
+  local home mode=$2 cycle cycles=3 seq_before seq_after
+  home=$(make_primary_home "$1")
+  install_takeover_interleave "$home" "$mode"
+  FM_HOME="$home" bash -c '. "$1"; fm_recovery_marker_publish "$STATE/.watcher-down" downtime' _ \
+    "$ROOT/bin/fm-wake-lib.sh" || fail "takeover recovery: could not seed downtime"
+  FM_TEST_TAKEOVER_ROOT="$ROOT" BASH_ENV="$home/interleave.bash" start_hook_session "$home"
+  turn_end "$home"
+  wait_until 300 hook_exited "$home" || fail "takeover recovery: initial recovery never arrived"
+  assert_re '^check: rearm-resurface$' "$home/hook.err" "fixture: must start with main-only recovery"
+  assert_re $'pass-through\tattended\tmain-only\tcheck: rearm-resurface$' "$home/state/.supervision-host.log" \
+    "fixture: initial recovery did not pass through to main"
+  main_drain "$home" >/dev/null
+  [ -n "$MAIN_ACK" ] || fail "takeover recovery: no initial acknowledgement"
+  # shellcheck disable=SC2086 # replay the generated acknowledgement arguments
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK >/dev/null 2>&1 || fail "takeover recovery: initial ack failed"
+  [ "$mode" != pending ] || cycles=1
+  for ((cycle=1; cycle<=cycles; cycle++)); do
+    seq_before=$(cat "$home/state/.wake-queue.seq" 2>/dev/null || echo 0)
+    rm -f "$home/interleave-finished"
+    : > "$home/interleave-ready"
+    turn_end "$home"
+    wait_until 300 test -f "$home/interleave-finished" || fail "takeover recovery: interleaved activity did not finish"
+    seq_after=$(cat "$home/interleave-seq")
+    [ "$seq_after" -gt "$seq_before" ] || fail "fixture: the handover append sequence did not advance"
+    if [ "$mode" = pending ]; then
+      wait_until 300 hook_exited "$home" || fail "unread handover work did not resurface"
+      [ "$(grep -c '^check: rearm-resurface$' "$home/hook.err")" -eq 1 ] || fail "unread handover work must resurface once"
+      main_drain "$home" > "$home/pending-drain"
+      assert_grep 'result arrived during handover' "$home/pending-drain" "handover hid unread work"
+      [ -n "$MAIN_ACK" ] || fail "pending handover: no acknowledgement"
+      # shellcheck disable=SC2086 # replay the generated acknowledgement arguments
+      FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK >/dev/null 2>&1 || fail "pending handover: ack failed"
+      turn_end "$home"
+    else
+      assert_re '^acked:' "$home/interleave-marker" "fixture: interleaved work was not acknowledged before TERM"
+    fi
+    wait_until 300 host_owns_the_only_cycle "$home" || fail "takeover recovery: no verified fresh cycle"
+    ! wait_until 30 hook_exited "$home" || fail "acknowledged work reopened empty recovery: $(cat "$home/hook.err")"
+    assert_re '^acked:' "$home/state/.watcher-down" "takeover left recovery pending with no unread work"
+    assert_re $'signal=TERM\treason=signal-exit' "$home/state/.watch-cycle-exits.log" "fixture: old watcher did not end by TERM"
+    assert_re $'reason=taken-over\t' "$home/state/.watch-cycle-exits.log" "fixture: take-over did not confirm the TERM"
+    if [ "$mode" = acknowledged ]; then
+      [ "$(grep -c $'main-only\tcheck: rearm-resurface$' "$home/state/.supervision-host.log")" -eq 1 ] \
+        || fail "an empty confirmed-takeover recovery reached main"
+    fi
+    if [ "$cycle" -lt "$cycles" ]; then
+      append_status "$home" "decision before next handover $cycle" needs-decision
+      wait_until 300 hook_exited "$home" || fail "takeover recovery: next decision never arrived"
+      main_drain "$home" >/dev/null
+      [ -n "$MAIN_ACK" ] || fail "takeover recovery: next acknowledgement missing"
+      # shellcheck disable=SC2086 # replay the generated acknowledgement arguments
+      FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK >/dev/null 2>&1 || fail "takeover recovery: next ack failed"
+    fi
+  done
+  stop_home_processes "$home"
+}
+
+test_confirmed_takeover_does_not_resurface_acknowledged_interleaved_work() {
+  assert_confirmed_takeover_recovery hook-confirmed-takeover-acked acknowledged
+  pass "host+hook: three confirmed TERM take-overs stay quiet after interleaved work was acknowledged"
+}
+
+test_confirmed_takeover_still_resurfaces_unread_interleaved_work() {
+  assert_confirmed_takeover_recovery hook-confirmed-takeover-pending pending
+  pass "host+hook: unread handover work resurfaces once and stays quiet after acknowledgement"
+}
+
 test_next_park_takes_over_the_cycle_a_pass_through_left_for_main() {
   local home left_watcher left_arm
   home=$(make_primary_home hook-takeover)
@@ -3097,6 +3194,8 @@ queue_case test_claude_stop_hook_notifies_when_at_turn_downtime_write_fails
 queue_case test_successor_close_during_main_turn_is_delivered_at_the_next_turn_end
 queue_case test_hook_rearms_after_group_teardown_without_empty_recovery
 queue_case test_at_turn_successor_survives_group_teardown_and_real_outage_recovers
+queue_case test_confirmed_takeover_does_not_resurface_acknowledged_interleaved_work
+queue_case test_confirmed_takeover_still_resurfaces_unread_interleaved_work
 queue_case test_next_park_takes_over_the_cycle_a_pass_through_left_for_main
 queue_case test_a_park_stopped_mid_take_over_leaves_the_take_over_to_the_next_park
 queue_case test_unrecorded_successor_is_stopped_rather_than_left_for_main
