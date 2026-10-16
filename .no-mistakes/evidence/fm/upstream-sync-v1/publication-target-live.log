@@ -1,0 +1,28 @@
++(eval):3> git init -q /tmp/fm-pubtarget-5014/repo
++(eval):3> git -C /tmp/fm-pubtarget-5014/repo remote add upstream https://github.com/kunchenguid/firstmate.git
++(eval):3> git -C /tmp/fm-pubtarget-5014/repo remote add origin https://github.com/yelenplays/firstmate.git
++(eval):4> bash -c '. /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M516MTTV5HM6APHDBC4X3YKS/bin/fm-role-lib.sh; fm_role_publication_target /tmp/fm-pubtarget-5014/repo'
+github.com/kunchenguid/firstmate
++(eval):5> cd /tmp/fm-pubtarget-5014/repo
++(eval):5> rtk gh repo set-default yelenplays/firstmate
++(eval):6> git -C /tmp/fm-pubtarget-5014/repo config --get-regexp gh-resolved
+remote.origin.gh-resolved base
++(eval):7> bash -c '. /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M516MTTV5HM6APHDBC4X3YKS/bin/fm-role-lib.sh; fm_role_publication_target /tmp/fm-pubtarget-5014/repo'
+github.com/yelenplays/firstmate
++(eval):8> cd /tmp/fm-pubtarget-5014/repo
++(eval):8> rtk gh repo set-default --view
+yelenplays/firstmate
++(eval):8> gh repo view --json nameWithOwner -q .nameWithOwner
+yelenplays/firstmate
++(eval):9> git -C /tmp/fm-pubtarget-5014/repo config remote.upstream.gh-resolved 'bad value!'
++(eval):10> bash -c '. /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M516MTTV5HM6APHDBC4X3YKS/bin/fm-role-lib.sh; fm_role_publication_target /tmp/fm-pubtarget-5014/repo'
++(eval):10> echo 'target=[] (empty = refuse)'
+target=[] (empty = refuse)
++(eval):11> cd /tmp/fm-pubtarget-5014/repo
++(eval):11> gh repo view --json nameWithOwner -q .nameWithOwner
+expected the "[HOST/]OWNER/REPO" format, got "bad value!"
++(eval):12> git -C /tmp/fm-pubtarget-5014/repo config --unset-all remote.upstream.gh-resolved
++(eval):12> git -C /tmp/fm-pubtarget-5014/repo config remote.origin.gh-resolved base
++(eval):13> bash -c '. /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M516MTTV5HM6APHDBC4X3YKS/bin/fm-role-lib.sh; fm_role_publication_target /tmp/fm-pubtarget-5014/repo'
+github.com/yelenplays/firstmate
++(eval):14> set +x

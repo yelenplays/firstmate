@@ -1,0 +1,3 @@
+wait_for_exit: owned pid 81140 exceeded 100 polls; sending TERM
+81140 77353 S    bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M516MTTV5HM6APHDBC4X3YKS/bin/fm-watch.sh
+not ok - the first picker wedge did not escalate: 

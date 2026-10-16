@@ -1,0 +1,6 @@
+ok - a long silent poll holds the idle threshold while its recorded step advances, then escalates once it stops
+ok - a pane on the exit picker is a named stale, from the one capture the poll already takes
+ok - a pane on the exit picker keeps the wedge ladder, and the name follows demand-deep-inspection
+ok - picker text quoted above a composer stays an ordinary stale
+ok - a closed picker drops the saved dialog name, and the stale stays ordinary
+bash tests/.focused-wedge.test.sh  8.58s user 11.08s system 73% cpu 26.857 total
