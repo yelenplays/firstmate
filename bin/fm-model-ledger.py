@@ -139,16 +139,18 @@ def record(state, data, task):
         pass
     data.mkdir(parents=True, exist_ok=True)
     fd = os.open(data / "model-ledger.jsonl", os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, "r+", encoding="utf-8") as stream:
+    with os.fdopen(fd, "r+b") as stream:
         fcntl.flock(stream, fcntl.LOCK_EX)
-        for line in stream:
+        content = stream.read()
+        for line in content.splitlines():
             try:
                 prior = json.loads(line)
             except ValueError:
                 continue
             if isinstance(prior, dict) and prior.get("task") == task and prior.get("spawn_gen") == row["spawn_gen"]:
                 return
-        stream.write(json.dumps(row, separators=(",", ":")) + "\n")
+        prefix = b"\n" if content and not content.endswith(b"\n") else b""
+        stream.write(prefix + json.dumps(row, separators=(",", ":")).encode() + b"\n")
         stream.flush()
         os.fsync(stream.fileno())
 
