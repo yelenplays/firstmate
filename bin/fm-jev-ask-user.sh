@@ -15,7 +15,8 @@
 #   the snapshot          the worker's verbatim findings file, which must lie
 #                         under data/<task>/ and list at least those ids (it
 #                         may list more, such as no-op findings, in the `id:`
-#                         line or TOON row format; those stay as context)
+#                         line or TOON row format; those stay as context).
+#                         Repeated ids or missing asked ids are refused.
 #   data/<task>/brief.md  its `## Captain's intent` and `## Firstmate spec`
 #   state/<task>.inbox    every steering record, handled or pending, in order
 #   state/<task>.meta     project= for the outbound privacy check
@@ -41,8 +42,10 @@
 # (answer: respond --action approve with a reason, and the worker lists the
 # untested scenarios as a follow-up check in the PR description). approve-followup
 # is offered only at a test-step gate whose snapshot carries a `live validation
-# verdict: inconclusive` finding, where the scenarios cannot run in the gate by
-# design. Any other answer, a mix of the two, a transport failure, or a malformed
+# verdict: inconclusive` finding and lists no ids beyond the asked ids, because
+# approval accepts the whole gate. Jev must judge that the scenarios cannot run
+# in the gate by design and no code defect is named. Any other answer, a mix of
+# the two, a transport failure, or a malformed
 # response escalates; there is no fallback to another judge. Every
 # always-escalate screen above runs before the call, so none can be approved.
 #

@@ -72,7 +72,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-seat-pick.sh` | Opt-in team seat selection and deterministic reroute planning ([configuration](configuration.md#seat-picking-for-teams-configseat-pick)) |
 | `fm-queue-ready.sh` | Advisory heartbeat line of dispatch-ready backlog items from structured fields ([configuration](configuration.md#queue-readiness-heartbeat)) |
 | `fm-jev-brief-preflight.sh` | Advisory deterministic spawn-path brief check ([configuration](configuration.md#brief-preflight-fm_jev_brief_preflight)) |
-| `fm-jev-ask-user.sh` | Jev decides a no-mistakes ask-user gate first; answers confident in-scope fixes through `fm-send --resolve-key`, escalates everything else ([configuration](configuration.md#jev-ask-user-gate-fm_jev_ask_user_floor)) |
+| `fm-jev-ask-user.sh` | Jev-first no-mistakes finding decisions under [`ask-user-authority`](../.agents/skills/ask-user-authority/SKILL.md) ([configuration](configuration.md#jev-ask-user-gate-fm_jev_ask_user_floor)) |
 | `fm-jev-pr-verdict.sh` | Metadata-only advisory for review-ready shared-wiki GitHub PRs ([configuration](configuration.md#advisory-wiki-pr-verdict)) |
 | `fm-jev-merge-gate.sh` | Collect exact-head merge evidence and compare Jev's shadow decision with firstmate's ([configuration](configuration.md#jev-merge-gate-shadow)) |
 | `fm-jev-model-proposal.sh` | Per-role Jev model proposal from curated evidence; never edits config ([configuration](configuration.md#jev-model-proposals)) |
