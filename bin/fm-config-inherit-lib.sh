@@ -33,6 +33,11 @@
 # a secondmate's own crewmates keep AI co-author trailers too.
 # Primary config/model-denylist.json is the captain's never-use model list, so a
 # secondmate's own launches and Jev model choices refuse the same models.
+# Primary config/private-markers is the private-material guard's marker list
+# (bin/fm-private-guard-lib.sh), so a secondmate's own resolver and launches
+# keep the same private work off profiles marked private_ok false. It is
+# model-hidden (FM_MODEL_HIDDEN_INHERITABLE_CONFIG below): copied as a file,
+# never shown to the live agent's model.
 # Primary config/supervision-host-off is the fleet's supervision-host opt-out,
 # so a primary that opts out opts every secondmate home out too, while each
 # home's config/supervision-host engine line stays its own.
@@ -97,7 +102,7 @@ FM_SHARED_CAPTAIN_MODE="444"
 # The declared inheritable set (space-separated, config-dir-relative item paths).
 # Extend here to inherit more of the primary's local config; override via the
 # environment only in tests. Items must not contain whitespace.
-FM_INHERITABLE_CONFIG="${FM_INHERITABLE_CONFIG:-crew-dispatch.json dispatch-never-send model-denylist.json crew-harness backlog-backend backend herdr-presentation-spaces startup-memory-budget trace-context launch-env-allowlist claude-permission-mode lavish-axi-host keep-ai-trailers wikis-root supervision-host-off theme brief-include.md firstmate-role}"
+FM_INHERITABLE_CONFIG="${FM_INHERITABLE_CONFIG:-crew-dispatch.json dispatch-never-send private-markers model-denylist.json crew-harness backlog-backend backend herdr-presentation-spaces startup-memory-budget trace-context launch-env-allowlist claude-permission-mode lavish-axi-host keep-ai-trailers wikis-root supervision-host-off theme brief-include.md firstmate-role}"
 
 # firstmate-role additionally carries a proof-of-state receipt: a scoped role
 # grant (or its recorded absence) authorizes a secondmate home only while
@@ -127,6 +132,40 @@ fm_config_inherit_item_session_scoped() {  # <item>
     [ "$candidate" = "$item" ] && return 0
   done
   return 1
+}
+
+# Items only code reads, whose content must never reach a model. They are
+# inherited as files like any other item, but a reread instruction never
+# inlines them and a change to one alone never nudges a live agent to re-read
+# its config, so the content never enters a remote model's context.
+FM_MODEL_HIDDEN_INHERITABLE_CONFIG="private-markers"
+
+# True when <item> is model-hidden in the sense above.
+fm_config_inherit_item_model_hidden() {  # <item>
+  local item=$1 candidate
+  for candidate in $FM_MODEL_HIDDEN_INHERITABLE_CONFIG; do
+    [ "$candidate" = "$item" ] && return 0
+  done
+  return 1
+}
+
+# fm_config_inherit_output_has_visible_change
+# Reads propagation output lines ("pushed: <rel>", "removed: <rel>") on stdin
+# and returns 0 when any changed item is one a live agent may re-read, that is
+# anything but a model-hidden config item.
+fm_config_inherit_output_has_visible_change() {
+  local line rel rc=1
+  while IFS= read -r line; do
+    case "$line" in
+      'pushed: '* | 'removed: '*) rel=${line#*: } ;;
+      *) continue ;;
+    esac
+    case "$rel" in
+      config/*) fm_config_inherit_item_model_hidden "${rel#config/}" && continue ;;
+    esac
+    rc=0
+  done
+  return "$rc"
 }
 
 # The complete declared inherited-material set as home-relative paths, one per
@@ -823,9 +862,11 @@ FM_CONFIG_REREAD_FRAMING='These inherited config files changed. Re-read and appl
 # fm_config_reread_is_allowlisted_item <item>
 # True only for the declared inheritable config allowlist (bare item name as
 # recorded in FM_CONFIG_INHERIT_REPORT). data/captain-shared.md is never
-# allowlisted here and must never be inlined into a reread instruction.
+# allowlisted here and must never be inlined into a reread instruction, and
+# neither is a model-hidden item.
 fm_config_reread_is_allowlisted_item() {
   local item=$1 candidate
+  fm_config_inherit_item_model_hidden "$item" && return 1
   for candidate in $FM_INHERITABLE_CONFIG; do
     [ "$candidate" = "$item" ] && return 0
   done
@@ -834,11 +875,13 @@ fm_config_reread_is_allowlisted_item() {
 
 # fm_config_reread_changed_items <report>
 # Print bare allowlisted config item names whose report status is "pushed",
-# in FM_INHERITABLE_CONFIG order (deterministic path order). Empty when none.
+# in FM_INHERITABLE_CONFIG order (deterministic path order), leaving out
+# model-hidden items. Empty when none.
 fm_config_reread_changed_items() {
   local report=$1 item status
   [ -n "$report" ] && [ -f "$report" ] || return 0
   for item in $FM_INHERITABLE_CONFIG; do
+    fm_config_reread_is_allowlisted_item "$item" || continue
     status=$(awk -F '\t' -v item="$item" '$1 == item { print $2; exit }' "$report" 2>/dev/null) || status=""
     [ "$status" = pushed ] || continue
     printf '%s\n' "$item"

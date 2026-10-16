@@ -49,7 +49,7 @@ Captain files stay domain-local; trim by deliberate human edit, never automated/
 Secondmate/account pins and engine setting are not inherited; each home's worker pins need its own files.
 
 Running-home instruction advances need AGENTS reread; changed config needs literal reread.
-Reread exact changed bytes/ABSENT in declaration order, never hashes/summaries/profiles/shared preferences; unchanged homes get no message unless retry pending.
+Reread exact changed bytes/ABSENT in order, never hashes/summaries/profiles/shared preferences/model-hidden config; unchanged or hidden-only changes send no reread unless retry pending.
 Serialize propagation/publication/delivery per home; retain exact generations/retries on failure without claiming reread, bound delivered history/quarantine, and supersede pending generations on launch.
 Remote rereads use their own delivery path, never primary-local pointers; live inherited changes use `fm-config-push.sh`, not respawn/tracked sync.
 

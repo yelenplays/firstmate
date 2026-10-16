@@ -481,6 +481,10 @@
 #   checked before provisioning; a match refuses with exit 1 naming the rule and
 #   reason. bin/fm-model-denylist-lib.sh owns matching; docs/configuration.md
 #   "Never-use model list" owns the file.
+# Private-material guard (config/private-markers): a launch of a dispatch
+#   profile marked "private_ok": false exits 1 before provisioning unless
+#   bin/fm-private-guard-lib.sh proves the task non-private; docs/configuration.md
+#   "Private-material guard (config/private-markers)" owns the contract.
 # Worker account pin (config/claude-account, config/pi-account):
 #   Opt-in. With no file, a Claude or Pi launch is unchanged: Claude still
 #   receives this process's own CLAUDE_CONFIG_DIR when it is set, and Pi the
@@ -846,6 +850,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 . "$SCRIPT_DIR/fm-worker-account-lib.sh"
 # shellcheck source=bin/fm-model-denylist-lib.sh
 . "$SCRIPT_DIR/fm-model-denylist-lib.sh"
+# shellcheck source=bin/fm-private-guard-lib.sh
+. "$SCRIPT_DIR/fm-private-guard-lib.sh"
 # shellcheck source=bin/fm-ai-family-lib.sh
 . "$SCRIPT_DIR/fm-ai-family-lib.sh"
 # Fail closed before any fleet mutation: a no-mistakes gate agent must never spawn
@@ -2494,7 +2500,12 @@ launch_template() {
       printf '%s' 'codex __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox --disable hooks -c "notify=[\"bash\",\"-c\",\"touch __TURNEND__\"]" "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
     fi
     ;;
-  opencode) printf '%s' 'OPENCODE_CONFIG_CONTENT='\''{"permission":{"*":"allow"}__EFFORTFLAG__}'\'' opencode __MODELFLAG__--prompt "$(__OPINPUT__ encode launch-brief < __BRIEF__)"' ;;
+  # opencode: autoupdate false stops a mid-task self-upgrade from exiting the
+  # TUI, and share disabled keeps sessions off opencode's share links. Every
+  # launch denies the skill tool, whose description otherwise lists every
+  # installed skill on each turn (about 56k tokens with ~450 skills, opencode
+  # 1.19.0); an agent reads a skill it needs by its SKILL.md path.
+  opencode) printf '%s' 'OPENCODE_CONFIG_CONTENT='\''{"permission":{"*":"allow","skill":"deny"},"autoupdate":false,"share":"disabled"__EFFORTFLAG__}'\'' opencode __MODELFLAG__--prompt "$(__OPINPUT__ encode launch-brief < __BRIEF__)"' ;;
   pi | pi-signed)
     printf '%s' '__PIBIN____PITUIMODE____PIAPPROVE____PIEXCLUDE____PIRESUME__'
     if [ "$kind" = secondmate ]; then
@@ -2912,6 +2923,38 @@ if [ "$KIND" = secondmate ]; then
   fi
   [ -n "$FIRSTMATE_HOME" ] || {
     echo "error: no firstmate home supplied or registered for $ID" >&2
+    exit 1
+  }
+fi
+# Private-material guard (bin/fm-private-guard-lib.sh; docs/configuration.md
+# "Private-material guard (config/private-markers)"): a launch of a profile the
+# dispatch rules mark "private_ok": false is refused before provisioning unless
+# the project, the home's names, and the brief are proven non-private, the same
+# check bin/fm-dispatch-resolve.sh applies to eligibility. It runs after the
+# secondmate home is resolved, so a fresh launch and a recovery check the same
+# home, and a secondmate is checked by its id, that home, and the brief its
+# launch will send: the home's data/charter.md when present, else the task
+# brief, the same choice provisioning makes below. The refusal names a source
+# and list line number, never a marker.
+PRIVATE_GUARD_PINS=()
+if [ "$RAW_LAUNCH" = 1 ]; then
+  while IFS= read -r private_guard_pin; do
+    [ -z "$private_guard_pin" ] || PRIVATE_GUARD_PINS+=("$private_guard_pin")
+  done <<<"$(fm_model_denylist_command_pins "$ARG3")"
+fi
+if fm_private_guard_restricted "$CONFIG/crew-dispatch.json" "$HARNESS" "$MODEL" "${PRIVATE_GUARD_PINS[@]+"${PRIVATE_GUARD_PINS[@]}"}"; then
+  # An unreadable rules file counts as such a profile (fail closed), so it
+  # refuses only when the task is not also proven non-private.
+  PRIVATE_GUARD_RULES_WHY=${FM_PRIVATE_GUARD_WHY:+ ($FM_PRIVATE_GUARD_WHY)}
+  PRIVATE_GUARD_PROJECT=${PROJ%/}
+  if [ "$KIND" = secondmate ]; then
+    PRIVATE_GUARD_BRIEF="$DATA/$ID/brief.md"
+    [ ! -f "$FIRSTMATE_HOME/data/charter.md" ] || PRIVATE_GUARD_BRIEF="$FIRSTMATE_HOME/data/charter.md"
+    fm_private_guard_check "$CONFIG" '' "$PRIVATE_GUARD_BRIEF" "$FIRSTMATE_HOME" "$ID"
+  else
+    fm_private_guard_check "$CONFIG" "${PRIVATE_GUARD_PROJECT##*/}" "$DATA/$ID/brief.md" "$FM_HOME"
+  fi || {
+    echo "error: ${MODEL:-$HARNESS} is a dispatch profile marked private_ok false$PRIVATE_GUARD_RULES_WHY and the private-material guard refused this launch: $FM_PRIVATE_GUARD_WHY; route this task to a private-capable profile" >&2
     exit 1
   }
 fi
