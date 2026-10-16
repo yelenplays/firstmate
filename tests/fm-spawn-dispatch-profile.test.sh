@@ -2748,7 +2748,7 @@ test_non_claude_harness_ignores_claude_permission_mode() {
 # Exercise the actual delivered prompt and execute its ordinary reporting
 # command, omitting the separate appendix receipt exactly as real workers did.
 test_enrolled_launch_status_confirms_processing() {
-  local rec id out brief content launch command prompt token
+  local rec id out brief content launch command prompt token now
   id=execution-status-receipt
   rec=$(make_spawn_case "$id" codex)
   read_case_record "$rec"
@@ -2781,10 +2781,11 @@ SH
   command=$(awk '/^[[:space:]]*`FM_HOME=.* status / {sub(/^[[:space:]]*`/, ""); sub(/`$/, ""); print; exit}' "$prompt")
   [ -n "$command" ] || fail 'delivered status recipe has no receipt'
   command=${command//'{state}'/working}
-  command=${command//'<epoch>'/$(date +%s)}
+  now=$(date +%s)
+  command=${command//'<epoch>'/$now}
   command=${command//'{one short line}'/worker processing}
   (cd "$HOME_DIR" && bash -c "${command/working/blocked}") || fail 'delivered recipe dropped safety report'
-  assert_grep 'blocked .*worker processing' "$HOME_DIR/state/$id.status" 'safety report was not appended'
+  assert_grep "blocked [at=$now]: worker processing" "$HOME_DIR/state/$id.status" 'safety report was not appended'
   if FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$id"; then fail 'supervisor cwd confirmed processing'; fi
   (cd "$WT_DIR" && bash -c "$command") || fail 'delivered recipe failed in isolated worker copy'
   FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$id" || fail 'normal reporting did not confirm processing'
