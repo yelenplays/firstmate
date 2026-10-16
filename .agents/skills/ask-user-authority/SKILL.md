@@ -3,7 +3,7 @@ name: ask-user-authority
 description: >-
   Agent-only decision procedure for ask-user findings.
   Use before deciding any ask-user finding.
-  This skill is the single owner of finding-decision policy: firstmate screens every finding, puts the rest through one typed Jev call that answers only confident in-scope fixes, and escalates everything else to the captain.
+  This skill is the single owner of finding-decision policy: firstmate screens every finding, puts the rest through one typed Jev call that answers only confident in-scope fixes or confident approve-with-follow-up of an inconclusive live validation, and escalates everything else to the captain.
   Finding authority is this skill's criteria, not the project's yolo posture.
 user-invocable: false
 metadata:
@@ -51,7 +51,9 @@ These classes are the criteria both firstmate's screen and the Jev question appl
 1. Screen the gate yourself first.
    When any finding is destructive, irreversible, security-sensitive, or contract-expanding, repeats a theme under item 4, or the gate is past the round cap, escalate the whole gate to the captain without calling Jev.
 2. Otherwise run `bin/fm-jev-ask-user.sh <task-id> <decision-key> --round <n>` on the worker's open ask-user decision; its header owns the inputs, the deterministic always-escalate classes, the confidence floor, the outbound privacy boundary, and the log.
-3. On `ACT` (exit 0), Jev decided every finding an in-scope fix and the script has already answered the gate through `bin/fm-send.sh --resolve-key`, whose close note records that Jev decided; resume supervision.
+3. On `ACT` (exit 0), Jev decided the gate and the script has already answered it through `bin/fm-send.sh --resolve-key`, whose close note records that Jev decided; resume supervision.
+   Jev acts on two outcomes at or above the confidence floor: every finding an in-scope fix (the worker responds `--action fix`), or, at a test-step gate whose finding is a `live validation verdict: inconclusive` the gate cannot settle by design, approve with a follow-up check (the worker responds `--action approve --reason ...` and lists the untested scenarios under a Follow-up check heading in the PR description).
+   Approve never overrides the screens in step 1; those gates stay with the captain.
 4. On `ESCALATE` (exit 2), escalate the whole gate to the captain; a low-confidence verdict, a Jev error, a missing key, or a kept-out project is an escalation, never a cue for firstmate to decide the finding itself.
 5. On exit 1 nothing was decided, or the printed decision did not reach the worker: correct a wrong key or round and rerun, resend an undelivered printed decision with `bin/fm-send.sh --resolve-key`, and escalate when neither applies.
 6. When the captain answers, relay that answer under `validation-supervision`.
