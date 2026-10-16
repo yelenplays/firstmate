@@ -2260,4 +2260,103 @@ assert_equals '' "$out" "a malformed list prints no result"
 rm -f "$DENYLIST"
 pass "never-use list: a malformed list exits 2 instead of resolving unchecked"
 
+# --- private-material guard: a private_ok false profile never sees private work ---
+# A private project, a private home, and a private brief each make the
+# not-for-private profile ineligible, so the chain falls to the default lane;
+# the marker list itself never reaches the request or the output.
+MARKERS="$HOME_DIR/config/private-markers"
+GUARD_RULES="$TMP_ROOT/guard-rules.json"
+cat > "$GUARD_RULES" <<'JSON'
+{
+  "rules": [
+    {
+      "when": "Read-only research on non-private material.",
+      "use": [ { "harness": "opencode", "model": "opencode/deepseek-v4.1-flash-free", "provider": "opencode", "private_ok": false } ]
+    }
+  ],
+  "default": { "harness": "claude", "model": "sonnet" }
+}
+JSON
+cp "$GUARD_RULES" "$RULES"
+printf '%s\n' '# private clients' 'Acme Private' 'Zebracorp' 'zz-unused-marker' > "$MARKERS"
+RESEARCH_BRIEF="$TMP_ROOT/research-brief.md"
+PRIVATE_BRIEF="$TMP_ROOT/private-brief.md"
+printf '%s\n' "## Captain's intent" 'Collect public changelogs of the last five opencode releases.' > "$RESEARCH_BRIEF"
+printf '%s\n' "## Captain's intent" 'Gather competitor prices for the zebracorp offer.' > "$PRIVATE_BRIEF"
+write_response "$RESPONSE" rule_1 0.95 '{ "rule_1": 0.95, "default": 0.05 }'
+GUARD_PROFILE="  profile: --harness 'opencode' --model 'opencode/deepseek-v4.1-flash-free'"
+
+reset_log
+TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project firstmate
+expect_code 0 "$code" "a non-private task resolves"
+assert_contains "$out" "$GUARD_PROFILE" "a proven non-private task may use the private_ok false profile"
+assert_not_contains "$(cat "$LOG/body")" 'zz-unused-marker' "the marker list is never sent to Jev"
+pass "private guard: a proven non-private task keeps the not-for-private profile"
+
+expect_private_refusal() {  # <label> <source>
+  expect_code 0 "$code" "$1 still resolves a profile"
+  assert_contains "$out" "reason: rule rule_1 candidates refused: private-material guard: $2" "$1 makes the not-for-private profile ineligible"
+  assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet'" "$1 falls to the default lane"
+  assert_not_contains "$out" "$GUARD_PROFILE" "$1 never emits the not-for-private profile"
+  assert_not_contains "$out" 'zz-unused-marker' "$1 never prints a marker"
+  assert_not_contains "$(cat "$DISPATCH_LOG")" 'Acme Private' "$1 never logs a marker"
+}
+
+reset_log
+TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project acme-private-site
+expect_private_refusal 'a private project' 'project matches config/private-markers line 2'
+assert_not_contains "$out" 'Acme Private' "the refusal names the line, not the marker"
+pass "private guard: a private project is refused at resolve"
+
+printf 'zebracorp-home\n' > "$HOME_DIR/.fm-secondmate-home"
+reset_log
+TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project firstmate
+rm -f "$HOME_DIR/.fm-secondmate-home"
+expect_private_refusal 'a private home' 'home name matches config/private-markers line 3'
+pass "private guard: a private home is refused at resolve"
+
+reset_log
+TYPESAFE_API_KEY=$KEY run_chain code out err "$PRIVATE_BRIEF" --project firstmate
+expect_private_refusal 'a private brief' 'brief matches config/private-markers line 3'
+pass "private guard: a private brief is refused at resolve"
+
+reset_log
+TYPESAFE_API_KEY=$KEY run code out err "$PRIVATE_BRIEF" --project firstmate
+assert_contains "$out" '-> not eligible: private-material guard: brief matches config/private-markers line 3' "--typed-only shows the guard on the candidate line"
+assert_not_contains "$out" '  profile:' "--typed-only gives no not-for-private profile for private work"
+pass "private guard: --typed-only names the guard and emits no profile"
+
+rm -f "$MARKERS"
+reset_log
+TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project firstmate
+expect_private_refusal 'a missing marker list' 'no config/private-markers list proves the task non-private'
+mkdir "$MARKERS"
+reset_log
+TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project firstmate
+expect_private_refusal 'an unusable marker list' 'config/private-markers is not a readable regular file'
+rmdir "$MARKERS"
+pass "private guard: a missing or unusable list fails closed"
+
+printf 'Acme Private\n' > "$MARKERS"
+reset_log
+TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project acme-private-site --decision-kind dispatch \
+  --policy-profile '{"harness":"opencode","model":"opencode/deepseek-v4.1-flash-free"}' --captain-override 'captain wants the free model'
+expect_code 2 "$code" "a not-for-private policy profile on private work is refused"
+assert_contains "$err" 'private-material guard refused it: project matches config/private-markers line 1' "the policy refusal names the source"
+reset_log
+TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project firstmate --decision-kind dispatch \
+  --policy-profile '{"harness":"opencode","model":"opencode/deepseek-v4.1-flash-free"}' --captain-override 'captain wants the free model'
+expect_code 0 "$code" "a not-for-private policy profile on non-private work is allowed"
+assert_contains "$out" "$GUARD_PROFILE" "the allowed policy profile is emitted"
+pass "private guard: a fixed policy profile is guarded the same way"
+
+jq '.rules[0].use[0].private_ok = "no"' "$GUARD_RULES" > "$RULES"
+reset_log
+TYPESAFE_API_KEY=$KEY run_chain code out err "$RESEARCH_BRIEF" --project firstmate
+expect_code 2 "$code" "a non-boolean private_ok is a configuration error"
+assert_contains "$err" 'profile private_ok must be true or false when present' "the error names private_ok"
+rm -f "$MARKERS"
+cp "$BASE_RULES" "$RULES"
+pass "private guard: a malformed private_ok exits 2"
+
 printf '# all fm-dispatch-resolve tests passed\n'

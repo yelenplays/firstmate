@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Drain durable wakes and classify rows as routine only when the task is
 # verifiably working, has no open decision, and is not held for the captain.
-# Acknowledgement remains manual.
+# Acknowledgement remains manual. --decisions passes through to the drain.
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-wake-lib.sh
@@ -15,14 +15,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/fm-lease-lib.sh"
 
 usage() { sed -n '1,3p' "$0"; }
+DRAIN_ARGS=()
 case "${1:-}" in
   -h|--help) usage; exit 0 ;;
   '') ;;
-  *) echo "usage: fm-wake-triage.sh [-h|--help]" >&2; exit 2 ;;
+  --decisions) [ "$#" -eq 1 ] || { echo "usage: fm-wake-triage.sh [-h|--help|--decisions]" >&2; exit 2; }; DRAIN_ARGS=(--decisions) ;;
+  *) echo "usage: fm-wake-triage.sh [-h|--help|--decisions]" >&2; exit 2 ;;
 esac
 
 ACTOR=$(fm_lease_actor) || exit 2
-[ "$ACTOR" = main ] || exec "$SCRIPT_DIR/fm-wake-drain.sh"
+[ "$ACTOR" = main ] || exec "$SCRIPT_DIR/fm-wake-drain.sh" ${DRAIN_ARGS[@]+"${DRAIN_ARGS[@]}"}
 mkdir -p "$STATE" || exit 1
 shopt -s nullglob
 recovered=("$STATE"/.wake-triage.pending.*)
@@ -35,7 +37,7 @@ done
 
 pending="$STATE/.wake-triage.pending.$(date +%s).$$"
 [ ! -e "$pending" ] && [ ! -L "$pending" ] || { echo "wake triage: pending output collision" >&2; exit 1; }
-"$SCRIPT_DIR/fm-wake-drain.sh" >"$pending" 2>&1
+"$SCRIPT_DIR/fm-wake-drain.sh" ${DRAIN_ARGS[@]+"${DRAIN_ARGS[@]}"} >"$pending" 2>&1
 DRAIN_CODE=$?
 chmod 0600 "$pending" || { cat "$pending"; exit 1; }
 

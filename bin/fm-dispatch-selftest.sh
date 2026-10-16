@@ -23,7 +23,7 @@
 #   FM_HOME (sharing $FM_HOME/.env for the typed-call keys and read-only
 #   prediction evidence from the home) and an isolated config directory
 #   holding the rules file and, when the home has
-#   one, its dispatch-never-send list, so an unrecorded run writes nothing into
+#   them, its dispatch-never-send and private-markers lists, so an unrecorded run writes nothing into
 #   the home and turns on no shadow logging. A present list that is not a
 #   readable regular file (including a dangling symlink) refuses the entire
 #   run before any sample is sent. With both judges unavailable, the default
@@ -42,7 +42,7 @@
 #
 # `check` is the watcher check the nightly run rides on. It stays silent
 #   except for one failure line per attempted input digest. When the
-#   rules+samples+resolver+backup digest differs from the last attempted
+#   rules+samples+resolver+backup+private-markers+guard digest differs from the last attempted
 #   digest, it launches
 #   `run --record` immediately; unchanged inputs wait until no run has started
 #   since the most recent FM_DISPATCH_SELFTEST_HOUR:00 local time (default 3,
@@ -173,6 +173,11 @@ run_samples() { # <rules> <samples>
     cp "$CONFIG_DIR/dispatch-never-send" "$work/config/dispatch-never-send" 2>/dev/null \
       || { printf 'error: dispatch-never-send list is not readable; nothing sent\n'; return 2; }
   fi
+  # The private-material guard reads the same list dispatch does; without it,
+  # profiles marked private_ok false are ineligible (the guard fails closed).
+  if [ -f "$CONFIG_DIR/private-markers" ] && [ -r "$CONFIG_DIR/private-markers" ]; then
+    cp "$CONFIG_DIR/private-markers" "$work/config/private-markers" 2>/dev/null || true
+  fi
   [ ! -f "$FM_HOME/.env" ] || ln -s "$FM_HOME/.env" "$work/home/.env"
   {
     printf '#!/usr/bin/env bash\n'
@@ -268,12 +273,14 @@ input_file_token() {
 }
 
 inputs_hash() { # <rules> <samples>
-  local rules_hash samples_hash resolver_hash backup_hash
+  local rules_hash samples_hash resolver_hash backup_hash markers_hash guard_hash
   rules_hash=$(input_file_token "$1") || return 1
   samples_hash=$(input_file_token "$2") || return 1
   resolver_hash=$(input_file_token "$SCRIPT_DIR/fm-dispatch-resolve.sh") || return 1
   backup_hash=$(input_file_token "$SCRIPT_DIR/fm-backup-judge-lib.sh") || return 1
-  printf '%s\n%s\n%s\n%s\n' "$rules_hash" "$samples_hash" "$resolver_hash" "$backup_hash" | sha256_stdin
+  markers_hash=$(input_file_token "$CONFIG_DIR/private-markers") || return 1
+  guard_hash=$(input_file_token "$SCRIPT_DIR/fm-private-guard-lib.sh") || return 1
+  printf '%s\n%s\n%s\n%s\n%s\n%s\n' "$rules_hash" "$samples_hash" "$resolver_hash" "$backup_hash" "$markers_hash" "$guard_hash" | sha256_stdin
 }
 
 record_attempted_hash() { # <hash>

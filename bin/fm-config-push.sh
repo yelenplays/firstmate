@@ -149,7 +149,7 @@ while IFS='|' read -r id home _window meta; do
       "$SCRIPT_DIR/fm-remote-inherit-push.sh" "$id" "$remote_generation" 2>&1); then
       printf '%s\n' "$remote_out" | sed 's/^/  /'
       remote_nudge=0
-      if printf '%s\n' "$remote_out" | grep -Eq '^(pushed|removed):'; then remote_nudge=1; fi
+      if printf '%s\n' "$remote_out" | fm_config_inherit_output_has_visible_change; then remote_nudge=1; fi
       [ "$remote_pending" -eq 0 ] || remote_nudge=1
       if [ "$remote_nudge" -eq 1 ]; then
         if FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" FM_STATE_OVERRIDE="$STATE" \

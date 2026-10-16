@@ -882,6 +882,11 @@ if [ "$READ_ONLY" -eq 0 ]; then
         || printf 'DISPATCH_SELFTEST: could not auto-arm the routing selftest\n'
     fi
   fi
+  # The free-model canary arms itself only where the free lane model is in use
+  # (docs/configuration.md "Free research lane").
+  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
+    "$SCRIPT_DIR/fm-free-model-canary.sh" arm --if-watched >/dev/null 2>&1 \
+    || printf 'FREE_MODEL_CANARY: could not auto-arm the free-model canary\n'
 fi
 
 # --- 3. wake-drain ---------------------------------------------------------
@@ -921,7 +926,9 @@ else
       printf '%s\n' "$BRANCH_REPLAY_OUT"
     fi
   fi
-  DRAIN_OUT=$("$SCRIPT_DIR/fm-wake-drain.sh" 2>&1)
+  # A fresh session has seen no earlier presentation, so it gets every open
+  # decision rather than only the news since the last drain.
+  DRAIN_OUT=$("$SCRIPT_DIR/fm-wake-drain.sh" --decisions 2>&1)
   if [ -n "$DRAIN_OUT" ]; then
     printf '%s\n' "$DRAIN_OUT"
   else

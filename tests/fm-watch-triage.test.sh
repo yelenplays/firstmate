@@ -5908,7 +5908,7 @@ test_term_stops_a_watcher_blocked_inside_a_poll() {
 # record before the TERM. Only the TERM'd watcher's cleanup reads them, and a
 # second read comes only from a retry after a completed failed acquire, so that
 # read marks real contention in $dir/marker-lock-contended; the holder then
-# frees the lock <release-ticks> tenths of a second later. The caller's environment
+# frees the lock <release-ticks> tenths of a wall-clock second later. The caller's environment
 # reaches the watcher; its wait_for_exit code lands in HELD_MARKER_LOCK_RC.
 term_watcher_with_held_marker_lock() {  # <dir> [release-ticks]
   local dir=$1 release_ticks=${2:-} successor=0 state fakebin out capture_file window sig pid holder i
@@ -5961,11 +5961,10 @@ term_watcher_with_held_marker_lock() {  # <dir> [release-ticks]
         wait "$writer"
         rm -f "$contended"
       fi
-      i=0
-      while [ "$i" -lt "$release_ticks" ]; do
-        sleep 0.1
-        i=$((i + 1))
-      done
+      # One wall-clock sleep, not a count of 0.1s ticks: the watcher bounds
+      # its acquire by SECONDS, and forked ticks drift past it under load.
+      [ "$release_ticks" -eq 0 ] \
+        || sleep "$((release_ticks / 10)).$((release_ticks % 10))"
     else
       : > "$held"
       i=0
@@ -7885,6 +7884,91 @@ test_paused_until_that_passed_is_rechecked_before_the_cadence() {
   pass "a declared wait whose until time has passed is rechecked at once, then held to the cadence"
 }
 
+# --- a captain-parked pause gets no periodic recheck --------------------------
+# The 2026-10-14 retro: a task the captain parked days earlier (paused: line,
+# backlog hold kind parked) re-alarmed `stale` once per cadence for its whole
+# pause, each wake with nothing for the captain to do. A parked wait is absorbed
+# with no cadence recheck; only its hold-until date (or a real state change)
+# wakes, once. A captain-kind hold is still an open captain call, so it keeps
+# its reminder cadence.
+
+utc_yesterday() {
+  if [ "$(uname)" = Darwin ]; then date -u -v-1d +%Y-%m-%d
+  else date -u -d yesterday +%Y-%m-%d; fi
+}
+
+# Backdate the fixture's declaration a minute, re-recording it as seen so the
+# backdate is not itself a status signal.
+age_hold_status() {  # <state>
+  set_mtime "$(( $(date +%s) - 60 ))" "$1/held-merge.status"
+  printf '%s' "$(seen_sig "$1/held-merge.status")" > "$1/.seen-held-merge_status"
+}
+
+test_captain_parked_pause_gets_no_periodic_recheck() {
+  local dir state out capture wakes line
+  command -v tasks-axi >/dev/null 2>&1 \
+    || { echo "skip: tasks-axi not found (captain-parked pause)"; return 0; }
+  line='paused: parked by captain; resume after the launch window'
+
+  # Parked: with a one-second cadence and a declaration a minute old, every
+  # churned hash is past the recheck cadence, which woke before the fix. None
+  # may wake now.
+  dir=$(make_hold_home parked-pause "$line" nohold) \
+    || fail "could not build the captain-parked fixture"
+  (cd "$dir" && tasks-axi hold held-merge --reason 'start after the launch window' --kind parked --file data/backlog.md) >/dev/null 2>&1 \
+    || fail "could not park the captain-parked fixture"
+  state="$dir/state"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  age_hold_status "$state"
+  FM_HOLD_PAUSE_RESURFACE_SECS=1 hold_watch_churn "$dir" "$out" "$capture" 'parked pane, clock tick' 3 \
+    || fail "a captain-parked pause woke the watcher: $(cat "$out")"
+  wakes=$(hold_stale_wakes "$state")
+  [ "$wakes" -eq 0 ] || fail "a captain-parked pause was rechecked $wakes time(s)"
+  grep -F 'captain-parked wait, no periodic recheck' "$state/.watch-triage.log" >/dev/null \
+    || fail "the absorb did not name the captain-parked wait in the triage log"
+
+  # Control: the same declared wait without the captain's hold keeps its
+  # cadence recheck.
+  dir=$(make_hold_home unparked-pause "$line" nohold) \
+    || fail "could not build the unparked fixture"
+  state="$dir/state"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  age_hold_status "$state"
+  FM_HOLD_PAUSE_RESURFACE_SECS=1 hold_watch_surface "$dir" "$out" "$capture" 'unparked pane' \
+    || fail "an unparked declared wait past its cadence was not rechecked: $(cat "$out")"
+  [ "$(hold_stale_wakes "$state")" -eq 1 ] || fail "an unparked declared wait did not queue its stale wake"
+
+  # Control: an open captain call (hold kind captain) under the same paused:
+  # line is not parked, so it keeps its reminder cadence.
+  dir=$(make_hold_home captain-kind-pause "$line" hold) \
+    || fail "could not build the captain-kind fixture"
+  state="$dir/state"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  age_hold_status "$state"
+  FM_HOLD_PAUSE_RESURFACE_SECS=1 hold_watch_surface "$dir" "$out" "$capture" 'captain-kind pane' \
+    || fail "a paused: line under an open captain call lost its reminder cadence: $(cat "$out")"
+  [ "$(hold_stale_wakes "$state")" -eq 1 ] || fail "a paused: line under an open captain call did not queue its stale wake"
+  ! grep -F 'captain-parked wait' "$state/.watch-triage.log" >/dev/null 2>&1 \
+    || fail "an open captain call was absorbed as captain-parked"
+
+  # Due: a hold-until date that has been reached wakes exactly once, naming the
+  # date, and the same parked wait is silent afterwards.
+  dir=$(make_hold_home parked-due "$line" nohold) \
+    || fail "could not build the due fixture"
+  (cd "$dir" && tasks-axi hold held-merge --reason 'start after the launch window' --kind parked --until "$(utc_yesterday)" --file data/backlog.md) >/dev/null 2>&1 \
+    || fail "could not park the due fixture with a hold-until date"
+  state="$dir/state"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  hold_watch_surface "$dir" "$out" "$capture" 'due pane' \
+    || fail "a captain-parked wait whose hold-until date was reached did not wake: $(cat "$out")"
+  grep -F "reached its hold-until date $(utc_yesterday)" "$out" >/dev/null \
+    || fail "the due wake did not name the hold-until date: $(cat "$out")"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the due wake"
+  : > "$out"
+  wakes=$(hold_stale_wakes "$state")
+  FM_HOLD_PAUSE_RESURFACE_SECS=1 hold_watch_churn "$dir" "$out" "$capture" 'due pane, clock tick' 3 \
+    || fail "the hold-until wake repeated instead of firing once: $(cat "$out")"
+  [ "$(hold_stale_wakes "$state")" -eq "$wakes" ] || fail "the hold-until wake queued again after it fired"
+
+  pass "a captain-parked pause is never rechecked on a cadence, only once at its hold-until date"
+}
+
 # --- endpoint reuse: a successor never inherits its predecessor's state ------
 # The 2026-09 phantom wedge incidents: watcher bookkeeping under state/ is
 # keyed by the recorded endpoint target (.hash-/.count-/.stale-/.stale-since-/
@@ -8724,6 +8808,7 @@ test_captain_held_rechecked_under_a_quiet_record
 test_paused_until_near_future_is_quiet_before_the_cadence
 test_paused_until_wrong_year_is_bounded_by_the_cadence
 test_paused_until_that_passed_is_rechecked_before_the_cadence
+test_captain_parked_pause_gets_no_periodic_recheck
 test_reused_window_retires_predecessor_state
 test_watch_state_lib_retire_bind_and_owner
 test_colliding_live_keys_share_marker_set

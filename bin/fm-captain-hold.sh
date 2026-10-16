@@ -32,6 +32,7 @@
 #   fm-captain-hold.sh complete <origin-id> (--none | <task-id>...)
 #   fm-captain-hold.sh verify <origin-id> [--allow-empty]
 #   fm-captain-hold.sh open <task-id> [--identity] [--distinguish-absent]
+#   fm-captain-hold.sh parked <task-id>
 #   fm-captain-hold.sh diverged
 #   fm-captain-hold.sh reconcile list
 #   fm-captain-hold.sh reconcile close <task-id> --evidence-file <path>
@@ -223,6 +224,17 @@
 # crew task reaches a due stale alarm - its open backlog hold need not appear in
 # the task's last status line - and on a 0 bounds repeated alarms from new pane
 # hashes for the decision.
+#
+# `parked` is the read-only predicate a supervisor asks before it rechecks a
+# declared wait: did the captain park this work? Exit 0 means the row is not
+# Done and its hold kind is parked - the captain deferred the work, so the wait
+# is theirs to end - and stdout carries one `<hold-kind>\t<hold-until>` line,
+# the date `-` when none is recorded. Exit 1 means it is not (a captain-kind
+# hold is still an open call awaiting an answer), 3 an absent local task or
+# backlog, and 2 that the answer could not be established. A date-expired hold still answers 0: tasks-axi keeps
+# the hold kind, and the expired date is exactly what the supervisor rechecks.
+# bin/fm-watch.sh asks it so a captain-parked pause gets no periodic stale
+# recheck, only one when its hold-until date is reached.
 #
 # `diverged` is the read-only guard over the seam between the two records of
 # one captain call. See "record divergence" beside command_diverged below.
@@ -2254,6 +2266,40 @@ command_open() {  # <task-id> [--identity] [--distinguish-absent]
   exit 2
 }
 
+# Did the captain park this task? Exit 0 yes (prints kind and until), 1 no,
+# 3 absent, 2 cannot tell (see the header).
+command_parked() {  # <task-id>
+  local id=${1:-} data root file backend state
+  [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+  case "$id" in
+    ''|*[!A-Za-z0-9._-]*)
+      printf 'fm-captain-hold: task id must be a non-empty privacy-safe slug: %s\n' "$id" >&2
+      exit 2
+      ;;
+  esac
+  data=$(fm_backlog_data_absolute "$DATA") \
+    || { printf 'fm-captain-hold: data directory cannot be resolved: %s\n' "$DATA" >&2; exit 2; }
+  root=$(fm_backlog_root "$data") \
+    || { printf 'fm-captain-hold: %s\n' "$FM_BACKLOG_TRANSITION_ERROR" >&2; exit 2; }
+  backend=$(fm_tasks_axi_backend_resolve "$root") || exit 2
+  if [ "$backend" = markdown ]; then
+    file=$(fm_backlog_file "$data") \
+      || { printf 'fm-captain-hold: %s\n' "$FM_BACKLOG_TRANSITION_ERROR" >&2; exit 2; }
+    if [ ! -e "$file" ] && [ ! -L "$file" ]; then return 3; fi
+  fi
+  fm_tasks_axi_compatible || { printf 'fm-captain-hold: compatible tasks-axi is required\n' >&2; exit 2; }
+  if fm_backlog_row_probe "$data" "$id"; then
+    state=${FM_BACKLOG_ROW_STATE%% *}
+    [ "$state" != "done" ] || return 1
+    [ "$FM_BACKLOG_ROW_HOLD_KIND" = parked ] || return 1
+    printf '%s\t%s\n' "$FM_BACKLOG_ROW_HOLD_KIND" "${FM_BACKLOG_ROW_HOLD_UNTIL:--}"
+    return 0
+  fi
+  [ "$FM_BACKLOG_ROW_RESULT" != not_found ] || return 3
+  printf 'fm-captain-hold: %s\n' "$FM_BACKLOG_ROW_ERROR" >&2
+  exit 2
+}
+
 case "${1:-}" in
   hold) shift; command_hold "$@" ;;
   answer)
@@ -2270,6 +2316,7 @@ case "${1:-}" in
   complete) shift; command_complete "$@" ;;
   verify) shift; command_verify "$@" ;;
   open) shift; command_open "$@" ;;
+  parked) shift; command_parked "$@" ;;
   diverged) shift; command_diverged "$@" ;;
   reconcile) shift; command_reconcile "$@" ;;
   -h|--help) usage ;;

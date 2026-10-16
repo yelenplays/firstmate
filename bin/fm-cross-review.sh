@@ -14,6 +14,9 @@
 # task record's `ai_family=` set written by bin/fm-spawn.sh (every family that
 # has driven the task); a record from before that field existed resolves its
 # recorded harness and model the same way.
+# Recorded family sets, including `unknown`, remain authoritative: the current
+# model cannot prove the makers of earlier incarnations, even without a history
+# marker. Only records with no family field resolve their recorded model.
 #
 # An independent review of head H is, in order:
 #   1. the no-mistakes pipeline review, when the task's run on its branch has
@@ -31,8 +34,10 @@
 #     Print the review evidence for the task's head and record the families in
 #     the task record (pipeline_review_family/_head and
 #     independent_review_family/_head/_source). The head is --head, else the
-#     recorded pr_head= when the task has pr=, else the tip of the task's local
-#     branch. --run names the no-mistakes run instead of reading the worktree's.
+#     live GitHub PR head (even with pr_head= recorded), else the recorded
+#     pr_head= for another forge's PR, else the tip of the task's local branch.
+#     A non-GitHub PR without pr_head= requires --head.
+#     --run names the no-mistakes run instead of reading the worktree's.
 #     --json prints one object for the merge gate instead of key=value lines;
 #     every field is filled or says MISSING or N/A with its reason.
 #   fm-cross-review.sh plan <task-id> [--head <sha>] [--run <run-id>] [--confirm]

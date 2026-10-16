@@ -67,8 +67,8 @@ STATE=${FM_STATE_OVERRIDE:-$FM_HOME/state}
 mode=$(cat "$FM_HOME/stub-mode" 2>/dev/null || echo handle)
 n=$(( $(ls "$FM_HOME"/engine-call.* 2>/dev/null | wc -l) + 1 ))
 {
-  printf 'mode=%s\nactor=%s\nholder=%s\nprimary=%s\nturn=%s\n' "$mode" "${FM_SUPERVISION_ACTOR:-}" \
-    "${FM_LEASE_HOLDER_PID:-}" "${FM_SUPERVISION_PRIMARY_HARNESS:-}" "${FM_BRANCH_REPORT_TURN:-}"
+  printf 'mode=%s\nactor=%s\nholder=%s\nprimary=%s\nturn=%s\nconversation=%s\n' "$mode" "${FM_SUPERVISION_ACTOR:-}" \
+    "${FM_LEASE_HOLDER_PID:-}" "${FM_SUPERVISION_PRIMARY_HARNESS:-}" "${FM_BRANCH_REPORT_TURN:-}" "${FM_BRANCH_CONVERSATION:-}"
   for a in "$@"; do printf 'arg=%s\n' "$a"; done
 } > "$FM_HOME/engine-call.$n"
 case "$mode" in held|captain-held) printf 'ready\n' > "$FM_HOME/stub-ready" ;; esac
@@ -155,13 +155,13 @@ export FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999
 # Keep the real engine watchdog/reaping path, but not its production grace in fixtures.
 export FM_SUPERVISION_ENGINE_GRACE=1
 export FM_ARM_CONFIRM_TIMEOUT=30
-unset FM_SUPERVISION_ACTOR FM_BRANCH_REPORT_TURN FM_LEASE_HOLDER_PID PI_CODING_AGENT
+unset FM_SUPERVISION_ACTOR FM_BRANCH_REPORT_TURN FM_BRANCH_CONVERSATION FM_LEASE_HOLDER_PID PI_CODING_AGENT
 
 # Homes are registered in a file: make_home runs in a command substitution,
 # whose variables never reach this shell.
 HOMES_FILE="$TMP_ROOT/homes"
 # Stop whatever a case left running, by the exact pids its home recorded.
-stop_home_processes() {  # <home>
+stop_home_cycle() {  # <home>
   local home=$1 pid arms='' i=0
   if [ -f "$home/state/.supervision-host" ]; then
     arms=$(awk -F '\t' '$1 == "arm" { print $2 }' "$home/state/.supervision-host")
@@ -177,13 +177,36 @@ stop_home_processes() {  # <home>
   done
   pid=$(cat "$home/state/.watch.lock/pid" 2>/dev/null || true)
   [ -z "$pid" ] || kill -TERM "$pid" 2>/dev/null || true
-  while IFS= read -r pid; do
-    if [ -e "$home/session.stop" ]; then
-      wait "$pid" 2>/dev/null || true
-    else
-      kill -TERM "$pid" 2>/dev/null || true
-    fi
-  done < <(cat "$home/claude-pids" 2>/dev/null)
+}
+any_live() {  # <pid>...
+  local pid
+  for pid in "$@"; do
+    kill -0 "$pid" 2>/dev/null && return 0
+  done
+  return 1
+}
+stop_home_processes() {  # <home>
+  local home=$1 pid sessions i=0
+  sessions=$(cat "$home/claude-pids" 2>/dev/null || true)
+  stop_home_cycle "$home"
+  # A stopping session may still sit in its Stop hook, whose retry parks a
+  # fresh host after the stopped one: sweep again until it ends, bounded.
+  # shellcheck disable=SC2086 # one pid per word
+  if [ -e "$home/session.stop" ]; then
+    while [ "$i" -lt 100 ] && any_live $sessions; do
+      sleep 0.1
+      i=$((i + 1))
+      [ $((i % 10)) -ne 0 ] || stop_home_cycle "$home"
+    done
+  fi
+  # A session still alive past the bound is stopped with its Stop hook, so no
+  # hook outlives the case to park another host.
+  for pid in $sessions; do
+    pkill -TERM -P "$pid" 2>/dev/null || true
+    kill -TERM "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+  done
+  stop_home_cycle "$home"
   while IFS= read -r pid; do
     kill -TERM "$pid" 2>/dev/null || true
   done < <(cat "$home/orphan-pid" 2>/dev/null)
@@ -767,9 +790,10 @@ test_branch_ack_keeps_older_keyed_decision_open() {
   assert_contains "$drained" 'OPEN DECISIONS' "the status decision must appear in the first drain"
   assert_contains "$drained" 'held [key=merge-153] needs-decision: merge PR 153 now or hold?' "the older decision must remain open"
   assert_contains "$drained" '[seq 2, newest of 2 for this task' "the branch line must collapse to the newest outcome"
-  assert_contains "$drained" "including its still-open decisions listed above under OPEN DECISIONS" "the check-first instruction must include the older keyed decision"
+  assert_contains "$drained" "including its still-open decisions under OPEN DECISIONS (bin/fm-wake-drain.sh --decisions lists every one)" "the check-first instruction must include the older keyed decision"
   FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" mark-processed --through 2 >/dev/null || fail "fixture: acknowledgement refused"
-  drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" 2>&1' "$ROOT/bin/fm-wake-drain.sh")
+  # Already presented, so the default drain only counts it; --decisions lists it.
+  drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" --decisions 2>&1' "$ROOT/bin/fm-wake-drain.sh")
   assert_contains "$drained" 'held [key=merge-153] needs-decision: merge PR 153 now or hold?' "acknowledging the newer branch line closed the older keyed decision"
   assert_not_contains "$drained" 'CI is now green' "acknowledged branch outcome repeated"
   pass "drain: a keyed decision survives acknowledgement through a newer outcome for its task"
@@ -1592,6 +1616,191 @@ leave_a_cycle_for_main_and_restart() {  # <home>
   start_hook_session "$home"
 }
 
+# Reproduce the real Stop lifecycle, including the group teardown missing from
+# earlier hook fixtures. A handled/acked wake must not become downtime when
+# that old group is retired. Exercise both places that can leave a successor,
+# repeat the ordinary cycle, then prove genuine downtime still surfaces once.
+assert_hook_group_rearms() {  # <name> <main-only|at-turn>
+  local home mode=$2 cycle watcher pgid
+  home=$(make_primary_home "$1")
+  [ "$mode" != at-turn ] || turn_main_only_at_second_offer "$home" quiet
+  : > "$home/hook.own-group"
+  start_hook_session "$home"
+  turn_end "$home"
+  wait_until 200 watcher_live "$home" || fail "group rearm: no initial cycle"
+  if [ "$mode" = at-turn ]; then
+    append_status "$home" 'first routine close'
+  else
+    append_status "$home" 'first decision' needs-decision
+  fi
+
+  for cycle in 1 2 3; do
+    wait_until 300 hook_exited "$home" || fail "group rearm: close $cycle never arrived"
+    assert_rewoke_main "$home" "group rearm $cycle"
+    assert_no_re '^check: rearm-resurface$' "$home/hook.err" "ordinary rearm delivered an empty recovery"
+    main_drain "$home" >/dev/null
+    [ -n "$MAIN_ACK" ] || fail "group rearm: no main acknowledgement"
+    # shellcheck disable=SC2086 # replay exactly the acknowledgement arguments
+    FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK >/dev/null 2>&1 \
+      || fail "group rearm: main acknowledgement failed"
+    [ ! -s "$home/state/.wake-queue" ] || fail "group rearm: queue not empty after acknowledgement"
+    assert_re '^acked:' "$home/state/.watcher-down" "group rearm: episode not acknowledged"
+    watcher=$(cat "$home/state/.watch.lock/pid")
+    pgid=$(cat "$home/hook.pgid")
+    kill -TERM -- "-$pgid" 2>/dev/null || true
+    # The successor's structural process-group identity, not a vendor string,
+    # proves it cannot receive the hook group's termination signal.
+    [ "$(ps -o pgid= -p "$watcher" | tr -d ' ')" != "$pgid" ] \
+      || fail "group rearm: successor still belongs to the terminated hook group"
+    turn_end "$home"
+    wait_until 300 host_owns_the_only_cycle "$home" \
+      || fail "group rearm: next park did not take over its only cycle: $(cat "$home/hook.err")"
+    ! wait_until 30 hook_exited "$home" \
+      || fail "group rearm: empty rearm woke main: $(cat "$home/hook.err")"
+    assert_re '^acked:' "$home/state/.watcher-down" "group rearm: takeover reopened downtime"
+    assert_no_re 'rearm-resurface' "$home/state/.supervision-host.log" "group rearm: recovery loop returned"
+    append_status "$home" "next decision $cycle" needs-decision
+  done
+
+  wait_until 300 hook_exited "$home" || fail "outage: last decision never reached main"
+  main_drain "$home" >/dev/null
+  [ -n "$MAIN_ACK" ] || fail "outage: no acknowledgement"
+  # shellcheck disable=SC2086 # replay exactly the acknowledgement arguments
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK >/dev/null 2>&1 || fail "outage: ack failed"
+  watcher=$(cat "$home/state/.watch.lock/pid")
+  kill -KILL "$watcher" || fail "outage: could not kill fixture watcher"
+  wait_until 200 bash -c '! kill -0 "$1" 2>/dev/null' _ "$watcher" || fail "outage: watcher still alive"
+  append_wake "$home/state" check outage-fixture 'check: queued during genuine outage'
+  turn_end "$home"
+  wait_until 300 hook_exited "$home" || fail "outage: recovery never reached main"
+  assert_rewoke_main "$home" outage
+  [ "$(grep -c '^check: rearm-resurface$' "$home/hook.err")" -eq 1 ] || fail "outage: expected exactly one recovery"
+  main_drain "$home" > "$home/outage-drain"
+  assert_grep 'queued during genuine outage' "$home/outage-drain" "outage: buried work was lost"
+  [ -n "$MAIN_ACK" ] || fail "outage: no recovery acknowledgement"
+  # shellcheck disable=SC2086 # replay exactly the acknowledgement arguments
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK >/dev/null 2>&1 || fail "outage: recovery ack failed"
+  kill -TERM -- "-$(cat "$home/hook.pgid")" 2>/dev/null || true
+  turn_end "$home"
+  wait_until 300 host_owns_the_only_cycle "$home" || fail "outage: successor never settled"
+  ! wait_until 30 hook_exited "$home" || fail "outage: acknowledged recovery repeated"
+  assert_re '^acked:' "$home/state/.watcher-down" "outage: acknowledged recovery reopened"
+  [ "$(grep -c $'pass-through\tattended\tmain-only\tcheck: rearm-resurface$' "$home/state/.supervision-host.log")" -eq 1 ] \
+    || fail "outage: expected exactly one recovery in the host history"
+  stop_home_processes "$home"
+}
+
+test_hook_rearms_after_group_teardown_without_empty_recovery() {
+  assert_hook_group_rearms hook-group-rearms main-only
+  pass "host+hook: three ordinary group-teardown re-arms stay quiet; real outage work resurfaces once"
+}
+
+test_at_turn_successor_survives_group_teardown_and_real_outage_recovers() {
+  assert_hook_group_rearms hook-at-turn-group-rearms at-turn
+  pass "host+hook: an at-turn hand-back survives group teardown, quiet re-arms, and real outage recovery"
+}
+
+# Put queue activity precisely between the real take-over snapshot and TERM.
+# The old handling successor stays alive; no hook group is torn down. BASH_ENV
+# wraps only take_over_cycle's kill, then delegates to the real builtin signal.
+install_takeover_interleave() {  # <home> <acknowledged|pending>
+  printf '%s\n' "$2" > "$1/interleave-mode"
+  cat > "$1/interleave.bash" <<'SH'
+kill() {
+  if [ "$#" -eq 2 ] && [ "$1" = -TERM ] && [ "${FUNCNAME[1]:-}" = take_over_cycle ] \
+    && [ -f "$FM_HOME/interleave-ready" ]; then
+    mv "$FM_HOME/interleave-ready" "$FM_HOME/interleave-running"
+    bash -c '. "$1"; fm_wake_append check handover-result "check: result arrived during handover"' _ \
+      "$FM_TEST_TAKEOVER_ROOT/bin/fm-wake-lib.sh" || return 1
+    if [ "$(cat "$FM_HOME/interleave-mode")" = acknowledged ]; then
+      "$FM_TEST_TAKEOVER_ROOT/bin/fm-wake-drain.sh" > "$FM_HOME/interleave-drain" 2>&1 || return 1
+      ack=$(sed -n 's/^WAKE_ACK_REQUIRED: after handling completes run bin\/fm-wake-drain.sh //p' "$FM_HOME/interleave-drain" | tail -1)
+      [ -n "$ack" ] || return 1
+      # shellcheck disable=SC2086 # replay the generated acknowledgement arguments
+      "$FM_TEST_TAKEOVER_ROOT/bin/fm-wake-drain.sh" $ack > "$FM_HOME/interleave-ack" 2>&1 || return 1
+      [ ! -s "$FM_HOME/state/.wake-queue" ] || return 1
+    fi
+    cp "$FM_HOME/state/.watcher-down" "$FM_HOME/interleave-marker"
+    cp "$FM_HOME/state/.wake-queue.seq" "$FM_HOME/interleave-seq"
+    : > "$FM_HOME/interleave-finished"
+  fi
+  builtin kill "$@"
+}
+SH
+}
+
+assert_confirmed_takeover_recovery() {  # <name> <acknowledged|pending>
+  local home mode=$2 cycle cycles=3 seq_before seq_after
+  home=$(make_primary_home "$1")
+  install_takeover_interleave "$home" "$mode"
+  # Empty clean downtime is intentionally retired without waking main. Seed
+  # real unread work so this setup reaches the recovery/acknowledgement boundary.
+  append_wake "$home/state" check takeover-setup 'check: initial takeover recovery work' \
+    || fail "takeover recovery: could not seed initial unread work"
+  FM_HOME="$home" bash -c '. "$1"; fm_recovery_marker_publish "$STATE/.watcher-down" downtime' _ \
+    "$ROOT/bin/fm-wake-lib.sh" || fail "takeover recovery: could not seed downtime"
+  FM_TEST_TAKEOVER_ROOT="$ROOT" BASH_ENV="$home/interleave.bash" start_hook_session "$home"
+  turn_end "$home"
+  wait_until 300 hook_exited "$home" || fail "takeover recovery: initial recovery never arrived"
+  assert_re '^check: rearm-resurface$' "$home/hook.err" "fixture: must start with main-only recovery"
+  assert_re $'pass-through\tattended\tmain-only\tcheck: rearm-resurface$' "$home/state/.supervision-host.log" \
+    "fixture: initial recovery did not pass through to main"
+  main_drain "$home" >/dev/null
+  [ -n "$MAIN_ACK" ] || fail "takeover recovery: no initial acknowledgement"
+  # shellcheck disable=SC2086 # replay the generated acknowledgement arguments
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK >/dev/null 2>&1 || fail "takeover recovery: initial ack failed"
+  [ "$mode" != pending ] || cycles=1
+  for ((cycle=1; cycle<=cycles; cycle++)); do
+    seq_before=$(cat "$home/state/.wake-queue.seq" 2>/dev/null || echo 0)
+    rm -f "$home/interleave-finished"
+    : > "$home/interleave-ready"
+    turn_end "$home"
+    wait_until 300 test -f "$home/interleave-finished" || fail "takeover recovery: interleaved activity did not finish"
+    seq_after=$(cat "$home/interleave-seq")
+    [ "$seq_after" -gt "$seq_before" ] || fail "fixture: the handover append sequence did not advance"
+    if [ "$mode" = pending ]; then
+      wait_until 300 hook_exited "$home" || fail "unread handover work did not resurface"
+      [ "$(grep -c '^check: rearm-resurface$' "$home/hook.err")" -eq 1 ] || fail "unread handover work must resurface once"
+      main_drain "$home" > "$home/pending-drain"
+      assert_grep 'result arrived during handover' "$home/pending-drain" "handover hid unread work"
+      [ -n "$MAIN_ACK" ] || fail "pending handover: no acknowledgement"
+      # shellcheck disable=SC2086 # replay the generated acknowledgement arguments
+      FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK >/dev/null 2>&1 || fail "pending handover: ack failed"
+      turn_end "$home"
+    else
+      assert_re '^acked:' "$home/interleave-marker" "fixture: interleaved work was not acknowledged before TERM"
+    fi
+    wait_until 300 host_owns_the_only_cycle "$home" || fail "takeover recovery: no verified fresh cycle"
+    ! wait_until 30 hook_exited "$home" || fail "acknowledged work reopened empty recovery: $(cat "$home/hook.err")"
+    assert_re '^acked:' "$home/state/.watcher-down" "takeover left recovery pending with no unread work"
+    assert_re $'signal=TERM\treason=signal-exit' "$home/state/.watch-cycle-exits.log" "fixture: old watcher did not end by TERM"
+    assert_re $'reason=taken-over\t' "$home/state/.watch-cycle-exits.log" "fixture: take-over did not confirm the TERM"
+    if [ "$mode" = acknowledged ]; then
+      [ "$(grep -c $'main-only\tcheck: rearm-resurface$' "$home/state/.supervision-host.log")" -eq 1 ] \
+        || fail "an empty confirmed-takeover recovery reached main"
+    fi
+    if [ "$cycle" -lt "$cycles" ]; then
+      append_status "$home" "decision before next handover $cycle" needs-decision
+      wait_until 300 hook_exited "$home" || fail "takeover recovery: next decision never arrived"
+      main_drain "$home" >/dev/null
+      [ -n "$MAIN_ACK" ] || fail "takeover recovery: next acknowledgement missing"
+      # shellcheck disable=SC2086 # replay the generated acknowledgement arguments
+      FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" $MAIN_ACK >/dev/null 2>&1 || fail "takeover recovery: next ack failed"
+    fi
+  done
+  stop_home_processes "$home"
+}
+
+test_confirmed_takeover_does_not_resurface_acknowledged_interleaved_work() {
+  assert_confirmed_takeover_recovery hook-confirmed-takeover-acked acknowledged
+  pass "host+hook: three confirmed TERM take-overs stay quiet after interleaved work was acknowledged"
+}
+
+test_confirmed_takeover_still_resurfaces_unread_interleaved_work() {
+  assert_confirmed_takeover_recovery hook-confirmed-takeover-pending pending
+  pass "host+hook: unread handover work resurfaces once and stays quiet after acknowledgement"
+}
+
 test_next_park_takes_over_the_cycle_a_pass_through_left_for_main() {
   local home left_watcher left_arm
   home=$(make_primary_home hook-takeover)
@@ -1606,7 +1815,7 @@ test_next_park_takes_over_the_cycle_a_pass_through_left_for_main() {
   sleep 2
   ! hook_exited "$home" || fail "takeover: the takeover woke main: $(cat "$home/hook.err")"
   host_owns_the_only_cycle "$home" || fail "takeover: the park did not keep the cycle it took over"
-  assert_re '^acked:' "$home/state/.watcher-down" "takeover: the takeover opened a downtime episode"
+  assert_re '^acked:' "$home/state/.watcher-down" "takeover: the takeover opened a downtime episode ($(cat "$home/state/.watcher-down" 2>/dev/null))"
   assert_no_re 'rearm-resurface' "$home/state/.supervision-host.log" "takeover: the takeover resurfaced a recovery to main"
   append_status "$home" 'which region?' needs-decision
   wait_until 250 hook_exited "$home" || fail "takeover: the owned cycle did not deliver the next close: $(cat "$home/state/.supervision-host.log")"
@@ -1841,14 +2050,39 @@ quiet_pass_through_successor() {  # <home>
     || fail "fixture: could not acknowledge the successor downtime"
 }
 
+# The running host's own arm holds the watcher lock: the park owns its cycle.
+park_owns_cycle() {  # <home>
+  local host arm watcher
+  host=$(awk -F '\t' '$1 == "host" { print $2; exit }' "$1/state/.supervision-host" 2>/dev/null)
+  arm=$(awk -F '\t' '$1 == "arm" { print $2; exit }' "$1/state/.supervision-host" 2>/dev/null)
+  watcher=$(cat "$1/state/.watch.lock/pid" 2>/dev/null)
+  [ -n "$host" ] && [ -n "$arm" ] && [ -n "$watcher" ] || return 1
+  kill -0 "$host" 2>/dev/null && kill -0 "$watcher" 2>/dev/null || return 1
+  [ "$(parent_of "$watcher")" = "$arm" ]
+}
+
+# Park again after a host was stopped. A stop that interrupted a handling
+# episode or left a queued row presents one rearm-resurface, which main drains
+# and acknowledges; a clean stop with nothing queued retires its recovery
+# quietly, so the park keeps its cycle and main sees nothing.
 park_after_stop() {  # <home>
-  rm -f "$1/host.rc"
-  : > "$1/park.go"
-  wait_until 150 host_exited "$1" || fail "the watcher's downtime resurface did not reach main: $(cat "$1/host.out")"
-  assert_re '^check: rearm-resurface' "$1/host.out" "fixture: the first close after the watcher stopped was not its resurface"
-  main_drain_and_ack "$1"
-  quiet_pass_through_successor "$1"
+  if [ -e "$1/state/.watcher-down.present" ] || [ -s "$1/state/.wake-queue" ]; then
+    rm -f "$1/host.rc"
+    : > "$1/park.go"
+    wait_until 150 host_exited "$1" || fail "the watcher's downtime resurface did not reach main: $(cat "$1/host.out")"
+    assert_re '^check: rearm-resurface' "$1/host.out" "fixture: the first close after the watcher stopped was not its resurface"
+    main_drain_and_ack "$1"
+    quiet_pass_through_successor "$1"
+    park_again "$1"
+    return
+  fi
   park_again "$1"
+  wait_until 150 park_owns_cycle "$1" \
+    || fail "the park after a stop did not own its watcher cycle: $(cat "$1/host.out"; cat "$1/state/.supervision-host" 2>/dev/null)"
+  sleep 1
+  if ! park_owns_cycle "$1" || grep -q 'rearm-resurface' "$1/host.out" 2>/dev/null; then
+    fail "a clean stop with no queued row still resurfaced to main: $(cat "$1/host.out")"
+  fi
 }
 
 # Dialog counts as delivered only once the turn that carried it is accepted
@@ -1884,7 +2118,7 @@ SH
   park_after_stop "$home"
   append_status "$home" 'reaches the boundary'
   wait_until 400 host_exited "$home" || fail "mirror boundary: the host did not end its park"
-  assert_re '^supervision-host: cycle boundary - ' "$home/host.out" "fixture: the second host did not exit at its boundary"
+  assert_re '^supervision-host: cycle boundary - ' "$home/host.out" "fixture: the second host did not exit at its boundary: $(cat "$home/host.out"; tail -n 4 "$home/state/.supervision-host.log")"
   [ "$(engine_calls "$home")" -eq 1 ] || fail "fixture: an engine turn ran at the boundary"
   main_drain_and_ack "$home"
 
@@ -1905,7 +2139,7 @@ SH
   echo hang > "$home/stub-mode"
   park_after_stop "$home"
   append_status "$home" 'stopped mid-turn'
-  wait_until 250 test -e "$home/engine-call.3" || fail "mirror boundary: the stopped turn never started"
+  wait_until 250 test -e "$home/engine-call.3" || fail "mirror boundary: the stopped turn never started: $(cat "$home/host.out"; tail -n 6 "$home/state/.supervision-host.log")"
   assert_re '^\[captain\] third ask, turn stopped$' "$home/engine-call.3" "fixture: the stopped turn did not carry the third dialog"
   kill -TERM "$(awk -F '\t' '$1 == "host" { print $2 }' "$home/state/.supervision-host")"
   wait_until 200 host_exited "$home" || fail "mirror boundary: the host did not stop mid-turn on TERM"
@@ -2107,6 +2341,8 @@ test_away_wake_is_handled_on_the_engine_and_never_reaches_main() {
   second="$home/engine-call.2"
   assert_re '^arg=--resume$' "$second" "a later turn must resume the conversation"
   assert_re "^arg=$session\$" "$second" "a later turn must resume the same conversation"
+  assert_re "^conversation=$session\$" "$first" "the engine must carry its conversation for the branch decision ledger"
+  assert_re "^conversation=$session\$" "$second" "a resumed turn must carry the same conversation"
   [ "$(grep -c '"task":"demo"' "$home/state/branch-outcomes.jsonl")" -eq 2 ] || fail "the second outcome was not recorded"
   assert_re '	handled	turn=[^	]*\.2	.* cost=0\.25 conversation_cost=0\.5 ' "$home/state/.supervision-host.log" \
     "a resumed turn must log its own cost, not the conversation's running total"
@@ -3063,6 +3299,10 @@ queue_case test_successor_left_at_the_turn_survives_the_hook_process_group_teard
 queue_case test_claude_stop_hook_notifies_when_at_turn_downtime_write_fails
 queue_case test_successor_close_during_main_turn_is_delivered_at_the_next_turn_end
 queue_case test_pass_through_successor_survives_the_hook_process_group_teardown
+queue_case test_hook_rearms_after_group_teardown_without_empty_recovery
+queue_case test_at_turn_successor_survives_group_teardown_and_real_outage_recovers
+queue_case test_confirmed_takeover_does_not_resurface_acknowledged_interleaved_work
+queue_case test_confirmed_takeover_still_resurfaces_unread_interleaved_work
 queue_case test_next_park_takes_over_the_cycle_a_pass_through_left_for_main
 queue_case test_a_park_stopped_mid_take_over_leaves_the_take_over_to_the_next_park
 queue_case test_unrecorded_successor_is_stopped_rather_than_left_for_main
