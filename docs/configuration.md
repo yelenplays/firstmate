@@ -109,8 +109,8 @@ For model-proposal records, see [Jev model proposals](#jev-model-proposals).
 Untracked files and directories whose names begin with `scratchpad` are also gitignored, so temporary scratch does not make porcelain-based secondmate sync guards treat a home as dirty.
 
 ### Format and lifecycle references
-`bin/fm-task-execution.sh --help` owns private `state/<id>.execution` approval and processing records, their state-change notifications, and the unfinished-action view that survives notification acknowledgement and restart.
-Non-Rovo implementation handoffs bind the processing receipt into the worker's status-reporting command; Rovo launches, promotions, and relaunches keep the plain status append and separate `started` step pending `exec-receipt-rovo-v1` ([known limitation](verification/rovo.md#execution-receipts-known-limitation)).
+`bin/fm-task-execution.sh --help` owns private `state/<id>.execution` approval and processing records, status-coupled receipt behavior, their state-change notifications, and the unfinished-action view that survives notification acknowledgement and restart.
+See the [Rovo receipt limitation](verification/rovo.md#execution-receipts-known-limitation) for that adapter's exception.
 
 - `bin/fm-spawn.sh` owns the base task-metadata fields it emits, while the runtime-backend section below owns backend-specific fields and selector interpretation.
 

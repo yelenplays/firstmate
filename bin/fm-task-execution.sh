@@ -28,9 +28,12 @@
 # vendor text and works even when a harness has no semantic busy source.
 # status validates enrollment, TOKEN and generation before appending a status
 # line and optionally recording it in the fleet ledger. Isolation failure keeps
-# the append but skips the receipt. Spawn and promotion bind TOKEN into the
-# worker's status recipe, so reporting from the isolated root also confirms
-# processing; Rovo handoffs keep the plain append and separate started step.
+# the append but skips the receipt, including from a worktree subdirectory.
+# For enrolled non-Rovo workers, spawn/relaunch bind TOKEN into the standard
+# status recipe, and promotion supplies a replacement recipe. Custom launch
+# briefs without the standard recipe retain the separate started step.
+# Reporting from the isolated root also confirms processing; Rovo's exception
+# and its safety rationale are documented in docs/verification/rovo.md.
 # A status receipt proves processing, not current progress: scan still uses
 # crew-state, and old status lines or launch seeds alone never confirm activity.
 #

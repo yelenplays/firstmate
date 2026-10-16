@@ -102,6 +102,11 @@ mkdir -p "$home/project" "$home/worker"
 fm_git_identity fmtest fmtest@example.invalid
 git -C "$home/worker" init -q
 git -C "$home/project" init -q
+# Promotion's publication guard needs readable, unrelated fixture histories.
+# An empty git-init project and a non-git code-root home are indeterminate.
+git -C "$home/project" commit --allow-empty -qm 'fixture project history'
+git -C "$home" init -q
+git -C "$home" commit --allow-empty -qm 'fixture firstmate history'
 printf 'kind=scout\nwindow=fake\nworktree=%s\nproject=%s\nspawn_gen=s1\nharness=pi\n' "$home/worker" "$home/project" > "$home/state/approved-scout.meta"
 FM_ROOT_OVERRIDE="$home" PATH="$home/fakebin:$PATH" "$ROOT/bin/fm-promote.sh" approved-scout --mode no-mistakes --yolo on > "$home/promotion"
 "$EXEC" show approved-scout | grep -q 'implementation owner unconfirmed'

@@ -155,7 +155,7 @@ $ cat out.txt
 I can't run that command because it modifies a file outside the workspace. If you provide a workspace-relative path, I can run the equivalent command there - would you like to do that?
 ```
 
-The following probe used the plain bash `echo ... >> status_file` reporting recipe, not the receipt-bearing command now delivered to enrolled implementation workers.
+The following probe used the plain bash `echo ... >> status_file` reporting recipe.
 Given that literal append instruction, rovo recovered on its own by falling back to its native file tool, and succeeded, preserving the file's existing content:
 
 ```
