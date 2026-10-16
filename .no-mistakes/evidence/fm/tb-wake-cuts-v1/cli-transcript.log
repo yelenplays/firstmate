@@ -1,0 +1,102 @@
+
+=== Primary seat positive control: session-start nudge ===
+exit=0
+stdout='\u2063FIRSTMATE_OP: v1 session-start: Run `bin/fm-session-start.sh` now, exactly once, before executing any other instructions.\n'
+stderr=''
+
+=== startup: worker environment ===
+exit=0
+stdout=''
+stderr=''
+
+=== startup: plain-clone worker slot cwd ===
+exit=0
+stdout=''
+stderr=''
+
+=== startup: worker slot hook payload at primary runner ===
+exit=0
+stdout=''
+stderr=''
+
+=== compact: worker environment ===
+exit=0
+stdout=''
+stderr=''
+
+=== compact: plain-clone worker slot cwd ===
+exit=0
+stdout=''
+stderr=''
+
+=== compact: worker slot hook payload at primary runner ===
+exit=0
+stdout=''
+stderr=''
+
+=== Worker identity overrides copied secondmate marker ===
+exit=0
+stdout=''
+stderr=''
+No primary or worker session lock was created by worker hook calls.
+
+=== Genuine marked slot home retains supervisor nudge ===
+exit=0
+stdout='\u2063FIRSTMATE_OP: v1 session-start: Run `bin/fm-session-start.sh` now, exactly once, before executing any other instructions.\n'
+stderr=''
+
+=== Dispatch offer: check: unfinished-execution ===
+exit=0
+stdout='eligible=0\nstatus=unsafe\ncorrupted=1\nrows=\ntasks=\nunscoped=0\n'
+stderr='(node:97325) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52MN8G8KBHHEBGDYWX4Q545/.pi/extensions/lib/fm-branch-dispatch.ts is not specified and it doesn\'t parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add "type": "module" to /Users/yelen/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n'
+
+=== Dispatch offer: check: unfinished-execution ===
+exit=0
+stdout='eligible=1\nstatus=empty\ncorrupted=0\nrows=\ntasks=\nunscoped=0\n'
+stderr='(node:97417) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52MN8G8KBHHEBGDYWX4Q545/.pi/extensions/lib/fm-branch-dispatch.ts is not specified and it doesn\'t parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add "type": "module" to /Users/yelen/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n'
+
+=== Dispatch offer: check: rearm-resurface ===
+exit=0
+stdout='eligible=1\nstatus=empty\ncorrupted=0\nrows=\ntasks=\nunscoped=0\n'
+stderr='(node:97639) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52MN8G8KBHHEBGDYWX4Q545/.pi/extensions/lib/fm-branch-dispatch.ts is not specified and it doesn\'t parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add "type": "module" to /Users/yelen/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n'
+
+=== Dispatch offer: check: unfinished-execution ===
+exit=0
+stdout='eligible=1\nstatus=safe\ncorrupted=0\nrows=1\ntasks=\nunscoped=1\n'
+stderr='(node:98415) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52MN8G8KBHHEBGDYWX4Q545/.pi/extensions/lib/fm-branch-dispatch.ts is not specified and it doesn\'t parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add "type": "module" to /Users/yelen/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n'
+
+=== Dispatch offer: check: rearm-resurface ===
+exit=0
+stdout='eligible=1\nstatus=safe\ncorrupted=0\nrows=1\ntasks=\nunscoped=1\n'
+stderr='(node:98778) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52MN8G8KBHHEBGDYWX4Q545/.pi/extensions/lib/fm-branch-dispatch.ts is not specified and it doesn\'t parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add "type": "module" to /Users/yelen/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n'
+
+=== Dispatch offer: check: unfinished-execution failed ===
+exit=0
+stdout='eligible=0\nstatus=safe\ncorrupted=0\nrows=1\ntasks=\nunscoped=1\n'
+stderr='(node:99204) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52MN8G8KBHHEBGDYWX4Q545/.pi/extensions/lib/fm-branch-dispatch.ts is not specified and it doesn\'t parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add "type": "module" to /Users/yelen/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n'
+
+=== Dispatch offer: check: rearm-resurface-extra ===
+exit=0
+stdout='eligible=0\nstatus=safe\ncorrupted=0\nrows=1\ntasks=\nunscoped=1\n'
+stderr='(node:99816) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52MN8G8KBHHEBGDYWX4Q545/.pi/extensions/lib/fm-branch-dispatch.ts is not specified and it doesn\'t parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add "type": "module" to /Users/yelen/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n'
+
+=== Dispatch offer: check: credential required ===
+exit=0
+stdout='eligible=0\nstatus=safe\ncorrupted=0\nrows=1\ntasks=\nunscoped=1\n'
+stderr='(node:269) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52MN8G8KBHHEBGDYWX4Q545/.pi/extensions/lib/fm-branch-dispatch.ts is not specified and it doesn\'t parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add "type": "module" to /Users/yelen/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n'
+
+=== Dispatch offer: check: unfinished-execution ===
+exit=0
+stdout='eligible=0\nstatus=safe\ncorrupted=0\nrows=1\ntasks=\nunscoped=1\n'
+stderr='(node:1176) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52MN8G8KBHHEBGDYWX4Q545/.pi/extensions/lib/fm-branch-dispatch.ts is not specified and it doesn\'t parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add "type": "module" to /Users/yelen/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n'
+
+=== Dispatch offer: check: rearm-resurface ===
+exit=0
+stdout='eligible=0\nstatus=safe\ncorrupted=0\nrows=1\ntasks=\nunscoped=1\n'
+stderr='(node:1385) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52MN8G8KBHHEBGDYWX4Q545/.pi/extensions/lib/fm-branch-dispatch.ts is not specified and it doesn\'t parse as CommonJS.\nReparsing as ES module because module syntax was detected. This incurs a performance overhead.\nTo eliminate this warning, add "type": "module" to /Users/yelen/package.json.\n(Use `node --trace-warnings ...` to show where the warning was created)\n'
+
+Persisted product queue (both rows remain available, offer does not consume them):
+1792164558	1	check	execution:demo	check: execution demo
+1792164560	2	check	auth	check: credential required
+
+All direct CLI assertions passed; temporary homes removed on exit.
