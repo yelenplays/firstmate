@@ -1,0 +1,71 @@
+LIVE CLI no-key-toon-subset: exit=2
+ESCALATE nm-PROBE-review jev-unavailable: no Jev key is configured
+
+Persisted decision metadata: {"answers": [], "code": "jev-unavailable", "findings": ["F1"], "http": null, "jev_called": false, "key": "nm-PROBE-review", "latency_ms": null, "model": null, "outcome": "escalate", "purpose": "ask-user-gate", "response_model": null, "round": 1, "route": null, "sent": null, "task": "t1", "ts": "2026-10-16T20:48:26Z"}
+LIVE CLI destructive-inconclusive: exit=2
+ESCALATE nm-PROBE-test always-escalate: a finding names a security, credential, destructive, irreversible, or data-loss concern
+
+Persisted decision metadata: {"answers": [], "code": "always-escalate", "findings": ["F1"], "http": null, "jev_called": false, "key": "nm-PROBE-test", "latency_ms": null, "model": null, "outcome": "escalate", "purpose": "ask-user-gate", "response_model": null, "round": 1, "route": null, "sent": null, "task": "t1", "ts": "2026-10-16T20:48:26Z"}
+LIVE CLI round-cap-inconclusive: exit=2
+ESCALATE nm-PROBE-test round-cap: review round 4 is past the round-3 cap; the captain decides
+
+Persisted decision metadata: {"answers": [], "code": "round-cap", "findings": ["F1"], "http": null, "jev_called": false, "key": "nm-PROBE-test", "latency_ms": null, "model": null, "outcome": "escalate", "purpose": "ask-user-gate", "response_model": null, "round": 4, "route": null, "sent": null, "task": "t1", "ts": "2026-10-16T20:48:26Z"}
+LIVE CLI missing-asked-id: exit=1
+fm-jev-ask-user: the snapshot's ids do not match findings=F9 (it does not list: F9)
+
+LIVE CLI duplicate-id: exit=1
+fm-jev-ask-user: the snapshot repeats a finding id
+
+BASELINE same TOON subset: exit=1
+fm-jev-ask-user: the snapshot's id: lines do not match findings=F1
+
+NOT LIVE (stub Jev + sender) approve-followup-date-range: exit=0
+ACT nm-PROBE-test: Jev decided approve F1 (F1=approve-followup@0.96)
+Jev decided this gate under ask-user-authority: approve findings F1 and record the unchecked scenarios as a follow-up check (gate nm-PROBE-test, step test, round 1; F1=approve-followup@0.96). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.
+
+Emitted choice options: ["in-scope-fix", "expands-contract", "unsettled-call", "destructive-or-security", "approve-followup"]
+Captured sender arguments (stub, not endpoint delivery): ["t1", "--resolve-key", "nm-PROBE-test", "Jev decided this gate under ask-user-authority: approve findings F1 and record the unchecked scenarios as a follow-up check (gate nm-PROBE-test, step test, round 1; F1=approve-followup@0.96). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome."]
+Persisted decision metadata: {"answers": [{"choice": "approve-followup", "confidence": 0.96, "id": "F1", "meets_floor": true, "valid": true}], "code": "decided", "findings": ["F1"], "http": "200", "jev_called": true, "key": "nm-PROBE-test", "latency_ms": 271, "model": "jev-1.13.0", "outcome": "act", "purpose": "ask-user-gate", "response_model": "stub-not-live-Jev", "round": 1, "route": "typesafe", "sent": true, "task": "t1", "ts": "2026-10-16T20:48:28Z"}
+NOT LIVE (stub Jev + sender) fix-id-subset: exit=0
+ACT nm-PROBE-review: Jev decided fix F1 (F1=in-scope-fix@0.96)
+Jev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-PROBE-review, step review, round 1; F1=in-scope-fix@0.96). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome.
+
+Emitted choice options: ["in-scope-fix", "expands-contract", "unsettled-call", "destructive-or-security"]
+Captured sender arguments (stub, not endpoint delivery): ["t1", "--resolve-key", "nm-PROBE-review", "Jev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-PROBE-review, step review, round 1; F1=in-scope-fix@0.96). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome."]
+Persisted decision metadata: {"answers": [{"choice": "in-scope-fix", "confidence": 0.96, "id": "F1", "meets_floor": true, "valid": true}], "code": "decided", "findings": ["F1"], "http": "200", "jev_called": true, "key": "nm-PROBE-review", "latency_ms": 24, "model": "jev-1.13.0", "outcome": "act", "purpose": "ask-user-gate", "response_model": "stub-not-live-Jev", "round": 1, "route": "typesafe", "sent": true, "task": "t1", "ts": "2026-10-16T20:48:28Z"}
+NOT LIVE (stub Jev + sender) fix-toon-subset: exit=0
+ACT nm-PROBE-review: Jev decided fix F1 (F1=in-scope-fix@0.96)
+Jev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-PROBE-review, step review, round 1; F1=in-scope-fix@0.96). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome.
+
+Emitted choice options: ["in-scope-fix", "expands-contract", "unsettled-call", "destructive-or-security"]
+Captured sender arguments (stub, not endpoint delivery): ["t1", "--resolve-key", "nm-PROBE-review", "Jev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-PROBE-review, step review, round 1; F1=in-scope-fix@0.96). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome."]
+Persisted decision metadata: {"answers": [{"choice": "in-scope-fix", "confidence": 0.96, "id": "F1", "meets_floor": true, "valid": true}], "code": "decided", "findings": ["F1"], "http": "200", "jev_called": true, "key": "nm-PROBE-review", "latency_ms": 24, "model": "jev-1.13.0", "outcome": "act", "purpose": "ask-user-gate", "response_model": "stub-not-live-Jev", "round": 1, "route": "typesafe", "sent": true, "task": "t1", "ts": "2026-10-16T20:48:28Z"}
+NOT LIVE (stub Jev + sender) reject-unjudged-auto-fix: exit=2
+ESCALATE nm-PROBE-test jev-error: the Jev answer was malformed or split (F1=approve-followup@0.96)
+
+Emitted choice options: ["in-scope-fix", "expands-contract", "unsettled-call", "destructive-or-security"]
+Persisted decision metadata: {"answers": [{"choice": "approve-followup", "confidence": 0.96, "id": "F1", "meets_floor": true, "valid": false}], "code": "jev-error", "findings": ["F1"], "http": "200", "jev_called": true, "key": "nm-PROBE-test", "latency_ms": 24, "model": "jev-1.13.0", "outcome": "escalate", "purpose": "ask-user-gate", "response_model": "stub-not-live-Jev", "round": 1, "route": "typesafe", "sent": null, "task": "t1", "ts": "2026-10-16T20:48:28Z"}
+NOT LIVE (stub Jev + sender) reject-noop-inconclusive-context: exit=2
+ESCALATE nm-PROBE-test jev-error: the Jev answer was malformed or split (F1=approve-followup@0.96)
+
+Emitted choice options: ["in-scope-fix", "expands-contract", "unsettled-call", "destructive-or-security"]
+Persisted decision metadata: {"answers": [{"choice": "approve-followup", "confidence": 0.96, "id": "F1", "meets_floor": true, "valid": false}], "code": "jev-error", "findings": ["F1"], "http": "200", "jev_called": true, "key": "nm-PROBE-test", "latency_ms": 25, "model": "jev-1.13.0", "outcome": "escalate", "purpose": "ask-user-gate", "response_model": "stub-not-live-Jev", "round": 1, "route": "typesafe", "sent": null, "task": "t1", "ts": "2026-10-16T20:48:29Z"}
+NOT LIVE (stub Jev + sender) reject-review-approval: exit=2
+ESCALATE nm-PROBE-review jev-error: the Jev answer was malformed or split (F1=approve-followup@0.96)
+
+Emitted choice options: ["in-scope-fix", "expands-contract", "unsettled-call", "destructive-or-security"]
+Persisted decision metadata: {"answers": [{"choice": "approve-followup", "confidence": 0.96, "id": "F1", "meets_floor": true, "valid": false}], "code": "jev-error", "findings": ["F1"], "http": "200", "jev_called": true, "key": "nm-PROBE-review", "latency_ms": 26, "model": "jev-1.13.0", "outcome": "escalate", "purpose": "ask-user-gate", "response_model": "stub-not-live-Jev", "round": 1, "route": "typesafe", "sent": null, "task": "t1", "ts": "2026-10-16T20:48:29Z"}
+NOT LIVE (stub Jev + sender) reject-mixed-fix-approve: exit=2
+ESCALATE nm-PROBE-test jev-class: Jev placed a finding outside a plain in-scope fix or an approve with follow-up, or split the gate (F1=approve-followup@0.96 F2=in-scope-fix@0.96)
+
+Emitted choice options: ["in-scope-fix", "expands-contract", "unsettled-call", "destructive-or-security", "approve-followup"]
+Persisted decision metadata: {"answers": [{"choice": "approve-followup", "confidence": 0.96, "id": "F1", "meets_floor": true, "valid": true}, {"choice": "in-scope-fix", "confidence": 0.96, "id": "F2", "meets_floor": true, "valid": true}], "code": "jev-class", "findings": ["F1", "F2"], "http": "200", "jev_called": true, "key": "nm-PROBE-test", "latency_ms": 26, "model": "jev-1.13.0", "outcome": "escalate", "purpose": "ask-user-gate", "response_model": "stub-not-live-Jev", "round": 1, "route": "typesafe", "sent": null, "task": "t1", "ts": "2026-10-16T20:48:29Z"}
+NOT LIVE (stub Jev + sender) reject-low-confidence-approval: exit=2
+ESCALATE nm-PROBE-test jev-low-confidence: Jev was below the 0.75 confidence floor (F1=approve-followup@0.74)
+
+Emitted choice options: ["in-scope-fix", "expands-contract", "unsettled-call", "destructive-or-security", "approve-followup"]
+Persisted decision metadata: {"answers": [{"choice": "approve-followup", "confidence": 0.74, "id": "F1", "meets_floor": false, "valid": true}], "code": "jev-low-confidence", "findings": ["F1"], "http": "200", "jev_called": true, "key": "nm-PROBE-test", "latency_ms": 48, "model": "jev-1.13.0", "outcome": "escalate", "purpose": "ask-user-gate", "response_model": "stub-not-live-Jev", "round": 1, "route": "typesafe", "sent": null, "task": "t1", "ts": "2026-10-16T20:48:30Z"}
+NOT LIVE library privacy input='Check on 2026-10-11/12.': exit=0, output='Check on 2026-10-11/12.'
+NOT LIVE library privacy input='call 555-123-4567': exit=0, output='call[redacted]'
+NOT LIVE library privacy input='call +1 555 123 4567': exit=0, output='call[redacted]'
+Live model act and real endpoint delivery UNTESTED: no TypeSafe/OpenRouter key available in this run; tmux absent from PATH. No pipeline-control command executed.

@@ -1,0 +1,18 @@
+Validation target: c1fe3989d5fee05f37082a4c8362478d5f7efeba
+Baseline: 1110dbbd55fede0ff81a4ee8043aac7a4b1f584e
+
+Executed targeted checks:
+- TMPDIR="$PWD/.test-phase-tmp" bash tests/fm-jev-ask-user.test.sh (exit 0; fake transport/sender, NOT live inference)
+- TMPDIR="$PWD/.test-phase-tmp" bash tests/fm-jev-lib.test.sh (exit 0; fake transport, NOT live inference)
+- python3 .test-phase-tmp/probe.py (temporary manual driver; removed after execution)
+  Real public CLI in isolated homes: TOON subset intake, missing-key refusal, destructive and round-cap refusal, missing/duplicate finding-id refusal.
+  Baseline executable on the identical TOON subset: exit 1 id mismatch; target: exit 2 missing key, past snapshot intake.
+  Fake Jev/sender probes: approve with reason and Follow-up check instruction; id-line and TOON subset fixes; reject unjudged-context approval, approval outside test, mixed fix/approve, low-confidence approval.
+  Real library function probes (NOT live end-to-end): preserve 2026-10-11/12; redact national and international phone numbers.
+
+Live inference blocker: TYPESAFE_API_KEY, TYPESAFE_API_KEY_PRIVATE, OPENROUTER_API_KEY and OPENROUTER_API_KEY_PRIVATE are not supplied; no .env exists in this checkout. Supply an authorized existing key through the validation process environment without editing credential stores.
+Live worker delivery blocker: command -v tmux fails. Make the existing tool available on PATH before rerunning a permitted disposable lab scenario. No host search or package installation was attempted.
+Actual gate response, pipeline advancement, and PR creation were intentionally not performed: this phase may not control another pipeline or execute the PR phase. The outer executor owns actual follow-up placement in the eventual PR.
+
+No rendered UI changed or was driven. Reviewer-visible evidence is the actual CLI transcript, with stub-assisted portions explicitly distinguished. No screenshot is claimed.
+No source or repository test files were changed. Temporary test data and baseline executable were removed. No lint, formatter, static analysis or full-suite run was performed.

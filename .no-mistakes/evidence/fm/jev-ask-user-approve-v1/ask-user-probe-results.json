@@ -1,0 +1,67 @@
+[
+  {
+    "name": "no-key-toon-subset",
+    "live": true,
+    "exit": 2
+  },
+  {
+    "name": "destructive-inconclusive",
+    "live": true,
+    "exit": 2
+  },
+  {
+    "name": "round-cap-inconclusive",
+    "live": true,
+    "exit": 2
+  },
+  {
+    "name": "missing-asked-id",
+    "live": true,
+    "exit": 1
+  },
+  {
+    "name": "duplicate-id",
+    "live": true,
+    "exit": 1
+  },
+  {
+    "name": "approve-followup-date-range",
+    "live": false,
+    "exit": 0
+  },
+  {
+    "name": "fix-id-subset",
+    "live": false,
+    "exit": 0
+  },
+  {
+    "name": "fix-toon-subset",
+    "live": false,
+    "exit": 0
+  },
+  {
+    "name": "reject-unjudged-auto-fix",
+    "live": false,
+    "exit": 2
+  },
+  {
+    "name": "reject-noop-inconclusive-context",
+    "live": false,
+    "exit": 2
+  },
+  {
+    "name": "reject-review-approval",
+    "live": false,
+    "exit": 2
+  },
+  {
+    "name": "reject-mixed-fix-approve",
+    "live": false,
+    "exit": 2
+  },
+  {
+    "name": "reject-low-confidence-approval",
+    "live": false,
+    "exit": 2
+  }
+]
