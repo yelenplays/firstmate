@@ -42,7 +42,7 @@ def safe(path):
 
 def policy(config):
     facts = {}
-    for name in ('crew-dispatch.json', 'model-denylist.json', 'dispatch-never-send',
+    for name in ('crew-dispatch.json', 'model-denylist.json', 'dispatch-never-send', 'private-markers',
                  'crew-harness', 'secondmate-harness', 'claude-account', 'pi-account'):
         p = config / name
         facts[name] = digest(p.read_bytes()) if p.exists() else None

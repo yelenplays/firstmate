@@ -71,7 +71,9 @@ test_buried_decision_survives_many_growing_drains_and_resolution_clears_it() {
   # is bounded by new appends, not by total log size.
   for round in 1 2 3 4 5; do
     increment_bytes=$(append_filler "$status" 20)
-    FM_STATE_OVERRIDE="$state" FM_OPEN_DECISIONS_READ_PROBE="$probe" "$DRAIN" > "$out" \
+    # --decisions lists every still-open key; the default drain prints only a
+    # count for a decision it already presented.
+    FM_STATE_OVERRIDE="$state" FM_OPEN_DECISIONS_READ_PROBE="$probe" "$DRAIN" --decisions > "$out" \
       || fail "drain $round over a growing log failed"
     grep -F 'task1' "$out" | grep -F '[key=api-shape]' | grep -F 'pick REST or RPC' >/dev/null \
       || fail "the buried decision was dropped on growth round $round"
@@ -215,7 +217,9 @@ test_read_failure_preserves_state_for_retry() {
   [ "$after_cursor" = "$before_cursor" ] \
     || fail "the failed read advanced or rewrote the persisted cursor"
 
-  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" \
+  # --decisions lists every still-open key, so the check reads the fold rather
+  # than the default new-or-changed presentation.
+  FM_STATE_OVERRIDE="$state" "$DRAIN" --decisions > "$out" \
     || fail "wake drain did not recover after the injected read failure"
   grep -F 'task4' "$out" | grep -F '[key=x]' | grep -F 'something important' >/dev/null \
     || fail "the open decision disappeared when presentation reads recovered: $(command cat "$out")"
@@ -260,7 +264,7 @@ exec "$real_cat" "\$@"
 SH
   chmod +x "$fakebin/cat"
 
-  FM_STATE_OVERRIDE="$state" FM_OPEN_DECISIONS_READ_PROBE="$probe" PATH="$fakebin:$PATH" "$DRAIN" > "$out" \
+  FM_STATE_OVERRIDE="$state" FM_OPEN_DECISIONS_READ_PROBE="$probe" PATH="$fakebin:$PATH" "$DRAIN" --decisions > "$out" \
     || fail "wake drain failed instead of refolding after the cursor-cache read failure"
   grep -F 'task5' "$out" | grep -F '[key=cache]' | grep -F 'authoritative status' >/dev/null \
     || fail "the cursor-cache read failure hid the recurring open decision: $(command cat "$out")"
@@ -297,7 +301,7 @@ test_pre_fix_cursor_refolds_corr_tagged_decision() {
   } > "$cursor"
   : > "$probe"
 
-  FM_STATE_OVERRIDE="$state" FM_OPEN_DECISIONS_READ_PROBE="$probe" "$DRAIN" > "$out" \
+  FM_STATE_OVERRIDE="$state" FM_OPEN_DECISIONS_READ_PROBE="$probe" "$DRAIN" --decisions > "$out" \
     || fail "drain failed while migrating the pre-fix corr-tag cursor"
   grep -F 'task7 [key=loan-installment-cadence-amount] needs-decision: pick the cadence' "$out" >/dev/null \
     || fail "the pre-fix cursor hid the corr-tagged decision after migration: $(cat "$out")"
@@ -368,7 +372,9 @@ test_terminal_supersession_reaches_cached_drains() {
           size=$(LC_ALL=C wc -c < "$status" | tr -d '[:space:]')
           printf 'version=5\noffset=%s\nident=%s\naccess\tblocked\twaiting' "$size" "$ident" > "$cursor"
         fi
-        FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" 2> "$dir/drain.err" || fail "$kind terminal drain failed"
+        # --decisions lists every still-open key, so the assertion reads the fold
+        # itself rather than the default new-or-changed presentation.
+        FM_STATE_OVERRIDE="$state" "$DRAIN" --decisions > "$out" 2> "$dir/drain.err" || fail "$kind terminal drain failed"
         if [ "$kind" = secondmate ]; then
           assert_contains "$(cat "$out")" 'task [key=access] blocked: waiting' "secondmate blocker must survive $terminal and cache migration"
         else

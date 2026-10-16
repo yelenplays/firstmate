@@ -319,6 +319,51 @@ rm "$home/state/task-receipt.status" "$home/state/task-receipt.execution"
 if (cd "$home/task-worker" && "$EXEC" status task-receipt "$task_token" 'working: unenrolled worker') 2>/dev/null; then fail 'unenrolled status accepted'; fi
 [ ! -e "$home/state/task-receipt.execution" ] && [ ! -e "$home/state/task-receipt.status" ] || fail 'unenrolled status mutated worker records'
 
+# The 2026-10-14 retro: `check: execution <id>` fired twice within a minute or
+# two of a fresh spawn while the worker was starting normally - once before its
+# receipt, once on the spawn-seeded busy record. A working crew owns its own
+# launch inside the grace; a dead launch, and a launch still unconfirmed or still
+# on its seed once the grace ends, wake firstmate as before.
+tasks add launch-grace 'Fresh launch' --kind ship >/dev/null
+"$EXEC" approve launch-grace --basis captain-approved
+mkdir -p "$home/grace-worker"
+git -C "$home/grace-worker" init -q
+printf 'kind=ship\nwindow=fake\nworktree=%s/grace-worker\nproject=%s/project\nspawn_gen=grace-gen\nharness=pi\n' "$home" "$home" > "$home/state/launch-grace.meta"
+grace_wakes() { awk -F '\t' '$4 == "execution:launch-grace" { n++ } END { print n + 0 }' "$home/state/.wake-queue" 2>/dev/null || echo 0; }
+"$ROOT/bin/fm-wake-drain.sh" > "$home/drain" 2> "$home/err"
+ack_drain_err "$home/state" "$home/err" || true
+"$EXEC" notify > /dev/null
+grace_token=$("$EXEC" attempt launch-grace --spawn-gen grace-gen)
+export FM_FAKE_CREW_STATE_launch_grace='state: working · source: pane · harness busy (pi-ext)'
+"$EXEC" show launch-grace | grep -q 'worker.*confirm-handoff-within-launch-grace' \
+  || fail "a working crew awaiting its receipt inside the launch grace was not its own owner: $("$EXEC" show launch-grace)"
+before=$(grace_wakes)
+"$EXEC" notify > "$home/notifications"
+! grep -q launch-grace "$home/notifications" || fail 'a normal launch woke firstmate before its receipt'
+(cd "$home/grace-worker" && "$EXEC" started launch-grace "$grace_token")
+printf 'grace-gen\n' > "$home/state/launch-grace.busy-gen"
+printf 'v1 gen=grace-gen seq=1 state=busy source=fm-spawn event=launch ts=%s\n' "$(date +%s)" > "$home/state/launch-grace.busy-state"
+"$EXEC" show launch-grace | grep -q 'worker.*start-implementation-within-launch-grace' \
+  || fail "a spawn-seeded busy record inside the launch grace was not the worker's: $("$EXEC" show launch-grace)"
+"$EXEC" notify > "$home/notifications"
+! grep -q launch-grace "$home/notifications" || fail 'a normal launch woke firstmate on its spawn seed'
+[ "$(grace_wakes)" = "$before" ] || fail 'a normal launch queued an execution wake'
+# Past the grace, a launch still on its seed is firstmate's again, once.
+jq '.attempt_at -= 3600' "$home/state/launch-grace.execution" > "$home/grace.json"
+mv "$home/grace.json" "$home/state/launch-grace.execution"
+"$EXEC" notify > "$home/notifications"
+grep -q 'launch-grace.*firstmate.*verify-progress-not-launch-seed' "$home/notifications" \
+  || fail "a launch still on its seed after the grace did not wake firstmate: $(<"$home/notifications")"
+"$EXEC" notify > "$home/dedup"
+[ ! -s "$home/dedup" ] || fail 'the post-grace launch-seed check repeated'
+# A dead launch never gets the grace.
+grace_token=$("$EXEC" attempt launch-grace --spawn-gen grace-gen)
+export FM_FAKE_CREW_STATE_launch_grace='state: unknown · source: none · endpoint dead'
+"$EXEC" show launch-grace | grep -q 'firstmate.*owner unconfirmed' \
+  || fail "a dead launch inside the grace was not firstmate's: $("$EXEC" show launch-grace)"
+unset FM_FAKE_CREW_STATE_launch_grace
+pass 'a fresh launch owns its start inside the grace; a dead or overdue launch still wakes firstmate'
+
 tasks add rovo-promotion 'Implement approved Rovo task' --kind scout >/dev/null
 "$EXEC" approve rovo-promotion --basis captain-approved
 FM_HOME="$home" "$ROOT/bin/fm-brief.sh" rovo-promotion project --scout >/dev/null
