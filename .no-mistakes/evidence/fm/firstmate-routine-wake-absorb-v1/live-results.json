@@ -1,0 +1,52 @@
+[
+  {
+    "name": "A working real Claude worker has a routine wake acknowledged by triage",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Mixed wake retires routine rows but preserves a completed outcome for firstmate",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "An unqueued new or changed decision stays actionable; only a delivered unchanged decision is absorbable",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Approval before notification exposes a firstmate-owned execution obligation once and remembers successful delivery",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "A corrupt execution record requires firstmate once, then only a successfully delivered unchanged obligation is absorbable",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Manual triage presents a previously unseen decision once and records successful delivery for later absorption",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "A byte-capped decision list refuses whole-batch absorption even after its visible entries were presented",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Closed stdout preserves a one-shot notice, including a no-ack lock-contended replay, until successful delivery",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Even an acknowledged all-routine presentation survives failed delivery and prevents absorption on replay",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Away-mode ownership prevents triage from acknowledging a routine wake",
+    "result": "pass",
+    "live": true
+  }
+]

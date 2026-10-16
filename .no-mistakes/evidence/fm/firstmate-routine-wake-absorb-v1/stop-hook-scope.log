@@ -1,0 +1,2 @@
+fm_primary_root_matches(run_worktree) exit=1
+tmux: not on PATH

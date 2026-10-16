@@ -1,0 +1,655 @@
+$ bin/fm-herdr-lab.sh name routine-live
+fm-lab-routine-live-26699-27191
+
+exit=0
+$ bin/fm-herdr-lab.sh provision fm-lab-routine-live-26699-27191
+
+exit=0
+$ bin/fm-herdr-lab.sh run fm-lab-routine-live-26699-27191 workspace create --cwd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58 --label routine-live --env FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home --no-focus
+{"id":"cli:workspace:create","result":{"root_pane":{"agent_status":"unknown","cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58","focused":true,"foreground_cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58","pane_id":"w1:p1","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":40},"tab_id":"w1:t1","terminal_id":"term_65df3b608763a1","workspace_id":"w1"},"tab":{"agent_status":"unknown","focused":true,"label":"1","number":1,"pane_count":1,"tab_id":"w1:t1","workspace_id":"w1"},"type":"workspace_created","workspace":{"active_tab_id":"w1:t1","agent_status":"unknown","focused":true,"label":"routine-live","number":1,"pane_count":1,"tab_count":1,"workspace_id":"w1"}}}
+
+exit=0
+$ bin/fm-herdr-lab.sh run fm-lab-routine-live-26699-27191 agent start routine-worker --kind claude --pane w1:p1 --timeout 30000
+{"id":"cli:agent:start","result":{"agent":{"agent":"claude","agent_session":{"agent":"claude","kind":"id","source":"herdr:claude","value":"ed059e76-08d9-4e81-8daf-6ae454bcfc0a"},"agent_status":"idle","cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58","focused":true,"foreground_cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58","interactive_ready":true,"name":"routine-worker","pane_id":"w1:p1","revision":1,"state_change_seq":1,"tab_id":"w1:t1","terminal_id":"term_65df3b608763a1","terminal_title":"✳ Claude Code","terminal_title_stripped":"Claude Code","workspace_id":"w1"},"argv":["claude"],"type":"agent_started"}}
+
+exit=0
+$ bin/fm-herdr-lab.sh run fm-lab-routine-live-26699-27191 agent prompt w1:p1 'Captain-approved test-only action: run /bin/sleep 300 directly using the Bash tool, in the foreground, then reply DONE. Do not edit files, inspect projects, start workers, or do any other work. This is a disposable test session.' --wait --until working --timeout 20000
+{"id":"cli:agent:prompt","result":{"agent":{"agent":"claude","agent_session":{"agent":"claude","kind":"id","source":"herdr:claude","value":"ed059e76-08d9-4e81-8daf-6ae454bcfc0a"},"agent_status":"working","cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58","focused":true,"foreground_cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58","interactive_ready":true,"name":"routine-worker","pane_id":"w1:p1","revision":1,"state_change_seq":2,"tab_id":"w1:t1","terminal_id":"term_65df3b608763a1","terminal_title":"◐ Claude Code","terminal_title_stripped":"Claude Code","workspace_id":"w1"},"type":"agent_prompted"}}
+
+exit=0
+$ bin/fm-crew-state.sh routine
+state: working · source: pane · harness busy (claude-agents)
+
+exit=0
+$ bin/fm-herdr-lab.sh run fm-lab-routine-live-26699-27191 agent read w1:p1 --source visible
+
+ ▐▛███▛█   Claude Code v2.1.301
+▝▜██████▀  Opus 5.5 (1M context) with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58
+
+
+❯ Captain-approved test-only action: run /bin/sleep 300 directly using the Bash tool, in the foreground, then reply
+  DONE. Do not edit files, inspect projects, start workers, or do any other work. This is a disposable test session.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+✢ Cultivating…
+                                                                                                   ◐ medium · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5.5 (1M context) | ~/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58 | b9d70e89
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent
+
+exit=0
+
+=== A working real Claude worker has a routine wake acknowledged by triage ===
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 1 task(s): 0 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151178	1	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACKED: triage acknowledged every row through 1; nothing needs firstmate
+
+exit=0
+$ bin/fm-watch-arm.sh --stop
+watcher: stopped pid=29003
+
+exit=0
+
+=== Mixed wake retires routine rows but preserves a completed outcome for firstmate ===
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh signal finished.status 'signal: finished.status'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 2 row(s), 2 task(s): 1 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151180	2	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+1792151180	3	signal	finished.status	signal: finished.status
+wake annotation: latest wake-EVENT observed at drain, not current state: finished.status: done: bounded work complete
+STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):
+finished done: bounded work complete
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+finished - C7 latest status is captain-relevant
+  crew: not read (failed earlier clause)
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+ROUTINE ROWS ACKNOWLEDGED BY TRIAGE: 2 (the WAKE_ACK_REQUIRED command below retires the rest)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 29003.1792151180.8gcXXX
+
+exit=10
+$ bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 29003.1792151180.8gcXXX
+
+exit=0
+
+=== An unqueued new or changed decision stays actionable; only a delivered unchanged decision is absorbable ===
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 2 task(s): 1 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151183	4	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+other [key=route] needs-decision: choose live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+other - C4 new open decision: other [key=route] needs-decision: choose live lane
+  crew: not read (the drain found the decision, not a queued row)
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 4 --recovery-generation 36602.1792151183.vPiur8
+
+exit=10
+$ bin/fm-wake-drain.sh --ack-through 4 --recovery-generation 36602.1792151183.vPiur8
+
+exit=0
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 1 task(s): 0 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151185	5	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+other [key=route] needs-decision: choose live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACKED: triage acknowledged every row through 5; nothing needs firstmate
+
+exit=0
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 2 task(s): 1 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151187	6	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+other [key=route] needs-decision: choose changed live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+other - C4 new open decision: other [key=route] needs-decision: choose changed live lane
+  crew: not read (the drain found the decision, not a queued row)
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 6 --recovery-generation 43057.1792151187.XGLx6E
+
+exit=10
+$ bin/fm-wake-drain.sh --ack-through 6 --recovery-generation 43057.1792151187.XGLx6E
+
+exit=0
+
+=== Approval before notification exposes a firstmate-owned execution obligation once and remembers successful delivery ===
+$ tasks-axi add accepted 'Implement accepted feature' --kind ship --file /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/data/backlog.md
+ok: added accepted (ship) -> Queued
+task:
+  id: accepted
+  title: Implement accepted feature
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-16
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start accepted --file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block accepted --by <other> --file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/data/backlog.md` to record a dependency
+
+exit=0
+$ bin/fm-task-execution.sh approve accepted --basis captain-approved
+
+exit=0
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 2 task(s): 1 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151190	7	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+other [key=route] needs-decision: choose changed live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+accepted	firstmate	implementation owner missing; dispatch or promote within approved intent
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+accepted - C8 new execution obligation owned by firstmate: implementation owner missing; dispatch or promote within approved intent
+  crew: not read (the drain found the obligation, not a queued row)
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 7 --recovery-generation 46162.1792151190.fBtIHX
+
+exit=10
+$ bin/fm-wake-drain.sh --ack-through 7 --recovery-generation 46162.1792151190.fBtIHX
+
+exit=0
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 1 task(s): 0 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151192	8	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+other [key=route] needs-decision: choose changed live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+accepted	firstmate	implementation owner missing; dispatch or promote within approved intent
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACKED: triage acknowledged every row through 8; nothing needs firstmate
+
+exit=0
+
+=== A corrupt execution record requires firstmate once, then only a successfully delivered unchanged obligation is absorbable ===
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 2 task(s): 1 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151195	9	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+other [key=route] needs-decision: choose changed live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+accepted	firstmate	implementation owner missing; dispatch or promote within approved intent
+broken	firstmate	reconcile-corrupt-execution-record
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+broken - C8 new execution obligation owned by firstmate: reconcile-corrupt-execution-record
+  crew: not read (the drain found the obligation, not a queued row)
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 9 --recovery-generation 52156.1792151195.hHOuf4
+
+exit=10
+$ bin/fm-wake-drain.sh --ack-through 9 --recovery-generation 52156.1792151195.hHOuf4
+
+exit=0
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 1 task(s): 0 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151198	10	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+other [key=route] needs-decision: choose changed live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+accepted	firstmate	implementation owner missing; dispatch or promote within approved intent
+broken	firstmate	reconcile-corrupt-execution-record
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACKED: triage acknowledged every row through 10; nothing needs firstmate
+
+exit=0
+
+=== Manual triage presents a previously unseen decision once and records successful delivery for later absorption ===
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh
+WAKE TRIAGE: 1 row(s), 2 task(s): 1 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151200	11	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+manual [key=manual] needs-decision: manual presentation provenance
+other [key=route] needs-decision: choose changed live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+accepted	firstmate	implementation owner missing; dispatch or promote within approved intent
+broken	firstmate	reconcile-corrupt-execution-record
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+manual - C4 new open decision: manual [key=manual] needs-decision: manual presentation provenance
+  crew: not read (the drain found the decision, not a queued row)
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 11 --recovery-generation 57784.1792151200.Su9c0p
+
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 11 --recovery-generation 57784.1792151200.Su9c0p
+
+exit=0
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 1 task(s): 0 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151203	12	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+manual [key=manual] needs-decision: manual presentation provenance
+other [key=route] needs-decision: choose changed live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+accepted	firstmate	implementation owner missing; dispatch or promote within approved intent
+broken	firstmate	reconcile-corrupt-execution-record
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACKED: triage acknowledged every row through 12; nothing needs firstmate
+
+exit=0
+
+=== A byte-capped decision list refuses whole-batch absorption even after its visible entries were presented ===
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 19 task(s): 18 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151206	13	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+cap0 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap1 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap10 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap11 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap12 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap13 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap14 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap15 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap16 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap17 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap18 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap19 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap2 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap20 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap21 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap22 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap23 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap24 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+OPEN DECISIONS: 14 more omitted (byte cap)
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+accepted	firstmate	implementation owner missing; dispatch or promote within approved intent
+broken	firstmate	reconcile-corrupt-execution-record
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+cap0 - C4 new open decision: cap0 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap1 - C4 new open decision: cap1 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap10 - C4 new open decision: cap10 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap11 - C4 new open decision: cap11 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap12 - C4 new open decision: cap12 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap13 - C4 new open decision: cap13 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap14 - C4 new open decision: cap14 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap15 - C4 new open decision: cap15 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap16 - C4 new open decision: cap16 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap17 - C4 new open decision: cap17 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap18 - C4 new open decision: cap18 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap19 - C4 new open decision: cap19 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap2 - C4 new open decision: cap2 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap20 - C4 new open decision: cap20 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap21 - C4 new open decision: cap21 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap22 - C4 new open decision: cap22 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap23 - C4 new open decision: cap23 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+cap24 - C4 new open decision: cap24 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+  crew: not read (the drain found the decision, not a queued row)
+- - C4 open decisions omitted by the byte cap; read the full drain output
+  crew: 
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 13 --recovery-generation 66648.1792151206.gixcch
+
+exit=10
+$ bin/fm-wake-drain.sh --ack-through 13 --recovery-generation 66648.1792151206.gixcch
+
+exit=0
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 1 task(s): 0 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151214	14	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+cap0 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap1 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap10 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap11 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap12 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap13 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap14 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap15 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap16 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap17 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap18 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap19 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap2 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap20 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap21 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap22 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap23 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+cap24 [key=cap] needs-decision: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx [truncated]
+OPEN DECISIONS: 14 more omitted (byte cap)
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+accepted	firstmate	implementation owner missing; dispatch or promote within approved intent
+broken	firstmate	reconcile-corrupt-execution-record
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+- - C4 open decisions omitted by the byte cap; read the full drain output
+  crew: 
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 14 --recovery-generation 76194.1792151214.VhVgfa
+
+exit=10
+$ bin/fm-wake-drain.sh --ack-through 14 --recovery-generation 76194.1792151214.VhVgfa
+
+exit=0
+
+=== Closed stdout preserves a one-shot notice, including a no-ack lock-contended replay, until successful delivery ===
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb [stdout closed]
+cat: stdout: Bad file descriptor
+
+exit=1
+$ bin/fm-wake-triage.sh --absorb [stdout closed]
+cat: stdout: Bad file descriptor
+
+exit=1
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 3 task(s): 2 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+RECOVERED DRAIN OUTPUT (an earlier triage was interrupted; act on all of it):
+1792151226	15	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 15 --recovery-generation 93676.1792151226.EAdlR7
+UNREAD STATUS (new since last drain, not re-printed after this presentation):
+notice note: one-shot live answer must survive
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+manual [key=manual] needs-decision: manual presentation provenance
+other [key=route] needs-decision: choose changed live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+accepted	firstmate	implementation owner missing; dispatch or promote within approved intent
+broken	firstmate	reconcile-corrupt-execution-record
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+WAKE DRAIN SKIPPED: queue lock remains held by live pid 98991 after 1s; retry on the next drain.
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151226	15	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+manual [key=manual] needs-decision: manual presentation provenance
+other [key=route] needs-decision: choose changed live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+accepted	firstmate	implementation owner missing; dispatch or promote within approved intent
+broken	firstmate	reconcile-corrupt-execution-record
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+manual - C4 new open decision: manual [key=manual] needs-decision: manual presentation provenance
+  crew: not read (the drain found the decision, not a queued row)
+other - C4 new open decision: other [key=route] needs-decision: choose changed live lane
+  crew: not read (the drain found the decision, not a queued row)
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 15 --recovery-generation 93676.1792151226.EAdlR7
+
+exit=10
+$ bin/fm-wake-drain.sh --ack-through 15 --recovery-generation 93676.1792151226.EAdlR7
+
+exit=0
+
+=== Even an acknowledged all-routine presentation survives failed delivery and prevents absorption on replay ===
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb [stdout closed]
+cat: stdout: Bad file descriptor
+
+exit=1
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 1 row(s), 1 task(s): 0 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+RECOVERED DRAIN OUTPUT (an earlier triage was interrupted; act on all of it):
+1792151234	16	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 16 --recovery-generation 6202.1792151234.njdin5
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+manual [key=manual] needs-decision: manual presentation provenance
+other [key=route] needs-decision: choose changed live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+accepted	firstmate	implementation owner missing; dispatch or promote within approved intent
+broken	firstmate	reconcile-corrupt-execution-record
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151237	17	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+manual [key=manual] needs-decision: manual presentation provenance
+other [key=route] needs-decision: choose changed live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+accepted	firstmate	implementation owner missing; dispatch or promote within approved intent
+broken	firstmate	reconcile-corrupt-execution-record
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 17 --recovery-generation 10869.1792151238.03yYOT
+
+exit=10
+$ bin/fm-wake-drain.sh --ack-through 16 --recovery-generation 6202.1792151234.njdin5
+wake drain: nothing was acknowledged through 16 (none of your presented wake rows is at or below it); the current wake is row 17: run bin/fm-wake-drain.sh --ack-through 17 --recovery-generation 10869.1792151238.03yYOT after handling it
+
+exit=0
+
+=== Away-mode ownership prevents triage from acknowledging a routine wake ===
+$ bash -c '. "$1"; fm_wake_append "$2" "$3" "$4"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/bin/fm-wake-lib.sh stale fm-lab-routine-live-26699-27191:w1:p1 'stale: fm-lab-routine-live-26699-27191:w1:p1'
+
+exit=0
+$ bin/fm-wake-triage.sh --absorb
+WAKE TRIAGE: 2 row(s), 1 task(s): 0 act now, 1 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58/.gate-test/scenario-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792151241	18	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+manual [key=manual] needs-decision: manual presentation provenance
+other [key=route] needs-decision: choose changed live lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+accepted	firstmate	implementation owner missing; dispatch or promote within approved intent
+broken	firstmate	reconcile-corrupt-execution-record
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+HIDDEN QUEUE ROWS (preserved despite drain deduplication):
+1792151237	17	stale	fm-lab-routine-live-26699-27191:w1:p1	stale: fm-lab-routine-live-26699-27191:w1:p1
+ROUTINE (worker verifiably working, no open decision, no hold):
+routine - crew: state: working · source: pane · harness busy (claude-agents)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 18 --recovery-generation 10869.1792151238.03yYOT
+
+exit=10
+$ bin/fm-wake-drain.sh --ack-through 18 --recovery-generation 10869.1792151238.03yYOT
+
+exit=0
+$ bin/fm-watch-arm.sh --stop
+watcher: none running
+
+exit=0
+$ bin/fm-herdr-lab.sh run fm-lab-routine-live-26699-27191 agent read w1:p1 --source visible
+
+ ▐▛███▛█   Claude Code v2.1.301
+▝▜██████▀  Opus 5.5 (1M context) with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58
+
+
+❯ Captain-approved test-only action: run /bin/sleep 300 directly using the Bash tool, in the foreground, then reply
+  DONE. Do not edit files, inspect projects, start workers, or do any other work. This is a disposable test session.
+
+  Sleeping for 300 seconds · 1m 4s
+  ⎿  $ /bin/sleep 300 (1m 3s)
+     (ctrl+b to run in background)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+✻ Lollygagging… (1m 7s · ↓ 110 tokens)
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5.5 (1M context) | ~/.no-mistakes/worktrees/548b8aa73bec/01M527NFPCVT0E1ABBY0407R58 | b9d70e89 | ctx 7%
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent
+
+exit=0
+$ bin/fm-herdr-lab.sh teardown fm-lab-routine-live-26699-27191
+
+exit=0
