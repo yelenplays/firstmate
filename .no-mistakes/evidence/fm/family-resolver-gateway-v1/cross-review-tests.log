@@ -1,5 +1,6 @@
+ok - an unknown gateway incarnation never certifies an earlier builder's maker as independent
 ok - gateway builders resolve by model maker while unknown models still escalate
-ok - previously unknown gateway builders are resolved for status and planning
+ok - previously unknown gateway builder history stays unknown for status and planning
 ok - gateway resolution never replaces known families or unknown builder history
 ok - a same-family pipeline review triggers a one-shot reviewer from another family
 ok - a pipeline review from another family counts as the independent review

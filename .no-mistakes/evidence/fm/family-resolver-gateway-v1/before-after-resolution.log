@@ -1,0 +1,7 @@
+BASE COMMIT: 8045dac2e15053eff300e75778019a5656601cb0
+model=opencode-go/deepseek-v4.1-flash family=unknown source=opencode catalog does not prove a maker for model opencode-go/deepseek-v4.1-flash
+model=opencode-go/glm-5 family=unknown source=opencode catalog does not prove a maker for model opencode-go/glm-5
+
+TARGET COMMIT: eae2b9d33449df9864e6646d63df4541985876f8
+model=opencode-go/deepseek-v4.1-flash family=deepseek source=opencode provider-qualified model opencode-go/deepseek-v4.1-flash identifies maker deepseek
+model=opencode-go/glm-5 family=zhipu source=opencode provider-qualified model opencode-go/glm-5 identifies maker zhipu

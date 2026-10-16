@@ -1,0 +1,311 @@
+{
+  "scope": "Real unmodified cross-review CLI; isolated operator-supplied task records and report protocol inputs; real Pi catalog CLI; no worker launches or AI reviews claimed.",
+  "checks": [
+    {
+      "scenario": "known-gateway-maker",
+      "task": "opencode-deepseek-v4-1-flash",
+      "family": "deepseek",
+      "plan": {
+        "task": "opencode-deepseek-v4-1-flash",
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "builder_family": "deepseek",
+        "action": "spawn-reviewer",
+        "kind": "review",
+        "reason": "no one-shot review is recorded for 5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6, and local-only mode runs no pipeline review",
+        "reviewer_id": "opencode-deepseek-v4-1-flash-xr-5a407c03",
+        "reviewer_harness": "claude",
+        "reviewer_model": "claude-opus-5-5",
+        "reviewer_effort": "high",
+        "reviewer_family": "anthropic"
+      },
+      "persisted_profile": {
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "profile": {
+          "harness": "claude",
+          "model": "claude-opus-5-5",
+          "effort": "high"
+        }
+      }
+    },
+    {
+      "scenario": "known-gateway-maker",
+      "task": "opencode-glm-5",
+      "family": "zhipu",
+      "plan": {
+        "task": "opencode-glm-5",
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "builder_family": "zhipu",
+        "action": "spawn-reviewer",
+        "kind": "review",
+        "reason": "no one-shot review is recorded for 5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6, and local-only mode runs no pipeline review",
+        "reviewer_id": "opencode-glm-5-xr-5a407c03",
+        "reviewer_harness": "claude",
+        "reviewer_model": "claude-opus-5-5",
+        "reviewer_effort": "high",
+        "reviewer_family": "anthropic"
+      },
+      "persisted_profile": {
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "profile": {
+          "harness": "claude",
+          "model": "claude-opus-5-5",
+          "effort": "high"
+        }
+      }
+    },
+    {
+      "scenario": "known-gateway-maker",
+      "task": "pi-deepseek-v4-1-flash",
+      "family": "deepseek",
+      "plan": {
+        "task": "pi-deepseek-v4-1-flash",
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "builder_family": "deepseek",
+        "action": "spawn-reviewer",
+        "kind": "review",
+        "reason": "no one-shot review is recorded for 5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6, and local-only mode runs no pipeline review",
+        "reviewer_id": "pi-deepseek-v4-1-flash-xr-5a407c03",
+        "reviewer_harness": "claude",
+        "reviewer_model": "claude-opus-5-5",
+        "reviewer_effort": "high",
+        "reviewer_family": "anthropic"
+      },
+      "persisted_profile": {
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "profile": {
+          "harness": "claude",
+          "model": "claude-opus-5-5",
+          "effort": "high"
+        }
+      }
+    },
+    {
+      "scenario": "known-gateway-maker",
+      "task": "pi-glm-5",
+      "family": "zhipu",
+      "plan": {
+        "task": "pi-glm-5",
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "builder_family": "zhipu",
+        "action": "spawn-reviewer",
+        "kind": "review",
+        "reason": "no one-shot review is recorded for 5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6, and local-only mode runs no pipeline review",
+        "reviewer_id": "pi-glm-5-xr-5a407c03",
+        "reviewer_harness": "claude",
+        "reviewer_model": "claude-opus-5-5",
+        "reviewer_effort": "high",
+        "reviewer_family": "anthropic"
+      },
+      "persisted_profile": {
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "profile": {
+          "harness": "claude",
+          "model": "claude-opus-5-5",
+          "effort": "high"
+        }
+      }
+    },
+    {
+      "scenario": "known-gateway-maker",
+      "task": "pi-signed-deepseek-v4-1-flash",
+      "family": "deepseek",
+      "plan": {
+        "task": "pi-signed-deepseek-v4-1-flash",
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "builder_family": "deepseek",
+        "action": "spawn-reviewer",
+        "kind": "review",
+        "reason": "no one-shot review is recorded for 5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6, and local-only mode runs no pipeline review",
+        "reviewer_id": "pi-signed-deepseek-v4-1-flash-xr-5a407c03",
+        "reviewer_harness": "claude",
+        "reviewer_model": "claude-opus-5-5",
+        "reviewer_effort": "high",
+        "reviewer_family": "anthropic"
+      },
+      "persisted_profile": {
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "profile": {
+          "harness": "claude",
+          "model": "claude-opus-5-5",
+          "effort": "high"
+        }
+      }
+    },
+    {
+      "scenario": "known-gateway-maker",
+      "task": "pi-signed-glm-5",
+      "family": "zhipu",
+      "plan": {
+        "task": "pi-signed-glm-5",
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "builder_family": "zhipu",
+        "action": "spawn-reviewer",
+        "kind": "review",
+        "reason": "no one-shot review is recorded for 5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6, and local-only mode runs no pipeline review",
+        "reviewer_id": "pi-signed-glm-5-xr-5a407c03",
+        "reviewer_harness": "claude",
+        "reviewer_model": "claude-opus-5-5",
+        "reviewer_effort": "high",
+        "reviewer_family": "anthropic"
+      },
+      "persisted_profile": {
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "profile": {
+          "harness": "claude",
+          "model": "claude-opus-5-5",
+          "effort": "high"
+        }
+      }
+    },
+    {
+      "scenario": "other-gateway-maker",
+      "task": "openrouter-deepseek-v4-1-flash",
+      "family": "deepseek"
+    },
+    {
+      "scenario": "other-gateway-maker",
+      "task": "openrouter-glm-5",
+      "family": "zhipu"
+    },
+    {
+      "scenario": "other-gateway-maker",
+      "task": "another-gateway-deepseek-v4-1-flash",
+      "family": "deepseek"
+    },
+    {
+      "scenario": "other-gateway-maker",
+      "task": "another-gateway-glm-5",
+      "family": "zhipu"
+    },
+    {
+      "scenario": "reject-unproven-maker",
+      "model": "opencode-go/not-a-known-model",
+      "plan": {
+        "task": "unknown-model-0",
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "builder_family": "unknown",
+        "action": "escalate",
+        "reason": "the builder family is unknown (opencode catalog does not prove a maker for model opencode-go/not-a-known-model (resolved from the recorded harness and model; the record predates family recording)), so no reviewer can be proven to be another family"
+      }
+    },
+    {
+      "scenario": "reject-unproven-maker",
+      "model": "opencode-go/deepseek-",
+      "plan": {
+        "task": "unknown-model-1",
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "builder_family": "unknown",
+        "action": "escalate",
+        "reason": "the builder family is unknown (opencode catalog does not prove a maker for model opencode-go/deepseek- (resolved from the recorded harness and model; the record predates family recording)), so no reviewer can be proven to be another family"
+      }
+    },
+    {
+      "scenario": "reject-unproven-maker",
+      "model": "opencode-go/glm-",
+      "plan": {
+        "task": "unknown-model-2",
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "builder_family": "unknown",
+        "action": "escalate",
+        "reason": "the builder family is unknown (opencode catalog does not prove a maker for model opencode-go/glm- (resolved from the recorded harness and model; the record predates family recording)), so no reviewer can be proven to be another family"
+      }
+    },
+    {
+      "scenario": "reject-unproven-maker",
+      "model": "opencode-go/x-glm-5",
+      "plan": {
+        "task": "unknown-model-3",
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "builder_family": "unknown",
+        "action": "escalate",
+        "reason": "the builder family is unknown (opencode catalog does not prove a maker for model opencode-go/x-glm-5 (resolved from the recorded harness and model; the record predates family recording)), so no reviewer can be proven to be another family"
+      }
+    },
+    {
+      "scenario": "reject-unproven-maker",
+      "model": "opencode-go/glm-5/other",
+      "plan": {
+        "task": "unknown-model-4",
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "builder_family": "unknown",
+        "action": "escalate",
+        "reason": "the builder family is unknown (opencode catalog does not prove a maker for model opencode-go/glm-5/other (resolved from the recorded harness and model; the record predates family recording)), so no reviewer can be proven to be another family"
+      }
+    },
+    {
+      "scenario": "reject-unproven-maker",
+      "model": "deepseek-v4.1-flash",
+      "plan": {
+        "task": "unknown-model-5",
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "builder_family": "unknown",
+        "action": "escalate",
+        "reason": "the builder family is unknown (opencode catalog does not prove a maker for model deepseek-v4.1-flash (resolved from the recorded harness and model; the record predates family recording)), so no reviewer can be proven to be another family"
+      }
+    },
+    {
+      "scenario": "preserve-unknown-history",
+      "family": "unknown",
+      "collection": "recorded accepted=no kind=review head=5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6 reason=the reviewer family deepseek is not provably different from the builder's unknown\n"
+    },
+    {
+      "scenario": "preserve-unknown-history",
+      "family": "openai,unknown",
+      "collection": "recorded accepted=no kind=review head=5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6 reason=the reviewer family deepseek is not provably different from the builder's openai,unknown\n"
+    },
+    {
+      "scenario": "preserve-unknown-history",
+      "family": "unknown,zhipu",
+      "collection": "recorded accepted=no kind=review head=5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6 reason=the reviewer family deepseek is not provably different from the builder's unknown,zhipu\n"
+    },
+    {
+      "scenario": "preserve-known-history",
+      "recorded": "deepseek",
+      "current_model": "opencode-go/glm-5"
+    },
+    {
+      "scenario": "same-maker-alias-refused",
+      "builder": "zai",
+      "reviewer_model": "opencode-go/glm-5",
+      "reviewer_family": null,
+      "collection": "recorded accepted=no kind=review head=5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6 reason=the reviewer family zhipu is not provably different from the builder's zai\n"
+    },
+    {
+      "scenario": "same-maker-alias-refused",
+      "builder": "zhipu",
+      "reviewer_model": "opencode-go/glm-5",
+      "reviewer_family": "zai",
+      "collection": "recorded accepted=no kind=review head=5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6 reason=the reviewer family zai is not provably different from the builder's zhipu\n"
+    },
+    {
+      "scenario": "same-maker-alias-refused",
+      "builder": "deepseek,zhipu",
+      "reviewer_model": "opencode-go/glm-5",
+      "reviewer_family": "zai",
+      "collection": "recorded accepted=no kind=review head=5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6 reason=the reviewer family zai is not provably different from the builder's deepseek,zhipu\n"
+    },
+    {
+      "scenario": "distinct-gateway-reviewer",
+      "collection": "recorded accepted=yes kind=review verdict=success head=5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6 reviewer_family=zhipu\n",
+      "status": {
+        "task": "cross-gateway-review",
+        "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+        "mode": "local-only",
+        "builder": {
+          "family": "deepseek",
+          "source": "operator-supplied lab history"
+        },
+        "pipeline_review": "N/A: local-only mode runs no pipeline review",
+        "independent_review": {
+          "source": "one-shot",
+          "family": "zhipu",
+          "verdict": "success",
+          "head": "5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6",
+          "reviewer": "cross-gateway-reviewer",
+          "detail": "one-shot review by cross-gateway-reviewer (zhipu) declares head 5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6 with verdict success; the builder is deepseek"
+        },
+        "confirm": "MISSING: no confirm 5a407c0340e04575cd9ae0bcab8f2c7d9ac14cb6 is recorded"
+      }
+    }
+  ]
+}
