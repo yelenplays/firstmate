@@ -2176,11 +2176,12 @@ while :; do
     fi
   done
   if "$held"; then
-    printf held >"$SLOT_HELD_PROBE"
+    printf held >>"$SLOT_HELD_PROBE"
   else
-    printf released >"$SLOT_EARLY_RELEASE"
+    printf released >>"$SLOT_EARLY_RELEASE"
   fi
-  # Start is recorded only after a probe, so a deadline that lands right after
+  # Probes append so a kill mid-write never truncates earlier evidence, and
+  # start is recorded only after a probe, so a deadline that lands right after
   # startup cannot leave a started script with no slot evidence.
   [ -s "$SLOT_STARTED" ] || printf '%s\n' "$$" >"$SLOT_STARTED"
   sleep 0.01
