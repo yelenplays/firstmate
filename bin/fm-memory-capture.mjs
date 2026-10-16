@@ -192,8 +192,8 @@ function clip(text, limit) {
   return text.length <= limit ? text : `${text.slice(0, limit)} [...]`;
 }
 
-// Deterministic pre-filter: drop plumbing and one-word answers, strip pasted
-// material and the configured no-op reply, and clip what remains.
+// Deterministic pre-filter: drop plumbing and recognized acknowledgements,
+// strip pasted material and the configured no-op reply, and clip what remains.
 export function buildUnits(turns, noop) {
   const units = [];
   let dropped = 0;
@@ -201,8 +201,9 @@ export function buildUnits(turns, noop) {
     const captainRaw = (turn.captain || '').trim();
     if (!captainRaw || WAKE_PATTERNS.some((re) => re.test(captainRaw))) { dropped++; continue; }
     const captain = stripPasted(captainRaw).trim();
-    const words = captain.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
-    if (words.length < 3 && captain.length < 24) { dropped++; continue; }
+    if (noop.has(captain) || /^(?:ok(?:ay)?|yes|no|thanks|thank you|got it|go ahead|do it|merge it|ship it)[.!?]*$/i.test(captain)) {
+      dropped++; continue;
+    }
     let reply = (turn.reply || '').trim();
     if (noop.has(reply)) reply = '';
     units.push({

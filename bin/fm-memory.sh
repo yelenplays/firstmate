@@ -313,7 +313,7 @@ cmd_now() {
       if (length(body) > 600) body = substr(body, 1, 597) "..."
       line = "- " title (until == "-" ? "" : " (until " until ")") ": " body
       if (used + length(line) + 1 > max) { dropped++; return }
-      print line
+      lines[++count] = line
       used += length(line) + 1
     }
     {
@@ -327,7 +327,17 @@ cmd_now() {
       close(file)
       flush_entry()
     }
-    END { if (dropped) printf "(%d more now/ entries omitted by the size cap)\n", dropped }
+    END {
+      if (dropped) {
+        notice = sprintf("(%d more now/ entries omitted by the size cap)", dropped)
+        while (count > 0 && used + length(notice) + 1 > max) {
+          used -= length(lines[count--]) + 1
+          notice = sprintf("(%d more now/ entries omitted by the size cap)", ++dropped)
+        }
+      }
+      for (i = 1; i <= count; i++) print lines[i]
+      if (dropped && used + length(notice) + 1 <= max) print notice
+    }
   '
 }
 
