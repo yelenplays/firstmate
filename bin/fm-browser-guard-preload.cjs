@@ -299,13 +299,11 @@ function isHeadlessFlag(arg, family) {
   return /^--headless=/.test(arg) && !/^--headless=(?:false|0|no|off)$/i.test(arg);
 }
 
-function classifyBrowser(command, args) {
+function classifyBrowser(command) {
   const base = baseName(command);
-  if (CHROMIUM_BINARY.test(base) || hasArg(args, (a) => a === '--remote-debugging-pipe' || /^--remote-debugging-port=/.test(a) || a === '--enable-automation')) {
-    return 'chromium';
-  }
-  if (FIREFOX_BINARY.test(base) || hasArg(args, (a) => a === '-juggler-pipe' || a === '-marionette' || a === '--marionette')) return 'firefox';
-  if (WEBKIT_BINARY.test(base) || hasArg(args, (a) => a === '--inspector-pipe')) return 'webkit';
+  if (CHROMIUM_BINARY.test(base)) return 'chromium';
+  if (FIREFOX_BINARY.test(base)) return 'firefox';
+  if (WEBKIT_BINARY.test(base)) return 'webkit';
   return null;
 }
 
@@ -314,9 +312,9 @@ function classifyBrowser(command, args) {
 // argument list is a command line, not an argv, and rewriting it would corrupt
 // it - the PATH shims and layer 1 cover those launchers instead.
 function guardedArgv(command, args, options) {
-  if (typeof command !== 'string' || !Array.isArray(args) || args.length === 0) return null;
+  if (typeof command !== 'string' || !Array.isArray(args)) return null;
   if (options && typeof options === 'object' && options.shell) return null;
-  const family = classifyBrowser(command, args);
+  const family = classifyBrowser(command);
   if (!family) return null;
   if (hasArg(args, (a) => isHeadlessFlag(a, family))) return null;
   const label = baseName(command) + ' (' + family + ')';
@@ -358,16 +356,25 @@ function installSpawnGuard() {
     const wrapper = function (command) {
       const argv = Array.prototype.slice.call(arguments);
       try {
-        const args = argv[1];
+        let args = argv[1];
         let options = argv[2];
-        // spawn(cmd, options) and execFile(file, options) pass options second.
-        if (!Array.isArray(args) && args !== null && typeof args === 'object') {
-          options = args;
-          argv[1] = [];
+        let insert = false;
+        // spawn(cmd), spawn(cmd, options) and execFile(file, callback) omit the
+        // argument list, so a bare browser launch still gets one to rewrite.
+        if (!Array.isArray(args)) {
+          if (args === undefined || args === null) {
+            args = [];
+          } else {
+            if (typeof args === 'object') options = args;
+            args = [];
+            insert = true;
+          }
         }
-        if (Array.isArray(argv[1])) {
-          const rewritten = guardedArgv(command, argv[1], options);
-          if (rewritten) argv[1] = rewritten;
+        const rewritten = guardedArgv(command, args, options);
+        if (rewritten) {
+          if (insert) argv.splice(1, 0, rewritten);
+          else if (argv.length < 2) argv.push(rewritten);
+          else argv[1] = rewritten;
         }
       } catch (err) {
         /* spawn exactly what the caller asked for */

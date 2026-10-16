@@ -212,7 +212,7 @@ test_launch_layer_carries_the_guard() {
       expect_code 0 "$status" "a $harness ship spawn with allowlist=$setting should succeed: $out"
       log="$CASE_DIR/probe.log"
       install_browser_probe "$FAKEBIN_DIR" "$harness" "$FIXTURES/playwright-chromium-headed.args" \
-        "$(make_browser_stub "$CASE_DIR/stub" stub)" "$REPLAY" "$log"
+        "$(make_browser_stub "$CASE_DIR/stub" chromium)" "$REPLAY" "$log"
       assert_launch_guards "$harness allowlist=$setting" \
         "$(emitted_launch "$FAKEBIN_DIR" "$LAUNCH_LOG" "$PANE_LOG" "$CASE_DIR/probe.err")" "$log"
     done
@@ -223,10 +223,15 @@ test_launch_layer_carries_the_guard() {
 # --- the Node layer ---------------------------------------------------------
 
 test_recorded_launcher_argvs_are_forced_headless() {
-  local stub fixture expect recorded expected actual
-  stub=$(make_browser_stub "$TMP_ROOT/stub" stub)
+  local stub stub_dir fixture expect recorded expected actual
+  stub_dir="$TMP_ROOT/stub"
   while read -r fixture expect; do
     [ -n "$fixture" ] || continue
+    case $fixture in
+    *firefox*) stub=$(make_browser_stub "$stub_dir" firefox) ;;
+    *webkit*) stub=$(make_browser_stub "$stub_dir" pw_run.sh) ;;
+    *) stub=$(make_browser_stub "$stub_dir" chromium) ;;
+    esac
     run_replay "$FIXTURES/$fixture.args" "$stub"
     recorded=$(stub_launches "$REPLAY_LOG")
     assert_equals 1 "$recorded" "$fixture: exactly one browser process should be started"
@@ -341,7 +346,7 @@ test_launcher_api_is_forced_headless() {
 
 test_opt_out_allows_a_visible_launch() {
   local stub dir out
-  stub=$(make_browser_stub "$TMP_ROOT/stub" stub)
+  stub=$(make_browser_stub "$TMP_ROOT/stub" chromium)
   run_replay "$FIXTURES/playwright-chromium-headed.args" "$stub" opt-out
   assert_equals "$(cat "$FIXTURES/playwright-chromium-headed.args")" "$(stub_args "$REPLAY_LOG" 1)" \
     "the captain's opt-out must leave the launcher's argv exactly as it was"
@@ -562,6 +567,29 @@ test_guard_leaves_ordinary_node_work_alone() {
   pass "the guard leaves ordinary Node work, promisified execFile, and shell spawns untouched"
 }
 
+test_electron_launch_is_left_alone_and_bare_browser_spawn_is_forced() {
+  local stub log out
+  stub=$(make_browser_stub "$TMP_ROOT/electron-stub" electron)
+  log="$TMP_ROOT/electron.log"
+  rm -f "$log"
+  FM_STUB_LOG="$log" guarded node -e 'require("child_process").spawnSync(process.argv[1], ["app.js", "--remote-debugging-port=9222", "--enable-automation"])' "$stub" >/dev/null 2>"$log.err" || true
+  assert_equals 1 "$(stub_launches "$log")" "the electron app must be launched once"
+  assert_equals "$(printf 'app.js\n--remote-debugging-port=9222\n--enable-automation')" "$(stub_args "$log" 1)" \
+    "an Electron launch must reach the app without an injected headless flag"
+  assert_equals 0 "$(guard_lines "$log.err")" "an Electron launch must not be reported as a forced browser"
+
+  stub=$(make_browser_stub "$TMP_ROOT/bare-stub" chrome)
+  for form in 'spawnSync(b)' 'spawnSync(b, {stdio: "ignore"})' 'execFileSync(b, {stdio: "ignore"})' 'spawnSync(b, [])'; do
+    log="$TMP_ROOT/bare.log"
+    rm -f "$log"
+    FM_STUB_LOG="$log" guarded node -e "const b = process.argv[1]; try { require('child_process').$form } catch (e) {}" "$stub" >/dev/null 2>"$log.err" || true
+    assert_equals 1 "$(stub_launches "$log")" "$form: a bare browser spawn must start once"
+    assert_equals '--headless' "$(stub_args "$log" 1)" "$form: a bare browser spawn must be forced headless"
+    assert_equals 1 "$(guard_lines "$log.err")" "$form: the forced launch must be reported once"
+  done
+  pass "Electron launches are untouched and argument-less browser spawns are forced headless"
+}
+
 test_guard_environment_is_safe_to_apply_twice() {
   local snippet out stub
   snippet=$(guard_snippet) || fail "the guard environment snippet could not be built"
@@ -576,7 +604,7 @@ test_guard_environment_is_safe_to_apply_twice() {
 
   # A secondmate's own worker inherits the guard and its spawn adds it again, so
   # the twice-applied environment still has to force a headed launch headless.
-  stub=$(make_browser_stub "$TMP_ROOT/stub" stub)
+  stub=$(make_browser_stub "$TMP_ROOT/stub" chromium)
   rm -f "$REPLAY_LOG" "$REPLAY_ERR"
   FM_STUB_LOG="$REPLAY_LOG" /bin/sh -c "$snippet$snippet exec \"\$@\"" fm-browser-guard-test \
     node "$REPLAY" "$FIXTURES/playwright-chromium-headed.args" "$stub" 2>"$REPLAY_ERR" || true
@@ -658,6 +686,7 @@ for t in \
   test_osascript_shim_passes_other_scripts \
   test_shims_honor_the_opt_out \
   test_guard_leaves_ordinary_node_work_alone \
+  test_electron_launch_is_left_alone_and_bare_browser_spawn_is_forced \
   test_guard_environment_is_safe_to_apply_twice \
   test_guard_warns_instead_of_failing_when_the_install_is_missing \
   test_guard_survives_a_hostile_checkout_path \
