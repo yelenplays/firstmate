@@ -22,8 +22,9 @@
 # annotations of routine tasks, the acknowledgement line, the queued-wakes
 # warning, the persistent OPEN DECISIONS list (only decisions an earlier triage
 # delivered; a new or changed one is ACT NOW even when its task has no queued
-# row), and the persistent UNFINISHED EXECUTION obligations, whose owners get
-# their own queued wake whenever their evidence changes.
+# row), and the persistent UNFINISHED EXECUTION obligations (only firstmate-owned
+# ones an earlier triage delivered; a worker-owned one gets its owner's own
+# queued wake whenever its evidence changes).
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-wake-lib.sh
@@ -221,12 +222,32 @@ decision_entries() {
     { section = 0 }
   ' "$@"
 }
+# The drain also reconciles execution obligations fleet-wide on every drain,
+# while an obligation's own check row is rate-limited, so the drain can show a
+# firstmate-owned obligation before any row names its task. Triage remembers the
+# firstmate-owned entries it has delivered, in $EXECUTION_SEEN, the same way.
+EXECUTION_SEEN="$STATE/.wake-triage.execution"
+# execution_entries <file>...: the firstmate-owned UNFINISHED EXECUTION entry
+# lines the files list, that is, every well-formed entry whose owner is not the
+# worker.
+execution_entries() {
+  awk -F '\t' '
+    /^UNFINISHED EXECUTION \(task, accountable owner, next action/ { section = 1; next }
+    section && NF == 3 && $1 ~ /^[A-Za-z0-9._-]+$/ { if ($2 != "worker") print; next }
+    { section = 0 }
+  ' "$@"
+}
+# load_seen <record> <copy>: copy a presentation record, or start empty when it
+# is missing, a symlink, or unreadable.
+load_seen() {
+  if [ -f "$1" ] && [ ! -L "$1" ]; then
+    cp -- "$1" "$2" 2>/dev/null || : > "$2"
+  else
+    : > "$2"
+  fi
+}
 seen_decisions="$work/seen-decisions"
-if [ -f "$DECISIONS_SEEN" ] && [ ! -L "$DECISIONS_SEEN" ]; then
-  cp -- "$DECISIONS_SEEN" "$seen_decisions" 2>/dev/null || : > "$seen_decisions"
-else
-  : > "$seen_decisions"
-fi
+load_seen "$DECISIONS_SEEN" "$seen_decisions"
 decision_entries "$out" | while IFS= read -r entry; do
   grep -Fqx -- "$entry" "$seen_decisions" && continue
   printf '%s\t%s\t%s\n' "${entry%% *}" "C4 new open decision: $entry" 'not read (the drain found the decision, not a queued row)'
@@ -234,15 +255,29 @@ done >> "$act_file"
 if grep -q '^OPEN DECISIONS: [0-9][0-9]* more omitted (byte cap)$' "$out"; then
   printf '%s\t%s\n' '-' 'C4 open decisions omitted by the byte cap; read the full drain output' >> "$act_file"
 fi
+seen_execution="$work/seen-execution"
+load_seen "$EXECUTION_SEEN" "$seen_execution"
+execution_entries "$out" | while IFS= read -r entry; do
+  grep -Fqx -- "$entry" "$seen_execution" && continue
+  IFS="$(printf '\t')" read -r task owner action <<EOF_ENTRY
+$entry
+EOF_ENTRY
+  printf '%s\t%s\t%s\n' "$task" "C8 new execution obligation owned by $owner: $action" 'not read (the drain found the obligation, not a queued row)'
+done >> "$act_file"
 
-# record_presented_decisions: after a delivered presentation, remember exactly
-# the decisions it listed. Failing to remember forgets them all instead, so the
-# next wake presents them again rather than absorbing them.
-record_presented_decisions() {
-  if ! { decision_entries "$out" ${recovered[@]+"${recovered[@]}"} | LC_ALL=C sort -u > "$work/decisions" \
-    && chmod 0600 "$work/decisions" && mv -f -- "$work/decisions" "$DECISIONS_SEEN"; }; then
-    rm -f -- "$DECISIONS_SEEN" 2>/dev/null || true
-  fi
+# record_presented: after a delivered presentation, remember exactly the
+# decisions and firstmate-owned obligations it listed. Failing to remember
+# forgets them all instead, so the next wake presents them again rather than
+# absorbing them.
+record_presented() {
+  local extract record
+  for extract in decision_entries:"$DECISIONS_SEEN" execution_entries:"$EXECUTION_SEEN"; do
+    record=${extract#*:}; extract=${extract%%:*}
+    if ! { "$extract" "$out" ${recovered[@]+"${recovered[@]}"} | LC_ALL=C sort -u > "$work/presented" \
+      && chmod 0600 "$work/presented" && mv -f -- "$work/presented" "$record"; }; then
+      rm -f -- "$record" 2>/dev/null || true
+    fi
+  done
 }
 task_count=$(awk -F '\t' '$1 != "-" { seen[$1]=1 } END { for (id in seen) count++; print count+0 }' "$act_file" "$routine_file")
 act_count=$(awk -F '\t' '$1 != "-" { seen[$1]=1 } END { for (id in seen) count++; print count+0 }' "$act_file")
@@ -299,7 +334,7 @@ commit_drain_output() {
 
 if [ "$ABSORB" -eq 0 ]; then
   cat "$rendered" || exit 1
-  record_presented_decisions
+  record_presented
   commit_drain_output || exit 1
   if [ "$DRAIN_CODE" -ne 0 ]; then exit "$DRAIN_CODE"; fi
   printf '%s\n' "$ack_line"
@@ -358,7 +393,7 @@ if [ "$absorbed" -eq 1 ]; then
   cat "$rendered" || exit 1
   printf 'WAKE_ACKED: triage acknowledged every row through %s; nothing needs firstmate\n' "$cutoff" || exit 1
   [ -z "$ack_out" ] || printf '%s\n' "$ack_out" || exit 1
-  record_presented_decisions
+  record_presented
   commit_drain_output || exit 1
   exit 0
 fi
@@ -387,7 +422,7 @@ fi
 cat "$rendered" || exit 1
 [ -z "$partial_note" ] || printf '%s\n' "$partial_note" || exit 1
 [ -z "$ack_line" ] || printf '%s\n' "$ack_line" || exit 1
-record_presented_decisions
+record_presented
 commit_drain_output || exit 1
 if [ "$DRAIN_CODE" -ne 0 ]; then
   [ "$DRAIN_CODE" -ne 10 ] || exit 1

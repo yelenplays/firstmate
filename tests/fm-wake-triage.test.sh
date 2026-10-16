@@ -680,6 +680,51 @@ test_absorb_fails_closed() {
     'the changed decision did not reach the ACT NOW summary'
   assert_unacked "$dir"
 
+  # A firstmate-owned execution obligation the drain's fleet-wide scan finds
+  # before its rate-limited notification row is queued keeps the wake the same
+  # way, and once delivered it is persistent too.
+  dir=$(absorb_case absorb-unqueued-corrupt-execution)
+  printf 'not a record\n' > "$dir/state/other.execution"
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  [ "$rc" -eq 10 ] || fail "an unqueued firstmate-owned obligation was absorbed (rc=$rc): $out"
+  assert_contains "$out" 'other - C8 new execution obligation owned by firstmate: reconcile-corrupt-execution-record' \
+    'the unqueued obligation did not reach the ACT NOW summary'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'the unqueued obligation was reported as absorbed'
+  assert_unacked "$dir"
+  ack=$(printf '%s\n' "$out" | sed -n 's/^WAKE_ACK_REQUIRED: after handling completes run \(.*\)$/\1/p' | tail -1)
+  [ -n "$ack" ] || fail 'the kept unqueued-obligation wake printed no acknowledgement command'
+  # shellcheck disable=SC2086 # the printed command is a plain word list
+  FM_STATE_OVERRIDE="$dir/state" "$ROOT"/$ack > /dev/null 2>&1 || fail 'the unqueued-obligation acknowledgement failed'
+  append_wake "$dir/state" stale 'test:routine' 'stale: test:routine'
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  stop_absorb_watcher "$dir"
+  [ "$rc" -eq 0 ] || fail "a delivered obligation kept a later routine wake (rc=$rc): $out"
+  assert_contains "$out" 'UNFINISHED EXECUTION' 'the persistent obligation was not presented'
+
+  # The production ordering: an approval the drain reconciles before
+  # fm-task-execution.sh notify has queued its check row.
+  if command -v tasks-axi > /dev/null; then
+    dir=$(absorb_case absorb-unqueued-approved-execution)
+    mkdir -p "$dir/data" "$dir/config"
+    cp "$ROOT/.tasks.toml" "$dir/.tasks.toml"
+    printf '# Backlog\n\n## In flight\n\n## Queued\n\n## Done\n' > "$dir/data/backlog.md"
+    tasks-axi add other 'Implement accepted feature' --kind ship --file "$dir/data/backlog.md" > /dev/null \
+      || fail 'could not add the approved fixture task'
+    FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" "$ROOT/bin/fm-task-execution.sh" approve other --basis captain-approved \
+      || fail 'could not approve the fixture task'
+    rc=0
+    out=$(run_triage "$dir" '' --absorb) || rc=$?
+    stop_absorb_watcher "$dir"
+    [ "$rc" -eq 10 ] || fail "an approval reconciled before its notification was absorbed (rc=$rc): $out"
+    assert_contains "$out" 'other - C8 new execution obligation owned by firstmate: implementation owner missing' \
+      'the approved obligation did not reach the ACT NOW summary'
+    assert_unacked "$dir"
+  else
+    echo 'skip: tasks-axi not found; approved-execution ordering case not run'
+  fi
+
   # A row of an ineligible shape stays ACT NOW even for a working task, and an
   # execution check row (queued only for a firstmate-owned obligation) is never
   # routine without its obligation line.
