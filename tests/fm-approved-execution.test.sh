@@ -132,7 +132,7 @@ if "$EXEC" started approved-scout "$token" 2>/dev/null; then fail 'firstmate cwd
 mkdir -p "$home/worker/packages/foo"
 before_receipt=$(cksum "$home/state/approved-scout.execution")
 for report_cwd in "$home" "$home/project" "$home/worker/packages/foo"; do
-  for report_state in working paused blocked done needs-decision; do
+  for report_state in working paused blocked 'done' needs-decision; do
     report_line="$report_state: safety report from $report_cwd"
     (cd "$report_cwd" && "$EXEC" status approved-scout "$token" "$report_line") || fail 'isolation failure dropped status'
     [ "$(tail -1 "$home/state/approved-scout.status")" = "$report_line" ] || fail 'safety status changed or missing'

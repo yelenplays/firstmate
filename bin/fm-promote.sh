@@ -349,9 +349,11 @@ EOF
   if [ -n "$EXECUTION_TOKEN" ]; then
     if [ "$(fm_dod_meta_value "$META" harness)" != rovo ]; then
       printf '\n# Current implementation status reporting\nThis replaces the earlier status append command. Report from the isolated worker copy using:\n'
+      # shellcheck disable=SC2016  # Backticks are literal Markdown in the delivered brief.
       printf '`FM_HOME=%q %q status %q %q "{state} [at=<epoch>]: {one short line}"`\n' \
         "$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" "$ID" "$EXECUTION_TOKEN"
     fi
+    # shellcheck disable=SC2016  # Backticks are literal Markdown in the delivered brief.
     printf '\nAfter verifying isolation, execute before implementation:\n`FM_HOME=%q %q started %q %q`\n' \
       "$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" "$ID" "$EXECUTION_TOKEN"
   fi
