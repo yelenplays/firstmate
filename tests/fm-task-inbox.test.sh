@@ -950,7 +950,7 @@ test_watcher_busy_budget_resets_on_ring_and_ack() {
   pass "watcher: delivery and acknowledgement reset the durable busy budget"
 }
 
-# The 2026-10-14 retro: lay's secondmate was escalated stuck-busy three times
+# The 2026-10-14 retro: a secondmate was escalated stuck-busy three times
 # while it was visibly mid-turn on exactly the steered message - a record is
 # acknowledged only after it is acted on, so a long turn on it looked like two
 # busy-deferred polls. A delivered doorbell holds the busy budget for the turn
@@ -992,7 +992,7 @@ test_watcher_completed_turn_renews_the_delivered_hold() {
   pass "watcher: a completed turn after delivery renews the busy hold"
 }
 
-# The retro's multi-message shape (lay inbox 125, 127, 131): the doorbell names
+# The retro's multi-message shape (three steers in a row): the doorbell names
 # the whole inbox, so one that reached the pane covers every record queued when
 # it rang, whichever record it was rung for. A later steer's ring covers the
 # oldest record the worker is still mid-turn on, and the watcher's ring for the
