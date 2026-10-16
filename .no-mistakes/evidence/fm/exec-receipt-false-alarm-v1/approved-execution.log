@@ -1,0 +1,10 @@
+$ bash tests/fm-approved-execution.test.sh
+ok - missing notification marker permits one initial notification
+PASS: approved scout cannot disappear after acknowledgements
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+warn: no registry at /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-approved-execution.8Mhpub/approved-scout/data/projects.md; defaulting project to no-mistakes off
+error: promotion refused for approved-scout: cannot determine whether /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-approved-execution.8Mhpub/approved-scout/project shares firstmate's history (the code root /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-approved-execution.8Mhpub/approved-scout has no readable history, or a shallow clone shares no root commit); fetch full history (git fetch --unshallow) before dispatching publishing work
+error: to let this home publish to that repository, write 'maintainer <host>/<owner>/<repo>' into /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-approved-execution.8Mhpub/approved-scout/config/firstmate-role (docs/configuration.md "Firstmate role"), or pass --upstream-consent <host>/<owner>/<repo> for this one task with the captain's explicit approval
+FAIL: tests/fm-approved-execution.test.sh:106: FM_ROOT_OVERRIDE="$home" PATH="$home/fakebin:$PATH" "$ROOT/bin/fm-promote.sh" approved-scout --mode no-mistakes --yolo on > "$home/promotion" (exit 1)
+
+exit=1; elapsed=18.3s
