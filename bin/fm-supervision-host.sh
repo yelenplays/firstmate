@@ -51,11 +51,12 @@
 #     so main-only classes (check triggers, decision-owned triggers, a scan
 #     that is unsafe or holds nothing for the branch) stay main's. That
 #     pass-through starts the successor watcher cycle and leaves it running
-#     before the close is printed, so supervision continues when the session
-#     drops the handoff. It confirms no handling handoff, so the recovery
-#     marker still reads downtime and the re-arm owner delivers the close to
-#     main. The host records that successor's arm before relinquishing it
-#     (detach_successor owns the persistence check and failure path). The
+#     in its own process group before the close is printed, so Claude's Stop
+#     hook group teardown cannot stop that cycle. It confirms no handling
+#     handoff, so the recovery marker still reads downtime and the re-arm owner
+#     delivers the close to main. The host records that successor's arm before
+#     relinquishing it (detach_successor owns the persistence check and
+#     failure path). The
 #     session's next park without --restart requests a take-over of its cycle
 #     rather than an ordinary attach; bin/fm-watch-arm.sh's --take-over header owns the
 #     conditions under which that restores a single owner and the fallback;
@@ -64,7 +65,8 @@
 # close accepted away whose turn starts attended (the captain returned in
 # between) or an attended close whose task turned main-only while the
 # successor started reaches main exactly as the arm printed it without the
-# host stopping the successor. The successor may already have queued the new
+# host stopping the successor, whose own process group also protects this
+# hand-back from hook teardown. The successor may already have queued the new
 # decision and exited by that hand-back; a still-live pid is not required
 # (tests/fm-supervision-host.test.sh pins the queued decision). The host returns
 # the confirmed handling handoff to downtime so the arm owner can deliver
@@ -470,9 +472,10 @@ start_arm() {  # <predecessor-arm-pid or empty> [--restart]; sets the started pi
   local predecessor=$1 out pid
   shift
   out=$(mktemp "$STATE/.supervision-host-arm.XXXXXX") || return 1
-  # An arm left for main outlives this host, and Claude tears the hook's
-  # process group down after the exit-2 rewake, so it gets a group of its own
-  # (the shape start_handling_successor in bin/fm-claude-stop-autoarm.sh uses).
+  # A successor left for main must outlive Claude's Stop-hook process group.
+  # Any handling successor can transfer to main at the turn boundary, so it
+  # gets its own group even when a handled wake leaves it owned by this host.
+  # Explicit retirement and recorded-predecessor recovery still stop that arm.
   [ "${ARM_OWN_GROUP:-0}" -ne 1 ] || set -m 2>/dev/null || true
   if [ -n "$predecessor" ]; then
     FM_WATCH_PREDECESSOR_ARM_PID=$predecessor FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$@" >"$out" 2>&1 </dev/null &
