@@ -798,7 +798,7 @@ test_model_ledger_populates_counts_at_teardown() {
   sessions="$case_dir/claude-projects/project"
   mkdir -p "$sessions" "$case_dir/pi-sessions"
   printf '{"type":"assistant","sessionId":"s1","cwd":"%s","timestamp":"%s","requestId":"r1","message":{"id":"m1","role":"assistant","model":"claude-opus-5-5","usage":{"input_tokens":100,"output_tokens":10}}}\n' \
-    "$case_dir/wt" "$(date -u -r "$((epoch - 30))" +%Y-%m-%dT%H:%M:%SZ)" > "$sessions/s1.jsonl"
+    "$case_dir/wt" "$(python3 -c 'import datetime,sys; print(datetime.datetime.fromtimestamp(int(sys.argv[1]), datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))' "$((epoch - 30))")" > "$sessions/s1.jsonl"
   common=$(git -C "$case_dir/wt" rev-parse --path-format=absolute --git-common-dir)
   repo=$(dirname "$common")
   branch=$(git -C "$case_dir/wt" symbolic-ref --short HEAD)
