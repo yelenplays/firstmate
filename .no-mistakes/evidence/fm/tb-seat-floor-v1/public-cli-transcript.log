@@ -1,0 +1,31 @@
+--- Doorbell produced for the pending instructions ---
+: Firstmate instruction waiting: run "$FM_TASK_INBOX_CLI" take "$FM_TASK_INBOX" for 'qa.inbox', then act on the output.
+--- One public take invocation ---
+=== /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52NGFJHFR3ZQERKBDDTET86/.test-phase-tmp/cli.tba7S8/home/state/qa.inbox/001.msg ===
+schema=fm-task-inbox.v1
+at=2026-10-16T15:54:08Z
+--
+First instruction: preserve line one
+and line two.
+=== /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52NGFJHFR3ZQERKBDDTET86/.test-phase-tmp/cli.tba7S8/home/state/qa.inbox/002.msg ===
+schema=fm-task-inbox.v1
+at=2026-10-16T15:54:09Z
+--
+Second instruction: report the completed result.
+--- Persisted acknowledgements ---
+001.msg
+002.msg
+--- Repeated take returns no messages ---
+--- Adversarial archive collision refuses the take ---
+fm-inbox: could not take steering inbox: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52NGFJHFR3ZQERKBDDTET86/.test-phase-tmp/cli.tba7S8/home/state/qa.inbox
+Pending record after refusal: 003.msg
+Retained acknowledgement: Older acknowledged content
+--- Recovered take succeeds without manual lock repair ---
+=== /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52NGFJHFR3ZQERKBDDTET86/.test-phase-tmp/cli.tba7S8/home/state/qa.inbox/003.msg ===
+schema=fm-task-inbox.v1
+at=2026-10-16T15:54:10Z
+--
+Third instruction: preserve me if acknowledgement collides.
+--- An absent inbox remains absent ---
+--- Actual newly generated ship/scout brief receive/wait sections are attached separately ---
+Public CLI checks complete.

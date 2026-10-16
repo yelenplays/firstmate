@@ -1,0 +1,8 @@
+Manual instruction-contract review (not a live model-adherence test).
+Compared complete base bodies with current entry files and all four mechanism references.
+AFK: checked verbatim immediate entry, refresh, single supervision owner, idle/empty injection guards, typed-once submission, durable routing/ack, merge and destructive restrictions, hold/expiry/spend boundaries, genuine-return recognition, blocker catch-up and non-forced cleanup.
+Secondmate: checked scope/idle/direct-report rules, transactional seeding and leases, remote readiness/uncertainty, intake reconciliation, pin boundaries, tracked sync versus operational inheritance, byte-exact rereads and serialized retries, dependency-closed handoff, endpoint/process-event/lease-safe retirement and explicit discard authority.
+No missing safety rule identified by this manual review. This does not establish how a model follows the shorter instructions after compaction.
+Entry body sizes in UTF-8 bytes (not tokenizer measurements):
+.agents/skills/afk/SKILL.md: 33429 -> 5996 bytes; mechanism references remain on demand.
+.agents/skills/secondmate-provisioning/SKILL.md: 34151 -> 6084 bytes; mechanism references remain on demand.
