@@ -32,7 +32,7 @@ Fleet supervision on the Pi primary harness runs on a second conversation - the 
 Supervision is default-on.
 Once a Pi primary session owns this home's fleet lock, the branch handles two kinds of work:
 
-- Eligible task-local rows from ordinary actionable wakes.
+- Eligible rows from ordinary actionable wakes, including residual reconciliation checks ([Wake dispatch](#wake-dispatch)).
   A row is one queued wake entry.
 - Heartbeat scans that the cheap bash-level scan flags as possibly captain-relevant.
 
@@ -108,7 +108,7 @@ The no-acceptor fallback and the alarms still reach main in that posture.
 
 #### Decision-owned rows
 
-A decision-owned event surfaced by `bin/fm-watch.sh`'s signal path gets the same treatment as a check-kind triggering close, even though it keeps the ordinary `signal` kind.
+A decision-owned event surfaced by `bin/fm-watch.sh`'s signal path gets the same treatment as a main-only check-kind triggering close, even though it keeps the ordinary `signal` kind.
 `signal_files_actionable` marks the queued payload `needs-decision:` for any of these:
 
 - A newly surfaced `needs-decision`.

@@ -60,14 +60,14 @@ The mid-turn pull warning in `bin/fm-guard.sh` judges watcher health differently
 ### Primary scope
 
 The guard first calls the shared primary scope.
-A set `FM_TASK_ID` excludes a worker before marker or Git checks; an unmarked numeric Treehouse slot is also excluded even when it is a plain clone.
+A non-empty `FM_TASK_ID` excludes a worker before marker or Git checks; a numeric Treehouse slot without a genuine secondmate-home marker is also excluded even when it is a plain clone.
 A secondmate home runs its own primary Firstmate session, so a genuine `.fm-secondmate-home` marker includes it whether the home is a linked worktree or plain clone.
 The marker must meet both of these conditions:
 
 - It is a regular non-symlink file.
 - Its whitespace-stripped first line is a non-empty identifier containing only letters, digits, dots, underscores, and dashes.
 
-An unmarked checkout or invalid marker falls through to the git-dir check.
+Outside those excluded worker seats, an unmarked checkout or invalid marker falls through to the git-dir check.
 That check keeps crewmate and scout linked worktrees inert because their git dir differs from their git common dir.
 It also requires `AGENTS.md`, `bin/`, and the effective state directory.
 

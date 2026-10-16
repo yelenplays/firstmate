@@ -102,8 +102,7 @@ Only an away record is away: no record, or the record daemon-backed quiet mode w
 ### Attended
 
 The host asks the Pi branch's offer rule (`branchOfferForWake`, through `bin/fm-branch-dispatch.mjs offer`) whether the branch may take the close.
-So a close reaches main off Pi exactly when it would on Pi, including the residual-check exceptions in [branch routing](pi-supervision-branch.md#decision-owned-rows); decision-owned signals and stale triggers and unsafe scans stay main's.
-An empty residual-check claim settles quietly without a model turn; other empty offers stay on main.
+The shared [wake-dispatch contract](pi-supervision-branch.md#wake-dispatch) owns residual-check exceptions, decision exclusions, unsafe scans, and empty claims.
 On that main-only pass-through the host prints the close unchanged; the [host header](../bin/fm-supervision-host.sh) owns successor continuity, the downtime hand-back required for delivery, and the next park's take-over request.
 The successor watcher cycle, like one a turn hands back at its start (see [Away](#away)), runs in a process group of its own, so the harness tearing down the hook's group after the rewake does not stop it.
 The [arm header](../bin/fm-watch-arm.sh) owns take-over eligibility and fallback.

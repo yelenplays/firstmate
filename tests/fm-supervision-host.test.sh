@@ -10,6 +10,7 @@
 # what a branch turn does through the same scripts, so the real argument
 # construction, bounding, and reaping are exercised without a model. A real
 # status append drives each wake through the real watcher.
+# Pass exact test function names as arguments to run only those cases serially.
 # shellcheck disable=SC2016 # single-quoted scripts expand inside their own shells
 set -u
 
@@ -3223,4 +3224,17 @@ queue_case test_unverified_engine_hands_every_away_wake_to_main
 queue_case test_host_outside_the_lock_owner_stands_down
 queue_case test_superseded_host_leaves_the_owner_untouched
 
+if [ "$#" -gt 0 ]; then
+  SELECTED_CASES=()
+  for selected in "$@"; do
+    found=0
+    for queued in "${QUEUED_CASES[@]}"; do
+      [ "$selected" != "$queued" ] || found=1
+    done
+    [ "$found" = 1 ] || fail "unknown test case: $selected"
+    SELECTED_CASES+=("$selected")
+  done
+  QUEUED_CASES=("${SELECTED_CASES[@]}")
+  CASE_JOBS=1
+fi
 run_queued_cases

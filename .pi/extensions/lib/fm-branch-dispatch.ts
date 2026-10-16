@@ -601,9 +601,8 @@ function isEngineCheckTrigger(message: string): boolean {
   return /^check: (unfinished-execution|rearm-resurface)$/.test(message);
 }
 
-// A check-kind close (other than the two residual engine checks above,
-// merge-confirmation polls, Relay mentions, credential/auth failures -
-// docs/pi-supervision-branch.md) is never routed to the branch while attended,
+// A check-kind close other than the two residual engine checks above is never
+// routed to the branch while attended (docs/pi-supervision-branch.md "Wake dispatch"),
 // even when other currently-unread rows are individually eligible: this
 // watcher cycle's own triggering event stays on main, exactly as before
 // scopeForUnreadWake stopped letting a co-present check row veto the whole
@@ -612,8 +611,8 @@ function isEngineCheckTrigger(message: string): boolean {
 // trigger itself slip past main's delivery.
 //
 // A signal close containing a needs-decision status file, or a stale close for
-// a captain-held task, gets the identical main-only treatment as a check-kind
-// trigger. The cross-reference deliberately includes every unread decision
+// a captain-held task, gets the identical main-only treatment as a main-only
+// check-kind trigger. The cross-reference deliberately includes every unread decision
 // row: until that row is read, a later signal or stale trigger for the same
 // task stays on main. Other tasks and heartbeat handling remain independent.
 //

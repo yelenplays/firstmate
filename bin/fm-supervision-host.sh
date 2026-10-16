@@ -48,8 +48,8 @@
 #     lock holder can be identified, the session is not cooling down after
 #     engine errors, and the Pi branch's offer rule
 #     (bin/fm-branch-dispatch.mjs offer) says the branch may take this close,
-#     so main-only classes (check triggers, decision-owned triggers, a scan
-#     that is unsafe or holds nothing for the branch) stay main's. That
+#     including its residual-check and empty-claim exceptions
+#     (docs/pi-supervision-branch.md "Wake dispatch"). A main-only
 #     pass-through starts the successor watcher cycle and leaves it running
 #     before the close is printed, so supervision continues when the session
 #     drops the handoff. It confirms no handling handoff, so the recovery
