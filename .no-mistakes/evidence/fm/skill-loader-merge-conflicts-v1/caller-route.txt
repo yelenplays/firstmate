@@ -1,0 +1,4 @@
+Installed discovery pointer: /Users/yelen/.agents/skills/matt-resolving-merge-conflicts/SKILL.md
+Installed Step 1: /Users/yelen/github/firstmate/bin/fm-matt-skill.sh resolving-merge-conflicts
+Replayed Step 1 (only executable relocated to this change): /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52ZH81AHJBVPJCFBT00P44Y/bin/fm-matt-skill.sh resolving-merge-conflicts
+No global pointer, plugin cache, credentials, or pipeline state was changed.

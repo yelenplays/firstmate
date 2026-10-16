@@ -1,0 +1,28 @@
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+ok - audit and prune preserve bundled pointers without hiding missing or broken routes
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+ok - retired conflict skill loads honestly without bypassing plugin integrity
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+ok - a pointer's Step 1 command reaches the retired conflict skill
+ok - loader prints the installed original with full attribution and identity
+ok - loader refuses every unsafe install state and prints nothing on stdout
+ok - version drift is reported loudly, and refused outright on request
+ok - commit drift is reported loudly, and refused outright on request
+ok - the loader follows the one enabled marketplace and refuses none or several
+ok - the loader offers every non-deprecated upstream skill
+ok - the loader delegates to the shared resolver and inherits its refusals
+ok - the loader refuses when the shared resolver is not installed beside it
+ok - each pointer credits the original, dates itself, and copies no procedure
+ok - pointers mirror each upstream skill's invocation policy
+ok - pointers cover every resolvable non-deprecated upstream skill
+ok - a pointer's Step 1 flags a plugin switch and regenerating clears it
+ok - the generator refuses, and writes nothing, without an enabled plugin
+ok - a pointer whose load fails instructs a hard stop, not a fallback
+ok - --check catches edited, missing, and inert pointers
+ok - unmarked directories survive install and uninstall untouched
+ok - retired pointers are pruned and repeat installs change nothing
+ok - --prune keeps, and --check flags, pointers of offered skills that do not resolve

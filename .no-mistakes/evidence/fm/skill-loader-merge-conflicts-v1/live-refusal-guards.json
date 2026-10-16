@@ -1,0 +1,23 @@
+[
+  {
+    "name": "A disabled real installed plugin cannot use the fallback",
+    "command": "CLAUDE_CONFIG_DIR=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52ZH81AHJBVPJCFBT00P44Y/.test-local-tmp/live-guards/disabled /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52ZH81AHJBVPJCFBT00P44Y/bin/fm-matt-skill.sh resolving-merge-conflicts",
+    "exit": 4,
+    "stdout": "",
+    "stderr": "fm-skill-path.sh: plugin 'mattpocock-skills' is installed from several marketplaces (mattpocock-skills@claude-plugins-official mattpocock-skills@mattpocock) and none of them is enabled in this Claude configuration\n"
+  },
+  {
+    "name": "An absent plugin configuration cannot use the fallback",
+    "command": "CLAUDE_CONFIG_DIR=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52ZH81AHJBVPJCFBT00P44Y/.test-local-tmp/live-guards/absent /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52ZH81AHJBVPJCFBT00P44Y/bin/fm-matt-skill.sh resolving-merge-conflicts",
+    "exit": 3,
+    "stdout": "",
+    "stderr": "fm-skill-path.sh: no Claude plugin registry at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52ZH81AHJBVPJCFBT00P44Y/.test-local-tmp/live-guards/absent/plugins/installed_plugins.json; the plugin is not installed for this configuration\n"
+  },
+  {
+    "name": "A damaged real-plugin copy cannot use the fallback",
+    "command": "CLAUDE_CONFIG_DIR=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52ZH81AHJBVPJCFBT00P44Y/.test-local-tmp/live-guards/damaged /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52ZH81AHJBVPJCFBT00P44Y/bin/fm-matt-skill.sh resolving-merge-conflicts",
+    "exit": 6,
+    "stdout": "",
+    "stderr": "fm-skill-path.sh: install for 'mattpocock-skills@mattpocock' carries manifest name 'not-mattpocock-skills', not 'mattpocock-skills'\n"
+  }
+]
