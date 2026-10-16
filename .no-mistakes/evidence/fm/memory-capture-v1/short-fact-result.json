@@ -1,0 +1,37 @@
+{
+  "captain_fact": "I'm vegan.",
+  "capture": {
+    "schema": "fm-memory-capture-run.v1",
+    "at": "2026-10-16T18:23:27.505Z",
+    "trigger": "manual",
+    "model": "claude-haiku-5-5",
+    "turns": 1,
+    "dropped": 1,
+    "units": 0,
+    "jev_units": 0,
+    "jev_calls": 0,
+    "jev_none": 0,
+    "jev_escalated": 0,
+    "model_units": 0,
+    "model_calls": 0,
+    "model_usage": {
+      "input": 0,
+      "cache_write": 0,
+      "cache_read": 0,
+      "output": 0
+    },
+    "model_cost_usd": 0,
+    "memories": 0,
+    "now_entries": 0,
+    "ok": true,
+    "why": ""
+  },
+  "watermark": {
+    "schema": "fm-memory-capture-mark.v1",
+    "day": "2026-10-16",
+    "id": "short-durable-fact",
+    "at": "2026-10-16T18:23:27.505Z"
+  },
+  "fact_was_retained": false,
+  "store_exists": false
+}

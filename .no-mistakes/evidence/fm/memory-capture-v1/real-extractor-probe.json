@@ -1,0 +1,63 @@
+{
+  "note": "Authored transcript, real product and backend; not a live primary/session-hook proof.",
+  "commands": [
+    {
+      "command": "fm-history.sh capture --transcript /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YWSZ3NT93VE6AGZ7RJJBZ/.validation-tmp/real-extractor-5vqmcp11/authored.jsonl",
+      "exit": 0,
+      "stdout": "captured 3 captain message(s) and 3 final reply/replies\n",
+      "stderr": ""
+    },
+    {
+      "command": "fm-history.sh turns",
+      "exit": 0,
+      "stdout": "{\"day\":\"2026-10-16\",\"time\":\"10:00\",\"id\":\"probe-0\",\"captain\":\"Please always use plain dashes in commit messages and keep the title under fifty characters.\",\"reply\":\"I will keep commit titles short and use plain dashes.\",\"reply_time\":\"10:00\"}\n{\"day\":\"2026-10-16\",\"time\":\"10:01\",\"id\":\"probe-1\",\"captain\":\"I ended a relationship today and moved out; please keep replies brief while I settle in.\",\"reply\":\"Understood. I will keep replies brief.\",\"reply_time\":\"10:01\"}\n{\"day\":\"2026-10-16\",\"time\":\"10:02\",\"id\":\"probe-2\",\"captain\":\": Firstmate instruction waiting: list the inbox and act on it\",\"reply\":\"Captain, shipshape.\",\"reply_time\":\"10:02\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": "fm-memory-capture.sh run --trigger manual",
+      "exit": 0,
+      "stdout": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-16T18:22:30.192Z\",\"trigger\":\"manual\",\"model\":\"claude-haiku-5-5\",\"turns\":3,\"dropped\":1,\"units\":2,\"jev_units\":0,\"jev_calls\":0,\"jev_none\":0,\"jev_escalated\":0,\"model_units\":2,\"model_calls\":1,\"model_usage\":{\"input\":2,\"cache_write\":2072,\"cache_read\":0,\"output\":582},\"model_cost_usd\":0.0007056,\"memories\":3,\"now_entries\":2,\"ok\":true,\"why\":\"\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": "fm-memory.sh list",
+      "exit": 0,
+      "stdout": "events/relationship-ended-and-moved-out.md\nnow/relationship-ended-and-moved-out.md\nnow/reply-length-while-settling-in.md\npreferences/commit-message-style.md\npreferences/reply-length-while-settling-in.md\n",
+      "stderr": ""
+    },
+    {
+      "command": "fm-memory.sh recall --json relationship",
+      "exit": 0,
+      "stdout": "{\"version\":1,\"dir\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YWSZ3NT93VE6AGZ7RJJBZ/.validation-tmp/real-extractor-5vqmcp11/home/data/memories\",\"count\":3,\"documents\":[{\"path\":\"now/relationship-ended-and-moved-out.md\",\"score\":0.754,\"title\":\"Relationship ended and moved out\",\"snippet\":\"# Relationship ended and moved out The captain recently ended a relationship and ...\"},{\"path\":\"events/relationship-ended-and-moved-out.md\",\"score\":0.694,\"title\":\"Relationship ended and moved out\",\"snippet\":\"# Relationship ended and moved out On 2026-10-16 the captain said they ended a re...\"},{\"path\":\"preferences/reply-length-while-settling-in.md\",\"score\":0.516,\"title\":\"Reply length while settling in\",\"snippet\":\"...6-10-16 the captain asked for brief replies while they settle in after ending a relationship and moving out. \"}]}\n",
+      "stderr": ""
+    },
+    {
+      "command": "fm-memory.sh now",
+      "exit": 0,
+      "stdout": "- Reply length while settling in (until 2026-10-30): The captain wants brief replies while settling in after moving out.\n- Relationship ended and moved out (until 2026-10-30): The captain recently ended a relationship and moved out on 2026-10-16 and is settling in.\n",
+      "stderr": ""
+    },
+    {
+      "command": "fm-memory-capture.sh run --trigger manual",
+      "exit": 0,
+      "stdout": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-16T18:22:40.524Z\",\"trigger\":\"manual\",\"model\":\"claude-haiku-5-5\",\"turns\":0,\"dropped\":0,\"units\":0,\"jev_units\":0,\"jev_calls\":0,\"jev_none\":0,\"jev_escalated\":0,\"model_units\":0,\"model_calls\":0,\"model_usage\":{\"input\":0,\"cache_write\":0,\"cache_read\":0,\"output\":0},\"model_cost_usd\":0,\"memories\":0,\"now_entries\":0,\"ok\":true,\"why\":\"\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": "fm-memory-capture.sh status",
+      "exit": 0,
+      "stdout": "dir: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YWSZ3NT93VE6AGZ7RJJBZ/.validation-tmp/real-extractor-5vqmcp11/home/state/memory-capture\ncapture: on\nwatermark: {\"schema\":\"fm-memory-capture-mark.v1\",\"day\":\"2026-10-16\",\"id\":\"probe-2\",\"at\":\"2026-10-16T18:22:30.192Z\"}\nfailure streak: 0\nlast runs:\n  2026-10-16T18:22:30.192Z manual ok=true turns=3 units=2 jev_calls=0 model_calls=1 memories=3 now=2 cost_usd=0.0007056 \n  2026-10-16T18:22:40.524Z manual ok=true turns=0 units=0 jev_calls=0 model_calls=0 memories=0 now=0 cost_usd=0 \n",
+      "stderr": ""
+    }
+  ],
+  "persisted": {
+    "state/memory-capture/runs.jsonl": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-16T18:22:30.192Z\",\"trigger\":\"manual\",\"model\":\"claude-haiku-5-5\",\"turns\":3,\"dropped\":1,\"units\":2,\"jev_units\":0,\"jev_calls\":0,\"jev_none\":0,\"jev_escalated\":0,\"model_units\":2,\"model_calls\":1,\"model_usage\":{\"input\":2,\"cache_write\":2072,\"cache_read\":0,\"output\":582},\"model_cost_usd\":0.0007056,\"memories\":3,\"now_entries\":2,\"ok\":true,\"why\":\"\"}\n{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-16T18:22:40.524Z\",\"trigger\":\"manual\",\"model\":\"claude-haiku-5-5\",\"turns\":0,\"dropped\":0,\"units\":0,\"jev_units\":0,\"jev_calls\":0,\"jev_none\":0,\"jev_escalated\":0,\"model_units\":0,\"model_calls\":0,\"model_usage\":{\"input\":0,\"cache_write\":0,\"cache_read\":0,\"output\":0},\"model_cost_usd\":0,\"memories\":0,\"now_entries\":0,\"ok\":true,\"why\":\"\"}\n",
+    "state/memory-capture/watermark.json": "{\"schema\":\"fm-memory-capture-mark.v1\",\"day\":\"2026-10-16\",\"id\":\"probe-2\",\"at\":\"2026-10-16T18:22:30.192Z\"}\n",
+    "data/memories/.index.json": "{\"version\":1,\"built\":\"2026-10-16T18:22:39.024Z\",\"manifest\":{\"events/relationship-ended-and-moved-out.md\":{\"m\":1792174957068.467,\"s\":243},\"now/relationship-ended-and-moved-out.md\":{\"m\":1792174957639.0754,\"s\":229},\"now/reply-length-while-settling-in.md\":{\"m\":1792174958739.9873,\"s\":205},\"preferences/commit-message-style.md\":{\"m\":1792174956461.4797,\"s\":214},\"preferences/reply-length-while-settling-in.md\":{\"m\":1792174958140.9797,\"s\":240}},\"avgLen\":23.4,\"docs\":[{\"path\":\"events/relationship-ended-and-moved-out.md\",\"len\":29,\"tf\":{\"10\":1,\"16\":1,\"2026\":1,\"relationship\":2,\"ended\":2,\"and\":3,\"moved\":2,\"out\":2,\"on\":1,\"the\":2,\"captain\":1,\"said\":1,\"they\":1,\"a\":1,\"that\":1,\"day\":1,\"is\":1,\"now\":1,\"settling\":1,\"into\":1,\"new\":1,\"place\":1}},{\"path\":\"now/relationship-ended-and-moved-out.md\",\"len\":22,\"tf\":{\"10\":1,\"16\":1,\"2026\":1,\"relationship\":2,\"ended\":2,\"and\":3,\"moved\":2,\"out\":2,\"the\":1,\"captain\":1,\"recently\":1,\"a\":1,\"on\":1,\"is\":1,\"settling\":1,\"in\":1}},{\"path\":\"now/reply-length-while-settling-in.md\",\"len\":16,\"tf\":{\"reply\":1,\"length\":1,\"while\":2,\"settling\":2,\"in\":2,\"the\":1,\"captain\":1,\"wants\":1,\"brief\":1,\"replies\":1,\"after\":1,\"moving\":1,\"out\":1}},{\"path\":\"preferences/commit-message-style.md\",\"len\":24,\"tf\":{\"10\":1,\"16\":1,\"2026\":1,\"commit\":2,\"message\":1,\"style\":1,\"on\":1,\"the\":2,\"captain\":1,\"asked\":1,\"that\":1,\"messages\":1,\"always\":1,\"use\":1,\"plain\":1,\"dashes\":1,\"and\":1,\"keep\":1,\"title\":1,\"under\":1,\"fifty\":1,\"characters\":1}},{\"path\":\"preferences/reply-length-while-settling-in.md\",\"len\":26,\"tf\":{\"10\":1,\"16\":1,\"2026\":1,\"reply\":1,\"length\":1,\"while\":2,\"settling\":1,\"in\":2,\"on\":1,\"the\":1,\"captain\":1,\"asked\":1,\"for\":1,\"brief\":1,\"replies\":1,\"they\":1,\"settle\":1,\"after\":1,\"ending\":1,\"a\":1,\"relationship\":1,\"and\":1,\"moving\":1,\"out\":1}}],\"df\":{\"10\":4,\"16\":4,\"2026\":4,\"relationship\":3,\"ended\":2,\"and\":4,\"moved\":2,\"out\":4,\"on\":4,\"the\":5,\"captain\":5,\"said\":1,\"they\":2,\"a\":3,\"that\":2,\"day\":1,\"is\":2,\"now\":1,\"settling\":4,\"into\":1,\"new\":1,\"place\":1,\"recently\":1,\"in\":3,\"reply\":2,\"length\":2,\"while\":2,\"wants\":1,\"brief\":2,\"replies\":2,\"after\":2,\"moving\":2,\"commit\":1,\"message\":1,\"style\":1,\"asked\":2,\"messages\":1,\"always\":1,\"use\":1,\"plain\":1,\"dashes\":1,\"keep\":1,\"title\":1,\"under\":1,\"fifty\":1,\"characters\":1,\"for\":1,\"settle\":1,\"ending\":1}}",
+    "data/memories/preferences/commit-message-style.md": "---\ncategory: preferences\ncreated: 2026-10-16\nupdated: 2026-10-16\n---\n# Commit message style\n\nOn 2026-10-16 the captain asked that commit messages always use plain dashes and keep the title under fifty characters.\n",
+    "data/memories/preferences/reply-length-while-settling-in.md": "---\ncategory: preferences\ncreated: 2026-10-16\nupdated: 2026-10-16\nsensitivity: private\n---\n# Reply length while settling in\n\nOn 2026-10-16 the captain asked for brief replies while they settle in after ending a relationship and moving out.\n",
+    "data/memories/now/reply-length-while-settling-in.md": "---\ncategory: now\ncreated: 2026-10-16\nupdated: 2026-10-16\nexpires: 2026-10-30\nsensitivity: private\n---\n# Reply length while settling in\n\nThe captain wants brief replies while settling in after moving out.\n",
+    "data/memories/now/relationship-ended-and-moved-out.md": "---\ncategory: now\ncreated: 2026-10-16\nupdated: 2026-10-16\nexpires: 2026-10-30\nsensitivity: private\n---\n# Relationship ended and moved out\n\nThe captain recently ended a relationship and moved out on 2026-10-16 and is settling in.\n",
+    "data/memories/events/relationship-ended-and-moved-out.md": "---\ncategory: events\ncreated: 2026-10-16\nupdated: 2026-10-16\nsensitivity: private\n---\n# Relationship ended and moved out\n\nOn 2026-10-16 the captain said they ended a relationship that day and moved out, and is now settling into the new place.\n"
+  }
+}

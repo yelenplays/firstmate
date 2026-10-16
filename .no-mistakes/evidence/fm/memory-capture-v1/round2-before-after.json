@@ -1,0 +1,27 @@
+{
+  "before": {
+    "short_fact": {
+      "units": [],
+      "dropped": 1
+    },
+    "NOW": {
+      "chars": 6018,
+      "omission_notice_present": true
+    }
+  },
+  "after": {
+    "short_fact": {
+      "units": [
+        {
+          "captain": "I'm vegan.",
+          "reply": "Noted."
+        }
+      ],
+      "dropped": 0
+    },
+    "NOW": {
+      "chars": 5420,
+      "omission_notice_present": true
+    }
+  }
+}

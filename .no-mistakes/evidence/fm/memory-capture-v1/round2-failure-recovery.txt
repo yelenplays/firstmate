@@ -1,0 +1,2 @@
+failed [at=1792175659]: memory capture failed twice in a row (extractor exit 2); captain turns stay queued for the next boundary, see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YWSZ3NT93VE6AGZ7RJJBZ/.test-tmp/round2-n7u23159/home/state/memory-capture/log
+resolved [at=1792175660]: memory capture recovered; queued captain turns are captured

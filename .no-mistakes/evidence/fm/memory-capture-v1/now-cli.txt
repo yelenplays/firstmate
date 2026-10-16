@@ -1,0 +1,6 @@
+Claude-facing NOW:
+- Shipping focus (until 2999-01-01): Focus on reducing memory capture usage.
+- Personal situation (until 2999-01-01): Personal test context stays Claude-only.
+
+Non-Claude-facing NOW:
+- Shipping focus (until 2999-01-01): Focus on reducing memory capture usage.

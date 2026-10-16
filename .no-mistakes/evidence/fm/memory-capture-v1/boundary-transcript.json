@@ -1,0 +1,64 @@
+[
+  {
+    "command": "fm-memory-capture.sh run",
+    "extra_environment": {
+      "FM_MEMORY_CAPTURE_MODEL": "deepseek-v4"
+    },
+    "exit": 2,
+    "stdout": "\n",
+    "stderr": "fm-memory-capture: refusing model deepseek-v4: captain words only go to an Anthropic Claude model\n"
+  },
+  {
+    "command": "fm-memory-capture.sh run",
+    "extra_environment": {
+      "FM_MEMORY_CAPTURE_MODEL": "deepseek-v4"
+    },
+    "exit": 2,
+    "stdout": "\n",
+    "stderr": "fm-memory-capture: refusing model deepseek-v4: captain words only go to an Anthropic Claude model\n"
+  },
+  {
+    "command": "fm-memory-capture.sh run",
+    "extra_environment": {
+      "FM_MEMORY_CAPTURE_MODEL": "deepseek-v4"
+    },
+    "exit": 2,
+    "stdout": "\n",
+    "stderr": "fm-memory-capture: refusing model deepseek-v4: captain words only go to an Anthropic Claude model\n"
+  },
+  {
+    "command": "fm-memory-capture.sh run",
+    "extra_environment": {},
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-16T18:23:25.483Z\",\"trigger\":\"manual\",\"model\":\"claude-haiku-5-5\",\"turns\":0,\"dropped\":0,\"units\":0,\"jev_units\":0,\"jev_calls\":0,\"jev_none\":0,\"jev_escalated\":0,\"model_units\":0,\"model_calls\":0,\"model_usage\":{\"input\":0,\"cache_write\":0,\"cache_read\":0,\"output\":0},\"model_cost_usd\":0,\"memories\":0,\"now_entries\":0,\"ok\":true,\"why\":\"\"}\n",
+    "stderr": ""
+  },
+  {
+    "command": "fm-jev.sh pick The deploy script fixes lint. CI is green. Memory kind? none=nothing durable event=dated decision",
+    "extra_environment": {},
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: TYPESAFE_API_KEY missing; set it in the environment or the resolved .env\n"
+  },
+  {
+    "command": "fm-history.sh capture --transcript /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52YWSZ3NT93VE6AGZ7RJJBZ/.validation-tmp/boundaries-z30mpv6p/short-fact.jsonl",
+    "extra_environment": {},
+    "exit": 0,
+    "stdout": "captured 1 captain message(s) and 1 final reply/replies\n",
+    "stderr": ""
+  },
+  {
+    "command": "fm-history.sh turns",
+    "extra_environment": {},
+    "exit": 0,
+    "stdout": "{\"day\":\"2026-10-16\",\"time\":\"11:00\",\"id\":\"short-durable-fact\",\"captain\":\"I'm vegan.\",\"reply\":\"Understood. I will avoid suggesting animal products.\",\"reply_time\":\"11:00\"}\n",
+    "stderr": ""
+  },
+  {
+    "command": "fm-memory-capture.sh run",
+    "extra_environment": {},
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-16T18:23:27.505Z\",\"trigger\":\"manual\",\"model\":\"claude-haiku-5-5\",\"turns\":1,\"dropped\":1,\"units\":0,\"jev_units\":0,\"jev_calls\":0,\"jev_none\":0,\"jev_escalated\":0,\"model_units\":0,\"model_calls\":0,\"model_usage\":{\"input\":0,\"cache_write\":0,\"cache_read\":0,\"output\":0},\"model_cost_usd\":0,\"memories\":0,\"now_entries\":0,\"ok\":true,\"why\":\"\"}\n",
+    "stderr": ""
+  }
+]

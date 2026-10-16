@@ -1,0 +1,5 @@
+ok - capture keeps personal turns from Jev, writes verified memories and a now entry, and advances once
+ok - a Jev failure sends the undecided turns to the model instead of dropping them
+ok - captain words never go to a non-Anthropic capture model
+ok - two failed runs alert once, keep turns queued, and the next good run resolves
+ok - the hook runs only for the primary home main session and returns before the capture

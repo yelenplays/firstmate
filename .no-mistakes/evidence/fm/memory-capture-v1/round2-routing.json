@@ -1,0 +1,80 @@
+{
+  "none": {
+    "live": false,
+    "capture": {
+      "schema": "fm-memory-capture-run.v1",
+      "at": "2026-10-16T18:36:01.840Z",
+      "trigger": "manual",
+      "model": "claude-haiku-5-5",
+      "turns": 1,
+      "dropped": 0,
+      "units": 1,
+      "jev_units": 1,
+      "jev_calls": 1,
+      "jev_none": 1,
+      "jev_escalated": 0,
+      "model_units": 0,
+      "model_calls": 0,
+      "model_usage": {
+        "input": 0,
+        "cache_write": 0,
+        "cache_read": 0,
+        "output": 0
+      },
+      "model_cost_usd": 0,
+      "memories": 0,
+      "now_entries": 0,
+      "ok": true,
+      "why": ""
+    },
+    "jev_request": {
+      "state": "Lines from an operator chat with a coding fleet, one per id. U0: The deploy script fixes lint. CI is green.",
+      "questions": [
+        {
+          "id": "U0",
+          "type": "pick",
+          "q": "Memory kind of U0?",
+          "opts": [
+            "none=nothing worth remembering next week",
+            "preference=standing rule or working style",
+            "entity=lasting project or tool fact",
+            "event=dated decision worth keeping",
+            "now=current perishable focus"
+          ]
+        }
+      ]
+    },
+    "model_input": null
+  },
+  "marker": {
+    "live": false,
+    "capture": {
+      "schema": "fm-memory-capture-run.v1",
+      "at": "2026-10-16T18:36:04.899Z",
+      "trigger": "manual",
+      "model": "claude-haiku-5-5",
+      "turns": 1,
+      "dropped": 0,
+      "units": 1,
+      "jev_units": 0,
+      "jev_calls": 0,
+      "jev_none": 0,
+      "jev_escalated": 0,
+      "model_units": 1,
+      "model_calls": 1,
+      "model_usage": {
+        "input": 0,
+        "cache_write": 0,
+        "cache_read": 0,
+        "output": 0
+      },
+      "model_cost_usd": 0,
+      "memories": 0,
+      "now_entries": 0,
+      "ok": true,
+      "why": ""
+    },
+    "jev_request": null,
+    "model_input": "Existing memory titles (category/slug):\n(none)\n\nConversation turns:\n[2026-10-16 10:00]\ncaptain: The ORCHID release script is ready."
+  }
+}
