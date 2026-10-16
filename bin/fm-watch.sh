@@ -1618,7 +1618,8 @@ wedge_dead_record() {  # <window> <since-file> <triage-label> <idle-age> <pane-h
 # warning after the wake is written; every failure preserves escalation.
 # Callers without a relevant pane tail pass an empty argument and skip the
 # consult. A named blocking dialog is deterministic proof the worker cannot
-# continue, so it skips the consult too and its name rides the escalation.
+# continue, so it skips the recorded-step bound and the consult, and its name
+# rides the escalation.
 wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-file> <task> <pane-hash> [<pane-tail>] [<dialog-name>]
   local win=$1 since_file=$2 label=$3 escalation_file=$4 task=$5 hash=$6 tail=${7-} dialog=${8-} since age n reason evidence run_id jev_note wedge_lock
   [ -z "$dialog" ] || tail=
@@ -1659,8 +1660,9 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
         # STALE_ESCALATE_SECS while the pane sits at threshold instead of on
         # every poll; a genuinely wedged step still escalates within one
         # stale interval of its bound crossing, keeping detection on every
-        # harness.
-        if ! busy_turn_over_age "$task"; then
+        # harness. A named blocking dialog already proves the step is not
+        # advancing, so it never takes this hold.
+        if [ -z "$dialog" ] && ! busy_turn_over_age "$task"; then
           triage_log "absorbed $label escalation held: recorded step still inside the turn bound: $win"
           date +%s > "$since_file"
           return 0
