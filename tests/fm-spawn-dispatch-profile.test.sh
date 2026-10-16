@@ -6,7 +6,8 @@
 # literal launch command sent with `tmux send-keys -l`, so assertions pin the
 # command firstmate would run without starting any real harness.
 # --opus-effort runs only the Opus cap and neighboring profile regressions
-# after the shared fixture setup checks.
+# without running unrelated environment-inheritance checks. --opus-raw-effort
+# exercises the raw-command boundary and neighboring raw-launch regressions.
 set -u
 
 # shellcheck source=tests/fixtures.sh
@@ -771,6 +772,48 @@ test_opus_effort_cap_and_named_override() {
     done
   done
   pass 'Opus high effort requires an explicit override naming model and effort'
+}
+
+test_raw_opus_effort_requires_named_override() {
+  local rec id out status command n=0
+  for command in \
+    'claude --model claude-opus-5-5 --effort high' \
+    'claude --model="claude-opus-5-5[1m]" --effort=xhigh' \
+    'pi --provider anthropic --model claude-opus-5-5 --thinking high' \
+    'env WORKER=1 claude --model anthropic/claude-opus-5-5 --effort max' \
+    'echo starting && claude --model claude-opus-5-5 --effort high' \
+    'claude --model claude-opus-5-5 --effort medium' \
+    'claude --model claude-opus-5-5'; do
+    n=$((n + 1))
+    id="raw-opus-$n"
+    rec=$(make_spawn_case "$id" claude "$id")
+    read_case_record "$rec"
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+      "$id" "$PROJ_DIR" "$command" 2>&1)
+    status=$?
+    expect_code 1 "$status" "raw Opus launch must use canonical profile flags: $out"
+    assert_contains "$out" 'claude-opus-5-5' 'raw refusal must identify the capped model'
+    assert_contains "$out" 'medium' 'raw refusal must identify the medium-effort policy'
+    assert_contains "$out" '--harness' 'raw refusal must explain the supported launch interface'
+    assert_absent "$HOME_DIR/state/$id.meta" 'refused raw launch must not publish a task'
+    [ ! -s "$LAUNCH_LOG" ] || fail 'refused raw launch reached the terminal'
+  done
+  # Even a named override cannot make an opaque shell command enforceable.
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" 'claude --model claude-opus-5-5 --effort high' \
+    --captain-override 'claude-opus-5-5 high approved' 2>&1)
+  expect_code 1 "$?" "raw override must still require canonical profile flags: $out"
+  assert_contains "$out" '--harness' 'override refusal must name the supported interface'
+  assert_absent "$HOME_DIR/state/$id.meta" 'raw override refusal must not publish a task'
+  [ ! -s "$LAUNCH_LOG" ] || fail 'refused raw override reached the terminal'
+  # Structured flags must not claim to cap a different command passed verbatim.
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" 'custom-agent --flag' --model claude-opus-5-5 --effort high 2>&1)
+  expect_code 1 "$?" "raw launch must not bypass the structured model cap: $out"
+  assert_contains "$out" '--harness' 'structured-model refusal must name the supported interface'
+  assert_absent "$HOME_DIR/state/$id.meta" 'structured-model refusal must not publish a task'
+  [ ! -s "$LAUNCH_LOG" ] || fail 'refused structured-model launch reached the terminal'
+  pass 'raw Opus launches require the canonical capped profile interface'
 }
 
 test_codex_threads_model_and_effort() {
@@ -2611,11 +2654,13 @@ SH
   done
 }
 
-test_launch_environment_allowlist
-test_launch_environment_invalid_config_refuses
-test_launch_environment_inaccessible_config_refuses
-test_launch_environment_inherited_by_secondmate
-test_launch_environment_inheritance_preserves_on_source_errors
+if [ "${1:-}" != --opus-effort ] && [ "${1:-}" != --opus-raw-effort ]; then
+  test_launch_environment_allowlist
+  test_launch_environment_invalid_config_refuses
+  test_launch_environment_inaccessible_config_refuses
+  test_launch_environment_inherited_by_secondmate
+  test_launch_environment_inheritance_preserves_on_source_errors
+fi
 
 test_worker_launch_delivers_role_scope() {
   local rec id out launch kind prompt envelope encoded brief_kind brief content first_line role_line task_line inbox
@@ -2990,6 +3035,13 @@ SH
   pass 'delivered status command confirms isolated worker processing without the separate receipt'
 }
 
+if [ "${1:-}" = --opus-raw-effort ]; then
+  test_raw_opus_effort_requires_named_override
+  test_active_dispatch_profile_allows_raw_launch_command
+  test_chained_raw_launch_strips_ai_trailer_in_every_step
+  exit 0
+fi
+
 if [ "${1:-}" = --opus-effort ]; then
   test_no_profile_keeps_claude_profile_defaults
   test_claude_threads_model_and_effort
@@ -3019,6 +3071,7 @@ test_active_dispatch_profile_allows_raw_launch_command
 test_chained_raw_launch_strips_ai_trailer_in_every_step
 test_claude_threads_model_and_effort
 test_opus_effort_cap_and_named_override
+test_raw_opus_effort_requires_named_override
 test_codex_threads_model_and_effort
 test_codex_threads_model_and_max_effort
 test_codex_omits_max_effort_for_unsupported_model

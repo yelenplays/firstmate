@@ -131,6 +131,8 @@
 #   at medium effort. Higher effort needs explicit --effort plus an existing
 #   --captain-override reason naming claude-opus-5-5 and that effort level.
 #   The resolved launch and metadata use the cap and print a one-line notice.
+#   Raw commands naming this model must use the canonical profile flags instead;
+#   arbitrary shell commands cannot be safely clamped or covered by an override.
 #   --model <name> and --effort <low|medium|high|xhigh|max|ultra> are concrete profile
 #   axes chosen by firstmate at intake. They are only threaded into harnesses whose
 #   installed CLIs were verified to support that axis; unsupported axes are omitted
@@ -2710,6 +2712,14 @@ launch_template() {
 
 case "$ARG3" in
 *' '*) # raw launch command (unverified-adapter escape hatch)
+  # Keep the capped model on the canonical path: raw shell text is passed
+  # verbatim, so neither resolved effort nor a named override can govern it.
+  case "$ARG3 $MODEL" in
+    *claude-opus-5-5*)
+      echo 'error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)' >&2
+      exit 1
+      ;;
+  esac
   RAW_LAUNCH=1
   LAUNCH=$ARG3
   HARNESS=""
