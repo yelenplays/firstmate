@@ -1080,7 +1080,28 @@ test_loader_restores_retired_conflict_skill() {
   pass "retired conflict skill loads honestly without bypassing plugin integrity"
 }
 
+test_pointer_step_one_reaches_retired_conflict_skill() {
+  local root dest cmd out
+  root="$TMP_ROOT/retired-conflict-caller"
+  build_plugin "$root"
+  dest="$root/skills"
+  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null \
+    || fail "pointer install failed against a healthy plugin"
+
+  cmd=$(awk '/^```bash$/{f=1;next} /^```$/{f=0} f' "$dest/matt-tdd/SKILL.md" | sed 's/ tdd / resolving-merge-conflicts /; s/ tdd$/ resolving-merge-conflicts/')
+  case "$cmd" in *resolving-merge-conflicts*) ;; *) fail "could not derive the pointer Step 1 command" ;; esac
+  out=$(cd "$root" && CLAUDE_CONFIG_DIR="$root/config" bash -c "$cmd") \
+    || fail "pinned pointer Step 1 command could not reach the retired conflict skill"
+  assert_contains "$out" 'name: resolving-merge-conflicts' "pinned pointer route returned the wrong skill"
+
+  out=$(cd "$root" && CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts) \
+    || fail "unpinned pointer Step 1 command could not reach the retired conflict skill"
+  assert_contains "$out" 'name: resolving-merge-conflicts' "unpinned pointer route returned the wrong skill"
+  pass "a pointer's Step 1 command reaches the retired conflict skill"
+}
+
 test_loader_restores_retired_conflict_skill
+test_pointer_step_one_reaches_retired_conflict_skill
 test_loader_prints_original_bytes_and_identity
 test_loader_refuses_without_printing_anything
 test_loader_reports_drift_without_hiding_the_original
