@@ -372,15 +372,14 @@ The first matching row in this order decides the bucket:
 | --- | --- | --- |
 | 1 | `blocked` | Any blocker is unresolved. |
 | 2 | `dated` | `hold_until` is in the future. |
-| 3 | `aged` | An undated hold's hold-set timestamp is at least `FM_SNAPSHOT_UNDATED_HOLD_AGE_DAYS` old (default 14, floored elapsed days). |
-| 4 | `live` | None of the above. |
+| 3 | `live` | None of the above. |
 
 No captain hold can fall through them and none can match two, which is what keeps a hold from vanishing from every view.
 `captain_actionable` - waiting on the captain now - is exactly `hold_bucket == "live"`.
 
-Existing undated holds without a hold-set stamp fall back to the task's `since` date.
-That aging is a projection safety net only.
-The durable deferral remains re-holding with `--until`.
+An undated hold stays `live` however old it grows, so an unanswered call keeps its place under the captain's WIP limit until it is parked, dropped, or answered.
+`hold_age_days` still reports its age; existing undated holds without a hold-set stamp fall back to the task's `since` date.
+The durable deferral is re-holding with `--until`.
 
 The fleet snapshot's secondmate-home summary classifies an actionable captain hold as `captain_decision`.
 It preserves every captain hold in the bounded queued inventory of the owning home.
@@ -392,7 +391,7 @@ It preserves every captain hold in the bounded queued inventory of the owning ho
 | `hold_bucket` | Where the hold appears |
 | --- | --- |
 | `live` | A default Captain's Call entry. |
-| `blocked`, `dated`, or `aged` | Leaves the default Captain's Call, renders as a Charted Next gate stating why - the blocking work, the `until <date>`, or the floored age - and contributes to the concrete `omitted[]` disclosure. |
+| `blocked` or `dated` | Leaves the default Captain's Call, renders as a Charted Next gate stating why - the blocking work or the `until <date>` - and contributes to the concrete `omitted[]` disclosure. |
 
 `--all-decisions` reveals every captain hold available within the remote-summary bound and drops its gate.
 An available hold is therefore never in both Captain's Call and Charted Next.
@@ -402,12 +401,12 @@ An actively worked held task may also appear in Underway, which reports running 
 
 Three accepted limits remain deliberate:
 
-- A remote or secondmate hold retains the producer home's age and aging decision from the summary's capture time and threshold rather than being recomputed by the parent.
+- A remote or secondmate hold retains the producer home's age and bucket from the summary's capture time rather than being recomputed by the parent.
 - A rare concurrent answer-close and re-hold race can leave the newly re-held task without its age basis.
 - Cross-home summaries remain bounded by `FM_SNAPSHOT_SECONDMATE_DECISIONS` and `FM_SNAPSHOT_SECONDMATE_QUEUED`.
   A remote deferred hold beyond those bounds is not exported, so it can be neither gated nor revealed.
 
-Re-holding through the wrapper with `--until` remains the durable fix rather than relying on the projection safety net.
+Re-holding through the wrapper with `--until` remains the durable deferral.
 
 ### Recently Landed notes
 
@@ -643,7 +642,7 @@ Projection regressions live in two suites:
 
 | Suite | What it covers |
 | --- | --- |
-| `tests/fm-fleet-snapshot-view.test.sh` | The total structured-only bucket classifier, hold-until parsing, kind-independent captain actionability, undated-hold aging, and title stripping. |
+| `tests/fm-fleet-snapshot-view.test.sh` | The total structured-only bucket classifier, hold-until parsing, kind-independent captain actionability, undated holds staying live however old, and title stripping. |
 | `tests/fm-bearings-snapshot.test.sh` | Default and expanded decision-bucket membership, deferral explanations, blocker-overflow disclosure, working-hold dual surfaces, remote-summary schema invalidation, exact leading-kind inference, artifact-kind mismatch and answered-question exclusion, kind-bearing and kindless local-only landings publishing their recorded note, and scout-report precedence over competing pull-request links. |
 
 ### Refreshing this record

@@ -33,15 +33,13 @@
 #     hold reason or body prose is ever matched. The buckets are total and
 #     mutually exclusive, so every captain hold lands in exactly one and none
 #     can fall through: "blocked" when any blocker is unresolved, else "dated"
-#     when hold_until is still in the future, else "aged" when an undated hold
-#     is at least FM_SNAPSHOT_UNDATED_HOLD_AGE_DAYS old (default 14; legacy
-#     unstamped holds fall back to `since`), else "live". A non-captain or Done
-#     row carries null.
+#     when hold_until is still in the future, else "live". An undated hold
+#     stays live however old it grows: only parking, dropping, or answering it
+#     takes it off the captain. A non-captain or Done row carries null.
 #     captain_actionable means "waiting on the captain now" and is exactly
 #     hold_bucket == "live".
-#     hold_age_days is the hold's age when computable, else null.
-#     Aging is a projection safety net only: the durable deferral remains
-#     re-holding with --until.
+#     hold_age_days is the hold's age (legacy unstamped holds fall back to
+#     `since`) when computable, else null.
 #     Renderers keep every non-live bucket out of the default Captain's Call,
 #     project it as a Charted Next gate stating why, and disclose it in
 #     omitted[]; --all-decisions reveals every captain hold available within the
@@ -204,13 +202,6 @@ validate_positive_bound FM_SNAPSHOT_REGISTRY_LINES "$FM_SNAPSHOT_REGISTRY_LINES"
 validate_positive_bound FM_SNAPSHOT_REGISTRY_BYTES "$FM_SNAPSHOT_REGISTRY_BYTES"
 validate_positive_bound FM_SNAPSHOT_REGISTRY_RECORDS "$FM_SNAPSHOT_REGISTRY_RECORDS"
 validate_positive_bound FM_SNAPSHOT_REGISTRY_TIMEOUT "$FM_SNAPSHOT_REGISTRY_TIMEOUT"
-FM_SNAPSHOT_UNDATED_HOLD_AGE_DAYS=${FM_SNAPSHOT_UNDATED_HOLD_AGE_DAYS:-14}
-case "$FM_SNAPSHOT_UNDATED_HOLD_AGE_DAYS" in
-  ''|*[!0-9]*)
-    echo "fm-fleet-snapshot: FM_SNAPSHOT_UNDATED_HOLD_AGE_DAYS must be a non-negative integer" >&2
-    exit 2
-    ;;
-esac
 
 # shellcheck source=bin/fm-backend.sh
 # shellcheck disable=SC1091
@@ -256,8 +247,8 @@ Its invalidity object names the normalized failure kind and affected ids.
 Actionable tasks-axi captain holds appear as decisions_open and stay visible in
 queued with hold_reason, hold_kind, hold_until,
 hold_bucket, hold_age_days, and plural blocker fields for downstream
-projections. A captain hold is actionable only when every blocker is Done, any
-hold-until date has arrived, and an undated hold remains below the aging threshold.
+projections. A captain hold is actionable only when every blocker is Done and any
+hold-until date has arrived.
 Cross-home collection uses FM_SNAPSHOT_SECONDMATES (default 20, 0 lifts the
 count bound) and FM_SNAPSHOT_SECONDMATE_MAX_BYTES.
 Every sampled remote home's state/home-summary.json is fetched concurrently
@@ -282,11 +273,9 @@ The registered secondmate table uses FM_SNAPSHOT_REGISTRY_LINES,
 FM_SNAPSHOT_REGISTRY_BYTES, FM_SNAPSHOT_REGISTRY_RECORDS, and
 FM_SNAPSHOT_REGISTRY_TIMEOUT, with unavailability and truncation disclosed.
 Every captain hold carries hold_bucket, decided only from structured fields and
-never from hold reason or body prose: "blocked", "dated", "aged", or "live".
-An undated hold ages once its hold-set timestamp is at least
-FM_SNAPSHOT_UNDATED_HOLD_AGE_DAYS old (default 14; 0 ages every hold with a
-non-negative computed age); legacy holds without a stamp fall back to their
-since date, and re-holding with --until remains the durable deferral.
+never from hold reason or body prose: "blocked", "dated", or "live". An
+undated hold stays live however old it grows; re-holding with --until is the
+durable deferral.
 EOF
 }
 
@@ -395,8 +384,7 @@ backlog_json() (  # [<backlog-path>] - defaults to this home's $BACKLOG
 
   set -o pipefail
   # shellcheck disable=SC2094
-  jq -Rn --arg path "$backlog" --arg today "$SNAPSHOT_TODAY" --arg now "$SNAPSHOT_NOW" \
-    --argjson age_days "$FM_SNAPSHOT_UNDATED_HOLD_AGE_DAYS" '
+  jq -Rn --arg path "$backlog" --arg today "$SNAPSHOT_TODAY" --arg now "$SNAPSHOT_NOW" '
     def trim: gsub("^[[:space:]]+|[[:space:]]+$"; "");
     def timestamp_epoch($d):
       if ($d | type) != "string" then null
@@ -576,8 +564,6 @@ backlog_json() (  # [<backlog-path>] - defaults to this home's $BACKLOG
               (if .hold_kind != "captain" or .hold_reason == null or .state == "done" then null
                elif (.unresolved_blocker_ids | length) > 0 then "blocked"
                elif .hold_until != null and .hold_until > $today then "dated"
-               elif .hold_until == null and .hold_age_days != null
-                    and .hold_age_days >= $age_days then "aged"
                else "live" end)
           | .captain_actionable = (.hold_bucket == "live")
         else . end)

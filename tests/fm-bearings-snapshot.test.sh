@@ -235,11 +235,11 @@ write_remote_home_summary() {  # <remote-home> <generated-epoch>
     active_children:[],
     decisions_open:[
       {id:"remote-parked",key:"remote-parked",verb:"captain-hold",summary:"Remote parked hold",reason:"parked",hold_until:null,hold_bucket:"live",hold_age_days:null,source:"backlog"},
-      {id:"remote-aged",key:"remote-aged",verb:"captain-hold",summary:"Remote aged hold",reason:"choose a route",hold_until:null,hold_bucket:"aged",hold_age_days:40,source:"backlog"}
+      {id:"remote-aged",key:"remote-aged",verb:"captain-hold",summary:"Remote aged hold",reason:"choose a route",hold_until:null,hold_bucket:"live",hold_age_days:40,source:"backlog"}
     ],holds:[],
     queued:[
       {id:"remote-parked",title:"Remote parked hold",blocked_by:null,blocked_by_ids:[],unresolved_blocker_ids:[],blocked_reason:null,hold_reason:"parked",hold_kind:"captain",hold_until:null,hold_bucket:"live",hold_age_days:null,captain_actionable:true,repo:"firstmate",kind:"captain"},
-      {id:"remote-aged",title:"Remote aged hold",blocked_by:null,blocked_by_ids:[],unresolved_blocker_ids:[],blocked_reason:null,hold_reason:"choose a route",hold_kind:"captain",hold_until:null,hold_bucket:"aged",hold_age_days:40,captain_actionable:false,repo:"firstmate",kind:"captain"}
+      {id:"remote-aged",title:"Remote aged hold",blocked_by:null,blocked_by_ids:[],unresolved_blocker_ids:[],blocked_reason:null,hold_reason:"choose a route",hold_kind:"captain",hold_until:null,hold_bucket:"live",hold_age_days:40,captain_actionable:true,repo:"firstmate",kind:"captain"}
     ],landed:[],endpoints:[],
     counts:{active_children:0,decisions_open:2,holds:0,queued:2,landed:0,endpoints:0},omitted:[]
   }' > "$home/state/home-summary.json"
@@ -1185,7 +1185,7 @@ EOF
       and (.gates | any(.[]; .id == "external-gate"))
       and (.landed | any(.[]; .id == "shipped-work"))
       and (.landed | any(.[]; .id == "answered-call") | not)
-      and (.omitted | any(.[]; .surface | startswith("captain holds bucketed blocked, dated, or aged")))
+      and (.omitted | any(.[]; .surface | startswith("captain holds bucketed blocked or dated")))
   ' >/dev/null || fail "the collapsed captain-call projection is wrong: $json"
   json=$(run "$home" "$fakebin" --json --all-decisions --all-queued)
   printf '%s' "$json" | jq -e '
@@ -1195,7 +1195,7 @@ EOF
   pass "captain-held tasks of any kind reach Captain's Call, deferral is honored, and landed excludes answered calls"
 }
 
-test_undated_hold_phrasing_and_aging_projection() {
+test_undated_hold_phrasing_and_age_projection() {
   local home mate fakebin json
   home=$(make_home undated-aging-proj)
   mate=$(fixture_mate_home "$home")
@@ -1278,8 +1278,9 @@ EOF
       and (.decisions_open | any(.[]; .id == "contextual-opportunity"))
       and (.decisions_open | any(.[]; .id == "contextual-gated"))
       and (.decisions_open | any(.[]; .id == "reheld-current-call"))
-      and (.decisions_open | any(.[]; .id == "legacy-old-hold") | not)
-      and (.decisions_open | any(.[]; .id == "aged-call") | not)
+      and (.decisions_open | any(.[]; .id == "legacy-old-hold"))
+      and (.decisions_open | any(.[]; .id == "aged-call"))
+      and (.decisions_open | any(.[]; .id == "aging-mate/mate-aged"))
       and (.decisions_open | any(.[]; .id == "blocked-parked") | not)
       and (.gates | any(.[]; .id == "parked-hold") | not)
       and (.gates | any(.[]; .id == "blocked-parked" and .blocked_by == "missing-blocker"
@@ -1287,21 +1288,20 @@ EOF
       and (.gates | any(.[]; .id == "future-parked" and .reason == "until 2026-08-01: parked"))
       and (.gates | any(.[]; .id == "due-parked") | not)
       and (.gates | any(.[]; .id == "due-superseded") | not)
-      and (.gates | any(.[]; .id == "aged-call" and (.reason | startswith("held 40d"))))
-      and (.gates | any(.[]; .id == "legacy-old-hold" and (.reason | startswith("held 40d"))))
+      and (.gates | any(.[]; .id == "aged-call" or .id == "legacy-old-hold") | not)
       and (.gates | any(.[]; .id == "mate-parked") | not)
       and (.gates | any(.[]; .id == "mate-blocked-parked" and .owner == "aging-mate"
                         and .blocked_by == "missing-remote-blocker"))
       and (.gates | any(.[]; .id == "mate-future-parked" and .owner == "aging-mate" and .reason == "until 2026-08-01: parked"))
       and (.gates | any(.[]; .id == "mate-due-parked" and .owner == "aging-mate") | not)
       and (.gates | any(.[]; .id == "mate-due-not-required" and .owner == "aging-mate") | not)
-      and (.gates | any(.[]; .id == "mate-aged" and .owner == "aging-mate" and (.reason | startswith("held 40d"))))
+      and (.gates | any(.[]; .id == "mate-aged") | not)
       and (.gates | any(.[]; .id == "recent-call") | not)
       and ([.decisions_open[].id, .gates[].id]
            | contains(["due-parked", "due-superseded", "future-parked", "parked-hold", "blocked-parked", "aged-call",
                        "aging-mate/mate-due-parked", "aging-mate/mate-due-not-required", "mate-future-parked",
-                       "aging-mate/mate-parked", "mate-blocked-parked", "mate-aged"]))
-      and (.omitted | any(.[]; .surface == "captain holds bucketed blocked, dated, or aged: 7"))
+                       "aging-mate/mate-parked", "mate-blocked-parked", "aging-mate/mate-aged"]))
+      and (.omitted | any(.[]; .surface == "captain holds bucketed blocked or dated: 4"))
   ' >/dev/null || fail "structured buckets must decide Captain's Call placement: $json"
   json=$(run "$home" "$fakebin" --json --all-decisions)
   printf '%s' "$json" | jq -e '
@@ -1332,11 +1332,6 @@ EOF
           or .id == "mate-due-not-required" or .id == "mate-future-parked"
           or .id == "mate-blocked-parked") | not)
   ' >/dev/null || fail "--all-decisions must reveal every captain hold without duplicating its gate: $json"
-  json=$(FM_SNAPSHOT_UNDATED_HOLD_AGE_DAYS=50 run "$home" "$fakebin" --json)
-  printf '%s' "$json" | jq -e '
-    (.decisions_open | any(.[]; .id == "aged-call"))
-      and (.gates | any(.[]; .id == "aged-call") | not)
-  ' >/dev/null || fail "raising the age threshold must restore an undated hold to Captain's Call: $json"
   pass "structured hold buckets decide Captain's Call, Charted Next, and the reveal"
 }
 
@@ -1356,7 +1351,7 @@ EOF
   printf '%s' "$json" | jq -e '
     (.gates | any(.id == "only-blocked-parked" and .blocked_by == "missing-blocker"
                   and (.reason | startswith("blocked-by missing-blocker"))))
-      and (.omitted | any(.surface == "captain holds bucketed blocked, dated, or aged: 1"))
+      and (.omitted | any(.surface == "captain holds bucketed blocked or dated: 1"))
   ' >/dev/null || fail "a lone blocked deferred hold lacked its concrete disclosure: $json"
   json=$(run "$home" "$fakebin" --json --all-decisions)
   printf '%s' "$json" | jq -e '
@@ -1375,8 +1370,6 @@ test_revealed_deferred_holds_show_their_deferral_reason() {
 ## Queued
 - [ ] reveal-blocked - Blocked parked call blocked-by: missing-blocker-1234567890123456789012345678901234567890 (repo: firstmate) (kind: captain) (hold: parked) (hold-kind: captain)
 - [ ] reveal-future - 1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890 (repo: firstmate) (kind: captain) (hold: parked) (hold-kind: captain) (hold-until: 2026-12-01)
-- [ ] reveal-aged - Aged undated call (repo: firstmate) (kind: captain) (since 2026-06-01) (hold: choose a route) (hold-kind: captain)
-  Captain hold set: 2026-06-01T00:00:00Z
 - [ ] reveal-live - 123456789012345678901234567890123456789012345678901234567890 (repo: firstmate) (kind: captain) (hold: choose A) (hold-kind: captain)
 
 ## Done
@@ -1391,9 +1384,6 @@ EOF
     (.decisions_open | any(.id == "reveal-future" and (.summary | contains("until 2026-12-01"))))
   ' >/dev/null || fail "a revealed date-deferred hold must show its until date: $json"
   printf '%s' "$json" | jq -e '
-    (.decisions_open | any(.id == "reveal-aged" and (.summary | contains("held ") and contains("d: "))))
-  ' >/dev/null || fail "a revealed aged hold must show its age: $json"
-  printf '%s' "$json" | jq -e '
     (.decisions_open | any(.id == "reveal-live"
        and .summary == "123456789012345678901234567890123456789012345678901234567890: choose A"
        and (.summary | contains("blocked-by") or contains("until ") or contains("held ") | not)))
@@ -1404,7 +1394,6 @@ EOF
       and (.decisions_open[0].summary == "123456789012345678901234567890123456789012345678901234567890: choose A")
       and (.gates | any(.id == "reveal-blocked"))
       and (.gates | any(.id == "reveal-future"))
-      and (.gates | any(.id == "reveal-aged"))
   ' >/dev/null || fail "the default board must keep deferred holds gated and show only the live call: $json"
   pass "revealed deferred holds display their deferral reason while live calls stay unannotated"
 }
@@ -2306,14 +2295,12 @@ test_working_captain_holds_keep_their_bucket_surfaces() {
   Captain hold set: 2026-07-10T00:00:00Z
 - [ ] working-dated - Working dated call (repo: sample) (kind: captain) (hold: choose dated route) (hold-kind: captain) (hold-until: 2026-08-01)
   Captain hold set: 2026-07-10T00:00:00Z
-- [ ] working-aged - Working aged call (repo: sample) (kind: captain) (hold: choose aged route) (hold-kind: captain)
-  Captain hold set: 2026-06-01T00:00:00Z
 
 ## Queued
 
 ## Done
 EOF
-    for id in working-live working-live-two working-blocked working-dated working-aged; do
+    for id in working-live working-live-two working-blocked working-dated; do
       mkdir -p "$home/projects/$id"
       fm_write_meta "$home/state/$id.meta" \
         "window=firstmate:fm-$id" "worktree=$home/projects/$id" "project=sample" \
@@ -2330,43 +2317,40 @@ EOF
     "$ROOT/bin/fm-fleet-snapshot.sh" --secondmate-home-summary)
   printf '%s' "$summary" | jq -e '
     ([.decisions_open[].id] == ["working-live"])
-      and ([.queued[].id] | contains(["working-live", "working-live-two", "working-blocked", "working-dated", "working-aged"]))
-      and ([.queued[] | select(.hold_bucket != null)] | length) == 5
+      and ([.queued[].id] | contains(["working-live", "working-live-two", "working-blocked", "working-dated"]))
+      and ([.queued[] | select(.hold_bucket != null)] | length) == 4
   ' >/dev/null || fail "working captain holds were filtered from the secondmate summary: $summary"
 
   json=$(FM_SNAPSHOT_SECONDMATE_DECISIONS=1 run "$home" "$fakebin" --json)
   printf '%s' "$json" | jq -e '
     ([.in_flight[].id] | contains([
-      "working-live", "working-live-two", "working-blocked", "working-dated", "working-aged",
+      "working-live", "working-live-two", "working-blocked", "working-dated",
       "working-mate/working-live", "working-mate/working-live-two", "working-mate/working-blocked",
-      "working-mate/working-dated", "working-mate/working-aged"]))
+      "working-mate/working-dated"]))
       and (.decisions_open | any(.id == "working-live"))
       and (.decisions_open | any(.id == "working-live-two"))
       and (.decisions_open | any(.id == "working-mate/working-live"))
       and (.decisions_open | any(.id == "working-mate/working-live-two") | not)
-      and ([.decisions_open[] | select(.id == "working-blocked" or .id == "working-dated" or .id == "working-aged"
-          or .id == "working-mate/working-blocked" or .id == "working-mate/working-dated"
-          or .id == "working-mate/working-aged")] | length) == 0
+      and ([.decisions_open[] | select(.id == "working-blocked" or .id == "working-dated"
+          or .id == "working-mate/working-blocked" or .id == "working-mate/working-dated")] | length) == 0
       and ([.gates[] | select(.id == "working-live" or .id == "working-live-two")] | length) == 0
       and ([.gates[] | select(.id == "working-blocked" and .owner == "(main)"
           and .blocked_by == "blocker-alpha-123456789012345678901234567890,blocker-beta-123456789012345678901234567890")] | length) == 1
       and ([.gates[] | select(.id == "working-dated" and .owner == "(main)" and (.reason | startswith("until 2026-08-01")))] | length) == 1
-      and ([.gates[] | select(.id == "working-aged" and .owner == "(main)" and (.reason | startswith("held 40d")))] | length) == 1
       and ([.gates[] | select(.id == "working-blocked" and .owner == "working-mate")] | length) == 1
       and ([.gates[] | select(.id == "working-dated" and .owner == "working-mate")] | length) == 1
-      and ([.gates[] | select(.id == "working-aged" and .owner == "working-mate")] | length) == 1
   ' >/dev/null || fail "working captain holds did not surface in Underway and exactly one default decision bucket: $json"
 
   expanded=$(FM_SNAPSHOT_SECONDMATE_DECISIONS=1 run "$home" "$fakebin" --json --all-decisions --all-queued)
   printf '%s' "$expanded" | jq -e '
     ([.in_flight[].id] | contains([
-      "working-live", "working-live-two", "working-blocked", "working-dated", "working-aged",
+      "working-live", "working-live-two", "working-blocked", "working-dated",
       "working-mate/working-live", "working-mate/working-live-two", "working-mate/working-blocked",
-      "working-mate/working-dated", "working-mate/working-aged"]))
+      "working-mate/working-dated"]))
       and ([.decisions_open[].id]
-        | contains(["working-live", "working-live-two", "working-blocked", "working-dated", "working-aged",
+        | contains(["working-live", "working-live-two", "working-blocked", "working-dated",
                     "working-mate/working-live", "working-mate/working-live-two", "working-mate/working-blocked",
-                    "working-mate/working-dated", "working-mate/working-aged"]))
+                    "working-mate/working-dated"]))
       and ([.decisions_open[] | select(.id == "working-mate/working-live")] | length) == 1
       and ([.decisions_open[] | select(.id == "working-mate/working-live-two")] | length) == 1
       and ([.decisions_open[] | select(
@@ -2374,7 +2358,7 @@ EOF
           and (.summary | contains("blocked-by blocker-alpha-123456789012345678901234567890 +1 more"))
           and (.summary | length) <= 90)] | length) == 2
       and ([.gates[] | select(.id == "working-live" or .id == "working-live-two" or .id == "working-blocked"
-          or .id == "working-dated" or .id == "working-aged")] | length) == 0
+          or .id == "working-dated")] | length) == 0
   ' >/dev/null || fail "--all-decisions did not keep working holds Underway and reveal each gate-free: $expanded"
   pass "working captain holds retain main and secondmate bucket surfaces"
 }
@@ -3198,7 +3182,8 @@ test_remote_ledgers_share_one_concurrent_budget_and_fall_back_to_cache() {
       and all(.secondmates[]; .freshness == "fresh" and .age_seconds == 100)
       and (.decisions_open | any(.id == "ledger-1/remote-parked" and .owner == "ledger-1"))
       and (.gates | all(.id != "remote-parked"))
-      and (.gates | any(.id == "remote-aged" and .owner == "ledger-1" and (.reason | startswith("held 40d"))))
+      and (.decisions_open | any(.id == "ledger-1/remote-aged" and .owner == "ledger-1"))
+      and (.gates | all(.id != "remote-aged"))
   ' >/dev/null || fail "healthy remote ledgers did not project their generated-epoch ages and bucketed holds: $json"
 
   cache_file=
@@ -3251,7 +3236,7 @@ EOF
   printf '%s' "$json" | jq -e '
     (.secondmates | any(.id == "ledger-1" and .freshness == "fresh"))
       and (.decisions_open | any(.id == "ledger-1/remote-parked" and .owner == "ledger-1"))
-      and (.gates | any(.id == "remote-aged" and .owner == "ledger-1"))
+      and (.decisions_open | any(.id == "ledger-1/remote-aged" and .owner == "ledger-1"))
   ' >/dev/null || fail "a refreshed current-schema summary did not restore bucketed remote holds: $json"
 
   duplicate_base="$TMP_ROOT/remote-ledger-home-1/state/home-summary.single"
@@ -3408,7 +3393,7 @@ test_partial_github_failure_degrades
 test_perl_fallback_bounds_github_call
 test_section_caps_and_expansion_flags
 test_collapsed_captain_call_deferral_and_landed
-test_undated_hold_phrasing_and_aging_projection
+test_undated_hold_phrasing_and_age_projection
 test_blocked_deferred_hold_has_concrete_disclosure
 test_revealed_deferred_holds_show_their_deferral_reason
 test_pr_repository_cap_and_expansion

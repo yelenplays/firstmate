@@ -962,6 +962,33 @@ test_hold_brakes_before_a_fourth_live_call() {
   pass "hold brakes before a fourth live captain call and names the calls to park or drop"
 }
 
+# An unanswered call keeps its place however old it grows: only parking,
+# dropping, or answering it frees capacity, so three calls held weeks ago still
+# brake a fourth and still sit answerable in Bearings' Captain's Call.
+test_hold_brakes_behind_old_unanswered_calls() {
+  local home rc json
+  home=$(make_home wip-aged)
+  for n in 1 2 3; do
+    FM_CAPTAIN_HOLD_NOW=2020-01-01T10:00:00Z run_captain "$home" hold "sample-old-$n" \
+      --title "Old call $n" --reason "captain old choice $n pending" --repo sample >/dev/null \
+      || fail "could not register old call $n"
+  done
+  rc=0
+  run_captain "$home" hold sample-new-call --title "New call" \
+    --reason "captain new choice pending" --repo sample > "$home/new.out" 2> "$home/new.err" || rc=$?
+  [ "$rc" -eq 3 ] || fail "three old unanswered calls did not brake a fourth (exit $rc)"
+  assert_grep "sample-old-1 - Old call 1" "$home/new.err" "the refusal did not name the old call"
+  tasks_in "$home" show sample-new-call >/dev/null 2>&1 \
+    && fail "a braked hold behind old calls still created its task"
+
+  json=$(run_bearings "$home") || fail "Bearings failed with old calls"
+  printf '%s' "$json" | jq -e '
+    ([.decisions_open[] | select(.id | startswith("sample-old-"))] | length) == 3
+      and (.gates | any(.id | startswith("sample-old-")) | not)
+  ' >/dev/null || fail "old unanswered calls left the Captain's Call: $json"
+  pass "old unanswered captain calls keep counting and stay in the Captain's Call"
+}
+
 # --release lifts the hold instead of closing, preserving the work item's own
 # body under the record; a re-held task later accepts a new answer.
 test_release_frees_held_work() {
@@ -1177,13 +1204,18 @@ test_deferral_leaves_captains_call_until_due() {
 
 ## Queued
 - [ ] sample-existing-call - Decide an existing sample task (repo: sample) (kind: captain) (since 2026-06-01)
+
+## Done
+EOF
+  # The prose-marker calls join only after the holds below, so the captain's
+  # WIP limit counts just the calls this test registers through the wrapper.
+  cat > "$home/markers.md" <<'EOF'
 - [ ] sample-near-marker - Decide a deferred sample route (repo: sample) (kind: captain) (since 2026-07-14) (hold: choose the sample route) (hold-kind: captain)
   Captain hold set: 2026-07-14T12:00:00Z
   abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij abcdefghij DEFERRED
 - [ ] sample-late-marker - Decide a documented sample route (repo: sample) (kind: captain) (since 2026-07-14) (hold: choose the sample route) (hold-kind: captain)
   This deliberately long decision context fills the bounded display excerpt without changing the durable classification contract. Additional synthetic context keeps extending the body beyond that display boundary while remaining ordinary task prose. More synthetic context places the presentation marker after the excerpt cutoff. DEFERRED
 
-## Done
 EOF
   FM_CAPTAIN_HOLD_NOW=2026-07-14T12:00:00Z run_captain "$home" hold sample-existing-call \
     --reason "captain choice on existing work" >/dev/null \
@@ -1201,6 +1233,10 @@ EOF
     --reason "captain choice" --until 2026-8-1 > "$home/bad-date.out" 2> "$home/bad-date.err"; then
     fail "hold accepted a malformed --until date"
   fi
+  awk -v markers="$home/markers.md" '
+    /^## Done$/ { while ((getline line < markers) > 0) print line }
+    { print }
+  ' "$home/data/backlog.md" > "$home/backlog.next" && mv "$home/backlog.next" "$home/data/backlog.md"
 
   snap=$(PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
     FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
@@ -1237,7 +1273,7 @@ EOF
     ([.backlog.records[] | select(.id == "sample-later-call")][0]) as $later
     | ([.backlog.records[] | select(.id == "sample-existing-call")][0]) as $existing
     | $later.captain_actionable == true
-      and $existing.hold_age_days == 18 and $existing.hold_bucket == "aged"
+      and $existing.hold_age_days == 18 and $existing.hold_bucket == "live"
   ' >/dev/null || fail "a due deferral did not resurface or a stamped hold did not age from its hold date"
   show=$(tasks_in "$home" show sample-later-call --full)
   assert_contains "$show" "hold_kind: captain" "the expired deferral lost its captain-hold annotations"
@@ -4846,6 +4882,7 @@ test_completion_gate_attests_and_transfers
 test_answer_records_and_closes
 test_release_frees_held_work
 test_hold_brakes_before_a_fourth_live_call
+test_hold_brakes_behind_old_unanswered_calls
 test_hold_stamp_precedes_hold_visibility
 test_interrupted_answer_preserves_hold_age
 test_deferral_leaves_captains_call_until_due
