@@ -160,7 +160,9 @@ pathlib.Path(sys.argv[1], "history.meta").write_text(f"worktree=/LEDGER_PRIVATE_
 records = [
     {"type": "session", "cwd": "/LEDGER_PRIVATE_MARKER", "id": "history", "timestamp": iso(start)},
     {"type": "thinking_level_change", "thinkingLevel": "high", "timestamp": iso(start)},
-    {"type": "message", "timestamp": iso(start + 120), "message": {"role": "assistant", "provider": "anthropic", "model": "claude-opus-5-5", "content": "LEDGER_PRIVATE_MARKER", "usage": {"totalTokens": 100}}},
+    # Two requests establish 120 active seconds; the session header is not work.
+    {"type": "message", "timestamp": iso(start), "message": {"role": "assistant", "provider": "anthropic", "model": "claude-opus-5-5", "content": "LEDGER_PRIVATE_MARKER", "usage": {"totalTokens": 50}}},
+    {"type": "message", "timestamp": iso(start + 120), "message": {"role": "assistant", "provider": "anthropic", "model": "claude-opus-5-5", "content": "LEDGER_PRIVATE_MARKER", "usage": {"totalTokens": 50}}},
 ]
 pathlib.Path(sys.argv[2]).write_text("".join(json.dumps(r) + "\n" for r in records))
 providers = []
