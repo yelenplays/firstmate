@@ -25,6 +25,11 @@
 # Layout under <state-dir>:
 #   <task>.inbox/NNN.msg       one durable steer, numeric sequence, atomic rename
 #   <task>.inbox/handled/      the worker's `mv` here IS the acknowledgement
+# bin/fm-inbox.sh take <inbox-dir> prints pending numeric .msg records, each
+# with its path, then moves each printed record into handled/ in one call.
+# It serializes with writers and other takers using .seq.lock; output or move
+# failure stops without acknowledging the failed record. Empty/absent is a no-op.
+# Taking acknowledges receipt, not completion: the worker must act on the output.
 #   <task>.inbox/.seq.lock     serializes sequence allocation across writers
 #                              (the session and the away daemon)
 #   <task>.inbox/.ring-state   watcher re-ring ladder: "<msg>\t<count>\t<epoch>"
@@ -308,10 +313,46 @@ fm_task_inbox_body() {  # <record-path>
   return 1
 }
 
+# Print and acknowledge the pending snapshot in numeric basename order.
+# Keep this with the inbox format owner; fm-inbox.sh only exposes the verb.
+fm_task_inbox_take() {  # <inbox-dir>
+  local dir=$1 lock names f status=0
+  [ -e "$dir" ] || return 0
+  [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
+  [ ! -L "$dir/handled" ] || return 1
+  mkdir -p "$dir/handled" || return 1
+  lock="$dir/.seq.lock"
+  fm_task_inbox_lock_acquire "$lock" || return 1
+  names=$(
+    for f in "$dir"/*.msg; do
+      [ -f "$f" ] && [ ! -L "$f" ] || continue
+      fm_task_inbox_seq_of "${f##*/}" >/dev/null || continue
+      printf '%s\n' "${f##*/}"
+    done | LC_ALL=C sort -n
+  ) || status=1
+  if [ "$status" -eq 0 ]; then
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      # Never overwrite an earlier acknowledgement, even after manual damage.
+      if [ -e "$dir/handled/$f" ] || [ -L "$dir/handled/$f" ] ||
+        ! { printf '=== %s ===\n' "$dir/$f" && cat "$dir/$f" && printf '\n'; } ||
+        ! mv "$dir/$f" "$dir/handled/$f"; then
+        status=1
+        break
+      fi
+    done <<EOF
+$names
+EOF
+  fi
+  fm_lock_release "$lock"
+  return "$status"
+}
+
 # The constant self-describing doorbell line for the inbox containing a record.
 # It names the inbox by the literal "$FM_TASK_INBOX", which bin/fm-spawn.sh
-# exports into every launch as the inbox's absolute path, so the worker can
-# resolve it from its own environment even after losing its brief context.
+# exports into every launch as the inbox's absolute path, with FM_TASK_INBOX_CLI
+# naming the code-root command, so the worker can resolve both independently
+# of its working directory and of an operational home without scripts.
 # The short `<task>.inbox` name follows as the fallback for a worker launched
 # before that export, whose brief carries the full path (bin/fm-dod-lib.sh
 # role contract, bin/fm-brief.sh inbox section). No absolute path is printed,
@@ -331,7 +372,7 @@ fm_task_inbox_doorbell_line() {  # <record-path>
     ''|*[![:print:]]*) return 1 ;;
   esac
   quoted=$(printf '%s' "$name" | sed "s/'/'\\\\''/g")
-  printf ": Firstmate instruction waiting: list \"\$FM_TASK_INBOX\"/*.msg in your '%s' steering inbox, read and act on each in numeric order, then mv each into its handled/." \
+  printf ": Firstmate instruction waiting: run \"\$FM_TASK_INBOX_CLI\" take \"\$FM_TASK_INBOX\" for '%s', then act on the output." \
     "$quoted"
 }
 

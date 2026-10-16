@@ -31,6 +31,13 @@
 #   fm-inbox.sh ask  <question>...
 #   fm-inbox.sh list
 #   fm-inbox.sh drain [--ack <id>...]
+#   fm-inbox.sh take <task-inbox-dir>
+#
+# `take` is the worker steering-inbox receive-and-ack shortcut, separate from
+# captain notes: it prints each pending numeric .msg with its path and moves
+# it to handled/. Act on the returned instructions after receipt.
+# bin/fm-task-inbox-lib.sh owns ordering, serialization, and failure semantics.
+# It needs no configuration and makes no network call.
 #
 # `note --request-id` is the idempotent capture path: a repeat of the same
 # request id returns the original note instead of creating a second one, and
@@ -1158,6 +1165,15 @@ cmd_drain() {
   printf '\nAck with: fm-inbox.sh drain --ack <id>...\n'
 }
 
+# ---------------------------------------------------------------- worker steering inbox
+
+cmd_take() (
+  [ "$#" -eq 1 ] || die "usage: fm-inbox.sh take <task-inbox-dir>"
+  # shellcheck source=bin/fm-task-inbox-lib.sh
+  . "$SELF_DIR/fm-task-inbox-lib.sh"
+  fm_task_inbox_take "$1" || die "could not take steering inbox: $1"
+)
+
 # ---------------------------------------------------------------- dispatch
 
 case "${1:-}" in
@@ -1171,6 +1187,7 @@ case "${1:-}" in
   ask)      shift; cmd_ask "$@" ;;
   list)     shift; cmd_list ;;
   drain)    shift; cmd_drain "$@" ;;
+  take)     shift; cmd_take "$@" ;;
   ''|-h|--help|help)
     # The whole header block, found rather than counted: everything after the
     # shebang up to the first line that is not a comment. A fixed line range
