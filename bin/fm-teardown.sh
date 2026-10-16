@@ -5,9 +5,12 @@
 # scout tasks before reporting success (a secondmate teardown transitions none,
 # since secondmates are not backlog items), then refresh/prune the project's
 # clone for PR-based ship tasks.
-# Before retiring a task's meta/status, bin/fm-model-ledger.py preserves its
-# minimal model/outcome facts in data/model-ledger.jsonl. A failed append stops
-# cleanup with those records retained; retries do not duplicate an incarnation.
+# Before retiring task meta/status, preservation must succeed through
+# bin/fm-model-ledger.py, whose header owns the record and retry contract.
+# Ship/scout teardown first attempts a spend snapshot refresh with a 15-second
+# scan budget under a 30-second command bound; failure does not block cleanup
+# and can leave a prior snapshot. Forced secondmate-child cleanup uses the
+# child's existing spend snapshot without a refresh.
 # An endpoint whose close could not do its job REFUSES before any record naming
 # it is removed: those records are the only thing that names what survived, so
 # reporting such a close as a completed cleanup strands the endpoint instead of

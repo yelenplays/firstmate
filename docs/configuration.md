@@ -80,7 +80,7 @@ Each effective `FM_HOME` contains private operational directories.
 
 - Project and secondmate registries.
 - Captain preferences and optional shared captain preferences.
-- Learnings, backlog, briefs, scout reports, and the optional per-task no-mistakes pipeline-spend ledger.
+- Learnings, backlog, briefs, scout reports, the [model-outcome ledger](../bin/fm-model-ledger.py), and the optional per-task no-mistakes pipeline-spend ledger.
 - Explicitly installed content-addressed extension packages under `data/extensions/packages/`.
 
 `state/` holds runtime records:
@@ -748,8 +748,8 @@ The flag is a home-local preference and is not inherited by secondmate homes.
 ## No-mistakes pipeline spend (config/pipeline-spend)
 
 The optional local, gitignored `config/pipeline-spend` presence flag opts this home into recording per-task no-mistakes pipeline spend in `data/pipeline-spend.jsonl` when teardown cleans up a ship task.
-When the flag is absent, teardown skips recording and the recorder exits before reading task metadata, no-mistakes state, or the spend ledger.
-An existing ledger is left untouched while recording is disabled.
+When the flag is absent, the pipeline-spend recorder exits before reading task metadata, no-mistakes state, or the spend ledger; this does not disable the separate [model-outcome recorder](../bin/fm-model-ledger.py) used at task cleanup.
+An existing pipeline-spend ledger is left untouched while its recording is disabled.
 
 ## Turn-end pane-churn absorb (config/turnend-churn-absorb)
 
@@ -1777,7 +1777,7 @@ After the answer, code applies all remaining checks and ranking:
 
 The [shared quota library](../bin/fm-quota-axi-lib.sh) accepts schema 5 and schema 6 and implements the [account-matching contract](../.agents/skills/quota-array-dispatch/SKILL.md#1-eligibility).
 
-- An expanded provider with no matching account row leaves the candidate eligible but unranked.
+- An expanded provider with no matching account row leaves the candidate eligible but unranked; native Claude worker-root matching follows the same [eligibility contract](../.agents/skills/quota-array-dispatch/SKILL.md#1-eligibility).
 - Known applicable rows from a provider with partial quota semantics remain rankable; rows whose own status is not known remain unrankable.
 
 ### Confidence and fallback rules
@@ -1847,11 +1847,11 @@ The same Jev response carries a typed Choice classifying the reasoning effort th
 The assessed class is clamped into the profile's declared effort range (see "Crew dispatch profiles"), so `max` still needs an explicit declaration, and then moved to the nearest level the harness supports inside the range, the lower one on a tie; a clamp is shown as `[clamped from <class>]` on the candidate line and logged, and never refuses a candidate.
 A missing, malformed, or low-confidence (below 0.5) effort answer falls back to the range default with the fallback disclosed on the `effort:` line.
 The profile's optional `effort_floor` raises the range's lower bound and any lower assessed or fallback value, including when no effort was declared, without exceeding the upper bound.
-The resolved value governs the launch, runoff identity, and predicted burn.
+The resolved value governs runoff identity and predicted burn; launch additionally applies the model-specific effort ceiling and named-override requirements in [`bin/fm-spawn.sh`](../bin/fm-spawn.sh)'s header, including for configured profiles and relaunches.
 A harness without an effort knob keeps the class as a disclosed, unenforced note and emits no `--effort` flag for it.
 Token/point predictions are advisory, not a quota veto; they never convert historical task volume into a fabricated account limit.
 Duration comparison applies only to a known `projected_exhaustion` runway, never to `through_reset`.
-`bin/fm-spend-ledger.py` reads native Claude assistant usage as well as Pi transcripts and uses provider-specific medians, never another provider's task duration.
+[`bin/fm-spend-ledger.py`](../bin/fm-spend-ledger.py)'s header owns active-request duration measurement over native Claude and Pi transcripts and its provider-specific medians, never another provider's task duration.
 Missing or uncertain calibration stays disclosed uncertainty.
 Missing or unreadable ledger evidence never fabricates a limit: the candidate keeps its rank and its line shows `pred=unknown`.
 By accepted design, a printed profile line does not enforce catalog/authentication gates or replace the captain-approval gate or `fm-spawn.sh` validation.
@@ -1869,7 +1869,7 @@ A record is consultation evidence, not merge, task, catalog or authentication au
 
 The resolver and spawn support an explicitly captain-authorized profile with a free-text override reason; each script's help owns the flags.
 That reason and `captain_override: true` are recorded as a deterministic policy, including after an approval rule returned no profile, without waiving model bans or widening task authority.
-Relaunches need no override or receipt and retain their existing profile-resolution rules.
+Relaunches need no consultation receipt and retain their existing profile-resolution rules, subject to the spawn effort ceiling [above](#firstmate-retains-the-dispatch-decision).
 `fm-cross-review.sh` preserves the head-bound model plan, and optionally records the choice against the generated reviewer instructions rather than the builder's brief.
 Workers use the native no-mistakes executable without an added PATH-local model gate.
 The [never-use model list](#never-use-model-list-configmodel-denylistjson) remains the unchanged owner of bans and captain-model-rules injection.
@@ -2165,7 +2165,7 @@ A no-mistakes pipeline review of the exact head counts when the agent that ran i
 Vault changes excluded by `fm_wiki_change_private` in [`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) never get a new reviewer and stay on their existing path.
 An unknown builder family, or no candidate from another family, is reported for the captain to decide rather than guessed.
 
-The fixed candidate chain is `pi openai-codex/gpt-6.1-sol high`, then `claude claude-opus-5-5 high`, so a Claude-built change goes to Sol and an OpenAI-built one to Opus; Firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
+The fixed candidate chain is `pi openai-codex/gpt-6.1-sol high`, then `claude claude-opus-5-5 medium`, so a Claude-built change goes to Sol and an OpenAI-built one to Opus; Firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
 
 ## Memory store (config/memory-dir)
 
