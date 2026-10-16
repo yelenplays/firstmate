@@ -2228,10 +2228,10 @@ test_legacy_generationless_wake_is_adopted() {
 # Pin the recovery acknowledgement contract from docs/watcher-continuity.md at
 # the queue-library boundary.
 # A handover (bin/fm-watch-arm.sh --take-over) undoes only the downtime its own
-# watcher stop published over an acknowledged episode. A wake appended between
-# the snapshot and the stop, or an episode that was still open, is left for the
-# next watcher's arm check to surface.
-handover_case() {  # <state> <acked|handling> <append-between 0|1>
+# watcher stop published over an acknowledged episode. Unread appended work or
+# an episode that was still open is left for the next watcher to surface;
+# arrivals acknowledged during the stop must not reopen an empty episode.
+handover_case() {  # <state> <acked|handling> <between 0|1|acknowledged|unsafe>
   FM_STATE_OVERRIDE="$1" bash -c '
     # shellcheck disable=SC1090,SC1091
     . "$1/bin/fm-wake-lib.sh"
@@ -2245,17 +2245,38 @@ handover_case() {  # <state> <acked|handling> <append-between 0|1>
     fm_recovery_marker_read "$marker" || exit 1
     printf "before=%s\n" "$FM_RECOVERY_MARKER_TOKEN"
     fm_recovery_marker_handover_snapshot "$marker" || exit 1
-    [ "$3" = 0 ] || fm_wake_append signal handover "signal: appended during the handover" || exit 1
+    case "$3" in
+      1|acknowledged) fm_wake_append signal handover "signal: appended during the handover" || exit 1 ;;
+      unsafe)
+        : > "$STATE/empty-queue-target"
+        ln -s "$STATE/empty-queue-target" "$FM_WAKE_QUEUE" || exit 1
+        ;;
+    esac
+    if [ "$3" = acknowledged ]; then
+      "$1/bin/fm-wake-drain.sh" > "$STATE/handover-drain" 2>&1 || exit 1
+      ack=$(sed -n "s/^WAKE_ACK_REQUIRED: after handling completes run bin\\/fm-wake-drain.sh //p" "$STATE/handover-drain" | tail -1)
+      [ -n "$ack" ] || exit 1
+      # shellcheck disable=SC2086 # replay the generated acknowledgement arguments
+      "$1/bin/fm-wake-drain.sh" $ack >/dev/null 2>&1 || exit 1
+      [ ! -s "$FM_WAKE_QUEUE" ] || exit 1
+    fi
     # The stopped watcher closes and publishes downtime, as its EXIT cleanup does.
     fm_recovery_marker_publish "$marker" downtime || exit 1
+    fm_recovery_marker_read "$marker" || exit 1
+    printf "stopped=%s\n" "$FM_RECOVERY_MARKER_TOKEN"
     fm_recovery_marker_handover_restore "$marker" "$FM_RECOVERY_HANDOVER_TOKEN" "$FM_RECOVERY_HANDOVER_SEQ" || exit 1
+    if [ "$3" = acknowledged ]; then
+      stale_status=0
+      fm_recovery_marker_ack "$marker" "${FM_RECOVERY_HANDOVER_TOKEN##*:}" || stale_status=$?
+      [ "$stale_status" -eq 3 ] || exit 1
+    fi
     fm_recovery_marker_read "$marker" || exit 1
     printf "after=%s\n" "$FM_RECOVERY_MARKER_TOKEN"
   ' _ "$ROOT" "$2" "$3"
 }
 
 test_handover_restore_undoes_only_its_own_stop() {
-  local out before after
+  local out before after stopped
   out=$(handover_case "$(make_case handover-acked)/state" acked 0) || fail "acked handover case failed: $out"
   before=$(printf '%s\n' "$out" | sed -n 's/^before=//p')
   after=$(printf '%s\n' "$out" | sed -n 's/^after=//p')
@@ -2269,6 +2290,18 @@ test_handover_restore_undoes_only_its_own_stop() {
     pending:downtime:*) [ "${after##*:}" != "${before##*:}" ] || fail "fixture: no fresh episode opened: $out" ;;
     *) fail "a handover hid a wake appended during it: $out" ;;
   esac
+
+  out=$(handover_case "$(make_case handover-unsafe)/state" acked unsafe) || fail "unsafe handover case failed: $out"
+  stopped=$(printf '%s\n' "$out" | sed -n 's/^stopped=//p')
+  after=$(printf '%s\n' "$out" | sed -n 's/^after=//p')
+  [ "$after" = "$stopped" ] || fail "an unsafe queue path authorized quiet recovery: $out"
+
+  out=$(handover_case "$(make_case handover-consumed)/state" acked acknowledged) || fail "consumed handover case failed: $out"
+  before=$(printf '%s\n' "$out" | sed -n 's/^before=//p')
+  stopped=$(printf '%s\n' "$out" | sed -n 's/^stopped=//p')
+  after=$(printf '%s\n' "$out" | sed -n 's/^after=//p')
+  [ "$after" = "acked:downtime:${stopped##*:}" ] || fail "already-consumed handover work reopened empty recovery: $out"
+  [ "${after##*:}" != "${before##*:}" ] || fail "handover rolled a newer completed episode back to the old snapshot: $out"
 
   out=$(handover_case "$(make_case handover-handling)/state" handling 0) || fail "handling handover case failed: $out"
   before=$(printf '%s\n' "$out" | sed -n 's/^before=//p')
