@@ -1036,6 +1036,51 @@ test_generator_refuses_without_an_enabled_plugin() {
   pass "the generator refuses, and writes nothing, without an enabled plugin"
 }
 
+test_loader_restores_retired_conflict_skill() {
+  local root out path rc
+  root="$TMP_ROOT/retired-conflict"
+  build_plugin "$root"
+
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts "${PINS[@]}") \
+    || fail "loader could not load the retired conflict skill"
+  assert_contains "$out" 'FIRSTMATE: BUNDLED COMPATIBILITY SKILL' "bundled provenance was hidden"
+  assert_not_contains "$out" 'ORIGINAL SKILL LOADED' "bundled skill claimed to be a plugin original"
+  assert_contains "$out" 'name: resolving-merge-conflicts' "loader returned the wrong skill"
+  assert_contains "$out" 'pin=bundled' "plugin pins were presented as validating bundled content"
+  path=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts --path) \
+    || fail "retired conflict skill has no loadable path"
+  [ -f "$path" ] || fail "conflict skill path does not exist"
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts --files)
+  assert_contains "$out" '/LICENSE' "bundled attribution license is unavailable"
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts --check)
+  assert_contains "$out" "skill_file=$path" "check and path disagree"
+  assert_not_contains "$out" 'name: resolving-merge-conflicts' "--check printed the skill body"
+
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts "${PINS[@]}" --require-validated-pin 2>/dev/null)
+  rc=$?
+  expect_code 6 "$rc" "strict plugin pin accepted bundled content"
+  [ -z "$out" ] || fail "strict-pin refusal printed content"
+
+  # A future upstream return wins over the compatibility body.
+  write_skill "$root/install/skills/engineering/resolving-merge-conflicts" resolving-merge-conflicts 'Resolve conflicts.' ''
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts) \
+    || fail "loader refused a restored upstream skill"
+  assert_contains "$out" 'UNIQUE-UPSTREAM-PROCEDURE-resolving-merge-conflicts' "bundled skill shadowed upstream"
+  assert_not_contains "$out" 'BUNDLED COMPATIBILITY SKILL' "upstream was labeled as bundled"
+
+  # Integrity and enablement refusals must never activate the fallback.
+  printf '%s\n' '---' 'name: wrong-name' '---' >"$root/install/skills/engineering/resolving-merge-conflicts/SKILL.md"
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts 2>/dev/null)
+  expect_code 6 $? "fallback hid an upstream integrity refusal"
+  [ -z "$out" ] || fail "integrity refusal printed content"
+  printf '{"enabledPlugins":{"%s":false}}\n' "$KEY" >"$root/config/settings.json"
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts 2>/dev/null)
+  expect_code 4 $? "fallback hid a disabled plugin"
+  [ -z "$out" ] || fail "disabled-plugin refusal printed content"
+  pass "retired conflict skill loads honestly without bypassing plugin integrity"
+}
+
+test_loader_restores_retired_conflict_skill
 test_loader_prints_original_bytes_and_identity
 test_loader_refuses_without_printing_anything
 test_loader_reports_drift_without_hiding_the_original

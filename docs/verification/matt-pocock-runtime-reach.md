@@ -3,7 +3,7 @@
 Audience: maintainer verification.
 
 Records how each supported harness reaches Matt Pocock's skill suite, and the evidence behind the pointer bridge that lets a runtime without Claude plugin discovery load the installed original rather than any copy.
-Firstmate copies no upstream skill content, so this record pins what was validated rather than what is vendored.
+Plugin pointers copy no upstream skill content; the retired conflict skill has the explicit bundled compatibility route documented below.
 
 The runtime discovery rows were verified 2026-08-28 on macOS 25.5.0 with `claude` 2.1.228, `grok` 1.0.5, `kimi` 0.36.1, `codex` 0.145.0, and `pi` 0.84.2, except where a section names a later date.
 
@@ -76,8 +76,46 @@ resolved_by=bin/fm-skill-path.sh
 09eb147f793e4647949edd32dbad278f0554dfb56e0d46b699cd4c2c55bf0357
 ```
 
-`resolved_by` is always `bin/fm-skill-path.sh`.
-That script is the repo's single owner of plugin-skill resolution, enablement, and skill listing, and the loader carries no resolver of its own: without that owner beside it the loader exits 127 with nothing on stdout rather than guessing a path.
+For installed plugin skills, `resolved_by` is `bin/fm-skill-path.sh`.
+That script is the repo's single owner of plugin-skill resolution, enablement, and skill listing: without that owner beside it the loader exits 127 with nothing on stdout rather than guessing a path.
+
+## Retired conflict skill compatibility
+
+Verified 2026-10-16 against the enabled `mattpocock-skills@mattpocock` 1.3.1 install at commit `49dd158d1076134a641b33efb035946536778336`.
+Upstream's `docs/engineering/resolving-merge-conflicts.md` says the skill was removed in v1.3.0 without a replacement.
+The generic plugin resolver still correctly refuses that name with exit 5.
+The [Matt loader header](../../bin/fm-matt-skill.sh) owns the narrow compatibility exception for existing callers, including older generated `matt-resolving-merge-conflicts` pointers.
+The [bundled skill](../../.agents/skills/resolving-merge-conflicts/SKILL.md) owns the maintained procedure and its attribution.
+
+```sh
+bin/fm-skill-path.sh mattpocock-skills resolving-merge-conflicts --include-undeclared
+# exit 5: skill is neither declared nor present outside a deprecated bucket
+bin/fm-matt-skill.sh resolving-merge-conflicts --check
+```
+
+Observed loader output, exit 0 (digest and absolute repository path omitted):
+
+```text
+===== FIRSTMATE: BUNDLED COMPATIBILITY SKILL =====
+source=bundled; adapted from Matt Pocock, maintained by Firstmate
+skill=resolving-merge-conflicts
+author=Matt Pocock
+license=MIT
+upstream=https://github.com/mattpocock/skills
+plugin=none
+scope=repository
+resolved_version=bundled
+resolved_commit=none
+validated_plugin=none
+validated_version=none
+validated_commit=none
+pin=bundled
+resolved_by=repository-compatibility
+```
+
+`tests/fm-matt-pointers.test.sh` exercises body, path, support files, identity, strict-pin refusal, an upstream return taking precedence, and integrity/enablement refusals through the loader executable.
+This compatibility path prints Markdown through the same CLI for every runtime and backend; it introduces no harness-specific discovery or lifecycle behavior.
+The runtime discovery rows below are unchanged, not newly validated by this loader test.
 
 ## Validated pin
 
