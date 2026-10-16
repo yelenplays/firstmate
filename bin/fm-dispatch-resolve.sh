@@ -93,6 +93,16 @@
 #   malformed rules.
 #   docs/configuration.md "Never-use model list" owns the list.
 #
+# Private-material guard: a profile declaring "private_ok": false is never
+#   eligible unless bin/fm-private-guard-lib.sh proves the task non-private
+#   against $FM_HOME/config/private-markers (the --project name, this home's
+#   names, and the whole brief); its candidate line names the matched source
+#   and list line number, never a marker. The list is read locally and never
+#   sent. A fixed policy profile that is such a profile is refused the same
+#   way. bin/fm-spawn.sh refuses the launch on the same check.
+#   docs/configuration.md "Private-material guard (config/private-markers)"
+#   owns the contract.
+#
 # Never-send check: when the optional $FM_HOME/config/dispatch-never-send list
 #   exists, every string value of the built request is checked against it
 #   before the POST. Each non-blank, non-# line is a literal matched
@@ -191,6 +201,8 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 . "$SCRIPT_DIR/fm-never-send-lib.sh"
 # shellcheck source=bin/fm-model-denylist-lib.sh
 . "$SCRIPT_DIR/fm-model-denylist-lib.sh"
+# shellcheck source=bin/fm-private-guard-lib.sh
+. "$SCRIPT_DIR/fm-private-guard-lib.sh"
 
 DEFAULT_MARGIN=0.4
 # Below this confidence the effort answer is not trusted and each profile's
@@ -373,6 +385,11 @@ if [ -n "$POLICY_PROFILE" ]; then
   fm_control_harnesses | grep -qxF "$POLICY_H" || die "unverified policy harness"
   fm_model_denylist_load "$CONFIG" || die "$FM_MODEL_DENYLIST_ERROR"
   fm_model_denylist_check_launch 'fixed policy model' "$POLICY_H" "$(jq -r '.model // ""' <<<"$POLICY_PROFILE")" || die "$FM_MODEL_DENYLIST_ERROR"
+  if fm_private_guard_restricted "$RULES_PATH" "$POLICY_H" "$(jq -r '.model // ""' <<<"$POLICY_PROFILE")"; then
+    if [ -n "$FM_PRIVATE_GUARD_WHY" ] || ! fm_private_guard_check "$CONFIG" "$PROJECT" "$BRIEF" "$FM_HOME"; then
+      die "fixed policy profile is marked private_ok false and the private-material guard refused it: $FM_PRIVATE_GUARD_WHY"
+    fi
+  fi
   POLICY_HASH=$(printf '%s' "$POLICY_PROFILE" | python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())') || POLICY_HASH=''
   POLICY_RECORD=$(jq -nc --argjson selected "$POLICY_PROFILE" --arg reason "$POLICY_REASON" --arg captain_reason "$CAPTAIN_OVERRIDE" --arg hash "$POLICY_HASH" \
     '{selected:$selected, exception:"deterministic_policy", reason:(if $captain_reason != "" then $captain_reason else $reason end), captain_override:($captain_reason != ""), options_hash:$hash}') || POLICY_RECORD=''
@@ -458,6 +475,7 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
     or ($p | has("provider") and (provider_id(.provider) | not))
     or ($p | has("floor") and floor_bad(.floor; false));
   def overflow_bad($p): ($p | type) == "object" and ($p | has("overflow")) and (($p.overflow | type) != "boolean");
+  def private_ok_bad($p): ($p | type) == "object" and ($p | has("private_ok")) and (($p.private_ok | type) != "boolean");
   def effort_floor_bad($p):
     ($p | type) == "object" and ($p | has("effort_floor")) and
     (($p.effort_floor | type) != "string"
@@ -549,6 +567,7 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
   elif $beats_cycle_error != null then $beats_cycle_error
   elif any((.rules // [])[] | profiles(.use)[]; profile_bad(.)) then "each use profile needs harness; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"
   elif any(((.rules // [])[] | profiles(.use)[]), profiles(.default)[]; overflow_bad(.)) then "profile overflow must be true or false when present"
+  elif any(((.rules // [])[] | profiles(.use)[]), profiles(.default)[]; private_ok_bad(.)) then "profile private_ok must be true or false when present"
   elif any(((.rules // [])[] | profiles(.use)[]), profiles(.default)[]; effort_floor_bad(.)) then "profile effort_floor must be low, medium, high, xhigh, or max and not above the profile effort, supported by an effort-capable harness and model"
   elif any((.rules // [])[]; duplicate_profiles(profiles(.use))) then "each rule use must not contain duplicate harness, model, and effort profiles"
   elif any((.rules // [])[] | profiles(.use)[]; (verified(.harness) | not)) then "each use profile must name a verified harness"
@@ -583,6 +602,16 @@ if [ -n "$missing_provider" ]; then
   die "malformed rules file: $RULES_PATH - $missing_provider_detail"
 fi
 fm_model_denylist_load "$CONFIG" || die "malformed never-use model list: $FM_MODEL_DENYLIST_ERROR"
+
+# ---- private-material guard (bin/fm-private-guard-lib.sh) -----------------------
+# Checked locally, only when some profile is not for private material; the
+# verdict carries a source and line number, never a marker.
+PRIVATE_GUARD='{"private":false}'
+if [ "$(jq -r 'def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
+    any(((.rules // [])[] | profiles(.use)[]), profiles(.default // null)[]; .private_ok == false)' "$RULES")" = true ] \
+  && ! fm_private_guard_check "$CONFIG" "$PROJECT" "$BRIEF" "$FM_HOME"; then
+  PRIVATE_GUARD=$(jq -nc --arg why "$FM_PRIVATE_GUARD_WHY" '{private: true, why: $why}') || die "could not record the private-material guard verdict"
+fi
 
 # ---- harness -> provider map, from the single owner in fm-quota-axi-lib.sh -----
 PMAP='{}'
@@ -1050,6 +1079,8 @@ RESOLVE_JQ="$FM_QUOTA_ROW_JQ$FM_MODEL_DENYLIST_JQ$MODEL_TIE_JQ"'
     (banned_profile($c)) as $ban |
     if $ban != null then
       {profile: $c, eligible: false} + $ef + {reason: "never-use model list: rule \($ban.pattern) - \($ban.reason)"}
+    elif $c.private_ok == false and $private_guard.private then
+      {profile: $c, eligible: false} + $ef + {reason: "private-material guard: \($private_guard.why)"}
     elif $er.effort != null and (effort_ok($c.harness; $c.model; $er.effort) | not) then
       if (effort_ok($c.harness; $c.model; "low") | not) then
         # The harness carries no effort knob at all (cursor, kimi, opencode):
@@ -1218,7 +1249,7 @@ RESOLVE_JQ="$FM_QUOTA_ROW_JQ$FM_MODEL_DENYLIST_JQ$MODEL_TIE_JQ"'
   end'
 resolve_response() {  # <response-file> <effort-json> <latency-json>: sets RESULT
   RESULT=$(jq -n --argjson scout "$IS_SCOUT" --arg margin "$MARGIN" --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$3" --arg none_criterion "$DEFAULT_WHEN" --argjson pmap "$PMAP" --argjson effort "$2" \
-    --argjson denylist "$FM_MODEL_DENYLIST_JSON" \
+    --argjson denylist "$FM_MODEL_DENYLIST_JSON" --argjson private_guard "$PRIVATE_GUARD" \
     --slurpfile resp "$1" --slurpfile rules "$RULES" --slurpfile quota "$QUOTA" --slurpfile predict "$PREDICT_FILE" "$RESOLVE_JQ") \
     || emit_error "resolution failed"
 }
