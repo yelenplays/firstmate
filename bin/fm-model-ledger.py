@@ -6,11 +6,15 @@ Writes data/model-ledger.jsonl, once per task + spawn_gen, under an append lock.
 Only allowlisted scalar facts and event counts survive, never message/brief
 text, account-root paths, report paths, or other private metadata. Missing
 measurements are null, not zero. Secondmates are not task outcomes.
-Review rounds use a recorded pipeline_review_rounds value when available;
-agent invocation counts are not rounds and are never substituted. Cross-review uses
-the latest accepted review for the recorded head (when known). Claude weighted
-tokens are copied only from an existing task spend snapshot; no transcript scan
-or external tool is run. Write failures stop cleanup so records remain retryable.
+Re-dispatches are the relaunch count fm-spawn.sh records in the meta. Pipeline
+review rounds are the distinct (run, round) pairs with a completed review
+invocation that no-mistakes recorded read-only in its state database for the
+task branch since its creation; they stay null when the worktree, branch, or
+repository cannot be matched, and agent invocation counts are never substituted.
+Cross-review uses the latest accepted review for the recorded head (when known).
+Claude weighted tokens are copied only from the task spend snapshot teardown
+refreshes just before this runs. Write failures stop cleanup so records remain
+retryable.
 """
 
 import argparse
@@ -19,6 +23,8 @@ import json
 import math
 import os
 import re
+import sqlite3
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -55,6 +61,35 @@ def json_rows(path):
         pass
 
 
+def git(worktree, *args):
+    out = subprocess.run(["git", "-C", worktree, *args], capture_output=True, text=True, timeout=10, check=True)
+    return out.stdout.strip()
+
+def pipeline_review_rounds(worktree):
+    try:
+        if not worktree or not os.path.isdir(worktree):
+            return None
+        branch = git(worktree, "symbolic-ref", "--quiet", "--short", "HEAD")
+        common = git(worktree, "rev-parse", "--path-format=absolute", "--git-common-dir")
+        repo = os.path.dirname(common) if os.path.basename(common) == ".git" else common
+        stamps = git(worktree, "reflog", "show", "--date=unix", "--format=%gd", "refs/heads/" + branch, "--").splitlines()
+        match = re.search(r"@\{(\d+)\}$", stamps[-1]) if stamps else None
+        since = int(match[1]) if match else 0
+        root = os.environ.get("NM_HOME") or os.path.expanduser("~/.no-mistakes")
+        database = Path(root) / "state.sqlite"
+        with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=5) as db:
+            repos = db.execute("SELECT id FROM repos WHERE working_path = ?", (repo,)).fetchall()
+            if len(repos) != 1:
+                return None
+            return db.execute(
+                "SELECT COUNT(*) FROM (SELECT DISTINCT i.run_id, i.round FROM agent_invocations i "
+                "JOIN runs r ON r.id = i.run_id WHERE r.repo_id = ? AND r.branch = ? AND r.created_at >= ? "
+                "AND i.purpose = 'review' AND i.exit_status = 'ok')",
+                (repos[0][0], branch, since),
+            ).fetchone()[0]
+    except (OSError, ValueError, sqlite3.Error, subprocess.SubprocessError):
+        return None
+
 def record(state, data, task):
     meta = {}
     for line in (state / (task + ".meta")).read_text().splitlines():
@@ -87,7 +122,7 @@ def record(state, data, task):
         "needs_decision_count": counts["needs-decision"],
         "blocked_count": counts["blocked"],
         "redispatches": number(meta.get("redispatches")),
-        "pipeline_review_rounds": number(meta.get("pipeline_review_rounds")),
+        "pipeline_review_rounds": pipeline_review_rounds(meta.get("worktree")),
         "cross_review_verdict": None,
         "claude_eq_tokens": None,
     }
@@ -98,7 +133,7 @@ def record(state, data, task):
                 row["cross_review_verdict"] = review["verdict"]
     try:
         spend = json.loads((state / (task + ".spend")).read_text())
-        if isinstance(spend, dict) and spend.get("task") == task and isinstance(spend.get("totals"), dict):
+        if isinstance(spend, dict) and spend.get("task") == task and spend.get("status") == "ok" and isinstance(spend.get("totals"), dict):
             row["claude_eq_tokens"] = number(spend["totals"].get("claudeEqTokens"))
     except (FileNotFoundError, ValueError):
         pass
@@ -107,8 +142,11 @@ def record(state, data, task):
     with os.fdopen(fd, "r+", encoding="utf-8") as stream:
         fcntl.flock(stream, fcntl.LOCK_EX)
         for line in stream:
-            prior = json.loads(line)
-            if prior.get("task") == task and prior.get("spawn_gen") == row["spawn_gen"]:
+            try:
+                prior = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(prior, dict) and prior.get("task") == task and prior.get("spawn_gen") == row["spawn_gen"]:
                 return
         stream.write(json.dumps(row, separators=(",", ":")) + "\n")
         stream.flush()
