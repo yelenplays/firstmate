@@ -1,0 +1,241 @@
+Actual installed pointer Step 1:
+/Users/yelen/github/firstmate/bin/fm-matt-skill.sh resolving-merge-conflicts
+Only the executable prefix is retargeted to the gate branch; no global pointer or other checkout is changed or executed.
+## Base: installed pointer invocation cannot load retired skill
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/.test-tmp-skill-loader/live/base/bin/fm-matt-skill.sh resolving-merge-conflicts
+exit=5
+stdout:
+
+stderr:
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+
+## Branch: installed pointer invocation emits full bundled procedure
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/bin/fm-matt-skill.sh resolving-merge-conflicts
+exit=0
+stdout:
+===== FIRSTMATE: BUNDLED COMPATIBILITY SKILL =====
+source=bundled; adapted from Matt Pocock, maintained by Firstmate
+skill=resolving-merge-conflicts
+author=Matt Pocock
+license=MIT
+upstream=https://github.com/mattpocock/skills
+plugin=none
+scope=repository
+resolved_version=bundled
+resolved_commit=none
+validated_plugin=none
+validated_version=none
+validated_commit=none
+pin=bundled
+skill_file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/.agents/skills/resolving-merge-conflicts/SKILL.md
+skill_file_sha256=26ba75ba12b54beba7e1cd91abbe1bfe88e7377f6a6181639ed3de14d2712e32
+resolved_by=repository-compatibility
+=====================================================
+
+---
+name: resolving-merge-conflicts
+description: Resolve an in-progress Git merge or rebase conflict, including conflicts encountered during no-mistakes rebase or CI repair. Load when Git has stopped on unmerged paths.
+license: MIT
+metadata:
+  internal: true
+---
+
+# Resolve merge conflicts
+
+Firstmate-maintained compatibility skill, adapted from Matt Pocock's MIT-licensed `resolving-merge-conflicts` procedure.
+Upstream [archived it without a replacement](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/docs/engineering/resolving-merge-conflicts.md) in v1.3.0.
+This is bundled repository content, not a skill offered by the installed plugin.
+The accompanying [LICENSE](LICENSE) preserves the upstream notice.
+
+1. Confirm the authorized repository and the in-progress operation with `git status`, `git diff --name-only --diff-filter=U`, and relevant history.
+   Preserve unrelated edits and record the starting commit before changing any conflict.
+2. Trace both sides of every conflict to their intent using commit messages and, where available, their PRs or issues.
+   During a rebase, inspect the replayed commit rather than assuming `ours` and `theirs` mean the same thing as in a merge.
+3. Resolve each hunk to preserve both intents where compatible, without inventing new behavior.
+   If they are incompatible and the authorized goal does not determine the answer, stop and report the concrete decision through the caller's escalation channel.
+   Preserve the in-progress operation and resolution work; do not abort, reset, discard edits, or force-push to make the conflict disappear.
+4. Discover and run the project's checks for the affected behavior, including tests, type checks, and formatting where applicable.
+   Verify there are no remaining unmerged paths or conflict markers in the resolved files, and inspect the staged diff for lost changes.
+5. Stage only the resolved paths belonging to the authorized operation.
+   Continue that existing merge or rebase; for a multi-commit rebase, repeat these steps for each conflict until it finishes.
+   Report the resulting commit and checks, or the precise blocker with the resolution work preserved.
+   Completing an existing local merge/rebase does not authorize publishing, merging a PR, or changing unrelated files.
+
+===== END BUNDLED SKILL.md =====
+
+Support files shipped with this skill. Read any the instructions above refer to:
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/.agents/skills/resolving-merge-conflicts/LICENSE
+
+stderr:
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+
+## Plugin resolver remains honest: retired skill is not installed
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/bin/fm-skill-path.sh mattpocock-skills resolving-merge-conflicts --include-undeclared
+exit=5
+stdout:
+
+stderr:
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+
+## Path mode returns readable bundled skill
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/bin/fm-matt-skill.sh resolving-merge-conflicts --path
+exit=0
+stdout:
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/.agents/skills/resolving-merge-conflicts/SKILL.md
+
+stderr:
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+
+## Check mode labels bundled identity without procedure
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/bin/fm-matt-skill.sh resolving-merge-conflicts --check
+exit=0
+stdout:
+===== FIRSTMATE: BUNDLED COMPATIBILITY SKILL =====
+source=bundled; adapted from Matt Pocock, maintained by Firstmate
+skill=resolving-merge-conflicts
+author=Matt Pocock
+license=MIT
+upstream=https://github.com/mattpocock/skills
+plugin=none
+scope=repository
+resolved_version=bundled
+resolved_commit=none
+validated_plugin=none
+validated_version=none
+validated_commit=none
+pin=bundled
+skill_file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/.agents/skills/resolving-merge-conflicts/SKILL.md
+skill_file_sha256=26ba75ba12b54beba7e1cd91abbe1bfe88e7377f6a6181639ed3de14d2712e32
+resolved_by=repository-compatibility
+=====================================================
+
+stderr:
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+
+## Support file mode exposes attributed license
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/bin/fm-matt-skill.sh resolving-merge-conflicts --files
+exit=0
+stdout:
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/.agents/skills/resolving-merge-conflicts/LICENSE
+
+stderr:
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+
+## Stale pointer pins cannot falsely validate bundled content
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/bin/fm-matt-skill.sh resolving-merge-conflicts --validated-plugin mattpocock-skills@claude-plugins-official --validated-version 1.2.3 --validated-commit 2ab958093e83e0ec752e6c1c5932da465bf23e0c
+exit=0
+stdout:
+===== FIRSTMATE: BUNDLED COMPATIBILITY SKILL =====
+source=bundled; adapted from Matt Pocock, maintained by Firstmate
+skill=resolving-merge-conflicts
+author=Matt Pocock
+license=MIT
+upstream=https://github.com/mattpocock/skills
+plugin=none
+scope=repository
+resolved_version=bundled
+resolved_commit=none
+validated_plugin=mattpocock-skills@claude-plugins-official
+validated_version=1.2.3
+validated_commit=2ab958093e83e0ec752e6c1c5932da465bf23e0c
+pin=bundled
+skill_file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/.agents/skills/resolving-merge-conflicts/SKILL.md
+skill_file_sha256=26ba75ba12b54beba7e1cd91abbe1bfe88e7377f6a6181639ed3de14d2712e32
+resolved_by=repository-compatibility
+=====================================================
+
+---
+name: resolving-merge-conflicts
+description: Resolve an in-progress Git merge or rebase conflict, including conflicts encountered during no-mistakes rebase or CI repair. Load when Git has stopped on unmerged paths.
+license: MIT
+metadata:
+  internal: true
+---
+
+# Resolve merge conflicts
+
+Firstmate-maintained compatibility skill, adapted from Matt Pocock's MIT-licensed `resolving-merge-conflicts` procedure.
+Upstream [archived it without a replacement](https://github.com/mattpocock/skills/blob/49dd158d1076134a641b33efb035946536778336/docs/engineering/resolving-merge-conflicts.md) in v1.3.0.
+This is bundled repository content, not a skill offered by the installed plugin.
+The accompanying [LICENSE](LICENSE) preserves the upstream notice.
+
+1. Confirm the authorized repository and the in-progress operation with `git status`, `git diff --name-only --diff-filter=U`, and relevant history.
+   Preserve unrelated edits and record the starting commit before changing any conflict.
+2. Trace both sides of every conflict to their intent using commit messages and, where available, their PRs or issues.
+   During a rebase, inspect the replayed commit rather than assuming `ours` and `theirs` mean the same thing as in a merge.
+3. Resolve each hunk to preserve both intents where compatible, without inventing new behavior.
+   If they are incompatible and the authorized goal does not determine the answer, stop and report the concrete decision through the caller's escalation channel.
+   Preserve the in-progress operation and resolution work; do not abort, reset, discard edits, or force-push to make the conflict disappear.
+4. Discover and run the project's checks for the affected behavior, including tests, type checks, and formatting where applicable.
+   Verify there are no remaining unmerged paths or conflict markers in the resolved files, and inspect the staged diff for lost changes.
+5. Stage only the resolved paths belonging to the authorized operation.
+   Continue that existing merge or rebase; for a multi-commit rebase, repeat these steps for each conflict until it finishes.
+   Report the resulting commit and checks, or the precise blocker with the resolution work preserved.
+   Completing an existing local merge/rebase does not authorize publishing, merging a PR, or changing unrelated files.
+
+===== END BUNDLED SKILL.md =====
+
+Support files shipped with this skill. Read any the instructions above refer to:
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/.agents/skills/resolving-merge-conflicts/LICENSE
+
+stderr:
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+
+## Strict plugin pin refuses bundled procedure
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/bin/fm-matt-skill.sh resolving-merge-conflicts --validated-version 1.3.1 --require-validated-pin
+exit=6
+stdout:
+
+stderr:
+fm-skill-path.sh: skill 'resolving-merge-conflicts' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+fm-matt-skill.sh: a validated plugin pin cannot validate the bundled resolving-merge-conflicts skill
+
+## Unrelated unknown name does not trigger fallback
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/bin/fm-matt-skill.sh no-such-conflict-skill
+exit=5
+stdout:
+
+stderr:
+fm-skill-path.sh: skill 'no-such-conflict-skill' is neither declared by mattpocock-skills 1.3.1 nor present outside a deprecated bucket of its source tree
+
+## Existing TDD skill still loads installed original
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/bin/fm-matt-skill.sh tdd --check
+exit=0
+stdout:
+===== FIRSTMATE POINTER: ORIGINAL SKILL LOADED =====
+skill=tdd
+author=Matt Pocock
+license=MIT
+upstream=https://github.com/mattpocock/skills
+plugin=mattpocock-skills@mattpocock
+scope=user
+resolved_version=1.3.1
+resolved_commit=49dd158d1076134a641b33efb035946536778336
+validated_plugin=none
+validated_version=none
+validated_commit=none
+pin=unpinned
+skill_file=/Users/yelen/.claude/plugins/cache/mattpocock/mattpocock-skills/1.3.1/skills/engineering/tdd/SKILL.md
+skill_file_sha256=5505d25bbaa8fc14a79e4d20163936958992a2995b7f1dd1d6197edc9ed722e0
+resolved_by=bin/fm-skill-path.sh
+=====================================================
+
+stderr:
+
+## Disabled actual installed plugin cannot activate fallback
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/bin/fm-matt-skill.sh resolving-merge-conflicts
+exit=4
+stdout:
+
+stderr:
+fm-skill-path.sh: plugin 'mattpocock-skills' is installed from several marketplaces (mattpocock-skills@claude-plugins-official mattpocock-skills@mattpocock) and none of them is enabled in this Claude configuration
+
+## Absent registry cannot activate fallback
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/bin/fm-matt-skill.sh resolving-merge-conflicts
+exit=3
+stdout:
+
+stderr:
+fm-skill-path.sh: no Claude plugin registry at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52N7HE3KYQD9KR1W9HF5Y1N/.test-tmp-skill-loader/live/absent-config/plugins/installed_plugins.json; the plugin is not installed for this configuration
+
+All live loader assertions passed. No pipeline, harness lifecycle, global pointer, login, or plugin cache was changed.
