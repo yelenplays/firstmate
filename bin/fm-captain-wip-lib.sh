@@ -16,6 +16,7 @@
 # markdown backlog through that same parser (`--backlog-json`); the fleet-wide
 # picture across homes is the board's, built from the bearings snapshot.
 
+# shellcheck disable=SC2034 # Read by the sourcing caller.
 FM_CAPTAIN_WIP_LIMIT=3
 
 # Print `<task-id><TAB><title>` for every live captain call in <backlog-file>,
